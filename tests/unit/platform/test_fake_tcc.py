@@ -20,7 +20,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.platform.permissions import AUTOMATION_TARGETS, PermissionId, PermissionState
+from dodaios.platform.permissions import AUTOMATION_TARGETS, PermissionId, PermissionState
 from tests.fakes.fake_tcc import (
     AE_EVENT_NOT_PERMITTED,
     AE_EVENT_WOULD_REQUIRE_USER_CONSENT,
@@ -888,7 +888,7 @@ def test_a_non_darwin_port_never_touches_the_fake(platform_name: str) -> None:
 
 
 def test_install_port_replaces_the_process_wide_port(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.platform.permissions as permissions
+    import dodaios.platform.permissions as permissions
 
     before = permissions.get_system_permission_port()
     port, _tcc = make_darwin_port()

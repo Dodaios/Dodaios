@@ -14,9 +14,9 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainTierConfig, load_config
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainTierConfig, load_config
+from dodaios.ui.web.server import WebServer
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def server() -> Iterator[WebServer]:
 def _no_toml_write(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Capture persistence instead of writing the real jarvis.toml/soll/ENV."""  # i18n-allow
     calls: list[str] = []
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(
         config_writer, "set_worker_model",

@@ -9,13 +9,13 @@ import asyncio
 import sys
 import time
 
-from jarvis.core.config import load_config
-from jarvis.brain.factory import build_default_brain
+from dodaios.core.config import load_config
+from dodaios.brain.factory import build_default_brain
 
 
 async def main() -> int:
     cfg = load_config()
-    print(f"[cfg] jarvis pkg                = {sys.modules['jarvis'].__file__}")
+    print(f"[cfg] jarvis pkg                = {sys.modules['dodaios'].__file__}")
     print(f"[cfg] brain.routing_model       = {cfg.brain.routing_model!r}")
     print(f"[cfg] brain.router.model        = {cfg.brain.router.model!r}")
     providers = cfg.brain.providers

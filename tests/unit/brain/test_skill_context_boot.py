@@ -10,11 +10,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.factory import build_default_brain
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.skills.skill_context import set_skill_context, try_get_skill_context
+from dodaios.brain.factory import build_default_brain
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.skills.skill_context import set_skill_context, try_get_skill_context
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +39,7 @@ def test_factory_sets_skill_context(
         "Body.\n",
         encoding="utf-8",
     )
-    import jarvis.skills.bootstrap as bootstrap_mod
+    import dodaios.skills.bootstrap as bootstrap_mod
 
     monkeypatch.setattr(
         bootstrap_mod, "ensure_user_skills_dir", lambda: tmp_path
@@ -80,7 +80,7 @@ def test_prompt_build_warns_once_when_ctx_missing(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     manager = BrainManager(config=JarvisConfig(), bus=EventBus(), tools={})
-    with caplog.at_level(logging.WARNING, logger="jarvis.brain.manager"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.brain.manager"):
         manager._build_system_prompt()
         manager._build_system_prompt()
     warns = [

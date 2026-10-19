@@ -43,7 +43,7 @@ device-posture documents instead.)
 
 ## Decision
 
-### 1. One central policy: `jarvis/core/device.py::resolve_device`
+### 1. One central policy: `dodaios/core/device.py::resolve_device`
 
 A new pure module owns the **policy** — "which requested device becomes which
 safe device" — and nothing else. It never imports `torch` / `ctranslate2`, so it
@@ -143,12 +143,12 @@ the default flip would not change what a fresh clone actually does.
 
 ## Cross-References
 
-- Policy: `jarvis/core/device.py` (new)
-- Consumers: `jarvis/plugins/stt/__init__.py` (`_build_local_fallback`),
-  `jarvis/plugins/stt/fwhisper.py` (default flip)
-- Wake gate (canonical strict instance, unchanged): `jarvis/plugins/stt/__init__.py`
+- Policy: `dodaios/core/device.py` (new)
+- Consumers: `dodaios/plugins/stt/__init__.py` (`_build_local_fallback`),
+  `dodaios/plugins/stt/fwhisper.py` (default flip)
+- Wake gate (canonical strict instance, unchanged): `dodaios/plugins/stt/__init__.py`
   (`build_wake_whisper`, `_wake_gpu_inference_verified`)
-- Recommendation gate: `jarvis/hardware/detection.py::recommend_whisper`
+- Recommendation gate: `dodaios/hardware/detection.py::recommend_whisper`
 - Tests: `tests/unit/core/test_device.py`
 - Anti-patterns: AP-21 (gate on capability, not provider), AP-24/AP-25 (native
   inference + GPU wake), AP-26 (no heavy init on the critical path)

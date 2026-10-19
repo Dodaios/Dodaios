@@ -12,7 +12,7 @@ metadata flag — and fails the build when:
   3. A PKCE plugin with a placeholder client_id declares no
      oauth_client_family (the expert override would have nowhere to go).
   4. A declared oauth_client_family has no writable BYO secret slots AND no
-     publisher shared-client slots in jarvis/setup/wizard.py.
+     publisher shared-client slots in dodaios/setup/wizard.py.
   5. A seed plugin id is missing from docs/marketplace/plugin-auth-audit.md
      (every auth-bearing plugin needs an audited row: ready / fallback /
      blocked + owner of the remaining step).
@@ -36,9 +36,9 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-SEED = ROOT / "jarvis" / "marketplace" / "seed_catalog.json"
-MIRRORS = ROOT / "jarvis" / "marketplace" / "plugins"
-WIZARD = ROOT / "jarvis" / "setup" / "wizard.py"
+SEED = ROOT / "dodaios" / "marketplace" / "seed_catalog.json"
+MIRRORS = ROOT / "dodaios" / "marketplace" / "plugins"
+WIZARD = ROOT / "dodaios" / "setup" / "wizard.py"
 AUDIT = ROOT / "docs" / "marketplace" / "plugin-auth-audit.md"
 E2E_AUDIT = ROOT / "docs" / "marketplace" / "plugin-e2e-audit.json"
 
@@ -67,7 +67,7 @@ BROWSER_AUTH_MODES = frozenset(
 )
 # The namespaces a mirror may keep its block under, the current one first.
 # This gate is stdlib-only, so the names are restated from
-# jarvis.core.branding; tests/unit/marketplace/test_extension_namespace.py
+# dodaios.core.branding; tests/unit/marketplace/test_extension_namespace.py
 # pins them to it.
 EXTENSION_NAMESPACES = ("io.github.dodaios", "io.github.personaljarvis")
 
@@ -235,7 +235,7 @@ def main() -> int:
     # never appear in the source text.
     try:
         sys.path.insert(0, str(ROOT))
-        from jarvis.setup.wizard import SECRETS as _WIZARD_SECRETS
+        from dodaios.setup.wizard import SECRETS as _WIZARD_SECRETS
 
         secret_keys = {s.key for s in _WIZARD_SECRETS}
     except Exception as exc:  # noqa: BLE001 — fail closed with the reason
@@ -276,7 +276,7 @@ def main() -> int:
                         slot = f"{prefix}{suffix}"
                         if slot not in secret_keys:
                             findings.append(
-                                f"{pid}: missing secret slot {slot} in jarvis/setup/wizard.py"
+                                f"{pid}: missing secret slot {slot} in dodaios/setup/wizard.py"
                             )
 
         # 3b. Device-flow placeholders resolve through the publisher client

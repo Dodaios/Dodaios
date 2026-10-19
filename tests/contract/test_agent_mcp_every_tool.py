@@ -21,11 +21,11 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core import runtime_refs
-from jarvis.mcp.agents import TOOLS
-from jarvis.mcp.agents import tools as agent_tools
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core import runtime_refs
+from dodaios.mcp.agents import TOOLS
+from dodaios.mcp.agents import tools as agent_tools
+from dodaios.society.runtime import SocietyRuntime
 from tests.fakes.fake_agent_chat import FakeChatService
 
 
@@ -63,10 +63,10 @@ async def world(tmp_path: Path):
     app.state.society = runtime
     app.state.society_factory = lambda: runtime
     runtime_refs.set_web_app(app)
-    from jarvis.tasks.store import TaskStore
-    from jarvis.tasks.scheduler import TaskScheduler
-    from jarvis.tasks.runner import TaskRunner
-    from jarvis.core.bus import EventBus
+    from dodaios.tasks.store import TaskStore
+    from dodaios.tasks.scheduler import TaskScheduler
+    from dodaios.tasks.runner import TaskRunner
+    from dodaios.core.bus import EventBus
 
     tasks = TaskStore(tmp_path / "tasks.db")
     await tasks.init()
@@ -218,8 +218,8 @@ async def test_every_published_tool_runs_against_a_live_society(world) -> None:
     # travels in the bundle like any other teammate.
     assert set(replayed["updated"]) >= {"Archivist", "Scout"}
 
-    from jarvis.tasks.schema import TaskSpec, TriggerSource, AgentAction
-    from jarvis.tasks.source_schema import SourceSettings
+    from dodaios.tasks.schema import TaskSpec, TriggerSource, AgentAction
+    from dodaios.tasks.source_schema import SourceSettings
 
     _, scheduler = rt.task_services()
     tid = await scheduler.schedule(

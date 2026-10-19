@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain import cost
+from dodaios.brain import cost
 
 
 def _write_feed(
@@ -153,7 +153,7 @@ class _FakeCatalog:
 
 @pytest.fixture
 def fake_catalog(monkeypatch: pytest.MonkeyPatch):
-    import jarvis.brain.model_catalog as mc
+    import dodaios.brain.model_catalog as mc
 
     _FakeCatalog.calls = []
     _FakeCatalog.write = []
@@ -209,7 +209,7 @@ class TestEnsurePricingFor:
     ) -> None:
         from types import SimpleNamespace
 
-        from jarvis.core import config as cfg
+        from dodaios.core import config as cfg
 
         monkeypatch.setattr(cfg, "profile", SimpleNamespace(name="airgapped"), raising=False)
         assert asyncio.run(cost.ensure_pricing_for("gemini-9.9-flash")) is False

@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
-from jarvis.platform import clipboard_image
+from dodaios.platform import clipboard_image
 
 
 def _png(width: int = 8, height: int = 6, *, alpha: bool = False) -> bytes:

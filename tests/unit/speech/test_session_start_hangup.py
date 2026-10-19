@@ -7,10 +7,10 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.events import VoiceSessionEnded, VoiceSessionStarted
-from jarvis.sessions.constants import HANGUP_HOTKEY
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.events import VoiceSessionEnded, VoiceSessionStarted
+from dodaios.sessions.constants import HANGUP_HOTKEY
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
 
 
 class _FakeTTS:

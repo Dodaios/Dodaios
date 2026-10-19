@@ -9,8 +9,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.ui.web.society_routes import router
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.ui.web.society_routes import router
 
 
 class FakeManager:
@@ -121,7 +121,7 @@ def test_shared_meeting_routes_allow_jarvis_and_read_without_spend(client):
 def test_deleting_active_meeting_stops_owned_turn_and_edits_are_refused(client, tmp_path):
     import asyncio
 
-    from jarvis.agent_chat.store import AgentChatStore
+    from dodaios.agent_chat.store import AgentChatStore
     from tests.fakes.meeting_chat import MeetingChatFake
 
     c, _ = client
@@ -385,7 +385,7 @@ def test_browser_routes(client, tmp_path, monkeypatch):
     assert per_agent["installed"] is False and per_agent["mode"] == "own"
     assert per_agent["logged_in_profile"] is None  # An unopened profile has unverified login state.
     # On-demand setup failures remain typed; this unit test never provisions a runtime.
-    from jarvis.society.browser import install as install_mod
+    from dodaios.society.browser import install as install_mod
 
     def unavailable(*_args, **_kwargs):
         raise RuntimeError("Fixture browser setup is unavailable")
@@ -404,7 +404,7 @@ def test_browser_routes(client, tmp_path, monkeypatch):
     ).json()
     assert domains["agent"]["browser_allowed_domains"] == ["mail.google.com", "x.com"]
     # Install kicks off a background thread; a stub keeps the test offline.
-    from jarvis.society.browser import install as install_mod
+    from dodaios.society.browser import install as install_mod
 
     monkeypatch.setattr(install_mod, "start_install", lambda data_dir=None: (True, "stubbed"))
     started = c.post("/api/society/browser/install").json()
@@ -492,7 +492,7 @@ def test_memory_file_serves_society_page_and_refuses_escape(memory_client):
 
 
 def test_bind_agent_chat_creates_the_canonical_session(tmp_path: Path):
-    from jarvis.agent_chat.store import AgentChatStore
+    from dodaios.agent_chat.store import AgentChatStore
 
     class FakeService:
         def __init__(self, store: AgentChatStore) -> None:

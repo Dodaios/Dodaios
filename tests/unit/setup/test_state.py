@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.setup.state`` (Phase B9.7 / Sub-Agent 6).
+"""Unit tests for ``dodaios.setup.state`` (Phase B9.7 / Sub-Agent 6).
 
 Pure-Python tests that never touch the real ``data/setup_state.json``;
 every read and write happens under pytest's ``tmp_path``. Each test
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.setup.state import (
+from dodaios.setup.state import (
     has_seen_obsidian_setup,
     load_setup_state,
     mark_obsidian_seen,

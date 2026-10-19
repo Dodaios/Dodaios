@@ -6,7 +6,7 @@ rule: a missing `enabled` flag means DISABLED.
 """
 from __future__ import annotations
 
-from jarvis.mcp.claude_export import mcp_json_to_claude_servers
+from dodaios.mcp.claude_export import mcp_json_to_claude_servers
 
 
 def _resolver(key: str):

@@ -12,15 +12,15 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-import jarvis.cu.actuate.base as base_mod
-from jarvis.cu.actuate.base import (
+import dodaios.cu.actuate.base as base_mod
+from dodaios.cu.actuate.base import (
     ActResult,
     ActuationUnavailable,
     Actuator,
     verified_click,
     verified_move,
 )
-from jarvis.cu.actuate.windows import (
+from dodaios.cu.actuate.windows import (
     expand_combo_keys,
     normalize_virtualdesk,
     resolve_vk,
@@ -100,11 +100,11 @@ def test_verified_move_refuses_unreadable_cursor():
 
 
 def test_verified_move_refuses_virtual_desktop_gap(monkeypatch):
-    from jarvis.cu.geometry import MonitorInfo
+    from dodaios.cu.geometry import MonitorInfo
 
     fake = FakeActuator(landings=[(150, 150)])
     monkeypatch.setattr(
-        "jarvis.cu.geometry.list_monitors",
+        "dodaios.cu.geometry.list_monitors",
         lambda: [
             MonitorInfo(left=0, top=0, width=100, height=100),
             MonitorInfo(left=100, top=100, width=100, height=100),
@@ -119,8 +119,8 @@ def test_verified_move_refuses_virtual_desktop_gap(monkeypatch):
 
 
 def test_verified_drag_refuses_gap_destination_before_button_down(monkeypatch):
-    from jarvis.cu.actuate.base import verified_drag
-    from jarvis.cu.geometry import MonitorInfo
+    from dodaios.cu.actuate.base import verified_drag
+    from dodaios.cu.geometry import MonitorInfo
 
     class _DragActuator(FakeActuator):
         def __init__(self):
@@ -132,7 +132,7 @@ def test_verified_drag_refuses_gap_destination_before_button_down(monkeypatch):
 
     fake = _DragActuator()
     monkeypatch.setattr(
-        "jarvis.cu.geometry.list_monitors",
+        "dodaios.cu.geometry.list_monitors",
         lambda: [MonitorInfo(left=0, top=0, width=100, height=100)],
     )
 
@@ -145,8 +145,8 @@ def test_verified_drag_refuses_gap_destination_before_button_down(monkeypatch):
 
 
 def test_verified_drag_refuses_path_crossing_display_gap(monkeypatch):
-    from jarvis.cu.actuate.base import verified_drag
-    from jarvis.cu.geometry import MonitorInfo
+    from dodaios.cu.actuate.base import verified_drag
+    from dodaios.cu.geometry import MonitorInfo
 
     class _DragActuator(FakeActuator):
         def __init__(self):
@@ -158,7 +158,7 @@ def test_verified_drag_refuses_path_crossing_display_gap(monkeypatch):
 
     fake = _DragActuator()
     monkeypatch.setattr(
-        "jarvis.cu.geometry.list_monitors",
+        "dodaios.cu.geometry.list_monitors",
         lambda: [
             MonitorInfo(left=0, top=0, width=100, height=100),
             MonitorInfo(left=200, top=100, width=100, height=100),
@@ -175,7 +175,7 @@ def test_verified_drag_refuses_path_crossing_display_gap(monkeypatch):
 
 def test_verified_click_refuses_backend_without_at_cursor_primitive(monkeypatch):
     fake = FakeActuator(landings=[(10, 20)])
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
 
     result = verified_click(fake, 10, 20)
 
@@ -193,7 +193,7 @@ def test_verified_click_rechecks_original_target_not_tolerated_landing(monkeypat
             self.expected = expected
 
     fake = _ClickActuator()
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
 
     result = verified_click(fake, 10, 20)
 
@@ -211,7 +211,7 @@ def test_verified_click_rechecks_foreground_immediately_before_button(monkeypatc
             self.clicked = True
 
     fake = _ClickActuator()
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
 
     result = verified_click(fake, 10, 20, pre_action_check=lambda: False)
 
@@ -221,7 +221,7 @@ def test_verified_click_rechecks_foreground_immediately_before_button(monkeypatc
 
 
 def test_verified_drag_uses_at_cursor_primitive(monkeypatch):
-    from jarvis.cu.actuate.base import verified_drag
+    from dodaios.cu.actuate.base import verified_drag
 
     class _DragActuator(FakeActuator):
         def __init__(self):
@@ -235,7 +235,7 @@ def test_verified_drag_uses_at_cursor_primitive(monkeypatch):
             self.at_cursor_calls.append((args, kwargs))
 
     fake = _DragActuator()
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
 
     result = verified_drag(fake, 10, 10, 80, 90, duration_s=0.2)
 
@@ -244,7 +244,7 @@ def test_verified_drag_uses_at_cursor_primitive(monkeypatch):
 
 
 def test_verified_drag_rechecks_foreground_before_button_down(monkeypatch):
-    from jarvis.cu.actuate.base import verified_drag
+    from dodaios.cu.actuate.base import verified_drag
 
     class _DragActuator(FakeActuator):
         def __init__(self):
@@ -255,7 +255,7 @@ def test_verified_drag_rechecks_foreground_before_button_down(monkeypatch):
             self.dragged = True
 
     fake = _DragActuator()
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
 
     result = verified_drag(
         fake,
@@ -298,7 +298,7 @@ def _recording_windows_actuator():
     Built via ``__new__`` so no ctypes/Win32 struct setup runs — the mapping
     under test is pure, and this keeps the test host-agnostic.
     """
-    from jarvis.cu.actuate.windows import WindowsActuator
+    from dodaios.cu.actuate.windows import WindowsActuator
 
     actuator = WindowsActuator.__new__(WindowsActuator)
     sent: list[list[tuple[int, int, int]]] = []
@@ -312,7 +312,7 @@ def test_type_text_presses_enter_for_a_newline():
     """KEYEVENTF_UNICODE cannot deliver U+000A: Windows edit controls act on
     the KEY, so a unicode LF typed NOTHING and every multi-line type_text
     landed as one run-on line — while pynput on macOS/Linux pressed Enter."""
-    from jarvis.cu.actuate.windows import _KEYEVENTF_KEYUP
+    from dodaios.cu.actuate.windows import _KEYEVENTF_KEYUP
 
     actuator, sent = _recording_windows_actuator()
     actuator.type_text("a\nb", delay_s=0)
@@ -332,7 +332,7 @@ def test_type_text_maps_tab_and_collapses_crlf_to_one_enter():
 
 
 def test_type_text_still_sends_astral_characters_as_surrogate_pairs():
-    from jarvis.cu.actuate.windows import _KEYEVENTF_UNICODE
+    from dodaios.cu.actuate.windows import _KEYEVENTF_UNICODE
 
     actuator, sent = _recording_windows_actuator()
     actuator.type_text("\U0001F600", delay_s=0)    # emoji → two UTF-16 units
@@ -404,7 +404,7 @@ def test_expand_combo_keys_splits_known_combos_only():
 def _combo_actuator(refuse_after: int | None = None):
     """Recording WindowsActuator whose first _send optionally reports a partial
     injection, the way SendInput does when UIPI truncates a batch."""
-    from jarvis.cu.actuate.windows import SendInputRefused, WindowsActuator
+    from dodaios.cu.actuate.windows import SendInputRefused, WindowsActuator
 
     actuator = WindowsActuator.__new__(WindowsActuator)
     actuator._t = None
@@ -424,7 +424,7 @@ def _combo_actuator(refuse_after: int | None = None):
 
 
 def test_key_combo_presses_in_order_and_releases_in_reverse():
-    from jarvis.cu.actuate.windows import _KEYEVENTF_KEYUP
+    from dodaios.cu.actuate.windows import _KEYEVENTF_KEYUP
 
     actuator, sent = _combo_actuator()
     actuator.key_combo(["ctrl", "shift", "t"])
@@ -443,7 +443,7 @@ def test_key_combo_releases_the_keys_a_refused_batch_already_pressed():
     raised with Ctrl/Alt/Shift/Win logically HELD for the rest of the session:
     every later click became a modified click and typing turned into shortcuts,
     with no way back short of tapping the physical key."""
-    from jarvis.cu.actuate.windows import _KEYEVENTF_KEYUP, SendInputRefused
+    from dodaios.cu.actuate.windows import _KEYEVENTF_KEYUP, SendInputRefused
 
     actuator, sent = _combo_actuator(refuse_after=2)
 
@@ -458,7 +458,7 @@ def test_key_combo_releases_the_keys_a_refused_batch_already_pressed():
 def test_key_combo_sends_no_stray_keyup_when_nothing_was_injected():
     """A batch refused outright must not inject a WM_KEYUP for a key that was
     never pressed — applications that watch raw key transitions react to it."""
-    from jarvis.cu.actuate.windows import SendInputRefused
+    from dodaios.cu.actuate.windows import SendInputRefused
 
     actuator, sent = _combo_actuator(refuse_after=0)
 
@@ -473,7 +473,7 @@ def test_key_combo_sends_no_stray_keyup_when_nothing_was_injected():
 # ---------------------------------------------------------------------------
 
 def test_get_actuator_on_this_host():
-    from jarvis.cu.actuate import get_actuator
+    from dodaios.cu.actuate import get_actuator
 
     if os.name == "nt":
         actuator = get_actuator()
@@ -510,8 +510,8 @@ def macos_ax(monkeypatch):
     because the actuator only consults the permission layer on macOS; nothing
     here ran on a real Mac, FakeTCC models the OS.
     """
-    from jarvis.platform import permission_service as service_module
-    from jarvis.platform.permission_service import PermissionService
+    from dodaios.platform import permission_service as service_module
+    from dodaios.platform.permission_service import PermissionService
     from tests.fakes.fake_tcc import FakeTCC, install_port
 
     created: list[PermissionService] = []
@@ -633,7 +633,7 @@ def test_off_macos_the_actuator_never_touches_the_permission_layer(macos_ax, pla
 
 def test_pynput_key_table_maps_core_vocabulary():
     keyboard = pytest.importorskip("pynput.keyboard", reason="pynput not installed")
-    from jarvis.cu.actuate.posix import _pynput_key_table
+    from dodaios.cu.actuate.posix import _pynput_key_table
 
     table = _pynput_key_table(keyboard)
     for name in (
@@ -687,8 +687,8 @@ def test_pynput_key_table_covers_the_shared_key_vocabulary(monkeypatch):
     ``ValueError: Unknown key: 'numpad5'`` — the same "offered everywhere,
     works on one OS" defect the keybind picker had.
     """
-    from jarvis.cu.actuate.base import _NAMED_KEYS
-    from jarvis.cu.actuate.posix import _pynput_key_table
+    from dodaios.cu.actuate.base import _NAMED_KEYS
+    from dodaios.cu.actuate.posix import _pynput_key_table
 
     # Modifier side-variants are Windows spellings of keys the table already
     # carries generically; pynput models no separate member for them.
@@ -704,7 +704,7 @@ def test_pynput_key_table_covers_the_shared_key_vocabulary(monkeypatch):
 
 
 def test_macos_cursor_readback_uses_quartz_global_coordinates(monkeypatch):
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     quartz = types.SimpleNamespace(
         CGEventCreate=lambda _source: object(),
@@ -726,7 +726,7 @@ def test_macos_cursor_readback_uses_quartz_global_coordinates(monkeypatch):
 
 
 def test_macos_pyautogui_fallback_maps_command_and_option(monkeypatch):
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     sent: list[tuple[str, ...]] = []
     actuator = object.__new__(PosixActuator)
@@ -786,7 +786,7 @@ def _fake_quartz_mouse(monkeypatch, *, location=(-1440, 525)):
 def test_macos_quartz_double_click_uses_exact_global_point_and_click_states(
     monkeypatch,
 ):
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     posted = _fake_quartz_mouse(monkeypatch)
     actuator = object.__new__(PosixActuator)
@@ -805,7 +805,7 @@ def test_macos_quartz_double_click_uses_exact_global_point_and_click_states(
 
 
 def test_macos_quartz_click_refuses_cursor_changed_after_verification(monkeypatch):
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     posted = _fake_quartz_mouse(monkeypatch, location=(200, 300))
     actuator = object.__new__(PosixActuator)
@@ -819,7 +819,7 @@ def test_macos_quartz_click_refuses_cursor_changed_after_verification(monkeypatc
 
 
 def test_macos_quartz_drag_posts_down_dragged_endpoint_and_up(monkeypatch):
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     posted = _fake_quartz_mouse(monkeypatch, location=(10, 20))
     actuator = object.__new__(PosixActuator)
@@ -847,7 +847,7 @@ def test_macos_quartz_drag_posts_down_dragged_endpoint_and_up(monkeypatch):
 
 def _pyautogui_only_actuator(monkeypatch):
     """A PosixActuator forced onto the pyautogui fallback with a spy."""
-    from jarvis.cu.actuate import posix as posix_mod
+    from dodaios.cu.actuate import posix as posix_mod
 
     calls: dict[str, list] = {"typewrite": []}
 
@@ -900,7 +900,7 @@ def test_posix_unicode_typing_falls_back_loudly(monkeypatch, caplog):
         type(actuator), "_xdotool_type",
         staticmethod(lambda text, *, delay_s: False),
     )
-    with caplog.at_level(logging.WARNING, logger="jarvis.cu.actuate.posix"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.cu.actuate.posix"):
         actuator.type_text("Grüße", delay_s=0)  # i18n-allow: umlaut fixture under test
     assert calls["typewrite"] == ["Grüße"]  # i18n-allow: umlaut fixture under test
     assert any("non-ASCII" in r.message for r in caplog.records)
@@ -908,7 +908,7 @@ def test_posix_unicode_typing_falls_back_loudly(monkeypatch, caplog):
 
 def test_xdotool_type_refuses_off_linux():
     """The xdotool path is X11-only; Windows/macOS must return False."""
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     if not sys.platform.startswith("linux"):
         assert PosixActuator._xdotool_type("text", delay_s=0.02) is False

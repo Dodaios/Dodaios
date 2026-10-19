@@ -6,9 +6,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.setup import onboarding_fastpath, state
-from jarvis.ui.web import onboarding_routes, surface_security
-from jarvis.ui.web.fast_bootstrap import FastBootstrap
+from dodaios.setup import onboarding_fastpath, state
+from dodaios.ui.web import onboarding_routes, surface_security
+from dodaios.ui.web.fast_bootstrap import FastBootstrap
 
 pytestmark = pytest.mark.no_auto_web_auth
 

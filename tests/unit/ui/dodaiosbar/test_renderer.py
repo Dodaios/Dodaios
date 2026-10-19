@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar import renderer as R
+from dodaios.ui.dodaiosbar import renderer as R
 
 # --- thinking: the travelling sweep ------------------------------------------
 # The look the mission deck's header bar uses for "working", brought onto the

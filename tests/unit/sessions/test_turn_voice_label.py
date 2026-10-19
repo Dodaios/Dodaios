@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     ListeningStarted,
     SpeechSpoken,
     VoiceSessionEnded,
@@ -26,11 +26,11 @@ from jarvis.core.events import (
     VoiceTurnCompleted,
     VoiceTurnStarted,
 )
-from jarvis.sessions.constants import SPOKEN_KIND_REPLY
-from jarvis.sessions.formatter import format_session_markdown
-from jarvis.sessions.models import VoiceSessionRow, VoiceTurnRow
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
+from dodaios.sessions.constants import SPOKEN_KIND_REPLY
+from dodaios.sessions.formatter import format_session_markdown
+from dodaios.sessions.models import VoiceSessionRow, VoiceTurnRow
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
 
 
 async def _run_session(tmp_path, publish_between):
@@ -405,7 +405,7 @@ async def test_short_interjection_prefers_the_open_turn(tmp_path) -> None:
     glue backwards onto a voiceless previous turn with the same text."""
 
     async def scenario(bus):
-        from jarvis.core.events import ResponseGenerated
+        from dodaios.core.events import ResponseGenerated
 
         await bus.publish(
             VoiceTurnStarted(

@@ -27,7 +27,7 @@ if sys.platform == "win32":
 
 
 async def main() -> int:
-    from jarvis.core import config as cfg_mod
+    from dodaios.core import config as cfg_mod
 
     print("=" * 60)
     print("Brain-E2E-Smoke (echter API-Call)")
@@ -49,9 +49,9 @@ async def main() -> int:
 
     # 2. BrainManager bauen
     print("\n--- Step 2: BrainManager via from_tier_config ---")
-    from jarvis.brain.manager import BrainManager
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import load_config
+    from dodaios.brain.manager import BrainManager
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import load_config
 
     config = load_config()
     bus = EventBus()

@@ -13,13 +13,13 @@ except Exception:
 
 
 async def main() -> int:
-    from jarvis.core.bus import EventBus
+    from dodaios.core.bus import EventBus
     bus = EventBus()
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     build_default_brain(bus=bus)
 
-    from jarvis.harness.computer_use_context import get_computer_use_context
-    from jarvis.plugins.harness.computer_use import ComputerUseHarness
+    from dodaios.harness.computer_use_context import get_computer_use_context
+    from dodaios.plugins.harness.computer_use import ComputerUseHarness
 
     try:
         ctx = get_computer_use_context()

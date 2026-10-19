@@ -18,8 +18,8 @@ import struct
 import zipfile
 from pathlib import Path
 
-from jarvis.documents.extract import extract_text
-from jarvis.documents.media import (
+from dodaios.documents.extract import extract_text
+from dodaios.documents.media import (
     MediaRef,
     media_metadata,
     open_media,

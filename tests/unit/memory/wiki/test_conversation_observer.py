@@ -24,19 +24,19 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
     MemoryConfig,
     WikiMemoryConfig,
 )
-from jarvis.core.events import MessageSent, ResponseGenerated, TranscriptFinal
-from jarvis.core.protocols import BrainDelta, BrainRequest, Transcript
-from jarvis.memory.wiki.extractor import ConversationFactExtractor
-from jarvis.memory.wiki.journal import CandidateJournal
-from jarvis.memory.wiki.voice_bridge import VoiceFactBridge
+from dodaios.core.events import MessageSent, ResponseGenerated, TranscriptFinal
+from dodaios.core.protocols import BrainDelta, BrainRequest, Transcript
+from dodaios.memory.wiki.extractor import ConversationFactExtractor
+from dodaios.memory.wiki.journal import CandidateJournal
+from dodaios.memory.wiki.voice_bridge import VoiceFactBridge
 
 FACT_SENTENCE = "Remember that my friend Lena moved to Hamburg last month."
 

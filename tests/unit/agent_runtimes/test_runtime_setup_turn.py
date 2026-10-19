@@ -6,10 +6,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import runner_acp
-from jarvis.agent_chat.runner_cli import CliUnavailable
-from jarvis.agent_runtimes import manager
-from jarvis.agent_runtimes.base import RuntimeStatus
+from dodaios.agent_chat import runner_acp
+from dodaios.agent_chat.runner_cli import CliUnavailable
+from dodaios.agent_runtimes import manager
+from dodaios.agent_runtimes.base import RuntimeStatus
 
 
 class Handle:

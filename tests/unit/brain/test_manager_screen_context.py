@@ -8,12 +8,12 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.streaming import StreamingAggregate
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import BrainDelta, BrainRequest, ImageBlock
-from jarvis.screen_context.turn import TurnScreenContext
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.streaming import StreamingAggregate
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import BrainDelta, BrainRequest, ImageBlock
+from dodaios.screen_context.turn import TurnScreenContext
 
 
 class _FakeBrain:
@@ -77,7 +77,7 @@ def _patch_screen(
         return result
 
     monkeypatch.setattr(
-        "jarvis.screen_context.turn.screen_context_for_turn", _fake
+        "dodaios.screen_context.turn.screen_context_for_turn", _fake
     )
 
 
@@ -126,7 +126,7 @@ async def test_ambiguous_request_is_confirmed_on_the_same_surface(
         return TurnScreenContext(status="clarify", question="Should I look?")
 
     monkeypatch.setattr(
-        "jarvis.screen_context.turn.screen_context_for_turn", _fake
+        "dodaios.screen_context.turn.screen_context_for_turn", _fake
     )
     manager, recorder = _manager()
 
@@ -159,7 +159,7 @@ async def test_screen_consent_is_isolated_by_conversation(
         return TurnScreenContext(status="none")
 
     monkeypatch.setattr(
-        "jarvis.screen_context.turn.screen_context_for_turn", _fake
+        "dodaios.screen_context.turn.screen_context_for_turn", _fake
     )
     manager, recorder = _manager()
 
@@ -223,7 +223,7 @@ async def test_screen_capture_receives_the_turn_trace_id(
         return TurnScreenContext(status="none")
 
     monkeypatch.setattr(
-        "jarvis.screen_context.turn.screen_context_for_turn", _fake
+        "dodaios.screen_context.turn.screen_context_for_turn", _fake
     )
     manager, _recorder = _manager()
     trace_id = uuid4()
@@ -263,7 +263,7 @@ async def test_stop_vetoes_pending_screen_consent_before_global_cancel(
         return TurnScreenContext(status="none")
 
     monkeypatch.setattr(
-        "jarvis.screen_context.turn.screen_context_for_turn", _screen
+        "dodaios.screen_context.turn.screen_context_for_turn", _screen
     )
     manager, recorder = _manager()
     cancel_calls: list[bool] = []

@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.vision.tree_factory as factory_mod
-from jarvis.core.protocols import Observation, VisionSource
-from jarvis.platform.capabilities import reset_capabilities_cache
-from jarvis.vision.atspi_tree import AtspiTreeSource
-from jarvis.vision.ax_tree import AXTreeSource
-from jarvis.vision.tree_factory import NullUITreeSource, make_ui_tree_source
-from jarvis.vision.uia_tree import UIATreeSource
+import dodaios.vision.tree_factory as factory_mod
+from dodaios.core.protocols import Observation, VisionSource
+from dodaios.platform.capabilities import reset_capabilities_cache
+from dodaios.vision.atspi_tree import AtspiTreeSource
+from dodaios.vision.ax_tree import AXTreeSource
+from dodaios.vision.tree_factory import NullUITreeSource, make_ui_tree_source
+from dodaios.vision.uia_tree import UIATreeSource
 
 
 @pytest.fixture(autouse=True)

@@ -1,4 +1,4 @@
-"""Tests for `python -m jarvis.skills.cli --list-drafts/--promote` (Phase 7.5).
+"""Tests for `python -m dodaios.skills.cli --list-drafts/--promote` (Phase 7.5).
 
 CLI tests run without real Sub-Jarvis calls — we write a draft upfront
 via `write_draft` and then trigger the CLI subcommands.
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.authoring import SkillDraft, write_draft
+from dodaios.skills.authoring import SkillDraft, write_draft
 
 
 def _draft(**overrides) -> SkillDraft:
@@ -34,7 +34,7 @@ def skills_root_patched(
     root = tmp_path / "user_skills"
     root.mkdir()
 
-    from jarvis.core import paths as core_paths
+    from dodaios.core import paths as core_paths
 
     def fake_user_skills_dir() -> Path:
         return root
@@ -54,7 +54,7 @@ class TestListDraftsCli:
         skills_root_patched: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        from jarvis.skills.cli import main
+        from dodaios.skills.cli import main
 
         write_draft(_draft(), user_skills_root=skills_root_patched)
         exit_code = main(["--list-drafts"])
@@ -68,7 +68,7 @@ class TestListDraftsCli:
         skills_root_patched: Path,  # noqa: ARG002
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        from jarvis.skills.cli import main
+        from dodaios.skills.cli import main
 
         exit_code = main(["--list-drafts"])
         assert exit_code == 0
@@ -87,7 +87,7 @@ class TestPromoteCli:
         skills_root_patched: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        from jarvis.skills.cli import main
+        from dodaios.skills.cli import main
 
         write_draft(_draft(), user_skills_root=skills_root_patched)
         exit_code = main(["--promote", "cli-test"])
@@ -100,7 +100,7 @@ class TestPromoteCli:
         skills_root_patched: Path,  # noqa: ARG002
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        from jarvis.skills.cli import main
+        from dodaios.skills.cli import main
 
         exit_code = main(["--promote", "nonexistent"])
         assert exit_code == 1
@@ -112,7 +112,7 @@ class TestPromoteCli:
         skills_root_patched: Path,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        from jarvis.skills.cli import main
+        from dodaios.skills.cli import main
 
         unsafe_body = "```python\neval('boom')\n```"
         write_draft(

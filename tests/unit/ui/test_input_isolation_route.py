@@ -19,12 +19,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.platform.input_isolation import (
+from dodaios.platform.input_isolation import (
     InputIsolationReason,
     InputIsolationReport,
 )
-from jarvis.ui.web import settings_routes
-from jarvis.ui.web.settings_routes import router
+from dodaios.ui.web import settings_routes
+from dodaios.ui.web.settings_routes import router
 
 
 def _client(desktop=None, kontrollierer=None, mission_manager=None):
@@ -57,7 +57,7 @@ def pin_report(monkeypatch):
 
     def _pin(report):
         monkeypatch.setattr(
-            "jarvis.platform.input_isolation.describe_input_isolation",
+            "dodaios.platform.input_isolation.describe_input_isolation",
             lambda **_kw: report,
         )
 

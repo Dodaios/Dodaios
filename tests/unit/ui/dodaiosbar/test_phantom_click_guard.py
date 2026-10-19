@@ -12,7 +12,7 @@ fails CLOSED (a missed real click is recoverable, a phantom hang-up is not).
 """
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 class _FakeRoot:

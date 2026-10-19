@@ -10,9 +10,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core import config as cfg_mod
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
-from jarvis.local_models import health_monitor as hm
+from dodaios.core import config as cfg_mod
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.local_models import health_monitor as hm
 
 
 @pytest.fixture(autouse=True)

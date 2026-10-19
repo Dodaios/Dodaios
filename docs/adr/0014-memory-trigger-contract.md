@@ -11,10 +11,10 @@
 > tables still validate). What the user triggers explicitly stays: the
 > acknowledgement path, the `wiki-ingest` tool, the memory-save skill and the
 > manual backfill. Every model call the wiki still makes on its own bills only
-> what background work may bill (`jarvis/brain/background_policy.py`: once a
+> what background work may bill (`dodaios/brain/background_policy.py`: once a
 > subscription is connected, subscriptions and local models only; a failing
 > subscription makes the work wait) and passes the runaway guard in
-> `jarvis/memory/wiki/background_guard.py` (backoff plus a daily cap on the
+> `dodaios/memory/wiki/background_guard.py` (backoff plus a daily cap on the
 > number of calls, `[wiki_integration] max_background_llm_calls_per_day`,
 > default 200). Section 3 below is superseded; the inventory table is
 > updated.
@@ -31,14 +31,14 @@
 Three independent triggers feed the wiki memory subsystem:
 
 1. **`WikiContextInjector`** — runs before each brain turn
-   (`jarvis/brain/wiki_context.py`); injects matching vault snippets
+   (`dodaios/brain/wiki_context.py`); injects matching vault snippets
    into the system prompt.
 2. **`VoiceFactBridge`** — subscribes to `TranscriptFinal` and
-   `ResponseGenerated` (`jarvis/memory/wiki/voice_bridge.py`); routes
+   `ResponseGenerated` (`dodaios/memory/wiki/voice_bridge.py`); routes
    user-spoken facts to the curator via the ack path (B5) or the
    aggressive path (B8).
 3. **`SessionRollupWorker`** — subscribes to `IdleEntered`
-   (`jarvis/memory/wiki/session_rollup.py`); rolls awareness episodes
+   (`dodaios/memory/wiki/session_rollup.py`); rolls awareness episodes
    into one Markdown digest per work session.
 
 The 2026-05-14 incident exposed three failure-discipline gaps that
@@ -55,7 +55,7 @@ counter, no UI indication. The recovery only happened because an
 operator grepped a stack trace for an unrelated reason.
 
 **Working-tree drift was inert until it bit.** Five tracked files
-under `jarvis/memory/wiki/` (`integration.py`, `lock.py`,
+under `dodaios/memory/wiki/` (`integration.py`, `lock.py`,
 `scheduler.py`, `search.py`, `voice_bridge.py`) disappeared from the
 working tree while still present in HEAD. The running app loaded
 stale `.pyc` caches and the memory pipeline ran at half effectiveness
@@ -127,7 +127,7 @@ had wiki context to lean on.
 - An operator needs to know within minutes, not days.
 
 Required behaviour on failure: log at WARNING (or higher),
-increment a named counter in `jarvis.memory.wiki.telemetry`, and
+increment a named counter in `dodaios.memory.wiki.telemetry`, and
 remain alive so the next event has a chance to succeed. Raising
 exceptions across the bus boundary is forbidden — the voice path
 must never crash because a memory trigger failed — but the failure
@@ -197,7 +197,7 @@ facts on a default installation.
 
 - Every existing trigger has been re-audited against the contract;
   the inventory table is current as of 2026-05-14.
-- Future PRs that touch `jarvis/memory/wiki/` MUST update the
+- Future PRs that touch `dodaios/memory/wiki/` MUST update the
   inventory table in the same change if they add, remove, or
   rename a trigger.
 - The hourly summary loop (B8.7) is now load-bearing for the
@@ -255,7 +255,7 @@ complementary defences, not substitutes.
 - B8 plan, `docs/plans/...` and inline tasks B8.1–B8.13. This ADR is
   numbered B8.8 in that plan and lands alongside the test suite in
   B8.10 (`tests/integration/memory/test_three_triggers.py`).
-- `jarvis/memory/wiki/telemetry.py` — the counter store this ADR
+- `dodaios/memory/wiki/telemetry.py` — the counter store this ADR
   relies on for the loud-regression class.
 - `scripts/check-working-tree.ps1` — the working-tree drift guard
   that prevents the second-failure mode covered in Context.

@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.approvals import Approvals, Verdict, decide, matches
-from jarvis.society.events import ApprovalState, MsgType
-from jarvis.society.roster import Roster
-from jarvis.society.store import SocietyStore
+from dodaios.society.approvals import Approvals, Verdict, decide, matches
+from dodaios.society.events import ApprovalState, MsgType
+from dodaios.society.roster import Roster
+from dodaios.society.store import SocietyStore
 
 
 @pytest.fixture
@@ -172,7 +172,7 @@ async def test_expiry_parks_and_resurfaces(world, monkeypatch):
     # Still on the person's list — never dropped.
     assert [a.id for a in await approvals.pending()] == [item.id]
     # Expiry above uses a simulated future; resurfacing must use that same clock.
-    monkeypatch.setattr("jarvis.society.approvals.now_ms", lambda: item.expires_ms + 2)
+    monkeypatch.setattr("dodaios.society.approvals.now_ms", lambda: item.expires_ms + 2)
     revived = await approvals.resurface()
     assert [a.state for a in revived] == [ApprovalState.PENDING]
     assert revived[0].expires_ms > item.expires_ms

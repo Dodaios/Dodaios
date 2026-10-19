@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.realtime.local_server import model_catalog
+from dodaios.realtime.local_server import model_catalog
 
 
 def test_catalog_separates_hearing_from_wake_word_and_speaking() -> None:

@@ -1,7 +1,7 @@
 """Canonical Tool Model config and legacy alias compatibility."""
 from __future__ import annotations
 
-from jarvis.core.config import BrainConfig, BrainProviderConfig, BrainTierConfig
+from dodaios.core.config import BrainConfig, BrainProviderConfig, BrainTierConfig
 
 
 def test_legacy_computer_use_tier_populates_canonical_tool_model() -> None:

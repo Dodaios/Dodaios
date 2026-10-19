@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
-_FRONTEND_ASSETS = _ROOT / "jarvis" / "ui" / "web" / "frontend" / "src" / "assets"
+_FRONTEND_ASSETS = _ROOT / "dodaios" / "ui" / "web" / "frontend" / "src" / "assets"
 # Three folders, one rulebook: the plugin-store marks, the provider-card marks
 # and the CLI-row marks. Each keeps its own LOGOS.md ledger next to the files
 # it records.

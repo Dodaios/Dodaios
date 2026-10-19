@@ -4,7 +4,7 @@
 **Tester:** Alex (manual)
 **Setup:** `run.bat --debug` (console + verbose logging) in the repo root
 **Status:** 2026-04-29 — all 6 mandate phases ☑ verified; F-9 fixed (`persona_loader` reactivated, JARVIS_PERSONA takes effect in the prompt); F-11 fixed (Anthropic `<function_calls>` markup in the filter).
-**Prerequisite:** Branch bug **F-10** (`jarvis.clis.risk_integration` missing) must be resolved first — either via `git stash pop` of the prior work or a targeted module restore. Otherwise the voice pipeline does not start.
+**Prerequisite:** Branch bug **F-10** (`dodaios.clis.risk_integration` missing) must be resolved first — either via `git stash pop` of the prior work or a targeted module restore. Otherwise the voice pipeline does not start.
 
 ---
 
@@ -109,8 +109,8 @@ If one of the success points is ❌, look into the console logs from the `run.ba
 | Smalltalk spawned | `Force-Spawn Sub-Jarvis: 'Hallo'` | Smalltalk allowlist does not catch — `spawn_verbs` too broad or allowlist pattern missing. |
 | Spawn turn delivered tool JSON | `🧹 Output-Filter [...]: ['removed_tool_json']` missing | Filter was bypassed — new tool-use markup not matched by `TOOL_NAMES` (see ADR-0010, F-11). |
 | Echo opener still audible | `🧹 Output-Filter [...]: ['rephrased_echo']` missing | Extend the echo pattern in the first 60 characters. |
-| Hangup contract missed | `JARVIS_PERSONA.md` not in the prompt | ~~F-9~~ **Fixed 2026-04-29** (`46a84c0d feat(brain): persona_loader reactivated`). If the bug still occurs, check `from jarvis.brain.persona_loader import load_persona_prompt` in `manager.py`. |
-| Voice pipeline crashes on startup | `ModuleNotFoundError: jarvis.clis.risk_integration` | F-10: stash pop or targeted module restore. **Still open** — Phase-8 hook owner. |
+| Hangup contract missed | `JARVIS_PERSONA.md` not in the prompt | ~~F-9~~ **Fixed 2026-04-29** (`46a84c0d feat(brain): persona_loader reactivated`). If the bug still occurs, check `from dodaios.brain.persona_loader import load_persona_prompt` in `manager.py`. |
+| Voice pipeline crashes on startup | `ModuleNotFoundError: dodaios.clis.risk_integration` | F-10: stash pop or targeted module restore. **Still open** — Phase-8 hook owner. |
 | Tool-use markup audible (`<function_calls>`/`<invoke>` or similar) | `🧹 Output-Filter [...]: ['removed_tool_json']` missing | ~~F-11~~ **Fixed 2026-04-29** (`c8729c07 feat(filter): anthropic-internal-tags + base64-leaks`). If a new markup format appears, add it to `output_filter.py:TOOL_NAMES` / `GENERIC_TOOL_WRAPPER_RE`. |
 
 Send the filled-out test sheet back to me (even if only partial), then we will iterate specifically on the drift spots.

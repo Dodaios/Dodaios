@@ -19,7 +19,7 @@ import pytest
 _REPO = Path(__file__).resolve().parents[3]
 _GATE = _REPO / "scripts" / "ci" / "check_society_figures.py"
 _TOOLS = _REPO / "scripts" / "figures" / "glb_tools.py"
-_FIGURES = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src" / "assets" / "society" / "figures"
+_FIGURES = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src" / "assets" / "society" / "figures"
 
 
 def _load(path: Path, name: str):

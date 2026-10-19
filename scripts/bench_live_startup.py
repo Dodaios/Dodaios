@@ -21,7 +21,7 @@ import httpx  # noqa: E402
 import pytest  # noqa: E402
 from websockets.asyncio import client as ws_client  # noqa: E402
 
-from jarvis.plugins.realtime import openai_live as wire  # noqa: E402
+from dodaios.plugins.realtime import openai_live as wire  # noqa: E402
 
 
 async def measure(samples: int) -> dict:

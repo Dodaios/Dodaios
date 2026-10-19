@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_chat import runner_cli
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.runner_api import TurnHandle
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.agent_chat import runner_cli
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
 @pytest.mark.parametrize(

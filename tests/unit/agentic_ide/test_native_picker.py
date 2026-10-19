@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import native_picker
+from dodaios.agentic_ide import native_picker
 
 
 class _Completed:

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import resume_store
-from jarvis.agentic_ide import session as ide
+from dodaios.agentic_ide import resume_store
+from dodaios.agentic_ide import session as ide
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 

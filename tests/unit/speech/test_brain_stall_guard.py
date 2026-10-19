@@ -20,7 +20,7 @@ import time
 
 import pytest
 
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 def _make_pipeline(*, stall: float, ceiling: float, poll: float) -> SpeechPipeline:

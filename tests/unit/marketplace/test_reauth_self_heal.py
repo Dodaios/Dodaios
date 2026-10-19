@@ -13,14 +13,14 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from jarvis.marketplace.refresh_scheduler import (
+from dodaios.marketplace.refresh_scheduler import (
     FAILED,
     REFRESHED,
     REVOKED,
     SKIPPED,
     refresh_plugin_token,
 )
-from jarvis.marketplace.token_store import (
+from dodaios.marketplace.token_store import (
     REAUTH_CLIENT_MISSING,
     REAUTH_CLIENT_REJECTED,
     REAUTH_PROVIDER_REJECTED,

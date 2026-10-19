@@ -1,5 +1,5 @@
 """CLI-source capabilities: registrable, object-required matching (AD-CLI2)."""
-from jarvis.core.capabilities import Capability, CapabilityRegistry
+from dodaios.core.capabilities import Capability, CapabilityRegistry
 
 
 def _cli_cap() -> Capability:

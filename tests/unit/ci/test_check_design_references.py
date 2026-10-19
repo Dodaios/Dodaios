@@ -58,7 +58,7 @@ def test_integration_and_neutral_lines_pass(line: str) -> None:
 def test_third_party_files_are_skipped() -> None:
     lines = [
         ("CODE_OF_CONDUCT.md", 1, "inspired by Mozilla's code of conduct, see ShareX"),
-        ("jarvis/ui/web/frontend/public/THIRD_PARTY_NOTICES.txt", 2, "ShareX"),
+        ("dodaios/ui/web/frontend/public/THIRD_PARTY_NOTICES.txt", 2, "ShareX"),
         ("docs/appshots.md", 3, "The picker copies ShareX."),
         ("assets/brand/logo.png", 4, "ShareX"),
     ]

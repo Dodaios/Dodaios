@@ -15,7 +15,7 @@ that recall is a slightly heavier operation (~50–300 ms SQLite hit) that
 the latency-sensitive router should not perform.
 
 Welle 4 deleted the Dodaios-Agent tier in its entirety
-(`jarvis/brain/factory.py:90-103`). Heavy work is now executed by
+(`dodaios/brain/factory.py:90-103`). Heavy work is now executed by
 external Dodaios-Agent subprocesses spawned via `spawn_worker`. Those
 subprocesses run their own Dodaios-Agent instances and do **not** inherit
 the Dodaios in-process tool registry — they can only call the tools that
@@ -39,7 +39,7 @@ This leaves two real homes for `awareness-recall`:
 ## Decision
 
 `awareness-recall` is registered in `ROUTER_TOOLS`
-(`jarvis/brain/factory.py:40-58`) and constructed via the standard
+(`dodaios/brain/factory.py:40-58`) and constructed via the standard
 entry-point loader. The tool's constructor takes the existing
 `RecallStore` instance the factory already builds for `MessageRecorder`
 and `StoryTracker`, so no new dependency is introduced.
@@ -92,9 +92,9 @@ not block it.
 
 - `JARVIS_AWARENESS_PLAN.md` §7 (Phase A3 original specification).
 - `docs/jarvis-agents-bridge.md` §11 (Code-Migrations-Tabelle, Welle 4).
-- `jarvis/brain/factory.py:40-58` (ROUTER_TOOLS frozenset).
-- `jarvis/plugins/tool/awareness_recall.py` (tool implementation).
-- `jarvis/memory/recall.py:357` (`search_episodes` with `since_ns`).
+- `dodaios/brain/factory.py:40-58` (ROUTER_TOOLS frozenset).
+- `dodaios/plugins/tool/awareness_recall.py` (tool implementation).
+- `dodaios/memory/recall.py:357` (`search_episodes` with `since_ns`).
 - `tests/unit/awareness/test_awareness_recall_tool.py` (tier placement assertions).
 
 ## Amendment (2026-07-25, ADR-0030)
@@ -102,7 +102,7 @@ not block it.
 The "router tier, not a worker tier" placement is superseded FOR BROKERED
 ACCESS: mission workers now receive `awareness-recall` through the ADR-0025
 mission-scoped broker grant, gated on `[awareness].enabled`
-(`jarvis/missions/workers/capabilities.py::restricted_worker_knowledge_tools`).
+(`dodaios/missions/workers/capabilities.py::restricted_worker_knowledge_tools`).
 The original rationale is preserved — the tool still executes in the
 supervisor process on the supervisor's recall store; no worker-side tool
 loading, MCP replication, or in-process worker tier was added. This is

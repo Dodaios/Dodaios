@@ -6,7 +6,7 @@ on the Windows dev box; the real AT-SPI capture only runs on a Linux leg with a
 live accessibility bus (``skip_ci``). This fake gives the flatten +
 role-normalization + bus-degrade logic a deterministic, OS-free AT-SPI tree.
 
-``FakeAtspiAccessible`` is duck-typed to the seam ``jarvis.vision.atspi_tree``
+``FakeAtspiAccessible`` is duck-typed to the seam ``dodaios.vision.atspi_tree``
 reads: ``role_token`` (the ``ROLE_*`` token the role map keys on), ``name``,
 ``childCount`` / ``getChildAtIndex``, ``getState().contains(...)``, and
 ``extents`` (an (x, y, w, h) tuple ``_atspi_bounds`` reads directly). A test
@@ -113,7 +113,7 @@ def build_fake_atspi_traverser(
     Runs the module-level ``_atspi_flatten`` against the canned root, so the test
     exercises the *real* flatten + role normalization while feeding scripted data.
     """
-    from jarvis.vision.atspi_tree import _atspi_flatten  # local import: code under test
+    from dodaios.vision.atspi_tree import _atspi_flatten  # local import: code under test
 
     def _traverse(max_depth: int, _window_title_filter: str | None):
         nodes: list[Any] = []

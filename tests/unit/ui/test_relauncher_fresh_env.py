@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.ui import relauncher
+from dodaios.ui import relauncher
 
 
 def test_fresh_env_replaces_stale_jarvis_overrides():
@@ -96,7 +96,7 @@ def test_fresh_env_carries_an_override_persisted_under_the_new_prefix():
     # it started, so the inherited environment holds the old name only. The
     # registry is the fresher source and must reach the new process, where the
     # same move happens again.
-    from jarvis.core.env_prefix import adopt_environment
+    from dodaios.core.env_prefix import adopt_environment
 
     base = {"JARVIS__TTS__VOICE_DE": "Kore", "JARVIS__TTS__SEED": "7", "PATH": r"C:\bin"}
     persisted = {"DODAIOS__TTS__VOICE_DE": "Charon", "JARVIS__TTS__SEED": "9"}
@@ -114,7 +114,7 @@ def test_fresh_env_carries_an_override_persisted_under_the_new_prefix():
 
 
 def test_a_persisted_new_prefix_override_wins_over_its_persisted_old_spelling():
-    from jarvis.core.env_prefix import adopt_environment
+    from dodaios.core.env_prefix import adopt_environment
 
     persisted = {"JARVIS__BRAIN__PRIMARY": "gemini", "DODAIOS__BRAIN__PRIMARY": "openrouter"}
 
@@ -127,7 +127,7 @@ def test_a_persisted_new_prefix_override_wins_over_its_persisted_old_spelling():
 def test_an_override_deleted_from_the_persisted_env_does_not_survive_the_restart():
     # Started with DODAIOS__TTS__SEED=7, which became JARVIS__TTS__SEED; the
     # person has since removed it from the persisted environment.
-    from jarvis.core.env_prefix import adopt_environment
+    from dodaios.core.env_prefix import adopt_environment
 
     base = {"DODAIOS__TTS__SEED": "7"}
     adopt_environment(base)

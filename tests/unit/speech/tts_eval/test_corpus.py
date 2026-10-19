@@ -1,7 +1,7 @@
 """The eval corpus must cover de/en/es and the five hard-input categories."""
 from __future__ import annotations
 
-from jarvis.speech.tts_eval.corpus import HARD_CORPUS, EvalItem, items_for_language
+from dodaios.speech.tts_eval.corpus import HARD_CORPUS, EvalItem, items_for_language
 
 
 def test_all_three_languages_present():

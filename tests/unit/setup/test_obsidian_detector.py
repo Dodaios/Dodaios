@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.setup.obsidian`` (Phase B9.1 + B9.2 detector).
+"""Unit tests for ``dodaios.setup.obsidian`` (Phase B9.1 + B9.2 detector).
 
 These tests are pure-Python and never touch the real ``%APPDATA%`` —
 every JSON probe uses pytest's ``tmp_path``. The install-detection
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.setup.obsidian import (
+from dodaios.setup.obsidian import (
     ObsidianDetection,
     ObsidianVaultsState,
     VaultEntry,
@@ -188,7 +188,7 @@ def test_detect_obsidian_extracts_version_when_available(
 def test_detect_obsidian_linux_uses_path_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
     """Linux installs exposed on PATH are detected without Windows APIs."""
     monkeypatch.setattr(
-        "jarvis.setup.obsidian.shutil.which",
+        "dodaios.setup.obsidian.shutil.which",
         lambda _name: "/usr/bin/obsidian",
     )
 
@@ -201,7 +201,7 @@ def test_detect_obsidian_linux_uses_path_lookup(monkeypatch: pytest.MonkeyPatch)
 
 def test_detect_obsidian_macos_app_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
     """The standard macOS app bundle is detected when no CLI is on PATH."""
-    monkeypatch.setattr("jarvis.setup.obsidian.shutil.which", lambda _name: None)
+    monkeypatch.setattr("dodaios.setup.obsidian.shutil.which", lambda _name: None)
     app_binary = "/Applications/Obsidian.app/Contents/MacOS/Obsidian"
     _patch_exists(monkeypatch, {str(Path(app_binary))})
 
@@ -348,7 +348,7 @@ def test_is_vault_registered_empty_vault_list() -> None:
 def test_normalize_for_compare_case_insensitive_on_macos() -> None:
     """macOS default APFS volumes are case-insensitive: differing case must
     normalise identically on darwin, but stay distinct on Linux."""
-    from jarvis.setup.obsidian import _normalize_for_compare
+    from dodaios.setup.obsidian import _normalize_for_compare
 
     upper = Path("/Users/Casey/.personal-jarvis/wiki/obsidian-vault")
     lower = Path("/users/casey/.personal-jarvis/wiki/obsidian-vault")
@@ -393,12 +393,12 @@ class TestDefaultConfigPathCrossPlatform:
 
     def test_windows_uses_appdata(self, monkeypatch, tmp_path):
         monkeypatch.setenv("APPDATA", str(tmp_path))
-        from jarvis.setup.obsidian import _default_obsidian_config_path
+        from dodaios.setup.obsidian import _default_obsidian_config_path
         p = _default_obsidian_config_path(platform="win32")
         assert p == tmp_path / "obsidian" / "obsidian.json"
 
     def test_macos_uses_application_support(self, monkeypatch):
-        from jarvis.setup.obsidian import _default_obsidian_config_path
+        from dodaios.setup.obsidian import _default_obsidian_config_path
         p = _default_obsidian_config_path(platform="darwin")
         assert p == (
             Path.home() / "Library" / "Application Support"
@@ -407,12 +407,12 @@ class TestDefaultConfigPathCrossPlatform:
 
     def test_linux_prefers_xdg_config_home(self, monkeypatch, tmp_path):
         monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-        from jarvis.setup.obsidian import _default_obsidian_config_path
+        from dodaios.setup.obsidian import _default_obsidian_config_path
         p = _default_obsidian_config_path(platform="linux")
         assert p == tmp_path / "obsidian" / "obsidian.json"
 
     def test_linux_falls_back_to_dot_config(self, monkeypatch):
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-        from jarvis.setup.obsidian import _default_obsidian_config_path
+        from dodaios.setup.obsidian import _default_obsidian_config_path
         p = _default_obsidian_config_path(platform="linux")
         assert p == Path.home() / ".config" / "obsidian" / "obsidian.json"

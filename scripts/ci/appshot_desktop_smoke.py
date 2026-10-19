@@ -34,7 +34,7 @@ import traceback
 import uuid
 from pathlib import Path
 
-# Isolate data + config BEFORE anything imports jarvis.core.config.
+# Isolate data + config BEFORE anything imports dodaios.core.config.
 _SANDBOX = Path(tempfile.mkdtemp(prefix="appshot-smoke-"))
 os.environ.setdefault("JARVIS_DATA_DIR", str(_SANDBOX / "data"))
 _CONFIG = _SANDBOX / "jarvis.toml"
@@ -185,7 +185,7 @@ EXPECTED_FORMATS = {
 
 
 def check_image_clipboard(report: Report) -> None:
-    from jarvis.platform.clipboard_image import copy_image
+    from dodaios.platform.clipboard_image import copy_image
 
     session = _session()
     png = _png()
@@ -212,7 +212,7 @@ def check_image_clipboard(report: Report) -> None:
 
 
 def check_text_clipboard(report: Report) -> None:
-    from jarvis.platform.clipboard import read_text, write_text
+    from dodaios.platform.clipboard import read_text, write_text
 
     # i18n-allow: umlauts and symbols prove the non-ASCII clipboard round trip.
     text = f"Appshot text check — Größe ✓ {uuid.uuid4().hex[:6]}"  # i18n-allow
@@ -236,7 +236,7 @@ def check_text_clipboard(report: Report) -> None:
 
 
 def check_jarvisx_copy(report: Report) -> None:
-    from jarvis.dodaiosx.clipboard import copy_png
+    from dodaios.dodaiosx.clipboard import copy_png
 
     ok, message = copy_png(_png(alpha=False))
     expected = _session() != "headless"
@@ -244,7 +244,7 @@ def check_jarvisx_copy(report: Report) -> None:
 
 
 def _appshot(png: bytes):
-    from jarvis.appshot.store import Appshot
+    from dodaios.appshot.store import Appshot
 
     return Appshot(
         id=uuid.uuid4().hex,
@@ -266,7 +266,7 @@ def check_markup_burn(report: Report) -> None:
 
     from PIL import Image
 
-    from jarvis.appshot import markup
+    from dodaios.appshot import markup
 
     overlay = Image.new("RGBA", (64, 48), (0, 0, 0, 0))
     for x in range(40, 60):
@@ -288,8 +288,8 @@ def check_markup_burn(report: Report) -> None:
 
 
 def check_library_and_downloads(report: Report) -> None:
-    from jarvis.appshot import library
-    from jarvis.appshot.card_actions import save_shot_to_downloads
+    from dodaios.appshot import library
+    from dodaios.appshot.card_actions import save_shot_to_downloads
 
     shot = _appshot(_png(alpha=False))
     report.add("gallery keeps the appshot", library.save(shot) is True)
@@ -304,13 +304,13 @@ def check_library_and_downloads(report: Report) -> None:
 
 
 def check_real_appshot(report: Report, *, expect_capture: bool) -> None:
-    from jarvis.appshot import service
+    from dodaios.appshot import service
 
     async def no_library(_shot, _config) -> None:
         return None
 
     service._keep_in_library = no_library  # noqa: SLF001 - keep the sandbox gallery clean
-    from jarvis.platform.clipboard import write_text
+    from dodaios.platform.clipboard import write_text
 
     write_text("before-appshot")
 
@@ -348,7 +348,7 @@ def check_shift_digit_shortcut(report: Report) -> None:
     if _session() != "x11" or not shutil.which("xdotool"):
         return
     try:
-        from jarvis.trigger.backends.pynput import PynputBackend
+        from dodaios.trigger.backends.pynput import PynputBackend
     except ImportError as exc:
         report.add("Ctrl+Shift+9 fires on X11", False, f"pynput backend unavailable: {exc}")
         return
@@ -371,7 +371,7 @@ def check_both_shift_gesture(report: Report) -> None:
     """X11 only: pressing both Shift keys (the area shortcut) fires the watcher."""
     if _session() != "x11" or not shutil.which("xdotool"):
         return
-    from jarvis.appshot.gesture import BothKeysWatcher, make_probe, together_window
+    from dodaios.appshot.gesture import BothKeysWatcher, make_probe, together_window
 
     probe, reason = make_probe("shift")
     if probe is None:
@@ -400,7 +400,7 @@ def check_gtk_shadow_trim(report: Report) -> None:
     except ImportError as exc:
         report.add("GTK shadow margins are trimmed", False, f"python-xlib missing: {exc}")
         return
-    from jarvis.platform.window_state import WindowInfo, window_frame_rect
+    from dodaios.platform.window_state import WindowInfo, window_frame_rect
 
     conn = display.Display()
     root = conn.screen().root
@@ -423,9 +423,9 @@ def check_macos_gesture_permission(report: Report) -> None:
     """macOS: a both-keys shortcut never reports armed without Input Monitoring."""
     if _session() != "macos":
         return
-    from jarvis.appshot.gesture import make_probe
-    from jarvis.platform.permission_service import get_permission_service
-    from jarvis.platform.permissions import PermissionId, PermissionState
+    from dodaios.appshot.gesture import make_probe
+    from dodaios.platform.permission_service import get_permission_service
+    from dodaios.platform.permissions import PermissionId, PermissionState
 
     granted = (
         get_permission_service().check(PermissionId.INPUT_MONITORING) is PermissionState.GRANTED
@@ -443,12 +443,12 @@ def check_macos_gesture_permission(report: Report) -> None:
 
 def check_headless_imports(report: Report) -> None:
     for module in (
-        "jarvis.appshot.service",
-        "jarvis.appshot.card_actions",
-        "jarvis.appshot.library",
-        "jarvis.ui.web.appshot_routes",
-        "jarvis.dodaiosx.service",
-        "jarvis.platform.clipboard_image",
+        "dodaios.appshot.service",
+        "dodaios.appshot.card_actions",
+        "dodaios.appshot.library",
+        "dodaios.ui.web.appshot_routes",
+        "dodaios.dodaiosx.service",
+        "dodaios.platform.clipboard_image",
     ):
         try:
             __import__(module)

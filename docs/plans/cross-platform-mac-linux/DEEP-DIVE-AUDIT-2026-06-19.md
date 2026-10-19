@@ -2,7 +2,7 @@
 
 > **Date:** 2026-06-19 · **Method:** adversarial *code* audit by 5 parallel deep-dive
 > sub-agents (Boot/Packaging, Speech/Audio, Computer-Use/Vision, Admin/Permissions/Worker-Isolation,
-> Desktop-UI/Runtime) reading the actual `jarvis/` source — **not** the migration docs' claims.
+> Desktop-UI/Runtime) reading the actual `dodaios/` source — **not** the migration docs' claims.
 > **Environment:** Windows-only host; **no macOS or Linux hardware was available**, so every
 > finding is from *static code analysis*, never a real-OS run. This audit complements, and does
 > not replace, the live sign-off still owed in [`SIGNOFF-LOG.md`](SIGNOFF-LOG.md).
@@ -14,9 +14,9 @@
 **The foundation is genuinely well-built; the two things the maintainer cares about most are the two weakest.**
 
 The base install, headless boot, import discipline, path/encoding handling, subprocess hygiene,
-the `jarvis/platform/` capability seam, the elevation/permission port, and the macOS-AX / Linux-AT-SPI
+the `dodaios/platform/` capability seam, the elevation/permission port, and the macOS-AX / Linux-AT-SPI
 accessibility trees are all **real, cross-platform, and not stubs** — verified by reading the code
-(one sub-agent even ran a recursive import scan over all 652 `jarvis.*` modules with every
+(one sub-agent even ran a recursive import scan over all 652 `dodaios.*` modules with every
 Windows/GPU/audio package force-absent: only 10 modules broke, every one of them on `sounddevice`,
 none on the boot chain).
 
@@ -50,7 +50,7 @@ code *says* it works; no real session has confirmed it.
 ### 🔴 BLOCKER-class
 
 **B1 — Computer-Use pixel-click is broken on every non-Windows desktop, silently.**
-`jarvis/harness/screenshot_only_loop.py:815` `_capture_monitor_geometry()` imports `win32api` and
+`dodaios/harness/screenshot_only_loop.py:815` `_capture_monitor_geometry()` imports `win32api` and
 returns `(0,0,0,0)` on any non-win32 host. `_resolve_click_pixel()` (`:2077`) then treats the model's
 **normalized 0–1000 coordinate as a raw pixel**, so every click lands inside the top-left 1000×1000 px
 square. The zoom-refine + post-click verify accuracy passes are disabled by the same zero geometry
@@ -59,46 +59,46 @@ square. The zoom-refine + post-click verify accuracy passes are disabled by the 
 left/top/width/height) into `_capture_monitor_geometry()` for non-win32. Small change; re-enables refine+verify automatically.
 
 **B2 — No browser-microphone / browser-speaker path; the headless-VPS voice experience does not exist.**
-`_run_headless` (`jarvis/ui/web/launcher.py:168`) never constructs `SpeechPipeline`/`MicrophoneCapture`/`AudioPlayer`.
-The web channel `jarvis/channels/web.py:114` accepts only `kind ∈ {text,voice,system,action,event_mirror}`
+`_run_headless` (`dodaios/ui/web/launcher.py:168`) never constructs `SpeechPipeline`/`MicrophoneCapture`/`AudioPlayer`.
+The web channel `dodaios/channels/web.py:114` accepts only `kind ∈ {text,voice,system,action,event_mirror}`
 where `content` is `str(...)` — **"voice" carries text, not PCM**. There is no `receive_bytes`/Opus/webm
 ingest anywhere; the frontend `getUserMedia` is used only by the onboarding mic *test* (`MicTestStep.tsx:19`)
 which discards the stream. TTS always plays through the local `sounddevice` `AudioPlayer`
 (`pipeline.py:1189`, `:2385`) with no WS return path. This directly contradicts the CLAUDE.md doctrine
 ("browser's microphone and speakers … the full experience"). The Twilio telephony bridge
-(`jarvis/telephony/session.py`, stdlib `audioop`, zero sounddevice) **proves the STT→Brain→TTS core can
+(`dodaios/telephony/session.py`, stdlib `audioop`, zero sounddevice) **proves the STT→Brain→TTS core can
 run on socket-supplied audio** — that exact pattern was simply never built for the browser.
 *Fix:* add a WS binary-audio ingest → STT and stream TTS bytes back over WS for browser playback; the Twilio bridge is the working template. (This is a real feature build, not a one-liner.)
 
 ### 🟠 HIGH
 
 **H1 — macOS Screen-Recording permission is never probed or surfaced (Computer-Use).**
-`jarvis/platform/probes.py` has `ax_permission_granted()` (the Accessibility grant for the *tree*) but
+`dodaios/platform/probes.py` has `ax_permission_granted()` (the Accessibility grant for the *tree*) but
 **no `screen_recording_granted()`**; `display_present()` returns `True` for darwin unconditionally.
 Without the Screen-Recording TCC grant, `mss` returns the **bare wallpaper with no error** and the agent
 clicks blind. *Fix:* add a `CGPreflightScreenCaptureAccess` probe + an English onboarding message mirroring `_AX_PERMISSION_MSG`.
 
 **H2 — `switch_window` hard-fails off Windows.**
-`jarvis/plugins/tool/switch_window.py:108` `if os.name != "nt": return ToolResult(success=False,
+`dodaios/plugins/tool/switch_window.py:108` `if os.name != "nt": return ToolResult(success=False,
 error="…nur auf Windows verfuegbar…")`. No `osascript` (macOS) / `wmctrl` (X11) implementation.
 It is a live router tool; off Windows the only way to focus an app is re-launch via `open_app`.
 *Fix:* add osascript/wmctrl impls. (Also: the error string is German — Output-Language-Policy violation.)
 
 **H3 — `GeminiWorker` bypasses the POSIX worker-isolation reaper.**
-`jarvis/missions/workers/gemini_worker.py:314` spawns via `asyncio.create_subprocess_exec(... creationflags=...)`
+`dodaios/missions/workers/gemini_worker.py:314` spawns via `asyncio.create_subprocess_exec(... creationflags=...)`
 directly, skipping `create_worker_subprocess` and therefore **`start_new_session=True`**. It is live-routable
 (`init.py:526` returns `GeminiWorker()` when `[brain.sub_jarvis].provider == "gemini"`). On POSIX the worker
 then shares the orchestrator's process group, so the kill-on-close reaper (`os.killpg`,
-`jarvis/missions/isolation/job_object.py:251`) can signal the **orchestrator's own group** rather than
+`dodaios/missions/isolation/job_object.py:251`) can signal the **orchestrator's own group** rather than
 isolate the worker. *Fix:* route through `create_worker_subprocess` like `ClaudeDirectWorker`/`CodexDirectWorker` do (one-line change). The dead `CodexWorker` (`codex_worker.py:118`) has the same bug but is not in the live factory — clean it up, don't copy it.
 
 **H4 — `sounddevice` is an eager module-scope import with no graceful fallback.**
-`jarvis/audio/player.py:18` and `jarvis/audio/capture.py:17` do a bare `import sounddevice as sd`
+`dodaios/audio/player.py:18` and `dodaios/audio/capture.py:17` do a bare `import sounddevice as sd`
 (no try/except), and the installed `sounddevice` loads PortAudio **eagerly** — on Linux without
 `libportaudio2` it `raise OSError("PortAudio library not found")` at import time (the Linux branch has
 no bundled binary, unlike macOS/Windows). 10 audio/speech modules transitively share this. It is **not**
 a base-boot blocker (these modules are off the headless chain — proven), but it is a hard import failure
-for any Linux *desktop voice* path or any test/code that does `import jarvis.speech.pipeline`.
+for any Linux *desktop voice* path or any test/code that does `import dodaios.speech.pipeline`.
 *Fix:* lazy-import sounddevice behind a guarded no-op (mirror `device_init.py:36`'s `_get_sd()` pattern) or move the audio modules behind a capability probe; document `libportaudio2` as a base system prerequisite.
 
 ### 🟡 MEDIUM
@@ -112,7 +112,7 @@ cross-platform-absolute. *Fix:* add a Linux `PR_SET_PDEATHSIG` preexec; document
 **M2 — The import-cleanliness CI gate is blind to non-win32 eager imports.**
 `scripts/ci/check_import_clean.py:24` `FORBIDDEN_MODULE_SCOPE` lists only `win32*`/`winreg`/`global_hotkeys`/
 `pywinauto`/`winpty`. It does **not** include `sounddevice`/`torch`/`mss`/`pyautogui`/`pynput`/`ptyprocess`,
-and Check 1 only imports the empty top-level `jarvis/__init__.py`. So it cannot catch H4 or any future eager
+and Check 1 only imports the empty top-level `dodaios/__init__.py`. So it cannot catch H4 or any future eager
 GPU/audio import landing on the boot chain; its green is narrower than the CI comment claims.
 *Fix:* extend the forbidden set; add a clean `pip install .` (no extras) leg on `python:3.11-slim` that runs the gate.
 
@@ -121,11 +121,11 @@ It is a fully-pinned `--generate-hashes` lockfile; if any pinned transitive whee
 build, `pip install -r requirements.txt` fails closed on slim. `pip install -e .` (PEP 508 ranges) is safer.
 Could not be tested without a Linux host. *Fix:* a clean-slim CI leg closes it.
 
-**M4 — Data dirs ignore OS conventions.** `jarvis/core/paths.py:18` uses `LOCALAPPDATA` → `~/.jarvis`
+**M4 — Data dirs ignore OS conventions.** `dodaios/core/paths.py:18` uses `LOCALAPPDATA` → `~/.jarvis`
 fallback; on macOS/Linux everything lands in `~/.jarvis` instead of `~/Library/Application Support` / XDG.
 Works, but unconventional for an open-source release. `platformdirs` is already a base dep. *Fix:* route `user_data_dir()` through `platformdirs.user_data_dir("Jarvis")`, keep `~/.jarvis` as legacy fallback.
 
-**M5 — Desktop tray starts pystray without a display pre-check.** `jarvis/ui/desktop_app.py:1940` starts
+**M5 — Desktop tray starts pystray without a display pre-check.** `dodaios/ui/desktop_app.py:1940` starts
 `JarvisTray()` ungated; on a Linux desktop without an AppIndicator/notification-area host the pystray daemon
 thread dies with no degrade log (unlike `TrayOnlySurface.start()` which try/excepts). The tray menu strings
 are also German (`tray.py:110` `MenuItem("Öffnen",…)`) — Output-Language-Policy violation. *Fix:* `display_present` pre-check + logged no-op; translate the strings.
@@ -156,7 +156,7 @@ Mac/Linux desktop this is saved only by the system-default fallback. *Fix:* cros
 
 - **Headless base boot on `python:3.11-slim`:** proven clean by a 652-module recursive import scan with all Windows/GPU/audio/desktop packages force-absent. Only the 10 `sounddevice`-dependent audio modules break, none on the launcher→server→brain→mission→channel chain.
 - **Win32 import discipline:** every `import win32*`/`winreg`/`ctypes.windll` is function-scoped or `sys.platform`-guarded; zero module-scope failures.
-- **`jarvis/platform/` seam:** `detect_platform()` never raises; every probe lazy-imports via `find_spec` and swallows to False/None.
+- **`dodaios/platform/` seam:** `detect_platform()` never raises; every probe lazy-imports via `find_spec` and swallows to False/None.
 - **Subprocess `creationflags`:** `NO_WINDOW_CREATIONFLAGS = 0` off-Windows (`process_utils.py:34`); no spawn raises on POSIX.
 - **Paths/encoding:** `platformdirs` available, `Path.home()` fallbacks, explicit `utf-8` + BOM-aware reads/writes; `sys.stdout.reconfigure` is win32-guarded.
 - **Elevation port (real, not theater):** `make_elevator()` selects UAC/polkit/sudo/osascript/Null per OS; the HMAC security core is transport-agnostic; `UnixSocketTransport` has a genuine fail-closed `SO_PEERCRED`/`getpeereid` peer-credential check; the Linux/macOS op vocabulary (apt/systemctl/ufw/brew/launchctl) is pattern-validated and wired all the way into the argv-building executor.

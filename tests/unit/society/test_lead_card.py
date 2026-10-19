@@ -23,15 +23,15 @@ from typing import Any
 
 import pytest
 
-from jarvis.society import runtime as runtime_mod
-from jarvis.society.events import MsgType, SocietyEnvelope
-from jarvis.society.lead_card import (
+from dodaios.society import runtime as runtime_mod
+from dodaios.society.events import MsgType, SocietyEnvelope
+from dodaios.society.lead_card import (
     CARD_TITLE,
     lead_card_section,
     render_lead_card,
     society_agent_names,
 )
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.runtime import SocietyRuntime
 
 
 def _tool(name: str, desc: str = "x.") -> SimpleNamespace:
@@ -53,7 +53,7 @@ class FakeChat:
     """Enough of AgentChatService to receive a notice in the front-page chat."""
 
     def __init__(self, db: Path) -> None:
-        from jarvis.agent_chat.store import AgentChatStore
+        from dodaios.agent_chat.store import AgentChatStore
 
         self.store = AgentChatStore(db)
         self.notices: list[tuple[str, dict[str, Any]]] = []
@@ -282,7 +282,7 @@ def test_no_model_phrases_a_background_report_anymore() -> None:
     (billed on an API key) is gone with the spoken readback (2026-09-30)."""
     import importlib.util
 
-    assert importlib.util.find_spec("jarvis.voice.report_readback") is None
+    assert importlib.util.find_spec("dodaios.voice.report_readback") is None
 
 
 async def test_agent_to_agent_chatter_stays_silent(rt: SocietyRuntime):

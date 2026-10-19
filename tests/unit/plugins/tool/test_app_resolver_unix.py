@@ -24,11 +24,11 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.plugins.tool.app_resolver as app_resolver
-import jarvis.plugins.tool.open_app as open_app
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.app_resolver import LaunchTarget, resolve_app_launch_target
-from jarvis.plugins.tool.open_app import OpenAppTool
+import dodaios.plugins.tool.app_resolver as app_resolver
+import dodaios.plugins.tool.open_app as open_app
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.app_resolver import LaunchTarget, resolve_app_launch_target
+from dodaios.plugins.tool.open_app import OpenAppTool
 
 
 def _ctx() -> ExecutionContext:
@@ -157,8 +157,8 @@ def test_linux_unknown_name_degrades_to_xdg_open(
 
 
 def test_known_apps_importable_as_module_attribute() -> None:
-    """Acceptance: `from jarvis.plugins.tool.open_app import KNOWN_APPS` works."""
-    from jarvis.plugins.tool.open_app import KNOWN_APPS
+    """Acceptance: `from dodaios.plugins.tool.open_app import KNOWN_APPS` works."""
+    from dodaios.plugins.tool.open_app import KNOWN_APPS
 
     assert isinstance(KNOWN_APPS, frozenset)
     assert len(KNOWN_APPS) > 0

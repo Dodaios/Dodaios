@@ -1,9 +1,9 @@
 """Deterministic background-billing state for wiki tests.
 
 Two pieces of process-wide state decide what a background wiki model call may
-bill: the subscription policy (``jarvis.brain.background_policy`` — a login
+bill: the subscription policy (``dodaios.brain.background_policy`` — a login
 probe plus a sticky "a subscription was seen" marker on disk) and the wiki's
-runaway guard (``jarvis.memory.wiki.background_guard`` — a persisted daily
+runaway guard (``dodaios.memory.wiki.background_guard`` — a persisted daily
 call counter and a backoff window). Both read the developer's real user-data
 directory by default, so a suite run on a machine with a signed-in CLI would
 silently switch every wiki test into subscription mode.
@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain import background_policy
-from jarvis.memory.wiki.background_guard import guard
+from dodaios.brain import background_policy
+from dodaios.memory.wiki.background_guard import guard
 
 
 @dataclass
@@ -62,14 +62,14 @@ def isolate_background_billing(
     background_policy.reset_for_tests()
     background_policy._probe_override = billing.logins.get  # noqa: SLF001 - test seam
     guard.reset_for_tests(state_path=root / "wiki_background_calls.json")
-    from jarvis.memory.wiki.health import health
+    from dodaios.memory.wiki.health import health
 
     health.clear_background_wait()
     return billing
 
 
 def reset_background_billing() -> None:
-    from jarvis.memory.wiki.health import health
+    from dodaios.memory.wiki.health import health
 
     background_policy.reset_for_tests()
     guard.reset_for_tests()
