@@ -4393,15 +4393,15 @@ class Kontrollierer:
         await self._manager.store.append_and_publish(env)
 
     async def _mission_language(self, mission_id: str) -> str:
-        """The mission's dispatch language, ``"de"`` when it cannot be read."""
+        """The mission's dispatch language, English when it cannot be read."""
         try:
             view = await self._manager.store.get_mission_view(mission_id)
         except Exception:  # noqa: BLE001 — the readback language is never mission-fatal
             logger.warning(
                 "could not read the dispatch language of %s", mission_id, exc_info=True
             )
-            return "de"
-        return str(view[2]) if view else "de"
+            return "en"
+        return str(view[2]) if view else "en"
 
     async def _fail_mission(
         self,

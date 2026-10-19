@@ -52,6 +52,14 @@ from jarvis.brain.local_context import LOCAL_CONTEXT_MARKER
 # the API-Keys badge can never disagree on "out of credits / over budget" (AP-22).
 from jarvis.brain.provider_test import BILLING_LIMIT_MARKERS
 from jarvis.brain.spawn_gate import effort_warrants_delegation
+from jarvis.brain.tool_shortlist import (
+    FIND_TOOLS_NAME,
+    ROLE_BASE,
+    FindToolsTool,
+    plan_surface,
+    tool_tokens,
+)
+from jarvis.brain.turn_override import TurnOverride
 from jarvis.core.bus import EventBus
 from jarvis.core.config import (
     FORCE_SPAWN_MODE_BALANCED,
@@ -78,21 +86,23 @@ from jarvis.core.protocols import (
     ReasoningEffort,
     Tool,
 )
-from jarvis.brain.tool_shortlist import (
-    FIND_TOOLS_NAME,
-    ROLE_BASE,
-    FindToolsTool,
-    plan_surface,
-    tool_tokens,
-)
-from jarvis.brain.turn_override import TurnOverride
 from jarvis.core.redact import safe_preview
 from jarvis.core.response_style import CONVERSATIONAL_RESPONSE_STYLE
 from jarvis.core.turn_language import (
     DEFAULT_LOCALE,
+    TURN_LANGUAGE,
+    conversation_language_from_history,
     detect_text_language,
+    resolve_conversation_language,
     resolve_output_language,
-    resolve_turn_language,
+)
+from jarvis.i18n import catalog as i18n_catalog
+from jarvis.i18n.locales import (
+    SUPPORTED_LANGUAGE_NAMES,
+    SUPPORTED_LOCALES,
+    is_known_language,
+    language_name,
+    phrase_locale,
 )
 from jarvis.memory import CoreMemory, PersonStore, RecallStore, Soul, UserProfile
 from jarvis.memory.curator import Curator
@@ -1622,44 +1632,13 @@ def _extract_cli_error_line(stderr: str) -> str:
 
 
 # Spoken CLI-failure readbacks; placeholders {cause} / {code}.
-_CLI_FAILURE_PHRASES: dict[str, dict[str, str]] = {
-    "de": {
-        "cause": "Der Befehl ist fehlgeschlagen: {cause}",  # i18n-allow: German TTS
-        "code": "Der Befehl ist mit Fehlercode {code} fehlgeschlagen.",  # i18n-allow
-        "bare": "Der Befehl ist fehlgeschlagen.",  # i18n-allow: German TTS
-    },
-    "en": {
-        "cause": "The command failed: {cause}",
-        "code": "The command failed with exit code {code}.",
-        "bare": "The command failed.",
-    },
-    "es": {
-        "cause": "El comando ha fallado: {cause}",  # i18n-allow: Spanish TTS
-        "code": "El comando ha fallado con el código de error {code}.",  # i18n-allow
-        "bare": "El comando ha fallado.",  # i18n-allow: Spanish TTS
-    },
-    "pt": {
-        "cause": "O comando falhou: {cause}",  # i18n-allow: PT TTS
-        "code": "O comando falhou com o código de erro {code}.",  # i18n-allow: PT TTS
-        "bare": "O comando falhou.",  # i18n-allow: PT TTS
-    },
-}
+_CLI_FAILURE_PHRASES: dict[str, dict[str, str]] = i18n_catalog.locale_maps("brain.cli_failure")
 
 # Spoken reply when a recovered tool ran but produced nothing speakable.
-_NOTHING_FOUND_PHRASE: dict[str, str] = {
-    "de": "Dazu habe ich nichts gefunden.",  # i18n-allow: spoken German TTS
-    "en": "I couldn't find anything on that.",
-    "es": "No he encontrado nada sobre eso.",  # i18n-allow: Spanish TTS
-    "pt": "Não encontrei nada sobre isso.",  # i18n-allow: PT TTS
-}
+_NOTHING_FOUND_PHRASE: dict[str, str] = i18n_catalog.table("brain.nothing_found")
 
 # Navigation fast-path acknowledgement; placeholder {label}.
-_NAVIGATION_ACK: dict[str, str] = {
-    "de": "Öffne {label}.",  # i18n-allow: German TTS
-    "en": "Opening {label}.",
-    "es": "Abriendo {label}.",  # i18n-allow: Spanish TTS
-    "pt": "A abrir {label}.",  # i18n-allow: PT TTS
-}
+_NAVIGATION_ACK: dict[str, str] = i18n_catalog.table("brain.navigation_ack")
 
 
 def _cli_failure_reason(output: Any, error: str | None, *, language: str) -> str:
@@ -1818,25 +1797,7 @@ def _answer_claims_unverified_data(response_text: str) -> bool:
     return not _CONVERSATION_ATTRIBUTION_RE.search(text)
 
 
-_EVIDENCE_UNFULFILLED_PHRASES: dict[str, str] = {
-    "de": (
-        "Ich konnte das gerade nicht abrufen — der Zugriff über das passende "  # i18n-allow: German TTS
-        "Werkzeug ist nicht durchgelaufen. Sag noch mal Bescheid, dann "  # i18n-allow: German TTS
-        "versuche ich es erneut."  # i18n-allow: German TTS
-    ),
-    "en": (
-        "I couldn't retrieve that just now — the tool call didn't go through. "
-        "Say the word and I'll try again."
-    ),
-    "es": (
-        "No pude obtener eso ahora mismo — la llamada a la herramienta no se "
-        "completó. Avísame y lo intento de nuevo."
-    ),
-    "pt": (
-        "Não consegui obter isso agora — a chamada à ferramenta não foi concluída. Avisa-me e "
-        "tento outra vez."
-    ),
-}
+_EVIDENCE_UNFULFILLED_PHRASES: dict[str, str] = i18n_catalog.table("brain.evidence_unfulfilled")
 
 
 # Spoken domain labels for the honest "couldn't reach X" fallback. Mirrors the
@@ -1845,66 +1806,15 @@ _EVIDENCE_UNFULFILLED_PHRASES: dict[str, str] = {
 # instead of the generic "the tool" — which also seeds the conversation history
 # so a follow-up "welches Werkzeug?" is answerable. Localized for every
 # supported language; an unknown domain falls back to the generic phrase.
-_EVIDENCE_DOMAIN_LABELS: dict[str, dict[str, str]] = {
-    "de": {
-        "calendar": "deinen Kalender",  # i18n-allow: German TTS
-        "email": "dein Postfach",  # i18n-allow: German TTS
-        "tasks": "deine Aufgaben",  # i18n-allow: German TTS
-        "repos": "deine Repositories",  # i18n-allow: German TTS
-        "deployments": "deine Deployments",  # i18n-allow: German TTS
-        "cloud": "deine Cloud-Abrechnung",  # i18n-allow: German TTS
-        "activity": "deinen Aktivitätsverlauf",  # i18n-allow: German TTS
-    },
-    "en": {
-        "calendar": "your calendar",
-        "email": "your inbox",
-        "tasks": "your tasks",
-        "repos": "your repositories",
-        "deployments": "your deployments",
-        "cloud": "your cloud billing",
-        "activity": "your activity history",
-    },
-    "es": {
-        "calendar": "tu calendario",
-        "email": "tu bandeja de entrada",
-        "tasks": "tus tareas",
-        "repos": "tus repositorios",
-        "deployments": "tus despliegues",
-        "cloud": "tu facturación en la nube",
-        "activity": "tu historial de actividad",
-    },
-    "pt": {
-        "calendar": "o teu calendário",
-        "email": "a tua caixa de entrada",
-        "tasks": "as tuas tarefas",
-        "repos": "os teus repositórios",
-        "deployments": "as tuas implementações",
-        "cloud": "a tua faturação na nuvem",
-        "activity": "o teu histórico de atividade",
-    },
-}
+_EVIDENCE_DOMAIN_LABELS: dict[str, dict[str, str]] = i18n_catalog.locale_maps(
+    "brain.evidence_domain_labels"
+)
 
 # Domain-aware variant of the unfulfilled phrase — same honesty contract (never
 # claims a "block"/invents a reason), just names the capability via {label}.
-_EVIDENCE_UNFULFILLED_DOMAIN_PHRASES: dict[str, str] = {
-    "de": (
-        "Ich konnte {label} gerade nicht abrufen — der Zugriff ist "  # i18n-allow: German TTS
-        "nicht durchgelaufen. Sag noch mal Bescheid, dann versuche "  # i18n-allow: German TTS
-        "ich es erneut."  # i18n-allow: German TTS
-    ),
-    "en": (
-        "I couldn't pull {label} just now — the access didn't go through. "
-        "Say the word and I'll try again."
-    ),
-    "es": (
-        "No pude obtener {label} ahora mismo — el acceso no se completó. "
-        "Avísame y lo intento de nuevo."
-    ),
-    "pt": (
-        "Não consegui obter {label} agora — o acesso não foi concluído. Avisa-me e tento outra "
-        "vez."
-    ),
-}
+_EVIDENCE_UNFULFILLED_DOMAIN_PHRASES: dict[str, str] = i18n_catalog.table(
+    "brain.evidence_unfulfilled_domain"
+)
 
 
 def _evidence_unfulfilled_answer(*, lang: str, domain: str = "") -> str:
@@ -1930,81 +1840,9 @@ def _evidence_unfulfilled_answer(*, lang: str, domain: str = "") -> str:
 # while no contact was saved). Distinct from the READ fallback above: it speaks
 # to a write ("not saved yet"), not a failed lookup. Static, no LLM (AP-11);
 # localized for every supported language, unknown code → default locale.
-_ACTION_UNFULFILLED_PHRASES: dict[str, dict[str, str]] = {
-    "society_propose_change": {
-        "de": (
-            "Die Routine wurde nicht erstellt. "  # i18n-allow: runtime output
-            "Der Speichervorgang wurde nicht ausgeführt."  # i18n-allow: runtime output
-        ),
-        "en": "The routine was not created. The save action did not run.",
-        "es": (
-            "La rutina no se creó. "  # i18n-allow: runtime output
-            "No se ejecutó la acción de guardarla."  # i18n-allow: runtime output
-        ),
-        "pt": "A rotina não foi criada. A ação de a guardar não chegou a ser executada.",
-    },
-    "society-create-routine": {
-        "de": (
-            "Die Routine wurde nicht erstellt. "  # i18n-allow: runtime output
-            "Der Speichervorgang wurde nicht ausgeführt."  # i18n-allow: runtime output
-        ),
-        "en": "The routine was not created. The save action did not run.",
-        "es": (
-            "La rutina no se creó. "  # i18n-allow: runtime output
-            "No se ejecutó la acción de guardarla."  # i18n-allow: runtime output
-        ),
-        "pt": "A rotina não foi criada. A ação de a guardar não chegou a ser executada.",
-    },
-    "contact-upsert": {
-        "de": (
-            "Ich hab den Kontakt noch nicht gespeichert — sag mir die Angaben "  # i18n-allow: German TTS
-            "noch mal, dann lege ich ihn an."  # i18n-allow: German TTS
-        ),
-        "en": (
-            "I haven't actually saved that contact yet — give me the details "
-            "once more and I'll add it."
-        ),
-        "es": (
-            "Todavía no he guardado ese contacto — dime los datos otra vez y lo "
-            "añado."
-        ),
-        "pt": "Ainda não guardei esse contacto — diz-me os dados outra vez e eu adiciono-o.",
-    },
-    "wiki-ingest": {
-        "de": (
-            "Ich hab das noch nicht in deinem Wiki vermerkt — sag's noch mal, "  # i18n-allow: German TTS
-            "dann schreib ich's rein."  # i18n-allow: German TTS
-        ),
-        "en": (
-            "I haven't actually noted that in your wiki yet — say it once more "
-            "and I'll write it down."
-        ),
-        "es": (
-            "Todavía no lo he anotado en tu wiki — dímelo otra vez y lo escribo."
-        ),
-        "pt": "Ainda não o anotei na tua wiki — diz-mo outra vez e eu escrevo-o.",
-    },
-    # Local-outcome mandate (shell-consistency rework 2026-08-08): a mandated
-    # run_shell that never ran must not degrade to the contact wording.
-    "run_shell": {
-        "de": (
-            "Das hab ich noch nicht ausgeführt — der Befehl ist nicht "  # i18n-allow: German TTS
-            "gelaufen. Sag's noch mal, dann mache ich es direkt."  # i18n-allow: German TTS
-        ),
-        "en": (
-            "I haven't actually done that yet — the command never ran. "
-            "Say it once more and I'll do it right away."
-        ),
-        "es": (
-            "Todavía no lo he hecho — el comando no llegó a ejecutarse. "
-            "Dímelo otra vez y lo hago directamente."
-        ),
-        "pt": (
-            "Ainda não o fiz — o comando não chegou a ser executado. Diz-mo outra vez e faço-o "
-            "diretamente."
-        ),
-    },
-}
+_ACTION_UNFULFILLED_PHRASES: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "brain.action_unfulfilled"
+)
 # A write tool with no bespoke table reuses the contact wording's shape.
 _ACTION_UNFULFILLED_DEFAULT = _ACTION_UNFULFILLED_PHRASES["contact-upsert"]
 
@@ -2017,7 +1855,7 @@ def _action_unfulfilled_answer(required_tool: str, *, lang: str) -> str:
     the contact wording / default locale so the spoken turn never crashes.
     """
     table = _ACTION_UNFULFILLED_PHRASES.get(required_tool, _ACTION_UNFULFILLED_DEFAULT)
-    return table.get(lang, table.get(DEFAULT_LOCALE, table["de"]))
+    return i18n_catalog.pick(table, lang)
 
 
 def _unfulfilled_replacement(
@@ -2186,39 +2024,24 @@ def _extract_leaked_tool_call(text: str) -> tuple[str, dict[str, Any]] | None:
 
 # Single source of truth for the reply-language vocabulary (Python ↔ REST ↔ TS).
 # "auto" = mirror the user's input language; the rest hard-pin that language.
-SUPPORTED_REPLY_LANGUAGES: tuple[str, ...] = ("auto", "de", "en", "es", "pt")
+SUPPORTED_REPLY_LANGUAGES: tuple[str, ...] = ("auto", *SUPPORTED_LOCALES)
 _REPLY_LANGS: frozenset[str] = frozenset(SUPPORTED_REPLY_LANGUAGES)
-_REPLY_LANG_NAMES: dict[str, str] = {
-    "de": "German",
-    "en": "English",
-    "es": "Spanish",
-    "pt": "European Portuguese",
-}
+_REPLY_LANG_NAMES: dict[str, str] = dict(SUPPORTED_LANGUAGE_NAMES)
 
 # Spoken confirmation for a deterministic reply-language switch (the
 # voice_command_gate "language_switch" path). Keyed by target code and phrased
 # IN that language so — because set_reply_language() runs first — the TTS voice
 # resolves to the new language and the switch is audible. "auto" has no single
-# language, so it confirms in the default locale (German).
-_LANG_SWITCH_CONFIRM: dict[str, str] = {
-    "de": "Erledigt — ich antworte ab jetzt auf Deutsch.",
-    "en": "Done — I'll reply in English from now on.",
-    "es": "Listo — a partir de ahora respondo en español.",
-    "pt": "Feito — a partir de agora respondo em português.",
-    "auto": "Erledigt — ich passe meine Sprache ab jetzt automatisch deiner an.",
-}
+# language, so it confirms in the conversation's phrase language
+# (``brain.lang_switch_confirm_auto``; English for an unsupported one).
+_LANG_SWITCH_CONFIRM: dict[str, str] = i18n_catalog.table("brain.lang_switch_confirm")
 
 # Spoken when the live reply-language switch applied but PERSIST failed (read-only
 # / locked jarvis.toml). Honest: scoped to this session, not "from now on", because
 # it reverts on restart (audit 2026-06-27). de/en/es/pt.
-_LANG_SWITCH_CONFIRM_SESSION: dict[str, str] = {
-    "de": "Für diese Sitzung antworte ich auf Deutsch — dauerhaft speichern hat nicht geklappt.",
-    "en": "For this session I'll reply in English — saving it permanently didn't work.",
-    "es": "Por esta sesión responderé en español — no pude guardarlo de forma permanente.",
-    "pt": (
-        "Nesta sessão vou responder em português — não consegui guardar isto de forma permanente."
-    ),
-}
+_LANG_SWITCH_CONFIRM_SESSION: dict[str, str] = i18n_catalog.table(
+    "brain.lang_switch_confirm_session"
+)
 
 # Sub-agent (Heavy-Task worker) provider switch — the voice_command_gate
 # "subagent_switch" path. The gate returns the spoken provider word; this maps
@@ -2248,107 +2071,46 @@ _SUBAGENT_DISPLAY: dict[str, str] = {
     "antigravity": "Antigravity",
     "grok-build": "Grok Build",
 }
-_SUBAGENT_SWITCH_CONFIRM: dict[str, str] = {
-    "de": "Erledigt — dein Sub-Agent läuft ab der nächsten Mission auf {p}.",
-    "en": "Done — your sub-agent will run on {p} from your next mission.",
-    "es": "Listo — tu sub-agente usará {p} desde tu próxima misión.",
-    "pt": "Feito — o teu subagente vai usar {p} a partir da tua próxima missão.",
-}
+_SUBAGENT_SWITCH_CONFIRM: dict[str, str] = i18n_catalog.table("brain.subagent_switch_confirm")
 # Honest spoken failure phrases for a deterministic subagent switch that the
 # validated apply_provider_switch refused (missing credential / unknown). Never
 # a false "done"; always names what failed. de/en/es/pt (Runtime Output Language).
-_SUBAGENT_SWITCH_FAIL: dict[str, dict[str, str]] = {
-    "missing_credential": {
-        "de": "{p} ist nicht verbunden — richte es zuerst ein, dann stelle ich um.",
-        "en": "{p} isn't connected — set it up first, then I'll switch.",
-        "es": "{p} no está conectado — configúralo primero y luego cambio.",
-        "pt": "{p} não está ligado — configura-o primeiro e depois eu mudo.",
-    },
-    "other": {
-        "de": "Das konnte ich nicht auf {p} umstellen.",
-        "en": "I couldn't switch the sub-agent to {p}.",
-        "es": "No pude cambiar el sub-agente a {p}.",
-        "pt": "Não consegui mudar o subagente para {p}.",
-    },
-}
+_SUBAGENT_SWITCH_FAIL: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "brain.subagent_switch_fail"
+)
 
 
 def _subagent_switch_failure_phrase(result: dict, display: str, lang: str) -> str:
     kind = str(result.get("error_kind") or "other")
     table = _SUBAGENT_SWITCH_FAIL.get(kind, _SUBAGENT_SWITCH_FAIL["other"])
-    return table.get(lang, table["de"]).format(p=display)
+    return i18n_catalog.pick(table, lang).format(p=display)
 
 
 # Main-brain provider switch — the voice_command_gate "provider_switch" path.
 # Mirrors the subagent tables: routed through the validated apply_provider_switch
 # so the spoken readback is HONEST (audit 2026-06-27: the old path returned ""
 # silently, even when the switch was refused). de/en/es/pt (Runtime Output Language).
-_PROVIDER_SWITCH_CONFIRM: dict[str, str] = {
-    "de": "Erledigt — dein Haupt-Brain läuft jetzt auf {p}.",
-    "en": "Done — your main brain now runs on {p}.",
-    "es": "Listo — tu cerebro principal ahora usa {p}.",
-    "pt": "Feito — o teu cérebro principal usa agora {p}.",
-}
-_PROVIDER_SWITCH_FAIL: dict[str, dict[str, str]] = {
-    "missing_credential": {
-        "de": "{p} ist nicht eingerichtet — hinterlege zuerst den Schlüssel, dann stelle ich um.",
-        "en": "{p} isn't set up — add its key first, then I'll switch.",
-        "es": "{p} no está configurado — añade su clave primero y luego cambio.",
-        "pt": "{p} não está configurado — adiciona primeiro a chave e depois eu mudo.",
-    },
-    "subagent_only": {
-        "de": "{p} geht nur als Sub-Agent, nicht als Haupt-Brain.",
-        "en": "{p} only works as a sub-agent, not as the main brain.",
-        "es": "{p} solo funciona como sub-agente, no como cerebro principal.",
-        "pt": "{p} só funciona como subagente, não como cérebro principal.",
-    },
-    "other": {
-        "de": "Den Haupt-Brain konnte ich nicht auf {p} umstellen.",
-        "en": "I couldn't switch the main brain to {p}.",
-        "es": "No pude cambiar el cerebro principal a {p}.",
-        "pt": "Não consegui mudar o cérebro principal para {p}.",
-    },
-}
+_PROVIDER_SWITCH_CONFIRM: dict[str, str] = i18n_catalog.table("brain.provider_switch_confirm")
+_PROVIDER_SWITCH_FAIL: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "brain.provider_switch_fail"
+)
 
 
 def _provider_switch_failure_phrase(result: dict, display: str, lang: str) -> str:
     kind = str(result.get("error_kind") or "other")
     table = _PROVIDER_SWITCH_FAIL.get(kind, _PROVIDER_SWITCH_FAIL["other"])
-    return table.get(lang, table["de"]).format(p=display)
+    return i18n_catalog.pick(table, lang).format(p=display)
 
 
 # Background-task cancel — the voice_command_gate "cancel" path. Honest readback:
 # names the count when something was stopped, says so plainly when nothing ran
 # (audit 2026-06-27: the old path was silent either way). de/en/es/pt.
-_CANCEL_CONFIRM: dict[str, str] = {
-    "de": "Erledigt — {n} laufende Aufgabe(n) gestoppt.",
-    "en": "Done — stopped {n} running task(s).",
-    "es": "Listo — detuve {n} tarea(s) en curso.",
-    "pt": "Feito — parei {n} tarefa(s) em curso.",
-}
-_CANCEL_NONE: dict[str, str] = {
-    "de": "Es lief gerade nichts, das ich stoppen könnte.",
-    "en": "Nothing was running to stop.",
-    "es": "No había nada en curso que detener.",
-    "pt": "Não havia nada em curso para parar.",
-}
+_CANCEL_CONFIRM: dict[str, str] = i18n_catalog.table("brain.cancel_confirm")
+_CANCEL_NONE: dict[str, str] = i18n_catalog.table("brain.cancel_none")
 
 # Thinking-depth override — the voice_command_gate "depth_deep"/"depth_fast"
 # path. Confirms the new depth instead of staying silent (audit 2026-06-27).
-_DEPTH_CONFIRM: dict[str, dict[str, str]] = {
-    "deep": {
-        "de": "Alles klar — ich denke ab jetzt gründlicher.",
-        "en": "Got it — I'll think more deeply from now on.",
-        "es": "Entendido — pensaré más a fondo a partir de ahora.",
-        "pt": "Entendido — a partir de agora vou pensar com mais profundidade.",
-    },
-    "fast": {
-        "de": "Alles klar — ich denke ab jetzt schneller.",
-        "en": "Got it — I'll think faster from now on.",
-        "es": "Entendido — pensaré más rápido a partir de ahora.",
-        "pt": "Entendido — a partir de agora vou pensar mais depressa.",
-    },
-}
+_DEPTH_CONFIRM: dict[str, dict[str, str]] = i18n_catalog.nested_table("brain.depth_confirm")
 
 # General self-control (2026-06-22). Not every settings change can have its own
 # deterministic gate — the gates (language, sub-agent) are high-precision
@@ -2545,39 +2307,9 @@ def normalize_reply_language(value: object) -> str:
 # language (de/en/es/pt; "auto" → German, the default locale). Three variants
 # per language so repeated failures in one session don't sound robotic
 # (mirrors the ACK-variant approach). The full diagnostic stays in the logs.
-_PROVIDER_DOWN_PHRASES: dict[str, tuple[str, ...]] = {
-    "de": (
-        "Entschuldige, ich komme gerade nicht an mein Sprachmodell. Einen Moment, bitte.",  # i18n-allow
-        (
-            "Tut mir leid, mein Sprachmodell ist im Moment nicht erreichbar. "  # i18n-allow
-            "Ich versuche es gleich erneut."
-        ),
-        (
-            "Ich kann gerade nicht antworten — die Verbindung zu meinem Modell hakt. "  # i18n-allow
-            "Gib mir kurz Zeit."
-        ),
-    ),
-    "en": (
-        "Sorry, I can't reach my language model right now. One moment, please.",
-        "I'm afraid my language model is unavailable at the moment. I'll try again shortly.",
-        "I can't answer just now — my connection to the model is failing. Give me a second.",
-    ),
-    "es": (
-        "Lo siento, ahora mismo no puedo acceder a mi modelo de lenguaje. Un momento, por favor.",
-        (
-            "Me temo que mi modelo de lenguaje no está disponible en este momento. "
-            "Lo intentaré de nuevo enseguida."
-        ),
-        "No puedo responder ahora mismo: la conexión con mi modelo está fallando. Dame un segundo.",
-    ),
-    "pt": (
-        "Desculpa, neste momento não consigo aceder ao meu modelo de linguagem. Um momento, por "
-        "favor.",
-        "Receio que o meu modelo de linguagem não esteja disponível neste momento. Volto a "
-        "tentar já a seguir.",
-        "Não consigo responder agora: a ligação ao meu modelo está a falhar. Dá-me um segundo.",
-    ),
-}
+_PROVIDER_DOWN_PHRASES: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
+    "brain.provider_down"
+)
 
 
 # Cause-aware variants of the total-failure apology (maintainer directive
@@ -2587,208 +2319,9 @@ _PROVIDER_DOWN_PHRASES: dict[str, tuple[str, ...]] = {
 # in-app recovery step. Keys mirror the ``kind`` values classified by the
 # provider chain (``_format_provider_chain_error``); an unknown/unlisted kind
 # falls back to the generic rotation above.
-_PROVIDER_DOWN_CAUSE_PHRASES: dict[str, dict[str, str]] = {
-    "missing_key": {
-        "de": (
-            "Entschuldige — für mein Sprachmodell ist gerade kein "  # i18n-allow
-            "API-Schlüssel hinterlegt. Öffne in der Seitenleiste die "  # i18n-allow
-            "API-Keys und trag einen ein, dann geht es sofort weiter."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — no API key is set for my language model right now. "
-            "Open the API keys in the sidebar and add one, and I can "
-            "continue right away."
-        ),
-        "es": (
-            "Lo siento: ahora mismo no hay ninguna clave de API configurada "
-            "para mi modelo de lenguaje. Abre las claves de API en la barra "
-            "lateral y añade una, y podré continuar enseguida."
-        ),
-        "pt": (
-            "Desculpa: neste momento não há nenhuma chave de API configurada para o meu modelo "
-            "de linguagem. Abre as chaves de API na barra lateral e adiciona uma, e posso "
-            "continuar já a seguir."
-        ),
-    },
-    "bad_key": {
-        "de": (
-            "Entschuldige — mein hinterlegter API-Schlüssel wird abgelehnt, "  # i18n-allow
-            "er ist wohl ungültig oder abgelaufen. Bitte ersetze ihn in den "  # i18n-allow
-            "API-Keys in der Seitenleiste."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — my stored API key is being rejected; it looks invalid "
-            "or expired. Please replace it under API keys in the sidebar."
-        ),
-        "es": (
-            "Lo siento: mi clave de API almacenada está siendo rechazada; "
-            "parece inválida o caducada. Sustitúyela en las claves de API "
-            "de la barra lateral."
-        ),
-        "pt": (
-            "Desculpa: a minha chave de API guardada está a ser rejeitada; parece inválida ou "
-            "expirada. Substitui-a nas chaves de API da barra lateral."
-        ),
-    },
-    "account_blocked": {
-        "de": (
-            "Entschuldige — das Konto meines Sprachmodells blockiert gerade, "  # i18n-allow
-            "vermutlich ist das Guthaben aufgebraucht oder das Limit "  # i18n-allow
-            "erreicht. Bitte wirf einen Blick auf das Anbieter-Konto."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — my language model's account is blocking right now, "
-            "most likely the credit is used up or a limit was reached. "
-            "Please take a look at the provider account."
-        ),
-        "es": (
-            "Lo siento: la cuenta de mi modelo de lenguaje está bloqueada "
-            "ahora mismo; probablemente se agotó el crédito o se alcanzó un "
-            "límite. Revisa la cuenta del proveedor, por favor."
-        ),
-        "pt": (
-            "Desculpa: a conta do meu modelo de linguagem está bloqueada neste momento; "
-            "provavelmente o crédito esgotou-se ou foi atingido um limite. Verifica a conta do "
-            "fornecedor, por favor."
-        ),
-    },
-    "rate_limit": {
-        "de": (
-            "Entschuldige — mein Anbieter bremst mich gerade wegen zu "  # i18n-allow
-            "vieler Anfragen. Warte einen Moment und frag mich dann "  # i18n-allow
-            "einfach noch einmal."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — my provider is throttling me for too many requests. "
-            "Give it a moment and just ask me again."
-        ),
-        "es": (
-            "Lo siento: mi proveedor me está limitando por demasiadas "
-            "solicitudes. Espera un momento y vuelve a preguntarme."
-        ),
-        "pt": (
-            "Desculpa: o meu fornecedor está a limitar-me por excesso de pedidos. Espera um "
-            "momento e volta a perguntar-me."
-        ),
-    },
-    "invalid_model": {
-        "de": (
-            "Entschuldige — das eingestellte Modell wird vom Anbieter nicht "  # i18n-allow
-            "akzeptiert. Bitte prüf die Modell-Auswahl in den Einstellungen."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — the configured model is not accepted by the provider. "
-            "Please check the model selection in the settings."
-        ),
-        "es": (
-            "Lo siento: el modelo configurado no es aceptado por el "
-            "proveedor. Revisa la selección de modelo en los ajustes."
-        ),
-        "pt": (
-            "Desculpa: o modelo configurado não é aceite pelo fornecedor. Verifica a escolha do "
-            "modelo nas definições."
-        ),
-    },
-    "context_overflow": {
-        "de": (
-            "Entschuldige — diese Anfrage ist für das eingestellte Modell zu "  # i18n-allow
-            "groß, sein Kontextfenster reicht dafür nicht. Wähle ein Modell "  # i18n-allow
-            "mit größerem Kontext oder starte einen neuen Chat."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — this request is too large for the configured model; its "
-            "context window is too small for it. Pick a model with a larger "
-            "context or start a new chat."
-        ),
-        "es": (
-            "Lo siento: esta solicitud es demasiado grande para el modelo "
-            "configurado; su ventana de contexto no alcanza. Elige un modelo "
-            "con más contexto o empieza un chat nuevo."
-        ),
-        "pt": (
-            "Desculpa: este pedido é demasiado grande para o modelo configurado; a janela de "
-            "contexto não chega. Escolhe um modelo com mais contexto ou começa uma conversa nova."
-        ),
-    },
-    # A LOCAL server runs the model with a window too small for the request
-    # (``jarvis.brain.local_context``). Unlike ``context_overflow`` the remedy
-    # is not another model or a new chat but one setting on the user's own
-    # machine, so the phrase names that setting.
-    "local_context": {
-        "de": (
-            "Entschuldige — dein lokales Modell läuft mit einem zu kleinen "  # i18n-allow
-            "Kontextfenster für diese Anfrage. Stell in deinem lokalen "  # i18n-allow
-            "Modell-Server eine größere Kontextlänge ein und lade das Modell "  # i18n-allow
-            "neu; bei den Modellen unter Lokale Modelle geht das über Tune. "  # i18n-allow
-            "Die nötige Größe steht im Protokoll."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — your local model runs with a context window too small "
-            "for this request. Raise the context length in your local model "
-            "server and reload the model; for the models under Local Models, "
-            "use Tune. The log names the size it needs."
-        ),
-        "es": (
-            "Lo siento: tu modelo local funciona con una ventana de contexto "
-            "demasiado pequeña para esta solicitud. Aumenta la longitud de "
-            "contexto en tu servidor de modelos local y vuelve a cargar el "
-            "modelo; para los modelos de Modelos locales, usa Tune. El "
-            "registro indica el tamaño necesario."
-        ),
-        "pt": (
-            "Desculpa: o teu modelo local corre com uma janela de contexto demasiado pequena "
-            "para este pedido. Aumenta o comprimento de contexto no teu servidor de modelos "
-            "local e recarrega o modelo; para os modelos em Modelos locais, usa Tune. O "
-            "registo indica o tamanho necessário."
-        ),
-    },
-    "unreachable": {
-        "de": (
-            "Entschuldige — ich erreiche meinen Anbieter gerade nicht, "  # i18n-allow
-            "vermutlich ein Netzwerk- oder Anbieterproblem. Versuch es "  # i18n-allow
-            "gleich bitte noch einmal."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — I can't reach my provider right now, likely a network "
-            "or provider issue. Please try again in a moment."
-        ),
-        "es": (
-            "Lo siento: no puedo comunicarme con mi proveedor ahora mismo; "
-            "probablemente sea un problema de red o del proveedor. Inténtalo "
-            "de nuevo en un momento."
-        ),
-        "pt": (
-            "Desculpa: neste momento não consigo comunicar com o meu fornecedor; provavelmente é "
-            "um problema de rede ou do fornecedor. Tenta outra vez daqui a um momento."
-        ),
-    },
-    # A screen capture or attachment exists, but every reachable brain is blind.
-    # This is NOT a missing/invalid API key — the key is often present and
-    # the API-Keys card is green; the model simply cannot inspect images.
-    # Spoken separately so a vision skip is not heard as "your key is broken".
-    "vision_unsupported": {
-        "de": (
-            "Entschuldige — keiner "  # i18n-allow
-            "der verbundenen Assistenten kann gerade Bilder auswerten. Der "  # i18n-allow
-            "Schlüssel ist da, nur das Sehen fehlt. Nimm unter API-Keys "  # i18n-allow
-            "einen Anbieter mit Bildverarbeitung."  # i18n-allow
-        ),
-        "en": (
-            "Sorry — none of the connected "
-            "assistants can inspect images right now. The key is there; "
-            "vision is not. Pick a vision-capable provider under API keys."
-        ),
-        "es": (
-            "Lo siento: ninguno de los asistentes "
-            "conectados puede analizar imágenes ahora. La clave está; falta "
-            "la visión. Elige un proveedor con visión en Claves API."
-        ),
-        "pt": (
-            "Desculpa: nenhum dos assistentes ligados consegue analisar imagens agora. A chave "
-            "existe; falta a visão. Escolhe um fornecedor com visão em Chaves de API."
-        ),
-    },
-}
+_PROVIDER_DOWN_CAUSE_PHRASES: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "brain.provider_down_cause"
+)
 
 # Priority when several providers failed for different reasons — the FIRST
 # matching kind names the spoken cause. Mirrors the root-cause ordering of
@@ -2842,7 +2375,8 @@ def _provider_down_phrase(lang: str, idx: int, cause: str | None = None) -> str:
     """Localized apology for a total brain-chain failure, cause-aware.
 
     ``lang`` is a reply-language code (de/en/es/pt); anything else — notably
-    "auto" — falls back to German (the default locale). When ``cause`` names
+    "auto" or a language without translations — falls back to English
+    (``DEFAULT_LOCALE``). When ``cause`` names
     a known failure category, the phrase states WHY and the in-app recovery
     step (maintainer directive 2026-07-21) — still without provider names,
     URLs, or jargon (ADR-0010). Otherwise ``idx`` rotates deterministically
@@ -2853,8 +2387,8 @@ def _provider_down_phrase(lang: str, idx: int, cause: str | None = None) -> str:
     if cause:
         cause_table = _PROVIDER_DOWN_CAUSE_PHRASES.get(cause)
         if cause_table:
-            return cause_table.get(lang_key, cause_table["de"])
-    variants = _PROVIDER_DOWN_PHRASES.get(lang_key, _PROVIDER_DOWN_PHRASES["de"])
+            return i18n_catalog.pick(cause_table, lang_key)
+    variants = i18n_catalog.pick(_PROVIDER_DOWN_PHRASES, lang_key)
     return variants[idx % len(variants)]
 
 
@@ -2864,24 +2398,7 @@ def _provider_down_phrase(lang: str, idx: int, cause: str | None = None) -> str:
 # executed tools; the empty-response guard is (correctly) skipped when tool
 # calls exist, so the turn counted as success with empty text — the user heard
 # NOTHING. Voice-safe: no provider names, no jargon (ADR-0010).
-_MID_ANSWER_ERROR_PHRASES: dict[str, str] = {
-    "de": (
-        "Ich habe die Zwischenschritte ausgeführt, aber beim Formulieren der "  # i18n-allow
-        "Antwort gab es einen Fehler. Frag mich bitte gleich noch einmal."  # i18n-allow
-    ),
-    "en": (
-        "I ran the steps, but something went wrong while composing the answer. "
-        "Please ask me again in a moment."
-    ),
-    "es": (
-        "Ejecuté los pasos, pero algo falló al redactar la respuesta. "
-        "Vuelve a preguntarme en un momento."
-    ),
-    "pt": (
-        "Executei os passos, mas algo falhou ao redigir a resposta. Volta a perguntar-me daqui a "
-        "um momento."
-    ),
-}
+_MID_ANSWER_ERROR_PHRASES: dict[str, str] = i18n_catalog.table("brain.mid_answer_error")
 
 
 #: Source layers that run without a person waiting on the reply. An appshot
@@ -2901,6 +2418,37 @@ _AUTOMATED_LAYER_PREFIXES = (
 def _takes_pending_appshot(source_layer: str | None) -> bool:
     layer = (source_layer or "").strip().lower()
     return not layer.startswith(_AUTOMATED_LAYER_PREFIXES)
+
+
+def _current_turn_language(owner: object) -> str:
+    """This turn's language: the context's own, else the last one set."""
+    return TURN_LANGUAGE.get() or getattr(owner, "_turn_detected_lang", "")
+
+
+def _turn_phrase_language(owner: object, user_text: str) -> str:
+    """The de/en/es/pt language of a system phrase for *user_text*.
+
+    One resolver for every canned phrase: the pin, else the language
+    ``generate()`` resolved for this turn (which already applied stickiness,
+    the chat's own history and ``language_text`` — so an internal English
+    "continue" prompt does not make the error phrases English), else the text
+    within the running conversation, else English. ``generate()`` only
+    receives text (the pipeline resolves the STT tag separately), hence
+    ``"unknown"`` as the tag. Reads the manager's fields with ``getattr`` so
+    lightweight stand-ins work too.
+    """
+    pin = getattr(owner, "_reply_language", "")
+    if pin in _REPLY_LANG_NAMES:
+        return pin
+    turn = TURN_LANGUAGE.get()
+    if turn:
+        return phrase_locale(turn) if is_known_language(turn) else DEFAULT_LOCALE
+    return resolve_output_language(
+        pin,
+        "unknown",
+        user_text,
+        conversation_language=getattr(owner, "_conversation_language", ""),
+    )
 
 
 class BrainManager:
@@ -4059,13 +3607,7 @@ class BrainManager:
         if is_voice_control_utterance(user_text):
             return None
         bus = self._bus
-        language = resolve_output_language(
-            self._reply_language,
-            "unknown",
-            user_text,
-            default=DEFAULT_LOCALE,
-            conversation_language=self._conversation_language,
-        )
+        language = _turn_phrase_language(self, user_text)
         # Fire at most once per turn even if the provider chain retries the
         # tool-use loop (a provider that emits tool_calls then errors would
         # otherwise re-announce on the fallback provider's re-run).
@@ -4184,7 +3726,10 @@ class BrainManager:
 
     @property
     def conversation_language(self) -> str:
-        """The sticky language of the conversation so far (de/en/es/pt, or "").
+        """The sticky language of the conversation so far (any code, or "").
+
+        de/en/es/pt or a language without translated phrases ("tr", "fr", ...);
+        consumers narrow it with ``resolve_output_language``/``phrase_locale``.
 
         Read by the speech pipeline and threaded into deterministic tool
         readbacks so a thin interjection ("Now") stays in the running
@@ -4207,16 +3752,36 @@ class BrainManager:
         if self._reply_language in _REPLY_LANG_NAMES:
             self._turn_detected_lang = ""
             return
-        detected = resolve_output_language(
+        detected = resolve_conversation_language(
             self._reply_language,
             None,
             user_text,
-            default="unknown",
-            conversation_language=self._conversation_language,
+            conversation_language=self._conversation_baseline(),
         )
         self._turn_detected_lang = detected
-        if detected in _REPLY_LANG_NAMES:
+        if TURN_LANGUAGE.get() is not None:  # inside generate(): scope it to the turn
+            TURN_LANGUAGE.set(detected)
+        if is_known_language(detected):
             self._conversation_language = detected
+
+    def _conversation_baseline(self) -> str:
+        """The conversation language this turn continues.
+
+        A chat turn carries its session's own history (``history_override``):
+        its language comes from THAT conversation, so a crash, a restart or a
+        turn in another chat or on voice never changes it (forensic
+        2026-10-19: a Turkish chat answered in German, Spanish and English
+        after errors). A classic turn without a known language yet replays the
+        live history once.
+        """
+        history = _TURN_HISTORY_OVERRIDE.get()
+        if history is not None:
+            # Only this chat's own history: never a language another chat or
+            # a voice call left in the shared field.
+            return conversation_language_from_history(history)
+        if self._conversation_language:
+            return self._conversation_language
+        return conversation_language_from_history(getattr(self, "_history", None) or ())
 
     def set_reply_language(self, lang: str) -> None:
         """Live-switch the reply-language pin (desktop "Languages" view).
@@ -4240,13 +3805,17 @@ class BrainManager:
         transcript language is consistent and never the binary ``_looks_german``
         gate — which silently tags any non-German reply "en" and so drops Spanish
         (Runtime Output Language doctrine). An explicit pin wins; in auto mode it
-        is THIS turn's detected language (set at the top of generate()); an
-        undetected/ambiguous turn keeps the German default.
+        is THIS turn's language (set at the top of generate()), else the
+        conversation's. A language without translated phrases, or none at all,
+        is English (``DEFAULT_LOCALE``) — never German.
         """
         lang = self._reply_language
         if lang not in _REPLY_LANG_NAMES:
-            lang = getattr(self, "_turn_detected_lang", "") or lang
-        return lang if lang in _REPLY_LANG_NAMES else "de"
+            turn = _current_turn_language(self)
+            lang = turn if is_known_language(turn) else getattr(
+                self, "_conversation_language", ""
+            )
+        return lang if lang in _REPLY_LANG_NAMES else DEFAULT_LOCALE
 
     def _next_provider_down_phrase(self, cause: str | None = None) -> str:
         """Localized 'I can't reach my model' apology + advance the rotation.
@@ -4336,7 +3905,9 @@ class BrainManager:
         # the soft mirror. The pin only changes when the user's language
         # changes, so the cached system prefix stays stable within a
         # single-language conversation.
-        turn_name = _REPLY_LANG_NAMES.get(getattr(self, "_turn_detected_lang", ""))
+        # Any recognised language pins, not only the four with translated
+        # phrases: a Turkish conversation is answered in Turkish.
+        turn_name = language_name(_current_turn_language(self))
         if turn_name is not None:
             return self._mandatory_lang_directive(turn_name)
         return (
@@ -4355,32 +3926,25 @@ class BrainManager:
         Spoken when a provider leaked a tool_use block as text and the
         recovery produced no speakable final. Was a hardcoded German string —
         an English turn ("What's weather like tomorrow?") was answered in
-        German. A pinned reply language wins; ``auto`` mirrors the user's
-        text; ambiguous text keeps the historical German default.
-
-        ``generate()`` only ever receives ``user_text`` (the pipeline resolves
-        the STT tag separately), so auto-mode detection is text-only — hence
-        ``"unknown"`` as the tag. See ``tool_use_loop._localized_phrase`` for
-        the same contract.
+        German. A pinned reply language wins; ``auto`` follows the
+        conversation; anything else is English.
         """
-        lang = self._reply_language
-        if lang not in _ACTION_FAILED_PHRASES:
-            lang = resolve_turn_language("unknown", user_text, default="de")
-        return _ACTION_FAILED_PHRASES.get(lang, _ACTION_FAILED_PHRASES["de"])
+        return i18n_catalog.pick(_ACTION_FAILED_PHRASES, _turn_phrase_language(self, user_text))
+
+    def _phrase_language(self, user_text: str) -> str:
+        """The de/en/es/pt language of a system phrase for *user_text*."""
+        return _turn_phrase_language(self, user_text)
 
     def _direct_ack_language(self, user_text: str) -> str:
         """Resolve ``de``/``en``/``es`` for a DIRECT fast-path acknowledgement.
 
         Mirrors :meth:`_action_failed_phrase`: an explicit ``reply_language``
         pin (the desktop "Languages" view) wins; otherwise the turn's language
-        is detected from the text; ambiguous text keeps the historical German
-        default. The DIRECT path runs off the LLM, so this is the only place the
-        turn language can be applied to the spoken acknowledgement.
+        within the running conversation; anything else is English. The DIRECT
+        path runs off the LLM, so this is the only place the turn language can
+        be applied to the spoken acknowledgement.
         """
-        lang = self._reply_language
-        if lang in _OPEN_APP_ACK_PREFIX:
-            return lang
-        return resolve_turn_language("unknown", user_text, default="de")
+        return _turn_phrase_language(self, user_text)
 
     def _localize_direct_ack(
         self, call: LocalToolCall, raw_output: str, lang: str
@@ -5138,8 +4702,10 @@ class BrainManager:
             lang, persisted,
         )
         if persisted:
-            return _LANG_SWITCH_CONFIRM.get(lang, _LANG_SWITCH_CONFIRM["de"])
-        return _LANG_SWITCH_CONFIRM_SESSION.get(lang, _LANG_SWITCH_CONFIRM_SESSION["de"])
+            if lang == "auto":
+                return i18n_catalog.t("brain.lang_switch_confirm_auto", self._resolve_turn_lang())
+            return i18n_catalog.pick(_LANG_SWITCH_CONFIRM, lang)
+        return i18n_catalog.pick(_LANG_SWITCH_CONFIRM_SESSION, lang)
 
     def _is_self_control_turn(self, text: str) -> bool:
         """Broad (class-level, NOT per-command) detector for a request to change
@@ -5204,7 +4770,7 @@ class BrainManager:
             new = str(result.get("new_provider") or canonical)
             display = _SUBAGENT_DISPLAY.get(new, new)
             log.info("sub-agent provider switched to %r via deterministic voice gate", new)
-            template = _SUBAGENT_SWITCH_CONFIRM.get(lang, _SUBAGENT_SWITCH_CONFIRM["de"])
+            template = i18n_catalog.pick(_SUBAGENT_SWITCH_CONFIRM, lang)
             return template.format(p=display)
         display = _SUBAGENT_DISPLAY.get(canonical, canonical)
         return _subagent_switch_failure_phrase(result, display, lang)
@@ -5237,7 +4803,7 @@ class BrainManager:
         display = getattr(spec, "label", None) or canonical
         if result.get("ok"):
             log.info("main-brain provider switched to %r via deterministic voice gate", canonical)
-            template = _PROVIDER_SWITCH_CONFIRM.get(lang, _PROVIDER_SWITCH_CONFIRM["de"])
+            template = i18n_catalog.pick(_PROVIDER_SWITCH_CONFIRM, lang)
             return template.format(p=display)
         return _provider_switch_failure_phrase(result, display, lang)
 
@@ -5629,10 +5195,7 @@ class BrainManager:
                 # no calendar access (OF-15). Resolved here with the same
                 # arguments the honesty phrase later uses, so one turn cannot
                 # speak two languages.
-                language=resolve_output_language(
-                    getattr(self, "_reply_language", ""), "unknown", user_text,
-                    default=DEFAULT_LOCALE,
-                ),
+                language=_turn_phrase_language(self, user_text),
             )
         except Exception:  # noqa: BLE001
             log.debug("evidence gate degraded to PASS", exc_info=True)
@@ -7515,11 +7078,7 @@ class BrainManager:
 
         if not is_inventory_question(user_text):
             return None
-        out_lang = resolve_output_language(
-            self._reply_language, self._turn_detected_lang, user_text,
-            default=DEFAULT_LOCALE,
-            conversation_language=self._conversation_language,
-        )
+        out_lang = _turn_phrase_language(self, user_text)
         unavailable = {
             "de": "Ich kann die Agentenliste gerade nicht abrufen.",  # i18n-allow
             "en": "I cannot retrieve the agent roster right now.",
@@ -7635,13 +7194,7 @@ class BrainManager:
         if ide_intent.spawn_vehicle_outranks_workspace(user_text, names=candidates):
             return None
 
-        out_lang = resolve_output_language(
-            self._reply_language,
-            "unknown",
-            user_text,
-            default=DEFAULT_LOCALE,
-            conversation_language=self._conversation_language,
-        )
+        out_lang = _turn_phrase_language(self, user_text)
 
         # A clarified pane is briefed with the ORIGINAL utterance — the sentence
         # that actually carried the work — not with the "yes" that confirmed it.
@@ -8312,13 +7865,7 @@ class BrainManager:
         if request is None:
             return None
 
-        out_lang = resolve_output_language(
-            self._reply_language,
-            "unknown",
-            user_text,
-            default=DEFAULT_LOCALE,
-            conversation_language=self._conversation_language,
-        )
+        out_lang = _turn_phrase_language(self, user_text)
         registry = get_registry()
         session = registry.session
         if session is None:
@@ -8398,13 +7945,7 @@ class BrainManager:
         if request is None:
             return None
 
-        out_lang = resolve_output_language(
-            self._reply_language,
-            "unknown",
-            user_text,
-            default=DEFAULT_LOCALE,
-            conversation_language=self._conversation_language,
-        )
+        out_lang = _turn_phrase_language(self, user_text)
         from jarvis.voice.action_phrases import action_phrase
 
         # The name did not clearly reach one CLI. ASK — this is the maintainer's
@@ -10235,13 +9776,7 @@ class BrainManager:
                 )
             pending_map.pop(confirm_key, None)
 
-        locale = resolve_output_language(
-            self._reply_language,
-            "unknown",
-            user_text,
-            default=DEFAULT_LOCALE,
-            conversation_language=self._conversation_language,
-        )
+        locale = _turn_phrase_language(self, user_text)
         outcome = await screen_context_for_turn(
             user_text,
             locale=locale,
@@ -10305,10 +9840,7 @@ class BrainManager:
         except (ValueError, TypeError):
             log.warning("voice-confirm: bad trace_id %r — not arming", trace_raw)
             return
-        lang = resolve_output_language(
-            self._reply_language, "unknown", user_text,
-            default=DEFAULT_LOCALE, conversation_language=self._conversation_language,
-        )
+        lang = _turn_phrase_language(self, user_text)
         self._pending_voice_confirm = _PendingVoiceConfirm(
             trace_id=tid, lang=lang, tool_name=str(descriptor.get("tool_name", "")),
         )
@@ -10424,13 +9956,7 @@ class BrainManager:
         """
         # getattr: lightweight managers built without __init__ (fakes, early
         # boot paths) carry no turn state yet — that simply means "none known".
-        return resolve_output_language(
-            self._reply_language,
-            getattr(self, "_turn_detected_lang", ""),
-            user_text or "",
-            default=DEFAULT_LOCALE,
-            conversation_language=getattr(self, "_conversation_language", ""),
-        )
+        return _turn_phrase_language(self, user_text or "")
 
     def _spawn_ack_language(self, user_text: str) -> str:
         """Resolve the language for the spoken spawn acknowledgement.
@@ -10550,11 +10076,7 @@ class BrainManager:
         # the force-spawn path too (the tool-use loop does this for brain
         # function-calls; this caller must do it itself or ctx.config is empty
         # and the language silently falls back — Runtime Output Language).
-        out_lang = resolve_output_language(
-            self._reply_language, "unknown", user_text,
-            default=DEFAULT_LOCALE,
-            conversation_language=self._conversation_language,
-        )
+        out_lang = _turn_phrase_language(self, user_text)
         result = await self._tool_executor.execute(
             tool,
             args,
@@ -10631,11 +10153,7 @@ class BrainManager:
         # Same authoritative-language stamping as the force-spawn path: without
         # a config snapshot ctx.config is empty and spawn_worker's language
         # falls back instead of honoring the resolver (Runtime Output Language).
-        out_lang = resolve_output_language(
-            self._reply_language, "unknown", user_text,
-            default=DEFAULT_LOCALE,
-            conversation_language=self._conversation_language,
-        )
+        out_lang = _turn_phrase_language(self, user_text)
         result = await self._tool_executor.execute(
             tool, args, user_utterance=user_text,
             config_snapshot={"output_language": out_lang},
@@ -10757,14 +10275,14 @@ class BrainManager:
         say plainly that nothing was running. Never silent (audit 2026-06-27)."""
         lang = self._resolve_turn_lang()
         if count > 0:
-            return _CANCEL_CONFIRM.get(lang, _CANCEL_CONFIRM["de"]).format(n=count)
-        return _CANCEL_NONE.get(lang, _CANCEL_NONE["de"])
+            return i18n_catalog.pick(_CANCEL_CONFIRM, lang).format(n=count)
+        return i18n_catalog.pick(_CANCEL_NONE, lang)
 
     def _depth_readback(self, level: str) -> str:
         """Honest spoken confirmation of a depth override. Never silent."""
         lang = self._resolve_turn_lang()
         table = _DEPTH_CONFIRM.get(level, _DEPTH_CONFIRM["deep"])
-        return table.get(lang, table["de"])
+        return i18n_catalog.pick(table, lang)
 
     # ------------------------------------------------------------------
     # Intent-Router → (provider, model) chain
@@ -11091,6 +10609,7 @@ class BrainManager:
         force_output_language: str | None = None,
         consume_pending_voice_attachments: bool = False,
         turn_override: TurnOverride | None = None,
+        language_text: str | None = None,
     ) -> str:
         """Generate a turn, optionally leaving its public response event to the caller.
 
@@ -11103,12 +10622,17 @@ class BrainManager:
         ``turn_override`` runs the turn on a caller-picked provider / model /
         effort with extra tools and tool context (the typed chat's pick) —
         the live brain, its config and its dead-lists are left untouched.
+        ``language_text`` is what the conversation language is read from when
+        ``user_text`` is not the person's own words (an internal "continue"
+        prompt): ``""`` keeps the conversation's language unchanged.
         """
         token = _PUBLISH_RESPONSE_EVENT.set(bool(publish_response))
         history_token = _TURN_HISTORY_OVERRIDE.set(
             tuple(history_override) if history_override is not None else None
         )
         override_token = _TURN_OVERRIDE.set(turn_override)
+        # Armed ("" = no language yet); _update_turn_language fills it in.
+        language_token = TURN_LANGUAGE.set("")
         from jarvis.core.image_references import active_scope
 
         image_scope_token = active_scope.set(
@@ -11133,6 +10657,7 @@ class BrainManager:
                 consume_pending_voice_attachments=(
                     consume_pending_voice_attachments
                 ),
+                language_text=language_text,
             )
         finally:
             # Keep the last completed turn inspectable for diagnostics/tests,
@@ -11144,6 +10669,7 @@ class BrainManager:
             self._skill_injected_inline_fallback = skill_state.injected_inline
             _SKILL_TURN_STATE.reset(skill_token)
             _TURN_OVERRIDE.reset(override_token)
+            TURN_LANGUAGE.reset(language_token)
             active_scope.reset(image_scope_token)
             _TURN_HISTORY_OVERRIDE.reset(history_token)
             _PUBLISH_RESPONSE_EVENT.reset(token)
@@ -11172,6 +10698,7 @@ class BrainManager:
         emit_tool_ack: bool = True,
         force_output_language: str | None = None,
         consume_pending_voice_attachments: bool = False,
+        language_text: str | None = None,
     ) -> str:
         # 1. Intercept meta-commands (cancel, switch, depth override).
         # User request 2026-04-25: no standardised confirmation phrases
@@ -11213,7 +10740,7 @@ class BrainManager:
         # the running conversation language instead of flipping it (forensic
         # 2026-06-18); ambiguous text stays "unknown" -> soft mirror; an explicit
         # reply_language pin leaves it empty -> the directive uses the pin.
-        self._update_turn_language(user_text)
+        self._update_turn_language(user_text if language_text is None else language_text)
 
         # Realtime-delegate language override (live 2026-07-23): the realtime
         # session is the ONE authoritative resolver for a voice turn — its own
@@ -11225,10 +10752,12 @@ class BrainManager:
         # _reply_language_directive() hard-locks it; an explicit
         # brain.reply_language pin still wins (checked first in that directive).
         if (
-            force_output_language in _REPLY_LANG_NAMES
+            is_known_language(force_output_language)
             and self._reply_language not in _REPLY_LANG_NAMES
         ):
             self._turn_detected_lang = force_output_language
+            if TURN_LANGUAGE.get() is not None:
+                TURN_LANGUAGE.set(force_output_language)
 
         # Two-turn voice/chat confirmation resume (turn N+1). MUST run before the
         # cancel-intent intercept: a "nein"/"stop" answer to a pending
@@ -12561,8 +12090,8 @@ class BrainManager:
                     and tool_calls_executed
                     and str(agg.finish_reason or "") == "error"
                 ):
-                    response_text = _MID_ANSWER_ERROR_PHRASES.get(
-                        self._resolve_turn_lang(), _MID_ANSWER_ERROR_PHRASES["de"]
+                    response_text = i18n_catalog.pick(
+                        _MID_ANSWER_ERROR_PHRASES, self._resolve_turn_lang()
                     )
                     log.warning(
                         "Brain %s(%s): stream ended finish_reason=error AFTER "
@@ -12783,13 +12312,7 @@ class BrainManager:
                 no_vision_provider_reply,
             )
 
-            language = resolve_output_language(
-                self._reply_language,
-                "unknown",
-                user_text,
-                default=DEFAULT_LOCALE,
-                conversation_language=self._conversation_language,
-            )
+            language = _turn_phrase_language(self, user_text)
             response_text = no_vision_provider_reply(language)
             await self._record_response_side_effects(
                 user_text=user_text,
@@ -12841,12 +12364,7 @@ class BrainManager:
         # ("de" here, DEFAULT_LOCALE there), so an undetectable turn could speak
         # a German evidence fallback followed by an English honesty phrase in the
         # same breath. All locales are equal — the shared DEFAULT_LOCALE decides.
-        honesty_lang = resolve_output_language(
-            self._reply_language,
-            "unknown",
-            user_text,
-            default=DEFAULT_LOCALE,
-        )
+        honesty_lang = _turn_phrase_language(self, user_text)
 
         # Evidence-gate enforcement (live repro 2026-06-17, session 296abc82):
         # the gate MANDATED a tool this turn, but neither the normal tool loop
@@ -14108,15 +13626,7 @@ def _is_rate_limit_exc(exc: Exception) -> bool:
 
 
 # Leak-recovery fallback variants — see BrainManager._action_failed_phrase.
-_ACTION_FAILED_PHRASES: dict[str, str] = {
-    "de": (
-        "Ich habe die Aktion erkannt, "  # i18n-allow: spoken German TTS
-        "konnte sie aber nicht ausführen."  # i18n-allow: spoken German TTS
-    ),
-    "en": "I recognized the action but couldn't execute it.",
-    "es": "Reconocí la acción, pero no pude ejecutarla.",
-    "pt": "Reconheci a ação, mas não consegui executá-la.",
-}
+_ACTION_FAILED_PHRASES: dict[str, str] = i18n_catalog.table("brain.action_failed")
 
 # DIRECT local-action acknowledgement — see BrainManager._localize_direct_ack.
 # open_app hardcodes a German launch acknowledgement that the DIRECT fast path

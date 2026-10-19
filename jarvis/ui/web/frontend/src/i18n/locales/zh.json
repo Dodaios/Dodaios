@@ -5759,7 +5759,8 @@
       "exited": "{agent} 已不在 {pane} 中运行。",
       "restart_aria": "重启 {pane}",
       "restart_title": "在 {pane} 中重新启动一个 {agent}",
-      "restart": "重启"
+      "restart": "重启",
+      "show_in_git": "在 Git 中显示 {pane} 的更改"
     }
   },
   "prompt_writer": {
@@ -8236,7 +8237,19 @@
         "view_tree": "以树形式查看",
         "view_sort": "视图和排序",
         "working_tree": "工作树",
-        "yes": "是"
+        "yes": "是",
+        "all_changes": "所有更改",
+        "sessions": "代理会话",
+        "pick_session": "显示一个代理会话的更改",
+        "filter_session": "显示一个代理会话的更改…",
+        "filtered_by": "仅显示 {pane} 的更改",
+        "session_since": "自 {when}",
+        "session_clear": "显示所有更改",
+        "session_group": "会话更改",
+        "stage_session": "暂存该会话的待处理更改",
+        "session_empty": "此会话尚未更改任何文件，或其代理不记录编辑。",
+        "session_committed": "已提交",
+        "session_generated": "已隐藏 {n} 个生成的文件"
       }
     },
     "skills": {
@@ -9255,7 +9268,8 @@
       "runs_on": "在 {computer} 上运行。此应用关闭时它仍会继续工作。",
       "worktree_branch": "在独立的 git worktree 中运行，分支 {branch}",
       "drag_hint": "拖动以重新排序，或聚焦此标题后按 Alt 加方向键。",
-      "add_beside": "在 {pane} 旁边添加智能体"
+      "add_beside": "在 {pane} 旁边添加智能体",
+      "show_in_git": "在 Git 中显示更改"
     },
     "request_failed": "请求失败（{status}）。",
     "seam": {
