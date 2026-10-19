@@ -12,10 +12,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import ExecutionContext, Tool
-from jarvis.mcp.adapter import MCPToolAdapter
-from jarvis.mcp.client import MCPClient
-from jarvis.mcp.registry import MCPServerSpec
+from dodaios.core.protocols import ExecutionContext, Tool
+from dodaios.mcp.adapter import MCPToolAdapter
+from dodaios.mcp.client import MCPClient
+from dodaios.mcp.registry import MCPServerSpec
 
 FAKE_SERVER = Path(__file__).parent / "fake_mcp_server.py"
 

@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_chat.team import SeatPick, TeamError, TeamThreads, TeamThreadStore
-from jarvis.agent_chat.team.port import TurnResult
-from jarvis.agent_chat.team.signals import parse_review, parse_vote
-from jarvis.agent_chat.team.workspace import GitWorkspace
+from dodaios.agent_chat.team import SeatPick, TeamError, TeamThreads, TeamThreadStore
+from dodaios.agent_chat.team.port import TurnResult
+from dodaios.agent_chat.team.signals import parse_review, parse_vote
+from dodaios.agent_chat.team.workspace import GitWorkspace
 from tests.fakes.fake_team_turns import (
     AGREE,
     APPROVE,

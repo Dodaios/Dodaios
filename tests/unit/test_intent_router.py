@@ -1,13 +1,13 @@
 """Unit tests for the intent-level router (fast/deep/code provider selection).
 
-Not to be confused with the Phase-5 tier router (`jarvis/brain/router.py`),
+Not to be confused with the Phase-5 tier router (`dodaios/brain/router.py`),
 which classifies action targets (trivial/direct_action/spawn_worker).
 """
 from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.intent_router import classify
+from dodaios.brain.intent_router import classify
 
 
 @pytest.mark.parametrize("text", [

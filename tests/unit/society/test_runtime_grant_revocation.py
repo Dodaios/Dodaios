@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_runtimes import gateway
-from jarvis.society.roster import Roster
-from jarvis.society.store import SocietyStore
+from dodaios.agent_runtimes import gateway
+from dodaios.society.roster import Roster
+from dodaios.society.store import SocietyStore
 
 
 class FakeGateway:

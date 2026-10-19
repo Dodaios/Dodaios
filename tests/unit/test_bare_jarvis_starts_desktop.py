@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.__main__ as main_mod
+import dodaios.__main__ as main_mod
 
 
 class _Recorder:
@@ -68,7 +68,7 @@ def test_tray_only_behind_its_own_flag(desktop: _Recorder, tray: _Recorder) -> N
 def test_serve_stays_headless(desktop: _Recorder, tray: _Recorder) -> None:
     """`jarvis serve` is the window-less path and must not grow a window."""
     rec = _Recorder()
-    import jarvis.ui.web.launcher as launcher_mod
+    import dodaios.ui.web.launcher as launcher_mod
 
     original = launcher_mod.main
     launcher_mod.main = rec  # type: ignore[assignment]
@@ -94,7 +94,7 @@ def test_debug_travels_as_env_not_as_argv(monkeypatch: pytest.MonkeyPatch) -> No
         seen["env"] = main_mod.os.environ.get("JARVIS_DEBUG")
         return 0
 
-    import jarvis.ui.web.launcher as launcher_mod
+    import dodaios.ui.web.launcher as launcher_mod
 
     monkeypatch.setattr(launcher_mod, "main", _fake_launcher_main)
     monkeypatch.setattr(main_mod, "_missing_desktop_dependency", lambda: None)
@@ -158,7 +158,7 @@ def test_readme_still_documents_bare_jarvis_as_the_desktop_entry() -> None:
 def test_tray_import_is_not_on_the_desktop_boot_path() -> None:
     """The tray toolkit must not be imported for the normal start (AP-26).
 
-    ``jarvis.ui.tray`` pulls in pystray/PIL. Now that the tray is a rarely used
+    ``dodaios.ui.tray`` pulls in pystray/PIL. Now that the tray is a rarely used
     opt-in, paying for it on every desktop launch is dead weight on the boot
     critical path. Measured in a fresh interpreter rather than read out of the
     source: a ``TYPE_CHECKING`` import reads like an import but never runs, and
@@ -167,8 +167,8 @@ def test_tray_import_is_not_on_the_desktop_boot_path() -> None:
     import subprocess
 
     probe = (
-        "import sys; import jarvis.__main__; "
-        "print('LOADED' if 'jarvis.ui.tray' in sys.modules else 'CLEAN')"
+        "import sys; import dodaios.__main__; "
+        "print('LOADED' if 'dodaios.ui.tray' in sys.modules else 'CLEAN')"
     )
     out = subprocess.run(
         [sys.executable, "-c", probe],
@@ -179,7 +179,7 @@ def test_tray_import_is_not_on_the_desktop_boot_path() -> None:
     )
     assert out.returncode == 0, f"probe failed: {out.stderr}"
     assert out.stdout.strip() == "CLEAN", (
-        "importing jarvis.__main__ pulls in jarvis.ui.tray — move that import "
+        "importing dodaios.__main__ pulls in dodaios.ui.tray — move that import "
         "into _run_tray_app so the desktop path does not pay for pystray"
     )
 
@@ -188,16 +188,16 @@ def test_tray_import_is_not_on_the_desktop_boot_path() -> None:
 def test_windows_start_paths_agree_on_the_launcher_module() -> None:
     """The Start-Menu shortcut and the CLI must start the SAME thing.
 
-    The shortcut runs ``pythonw -m jarvis.ui.web.launcher``; bare ``jarvis``
+    The shortcut runs ``pythonw -m dodaios.ui.web.launcher``; bare ``jarvis``
     now routes to ``launcher.main`` as well. If those two ever drift apart, one
     of the two documented ways to start the app breaks without a test noticing.
     """
-    from jarvis.ui.icon_utils import _LAUNCHER_MODULE
+    from dodaios.ui.icon_utils import _LAUNCHER_MODULE
 
-    assert _LAUNCHER_MODULE == "jarvis.ui.web.launcher"
+    assert _LAUNCHER_MODULE == "dodaios.ui.web.launcher"
     import inspect
 
-    assert "from jarvis.ui.web import launcher" in inspect.getsource(
+    assert "from dodaios.ui.web import launcher" in inspect.getsource(
         main_mod._run_desktop
     )
 
@@ -239,8 +239,8 @@ def _no_foreground_launch(argv: list[str]) -> int:
 def test_terminal_launch_returns_the_prompt(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    import jarvis.ui.relauncher as relauncher_mod
-    import jarvis.ui.web.launcher as launcher_mod
+    import dodaios.ui.relauncher as relauncher_mod
+    import dodaios.ui.web.launcher as launcher_mod
 
     spawned: list[object] = []
     monkeypatch.setattr(main_mod, "_missing_desktop_dependency", lambda: None)
@@ -255,7 +255,7 @@ def test_terminal_launch_returns_the_prompt(
 
 
 def test_foreground_flag_keeps_the_app_in_this_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.ui.web.launcher as launcher_mod
+    import dodaios.ui.web.launcher as launcher_mod
 
     seen: list[list[str]] = []
     monkeypatch.setattr(main_mod, "_missing_desktop_dependency", lambda: None)
@@ -268,7 +268,7 @@ def test_foreground_flag_keeps_the_app_in_this_terminal(monkeypatch: pytest.Monk
 
 def test_detached_launch_keeps_the_terminal_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """A `JARVIS__*` override typed into that shell is what the user meant."""
-    import jarvis.ui.relauncher as relauncher_mod
+    import dodaios.ui.relauncher as relauncher_mod
 
     captured: dict[str, object] = {}
 
@@ -283,7 +283,7 @@ def test_detached_launch_keeps_the_terminal_environment(monkeypatch: pytest.Monk
     env = captured["env"]
     assert isinstance(env, dict)
     assert env["JARVIS__BRAIN__PROVIDER"] == "terminal-choice"
-    from jarvis.core.instance import current_instance
+    from dodaios.core.instance import current_instance
 
     branded = current_instance().windows_branded_launcher_file_name.casefold()
     if Path(captured["argv"][0]).name.casefold() != branded:  # type: ignore[index]

@@ -10,8 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.cu.actuate.base import ActuationUnavailable
-from jarvis.plugins.tool import move_mouse as mm
+from dodaios.cu.actuate.base import ActuationUnavailable
+from dodaios.plugins.tool import move_mouse as mm
 
 
 @pytest.mark.asyncio
@@ -26,7 +26,7 @@ async def test_posix_headless_reports_actionable_message(
             "host (headless). Computer-Use needs a desktop session."
         )
 
-    monkeypatch.setattr("jarvis.cu.actuate.base.get_actuator", _unavailable)
+    monkeypatch.setattr("dodaios.cu.actuate.base.get_actuator", _unavailable)
 
     res = await mm.MoveMouseTool().execute({"x": 10, "y": 20}, SimpleNamespace())
 
@@ -52,7 +52,7 @@ async def test_posix_success_moves_via_probed_backend(
             return moves[-1]
 
     monkeypatch.setattr(
-        "jarvis.cu.actuate.base.get_actuator", lambda: _FakeActuator()
+        "dodaios.cu.actuate.base.get_actuator", lambda: _FakeActuator()
     )
 
     res = await mm.MoveMouseTool().execute({"x": 5, "y": 7}, SimpleNamespace())

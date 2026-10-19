@@ -1,4 +1,4 @@
-"""``jarvis.core.identity_migration`` — moving an install to a new name without losing it.
+"""``dodaios.core.identity_migration`` — moving an install to a new name without losing it.
 
 Why this file matters: the engine is what will carry a real person's data
 directory, install directory and stored credentials from one product name to
@@ -25,8 +25,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import identity_migration as engine
-from jarvis.core.identity_migration import (
+from dodaios.core import identity_migration as engine
+from dodaios.core.identity_migration import (
     DirectoryOutcome,
     KeyringOutcome,
     LegacyState,
@@ -39,7 +39,7 @@ from jarvis.core.identity_migration import (
     migrate_keyring,
     resolve_directory,
 )
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from tests.fakes.fake_keyring_backend import FakeKeyringBackend
 from tests.package_names import PACKAGE_NAMES
 

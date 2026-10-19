@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from jarvis.dictation.segment import is_silent_segment, segment_energy
+from dodaios.dictation.segment import is_silent_segment, segment_energy
 
 
 def _tone(amplitude: int, seconds: float = 1.0, sample_rate: int = 16_000) -> bytes:

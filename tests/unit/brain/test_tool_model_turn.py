@@ -1,9 +1,9 @@
 """Capability-aware Tool Model resolution for delegated turns."""
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     BrainProviderConfig,
     BrainTierConfig,
     JarvisConfig,

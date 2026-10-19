@@ -7,7 +7,7 @@ import pytest
 from asyncssh.constants import MSG_CHANNEL_OPEN, MSG_CHANNEL_OPEN_CONFIRMATION
 from asyncssh.packet import PacketDecodeError, SSHPacket, String, UInt32
 
-from jarvis.computers.ssh_packet_guard import guarded_client_factory, install_channel_guard
+from dodaios.computers.ssh_packet_guard import guarded_client_factory, install_channel_guard
 
 
 def packet_for(kind, size):

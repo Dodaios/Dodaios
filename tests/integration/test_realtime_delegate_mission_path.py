@@ -17,24 +17,24 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.factory import ROUTER_TOOLS
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainTierConfig, JarvisConfig
-from jarvis.missions.budget import BudgetTracker
-from jarvis.missions.critic.verdict import (
+from dodaios.brain.factory import ROUTER_TOOLS
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainTierConfig, JarvisConfig
+from dodaios.missions.budget import BudgetTracker
+from dodaios.missions.critic.verdict import (
     REQUIRED_AXES,
     CriticAxis,
     CriticVerdict,
 )
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.kontrollierer.orchestrator import Kontrollierer
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
-from jarvis.plugins.tool.spawn_worker import SpawnWorkerTool
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
-from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.kontrollierer.orchestrator import Kontrollierer
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
+from dodaios.plugins.tool.spawn_worker import SpawnWorkerTool
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
+from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
 
 @dataclass(slots=True)
@@ -321,7 +321,7 @@ async def test_realtime_delegate_reaches_supervised_mission_without_legacy_revie
     )
     brain._registry._loaded = True
     monkeypatch.setattr(
-        "jarvis.brain.factory.is_worker_bootstrap_failed",
+        "dodaios.brain.factory.is_worker_bootstrap_failed",
         lambda: False,
     )
 

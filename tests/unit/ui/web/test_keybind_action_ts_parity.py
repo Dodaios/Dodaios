@@ -29,11 +29,11 @@ import json
 import re
 from pathlib import Path
 
-from jarvis.core.config import TriggerConfig
-from jarvis.core.config_writer import KEYBIND_ACTIONS, KEYBIND_TOML_KEY
+from dodaios.core.config import TriggerConfig
+from dodaios.core.config_writer import KEYBIND_ACTIONS, KEYBIND_TOML_KEY
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_FRONTEND = _REPO_ROOT / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src"
 _HOTKEY_TS = _FRONTEND / "hooks" / "useHotkey.ts"
 _LOCALES = _FRONTEND / "i18n" / "locales"
 

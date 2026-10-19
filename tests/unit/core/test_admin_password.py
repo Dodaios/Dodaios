@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from jarvis.core.admin_password import (
+from dodaios.core.admin_password import (
     check_admin_pass,
     hash_admin_password,
     is_legacy_hash,
     verify_admin_password,
 )
-from jarvis.core.config import SecurityConfig
+from dodaios.core.config import SecurityConfig
 
 # SHA-256 hex of "legacy-pass" -- the pre-scrypt stored format.
 _LEGACY = "c4ebc632c03529cf9f121d07055ee260606f7907540be42424cd2af15a0bf342"

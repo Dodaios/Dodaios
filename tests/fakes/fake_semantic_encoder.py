@@ -16,7 +16,7 @@ from typing import Any
 
 import numpy as np
 
-from jarvis.memory.wiki.semantic_model import EMBEDDING_DIMENSIONS
+from dodaios.memory.wiki.semantic_model import EMBEDDING_DIMENSIONS
 
 #: Concept -> the words that express it, in any language the tests use.
 DEFAULT_CONCEPTS: dict[str, tuple[str, ...]] = {

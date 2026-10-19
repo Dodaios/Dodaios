@@ -8,7 +8,7 @@ import typing
 
 import pytest
 
-from jarvis.brain.voice_command_gate import VoiceCommandMatch, match_voice_command
+from dodaios.brain.voice_command_gate import VoiceCommandMatch, match_voice_command
 
 from tests.unit.brain.voice_command_cases import RECOGNITION_CASES
 

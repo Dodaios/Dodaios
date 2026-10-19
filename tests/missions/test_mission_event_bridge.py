@@ -6,10 +6,10 @@ non-terminal events must NOT leak through.
 """
 from __future__ import annotations
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import MissionCompleted
-from jarvis.missions.event_bus import MissionBus
-from jarvis.missions.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import MissionCompleted
+from dodaios.missions.event_bus import MissionBus
+from dodaios.missions.events import (
     EventEnvelope,
     MissionApproved,
     MissionCancelled,
@@ -18,7 +18,7 @@ from jarvis.missions.events import (
     WorkerProgress,
     now_ms,
 )
-from jarvis.missions.task_bridge import MissionEventBridge
+from dodaios.missions.task_bridge import MissionEventBridge
 
 
 def _env(payload, *, mission_id: str = "m1", source_actor: str = "kontrollierer"):
@@ -94,7 +94,7 @@ async def test_non_terminal_event_does_not_bridge() -> None:
 
 async def test_completed_signal_matches_status_filter() -> None:
     """The flat ``status`` field must satisfy the scheduler's filter_expr AST."""
-    from jarvis.tasks.scheduler import _match_filter
+    from dodaios.tasks.scheduler import _match_filter
 
     sig = MissionCompleted(mission_id="m1", status="approved")
     assert _match_filter(sig, "status == 'approved'") is True

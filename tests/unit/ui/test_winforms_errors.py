@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui import winforms_errors as errors
+from dodaios.ui import winforms_errors as errors
 
 
 class Event:

@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.plugins.tool.run_shell import RunShellTool
-from jarvis.safety.command_impact import (
+from dodaios.plugins.tool.run_shell import RunShellTool
+from dodaios.safety.command_impact import (
     DESTRUCTIVE,
     MODIFY,
     READ,

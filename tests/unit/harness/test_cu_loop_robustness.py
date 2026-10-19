@@ -21,16 +21,16 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.harness.screenshot_only_loop as loop_mod
-from jarvis.core.protocols import (
+import dodaios.harness.screenshot_only_loop as loop_mod
+from dodaios.core.protocols import (
     BrainDelta,
     HarnessResult,
     HarnessTask,
     ImageBlock,
     Observation,
 )
-from jarvis.harness.computer_use_context import ComputerUseContext
-from jarvis.harness.screenshot_only_loop import (
+from dodaios.harness.computer_use_context import ComputerUseContext
+from dodaios.harness.screenshot_only_loop import (
     CULoopError,
     CUNoCapableProviderError,
     _NO_PROVIDER_EXIT_CODE,
@@ -248,7 +248,7 @@ def _isolate_host(monkeypatch: pytest.MonkeyPatch) -> None:
     # the real OpenInputDesktop Win32 call from a test; the elevation tests
     # override this with their own injected sequence.
     monkeypatch.setattr(
-        "jarvis.platform.privileged_prompt.privileged_prompt_active",
+        "dodaios.platform.privileged_prompt.privileged_prompt_active",
         lambda: False,
     )
     # Keep the UI-tree-source singleton hermetic between tests.
@@ -1222,7 +1222,7 @@ async def test_screenshot_and_label_enumeration_run_concurrently(
 def test_ui_tree_source_is_built_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """_foreground_clickable_labels used to construct a fresh UI tree source
     on every step; ``_get_ui_tree_source`` must build once and reuse."""
-    import jarvis.vision.tree_factory as tree_factory
+    import dodaios.vision.tree_factory as tree_factory
 
     built = {"count": 0}
 
@@ -1446,7 +1446,7 @@ async def test_drag_action_performs_press_move_release(monkeypatch) -> None:
     """A drag action must reach the mouse layer with both endpoints resolved."""
     calls: list = []
     monkeypatch.setattr(
-        "jarvis.harness.screenshot_only_loop._perform_drag",
+        "dodaios.harness.screenshot_only_loop._perform_drag",
         lambda *a, **k: calls.append((a, k)),
     )
     brain = FakeBrain(script=[
@@ -1463,7 +1463,7 @@ async def test_drag_action_performs_press_move_release(monkeypatch) -> None:
 
 
 def test_drag_is_in_the_action_vocabulary() -> None:
-    from jarvis.harness import screenshot_only_loop as loop
+    from dodaios.harness import screenshot_only_loop as loop
 
     assert "drag" in loop._VALID_ACTIONS
     assert "drag" in loop._SYSTEM_PROMPT  # the model is told the shape exists
@@ -1596,7 +1596,7 @@ def _patch_prompt_probe(monkeypatch: pytest.MonkeyPatch, seq: Any) -> None:
     of bools (the last value repeats)."""
     if isinstance(seq, bool):
         monkeypatch.setattr(
-            "jarvis.platform.privileged_prompt.privileged_prompt_active",
+            "dodaios.platform.privileged_prompt.privileged_prompt_active",
             lambda: seq,
         )
         return
@@ -1609,7 +1609,7 @@ def _patch_prompt_probe(monkeypatch: pytest.MonkeyPatch, seq: Any) -> None:
         return v
 
     monkeypatch.setattr(
-        "jarvis.platform.privileged_prompt.privileged_prompt_active", _probe
+        "dodaios.platform.privileged_prompt.privileged_prompt_active", _probe
     )
 
 
@@ -1633,7 +1633,7 @@ async def test_observe_failure_during_uac_pauses_and_resumes(
     chunks = await run_loop(ctx, "Kannst du eine Aufnahme starten?")
 
     assert chunks[-1].exit_code == 0
-    from jarvis.voice.action_phrases import action_phrase
+    from dodaios.voice.action_phrases import action_phrase
     texts = [getattr(e, "text", "") for e in bus.events]
     assert action_phrase("cu_awaiting_elevation", "de") in texts
 
@@ -1687,7 +1687,7 @@ async def test_uac_detected_before_brain_call_skips_blind_step(
     assert len(brain.requests) == 1
     # The goal is English, so the spoken ask resolves to English (Output-Language
     # doctrine: never a hardcoded locale).
-    from jarvis.voice.action_phrases import action_phrase
+    from dodaios.voice.action_phrases import action_phrase
     texts = [getattr(e, "text", "") for e in bus.events]
     assert action_phrase("cu_awaiting_elevation", "en") in texts
 

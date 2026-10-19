@@ -13,10 +13,10 @@ import uuid
 
 import pytest
 
-from jarvis.admin.executor import AdminExecutor
-from jarvis.admin.ipc import AdminPipeClient, AdminPipeServer
-from jarvis.admin.schema import ReadRegistryOp
-from jarvis.admin.transport import current_user_sid
+from dodaios.admin.executor import AdminExecutor
+from dodaios.admin.ipc import AdminPipeClient, AdminPipeServer
+from dodaios.admin.schema import ReadRegistryOp
+from dodaios.admin.transport import current_user_sid
 
 pytestmark = [pytest.mark.phase5, pytest.mark.skip_ci]
 

@@ -1,0 +1,848 @@
+"""WorkflowRunner — executes WorkflowDefs step by step.
+
+Design principles:
+
+1. **Sequential**, not parallel. Most user workflows are
+   "do this, then that, then say the result" — DAG parallelism only
+   comes in v2, once someone actually needs it.
+2. **All dependencies are optional.** If the BrainManager is missing,
+   the ``brain_prompt`` step raises a clean error, but the runner
+   doesn't crash. This lets tests run without the full infrastructure.
+3. **Template variables** are expanded via substring replace before
+   execution. Scope: ``{{prev.output}}``, ``{{step_N.output}}``,
+   ``{{input.<key>}}`` — everything else stays literal.
+4. **Events** go to the bus (``WorkflowStarted``, ``WorkflowStepStarted``,
+   ``WorkflowStepCompleted``, ``WorkflowCompleted``). The UI listens for
+   these and renders live updates.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+import logging
+import re
+import time
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Protocol
+
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
+    AnnouncementRequested,
+    WorkflowCompleted,
+    WorkflowStarted,
+    WorkflowStepCompleted,
+    WorkflowStepStarted,
+)
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.voice.action_phrases import (
+    action_phrase,
+    extract_speakable_reason,
+    resolve_ambient_language,
+)
+
+from .schema import (
+    WorkflowDef,
+    step_display_label,
+)
+
+if TYPE_CHECKING:
+    from .store import WorkflowStore
+
+
+log = logging.getLogger(__name__)
+
+_PREVIEW_MAX = 240
+#: Longest a failure reason may be when it is SPOKEN. Long enough for a real
+#: sentence, short enough that a stack-shaped error does not become a monologue.
+_SPOKEN_REASON_MAX = 160
+#: How long a background thing that keeps failing stays quiet after it has said
+#: so once. One hour: a permanently broken routine becomes an hourly reminder,
+#: never a per-run metronome.
+FAILURE_REANNOUNCE_S = 3600.0
+
+
+class FailureAnnouncer:
+    """Suppression rule for "this ran in the background and broke" reports.
+
+    Two failures pull in opposite directions: a routine that breaks ONCE must
+    be said out loud, and a routine that breaks every 60 seconds must not be
+    said out loud every 60 seconds. The rule that satisfies both:
+
+    * the first failure of a key speaks immediately;
+    * while the same key keeps failing it stays silent for ``cooldown_s``,
+      then speaks again;
+    * a success calls :meth:`clear`, so the next NEW failure after a recovery
+      speaks at once instead of waiting the cooldown out.
+
+    Lives here and is imported by the scheduler so the two layers cannot drift
+    into two different rules — a failing cron routine passes through both.
+    """
+
+    def __init__(self, cooldown_s: float = FAILURE_REANNOUNCE_S) -> None:
+        self._cooldown_s = cooldown_s
+        self._last_spoken: dict[str, float] = {}
+
+    def should_speak(self, key: str) -> bool:
+        """True when this failure may be announced. Records the moment it is."""
+        now = time.monotonic()
+        previous = self._last_spoken.get(key)
+        if previous is not None and (now - previous) < self._cooldown_s:
+            return False
+        self._last_spoken[key] = now
+        return True
+
+    def clear(self, key: str) -> None:
+        """Forget ``key`` — it just succeeded, so its next failure is news."""
+        self._last_spoken.pop(key, None)
+
+
+# ----------------------------------------------------------------------
+# Protocol stubs for dependency injection
+# ----------------------------------------------------------------------
+
+
+class _BrainLike(Protocol):
+    async def __call__(self, prompt: str) -> str: ...
+
+
+class _HarnessManagerLike(Protocol):
+    async def dispatch(self, name: str, task: Any) -> Any: ...
+
+
+class _ToolExecutorLike(Protocol):
+    async def execute(self, tool: Any, args: dict[str, Any], **kwargs: Any) -> Any: ...
+
+
+# ----------------------------------------------------------------------
+# Live view onto a BrainManager's tools
+# ----------------------------------------------------------------------
+
+
+class BrainToolSurface:
+    """Live view of the brain's tool registry AND its ToolExecutor.
+
+    Serves both ``attach_tools`` arguments — ``attach_tools(surface, surface)``
+    — because both sides hang off the same brain reference: ``brain._tools``
+    is the registry, ``brain._tool_executor_ref`` the executor.
+
+    Why a view instead of the dict itself: ``BrainManager.refresh_tools()``
+    REPLACES ``_tools`` wholesale, and it fires on every CLI/MCP server that
+    connects. A dict captured at wiring time would freeze the workflow runner
+    on the tool set from boot. Every lookup here re-reads the current one.
+
+    The brain reference is a callable, so the bootstrap can wire this up
+    before the (deferred) brain build has finished. Until it does, the
+    registry simply reads empty and a ``tool_call`` step fails with an honest
+    "tool not in registry" instead of silently doing nothing.
+    """
+
+    def __init__(self, brain_ref: Callable[[], Any]) -> None:
+        self._brain_ref = brain_ref
+
+    def _registry(self) -> dict[str, Any]:
+        brain = self._brain_ref()
+        return getattr(brain, "_tools", None) or {}
+
+    def __contains__(self, name: object) -> bool:
+        return name in self._registry()
+
+    def __getitem__(self, name: str) -> Any:
+        return self._registry()[name]
+
+    def get(self, name: str, default: Any = None) -> Any:
+        return self._registry().get(name, default)
+
+    async def execute(self, tool: Any, args: dict[str, Any], **kwargs: Any) -> Any:
+        executor = getattr(self._brain_ref(), "_tool_executor_ref", None)
+        if executor is None:
+            raise RuntimeError("No ToolExecutor available — the brain is still starting up")
+        return await executor.execute(tool, args, **kwargs)
+
+
+# ----------------------------------------------------------------------
+# Runner
+# ----------------------------------------------------------------------
+
+
+class WorkflowRunner:
+    """Executor for WorkflowDefs — one instance per app, many parallel runs."""
+
+    def __init__(
+        self,
+        store: WorkflowStore,
+        bus: EventBus,
+        *,
+        brain: _BrainLike | None = None,
+        harness_manager: _HarnessManagerLike | None = None,
+        tool_registry: Any = None,
+        tool_executor: _ToolExecutorLike | None = None,
+    ) -> None:
+        self._store = store
+        self._bus = bus
+        self._brain = brain
+        self._harness = harness_manager
+        self._tools = tool_registry
+        self._executor = tool_executor
+        #: Keyed by workflow id — see :class:`FailureAnnouncer`.
+        self._failures = FailureAnnouncer()
+
+    # ------------------------------------------------------------------
+    # Runtime dependency swap (the BrainManager is only built after the
+    # workflow store; we hot-swap it in afterward).
+    # ------------------------------------------------------------------
+
+    def attach_brain(self, brain: _BrainLike) -> None:
+        self._brain = brain
+
+    def attach_harness_manager(self, hm: _HarnessManagerLike) -> None:
+        self._harness = hm
+
+    def attach_tools(self, registry: Any, executor: _ToolExecutorLike) -> None:
+        self._tools = registry
+        self._executor = executor
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def announce_activation(self, workflow_id: str, enabled: bool) -> None:
+        from dodaios.core.events import WorkflowActivationChanged
+
+        await self._bus.publish(
+            WorkflowActivationChanged(
+                workflow_id=workflow_id,
+                enabled=enabled,
+                source_layer="workflows.definition",
+            )
+        )
+
+    async def trigger(
+        self,
+        workflow_id: str,
+        *,
+        trigger_reason: str = "manual",
+        input_data: dict[str, Any] | None = None,
+    ) -> str:
+        """Starts a workflow run fire-and-forget. Returns the run ID.
+
+        The actual run runs as an ``asyncio.create_task`` — the caller
+        (REST route, cron scheduler) can continue immediately and track
+        the run via ``run_id`` polling/live events.
+        """
+        wf = await self._store.get_def(workflow_id)
+        if wf is None:
+            raise KeyError(f"Workflow {workflow_id} not found")
+        from dodaios.core.protocols import current_trigger_path
+
+        marker = "workflow:" + workflow_id
+        path = current_trigger_path.get()
+        if marker in path or len(path) >= 16:
+            raise ValueError("Workflow dependency cycle detected")
+        run_id = await self._store.create_run(
+            workflow_id,
+            trigger=trigger_reason,
+            input_data=input_data,
+        )
+        token = current_trigger_path.set(path + (marker,))
+        try:
+            asyncio.create_task(
+                self._run_workflow(wf, run_id, trigger_reason, input_data or {}),
+                name=f"workflow-{wf.name}-{run_id[:8]}",
+            )
+        finally:
+            current_trigger_path.reset(token)
+        return run_id
+
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
+
+    async def _run_workflow(
+        self,
+        wf: WorkflowDef,
+        run_id: str,
+        trigger_reason: str,
+        input_data: dict[str, Any],
+    ) -> None:
+        start = time.perf_counter()
+        await self._store.update_run_state(run_id, "running")
+        await self._bus.publish(
+            WorkflowStarted(
+                workflow_id=str(wf.id),
+                run_id=run_id,
+                trigger=trigger_reason,
+                title=wf.name,
+                source_layer="workflows.runner",
+            )
+        )
+
+        step_outputs: dict[str, str] = {}
+        success = True
+        error_msg: str | None = None
+        # Kept for the spoken failure report below. ``failed_reason`` is the
+        # exception's own MESSAGE, never the ``ClassName: message`` form the
+        # store and the events carry — an exception class name means nothing to
+        # the person listening.
+        failed_step_index = 0
+        failed_step_label = ""
+        failed_reason = ""
+
+        for idx, step in enumerate(wf.steps, start=1):
+            label = step_display_label(step)
+            await self._store.start_step(run_id, idx, step.kind, label)
+            await self._bus.publish(
+                WorkflowStepStarted(
+                    run_id=run_id,
+                    step_index=idx,
+                    kind=step.kind,
+                    label=label,
+                    source_layer="workflows.runner",
+                )
+            )
+
+            step_start = time.perf_counter()
+            try:
+                output = await self._execute_step(step, step_outputs, input_data)
+            except Exception as exc:  # noqa: BLE001
+                duration_ms = int((time.perf_counter() - step_start) * 1000)
+                error_text = f"{type(exc).__name__}: {exc}"
+                await self._store.finish_step(
+                    run_id,
+                    idx,
+                    success=False,
+                    error=error_text,
+                )
+                await self._bus.publish(
+                    WorkflowStepCompleted(
+                        run_id=run_id,
+                        step_index=idx,
+                        success=False,
+                        duration_ms=duration_ms,
+                        error=error_text,
+                        source_layer="workflows.runner",
+                    )
+                )
+                success = False
+                error_msg = error_text
+                failed_step_index = idx
+                # The AUTHOR's own label only. ``step_display_label``'s fallback
+                # is engineering shorthand ("Tool: spawn_worker", "Shell: git
+                # status") — fine in a UI timeline, never in a spoken sentence;
+                # the plain ordinal stands in for it.
+                failed_step_label = getattr(step, "label", "") or ""
+                failed_reason = str(exc).strip()
+                log.warning("Workflow %s step %d failed: %s", wf.name, idx, error_text)
+                break
+
+            duration_ms = int((time.perf_counter() - step_start) * 1000)
+            step_outputs[f"step_{idx}"] = output
+            step_outputs["prev"] = output
+            await self._store.finish_step(
+                run_id,
+                idx,
+                success=True,
+                output=output,
+            )
+            await self._bus.publish(
+                WorkflowStepCompleted(
+                    run_id=run_id,
+                    step_index=idx,
+                    success=True,
+                    duration_ms=duration_ms,
+                    output_preview=output[:_PREVIEW_MAX],
+                    source_layer="workflows.runner",
+                )
+            )
+
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        final_state = "completed" if success else "failed"
+        await self._store.update_run_state(run_id, final_state, error=error_msg)
+        await self._store.set_last_run(str(wf.id), time.time_ns(), final_state)
+        await self._bus.publish(
+            WorkflowCompleted(
+                workflow_id=str(wf.id),
+                run_id=run_id,
+                success=success,
+                duration_ms=duration_ms,
+                error=error_msg,
+                source_layer="workflows.runner",
+            )
+        )
+
+        # A broken chain used to end HERE: the ``break`` above skipped the
+        # trailing speak step, so the run that had the most to report was the
+        # one that said nothing (AU-13). The chain still stops — it just says
+        # why first.
+        if success:
+            self._failures.clear(str(wf.id))
+        else:
+            await self._announce_failure(
+                wf,
+                failed_step_index,
+                failed_step_label,
+                failed_reason,
+            )
+
+    async def _announce_failure(
+        self,
+        wf: WorkflowDef,
+        step_index: int,
+        step_label: str,
+        reason: str,
+    ) -> None:
+        """Say, in plain language, that a routine stopped and what stopped it.
+
+        Reuses the announcement path every other background result travels
+        (``AnnouncementRequested(kind="subagent")``, as in
+        ``dodaios/tasks/runner.py:225``): it survives the voice hangup gate and
+        is mirrored to browser tabs, so it reaches the user on a headless
+        runtime too. Rate-limited per workflow — see :class:`FailureAnnouncer`.
+        """
+        if not self._failures.should_speak(str(wf.id)):
+            log.info(
+                "Workflow %s failed again within the announce cooldown — "
+                "reported once already, staying quiet",
+                wf.name,
+            )
+            return
+        lang = resolve_ambient_language()
+        where = step_label or action_phrase(
+            "workflow_step_ordinal",
+            lang,
+            n=step_index,
+        )
+        # The gate that keeps opaque tokens out of speech — a bare "exit 1", a
+        # numeric blob or internal diagnostics degrade to the reasonless line.
+        speakable = extract_speakable_reason(reason)
+        if speakable:
+            text = action_phrase(
+                "workflow_step_failed_reason",
+                lang,
+                name=wf.name,
+                step=where,
+                reason=speakable[:_SPOKEN_REASON_MAX],
+            )
+        else:
+            text = action_phrase(
+                "workflow_step_failed",
+                lang,
+                name=wf.name,
+                step=where,
+            )
+        await self._bus.publish(
+            AnnouncementRequested(
+                text=text,
+                language=lang,
+                kind="subagent",
+                source_layer="workflows.runner",
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # Step dispatch
+    # ------------------------------------------------------------------
+
+    async def _execute_step(
+        self,
+        step: Any,
+        step_outputs: dict[str, str],
+        input_data: dict[str, Any],
+    ) -> str:
+        if step.kind == "brain_prompt":
+            return await self._run_brain_prompt(step, step_outputs, input_data)
+        if step.kind == "harness_dispatch":
+            return await self._run_harness(step, step_outputs, input_data)
+        if step.kind == "speak":
+            return await self._run_speak(step, step_outputs, input_data)
+        if step.kind == "tool_call":
+            return await self._run_tool_call(step, step_outputs, input_data)
+        if step.kind == "shell_cmd":
+            return await self._run_shell_cmd(step, step_outputs, input_data)
+        if step.kind == "telegram_send":
+            return await self._run_telegram_send(step, step_outputs, input_data)
+        raise RuntimeError(f"Unknown step kind: {step.kind}")
+
+    async def _run_brain_prompt(
+        self,
+        step: Any,
+        outputs: dict[str, str],
+        input_data: dict[str, Any],
+    ) -> str:
+        if self._brain is None:
+            raise RuntimeError("No brain available — workflow requires a BrainManager")
+        prompt = _expand_template(step.prompt, outputs, input_data)
+        reply = await _run_isolated_or_call(self._brain, step, prompt)
+        # Cap at the user-defined max_output_chars
+        cap = getattr(step, "max_output_chars", 2000)
+        if len(reply) > cap:
+            reply = reply[:cap] + "…"
+        return reply
+
+    async def _run_harness(
+        self,
+        step: Any,
+        outputs: dict[str, str],
+        input_data: dict[str, Any],
+    ) -> str:
+        if self._harness is None:
+            raise RuntimeError("No HarnessManager available")
+        from dodaios.core.protocols import HarnessTask
+
+        prompt = _expand_template(step.prompt, outputs, input_data)
+        task = HarnessTask(
+            prompt=prompt,
+            allow_computer_use=step.allow_computer_use,
+        )
+        stdout_chunks: list[str] = []
+        final_exit = 0
+        gen = self._harness.dispatch(step.harness, task)
+        if asyncio.iscoroutine(gen):
+            gen = await gen
+        async for result in gen:
+            out = getattr(result, "stdout", "") or ""
+            if out:
+                stdout_chunks.append(out)
+            if getattr(result, "is_final", False):
+                final_exit = int(getattr(result, "exit_code", 0))
+                break
+        full = "".join(stdout_chunks).strip()
+        if final_exit != 0:
+            raise RuntimeError(f"Harness '{step.harness}' exit_code={final_exit}: {full[-400:]}")
+        return full
+
+    async def _run_speak(
+        self,
+        step: Any,
+        outputs: dict[str, str],
+        input_data: dict[str, Any],
+    ) -> str:
+        text = _expand_template(step.text, outputs, input_data)
+        language = str(step.language or "").strip().lower()
+        if language in ("", "auto"):
+            # No pinned language: follow the ambient answer language at run
+            # time (reply pin, else the default locale), never a fixed one.
+            language = resolve_ambient_language()
+        await self._bus.publish(
+            AnnouncementRequested(
+                text=text,
+                priority=step.priority,
+                language=language,
+                source_layer="workflows.runner",
+            )
+        )
+        return text
+
+    async def _run_tool_call(
+        self,
+        step: Any,
+        outputs: dict[str, str],
+        input_data: dict[str, Any],
+    ) -> str:
+        if self._tools is None or self._executor is None:
+            raise RuntimeError("Tool registry/executor not available")
+        tool = None
+        try:
+            if step.tool_name in self._tools:
+                tool = self._tools[step.tool_name]
+        except TypeError:
+            pass
+        if tool is None:
+            getter = getattr(self._tools, "get", None)
+            if callable(getter):
+                tool = getter(step.tool_name)
+        if tool is None:
+            raise KeyError(f"Tool '{step.tool_name}' not in registry")
+
+        expanded_args: dict[str, Any] = {}
+        for k, v in (step.args or {}).items():
+            if isinstance(v, str):
+                expanded_args[k] = _expand_template(v, outputs, input_data)
+            else:
+                expanded_args[k] = v
+
+        result = await self._executor.execute(
+            tool,
+            expanded_args,
+            user_utterance=f"<workflow:{step.tool_name}>",
+        )
+        success = bool(getattr(result, "success", False))
+        if not success:
+            err = getattr(result, "error", None) or "tool call failed"
+            raise RuntimeError(err)
+        payload = getattr(result, "output", None)
+        if payload is None:
+            return "ok"
+        if isinstance(payload, (dict, list)):
+            return json.dumps(payload, ensure_ascii=False)
+        return str(payload)
+
+    async def _run_shell_cmd(
+        self,
+        step: Any,
+        outputs: dict[str, str],
+        input_data: dict[str, Any],
+    ) -> str:
+        """Starts a subprocess with a timeout + output cap.
+
+        Design note: we shell-split with ``shlex.split`` and use
+        ``create_subprocess_exec`` (``shell=False``). That means pipes/
+        redirects (``|``, ``>``) don't work out of the box — anyone who
+        needs them uses ``cmd=powershell -c "..."`` or splits into
+        two shell_cmd steps with a template variable.
+        """
+        import shlex
+
+        cmd_expanded = _expand_template(step.command, outputs, input_data)
+        try:
+            # posix=False so Windows paths with backslashes aren't
+            # interpreted as escape sequences. Downside: quotes stay
+            # part of the token — we strip them by hand, so
+            # '"C:\\Program Files\\app.exe"' becomes 'C:\\Program Files\\app.exe'.
+            argv = shlex.split(cmd_expanded, posix=False)
+        except ValueError as exc:
+            raise RuntimeError(f"Shell command parsing failed: {exc}") from exc
+        argv = [
+            a[1:-1] if len(a) >= 2 and a[0] == a[-1] and a[0] in ('"', "'") else a for a in argv
+        ]
+        if not argv:
+            raise RuntimeError("Empty shell command")
+
+        cwd = step.cwd or None
+
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+        )
+        try:
+            stdout_b, stderr_b = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=step.timeout_s,
+            )
+        except TimeoutError as exc:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            raise RuntimeError(
+                f"Shell command timed out after {step.timeout_s}s: {cmd_expanded[:80]}"
+            ) from exc
+
+        stdout = (stdout_b or b"").decode("utf-8", errors="replace")
+        stderr = (stderr_b or b"").decode("utf-8", errors="replace")
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"Shell command exit_code={proc.returncode}: {stderr[-400:] or stdout[-400:]}"
+            )
+        cap = step.max_output_chars
+        output = stdout.strip()
+        if len(output) > cap:
+            output = output[:cap] + "…"
+        return output
+
+    async def _run_telegram_send(
+        self,
+        step: Any,
+        outputs: dict[str, str],
+        input_data: dict[str, Any],
+    ) -> str:
+        """POST to the Telegram Bot API. Token + default chat ID come from config."""
+        from dodaios.core.config import get_secret, load_config
+
+        token = get_secret("telegram_bot_token", "TELEGRAM_BOT_TOKEN")
+        if not token:
+            raise RuntimeError(
+                "Telegram bot token not set — "
+                "configure ENV TELEGRAM_BOT_TOKEN or the credential manager "
+                "key 'telegram_bot_token'. "
+                "Create a bot via @BotFather."
+            )
+
+        # Chat ID: step > config > error
+        chat_id = step.chat_id.strip() if step.chat_id else ""
+        parse_mode = "Markdown"
+        if not chat_id:
+            try:
+                cfg = load_config()
+                chat_id = cfg.integrations.telegram.chat_id.strip()
+                parse_mode = cfg.integrations.telegram.parse_mode or "Markdown"
+            except Exception:  # noqa: BLE001 — no config = the error below
+                log.debug("telegram_send: config chat_id unavailable", exc_info=True)
+        if not chat_id:
+            raise RuntimeError(
+                "Telegram chat ID not set — either specify 'chat_id' in "
+                "the step or set '[integrations.telegram].chat_id' "
+                "in jarvis.toml."
+            )
+
+        text = _expand_template(step.text, outputs, input_data)
+        # Telegram max is 4096 characters — truncate instead of erroring.
+        if len(text) > 4096:
+            text = text[:4090] + "\n…"
+
+        import httpx
+
+        from dodaios.core.redact import redact_logger
+
+        redact_logger("httpx")  # its request log line would carry the token in the URL
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "text": text,
+        }
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+
+        failure: str | None = None
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                r = await client.post(url, json=payload)
+            except Exception as exc:  # noqa: BLE001 — reported below, by type only
+                # The type only: an httpx error can carry the URL, and the URL
+                # carries the bot token.
+                failure = type(exc).__name__
+        if failure is not None:
+            # Raised outside the handler, so the original error is not even
+            # reachable from this one as its context.
+            raise RuntimeError(f"Telegram request failed: {failure}")
+
+        if r.status_code >= 400:
+            raise RuntimeError(_telegram_failure(r))
+        return f"sent to chat_id={chat_id} ({len(text)} characters)"
+
+
+# ----------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------
+
+#: What a failed ``sendMessage`` means, by a fragment of Telegram's
+#: ``description``. The description is only matched: it is a provider error
+#: body and never reaches the run record, the UI or a log (AP-34).
+_TELEGRAM_REASONS: tuple[tuple[str, str], ...] = (
+    (
+        "chat not found",
+        "the chat was not found. Check the chat ID; the recipient has to start "
+        "the bot before it can write to them",
+    ),
+    ("bot was blocked", "the recipient blocked the bot"),
+    ("can't initiate conversation", "the recipient has not started a chat with the bot yet"),
+    ("user is deactivated", "the recipient's account is deactivated"),
+    ("upgraded to a supergroup", "the group became a supergroup and has a new chat ID"),
+    ("bot was kicked", "the bot was removed from that chat"),
+    ("not a member", "the bot is not a member of that chat"),
+    ("rights to send", "the bot is not allowed to post in that chat"),
+    ("can't parse entities", "the message formatting is not valid for the configured parse mode"),
+    ("message is too long", "the message is too long"),
+    ("text is empty", "the message text is empty"),
+)
+
+#: The reason when the description names none of the above.
+_TELEGRAM_STATUS_REASONS: dict[int, str] = {
+    401: "the bot token was rejected. Check it in @BotFather",
+    # Telegram answers a malformed token with 404, not 401.
+    404: "the bot token was rejected. Check it in @BotFather",
+    403: "the bot is not allowed to write to that chat",
+    429: "Telegram is rate limiting the bot",
+}
+
+
+def _telegram_failure(response: Any) -> str:
+    """One sentence for a failed Bot API call: the status and a fixed reason.
+
+    Every word is written here, so neither the bot token nor any text of
+    Telegram's own can end up in it.
+    """
+    status = int(response.status_code)
+    description = ""
+    retry_after: int | None = None
+    try:
+        body = response.json()
+    except ValueError:  # no JSON body (a proxy page): the status decides alone
+        body = None
+    if isinstance(body, dict):
+        description = str(body.get("description") or "").lower()
+        parameters = body.get("parameters")
+        if isinstance(parameters, dict) and isinstance(parameters.get("retry_after"), int):
+            retry_after = parameters["retry_after"]
+    reason = next(
+        (text for fragment, text in _TELEGRAM_REASONS if fragment in description),
+        _TELEGRAM_STATUS_REASONS.get(status),
+    )
+    if reason is None and status >= 500:
+        reason = "Telegram is not available right now"
+    if status == 429 and retry_after is not None and retry_after >= 0:
+        reason = f"{_TELEGRAM_STATUS_REASONS[429]}; try again in {retry_after} s"
+    return f"Telegram HTTP {status}: {reason}" if reason else f"Telegram HTTP {status}"
+
+
+_TEMPLATE_RE = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
+
+
+def _expand_template(
+    s: str,
+    outputs: dict[str, str],
+    input_data: dict[str, Any],
+) -> str:
+    """Expands ``{{prev.output}}`` / ``{{step_N.output}}`` / ``{{input.X}}``.
+
+    Unknown placeholders stay literal — so the user quickly notices
+    during debugging if they made a typo.
+    """
+
+    def repl(m: re.Match[str]) -> str:
+        token = m.group(1).strip()
+        if token.startswith("input."):
+            key = token[len("input.") :]
+            v = input_data.get(key, "")
+            return str(v)
+        if "." in token:
+            ref, field = token.split(".", 1)
+            if field == "output":
+                return outputs.get(ref, m.group(0))
+        return m.group(0)
+
+    return _TEMPLATE_RE.sub(repl, s)
+
+
+async def _run_isolated_or_call(brain: Any, step: Any, prompt: str) -> str:
+    """One brain turn for a ``brain_prompt`` step.
+
+    A ``BrainManager`` exposes ``run_task`` — an isolated agentic turn with an
+    EMPTY history and the step's tool allowlist. That is the path a scheduled
+    step must take: the plain callable (``BrainManager.__call__`` →
+    ``generate``) runs the LIVE voice conversation's history and full tool
+    surface, so a 07:30 routine would answer inside whatever the user was
+    last talking about and could touch any tool (BUG-212). Brains without
+    ``run_task`` (test fakes, minimal providers) keep the callable path.
+    """
+    run_task = getattr(brain, "run_task", None)
+    if callable(run_task):
+        result = await run_task(
+            prompt=prompt,
+            allowed_tools=tuple(getattr(step, "tools", ()) or ()),
+            model_tier=getattr(step, "model_tier", "auto") or "auto",
+        )
+        return str(result or "")
+    return await _maybe_await_brain(brain, prompt)
+
+
+async def _maybe_await_brain(brain: Any, prompt: str) -> str:
+    """The brain can be: callable(str) -> Awaitable[str], or an object with
+    ``__call__``, or respond(thread_id, text, store)-like. We try the
+    callable pattern (BrainManager) and fail gracefully.
+    """
+    if callable(brain):
+        try:
+            maybe = brain(prompt)
+            if asyncio.iscoroutine(maybe):
+                result = await maybe
+            else:
+                result = maybe
+            return str(result or "")
+        except TypeError:
+            pass
+    raise RuntimeError(
+        "Brain is not directly callable — only BrainManager-compatible providers are supported"
+    )

@@ -14,8 +14,8 @@
     "paths": {
       "react": ["node_modules/@types/react"],
       "react/*": ["node_modules/@types/react/*"],
-      "@app/*": ["../../jarvis/ui/web/frontend/src/*"],
-      "@/*": ["../../jarvis/ui/web/frontend/src/*"],
+      "@app/*": ["../../dodaios/ui/web/frontend/src/*"],
+      "@/*": ["../../dodaios/ui/web/frontend/src/*"],
       "*": ["node_modules/*"]
     }
   },

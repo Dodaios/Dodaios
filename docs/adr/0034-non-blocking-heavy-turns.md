@@ -26,8 +26,8 @@ result talking over the user, without it landing in the middle of another
 topic unannounced, and without the fast model inventing or denying it in
 the meantime.
 
-What already existed and is kept (measured in `jarvis/realtime/session.py`
-and `jarvis/speech/pipeline.py` on 2026-08-18):
+What already existed and is kept (measured in `dodaios/realtime/session.py`
+and `dodaios/speech/pipeline.py` on 2026-08-18):
 
 - Realtime: the delegate is a background `asyncio` task; a real new
   utterance splits the turn; a result whose turn closed is queued as a
@@ -69,7 +69,7 @@ capability, never the design.
 ### 1. One vocabulary: the parked result
 
 A heavy turn that outlives the conversation's attention becomes a **parked
-result** — `jarvis/voice/parked_results.py` (stdlib only, engine-neutral):
+result** — `dodaios/voice/parked_results.py` (stdlib only, engine-neutral):
 
 - `ParkedResult(text, language, request_text, success, request_turn_id,
   delivery_id, queued_at, intervening_turns)`; `ParkedResultLedger` with
@@ -231,10 +231,10 @@ end abandons. Nothing about a parked result is silent (AP-30).
 
 ## References
 
-- `jarvis/voice/parked_results.py`, `tests/unit/voice/test_parked_results.py`
-- `jarvis/realtime/session.py` (`_session_is_at_rest`, `_flush_late_delegate_results`,
-  `_handle_tool_call`, `_speak_pending_action_status`), `jarvis/realtime/protocol.py`
-- `jarvis/plugins/realtime/gemini_live.py`, `jarvis/plugins/realtime/openai_realtime.py`
-- `jarvis/speech/pipeline.py` (`_run_parked_turn`, `_deliver_parked_result`)
+- `dodaios/voice/parked_results.py`, `tests/unit/voice/test_parked_results.py`
+- `dodaios/realtime/session.py` (`_session_is_at_rest`, `_flush_late_delegate_results`,
+  `_handle_tool_call`, `_speak_pending_action_status`), `dodaios/realtime/protocol.py`
+- `dodaios/plugins/realtime/gemini_live.py`, `dodaios/plugins/realtime/openai_realtime.py`
+- `dodaios/speech/pipeline.py` (`_run_parked_turn`, `_deliver_parked_result`)
 - ADR-0033, BUG-051, BUG-054, BUG-070, BUG-090, BUG-143, BUG-144
 - CLAUDE.md §3 "Provider & mode parity", CLOUD.md Rule #2

@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.paths import skill_prefs_path
-from jarvis.skills import prefs
+from dodaios.core.paths import skill_prefs_path
+from dodaios.skills import prefs
 
 
 @pytest.fixture(autouse=True)

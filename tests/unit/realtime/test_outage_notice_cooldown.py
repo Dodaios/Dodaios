@@ -15,8 +15,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.realtime.session as session_module
-from jarvis.realtime.session import RealtimeVoiceSession, _DelegateTurnState
+import dodaios.realtime.session as session_module
+from dodaios.realtime.session import RealtimeVoiceSession, _DelegateTurnState
 
 APOLOGY = (
     "Tut mir leid, mein Sprachmodell ist im Moment nicht erreichbar. "  # i18n-allow: voice fixture

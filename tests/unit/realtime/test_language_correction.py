@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 from tests.unit.realtime.test_session import FakeProvider, FakeSession, _cfg
 
 

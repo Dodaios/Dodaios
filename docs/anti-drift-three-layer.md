@@ -44,12 +44,12 @@ this project. Files involved:
 
 | Layer | File | What it holds |
 |------|------|---------------|
-| 0 — single source of truth | `jarvis/sessions/constants.py` | `HANGUP_REASONS` tuple + one symbolic constant per value |
-| 1 — producers | `jarvis/speech/pipeline.py`, `jarvis/sessions/init.py` | Imports symbols from layer 0; never writes raw strings |
-| 2 — persistence | `jarvis/sessions/schema.sql` | Doc-comment in the column declaration enumerates accepted values |
-| 3 — Pydantic | `jarvis/sessions/models.py` | `HangupReason = Literal[...]`, mirrored by a module-level runtime assertion against the tuple |
-| 4 — TypeScript | `jarvis/ui/web/frontend/src/components/sessions/types.ts` | Union type spelling each value |
-| 5 — UI label | `jarvis/ui/web/frontend/src/components/sessions/SessionList.tsx` | `hangupLabel(reason)` switch with one `case` per value |
+| 0 — single source of truth | `dodaios/sessions/constants.py` | `HANGUP_REASONS` tuple + one symbolic constant per value |
+| 1 — producers | `dodaios/speech/pipeline.py`, `dodaios/sessions/init.py` | Imports symbols from layer 0; never writes raw strings |
+| 2 — persistence | `dodaios/sessions/schema.sql` | Doc-comment in the column declaration enumerates accepted values |
+| 3 — Pydantic | `dodaios/sessions/models.py` | `HangupReason = Literal[...]`, mirrored by a module-level runtime assertion against the tuple |
+| 4 — TypeScript | `dodaios/ui/web/frontend/src/components/sessions/types.ts` | Union type spelling each value |
+| 5 — UI label | `dodaios/ui/web/frontend/src/components/sessions/SessionList.tsx` | `hangupLabel(reason)` switch with one `case` per value |
 
 ## The defenses, in order of strength
 
@@ -60,13 +60,13 @@ should adopt the same pattern.
 ### D1. Symbolic constants at every call site
 
 Producers import `HANGUP_TURN_COMPLETE` from
-`jarvis/sessions/constants.py`. They never spell the string
+`dodaios/sessions/constants.py`. They never spell the string
 themselves. A typo turns into an `ImportError` or `AttributeError`
 at startup, not into a row that detonates HTTP 500 weeks later.
 
 ### D2. Import-time runtime assertion
 
-`jarvis/sessions/models.py`:
+`dodaios/sessions/models.py`:
 
 ```python
 if set(get_args(HangupReason)) != set(HANGUP_REASONS):
@@ -103,7 +103,7 @@ gracefully if the DB does not exist.
 
 ### D5. Self-defending list endpoint
 
-`jarvis/sessions/store.py::SessionStore.list_sessions` wraps the
+`dodaios/sessions/store.py::SessionStore.list_sessions` wraps the
 per-row Pydantic construction in `try/except ValidationError`. A
 single bad row no longer empties the entire list — it gets a
 structured `hangup_reason_drift_skipped` warning and is skipped.
@@ -118,7 +118,7 @@ Use this when adding a new enum-like value that crosses layers:
       docstring explaining when it is used.
 - [ ] Update the canonical tuple (e.g. `HANGUP_REASONS`).
 - [ ] Update the Pydantic `Literal` and confirm the import-time
-      assertion still passes (`python -c "import jarvis.sessions.models"`).
+      assertion still passes (`python -c "import dodaios.sessions.models"`).
 - [ ] Update the TS union in the frontend `types.ts`.
 - [ ] Update the user-facing label switch in the relevant `.tsx`.
 - [ ] Update the column doc-comment in the SQL schema.
@@ -142,10 +142,10 @@ Any enum-like value with this shape is a candidate:
 Likely candidates in this codebase that should be migrated to the
 same pattern as their vocabularies grow:
 
-- `VoiceTier` (`jarvis/sessions/models.py`).
-- Mission status values in `jarvis/missions/`.
+- `VoiceTier` (`dodaios/sessions/models.py`).
+- Mission status values in `dodaios/missions/`.
 - Skill lifecycle states (`SkillLifecycleState` —
-  `jarvis/skills/schema.py`).
+  `dodaios/skills/schema.py`).
 
 If you migrate one of these, append a row to the table at the top
 of this doc with the file paths, and reuse the parity-test recipe.
@@ -158,11 +158,11 @@ role-CHECK fix. Files involved:
 
 | Layer | File | What it holds |
 |------|------|---------------|
-| 0 — single source of truth | `jarvis/memory/constants.py` | `ALLOWED_ROLES` tuple + one `ROLE_<UPPER>` symbolic constant per value + `MessageRole` Literal mirror + runtime assertion |
-| 1 — producers | `jarvis/memory/message_recorder.py` (gate), other emitters in `jarvis/ui/web/server.py`, `jarvis/brain/manager.py`, etc. | Recorder imports the frozenset mirror; non-recorder producers stay free-form because the recorder is the persistence gate |
-| 2 — persistence (schema) | `jarvis/memory/schema.sql` | CHECK clause + doc-comment enumerate accepted values |
-| 3 — persistence (migration) | `jarvis/memory/migrations/0003_expand_role_check.sql` | Forward migration that widens the CHECK on pre-existing user databases |
-| 4 — runtime allowlist | `jarvis/memory/message_recorder.py::_RECALL_ALLOWED_ROLES` | Frozenset built from `ALLOWED_ROLES_FROZENSET`; gates the bus → SQL path |
+| 0 — single source of truth | `dodaios/memory/constants.py` | `ALLOWED_ROLES` tuple + one `ROLE_<UPPER>` symbolic constant per value + `MessageRole` Literal mirror + runtime assertion |
+| 1 — producers | `dodaios/memory/message_recorder.py` (gate), other emitters in `dodaios/ui/web/server.py`, `dodaios/brain/manager.py`, etc. | Recorder imports the frozenset mirror; non-recorder producers stay free-form because the recorder is the persistence gate |
+| 2 — persistence (schema) | `dodaios/memory/schema.sql` | CHECK clause + doc-comment enumerate accepted values |
+| 3 — persistence (migration) | `dodaios/memory/migrations/0003_expand_role_check.sql` | Forward migration that widens the CHECK on pre-existing user databases |
+| 4 — runtime allowlist | `dodaios/memory/message_recorder.py::_RECALL_ALLOWED_ROLES` | Frozenset built from `ALLOWED_ROLES_FROZENSET`; gates the bus → SQL path |
 | 5 — parity tests | `tests/unit/memory/test_role_constraint.py` | Tuple ↔ Literal ↔ schema CHECK ↔ migration CHECK ↔ doc-comment ↔ live INSERT |
 
 Notes specific to this adoption:
@@ -175,10 +175,10 @@ Notes specific to this adoption:
   recorder drops it silently. Adding it to the CHECK would let it
   inflate the recall index without changing user-visible behaviour.
 - A minimal forward-migration runner ships alongside the constants
-  (`jarvis/memory/migration_runner.py`) because the previous
+  (`dodaios/memory/migration_runner.py`) because the previous
   `executescript(schema.sql)` bootstrap could not widen a CHECK on
   an existing table. Future memory migrations should be added under
-  `jarvis/memory/migrations/` using the next free `NNNN` integer.
+  `dodaios/memory/migrations/` using the next free `NNNN` integer.
 
 ## Related
 

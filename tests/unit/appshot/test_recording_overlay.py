@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.appshot.recording_geometry import elapsed_label, selected_rect, toolbar_rect
-from jarvis.cu.indicator import protocol
+from dodaios.appshot.recording_geometry import elapsed_label, selected_rect, toolbar_rect
+from dodaios.cu.indicator import protocol
 
 
 def test_selection_and_toolbar_follow_a_negative_origin_monitor():
@@ -36,7 +36,7 @@ def test_recording_clock_is_elapsed_time(seconds, text):
 
 def test_video_poster_keeps_the_first_frame_when_later_frames_change():
     qt = pytest.importorskip("PySide6.QtGui")
-    from jarvis.appshot.video_encoder import FirstFramePoster
+    from dodaios.appshot.video_encoder import FirstFramePoster
 
     poster = FirstFramePoster()
     first = qt.QImage(1280, 720, qt.QImage.Format.Format_RGB32)
@@ -50,7 +50,7 @@ def test_video_poster_keeps_the_first_frame_when_later_frames_change():
 
 
 async def test_video_preview_uses_the_shared_sidecar_without_overwriting_a_screenshot(monkeypatch):
-    from jarvis.cu.indicator.controller import CUIndicatorController
+    from dodaios.cu.indicator.controller import CUIndicatorController
 
     controller = CUIndicatorController(SimpleNamespace())
     controller._card_image_b64 = "pending-screenshot"
@@ -60,7 +60,7 @@ async def test_video_preview_uses_the_shared_sidecar_without_overwriting_a_scree
         controller, "_spawn_sidecar", lambda: setattr(controller, "_proc", object())
     )
     monkeypatch.setattr(controller, "_schedule_idle_quit", lambda: None)
-    monkeypatch.setattr("jarvis.cu.indicator.capture_guard.register_hook", lambda _hook: None)
+    monkeypatch.setattr("dodaios.cu.indicator.capture_guard.register_hook", lambda _hook: None)
 
     def send(command, timeout, **payload):
         messages.append((command, payload))
@@ -85,7 +85,7 @@ async def test_video_preview_uses_the_shared_sidecar_without_overwriting_a_scree
 
 
 def test_saving_a_video_never_overwrites_an_existing_export(monkeypatch, tmp_path):
-    from jarvis.appshot import recording, recording_cards
+    from dodaios.appshot import recording, recording_cards
 
     recording_id = "a" * 32
     library = tmp_path / "library"
@@ -102,7 +102,7 @@ def test_saving_a_video_never_overwrites_an_existing_export(monkeypatch, tmp_pat
 
 
 def test_failed_video_export_removes_only_its_incomplete_copy(monkeypatch, tmp_path):
-    from jarvis.appshot import recording, recording_cards
+    from dodaios.appshot import recording, recording_cards
 
     (tmp_path / f"{'a' * 32}.mp4").write_bytes(b"video")
     monkeypatch.setattr(recording, "recording_dir", lambda: tmp_path)
@@ -120,8 +120,8 @@ def test_failed_video_export_removes_only_its_incomplete_copy(monkeypatch, tmp_p
 
 
 async def test_video_click_never_opens_the_screenshot_editor(monkeypatch):
-    from jarvis.appshot import recording_cards
-    from jarvis.cu.indicator.controller import CUIndicatorController
+    from dodaios.appshot import recording_cards
+    from dodaios.cu.indicator.controller import CUIndicatorController
 
     opened = []
     monkeypatch.setattr(recording_cards, "open_recording", lambda key: opened.append(key))
@@ -131,7 +131,7 @@ async def test_video_click_never_opens_the_screenshot_editor(monkeypatch):
 
 
 async def test_recording_card_events_reach_the_video_action_handler(monkeypatch):
-    from jarvis.cu.indicator.controller import CUIndicatorController
+    from dodaios.cu.indicator.controller import CUIndicatorController
 
     controller = CUIndicatorController(SimpleNamespace())
     calls = []
@@ -148,10 +148,10 @@ async def test_recording_card_events_reach_the_video_action_handler(monkeypatch)
 
 
 async def test_missing_preview_does_not_invalidate_a_saved_video(monkeypatch, tmp_path):
-    from jarvis.appshot import recording, recording_cards
+    from dodaios.appshot import recording, recording_cards
 
     monkeypatch.setattr(recording, "recording_dir", lambda: tmp_path)
     (tmp_path / f"{'c' * 32}.mp4").write_bytes(b"video")
-    monkeypatch.setattr("jarvis.cu.indicator.controller.get_indicator_controller", lambda: None)
+    monkeypatch.setattr("dodaios.cu.indicator.controller.get_indicator_controller", lambda: None)
     assert not await recording_cards.show_recording_preview("c" * 32, {"preview": True})
     assert recording.recording_file("c" * 32).read_bytes() == b"video"

@@ -3,12 +3,12 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from jarvis.cu.target_guard import (
+from dodaios.cu.target_guard import (
     read_foreground_target,
     signatures_same_app,
     window_signature,
 )
-from jarvis.platform.window_state import WindowInfo
+from dodaios.platform.window_state import WindowInfo
 
 
 class TestWindowSignature:
@@ -93,13 +93,13 @@ def test_foreground_target_reads_window_and_rect_inside_input_space(monkeypatch)
         assert actual is window
         return (100, 50, 800, 600)
 
-    monkeypatch.setattr("jarvis.cu.geometry.input_space", fake_input_space)
+    monkeypatch.setattr("dodaios.cu.geometry.input_space", fake_input_space)
     monkeypatch.setattr(
-        "jarvis.platform.window_state.foreground_window",
+        "dodaios.platform.window_state.foreground_window",
         foreground_window,
     )
     monkeypatch.setattr(
-        "jarvis.platform.window_state.window_frame_rect",
+        "dodaios.platform.window_state.window_frame_rect",
         window_frame_rect,
     )
 

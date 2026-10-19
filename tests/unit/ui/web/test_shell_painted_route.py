@@ -5,13 +5,13 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 def test_full_app_accepts_shell_painted_acknowledgement(monkeypatch) -> None:
-    from jarvis.society.browser import install
+    from dodaios.society.browser import install
 
     installs = []
     monkeypatch.setattr(install, "start_install", lambda *args: installs.append(args))
@@ -31,9 +31,9 @@ def test_full_app_accepts_shell_painted_acknowledgement(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_shared_startup_does_not_provision_optional_browser(monkeypatch, tmp_path):
-    from jarvis.memory.learning import loop as learning
-    from jarvis.society.browser import install
-    from jarvis.ui.web import mars_routes
+    from dodaios.memory.learning import loop as learning
+    from dodaios.society.browser import install
+    from dodaios.ui.web import mars_routes
 
     installs = []
     monkeypatch.setattr(install, "start_install", lambda *args: installs.append(args))

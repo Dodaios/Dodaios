@@ -16,12 +16,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import BrainMessage, ToolResult
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.skill_context import SkillContext, set_skill_context
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import BrainMessage, ToolResult
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.skill_context import SkillContext, set_skill_context
 
 
 class _FakeSpawnTool:
@@ -792,7 +792,7 @@ async def test_open_discord_e2e_dispatches_computer_use_not_refusal(
 
 import pytest as _pytest  # noqa: E402
 
-from jarvis.brain.manager import _is_definitional_question_about  # noqa: E402
+from dodaios.brain.manager import _is_definitional_question_about  # noqa: E402
 
 
 @_pytest.mark.parametrize(

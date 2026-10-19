@@ -13,8 +13,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.platform import open_path
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.platform import open_path
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 def _request(*, native: bool = True) -> SimpleNamespace:

@@ -14,7 +14,7 @@ Usage::
     python scripts/cpu_profile_family.py [--pid PID] [--seconds 60] [--threads]
 
 Without ``--pid`` the backend is found by its command line
-(``jarvis.ui.web.launcher``). Cross-platform: psutil only; thread names come
+(``dodaios.ui.web.launcher``). Cross-platform: psutil only; thread names come
 from ``psutil`` on Linux and from ``GetThreadDescription`` on Windows, and are
 left blank elsewhere. Read-only — it never touches the app.
 """
@@ -34,7 +34,7 @@ def _find_backend() -> int | None:
             cmdline = " ".join(proc.info["cmdline"] or [])
         except (psutil.Error, OSError):
             continue
-        if "jarvis.ui.web.launcher" in cmdline:
+        if "dodaios.ui.web.launcher" in cmdline:
             return proc.pid
     return None
 

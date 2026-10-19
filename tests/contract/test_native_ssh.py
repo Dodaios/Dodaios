@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncssh
 import pytest
 
-from jarvis.computers.ssh_packet_guard import guarded_client_factory
+from dodaios.computers.ssh_packet_guard import guarded_client_factory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.timeout(10)]
 

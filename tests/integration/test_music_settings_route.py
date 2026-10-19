@@ -11,9 +11,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import config as cfg_mod
-from jarvis.core import config_writer
-from jarvis.ui.web import settings_routes
+from dodaios.core import config as cfg_mod
+from dodaios.core import config_writer
+from dodaios.ui.web import settings_routes
 
 
 @pytest.fixture

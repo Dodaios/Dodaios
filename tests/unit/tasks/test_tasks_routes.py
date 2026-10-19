@@ -14,12 +14,12 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.core.bus import EventBus
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.schema import AgentAction, SpeakAction, TaskSpec, TriggerAfterDelay, TriggerEvery
-from jarvis.tasks.store import TaskStore
-from jarvis.ui.web import tasks_routes
+from dodaios.core.bus import EventBus
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.schema import AgentAction, SpeakAction, TaskSpec, TriggerAfterDelay, TriggerEvery
+from dodaios.tasks.store import TaskStore
+from dodaios.ui.web import tasks_routes
 
 
 class FakeBrain:

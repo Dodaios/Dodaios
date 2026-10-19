@@ -20,10 +20,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.config import JarvisConfig
-from jarvis.skills import match_log, prefs, relevance
-from jarvis.skills.guards import GUARD_ORDER
-from jarvis.skills.registry import SkillRegistry
+from dodaios.core.config import JarvisConfig
+from dodaios.skills import match_log, prefs, relevance
+from dodaios.skills.guards import GUARD_ORDER
+from dodaios.skills.registry import SkillRegistry
 
 # Speech input under test — the fixture vocabulary.
 FOCUS_TAGS = "[konzentrationsmodus, fokus]"  # i18n-allow
@@ -69,7 +69,7 @@ def _make_skill(
 
 
 def _client(root: Path, *, shadow: bool = False) -> TestClient:
-    from jarvis.ui.web.skills_routes import router
+    from dodaios.ui.web.skills_routes import router
 
     registry = SkillRegistry(
         root, bus=None, state_prefs_loader=prefs.load_state_overrides
@@ -222,7 +222,7 @@ def test_match_test_rejects_an_empty_utterance(skills_root: Path) -> None:
 def test_match_test_needs_a_registry() -> None:
     from fastapi import FastAPI as _FastAPI
 
-    from jarvis.ui.web.skills_routes import router
+    from dodaios.ui.web.skills_routes import router
 
     app = _FastAPI()
     app.include_router(router)

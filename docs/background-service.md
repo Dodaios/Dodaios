@@ -22,7 +22,7 @@ Routines and chat channels keep running after the desktop app is closed.
 ## How it works
 
 The service is the existing headless backend
-(`python -m jarvis.ui.web.launcher --background-service`, which implies
+(`python -m dodaios.ui.web.launcher --background-service`, which implies
 `--headless`) with no window, no microphone, no wake word and no overlay
 (`JARVIS_VOICE=0`). It runs the same task scheduler, channel stack, agent
 society runtime and Agentic IDE re-attach as a headless install.
@@ -31,7 +31,7 @@ Exactly one of desktop app and service runs at a time. Both go through the
 single-instance lock (`data/jarvis.lock`):
 
 1. **Hand-off on quit** (`DesktopApp._hand_off_to_background_service` →
-   `jarvis.core.background_service.hand_off_on_quit`). On a real quit, if
+   `dodaios.core.background_service.hand_off_on_quit`). On a real quit, if
    `[background] keep_agents_running` is on and `work_from_state` finds an
    armed routine, a run in flight or a started channel, the desktop spawns the
    service detached (`--after-pid <desktop pid>`). A restart, an update, a

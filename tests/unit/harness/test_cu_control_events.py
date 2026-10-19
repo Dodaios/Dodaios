@@ -1,6 +1,6 @@
 """CUControlStarted/Ended contract at the ComputerUseHarness boundary.
 
-The screen indicator (jarvis/cu/indicator) refcounts exactly these events,
+The screen indicator (dodaios/cu/indicator) refcounts exactly these events,
 so the pair must fire once per mission on EVERY exit path — normal finish,
 cancel (exit 130), non-zero error exit, and harness timeout.
 """
@@ -11,13 +11,13 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.control import KillSwitch
-from jarvis.core.bus import EventBus
-from jarvis.core.events import CUControlEnded, CUControlStarted
-from jarvis.core.protocols import HarnessResult, HarnessTask
-from jarvis.harness.computer_use_context import ComputerUseContext
-from jarvis.plugins.harness import computer_use as cu_mod
-from jarvis.plugins.harness.computer_use import ComputerUseHarness
+from dodaios.control import KillSwitch
+from dodaios.core.bus import EventBus
+from dodaios.core.events import CUControlEnded, CUControlStarted
+from dodaios.core.protocols import HarnessResult, HarnessTask
+from dodaios.harness.computer_use_context import ComputerUseContext
+from dodaios.plugins.harness import computer_use as cu_mod
+from dodaios.plugins.harness.computer_use import ComputerUseHarness
 
 
 class _Recorder:
@@ -63,7 +63,7 @@ async def _invoke_all(harness: ComputerUseHarness, task: HarnessTask) -> list[Ha
 @pytest.fixture(autouse=True)
 def _clean_cu_registry():
     """Isolate from other tests: no stale suppression window / tokens."""
-    from jarvis.harness.computer_use_context import (
+    from dodaios.harness.computer_use_context import (
         clear_cu_suppression,
         register_active_cu_token,
     )
@@ -176,7 +176,7 @@ async def test_manager_dispatch_closes_harness_stream_on_break(
 ) -> None:
     """HarnessManager.dispatch must aclose() the inner harness stream when
     its own consumer breaks early, so the CU finally never waits on GC."""
-    from jarvis.harness.manager import HarnessManager
+    from dodaios.harness.manager import HarnessManager
 
     rec = _Recorder(bus)
     monkeypatch.setattr(
@@ -233,7 +233,7 @@ async def test_blocked_permission_sentence_reaches_the_run_registry(
     does not store; without this the run list shows an empty result for a mission
     that is waiting for the person to allow something.
     """
-    from jarvis.harness import cu_run_registry
+    from dodaios.harness import cu_run_registry
 
     cu_run_registry.clear_runs()
     sentence = "Accessibility is off for Personal Jarvis. Then try the task again."
@@ -264,7 +264,7 @@ async def test_blocked_permission_sentence_reaches_the_run_registry(
 async def test_plain_failure_keeps_an_empty_registry_result(
     bus: EventBus, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.harness import cu_run_registry
+    from dodaios.harness import cu_run_registry
 
     cu_run_registry.clear_runs()
     monkeypatch.setattr(

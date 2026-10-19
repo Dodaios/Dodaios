@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 from typer.testing import CliRunner
 
-from jarvis.cli_ctl.__main__ import app
+from dodaios.cli_ctl.__main__ import app
 
 runner = CliRunner()
 _BASE = "/api/providers/ollama/local-models"

@@ -5,7 +5,7 @@ then run heavy missions WITHOUT the npm `claude`/`gemini` CLI binary.
 """
 from __future__ import annotations
 
-from jarvis.missions.workers.api_agent_worker import (
+from dodaios.missions.workers.api_agent_worker import (
     _BRAIN_BY_PROVIDER,
     _DEFAULT_MODEL,
     supports_api_agent_worker,
@@ -25,7 +25,7 @@ def test_gemini_has_in_process_worker():
 
 
 def test_every_api_agent_provider_has_a_default_model():
-    from jarvis.brain.app_control import LOCAL_PROVIDERS
+    from dodaios.brain.app_control import LOCAL_PROVIDERS
 
     for provider in _BRAIN_BY_PROVIDER:
         if provider in LOCAL_PROVIDERS:

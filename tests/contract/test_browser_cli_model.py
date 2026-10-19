@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat.browser_model import GrokBrowserModel, browser_model_for
-from jarvis.core.protocols import BrainMessage, BrainRequest
+from dodaios.agent_chat.browser_model import GrokBrowserModel, browser_model_for
+from dodaios.core.protocols import BrainMessage, BrainRequest
 
 
 class Pipe:
@@ -43,8 +43,8 @@ class Process:
 
 @pytest.fixture
 def cli(monkeypatch):
-    from jarvis import grok_build_auth
-    from jarvis.agent_chat import browser_model, runner_cli
+    from dodaios import grok_build_auth
+    from dodaios.agent_chat import browser_model, runner_cli
 
     state = SimpleNamespace(
         events=[], calls=[], closed=0, selected_home=Path("/selected-account").resolve()
@@ -181,7 +181,7 @@ async def test_exhausted_subscription_is_actionable_without_provider_body(cli):
 
 
 def test_chat_only_transport_does_not_change_api_provider_selection(monkeypatch):
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
 
     selected = object()
     monkeypatch.setattr(resolver, "resolve_browser_brain", lambda *args, **kwargs: selected)
@@ -213,7 +213,7 @@ async def test_inherited_integrations_are_rejected_before_using_model_text(cli):
 
 async def test_api_key_login_cannot_silently_replace_subscription(cli, monkeypatch):
     monkeypatch.setattr(
-        "jarvis.grok_build_auth.grok_build_login_in", lambda _: (True, "api_key", None)
+        "dodaios.grok_build_auth.grok_build_login_in", lambda _: (True, "api_key", None)
     )
     with pytest.raises(RuntimeError, match="subscription"):
         _ = [d async for d in GrokBrowserModel().complete(BrainRequest(messages=()))]
@@ -245,7 +245,7 @@ async def test_cancelled_inference_reaps_process_and_removes_prompt(cli, monkeyp
 
 
 def test_dual_cli_seat_never_falls_through_to_its_api_billed_twin(monkeypatch):
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
 
     calls = []
 
@@ -273,11 +273,11 @@ def test_dual_cli_seat_never_falls_through_to_its_api_billed_twin(monkeypatch):
 
 
 def test_inherited_browser_selection_keeps_the_agents_tier_model(monkeypatch):
-    from jarvis.agent_chat import browser_model
+    from dodaios.agent_chat import browser_model
 
     seen = []
     monkeypatch.setattr(
-        "jarvis.local_models.assistant_session.agents_tier",
+        "dodaios.local_models.assistant_session.agents_tier",
         lambda _: SimpleNamespace(provider="openai", model="selected-tier-model"),
     )
     monkeypatch.setattr(

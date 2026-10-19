@@ -14,7 +14,7 @@ import pytest
 # not a crash — so this test stays green until agents 1-6 are done.
 def _try_import_webserver():
     try:
-        from jarvis.ui.web.server import WebServer  # type: ignore
+        from dodaios.ui.web.server import WebServer  # type: ignore
         return WebServer
     except Exception as exc:
         pytest.skip(f"WebServer not available yet: {exc!r}")
@@ -22,7 +22,7 @@ def _try_import_webserver():
 
 def _try_import_config():
     try:
-        from jarvis.core.config import JarvisConfig  # type: ignore
+        from dodaios.core.config import JarvisConfig  # type: ignore
         return JarvisConfig
     except Exception as exc:
         pytest.skip(f"JarvisConfig cannot be loaded: {exc!r}")

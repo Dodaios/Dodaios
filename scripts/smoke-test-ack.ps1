@@ -5,7 +5,7 @@
 .DESCRIPTION
     Runs a curated battery of five German + five English utterances through
     a running Personal Jarvis instance, then samples data/jarvis_desktop.log
-    for the ack_* counter lines emitted by jarvis.brain.ack_brain.generator
+    for the ack_* counter lines emitted by dodaios.brain.ack_brain.generator
     and prints a results table.
 
     The script does NOT require any test-endpoint on the server: it relies

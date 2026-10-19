@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain import ollama_pull
-from jarvis.realtime.local_server import brain_link
+from dodaios.brain import ollama_pull
+from dodaios.realtime.local_server import brain_link
 
 
 @pytest.fixture(autouse=True)

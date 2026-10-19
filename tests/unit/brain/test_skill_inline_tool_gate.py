@@ -18,8 +18,8 @@ safety property.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.skills.match_eval import (
+from dodaios.brain.manager import BrainManager
+from dodaios.skills.match_eval import (
     BAND_FIRE,
     BAND_NARROW,
     SOURCE_RELEVANCE,

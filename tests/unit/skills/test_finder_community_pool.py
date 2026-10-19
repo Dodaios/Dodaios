@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.marketplace.community_source import CommunityIndex
-from jarvis.skills import finder as finder_module
-from jarvis.skills.finder import SearchFilters, SkillFinder
+from dodaios.marketplace.community_source import CommunityIndex
+from dodaios.skills import finder as finder_module
+from dodaios.skills.finder import SearchFilters, SkillFinder
 
 
 def _index(**kwargs: Any) -> CommunityIndex:
@@ -34,7 +34,7 @@ def _index(**kwargs: Any) -> CommunityIndex:
 async def test_community_skill_appears_in_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("jarvis.marketplace.community_source.cached_index", lambda: _index())
+    monkeypatch.setattr("dodaios.marketplace.community_source.cached_index", lambda: _index())
     results = await SkillFinder().search(SearchFilters(query="three bullets summary", limit=20))
     match = next((c for c in results if c.name == "three-point-check"), None)
     assert match is not None
@@ -60,7 +60,7 @@ async def test_seed_entry_shadows_community_name(
             }
         ]
     )
-    monkeypatch.setattr("jarvis.marketplace.community_source.cached_index", lambda: index)
+    monkeypatch.setattr("dodaios.marketplace.community_source.cached_index", lambda: index)
     results = await SkillFinder().search(SearchFilters(query=seed_name, limit=50))
     hits = [c for c in results if c.name == seed_name]
     assert hits, "seed entry must remain findable"
@@ -71,6 +71,6 @@ async def test_seed_entry_shadows_community_name(
 async def test_missing_cache_degrades_to_seed_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("jarvis.marketplace.community_source.cached_index", lambda: None)
+    monkeypatch.setattr("dodaios.marketplace.community_source.cached_index", lambda: None)
     results = await SkillFinder().search(SearchFilters(query="anything", limit=5))
     assert all(c.source != "marketplace" for c in results)

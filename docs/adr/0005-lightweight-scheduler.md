@@ -20,7 +20,7 @@ The task queue needs time-based scheduling (`after_delay`, `at_time`) and event-
 
 ## Decision
 
-**Build our own, `jarvis/tasks/scheduler.py`, asyncio task + `heapq`.**
+**Build our own, `dodaios/tasks/scheduler.py`, asyncio task + `heapq`.**
 
 Core:
 ```python
@@ -75,7 +75,7 @@ The event subscriber routes events matching the `event_selector` of an `on_event
 "Misfire handling" above was listed as not required. It was: a slot the app
 was not running for (box off, asleep, restarted hours later) was caught up at
 the first tick after boot, which put a 07:30 routine at 15:04 and 20:49 on
-different days. The rule now lives in `jarvis/core/misfire.py` and binds every
+different days. The rule now lives in `dodaios/core/misfire.py` and binds every
 scheduler in the repo (tasks, workflows, Conductor):
 
 - a recurring slot late by at most `MISFIRE_GRACE_S` (30 min) still fires;

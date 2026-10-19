@@ -31,7 +31,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.core import socket_budget
+from dodaios.core import socket_budget
 
 
 @pytest.fixture(autouse=True)

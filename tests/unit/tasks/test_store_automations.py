@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.tasks.schema import AgentAction, SpeakAction, TaskSpec, TriggerAfterDelay, TriggerEvery
-from jarvis.tasks.store import TaskStore
+from dodaios.tasks.schema import AgentAction, SpeakAction, TaskSpec, TriggerAfterDelay, TriggerEvery
+from dodaios.tasks.store import TaskStore
 
 # The `tasks` table exactly as a DB created before `every` AND `paused`
 # existed — the oldest shape a downloader can still be carrying.
@@ -150,7 +150,7 @@ async def test_latest_agent_results_one_per_task_newest_and_truncated(store: Tas
 # ----------------------------------------------------------------------
 
 def test_readable_error_extracts_code_and_message() -> None:
-    from jarvis.tasks.runner import readable_error
+    from dodaios.tasks.runner import readable_error
 
     class APIStatusError(Exception):
         pass
@@ -166,7 +166,7 @@ def test_readable_error_extracts_code_and_message() -> None:
 
 
 def test_readable_error_plain_and_empty() -> None:
-    from jarvis.tasks.runner import readable_error
+    from dodaios.tasks.runner import readable_error
 
     plain = readable_error(RuntimeError("Tool 'x' failed:   boom"))
     assert plain == "RuntimeError: Tool 'x' failed: boom"

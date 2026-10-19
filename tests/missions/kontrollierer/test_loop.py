@@ -15,23 +15,23 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from jarvis.missions.budget import BudgetTracker
-from jarvis.missions.critic.reflections import ReflectionMemory
-from jarvis.missions.critic.verdict import (
+from dodaios.missions.budget import BudgetTracker
+from dodaios.missions.critic.reflections import ReflectionMemory
+from dodaios.missions.critic.verdict import (
     CriticAxis,
     CriticVerdict,
     REQUIRED_AXES,
 )
-from jarvis.missions.kontrollierer.decomposer import MissionDecomposer, MissionPlan, Step
-from jarvis.missions.kontrollierer.orchestrator import (
+from dodaios.missions.kontrollierer.decomposer import MissionDecomposer, MissionPlan, Step
+from dodaios.missions.kontrollierer.orchestrator import (
     MAX_WORKERS_PER_MISSION,
     Kontrollierer,
     TaskOutcome,
 )
-from jarvis.missions.kontrollierer.worker_prompt import ARTIFACT_LANGUAGE_DIRECTIVE
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
-from jarvis.missions.workers.base import SpawnedWorker
+from dodaios.missions.kontrollierer.worker_prompt import ARTIFACT_LANGUAGE_DIRECTIVE
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
+from dodaios.missions.workers.base import SpawnedWorker
 
 
 # --- Fakes ---
@@ -318,8 +318,8 @@ async def test_critic_crash_on_delivered_work_parks_and_fails_only_after_retries
     failed reviews it fails honestly as ``critic_unavailable`` — with the
     ``diff.iter0.patch`` it kept.
     """
-    from jarvis.missions.capacity import MAX_REVIEW_RETRIES
-    from jarvis.missions.critic.verdict import CriticSchemaInvalid
+    from dodaios.missions.capacity import MAX_REVIEW_RETRIES
+    from dodaios.missions.critic.verdict import CriticSchemaInvalid
 
     class _CrashingCritic:
         def __init__(self) -> None:
@@ -548,7 +548,7 @@ async def test_all_three_iters_critic_exception_fails_critic_unavailable(
     judged — surfacing `critic_loop_exhausted` to the voice layer
     lies to the user about how the mission was reviewed.
     """
-    from jarvis.missions.critic.verdict import CriticTimeout
+    from dodaios.missions.critic.verdict import CriticTimeout
 
     class _AlwaysTimingOutCritic:
         def __init__(self) -> None:
@@ -604,7 +604,7 @@ async def test_mixed_critic_outcomes_one_valid_revise_yields_exhausted(
     iter2 timeout the `iteration == MAX_CRITIC_LOOPS - 1` branch fires
     with `critic_ok_count >= 1`, so EXHAUSTED is also correct there.
     """
-    from jarvis.missions.critic.verdict import CriticTimeout
+    from dodaios.missions.critic.verdict import CriticTimeout
 
     class _MixedCritic:
         def __init__(self) -> None:
@@ -656,7 +656,7 @@ async def test_first_two_valid_then_iter2_crashes_yields_exhausted(
     worked, worker didn't reach approve); iter2 then raises an
     exception. Since `critic_ok_count >= 1`, this is LOOP_EXHAUSTED.
     """
-    from jarvis.missions.critic.verdict import CriticSchemaInvalid
+    from dodaios.missions.critic.verdict import CriticSchemaInvalid
 
     class _LateCrashCritic:
         def __init__(self) -> None:
@@ -1177,7 +1177,7 @@ async def test_critic_timeout_retries_then_approves(
     """A single transient CriticTimeout must NOT be immediately fatal — the
     critic is retried on a fresh iteration. Regression for the 22
     critic_unavailable failures (critic shells out to the same Max OAuth)."""
-    from jarvis.missions.critic.verdict import CriticTimeout
+    from dodaios.missions.critic.verdict import CriticTimeout
 
     class _TimeoutThenApproveCritic:
         def __init__(self) -> None:
@@ -1304,7 +1304,7 @@ async def test_git_push_evidence_reaches_critic_as_nonempty_diff(
     git-push tool call. The critic must SEE a non-empty diff carrying the
     command evidence (so its empty-diff GROUND-TRUTH veto no longer fires) and
     the mission can succeed instead of failing critic_loop_exhausted."""
-    from jarvis.missions.kontrollierer.orchestrator import _real_diff_is_empty
+    from dodaios.missions.kontrollierer.orchestrator import _real_diff_is_empty
 
     worker = _GitPushWorker()
     critic = FakeCriticRunner(_make_approve_verdict())
@@ -1478,7 +1478,7 @@ class _ToolUseProgressWorker:
         self.last_pid = 4242
 
     async def spawn(self, prompt, *, worktree, env, job, worker_id, log_dir, **kw):  # type: ignore[no-untyped-def]
-        from jarvis.missions.workers.stream_consumer import (
+        from dodaios.missions.workers.stream_consumer import (
             ClaudeAssistantMessage,
             ClaudeResult,
         )
@@ -1564,7 +1564,7 @@ async def test_swarm_phase_output_is_logged_for_mission_run(
     )
     mid = await manager.dispatch(prompt="deep research")
 
-    with caplog.at_level(logging.INFO, logger="jarvis.missions.kontrollierer.orchestrator"):
+    with caplog.at_level(logging.INFO, logger="dodaios.missions.kontrollierer.orchestrator"):
         end = await k.run_mission(mid)
 
     assert end == MissionState.APPROVED
@@ -1585,7 +1585,7 @@ async def test_desktop_launch_evidence_reaches_critic_as_nonempty_diff(
     fires) and the mission can succeed instead of failing critic_loop_exhausted.
     Mirrors test_git_push_evidence_reaches_critic_as_nonempty_diff for the
     desktop-launch shape (Task 3.1)."""
-    from jarvis.missions.kontrollierer.orchestrator import _real_diff_is_empty
+    from dodaios.missions.kontrollierer.orchestrator import _real_diff_is_empty
 
     worker = _DesktopLaunchWorker()
     critic = FakeCriticRunner(_make_approve_verdict())

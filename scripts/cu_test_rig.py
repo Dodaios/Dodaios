@@ -50,7 +50,7 @@ if str(REPO_ROOT) not in sys.path:
 
 # The rig window must report PHYSICAL pixels on Windows so its geometry lives
 # in the same space as capture + input (per-monitor DPI). Must run before Tk.
-from jarvis.core.win32_dpi import ensure_dpi_awareness  # noqa: E402
+from dodaios.core.win32_dpi import ensure_dpi_awareness  # noqa: E402
 
 ensure_dpi_awareness()
 
@@ -243,7 +243,7 @@ def _distance(a: tuple[int, int], b: tuple[int, int]) -> float:
 def _capture_monitor(rig: RigWindow):
     """The monitor CONTAINING the rig window (by containment, not focus —
     the console that launched the rig may hold focus on another screen)."""
-    from jarvis.cu.geometry import list_monitors
+    from dodaios.cu.geometry import list_monitors
 
     ox, oy = rig.canvas_origin_on_screen()
     cx, cy = ox + WINDOW_W // 2, oy + WINDOW_H // 2
@@ -261,7 +261,7 @@ def _virtual_rect():
     run with [computer_use].monitor='all' so a human focusing another window
     mid-measurement cannot flip the captured monitor under the mission
     (observed live: foreground-follow made runs land on the wrong screen)."""
-    from jarvis.cu.geometry import list_monitors, virtual_screen_bounds
+    from dodaios.cu.geometry import list_monitors, virtual_screen_bounds
 
     left, top, width, height = virtual_screen_bounds(list_monitors())
     if width <= 0:
@@ -274,7 +274,7 @@ def _activate_rig(rig: RigWindow) -> None:
     (immune to UIPI — an elevated foreground window silently discards
     injected input from a non-elevated process), then a confirmation click
     on dead canvas space that also PROVES injected input arrives."""
-    from jarvis.cu.actuate import get_actuator
+    from dodaios.cu.actuate import get_actuator
 
     rig.activate()
     ox, oy = rig.canvas_origin_on_screen()
@@ -358,8 +358,8 @@ def _summarize(
 def run_raw(rig: RigWindow) -> list[dict[str, Any]]:
     """Drive the v2 coordinate pipeline directly: capture geometry -> mapper
     -> normalized coords -> actuator click. Proves mapping + actuation."""
-    from jarvis.cu.actuate import get_actuator, verified_move
-    from jarvis.cu.geometry import CoordinateMapper
+    from dodaios.cu.actuate import get_actuator, verified_move
+    from dodaios.cu.geometry import CoordinateMapper
 
     actuator = get_actuator()
     _activate_rig(rig)
@@ -483,10 +483,10 @@ class PassthroughExecutor:
 
 
 def _real_tools() -> dict[str, Any]:
-    from jarvis.plugins.tool.click import ClickTool
-    from jarvis.plugins.tool.hotkey import HotkeyTool
-    from jarvis.plugins.tool.scroll import ScrollTool
-    from jarvis.plugins.tool.type_text import TypeTextTool
+    from dodaios.plugins.tool.click import ClickTool
+    from dodaios.plugins.tool.hotkey import HotkeyTool
+    from dodaios.plugins.tool.scroll import ScrollTool
+    from dodaios.plugins.tool.type_text import TypeTextTool
 
     tools: dict[str, Any] = {
         "click": ClickTool(),
@@ -495,7 +495,7 @@ def _real_tools() -> dict[str, Any]:
         "scroll": ScrollTool(),
     }
     try:
-        from jarvis.plugins.tool.drag import DragTool
+        from dodaios.plugins.tool.drag import DragTool
 
         tools["drag"] = DragTool()
     except Exception:  # noqa: BLE001
@@ -514,7 +514,7 @@ class LegacyVisionShim:
 
         from PIL import Image
 
-        from jarvis.cu.capture import mss_grab, select_monitor
+        from dodaios.cu.capture import mss_grab, select_monitor
 
         monitor = await asyncio.to_thread(select_monitor, "all")
         (w, h), rgb = await asyncio.to_thread(mss_grab, monitor.bbox)
@@ -530,7 +530,7 @@ class LegacyVisionShim:
         path = blob_dir / f"{sha}.jpg"
         if not path.exists():
             path.write_bytes(data)
-        from jarvis.core.protocols import Observation
+        from dodaios.core.protocols import Observation
 
         return Observation(
             trace_id=uuid4(),
@@ -574,9 +574,9 @@ async def _run_engine_mission(
             main_monitor="primary", settle_scale=1.0, strict_verify=True,
             image_max_dimension=1366, coordinate_space="auto",
         )
-        from jarvis.cu.engine import run_cu_loop
+        from dodaios.cu.engine import run_cu_loop
     else:
-        from jarvis.harness.computer_use_context import ComputerUseContext
+        from dodaios.harness.computer_use_context import ComputerUseContext
 
         ctx = ComputerUseContext(
             vision_engine=LegacyVisionShim(),
@@ -587,9 +587,9 @@ async def _run_engine_mission(
             monitor="all",
         )
         if engine == "stable":
-            from jarvis.harness.screenshot_only_loop_stable import run_cu_loop
+            from dodaios.harness.screenshot_only_loop_stable import run_cu_loop
         else:
-            from jarvis.harness.screenshot_only_loop import run_cu_loop
+            from dodaios.harness.screenshot_only_loop import run_cu_loop
 
     task = SimpleNamespace(prompt=goal, env={}, timeout_s=180, cwd=".")
     chunks: list[str] = []

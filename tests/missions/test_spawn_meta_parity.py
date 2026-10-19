@@ -10,8 +10,8 @@ impossible to merge: both modules must reference the identical object.
 """
 from __future__ import annotations
 
-from jarvis.missions import stream_evidence
-from jarvis.plugins.tool import spawn_worker
+from dodaios.missions import stream_evidence
+from dodaios.plugins.tool import spawn_worker
 
 
 def test_worker_prompt_and_critic_share_one_strip_function() -> None:

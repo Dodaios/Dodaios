@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import file_index, prompt_composer
+from dodaios.agentic_ide import file_index, prompt_composer
 
 
 @dataclass
@@ -55,8 +55,8 @@ def _writer_available(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture()
 def workspace(tmp_path: Path) -> _Session:
-    (tmp_path / "jarvis" / "plugins" / "wake").mkdir(parents=True)
-    (tmp_path / "jarvis" / "plugins" / "wake" / "vosk_kws_provider.py").write_text("x")
+    (tmp_path / "dodaios" / "plugins" / "wake").mkdir(parents=True)
+    (tmp_path / "dodaios" / "plugins" / "wake" / "vosk_kws_provider.py").write_text("x")
     file_index.reset_cache()
     return _Session(folder=str(tmp_path))
 
@@ -90,7 +90,7 @@ async def test_no_provider_still_delivers_a_cleaned_instruction(
     assert "ähm" not in result.text  # i18n-allow: the German filler under test
     assert "vosk" in result.text.lower()
     # And the file it pointed at came along.
-    assert "@jarvis/plugins/wake/vosk_kws_provider.py" in result.text
+    assert "@dodaios/plugins/wake/vosk_kws_provider.py" in result.text
 
 
 async def test_a_timeout_falls_back_rather_than_hanging(
@@ -124,8 +124,8 @@ async def test_invented_file_references_are_stripped(
         return (
             "## Task\nReview the wake word detection.\n\n"
             "## Key files\n"
-            "- `@jarvis/plugins/wake/vosk_kws_provider.py` - the provider\n"
-            "- `@jarvis/does/not/exist.py` - invented by the model"
+            "- `@dodaios/plugins/wake/vosk_kws_provider.py` - the provider\n"
+            "- `@dodaios/does/not/exist.py` - invented by the model"
         )
 
     monkeypatch.setattr(prompt_composer, "_llm_compose", _hallucinate)
@@ -134,10 +134,10 @@ async def test_invented_file_references_are_stripped(
         "review the wake word detection", session=workspace, terminal_name="Kai"
     )
     assert result.composed_by == "llm"
-    assert result.files == ["jarvis/plugins/wake/vosk_kws_provider.py"]
-    assert "@jarvis/does/not/exist.py" not in result.text
+    assert result.files == ["dodaios/plugins/wake/vosk_kws_provider.py"]
+    assert "@dodaios/does/not/exist.py" not in result.text
     # The name survives as plain text — the agent can still read the intent.
-    assert "jarvis/does/not/exist.py" in result.text
+    assert "dodaios/does/not/exist.py" in result.text
 
 
 async def test_a_path_escaping_the_workspace_is_refused(
@@ -224,7 +224,7 @@ async def test_the_composed_prompt_is_markdown(
     async def _brief(**_kwargs: object) -> str:
         return (
             "## Task\nReview the wake provider.\n\n"
-            "## Key files\n- `@jarvis/plugins/wake/vosk_kws_provider.py` - the provider"
+            "## Key files\n- `@dodaios/plugins/wake/vosk_kws_provider.py` - the provider"
         )
 
     monkeypatch.setattr(prompt_composer, "_llm_compose", _brief)
@@ -267,7 +267,7 @@ async def test_the_writer_gets_the_tree_and_a_look_inside_the_top_files(
     plus the lines that mention the task reach the writer, so the brief can
     name ``candidate_shape_ok`` instead of "the wake check".
     """
-    provider = Path(workspace.folder) / "jarvis" / "plugins" / "wake" / "vosk_kws_provider.py"
+    provider = Path(workspace.folder) / "dodaios" / "plugins" / "wake" / "vosk_kws_provider.py"
     provider.write_text(
         '"""Vosk keyword spotting."""\n\n\n'
         "def candidate_shape_ok(span: float) -> bool:\n"
@@ -289,7 +289,7 @@ async def test_the_writer_gets_the_tree_and_a_look_inside_the_top_files(
     )
 
     assert "WORKSPACE TREE" in seen["user"]
-    assert "jarvis/plugins/wake/" in seen["user"]
+    assert "dodaios/plugins/wake/" in seen["user"]
     assert "FILE OUTLINES AND TASK-RELEVANT LINES" in seen["user"]
     assert "candidate_shape_ok" in seen["user"]
     assert "L5: # the vosk wake gate" in seen["user"]
@@ -404,7 +404,7 @@ async def test_a_prompt_ending_on_a_reference_is_repaired(
     _prime(workspace)
 
     async def _trailing(**_kwargs: object) -> str:
-        return "## Task\nReview it.\n\n## Key files\n- `@jarvis/plugins/wake/vosk_kws_provider.py`"
+        return "## Task\nReview it.\n\n## Key files\n- `@dodaios/plugins/wake/vosk_kws_provider.py`"
 
     monkeypatch.setattr(prompt_composer, "_llm_compose", _trailing)
 
@@ -412,7 +412,7 @@ async def test_a_prompt_ending_on_a_reference_is_repaired(
         "review the vosk wake provider", session=workspace, terminal_name="Kai"
     )
 
-    from jarvis.agentic_ide.prompt_blueprint import ends_on_reference
+    from dodaios.agentic_ide.prompt_blueprint import ends_on_reference
 
     assert not ends_on_reference(result.text)
 
@@ -471,7 +471,7 @@ async def test_the_writer_call_disables_thinking() -> None:
 # `_FILLER_RE` runs language-BLIND — one pattern over German, English and
 # Spanish alike — so an entry that is a hesitation sound in one locale and a
 # content word in another does not merely risk damage, it guarantees it. Same
-# admission rule as `jarvis.dictation.cleanup`: an entry qualifies only if it is
+# admission rule as `dodaios.dictation.cleanup`: an entry qualifies only if it is
 # meaningless in EVERY locale served (2026-07-30).
 
 

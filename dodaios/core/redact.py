@@ -1,0 +1,203 @@
+"""Redact-and-cap helper for telemetry previews (decision-log / Run Inspector).
+
+The Session-Decision-Log persists, per action, a short preview of what a tool
+returned (``ActionExecuted.output_preview``) and the brain's natural-language
+rationale (``ActionProposed.rationale``). Both are derived from live data that
+could *theoretically* echo a credential (a tool that printed an API key, a model
+that quoted a token back), and both land on disk in ``data/sessions.db`` and in
+the local Markdown diary. So neither may be persisted raw.
+
+``safe_preview`` is the single gate every such preview passes before it touches
+an event/the DB/the diary: stringify -> mask credential shapes -> cap length.
+
+It is **regex-only** (no LLM call) so it is safe to run inline on the bus-publish
+path without adding latency (cf. AP-11 on the voice path). The credential shapes
+mirror ``dodaios/memory/wiki/secret_guard.py`` (the wiki write-guard) and the
+provider key shapes in ``dodaios/core/config.py`` — kept here as an independent
+copy because this module lives in the lowest layer (``dodaios.core``) and must not
+import upward into ``dodaios.memory``. The two differ in intent: ``secret_guard``
+*detects and blocks*; this *masks and keeps* a usable, secret-free preview.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import re
+import traceback
+from collections.abc import Mapping
+from typing import Any
+
+# Default cap for a persisted preview. Big enough to be useful when scrolling
+# back through the decision log, small enough that a tool cannot smuggle a large
+# blob (a screenshot data-URI, a giant JSON dump) into the session DB / diary.
+DEFAULT_PREVIEW_CHARS = 2048
+
+# --- credential shapes (mirror of secret_guard._PATTERNS, for substitution) ---
+_REDACTORS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    # OpenAI-style keys: sk-, sk-proj-, sk-ant-, sk-or-, sk-live-, >=20 trailing.
+    ("openai_key", re.compile(r"\bsk-(?:proj-|ant-|or-|live-)?[A-Za-z0-9_-]{20,}\b")),
+    # Provider keys: AIza… (Google), xai-…, gsk_… (Groq), gh[pousr]_ (GitHub).
+    (
+        "provider_key",
+        re.compile(
+            r"\b(?:AIza[0-9A-Za-z_-]{30,}"
+            r"|AQ\.[0-9A-Za-z_-]{30,}"
+            r"|xai-[A-Za-z0-9]{20,}"
+            r"|gsk_[A-Za-z0-9]{20,}"
+            r"|gh[pousr]_[A-Za-z0-9]{30,})\b"
+        ),
+    ),
+    # Telegram bot credentials live in the request path, not a query/header.
+    (
+        "telegram_bot_token",
+        re.compile(r"(?<!\d)\d{6,12}:[A-Za-z0-9_-]{30,}\b"),
+    ),
+    # SDK request logs can include credentials in URLs. Keep the parameter name
+    # for diagnostics while removing its value. ``key`` is intentionally broad:
+    # over-redacting an opaque URL value is safer than persisting a new key shape.
+    (
+        "query_secret",
+        re.compile(
+            r"(?i)([?&](?:api[_-]?key|key|token|access[_-]?token|auth)=)"
+            r"[^&\s\"']{8,}"
+        ),
+    ),
+    # Bearer / Authorization tokens.
+    ("bearer_token", re.compile(r"\b[Bb]earer\s+[A-Za-z0-9._\-]{16,}\b")),
+    (
+        "authorization_header",
+        re.compile(r"(?im)^\s*authorization\s*[:=]\s*\S{12,}\s*$"),
+    ),
+    # Inline "api_key = …" / "password: …" / "secret = …" / "token: …".
+    (
+        "labelled_secret",
+        re.compile(
+            r"(?i)(\b(?:api[_-]?key|secret(?:[_-]?key)?|password|passwd|pwd"
+            r"|access[_-]?token|auth[_-]?token|client[_-]?secret)\b['\"]?\s*[:=]\s*)"
+            r"['\"]?[^\s'\"]{8,}"
+        ),
+    ),
+    # JWT (three base64url segments separated by dots).
+    ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]{6,}\.eyJ[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\b")),
+    # Private-key PEM headers (mask the whole block start marker).
+    ("pem_private_key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----")),
+    # Long opaque secrets: >=64 contiguous hex (SHA-256 is 64, a git SHA-1 is 40
+    # and stays untouched) or >=64 contiguous base64.
+    ("long_hex_secret", re.compile(r"\b[0-9a-fA-F]{64,}\b")),
+    ("long_base64_secret", re.compile(r"\b[A-Za-z0-9+/]{64,}={0,2}\b")),
+)
+
+# The ``labelled_secret`` pattern keeps its label group (so "api_key=" stays
+# readable) and only masks the value; every other pattern masks the whole match.
+_KEEP_PREFIX = frozenset({"labelled_secret", "query_secret"})
+
+
+def redact_secrets(text: str) -> str:
+    """Mask credential-shaped substrings, leaving the rest of ``text`` intact.
+
+    Pure function. Each credential shape is replaced by ``<redacted:NAME>`` so a
+    human reading the decision log still sees *that* a secret was there (and of
+    what kind) without the value. The ``labelled_secret`` shape keeps its label
+    (``api_key=<redacted:labelled_secret>``) for readability.
+    """
+    if not text:
+        return text
+    out = text
+    for name, pat in _REDACTORS:
+        replacement = (
+            (r"\1" + f"<redacted:{name}>") if name in _KEEP_PREFIX else f"<redacted:{name}>"
+        )
+        out = pat.sub(replacement, out)
+    return out
+
+
+def _stringify(value: Any) -> str:
+    """Text of a preview value; structured data becomes JSON, not a Python repr.
+
+    A tool that returns a dict used to land in the trace as
+    ``{'actions': [{'action_id': ...`` — readable to nobody and unparseable
+    by the UI that turns results into sentences. JSON keeps the same content
+    in the shape every reader (the trace narrative, a person) understands;
+    a value JSON cannot encode falls back to ``str`` per item.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, Mapping | list | tuple):
+        return json.dumps(value, ensure_ascii=False, default=str)
+    return str(value)
+
+
+def safe_preview(value: Any, *, max_chars: int = DEFAULT_PREVIEW_CHARS) -> str:
+    """Stringify ``value`` -> mask credential shapes -> cap to ``max_chars``.
+
+    The one gate every persisted telemetry preview passes. Never raises: a value
+    whose ``str()`` blows up degrades to its type name. The cap appends a
+    ``… (+N more chars)`` marker so a truncated preview is honest about being
+    truncated rather than silently cut.
+    """
+    if value is None:
+        return ""
+    try:
+        text = _stringify(value)
+    except Exception:  # noqa: BLE001 — a preview must never crash the caller
+        return f"<{type(value).__name__}>"
+    text = redact_secrets(text)
+    if max_chars > 0 and len(text) > max_chars:
+        dropped = len(text) - max_chars
+        text = text[:max_chars] + f"… (+{dropped} more chars)"
+    return text
+
+
+class RedactingLogFilter(logging.Filter):
+    """Mask credential shapes in a record before any handler formats it.
+
+    httpx logs every request at INFO with its full URL, and some APIs carry
+    the credential IN the URL (the Telegram Bot API: ``/bot<token>/...``).
+    Rewriting the record here protects every handler — file, console, test
+    capture — not only the desktop log sink.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+        except Exception:  # noqa: BLE001 — a malformed record is passed on untouched
+            return True
+        cleaned = redact_secrets(message)
+        if cleaned != message:
+            record.msg = cleaned
+            record.args = ()
+        # A logged exception is printed below the message: its text and the
+        # texts of its causes can carry the same URL.
+        if record.exc_info and record.exc_info[0] is not None:
+            trace = "".join(traceback.format_exception(*record.exc_info))
+            cleaned_trace = redact_secrets(trace)
+            if cleaned_trace != trace:
+                # Formatters print ``exc_text`` as it is; without ``exc_info``
+                # no handler can format the original again.
+                record.exc_text = cleaned_trace.rstrip("\n")
+                record.exc_info = None
+        if record.exc_text:
+            record.exc_text = redact_secrets(record.exc_text)
+        if record.stack_info:
+            record.stack_info = redact_secrets(record.stack_info)
+        return True
+
+
+_REDACTED_LOGGERS: set[str] = set()
+
+
+def redact_logger(name: str) -> None:
+    """Attach one :class:`RedactingLogFilter` to logger *name* (idempotent)."""
+    if name in _REDACTED_LOGGERS:
+        return
+    logging.getLogger(name).addFilter(RedactingLogFilter())
+    _REDACTED_LOGGERS.add(name)
+
+
+__all__ = [
+    "DEFAULT_PREVIEW_CHARS",
+    "RedactingLogFilter",
+    "redact_logger",
+    "redact_secrets",
+    "safe_preview",
+]

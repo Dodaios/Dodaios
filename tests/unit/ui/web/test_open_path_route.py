@@ -8,7 +8,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.settings_routes import router
+from dodaios.ui.web.settings_routes import router
 
 
 def _client(native: bool) -> TestClient:
@@ -21,7 +21,7 @@ def _client(native: bool) -> TestClient:
 def test_open_path_calls_open_file(tmp_path: Path) -> None:
     target = tmp_path / "clip.mp4"
     target.write_bytes(b"video")
-    with patch("jarvis.platform.open_path.open_file", return_value=True) as opened:
+    with patch("dodaios.platform.open_path.open_file", return_value=True) as opened:
         response = _client(True).post("/api/settings/open-path", json={"path": str(target)})
     assert response.status_code == 200
     assert response.json() == {"opened": True}
@@ -31,7 +31,7 @@ def test_open_path_calls_open_file(tmp_path: Path) -> None:
 def test_open_path_is_absent_without_native_file_actions(tmp_path: Path) -> None:
     target = tmp_path / "clip.mp4"
     target.write_bytes(b"video")
-    with patch("jarvis.platform.open_path.open_file") as opened:
+    with patch("dodaios.platform.open_path.open_file") as opened:
         response = _client(False).post("/api/settings/open-path", json={"path": str(target)})
     assert response.status_code == 404
     opened.assert_not_called()
@@ -40,7 +40,7 @@ def test_open_path_is_absent_without_native_file_actions(tmp_path: Path) -> None
 def test_open_path_refuses_a_program(tmp_path: Path) -> None:
     target = tmp_path / "run.exe"
     target.write_bytes(b"nope")
-    with patch("jarvis.platform.open_path.open_file") as opened:
+    with patch("dodaios.platform.open_path.open_file") as opened:
         response = _client(True).post("/api/settings/open-path", json={"path": str(target)})
     assert response.status_code == 400
     assert response.json()["detail"] == "refused-program"

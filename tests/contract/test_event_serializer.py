@@ -14,13 +14,13 @@ from uuid import UUID
 
 import pytest
 
-from jarvis.core import events as events_mod
-from jarvis.core.events import Event
-from jarvis.ui.web.schema import event_to_ws_envelope
+from dodaios.core import events as events_mod
+from dodaios.core.events import Event
+from dodaios.ui.web.schema import event_to_ws_envelope
 
 
 def _all_event_classes() -> list[type[Event]]:
-    """Discovery: alle Event-Subklassen in `jarvis.core.events`."""
+    """Discovery: alle Event-Subklassen in `dodaios.core.events`."""
     classes: list[type[Event]] = []
     for _, obj in inspect.getmembers(events_mod, inspect.isclass):
         if obj is Event:
@@ -65,7 +65,7 @@ def test_event_serializes_to_json(event_cls: type[Event]) -> None:
 
 def test_system_state_changed_payload_roundtrip() -> None:
     """Payload field mapping for the most frequently sent event type."""
-    from jarvis.core.events import SystemStateChanged
+    from dodaios.core.events import SystemStateChanged
 
     evt = SystemStateChanged(
         new_state="LISTENING", previous="IDLE", source_layer="test"

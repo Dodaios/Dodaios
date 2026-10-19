@@ -16,12 +16,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.local_action_gate import (
+from dodaios.brain.local_action_gate import (
     LocalActionMode,
     LocalActionPlan,
     LocalToolCall,
 )
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 class _FakeBus:
@@ -38,7 +38,7 @@ class _OpenAppExecutor:
 
     async def execute(self, tool, args, *, user_utterance, trace_id):  # noqa: ANN001
         self.called_with = dict(args)
-        # Byte-identical to jarvis/plugins/tool/open_app.py success output.
+        # Byte-identical to dodaios/plugins/tool/open_app.py success output.
         return SimpleNamespace(
             success=True, output=f"Gestartet: {args.get('app_name')}", error=None
         )
@@ -68,10 +68,10 @@ def _direct_open_explorer_plan(_text: str, **_kwargs: object) -> LocalActionPlan
 
 
 async def test_scoped_browser_chat_never_uses_the_global_desktop_shortcut(monkeypatch):
-    from jarvis.brain.manager import _TURN_OVERRIDE
-    from jarvis.brain.turn_override import TurnOverride
+    from dodaios.brain.manager import _TURN_OVERRIDE
+    from dodaios.brain.turn_override import TurnOverride
     manager = _make_direct_manager(reply_language="en")
-    monkeypatch.setattr("jarvis.brain.manager.match_local_action", _direct_open_explorer_plan)
+    monkeypatch.setattr("dodaios.brain.manager.match_local_action", _direct_open_explorer_plan)
     token = _TURN_OVERRIDE.set(TurnOverride(provider="openrouter", tools_extra={"society_browser": object()}))
     try:
         result = await manager._run_local_action_fast_path("Open this in my agent browser")
@@ -86,7 +86,7 @@ async def test_english_pin_acknowledges_in_english(monkeypatch) -> None:
     # Desktop "Languages" view set to English (brain.reply_language="en").
     mgr = _make_direct_manager(reply_language="en")
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", _direct_open_explorer_plan
+        "dodaios.brain.manager.match_local_action", _direct_open_explorer_plan
     )
 
     reply = await mgr._run_local_action_fast_path(
@@ -103,7 +103,7 @@ async def test_auto_mode_mirrors_english_text(monkeypatch) -> None:
     # No explicit pin: the turn's English text must drive the ack language.
     mgr = _make_direct_manager(reply_language="auto")
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", _direct_open_explorer_plan
+        "dodaios.brain.manager.match_local_action", _direct_open_explorer_plan
     )
 
     reply = await mgr._run_local_action_fast_path(
@@ -119,7 +119,7 @@ async def test_german_stays_german(monkeypatch) -> None:
     # Regression guard: a German turn must keep the exact historical ack.
     mgr = _make_direct_manager(reply_language="auto")
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", _direct_open_explorer_plan
+        "dodaios.brain.manager.match_local_action", _direct_open_explorer_plan
     )
 
     reply = await mgr._run_local_action_fast_path("öffne den Explorer")
@@ -132,7 +132,7 @@ async def test_german_pin_stays_german(monkeypatch) -> None:
     # An explicit German pin keeps German even for English text.
     mgr = _make_direct_manager(reply_language="de")
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action", _direct_open_explorer_plan
+        "dodaios.brain.manager.match_local_action", _direct_open_explorer_plan
     )
 
     reply = await mgr._run_local_action_fast_path("open the explorer please")

@@ -14,11 +14,11 @@ import asyncio
 
 import pytest
 
-import jarvis.live.runtime as live_runtime
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.events import DictationRefused, DictationStarted, VoiceInputHeld
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
+import dodaios.live.runtime as live_runtime
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.events import DictationRefused, DictationStarted, VoiceInputHeld
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
 
 pytestmark = pytest.mark.usefixtures("granted_microphone")
 

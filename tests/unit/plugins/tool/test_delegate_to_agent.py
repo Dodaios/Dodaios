@@ -8,16 +8,16 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.plugins.tool.delegate_to_agent import DelegateToAgentTool, SocietyStatusTool
-from jarvis.society.events import MsgType
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.plugins.tool.delegate_to_agent import DelegateToAgentTool, SocietyStatusTool
+from dodaios.society.events import MsgType
+from dodaios.society.runtime import SocietyRuntime
 
 
 class FakeChat:
     """Enough of AgentChatService for a dispatch: the turn never ends here."""
 
     def __init__(self, db: Path) -> None:
-        from jarvis.agent_chat.store import AgentChatStore
+        from dodaios.agent_chat.store import AgentChatStore
 
         self.store = AgentChatStore(db)
         self.sent: list[tuple[str, str]] = []
@@ -288,7 +288,7 @@ async def test_assignment_preserves_context_criteria_and_tracking(runtime):
 
 
 async def test_unrelated_claim_does_not_confirm_assignment(runtime):
-    from jarvis.society.events import SocietyEnvelope
+    from dodaios.society.events import SocietyEnvelope
 
     rt, chat = runtime
     rt.scheduler.detach()
@@ -546,7 +546,7 @@ def test_every_spoken_table_carries_european_portuguese() -> None:
     back to English."""
     import string
 
-    from jarvis.plugins.tool import delegate_to_agent as module
+    from dodaios.plugins.tool import delegate_to_agent as module
 
     def fields(text: str) -> set[str]:
         return {f for _, f, _, _ in string.Formatter().parse(text) if f}

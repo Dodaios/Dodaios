@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 
 @dataclass

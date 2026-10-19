@@ -18,21 +18,21 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.marketplace.auth.base import sanitize_provider_error
-from jarvis.marketplace.auth.oauth_pkce_loopback import (
+from dodaios.marketplace.auth.base import sanitize_provider_error
+from dodaios.marketplace.auth.oauth_pkce_loopback import (
     PkceLoopbackConfig,
     PkceLoopbackHandler,
     _PendingPkceFlow,
 )
-from jarvis.marketplace.catalog import PluginSpec
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.marketplace.refresh_scheduler import REVOKED, reauth_reason_for, refresh_plugin_token
-from jarvis.marketplace.revoke import (
+from dodaios.marketplace.catalog import PluginSpec
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.refresh_scheduler import REVOKED, reauth_reason_for, refresh_plugin_token
+from dodaios.marketplace.revoke import (
     REVOCATION_SHARED,
     revoke_unless_shared,
     revokes_whole_project,
 )
-from jarvis.marketplace.token_store import (
+from dodaios.marketplace.token_store import (
     REAUTH_CLIENT_REJECTED,
     InMemoryBackend,
     Tokens,
@@ -196,7 +196,7 @@ async def test_a_per_token_provider_still_revokes_with_siblings() -> None:
 async def test_disconnect_route_keeps_the_other_google_plugins_connected(monkeypatch) -> None:
     from starlette.requests import Request
 
-    from jarvis.ui.web import marketplace_routes
+    from dodaios.ui.web import marketplace_routes
 
     store = TokenStore(InMemoryBackend())
     store.save("gmail", _google_tokens(refresh="gmail-rt"))
@@ -209,7 +209,7 @@ async def test_disconnect_route_keeps_the_other_google_plugins_connected(monkeyp
 
     monkeypatch.setattr(marketplace_routes, "TokenStore", lambda: store)
     monkeypatch.setattr(marketplace_routes, "_refresh_plugin_in_live_registry", lambda _p: None)
-    monkeypatch.setattr("jarvis.marketplace.revoke.revoke_tokens", _no_network)
+    monkeypatch.setattr("dodaios.marketplace.revoke.revoke_tokens", _no_network)
 
     request = Request({"type": "http", "app": None, "headers": []})
     body = await marketplace_routes.disconnect("gmail", request)
@@ -346,7 +346,7 @@ async def test_refresh_updates_the_recorded_grant_end(monkeypatch) -> None:
 async def test_list_plugins_serves_the_grant_end(monkeypatch) -> None:
     from fastapi import Response
 
-    from jarvis.ui.web import marketplace_routes
+    from dodaios.ui.web import marketplace_routes
 
     store = TokenStore(InMemoryBackend())
     store.save(

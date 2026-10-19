@@ -14,13 +14,13 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.profile_capture import (
+from dodaios.memory.profile_capture import (
     apply_profile_facts,
     capture_from_utterance,
     extract_profile_facts,
 )
-from jarvis.memory.user_profile import UserProfile
-from jarvis.plugins.tool.profile_update import _CANONICAL_FIELDS
+from dodaios.memory.user_profile import UserProfile
+from dodaios.plugins.tool.profile_update import _CANONICAL_FIELDS
 
 # ----------------------------------------------------------------------
 # Extraction — the shapes people actually use
@@ -229,9 +229,9 @@ def test_a_silent_turn_never_touches_the_file(tmp_path: Path) -> None:
 
 def test_bridge_captures_from_a_finished_turn(tmp_path: Path) -> None:
     """The wiring, end to end: a turn on the bus updates USER.md."""
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import ProfileUpdated, VoiceTurnCompleted
-    from jarvis.memory.profile_capture import ProfileCaptureBridge
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import ProfileUpdated, VoiceTurnCompleted
+    from dodaios.memory.profile_capture import ProfileCaptureBridge
 
     profile = _profile(tmp_path)
     bus = EventBus()
@@ -260,7 +260,7 @@ def test_bridge_captures_from_a_finished_turn(tmp_path: Path) -> None:
 
 
 def test_one_unwritable_fact_does_not_lose_the_others(tmp_path: Path) -> None:
-    from jarvis.memory.profile_capture import ProfileFact
+    from dodaios.memory.profile_capture import ProfileFact
 
     profile = _profile(tmp_path)
     facts = (

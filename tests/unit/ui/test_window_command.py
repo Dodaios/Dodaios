@@ -5,8 +5,8 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.desktop_routes import router
-from jarvis.ui.window_command import run_window_command, window_chrome
+from dodaios.ui.web.desktop_routes import router
+from dodaios.ui.window_command import run_window_command, window_chrome
 
 
 class Window:
