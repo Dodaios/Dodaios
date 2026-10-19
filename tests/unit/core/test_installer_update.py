@@ -162,6 +162,13 @@ def test_the_updater_accepts_every_installer_the_release_pipeline_publishes() ->
     assert release_assets.INSTALLERS == set().union(*release_assets.PLATFORM_INSTALLERS.values())
 
 
+def test_releases_publish_every_accepted_name_so_old_installs_keep_updating() -> None:
+    """An install frozen before the rename knows only the earlier name of its row."""
+    from scripts.ci import release_assets
+
+    assert set(release_assets.INSTALLER_NAME_PAIRS) == set(iu.INSTALLER_ASSET_NAMES.values())
+
+
 def test_select_installer_asset_prefers_the_first_accepted_name() -> None:
     assets = _release_assets(
         "PersonalJarvis-macOS-arm64.dmg",
