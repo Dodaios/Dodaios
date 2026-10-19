@@ -484,6 +484,7 @@ class WebServer:
         from .agent_mcp_routes import router as agent_mcp_router
         from .agent_runtime_routes import router as agent_runtime_router
         from .agentic_ide_git_routes import router as agentic_ide_git_router
+        from .agentic_ide_scm_routes import router as agentic_ide_scm_router
         from .agentic_ide_routes import router as agentic_ide_router
         from .antigravity_routes import router as antigravity_router
         from .app_actions_routes import router as app_actions_router
@@ -697,6 +698,7 @@ class WebServer:
         # workspace above; adds the folder picker, call-signs, transcripts, and
         # the focused coding mode.
         # Before the IDE router, so its /{…} paths never shadow /git/….
+        app.include_router(agentic_ide_scm_router)
         app.include_router(agentic_ide_git_router)
         app.state.team_threads = None
         app.include_router(team_thread_router)

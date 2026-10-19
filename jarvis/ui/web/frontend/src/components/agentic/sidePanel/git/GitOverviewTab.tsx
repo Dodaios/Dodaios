@@ -1,506 +1,411 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, FolderGit2, Loader2, RefreshCw } from "lucide-react";
-import { fill, useT } from "@/i18n";
-import { useRunLocale } from "@/components/runs/format";
-import { openExternalUrl } from "@/lib/openExternal";
-import { cn } from "@/lib/utils";
-import { QuickTooltip } from "@/components/ui/tooltip";
+import { useT } from "@/i18n";
+import { prepareGit } from "@/lib/gitApi";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
-import { useIdeSidePanelStore } from "@/store/ideSidePanel";
-import { AttentionList } from "./AttentionList";
-import { BranchList } from "./BranchList";
-import { BranchMenu } from "./BranchMenu";
-import { CleanupDialog } from "./CleanupDialog";
-import { ConfirmDialog } from "./ConfirmDialog";
-import { agoLabel, LinkIcon } from "./gitBadges";
-import { ConnectGitHubCard, ConnectRepositoryCard, GitHubRepoPicker } from "./GitHubRepoPicker";
-import { attention, canCleanUp, checkoutOf, openPullRequests, type AttentionItem, type BranchFilter } from "./gitInsights";
-import {
-  bindGitHubRepo,
-  fetchBranchEditors,
-  fetchGitOverview,
-  GitOverviewError,
-  type BranchEditors,
-  type BranchRow,
-  type RepoOverview,
-} from "./gitOverviewApi";
-import { PullRequestList } from "./PullRequestList";
-import { Section } from "./Section";
-import { StatusPanel } from "./StatusPanel";
-import { useGitActions } from "./useGitActions";
+import { RepositoryOverview, RestartToConnectCard } from "./RepositoryOverview";
+import { ChangesView, IconButton, viewSortMenu, type ListSettings } from "./scm/ChangesView";
+import { Codicon } from "./scm/Codicon";
+import "./scm/scm.css";
+import { DiffDialog, type DiffSource } from "./scm/DiffDialog";
+import { GraphView } from "./scm/GraphView";
+import { useQuickInput } from "./scm/QuickInput";
+import { ScmMenu, menuPointFor, type MenuItem } from "./scm/ScmMenu";
+import { ScmViews } from "./scm/ScmViews";
+import type { GraphScope } from "./scm/scmApi";
+import { scmStorage, useChoice, useScmCommands, useScmStatus, type CommitOptions } from "./scm/useScm";
 
-/**
- * An unchanged repository answers a poll with one `git status`; GitHub is
- * cached per repository on the backend (shorter while a check runs), so this
- * cadence never turns into one GitHub call per tick.
- */
-const POLL_MS = 15_000;
-const POLL_JITTER_MS = 3_000;
-/** While GitHub is being read (the first time, or again after an action), the local state is already shown and this re-asks soon. */
-const POLL_LOADING_MS = 1_500;
+export { resetGitOverviewCache } from "./RepositoryOverview";
 
-/**
- * The last overview per workspace. Reopening the tab paints it at once and
- * refreshes behind it, instead of starting from a spinner every time.
- */
-const LAST_OVERVIEW = new Map<string, RepoOverview>();
+type ViewId = "changes" | "graph" | "branches";
 
-/** Forget every remembered overview (tests start from an empty tab). */
-export function resetGitOverviewCache(): void {
-  LAST_OVERVIEW.clear();
-}
-
-function useGitOverview(workspaceId: string | null) {
-  const [data, setData] = useState<RepoOverview | null>(() => (workspaceId ? (LAST_OVERVIEW.get(workspaceId) ?? null) : null));
-  const [error, setError] = useState("");
-  const [routeMissing, setRouteMissing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [round, setRound] = useState(0);
-  // Set by refresh(), used up by the next read: a later workspace switch is an ordinary read again.
-  const forceNext = useRef(false);
-  const shown = useRef(workspaceId);
-  useEffect(() => {
-    if (shown.current === workspaceId) return;
-    shown.current = workspaceId;
-    setData(workspaceId ? (LAST_OVERVIEW.get(workspaceId) ?? null) : null);
-    setError("");
-  }, [workspaceId]);
-  useEffect(() => {
-    if (!workspaceId) return;
-    let alive = true;
-    let timer: number | undefined;
-    let refresh = forceNext.current;
-    forceNext.current = false;
-    let githubLoading = false;
-    const tick = async () => {
-      if (useEventStore.getState().activeSection === "agentic-ide") {
-        setLoading(true);
-        try {
-          const next = await fetchGitOverview(workspaceId, refresh);
-          refresh = false;
-          githubLoading = next.github?.code === "loading" || Boolean(next.github?.refreshing);
-          LAST_OVERVIEW.set(workspaceId, next);
-          if (alive) {
-            setData(next);
-            setError("");
-            setRouteMissing(false);
-          }
-        } catch (err) {
-          // Keep the last answer on screen; the next tick tries again.
-          if (alive) {
-            setError((err as Error).message);
-            setRouteMissing(err instanceof GitOverviewError && err.routeMissing);
-          }
-        } finally {
-          if (alive) setLoading(false);
-        }
-      }
-      const delay = githubLoading ? POLL_LOADING_MS + Math.random() * 500 : POLL_MS + Math.random() * POLL_JITTER_MS;
-      if (alive) timer = window.setTimeout(tick, delay);
-    };
-    void tick();
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-    };
-  }, [workspaceId, round]);
-  const refresh = useCallback(() => {
-    forceNext.current = true;
-    setRound((value) => value + 1);
-  }, []);
-  return { data, error, routeMissing, loading, refresh };
-}
-
-async function restartApp(pushToast: (kind: "warning" | "error", text: string) => void, t: (key: string) => string): Promise<boolean> {
+function readJson<T>(key: string, fallback: T): T {
   try {
-    const response = await fetch("/api/settings/restart-app", { method: "POST" });
-    if (response.status === 409) {
-      pushToast("warning", t("topbar.restart_missions_running"));
-      return false;
-    }
-    if (!response.ok) throw new Error(`restart-failed:${response.status}`);
-    // The window closes and relaunches; the button stays busy until then.
-    return true;
+    const text = scmStorage.get(key);
+    return text ? { ...fallback, ...(JSON.parse(text) as T) } : fallback;
   } catch {
-    pushToast("error", t("permissions.restart_failed"));
-    return false;
+    return fallback; // a damaged entry falls back to the defaults
   }
 }
 
-/**
- * The running backend predates this tab: the one thing to do is restart, so
- * the card says what the tab is for and restarts on a click. A click in the
- * app is the person asking; control clients can never restart it.
- */
-function RestartToConnectCard() {
-  const t = useT();
-  const pushToast = useEventStore((state) => state.pushToast);
-  const [restarting, setRestarting] = useState(false);
-  const restart = async () => {
-    if (restarting) return;
-    setRestarting(true);
-    if (!(await restartApp(pushToast, t))) setRestarting(false);
-  };
-  return (
-    <div data-testid="git-error" className="mx-3 my-3 space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
-      <p className="text-[12.5px] font-medium text-foreground">{t("ide_side_panel.git.connect_repo_title")}</p>
-      <p className="text-[11.5px] text-muted-foreground">{t("ide_side_panel.git.needs_restart")}</p>
-      <button
-        type="button"
-        data-testid="git-restart"
-        disabled={restarting}
-        onClick={() => void restart()}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-      >
-        {restarting ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
-        {t("ide_side_panel.git.restart_button")}
-      </button>
-    </div>
-  );
-}
-
-/** The backend answers, but is older than the control center: say so in one line. */
-function OlderBackendNote() {
-  const t = useT();
-  const pushToast = useEventStore((state) => state.pushToast);
-  const [restarting, setRestarting] = useState(false);
-  return (
-    <p data-testid="git-older-backend" className="flex items-center gap-2 border-b border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
-      <span className="min-w-0 flex-1">{t("ide_side_panel.git.older_backend")}</span>
-      <button
-        type="button"
-        disabled={restarting}
-        onClick={() => {
-          setRestarting(true);
-          void restartApp(pushToast, t).then((ok) => !ok && setRestarting(false));
-        }}
-        className="shrink-0 rounded text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-      >
-        {t("ide_side_panel.git.restart_button")}
-      </button>
-    </p>
-  );
-}
-
-/** Quiet placeholder blocks in the shape of the tab, while the first answer loads. */
-function LoadingShape() {
-  const t = useT();
-  const bar = "rounded bg-secondary motion-safe:animate-pulse";
-  return (
-    <div data-testid="git-loading" role="status" aria-label={t("ide_side_panel.git.loading")} className="space-y-3 px-3 py-3">
-      <div className={cn(bar, "h-4 w-40")} />
-      <div className={cn(bar, "h-11 w-full")} />
-      <div className={cn(bar, "h-12 w-full")} />
-      {[0, 1, 2, 3].map((index) => (
-        <div key={index} className="space-y-1.5 pt-1">
-          <div className={cn(bar, "h-3 w-3/5")} />
-          <div className={cn(bar, "h-2.5 w-2/5")} />
-        </div>
-      ))}
-    </div>
-  );
-}
+const VIEWS_KEY = "jarvis.git.scm.views.v1";
+const WEIGHTS_KEY = "jarvis.git.scm.weights.v1";
+const LIST_KEY = "jarvis.git.scm.list.v1";
+const SCOPE_KEY = "jarvis.git.scm.graphScope.v1";
+const MESSAGE_KEY = (workspaceId: string) => `jarvis.git.scm.message.${workspaceId}`;
 
 /**
- * The Git tab: the state of the open workspace's repository at a glance. On
- * top, the checkout the person is in — who is ahead, what is uncommitted, the
- * one next step. Below it what needs a look across the repository, every open
- * pull request with its CI, and every branch. What matters can be done here.
+ * The Git tab: source control for the open workspace's repository. Changes
+ * lists every staged, unstaged and conflicting file under the commit box;
+ * Graph draws the history; Branches & Pull Requests is the repository-wide
+ * overview with GitHub's pull requests and CI.
  */
 export function GitOverviewTab() {
   const t = useT();
-  const lang = useRunLocale();
   const workspace = useIdeChatStore((state) => state.workspace);
   const workspaceId = workspace?.id ?? null;
-  const { data, error, routeMissing, loading, refresh } = useGitOverview(workspaceId);
-  // Fetch and commit name the workspace's own folder; everything else names the workspace.
-  const actions = useGitActions(workspaceId ?? "", workspace?.path ?? "", data?.branch ?? "", refresh);
-  const [filter, setFilter] = useState<BranchFilter>("all");
-  const [open, setOpen] = useState({ prs: true, branches: true });
-  const [menu, setMenu] = useState<{ row: BranchRow; x: number; y: number } | null>(null);
-  const [cleaning, setCleaning] = useState<BranchRow[] | null>(null);
-  const [alsoRemote, setAlsoRemote] = useState(false);
-  const [editors, setEditors] = useState<BranchEditors | null>(null);
-  const prsRef = useRef<HTMLDivElement>(null);
-  const branchesRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    let alive = true;
-    fetchBranchEditors()
-      .then((answer) => alive && setEditors(answer))
-      // An older backend has no such route: rows then offer GitHub and copy only.
-      .catch(() => alive && setEditors({ file_manager: false, editors: [] }));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  const openMenu = useCallback((row: BranchRow, x: number, y: number) => {
-    setMenu((current) => (current?.row.name === row.name && current.row.remote_only === row.remote_only ? null : { row, x, y }));
-  }, []);
-  const closeMenu = useCallback(() => setMenu(null), []);
-  // Reopened from the repository chip to change an earlier choice.
-  const [changing, setChanging] = useState(false);
-  // The repository just picked. The pick is saved at once, but the GitHub
-  // read it starts takes seconds (up to the request timeout); until that
-  // answer lands the tab shows the choice and the local branches, never the
-  // picker again — a picker that stays put reads as "the click did nothing".
-  const [pickedRepo, setPickedRepo] = useState("");
-  const [binding, setBinding] = useState(false);
   const pushToast = useEventStore((state) => state.pushToast);
-  useEffect(() => setChanging(false), [workspaceId]);
-  useEffect(() => setPickedRepo(""), [data, workspaceId]);
+  const quick = useQuickInput();
+  const choice = useChoice();
+  const { status, error, refresh } = useScmStatus(workspaceId);
+  const [bump, setBump] = useState(0);
+  const onChanged = useCallback(() => setBump((value) => value + 1), []);
+  const { busy, commands } = useScmCommands({ workspaceId: workspaceId ?? "", status, refresh, quick, ask: choice.ask, onChanged });
+  const [open, setOpen] = useState<Record<ViewId, boolean>>(() => readJson(VIEWS_KEY, { changes: true, graph: true, branches: false }));
+  const [weights, setWeights] = useState<Record<string, number>>(() => readJson(WEIGHTS_KEY, { changes: 1, graph: 1, branches: 1 }));
+  const [settings, setSettings] = useState<ListSettings>(() => readJson<ListSettings>(LIST_KEY, { mode: "list", sort: "path" }));
+  const [scope, setScope] = useState<GraphScope>(() => (scmStorage.get(SCOPE_KEY) as GraphScope) || "auto");
+  const [diff, setDiff] = useState<DiffSource | null>(null);
+  const [menu, setMenu] = useState<{ items: MenuItem[]; x: number; y: number } | null>(null);
+  const [goHead, setGoHead] = useState(0);
+  const [initializing, setInitializing] = useState(false);
+  // The commit message is kept per workspace, across restarts, until it is committed.
+  const [message, setMessageState] = useState(() => (workspaceId ? scmStorage.get(MESSAGE_KEY(workspaceId)) : ""));
+  const [messageError, setMessageError] = useState("");
+  const messageRef = useRef<HTMLTextAreaElement>(null);
+  const shownWorkspace = useRef(workspaceId);
   useEffect(() => {
-    setFilter("all");
-    setMenu(null);
-    setCleaning(null);
+    if (shownWorkspace.current === workspaceId) return;
+    shownWorkspace.current = workspaceId;
+    setMessageState(workspaceId ? scmStorage.get(MESSAGE_KEY(workspaceId)) : "");
+    setMessageError("");
   }, [workspaceId]);
-  useEffect(() => setAlsoRemote(false), [actions.confirmation]);
+  const setMessage = useCallback(
+    (next: string) => {
+      setMessageState(next);
+      setMessageError("");
+      if (workspaceId) scmStorage.set(MESSAGE_KEY(workspaceId), next);
+    },
+    [workspaceId],
+  );
 
-  const items = useMemo(() => (data?.available ? attention(data) : []), [data]);
-  const prs = useMemo(() => (data?.available ? openPullRequests(data) : []), [data]);
+  useEffect(() => scmStorage.set(VIEWS_KEY, JSON.stringify(open)), [open]);
+  useEffect(() => scmStorage.set(WEIGHTS_KEY, JSON.stringify(weights)), [weights]);
+  useEffect(() => scmStorage.set(LIST_KEY, JSON.stringify(settings)), [settings]);
+  useEffect(() => scmStorage.set(SCOPE_KEY, scope), [scope]);
+
+  // The graph reads again when the branch, its tip or its upstream moves.
+  const revision = status ? [status.branch, status.head, status.upstream, status.ahead, status.behind, bump].join("|") : String(bump);
+
+  const toggleView = (id: ViewId) => setOpen((current) => ({ ...current, [id]: !current[id] }));
+
+  const runCommit = useCallback(
+    (options: CommitOptions) => {
+      if (!message.trim() && options.kind !== "amend") {
+        setOpen((current) => ({ ...current, changes: true }));
+        setMessageError(t("ide_side_panel.git.scm.message_required"));
+        messageRef.current?.focus();
+        return;
+      }
+      setMessageError("");
+      void commands.commit(message, options).then((made) => made && setMessage(""));
+    },
+    [commands, message, setMessage, t],
+  );
+
+  // Undo puts the commit's message back into the box, as long as nothing new was typed there.
+  const undoLastCommit = useCallback(async () => {
+    const restored = await commands.undoLastCommit();
+    if (restored !== undefined && !message.trim()) setMessage(restored);
+  }, [commands, message, setMessage]);
+
+  const moreMenu = useCallback((): MenuItem[] => {
+    const operation = status?.operation ?? "";
+    return [
+      viewSortMenu(settings, setSettings, t),
+      { kind: "separator", id: "m0" },
+      { id: "pull", label: t("ide_side_panel.git.scm.pull"), run: () => void commands.pull() },
+      { id: "push", label: t("ide_side_panel.git.scm.push"), run: () => void commands.push() },
+      { id: "checkout", label: t("ide_side_panel.git.scm.checkout_to"), run: () => void commands.checkoutTo() },
+      { id: "fetch", label: t("ide_side_panel.git.scm.fetch"), run: () => void commands.fetch() },
+      { kind: "separator", id: "m1" },
+      {
+        kind: "submenu",
+        id: "commit-menu",
+        label: t("ide_side_panel.git.scm.menu_commit"),
+        items: [
+          { id: "c-commit", label: t("ide_side_panel.git.scm.commit"), run: () => runCommit({ kind: "commit" }) },
+          { id: "c-staged", label: t("ide_side_panel.git.scm.commit_staged"), run: () => runCommit({ kind: "commit", scope: "staged" }) },
+          { id: "c-all", label: t("ide_side_panel.git.scm.commit_all"), run: () => runCommit({ kind: "commit", scope: "all" }) },
+          { id: "c-undo", label: t("ide_side_panel.git.scm.undo_last_commit"), disabled: !status?.head, run: () => void undoLastCommit() },
+          ...(operation === "rebase"
+            ? [{ id: "c-abort-rebase", label: t("ide_side_panel.git.scm.abort_rebase"), run: () => void commands.operation("abort") } as MenuItem]
+            : []),
+          { kind: "separator", id: "c1" },
+          { id: "c-amend", label: t("ide_side_panel.git.scm.commit_amend"), run: () => runCommit({ kind: "amend" }) },
+          { id: "c-staged-amend", label: t("ide_side_panel.git.scm.commit_staged_amend"), run: () => runCommit({ kind: "amend", scope: "staged" }) },
+          { id: "c-all-amend", label: t("ide_side_panel.git.scm.commit_all_amend"), run: () => runCommit({ kind: "amend", scope: "all" }) },
+          { kind: "separator", id: "c2" },
+          { id: "c-signoff", label: t("ide_side_panel.git.scm.commit_signed_off"), run: () => runCommit({ kind: "commit", signoff: true }) },
+          { id: "c-staged-signoff", label: t("ide_side_panel.git.scm.commit_staged_signed_off"), run: () => runCommit({ kind: "commit", scope: "staged", signoff: true }) },
+          { id: "c-all-signoff", label: t("ide_side_panel.git.scm.commit_all_signed_off"), run: () => runCommit({ kind: "commit", scope: "all", signoff: true }) },
+          { kind: "separator", id: "c3" },
+          { id: "c-no-verify", label: t("ide_side_panel.git.scm.commit_no_verify"), run: () => runCommit({ kind: "commit", noVerify: true }) },
+        ],
+      },
+      {
+        kind: "submenu",
+        id: "changes-menu",
+        label: t("ide_side_panel.git.scm.menu_changes"),
+        items: [
+          { id: "ch-stage-all", label: t("ide_side_panel.git.scm.stage_all"), run: () => void commands.stageAll() },
+          { id: "ch-unstage-all", label: t("ide_side_panel.git.scm.unstage_all"), run: () => void commands.unstageAll() },
+          { id: "ch-discard-all", label: t("ide_side_panel.git.scm.discard_all"), run: () => void commands.discardAll() },
+        ],
+      },
+      {
+        kind: "submenu",
+        id: "pull-push-menu",
+        label: t("ide_side_panel.git.scm.menu_pull_push"),
+        items: [
+          { id: "pp-sync", label: t("ide_side_panel.git.scm.sync"), run: () => void commands.sync() },
+          { kind: "separator", id: "p1" },
+          { id: "pp-pull", label: t("ide_side_panel.git.scm.pull"), run: () => void commands.pull() },
+          { id: "pp-pull-rebase", label: t("ide_side_panel.git.scm.pull_rebase"), run: () => void commands.pull(true) },
+          { id: "pp-pull-from", label: t("ide_side_panel.git.scm.pull_from"), run: () => void commands.pullFrom() },
+          { kind: "separator", id: "p2" },
+          { id: "pp-push", label: t("ide_side_panel.git.scm.push"), run: () => void commands.push() },
+          { id: "pp-push-to", label: t("ide_side_panel.git.scm.push_to"), run: () => void commands.pushTo() },
+          { id: "pp-push-tags", label: t("ide_side_panel.git.scm.push_tags"), run: () => void commands.pushTags() },
+          { kind: "separator", id: "p3" },
+          { id: "pp-fetch", label: t("ide_side_panel.git.scm.fetch"), run: () => void commands.fetch() },
+          { id: "pp-fetch-prune", label: t("ide_side_panel.git.scm.fetch_prune"), run: () => void commands.fetch({ prune: true }) },
+          { id: "pp-fetch-all", label: t("ide_side_panel.git.scm.fetch_all"), run: () => void commands.fetch({ all_remotes: true }) },
+        ],
+      },
+      {
+        kind: "submenu",
+        id: "branch-menu",
+        label: t("ide_side_panel.git.scm.menu_branch"),
+        items: [
+          { id: "b-merge", label: t("ide_side_panel.git.scm.merge_branch"), run: () => void commands.mergeBranch() },
+          { id: "b-rebase", label: t("ide_side_panel.git.scm.rebase_branch"), run: () => void commands.rebaseBranch() },
+          { kind: "separator", id: "b1" },
+          { id: "b-create", label: t("ide_side_panel.git.scm.create_branch"), run: () => void commands.createBranch() },
+          { id: "b-create-from", label: t("ide_side_panel.git.scm.create_branch_from"), run: () => void commands.createBranchFrom() },
+          { kind: "separator", id: "b2" },
+          { id: "b-rename", label: t("ide_side_panel.git.scm.rename_branch"), disabled: !status?.branch, run: () => void commands.renameBranch() },
+          { id: "b-delete", label: t("ide_side_panel.git.scm.delete_branch"), run: () => void commands.deleteBranch() },
+          { kind: "separator", id: "b3" },
+          { id: "b-publish", label: t("ide_side_panel.git.scm.publish_branch"), disabled: !status?.branch || Boolean(status?.upstream), run: () => void commands.publish() },
+        ],
+      },
+      {
+        kind: "submenu",
+        id: "remote-menu",
+        label: t("ide_side_panel.git.scm.menu_remote"),
+        items: [
+          { id: "r-add", label: t("ide_side_panel.git.scm.add_remote"), run: () => void commands.addRemote() },
+          { id: "r-remove", label: t("ide_side_panel.git.scm.remove_remote"), disabled: !status?.remotes.length, run: () => void commands.removeRemote() },
+        ],
+      },
+      {
+        kind: "submenu",
+        id: "stash-menu",
+        label: t("ide_side_panel.git.scm.menu_stash"),
+        items: [
+          { id: "s-stash", label: t("ide_side_panel.git.scm.stash"), run: () => void commands.stash() },
+          { id: "s-stash-untracked", label: t("ide_side_panel.git.scm.stash_untracked"), run: () => void commands.stash({ include_untracked: true }) },
+          { id: "s-stash-staged", label: t("ide_side_panel.git.scm.stash_staged"), run: () => void commands.stash({ staged: true }) },
+          { kind: "separator", id: "s1" },
+          { id: "s-apply-latest", label: t("ide_side_panel.git.scm.apply_latest_stash"), disabled: !status?.stashes, run: () => void commands.applyStash(false, true) },
+          { id: "s-apply", label: t("ide_side_panel.git.scm.apply_stash"), disabled: !status?.stashes, run: () => void commands.applyStash(false, false) },
+          { kind: "separator", id: "s2" },
+          { id: "s-pop-latest", label: t("ide_side_panel.git.scm.pop_latest_stash"), disabled: !status?.stashes, run: () => void commands.applyStash(true, true) },
+          { id: "s-pop", label: t("ide_side_panel.git.scm.pop_stash"), disabled: !status?.stashes, run: () => void commands.applyStash(true, false) },
+          { kind: "separator", id: "s3" },
+          { id: "s-drop", label: t("ide_side_panel.git.scm.drop_stash"), disabled: !status?.stashes, run: () => void commands.dropStash() },
+          { id: "s-drop-all", label: t("ide_side_panel.git.scm.drop_all_stashes"), disabled: !status?.stashes, run: () => void commands.dropAllStashes() },
+        ],
+      },
+      {
+        kind: "submenu",
+        id: "tags-menu",
+        label: t("ide_side_panel.git.scm.menu_tags"),
+        items: [
+          { id: "t-create", label: t("ide_side_panel.git.scm.create_tag"), run: () => void commands.createTag() },
+          { id: "t-delete", label: t("ide_side_panel.git.scm.delete_tag"), run: () => void commands.deleteTag() },
+        ],
+      },
+    ];
+  }, [status, settings, commands, runCommit, undoLastCommit, t]);
+
+  const scopeMenu = (): MenuItem[] =>
+    (["auto", "current", "all"] as GraphScope[]).map((value) => ({
+      id: `scope-${value}`,
+      label: t(`ide_side_panel.git.scm.scope.${value}`),
+      checked: scope === value,
+      run: () => setScope(value),
+    }));
+
+  const initRepository = async () => {
+    if (!workspace?.path || initializing) return;
+    setInitializing(true);
+    try {
+      await prepareGit(workspace.path, { mode: "init", branch: "", base: "" });
+    } catch (err) {
+      pushToast("error", (err as Error).message);
+    } finally {
+      setInitializing(false);
+      refresh();
+    }
+  };
+
+  const repoName = useMemo(
+    () => ((status?.root || workspace?.path) ?? "").replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? workspace?.name ?? "",
+    [status?.root, workspace?.path, workspace?.name],
+  );
 
   if (!workspace) {
     return <p className="px-4 py-6 text-center text-xs text-muted-foreground">{t("ide_side_panel.git.no_workspace")}</p>;
   }
-  const github = data?.github;
-  // The list of repositories only opens when asked for: a folder without a
-  // repository picked still shows its local state, with a card that offers the pick.
-  const picking = Boolean(data && workspaceId && !pickedRepo && changing && github?.code !== "not_connected");
-  const connectRepository = (repo: string) => {
-    if (!workspaceId || binding) return;
-    setBinding(true);
-    bindGitHubRepo(workspaceId, repo)
-      .then(() => {
-        setPickedRepo(repo);
-        refresh();
-      })
-      .catch((err: Error) => pushToast("error", err.message))
-      .finally(() => setBinding(false));
-  };
-  const boundRepo = pickedRepo || github?.repo || "";
-  const repoName = (data?.root || workspace.path).replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? workspace.name;
-  const checkout = data?.available ? checkoutOf(data) : null;
-  const fetching = actions.busy === "fetch";
 
-  const reveal = (section: "prs" | "branches") => {
-    setOpen((current) => ({ ...current, [section]: true }));
-    const target = section === "prs" ? prsRef : branchesRef;
-    // After the section has opened.
-    window.setTimeout(() => target.current?.scrollIntoView?.({ block: "start", behavior: "smooth" }), 0);
-  };
-  const onAttention = (item: AttentionItem) => {
-    if (!data) return;
-    const fallback = data.branches.find((row) => row.name === data.default_branch);
-    if (item.kind === "cleanup") return setCleaning(data.branches.filter((row) => canCleanUp(row, data.default_branch)));
-    if (item.kind === "default_ci") return void (fallback?.ci.url && openExternalUrl(fallback.ci.url));
-    if (item.kind === "default_behind") {
-      return fallback && fallback.behind > 0 ? actions.update(fallback.name) : void actions.fetch();
-    }
-    if (item.kind === "unpushed" || item.kind === "behind") {
-      setFilter(item.kind);
-      return reveal("branches");
-    }
-    return reveal("prs");
-  };
-  const syncNow = () => {
-    // Fetch first, so "to pull" counts what the remote has now; a repository without a remote just re-reads.
-    if (checkout?.has_remote && data?.checkout) void actions.fetch();
-    else refresh();
-  };
-  const fetched = checkout?.last_fetch ? fill(t("ide_side_panel.git.fetched"), { when: agoLabel(checkout.last_fetch, lang, t) }) : "";
-  const refreshTip = [
-    t("ide_side_panel.git.refresh"),
-    github?.available ? fill(t("ide_side_panel.git.github_updated"), { when: agoLabel(github.fetched_at, lang, t) }) : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  return (
-    <section data-testid="ide-git-tab" aria-label={t("ide_side_panel.git.aria")} className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-border/60 px-3 pb-2 pt-2.5">
-        <div className="flex items-center gap-2">
-          <FolderGit2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="min-w-0 truncate text-sm font-semibold text-foreground">{repoName}</span>
-          <span className="ml-auto flex shrink-0 items-center">
-            {github?.repo_url && (
-              <LinkIcon url={github.repo_url} tip={t("ide_side_panel.git.open_repo")} label={t("ide_side_panel.git.open_repo")} testId="git-open-repo">
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </LinkIcon>
-            )}
-            <QuickTooltip content={refreshTip} side="bottom" className="inline-flex">
-              <button
-                type="button"
-                data-testid="git-refresh"
-                aria-label={t("ide_side_panel.git.refresh")}
-                disabled={actions.busy !== ""}
-                onClick={syncNow}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-              >
-                <RefreshCw className={cn("h-3.5 w-3.5", (loading || fetching || github?.refreshing) && "animate-spin motion-reduce:animate-none")} aria-hidden />
-              </button>
-            </QuickTooltip>
-          </span>
+  let changesBody;
+  if (!status) {
+    changesBody =
+      error?.code === "unavailable" ? (
+        <RestartToConnectCard />
+      ) : error ? (
+        <p data-testid="scm-error" className="px-[20px] py-[8px] text-[13px]" style={{ color: "var(--scm-deleted)" }}>
+          {error.message}
+        </p>
+      ) : (
+        <div className="flex justify-center py-4">
+          <Codicon name="loading" spin />
         </div>
-        {(boundRepo || fetched) && (
-          <p data-testid="git-github-state" className="flex min-w-0 items-center gap-1.5 text-[10.5px] text-muted-foreground">
-            {boundRepo && (
-              <QuickTooltip content={t("ide_side_panel.git.change_repo")} side="bottom" className="inline-flex min-w-0">
-                <button
-                  type="button"
-                  data-testid="git-bound-repo"
-                  onClick={() => setChanging(true)}
-                  className="inline-flex min-w-0 items-center gap-1 rounded px-0.5 font-mono text-foreground/80 hover:bg-secondary hover:text-foreground"
-                >
-                  <span className="truncate">{boundRepo}</span>
-                </button>
-              </QuickTooltip>
-            )}
-            {boundRepo && <span aria-hidden>·</span>}
-            <span className="min-w-0 truncate">
-              {fetching
-                ? t("ide_side_panel.git.fetching")
-                : pickedRepo || github?.code === "loading"
-                  ? t("ide_side_panel.git.github_reading")
-                  : boundRepo && github && !github.available
-                    ? github.reason
-                    : fetched || t("ide_side_panel.git.never_fetched")}
-            </span>
-          </p>
+      );
+  } else if (!status.available) {
+    changesBody = (
+      <div data-testid="scm-unavailable" className="space-y-[12px] px-[20px] py-[10px] text-[13px] leading-[1.4em]">
+        <p>{t("ide_side_panel.git.scm.no_repository")}</p>
+        <button
+          type="button"
+          data-testid="scm-init"
+          disabled={initializing || !workspace.path}
+          onClick={() => void initRepository()}
+          className="scm-button inline-flex h-[26px] w-full items-center justify-center gap-[4px] rounded-[2px] px-[4px] text-[13px]"
+        >
+          {initializing && <Codicon name="loading" spin />}
+          {t("ide_side_panel.git.scm.init_repository")}
+        </button>
+      </div>
+    );
+  } else {
+    changesBody = (
+      <ChangesView
+        key={workspace.id}
+        workspaceId={workspace.id}
+        repoName={repoName}
+        status={status}
+        commands={commands}
+        busy={busy}
+        settings={settings}
+        message={message}
+        onMessage={setMessage}
+        messageError={messageError}
+        messageRef={messageRef}
+        onCommit={runCommit}
+        onDiff={setDiff}
+        onRefresh={refresh}
+        moreMenu={moreMenu}
+      />
+    );
+  }
+
+  const repository = status?.available;
+  return (
+    <section data-testid="ide-git-tab" aria-label={t("ide_side_panel.git.aria")} className="scm-root relative flex h-full min-h-0 flex-col">
+      <div className="flex h-[35px] shrink-0 items-center pl-[20px] pr-[8px]">
+        <span className="min-w-0 flex-1 truncate text-[13px]" style={{ color: "var(--scm-title-fg)" }}>
+          {t("ide_side_panel.git.scm.title")}
+        </span>
+        {repository && (
+          <IconButton label={t("ide_side_panel.git.scm.more_actions")} testId="scm-title-more" onClick={(event) => setMenu({ items: moreMenu(), ...menuPointFor(event.currentTarget) })}>
+            <Codicon name="ellipsis" />
+          </IconButton>
         )}
       </div>
-
-      {picking && data && workspaceId ? (
-        <GitHubRepoPicker
-          key={workspaceId}
-          workspaceId={workspaceId}
-          current={github?.repo ?? ""}
-          suggested={github?.suggested_repo ?? ""}
-          onPicked={(repo) => {
-            setPickedRepo(repo);
-            setChanging(false);
-            refresh();
-          }}
-          onCancel={() => setChanging(false)}
-        />
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {!data ? (
-            error ? (
-              routeMissing ? (
-                <RestartToConnectCard />
-              ) : (
-                <p data-testid="git-error" className="px-4 py-6 text-center text-xs text-destructive">
-                  {error}
-                </p>
-              )
-            ) : (
-              <LoadingShape />
-            )
-          ) : !data.available ? (
-            <p data-testid="git-unavailable" className="px-4 py-6 text-center text-xs text-muted-foreground">
-              {data.reason}
-            </p>
-          ) : (
-            <>
-              {!data.checkout && <OlderBackendNote />}
-              <StatusPanel key={workspace.id} overview={data} actions={actions} onOpenChanges={() => useIdeSidePanelStore.getState().openTab("changes")} />
-              {github?.code === "not_connected" && <ConnectGitHubCard />}
-              {github?.code === "needs_repo" && !pickedRepo && (
-                <ConnectRepositoryCard
-                  suggested={github.suggested_repo}
-                  busy={binding}
-                  onUse={connectRepository}
-                  onChoose={() => setChanging(true)}
-                />
-              )}
-              <AttentionList items={items} onAct={onAttention} />
-              {github?.available && (
-                <div ref={prsRef}>
-                  <Section
-                    id="prs"
-                    title={t("ide_side_panel.git.prs.title")}
-                    count={prs.length}
-                    open={open.prs}
-                    onToggle={() => setOpen((current) => ({ ...current, prs: !current.prs }))}
-                  >
-                    <PullRequestList prs={prs} defaultBranch={data.default_branch} />
-                  </Section>
-                </div>
-              )}
-              <div ref={branchesRef}>
-                <Section
-                  id="branches"
-                  title={t("ide_side_panel.git.branches")}
-                  count={data.branches.length}
-                  open={open.branches}
-                  onToggle={() => setOpen((current) => ({ ...current, branches: !current.branches }))}
+      <div className="relative h-[2px] shrink-0 overflow-hidden" aria-hidden>
+        {busy && <div data-testid="scm-progress" className="scm-progress" />}
+      </div>
+      <ScmViews
+        onWeights={(next) => setWeights((current) => ({ ...current, ...next }))}
+        views={[
+          {
+            id: "changes",
+            title: t("ide_side_panel.git.scm.view_changes"),
+            open: open.changes,
+            onToggle: () => toggleView("changes"),
+            weight: weights.changes ?? 1,
+            actions: repository ? (
+              <IconButton
+                label={settings.mode === "list" ? t("ide_side_panel.git.scm.view_tree") : t("ide_side_panel.git.scm.view_list")}
+                testId="scm-view-mode"
+                onClick={() => setSettings((current) => ({ ...current, mode: current.mode === "list" ? "tree" : "list" }))}
+              >
+                <Codicon name={settings.mode === "list" ? "list-tree" : "list-flat"} />
+              </IconButton>
+            ) : undefined,
+            body: changesBody,
+          },
+          {
+            id: "graph",
+            title: t("ide_side_panel.git.scm.view_graph"),
+            open: open.graph,
+            onToggle: () => toggleView("graph"),
+            weight: weights.graph ?? 1,
+            actions: repository ? (
+              <>
+                <span className="mr-[4px] inline-flex min-w-0 items-center gap-[3px] text-[12px] opacity-80">
+                  <Codicon name="repo" />
+                  <span className="max-w-[110px] truncate">{repoName}</span>
+                </span>
+                <button
+                  type="button"
+                  data-testid="scm-graph-scope"
+                  onClick={(event) => setMenu({ items: scopeMenu(), ...menuPointFor(event.currentTarget) })}
+                  className="scm-action !w-auto gap-[3px] px-[3px] text-[12px]"
                 >
-                  <BranchList
-                    overview={data}
-                    workspaceId={workspace.id}
-                    editors={editors}
-                    actions={actions}
-                    filter={filter}
-                    onFilter={setFilter}
-                    menuBranch={menu ? `${menu.row.remote_only ? "remote:" : ""}${menu.row.name}` : ""}
-                    onMenu={openMenu}
-                  />
-                </Section>
-              </div>
-              {error && <p className="px-3 py-2 text-[11px] text-destructive">{error}</p>}
-            </>
-          )}
-        </div>
-      )}
-
-      {menu && data && (
-        <BranchMenu
-          row={menu.row}
-          repoUrl={github?.repo_url ?? ""}
-          defaultBranch={data.default_branch}
-          x={menu.x}
-          y={menu.y}
-          actions={data.checkout ? actions : undefined}
-          onDismiss={closeMenu}
-        />
-      )}
-      {actions.confirmation && (
-        <ConfirmDialog
-          title={actions.confirmation.title}
-          body={actions.confirmation.body}
-          confirmLabel={actions.confirmation.confirmLabel}
-          busy={actions.busy !== ""}
-          onCancel={actions.dismiss}
-          onConfirm={() => {
-            const pending = actions.confirmation;
-            actions.dismiss();
-            void pending?.run({ remote: alsoRemote });
-          }}
-        >
-          {actions.confirmation.remoteOption && (
-            <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-foreground">
-              <input
-                type="checkbox"
-                data-testid="git-confirm-remote"
-                checked={alsoRemote}
-                onChange={(event) => setAlsoRemote(event.target.checked)}
-                className="h-3.5 w-3.5 accent-[hsl(var(--accent))]"
-              />
-              {t("ide_side_panel.git.confirm.delete_remote")}
-            </label>
-          )}
-        </ConfirmDialog>
-      )}
-      {cleaning && data && (
-        <CleanupDialog
-          rows={cleaning}
-          workspaceId={workspace.id}
-          onClose={(changed) => {
-            setCleaning(null);
-            if (changed) refresh();
-          }}
-        />
-      )}
+                  <Codicon name="git-branch" />
+                  {t(`ide_side_panel.git.scm.scope.${scope}`)}
+                </button>
+                <IconButton label={t("ide_side_panel.git.scm.go_to_current")} testId="scm-graph-head" onClick={() => setGoHead((value) => value + 1)}>
+                  <Codicon name="target" />
+                </IconButton>
+                <IconButton label={t("ide_side_panel.git.scm.fetch")} testId="scm-graph-fetch" disabled={busy !== ""} onClick={() => void commands.fetch()}>
+                  <Codicon name="repo-fetch" />
+                </IconButton>
+                <IconButton label={t("ide_side_panel.git.scm.pull")} testId="scm-graph-pull" disabled={busy !== ""} onClick={() => void commands.pull()}>
+                  <Codicon name="repo-pull" />
+                </IconButton>
+                <IconButton label={t("ide_side_panel.git.scm.push")} testId="scm-graph-push" disabled={busy !== ""} onClick={() => void commands.push()}>
+                  <Codicon name="repo-push" />
+                </IconButton>
+                <IconButton label={t("ide_side_panel.git.scm.refresh")} testId="scm-graph-refresh" onClick={onChanged}>
+                  <Codicon name="refresh" />
+                </IconButton>
+              </>
+            ) : undefined,
+            body: repository ? (
+              <GraphView workspaceId={workspace.id} revision={revision} scope={scope} commands={commands} onDiff={setDiff} targetHead={goHead} />
+            ) : (
+              <p className="px-[20px] py-[4px] text-[13px] opacity-70">{t("ide_side_panel.git.scm.no_commits")}</p>
+            ),
+          },
+          {
+            id: "branches",
+            title: t("ide_side_panel.git.scm.view_branches"),
+            open: open.branches,
+            onToggle: () => toggleView("branches"),
+            weight: weights.branches ?? 1,
+            body: <RepositoryOverview onChanged={refresh} />,
+          },
+        ]}
+      />
+      {quick.element}
+      {choice.element}
+      {diff && <DiffDialog source={diff} onClose={() => setDiff(null)} />}
+      {menu && <ScmMenu items={menu.items} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}
     </section>
   );
 }

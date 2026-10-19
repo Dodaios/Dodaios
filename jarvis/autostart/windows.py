@@ -22,11 +22,19 @@ account's filtered token). *Reading* a task's state does not. So:
   works (just possibly delayed). The Settings panel surfaces an "enable instant
   start" affordance to upgrade the fallback to a task.
 
-Everything shells out to PowerShell (subprocess) exactly like
-``scripts/install_shortcuts.py`` — **no ``pywin32`` dependency**. The
+The silent paths — the task probe and the fallback ``.lnk`` read/write that the
+boot reconcile runs on every start, including the very first one — talk to the
+Task Scheduler and ``WScript.Shell`` **in-process** through pywin32 COM. They
+used to shell out to ``powershell.exe -ExecutionPolicy Bypass``, and an app that
+spawns a hidden PowerShell on its first launch to drop a shortcut into the
+Startup folder is exactly the chain behaviour-based antivirus blocks: Bitdefender
+quarantined the v3.2.0 install for it (issue #713, ``explorer.exe ->
+personaljarvis.exe -> powershell.exe``). PowerShell remains only as a fallback
+for a host without pywin32, for a Store Python whose in-process writes would be
+redirected into its MSIX container (BUG-138), and for the one-time elevated task
+registration the user starts from Settings and confirms in a UAC prompt. The
 script-assembly functions are pure (unit-testable cross-platform); only execution
-requires Windows. The ``.lnk`` builders (``build_create_script`` /
-``build_read_script``) are unchanged and still used for the fallback.
+requires Windows.
 """
 
 from __future__ import annotations
@@ -38,9 +46,11 @@ import ntpath
 import os
 import subprocess
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 from jarvis.core.branding import (
     WINDOWS_AUTOSTART_DESCRIPTION,
@@ -56,6 +66,8 @@ from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from .protocol import AutostartStatus, LaunchSpec
 
 log = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
 
 # Scheduled-task identity. A stable name so reconcile can find/refresh it.
 # How long after login the task waits before launching — lets the desktop settle
@@ -388,11 +400,12 @@ def _tag_shortcut_aumid(link: Path) -> bool:
             propsys.PROPVARIANTType(APP_USER_MODEL_ID),
         )
         store.Commit()
-        # The .lnk itself is created by a PowerShell child, which is why it
-        # reaches the real Startup folder under a Store Python (BUG-138). This
-        # commit runs IN-PROCESS, so it is redirected: it would leave the real
-        # shortcut untagged and drop a container copy that masks it from every
-        # later in-process read. Publishing puts the tagged version back.
+        # Under a Store Python the .lnk itself is created by a PowerShell
+        # child, which is why it reaches the real Startup folder (BUG-138).
+        # This commit runs IN-PROCESS, so there it is redirected: it would
+        # leave the real shortcut untagged and drop a container copy that
+        # masks it from every later in-process read. Publishing puts the
+        # tagged version back (a no-op on an unpackaged interpreter).
         from jarvis.ui.msix_redirection import publish_out_of_container
 
         if not publish_out_of_container(link):
@@ -402,6 +415,170 @@ def _tag_shortcut_aumid(link: Path) -> bool:
     except Exception as exc:  # noqa: BLE001 — pywin32 absent / COM failure → icon-only fallback
         log.debug("autostart shortcut AUMID not tagged (non-fatal): %s", exc)
         return False
+
+
+# --------------------------------------------------------------------------- #
+# In-process COM (the silent paths; no child process at all)                   #
+# --------------------------------------------------------------------------- #
+
+
+def _win32com() -> tuple[object, object] | None:
+    """``(pythoncom, win32com.client)``, or ``None`` when pywin32 is absent.
+
+    Lazy (HN-7): this module is imported on every OS, pywin32 exists only on
+    Windows, and only in the ``desktop`` extra. The frozen installer build
+    always bundles it (``jarvis.spec`` hidden imports).
+    """
+    try:
+        import pythoncom  # type: ignore[import-not-found]
+        import win32com.client  # type: ignore[import-not-found]
+    except Exception:  # noqa: BLE001 — absent or broken pywin32 → PowerShell fallback
+        return None
+    return pythoncom, win32com.client
+
+
+@contextmanager
+def _com_apartment(pythoncom: object) -> Iterator[None]:
+    """Initialise COM on the calling thread for the duration of the block.
+
+    The boot reconcile runs on a worker thread that has never touched COM. A
+    thread that already joined a different apartment refuses re-initialisation
+    (``RPC_E_CHANGED_MODE``) but can use COM as it is, so that is not an error.
+    """
+    try:
+        pythoncom.CoInitialize()  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001 — already initialised in another mode
+        yield
+        return
+    try:
+        yield
+    finally:
+        pythoncom.CoUninitialize()  # type: ignore[attr-defined]
+
+
+def _shortcut_needs_helper(link: Path) -> bool:
+    """Would an in-process write to ``link`` land in an MSIX container?
+
+    Only a Store Python is packaged; its writes under ``%APPDATA%`` are
+    redirected where Explorer never looks (BUG-138), which is why the shortcut
+    was written by a PowerShell child in the first place. Every other host —
+    the installer build above all — writes in-process.
+    """
+    try:
+        from jarvis.ui.msix_redirection import redirects_writes
+
+        return redirects_writes(link)
+    except Exception as exc:  # noqa: BLE001 — undecidable → the proven helper path
+        log.debug("MSIX redirection check failed for %s: %s", link, exc)
+        return True
+
+
+def _run_com(work: Callable[[object, object], _T]) -> _T:
+    """Run ``work(pythoncom, win32com.client)`` inside a COM apartment.
+
+    Raises :class:`LookupError` when pywin32 is unavailable, so a caller can
+    fall back to PowerShell. Every COM proxy ``work`` creates lives in its own
+    frame and is released when it returns, i.e. BEFORE ``CoUninitialize`` — a
+    proxy released after it makes pywin32 complain on every call. For the same
+    reason a failure is re-raised as a plain :class:`OSError` once the
+    apartment is closed: the original traceback would keep the proxies alive.
+    """
+    com = _win32com()
+    if com is None:
+        raise LookupError("pywin32 is not available")
+    pythoncom, client = com
+    with _com_apartment(pythoncom):
+        try:
+            return work(pythoncom, client)
+        except Exception as exc:  # noqa: BLE001 — re-raised below, proxy-free
+            error = f"{type(exc).__name__}: {exc}"
+    raise OSError(error)
+
+
+def _read_task(pythoncom: object, client: object, task_name: str) -> _TaskInfo | None:
+    service = client.Dispatch("Schedule.Service")  # type: ignore[attr-defined]
+    service.Connect()
+    try:
+        task = service.GetFolder("\\").GetTask(task_name)
+    except pythoncom.com_error:  # type: ignore[attr-defined]
+        return None  # not registered
+    actions = task.Definition.Actions
+    action = actions.Item(1) if actions.Count else None
+    return _TaskInfo(
+        execute=str(getattr(action, "Path", "") or ""),
+        arguments=str(getattr(action, "Arguments", "") or ""),
+        working_dir=str(getattr(action, "WorkingDirectory", "") or ""),
+        enabled=bool(task.Enabled),
+    )
+
+
+def _query_task_in_process(task_name: str) -> _TaskInfo | None:
+    """Read the logon task through the Task Scheduler COM API.
+
+    Raises :class:`LookupError` when pywin32 is unavailable so the caller can
+    fall back; any other failure propagates and the caller treats it as "no
+    task", the same rule the PowerShell query follows.
+    """
+    return _run_com(lambda pythoncom, client: _read_task(pythoncom, client, task_name))
+
+
+def _save_shortcut(client: object, link: Path, spec: LaunchSpec, icon: str | None) -> None:
+    sc = client.Dispatch("WScript.Shell").CreateShortcut(str(link))  # type: ignore[attr-defined]
+    sc.TargetPath = spec.program
+    sc.Arguments = " ".join(spec.args)
+    sc.WorkingDirectory = spec.working_dir
+    sc.Description = WINDOWS_AUTOSTART_DESCRIPTION
+    if icon:
+        sc.IconLocation = f"{icon},0"
+    sc.WindowStyle = 7 if spec.minimized else 1
+    sc.Save()
+
+
+def _load_shortcut(client: object, link: Path) -> list[str]:
+    sc = client.Dispatch("WScript.Shell").CreateShortcut(str(link))  # type: ignore[attr-defined]
+    return [
+        str(sc.TargetPath or ""),
+        str(sc.Arguments or ""),
+        str(sc.WorkingDirectory or ""),
+        str(sc.IconLocation or ""),
+    ]
+
+
+def _write_shortcut_in_process(link: Path, spec: LaunchSpec, *, icon: str | None) -> bool:
+    """Create/refresh the fallback ``.lnk`` in-process. ``False`` = not possible here.
+
+    Writes the same fields as :func:`build_create_script`.
+    """
+    if _shortcut_needs_helper(link):
+        return False
+    try:
+        _run_com(lambda _pythoncom, client: _save_shortcut(client, link, spec, icon))
+    except LookupError:  # no pywin32 here - the caller writes through PowerShell
+        return False
+    return True
+
+
+def _read_shortcut_in_process(link: Path) -> list[str] | None:
+    """TargetPath/Arguments/WorkingDirectory/IconLocation; ``None`` = not possible here.
+
+    A Store Python would read its own container copy rather than the shortcut
+    Explorer sees, so it keeps reading through the helper.
+    """
+    if _shortcut_needs_helper(link):
+        return None
+    try:
+        return _run_com(lambda _pythoncom, client: _load_shortcut(client, link))
+    except LookupError:  # no pywin32 here - the caller reads through PowerShell
+        return None
+
+
+def _read_shortcut_fields(link: Path) -> list[str]:
+    """The shortcut's four read-back fields, in-process when possible."""
+    fields = _read_shortcut_in_process(link)
+    if fields is not None:
+        return fields
+    result = _run_powershell(build_read_script(link))
+    return _sentinel_fields(result.stdout, _READBACK_SENTINEL)
 
 
 def _run_powershell(script: str) -> subprocess.CompletedProcess[str]:
@@ -697,6 +874,13 @@ class WindowsAutostart:
 
     def _default_task_probe(self) -> _TaskInfo | None:
         try:
+            return _query_task_in_process(self._task_name)
+        except LookupError:
+            pass  # no pywin32 → the PowerShell query below
+        except Exception as exc:  # noqa: BLE001 — query failure → treat as absent
+            log.debug("scheduled-task query failed: %s", exc)
+            return None
+        try:
             result = _run_powershell(build_query_task_script(self._task_name))
         except Exception as exc:  # noqa: BLE001 — query failure → treat as absent
             log.debug("scheduled-task query failed: %s", exc)
@@ -707,11 +891,10 @@ class WindowsAutostart:
         if not self._path.exists():
             return False
         try:
-            result = _run_powershell(build_read_script(self._path))
+            fields = _read_shortcut_fields(self._path)
         except Exception as exc:  # noqa: BLE001 — unreadable → not a match
             log.debug("shortcut read failed: %s", exc)
             return False
-        fields = _sentinel_fields(result.stdout, _READBACK_SENTINEL)
         if len(fields) < 4:
             # A truncated read-back is "unknown", not "matches". Padding the
             # missing fields with "" made a half-failed COM read compare equal
@@ -744,7 +927,9 @@ class WindowsAutostart:
     def _default_write_shortcut(self, spec: LaunchSpec) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._remove_legacy()
-        _run_powershell(build_create_script(self._path, spec, icon=_resolve_app_icon()))
+        icon = _resolve_app_icon()
+        if not _write_shortcut_in_process(self._path, spec, icon=icon):
+            _run_powershell(build_create_script(self._path, spec, icon=icon))
         # Tag the shortcut with the SAME AUMID as the Start-Menu shortcut so the
         # two same-named .lnk files don't diverge and confuse the shell's taskbar
         # button resolution (best-effort; a box without pywin32 still gets the
