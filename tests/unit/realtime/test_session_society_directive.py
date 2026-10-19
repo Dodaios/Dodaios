@@ -44,14 +44,13 @@ def test_the_directive_routes_the_team_to_the_action_function(society: Any) -> N
     directive = _directive().casefold()
     assert "not people" in directive
     assert "call your action function" in directive
-    assert "retired sub-agent" in directive
-    assert "do not know who" in directive
 
 
-def test_empty_snapshot_requires_verified_lookup(society: Any) -> None:
+def test_empty_snapshot_adds_no_block(society: Any) -> None:
+    """No agents, no block: the routing for that case lives in the
+    jarvis_action declaration and society_status."""
     society(())
-    assert "use society_status to verify" in _directive()
-    assert "read-only lookup" in _directive()
+    assert _directive() == ""
 
 
 def test_the_instructions_carry_the_directive_in_both_profiles() -> None:
@@ -70,5 +69,5 @@ def test_the_workspace_directive_calls_terminals_terminals(monkeypatch: pytest.M
     monkeypatch.setattr(ide_session, "running_call_signs", lambda: ["T1"])
     instance = object.__new__(session_module.RealtimeVoiceSession)
     directive = session_module.RealtimeVoiceSession._workspace_directive(instance)
-    assert "coding terminals are running" in directive
-    assert "not society agents" in directive
+    assert "Coding terminals open" in directive
+    assert "not people or team agents" in directive

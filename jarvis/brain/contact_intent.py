@@ -74,15 +74,9 @@ _CONTACT_NOUN_RE = re.compile(
 # Per-turn directive injected into the system prompt when a write intent is
 # detected (English — LLM-facing, mirrors the read evidence gate's directive).
 CONTACT_WRITE_DIRECTIVE = (
-    "MANDATORY THIS TURN: the user wants to save or update a person in their "
-    "contact book. You MUST call the `contact-upsert` tool to actually store "
-    "it — one call per person — not just acknowledge it in words. Pass the "
-    "name plus every detail the user gave (email, phone, relationship, "
-    "address, note) as the tool arguments. If a required detail is clearly "
-    "incomplete or malformed (for example an email address with no '@'), do "
-    "NOT save the broken value: ask the user one short question to repeat that "
-    "detail before saving. Never tell the user a contact was saved unless the "
-    "`contact-upsert` tool actually ran this turn."
+    "MANDATORY THIS TURN: store the contact with `contact-upsert`, one call per person, "
+    "with every detail the user gave. Do not save a malformed detail (e.g. an email "
+    "without '@'); ask for it once instead."
 )
 
 
@@ -135,12 +129,8 @@ _MEMORY_VERB_RE = re.compile(
 
 # Per-turn directive for a general wiki memory note (English — LLM-facing).
 WIKI_INGEST_DIRECTIVE = (
-    "MANDATORY THIS TURN: the user explicitly asked you to remember a fact "
-    "about a person or their life. You MUST call the `wiki-ingest` tool to "
-    "actually write it to their long-term wiki — pass the fact as one "
-    "self-contained sentence in the `text` argument — instead of only "
-    "acknowledging it in words. Never tell the user you noted or saved "
-    "something unless the `wiki-ingest` tool actually ran this turn."
+    "MANDATORY THIS TURN: write the fact with `wiki-ingest` as one self-contained "
+    "sentence in `text`; do not only acknowledge it."
 )
 
 

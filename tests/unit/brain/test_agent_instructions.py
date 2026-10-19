@@ -89,16 +89,9 @@ def test_no_file_reads_as_none():
     assert agent_instructions.has_agent_instructions(cfg) is False
 
 
-def test_render_for_prompt_without_file_emits_current_empty_state():
+def test_render_for_prompt_without_file_emits_no_block():
     cfg = make_config(name="Ruben")
-    block = agent_instructions.render_for_prompt(cfg)
-    assert "Ruben.md" in block
-    assert "No active user preferences are currently set" in block
-    # The stale-style guard must reference the assistant's ACTUAL file name,
-    # never a hardcoded product name (the file is Ruben.md here, not Jarvis.md).
-    assert "Ignore any earlier Ruben.md instructions" in block
-    assert "Jarvis.md" not in block
-    assert "END USER PREFERENCES & STANDING INSTRUCTIONS" in block
+    assert agent_instructions.render_for_prompt(cfg) == ""
 
 
 def test_save_then_read_roundtrips_and_strips():
@@ -149,10 +142,8 @@ def test_render_for_prompt_wraps_content_with_filename_and_guardrail():
     assert "Ruben.md" in block
     assert "Always answer in German." in block
     assert "END USER PREFERENCES & STANDING INSTRUCTIONS" in block
-    assert "Only the instructions inside this current block are active" in block
-    assert "override default style" in block.lower()
-    # The block must frame the content as preferences that never override safety.
-    assert "never override" in block.lower()
+    # The block frames the content as preferences, never permissions.
+    assert "never permissions" in block.lower()
 
 
 def test_render_for_prompt_max_chars_passes_short_content_untouched():

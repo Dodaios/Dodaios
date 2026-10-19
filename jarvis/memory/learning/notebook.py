@@ -81,13 +81,8 @@ _CONTENT_WORD: Final = re.compile(r"[^\W\d_]{4,}")
 
 #: The memory contract every conversation surface states next to the snapshot.
 REMEMBER_DIRECTIVE: Final[str] = (
-    "Long-term memory: when the user explicitly asks you to remember or note something "
-    "for future conversations (for example 'remember', "
-    "'merk dir', 'notier dir'), "  # i18n-allow: input vocabulary
-    "call the remember tool right away with one self-contained sentence in the user's "
-    "language that still makes sense in a later conversation: resolve 'this' or 'that' "
-    "from the conversation. Say it is saved only after the tool succeeded. What it "
-    "stores is shown under 'What you have learned so far' in every later conversation."
+    "When asked to remember something, call the remember tool with one self-contained "
+    "sentence; say it is saved only after it succeeded."
 )
 
 

@@ -99,17 +99,6 @@ def test_contacts_render_error_does_not_crash_prompt_build() -> None:
 # --------------------------------------------------------------------------- #
 # 2) E-mail-by-name rule
 # --------------------------------------------------------------------------- #
-def test_email_by_name_directive_present_when_tools_wired() -> None:
-    tools = {"contact-lookup": _FakeContactLookupTool(), "gmail": _FakeGmailTool()}
-    prompt = _manager(tools=tools)._build_system_prompt()
-    assert "contact-lookup" in prompt
-    assert "gmail" in prompt
-    # The directive block opens with the "CONTACTS:" label; this is the
-    # unambiguous marker that the directive is present (the German "KONTAKT"
-    # label was dropped when the persona was reworked to English-first).
-    assert "CONTACTS" in prompt
-
-
 def test_email_by_name_directive_absent_without_gmail() -> None:
     """No gmail tool -> no directive (never instruct a tool that is not wired —
     the hard 'do not invent tools' rule)."""

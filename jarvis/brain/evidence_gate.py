@@ -335,11 +335,8 @@ def check_evidence_domain(
     tool_name = domain_tool_map.get(matched_domain, "")
     if tool_name:
         directive = (
-            f"MANDATORY THIS TURN: the user is asking about {matched_domain} "
-            f"data. You MUST call the `{tool_name}` tool (read-only command, "
-            f"prefer a --json/--format json output flag) BEFORE answering, "
-            f"and answer ONLY from its result. If the call fails, say that it "
-            f"failed and why — NEVER invent {matched_domain} data."
+            f"MANDATORY THIS TURN: call `{tool_name}` (read-only, prefer JSON output) before "
+            f"answering about {matched_domain} data, and answer only from its result."
         )
         return EvidenceVerdict(
             kind="require_tool",

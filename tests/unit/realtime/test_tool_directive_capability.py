@@ -38,10 +38,14 @@ def test_handoff_variant_never_promises_a_callable_function() -> None:
 
 def test_handoff_variant_keeps_the_load_bearing_rules() -> None:
     text = session_mod._DELEGATE_ROLE_DIRECTIVE_HANDOFF
-    # The honesty rules survive the mechanism swap verbatim in spirit.
-    assert "announcement without a handoff request" in text.lower()
-    assert "general world knowledge is yours" in text.lower()
-    assert "never tell the user that you lack a tool" in text.lower()
+    # The routing and honesty rules survive the mechanism swap; the
+    # announcement ban lives once in the shared voice contract.
+    assert "request a handoff" in text.lower()
+    assert "general knowledge and chat yourself" in text.lower()
+    assert "claim you lack access" in text.lower()
+    assert "Never announce an action" in session_mod._session_instructions(
+        "en", tool_directive=text
+    )
 
 
 def test_capability_limited_provider_gets_the_handoff_directive() -> None:
