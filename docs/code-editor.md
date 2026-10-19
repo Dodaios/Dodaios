@@ -21,6 +21,7 @@ terminals back without closing a file.
 | Search in all files | **Ctrl+Shift+F** opens the **Search** tab: match case, whole word, regular expressions, include/exclude globs, and **Replace all** (a second click confirms; files with unsaved changes are left out) |
 | See what changed | Coloured marks in the gutter (added, modified, deleted lines against the last commit), the **Changes** tab, or **Show changes**: the file against the last commit, editable on the right |
 | Rendered view | **Ctrl+Shift+V** for Markdown, HTML and SVG |
+| Long lines | Wrap at the right edge of the editor, so a line never runs off-screen and there is no sideways scrolling. The line number stays on the first row of the line |
 | Follow mode | **Follow mode** above the text lays one file out over as many columns as the width fits (two to six), each continuing on the line after the last full line of the column before it. Scrolling any column scrolls them all; the arrow keys walk the cursor from the bottom of one column into the top of the next and back, and typing works in every column. The setting belongs to the tab; a reload starts it off |
 | Encoding, line endings | Click them in the status bar: reopen or save with another encoding, switch between LF and CRLF |
 | Tabs | **Ctrl+W** closes, **Ctrl+Tab** switches, **Ctrl+Shift+T** reopens the last closed tab. A single click opens a preview tab (italic) that the next single click replaces; a double click or an edit keeps it |
