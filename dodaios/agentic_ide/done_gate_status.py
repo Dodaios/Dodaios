@@ -95,7 +95,7 @@ def _norm(folder: str) -> str:
         return ""
     try:
         return os.path.normcase(os.path.normpath(os.path.abspath(folder)))
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # an unreadable path matches no record; the label stays empty
         return ""
 
 
@@ -104,7 +104,7 @@ def _timestamp(value: Any) -> float | None:
         return None
     try:
         stamp = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
-    except ValueError:
+    except ValueError:  # a record without a valid time is not shown, by design
         return None
     if stamp.tzinfo is None:
         return None
@@ -141,7 +141,7 @@ def parse_last(data: Any) -> dict[str, Any] | None:
 def _read(path: Path) -> dict[str, Any] | None:
     try:
         return parse_last(json.loads(path.read_text(encoding="utf-8")))
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # the gate may be mid-write or absent; next poll reads it
         return None
 
 
@@ -206,7 +206,7 @@ def _recent(sessions: Path, now: float) -> list[tuple[str, dict[str, Any]]]:
     found: list[tuple[str, dict[str, Any]]] = []
     try:
         entries = list(os.scandir(sessions))
-    except OSError:
+    except OSError:  # no sessions folder means the gate never ran in this repository
         return found
     for entry in entries:
         if not entry.name.endswith(".json"):
@@ -214,7 +214,7 @@ def _recent(sessions: Path, now: float) -> list[tuple[str, dict[str, Any]]]:
         try:
             if now - entry.stat().st_mtime > FALLBACK_MAX_AGE_S:
                 continue
-        except OSError:
+        except OSError:  # a file deleted between listing and stat is simply gone
             continue
         last = _read(Path(entry.path))
         stamp = _timestamp(last["at"]) if last else None
