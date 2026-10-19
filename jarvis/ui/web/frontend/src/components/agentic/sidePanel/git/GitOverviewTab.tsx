@@ -68,7 +68,7 @@ export function GitOverviewTab() {
   const workspacePanes = useMemo(() => panes.filter((row) => row.workspace_id === workspaceId), [panes, workspaceId]);
   const session: SessionPick | null = useMemo(() => {
     if (!sessionPane) return null;
-    const row = workspacePanes.find((entry) => entry.key === sessionPane);
+    const row = workspacePanes.find((entry) => entry.name === sessionPane);
     return { pane: sessionPane, agentName: row?.display_name || row?.agent || "", title: row?.recap || row?.last_prompt || "" };
   }, [sessionPane, workspacePanes]);
   useEffect(() => setSessionPane(null), [workspaceId]);
@@ -255,11 +255,11 @@ export function GitOverviewTab() {
     const items = [
       { label: t("ide_side_panel.git.scm.all_changes"), icon: <Codicon name="git-compare" />, value: { pane: null } as Pick },
       ...workspacePanes.map((row) => ({
-        label: row.display_name || row.agent ? `${row.key} · ${row.display_name || row.agent}` : row.key,
+        label: row.display_name || row.agent ? `${row.name} · ${row.display_name || row.agent}` : row.name,
         description: row.recap || row.last_prompt || "",
-        icon: <Codicon name={row.key === sessionPane ? "check" : "terminal"} />,
+        icon: <Codicon name={row.name === sessionPane ? "check" : "terminal"} />,
         group: t("ide_side_panel.git.scm.sessions"),
-        value: { pane: row.key } as Pick,
+        value: { pane: row.name } as Pick,
       })),
     ];
     const picked = await quick.pick(items, t("ide_side_panel.git.scm.pick_session"));
