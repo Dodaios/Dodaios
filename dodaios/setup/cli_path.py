@@ -48,8 +48,9 @@ from dodaios.core.identity_migration import LegacyState, inspect_legacy
 
 #: Every command the install exposes: ``dodaios`` and ``dodaiosctl``, then the
 #: earlier names of the two (``jarvis``, ``personal-jarvis``, ``jarvisctl``).
-#: There is no ``personaljarvis``: on Windows it would be the same file as the
-#: branded launcher ``PersonalJarvis.exe`` (``dodaios/ui/icon_utils.py``).
+#: There is no ``dodaiosapp`` or ``personaljarvis``: on Windows either would be
+#: the same file as the branded launcher ``DodaiosApp.exe`` or its earlier name
+#: ``PersonalJarvis.exe`` (``dodaios/ui/icon_utils.py``).
 COMMAND_NAMES: tuple[str, ...] = CLI_COMMAND_NAMES
 
 #: First line of the block written into a shell profile. Finding it means the

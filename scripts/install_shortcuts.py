@@ -6,8 +6,8 @@ Run once:
 
 Result:
   1. assets/icons/jarvis.ico — multi-size Windows icon (black + signal yellow)
-  2. Desktop\\Personal Jarvis.lnk — double-click opens the window
-  3. shell:startup\\Personal Jarvis.lnk — starts Jarvis at Windows login
+  2. Desktop\\Dodaios.lnk — double-click opens the window
+  3. shell:startup\\Dodaios.lnk — starts Jarvis at Windows login
 
 Both shortcuts point to run.bat in the project folder. run.bat uses
 pythonw.exe, so no console window pops up.
@@ -17,7 +17,7 @@ Dev instance (a second, freely restartable desktop app — see
 
     python scripts/install_shortcuts.py --dev
 
-  → Desktop\\Personal Jarvis Dev.lnk (DEV-badged icon, ``--instance dev``);
+  → Desktop\\Dodaios Dev.lnk (DEV-badged icon, ``--instance dev``);
     never touches autostart.
 
 Uninstall:
@@ -336,7 +336,7 @@ def main() -> int:
         "--dev",
         action="store_true",
         help=(
-            "Create the 'Personal Jarvis Dev' desktop shortcut (second, restartable "
+            "Create the 'Dodaios Dev' desktop shortcut (second, restartable "
             "instance) instead of the regular one; never touches autostart"
         ),
     )
