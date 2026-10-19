@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AgentsTab } from "@/views/apikeys/AgentsTab";
 import { KeyField } from "@/views/apikeys/KeyField";
 import { SettingsGroup } from "@/views/apikeys/settingsUi";
+import { PipelinePane, useVoiceEngineView, VoiceEngineSwitch } from "@/views/apikeys/VoiceEngine";
 import { useProviders, useSectionHealth } from "@/hooks/useProviders";
 import { APIKEYS_TAB_EVENT, takeRequestedApiKeysTab } from "@/lib/apiKeysTab";
 import { useProviderFamilies } from "@/lib/providerFamilies";
@@ -51,7 +52,8 @@ function initialTab(): Tab {
  *
  * - Live calls: the live voice runs on OpenAI GPT-Live — paid with the
  *   ChatGPT subscription or one OpenAI key — with its voice and the thinking
- *   model that answers with tools;
+ *   model that answers with tools; or, switched to Pipeline, as three steps
+ *   (voice input, the brain, voice output) that can each run locally;
  * - Agents: every company the assistant's agents can run on, any number of
  *   them on at once, each reached by its subscription or its API key.
  */
@@ -121,7 +123,7 @@ export function ApiKeysView() {
         className="min-h-0 flex-1 overflow-y-auto scrollbar-jarvis px-8 pb-10 pt-6"
       >
         <div key={tab} role="tabpanel" id="apikeys-panel" aria-labelledby={`apikeys-tab-${tab}`} className="profile-rise w-full">
-          {tab === "voice" && <VoiceTab data={families} onSaved={refetch} />}
+          {tab === "voice" && <VoiceTab data={families} onSaved={refetch} onOpenAgents={() => choose("agents")} />}
           {tab === "agents" &&
             (families.error === "restart_required" ? (
               <RestartNeeded />
@@ -173,29 +175,45 @@ function TabSwitch({ value, onChange }: { value: Tab; onChange: (tab: Tab) => vo
 }
 
 /**
- * Live calls run on OpenAI GPT-Live, the one live speech-to-speech model the
- * assistant runs — so the tab is that one provider's settings pane: how it is
- * paid for, its voice and the thinking model that answers with tools.
+ * Live calls run on OpenAI GPT-Live by default: one live speech-to-speech
+ * connection, so that half of the tab is that provider's settings pane — how
+ * it is paid for, its voice and the thinking model that answers with tools.
+ * The engine switch above it turns calls over to the Pipeline instead, whose
+ * steps can run on this computer.
  */
-function VoiceTab({ data, onSaved }: { data: ReturnType<typeof useProviderFamilies>; onSaved: () => void }) {
+function VoiceTab({
+  data,
+  onSaved,
+  onOpenAgents,
+}: {
+  data: ReturnType<typeof useProviderFamilies>;
+  onSaved: () => void;
+  onOpenAgents: () => void;
+}) {
   const openai = data.families?.find((family) => family.id === "openai");
+  const engine = useVoiceEngineView();
   return (
     <div data-testid="apikeys-voice" className="mx-auto w-full max-w-3xl">
-      <SettingsGroup divided={false} className="p-4">
-        <LiveProfile
-          onSaved={onSaved}
-          keyField={
-            <KeyField
-              slot={openai?.key_slot ?? "openai_api_key"}
-              present={openai?.key_present ?? false}
-              providerLabel="OpenAI"
-              dashboardUrl={openai?.dashboard_url}
-              onChanged={() => void data.reload()}
-              testId="voice-key"
-            />
-          }
-        />
-      </SettingsGroup>
+      <VoiceEngineSwitch engine={engine} />
+      {engine.view === "pipeline" ? (
+        <PipelinePane onOpenAgents={onOpenAgents} />
+      ) : (
+        <SettingsGroup divided={false} className="p-4">
+          <LiveProfile
+            onSaved={onSaved}
+            keyField={
+              <KeyField
+                slot={openai?.key_slot ?? "openai_api_key"}
+                present={openai?.key_present ?? false}
+                providerLabel="OpenAI"
+                dashboardUrl={openai?.dashboard_url}
+                onChanged={() => void data.reload()}
+                testId="voice-key"
+              />
+            }
+          />
+        </SettingsGroup>
+      )}
     </div>
   );
 }
