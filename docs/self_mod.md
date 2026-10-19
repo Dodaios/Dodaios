@@ -196,4 +196,7 @@ skill-authoring path must keep these:
 - **Generated skills stay drafts**: the writer forces `state=draft` even if the
   frontmatter says otherwise, the trigger matcher skips drafts (AP-SM6), and
   drafts are written to the user skills directory, never to
-  `dodaios/skills/builtin/` (AP-SM10).
+  `dodaios/skills/builtin/` (AP-SM10). The one exception is a skill the
+  self-build service made and proved by replay: it is promoted through the
+  registry's own `promote` and goes live on trial
+  ([ADR-0043](adr/0043-self-built-skills-go-live-on-trial.md)).
