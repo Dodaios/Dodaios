@@ -14,7 +14,13 @@ import sys
 import threading
 from pathlib import Path
 
+<<<<<<< HEAD:dodaios/platform/clipboard_reader.py
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+||||||| parent of 66e4b5dd9a (fix(audio): stop the busy cursor flashing while the wake word listens):jarvis/platform/clipboard_reader.py
+from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+=======
+from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS, no_feedback_startupinfo
+>>>>>>> 66e4b5dd9a (fix(audio): stop the busy cursor flashing while the wake word listens):jarvis/platform/clipboard_reader.py
 
 log = logging.getLogger(__name__)
 READ_TIMEOUT_S = 1.0
@@ -46,6 +52,7 @@ def read_with_deadline() -> str | None:
             timeout=READ_TIMEOUT_S,
             check=False,
             creationflags=NO_WINDOW_CREATIONFLAGS,
+            startupinfo=no_feedback_startupinfo(),
             # A desktop shortcut may start in another directory. Source installs
             # must import the same checkout as their parent (also in tests).
             cwd=None if getattr(sys, "frozen", False) else str(Path(__file__).resolve().parents[2]),
