@@ -90,17 +90,11 @@ class SpawnSubagentsTool:
     # text every backend is guaranteed to see (ADR-0011: models pick tools by
     # description).
     description: str = (
-        "Fan your task out into parallel sub-agents (max 10 per mission "
-        "unless the user explicitly asked for more). Use this DELIBERATELY, "
-        "and only when the task genuinely splits into independent parts that "
-        "benefit from parallel work (research angles, per-module analysis, "
-        "content sections) — never for a step you can just do yourself, and "
-        "never in a loop. You are the coordinator: write each prompt fully "
-        "self-contained (a sub-agent shares none of your context), then "
-        "integrate the returned answers yourself. The call blocks until all "
-        "sub-agents finish and returns each one's final answer text plus its "
-        "working directory (copy any files you need from there into your own "
-        "workspace). Sub-agents cannot spawn further sub-agents."
+        "Run parallel sub-agents on independent parts of your task (at most 10 "
+        "per mission unless the user asked for more; sub-agents cannot spawn "
+        "further). Each prompt must be self-contained: a sub-agent sees none of "
+        "your context. Blocks until all finish and returns each final answer "
+        "and working directory; copy the files you need from there."
     )
     schema: dict[str, Any] = {
         "type": "object",

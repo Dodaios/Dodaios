@@ -1179,14 +1179,14 @@ def _request_body(prompt: str) -> str:
 
 
 def clean_request_body(prompt: str) -> str:
-    """Public: the user's real request with the standing quality directive removed.
+    """Public: the user's real request without the dispatch directives.
 
-    ``spawn_worker._build_mission_prompt`` prepends a fixed quality directive
-    (``f"{_QUALITY_DIRECTIVE}\\n\\n{body}"``). Consumers that want to show the
-    user's actual request — report titles/filenames, UI previews — must strip it
-    so they don't surface "Deliver a complete, polished, production-quality …"
-    instead of the real ask. Single source of truth shared with the critic
-    classifier (both route through ``_request_body``).
+    Missions stored before the worker contract moved into ``worker_prompt``
+    still lead with a quality directive ("Deliver a complete, polished,
+    production-quality …"), and force-spawn prompts carry
+    ``FORCE_SPAWN_DIRECTIVE``. Consumers that show the user's actual request —
+    report titles/filenames, UI previews — strip both. Single source of truth
+    shared with the critic classifier (both route through ``_request_body``).
     """
     return _request_body(prompt or "")
 
