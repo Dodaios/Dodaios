@@ -64,13 +64,7 @@ from dodaios.audio.player import (
 from dodaios.audio.player import (
     _HOSTAPI_PREFERENCE as _OUTPUT_HOSTAPI_PREFERENCE,
 )
-<<<<<<< HEAD:dodaios/audio/devices.py
-from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
-||||||| parent of 66e4b5dd9a (fix(audio): stop the busy cursor flashing while the wake word listens):jarvis/audio/devices.py
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-=======
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS, no_feedback_startupinfo
->>>>>>> 66e4b5dd9a (fix(audio): stop the busy cursor flashing while the wake word listens):jarvis/audio/devices.py
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS, no_feedback_startupinfo
 
 #: The config sentinel for "pick a device automatically" (the default in
 #: ``[audio].input_device`` / ``[audio].output_device``).
