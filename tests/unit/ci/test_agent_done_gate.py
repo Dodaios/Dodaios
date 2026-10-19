@@ -29,6 +29,7 @@ class FakeWorld:
         self.local: dict[str, str] = {"main": MAIN_SHA}
         self.ahead: dict[str, int] = {}
         self.status: dict[Path, str] = {}
+        self.eol_only: set[str] = set()
         self.prs: dict[str, list[dict]] = {}
         self.ancestors: set[tuple[str, str]] = set()
         self.main_runs: list[dict] = []
@@ -74,6 +75,10 @@ class FakeWorld:
             return self.ok(cmd, "\n".join(lines))
         if args[:2] == ["status", "--porcelain"]:
             return self.ok(cmd, self.status.get(cwd, ""))
+        if args[:3] == ["diff", "--name-only", "HEAD"]:
+            lines = self.status.get(cwd, "").splitlines()
+            paths = [line[3:] for line in lines if not line.startswith("??")]
+            return self.ok(cmd, "\n".join(p for p in paths if p not in self.eol_only))
         if args[:2] == ["rev-list", "--count"]:
             name = args[2].split("refs/heads/")[-1]
             return self.ok(cmd, str(self.ahead.get(name, 0)))
@@ -569,6 +574,15 @@ def test_untracked_files_are_a_note_not_an_endless_fix(world: FakeWorld) -> None
     verdict = run_gate(world, ["claude/x"])
     assert verdict.verdict == "DONE"
     assert any("scratch.log" in note for note in verdict.notes)
+
+
+def test_a_line_ending_only_change_is_not_unfinished_work(world: FakeWorld) -> None:
+    path = world.branch("claude/x")
+    world.pr("claude/x", state="MERGED", mergeCommit={"oid": MERGE_SHA})
+    world.main_runs = [main_run(MERGE_SHA, "success")]
+    world.status[path] = " M .claude/settings.json\n"
+    world.eol_only.add(".claude/settings.json")
+    assert run_gate(world, ["claude/x"]).verdict == "DONE"
 
 
 def test_an_empty_new_branch_is_remembered_until_it_lands(world: FakeWorld) -> None:

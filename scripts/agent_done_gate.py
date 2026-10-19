@@ -490,6 +490,13 @@ def evaluate_branch(ctx: Ctx, branch: str, worktree: Path | None) -> Verdict:
         status = proc.stdout if proc.returncode == 0 else ""
         ignored = [str(glob) for glob in ctx.config.get("ignore_dirty") or []]
         tracked, untracked = own_changes(status, ignored)
+        if tracked:
+            # `status` also lists files whose only change is a line ending or
+            # a timestamp; `diff` compares content after normalization.
+            diff = ctx.git("diff", "--name-only", "HEAD", cwd=worktree)
+            if diff.returncode == 0:
+                changed = set(diff.stdout.split("\n"))
+                tracked = [path for path in tracked if path in changed]
         dirty = "\n".join(tracked)
     where = f" in {worktree}" if worktree else ""
     place = str(worktree) if worktree else "its worktree"
