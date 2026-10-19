@@ -27,6 +27,7 @@ uniform float uCutOn;
 uniform float uCutInner;
 uniform float uCutKeep;
 uniform float uCutDrop;
+varying float vShipCut;
 bool shipCut() {
   if (cutKind < 0.5 || uCutOn < 0.5) return false;
   vec2 a = cutAB.xy, b = cutAB.zw;
@@ -62,7 +63,12 @@ export function withCutaway<M extends Material>(material: M, keep = 0.14, drop =
     Object.assign(shader.uniforms, CUTAWAY, { uCutKeep: { value: keep }, uCutDrop: { value: drop } });
     shader.vertexShader = DECL + shader.vertexShader.replace(
       "#include <begin_vertex>",
-      "#include <begin_vertex>\n  if (shipCut()) transformed.y = transformed.y * uCutKeep - uCutDrop;",
+      "#include <begin_vertex>\n  vShipCut = 0.0;\n  if (shipCut()) { transformed.y = transformed.y * uCutKeep - uCutDrop; vShipCut = 1.0; }",
+    );
+    // A cut wall reads as a dark kerb, not as a pale slab: its colour (and its lights) dim.
+    shader.fragmentShader = "varying float vShipCut;\n" + shader.fragmentShader.replace(
+      "#include <color_fragment>",
+      "#include <color_fragment>\n  diffuseColor.rgb *= mix(1.0, 0.32, vShipCut);",
     );
   };
   material.customProgramCacheKey = () => "ship-cutaway";
