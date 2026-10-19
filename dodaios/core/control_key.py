@@ -270,27 +270,34 @@ def _remove_macos_owner() -> None:
 
 
 def _macos_keychain_item_exists() -> bool:
-    """Check item attributes without requesting its protected secret data."""
+    """Check item attributes without requesting its protected secret data.
+
+    Looks under the current credential service and every legacy one: a key
+    saved before the service was renamed is still the item to adopt.
+    """
     if sys.platform != "darwin":
         return False
-    try:
-        result = subprocess.run(
-            [
-                "/usr/bin/security",
-                "find-generic-password",
-                "-s",
-                cfg.KEYRING_SERVICE,
-                "-a",
-                KEYRING_SLOT,
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-            timeout=3,
-        )
-        return result.returncode == 0
-    except (OSError, subprocess.SubprocessError):
-        return False
+    for service in (cfg.KEYRING_SERVICE, *cfg.LEGACY_KEYRING_SERVICES):
+        try:
+            result = subprocess.run(
+                [
+                    "/usr/bin/security",
+                    "find-generic-password",
+                    "-s",
+                    service,
+                    "-a",
+                    KEYRING_SLOT,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=3,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if result.returncode == 0:
+            return True
+    return False
 
 
 def _platform_credential_store_active() -> bool:

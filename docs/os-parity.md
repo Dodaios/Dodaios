@@ -1,5 +1,21 @@
 # OS Feature Parity — macOS / Linux Gap Register
 
+## Credential service renamed to `dodaios` (2026-10-19, T3)
+
+New keys are saved under the credential service `dodaios` on every OS (Windows
+Credential Manager, macOS Keychain, Secret Service, and the 0600 file store a
+headless host uses). A key saved under the earlier `personal-jarvis` service
+is still read when `dodaios` holds nothing for that slot, with the same
+precedence over environment variables as before; deleting a key clears both
+services, and saving a key refreshes a `personal-jarvis` entry only where one
+already exists. The main instance copies the legacy entries once in a
+background thread after start-up and records a `__migrated_from__personal-jarvis`
+marker; on macOS the single vault item is copied in one write, so no prompt
+appears per key. The uninstaller removes both services, the marker and, on
+macOS, both vault items. Covered on every OS shape by fake-keyring tests
+(`test_keyring_service_rename.py`, `test_identity_credentials.py`,
+`test_uninstall.py`); no real OS credential store was exercised.
+
 ## PATH length budget (issue #574, T2)
 
 On Windows the app keeps its own `PATH` within 31,000 characters: past the

@@ -2657,6 +2657,20 @@ class WebServer:
             "will be renewed in the background."
         )
 
+    def _schedule_credential_migration(self) -> None:
+        """Copy keys from the renamed credential service once, off the boot path (AP-26).
+
+        A daemon thread in the main instance only, started with a delay; reads
+        never depend on it (``get_secret`` falls back to the legacy service),
+        so a process that skips it loses nothing.
+        """
+        try:
+            from dodaios.core.identity_credentials import schedule_credential_migration
+
+            schedule_credential_migration()
+        except Exception as exc:  # noqa: BLE001 -- a background copy must never block boot
+            logger.opt(exception=exc).warning("Credential copy did not schedule.")
+
     def _schedule_appshot_shortcut(self) -> None:
         """Arm the global appshot shortcut once the wake model has loaded.
 
@@ -3130,6 +3144,7 @@ class WebServer:
         # transport for it.
         self._schedule_realtime_transport_warm()
         self._schedule_appshot_shortcut()
+        self._schedule_credential_migration()
         # Browser provisioning includes a Chromium probe and may need Linux
         # system libraries. Leave it to explicit browser use/setup; boot and
         # shell-paint acknowledgements must keep headless installations usable.
