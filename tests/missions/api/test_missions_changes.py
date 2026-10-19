@@ -8,16 +8,16 @@ import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.missions.diff_summary import read_mission_changes, summarize_unified_diff
-from jarvis.missions.manager import MissionManager
-from jarvis.ui.web.missions_routes import router as missions_router
+from dodaios.missions.diff_summary import read_mission_changes, summarize_unified_diff
+from dodaios.missions.manager import MissionManager
+from dodaios.ui.web.missions_routes import router as missions_router
 
 PATCH = """\
-diff --git a/jarvis/plugins/tool/gmail_deep_clean.py b/jarvis/plugins/tool/gmail_deep_clean.py
+diff --git a/dodaios/plugins/tool/gmail_deep_clean.py b/dodaios/plugins/tool/gmail_deep_clean.py
 new file mode 100644
 index 0000000..1111111
 --- /dev/null
-+++ b/jarvis/plugins/tool/gmail_deep_clean.py
++++ b/dodaios/plugins/tool/gmail_deep_clean.py
 @@ -0,0 +1,3 @@
 +import os
 +
@@ -55,14 +55,14 @@ def test_summary_counts_every_kind_of_change_and_skips_pseudo_diffs() -> None:
     by_path = {f["path"]: f for f in summary["files"]}
 
     assert list(by_path) == [
-        "jarvis/plugins/tool/gmail_deep_clean.py",
+        "dodaios/plugins/tool/gmail_deep_clean.py",
         "README.md",
         "new.txt",
         "logo.png",
         "gone.py",
     ]
-    assert by_path["jarvis/plugins/tool/gmail_deep_clean.py"]["status"] == "added"
-    assert by_path["jarvis/plugins/tool/gmail_deep_clean.py"]["additions"] == 3
+    assert by_path["dodaios/plugins/tool/gmail_deep_clean.py"]["status"] == "added"
+    assert by_path["dodaios/plugins/tool/gmail_deep_clean.py"]["additions"] == 3
     assert by_path["README.md"] == {
         "path": "README.md",
         "previous_path": None,

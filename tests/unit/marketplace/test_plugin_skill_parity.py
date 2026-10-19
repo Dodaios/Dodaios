@@ -9,16 +9,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.skills.loader import discover_skills
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.skills.loader import discover_skills
 
 # Repo-root-relative resolution so the test passes regardless of the pytest cwd.
-_BUILTIN = Path(__file__).resolve().parents[3] / "jarvis" / "skills" / "builtin"
+_BUILTIN = Path(__file__).resolve().parents[3] / "dodaios" / "skills" / "builtin"
 
 # Plugins exempt from the convention with a written reason. Keep this list SHORT
 # and justified; for a tool-backed plugin, shipping its skill is the fix.
 _EXEMPT = {
-    # Telegram is an INBOUND CHANNEL adapter (jarvis/channels/telegram.py), not an
+    # Telegram is an INBOUND CHANNEL adapter (dodaios/channels/telegram.py), not an
     # actionable tool plugin: it is how the user talks TO Jarvis (a trace_id->
     # chat_id reply map), not a service Jarvis drives. A paired skill would point
     # at a tool that does not — and architecturally should not — exist. Revisit
@@ -52,7 +52,7 @@ def test_every_plugin_has_paired_skill():
     ]
     assert not missing, (
         f"plugins without a paired skill: {missing}. Add "
-        f"jarvis/skills/builtin/plugin-<id>/SKILL.md with plugin_id=<id>, or add "
+        f"dodaios/skills/builtin/plugin-<id>/SKILL.md with plugin_id=<id>, or add "
         f"a justified entry to _EXEMPT."
     )
 

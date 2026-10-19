@@ -13,11 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.missions.event_bus import MissionBus
-from jarvis.missions.event_store import MissionEventStore
-from jarvis.missions.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.missions.event_bus import MissionBus
+from dodaios.missions.event_store import MissionEventStore
+from dodaios.missions.events import (
     EventEnvelope,
     MissionApproved,
     MissionCancelled,
@@ -26,8 +26,8 @@ from jarvis.missions.events import (
     MissionTimedOut,
     now_ms,
 )
-from jarvis.missions.ids import uuid7_str
-from jarvis.missions.voice.announcer import MissionAnnouncer
+from dodaios.missions.ids import uuid7_str
+from dodaios.missions.voice.announcer import MissionAnnouncer
 
 
 @pytest.fixture

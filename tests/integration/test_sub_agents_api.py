@@ -14,14 +14,14 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.agents import JarvisAgentRegistry
-from jarvis.core.bus import EventBus
-from jarvis.core.config import load_config
-from jarvis.core.events import (
+from dodaios.agents import JarvisAgentRegistry
+from dodaios.core.bus import EventBus
+from dodaios.core.config import load_config
+from dodaios.core.events import (
     JarvisAgentTaskCompleted,
     JarvisAgentTaskStarted,
 )
-from jarvis.ui.web.server import WebServer
+from dodaios.ui.web.server import WebServer
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ def test_tree_fallback_when_registry_missing() -> None:
     """If registry is None (import error), /tree returns an empty OK payload."""
     from fastapi import FastAPI
 
-    from jarvis.ui.web.sub_agents_routes import router as sub_agents_router
+    from dodaios.ui.web.sub_agents_routes import router as sub_agents_router
 
     app = FastAPI()
     app.include_router(sub_agents_router)
@@ -138,7 +138,7 @@ def test_tree_fallback_when_registry_missing() -> None:
 def test_detail_503_when_registry_missing() -> None:
     from fastapi import FastAPI
 
-    from jarvis.ui.web.sub_agents_routes import router as sub_agents_router
+    from dodaios.ui.web.sub_agents_routes import router as sub_agents_router
 
     app = FastAPI()
     app.include_router(sub_agents_router)

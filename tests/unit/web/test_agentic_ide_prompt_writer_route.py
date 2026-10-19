@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 async def test_listing_reports_the_current_choice_and_every_option(
@@ -100,7 +100,7 @@ async def test_the_tool_model_option_names_the_model_it_would_use(
         routes, "_provider_label", lambda provider: "Google Gemini"
     )
     monkeypatch.setattr(
-        "jarvis.brain.resolver._tool_model_selection",
+        "dodaios.brain.resolver._tool_model_selection",
         lambda config: ("gemini", "gemini-3.6-flash"),
     )
 
@@ -119,7 +119,7 @@ async def test_an_unpinned_tool_model_is_offered_but_not_selectable(
     offering it as usable would persist a choice that writes nothing."""
     monkeypatch.setattr(routes, "_writer_candidates", lambda: [])
     monkeypatch.setattr(
-        "jarvis.brain.resolver._tool_model_selection", lambda config: ("auto", None)
+        "dodaios.brain.resolver._tool_model_selection", lambda config: ("auto", None)
     )
 
     state = routes.prompt_writer_state()
@@ -135,7 +135,7 @@ async def test_choosing_an_unusable_tool_model_names_the_real_blocker(
     A user sent to fix the wrong thing gives up on the setting, not the error."""
     monkeypatch.setattr(routes, "_writer_candidates", lambda: [])
     monkeypatch.setattr(
-        "jarvis.brain.resolver._tool_model_selection", lambda config: ("auto", None)
+        "dodaios.brain.resolver._tool_model_selection", lambda config: ("auto", None)
     )
 
     with pytest.raises(HTTPException) as excinfo:
@@ -155,7 +155,7 @@ async def test_a_usable_tool_model_can_be_chosen(
     monkeypatch.setattr(routes, "_writer_candidates", lambda: [])
     monkeypatch.setattr(routes, "_tool_model_usable", lambda provider: True)
     monkeypatch.setattr(
-        "jarvis.brain.resolver._tool_model_selection",
+        "dodaios.brain.resolver._tool_model_selection",
         lambda config: ("gemini", "gemini-3.6-flash"),
     )
     monkeypatch.setattr(routes, "_persist_prompt_writer", saved.append)

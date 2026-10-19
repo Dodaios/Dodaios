@@ -21,11 +21,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted, DictationTranscript
-from jarvis.dictation.segment import next_quality_window, quality_windows
-from jarvis.speech.pipeline import SpeechPipeline
-from jarvis.speech.stt_fallback import FallbackSTT
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted, DictationTranscript
+from dodaios.dictation.segment import next_quality_window, quality_windows
+from dodaios.speech.pipeline import SpeechPipeline
+from dodaios.speech.stt_fallback import FallbackSTT
 
 # 16 kHz mono int16 — the capture contract every dictation records under.
 BYTES_PER_SECOND = 16_000 * 2
@@ -170,8 +170,8 @@ def _audit(events: list[object], key: str) -> int:
 def _no_preview(monkeypatch: pytest.MonkeyPatch) -> None:
     """No on-device engine and no cloud preview budget: every provider call in
     these tests belongs to the final pass."""
-    import jarvis.dictation.local_preview as local_preview
-    import jarvis.dictation.preview_budget as preview_budget
+    import dodaios.dictation.local_preview as local_preview
+    import dodaios.dictation.preview_budget as preview_budget
 
     monkeypatch.setattr(local_preview, "local_preview", lambda: None)
     monkeypatch.setattr(
@@ -260,14 +260,14 @@ async def test_final_delivery_preserves_content_after_window_seam(
     polish_inputs: list[str] = []
 
     async def _identity_polish(raw: str, **_kwargs: Any) -> Any:
-        from jarvis.dictation.polish import PolishOutcome
+        from dodaios.dictation.polish import PolishOutcome
 
         polish_inputs.append(raw)
         return PolishOutcome(
             text=raw, status="unchanged", provider="fake", model="", latency_ms=0, reason="",
         )
 
-    monkeypatch.setattr("jarvis.dictation.polish.polish_transcript", _identity_polish)
+    monkeypatch.setattr("dodaios.dictation.polish.polish_transcript", _identity_polish)
     task = asyncio.create_task(pipe._dictation_session())
     await asyncio.wait_for(mic.delivered.wait(), timeout=10)
     pipe._dictation_stop_event.set()

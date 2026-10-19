@@ -14,7 +14,7 @@ import sys
 
 import pytest
 
-from jarvis.ui.shell.single_instance import SingleInstance
+from dodaios.ui.shell.single_instance import SingleInstance
 
 
 def test_write_session_roundtrip(tmp_path):

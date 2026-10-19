@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.vault_index.VaultIndex``.
+"""Unit tests for ``dodaios.memory.wiki.vault_index.VaultIndex``.
 
 Covers the four documented contracts:
 * ``scan`` walks the four page-type directories and tolerates a missing one.
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.vault_index import VaultIndex
+from dodaios.memory.wiki.vault_index import VaultIndex
 
 from tests.unit.memory.wiki.conftest import FakePageRepository, write_page
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from fastapi import BackgroundTasks, HTTPException
 
-from jarvis.ui.web import marketplace_routes as mr
+from dodaios.ui.web import marketplace_routes as mr
 
 
 class _Catalog:
@@ -60,7 +60,7 @@ async def test_connect_start_rejects_placeholder_client(monkeypatch):
     monkeypatch.setattr(mr, "load_catalog", lambda: _Catalog([spec]))
     # Model a fresh downloader even when this test host has a publisher client.
     monkeypatch.setattr(
-        "jarvis.marketplace.connect_helpers.resolve_pkce_client",
+        "dodaios.marketplace.connect_helpers.resolve_pkce_client",
         lambda _pid, cid, csec: (cid, csec),
     )
     with pytest.raises(HTTPException) as exc_info:
@@ -75,7 +75,7 @@ async def test_connect_start_secret_override_beats_placeholder(monkeypatch):
     spec = _pkce_spec("REPLACE_WITH_JARVIS_GOOGLE_CLIENT_ID")
     monkeypatch.setattr(mr, "load_catalog", lambda: _Catalog([spec]))
     monkeypatch.setattr(
-        "jarvis.marketplace.connect_helpers.resolve_pkce_client",
+        "dodaios.marketplace.connect_helpers.resolve_pkce_client",
         lambda pid, cid, csec: ("real-client-id.apps.example", None),
     )
     monkeypatch.setattr(mr, "PkceLoopbackHandler", _StubPkceHandler)

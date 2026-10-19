@@ -1,6 +1,6 @@
 """The static `jarvisctl` command index equals the live Typer app.
 
-The brain's ``cli_jarvisctl`` tool shows ``jarvis.cli_ctl.command_index`` in
+The brain's ``cli_jarvisctl`` tool shows ``dodaios.cli_ctl.command_index`` in
 its description so the model calls commands directly instead of reading
 ``--help`` for several rounds. Static data can drift; this test walks the real
 Typer app (the ~5 s import is fine in a test, not on the brain build path) and
@@ -8,7 +8,7 @@ fails on any group or command that disagrees in either direction.
 """
 from __future__ import annotations
 
-from jarvis.cli_ctl.command_index import (
+from dodaios.cli_ctl.command_index import (
     COMMAND_INDEX,
     TOP_LEVEL_COMMANDS,
     command_names,
@@ -17,7 +17,7 @@ from jarvis.cli_ctl.command_index import (
 
 
 def _live_tree() -> tuple[dict[str, set[str]], set[str]]:
-    from jarvis.cli_ctl.__main__ import app
+    from dodaios.cli_ctl.__main__ import app
 
     groups: dict[str, set[str]] = {}
     top: set[str] = set()

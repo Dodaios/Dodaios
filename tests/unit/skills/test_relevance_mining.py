@@ -9,7 +9,7 @@ you change the scanner and a case here flips, re-derive it by hand rather than
 pasting in whatever the new code produces; the alternative is a test that only
 asserts the code does what the code does.
 
-The patterns are the actual ones shipped in jarvis/skills/builtin/*/SKILL.md.
+The patterns are the actual ones shipped in dodaios/skills/builtin/*/SKILL.md.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.relevance import mine_pattern_literals, normalize_text, trigrams
+from dodaios.skills.relevance import mine_pattern_literals, normalize_text, trigrams
 
 # ---------------------------------------------------------------------------
 # Hand-derived golden cases (real builtin patterns)
@@ -183,7 +183,7 @@ def test_mining_is_deterministic() -> None:
 
 
 def _builtin_patterns() -> list[tuple[str, str]]:
-    root = Path(__file__).resolve().parents[3] / "jarvis" / "skills" / "builtin"
+    root = Path(__file__).resolve().parents[3] / "dodaios" / "skills" / "builtin"
     found: list[tuple[str, str]] = []
     for skill_file in sorted(root.rglob("SKILL.md")):
         text = skill_file.read_text(encoding="utf-8")

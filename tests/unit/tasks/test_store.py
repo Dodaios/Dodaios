@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.tasks.schema import SpeakAction, TaskSpec, TriggerAfterDelay, TriggerOnEvent
-from jarvis.tasks.store import TaskStore
+from dodaios.tasks.schema import SpeakAction, TaskSpec, TriggerAfterDelay, TriggerOnEvent
+from dodaios.tasks.store import TaskStore
 
 
 @pytest.fixture

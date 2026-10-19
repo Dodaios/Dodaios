@@ -9,7 +9,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     JarvisConfig,
     RouterVisionConfig,
 )

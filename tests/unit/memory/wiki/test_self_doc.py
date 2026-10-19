@@ -14,19 +14,19 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.cleanup import dangling_link_targets
-from jarvis.memory.wiki.curator import WikiCurator
-from jarvis.memory.wiki.curator_llm import WikiCuratorLLM
-from jarvis.memory.wiki.journal import CandidateFact, CandidateJournal
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository, parse_markdown
-from jarvis.memory.wiki.self_doc import (
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.cleanup import dangling_link_targets
+from dodaios.memory.wiki.curator import WikiCurator
+from dodaios.memory.wiki.curator_llm import WikiCuratorLLM
+from dodaios.memory.wiki.journal import CandidateFact, CandidateJournal
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository, parse_markdown
+from dodaios.memory.wiki.self_doc import (
     PAGE_NAME,
     refresh_memory_page,
     render_memory_page,
 )
-from jarvis.memory.wiki.vault_index import VaultIndex
+from dodaios.memory.wiki.vault_index import VaultIndex
 
 
 @pytest_asyncio.fixture

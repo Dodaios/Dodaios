@@ -24,13 +24,13 @@ This is the standard variant: your own dashboard without federation.
 git pull
 pip install -r requirements.txt   # no new deps for A+B (recharts comes
                                   # into the frontend only, which we build locally)
-cd jarvis/ui/web/frontend
+cd dodaios/ui/web/frontend
 npm install                       # pulls recharts + qrcode.react
 npm run build
 ```
 
 **What happens on first start:**
-- `python -m jarvis.ui.web.launcher` → the web server starts `BoardAggregator`
+- `python -m dodaios.ui.web.launcher` → the web server starts `BoardAggregator`
   as a background task (every 6 h plus on-startup).
 - The Aggregator reads your existing FlightRecorder JSONLs from
   `%LOCALAPPDATA%\Jarvis\logs\` and writes to

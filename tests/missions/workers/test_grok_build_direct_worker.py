@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.missions.workers.grok_build_direct_worker import (
+from dodaios.missions.workers.grok_build_direct_worker import (
     _build_grok_build_cmd,
     _event_looks_like_tool,
     _normalize_model_for_grok_build,

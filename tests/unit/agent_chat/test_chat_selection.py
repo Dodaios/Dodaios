@@ -7,11 +7,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore, ChatSelection
-from jarvis.society.runtime import SocietyRuntime, current_runtime, set_current_runtime
-from jarvis.ui.web import agent_chat_routes
-from jarvis.ui.web.society_routes import router as society_router
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore, ChatSelection
+from dodaios.society.runtime import SocietyRuntime, current_runtime, set_current_runtime
+from dodaios.ui.web import agent_chat_routes
+from dodaios.ui.web.society_routes import router as society_router
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def app(tmp_path, monkeypatch):
 
     monkeypatch.setattr(agent_chat_routes, "_live_cli_models", no_live_models)
     monkeypatch.setattr(agent_chat_routes, "_cli_installed", lambda runner: False)
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: False)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: False)
     application = FastAPI()
     application.include_router(agent_chat_routes.router)
     application.include_router(society_router)
@@ -95,8 +95,8 @@ def test_pick_catalog_and_voice_created_agent_share_the_exact_model(app, provide
         agent = response.json()["agent"]
         assert (agent["provider"], agent["model"]) == (provider, model)
         runtime = app.state.society
-        from jarvis.society.chat_binding import ensure_session
-        from jarvis.society.roster import AgentRecord
+        from dodaios.society.chat_binding import ensure_session
+        from dodaios.society.roster import AgentRecord
 
         bound = ensure_session(app.state.agent_chat, SimpleNamespace(), AgentRecord.from_row(agent))
         assert (bound.provider, bound.model) == (provider, model)
@@ -156,7 +156,7 @@ def test_unavailable_selection_store_never_falls_back_to_a_different_model(app):
 
 
 def test_chat_account_is_preserved_on_new_session(app, tmp_path, monkeypatch):
-    from jarvis import agent_accounts
+    from dodaios import agent_accounts
 
     monkeypatch.setattr(agent_accounts, "resolve", lambda value: SimpleNamespace(platform="codex"))
     with TestClient(app) as client:
@@ -180,13 +180,13 @@ def test_selection_contract_matches_sql_api_and_frontend(app):
     import re
     from dataclasses import fields
 
-    from jarvis.ui.web.agent_chat_routes import ChatSelectionBody
+    from dodaios.ui.web.agent_chat_routes import ChatSelectionBody
 
     keys = {field.name for field in fields(ChatSelection)}
     assert keys == set(ChatSelectionBody.model_fields)
     columns = app.state.agent_chat.store._conn.execute("PRAGMA table_info(jarvis_chat_selection)")
     assert {column["name"] for column in columns} - {"id"} == keys
-    source = Path("jarvis/ui/web/frontend/src/lib/agentChatApi.ts").read_text(encoding="utf-8")
+    source = Path("dodaios/ui/web/frontend/src/lib/agentChatApi.ts").read_text(encoding="utf-8")
     body = re.search(r"export interface ChatSelection \{([^}]+)\}", source).group(1)
     assert set(re.findall(r"^\s*(\w+)\??:", body, re.MULTILINE)) == keys
     operation = app.openapi()["paths"]["/api/agent-chat/selection"]["put"]
@@ -261,8 +261,8 @@ def test_opening_history_and_other_surfaces_do_not_replace_selection(app, tmp_pa
 
 
 async def test_chat_send_keeps_its_pick_when_global_worker_differs(app, tmp_path, monkeypatch):
-    from jarvis.agent_chat import service
-    from jarvis.core import runtime_refs, task_agent
+    from dodaios.agent_chat import service
+    from dodaios.core import runtime_refs, task_agent
 
     seen = []
 

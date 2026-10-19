@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from jarvis.missions.critic.log_summarizer import summarize_log
+from dodaios.missions.critic.log_summarizer import summarize_log
 
 
 async def test_summary_surfaces_tool_evidence_past_char_cap() -> None:

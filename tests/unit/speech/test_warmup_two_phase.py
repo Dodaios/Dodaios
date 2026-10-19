@@ -29,10 +29,10 @@ import asyncio
 
 import pytest
 
-import jarvis.speech.pipeline as pl
-from jarvis.audio.chime import CHIME_SAMPLE_RATE, READY_PCM
-from jarvis.core.events import VoiceBootStatus
-from jarvis.speech.pipeline import SpeechPipeline
+import dodaios.speech.pipeline as pl
+from dodaios.audio.chime import CHIME_SAMPLE_RATE, READY_PCM
+from dodaios.core.events import VoiceBootStatus
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class FakePlayer:

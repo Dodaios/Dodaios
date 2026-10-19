@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
-from jarvis.local_models import assistant_session as policy
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
+from dodaios.local_models import assistant_session as policy
 
 
 def _cfg(provider: str = "openai", model: str = "gpt-x", **fallback: str) -> JarvisConfig:
@@ -111,7 +111,7 @@ def test_a_pair_the_live_probe_refuses_yields_to_the_next_and_names_the_reason()
 
 @pytest.mark.asyncio
 async def test_probe_live_classifies_with_the_provider_test_and_caches() -> None:
-    from jarvis.brain.provider_test import ProviderTestResult
+    from dodaios.brain.provider_test import ProviderTestResult
 
     policy._reset_for_tests()
     calls: list[tuple[str, str | None]] = []

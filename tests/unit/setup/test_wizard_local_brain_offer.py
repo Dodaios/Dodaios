@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.setup import wizard
+from dodaios.setup import wizard
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +29,7 @@ def test_offer_skipped_when_no_local_server(monkeypatch) -> None:
 
 
 def test_accepting_pins_ollama_as_primary(monkeypatch) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(wizard, "_ollama_reachable", lambda **kw: True)
     monkeypatch.setattr(wizard, "_ask", lambda *a, **kw: "y")
@@ -41,7 +41,7 @@ def test_accepting_pins_ollama_as_primary(monkeypatch) -> None:
 
 
 def test_declining_changes_nothing(monkeypatch) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(wizard, "_ollama_reachable", lambda **kw: True)
     monkeypatch.setattr(wizard, "_ask", lambda *a, **kw: "n")

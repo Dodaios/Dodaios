@@ -31,9 +31,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager, _looks_like_pc_control
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager, _looks_like_pc_control
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 class _FakeSpawnTool:
@@ -95,7 +95,7 @@ def test_failing_utterance_is_recognised_as_computer_use() -> None:
 
 def test_computer_use_is_reachable_by_the_router() -> None:
     """The LLM router can only pick Computer-Use if the tool is in its set."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "computer-use" in ROUTER_TOOLS
 

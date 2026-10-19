@@ -16,9 +16,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import remote, resume_store
-from jarvis.agentic_ide import session as ide
-from jarvis.computers import remote_os, remote_terminal
+from dodaios.agentic_ide import remote, resume_store
+from dodaios.agentic_ide import session as ide
+from dodaios.computers import remote_os, remote_terminal
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -360,7 +360,7 @@ async def test_keep_working_on_quit_moves_running_workspaces(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.agentic_ide import offload_on_quit
+    from dodaios.agentic_ide import offload_on_quit
 
     local, far, _moves = pools
     monkeypatch.setattr(offload_on_quit, "target", lambda: "c_1")
@@ -518,7 +518,7 @@ async def test_a_fork_on_a_computer_is_a_fork_before_its_gate_opens(
     """#254: ``_place_new`` opens the ``placing`` gate and awaits a persist
     before ``add_terminal`` returns; a viewer attaching there spawned the fork
     as a fresh chat."""
-    from jarvis.agentic_ide.agent_sessions import ResumeHandle
+    from dodaios.agentic_ide.agent_sessions import ResumeHandle
 
     local, _far, _moves = pools
     registry = ide.Registry(pty_manager=local)

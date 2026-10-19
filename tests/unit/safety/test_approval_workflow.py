@@ -6,8 +6,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.safety.approval import ApprovalWorkflow
+from dodaios.core.bus import EventBus
+from dodaios.safety.approval import ApprovalWorkflow
 
 
 @pytest.mark.asyncio

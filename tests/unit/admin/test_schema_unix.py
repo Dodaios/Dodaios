@@ -18,13 +18,13 @@ from __future__ import annotations
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from jarvis.admin.executor import AdminExecutor
-from jarvis.admin.schema import (
+from dodaios.admin.executor import AdminExecutor
+from dodaios.admin.schema import (
     ADMIN_OPERATION_TYPES,
     DESTRUCTIVE_OPS,
     AdminOperation,
 )
-from jarvis.admin.schema_unix import (
+from dodaios.admin.schema_unix import (
     UNIX_ADMIN_OPERATION_TYPES,
     UNIX_DESTRUCTIVE_OPS,
     AptInstallOp,

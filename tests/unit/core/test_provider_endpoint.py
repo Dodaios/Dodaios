@@ -1,8 +1,8 @@
 """W1a: resolve_provider_endpoint — explicit base_url override vs vendor default."""
 from __future__ import annotations
 
-import jarvis.core.config as cfg
-from jarvis.core.config import (
+import dodaios.core.config as cfg
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
@@ -60,7 +60,7 @@ def test_loads_config_when_not_injected(monkeypatch, tmp_path):
 
 
 # ── W2: team-mode flip ──────────────────────────────────────────────────────
-from jarvis.core.config import TeamProxyConfig  # noqa: E402
+from dodaios.core.config import TeamProxyConfig  # noqa: E402
 
 
 def _team_cfg(url: str, *, enabled: bool = True, local: list[str] | None = None) -> JarvisConfig:

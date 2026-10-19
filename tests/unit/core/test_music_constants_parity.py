@@ -1,11 +1,11 @@
 """Parity test for the layers that share the music-settings vocabulary
 (five-layer pattern, BUG-008 class).
 
-1. ``jarvis/core/music_constants.py``                — the Python tuples (source of truth)
-2. ``jarvis/core/config.py::MusicConfig``           — the Pydantic Literals (asserted at import)
-3. ``jarvis/ui/web/settings_routes.py``             — the accepted set the route answers
-4. ``jarvis/ui/web/frontend/src/lib/musicSettings.ts`` — the TS const tuples
-5. ``jarvis/ui/web/frontend/src/i18n/locales/{en,de,es}.json``
+1. ``dodaios/core/music_constants.py``                — the Python tuples (source of truth)
+2. ``dodaios/core/config.py::MusicConfig``           — the Pydantic Literals (asserted at import)
+3. ``dodaios/ui/web/settings_routes.py``             — the accepted set the route answers
+4. ``dodaios/ui/web/frontend/src/lib/musicSettings.ts`` — the TS const tuples
+5. ``dodaios/ui/web/frontend/src/i18n/locales/{en,de,es}.json``
                                                      — a label + description per value
 
 A drift shows up here as one failing test instead of a Pydantic
@@ -19,12 +19,12 @@ import re
 from pathlib import Path
 from typing import get_args
 
-from jarvis.core.config import MusicConfig
-from jarvis.core.music_constants import MUSIC_PLAYBACK_MODES, MUSIC_SERVICES
+from dodaios.core.config import MusicConfig
+from dodaios.core.music_constants import MUSIC_PLAYBACK_MODES, MUSIC_SERVICES
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-TS_FILE = REPO_ROOT / "jarvis/ui/web/frontend/src/lib/musicSettings.ts"
-LOCALES = REPO_ROOT / "jarvis/ui/web/frontend/src/i18n/locales"
+TS_FILE = REPO_ROOT / "dodaios/ui/web/frontend/src/lib/musicSettings.ts"
+LOCALES = REPO_ROOT / "dodaios/ui/web/frontend/src/i18n/locales"
 
 
 def _ts_tuple(name: str) -> set[str]:
@@ -58,7 +58,7 @@ def test_every_locale_labels_every_value() -> None:
 
 
 def test_route_accepts_exactly_the_tuples() -> None:
-    from jarvis.ui.web import settings_routes
+    from dodaios.ui.web import settings_routes
 
     assert set(settings_routes.MUSIC_SERVICES) == set(MUSIC_SERVICES)
     assert set(settings_routes.MUSIC_PLAYBACK_MODES) == set(MUSIC_PLAYBACK_MODES)

@@ -5,7 +5,7 @@ Every tag-triggered workflow (PyPI, desktop installers, signed installer)
 runs this first through ``.github/workflows/release-gate.yml``. It checks:
 
 1. the tag is ``vX.Y.Z`` and matches ``pyproject.toml`` and
-   ``jarvis.__version__``;
+   ``dodaios.__version__``;
 2. ``CHANGELOG.md`` has a ``## [X.Y.Z]`` section;
 3. the tagged commit is reachable from ``origin/main`` (no release from an
    unmerged branch);
@@ -32,7 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
 
 GATE_CHECK = "CI gate"
 QUALIFICATION_CHECK = "release qualification"
@@ -41,7 +41,7 @@ CI_WORKFLOW = ".github/workflows/ci.yml"
 
 def versions(root: Path = REPO_ROOT) -> tuple[str, str]:
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
-    init = (root / "jarvis" / "__init__.py").read_text(encoding="utf-8")
+    init = (root / "dodaios" / "__init__.py").read_text(encoding="utf-8")
     match = re.search(r'__version__ = "([^"]+)"', init)
     return project["project"]["version"], match.group(1) if match else ""
 
@@ -59,7 +59,7 @@ def check_identity(tag: str, root: Path = REPO_ROOT) -> list[str]:
     version = match.group(1)
     project, package = versions(root)
     if not (version == project == package):
-        errors.append(f"tag {version} != pyproject {project} / jarvis.__version__ {package}")
+        errors.append(f"tag {version} != pyproject {project} / dodaios.__version__ {package}")
     if not changelog_has(version, root):
         errors.append(f"CHANGELOG.md has no '## [{version}]' section")
     return errors

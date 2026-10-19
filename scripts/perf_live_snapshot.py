@@ -53,7 +53,7 @@ def _backend_pids() -> list[int]:
     for proc in psutil.process_iter(["cmdline"]):
         try:
             args = proc.info["cmdline"] or []
-            if any("jarvis.ui.web.launcher" in arg for arg in args):
+            if any("dodaios.ui.web.launcher" in arg for arg in args):
                 result.append(proc.pid)
         except (psutil.Error, OSError):
             continue

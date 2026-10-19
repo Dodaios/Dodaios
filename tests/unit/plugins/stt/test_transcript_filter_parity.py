@@ -23,8 +23,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.plugins.stt as stt_package
-from jarvis.plugins.stt import gemini_api, groq_api, openai_api, openrouter_stt
+import dodaios.plugins.stt as stt_package
+from dodaios.plugins.stt import gemini_api, groq_api, openai_api, openrouter_stt
 
 #: One payload carrying three artifact classes at once: an outer quote pair the
 #: model added, a hesitation sound, and a decoder repetition loop.
@@ -109,7 +109,7 @@ async def test_the_local_engine_cleans_its_joined_text_and_keeps_the_raw_one() -
     probabilities, and re-aligning them to an edited string would mean guessing
     where the edits landed.
     """
-    from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
+    from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
 
     # i18n-allow: German speech under test (§1 list #4)
     pieces = ("Ähm, mach ", "das Licht an. ", "Danke. Danke. Danke.")  # i18n-allow
@@ -176,7 +176,7 @@ def test_every_provider_module_runs_the_filter(module) -> None:
 
 def test_the_shared_protocol_transcript_carries_it_too() -> None:
     """The local engine returns the protocol type, not a plugin-local copy."""
-    from jarvis.core.protocols import Transcript as ProtocolTranscript
+    from dodaios.core.protocols import Transcript as ProtocolTranscript
 
     fields = {f.name: f for f in dataclasses.fields(ProtocolTranscript)}
     assert fields["raw_text"].default == ""

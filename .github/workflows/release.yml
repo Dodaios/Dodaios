@@ -96,10 +96,10 @@ jobs:
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
           project_version="$(python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
-          package_version="$(python -c 'import re,pathlib; print(re.search(r"__version__ = \"([^\"]+)\"", pathlib.Path("jarvis/__init__.py").read_text()).group(1))')"
+          package_version="$(python -c 'import re,pathlib; print(re.search(r"__version__ = \"([^\"]+)\"", pathlib.Path("dodaios/__init__.py").read_text()).group(1))')"
           echo "tag=${tag_version} pyproject=${project_version} package=${package_version}"
           if [ "${tag_version}" != "${project_version}" ] || [ "${project_version}" != "${package_version}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match pyproject (${project_version}) / jarvis.__version__ (${package_version})."
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match pyproject (${project_version}) / dodaios.__version__ (${package_version})."
             exit 1
           fi
 

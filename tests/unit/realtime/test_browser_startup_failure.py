@@ -10,10 +10,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import BrowserVoiceRequested
-from jarvis.live import runtime, startup
-from jarvis.ui.web.voice_call_routes import router
+from dodaios.core.bus import EventBus
+from dodaios.core.events import BrowserVoiceRequested
+from dodaios.live import runtime, startup
+from dodaios.ui.web.voice_call_routes import router
 
 
 @pytest.fixture(autouse=True)

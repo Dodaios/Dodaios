@@ -16,7 +16,7 @@ import base64
 
 import pytest
 
-from jarvis.brain.drop_context import DroppedItem, classify_and_compose
+from dodaios.brain.drop_context import DroppedItem, classify_and_compose
 
 # (name, mime) pairs the OS realistically hands us for a dropped file.
 _TEXTUAL = [

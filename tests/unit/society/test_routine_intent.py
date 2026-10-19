@@ -2,8 +2,8 @@
 
 import pytest
 
-from jarvis.brain.manager import _unfulfilled_replacement
-from jarvis.society.routine_intent import requests_routine_creation
+from dodaios.brain.manager import _unfulfilled_replacement
+from dodaios.society.routine_intent import requests_routine_creation
 
 
 @pytest.mark.parametrize(

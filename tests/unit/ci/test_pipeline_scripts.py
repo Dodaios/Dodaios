@@ -38,7 +38,7 @@ def test_pipeline_change_runs_everything():
 
 
 def test_frontend_source_change_keeps_python_on_because_tests_read_it():
-    result = classify_changes.classify(["jarvis/ui/web/frontend/src/lib/tasksApi.ts"])
+    result = classify_changes.classify(["dodaios/ui/web/frontend/src/lib/tasksApi.ts"])
     assert result["frontend"] is True
     assert result["python"] is True
     assert result["realtime"] is False
@@ -52,15 +52,15 @@ def test_unrelated_subproject_skips_python():
 
 
 def test_route_change_turns_on_cli_lane_and_windows_path_is_normalized():
-    result = classify_changes.classify(["jarvis\\ui\\web\\update_routes.py"])
+    result = classify_changes.classify(["dodaios\\ui\\web\\update_routes.py"])
     assert result["cli"] is True
     assert result["python"] is True
 
 
 def test_updater_change_turns_on_the_cross_os_updater_lane():
     for path in (
-        "jarvis/core/installer_update.py",
-        "jarvis\\ui\\relauncher.py",
+        "dodaios/core/installer_update.py",
+        "dodaios\\ui\\relauncher.py",
         "packaging/windows/PersonalJarvis.iss",
         "tests/unit/ui/web/test_update_routes_frozen.py",
     ):
@@ -68,7 +68,7 @@ def test_updater_change_turns_on_the_cross_os_updater_lane():
 
 
 def test_unrelated_python_change_leaves_the_updater_lane_off():
-    result = classify_changes.classify(["jarvis/society/roster.py"])
+    result = classify_changes.classify(["dodaios/society/roster.py"])
     assert result["python"] is True
     assert result["updater"] is False
 
@@ -82,36 +82,36 @@ def test_unrelated_python_change_leaves_the_updater_lane_off():
         "packaging/macos/build.sh",
         "packaging/macos/entitlements.plist",
         "packaging/macos/README.md",
-        "jarvis/core/macos_privacy_strings.py",
+        "dodaios/core/macos_privacy_strings.py",
         # The just-in-time permission service, its port and its HTTP surface.
-        "jarvis/platform/permission_service.py",
-        "jarvis/platform/permissions.py",
-        "jarvis/ui/web/permissions_routes.py",
+        "dodaios/platform/permission_service.py",
+        "dodaios/platform/permissions.py",
+        "dodaios/ui/web/permissions_routes.py",
         # Every directory whose code asks for, or acts on, a macOS permission.
-        "jarvis/audio/capture.py",
-        "jarvis/cu/engine.py",
-        "jarvis/vision/screenshot.py",
-        "jarvis/screen_context/capture.py",
-        "jarvis/dictation/insert.py",
-        "jarvis/trigger/backends/quartz.py",
-        "jarvis/platform/window_state.py",
+        "dodaios/audio/capture.py",
+        "dodaios/cu/engine.py",
+        "dodaios/vision/screenshot.py",
+        "dodaios/screen_context/capture.py",
+        "dodaios/dictation/insert.py",
+        "dodaios/trigger/backends/quartz.py",
+        "dodaios/platform/window_state.py",
         # The voice gates, the wake/mic routes, the shared events and protocols, and
         # the fakes and contract tests the macOS lane runs.
-        "jarvis/speech/pipeline.py",
-        "jarvis/speech/diagnose.py",
-        "jarvis/ui/web/settings_routes.py",
-        "jarvis/core/events.py",
+        "dodaios/speech/pipeline.py",
+        "dodaios/speech/diagnose.py",
+        "dodaios/ui/web/settings_routes.py",
+        "dodaios/core/events.py",
         # Consumers that capture, type or relay: tools, appshot, routes, CLI, bundle ids.
-        "jarvis/plugins/tool/screen_snapshot.py",
-        "jarvis/plugins/tool/type_text.py",
-        "jarvis/plugins/tool/verify_localhost.py",
-        "jarvis/plugins/harness/computer_use.py",
-        "jarvis/appshot/gesture.py",
-        "jarvis/ui/web/screen_context_routes.py",
-        "jarvis/cli_ctl/commands/permissions.py",
-        "jarvis/core/branding.py",
-        "jarvis/tasks/event_catalog.py",
-        "jarvis/core/protocols.py",
+        "dodaios/plugins/tool/screen_snapshot.py",
+        "dodaios/plugins/tool/type_text.py",
+        "dodaios/plugins/tool/verify_localhost.py",
+        "dodaios/plugins/harness/computer_use.py",
+        "dodaios/appshot/gesture.py",
+        "dodaios/ui/web/screen_context_routes.py",
+        "dodaios/cli_ctl/commands/permissions.py",
+        "dodaios/core/branding.py",
+        "dodaios/tasks/event_catalog.py",
+        "dodaios/core/protocols.py",
         "tests/fakes/fake_tcc.py",
         "tests/fakes/fake_permission_service.py",
         "tests/contract/test_permission_service_contract.py",
@@ -120,7 +120,7 @@ def test_unrelated_python_change_leaves_the_updater_lane_off():
         "tests/unit/ui/web/test_permissions_routes.py",
         "tests/unit/trigger/test_quartz_backend.py",
         # The windows spelling of a path must classify the same way.
-        "jarvis\\core\\macos_privacy_strings.py",
+        "dodaios\\core\\macos_privacy_strings.py",
     ],
 )
 def test_macos_permission_and_packaging_paths_turn_on_the_macos_lane(path):
@@ -133,8 +133,8 @@ def test_macos_permission_and_packaging_paths_turn_on_the_macos_lane(path):
 @pytest.mark.parametrize(
     "path",
     [
-        "jarvis/society/roster.py",
-        "jarvis/ui/web/society_browser_routes.py",
+        "dodaios/society/roster.py",
+        "dodaios/ui/web/society_browser_routes.py",
         "packaging/windows/PersonalJarvis.iss",
         "packaging/linux/build.sh",
         "docs/macos-permissions.md",
@@ -146,23 +146,23 @@ def test_unrelated_paths_leave_the_macos_lane_off(path):
 
 def test_the_macos_lane_gate_names_the_new_paths_it_adds_to_the_prefix_tables():
     """Guard the data, not just the outcome: a refactor must not drop an entry."""
-    assert {"jarvis.spec", "jarvis/core/macos_privacy_strings.py"} <= classify_changes._MACOS_FILES
-    assert "jarvis/ui/web/permissions_routes.py" in classify_changes._MACOS_FILES
+    assert {"jarvis.spec", "dodaios/core/macos_privacy_strings.py"} <= classify_changes._MACOS_FILES
+    assert "dodaios/ui/web/permissions_routes.py" in classify_changes._MACOS_FILES
     assert {
-        "jarvis/plugins/tool/screen_snapshot.py",
-        "jarvis/plugins/tool/type_text.py",
-        "jarvis/plugins/tool/verify_localhost.py",
-        "jarvis/speech/diagnose.py",
-        "jarvis/ui/web/screen_context_routes.py",
-        "jarvis/cli_ctl/commands/permissions.py",
-        "jarvis/core/branding.py",
-        "jarvis/tasks/event_catalog.py",
+        "dodaios/plugins/tool/screen_snapshot.py",
+        "dodaios/plugins/tool/type_text.py",
+        "dodaios/plugins/tool/verify_localhost.py",
+        "dodaios/speech/diagnose.py",
+        "dodaios/ui/web/screen_context_routes.py",
+        "dodaios/cli_ctl/commands/permissions.py",
+        "dodaios/core/branding.py",
+        "dodaios/tasks/event_catalog.py",
     } <= classify_changes._MACOS_FILES
     assert {
         "packaging/macos/",
-        "jarvis/screen_context/",
-        "jarvis/dictation/",
-        "jarvis/appshot/",
+        "dodaios/screen_context/",
+        "dodaios/dictation/",
+        "dodaios/appshot/",
     } <= set(
         classify_changes._MACOS_PREFIXES
     )
@@ -525,8 +525,8 @@ def test_selection_maps_a_module_to_the_tests_that_import_it():
     others = [f"tests/unit/b/test_other{i}.py" for i in range(9)]
     tests = ["tests/unit/a/test_widget.py", *others]
     texts = dict.fromkeys(others, "import json")
-    texts["tests/unit/a/test_widget.py"] = "from jarvis.core.widget import Widget"
-    mode, chosen = select_tests.select(["jarvis/core/widget.py"], tests, texts)
+    texts["tests/unit/a/test_widget.py"] = "from dodaios.core.widget import Widget"
+    mode, chosen = select_tests.select(["dodaios/core/widget.py"], tests, texts)
     assert mode == "selected"
     assert chosen == ["tests/unit/a/test_widget.py"]
 
@@ -1065,11 +1065,11 @@ def test_bump_and_commit_notes():
 
 
 def test_apply_moves_notes_under_a_dated_section(tmp_path):
-    (tmp_path / "jarvis").mkdir()
+    (tmp_path / "dodaios").mkdir()
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname = "personal-jarvis"\nversion = "1.0.0"\n', encoding="utf-8"
     )
-    (tmp_path / "jarvis" / "__init__.py").write_text('__version__ = "1.0.0"\n', encoding="utf-8")
+    (tmp_path / "dodaios" / "__init__.py").write_text('__version__ = "1.0.0"\n', encoding="utf-8")
     (tmp_path / "uv.lock").write_text(
         '[[package]]\nname = "dependency"\nversion = "1.0.0"\n\n'
         '[[package]]\nname = "personal-jarvis"\nversion = "1.0.0"\n'

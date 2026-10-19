@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.contacts import notify
-from jarvis.contacts.store import ContactStore
+from dodaios.contacts import notify
+from dodaios.contacts.store import ContactStore
 
 
 @pytest.fixture(autouse=True)

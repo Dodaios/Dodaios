@@ -19,12 +19,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import recents
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry, SessionError
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.agentic_ide import recents
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry, SessionError
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -60,7 +60,7 @@ def _isolated_recents(
     ``pytest-of-…`` paths), and the voice path that opens "the most recent
     workspace" then starts coding agents in a deleted temp directory.
     """
-    from jarvis.agentic_ide import recents
+    from dodaios.agentic_ide import recents
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)
@@ -215,7 +215,7 @@ async def test_queued_fleet_receives_the_task_not_the_spawn_scaffolding(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.agentic_ide import fanout, fleet_actions
+    from dodaios.agentic_ide import fanout, fleet_actions
 
     mgr, _bus = manager
     session = await _open(registry, tmp_path, 2, agent="codex")
@@ -255,7 +255,7 @@ async def test_a_brief_by_kind_routes_each_kind_its_own_task(
     received the ENTIRE enumeration as its own task, and each agent picked
     whatever slice it liked.
     """
-    from jarvis.agentic_ide import fanout, fleet_actions
+    from dodaios.agentic_ide import fanout, fleet_actions
 
     mgr, _bus = manager
     session = await registry.start(
@@ -296,7 +296,7 @@ async def test_a_kind_without_a_brief_is_not_briefed_at_all(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """"prompt the claudes …" leaves the codex pane blank — as asked."""
-    from jarvis.agentic_ide import fanout, fleet_actions
+    from dodaios.agentic_ide import fanout, fleet_actions
 
     mgr, _bus = manager
     session = await registry.start(
@@ -332,7 +332,7 @@ async def test_an_enumerated_division_reaches_the_split_planner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """"one fixes macOS, one fixes Linux" plans a split instead of one brief."""
-    from jarvis.agentic_ide import fanout, fleet_actions, work_split
+    from dodaios.agentic_ide import fanout, fleet_actions, work_split
 
     mgr, _bus = manager
     session = await registry.start(
@@ -617,7 +617,7 @@ async def test_the_conditional_brief_carries_the_task_and_not_the_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """What the new pane is told has to be the work, not the spawn wording."""
-    from jarvis.agentic_ide import fanout, fleet_actions
+    from dodaios.agentic_ide import fanout, fleet_actions
 
     mgr, _bus = manager
     session = await _open(registry, tmp_path, 1)

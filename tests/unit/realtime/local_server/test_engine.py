@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.realtime.local_server import brain_link, install, preflight, tiers
+from dodaios.realtime.local_server import brain_link, install, preflight, tiers
 
 
 class TestTierLadder:
@@ -318,7 +318,7 @@ class TestServerStatusFailClosed:
         A ready server owned by this exact patched install is stronger smoke
         evidence than the marker that an older Jarvis version wrote.
         """
-        from jarvis.realtime.local_server import supervisor
+        from dodaios.realtime.local_server import supervisor
 
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
         install._venv_python().parent.mkdir(parents=True)
@@ -354,7 +354,7 @@ class TestServerStatusFailClosed:
     def test_foreign_runtime_cannot_repair_the_smoke_marker(
         self, monkeypatch, tmp_path: Path
     ) -> None:
-        from jarvis.realtime.local_server import supervisor
+        from dodaios.realtime.local_server import supervisor
 
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
         install._venv_python().parent.mkdir(parents=True)
@@ -375,7 +375,7 @@ class TestServerStatusFailClosed:
     def test_smoke_marker_repair_refuses_during_another_lifecycle_operation(
         self, monkeypatch, tmp_path: Path
     ) -> None:
-        from jarvis.realtime.local_server import supervisor
+        from dodaios.realtime.local_server import supervisor
 
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
 
@@ -422,7 +422,7 @@ class TestServerStatusFailClosed:
             f"launch_command = {json.dumps(quoted)}\n",
             encoding="utf-8",
         )
-        import jarvis.core.config as config_module
+        import dodaios.core.config as config_module
 
         monkeypatch.setattr(config_module, "resolve_config_path", lambda: cfg)
         status = install.server_status()
@@ -441,7 +441,7 @@ class TestServerStatusFailClosed:
             '[brain.providers.local-realtime]\nlaunch_command = "docker run my-server"\n',
             encoding="utf-8",
         )
-        import jarvis.core.config as config_module
+        import dodaios.core.config as config_module
 
         monkeypatch.setattr(config_module, "resolve_config_path", lambda: cfg)
         status = install.server_status()
@@ -490,7 +490,7 @@ class TestReviewFixes:
     def test_failed_reinstall_invalidates_the_previous_smoke_marker(
         self, monkeypatch, tmp_path
     ) -> None:
-        from jarvis.realtime.local_server import supervisor
+        from dodaios.realtime.local_server import supervisor
 
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
         install.install_root().mkdir(parents=True)
@@ -534,7 +534,7 @@ class TestReviewFixes:
     def test_install_repairs_live_proof_without_stopping_the_server(
         self, monkeypatch, tmp_path
     ) -> None:
-        from jarvis.realtime.local_server import supervisor
+        from dodaios.realtime.local_server import supervisor
 
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
         monkeypatch.setattr(install, "_smoke_marker_valid", lambda: False)
@@ -576,7 +576,7 @@ class TestReviewFixes:
         process = _Process()
         monkeypatch.setattr(install.subprocess, "Popen", lambda *args, **kwargs: process)
         monkeypatch.setattr(
-            "jarvis.realtime.local_server.supervisor.probe_runtime",
+            "dodaios.realtime.local_server.supervisor.probe_runtime",
             lambda *args, **kwargs: {
                 "size": 1,
                 "in_use": 0,
@@ -589,7 +589,7 @@ class TestReviewFixes:
             install, "_kill_tree", lambda proc: killed.append(proc) or True
         )
         monkeypatch.setattr(
-            "jarvis.realtime.local_server.smoke.probe_voice_roundtrip_sync",
+            "dodaios.realtime.local_server.smoke.probe_voice_roundtrip_sync",
             lambda *args, **kwargs: {"ok": True},
         )
 
@@ -619,7 +619,7 @@ class TestReviewFixes:
             lambda *args, **kwargs: _Process(),
         )
         monkeypatch.setattr(
-            "jarvis.realtime.local_server.supervisor.probe_runtime",
+            "dodaios.realtime.local_server.supervisor.probe_runtime",
             lambda *args, **kwargs: {
                 "size": 1,
                 "in_use": 0,
@@ -629,7 +629,7 @@ class TestReviewFixes:
         )
         monkeypatch.setattr(install, "_kill_tree", lambda proc: False)
         monkeypatch.setattr(
-            "jarvis.realtime.local_server.smoke.probe_voice_roundtrip_sync",
+            "dodaios.realtime.local_server.smoke.probe_voice_roundtrip_sync",
             lambda *args, **kwargs: {"ok": True},
         )
 
@@ -642,7 +642,7 @@ class TestReviewFixes:
     def test_install_holds_the_server_lifecycle_lease_for_its_body(
         self, monkeypatch, tmp_path
     ) -> None:
-        from jarvis.realtime.local_server import supervisor
+        from dodaios.realtime.local_server import supervisor
 
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
         outcomes: list[str] = []
@@ -663,7 +663,7 @@ class TestReviewFixes:
     def test_uninstall_holds_the_server_lifecycle_lease_for_its_body(
         self, monkeypatch, tmp_path
     ) -> None:
-        from jarvis.realtime.local_server import supervisor
+        from dodaios.realtime.local_server import supervisor
 
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
         outcomes: list[str] = []
@@ -687,7 +687,7 @@ class TestReviewFixes:
         assert install.install_root().is_absolute()
 
     def test_multi_gpu_uses_largest_device_not_the_sum(self, monkeypatch) -> None:
-        from jarvis.hardware import detection
+        from dodaios.hardware import detection
 
         monkeypatch.setattr(
             detection,
@@ -716,7 +716,7 @@ class TestReviewFixes:
         assert "changed since your confirmation" in str(snap["error"])
 
     def test_uninstall_clears_only_the_managed_launch_command(self, tmp_path) -> None:
-        from jarvis.core.config_writer import clear_local_realtime_launch_command
+        from dodaios.core.config_writer import clear_local_realtime_launch_command
 
         cfg = tmp_path / "jarvis.toml"
         managed = tmp_path / "data" / "local_realtime"
@@ -733,7 +733,7 @@ class TestReviewFixes:
         assert 'base_url = ""' in text
 
     def test_clear_spares_a_bring_your_own_command(self, tmp_path) -> None:
-        from jarvis.core.config_writer import clear_local_realtime_launch_command
+        from dodaios.core.config_writer import clear_local_realtime_launch_command
 
         cfg = tmp_path / "jarvis.toml"
         cfg.write_text(
@@ -848,7 +848,7 @@ class TestBrainSetupChain:
         assert "disk" in str(install.snapshot()["error"])
 
     def test_setup_pulls_the_preferred_model_when_missing(self, monkeypatch) -> None:
-        from jarvis.brain import ollama_runtime
+        from dodaios.brain import ollama_runtime
 
         monkeypatch.setattr(
             ollama_runtime, "ensure_runtime_blocking", lambda: (True, "running")
@@ -868,7 +868,7 @@ class TestBrainSetupChain:
     def test_setup_skips_the_pull_when_a_brain_already_resolves(
         self, monkeypatch
     ) -> None:
-        from jarvis.brain import ollama_runtime
+        from dodaios.brain import ollama_runtime
 
         monkeypatch.setattr(
             ollama_runtime, "ensure_runtime_blocking", lambda: (True, "running")
@@ -886,7 +886,7 @@ class TestBrainSetupChain:
         assert pulled == []
 
     def test_setup_raises_the_honest_platform_reason(self, monkeypatch) -> None:
-        from jarvis.brain import ollama_runtime
+        from dodaios.brain import ollama_runtime
 
         monkeypatch.setattr(
             ollama_runtime,
@@ -907,7 +907,7 @@ class TestBrainSetupChain:
     def test_the_preferred_model_is_in_the_curated_pull_list(self) -> None:
         """The auto-pull target and the download panel must agree — two
         curated lists drifting apart ships a model the panel disowns."""
-        from jarvis.brain.ollama_pull import RECOMMENDED_MODELS
+        from dodaios.brain.ollama_pull import RECOMMENDED_MODELS
 
         curated = {entry.id for entry in RECOMMENDED_MODELS}
         assert brain_link._PREFERRED_MODELS[0] in curated
@@ -945,7 +945,7 @@ class TestCrossPlatformHonesty:
     def test_launch_model_rewrite_changes_only_the_model_token(
         self, tmp_path: Path
     ) -> None:
-        from jarvis.core.config_writer import update_local_realtime_launch_model
+        from dodaios.core.config_writer import update_local_realtime_launch_model
 
         managed = tmp_path / "data" / "local_realtime"
         entrypoint = (managed / "venv" / "s.exe").as_posix()
@@ -970,7 +970,7 @@ class TestCrossPlatformHonesty:
     def test_launch_model_rewrite_spares_a_bring_your_own_command(
         self, tmp_path: Path
     ) -> None:
-        from jarvis.core.config_writer import update_local_realtime_launch_model
+        from dodaios.core.config_writer import update_local_realtime_launch_model
 
         cfg = tmp_path / "jarvis.toml"
         original = '[brain.providers.local-realtime]\nlaunch_command = "/opt/run --model_name x"\n'
@@ -984,7 +984,7 @@ class TestCrossPlatformHonesty:
     def test_launch_model_rewrite_is_a_noop_without_the_flag(
         self, tmp_path: Path
     ) -> None:
-        from jarvis.core.config_writer import update_local_realtime_launch_model
+        from dodaios.core.config_writer import update_local_realtime_launch_model
 
         cfg = tmp_path / "jarvis.toml"
         cfg.write_text(
@@ -996,7 +996,7 @@ class TestCrossPlatformHonesty:
     def test_command_root_match_is_case_sensitive_on_posix(self) -> None:
         """Lowercasing both sides everywhere made two DISTINCT case-sensitive
         POSIX paths compare equal; only Windows folds case."""
-        from jarvis.core import config_writer
+        from dodaios.core import config_writer
 
         assert not config_writer._command_references_root(
             '"/home/User/Data/tree/run" --x', "/home/user/data/tree", windows=False

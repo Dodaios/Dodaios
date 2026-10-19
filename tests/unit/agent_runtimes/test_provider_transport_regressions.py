@@ -6,9 +6,9 @@ import httpx
 import pytest
 from anthropic import AsyncAnthropic
 
-from jarvis.agent_runtimes import gateway
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
-from jarvis.plugins.brain._anthropic_base import stream_complete
+from dodaios.agent_runtimes import gateway
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
+from dodaios.plugins.brain._anthropic_base import stream_complete
 from tests.fakes.fake_anthropic_wire import AnthropicWire
 
 
@@ -40,7 +40,7 @@ async def test_claude_tool_history_uses_the_declared_names_without_mutating_hist
 
 
 async def test_claude_agent_timeout_reaches_the_sdks_own_http_transport():
-    from jarvis.plugins.brain import _agent_profile
+    from dodaios.plugins.brain import _agent_profile
 
     wire = AnthropicWire()
     token = _agent_profile.PROFILE.set(_agent_profile.AgentRequestProfile(read_timeout_s=301.0))
@@ -113,10 +113,10 @@ async def test_gateway_never_marks_unfinished_provider_streams_complete(
 async def test_subscription_pin_cannot_fall_back_to_api_key_after_login_expires(
     monkeypatch, isolated_gateway,
 ):
-    from jarvis.agent_chat import runner_api
-    from jarvis.agent_chat.catalog import SUBSCRIPTION_ACCOUNT
-    from jarvis.agent_runtimes import model_map
-    from jarvis.core import config
+    from dodaios.agent_chat import runner_api
+    from dodaios.agent_chat.catalog import SUBSCRIPTION_ACCOUNT
+    from dodaios.agent_runtimes import model_map
+    from dodaios.core import config
 
     monkeypatch.setattr(model_map, "claude_login_token", lambda: None)
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: "test-api-key")
@@ -154,7 +154,7 @@ def test_standard_tool_reply_restores_name_required_by_gemini():
 async def test_persistent_runtime_token_cannot_infer_outside_live_turn(
     monkeypatch, isolated_gateway, state,
 ):
-    from jarvis.agent_chat import runner_api
+    from dodaios.agent_chat import runner_api
 
     token = gateway.grant_token("agent", "openai", require_active_turn=True)
     if state != "idle":
@@ -173,9 +173,9 @@ async def test_persistent_runtime_token_cannot_infer_outside_live_turn(
 
 
 async def test_selected_effort_reaches_api_brain(monkeypatch, isolated_gateway):
-    from jarvis.agent_chat import runner_api
-    from jarvis.agent_runtimes import model_map
-    from jarvis.core import config
+    from dodaios.agent_chat import runner_api
+    from dodaios.agent_runtimes import model_map
+    from dodaios.core import config
 
     requests = []
 
@@ -195,7 +195,7 @@ async def test_selected_effort_reaches_api_brain(monkeypatch, isolated_gateway):
 
 
 def test_openclaw_workshop_cannot_start_background_model_turns(tmp_path):
-    from jarvis.agent_runtimes.openclaw import OpenClawRuntime
+    from dodaios.agent_runtimes.openclaw import OpenClawRuntime
     from tests.unit.agent_runtimes.test_runtime_configs import _turn
 
     config = OpenClawRuntime().config_for(
@@ -209,7 +209,7 @@ def test_openclaw_workshop_cannot_start_background_model_turns(tmp_path):
 async def test_openai_compatible_streams_never_emit_broken_tool_calls(arguments, finish):
     from openai import AsyncOpenAI
 
-    from jarvis.plugins.brain._openai_base import stream_complete as stream_openai
+    from dodaios.plugins.brain._openai_base import stream_complete as stream_openai
     from tests.fakes.fake_openai_tool_wire import OpenAIToolWire
 
     wire = OpenAIToolWire(arguments, finish)
@@ -231,10 +231,10 @@ async def test_openai_compatible_streams_never_emit_broken_tool_calls(arguments,
 
 
 async def test_ollama_native_calls_forward_resolved_endpoint_auth(monkeypatch, tmp_path):
-    from jarvis.brain import ollama_profiles
-    from jarvis.brain.model_catalog import ModelCatalog
-    from jarvis.core import config
-    from jarvis.plugins.brain.ollama import OllamaBrain
+    from dodaios.brain import ollama_profiles
+    from dodaios.brain.model_catalog import ModelCatalog
+    from dodaios.core import config
+    from dodaios.plugins.brain.ollama import OllamaBrain
 
     seen = []
     models = [{"name": "test:latest", "size": 100}]
@@ -273,10 +273,10 @@ async def test_ollama_native_calls_forward_resolved_endpoint_auth(monkeypatch, t
 async def test_claude_signed_tool_continuation_survives_openai_runtime(
     monkeypatch, isolated_gateway,
 ):
-    from jarvis.agent_chat import runner_api
-    from jarvis.agent_runtimes import anthropic_history, model_map
-    from jarvis.core import config
-    from jarvis.plugins.brain.claude_api import ClaudeAPIBrain
+    from dodaios.agent_chat import runner_api
+    from dodaios.agent_runtimes import anthropic_history, model_map
+    from dodaios.core import config
+    from dodaios.plugins.brain.claude_api import ClaudeAPIBrain
 
     wire = AnthropicWire()
     wire.tool_arguments = '{"path":"a"}'
@@ -358,7 +358,7 @@ async def test_poisoned_openclaw_gateway_is_reaped_before_reuse(monkeypatch, tmp
     import hashlib
     from types import SimpleNamespace
 
-    from jarvis.agent_runtimes import openclaw
+    from dodaios.agent_runtimes import openclaw
     from tests.unit.agent_runtimes.test_runtime_configs import _turn
 
     runtime = openclaw.OpenClawRuntime()
@@ -396,7 +396,7 @@ async def test_waiting_request_cannot_acquire_replacement_turn(
     import asyncio
     import threading
 
-    from jarvis.agent_runtimes.model_limits import ModelLimits
+    from dodaios.agent_runtimes.model_limits import ModelLimits
 
     entered, resume = threading.Event(), threading.Event()
     calls = []
@@ -430,7 +430,7 @@ async def test_waiting_request_cannot_acquire_replacement_turn(
 def test_claude_evicted_ancestor_cannot_restore_dependent_signature(isolated_gateway):
     from dataclasses import replace
 
-    from jarvis.agent_runtimes import anthropic_history as history
+    from dodaios.agent_runtimes import anthropic_history as history
 
     grant = gateway.Grant("agent", "claude-api")
     base = BrainRequest(messages=(BrainMessage("user", "Read"),))

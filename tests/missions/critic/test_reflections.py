@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.critic.reflections import (
+from dodaios.missions.critic.reflections import (
     DEFAULT_LAST_N,
     REFLECTIONS_FILENAME,
     Reflection,

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.platform.clipboard as clipboard
+import dodaios.platform.clipboard as clipboard
 
 
 def _capabilities(display_present: bool) -> SimpleNamespace:
