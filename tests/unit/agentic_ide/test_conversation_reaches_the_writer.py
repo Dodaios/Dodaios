@@ -68,7 +68,7 @@ async def test_the_composer_hands_the_conversation_to_the_writer(tmp_path) -> No
     assert "VAD-Schwellenwerte" in brain.user
     assert "Post-Processing-Modul" in brain.user
     # And the rule that tells the writer what to do with it travels along.
-    assert "The brief is ALL the agent gets" in " ".join(brain.system.split())
+    assert "The agent sees only your text" in " ".join(brain.system.split())
 
 
 async def test_a_composition_without_conversation_still_works(tmp_path) -> None:  # noqa: ANN001

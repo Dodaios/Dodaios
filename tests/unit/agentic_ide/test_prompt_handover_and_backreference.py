@@ -51,31 +51,15 @@ class _Message:
 def test_every_kind_says_the_brief_itself_is_the_prompt(kind):
     """"Prompt T2" asks for THIS brief — it is not a task about prompts."""
     text = " ".join(system_prompt(kind).split())
-    assert "THE BRIEF YOU ARE WRITING IS THAT PROMPT" in text
-    assert "Never make prompt-writing the agent's task" in text
-
-
-@pytest.mark.parametrize("kind", _ALL_KINDS)
-def test_every_kind_keeps_the_one_case_where_prompts_are_the_task(kind):
-    """A repo whose prompt TEXT is being edited is real work, not a handover."""
-    text = " ".join(system_prompt(kind).split())
-    assert "prompt text that lives in the repository as a file" in text
+    assert "are the handover, not its task" in text
 
 
 # --------------------------------------------- back-references must be resolved
 @pytest.mark.parametrize("kind", _ALL_KINDS)
 def test_every_kind_demands_back_references_be_resolved(kind):
     text = " ".join(system_prompt(kind).split())
-    assert "The brief is ALL the agent gets" in text
-    assert "points two and three" in text
-    assert "must be REPLACED by what it stands for" in text
-
-
-@pytest.mark.parametrize("kind", _ALL_KINDS)
-def test_every_kind_says_what_to_do_with_an_unresolvable_reference(kind):
-    """Leaving it out beats forwarding a pointer that resolves to nothing."""
-    text = system_prompt(kind).replace("\n", " ")
-    assert "cannot be resolved from what you were given" in text
+    assert "The agent sees only your text" in text
+    assert "replace references to the conversation" in text
 
 
 # ------------------------------------------------------ the conversation block

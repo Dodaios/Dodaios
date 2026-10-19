@@ -203,7 +203,7 @@ async def test_an_index_that_is_not_ready_yet_does_not_block(
     async def _echo(**kwargs: object) -> str:
         # With no index there are no candidates, and the writer is told so
         # rather than left to guess a path.
-        assert "no candidate files matched" in str(kwargs["user_block"])
+        assert "(none - omit Key files)" in str(kwargs["user_block"])
         return "Review the wake word detection."
 
     monkeypatch.setattr(prompt_composer, "_llm_compose", _echo)
@@ -254,8 +254,8 @@ async def test_the_writer_gets_the_rules_for_the_detected_kind(
         "review the wake provider", session=workspace, terminal_name="Kai"
     )
 
-    assert "REVIEW task" in seen["system"]
-    assert "IMPLEMENTATION task" not in seen["system"]
+    assert "Kind: review" in seen["system"]
+    assert "Kind: implementation" not in seen["system"]
 
 
 async def test_the_writer_gets_the_tree_and_a_look_inside_the_top_files(
