@@ -219,7 +219,9 @@ if ($OfficialRepoSlug -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
 }
 $RepoUrl    = if ($env:JARVIS_INSTALL_REPO) { $env:JARVIS_INSTALL_REPO } else { "https://github.com/$OfficialRepoSlug.git" }
 $LegacyOfficialRepoSlug = 'PersonalJarvis/PersonalJarvis'
-$ConfigFileName = 'jarvis.toml'
+$ConfigFileName = 'dodaios.toml'
+# An install keeps a config file under this earlier name; it is never renamed.
+$LegacyConfigFileName = 'jarvis.toml'
 $Branch     = if ($env:JARVIS_INSTALL_REF)  { $env:JARVIS_INSTALL_REF }  else { 'main' }
 $InstallDir = if ($env:JARVIS_INSTALL_DIR)  { $env:JARVIS_INSTALL_DIR }  else { Join-Path $env:USERPROFILE '.personal-jarvis' }
 $PrerequisiteMode = if ($env:JARVIS_INSTALL_PREREQS) { $env:JARVIS_INSTALL_PREREQS.ToLowerInvariant() } else { 'ask' }
@@ -686,7 +688,7 @@ function Test-RepositoryReachable {
 # Self-heal a broken install dir (leftover non-git folder from an earlier or
 # aborted install, or a checkout whose git state no longer updates): keep the
 # old tree as a timestamped sibling backup - never delete - clone fresh, then
-# carry the user's local state (data/, jarvis.toml, .env) into the new
+# carry the user's local state (data/, the config file, .env) into the new
 # checkout. A stale folder must never require manual cleanup to install.
 function Invoke-SalvageReclone {
     if (-not (Test-RepositoryReachable)) {
@@ -713,7 +715,7 @@ function Invoke-SalvageReclone {
     # the fresh clone ships a tracked seed wiki/ skeleton, so the guard
     # would silently never restore the user's real vault. Directories that
     # exist on both sides are overlay-MERGED (user files win over seed).
-    foreach ($Item in @('data', $ConfigFileName, '.env', 'wiki')) {
+    foreach ($Item in @('data', $LegacyConfigFileName, $ConfigFileName, '.env', 'wiki')) {
         $Old = Join-Path $StaleBackup $Item
         $New = Join-Path $InstallDir $Item
         if (-not (Test-Path $Old)) { continue }

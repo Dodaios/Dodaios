@@ -104,6 +104,10 @@ datas.append((str(PROJECT_ROOT / "dodaios/agent_runtimes/runtime-versions.json")
 # Translated system phrases (dodaios/i18n/catalog.py); without them every
 # error and fallback phrase would raise instead of being spoken.
 datas.append((str(PROJECT_ROOT / "dodaios/i18n/locales"), "dodaios/i18n/locales"))
+# The data-directory migration engine as a plain file: the runtime hook loads it
+# by path before anything from the package is importable
+# (packaging/pyinstaller_rthook_frozen.py::_load_engine).
+datas.append((str(PROJECT_ROOT / "dodaios/core/identity_migration.py"), "dodaios/core"))
 
 # The local voice engine runs in its OWN Python environment, so a frozen build
 # must ship its sources as plain files: setup copies them into the engine home
@@ -123,8 +127,9 @@ if FRONTEND_DIST.exists():
             datas.append((str(entry), str(Path("dodaios/ui/web/dist") / rel)))
 
 # Include the default configuration a fresh install is seeded from. The runtime
-# hook copies it to the per-user app directory on first launch; the frozen app
-# never reads or writes the copy inside the bundle.
+# hook copies it to the per-user app directory on first launch (as dodaios.toml
+# when that directory has no jarvis.toml of its own); the frozen app never reads
+# or writes the copy inside the bundle.
 datas.append((str(PROJECT_ROOT / "jarvis.toml"), "."))
 datas.append((str(PROJECT_ROOT / "docs" / "product"), "docs/product"))
 # The onboarding terms and redistribution notices must survive freezing.

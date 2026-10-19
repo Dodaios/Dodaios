@@ -42,8 +42,9 @@ from dodaios.speech.wake_constants import DEFAULT_WAKE_PHRASE, WAKE_ENGINES
 # as safe here as wake_constants.
 from dodaios.ui.pets.states import DEFAULT_PET_ID
 
-from .branding import CONFIG_FILE_NAME, KEYRING_SERVICE_NAME
+from .branding import KEYRING_SERVICE_NAME
 from .env_prefix import accepted_names
+from .identity_boot import resolve_config_file
 from .instance import current_instance, resolve_data_dir
 from .protocols import RiskTier
 
@@ -61,7 +62,10 @@ if TYPE_CHECKING:
 # ----------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG_FILE = PROJECT_ROOT / CONFIG_FILE_NAME
+# ``jarvis.toml`` while the checkout has one (it is never renamed), else
+# ``dodaios.toml``: resolved once, like every other path constant here, so the
+# reader and every writer in ``config_writer`` address the same file (AP-7).
+DEFAULT_CONFIG_FILE = resolve_config_file(PROJECT_ROOT)
 PROFILES_DIR = PROJECT_ROOT / "profiles"
 
 
@@ -132,7 +136,11 @@ def _resolve_writable_data_dir() -> Path:
 
 
 def resolve_config_path() -> Path:
-    """Return the active ``jarvis.toml`` path, honouring ``JARVIS_CONFIG``.
+    """Return the active config file path, honouring ``JARVIS_CONFIG``.
+
+    Without the override it is :data:`DEFAULT_CONFIG_FILE`: the checkout's
+    ``jarvis.toml`` while one exists, else ``dodaios.toml``
+    (:func:`dodaios.core.identity_boot.resolve_config_file`).
 
     Cloud-first: a headless ``python:3.11-slim`` container (or any VPS where
     ``PROJECT_ROOT`` is read-only / does not exist) sets ``JARVIS_CONFIG`` to a

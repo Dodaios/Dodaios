@@ -46,7 +46,12 @@ PRODUCT_SLUG = PERSISTENT_SLUG
 # that is what they will see there until those artifacts are migrated.
 LAUNCHER_ENTRY_NAME = PERSISTENT_PRODUCT_NAME
 
-CONFIG_FILE_NAME = "jarvis.toml"
+# The configuration file's name. A file under an earlier name is never
+# renamed: while it exists it stays the configuration, and only an install
+# that has none creates one under the current name
+# (``dodaios.core.config.resolve_config_file``).
+CONFIG_FILE_NAME = "dodaios.toml"
+LEGACY_CONFIG_FILE_NAMES = ("jarvis.toml",)
 KEYRING_SERVICE_NAME = PERSISTENT_SLUG
 CONTROL_KEY_PREFIX = "jctl_"
 SESSION_COOKIE_NAME = "jarvis_session"
@@ -80,9 +85,28 @@ SHELL_PROFILE_MARKER = (
 )
 FISH_CONF_FILE_NAME = f"{PERSISTENT_SLUG}.fish"
 
-WINDOWS_USER_DATA_DIR_NAME = "Jarvis"
-FALLBACK_USER_DATA_DIR_NAME = ".jarvis"
-DESKTOP_OUTPUT_MIRROR_DIR_NAME = "Jarvis-Output"
+# The per-user data directory: ``%LOCALAPPDATA%\<name>`` on Windows, ``~/<name>``
+# elsewhere. An existing installation keeps its directory under the earlier
+# name until the primary instance moves it (``dodaios.core.identity_boot``);
+# while a real directory still stands under an earlier name, that one is used.
+WINDOWS_USER_DATA_DIR_NAME = "Dodaios"
+LEGACY_WINDOWS_USER_DATA_DIR_NAMES = ("Jarvis",)
+FALLBACK_USER_DATA_DIR_NAME = ".dodaios-data"
+LEGACY_FALLBACK_USER_DATA_DIR_NAMES = (".jarvis",)
+# Folders a person opens themselves. They are found under an earlier name for
+# as long as one exists there and are never moved, so nothing on the Desktop or
+# in Downloads changes its name under the user's hands.
+DESKTOP_OUTPUT_MIRROR_DIR_NAME = "Dodaios-Output"
+LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES = ("Jarvis-Output",)
+# Where finished mission deliverables are mirrored (Downloads, Desktop or the
+# home directory; lower-cased on a system without a file explorer).
+DELIVERABLES_DIR_NAME = "Dodaios-Outputs"
+LEGACY_DELIVERABLES_DIR_NAMES = ("Jarvis-Outputs",)
+# The folder created inside an existing Obsidian vault the user registers.
+# Only a new registration uses it; a vault root already saved in the
+# configuration keeps naming the folder it names.
+OBSIDIAN_VAULT_FOLDER_NAME = "Dodaios"
+LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES = ("Jarvis",)
 
 # --- Marketplace manifest namespace -------------------------------------------
 # The key a plugin package keeps this app's own data under
@@ -94,6 +118,10 @@ MARKETPLACE_EXTENSION_NAMESPACE = "io.github.dodaios"
 LEGACY_MARKETPLACE_EXTENSION_NAMESPACES = ("io.github.personaljarvis",)
 
 WINDOWS_MUTEX_NAME = rf"Global\{PERSISTENT_COMPACT_NAME}_v1"
+# Mutex names a primary instance of an earlier release holds. Empty while the
+# mutex keeps its first name; renaming it adds the old name here, so a new
+# process still recognises an old primary that is running.
+LEGACY_WINDOWS_MUTEX_NAMES: tuple[str, ...] = ()
 WINDOWS_APP_USER_MODEL_ID = f"{PERSISTENT_COMPACT_NAME}.{PERSISTENT_COMPACT_NAME}"
 WINDOWS_UNINSTALL_REGISTRY_SUBKEY = (
     rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{PERSISTENT_COMPACT_NAME}"
@@ -191,7 +219,15 @@ __all__ = [
     "CONTROL_KEY_PREFIX",
     "DEFAULT_OFFICIAL_REPO_SLUG",
     "DEFAULT_INSTALL_DIR_NAME",
+    "DELIVERABLES_DIR_NAME",
     "LEGACY_CLI_COMMAND_NAMES",
+    "LEGACY_CONFIG_FILE_NAMES",
+    "LEGACY_DELIVERABLES_DIR_NAMES",
+    "LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES",
+    "LEGACY_FALLBACK_USER_DATA_DIR_NAMES",
+    "LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES",
+    "LEGACY_WINDOWS_MUTEX_NAMES",
+    "LEGACY_WINDOWS_USER_DATA_DIR_NAMES",
     "LEGACY_CONTROL_CLI_COMMAND_NAMES",
     "LEGACY_OFFICIAL_REPO_SLUGS",
     "LEGACY_PACKAGE_NAMES",
@@ -219,6 +255,7 @@ __all__ = [
     "MCP_TOOLS_SERVER_NAME",
     "LEGACY_MCP_AGENTS_SERVER_NAMES",
     "LEGACY_MCP_TOOLS_SERVER_NAMES",
+    "OBSIDIAN_VAULT_FOLDER_NAME",
     "OFFICIAL_RELEASES_LATEST_API_URL",
     "OFFICIAL_REPO_GIT_URL",
     "OFFICIAL_REPO_SLUG",

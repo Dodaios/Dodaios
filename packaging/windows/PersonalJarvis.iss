@@ -17,7 +17,7 @@
 ;     (/RESTARTAPPLICATIONS would only restart apps registered with
 ;     RegisterApplicationRestart, which this one is not.)
 ;   * The uninstaller removes the program directory ONLY. Settings, memory,
-;     skills and logs live in %LOCALAPPDATA%\Jarvis and are deliberately kept, so
+;     skills and logs live in %LOCALAPPDATA%\Dodaios and are deliberately kept, so
 ;     an uninstall/reinstall cycle does not destroy the user's data.
 ;
 ; Compile through packaging/windows/build.ps1, which passes the version:
@@ -50,7 +50,7 @@
 ; The command's earlier name. The bundle ships it beside CliExeName, in the
 ; same folder the PATH task adds, so both names work in a terminal.
 #define LegacyCliExeName "jarvis.exe"
-#define UserDataDirDisplay "%LOCALAPPDATA%\Jarvis"
+#define UserDataDirDisplay "%LOCALAPPDATA%\Dodaios"
 
 [Setup]
 ; NEVER change AppGuid's default (see its #define above).

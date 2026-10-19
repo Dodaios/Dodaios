@@ -544,15 +544,18 @@ def _restart_admin_port(cwd: str | Path | None = None) -> int:
     root = Path(cwd) if cwd else None
     if root is not None:
         # Asked of the tree on disk at probe time: after an update the config
-        # file carries whatever name the installed release gave it.
-        cfg = root / read_update_contract(root).config_file
+        # file carries whatever name the installed release gave it, and the
+        # first of its names that exists is the configuration.
+        names = read_update_contract(root).config_files
+        cfg = next((root / name for name in names if (root / name).is_file()), None)
         try:
             import tomllib
 
-            data = tomllib.loads(cfg.read_text(encoding="utf-8"))
-            port = data.get("ui", {}).get("admin_api_port")
-            if isinstance(port, int) and 1 <= port <= 65535:
-                base = port
+            if cfg is not None:
+                data = tomllib.loads(cfg.read_text(encoding="utf-8"))
+                port = data.get("ui", {}).get("admin_api_port")
+                if isinstance(port, int) and 1 <= port <= 65535:
+                    base = port
         except (OSError, UnicodeDecodeError, ValueError, TypeError, AttributeError):
             pass  # unreadable config file → packaged default port
     return current_instance().port(base)
@@ -903,7 +906,8 @@ def _run_rollback_hook(root: Path, hook: str, *, previous: str, target: str) -> 
 #: deliberately excluded: git never touches untracked files, and a full copy
 #: of a multi-hundred-MB data dir per update is not "best-effort" territory.
 _STATE_SNAPSHOT_ITEMS = (
-    "jarvis.toml",
+    # Every name the config file may have; whichever exists is saved.
+    *DEFAULT_CONTRACT.config_files,
     ".env",
     Path("data") / "credentials.json",
     Path("wiki") / "obsidian-vault",

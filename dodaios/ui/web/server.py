@@ -33,9 +33,8 @@ from starlette.routing import Match
 from starlette.types import Scope
 
 from dodaios import __version__
-from dodaios.core.branding import CONFIG_FILE_NAME
 from dodaios.core.bus import EventBus, get_default_bus
-from dodaios.core.config import JarvisConfig
+from dodaios.core.config import JarvisConfig, resolve_config_path
 from dodaios.core.events import (
     AnnouncementRequested,
     ErrorOccurred,
@@ -3713,12 +3712,12 @@ class WebServer:
         )
 
     def _read_sessions_toml_section(self) -> dict:
-        """The raw ``[sessions]`` section from jarvis.toml (may be empty).
+        """The raw ``[sessions]`` section from the config file (may be empty).
 
         That section is NOT in the Pydantic tree (see assumption A-2 in the
         Phase-7 bootstrap), hence tomllib directly.
         """
-        toml_path = Path(CONFIG_FILE_NAME)
+        toml_path = resolve_config_path()
         if not toml_path.exists():
             return {}
         try:
