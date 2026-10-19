@@ -25,6 +25,7 @@ from pathlib import Path, PurePath
 from dodaios.core.branding import MACOS_APP_DIR_NAME as _APP_DIR_NAME
 from dodaios.core.branding import MACOS_AUTOSTART_LABEL as _LABEL
 
+from .paths import same_path
 from .protocol import AutostartStatus, LaunchSpec
 
 log = logging.getLogger(__name__)
@@ -38,6 +39,17 @@ def _agents_dir() -> Path:
 
 def _program_arguments(spec: LaunchSpec) -> list[str]:
     return [spec.program, *spec.args]
+
+
+def _same_arguments(stored: object, expected: list[str]) -> bool:
+    """Equal argument lists, where an absolute path may name the same file another way."""
+    if not isinstance(stored, list) or len(stored) != len(expected):
+        return False
+    return all(
+        isinstance(have, str)
+        and (have == want or (PurePath(want).is_absolute() and same_path(have, want)))
+        for have, want in zip(stored, expected, strict=True)
+    )
 
 
 def _launchctl(*argv: str) -> bool:
@@ -159,9 +171,12 @@ class MacOSAutostart:
                 entry_path=str(self._path),
                 detail=f"LaunchAgent present but unparsable: {exc}.",
             )
+        # A path that reaches the same file through the link an install-folder
+        # move left behind is still this install, not a different one.
         matches = (
-            data.get("ProgramArguments") == _program_arguments(spec)
-            and data.get("WorkingDirectory") == spec.working_dir
+            _same_arguments(data.get("ProgramArguments"), _program_arguments(spec))
+            and isinstance(data.get("WorkingDirectory"), str)
+            and same_path(data["WorkingDirectory"], spec.working_dir)
             and data.get("RunAtLoad") is True
             and data.get("ProcessType") == "Interactive"
             and data.get("LimitLoadToSessionType") == "Aqua"

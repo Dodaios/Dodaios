@@ -42,7 +42,6 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
-import ntpath
 import os
 import subprocess
 import tempfile
@@ -63,6 +62,7 @@ from dodaios.core.branding import (
 )
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
+from .paths import same_path
 from .protocol import AutostartStatus, LaunchSpec
 
 log = logging.getLogger(__name__)
@@ -105,10 +105,6 @@ def _startup_dir() -> Path:
 
 def _shortcut_path() -> Path:
     return _startup_dir() / _SHORTCUT_NAME
-
-
-def _norm(p: str | None) -> str:
-    return ntpath.normcase(ntpath.normpath(p)) if p else ""
 
 
 def _current_user_id() -> str:
@@ -194,7 +190,7 @@ def _ps_emit_field(sentinel: str, expression: str) -> str:
     profile or project path came back corrupted, and some do not survive at all:
     byte 0x81 (u-umlaut in cp850) has no cp1252 mapping, so it RAISES inside
     subprocess's reader thread and the caller gets nothing. Either way
-    ``_norm(readback) != _norm(spec)``, so the task/shortcut was reported as
+    the read-back never equalled the spec, so the task/shortcut was reported as
     "points at a different install" forever — at every single login, on every
     profile whose name is not plain ASCII. Base64 is pure ASCII, so it survives
     any code page byte for byte and the value is reconstructed exactly (AP-7's
@@ -371,7 +367,7 @@ def _icon_matches(actual: str, expected: str | None) -> bool:
     if expected is None:
         return True
     path = (actual or "").rsplit(",", 1)[0].strip().strip('"')
-    return bool(path) and _norm(path) == _norm(expected)
+    return bool(path) and same_path(path, expected, windows=True)
 
 
 def _tag_shortcut_aumid(link: Path) -> bool:
@@ -709,10 +705,15 @@ class WindowsAutostart:
 
     @staticmethod
     def _task_matches(info: _TaskInfo, spec: LaunchSpec) -> bool:
+        # The same file counts, not only the same text: a task written before
+        # the install folder moved reaches the app through the link left at
+        # the earlier path. Judged stale, it could not be rewritten without an
+        # elevation prompt, and the shortcut written instead would start the
+        # app a second time at login.
         return (
-            _norm(info.execute) == _norm(spec.program)
+            same_path(info.execute, spec.program, windows=True)
             and info.arguments.strip() == " ".join(spec.args).strip()
-            and _norm(info.working_dir) == _norm(spec.working_dir)
+            and same_path(info.working_dir, spec.working_dir, windows=True)
         )
 
     # ---- protocol ----------------------------------------------------------
@@ -907,9 +908,9 @@ class WindowsAutostart:
             return False
         target, args, workdir, icon = fields[:4]
         return (
-            _norm(target) == _norm(spec.program)
+            same_path(target, spec.program, windows=True)
             and args.strip() == " ".join(spec.args).strip()
-            and _norm(workdir) == _norm(spec.working_dir)
+            and same_path(workdir, spec.working_dir, windows=True)
             and _icon_matches(icon, _resolve_app_icon())
         )
 
