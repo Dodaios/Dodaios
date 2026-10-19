@@ -11,7 +11,7 @@ import { meteredLoader, readAsteroidBest } from "./holodeckMeter";
 import "./holodeck.css";
 
 const RetroArcadeOverlay = lazy(() => import("../../../arcade/RetroArcadeOverlay").then((m) => ({ default: m.RetroArcadeOverlay })));
-const ArcadeCabinet = lazy(() => import("../../../office/ArcadeCabinet").then((m) => ({ default: m.ArcadeCabinet })));
+const ArcadeCabinet = lazy(() => import("../../../arcade/ArcadeCabinet").then((m) => ({ default: m.ArcadeCabinet })));
 
 export function HolodeckPanel({ station, actions }: DeckPanelProps) {
   // The players' own strings live in the society chunk.

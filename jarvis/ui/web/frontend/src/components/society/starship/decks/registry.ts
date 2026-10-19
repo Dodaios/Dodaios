@@ -6,7 +6,7 @@
  */
 import type { ComponentType } from "react";
 import type { SocietyAgent } from "../../data";
-import type { PaneOccupant } from "../../office/codingFloor";
+import type { PaneOccupant } from "../../crewFeeds/codingFloor";
 import type { CrewInput, DeckId, DeckPlan, Station, TeamInput } from "../plan/types";
 
 export interface DeckInput {

@@ -60,6 +60,14 @@ export function CaptainFigure(props: {
     }
   }, [grid, plan]);
 
+  const placeAt = useShip((s) => s.placeAt);
+  useEffect(() => {
+    if (!placeAt) return;
+    const at = nearestFree(grid, placeAt.at) ?? placeAt.at;
+    Object.assign(body.current, { x: at.x, z: at.z, path: [], speed: 0 });
+    captain.seated = null;
+  }, [placeAt, grid]);
+
   useEffect(() => {
     if (!walkTo) return;
     const route = findPath(grid, body.current, walkTo.at);

@@ -1,8 +1,0 @@
-/* Key caps, shared by the reception's controls guide, the HUD prompt and the first-visit hints. Theme tokens only. */
-.office-key { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 6px; border-radius:6px; border:1px solid hsl(var(--border)); box-shadow:inset 0 -2px 0 hsl(var(--border)); background:hsl(var(--background)); color:hsl(var(--foreground)); font-family:inherit; font-size:11px; font-weight:600; line-height:1; white-space:nowrap; }
-/* A mouse gesture is not a key: a flat pill. */
-.office-key[data-mouse] { box-shadow:none; border-radius:999px; padding:0 9px; font-weight:500; background:hsl(var(--secondary)); color:hsl(var(--muted-foreground)); }
-.office-keys { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:4px; }
-.office-keys-alt { display:inline-flex; align-items:center; gap:3px; }
-.office-keys-or { margin:0 3px 0 1px; font-size:11px; color:hsl(var(--muted-foreground)); }
-.office-keys-plus { font-size:11px; color:hsl(var(--muted-foreground)); }

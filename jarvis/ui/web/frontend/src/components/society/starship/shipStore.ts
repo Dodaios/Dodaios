@@ -77,6 +77,8 @@ interface ShipState {
   focus: { at: Vec2; seq: number } | null;
   /** A walk the HUD asked for (walk there). */
   walkTo: { at: Vec2; seq: number } | null;
+  /** Put the captain somewhere at once (development checks; a reduced-motion "walk there"). */
+  placeAt: { at: Vec2; seq: number } | null;
   destination: DestinationId;
   /** 0..1 while the ship jumps to a new destination. */
   warpingTo: DestinationId | null;
@@ -91,6 +93,7 @@ interface ShipState {
   overview: () => void;
   focusOn: (at: Vec2) => void;
   requestWalk: (at: Vec2) => void;
+  place: (at: Vec2) => void;
   setDestination: (id: DestinationId) => void;
   setWarping: (id: DestinationId | null) => void;
   gather: (g: Gathering | null) => void;
@@ -106,6 +109,7 @@ export const useShip = create<ShipState>((set, get) => ({
   overviewSeq: 0,
   focus: null,
   walkTo: null,
+  placeAt: null,
   destination: loadDestination(),
   warpingTo: null,
   gathering: null,
@@ -129,6 +133,7 @@ export const useShip = create<ShipState>((set, get) => ({
   overview: () => set({ overviewSeq: get().overviewSeq + 1, follow: false }),
   focusOn: (at) => set({ focus: { at, seq: (get().focus?.seq ?? 0) + 1 }, follow: false }),
   requestWalk: (at) => set({ walkTo: { at, seq: (get().walkTo?.seq ?? 0) + 1 }, follow: true }),
+  place: (at) => set({ placeAt: { at, seq: (get().placeAt?.seq ?? 0) + 1 }, follow: true }),
   setDestination: (destination) => { saveDestination(destination); set({ destination }); },
   setWarping: (warpingTo) => set({ warpingTo }),
   gather: (gathering) => set({ gathering }),

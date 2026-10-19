@@ -17,10 +17,10 @@ import {
 } from "three";
 import type { PaneScreen } from "@/lib/paneScreensApi";
 import type { AgentDotKind } from "@/components/agentic/sidePanel/agentStatus";
-import type { PaneOccupant } from "../../../office/codingFloor";
-import { MAX_SCREEN_TARGETS, usePaneScreens, type PaneScreenTarget } from "../../../office/usePaneScreens";
-import { visibleRows } from "../../../office/terminalScreen";
-import { seatedAtDesk } from "../../../office/walkerRegistry";
+import type { PaneOccupant } from "../../../crewFeeds/codingFloor";
+import { MAX_SCREEN_TARGETS, usePaneScreens, type PaneScreenTarget } from "../../../crewFeeds/usePaneScreens";
+import { visibleRows } from "../../../crewFeeds/terminalScreen";
+import { seatedCrew } from "../../../crewFeeds/seated";
 import type { DeckSceneProps, ShipActions } from "../registry";
 import { COMMAND_GOLD, HOLO_CYAN } from "../../plan/builder";
 import type { DeckPlan, Prop, Vec2 } from "../../plan/types";
@@ -342,7 +342,7 @@ function BayScreens({ plan, panes, awake, actions }: { plan: DeckPlan; panes: re
 
 /**
  * The terminal feed polls only panes that sit at their console (the shared
- * `seatedAtDesk` set the office used); the crew layer knows who sits, so
+ * `seatedCrew` set the office used); the crew layer knows who sits, so
  * this mirrors it every frame and takes its own entries back on the way out.
  */
 function SeatWatch({ plan }: { plan: DeckPlan }) {
@@ -351,13 +351,13 @@ function SeatWatch({ plan }: { plan: DeckPlan }) {
     for (const [id, seat] of plan.seatOf) {
       const pose = crewPoses.get(id);
       const at = !!pose && !pose.moving && Math.hypot(pose.x - seat.x, pose.z - seat.z) < 0.6;
-      if (at) { seatedAtDesk.add(id); mine.current.add(id); }
-      else if (mine.current.has(id)) { seatedAtDesk.delete(id); mine.current.delete(id); }
+      if (at) { seatedCrew.add(id); mine.current.add(id); }
+      else if (mine.current.has(id)) { seatedCrew.delete(id); mine.current.delete(id); }
     }
   });
   useEffect(() => {
     const own = mine.current;
-    return () => { for (const id of own) seatedAtDesk.delete(id); own.clear(); };
+    return () => { for (const id of own) seatedCrew.delete(id); own.clear(); };
   }, [plan]);
   return null;
 }
