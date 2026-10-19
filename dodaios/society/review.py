@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from contextvars import ContextVar
 from typing import Any
 
 from dodaios.core.protocols import BrainMessage, BrainRequest
@@ -13,6 +14,10 @@ from .conversation import event_text
 from .learning import TurnDigest
 
 log = logging.getLogger(__name__)
+
+#: Why the last review attempt in this context could not ask its seat, for the
+#: review status record (``review:last:<agent>``). ``""`` = no recorded reason.
+_wait_reason: ContextVar[str] = ContextVar("society_review_wait_reason", default="")
 
 # Portions adapted from NousResearch/hermes-agent @ e473f5a
 # (agent/background_review.py: the skill-update order and the "do not capture"
@@ -71,10 +76,17 @@ async def _ask(runtime: Any, agent: Any, prompt: str) -> dict[str, Any] | None:
     """
     from dodaios.brain.streaming import aggregate
 
-    from .seat_brain import SeatUnavailable, agent_brain
+    from .seat_brain import SeatDeferred, SeatUnavailable, agent_brain
 
     try:
         brain = await agent_brain(runtime.config(), agent, caller="society-review")
+    except SeatDeferred as exc:
+        # Unattended work on a per-token key while a subscription is connected
+        # (``brain.background_policy``): nothing is billed and the reason is
+        # kept for the agent's review status.
+        log.info("society review: %s waits (%s)", agent.agent_id, exc)
+        _wait_reason.set(str(exc))
+        return None
     except SeatUnavailable as exc:
         log.info("society review: %s has no usable seat (%s)", agent.agent_id, exc)
         return None
@@ -113,13 +125,20 @@ async def review_turn(runtime: Any, pending: dict[str, Any]) -> bool:
     key = f"review:last:{agent_id}"
     record = {"turn_id": pending["turn_id"], "updated_ms": now_ms(), "state": "reviewing"}
     await runtime.store.set_meta(key, json.dumps(record))
+    reason_token = _wait_reason.set("")
     try:
         done = await _review_turn(runtime, pending)
     except (Exception, asyncio.CancelledError):
         record.update(state="pending", updated_ms=now_ms())
         await runtime.store.set_meta(key, json.dumps(record))
         raise
+    else:
+        reason = _wait_reason.get()
+    finally:
+        _wait_reason.reset(reason_token)
     record.update(state="done" if done else "pending", updated_ms=now_ms())
+    if not done and reason:
+        record["reason"] = reason
     await runtime.store.set_meta(key, json.dumps(record))
     return done
 

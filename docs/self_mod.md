@@ -139,19 +139,31 @@ docstring before adding any path there.
 `dodaios/voice/config_readback.py`); REST/CLI keep the SAFE-auto / ASK-confirm
 split (`auto_apply="safe_only"`).
 
-## 6. Skill authoring (Plan §7.5)
+## 6. Skill authoring
 
-A voice command like "Erstelle einen Skill, der Spotify pausiert wenn ich <!-- i18n-allow -->
-rede" (Create a skill that pauses Spotify when I speak) → main Dodaios
-calls the `spawn_skill_author` tool → a Dodaios-Agent (Opus 4.7) generates
-SKILL.md → forces `state=draft`. The draft lands in
-`~/.jarvis/skills/<slug>/` and is visible in the hot-reload pool, but is
-**not active**.
+A voice or chat request like "Create a skill that pauses the music when I
+speak" reaches the router tool `create-skill`
+(`dodaios/plugins/tool/create_skill.py`). It makes one bounded call, never a
+worker spawn: `SkillCreatorService.author`
+(`dodaios/skills/creator_service.py`) builds the authoring context (attached
+tools and installed skills), asks the brain ladder (active provider, then the
+Tool Model, quality and frontier tiers) for a complete SKILL.md, and commits it
+through the shared skill writer with `state: draft` forced (AP-15). When no
+model can write the draft, the tool fails honestly and nothing lands on disk.
+The Skills view's creator dialog uses the same service over
+`POST /api/skills/creator/{draft,refine,validate,commit,author}`.
+
+The draft lands in the user skills directory and is visible in the hot-reload
+pool, but is **not active**.
+
+`spawn_skill_author` (`dodaios/brain/tools/skill_authoring.py`), the earlier
+plan for a mission-based author, is **not wired**: it is not in
+`ROUTER_TOOLS` and its constructor needs a runner the tool loader cannot
+supply. Its module docstring explains why it stays unregistered.
 
 Manual activation:
-- Web UI: `SkillsView` → draft badge "ENTWURF — vor Aktivierung review"
-  (DRAFT — review before activation) → click "Aktivieren" (Activate)
-  (Phase 7.6+, UI under construction).
+- Web UI: the Skills view shows the draft; enabling it
+  (`POST /api/skills/{name}/enable`) promotes a healthy draft.
 - CLI: `python -m dodaios.skills.cli --promote <slug>`.
 
 The pre-promote lint blocks `eval/exec/os.system/subprocess(shell=True)`
@@ -175,9 +187,10 @@ skill-authoring path must keep these:
 - **Backups live outside the watched config directory** (AP-SM13), or the
   hot reload loops.
 - **Discrete tools** (`list_mutable_settings`, `get_config_value`,
-  `set_config_value`, `spawn_skill_author`), no universal setter (AP-SM8).
-  Skill authoring runs as a mission, not as file writes inside the Dodaios
-  process (AP-SM7).
+  `set_config_value`, `create-skill`), no universal setter (AP-SM8).
+  Skill authoring writes only through the skill registry's writer, and only
+  drafts (AP-SM7; the mission-based `spawn_skill_author` route is not wired,
+  see §6).
 - **Yes/no confirmation is a deterministic pattern match**, not an LLM call
   (AP-SM12).
 - **Generated skills stay drafts**: the writer forces `state=draft` even if the
