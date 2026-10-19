@@ -157,3 +157,30 @@ Manual activation:
 The pre-promote lint blocks `eval/exec/os.system/subprocess(shell=True)`
 as well as reflective bypasses (`getattr(__builtins__, "eval")`). Skills
 that violate the allowlist fail at promote time (Plan §AP-11).
+
+## 7. Invariants (AP-SM1..14)
+
+Code changes in `dodaios/core/self_mod/`, the config writer and the
+skill-authoring path must keep these:
+
+- **Enforced in code, not in the prompt** (AP-SM1). The mutable set is decided
+  in Python; it can never be widened by editing `jarvis.toml` (AP-SM11), and
+  never includes `security.*`, `auth.*`, keyring entries or API keys (AP-SM9).
+- **Secrets never travel by voice or chat** (AP-SM2).
+- **Write pipeline order:** check the path, read, apply, validate the whole
+  config with Pydantic before writing (AP-SM3), back up (AP-SM4), temp file +
+  `os.replace`, reload synchronously with `ConfigLoader.load()` (AP-SM14),
+  restore the backup and audit `rolled_back=true` if the reload fails, never
+  swallow that failure (AP-SM5).
+- **Backups live outside the watched config directory** (AP-SM13), or the
+  hot reload loops.
+- **Discrete tools** (`list_mutable_settings`, `get_config_value`,
+  `set_config_value`, `spawn_skill_author`), no universal setter (AP-SM8).
+  Skill authoring runs as a mission, not as file writes inside the Dodaios
+  process (AP-SM7).
+- **Yes/no confirmation is a deterministic pattern match**, not an LLM call
+  (AP-SM12).
+- **Generated skills stay drafts**: the writer forces `state=draft` even if the
+  frontmatter says otherwise, the trigger matcher skips drafts (AP-SM6), and
+  drafts are written to the user skills directory, never to
+  `dodaios/skills/builtin/` (AP-SM10).

@@ -62,7 +62,103 @@
     "mid_answer_error": "I ran the steps, but something went wrong while composing the answer. Please ask me again in a moment.",
     "action_failed": "I recognized the action but couldn't execute it.",
     "lang_switch_confirm": "Done — I'll reply in English from now on.",
-    "lang_switch_confirm_auto": "Done — from now on I'll match the language you use."
+    "lang_switch_confirm_auto": "Done — from now on I'll match the language you use.",
+    "ack": {
+      "final_markers": "Done.",
+      "generic_ack": [
+        "Okay, one moment.",
+        "Just a second.",
+        "On it, give me a moment.",
+        "One sec, working on it.",
+        "Alright, hang on."
+      ],
+      "shell_ack": [
+        "One moment, let me check.",
+        "Let me take a quick look.",
+        "Checking that now.",
+        "Give me a second to look.",
+        "Taking a quick look."
+      ],
+      "cli_service_ack": [
+        "Taking a quick look at {service}.",
+        "One moment, checking {service}.",
+        "Let me pull that from {service}.",
+        "Checking {service} now.",
+        "Having a quick look in {service}."
+      ],
+      "harness_ack": [
+        "Got it, on it.",
+        "Alright, I'll take that on.",
+        "Understood, working on it.",
+        "Okay, I'm on it now.",
+        "Sure, give me a moment."
+      ],
+      "search_topic_ack": [
+        "Okay, looking up {topic}.",
+        "Searching for {topic} real quick.",
+        "One moment, digging into {topic}.",
+        "Let me see what I find on {topic}."
+      ],
+      "search_generic_ack": [
+        "Okay, researching.",
+        "Let me dig that up.",
+        "One moment, looking around.",
+        "Give me a moment to gather the facts."
+      ],
+      "multi_spawn_ack": [
+        "Okay, running {n} tasks in parallel.",
+        "Taking on those {n} jobs at once.",
+        "{n} things in parallel — on it."
+      ],
+      "open_app_ack": [
+        "Okay, opening {app}.",
+        "One sec, launching {app}.",
+        "Starting {app}."
+      ],
+      "run_skill_ack": [
+        "Okay, running {skill}.",
+        "One moment, starting {skill}.",
+        "Kicking off {skill} now."
+      ],
+      "gmail_read_ack": [
+        "Okay, checking your mail.",
+        "One moment, opening your inbox.",
+        "Taking a quick look at your email.",
+        "Peeking into your inbox."
+      ],
+      "calendar_ack": [
+        "Okay, checking your calendar.",
+        "One moment, looking at your schedule.",
+        "Let me check your appointments.",
+        "Quick look at your calendar."
+      ],
+      "remember_ack": [
+        "Okay, noting that.",
+        "Got it, I'll remember that.",
+        "Writing that down."
+      ],
+      "verify_ack": [
+        "Okay, checking.",
+        "One moment, testing that.",
+        "Let me verify that."
+      ],
+      "server_ack": [
+        "Okay, starting the server.",
+        "One moment, spinning up the server.",
+        "Bringing the server up."
+      ],
+      "set_config_ack": [
+        "Okay, updating.",
+        "One moment, changing that.",
+        "Adjusting that now."
+      ]
+    },
+    "action_honesty": {
+      "action_not_started_phrases": "I did not start an action for that, so I do not have a result yet. Please ask me again."
+    },
+    "local_action_gate": {
+      "unsupported_response": "I can't do that yet. I don't have a registered tool for it. Tell me which MCP or integration should handle it and I can learn."
+    }
   },
   "tool_loop": {
     "anti_silence": "I can't do that right now — I'm missing the right tool for it.",
@@ -110,7 +206,38 @@
       },
       "empty_summary": "Task completed.",
       "unknown_reason": "unknown error",
-      "no_tool_call": "I could not do that — no tool call was made."
+      "no_tool_call": "I could not do that — no tool call was made.",
+      "capacity_wait_phrases": {
+        "provider_quota": "{provider} capacity is used up for now.",
+        "provider_auth": "The {provider} sign-in has expired.",
+        "provider_unavailable": "{provider} cannot be used right now.",
+        "paid_cap_reached": "This mission's cost limit for {provider} is reached.",
+        "paid_daily_cap_reached": "The daily limit for automatic {provider} use is reached.",
+        "paid_consent_revoked": "Automatic {provider} use was switched off.",
+        "saved": "The progress so far has been saved.",
+        "progress": "{done} of {total} steps done, {open} open.",
+        "progress_single": "The task itself is still open.",
+        "file": "1 file saved.",
+        "files": "{files} files saved.",
+        "wait": "The mission is waiting until capacity is available again.",
+        "wait_auth": "The mission is waiting until you sign in again.",
+        "paid": "Paid API use only with your explicit approval in Artifacts."
+      },
+      "provider_fallback_name": "AI provider",
+      "default_target": "this action"
+    },
+    "deliverable": {
+      "deliverable_templates": {
+        "one": "Done. I have saved {name} as an artifact.",
+        "few": "Done. I have saved {count} files as artifacts: {joined}.",
+        "many": "Done. I have saved {count} files as artifacts."
+      },
+      "mission_completed_phrases": "Mission completed.",
+      "delivered_templates": {
+        "one": "Done. I have saved {name} as an artifact.",
+        "few": "Done. I have saved {count} files as artifacts: {joined}.",
+        "many": "Done. I have saved {count} files as artifacts."
+      }
     }
   },
   "realtime": {
@@ -123,6 +250,25 @@
       "no_credits": "The credit for the voice connection is used up. Top it up with the provider and it will work again.",
       "not_offered": "Your account does not offer this voice connection right now. Check its plan or select another account.",
       "dropped": "The voice connection dropped."
+    },
+    "public_fact_uncertainty": "I couldn't verify that reliably with a public source just now.",
+    "delegate_bridge_texts": [
+      "I'm still working on it.",
+      "One moment, almost there.",
+      "Still on it, give me a moment.",
+      "Hang on, this is taking a moment."
+    ],
+    "interrupt_ack_texts": [
+      "Okay, I stopped that.",
+      "Alright, cancelling that.",
+      "Okay, dropping that."
+    ],
+    "local_voice": {
+      "refusals": {
+        "not_set_up": "Local voice is not set up on this machine yet. Run its setup on the Local voice card in Settings.",
+        "loading": "Local voice is still loading ({percent} %). The Local voice card in Settings shows its progress.",
+        "failed": "Local voice could not start. The Local voice card in Settings shows why."
+      }
     }
   },
   "self_mod": {
@@ -132,5 +278,238 @@
       "rollback": "the rollback itself failed — a manual restore is needed",
       "unexpected": "an unexpected error while changing the setting"
     }
+  },
+  "voice": {
+    "action": {
+      "phrases": {
+        "cu_done": "Done.",
+        "lookup_unspoken": "I have the information but couldn't read it out just now. Want me to try again?",
+        "lookup_empty": "I didn't find anything on that.",
+        "cu_done_detail": "Done. {detail}",
+        "cu_failed": "That didn't work on screen.",
+        "cu_failed_reason": "That didn't work on screen: {error}",
+        "cu_crashed": "Something went wrong while doing it on screen.",
+        "cu_exit_gave_up": "I tried it on screen but couldn't get it done.",
+        "cu_exit_no_view": "I couldn't see the screen properly, so I stopped.",
+        "cu_exit_confused": "I couldn't get a valid screen-control response, so I stopped.",
+        "cu_exit_no_provider": "I don't have an AI model that can see the screen right now. Please check your API keys or your credit in settings.",
+        "cu_exit_too_many_steps": "It took too many steps on screen, so I stopped.",
+        "cu_exit_action_failed": "An action on screen failed, so I stopped.",
+        "cu_exit_cancelled": "The action on screen was cancelled.",
+        "cu_exit_needs_elevation": "I waited for the administrator confirmation, but none came, so I stopped.",
+        "cu_blocked_permission": "I had to stop. {sentence}",
+        "cu_blocked_restart_hint": "I had to stop: the {permission} permission may only take effect after Dodaios is quit and reopened. Reopen the app, then try again.",
+        "cu_blocked_unavailable": "I had to stop: Dodaios cannot ask for the {permission} permission in this session.",
+        "cu_blocked_waiting": "I had to stop because macOS is asking about the {permission} permission. Answer the dialog, then try again.",
+        "cu_blocked_dialog": "I had to stop because a macOS system dialog is open. Answer it yourself, then try again.",
+        "cu_blocked_restricted": "I had to stop: a permission this needs is restricted on this Mac by a profile or a parental control. That cannot be changed from the app.",
+        "cu_blocked_generic": "I had to stop because macOS needs a permission for Dodaios. Allow it in System Settings under Privacy & Security, then try again.",
+        "cu_timeout": "That took too long on screen (over {secs} seconds) and was cancelled.",
+        "open_app_launched": "Launched: {app}",
+        "open_app_launched_raised": "Launched and brought to the front: {app}",
+        "open_app_not_found": "Application '{app}' was not found.",
+        "cu_not_wired": "Screen control is switched off on this machine. Turn it on in the config with computer_use.enabled, then restart me once.",
+        "cu_dispatch_ack": "On it. I'll handle that on screen and let you know when it's done.",
+        "cu_awaiting_elevation": "This needs administrator rights. Please confirm the security prompt once, then I'll keep going.",
+        "cu_awaiting_human": "This step needs you, please sign in or complete the verification, then I'll keep going.",
+        "cost_cooldown": "Cost cooldown active, the daily budget is used up. New requests resume once the cooldown ends.",
+        "task_budget": "The task budget for this conversation is exceeded.",
+        "daily_budget": "The daily budget is exceeded.",
+        "tool_failed": "{tool} failed.",
+        "action_failed_generic": "That didn't work just now.",
+        "stale_repeat_clarify": "I already answered that just now. What exactly would you like to know?",
+        "action_failed_reason": "That didn't work: {reason}",
+        "delegate_no_brain": "None of my models answered this request.",
+        "delegate_no_result": "I got no grounded result back for that.",
+        "delegate_failed_internal": "Something went wrong internally, so I stopped safely.",
+        "actions_unavailable": "I can't run actions right now, but we can keep talking.",
+        "actions_not_requested": "I didn't run anything for that. Tell me what you want done.",
+        "skill_loaded_not_run": "I loaded the instructions for that, but I haven't carried them out yet.",
+        "action_timeout": "That took too long, so I stopped.",
+        "spawn_failed_generic": "I couldn't start the background helper just now.",
+        "spawn_failed_reason": "I couldn't start the background helper: {reason}",
+        "spawn_no_runner": "I can't start the task right now. Please restart me.",
+        "artifact_building": "I'm building “{title}” in the background and will tell you when it's ready.",
+        "artifact_revising": "I'm revising “{title}” in the background and will tell you when it's ready.",
+        "workflow_trigger_failed": "The routine {name} could not start. I'll try again at the next scheduled time.",
+        "workflow_scheduler_stalled": "Your scheduled routines aren't running right now. I'll keep trying.",
+        "workflow_step_failed": "The routine {name} got stuck at {step}, so I stopped it.",
+        "workflow_step_failed_reason": "The routine {name} got stuck at {step}, so I stopped it. The reason: {reason}",
+        "workflow_step_ordinal": "step {n}",
+        "workflow_unnamed": "without a name",
+        "wiki_saving": "Writing that to the wiki now.",
+        "wiki_saved": "Saved to the wiki.",
+        "wiki_saved_detail": "Saved to the wiki: {detail}.",
+        "wiki_save_failed": "Saving to the wiki did not work.",
+        "wiki_save_failed_reason": "Saving to the wiki did not work: {reason}",
+        "wiki_nothing_to_save": "I am not sure what to write to the wiki. Please say it again with the content.",
+        "ide_prompt_sent": "Sent to {terminal}.",
+        "ide_prompt_sent_files": "Sent to {terminal}, with {count} files attached.",
+        "ide_prompt_sent_one_file": "Sent to {terminal}, along with {file}.",
+        "ide_terminal_not_running": "{terminal} is not running right now ({status}). I sent nothing.",
+        "ide_prompt_sent_many": "Sent to {names}.",
+        "ide_prompt_sent_partial": "Sent to {names}. I could not reach {failed}.",
+        "ide_prompt_sent_nobody": "I could not reach {failed}, so nothing is running.",
+        "ide_prompt_typed_not_started": "On {names} the text is only sitting in the input box.",
+        "ide_names_pair": "{head} and {last}",
+        "ide_terminals_spawned_one": "{names} is open.",
+        "ide_terminals_spawned": "{count} new terminals: {names}.",
+        "ide_terminals_briefing_queued": "I will hand them the task as soon as the terminals are ready.",
+        "ide_terminals_closed": "Closed {count} terminals: {names}.",
+        "ide_terminals_none_to_close": "There are no matching open terminals.",
+        "ide_terminals_spawned_capped": "Only {count} could be opened: {names}.",
+        "ide_terminals_open_failed": "I could not open a terminal.",
+        "ide_terminal_kind_unclear": "I heard {spoken}. Did you mean {first} or {second}?",
+        "ide_terminal_kind_unclear_one": "I heard {spoken}. Did you mean {first}?",
+        "ide_terminal_kind_unknown": "There is no {name} terminal kind. Available: {available}.",
+        "ide_terminals_opened_workspace": "I opened {folder}: {names}.",
+        "ide_terminal_clarify_one": "I heard {spoken}. Did you mean {name}?",
+        "ide_terminal_clarify_many": "I heard {spoken}. Did you mean {names}?",
+        "ide_prompt_already_delivered": "{name} got the task at {time}. I am not sending it twice.",
+        "join_or": " or ",
+        "join_and": " and ",
+        "ide_terminal_clarify_also": "I also heard {spoken}. Did you mean {names}?",
+        "ide_terminal_who_else": "I could only place {names}. Who else did you mean?",
+        "ide_terminals_nowhere": "No workspace is open and there is no recent one. Pick a folder in the Agentic IDE."
+      },
+      "permission_cause_templates": "Dodaios does not have the {name} permission right now.",
+      "permission_cause_names": {
+        "microphone": "Microphone",
+        "accessibility": "Accessibility",
+        "screen_recording": "Screen Recording",
+        "input_monitoring": "Input Monitoring",
+        "automation": "Automation",
+        "event_posting": "Accessibility"
+      }
+    },
+    "tool_confirmation": {
+      "tool_questions": {
+        "gmail": "Do you really want me to send the email? Say yes or no.",
+        "gmail_rest": "Do you really want me to send the email? Say yes or no.",
+        "call-contact": "Do you really want me to place the call? Say yes or no."
+      },
+      "generic_question": "Do you really want me to do that? Say yes or no.",
+      "impact_questions": {
+        "destructive": "Careful, this command would delete something ({commands}). Do you really want me to run it? Say yes or no.",
+        "modify": "This command would change something on the computer ({commands}). Do you want me to run it? Say yes or no.",
+        "read": "This command only reads data ({commands}). Do you want me to run it? Say yes or no."
+      },
+      "outcome": {
+        "done": "Done.",
+        "vetoed": "Okay, leaving it.",
+        "timeout": "No answer heard, leaving it.",
+        "failed": "That didn't work.",
+        "unclear": "Please just say yes or no.",
+        "unavailable": "That needs your approval, and nobody here can give it. So I did not do it."
+      }
+    },
+    "echo_confirmation": {
+      "value_words": {
+        "on": "on",
+        "off": "off",
+        "empty": "empty"
+      },
+      "echo_templates": "Got it — {label} switches from {old} to {new}. Confirm?",
+      "echo_templates_sensitive": "Got it — {label} to a new value. Confirm?",
+      "outcome_words": {
+        "new_value": "the new value",
+        "old_value": "the previous value",
+        "validation_failed": "validation failed",
+        "unknown_error": "unknown error"
+      },
+      "outcome_templates": {
+        "safe_applied": "Got it — {label} is now {new}.",
+        "applied": "Done — {label} is now {new}.",
+        "applied_restart": "Done — {label} is now {new}. Please restart Dodaios for the change to take effect.",
+        "validate_failed": "Can't do that — {err}. Setting stays {old}.",
+        "rollback": "Couldn't save it, reverted to the previous state. {err}",
+        "vetoed": "Okay, leaving it.",
+        "timeout": "No answer heard, aborting. Setting stays {old}."
+      }
+    },
+    "parked_results": {
+      "anchor_pools": [
+        "About your earlier request – {topic}: {result}",
+        "Back to {topic}: {result}",
+        "Here's the result on {topic}: {result}"
+      ],
+      "anchor_pools_no_topic": [
+        "About your earlier request: {result}",
+        "Back to what you asked earlier: {result}"
+      ]
+    },
+    "config_readback": {
+      "phrases": {
+        "applied": "Done — {label} is now {value}.",
+        "applied_restart": "Done — {label} is now {value}. Restart Dodaios once for it to take effect.",
+        "refused": "I won't change that by voice — please do that deliberately in Settings.",
+        "unknown_setting": "That isn't a setting I can change.",
+        "invalid_value": "That doesn't work — the setting stays unchanged.",
+        "rollback": "I couldn't save it, I restored the previous state."
+      }
+    }
+  },
+  "tools": {
+    "delegate": {
+      "ack": "{name} is on it, I will let you know.",
+      "quiet_ack": "{name} is on it.",
+      "error_ack": "{name} is on it; I will report any blockers.",
+      "queued": "The task for {name} is recorded; its start is not confirmed yet.",
+      "no_agent": "I do not know an agent called {target}.",
+      "ask_agent": "Did you mean {names}?",
+      "or": " or ",
+      "available": "Available agents: {names}.",
+      "no_fit": "None of your agents fits this task.",
+      "refused": "{name} cannot take that right now: {reason}.",
+      "not_ready": "The agents are not ready yet.",
+      "status_idle": "{name} has nothing to do right now.",
+      "status_working": "{name} is working on: {text}",
+      "status_last": "{name}: last {kind}, {text}",
+      "roster": "Your agents: {names}.",
+      "empty_roster": "You do not have any team agents yet."
+    },
+    "dispatch_review": {
+      "voice_holding_phrases": "Let me work on that task for a moment.",
+      "voice_outcome_templates": {
+        "success": "Done — {summary}",
+        "cap_fired": "Here is my best result, with one caveat: {top_issue}",
+        "fail": "That does not work like this — {summary}",
+        "precheck_fail": "The task is too short or unclear — try again with more context."
+      },
+      "voice_fallback_fillers": {
+        "success": "finished",
+        "cap_fired": "a few minor remaining concerns",
+        "fail": "an architectural defect"
+      }
+    }
+  },
+  "telephony": {
+    "default_greetings": "Hello, how can I help?",
+    "named_greetings": "{name} here. How can I help?",
+    "fallback_phrases": "Sorry, I did not catch that. Could you say it again?"
+  },
+  "cu": {
+    "indicator": {
+      "esc_hints": "Esc to cancel"
+    }
+  },
+  "clis": {
+    "capability": {
+      "refusal_hints": {
+        "installed": " The {name} is installed but not connected yet — say the word and we'll set it up.",
+        "catalog": " The CLI catalog has {name} for that — I can set it up with you."
+      }
+    }
+  },
+  "ui": {
+    "desktop": {
+      "conductor_news_phrases": {
+        "failing": "The scheduled job {name} has started failing.",
+        "recovered": "The scheduled job {name} is working again."
+      }
+    }
+  },
+  "harness": {
+    "step_progress": "Step {done} of {total} done."
   }
 }

@@ -104,6 +104,17 @@ def _is_backend_path(path: str) -> bool:
     return path == "/api" or path.startswith(("/api/", "/ws"))
 
 
+def _follow_main_saved() -> bool:
+    """``[agentic_ide] follow_main`` as saved now (the in-memory config is read at boot)."""
+    try:
+        from dodaios.core.config import load_config
+
+        return bool(getattr(load_config().agentic_ide, "follow_main", False))
+    except Exception as exc:  # noqa: BLE001 -- an unreadable file means "not opted in"
+        logger.debug("Follow main: the configuration could not be read: {}", exc)
+        return False
+
+
 class _SpaFallbackRoute(APIRoute):
     """The SPA catch-all, invisible to API and socket paths.
 
@@ -484,8 +495,8 @@ class WebServer:
         from .agent_mcp_routes import router as agent_mcp_router
         from .agent_runtime_routes import router as agent_runtime_router
         from .agentic_ide_git_routes import router as agentic_ide_git_router
-        from .agentic_ide_scm_routes import router as agentic_ide_scm_router
         from .agentic_ide_routes import router as agentic_ide_router
+        from .agentic_ide_scm_routes import router as agentic_ide_scm_router
         from .antigravity_routes import router as antigravity_router
         from .app_actions_routes import router as app_actions_router
         from .appshot_routes import router as appshot_router
@@ -504,7 +515,6 @@ class WebServer:
         from .commands_routes import router as commands_router
         from .computer_use_routes import router as computer_use_router
         from .computers_routes import router as computers_router
-        from .server_pairing_routes import router as server_pairing_router
         from .contacts_routes import router as contacts_router
         from .control_routes import router as control_router
         from .costs_routes import router as costs_router
@@ -556,6 +566,7 @@ class WebServer:
         from .runtime_gateway_routes import router as runtime_gateway_router
         from .screen_context_routes import router as screen_context_router
         from .self_mod_routes import router as self_mod_router
+        from .server_pairing_routes import router as server_pairing_router
         from .sessions_routes import router as sessions_router
         from .settings_routes import router as settings_router
         from .setup_report_routes import router as setup_report_router
@@ -2495,6 +2506,45 @@ class WebServer:
             self._start_marketplace_refresh_scheduler
         )
 
+    def _start_main_follower(self) -> None:
+        """Keep a git checkout's app on the newest main, when the person opted in.
+
+        The follower is a daemon thread whose first look waits well past boot;
+        here it is only created. ``[agentic_ide] follow_main`` is re-read every
+        round, so the toggle takes effect without a restart.
+        """
+        app = self.app
+
+        def enabled() -> bool:
+            return bool(getattr(self.cfg.agentic_ide, "follow_main", False)) or _follow_main_saved()
+
+        def idle() -> bool:
+            kontrollierer = getattr(app.state, "kontrollierer", None)
+            running = getattr(kontrollierer, "running_mission_ids", None)
+            if callable(running) and running():
+                return False
+            from dodaios.live.runtime import active
+
+            if any(getattr(session, "is_active", False) for session in active()):
+                return False
+            from dodaios.core.runtime_refs import get_speech_pipeline
+
+            pipeline = get_speech_pipeline()
+            in_session = getattr(pipeline, "is_session_active", None)
+            return not (callable(in_session) and in_session())
+
+        def restart() -> bool:
+            desktop = getattr(app.state, "desktop_app", None)
+            request = getattr(desktop, "request_restart", None)
+            return bool(request()) if callable(request) else False
+
+        try:
+            from dodaios.core.main_follow import start_follower
+
+            start_follower(enabled=enabled, idle=idle, restart=restart)
+        except Exception as exc:  # noqa: BLE001 -- following main is a convenience, never a boot blocker
+            logger.opt(exception=exc).warning("Follow main did not start.")
+
     def _start_local_models_health_monitor(self) -> None:
         """The Local models self-check task (best-effort, exactly once, off the boot path)."""
         if self._local_models_health_monitor is not None:
@@ -3072,6 +3122,7 @@ class WebServer:
         # hook covers normal desktop, headless, and direct WebServer starts.
         self._schedule_marketplace_refresh_scheduler()
         self._start_local_models_health_monitor()
+        self._start_main_follower()
         self._schedule_local_models_autostart()
         # Same reasoning, and the same three boot paths: a headless or
         # browser-only install has no desktop shell to warm the realtime

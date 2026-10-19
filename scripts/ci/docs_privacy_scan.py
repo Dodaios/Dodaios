@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic personal-data scanner for documentation files.
 
-This is the *fast, deterministic* half of the docs privacy defence (the slow,
-semantic half is the ``docs-privacy-reviewer`` sub-agent). It reuses the single
+This is the deterministic docs privacy check. It reuses the single
 source of truth for masking — the public-release privacy gate's
 ``pii-scrub.tsv`` — so a hit here means exactly the same thing it means at ship
 time: a personal identifier reached a file that is world-readable forever once
@@ -237,7 +236,7 @@ def main() -> int:
             f"\n{total_hits} personal-data hit(s) and "
             f"{read_failures} unreadable file(s) found. "
             "Mask them (python scripts/ci/docs_privacy_scan.py --fix <file>) "
-            "or run the docs-privacy-reviewer sub-agent before this ships.",
+            "or remove them before this ships.",
             file=sys.stderr,
         )
         return 1

@@ -14,37 +14,6 @@
           }
         ]
       }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"C:/Users/Administrator/.bridgespace/bin/bs-claude-hook.cjs\" session-start"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"C:/Users/Administrator/.bridgespace/bin/bs-claude-hook.cjs\" user-prompt-submit"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"C:/Users/Administrator/.bridgespace/bin/bs-claude-hook.cjs\" stop idle \"Finished working\""
-          }
-        ]
-      }
     ]
   }
 }
