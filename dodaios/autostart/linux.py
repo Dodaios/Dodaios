@@ -204,6 +204,7 @@ def _inside(path: str, folder: str) -> bool:
             os.path.commonpath([real_path, real_folder]) == real_folder
         )
     except (OSError, ValueError):
+        # A path that will not resolve, or sits on another drive, is not inside.
         return False
 
 
@@ -236,7 +237,10 @@ def remove_entries_of_install(
     for path in paths:
         try:
             text = path.read_text(encoding="utf-8")
-        except OSError:
+        except FileNotFoundError:
+            continue  # no entry under this earlier name: nothing to remove
+        except OSError as exc:
+            log.warning("Kept %s: it could not be read: %s", path, exc)
             continue
         if not entry_belongs_to_install(text, install_dir):
             log.debug("Kept %s: it starts another install.", path)
@@ -282,7 +286,10 @@ class LinuxAutostart:
         for path in self._legacy_paths:
             try:
                 text = path.read_text(encoding="utf-8")
-            except OSError:
+            except FileNotFoundError:
+                continue  # no entry under this earlier name
+            except OSError as exc:
+                log.warning("Kept %s: it could not be read: %s", path, exc)
                 continue
             if entry_belongs_to_install(text, install_dir):
                 found.append((path, text))

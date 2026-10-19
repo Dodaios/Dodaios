@@ -60,7 +60,8 @@ def _git_show(root: Path, spec: str) -> str | None:
             timeout=30,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.warning("Could not run git show %s in %s: %s", spec, root, exc)
         return None
     return result.stdout if result.returncode == 0 else None
 
