@@ -356,7 +356,7 @@ def read_status(folder: str | Path) -> ScmStatus:
     path = Path(folder).expanduser()
     try:
         root = repository_root(path)
-    except GitError as exc:
+    except GitError as exc:  # not a repository: the Git tab shows the reason instead
         return ScmStatus(available=False, reason=str(exc))
     status = ScmStatus(available=True, root=str(root), prefix=_prefix(path, root))
     result = _run(
