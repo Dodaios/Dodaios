@@ -2669,6 +2669,15 @@ class WebServer:
         except Exception as exc:  # noqa: BLE001 -- a background copy must never block boot
             logger.opt(exception=exc).warning("Credential copy did not schedule.")
 
+    def _schedule_distribution_check(self) -> None:
+        """Warn once, off the boot path (AP-26), when both package names are installed."""
+        try:
+            from dodaios.core.distribution import schedule_duplicate_distribution_check
+
+            schedule_duplicate_distribution_check()
+        except Exception as exc:  # noqa: BLE001 -- a diagnostic must never block boot
+            logger.opt(exception=exc).debug("Duplicate distribution check did not schedule.")
+
     def _schedule_appshot_shortcut(self) -> None:
         """Arm the global appshot shortcut once the wake model has loaded.
 
@@ -3143,6 +3152,7 @@ class WebServer:
         self._schedule_realtime_transport_warm()
         self._schedule_appshot_shortcut()
         self._schedule_credential_migration()
+        self._schedule_distribution_check()
         # Browser provisioning includes a Chromium probe and may need Linux
         # system libraries. Leave it to explicit browser use/setup; boot and
         # shell-paint acknowledgements must keep headless installations usable.
