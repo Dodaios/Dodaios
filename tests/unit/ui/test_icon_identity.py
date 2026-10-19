@@ -164,8 +164,9 @@ def test_bundled_app_icon_png_exists_for_linux() -> None:
     assert png.as_posix().endswith("dodaios/assets/icons/jarvis.png")
 
 
-def test_app_display_name_is_personal_jarvis() -> None:
-    assert APP_DISPLAY_NAME == "Personal Jarvis"
+def test_the_linux_shell_name_is_dodaios_and_the_aumid_stays() -> None:
+    # The name the Linux app menu lists moved with the entry and its class.
+    assert APP_DISPLAY_NAME == "Dodaios"
     # The grouping key itself stays the stable PascalCase AUMID.
     assert APP_USER_MODEL_ID == "PersonalJarvis.PersonalJarvis"
 

@@ -28,7 +28,8 @@ LEGACY_INSTALL_DIR_NAME=".personal-jarvis"
 MACOS_APP_DIR_NAME="Personal Jarvis.app"
 MACOS_BUNDLE_ID="com.personal-jarvis.desktop"
 MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
-LINUX_DESKTOP_ENTRY_FILE_NAME="personal-jarvis.desktop"
+LINUX_DESKTOP_ENTRY_FILE_NAME="dodaios.desktop"
+LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES="personal-jarvis.desktop"
 KEYRING_SERVICE_NAME="dodaios"
 LEGACY_KEYRING_SERVICE_NAMES="personal-jarvis"
 
@@ -145,6 +146,34 @@ remove_install_dir() {
     # --- uninstall-remove end
 }
 
+# Linux, without the venv: the login-autostart entry (current and earlier
+# name) and the application-menu entry under its earlier name. Each one goes
+# only when it starts this install, which its working folder (Path=) tells:
+# an entry of another install on this machine is kept.
+remove_linux_entries_of_install() {
+    # --- uninstall-linux-entries begin (extracted by tests/unit/install/test_linux_entry_rename.py)
+    install_real="$(cd -P "$1" 2>/dev/null && pwd -P)" || install_real="$1"
+    apps_dir="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+    autostart_dir="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+    for entries_dir in "$autostart_dir" "$apps_dir"; do
+        for name in $LINUX_DESKTOP_ENTRY_FILE_NAME $LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES; do
+            entry="$entries_dir/$name"
+            # The current menu entry is this install's by name and goes anyway.
+            [ "$entry" = "$apps_dir/$LINUX_DESKTOP_ENTRY_FILE_NAME" ] && continue
+            [ -f "$entry" ] || continue
+            entry_dir=$(sed -n 's/^Path=//p' "$entry" | head -n 1)
+            entry_real="$(cd -P "$entry_dir" 2>/dev/null && pwd -P)" || entry_real="$entry_dir"
+            if [ -n "$entry_dir" ] && [ "$entry_real" = "$install_real" ]; then
+                rm -f -- "$entry"
+                note "removed $entry"
+            else
+                note "kept $entry (it starts another install)"
+            fi
+        done
+    done
+    # --- uninstall-linux-entries end
+}
+
 step 'Uninstall Dodaios'
 note "$INSTALL_DIR"
 
@@ -199,6 +228,7 @@ else
             ;;
         Linux)
             rm -f -- "${XDG_DATA_HOME:-$HOME/.local/share}/applications/$LINUX_DESKTOP_ENTRY_FILE_NAME"
+            remove_linux_entries_of_install "$INSTALL_DIR"
             ;;
     esac
     ok 'Removed the desktop app registration.'

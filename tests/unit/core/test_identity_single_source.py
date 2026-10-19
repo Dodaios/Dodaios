@@ -363,10 +363,10 @@ def test_the_packaging_scripts_restate_the_names() -> None:
     assert f"for cli_name in {' '.join(frozen_cli_names)}; do" in _read(
         "packaging/macos/build.sh"
     )
-    assert (
-        f'\nDESKTOP_FILE_NAME="{branding.LINUX_DESKTOP_ENTRY_FILE_NAME}"\n'
-        in _read("packaging/linux/build.sh")
-    )
+    linux = _read("packaging/linux/build.sh")
+    assert f'\nDESKTOP_FILE_NAME="{branding.LINUX_DESKTOP_ENTRY_FILE_NAME}"\n' in linux
+    # The installed icon carries the window class's name, like the entry.
+    assert f'\nICON_FILE_NAME="{branding.LINUX_WM_CLASS}.png"\n' in linux
     assert f'\nAPP_NAME="{branding.MACOS_APP_NAME}"\n' in _read("packaging/macos/build.sh")
 
 
@@ -618,9 +618,10 @@ def _current_names() -> list[IdentityName]:
 # and the first test below covers them without this table. The commands
 # ``dodaios`` and ``dodaiosctl`` already made that move: they are console
 # scripts now, and the first test sees them among the current names. So did
-# the data directory and the config file, the install directory, and the
+# the data directory and the config file, the install directory, the
 # Windows identity (the windowed executable, its per-user folder, the
-# shortcut): current names now, with their earlier values in LEGACY_* tuples.
+# shortcut) and the Linux desktop entry: current names now, with their earlier
+# values in LEGACY_* tuples.
 _PLANNED_NAMES: tuple[IdentityName, ...] = (
     IdentityName("macos-bundle-id", "managed", "planned", "com.dodaios.desktop"),
     IdentityName("macos-bundle-id", "dmg", "planned", "ai.dodaios.desktop"),
