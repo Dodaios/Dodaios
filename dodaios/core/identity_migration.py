@@ -42,6 +42,11 @@ load this file by path before anything from the package exists. For the same
 reason there is no ``from __future__ import annotations``: with string
 annotations ``dataclasses`` looks the module up in ``sys.modules``, where a file
 loaded by path need not be.
+
+The shell installers run this file as a program (:func:`main`), copied out of
+the release they are about to install, before any of it is checked out. The
+source therefore stays ASCII: a Windows PowerShell host reads text through a
+legacy code page and must not be able to alter a byte of it.
 """
 
 import enum
@@ -124,6 +129,19 @@ def _is_link(metadata: os.stat_result) -> bool:
     if not getattr(metadata, "st_file_attributes", 0) & _REPARSE_POINT:
         return False
     return getattr(metadata, "st_reparse_tag", 0) in _LINK_REPARSE_TAGS
+
+
+def is_directory_link(path: PathLike) -> bool:
+    """True when ``path`` itself is a symlink or a directory junction. Never follows it.
+
+    A caller about to delete a tree asks this first: removing a link must
+    remove the link, never what it leads to.
+    """
+    try:
+        return _is_link(os.lstat(path))
+    except OSError:
+        # Nothing there, or nothing that can be looked at: not a link.
+        return False
 
 
 def _exists(path: PathLike) -> bool:
@@ -1013,6 +1031,47 @@ def migrate_keyring(
     )
 
 
+# ----------------------------------------------------------------------
+# Command line
+# ----------------------------------------------------------------------
+
+# How long the installer's run waits for another migrator of the same pair.
+_CLI_WAIT_SECONDS = 5.0
+_CLI_USAGE = "usage: identity_migration.py migrate|resolve <legacy> <current>\n"
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Move or resolve one directory pair and print what happened as one JSON object.
+
+    ``migrate <legacy> <current>`` runs :func:`migrate_directory`; ``resolve
+    <legacy> <current>`` only reads, through :func:`resolve_directory`. Either
+    prints ``{"outcome": ..., "effective": ...}`` on one line, where
+    ``effective`` is the directory to use from now on, and exits 0: every
+    outcome is a valid state to continue from. A malformed command line exits
+    2 and prints nothing on stdout. The JSON is pure ASCII (non-ASCII path
+    characters are escaped), so no console encoding can change it on the way
+    to the caller. Diagnostics go to stderr.
+    """
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) != 3 or args[0] not in ("migrate", "resolve") or not all(args[1:]):
+        sys.stderr.write(_CLI_USAGE)
+        return 2
+    command, legacy, current = args
+    if not log.handlers and not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.WARNING, format="%(message)s", stream=sys.stderr)
+    if command == "resolve":
+        outcome = "resolved"
+        effective = resolve_directory(current, [legacy])
+    else:
+        migration = migrate_directory(legacy, current, wait_seconds=_CLI_WAIT_SECONDS)
+        outcome = migration.outcome.value
+        effective = migration.effective
+    report = {"outcome": outcome, "effective": os.fspath(effective)}
+    sys.stdout.write(json.dumps(report, ensure_ascii=True) + "\n")
+    sys.stdout.flush()
+    return 0
+
+
 __all__ = [
     "DirectoryMigration",
     "DirectoryOutcome",
@@ -1025,10 +1084,16 @@ __all__ = [
     "create_directory_link",
     "default_lock_path",
     "inspect_legacy",
+    "is_directory_link",
     "keyring_marker_key",
     "lock_file_held",
+    "main",
     "migrate_directory",
     "migrate_keyring",
     "named_mutex_exists",
     "resolve_directory",
 ]
+
+
+if __name__ == "__main__":
+    sys.exit(main())
