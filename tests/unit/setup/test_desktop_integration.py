@@ -19,6 +19,15 @@ def _managed_root(tmp_path: Path) -> Path:
     return root
 
 
+@pytest.mark.parametrize("name", di.MANAGED_MARKERS)
+def test_a_checkout_marked_under_any_name_is_a_managed_install(
+    tmp_path: Path, name: str
+) -> None:
+    assert di.is_managed_install(tmp_path) is False
+    (tmp_path / name).write_text("{}\n", encoding="utf-8")
+    assert di.is_managed_install(tmp_path) is True
+
+
 def test_windows_uninstall_values_are_per_user_app_metadata(tmp_path: Path) -> None:
     root = _managed_root(tmp_path)
     icon = tmp_path / "app.ico"

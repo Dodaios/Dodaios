@@ -34,6 +34,7 @@ from dodaios.core.branding import (
     LAUNCHER_ENTRY_NAME,
     MACOS_APP_DIR_NAME,
     MANAGED_INSTALL_MARKER,
+    MANAGED_INSTALL_MARKERS,
     PRODUCT_NAME,
     WINDOWS_BRANDED_LAUNCH_ENV_VAR,
     WINDOWS_BRANDED_LAUNCHER_DIR_NAME,
@@ -47,6 +48,8 @@ from dodaios.core.update_contract import (
 
 LAUNCHER_MODULE = DEFAULT_CONTRACT.launcher_module
 MANAGED_MARKER = MANAGED_INSTALL_MARKER
+# Every name the installer's marker has had; any one of them marks the checkout.
+MANAGED_MARKERS = MANAGED_INSTALL_MARKERS
 PENDING_UPDATE_FILENAME = ".jarvis-update-pending.json"
 UPDATE_RESULT_FILENAME = ".jarvis-update-result.json"
 _REVISION_RE = re.compile(r"^[0-9a-fA-F]{7,64}$")
@@ -976,7 +979,8 @@ def finalize_pending_update(cwd: str | Path) -> bool:
     payload = _read_pending_update(root)
     if payload is None:
         return True
-    if not (root / MANAGED_MARKER).is_file() or not (root / ".git").exists():
+    managed = any((root / name).is_file() for name in MANAGED_MARKERS)
+    if not managed or not (root / ".git").exists():
         pending_path.unlink(missing_ok=True)
         return False
 

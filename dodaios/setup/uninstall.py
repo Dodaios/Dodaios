@@ -3,8 +3,10 @@
 A download leaves FOUR things on a machine, and a plain folder-delete only
 gets the first:
 
-1. **The install folder** (``~/.personal-jarvis``) — code, the Python venv,
-   ``jarvis.toml``, ``data/`` and the ``.setup-complete`` marker.
+1. **The install folder** (``~/.dodaios``, ``~/.personal-jarvis`` before the
+   rename) — code, the Python venv, the config file, ``data/`` and the
+   ``.setup-complete`` marker. A folder that moved to its current name left a
+   link at the earlier path; the link is removed as a link, never followed.
 2. **Desktop-shell registration** (Windows Start menu + Installed Apps, a
    macOS ``.app`` bundle, or a Linux application-menu entry).
 3. **A login-autostart entry** next to it (a Windows logon task / a macOS
@@ -49,7 +51,9 @@ from rich.panel import Panel
 from rich.theme import Theme
 
 from dodaios.core import config as cfg
+from dodaios.core.branding import DEFAULT_INSTALL_DIR_NAME, LEGACY_DEFAULT_INSTALL_DIR_NAMES
 from dodaios.core.identity_boot import resolve_config_file
+from dodaios.core.identity_migration import LegacyState, inspect_legacy, is_directory_link
 from dodaios.core.process_utils import wait_procs
 from dodaios.setup.wizard import SECRETS
 
@@ -78,6 +82,9 @@ class UninstallPlan:
     autostart_entry: str | None
     keyring_keys: list[str] = field(default_factory=list)
     running_pids: list[int] = field(default_factory=list)
+    #: Links that lead to the install folder from another path (the earlier
+    #: folder name a move left behind). Removed with the folder, as links.
+    install_links: tuple[Path, ...] = ()
 
     @property
     def config_file(self) -> Path:
@@ -100,6 +107,56 @@ def _looks_like_jarvis_install(path: Path) -> bool:
         return (path / "dodaios").is_dir() and (path / "pyproject.toml").is_file()
     except OSError:
         return False
+
+
+def _install_links(install_dir: Path, *, home: Path | None = None) -> tuple[Path, ...]:
+    """Every link that leads to ``install_dir`` from a path an install may have used.
+
+    That is each name the install folder has had in the home directory, and the
+    path this program runs from. Only a link that leads to ``install_dir``
+    itself is listed; a real folder or a link elsewhere is somebody else's.
+    """
+    home = home or Path.home()
+    names = (DEFAULT_INSTALL_DIR_NAME, *LEGACY_DEFAULT_INSTALL_DIR_NAMES)
+    candidates = [Path(cfg.PROJECT_ROOT), *(home / name for name in names)]
+    target = os.path.normcase(os.path.abspath(install_dir))
+    seen = {target}
+    links: list[Path] = []
+    for candidate in candidates:
+        key = os.path.normcase(os.path.abspath(candidate))
+        if key in seen:
+            continue
+        seen.add(key)
+        if inspect_legacy(candidate, install_dir) is LegacyState.LINK_TO_CURRENT:
+            links.append(Path(os.path.abspath(candidate)))
+    return tuple(links)
+
+
+def _remove_link(link: Path) -> None:
+    """Remove a directory link itself, never what it leads to. Raises ``OSError``.
+
+    ``unlink`` removes a symlink; a Windows junction or directory symlink is
+    removed by ``rmdir``, which deletes the link and refuses a real folder that
+    still holds anything. Neither call ever descends into the target.
+    """
+    if not is_directory_link(link):
+        raise OSError(f"{link} is not a link")
+    try:
+        os.unlink(link)
+    except OSError:  # A junction refuses unlink; rmdir removes it, and its own error propagates.
+        os.rmdir(link)
+
+
+def _remove_install_links(links: tuple[Path, ...]) -> None:
+    for link in links:
+        try:
+            _remove_link(link)
+            _console.print(f"    [ok]→ removed the link {escape(str(link))}.[/]")
+        except OSError as exc:
+            _console.print(
+                f"    [bad]⚠ could not remove the link {escape(str(link))}: "
+                f"{escape(str(exc))}[/]"
+            )
 
 
 def _credential_services() -> tuple[str, ...]:
@@ -374,6 +431,7 @@ def build_plan() -> UninstallPlan:
         autostart_entry=entry,
         keyring_keys=_keyring_keys_present(),
         running_pids=running,
+        install_links=_install_links(install_dir),
     )
 
 
@@ -396,6 +454,11 @@ def _print_plan(plan: UninstallPlan, *, keep_keys: bool, keep_folder: bool) -> N
             f"[brand]•[/] Delete the install folder:\n    [muted]{escape(str(plan.install_dir))}[/]"
         )
         lines.append("    [muted](code, the Python environment, jarvis.toml, and data folder)[/]")
+        for link in plan.install_links:
+            lines.append(
+                f"[brand]•[/] Remove the link to it (the folder's earlier name):\n"
+                f"    [muted]{escape(str(link))}[/]"
+            )
     if plan.autostart_entry:
         lines.append(
             f"[brand]•[/] Remove the login-autostart entry:\n"
@@ -468,9 +531,9 @@ def _remove_cli_commands(install_dir: Path) -> None:
     delete would leave dead commands behind.
     """
     try:
-        from dodaios.setup.cli_path import remove_commands
+        from dodaios.setup.cli_path import remove_commands, retired_install_roots
 
-        removed = remove_commands(install_dir)
+        removed = remove_commands(install_dir, retired_roots=retired_install_roots(install_dir))
         if removed:
             _console.print("    [ok]→ terminal commands removed.[/]")
     except Exception as exc:  # noqa: BLE001 - never abort the uninstall on this
@@ -572,7 +635,11 @@ def _remove_folder(install_dir: Path) -> bool:
 
     POSIX (and Windows when NOT self-hosted): direct ``rmtree``. Windows +
     self-hosted: schedule a detached deleter and report that it will finish a
-    moment after we exit."""
+    moment after we exit. A link is never followed: given one, only the link
+    goes."""
+    if is_directory_link(install_dir):
+        _remove_install_links((install_dir,))
+        return not os.path.lexists(install_dir)
     if sys.platform == "win32" and _running_inside(install_dir):
         try:
             _spawn_windows_self_deleter(install_dir)
@@ -644,6 +711,8 @@ def run_uninstall(
     if not keep_keys:
         _remove_keys(plan.keyring_keys)
     if not keep_folder:
+        # The links first: once the folder is gone they would dangle.
+        _remove_install_links(plan.install_links)
         _remove_folder(plan.install_dir)
 
     _console.print()
