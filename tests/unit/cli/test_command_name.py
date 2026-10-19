@@ -12,11 +12,11 @@ import sys
 
 import pytest
 
-import jarvis.__main__ as entry
-from jarvis import __version__
-from jarvis.cli import app_update
-from jarvis.cli.command_name import main_command
-from jarvis.core.branding import (
+import dodaios.__main__ as entry
+from dodaios import __version__
+from dodaios.cli import app_update
+from dodaios.cli.command_name import main_command
+from dodaios.core.branding import (
     CLI_COMMAND_NAME,
     CONTROL_CLI_COMMAND_NAME,
     LEGACY_CLI_COMMAND_NAMES,
@@ -34,7 +34,7 @@ from jarvis.core.branding import (
         ("/home/u/.local/bin/JARVIS.EXE", "jarvis"),
         ("/usr/bin/personal-jarvis", "personal-jarvis"),
         # Anything else is not a command name of ours: the primary name.
-        ("/repo/jarvis/__main__.py", "dodaios"),
+        ("/repo/dodaios/__main__.py", "dodaios"),
         ("/Applications/Personal Jarvis.app/Contents/MacOS/PersonalJarvis", "dodaios"),
         ("/opt/venv/bin/jarvisctl", "dodaios"),
         ("-c", "dodaios"),
@@ -86,7 +86,7 @@ def test_the_launcher_help_names_the_invoked_command(
 def test_the_launcher_help_says_dodaios_when_run_as_a_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(sys, "argv", ["/repo/jarvis/__main__.py"])
+    monkeypatch.setattr(sys, "argv", ["/repo/dodaios/__main__.py"])
 
     assert entry._build_parser().prog == "dodaios"
     assert app_update.build_parser().prog == "dodaios update"

@@ -1,0 +1,236 @@
+-- Agent Society store. Idempotent (CREATE IF NOT EXISTS). Lives under
+-- data/society.db with its own lifecycle, mirroring missions_schema.sql.
+-- Every CHECK list below is pinned to the Python enums in dodaios/society/events.py
+-- and the TypeScript consts in src/lib/societyApi.ts by
+-- tests/unit/society/test_society_enum_parity.py (AP-4).
+
+-- The roster: one row per agent = the model card. Deliberately NO chat-session
+-- column: the canonical chat id is a pure function of agent_id (society:<id>),
+-- so identity can never drift from its conversation.
+CREATE TABLE IF NOT EXISTS society_agents (
+    agent_id            TEXT PRIMARY KEY,
+    name                TEXT NOT NULL UNIQUE,
+    title               TEXT NOT NULL DEFAULT '',
+    description         TEXT NOT NULL DEFAULT '',
+    tier                TEXT NOT NULL CHECK (tier IN ('lead', 'orchestrator', 'specialist')),
+    parent_agent_id     TEXT,
+    state               TEXT NOT NULL DEFAULT 'active'
+                        CHECK (state IN ('active', 'paused', 'archived')),
+    avatar_json         TEXT NOT NULL DEFAULT '{}',
+    checkpoint          TEXT NOT NULL DEFAULT 'idle'
+                        CHECK (checkpoint IN ('desk', 'meeting', 'archive', 'gate', 'idle',
+                                              'gallery',
+                                              'hub:plugins', 'hub:skills', 'hub:mcp', 'hub:cli',
+                                              'hub:comms', 'hub:desktop', 'hub:web', 'hub:models')),
+    provider            TEXT NOT NULL DEFAULT '',
+    model               TEXT NOT NULL DEFAULT '',
+    effort              TEXT NOT NULL DEFAULT '',
+    account_id          TEXT NOT NULL DEFAULT '',   -- subscription seat (agent_accounts id)
+    grant_mode          TEXT NOT NULL DEFAULT 'all'
+                        CHECK (grant_mode IN ('all', 'allowlist')),
+    grants_json         TEXT NOT NULL DEFAULT '[]',
+    focus_json          TEXT NOT NULL DEFAULT '[]',
+    denies_json         TEXT NOT NULL DEFAULT '[]',
+    skills_json         TEXT,                       -- NULL = every active skill
+    workspace_dir       TEXT NOT NULL DEFAULT '',
+    wiki_namespace      TEXT NOT NULL DEFAULT '',
+    knowledge_scope     TEXT NOT NULL DEFAULT 'shared'
+                        CHECK (knowledge_scope IN ('shared', 'own')),
+    permission_ceiling  TEXT NOT NULL DEFAULT 'monitor'
+                        CHECK (permission_ceiling IN ('safe', 'monitor', 'ask')),
+    approval_mode       TEXT DEFAULT NULL
+                        CHECK (approval_mode IN ('bypass', 'ask', 'always_ask')),
+    approval_rules_json TEXT NOT NULL DEFAULT '{}',
+    daily_budget_usd    REAL NOT NULL DEFAULT 2.0,
+    browser_mode        TEXT NOT NULL DEFAULT 'own'
+                        CHECK (browser_mode IN ('own', 'attach')),
+    browser_allowed_domains_json TEXT NOT NULL DEFAULT '[]',
+    max_concurrent_runs INTEGER NOT NULL DEFAULT 1,
+    -- Where the agent's work executes: NULL = this computer, else the id of a
+    -- connected machine in dodaios/computers (a VPS or a local VM, over SSH).
+    computer_id         TEXT DEFAULT NULL,
+    runtime             TEXT NOT NULL DEFAULT 'jarvis'
+                        CHECK (runtime IN ('jarvis', 'hermes', 'openclaw')),
+    created_ms          INTEGER NOT NULL,
+    updated_ms          INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_society_agents_state ON society_agents(state);
+
+-- The board: append-only, typed, one stream for chat, world, ledger and cost.
+CREATE TABLE IF NOT EXISTS society_events (
+    seq                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id            TEXT NOT NULL UNIQUE,
+    msg_type            TEXT NOT NULL CHECK (msg_type IN (
+                            'ASSIGN', 'CLAIM', 'RESULT', 'QUERY', 'ANSWER', 'HOLD',
+                            'RELEASE', 'PROPOSE', 'VETO', 'DIGEST', 'SAY',
+                            'ROOM_OPEN', 'ROOM_SETTLE')),
+    from_agent          TEXT NOT NULL,
+    to_agent            TEXT,                       -- NULL = broadcast
+    trace_id            TEXT NOT NULL,
+    parent_event_id     TEXT,
+    ts_ms               INTEGER NOT NULL,
+    cost_usd            REAL NOT NULL DEFAULT 0.0,
+    payload_json        TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_society_events_inbox ON society_events(to_agent, seq);
+CREATE INDEX IF NOT EXISTS idx_society_events_trace ON society_events(trace_id, seq);
+CREATE INDEX IF NOT EXISTS idx_society_events_from ON society_events(from_agent, seq);
+
+-- Persistent, user-owned groups of existing canonical agent chats.
+CREATE TABLE IF NOT EXISTS society_chat_groups (
+    group_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    members_json TEXT NOT NULL,
+    created_ms INTEGER NOT NULL,
+    updated_ms INTEGER NOT NULL,
+    -- The member that manages this team (dodaios/society/team_lead.py); NULL = no lead.
+    lead_agent_id TEXT DEFAULT NULL,
+    -- The team's standing purpose, read by its lead on every managing turn.
+    mission TEXT NOT NULL DEFAULT ''
+);
+
+-- Goals the person gives a team. The lead breaks a goal into tasks, hands
+-- them to members and reports back; trusted Python reads the lifecycle off
+-- society_events and wakes the lead when a result arrives.
+CREATE TABLE IF NOT EXISTS society_team_goals (
+    goal_id             TEXT PRIMARY KEY,
+    group_id            TEXT NOT NULL,
+    lead_agent_id       TEXT NOT NULL,
+    title               TEXT NOT NULL,
+    text                TEXT NOT NULL DEFAULT '',
+    state               TEXT NOT NULL DEFAULT 'queued'
+                        CHECK (state IN ('queued', 'running', 'needs_input', 'paused',
+                                         'done', 'failed', 'cancelled')),
+    report              TEXT NOT NULL DEFAULT '',   -- the lead's latest report to the person
+    note                TEXT NOT NULL DEFAULT '',   -- why it waits, paused or failed
+    lead_turns          INTEGER NOT NULL DEFAULT 0, -- managing turns spent since the last resume
+    lang                TEXT NOT NULL DEFAULT '',
+    origin_json         TEXT NOT NULL DEFAULT '{}', -- the board assignment it answers, if any
+    created_ms          INTEGER NOT NULL,
+    updated_ms          INTEGER NOT NULL,
+    done_ms             INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_society_team_goals_group
+    ON society_team_goals(group_id, created_ms);
+
+CREATE TABLE IF NOT EXISTS society_team_tasks (
+    task_id             TEXT PRIMARY KEY,
+    goal_id             TEXT NOT NULL,
+    agent_id            TEXT NOT NULL,              -- the member doing it
+    title               TEXT NOT NULL,
+    brief               TEXT NOT NULL DEFAULT '',
+    state               TEXT NOT NULL DEFAULT 'assigned'
+                        CHECK (state IN ('waiting', 'assigned', 'running', 'done', 'blocked',
+                                         'cancelled')),
+    trace_id            TEXT NOT NULL UNIQUE,
+    assign_event_id     TEXT,
+    run_id              TEXT NOT NULL DEFAULT '',
+    result              TEXT NOT NULL DEFAULT '',
+    reviewed            INTEGER NOT NULL DEFAULT 0, -- the lead has read the outcome
+    attempts            INTEGER NOT NULL DEFAULT 0, -- knocks on a busy member
+    created_ms          INTEGER NOT NULL,
+    updated_ms          INTEGER NOT NULL,
+    done_ms             INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_society_team_tasks_goal ON society_team_tasks(goal_id, created_ms);
+
+-- Bounded group discussions: state lives here, history in society_events
+-- (msg_type ROOM_OPEN / SAY / ROOM_SETTLE sharing the room's trace_id).
+CREATE TABLE IF NOT EXISTS society_rooms (
+    room_id             TEXT PRIMARY KEY,
+    trace_id            TEXT NOT NULL UNIQUE,
+    opened_by           TEXT NOT NULL,
+    topic               TEXT NOT NULL DEFAULT '',
+    members_json        TEXT NOT NULL,
+    round               INTEGER NOT NULL DEFAULT 0,
+    message_count       INTEGER NOT NULL DEFAULT 0,
+    state               TEXT NOT NULL DEFAULT 'queued'
+                        CHECK (state IN ('queued', 'running', 'settled', 'failed')),
+    settle_reason       TEXT NOT NULL DEFAULT '',
+    created_ms          INTEGER NOT NULL,
+    updated_ms          INTEGER NOT NULL
+);
+
+-- Knowledge staging: provenance and review state for pages agents wrote into
+-- the vault. The vault holds the knowledge; this table only knows its taint.
+CREATE TABLE IF NOT EXISTS knowledge (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id            TEXT NOT NULL,
+    wiki_path           TEXT NOT NULL,
+    origin              TEXT NOT NULL CHECK (origin IN ('user', 'tool', 'web', 'agent')),
+    source_event        TEXT,
+    trace_id            TEXT,
+    reviewed            INTEGER NOT NULL DEFAULT 0,
+    summary             TEXT NOT NULL DEFAULT '',
+    created_ms          INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_agent ON knowledge(agent_id, created_ms);
+CREATE INDEX IF NOT EXISTS idx_knowledge_reviewed ON knowledge(reviewed);
+
+-- The unattended ask-queue (MASTERPLAN §2.9). Expiry parks work as blocked,
+-- never drops it.
+CREATE TABLE IF NOT EXISTS approvals (
+    id                  TEXT PRIMARY KEY,
+    agent_id            TEXT NOT NULL,
+    trace_id            TEXT NOT NULL,
+    capability          TEXT NOT NULL,
+    action_json         TEXT NOT NULL,
+    summary             TEXT NOT NULL DEFAULT '',
+    state               TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (state IN ('pending', 'approved', 'denied', 'expired', 'blocked')),
+    created_ms          INTEGER NOT NULL,
+    expires_ms          INTEGER NOT NULL,
+    resolved_ms         INTEGER,
+    note                TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_approvals_state ON approvals(state, created_ms);
+CREATE INDEX IF NOT EXISTS idx_approvals_agent ON approvals(agent_id, state);
+
+-- Quests: one job the person posts on the board; trusted Python routes it to
+-- exactly one agent (dodaios/society/quests.py) and the lifecycle is read off
+-- society_events on the quest's trace, never written by a model.
+CREATE TABLE IF NOT EXISTS society_quests (
+    quest_id            TEXT PRIMARY KEY,
+    title               TEXT NOT NULL,
+    text                TEXT NOT NULL DEFAULT '',
+    state               TEXT NOT NULL DEFAULT 'open'
+                        CHECK (state IN ('open', 'assigned', 'running', 'done', 'failed', 'cancelled')),
+    created_by          TEXT NOT NULL DEFAULT 'user',
+    agent_id            TEXT,                       -- the taker, once routed
+    trace_id            TEXT NOT NULL UNIQUE,
+    assign_event_id     TEXT,
+    run_id              TEXT NOT NULL DEFAULT '',
+    routing_json        TEXT NOT NULL DEFAULT '{}', -- how the taker was chosen
+    result_json         TEXT NOT NULL DEFAULT '{}', -- the handoff, or the typed refusal
+    created_ms          INTEGER NOT NULL,
+    updated_ms          INTEGER NOT NULL,
+    done_ms             INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_society_quests_state ON society_quests(state, created_ms);
+
+-- Kill switch, schema version and other single values.
+CREATE TABLE IF NOT EXISTS society_meta (
+    key                 TEXT PRIMARY KEY,
+    value               TEXT NOT NULL
+);
+
+-- Only newly appended internal messages enter the durable delivery queue.
+-- The trigger closes the crash window between event insertion and publication.
+CREATE TABLE IF NOT EXISTS society_deliveries (
+    event_id TEXT PRIMARY KEY REFERENCES society_events(event_id),
+    status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'delivered', 'failed')),
+    error TEXT NOT NULL DEFAULT ''
+);
+CREATE TRIGGER IF NOT EXISTS society_queue_message AFTER INSERT ON society_events
+WHEN NEW.msg_type IN ('SAY', 'QUERY', 'ANSWER', 'PROPOSE', 'HOLD', 'RELEASE')
+    AND NEW.to_agent IS NOT NULL AND NEW.to_agent != 'user' AND NEW.from_agent != 'scheduler'
+BEGIN
+    INSERT OR IGNORE INTO society_deliveries (event_id) VALUES (NEW.event_id);
+END;

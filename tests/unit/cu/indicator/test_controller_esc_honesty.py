@@ -14,12 +14,12 @@ import asyncio
 
 import pytest
 
-import jarvis.trigger.hotkey as hotkey_mod
-from jarvis.core.bus import EventBus
-from jarvis.cu.indicator import controller as controller_mod
-from jarvis.cu.indicator.controller import _ESC_HINTS, CUIndicatorController
-from jarvis.platform import probes
-from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+import dodaios.trigger.hotkey as hotkey_mod
+from dodaios.core.bus import EventBus
+from dodaios.cu.indicator import controller as controller_mod
+from dodaios.cu.indicator.controller import _ESC_HINTS, CUIndicatorController
+from dodaios.platform import probes
+from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 from tests.fakes.fake_quartz_tap import FakeQuartz
 from tests.fakes.fake_tcc import TccService, install_port, make_darwin_port
 

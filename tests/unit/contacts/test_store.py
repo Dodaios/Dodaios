@@ -1,6 +1,6 @@
 """Unit tests for ``ContactStore`` (Chunk A — Contract 1, frozen surface).
 
-Contract 1 (jarvis/contacts/store.py — do NOT change these signatures, Chunk B
+Contract 1 (dodaios/contacts/store.py — do NOT change these signatures, Chunk B
 consumes them):
 
     list_all() -> list[Contact]
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.contacts.store import Contact, ContactStore
+from dodaios.contacts.store import Contact, ContactStore
 
 
 @pytest.fixture()

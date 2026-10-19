@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.memory.wiki.constants import (
+from dodaios.memory.wiki.constants import (
     CANDIDATE_STATUSES,
     CURATOR_DECISIONS,
     FACT_BASES,
@@ -20,7 +20,7 @@ from jarvis.memory.wiki.constants import (
 )
 
 _MIGRATIONS_DIR = (
-    Path(__file__).resolve().parents[4] / "jarvis" / "memory" / "migrations"
+    Path(__file__).resolve().parents[4] / "dodaios" / "memory" / "migrations"
 )
 _MIGRATION = _MIGRATIONS_DIR / "0005_wiki_candidate_journal.sql"
 _BASIS_MIGRATION = _MIGRATIONS_DIR / "0009_wiki_candidate_basis.sql"
@@ -69,7 +69,7 @@ def test_telemetry_counter_names_follow_decisions() -> None:
 def test_decision_counters_are_pre_registered_in_default_counters() -> None:
     """B8: every quality counter shows up as 0 in a fresh snapshot, so the
     /api/wiki/telemetry dashboard never sees a key appear out of nowhere."""
-    from jarvis.memory.wiki.telemetry import DEFAULT_COUNTERS
+    from dodaios.memory.wiki.telemetry import DEFAULT_COUNTERS
 
     expected = {f"wiki_consolidator_{d}" for d in CURATOR_DECISIONS} | {
         "wiki_candidates_extracted",

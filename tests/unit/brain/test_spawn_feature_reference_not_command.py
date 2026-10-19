@@ -28,9 +28,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 class _FakeSpawnTool:
@@ -91,7 +91,7 @@ _FEATURE_REFERENCES = [
 
 @pytest.mark.parametrize("utterance", _FEATURE_REFERENCES)
 def test_feature_reference_predicate_matches(utterance: str) -> None:
-    from jarvis.brain.manager import _is_spawn_feature_reference
+    from dodaios.brain.manager import _is_spawn_feature_reference
 
     assert _is_spawn_feature_reference(utterance) is True
 
@@ -124,6 +124,6 @@ def test_explicit_spawn_command_still_force_spawns(utterance: str) -> None:
 
 @pytest.mark.parametrize("utterance", _EXPLICIT_COMMANDS)
 def test_explicit_command_is_not_a_feature_reference(utterance: str) -> None:
-    from jarvis.brain.manager import _is_spawn_feature_reference
+    from dodaios.brain.manager import _is_spawn_feature_reference
 
     assert _is_spawn_feature_reference(utterance) is False

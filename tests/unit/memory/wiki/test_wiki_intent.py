@@ -5,7 +5,7 @@ fixtures under test (closed-list categories 3+4).
 """
 import pytest
 
-from jarvis.memory.wiki.intent import match_wiki_intent
+from dodaios.memory.wiki.intent import match_wiki_intent
 
 
 @pytest.mark.parametrize("text", [

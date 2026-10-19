@@ -14,9 +14,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.platform import permission_service as service_module
-from jarvis.platform.permission_service import AppInfo, PermissionOutcome, PermissionService
-from jarvis.platform.permissions import APP_NAME, PermissionId, PermissionState
+from dodaios.platform import permission_service as service_module
+from dodaios.platform.permission_service import AppInfo, PermissionOutcome, PermissionService
+from dodaios.platform.permissions import APP_NAME, PermissionId, PermissionState
 from tests.fakes.fake_tcc import DMG_BUNDLE_ID, DialogPolicy, FakeTCC, TccService, install_port
 
 _MIC = PermissionId.MICROPHONE

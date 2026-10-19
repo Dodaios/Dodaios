@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import config_writer
+from dodaios.core import config_writer
 
 
 @pytest.fixture(autouse=True)

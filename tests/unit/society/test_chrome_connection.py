@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-from jarvis.society.browser.chrome import ChromeConnections
-from jarvis.society.browser.extension_session import ChromeSession
+from dodaios.society.browser.chrome import ChromeConnections
+from dodaios.society.browser.extension_session import ChromeSession
 
 
 class FakeSocket:
@@ -177,7 +177,7 @@ async def test_uncertain_action_stops_planner_trace_even_if_executor_catches_tim
 ):
     from types import SimpleNamespace
 
-    from jarvis.society.browser.live import LiveSessions
+    from dodaios.society.browser.live import LiveSessions
 
     connection = TimeoutAfterDispatch()
     session = await ChromeSession(

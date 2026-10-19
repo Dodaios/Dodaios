@@ -83,9 +83,9 @@ to a user's remote host, or prove that an actual vendor model used its image too
 
 | Area | Files |
 | --- | --- |
-| Scoped references and expiry | `jarvis/core/image_references.py` |
-| Upload intake | `jarvis/agent_chat/attachments.py`, `service.py` |
-| Conversation and tool routing | `jarvis/brain/manager.py`, `dispatcher.py`, `tool_use_loop.py`, `workspace_tool.py` |
-| Captures and live calls | `jarvis/plugins/tool/appshot.py`, `jarvis/live/tools.py`, `session.py`, `native.py`, `subscription.py` |
-| Work order and CLI delivery | `jarvis/agentic_ide/orchestration.py`, `control.py`, `session.py`, `visual_handoff.py` |
+| Scoped references and expiry | `dodaios/core/image_references.py` |
+| Upload intake | `dodaios/agent_chat/attachments.py`, `service.py` |
+| Conversation and tool routing | `dodaios/brain/manager.py`, `dispatcher.py`, `tool_use_loop.py`, `workspace_tool.py` |
+| Captures and live calls | `dodaios/plugins/tool/appshot.py`, `dodaios/live/tools.py`, `session.py`, `native.py`, `subscription.py` |
+| Work order and CLI delivery | `dodaios/agentic_ide/orchestration.py`, `control.py`, `session.py`, `visual_handoff.py` |
 | Regression evidence | `tests/contract/test_coding_image_handoff.py`, `tests/fakes/fake_visual_sftp.py`, `tests/unit/appshot/test_appshot_surfaces.py`, `tests/unit/live/test_subscription_session.py` |

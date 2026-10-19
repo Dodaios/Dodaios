@@ -6,7 +6,7 @@ import pytest
 
 pytest.importorskip("PySide6.QtWidgets")
 
-from jarvis.appshot.picker import renderer  # noqa: E402
+from dodaios.appshot.picker import renderer  # noqa: E402
 
 
 def test_release_capture_drops_frozen_pixels_and_blur_cache():

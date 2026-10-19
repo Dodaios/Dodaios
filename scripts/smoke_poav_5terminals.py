@@ -46,8 +46,8 @@ import win32con
 import win32gui
 import win32process
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import HarnessTask
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import HarnessTask
 
 N_TERMINALS = 5
 WT_PROC = "windowsterminal.exe"
@@ -168,9 +168,9 @@ async def main() -> int:
     # --- WIRE the Computer-Use system -------------------------------------
     print("\n[wire] build_default_brain (sets ComputerUseContext) ...")
     bus = EventBus()
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     build_default_brain(bus=bus)
-    from jarvis.plugins.harness.computer_use import ComputerUseHarness
+    from dodaios.plugins.harness.computer_use import ComputerUseHarness
     harness = ComputerUseHarness()
     if not await harness.health():
         print("[wire] ABORT: CU context unhealthy (vision/brain/executor).")

@@ -39,22 +39,22 @@ verification harness, the sign-off log, and the doc truth-up. This wave gates
     the expected observation, and a `PASS`/`FAIL`/`N/A` field:
     - **UI-element-click (macOS):** grant Accessibility (System Settings ›
       Privacy & Security › Accessibility), run `signoff_probe.py --feature ax`,
-      confirm the foreground app's `AXTreeSource` (`jarvis/vision/ax_tree.py`)
+      confirm the foreground app's `AXTreeSource` (`dodaios/vision/ax_tree.py`)
       returns non-empty `UIANode`s with canonical roles, then confirm a
       `click_element` by name lands. Verify the **degrade**: revoke the grant,
       confirm the English onboarding message fires and the loop falls back to the
       pixel path (AD-13).
     - **UI-element-click (Linux):** `apt install python3-pyatspi gir1.2-atspi-2.0`,
       ensure the AT-SPI bus is up, confirm `AtspiTreeSource`
-      (`jarvis/vision/atspi_tree.py`) returns a non-empty tree; then confirm the
+      (`dodaios/vision/atspi_tree.py`) returns a non-empty tree; then confirm the
       bus-unavailable degrade message + pixel fallback.
     - **Orb (macOS):** launch the desktop app, confirm `TkColorKeyOverlay`
-      (`jarvis/overlay/surface.py`) renders a *transparent* orb (no magenta box).
+      (`dodaios/overlay/surface.py`) renders a *transparent* orb (no magenta box).
     - **Orb (Linux):** confirm `LinuxBestEffortOverlay` transparency on a
       compositor, and confirm the `TrayOnlySurface` fallback shows a state-colored
       tray icon on Wayland / non-compositing.
     - **Hotkey capture (macOS):** grant Input-Monitoring, confirm the `pynput`
-      backend (`jarvis/trigger/backends/pynput.py`) actually receives the
+      backend (`dodaios/trigger/backends/pynput.py`) actually receives the
       configured combo; confirm the "registered but zero events → grant
       Input-Monitoring" detection fires when the grant is missing (AD-8).
     - **Hotkey capture (Linux X11):** confirm capture; on Wayland confirm the
@@ -120,7 +120,7 @@ verification harness, the sign-off log, and the doc truth-up. This wave gates
 - **Acceptance criteria:**
   - `grep -n "Global-hotkey wake, Orb overlay" README.md` no longer shows "— | — | ✅" (the Linux/macOS cells now carry a badge, not a dash).
   - `grep -n "CI-verified\|live-verified\|unverified-on-real-desktop" README.md` matches in the capability-matrix section.
-  - `npm run build` is **not** required (docs only); `python -c "import jarvis"` still clean.
+  - `npm run build` is **not** required (docs only); `python -c "import dodaios"` still clean.
 
 ### 4.4 — Update CLAUDE.md cross-platform status + supersession pointers
 
@@ -130,9 +130,9 @@ verification harness, the sign-off log, and the doc truth-up. This wave gates
   - CLAUDE.md's "Windows specifics" and "Optional power-user extras" framing
     currently treats Terminal/Hotkey/Orb/UI-element-click/Admin as Windows-only
     power-user extras. Add a paragraph (or a small table) recording that these are
-    now cross-platform behind the `jarvis/platform/` seam, with the per-feature
+    now cross-platform behind the `dodaios/platform/` seam, with the per-feature
     verification status pointing at `SIGNOFF-LOG.md`, and reference ADR-0020
-    (which supersedes ADR-0001) and the `jarvis/platform/` capability module
+    (which supersedes ADR-0001) and the `dodaios/platform/` capability module
     (AD-5).
   - Note the new dependency-grouping reality (AD-14): `pynput`+`ptyprocess` in
     `[desktop]`, `pyobjc-*` in `[desktop-macos]`, `pyatspi` as a distro
@@ -141,7 +141,7 @@ verification harness, the sign-off log, and the doc truth-up. This wave gates
     desktop extras; they remain opt-in and degrade gracefully (the new labels just
     say *which* of them now work on Mac/Linux, not that they are required).
 - **Acceptance criteria:**
-  - `grep -n "ADR-0020\|jarvis/platform\|SIGNOFF-LOG" CLAUDE.md` matches.
+  - `grep -n "ADR-0020\|dodaios/platform\|SIGNOFF-LOG" CLAUDE.md` matches.
   - `grep -n "pyatspi" CLAUDE.md` matches (the "do not pip-install pyatspi" guidance is recorded, defending AD-14).
   - The doctrine's "base install boots on a headless `python:3.11-slim`" claim is unchanged and still true (no new base dependency was added — all ports are extras-gated).
 

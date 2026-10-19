@@ -21,9 +21,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 def _seed_vault(vault: Path) -> None:
@@ -81,9 +81,9 @@ def test_full_flow_tree_page_graph_search_backlinks(
     # shared real data/jarvis.db and is non-hermetic).
     import sqlite3
 
-    fts_index = pytest.importorskip("jarvis.memory.wiki.fts_index")
+    fts_index = pytest.importorskip("dodaios.memory.wiki.fts_index")
     db = tmp_path / "fts.db"
-    monkeypatch.setattr("jarvis.memory.wiki.search._default_db_path", lambda: db)
+    monkeypatch.setattr("dodaios.memory.wiki.search._default_db_path", lambda: db)
     conn = sqlite3.connect(str(db))
     try:
         fts_index.index_vault(tmp_path / "vault", conn)

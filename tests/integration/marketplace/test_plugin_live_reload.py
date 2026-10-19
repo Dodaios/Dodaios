@@ -1,9 +1,9 @@
 import pytest
 
-from jarvis.marketplace import plugin_shared
-from jarvis.marketplace.catalog import PluginCatalog, PluginSpec
-from jarvis.marketplace.plugin_registry import PluginToolRegistry
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.marketplace import plugin_shared
+from dodaios.marketplace.catalog import PluginCatalog, PluginSpec
+from dodaios.marketplace.plugin_registry import PluginToolRegistry
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 
 
 class _FakeClient:
@@ -26,7 +26,7 @@ def _plugin():
 
 @pytest.mark.asyncio
 async def test_connect_then_refresh_exposes_tool_via_loader():
-    from jarvis.marketplace.plugin_loader import PluginToolLoader
+    from dodaios.marketplace.plugin_loader import PluginToolLoader
 
     store = TokenStore(InMemoryBackend())
     catalog = PluginCatalog(version=1, schema_version="1", plugins=[_plugin()])

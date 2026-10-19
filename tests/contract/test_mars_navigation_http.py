@@ -20,23 +20,23 @@ from click.testing import CliRunner
 from fastapi import FastAPI, HTTPException
 from starlette.datastructures import State
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.society.mars.definition import load_definition
-from jarvis.society.mars.models import StationCommand
-from jarvis.society.mars.navigation_models import MoveCommand, NavigationState
-from jarvis.society.mars.navigation_ordinary import OrdinaryNavigationAuthority
-from jarvis.society.mars.navigation_service import MarsNavigationService
-from jarvis.society.mars.navigation_store import MarsNavigationStore
-from jarvis.society.roster import Roster
-from jarvis.society.store import SocietyStore
-from jarvis.ui.web.mars_routes import (
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.society.mars.definition import load_definition
+from dodaios.society.mars.models import StationCommand
+from dodaios.society.mars.navigation_models import MoveCommand, NavigationState
+from dodaios.society.mars.navigation_ordinary import OrdinaryNavigationAuthority
+from dodaios.society.mars.navigation_service import MarsNavigationService
+from dodaios.society.mars.navigation_store import MarsNavigationStore
+from dodaios.society.roster import Roster
+from dodaios.society.store import SocietyStore
+from dodaios.ui.web.mars_routes import (
     ensure_mars_navigation,
     ensure_mars_station,
     router,
     schedule_mars_resume,
     stop_mars_station,
 )
-from jarvis.ui.web.surface_security import SurfaceSecurity
+from dodaios.ui.web.surface_security import SurfaceSecurity
 
 pytestmark = pytest.mark.no_auto_web_auth
 
@@ -95,7 +95,7 @@ class FixtureStationExecutor:
 
 
 def shell(data_dir, monkeypatch):
-    import jarvis.society.mars.ordinary as ordinary
+    import dodaios.society.mars.ordinary as ordinary
 
     runtime = RosterRuntime(data_dir)
     executor = FixtureStationExecutor(runtime)
@@ -375,7 +375,7 @@ async def test_navigation_journal_alone_resumes_without_http_client(tmp_path, mo
 
 
 def test_navigation_openapi_models_are_typed_and_dynamic_cli_reaches_routes():
-    from jarvis.cli_ctl.dynamic import build_api_group
+    from dodaios.cli_ctl.dynamic import build_api_group
 
     app = FastAPI()
     app.include_router(router)

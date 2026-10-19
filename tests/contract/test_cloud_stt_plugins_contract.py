@@ -8,7 +8,7 @@ had no cloud speech-to-text) satisfy the ``STTProvider`` structural contract:
   * ``supports_streaming`` exists and ``transcribe`` / ``stream_transcribe`` /
     ``transcribe_pcm`` have the right async shapes,
   * a constructed instance is a runtime ``STTProvider``,
-  * the plugin module imports NO ``jarvis.*`` at module load time (entry-point
+  * the plugin module imports NO ``dodaios.*`` at module load time (entry-point
     plugins stay import-clean; the credential lookup may import lazily inside a
     method, mirroring the OpenRouter STT plugin).
 
@@ -24,15 +24,15 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.protocols import STTProvider
-from jarvis.plugins.stt.deepgram_api import DeepgramSTT
-from jarvis.plugins.stt.gemini_api import GeminiSTT
-from jarvis.plugins.stt.openai_api import OpenAIWhisperAPI
+from dodaios.core.protocols import STTProvider
+from dodaios.plugins.stt.deepgram_api import DeepgramSTT
+from dodaios.plugins.stt.gemini_api import GeminiSTT
+from dodaios.plugins.stt.openai_api import OpenAIWhisperAPI
 
 _CASES = [
-    ("openai-api", OpenAIWhisperAPI, "jarvis.plugins.stt.openai_api"),
-    ("gemini-api", GeminiSTT, "jarvis.plugins.stt.gemini_api"),
-    ("deepgram-api", DeepgramSTT, "jarvis.plugins.stt.deepgram_api"),
+    ("openai-api", OpenAIWhisperAPI, "dodaios.plugins.stt.openai_api"),
+    ("gemini-api", GeminiSTT, "dodaios.plugins.stt.gemini_api"),
+    ("deepgram-api", DeepgramSTT, "dodaios.plugins.stt.deepgram_api"),
 ]
 
 
@@ -63,7 +63,7 @@ def test_deepgram_instance_is_stt_provider() -> None:
 
 @pytest.mark.parametrize("name,_cls,mod_name", _CASES)
 def test_plugin_module_has_no_top_level_jarvis_import(name, _cls, mod_name) -> None:
-    """No ``jarvis.*`` import at MODULE level (column 0). A lazy import inside a
+    """No ``dodaios.*`` import at MODULE level (column 0). A lazy import inside a
     method is allowed — the OpenRouter STT plugin does the same for its
     credential lookup."""
     mod = importlib.import_module(mod_name)
@@ -73,8 +73,8 @@ def test_plugin_module_has_no_top_level_jarvis_import(name, _cls, mod_name) -> N
         for ln in source.splitlines()
         # Only flag top-level (unindented) import statements.
         if ln[:1] not in (" ", "\t")
-        and ln.startswith(("from jarvis", "import jarvis"))
+        and ln.startswith(("from dodaios", "import dodaios"))
     ]
     assert not offending, (
-        f"top-level jarvis.* imports leaked into {mod_name}: " + "; ".join(offending)
+        f"top-level dodaios.* imports leaked into {mod_name}: " + "; ".join(offending)
     )

@@ -169,18 +169,18 @@ async def run() -> int:
     langs = {x.strip() for x in args.langs.split(",") if x.strip()}
     scenarios = tuple(s for s in SCENARIOS if s.lang in langs)
 
-    from jarvis.brain import manager as _manager
-    from jarvis.brain.factory import build_default_brain
-    from jarvis.brain.output_filter import scrub_for_voice
-    from jarvis.brain.persona_loader import invalidate_cache, load_effective_persona_prompt
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import load_config
+    from dodaios.brain import manager as _manager
+    from dodaios.brain.factory import build_default_brain
+    from dodaios.brain.output_filter import scrub_for_voice
+    from dodaios.brain.persona_loader import invalidate_cache, load_effective_persona_prompt
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import load_config
 
     cfg = load_config(REPO / "jarvis.toml")
     invalidate_cache()
 
     if args.persona_file:
-        from jarvis.brain.persona_loader import _extract_fence_after_marker
+        from dodaios.brain.persona_loader import _extract_fence_after_marker
 
         file_text = Path(args.persona_file).read_text(encoding="utf-8")  # noqa: ASYNC240 — one-shot script setup read
         # A full JARVIS_PERSONA.md carries the prompt inside the fence after the

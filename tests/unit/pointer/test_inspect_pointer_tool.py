@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from jarvis.plugins.tool.inspect_pointer import InspectPointerTool
-from jarvis.pointer.context import PointerContext
-from jarvis.vision.pointer_types import PointerElement
+from dodaios.plugins.tool.inspect_pointer import InspectPointerTool
+from dodaios.pointer.context import PointerContext
+from dodaios.vision.pointer_types import PointerElement
 
 
 def test_metadata_is_safe_router_tool() -> None:

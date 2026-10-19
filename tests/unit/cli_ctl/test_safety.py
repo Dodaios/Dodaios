@@ -1,4 +1,4 @@
-"""Unit tests for the mutation safety gate (jarvis.cli_ctl.safety).
+"""Unit tests for the mutation safety gate (dodaios.cli_ctl.safety).
 
 Model: reads and reversible mutations proceed without friction; only destructive
 requests (DELETE + denylist, or an explicit dangerous=True) require --yes.
@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 import typer
 
-from jarvis.cli_ctl import safety
+from dodaios.cli_ctl import safety
 
 
 def test_is_mutating():

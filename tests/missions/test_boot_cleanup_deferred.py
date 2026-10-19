@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.missions.init import _BOOT_BACKGROUND_TASKS, _spawn_boot_cleanup
+from dodaios.missions.init import _BOOT_BACKGROUND_TASKS, _spawn_boot_cleanup
 
 
 async def test_spawn_runs_concurrently_tracked_then_self_discards() -> None:

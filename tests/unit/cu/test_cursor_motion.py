@@ -1,7 +1,7 @@
 """Computer-Use cursor latency defaults and the verified landing seam."""
 
-from jarvis.control import cursor_motion
-from jarvis.core.config import ComputerUseConfig
+from dodaios.control import cursor_motion
+from dodaios.core.config import ComputerUseConfig
 
 
 def test_default_cursor_move_lands_once_without_animation(monkeypatch):

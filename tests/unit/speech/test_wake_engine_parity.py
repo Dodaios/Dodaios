@@ -3,7 +3,7 @@
 ``engine`` is a string that crosses Python -> TOML -> Pydantic -> TypeScript ->
 UI dropdown. Per docs/anti-drift-three-layer.md the frontend constant
 (``wakeEngines.ts``) must list exactly the same values as
-``jarvis/speech/wake_constants.WAKE_ENGINES``, or the Settings dropdown silently
+``dodaios/speech/wake_constants.WAKE_ENGINES``, or the Settings dropdown silently
 drifts from what the backend accepts (BUG-008 class).
 """
 from __future__ import annotations
@@ -11,11 +11,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.speech.wake_constants import WAKE_ENGINES
+from dodaios.speech.wake_constants import WAKE_ENGINES
 
 _TS = (
     Path(__file__).resolve().parents[3]
-    / "jarvis"
+    / "dodaios"
     / "ui"
     / "web"
     / "frontend"

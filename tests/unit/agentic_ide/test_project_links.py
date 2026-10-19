@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import project_links
+from dodaios.agentic_ide import project_links
 
 
 @pytest.mark.parametrize(

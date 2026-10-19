@@ -19,16 +19,16 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.tools import (
+from dodaios.brain.tools import (
     SELF_MOD_TOOL_NAMES,
     GetConfigValueTool,
     ListMutableSettingsTool,
     SetConfigValueTool,
     build_self_mod_tools,
 )
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.core.self_mod import (
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.core.self_mod import (
     AtomicConfigWriter,
     PendingMutation,
     PendingMutationStore,
@@ -228,7 +228,7 @@ class TestListMutableSettings:
         """Defense-in-depth: even if a forbidden path accidentally
         ended up in ALLOWED, the current_value in the output would still be redacted."""
         # Synthetic test — direct _maybe_redact function call:
-        from jarvis.brain.tools.self_mod_tools import _maybe_redact
+        from dodaios.brain.tools.self_mod_tools import _maybe_redact
 
         assert _maybe_redact("tts.provider", "elevenlabs") == "elevenlabs"
         assert _maybe_redact("openai_api_key", "sk-1234") == "***"
@@ -480,10 +480,10 @@ class TestSetConfigValuePreValidate:
         # via a patched JarvisConfig loader.
         from unittest.mock import patch
 
-        from jarvis.core.self_mod import schema as sm_schema  # noqa: F401
+        from dodaios.core.self_mod import schema as sm_schema  # noqa: F401
 
         with patch(
-            "jarvis.core.self_mod.writer.JarvisConfig.model_validate",
+            "dodaios.core.self_mod.writer.JarvisConfig.model_validate",
             side_effect=ValueError("forced pre-validate failure"),
         ):
             result = _exec(
@@ -548,7 +548,7 @@ class TestPendingStoreLifecycle:
 
         We set the TTL small and trigger cleanup.
         """
-        from jarvis.core.self_mod import MutationRequest
+        from dodaios.core.self_mod import MutationRequest
 
         store = PendingMutationStore(writer=writer, ttl_seconds=0.05)
         request = MutationRequest(
@@ -602,7 +602,7 @@ class TestToolVisibility:
         with ``tier="router"``), and the Jarvis-Agent worker has no access
         to the router's tool set (subprocess boundary).
         """
-        from jarvis.brain.factory import ROUTER_TOOLS, SELF_MOD_TOOL_NAMES_ROUTER
+        from dodaios.brain.factory import ROUTER_TOOLS, SELF_MOD_TOOL_NAMES_ROUTER
 
         # Self-mod tools are explicitly OUTSIDE the entry_points set,
         # which is why they are NOT in ROUTER_TOOLS — they come in via the
@@ -654,8 +654,8 @@ class TestFactory:
         SAFE-tier write dispatches ConfigReloaded -> the BrainManager language
         hot-reload. Without the bus, a voice "switch to English" only takes
         effect after a restart (the exact "self-mod doesn't work" symptom)."""
-        from jarvis.core.events import ConfigReloaded
-        from jarvis.core.self_mod import MutationRequest
+        from dodaios.core.events import ConfigReloaded
+        from dodaios.core.self_mod import MutationRequest
 
         captured: list[Any] = []
 

@@ -8,8 +8,8 @@ only migrate when the cursor's monitor actually changes.
 """
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar import interaction, renderer
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar import interaction, renderer
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 # --------------------------------------------------------------------------- #
@@ -108,7 +108,7 @@ class _FakeRect:
 
 
 def test_qt_migrates_to_the_cursor_monitor(monkeypatch):
-    from jarvis.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
+    from dodaios.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
 
     bar = QtJarvisBarOverlay.__new__(QtJarvisBarOverlay)
     bar._window = object()
@@ -145,7 +145,7 @@ def test_qt_migrates_to_the_cursor_monitor(monkeypatch):
 
 
 def test_qt_no_migration_when_monitor_unchanged(monkeypatch):
-    from jarvis.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
+    from dodaios.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
 
     bar = QtJarvisBarOverlay.__new__(QtJarvisBarOverlay)
     bar._window = object()
@@ -166,8 +166,8 @@ def test_qt_no_migration_when_monitor_unchanged(monkeypatch):
 # Cross-platform monitor probe (Tk path)                                      #
 # --------------------------------------------------------------------------- #
 def test_work_area_at_returns_none_under_wayland(monkeypatch):
-    import jarvis.platform.monitors as monitors
-    import jarvis.platform.probes as probes
+    import dodaios.platform.monitors as monitors
+    import dodaios.platform.probes as probes
 
     monkeypatch.setattr(monitors.sys, "platform", "linux")
     monkeypatch.setattr(probes, "is_wayland", lambda: True)
@@ -175,7 +175,7 @@ def test_work_area_at_returns_none_under_wayland(monkeypatch):
 
 
 def test_x11_work_area_at_picks_the_monitor_under_the_point(monkeypatch):
-    import jarvis.platform.monitors as monitors
+    import dodaios.platform.monitors as monitors
 
     xrandr_out = (
         "Screen 0: minimum 320 x 200, current 5760 x 2160\n"
@@ -196,7 +196,7 @@ def test_x11_work_area_at_picks_the_monitor_under_the_point(monkeypatch):
 
 
 def test_x11_work_area_at_none_when_xrandr_missing(monkeypatch):
-    import jarvis.platform.monitors as monitors
+    import dodaios.platform.monitors as monitors
 
     monkeypatch.setattr(monitors.shutil, "which", lambda name: None)
     assert monitors._x11_work_area_at(0, 0) is None

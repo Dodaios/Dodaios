@@ -1,4 +1,4 @@
-"""Dedicated Computer-Use provider dispatch (jarvis/cu/brain_call.py).
+"""Dedicated Computer-Use provider dispatch (dodaios/cu/brain_call.py).
 
 Covers the CU-own-provider hoist: ``manager._cu_provider()``, when it returns
 a configured provider id, must be hoisted to the HEAD of the
@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.core.protocols import BrainDelta, ImageBlock
-from jarvis.cu.brain_call import call_vision_brain
+from dodaios.core.protocols import BrainDelta, ImageBlock
+from dodaios.cu.brain_call import call_vision_brain
 
 
 class _FakeBrain:
@@ -202,7 +202,7 @@ class _PinAwareManager(_FakeManager):
 def _patch_speed_tune_catalog(monkeypatch) -> None:
     """Make the speed tune deterministic: every provider has a known fast
     vision sibling, and no configured model counts as fast-class."""
-    import jarvis.brain.model_catalog as catalog
+    import dodaios.brain.model_catalog as catalog
 
     monkeypatch.setattr(catalog, "model_capabilities", lambda p, m: {})
     monkeypatch.setattr(catalog, "is_fast_class_model", lambda m: False)
@@ -271,12 +271,12 @@ async def test_serving_brain_logged_once_per_identity(caplog) -> None:
     """
     import logging
 
-    import jarvis.cu.brain_call as brain_call
+    import dodaios.cu.brain_call as brain_call
 
     brain_call._serving_logged = None
     manager = _FakeManager(cu_provider="")
 
-    with caplog.at_level(logging.INFO, logger="jarvis.cu.brain_call"):
+    with caplog.at_level(logging.INFO, logger="dodaios.cu.brain_call"):
         await call_vision_brain(manager, build_prompt=_build_prompt, images=[])
         await call_vision_brain(manager, build_prompt=_build_prompt, images=[])
 
@@ -286,7 +286,7 @@ async def test_serving_brain_logged_once_per_identity(caplog) -> None:
 
     caplog.clear()
     switched = _FakeManager(cu_provider="claude-api")
-    with caplog.at_level(logging.INFO, logger="jarvis.cu.brain_call"):
+    with caplog.at_level(logging.INFO, logger="dodaios.cu.brain_call"):
         await call_vision_brain(switched, build_prompt=_build_prompt, images=[])
 
     serving = [r for r in caplog.records if "served by" in r.getMessage()]

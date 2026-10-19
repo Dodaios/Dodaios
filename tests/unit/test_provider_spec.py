@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from urllib.parse import urlsplit
 
-from jarvis.setup.wizard import SECRETS
-from jarvis.ui.web.provider_spec import (
+from dodaios.setup.wizard import SECRETS
+from dodaios.ui.web.provider_spec import (
     PROVIDERS,
     AltCredential,
     ProviderSpec,
@@ -82,7 +82,7 @@ def test_none_specs_never_require_credentials() -> None:
     """auth_mode "none" bills as "local" and must never DEMAND a credential.
     OPTIONAL secret slots are allowed (local-openai's vLLM --api-key case) —
     is_credential_present reports none-cards as configured either way."""
-    from jarvis.ui.web.provider_spec import provider_billing
+    from dodaios.ui.web.provider_spec import provider_billing
 
     for spec in PROVIDERS:
         if spec.auth_mode == "none":
@@ -118,7 +118,7 @@ def test_all_secret_keys_collects_unique_set() -> None:
     assert "openai_api_key" in keys
     # ElevenLabs is a first-class, selectable TTS provider (see the elevenlabs
     # ProviderSpec with tier="tts"). It has a mature plugin
-    # (jarvis/plugins/tts/elevenlabs_tts.py), a factory branch, cross-family
+    # (dodaios/plugins/tts/elevenlabs_tts.py), a factory branch, cross-family
     # fallback wiring, TOML defaults, and is named as a cloud-TTS default in
     # docs/PHILOSOPHY.md — so its credential slot MUST be surfaced. (This
     # reverses an earlier "dead code" snapshot from before it was wired into

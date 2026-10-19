@@ -1,6 +1,6 @@
 """Every registered tool entry point must actually be reachable.
 
-``jarvis/diagnostics/doctor.py`` already checks one direction: every name in
+``dodaios/diagnostics/doctor.py`` already checks one direction: every name in
 ``ROUTER_TOOLS`` resolves to a registered tool. Nothing checked the REVERSE, and
 that is where a phantom lives: ``spawn-skill-author`` sat in ``pyproject.toml``
 for months while being absent from ``ROUTER_TOOLS``, so ``factory.py`` filtered
@@ -19,7 +19,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from jarvis.brain.factory import ROUTER_TOOLS
+from dodaios.brain.factory import ROUTER_TOOLS
 
 REPO = Path(__file__).resolve().parents[3]
 
@@ -27,7 +27,7 @@ REPO = Path(__file__).resolve().parents[3]
 #: names why, because an unexplained exemption is how the next phantom hides.
 INTERNAL_ONLY: dict[str, str] = {
     # Loaded into the hidden local-action tool dict by
-    # jarvis/brain/factory.py::_load_local_action_tools — deterministic
+    # dodaios/brain/factory.py::_load_local_action_tools — deterministic
     # execution only, never offered to the model (that is the whole point of the
     # local-action gate).
     "dispatch-to-harness": "local-action tool set, never model-visible",
@@ -36,7 +36,7 @@ INTERNAL_ONLY: dict[str, str] = {
     "hotkey": "local-action tool set, never model-visible",
     "reset-orb-position": "local-action tool set, never model-visible",
     # Attached by the router only when a turn is about the screen
-    # (jarvis/brain/vision_gate.py), so it is not a static ROUTER_TOOLS member.
+    # (dodaios/brain/vision_gate.py), so it is not a static ROUTER_TOOLS member.
     "screenshot": "gated per-turn by the vision gate",
     "live-screen-snapshot": "added as screen_snapshot by the live ToolGateway",
 }
@@ -148,7 +148,7 @@ def test_the_dead_tool_still_documents_why_it_is_unwired() -> None:
     Without the warning the obvious "fix" is to add the name to ROUTER_TOOLS,
     which raises TypeError at tool load rather than working.
     """
-    import jarvis.brain.tools.skill_authoring as module
+    import dodaios.brain.tools.skill_authoring as module
 
     doc = module.__doc__ or ""
     assert "NOT WIRED" in doc

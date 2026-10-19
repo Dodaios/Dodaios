@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.clis.catalog import CliCatalog
-from jarvis.clis.prober import CliStatusProber
+from dodaios.clis.catalog import CliCatalog
+from dodaios.clis.prober import CliStatusProber
 
 
 @pytest.mark.asyncio

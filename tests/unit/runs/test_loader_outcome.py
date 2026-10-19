@@ -1,7 +1,7 @@
 """RunLoader must attach outcome (success/partial/failed) + activity to runs."""
-from jarvis.clis.usage_log import UsageLog
-from jarvis.runs.loader import RunLoader
-from jarvis.sessions.store import SessionStore
+from dodaios.clis.usage_log import UsageLog
+from dodaios.runs.loader import RunLoader
+from dodaios.sessions.store import SessionStore
 
 
 def _loader(store, tmp_path):

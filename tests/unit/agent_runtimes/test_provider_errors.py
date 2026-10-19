@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_runtimes import gateway, provider_errors
-from jarvis.agent_runtimes.provider_errors import classify, login_refusal
+from dodaios.agent_runtimes import gateway, provider_errors
+from dodaios.agent_runtimes.provider_errors import classify, login_refusal
 
 
 class ProviderStatusError(Exception):
@@ -259,10 +259,10 @@ def test_the_gateway_reports_the_refusal_not_a_rate_limit() -> None:
 
 async def test_a_claude_login_429_is_explained_from_the_usage_report(monkeypatch) -> None:
     """The gateway's own plugin path: login answers, Anthropic says 429."""
-    import jarvis.agent_runtimes.model_map as model_map
-    import jarvis.core.config as config
-    import jarvis.plugins.brain.claude_api as claude_api
-    from jarvis.core.protocols import BrainMessage, BrainRequest
+    import dodaios.agent_runtimes.model_map as model_map
+    import dodaios.core.config as config
+    import dodaios.plugins.brain.claude_api as claude_api
+    from dodaios.core.protocols import BrainMessage, BrainRequest
 
     class RefusingBrain:
         def __init__(self, model: str | None = None, *, auth_token: str | None = None) -> None:
@@ -315,7 +315,7 @@ async def test_a_non_streaming_subscription_answer_keeps_its_output(monkeypatch)
 
 
 def test_a_route_refuses_a_blocked_claude_login_before_the_runtime_starts(monkeypatch) -> None:
-    import jarvis.agent_runtimes.model_map as model_map
+    import dodaios.agent_runtimes.model_map as model_map
 
     monkeypatch.setattr(model_map, "login_token_for", lambda provider, account: _BEARER)
     blocked = provider_errors._extra_usage_off
@@ -325,7 +325,7 @@ def test_a_route_refuses_a_blocked_claude_login_before_the_runtime_starts(monkey
 
 
 def test_an_api_key_route_never_reads_the_login(monkeypatch) -> None:
-    import jarvis.agent_runtimes.model_map as model_map
+    import dodaios.agent_runtimes.model_map as model_map
 
     monkeypatch.setattr(model_map, "login_token_for", lambda provider, account: None)
     model_map._check_login_billing("claude-api", "claude-haiku-4-5", "api-key")

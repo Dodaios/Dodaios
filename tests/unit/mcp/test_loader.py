@@ -1,4 +1,4 @@
-"""Unit tests for jarvis.mcp.loader.McpToolLoader.
+"""Unit tests for dodaios.mcp.loader.McpToolLoader.
 
 TDD: written before the implementation — expect RED until McpToolLoader exists.
 
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core import runtime_refs
+from dodaios.core import runtime_refs
 
 # ---------------------------------------------------------------------------
 # Fake helpers
@@ -63,7 +63,7 @@ def _reset_refs():
     capabilities across tests and pollutes cross-file routing tests that rely
     on resolve_intent() returning None for generic utterances.
     """
-    from jarvis.core.capabilities import _reset_registry_for_tests
+    from dodaios.core.capabilities import _reset_registry_for_tests
 
     runtime_refs._reset_for_tests()
     yield
@@ -84,7 +84,7 @@ def test_expand_returns_adapter_for_each_tool() -> None:
     fake_registry = _FakeRegistry({"notebooklm-mcp": fake_client})
     runtime_refs.set_mcp_registry(fake_registry)
 
-    from jarvis.mcp.loader import McpToolLoader
+    from dodaios.mcp.loader import McpToolLoader
 
     result = McpToolLoader().expand()
 
@@ -95,7 +95,7 @@ def test_expand_returns_adapter_for_each_tool() -> None:
 def test_expand_returns_empty_when_no_registry() -> None:
     """expand() returns [] when runtime_refs holds no MCPRegistry (None)."""
     # _reset_refs fixture ensures get_mcp_registry() returns None.
-    from jarvis.mcp.loader import McpToolLoader
+    from dodaios.mcp.loader import McpToolLoader
 
     result = McpToolLoader().expand()
 
@@ -106,7 +106,7 @@ def test_expand_returns_empty_when_active_clients_raises() -> None:
     """expand() returns [] — never propagates — when active_clients() raises."""
     runtime_refs.set_mcp_registry(_RaisingRegistry())
 
-    from jarvis.mcp.loader import McpToolLoader
+    from dodaios.mcp.loader import McpToolLoader
 
     result = McpToolLoader().expand()
 
@@ -130,7 +130,7 @@ def test_expand_multiple_clients_and_tools() -> None:
         _FakeRegistry({"server-a": client_a, "server-b": client_b})
     )
 
-    from jarvis.mcp.loader import McpToolLoader
+    from dodaios.mcp.loader import McpToolLoader
 
     result = McpToolLoader().expand()
 
@@ -142,7 +142,7 @@ def test_expand_empty_active_clients() -> None:
     """expand() returns [] when the registry has no active clients."""
     runtime_refs.set_mcp_registry(_FakeRegistry({}))
 
-    from jarvis.mcp.loader import McpToolLoader
+    from dodaios.mcp.loader import McpToolLoader
 
     result = McpToolLoader().expand()
 
@@ -151,7 +151,7 @@ def test_expand_empty_active_clients() -> None:
 
 def test_loader_attributes() -> None:
     """McpToolLoader must declare is_virtual_loader=True and risk_tier='block'."""
-    from jarvis.mcp.loader import McpToolLoader
+    from dodaios.mcp.loader import McpToolLoader
 
     loader = McpToolLoader()
     assert loader.is_virtual_loader is True

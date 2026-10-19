@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.missions.isolation.worktree import (
+from dodaios.missions.isolation.worktree import (
     resolve_outputs_root,
     resolve_readable_outputs_roots,
 )

@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide import conversation
-from jarvis.agentic_ide.prompt_blueprint import system_prompt, user_block
-from jarvis.agentic_ide.task_kind import (
+from dodaios.agentic_ide import conversation
+from dodaios.agentic_ide.prompt_blueprint import system_prompt, user_block
+from dodaios.agentic_ide.task_kind import (
     KIND_IMPLEMENT,
     KIND_INVESTIGATE,
     KIND_NEUTRAL,
@@ -86,8 +86,8 @@ def test_user_block_carries_the_conversation_and_keeps_it_before_the_request():
         terminal_name="T2",
         agent_display="Claude Code",
         profile_lines=["Folder: /repo"],
-        candidates=["jarvis/stt.py"],
-        skeletons={"jarvis/stt.py": "def transcribe(): ..."},
+        candidates=["dodaios/stt.py"],
+        skeletons={"dodaios/stt.py": "def transcribe(): ..."},
         house_rules="",
         conversation=(
             ("user", "wie können wir die Transkription schärfen?"),

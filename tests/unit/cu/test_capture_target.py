@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.cu import capture as capture_mod
-from jarvis.cu.capture import select_capture_target
-from jarvis.cu.geometry import MonitorInfo
-from jarvis.platform import window_state as ws
-from jarvis.platform.window_state import WindowInfo
+from dodaios.cu import capture as capture_mod
+from dodaios.cu.capture import select_capture_target
+from dodaios.cu.geometry import MonitorInfo
+from dodaios.platform import window_state as ws
+from dodaios.platform.window_state import WindowInfo
 
 MONITOR = MonitorInfo(left=-3840, top=0, width=3840, height=2160, name="left-4k")
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from twilio.request_validator import RequestValidator
 
-from jarvis.telephony.security import (
+from dodaios.telephony.security import (
     constant_time_equals,
     generate_call_secret,
     public_url_for,

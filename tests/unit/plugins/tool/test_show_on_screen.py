@@ -7,10 +7,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.events import VoiceContentShown
-from jarvis.live import runtime
-from jarvis.plugins.tool import show_on_screen
-from jarvis.plugins.tool.show_on_screen import MAX_MARKDOWN_CHARS, ShowOnScreenTool
+from dodaios.core.events import VoiceContentShown
+from dodaios.live import runtime
+from dodaios.plugins.tool import show_on_screen
+from dodaios.plugins.tool.show_on_screen import MAX_MARKDOWN_CHARS, ShowOnScreenTool
 
 _TABLE = "| file | lines |\n|---|---|\n| app.py | 12 |"
 
@@ -83,8 +83,8 @@ async def test_the_runtime_reports_a_call_that_is_not_running() -> None:
 
 @pytest.mark.asyncio
 async def test_a_call_keeps_shown_content_in_its_record_after_the_last_words(tmp_path) -> None:
-    from jarvis.live.session import LiveVoiceSession
-    from jarvis.live.state import LiveLedger, TranscriptFragment
+    from dodaios.live.session import LiveVoiceSession
+    from dodaios.live.state import LiveLedger, TranscriptFragment
 
     ledger = LiveLedger(tmp_path / "live.sqlite3")
     bus = RecordingBus()
@@ -105,8 +105,8 @@ async def test_a_call_keeps_shown_content_in_its_record_after_the_last_words(tmp
 
 @pytest.mark.asyncio
 async def test_a_title_or_id_finds_one_conversation(monkeypatch) -> None:
-    from jarvis.core import runtime_refs
-    from jarvis.plugins.tool import navigate
+    from dodaios.core import runtime_refs
+    from dodaios.plugins.tool import navigate
 
     class Store:
         def list_sessions(self, limit: int, *, surface: str):

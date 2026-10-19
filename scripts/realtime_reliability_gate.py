@@ -403,8 +403,8 @@ class _FiniteWire:
         self._turns = turns
 
     async def receive(self):  # noqa: ANN201 - protocol async generator
-        from jarvis.core.protocols import AudioChunk
-        from jarvis.realtime.protocol import RealtimeEvent
+        from dodaios.core.protocols import AudioChunk
+        from dodaios.realtime.protocol import RealtimeEvent
 
         for turn in range(self._turns):
             turn_id = f"c{self._connection_index}-t{turn}"
@@ -618,9 +618,9 @@ async def _open_session(
     brain: Any | None = None,
     bus: Any | None = None,
 ) -> tuple[Any, list[Any]]:
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import RealtimeSessionPostmortem
-    from jarvis.realtime.session import RealtimeVoiceSession
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import RealtimeSessionPostmortem
+    from dodaios.realtime.session import RealtimeVoiceSession
 
     bus = bus or EventBus()
     postmortems: list[Any] = []
@@ -682,8 +682,8 @@ async def _run_finite_connection(
 
 
 async def _barge_sample(index: int) -> float:
-    from jarvis.core.protocols import AudioChunk
-    from jarvis.realtime.protocol import RealtimeEvent
+    from dodaios.core.protocols import AudioChunk
+    from dodaios.realtime.protocol import RealtimeEvent
 
     provider = _QueueProvider()
     surface = _Surface()
@@ -736,7 +736,7 @@ async def _barge_sample(index: int) -> float:
 
 
 async def _failback_sample(index: int) -> float:
-    from jarvis.realtime.protocol import RealtimeEvent
+    from dodaios.realtime.protocol import RealtimeEvent
 
     provider = _QueueProvider()
     surface = _Surface()
@@ -779,9 +779,9 @@ async def _wait_until(predicate: Any, *, timeout_s: float = 5.0) -> None:
 
 async def _detached_delegate_delivery_scenario() -> dict[str, int]:
     """Prove an accepted action survives teardown and is delivered once."""
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import AnnouncementRequested
-    from jarvis.realtime.protocol import RealtimeEvent
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import AnnouncementRequested
+    from dodaios.realtime.protocol import RealtimeEvent
 
     class _BlockingBrain:
         def __init__(self) -> None:
@@ -893,9 +893,9 @@ async def _provider_replacement_scenario() -> dict[str, int]:
 
 async def _classic_delivery_scenario() -> dict[str, int]:
     """Route one retained opening through the production Classic dispatcher."""
-    import jarvis.speech.pipeline as pipeline_mod
-    from jarvis.core.protocols import AudioChunk
-    from jarvis.speech.pipeline import SpeechPipeline
+    import dodaios.speech.pipeline as pipeline_mod
+    from dodaios.core.protocols import AudioChunk
+    from dodaios.speech.pipeline import SpeechPipeline
 
     class _OneShotVad:
         def utterances(self, stream: Any) -> Any:
@@ -996,7 +996,7 @@ async def run_contract_soak(
     # The injected reconnect failures are expected test stimuli. Suppress their
     # warning-level production diagnostics here; exceptions and gate failures
     # still propagate, and live runs retain their normal observability.
-    session_log = logging.getLogger("jarvis.realtime.session")
+    session_log = logging.getLogger("dodaios.realtime.session")
     previous_level = session_log.level
     session_log.setLevel(logging.ERROR)
     try:

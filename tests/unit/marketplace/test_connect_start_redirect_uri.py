@@ -16,13 +16,13 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from fastapi import BackgroundTasks
 
-from jarvis.marketplace.auth.base import AuthSession, FlowResult
-from jarvis.marketplace.auth.oauth_pkce_loopback import (
+from dodaios.marketplace.auth.base import AuthSession, FlowResult
+from dodaios.marketplace.auth.oauth_pkce_loopback import (
     PkceLoopbackConfig,
     PkceLoopbackHandler,
 )
-from jarvis.marketplace.token_store import Tokens
-from jarvis.ui.web import marketplace_routes as mr
+from dodaios.marketplace.token_store import Tokens
+from dodaios.ui.web import marketplace_routes as mr
 
 
 async def _start_slack_like_session() -> tuple[PkceLoopbackHandler, AuthSession]:
@@ -117,7 +117,7 @@ async def test_connect_start_response_carries_redirect_uri(monkeypatch) -> None:
     spec = _pkce_spec("real-client-id.apps.example")
     monkeypatch.setattr(mr, "load_catalog", lambda: _Catalog([spec]))
     monkeypatch.setattr(
-        "jarvis.marketplace.connect_helpers.resolve_pkce_client",
+        "dodaios.marketplace.connect_helpers.resolve_pkce_client",
         lambda pid, cid, csec: ("real-client-id.apps.example", None),
     )
     monkeypatch.setattr(mr, "PkceLoopbackHandler", _StubPkceHandler)

@@ -15,7 +15,7 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
-import jarvis.setup.macos_dock as dock
+import dodaios.setup.macos_dock as dock
 
 # A macOS path on every host: on Windows a drive-less Path is not absolute and
 # cannot become a file URI, while the code only names and formats the bundle.

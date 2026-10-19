@@ -12,7 +12,7 @@ if str(_REPO_ROOT) in sys.path:
 sys.path.insert(0, str(_REPO_ROOT))
 sys.modules.pop("ui", None)
 
-# `ui` lives as a top-level directory in the repo root (not under `jarvis/`).
+# `ui` lives as a top-level directory in the repo root (not under `dodaios/`).
 # Some pytest setups don't recognize this path via the discovery loader; in that
 # case the tests are skipped instead of blowing up test collection.
 try:  # noqa: SIM105 — intentional try-import for the discovery quirk
@@ -29,7 +29,7 @@ except ModuleNotFoundError:  # pragma: no cover
         allow_module_level=True,
     )
 
-from jarvis.core.events import (
+from dodaios.core.events import (
     AudioOutFirst,
     JarvisAgentBackgroundCompleted,
     ResponseGenerated,
@@ -1117,8 +1117,8 @@ async def test_mute_toggle_publishes_voice_mute_request() -> None:
     ``VoiceMuteToggleRequested`` event with ``source="orb_dblclick_double"``
     on the real bus. Verified end-to-end via an in-process bus.
     """
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import VoiceMuteToggleRequested
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import VoiceMuteToggleRequested
 
     bus = EventBus()
     seen: list[VoiceMuteToggleRequested] = []
@@ -1164,8 +1164,8 @@ def test_orb_overlay_show_queues_work_without_cross_thread_tk_after() -> None:
 # ----------------------------------------------------------------------
 
 
-from jarvis.core.bus import EventBus  # noqa: E402
-from jarvis.core.events import (  # noqa: E402
+from dodaios.core.bus import EventBus  # noqa: E402
+from dodaios.core.events import (  # noqa: E402
     OrbResetRequested,
     UserVisibleFeedback,
 )

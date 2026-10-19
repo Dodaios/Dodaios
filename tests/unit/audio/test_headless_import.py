@@ -17,10 +17,10 @@ from pathlib import Path
 import pytest
 
 _AUDIO_MODULES = [
-    "jarvis.audio.player",
-    "jarvis.audio.capture",
-    "jarvis.speech.diagnose",
-    "jarvis.speech.voice_compare",
+    "dodaios.audio.player",
+    "dodaios.audio.capture",
+    "dodaios.speech.diagnose",
+    "dodaios.speech.voice_compare",
 ]
 
 
@@ -57,7 +57,7 @@ def test_player_portaudio_error_sentinel_without_sounddevice() -> None:
     code = (
         "import sys\n"
         "sys.modules['sounddevice'] = None\n"
-        "import jarvis.audio.player as p\n"
+        "import dodaios.audio.player as p\n"
         "assert p.sd is None\n"
         "assert isinstance(p._PortAudioError, type)\n"
         "assert issubclass(p._PortAudioError, BaseException)\n"

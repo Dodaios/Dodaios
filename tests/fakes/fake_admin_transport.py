@@ -10,7 +10,7 @@ in-process: the server-side ``handler`` (the reused
 transport, exactly the seam the AD-12 security core operates on.
 
 It is structurally compatible with
-:class:`jarvis.admin.transport.AdminTransport`: ``serve`` / ``roundtrip`` /
+:class:`dodaios.admin.transport.AdminTransport`: ``serve`` / ``roundtrip`` /
 ``stop``.
 """
 

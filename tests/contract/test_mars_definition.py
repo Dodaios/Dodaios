@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.mars.definition import load_definition, validate_definition
+from dodaios.society.mars.definition import load_definition, validate_definition
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_packaged_definition_matches_frontend_and_has_no_private_runtime_paths():
     definition = load_definition()
-    projection = ROOT / "jarvis/ui/web/frontend/src/components/society/mars/worldDefinition.json"
+    projection = ROOT / "dodaios/ui/web/frontend/src/components/society/mars/worldDefinition.json"
     assert json.loads(projection.read_text(encoding="utf-8")) == definition
     encoded = json.dumps(definition)
     assert "Downloads" not in encoded and ".blend" not in encoded
@@ -72,7 +72,7 @@ def test_visit_targets_reuse_existing_nodes_and_have_no_task_authority():
 
 
 def test_rover_docks_and_access_share_authored_collision_and_separate_bodies():
-    from jarvis.society.mars.mobility_geometry import MobilityGeometry
+    from dodaios.society.mars.mobility_geometry import MobilityGeometry
 
     data = load_definition()
     nav = data["navigation"]
@@ -100,7 +100,7 @@ def test_rover_docks_and_access_share_authored_collision_and_separate_bodies():
 
 
 def test_parked_rover_does_not_clip_the_existing_console_approach():
-    from jarvis.society.mars.mobility_geometry import _rectangle, _segment_distance
+    from dodaios.society.mars.mobility_geometry import _rectangle, _segment_distance
 
     data = load_definition()
     nav = data["navigation"]

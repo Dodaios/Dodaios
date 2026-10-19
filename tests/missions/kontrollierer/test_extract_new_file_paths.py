@@ -3,7 +3,7 @@ filenames from a captured unified diff so ``artifacts/files/`` is populated.
 """
 from __future__ import annotations
 
-from jarvis.missions.kontrollierer.orchestrator import (
+from dodaios.missions.kontrollierer.orchestrator import (
     _extract_new_file_paths_from_diff,
 )
 

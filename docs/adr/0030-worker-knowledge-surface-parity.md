@@ -38,7 +38,7 @@ if/when Dodaios-Agent workers need recall directly").
 ## Decision
 
 `restricted_worker_knowledge_tools()`
-(`jarvis/missions/workers/capabilities.py`) becomes dynamic and gate-driven;
+(`dodaios/missions/workers/capabilities.py`) becomes dynamic and gate-driven;
 the static wiki triple stays exported for read-compat. Per tool:
 
 | Tool | Decision | Gate |

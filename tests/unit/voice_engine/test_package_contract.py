@@ -6,8 +6,8 @@ import ast
 import re
 from pathlib import Path
 
-import jarvis.voice_engine as engine
-from jarvis.voice_engine import models
+import dodaios.voice_engine as engine
+from dodaios.voice_engine import models
 from tests.package_names import PACKAGE_NAMES, is_package_module
 
 PACKAGE = Path(engine.__file__).parent

@@ -67,7 +67,7 @@ STRING_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
 TEMPLATE_RE = re.compile(r'`([^`]+)`')
 
 def main():
-    base = "C:/Users/Administrator/Desktop/Personal Jarvis/jarvis/ui/web/frontend/src"
+    base = "C:/Users/Administrator/Desktop/Personal Jarvis/dodaios/ui/web/frontend/src"
     results = defaultdict(list)
     total = 0
 

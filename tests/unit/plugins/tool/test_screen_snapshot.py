@@ -19,8 +19,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.platform.permission_service import get_permission_service
-from jarvis.plugins.tool.screen_snapshot import ScreenSnapshotTool
+from dodaios.platform.permission_service import get_permission_service
+from dodaios.plugins.tool.screen_snapshot import ScreenSnapshotTool
 from tests.fakes.fake_screen_pixels import textured_pixels, wallpaper_pixels
 from tests.fakes.fake_tcc import (
     DialogPolicy,
@@ -52,7 +52,7 @@ def _fake_mss(monkeypatch: pytest.MonkeyPatch, frame: tuple[tuple[int, int], byt
 
     monkeypatch.setitem(sys.modules, "mss", types.SimpleNamespace(mss=lambda: _FakeSct()))
     monkeypatch.setattr(
-        "jarvis.plugins.tool.screen_snapshot.select_capture_monitor",
+        "dodaios.plugins.tool.screen_snapshot.select_capture_monitor",
         lambda monitors, strategy="foreground": monitors[1],
     )
 

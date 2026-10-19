@@ -9,24 +9,24 @@ import asyncio
 from pathlib import Path
 from uuid import uuid4
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import ExecutionContext
-from jarvis.core.review.audit import ReviewAudit
-from jarvis.core.review.checks import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import ExecutionContext
+from dodaios.core.review.audit import ReviewAudit
+from dodaios.core.review.checks import (
     PostCheckRunner,
     PreCheckRunner,
     output_not_empty,
     task_not_empty,
 )
-from jarvis.core.review.pipeline import ReviewPipeline
-from jarvis.core.review.state import RunState
-from jarvis.core.review.verdict import (
+from dodaios.core.review.pipeline import ReviewPipeline
+from dodaios.core.review.state import RunState
+from dodaios.core.review.verdict import (
     ReviewIssue,
     ReviewStatus,
     ReviewVerdict,
 )
-from jarvis.plugins.tool.dispatch_with_review import (
+from dodaios.plugins.tool.dispatch_with_review import (
     VOICE_FALLBACK_FILLERS,
     VOICE_HOLDING_PHRASES,
     VOICE_OUTCOME_TEMPLATES,
@@ -175,7 +175,7 @@ def test_execute_success_returns_tool_result(tmp_path: Path) -> None:
 
 
 def test_voice_phrase_tables_cover_every_reply_language() -> None:
-    from jarvis.core.turn_language import _REPLY_PINS
+    from dodaios.core.turn_language import _REPLY_PINS
 
     for table in (VOICE_HOLDING_PHRASES, VOICE_OUTCOME_TEMPLATES, VOICE_FALLBACK_FILLERS):
         assert set(table) == set(_REPLY_PINS)
@@ -309,14 +309,14 @@ def test_execute_degrades_honestly_when_no_worker_harness_registered(
     """AP-23 wave-2 finding 5 (tool level, no mocks): the real production
     construction path — ``DispatchWithReviewTool(runs_root=..., ...)`` with
     no injected `pipeline`/`harness_manager`, exactly the ``cls()``
-    fall-through in ``jarvis/brain/factory.py`` — must NOT raise a raw
+    fall-through in ``dodaios/brain/factory.py`` — must NOT raise a raw
     ``KeyError`` and must NOT leak the dead internal ``openclaw`` harness
     name. Every install today (this one included — see
     ``pyproject.toml``'s ``[project.entry-points."jarvis.harness"]``) has
     neither ``jarvis_agent`` nor ``openclaw`` registered (Welle-4 removed
     the old subprocess bridge), so this exercises the real spawn path.
     """
-    from jarvis.harness.manager import HarnessManager
+    from dodaios.harness.manager import HarnessManager
 
     real_manager = HarnessManager()
     assert not ({"jarvis_agent", "openclaw"} & set(real_manager.available())), (
@@ -396,6 +396,6 @@ def test_entry_point_registered() -> None:
 
 def test_router_tools_excludes_dispatch_with_review() -> None:
     """The legacy review pipeline must not compete with spawn-worker."""
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "dispatch-with-review" not in ROUTER_TOOLS

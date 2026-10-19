@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import resume_store
-from jarvis.agentic_ide import session as ide
+from dodaios.agentic_ide import resume_store
+from dodaios.agentic_ide import session as ide
 from tests.unit.agentic_ide.test_pty_host_adoption import FakeHostedPool
 
 
@@ -135,8 +135,8 @@ async def _idle_pane(registry: ide.Registry, folder: Path):
 
 
 async def test_a_job_finished_while_the_app_was_closed_rings_the_bell(tmp_path: Path) -> None:
-    from jarvis.agentic_ide import notifications
-    from jarvis.agentic_ide.notifications import SETTLE_S
+    from dodaios.agentic_ide import notifications
+    from dodaios.agentic_ide.notifications import SETTLE_S
 
     notifications.reset()
     try:
@@ -157,7 +157,7 @@ async def test_a_job_finished_while_the_app_was_closed_rings_the_bell(tmp_path: 
 
 
 async def test_an_idle_rejoined_pane_stays_quiet(tmp_path: Path) -> None:
-    from jarvis.agentic_ide import notifications
+    from dodaios.agentic_ide import notifications
 
     notifications.reset()
     try:

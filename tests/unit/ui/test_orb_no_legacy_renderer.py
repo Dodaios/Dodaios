@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 import ui.orb.overlay as overlay_mod
-from jarvis.core.config import UIConfig
+from dodaios.core.config import UIConfig
 from ui.orb.overlay import OrbOverlay
 
 
