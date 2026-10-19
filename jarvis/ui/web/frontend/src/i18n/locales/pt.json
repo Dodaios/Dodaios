@@ -9204,6 +9204,21 @@
       "refreshing": "A atualizar o estado do GitHub…",
       "loading": "A ler o estado do GitHub…"
     },
+    "done_gate": {
+      "label_done": "integrado",
+      "label_wait": "aguardando",
+      "label_fix": "corrigir",
+      "label_stuck": "travado",
+      "title_done": "Done gate: o trabalho já foi integrado",
+      "title_wait": "Done gate: aguardando antes que este agente possa parar",
+      "title_fix": "Done gate: algo precisa ser corrigido antes que este agente possa parar",
+      "title_stuck": "Done gate: travado, uma pessoa precisa olhar",
+      "next": "Próximo passo: {next}",
+      "pull_request": "Pull request #{number}",
+      "checked": "Verificado às {time}",
+      "matched_folder": "Associado pela pasta ou branch deste painel, não pela própria sessão",
+      "aria": "{pane}: done gate {state}"
+    },
     "dock": {
       "swap": "Trocar posições",
       "left": "Colocar à esquerda",

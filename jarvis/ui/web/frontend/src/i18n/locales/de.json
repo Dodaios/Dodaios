@@ -9204,6 +9204,21 @@
       "refreshing": "GitHub-Status wird aktualisiert…",
       "loading": "GitHub-Status wird gelesen…"
     },
+    "done_gate": {
+      "label_done": "gelandet",
+      "label_wait": "wartet",
+      "label_fix": "beheben",
+      "label_stuck": "festgefahren",
+      "title_done": "Done-Gate: die Arbeit ist gelandet",
+      "title_wait": "Done-Gate: wartet, bevor dieser Agent aufhören darf",
+      "title_fix": "Done-Gate: etwas muss behoben werden, bevor dieser Agent aufhören darf",
+      "title_stuck": "Done-Gate: festgefahren, ein Mensch muss draufschauen",
+      "next": "Nächster Schritt: {next}",
+      "pull_request": "Pull-Request #{number}",
+      "checked": "Geprüft um {time}",
+      "matched_folder": "Über den Ordner oder Branch dieses Panes zugeordnet, nicht über seine eigene Sitzung",
+      "aria": "{pane}: Done-Gate {state}"
+    },
     "dock": {
       "swap": "Plätze tauschen",
       "left": "Links platzieren",
