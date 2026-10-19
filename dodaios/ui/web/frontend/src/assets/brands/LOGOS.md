@@ -61,9 +61,8 @@ got a drawn calendar glyph; in fact the vendor serves its own square icon at
 `https://cal.com/api/logo?type=icon`. **Check the vendor's own site and icon
 endpoints before concluding a mark does not exist.**
 
-Only when that genuinely turns up nothing, run the **`design-brand-logo`**
-skill. It produces a mark that is honest about being ours — a clean geometric
-glyph on the service's own brand colour — rather than a bad imitation of a logo
+Only when that genuinely turns up nothing, draw a mark that is honest about
+being ours — a clean geometric glyph on the service's own brand colour — rather than a bad imitation of a logo
 we could not obtain. Record it below with `own work` as the legal basis.
 
 ## Ledger
