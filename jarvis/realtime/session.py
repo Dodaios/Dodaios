@@ -63,6 +63,7 @@ from jarvis.core.turn_language import (
     resolve_output_language,
     validate_output_language,
 )
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.realtime.audio import StreamingPcm16Resampler
 from jarvis.realtime.protocol import RealtimeSessionConfig, RealtimeUnavailableError
 from jarvis.realtime.report_prompt import clip_report, report_update_prompt
@@ -1038,24 +1039,14 @@ _HANDOVER_END_REASONS = frozenset({HANGUP_DESKTOP_FALLBACK, HANGUP_REALTIME_FALL
 # owner prevents garbage collection from cancelling that user-visible debt.
 _DETACHED_DELEGATE_TASKS: set[asyncio.Task[None]] = set()
 
-_LOCAL_OUTPUT_FAILURE: dict[str, str] = {
-    "de": "Ich konnte das gerade nicht abspielen. Der Lautsprecher war weg.",  # i18n-allow
-    "en": "I couldn't play that just now. The speaker disappeared.",
-    "es": "No pude reproducirlo ahora. El altavoz desapareció.",  # i18n-allow
-    "pt": "Não consegui reproduzir isso agora. O altifalante desapareceu.",  # i18n-allow
-}
+_LOCAL_OUTPUT_FAILURE: dict[str, str] = i18n_catalog.table("realtime.local_output_failure")
 _HISTORY_LOST_INSTRUCTION = (
     "The previous realtime connection dropped and this is a FRESH session. "
     "You have no memory of earlier turns in this call. Do not invent, recall, "
     "or assert any prior topic, name, or request. Wait for the user's next "
     "words and treat them as the start of the conversation."
 )
-_OUTPUT_LANGUAGE_FAILURE: dict[str, str] = {
-    "de": "Ich konnte gerade keine sichere Antwort auf Deutsch erzeugen.",  # i18n-allow
-    "en": "I couldn't produce a safe answer in English just now.",
-    "es": "No pude generar una respuesta segura en español ahora mismo.",  # i18n-allow
-    "pt": "Não consegui gerar uma resposta segura em português agora.",  # i18n-allow
-}
+_OUTPUT_LANGUAGE_FAILURE: dict[str, str] = i18n_catalog.table("realtime.output_language_failure")
 _PUBLIC_FACT_UNCERTAINTY: dict[str, str] = {
     "de": (  # i18n-allow
         "Ich konnte das gerade nicht zuverlässig mit einer öffentlichen "  # i18n-allow
@@ -1726,101 +1717,9 @@ _DELEGATE_BRIDGE_TEXTS: dict[str, tuple[str, ...]] = {
 #: apology: "it did not come up in time" and "it could not be reached" send the
 #: user to different places, and the whole point of speaking here is that the
 #: call used to end after the full handshake budget with nothing said at all.
-_HANDSHAKE_FAILURE_MESSAGES: dict[str, dict[str, str]] = {
-    "timeout": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Die Sprachverbindung kam nicht rechtzeitig zustande, "  # i18n-allow
-            "deshalb habe ich abgebrochen."  # i18n-allow
-        ),
-        "en": (
-            "The voice connection did not come up in time, so I stopped."
-        ),
-        "es": (  # i18n-allow: localized runtime voice output
-            "La conexión de voz no se estableció a tiempo, así que lo detuve."
-        ),
-        "pt": (  # i18n-allow: localized runtime voice output
-            "A ligação de voz não ficou pronta a tempo, por isso parei."
-        ),
-    },
-    "unavailable": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Ich konnte die Sprachverbindung gerade nicht aufbauen."  # i18n-allow
-        ),
-        "en": "I couldn't establish the voice connection just now.",
-        "es": (  # i18n-allow: localized runtime voice output
-            "No pude establecer la conexión de voz ahora mismo."
-        ),
-        "pt": (  # i18n-allow: localized runtime voice output
-            "Não consegui estabelecer a ligação de voz agora."
-        ),
-    },
-    "rate_limited": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Die Sprachverbindung ist gerade überlastet. "  # i18n-allow
-            "Bitte versuch es gleich noch einmal."  # i18n-allow
-        ),
-        "en": (
-            "The voice connection is busy right now. "
-            "Please try again in a moment."
-        ),
-        "es": (  # i18n-allow: localized runtime voice output
-            "La conexión de voz está saturada ahora mismo. "
-            "Inténtalo de nuevo en un momento."
-        ),
-        "pt": (  # i18n-allow: localized runtime voice output
-            "A ligação de voz está sobrecarregada neste momento. "
-            "Tenta outra vez daqui a pouco."
-        ),
-    },
-    "no_credits": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Das Guthaben für die Sprachverbindung ist aufgebraucht. "  # i18n-allow
-            "Lade es beim Anbieter auf, dann klappt es wieder."  # i18n-allow
-        ),
-        "en": (
-            "The credit for the voice connection is used up. "
-            "Top it up with the provider and it will work again."
-        ),
-        "es": (  # i18n-allow: localized runtime voice output
-            "Se agotó el saldo de la conexión de voz. "
-            "Recárgalo con el proveedor y volverá a funcionar."
-        ),
-        "pt": (  # i18n-allow: localized runtime voice output
-            "O saldo da ligação de voz esgotou-se. "
-            "Carrega-o no fornecedor e volta a funcionar."
-        ),
-    },
-    "not_offered": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Dein Konto bietet diese Sprachverbindung gerade nicht an. "  # i18n-allow
-            "Prüfe den Tarif oder wähle ein anderes Konto."  # i18n-allow
-        ),
-        "en": (
-            "Your account does not offer this voice connection right now. "
-            "Check its plan or select another account."
-        ),
-        "es": (  # i18n-allow: localized runtime voice output
-            "Tu cuenta no ofrece esta conexión de voz ahora mismo. "
-            "Revisa el plan o elige otra cuenta."
-        ),
-        "pt": (  # i18n-allow: localized runtime voice output
-            "A tua conta não oferece esta ligação de voz neste momento. "
-            "Verifica o plano ou escolhe outra conta."
-        ),
-    },
-    "dropped": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Die Sprachverbindung ist abgebrochen."  # i18n-allow
-        ),
-        "en": "The voice connection dropped.",
-        "es": (  # i18n-allow: localized runtime voice output
-            "Se cortó la conexión de voz."
-        ),
-        "pt": (  # i18n-allow: localized runtime voice output
-            "A ligação de voz caiu."
-        ),
-    },
-}
+_HANDSHAKE_FAILURE_MESSAGES: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "realtime.handshake_failure"
+)
 
 
 def _handshake_failure_message(cause: str, language: str) -> str:

@@ -190,6 +190,12 @@ function mountField(
 
   const onMove = (e: PointerEvent) => {
     if (e.pointerType === "touch") return;
+    // Over a marked control (the composer) the field steps aside, as if the
+    // pointer had left the page: no new digits, the wake fades out.
+    if (e.target instanceof Element && e.target.closest(`[${FIELD_OFF_ATTR}]`)) {
+      pointer = null;
+      return;
+    }
     const rect = host.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -228,6 +234,9 @@ function mountField(
     if (frame) cancelAnimationFrame(frame);
   };
 }
+
+/** Put this attribute on an element to keep the field off while the pointer is over it. */
+const FIELD_OFF_ATTR = "data-binary-field-off";
 
 /** Grid pitch in CSS pixels. */
 const CELL = 14;

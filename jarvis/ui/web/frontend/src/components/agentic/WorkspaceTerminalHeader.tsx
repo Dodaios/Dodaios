@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type PointerEvent, type SVGProps } from "react";
 import { createPortal } from "react-dom";
-import { Check, FileDiff, FolderInput, GitBranch, Maximize2, Minimize2, MoreHorizontal, Plus, Server, X } from "lucide-react";
+import { Check, FileDiff, FolderGit2, FolderInput, GitBranch, Maximize2, Minimize2, MoreHorizontal, Plus, Server, X } from "lucide-react";
 import { fill, loadLocaleChunk, useT } from "@/i18n";
 import { AgentMark } from "./AgentMark";
 import { BranchIcon } from "./branchIcon";
@@ -42,6 +42,8 @@ interface Props {
   onReviewChanges?: () => void;
   /** Starts reading the review ahead of a click: on the button at once, on the title bar after a short dwell. */
   onReviewChangesPrefetch?: () => void;
+  /** Opens the Git tab showing only what this pane's agent session changed. */
+  onShowInGit?: () => void;
   onRestart?: () => void;
   /** Opens the fork dialog: a new agent continuing a copy of this pane's chat. */
   onFork?: () => void;
@@ -80,7 +82,7 @@ export function WorkspaceTerminalHeader({
   contextMenuRequest, onSwapWithFocused, sendRightClicks = false, onToggleSendRightClicks,
   name, workspaceId, promptCount = 0, agent, agentLogoUrl, displayName, status, appearance, arranging = false,
   maximized = false, addDisabled = false, onArrangeStart, onActivate, onToggleMaximize,
-  onAdd, onClose, onRename, onOpenConversation, onOpenChat, onReviewChanges, onReviewChangesPrefetch, onRestart, onFork, branch,
+  onAdd, onClose, onRename, onOpenConversation, onOpenChat, onReviewChanges, onReviewChangesPrefetch, onShowInGit, onRestart, onFork, branch,
   computerName, placementItems, workspaceItems, variant = "bar", focused = false, githubStatusEnabled = true,
 }: Props) {
   const t = useT();
@@ -222,6 +224,7 @@ export function WorkspaceTerminalHeader({
         onOpenConversation && { label: t("ide_panes.header.conversation_history"), run: onOpenConversation },
         onOpenChat && { label: t("ide_panes.header.open_as_chat"), run: onOpenChat },
         onReviewChanges && { label: t("ide_panes.header.review_changes"), Icon: FileDiff, run: onReviewChanges },
+        onShowInGit && { label: t("ide_panes.header.show_in_git"), Icon: FolderGit2, run: onShowInGit },
         stopped && onRestart && { label: t("ide_panes.header.restart_agent"), run: onRestart },
         ...(workspaceItems ?? []).map((item, index) => ({ ...item, Icon: FolderInput, separated: index === 0 })),
         ...(placementItems ?? []).map((item, index) => ({ ...item, Icon: Server, separated: index === 0 })),
@@ -301,6 +304,8 @@ export function WorkspaceTerminalHeader({
       <div data-header-control="true" className="flex shrink-0 items-center gap-0.5">
         {onReviewChanges && <button type="button" data-testid={`pane-review-changes-${name}`} aria-label={fill(t("agentic_grid.pane.review_changes"), { pane: name })}
           title={t("ide_panes.header.review_changes")} onClick={onReviewChanges} onPointerEnter={() => { cancelPrefetch(); prefetchReview(); }} className={action}><FileDiff className="h-[15px] w-[15px]" /></button>}
+        {onShowInGit && <button type="button" data-testid={`pane-show-in-git-${name}`} aria-label={fill(t("agentic_grid.pane.show_in_git"), { pane: name })}
+          title={t("ide_panes.header.show_in_git")} onClick={onShowInGit} className={action}><FolderGit2 className="h-[15px] w-[15px]" /></button>}
         {moreButton}
         {maximizeButton}
         {onFork && <button type="button" data-testid={`pane-fork-${name}`} aria-label={fill(t("ide_panes.fork.title"), { pane: name })} title={fill(t("ide_panes.fork.title"), { pane: name })}
