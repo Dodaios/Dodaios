@@ -511,5 +511,16 @@
   },
   "harness": {
     "step_progress": "Paso {done} de {total} completado."
+  },
+  "self_build": {
+    "proposal": {
+      "memory": "Recordar lo que corriges una y otra vez: «{request}».",
+      "skill": "Una habilidad para lo que pides una y otra vez: «{request}».",
+      "routine": "Una rutina que lo hace antes de que lo pidas: «{request}».",
+      "agent": "Un agente especializado para el trabajo detrás de «{request}»."
+    },
+    "case": {
+      "counted": "Pedido {count} veces en {days} días distintos."
+    }
   }
 }

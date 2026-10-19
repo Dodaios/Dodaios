@@ -1,11 +1,11 @@
-"""Mark up a chosen area in place with the picker's annotation tools.
+"""The picker's annotation tools: painting, the toolbar, the result overlay.
 
-Runs ONLY inside ``python -m dodaios.appshot.picker`` (PySide6, AP-26). Once
-an area is chosen the overlay stays up: a toolbar docks under the selection
-and the user draws on the frozen frame right there, with the same tools,
-looks and keys as the full appshot editor. Enter (or the check button) takes
-the appshot WITH the markings, so the assistant sees exactly what was pointed
-at.
+Runs ONLY inside ``python -m dodaios.appshot.picker`` (PySide6, AP-26). The
+toolbar is up from the moment the overlay appears, centred at the top of the
+screen: the user draws on the frozen frame with the same tools, looks and
+keys as the full appshot editor, then drags the area (or the area first, with
+"adjust before taking" on). The appshot carries the markings, so the
+assistant sees exactly what was pointed at.
 
 The rules live in :mod:`dodaios.appshot.picker.markup_model` (plain data);
 this module paints them like the full editor does, draws the toolbar and its
@@ -63,6 +63,8 @@ _SPOTLIGHT_DIM = QColor(0, 0, 0, 140)
 # Toolbar wording — app chrome, so it follows [ui].language like the card.
 _LABELS: dict[str, dict[str, str]] = {
     "en": {
+        mm.AREA: "Area: drag, or click a window. Space takes the whole screen",
+        "keep": "Adjust the area before taking it (Enter takes it)",
         mm.MOVE: "Select and move",
         mm.RECT: "Rectangle",
         mm.FILLED: "Filled rectangle",
@@ -97,6 +99,14 @@ _LABELS: dict[str, dict[str, str]] = {
         "placeholder": "Type text",
     },
     "de": {
+        mm.AREA: (
+            "Bereich: ziehen oder ein Fenster anklicken. "  # i18n-allow: product UI string
+            "Leertaste nimmt den ganzen Bildschirm"  # i18n-allow: product UI string
+        ),
+        "keep": (
+            "Bereich vor der Aufnahme anpassen "  # i18n-allow: product UI string
+            "(Enter nimmt ihn auf)"  # i18n-allow: product UI string
+        ),
         mm.MOVE: "Auswählen und verschieben",  # i18n-allow: product UI string
         mm.RECT: "Rechteck",  # i18n-allow: product UI string
         mm.FILLED: "Gefülltes Rechteck",  # i18n-allow: product UI string
@@ -131,6 +141,14 @@ _LABELS: dict[str, dict[str, str]] = {
         "placeholder": "Text eingeben",  # i18n-allow: product UI string
     },
     "es": {
+        mm.AREA: (
+            "Área: arrastra o haz clic en una ventana. "  # i18n-allow: product UI string
+            "Espacio captura toda la pantalla"  # i18n-allow: product UI string
+        ),
+        "keep": (
+            "Ajustar el área antes de capturarla "  # i18n-allow: product UI string
+            "(Intro la captura)"  # i18n-allow: product UI string
+        ),
         mm.MOVE: "Seleccionar y mover",  # i18n-allow: product UI string
         mm.RECT: "Rectángulo",  # i18n-allow: product UI string
         mm.FILLED: "Rectángulo relleno",  # i18n-allow: product UI string
@@ -165,6 +183,8 @@ _LABELS: dict[str, dict[str, str]] = {
         "placeholder": "Escribe un texto",  # i18n-allow: product UI string
     },
     "zh": {
+        mm.AREA: "区域：拖动或点击一个窗口。空格键截取整个屏幕",  # i18n-allow: product UI string
+        "keep": "截取前先调整区域（回车截取）",  # i18n-allow: product UI string
         mm.MOVE: "选择并移动",  # i18n-allow: product UI string
         mm.RECT: "矩形",  # i18n-allow: product UI string
         mm.FILLED: "实心矩形",  # i18n-allow: product UI string
@@ -199,6 +219,14 @@ _LABELS: dict[str, dict[str, str]] = {
         "placeholder": "输入文字",  # i18n-allow: product UI string
     },
     "pt": {
+        mm.AREA: (
+            "Área: arrasta ou clica numa janela. Espaço "  # i18n-allow: product UI string
+            "captura o ecrã inteiro"  # i18n-allow: product UI string
+        ),
+        "keep": (
+            "Ajustar a área antes de a capturar "  # i18n-allow: product UI string
+            "(Enter captura)"  # i18n-allow: product UI string
+        ),
         mm.MOVE: "Selecionar e mover",  # i18n-allow: product UI string
         mm.RECT: "Retângulo",  # i18n-allow: product UI string
         mm.FILLED: "Retângulo preenchido",  # i18n-allow: product UI string
@@ -245,8 +273,10 @@ _ACTION_KEYS = {
     "done": "Enter",
 }
 
-#: Toolbar order — the full editor's: selection, shapes, text, effects, ink.
+#: Toolbar order — the area first, then the full editor's: selection,
+#: shapes, text, effects, ink.
 TOOL_ORDER = (
+    mm.AREA,
     mm.MOVE,
     mm.RECT,
     mm.FILLED,
@@ -850,6 +880,23 @@ def _icon_pixmap(draw: Callable[[QPainter, QColor], None], colour: QColor, dpr: 
 
 
 def _glyphs() -> dict[str, Callable[[QPainter, QColor], None]]:  # noqa: C901 - one glyph table
+    def area(p: QPainter, c: QColor) -> None:
+        # Four corner marks around a dashed frame: "choose this part".
+        for x, y, dx, dy in ((2, 2, 1, 1), (16, 2, -1, 1), (2, 16, 1, -1), (16, 16, -1, -1)):
+            p.drawLine(QPointF(x, y), QPointF(x + 4.5 * dx, y))
+            p.drawLine(QPointF(x, y), QPointF(x, y + 4.5 * dy))
+        faint = QColor(c)
+        faint.setAlpha(140)
+        p.setPen(QPen(faint, 1.1, Qt.PenStyle.DashLine))
+        p.drawRect(QRectF(5.5, 5.5, 7, 7))
+
+    def keep(p: QPainter, c: QColor) -> None:
+        # A frame with handles on its corners: the area stays to be adjusted.
+        p.drawRect(QRectF(4, 4, 10, 10))
+        p.setBrush(c)
+        for x, y in ((4, 4), (14, 4), (4, 14), (14, 14)):
+            p.drawRect(QRectF(x - 1.6, y - 1.6, 3.2, 3.2))
+
     def move(p: QPainter, c: QColor) -> None:
         path = QPainterPath(QPointF(4, 3))
         for x, y in ((4, 15), (7.5, 11.5), (10, 16.5), (12, 15.5), (9.6, 10.6), (14.5, 10.6)):
@@ -1027,6 +1074,8 @@ def _glyphs() -> dict[str, Callable[[QPainter, QColor], None]]:  # noqa: C901 - 
         p.drawLine(QPointF(5, 13), QPointF(13, 5))
 
     return {
+        mm.AREA: area,
+        "keep": keep,
         mm.MOVE: move,
         mm.RECT: rect,
         mm.FILLED: filled,
@@ -1060,14 +1109,17 @@ def _glyphs() -> dict[str, Callable[[QPainter, QColor], None]]:  # noqa: C901 - 
 
 
 class Toolbar(QFrame):
-    """The floating marking toolbar, docked to the selection by its window.
+    """The floating marking toolbar, centred at the top of its screen.
 
-    One row: the tools, then — for a tool with looks to choose from (arrow,
-    text, pixelate/blur, background) — those looks, then colours, size,
-    history and the finishing actions.
+    One row: the area tool, the drawing tools, then — for a tool with looks
+    to choose from (arrow, text, pixelate/blur, background) — those looks,
+    then colours, size, history, the "adjust before taking" switch and the
+    finishing actions.
     """
 
     tool_chosen = Signal(str)
+    #: "Adjust the area before taking it" switched on or off.
+    keep_toggled = Signal(bool)
     color_chosen = Signal(str)
     width_cycled = Signal()
     action = Signal(str)
@@ -1128,7 +1180,7 @@ class Toolbar(QFrame):
             self._tools.addButton(button)
             self._tool_buttons[kind] = button
             button.clicked.connect(lambda _c=False, k=kind: self.tool_chosen.emit(k))
-            if kind == mm.BACKGROUND:
+            if kind in (mm.MOVE, mm.BACKGROUND):
                 main.addWidget(self._separator())
             main.addWidget(button)
         # The current tool's looks sit right after the tools, in the same row.
@@ -1155,6 +1207,10 @@ class Toolbar(QFrame):
         self._undo = self._action_button("undo", main)
         self._redo = self._action_button("redo", main)
         main.addWidget(self._separator())
+        self._keep = self._button("keep", self._labels["keep"], checkable=True)
+        self._keep.setObjectName("option")
+        self._keep.toggled.connect(self.keep_toggled.emit)
+        main.addWidget(self._keep)
         for name in ("copy", "save", "edit"):
             self._action_button(name, main)
         main.addWidget(self._separator())
@@ -1273,6 +1329,12 @@ class Toolbar(QFrame):
         painter.drawLine(QPointF(4.5, 9), QPointF(13.5, 9))
         painter.end()
         self._width.setIcon(QIcon(pixmap))
+
+    def set_keep(self, keep: bool) -> None:
+        """Show the switch's state without reporting it back as a toggle."""
+        self._keep.blockSignals(True)
+        self._keep.setChecked(keep)
+        self._keep.blockSignals(False)
 
     def set_history(self, can_undo: bool, can_redo: bool) -> None:
         self._undo.setEnabled(can_undo)

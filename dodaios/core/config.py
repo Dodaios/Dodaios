@@ -2718,6 +2718,12 @@ class AppshotConfig(BaseModel):
     #: collides with no app or OS shortcut.
     region_hotkey: str = "shift+shift"
 
+    #: Off: releasing the area drag takes the appshot at once, with whatever
+    #: was marked on the screen before it. On: the area stays with resize
+    #: handles to adjust and mark it, and Enter or a double-click takes it.
+    #: The picker's toolbar flips it (read by ``dodaios.appshot.service``).
+    region_keep_area: bool = False
+
     #: One shortcut selects a recording area; pressing it again stops and saves.
     recording_hotkey: str = "ctrl+shift+9"
 
