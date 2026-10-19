@@ -1847,10 +1847,9 @@ async def test_topic_question_candidate_is_presented_to_stage2_as_noop(stack) ->
     assert journal.pending() == []
     assert not (vault_root / "concepts" / "vitamin-d.md").exists()
     request = brain.received_requests[0]
-    assert '"What are the benefits of Vitamin D?"' in request.system
-    assert '"Tell me about Monaco."' in request.system
-    assert '"I own a yacht." and "I plan to attend Monaco."' in request.system
     assert "What are the benefits of Vitamin D?" in request.messages[0].content
+    # The consolidator computes the validator facts and puts them on the line.
+    assert "persist_requested=no" in request.messages[0].content
 
 
 @pytest.mark.parametrize(

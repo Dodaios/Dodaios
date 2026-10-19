@@ -44,36 +44,21 @@ log = logging.getLogger(__name__)
 _TARGET_DIRS = ("entities", "concepts", "projects")
 
 _RECURATE_SYSTEM = """\
-You re-curate the ONE user profile page of a personal knowledge wiki (an
-Obsidian vault). You receive the current profile body and the list of pages
-that already exist. Propose the cleaned state of the vault as JSON updates.
+You re-curate the user profile page of a personal wiki (Obsidian vault). Input: \
+the current profile body and the list of existing pages.
+Keep every personal fact (identity, people, possessions, health, habits, values, \
+projects, decisions); when unsure, keep it. Move detail about a named topic to \
+that topic's page and leave a one-line [[wikilink]] on the profile, linked both \
+ways. Drop world-knowledge trivia, duplicates, template scaffolding and status \
+chatter. Keep *(inferred)* lines as they are and add none.
 
-Curation bar (binding, asymmetric):
-- KEEP every supported personal fact: identity, close people, possessions,
-  health, habits and recurring activities, values, active projects,
-  decisions. Losing a real personal fact is the worst possible outcome of
-  this cleanup — when unsure whether a bullet is real memory, keep it.
-- MOVE topic detail to the topic's own page: when a profile bullet carries
-  detail about a named durable topic (a vehicle, a sport, a person, a tool),
-  keep at most a one-line [[wikilink]] bullet on the profile and put the
-  detail on the topic page ("update" it, or "create" it when missing,
-  cross-linked with the profile in both directions).
-- DROP bullets that are world-knowledge trivia with no personal anchor,
-  duplicated lines, template scaffolding, or transient status chatter.
-  Bullets ending with the marker *(inferred)* may be kept as-is; never
-  invent new *(inferred)* lines.
-
-Output contract:
-Return ONLY a JSON array of update objects, no prose, no code fences:
-    [{"target": "<dir>/<slug>.md", "operation": "update" | "create",
-      "new_body": "<full page markdown with frontmatter>",
-      "reason": "<short why>"}]
-- Include the profile page itself as one "update" (its cleaned full body,
-  section structure intact). If the profile needs no change, return [].
-- "create" only for pages that do not exist yet; "update" only for pages
-  that do. Directories allowed: entities/, concepts/, projects/.
-- Preserve the ## Sources section content of every page you touch.
-- Never write credentials or secrets. Never touch sessions/ or _archive/.
+Return only a JSON array, [] when nothing changes:
+[{"target": "<dir>/<slug>.md", "operation": "update"|"create", \
+"new_body": "<full page with frontmatter>", "reason": "<short why>"}]
+- The profile itself is one "update" with its sections intact.
+- "create" only for missing pages, "update" only for existing ones; directories \
+entities/, concepts/, projects/.
+- Keep the ## Sources content of every page you touch. No credentials.
 """
 
 
