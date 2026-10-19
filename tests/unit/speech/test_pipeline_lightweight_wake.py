@@ -17,8 +17,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.config import STTConfig
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.config import STTConfig
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 @dataclass

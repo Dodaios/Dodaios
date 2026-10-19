@@ -57,9 +57,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import CUStepProfiled
-from jarvis.core.protocols import HarnessTask
+from dodaios.core.bus import EventBus
+from dodaios.core.events import CUStepProfiled
+from dodaios.core.protocols import HarnessTask
 
 # ---------------------------------------------------------------------------
 # SLOs (frontier-speed master plan, Wave 0). --assert-slo turns these into a
@@ -152,7 +152,7 @@ def _kill_procs(names: tuple[str, ...]) -> None:
 async def _uia_text() -> str:
     """Concatenated UIA names of the foreground window, or '' on any failure."""
     try:
-        from jarvis.vision.uia_tree import UIATreeSource
+        from dodaios.vision.uia_tree import UIATreeSource
 
         obs = await UIATreeSource().observe()
         return " | ".join((n.name or "") for n in obs.nodes if (n.name or ""))
@@ -601,12 +601,12 @@ async def main() -> int:
     print("=" * 66)
     print("[1] Building default brain (wires ComputerUseContext) ...")
     bus = EventBus()
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
 
     build_default_brain(bus=bus)
 
-    from jarvis.harness.computer_use_context import get_computer_use_context
-    from jarvis.plugins.harness.computer_use import ComputerUseHarness
+    from dodaios.harness.computer_use_context import get_computer_use_context
+    from dodaios.plugins.harness.computer_use import ComputerUseHarness
 
     try:
         ctx = get_computer_use_context()

@@ -11,9 +11,9 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.plugins.tool.scroll as scroll_mod
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.scroll import ScrollTool, _notch_for
+import dodaios.plugins.tool.scroll as scroll_mod
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.scroll import ScrollTool, _notch_for
 
 
 def _ctx() -> ExecutionContext:
@@ -154,7 +154,7 @@ def test_notch_helper_direction_contract() -> None:
 
 
 def test_explicit_scroll_target_is_verified_before_wheel(monkeypatch) -> None:
-    from jarvis.plugins.tool.scroll import _scroll_with_verified_target
+    from dodaios.plugins.tool.scroll import _scroll_with_verified_target
 
     calls: list[tuple] = []
 
@@ -169,7 +169,7 @@ def test_explicit_scroll_target_is_verified_before_wheel(monkeypatch) -> None:
         def scroll(self, direction, amount):
             calls.append(("scroll", direction, amount))
 
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
 
     _scroll_with_verified_target(_Actuator(), "down", 2, 640, 480)
 
@@ -181,7 +181,7 @@ def test_explicit_scroll_target_is_verified_before_wheel(monkeypatch) -> None:
 
 
 def test_scroll_refuses_wheel_after_foreground_changes_during_move(monkeypatch) -> None:
-    from jarvis.plugins.tool.scroll import _scroll_with_verified_target
+    from dodaios.plugins.tool.scroll import _scroll_with_verified_target
 
     calls: list[tuple] = []
 
@@ -196,8 +196,8 @@ def test_scroll_refuses_wheel_after_foreground_changes_during_move(monkeypatch) 
         def scroll(self, direction, amount):
             calls.append(("scroll", direction, amount))
 
-    monkeypatch.setattr("jarvis.cu.geometry.list_monitors", lambda: [])
-    monkeypatch.setattr("jarvis.cu.target_guard.foreground_matches", lambda _: False)
+    monkeypatch.setattr("dodaios.cu.geometry.list_monitors", lambda: [])
+    monkeypatch.setattr("dodaios.cu.target_guard.foreground_matches", lambda _: False)
 
     with pytest.raises(RuntimeError, match="foreground window changed"):
         _scroll_with_verified_target(

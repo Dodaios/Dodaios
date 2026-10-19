@@ -1,4 +1,4 @@
-"""Tests for ``jarvis.brain.vision_context`` (Phase 5).
+"""Tests for ``dodaios.brain.vision_context`` (Phase 5).
 
 Mandate requirements:
   - 3 cases: VS Code foreground / browser foreground / vision-context disabled
@@ -13,12 +13,12 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.vision_context import (
+from dodaios.brain.vision_context import (
     get_active_window_hint,
     is_enabled,
 )
-from jarvis.core.config import VisionContextConfig
-from jarvis.core.protocols import Observation
+from dodaios.core.config import VisionContextConfig
+from dodaios.core.protocols import Observation
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ async def test_vscode_foreground_yields_hint(monkeypatch: pytest.MonkeyPatch) ->
     )
 
     # Mock psutil — we don't want a real psutil lookup on 4242.
-    import jarvis.brain.vision_context as mod
+    import dodaios.brain.vision_context as mod
     monkeypatch.setattr(mod, "_process_name_for_pid", lambda pid: "Code.exe")
 
     hint = await get_active_window_hint(engine=engine)
@@ -121,7 +121,7 @@ async def test_browser_foreground_yields_hint(monkeypatch: pytest.MonkeyPatch) -
         window_title="ChatGPT - Google Chrome",
         active_pid=1234,
     )
-    import jarvis.brain.vision_context as mod
+    import dodaios.brain.vision_context as mod
     monkeypatch.setattr(mod, "_process_name_for_pid", lambda pid: "chrome.exe")
 
     hint = await get_active_window_hint(engine=engine)

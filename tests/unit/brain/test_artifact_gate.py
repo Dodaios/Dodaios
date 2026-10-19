@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.artifact_gate import wants_artifact
+from dodaios.brain.artifact_gate import wants_artifact
 
 # Turns that ask, literally, for an artifact — the only words that build.
 _WANTS = [

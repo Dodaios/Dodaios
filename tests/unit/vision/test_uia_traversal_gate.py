@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 import pytest
 
-from jarvis.vision.uia_tree import UIATreeSource
+from dodaios.vision.uia_tree import UIATreeSource
 
 
 async def test_busy_traversal_gate_falls_back_without_submitting_another_worker() -> None:

@@ -1,4 +1,4 @@
-"""Unit tests for :class:`jarvis.memory.wiki.watcher.WikiWatcher`.
+"""Unit tests for :class:`dodaios.memory.wiki.watcher.WikiWatcher`.
 
 These tests drive a real :class:`watchdog.observers.Observer` against a
 temporary on-disk vault. The tests are mildly timing-sensitive: each
@@ -21,9 +21,9 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import WikiPageChanged
-from jarvis.memory.wiki.watcher import WikiWatcher
+from dodaios.core.bus import EventBus
+from dodaios.core.events import WikiPageChanged
+from dodaios.memory.wiki.watcher import WikiWatcher
 
 # Plenty of slack — Windows ReadDirectoryChangesW is usually <50 ms but
 # we have seen the test runner pause much longer under load.

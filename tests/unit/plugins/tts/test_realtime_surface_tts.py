@@ -11,17 +11,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     PROVIDER_SECRET_CANDIDATES,
     override_provider_secrets,
 )
-from jarvis.plugins.tts import (
+from dodaios.plugins.tts import (
     _TTS_SECRET_CANDIDATES,
     _tts_has_credential,
     build_realtime_surface_tts,
 )
-from jarvis.plugins.tts.gemini_flash_tts import GeminiFlashTTS, VertexTTS
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.plugins.tts.gemini_flash_tts import GeminiFlashTTS, VertexTTS
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 # The realtime tier's own provider ids — the ones ALLOWED to put a
 # ``realtime_``-scoped slot first, because that slot IS their primary credential.
@@ -82,8 +82,8 @@ def test_feminine_session_voice_keeps_a_feminine_fallback() -> None:
     second assistant joining the call (Mac live test 2026-07-18). Pinned via
     the curated gender register, never a hardcoded voice id.
     """
-    from jarvis.plugins.tts import _GEMINI_VOICES
-    from jarvis.plugins.tts.curated_catalog import FEMININE, voice_gender
+    from dodaios.plugins.tts import _GEMINI_VOICES
+    from dodaios.plugins.tts.curated_catalog import FEMININE, voice_gender
 
     with override_provider_secrets({"gemini-live": "rt-scoped-key"}):
         tts = build_realtime_surface_tts(_cfg(voice="marin"), "gemini-live")
@@ -179,7 +179,7 @@ def test_vertex_live_builds_on_the_project_path_without_a_key(
     is a full Vertex setup with no key anywhere. The sibling must still be
     built; VertexTTS resolves the credential state itself."""
     monkeypatch.setattr(
-        "jarvis.core.config.vertex_credential_configured", lambda *_a, **_k: True
+        "dodaios.core.config.vertex_credential_configured", lambda *_a, **_k: True
     )
     with override_provider_secrets({"vertex-live": None}):
         tts = build_realtime_surface_tts(_cfg(), "vertex-live")
@@ -191,7 +191,7 @@ def test_vertex_live_without_any_credential_yields_no_surface_tts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.core.config.vertex_credential_configured", lambda *_a, **_k: False
+        "dodaios.core.config.vertex_credential_configured", lambda *_a, **_k: False
     )
     with override_provider_secrets({"vertex-live": None}):
         assert build_realtime_surface_tts(_cfg(), "vertex-live") is None
@@ -229,7 +229,7 @@ def test_resolution_failure_never_raises(monkeypatch: pytest.MonkeyPatch) -> Non
     def _boom(_provider: str) -> str:
         raise RuntimeError("keyring exploded")
 
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", _boom)
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", _boom)
     assert build_realtime_surface_tts(_cfg(), "gemini-live") is None
 
 
@@ -281,7 +281,7 @@ def test_pipeline_tts_can_use_its_own_familys_realtime_key_as_a_last_resort(
     def _secret(name: str, env_fallback: str | None = None, **_kw: object):
         return "rt-only-key" if name == "realtime_gemini_api_key" else None
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", _secret)
+    monkeypatch.setattr("dodaios.core.config.get_secret", _secret)
     tts_cfg = SimpleNamespace(use_vertex=False)
     assert _tts_has_credential("gemini-flash-tts", tts_cfg) is True
     assert _tts_has_credential("grok-voice", tts_cfg) is False

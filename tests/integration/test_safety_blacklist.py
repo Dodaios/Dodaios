@@ -3,15 +3,15 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     SafetyBlacklistConfig,
     SafetyConfig,
     SafetyWhitelistConfig,
 )
-from jarvis.core.events import ActionDenied
-from jarvis.plugins.tool.run_shell import RunShellTool
-from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+from dodaios.core.events import ActionDenied
+from dodaios.plugins.tool.run_shell import RunShellTool
+from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
 
 @pytest.mark.asyncio

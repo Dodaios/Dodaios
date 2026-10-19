@@ -12,8 +12,8 @@ contract the frontend depends on (id, display_name, category, auth.mode).
 
 from __future__ import annotations
 
-from jarvis.marketplace.catalog import CATEGORY_ORDER
-from jarvis.marketplace.catalog_data import clear_cache, load_catalog
+from dodaios.marketplace.catalog import CATEGORY_ORDER
+from dodaios.marketplace.catalog_data import clear_cache, load_catalog
 
 
 def test_catalog_loads_without_validation_error() -> None:
@@ -64,7 +64,7 @@ def test_catalog_serializes_to_frontend_wire_shape() -> None:
 
 
 def test_pkce_client_secret_is_server_only() -> None:
-    from jarvis.marketplace.catalog import OAuthPkceLoopbackAuth
+    from dodaios.marketplace.catalog import OAuthPkceLoopbackAuth
 
     test_client_secret = "unit-test-client-secret"  # noqa: S105
     auth = OAuthPkceLoopbackAuth(
@@ -81,7 +81,7 @@ def test_pkce_client_secret_is_server_only() -> None:
 
 
 def test_pat_auth_scheme_defaults_to_bearer() -> None:
-    from jarvis.marketplace.catalog import PatPasteAuth
+    from dodaios.marketplace.catalog import PatPasteAuth
 
     a = PatPasteAuth(
         mode="pat_paste",
@@ -94,7 +94,7 @@ def test_pat_auth_scheme_defaults_to_bearer() -> None:
 
 
 def test_pat_auth_scheme_accepts_bot_and_telegram_path() -> None:
-    from jarvis.marketplace.catalog import PatPasteAuth
+    from dodaios.marketplace.catalog import PatPasteAuth
 
     for scheme in ("bot", "telegram_path"):
         a = PatPasteAuth(

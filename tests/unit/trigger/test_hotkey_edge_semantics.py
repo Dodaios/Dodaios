@@ -32,7 +32,7 @@ _QUARTZ_KEYCODE_L = 0x25
 
 def _pynput_backend():
     """A ``PynputBackend`` plus chord-down / chord-up drivers for ``alt + l``."""
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     backend = PynputBackend()
     # Linux-X11 reports the physical right Alt as ``alt_r``; letters arrive as a
@@ -53,7 +53,7 @@ def _pynput_backend():
 
 def _quartz_backend():
     """A ``QuartzHotkeyBackend`` plus the same drivers, keyed by keycode+flags."""
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     backend = QuartzHotkeyBackend()
     backend._permission_check = lambda: True

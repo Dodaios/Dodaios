@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.harness import screenshot_only_loop as _loop
+from dodaios.harness import screenshot_only_loop as _loop
 
 
 @pytest.fixture(autouse=True)

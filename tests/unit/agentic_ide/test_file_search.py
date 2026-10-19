@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import file_search
-from jarvis.agentic_ide.file_editing import EditError
-from jarvis.agentic_ide.file_search import SearchOptions, replace_in_files, search_workspace
+from dodaios.agentic_ide import file_search
+from dodaios.agentic_ide.file_editing import EditError
+from dodaios.agentic_ide.file_search import SearchOptions, replace_in_files, search_workspace
 
 
 @pytest.fixture

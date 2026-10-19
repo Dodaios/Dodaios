@@ -26,10 +26,10 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 from tests.fakes.voice_session import open_classic_voice_session
 
 
@@ -166,7 +166,7 @@ async def test_background_completion_while_user_speaking_is_deferred() -> None:
     """The direct Jarvis-Agent-background readback path (which bypasses
     ``_on_announcement`` and plays straight to the player) must also respect the
     floor: defer while the user speaks, flush at the boundary."""
-    from jarvis.core.events import JarvisAgentBackgroundCompleted
+    from dodaios.core.events import JarvisAgentBackgroundCompleted
 
     bus = EventBus()
     tts = FakeTTS()

@@ -23,8 +23,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.realtime import session as session_module
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.realtime import session as session_module
+from dodaios.realtime.session import RealtimeVoiceSession
 
 RATE = 24_000
 
@@ -204,7 +204,7 @@ def test_the_deadline_is_the_shared_voice_tool_budget() -> None:
     budget every plugin sizes its waits under (maintainer 2026-08-22: five
     seconds for everything a tool does, not one plugin). It sits after the
     instant ack and well before the turn-stall watchdog."""
-    from jarvis.core.tool_budget import VOICE_TOOL_BUDGET_S
+    from dodaios.core.tool_budget import VOICE_TOOL_BUDGET_S
 
     assert session_module._NATIVE_TOOL_DEADLINE_S == VOICE_TOOL_BUDGET_S == 5.0
     assert (

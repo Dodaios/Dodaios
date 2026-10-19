@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.memory.wiki.integration import WikiIntegrationHandle
+from dodaios.memory.wiki.integration import WikiIntegrationHandle
 
 
 class _FakeBridge:

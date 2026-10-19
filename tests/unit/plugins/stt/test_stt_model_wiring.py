@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import jarvis.core.config as cfg
-import jarvis.plugins.stt as stt_pkg
-from jarvis.core.config import STTConfig
+import dodaios.core.config as cfg
+import dodaios.plugins.stt as stt_pkg
+from dodaios.core.config import STTConfig
 
 
 class _FakeCloud:

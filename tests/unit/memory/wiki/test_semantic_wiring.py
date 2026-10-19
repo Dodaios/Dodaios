@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import WikiContextConfig
-from jarvis.core.config_writer import set_wiki_semantic_search
-from jarvis.memory.wiki import semantic_search
-from jarvis.memory.wiki.search import VaultSearch
-from jarvis.memory.wiki.watcher import WikiWatcher
-from jarvis.plugins.tool.wiki_recall import WikiRecallTool
+from dodaios.core.bus import EventBus
+from dodaios.core.config import WikiContextConfig
+from dodaios.core.config_writer import set_wiki_semantic_search
+from dodaios.memory.wiki import semantic_search
+from dodaios.memory.wiki.search import VaultSearch
+from dodaios.memory.wiki.watcher import WikiWatcher
+from dodaios.plugins.tool.wiki_recall import WikiRecallTool
 from tests.fakes.fake_semantic_encoder import FakeSemanticEncoder
 
 

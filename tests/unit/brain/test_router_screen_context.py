@@ -21,18 +21,18 @@ from uuid import UUID
 
 import pytest
 
-from jarvis.brain.router import RouterBrain
-from jarvis.brain.streaming import StreamingAggregate
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
-from jarvis.core.protocols import (
+from dodaios.brain.router import RouterBrain
+from dodaios.brain.streaming import StreamingAggregate
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
+from dodaios.core.protocols import (
     BrainDelta,
     BrainRequest,
     ImageBlock,
     Observation,
     ToolResult,
 )
-from jarvis.screen_context.turn import TurnScreenContext
+from dodaios.screen_context.turn import TurnScreenContext
 
 
 class _FakeBrain:
@@ -140,7 +140,7 @@ def _patch_screen(monkeypatch: pytest.MonkeyPatch, result: TurnScreenContext) ->
     async def _fake(*_args: Any, **_kwargs: Any) -> TurnScreenContext:
         return result
 
-    monkeypatch.setattr("jarvis.screen_context.turn.screen_context_for_turn", _fake)
+    monkeypatch.setattr("dodaios.screen_context.turn.screen_context_for_turn", _fake)
 
 
 async def test_captured_context_is_attached_with_its_note(

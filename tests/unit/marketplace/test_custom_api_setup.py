@@ -11,16 +11,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.protocols import ExecutionContext
-from jarvis.marketplace.catalog import PluginCatalog
-from jarvis.marketplace.custom_api import ApiConnectionInfo, ApiDefinition, CustomApiStore
-from jarvis.marketplace.custom_api_connect import verify_api_key
-from jarvis.marketplace.custom_api_discovery import ApiDiscovery, ApiDiscoveryError
-from jarvis.marketplace.custom_api_openapi import api_auth, api_base_url, compile_openapi
-from jarvis.marketplace.custom_api_runtime import CustomApiRuntime
-from jarvis.marketplace.plugin_registry import PluginToolRegistry
-from jarvis.marketplace.token_store import InMemoryBackend, TokenStore
-from jarvis.ui.web.custom_api_routes import router
+from dodaios.core.protocols import ExecutionContext
+from dodaios.marketplace.catalog import PluginCatalog
+from dodaios.marketplace.custom_api import ApiConnectionInfo, ApiDefinition, CustomApiStore
+from dodaios.marketplace.custom_api_connect import verify_api_key
+from dodaios.marketplace.custom_api_discovery import ApiDiscovery, ApiDiscoveryError
+from dodaios.marketplace.custom_api_openapi import api_auth, api_base_url, compile_openapi
+from dodaios.marketplace.custom_api_runtime import CustomApiRuntime
+from dodaios.marketplace.plugin_registry import PluginToolRegistry
+from dodaios.marketplace.token_store import InMemoryBackend, TokenStore
+from dodaios.ui.web.custom_api_routes import router
 
 BASE = "https://93.184.216.34"
 KEY = "fixture-only-service-key"
@@ -400,13 +400,13 @@ def test_api_definition_cache_cannot_be_mutated_by_a_caller(store):
 async def test_managed_service_reaches_composer_society_and_mission_with_existing_denies(store):
     from types import SimpleNamespace
 
-    from jarvis.agent_chat.tool_catalog import build_catalog, resolve_choices, selection_tools
-    from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-    from jarvis.core import runtime_refs
-    from jarvis.missions.init import _custom_api_worker_tools
-    from jarvis.missions.workers.worker_tool_broker import worker_tool_name_allowed
-    from jarvis.society.capabilities import build_catalog as society_catalog
-    from jarvis.society.capabilities import select_tools
+    from dodaios.agent_chat.tool_catalog import build_catalog, resolve_choices, selection_tools
+    from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+    from dodaios.core import runtime_refs
+    from dodaios.missions.init import _custom_api_worker_tools
+    from dodaios.missions.workers.worker_tool_broker import worker_tool_name_allowed
+    from dodaios.society.capabilities import build_catalog as society_catalog
+    from dodaios.society.capabilities import select_tools
 
     spec = definition(125)
     spec.connection.brand_id = "sample"

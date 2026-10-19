@@ -54,7 +54,7 @@ B. The known latency fixes ARE already present and committed (so do NOT "re-fix"
    commits — so it IS running them, and missions STILL take 420–923s. That proves the
    remaining bottleneck is structural, not a missing patch.
 
-C. Timeouts/loops currently in jarvis/missions/kontrollierer/orchestrator.py:
+C. Timeouts/loops currently in dodaios/missions/kontrollierer/orchestrator.py:
      iter0 worker = 720s, correction worker = 360s, task budget = 1380s,
      mission hard cap _MISSION_DEADLINE_S = 1500s (25 min), MAX_CRITIC_LOOPS = 3
      (hardcoded per ADR-0009 — do NOT change without a new ADR).
@@ -62,7 +62,7 @@ C. Timeouts/loops currently in jarvis/missions/kontrollierer/orchestrator.py:
    progressing-but-slow worker. So a doomed 3-loop mission can legitimately burn
    ~15 min before it fails.
 
-D. The critic (jarvis/missions/critic/runner.py, claude-direct path ~line 1123) uses
+D. The critic (dodaios/missions/critic/runner.py, claude-direct path ~line 1123) uses
    `--permission-mode bypassPermissions` but has NO `--ignore-user-config`, NO
    `--disallowedTools`, and NO reasoning-effort cap. If a critic ever runs via the
    codex fallback it inherits the user's xhigh reasoning — an unguarded latency hole.
@@ -87,12 +87,12 @@ MACHINE / RUNTIME QUIRKS (this exact box — getting these wrong wastes a whole 
    - That self-restart reloads CODE but INHERITS the old environment — so ENV changes
      (e.g. JARVIS__BRAIN__SUB_JARVIS__*) only take full effect on a fresh OS-level
      launch. Account for this when changing the provider via ENV.
-   - Config writes go ONLY through `jarvis/core/config_writer.py`
+   - Config writes go ONLY through `dodaios/core/config_writer.py`
      (`set_sub_jarvis_model` / the 3-layer writer) — never hand-edit one of
      jarvis.toml / scripts/config-soll.json / ENV alone, or you recreate the drift
      that caused BUG-010. jarvis.toml may be read-only (drift-guard); handle EPERM.
    - Confirm the live app code with:
-       & "C:\Program Files\Python311\python.exe" -c "import jarvis; print(jarvis.__file__)"
+       & "C:\Program Files\Python311\python.exe" -c "import dodaios; print(dodaios.__file__)"
      It must point inside this repo (restore-trap guard).
 
 PHASE 1 — FORENSICS (read-only; do this BEFORE touching code)
@@ -110,7 +110,7 @@ split:
    - Investigator B: trace the live worker-selection path end to end —
      spawn_worker.py -> the worker factory / `_select_subagent_worker_kind` ->
      CodexDirectWorker vs ClaudeDirectWorker vs GeminiWorker, plus the
-     claude<->codex quota-fallback (jarvis/claude_quota_state.py, 20-min cooldown)
+     claude<->codex quota-fallback (dodaios/claude_quota_state.py, 20-min cooldown)
      and the codex usage-limit->gemini fallback. Produce a decision diagram of which
      backend a mission gets under each condition.
    - Investigator C: time-box one REAL mission per backend with a reproducible
@@ -175,7 +175,7 @@ PHASE 4 — PROVE IT (this is the stop condition; do not declare success without
       Plus any new parity/resolution tests you added. Zero new failures; prove any
       pre-existing red is foreign (worktree-isolate it).
    2. Restart the LIVE app via POST http://127.0.0.1:47821/api/settings/restart-app
-      and confirm it is running the new code (jarvis.__file__ check + the chosen
+      and confirm it is running the new code (dodaios.__file__ check + the chosen
       provider visible via GET /api/jarvis-agent/status or the settings API).
    3. Dispatch a BATCH of at least 8 REAL missions through the live app (not just the
       harness), mixing the three task classes:

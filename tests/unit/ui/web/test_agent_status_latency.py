@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui.web import agent_status
+from dodaios.ui.web import agent_status
 
 
 @pytest.mark.asyncio
@@ -46,10 +46,10 @@ async def test_one_broken_probe_preserves_other_provider_results(monkeypatch):
 
 @pytest.fixture
 def status_endpoint(monkeypatch, tmp_path):
-    import jarvis.claude_credentials as credentials
-    import jarvis.core.config as config
-    from jarvis.core.bus import EventBus
-    from jarvis.ui.web.server import WebServer
+    import dodaios.claude_credentials as credentials
+    import dodaios.core.config as config
+    from dodaios.core.bus import EventBus
+    from dodaios.ui.web.server import WebServer
 
     monkeypatch.setattr(config, "get_secret", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(config, "get_provider_secret", lambda *_args, **_kwargs: None)

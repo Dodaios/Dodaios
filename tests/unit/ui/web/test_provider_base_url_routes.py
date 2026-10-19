@@ -12,14 +12,14 @@ import pytest
 import tomlkit
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 @pytest.fixture
 def server(tmp_path) -> WebServer:
-    from jarvis.brain.model_catalog import ModelCatalog
+    from dodaios.brain.model_catalog import ModelCatalog
 
     cfg = JarvisConfig()
     cfg.ui.dev_mode = True
@@ -36,7 +36,7 @@ def recorded_writes(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str | No
     def _record(provider: str, base_url: str | None, **kwargs) -> None:
         calls.append((provider, base_url))
 
-    monkeypatch.setattr("jarvis.core.config_writer.set_provider_base_url", _record)
+    monkeypatch.setattr("dodaios.core.config_writer.set_provider_base_url", _record)
     return calls
 
 
@@ -70,10 +70,10 @@ def test_endpoint_change_releases_scoped_clients_and_old_catalog(
 ):
     import time
 
-    from jarvis.agent_runtimes import gateway
-    from jarvis.agent_runtimes.model_limits import ModelLimits
-    from jarvis.brain.model_catalog import ModelInfo
-    from jarvis.core.config import BrainProviderConfig
+    from dodaios.agent_runtimes import gateway
+    from dodaios.agent_runtimes.model_limits import ModelLimits
+    from dodaios.brain.model_catalog import ModelInfo
+    from dodaios.core.config import BrainProviderConfig
     from tests.unit.brain.test_turn_override import _manager
 
     brain = _manager()
@@ -151,7 +151,7 @@ def test_provider_payload_carries_base_url_fields(server: WebServer) -> None:
 
 # ── The TOML writer itself (AP-7 discipline) ─────────────────────────────
 def test_set_provider_base_url_writes_quoted_table(tmp_path, monkeypatch) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     # Keep the best-effort drift-guard baseline sync away from the real file.
     monkeypatch.setattr(config_writer, "_update_config_soll_section", lambda *a, **k: None)  # i18n-allow: identifier, named after config-soll.json
@@ -173,7 +173,7 @@ def test_set_provider_base_url_writes_quoted_table(tmp_path, monkeypatch) -> Non
 
 def test_set_provider_base_url_preserves_bom(tmp_path, monkeypatch) -> None:
     """BOM-safe like every writer here (AP-7 / BUG-018)."""
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(config_writer, "_update_config_soll_section", lambda *a, **k: None)  # i18n-allow: identifier, named after config-soll.json
     toml_path = tmp_path / "jarvis.toml"

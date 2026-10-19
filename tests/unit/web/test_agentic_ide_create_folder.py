@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 async def test_makes_the_folder_and_describes_it(tmp_path: Path) -> None:

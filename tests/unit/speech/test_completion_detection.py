@@ -1,7 +1,7 @@
 """Unit tests for the incomplete-prompt completion classifier.
 
-Target module: ``jarvis/speech/completion.py`` (not yet implemented — these are
-the RED tests). The classifier is the structural twin of ``jarvis/speech/hangup.py``:
+Target module: ``dodaios/speech/completion.py`` (not yet implemented — these are
+the RED tests). The classifier is the structural twin of ``dodaios/speech/hangup.py``:
 a deterministic, stdlib-only detector that fires ONLY on syntactically
 unambiguous open-ended utterances.
 
@@ -26,7 +26,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from jarvis.speech.completion import (
+from dodaios.speech.completion import (
     REASON_CONJUNCTION,
     REASON_DETERMINER,
     REASON_PREPOSITION,

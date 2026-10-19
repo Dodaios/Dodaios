@@ -1,6 +1,6 @@
 """Cross-layer parity guard for the transcription-failure vocabulary (AP-4).
 
-``jarvis.speech.stt_failure.STT_FAILURE_REASONS`` is the single source of truth
+``dodaios.speech.stt_failure.STT_FAILURE_REASONS`` is the single source of truth
 for "why did this transcription fail". The value is written by the speech
 pipeline, carried on ``DictationCompleted.error``, stored in the history
 sidecar, serialised by the REST layer and finally turned into a sentence by the
@@ -23,7 +23,7 @@ import json
 import re
 from pathlib import Path
 
-from jarvis.speech.stt_failure import (
+from dodaios.speech.stt_failure import (
     CROSSABLE_REASONS,
     STT_FAILURE_REASONS,
     classify_stt_failure,
@@ -32,7 +32,7 @@ from jarvis.speech.stt_failure import (
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_FRONTEND = _REPO_ROOT / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src"
 _DICTATION_TS = _FRONTEND / "hooks" / "useDictation.ts"
 _HISTORY_GROUP_TSX = _FRONTEND / "views" / "voice" / "DictationHistoryGroup.tsx"
 _LOCALES = _FRONTEND / "i18n" / "locales"
@@ -151,7 +151,7 @@ def test_the_live_rate_limit_classifies_as_rate_limited() -> None:
 
 def test_the_local_engines_busy_error_is_named_rather_than_generic() -> None:
     """``TranscribeBusy`` is a real recurring shape here (AP-24 / BUG-036)."""
-    from jarvis.plugins.stt.fwhisper import TranscribeBusy
+    from dodaios.plugins.stt.fwhisper import TranscribeBusy
 
     busy = TranscribeBusy("a transcription is already in flight on this model")
     assert classify_stt_failure(busy) == "engine_busy"
@@ -162,7 +162,7 @@ def test_the_local_engines_busy_error_is_named_rather_than_generic() -> None:
 
 def test_normalization_is_idempotent_and_keeps_none_as_none() -> None:
     """The backstop at the store: a code survives, raw text is converted."""
-    from jarvis.speech.stt_failure import normalize_stt_failure
+    from dodaios.speech.stt_failure import normalize_stt_failure
 
     for reason in STT_FAILURE_REASONS:
         assert normalize_stt_failure(reason) == reason, reason

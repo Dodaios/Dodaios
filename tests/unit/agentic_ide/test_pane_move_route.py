@@ -14,8 +14,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import session as ide
-from jarvis.ui.web import agentic_ide_routes
+from dodaios.agentic_ide import session as ide
+from dodaios.ui.web import agentic_ide_routes
 
 
 @pytest.fixture

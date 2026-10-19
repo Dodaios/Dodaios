@@ -6,8 +6,8 @@ import httpx
 import pytest
 from click.testing import CliRunner
 
-import jarvis.cli_ctl.__main__ as entry
-from jarvis.cli_ctl import openapi_cache
+import dodaios.cli_ctl.__main__ as entry
+from dodaios.cli_ctl import openapi_cache
 
 SPEC = {
     "openapi": "3.1.0",
@@ -31,7 +31,7 @@ MARS_SPEC = {
 
 
 def _mock_transport(monkeypatch, handler) -> None:
-    import jarvis.cli_ctl.client as client_mod
+    import dodaios.cli_ctl.client as client_mod
 
     real_init = client_mod.JarvisClient.__init__
 

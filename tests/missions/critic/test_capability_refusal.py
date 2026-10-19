@@ -24,8 +24,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.critic.runner import CriticRunner
-from jarvis.missions.stream_evidence import capability_refusal_answer
+from dodaios.missions.critic.runner import CriticRunner
+from dodaios.missions.stream_evidence import capability_refusal_answer
 
 _REFUSAL = (
     "That's outside what I can do. I can't access travel booking systems, "

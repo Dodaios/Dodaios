@@ -19,7 +19,7 @@ edit this script and re-run it instead of touching a PNG by hand.
 
 Usage::
 
-    python scripts/pets/build_pets.py              # write jarvis/ui/pets/{builtin,template}
+    python scripts/pets/build_pets.py              # write dodaios/ui/pets/{builtin,template}
     python scripts/pets/build_pets.py --out DIR    # write DIR/builtin and DIR/template
 """
 
@@ -40,7 +40,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from PIL import Image  # noqa: E402
 
-from jarvis.ui.pets.states import (  # noqa: E402
+from dodaios.ui.pets.states import (  # noqa: E402
     MAX_FRAMES_PER_STATE,
     ONE_SHOT_STATES,
     PET_FORMAT,
@@ -8844,7 +8844,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--out",
         type=Path,
-        default=REPO_ROOT / "jarvis" / "ui" / "pets",
+        default=REPO_ROOT / "dodaios" / "ui" / "pets",
         help="folder that receives builtin/ and template/ (default: the package)",
     )
     args = parser.parse_args(argv)

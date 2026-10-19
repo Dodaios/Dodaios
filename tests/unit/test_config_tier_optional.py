@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from jarvis.core.config import BrainTierConfig
+from dodaios.core.config import BrainTierConfig
 
 
 class TestBrainTierConfigOptional:

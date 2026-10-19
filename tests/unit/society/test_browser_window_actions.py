@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.browser.window_actions import (
+from dodaios.society.browser.window_actions import (
     WindowClick,
     WindowKey,
     native_input,
@@ -13,7 +13,7 @@ from jarvis.society.browser.window_actions import (
     register_window_actions,
     window_message,
 )
-from jarvis.ui.web.society_browser_routes import validate_control
+from dodaios.ui.web.society_browser_routes import validate_control
 from tests.fakes.fake_browser_window import BrowserTools, native_worker
 
 
@@ -140,7 +140,7 @@ async def test_native_action_binds_the_actual_tab_even_when_both_urls_are_identi
 
 
 async def test_native_pointer_reports_only_a_successfully_approved_dispatch():
-    from jarvis.society.browser.pointer import PointerTracker
+    from dodaios.society.browser.pointer import PointerTracker
 
     worker = native_worker()
     events = []
@@ -180,7 +180,7 @@ async def test_manual_worker_routes_menu_input_to_the_same_native_window():
     # The standalone worker redirects stdout on import; restore the test runner.
     previous = sys.stdout
     try:
-        from jarvis.society.browser.live_runner import Worker
+        from dodaios.society.browser.live_runner import Worker
     finally:
         sys.stdout = previous
     worker = Worker()
@@ -199,7 +199,7 @@ async def test_manual_worker_routes_menu_input_to_the_same_native_window():
 async def test_page_only_double_click_sends_one_pair_per_viewer_click():
     previous = sys.stdout
     try:
-        from jarvis.society.browser.live_runner import Worker
+        from dodaios.society.browser.live_runner import Worker
     finally:
         sys.stdout = previous
 

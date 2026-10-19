@@ -38,13 +38,13 @@ Read these files first, in this order:
    - Boundary: semantic incompleteness is a higher layer after acoustic endpointing. Do not confuse this with fixing premature acoustic endpointing.
 
 5. Relevant code:
-   - `jarvis/speech/pipeline.py`
-   - `jarvis/audio/vad.py`
-   - `jarvis/speech/completion.py`
-   - `jarvis/speech/pending_buffer.py`
-   - `jarvis/ui/desktop_app.py`
-   - `jarvis/ui/web/frontend/src/components/ChatInput.tsx`
-   - `jarvis/ui/web/frontend/src/hooks/useWebSocket.ts`
+   - `dodaios/speech/pipeline.py`
+   - `dodaios/audio/vad.py`
+   - `dodaios/speech/completion.py`
+   - `dodaios/speech/pending_buffer.py`
+   - `dodaios/ui/desktop_app.py`
+   - `dodaios/ui/web/frontend/src/components/ChatInput.tsx`
+   - `dodaios/ui/web/frontend/src/hooks/useWebSocket.ts`
 
 6. Relevant tests:
    - `tests/unit/audio/test_vad_turn_taking.py`
@@ -61,8 +61,8 @@ The likely surface is the normal voice path, not typed chat.
 Known current behavior:
 
 - `SpeechPipeline.__init__` has `vad_silence_ms: int = 1500`. This is the current "1.5 second pause rule".
-- `jarvis/ui/desktop_app.py` constructs `SpeechPipeline(...)` without overriding `vad_silence_ms`, so the constructor default is the live desktop default unless another caller differs.
-- `SileroEndpointer.utterances()` in `jarvis/audio/vad.py` ends an utterance through three broad mechanisms:
+- `dodaios/ui/desktop_app.py` constructs `SpeechPipeline(...)` without overriding `vad_silence_ms`, so the constructor default is the live desktop default unless another caller differs.
+- `SileroEndpointer.utterances()` in `dodaios/audio/vad.py` ends an utterance through three broad mechanisms:
   - natural silence: `silent_run >= _silence_frames`
   - forced max length: `reached_max`
   - external endpoint request: `_endpoint_requested`, usually from the STT probe, reported as `stt_stable`
@@ -91,7 +91,7 @@ Start by finding the exact premature endpoint path.
 
 ```powershell
 pwsh scripts/preflight.ps1
-python -c "import jarvis; print(jarvis.__file__)"
+python -c "import dodaios; print(dodaios.__file__)"
 ```
 
 2. Inspect recent logs around a reproduction, especially:
@@ -142,17 +142,17 @@ Prefer the smallest fix that matches the observed endpoint reason.
 
 Likely fix areas:
 
-- `jarvis/audio/vad.py`
+- `dodaios/audio/vad.py`
   - Verify `tail_loud` is false during quiet breath/thinking pauses.
   - Verify `cancel_hysteresis_ms` and relative-silence logic do not prevent a real resumed phrase from cancelling the silence timer.
   - Preserve the speaker-bleed fix: isolated loud spikes should not reset silence, but sustained user speech should.
 
-- `jarvis/speech/pipeline.py`
+- `dodaios/speech/pipeline.py`
   - Verify every live call to `_on_vad_probe()` gets the `tail_loud` computed by VAD.
   - Verify stale cloud STT probes cannot force endpoints on a later turn. The generation guard must remain intact.
   - If the probe default `tail_loud=True` is causing a live bypass, remove that live bypass without breaking tests that intentionally call the method directly.
 
-- `jarvis/core/config.py`
+- `dodaios/core/config.py`
   - Only add or move endpoint settings if the fix truly requires a configurable source of truth.
   - If you add config, keep `ConfigDict(extra="allow")` and add tests.
 
@@ -173,14 +173,14 @@ pytest tests/unit/speech/test_turn_taking.py -v
 pytest tests/unit/speech/test_pipeline_completion.py -v
 pytest tests/unit/speech/test_long_dictation_accumulation.py -v
 pytest tests/unit/speech/test_pipeline_push_to_talk.py -v
-python -m py_compile jarvis/speech/pipeline.py jarvis/audio/vad.py
-ruff check jarvis/speech jarvis/audio tests/unit/speech tests/unit/audio
+python -m py_compile dodaios/speech/pipeline.py dodaios/audio/vad.py
+ruff check dodaios/speech dodaios/audio tests/unit/speech tests/unit/audio
 ```
 
 If frontend dictation is touched:
 
 ```powershell
-cd jarvis/ui/web/frontend
+cd dodaios/ui/web/frontend
 npm run test
 npm run build
 ```

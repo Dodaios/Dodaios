@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.ui.desktop_app import _supported_call_kwargs
+from dodaios.ui.desktop_app import _supported_call_kwargs
 
 
 def test_concrete_legacy_brain_drops_new_optional_turn_control() -> None:

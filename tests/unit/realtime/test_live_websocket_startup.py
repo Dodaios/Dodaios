@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.plugins.realtime._live_transport import startup_websocket_options
+from dodaios.plugins.realtime._live_transport import startup_websocket_options
 from tests.fakes.fake_subscription_live_wire import (
     FakeSubscriptionLiveWire,
     FakeSubscriptionSocket,
@@ -106,7 +106,7 @@ async def test_subscription_injected_connector_receives_startup_hook():
 async def test_public_live_injected_connector_receives_startup_hook(monkeypatch):
     from websockets.asyncio import client
 
-    from jarvis.plugins.realtime.openai_live import OpenAILiveProvider
+    from dodaios.plugins.realtime.openai_live import OpenAILiveProvider
 
     phases, connects = [], []
     socket = FakeSubscriptionSocket()

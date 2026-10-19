@@ -1,9 +1,9 @@
-"""Unit tests for the out-of-band TTS level channel (jarvis.audio.level_tap)."""
+"""Unit tests for the out-of-band TTS level channel (dodaios.audio.level_tap)."""
 from __future__ import annotations
 
 import time
 
-from jarvis.audio import level_tap
+from dodaios.audio import level_tap
 
 
 def test_no_subscriber_is_noop_and_reports_empty():

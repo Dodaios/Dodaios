@@ -22,16 +22,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.ack_brain.spawn_announcement import STILL_RUNNING_PHRASES
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.brain.ack_brain.spawn_announcement import STILL_RUNNING_PHRASES
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     AnnouncementRequested,
     JarvisAgentAnnouncement,
     JarvisAgentBackgroundCompleted,
     VoiceMuteToggleRequested,
 )
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline
 from tests.fakes.voice_session import open_classic_voice_session
 
 # Every "still on it" heartbeat phrase across de/en/es — the watchdog now picks
@@ -196,7 +196,7 @@ async def test_finish_after_response_stays_listening_while_spawn_in_flight() -> 
     has not yet emitted ``JarvisAgentBackgroundCompleted``, the turn is not
     semantically complete and the pipeline must stay LISTENING.
     """
-    from jarvis.speech.pipeline import TurnTakingState
+    from dodaios.speech.pipeline import TurnTakingState
 
     bus = EventBus()
     pipe = _pipeline(bus, watchdog_delay_s=60.0)
@@ -400,7 +400,7 @@ async def test_heartbeat_dropped_not_deferred_while_user_holds_floor() -> None:
     spoken, not deferred. kind="progress" is "droppable when stale", so a stale
     'still on it' can never be parked and flushed after the user finishes
     speaking or after the mission answer (AD-OE5 / completion-overlap)."""
-    from jarvis.speech.pipeline import TurnTakingState
+    from dodaios.speech.pipeline import TurnTakingState
 
     bus = EventBus()
     pipe = _pipeline(bus, watchdog_delay_s=0.03)
@@ -426,7 +426,7 @@ async def test_heartbeat_dropped_not_deferred_while_turn_is_processing() -> None
     audio progress counter polluted that turn's playback watchdog. A progress
     beat is ephemeral, so it is dropped rather than queued.
     """
-    from jarvis.speech.pipeline import TurnTakingState
+    from dodaios.speech.pipeline import TurnTakingState
 
     bus = EventBus()
     pipe = _pipeline(bus, watchdog_delay_s=0.03)
@@ -456,7 +456,7 @@ async def test_heartbeat_not_spoken_into_idle_no_active_session() -> None:
     while the user is actively LISTENING; in every other state — including IDLE —
     it is dropped (kind="progress" is droppable when stale).
     """
-    from jarvis.speech.pipeline import TurnTakingState
+    from dodaios.speech.pipeline import TurnTakingState
 
     bus = EventBus()
     pipe = _pipeline(bus, watchdog_delay_s=0.03)
@@ -480,7 +480,7 @@ async def test_heartbeat_still_spoken_while_listening_in_active_session() -> Non
     session waiting (LISTENING), the reassurance is STILL spoken. The idle fix
     must only silence 'out of nowhere' beats — never the legitimate in-session
     'still on it' the heartbeat exists to provide (design 2026-06-19)."""
-    from jarvis.speech.pipeline import TurnTakingState
+    from dodaios.speech.pipeline import TurnTakingState
 
     bus = EventBus()
     pipe = _pipeline(bus, watchdog_delay_s=0.03)

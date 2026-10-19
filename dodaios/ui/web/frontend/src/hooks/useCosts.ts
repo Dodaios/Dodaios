@@ -1,0 +1,389 @@
+/**
+ * React Query hooks for the Spend & Tokens section.
+ *
+ * Endpoints: see `dodaios/ui/web/costs_routes.py`. The backend is a read model
+ * over the databases the app already writes, so every query here is a plain
+ * GET — nothing in this section mutates state.
+ */
+import { useQuery } from "@tanstack/react-query";
+
+// ---------------------------------------------------------------------------
+// Wire types — mirror the Pydantic models in costs_routes.py
+// ---------------------------------------------------------------------------
+
+/** Which model in a turn spent this. */
+export type CostRole =
+  | "realtime"
+  | "tool"
+  | "pipeline"
+  | "agent"
+  | "worker"
+  // The speech layer bills by audio second and by character, not by token —
+  // its own two roles rather than a shape forced onto the token vocabulary.
+  | "stt"
+  | "tts"
+  // A model call made by a background job (wiki, awareness, dictation …).
+  | "background";
+
+/** Which part of the app it was spent in. */
+export type CostSurface =
+  | "voice"
+  | "agent-chat"
+  | "mission"
+  | "agentic-ide"
+  | "jarvis-voice"
+  | "background";
+
+/**
+ * How confident the price is.
+ * - `recorded` the source priced the call itself (audio rates included)
+ * - `derived`  re-priced here from the rate tables
+ * - `free`     local engine, subscription seat, or a `:free` model
+ * - `unknown`  tokens spent at a rate nobody publishes — an accounting gap
+ * - `subscription` a monthly seat did the work; the amount is what the same
+ *   call would have cost through the API, not money that moved
+ */
+export type PriceSource = "recorded" | "derived" | "free" | "unknown" | "subscription";
+
+export interface CostBucket {
+  key: string;
+  cost_usd: number;
+  tokens_in: number;
+  tokens_out: number;
+  tokens_cached: number;
+  tokens_total: number;
+  entries: number;
+  gap_tokens: number;
+  /** Of `cost_usd`, the part a monthly seat already paid for. */
+  subscription_usd: number;
+  /** Speech only: characters spoken and audio heard. Zero on token rows. */
+  chars: number;
+  audio_ms: number;
+  /** Every price source seen in the bucket: free, derived, recorded, unknown, subscription. */
+  price_sources: string[];
+  last_ts_ms: number;
+  cost_share: number;
+  token_share: number;
+  members: string[];
+  /**
+   * Cost per member of the bucket's second dimension: a day broken down by
+   * role, a provider by model. Drives the stacked chart and the tooltips.
+   */
+  breakdown: Record<string, number>;
+}
+
+export interface CostRefBucket extends CostBucket {
+  label: string;
+  surface: string;
+}
+
+export interface CostTotals {
+  cost_usd: number;
+  tokens_in: number;
+  tokens_out: number;
+  tokens_cached: number;
+  tokens_total: number;
+  entries: number;
+  gap_tokens: number;
+  gap_entries: number;
+  free_tokens: number;
+  estimated_usd: number;
+  /** Of `cost_usd`, the part covered by a subscription rather than invoiced. */
+  subscription_usd: number;
+  first_ts_ms: number;
+  last_ts_ms: number;
+}
+
+export interface CostModelRow {
+  model: string;
+  provider: string;
+  price_sources: PriceSource[];
+  tokens_total: number;
+}
+
+export interface CostFacets {
+  providers: string[];
+  models: string[];
+  roles: CostRole[];
+  surfaces: CostSurface[];
+}
+
+export interface CostCurrency {
+  eur_per_usd: number;
+  source: "config" | "default";
+}
+
+export interface CostSummary {
+  since_ms: number;
+  until_ms: number;
+  bucket: "day" | "hour";
+  totals: CostTotals;
+  by_provider: CostBucket[];
+  by_model: CostBucket[];
+  by_role: CostBucket[];
+  by_surface: CostBucket[];
+  series: CostBucket[];
+  top_refs: CostRefBucket[];
+  models: CostModelRow[];
+  /** Every conversation/mission/session in the window; `top_refs` is a slice. */
+  refs_total: number;
+  facets: CostFacets;
+  currency: CostCurrency;
+  sources_present: string[];
+  /**
+   * Whether the coding-CLI numbers are final yet, and how far they are.
+   * Optional on the wire: a backend from before the field (the bundle
+   * reloads before the server restarts) answers without it.
+   */
+  index?: CostIndexStatus;
+}
+
+/**
+ * How far the coding-CLI index has read the transcripts on disk. While
+ * `complete` is false the coding-CLI share of every number on the page is
+ * still rising — the page says so rather than presenting a fraction as the
+ * whole bill.
+ */
+export interface CostIndexStatus {
+  files_known: number;
+  files_indexed: number;
+  files_pending: number;
+  bytes_pending: number;
+  turns: number;
+  complete: boolean;
+}
+
+/**
+ * One calendar day of spend, already broken down — the section's ledger row.
+ *
+ * Mirrors `DayRow` in costs_routes.py. A day, not a session, is the unit:
+ * a session row carries the timestamp of its FIRST call, so a long morning
+ * run sorts below a short one started later and reads as if it never
+ * happened.
+ */
+export interface CostDayRow {
+  /** Local `YYYY-MM-DD`. */
+  date: string;
+  since_ms: number;
+  until_ms: number;
+  totals: CostTotals;
+  by_model: CostBucket[];
+  by_provider: CostBucket[];
+  by_role: CostBucket[];
+  by_surface: CostBucket[];
+}
+
+export interface CostDailyLedger {
+  days: CostDayRow[];
+  currency: CostCurrency;
+}
+
+export interface CostEntryRow {
+  ts_ms: number;
+  surface: CostSurface;
+  role: CostRole;
+  provider: string;
+  model: string;
+  tokens_in: number;
+  tokens_out: number;
+  tokens_cached: number;
+  tokens_total: number;
+  cost_usd: number;
+  price_source: PriceSource;
+  ref_id: string;
+  label: string;
+}
+
+export interface CostEntriesPage {
+  items: CostEntryRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface CostRateRow {
+  model: string;
+  input_usd_per_mtok: number | null;
+  output_usd_per_mtok: number | null;
+  audio_input_usd_per_mtok: number | null;
+  audio_output_usd_per_mtok: number | null;
+  known: boolean;
+}
+
+export interface CostPricing {
+  rates: CostRateRow[];
+  currency: CostCurrency;
+}
+
+// ---------------------------------------------------------------------------
+// Query state shared by the summary and the line items
+// ---------------------------------------------------------------------------
+
+export type CostBilling = "all" | "billed" | "subscription";
+
+export interface CostFilters {
+  /** Rolling window in days; `0` means everything ever recorded. */
+  days: number;
+  providers: string[];
+  models: string[];
+  roles: CostRole[];
+  surfaces: CostSurface[];
+  /** Session / mission ids — set by clicking a row in "Where it went". */
+  refs: string[];
+  search: string;
+  /** "all" · "billed" (an API key paid) · "subscription" (seat quotes only). */
+  billing: CostBilling;
+  /**
+   * An explicit window, in epoch ms. When set it wins over `days` — the
+   * daily report drills into ONE day and everything it shows (the hourly
+   * curve, the breakdowns, the calls) is the same request the section
+   * already makes, just bounded to that day.
+   */
+  sinceMs?: number;
+  untilMs?: number;
+}
+
+export const EMPTY_FILTERS: CostFilters = {
+  days: 30,
+  providers: [],
+  models: [],
+  roles: [],
+  surfaces: [],
+  refs: [],
+  billing: "all",
+  search: "",
+};
+
+/** Are any filters beyond the time window active? */
+export function hasActiveFilters(f: CostFilters): boolean {
+  return (
+    f.providers.length > 0 ||
+    f.models.length > 0 ||
+    f.roles.length > 0 ||
+    f.surfaces.length > 0 ||
+    f.refs.length > 0 ||
+    f.search.trim().length > 0
+  );
+}
+
+function toParams(f: CostFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set("days", String(f.days));
+  if (f.sinceMs !== undefined) params.set("since_ms", String(Math.floor(f.sinceMs)));
+  if (f.untilMs !== undefined) params.set("until_ms", String(Math.floor(f.untilMs)));
+  // Repeated params rather than one comma-joined value: a model id may
+  // legitimately contain a comma-free but slash-heavy vendor prefix, and
+  // repeating keeps the split unambiguous on the backend.
+  for (const p of f.providers) params.append("provider", p);
+  for (const m of f.models) params.append("model", m);
+  for (const r of f.roles) params.append("role", r);
+  for (const s of f.surfaces) params.append("surface", s);
+  for (const r of f.refs) params.append("ref", r);
+  if (f.billing !== "all") params.set("billing", f.billing);
+  if (f.search.trim()) params.set("search", f.search.trim());
+  return params;
+}
+
+/**
+ * React Query hands every queryFn an `AbortSignal`; forwarding it is what makes
+ * leaving the section actually stop the work. These reads are the most
+ * expensive in the app, so an abandoned one left running keeps a server thread
+ * busy on an answer nobody will look at.
+ */
+async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return (await res.json()) as T;
+}
+
+// ---------------------------------------------------------------------------
+// Hooks
+// ---------------------------------------------------------------------------
+
+/**
+ * Options for the summary query — shared by `useCostSummary` and the idle
+ * prefetch in `MainView`, so the warm-up fills the very key the section then
+ * reads. Spelling the key twice is how a prefetch silently warms nothing.
+ */
+export function costSummaryQueryOptions(filters: CostFilters) {
+  const params = toParams(filters);
+  return {
+    queryKey: ["costs", "summary", params.toString()],
+    queryFn: ({ signal }: { signal?: AbortSignal }) =>
+      getJson<CostSummary>(`/api/costs/summary?${params.toString()}`, signal),
+    staleTime: 10_000,
+  };
+}
+
+/** The daily ledger's options, on the same terms as the summary's. */
+export function costDailyQueryOptions(filters: CostFilters) {
+  const params = toParams(filters);
+  return {
+    queryKey: ["costs", "daily", params.toString()],
+    queryFn: ({ signal }: { signal?: AbortSignal }) =>
+      getJson<CostDailyLedger>(`/api/costs/daily?${params.toString()}`, signal),
+    staleTime: 10_000,
+  };
+}
+
+export function useCostSummary(filters: CostFilters, enabled = true) {
+  return useQuery({
+    ...costSummaryQueryOptions(filters),
+    enabled,
+    // Spend only moves when a turn finishes, and this is the most expensive
+    // read in the app. At thirty seconds a slow answer was still in flight
+    // when the next poll fired, so the section spent its whole life queueing
+    // behind itself.
+    refetchInterval: 120_000,
+    // Without this a filter click empties every table on the page while the
+    // new numbers are fetched. Both sibling queries already keep the old
+    // rows on screen; the summary is what the eye is actually on.
+    placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * The daily ledger — one row per day for the whole selected range.
+ *
+ * Same filters as the summary, so a drill-down into a provider or a model
+ * narrows the days too rather than leaving a second, disagreeing list on
+ * screen.
+ */
+export function useCostDaily(filters: CostFilters) {
+  return useQuery({
+    // No poll of its own: this is the same underlying data as the summary,
+    // re-read whenever the filters change. Two independent polls over the
+    // two heaviest endpoints meant the section refetched everything twice
+    // per cycle for numbers that move only when a turn ends.
+    ...costDailyQueryOptions(filters),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useCostEntries(
+  filters: CostFilters,
+  sort: "recent" | "cost" | "tokens",
+  limit: number,
+  offset: number,
+) {
+  const params = toParams(filters);
+  params.set("sort", sort);
+  params.set("limit", String(limit));
+  params.set("offset", String(offset));
+  return useQuery({
+    queryKey: ["costs", "entries", params.toString()],
+    queryFn: ({ signal }) =>
+      getJson<CostEntriesPage>(`/api/costs/entries?${params.toString()}`, signal),
+    staleTime: 10_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useCostPricing(days: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ["costs", "pricing", days],
+    queryFn: ({ signal }) => getJson<CostPricing>(`/api/costs/pricing?days=${days}`, signal),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}

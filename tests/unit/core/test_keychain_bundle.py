@@ -5,7 +5,7 @@ credential slot.
 These tests use a fake inner backend (dict-based, records every call) and
 never touch a real keyring/Keychain, so they run identically on every host
 OS -- the wrapper class itself has no platform gate; that gate lives only in
-``jarvis/core/config.py``, which wraps the platform backend on darwin only.
+``dodaios/core/config.py``, which wraps the platform backend on darwin only.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import json
 import pytest
 from keyring.errors import PasswordDeleteError
 
-from jarvis.core.keychain_bundle import (
+from dodaios.core.keychain_bundle import (
     VAULT_ACCOUNT,
     DarwinBundleKeyringBackend,
     SecurityCliVault,
@@ -443,7 +443,7 @@ def test_security_cli_vault_rejects_non_base64_payloads() -> None:
 def test_cli_error_messages_redact_base64_payload_runs() -> None:
     """The write command's input line carries the WHOLE encoded vault; a CLI
     error echoing its input must never leak it into an exception/log line."""
-    from jarvis.core.keychain_bundle import _redact
+    from dodaios.core.keychain_bundle import _redact
 
     secret_b64 = base64.b64encode(b'{"anthropic_api_key": "sk-ant-tops3cret"}')
     stderr = f"security: parse error near {secret_b64.decode()} on line 1"
@@ -488,8 +488,8 @@ def test_ensure_keyring_backend_wires_the_cli_store_on_darwin(
     import keyring
     import keyring.backend
 
-    from jarvis.core import config as cfg
-    from jarvis.core import keychain_bundle as kb
+    from dodaios.core import config as cfg
+    from dodaios.core import keychain_bundle as kb
 
     class _FakePlatformBackend(keyring.backend.KeyringBackend):
         priority = 5  # type: ignore[assignment]

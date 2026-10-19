@@ -4,10 +4,10 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from jarvis.audio.chime import CHIME_SAMPLE_RATE, SCREEN_CAPTURE_PCM
-from jarvis.audio.effects import AudioEffectsService
-from jarvis.core.bus import EventBus
-from jarvis.core.events import ScreenCaptureGrabbed
+from dodaios.audio.chime import CHIME_SAMPLE_RATE, SCREEN_CAPTURE_PCM
+from dodaios.audio.effects import AudioEffectsService
+from dodaios.core.bus import EventBus
+from dodaios.core.events import ScreenCaptureGrabbed
 
 
 class RecordingPlayer:

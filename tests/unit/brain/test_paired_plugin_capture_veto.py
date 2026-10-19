@@ -14,12 +14,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.skills import guards
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.skill_context import SkillContext, set_skill_context
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.skills import guards
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.skill_context import SkillContext, set_skill_context
 
 
 class _Store:
@@ -74,8 +74,8 @@ def test_unpaired_or_unknown_plugin_and_store_faults_never_veto() -> None:
 def test_production_path_remembers_the_answer_per_plugin(monkeypatch) -> None:
     """The keyring read sits on the turn path, so it happens once per window,
     not once per matched turn."""
-    import jarvis.brain.manager as manager_mod
-    from jarvis.marketplace import token_store as token_store_mod
+    import dodaios.brain.manager as manager_mod
+    from dodaios.marketplace import token_store as token_store_mod
 
     loads: list[str] = []
 

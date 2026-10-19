@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.realtime.factory as factory
-from jarvis.core.config import VoiceConfig
-from jarvis.realtime.factory import (
+import dodaios.realtime.factory as factory
+from dodaios.core.config import VoiceConfig
+from dodaios.realtime.factory import (
     _provider_candidates,
     _resolve_realtime_provider,
     build_realtime_session,
@@ -97,7 +97,7 @@ def _cfg(
 def _fake_registry(
     monkeypatch, keys: set[str], *, subscription_login: bool = False
 ) -> None:
-    import jarvis.realtime.factory as factory
+    import dodaios.realtime.factory as factory
 
     monkeypatch.setattr(factory, "list_plugins", lambda _group: list(_PLUGINS))
     monkeypatch.setattr(factory, "load", lambda _group, name, protocol=None: _PLUGINS[name])
@@ -329,7 +329,7 @@ def test_same_family_delegate_chain_logs_ap22_warning(caplog):
     silences both tiers; the build names the risk and the in-app fix."""
     import logging
 
-    from jarvis.realtime.factory import _warn_on_same_family_delegate_chain
+    from dodaios.realtime.factory import _warn_on_same_family_delegate_chain
 
     cfg = SimpleNamespace(
         brain=SimpleNamespace(
@@ -339,7 +339,7 @@ def test_same_family_delegate_chain_logs_ap22_warning(caplog):
             local_fallback="gemini",
         )
     )
-    with caplog.at_level(logging.WARNING, logger="jarvis.realtime.factory"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.realtime.factory"):
         _warn_on_same_family_delegate_chain(cfg, "gemini-live")
     assert any("AP-22" in record.message for record in caplog.records)
 
@@ -347,7 +347,7 @@ def test_same_family_delegate_chain_logs_ap22_warning(caplog):
 def test_cross_family_delegate_chain_stays_quiet(caplog):
     import logging
 
-    from jarvis.realtime.factory import _warn_on_same_family_delegate_chain
+    from dodaios.realtime.factory import _warn_on_same_family_delegate_chain
 
     cfg = SimpleNamespace(
         brain=SimpleNamespace(
@@ -357,7 +357,7 @@ def test_cross_family_delegate_chain_stays_quiet(caplog):
             local_fallback="openrouter",
         )
     )
-    with caplog.at_level(logging.WARNING, logger="jarvis.realtime.factory"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.realtime.factory"):
         _warn_on_same_family_delegate_chain(cfg, "gemini-live")
     assert not [record for record in caplog.records if "AP-22" in record.message]
 
@@ -665,7 +665,7 @@ def test_handshake_budget_never_drops_below_the_shared_default(monkeypatch) -> N
     """A provider that declares nothing keeps the historical ceiling."""
     _fake_registry(monkeypatch, {"openai"})
 
-    from jarvis.realtime.session import _PROVIDER_HANDSHAKE_TOTAL_TIMEOUT_S
+    from dodaios.realtime.session import _PROVIDER_HANDSHAKE_TOTAL_TIMEOUT_S
 
     assert factory.realtime_handshake_budget_s(_cfg()) == pytest.approx(
         _PROVIDER_HANDSHAKE_TOTAL_TIMEOUT_S

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions.critic.runner import (
+from dodaios.missions.critic.runner import (
     _CODEX_CRITIC_OUTPUT_SCHEMA,
     _verdict_from_codex_flat,
 )
-from jarvis.missions.critic.verdict import REQUIRED_AXES, is_approval_valid
+from dodaios.missions.critic.verdict import REQUIRED_AXES, is_approval_valid
 
 
 def _flat_verdict(

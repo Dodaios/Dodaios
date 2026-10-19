@@ -24,10 +24,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 from tests.fakes.voice_session import open_classic_voice_session
 
 

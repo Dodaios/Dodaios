@@ -3,7 +3,7 @@
 import asyncio
 from types import SimpleNamespace
 
-from jarvis.agent_chat.service import AgentChatService
+from dodaios.agent_chat.service import AgentChatService
 
 
 async def test_cancel_signal_is_immediate_and_does_not_touch_another_chat():

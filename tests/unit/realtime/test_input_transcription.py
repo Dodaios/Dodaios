@@ -21,8 +21,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.realtime import input_transcription as module
-from jarvis.realtime.input_transcription import (
+from dodaios.realtime import input_transcription as module
+from dodaios.realtime.input_transcription import (
     LocalInputTranscriber,
     RecognizerBusy,
 )

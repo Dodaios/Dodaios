@@ -6,7 +6,7 @@ does not exist, and the user cannot tell the difference from the outside. A
 whole ``[jarvis_agents]`` section shipped that way.
 
 This gate enforces the invariant: **every field declared on a config model in
-``jarvis/core/config.py`` is read by at least one line of shipped code.**
+``dodaios/core/config.py`` is read by at least one line of shipped code.**
 
 What counts as reading it, deliberately narrowly:
 
@@ -36,7 +36,7 @@ import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
-_CONFIG = _REPO / "jarvis" / "core" / "config.py"
+_CONFIG = _REPO / "dodaios" / "core" / "config.py"
 _SELF = Path(__file__).resolve()
 _BASELINE = Path(__file__).resolve().parent / "dead-config-switches-baseline.json"
 
@@ -48,7 +48,7 @@ _ALLOWLIST: dict[str, str] = {
     # Not a user-settable switch at all: SecretSlotScope is an internal frozen
     # dataclass describing where one keyring slot sits inside its provider
     # family. `primary_slot` IS read — by secret_family_save_plan() — but only
-    # inside jarvis/core/config.py, the one module this gate deliberately drops
+    # inside dodaios/core/config.py, the one module this gate deliberately drops
     # from its corpus (see `path in (_CONFIG, _SELF)` below). An honest read
     # there can therefore never register, so the finding is a blind spot rather
     # than a dead switch.
@@ -56,10 +56,10 @@ _ALLOWLIST: dict[str, str] = {
 }
 
 #: Directories whose Python counts as a "reader" of a config field.
-_CODE_ROOTS = ("jarvis", "scripts")
+_CODE_ROOTS = ("dodaios", "scripts")
 
 #: Frontend sources — a switch may be surfaced only by the settings UI.
-_FRONTEND = Path("jarvis") / "ui" / "web" / "frontend" / "src"
+_FRONTEND = Path("dodaios") / "ui" / "web" / "frontend" / "src"
 
 _TS_COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.DOTALL)
 _TS_TOKEN = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
