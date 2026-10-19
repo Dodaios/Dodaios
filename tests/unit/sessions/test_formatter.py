@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.sessions.formatter import (
+from dodaios.sessions.formatter import (
     _fmt_duration,
     _fmt_ms,
     _pretty_hangup,
@@ -19,7 +19,7 @@ from jarvis.sessions.formatter import (
     format_session_markdown,
     format_session_plain,
 )
-from jarvis.sessions.models import VoiceEventRow, VoiceSessionRow, VoiceTurnRow
+from dodaios.sessions.models import VoiceEventRow, VoiceSessionRow, VoiceTurnRow
 
 
 def _spoken(
@@ -536,7 +536,7 @@ def test_the_assistants_lines_carry_the_name_the_user_gave_it() -> None:
 
 
 def test_a_blank_name_falls_back_to_the_neutral_label() -> None:
-    from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+    from dodaios.brain.assistant_name import DEFAULT_ASSISTANT_NAME
 
     out = format_session_plain(_session(), _example_turns(), assistant_name="   ")
     assert f"{DEFAULT_ASSISTANT_NAME}: Einen Augenblick." in out

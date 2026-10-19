@@ -7,8 +7,8 @@ import math
 
 import pytest
 
-from jarvis.cu.indicator import protocol, win32
-from jarvis.cu.indicator.pointer_motion import (
+from dodaios.cu.indicator import protocol, win32
+from dodaios.cu.indicator.pointer_motion import (
     GLIDE_MAX_S,
     GLIDE_MIN_S,
     JUMP_PX,
@@ -111,8 +111,8 @@ def test_pointer_press_and_the_show_flag_cross_the_wire():
 
 @pytest.mark.asyncio
 async def test_control_shows_the_pointer_and_clicks_reach_it(monkeypatch):
-    from jarvis.core.bus import EventBus
-    from jarvis.cu.indicator.controller import CUIndicatorController
+    from dodaios.core.bus import EventBus
+    from dodaios.cu.indicator.controller import CUIndicatorController
 
     ctl = CUIndicatorController(EventBus())
     sent: list[tuple[str, dict]] = []
@@ -123,9 +123,9 @@ async def test_control_shows_the_pointer_and_clicks_reach_it(monkeypatch):
         ctl, "_send_and_wait", lambda cmd, _timeout, **fields: sent.append((cmd, fields)) or True
     )
     monkeypatch.setattr(ctl, "_send", lambda cmd, **fields: sent.append((cmd, fields)) or True)
-    monkeypatch.setattr("jarvis.cu.indicator.controller._screen_indicator_enabled", lambda: True)
+    monkeypatch.setattr("dodaios.cu.indicator.controller._screen_indicator_enabled", lambda: True)
     monkeypatch.setattr(
-        "jarvis.cu.indicator.controller.capture_guard.register_hook", lambda _hook: None
+        "dodaios.cu.indicator.controller.capture_guard.register_hook", lambda _hook: None
     )
 
     ctl.pointer_press()  # no control yet: nothing is sent

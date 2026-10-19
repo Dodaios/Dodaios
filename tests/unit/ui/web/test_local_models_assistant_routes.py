@@ -15,16 +15,16 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.brain import ollama_inventory, ollama_runtime
-from jarvis.core import config as cfg_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
-from jarvis.local_models.assistant_prompt import DIAGNOSE_OPENER, SETUP_OPENER
-from jarvis.local_models.assistant_session import NOT_READY
-from jarvis.ui.web import local_models_assistant_routes as routes
-from jarvis.ui.web.server import WebServer
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.brain import ollama_inventory, ollama_runtime
+from dodaios.core import config as cfg_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
+from dodaios.local_models.assistant_prompt import DIAGNOSE_OPENER, SETUP_OPENER
+from dodaios.local_models.assistant_session import NOT_READY
+from dodaios.ui.web import local_models_assistant_routes as routes
+from dodaios.ui.web.server import WebServer
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 BASE = "/api/providers/ollama/local-models/assistant"
@@ -53,7 +53,7 @@ def fake(monkeypatch: pytest.MonkeyPatch) -> FakeOllamaServer:
 def live_probe_is_a_fake(monkeypatch: pytest.MonkeyPatch) -> None:
     """The routes ask every candidate pair for one real generation; a unit
     test answers "alive" for all of them instead of calling a vendor."""
-    from jarvis.local_models import assistant_session
+    from dodaios.local_models import assistant_session
 
     async def _alive(cfg, pairs, *, timeout_s=20.0, tester=None):
         return {pair: (True, "") for pair in pairs}
@@ -146,7 +146,7 @@ def test_run_creates_one_session_and_sends_the_mode_opener(
 def test_run_answers_409_while_a_turn_is_running(
     server: WebServer, ready: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.agent_chat.service import SessionBusy
+    from dodaios.agent_chat.service import SessionBusy
 
     svc: AgentChatService = server.app.state.agent_chat
 
@@ -168,7 +168,7 @@ def test_test_route_runs_the_setup_test_and_health_reads_the_file(
     # The generation seam: every remaining role asks a brain for one real
     # answer, so the route needs a stub where the embedding role used to
     # answer straight from the Ollama inventory.
-    from jarvis.local_models import assistant_test
+    from dodaios.local_models import assistant_test
 
     async def _ok(_cfg, model: str, **_kw) -> assistant_test.RoleCheck:
         return assistant_test.RoleCheck(
@@ -207,7 +207,7 @@ def test_benchmarks_without_a_cache_is_curated_only(server: WebServer) -> None:
 def test_section_health_carries_the_local_models_badge_from_the_file(
     server: WebServer, fake: FakeOllamaServer
 ) -> None:
-    from jarvis.local_models.health_monitor import write_health_record
+    from dodaios.local_models.health_monitor import write_health_record
 
     write_health_record("error", "chat: model not found")
     with TestClient(server.app) as client:

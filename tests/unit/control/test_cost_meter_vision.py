@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.control.cost import (
+from dodaios.control.cost import (
     VISION_SCREENSHOTS_HARD_CAP,
     BudgetConfig,
     CostCapExceeded,

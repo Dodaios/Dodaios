@@ -6,8 +6,8 @@ from dataclasses import replace
 
 import pytest
 
-from jarvis.core.delegation import ResultInbox, result_announcement
-from jarvis.speech.pipeline import TurnTakingState
+from dodaios.core.delegation import ResultInbox, result_announcement
+from dodaios.speech.pipeline import TurnTakingState
 from tests.unit.speech.test_realtime_announcement_bridge import _pipeline
 
 
@@ -20,7 +20,7 @@ def result(name="Scout", status="done"):
 
 @pytest.fixture(autouse=True)
 def quick_batch(monkeypatch):
-    monkeypatch.setattr("jarvis.core.delegation.BATCH_WINDOW_S", 0.005)
+    monkeypatch.setattr("dodaios.core.delegation.BATCH_WINDOW_S", 0.005)
 
 
 @pytest.mark.asyncio

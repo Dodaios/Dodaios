@@ -13,13 +13,13 @@ from unittest.mock import patch
 
 import pytest
 
-from jarvis.plugins.tts.cartesia_tts import CartesiaTTS
+from dodaios.plugins.tts.cartesia_tts import CartesiaTTS
 
 
 @pytest.fixture
 def patched_secret():
     with patch(
-        "jarvis.plugins.tts.cartesia_tts.cfg.get_secret", return_value="sk-test"
+        "dodaios.plugins.tts.cartesia_tts.cfg.get_secret", return_value="sk-test"
     ):
         yield
 

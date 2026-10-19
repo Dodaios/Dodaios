@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.cu.indicator import protocol
-from jarvis.cu.indicator.controller import CUIndicatorController
+from dodaios.cu.indicator import protocol
+from dodaios.cu.indicator.controller import CUIndicatorController
 
 
 @pytest.fixture

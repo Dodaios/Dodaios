@@ -4,7 +4,7 @@ Gemini has no HTTP wire we can mock at the transport layer — it transcribes vi
 the ``google-genai`` client's ``generate_content``. So these inject a hand-rolled
 FAKE client (NOT ``unittest.mock``): a tiny object exposing
 ``models.generate_content(...)`` that returns a fake response with ``.text``. No
-network, no SDK install, no ``jarvis.*`` monkeypatching needed for the happy path.
+network, no SDK install, no ``dodaios.*`` monkeypatching needed for the happy path.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.plugins.stt.gemini_api import GeminiSTT, Transcript
+from dodaios.plugins.stt.gemini_api import GeminiSTT, Transcript
 
 # ---------------------------------------------------------------------------
 # Fake google-genai client (records the outgoing call, returns a canned reply)
@@ -136,7 +136,7 @@ def test_stream_transcribe_yields_single_final() -> None:
 def test_missing_key_raises_clear_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """No injected client / key AND no configured Gemini credential → a clear
     English error so the STT factory degrades to the local floor (AP-22)."""
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
 
     monkeypatch.setattr(
         cfg,

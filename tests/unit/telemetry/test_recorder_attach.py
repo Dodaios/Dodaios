@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.telemetry.recorder import FlightRecorder, attach_flight_recorder
+from dodaios.telemetry.recorder import FlightRecorder, attach_flight_recorder
 
 
 class _FakeBus:

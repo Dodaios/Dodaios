@@ -22,8 +22,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.realtime.local_server import supervisor
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.realtime.local_server import supervisor
 
 
 @pytest.fixture(autouse=True)
@@ -35,21 +35,21 @@ def _local_models_switch_on(monkeypatch: pytest.MonkeyPatch) -> None:
     whatever jarvis.toml the machine happens to have and refuse for a reason
     it is not testing. The switch's own test re-pins the config itself.
     """
-    from jarvis.core.config import BrainProviderConfig, JarvisConfig
+    from dodaios.core.config import BrainProviderConfig, JarvisConfig
 
     cfg = JarvisConfig()
     provider = BrainProviderConfig()
     provider.autostart = True
     cfg.brain.providers["ollama"] = provider
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: cfg)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: cfg)
     # Lifecycle fixtures must not depend on or query the developer's GPU and
     # live model server. Individual probe tests supply their own fake client.
     monkeypatch.setattr(
-        "jarvis.hardware.detection.free_accelerator_gb",
+        "dodaios.hardware.detection.free_accelerator_gb",
         lambda: (16.0, "nvidia-smi"),
     )
     monkeypatch.setattr(supervisor, "_probe_client", lambda: None)
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *args, **kwargs: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *args, **kwargs: None)
 
 
 def _spawn_ready(monkeypatch, tmp_path: Path) -> list[dict[str, Any]]:
@@ -77,7 +77,7 @@ def _spawn_ready(monkeypatch, tmp_path: Path) -> list[dict[str, Any]]:
 
 
 def test_model_switch_never_interrupts_an_active_voice_call(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     root = tmp_path / "local_realtime"
@@ -116,7 +116,7 @@ def test_the_local_models_switch_refuses_an_ambient_spawn(monkeypatch) -> None:
     multi-GB speech stack while a hosted provider is the selected voice and
     the user has switched local models off.
     """
-    from jarvis.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
+    from dodaios.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
 
     def _cfg(*, primary: str, realtime: str, autostart: bool) -> JarvisConfig:
         cfg = JarvisConfig()
@@ -128,7 +128,7 @@ def test_the_local_models_switch_refuses_an_ambient_spawn(monkeypatch) -> None:
         return cfg
 
     off = _cfg(primary="openrouter", realtime="gemini-live", autostart=False)
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: off)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: off)
     assert supervisor._local_models_switched_off() == "refused:local-models-off"
     assert (
         supervisor.ensure_running(
@@ -141,12 +141,12 @@ def test_the_local_models_switch_refuses_an_ambient_spawn(monkeypatch) -> None:
 
     # An ACTIVE choice still wins: picking the local card IS turning it on.
     chosen = _cfg(primary="openrouter", realtime="local-realtime", autostart=False)
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: chosen)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: chosen)
     assert supervisor._local_models_switched_off() == ""
 
     # And the switch being ON never refuses.
     on = _cfg(primary="openrouter", realtime="gemini-live", autostart=True)
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: on)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: on)
     assert supervisor._local_models_switched_off() == ""
 
 
@@ -337,7 +337,7 @@ def test_a_byo_listener_without_the_private_pool_is_reused(monkeypatch, tmp_path
 
 
 def test_an_unowned_managed_nonprotocol_listener_blocks_spawn(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     root = install.install_root()
@@ -385,7 +385,7 @@ def test_an_alive_owned_process_is_not_double_spawned(monkeypatch, tmp_path) -> 
 
 def test_slow_managed_cold_start_survives_beyond_interactive_budget(monkeypatch, tmp_path) -> None:
     """A healthy cold boot observed at 122 s must not be mistaken for a zombie."""
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -428,7 +428,7 @@ def test_slow_managed_cold_start_survives_beyond_interactive_budget(monkeypatch,
 
 
 def test_an_owned_managed_zombie_is_replaced_after_startup_deadline(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -472,7 +472,7 @@ def test_an_owned_managed_zombie_is_replaced_after_startup_deadline(monkeypatch,
 
 def test_managed_spawn_uses_the_bounded_voice_brain_command(monkeypatch, tmp_path) -> None:
     """The resource-safe profile must reach Popen, not just a helper test."""
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -508,7 +508,7 @@ def test_managed_spawn_uses_the_bounded_voice_brain_command(monkeypatch, tmp_pat
 def test_a_running_install_blocks_the_spawn(monkeypatch, tmp_path) -> None:
     """Spawning a half-installed venv proves nothing and locks files the
     installer is about to replace."""
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     _spawn_ready(monkeypatch, tmp_path)
     monkeypatch.setattr(install, "snapshot", lambda: {"running": True, "phase": "deps"})
@@ -589,13 +589,13 @@ def test_an_abandoned_lock_file_is_not_a_stale_lease(monkeypatch, tmp_path) -> N
 
 def test_the_lifecycle_lease_serializes_real_processes(monkeypatch, tmp_path) -> None:
     """A thread lock cannot protect two Jarvis processes; the OS lease can."""
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     env = dict(os.environ)
     env["JARVIS_DATA_DIR"] = str(tmp_path)
     script = (
-        "from jarvis.realtime.local_server import supervisor; "
+        "from dodaios.realtime.local_server import supervisor; "
         "guard=supervisor._exclusive_spawn_guard(); "
         "value=guard.__enter__(); print(value); guard.__exit__(None,None,None)"
     )
@@ -628,7 +628,7 @@ def test_a_spawn_without_durable_ownership_is_torn_down(monkeypatch, tmp_path) -
 
 # ── ensure_running: the spawn itself ─────────────────────────────────────
 def test_spawn_is_windowless_and_records_ownership(monkeypatch, tmp_path) -> None:
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     spawned = _spawn_ready(monkeypatch, tmp_path)
     outcome = supervisor.ensure_running(
@@ -651,7 +651,7 @@ def test_spawn_is_windowless_and_records_ownership(monkeypatch, tmp_path) -> Non
 
 
 def test_legacy_managed_command_is_bound_to_loopback_at_spawn(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -685,7 +685,7 @@ def test_legacy_managed_command_is_bound_to_loopback_at_spawn(monkeypatch, tmp_p
 def test_legacy_managed_ollama_command_uses_non_reasoning_chat_backend_at_spawn(
     monkeypatch, tmp_path
 ) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -769,7 +769,7 @@ def test_turn_detection_normalizer_replaces_legacy_aliases_once() -> None:
 
 
 def test_a_ready_owned_legacy_bind_is_migrated_to_loopback(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -819,7 +819,7 @@ def test_a_ready_owned_legacy_bind_is_migrated_to_loopback(monkeypatch, tmp_path
 
 
 def test_a_ready_owned_legacy_ollama_backend_is_migrated(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -879,7 +879,7 @@ def test_a_ready_owned_legacy_ollama_backend_is_migrated(monkeypatch, tmp_path) 
 
 
 def test_ollama_backend_migration_never_interrupts_an_active_call(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     entrypoint = install.install_root() / "venv" / "server.exe"
@@ -926,7 +926,7 @@ def test_ollama_backend_migration_never_interrupts_an_active_call(monkeypatch, t
 
 
 def test_ollama_backend_migration_defers_when_pool_state_is_unknown(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     entrypoint = install.install_root() / "venv" / "server.exe"
@@ -966,7 +966,7 @@ def test_ollama_backend_migration_defers_when_pool_state_is_unknown(monkeypatch,
 
 
 def test_a_ready_owned_loopback_bind_is_not_restarted(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     entrypoint = install.install_root() / "venv" / "server.exe"
@@ -1012,7 +1012,7 @@ def test_a_ready_owned_loopback_bind_is_not_restarted(monkeypatch, tmp_path) -> 
 
 
 def test_an_abandoned_owned_pool_is_replaced_generation_safely(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -1062,7 +1062,7 @@ def test_an_abandoned_owned_pool_is_replaced_generation_safely(monkeypatch, tmp_
 
 
 def test_unavailable_pool_replacement_skips_a_newer_generation(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     root = tmp_path / "local_realtime"
     command = f'"{root / "venv" / "server.exe"}" --mode realtime --ws_host 127.0.0.1'
@@ -1103,7 +1103,7 @@ def test_unavailable_pool_replacement_skips_a_newer_generation(monkeypatch, tmp_
 
 
 def test_active_full_pool_is_never_replaced(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     root = tmp_path / "local_realtime"
     command = f'"{root / "venv" / "server.exe"}" --mode realtime --ws_host 127.0.0.1'
@@ -1141,7 +1141,7 @@ def test_active_full_pool_is_never_replaced(monkeypatch, tmp_path) -> None:
 def test_recovered_pool_is_not_stopped_by_a_stale_unavailable_observation(
     monkeypatch, tmp_path
 ) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     root = tmp_path / "local_realtime"
     command = f'"{root / "venv" / "server.exe"}" --mode realtime --ws_host 127.0.0.1'
@@ -1324,7 +1324,7 @@ def test_spawn_retries_without_breakaway_when_the_host_job_forbids_it(
 
 
 def test_runtime_monitor_restarts_and_rewarms_a_dead_owned_server(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     calls: list[str] = []
@@ -1443,7 +1443,7 @@ def test_runtime_monitor_does_not_replace_a_connected_full_pool(monkeypatch, tmp
 
 
 def test_runtime_monitor_is_singleton_for_one_managed_generation(monkeypatch, tmp_path) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
     root = tmp_path / "local_realtime"
@@ -1481,7 +1481,7 @@ def test_runtime_monitor_is_singleton_for_one_managed_generation(monkeypatch, tm
 
 
 def test_runtime_monitor_never_revives_an_unproven_failed_install(monkeypatch) -> None:
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     monkeypatch.setattr(install, "server_status", lambda: {"ready": False})
 
@@ -1838,7 +1838,7 @@ def test_a_transcriber_already_following_the_machine_is_left_alone() -> None:
 
 def test_the_stt_device_reaches_popen_on_the_spawn_path(monkeypatch, tmp_path) -> None:
     """A migration nobody applies is not a fix — prove it reaches the child."""
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -1871,8 +1871,8 @@ def test_the_stt_device_reaches_popen_on_the_spawn_path(monkeypatch, tmp_path) -
 def test_a_fresh_install_never_pins_the_transcriber_to_the_cpu() -> None:
     """The command the installer writes must be right from the start, not only
     after a migration — a new user gets no migration."""
-    from jarvis.realtime.local_server import install
-    from jarvis.realtime.local_server.brain_link import BrainResolution
+    from dodaios.realtime.local_server import install
+    from dodaios.realtime.local_server.brain_link import BrainResolution
 
     command = install.derive_launch_command(
         BrainResolution(kind="ollama", model="qwen3.5:4b", base_url="http://127.0.0.1:11434/v1"),
@@ -1964,7 +1964,7 @@ def test_managed_spawn_anchors_the_brain_load_before_the_child_starts(
 ) -> None:
     """Order is the whole point: the child begins cancelling the load 15 s
     after it starts, so the anchor has to be in flight before Popen."""
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -2001,7 +2001,7 @@ def test_managed_spawn_anchors_the_brain_load_before_the_child_starts(
 
 def test_a_model_switch_anchors_the_new_brain_load(monkeypatch, tmp_path) -> None:
     """A switch is the one spawn whose brain is cold by definition."""
-    from jarvis.realtime.local_server import install
+    from dodaios.realtime.local_server import install
 
     supervisor._reset_for_tests()
     monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
@@ -2108,7 +2108,7 @@ def test_status_reports_stage_and_eta_while_an_owned_child_boots(
         "Loading Qwen3-TTS model: Qwen/Qwen3-TTS\n",
         encoding="utf-8",
     )
-    from jarvis.realtime.local_server import boot_progress
+    from dodaios.realtime.local_server import boot_progress
 
     earlier_generation = "an-earlier-generation"
     boot_progress.record_ready(
@@ -2149,7 +2149,7 @@ def test_status_records_the_boot_duration_once_when_the_pool_turns_ready(
     )
     monkeypatch.setattr(supervisor, "_process_create_time", lambda pid: 1000.0)
     _write_booting_pidfile(tmp_path, spawned_ago_s=64.0)
-    from jarvis.realtime.local_server import boot_progress
+    from dodaios.realtime.local_server import boot_progress
 
     first = supervisor.status("http://127.0.0.1:8765")
     second = supervisor.status("http://127.0.0.1:8765")
@@ -2180,7 +2180,7 @@ def test_readiness_timeout_cleanup_counts_toward_the_crash_loop_streak(
         expected_generation=generation,
     )
 
-    from jarvis.realtime.local_server import boot_progress
+    from dodaios.realtime.local_server import boot_progress
 
     assert outcome == "completed"
     stats = boot_progress.load_stats(tmp_path / "local_realtime_server.boot.json")

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.voice_engine.bench import corpus
-from jarvis.voice_engine.bench.stats import error_rates, percentile, summary
+from dodaios.voice_engine.bench import corpus
+from dodaios.voice_engine.bench.stats import error_rates, percentile, summary
 
 
 @pytest.mark.parametrize("language", corpus.LANGUAGES)

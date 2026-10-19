@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.memory.frontmatter import parse_frontmatter
-from jarvis.memory.wiki import search_aliases as sa
+from dodaios.memory.frontmatter import parse_frontmatter
+from dodaios.memory.wiki import search_aliases as sa
 
 PAGE = """---
 type: entity
@@ -167,7 +167,7 @@ async def test_no_reachable_provider_yields_no_aliases_and_no_error(
     """§3 universality: without a credential the page is simply as findable
     as it is today — never an exception on the write path."""
     monkeypatch.setattr(
-        "jarvis.memory.wiki.provider_chain.credential_ready_wiki_providers",
+        "dodaios.memory.wiki.provider_chain.credential_ready_wiki_providers",
         lambda **_: set(),
     )
     out = await sa.generate_aliases(
@@ -184,11 +184,11 @@ async def test_an_exhausted_chain_yields_no_aliases(
         return None
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.provider_chain.credential_ready_wiki_providers",
+        "dodaios.memory.wiki.provider_chain.credential_ready_wiki_providers",
         lambda **_: {"fake"},
     )
     monkeypatch.setattr(
-        "jarvis.memory.wiki.provider_chain.complete_with_fallback", dead_chain
+        "dodaios.memory.wiki.provider_chain.complete_with_fallback", dead_chain
     )
     out = await sa.generate_aliases(
         title="X", body="y", cfg=FakeCfg(), registry=FakeRegistry()
@@ -204,10 +204,10 @@ async def test_a_raising_provider_never_escapes(
         raise RuntimeError("provider on fire")
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.provider_chain.credential_ready_wiki_providers",
+        "dodaios.memory.wiki.provider_chain.credential_ready_wiki_providers",
         lambda **_: {"fake"},
     )
-    monkeypatch.setattr("jarvis.memory.wiki.provider_chain.complete_with_fallback", boom)
+    monkeypatch.setattr("dodaios.memory.wiki.provider_chain.complete_with_fallback", boom)
     out = await sa.generate_aliases(
         title="X", body="y", cfg=FakeCfg(), registry=FakeRegistry()
     )
@@ -316,14 +316,14 @@ async def test_one_unreadable_page_does_not_abort_the_run(
     def exploding_parse(text: str):
         if "bad-marker" in text:
             raise ValueError("corrupt frontmatter")
-        from jarvis.memory.frontmatter import parse_frontmatter as p
+        from dodaios.memory.frontmatter import parse_frontmatter as p
 
         return p(text)
 
     (tmp_path / "entities" / "bad.md").write_text(
         PAGE.replace("slug:", "slug: bad-marker #"), encoding="utf-8"
     )
-    monkeypatch.setattr("jarvis.memory.frontmatter.parse_frontmatter", exploding_parse)
+    monkeypatch.setattr("dodaios.memory.frontmatter.parse_frontmatter", exploding_parse)
 
     summary = await sa.backfill_vault(
         vault_root=tmp_path, cfg=FakeCfg(), registry=FakeRegistry(), dry_run=True

@@ -20,8 +20,8 @@ flashing at the top-left of the screen.
 
 from __future__ import annotations
 
-import jarvis.ui.dodaiosbar.overlay as overlay_module
-from jarvis.ui.dodaiosbar.overlay import (
+import dodaios.ui.dodaiosbar.overlay as overlay_module
+from dodaios.ui.dodaiosbar.overlay import (
     COLOR_KEY_HEX,
     Z_ORDER_GUARD_INTERVAL_MS,
     JarvisBarOverlay,

@@ -4,14 +4,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.plugins.realtime.openai_live import OpenAILiveProvider
-from jarvis.plugins.realtime.openai_subscription_live import OpenAISubscriptionLiveProvider
-from jarvis.realtime import factory
+from dodaios.plugins.realtime.openai_live import OpenAILiveProvider
+from dodaios.plugins.realtime.openai_subscription_live import OpenAISubscriptionLiveProvider
+from dodaios.realtime import factory
 
 
 @pytest.fixture
 def access_registry(monkeypatch):
-    from jarvis.live import subscription_auth
+    from dodaios.live import subscription_auth
 
     state = SimpleNamespace(key_reads=[], auth_failure=False, connected=True)
     plugins = {"plan-fixture": OpenAISubscriptionLiveProvider, "api-fixture": OpenAILiveProvider}

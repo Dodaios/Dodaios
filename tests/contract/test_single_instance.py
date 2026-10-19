@@ -12,7 +12,7 @@ import os
 
 import pytest
 
-from jarvis.ui.desktop_app import (
+from dodaios.ui.desktop_app import (
     SingleInstanceError,
     acquire_single_instance_lock,
 )
@@ -63,7 +63,7 @@ def test_live_but_portless_holder_is_evicted(tmp_path, monkeypatch) -> None:
         encoding="utf-8",
     )
     # Pretend the zombie pid is alive (it is — that is the whole trap).
-    monkeypatch.setattr("jarvis.ui.desktop_app._pid_alive", lambda pid: pid == 424242)
+    monkeypatch.setattr("dodaios.ui.desktop_app._pid_alive", lambda pid: pid == 424242)
 
     killed: dict[str, int] = {}
 
@@ -153,7 +153,7 @@ def test_missing_sidecar_names_the_listener_instead_of_waiting(tmp_path, monkeyp
 
     first = acquire_single_instance_lock(timeout=0.0, lock_path=lock_file, meta_path=meta_file)
     monkeypatch.setattr(
-        "jarvis.ui.desktop_app._pid_alive",
+        "dodaios.ui.desktop_app._pid_alive",
         lambda pid: pid == 99 or pid == os.getpid(),
     )
 

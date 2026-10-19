@@ -6,7 +6,7 @@ import base64
 import httpx
 import pytest
 
-from jarvis.plugins.tool.gmail_rest import _GMAIL_BODY_CHAR_CAP, GmailRestTool
+from dodaios.plugins.tool.gmail_rest import _GMAIL_BODY_CHAR_CAP, GmailRestTool
 
 
 @pytest.mark.asyncio
@@ -99,7 +99,7 @@ async def test_default_refresh_receives_failed_access_token(monkeypatch) -> None
         return True
 
     monkeypatch.setattr(
-        "jarvis.plugins.tool.gmail_rest._default_refresher", refresher
+        "dodaios.plugins.tool.gmail_rest._default_refresher", refresher
     )
     tool = GmailRestTool(
         access_token_provider=lambda: "failed-access",

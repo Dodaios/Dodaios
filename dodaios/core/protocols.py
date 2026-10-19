@@ -1,0 +1,873 @@
+"""Plugin contracts for all interchangeable components.
+
+Each plugin slot is declared here as a ``typing.Protocol`` — structural typing
+so that plugins do not need to import anything from the Jarvis package.
+Only ``runtime_checkable`` protocols allow ``isinstance()`` checks during
+discovery.
+
+Streaming is first-class: every Brain/STT/TTS/Harness response is an
+``AsyncIterator``. Non-streaming providers yield exactly one element.
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from uuid import UUID
+
+from .chat_turn import ChatCompletion as ChatCompletion
+from .chat_turn import ChatTurn as ChatTurn
+from .chat_turn import current_chat_turn as current_chat_turn
+from .trigger_context import CapacityDeferred as CapacityDeferred
+from .trigger_context import RoutineDeferred as RoutineDeferred
+from .trigger_context import current_started_by_user as current_started_by_user
+from .trigger_context import current_trigger_path as current_trigger_path
+from .trigger_context import started_by_user as started_by_user
+
+if TYPE_CHECKING:  # pragma: no cover - typing only; the contract has no runtime import
+    from dodaios.platform.permission_service import EnsureResult
+    from dodaios.platform.permissions import PermissionId, PermissionState
+
+
+class ChatControlAdapter(Protocol):
+    """One owner of a chat's native goal loop; absence falls back to Jarvis."""
+    name: str
+
+    async def available(self, session: Any) -> bool: ...
+    async def run_goal(self, service: Any, session: Any, objective: str) -> dict[str, Any]: ...
+    async def interrupt(self, session_id: str) -> None: ...
+    async def clear_saved(self, service: Any, session: Any) -> None: ...
+
+
+# ----------------------------------------------------------------------
+# Audio Data-Types
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class AudioChunk:
+    """Raw PCM audio with sample rate and timestamp."""
+
+    pcm: bytes
+    sample_rate: int
+    timestamp_ns: int
+    channels: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class AudioDevice:
+    """Audio device (input or output)."""
+
+    index: int
+    name: str
+    is_input: bool
+    is_output: bool
+    default_sample_rate: float
+    channels: int
+
+
+# ----------------------------------------------------------------------
+# Speech Data-Types
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Transcript:
+    """STT result, optionally including segments and language information.
+
+    ``text`` is what a consumer should normally read: providers run their
+    payload through ``dodaios.plugins.stt.transcript_filter.clean_stt_text``
+    first, which removes the artifacts a recognizer manufactures (decoder
+    repetition loops, hesitation sounds, stutters, an outer quote pair, NFD
+    umlauts).
+
+    ``raw_text`` is what the recognizer actually returned, and it exists for
+    the two callers that must NOT read an edited string: the dictation lane,
+    whose promise is "these are my words" and which owns the user's filler
+    switch, and wake verification, which has to judge the recognizer's own
+    output. It defaults to empty, so a provider that does not set it costs
+    those callers nothing — they fall back to ``text``.
+    """
+
+    text: str
+    language: str  # "de", "en", "auto-detected", or a concrete code
+    confidence: float  # 0.0-1.0
+    is_partial: bool = False
+    segments: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    #: The pre-filter transcript; empty when the provider did not filter.
+    raw_text: str = ""
+
+
+# ----------------------------------------------------------------------
+# Brain Data-Types
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ImageBlock:
+    """Multimodal image input for brain providers.
+
+    ``data_b64`` is base64-encoded raw bytes (no data-URI prefix).
+    Provider adapters are responsible for API-specific wrapping
+    (Anthropic image-block, Gemini inline_data, OpenAI image_url).
+    ``source_hash`` is an observation hash for logging/deduplication and is
+    not forwarded to the LLM.
+    """
+
+    mime: str
+    data_b64: str
+    source_hash: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class BrainMessage:
+    """A message in the message log (user/assistant/system/tool)."""
+
+    role: Literal["user", "assistant", "system", "tool"]
+    content: str | list[dict[str, Any]]
+    tool_call_id: str | None = None
+    name: str | None = None
+    images: tuple[ImageBlock, ...] = ()
+
+
+#: The reasoning-effort ladder a request may ask for, ascending. Providers
+#: without a knob ignore it; one that lacks a level snaps to the nearest it
+#: has (see ``dodaios.agent_chat.effort``).
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+
+
+@dataclass(frozen=True, slots=True)
+class BrainRequest:
+    """Request to a brain provider."""
+
+    messages: tuple[BrainMessage, ...]
+    tools: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    system: str | None = None
+    temperature: float = 0.7
+    max_tokens: int = 32_768
+    stream: bool = True
+    # Hint for providers whose models spend internal reasoning ("thinking")
+    # tokens before answering. "none" asks the provider to disable/minimize
+    # internal reasoning for THIS call — used by small deterministic
+    # structured-output calls (Computer-Use actions/judges) and by the
+    # Agentic IDE prompt composer, where thinking was the 10-30 s wait on a
+    # job that is "clean the spoken sentence and attach the neighbouring
+    # files". The graded levels remain for callers whose OUTPUT is still
+    # judgement work (the work splitter still passes "medium").
+    # ``None`` keeps the provider default; providers without a reasoning knob
+    # ignore the field (capability hint, never a hard switch). The wider
+    # levels ("minimal", "xhigh", "max") exist for the agent chat, where the
+    # person picks the level by hand; a provider that does not know a level
+    # treats it like the nearest one it does (see dodaios.agent_chat.effort).
+    reasoning_effort: ReasoningEffort | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BrainDelta:
+    """A stream chunk from the brain: text, tool call, or finish signal."""
+
+    content: str | None = None
+    tool_call: dict[str, Any] | None = None
+    finish_reason: str | None = None
+    usage: dict[str, int] | None = None  # input_tokens, output_tokens, cache_hit_tokens
+
+
+# ----------------------------------------------------------------------
+# Harness Data-Types
+# ----------------------------------------------------------------------
+
+RiskTier = Literal["safe", "monitor", "ask", "block"]
+
+
+@dataclass(frozen=True, slots=True)
+class HarnessTask:
+    """Task for a sub-agent harness (Jarvis-Agent, Codex, OI, …)."""
+
+    prompt: str
+    cwd: str = "."
+    env: dict[str, str] = field(default_factory=dict)
+    timeout_s: int = 600
+    risk_tier: RiskTier = "monitor"
+    allow_computer_use: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class HarnessResult:
+    """Result of a harness invocation stream."""
+
+    stdout: str = ""
+    stderr: str = ""
+    exit_code: int = 0
+    artifacts: tuple[str, ...] = field(default_factory=tuple)
+    cost_usd: float = 0.0
+    duration_ms: int = 0
+    is_final: bool = False  # letztes Element im Stream
+
+
+# ----------------------------------------------------------------------
+# Tool Data-Types
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionContext:
+    """Context passed to a tool at execution time."""
+
+    trace_id: UUID
+    user_utterance: str
+    config: dict[str, Any]
+    memory_read: Any  # MemoryStore read-only handle
+    approved_by: str | None = None  # "auto" | "user" | None (falls tier=safe)
+
+
+@dataclass(frozen=True, slots=True)
+class ToolResult:
+    """Result of a tool execution."""
+
+    success: bool
+    output: Any
+    error: str | None = None
+    artifacts: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True, slots=True)
+class SupervisorToolDescriptor:
+    """Secret-free description of one tool owned by the supervisor."""
+
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+    risk_tier: RiskTier
+    is_action_tool: bool = False
+    # Whether this tool only HANDS BACK TEXT for the caller to act on, with no
+    # effect of its own (the skill instruction loader is the one shipped case).
+    # A successful call is therefore no evidence that anything the model
+    # promised actually happened, which is exactly what the realtime honesty
+    # guard asks. Live 2026-08-22: two music turns called only the instruction
+    # loader, and "a tool succeeded" let the guard pass a fabricated result.
+    yields_instructions_only: bool = False
+    # Optional per-call hook (same contract as ``Tool.risk_tier_for_args``).
+    # Catalog build captures it so the hybrid execute guard can treat a
+    # ``now_playing`` read as ``safe`` without holding the Tool object.
+    risk_tier_for_args: Any = None
+    # Optional per-call impact hook (same contract as ``Tool.describe_args``):
+    # ``{"level": "read" | "modify" | "destructive", ...}``. Captured for the
+    # same reason as the tier hook — the execute guard has to know whether THIS
+    # call only reads. A tool whose consequence depends on its arguments
+    # (``run_shell``: ``systeminfo`` reads, ``rm -rf`` destroys) is otherwise
+    # judged by its worst possible call on every turn.
+    describe_args: Any = None
+
+
+@dataclass(frozen=True, slots=True)
+class SupervisorToolRequest:
+    """Execution metadata supplied by Realtime or a mission worker."""
+
+    trace_id: UUID
+    origin: str
+    user_utterance: str
+    rationale: str = ""
+    mission_id: str | None = None
+    worker_id: str | None = None
+    config_snapshot: dict[str, Any] = field(default_factory=dict)
+    cancel_token: CancelToken | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousVoiceStart:
+    """Configuration for a continuous provider; media and tools have separate lifecycles."""
+
+    session: dict[str, Any]
+    offer_sdp: str = ""
+    # Signalling may finish before the trusted control connection. Callers keep
+    # microphone output gated until open_session AND media readiness complete.
+    on_transport_ready: Callable[[str], Awaitable[None]] | None = None
+    # Local preparation milestones; no provider body, credential or SDP values.
+    on_startup_phase: Callable[[str], None] | None = None
+
+
+class ContinuousVoiceConnection(Protocol):
+    session_id: str
+    answer_sdp: str
+
+    async def send(self, event: dict[str, Any]) -> None: ...
+    async def receive(self) -> dict[str, Any]: ...
+    async def close(self) -> None: ...
+
+
+# ----------------------------------------------------------------------
+# Protocols
+# ----------------------------------------------------------------------
+
+
+@runtime_checkable
+class WakeWordProvider(Protocol):
+    """Detects wake words in the audio stream."""
+
+    name: str
+    supported_keywords: tuple[str, ...]
+
+    async def start(self) -> None:
+        """Initialise the model and open the audio stream."""
+        ...
+
+    async def stop(self) -> None:
+        """Stop cleanly and release resources."""
+        ...
+
+    async def stream(self) -> AsyncIterator[float]:
+        """Yield confidence values (0.0–1.0). Values above the threshold indicate a wake word."""
+        ...
+
+
+@runtime_checkable
+class TurnDetector(Protocol):
+    """End-of-turn detection (Phase L.2, Plan §6.1).
+
+    Three implementation classes:
+      * ``smart_turn_v3``   — Pipecat ``LocalSmartTurnAnalyzerV3`` (semantic, ~12 ms CPU).
+      * ``silero_only``     — silence-based endpointing (plan B / last resort).
+      * ``flux_integrated`` — no-op; end-of-turn comes from the STT provider (Deepgram Flux EOT).
+
+    The default in ``jarvis.toml`` is ``flux_integrated`` (Plan AD-L-4 variant A).
+    When the STT provider delivers no integrated EOT, the pipeline owner falls back
+    to ``smart_turn_v3`` (or ``silero_only`` when Pipecat is not installed).
+
+    Audio input: 16 kHz mono PCM (see AP-L-16 — Smart Turn v3 is hard-coded to
+    16 kHz Whisper feature extraction).
+    """
+
+    name: str
+    supports_semantic: bool  # True = uses phoneme/prosody model, False = silence-only
+
+    async def start(self) -> None:
+        """Initialise the model (lazy load)."""
+        ...
+
+    async def stop(self) -> None:
+        """Release resources."""
+        ...
+
+    async def detect_end_of_turn(self, audio: AsyncIterator[AudioChunk]) -> bytes:
+        """Consume PCM frames until end of turn is detected.
+
+        Returns the completed utterance as raw int16 PCM bytes (concatenation of all
+        frames up to EOT). A ``flux_integrated`` provider may return ``b''``
+        immediately because the STT plugin already handles EOT.
+        """
+        ...
+
+
+@runtime_checkable
+class STTProvider(Protocol):
+    """Speech-to-text (local or cloud)."""
+
+    name: str
+    supports_streaming: bool
+
+    async def transcribe(self, audio: AsyncIterator[AudioChunk]) -> Transcript:
+        """Full transcription after the input ends."""
+        ...
+
+    async def stream_transcribe(
+        self, audio: AsyncIterator[AudioChunk]
+    ) -> AsyncIterator[Transcript]:
+        """Inkrementelle Transkription mit partials + final."""
+        ...
+
+
+@runtime_checkable
+class TTSProvider(Protocol):
+    """Text-to-speech (local or cloud)."""
+
+    name: str
+    supports_streaming: bool
+
+    async def synthesize(
+        self,
+        text: str,
+        voice: str | None = None,
+        language_code: str | None = None,
+    ) -> AsyncIterator[AudioChunk]:
+        """Synthesise audio, yielding chunks for streaming playback.
+
+        ``language_code`` (BCP-47, e.g. ``"de-DE"``) is the per-turn output
+        language the pipeline resolves once via ``resolve_output_language`` and
+        passes to every provider so a multilingual TTS model pins the
+        pronunciation language instead of guessing it per word (the 2026-06-19
+        "Juni, Boss" code-switch forensic). ``None`` means unpinned/auto-detect.
+        Every shipped provider (gemini-flash, grok-voice, cartesia, elevenlabs,
+        fallback) accepts it; the keyword is part of the structural contract.
+        """
+        ...
+
+    def list_voices(self, language: str | None = None) -> list[str]:
+        """Available voices (optionally filtered by language)."""
+        ...
+
+
+@runtime_checkable
+class Brain(Protocol):
+    """LLM-Provider (Claude, Gemini, OpenAI, OpenRouter, Grok, …)."""
+
+    name: str
+    context_window: int
+    supports_tools: bool
+    supports_vision: bool
+
+    # Declared WITHOUT ``async``: every implementation is an async GENERATOR,
+    # so calling it returns the iterator directly and no call site awaits it.
+    # An ``async def`` here would type the call as a coroutine and make every
+    # ``async for delta in brain.complete(req)`` a false type error.
+    def complete(self, req: BrainRequest) -> AsyncIterator[BrainDelta]:
+        """Stream a response. When stream=False everything is in the first delta."""
+        ...
+
+    def estimate_cost(self, req: BrainRequest) -> float:
+        """Rough cost estimate in USD (0.0 for local models)."""
+        ...
+
+
+@runtime_checkable
+class Harness(Protocol):
+    """Sub-Agent-Framework (Jarvis-Agent, Codex, Open Interpreter, MCP)."""
+
+    name: str
+    version: str
+    supports_versions: str  # PEP 440 specifier, z.B. ">=2.0,<3.0"
+
+    async def health(self) -> bool:
+        """Check whether the harness is available and callable."""
+        ...
+
+    async def invoke(self, task: HarnessTask) -> AsyncIterator[HarnessResult]:
+        """Start a task, streaming progress and the final result."""
+        ...
+
+    async def cancel(self) -> None:
+        """Cancel the running task."""
+        ...
+
+
+@runtime_checkable
+class Tool(Protocol):
+    """Einzelne Jarvis-Action (open_app, type_text, search_web, …)."""
+
+    name: str
+    schema: dict[str, Any]  # JSON schema for LLM tool use
+    description: str
+    risk_tier: RiskTier
+    # Optional extension (recognized by RiskTierEvaluator via getattr, NOT part
+    # of the structural Protocol check): a tool with mixed actions may define
+    #   def risk_tier_for_args(self, args: dict[str, Any]) -> RiskTier
+    # to refine its tier per call (e.g. gmail: reads "safe", send "ask"). The
+    # returned value is validated against the RiskTier vocabulary; blacklist and
+    # whitelist still take priority. Returning an unknown value falls back to
+    # the static ``risk_tier`` above.
+
+    async def execute(self, args: dict[str, Any], ctx: ExecutionContext) -> ToolResult:
+        """Execute the action."""
+        ...
+
+
+class WorkspaceOrchestrationGateway(Protocol):
+    """Resolve and address coding sessions without ambient terminal focus."""
+
+    async def run(self, args: dict[str, Any], *, trace_id: str = "") -> dict[str, Any]: ...
+
+
+@runtime_checkable
+class SupervisorToolGateway(Protocol):
+    """Versioned catalog and sole safety-gated execution seam for owned tools."""
+
+    @property
+    def catalog_version(self) -> int: ...
+
+    def catalog(self) -> tuple[SupervisorToolDescriptor, ...]: ...
+
+    async def session_catalog(self, session_id: str) -> tuple[SupervisorToolDescriptor, ...]: ...
+
+    async def execute(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        request: SupervisorToolRequest,
+    ) -> ToolResult: ...
+
+    async def execute_confirmed(
+        self,
+        trace_id: UUID,
+        request: SupervisorToolRequest,
+    ) -> ToolResult: ...
+
+    async def cancel_pending(self, trace_id: UUID, *, reason: str = "voice_vetoed") -> bool: ...
+
+    async def publish_guard_denied(
+        self,
+        name: str,
+        reason: str,
+        *,
+        trace_id: UUID,
+    ) -> None: ...
+
+
+@runtime_checkable
+class MemoryStore(Protocol):
+    """Persistent-Memory-Layer (SQLite, ChromaDB, …)."""
+
+    name: str
+
+    async def put(self, namespace: str, key: str, value: dict[str, Any]) -> None:
+        """Write or overwrite an entry."""
+        ...
+
+    async def get(self, namespace: str, key: str) -> dict[str, Any] | None:
+        """Read an entry (None if not present)."""
+        ...
+
+    async def search(
+        self, namespace: str, query: str, k: int = 5
+    ) -> list[tuple[str, dict[str, Any], float]]:
+        """Semantic or FTS search; returns (key, value, score) tuples."""
+        ...
+
+    async def forget(self, namespace: str, key: str) -> None:
+        """Delete an entry."""
+        ...
+
+
+# ----------------------------------------------------------------------
+# Channel Data-Types (forward-declared via string annotations in Protocol)
+# ----------------------------------------------------------------------
+# The concrete dataclasses `ChannelMessage` and `ChannelSession` live in
+# `dodaios.channels.base` — the protocol references them via string forward refs
+# so that `dodaios.core` does not need to import from the channels layer.
+
+
+@runtime_checkable
+class ChannelAdapter(Protocol):
+    """Bidirectional message channel (web UI, Telegram, WhatsApp, …).
+
+    See the Phase-1a spec (Jarvis-Agent pattern).
+    """
+
+    name: str
+
+    async def start(self) -> None: ...
+    async def stop(self) -> None: ...
+    async def send_message(self, msg: ChannelMessage) -> None: ...  # noqa: F821
+    async def broadcast_event(self, event: Event) -> None: ...  # noqa: F821
+    async def messages(self) -> AsyncIterator[ChannelMessage]: ...  # noqa: F821
+    async def sessions(self) -> list[ChannelSession]: ...  # noqa: F821
+
+
+# ----------------------------------------------------------------------
+# Plugin groups (for registry/discovery)
+# ----------------------------------------------------------------------
+
+PLUGIN_GROUPS: tuple[str, ...] = (
+    "jarvis.wakeword",
+    "jarvis.stt",
+    "jarvis.tts",
+    "jarvis.brain",
+    "jarvis.harness",
+    "jarvis.tool",
+    "jarvis.channel",  # NEW
+    "jarvis.realtime",  # NEW — full-duplex speech-to-speech providers
+)
+
+
+# ======================================================================
+# Phase 5 — Vision / Control / Cost
+# ======================================================================
+# These protocols are new in Phase 5. They are infrastructure contracts (not
+# plugin-discovered via entry_points) but are declared as runtime_checkable
+# protocols so that tests can work with fakes against the interface rather than
+# against concrete implementation types.
+
+
+# ----------------------------------------------------------------------
+# Vision Data-Types (Phase 5 — Capability 1)
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class UIANode:
+    """A single node from the UIAutomation tree (after pruning, see ADR-0002).
+
+    Fields are intentionally short — the entire tree is serialised to the LLM,
+    so every byte counts.
+    """
+
+    role: str  # "Button", "Edit", "MenuItem", ...
+    name: str  # UIA Name-Property
+    automation_id: str = ""  # AutomationId (stabiler als Name)
+    bounds: tuple[int, int, int, int] = (0, 0, 0, 0)  # x, y, w, h
+    enabled: bool = True
+    parent_index: int = -1  # Index in der flachen Nodes-Liste
+    value: str = ""  # L3: current text of an editable control
+    is_password: bool = False  # secure/password edit -> redact, never read
+    focused: bool = False  # holds keyboard focus (post-click verify)
+
+
+@dataclass(frozen=True, slots=True)
+class Observation:
+    """Result of a vision-observe call — contains a screenshot reference and
+    a pruned UIA tree. An Observation is the input unit for the
+    Plan-Observe-Act-Verify-Loop.
+    """
+
+    trace_id: UUID
+    timestamp_ns: int
+    screenshot_path: str | None  # path to the screenshot blob (PNG) or None
+    screenshot_hash: str  # SHA256 of the PNG content (for cache)
+    nodes: tuple[UIANode, ...] = field(default_factory=tuple)
+    window_title: str = ""
+    active_pid: int = 0
+    source: Literal["full", "screenshot_only", "ui_tree_only"] = "full"
+    pruning_stats: dict[str, int] = field(default_factory=dict)  # nodes_before/after, depth_used
+    # (left, top, width, height) of the monitor this screenshot was ACTUALLY
+    # captured from (virtual-desktop pixels). The click-coordinate resolution must
+    # use THIS — not a separate GetForegroundWindow/MonitorFromWindow lookup that
+    # can pick a different monitor on a mixed-DPI / multi-monitor desktop and make
+    # every click miss (live 2026-06-28: 150% primary + 100% secondary). (0,0,0,0)
+    # = unknown (older sources / non-screenshot observes) -> caller falls back.
+    monitor_geom: tuple[int, int, int, int] = (0, 0, 0, 0)
+
+
+@runtime_checkable
+class VisionSource(Protocol):
+    """Provides observations — either as a pure screenshot, a pure UIA tree,
+    or a combination. The `VisionEngine` decides per query which
+    source is cheaper/more robust (Capability 1 mandate).
+    """
+
+    name: str
+    kind: Literal["screenshot", "ui_tree", "composite"]
+
+    async def observe(
+        self,
+        *,
+        cancel_token: CancelToken | None = None,
+        window_title_filter: str | None = None,
+    ) -> Observation:
+        """Captures a single observation snapshot."""
+        ...
+
+    async def close(self) -> None:
+        """Releases resources (handles, memory caches)."""
+        ...
+
+
+# ----------------------------------------------------------------------
+# CancelToken (Phase 5 — Capability 5, Kill-Switch-Propagation, ADR-0004)
+# ----------------------------------------------------------------------
+
+
+@runtime_checkable
+class CancelToken(Protocol):
+    """Propagates cancellation signals through the async hierarchy.
+
+    Not a direct `asyncio.Event`, because we additionally need `reason` and a
+    stable polling path. The concrete implementation lives in
+    `dodaios.control.cancel`.
+    """
+
+    def cancel(self, reason: str) -> None: ...
+    def is_cancelled(self) -> bool: ...
+
+    @property
+    def reason(self) -> str | None: ...
+
+    async def wait_until_cancelled(self) -> None:
+        """Blocks until `cancel()` is called."""
+        ...
+
+
+# ----------------------------------------------------------------------
+# CostMeter (Phase 5 — Capability 5, Cost-Circuit-Breaker, ADR-0006)
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class CostRecord:
+    """An atomic cost entry for one brain delta."""
+
+    trace_id: UUID
+    provider: str
+    model: str
+    tokens_in: int
+    tokens_out: int
+    tokens_cache_hit: int
+    usd: float
+    timestamp_ns: int
+
+
+@runtime_checkable
+class CostMeter(Protocol):
+    """Accumulates cost per trace_id and checks it against the task/daily budget.
+
+    Fed by `BrainManager` after every `BrainDelta` that carries usage.
+    On overrun it is stopped via `CancelToken.cancel(reason=...)`, see
+    ADR-0006.
+    """
+
+    name: str
+
+    def start(self, trace_id: UUID, provider: str, model: str) -> None: ...
+    def add(self, record: CostRecord) -> None: ...
+    def total_for(self, trace_id: UUID) -> float: ...
+    def total_today(self) -> float: ...
+    def over_task_budget(self, trace_id: UUID) -> bool: ...
+    def over_daily_budget(self) -> bool: ...
+    def close(self, trace_id: UUID) -> None: ...
+
+
+# ----------------------------------------------------------------------
+# Intent-Classification (Phase 5 — CL-3, Tiered Routing)
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class IntentClassification:
+    """Result of the RouterBrain classifier.
+
+    Three routing classes (see Plan §6 CL-3, Wave-4 migration):
+    - `trivial`         → main Jarvis answers directly (small talk, acknowledgement).
+    - `direct_action`   → main Jarvis calls a first-class tool (bash,
+                          screenshot, multi_spawn).
+    - `spawn_worker`  → task goes verbatim to the Jarvis-Agent bridge via
+                          the mission manager. (formerly ``spawn_sub_jarvis``.)
+    """
+
+    intent: Literal["trivial", "direct_action", "spawn_worker"]
+    confidence: float  # 0.0–1.0
+    suggested_tool: str | None = None  # for direct_action: "bash" | "screenshot" | ...
+    rationale: str = ""  # one-sentence rationale for the debug log
+
+
+@runtime_checkable
+class IntentClassifier(Protocol):
+    """Classifies a user utterance into one of the three routing classes.
+
+    Implementations live in `dodaios.brain.router` (RouterBrain uses the
+    low-latency model's tool choice as an implicit classification) — the
+    Protocol allows alternative fakes in tests and later heuristic variants
+    without an extra LLM call.
+    """
+
+    name: str
+
+    async def classify(self, utterance: str, *, ctx: ExecutionContext) -> IntentClassification:
+        """Klassifiziert `utterance` und liefert Intent + Konfidenz."""
+        ...
+
+
+class CodingSessionGateway(Protocol):
+    """Scoped coding CLI lifecycle and recorded context; never society spawning."""
+
+    async def run(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Discover, open, send, or read using explicit persistent IDE identities."""
+        ...
+
+
+class MarsStationExecutor(Protocol):
+    """Trusted task boundary; world movement and animation grant no authority."""
+
+    async def authorize(self, *, agent_id: str, capability_id: str) -> None:
+        """Validate the actual agent and supported capability before accepting work."""
+        ...
+
+    async def dispatch(
+        self, *, agent_id: str, command_id: str, trace_id: str, draft: str
+    ) -> dict[str, Any]:
+        """Dispatch once through existing authorized execution, returning durable references."""
+        ...
+
+    async def inspect(
+        self, *, agent_id: str, command_id: str, trace_id: str, task_ref: str | None
+    ) -> dict[str, Any]:
+        """Reconcile authoritative task state without repeating an external effect."""
+        ...
+
+    async def cancel(
+        self, *, agent_id: str, command_id: str, trace_id: str, task_ref: str | None
+    ) -> dict[str, Any]:
+        """Request cancellation through the owning task service, then report its state."""
+        ...
+
+
+# ----------------------------------------------------------------------
+# PermissionGate (just-in-time OS permissions)
+# ----------------------------------------------------------------------
+
+
+@runtime_checkable
+class PermissionGate(Protocol):
+    """What a feature may ask of the OS-permission layer.
+
+    The concrete implementation is ``dodaios.platform.permission_service``; a
+    consumer receives it through an ``access_gate``-style hook whose default
+    resolves the process singleton, and a test injects
+    ``tests.fakes.fake_permission_service.FakePermissionService``.
+
+    Threading rule: ``check`` is silent, lock-free and never prompts, so the
+    event loop, a Tk callback and an event-tap callback may call it. ``ensure``
+    with ``wait_s > 0`` blocks and belongs on a worker thread; the event loop uses
+    ``ensure_async``. Only ``result.granted`` lets an action proceed: PENDING,
+    NEEDS_SETTINGS, DENIED and UNAVAILABLE never do, and a native request's
+    return value is never evidence of a grant.
+    """
+
+    def check(
+        self, permission: PermissionId | str, *, target: str | None = None
+    ) -> PermissionState:
+        """The live state of one permission; never asks, never publishes."""
+        ...
+
+    def ensure(
+        self,
+        permission: PermissionId | str,
+        *,
+        feature: str,
+        interactive: bool = True,
+        wait_s: float = 0.0,
+        target: str | None = None,
+        trace_id: UUID | str | None = None,
+        allow_outside_app: bool = False,
+    ) -> EnsureResult:
+        """Make sure a permission is granted, asking macOS at most once per episode."""
+        ...
+
+    async def ensure_async(
+        self,
+        permission: PermissionId | str,
+        *,
+        feature: str,
+        interactive: bool = True,
+        wait_s: float = 0.0,
+        target: str | None = None,
+        trace_id: UUID | str | None = None,
+        allow_outside_app: bool = False,
+    ) -> EnsureResult:
+        """``ensure`` for the event loop; never pins an executor worker while it waits."""
+        ...
+
+    def ensure_all(
+        self,
+        permissions: Iterable[PermissionId | str],
+        *,
+        feature: str,
+        interactive: bool = True,
+        wait_s: float = 0.0,
+        target: str | None = None,
+        trace_id: UUID | str | None = None,
+        allow_outside_app: bool = False,
+    ) -> list[EnsureResult]:
+        """``ensure`` for several permissions: ONE coalesced episode and ONE event."""
+        ...
+
+    def open_settings(self, permission: PermissionId | str) -> bool:
+        """Open the System Settings pane of a permission; ``False`` when it cannot."""
+        ...

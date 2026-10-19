@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.config import JarvisConfig
+from dodaios.core.config import JarvisConfig
 
 
 def test_default_is_auto() -> None:

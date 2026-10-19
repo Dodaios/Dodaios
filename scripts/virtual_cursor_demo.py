@@ -21,8 +21,8 @@ from pathlib import Path
 # Allow running straight from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from jarvis.control.cursor_motion import glide_os_cursor, set_glide_ms  # noqa: E402
-from jarvis.overlay.virtual_cursor import get_virtual_cursor  # noqa: E402
+from dodaios.control.cursor_motion import glide_os_cursor, set_glide_ms  # noqa: E402
+from dodaios.overlay.virtual_cursor import get_virtual_cursor  # noqa: E402
 from ui.orb.virtual_cursor_window import TkVirtualCursor  # noqa: E402
 
 

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.speech import local_models
+from dodaios.speech import local_models
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ def test_alias_probe_reads_installed_mapping_without_executing_it(tmp_path, monk
 
 @pytest.mark.asyncio
 async def test_slow_status_disk_check_does_not_block_the_loop(monkeypatch):
-    from jarvis.ui.web import provider_routes
+    from dodaios.ui.web import provider_routes
 
     entered, release = threading.Event(), threading.Event()
     loop_thread = threading.get_ident()

@@ -12,11 +12,11 @@ system prompt lists it automatically.
 
 Create or extend a seed file that maps your integration to a `Capability`
 dataclass. For a new MCP server the right place is
-`jarvis/core/capabilities_seed.py` (for static tools) or your MCP adapter
+`dodaios/core/capabilities_seed.py` (for static tools) or your MCP adapter
 module (for dynamically loaded tools).
 
 ```python
-from jarvis.core.capabilities import Capability
+from dodaios.core.capabilities import Capability
 
 MY_GMAIL_CAPABILITY = Capability(
     id="mcp.gmail/send_mail",
@@ -36,7 +36,7 @@ Fields to choose carefully:
 | `id` | Stable, namespaced, never reused. Convention: `<source>.<server>/<tool>` for MCP, `tool.<tool-name>` for router tools, `local_action.<name>` for gate patterns. |
 | `verbs` | DE + EN action verbs that a user would say to trigger this capability. Keep it tight — broad verbs create false positives in the gate. |
 | `objects` | Nouns / domains the capability operates on. Used by `resolve_intent` for disambiguation. |
-| `risk_tier` | Follow the Risk-Tier Policy in `jarvis/safety/risk_tier.py`. When in doubt, use `"ask"`. |
+| `risk_tier` | Follow the Risk-Tier Policy in `dodaios/safety/risk_tier.py`. When in doubt, use `"ask"`. |
 | `requires_evidence` | `True` for any action that modifies external state (send mail, write file, post to social). `False` for read-only or Q&A. |
 
 ---
@@ -46,9 +46,9 @@ Fields to choose carefully:
 Call `CapabilityRegistry.register(...)` from the place where your integration
 is initialised. The registration must happen **before** the first voice turn.
 
-**Router tool** — add to `jarvis/core/capabilities_seed.py` and call
+**Router tool** — add to `dodaios/core/capabilities_seed.py` and call
 `registry.register(MY_TOOL_CAPABILITY)` inside `bootstrap` in
-`jarvis/missions/init.py`.
+`dodaios/missions/init.py`.
 
 **MCP server** — `MCPRegistry.load` already calls
 `CapabilityRegistry.register(...)` for every namespaced tool it loads. You
@@ -66,7 +66,7 @@ objects = ["email", "mail", "nachricht", "message"] <!-- i18n-allow -->
 `__init__` or `setup` method before the voice path becomes active.
 
 **Local-action pattern** — add a `Capability` call alongside the pattern
-registration in `jarvis/brain/local_action_gate.py`.
+registration in `dodaios/brain/local_action_gate.py`.
 
 ---
 
@@ -82,7 +82,7 @@ pytest tests/unit/brain/test_local_action_gate.py -v
 Then verify manually with a quick registry probe:
 
 ```python
-from jarvis.core.capabilities import get_registry
+from dodaios.core.capabilities import get_registry
 reg = get_registry()
 cap = reg.resolve_intent("Schick eine Email an test@example.com")
 print(cap)  # should print your MY_GMAIL_CAPABILITY, not None
@@ -98,13 +98,13 @@ do not match the utterance. Expand the `verbs` or `objects` tuple.
 Confirm that `render_for_prompt` now lists your capability:
 
 ```python
-from jarvis.core.capabilities import get_registry
+from dodaios.core.capabilities import get_registry
 print(get_registry().render_for_prompt(lang="de"))
 ```
 
 Your capability's `description` should appear in the output. If it does not,
 the registration did not happen before `render_for_prompt` was called — check
-the boot order in `jarvis/missions/init.py`.
+the boot order in `dodaios/missions/init.py`.
 
 ---
 
@@ -119,8 +119,8 @@ registered).
 
 ```python
 def test_gmail_send_resolves_after_registration() -> None:
-    from jarvis.core.capabilities import CapabilityRegistry
-    from jarvis.core.capabilities_seed import MY_GMAIL_CAPABILITY
+    from dodaios.core.capabilities import CapabilityRegistry
+    from dodaios.core.capabilities_seed import MY_GMAIL_CAPABILITY
 
     reg = CapabilityRegistry()
     reg.register(MY_GMAIL_CAPABILITY)
@@ -139,12 +139,12 @@ pytest tests/integration/test_capability_coupling_e2e.py -v
 
 ## What you do NOT need to touch
 
-- `jarvis/brain/manager.py` — the `_capability_resolves` check reads from the
+- `dodaios/brain/manager.py` — the `_capability_resolves` check reads from the
   registry automatically.
-- `jarvis/brain/local_action_gate.py` — the UNSUPPORTED gate reads from the
+- `dodaios/brain/local_action_gate.py` — the UNSUPPORTED gate reads from the
   registry automatically.
-- `jarvis/brain/output_filter.py` — unchanged per AP-11.
-- `jarvis/missions/critic/runner.py` — the honesty gate reads the capability's
+- `dodaios/brain/output_filter.py` — unchanged per AP-11.
+- `dodaios/missions/critic/runner.py` — the honesty gate reads the capability's
   `requires_evidence` flag from the registry automatically.
 
 The capability you register is the single source of truth. All four of those

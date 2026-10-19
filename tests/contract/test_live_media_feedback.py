@@ -7,12 +7,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.audio import level_tap, mic_level
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AudioOutFirst, SystemStateChanged
-from jarvis.live.media import MediaLevels
-from jarvis.live.native import NativeLiveVoiceSession
-from jarvis.live.session import LiveVoiceSession
+from dodaios.audio import level_tap, mic_level
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AudioOutFirst, SystemStateChanged
+from dodaios.live.media import MediaLevels
+from dodaios.live.native import NativeLiveVoiceSession
+from dodaios.live.session import LiveVoiceSession
 from tests.fakes.voice_surface import VoiceSurface
 from ui.orb.bus_bridge import OrbBusBridge
 
@@ -156,7 +156,7 @@ async def test_invalid_measurements_cannot_repaint_the_bar(presentation, bad):
 
 def test_python_typescript_media_fields_stay_in_parity():
     root = Path(__file__).resolve().parents[2]
-    source = (root / "jarvis/ui/web/frontend/src/lib/mediaLevels.ts").read_text(encoding="utf-8")
+    source = (root / "dodaios/ui/web/frontend/src/lib/mediaLevels.ts").read_text(encoding="utf-8")
     fields = re.search(r"interface MediaLevels\s*\{([^}]+)\}", source).group(1)
     assert set(re.findall(r"^\s*(\w+):", fields, re.M)) == set(MediaLevels.model_fields)
     assert 'type: "media_levels"' in fields

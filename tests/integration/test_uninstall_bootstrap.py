@@ -45,10 +45,10 @@ def _make_fake_install(tmp_path: Path) -> Path:
 
     The missing venv python routes the bootstrap through its fallback branch,
     so the script's own process-stop + retry-delete logic is what does the
-    work — nothing here depends on `python -m jarvis --uninstall`.
+    work — nothing here depends on `python -m dodaios --uninstall`.
     """
     fake = tmp_path / "fake-jarvis-install"
-    (fake / "jarvis").mkdir(parents=True)
+    (fake / "dodaios").mkdir(parents=True)
     (fake / "pyproject.toml").write_text("[project]\nname='personal-jarvis'\n", encoding="utf-8")
     return fake
 

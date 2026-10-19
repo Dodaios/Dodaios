@@ -29,12 +29,12 @@ from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from jarvis.board.aggregator import BoardAggregator, _ensure_daily_stats_columns
-from jarvis.board.store import BoardStore
-from jarvis.core.bus import EventBus
-from jarvis.sessions.constants import HANGUP_SHUTDOWN
-from jarvis.sessions.init import bootstrap_sessions, shutdown_sessions
-from jarvis.sessions.store import SessionStore
+from dodaios.board.aggregator import BoardAggregator, _ensure_daily_stats_columns
+from dodaios.board.store import BoardStore
+from dodaios.core.bus import EventBus
+from dodaios.sessions.constants import HANGUP_SHUTDOWN
+from dodaios.sessions.init import bootstrap_sessions, shutdown_sessions
+from dodaios.sessions.store import SessionStore
 
 # ----------------------------------------------------------------------
 # Helpers
@@ -120,7 +120,7 @@ def _mk_board_db(db_path: Path) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, isolation_level=None)
     conn.row_factory = sqlite3.Row
-    schema = (Path("jarvis/board/schema.sql")).read_text(encoding="utf-8")
+    schema = (Path("dodaios/board/schema.sql")).read_text(encoding="utf-8")
     conn.executescript(schema)
     _ensure_daily_stats_columns(conn)
     return conn

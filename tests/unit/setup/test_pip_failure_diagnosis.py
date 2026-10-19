@@ -17,7 +17,7 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
-from jarvis.setup import dependencies as deps
+from dodaios.setup import dependencies as deps
 
 _FFMPEG_BUILD_STDERR = (
     "Package 'libavformat' not found Package 'libavcodec' not found "

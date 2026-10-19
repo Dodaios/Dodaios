@@ -34,7 +34,7 @@ import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
-_FRONTEND = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src"
 
 #: An import of the 3D graph renderer, a hand-rolled three.js renderer, or a
 #: raw WebGL context. Type-only imports are excluded at the call site: a module

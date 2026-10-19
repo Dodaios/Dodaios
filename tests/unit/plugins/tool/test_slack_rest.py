@@ -11,7 +11,7 @@ import json
 import httpx
 import pytest
 
-from jarvis.plugins.tool.slack_rest import SlackRestTool
+from dodaios.plugins.tool.slack_rest import SlackRestTool
 
 _C = "C0123ABCD"
 
@@ -443,13 +443,13 @@ def test_entry_point_and_catalog_bind_the_tool():
     import tomllib
     from pathlib import Path
 
-    from jarvis.marketplace.catalog import PluginCatalog
-    from jarvis.marketplace.catalog_data import _PACKAGE_SEED_PATH
+    from dodaios.marketplace.catalog import PluginCatalog
+    from dodaios.marketplace.catalog_data import _PACKAGE_SEED_PATH
 
     root = Path(__file__).resolve().parents[4]
     pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     tools = pyproject["project"]["entry-points"]["jarvis.tool"]
-    assert tools["slack"] == "jarvis.plugins.tool.slack_rest:SlackRestTool"
+    assert tools["slack"] == "dodaios.plugins.tool.slack_rest:SlackRestTool"
 
     catalog = PluginCatalog.model_validate(
         json.loads(_PACKAGE_SEED_PATH.read_text(encoding="utf-8"))

@@ -10,7 +10,7 @@ command stays snappy.
 """
 from __future__ import annotations
 
-from jarvis.speech.pipeline import (
+from dodaios.speech.pipeline import (
     _looks_like_long_composition,
     _should_extend_silence_for_composition,
 )

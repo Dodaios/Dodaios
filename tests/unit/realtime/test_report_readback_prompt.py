@@ -14,13 +14,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import AudioChunk
-from jarvis.live.native import NativeLiveVoiceSession
-from jarvis.live.session import LiveVoiceSession
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.report_prompt import REPORT_PROMPT_CHARS, report_update_prompt
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import AudioChunk
+from dodaios.live.native import NativeLiveVoiceSession
+from dodaios.live.session import LiveVoiceSession
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.report_prompt import REPORT_PROMPT_CHARS, report_update_prompt
+from dodaios.realtime.session import RealtimeVoiceSession
 from tests.unit.realtime.test_session import FakeBus, TextResultGatedProvider, _cfg
 from tests.unit.speech.test_realtime_announcement_bridge import _pipeline
 

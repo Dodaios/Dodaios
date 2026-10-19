@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from jarvis.ui.pets import loader
-from jarvis.ui.pets.loader import (
+from dodaios.ui.pets import loader
+from dodaios.ui.pets.loader import (
     COLOR_KEY,
     builtin_root,
     custom_root,
@@ -21,8 +21,8 @@ from jarvis.ui.pets.loader import (
     normalize_sheet,
     to_color_key,
 )
-from jarvis.ui.pets.manifest import PetManifestError
-from jarvis.ui.pets.states import DEFAULT_PET_ID, PET_FORMAT, PET_STATES
+from dodaios.ui.pets.manifest import PetManifestError
+from dodaios.ui.pets.states import DEFAULT_PET_ID, PET_FORMAT, PET_STATES
 
 USER_ID = "u0123456789abcdef"
 

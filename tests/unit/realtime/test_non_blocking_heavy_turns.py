@@ -20,15 +20,15 @@ import time
 
 import pytest
 
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import (
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import (
     _DELEGATE_BRIDGE_TEXTS,
     _PENDING_TOOL_CALL_INTERIM_RESULT,
     _delegate_result_prompt,
     _DelegateTurnState,
 )
-from jarvis.voice.instant_ack import ToolActivity, progress_pool
-from jarvis.voice.parked_results import ParkedResult
+from dodaios.voice.instant_ack import ToolActivity, progress_pool
+from dodaios.voice.parked_results import ParkedResult
 from tests.unit.realtime.test_session import (
     FakeBrain,
     FakeProvider,

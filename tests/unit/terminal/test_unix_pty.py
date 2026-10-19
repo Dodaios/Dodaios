@@ -17,9 +17,9 @@ import sys
 
 import pytest
 
-import jarvis.terminal.backend as backend_mod
-from jarvis.platform.capabilities import reset_capabilities_cache
-from jarvis.terminal.backend import (
+import dodaios.terminal.backend as backend_mod
+from dodaios.platform.capabilities import reset_capabilities_cache
+from dodaios.terminal.backend import (
     NullPtyBackend,
     PtyBackend,
     PtyHandle,
@@ -152,7 +152,7 @@ def test_unix_backend_threads_env_through(monkeypatch):
 
 def test_unix_backend_decodes_bytes_to_str_on_read():
     """ptyprocess.read returns bytes -> handle.read must return str."""
-    from jarvis.terminal.backend import _UnixPtyHandle
+    from dodaios.terminal.backend import _UnixPtyHandle
 
     fake_proc = FakeBytesPtyProcess()
     fake_proc.queue_output("héllo".encode())
@@ -171,7 +171,7 @@ def test_unix_backend_reassembles_multibyte_utf8_split_across_reads():
     glyph into U+FFFD (every box-drawing glyph a TUI repaints is 3 bytes, every
     umlaut 2). The handle must hold the partial tail until the next read.
     """
-    from jarvis.terminal.backend import _UnixPtyHandle
+    from dodaios.terminal.backend import _UnixPtyHandle
 
     fake_proc = FakeBytesPtyProcess()
     text = "bé─e"  # 2-byte e-acute and 3-byte box-drawing glyph
@@ -187,7 +187,7 @@ def test_unix_backend_reassembles_multibyte_utf8_split_across_reads():
 
 def test_unix_backend_encodes_str_to_bytes_on_write():
     """handle.write takes str -> ptyprocess.write must receive bytes."""
-    from jarvis.terminal.backend import _UnixPtyHandle
+    from dodaios.terminal.backend import _UnixPtyHandle
 
     fake_proc = FakeBytesPtyProcess()
     h = _UnixPtyHandle(fake_proc)
@@ -197,7 +197,7 @@ def test_unix_backend_encodes_str_to_bytes_on_write():
 
 
 def test_unix_handle_setwinsize_terminate_exitstatus_pid():
-    from jarvis.terminal.backend import _UnixPtyHandle
+    from dodaios.terminal.backend import _UnixPtyHandle
 
     fake_proc = FakeBytesPtyProcess(pid=999, exitstatus=0)
     h = _UnixPtyHandle(fake_proc)
@@ -220,7 +220,7 @@ def test_unix_handle_reaps_a_lazy_exitstatus_like_ptyprocess():
     agents. This fake mirrors the real laziness: the code appears only after
     ``isalive()`` has run its waitpid.
     """
-    from jarvis.terminal.backend import _UnixPtyHandle
+    from dodaios.terminal.backend import _UnixPtyHandle
 
     class _LazyExitProc:
         pid = 7
@@ -242,7 +242,7 @@ def test_unix_handle_reaps_a_lazy_exitstatus_like_ptyprocess():
 
 
 def test_unix_handle_exitstatus_is_none_while_child_lives():
-    from jarvis.terminal.backend import _UnixPtyHandle
+    from dodaios.terminal.backend import _UnixPtyHandle
 
     class _LiveProc:
         pid = 8
@@ -261,7 +261,7 @@ def test_unix_handle_reports_a_signal_death_as_negative_signal_number():
     mapping a SIGKILLed agent read as the unknown-exit ``-1``. Follow the
     ``subprocess`` convention: killed by signal N reports as ``-N``.
     """
-    from jarvis.terminal.backend import _UnixPtyHandle
+    from dodaios.terminal.backend import _UnixPtyHandle
 
     class _SignalKilledProc:
         pid = 10
@@ -276,7 +276,7 @@ def test_unix_handle_reports_a_signal_death_as_negative_signal_number():
 
 def test_unix_handle_exitstatus_survives_an_already_reaped_child():
     """ECHILD inside isalive() (ptyprocess raises) must read as unknown, not throw."""
-    from jarvis.terminal.backend import _UnixPtyHandle
+    from dodaios.terminal.backend import _UnixPtyHandle
 
     class _ReapedProc:
         pid = 9
@@ -290,7 +290,7 @@ def test_unix_handle_exitstatus_survives_an_already_reaped_child():
 
 def test_winpty_handle_passes_str_through_unchanged():
     """winpty already deals in str — the handle must not double-decode."""
-    from jarvis.terminal.backend import _WinptyHandle
+    from dodaios.terminal.backend import _WinptyHandle
 
     class _FakeWinpty:
         pid = 5
@@ -325,7 +325,7 @@ def test_winpty_handle_passes_str_through_unchanged():
 
 
 def test_winpty_handle_tolerates_bytes_defensively():
-    from jarvis.terminal.backend import _WinptyHandle
+    from dodaios.terminal.backend import _WinptyHandle
 
     class _FakeWinptyBytes:
         pid = 1

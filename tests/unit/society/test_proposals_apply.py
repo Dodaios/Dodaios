@@ -9,10 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society import proposals
-from jarvis.society.events import ApprovalState
-from jarvis.society.learning import LearningPass
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society import proposals
+from dodaios.society.events import ApprovalState
+from dodaios.society.learning import LearningPass
+from dodaios.society.runtime import SocietyRuntime
 from tests.fakes.fake_agent_chat import FakeChatService
 from tests.unit.society.test_learning import SKILL_MD
 from tests.unit.society.test_routines import FakeScheduler, FakeTaskStore

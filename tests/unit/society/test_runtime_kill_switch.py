@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.runtime import SocietyRuntime
 from tests.fakes.fake_agent_chat import FakeChatService
 
 

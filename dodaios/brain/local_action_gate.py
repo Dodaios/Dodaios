@@ -1,0 +1,1178 @@
+"""Pure local action gate for low-latency computer-use routing.
+
+Visual-target and desktop-control utterances are routed to the
+screenshot-based computer-use harness (:data:`HARNESS_NAME`). The harness
+runs the in-process screenshot/click/keyboard loop
+(``dodaios/harness/screenshot_only_loop.py``).
+"""
+from __future__ import annotations
+
+import re
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Protocol, runtime_checkable
+from urllib.parse import quote_plus
+
+from dodaios.i18n import catalog as i18n_catalog
+
+#: Entry-point name of the screenshot-based computer-use harness (see
+#: ``pyproject.toml`` ``[project.entry-points."jarvis.harness"]`` +
+#: ``dodaios/plugins/harness/computer_use.py``). Canonical home for the
+#: literal so call sites import this constant instead of hardcoding it.
+HARNESS_NAME = "screenshot"
+
+
+class LocalActionMode(str, Enum):
+    DIRECT = "DIRECT"
+    COMPUTER_USE = "COMPUTER_USE"
+    #: Returned when the utterance looks like an action request but no
+    #: registered capability covers it.  ``manager.py`` must route this
+    #: straight to TTS, skipping brain dispatch entirely.
+    UNSUPPORTED = "UNSUPPORTED"
+
+
+@dataclass(frozen=True, slots=True)
+class LocalToolCall:
+    name: str
+    args: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class LocalActionPlan:
+    mode: LocalActionMode
+    tool_calls: tuple[LocalToolCall, ...] = field(default_factory=tuple)
+    harness: str | None = None
+    prompt: str | None = None
+    #: Populated only when ``mode == UNSUPPORTED``.  A deterministic,
+    #: human-readable rejection message in the user's language that
+    #: ``manager.py`` forwards verbatim to TTS.
+    response_text: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Capability registry protocol
+#
+# The *real* registry lives in ``dodaios.core.capabilities`` (Agent A).
+# We define a structural Protocol here so that:
+#   a) production code can do a late import of the real singleton, and
+#   b) tests can inject a lightweight fake without importing the real module.
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class _CapabilityRegistryLike(Protocol):
+    """Minimal surface of ``CapabilityRegistry`` needed by this module."""
+
+    def has_action_intent(self, utterance: str) -> bool: ...
+    def resolve_intent(self, utterance: str) -> object | None: ...
+
+
+_DIRECT_PATTERNS = (
+    # ``(?:er)?oeffne(?:t|st|n)?`` covers öffne / öffnet / öffnest / öffnen and the
+    # er-prefixed eröffne / eröffnet / … so "Eröffnet den Explorer" also takes the
+    # clean DIRECT launch instead of the computer-use vision loop (live 2026-06-08).
+    re.compile(
+        r"^(?:hey\s+)?(?:jarvis[,\s]+)?(?:er)?oeffne(?:t|st|n)?\s+(?P<app>.+?)\s*[?.!]*$",
+        re.I,
+    ),
+    re.compile(r"^(?:hey\s+)?(?:jarvis[,\s]+)?starte\s+(?P<app>.+?)\s*[?.!]*$", re.I),
+    re.compile(
+        r"^(?:hey\s+)?(?:jarvis[,\s]+)?mach\s+(?P<app>.+?)\s+(?:auf|auch)\s*[?.!]*$",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:hey\s+)?(?:jarvis[,\s]+)?kannst\s+du\s+(?P<app>.+?)\s+aufmachen\s*[?.!]*$",
+        re.I,
+    ),
+)
+
+_VISUAL_TARGET_PATTERNS = (
+    re.compile(r"^(?:hey\s+)?(?:jarvis[,\s]+)?(?:klick|click)\s+.+", re.I),
+    re.compile(
+        r"^(?:hey\s+)?(?:jarvis[,\s]+)?oeffne\s+.+\b"
+        r"(?:links|rechts|oben|unten|rote|rotes|roten|gruen|gruene|gruenes|gruenen|"
+        r"blaue|blaues|blauen)\b.+\b(?:fenster|button|feld|app)\b",
+        re.I,
+    ),
+    re.compile(
+        r"^(?:hey\s+)?(?:jarvis[,\s]+)?schreib\s+.+\s+in\s+.+"
+        r"(?:button|feld|eingabefeld|chatgpt|fenster|app|seite)\b",
+        re.I,
+    ),
+)
+
+# Desktop-control commands that need the multi-step GUI loop (computer-use),
+# NOT a single deterministic open and NOT a canned "I can't" refusal. Two
+# unambiguous shapes:
+#   1. Compound "oeffne/starte/mach <app> und <do something>" — the user opened
+#      an app to operate it (e.g. "oeffne WhatsApp und schreib Mama hallo").
+#   2. A standalone GUI manipulation verb (klick/scroll/tippe/doppelklick/...).
+# Ambiguous verbs like "schreib"/"such" alone are deliberately excluded (they
+# often mean "write me a poem" / "search the web", i.e. a plain brain answer).
+_COMPOUND_OPEN_CONTROL_RE = re.compile(
+    r"^(?:hey\s+)?(?:jarvis[,\s]+)?"
+    r"(?:oeffne|starte|mach|geh\s+(?:auf|zu)|open|start|launch)\b"
+    r".+\b(?:und|and)\b.+",
+    re.I,
+)
+_GUI_VERB_RE = re.compile(
+    r"\b(klick|click|doppelklick|rechtsklick|tippe|tipp\b|scroll|scrolle|"
+    r"markier|kopier|einfueg|fueg\b.+\bein\b|waehle\s+aus|wechsel\s+(?:zu|auf)\s+fenster|"
+    r"druecke?\s+(?:auf|den|die|das)\b)\w*",
+    re.I,
+)
+
+# Broader Computer-Use commands the narrow GUI-verb + compound-open patterns
+# miss but that are unambiguously "operate the desktop" — they MUST reach the
+# computer-use loop deterministically, never depend on the LLM talker calling
+# computer_use. Live regression 2026-06-09: the talker (brain.primary=codex, CLI
+# OAuth path) DROPS ALL TOOLS and can never emit a tool_call, so every CU task
+# that fell to it went silent — ~30% of common CU commands (navigate /
+# screenshot / window-ops / drag). Each pattern is high-precision; how-to
+# questions ("wie navigiere ich…") are excluded in _looks_like_desktop_control
+# so they stay normal brain answers. Inputs are pre-_normalize'd (umlauts → ascii:
+# "schließ" → "schliess", "nächste" → "naechste", "vergrößer" → "vergroesser").
+# Only directional prepositions (zu/auf/nach/in) — "navigiere DURCH das Menü" is
+# deliberately excluded (too close to an explain/walk-me-through request).
+_NAVIGATE_RE = re.compile(r"\bnavigier\w*\s+(?:zu|auf|nach|in)\b", re.IGNORECASE)
+# Screenshot — verb-anchored on BOTH sides so a TAKE imperative matches
+# ("mach/nimm/erstell/knips einen Screenshot", "Screenshot machen") but an
+# informational or send/show mention does NOT ("ich habe einen Screenshot
+# gemacht", "schick mir einen Screenshot", "zeig den letzten Screenshot") —
+# review finding 2026-06-09. "gemacht" never matches \bmach\w* (no word boundary
+# before "mach" inside "gemacht").
+_SCREENSHOT_RE = re.compile(
+    r"\b(?:mach|nimm|erstell|knips|capture|take|grab)\w*\b[\w\s]{0,14}?"
+    r"\b(?:screenshot|bildschirmfoto|bildschirmaufnahme)\b"
+    r"|\b(?:screenshot|bildschirmfoto|bildschirmaufnahme)\b[\w\s]{0,10}?"
+    r"\b(?:mach|nimm|erstell|knips)\w*",
+    re.IGNORECASE,
+)
+# "schließ/minimier/maximier … (das) Fenster/Tab/App" — the verb ALONE is too
+# ambiguous ("schließ die Tür"), so a desktop-context noun within ~18 chars is
+# required. Plus tab-switching ("wechsel zum nächsten Tab", "nächster Tab").
+_WINDOW_OP_RE = re.compile(
+    r"\b(?:schliess|minimier|maximier|verklein|vergroesser)\w*\b[\w\s]{0,18}?"
+    r"\b(?:fenster|tab|app|programm|browser|seite|dialog)\b"
+    r"|\bwechsel\w*\s+(?:zu|auf|zum|zur|in|den|das|die|naechste[nr]?)\b[\w\s]{0,12}?"
+    r"\b(?:tab|fenster|app|programm)\b"
+    r"|\b(?:naechst|vorherig|letzt|erst)\w*\s+tab\b",
+    re.IGNORECASE,
+)
+# Drag / move — "zieh"/"verschieb"/"drag" are common words, so a desktop object
+# or a direction is required to avoid "zieh dich an".
+_DRAG_RE = re.compile(
+    r"\b(?:zieh|drag|verschieb)\w*\b[\w\s]{0,20}?"
+    r"\b(?:fenster|datei|icon|maus|cursor|element|nach\s+(?:links|rechts|oben|unten))\b",
+    re.IGNORECASE,
+)
+# Explicit "use Computer-Use to …" — the user NAMES the harness as the instrument
+# ("mit Computer-Use … abspielen", "per/über Computer-Use", "nutze/benutze/
+# verwende Computer-Use …", "use/with/via/using computer use …"). This is the
+# strongest possible deterministic CU signal: the user said WHICH harness to use,
+# so the command MUST reach the screenshot loop without depending on the LLM
+# talker emitting a computer_use tool_call (the codex CLI talker drops ALL tools
+# and never can — see the broader-CU comment above; live repro 2026-06-21: "mit
+# Computer-Use in Spotify … abspielen" only ACK'd, never acted, because the
+# phrase has no open verb and fell through to the talker). An instrument marker
+# must IMMEDIATELY precede the term (optionally an article), so a how-to/explain
+# mention without a marker ("erklär mir Computer-Use", "was ist Computer-Use")
+# never matches; question-word how-tos are also excluded in
+# _looks_like_desktop_control via _OPEN_INSTRUCTIONAL_RE. Input is pre-_normalize'd
+# (umlauts → ascii: "über" → "ueber"); the literal hyphen in "computer-use"
+# survives normalize, so [-\s]? covers both "computer-use" and "computer use".
+_EXPLICIT_COMPUTER_USE_RE = re.compile(
+    r"\b(?:mit|per|ueber|via|with|using|use|nutz\w*|benutz\w*|verwend\w*)\s+"
+    r"(?:der\s+|die\s+|das\s+|den\s+|the\s+)?"
+    r"computer[-\s]?use\b",
+    re.IGNORECASE,
+)
+
+
+# ---------------------------------------------------------------------------
+# Question / narration guard (maintainer mandate 2026-08-25).
+#
+# Live bug, flight recorder 2026-08-25 16:50:08: "Wie nennt man das, wenn ...
+# dann KLICKE ICH da drauf ... wie nennt sich das in der Fachsprache?" -- a pure
+# vocabulary question -- was shipped verbatim to the computer-use harness. Two
+# independent defects produced it:
+#
+#   1. ``_GUI_VERB_RE`` matched the narrated "klicke" and returned True BEFORE
+#      the instructional guard below could veto it, so a question that opens
+#      with "wie" could never be recognised as one.
+#   2. The GUI-verb match ignored WHO acts. "klicke ICH" is the user describing
+#      their own habit; a command is addressed to Jarvis and carries no subject.
+#
+# The rule the maintainer stated: decide whether the turn is a TASK or a
+# QUESTION. A polite request in question form stays a task ("Kannst du bitte
+# einen Screenshot machen?") -- it carries no interrogative opener. An
+# information question carries one and gives no order.
+# ---------------------------------------------------------------------------
+
+#: An interrogative that OPENS a clause -- at the start of the utterance or
+#: right after a clause break. Trailing question clauses matter as much as
+#: leading ones: the live utterance asked its real question in the LAST clause
+#: ("..., wie nennt sich das in der Fachsprache?"), long after the narrated GUI
+#: verb. Word-boundaried so "wo" never fires inside "worker" or "wonach".
+_QUESTION_OPENER_RE = re.compile(
+    r"(?:^|[,;:.!?]\s*|\b(?:und|oder|aber|and|or|but)\s+)"
+    r"(?:"
+    r"wie|was|warum|wieso|weshalb|wozu|wann|wo|wofuer|woran|worin|worum|"
+    r"woher|wohin|wonach|welche[rsnm]?|wer|wen|wem|wessen"
+    r"|how|what|why|when|where|which|who|whom|whose"
+    r")\b",
+    re.IGNORECASE,
+)
+
+#: 2nd-person imperative stems that address Jarvis. Mirrors the LLM-path guard
+#: in ``dodaios.brain.tool_use_loop`` (``_IMPERATIVE_VERB_RE``) -- deliberately
+#: kept to the desktop-control verbs this gate can actually route. German
+#: infinitives cannot match: "oeffnen"/"klicken" carry no word boundary after
+#: the imperative stem.
+_ASSISTANT_IMPERATIVE_RE = re.compile(
+    r"\b(?:"
+    r"mach|mache|oeffne|starte|beende|schliess|schliesse|"
+    r"klick|klicke|tipp|tippe|drueck|druecke|scroll|scrolle|"
+    r"zeig|zeige|spiel|spiele|schreib|schreibe|such|suche|"
+    r"wechsle|wechsel|geh|gehe|nimm|hol|hole|navigier|navigiere|"
+    r"minimier|minimiere|maximier|maximiere|zieh|ziehe|verschieb|verschiebe"
+    r"|open|close|click|type|press|scroll|show|play|write|search|switch|"
+    r"start|launch|take|grab|drag|minimize|maximize|navigate"
+    r")\b",
+    re.IGNORECASE,
+)
+
+#: An explicit subject turns the identical German verb form into a 1st-person
+#: indicative: "klicke ICH", "macht MAN", "gehe ICH". A real imperative never
+#: carries one. Same token set as ``tool_use_loop._INDICATIVE_SUBJECT_RE`` so
+#: the two guards classify the same sentence the same way.
+_INDICATIVE_SUBJECT_AFTER_RE = re.compile(
+    r"\s*(?:ich|man|wir|i|we|you|yo|uno)\b",
+    re.IGNORECASE,
+)
+#: English (and the German infinitive marker) put the subject in FRONT of the
+#: verb: "...how do I click", "...um zu klicken".
+_INDICATIVE_SUBJECT_BEFORE_RE = re.compile(
+    r"\b(?:i|you|we|they|to|ich|man|wir|zu)\s+$",
+    re.IGNORECASE,
+)
+#: German subordinate clauses push the verb to the END, far from its subject:
+#: "…, wenn ICH auf den roten Button KLICKE?". Adjacency alone therefore misses
+#: the subject, so the clause in front of the verb is scanned as a whole. Only
+#: 1st-person and impersonal subjects count here — never "du"/"you", which can
+#: perfectly well address Jarvis ("du sollst mal runterscrollen" is an order,
+#: not narration).
+_CLAUSE_START_RE = re.compile(r"[,;:.!?]")
+_NARRATING_SUBJECT_RE = re.compile(r"\b(?:ich|man|wir|i|we)\b", re.IGNORECASE)
+
+
+def _is_narrated(text: str, start: int, end: int) -> bool:
+    """True when the verb at ``[start:end)`` carries an explicit subject.
+
+    A described action ("dann klicke ich da drauf") is not an order. Same shape
+    as ``spawn_gate._REPORTED_VEHICLE_RE``: the vocabulary matches, but the
+    grammar says the user is reporting, not requesting.
+    """
+    before = text[:start]
+    clause_breaks = list(_CLAUSE_START_RE.finditer(before))
+    clause = before[clause_breaks[-1].end():] if clause_breaks else before
+    return bool(
+        _INDICATIVE_SUBJECT_AFTER_RE.match(text, end)
+        or _INDICATIVE_SUBJECT_BEFORE_RE.search(before)
+        or _NARRATING_SUBJECT_RE.search(clause)
+    )
+
+
+def _has_assistant_imperative(text: str) -> bool:
+    """True when the turn gives Jarvis an order somewhere in it."""
+    return any(
+        not _is_narrated(text, match.start(), match.end())
+        for match in _ASSISTANT_IMPERATIVE_RE.finditer(text)
+    )
+
+
+def _is_information_question(text: str) -> bool:
+    """True when the turn ASKS something instead of ordering desktop work.
+
+    Both halves are required. The interrogative opener alone would veto
+    "Warum ist Spotify zu, mach es auf" -- which opens as a question and still
+    ends in an order the user wants executed (the same stand-down as
+    ``tool_use_loop._is_instructional_question``). An order alone is not enough
+    either: "Kannst du bitte einen Screenshot machen?" carries no interrogative
+    opener at all and stays a task.
+    """
+    if not _QUESTION_OPENER_RE.search(text):
+        return False
+    return not _has_assistant_imperative(text)
+
+
+def _has_commanding_gui_verb(text: str) -> bool:
+    """True when a GUI verb is an ORDER, not the user narrating their own use.
+
+    ``_GUI_VERB_RE`` alone matched "dann klicke ich da drauf" and handed a
+    vocabulary question to the vision loop (live 2026-08-25).
+    """
+    return any(
+        not _is_narrated(text, match.start(), match.end())
+        for match in _GUI_VERB_RE.finditer(text)
+    )
+
+
+def _looks_like_desktop_control(text: str) -> bool:
+    """True for GUI-manipulation commands that should drive the computer-use loop.
+
+    Conservative on purpose: a compound open-and-operate command, an unambiguous
+    GUI verb (klick/scroll/tippe/…), or a broader desktop-control verb
+    (navigate / screenshot / window-op / drag) — so plain "oeffne chrome" stays
+    the fast DIRECT path and "schreib mir ein Gedicht" stays a normal brain
+    answer. The broader verbs are guarded against how-to questions so
+    "wie navigiere ich…" / "wie mache ich einen Screenshot" stay brain answers.
+    """
+    # TASK or QUESTION — decided FIRST, for every branch below. Until 2026-08-25
+    # the instructional guard sat UNDER the GUI-verb branch, so a question could
+    # only ever be recognised when it contained no GUI vocabulary at all; the
+    # narrated "klicke" inside a question about download terminology was enough
+    # to seize the desktop. Nothing below can be desktop-control when the turn
+    # asks a question and gives no order.
+    if _is_information_question(text):
+        return False
+    # A "starte/oeffne X und Y" compound is desktop-control ONLY when X/Y is real
+    # GUI work — never when it is heavy worker / research / sub-agent work. Live
+    # bug 2026-06-15: "Starte eine Sub-Agent-Mission und recherchiere …" matched
+    # _COMPOUND_OPEN_CONTROL_RE and ran on the screenshot harness. Unambiguous GUI
+    # verbs (klick/scroll/tippe/…) stay desktop-control regardless of the nouns.
+    if _COMPOUND_OPEN_CONTROL_RE.match(text) and not _NOT_OPEN_APP_RE.search(text):
+        return True
+    # ...but only when the user ORDERS the click; "dann klicke ich da drauf" is
+    # the user describing their own workflow (live 2026-08-25).
+    if _has_commanding_gui_verb(text):
+        return True
+    if _OPEN_INSTRUCTIONAL_RE.search(text):
+        return False
+    # An explicit "use Computer-Use to …" names the harness as the instrument —
+    # the strongest deterministic CU signal. Checked AFTER the instructional
+    # guard so a how-to "wie nutze ich Computer-Use" stays a brain answer.
+    return bool(
+        _EXPLICIT_COMPUTER_USE_RE.search(text)
+        or _NAVIGATE_RE.search(text)
+        or _SCREENSHOT_RE.search(text)
+        or _WINDOW_OP_RE.search(text)
+        or _DRAG_RE.search(text)
+    )
+
+
+# Open / launch verbs in ANY conjugation. Inputs are pre-normalised
+# (``_normalize``: lowercased + umlauts transliterated, so "öffnest" -> "oeffnest"),
+# so ``oeffn\w*`` catches öffne/öffnest/öffnet/öffnen alike. ``start\w*`` catches
+# starte/startest/start; "mach … auf" is the separable verb handled separately.
+# NB: the English open verb is pinned to its real conjugations — a bare
+# ``open\w*`` also swallowed PRODUCT NAMES starting with "open" (forensic
+# 2026-07-10: "…meinen OpenRouter-Zugang checkst und…" counted as an
+# open-verb, the "und" made it a compound open-and-operate command, and a
+# plain provider-check request was deterministically shipped to the
+# computer-use loop — clicking through the browser instead of calling the
+# provider-test endpoint). openrouter/openai/openwakeword must never count
+# as "open".
+_OPEN_VERB_RE = re.compile(
+    r"\b(?:oeffn\w*|aufmach\w*|aufzumach\w*|start\w*|open(?:s|ed|ing)?|launch\w*)\b",
+    re.IGNORECASE,
+)
+# Separable verb "mach … auf" (particle trails the object): "mach mir Spotify auf".
+_MACH_AUF_RE = re.compile(r"\bmach(?:e|st|t)?\b[\w\s]*\bauf\b", re.IGNORECASE)
+# A coordinating "und"/"and" splits an open command from a follow-up action
+# ("…Spotify öffnen UND Shape of You spielen") → the request is multi-step and
+# belongs on the computer-use loop, not a single DIRECT open. Word-boundaried so
+# it never fires inside a token. Operates on the normalised (transliterated)
+# utterance, where "und" and "and" are stable.
+_AND_RE = re.compile(r"\b(?:und|and)\b", re.IGNORECASE)
+# Negated open ("ich will Spotify NICHT öffnen", "bitte KEIN Chrome starten",
+# "öffne Discord lieber nicht") must NEVER launch. The verb-at-end fallback below
+# scans the WHOLE utterance for a known app name, so without this guard it would
+# happily launch the very app the user said NOT to open (review finding
+# 2026-06-09). High-precision, low-cost: a negation token anywhere in the
+# utterance suppresses the deterministic launch; the turn then falls to the brain
+# (which, with clarify off by default, does not nag the user). Deliberately NOT
+# folded into ``is_open_app_intent`` — that predicate is also the force-spawn
+# guard, and a negated open must still count as an open there (to stay OFF the
+# sub-agent worker path), just not trigger an actual launch here.
+_OPEN_NEGATION_RE = re.compile(r"\bnicht\b|\bkein\w*\b|\bniemals\b", re.IGNORECASE)
+# Signals that the request is NOT a plain desktop app-open but heavy worker /
+# external-system work, which a sandboxed worker (not computer-use) owns. This
+# is the single veto consulted by is_open_app_intent (and therefore by both the
+# COMPUTER_USE gate at match_local_action AND the force-spawn guard in
+# manager.py), so research / sub-agent / mission vocabulary MUST live here:
+# "starte eine Sub-Agent-Mission und recherchiere …" overcaptures "startest" as
+# an open-verb, and without this veto it was misrouted to the screenshot harness
+# ("ich erledige das am Bildschirm") instead of a research worker (live bug
+# 2026-06-15, sessions.db session 236877e6).
+_NOT_OPEN_APP_RE = re.compile(
+    r"\b(?:"
+    r"pr|prs|pull\s*request|repo|repository|github|gitlab|issue|issues|branch|"
+    r"baue?|baust|baut|implementier\w*|entwickel\w*|refactor\w*|debugg?\w*|"
+    r"analysier\w*|analyz\w*|untersuch\w*|programmier\w*|deploy\w*|"
+    r"datei|dateien|file|files|funktion\w*|skript|script|landingpage|"
+    r"recherch\w*|research\w*|tiefenrecherche\w*|deep[\s-]?dive|"
+    r"sub-?agent\w*|subagent\w*|mission\w*"
+    r")\b",
+    re.IGNORECASE,
+)
+# Instructional questions ("wie oeffne ich X?") must never launch anything.
+_OPEN_INSTRUCTIONAL_RE = re.compile(
+    r"^\s*(?:wie|how|was|what|warum|why|wieso|weshalb)\b", re.IGNORECASE
+)
+
+# ---------------------------------------------------------------------------
+# Browser+URL fast-path (2026-06-10 latency collapse, Task 2).
+#
+# "oeffne chrome und gehe auf x.com" is ONE deterministic argv launch —
+# browsers accept a URL argument on win/mac/linux, and open_app already
+# whitelists http(s):// targets and forwards ``arguments``. Without this
+# branch the compound regex routed the goal into the vision-LLM loop, which
+# took ~3 minutes live (log 2026-06-10 20:46) for what is a 1-second launch.
+# Both regexes are end-anchored: a site followed by MORE work ("… und poste
+# einen tweet") must keep the computer-use loop, which has to act on the page.
+# ---------------------------------------------------------------------------
+_BROWSER_TOKENS = (
+    "chrome", "firefox", "edge", "brave", "opera", "safari", "chromium",
+    "vivaldi",
+)
+#: A bare domain or URL ("x.com", "https://github.com/foo"). Requires a dot +
+#: TLD-like tail so "geh auf nummer sicher" never matches.
+_SITE_PATTERN = r"(?P<site>(?:https?://)?[\w-]+(?:\.[\w-]+)+(?:/\S*)?)"
+_GOTO_VERBS = (
+    r"(?:geh(?:e|st)?\s+(?:auf|zu|nach)|navigiere?\s+(?:zu|auf|nach)"
+    r"|go\s+to|navigate\s+to|oeffne|open)"
+)
+_OPEN_BROWSER_GOTO_RE = re.compile(
+    r"^(?:hey\s+)?(?:jarvis[,\s]+)?(?:oeffne|starte|open|start|launch)\b[^.!?]*?"
+    r"\b(?P<app>" + "|".join(_BROWSER_TOKENS) + r")\b.*?\b"
+    + _GOTO_VERBS + r"\s+" + _SITE_PATTERN + r"\s*[.!?]?\s*$",
+    re.IGNORECASE,
+)
+_BARE_GOTO_RE = re.compile(
+    r"^(?:hey\s+)?(?:jarvis[,\s]+)?" + _GOTO_VERBS + r"\s+" + _SITE_PATTERN
+    + r"\s*[.!?]?\s*$",
+    re.IGNORECASE,
+)
+
+# Search-query browser launch (live bug 2026-06-15, sessions.db session
+# c995c9bc): "Open the Chrome browser for me and Google <query>" is ONE
+# deterministic argv launch — open the browser straight to a Google results
+# page. It must NOT take the credit-gated Computer-Use vision loop (which
+# silently no-ops when the desktop extra is unavailable) and must NOT drop the
+# search clause (the old verb-at-end fallback launched only Chrome). Bilingual:
+# both the conjunction (and/und) and the search verb (google / search for /
+# suche nach) are DE+EN — the German-only _AND_RE never split the English "and",
+# so the whole search half was discarded. The search verb is anchored directly
+# after the conjunction so a non-search follow-up ("… und schreib Mama hallo")
+# stays on the Computer-Use loop. End-anchored on the query.
+_BROWSER_SEARCH_VERB_RE = (
+    r"(?:google(?:\s+nach)?|search\s+for|search|look\s+up|"
+    r"such(?:e|st)?(?:\s+nach)?)"
+)
+_OPEN_BROWSER_SEARCH_RE = re.compile(
+    r"^(?:hey\s+)?(?:jarvis[,\s]+)?(?:oeffne|starte|open|start|launch)\b[^.!?]*?"
+    r"\b(?P<app>" + "|".join(_BROWSER_TOKENS) + r")\b[^.!?]*?"
+    r"\b(?:und|and)\b\s*" + _BROWSER_SEARCH_VERB_RE + r"\s+"
+    r"(?P<query>\S.*?)\s*[.!?]*$",
+    re.IGNORECASE,
+)
+
+#: Google results endpoint for the search fast-path. open_app forwards the URL
+#: verbatim to the browser argv (only ``app_name`` is plausibility-gated), so a
+#: ``?q=…`` query string is passed through unchanged — the same contract the
+#: browser+URL fast-path already relies on.
+_SEARCH_URL_PREFIX = "https://www.google.com/search?q="
+
+
+def _site_to_url(site: str) -> str:
+    return site if site.startswith(("http://", "https://")) else f"https://{site}"
+
+
+def _search_to_url(query: str) -> str:
+    return _SEARCH_URL_PREFIX + quote_plus(query.strip())
+
+
+# A trailing desktop ACTION smuggled into a browser-search query. The search
+# fast-path captures the query non-greedily to the end of the utterance, so
+# "...google das wetter UND SCROLLE runter" / "...google cats THEN CLICK the
+# first result" folds the follow-up action into the Google query string and runs
+# a wrong search (finding 2026-06-26). When the query carries such a follow-up,
+# the search fast-path DECLINES (returns None) so the utterance falls to the
+# compound-open desktop-control routing → the multi-step computer-use loop, which
+# runs BOTH the search and the follow-up action.
+#
+# A connector (und/and/dann/then/danach/…) is REQUIRED immediately before the
+# GUI verb, so a legitimate multi-term search is never mistaken for an action:
+# "katzen UND hunde" (no verb after the connector) and "how TO CLICK a button"
+# (no connector before the verb) both stay clean DIRECT searches. Operates on
+# the pre-``_normalize``'d query (umlauts → ascii), so ascii verb stems match.
+_QUERY_FOLLOWUP_ACTION_RE = re.compile(
+    r"\b(?:und|and|dann|then|danach|anschliessend|afterwards)\b"
+    r"(?:\s+(?:dann|then))?\s+"
+    r"(?:"
+    r"klick|click|doppelklick|rechtsklick|tipp|scroll|"
+    r"markier|kopier|einfueg|waehl|wechsel|drueck|navigier|"
+    r"schliess|minimier|maximier|zieh|drag|verschieb|spiel|play"
+    r")\w*",
+    re.IGNORECASE,
+)
+
+
+def _query_has_followup_action(query: str) -> bool:
+    """True when a browser-search query smuggles a trailing desktop action
+    (a connector + a GUI verb, e.g. "... und scrolle runter", "... then click").
+
+    A connector is REQUIRED before the verb so a legitimate multi-term search
+    ("katzen und hunde", "how to click a button") is never caught. Pure regex,
+    no IO (AP-9 / AP-11)."""
+    return bool(_QUERY_FOLLOWUP_ACTION_RE.search(query))
+
+
+def _match_browser_url_fast_path(normalized: str) -> LocalActionPlan | None:
+    """Deterministic browser+URL launch, or None to fall through."""
+    if _OPEN_NEGATION_RE.search(normalized):
+        return None
+    if _OPEN_INSTRUCTIONAL_RE.search(normalized):
+        return None
+    m = _OPEN_BROWSER_GOTO_RE.match(normalized)
+    if m:
+        return LocalActionPlan(
+            mode=LocalActionMode.DIRECT,
+            tool_calls=(LocalToolCall(
+                name="open_app",
+                args={
+                    "app_name": m.group("app").lower(),
+                    "arguments": _site_to_url(m.group("site")),
+                },
+            ),),
+        )
+    m = _BARE_GOTO_RE.match(normalized)
+    if m:
+        return LocalActionPlan(
+            mode=LocalActionMode.DIRECT,
+            tool_calls=(LocalToolCall(
+                name="open_app",
+                args={"app_name": _site_to_url(m.group("site"))},
+            ),),
+        )
+    m = _OPEN_BROWSER_SEARCH_RE.match(normalized)
+    # Decline when the query smuggled a trailing desktop action ("...google das
+    # wetter UND SCROLLE runter") — folding it into the Google query would run a
+    # wrong search and drop the follow-up. Returning None lets the compound-open
+    # desktop-control routing send the whole turn to the computer-use loop, which
+    # performs the search AND the action (finding 2026-06-26).
+    if m and not _query_has_followup_action(m.group("query")):
+        return LocalActionPlan(
+            mode=LocalActionMode.DIRECT,
+            tool_calls=(LocalToolCall(
+                name="open_app",
+                args={
+                    "app_name": m.group("app").lower(),
+                    "arguments": _search_to_url(m.group("query")),
+                },
+            ),),
+        )
+    return None
+
+
+def is_open_app_intent(text: str) -> bool:
+    """True for a request to OPEN / LAUNCH an application or window on the
+    desktop — in any conjugation or phrasing — that a sandboxed sub-agent worker
+    could never fulfil (a worker runs in an isolated git worktree and has no
+    desktop). Such requests belong to the computer-use harness, NEVER to a
+    force-spawned worker.
+
+    Live bug 2026-06-08 (data/jarvis_desktop.log 17:37): "Ich möchte, dass du mir
+    Hermes Agent öffnest, also …" force-spawned a worker because the capability
+    registry resolves verbs strictly (``\\boeffne\\b``, base form only) while the
+    action detector matches conjugations (``\\boeffne\\w*\\b``) — so "öffnest"
+    counted as an action no capability resolves, i.e. generic sub-agent work.
+
+    Excludes instructional questions ("wie oeffne ich X"), external-system work
+    (PR / repo / GitHub), and heavy build / code / file work that genuinely needs
+    a worker. Pure regex, no LLM / no IO (AP-9 / AP-11)."""
+    t = _normalize(text)
+    if not t:
+        return False
+    if _OPEN_INSTRUCTIONAL_RE.search(t):
+        return False
+    if _NOT_OPEN_APP_RE.search(t):
+        return False
+    return bool(_OPEN_VERB_RE.search(t) or _MACH_AUF_RE.search(t))
+
+_APP_ALIASES = {
+    "chrome": "chrome",
+    "google chrome": "chrome",
+    "firefox": "firefox",
+    "edge": "msedge",
+    "microsoft edge": "msedge",
+    "msedge": "msedge",
+    "notepad": "notepad",
+    "editor": "notepad",
+    "texteditor": "notepad",
+    "explorer": "explorer",
+    "dateiexplorer": "explorer",
+    "windows explorer": "explorer",
+    "rechner": "calc",
+    "taschenrechner": "calc",
+    "calc": "calc",
+    "calculator": "calc",
+    "windows terminal": "wt",
+    "terminal": "wt",
+    "wt": "wt",
+    "spotify": "spotify",
+    # Chat / communication + media apps a voice user opens by name. Every value
+    # is already in open_app's KNOWN_APPS and resolvable by app_resolver
+    # (App Paths / PATH / the Start Menu .lnk fallback for Squirrel installs
+    # like Discord/Slack, added 2026-06-09). Before this, "öffne Discord" was
+    # absent here, fell through to the brain, and the router opened it via
+    # computer_use but — producing no narration — was answered with the
+    # clarifying question "Wie meinst du das genau?" instead of just launching
+    # it on the fast deterministic path (live bug 2026-06-09).
+    "discord": "discord",
+    "slack": "slack",
+    "telegram": "telegram",
+    "whatsapp": "whatsapp",
+    "whats app": "whatsapp",
+    "signal": "signal",
+    "teams": "teams",
+    "microsoft teams": "teams",
+    "zoom": "zoom",
+    "skype": "skype",
+    "vlc": "vlc",
+    "steam": "steam",
+    "outlook": "outlook",
+}
+
+# An app name that is the OBJECT of a container preposition ("oeffne meine
+# Bilder IM Explorer", "IN meinen Explorer meine Bilder oeffnen") is NOT the
+# whole goal — the app is a folder/window the user navigates INTO, and the real
+# target (the Bilder/Downloads/Dokumente) lives elsewhere in the utterance. A
+# bare ``open_app`` launch would drop that target and open a blank window (live
+# bug 2026-06-26 voice session: "in meinen Explorer meine Bilder oeffnen"
+# launched explorer.exe empty, the pictures never opened, spoken back as the
+# fast "Gestartet: explorer"). Such navigate-into-app goals belong on the
+# multi-step computer-use loop. Maintainer decision 2026-06-26: ANY target
+# beyond the bare app hands off to computer-use. The alternation is built from
+# the known-app aliases (longest first, so "windows explorer" wins over
+# "explorer"); a leading article/possessive between the preposition and the app
+# is tolerated. Inputs are pre-``_normalize``'d (umlauts → ascii), so the
+# alias keys (already ascii) match directly.
+_APP_ALIAS_ALTERNATION = "|".join(
+    re.escape(alias) for alias in sorted(_APP_ALIASES, key=len, reverse=True)
+)
+_APP_AS_CONTAINER_RE = re.compile(
+    r"\b(?:in|im|ins|innerhalb|inside|within|into)\s+"
+    r"(?:dem\s+|den\s+|der\s+|die\s+|das\s+|meinem\s+|meinen\s+|meiner\s+|"
+    r"mein\s+|the\s+|my\s+)?"
+    r"(?:" + _APP_ALIAS_ALTERNATION + r")\b",
+    re.IGNORECASE,
+)
+
+
+def _app_used_as_container(normalized: str) -> bool:
+    """True when a known app is the object of a container preposition.
+
+    Signals "open <target> in <app>" (the app is a folder/window to navigate
+    INTO), so a bare deterministic launch would silently drop the real target.
+    Such goals route to the computer-use loop, never a single DIRECT open.
+    Pure regex, no IO (AP-9 / AP-11)."""
+    return bool(_APP_AS_CONTAINER_RE.search(normalized))
+
+
+# Filler words / articles voice users sprinkle between the verb and the app
+# name ("oeffne MIR chrome", "starte DEN editor", "mach FUER MICH chrome auf").
+# Stripped before alias lookup so the canonical app name survives. Without this,
+# "oeffne mir chrome" canonicalised to "mir chrome" -> no alias -> the command
+# fell through to the brain instead of the deterministic local launch.
+_APP_FILLER_WORDS = frozenset({
+    "mir", "mal", "bitte", "doch", "den", "die", "das", "dem", "der",
+    "ein", "eine", "einen", "mein", "meine", "meinen",
+    "fuer", "mich", "uns", "the", "me", "my", "a", "an", "please",
+})
+
+_GERMAN_NUMBER_WORDS = {
+    "ein": 1,
+    "eine": 1,
+    "einen": 1,
+    "eins": 1,
+    "zwei": 2,
+    "drei": 3,
+    "vier": 4,
+    "fuenf": 5,
+}
+
+_MAX_SCRIPTED_TERMINALS = 5
+
+# Sentinel used as the default value for the ``_registry`` parameter of
+# ``match_local_action``.  Using a dedicated object (not ``None``) lets the
+# function distinguish "caller passed no registry → use real singleton" from
+# "caller explicitly passed None → skip gate (registry unavailable)".
+_SENTINEL: object = object()
+
+
+# ADR-0016 L2 — voice-driven orb-recovery patterns. The regex is
+# deliberately tight: anchored at ``^`` to reject substring matches and
+# constrained to a small phrase list so general "wo bist du gerade?" or
+# "weißt du wo der Bus ist?" queries do NOT trigger an orb reset.
+# Inputs are run through ``_normalize`` first (lowercased, umlauts
+# transliterated, leading "hey jarvis," stripped), so the patterns only
+# need to match the post-normalised string.
+_ORB_RESET_PATTERNS = (
+    re.compile(
+        r"^(?:hey\s+)?(?:jarvis[,\s]+)?(?:wo\s+bist\s+du|orb\s+zurueck"
+        r"|reset\s+(?:den\s+)?orb)\s*[?.!]*$",
+        re.I,
+    ),
+)
+
+
+def _matches_orb_reset(text: str) -> bool:
+    return any(pattern.match(text) for pattern in _ORB_RESET_PATTERNS)
+
+
+_UNSUPPORTED_RESPONSE: dict[str, str] = i18n_catalog.table(
+    "brain.local_action_gate.unsupported_response"
+)
+
+
+def _unsupported_response(text: str, lang: str) -> str:
+    """Return a deterministic, no-LLM rejection message.
+
+    The phrasing is taken verbatim from the capability-coupling spec so that
+    TTS reads it aloud and the user knows *why* Jarvis declined instead of
+    hearing a confused silence.
+
+    Parameters
+    ----------
+    text:
+        The normalised utterance (used only for potential future interpolation;
+        currently unused in the message body).
+    lang:
+        The turn's output language (de/en/es/pt); an unknown code speaks
+        English.
+    """
+    return _UNSUPPORTED_RESPONSE.get(lang, _UNSUPPORTED_RESPONSE["en"])
+
+
+# A DISPATCH verb: the user wants to drive a real external system (send, play,
+# post, book, order, call), not merely build/analyse/parse something. This is
+# the disambiguator that separates "schick eine Email" (real dispatch) from
+# "implementier eine Email-Validation" (coding task that just NAMES the domain).
+# Deliberately excludes ambiguous build/write verbs (schreib/baue/mach) — those
+# are generic sub-agent work even next to an integration name.
+_EXTERNAL_DISPATCH_VERB_RE = re.compile(
+    r"\b("
+    r"schick\w*|sende[nt]?|send|verschick\w*|"          # send
+    r"poste[nt]?|post|tweete[nt]?|"                      # post
+    r"spiel\w*|play|"                                    # play media
+    r"trag\w*|eintrag\w*|book|buch\w*|bestell\w*|order[ns]?|"  # book/order/enter
+    r"reservier\w*|reserve|"
+    r"ruf\w*\s+an|ruf\s+\w+\s+an|call|anruf\w*|"         # call
+    r"like[nt]?|liken|folge[nt]?|abonnier\w*"            # social interact
+    r")\b",
+    re.I,
+)
+
+# A SPECIFIC external integration noun a generic sub-agent worker cannot reach
+# without a dedicated MCP/connector — a real inbox, calendar, Spotify session,
+# social account, or delivery service. The noun ALONE is not enough (a coding
+# task may merely mention it); a dispatch verb must also be present. git/GitHub
+# is deliberately absent — the worker has git + gh natively.
+_EXTERNAL_INTEGRATION_NOUN_RE = re.compile(
+    r"\b("
+    # Mail
+    r"e-?mails?|gmail|outlook|postfach|"
+    # Messaging
+    r"whats-?app|telegram|signal|imessage|sms|"
+    # Calendar
+    r"kalender|calendar|termine?|appointments?|"
+    # Music
+    r"spotify|youtube\s*music|yt\s*music|"
+    # Social
+    r"tweets?|twitter|instagram|facebook|linkedin|tiktok|"
+    # Real-world commerce / transport
+    r"pizza|uber\s*eats|lyft|doordash|lieferando|"
+    # Travel / lodging / ticketing — no booking integration exists, so
+    # "book a trip/flight/hotel" must refuse honestly, not 3-loop-fail a worker
+    # (live gap 2026-06-14, mission_019ec761 critic_loop_exhausted).
+    r"flights?|fl[uü]ge?|trips?|reisen?|hotels?|unterk[uü]nfte?|airbnb|motel|"
+    r"tickets?|zugticket|bahnticket|flugticket|mietwagen|rental\s+car|"
+    # Dining reservation
+    r"tisch|restaurant|reservierung"
+    r")\b",
+    re.I,
+)
+
+
+def requires_external_integration(text: str) -> bool:
+    """True iff the utterance asks to DRIVE a specific external system a generic
+    sub-agent worker cannot reach (send mail, play Spotify, post a tweet, book a
+    table, order food).
+
+    Both signals are required: a SPECIFIC integration noun AND a real DISPATCH
+    verb. The noun alone is not enough — a coding task that merely mentions the
+    domain ("implementier eine Email-Validation", "baue einen Kalender-Parser",
+    "schreib Code der Spotify-Playlists liest") is generic sub-agent work and
+    must NOT be refused. git/GitHub is never matched (the worker drives them).
+
+    Used by the capability gate AND the force-spawn heuristic to draw the single
+    line between "refuse honestly (no tool exists)" and "delegate to the
+    sub-agent (the universal capability for generic work)".
+    """
+    t = text or ""
+    if not _EXTERNAL_DISPATCH_VERB_RE.search(t):
+        return False
+    if _EXTERNAL_INTEGRATION_NOUN_RE.search(t):
+        return True
+    # Twitter/X rebrand: bare "x" is too ambiguous (math variable, letter),
+    # but "auf X" / "on X" + a posting dispatch verb unambiguously means the
+    # social platform. The preposition is the minimal disambiguator.
+    if re.search(r"\b(?:auf|on)\s+x\b", t, re.I):
+        return True
+    return False
+
+
+def external_integration_terms(text: str) -> tuple[str, ...]:
+    """Name the SPECIFIC external systems an utterance asks for.
+
+    Companion to :func:`requires_external_integration`: that function answers
+    *whether* a dedicated integration is needed, this one answers *which* one.
+    The terms are what the live tool surface is checked against before any
+    refusal is spoken (GT-16) — the registry may be stale, an attached tool
+    named after the system is not.
+    """
+    t = text or ""
+    terms = [m.group(0).lower() for m in _EXTERNAL_INTEGRATION_NOUN_RE.finditer(t)]
+    if re.search(r"\b(?:auf|on)\s+x\b", t, re.I):
+        # The Twitter/X rebrand hides the platform behind a single letter —
+        # hand the matcher the names a connected tool would actually carry.
+        terms.extend(("twitter", "x"))
+    return tuple(dict.fromkeys(terms))
+
+
+def _live_surface_covers(terms: Sequence[str], tool_names: Sequence[str]) -> bool:
+    """Thin wrapper around ``evidence_gate.live_surface_covers``.
+
+    Late import for the same reason as :func:`_get_capability_registry` — this
+    module stays importable without pulling in ``dodaios.core.capabilities``.
+    A fault here must never turn into a refusal, so it degrades to "not
+    covered" only when the helper itself is missing.
+    """
+    if not tool_names or not terms:
+        return False
+    try:
+        from dodaios.brain.evidence_gate import live_surface_covers
+    except ImportError:  # pragma: no cover — module always ships with the gate
+        return False
+    return live_surface_covers(terms, tool_names)
+
+
+def _get_capability_registry() -> _CapabilityRegistryLike | None:
+    """Return the global capability registry singleton, or *None* if Agent A's
+    module has not been installed yet.
+
+    Using a late import here keeps the gate fast-importable even before
+    ``dodaios.core.capabilities`` exists on disk.
+    """
+    try:
+        from dodaios.core.capabilities import get_registry  # type: ignore[import]
+
+        return get_registry()
+    except (ImportError, AttributeError):
+        return None
+
+
+def match_local_action(
+    text: str,
+    lang: str = "de",
+    *,
+    _registry: _CapabilityRegistryLike | None = _SENTINEL,  # type: ignore[assignment]
+    live_tool_names: Sequence[str] = (),
+) -> LocalActionPlan | None:
+    """Return a deterministic local action plan for narrow local commands.
+
+    Parameters
+    ----------
+    text:
+        Raw utterance from the voice pipeline.
+    lang:
+        The turn's output language (de/en/es/pt) used to select the
+        ``UNSUPPORTED`` response copy.
+    _registry:
+        Capability registry override — **for tests only**.  Pass a fake
+        registry to exercise the UNSUPPORTED path without importing the real
+        ``dodaios.core.capabilities`` module.  When omitted the production
+        singleton is loaded via a late import.
+    live_tool_names:
+        Names of the tools attached to the CURRENT turn, read live by the
+        caller.  They veto the UNSUPPORTED refusal: a tool named after the
+        requested system is proof the capability exists, whatever the registry
+        believes (GT-16).  Empty means "caller knows of no tools" and leaves
+        the historical registry-only behaviour untouched.
+    """
+    original = text.strip()
+    if not original:
+        return None
+
+    normalized = _normalize(original)
+
+    # ------------------------------------------------------------------
+    # Capability gate (SPEC §Layer 2, insertion point a)
+    #
+    # Resolve the registry once per call.  ``_SENTINEL`` (not None) means
+    # "use the real singleton"; ``None`` means "registry unavailable, skip
+    # gate"; a passed object means "test fake, use directly".
+    # ------------------------------------------------------------------
+    if _registry is _SENTINEL:
+        _registry = _get_capability_registry()
+
+    # Defensive: an empty registry (e.g. unit tests that don't seed it) means
+    # "boot has not populated capabilities yet" → skip the gate to avoid false
+    # positives.  The production boot path always calls
+    # ``capabilities_seed.seed_registry(get_registry())`` before any voice
+    # turn, so this no-op only triggers in isolated unit tests.
+    if _registry is not None and getattr(_registry, "all", lambda: ())():
+        if (
+            _registry.has_action_intent(normalized)
+            and _registry.resolve_intent(normalized) is None
+            # Desktop-control commands are NEVER "unsupported" — computer-use is
+            # the universal GUI integration, so route them there instead of the
+            # canned refusal (live bug 2026-05-25: "oeffne WhatsApp und schreib"
+            # was refused with "das kann ich noch nicht").
+            and not _looks_like_desktop_control(normalized)
+            # 2026-06-01: only a SPECIFIC external integration (mail/calendar/
+            # Spotify/social/delivery) is genuinely unsupported. Generic work
+            # (analyse/build/fix/code/research/git) is sub-agent-fulfillable, so
+            # it must NOT be refused here — it falls through to the force-spawn
+            # path (the sub-agent is the universal capability for generic work).
+            and requires_external_integration(normalized)
+            # GT-16: the registry is a cache, the attached tools are the truth.
+            # A plugin/CLI/MCP server connected mid-session is callable long
+            # before ``resolve_intent`` learns about it — refusing then is the
+            # live complaint ("I'm told it's impossible while the capability is
+            # right there"). A tool named after the requested system stands the
+            # refusal down; the turn proceeds and the tool answers for itself.
+            and not _live_surface_covers(
+                external_integration_terms(normalized), live_tool_names
+            )
+        ):
+            return LocalActionPlan(
+                mode=LocalActionMode.UNSUPPORTED,
+                response_text=_unsupported_response(normalized, lang),
+            )
+    # ADR-0016 L2: check the orb-recovery patterns BEFORE the scripted /
+    # direct-open-app / visual-target gates so a "wo bist du?" never
+    # accidentally falls through to a different branch.
+    if _matches_orb_reset(normalized):
+        return LocalActionPlan(
+            mode=LocalActionMode.DIRECT,
+            tool_calls=(LocalToolCall(name="reset_orb_position", args={}),),
+        )
+    scripted = _match_scripted_local_plan(normalized)
+    if scripted is not None:
+        return scripted
+
+    direct = _match_direct_open_app(normalized)
+    if direct is not None:
+        return direct
+
+    # Browser+URL goals are a single argv launch — checked BEFORE the
+    # visual-target / desktop-control branches, which would otherwise send
+    # them into the multi-minute vision loop (2026-06-10 latency collapse).
+    browser_url = _match_browser_url_fast_path(normalized)
+    if browser_url is not None:
+        return browser_url
+
+    if _matches_visual_target(normalized):
+        return LocalActionPlan(
+            mode=LocalActionMode.COMPUTER_USE,
+            harness=HARNESS_NAME,
+            prompt=original,
+        )
+
+    # Compound open-and-operate / GUI-manipulation commands → multi-step
+    # computer-use loop. Checked AFTER _match_direct_open_app so a plain
+    # "oeffne chrome" stays the fast DIRECT path; only commands that actually
+    # need to drive the UI ("oeffne WhatsApp und schreib Mama hallo",
+    # "scroll runter", "tippe ... und druecke enter") land here.
+    if _looks_like_desktop_control(normalized):
+        return LocalActionPlan(
+            mode=LocalActionMode.COMPUTER_USE,
+            harness=HARNESS_NAME,
+            prompt=original,
+        )
+
+    # Robust open-app fallback (live bug 2026-06-09 17:36): an open-app intent in
+    # ANY phrasing the strict verb-first gates above missed — verb-at-end +
+    # filler-heavy ("Kannst du bitte für mich einmal mein Spotify öffnen?",
+    # "Spotify aufmachen", "öffnest du mir mal Discord"). That utterance matched
+    # no DIRECT pattern, fell to the router LLM, which produced no speech (it did
+    # not even call computer_use) → "Wie meinst du das genau?" and Spotify NEVER
+    # opened. Execute deterministically instead, cross-platform (open_app →
+    # app_resolver branches per OS), with no LLM in the loop:
+    #   • "…öffnen UND <do more>"  → multi-step → computer-use offload (same path
+    #     as the verb-first compounds above) so the follow-up isn't dropped.
+    #   • known app, single step    → instant DIRECT open_app.
+    #   • app NOT in the known set  → fall through to the brain (unchanged): the
+    #     screenshot loop would have to hunt an unknown name on screen, the path
+    #     that stalled live 2026-06-08. The force-spawn guard (is_open_app_intent)
+    #     still keeps such a turn off the sub-agent path.
+    if is_open_app_intent(original) and not _OPEN_NEGATION_RE.search(normalized):
+        if _AND_RE.search(normalized):
+            # "...öffnen und <do more>" → multi-step. (A benign "und zwar …" also
+            # lands here; acceptable — the CU loop still opens the app and handles
+            # the qualifier, at the cost of one screenshot cycle.)
+            return LocalActionPlan(
+                mode=LocalActionMode.COMPUTER_USE,
+                harness=HARNESS_NAME,
+                prompt=original,
+            )
+        # "<target> in/im <app>" — the app is a CONTAINER the user navigates INTO
+        # ("öffne meine Bilder im Explorer", "in meinen Explorer meine Bilder
+        # öffnen"). A bare open_app(<app>) would launch an empty window and drop
+        # the real target, so the whole goal goes to the multi-step computer-use
+        # loop instead (live bug 2026-06-26). Checked BEFORE the bare-app extract
+        # so the dropped-target case never reaches a DIRECT launch.
+        if _app_used_as_container(normalized):
+            return LocalActionPlan(
+                mode=LocalActionMode.COMPUTER_USE,
+                harness=HARNESS_NAME,
+                prompt=original,
+            )
+        # Gate already confirmed by is_open_app_intent (+ negation excluded) above,
+        # so a bare app mention in a non-open sentence can never reach here.
+        app = _extract_known_app(normalized)
+        if app is not None:
+            return LocalActionPlan(
+                mode=LocalActionMode.DIRECT,
+                tool_calls=(LocalToolCall(name="open_app", args={"app_name": app}),),
+            )
+
+    return None
+
+
+def _match_scripted_local_plan(text: str) -> LocalActionPlan | None:
+    terminal_count = _parse_terminal_count(text)
+
+    if terminal_count is not None:
+        return LocalActionPlan(
+            mode=LocalActionMode.DIRECT,
+            tool_calls=_open_terminal_calls(terminal_count),
+        )
+
+    return None
+
+
+def _extract_known_app(text: str) -> str | None:
+    """Return the canonical app for the FIRST known app name in a normalised
+    open-app utterance, else ``None``.
+
+    Scans 2-word then 1-word windows so a multi-word alias ("microsoft teams",
+    "windows terminal", "whats app", "google chrome") wins over a 1-word
+    sub-match. This catches the verb-at-end and filler-heavy phrasings the strict
+    verb-first ``_DIRECT_PATTERNS`` miss ("Kannst du bitte für mich einmal mein
+    Spotify öffnen?", "Spotify aufmachen", "öffnest du mir mal Discord"). Callers
+    MUST first confirm :func:`is_open_app_intent` so a bare app mention in a
+    non-open sentence ("ich höre Spotify gern") never launches anything.
+    """
+    tokens = [t for t in text.split() if t]
+    for window in (2, 1):
+        for i in range(len(tokens) - window + 1):
+            phrase = " ".join(tokens[i:i + window])
+            app = _APP_ALIASES.get(phrase)
+            if app is not None:
+                return app
+    return None
+
+
+def _match_direct_open_app(text: str) -> LocalActionPlan | None:
+    for pattern in _DIRECT_PATTERNS:
+        match = pattern.match(text)
+        if not match:
+            continue
+        app = _canonical_app(match.group("app"))
+        if app is None:
+            return None
+        return LocalActionPlan(
+            mode=LocalActionMode.DIRECT,
+            tool_calls=(LocalToolCall(name="open_app", args={"app_name": app}),),
+        )
+    return None
+
+
+def _matches_visual_target(text: str) -> bool:
+    # Same TASK-or-QUESTION rule as _looks_like_desktop_control: the leading
+    # "klick" pattern also matches a narrated "Klick ich da jetzt drauf oder
+    # nicht?", which is a question about the screen, not an order to touch it.
+    if _is_information_question(text):
+        return False
+    return any(pattern.match(text) for pattern in _VISUAL_TARGET_PATTERNS)
+
+
+def _canonical_app(raw: str) -> str | None:
+    app = re.sub(r"\s+", " ", raw.strip(" \t\r\n?.!")).lower()
+    app = re.sub(r"\s+app$", "", app).strip()
+    tokens = [t for t in app.split(" ") if t]
+    # Drop leading filler/articles: "mir chrome" -> "chrome", "den editor" ->
+    # "editor", "fuer mich chrome" -> "chrome". Keep at least one token.
+    while len(tokens) > 1 and tokens[0] in _APP_FILLER_WORDS:
+        tokens.pop(0)
+    # Drop trailing politeness/articles too: "explorer fuer mich" -> "explorer",
+    # "notepad fuer mich bitte" -> "notepad". Without this the trailing "fuer
+    # mich" left a known app unresolved and the command fell to the computer-use
+    # vision loop instead of the clean DIRECT launch (live 2026-06-08).
+    while len(tokens) > 1 and tokens[-1] in _APP_FILLER_WORDS:
+        tokens.pop()
+    cleaned = " ".join(tokens)
+    direct = _APP_ALIASES.get(cleaned)
+    if direct is not None:
+        return direct
+    # Trailing qualifier: "chrome browser" -> "chrome".
+    if len(tokens) > 1 and tokens[-1] == "browser":
+        return _APP_ALIASES.get(" ".join(tokens[:-1]))
+    return None
+
+
+def _parse_terminal_count(text: str) -> int | None:
+    patterns = (
+        r"^(?:hey\s+)?(?:jarvis[,\s]+)?(?:oeffne|starte)\s+(?P<count>\d+|[a-z]+)\s+terminals?\b",
+        r"^(?:hey\s+)?(?:jarvis[,\s]+)?mach\s+(?P<count>\d+|[a-z]+)\s+terminals?\s+auf\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.I)
+        if not match:
+            continue
+        count = _parse_count(match.group("count"))
+        if count is None:
+            return None
+        return max(1, min(count, _MAX_SCRIPTED_TERMINALS))
+    return None
+
+
+def _parse_count(raw: str) -> int | None:
+    if raw.isdigit():
+        return int(raw)
+    return _GERMAN_NUMBER_WORDS.get(raw)
+
+
+def _open_terminal_calls(count: int) -> tuple[LocalToolCall, ...]:
+    return tuple(
+        LocalToolCall(name="open_app", args={"app_name": "wt"}) for _ in range(count)
+    )
+
+
+def _normalize(text: str) -> str:
+    return (
+        text.strip()
+        .lower()
+        .replace("\u00f6", "oe")
+        .replace("\u00d6", "oe")
+        .replace("\u00e4", "ae")
+        .replace("\u00c4", "ae")
+        .replace("\u00fc", "ue")
+        .replace("\u00dc", "ue")
+        .replace("\u00df", "ss")
+    )

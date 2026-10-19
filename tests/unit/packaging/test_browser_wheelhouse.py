@@ -4,7 +4,7 @@ import hashlib
 
 import pytest
 
-from jarvis.society.browser import install
+from dodaios.society.browser import install
 from scripts.prepare_browser_wheelhouse import add_wheel_hash, unbundled_libraries
 
 
@@ -40,8 +40,8 @@ def test_wheel_from_another_version_is_rejected(tmp_path):
 
 
 def test_only_frozen_app_uses_bundled_lock_and_wheelhouse(tmp_path, monkeypatch):
-    module = tmp_path / "jarvis" / "society" / "browser" / "install.py"
-    assets = tmp_path / "jarvis" / "assets" / "browser"
+    module = tmp_path / "dodaios" / "society" / "browser" / "install.py"
+    assets = tmp_path / "dodaios" / "assets" / "browser"
     assets.mkdir(parents=True)
     bundled = assets / "requirements-bundled.lock"
     bundled.write_text("cryptography==50.0.1", encoding="utf-8")

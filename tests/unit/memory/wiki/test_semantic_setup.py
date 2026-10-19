@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.memory.wiki import semantic_model, semantic_search, semantic_setup
+from dodaios.memory.wiki import semantic_model, semantic_search, semantic_setup
 from tests.fakes.fake_semantic_encoder import FakeSemanticEncoder
 
 
