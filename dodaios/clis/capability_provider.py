@@ -17,6 +17,7 @@ from typing import Any
 from dodaios.clis.spec import CliSpec
 from dodaios.clis.tool import TOOL_NAME_PREFIX
 from dodaios.core.capabilities import Capability, _normalize
+from dodaios.i18n import catalog as i18n_catalog
 
 log = logging.getLogger(__name__)
 
@@ -288,45 +289,9 @@ def suppress_plugin_tools_covered_by_cli(
 
 # Spoken refusal hints (TTS-safe, leading space: appended to a refusal).
 # Placeholder {name} is the CLI's display name.
-_REFUSAL_HINTS: dict[str, dict[str, str]] = {
-    "de": {
-        "installed": (
-            " Die {name} ist installiert, aber noch nicht verbunden"  # i18n-allow
-            " — sag Bescheid, dann richten wir das ein."  # i18n-allow
-        ),
-        "catalog": (
-            " Im CLI-Katalog gibt es dafür die {name}"  # i18n-allow
-            " — ich kann sie mit dir einrichten."  # i18n-allow
-        ),
-    },
-    "en": {
-        "installed": (
-            " The {name} is installed but not connected yet"
-            " — say the word and we'll set it up."
-        ),
-        "catalog": " The CLI catalog has {name} for that — I can set it up with you.",
-    },
-    "es": {
-        "installed": (
-            " {name} está instalado, pero aún no está conectado"  # i18n-allow
-            " — dímelo y lo configuramos."  # i18n-allow
-        ),
-        "catalog": (
-            " En el catálogo de CLI está {name} para eso"  # i18n-allow
-            " — puedo configurarlo contigo."  # i18n-allow
-        ),
-    },
-    "pt": {
-        "installed": (
-            " {name} está instalado, mas ainda não está ligado"  # i18n-allow
-            " — diz-me e configuramos isso."  # i18n-allow
-        ),
-        "catalog": (
-            " O catálogo de CLI tem {name} para isso"  # i18n-allow
-            " — posso configurá-lo contigo."  # i18n-allow
-        ),
-    },
-}
+_REFUSAL_HINTS: dict[str, dict[str, str]] = i18n_catalog.locale_maps(
+    "clis.capability.refusal_hints"
+)
 
 
 def refusal_hint(domain: str, cli_registry: Any, lang: str) -> str:

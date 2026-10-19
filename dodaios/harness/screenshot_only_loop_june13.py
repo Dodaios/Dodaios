@@ -89,6 +89,8 @@ from dodaios.core.protocols import (
     ImageBlock,
     Observation,
 )
+from dodaios.i18n import phrase_locale
+from dodaios.i18n import t as i18n_t
 
 if TYPE_CHECKING:
     from .computer_use_context import ComputerUseContext
@@ -2874,12 +2876,14 @@ async def _run_screenshot_loop(
                         # the loop for the whole TTS synthesis (BUG-CU-
                         # ANNOUNCE-BLOCK) — see _publish_announcement_nonblocking.
                         _publish_announcement_nonblocking(ctx.bus, AnnouncementRequested(
-                            text=(
-                                f"Schritt {done_steps} von {len(plan)} "  # i18n-allow
-                                "erledigt."  # i18n-allow
+                            text=i18n_t(
+                                "harness.step_progress",
+                                None,
+                                done=done_steps,
+                                total=len(plan),
                             ),
                             priority="normal",
-                            language="de",
+                            language=phrase_locale(None),
                             kind="progress",
                         ))
             # Remember that a real search query was typed this mission -- the

@@ -36,6 +36,8 @@ https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
 
 <p align="center"><sub>A real, unedited recording of the app with sound: talking to Dodaios by voice, handing work to agents, and following them in the coding workspace.</sub></p>
 
+<p align="center">If Dodaios is useful to you, <a href="https://github.com/Dodaios/Dodaios/stargazers">a star on GitHub</a> helps other people find it.</p>
+
 ---
 
 ## Install

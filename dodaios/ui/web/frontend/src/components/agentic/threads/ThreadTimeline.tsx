@@ -16,6 +16,7 @@ import { ChatThought } from "./ChatThought";
 import { buildThreadRows, isFailed, thoughtGist, type ThreadRow, type WorkGroup, type WorkItem } from "./threadWork";
 import { SubagentCard } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
+import { turnErrorText } from "@/components/agentchat/turnError";
 
 /**
  * A thread's conversation: the person's messages on the right, the agent's
@@ -707,7 +708,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
       <ChatThought turn={turn} answering={textRows.length > 0} />
       {textRows.map(renderRow)}
       {!running && <>
-        {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turn.error}</p>}
+        {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}
         <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground" data-testid="thread-turn-closing">
           {ending && <span>{ending}</span>}
           {answer && <CopyButton text={answer} label={t("thread_turn.copy_answer")} />}
@@ -745,7 +746,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
           {agentsWorking > 0 && <> · {fill(t(`thread_turn.subagents_working_${plural(lang, agentsWorking)}`), { count: agentsWorking })}</>}</span>
       </div>
       : <>
-        {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turn.error}</p>}
+        {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turnErrorText(turn.error, t)}</p>}
         <ChangedFiles turn={turn} />
         <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground" data-testid="thread-turn-closing">
           {!folded && closing && <span>{closing}</span>}
