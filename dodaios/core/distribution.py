@@ -40,6 +40,7 @@ def _is_installed(name: str) -> bool:
     try:
         metadata.distribution(name)
     except metadata.PackageNotFoundError:
+        # Not installed under this name: that is the answer, not a failure.
         return False
     return True
 
