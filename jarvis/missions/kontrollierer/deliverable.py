@@ -137,10 +137,10 @@ def _templates(table: dict[str, dict[str, str]], language: str) -> dict[str, str
     German is the back-compat default (every pre-2026-06-24 caller and the
     ``Literal["de","en"]`` spawn contract's ``es``-fallback resolve here).
     """
-    return table.get(language, table["de"])
+    return table.get(language, table["en"])
 
 
-def build_deliverable_summary(mission_dir: Path, *, language: str = "de") -> str:
+def build_deliverable_summary(mission_dir: Path, *, language: str = "en") -> str:
     """Return a TTS-safe sentence naming the mission's archived files.
 
     Args:
@@ -478,7 +478,7 @@ def deliver_to_user_folder(
     return delivered
 
 
-def build_delivered_summary(delivered: list[Path], *, language: str = "de") -> str:
+def build_delivered_summary(delivered: list[Path], *, language: str = "en") -> str:
     """TTS-safe sentence naming delivered files as artifacts.
 
     Until 2026-08-23 this also spoke the mirror folder's name ("liegt im Ordner

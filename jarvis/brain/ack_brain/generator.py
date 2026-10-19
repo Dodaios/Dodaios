@@ -258,7 +258,7 @@ class AckGenerator:
         # (the fallback has no fallback of its own), so delegation can't loop.
         self._fallback = fallback
 
-    async def run(self, utterance: str, language: str = "de") -> str | None:
+    async def run(self, utterance: str, language: str = "en") -> str | None:
         """Generate one short acknowledgment sentence or return None.
 
         Pipeline (spec §4):
@@ -417,7 +417,7 @@ class AckGenerator:
         return scrubbed
 
     async def run_stream(
-        self, utterance: str, language: str = "de"
+        self, utterance: str, language: str = "en"
     ) -> AsyncIterator[str]:
         """Streaming variant of run(): yield scrubbed ack sentences ASAP.
 

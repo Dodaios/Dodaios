@@ -31,9 +31,11 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
-# Kept static for zero-import-cost; parity-tested against
-# jarvis.brain.manager.SUPPORTED_REPLY_LANGUAGES (the authoritative tuple).
-REPLY_LANGUAGES: tuple[str, ...] = ("auto", "de", "en", "es", "pt")
+from jarvis.i18n.locales import SUPPORTED_LOCALES
+
+# The central language list (jarvis.i18n.locales, constants only); parity-
+# tested against jarvis.brain.manager.SUPPORTED_REPLY_LANGUAGES.
+REPLY_LANGUAGES: tuple[str, ...] = ("auto", *SUPPORTED_LOCALES)
 
 VOICE_MODES: tuple[str, ...] = ("pipeline", "realtime")
 
