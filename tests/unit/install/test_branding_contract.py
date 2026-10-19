@@ -13,6 +13,7 @@ from dodaios.core.branding import (
     DEFAULT_OFFICIAL_REPO_SLUG,
     KEYRING_SERVICE_NAME,
     LEGACY_CONFIG_FILE_NAMES,
+    LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     MACOS_APP_DIR_NAME,
     MACOS_AUTOSTART_LABEL,
@@ -152,3 +153,9 @@ def test_standalone_identity_projection_matches_canonical_value(
     assignment = f"{variable} = {quote}{expected}{quote}"
     compact_assignment = f"{variable}={quote}{expected}{quote}"
     assert assignment in source or compact_assignment in source
+
+
+def test_the_windows_uninstaller_names_every_earlier_shortcut() -> None:
+    source = (_ROOT / "install/uninstall.ps1").read_text(encoding="utf-8")
+    quoted = ", ".join(f"'{name}'" for name in LEGACY_WINDOWS_SHORTCUT_FILE_NAMES)
+    assert f"$LegacyWindowsShortcutFileNames = @({quoted})" in source

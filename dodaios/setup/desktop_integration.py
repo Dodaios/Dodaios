@@ -7,6 +7,8 @@ working process which the operating system does not consider an installed app.
 This module owns the external, per-user artifacts as one lifecycle:
 
 * Windows: Start-menu launcher, AppUserModel identity, and Installed Apps entry.
+  A launcher under the product's earlier name is retired once the current one
+  is in place, and only where it starts this installation.
 * macOS: ``~/Applications/Personal Jarvis.app``.
 * Linux: ``$XDG_DATA_HOME/applications/personal-jarvis.desktop``.
 
@@ -35,12 +37,15 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 from dodaios.core.branding import (
     LAUNCHER_ENTRY_NAME,
+    LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     OFFICIAL_REPO_URL,
     PRODUCT_NAME,
@@ -264,12 +269,102 @@ def _remove_shell_launcher(path: Path) -> str | None:
     return None
 
 
+def read_windows_shortcut_target(lnk: Path) -> str | None:
+    """The program a ``.lnk`` starts, or ``None`` when it cannot be read."""
+    try:
+        from win32com.client import Dispatch  # type: ignore[import-not-found]
+    except Exception:  # noqa: BLE001 - no pywin32: the shortcut stays
+        return None
+    try:
+        return str(Dispatch("WScript.Shell").CreateShortcut(str(lnk)).TargetPath or "")
+    except Exception as exc:  # noqa: BLE001 - unreadable: the shortcut stays
+        log.debug("could not read the shortcut %s: %s", lnk, exc)
+        return None
+
+
+def _same_file(first: str | Path, second: str | Path) -> bool:
+    return os.path.normcase(os.path.realpath(first)) == os.path.normcase(
+        os.path.realpath(second)
+    )
+
+
+def _shortcut_starts_this_install(
+    target: str, *, install_root: Path | None, launch_target: Path | None
+) -> bool:
+    """Does a shortcut aimed at ``target`` start THIS installation?
+
+    It does when the program lies inside the install folder, or when it is the
+    program this install's own launcher starts, the branded executable under an
+    earlier name beside it, or the interpreter that executable was copied from.
+    Anything else (another checkout, another installation, a file a person
+    pointed it at) is not ours.
+    """
+    if not target:
+        return False
+    if install_root is not None:
+        root = os.path.normcase(os.path.realpath(install_root))
+        program = os.path.normcase(os.path.realpath(target))
+        if program.startswith(root.rstrip("\\/") + os.sep):
+            return True
+    if launch_target is None:
+        return False
+    candidates = [
+        launch_target,
+        launch_target.with_name("pythonw.exe"),
+        *(launch_target.with_name(name) for name in LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES),
+    ]
+    return any(_same_file(target, candidate) for candidate in candidates)
+
+
+def retire_legacy_windows_launchers(
+    directories: Iterable[Path | None],
+    *,
+    install_root: Path | None = None,
+    launch_target: Path | None = None,
+    read_target: Callable[[Path], str | None] = read_windows_shortcut_target,
+    remove: Callable[[Path], str | None] | None = None,
+) -> tuple[tuple[Path, ...], tuple[str, ...]]:
+    """Remove the earlier-named shortcuts in ``directories`` that start this install.
+
+    The product's launcher used to be ``Personal Jarvis.lnk``; the current one
+    has its own name, so both would sit in the Start menu and on the Desktop. A
+    shortcut under the earlier name is removed only when it starts this
+    installation (:func:`_shortcut_starts_this_install`), and is kept whenever
+    its target cannot be read. Returns the removed paths and the failures.
+    """
+    remove = remove or _remove_shell_launcher
+    removed: list[Path] = []
+    failures: list[str] = []
+    for directory in directories:
+        if directory is None:
+            continue
+        for name in LEGACY_WINDOWS_SHORTCUT_FILE_NAMES:
+            lnk = directory / name
+            if not lnk.is_file():
+                continue
+            target = read_target(lnk)
+            if target is None or not _shortcut_starts_this_install(
+                target, install_root=install_root, launch_target=launch_target
+            ):
+                log.info("Kept %s: it does not start this installation.", lnk)
+                continue
+            failure = remove(lnk)
+            if failure is None:
+                removed.append(lnk)
+                log.info("Removed the launcher under the earlier name: %s", lnk)
+            else:
+                failures.append(f"could not remove {lnk.name}: {failure}")
+    return tuple(removed), tuple(failures)
+
+
 def _remove_windows_desktop_integration(
     *,
     programs_dir: Path | None = None,
     desktop_dir: Path | None = None,
     registry_subkey: str = WINDOWS_UNINSTALL_SUBKEY,
     aumid: str = WINDOWS_APP_USER_MODEL_ID,
+    install_root: Path | None = None,
+    read_target: Callable[[Path], str | None] = read_windows_shortcut_target,
 ) -> tuple[bool, tuple[str, ...]]:
     warnings: list[str] = []
     programs = programs_dir or _windows_programs_dir()
@@ -283,6 +378,14 @@ def _remove_windows_desktop_integration(
         failure = _remove_shell_launcher(desktop / WINDOWS_SHORTCUT_FILE_NAME)
         if failure is not None:
             warnings.append(f"could not remove the Desktop launcher: {failure}")
+    # A launcher an earlier release left under the earlier name goes too, but
+    # only where it starts this installation.
+    _removed, failures = retire_legacy_windows_launchers(
+        (programs, desktop),
+        install_root=install_root or _install_root(),
+        read_target=read_target,
+    )
+    warnings.extend(failures)
     if not _delete_windows_registry_key(registry_subkey):
         warnings.append("could not remove the Installed Apps registry entry")
     if not _delete_windows_registry_key(_windows_aumid_subkey(aumid)):
@@ -323,6 +426,7 @@ def ensure_desktop_integration(
     windows_desktop_dir: Path | None = None,
     windows_registry_subkey: str = WINDOWS_UNINSTALL_SUBKEY,
     windows_aumid: str = WINDOWS_APP_USER_MODEL_ID,
+    windows_shortcut_target_reader: Callable[[Path], str | None] = read_windows_shortcut_target,
     macos_applications_dir: Path | None = None,
     linux_applications_dir: Path | None = None,
     macos_create_signing_identity: bool = False,
@@ -379,12 +483,14 @@ def ensure_desktop_integration(
             )
 
             icon = project_icon_path()
+            launchers_in_place: list[Path | None] = []
             if ensure_start_menu_shortcut(
                 aumid=windows_aumid,
                 icon_path=icon if icon.is_file() else None,
                 programs_dir=windows_programs_dir,
             ):
                 artifacts.append("start_menu_launcher")
+                launchers_in_place.append(windows_programs_dir or _windows_programs_dir())
             else:
                 warnings.append("could not create the Start-menu launcher")
             # The Desktop entry is the one Windows Search can actually see: the
@@ -397,8 +503,19 @@ def ensure_desktop_integration(
                 desktop_dir=windows_desktop_dir,
             ):
                 artifacts.append("desktop_launcher")
+                launchers_in_place.append(windows_desktop_dir or _windows_desktop_dir())
             else:
                 warnings.append("could not create the Desktop launcher")
+            # Only where the current launcher now exists: the user is never
+            # left without a way to start the app.
+            retired, failures = retire_legacy_windows_launchers(
+                launchers_in_place,
+                install_root=root,
+                read_target=windows_shortcut_target_reader,
+            )
+            if retired:
+                artifacts.append("retired_legacy_launchers")
+            warnings.extend(failures)
             if register_windows_app_user_model_id(
                 windows_aumid,
                 icon_path=icon if icon.is_file() else None,
@@ -485,6 +602,7 @@ def remove_desktop_integration(
     windows_desktop_dir: Path | None = None,
     windows_registry_subkey: str = WINDOWS_UNINSTALL_SUBKEY,
     windows_aumid: str = WINDOWS_APP_USER_MODEL_ID,
+    windows_shortcut_target_reader: Callable[[Path], str | None] = read_windows_shortcut_target,
     macos_applications_dir: Path | None = None,
     linux_applications_dir: Path | None = None,
 ) -> DesktopIntegrationReport:
@@ -520,6 +638,7 @@ def remove_desktop_integration(
             desktop_dir=windows_desktop_dir,
             registry_subkey=windows_registry_subkey,
             aumid=windows_aumid,
+            read_target=windows_shortcut_target_reader,
         )
         artifacts.extend(
             (
@@ -627,6 +746,8 @@ __all__ = [
     "ensure_desktop_integration",
     "is_managed_install",
     "register_windows_installed_app",
+    "read_windows_shortcut_target",
     "remove_desktop_integration",
+    "retire_legacy_windows_launchers",
     "windows_uninstall_values",
 ]

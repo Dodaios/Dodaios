@@ -1,7 +1,7 @@
 """Detached helper that restarts the Jarvis desktop app cleanly.
 
 The desktop app cannot restart itself in-process: its single-instance Named
-Mutex (``Global\\PersonalJarvis_v1``) is held until the process exits, and a
+Mutex (``Global\\Dodaios_v1``) is held until the process exits, and a
 fresh launcher started while the old process still lives would just activate the
 old window and exit (see ``dodaios/ui/shell/single_instance.py``). So a restart is
 two-phase:
@@ -32,6 +32,7 @@ from pathlib import Path
 
 from dodaios.core.branding import (
     LAUNCHER_ENTRY_NAME,
+    LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES,
     MACOS_APP_DIR_NAME,
     MANAGED_INSTALL_MARKER,
     MANAGED_INSTALL_MARKERS,
@@ -461,20 +462,22 @@ def _existing_branded_launcher() -> Path | None:
     """Return an already-built branded launcher exe, or ``None``.
 
     Cheap existence check only — never copies, never smoke-starts. The Start
-    Menu path owns creating the file; a restart just needs to find it.
+    Menu path owns creating the file; a restart just needs to find it. The
+    current name wins; a copy under an earlier name (built by an earlier
+    release, in its earlier per-user folder) is still the branded app.
     """
     if sys.platform != "win32":
         return None
-    from dodaios.core.instance import current_instance
-
-    name = current_instance().windows_branded_launcher_file_name
-    candidates: list[Path] = [Path(sys.executable).with_name(name)]
     base = getattr(sys, "_base_executable", "") or ""
-    if base:
-        candidates.append(Path(base).with_name(name))
     local = os.environ.get("LOCALAPPDATA")
-    if local:
-        candidates.append(Path(local) / WINDOWS_BRANDED_LAUNCHER_DIR_NAME / "bin" / name)
+    folders = (WINDOWS_BRANDED_LAUNCHER_DIR_NAME, *LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES)
+    candidates: list[Path] = []
+    for name in _branded_launcher_names():
+        candidates.append(Path(sys.executable).with_name(name))
+        if base:
+            candidates.append(Path(base).with_name(name))
+        if local:
+            candidates.extend(Path(local) / folder / "bin" / name for folder in folders)
     seen: set[str] = set()
     for cand in candidates:
         key = str(cand).casefold()
@@ -489,6 +492,17 @@ def _existing_branded_launcher() -> Path | None:
     return None
 
 
+def _branded_launcher_names() -> tuple[str, ...]:
+    """The branded exe's file names for this instance, the current one first."""
+    from dodaios.core.instance import current_instance
+
+    instance = current_instance()
+    return (
+        instance.windows_branded_launcher_file_name,
+        *instance.legacy_windows_branded_launcher_file_names,
+    )
+
+
 def _apply_branded_launch_env(env: dict[str, str], argv: list[str]) -> dict[str, str]:
     """Mark a branded-exe spawn so the child does not re-exec itself.
 
@@ -498,10 +512,8 @@ def _apply_branded_launch_env(env: dict[str, str], argv: list[str]) -> dict[str,
     """
     if sys.platform != "win32" or not argv:
         return env
-    from dodaios.core.instance import current_instance
-
-    branded_name = current_instance().windows_branded_launcher_file_name.casefold()
-    if Path(argv[0]).name.casefold() != branded_name:
+    branded_names = {name.casefold() for name in _branded_launcher_names()}
+    if Path(argv[0]).name.casefold() not in branded_names:
         return env
     env = dict(env)
     env[WINDOWS_BRANDED_LAUNCH_ENV_VAR] = "1"
@@ -575,7 +587,7 @@ def _desktop_is_serving(
     """True when something is already accepting on this instance's admin port.
 
     Used to recognise a successful Windows branded hand-off: the python
-    launcher PID dies on purpose after spawning ``PersonalJarvis.exe``, and
+    launcher PID dies on purpose after spawning ``DodaiosApp.exe``, and
     the new window process is a different PID. A listening port is the
     honest "the app came back" signal.
     """
@@ -714,7 +726,7 @@ def _new_instance_settled(
       (macOS bundle, Linux, a python that did not re-exec).
     * The desktop admin port starts accepting — the Windows branded hand-off.
       ``python -m launcher`` (and even a branded spawn that still re-execs)
-      exits within a second after starting ``PersonalJarvis.exe``. Treating
+      exits within a second after starting ``DodaiosApp.exe``. Treating
       that exit as a bounce used to spawn two more copies that raced the
       first, and sometimes none of them kept the window (BUG-181).
 

@@ -132,11 +132,12 @@ else
   )
 fi
 
-# The windowed target is named PersonalJarvis in jarvis.spec, because `Jarvis`
-# and `jarvis` are the SAME path on Windows and on a default macOS volume and
+# The windowed target is named DodaiosApp in jarvis.spec, because `Dodaios`
+# and `dodaios` are the SAME path on Windows and on a default macOS volume and
 # the second executable would overwrite the first. Linux has no such problem,
-# but the freeze is shared, so accept either name rather than pinning one.
-GUI_EXE_CANDIDATES=("PersonalJarvis" "Jarvis")
+# but the freeze is shared, so accept the earlier names too rather than pinning
+# one. The freeze also ships the launcher under its earlier name PersonalJarvis.
+GUI_EXE_CANDIDATES=("DodaiosApp" "PersonalJarvis" "Jarvis")
 GUI_EXE_NAME=""
 if building; then
   for candidate in "${GUI_EXE_CANDIDATES[@]}"; do
@@ -149,7 +150,7 @@ if building; then
     || die "PyInstaller produced none of ${GUI_EXE_CANDIDATES[*]} in '${FREEZE_DIR}' - jarvis.spec has no windowed EXE target"
   log "windowed executable: ${GUI_EXE_NAME}"
 else
-  GUI_EXE_NAME="PersonalJarvis"
+  GUI_EXE_NAME="${GUI_EXE_CANDIDATES[0]}"
 fi
 
 # --- 3. AppDir --------------------------------------------------------------
