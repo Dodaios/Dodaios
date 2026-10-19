@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import jarvis.core.config as config
-from jarvis.core.config import MarketplaceConfig
-from jarvis.marketplace import community_source
+import dodaios.core.config as config
+from dodaios.core.config import MarketplaceConfig
+from dodaios.marketplace import community_source
 
 
 def _configured(monkeypatch, url: str) -> None:

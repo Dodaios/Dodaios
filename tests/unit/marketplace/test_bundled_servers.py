@@ -15,21 +15,21 @@ import sys
 
 import pytest
 
-from jarvis.core.branding import LEGACY_PACKAGE_NAMES
-from jarvis.marketplace import bundled_servers
-from jarvis.marketplace.bundled_servers import (
+from dodaios.core.branding import LEGACY_PACKAGE_NAMES
+from dodaios.marketplace import bundled_servers
+from dodaios.marketplace.bundled_servers import (
     AMD_SERVER_MODULES,
     CONNECTED_SERVER_MODULES,
     runs_amd_server,
     runs_bundled_server,
     runs_connected_server,
 )
-from jarvis.marketplace.catalog import PluginSpec
-from jarvis.marketplace.catalog_data import load_seed_catalog
-from jarvis.marketplace.mcp_bridge import _stdio_entry
-from jarvis.marketplace.plugin_mcp import plugin_to_mcp_server_spec
-from jarvis.marketplace.plugin_registry import _default_client_factory
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.catalog import PluginSpec
+from dodaios.marketplace.catalog_data import load_seed_catalog
+from dodaios.marketplace.mcp_bridge import _stdio_entry
+from dodaios.marketplace.plugin_mcp import plugin_to_mcp_server_spec
+from dodaios.marketplace.plugin_registry import _default_client_factory
+from dodaios.marketplace.token_store import Tokens
 
 # The names stored commands were published under. Written out on purpose: they
 # are data on disk in existing installations, not references to this package.

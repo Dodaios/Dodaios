@@ -12,7 +12,7 @@ import json
 import httpx
 import pytest
 
-from jarvis.plugins.tool.home_assistant_rest import HomeAssistantRestTool
+from dodaios.plugins.tool.home_assistant_rest import HomeAssistantRestTool
 
 BASE = "http://ha.test:8123"
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from jarvis.audio import mic_level
-from jarvis.audio.mic_level import LevelNormalizer
+from dodaios.audio import mic_level
+from dodaios.audio.mic_level import LevelNormalizer
 
 
 def _push_frames(meter: LevelNormalizer, rms: float, frames: int) -> float:

@@ -6,16 +6,16 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     ActionExecuted,
     HarnessDispatched,
     ObservationCaptured,
 )
-from jarvis.core.protocols import HarnessTask
-from jarvis.telemetry import FlightRecorder
-from jarvis.telemetry.replay import main as replay_main
-from jarvis.telemetry.replay import render_timeline
+from dodaios.core.protocols import HarnessTask
+from dodaios.telemetry import FlightRecorder
+from dodaios.telemetry.replay import main as replay_main
+from dodaios.telemetry.replay import render_timeline
 
 
 @pytest.mark.asyncio

@@ -55,13 +55,13 @@ except ModuleNotFoundError:  # pragma: no cover
         allow_module_level=True,
     )
 
-from jarvis.core.events import (  # noqa: E402
+from dodaios.core.events import (  # noqa: E402
     DictationCompleted,
     DictationRefused,
     DictationStarted,
     DictationTranscribing,
 )
-from jarvis.ui.dodaiosbar.modes import (  # noqa: E402
+from dodaios.ui.dodaiosbar.modes import (  # noqa: E402
     DICTATION_MODES,
     MODES,
     VOICE_MODES,
@@ -351,7 +351,7 @@ async def test_the_none_style_stays_a_silent_no_op() -> None:
     """A user who turned the overlay off must still get nothing — the surface
     accepts every mode and never raises, so the bridge's fallback stays out of
     it and no window is conjured onto a deliberately empty screen."""
-    from jarvis.ui.dodaiosbar import NullOverlay
+    from dodaios.ui.dodaiosbar import NullOverlay
 
     surface = NullOverlay()
     bridge = OrbBusBridge(  # type: ignore[arg-type]

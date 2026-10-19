@@ -13,15 +13,15 @@ from uuid import uuid4
 import pytest
 from PIL import Image
 
-from jarvis.agent_chat.attachments import handoff_context
-from jarvis.agentic_ide import fleet_actions, prompt_history
-from jarvis.agentic_ide.control import CodingSessionControl
-from jarvis.agentic_ide.drop_analysis import DropAnalysis
-from jarvis.brain.dispatcher import BrainDispatcher
-from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-from jarvis.core import image_references
-from jarvis.core.protocols import BrainDelta, ExecutionContext, ImageBlock, ToolResult
-from jarvis.plugins.tool.appshot import AppshotTool
+from dodaios.agent_chat.attachments import handoff_context
+from dodaios.agentic_ide import fleet_actions, prompt_history
+from dodaios.agentic_ide.control import CodingSessionControl
+from dodaios.agentic_ide.drop_analysis import DropAnalysis
+from dodaios.brain.dispatcher import BrainDispatcher
+from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+from dodaios.core import image_references
+from dodaios.core.protocols import BrainDelta, ExecutionContext, ImageBlock, ToolResult
+from dodaios.plugins.tool.appshot import AppshotTool
 from tests.contract.test_workspace_orchestration import rig, runnable  # noqa: F401
 from tests.fakes.fake_visual_sftp import FakeImagePool, FakeSftp
 
@@ -77,10 +77,10 @@ async def source_ref(source, delivery, monkeypatch, tmp_path, image_store=None):
     tool, registry, ctx = delivery
     data = png()
     if source == "upload":
-        from jarvis.agent_chat import attachments, runner_brain
-        from jarvis.agent_chat.service import AgentChatService
-        from jarvis.agent_chat.store import AgentChatStore
-        from jarvis.agentic_ide.drops import dereference
+        from dodaios.agent_chat import attachments, runner_brain
+        from dodaios.agent_chat.service import AgentChatService
+        from dodaios.agent_chat.store import AgentChatStore
+        from dodaios.agentic_ide.drops import dereference
 
         async def describe(readable):
             # Analysis is optional; an unavailable vision model must not cost the pixels.
@@ -109,8 +109,8 @@ async def source_ref(source, delivery, monkeypatch, tmp_path, image_store=None):
     elif source == "voice":
         # A hotkey appshot supplied into a subscription voice call: the backend
         # sees the pixels for the whole call and must be able to forward them.
-        from jarvis.live.config import LiveConfig
-        from jarvis.live.subscription import SubscriptionLiveVoiceSession
+        from dodaios.live.config import LiveConfig
+        from dodaios.live.subscription import SubscriptionLiveVoiceSession
         from tests.fakes.fake_subscription_session import (
             SubscriptionConnection,
             subscription_provider,
@@ -133,8 +133,8 @@ async def source_ref(source, delivery, monkeypatch, tmp_path, image_store=None):
         ref = re.search(r"img_[0-9a-f]{32}", session._pending_images[0]["text"])[0]
         image_store[1][0] += 600  # The user keeps talking before asking for the fix.
     else:
-        from jarvis.appshot import service
-        from jarvis.plugins.tool import appshot
+        from dodaios.appshot import service
+        from dodaios.plugins.tool import appshot
 
         shot = SimpleNamespace(
             image=data,
@@ -247,7 +247,7 @@ async def test_unavailable_image_refuses_whole_task(failure, delivery, image_sto
 
 @pytest.mark.parametrize("ending", ["call_closed", "call_bound"])
 async def test_live_call_reference_ends_with_the_call(ending, delivery, image_store):
-    from jarvis.live.tools import LiveTools
+    from dodaios.live.tools import LiveTools
 
     store, now = image_store
     _, registry, ctx = delivery
@@ -343,7 +343,7 @@ async def test_user_image_input_has_scoped_ids_before_tool_routing(image_store):
 
 @pytest.mark.parametrize("corrupt", [False, True])
 async def test_remote_session_gets_verified_remote_bytes(delivery, monkeypatch, corrupt):
-    from jarvis.computers import remote_terminal
+    from dodaios.computers import remote_terminal
 
     tool, registry, ctx = delivery
     owner = registry.sessions[0]
@@ -384,7 +384,7 @@ async def test_changed_image_selection_is_a_new_assignment(delivery, monkeypatch
     term.transcript.feed("\x1b[2J\x1b[H❯ ")
     term.last_submit_at = None
     # A still screen alone cannot prove completion to automatic selection.
-    from jarvis.agentic_ide import task_state
+    from dodaios.agentic_ide import task_state
 
     monkeypatch.setattr(task_state, "_read", lambda key, now: task_state.Evidence(
         "completed", now, now,
@@ -398,7 +398,7 @@ async def test_changed_image_selection_is_a_new_assignment(delivery, monkeypatch
 
 
 async def test_destination_move_during_transfer_refuses_delivery(delivery, monkeypatch):
-    from jarvis.agentic_ide import visual_handoff
+    from dodaios.agentic_ide import visual_handoff
 
     tool, registry, ctx = delivery
     original = visual_handoff.prepare
@@ -433,8 +433,8 @@ async def test_local_copy_lives_in_panes_own_worktree(delivery, tmp_path):
 async def test_sftp_transfer_against_real_loopback_server(tmp_path, monkeypatch):
     """Exercise binary mode, exclusive creation, permissions and readback on real SFTP."""
     ssh = pytest.importorskip("asyncssh")
-    from jarvis.agentic_ide.visual_handoff import prepare
-    from jarvis.computers import remote_terminal
+    from dodaios.agentic_ide.visual_handoff import prepare
+    from dodaios.computers import remote_terminal
 
     class Server(ssh.SSHServer):
         def begin_auth(self, username):

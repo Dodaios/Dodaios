@@ -1,7 +1,7 @@
 """Bootstrap regression: handle teardown tolerates the new mirror fields."""
 from __future__ import annotations
 
-from jarvis.memory.wiki.integration import WikiIntegrationHandle
+from dodaios.memory.wiki.integration import WikiIntegrationHandle
 
 
 async def test_noop_handle_shutdown_with_mirror_fields():

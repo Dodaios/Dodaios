@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.plugins.tool.computer import ComputerTool
-from jarvis.realtime.tools import _call_only_reads
+from dodaios.plugins.tool.computer import ComputerTool
+from dodaios.realtime.tools import _call_only_reads
 
 
 def _steps(*actions: str) -> dict:

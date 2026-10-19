@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 
-import jarvis.core.config as cfg
-from jarvis.brain.model_catalog import model_capabilities
+import dodaios.core.config as cfg
+from dodaios.brain.model_catalog import model_capabilities
 
 
 def _write_cache(tmp_path, models):
@@ -39,7 +39,7 @@ def test_capabilities_unknown_model_is_none(monkeypatch, tmp_path):
 def test_openrouter_brain_reflects_text_only_model(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "DATA_DIR", tmp_path)
     _write_cache(tmp_path, [{"id": "x/text", "input_modalities": ["text"], "supported_parameters": []}])
-    from jarvis.plugins.brain.openrouter import OpenRouterBrain
+    from dodaios.plugins.brain.openrouter import OpenRouterBrain
 
     b = OpenRouterBrain("x/text")
     assert b.supports_vision is False
@@ -49,7 +49,7 @@ def test_openrouter_brain_reflects_text_only_model(monkeypatch, tmp_path):
 def test_openrouter_brain_defaults_capable_when_unknown(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "DATA_DIR", tmp_path)
     _write_cache(tmp_path, [])
-    from jarvis.plugins.brain.openrouter import OpenRouterBrain
+    from dodaios.plugins.brain.openrouter import OpenRouterBrain
 
     b = OpenRouterBrain("x/unknown-model")
     assert b.supports_vision is True

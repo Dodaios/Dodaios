@@ -13,11 +13,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain import ollama_inventory as inventory
-from jarvis.core import config as cfg_mod
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
-from jarvis.local_models import assistant_test
-from jarvis.local_models.assistant_test import NOT_SET, run_setup_test
+from dodaios.brain import ollama_inventory as inventory
+from dodaios.core import config as cfg_mod
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.local_models import assistant_test
+from dodaios.local_models.assistant_test import NOT_SET, run_setup_test
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 

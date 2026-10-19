@@ -27,8 +27,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.dictation.polish import POLISH_STATUSES, PolishOutcome
-from jarvis.ui.web.dictation_routes import router as dictation_router
+from dodaios.dictation.polish import POLISH_STATUSES, PolishOutcome
+from dodaios.ui.web.dictation_routes import router as dictation_router
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +38,7 @@ def _sandbox_user_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def app() -> FastAPI:
-    from jarvis.core.config import DictationConfig, TriggerConfig
+    from dodaios.core.config import DictationConfig, TriggerConfig
 
     application = FastAPI()
     application.include_router(dictation_router)
@@ -54,8 +54,8 @@ def client(app: FastAPI) -> TestClient:
 
 
 def test_prompt_probe_reports_failure_instead_of_a_successful_cleanup(app, monkeypatch):
-    from jarvis.dictation import polish, prompt_mode
-    from jarvis.ui.web.dictation_routes import _PROMPT_MODE_SAMPLE
+    from dodaios.dictation import polish, prompt_mode
+    from dodaios.ui.web.dictation_routes import _PROMPT_MODE_SAMPLE
 
     app.state.config.dictation.prompt_mode = True
     app.state.config.dictation.polish = True
@@ -75,7 +75,7 @@ def test_prompt_probe_reports_failure_instead_of_a_successful_cleanup(app, monke
 
 
 def test_english_translation_probe_actually_changes_language(app, monkeypatch):
-    from jarvis.dictation import polish
+    from dodaios.dictation import polish
 
     app.state.config.dictation.translate = True
     app.state.config.dictation.translate_target = "en"
@@ -121,20 +121,20 @@ class _FakeSTT:
 def _install_pipeline(monkeypatch: pytest.MonkeyPatch, **attrs: Any) -> Any:
     pipeline = SimpleNamespace(**attrs)
     monkeypatch.setattr(
-        "jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline
+        "dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline
     )
     return pipeline
 
 
 def _history() -> Any:
-    from jarvis.dictation.history import DictationHistory
+    from dodaios.dictation.history import DictationHistory
 
     return DictationHistory()
 
 
 def _failed_with_audio() -> Any:
     """A dictation that produced nothing, with its audio sidecar kept."""
-    from jarvis.dictation.audio import save_dictation_audio
+    from dodaios.dictation.audio import save_dictation_audio
 
     history = _history()
     entry = history.add(
@@ -222,7 +222,7 @@ def test_restore_falls_back_to_text_for_a_provider_without_a_raw_decode(
 def test_restore_polishes_when_the_pass_is_on(
     app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.dictation.polish as polish
+    import dodaios.dictation.polish as polish
 
     app.state.config.dictation.polish = True
     seen: list[str] = []
@@ -253,7 +253,7 @@ def test_restore_polishes_when_the_pass_is_on(
 def test_restore_delivers_the_words_when_the_polish_pass_fails(
     app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.dictation.polish as polish
+    import dodaios.dictation.polish as polish
 
     app.state.config.dictation.polish = True
 
@@ -370,7 +370,7 @@ def test_the_dry_run_is_honest_on_a_host_with_no_key(
 def test_the_dry_run_reports_who_answered_and_what_it_cost(
     app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.dictation.polish as polish
+    import dodaios.dictation.polish as polish
 
     app.state.config.dictation.polish = True
     captured: list[dict[str, Any]] = []
@@ -402,7 +402,7 @@ def test_the_dry_run_reports_who_answered_and_what_it_cost(
 def test_the_dry_run_never_500s_when_the_pass_is_unreachable(
     app: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.dictation.polish as polish
+    import dodaios.dictation.polish as polish
 
     app.state.config.dictation.polish = True
 
@@ -432,8 +432,8 @@ def test_the_dry_run_is_reachable_from_the_cli_surface(app: FastAPI) -> None:
 def test_the_settings_route_offers_the_polish_dropdowns(client: TestClient) -> None:
     """A key in ``DICTATION_SETTING_KEYS`` with no ``choices`` entry renders an
     empty dropdown the user cannot pick anything out of."""
-    from jarvis.core.config import POLISH_STYLES
-    from jarvis.dictation.polish_client import POLISH_FAMILIES
+    from dodaios.core.config import POLISH_STYLES
+    from dodaios.dictation.polish_client import POLISH_FAMILIES
 
     choices = client.get("/api/dictation/settings").json()["choices"]
 
@@ -447,7 +447,7 @@ def test_the_settings_route_persists_a_polish_change(
 ) -> None:
     """FastAPI DROPS body keys the model does not declare, so a missing field
     here is a toggle that appears to save and is gone on the next restart."""
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     written: list[tuple[str, Any]] = []
     monkeypatch.setattr(
@@ -481,7 +481,7 @@ def test_the_settings_route_accepts_a_provider_card_id_as_a_pin(
     active provider still active. The route translates the card vocabulary
     instead, so the pin the user clicked is the pin that gets stored.
     """
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     written: list[tuple[str, Any]] = []
     monkeypatch.setattr(
@@ -506,7 +506,7 @@ def test_the_settings_route_refuses_an_unknown_polish_provider(
     would report success for a setting that does nothing (AP-31). The config
     model stays permissive on purpose (a hand-edited file must still boot,
     AP-16) — being loud about it is this route's job, like ``paste_chord``."""
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     written: list[tuple[str, Any]] = []
     monkeypatch.setattr(
@@ -531,7 +531,7 @@ def test_the_settings_route_still_takes_auto(
 ) -> None:
     """``auto`` is not a family — it is the key-aware chain that crosses
     families on its own (AP-22), and the default. It must survive the check."""
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     written: list[tuple[str, Any]] = []
     monkeypatch.setattr(
@@ -568,15 +568,15 @@ def test_translation_switches_take_effect_without_a_restart(
     Asserted through ``resolve_translate_target`` rather than by reading the
     attribute, because that function is what the delivery path actually asks.
     """
-    from jarvis.core import config_writer
-    from jarvis.dictation.polish import resolve_translate_target
+    from dodaios.core import config_writer
+    from dodaios.dictation.polish import resolve_translate_target
 
     monkeypatch.setattr(
         config_writer, "set_dictation_setting", lambda key, value, **_kw: None
     )
     pipeline = SimpleNamespace(_dictation_cfg=app.state.config.dictation)
     monkeypatch.setattr(
-        "jarvis.ui.web.dictation_routes._pipeline", lambda: pipeline
+        "dodaios.ui.web.dictation_routes._pipeline", lambda: pipeline
     )
     client = TestClient(app)
 
@@ -605,7 +605,7 @@ def test_a_saved_translation_setting_survives_the_restart_too(
     A key missing from ``DICTATION_SETTING_KEYS`` is a switch that works
     perfectly until the next restart and then silently reverts.
     """
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     written: list[tuple[str, Any]] = []
     monkeypatch.setattr(
@@ -633,8 +633,8 @@ def test_switching_translation_off_round_trips_through_disk_and_reload(
     config from disk. Mocking the writer or asserting only the live object would
     miss the exact failure the user sees after relaunching the app.
     """
-    from jarvis.core import config_writer
-    from jarvis.core.config import load_config
+    from dodaios.core import config_writer
+    from dodaios.core.config import load_config
 
     config_file = tmp_path / "jarvis.toml"
     config_file.write_text("[dictation]\ntranslate = true\n", encoding="utf-8")
@@ -665,7 +665,7 @@ def test_failed_translation_save_is_not_applied_only_until_restart(
     to ``persisted=false`` in an otherwise successful response. The UI ignored
     that flag, so the toggle looked off until restart loaded the still-on file.
     """
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     app.state.config.dictation.translate = True
 
@@ -696,9 +696,9 @@ def test_failed_translation_save_is_not_applied_only_until_restart(
 def test_the_settings_route_names_the_provider_that_will_answer(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core import config as jarvis_config
-    from jarvis.dictation.polish import reset_polish_state
-    from jarvis.dictation.polish_client import POLISH_FAMILIES
+    from dodaios.core import config as jarvis_config
+    from dodaios.dictation.polish import reset_polish_state
+    from dodaios.dictation.polish_client import POLISH_FAMILIES
 
     reset_polish_state()
     family = POLISH_FAMILIES[0]
@@ -730,8 +730,8 @@ def test_a_host_with_no_key_still_gets_a_key_to_paste(
     a switch that reads as on and a card with nothing to do; naming a slot they
     can fill turns the dead end into the one next step.
     """
-    from jarvis.core import config as jarvis_config
-    from jarvis.dictation.polish import reset_polish_state
+    from dodaios.core import config as jarvis_config
+    from dodaios.dictation.polish import reset_polish_state
 
     reset_polish_state()
     monkeypatch.setattr(

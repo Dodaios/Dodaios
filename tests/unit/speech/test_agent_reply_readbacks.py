@@ -4,8 +4,8 @@ import asyncio
 
 import pytest
 
-from jarvis.core.events import AnnouncementRequested
-from jarvis.speech.pipeline import TurnTakingState
+from dodaios.core.events import AnnouncementRequested
+from dodaios.speech.pipeline import TurnTakingState
 from tests.unit.speech.test_realtime_announcement_bridge import _pipeline
 from tests.unit.speech.test_realtime_mode import _FakeRealtimeSession, _FakeTTS, _pipe, _SilentMic
 
@@ -158,7 +158,7 @@ async def test_real_desktop_callbacks_confirm_only_a_completed_readback(monkeypa
     pipe._turn_state = TurnTakingState.LISTENING
     event = reply()
     monkeypatch.setattr(
-        "jarvis.plugins.tts.build_realtime_surface_tts",
+        "dodaios.plugins.tts.build_realtime_surface_tts",
         lambda *args: _FakeTTS(b"\x02\x00" * 16),
     )
 
@@ -199,10 +199,10 @@ async def test_real_desktop_callbacks_confirm_only_a_completed_readback(monkeypa
             await self._forever.wait()
 
     monkeypatch.setattr(
-        "jarvis.realtime.factory.build_realtime_session",
+        "dodaios.realtime.factory.build_realtime_session",
         lambda **kw: Session(kw["send_binary"], kw["send_json"]),
     )
-    monkeypatch.setattr("jarvis.speech.pipeline.MicrophoneCapture", lambda **kw: _SilentMic())
+    monkeypatch.setattr("dodaios.speech.pipeline.MicrophoneCapture", lambda **kw: _SilentMic())
     await asyncio.wait_for(pipe._active_realtime_session(), timeout=3)
     assert pipe._agent_reply_inflight is None
     assert getattr(pipe, "_agent_reply_retries", []) == (

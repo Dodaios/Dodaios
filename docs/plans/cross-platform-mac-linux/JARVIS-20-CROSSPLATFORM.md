@@ -202,7 +202,7 @@ chat scenarios are typed in the web UI.
 ### CP-15 — Orb on headless/Wayland Linux → state-colored tray fallback  · **GRACEFUL-DEGRADE EXPECTED**
 - **User does:** runs the desktop app on a Linux box with no compositor / on Wayland.
 - **Exercises:** Orb `LinuxBestEffortOverlay` → `TrayOnlySurface` fallback driving the
-  already-cross-platform pystray tray (`jarvis/ui/tray.py`).
+  already-cross-platform pystray tray (`dodaios/ui/tray.py`).
 - **Must pass on:** Linux-Wayland / headless → **`degraded-as-designed`**.
 - **Expected graceful behavior (= the pass criterion):** the surface detects it cannot
   key out the transparent color (Wayland / `TclError` / no display), logs **one**

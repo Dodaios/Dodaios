@@ -8,10 +8,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.missions.events import MISSION_LANGUAGES, MissionApproved
+from dodaios.missions.events import MISSION_LANGUAGES, MissionApproved
 
 _REPO = Path(__file__).resolve().parents[2]
-_TS = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src" / "types" / "missions.ts"
+_TS = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src" / "types" / "missions.ts"
 
 
 def _ts_fields(interface: str) -> set[str]:

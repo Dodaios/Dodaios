@@ -11,8 +11,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.workspace import agents as registry
-from jarvis.workspace import custom_clis
+from dodaios.workspace import agents as registry
+from dodaios.workspace import custom_clis
 
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"></svg>'
 
@@ -26,7 +26,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     )
     registry.refresh_custom_agents()
 
-    from jarvis.ui.web import workspace_clis_routes
+    from dodaios.ui.web import workspace_clis_routes
 
     app = FastAPI()
     app.include_router(workspace_clis_routes.router)
@@ -168,7 +168,7 @@ def test_the_write_routes_are_marked_dangerous() -> None:
     That is what the user is asking for when they type it into the form — and
     what must not happen because a model decided it would be helpful.
     """
-    from jarvis.ui.web import workspace_clis_routes
+    from dodaios.ui.web import workspace_clis_routes
 
     app = FastAPI()
     app.include_router(workspace_clis_routes.router)

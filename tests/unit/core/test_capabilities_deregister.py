@@ -1,4 +1,4 @@
-from jarvis.core.capabilities import Capability, CapabilityRegistry
+from dodaios.core.capabilities import Capability, CapabilityRegistry
 
 
 def _cap(cid: str) -> Capability:

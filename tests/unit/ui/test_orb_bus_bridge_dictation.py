@@ -36,7 +36,7 @@ except ModuleNotFoundError:  # pragma: no cover
         allow_module_level=True,
     )
 
-from jarvis.core.events import (  # noqa: E402
+from dodaios.core.events import (  # noqa: E402
     DictationCompleted,
     DictationStarted,
     DictationTranscribing,
@@ -557,7 +557,7 @@ async def test_an_unknown_outcome_still_gets_the_cross() -> None:
 async def test_every_outcome_the_pipeline_can_publish_is_classified() -> None:
     """AP-4 guard: the delivered set is keyed off the ONE outcome vocabulary,
     so a new value cannot quietly inherit either verdict."""
-    from jarvis.dictation.outcomes import DELIVERED_OUTCOMES, DICTATION_OUTCOMES
+    from dodaios.dictation.outcomes import DELIVERED_OUTCOMES, DICTATION_OUTCOMES
 
     assert DELIVERED_OUTCOMES <= set(DICTATION_OUTCOMES)
     assert set(DICTATION_OUTCOMES) - DELIVERED_OUTCOMES == {
@@ -576,7 +576,7 @@ async def test_already_running_never_marks_the_live_dictation_as_failed() -> Non
     start edge lands next to the release. Answering it with the failure look
     put a verdict on the turn the user was watching — and dropping the lane's
     state swallowed that turn's completion, so the cross never came off."""
-    from jarvis.core.events import DictationRefused
+    from dodaios.core.events import DictationRefused
 
     orb = _FakeOrb()
     bridge = _bridge(orb)
@@ -604,7 +604,7 @@ async def test_already_running_never_marks_the_live_dictation_as_failed() -> Non
 
 
 async def test_a_real_refusal_still_reaches_the_user() -> None:
-    from jarvis.core.events import DictationRefused
+    from dodaios.core.events import DictationRefused
 
     orb = _FakeOrb()
     bridge = _bridge(orb)

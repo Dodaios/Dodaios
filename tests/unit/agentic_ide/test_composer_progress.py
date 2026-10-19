@@ -19,7 +19,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import prompt_composer
+from dodaios.agentic_ide import prompt_composer
 
 
 class _Writer:
@@ -34,7 +34,7 @@ class _StreamingBrain:
     name = "streaming-writer"
 
     async def complete(self, _req: object):  # noqa: ANN202 - test double
-        from jarvis.core.protocols import BrainDelta
+        from dodaios.core.protocols import BrainDelta
 
         yield BrainDelta(content="## Task\nLook at the wake word path.")
         yield BrainDelta(content="\n\n## Done when\nThe cause is named.")

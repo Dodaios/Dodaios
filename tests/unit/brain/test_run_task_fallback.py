@@ -17,11 +17,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain import manager as manager_mod
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ToolResult
+from dodaios.brain import manager as manager_mod
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ToolResult
 
 
 class _FakeTool:
@@ -148,7 +148,7 @@ async def test_scheduled_turns_feed_the_tool_model_health_record(
 ) -> None:
     """The Tool Model tab's dot reads what real tool-model turns did (it no
     longer probes): the 402 and the answering fallback are both recorded."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     mgr = _manager(monkeypatch)
     _install_dispatch(monkeypatch, mgr, {
@@ -302,7 +302,7 @@ def test_build_dispatcher_accepts_tool_context() -> None:
     TypeError."""
     import inspect
 
-    from jarvis.brain.manager import BrainManager
+    from dodaios.brain.manager import BrainManager
 
     params = inspect.signature(BrainManager._build_dispatcher).parameters
     assert "tool_context" in params

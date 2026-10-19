@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.workflows import seed as seed_module
-from jarvis.workflows.schema import (
+from dodaios.workflows import seed as seed_module
+from dodaios.workflows.schema import (
     BrainPromptStep,
     CronTrigger,
     ManualTrigger,
@@ -22,8 +22,8 @@ from jarvis.workflows.schema import (
     TelegramSendStep,
     WorkflowDef,
 )
-from jarvis.workflows.seed import SEED_WORKFLOWS, ensure_seed_workflows
-from jarvis.workflows.store import WorkflowStore
+from dodaios.workflows.seed import SEED_WORKFLOWS, ensure_seed_workflows
+from dodaios.workflows.store import WorkflowStore
 
 _BRIEFING_ID = seed_module._WF_MORNING_BRIEFING
 

@@ -1,4 +1,4 @@
-"""Unit tests for jarvis.memory.wiki.fts_index.
+"""Unit tests for dodaios.memory.wiki.fts_index.
 
 All tests use an in-memory SQLite connection so they are fast and fully
 isolated from disk state.
@@ -18,7 +18,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from jarvis.memory.wiki.fts_index import (
+from dodaios.memory.wiki.fts_index import (
     ensure_schema,
     index_vault,
     read_index_metadata,

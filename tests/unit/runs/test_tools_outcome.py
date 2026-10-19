@@ -4,8 +4,8 @@ Regression found in the Chrome checkup: failed Computer-Use actions (open_app,
 click_element) were rendered as "ok" because merge_action_tools only read
 ActionProposed/Approved (risk + approval) and never the execution result, so
 ToolCall.success stayed at its default True."""
-from jarvis.runs.analyzer import merge_action_tools
-from jarvis.sessions.models import VoiceEventRow
+from dodaios.runs.analyzer import merge_action_tools
+from dodaios.sessions.models import VoiceEventRow
 
 
 def _ev(kind, **payload):

@@ -15,8 +15,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import recap_engine
-from jarvis.agentic_ide.session import Terminal
+from dodaios.agentic_ide import recap_engine
+from dodaios.agentic_ide.session import Terminal
 
 
 @pytest.fixture(autouse=True)
@@ -38,12 +38,12 @@ def _pane(lines: int = 0, **changes: object) -> Terminal:
     for field, value in changes.items():
         setattr(term, field, value)
     for number in range(lines):
-        term.transcript.feed(f"Step {number}: reading jarvis/core/config.py\r\n")
+        term.transcript.feed(f"Step {number}: reading dodaios/core/config.py\r\n")
     return term
 
 
 def _rows(count: int) -> list[str]:
-    return [f"Step {number}: reading jarvis/core/config.py" for number in range(count)]
+    return [f"Step {number}: reading dodaios/core/config.py" for number in range(count)]
 
 
 # --------------------------------------------------------------- the fallback
@@ -176,7 +176,7 @@ def test_a_prompt_sent_after_the_header_poll_outranks_the_stale_floor() -> None:
 def test_the_conversations_opening_titles_a_pane_nothing_else_names(monkeypatch) -> None:
     """A restored pane has no prompt in memory and its typed echo has scrolled
     away; the CLI's own transcript still opens with what it was asked."""
-    from jarvis.agentic_ide import opening
+    from dodaios.agentic_ide import opening
 
     monkeypatch.setattr(
         opening, "opening_for", lambda term: "@.jarvis/drops/shot.png There is a bug in the sidebar"
@@ -383,8 +383,8 @@ _REQUEST = (
 
 def _unnamed(monkeypatch, *, request: str = _REQUEST, cli_title: str = "") -> None:
     """Model recaps off, a request on record, and the CLI's own title as given."""
-    from jarvis.agentic_ide import cli_title as cli_titles
-    from jarvis.agentic_ide import opening
+    from dodaios.agentic_ide import cli_title as cli_titles
+    from dodaios.agentic_ide import opening
 
     monkeypatch.setattr(recap_engine, "_enabled", lambda: False)
     monkeypatch.setattr(opening, "opening_for", lambda term: request)
@@ -492,7 +492,7 @@ def test_a_title_does_not_outlive_its_conversation(monkeypatch) -> None:
 def test_an_unnamed_session_title_never_reaches_a_key(monkeypatch) -> None:
     """Nobody switched this title on, so an install without a subscription
     keeps the plain one — no keyed brain is even instantiated."""
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
 
     instantiated: list[str] = []
 
@@ -502,7 +502,7 @@ def test_an_unnamed_session_title_never_reaches_a_key(monkeypatch) -> None:
 
     monkeypatch.setattr(resolver, "frontier_brain_candidates", _keyed_candidates)
     monkeypatch.setattr(resolver, "resolve_subscription_brain", lambda cfg, **kwargs: None)
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: SimpleNamespace())
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: SimpleNamespace())
 
     assert recap_engine._resolve_brains(True) == []  # noqa: SLF001
     assert instantiated == []
@@ -961,20 +961,20 @@ def test_a_depleted_key_failure_reads_as_a_sentence_not_json() -> None:
 def test_a_connected_subscription_writes_recaps_without_any_key(monkeypatch) -> None:
     """Recaps are background work: a signed-in subscription writes them and no
     per-token key is asked, even when several keys are configured."""
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
 
     brains = [SimpleNamespace(model=f"api-{n}") for n in range(recap_engine.MAX_PROVIDER_TRIES)]
     subscription = SimpleNamespace(model="coding-cli")
     monkeypatch.setattr(resolver, "frontier_brain_candidates", lambda cfg: iter(brains))
     monkeypatch.setattr(resolver, "resolve_subscription_brain", lambda cfg, **kwargs: subscription)
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: SimpleNamespace())
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: SimpleNamespace())
 
     assert recap_engine._resolve_brains() == [subscription]  # noqa: SLF001
 
 
 def test_without_a_subscription_the_keyed_chain_writes_recaps(monkeypatch, tmp_path) -> None:
     """A single-key install keeps model recaps (AP-22)."""
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
     from tests.fakes.fake_background_billing import (
         isolate_background_billing,
         reset_background_billing,
@@ -985,7 +985,7 @@ def test_without_a_subscription_the_keyed_chain_writes_recaps(monkeypatch, tmp_p
         api = SimpleNamespace(model="only-key")
         monkeypatch.setattr(resolver, "frontier_brain_candidates", lambda cfg: iter([api]))
         monkeypatch.setattr(resolver, "resolve_subscription_brain", lambda cfg, **kwargs: None)
-        monkeypatch.setattr("jarvis.core.config.load_config", lambda: SimpleNamespace())
+        monkeypatch.setattr("dodaios.core.config.load_config", lambda: SimpleNamespace())
 
         assert recap_engine._resolve_brains() == [api]  # noqa: SLF001
     finally:
@@ -998,7 +998,7 @@ def test_an_unavailable_subscription_never_falls_back_to_a_key(
     """Recaps are background work: once a subscription is connected, a
     subscription that cannot answer means the plain title, never a paid key —
     no keyed brain is even instantiated."""
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
     from tests.fakes.fake_background_billing import (
         isolate_background_billing,
         reset_background_billing,
@@ -1016,7 +1016,7 @@ def test_an_unavailable_subscription_never_falls_back_to_a_key(
 
         monkeypatch.setattr(resolver, "frontier_brain_candidates", _keyed_candidates)
         monkeypatch.setattr(resolver, "resolve_subscription_brain", lambda cfg, **kwargs: None)
-        monkeypatch.setattr("jarvis.core.config.load_config", lambda: SimpleNamespace())
+        monkeypatch.setattr("dodaios.core.config.load_config", lambda: SimpleNamespace())
 
         assert recap_engine._resolve_brains() == []  # noqa: SLF001
         assert instantiated == [], "no keyed provider may be instantiated"

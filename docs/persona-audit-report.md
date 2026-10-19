@@ -39,7 +39,7 @@
 - **Description:** Mandate A1: "Alex instead of Sir, never Sir." This requirement is correctly entered in `JARVIS_PERSONA.md:33` ("never 'Sir,' never 'Mr. Stark,' never 'Tony,' never 'boss.'"). **But the same file** contains, in lines 136-148, the "SIR / ALEX HYBRID RULE," which explicitly prescribes "Sir" for Jarvis-Agent ceremonies:
 
   ```
-  jarvis/brain/JARVIS_PERSONA.md:139-143
+  dodaios/brain/JARVIS_PERSONA.md:139-143
     Default-Anrede ist "Alex" (wie oben). Ausnahme: bei bestimmten  <!-- i18n-allow -->
     Zeremonien nutze "Sir" — das macht die Delegations-Momente besonders:  <!-- i18n-allow -->
     - Sub-Agent-Spawn: "Sir, ich starte einen Sub-Agent, der ..."  <!-- i18n-allow -->
@@ -50,31 +50,31 @@
   Plus `router.py:200-202` contains the literal sentence as an example in the LLM system prompt:
 
   ```
-  jarvis/brain/router.py:200-202
+  dodaios/brain/router.py:200-202
     Die Sprachansage wird daraus automatisch:  <!-- i18n-allow -->
         "Sir, ich starte einen Sub-Agent, der <action> <target>."  <!-- i18n-allow -->
   ```
 
   Plus `gemini_test_brain.py` is entirely "Sir"-centric (line 38: "Address the user as 'Sir'", line 53: `HANGUP_SIGNAL = "Goodbye, Sir."`).
 
-- **Evidence:** `grep -n '\bSir\b' jarvis/brain/`.
+- **Evidence:** `grep -n '\bSir\b' dodaios/brain/`.
 - **Effect:** The LLM sees **contradictory instructions** in the system prompt — sometimes "never Sir," sometimes "use Sir on spawn." The fact that the probe of 2026-04-28 returned scenario 03 + 07 literally as "Sir, ich starte einen Sub-Agent" ("Sir, I am starting a sub-agent") is **not a brain bug**, but a direct consequence of the prompt content. The output filter (`SIR_OPENER_RE`/`SIR_TAIL_RE`) scrubs the symptom but does not fix the root cause.
 - **Recommended fix:** (a) **delete** the `JARVIS_PERSONA.md:136-148` HYBRID RULE section; (b) change the `router.py:200-202` example to "Einen Augenblick, Alex" ("One moment, Alex"); (c) migrate the `gemini_test_brain.py` "Sir" hangup signal to a "Alex" variant, or mark the test brain as deprecated.
 - **Effort:** small (3 files, ~10 lines).
 
 #### F-AUDIT-2 — Mission-voice listener bypasses `scrub_for_voice` entirely
 
-- **Description:** `jarvis/missions/voice/listener.py:88` calls `await self._tts(text, lang)` directly — with **no** `scrub_for_voice` beforehand. `text` comes from `self._render(env, lang)`, which renders mission-approved summaries (`MissionApproved.summary_de`/`summary_en`) and similar. The Phase 6 self-healing worker (`docs/adr/0009`) uses this path for voice readback.
+- **Description:** `dodaios/missions/voice/listener.py:88` calls `await self._tts(text, lang)` directly — with **no** `scrub_for_voice` beforehand. `text` comes from `self._render(env, lang)`, which renders mission-approved summaries (`MissionApproved.summary_de`/`summary_en`) and similar. The Phase 6 self-healing worker (`docs/adr/0009`) uses this path for voice readback.
 - **Evidence:**
 
   ```
-  jarvis/missions/voice/listener.py:88
+  dodaios/missions/voice/listener.py:88
       await self._tts(text, lang)
   ```
 
-  Plus `grep "scrub_for_voice" jarvis/missions/` returns **0 hits**.
+  Plus `grep "scrub_for_voice" dodaios/missions/` returns **0 hits**.
 - **Effect:** If a mission output contains tool-use markup, "Sir" address, engineering jargon, etc., it goes to TTS **unfiltered**. Phase-6 self-healing is a new code path that was built without persona-refactor awareness.
-- **Recommended fix:** Adjust `listener.py:88` so that `text` runs through `scrub_for_voice(text, language=lang)` before it goes to `self._tts`. Plus check `jarvis/missions/voice/readback.py` for direct "Sir" strings.
+- **Recommended fix:** Adjust `listener.py:88` so that `text` runs through `scrub_for_voice(text, language=lang)` before it goes to `self._tts`. Plus check `dodaios/missions/voice/readback.py` for direct "Sir" strings.
 - **Effort:** small (1 file, ~5 lines + 1 test).
 
 ### HIGH Findings
@@ -82,7 +82,7 @@
 #### F-AUDIT-3 — `tasks/runner.py:254` — TTS bypass for workflow speak actions
 
 - **Description:** The tasks runner calls `await _aiter_safe(self._tts.synthesize(action.text))` without `scrub_for_voice`. `action.text` comes from the workflow definition. If a workflow turns brain output into a speak action (e.g. via a skill), it runs unfiltered.
-- **Evidence:** `jarvis/tasks/runner.py:254`.
+- **Evidence:** `dodaios/tasks/runner.py:254`.
 - **Effect:** MEDIUM, because current workflows presumably do not route any brain outputs into speak text. But this is a **defense-in-depth gap** — new workflows could accidentally use the path.
 - **Recommended fix:** Protect `runner.py:254` `action.text` with `scrub_for_voice(action.text)` (with the language param from the action context or default `de`).
 - **Effort:** small (1 file, ~3 lines).
@@ -134,7 +134,7 @@
 #### F-AUDIT-7 — Comment in `factory.py:24-27` contradicts the code
 
 - **Description:** The comment says "EXACTLY four tools — see `router.py:SYSTEM_PROMPT` (`Tool-Set: nur ``bash`` (run_shell), ``screenshot``, ``multi_spawn``, ``spawn_sub_jarvis```)`". Code reality (lines 34-45) has **6 tools** + 3 self-mod = 9. The ADR-0011 Phase-7/8 amendment explains this, but the doc comment in the code was not synchronized.
-- **Evidence:** `jarvis/brain/factory.py:24-45`.
+- **Evidence:** `dodaios/brain/factory.py:24-45`.
 - **Effect:** Future reviewers read the comment, think "only 4 tools are allowed," and are surprised by the 6-tools code.
 - **Recommended fix:** Update the comment ("Pure-dispatcher set: 6 tools — see ADR-0011 Phase-7/8 amendment").
 - **Effort:** trivial (1 file, 4 lines).
@@ -151,7 +151,7 @@
 
 #### F-AUDIT-9 — `manager.py:534` contradicts the "Sir" HYBRID RULE
 
-- **Description:** `jarvis/brain/manager.py:534` lists `'Selbstverstaendlich, Sir.'` ("Of course, Sir.") as a forbidden phrase in the anti-greeter filter. This matches mandate A1 — but conflicts with the `JARVIS_PERSONA.md:139-143` HYBRID RULE, which describes "Sir, ich starte einen Sub-Agent" ("Sir, I am starting a sub-agent") as desired.
+- **Description:** `dodaios/brain/manager.py:534` lists `'Selbstverstaendlich, Sir.'` ("Of course, Sir.") as a forbidden phrase in the anti-greeter filter. This matches mandate A1 — but conflicts with the `JARVIS_PERSONA.md:139-143` HYBRID RULE, which describes "Sir, ich starte einen Sub-Agent" ("Sir, I am starting a sub-agent") as desired.
 - **Evidence:** `manager.py:534` vs. `JARVIS_PERSONA.md:141`.
 - **Effect:** Inconsistent spec — the brain gets contradictory instructions.
 - **Recommended fix:** Resolve together with F-AUDIT-1 (delete the HYBRID RULE, then `manager.py:534` matches the persona spec again).
@@ -230,7 +230,7 @@
 | # | DoD item | Status | Evidence |
 |---|---|---|---|
 | 1 | `pytest -v` passes, no regressions | ⚠️ | 11 fail / 2159 pass / 6 skip. **3 of those** are refactor-induced breaks (F-AUDIT-5). The mandate STOP ">5" does not trigger, but 3 breaks are not "no regressions." |
-| 2 | `python -m jarvis` starts without error | ☐ | not run in the audit; `voice-acceptance-brief.md` flags F-10 as blocking |
+| 2 | `python -m dodaios` starts without error | ☐ | not run in the audit; `voice-acceptance-brief.md` flags F-10 as blocking |
 | 3 | `voice_e2e_probe`: 0 anti-pattern hits | ⚠️ | 0 reported, but **probe not reproducible** due to API quota (F-AUDIT-6) |
 | 4 | `voice_e2e_probe`: name ratio ≤ 33 % | ⚠️ | 6 % today (irrelevant: brain unreachable); earlier probe (19:17) showed 44 % |
 | 5 | `voice_e2e_probe`: hangup contract green | ☐ | **MISS** today — due to brain failure, not a persona bug |
@@ -333,6 +333,6 @@ After the audit was cleared, a separate implementation session worked through th
 
 **Status: GREEN for manual voice acceptance.** Both CRITICAL findings (F-AUDIT-1, F-AUDIT-2) are fixed, as are three HIGH findings (F-AUDIT-3, F-AUDIT-4, F-AUDIT-5). The two remaining MEDIUM/LOW findings are outside the refactor scope (provider setup, brain-default audit).
 
-Voice acceptance can now be carried out with `docs/voice-acceptance-brief.md`, as soon as F-10 (`jarvis.clis.risk_integration`) is fixed.
+Voice acceptance can now be carried out with `docs/voice-acceptance-brief.md`, as soon as F-10 (`dodaios.clis.risk_integration`) is fixed.
 
 **End of fix pass.**

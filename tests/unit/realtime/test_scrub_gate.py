@@ -1,10 +1,10 @@
 import pytest
 
-import jarvis.realtime.scrub_gate as scrub_gate_module
-from jarvis.brain.output_filter import FALLBACK_PHRASES, ScrubResult
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.scrub_gate import ScrubHoldGate
-from jarvis.speech.hangup import END_CALL_SIGNAL
+import dodaios.realtime.scrub_gate as scrub_gate_module
+from dodaios.brain.output_filter import FALLBACK_PHRASES, ScrubResult
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.scrub_gate import ScrubHoldGate
+from dodaios.speech.hangup import END_CALL_SIGNAL
 
 
 def _chunk(n: int) -> AudioChunk:
@@ -405,7 +405,7 @@ def test_unclassified_scrub_action_fails_closed():
 @pytest.mark.asyncio
 async def test_scrub_is_regex_only_no_llm(monkeypatch):
     # Guard AP-11: the gate must call scrub_for_voice and nothing that awaits a model.
-    import jarvis.realtime.scrub_gate as mod
+    import dodaios.realtime.scrub_gate as mod
 
     calls = {"n": 0}
     real = mod.scrub_for_voice

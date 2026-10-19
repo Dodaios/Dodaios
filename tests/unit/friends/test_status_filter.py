@@ -1,5 +1,5 @@
 # === F-FRIENDS [F4] · feature/friends-section · ruben-2026-05-01 ===
-"""Unit tests for :class:`jarvis.friends.status_filter.StatusFilter`.
+"""Unit tests for :class:`dodaios.friends.status_filter.StatusFilter`.
 
 Branch-portable: the real bus events (VoiceSessionStarted, MissionStarted,
 JarvisAgentTaskStarted, ...) may not exist yet on this branch.
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from jarvis.friends.status_filter import HARD_BLACKLIST, PROFILES, StatusFilter
+from dodaios.friends.status_filter import HARD_BLACKLIST, PROFILES, StatusFilter
 
 # ----------------------------------------------------------------------
 # Fake events: class name matches real bus event names, fields per plan.

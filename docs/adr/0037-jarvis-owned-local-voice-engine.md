@@ -27,7 +27,7 @@ rebuild plan.
 2. A thin provider adapter implements `RealtimeProvider` and `RealtimeSession`
    with `native_tool_orchestration=True` and `browser_audio=True`, so
    `NativeLiveVoiceSession`, `LiveTools` and the browser audio path stay.
-   `jarvis/live/native.py` gains the readiness refusal, spoken start failure,
+   `dodaios/live/native.py` gains the readiness refusal, spoken start failure,
    barge-in interrupt, 5 s tool deadline, declaration budget, per-turn language
    and the provider's own model id.
 3. The engine owns the real-time loop: Silero VAD, Smart Turn v3.2, speculative
@@ -40,7 +40,7 @@ rebuild plan.
    reason why not.
 5. After setup the engine makes no network calls. Readiness means a real
    inference in the running process.
-6. The old stack (`jarvis/realtime/local_server/`, `LocalRealtimeProvider`, the
+6. The old stack (`dodaios/realtime/local_server/`, `LocalRealtimeProvider`, the
    managed-server routes and card) is removed after the new engine passes the
    plan's gates; `local-realtime` then becomes an alias of the new provider.
 

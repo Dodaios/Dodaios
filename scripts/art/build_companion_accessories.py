@@ -1,6 +1,6 @@
 """Build the companion accessory meshes from the shared accessory catalog.
 
-Input: jarvis/ui/web/frontend/src/components/society/companion/accessories.json
+Input: dodaios/ui/web/frontend/src/components/society/companion/accessories.json
 (written by companion_accessories.py) and source/outlines.json. The bodies are
 rebuilt with companion_bodies.py, exactly as in companions.glb.
 Run inside Blender with --background --factory-startup --python this_file.
@@ -33,8 +33,8 @@ from companion_bodies import FACETED, Surface, build_body  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 STUDY = ROOT / "art/studies/agent-symbol-companions"
-CATALOG = ROOT / "jarvis/ui/web/frontend/src/components/society/companion/accessories.json"
-RUNTIME_COPY = ROOT / "jarvis/ui/web/frontend/src/assets/society/companions/accessories.glb"
+CATALOG = ROOT / "dodaios/ui/web/frontend/src/components/society/companion/accessories.json"
+RUNTIME_COPY = ROOT / "dodaios/ui/web/frontend/src/assets/society/companions/accessories.glb"
 
 SLOT_LIFT_M = {"outfit": 0.0, "neck": 0.006, "head": 0.006}
 # Items worn on the body surface get per-shape fitted free parts.

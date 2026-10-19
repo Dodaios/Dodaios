@@ -10,10 +10,10 @@ from pathlib import Path
 import psutil
 import pytest
 
-from jarvis.agent_runtimes import base, hermes, versions
-from jarvis.core import path_augment
-from jarvis.core.process_tree import DescendantTracker
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.agent_runtimes import base, hermes, versions
+from dodaios.core import path_augment
+from dodaios.core.process_tree import DescendantTracker
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
 def test_each_app_instance_keeps_its_own_runtime_folders(monkeypatch, tmp_path):
@@ -77,7 +77,7 @@ def test_a_runtime_installed_mid_session_is_found_without_a_restart(tmp_path, mo
 
 
 def test_jarvis_hermes_folders_are_never_taken_from_the_persistent_path(tmp_path, monkeypatch):
-    from jarvis.agent_runtimes.path_cleanup import is_jarvis_hermes_bin
+    from dodaios.agent_runtimes.path_cleanup import is_jarvis_hermes_bin
 
     stale = tmp_path / "Jarvis" / "agent_runtimes" / "hermes" / "agent-1" / "bin"
     stale.mkdir(parents=True)
@@ -159,7 +159,7 @@ def test_a_detached_child_no_snapshot_saw_is_found_by_its_turn_mark():
     import os
     import uuid
 
-    from jarvis.core.process_tree import TURN_MARKER_ENV
+    from dodaios.core.process_tree import TURN_MARKER_ENV
 
     mark = uuid.uuid4().hex
     env = {**os.environ, TURN_MARKER_ENV: mark}

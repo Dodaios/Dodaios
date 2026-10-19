@@ -5,7 +5,7 @@ approves the permissions for that plugin. No Azure portal, no app
 registration, no client id and no client secret.
 
 All seven plugins share one public sign-in that ships with Dodaios
-(`SHIPPED_PUBLIC_CLIENT_IDS` in `jarvis/marketplace/publisher_clients.py`).
+(`SHIPPED_PUBLIC_CLIENT_IDS` in `dodaios/marketplace/publisher_clients.py`).
 The Entra app is named **Personal Jarvis**. It accepts personal Microsoft
 accounts and work or school accounts, uses Authorization Code + PKCE, and
 has no client secret. The only redirect address is

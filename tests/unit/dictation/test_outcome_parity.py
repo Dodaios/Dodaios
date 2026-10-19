@@ -1,6 +1,6 @@
 """Cross-layer parity guard for the dictation outcome vocabulary (AP-4).
 
-``jarvis.dictation.outcomes.DICTATION_OUTCOMES`` is the single source of truth
+``dodaios.dictation.outcomes.DICTATION_OUTCOMES`` is the single source of truth
 for "how did this dictation end". The value is written by the speech pipeline,
 carried on ``DictationCompleted``, stored in the history sidecar, serialised by
 the REST layer and finally turned into a label by the UI — the exact five-layer
@@ -25,14 +25,14 @@ import json
 import re
 from pathlib import Path
 
-from jarvis.dictation.outcomes import (
+from dodaios.dictation.outcomes import (
     DICTATION_OUTCOMES,
     RECOVERABLE_OUTCOMES,
     is_recoverable,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_FRONTEND = _REPO_ROOT / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src"
 _DICTATION_TS = _FRONTEND / "hooks" / "useDictation.ts"
 _HISTORY_GROUP_TSX = _FRONTEND / "views" / "voice" / "DictationHistoryGroup.tsx"
 _LOCALES = _FRONTEND / "i18n" / "locales"
@@ -122,15 +122,15 @@ def test_partial_reached_every_layer() -> None:
     mirror, and each of the three locales — before the UI can render anything
     but a raw identifier at the user.
     """
-    assert "partial" in DICTATION_OUTCOMES, "jarvis/dictation/outcomes.py"
+    assert "partial" in DICTATION_OUTCOMES, "dodaios/dictation/outcomes.py"
     assert "partial" in _ts_outcomes(), (
-        "jarvis/ui/web/frontend/src/hooks/useDictation.ts: add \"partial\" to "
+        "dodaios/ui/web/frontend/src/hooks/useDictation.ts: add \"partial\" to "
         "DICTATION_OUTCOMES"
     )
     for name in SUPPORTED_LOCALES:
         table = _locale(name).get("dictation", {}).get("outcome", {})
         assert str(table.get("partial", "")).strip(), (
-            f"jarvis/ui/web/frontend/src/i18n/locales/{name}.json: add "
+            f"dodaios/ui/web/frontend/src/i18n/locales/{name}.json: add "
             "dictation.outcome.partial"
         )
 

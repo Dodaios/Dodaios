@@ -18,7 +18,7 @@ import threading
 import time
 from types import SimpleNamespace
 
-from jarvis.platform import music_player_host as host
+from dodaios.platform import music_player_host as host
 
 
 class _Events:

@@ -1,7 +1,7 @@
 import pytest
 
-from jarvis.core.protocols import Transcript
-from jarvis.speech.pipeline import SpeechPipeline, _merge_partial_transcript
+from dodaios.core.protocols import Transcript
+from dodaios.speech.pipeline import SpeechPipeline, _merge_partial_transcript
 
 
 @pytest.mark.parametrize(

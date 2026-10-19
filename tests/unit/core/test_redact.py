@@ -1,4 +1,4 @@
-"""``jarvis.core.redact`` — the redact-and-cap gate for decision-log previews.
+"""``dodaios.core.redact`` — the redact-and-cap gate for decision-log previews.
 
 Every persisted telemetry preview (a tool's ``output_preview``, the brain's
 ``rationale``) passes through ``safe_preview`` before it reaches the bus / the
@@ -12,7 +12,7 @@ import logging
 
 import pytest
 
-from jarvis.core.redact import DEFAULT_PREVIEW_CHARS, redact_secrets, safe_preview
+from dodaios.core.redact import DEFAULT_PREVIEW_CHARS, redact_secrets, safe_preview
 
 
 def test_plain_text_passes_through_untouched() -> None:
@@ -130,7 +130,7 @@ def test_the_redacting_filter_masks_every_level_and_the_logged_exception(
 ) -> None:
     """A record's message, its arguments, and the traceback printed under it
     (the error and the cause it was raised from) all lose the token."""
-    from jarvis.core.redact import redact_logger
+    from dodaios.core.redact import redact_logger
 
     name = "jarvis.test.redact_probe_levels"
     logger = logging.getLogger(name)
@@ -157,7 +157,7 @@ def test_the_redacting_filter_masks_every_level_and_the_logged_exception(
 def test_the_redacting_filter_leaves_a_clean_exception_alone(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from jarvis.core.redact import redact_logger
+    from dodaios.core.redact import redact_logger
 
     name = "jarvis.test.redact_probe_clean"
     logger = logging.getLogger(name)

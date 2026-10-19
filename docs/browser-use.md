@@ -53,7 +53,7 @@ Website login, MFA and site-imposed restrictions still require user interaction.
 ## Licenses
 
 Browser-Use is MIT-licensed. Its license is shipped in
-[the browser asset notices](../jarvis/assets/browser/LICENSE.browser-use).
+[the browser asset notices](../dodaios/assets/browser/LICENSE.browser-use).
 Installed wheels retain their distribution license files. Playwright uses
 Apache-2.0; its downloaded browser preserves the vendor's ABOUT and built-in
 credits/terms. Chrome for Testing is a Google Chrome distribution, so the

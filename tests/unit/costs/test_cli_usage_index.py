@@ -1,4 +1,4 @@
-"""Tests for the coding-CLI usage index (``jarvis/costs/cli_usage_index.py``).
+"""Tests for the coding-CLI usage index (``dodaios/costs/cli_usage_index.py``).
 
 Everything here runs against transcripts built inside ``tmp_path``. The real
 ``~/.claude`` and ``~/.codex`` are never read: every call passes the ``home``
@@ -28,7 +28,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jarvis.costs.cli_usage_index import (
+from dodaios.costs.cli_usage_index import (
     AGENT_AGY,
     AGENT_CLAUDE,
     AGENT_CODEX,
@@ -540,7 +540,7 @@ def test_an_index_built_under_an_older_rule_is_reread(tmp_path: Path) -> None:
     the table never empties, so a report taken mid-way is never a fraction."""
     import sqlite3
 
-    from jarvis.costs.cli_usage_index import index_db_path
+    from dodaios.costs.cli_usage_index import index_db_path
 
     data = tmp_path / "data"
     session = "019ffba8-3748-7652-bf9d-f3b54697b10a"
@@ -1079,7 +1079,7 @@ def _grok_session(home: Path, session: str, cwd: str = "/work/grok-app") -> Path
 
 def test_grok_turn_completed_is_one_row_per_turn(tmp_path: Path) -> None:
     """Per-turn usage; ``inputTokens`` includes the cached share (OpenAI style)."""
-    from jarvis.costs.cli_usage_index import AGENT_GROK
+    from dodaios.costs.cli_usage_index import AGENT_GROK
 
     data = tmp_path / "data"
     session = "01a000c5-0f40-7652-9519-acd71f097d48"
@@ -1138,7 +1138,7 @@ def test_a_transcript_that_disappeared_keeps_its_rows(tmp_path: Path) -> None:
     """
     import sqlite3
 
-    from jarvis.costs.cli_usage_index import index_db_path
+    from dodaios.costs.cli_usage_index import index_db_path
 
     data = tmp_path / "data"
     session = "019ffba8-3748-7652-bf9d-f3b54697b10a"
@@ -1188,7 +1188,7 @@ def test_a_schema_bump_keeps_the_rows_of_a_transcript_that_is_gone(tmp_path: Pat
     """
     import sqlite3
 
-    from jarvis.costs.cli_usage_index import index_db_path
+    from dodaios.costs.cli_usage_index import index_db_path
 
     data = tmp_path / "data"
     kept = _claude_path(tmp_path, "kept")
@@ -1344,7 +1344,7 @@ def _opencode_message(db: Path, msg_id: str, ts: int, *, cost: float, model: str
 
 
 def test_opencode_messages_are_indexed_with_their_recorded_cost(tmp_path: Path) -> None:
-    from jarvis.costs.cli_usage_index import AGENT_OPENCODE
+    from dodaios.costs.cli_usage_index import AGENT_OPENCODE
 
     data = tmp_path / "data"
     db = _opencode_store(tmp_path)
@@ -1377,7 +1377,7 @@ def test_opencode_reads_only_what_arrived_since_the_last_run(tmp_path: Path) -> 
 def test_an_index_from_version_two_keeps_its_rows_and_gains_the_column(tmp_path: Path) -> None:
     import sqlite3
 
-    from jarvis.costs.cli_usage_index import index_db_path
+    from dodaios.costs.cli_usage_index import index_db_path
 
     data = tmp_path / "data"
     session = "019ffba8-3748-7652-bf9d-f3b54697b10a"

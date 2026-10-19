@@ -18,10 +18,10 @@ import asyncio
 
 import pytest
 
-from jarvis.agents.registry import JarvisAgentRegistry
-from jarvis.core.bus import EventBus
-from jarvis.missions.event_bus import MissionBus
-from jarvis.missions.events import (
+from dodaios.agents.registry import JarvisAgentRegistry
+from dodaios.core.bus import EventBus
+from dodaios.missions.event_bus import MissionBus
+from dodaios.missions.events import (
     EventEnvelope,
     MissionApproved,
     MissionDispatched,
@@ -29,7 +29,7 @@ from jarvis.missions.events import (
     WorkerSpawned,
     now_ms,
 )
-from jarvis.missions.ids import uuid7_str
+from dodaios.missions.ids import uuid7_str
 
 
 async def _settle() -> None:

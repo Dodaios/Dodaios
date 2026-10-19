@@ -14,8 +14,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-import jarvis.plugins.tts as tts_pkg
-from jarvis.plugins.tts.elevenlabs_tts import (
+import dodaios.plugins.tts as tts_pkg
+from dodaios.plugins.tts.elevenlabs_tts import (
     DEFAULT_MODEL,
     JARVIS_VOICE_DANIEL,
     coerce_elevenlabs_model,

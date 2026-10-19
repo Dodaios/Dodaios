@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.events import BrainTurnCompleted
-from jarvis.live.config import LiveConfig
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
+from dodaios.core.events import BrainTurnCompleted
+from dodaios.live.config import LiveConfig
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
 from tests.fakes.fake_subscription_session import (
     ApprovalSubscriptionGateway,
     AppshotSubscriptionGateway,
@@ -27,7 +27,7 @@ from tests.fakes.fake_subscription_session import (
 
 @pytest.fixture
 def make_session(monkeypatch):
-    import jarvis.live.subscription as module
+    import dodaios.live.subscription as module
 
     sessions = []
 
@@ -519,8 +519,8 @@ async def test_close_does_not_wait_for_unavailable_public_ack(make_session, monk
 
 
 def test_operation_brain_override_cannot_fall_back_to_an_api_key():
-    from jarvis.brain.manager import BrainManager
-    from jarvis.core.model_selection import ModelSelection, use_operation_model
+    from dodaios.brain.manager import BrainManager
+    from dodaios.core.model_selection import ModelSelection, use_operation_model
 
     manager = BrainManager.__new__(BrainManager)
     subscription_brain = object()
@@ -687,7 +687,7 @@ async def test_existing_appshot_stays_available_for_a_followup_without_recapture
 
 @pytest.fixture
 def image_store(monkeypatch):
-    from jarvis.core import image_references
+    from dodaios.core import image_references
 
     now = [0.0]
     store = image_references.ImageReferences(clock=lambda: now[0], schedule_expiry=False)
@@ -701,7 +701,7 @@ async def test_supplied_appshot_carries_a_forwardable_reference_for_the_call(
 ):
     import re
 
-    from jarvis.core.image_references import ImageReferenceError
+    from dodaios.core.image_references import ImageReferenceError
 
     store, now = image_store
     session, reasoning, _, _, _, _ = make_session([
@@ -785,9 +785,9 @@ async def test_completion_report_uses_subscription_reasoning_without_new_tool_au
 
 
 def test_cached_paid_brain_cannot_escape_operation_billing_pin():
-    from jarvis.brain.usage_meter import MeteredBrain
-    from jarvis.core.model_selection import ModelSelection, use_operation_model
-    from jarvis.core.protocols import BrainRequest
+    from dodaios.brain.usage_meter import MeteredBrain
+    from dodaios.core.model_selection import ModelSelection, use_operation_model
+    from dodaios.core.protocols import BrainRequest
 
     class PaidTrap:
         def complete(self, request):
@@ -800,8 +800,8 @@ def test_cached_paid_brain_cannot_escape_operation_billing_pin():
 
 
 def test_skill_author_cannot_continue_into_paid_fallbacks():
-    from jarvis.core.model_selection import ModelSelection, use_operation_model
-    from jarvis.skills.creator_service import SkillCreatorService
+    from dodaios.core.model_selection import ModelSelection, use_operation_model
+    from dodaios.skills.creator_service import SkillCreatorService
 
     class SubscriptionFailure:
         def complete(self, request):
@@ -955,7 +955,7 @@ async def test_late_caption_cannot_reenable_cancelled_work(make_session):
 
 
 def test_explicit_api_provider_uses_retained_api_settings_after_subscription(monkeypatch):
-    from jarvis.realtime import factory
+    from dodaios.realtime import factory
 
     provider = SimpleNamespace(name="openai-live", continuous_conversation=True)
     monkeypatch.setattr(factory, "_provider_candidates", lambda *_args, **_kwargs: [provider])
@@ -992,7 +992,7 @@ def test_explicit_api_provider_uses_retained_api_settings_after_subscription(mon
     ],
 )
 def test_live_setup_reports_the_explicit_runtime_billing_path(provider, mode):
-    from jarvis.ui.web.live_routes import _profile_for_runtime
+    from dodaios.ui.web.live_routes import _profile_for_runtime
 
     saved_mode = "chatgpt_subscription" if mode == "api_key" else "api_key"
     cfg = SimpleNamespace(
@@ -1063,7 +1063,7 @@ async def test_filler_before_report_submission_cannot_confirm_delivery(make_sess
 
 
 async def test_failed_subscription_report_remains_owed_and_signals_pause(make_session, monkeypatch):
-    import jarvis.core.runtime_refs as base
+    import dodaios.core.runtime_refs as base
 
     paused = []
     monkeypatch.setattr(
@@ -1096,7 +1096,7 @@ async def test_report_summary_outlasts_speech_budget_and_still_gets_voiced(
     make_session,
     monkeypatch,
 ):
-    import jarvis.live.subscription as base
+    import dodaios.live.subscription as base
 
     monkeypatch.setattr(base, "REPORT_START_TIMEOUT_S", 0.01)
     session, reasoning, _, _, _, _ = make_session(
@@ -1231,9 +1231,9 @@ async def test_terminal_subscription_reconnect_error_stops_shared_retry_loop(
     monkeypatch,
     code,
 ):
-    import jarvis.live.recovery as recovery
-    import jarvis.live.session as base
-    from jarvis.plugins.realtime.openai_subscription_live import SubscriptionLiveError
+    import dodaios.live.recovery as recovery
+    import dodaios.live.session as base
+    from dodaios.plugins.realtime.openai_subscription_live import SubscriptionLiveError
 
     attempts, permits = [], []
 
@@ -1258,8 +1258,8 @@ async def test_subscription_transient_control_outage_reuses_call_and_shared_budg
     make_session,
     monkeypatch,
 ):
-    import jarvis.live.recovery as recovery
-    import jarvis.live.session as base
+    import dodaios.live.recovery as recovery
+    import dodaios.live.session as base
 
     attempts, permits = [], []
     restored = SubscriptionConnection()
@@ -1290,9 +1290,9 @@ async def test_terminal_subscription_recovery_on_pump_task_still_closes_resource
     make_session,
     monkeypatch,
 ):
-    import jarvis.live.recovery as recovery
-    import jarvis.live.session as base
-    from jarvis.plugins.realtime.openai_subscription_live import SubscriptionLiveError
+    import dodaios.live.recovery as recovery
+    import dodaios.live.session as base
+    from dodaios.plugins.realtime.openai_subscription_live import SubscriptionLiveError
 
     async def permit():
         return None
@@ -1403,7 +1403,7 @@ async def test_subscription_failure_uses_browser_status_contract(make_session, t
 
 
 async def test_report_reasoning_deadline_returns_failed_receipt(make_session, monkeypatch):
-    import jarvis.live.subscription as module
+    import dodaios.live.subscription as module
 
     monkeypatch.setattr(module, "REPORT_REASONING_TIMEOUT_S", 0.01)
     session, reasoning, _, messages, _, _ = make_session([])
@@ -1479,7 +1479,7 @@ def test_subscription_and_api_share_explicit_voice_and_thinking_identity():
 
 
 async def test_subscription_reasoning_inherits_configured_identity(make_session, monkeypatch):
-    import jarvis.live.subscription as module
+    import dodaios.live.subscription as module
 
     monkeypatch.setattr(module, "_identity", lambda config: "Your name is Lyra.")
     session, reasoning, _, _, _, _ = make_session(
@@ -1520,7 +1520,7 @@ async def test_followup_is_reasoned_about_while_the_first_action_still_runs(
     The running action goes on as a background task; when it ends, reasoning
     gets its receipt with tools, so the order that needed it is carried out.
     """
-    import jarvis.live.tools as live_tools
+    import dodaios.live.tools as live_tools
 
     monkeypatch.setattr(live_tools, "MOVE_ON_GRACE_S", 0.01)
     gateway = PausingAgentGateway()

@@ -13,9 +13,9 @@ import asyncio
 import math
 import struct
 
-from jarvis.browser_voice.audio import STT_SAMPLE_RATE
-from jarvis.browser_voice.session import BrowserVoiceSession
-from jarvis.core.protocols import AudioChunk
+from dodaios.browser_voice.audio import STT_SAMPLE_RATE
+from dodaios.browser_voice.session import BrowserVoiceSession
+from dodaios.core.protocols import AudioChunk
 from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
 
 

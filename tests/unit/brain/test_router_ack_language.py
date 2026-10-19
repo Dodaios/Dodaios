@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.router import RouterBrain
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
+from dodaios.brain.router import RouterBrain
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
 
 
 @pytest.mark.asyncio

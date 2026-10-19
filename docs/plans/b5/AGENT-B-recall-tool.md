@@ -19,7 +19,7 @@ The search engine is also consumed by Agent C for context-injection, which is wh
 
 1. **Unit tests for `VaultSearch`** (in `tests/unit/memory/test_wiki_search.py`) and for **`WikiRecallTool`** (in `tests/unit/plugins/test_wiki_recall_tool.py`) all pass.
 2. **Pre-flight unit-test suite stays at its baseline failure count** — see §6 of the overview.
-3. **`python -m jarvis --plugins | findstr wiki-recall`** lists the tool.
+3. **`python -m dodaios --plugins | findstr wiki-recall`** lists the tool.
 4. **Live voice demo (executed by review agent in Wave 2):** with a wiki note titled `Alex.md` containing the text "born 1985", saying "Hey Jarvis, what year was Alex born?" triggers a `wiki-recall` call (visible in `data/jarvis_desktop.log`) and the brain answers with "1985" present in the TTS output.
 5. **Tool latency p95 < 300 ms** for a vault with 100 notes (measured by your own smoke test).
 
@@ -28,8 +28,8 @@ The search engine is also consumed by Agent C for context-injection, which is wh
 ## 3. Files you may touch
 
 Create:
-- `jarvis/memory/wiki/search.py`
-- `jarvis/plugins/tool/wiki_recall.py`
+- `dodaios/memory/wiki/search.py`
+- `dodaios/plugins/tool/wiki_recall.py`
 - `tests/unit/memory/test_wiki_search.py`
 - `tests/unit/plugins/test_wiki_recall_tool.py`
 - `tests/integration/test_wiki_recall_e2e.py`
@@ -37,22 +37,22 @@ Create:
 Modify:
 - `pyproject.toml` — add one entry point line under `[project.entry-points."jarvis.tool"]`:
   ```toml
-  wiki-recall = "jarvis.plugins.tool.wiki_recall:WikiRecallTool"
+  wiki-recall = "dodaios.plugins.tool.wiki_recall:WikiRecallTool"
   ```
-- `jarvis/brain/factory.py` — add `"wiki-recall"` to the `ROUTER_TOOLS` frozenset and add a tool-construction branch right after the existing `awareness-recall` branch (line will shift; locate by string search for `"awareness-recall"`).
+- `dodaios/brain/factory.py` — add `"wiki-recall"` to the `ROUTER_TOOLS` frozenset and add a tool-construction branch right after the existing `awareness-recall` branch (line will shift; locate by string search for `"awareness-recall"`).
 
 ## 4. Files you must NOT touch (Taboo)
 
-- `jarvis/memory/wiki/curator.py`, `session_rollup.py`, `atomic_writer.py`, `backup.py`, `vault_index.py`, `log_writer.py`, `page.py`, `prompt.py`, `wikilink.py`, `protocols.py`, `cli.py`, `curator_llm.py` — all of B1+B7 is read-only.
-- `jarvis/memory/wiki/integration.py`, `scheduler.py`, `lock.py` — Agent A / Agent D territory; expect they may not exist yet.
-- `jarvis/brain/wiki_context.py`, `jarvis/brain/manager.py` — Agent C.
-- Anything in `jarvis/speech/`, `jarvis/skills/`, `jarvis/missions/`, `jarvis/audio/`, `jarvis/vision/`.
+- `dodaios/memory/wiki/curator.py`, `session_rollup.py`, `atomic_writer.py`, `backup.py`, `vault_index.py`, `log_writer.py`, `page.py`, `prompt.py`, `wikilink.py`, `protocols.py`, `cli.py`, `curator_llm.py` — all of B1+B7 is read-only.
+- `dodaios/memory/wiki/integration.py`, `scheduler.py`, `lock.py` — Agent A / Agent D territory; expect they may not exist yet.
+- `dodaios/brain/wiki_context.py`, `dodaios/brain/manager.py` — Agent C.
+- Anything in `dodaios/speech/`, `dodaios/skills/`, `dodaios/missions/`, `dodaios/audio/`, `dodaios/vision/`.
 
 ## 5. Interfaces you must provide
 
 The exact signatures are locked in overview §3.1 (`VaultSearch`, `SearchHit`) and §3.4 (`WikiRecallTool`). Below is the full implementation contract — read these closely, Agent C builds against them.
 
-### 5.1 `jarvis/memory/wiki/search.py`
+### 5.1 `dodaios/memory/wiki/search.py`
 
 ```python
 from __future__ import annotations
@@ -96,7 +96,7 @@ class VaultSearch:
     def search(self, query: str, *, k: int = 5) -> list[SearchHit]: ...
 ```
 
-### 5.2 `jarvis/plugins/tool/wiki_recall.py`
+### 5.2 `dodaios/plugins/tool/wiki_recall.py`
 
 ```python
 from __future__ import annotations
@@ -104,7 +104,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from jarvis.core.protocols import ToolResult
+from dodaios.core.protocols import ToolResult
 
 
 class WikiRecallTool:
@@ -159,9 +159,9 @@ Existing:
 
 | What | Where | How |
 |------|-------|-----|
-| `ToolResult` | `jarvis/core/protocols.py` | Return value of `execute`. |
-| `ROUTER_TOOLS` frozenset | `jarvis/brain/factory.py:40` (approx) | Add `"wiki-recall"`. |
-| Tool-construction branch pattern | `jarvis/brain/factory.py` — see the existing `awareness-recall` branch as your template | DI via constructor; the factory imports `VaultSearch` lazily and builds an instance with `vault_root = cfg.wiki_integration.vault_root` (Agent A defines that config field; assume it exists). |
+| `ToolResult` | `dodaios/core/protocols.py` | Return value of `execute`. |
+| `ROUTER_TOOLS` frozenset | `dodaios/brain/factory.py:40` (approx) | Add `"wiki-recall"`. |
+| Tool-construction branch pattern | `dodaios/brain/factory.py` — see the existing `awareness-recall` branch as your template | DI via constructor; the factory imports `VaultSearch` lazily and builds an instance with `vault_root = cfg.wiki_integration.vault_root` (Agent A defines that config field; assume it exists). |
 
 If `cfg.wiki_integration` is missing at construction time, default to `Path("wiki/obsidian-vault")` and log a single `WARNING` line. This is the **plausible-assumption fallback** in action.
 
@@ -196,7 +196,7 @@ fc /n pre-flight.log post-flight.log
 # Expected: no new FAILED lines
 
 # 3. Entry point registered
-python -m jarvis --plugins | findstr wiki-recall
+python -m dodaios --plugins | findstr wiki-recall
 # Expected: a line containing "wiki-recall"
 
 # 4. Integration: tool registers and returns hits against the actual obsidian-vault

@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.dictionary_routes import router as dictionary_router
+from dodaios.ui.web.dictionary_routes import router as dictionary_router
 
 
 @pytest.fixture

@@ -4,9 +4,9 @@ import ctypes
 from ctypes import wintypes
 from types import SimpleNamespace
 
-from jarvis.cu.indicator.win32 import _configure_user32 as configure_indicator_api
-from jarvis.platform.capture_exclusion import _configure_user32 as configure_exclusion_api
-from jarvis.platform.window_state import _configure_window_query_api
+from dodaios.cu.indicator.win32 import _configure_user32 as configure_indicator_api
+from dodaios.platform.capture_exclusion import _configure_user32 as configure_exclusion_api
+from dodaios.platform.window_state import _configure_window_query_api
 
 
 class _Fn:

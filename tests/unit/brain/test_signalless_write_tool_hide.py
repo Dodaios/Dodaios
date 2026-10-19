@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 _NEVER = re.compile(r"(?!)")  # matches nothing — no explicit heavy-work vehicle
 

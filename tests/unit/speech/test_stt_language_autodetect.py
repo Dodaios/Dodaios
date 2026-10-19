@@ -25,9 +25,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.config import STTConfig
-from jarvis.plugins.stt import build_stt_from_config
-from jarvis.plugins.stt.groq_api import GroqWhisperAPI
+from dodaios.core.config import STTConfig
+from dodaios.plugins.stt import build_stt_from_config
+from dodaios.plugins.stt.groq_api import GroqWhisperAPI
 
 # ---------------------------------------------------------------------------
 # Provider-level contract: "auto"/"" -> auto-detect; ISO pin -> forced.

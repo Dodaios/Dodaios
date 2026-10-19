@@ -5,12 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.provider_test import _default_realtime_probe
-from jarvis.core import config, registry
-from jarvis.core.protocols import ContinuousVoiceStart
-from jarvis.live import recovery
-from jarvis.live.config import LiveConfig
-from jarvis.realtime.protocol import RealtimeSessionConfig
+from dodaios.brain.provider_test import _default_realtime_probe
+from dodaios.core import config, registry
+from dodaios.core.protocols import ContinuousVoiceStart
+from dodaios.live import recovery
+from dodaios.live.config import LiveConfig
+from dodaios.realtime.protocol import RealtimeSessionConfig
 
 
 @pytest.fixture
@@ -153,7 +153,7 @@ async def test_rejected_live_probe_names_the_cause_without_the_body(
     probe, error, status, words
 ):
     """Live 2026-09-29: an empty balance read as "check the model settings"."""
-    from jarvis.brain.provider_test import classify_provider_error
+    from dodaios.brain.provider_test import classify_provider_error
 
     async def receive():
         return {"type": "error", "error": error}

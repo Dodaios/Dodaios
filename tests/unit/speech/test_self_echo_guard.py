@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import time
 
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 def _pipeline() -> SpeechPipeline:

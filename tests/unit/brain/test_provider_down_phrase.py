@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     BrainManager,
     _PROVIDER_DOWN_PHRASES,
     _provider_down_phrase,
@@ -125,13 +125,13 @@ class TestCauseAwareProviderDownPhrase:
     )
 
     def test_every_cause_covers_every_supported_language(self) -> None:
-        from jarvis.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
+        from dodaios.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
 
         for cause, table in _PROVIDER_DOWN_CAUSE_PHRASES.items():
             assert set(table) == {"de", "en", "es", "pt"}, cause
 
     def test_cause_phrases_are_voice_safe(self) -> None:
-        from jarvis.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
+        from dodaios.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
 
         for cause, table in _PROVIDER_DOWN_CAUSE_PHRASES.items():
             for lang, phrase in table.items():
@@ -140,7 +140,7 @@ class TestCauseAwareProviderDownPhrase:
                     assert bad not in low, (cause, lang, bad)
 
     def test_known_cause_selects_cause_phrase(self) -> None:
-        from jarvis.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
+        from dodaios.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
 
         got = _provider_down_phrase("en", 0, "missing_key")
         assert got == _PROVIDER_DOWN_CAUSE_PHRASES["missing_key"]["en"]
@@ -149,7 +149,7 @@ class TestCauseAwareProviderDownPhrase:
         assert _provider_down_phrase("en", 1, "weird_kind") == (_PROVIDER_DOWN_PHRASES["en"][1])
 
     def test_language_without_translations_falls_back_to_english_cause_phrase(self) -> None:
-        from jarvis.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
+        from dodaios.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
 
         got = _provider_down_phrase("tr", 0, "rate_limit")
         assert got == _PROVIDER_DOWN_CAUSE_PHRASES["rate_limit"]["en"]
@@ -161,34 +161,34 @@ class TestPrimaryProviderDownCause:
         return (prov, "model", kind, "detail")
 
     def test_missing_key_beats_rate_limit(self) -> None:
-        from jarvis.brain.manager import _primary_provider_down_cause
+        from dodaios.brain.manager import _primary_provider_down_cause
 
         errors = [self._err("rate_limit", "a"), self._err("missing_key", "b")]
         assert _primary_provider_down_cause(errors) == "missing_key"
 
     def test_skipped_cooldown_reads_as_rate_limit(self) -> None:
-        from jarvis.brain.manager import _primary_provider_down_cause
+        from dodaios.brain.manager import _primary_provider_down_cause
 
         assert _primary_provider_down_cause([self._err("skipped_cooldown")]) == "rate_limit"
 
     def test_unclassified_failure_reads_as_unreachable(self) -> None:
-        from jarvis.brain.manager import _primary_provider_down_cause
+        from dodaios.brain.manager import _primary_provider_down_cause
 
         assert _primary_provider_down_cause([self._err("network_error")]) == "unreachable"
 
     def test_empty_response_only_keeps_generic_phrase(self) -> None:
-        from jarvis.brain.manager import _primary_provider_down_cause
+        from dodaios.brain.manager import _primary_provider_down_cause
 
         assert _primary_provider_down_cause([self._err("empty_response")]) is None
 
     def test_no_errors_keeps_generic_phrase(self) -> None:
-        from jarvis.brain.manager import _primary_provider_down_cause
+        from dodaios.brain.manager import _primary_provider_down_cause
 
         assert _primary_provider_down_cause([]) is None
         assert _primary_provider_down_cause(None) is None
 
     def test_vision_unsupported_is_not_heard_as_a_missing_key(self) -> None:
-        from jarvis.brain.manager import (
+        from dodaios.brain.manager import (
             _PROVIDER_DOWN_CAUSE_PHRASES,
             _primary_provider_down_cause,
             _provider_down_phrase,

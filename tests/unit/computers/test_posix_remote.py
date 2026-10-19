@@ -20,11 +20,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import remote_cli
-from jarvis.computers import identity, remote_os, service, toolbox
-from jarvis.computers.service import ComputerError, ComputerService
-from jarvis.computers.store import ComputerStore
-from jarvis.society import remote
+from dodaios.agent_chat import remote_cli
+from dodaios.computers import identity, remote_os, service, toolbox
+from dodaios.computers.service import ComputerError, ComputerService
+from dodaios.computers.store import ComputerStore
+from dodaios.society import remote
 from tests.fakes.fake_ssh_server import FakeSshServer
 
 MAC_INSPECT = (
@@ -50,7 +50,7 @@ _SAFE_LINE = re.compile(
 @pytest.fixture
 def computers(tmp_path: Path, secret_box, monkeypatch: pytest.MonkeyPatch) -> ComputerService:  # noqa: ANN001
     path = tmp_path / "computers.json"
-    monkeypatch.setattr("jarvis.computers.store.default_path", lambda: path)
+    monkeypatch.setattr("dodaios.computers.store.default_path", lambda: path)
     svc = ComputerService(ComputerStore(path))
     monkeypatch.setattr(service, "_SERVICE", svc)
     return svc
@@ -134,7 +134,7 @@ def test_a_bare_cli_name_is_the_program_not_its_first_argument() -> None:
 
 
 def test_a_macs_health_reading_has_memory_uptime_and_the_data_volume() -> None:
-    from jarvis.computers.probe import parse_probe
+    from dodaios.computers.probe import parse_probe
 
     reading = parse_probe(
         "@@hostname\nmac-mini\n@@uname\nDarwin 24.0.0 arm64\n@@os\n"
