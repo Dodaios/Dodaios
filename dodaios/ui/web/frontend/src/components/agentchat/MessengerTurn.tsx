@@ -12,6 +12,7 @@ import { SubagentCard } from "@/components/agentic/threads/ThreadSubagents";
 import { isSubagentCall } from "@/components/agentic/threads/subagents";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { turnErrorText } from "./turnError";
 
 /**
  * One agent turn read like a messenger conversation. The agent's messages
@@ -60,7 +61,7 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
     {turn.status === "error" && (
       <p role="alert" className="mx-auto flex max-w-[85%] items-center gap-1.5 py-1 text-center text-xs text-destructive">
         <CircleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />
-        <span>{turn.error || t("thread_turn.failed")}</span>
+        <span>{turnErrorText(turn.error, t) || t("thread_turn.failed")}</span>
       </p>
     )}
     {turn.status === "cancelled" && <SystemLine>{t("thread_turn.stopped")}</SystemLine>}
