@@ -45,16 +45,16 @@
       "helm": {
         "eyebrow": "Helm",
         "title": "Set a course",
-        "holding": "Holding at {name}",
+        "holding": "Holding at {place}",
         "captain_level": "Captain level {n}",
         "opens": "Level {n}",
         "here": "Here",
         "open": "Open",
         "locked": "Locked",
-        "locked_say": "{name} opens at captain level {n}.",
-        "already": "The ship is already at {name}.",
-        "engaged": "Course laid in for {name}. Engaging.",
-        "warping": "Jumping to {name}…",
+        "locked_say": "{place} opens at captain level {n}.",
+        "already": "The ship is already at {place}.",
+        "engaged": "Course laid in for {place}. Engaging.",
+        "warping": "Jumping to {place}…",
         "hint": "Arrow keys choose, Enter engages, Escape closes."
       },
       "destination": {

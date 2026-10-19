@@ -45,16 +45,16 @@
       "helm": {
         "eyebrow": "Leme",
         "title": "Traçar um rumo",
-        "holding": "Em posição em {name}",
+        "holding": "Em posição em {place}",
         "captain_level": "Nível de capitão {n}",
         "opens": "Nível {n}",
         "here": "Aqui",
         "open": "Aberto",
         "locked": "Bloqueado",
-        "locked_say": "{name} abre no nível de capitão {n}.",
-        "already": "A nave já está em {name}.",
-        "engaged": "Rumo traçado para {name}. Acionar.",
-        "warping": "Saltando para {name}…",
+        "locked_say": "{place} abre no nível de capitão {n}.",
+        "already": "A nave já está em {place}.",
+        "engaged": "Rumo traçado para {place}. Acionar.",
+        "warping": "Saltando para {place}…",
         "hint": "As setas escolhem, Enter salta, Escape fecha."
       },
       "destination": {
