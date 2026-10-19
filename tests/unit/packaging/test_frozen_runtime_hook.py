@@ -181,15 +181,21 @@ def legacy_home(frozen_bundle: tuple[Path, Path]) -> Path:
     return legacy
 
 
-@pytest.fixture
+@pytest.fixture(params=["DodaiosApp.exe", "PersonalJarvis.exe"])
 def desktop_app(
+    request: pytest.FixtureRequest,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     hook: ModuleType,
     frozen_bundle: tuple[Path, Path],
 ) -> ModuleType:
-    """Run the hook as the desktop app's executable, with no other instance running."""
-    monkeypatch.setattr(sys, "executable", str(tmp_path / "bundle" / "PersonalJarvis.exe"))
+    """Run the hook as the desktop app's executable, with no other instance running.
+
+    Under its current name and its earlier one: the bundle ships both, and a
+    pinned taskbar button or a logon task of an earlier release starts the
+    earlier file.
+    """
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "bundle" / request.param))
     monkeypatch.setattr(sys, "argv", [sys.executable])
     # A name no live app holds: the real one may be running on this machine.
     monkeypatch.setattr(hook, "_MUTEX_NAMES", (f"Local\\HookTestNoSuchMutex_{os.getpid()}",))

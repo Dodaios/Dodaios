@@ -30,13 +30,24 @@ from dodaios.core.instance import current_instance
 # window and never overwrite each other's Start-Menu entry. Bound at import —
 # the launcher pins the instance into the environment before importing this.
 _INSTANCE = current_instance()
-# The name REGISTERED with the shell (toast identity, shortcut description,
-# relaunch name, desktop-entry ``Name``). It is the persistent name, not the
-# window title: a registration keeps the value existing installs carry.
+# The name REGISTERED with the Linux shell (desktop-entry ``Name``). It is the
+# persistent name, not the window title: a registration keeps the value
+# existing installs carry until it moves with its own migration.
 APP_DISPLAY_NAME = _INSTANCE.persistent_name
+# The name registered with the Windows shell: toast identity, shortcut
+# description, relaunch name. It matches the shortcut's file name, which is the
+# name the taskbar and Windows Search show.
+WINDOWS_APP_DISPLAY_NAME = _INSTANCE.windows_launcher_entry_name
 APP_USER_MODEL_ID = _INSTANCE.windows_aumid
 BRANDED_LAUNCHER_EXE_NAME = _INSTANCE.windows_branded_launcher_file_name
+#: Earlier names of the branded exe. Never created again, but a copy under
+#: one of them is still this app (a pinned taskbar button or a shortcut of an
+#: earlier release starts it), so it never re-execs into the current name.
+LEGACY_BRANDED_LAUNCHER_EXE_NAMES = _INSTANCE.legacy_windows_branded_launcher_file_names
 START_MENU_SHORTCUT_NAME = _INSTANCE.windows_shortcut_file_name
+#: Earlier names of the Start-Menu and Desktop shortcut, retired once the
+#: current one is in place (``dodaios.setup.desktop_integration``).
+LEGACY_START_MENU_SHORTCUT_NAMES = _INSTANCE.legacy_windows_shortcut_file_names
 LINUX_DESKTOP_ENTRY_NAME = _INSTANCE.linux_desktop_entry_file_name
 LINUX_WM_CLASS = _INSTANCE.linux_wm_class
 #: Launcher argv written into shortcuts / desktop entries so a click reopens
@@ -100,7 +111,7 @@ def _installer_owns_shell_registration(artifact: str) -> bool:
     return True
 
 # A per-install copy of ``pythonw.exe`` (next to the interpreter, or in the
-# per-user ``%LOCALAPPDATA%\PersonalJarvis\bin`` when the base dir is read-only),
+# per-user ``%LOCALAPPDATA%\DodaiosApp\bin`` when the base dir is read-only),
 # carrying the Jarvis mascot as its EMBEDDED icon. On Windows the taskbar button of
 # a running app takes the icon of the LAUNCHING EXECUTABLE — not the window icon,
 # class icon, AUMID, Start-Menu shortcut, registry, or icon cache (all verified
@@ -116,7 +127,7 @@ _BRANDED_LAUNCH_ENV = WINDOWS_BRANDED_LAUNCH_ENV_VAR
 def register_windows_app_user_model_id(
     app_id: str = APP_USER_MODEL_ID,
     *,
-    display_name: str = APP_DISPLAY_NAME,
+    display_name: str = WINDOWS_APP_DISPLAY_NAME,
     icon_path: Path | None = None,
 ) -> bool:
     """Register the AUMID's ``DisplayName`` (+ icon) under HKCU for *toasts*.
@@ -185,7 +196,7 @@ def _shortcut_launch_target() -> Path | None:
     report from 2026-08-16, next to an Obsidian and a Discord entry that work
     because each points at its own ``.exe``.
 
-    ``PersonalJarvis.exe`` built inside the venv IS our own executable and needs
+    ``DodaiosApp.exe`` built inside the venv IS our own executable and needs
     no environment handed to it, so it is a valid shortcut target and makes the
     entry a real app. The other branded homes need ``__PYVENV_LAUNCHER__``,
     which a shortcut cannot supply — those keep the historical ``pythonw``
@@ -411,7 +422,7 @@ def _base_pythonw_executable() -> Path | None:
 def _user_launcher_dir() -> Path | None:
     """Per-user home for the branded exe when the base dir is not writable.
 
-    ``%LOCALAPPDATA%\\PersonalJarvis\\bin`` is writable for every account — the
+    ``%LOCALAPPDATA%\\DodaiosApp\\bin`` is writable for every account — the
     base interpreter dir is NOT on most machines (an all-users install lands in
     ``Program Files``; only an elevated/admin session can write there, which is
     why base-dir-only branding worked on the maintainer's box and silently kept
@@ -550,7 +561,7 @@ def ensure_branded_launcher_exe() -> Path | None:
 
     The taskbar button takes its icon from the window-owning executable, which is
     the *base* interpreter (the venv ``pythonw`` only redirects to it). So we copy
-    the base ``pythonw.exe`` to ``PersonalJarvis.exe`` and stamp the Jarvis
+    the base ``pythonw.exe`` to ``DodaiosApp.exe`` and stamp the Jarvis
     ``.ico`` as its embedded icon. The venv is re-attached at launch via
     ``__PYVENV_LAUNCHER__`` (see ``maybe_reexec_through_branded_launcher``), so
     the branded copy runs the app with the venv's packages while OWNING the
@@ -561,7 +572,7 @@ def ensure_branded_launcher_exe() -> Path | None:
     1. next to the base interpreter — zero extra files, but the base dir is
        writable only for elevated accounts when Python lives under
        ``Program Files`` (the common all-users install);
-    2. ``%LOCALAPPDATA%\\PersonalJarvis\\bin`` — writable for EVERY account;
+    2. ``%LOCALAPPDATA%\\DodaiosApp\\bin`` — writable for EVERY account;
        the interpreter runtime DLLs are copied beside the exe and the fresh
        copy is smoke-started once before it is trusted.
 
@@ -659,7 +670,7 @@ def maybe_reexec_through_branded_launcher(argv: list[str]) -> int | None:
     The taskbar button icon is the launching exe's embedded icon, so a bare
     ``pythonw.exe`` start shows the Python logo regardless of every window-icon /
     AUMID / shortcut effort. Relaunching the SAME launcher module through
-    ``PersonalJarvis.exe`` (a pythonw copy carrying the mascot icon) is the only
+    ``DodaiosApp.exe`` (a pythonw copy carrying the mascot icon) is the only
     thing that brands the taskbar button — and it covers every entry point at one
     chokepoint (``run.bat``, the Start-Menu/pinned shortcut, the autostart task,
     the tray self-restart), because they all funnel through ``main()``.
@@ -676,9 +687,14 @@ def maybe_reexec_through_branded_launcher(argv: list[str]) -> int | None:
     # real running image is ``sys._base_executable`` (our branded copy).
     if os.environ.get(_BRANDED_LAUNCH_ENV) == "1":
         return None
-    branded_name = BRANDED_LAUNCHER_EXE_NAME.lower()
+    # Every name the branded exe has had: a copy under an earlier name (a
+    # pinned taskbar button or a shortcut of an earlier release starts it) is
+    # the branded app already, not a bare interpreter to brand.
+    branded_names = {
+        name.lower() for name in (BRANDED_LAUNCHER_EXE_NAME, *LEGACY_BRANDED_LAUNCHER_EXE_NAMES)
+    }
     base_exe = getattr(sys, "_base_executable", "") or ""
-    if Path(base_exe).name.lower() == branded_name:
+    if Path(base_exe).name.lower() in branded_names:
         return None
     # The in-venv branded copy IS the running image, yet `_base_executable`
     # still names the interpreter behind it (a Store alias, say) — so the check
@@ -686,7 +702,7 @@ def maybe_reexec_through_branded_launcher(argv: list[str]) -> int | None:
     # just started it. Harmless (the child sets the env marker and stops) but a
     # wasted process and boot delay on every Start-Menu launch, which is the
     # normal way in once the shortcut targets this exe.
-    if Path(sys.executable).name.lower() == branded_name:
+    if Path(sys.executable).name.lower() in branded_names:
         return None
     # A visible-console/debug run wants python.exe's console; re-exec'ing through
     # a windowless pythonw copy would swallow it. Leave those alone.
@@ -813,7 +829,7 @@ def _shortcut_matches_install(
 def ensure_start_menu_shortcut(
     *,
     aumid: str = APP_USER_MODEL_ID,
-    display_name: str = APP_DISPLAY_NAME,
+    display_name: str = WINDOWS_APP_DISPLAY_NAME,
     icon_path: Path | None = None,
     programs_dir: Path | None = None,
 ) -> bool:
@@ -823,7 +839,7 @@ def ensure_start_menu_shortcut(
     a grouped taskbar button and its jump-list header: it matches the running
     window's process AUMID (set by ``SetCurrentProcessExplicitAppUserModelID``)
     to a Start-Menu shortcut carrying the same ``System.AppUserModel.ID`` and
-    shows that shortcut's **file name** ("Personal Jarvis") and **icon**. A
+    shows that shortcut's **file name** ("Dodaios") and **icon**. A
     shortcut-less ``pythonw`` app falls back to the process description
     ("Python") — the exact symptom the user reported. The shortcut only needs to
     *exist* in the Start Menu; Windows resolves it regardless of how the app was
@@ -918,8 +934,27 @@ def ensure_start_menu_shortcut(
     if _write_branded_shortcut(lnk, target=pythonw, ico=ico, aumid=aumid,
                                display_name=display_name):
         logger.debug("Start-Menu shortcut ensured: {}", lnk)
+        _retire_legacy_start_menu_shortcuts(programs, launch_target=pythonw)
         return True
     return False
+
+
+def _retire_legacy_start_menu_shortcuts(programs: Path, *, launch_target: Path) -> None:
+    """Drop a Start-Menu entry of the product's earlier name that starts this install.
+
+    Runs once the current entry exists, so the app is never left without one.
+    Best-effort: a failure leaves a second, working entry behind.
+    """
+    try:
+        import dodaios
+        from dodaios.setup.desktop_integration import retire_legacy_windows_launchers
+
+        install_root = Path(dodaios.__file__).resolve().parent.parent
+        retire_legacy_windows_launchers(
+            (programs,), install_root=install_root, launch_target=launch_target
+        )
+    except Exception as exc:  # noqa: BLE001 — cosmetic cleanup, never load-bearing
+        logger.debug("earlier Start-Menu shortcut not retired: {}", exc)
 
 
 def _write_branded_shortcut(
@@ -978,7 +1013,7 @@ def _default_desktop_dir() -> Path | None:
 def ensure_desktop_shortcut(
     *,
     aumid: str = APP_USER_MODEL_ID,
-    display_name: str = APP_DISPLAY_NAME,
+    display_name: str = WINDOWS_APP_DISPLAY_NAME,
     icon_path: Path | None = None,
     desktop_dir: Path | None = None,
     create_if_missing: bool = True,
@@ -1091,7 +1126,7 @@ def ensure_windows_app_identity(
          "Python".
       2. ``ensure_start_menu_shortcut`` — the AUMID-tagged Start-Menu shortcut
          that gives that key a *name* + icon, so the button/jump-list header
-         read "Personal Jarvis" instead of the ``pythonw.exe`` description. This
+         read "Dodaios" instead of the ``pythonw.exe`` description. This
          is the layer that actually fixed the "taskbar says Python" report;
          layer 1 alone leaves the button nameless.
       3. ``register_windows_app_user_model_id`` — HKCU ``DisplayName`` for the
@@ -1146,7 +1181,7 @@ def set_window_relaunch_properties(
     *,
     ico_path: Path | None = None,
     aumid: str = APP_USER_MODEL_ID,
-    display_name: str = APP_DISPLAY_NAME,
+    display_name: str = WINDOWS_APP_DISPLAY_NAME,
 ) -> bool:
     """Stamp per-window AppUserModel Relaunch* properties → taskbar shows OUR icon.
 

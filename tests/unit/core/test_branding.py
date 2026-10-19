@@ -19,7 +19,8 @@ _CURRENT_IDENTITY = {
     "PERSISTENT_SLUG": "personal-jarvis",
     "PRODUCT_COMPACT_NAME": "PersonalJarvis",
     "PRODUCT_SLUG": "personal-jarvis",
-    "LAUNCHER_ENTRY_NAME": "Personal Jarvis",
+    "LAUNCHER_ENTRY_NAME": "Dodaios",
+    "LEGACY_LAUNCHER_ENTRY_NAMES": ("Personal Jarvis",),
     "CONFIG_FILE_NAME": "dodaios.toml",
     "LEGACY_CONFIG_FILE_NAMES": ("jarvis.toml",),
     "DISTRIBUTION_NAME": "personal-jarvis",
@@ -49,21 +50,27 @@ _CURRENT_IDENTITY = {
     "LEGACY_DELIVERABLES_DIR_NAMES": ("Jarvis-Outputs",),
     "OBSIDIAN_VAULT_FOLDER_NAME": "Dodaios",
     "LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES": ("Jarvis",),
-    "WINDOWS_MUTEX_NAME": r"Global\PersonalJarvis_v1",
-    "LEGACY_WINDOWS_MUTEX_NAMES": (),
+    "WINDOWS_MUTEX_NAME": r"Global\Dodaios_v1",
+    "LEGACY_WINDOWS_MUTEX_NAMES": (r"Global\PersonalJarvis_v1",),
     "WINDOWS_APP_USER_MODEL_ID": "PersonalJarvis.PersonalJarvis",
     "WINDOWS_UNINSTALL_REGISTRY_SUBKEY": (
         r"Software\Microsoft\Windows\CurrentVersion\Uninstall\PersonalJarvis"
     ),
-    "WINDOWS_AUTOSTART_TASK_NAME": "Personal Jarvis Autostart",
-    "WINDOWS_SHORTCUT_FILE_NAME": "Personal Jarvis.lnk",
-    "WINDOWS_AUTOSTART_DESCRIPTION": "Personal Jarvis (Autostart)",
-    "WINDOWS_BRANDED_LAUNCHER_FILE_NAME": "PersonalJarvis.exe",
-    "WINDOWS_BRANDED_LAUNCHER_DIR_NAME": "PersonalJarvis",
+    "WINDOWS_AUTOSTART_TASK_NAME": "Dodaios Autostart",
+    "LEGACY_WINDOWS_AUTOSTART_TASK_NAMES": ("Personal Jarvis Autostart",),
+    "WINDOWS_SHORTCUT_FILE_NAME": "Dodaios.lnk",
+    "LEGACY_WINDOWS_SHORTCUT_FILE_NAMES": ("Personal Jarvis.lnk",),
+    "WINDOWS_AUTOSTART_DESCRIPTION": "Dodaios (Autostart)",
+    "LEGACY_WINDOWS_AUTOSTART_DESCRIPTIONS": ("Personal Jarvis (Autostart)",),
+    "WINDOWS_BRANDED_LAUNCHER_FILE_NAME": "DodaiosApp.exe",
+    "LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES": ("PersonalJarvis.exe",),
+    "WINDOWS_BRANDED_LAUNCHER_DIR_NAME": "DodaiosApp",
+    "LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES": ("PersonalJarvis",),
     "WINDOWS_BRANDED_LAUNCH_ENV_VAR": "JARVIS_BRANDED_LAUNCH",
     "MACOS_APP_NAME": "Personal Jarvis",
     "MACOS_APP_DIR_NAME": "Personal Jarvis.app",
-    "MACOS_EXECUTABLE_NAME": "PersonalJarvis",
+    "MACOS_EXECUTABLE_NAME": "DodaiosApp",
+    "LEGACY_MACOS_EXECUTABLE_NAMES": ("PersonalJarvis",),
     "MACOS_BUNDLE_ID": "com.personal-jarvis.desktop",
     "MACOS_DMG_BUNDLE_ID": "ai.personaljarvis.desktop",
     "MACOS_AUTOSTART_LABEL": "com.personal-jarvis.autostart",
@@ -95,6 +102,15 @@ _MIGRATED_TO_THE_PRODUCT_NAME = frozenset(
         "OBSIDIAN_VAULT_FOLDER_NAME",
         "MANAGED_INSTALL_MARKER",
         "DEFAULT_INSTALL_DIR_NAME",
+        # The Windows identity: launcher, shortcut, logon task, mutex.
+        "LAUNCHER_ENTRY_NAME",
+        "WINDOWS_MUTEX_NAME",
+        "WINDOWS_AUTOSTART_TASK_NAME",
+        "WINDOWS_AUTOSTART_DESCRIPTION",
+        "WINDOWS_SHORTCUT_FILE_NAME",
+        "WINDOWS_BRANDED_LAUNCHER_FILE_NAME",
+        "WINDOWS_BRANDED_LAUNCHER_DIR_NAME",
+        "MACOS_EXECUTABLE_NAME",
     }
 )
 # Every spelling of a migrated name, the current one first.
@@ -118,6 +134,20 @@ def test_default_exported_identity_values_are_frozen() -> None:
         if previous is not None:
             os.environ[branding.OFFICIAL_REPO_SLUG_ENV_VAR] = previous
         importlib.reload(branding)
+
+
+def test_the_windows_identity_keeps_what_pins_and_installs_resolve_by() -> None:
+    # The taskbar groups windows and resolves pins by the AUMID, a source
+    # install's Installed Apps entry lives under the subkey, and a process of
+    # an earlier release reads the branded-launch variable: none of them moved.
+    assert "Dodaios" not in branding.WINDOWS_APP_USER_MODEL_ID
+    assert "Dodaios" not in branding.WINDOWS_UNINSTALL_REGISTRY_SUBKEY
+    assert branding.WINDOWS_BRANDED_LAUNCH_ENV_VAR == "JARVIS_BRANDED_LAUNCH"
+    # The launcher folder sits beside the data directory and must not be it.
+    assert (
+        branding.WINDOWS_BRANDED_LAUNCHER_DIR_NAME.casefold()
+        != branding.WINDOWS_USER_DATA_DIR_NAME.casefold()
+    )
 
 
 def test_display_name_is_separate_from_persistent_identity() -> None:

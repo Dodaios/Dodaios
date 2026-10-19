@@ -56,6 +56,7 @@ if str(_SOURCE_ROOT) not in sys.path:
 from dodaios.core.branding import (  # noqa: E402 - bootstrap source path above
     CLI_COMMAND_NAME,
     LAUNCHER_ENTRY_NAME,
+    LINUX_APP_NAME,
     MACOS_APP_NAME,
     MANAGED_INSTALL_MARKERS,
     OFFICIAL_REPO_SLUG,
@@ -607,7 +608,7 @@ def _note_stalled_spotlight() -> None:
     if (result.stdout or "").strip().splitlines()[-1:] != ["False"]:
         return
     note("Spotlight on this Mac is not indexing new apps, so search will not find")
-    note(f"{LAUNCHER_ENTRY_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
+    note(f"{MACOS_APP_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
     note("To repair the macOS search index, run:  sudo mdutil -E /")
 
 
@@ -903,11 +904,11 @@ def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
         rows.append(("Start again", f'Windows search -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
     elif sys.platform == "darwin":
         rows.append(
-            ("Start again", f'Launchpad or Spotlight → "{LAUNCHER_ENTRY_NAME}"', "brand")
+            ("Start again", f'Launchpad or Spotlight → "{MACOS_APP_NAME}"', "brand")
         )
         rows.append(("Permissions", "macOS asks on first launch - approve each prompt", "muted"))
     elif sys.platform.startswith("linux") and not (headless or is_headless_linux()):
-        rows.append(("Start again", f'app menu -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
+        rows.append(("Start again", f'app menu -> "{LINUX_APP_NAME}"', "brand"))
     else:
         rows.append(("Start again", ".venv/bin/python -m dodaios.ui.web.launcher", "brand"))
         rows.append(("", "(in the install folder)", "muted"))

@@ -4,7 +4,7 @@ The Windows taskbar button takes its icon from the executable that OWNS the
 window — NOT the window/class icon, AUMID, Start-Menu shortcut, registry, or
 icon cache (all verified to have no effect on the button). A bare
 ``pythonw.exe`` launch therefore shows the Python logo on the taskbar. The fix
-re-execs the launcher through ``PersonalJarvis.exe`` — a copy of the *base*
+re-execs the launcher through ``DodaiosApp.exe`` — a copy of the *base*
 interpreter's ``pythonw`` (the real window-owner; a venv launcher only
 redirects to it) carrying the mascot icon, with the venv re-attached via
 ``__PYVENV_LAUNCHER__``. These tests pin the contract without spawning a GUI.
@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+from dodaios.core.branding import WINDOWS_BRANDED_LAUNCHER_DIR_NAME
 from dodaios.ui import icon_utils
 
 
@@ -85,7 +86,7 @@ def test_branded_candidates_prefer_the_venv_then_base_then_user_dir(
         targets = targets[1:]
     if icon_utils._base_pythonw_executable() is not None:
         assert targets[0].parent == Path(sys.base_prefix)
-        assert targets[1] == tmp_path / "PersonalJarvis" / "bin" / (
+        assert targets[1] == tmp_path / WINDOWS_BRANDED_LAUNCHER_DIR_NAME / "bin" / (
             icon_utils.BRANDED_LAUNCHER_EXE_NAME
         )
     assert all(t.name == icon_utils.BRANDED_LAUNCHER_EXE_NAME for _s, t in candidates)
@@ -101,7 +102,7 @@ def test_no_localappdata_drops_only_the_per_user_home(
         pytest.skip("no interpreter resolvable in this environment")
     targets = [t for _s, t in candidates]
     # Nothing may point into the (now unknown) per-user dir.
-    assert all("PersonalJarvis\\bin" not in str(t) for t in targets)
+    assert all(f"{WINDOWS_BRANDED_LAUNCHER_DIR_NAME}\\bin" not in str(t) for t in targets)
     if icon_utils._base_pythonw_executable() is not None:
         assert any(t.parent == Path(sys.base_prefix) for t in targets)
 
@@ -276,3 +277,43 @@ def test_ms_store_alias_base_is_skipped_not_copied(
 
     monkeypatch.setattr(Path, "stat", _fake_path_stat, raising=False)
     assert icon_utils.ensure_branded_launcher_exe() is None
+
+
+
+@pytest.mark.parametrize("which", ["current", "earlier"])
+def test_reexec_never_rebrands_a_process_that_is_the_branded_exe(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, which: str
+) -> None:
+    """A copy under the earlier name (a pinned button of an earlier release
+    starts it) is the branded app already: re-exec'ing it into the current
+    name would cost a second process and a boot delay on every launch."""
+    name = (
+        icon_utils.BRANDED_LAUNCHER_EXE_NAME
+        if which == "current"
+        else icon_utils.LEGACY_BRANDED_LAUNCHER_EXE_NAMES[0]
+    )
+    monkeypatch.setattr(icon_utils.sys, "platform", "win32")
+    monkeypatch.delenv(icon_utils._BRANDED_LAUNCH_ENV, raising=False)
+    monkeypatch.delenv("JARVIS_DEBUG", raising=False)
+    monkeypatch.setattr(icon_utils.sys, "_base_executable", str(tmp_path / name), raising=False)
+
+    def must_not_build() -> Path:  # pragma: no cover - must never run
+        raise AssertionError("a branded process must not build another branded copy")
+
+    monkeypatch.setattr(icon_utils, "ensure_branded_launcher_exe", must_not_build)
+    assert icon_utils.maybe_reexec_through_branded_launcher([]) is None
+
+
+def test_the_branded_exe_and_its_home_carry_the_current_names() -> None:
+    from dodaios.core.branding import (
+        LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+        WINDOWS_BRANDED_LAUNCHER_DIR_NAME,
+        WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
+        WINDOWS_USER_DATA_DIR_NAME,
+    )
+
+    assert icon_utils.BRANDED_LAUNCHER_EXE_NAME == WINDOWS_BRANDED_LAUNCHER_FILE_NAME
+    legacy = icon_utils.LEGACY_BRANDED_LAUNCHER_EXE_NAMES
+    assert legacy == LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES
+    # The per-user home is not the data directory beside it.
+    assert WINDOWS_BRANDED_LAUNCHER_DIR_NAME.casefold() != WINDOWS_USER_DATA_DIR_NAME.casefold()

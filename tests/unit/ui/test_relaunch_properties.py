@@ -92,7 +92,7 @@ def test_relaunch_properties_stick_on_a_real_window() -> None:
         name = store.GetValue((fmtid, icon_utils._PID_RELAUNCH_NAME)).GetValue()
 
         assert aumid == icon_utils.APP_USER_MODEL_ID
-        assert name == icon_utils.APP_DISPLAY_NAME
+        assert name == icon_utils.WINDOWS_APP_DISPLAY_NAME
         assert str(icon).lower().endswith(".ico,0")
     finally:
         try:

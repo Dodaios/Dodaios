@@ -64,7 +64,9 @@ function Stop-JarvisProcesses([string]$Root) {
 # available even when a broken venv prevents importing the installed package.
 $DefaultInstallDirName = '.dodaios'
 $LegacyInstallDirName = '.personal-jarvis'
-$WindowsShortcutFileName = 'Personal Jarvis.lnk'
+$WindowsShortcutFileName = 'Dodaios.lnk'
+# Earlier names of the shortcut. Removed only where they start this install.
+$LegacyWindowsShortcutFileNames = @('Personal Jarvis.lnk')
 $WindowsUninstallRegistrySubkey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\PersonalJarvis'
 $WindowsAppUserModelId = 'PersonalJarvis.PersonalJarvis'
 
@@ -127,8 +129,30 @@ if (Test-Path -LiteralPath $VenvPython) {
         if ($ans -ne 'yes') { Write-Note 'Cancelled.'; exit 1 }
     }
     if ($env:APPDATA) {
-        $Shortcut = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\$WindowsShortcutFileName"
+        $Programs = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
+        $Shortcut = Join-Path $Programs $WindowsShortcutFileName
         Remove-Item -LiteralPath $Shortcut -Force -ErrorAction SilentlyContinue
+        # A shortcut written before the install folder moved names it by the
+        # earlier path, which the link left there leads through: every path
+        # that reaches this install counts.
+        $Prefixes = @($InstallDir, $RealInstallDir)
+        foreach ($Candidate in @($LegacyInstallDir, $CurrentInstallDir)) {
+            if ((Get-DirectoryLinkTarget $Candidate) -eq $RealInstallDir) { $Prefixes += $Candidate }
+        }
+        $Prefixes = @($Prefixes | ForEach-Object { $_.TrimEnd('\') + '\' })
+        foreach ($Legacy in $LegacyWindowsShortcutFileNames) {
+            $LegacyShortcut = Join-Path $Programs $Legacy
+            if (-not (Test-Path -LiteralPath $LegacyShortcut)) { continue }
+            $Target = $null
+            try { $Target = (New-Object -ComObject WScript.Shell).CreateShortcut($LegacyShortcut).TargetPath } catch {}
+            if (-not $Target) { continue }
+            foreach ($Prefix in $Prefixes) {
+                if ($Target.StartsWith($Prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    Remove-Item -LiteralPath $LegacyShortcut -Force -ErrorAction SilentlyContinue
+                    break
+                }
+            }
+        }
     }
     Remove-Item -LiteralPath "Registry::HKEY_CURRENT_USER\$WindowsUninstallRegistrySubkey" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath "Registry::HKEY_CURRENT_USER\Software\Classes\AppUserModelId\$WindowsAppUserModelId" -Recurse -Force -ErrorAction SilentlyContinue

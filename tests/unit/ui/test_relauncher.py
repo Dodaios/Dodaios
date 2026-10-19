@@ -378,3 +378,54 @@ def test_restart_watchdog_exits_while_destroy_window_is_blocked():
     release_destroy.set()
     worker.join(timeout=0.5)
     assert not worker.is_alive()
+
+
+def test_build_launch_command_still_finds_the_branded_exe_under_its_earlier_name(
+    monkeypatch, tmp_path
+):
+    # An install updated from an earlier release has only the earlier copy
+    # until the next start builds the current one; a restart must still use it.
+    from dodaios.core.instance import current_instance
+
+    (legacy_name,) = current_instance().legacy_windows_branded_launcher_file_names
+    legacy = tmp_path / legacy_name
+    legacy.write_bytes(b"MZ")
+    monkeypatch.setattr(relauncher.sys, "platform", "win32")
+    monkeypatch.setattr(relauncher.sys, "executable", str(tmp_path / "python.exe"))
+    monkeypatch.setattr(relauncher.sys, "_base_executable", "", raising=False)
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+
+    assert relauncher.build_launch_command("python.exe")[0] == str(legacy)
+    # Once the current copy exists it wins.
+    current = tmp_path / current_instance().windows_branded_launcher_file_name
+    current.write_bytes(b"MZ")
+    assert relauncher.build_launch_command("python.exe")[0] == str(current)
+
+
+def test_the_branded_exe_is_found_in_the_earlier_per_user_folder(monkeypatch, tmp_path):
+    from dodaios.core.branding import LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES
+    from dodaios.core.instance import current_instance
+
+    (legacy_name,) = current_instance().legacy_windows_branded_launcher_file_names
+    old_home = tmp_path / LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES[0] / "bin"
+    old_home.mkdir(parents=True)
+    (old_home / legacy_name).write_bytes(b"MZ")
+    monkeypatch.setattr(relauncher.sys, "platform", "win32")
+    monkeypatch.setattr(relauncher.sys, "executable", str(tmp_path / "venv" / "python.exe"))
+    monkeypatch.setattr(relauncher.sys, "_base_executable", "", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    assert relauncher._existing_branded_launcher() == old_home / legacy_name
+
+
+def test_the_loop_guard_is_set_for_the_branded_exe_under_its_earlier_name(
+    monkeypatch, tmp_path
+):
+    from dodaios.core.instance import current_instance
+
+    (legacy_name,) = current_instance().legacy_windows_branded_launcher_file_names
+    monkeypatch.setattr(relauncher.sys, "platform", "win32")
+    env = relauncher._apply_branded_launch_env(
+        {"PATH": "/bin"}, [str(tmp_path / legacy_name), "-m", "dodaios.ui.web.launcher"]
+    )
+    assert env["JARVIS_BRANDED_LAUNCH"] == "1"

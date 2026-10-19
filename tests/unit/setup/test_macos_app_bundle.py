@@ -13,6 +13,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
+from dodaios.core.branding import MACOS_EXECUTABLE_NAME
 from dodaios.setup.macos_app_bundle import (
     APP_DIR_NAME,
     ensure_macos_app_bundle,
@@ -486,7 +487,7 @@ def test_build_native_bundle_layout_and_clang_invocation(
 
     assert bundle == work / APP_DIR_NAME
     info = plistlib.loads((bundle / "Contents" / "Info.plist").read_bytes())
-    assert info["CFBundleExecutable"] == "PersonalJarvis"
+    assert info["CFBundleExecutable"] == MACOS_EXECUTABLE_NAME == "DodaiosApp"
     assert info["CFBundleIdentifier"] == "com.personal-jarvis.desktop"
     from dodaios.setup.macos_app_bundle import _BUNDLE_FORMAT_VERSION
 
@@ -497,7 +498,7 @@ def test_build_native_bundle_layout_and_clang_invocation(
     for language in ("de", "es", "pt-PT"):
         strings = bundle / "Contents" / "Resources" / f"{language}.lproj" / "InfoPlist.strings"
         assert "NSMicrophoneUsageDescription" in strings.read_text(encoding="utf-8")
-    executable = bundle / "Contents" / "MacOS" / "PersonalJarvis"
+    executable = bundle / "Contents" / "MacOS" / MACOS_EXECUTABLE_NAME
     assert executable.read_bytes()[:4] == b"\xcf\xfa\xed\xfe"
     if os.name != "nt":
         assert executable.stat().st_mode & stat.S_IXUSR
