@@ -9,6 +9,13 @@ a chain of other providers and landed on keys nobody chose for that work: one
 agent's own key answered 401 and its reviews fell through to an unrelated
 per-token key for a month.
 
+The background billing rule (``brain.background_policy``) still applies to
+an agent's seat: Society reviews and skill learning are unattended, so once a
+subscription is connected an agent whose chat bills a per-token API key does
+not have that key billed for its memory work. :func:`agent_brain` raises
+:class:`SeatDeferred` instead (and no other seat is asked); on an install
+that never connected a subscription the key seat answers as before.
+
 A seat that cannot be resolved, or that fails, raises here and the caller's
 own bounded retry applies (the Society review queue, the learning loop's
 backoff); after that the work is dropped. There is no fallback to another
@@ -52,9 +59,12 @@ __all__ = [
     "Seat",
     "SeatBrain",
     "SeatCallFailed",
+    "SeatDeferred",
     "SeatUnavailable",
     "agent_brain",
     "agent_seat",
+    "bills_per_token",
+    "hold_to_background_policy",
     "jarvis_seat",
     "seat_brain",
 ]
@@ -67,6 +77,15 @@ class SeatUnavailable(RuntimeError):
     """The seat cannot be built right now; no other provider is asked instead.
 
     The message is app-authored (never a provider's error body, AP-34).
+    """
+
+
+class SeatDeferred(SeatUnavailable):
+    """The seat bills a per-token key and background work may not bill it now.
+
+    Raised for unattended Society work while a subscription is connected
+    (``brain.background_policy``). The message is app-authored and names the
+    reason, so a status line can show it.
     """
 
 
@@ -239,9 +258,51 @@ async def agent_brain(config: Any, agent: Any, *, caller: str) -> SeatBrain:
     """A Society agent's own seat as a Brain. Raises ``SeatUnavailable``."""
 
     def resolve() -> SeatBrain:
-        return _build(config, agent_seat(config, agent), caller)
+        seat = agent_seat(config, agent)
+        hold_to_background_policy(seat)
+        return _build(config, seat, caller)
 
     return await asyncio.to_thread(resolve)
+
+
+def bills_per_token(seat: Seat) -> bool:
+    """Whether a call on ``seat`` spends a per-token API key.
+
+    A CLI runner answers on its subscription; a keyed runner on a keyless
+    local provider (by its provider card or its chat-catalog row) bills
+    nothing. Decided from cards and rows, never a provider name (AP-21).
+    """
+    if not seat.keyed:
+        return False
+    from dodaios.brain.background_policy import keyless_local
+
+    if keyless_local(seat.provider):
+        return False
+    try:
+        from dodaios.agent_chat.catalog import provider_row
+    except Exception:  # noqa: BLE001 - without the catalog a keyed seat counts as billed
+        return True
+    row = provider_row(seat.provider)
+    return not (row is not None and bool(getattr(row, "keyless", False)))
+
+
+def hold_to_background_policy(seat: Seat) -> None:
+    """Refuse a per-token seat for unattended work once a subscription is connected.
+
+    Blocking (the login probe): call it in a thread. Raises
+    :class:`SeatDeferred`; returns quietly for a subscription or local seat
+    and on an install that never connected a subscription.
+    """
+    if not bills_per_token(seat):
+        return
+    from dodaios.brain.background_policy import subscription_mode
+
+    if subscription_mode((seat.provider,)):
+        raise SeatDeferred(
+            f"a subscription is connected, so background memory work does not bill "
+            f"this agent's API key ({seat.provider}); put the agent on a subscription "
+            "or local model for it to learn from its chats"
+        )
 
 
 class SeatBrain:
