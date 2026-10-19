@@ -291,14 +291,15 @@ async def test_a_tag_outside_the_supported_set_is_kept_rather_than_coerced() -> 
     ~95 of the 100 recognition languages.
 
     The fixture is chosen to make that concrete: this French sentence shares
-    enough tokens with the Spanish vocabulary that the detector calls it "es",
-    so a resolver that trusted the text here would clean French with Spanish
-    rules.
+    tokens with the Spanish vocabulary ("la", "de"), so a resolver that trusted
+    a four-language guess would clean French with Spanish rules. The detector
+    now recognises it as another language and answers "unknown" for the four.
     """
     french = "Le rapport est sur la table, avec les notes de la réunion."
-    from jarvis.core.turn_language import detect_text_language
+    from jarvis.core.turn_language import detect_conversation_language, detect_text_language
 
-    assert detect_text_language(french) == "es", "fixture no longer bites"
+    assert detect_text_language(french) == "unknown"
+    assert detect_conversation_language(french) == "fr"
 
     pipe, events, _inserted = _pipeline()
     await pipe._finish_dictation(
