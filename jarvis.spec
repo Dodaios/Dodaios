@@ -66,6 +66,10 @@ LEGACY_CLI_EXE_NAMES = ("jarvis",)
 DISTRIBUTION_NAMES = ('dodaios', 'personal-jarvis')
 
 MACOS_APP_NAME = "Personal Jarvis.app"
+# The bundle name (``dodaios.core.branding.MACOS_APP_DIR_NAME``). Its bundle id
+# below did not move with it: the privacy grants of every installed copy name
+# that id, and the in-app updater installs a renamed bundle beside the old one.
+MACOS_APP_NAME = "Dodaios.app"
 MACOS_BUNDLE_IDENTIFIER = "ai.personaljarvis.desktop"
 MACOS_MIN_SYSTEM_VERSION = "12.0"
 
@@ -548,8 +552,8 @@ if sys.platform == "darwin":
         bundle_identifier=MACOS_BUNDLE_IDENTIFIER,
         version=VERSION,
         info_plist={
-            "CFBundleName": "Personal Jarvis",
-            "CFBundleDisplayName": "Personal Jarvis",
+            "CFBundleName": "Dodaios",
+            "CFBundleDisplayName": "Dodaios",
             "CFBundleExecutable": GUI_EXE_NAME,
             "CFBundleIdentifier": MACOS_BUNDLE_IDENTIFIER,
             "CFBundleShortVersionString": VERSION,

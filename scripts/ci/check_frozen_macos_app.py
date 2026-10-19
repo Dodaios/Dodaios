@@ -39,7 +39,7 @@ It also asserts the privacy-permission declarations of the bundle:
   run the app.
 
 Usage:
-    python scripts/ci/check_frozen_macos_app.py --app "dist/Personal Jarvis.app"
+    python scripts/ci/check_frozen_macos_app.py --app "dist/Dodaios.app"
 
 Exit codes: 0 = fine (skipped parts are printed as NOTE lines), 1 = the app would
 ship broken (problems listed), 2 = could not check (missing file, unreadable
@@ -343,7 +343,7 @@ def check_app(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--app", required=True, type=Path, help="the built Personal Jarvis.app")
+    parser.add_argument("--app", required=True, type=Path, help="the built Dodaios.app")
     args = parser.parse_args(argv)
     notes: list[str] = []
     try:
