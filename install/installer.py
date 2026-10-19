@@ -56,6 +56,7 @@ if str(_SOURCE_ROOT) not in sys.path:
 from dodaios.core.branding import (  # noqa: E402 - bootstrap source path above
     CLI_COMMAND_NAME,
     LAUNCHER_ENTRY_NAME,
+    LEGACY_DISTRIBUTION_NAMES,
     LINUX_APP_NAME,
     MACOS_APP_NAME,
     MANAGED_INSTALL_MARKERS,
@@ -374,6 +375,34 @@ def repair_distribution_metadata(
     return True
 
 
+def _venv_site_packages() -> list[Path]:
+    venv = repo_root() / ".venv"
+    if sys.platform == "win32":
+        return [venv / "Lib" / "site-packages"]
+    return sorted((venv / "lib").glob("python*/site-packages"))
+
+
+def installed_legacy_distributions() -> tuple[str, ...]:
+    """Earlier distribution names this checkout's environment still has installed.
+
+    Read from the metadata on disk, without starting pip: an install made
+    before the rename registered the checkout as ``personal-jarvis``.
+    """
+    found: list[str] = []
+    for name in LEGACY_DISTRIBUTION_NAMES:
+        stem = name.replace("-", "_")
+        patterns = (f"{stem}-*.dist-info", f"{stem}.egg-link", f"{name}.egg-link")
+        for site in _venv_site_packages():
+            try:
+                hit = any(any(site.glob(pattern)) for pattern in patterns)
+            except OSError:
+                hit = False
+            if hit:
+                found.append(name)
+                break
+    return tuple(found)
+
+
 def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: bool) -> None:
     from scripts.native_crypto_index import pip_options
 
@@ -401,7 +430,18 @@ def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: boo
         runtime_step = ("runtime dependencies (cloud-first base)",
                         pip + ["install", *pip_options(), "-e", "."])
 
-    plans: list[tuple[str, list[str]]] = [
+    plans: list[tuple[str, list[str]]] = []
+    # The checkout used to be installed under the distribution's earlier name.
+    # Both names own the same files, and uninstalling the earlier one AFTER the
+    # current one is installed would delete files the current one needs, so it
+    # goes first. Only the environment's record of it goes: the checkout stays.
+    legacy = installed_legacy_distributions()
+    if legacy:
+        plans.append((
+            f"retire the earlier package name ({', '.join(legacy)})",
+            pip + ["uninstall", "-y", *legacy],
+        ))
+    plans += [
         ("editable install (entry-points)", pip + ["install", "-e", ".", "--no-deps"]),
         runtime_step,
     ]
