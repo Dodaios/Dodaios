@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/value-24WjxlPj.js
 import{gt as U,co as C}from"./index-HSlQ6QYU.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+|||||||| parent of 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/value-DkARtlaO.js
+import{gt as U,co as C}from"./index-CGZPAfMB.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+========
+import{gt as U,co as C}from"./index-BpXOzZ59.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+>>>>>>>> 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/value-BdLq8a2m.js
  * @license React
  * use-sync-external-store-shim.production.js
  *

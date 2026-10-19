@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/react-three-fiber.esm-DrkxhcKI.js
 import{r as tt,gt as $y,co as eS,j as Bn}from"./index-HSlQ6QYU.js";/**
+|||||||| parent of 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/react-three-fiber.esm-Djz8hr33.js
+import{r as tt,gt as $y,co as eS,j as Bn}from"./index-CGZPAfMB.js";/**
+========
+import{r as tt,gt as $y,co as eS,j as Bn}from"./index-BpXOzZ59.js";/**
+>>>>>>>> 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/react-three-fiber.esm-BHKw9kIj.js
  * @license
  * Copyright 2010-2026 Three.js Authors
  * SPDX-License-Identifier: MIT

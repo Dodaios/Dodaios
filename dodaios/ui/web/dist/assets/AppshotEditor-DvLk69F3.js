@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/AppshotEditor-DvLk69F3.js
 import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-HSlQ6QYU.js";import{S as sr}from"./switch-hud3H5pd.js";import{Q as D}from"./tooltip-DULh3FZY.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-CCb-VkiL.js";import{C as Tn}from"./check-DuXvSsxo.js";import{C as En}from"./columns-2-DN5lOJNn.js";/**
+|||||||| parent of 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/AppshotEditor-DvjeA_qC.js
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-CGZPAfMB.js";import{S as sr}from"./switch-DHIm1skz.js";import{Q as D}from"./tooltip-rsWz93bD.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-pvMa-sMz.js";import{C as Tn}from"./check-B-mFa2QF.js";import{C as En}from"./columns-2-BI2V-ZA4.js";/**
+========
+import{c as Ze,t as xn,u as mn,a as pn,b as gn,d as tr,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as rr,X as kr,R as wn,B as xt,G as nr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BpXOzZ59.js";import{S as sr}from"./switch-Bj1-V-No.js";import{Q as D}from"./tooltip-bodQy8uz.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-DPbG03as.js";import{C as Tn}from"./check-CucWqzUQ.js";import{C as En}from"./columns-2-C1ZX-DuF.js";/**
+>>>>>>>> 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/AppshotEditor-C4alou3M.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

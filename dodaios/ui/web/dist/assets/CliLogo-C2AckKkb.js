@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/CliLogo-C2AckKkb.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-DM76X0Ld.js";import{c as n,j as a,e as o}from"./index-HSlQ6QYU.js";import{T as c}from"./terminal-D0z1gXeu.js";import{C as I}from"./credit-card-irJTDVMX.js";import{G as S}from"./git-branch-CO4Kbq8r.js";import{R as W}from"./rocket-j4nokCsH.js";import{C as $}from"./cloud-X4qbszsf.js";/**
+|||||||| parent of 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/CliLogo-DgENMdYz.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-Dmut1Uhx.js";import{c as n,j as a,e as o}from"./index-CGZPAfMB.js";import{T as c}from"./terminal-CjHaL6iA.js";import{C as I}from"./credit-card-DRaz8IHE.js";import{G as S}from"./git-branch-D-xOpZ1o.js";import{R as W}from"./rocket-DKNUdgXk.js";import{C as $}from"./cloud-CKcEpxLE.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-BwJMBkX5.js";import{c as n,j as a,e as o}from"./index-BpXOzZ59.js";import{T as c}from"./terminal-p6AL8P8F.js";import{C as I}from"./credit-card-BFmbhHvR.js";import{G as S}from"./git-branch-BIck38fU.js";import{R as W}from"./rocket-V33hxiIh.js";import{C as $}from"./cloud-fR-Awh34.js";/**
+>>>>>>>> 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/CliLogo-CptHofON.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

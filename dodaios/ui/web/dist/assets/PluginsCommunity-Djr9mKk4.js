@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/PluginsCommunity-Djr9mKk4.js
 import{c as W,f as m,t as C,r as x,u as _,cn as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cw as T,B as y,cc as A,q as ee,S as te,L as $,cv as U,ct as P,x as ne}from"./index-HSlQ6QYU.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-DuXvSsxo.js";import{S as re,C as oe}from"./store-DuOsqwlo.js";/**
+|||||||| parent of 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/PluginsCommunity-WbkT-VQm.js
+import{c as W,f as m,t as C,r as x,u as _,cn as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cw as T,B as y,cc as A,q as ee,S as te,L as $,cv as U,ct as P,x as ne}from"./index-CGZPAfMB.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-B-mFa2QF.js";import{S as re,C as oe}from"./store-CJWGAz33.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cn as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cw as T,B as y,cc as A,q as ee,S as te,L as $,cv as U,ct as P,x as ne}from"./index-BpXOzZ59.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-CucWqzUQ.js";import{S as re,C as oe}from"./store-B21tReN-.js";/**
+>>>>>>>> 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/PluginsCommunity-tKHni1Yd.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

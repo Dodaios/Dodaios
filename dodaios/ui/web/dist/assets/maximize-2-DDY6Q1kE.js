@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/maximize-2-DDY6Q1kE.js
 import{c as e}from"./index-HSlQ6QYU.js";/**
+|||||||| parent of 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/maximize-2-BfV8lt89.js
+import{c as e}from"./index-CGZPAfMB.js";/**
+========
+import{c as e}from"./index-BpXOzZ59.js";/**
+>>>>>>>> 10dbbde81e (feat(agentic-ide): a pane scrollbar that appears while scrolling and works for every coding CLI):dodaios/ui/web/dist/assets/maximize-2-3avIt5vy.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
