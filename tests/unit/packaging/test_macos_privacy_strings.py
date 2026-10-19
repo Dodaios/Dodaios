@@ -1,6 +1,6 @@
 """The macOS usage-description strings have exactly one source, and both bundles read it.
 
-``jarvis/core/macos_privacy_strings.py`` holds the single table of
+``dodaios/core/macos_privacy_strings.py`` holds the single table of
 ``NS...UsageDescription`` strings. The downloadable ``.dmg`` app (``jarvis.spec``,
 evaluated by PyInstaller before the package is importable) and the managed
 source-install app (``macos_app_bundle._bundle_plist``) both load THAT FILE BY
@@ -27,13 +27,13 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.setup.macos_app_bundle as mab
-from jarvis.core import macos_privacy_strings as table_module
-from jarvis.core.branding import PRODUCT_NAME
+import dodaios.setup.macos_app_bundle as mab
+from dodaios.core import macos_privacy_strings as table_module
+from dodaios.core.branding import PRODUCT_NAME
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SPEC_PATH = REPO_ROOT / "jarvis.spec"
-TABLE_PATH = REPO_ROOT / "jarvis" / "core" / "macos_privacy_strings.py"
+TABLE_PATH = REPO_ROOT / "dodaios" / "core" / "macos_privacy_strings.py"
 ENTITLEMENTS_PATH = REPO_ROOT / "packaging" / "macos" / "entitlements.plist"
 
 EXPECTED_KEYS = (
@@ -200,9 +200,9 @@ def _exec_spec(monkeypatch: pytest.MonkeyPatch, root: Path) -> dict:
 def spec_root(tmp_path: Path) -> Path:
     """A minimal checkout: the real spec, the real table, a version file."""
     root = tmp_path / "checkout"
-    (root / "jarvis" / "core").mkdir(parents=True)
-    (root / "jarvis" / "__init__.py").write_text('__version__ = "9.9.9"\n', encoding="utf-8")
-    shutil.copy2(TABLE_PATH, root / "jarvis" / "core" / "macos_privacy_strings.py")
+    (root / "dodaios" / "core").mkdir(parents=True)
+    (root / "dodaios" / "__init__.py").write_text('__version__ = "9.9.9"\n', encoding="utf-8")
+    shutil.copy2(TABLE_PATH, root / "dodaios" / "core" / "macos_privacy_strings.py")
     shutil.copy2(SPEC_PATH, root / "jarvis.spec")
     helper_dir = root / "scripts" / "packaging"
     helper_dir.mkdir(parents=True)
@@ -238,7 +238,7 @@ def test_the_spec_reads_the_table_by_path_and_keeps_no_copy(
     monkeypatch: pytest.MonkeyPatch, spec_root: Path
 ) -> None:
     """Edit the table beside the spec: the spec's plist follows, so it is not a copy."""
-    table = spec_root / "jarvis" / "core" / "macos_privacy_strings.py"
+    table = spec_root / "dodaios" / "core" / "macos_privacy_strings.py"
     text = table.read_text(encoding="utf-8")
     table.write_text(
         text + f'\n_USAGE_DESCRIPTIONS["NSMicrophoneUsageDescription"] = "{SENTINEL}"\n',

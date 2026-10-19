@@ -10,12 +10,12 @@ import re
 from pathlib import Path
 from typing import get_args
 
-from jarvis.agents.registry import NodeStatus
+from dodaios.agents.registry import NodeStatus
 
 _REPO = Path(__file__).resolve().parents[3]
 _STORE = (
     _REPO
-    / "jarvis"
+    / "dodaios"
     / "ui"
     / "web"
     / "frontend"
@@ -25,7 +25,7 @@ _STORE = (
 )
 _BOARD = (
     _REPO
-    / "jarvis"
+    / "dodaios"
     / "ui"
     / "web"
     / "frontend"

@@ -12,11 +12,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.control import CancelToken
-from jarvis.core.config import ComputerUseConfig
-from jarvis.harness import cu_run_registry as reg
-from jarvis.ui.web import computer_use_routes as cu_routes
-from jarvis.ui.web.computer_use_routes import router as computer_use_router
+from dodaios.control import CancelToken
+from dodaios.core.config import ComputerUseConfig
+from dodaios.harness import cu_run_registry as reg
+from dodaios.ui.web import computer_use_routes as cu_routes
+from dodaios.ui.web.computer_use_routes import router as computer_use_router
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ def app() -> FastAPI:
 @pytest.fixture
 def wired(monkeypatch: pytest.MonkeyPatch):
     """Pretend the CU context is wired and capture launches (no desktop)."""
-    from jarvis.harness import computer_use_context as ctx_mod
+    from dodaios.harness import computer_use_context as ctx_mod
 
     monkeypatch.setattr(
         ctx_mod, "peek_computer_use_context", lambda: object(),

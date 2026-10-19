@@ -24,8 +24,8 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from jarvis.brain.background_policy import BackgroundDeferred
-from jarvis.core.config import (
+from dodaios.brain.background_policy import BackgroundDeferred
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
@@ -34,9 +34,9 @@ from jarvis.core.config import (
     WikiIntegrationConfig,
     WikiMemoryConfig,
 )
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.background_guard import (
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.background_guard import (
     DAILY_CAP_REACHED,
     DEFAULT_DAILY_CALL_CAP,
     WAITING_FOR_SUBSCRIPTION,
@@ -44,20 +44,20 @@ from jarvis.memory.wiki.background_guard import (
     daily_cap,
     guard,
 )
-from jarvis.memory.wiki.consolidator import Consolidator
-from jarvis.memory.wiki.curator import WikiCurator
-from jarvis.memory.wiki.curator_llm import WikiCuratorLLM
-from jarvis.memory.wiki.health import health
-from jarvis.memory.wiki.journal import CandidateFact, CandidateJournal
-from jarvis.memory.wiki.lock import VaultLock
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.scheduler import (
+from dodaios.memory.wiki.consolidator import Consolidator
+from dodaios.memory.wiki.curator import WikiCurator
+from dodaios.memory.wiki.curator_llm import WikiCuratorLLM
+from dodaios.memory.wiki.health import health
+from dodaios.memory.wiki.journal import CandidateFact, CandidateJournal
+from dodaios.memory.wiki.lock import VaultLock
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.scheduler import (
     CuratorScheduler,
     TriggerSource,
     fire_journal_trigger,
 )
-from jarvis.memory.wiki.vault_index import VaultIndex
+from dodaios.memory.wiki.vault_index import VaultIndex
 
 KEYED = {"gemini", "openrouter", "grok", "openai"}
 
@@ -178,7 +178,7 @@ def _isolated(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN202
         return page_text
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.consolidator.ensure_page_aliases", _passthrough
+        "dodaios.memory.wiki.consolidator.ensure_page_aliases", _passthrough
     )
     health.record_chain_success()
     yield
@@ -362,7 +362,7 @@ async def test_drain_stops_on_a_pass_that_made_no_progress(tmp_path: Path) -> No
 
 
 async def test_age_flush_waits_out_the_backoff() -> None:
-    from jarvis.memory.wiki.integration import _journal_age_flush_tick
+    from dodaios.memory.wiki.integration import _journal_age_flush_tick
 
     class _Journal:
         def oldest_pending_ms(self) -> int:
@@ -408,10 +408,10 @@ def test_failed_reviews_are_retried_a_bounded_number_of_times(tmp_path: Path) ->
 async def test_search_aliases_wait_for_the_subscription(
     monkeypatch: pytest.MonkeyPatch, background_billing,  # noqa: ANN001
 ) -> None:
-    from jarvis.memory.wiki.search_aliases import generate_aliases
+    from dodaios.memory.wiki.search_aliases import generate_aliases
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.provider_chain.credential_ready_wiki_providers",
+        "dodaios.memory.wiki.provider_chain.credential_ready_wiki_providers",
         lambda *, available, config: set(available),
     )
     background_billing.remember_subscription("claude-cli")
@@ -430,10 +430,10 @@ async def test_search_aliases_wait_for_the_subscription(
 async def test_search_aliases_respect_the_daily_cap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.memory.wiki.search_aliases import generate_aliases
+    from dodaios.memory.wiki.search_aliases import generate_aliases
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.provider_chain.credential_ready_wiki_providers",
+        "dodaios.memory.wiki.provider_chain.credential_ready_wiki_providers",
         lambda *, available, config: set(available),
     )
     config = _config(cap=1)
@@ -449,7 +449,7 @@ async def test_search_aliases_respect_the_daily_cap(
 
 
 async def test_search_aliases_wait_out_the_backoff() -> None:
-    from jarvis.memory.wiki.search_aliases import generate_aliases
+    from dodaios.memory.wiki.search_aliases import generate_aliases
 
     registry = _RecordingRegistry({"gemini"}, _ScriptedBrain(text="Hund"))
     guard.note_failure("every wiki provider failed")
@@ -467,7 +467,7 @@ async def test_search_aliases_wait_out_the_backoff() -> None:
 
 
 def _extractor(journal: CandidateJournal, registry: Any) -> Any:
-    from jarvis.memory.wiki.extractor import ConversationFactExtractor
+    from dodaios.memory.wiki.extractor import ConversationFactExtractor
 
     return ConversationFactExtractor(config=_config(), journal=journal, registry=registry)
 
@@ -540,7 +540,7 @@ async def test_an_exhausted_review_is_reported_not_dropped_silently(
     try:
         while journal.claim_capture(key, "voice-fact:2", "voice-fact", "b" * 40):
             journal.finish_capture(key, "failed", error_code="provider_timeout")
-        with caplog.at_level("WARNING", logger="jarvis.memory.wiki.extractor"):
+        with caplog.at_level("WARNING", logger="dodaios.memory.wiki.extractor"):
             count = await extractor.extract_and_journal(
                 "Lena lives in Hamburg.",
                 "Noted.",
@@ -567,7 +567,7 @@ async def test_provider_selection_runs_off_the_event_loop(
 ) -> None:
     import threading
 
-    import jarvis.memory.wiki.provider_chain as chain_module
+    import dodaios.memory.wiki.provider_chain as chain_module
 
     real_build = chain_module.build_background_wiki_chain
     on_main_thread: list[bool] = []

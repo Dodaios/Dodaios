@@ -56,8 +56,8 @@ async def test_enable_mcp_publishes_brain_tools_changed() -> None:
     """enable_mcp (already-active path) must publish BrainToolsChanged."""
     # Import here so structlog / other heavy deps are never touched at
     # collection time; the module is self-contained enough to import cleanly.
-    from jarvis.core.events import BrainToolsChanged
-    from jarvis.ui.web import mcp_routes
+    from dodaios.core.events import BrainToolsChanged
+    from dodaios.ui.web import mcp_routes
 
     bus = _FakeBus()
     request = _make_request("test-server", bus)
@@ -88,7 +88,7 @@ async def test_enable_mcp_publishes_brain_tools_changed() -> None:
 
 async def test_enable_mcp_no_bus_does_not_raise() -> None:
     """_publish_brain_tools_changed must be a no-op when bus is absent."""
-    from jarvis.ui.web import mcp_routes
+    from dodaios.ui.web import mcp_routes
 
     # No bus on app.state
     fake_spec = SimpleNamespace(name="x")

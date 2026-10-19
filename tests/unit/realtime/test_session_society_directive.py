@@ -15,8 +15,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.realtime import session as session_module
-from jarvis.society import lead_card
+from dodaios.realtime import session as session_module
+from dodaios.society import lead_card
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ def test_the_instructions_carry_the_directive_in_both_profiles() -> None:
 
 def test_the_workspace_directive_calls_terminals_terminals(monkeypatch: pytest.MonkeyPatch):
     """Since the society exists, 'agent' is taken: a pane is a coding terminal."""
-    from jarvis.agentic_ide import session as ide_session
+    from dodaios.agentic_ide import session as ide_session
 
     monkeypatch.setattr(ide_session, "running_call_signs", lambda: ["T1"])
     instance = object.__new__(session_module.RealtimeVoiceSession)

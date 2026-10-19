@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.protocols import HarnessTask
-from jarvis.plugins.harness.python_script import PythonScriptHarness
+from dodaios.core.protocols import HarnessTask
+from dodaios.plugins.harness.python_script import PythonScriptHarness
 
 
 @pytest.mark.asyncio

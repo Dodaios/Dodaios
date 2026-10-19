@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.setup import macos_app_bundle, macos_search_index
-from jarvis.ui import icon_utils
+from dodaios.setup import macos_app_bundle, macos_search_index
+from dodaios.ui import icon_utils
 
 
 def _entry(applications_dir: Path) -> Path:

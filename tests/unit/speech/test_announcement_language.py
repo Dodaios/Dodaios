@@ -20,8 +20,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
 from tests.unit.speech.test_announcement_bridge import (
     FakePlayer,
     FakeTTS,

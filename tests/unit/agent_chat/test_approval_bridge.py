@@ -10,14 +10,14 @@ import asyncio
 from pathlib import Path
 from typing import Any
 
-from jarvis.agent_chat import folder_tools as ft
-from jarvis.agent_chat.approval_bridge import ChatApprovalBridge, ChatGrant, approval_ref
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.core.events import ActionApprovalRequired, ActionDenied
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import APPROVAL_DENIED_PREFIX, ToolExecutor
+from dodaios.agent_chat import folder_tools as ft
+from dodaios.agent_chat.approval_bridge import ChatApprovalBridge, ChatGrant, approval_ref
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.core.events import ActionApprovalRequired, ActionDenied
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import APPROVAL_DENIED_PREFIX, ToolExecutor
 
 SESSION = "sess-1"
 REF = approval_ref(SESSION)

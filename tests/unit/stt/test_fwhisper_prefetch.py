@@ -17,8 +17,8 @@ import threading
 
 import pytest
 
-import jarvis.plugins.stt.fwhisper as fw
-from jarvis.plugins.stt.fwhisper import FasterWhisperProvider, prefetch_model
+import dodaios.plugins.stt.fwhisper as fw
+from dodaios.plugins.stt.fwhisper import FasterWhisperProvider, prefetch_model
 
 
 @pytest.fixture(autouse=True)

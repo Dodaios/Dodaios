@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import writer
+from dodaios.agentic_ide import writer
 
 
 def _cfg(choice: str = "auto") -> SimpleNamespace:
@@ -166,7 +166,7 @@ def test_both_call_sites_can_rescue() -> None:
     the same dead key leaves the fleet on the crude by-directory plan."""
     import inspect
 
-    from jarvis.agentic_ide import prompt_composer, work_split
+    from dodaios.agentic_ide import prompt_composer, work_split
 
     for module, function in (
         (prompt_composer, "_rescue_writer"),

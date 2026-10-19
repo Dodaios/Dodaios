@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.config import SchedulerConfig
-from jarvis.memory.wiki.lock import VaultLock
-from jarvis.memory.wiki.scheduler import (
+from dodaios.core.config import SchedulerConfig
+from dodaios.memory.wiki.lock import VaultLock
+from dodaios.memory.wiki.scheduler import (
     CuratorScheduler,
     TriggerSource,
     fire_journal_trigger,
@@ -305,7 +305,7 @@ class _RecordingScheduler:
 
 @pytest.mark.asyncio
 async def test_boot_drain_fires_journal_trigger_when_backlog_pending(tmp_path: Path) -> None:
-    from jarvis.memory.wiki.integration import kick_journal_backlog
+    from dodaios.memory.wiki.integration import kick_journal_backlog
 
     scheduler = _RecordingScheduler()
     kick_journal_backlog(_FakeJournal(3), scheduler)
@@ -318,7 +318,7 @@ async def test_boot_drain_fires_journal_trigger_when_backlog_pending(tmp_path: P
 
 @pytest.mark.asyncio
 async def test_boot_drain_is_silent_on_empty_backlog(tmp_path: Path) -> None:
-    from jarvis.memory.wiki.integration import kick_journal_backlog
+    from dodaios.memory.wiki.integration import kick_journal_backlog
 
     scheduler = _RecordingScheduler()
     kick_journal_backlog(_FakeJournal(0), scheduler)

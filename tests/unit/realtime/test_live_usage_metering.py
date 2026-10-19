@@ -11,15 +11,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.plugins.realtime.gemini_live import (
+from dodaios.plugins.realtime.gemini_live import (
     _COMPRESSION_TARGET_TOKENS,
     _COMPRESSION_TRIGGER_TOKENS,
     _compression_kwargs,
     _GeminiLiveSession,
     _usage_from_metadata,
 )
-from jarvis.plugins.realtime.openai_realtime import _usage_from_response
-from jarvis.realtime.session import (
+from dodaios.plugins.realtime.openai_realtime import _usage_from_response
+from dodaios.realtime.session import (
     _DELEGATE_RESULT_MAX_CHARS,
     RealtimeVoiceSession,
     _delegate_result_prompt,
@@ -243,7 +243,7 @@ async def test_publish_live_usage_prices_the_vertex_live_default_model() -> None
     # VertexLiveProvider.default_model was unpriced on 2026-08-18: ten Live
     # turns of the maintainer's session showed as "$0". Same audio rates as
     # the AI Studio id of the model.
-    from jarvis.plugins.realtime.gemini_live import VertexLiveProvider
+    from dodaios.plugins.realtime.gemini_live import VertexLiveProvider
 
     session = _bare_session(
         {

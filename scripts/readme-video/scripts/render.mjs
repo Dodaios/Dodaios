@@ -6,7 +6,7 @@ import path from "node:path";
 import "./styles.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const app = path.resolve(root, "../../jarvis/ui/web/frontend/src");
+const app = path.resolve(root, "../../dodaios/ui/web/frontend/src");
 const modules = path.join(root, "node_modules");
 const output = path.join(root, "out");
 const settings = JSON.parse(await readFile(path.join(root, "settings.json"), "utf8"));

@@ -15,10 +15,10 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.turn_planner import TurnPath, TurnPlan, TurnReason
-from jarvis.realtime import session as session_module
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.brain.turn_planner import TurnPath, TurnPlan, TurnReason
+from dodaios.realtime import session as session_module
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 _FRAGMENT_ONE = "Prompt terminal five to do a deep dive"
 _FRAGMENT_TWO = "into the prompting latency"

@@ -6,10 +6,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import config as cfg_mod
-from jarvis.core import config_writer
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
-from jarvis.ui.web.provider_routes import router
+from dodaios.core import config as cfg_mod
+from dodaios.core import config_writer
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.ui.web.provider_routes import router
 
 
 def _app() -> FastAPI:

@@ -24,8 +24,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.ui.web.fast_bootstrap import FastBootstrap
-from jarvis.ui.web.spa_build import (
+from dodaios.ui.web.fast_bootstrap import FastBootstrap
+from dodaios.ui.web.spa_build import (
     HOLDING_ATTRIBUTE,
     HOLDING_MARKER,
     build_is_complete,
@@ -151,7 +151,7 @@ class TestHoldingPage:
         assert f"indexOf('{HOLDING_ATTRIBUTE}')" in page
         assert f"indexOf('{HOLDING_MARKER}')" not in page
         root = Path(__file__).resolve().parents[4]
-        source = (root / "jarvis" / "ui" / "web" / "frontend" / "index.html").read_text(
+        source = (root / "dodaios" / "ui" / "web" / "frontend" / "index.html").read_text(
             encoding="utf-8"
         )
         assert HOLDING_MARKER in source
@@ -241,7 +241,7 @@ class TestTheRealAppServesTheHoldingPage:
 
     @staticmethod
     def _response(monkeypatch: pytest.MonkeyPatch, dist: Path) -> Any:
-        from jarvis.ui.web import server as server_mod
+        from dodaios.ui.web import server as server_mod
 
         monkeypatch.setattr(server_mod, "DIST_DIR", dist)
         monkeypatch.setattr(server_mod, "INDEX_FILE", dist / "index.html")

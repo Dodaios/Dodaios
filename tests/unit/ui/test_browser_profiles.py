@@ -8,7 +8,7 @@ from urllib.parse import unquote
 
 import pytest
 
-from jarvis.ui import browser_profiles as cp
+from dodaios.ui import browser_profiles as cp
 
 
 def _install(root: Path, relpath: str) -> None:

@@ -30,8 +30,8 @@ import time
 
 import psutil
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import HarnessTask
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import HarnessTask
 
 _CALC_NAMES = ("calculatorapp.exe", "calculator.exe")
 
@@ -58,7 +58,7 @@ def kill_calc() -> None:
 async def _read_calc_result() -> str:
     """Best-effort: read the Calculator display text from the UIA tree."""
     try:
-        from jarvis.vision.uia_tree import UIATreeSource
+        from dodaios.vision.uia_tree import UIATreeSource
 
         obs = await UIATreeSource().observe()
         texts = []
@@ -92,8 +92,8 @@ async def main() -> int:
                      creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     time.sleep(3.0)
     try:
-        from jarvis.plugins.tool.switch_window import SwitchWindowTool
-        from jarvis.core.protocols import ExecutionContext
+        from dodaios.plugins.tool.switch_window import SwitchWindowTool
+        from dodaios.core.protocols import ExecutionContext
         from uuid import uuid4
         ctx0 = ExecutionContext(trace_id=uuid4(), user_utterance="pre",
                                 config={}, memory_read=None, approved_by="auto")
@@ -108,11 +108,11 @@ async def main() -> int:
 
     print("\n[1] Building default brain (wires ComputerUseContext) ...")
     bus = EventBus()
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
 
     build_default_brain(bus=bus)
 
-    from jarvis.harness.computer_use_context import get_computer_use_context
+    from dodaios.harness.computer_use_context import get_computer_use_context
 
     try:
         ctx = get_computer_use_context()
@@ -123,7 +123,7 @@ async def main() -> int:
         print(f"[1] ABORT: ComputerUseContext not wired: {exc}")
         return 3
 
-    from jarvis.plugins.harness.computer_use import ComputerUseHarness
+    from dodaios.plugins.harness.computer_use import ComputerUseHarness
 
     harness = ComputerUseHarness()
     if not await harness.health():

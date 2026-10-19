@@ -1,7 +1,7 @@
 """Fresh agent knowledge reaches a resumed vendor conversation."""
 
-from jarvis.agent_chat.jarvis_harness import COMPACT_MAX_CHARS, Identity, society_memory_refresh
-from jarvis.agent_chat.runner_cli import _with_identity
+from dodaios.agent_chat.jarvis_harness import COMPACT_MAX_CHARS, Identity, society_memory_refresh
+from dodaios.agent_chat.runner_cli import _with_identity
 
 
 def test_resumed_cli_gets_current_rules_memory_and_skills_without_old_transcript():

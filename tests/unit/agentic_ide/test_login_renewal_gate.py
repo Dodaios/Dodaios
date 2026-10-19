@@ -25,8 +25,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import agent_accounts
-from jarvis.agentic_ide import session as ide
+from dodaios import agent_accounts
+from dodaios.agentic_ide import session as ide
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 #: A credentials file in the CLI's shape, holding placeholders rather than real

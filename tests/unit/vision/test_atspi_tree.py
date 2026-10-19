@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.protocols import Observation, VisionSource
-from jarvis.vision.atspi_tree import AtspiTreeSource, _atspi_flatten
-from jarvis.vision.pruning import RawNode
+from dodaios.core.protocols import Observation, VisionSource
+from dodaios.vision.atspi_tree import AtspiTreeSource, _atspi_flatten
+from dodaios.vision.pruning import RawNode
 from tests.fakes.fake_atspi import (
     FakeAtspiAccessible,
     build_fake_atspi_traverser,
@@ -32,7 +32,7 @@ def test_protocol_conformance_on_any_os() -> None:
 
 @pytest.mark.asyncio
 async def test_module_imports_without_pyatspi() -> None:
-    import jarvis.vision.atspi_tree as mod
+    import dodaios.vision.atspi_tree as mod
 
     assert mod.AtspiTreeSource is AtspiTreeSource
 

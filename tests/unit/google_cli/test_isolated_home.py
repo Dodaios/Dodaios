@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import os
 
-from jarvis.google_cli.isolated_home import ensure_isolated_home
+from dodaios.google_cli.isolated_home import ensure_isolated_home
 
 
 def _iso(real_dir, dest_root, model="gemini-3.5-flash"):

@@ -3,7 +3,7 @@
 The Jarvis CLI's dynamic ``jarvis api ...`` layer turns every mounted REST route
 into a command automatically, so "every WebUI action is a CLI command" holds as
 long as every route module is actually mounted. This gate enforces exactly that:
-every ``jarvis/ui/web/*_routes.py`` that defines a ``router = APIRouter(...)`` MUST
+every ``dodaios/ui/web/*_routes.py`` that defines a ``router = APIRouter(...)`` MUST
 be imported (and thus mounted) by ``server.py``.
 
 It enforces two things: (1) every router is mounted — catching the "route defined
@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
-_WEB = _REPO / "jarvis" / "ui" / "web"
+_WEB = _REPO / "dodaios" / "ui" / "web"
 _SERVER = _WEB / "server.py"
 
 # Route modules that are intentionally NOT mounted from server.py. Add a stem
@@ -35,7 +35,7 @@ _ROUTER_DEF = re.compile(r"^\s*\w+\s*=\s*APIRouter\(", re.MULTILINE)
 
 
 def route_modules() -> list[str]:
-    """Stems of every *_routes.py under jarvis/ui/web that defines an APIRouter."""
+    """Stems of every *_routes.py under dodaios/ui/web that defines an APIRouter."""
     out: list[str] = []
     for path in sorted(_WEB.glob("*_routes.py")):
         if _ROUTER_DEF.search(path.read_text(encoding="utf-8")):
@@ -103,10 +103,10 @@ def main() -> int:
     if missing:
         print("CLI coverage gate FAILED — route module(s) defined but not mounted:")
         for stem in missing:
-            print(f"  - jarvis/ui/web/{stem}.py  (no `from .{stem} import` in server.py)")
+            print(f"  - dodaios/ui/web/{stem}.py  (no `from .{stem} import` in server.py)")
         print(
             "\nA route that is not include_router'd is unreachable from the WebUI "
-            "and the `jarvis` CLI. Mount it in jarvis/ui/web/server.py (or add it to "
+            "and the `jarvis` CLI. Mount it in dodaios/ui/web/server.py (or add it to "
             "the allowlist in scripts/ci/check_cli_coverage.py with a reason)."
         )
         status = 1
@@ -114,7 +114,7 @@ def main() -> int:
     if untagged:
         print("CLI coverage gate FAILED — route module(s) with an untagged APIRouter:")
         for stem in untagged:
-            print(f"  - jarvis/ui/web/{stem}.py  (an APIRouter(...) has no tags=[...])")
+            print(f"  - dodaios/ui/web/{stem}.py  (an APIRouter(...) has no tags=[...])")
         print(
             "\nAn untagged router is grouped under `default` in the dynamic "
             "`jarvis api <tag> <op>` tree, breaking gcloud-style grouping. Add "

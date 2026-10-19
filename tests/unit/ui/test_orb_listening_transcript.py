@@ -9,7 +9,7 @@ if str(_REPO_ROOT) in sys.path:
 sys.path.insert(0, str(_REPO_ROOT))
 sys.modules.pop("ui", None)
 
-from jarvis.core.events import SystemStateChanged, TranscriptionUpdate
+from dodaios.core.events import SystemStateChanged, TranscriptionUpdate
 from ui.orb.bus_bridge import OrbBusBridge
 from ui.orb.overlay import (
     BUBBLE_PADDING_Y,

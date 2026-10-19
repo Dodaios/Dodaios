@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.log_writer.LogWriter``.
+"""Unit tests for ``dodaios.memory.wiki.log_writer.LogWriter``.
 
 Covers the contract documented in ``schema.md``:
 * Append-only, never edits existing entries.
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.log_writer import VALID_VERBS, LogWriter
+from dodaios.memory.wiki.log_writer import VALID_VERBS, LogWriter
 
 
 pytestmark = pytest.mark.asyncio

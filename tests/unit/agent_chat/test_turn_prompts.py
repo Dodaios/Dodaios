@@ -1,4 +1,4 @@
-"""Every coding agent can ask and have its plan approved (jarvis/agent_chat/turn_prompts.py).
+"""Every coding agent can ask and have its plan approved (dodaios/agent_chat/turn_prompts.py).
 
 Claude Code asks mid-turn over its control protocol; every other CLI asks at
 the end of its turn with a ``jarvis-ask`` block, and a finished plan-mode turn
@@ -18,13 +18,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import runner_cli as rc
-from jarvis.agent_chat import turn_prompts
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.questions import QuestionAnswer
-from jarvis.agent_chat.runner_api import TurnHandle
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatSession, AgentChatStore
+from dodaios.agent_chat import runner_cli as rc
+from dodaios.agent_chat import turn_prompts
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.questions import QuestionAnswer
+from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatSession, AgentChatStore
 
 _ASK = {
     "questions": [
@@ -69,7 +69,7 @@ def test_the_last_valid_block_is_the_card() -> None:
 def test_the_frontend_hides_the_same_fence() -> None:
     root = Path(__file__).resolve().parents[3]
     source = (
-        root / "jarvis/ui/web/frontend/src/components/agentchat/askFence.ts"
+        root / "dodaios/ui/web/frontend/src/components/agentchat/askFence.ts"
     ).read_text(encoding="utf-8")
     match = re.search(r'export const ASK_FENCE = "([^"]+)"', source)
     assert match is not None and match.group(1) == turn_prompts.ASK_FENCE
@@ -505,7 +505,7 @@ def test_a_multi_line_prompt_skips_the_batch_shim(
     )
     assert plan.argv[-1] == "line one\n\nline two"
 
-    from jarvis.core import path_augment
+    from dodaios.core import path_augment
 
     monkeypatch.setattr(path_augment, "resolve_node_executable", lambda: "node-bin")
     kimi = _npm_layout(tmp_path, "kimi", "@moonshot-ai", "kimi-code", "dist", "main.mjs")

@@ -14,10 +14,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.platform.open_path as open_path_mod
-import jarvis.ui.web.outputs_routes as outputs_routes
-from jarvis.sessions.models import VoiceSessionRow, VoiceTurnRow
-from jarvis.ui.web.sessions_routes import router as sessions_router
+import dodaios.platform.open_path as open_path_mod
+import dodaios.ui.web.outputs_routes as outputs_routes
+from dodaios.sessions.models import VoiceSessionRow, VoiceTurnRow
+from dodaios.ui.web.sessions_routes import router as sessions_router
 
 
 class _FakeStore:

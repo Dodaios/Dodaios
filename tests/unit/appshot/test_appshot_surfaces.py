@@ -10,11 +10,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.config_writer import set_appshot_settings
-from jarvis.live.native import NativeLiveVoiceSession
-from jarvis.live.session import LiveVoiceSession
-from jarvis.screen_context.intent import classify, mentions_appshot
-from jarvis.screen_context.models import VisualIntent
+from dodaios.core.config_writer import set_appshot_settings
+from dodaios.live.native import NativeLiveVoiceSession
+from dodaios.live.session import LiveVoiceSession
+from dodaios.screen_context.intent import classify, mentions_appshot
+from dodaios.screen_context.models import VisualIntent
 
 # ------------------------------------------------------------------ speech
 
@@ -170,7 +170,7 @@ def test_appshot_patch_rejects_unknown_keys_before_writing(tmp_path) -> None:
 
 @pytest.fixture
 def client() -> TestClient:
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.ui.web.appshot_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -187,7 +187,7 @@ def test_an_unknown_destination_is_refused(client) -> None:
 
 
 def test_take_reports_a_refusal_as_data(client, monkeypatch) -> None:
-    import jarvis.appshot.service as service
+    import dodaios.appshot.service as service
 
     async def refuse(**_kwargs):
         return service.AppshotResult(status="refused", reason_code="disabled", message="off")
@@ -198,7 +198,7 @@ def test_take_reports_a_refusal_as_data(client, monkeypatch) -> None:
 
 
 def test_the_parked_appshot_is_claimed_once(client) -> None:
-    from jarvis.appshot.store import Appshot, get_store
+    from dodaios.appshot.store import Appshot, get_store
 
     store = get_store()
     store.clear()

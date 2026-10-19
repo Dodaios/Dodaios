@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from jarvis.clis.spec import (
+from dodaios.clis.spec import (
     AuthConfig,
     CliCapabilityDecl,
     CliSpec,

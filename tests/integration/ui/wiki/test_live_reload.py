@@ -19,9 +19,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.memory.wiki.watcher import WikiWatcher
-from jarvis.ui.web.wiki_ws import router as wiki_ws_router
+from dodaios.core.bus import EventBus
+from dodaios.memory.wiki.watcher import WikiWatcher
+from dodaios.ui.web.wiki_ws import router as wiki_ws_router
 
 
 def _make_vault(root: Path) -> Path:

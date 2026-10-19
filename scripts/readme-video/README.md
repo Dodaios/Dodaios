@@ -16,7 +16,7 @@ history and image pixels are not included in the exports or repository.
 | JarvisAgents | `components/society/card/AgentCardOverlay.tsx`, `roster/RosterRail.tsx`, `chat/AgentChatPanel.tsx`, `components/agentchat/WorkTrace.tsx` | [Agents preview](../../assets/demo/readme-2026-09/jarvis-agents-v4.png) |
 | UltraSwarm | `views/swarm/UltraSwarmView.tsx`, `components/swarm/`, `i18n/locales/swarm/en.json` | [Swarm preview](../../assets/demo/readme-2026-09/ultra-swarm-v3.png) |
 
-Paths in the middle column are relative to `jarvis/ui/web/frontend/src`.
+Paths in the middle column are relative to `dodaios/ui/web/frontend/src`.
 Voice shows a windowed desktop with its native caption and open sidebar, following
 the supplied September 23 reference. It begins with a subtitle, “Hey George”,
 then animates a listening transition and a project-planning exchange. George is

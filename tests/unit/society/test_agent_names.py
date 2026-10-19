@@ -8,10 +8,10 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agentic_ide.orchestration import WorkspaceOrchestrator
-from jarvis.brain.workspace_tool import _point_at_jarvis_agent
-from jarvis.society import runtime as runtime_mod
-from jarvis.society.agent_names import (
+from dodaios.agentic_ide.orchestration import WorkspaceOrchestrator
+from dodaios.brain.workspace_tool import _point_at_jarvis_agent
+from dodaios.society import runtime as runtime_mod
+from dodaios.society.agent_names import (
     ROLE_ALIASES,
     jarvis_agent_hint,
     load_custom_aliases,
@@ -19,8 +19,8 @@ from jarvis.society.agent_names import (
     role_tags,
     set_custom_aliases,
 )
-from jarvis.society.agent_tools import MessageAgentTool
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.agent_tools import MessageAgentTool
+from dodaios.society.runtime import SocietyRuntime
 
 CTX = SimpleNamespace(trace_id=uuid4(), user_utterance="", config={}, memory_read=None)
 

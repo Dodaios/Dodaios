@@ -22,7 +22,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jarvis.telephony.session import TelephonyCallSession
+from dodaios.telephony.session import TelephonyCallSession
 from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
 
 # ---------------------------------------------------------------------------
@@ -365,7 +365,7 @@ async def test_classifier_exception_fails_open_to_brain():
     session, brain, tts, _sink = _make_session(config=cfg)
 
     with patch(
-        "jarvis.telephony.session.classify_completeness",
+        "dodaios.telephony.session.classify_completeness",
         side_effect=RuntimeError("boom"),
     ):
         await _run_turn_direct(session, "Öffne Chrome")  # i18n-allow

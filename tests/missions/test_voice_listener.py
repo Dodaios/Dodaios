@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.event_bus import MissionBus
-from jarvis.missions.event_store import MissionEventStore
-from jarvis.missions.events import (
+from dodaios.missions.event_bus import MissionBus
+from dodaios.missions.event_store import MissionEventStore
+from dodaios.missions.events import (
     EventEnvelope,
     MissionApproved,
     MissionBudgetWarning,
@@ -26,9 +26,9 @@ from jarvis.missions.events import (
     WorkerKilled,
     now_ms,
 )
-from jarvis.missions.ids import uuid7_str
-from jarvis.missions.voice.listener import MissionVoiceListener
-from jarvis.missions.voice.readback import MissionReadback
+from dodaios.missions.ids import uuid7_str
+from dodaios.missions.voice.listener import MissionVoiceListener
+from dodaios.missions.voice.readback import MissionReadback
 
 
 # --- Helpers ---
@@ -298,7 +298,7 @@ async def test_correction_required_silent_by_default(store_and_bus) -> None:
     await listener.start()
     mid = await _seed_voice_mission(store)
 
-    from jarvis.missions.events import WorkerCorrectionRequired
+    from dodaios.missions.events import WorkerCorrectionRequired
     env = EventEnvelope(
         mission_id=mid, worker_id="w1", source_actor="critic", ts_ms=now_ms(),
         payload=WorkerCorrectionRequired(
@@ -321,7 +321,7 @@ async def test_correction_required_speaks_when_opted_in(store_and_bus) -> None:
     await listener.start()
     mid = await _seed_voice_mission(store)
 
-    from jarvis.missions.events import WorkerCorrectionRequired
+    from dodaios.missions.events import WorkerCorrectionRequired
     env = EventEnvelope(
         mission_id=mid, worker_id="w1", source_actor="critic", ts_ms=now_ms(),
         payload=WorkerCorrectionRequired(
@@ -349,7 +349,7 @@ async def test_correction_instruction_never_in_voice_output(store_and_bus) -> No
     await listener.start()
     mid = await _seed_voice_mission(store)
 
-    from jarvis.missions.events import WorkerCorrectionRequired
+    from dodaios.missions.events import WorkerCorrectionRequired
     secret_instruction = "RAW_LLM_NARRATIVE_TOKEN_xyz123"
     env = EventEnvelope(
         mission_id=mid, worker_id="w1", source_actor="critic", ts_ms=now_ms(),
@@ -440,7 +440,7 @@ async def test_scrub_for_voice_is_applied_to_mission_readback(store_and_bus) -> 
     Realistic test trigger: a MissionApproved with summary_de that
     contains engineering jargon (e.g. "Subprocess fertig"). The filter  # i18n-allow: quotes the actual German jargon test fixture
     must scrub "Subprocess" as a standalone word — see
-    JARGON_WORDS in jarvis/brain/output_filter.py.
+    JARGON_WORDS in dodaios/brain/output_filter.py.
     """
     store, bus = store_and_bus
     tts = _CapturingTTS()

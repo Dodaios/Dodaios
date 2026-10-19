@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import tomllib
 
-from jarvis.core import config_writer
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.core import config_writer
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 
 def test_vertex_switch_replaces_the_previous_providers_model_and_voices(tmp_path, monkeypatch):
@@ -53,6 +53,6 @@ def test_all_tts_providers_have_defaults_entry() -> None:
     # NB: we intentionally do NOT assert the reverse direction (every
     # _TTS_DEFAULTS key has a UI spec). A provider can legitimately have a
     # working plugin + defaults but no selectable UI card — e.g. ``elevenlabs``
-    # has jarvis/plugins/tts/elevenlabs_tts.py and a factory branch but is not
+    # has dodaios/plugins/tts/elevenlabs_tts.py and a factory branch but is not
     # in provider_spec.PROVIDERS. Such an entry is reachable via config/ENV and
     # must keep its defaults; flagging it as "orphaned" would be wrong.

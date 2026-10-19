@@ -1,7 +1,7 @@
 """The tool-less delegation tie-break degrades instead of killing the pump.
 
 ``_toolless_ambiguous_action`` reuses FIVE private names from
-``jarvis.brain.turn_planner`` (``_normalize`` plus four suppressor regexes) so
+``dodaios.brain.turn_planner`` (``_normalize`` plus four suppressor regexes) so
 no second, drifting copy of that vocabulary lives in the session. Private
 names are another module's internals: a rename there used to raise
 ``AttributeError`` at import time — or, once resolved lazily, inside the event
@@ -18,7 +18,7 @@ import logging
 
 import pytest
 
-from jarvis.realtime import session as session_module
+from dodaios.realtime import session as session_module
 
 # A tasking phrase whose verb sits OUTSIDE the planner's action vocabulary —
 # exactly the shape the tie-break exists to delegate.

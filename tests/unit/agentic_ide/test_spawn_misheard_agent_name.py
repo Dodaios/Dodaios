@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide import intent
+from dodaios.agentic_ide import intent
 
 
 def _groups(utterance: str) -> list[tuple[int, str | None]]:
@@ -154,7 +154,7 @@ def test_a_group_without_a_cli_keeps_its_own_count() -> None:
 )
 def test_a_large_spoken_count_is_heard_and_bounded(utterance: str, expected: int) -> None:
     """Large number words are recognized, then bounded by the per-request guard."""
-    from jarvis.agentic_ide.session import MAX_PANES_PER_REQUEST
+    from dodaios.agentic_ide.session import MAX_PANES_PER_REQUEST
 
     request = intent.detect_spawn(utterance)
     assert request is not None, utterance
@@ -162,7 +162,7 @@ def test_a_large_spoken_count_is_heard_and_bounded(utterance: str, expected: int
 
 
 def test_the_per_request_guard_is_the_only_ceiling() -> None:
-    from jarvis.agentic_ide.session import MAX_PANES_PER_REQUEST
+    from dodaios.agentic_ide.session import MAX_PANES_PER_REQUEST
 
     request = intent.detect_spawn(f"open {MAX_PANES_PER_REQUEST + 40} Codex terminals")
     assert request is not None

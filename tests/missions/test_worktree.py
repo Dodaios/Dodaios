@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.isolation.worktree import (
+from dodaios.missions.isolation.worktree import (
     SourceCheckoutUnavailableError,
     WorktreeManager,
 )
@@ -337,7 +337,7 @@ def test_source_task_fails_before_scaffolding_without_checkout(
     """Source work must never fall through to a copied application tree."""
     app_root = tmp_path / "read-only-app"
     app_root.mkdir()
-    (app_root / "jarvis").mkdir()
+    (app_root / "dodaios").mkdir()
     data_root = tmp_path.parent / "d-source"
     monkeypatch.delenv("JARVIS_ISOLATION_ROOT", raising=False)
     monkeypatch.setenv("JARVIS_DATA_DIR", str(data_root))
@@ -421,7 +421,7 @@ def test_run_git_uses_utf8_encoding_with_replace_errors(
         return subprocess.CompletedProcess(args[0], 0, stdout="", stderr="")
 
     monkeypatch.setattr(
-        "jarvis.missions.isolation.worktree.subprocess.run", fake_run
+        "dodaios.missions.isolation.worktree.subprocess.run", fake_run
     )
 
     manager._run_git(["git", "status"])
@@ -481,7 +481,7 @@ def test_remove_retries_on_transient_permission_denied(
 
     sleeps: list[float] = []
     monkeypatch.setattr(
-        "jarvis.missions.isolation.worktree.time.sleep", sleeps.append
+        "dodaios.missions.isolation.worktree.time.sleep", sleeps.append
     )
     monkeypatch.setattr(manager, "_run_git", flaky_run_git)
 
@@ -514,7 +514,7 @@ def test_remove_falls_back_to_rmtree_after_all_retries_fail(
         # `worktree prune` etc.) but this test only triggers `remove`.
         raise AssertionError(f"unexpected git call: {cmd}")
 
-    monkeypatch.setattr("jarvis.missions.isolation.worktree.time.sleep", lambda _s: None)
+    monkeypatch.setattr("dodaios.missions.isolation.worktree.time.sleep", lambda _s: None)
     monkeypatch.setattr(manager, "_run_git", always_fails)
 
     # With force=True the manager must NOT raise — it falls back to rmtree.
@@ -536,7 +536,7 @@ def test_remove_without_force_raises_after_retries(
             raise subprocess.CalledProcessError(1, cmd, stderr="Permission denied")
         raise AssertionError(f"unexpected git call: {cmd}")
 
-    monkeypatch.setattr("jarvis.missions.isolation.worktree.time.sleep", lambda _s: None)
+    monkeypatch.setattr("dodaios.missions.isolation.worktree.time.sleep", lambda _s: None)
     monkeypatch.setattr(manager, "_run_git", always_fails)
 
     with pytest.raises(subprocess.CalledProcessError):

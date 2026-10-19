@@ -11,12 +11,12 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.browser import install
-from jarvis.society.browser import live as live_module
-from jarvis.society.browser.tool import BrowserTool
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.surface import society_system_extra, society_tool_filter, society_tools
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.browser import install
+from dodaios.society.browser import live as live_module
+from dodaios.society.browser.tool import BrowserTool
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.surface import society_system_extra, society_tool_filter, society_tools
 from tests.fakes import browser_start_runner
 
 
@@ -28,7 +28,7 @@ async def cold_browser(tmp_path, monkeypatch):
     monkeypatch.setattr(install, "venv_python", lambda _: Path(sys.executable))
     monkeypatch.setattr(install, "runner_path", lambda: Path(browser_start_runner.__file__))
     monkeypatch.setattr(install, "browser_executable", lambda _: Path("unused-browser"))
-    monkeypatch.setattr("jarvis.core.config.get_jarvis_agent_secret", lambda _: None)
+    monkeypatch.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _: None)
     chat_store = AgentChatStore(tmp_path / "chat.sqlite")
     runtime = SocietyRuntime(
         tmp_path, seed_starter_team=False,

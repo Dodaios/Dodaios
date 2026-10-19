@@ -2,15 +2,15 @@
 
 The live command activity UI shows a plain-language badge (reads / modifies /
 deletes) next to a running command. The classification happens once, at the UI
-boundary, with the SAME ``jarvis.safety.command_impact`` module the risk-tier
+boundary, with the SAME ``dodaios.safety.command_impact`` module the risk-tier
 hook and the voice confirmation use — no TypeScript twin to drift.
 """
 from __future__ import annotations
 
 from uuid import uuid4
 
-from jarvis.core.events import ActionExecuted, ActionProposed
-from jarvis.ui.web.schema import event_to_ws_envelope
+from dodaios.core.events import ActionExecuted, ActionProposed
+from dodaios.ui.web.schema import event_to_ws_envelope
 
 
 def _proposed(tool_name: str, args: dict) -> ActionProposed:

@@ -7,16 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.events import (
+from dodaios.society.events import (
     AgentApprovalMode,
     AgentState,
     GrantMode,
     PermissionCeiling,
     Tier,
 )
-from jarvis.society.failure_reasons import FailureReason
-from jarvis.society.roster import Roster, RosterError, canonical_session_id, slugify
-from jarvis.society.store import SocietyStore
+from dodaios.society.failure_reasons import FailureReason
+from dodaios.society.roster import Roster, RosterError, canonical_session_id, slugify
+from dodaios.society.store import SocietyStore
 
 
 @pytest.fixture
@@ -208,7 +208,7 @@ async def test_name_rules(roster: Roster):
 def test_roster_has_no_session_pointer_column(tmp_path: Path):
     """The canonical chat is a pure function of agent_id; a pointer column is
     the drift bug this design refuses to ship."""
-    schema = (Path("jarvis/society/society_schema.sql")).read_text(encoding="utf-8")
+    schema = (Path("dodaios/society/society_schema.sql")).read_text(encoding="utf-8")
     conn = sqlite3.connect(tmp_path / "probe.db")
     conn.executescript(schema)
     cols = {row[1] for row in conn.execute("PRAGMA table_info(society_agents)")}
@@ -217,7 +217,7 @@ def test_roster_has_no_session_pointer_column(tmp_path: Path):
 
 
 def test_record_to_dict_is_json_shaped(tmp_path: Path):
-    from jarvis.society.roster import AgentRecord
+    from dodaios.society.roster import AgentRecord
 
     rec = AgentRecord.from_row(
         {

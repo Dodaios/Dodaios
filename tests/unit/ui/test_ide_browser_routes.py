@@ -9,8 +9,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui import browser_embed
-from jarvis.ui.web.ide_browser_routes import router
+from dodaios.ui import browser_embed
+from dodaios.ui.web.ide_browser_routes import router
 
 
 class FakeEmbed:
@@ -70,14 +70,14 @@ def test_status_off_windows(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_status_without_a_browser(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("jarvis.ui.browser_profiles.installed_browsers", lambda: [])
+    monkeypatch.setattr("dodaios.ui.browser_profiles.installed_browsers", lambda: [])
     client = _client(_desktop(), FakeEmbed(), monkeypatch)
     assert client.get("/api/ide-browser/status").json()["reason"] == "no_browser"
 
 
 def test_status_lists_browsers(monkeypatch: pytest.MonkeyPatch) -> None:
     browsers = [{"id": "chrome", "label": "Google Chrome", "profiles": [], "last_used": None}]
-    monkeypatch.setattr("jarvis.ui.browser_profiles.installed_browsers", lambda: browsers)
+    monkeypatch.setattr("dodaios.ui.browser_profiles.installed_browsers", lambda: browsers)
     client = _client(_desktop(), FakeEmbed(), monkeypatch)
     body = client.get("/api/ide-browser/status").json()
     assert body["available"] is True

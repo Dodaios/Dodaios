@@ -7,7 +7,7 @@ with an honest line. A clarifying QUESTION ("Wie lautet die volle E-Mail?") is
 the DESIRED behavior for a missing/broken field and must be left intact.
 """
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _action_unfulfilled_answer,
     _unfulfilled_replacement,
 )

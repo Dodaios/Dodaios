@@ -1,6 +1,6 @@
 """Contract tests for STT providers (Phase 1 + cloud).
 
-Scope: structural compatibility with ``jarvis.core.protocols.STTProvider`` and
+Scope: structural compatibility with ``dodaios.core.protocols.STTProvider`` and
 end-to-end functional coverage for the Groq cloud plugin (mocked HTTP, no
 network).
 
@@ -9,7 +9,7 @@ deliberately exercised only via class-level shape checks. The Groq plugin is
 testable on any host because httpx is mocked at the transport layer.
 
 This test file is also the regression guard for the rule "plugin modules must
-not import from ``jarvis.*``" (see AGENTS.md plugin section).
+not import from ``dodaios.*``" (see AGENTS.md plugin section).
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from jarvis.core.protocols import STTProvider
+from dodaios.core.protocols import STTProvider
 
 ENTRY_POINT_GROUP = "jarvis.stt"
 # faster-whisper entry-point removed 2026-05-18 along with the dependency
@@ -89,18 +89,18 @@ def test_provider_class_name_matches_entry_point(stt_classes, provider_name):
 
 
 # ----------------------------------------------------------------------
-# "No jarvis.* imports" rule for the Groq plugin source
+# "No dodaios.* imports" rule for the Groq plugin source
 # ----------------------------------------------------------------------
 
-#: The one ``jarvis.*`` package a plugin module may reach into: its own plugin
-#: group. ``jarvis.plugins.stt.transcript_filter`` is the shared post-processing
+#: The one ``dodaios.*`` package a plugin module may reach into: its own plugin
+#: group. ``dodaios.plugins.stt.transcript_filter`` is the shared post-processing
 #: helper that every STT provider runs its raw text through — fwhisper,
 #: gemini_api, nemotron_local, openai_api and openrouter_stt all import it the
 #: same way. It lives INSIDE the plugin layer, so using it is plugin code
 #: sharing plugin code, not a plugin reaching up into the application core,
 #: which is what the rule exists to prevent. Forbidding it here would single out
 #: Groq as the only provider shipping unfiltered transcripts.
-_ALLOWED_PLUGIN_IMPORT_ROOT = "jarvis.plugins.stt."
+_ALLOWED_PLUGIN_IMPORT_ROOT = "dodaios.plugins.stt."
 
 
 def test_groq_plugin_has_no_jarvis_imports():
@@ -109,13 +109,13 @@ def test_groq_plugin_has_no_jarvis_imports():
     Its own plugin group is the single exception — see
     :data:`_ALLOWED_PLUGIN_IMPORT_ROOT`.
     """
-    import jarvis.plugins.stt.groq_api as groq_mod
+    import dodaios.plugins.stt.groq_api as groq_mod
 
     source = Path(groq_mod.__file__).read_text(encoding="utf-8")
     offending = [
         ln
         for ln in source.splitlines()
-        if ln.lstrip().startswith(("from jarvis", "import jarvis"))
+        if ln.lstrip().startswith(("from dodaios", "import dodaios"))
         and _ALLOWED_PLUGIN_IMPORT_ROOT not in ln
     ]
     assert not offending, (
@@ -152,7 +152,7 @@ def _make_mock_client(handler) -> httpx.AsyncClient:
 
 
 def _build_groq(monkeypatch, handler, **kwargs):
-    from jarvis.plugins.stt.groq_api import GroqWhisperAPI
+    from dodaios.plugins.stt.groq_api import GroqWhisperAPI
 
     monkeypatch.setenv("GROQ_API_KEY", "test-key-xxx")
     client = _make_mock_client(handler)
@@ -160,7 +160,7 @@ def _build_groq(monkeypatch, handler, **kwargs):
 
 
 def test_groq_class_implements_stt_protocol_runtime_check():
-    from jarvis.plugins.stt.groq_api import GroqWhisperAPI
+    from dodaios.plugins.stt.groq_api import GroqWhisperAPI
 
     instance = GroqWhisperAPI(api_key="dummy")
     assert isinstance(instance, STTProvider)
@@ -240,14 +240,14 @@ def test_groq_raises_when_api_key_missing(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     # Also short-circuit the keyring fallback so the test does not depend on
     # the host's Credential Manager state.
-    import jarvis.plugins.stt.groq_api as groq_mod
+    import dodaios.plugins.stt.groq_api as groq_mod
 
     monkeypatch.setattr(groq_mod, "_read_keyring_secret", lambda *a, **k: "")
 
     def handler(request: httpx.Request) -> httpx.Response:  # pragma: no cover
         return httpx.Response(200, json={"text": "", "segments": []})
 
-    from jarvis.plugins.stt.groq_api import GroqWhisperAPI
+    from dodaios.plugins.stt.groq_api import GroqWhisperAPI
 
     provider = GroqWhisperAPI(http_client=_make_mock_client(handler))
     chunks = [FakeChunk(pcm=_fake_pcm(0.2))]

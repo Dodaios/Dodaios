@@ -1,7 +1,7 @@
 """TriggerConfig keybind fields and retired push-to-talk compatibility."""
 from __future__ import annotations
 
-from jarvis.core.config import TriggerConfig
+from dodaios.core.config import TriggerConfig
 
 
 def test_defaults_expose_the_four_shipped_shortcuts() -> None:

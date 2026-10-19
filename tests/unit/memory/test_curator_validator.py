@@ -1,4 +1,4 @@
-"""Unit tests for `jarvis.memory.curator.validator.Validator`.
+"""Unit tests for `dodaios.memory.curator.validator.Validator`.
 
 Focus — the validator is the **last line of defense** against subject confusion:
 
@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.memory.curator.extractor import Candidate
-from jarvis.memory.curator.validator import (
+from dodaios.memory.curator.extractor import Candidate
+from dodaios.memory.curator.validator import (
     CONFIDENCE_ACCEPT,
     CONFIDENCE_OVERWRITE,
     CONFIDENCE_REVIEW,

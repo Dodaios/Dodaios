@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.voice_command_gate import match_voice_command
+from dodaios.brain.voice_command_gate import match_voice_command
 
 
 @pytest.mark.parametrize(

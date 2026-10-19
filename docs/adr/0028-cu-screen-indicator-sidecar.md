@@ -29,11 +29,11 @@ agent desktops have made familiar. Two prior states existed:
 ## Decision
 
 - **Delete the OS-Level subsystem entirely** (`OS-Level/`,
-  `tests/overlay/`, and its glue in `jarvis/overlay/` — commit
-  eb91e393). The live parts of `jarvis/overlay/` (surface ladder,
+  `tests/overlay/`, and its glue in `dodaios/overlay/` — commit
+  eb91e393). The live parts of `dodaios/overlay/` (surface ladder,
   drop targets, virtual/system cursor) stay.
-- **Rebuild the indicator from scratch as `jarvis/cu/indicator`**, a
-  minimal PySide6 sidecar process (`python -m jarvis.cu.indicator`):
+- **Rebuild the indicator from scratch as `dodaios/cu/indicator`**, a
+  minimal PySide6 sidecar process (`python -m dodaios.cu.indicator`):
   QPainter gradients only — no QtWebEngine, no web frontend, no IPC
   server stack. One frameless, click-through, always-on-top,
   never-activating window per monitor; soft breathing Dodaios-gold glow;

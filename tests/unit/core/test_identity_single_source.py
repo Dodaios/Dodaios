@@ -1,7 +1,7 @@
-"""Every identity name comes from ``jarvis.core.branding``, or is pinned to it here.
+"""Every identity name comes from ``dodaios.core.branding``, or is pinned to it here.
 
 Most code imports the constants. A few places cannot: a plugin held to the
-no-``jarvis.*`` import rule, the PyInstaller spec and runtime hook, the shell
+no-``dodaios.*`` import rule, the PyInstaller spec and runtime hook, the shell
 and packaging scripts, ``pyproject.toml``, the frontend. Each of those restates
 a value, and each restated value is pinned below, so changing one name in
 ``branding.py`` either reaches every copy or fails this file by name.
@@ -24,16 +24,16 @@ from types import ModuleType
 
 import pytest
 
-import jarvis.core.branding as branding
-from jarvis.core import config as core_config
-from jarvis.core.instance import (
+import dodaios.core.branding as branding
+from dodaios.core import config as core_config
+from dodaios.core.instance import (
     DATA_DIR_ENV_VAR,
     DEV_INSTANCE_NAME,
     INSTANCE_ENV_VAR,
     resolve_data_dir,
 )
-from jarvis.core.paths import user_data_dir
-from jarvis.ui.desktop_log import DESKTOP_LOG_FILE_NAME, desktop_log_path
+from dodaios.core.paths import user_data_dir
+from dodaios.ui.desktop_log import DESKTOP_LOG_FILE_NAME, desktop_log_path
 
 _ROOT = Path(__file__).resolve().parents[3]
 
@@ -63,7 +63,7 @@ def _module_constant(relative_path: str, name: str) -> object:
 
 @pytest.mark.parametrize(
     "relative_path",
-    ["jarvis/plugins/stt/deepgram_api.py", "jarvis/plugins/stt/groq_api.py"],
+    ["dodaios/plugins/stt/deepgram_api.py", "dodaios/plugins/stt/groq_api.py"],
 )
 def test_a_plugin_reads_keys_from_the_hosts_keyring_service(relative_path: str) -> None:
     assert _module_constant(relative_path, "_KEYRING_SERVICE") == branding.KEYRING_SERVICE_NAME
@@ -74,9 +74,9 @@ def test_a_plugin_reads_keys_from_the_hosts_keyring_service(relative_path: str) 
 @pytest.mark.parametrize(
     "relative_path",
     [
-        "jarvis/plugins/brain/openrouter.py",
-        "jarvis/plugins/stt/openrouter_stt.py",
-        "jarvis/plugins/tts/openrouter_tts.py",
+        "dodaios/plugins/brain/openrouter.py",
+        "dodaios/plugins/stt/openrouter_stt.py",
+        "dodaios/plugins/tts/openrouter_tts.py",
     ],
 )
 def test_a_plugin_attributes_requests_to_the_official_repository(relative_path: str) -> None:
@@ -119,13 +119,13 @@ def test_the_pyinstaller_spec_restates_the_bundle_names() -> None:
 # The exact-value guard: a literal equal to one of these anywhere in shipped
 # Python is a second definition. Each allowed file says why it has one.
 _RESTATEMENTS_ALLOWED = {
-    "jarvis/core/branding.py": "the single source",
-    "jarvis/plugins/stt/deepgram_api.py": "plugin without jarvis.* imports, pinned above",
-    "jarvis/plugins/stt/groq_api.py": "plugin without jarvis.* imports, pinned above",
-    "jarvis/agent_runtimes/acp.py": "ACP client name, an identifier of its own",
-    "jarvis/agentic_ide/github_link.py": "HTTP user agent, an identifier of its own",
-    "jarvis/brain/identity.py": "the former product name told to a model",
-    "jarvis/codex_app_server.py": "client title sent to the Codex app server",
+    "dodaios/core/branding.py": "the single source",
+    "dodaios/plugins/stt/deepgram_api.py": "plugin without dodaios.* imports, pinned above",
+    "dodaios/plugins/stt/groq_api.py": "plugin without dodaios.* imports, pinned above",
+    "dodaios/agent_runtimes/acp.py": "ACP client name, an identifier of its own",
+    "dodaios/agentic_ide/github_link.py": "HTTP user agent, an identifier of its own",
+    "dodaios/brain/identity.py": "the former product name told to a model",
+    "dodaios/codex_app_server.py": "client title sent to the Codex app server",
 }
 
 
@@ -146,7 +146,7 @@ def _distinctive_identity_values() -> dict[str, str]:
 
 
 def _shipped_python_files() -> list[Path]:
-    roots = [_ROOT / "jarvis", _ROOT / "ui", _ROOT / "install", _ROOT / "packaging"]
+    roots = [_ROOT / "dodaios", _ROOT / "ui", _ROOT / "install", _ROOT / "packaging"]
     files = [path for root in roots for path in root.rglob("*.py")]
     return [path for path in files if "node_modules" not in path.parts]
 
@@ -169,7 +169,7 @@ def test_no_module_restates_an_identity_value() -> None:
                     f"{relative}:{node.lineno}: {node.value!r} restates "
                     f"branding.{values[node.value]}"
                 )
-    assert not offenders, "import the constant from jarvis.core.branding:\n" + "\n".join(offenders)
+    assert not offenders, "import the constant from dodaios.core.branding:\n" + "\n".join(offenders)
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +267,7 @@ def test_the_project_metadata_restates_the_distribution_and_its_commands() -> No
 
 
 def test_the_frontend_restates_the_display_name_and_a_known_repository() -> None:
-    source = _read("jarvis/ui/web/frontend/src/lib/branding.ts")
+    source = _read("dodaios/ui/web/frontend/src/lib/branding.ts")
     name = re.search(r'^export const PRODUCT_NAME = "([^"]+)";$', source, re.MULTILINE)
     slug = re.search(r'^export const OFFICIAL_REPO_SLUG = "([^"]+)";$', source, re.MULTILINE)
     assert name is not None and name.group(1) == branding.PRODUCT_NAME

@@ -13,13 +13,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     BrainProviderConfig,
     BrainTierConfig,
     JarvisConfig,
     OllamaModelOptions,
 )
-from jarvis.local_models import autostart
+from dodaios.local_models import autostart
 
 
 def _cfg(
@@ -89,7 +89,7 @@ def test_the_off_sentence_names_what_still_runs_on_the_server() -> None:
 
 
 def test_the_default_is_on_even_without_an_ollama_card() -> None:
-    from jarvis.core.config import ollama_autostart
+    from dodaios.core.config import ollama_autostart
 
     cfg = JarvisConfig()
     cfg.brain.providers.pop("ollama", None)
@@ -239,7 +239,7 @@ async def test_the_brain_switch_readies_and_releases_the_local_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Both halves of the gesture: pick it and it starts, leave and it stops."""
-    from jarvis.brain import app_control
+    from dodaios.brain import app_control
 
     kicked: list[str] = []
     released: list[str] = []

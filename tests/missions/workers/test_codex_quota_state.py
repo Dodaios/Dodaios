@@ -13,7 +13,7 @@ success clears it immediately.
 """
 from __future__ import annotations
 
-import jarvis.codex_quota_state as qs
+import dodaios.codex_quota_state as qs
 
 
 def test_default_not_in_cooldown() -> None:

@@ -32,10 +32,10 @@ BLOCKING_SERVICES = (
 
 #: Route modules that expose those services to the UI.
 ROUTE_MODULES = (
-    "jarvis/ui/web/provider_routes.py",
-    "jarvis/ui/web/antigravity_routes.py",
-    "jarvis/ui/web/claude_routes.py",
-    "jarvis/ui/web/server.py",
+    "dodaios/ui/web/provider_routes.py",
+    "dodaios/ui/web/antigravity_routes.py",
+    "dodaios/ui/web/claude_routes.py",
+    "dodaios/ui/web/server.py",
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]

@@ -1,6 +1,6 @@
 """A timed-out cold build must not immediately start a second model load."""
 
-from jarvis.dictation import local_final, local_preview
+from dodaios.dictation import local_final, local_preview
 
 
 def test_failed_cold_build_starts_cooldown_at_failure(monkeypatch):

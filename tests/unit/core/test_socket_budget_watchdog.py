@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.core import socket_budget
-from jarvis.core.socket_budget import SocketBudgetWatchdog, SocketCensus
+from dodaios.core import socket_budget
+from dodaios.core.socket_budget import SocketBudgetWatchdog, SocketCensus
 
 
 @pytest.fixture(autouse=True)
