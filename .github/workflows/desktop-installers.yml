@@ -357,7 +357,7 @@ jobs:
       # headless smoke test below, so look at the built app itself (BUG-222).
       - name: Verify the app bundle can use macOS permissions
         shell: bash
-        run: python scripts/ci/check_frozen_macos_app.py --app "dist/Personal Jarvis.app"
+        run: python scripts/ci/check_frozen_macos_app.py --app "dist/Dodaios.app"
 
       - name: Remove signing credentials even after a failed build
         if: always() && env.HAS_APPLE_SIGNING == 'true'
@@ -392,7 +392,7 @@ jobs:
           mkdir -p "$mount_point"
           hdiutil attach "dist/installers/Dodaios-macOS-${{ matrix.arch }}.dmg" -readonly -nobrowse -mountpoint "$mount_point"
           trap 'hdiutil detach "$mount_point"' EXIT
-          python scripts/ci/check_frozen_browser.py --executable "$mount_point/Personal Jarvis.app/Contents/MacOS/DodaiosApp" --output frozen-browser-proof
+          python scripts/ci/check_frozen_browser.py --executable "$mount_point/Dodaios.app/Contents/MacOS/DodaiosApp" --output frozen-browser-proof
 
       - name: Preserve frozen browser evidence
         if: always()

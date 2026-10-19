@@ -12,7 +12,7 @@
 # byte-identical copy for installs from before the rename
 # (scripts/ci/installer_aliases.py).
 #
-# The disk image contains "Personal Jarvis.app" next to a symlink to
+# The disk image contains "Dodaios.app" next to a symlink to
 # /Applications, which is the drag-to-install layout every Mac user already
 # knows. The app is a PyInstaller BUNDLE built from jarvis.spec.
 #
@@ -50,8 +50,8 @@ DRY_RUN="${DRY_RUN:-0}"
 PYTHON="${PYTHON:-python3}"
 SKIP_FRONTEND="${SKIP_FRONTEND:-0}"
 
-APP_NAME="Personal Jarvis"
-VOLUME_NAME="Personal Jarvis"
+APP_NAME="Dodaios"
+VOLUME_NAME="Dodaios"
 DIST_DIR="${REPO_ROOT}/dist"
 APP_BUNDLE="${DIST_DIR}/${APP_NAME}.app"
 OUT_DIR="${DIST_DIR}/installers"
