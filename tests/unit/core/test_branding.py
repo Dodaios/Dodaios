@@ -23,7 +23,9 @@ _CURRENT_IDENTITY = {
     "LEGACY_LAUNCHER_ENTRY_NAMES": ("Personal Jarvis",),
     "CONFIG_FILE_NAME": "dodaios.toml",
     "LEGACY_CONFIG_FILE_NAMES": ("jarvis.toml",),
-    "DISTRIBUTION_NAME": "personal-jarvis",
+    "DISTRIBUTION_NAME": "dodaios",
+    "LEGACY_DISTRIBUTION_NAMES": ("personal-jarvis",),
+    "DISTRIBUTION_NAMES": ("dodaios", "personal-jarvis"),
     "CLI_COMMAND_NAME": "dodaios",
     "CONTROL_CLI_COMMAND_NAME": "dodaiosctl",
     "LEGACY_CLI_COMMAND_NAMES": ("jarvis", "personal-jarvis"),
@@ -120,10 +122,12 @@ _MIGRATED_TO_THE_PRODUCT_NAME = frozenset(
         "LINUX_APP_NAME",
         "LINUX_DESKTOP_ENTRY_FILE_NAME",
         "LINUX_WM_CLASS",
+        # The Python distribution (pip install name, share/<name>).
+        "DISTRIBUTION_NAME",
     }
 )
 # Every spelling of a migrated name, the current one first.
-_ALL_SPELLINGS_OF_A_MIGRATED_NAME = frozenset({"MANAGED_INSTALL_MARKERS"})
+_ALL_SPELLINGS_OF_A_MIGRATED_NAME = frozenset({"MANAGED_INSTALL_MARKERS", "DISTRIBUTION_NAMES"})
 
 
 def _legacy_values(name: str) -> tuple[str, ...]:

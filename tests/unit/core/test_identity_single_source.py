@@ -392,6 +392,16 @@ def test_the_project_metadata_restates_the_distribution_and_its_commands() -> No
     assert data_files, "the wheel ships its reader documents as data files"
     for target in data_files:
         assert target.startswith(f"share/{branding.DISTRIBUTION_NAME}/"), target
+    # The extras refer to the project by its own name, never by the earlier one.
+    for group in project["project"]["optional-dependencies"].values():
+        for legacy in branding.LEGACY_DISTRIBUTION_NAMES:
+            assert not any(item.startswith(f"{legacy}[") for item in group), group
+
+
+def test_the_frozen_build_bundles_the_metadata_under_either_distribution_name() -> None:
+    spec = _read("jarvis.spec")
+    assert f"\nDISTRIBUTION_NAMES = {branding.DISTRIBUTION_NAMES!r}\n" in spec
+    assert "datas += copy_metadata(_installed_distribution())" in spec
 
 
 def test_the_frontend_restates_the_display_name_and_a_known_repository() -> None:
