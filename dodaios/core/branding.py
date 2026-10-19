@@ -43,8 +43,8 @@ PRODUCT_SLUG = PERSISTENT_SLUG
 # The name Windows lists the app under: the Start-Menu and Desktop shortcut, the
 # entry in Installed Apps, the toast identity. Text that tells a person where to
 # find the app on Windows uses this name. The macOS bundle and the Linux desktop
-# entry keep their own names (``MACOS_APP_NAME``, ``LINUX_APP_NAME``) until they
-# move with their own migration.
+# entry have names of their own (``MACOS_APP_NAME``, ``LINUX_APP_NAME``), each
+# moved with its own migration.
 LAUNCHER_ENTRY_NAME = "Dodaios"
 LEGACY_LAUNCHER_ENTRY_NAMES = (PERSISTENT_PRODUCT_NAME,)
 
@@ -199,9 +199,19 @@ MACOS_AUTOSTART_LABEL = f"com.{PERSISTENT_SLUG}.autostart"
 # installer creates so the app bundle keeps one TCC identity across rebuilds.
 MACOS_SIGNING_IDENTITY_LABEL = f"{MACOS_APP_NAME} Local Signing"
 
-LINUX_APP_NAME = PERSISTENT_PRODUCT_NAME
-LINUX_DESKTOP_ENTRY_FILE_NAME = f"{PERSISTENT_SLUG}.desktop"
-LINUX_WM_CLASS = PERSISTENT_SLUG
+# The Linux desktop entry: the name the app menu lists, the entry's file name
+# (in ``applications`` and in ``autostart``) and the window class the running
+# window is pinned to. The three move together: a desktop binds a running
+# window to the entry whose ``StartupWMClass`` equals the window's class, and
+# shows that entry's icon for it. An entry under an earlier name is removed
+# only where it starts this installation, and an earlier-named autostart entry
+# that starts this installation counts as current (``dodaios.autostart.linux``).
+LINUX_APP_NAME = "Dodaios"
+LEGACY_LINUX_APP_NAMES = (PERSISTENT_PRODUCT_NAME,)
+LINUX_DESKTOP_ENTRY_FILE_NAME = "dodaios.desktop"
+LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES = (f"{PERSISTENT_SLUG}.desktop",)
+LINUX_WM_CLASS = "dodaios"
+LEGACY_LINUX_WM_CLASSES = (PERSISTENT_SLUG,)
 
 # --- Plugin entry-point groups -------------------------------------------------
 # A plugin registers under ``<namespace>.<slot>`` (``dodaios.tool``,
@@ -298,6 +308,9 @@ __all__ = [
     "KEYRING_SERVICE_NAME",
     "LAUNCHER_ENTRY_NAME",
     "LEGACY_KEYRING_SERVICE_NAMES",
+    "LEGACY_LINUX_APP_NAMES",
+    "LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES",
+    "LEGACY_LINUX_WM_CLASSES",
     "LINUX_APP_NAME",
     "LINUX_DESKTOP_ENTRY_FILE_NAME",
     "LINUX_WM_CLASS",

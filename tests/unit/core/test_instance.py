@@ -112,7 +112,16 @@ def test_dev_identity_differs_on_every_colliding_surface() -> None:
     assert v.legacy_windows_branded_launcher_file_names == ("PersonalJarvisDev.exe",)
     assert v.windows_mutex_name == "Global" + chr(92) + "Dodaios_v1_dev"
     assert v.legacy_windows_mutex_names == ("Global" + chr(92) + "PersonalJarvis_v1_dev",)
-    assert v.linux_desktop_entry_file_name == "personal-jarvis-dev.desktop"
+    # The Linux names moved together (entry, menu name, window class); the
+    # entry an earlier release wrote for the same instance is still found.
+    assert d.linux_app_name == "Dodaios"
+    assert v.linux_app_name == "Dodaios Dev"
+    assert d.linux_desktop_entry_file_name == "dodaios.desktop"
+    assert v.linux_desktop_entry_file_name == "dodaios-dev.desktop"
+    assert d.legacy_linux_desktop_entry_file_names == ("personal-jarvis.desktop",)
+    assert v.legacy_linux_desktop_entry_file_names == ("personal-jarvis-dev.desktop",)
+    assert d.linux_wm_class == "dodaios"
+    assert v.linux_wm_class == "dodaios-dev"
     for attr in (
         "display_name",
         "compact_name",
@@ -123,8 +132,10 @@ def test_dev_identity_differs_on_every_colliding_surface() -> None:
         "windows_mutex_name",
         "windows_shortcut_file_name",
         "windows_branded_launcher_file_name",
+        "linux_app_name",
         "linux_wm_class",
         "linux_desktop_entry_file_name",
+        "legacy_linux_desktop_entry_file_names",
         "macos_bundle_id",
         "state_file_suffix",
     ):

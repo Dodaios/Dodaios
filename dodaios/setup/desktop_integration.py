@@ -10,7 +10,10 @@ This module owns the external, per-user artifacts as one lifecycle:
   A launcher under the product's earlier name is retired once the current one
   is in place, and only where it starts this installation.
 * macOS: ``~/Applications/Personal Jarvis.app``.
-* Linux: ``$XDG_DATA_HOME/applications/personal-jarvis.desktop``.
+* Linux: ``$XDG_DATA_HOME/applications/dodaios.desktop``. An entry under the
+  earlier name (``personal-jarvis.desktop``) is retired the same way as the
+  Windows launcher: once the current one is in place, and only where it starts
+  this installation.
 
 Installer, updater, first desktop boot, and uninstaller all call this module so
 an update cannot move the code while leaving its launcher behind.  Registration
@@ -44,6 +47,7 @@ from typing import Any
 
 from dodaios.core.branding import (
     LAUNCHER_ENTRY_NAME,
+    LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES,
     LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
     LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
     LINUX_DESKTOP_ENTRY_FILE_NAME,
@@ -399,16 +403,26 @@ def _linux_applications_dir() -> Path:
     return base / "applications"
 
 
-def _remove_linux_desktop_entry(applications_dir: Path | None = None) -> bool:
-    entry = (
-        applications_dir or _linux_applications_dir()
-    ) / LINUX_DESKTOP_ENTRY_FILE_NAME
+def _remove_linux_desktop_entry(
+    applications_dir: Path | None = None, *, install_root: Path | None = None
+) -> bool:
+    """Remove the menu entry, and an earlier-named one where it starts this install."""
+    directory = applications_dir or _linux_applications_dir()
+    entry = directory / LINUX_DESKTOP_ENTRY_FILE_NAME
     try:
         entry.unlink(missing_ok=True)
-        return True
     except OSError as exc:
         log.warning("Linux application-menu cleanup failed: %s", exc)
         return False
+    from dodaios.autostart.linux import remove_entries_of_install
+
+    _removed, failures = remove_entries_of_install(
+        [directory / name for name in LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES],
+        str(install_root or _install_root()),
+    )
+    for failure in failures:
+        log.warning("Linux application-menu cleanup failed: %s", failure)
+    return not failures
 
 
 def _linux_gui_available(applications_dir: Path | None) -> bool:

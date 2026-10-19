@@ -23,8 +23,10 @@ from dodaios.autostart.paths import same_path
 from dodaios.autostart.protocol import LaunchSpec
 from dodaios.autostart.windows import TASK_NAME, WindowsAutostart, _TaskInfo
 from dodaios.core.branding import (
+    LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES,
     LEGACY_WINDOWS_AUTOSTART_TASK_NAMES,
     LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    LINUX_DESKTOP_ENTRY_FILE_NAME,
     WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
 )
 from dodaios.core.identity_migration import create_directory_link
@@ -195,3 +197,25 @@ def test_a_desktop_entry_written_from_the_earlier_folder_name_is_current(
     # A different command in the same folder is a different entry.
     other_args = LaunchSpec(now.program, (*ARGS, "--background-service"), now.working_dir)
     assert manager.status(other_args).matches_spec is False
+
+
+def test_a_desktop_entry_under_its_earlier_name_and_folder_name_is_current(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Both renames at once: the entry an earlier release wrote, under the
+    # earlier file name, from the earlier folder name the link still leads to.
+    current, legacy = _moved_install(tmp_path)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    manager = LinuxAutostart()
+    manager.install(LaunchSpec(str(legacy / ".venv" / "bin" / "python"), ARGS, str(legacy)))
+    autostart = tmp_path / "config" / "autostart"
+    earlier = autostart / LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES[0]
+    (autostart / LINUX_DESKTOP_ENTRY_FILE_NAME).rename(earlier)
+
+    now = LaunchSpec(str(current / ".venv" / "bin" / "python"), ARGS, str(current))
+    status = manager.status(now)
+    assert status.matches_spec is True
+    assert status.entry_path == str(earlier)
+    # The uninstall of this install takes it away, found through the link.
+    assert LinuxAutostart(install_dir=str(current)).uninstall().installed is False
+    assert not earlier.exists()
