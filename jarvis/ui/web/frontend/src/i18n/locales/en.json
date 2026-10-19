@@ -5759,7 +5759,8 @@
       "exited": "{agent} is no longer running in {pane}.",
       "restart_aria": "Restart {pane}",
       "restart_title": "Start a fresh {agent} in {pane}",
-      "restart": "Restart"
+      "restart": "Restart",
+      "show_in_git": "Show {pane}'s changes in Git"
     }
   },
   "prompt_writer": {
@@ -8236,7 +8237,19 @@
         "view_tree": "View as Tree",
         "view_sort": "View & Sort",
         "working_tree": "Working Tree",
-        "yes": "Yes"
+        "yes": "Yes",
+        "all_changes": "All Changes",
+        "sessions": "Agent sessions",
+        "pick_session": "Show the changes of one agent session",
+        "filter_session": "Show One Agent Session's Changes…",
+        "filtered_by": "Showing only {pane}'s changes",
+        "session_since": "since {when}",
+        "session_clear": "Show All Changes",
+        "session_group": "Session Changes",
+        "stage_session": "Stage the Session's Pending Changes",
+        "session_empty": "This session has not changed any file yet, or its agent keeps no record of its edits.",
+        "session_committed": "committed",
+        "session_generated": "{n} generated files hidden"
       }
     },
     "skills": {
@@ -9255,7 +9268,8 @@
       "runs_on": "Runs on {computer}. It keeps working while this app is closed.",
       "worktree_branch": "Runs in its own git worktree on branch {branch}",
       "drag_hint": "Drag to reorder, or focus this title and press Alt with an arrow key.",
-      "add_beside": "Add agent beside {pane}"
+      "add_beside": "Add agent beside {pane}",
+      "show_in_git": "Show changes in Git"
     },
     "request_failed": "Request failed ({status}).",
     "seam": {

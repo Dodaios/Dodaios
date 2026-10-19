@@ -216,7 +216,10 @@ function ChatStageContent() {
           <Greeting />
         </div>
         <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
-          <AgentComposer autoFocus />
+          {/* The digits make way while the pointer is on the composer. */}
+          <div data-binary-field-off>
+            <AgentComposer autoFocus />
+          </div>
         </div>
       </div>
     );
