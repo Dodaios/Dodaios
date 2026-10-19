@@ -12,15 +12,15 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.config import JarvisConfig
-from jarvis.core.self_mod import (
+from dodaios.core.config import JarvisConfig
+from dodaios.core.self_mod import (
     AtomicConfigWriter,
     PendingMutationStore,
     PreValidateError,
     SecretAccessError,
     SelfModAudit,
 )
-from jarvis.core.self_mod.schema import MutationRequest
+from dodaios.core.self_mod.schema import MutationRequest
 
 FIXTURE = Path(__file__).parent / "fixtures" / "minimal_jarvis.toml"
 

@@ -7,8 +7,8 @@ from pathlib import Path
 from scripts.ci.check_dist_consistency import _refs_in
 
 ROOT = Path(__file__).resolve().parents[3]
-DIST = ROOT / "jarvis/ui/web/dist"
-BRANDS = ROOT / "jarvis/ui/web/frontend/src/assets/brands"
+DIST = ROOT / "dodaios/ui/web/dist"
+BRANDS = ROOT / "dodaios/ui/web/frontend/src/assets/brands"
 
 
 def _reachable_javascript() -> str:

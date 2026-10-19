@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.skills import quality
+from dodaios.skills import quality
 
 
 class _FakeRiskPolicy:
@@ -296,7 +296,7 @@ def test_the_loader_is_not_involved() -> None:
     """
     from pathlib import Path
 
-    import jarvis.skills.loader as loader
+    import dodaios.skills.loader as loader
 
     source = Path(loader.__file__).read_text(encoding="utf-8")
     assert "quality" not in source

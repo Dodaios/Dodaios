@@ -10,7 +10,7 @@ machine everything works (the files ARE on disk), so nothing looks wrong
 locally -- but every clone / fresh install 404s the entry bundle and
 boots to a permanently-blank UI behind the splash spinner. Classic AP-23
 ("works on my machine" is the defect): the repo ships ``dist/`` on
-purpose (see the ``!jarvis/ui/web/dist/**`` carve-out in .gitignore), so
+purpose (see the ``!dodaios/ui/web/dist/**`` carve-out in .gitignore), so
 a half-committed bundle IS a broken product for everyone else.
 
 **Orphaned chunks** (2026-10-06): ``scripts/publish-build.mjs`` keeps a
@@ -56,7 +56,7 @@ from collections import deque
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
-DIST = "jarvis/ui/web/dist"
+DIST = "dodaios/ui/web/dist"
 ENTRY_HTML = f"{DIST}/index.html"
 ASSETS_PREFIX = f"{DIST}/assets/"
 
@@ -172,7 +172,7 @@ def _report_missing(missing: dict[str, str]) -> None:
         f"{DIST}/index.html {ASSETS_PREFIX}` -- or rebuild it"
     )
     print(
-        "  (`npm run build` in jarvis/ui/web/frontend/) and stage everything"
+        "  (`npm run build` in dodaios/ui/web/frontend/) and stage everything"
     )
     print("  vite emitted, then retry.")
 

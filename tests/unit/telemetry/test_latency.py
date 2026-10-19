@@ -9,8 +9,8 @@ from __future__ import annotations
 import asyncio
 from uuid import uuid4
 
-from jarvis.core.events import LatencyPhase, LatencySpan
-from jarvis.telemetry.latency import LatencyTracker
+from dodaios.core.events import LatencyPhase, LatencySpan
+from dodaios.telemetry.latency import LatencyTracker
 
 
 class _CaptureBus:

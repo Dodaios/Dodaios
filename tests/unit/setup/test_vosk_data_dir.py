@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import paths
-from jarvis.setup import model_report, prefetch
-from jarvis.speech import wake_constants, wake_model_fetch
-from jarvis.speech.wake_phrase import resolve_wake_plan
+from dodaios.core import paths
+from dodaios.setup import model_report, prefetch
+from dodaios.speech import wake_constants, wake_model_fetch
+from dodaios.speech.wake_phrase import resolve_wake_plan
 
 
 @pytest.fixture

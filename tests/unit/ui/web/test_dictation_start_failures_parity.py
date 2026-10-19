@@ -13,11 +13,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.core.events import DICTATION_REFUSAL_REASONS
+from dodaios.core.events import DICTATION_REFUSAL_REASONS
 
 _TS = (
     Path(__file__).resolve().parents[4]
-    / "jarvis"
+    / "dodaios"
     / "ui"
     / "web"
     / "frontend"

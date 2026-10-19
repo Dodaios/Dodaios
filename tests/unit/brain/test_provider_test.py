@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.provider_test import (
+from dodaios.brain.provider_test import (
     PROVIDER_TEST_STATUSES,
     classify_provider_error,
 )

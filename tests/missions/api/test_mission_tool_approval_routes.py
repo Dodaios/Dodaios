@@ -10,10 +10,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import ActionApprovalRequired, ActionApproved, ActionDenied
-from jarvis.missions.tool_approvals import MissionToolApprovalCoordinator
-from jarvis.ui.web.missions_routes import router
+from dodaios.core.bus import EventBus
+from dodaios.core.events import ActionApprovalRequired, ActionApproved, ActionDenied
+from dodaios.missions.tool_approvals import MissionToolApprovalCoordinator
+from dodaios.ui.web.missions_routes import router
 
 
 class _Manager:

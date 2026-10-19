@@ -1,5 +1,5 @@
 # === F-FRIENDS [F1] · feature/friends-section · ruben-2026-04-30 ===
-"""Unit tests for :class:`jarvis.channels.telegram.TelegramChannel`.
+"""Unit tests for :class:`dodaios.channels.telegram.TelegramChannel`.
 
 Strategy: no real ``python-telegram-bot`` lib needed in the test path —
 we test with mock update/bot objects and manual instantiation.
@@ -15,13 +15,13 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from jarvis.channels.manager import ChannelContext
-from jarvis.channels.telegram import InflightMap, TelegramChannel
-from jarvis.core.bus import EventBus
-from jarvis.core.config import TelegramConfig
-from jarvis.core.events import ResponseGenerated
-from jarvis.friends.models import Friend, FriendChannel
-from jarvis.friends.registry import FriendRegistry
+from dodaios.channels.manager import ChannelContext
+from dodaios.channels.telegram import InflightMap, TelegramChannel
+from dodaios.core.bus import EventBus
+from dodaios.core.config import TelegramConfig
+from dodaios.core.events import ResponseGenerated
+from dodaios.friends.models import Friend, FriendChannel
+from dodaios.friends.registry import FriendRegistry
 
 
 def _make_update(
@@ -88,7 +88,7 @@ def test_inflightmap_expires_after_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
     def _fake_time_ns() -> int:
         return fake_now[0]
 
-    monkeypatch.setattr("jarvis.channels.telegram.time.time_ns", _fake_time_ns)
+    monkeypatch.setattr("dodaios.channels.telegram.time.time_ns", _fake_time_ns)
     m.set(tid, 99)
     assert m.get(tid) == 99
     fake_now[0] += 2_000_000_000
@@ -206,7 +206,7 @@ async def test_on_msg_pairs_first_private_user_and_inserts_inbox(
 ) -> None:
     paired: list[int] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.add_telegram_allowed_user_id",
+        "dodaios.core.config_writer.add_telegram_allowed_user_id",
         lambda user_id: paired.append(user_id),
     )
     cfg = TelegramConfig(enabled=True, allowed_user_ids=[])
@@ -230,7 +230,7 @@ async def test_on_msg_refuses_first_contact_after_the_pairing_window(
     finds the public bot later must not become its owner."""
     paired: list[int] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.add_telegram_allowed_user_id",
+        "dodaios.core.config_writer.add_telegram_allowed_user_id",
         lambda user_id: paired.append(user_id),
     )
     cfg = TelegramConfig(enabled=True, allowed_user_ids=[])
@@ -247,7 +247,7 @@ async def test_start_command_replies_without_entering_inbox(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.core.config_writer.add_telegram_allowed_user_id",
+        "dodaios.core.config_writer.add_telegram_allowed_user_id",
         lambda user_id: None,
     )
     cfg = TelegramConfig(enabled=True, allowed_user_ids=[])
@@ -357,7 +357,7 @@ async def test_send_text_aborts_when_app_not_started() -> None:
 async def test_send_message_drops_without_chat_id() -> None:
     cfg = TelegramConfig(enabled=True, allowed_user_ids=[100])
     ch = _make_channel(cfg)
-    from jarvis.channels.base import ChannelMessage
+    from dodaios.channels.base import ChannelMessage
 
     msg = ChannelMessage(session_id=uuid4(), kind="text", content="x", metadata={})
     await ch.send_message(msg)
@@ -372,7 +372,7 @@ async def test_on_bus_event_ignores_non_response_generated() -> None:
     cfg = TelegramConfig(enabled=True, allowed_user_ids=[100])
     ch = _make_channel(cfg)
 
-    from jarvis.core.events import SystemStateChanged
+    from dodaios.core.events import SystemStateChanged
 
     evt = SystemStateChanged(new_state="IDLE")
     await ch._on_bus_event(evt)  # noqa: SLF001

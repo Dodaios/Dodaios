@@ -114,7 +114,7 @@ events**. The hotkey looks wired but is dead.
 reports neither), ships "Linux hotkey done." A Wayland user (GNOME/KDE default on
 modern distros) presses the combo, nothing happens, no error, no log.
 
-**Counter-pattern.** AD-8 + HN-4. The `jarvis/platform/` capability sets
+**Counter-pattern.** AD-8 + HN-4. The `dodaios/platform/` capability sets
 `is_wayland` (check `XDG_SESSION_TYPE` / `WAYLAND_DISPLAY`). On Wayland: do **not**
 register; log "Global hotkey unavailable on Wayland by OS design — use the wake-word
 to summon Jarvis" and no-op. Mirror the macOS "registered but zero events → guide to
@@ -142,7 +142,7 @@ A bare reuse turns the always-degrade orb into a hard crash.
 **Counter-pattern.** AD-11 `OverlaySurface` 3-tier ladder + HN-4. `TkColorKeyOverlay`
 is selected only where the attribute exists (Windows + macOS); Linux gets a
 best-effort transparent surface when a compositor is present, and the
-`TrayOnlySurface` fallback (driving the already-cross-platform `jarvis/ui/tray.py`
+`TrayOnlySurface` fallback (driving the already-cross-platform `dodaios/ui/tray.py`
 pystray tray, which carries no platform marker) when it isn't. Wrap the attribute
 call in a capability check (`capabilities.has_overlay`), and on `TclError` log + fall
 to the tray tier — never let it propagate. (Wave 0 must first resolve the Tk-vs-PySide6
@@ -301,15 +301,15 @@ role/op vocabulary.
 ## AP-13 — the convenience module-scope import
 
 **The trap.** "It's a macOS-only file, surely I can `import Quartz` at the top." Any
-module-scope import of an OS-specific package executes during `import jarvis` on every
+module-scope import of an OS-specific package executes during `import dodaios` on every
 platform, because the package tree is imported for entry-point discovery.
 
 **How it reproduces.** Author tops a new file with `import pyobjc` / `import pyatspi`
 / `from winpty import PtyProcess`. The import-cleanliness gate
-(`python -c "import jarvis"`, AD-4) goes red on the other two OSes; the matrix blocks
+(`python -c "import dodaios"`, AD-4) goes red on the other two OSes; the matrix blocks
 the merge (or worse, a swallowed import feeds AP-6).
 
 **Counter-pattern.** HN-7 + HN-13. Lazy-import inside the function/branch that needs
 it, guarded by try/except that flips the capability, mirroring `pty_manager.py:71`
-and `ipc.py:99-110`. The capability probe lives in `jarvis/platform/`; consumers read
+and `ipc.py:99-110`. The capability probe lives in `dodaios/platform/`; consumers read
 the boolean, never the import.

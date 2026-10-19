@@ -19,11 +19,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.settings_routes as settings_routes
-from jarvis.core import config_writer
-from jarvis.core.config import WakeWordConfig
-from jarvis.platform.permission_service import PermissionOutcome, get_permission_service
-from jarvis.ui.web.settings_routes import router
+import dodaios.ui.web.settings_routes as settings_routes
+from dodaios.core import config_writer
+from dodaios.core.config import WakeWordConfig
+from dodaios.platform.permission_service import PermissionOutcome, get_permission_service
+from dodaios.ui.web.settings_routes import router
 from tests.fakes.fake_permission_service import FakePermissionService
 from tests.fakes.fake_tcc import (
     DialogPolicy,

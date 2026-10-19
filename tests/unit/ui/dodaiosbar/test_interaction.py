@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar import interaction as I
+from dodaios.ui.dodaiosbar import interaction as I
 
 
 def test_is_drag_threshold():

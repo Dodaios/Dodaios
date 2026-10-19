@@ -10,16 +10,16 @@ import httpx
 import pytest
 from fastapi import BackgroundTasks, HTTPException
 
-from jarvis.marketplace.auth.oauth_pkce_loopback import (
+from dodaios.marketplace.auth.oauth_pkce_loopback import (
     PkceLoopbackConfig,
     PkceLoopbackHandler,
     _PendingPkceFlow,
 )
-from jarvis.marketplace.catalog import PluginCatalog
-from jarvis.marketplace.catalog_data import _PACKAGE_SEED_PATH, load_catalog
-from jarvis.marketplace.plugin_registry import PluginToolRegistry
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
-from jarvis.plugins.tool.connected_server import ConnectedRestClient
+from dodaios.marketplace.catalog import PluginCatalog
+from dodaios.marketplace.catalog_data import _PACKAGE_SEED_PATH, load_catalog
+from dodaios.marketplace.plugin_registry import PluginToolRegistry
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.plugins.tool.connected_server import ConnectedRestClient
 
 
 @pytest.mark.asyncio
@@ -57,8 +57,8 @@ async def test_zoom_basic_auth_is_used_for_exchange_and_bound_client_refresh(mon
 
 @pytest.mark.asyncio
 async def test_local_auth_persists_only_after_successful_capability_probe(monkeypatch):
-    from jarvis.marketplace import amd_mcp
-    from jarvis.ui.web import marketplace_routes as routes
+    from dodaios.marketplace import amd_mcp
+    from dodaios.ui.web import marketplace_routes as routes
 
     store = TokenStore(InMemoryBackend())
     monkeypatch.setattr(routes, "TokenStore", lambda: store)

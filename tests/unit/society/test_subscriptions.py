@@ -8,13 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import runner_cli
-from jarvis.agent_chat.catalog import offers, rows_for
-from jarvis.agent_chat.service import resolve_runner
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agent_chat.surface_kits import kit_for
-from jarvis.society.chat_binding import ensure_session
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat import runner_cli
+from dodaios.agent_chat.catalog import offers, rows_for
+from dodaios.agent_chat.service import resolve_runner
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.surface_kits import kit_for
+from dodaios.society.chat_binding import ensure_session
+from dodaios.society.runtime import SocietyRuntime
 
 
 def test_society_surface_seats_clis_and_apis(monkeypatch):
@@ -24,9 +24,9 @@ def test_society_surface_seats_clis_and_apis(monkeypatch):
     assert {"openai", "gemini", "grok", "ollama"} <= ids
     assert offers("society", "openai-codex") or "openai-codex" not in ids
     # The dual Claude row: the subscription CLI when installed, else the API.
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: True)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: True)
     assert resolve_runner("claude-api", surface="society") == "claude-cli"
-    monkeypatch.setattr("jarvis.agent_chat.service._claude_cli_installed", lambda: False)
+    monkeypatch.setattr("dodaios.agent_chat.service._claude_cli_installed", lambda: False)
     assert resolve_runner("claude-api", surface="society") == "brain"
     assert resolve_runner("openai", surface="society") == "brain"
     if "openai-codex" in ids:
@@ -83,10 +83,10 @@ def test_account_env_prefers_the_pinned_seat(monkeypatch, tmp_path: Path):
             calls.append((platform, account_id))
             return {"SEAT": account_id}
 
-    import jarvis
+    import dodaios
 
-    monkeypatch.setattr(jarvis, "agent_accounts", FakeAccounts, raising=False)
-    monkeypatch.setitem(__import__("sys").modules, "jarvis.agent_accounts", FakeAccounts)
+    monkeypatch.setattr(dodaios, "agent_accounts", FakeAccounts, raising=False)
+    monkeypatch.setitem(__import__("sys").modules, "dodaios.agent_accounts", FakeAccounts)
     token = runner_cli.ACCOUNT_OVERRIDE.set("claude-second")
     try:
         assert runner_cli._account_env("claude")["SEAT"] == "claude-second"  # noqa: SLF001
@@ -98,7 +98,7 @@ def test_account_env_prefers_the_pinned_seat(monkeypatch, tmp_path: Path):
 
 
 async def test_identity_override_replaces_jarvis_layers():
-    from jarvis.agent_chat.jarvis_harness import SYSTEM_PREAMBLE, identity_prompt
+    from dodaios.agent_chat.jarvis_harness import SYSTEM_PREAMBLE, identity_prompt
 
     text = await identity_prompt(
         user_text="hi",
@@ -146,7 +146,7 @@ def client(tmp_path: Path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.ui.web.society_routes import router
+    from dodaios.ui.web.society_routes import router
 
     svc = FakeService(AgentChatStore(tmp_path / "chat.db"))
     cfg = SimpleNamespace(memory=SimpleNamespace(data_dir=str(tmp_path / "data")))

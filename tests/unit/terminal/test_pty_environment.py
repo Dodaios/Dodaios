@@ -17,8 +17,8 @@ from collections.abc import Mapping
 
 import pytest
 
-import jarvis.terminal.pty_manager as pty_mod
-from jarvis.terminal.pty_manager import PtyManager
+import dodaios.terminal.pty_manager as pty_mod
+from dodaios.terminal.pty_manager import PtyManager
 from tests.fakes.fake_pty_backend import FakePtyBackend
 
 

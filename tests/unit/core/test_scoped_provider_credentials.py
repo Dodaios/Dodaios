@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from jarvis.core import config as cfg
+from dodaios.core import config as cfg
 
 
 def _secret_reader(values: dict[str, str]):

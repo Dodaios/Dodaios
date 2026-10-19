@@ -24,9 +24,9 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 TIMEOUT_S = 5.0
 RATE = 24_000

@@ -7,16 +7,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     ListeningStarted,
     RealtimeSessionReady,
     VoiceSessionEnded,
     VoiceSessionStarted,
 )
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import _SCHEMA_PATH, SessionStore
-from jarvis.ui.web import sessions_routes
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import _SCHEMA_PATH, SessionStore
+from dodaios.ui.web import sessions_routes
 
 
 def _legacy_schema_without_voice_mode() -> str:

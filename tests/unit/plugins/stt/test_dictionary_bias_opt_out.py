@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-import jarvis.plugins.stt as stt_plugins
-import jarvis.speech.stt_dictionary as dictionary
+import dodaios.plugins.stt as stt_plugins
+import dodaios.speech.stt_dictionary as dictionary
 
 
 class _RecordingProvider:
@@ -32,8 +32,8 @@ def _cloud_provider(monkeypatch: pytest.MonkeyPatch) -> type[_RecordingProvider]
     _RecordingProvider.built = []
     monkeypatch.setattr(stt_plugins, "_resolve_effective_stt", lambda name: (name, ""))
     monkeypatch.setattr(stt_plugins, "_load_provider_class", lambda name: _RecordingProvider)
-    monkeypatch.setattr("jarvis.core.config.get_provider_secret", lambda _: "fixture-key")
-    monkeypatch.setattr("jarvis.core.config.get_secret_any", lambda _: "fixture-key")
+    monkeypatch.setattr("dodaios.core.config.get_provider_secret", lambda _: "fixture-key")
+    monkeypatch.setattr("dodaios.core.config.get_secret_any", lambda _: "fixture-key")
     monkeypatch.setattr(
         dictionary, "dictionary_bias_words", lambda *_a, **_k: ["GitHub", "Agentic IDE"]
     )

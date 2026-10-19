@@ -12,13 +12,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.platform.permissions import (
+from dodaios.platform.permissions import (
     EXPECTED_BUNDLE_ID,
     PermissionId,
     PermissionState,
     SystemPermissionPort,
 )
-from jarvis.setup.macos_app_bundle import BUNDLE_ID
+from dodaios.setup.macos_app_bundle import BUNDLE_ID
 
 
 class _Bundle:
@@ -622,7 +622,7 @@ def test_the_downloaded_dmg_app_is_a_stable_identity() -> None:
     The identity check once accepted only the managed bundle's id, so the .dmg app
     read as a foreign app: it could neither reset its own rows nor ask on its own.
     """
-    from jarvis.core.branding import MACOS_DMG_BUNDLE_ID
+    from dodaios.core.branding import MACOS_DMG_BUNDLE_ID
 
     _CaptureDevice.status = 3
     modules, _, _ = _native_modules()
@@ -807,7 +807,7 @@ def test_a_crashing_live_probe_leaves_the_preflight_verdict_intact() -> None:
 
 
 def test_window_titles_prove_the_grant_only_from_another_apps_own_layer() -> None:
-    from jarvis.platform.permissions import _window_titles_are_visible
+    from dodaios.platform.permissions import _window_titles_are_visible
 
     own = [{"kCGWindowLayer": 0, "kCGWindowOwnerPID": 42, "kCGWindowName": "Jarvis"}]
     chrome = [{"kCGWindowLayer": 25, "kCGWindowOwnerPID": 7, "kCGWindowName": "Menubar"}]
@@ -876,7 +876,7 @@ def test_the_default_automation_probe_never_forwards_an_asking_flag() -> None:
     """The in-process Apple Event probe is a silent read: only the killable runner asks."""
     import inspect
 
-    import jarvis.platform.permissions as permissions
+    import dodaios.platform.permissions as permissions
 
     source = inspect.getsource(permissions._default_automation_probe)
 
@@ -982,7 +982,7 @@ def test_automation_strictest_player_wins() -> None:
 def test_the_leftover_state_files_are_removed_and_nothing_else(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.platform import permissions as permissions_module
+    from dodaios.platform import permissions as permissions_module
 
     for name in ("macos-tcc-reset.json", "macos-automation-consent.json", "keep.json"):
         (tmp_path / name).write_text("{}", encoding="utf-8")
@@ -999,7 +999,7 @@ def test_the_leftover_cleanup_never_raises(
 ) -> None:
     import logging
 
-    from jarvis.platform import permissions as permissions_module
+    from dodaios.platform import permissions as permissions_module
 
     # A directory with the file's name makes unlink fail with an OSError.
     (tmp_path / "macos-tcc-reset.json").mkdir()

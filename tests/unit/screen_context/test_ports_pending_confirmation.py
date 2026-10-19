@@ -20,10 +20,10 @@ from contextlib import nullcontext
 
 import pytest
 
-from jarvis.platform import window_capture
-from jarvis.platform.permission_service import get_permission_service
-from jarvis.platform.permissions import PermissionId
-from jarvis.screen_context import ports
+from dodaios.platform import window_capture
+from dodaios.platform.permission_service import get_permission_service
+from dodaios.platform.permissions import PermissionId
+from dodaios.screen_context import ports
 from tests.fakes.fake_screen_pixels import textured_pixels
 from tests.fakes.fake_tcc import DialogPolicy, FakeTCC, TccService, install_port
 
@@ -65,7 +65,7 @@ def _native_fails_with(monkeypatch: pytest.MonkeyPatch, reason: str) -> None:
     monkeypatch.setattr(window_capture, "grab_window", native)
     monkeypatch.setattr(ports, "_is_wayland", lambda: False)
     monkeypatch.setattr(ports, "_input_space", nullcontext)
-    monkeypatch.setattr("jarvis.cu.indicator.capture_guard.indicator_suppressed", nullcontext)
+    monkeypatch.setattr("dodaios.cu.indicator.capture_guard.indicator_suppressed", nullcontext)
 
 
 def _darwin(monkeypatch: pytest.MonkeyPatch, **kwargs) -> FakeTCC:

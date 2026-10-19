@@ -13,8 +13,8 @@ import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
-from jarvis.memory.wiki.search import VaultSearch
-from jarvis.ui.web.server import WebServer
+from dodaios.memory.wiki.search import VaultSearch
+from dodaios.ui.web.server import WebServer
 
 
 def _write_page(vault: Path, rel_path: str, content: str) -> None:

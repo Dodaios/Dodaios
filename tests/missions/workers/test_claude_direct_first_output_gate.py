@@ -18,9 +18,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.workers import claude_direct_worker as cdw
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
-from jarvis.missions.workers.provider_chain import _FallbackStep
+from dodaios.missions.workers import claude_direct_worker as cdw
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions.workers.provider_chain import _FallbackStep
 
 
 class _FakeStream:

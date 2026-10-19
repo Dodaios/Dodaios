@@ -6,10 +6,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.telephony_routes as routes
-from jarvis.core.config import JarvisConfig, TwilioConfig
-from jarvis.telephony.status import TelephonyManager
-from jarvis.ui.web.telephony_routes import router as telephony_router
+import dodaios.ui.web.telephony_routes as routes
+from dodaios.core.config import JarvisConfig, TwilioConfig
+from dodaios.telephony.status import TelephonyManager
+from dodaios.ui.web.telephony_routes import router as telephony_router
 
 
 @pytest.fixture
@@ -62,6 +62,6 @@ def test_voice_webhook_rejects_gracefully_when_disabled(app_unavailable):
 
 def test_is_available_reflects_import_state():
     # In this env twilio IS installed, so the real check should be True.
-    from jarvis.telephony import is_available as real_is_available
+    from dodaios.telephony import is_available as real_is_available
 
     assert real_is_available() is True

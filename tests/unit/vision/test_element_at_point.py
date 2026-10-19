@@ -13,8 +13,8 @@ import sys
 
 import pytest
 
-from jarvis.vision import element_at_point as eap
-from jarvis.vision.pointer_types import PointerElement
+from dodaios.vision import element_at_point as eap
+from dodaios.vision.pointer_types import PointerElement
 from tests.fakes.fake_capabilities import (
     fake_headless_capabilities,
     fake_linux_capabilities,
@@ -96,7 +96,7 @@ def test_macos_resolver_fails_closed_without_the_grant_and_never_prompts(monkeyp
 
 
 def test_macos_resolver_fails_closed_after_a_live_revocation(monkeypatch) -> None:
-    from jarvis.platform.permission_service import get_permission_service
+    from dodaios.platform.permission_service import get_permission_service
 
     sentinel = PointerElement(name="Allowed", role="Button", bounds=(1, 2, 3, 4))
     tcc = _macos_accessibility(monkeypatch, granted=True)

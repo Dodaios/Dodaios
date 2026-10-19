@@ -19,17 +19,17 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted, DictationTranscript
-from jarvis.dictation.polish import PolishOutcome
-from jarvis.dictation.polish_prompt import (
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted, DictationTranscript
+from dodaios.dictation.polish import PolishOutcome
+from dodaios.dictation.polish_prompt import (
     CONTEXT_CLOSE_DELIMITER,
     CONTEXT_OPEN_DELIMITER,
     RAW_OPEN_DELIMITER,
     build_polish_prompt,
     build_polish_user_message,
 )
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 BYTES_PER_SECOND = 16_000 * 2
 _ANSWERS = [
@@ -175,8 +175,8 @@ def _session_pipeline(stt: Any, mic: _FakeMic, **cfg: Any):
 
 @pytest.fixture
 def _no_preview(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.dictation.local_preview as local_preview
-    import jarvis.dictation.preview_budget as preview_budget
+    import dodaios.dictation.local_preview as local_preview
+    import dodaios.dictation.preview_budget as preview_budget
 
     monkeypatch.setattr(local_preview, "local_preview", lambda: None)
     monkeypatch.setattr(
@@ -186,7 +186,7 @@ def _no_preview(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _install_polish(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     """A formatter that upper-cases and records what it was handed."""
-    import jarvis.dictation.polish as polish
+    import dodaios.dictation.polish as polish
 
     calls: list[dict[str, Any]] = []
 
@@ -290,8 +290,8 @@ async def test_translation_keeps_the_whole_text_pass(
 async def test_stalled_prefix_worker_is_retired_without_reformatting_completed_text(
     _no_preview: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.dictation.polish as polish
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.dictation.polish as polish
+    import dodaios.speech.pipeline as pipeline_mod
 
     monkeypatch.setattr(pipeline_mod, "_DICTATION_PREFIX_POLISH_WAIT_S", 0.03)
     blocked, retired = asyncio.Event(), asyncio.Event()

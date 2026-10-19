@@ -5,7 +5,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from jarvis.telemetry.tool_usage import tool_usage
+from dodaios.telemetry.tool_usage import tool_usage
 
 TODAY = date(2026, 10, 13)
 

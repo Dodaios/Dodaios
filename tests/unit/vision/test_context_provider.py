@@ -11,8 +11,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import Observation
-from jarvis.vision.context_provider import VisionContextProvider, VisionPaused
+from dodaios.core.protocols import Observation
+from dodaios.vision.context_provider import VisionContextProvider, VisionPaused
 
 
 def _make_obs(hash_: str = "abc", *, timestamp_ns: int | None = None) -> Observation:

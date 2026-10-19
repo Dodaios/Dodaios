@@ -59,7 +59,7 @@ class _FakeApp:
 
 
 class _MockWebServer:
-    """Stand-in for jarvis.ui.web.server.WebServer."""
+    """Stand-in for dodaios.ui.web.server.WebServer."""
 
     instances: list[_MockWebServer] = []
 
@@ -161,7 +161,7 @@ def _patch_headless_deps(monkeypatch, tmp_path):  # noqa: ANN001
     """Replace all subsystems that _run_headless imports locally.
 
     Strategy: always import the REAL module first so its internal import
-    chain (e.g. jarvis.mcp.__init__ → adapter → client → registry) can
+    chain (e.g. dodaios.mcp.__init__ → adapter → client → registry) can
     satisfy its own `from .registry import MCPServerSpec` etc.  Then patch
     only the specific class / function the _run_headless lifecycle needs.
 
@@ -180,8 +180,8 @@ def _patch_headless_deps(monkeypatch, tmp_path):  # noqa: ANN001
     monkeypatch.setattr(uvicorn, "Server", _FakeUvicornServer)
     monkeypatch.setattr(uvicorn, "Config", _FakeUvicornConfig)
 
-    # 2. jarvis.core.config — patch load_config and helpers
-    import jarvis.core.config as _jcfg  # noqa: PLC0415
+    # 2. dodaios.core.config — patch load_config and helpers
+    import dodaios.core.config as _jcfg  # noqa: PLC0415
 
     _fake_cfg = _make_fake_loaded_config(data_dir=str(tmp_path))
     monkeypatch.setattr(_jcfg, "load_config", lambda: _fake_cfg)
@@ -191,12 +191,12 @@ def _patch_headless_deps(monkeypatch, tmp_path):  # noqa: ANN001
     )
 
     # 3. WebServer — replace the class on the real module
-    import jarvis.ui.web.server as _srv_mod  # noqa: PLC0415
+    import dodaios.ui.web.server as _srv_mod  # noqa: PLC0415
 
     monkeypatch.setattr(_srv_mod, "WebServer", _MockWebServer)
 
     # 4. ChatStore + helper
-    import jarvis.state.chat_store as _cs_mod  # noqa: PLC0415
+    import dodaios.state.chat_store as _cs_mod  # noqa: PLC0415
 
     monkeypatch.setattr(_cs_mod, "ChatStore", _MockChatStore)
     monkeypatch.setattr(
@@ -206,34 +206,34 @@ def _patch_headless_deps(monkeypatch, tmp_path):  # noqa: ANN001
     )
 
     # 5. Supervisor
-    import jarvis.state.supervisor as _sup_mod  # noqa: PLC0415
+    import dodaios.state.supervisor as _sup_mod  # noqa: PLC0415
 
     monkeypatch.setattr(_sup_mod, "Supervisor", _MockSupervisor)
 
     # 6. Brain factory (invoked in a background task — needs to be a no-op)
-    import jarvis.brain.factory as _brain_mod  # noqa: PLC0415
+    import dodaios.brain.factory as _brain_mod  # noqa: PLC0415
 
     monkeypatch.setattr(_brain_mod, "build_default_brain", lambda **kw: None)
 
     # 7. MCP registry — patch MCPRegistry on the real module so internal
-    #    imports (jarvis.mcp.__init__ → adapter → client → registry) still
+    #    imports (dodaios.mcp.__init__ → adapter → client → registry) still
     #    resolve MCPServerSpec from the real module.
-    import jarvis.mcp.registry as _mcp_reg_mod  # noqa: PLC0415
+    import dodaios.mcp.registry as _mcp_reg_mod  # noqa: PLC0415
 
     monkeypatch.setattr(_mcp_reg_mod, "MCPRegistry", _MockMCPRegistry)
 
     # 8. MCP state (get_enabled_names)
-    import jarvis.mcp.state as _mcp_state_mod  # noqa: PLC0415
+    import dodaios.mcp.state as _mcp_state_mod  # noqa: PLC0415
 
     monkeypatch.setattr(_mcp_state_mod, "get_enabled_names", lambda: [])
 
     # 9. runtime_refs
-    import jarvis.core.runtime_refs as _rr  # noqa: PLC0415
+    import dodaios.core.runtime_refs as _rr  # noqa: PLC0415
 
     monkeypatch.setattr(_rr, "set_mcp_registry", lambda *a, **k: None)
 
     # 10. marketplace hosted_callback
-    import jarvis.marketplace.hosted_callback as _hc_mod  # noqa: PLC0415
+    import dodaios.marketplace.hosted_callback as _hc_mod  # noqa: PLC0415
 
     monkeypatch.setattr(
         _hc_mod, "set_public_callback_base_url", lambda *a, **k: None
@@ -266,7 +266,7 @@ def _make_args(port: int = 18123) -> SimpleNamespace:
 
 def test_headless_starts_and_stops_on_signal() -> None:
     """_run_headless goes through start → wait → cancel → stop cleanly."""
-    from jarvis.ui.web import launcher  # noqa: PLC0415
+    from dodaios.ui.web import launcher  # noqa: PLC0415
 
     args = _make_args()
 
@@ -296,7 +296,7 @@ def test_headless_starts_and_stops_on_signal() -> None:
 
 def test_headless_stop_event_path() -> None:
     """Second path: the task is only cancelled after a short pause."""
-    from jarvis.ui.web import launcher  # noqa: PLC0415
+    from dodaios.ui.web import launcher  # noqa: PLC0415
 
     args = _make_args(port=18222)
 

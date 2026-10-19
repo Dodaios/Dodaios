@@ -22,8 +22,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.core.protocols import BrainDelta, ImageBlock
-from jarvis.cu.brain_call import call_vision_brain
+from dodaios.core.protocols import BrainDelta, ImageBlock
+from dodaios.cu.brain_call import call_vision_brain
 
 _TRUNCATED = '{"action": "open_app", "name": "'
 _COMPLETE = '[{"action": "open_app", "name": "Discord"}]'

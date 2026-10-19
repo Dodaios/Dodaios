@@ -1,16 +1,16 @@
 """ChatStore SQLite persistence (Chats conversation manager, Slice 2).
 
 The store moved from an in-memory dict to a sync sqlite3 backing (mirroring
-``jarvis/sessions/store.py``) so typed chats survive a restart and are
+``dodaios/sessions/store.py``) so typed chats survive a restart and are
 segmented into distinct conversations. The public async API is unchanged;
 ``db_path`` defaults to ``:memory:`` so existing callers/tests keep working
 in-process without touching disk.
 """
 from __future__ import annotations
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import MessageSent
-from jarvis.state.chat_store import ChatStore
+from dodaios.core.bus import EventBus
+from dodaios.core.events import MessageSent
+from dodaios.state.chat_store import ChatStore
 
 
 def _db(tmp_path) -> str:

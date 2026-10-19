@@ -17,8 +17,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from jarvis.core.self_mod import SelfModAudit
-from jarvis.skills.authoring import (
+from dodaios.core.self_mod import SelfModAudit
+from dodaios.skills.authoring import (
     AuthoringFailure,
     AuthoringSuccess,
     SkillAuthoringRunner,
@@ -26,7 +26,7 @@ from jarvis.skills.authoring import (
     safe_lint_skill_body,
     write_draft,
 )
-from jarvis.skills.authoring.draft_writer import SlugError
+from dodaios.skills.authoring.draft_writer import SlugError
 
 # ----------------------------------------------------------------------
 # Fixtures
@@ -164,7 +164,7 @@ class TestPathTraversalDefense:
     def test_resolved_target_blocks_traversal(
         self, user_skills_root: Path
     ) -> None:
-        from jarvis.skills.authoring.draft_writer import _resolved_target
+        from dodaios.skills.authoring.draft_writer import _resolved_target
 
         with pytest.raises(SlugError):
             _resolved_target("../etc/passwd", root=user_skills_root)
@@ -172,7 +172,7 @@ class TestPathTraversalDefense:
     def test_traversal_via_dotdot_in_resolved(
         self, user_skills_root: Path
     ) -> None:
-        from jarvis.skills.authoring.draft_writer import _resolved_target
+        from dodaios.skills.authoring.draft_writer import _resolved_target
 
         with pytest.raises(SlugError):
             _resolved_target("..\\..\\windows\\system32", root=user_skills_root)
@@ -431,7 +431,7 @@ class TestRunnerUnsafeBody:
 
 class TestSpawnSkillAuthorTool:
     def test_tool_schema_strict_mode(self) -> None:
-        from jarvis.brain.tools import SpawnSkillAuthorTool
+        from dodaios.brain.tools import SpawnSkillAuthorTool
 
         schema = SpawnSkillAuthorTool.schema
         assert schema["strict"] is True
@@ -448,8 +448,8 @@ class TestSpawnSkillAuthorTool:
     ) -> None:
         from uuid import uuid4
 
-        from jarvis.brain.tools import SpawnSkillAuthorTool
-        from jarvis.core.protocols import ExecutionContext
+        from dodaios.brain.tools import SpawnSkillAuthorTool
+        from dodaios.core.protocols import ExecutionContext
 
         async def fake_spawn(prompt: str) -> str:
             return _good_response_json()
@@ -483,8 +483,8 @@ class TestSpawnSkillAuthorTool:
     def test_tool_rejects_empty_intent(self) -> None:
         from uuid import uuid4
 
-        from jarvis.brain.tools import SpawnSkillAuthorTool
-        from jarvis.core.protocols import ExecutionContext
+        from dodaios.brain.tools import SpawnSkillAuthorTool
+        from dodaios.core.protocols import ExecutionContext
 
         async def fake_spawn(prompt: str) -> str:
             return _good_response_json()

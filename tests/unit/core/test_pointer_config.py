@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.core.config import JarvisConfig, PointerConfig
+from dodaios.core.config import JarvisConfig, PointerConfig
 
 
 def test_pointer_config_defaults() -> None:

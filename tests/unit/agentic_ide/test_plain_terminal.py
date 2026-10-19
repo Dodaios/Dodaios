@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import PLAIN_TERMINAL, Registry, SessionError
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import PLAIN_TERMINAL, Registry, SessionError
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -48,7 +48,7 @@ def test_it_is_offered_as_a_runnable_that_takes_no_prompts() -> None:
 
 
 def test_argv_is_the_host_shell_with_no_agent_wrapped_around_it() -> None:
-    from jarvis.terminal.shells import default_shell
+    from dodaios.terminal.shells import default_shell
 
     shell = default_shell()
     assert shell is not None, "the test host has no shell"
@@ -146,7 +146,7 @@ async def test_a_fleet_order_skips_it_with_an_honest_reason(
     registry: Registry, tmp_path: Path
 ) -> None:
     """Naming one in "everyone, do X" costs neither a composition nor a crash."""
-    from jarvis.agentic_ide import fanout
+    from dodaios.agentic_ide import fanout
 
     session = await registry.start(
         str(tmp_path),

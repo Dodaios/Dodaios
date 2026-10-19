@@ -13,12 +13,12 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.core.events import ActionExecuted, ActionProposed
-from jarvis.core.protocols import ToolResult
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.origin import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.core.events import ActionExecuted, ActionProposed
+from dodaios.core.protocols import ToolResult
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.origin import (
     EFFECTS,
     TARGET_ORIGINS,
     OriginLedger,
@@ -28,8 +28,8 @@ from jarvis.safety.origin import (
     tool_output_origin,
     tool_targets,
 )
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import ToolExecutor
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import ToolExecutor
 
 
 @dataclass
@@ -119,7 +119,7 @@ def test_an_undeclared_tool_is_read_by_its_property_names() -> None:
 
 
 def test_every_declared_effect_is_in_the_vocabulary() -> None:
-    from jarvis.safety.origin import _DECLARED
+    from dodaios.safety.origin import _DECLARED
 
     for actions in _DECLARED.values():
         for _targets, effect in actions.values():
@@ -273,7 +273,7 @@ async def test_the_executor_records_the_origin_and_changes_nothing_else() -> Non
 
 @pytest.mark.asyncio
 async def test_a_failing_classification_never_costs_the_call(monkeypatch) -> None:
-    import jarvis.safety.tool_executor as module
+    import dodaios.safety.tool_executor as module
 
     def boom(*args: Any, **kwargs: Any) -> None:
         raise RuntimeError("classifier broke")
@@ -288,8 +288,8 @@ async def test_a_failing_classification_never_costs_the_call(monkeypatch) -> Non
 
 def test_the_session_recorder_and_the_chat_trace_keep_the_new_fields() -> None:
     """A field the recorder's whitelist does not name is dropped silently."""
-    from jarvis.sessions.recorder import _payload_for
-    from jarvis.state.turn_trace import _PAYLOAD_KEYS
+    from dodaios.sessions.recorder import _payload_for
+    from dodaios.state.turn_trace import _PAYLOAD_KEYS
 
     event = ActionProposed(
         tool_name="gmail",
@@ -406,7 +406,7 @@ def test_an_address_with_umlauts_is_found() -> None:
 
 @pytest.mark.asyncio
 async def test_a_confirmation_carries_the_origin_too() -> None:
-    from jarvis.core.events import ActionApprovalRequired
+    from dodaios.core.events import ActionApprovalRequired
 
     bus = _Bus()
     executor = ToolExecutor(
@@ -433,7 +433,7 @@ async def test_a_confirmation_carries_the_origin_too() -> None:
 
 
 def test_a_call_without_a_target_leaves_no_empty_fields_in_the_recorder() -> None:
-    from jarvis.sessions.recorder import _payload_for
+    from dodaios.sessions.recorder import _payload_for
 
     payload = _payload_for(ActionProposed(tool_name="search_web", args={"query": "x"}))
     assert not {"effect", "target_origin", "origin_source"} & set(payload)

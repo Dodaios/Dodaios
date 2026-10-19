@@ -17,14 +17,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.factory import ROUTER_TOOLS
-from jarvis.core import runtime_refs
-from jarvis.core.protocols import BrainDelta, ExecutionContext
-from jarvis.plugins.tool.create_skill import CreateSkillTool
-from jarvis.skills import prefs
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.schema import SkillLifecycleState
-from jarvis.skills.skill_context import SkillContext, set_skill_context
+from dodaios.brain.factory import ROUTER_TOOLS
+from dodaios.core import runtime_refs
+from dodaios.core.protocols import BrainDelta, ExecutionContext
+from dodaios.plugins.tool.create_skill import CreateSkillTool
+from dodaios.skills import prefs
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.schema import SkillLifecycleState
+from dodaios.skills.skill_context import SkillContext, set_skill_context
 
 _DRAFT_JSON = """{
   "name": "Morgenroutine",

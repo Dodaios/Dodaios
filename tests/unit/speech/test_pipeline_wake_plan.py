@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
-from jarvis.speech.pipeline import SpeechPipeline
-from jarvis.speech.wake_phrase import resolve_wake_plan
+from dodaios.speech.pipeline import SpeechPipeline
+from dodaios.speech.wake_phrase import resolve_wake_plan
 
 
 @dataclass

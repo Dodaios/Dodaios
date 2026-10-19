@@ -15,10 +15,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import config as cfg_mod
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web import provider_routes
-from jarvis.ui.web.provider_routes import router
+from dodaios.core import config as cfg_mod
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web import provider_routes
+from dodaios.ui.web.provider_routes import router
 
 
 def _app() -> FastAPI:
@@ -40,7 +40,7 @@ async def _silent_sampler(*_args, **_kwargs) -> tuple[bytes, int]:
 
 def test_every_preview_sampler_has_a_cataloged_realtime_provider() -> None:
     """A sampler may not exist without a catalog; offer-only providers may omit one."""
-    from jarvis.brain.model_catalog import REALTIME_VOICES
+    from dodaios.brain.model_catalog import REALTIME_VOICES
 
     assert set(provider_routes._REALTIME_PREVIEW_SAMPLERS) <= set(REALTIME_VOICES)
     assert "vertex-live" in provider_routes._REALTIME_PREVIEW_SAMPLERS
@@ -270,7 +270,7 @@ def test_hung_sampler_times_out_as_502(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_marin_and_cedar_are_in_the_openai_catalog() -> None:
     """The two Realtime-API-only voices must stay previewable (the whole
     reason the OpenAI sampler runs through a realtime session)."""
-    from jarvis.brain.model_catalog import REALTIME_VOICES
+    from dodaios.brain.model_catalog import REALTIME_VOICES
 
     ids = {option.id for option in REALTIME_VOICES["openai-realtime"]}
     assert {"marin", "cedar"} <= ids

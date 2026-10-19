@@ -13,7 +13,7 @@ class FakeKeyringError(RuntimeError):
 
 
 class FakeKeyringBackend:
-    """The ``KeyringBackend`` shape of ``jarvis.core.identity_migration``."""
+    """The ``KeyringBackend`` shape of ``dodaios.core.identity_migration``."""
 
     def __init__(self, *, unavailable: bool = False, drop_writes: bool = False) -> None:
         self.entries: dict[tuple[str, str], str] = {}

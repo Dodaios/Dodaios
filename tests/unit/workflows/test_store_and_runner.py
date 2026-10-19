@@ -16,13 +16,13 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.workflows import (
+from dodaios.core.bus import EventBus
+from dodaios.workflows import (
     WorkflowRunner,
     WorkflowStore,
     ensure_seed_workflows,
 )
-from jarvis.workflows.schema import (
+from dodaios.workflows.schema import (
     BrainPromptStep,
     CronTrigger,
     HarnessDispatchStep,
@@ -103,14 +103,14 @@ async def test_store_upsert_is_idempotent(store: WorkflowStore) -> None:
 async def test_seed_is_idempotent(store: WorkflowStore) -> None:
     first = await ensure_seed_workflows(store)
     # The current seed count derives from SEED_WORKFLOWS — robust against additions.
-    from jarvis.workflows.seed import SEED_WORKFLOWS
+    from dodaios.workflows.seed import SEED_WORKFLOWS
     assert first == len(SEED_WORKFLOWS)
     second = await ensure_seed_workflows(store)
     assert second == 0
 
 
 async def test_code_review_seed_has_no_phantom_harness(store: WorkflowStore) -> None:
-    from jarvis.workflows.seed import SEED_WORKFLOWS
+    from dodaios.workflows.seed import SEED_WORKFLOWS
 
     code_review = next(wf for wf in SEED_WORKFLOWS if wf.name == "Code Review")
 
@@ -119,7 +119,7 @@ async def test_code_review_seed_has_no_phantom_harness(store: WorkflowStore) -> 
 
 
 async def test_legacy_openclaw_seed_is_migrated(store: WorkflowStore) -> None:
-    from jarvis.workflows.seed import SEED_WORKFLOWS
+    from dodaios.workflows.seed import SEED_WORKFLOWS
 
     replacement = next(wf for wf in SEED_WORKFLOWS if wf.name == "Code Review")
     legacy = replacement.model_copy(update={
@@ -280,7 +280,7 @@ async def test_runner_shell_cmd_captures_stdout(
     """
     import sys
 
-    from jarvis.workflows.schema import ShellCmdStep
+    from dodaios.workflows.schema import ShellCmdStep
 
     script = tmp_path / "echo.py"
     script.write_text("print('hallo_workflow')", encoding="utf-8")
@@ -315,7 +315,7 @@ async def test_runner_shell_cmd_nonzero_exit_fails(
     """Exit-Code != 0 → Step failed + Error-Text."""
     import sys
 
-    from jarvis.workflows.schema import ShellCmdStep
+    from dodaios.workflows.schema import ShellCmdStep
 
     script = tmp_path / "fail.py"
     script.write_text("import sys; sys.exit(7)", encoding="utf-8")
@@ -349,13 +349,13 @@ async def test_runner_telegram_without_token_fails_cleanly(
     store: WorkflowStore, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """telegram_send without a token → clean error with setup hint."""
-    from jarvis.workflows.schema import TelegramSendStep
+    from dodaios.workflows.schema import TelegramSendStep
 
     # Token lookup guaranteed empty. monkeypatch makes sure no
     # logged-in keyring key from the real dev machine gets read in.
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, env_fallback=None: None,
     )
 
@@ -392,11 +392,11 @@ async def test_runner_telegram_posts_to_api(
     We mock ``httpx.AsyncClient.post`` to return a 200 OK and
     check that the body contains chat_id/text as expected.
     """
-    from jarvis.workflows.schema import TelegramSendStep
+    from dodaios.workflows.schema import TelegramSendStep
 
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "TESTTOKEN")
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, env_fallback=None: "TESTTOKEN" if key == "telegram_bot_token" else None,
     )
 
@@ -471,7 +471,7 @@ class FakeToolExecutor:
         self.calls: list[tuple[str, dict, str]] = []
 
     async def execute(self, tool, args: dict, **kwargs):  # noqa: ANN001
-        from jarvis.core.protocols import ToolResult
+        from dodaios.core.protocols import ToolResult
 
         self.calls.append((tool.name, dict(args), kwargs.get("user_utterance", "")))
         tool.calls.append(dict(args))
@@ -500,8 +500,8 @@ async def test_runner_tool_call_reaches_the_tool_via_attached_brain_surface(
     so we swap the dict AFTER attaching and the runner must still find the
     tool the brain holds *now*.
     """
-    from jarvis.workflows.runner import BrainToolSurface
-    from jarvis.workflows.schema import ToolCallStep
+    from dodaios.workflows.runner import BrainToolSurface
+    from dodaios.workflows.schema import ToolCallStep
 
     executor = FakeToolExecutor()
     brain = FakeBrainWithTools({}, executor)
@@ -551,7 +551,7 @@ async def test_runner_harness_dispatch_reaches_the_attached_manager(
     store: WorkflowStore,
 ) -> None:
     """``harness_dispatch`` streams from the manager instead of raising."""
-    from jarvis.core.protocols import HarnessResult
+    from dodaios.core.protocols import HarnessResult
 
     class FakeHarnessManager:
         def __init__(self) -> None:
@@ -619,8 +619,8 @@ async def test_speak_step_follows_ambient_language_unless_pinned(
     an explicit language on the persisted step still wins."""
     import asyncio
 
-    from jarvis.core.events import AnnouncementRequested
-    from jarvis.workflows import runner as runner_module
+    from dodaios.core.events import AnnouncementRequested
+    from dodaios.workflows import runner as runner_module
 
     monkeypatch.setattr(runner_module, "resolve_ambient_language", lambda: "pt")
     bus = EventBus()

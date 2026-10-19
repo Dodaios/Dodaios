@@ -27,7 +27,7 @@ ack-then-answer double-tap; the ack for an ACTION must reference the request.
 
 ## Decision
 
-One shared core, `jarvis/voice/instant_ack.py`, used by both voice engines.
+One shared core, `dodaios/voice/instant_ack.py`, used by both voice engines.
 
 1. **Trigger = the committed plan, at dispatch.** `plan_instant_ack(plan_turn(text))`
    maps the deterministic planner reasons to a work class with an expected
@@ -125,10 +125,10 @@ One shared core, `jarvis/voice/instant_ack.py`, used by both voice engines.
 
 ## References
 
-- `jarvis/voice/instant_ack.py`, `tests/unit/voice/test_instant_ack.py`
-- `jarvis/realtime/session.py` (`_run_delegate_bridge`, boundary validation,
+- `dodaios/voice/instant_ack.py`, `tests/unit/voice/test_instant_ack.py`
+- `dodaios/realtime/session.py` (`_run_delegate_bridge`, boundary validation,
   `_delegate_result_prompt(already_said=…)`), `tests/unit/realtime/test_session.py`
-- `jarvis/speech/pipeline.py` (`_arm_instant_ack`, `_on_announcement` gates),
+- `dodaios/speech/pipeline.py` (`_arm_instant_ack`, `_on_announcement` gates),
   `tests/unit/speech/test_instant_ack_pipeline.py`
-- `jarvis/brain/turn_planner.py::is_lookup_shape`
+- `dodaios/brain/turn_planner.py::is_lookup_shape`
 - ADR-0014, BUG-051, BUG-054, BUG-070, BUG-072, BUG-090

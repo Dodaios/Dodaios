@@ -1,4 +1,4 @@
-"""``jarvis.platform.layered_window`` — per-pixel alpha for Tk windows."""
+"""``dodaios.platform.layered_window`` — per-pixel alpha for Tk windows."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import sys
 import pytest
 from PIL import Image
 
-from jarvis.platform import layered_window
+from dodaios.platform import layered_window
 
 
 def test_premultiplied_bgra_orders_and_scales_the_channels() -> None:

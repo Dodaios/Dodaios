@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
-from jarvis.screen_context.uitext import (
+from dodaios.screen_context.uitext import (
     ocr_supplement_with_regions,
     text_is_sparse,
 )

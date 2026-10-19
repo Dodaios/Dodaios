@@ -67,7 +67,7 @@ jarvis --check
 jarvis --plugins
 ```
 
-**Source:** ``jarvis/__main__.py:main``.
+**Source:** ``dodaios/__main__.py:main``.
 
 ---
 
@@ -113,8 +113,8 @@ curl -s http://127.0.0.1:47821/api/voice-bridge/health
   STT).
 - Payment/cost confirmations (same reason).
 
-**Source:** ``jarvis/clis/jarvis_ask.py:main``, endpoint
-``POST /api/voice-bridge/ask`` in ``jarvis/ui/web/voice_bridge_routes.py``.
+**Source:** ``dodaios/clis/jarvis_ask.py:main``, endpoint
+``POST /api/voice-bridge/ask`` in ``dodaios/ui/web/voice_bridge_routes.py``.
 
 ---
 
@@ -161,7 +161,7 @@ jarvis-skills --promote my-new-skill
 Throws ``UnsafeSkillError`` if the lint finds forbidden calls
 (``eval``/``exec``/``system`` etc.).
 
-**Source:** ``jarvis/skills/cli.py``.
+**Source:** ``dodaios/skills/cli.py``.
 
 ---
 
@@ -217,7 +217,7 @@ remains untouched (gapless audit trail).
 jarvis-review-gc --older-than 30d
 ```
 
-**Sources:** ``jarvis/cli/review_eval.py``, ``jarvis/cli/review_gc.py``.
+**Sources:** ``dodaios/cli/review_eval.py``, ``dodaios/cli/review_gc.py``.
 
 ---
 
@@ -227,7 +227,7 @@ A central registry indexes ~20 external CLI tools that the Brain-Manager
 (main Jarvis and Jarvis-Agents) can dispatch as tools. Each
 entry carries a spec, auth profiles, a risk-tier default, and a probe status.
 
-**Inventory (as of 2026-04-23, ``jarvis/clis/catalog/seed_catalog.json``):**
+**Inventory (as of 2026-04-23, ``dodaios/clis/catalog/seed_catalog.json``):**
 
 | Name | Display | Description |
 |---|---|---|
@@ -255,7 +255,7 @@ entry carries a spec, auth profiles, a risk-tier default, and a probe status.
 
 ### Architecture components
 
-- ``CliCatalog`` (``jarvis/clis/catalog/__init__.py``) — loads
+- ``CliCatalog`` (``dodaios/clis/catalog/__init__.py``) — loads
   ``seed_catalog.json`` + allows user-custom specs in
   ``user_clis_dir()/custom.json``.
 - ``CliStatusProber`` (``prober.py``) — async probe of whether a CLI is installed
@@ -331,19 +331,19 @@ Direct modules that can be invoked without an entry-point wrapper:
 
 | Invocation | Purpose |
 |---|---|
-| ``python -m jarvis`` | Identical to ``jarvis`` (tray + setup). |
-| ``python -m jarvis.ui.web.launcher`` | Desktop-app launcher directly; accepts ``--headless`` / ``--dev``. |
-| ``python -m jarvis.skills.cli`` | Identical to ``jarvis-skills``. |
-| ``python -m jarvis.hardware.detection`` | Standalone hardware analysis (RAM, CUDA, mic, Whisper recommendation). |
+| ``python -m dodaios`` | Identical to ``jarvis`` (tray + setup). |
+| ``python -m dodaios.ui.web.launcher`` | Desktop-app launcher directly; accepts ``--headless`` / ``--dev``. |
+| ``python -m dodaios.skills.cli`` | Identical to ``jarvis-skills``. |
+| ``python -m dodaios.hardware.detection`` | Standalone hardware analysis (RAM, CUDA, mic, Whisper recommendation). |
 
 **Example:**
 
 ```bash
 # Desktop app as backend only (for browser frontend)
-python -m jarvis.ui.web.launcher --headless
+python -m dodaios.ui.web.launcher --headless
 
 # Hardware analysis as standalone
-python -m jarvis.hardware.detection
+python -m dodaios.hardware.detection
 ```
 
 ---
@@ -358,10 +358,10 @@ python -m jarvis.hardware.detection
 ## Sources in the code
 
 - Entry points: ``pyproject.toml [project.scripts]``.
-- ``jarvis/__main__.py`` — main CLI.
-- ``jarvis/clis/`` — voice bridge + CLI tool registry.
-- ``jarvis/skills/cli.py`` — skill CLI.
-- ``jarvis/cli/review_eval.py``, ``review_gc.py`` — review-pipeline tools.
+- ``dodaios/__main__.py`` — main CLI.
+- ``dodaios/clis/`` — voice bridge + CLI tool registry.
+- ``dodaios/skills/cli.py`` — skill CLI.
+- ``dodaios/cli/review_eval.py``, ``review_gc.py`` — review-pipeline tools.
 - ``run.bat`` — Windows launcher.
-- ``jarvis/ui/web/voice_bridge_routes.py`` — REST endpoint behind
+- ``dodaios/ui/web/voice_bridge_routes.py`` — REST endpoint behind
   ``jarvis-ask``.

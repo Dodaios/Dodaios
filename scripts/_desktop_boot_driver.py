@@ -31,7 +31,7 @@ def _boot_ready() -> None:
 
 
 def _legacy() -> int:
-    from jarvis.core.config import ensure_project_root_cwd, load_config
+    from dodaios.core.config import ensure_project_root_cwd, load_config
 
     ensure_project_root_cwd()
     cfg = load_config()
@@ -40,7 +40,7 @@ def _legacy() -> int:
         cfg = cfg.model_copy(
             update={"ui": cfg.ui.model_copy(update={"admin_api_port": int(port_env)})}
         )
-    from jarvis.ui.desktop_app import DesktopApp
+    from dodaios.ui.desktop_app import DesktopApp
 
     app = DesktopApp(cfg)
     app._run_backend()
@@ -55,7 +55,7 @@ def _fastboot() -> int:
     from types import SimpleNamespace
 
     port = int(os.environ.get("JARVIS_DESKTOP_BENCH_PORT", "47821"))
-    import jarvis.ui.web.launcher as _launcher
+    import dodaios.ui.web.launcher as _launcher
 
     # Give the production BOOT_READY print a t0 (it reads this module global).
     _launcher._BOOT_PROFILE_T0 = _T0

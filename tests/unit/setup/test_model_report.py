@@ -5,7 +5,7 @@ a real config, the network, or the model cache. Mirrors the hermetic style of
 test_prefetch.py.
 """
 
-from jarvis.setup import model_report as mr
+from dodaios.setup import model_report as mr
 
 
 class _Stt:

@@ -1,6 +1,6 @@
 """In-memory configuration for provider adapter tests, including endpoint routing."""
 
-from jarvis.core import config
+from dodaios.core import config
 
 
 def install_provider_config(monkeypatch, value):

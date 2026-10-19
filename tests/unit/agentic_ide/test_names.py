@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide.names import (
+from dodaios.agentic_ide.names import (
     RESERVED_NAMES,
     canonical_positions,
     default_names,
@@ -34,7 +34,7 @@ class TestPositionsAreAssignedByPlace:
 
     def test_a_large_workspace_needs_no_fallback_shape(self) -> None:
         """Every pane of a large workspace has a speakable name."""
-        from jarvis.agentic_ide.session import MAX_PANES_PER_REQUEST
+        from dodaios.agentic_ide.session import MAX_PANES_PER_REQUEST
 
         names = default_names(MAX_PANES_PER_REQUEST)
         assert len(set(names)) == MAX_PANES_PER_REQUEST

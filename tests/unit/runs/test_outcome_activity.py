@@ -1,21 +1,21 @@
 """Run OUTCOME (success/partial/failed) is distinct from SLO latency, and run
 ACTIVITY surfaces which tools/agents ran. The run list colored runs by latency,
 so a slow-but-successful run looked failed (red); outcome fixes that."""
-from jarvis.runs.analyzer import (
+from dodaios.runs.analyzer import (
     build_activity,
     build_outcome,
     feature_tags_from_events,
     outcome_from_events,
     turn_outcome,
 )
-from jarvis.runs.constants import (
+from dodaios.runs.constants import (
     OUTCOME_FAILED,
     OUTCOME_PARTIAL,
     OUTCOME_SUCCESS,
     RUN_OUTCOMES,
 )
-from jarvis.runs.model import DecisionStep, ErrorEntry, RunActivity, RunTurn, ToolCall
-from jarvis.sessions.models import VoiceEventRow
+from dodaios.runs.model import DecisionStep, ErrorEntry, RunActivity, RunTurn, ToolCall
+from dodaios.sessions.models import VoiceEventRow
 
 
 def _turn(idx=0, jarvis_text="ok", tools=None, errors=None, decision=None):

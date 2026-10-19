@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.registry import SkillRegistry
+from dodaios.skills.registry import SkillRegistry
 
 _SKILL = """---
 schema_version: "1"

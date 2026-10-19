@@ -11,15 +11,15 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import jarvis.speech.wake_constants as wake_constants
+import dodaios.speech.wake_constants as wake_constants
 
 _REPO = Path(__file__).resolve().parents[3]
-_ASSETS = _REPO / "jarvis" / "assets" / "wakeword"
+_ASSETS = _REPO / "dodaios" / "assets" / "wakeword"
 _WAKE_SOURCES = [
-    *(_REPO / "jarvis" / "speech").glob("wake*.py"),
-    *(_REPO / "jarvis" / "speech" / "rolling_whisper_wake.py",),
-    *(_REPO / "jarvis" / "plugins" / "wake").glob("*.py"),
-    _REPO / "jarvis" / "assets" / "__init__.py",
+    *(_REPO / "dodaios" / "speech").glob("wake*.py"),
+    *(_REPO / "dodaios" / "speech" / "rolling_whisper_wake.py",),
+    *(_REPO / "dodaios" / "plugins" / "wake").glob("*.py"),
+    _REPO / "dodaios" / "assets" / "__init__.py",
 ]
 # Underscore model tokens + third-party brand names. Deliberately NOT plain
 # "jarvis" (the product's own name appears in prose) and NOT "rhasspy"-free

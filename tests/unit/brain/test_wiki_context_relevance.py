@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from jarvis.brain.wiki_context import WikiContextInjector
+from dodaios.brain.wiki_context import WikiContextInjector
 
 BASE_PROMPT = "You are Personal Jarvis."
 

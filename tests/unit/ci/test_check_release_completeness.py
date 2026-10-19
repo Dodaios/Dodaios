@@ -12,33 +12,33 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from scripts.ci import check_release_completeness as gate
 
 
 def test_parse_dirty_paths_keeps_rename_targets_and_untracked():
     porcelain = (
-        " M jarvis/platform/permissions.py\n"
+        " M dodaios/platform/permissions.py\n"
         "?? test_output.txt\n"
-        'RM "old name.tsx" -> jarvis/ui/new_name.tsx\n'
+        'RM "old name.tsx" -> dodaios/ui/new_name.tsx\n'
     )
     assert gate.parse_dirty_paths(porcelain) == [
-        "jarvis/platform/permissions.py",
+        "dodaios/platform/permissions.py",
         "test_output.txt",
-        "jarvis/ui/new_name.tsx",
+        "dodaios/ui/new_name.tsx",
     ]
 
 
 def test_allowlist_removes_only_the_volatile_telemetry_stamp():
-    paths = ["desktop-ttu-latest.json", "jarvis/core/config.py"]
-    assert gate.filter_allowlisted(paths, gate.DIRTY_ALLOWLIST) == ["jarvis/core/config.py"]
+    paths = ["desktop-ttu-latest.json", "dodaios/core/config.py"]
+    assert gate.filter_allowlisted(paths, gate.DIRTY_ALLOWLIST) == ["dodaios/core/config.py"]
     # Windows-style separators must not sneak a path past the allowlist match.
     assert gate.filter_allowlisted(["desktop-ttu-latest.json"], gate.DIRTY_ALLOWLIST) == []
 
 
 def test_read_versions_reports_drift_between_the_two_sources(tmp_path: Path):
-    (tmp_path / "jarvis").mkdir()
-    (tmp_path / "jarvis" / "__init__.py").write_text('__version__ = "1.2.0"\n', encoding="utf-8")
+    (tmp_path / "dodaios").mkdir()
+    (tmp_path / "dodaios" / "__init__.py").write_text('__version__ = "1.2.0"\n', encoding="utf-8")
     (tmp_path / "pyproject.toml").write_text('[project]\nversion = "1.1.0"\n', encoding="utf-8")
 
     assert gate.read_versions(tmp_path) == ("1.2.0", "1.1.0")

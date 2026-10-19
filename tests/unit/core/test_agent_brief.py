@@ -2,18 +2,18 @@
 
 Without it the model turned "check", "look into" or "deep dive" into a
 "READ-ONLY audit" on its own and the agent stopped at a report
-(live 2026-10-02). See ``jarvis/core/agent_brief.py``.
+(live 2026-10-02). See ``dodaios/core/agent_brief.py``.
 """
 
 from __future__ import annotations
 
 import inspect
 
-from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-from jarvis.core.agent_brief import AGENT_BRIEF_RULE
-from jarvis.live import native
-from jarvis.live.config import LiveConfig
-from jarvis.plugins.tool.delegate_to_agent import DelegateToAgentTool
+from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+from dodaios.core.agent_brief import AGENT_BRIEF_RULE
+from dodaios.live import native
+from dodaios.live.config import LiveConfig
+from dodaios.plugins.tool.delegate_to_agent import DelegateToAgentTool
 
 
 def test_rule_asks_for_the_work_and_reserves_read_only_for_an_explicit_ask():

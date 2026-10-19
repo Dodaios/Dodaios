@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.web.update_routes import (
+from dodaios.ui.web.update_routes import (
     INSTALL_KIND_FROZEN,
     INSTALL_KIND_MANAGED,
     PHASE_DOWNLOADING,

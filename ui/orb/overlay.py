@@ -65,11 +65,11 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageTk
 
-from jarvis.core.config import DEFAULT_CONFIG_FILE as JARVIS_TOML_PATH
-from jarvis.core.win32_dpi import ensure_dpi_awareness as _ensure_dpi_awareness
-from jarvis.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, MODES
-from jarvis.ui.overlay_styles import LEGACY_STYLE_ALIASES, ORB_STYLES, PERSISTENT_ORB_STYLES
-from jarvis.ui.pets.states import ACTION_STATES, DEFAULT_PET_ID, NO_PET_ID, ONE_SHOT_STATES
+from dodaios.core.config import DEFAULT_CONFIG_FILE as JARVIS_TOML_PATH
+from dodaios.core.win32_dpi import ensure_dpi_awareness as _ensure_dpi_awareness
+from dodaios.ui.dodaiosbar.modes import ACTIVE_VOICE_MODES, MODES
+from dodaios.ui.overlay_styles import LEGACY_STYLE_ALIASES, ORB_STYLES, PERSISTENT_ORB_STYLES
+from dodaios.ui.pets.states import ACTION_STATES, DEFAULT_PET_ID, NO_PET_ID, ONE_SHOT_STATES
 from ui.orb import controls as orb_controls
 from ui.orb.animations import (
     ANIMATION_REGISTRY,
@@ -101,7 +101,7 @@ from ui.orb.taskbar import (
 from ui.orb.thought_bubble import PetThoughtBubble
 from ui.orb.voice_orb import VoiceOrbRenderer
 
-#: The looks this window can wear (ONE definition, in jarvis.ui.overlay_styles):
+#: The looks this window can wear (ONE definition, in dodaios.ui.overlay_styles):
 #: ``mascot`` is the Gigi ghost, ``voice_orb`` the procedural weather sphere —
 #: the desktop twin of the in-app orb. Both share this window, so both are
 #: always on top and draggable to any monitor. The removed legacy procedural
@@ -363,7 +363,7 @@ def apply_macos_clear_backing() -> None:
             win.setOpaque_(False)
             win.setBackgroundColor_(NSColor.clearColor())
             win.setHasShadow_(False)
-        from jarvis.platform.capture_exclusion import (  # noqa: PLC0415
+        from dodaios.platform.capture_exclusion import (  # noqa: PLC0415
             exclude_macos_app_windows,
         )
 
@@ -475,13 +475,13 @@ def _apply_jarvis_icon_to_tk_root(root: tk.Tk) -> None:
     """Set the Jarvis taskbar/titlebar icon on this Tk root.
 
     Thin wrapper over the canonical, cross-platform
-    :func:`jarvis.ui.icon_utils.apply_tk_window_icon` so the orb and the
+    :func:`dodaios.ui.icon_utils.apply_tk_window_icon` so the orb and the
     JarvisBar share ONE implementation — the two used to drift apart, which is
     how the JarvisBar regressed to the Python logo (BUG #UI-Pin-2026-05-05).
     Best-effort; any failure is silent (the orb is cosmetic).
     """
     try:
-        from jarvis.ui.icon_utils import apply_tk_window_icon
+        from dodaios.ui.icon_utils import apply_tk_window_icon
 
         apply_tk_window_icon(root)
     except Exception:  # noqa: BLE001
@@ -564,7 +564,7 @@ def _hide_tk_window_from_task_switcher(root: tk.Tk) -> None:
 def _exclude_tk_window_from_capture(root: tk.Tk) -> None:
     """Keep the orb / transcription bubble out of screenshots. Best-effort."""
     try:
-        from jarvis.platform.capture_exclusion import (  # noqa: PLC0415
+        from dodaios.platform.capture_exclusion import (  # noqa: PLC0415
             exclude_tk_window_from_capture,
         )
 
@@ -2394,7 +2394,7 @@ class OrbOverlay:
         if "pytest" in sys.modules and not os.environ.get("JARVIS_GUI_TESTS"):
             self._started.set()
             return
-        from jarvis.ui.tk_runtime import prepare_tk_runtime
+        from dodaios.ui.tk_runtime import prepare_tk_runtime
 
         prepare_tk_runtime()
         # DPI awareness MUST be set before Win32 GetWindowRect calls, else
@@ -2442,7 +2442,7 @@ class OrbOverlay:
             # same rectangle, and the keyed-out padding arrives as an opaque
             # black box around the mascot. Same defect as the bar's.
             try:
-                from jarvis.core.process_utils import disable_windows_app_ghosting
+                from dodaios.core.process_utils import disable_windows_app_ghosting
 
                 disable_windows_app_ghosting()
             except Exception:  # noqa: BLE001 — cosmetic; the orb must still boot
@@ -2590,10 +2590,10 @@ class OrbOverlay:
         # Pure addition, fully guarded: a no-op when tkinterdnd2 is absent
         # (NullDropTarget) so the live overlay is never destabilised. Dropped
         # paths/text go to the process-global bridge, which the desktop app
-        # marshals to the brain intake (jarvis/brain/drop_context.ingest_drop).
+        # marshals to the brain intake (dodaios/brain/drop_context.ingest_drop).
         try:
-            from jarvis.overlay.drop_bridge import dispatch_drop
-            from jarvis.overlay.drop_target import make_drop_target
+            from dodaios.overlay.drop_bridge import dispatch_drop
+            from dodaios.overlay.drop_target import make_drop_target
 
             make_drop_target().register(self._canvas, dispatch_drop)
         except Exception:  # noqa: BLE001 — drop is optional; never block orb boot.
@@ -2802,7 +2802,7 @@ class OrbOverlay:
         """The Jarvis Bar's Win32 Z-order probe and repair, imported once."""
         if self._topmost_fns is None:
             try:
-                from jarvis.ui.dodaiosbar.overlay import (  # noqa: PLC0415
+                from dodaios.ui.dodaiosbar.overlay import (  # noqa: PLC0415
                     _win32_force_topmost,
                     _win32_topmost_band_is_healthy,
                 )
@@ -3290,7 +3290,7 @@ class OrbOverlay:
     def _speech_pipeline():
         """The live pipeline, or ``None`` off the desktop process."""
         try:
-            from jarvis.core.runtime_refs import get_speech_pipeline
+            from dodaios.core.runtime_refs import get_speech_pipeline
         except Exception:  # noqa: BLE001 — importable in practice; never fatal
             return None
         return get_speech_pipeline()
@@ -3298,7 +3298,7 @@ class OrbOverlay:
     def set_on_talk(self, callback: Callable[[], None] | None) -> None:
         """Inject "start a voice session" (the mic disc while idle).
 
-        Wired by ``jarvis.ui.dodaiosbar.host`` when the orb runs in the macOS
+        Wired by ``dodaios.ui.dodaiosbar.host`` when the orb runs in the macOS
         companion process, where no SpeechPipeline exists; the parent applies
         it. In-process the orb calls the pipeline itself.
         """
@@ -3332,7 +3332,7 @@ class OrbOverlay:
         root = self._root
         if root is None:
             return
-        from jarvis.ui.pets.context_menu import preferences
+        from dodaios.ui.pets.context_menu import preferences
         from ui.orb.pet_context_menu import PetContextMenu
 
         try:
@@ -4181,7 +4181,7 @@ class OrbOverlay:
             return cached[1]
         bottom: int | None = None
         try:
-            from jarvis.platform.monitors import work_area_at  # noqa: PLC0415
+            from dodaios.platform.monitors import work_area_at  # noqa: PLC0415
 
             area = work_area_at(*center)
             if area:

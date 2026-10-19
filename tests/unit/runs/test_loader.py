@@ -1,6 +1,6 @@
-from jarvis.runs.loader import RunLoader
-from jarvis.sessions.store import SessionStore
-from jarvis.clis.usage_log import UsageLog
+from dodaios.runs.loader import RunLoader
+from dodaios.sessions.store import SessionStore
+from dodaios.clis.usage_log import UsageLog
 
 
 def _store(tmp_path):

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.branding import (
+from dodaios.core.branding import (
     CONFIG_FILE_NAME,
     DEFAULT_INSTALL_DIR_NAME,
     DEFAULT_OFFICIAL_REPO_SLUG,

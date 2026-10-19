@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import resume_store
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import MAX_TERMINAL_NAME, Registry, SessionError
+from dodaios.agentic_ide import resume_store
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import MAX_TERMINAL_NAME, Registry, SessionError
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -24,7 +24,7 @@ def _isolated_recents(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Keep the recents file out of the developer's real data directory."""
-    from jarvis.agentic_ide import recents
+    from dodaios.agentic_ide import recents
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)

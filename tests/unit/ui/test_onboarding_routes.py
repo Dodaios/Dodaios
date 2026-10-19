@@ -2,9 +2,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.setup import state as setup_state
-from jarvis.setup.onboarding_meta import CURRENT_TERMS_VERSION
-from jarvis.ui.web import onboarding_routes
+from dodaios.setup import state as setup_state
+from dodaios.setup.onboarding_meta import CURRENT_TERMS_VERSION
+from dodaios.ui.web import onboarding_routes
 
 
 @pytest.fixture

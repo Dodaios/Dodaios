@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import python_intel
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide import python_intel
+from dodaios.ui.web import agentic_ide_routes as routes
 
 pytest.importorskip("jedi")
 

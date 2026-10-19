@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.local_action_gate import (
+from dodaios.brain.local_action_gate import (
     LocalActionMode,
     LocalActionPlan,
     LocalToolCall,
@@ -118,7 +118,7 @@ def test_natural_open_phrasings_take_clean_direct_path(text: str, app: str) -> N
 
 # ---------------------------------------------------------------------------
 # Fake capability registry used to test UNSUPPORTED gate without importing
-# ``jarvis.core.capabilities`` (Agent A may not have shipped yet).
+# ``dodaios.core.capabilities`` (Agent A may not have shipped yet).
 # ---------------------------------------------------------------------------
 
 # Verbs that the fake registry considers "action intents".
@@ -601,7 +601,7 @@ def test_orb_reset_false_positive_corpus(text: str) -> None:
 # UNSUPPORTED gate — capability-coupling spec §Layer 2, insertion point (a)
 #
 # All tests below inject ``_FakeRegistry`` via the ``_registry`` kwarg so
-# they run without ``jarvis.core.capabilities`` being present (Agent A may
+# they run without ``dodaios.core.capabilities`` being present (Agent A may
 # not have merged yet).
 # ---------------------------------------------------------------------------
 
