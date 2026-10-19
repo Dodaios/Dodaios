@@ -7549,7 +7549,6 @@
         "retry": "Reintentar",
         "builtin": "Usar la vista integrada",
         "use_native": "Mostrar mi navegador",
-        "pop_out": "Abrir en su propia ventana",
         "profile": "Perfil del navegador"
       }
     },
