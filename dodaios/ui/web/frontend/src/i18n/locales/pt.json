@@ -7229,7 +7229,13 @@
     "hide_changes": "Ocultar alterações",
     "more_files_one": "Mostrar mais {count} ficheiro",
     "more_files_other": "Mostrar mais {count} ficheiros",
-    "collapse_files": "Recolher ficheiros"
+    "collapse_files": "Recolher ficheiros",
+    "errors": {
+      "mandated_tool_unfulfilled": "O passo necessário não foi executado, por isso não consegui responder com fiabilidade. Tenta novamente.",
+      "unbacked_action_claim": "Não consegui confirmar que a ação aconteceu mesmo, por isso não o afirmei. Tenta novamente.",
+      "guarded_response": "A resposta foi retida porque não foi possível verificá-la. Tenta novamente.",
+      "delegation_continuation_limit": "O trabalho delegado precisou de demasiadas rondas e foi parado. Volta a perguntar."
+    }
   },
   "work_trace": {
     "tool_failed": "Uma ação de ferramenta falhou",

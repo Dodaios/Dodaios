@@ -322,99 +322,9 @@ def failure_phrase_key(reason: str, error_class: str | None) -> str:
 # counts only — never worker text (ADR-0009 §1). Keys mirror
 # CAPACITY_WAIT_REASONS in dodaios/missions/events.py; parity is guarded by
 # tests/missions/test_capacity_wait_parity.py.
-CAPACITY_WAIT_PHRASES: Final[dict[str, dict[str, str]]] = {
-    "de": {
-        "provider_quota": "{provider}-Kapazität momentan ausgeschöpft.",  # i18n-allow
-        "provider_auth": "Die {provider}-Anmeldung ist abgelaufen.",  # i18n-allow
-        "provider_unavailable": "{provider} ist momentan nicht nutzbar.",  # i18n-allow
-        "paid_cap_reached": (
-            "Die Kostengrenze dieser Mission für {provider} ist erreicht."  # i18n-allow
-        ),
-        "paid_daily_cap_reached": (
-            "Das Tageslimit für automatische {provider}-Nutzung ist erreicht."  # i18n-allow
-        ),
-        "paid_consent_revoked": (
-            "Die automatische {provider}-Nutzung wurde ausgeschaltet."  # i18n-allow
-        ),
-        "saved": "Der bisherige Stand wurde gesichert.",  # i18n-allow
-        "progress": "{done} von {total} Teilschritten erledigt, {open} offen.",  # i18n-allow
-        "progress_single": "Die Aufgabe selbst ist noch offen.",  # i18n-allow
-        "file": "1 Datei gespeichert.",  # i18n-allow
-        "files": "{files} Dateien gespeichert.",  # i18n-allow
-        "wait": "Die Mission wartet, bis wieder Kapazität verfügbar ist.",  # i18n-allow
-        "wait_auth": "Die Mission wartet, bis du dich wieder anmeldest.",  # i18n-allow
-        "paid": (
-            "Kostenpflichtige API-Nutzung nur mit deiner ausdrücklichen "  # i18n-allow
-            "Freigabe unter Artefakte."  # i18n-allow
-        ),
-    },
-    "en": {
-        "provider_quota": "{provider} capacity is used up for now.",
-        "provider_auth": "The {provider} sign-in has expired.",
-        "provider_unavailable": "{provider} cannot be used right now.",
-        "paid_cap_reached": "This mission's cost limit for {provider} is reached.",
-        "paid_daily_cap_reached": "The daily limit for automatic {provider} use is reached.",
-        "paid_consent_revoked": "Automatic {provider} use was switched off.",
-        "saved": "The progress so far has been saved.",
-        "progress": "{done} of {total} steps done, {open} open.",
-        "progress_single": "The task itself is still open.",
-        "file": "1 file saved.",
-        "files": "{files} files saved.",
-        "wait": "The mission is waiting until capacity is available again.",
-        "wait_auth": "The mission is waiting until you sign in again.",
-        "paid": "Paid API use only with your explicit approval in Artifacts.",
-    },
-    "es": {
-        "provider_quota": "La capacidad de {provider} está agotada por ahora.",  # i18n-allow
-        "provider_auth": "El inicio de sesión de {provider} ha caducado.",  # i18n-allow
-        "provider_unavailable": "{provider} no se puede usar ahora mismo.",  # i18n-allow
-        "paid_cap_reached": (
-            "Se alcanzó el límite de coste de esta misión para {provider}."  # i18n-allow
-        ),
-        "paid_daily_cap_reached": (
-            "Se alcanzó el límite diario de uso automático de {provider}."  # i18n-allow
-        ),
-        "paid_consent_revoked": (
-            "El uso automático de {provider} se ha desactivado."  # i18n-allow: Spanish TTS
-        ),
-        "saved": "El progreso hasta ahora se ha guardado.",  # i18n-allow: Spanish TTS
-        "progress": "{done} de {total} pasos hechos, {open} pendientes.",  # i18n-allow: Spanish TTS
-        "progress_single": "La tarea en sí sigue pendiente.",  # i18n-allow: Spanish TTS
-        "file": "1 archivo guardado.",  # i18n-allow: Spanish TTS
-        "files": "{files} archivos guardados.",  # i18n-allow: Spanish TTS
-        "wait": "La misión espera hasta que vuelva a haber capacidad.",  # i18n-allow: Spanish TTS
-        "wait_auth": "La misión espera hasta que vuelvas a iniciar sesión.",  # i18n-allow
-        "paid": (
-            "Uso de API de pago solo con tu aprobación expresa "  # i18n-allow: Spanish TTS
-            "en Artefactos."  # i18n-allow: Spanish TTS
-        ),
-    },
-    "pt": {
-        "provider_quota": "A capacidade de {provider} está esgotada por agora.",  # i18n-allow
-        "provider_auth": "O início de sessão em {provider} expirou.",  # i18n-allow: PT TTS
-        "provider_unavailable": "{provider} não pode ser usado neste momento.",  # i18n-allow
-        "paid_cap_reached": (
-            "O limite de custo desta missão para {provider} foi atingido."  # i18n-allow: PT TTS
-        ),
-        "paid_daily_cap_reached": (
-            "O limite diário de uso automático de {provider} foi atingido."  # i18n-allow: PT TTS
-        ),
-        "paid_consent_revoked": (
-            "O uso automático de {provider} foi desligado."  # i18n-allow: PT TTS
-        ),
-        "saved": "O progresso até agora foi guardado.",  # i18n-allow: PT TTS
-        "progress": "{done} de {total} passos feitos, {open} por fazer.",  # i18n-allow: PT TTS
-        "progress_single": "A tarefa em si ainda está por fazer.",  # i18n-allow: PT TTS
-        "file": "1 ficheiro guardado.",  # i18n-allow: PT TTS
-        "files": "{files} ficheiros guardados.",  # i18n-allow: PT TTS
-        "wait": "A missão aguarda até haver capacidade outra vez.",  # i18n-allow: PT TTS
-        "wait_auth": "A missão aguarda até voltares a iniciar sessão.",  # i18n-allow: PT TTS
-        "paid": (
-            "Uso de API paga só com a tua aprovação explícita "  # i18n-allow: PT TTS
-            "em Artefactos."  # i18n-allow: PT TTS
-        ),
-    },
-}
+CAPACITY_WAIT_PHRASES: Final[dict[str, dict[str, str]]] = i18n_catalog.locale_maps(
+    "missions.readback.capacity_wait_phrases"
+)
 
 _MAX_PROVIDER_CHARS: Final[int] = 40
 
@@ -435,23 +345,15 @@ _PROVIDER_DISPLAY: Final[dict[str, str]] = {
 
 
 # Spoken name for a provider slug the runtime could not resolve.
-_PROVIDER_FALLBACK_NAME: Final[dict[str, str]] = {
-    "de": "KI-Anbieter",  # i18n-allow: German TTS
-    "en": "AI provider",
-    "es": "proveedor de IA",  # i18n-allow: Spanish TTS
-    "pt": "fornecedor de IA",  # i18n-allow: PT TTS
-}
+_PROVIDER_FALLBACK_NAME: Final[dict[str, str]] = i18n_catalog.table(
+    "missions.readback.provider_fallback_name"
+)
 
 # Spoken defaults for an empty summary / reason / destructive target.
 _EMPTY_SUMMARY: Final[dict[str, str]] = i18n_catalog.table("missions.readback.empty_summary")
 _UNKNOWN_REASON: Final[dict[str, str]] = i18n_catalog.table("missions.readback.unknown_reason")
 _NO_TOOL_CALL: Final[dict[str, str]] = i18n_catalog.table("missions.readback.no_tool_call")
-_DEFAULT_TARGET: Final[dict[str, str]] = {
-    "de": "diese Aktion",  # i18n-allow: German TTS
-    "en": "this action",
-    "es": "esta acción",  # i18n-allow: Spanish TTS
-    "pt": "esta ação",  # i18n-allow: PT TTS
-}
+_DEFAULT_TARGET: Final[dict[str, str]] = i18n_catalog.table("missions.readback.default_target")
 
 
 def _localized(table: dict[str, str], language: str) -> str:

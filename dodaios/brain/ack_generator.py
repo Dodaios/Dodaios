@@ -46,6 +46,8 @@ from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
+from dodaios.i18n import catalog as i18n_catalog
+
 __all__ = [
     "ACK_SKIP_TOOLS",
     "AckPhrasePicker",
@@ -135,12 +137,7 @@ ACK_SKIP_TOOLS: frozenset[str] = frozenset({
     "get_config_value",
 })
 
-_FINAL_MARKERS: dict[str, str] = {
-    "de": "Erledigt.",  # i18n-allow: German runtime voice product (completion marker)
-    "en": "Done.",
-    "es": "Listo.",
-    "pt": "Feito.",
-}
+_FINAL_MARKERS: dict[str, str] = i18n_catalog.table("brain.ack.final_markers")
 
 # A brain text that already opens with one of these is treated as
 # self-confirming, so we don't double up with "Erledigt. Okay, ..."
@@ -233,102 +230,15 @@ def _trim_to_words(text: str, max_chars: int) -> str:
 # German strings are runtime voice product content (i18n-allow). Phrases are
 # promissory ("I'm on it"), never completion claims — the tool has not run yet.
 
-_GENERIC_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, einen Moment.",  # i18n-allow: German runtime voice product
-        "Einen Augenblick bitte.",  # i18n-allow: German runtime voice product
-        "Kurzen Moment, ich bin dran.",  # i18n-allow: German runtime voice product
-        "Geht klar, Sekunde.",  # i18n-allow: German runtime voice product
-        "Ich kümmere mich drum.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, one moment.",
-        "Just a second.",
-        "On it, give me a moment.",
-        "One sec, working on it.",
-        "Alright, hang on.",
-    ),
-    "es": (
-        "Vale, un momento.",
-        "Un segundo.",
-        "Enseguida, dame un momento.",
-        "Voy, un segundito.",
-        "De acuerdo, espera un poco.",
-    ),
-    "pt": (
-        "Está bem, um momento.",
-        "Um segundo.",
-        "Já vai, dá-me um momento.",
-        "Vou já, só um segundinho.",
-        "Combinado, espera um pouco.",
-    ),
-}
+_GENERIC_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.generic_ack")
 
-_SHELL_ACK: dict[str, tuple[str, ...]] = {
-    # Shell commands are technical noise the user doesn't want spoken back —
-    # the phrases stay content-free but warm.
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Einen Moment, ich schaue nach.",  # i18n-allow: German runtime voice product
-        "Ich prüfe das kurz.",  # i18n-allow: German runtime voice product
-        "Sekunde, ich sehe nach.",  # i18n-allow: German runtime voice product
-        "Ich werfe kurz einen Blick drauf.",  # i18n-allow: German runtime voice product
-        "Moment, ich schaue mir das an.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "One moment, let me check.",
-        "Let me take a quick look.",
-        "Checking that now.",
-        "Give me a second to look.",
-        "Taking a quick look.",
-    ),
-    "es": (
-        "Un momento, lo compruebo.",
-        "Déjame echar un vistazo.",
-        "Lo miro ahora mismo.",
-        "Dame un segundo para mirarlo.",
-        "Le echo un vistazo rápido.",
-    ),
-    "pt": (
-        "Um momento, vou verificar.",
-        "Deixa-me dar uma vista de olhos.",
-        "Vejo isso agora mesmo.",
-        "Dá-me um segundo para ver.",
-        "Dou uma vista de olhos rápida.",
-    ),
-}
+_SHELL_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.shell_ack")
 
 # {service} is interpolated with a human-readable CLI service name
 # (cli_gh -> "GitHub"). See _CLI_SERVICE_NAMES / _cli_pool.
-_CLI_SERVICE_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Ich schaue kurz auf {service} nach.",  # i18n-allow: German runtime voice product
-        "Einen Moment, ich frage {service} ab.",  # i18n-allow: German runtime voice product
-        "Ich werfe einen Blick in {service}.",  # i18n-allow: German runtime voice product
-        "Sekunde, ich schaue in {service} nach.",  # i18n-allow: German runtime voice product
-        "Ich hole das eben aus {service}.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Taking a quick look at {service}.",
-        "One moment, checking {service}.",
-        "Let me pull that from {service}.",
-        "Checking {service} now.",
-        "Having a quick look in {service}.",
-    ),
-    "es": (
-        "Echo un vistazo rápido a {service}.",
-        "Un momento, consulto {service}.",
-        "Déjame mirarlo en {service}.",
-        "Reviso {service} ahora mismo.",
-        "Voy a ver en {service}.",
-    ),
-    "pt": (
-        "Dou uma vista de olhos rápida a {service}.",
-        "Um momento, consulto {service}.",
-        "Deixa-me ver isso em {service}.",
-        "Verifico {service} agora mesmo.",
-        "Vou ver em {service}.",
-    ),
-}
+_CLI_SERVICE_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
+    "brain.ack.cli_service_ack"
+)
 
 # Human service names for cli_<name> tools. Unknown suffixes are title-cased
 # ("cli_foo_bar" -> "Foo Bar") — still informative, never wrong.
@@ -350,309 +260,35 @@ _CLI_SERVICE_NAMES: dict[str, str] = {
     "vercel": "Vercel",
 }
 
-_HARNESS_ACK: dict[str, tuple[str, ...]] = {
-    # Harness / worker tasks are usually long sentences — echoing them sounds
-    # robotic. Stay generic but warm.
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Verstanden, ich kümmere mich darum.",  # i18n-allow: German runtime voice product
-        "Geht klar, das übernehme ich.",  # i18n-allow: German runtime voice product
-        "Alles klar, ich bin dran.",  # i18n-allow: German runtime voice product
-        "Okay, ich setze mich dran.",  # i18n-allow: German runtime voice product
-        "Mach ich, einen Moment.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Got it, on it.",
-        "Alright, I'll take that on.",
-        "Understood, working on it.",
-        "Okay, I'm on it now.",
-        "Sure, give me a moment.",
-    ),
-    "es": (
-        "Entendido, me encargo.",
-        "Vale, lo asumo yo.",
-        "De acuerdo, estoy en ello.",
-        "Okay, me pongo con ello.",
-        "Claro, un momento.",
-    ),
-    "pt": (
-        "Entendido, eu trato disso.",
-        "Está bem, fico eu com isso.",
-        "Combinado, estou a tratar disso.",
-        "Okay, vou pôr mãos à obra.",
-        "Claro, um momento.",
-    ),
-}
+_HARNESS_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.harness_ack")
 
-_SEARCH_TOPIC_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich schaue mir {topic} an.",  # i18n-allow: German runtime voice product
-        "Ich suche kurz nach {topic}.",  # i18n-allow: German runtime voice product
-        "Moment, ich recherchiere zu {topic}.",  # i18n-allow: German runtime voice product
-        "Ich schaue, was ich zu {topic} finde.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, looking up {topic}.",
-        "Searching for {topic} real quick.",
-        "One moment, digging into {topic}.",
-        "Let me see what I find on {topic}.",
-    ),
-    "es": (
-        "Vale, busco {topic}.",
-        "Un momento, investigo {topic}.",
-        "Voy a ver qué encuentro sobre {topic}.",
-        "Buscando {topic} ahora.",
-    ),
-    "pt": (
-        "Está bem, procuro {topic}.",
-        "Um momento, vou pesquisar {topic}.",
-        "Vou ver o que encontro sobre {topic}.",
-        "A procurar {topic} agora.",
-    ),
-}
+_SEARCH_TOPIC_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
+    "brain.ack.search_topic_ack"
+)
 
-_SEARCH_GENERIC_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich recherchiere kurz.",  # i18n-allow: German runtime voice product
-        "Ich suche das eben raus.",  # i18n-allow: German runtime voice product
-        "Moment, ich schaue mich um.",  # i18n-allow: German runtime voice product
-        "Einen Moment, ich sammle die Fakten.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, researching.",
-        "Let me dig that up.",
-        "One moment, looking around.",
-        "Give me a moment to gather the facts.",
-    ),
-    "es": (
-        "Vale, investigo un poco.",
-        "Déjame buscarlo.",
-        "Un momento, echo un vistazo.",
-        "Dame un momento para reunir los datos.",
-    ),
-    "pt": (
-        "Está bem, vou pesquisar um pouco.",
-        "Deixa-me procurar.",
-        "Um momento, dou uma vista de olhos.",
-        "Dá-me um momento para reunir os dados.",
-    ),
-}
+_SEARCH_GENERIC_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
+    "brain.ack.search_generic_ack"
+)
 
-_MULTI_SPAWN_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich erledige {n} Sachen parallel.",  # i18n-allow: German runtime voice product
-        "Ich nehme mir die {n} Aufgaben gleichzeitig vor.",  # i18n-allow: German voice product
-        "{n} Dinge parallel — läuft.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, running {n} tasks in parallel.",
-        "Taking on those {n} jobs at once.",
-        "{n} things in parallel — on it.",
-    ),
-    "es": (
-        "Vale, hago {n} cosas en paralelo.",
-        "Me pongo con las {n} tareas a la vez.",
-        "{n} cosas en paralelo — voy.",
-    ),
-    "pt": (
-        "Está bem, faço {n} coisas em paralelo.",
-        "Vou tratar das {n} tarefas ao mesmo tempo.",
-        "{n} coisas em paralelo — vou já.",
-    ),
-}
+_MULTI_SPAWN_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
+    "brain.ack.multi_spawn_ack"
+)
 
-_OPEN_APP_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich öffne {app}.",  # i18n-allow: German runtime voice product
-        "Moment, {app} kommt.",  # i18n-allow: German runtime voice product
-        "Ich starte {app}.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, opening {app}.",
-        "One sec, launching {app}.",
-        "Starting {app}.",
-    ),
-    "es": (
-        "Vale, abro {app}.",
-        "Un segundo, lanzo {app}.",
-        "Inicio {app}.",
-    ),
-    "pt": (
-        "Está bem, abro {app}.",
-        "Um segundo, inicio {app}.",
-        "A iniciar {app}.",
-    ),
-}
+_OPEN_APP_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.open_app_ack")
 
-_RUN_SKILL_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich starte {skill}.",  # i18n-allow: German runtime voice product
-        "Moment, {skill} läuft gleich.",  # i18n-allow: German runtime voice product
-        "Ich lasse {skill} laufen.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, running {skill}.",
-        "One moment, starting {skill}.",
-        "Kicking off {skill} now.",
-    ),
-    "es": (
-        "Vale, ejecuto {skill}.",
-        "Un momento, arranco {skill}.",
-        "Pongo {skill} en marcha.",
-    ),
-    "pt": (
-        "Está bem, executo {skill}.",
-        "Um momento, arranco com {skill}.",
-        "Ponho {skill} a correr.",
-    ),
-}
+_RUN_SKILL_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.run_skill_ack")
 
-_GMAIL_READ_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich schaue in deine Mails.",  # i18n-allow: German runtime voice product
-        "Moment, ich öffne dein Postfach.",  # i18n-allow: German runtime voice product
-        "Ich sehe kurz in deinen Mails nach.",  # i18n-allow: German runtime voice product
-        "Ich werfe einen Blick in dein Postfach.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, checking your mail.",
-        "One moment, opening your inbox.",
-        "Taking a quick look at your email.",
-        "Peeking into your inbox.",
-    ),
-    "es": (
-        "Vale, reviso tu correo.",
-        "Un momento, abro tu bandeja.",
-        "Echo un vistazo a tus correos.",
-        "Miro tu bandeja de entrada.",
-    ),
-    "pt": (
-        "Está bem, vejo o teu correio.",
-        "Um momento, abro a tua caixa de entrada.",
-        "Dou uma vista de olhos aos teus e-mails.",
-        "Vejo a tua caixa de entrada.",
-    ),
-}
+_GMAIL_READ_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.gmail_read_ack")
 
-_CALENDAR_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich schaue in deinen Kalender.",  # i18n-allow: German runtime voice product
-        "Moment, ich prüfe deine Termine.",  # i18n-allow: German runtime voice product
-        "Ich sehe in deinem Kalender nach.",  # i18n-allow: German runtime voice product
-        "Kurzer Blick in deinen Kalender.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, checking your calendar.",
-        "One moment, looking at your schedule.",
-        "Let me check your appointments.",
-        "Quick look at your calendar.",
-    ),
-    "es": (
-        "Vale, reviso tu calendario.",
-        "Un momento, miro tu agenda.",
-        "Compruebo tus citas.",
-        "Un vistazo rápido a tu calendario.",
-    ),
-    "pt": (
-        "Está bem, vejo o teu calendário.",
-        "Um momento, vejo a tua agenda.",
-        "Verifico os teus compromissos.",
-        "Uma vista de olhos rápida ao teu calendário.",
-    ),
-}
+_CALENDAR_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.calendar_ack")
 
-_REMEMBER_ACK: dict[str, tuple[str, ...]] = {
-    # Promissory only — "noted"-style completion claims would be a lie at
-    # selection time (the tool has not run yet).
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich merke mir das.",  # i18n-allow: German runtime voice product
-        "Geht klar, das behalte ich.",  # i18n-allow: German runtime voice product
-        "Ich schreibe es mir auf.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, noting that.",
-        "Got it, I'll remember that.",
-        "Writing that down.",
-    ),
-    "es": (
-        "Vale, lo apunto.",
-        "Entendido, lo recordaré.",
-        "Me lo apunto.",
-    ),
-    "pt": (
-        "Está bem, tomo nota.",
-        "Entendido, vou lembrar-me.",
-        "Fica anotado.",
-    ),
-}
+_REMEMBER_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.remember_ack")
 
-_VERIFY_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich prüfe das.",  # i18n-allow: German runtime voice product
-        "Moment, ich teste das kurz.",  # i18n-allow: German runtime voice product
-        "Ich checke das eben.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, checking.",
-        "One moment, testing that.",
-        "Let me verify that.",
-    ),
-    "es": (
-        "Vale, lo compruebo.",
-        "Un momento, lo pruebo.",
-        "Déjame verificarlo.",
-    ),
-    "pt": (
-        "Está bem, vou verificar.",
-        "Um momento, vou testar.",
-        "Deixa-me confirmar.",
-    ),
-}
+_VERIFY_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.verify_ack")
 
-_SERVER_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich starte den Server.",  # i18n-allow: German runtime voice product
-        "Moment, der Server fährt hoch.",  # i18n-allow: German runtime voice product
-        "Ich fahre den Server hoch.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, starting the server.",
-        "One moment, spinning up the server.",
-        "Bringing the server up.",
-    ),
-    "es": (
-        "Vale, inicio el servidor.",
-        "Un momento, arranco el servidor.",
-        "Levanto el servidor.",
-    ),
-    "pt": (
-        "Está bem, inicio o servidor.",
-        "Um momento, arranco o servidor.",
-        "Ponho o servidor a correr.",
-    ),
-}
+_SERVER_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.server_ack")
 
-_SET_CONFIG_ACK: dict[str, tuple[str, ...]] = {
-    "de": (  # i18n-allow: German runtime voice product (ack phrase pool)
-        "Okay, ich ändere das.",  # i18n-allow: German runtime voice product
-        "Moment, ich stelle das um.",  # i18n-allow: German runtime voice product
-        "Ich passe das an.",  # i18n-allow: German runtime voice product
-    ),
-    "en": (
-        "Okay, updating.",
-        "One moment, changing that.",
-        "Adjusting that now.",
-    ),
-    "es": (
-        "Vale, lo cambio.",
-        "Un momento, lo ajusto.",
-        "Lo adapto ahora.",
-    ),
-    "pt": (
-        "Está bem, eu altero isso.",
-        "Um momento, vou ajustar.",
-        "Adapto isso agora.",
-    ),
-}
+_SET_CONFIG_ACK: dict[str, tuple[str, ...]] = i18n_catalog.variant_table("brain.ack.set_config_ack")
 
 
 # ---------------------------------------------------------------------------

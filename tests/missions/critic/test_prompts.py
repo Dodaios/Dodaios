@@ -1,7 +1,7 @@
 """Tests for the Critic prompt templates.
 
-Checks the applicable design-reviewer criteria from
-`.claude/agents/jarvis-critic-design-reviewer.md`:
+Checks the applicable critic criteria from
+`docs/adr/0009-self-healing-worker-critic.md`:
 - Criterion 1 — evidence-cite requirement (prompt demands file:line / log_line:N / test:name).
 - Criterion 2 — skeptical framing without a defect quota.
 - Criterion 3 — anchor token (mission_prompt verbatim, triple-bracketed).
