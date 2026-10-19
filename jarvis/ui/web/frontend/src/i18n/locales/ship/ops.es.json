@@ -15,7 +15,8 @@
           "field_armor": "Armadura de campo",
           "command_coat": "Abrigo de mando",
           "dress_whites": "Uniforme de gala",
-          "admiral_coat": "Abrigo de almirante"
+          "admiral_coat": "Abrigo de almirante",
+          "auto": "El mejor disponible"
         }
       }
     }

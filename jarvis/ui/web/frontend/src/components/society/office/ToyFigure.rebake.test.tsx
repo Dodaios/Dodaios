@@ -9,9 +9,9 @@ import { act, createRoot, extend, type ReconcilerRoot } from "@react-three/fiber
 import * as THREE from "three";
 import type { Mesh, Object3D } from "three";
 import { loadProfile, playerLook } from "./playerProfile";
-import { PERSON_SUBJECT, type ProgressionSnapshot, type RewardRow } from "../progression/progressionApi";
-import { useProgression } from "../progression/progressionStore";
-import { regaliaFor, useDressedFigure } from "../progression/regalia/dress";
+import { PERSON_SUBJECT, type ProgressionSnapshot, type RewardRow } from "../progression/legacy/progressionApi";
+import { useProgression } from "../progression/legacy/progressionStore";
+import { regaliaFor, useDressedFigure } from "../progression/legacy/regalia/dress";
 import { contentKey, ToyFigure, type FigureRegalia } from "./ToyFigure";
 
 /** Just enough of a WebGLRenderer for R3F to mount a scene graph without a GPU. */

@@ -35,11 +35,9 @@ export interface CaptainLook {
   suit: string;
   trim: string;
   visor: string;
-  /** A suit unlocked by rank (the level system's `suit` rewards); null = the duty suit. */
-  cut: string | null;
 }
 
-export const DEFAULT_LOOK: CaptainLook = { suit: "#2c3340", trim: "#d9a441", visor: "#d6a440", cut: null };
+export const DEFAULT_LOOK: CaptainLook = { suit: "#2c3340", trim: "#d9a441", visor: "#d6a440" };
 
 function loadLook(): CaptainLook {
   try {

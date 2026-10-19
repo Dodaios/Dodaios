@@ -11,10 +11,10 @@ import { RANK_INFO, rankAt, rankOf, type RankId, type SubjectKind } from "./leve
 import { RankInsignia } from "./insignia/RankInsignia";
 import { PERSON_SUBJECT, petSubject } from "./progressionApi";
 import { useProgression, type Celebration } from "./progressionStore";
-import { AgentSymbol } from "../AgentSymbol";
-import { resolveCompanion, type CompanionAppearance } from "../companion/appearance";
-import type { SocietyAgent } from "../data";
-import { accessoryItem, type AccessoryChoice } from "../companion/accessories";
+import { AgentSymbol } from "../../AgentSymbol";
+import { resolveCompanion, type CompanionAppearance } from "../../companion/appearance";
+import type { SocietyAgent } from "../../data";
+import { accessoryItem, type AccessoryChoice } from "../../companion/accessories";
 
 /** The accessory choice that puts one look on, in its own slot. */
 function lookSlot(id: string): AccessoryChoice {

@@ -11,7 +11,7 @@
  */
 import { useMemo } from "react";
 import { ExtrudeGeometry, MeshStandardMaterial, Shape, Vector2 } from "three";
-import { cachedCanvasTexture } from "../../office/canvasMaterials";
+import { cachedCanvasTexture } from "../../../office/canvasMaterials";
 import type { RewardId } from "../levelCatalog";
 import { ellipse, star, type Pt } from "../insignia/rankArt";
 import { MEDAL_COUNT, MEDAL_METALS, paintRibbon, RIBBONS, type RibbonSpec } from "./ribbons";

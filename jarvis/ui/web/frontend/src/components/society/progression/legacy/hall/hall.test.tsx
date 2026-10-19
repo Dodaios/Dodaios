@@ -4,7 +4,7 @@ import { loadLocaleChunk } from "@/i18n";
 import { nextUnlock, rewardRoad } from "../cosmetics";
 import type { ProgressionSnapshot, RewardRow, XpRuleRow } from "../progressionApi";
 import { useProgression } from "../progressionStore";
-import type { ToyLook } from "../../office/toyFigureModel";
+import type { ToyLook } from "../../../office/toyFigureModel";
 import { groupRules, nextTitle, quickWins, rankLadder, upcomingLevelCosts, xpToReach } from "./hallModel";
 import { LevelHallScreen } from "./LevelHallScreen";
 import { roadSteps } from "./RewardsTab";

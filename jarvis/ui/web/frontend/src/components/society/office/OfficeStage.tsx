@@ -60,12 +60,12 @@ import "./officeFloors.css";
 import { OfficeMinimap } from "./OfficeMinimap";
 import { OfficeFullMap } from "./OfficeFullMap";
 import { OfficeFrameDriver } from "./OfficeFrameDriver";
-import { useProgressionSync } from "../progression/useProgressionSync";
-import { useProgression } from "../progression/progressionStore";
-import { LevelHud, LevelToasts } from "../progression/LevelHud";
-import { LevelUpBanner } from "../progression/LevelUpBanner";
-import { LevelHallScreen } from "../progression/hall/LevelHallScreen";
-import "../progression/progression.css";
+import { useProgressionSync } from "../progression/legacy/useProgressionSync";
+import { useProgression } from "../progression/legacy/progressionStore";
+import { LevelHud, LevelToasts } from "../progression/legacy/LevelHud";
+import { LevelUpBanner } from "../progression/legacy/LevelUpBanner";
+import { LevelHallScreen } from "../progression/legacy/hall/LevelHallScreen";
+import "../progression/legacy/progression.css";
 
 // Only loaded when a host without its own create dialog (the IDE's side panel) spawns an agent.
 // Only loaded when someone plays a retro cabinet on the arcade floor.

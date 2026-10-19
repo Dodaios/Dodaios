@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef } from "react";
 import { useProgression } from "../../../progression/progressionStore";
+import type { SuitChoice } from "../../../progression/cosmetics";
 import { useShip, type CaptainLook } from "../../shipStore";
 import type { DeckPanelProps } from "../registry";
 import "./quartermaster.css";
@@ -14,19 +15,18 @@ const SUITS = ["#2c3340", "#1c2a4a", "#4a1d26", "#20372d", "#6e6248", "#3b3f46"]
 const TRIMS = ["#d9a441", "#c9cdd3", "#5fd4ff", "#e04a5a"] as const;
 const VISORS = ["#d6a440", "#b9c3cc", "#3c7fd0", "#1d2026"] as const;
 
-/** The suit cuts and the captain's level each opens at (mirrors the rulebook's `suit` rewards). */
-export const SUIT_CUTS: readonly { id: string | null; level: number }[] = [
-  { id: null, level: 1 },
-  { id: "field_armor", level: 6 },
-  { id: "command_coat", level: 16 },
-  { id: "dress_whites", level: 26 },
-  { id: "admiral_coat", level: 42 },
-];
 
 export function QuartermasterPanel({ actions }: DeckPanelProps) {
   const { t } = actions;
   const look = useShip((s) => s.captainLook);
   const level = useProgression((s) => s.subjects.person?.level ?? 1);
+  const choice = useProgression((s) => s.suit);
+  const rewards = useProgression((s) => s.snapshot?.rewards);
+  // Automatic (the finest open), the duty suit, then every suit the rulebook lists, lowest first.
+  const cuts: { id: SuitChoice; level: number }[] = [
+    { id: "auto", level: 1 }, { id: "none", level: 1 },
+    ...(rewards ?? []).filter((r) => r.slot === "suit").map((r) => ({ id: r.rewardId as SuitChoice, level: r.levels.person ?? 99 })).sort((a, b) => a.level - b.level),
+  ];
   const set = (patch: Partial<CaptainLook>) => useShip.getState().setCaptainLook({ ...look, ...patch });
   const first = useRef<HTMLButtonElement>(null);
   useEffect(() => { first.current?.focus(); }, []);
@@ -54,12 +54,12 @@ export function QuartermasterPanel({ actions }: DeckPanelProps) {
       <fieldset className="qm-row">
         <legend className="ship-eyebrow">{t("ship.ops.quartermaster.cut")}</legend>
         <div className="qm-cuts">
-          {SUIT_CUTS.map((cut) => {
+          {cuts.map((cut) => {
             const open = level >= cut.level;
-            const key = cut.id ?? "duty";
+            const key = cut.id === "none" ? "duty" : cut.id.replace(/^suit_/, "");
             return (
-              <button key={key} type="button" className="qm-cut" aria-pressed={look.cut === cut.id} disabled={!open}
-                onClick={() => set({ cut: cut.id })}>
+              <button key={cut.id} type="button" className="qm-cut" aria-pressed={choice === cut.id} disabled={!open}
+                onClick={() => useProgression.getState().chooseSuit(cut.id)}>
                 <span>{t(`ship.ops.quartermaster.cuts.${key}`)}</span>
                 <small>{open ? t("ship.ops.quartermaster.open") : t("ship.ops.quartermaster.at_level").replace("{n}", String(cut.level))}</small>
               </button>

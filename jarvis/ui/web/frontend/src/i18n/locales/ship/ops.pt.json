@@ -15,7 +15,8 @@
           "field_armor": "Armadura de campo",
           "command_coat": "Casaco de comando",
           "dress_whites": "Uniforme de gala",
-          "admiral_coat": "Casaco de almirante"
+          "admiral_coat": "Casaco de almirante",
+          "auto": "O melhor disponível"
         }
       }
     }

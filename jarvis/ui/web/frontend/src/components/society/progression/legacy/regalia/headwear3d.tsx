@@ -17,7 +17,7 @@
  */
 import { CylinderGeometry, MeshStandardMaterial, SphereGeometry } from "three";
 import { RoundedBoxGeometry } from "three-stdlib";
-import { TOY } from "../../office/toyFigureModel";
+import { TOY } from "../../../office/toyFigureModel";
 import { RANK_INFO, type RankId, type RewardId } from "../levelCatalog";
 import { CAP_BADGE_ART, CREST_ART, rankArt } from "../insignia/rankArt";
 import { ArtPiece3D, RankInsignia3D, REGALIA_MATERIALS } from "./insignia3d";

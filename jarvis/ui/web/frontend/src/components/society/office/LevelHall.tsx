@@ -39,14 +39,14 @@ import { cachedCanvasTexture, redrawWhenFontsLoad } from "./canvasMaterials";
 import { FURNITURE_SIZE, type Furniture, type FurnitureKind } from "./officeLayout";
 import { ToyFigure } from "./ToyFigure";
 import { TOY, toyLookFor, type ToyLook } from "./toyFigureModel";
-import { equippedFor, levelFraction, rewardRoad } from "../progression/cosmetics";
-import { RANK_INFO, rankAt, rankOf, slotOf, TITLE_IDS, type RankId, type RewardId } from "../progression/levelCatalog";
-import { PERSON_SUBJECT, type XpRuleRow } from "../progression/progressionApi";
-import { useProgression } from "../progression/progressionStore";
-import { insigniaHeight, RankInsignia3D } from "../progression/regalia/insignia3d";
-import { Aiguillette, BreastDecoration } from "../progression/regalia/decorations3d";
-import { dressedLook, regaliaFor, type UniformId } from "../progression/regalia/dress";
-import { Headwear, type HeadwearId } from "../progression/regalia/headwear3d";
+import { equippedFor, levelFraction, rewardRoad } from "../progression/legacy/cosmetics";
+import { RANK_INFO, rankAt, rankOf, slotOf, TITLE_IDS, type RankId, type RewardId } from "../progression/legacy/levelCatalog";
+import { PERSON_SUBJECT, type XpRuleRow } from "../progression/legacy/progressionApi";
+import { useProgression } from "../progression/legacy/progressionStore";
+import { insigniaHeight, RankInsignia3D } from "../progression/legacy/regalia/insignia3d";
+import { Aiguillette, BreastDecoration } from "../progression/legacy/regalia/decorations3d";
+import { dressedLook, regaliaFor, type UniformId } from "../progression/legacy/regalia/dress";
+import { Headwear, type HeadwearId } from "../progression/legacy/regalia/headwear3d";
 
 type Ctx = CanvasRenderingContext2D;
 
