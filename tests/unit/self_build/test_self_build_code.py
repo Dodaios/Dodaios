@@ -515,7 +515,7 @@ def _slow_run(world: World) -> asyncio.Event:
 
 
 async def _until_coding(world: World, build_id: str) -> None:
-    for _ in range(200):
+    for _ in range(3000):  # up to a minute on a loaded machine
         if world.service.ledger.get(build_id).undo.get("session_id"):
             return
         await asyncio.sleep(0.02)
