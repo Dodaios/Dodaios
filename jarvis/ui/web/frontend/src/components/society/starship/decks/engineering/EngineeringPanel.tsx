@@ -7,6 +7,7 @@
  * `/terminals/{name}/prompt`, the path voice and the grid use. A new pane
  * appears on the deck at a free console of its workspace's bay.
  */
+import { BrandedSelect } from "@/components/ui/select";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Minus, Plus, X } from "lucide-react";
 import {
@@ -210,9 +211,9 @@ export function EngineeringPanel({ actions, panes }: DeckPanelProps) {
                     <button type="button" className="eng-launch-link" onClick={openIde}>{t("ship.engineering.panel.open_ide")}</button>
                   </span>
                 ) : (
-                  <select className="eng-launch-input" value={workspaceId} disabled={running} onChange={(e) => setWorkspaceId(e.target.value)}>
-                    {workspaces.map((w) => <option key={w.id} value={w.id}>{w.branch ? `${w.name} · ${w.branch}` : w.name}</option>)}
-                  </select>
+                  <BrandedSelect className="eng-launch-input" value={workspaceId} disabled={running} onValueChange={setWorkspaceId}
+                    ariaLabel={t("ship.engineering.panel.workspace")}
+                    options={workspaces.map((w) => ({ value: w.id, label: w.name, hint: w.branch || undefined }))} />
                 )}
               </label>
 
