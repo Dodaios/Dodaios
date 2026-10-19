@@ -36,7 +36,7 @@ import { buildNavGrid, nearestFree } from "./nav/shipNav";
 import type { CrewInput, DeckId, DeckPlan, Prop, Station, TeamInput } from "./plan/types";
 import { DECKS, deckNumber } from "./plan/types";
 import { captain, useShip } from "./shipStore";
-import { CameraRig, CAMERA_FOV } from "./render/CameraRig";
+import { CameraRig, CAMERA_FOV, orbit } from "./render/CameraRig";
 import { DeckLights, PostFx, RendererSetup, type Quality } from "./render/ShipRenderer";
 import { ConsoleScreens, HoloTables, RoomSigns, SlidingDoors, StaticDeck, StationHalo, StationTargets, TransporterBeam } from "./render/deck/DeckScene";
 import type { ScreenContent } from "./render/deck/screens";
@@ -70,6 +70,9 @@ class RenderBoundary extends Component<{ children: ReactNode; fallback: string }
   componentDidCatch(error: Error) { console.warn("Ship renderer unavailable", error); }
   render() { return this.state.failed ? <div className="ship-fallback" role="status">{this.props.fallback}</div> : this.props.children; }
 }
+
+// Dev-only handles for runtime checks: the captain, the store, the camera orbit and the crew's poses.
+if (import.meta.env.DEV && typeof window !== "undefined") Object.assign(window, { __ship: { captain, useShip, orbit, crewPoses } });
 
 const REFRESH_MS = 5000;
 

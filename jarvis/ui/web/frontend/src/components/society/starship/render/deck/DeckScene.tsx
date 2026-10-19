@@ -6,7 +6,7 @@
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import {
-  AdditiveBlending, BoxGeometry, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DoubleSide, Group, IcosahedronGeometry,
+  AdditiveBlending, BoxGeometry, FrontSide, BufferAttribute, CanvasTexture, Color, CylinderGeometry, DoubleSide, Group, IcosahedronGeometry,
   InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Quaternion, SRGBColorSpace, ShaderMaterial, Vector3,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -14,13 +14,18 @@ import type { DeckPlan, Prop, Station } from "../../plan/types";
 import { GeoBatch } from "../kit/geo";
 import { castsShadow, finishMaterial, receivesShadow } from "../kit/materials";
 import { SHIP, STATE } from "../kit/palette";
-import { buildProps, CONSOLE_SCREEN } from "./props";
+import { buildProps, CONSOLE_SCREEN, nearestWallCut } from "./props";
+import { withCutaway } from "../kit/cutaway";
 import { buildStructure, WALL_H } from "./structure";
+import { buildExterior } from "./exterior";
+import { buildDressing } from "./dressing";
 import { ScreenAtlas, type ScreenContent } from "./screens";
 
 export function StaticDeck({ plan, extra }: { plan: DeckPlan; extra?: (batch: GeoBatch) => void }) {
   const meshes = useMemo(() => {
     const batch = buildStructure(plan);
+    buildExterior(plan, batch);
+    buildDressing(plan, batch);
     buildProps(plan, batch);
     extra?.(batch);
     return batch.merged().map(({ finish, geometry }) => {
@@ -167,7 +172,7 @@ export function HoloTables({ plan, label, memberState, reduced }: {
 }
 
 /** A label on a transparent plane (canvas text), 1 m tall per 128 px. */
-export function textPlane(text: string, colour: string, opts: { size?: number; width?: number; font?: string } = {}): Mesh {
+export function textPlane(text: string, colour: string, opts: { size?: number; width?: number; font?: string; oneSided?: boolean } = {}): Mesh {
   const size = opts.size ?? 0.34;
   const c = document.createElement("canvas");
   const ctx = c.getContext("2d") as CanvasRenderingContext2D;
@@ -183,7 +188,7 @@ export function textPlane(text: string, colour: string, opts: { size?: number; w
   ctx.fillText(text, w / 2, 50);
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;
-  const mat = new MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, depthWrite: false, color: new Color(colour).lerp(new Color("#ffffff"), 0.55).multiplyScalar(1.3), side: DoubleSide });
+  const mat = new MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, depthWrite: false, color: new Color(colour).lerp(new Color("#ffffff"), 0.55).multiplyScalar(1.3), side: opts.oneSided ? FrontSide : DoubleSide });
   const mesh = new Mesh(new PlaneGeometry((w / 96) * size, size), mat);
   mesh.raycast = () => undefined;
   return mesh;
@@ -194,10 +199,17 @@ export function RoomSigns({ plan, text }: { plan: DeckPlan; text: (room: DeckPla
   const signs = useMemo(() => plan.rooms.filter((r) => r.sign && r.signAt).map((room) => {
     const label = text(room);
     if (!label) return null;
-    const mesh = textPlane(label, room.accent, { size: 0.3 });
+    const mesh = textPlane(label, room.accent, { size: 0.3, oneSided: true });
     const at = room.signAt!;
-    mesh.position.set(at.x + Math.sin(at.yaw) * 0.02, WALL_H - 0.32, at.z + Math.cos(at.yaw) * 0.02);
-    mesh.rotation.y = at.yaw;
+    // Placed in the geometry itself, so the cut-away (which works on positions) sinks it with its wall.
+    mesh.geometry.applyMatrix4(new Matrix4().makeRotationY(at.yaw).setPosition(at.x + Math.sin(at.yaw) * 0.02, WALL_H - 0.32, at.z + Math.cos(at.yaw) * 0.02));
+    const cut = nearestWallCut(plan, at.x, at.z, 0.8);
+    const n = mesh.geometry.attributes.position.count;
+    const ab = new Float32Array(n * 4), kind = new Float32Array(n);
+    if (cut) for (let i = 0; i < n; i += 1) { ab.set([cut.ax, cut.az, cut.bx, cut.bz], i * 4); kind[i] = cut.kind; }
+    mesh.geometry.setAttribute("cutAB", new BufferAttribute(ab, 4));
+    mesh.geometry.setAttribute("cutKind", new BufferAttribute(kind, 1));
+    withCutaway(mesh.material as MeshBasicMaterial, 0.14, 0.4);
     return { id: room.id, mesh };
   }).filter((s): s is { id: string; mesh: Mesh } => s !== null), [plan, text]);
   useEffect(() => () => { for (const s of signs) { s.mesh.geometry.dispose(); const m = s.mesh.material as MeshBasicMaterial; m.map?.dispose(); m.dispose(); } }, [signs]);

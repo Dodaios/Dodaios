@@ -39,7 +39,7 @@ export function RendererSetup({ quality }: { quality: Quality }) {
 /** Hemisphere fill, a cool ambient and one overhead key light whose shadow covers the deck. */
 export function DeckLights({ plan, quality, sunDirection }: { plan: DeckPlan; quality: Quality; sunDirection: [number, number, number] }) {
   const key = useMemo(() => {
-    const light = new DirectionalLight("#fff4e6", 1.9);
+    const light = new DirectionalLight("#ffeedd", 1.55);
     light.castShadow = quality === "high";
     const w = plan.bounds.x1 - plan.bounds.x0, d = plan.bounds.z1 - plan.bounds.z0;
     const cx = (plan.bounds.x0 + plan.bounds.x1) / 2, cz = (plan.bounds.z0 + plan.bounds.z1) / 2;
@@ -60,8 +60,8 @@ export function DeckLights({ plan, quality, sunDirection }: { plan: DeckPlan; qu
   useEffect(() => () => key.shadow.map?.dispose(), [key]);
   return (
     <>
-      <hemisphereLight args={["#9fb6e0", "#2a2422", 0.55]} />
-      <ambientLight intensity={0.12} color="#9fb4d6" />
+      <hemisphereLight args={["#8ea6d6", "#1d1a1c", 0.42]} />
+      <ambientLight intensity={0.06} color="#9fb4d6" />
       <primitive object={key} />
       <primitive object={key.target} />
     </>
@@ -75,7 +75,7 @@ export function PostFx({ quality }: { quality: Quality }) {
     const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: quality === "high" ? 4 : 0 });
     const c = new EffectComposer(gl, target);
     c.addPass(new RenderPass(scene, camera));
-    if (quality === "high") c.addPass(new UnrealBloomPass(new Vector2(256, 256), 0.62, 0.48, 0.92));
+    if (quality === "high") c.addPass(new UnrealBloomPass(new Vector2(256, 256), 0.5, 0.42, 1.0));
     c.addPass(new OutputPass());
     return c;
   }, [gl, scene, camera, quality]);

@@ -7,7 +7,7 @@
  */
 import { Matrix4 } from "three";
 import type { DeckPlan, Prop, PropKind } from "../../plan/types";
-import type { Frame, GeoBatch } from "../kit/geo";
+import type { CutLine, Frame, GeoBatch } from "../kit/geo";
 import { SHIP } from "../kit/palette";
 
 type Builder = (f: Frame, p: Prop) => void;
@@ -213,14 +213,42 @@ export function registerPropBuilders(builders: Partial<Record<PropKind, Builder>
 
 export type PropBuilder = Builder;
 
-export function propFrame(batch: GeoBatch, p: Prop): Frame {
-  return batch.frame(new Matrix4().makeRotationY(p.yaw).setPosition(p.x, 0, p.z));
+/** Pieces that stand against a wall: they sink with it in the cut-away. */
+const WALL_MOUNTED = new Set<PropKind>(["liftDoors", "locker", "mirror", "galley", "viewscreen", "rankWall", "cabinet"]);
+
+function distToSegment(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {
+  const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz || 1e-9;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / l2));
+  return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
+}
+
+/** The wall line nearest to a point, as a cut-away line (the hull's own edges first). */
+export function nearestWallCut(plan: DeckPlan, x: number, z: number, reach = 1.2): CutLine | undefined {
+  for (let i = 0; i < plan.hull.length; i += 1) {
+    const a = plan.hull[i], c = plan.hull[(i + 1) % plan.hull.length];
+    if (distToSegment(x, z, a.x, a.z, c.x, c.z) < Math.min(1.0, reach)) return { ax: a.x, az: a.z, bx: c.x, bz: c.z, kind: 1 };
+  }
+  let best: CutLine | undefined, bd = reach;
+  for (const w of plan.walls) {
+    const d = distToSegment(x, z, w.a.x, w.a.z, w.b.x, w.b.z);
+    if (d < bd) { bd = d; best = { ax: w.a.x, az: w.a.z, bx: w.b.x, bz: w.b.z, kind: w.kind === "hull" ? 1 : 2 }; }
+  }
+  return best;
+}
+
+/** The wall a wall-mounted piece stands against, as a cut-away line. */
+export function wallCutFor(plan: DeckPlan, p: Prop): CutLine | undefined {
+  return WALL_MOUNTED.has(p.kind) ? nearestWallCut(plan, p.x, p.z) : undefined;
+}
+
+export function propFrame(batch: GeoBatch, p: Prop, cut?: CutLine): Frame {
+  return batch.frame(new Matrix4().makeRotationY(p.yaw).setPosition(p.x, 0, p.z), cut);
 }
 
 /** Every prop of the plan with a builder, into `batch`. Props drawn elsewhere are skipped. */
 export function buildProps(plan: DeckPlan, batch: GeoBatch): void {
   for (const p of plan.props) {
     const build = PROP_BUILDERS[p.kind];
-    if (build) build(propFrame(batch, p), p);
+    if (build) build(propFrame(batch, p, wallCutFor(plan, p)), p);
   }
 }

@@ -78,7 +78,8 @@ varying vec3 vNormal; varying vec3 vWorld; varying vec3 vLocal;
 ${NOISE}
 void main() {
   vec3 n = normalize(vNormal);
-  vec3 p = normalize(vLocal);
+  // The ship hangs over the planet's +y side: the poles lie along z, so it looks at the tropics, not an ice cap.
+  vec3 p = normalize(vLocal).xzy;
   vec3 view = normalize(cameraPosition - vWorld);
   float light = dot(n, normalize(uSun));
   float day = smoothstep(-0.12, 0.25, light);
@@ -87,14 +88,14 @@ void main() {
   float night = 0.0;
   if (uKind < 0.5) {
     // Terran: oceans, continents, ice caps, clouds.
-    float h = fbm(p * 3.2 + 1.3);
-    float land = smoothstep(0.52, 0.56, h);
+    float h = fbm(p * 7.5 + 1.3);
+    float land = smoothstep(0.54, 0.58, h);
     vec3 ocean = mix(uC0, uC1, smoothstep(0.2, 0.52, h));
     vec3 ground = mix(vec3(0.16, 0.24, 0.12), vec3(0.42, 0.36, 0.24), smoothstep(0.56, 0.75, h));
     surface = mix(ocean, ground, land);
     surface = mix(surface, uC2, smoothstep(0.78, 0.9, abs(p.y)));
-    clouds = smoothstep(0.5, 0.75, fbm(p * 6.0 + vec3(uTime * 0.004, 0.0, uTime * 0.002)));
-    night = land * smoothstep(0.62, 0.8, fbm(p * 40.0)) * uCity;
+    clouds = smoothstep(0.6, 0.82, fbm(p * 13.0 + vec3(uTime * 0.004, 0.0, uTime * 0.002))) * 0.75;
+    night = land * smoothstep(0.62, 0.8, fbm(p * 70.0)) * uCity;
   } else if (uKind < 1.5) {
     // Gas giant: latitude bands with turbulence.
     float lat = p.y + fbm(p * vec3(2.0, 8.0, 2.0) + vec3(uTime * 0.002, 0.0, 0.0)) * 0.18;

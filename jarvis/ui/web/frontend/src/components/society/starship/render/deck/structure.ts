@@ -5,11 +5,12 @@
  * the cut-away top of every wall.
  */
 import { BufferAttribute, BufferGeometry, Shape, ShapeGeometry, ExtrudeGeometry, Matrix4, BoxGeometry } from "three";
-import type { DeckPlan, FloorFinish, Rect, Vec2, Wall } from "../../plan/types";
-import { GeoBatch, type Finish } from "../kit/geo";
+import type { DeckPlan, FloorFinish, Rect, Room, Vec2, Wall } from "../../plan/types";
+import { GeoBatch, type CutLine, type Finish } from "../kit/geo";
 import { SHIP } from "../kit/palette";
 
 export const WALL_H = 2.7;
+const BASE_H = 0.85;
 const WINDOW_LO = 0.95;
 const WINDOW_HI = 2.2;
 
@@ -62,10 +63,36 @@ const FLOOR_FINISH: Record<FloorFinish, { finish: Finish; color: string }> = {
   deck: { finish: "deck", color: "#c9ced6" },
   carpet: { finish: "carpet", color: "#d9d4e6" },
   grate: { finish: "grate", color: "#ffffff" },
-  ceramic: { finish: "ceramic", color: "#f0f0ee" },
+  ceramic: { finish: "ceramic", color: "#9aa0a8" },
   holo: { finish: "holoFloor", color: "#ffffff" },
   honor: { finish: "metal", color: "#3a3226" },
 };
+
+/** How warm or cool the light under each kind of room is (additive, so dark = faint). */
+const POOL_TONE: Partial<Record<Room["kind"], string>> = {
+  lounge: "#6b5236", mess: "#6b5236", division: "#3a5374", plaza: "#2c5a6e", quarters: "#4e3f78", quartermaster: "#5e4c32",
+  corridor: "#33465f", lift: "#5a4a2e", bay: "#36573a", bridge: "#4f4d5e", engineering: "#334f6c", holodeck: "#5a4620", hall: "#5a4a2c",
+};
+
+function flatQuad(size: number): BufferGeometry {
+  const g = new BufferGeometry();
+  const h = size / 2;
+  g.setAttribute("position", new BufferAttribute(new Float32Array([-h, 0, -h, -h, 0, h, h, 0, h, -h, 0, -h, h, 0, h, h, 0, -h]), 3));
+  g.setAttribute("normal", new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+  g.setAttribute("uv", new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1]), 2));
+  return g;
+}
+
+function insideConvex(poly: readonly Vec2[], p: Vec2, margin: number): boolean {
+  const area = poly.reduce((s, a, i) => { const b = poly[(i + 1) % poly.length]; return s + (a.x * b.z - b.x * a.z); }, 0);
+  const sign = area > 0 ? 1 : -1;
+  for (let i = 0; i < poly.length; i += 1) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+    if ((sign * ((b.x - a.x) * (p.z - a.z) - (b.z - a.z) * (p.x - a.x))) / len < margin) return false;
+  }
+  return true;
+}
 
 /** Offset a convex polygon outwards by `d` (vertex normals averaged). */
 export function offsetPolygon(points: readonly Vec2[], d: number): Vec2[] {
@@ -120,7 +147,23 @@ function along(batch: GeoBatch, wall: Wall) {
   const len = Math.hypot(dx, dz);
   const yaw = Math.atan2(dz, dx);
   const at = new Matrix4().makeRotationY(-yaw).setPosition((wall.a.x + wall.b.x) / 2, 0, (wall.a.z + wall.b.z) / 2);
-  return { frame: batch.frame(at), len };
+  const cut: CutLine = { ax: wall.a.x, az: wall.a.z, bx: wall.b.x, bz: wall.b.z, kind: wall.kind === "hull" ? 1 : 2 };
+  return { frame: batch.frame(at, cut), len };
+}
+
+/** The wall line a doorway sits in: its hull edge (same direction as the hull), or a line along the door. */
+function doorCut(plan: DeckPlan, door: DeckPlan["doors"][number]): CutLine {
+  const hull = plan.hull;
+  for (let i = 0; i < hull.length; i += 1) {
+    const a = hull[i], b = hull[(i + 1) % hull.length];
+    const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz) || 1;
+    const dist = Math.abs((door.at.x - a.x) * dz - (door.at.z - a.z) * dx) / len;
+    if (dist < 0.3) return { ax: a.x, az: a.z, bx: b.x, bz: b.z, kind: 1 };
+  }
+  const half = door.width / 2 + 0.4;
+  return door.axis === "x"
+    ? { ax: door.at.x - half, az: door.at.z, bx: door.at.x + half, bz: door.at.z, kind: 2 }
+    : { ax: door.at.x, az: door.at.z - half, bx: door.at.x, bz: door.at.z + half, kind: 2 };
 }
 
 export function buildStructure(plan: DeckPlan): GeoBatch {
@@ -151,7 +194,7 @@ export function buildStructure(plan: DeckPlan): GeoBatch {
   });
 
   // ── floors ─────────────────────────────────────────────────────────
-  root.geo("deck", flatPolygon(outline, 0.0), "#b9bec6");
+  root.geo("deck", flatPolygon(outline, 0.0), "#9aa0a9");
   for (const room of plan.rooms) {
     if (room.floor === "deck") continue;
     const poly = clipPolygon(rectPoly(room.rect), outline);
@@ -160,36 +203,49 @@ export function buildStructure(plan: DeckPlan): GeoBatch {
     root.geo(f.finish, flatPolygon(poly, 0.012), f.color);
   }
 
+  // ── light pools under the (cut-away) ceiling fittings ──────────────
+  for (const room of plan.rooms) {
+    const tone = POOL_TONE[room.kind] ?? "#2a3444";
+    const r = room.rect;
+    const w = r.x1 - r.x0, d = r.z1 - r.z0;
+    const nx = Math.max(1, Math.round(w / 4.4)), nz = Math.max(1, Math.round(d / 4.4));
+    for (let i = 0; i < nx; i += 1) for (let k = 0; k < nz; k += 1) {
+      const x = r.x0 + (w * (i + 0.5)) / nx, z = r.z0 + (d * (k + 0.5)) / nz;
+      if (!insideConvex(outline, { x, z }, 1.6)) continue;
+      root.geo("pool", flatQuad(3.6), tone, { x, y: 0.03, z });
+    }
+  }
+
   // ── walls ──────────────────────────────────────────────────────────
   for (const wall of plan.walls) {
     const { frame, len } = along(batch, wall);
     if (len < 0.05) continue;
     const t = wall.t;
-    if (wall.kind === "hull") {
-      frame.geo("structure", wallBox(len, 0.14, t + 0.04), SHIP.charcoal);
-      if (wall.windows && len > 2) {
-        frame.geo("panel", wallBox(len, WINDOW_LO - 0.14, t), SHIP.panel, { y: 0.14 });
-        frame.geo("panel", wallBox(len, WALL_H - WINDOW_HI, t), SHIP.panel, { y: WINDOW_HI });
-        // Mullions every 1.8 m, a sill and a header in graphite.
-        const n = Math.max(1, Math.round(len / 1.8));
-        for (let k = 0; k <= n; k += 1) frame.box("structure", 0.14, WINDOW_HI - WINDOW_LO, t + 0.06, SHIP.graphite, { x: -len / 2 + (len * k) / n, y: WINDOW_LO });
+    if (wall.kind === "hull" || wall.kind === "bulkhead") {
+      const hull = wall.kind === "hull";
+      // A dark base band, ceramic panels above it, and the cap.
+      frame.geo("structure", wallBox(len, BASE_H, t + 0.03), SHIP.panelDark);
+      if (hull && wall.windows && len > 2) {
+        frame.geo("panel", wallBox(len, WINDOW_LO - BASE_H, t), SHIP.panelCool, { y: BASE_H });
+        frame.geo("panel", wallBox(len, WALL_H - WINDOW_HI, t), SHIP.panelCool, { y: WINDOW_HI });
         frame.box("structure", len, 0.07, t + 0.12, SHIP.graphite, { y: WINDOW_LO - 0.07 });
         frame.box("structure", len, 0.06, t + 0.08, SHIP.graphite, { y: WINDOW_HI });
         frame.box("glass", len, WINDOW_HI - WINDOW_LO, 0.03, "#9fd6ff", { y: WINDOW_LO });
-        // The window band's light line on the sill.
-        frame.box("glowSoft", len, 0.02, 0.05, SHIP.lightCool, { y: WINDOW_LO, z: 0 });
+        frame.box("glowSoft", len, 0.02, 0.05, SHIP.lightCool, { y: WINDOW_LO, z: t / 2 - 0.04 });
       } else {
-        frame.geo("panel", wallBox(len, WALL_H - 0.14, t), SHIP.panel, { y: 0.14 });
+        frame.geo("panel", wallBox(len, WALL_H - BASE_H, t), SHIP.panelCool, { y: BASE_H });
       }
-      frame.box("structure", len, 0.1, t + 0.06, SHIP.graphite, { y: WALL_H });
-      frame.box("glow", len, 0.025, 0.06, SHIP.lightCool, { y: WALL_H + 0.1 });
-    } else if (wall.kind === "bulkhead") {
-      frame.geo("structure", wallBox(len, 0.12, t + 0.04), SHIP.charcoal);
-      frame.geo("panel", wallBox(len, WALL_H - 0.12, t), SHIP.panel, { y: 0.12 });
-      frame.box("structure", len, 0.08, t + 0.05, SHIP.graphite, { y: WALL_H });
-      frame.box("glow", len, 0.02, 0.05, SHIP.lightCool, { y: WALL_H + 0.08 });
-      // A low light line at the foot of both faces.
-      frame.box("glowSoft", len, 0.02, t + 0.02, SHIP.lightWarm, { y: 0.13 });
+      frame.box("structure", len, 0.12, t + 0.08, SHIP.graphite, { y: WALL_H - 0.02 });
+      frame.box("glowSoft", len, 0.018, t + 0.1, SHIP.lightCool, { y: WALL_H + 0.1 });
+      // Ribs every 2.4 m: graphite pilasters with a light slit on both faces.
+      const ribs = Math.max(1, Math.round(len / 2.4));
+      for (let k = 0; k <= ribs; k += 1) {
+        const x = -len / 2 + (len * k) / ribs;
+        frame.box("structure", 0.24, WALL_H + 0.06, t + 0.14, SHIP.graphite, { x });
+        for (const s of hull ? [1] : [-1, 1]) frame.box("glowSoft", 0.035, 1.25, 0.02, SHIP.cyan, { x, y: 1.0, z: s * (t / 2 + 0.075) });
+      }
+      // A light line in the floor along each inner face.
+      for (const s of hull ? [1] : [-1, 1]) frame.box("glowSoft", len, 0.006, 0.035, s < 0 ? SHIP.lightCool : SHIP.lightWarm, { y: 0.004, z: s * (t / 2 + 0.28) });
     } else if (wall.kind === "glass") {
       const n = Math.max(1, Math.round(len / 1.6));
       for (let k = 0; k <= n; k += 1) frame.box("structure", 0.08, WALL_H, 0.14, SHIP.graphite, { x: -len / 2 + (len * k) / n });
@@ -210,13 +266,13 @@ export function buildStructure(plan: DeckPlan): GeoBatch {
   // ── door frames ────────────────────────────────────────────────────
   for (const door of plan.doors) {
     const yaw = door.axis === "x" ? 0 : Math.PI / 2;
-    const f = root.child({ x: door.at.x, z: door.at.z, yaw });
+    const f = batch.frame(new Matrix4().makeRotationY(yaw).setPosition(door.at.x, 0, door.at.z), doorCut(plan, door));
     const half = door.width / 2;
     for (const s of [-1, 1]) {
       f.box("structure", 0.16, WALL_H, 0.42, SHIP.graphite, { x: s * (half + 0.08) });
       f.box("glow", 0.03, 2.2, 0.44, door.slides ? SHIP.cyan : SHIP.lightWarm, { x: s * (half + 0.0), y: 0.1 });
     }
-    f.box("structure", door.width + 0.32, WALL_H - 2.35, 0.42, SHIP.graphite, { y: 2.35 });
+    f.box("structure", door.width + 0.32, WALL_H - 2.35, 0.46, SHIP.graphite, { y: 2.35 });
     f.box("glow", door.width, 0.03, 0.44, door.slides ? SHIP.cyan : SHIP.lightWarm, { y: 2.33 });
     // Threshold plate.
     f.box("metal", door.width, 0.015, 0.5, SHIP.steel, { y: 0.0 });
