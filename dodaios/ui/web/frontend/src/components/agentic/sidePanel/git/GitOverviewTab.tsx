@@ -108,6 +108,7 @@ export function GitOverviewTab() {
     if (!sessionRequest || sessionRequest.workspaceId !== workspaceId) return;
     setSessionPane(sessionRequest.pane);
     setOpen((current) => ({ ...current, changes: true }));
+    useGitSessionStore.getState().consume(sessionRequest.nonce);
   }, [sessionRequest, workspaceId]);
   // The commit message is kept per workspace, across restarts, until it is committed.
   const [message, setMessageState] = useState(() => (workspaceId ? scmStorage.get(MESSAGE_KEY(workspaceId)) : ""));

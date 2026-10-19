@@ -96,6 +96,16 @@ export function SessionChanges({
       return;
     }
     const base = changes.base;
+    // A file in the shared folder opens in the editor's diff, like any other
+    // change, compared with the code before the session's first edit. A pane's
+    // own worktree and a deleted file have nothing the editor could open.
+    if (!changes.ownCheckout && file.status !== "deleted") {
+      useCodeEditorStore.getState().openFile(workspaceId, file.path, {
+        mode: "diff",
+        base: { ref: base, label: fill(t("ide_side_panel.git.scm.session_diff_badge"), { pane: session.pane }) },
+      });
+      return;
+    }
     onDiff({
       title: `${baseName(file.path)} (${session.pane})`,
       path: file.path,

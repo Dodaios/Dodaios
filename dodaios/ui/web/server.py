@@ -531,6 +531,7 @@ class WebServer:
         from .friends_routes import router as friends_router
         from .frontier_routes import router as frontier_router
         from .grok_build_routes import router as grok_build_router
+        from .ide_browser_routes import router as ide_browser_router
         from .ide_skills_routes import router as ide_skills_router
         from .jarvisx_routes import router as jarvisx_router
         from .live_routes import router as live_router
@@ -641,6 +642,7 @@ class WebServer:
         # Detachable views: the desktop shell (when attached) spawns/closes
         # solo windows; headless hosts answer honestly with a fallback URL.
         app.include_router(desktop_router)
+        app.include_router(ide_browser_router)
         app.include_router(profile_router)
         app.include_router(settings_router)
         app.include_router(soul_router)

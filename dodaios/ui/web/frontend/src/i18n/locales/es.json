@@ -7536,7 +7536,22 @@
       "address": "Dirección",
       "open_external": "Abrir en tu navegador",
       "empty_title": "Escribe una dirección arriba",
-      "empty_hint": "Pensado para vistas previas locales, como un servidor de desarrollo. Muchos sitios públicos no permiten mostrarse dentro de otra app; ábrelos en tu navegador."
+      "empty_hint": "Pensado para vistas previas locales, como un servidor de desarrollo. Muchos sitios públicos no permiten mostrarse dentro de otra app; ábrelos en tu navegador.",
+      "native": {
+        "opening": "Abriendo {browser}…",
+        "opening_hint": "Aquí se abre tu propio navegador, con la sesión del perfil que elegiste.",
+        "closed_title": "Se cerró la ventana del navegador",
+        "popped_title": "El navegador está ahora en su propia ventana",
+        "reopen": "Mostrarlo aquí otra vez",
+        "error_title": "No se pudo mostrar tu navegador aquí",
+        "error_missing": "Instala Chrome, Edge o Brave para verlo aquí.",
+        "error_generic": "Inténtalo de nuevo o usa la vista integrada para vistas previas locales.",
+        "retry": "Reintentar",
+        "builtin": "Usar la vista integrada",
+        "use_native": "Mostrar mi navegador",
+        "pop_out": "Abrir en su propia ventana",
+        "profile": "Perfil del navegador"
+      }
     },
     "all_open": "Todas las pestañas ya están abiertas",
     "close_tab": "Cerrar pestaña",
@@ -8263,7 +8278,8 @@
         "follow_busy_build": "Construyendo la nueva interfaz…",
         "follow_restart_pending": "Hay código nuevo; la app se reinicia en cuanto no haya ninguna misión ni llamada en curso.",
         "follow_updated": "Actualizado {when}: {subject}",
-        "follow_click_off": "Haz clic para dejar de seguir main."
+        "follow_click_off": "Haz clic para dejar de seguir main.",
+        "session_diff_badge": "Cambios de {pane}"
       }
     },
     "skills": {

@@ -7536,7 +7536,22 @@
       "address": "地址",
       "open_external": "在浏览器中打开",
       "empty_title": "在上方输入地址",
-      "empty_hint": "适用于本地预览，例如开发服务器。许多公共网站不允许在其他应用中显示；请在浏览器中打开它们。"
+      "empty_hint": "适用于本地预览，例如开发服务器。许多公共网站不允许在其他应用中显示；请在浏览器中打开它们。",
+      "native": {
+        "opening": "正在打开 {browser}…",
+        "opening_hint": "你自己的浏览器会在这里打开，并使用你选择的配置文件登录。",
+        "closed_title": "浏览器窗口已关闭",
+        "popped_title": "浏览器现在在单独的窗口中",
+        "reopen": "在这里重新显示",
+        "error_title": "无法在这里显示你的浏览器",
+        "error_missing": "安装 Chrome、Edge 或 Brave 后即可在这里查看。",
+        "error_generic": "请重试，或使用内置视图查看本地预览。",
+        "retry": "重试",
+        "builtin": "使用内置视图",
+        "use_native": "显示我的浏览器",
+        "pop_out": "在单独窗口中打开",
+        "profile": "浏览器配置文件"
+      }
     },
     "all_open": "所有标签页都已打开",
     "close_tab": "关闭标签页",
@@ -8263,7 +8278,8 @@
         "follow_busy_build": "正在构建新界面…",
         "follow_restart_pending": "新代码已就绪；没有任务或通话进行时应用会自动重启。",
         "follow_updated": "{when}已更新：{subject}",
-        "follow_click_off": "点击以停止跟随 main。"
+        "follow_click_off": "点击以停止跟随 main。",
+        "session_diff_badge": "{pane} 的更改"
       }
     },
     "skills": {

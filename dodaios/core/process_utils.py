@@ -129,6 +129,27 @@ if sys.platform == "win32":
 else:
     NO_WINDOW_CREATIONFLAGS = 0
 
+# STARTF_FORCEOFFFEEDBACK: no "working in background" cursor while the child starts.
+_STARTF_FORCEOFFFEEDBACK = 0x00000080
+
+
+def no_feedback_startupinfo() -> Any:
+    """``startupinfo`` for a background child that must not flash the busy cursor.
+
+    ``CREATE_NO_WINDOW`` hides a console, but Windows still shows the
+    arrow-and-spinner (AppStarting) cursor for every newly started GUI-subsystem
+    process until it opens a window or a few seconds pass. The frozen desktop
+    build relaunches its own GUI executable for helpers such as the audio device
+    probe, so a recurring helper made the cursor spin over and over (issue #714).
+    Pass the result as ``startupinfo=``; it is ``None`` off Windows, where the
+    subprocess module rejects any other value.
+    """
+    if sys.platform != "win32":
+        return None
+    info = subprocess.STARTUPINFO()  # type: ignore[attr-defined]  # Windows only
+    info.dwFlags |= _STARTF_FORCEOFFFEEDBACK
+    return info
+
 
 def resolve_executable(name: str) -> str:
     """Resolve a binary name to its full on-disk path, honoring PATHEXT.

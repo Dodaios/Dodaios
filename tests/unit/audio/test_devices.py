@@ -252,6 +252,13 @@ def test_fresh_options_use_isolated_snapshot_instead_of_stale_live_table(
     assert inputs[0].is_default is True
     assert calls[0][0][1:3] == ["-m", "dodaios.audio.device_probe"]
     assert calls[0][1]["creationflags"] == dv.NO_WINDOW_CREATIONFLAGS
+    # The frozen build relaunches its GUI exe; without this every probe made
+    # the Windows cursor spin (issue #714).
+    startupinfo = calls[0][1]["startupinfo"]
+    if dv.sys.platform == "win32":
+        assert startupinfo.dwFlags & 0x00000080
+    else:
+        assert startupinfo is None
 
 
 def test_fresh_probe_uses_internal_mode_in_frozen_desktop(monkeypatch, tmp_path) -> None:

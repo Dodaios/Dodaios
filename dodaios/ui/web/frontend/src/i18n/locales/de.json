@@ -7536,7 +7536,22 @@
       "address": "Adresse",
       "open_external": "Im Browser öffnen",
       "empty_title": "Gib oben eine Adresse ein",
-      "empty_hint": "Gedacht für lokale Vorschauen wie einen Dev-Server. Viele öffentliche Seiten erlauben keine Anzeige in einer anderen App; öffne sie in deinem Browser."
+      "empty_hint": "Gedacht für lokale Vorschauen wie einen Dev-Server. Viele öffentliche Seiten erlauben keine Anzeige in einer anderen App; öffne sie in deinem Browser.",
+      "native": {
+        "opening": "{browser} wird geöffnet…",
+        "opening_hint": "Hier öffnet sich dein eigener Browser, angemeldet mit dem gewählten Profil.",
+        "closed_title": "Das Browserfenster wurde geschlossen",
+        "popped_title": "Der Browser läuft jetzt in einem eigenen Fenster",
+        "reopen": "Wieder hier anzeigen",
+        "error_title": "Dein Browser konnte hier nicht angezeigt werden",
+        "error_missing": "Installiere Chrome, Edge oder Brave, um ihn hier zu sehen.",
+        "error_generic": "Versuch es noch einmal oder nutze die eingebaute Ansicht für lokale Vorschauen.",
+        "retry": "Erneut versuchen",
+        "builtin": "Eingebaute Ansicht nutzen",
+        "use_native": "Meinen Browser zeigen",
+        "pop_out": "In eigenem Fenster öffnen",
+        "profile": "Browserprofil"
+      }
     },
     "all_open": "Alle Tabs sind bereits offen",
     "close_tab": "Tab schließen",
@@ -8263,7 +8278,8 @@
         "follow_busy_build": "Baue die neue Oberfläche…",
         "follow_restart_pending": "Neuer Code ist da; die App startet neu, sobald keine Mission und kein Anruf läuft.",
         "follow_updated": "Aktualisiert {when}: {subject}",
-        "follow_click_off": "Klicken, um main nicht mehr zu folgen."
+        "follow_click_off": "Klicken, um main nicht mehr zu folgen.",
+        "session_diff_badge": "Änderungen von {pane}"
       }
     },
     "skills": {

@@ -73,6 +73,10 @@ DEFAULT_POLL_S = 30.0
 # wait this long after the first divergent signature so the refresh runs once
 # against the settled topology instead of once per event.
 _SETTLE_S = 1.5
+# Shortest gap between two probes when device-loss signals ask for one early.
+# A mic that keeps stalling or failing to open fires those signals back to
+# back; without a floor every one of them started another probe process.
+MIN_PROBE_GAP_S = 10.0
 
 
 # Set while a watcher runs, so a device-loss signal can skip the poll wait.
@@ -249,6 +253,7 @@ async def watch_topology(
     output_device: Any = None,
     *,
     poll_s: float = DEFAULT_POLL_S,
+    min_gap_s: float = MIN_PROBE_GAP_S,
     probe: Callable[[], str | None] | None = None,
     refresh: Callable[[], bool] | None = None,
 ) -> None:
@@ -263,12 +268,23 @@ async def watch_topology(
     refresh = refresh or (lambda: refresh_audio_backend(player, output_device))
     _probe_request = asyncio.Event()
     _probe_loop = asyncio.get_running_loop()
+    loop = _probe_loop
     last: str | None = None
+    last_probe_at = float("-inf")
     while True:
         # Wake early when a device-loss signal fires, otherwise poll.
-        with contextlib.suppress(TimeoutError):
+        requested = True
+        try:
             await asyncio.wait_for(_probe_request.wait(), timeout=poll_s)
+        except TimeoutError:  # the poll interval elapsed: a timed probe, not an error
+            requested = False
+        if requested:
+            # An early request still honours the floor between probes.
+            remaining = min_gap_s - (loop.time() - last_probe_at)
+            if remaining > 0:
+                await asyncio.sleep(remaining)
         _probe_request.clear()
+        last_probe_at = loop.time()
         signature = await asyncio.to_thread(probe)
         if signature is None:
             # Probe unavailable (headless, worker timeout) — no judgment.
@@ -296,6 +312,7 @@ async def watch_topology(
 
 __all__ = [
     "DEFAULT_POLL_S",
+    "MIN_PROBE_GAP_S",
     "refresh_audio_backend",
     "native_stream_operation",
     "register_capture",

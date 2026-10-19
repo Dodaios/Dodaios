@@ -7536,7 +7536,22 @@
       "address": "Address",
       "open_external": "Open in your browser",
       "empty_title": "Enter an address above",
-      "empty_hint": "Made for local previews such as a dev server. Many public sites do not allow being shown inside another app; open those in your browser."
+      "empty_hint": "Made for local previews such as a dev server. Many public sites do not allow being shown inside another app; open those in your browser.",
+      "native": {
+        "opening": "Opening {browser}…",
+        "opening_hint": "Your own browser opens here, signed in with the profile you picked.",
+        "closed_title": "The browser window was closed",
+        "popped_title": "The browser is in its own window now",
+        "reopen": "Show it here again",
+        "error_title": "Your browser could not be shown here",
+        "error_missing": "Install Chrome, Edge or Brave to see it here.",
+        "error_generic": "Try again, or use the built-in view for local previews.",
+        "retry": "Try again",
+        "builtin": "Use the built-in view",
+        "use_native": "Show my browser",
+        "pop_out": "Open in its own window",
+        "profile": "Browser profile"
+      }
     },
     "all_open": "Every tab is already open",
     "close_tab": "Close tab",
@@ -8263,7 +8278,8 @@
         "follow_busy_build": "Building the new interface…",
         "follow_restart_pending": "New code is in; the app restarts as soon as no mission or call is running.",
         "follow_updated": "Updated {when}: {subject}",
-        "follow_click_off": "Click to stop following main."
+        "follow_click_off": "Click to stop following main.",
+        "session_diff_badge": "Changes by {pane}"
       }
     },
     "skills": {
