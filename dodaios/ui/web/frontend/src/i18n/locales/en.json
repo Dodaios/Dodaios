@@ -8249,7 +8249,8 @@
         "stage_session": "Stage the Session's Pending Changes",
         "session_empty": "This session has not changed any file yet, or its agent keeps no record of its edits.",
         "session_committed": "committed",
-        "session_generated": "{n} generated files hidden"
+        "session_generated": "{n} generated files hidden",
+        "session_diff_badge": "Changes by {pane}"
       }
     },
     "skills": {

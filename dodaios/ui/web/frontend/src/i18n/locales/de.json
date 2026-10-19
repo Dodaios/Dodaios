@@ -8249,7 +8249,8 @@
         "stage_session": "Offene Änderungen der Session bereitstellen",
         "session_empty": "Diese Session hat noch keine Datei geändert, oder ihr Agent führt kein Protokoll seiner Änderungen.",
         "session_committed": "committet",
-        "session_generated": "{n} generierte Dateien ausgeblendet"
+        "session_generated": "{n} generierte Dateien ausgeblendet",
+        "session_diff_badge": "Änderungen von {pane}"
       }
     },
     "skills": {
