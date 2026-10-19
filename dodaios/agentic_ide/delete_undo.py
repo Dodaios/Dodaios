@@ -55,7 +55,7 @@ def _small_enough(target: Path) -> bool:
     if target.is_symlink() or target.is_file():
         try:
             return target.lstat().st_size <= MAX_UNDO_BYTES
-        except OSError:
+        except OSError:  # unreadable size: not kept, the delete still goes to the trash
             return False
     total = 0
     files = 0
@@ -66,7 +66,7 @@ def _small_enough(target: Path) -> bool:
         for name in names:
             try:
                 total += os.lstat(os.path.join(current, name)).st_size
-            except OSError:
+            except OSError:  # unreadable size: not kept, the delete still goes to the trash
                 return False
             if total > MAX_UNDO_BYTES:
                 return False
@@ -76,14 +76,14 @@ def _small_enough(target: Path) -> bool:
 def _prune(store: Path) -> None:
     try:
         held = [entry for entry in store.iterdir() if entry.is_dir()]
-    except OSError:
+    except OSError:  # no store yet, or unreadable: nothing to prune now, the next keep tries again
         return
     now = time.time()
 
     def age(entry: Path) -> float:
         try:
             return entry.stat().st_mtime
-        except OSError:
+        except OSError:  # vanished meanwhile: oldest, so it is pruned first
             return 0.0
 
     held.sort(key=age, reverse=True)
