@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import type { SocietyAgent } from "../data";
 import { AgentSwatch } from "../AgentSwatch";
 import { defaultRecipe, EDITABLE_CELLS, resolvePalette, type FigureRecipe } from "../figures/figureRecipe";
-import { HAIR_STYLES } from "../office/playerProfile";
-import { toyLookFor } from "../office/toyFigureModel";
-import { pinLook, withHair } from "../office/wardrobe";
+import { HAIR_STYLES } from "../figures/toy/playerProfile";
+import { toyLookFor } from "../figures/toy/toyFigureModel";
+import { pinLook, withHair } from "../figures/toy/wardrobe";
 import { CompanionEditor } from "./CompanionEditor";
 import { resolveCompanion } from "./appearance";
 

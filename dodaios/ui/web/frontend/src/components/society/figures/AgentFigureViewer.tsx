@@ -28,8 +28,8 @@ import { frameDistance } from "./figureFraming";
 import { resolvePalette, type FigureRecipe } from "./figureRecipe";
 import type { FigureDrive, FigureMode } from "./FigureRig";
 import { LobbyStage } from "./LobbyStage";
-import { ToyFigure } from "../office/ToyFigure";
-import { toyLookFor, TOY_HEIGHT, type ToyLook } from "../office/toyFigureModel";
+import { ToyFigure } from "../figures/toy/ToyFigure";
+import { toyLookFor, TOY_HEIGHT, type ToyLook } from "../figures/toy/toyFigureModel";
 
 /** How tall the preview figure is drawn, hair included, for framing. */
 const FRAMED_HEIGHT_M = TOY_HEIGHT * 1.04;

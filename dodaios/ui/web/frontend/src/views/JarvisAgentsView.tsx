@@ -1,7 +1,7 @@
 /** Lazy map surface; the parent keeps the existing Agents workspace mounted. */
 import { useLocaleChunk } from "@/i18n";
 import type { PlaceId } from "@/components/society/world/islandLayout";
-import { OfficeStage } from "@/components/society/office/OfficeStage";
+import { ShipStage } from "@/components/society/starship/ShipStage";
 
 export interface JarvisAgentsViewProps {
   onSelectAgent?: (agentId: string | null) => void;
@@ -17,7 +17,7 @@ export function JarvisAgentsView({ onSelectAgent, onOpenAgents, onCreateAgent, o
   if (!ready) return null;
   return (
     <div className="h-full min-h-0">
-      <OfficeStage active={active} onOpenLedger={onOpenAgents} onSelectAgent={onSelectAgent} onCreateAgent={onCreateAgent} onOpenGroup={onOpenGroup} />
+      <ShipStage active={active} onOpenLedger={onOpenAgents} onSelectAgent={onSelectAgent} onCreateAgent={onCreateAgent} onOpenGroup={onOpenGroup} />
     </div>
   );
 }

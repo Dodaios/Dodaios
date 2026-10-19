@@ -326,10 +326,7 @@ def frame_assignment(env: SocietyEnvelope, sender_name: str = "") -> str:
     refs = env.payload.get("refs")
     if isinstance(refs, list) and refs:
         lines.append("Refs: " + ", ".join(str(r) for r in refs))
-    lines.append(
-        "When you are done, end with a handoff: what is done, where the output is, "
-        "what evidence you used, what remains open, who should own the next step."
-    )
+    lines.append("End with a handoff: done, output location, evidence, open items, next owner.")
     named = sender_name if sender_name not in ("", env.from_agent) else ""
     lines.append(
         f"Message id: {env.event_id}; sender id: {env.from_agent}"
