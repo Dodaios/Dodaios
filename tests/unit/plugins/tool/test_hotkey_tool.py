@@ -12,8 +12,8 @@ component keys before resolving. The list form must keep working unchanged.
 """
 from __future__ import annotations
 
-from jarvis.plugins.tool import hotkey as hk
-from jarvis.plugins.tool.hotkey import HotkeyTool
+from dodaios.plugins.tool import hotkey as hk
+from dodaios.plugins.tool.hotkey import HotkeyTool
 
 
 class _Ctx:
@@ -102,7 +102,7 @@ async def test_macos_command_combo_reaches_posix_actuator(monkeypatch):
             sent.append(list(keys))
 
     monkeypatch.setattr(hk.os, "name", "posix")
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", lambda: _Actuator())
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", lambda: _Actuator())
 
     res = await HotkeyTool().execute({"keys": ["cmd+a"]}, _Ctx())
 
@@ -120,7 +120,7 @@ async def test_macos_option_alias_reaches_posix_actuator(monkeypatch):
             sent.append(keys)
 
     monkeypatch.setattr(hk.os, "name", "posix")
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", lambda: _Actuator())
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", lambda: _Actuator())
 
     result = await HotkeyTool().execute({"keys": ["option", "left"]}, _Ctx())
 
@@ -138,8 +138,8 @@ async def test_screenshot_bound_hotkey_refuses_changed_foreground(monkeypatch):
             sent.append(list(keys))
 
     monkeypatch.setattr(hk.os, "name", "posix")
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", lambda: _Actuator())
-    monkeypatch.setattr("jarvis.cu.target_guard.foreground_matches", lambda _: False)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", lambda: _Actuator())
+    monkeypatch.setattr("dodaios.cu.target_guard.foreground_matches", lambda _: False)
 
     result = await HotkeyTool().execute(
         {
@@ -156,15 +156,15 @@ async def test_screenshot_bound_hotkey_refuses_changed_foreground(monkeypatch):
 
 async def test_macos_permission_refusal_reaches_the_agent_with_the_stable_prefix(monkeypatch):
     """The flat tool body is unchanged: the new exception rides the old error mapping."""
-    from jarvis.cu.actuate.base import PermissionNeededError
-    from jarvis.platform.permissions import PermissionId
+    from dodaios.cu.actuate.base import PermissionNeededError
+    from dodaios.platform.permissions import PermissionId
     from tests.fakes.fake_permission_service import make_result
 
     def _refused():
         raise PermissionNeededError(make_result(PermissionId.ACCESSIBILITY, "needs_settings"))
 
     monkeypatch.setattr(hk.os, "name", "posix")
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", _refused)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", _refused)
 
     result = await HotkeyTool().execute({"keys": ["cmd", "a"]}, _Ctx())
 

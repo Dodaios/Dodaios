@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.kontrollierer import orchestrator
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.kontrollierer import orchestrator
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
 from tests.missions.kontrollierer.test_loop import (
     FakeCriticRunner,
     FakeWorker,
@@ -123,7 +123,7 @@ async def test_no_extra_attempt_is_started_without_time_to_finish_it(
 
 
 def test_an_empty_or_oversized_correction_is_refused(tmp_path: Path) -> None:
-    from jarvis.missions.corrections import MAX_CORRECTION_CHARS, CorrectionInbox
+    from dodaios.missions.corrections import MAX_CORRECTION_CHARS, CorrectionInbox
 
     inbox = CorrectionInbox(tmp_path / "mission")
     for bad in ("", "   ", "x" * (MAX_CORRECTION_CHARS + 1)):
@@ -133,7 +133,7 @@ def test_an_empty_or_oversized_correction_is_refused(tmp_path: Path) -> None:
 
 
 def test_corrections_survive_a_restart_and_a_torn_last_line(tmp_path: Path) -> None:
-    from jarvis.missions.corrections import CorrectionInbox, render
+    from dodaios.missions.corrections import CorrectionInbox, render
 
     inbox = CorrectionInbox(tmp_path / "mission")
     inbox.add("First  correction\nover two lines")
@@ -152,7 +152,7 @@ def test_corrections_survive_a_restart_and_a_torn_last_line(tmp_path: Path) -> N
 
 
 def test_a_correction_added_after_a_torn_line_is_kept_and_returned(tmp_path: Path) -> None:
-    from jarvis.missions.corrections import CorrectionInbox
+    from dodaios.missions.corrections import CorrectionInbox
 
     inbox = CorrectionInbox(tmp_path / "mission")
     inbox.add("First correction")
@@ -166,7 +166,7 @@ def test_a_correction_added_after_a_torn_line_is_kept_and_returned(tmp_path: Pat
 def test_steps_noting_late_corrections_at_once_lose_none(tmp_path: Path) -> None:
     from concurrent.futures import ThreadPoolExecutor
 
-    from jarvis.missions.corrections import CorrectionInbox
+    from dodaios.missions.corrections import CorrectionInbox
 
     inbox = CorrectionInbox(tmp_path / "mission")
     corrections = [inbox.add(f"Correction {index}") for index in range(12)]
@@ -180,7 +180,7 @@ def test_steps_noting_late_corrections_at_once_lose_none(tmp_path: Path) -> None
 def test_an_unreadable_record_of_late_corrections_is_reported_not_fatal(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    from jarvis.missions.corrections import CorrectionInbox
+    from dodaios.missions.corrections import CorrectionInbox
 
     inbox = CorrectionInbox(tmp_path / "mission")
     inbox.add("Only correction")
@@ -194,7 +194,7 @@ def test_an_unreadable_record_of_late_corrections_is_reported_not_fatal(
 async def test_the_extra_attempt_is_recorded_as_the_users_wish_not_the_reviewers(
     manager: MissionManager, tmp_path: Path  # noqa: F811
 ) -> None:
-    from jarvis.missions.events import WorkerCorrectionRequired
+    from dodaios.missions.events import WorkerCorrectionRequired
 
     critic = FakeCriticRunner(_make_approve_verdict(), _make_approve_verdict())
     worker = _AmendingWorker(amend_during=0)

@@ -6,7 +6,7 @@ import { AppShell, useDemoFrame } from "./shared";
  * Source-faithful, deterministic presentation of an illustrative session.
  * UI provenance: codex/ultra-agent-swarm @
  * 9a7ee4cc8b1fca6f2457c2f3036501a6e3d7b48e (development preview; PR #186).
- * Source paths under jarvis/ui/web/frontend/src/:
+ * Source paths under dodaios/ui/web/frontend/src/:
  * views/swarm/UltraSwarmView.tsx; components/swarm/{CreateTeamForm,
  * SwarmPreparation,SwarmSimulation,SwarmInspector}.tsx; components/swarm/swarm.css;
  * i18n/locales/swarm/en.json; index.css (dark theme tokens).

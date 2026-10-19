@@ -22,10 +22,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.intent import owns_turn, spawn_vehicle_outranks_workspace
-from jarvis.agentic_ide.session import Registry, reset_registry
-from jarvis.brain.spawn_gate import (
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.intent import owns_turn, spawn_vehicle_outranks_workspace
+from dodaios.agentic_ide.session import Registry, reset_registry
+from dodaios.brain.spawn_gate import (
     OFFER_WINDOW,
     SPAWN_BLOCKED_ADDRESSED_PANE_FEEDBACK,
     SPAWN_BLOCKED_MODEL_FEEDBACK,

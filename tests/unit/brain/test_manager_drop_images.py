@@ -12,11 +12,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.streaming import StreamingAggregate
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import BrainDelta, BrainRequest, ImageBlock
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.streaming import StreamingAggregate
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import BrainDelta, BrainRequest, ImageBlock
 
 
 class _FakeBrain:

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide.terminal_input import (
+from dodaios.agentic_ide.terminal_input import (
     DEVICE_ATTRIBUTES,
     THEME_COLOURS,
     TerminalQueryResponder,
@@ -165,7 +165,7 @@ def test_a_cursor_position_report_still_reaches_the_agent() -> None:
 # --------------------------------------------------------------------------- #
 _THEMES_TS = (
     Path(__file__).resolve().parents[3]
-    / "jarvis"
+    / "dodaios"
     / "ui"
     / "web"
     / "frontend"

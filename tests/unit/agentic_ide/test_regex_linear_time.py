@@ -13,7 +13,7 @@ from collections.abc import Callable
 
 import pytest
 
-from jarvis.agentic_ide import clarify, intent
+from dodaios.agentic_ide import clarify, intent
 
 _BUDGET_S = 1.0
 _N = 50_000

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.platform import privileged_prompt
+from dodaios.platform import privileged_prompt
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +19,7 @@ def _display_present(monkeypatch):
     does not short-circuit the dispatch under test. The headless case has its
     own explicit test that overrides this."""
     monkeypatch.setattr(
-        "jarvis.platform.probes.display_present", lambda: True
+        "dodaios.platform.probes.display_present", lambda: True
     )
 
 
@@ -47,7 +47,7 @@ def test_inactive_on_platform_without_runtime_probe(monkeypatch):
     # macOS/Linux have no reliable dependency-free runtime probe yet → False
     # (the blank-frame heuristic at the capture site covers them).
     monkeypatch.setattr(
-        "jarvis.platform.privileged_prompt.detect_platform", lambda: "linux"
+        "dodaios.platform.privileged_prompt.detect_platform", lambda: "linux"
     )
     assert privileged_prompt.privileged_prompt_active() is False
 
@@ -55,7 +55,7 @@ def test_inactive_on_platform_without_runtime_probe(monkeypatch):
 def test_inactive_when_headless_even_if_probe_true(monkeypatch):
     # No display → graceful no-op regardless of what a probe would say.
     monkeypatch.setattr(
-        "jarvis.platform.probes.display_present", lambda: False
+        "dodaios.platform.probes.display_present", lambda: False
     )
     assert privileged_prompt.privileged_prompt_active(probe=lambda: True) is False
 
@@ -63,7 +63,7 @@ def test_inactive_when_headless_even_if_probe_true(monkeypatch):
 def test_windows_dispatch_selects_secure_desktop_probe(monkeypatch):
     # On Windows with no override, the real Secure-Desktop probe is selected.
     monkeypatch.setattr(
-        "jarvis.platform.privileged_prompt.detect_platform", lambda: "win32"
+        "dodaios.platform.privileged_prompt.detect_platform", lambda: "win32"
     )
     sentinel = object()
     captured = {}

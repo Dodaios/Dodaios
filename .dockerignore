@@ -1,5 +1,5 @@
 # Keep the Docker build context small AND private. The image only needs
-# pyproject.toml, README.md, LICENSE, NOTICE, the jarvis/ package and the
+# pyproject.toml, README.md, LICENSE, NOTICE, the dodaios/ package and the
 # frontend source — never the maintainer's runtime state, secrets or git
 # history. LICENSE and NOTICE are not optional: pyproject declares them under
 # license-files, and Apache 2.0 section 4 requires them to travel with the
@@ -36,8 +36,8 @@ dist/
 
 # Node — the image runs `npm ci` itself; never ship local installs / builds.
 **/node_modules/
-jarvis/ui/web/dist/
-jarvis/ui/web/frontend/dist/
+dodaios/ui/web/dist/
+dodaios/ui/web/frontend/dist/
 
 # Sibling subprojects with their own images / not part of the headless server.
 board-backend/

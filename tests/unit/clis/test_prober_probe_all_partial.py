@@ -25,10 +25,10 @@ import asyncio
 
 import pytest
 
-from jarvis.clis import prober as prober_mod
-from jarvis.clis import registry as registry_mod
-from jarvis.clis.prober import CliStatusProber
-from jarvis.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
+from dodaios.clis import prober as prober_mod
+from dodaios.clis import registry as registry_mod
+from dodaios.clis.prober import CliStatusProber
+from dodaios.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
 
 
 def _spec(name: str) -> CliSpec:

@@ -1,0 +1,545 @@
+"""PkceLoopbackHandler — covers Slack and Google-style loopback OAuth.
+
+OAuth 2.1 + PKCE (RFC 7636) with a pre-registered client_id. Some providers
+use a public client with no secret; Google's desktop-client JSON still carries
+a client_secret and its token endpoint may require it.
+
+The pattern works for any service that:
+  - lets the developer mark an OAuth app as "PKCE-enabled / public client"
+  - allows a localhost redirect URI
+  - accepts code+verifier without secret at the token endpoint
+
+Slack today, future candidates: anything else that adopts public-client
+PKCE without DCR.
+"""
+
+from __future__ import annotations
+
+import base64
+import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Literal
+from urllib.parse import quote_plus, urlencode
+
+import httpx
+
+from dodaios.marketplace.auth.base import (
+    ERROR_DENIED,
+    ERROR_MISCONFIGURED,
+    ERROR_PORT_IN_USE,
+    ERROR_PROVIDER_UNREACHABLE,
+    ERROR_TIMEOUT,
+    ERROR_UNKNOWN,
+    AuthSession,
+    FlowResult,
+    pkce_pair,
+    random_state,
+    sanitize_provider_error,
+    session_id,
+)
+from dodaios.marketplace.hosted_callback import (
+    HostedCallbackServer,
+    make_callback_server,
+)
+from dodaios.marketplace.oauth_callback_server import (
+    CallbackTimeoutError,
+    OAuthCallbackServer,
+)
+from dodaios.marketplace.token_store import Tokens
+
+log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PkceLoopbackConfig:
+    plugin_id: str
+    authorization_url: str
+    token_url: str
+    client_id: str
+    callback_port: int
+    scopes: list[str]
+    client_secret: str | None = None
+    scope_separator: Literal["comma", "space"] = "comma"
+    # Slack: scope is split into `scope=` (bot) and `user_scope=` (user).
+    # PKCE-enabled Slack apps must use `user_scope=` — no bot tokens. So
+    # the scope_param_name lets us swap between the two.
+    scope_param_name: str = "scope"
+    callback_path: str = "/oauth/callback"
+    timeout_seconds: int = 10
+    # OAuth `resource` indicator (RFC 8707) — Asana's V2 MCP server requires
+    # `resource=https://mcp.asana.com/v2` on authorize + token requests. Inert
+    # when unset.
+    resource: str | None = None
+    # Google desktop/loopback clients only return a refresh token when the
+    # authorize request carries `access_type=offline` + `prompt=consent`.
+    offline_access: bool = False
+    client_auth_method: Literal["client_secret_post", "client_secret_basic"] = "client_secret_post"
+    # Family key of a ``publisher_clients.SHIPPED_TOKEN_BROKERS`` entry. Set
+    # only for the shipped public client of a provider that demands a client
+    # secret: the code exchange then goes to that broker (and, when the broker
+    # has one, the browser redirect to its https callback) instead of
+    # ``token_url``, with no secret. ``None`` means the provider directly.
+    token_broker: str | None = None
+    # Provider endpoint for the refresh_token grant when it is not
+    # ``token_url`` (Figma). ``None`` refreshes at ``token_url``.
+    refresh_url: str | None = None
+
+    def token_auth_method(self, secret: str | None) -> str:
+        """Honor X's endpoint contract, including legacy installed catalogs."""
+        if not secret:
+            return "none"
+        if self.token_url in (
+            "https://api.x.com/2/oauth2/token",
+            "https://api.twitter.com/2/oauth2/token",
+        ):
+            return "client_secret_basic"
+        return self.client_auth_method
+
+
+def _basic_token_header(client_id: str, secret: str | None, method: str) -> dict[str, str]:
+    if method != "client_secret_basic":
+        return {}
+    if not secret:
+        raise ValueError(
+            "This provider requires an OAuth client secret; set it in the Plugins dialog"
+        )
+    credentials = f"{quote_plus(client_id)}:{quote_plus(secret)}".encode()
+    return {"Authorization": "Basic " + base64.b64encode(credentials).decode("ascii")}
+
+
+def _broker(family: str | None):
+    """Resolve a token-broker family, failing loudly when it vanished.
+
+    A grant issued through a broker can only be exchanged or refreshed there:
+    the provider refuses it without the secret the app does not hold.
+    """
+    if not family:
+        return None
+    from dodaios.marketplace.publisher_clients import token_broker
+
+    broker = token_broker(family)
+    if broker is None:
+        raise RuntimeError(
+            f"the {family} token broker is no longer available; reconnect the plugin"
+        )
+    return broker
+
+
+def _refresh_expires_at(payload: dict) -> datetime | None:
+    """When the provider caps the refresh grant itself, return when it ends.
+
+    Google sends ``refresh_token_expires_in`` when a grant has a fixed lifetime
+    (an OAuth app in Testing status, or access the user granted for a limited
+    time). No refresh can extend it, so it is stored where it is learned
+    instead of surfacing days later as an unexplained reconnect.
+    """
+    nested = payload.get("authed_user")
+    raw = (nested.get("refresh_token_expires_in") if isinstance(nested, dict) else None) or (
+        payload.get("refresh_token_expires_in")
+    )
+    try:
+        seconds = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if seconds <= 0:
+        return None
+    return datetime.now(UTC) + timedelta(seconds=seconds)
+
+
+@dataclass(frozen=True)
+class _GrantFields:
+    access: str | None
+    refresh: str | None
+    expires_at: datetime | None
+    scope: str | None
+
+
+def _grant_fields(payload: dict) -> _GrantFields:
+    """Read one token set from a token-endpoint answer, never mixing sources.
+
+    Slack's user-scope code exchange nests the user token under
+    ``authed_user`` (``access_token``, ``refresh_token``, ``expires_in``,
+    ``scope``); the top level then belongs to a bot token, if any. A Slack
+    refresh of a user token answers at the top level instead, as every other
+    provider does. Taking all four fields from the same object keeps a bot's
+    refresh token from ever being paired with a user's access token.
+    """
+    nested = payload.get("authed_user")
+    source = nested if isinstance(nested, dict) and nested.get("access_token") else payload
+    expires_at: datetime | None = None
+    try:
+        expires_in = source.get("expires_in")
+        if expires_in is not None:
+            expires_at = datetime.now(UTC) + timedelta(seconds=int(expires_in))
+    except (TypeError, ValueError):
+        # An unreadable lifetime is not fatal: the token works until the
+        # provider says otherwise, and the tool refreshes on that answer.
+        log.debug("token response carried an unreadable expires_in; treating as unknown")
+    access = source.get("access_token")
+    refresh = source.get("refresh_token")
+    scope = source.get("scope")
+    return _GrantFields(
+        access=str(access) if access else None,
+        refresh=str(refresh) if refresh else None,
+        expires_at=expires_at,
+        scope=str(scope) if scope else None,
+    )
+
+
+@dataclass
+class _PendingPkceFlow:
+    config: PkceLoopbackConfig
+    callback_server: OAuthCallbackServer | HostedCallbackServer
+    code_verifier: str
+    redirect_uri: str
+
+
+def _classify_callback_error(exc: BaseException) -> str:
+    """Map a flow failure to a dialog-grade error code (no provider text)."""
+    msg = str(exc).lower()
+    if "access_denied" in msg or "denied" in msg or "consent" in msg:
+        return ERROR_DENIED
+    if "in use" in msg or "addrinuse" in msg or "eaddrinuse" in msg:
+        return ERROR_PORT_IN_USE
+    if "invalid_client" in msg or "not configured" in msg or "placeholder" in msg:
+        return ERROR_MISCONFIGURED
+    if "timeout" in msg or "timed out" in msg:
+        return ERROR_TIMEOUT
+    if "connect" in msg or "unreachable" in msg or "network" in msg:
+        return ERROR_PROVIDER_UNREACHABLE
+    return ERROR_UNKNOWN
+
+
+class PkceLoopbackHandler:
+    """One handler per PKCE-loopback plugin (Slack today)."""
+
+    def __init__(self, config: PkceLoopbackConfig) -> None:
+        self.plugin_id = config.plugin_id
+        self._config = config
+        self._pending: dict[str, _PendingPkceFlow] = {}
+
+    async def start(self, plugin_spec: object) -> AuthSession:
+        # H3: route through make_callback_server so a configured
+        # public_callback_base_url gives a publicly-reachable hosted redirect on a
+        # VPS; the desktop loopback still binds the plugin's registered fixed port +
+        # callback path (e.g. Slack's http://127.0.0.1:3118/<path>).
+        state = random_state()
+        callback_server = make_callback_server(
+            state,
+            timeout_seconds=300,
+            fixed_port=self._config.callback_port,
+            callback_path=self._config.callback_path,
+        )
+        try:
+            await callback_server.start()
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(
+                f"could not start the {self._config.plugin_id} OAuth callback "
+                f"server: {exc} (loopback port {self._config.callback_port} may be "
+                "in use, or the hosted callback base URL is unreachable)"
+            ) from exc
+
+        redirect_uri = self._redirect_uri(callback_server.redirect_uri)
+        verifier, challenge = pkce_pair()
+        sid = session_id()
+
+        params = self._authorize_params(redirect_uri=redirect_uri, state=state, challenge=challenge)
+        url = self._config.authorization_url + "?" + urlencode(params, doseq=True)
+
+        self._pending[sid] = _PendingPkceFlow(
+            config=self._config,
+            callback_server=callback_server,
+            code_verifier=verifier,
+            redirect_uri=redirect_uri,
+        )
+        return AuthSession(
+            flow_id=sid,
+            plugin_id=self.plugin_id,
+            kind="browser_redirect",
+            open_url=url,
+            redirect_uri=redirect_uri,
+            expires_at_ms=int((datetime.now(UTC) + timedelta(minutes=5)).timestamp() * 1000),
+        )
+
+    def _redirect_uri(self, listener_uri: str) -> str:
+        """The redirect_uri sent to the provider.
+
+        Normally the local listener's own address. A token broker with an
+        https callback (Slack) replaces it: the provider redirects the browser
+        there, and the broker bounces the request on to the same listener.
+        """
+        broker = _broker(self._config.token_broker)
+        if broker is not None and broker.redirect_uri:
+            return broker.redirect_uri
+        return listener_uri
+
+    def _authorize_params(self, *, redirect_uri: str, state: str, challenge: str) -> dict[str, str]:
+        """Build the authorize query params. Extracted so the optional
+        `resource` / `offline_access` extensions are unit-testable without
+        binding a socket."""
+        params = {
+            "response_type": "code",
+            "client_id": self._config.client_id,
+            "redirect_uri": redirect_uri,
+            "state": state,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        }
+        if self._config.scopes:
+            separator = " " if self._config.scope_separator == "space" else ","
+            params[self._config.scope_param_name] = separator.join(self._config.scopes)
+        if self._config.resource:
+            params["resource"] = self._config.resource
+        if self._config.offline_access:
+            params["access_type"] = "offline"
+            params["prompt"] = "consent"
+        return params
+
+    async def await_completion(self, session: AuthSession) -> FlowResult:
+        pending = self._pending.get(session.flow_id)
+        if pending is None:
+            return FlowResult(tokens=None, error="unknown flow_id", error_code=ERROR_UNKNOWN)
+        try:
+            cb = await pending.callback_server.await_callback()
+        except CallbackTimeoutError:
+            await pending.callback_server.stop()
+            self._pending.pop(session.flow_id, None)
+            return FlowResult(
+                tokens=None,
+                error="user did not approve in time",
+                error_code=ERROR_TIMEOUT,
+            )
+        except Exception as exc:  # noqa: BLE001
+            await pending.callback_server.stop()
+            self._pending.pop(session.flow_id, None)
+            return FlowResult(
+                tokens=None,
+                error=f"callback error: {sanitize_provider_error(str(exc))}",
+                error_code=_classify_callback_error(exc),
+            )
+        finally:
+            await pending.callback_server.stop()
+
+        try:
+            tokens = await self._exchange(pending, code=cb.code)
+            return FlowResult(tokens=tokens, error=None)
+        except RuntimeError as exc:
+            return FlowResult(
+                tokens=None,
+                error=str(exc),
+                error_code=_classify_callback_error(exc),
+            )
+        finally:
+            self._pending.pop(session.flow_id, None)
+
+    async def cancel(self, session: AuthSession) -> None:
+        """Stop the pending callback listener so a cancelled dialog leaks no
+        socket and a late provider callback cannot complete the flow."""
+        pending = self._pending.pop(session.flow_id, None)
+        if pending is not None:
+            try:
+                await pending.callback_server.stop()
+            except Exception:  # noqa: BLE001 — cancel stays best-effort
+                log.debug("pkce cancel stop failed for %s", self.plugin_id)
+
+    async def _exchange(self, pending: _PendingPkceFlow, *, code: str) -> Tokens:
+        body = {
+            "client_id": pending.config.client_id,
+            "code": code,
+            "code_verifier": pending.code_verifier,
+            "grant_type": "authorization_code",
+            "redirect_uri": pending.redirect_uri,
+        }
+        broker = _broker(pending.config.token_broker)
+        if broker is not None:
+            # The broker adds the shipped client's secret itself and refuses
+            # any field beyond the grant, so no secret and no extras go out.
+            token_url = broker.token_url
+            client_secret = None
+            auth_method = "none"
+        else:
+            token_url = pending.config.token_url
+            client_secret = pending.config.client_secret
+            auth_method = pending.config.token_auth_method(client_secret)
+            if client_secret and auth_method == "client_secret_post":
+                body["client_secret"] = client_secret
+            if pending.config.resource:
+                body["resource"] = pending.config.resource
+        timeout = httpx.Timeout(pending.config.timeout_seconds)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.post(
+                token_url,
+                data=body,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "User-Agent": "Personal-Jarvis/1.0",
+                    **_basic_token_header(pending.config.client_id, client_secret, auth_method),
+                },
+            )
+        if r.status_code != 200:
+            detail = sanitize_provider_error(r.text)
+            raise RuntimeError(f"token exchange HTTP {r.status_code}: {detail}")
+        payload = r.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError("token response was not a JSON object")
+        # Slack wraps success/failure in "ok" plus error codes; many other
+        # providers return error inline. Handle both shapes.
+        if payload.get("ok") is False:
+            err = sanitize_provider_error(str(payload.get("error", "unknown")))
+            raise RuntimeError(f"token exchange failed: {err}")
+        # Slack's response nests the user token under `authed_user`.
+        grant = _grant_fields(payload)
+        access = grant.access
+        if not access:
+            raise RuntimeError("token response missing access_token")
+        refresh = grant.refresh
+        expires_at = grant.expires_at
+        extra: dict[str, str] = {}
+        team = payload.get("team", {})
+        if isinstance(team, dict) and team.get("id"):
+            extra["team_id"] = team["id"]
+        if isinstance(team, dict) and team.get("name"):
+            extra["team_name"] = team["name"]
+        if grant.scope:
+            extra["scope"] = grant.scope
+        grant_ends = _refresh_expires_at(payload)
+        if grant_ends is not None:
+            extra["refresh_expires_at"] = grant_ends.isoformat()
+            log.warning(
+                "plugin %s: the provider limits this sign-in to %.1f days (ends %s); "
+                "refreshing cannot extend it. For Google this usually means the "
+                "OAuth app is in Testing status.",
+                pending.config.plugin_id,
+                (grant_ends - datetime.now(UTC)).total_seconds() / 86_400,
+                grant_ends.isoformat(timespec="minutes"),
+            )
+        # Bind the refresh token to the exact OAuth client that obtained it.
+        # A user can later replace/delete the family-level client secret (or a
+        # recovered keyring can expose an older value), but OAuth refresh tokens
+        # remain bound to their issuing client. Keeping the pair inside the same
+        # protected token blob makes refresh independent of that drift.
+        extra["client_id"] = pending.config.client_id
+        extra["token_endpoint_auth_method"] = auth_method
+        if client_secret:
+            extra["client_secret"] = client_secret
+        if broker is not None:
+            # A brokered grant can only ever be refreshed through the broker.
+            extra["token_broker"] = pending.config.token_broker
+        return Tokens(access=access, refresh=refresh, expires_at=expires_at, extra=extra)
+
+    async def refresh(self, current: Tokens) -> Tokens:
+        if not current.refresh:
+            raise RuntimeError("no refresh token stored")
+        # New grants persist their issuing client in ``extra``.  Once that
+        # marker exists, the whole pair is authoritative: a missing bound
+        # secret means the grant was issued to a public client and a newly
+        # configured secret must not be injected.  Legacy token blobs have no
+        # client_id marker and retain the old config-backed behavior.
+        bound_client_id = current.extra.get("client_id")
+        if bound_client_id:
+            client_id = bound_client_id
+            client_secret = current.extra.get("client_secret")
+            # The grant's own broker marker decides, never today's config: an
+            # expert override added later must not reroute a brokered grant,
+            # and a brokered client must not reroute an expert's grant. A
+            # secret-less grant of a shipped broker client without the marker
+            # can likewise only be refreshed through that broker.
+            broker_family = current.extra.get("token_broker")
+            if not broker_family and not client_secret:
+                from dodaios.marketplace.publisher_clients import broker_family_for_client
+
+                broker_family = broker_family_for_client(client_id)
+        else:
+            client_id = self._config.client_id
+            client_secret = self._config.client_secret
+            broker_family = self._config.token_broker
+        broker = _broker(broker_family)
+        refresh_body = {
+            "grant_type": "refresh_token",
+            "refresh_token": current.refresh,
+            "client_id": client_id,
+        }
+        if broker is not None:
+            token_url = broker.token_url
+            client_secret = None
+            auth_method = "none"
+        else:
+            token_url = self._config.refresh_url or self._config.token_url
+            auth_method = current.extra.get(
+                "token_endpoint_auth_method"
+            ) or self._config.token_auth_method(client_secret)
+            if client_secret and auth_method == "client_secret_post":
+                refresh_body["client_secret"] = client_secret
+            if self._config.resource:
+                refresh_body["resource"] = self._config.resource
+        timeout = httpx.Timeout(self._config.timeout_seconds)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.post(
+                token_url,
+                data=refresh_body,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    **_basic_token_header(client_id, client_secret, auth_method),
+                },
+            )
+        if r.status_code != 200:
+            detail = sanitize_provider_error(r.text)
+            raise RuntimeError(f"refresh HTTP {r.status_code}: {detail}")
+        payload = r.json()
+        if not isinstance(payload, dict):
+            raise RuntimeError("refresh response was not a JSON object")
+        if payload.get("ok") is False:
+            err = payload.get("error", "unknown")
+            # Slack answers an expired or rotated-away refresh token (PKCE
+            # refresh tokens end after 30 days) with these codes; only a new
+            # sign-in heals them.
+            if err in (
+                "invalid_grant",
+                "token_revoked",
+                "invalid_refresh_token",
+                "token_expired",
+            ):
+                raise RuntimeError("revoked")
+            raise RuntimeError(f"refresh failed: {sanitize_provider_error(str(err))}")
+        # A Slack user-token refresh answers at the top level; the code
+        # exchange nested it under `authed_user`. `_grant_fields` reads either.
+        grant = _grant_fields(payload)
+        access = grant.access
+        if not access:
+            raise RuntimeError("refresh missing access_token")
+        # Rotation hands out a new refresh token on every refresh; keep the old
+        # one only when the provider does not rotate.
+        new_refresh = grant.refresh or current.refresh
+        expires_at = grant.expires_at
+        extra = dict(current.extra)
+        if grant.scope:
+            extra["scope"] = grant.scope
+        extra["token_endpoint_auth_method"] = auth_method
+        grant_ends = _refresh_expires_at(payload)
+        if grant_ends is not None:
+            extra["refresh_expires_at"] = grant_ends.isoformat()
+        if not bound_client_id:
+            # A successful legacy refresh proves which currently configured
+            # client owns the grant. Persist that pair now so later config or
+            # keyring drift cannot break the next refresh. A client_id without
+            # a secret deliberately marks a public client.
+            extra["client_id"] = client_id
+            if client_secret:
+                extra["client_secret"] = client_secret
+            else:
+                extra.pop("client_secret", None)
+        if broker is not None:
+            extra["token_broker"] = broker_family
+        return Tokens(
+            access=access,
+            refresh=new_refresh,
+            expires_at=expires_at,
+            extra=extra,
+        )
+
+    @staticmethod
+    def auth_header(tokens: Tokens) -> dict[str, str]:
+        return {"Authorization": f"Bearer {tokens.access}"}

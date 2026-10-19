@@ -14,13 +14,13 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.curator import WikiCurator
-from jarvis.memory.wiki.curator_llm import WikiCuratorLLM
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.profile import PROFILE_SECTIONS, ensure_profile_skeleton
-from jarvis.memory.wiki.vault_index import VaultIndex
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.curator import WikiCurator
+from dodaios.memory.wiki.curator_llm import WikiCuratorLLM
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.profile import PROFILE_SECTIONS, ensure_profile_skeleton
+from dodaios.memory.wiki.vault_index import VaultIndex
 
 SEED_BODY = (
     "---\n"

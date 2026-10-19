@@ -15,7 +15,7 @@ from importlib import metadata
 
 import pytest
 
-from jarvis.core import entry_points as ep_module
+from dodaios.core import entry_points as ep_module
 
 
 class _CountingSweep:
@@ -118,9 +118,9 @@ def test_stt_loader_uses_the_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     """The captured stall came from the STT loader — pin that it is on the cache.
 
     Guards against a future edit reinstating a direct ``entry_points()`` call in
-    ``jarvis.plugins.stt``, which is what made a dictation start cost seconds.
+    ``dodaios.plugins.stt``, which is what made a dictation start cost seconds.
     """
-    from jarvis.plugins import stt as stt_module
+    from dodaios.plugins import stt as stt_module
 
     counting = _CountingSweep({"jarvis.stt": ["groq-api"]})
     monkeypatch.setattr(metadata, "entry_points", counting)

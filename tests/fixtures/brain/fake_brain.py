@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.core.protocols import BrainDelta, BrainRequest
 
 
 class FakeBrain:

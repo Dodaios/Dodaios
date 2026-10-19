@@ -6,7 +6,7 @@ loopback mode (the existing desktop behavior).
 """
 from __future__ import annotations
 
-from jarvis.core.config import JarvisConfig
+from dodaios.core.config import JarvisConfig
 
 
 def test_marketplace_section_defaults_to_empty() -> None:

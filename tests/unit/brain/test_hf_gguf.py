@@ -15,8 +15,8 @@ from typing import Any
 
 import pytest
 
-import jarvis.brain.hf_gguf as hf
-import jarvis.brain.ollama_pull as pull
+import dodaios.brain.hf_gguf as hf
+import dodaios.brain.ollama_pull as pull
 
 _FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "brain"
 

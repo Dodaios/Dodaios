@@ -5,7 +5,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _no_refresh_sent():
-    from jarvis.agent_chat import runner_cli
+    from dodaios.agent_chat import runner_cli
 
     runner_cli._REFRESH_SENT.clear()  # noqa: SLF001
     yield

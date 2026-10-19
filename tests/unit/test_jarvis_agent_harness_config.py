@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     HarnessConfig,
     JarvisAgentHarnessConfig,
     JarvisAgentNotificationConfig,

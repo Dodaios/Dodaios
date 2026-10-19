@@ -9,13 +9,13 @@ default credentials were not found``, and only then crossed to a provider that
 could answer — the single biggest slice of a 34 s "tool model" turn. The
 classifier knew keys, not ADC, so the miss was ``call_fail`` and never
 dead-listed. Pinned here: both the raw google-auth wording and the fast-fail
-message :func:`jarvis.core.google_genai.build_vertex_client` raises on a
+message :func:`dodaios.core.google_genai.build_vertex_client` raises on a
 remembered miss classify as ``missing_key``.
 """
 
 from __future__ import annotations
 
-from jarvis.brain.manager import _DEAD_LIST_KINDS, _classify_provider_error
+from dodaios.brain.manager import _DEAD_LIST_KINDS, _classify_provider_error
 
 GOOGLE_AUTH_WORDING = (
     "Your default credentials were not found. To set up Application Default "

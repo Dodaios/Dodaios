@@ -8,11 +8,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted, DictationTranscript
-from jarvis.speech import pipeline as pipeline_mod
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.bus import EventBus
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted, DictationTranscript
+from dodaios.speech import pipeline as pipeline_mod
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 def _pipeline(monkeypatch):

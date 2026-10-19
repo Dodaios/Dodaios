@@ -1,7 +1,7 @@
 """The lead is shown, spoken and sent under the name the user gave the assistant.
 
 The roster row keeps its seeded name (id, session and workspace derive from
-it); ``jarvis.society.display_name`` is the one read-time override. These tests
+it); ``dodaios.society.display_name`` is the one read-time override. These tests
 walk the surfaces that put an agent's name in front of a person or a model.
 """
 
@@ -17,32 +17,32 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat import typeahead
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
-from jarvis.mcp.agents import tools as mcp_tools
-from jarvis.mcp.agents.context import EcosystemUnavailable, resolve_agent
-from jarvis.society.agent_names import lookup_agent, lookup_in, resolve_shown
-from jarvis.society.agent_tools import MessageAgentTool
-from jarvis.society.chat_binding import frame_assignment, make_deliver_hook
-from jarvis.society.display_name import (
+from dodaios.agent_chat import typeahead
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+from dodaios.mcp.agents import tools as mcp_tools
+from dodaios.mcp.agents.context import EcosystemUnavailable, resolve_agent
+from dodaios.society.agent_names import lookup_agent, lookup_in, resolve_shown
+from dodaios.society.agent_tools import MessageAgentTool
+from dodaios.society.chat_binding import frame_assignment, make_deliver_hook
+from dodaios.society.display_name import (
     display_name,
     display_row,
     lead_display_name,
     names_the_lead,
 )
-from jarvis.society.events import MsgType, SocietyEnvelope
-from jarvis.society.lead_card import render_lead_card
-from jarvis.society.routines import _routine_prompt
-from jarvis.society.runtime import SocietyRuntime, _agent_frame
-from jarvis.society.surface import build_briefing, society_system_extra
-from jarvis.ui.web.society_routes import router
+from dodaios.society.events import MsgType, SocietyEnvelope
+from dodaios.society.lead_card import render_lead_card
+from dodaios.society.routines import _routine_prompt
+from dodaios.society.runtime import SocietyRuntime, _agent_frame
+from dodaios.society.surface import build_briefing, society_system_extra
+from dodaios.ui.web.society_routes import router
 from tests.fakes.meeting_chat import MeetingChatFake
 
 STORED = "Jarvis"
 CTX = SimpleNamespace(trace_id=uuid4(), user_utterance="", config={})
-FRONTEND = Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src/lib"
+FRONTEND = Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src/lib"
 
 
 class Chat:

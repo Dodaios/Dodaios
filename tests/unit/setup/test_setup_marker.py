@@ -1,7 +1,7 @@
 """Tests for the single-source .setup-complete marker helpers."""
 from pathlib import Path
 
-from jarvis.setup import state as st
+from dodaios.setup import state as st
 
 
 def test_marker_path_is_sibling_of_state_file(tmp_path: Path) -> None:
@@ -17,7 +17,7 @@ def test_marker_exists_roundtrip(tmp_path: Path) -> None:
 
 
 def test_default_marker_matches_config_data_dir() -> None:
-    from jarvis.core.config import DATA_DIR
+    from dodaios.core.config import DATA_DIR
 
     assert st.setup_complete_marker_path() == DATA_DIR / ".setup-complete"
 
@@ -32,7 +32,7 @@ def test_write_and_remove_roundtrip(tmp_path: Path) -> None:
 
 
 def test_no_caller_rebuilds_the_marker_path() -> None:
-    """Read/write/delete must all route through jarvis.setup.state — a literal
+    """Read/write/delete must all route through dodaios.setup.state — a literal
     '.setup-complete' STRING (a rebuilt path) anywhere else can silently desync
     and revive the 'onboarding reappears every restart' bug class. Prose
     mentions in docstrings/log messages are fine; quoted literals are not."""
@@ -42,9 +42,9 @@ def test_no_caller_rebuilds_the_marker_path() -> None:
     literal = re.compile(r"""['"]\.setup-complete['"]""")
     repo = P(__file__).resolve().parents[3]
     offenders = []
-    for py in (repo / "jarvis").rglob("*.py"):
+    for py in (repo / "dodaios").rglob("*.py"):
         if py.name == "state.py" and py.parent.name == "setup":
             continue
         if literal.search(py.read_text(encoding="utf-8", errors="replace")):
             offenders.append(str(py.relative_to(repo)))
-    assert offenders == [], f"rebuilt marker path outside jarvis/setup/state.py: {offenders}"
+    assert offenders == [], f"rebuilt marker path outside dodaios/setup/state.py: {offenders}"

@@ -9,20 +9,20 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agentic_ide import library, orchestration, resume_store
-from jarvis.agentic_ide.folders import probe_project
-from jarvis.agentic_ide.orchestration import WorkspaceOrchestrator
-from jarvis.agentic_ide.session import (
+from dodaios.agentic_ide import library, orchestration, resume_store
+from dodaios.agentic_ide.folders import probe_project
+from dodaios.agentic_ide.orchestration import WorkspaceOrchestrator
+from dodaios.agentic_ide.session import (
     AgentBusyError,
     Registry,
     Session,
     Terminal,
 )
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-from jarvis.core.protocols import ExecutionContext, SupervisorToolRequest
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+from dodaios.core.protocols import ExecutionContext, SupervisorToolRequest
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -67,7 +67,7 @@ def rig(tmp_path, monkeypatch):
     # The panes below are stamped idle once, at setup. A slow runner can take
     # longer than the stamp's freshness window to reach the step under test,
     # and the pane then reads as unknown instead of idle; keep it fresh here.
-    from jarvis.agentic_ide import activity
+    from dodaios.agentic_ide import activity
 
     monkeypatch.setattr(activity, "STAMP_FRESH_S", 3600.0)
     monkeypatch.setattr(library, "_root", lambda: tmp_path / "library")
@@ -205,8 +205,8 @@ async def test_invalid_explicit_id_never_falls_back_to_free_session(rig, key):
 
 
 async def test_scoped_inspect_only_reads_selected_workspace_history(rig, monkeypatch):
-    from jarvis.agentic_ide import agent_transcript
-    from jarvis.agentic_ide.agent_sessions import ResumeHandle
+    from dodaios.agentic_ide import agent_transcript
+    from dodaios.agentic_ide.agent_sessions import ResumeHandle
 
     owner = rig[1].session
     for space in rig[1].sessions:
@@ -241,7 +241,7 @@ async def test_context_cursor_reaches_session_gateway(rig):
 
 
 async def test_free_session_excludes_a_pane_with_an_assignment_being_written(rig, monkeypatch):
-    from jarvis.agentic_ide import fanout
+    from dodaios.agentic_ide import fanout
 
     owner = rig[1].session
     monkeypatch.setattr(fanout, "in_flight_briefs", lambda space: {"Alex": 5.0})
@@ -335,7 +335,7 @@ async def test_uncertain_delivery_stays_uncertain_and_is_not_replayed(rig):
 
 @pytest.mark.parametrize("available", [True, False])
 async def test_capability_probe_is_provider_and_os_independent(rig, monkeypatch, available):
-    from jarvis.workspace import agents
+    from dodaios.workspace import agents
 
     monkeypatch.setattr(agents, "pty_available", lambda: available)
     graph = await rig[0].run({"action": "inspect"})
@@ -542,7 +542,7 @@ async def test_an_unmatched_reference_lists_every_open_workspace(rig):
 
 @pytest.fixture
 def runnable(monkeypatch):
-    from jarvis.agentic_ide import session as session_mod
+    from dodaios.agentic_ide import session as session_mod
 
     monkeypatch.setattr(session_mod, "agent_argv", lambda name: (f"/usr/bin/{name}",))
 
@@ -716,7 +716,7 @@ async def test_show_brings_a_background_workspace_on_screen(rig):
 
 
 async def test_the_same_words_later_are_a_new_instruction(rig):
-    from jarvis.agentic_ide import orchestration
+    from dodaios.agentic_ide import orchestration
 
     resolved = await target(rig)
     args = {"action": "send", **resolved, "prompt": "continue"}
@@ -987,8 +987,8 @@ def visible_repo(rig):
     import subprocess
     from pathlib import Path
 
-    from jarvis.agentic_ide import git_ops
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.agentic_ide import git_ops
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     if not git_ops.git_available():
         pytest.skip("git is not installed")
@@ -1018,7 +1018,7 @@ class _Origin:
         self.origin = {"reply_surface": surface, "reply_session_id": "", "lang": "en"}
 
     def __enter__(self):
-        from jarvis.core.delegation import current_delegation_origin
+        from dodaios.core.delegation import current_delegation_origin
 
         self._var = current_delegation_origin
         self._token = self._var.set(self.origin)
@@ -1029,7 +1029,7 @@ class _Origin:
 
 @pytest.fixture
 def reportable(monkeypatch):
-    from jarvis.agentic_ide import followthrough
+    from dodaios.agentic_ide import followthrough
 
     monkeypatch.setattr(followthrough, "can_report", lambda _term: True)
     monkeypatch.setattr(followthrough, "_events", lambda _term: [])
@@ -1063,7 +1063,7 @@ async def test_watch_refuses_honestly_when_there_is_nothing_to_report(rig, monke
     with _Origin("voice"):
         unreadable = await orchestrator.run(watch)  # this CLI session has no record yet
     assert unreadable["status"] == "unavailable" and term.delegation_result is None
-    from jarvis.agentic_ide import followthrough
+    from dodaios.agentic_ide import followthrough
 
     monkeypatch.setattr(followthrough, "can_report", lambda _term: True)
     with _Origin("none"):
@@ -1145,7 +1145,7 @@ async def test_fork_opens_a_copy_of_the_named_agent_and_addresses_it(rig, monkey
 
 
 async def test_a_fork_the_app_refuses_is_passed_on_with_its_reason(rig, monkeypatch):
-    from jarvis.agentic_ide.session import SessionError
+    from dodaios.agentic_ide.session import SessionError
 
     orchestrator, registry, _sessions = rig
 
@@ -1170,7 +1170,7 @@ def test_fork_is_a_logged_action_with_a_valid_schema(rig):
 async def test_a_job_that_ends_while_the_watch_is_set_up_is_not_watched_forever(
     rig, reportable, monkeypatch
 ):
-    from jarvis.agentic_ide import followthrough
+    from dodaios.agentic_ide import followthrough
 
     orchestrator, registry, _sessions = rig
     term = registry.session.terminals[0]

@@ -32,8 +32,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from jarvis.telephony.audio import TWILIO_SAMPLE_RATE, pcm16_to_ulaw
-from jarvis.telephony.session import TelephonyCallSession
+from dodaios.telephony.audio import TWILIO_SAMPLE_RATE, pcm16_to_ulaw
+from dodaios.telephony.session import TelephonyCallSession
 
 
 def _ulaw_b64(amp: int, ms: int = 20, freq: int = 300) -> str:
@@ -168,11 +168,11 @@ async def _run_outbound_fake() -> int:
 async def _run_real(wav_path: str) -> int:
     import wave
 
-    from jarvis.brain.factory import build_default_brain
-    from jarvis.core.config import load_config
-    from jarvis.plugins.stt import build_stt_from_config
-    from jarvis.plugins.tts import build_tts_from_config
-    from jarvis.telephony.audio import resample_pcm16
+    from dodaios.brain.factory import build_default_brain
+    from dodaios.core.config import load_config
+    from dodaios.plugins.stt import build_stt_from_config
+    from dodaios.plugins.tts import build_tts_from_config
+    from dodaios.telephony.audio import resample_pcm16
 
     cfg = load_config()
     with wave.open(wav_path, "rb") as wf:

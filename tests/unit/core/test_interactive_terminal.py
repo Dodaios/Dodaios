@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import interactive_terminal as terminal
+from dodaios.core import interactive_terminal as terminal
 
 
 def test_macos_opens_terminal_app_with_shell_quoted_argv(

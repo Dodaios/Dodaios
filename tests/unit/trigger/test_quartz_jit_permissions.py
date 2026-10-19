@@ -24,12 +24,12 @@ import logging
 
 import pytest
 
-from jarvis.platform import permission_service as service_mod
-from jarvis.platform.permissions import PermissionId, PermissionState
-from jarvis.trigger.backends import quartz as quartz_mod
-from jarvis.trigger.backends.pynput import _macos_hotkey_permissions_granted
-from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
-from jarvis.trigger.hotkey import HotkeyTrigger
+from dodaios.platform import permission_service as service_mod
+from dodaios.platform.permissions import PermissionId, PermissionState
+from dodaios.trigger.backends import quartz as quartz_mod
+from dodaios.trigger.backends.pynput import _macos_hotkey_permissions_granted
+from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
+from dodaios.trigger.hotkey import HotkeyTrigger
 from tests.fakes.fake_quartz_tap import FakeQuartz
 from tests.fakes.fake_tcc import (
     FakeTCC,
@@ -68,7 +68,7 @@ def test_boot_with_nothing_granted_creates_no_tap_and_asks_nothing(
     tcc, fake = _darwin(monkeypatch)
     backend = _backend()
 
-    with caplog.at_level(logging.DEBUG, logger="jarvis.trigger.backends.quartz"):
+    with caplog.at_level(logging.DEBUG, logger="dodaios.trigger.backends.quartz"):
         backend.start()
 
     assert fake.tap.attempts == [], "CGEventTapCreate must wait for the grant"
@@ -512,7 +512,7 @@ def test_a_restarted_tap_is_a_new_episode(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 async def _enter_trigger(monkeypatch: pytest.MonkeyPatch) -> HotkeyTrigger:
-    import jarvis.trigger.hotkey as hotkey_mod
+    import dodaios.trigger.hotkey as hotkey_mod
 
     monkeypatch.setattr(hotkey_mod, "make_hotkey_backend", lambda: QuartzHotkeyBackend())
     trigger = HotkeyTrigger({"call": ["control+j"]})
@@ -606,7 +606,7 @@ async def test_a_failing_rearm_never_leaks_out_of_its_task(
 
         monkeypatch.setattr(backend, "start", explode)
         tcc.grant(TccService.INPUT_MONITORING)
-        with caplog.at_level(logging.ERROR, logger="jarvis.trigger.hotkey"):
+        with caplog.at_level(logging.ERROR, logger="dodaios.trigger.hotkey"):
             trigger._on_input_monitoring_granted()
             await _settle(trigger)
         task = trigger._grant_task
@@ -631,7 +631,7 @@ async def test_a_grant_long_after_the_service_episode_would_have_expired_still_a
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The trigger renews its background episode, so the 10-minute expiry never hides a grant."""
-    import jarvis.trigger.hotkey as hotkey_mod
+    import dodaios.trigger.hotkey as hotkey_mod
 
     tcc, fake = _darwin(monkeypatch)
     service = service_mod.get_permission_service()
@@ -658,7 +658,7 @@ async def test_a_grant_long_after_the_service_episode_would_have_expired_still_a
 async def test_the_episode_renewal_task_ends_with_the_trigger(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.trigger.hotkey as hotkey_mod
+    import dodaios.trigger.hotkey as hotkey_mod
 
     _tcc, _fake = _darwin(monkeypatch)
     monkeypatch.setattr(hotkey_mod, "_EPISODE_RENEW_S", 0.05)
@@ -718,8 +718,8 @@ async def test_no_backend_and_the_noop_backend_report_that_nothing_listens(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The Esc pill must not promise a key when no listener exists (any OS)."""
-    import jarvis.trigger.hotkey as hotkey_mod
-    from jarvis.trigger.backends.noop import NoopBackend
+    import dodaios.trigger.hotkey as hotkey_mod
+    from dodaios.trigger.backends.noop import NoopBackend
 
     port, _tcc = make_non_darwin_port("linux")
     install_port(monkeypatch, port)
@@ -741,7 +741,7 @@ async def test_no_backend_and_the_noop_backend_report_that_nothing_listens(
 async def test_the_trigger_watches_a_listening_tap_and_reports_it_when_it_is_deaf(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.trigger.hotkey as hotkey_mod
+    import dodaios.trigger.hotkey as hotkey_mod
 
     monkeypatch.setattr(hotkey_mod, "_LIVENESS_POLL_S", 0.01)
     tcc, fake = _darwin(monkeypatch)
@@ -768,7 +768,7 @@ async def test_the_trigger_watches_a_listening_tap_and_reports_it_when_it_is_dea
 async def test_boot_with_nothing_granted_runs_the_watch_without_touching_the_os(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.trigger.hotkey as hotkey_mod
+    import dodaios.trigger.hotkey as hotkey_mod
 
     monkeypatch.setattr(hotkey_mod, "_LIVENESS_POLL_S", 0.01)
     tcc, fake = _darwin(monkeypatch)
@@ -785,7 +785,7 @@ async def test_boot_with_nothing_granted_runs_the_watch_without_touching_the_os(
 async def test_a_backend_without_the_liveness_probe_gets_no_watch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.trigger.hotkey as hotkey_mod
+    import dodaios.trigger.hotkey as hotkey_mod
 
     port, tcc = make_non_darwin_port("win32")
     install_port(monkeypatch, port)
@@ -828,7 +828,7 @@ class _PlainBackend:
 async def test_a_backend_without_a_permission_never_touches_the_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.trigger.hotkey as hotkey_mod
+    import dodaios.trigger.hotkey as hotkey_mod
 
     port, tcc = make_non_darwin_port("win32")
     install_port(monkeypatch, port)
@@ -855,15 +855,15 @@ def test_off_macos_the_default_probe_reads_not_required_and_asks_nothing(
 
 
 def test_the_backend_factory_is_unchanged_per_platform(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.platform import capabilities as caps_mod
-    from jarvis.trigger import backends as backends_pkg
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.platform import capabilities as caps_mod
+    from dodaios.trigger import backends as backends_pkg
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     class _Caps:
         has_hotkey = True
 
     monkeypatch.setattr(caps_mod, "detect_capabilities", lambda: _Caps())
-    import jarvis.platform as platform_mod
+    import dodaios.platform as platform_mod
 
     monkeypatch.setattr(platform_mod, "detect_platform", lambda: "darwin")
     assert type(backends_pkg.make_hotkey_backend()) is QuartzHotkeyBackend

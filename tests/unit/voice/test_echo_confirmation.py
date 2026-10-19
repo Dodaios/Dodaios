@@ -1,4 +1,4 @@
-"""Tests for `jarvis.voice.echo_confirmation` (Phase 7.4).
+"""Tests for `dodaios.voice.echo_confirmation` (Phase 7.4).
 
 Plan acceptance criteria §7.4:
 - Echo question follows the end-focus pattern (old first, new last)
@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.self_mod import PendingMutation
-from jarvis.voice.echo_confirmation import (
+from dodaios.core.self_mod import PendingMutation
+from dodaios.voice.echo_confirmation import (
     classify_response,
     format_confirmation,
     format_outcome,
@@ -362,8 +362,8 @@ class TestSensitiveLeak:
         """short_error_from_exception(PreValidateError) must NOT pass through
         the repr value from the original message.
         """
-        from jarvis.core.self_mod import PreValidateError
-        from jarvis.voice.echo_confirmation import short_error_from_exception
+        from dodaios.core.self_mod import PreValidateError
+        from dodaios.voice.echo_confirmation import short_error_from_exception
 
         secret = "sk-leakable-XYZ-789"  # noqa: S105 — Test-Fixture
         exc = PreValidateError(

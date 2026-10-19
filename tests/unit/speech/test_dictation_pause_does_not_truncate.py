@@ -32,10 +32,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.config import DictationConfig
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.config import DictationConfig
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
 
 pytestmark = pytest.mark.usefixtures("granted_microphone")
 

@@ -3,7 +3,7 @@
 Forensic 2026-08-16 — "the app doesn't start any more, neither from the CLI nor
 from Windows Search":
 
-``jarvis/ui/desktop_app.py`` called ``ensure_windows_app_identity()`` as an
+``dodaios/ui/desktop_app.py`` called ``ensure_windows_app_identity()`` as an
 *import* side effect, and that call rewrites the Start-Menu shortcut to point at
 ``sys.executable``. But importing ``desktop_app`` is not the same as opening a
 window — a ``--headless`` boot, a ``jarvis <group>`` control command and the test
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui import icon_utils
+from dodaios.ui import icon_utils
 
 _TEST_AUMID = "PersonalJarvis.Test.ShortcutTarget"
 
@@ -403,7 +403,7 @@ class TestImportPathHasNoShortcutSideEffect:
         ).read_text(encoding="utf-8-sig")
         head = src.split("# Constants", 1)[0]
         assert "ensure_windows_app_identity(write_shortcut=False)" in head, (
-            "importing jarvis.ui.desktop_app must not rewrite the Start-Menu "
+            "importing dodaios.ui.desktop_app must not rewrite the Start-Menu "
             "shortcut — an import is no promise of a window"
         )
 
@@ -473,7 +473,7 @@ class TestSpeechCapabilityProbe:
         interpreter that owned the shortcut did not have it — so the 402 hit a
         chain with nothing underneath it.
         """
-        import jarvis.core.config as core_cfg
+        import dodaios.core.config as core_cfg
 
         toml = _stt_config(tmp_path, provider="groq-api", fallback="faster-whisper")
         with pytest.MonkeyPatch.context() as mp:
@@ -483,7 +483,7 @@ class TestSpeechCapabilityProbe:
     def test_a_purely_cloud_config_wants_no_on_device_engine(
         self, tmp_path: Path
     ) -> None:
-        import jarvis.core.config as core_cfg
+        import dodaios.core.config as core_cfg
 
         toml = _stt_config(tmp_path, provider="groq-api", fallback="openai-api")
         with pytest.MonkeyPatch.context() as mp:
@@ -508,7 +508,7 @@ class TestSpeechCapabilityProbe:
     def test_config_read_never_raises_on_a_missing_file(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import jarvis.core.config as core_cfg
+        import dodaios.core.config as core_cfg
 
         monkeypatch.setattr(core_cfg, "DEFAULT_CONFIG_FILE", tmp_path / "absent.toml")
 

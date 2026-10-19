@@ -65,7 +65,7 @@ generation**. This rules out a barge-in/regeneration explanation: no `interrupte
 Two layers each add a salutation, and nothing removes either one:
 
 1. **The delegate brain greets mid-conversation.** `_run_deterministic_delegate`
-   (`jarvis/realtime/session.py:3403`) dispatches the router brain; the persona-shaped reply opens
+   (`dodaios/realtime/session.py:3403`) dispatches the router brain; the persona-shaped reply opens
    with `"Servas Alex,"` even though the conversation already exchanged greetings in turn 1. <!-- i18n-allow: forensic quote of the spoken product-surface output under analysis -->
    The delegate prompt includes recent history (`_DELEGATE_HISTORY_MAX_MESSAGES`), but nothing
    instructs or enforces "no fresh salutation mid-conversation".
@@ -77,7 +77,7 @@ Two layers each add a salutation, and nothing removes either one:
    open with an address. Gemini rendered: own greeting + the 224-char reply **verbatim** (the
    known 1:1 readback behavior).
 3. **No de-duplication exists on this path.** The pipeline's salutation scrub
-   (`removed_anrede_drift`, `jarvis/brain/output_filter.py:614-638`) only strips the "Sir" <!-- i18n-allow: established telemetry action-name identifier (ADR-0010), not prose -->
+   (`removed_anrede_drift`, `dodaios/brain/output_filter.py:614-638`) only strips the "Sir" <!-- i18n-allow: established telemetry action-name identifier (ADR-0010), not prose -->
    honorific — it does not catch a repeated `"<greeting> <name>,"` opener, and in realtime the
    audio is the provider's native voice anyway: once the text reaches the model, the double
    greeting is already in the audio and cannot be scrubbed out.
@@ -87,7 +87,7 @@ deterministic and land *before* injection.
 
 ## Root cause B — the 10 s silence
 
-`ScrubHoldGate` (`jarvis/realtime/scrub_gate.py`) is fail-closed by design (AP-11 / ADR-0010):
+`ScrubHoldGate` (`dodaios/realtime/scrub_gate.py`) is fail-closed by design (AP-11 / ADR-0010):
 audio buffers until the matching transcript region has passed `scrub_for_voice`. Release is a
 coverage budget — each vetted transcript char funds 55 ms of audio (BUG-069 redesign). The gate
 therefore inherits the provider's transcription pacing:

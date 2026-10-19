@@ -28,7 +28,7 @@ Everything in §1 was measured against the live repos and the live site on
 | Storefront | Private Astro 6 repo, **static build, no adapter, no server routes**. `src/pages/` has the landing page, docs, `de/`, `es/`, legal pages — **no `/marketplace` and no `/marketplace/submit`**. |
 | Live site | `https://personaljarvis.ai` answers 200 **through Cloudflare**. `/marketplace` and `/marketplace/submit` both answer **404** — the paths the registry README already advertises do not exist yet. |
 | App-side | Browse + install + consent dialog are shipped (`marketplace_routes.py`, `PluginsCommunity.tsx`). There is **no publish path in the app at all**. |
-| GitHub auth substrate | `jarvis/marketplace/auth/oauth_device.py` is a complete, working **OAuth Device Flow** handler (start, poll, refresh, all four GitHub error codes). It is currently unused for GitHub: the shipped `github` plugin uses `pat_paste`. **No OAuth App or GitHub App is registered for the project.** |
+| GitHub auth substrate | `dodaios/marketplace/auth/oauth_device.py` is a complete, working **OAuth Device Flow** handler (start, poll, refresh, all four GitHub error codes). It is currently unused for GitHub: the shipped `github` plugin uses `pat_paste`. **No OAuth App or GitHub App is registered for the project.** |
 
 Two consequences fall straight out of this table:
 

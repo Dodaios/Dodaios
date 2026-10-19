@@ -62,7 +62,7 @@ The existing Bar/Mascot/None style selector **moves** from Settings into this ne
 
 ### C) "Mute music while dictating" — audio ducking (new subsystem)
 
-New package `jarvis/audio/ducking/`, mirroring the `jarvis/platform/` seam:
+New package `dodaios/audio/ducking/`, mirroring the `dodaios/platform/` seam:
 
 - `protocol.py` — `AudioDucker` Protocol: `mute_others() -> list[int]`, `restore(pids) -> None`.
 - `windows.py` — `WindowsPycawDucker`: enumerate sessions via pycaw, mute every session whose

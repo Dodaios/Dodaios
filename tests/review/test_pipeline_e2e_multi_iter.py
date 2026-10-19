@@ -13,22 +13,22 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.review.audit import ReviewAudit
-from jarvis.core.review.checks import (
+from dodaios.core.review.audit import ReviewAudit
+from dodaios.core.review.checks import (
     PostCheckRunner,
     PreCheckRunner,
     output_not_empty,
     task_not_empty,
 )
-from jarvis.core.review.pipeline import ReviewPipeline
-from jarvis.core.review.spawns import WorkerSpawner
-from jarvis.core.review.state import PipelineOutcome, RunState
-from jarvis.core.review.verdict import (
+from dodaios.core.review.pipeline import ReviewPipeline
+from dodaios.core.review.spawns import WorkerSpawner
+from dodaios.core.review.state import PipelineOutcome, RunState
+from dodaios.core.review.verdict import (
     ReviewIssue,
     ReviewStatus,
     ReviewVerdict,
 )
-from jarvis.harness.manager import HarnessManager
+from dodaios.harness.manager import HarnessManager
 
 pytestmark = [
     pytest.mark.e2e,

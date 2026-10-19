@@ -20,13 +20,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.update_routes as u
-from jarvis.core.installer_update import (
+import dodaios.ui.web.update_routes as u
+from dodaios.core.installer_update import (
     CHECKSUMS_ASSET_NAME,
     InstallerUpdateError,
     UpdateBlocker,
 )
-from jarvis.ui.web.update_routes import router as update_router
+from dodaios.ui.web.update_routes import router as update_router
 
 SETUP_NAME = "PersonalJarvis-Setup-x64.exe"
 
@@ -677,7 +677,7 @@ def _patch_frozen_names(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
 
 def test_real_asset_names_cover_what_this_machine_would_ask_for() -> None:
     """The route asks the one table; a Windows x64 box accepts both names."""
-    from jarvis.core.installer_update import installer_asset_names
+    from dodaios.core.installer_update import installer_asset_names
 
     assert installer_asset_names("win32", "AMD64") == (NEW_SETUP_NAME, SETUP_NAME)
 

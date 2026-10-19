@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide.folders import create_folder, search_folders
+from dodaios.agentic_ide.folders import create_folder, search_folders
 
 
 # ------------------------------------------------------------------- create

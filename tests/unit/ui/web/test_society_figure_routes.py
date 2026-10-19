@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 _REPO = Path(__file__).resolve().parents[4]
-_FIGURES = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src" / "assets" / "society" / "figures"
+_FIGURES = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src" / "assets" / "society" / "figures"
 _TOOLS = _REPO / "scripts" / "figures" / "glb_tools.py"
 
 
@@ -40,7 +40,7 @@ def _tools():
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    from jarvis.ui.web import society_figure_routes as routes
+    from dodaios.ui.web import society_figure_routes as routes
 
     monkeypatch.setattr(routes, "figures_dir", lambda: tmp_path / "figures")
     app = FastAPI()

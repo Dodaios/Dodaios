@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from jarvis.core.review.checks import (
+from dodaios.core.review.checks import (
     Check,
     CheckResult,
     PostCheckRunner,

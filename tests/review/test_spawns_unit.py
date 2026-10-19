@@ -14,15 +14,15 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.protocols import HarnessResult, HarnessTask
-from jarvis.core.review.errors import (
+from dodaios.core.protocols import HarnessResult, HarnessTask
+from dodaios.core.review.errors import (
     HarnessUnavailable,
     ReviewerUnavailable,
     VerdictParseError,
     WorkerSpawnError,
 )
-from jarvis.core.review.io import RunDirectory
-from jarvis.core.review.spawns import (
+from dodaios.core.review.io import RunDirectory
+from dodaios.core.review.spawns import (
     DEFAULT_REVIEWER_BUDGET_USD,
     DEFAULT_REVIEWER_TOOLS,
     DEFAULT_WORKER_BUDGET_USD,
@@ -31,8 +31,8 @@ from jarvis.core.review.spawns import (
     WorkerSpawner,
     _extract_verdict_json,
 )
-from jarvis.core.review.state import RunState
-from jarvis.core.review.verdict import ReviewStatus
+from dodaios.core.review.state import RunState
+from dodaios.core.review.verdict import ReviewStatus
 
 # ----------------------------------------------------------------------
 # Fake HarnessManager
@@ -219,7 +219,7 @@ def test_worker_spawner_raises_on_nonzero_exit(tmp_path: Path) -> None:
 
 def test_worker_spawner_includes_feedback_block_on_iter2(tmp_path: Path) -> None:
     """Iter-2 spawn must include the feedback block from iter 1."""
-    from jarvis.core.review.verdict import ReviewIssue, ReviewVerdict
+    from dodaios.core.review.verdict import ReviewIssue, ReviewVerdict
     fake = FakeHarnessManager([
         {"stdout": "summary\n", "exit_code": 0}
     ])

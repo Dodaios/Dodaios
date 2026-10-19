@@ -18,7 +18,7 @@ Plus every realtime transport-health class from the ``RealtimeSessionPostmortem`
 event (splice seams, ungrounded caption/refusal storms, event-loop stalls,
 sender-behind-wall-clock, rebuild loops, mute emergency releases, language
 flips, spawn budget) — the verdict logic is shared with the codex live-call
-probe via ``jarvis.diagnostics.realtime_forensics`` so the two can never
+probe via ``dodaios.diagnostics.realtime_forensics`` so the two can never
 disagree.
 
 Usage::
@@ -46,8 +46,8 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from jarvis.brain.action_honesty import has_unbacked_action_claim  # noqa: E402
-from jarvis.diagnostics.realtime_forensics import (  # noqa: E402
+from dodaios.brain.action_honesty import has_unbacked_action_claim  # noqa: E402
+from dodaios.diagnostics.realtime_forensics import (  # noqa: E402
     evaluate_postmortem,
     extract_postmortems,
 )

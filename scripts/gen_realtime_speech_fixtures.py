@@ -34,7 +34,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from jarvis.core.config import load_config  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
 
 TARGET_RATE = 24_000  # the codex adapter's _INPUT_RATE
 FIXTURE_DIR = REPO / "tests" / "fixtures" / "audio" / "realtime"
@@ -145,7 +145,7 @@ async def _synthesize(tts, text: str, bcp47: str) -> tuple[bytes, int]:
 def _resample(pcm: bytes, source_rate: int) -> bytes:
     if source_rate == TARGET_RATE:
         return pcm
-    from jarvis.realtime.audio import StreamingPcm16Resampler
+    from dodaios.realtime.audio import StreamingPcm16Resampler
 
     # One whole utterance in one call; the resampler's un-flushed tail is a
     # single trailing sample and does not matter for a fixture.
@@ -160,7 +160,7 @@ async def main(dry_run: bool) -> int:
         return 0
 
     cfg = load_config(REPO / "jarvis.toml")
-    from jarvis.plugins.tts import build_tts_from_config
+    from dodaios.plugins.tts import build_tts_from_config
 
     tts = build_tts_from_config(cfg.tts)
     print(f"TTS chain: {type(tts).__name__}")

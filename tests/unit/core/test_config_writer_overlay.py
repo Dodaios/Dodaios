@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import tomllib
 
-from jarvis.core import config_writer
+from dodaios.core import config_writer
 
 
 def test_set_overlay_style_round_trip(tmp_path):

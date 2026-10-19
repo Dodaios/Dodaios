@@ -1,0 +1,267 @@
+"""Codex-fleet actions shared by voice and REST entry points."""
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections.abc import Sequence
+from typing import Any
+
+READY_TIMEOUT_S = 45.0
+READY_POLL_S = 0.25
+#: How long after its colour question was answered such a CLI gets to read the
+#: answer. The reply is written before the app even sees the question, so this
+#: only covers the CLI's own parsing.
+COLOUR_PROBE_SETTLE_S = 0.3
+#: How long a pane that declares the colour question may go without asking it
+#: before readiness stops waiting — a CLI version that dropped the question, or
+#: an adopted agent whose question was cut out of the replay.
+COLOUR_PROBE_WAIT_S = 10.0
+#: How long a starting CLI must have stopped asking its terminal questions —
+#: and have shown its input line — before a prompt is typed. Covers the
+#: questions answered by the viewer one round trip later, and Claude Code's
+#: version question about a second after its composer appears.
+STARTUP_QUIET_S = 1.5
+#: How long after its input line appeared (or, without one, after it
+#: started) a pane is still "starting". Past it questions no longer hold a
+#: prompt back, so a CLI that keeps asking cannot block typing for good.
+STARTUP_WINDOW_S = 15.0
+_INPUT_MARKERS = ("›", "❯", ">")
+log = logging.getLogger(__name__)
+
+
+def ready_for_prompt(term: Any) -> bool:
+    """Is this pane far enough along to be typed into?
+
+    Every CLI observed so far swallows a prompt that arrives while it is still
+    booting — the keystrokes go nowhere and the user is told the work was sent.
+    So waiting for a real input line is the DEFAULT, and an entry only skips it
+    by declaring so: one CLI has a launch-and-prompt path measured to be stable
+    without the wait, and making it wait would slow down behaviour that already
+    works.
+
+    Getting that default the wrong way round is what a new provider cannot
+    afford. Opting in silently means every CLI registered later loses its first
+    prompt until somebody notices; opting out silently costs one CLI a little
+    speed. The cheap mistake is the one worth defaulting to.
+    """
+    if getattr(term, "status", "") != "live" or not getattr(term, "pty_id", None):
+        return False
+    from dodaios.workspace import agents as workspace_agents
+
+    spec = workspace_agents.get_agent(getattr(term, "agent", ""))
+    line_visible = input_line_visible(term, spec)
+    if line_visible:
+        _note_input_line(term)
+    if spec is not None and not spec.needs_input_line_wait:
+        # Typing before the composer is safe for this CLI; typing into its
+        # startup questions is not.
+        return terminal_questions_settled(term)
+    if not line_visible or not terminal_questions_settled(term):
+        return False
+    if spec is not None and spec.asks_colours_after_input_line:
+        return colour_probe_settled(term)
+    return True
+
+
+def _note_input_line(term: Any) -> None:
+    watch = getattr(term, "terminal_queries", None)
+    if watch is not None:
+        watch.note_input_line(time.time())
+
+
+def terminal_questions_settled(term: Any, now: float | None = None) -> bool:
+    """Has this starting CLI finished asking its terminal questions?
+
+    Coding CLIs ask their terminal for colours, version, keyboard protocol
+    and the like while they start, and read the answers from their keyboard
+    input — some of them right up to, or just after, the moment their input
+    line appears. A prompt typed into that window is read where an answer was
+    expected, and the answer is then typed into the composer as text such as
+    ``]10;rgb:…\\]11;rgb:…\\`` (maintainer report 2026-10-02, every coding
+    agent). So a prompt waits until the input line has been up, and no
+    question has come, for ``STARTUP_QUIET_S``. Only while the pane is
+    starting (``STARTUP_WINDOW_S``): a pane without a watch, or one long past
+    its start, is never held back.
+    """
+    watch = getattr(term, "terminal_queries", None)
+    if watch is None:
+        return True
+    moment = time.time() if now is None else now
+    line_at = getattr(watch, "input_line_at", None)
+    began = line_at if line_at is not None else getattr(term, "started_at", None)
+    if not began or moment - began >= STARTUP_WINDOW_S:
+        return True
+    for at in (getattr(watch, "asked_at", None), line_at):
+        if at is not None and moment - at < STARTUP_QUIET_S:
+            return False
+    return True
+
+
+def colour_probe_settled(term: Any, now: float | None = None) -> bool:
+    """Has this pane's CLI asked for its colours and had time to read the reply?
+
+    Codex paints its composer, then asks the terminal for its colours one to
+    several seconds later — no quiet window can be sure to cover that — and
+    reads the answer from its keyboard input. A prompt typed in between is
+    read where the answer was expected, and the answer is then typed into the
+    composer as ``]10;rgb:…\\]11;rgb:…\\`` (maintainer report 2026-10-02).
+    A pane without a watch, or one that never asks within
+    ``COLOUR_PROBE_WAIT_S`` of starting, is not held back.
+    """
+    watch = getattr(term, "terminal_queries", None)
+    if watch is None:
+        return True
+    moment = time.time() if now is None else now
+    asked_at = getattr(watch, "colour_asked_at", None)
+    if asked_at is not None:
+        return moment - asked_at >= COLOUR_PROBE_SETTLE_S
+    started_at = getattr(term, "started_at", None)
+    return not started_at or moment - started_at >= COLOUR_PROBE_WAIT_S
+
+
+def input_line_visible(term: Any, spec: Any | None = None) -> bool:
+    """Does the bottom of this pane's screen show the CLI's input line?
+
+    The bare observation, without :func:`ready_for_prompt`'s opt-out. A CLI
+    that safely accepts typed text before it has painted its composer is
+    still LOADING until the composer is there — and "has it finished loading"
+    is the question a cold-start slot asks, whatever the CLI's typing policy
+    (BUG-189). ``spec`` may be passed in to save the registry lookup.
+    """
+    if getattr(term, "status", "") != "live" or not getattr(term, "pty_id", None):
+        return False
+    if spec is None:
+        from dodaios.workspace import agents as workspace_agents
+
+        spec = workspace_agents.get_agent(getattr(term, "agent", ""))
+    transcript = getattr(term, "transcript", None)
+    if transcript is None:
+        return False
+    try:
+        # Read the visible bottom of the current screen when it is available.
+        # Transcript history can contain old prompt sigils from the conversation
+        # being resumed; treating one of those as the new input box is the same
+        # early-write bug with a more convincing false positive.
+        screen = getattr(transcript, "screen", None)
+        display = getattr(screen, "display", None)
+        lines = display()[-10:] if callable(display) else transcript.tail(10)
+    except Exception:  # noqa: BLE001 - a test double may expose no real buffer
+        return False
+    markers = (spec.input_markers if spec else ()) or _INPUT_MARKERS
+    if spec is not None and spec.requires_visible_input_cursor:
+        # Codex renders the same sigil when its composer is disabled, but its
+        # Ratatui frame hides the cursor in that state. The visible cursor is
+        # placed back on the editable row only when key events are accepted.
+        try:
+            visible_cursor = getattr(screen, "visible_cursor", None)
+            row_text = getattr(screen, "row_text", None)
+            if visible_cursor is None or not callable(row_text):
+                return False
+            row, column = visible_cursor
+            line = row_text(row)
+        except Exception:  # noqa: BLE001 - malformed extensions fail closed
+            return False
+        stripped = line.lstrip()
+        for marker in markers:
+            if stripped.startswith(marker):
+                marker_column = len(line) - len(stripped)
+                return column > marker_column
+        return False
+    return any(line.strip().startswith(markers) for line in lines)
+
+
+def _ready_for_prompt(term: Any) -> bool:
+    """Backward-compatible private name for older callers and extensions."""
+    return ready_for_prompt(term)
+
+
+async def wait_for_prompt_ready(
+    session: Any,
+    names: Sequence[str],
+    *,
+    timeout_s: float = READY_TIMEOUT_S,
+) -> tuple[str, ...]:
+    """Wait for newly mounted panes to display their real input line."""
+    return await _wait_for_panes(session, names, ready_for_prompt, timeout_s=timeout_s)
+
+
+async def wait_for_input_line(
+    session: Any,
+    names: Sequence[str],
+    *,
+    timeout_s: float = READY_TIMEOUT_S,
+) -> tuple[str, ...]:
+    """Wait for panes to paint their input line — loading done, whatever the
+    CLI's typing policy (see :func:`input_line_visible`)."""
+    return await _wait_for_panes(session, names, input_line_visible, timeout_s=timeout_s)
+
+
+async def _wait_for_panes(
+    session: Any,
+    names: Sequence[str],
+    predicate: Any,
+    *,
+    timeout_s: float,
+) -> tuple[str, ...]:
+    wanted = tuple(dict.fromkeys(name for name in names if name))
+    deadline = time.monotonic() + max(0.0, timeout_s)
+    while True:
+        ready = tuple(
+            name
+            for name in wanted
+            if (term := session.find(name)) is not None and predicate(term)
+        )
+        if len(ready) == len(wanted) or time.monotonic() >= deadline:
+            return ready
+        await asyncio.sleep(READY_POLL_S)
+
+
+async def close_agent_terminals(registry: Any, agent: str | None) -> list[Any]:
+    """Close every matching terminal in the front workspace."""
+    session = registry.session
+    if session is None:
+        return []
+    names = [
+        term.name
+        for term in session.terminals
+        if agent is None or term.agent == agent
+    ]
+    closed: list[Any] = []
+    # Use the long-standing one-pane operation so this remains compatible with
+    # registries that do not yet expose the newer batch convenience method.
+    for name in names:
+        try:
+            closed.append(await registry.close_terminal(name))
+        except Exception:  # noqa: BLE001 - continue closing the remaining fleet
+            log.warning("Agentic IDE: could not close terminal %s", name, exc_info=True)
+    return closed
+
+
+def terminals_closed_event(
+    session: Any,
+    closed: Sequence[Any],
+    *,
+    source_layer: str,
+) -> Any:
+    """Build the typed bus event that refreshes workspace clients."""
+    from dodaios.core.events import AgenticIdeTerminalsClosed
+
+    return AgenticIdeTerminalsClosed(
+        session_id=session.id,
+        names=tuple(term.name for term in closed),
+        folder=session.folder,
+        source_layer=source_layer,
+    )
+
+
+__all__ = [
+    "READY_POLL_S",
+    "READY_TIMEOUT_S",
+    "close_agent_terminals",
+    "input_line_visible",
+    "ready_for_prompt",
+    "terminals_closed_event",
+    "wait_for_input_line",
+    "wait_for_prompt_ready",
+]

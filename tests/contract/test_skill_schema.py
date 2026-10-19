@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from jarvis.skills.schema import (
+from dodaios.skills.schema import (
     SkillFrontmatter,
     SkillLifecycleState,
     SkillRiskPolicy,

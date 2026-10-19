@@ -7,7 +7,7 @@ the desktop loopback still passes the plugin's registered fixed port + callback 
 """
 from __future__ import annotations
 
-import jarvis.marketplace.hosted_callback as hc
+import dodaios.marketplace.hosted_callback as hc
 
 
 def test_make_callback_server_forwards_callback_path_to_loopback(monkeypatch):

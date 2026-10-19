@@ -25,8 +25,8 @@ def _call_factory_with_vision_cfg(
     real API keys / model loads. We only want to see how
     `manager._vision_provider` gets set based on config.
     """
-    from jarvis.brain import factory as factory_mod
-    from jarvis.core.config import RouterVisionConfig
+    from dodaios.brain import factory as factory_mod
+    from dodaios.core.config import RouterVisionConfig
 
     # FakeManager: just passes through .vision_provider assignments.
     class _FakeManager:
@@ -59,17 +59,17 @@ def _call_factory_with_vision_cfg(
 
     # Monkeypatch the heavy dependencies
     with patch.object(factory_mod, "BrainManager", _FakeManager), \
-         patch("jarvis.core.config.load_config", return_value=fake_cfg), \
-         patch("jarvis.core.config.DATA_DIR") as mock_data_dir, \
-         patch("jarvis.memory.CoreMemory") as _cm, \
-         patch("jarvis.memory.RecallStore") as _rs, \
-         patch("jarvis.memory.MessageRecorder") as _mr, \
-         patch("jarvis.memory.Workspace") as _ws, \
-         patch("jarvis.memory.curator.Curator"), \
-         patch("jarvis.safety.RiskTierEvaluator"), \
-         patch("jarvis.safety.ApprovalWorkflow"), \
-         patch("jarvis.safety.ToolExecutor"), \
-         patch("jarvis.harness.manager.HarnessManager"), \
+         patch("dodaios.core.config.load_config", return_value=fake_cfg), \
+         patch("dodaios.core.config.DATA_DIR") as mock_data_dir, \
+         patch("dodaios.memory.CoreMemory") as _cm, \
+         patch("dodaios.memory.RecallStore") as _rs, \
+         patch("dodaios.memory.MessageRecorder") as _mr, \
+         patch("dodaios.memory.Workspace") as _ws, \
+         patch("dodaios.memory.curator.Curator"), \
+         patch("dodaios.safety.RiskTierEvaluator"), \
+         patch("dodaios.safety.ApprovalWorkflow"), \
+         patch("dodaios.safety.ToolExecutor"), \
+         patch("dodaios.harness.manager.HarnessManager"), \
          patch("importlib.metadata.entry_points", return_value=[]):
         mock_data_dir.mkdir = lambda **kw: None
         mock_data_dir.__truediv__ = lambda self, other: SimpleNamespace()
@@ -97,7 +97,7 @@ def test_factory_wires_vision_provider_when_enabled():
     # that). The test is primarily there to check that the attribute gets
     # set at all and isn't left over as None when config is active.
     if manager._vision_provider is not None:
-        from jarvis.vision.context_provider import VisionContextProvider
+        from dodaios.vision.context_provider import VisionContextProvider
         assert isinstance(manager._vision_provider, VisionContextProvider)
 
 

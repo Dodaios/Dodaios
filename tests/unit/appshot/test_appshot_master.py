@@ -8,13 +8,13 @@ import time
 import numpy as np
 from PIL import Image
 
-from jarvis.appshot import card_actions, library
-from jarvis.appshot.markup import Frame, Hide, Markup, apply_to_scrgb
-from jarvis.appshot.master import encode_master
-from jarvis.appshot.store import Appshot, AppshotStore
-from jarvis.platform.hdr_image import read_png_cicp
-from jarvis.screen_context.models import MasterImage, RedactionHit, RedactionRule
-from jarvis.screen_context.service import _redacted_master
+from dodaios.appshot import card_actions, library
+from dodaios.appshot.markup import Frame, Hide, Markup, apply_to_scrgb
+from dodaios.appshot.master import encode_master
+from dodaios.appshot.store import Appshot, AppshotStore
+from dodaios.platform.hdr_image import read_png_cicp
+from dodaios.screen_context.models import MasterImage, RedactionHit, RedactionRule
+from dodaios.screen_context.service import _redacted_master
 
 WHITE = 240.0
 SDR_WHITE = WHITE / 80.0
@@ -83,7 +83,7 @@ def test_a_background_frame_surrounds_the_hdr_picture() -> None:
 
 
 def test_hdr_master_gets_the_same_black_boxes_as_the_model_picture() -> None:
-    from jarvis.screen_context.redaction import apply_image_redactions
+    from dodaios.screen_context.redaction import apply_image_redactions
 
     region = (2, 3, 4, 2)
     model, _hits = apply_image_redactions(

@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.ui.web.settings_routes import get_assistant_name
+from dodaios.ui.web.settings_routes import get_assistant_name
 
 
 def _request_with_config(cfg: object) -> SimpleNamespace:

@@ -41,7 +41,7 @@ class _Renderer:
 
 
 def test_jarvisbar_frame_binds_photo_to_its_overlay_root(monkeypatch) -> None:
-    from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+    from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
     root = _Root()
     canvas = _Canvas()
@@ -53,7 +53,7 @@ def test_jarvisbar_frame_binds_photo_to_its_overlay_root(monkeypatch) -> None:
         return object()
 
     monkeypatch.setattr(ImageTk, "PhotoImage", _photo)
-    monkeypatch.setattr("jarvis.audio.level_tap.playback_active", lambda: False)
+    monkeypatch.setattr("dodaios.audio.level_tap.playback_active", lambda: False)
 
     bar = JarvisBarOverlay.__new__(JarvisBarOverlay)
     bar._running = True

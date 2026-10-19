@@ -95,8 +95,8 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
-          from jarvis.platform.permission_service import PermissionOutcome, get_permission_service
-          from jarvis.platform.permissions import (
+          from dodaios.platform.permission_service import PermissionOutcome, get_permission_service
+          from dodaios.platform.permissions import (
               PermissionId,
               PermissionState,
               get_system_permission_port,
@@ -186,8 +186,8 @@ jobs:
           python - <<'PY'
           import threading
 
-          from jarvis.platform.permission_service import PermissionOutcome, get_permission_service
-          from jarvis.platform.permissions import (
+          from dodaios.platform.permission_service import PermissionOutcome, get_permission_service
+          from dodaios.platform.permissions import (
               PermissionId,
               PermissionState,
               get_system_permission_port,
@@ -238,7 +238,7 @@ jobs:
           import tempfile
           from pathlib import Path
 
-          from jarvis.setup.macos_app_bundle import (
+          from dodaios.setup.macos_app_bundle import (
               BUNDLE_ID,
               ensure_macos_app_bundle,
               macos_app_bundle_is_launchable,

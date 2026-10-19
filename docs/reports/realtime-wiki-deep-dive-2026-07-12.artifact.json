@@ -40,10 +40,10 @@
       {
         "id": "repo_runtime",
         "label": "Personal Jarvis repository, tests, logs, and read-only live CLI inspection",
-        "path": "jarvis/realtime/session.py",
+        "path": "dodaios/realtime/session.py",
         "query": {
           "engine": "powershell",
-          "sql": "$tree = py -3.11 -m jarvis --json wiki tree | ConvertFrom-Json\n$slug = $tree.folders.files | Select-Object -First 1 -ExpandProperty slug\npy -3.11 -m jarvis --json wiki page $slug\npy -3.11 -m jarvis --json wiki recall $slug\nrg -n -i 'wiki.*realtime|realtime.*wiki|wiki-recall|WikiContext' tests/unit/realtime tests/integration/realtime tests/unit/memory/wiki/test_voice_bridge_realtime.py\npy -3.11 -m pytest -q -p no:cacheprovider tests/unit/memory/wiki/test_voice_bridge_realtime.py tests/unit/brain/test_wiki_fast_path.py tests/integration/test_wiki_boot_index.py tests/unit/plugins/tool/test_wiki_tools.py tests/unit/realtime/test_openai_realtime.py",
+          "sql": "$tree = py -3.11 -m dodaios --json wiki tree | ConvertFrom-Json\n$slug = $tree.folders.files | Select-Object -First 1 -ExpandProperty slug\npy -3.11 -m dodaios --json wiki page $slug\npy -3.11 -m dodaios --json wiki recall $slug\nrg -n -i 'wiki.*realtime|realtime.*wiki|wiki-recall|WikiContext' tests/unit/realtime tests/integration/realtime tests/unit/memory/wiki/test_voice_bridge_realtime.py\npy -3.11 -m pytest -q -p no:cacheprovider tests/unit/memory/wiki/test_voice_bridge_realtime.py tests/unit/brain/test_wiki_fast_path.py tests/integration/test_wiki_boot_index.py tests/unit/plugins/tool/test_wiki_tools.py tests/unit/realtime/test_openai_realtime.py",
           "description": "Reproduces the reviewed live checks and focused test run.",
           "executed_at": "2026-07-12T09:19:44Z",
           "language": "powershell"
@@ -55,7 +55,7 @@
         "path": "docs/superpowers/specs/2026-07-07-wiki-reliability-and-premium-rag-design.md",
         "query": {
           "engine": "powershell",
-          "sql": "Get-Content -Raw docs/superpowers/specs/2026-07-07-wiki-reliability-and-premium-rag-design.md\nGet-Content -Raw jarvis/realtime/session.py\nGet-Content -Raw jarvis/brain/wiki_context.py\nGet-Content -Raw jarvis/memory/wiki/watcher.py\nGet-Content -Raw jarvis/memory/wiki/health.py",
+          "sql": "Get-Content -Raw docs/superpowers/specs/2026-07-07-wiki-reliability-and-premium-rag-design.md\nGet-Content -Raw dodaios/realtime/session.py\nGet-Content -Raw dodaios/brain/wiki_context.py\nGet-Content -Raw dodaios/memory/wiki/watcher.py\nGet-Content -Raw dodaios/memory/wiki/health.py",
           "description": "Loads the design and implementation sources used for the architecture synthesis.",
           "executed_at": "2026-07-12T09:19:44Z",
           "language": "powershell"
@@ -310,7 +310,7 @@
       "id": "repo_runtime",
       "query": {
         "engine": "filesystem-and-local-http",
-        "sql": "$tree = py -3.11 -m jarvis --json wiki tree | ConvertFrom-Json\n$slug = $tree.folders.files | Select-Object -First 1 -ExpandProperty slug\npy -3.11 -m jarvis --json wiki page $slug\npy -3.11 -m jarvis --json wiki recall $slug\nrg -n -i 'wiki.*realtime|realtime.*wiki|wiki-recall|WikiContext' tests/unit/realtime tests/integration/realtime tests/unit/memory/wiki/test_voice_bridge_realtime.py\npy -3.11 -m pytest -q -p no:cacheprovider tests/unit/memory/wiki/test_voice_bridge_realtime.py tests/unit/brain/test_wiki_fast_path.py tests/integration/test_wiki_boot_index.py tests/unit/plugins/tool/test_wiki_tools.py tests/unit/realtime/test_openai_realtime.py",
+        "sql": "$tree = py -3.11 -m dodaios --json wiki tree | ConvertFrom-Json\n$slug = $tree.folders.files | Select-Object -First 1 -ExpandProperty slug\npy -3.11 -m dodaios --json wiki page $slug\npy -3.11 -m dodaios --json wiki recall $slug\nrg -n -i 'wiki.*realtime|realtime.*wiki|wiki-recall|WikiContext' tests/unit/realtime tests/integration/realtime tests/unit/memory/wiki/test_voice_bridge_realtime.py\npy -3.11 -m pytest -q -p no:cacheprovider tests/unit/memory/wiki/test_voice_bridge_realtime.py tests/unit/brain/test_wiki_fast_path.py tests/integration/test_wiki_boot_index.py tests/unit/plugins/tool/test_wiki_tools.py tests/unit/realtime/test_openai_realtime.py",
         "description": "Read-only inspection of repository code, focused pytest results, current SQLite FTS state, application logs, and live Jarvis CLI responses.",
         "executed_at": "2026-07-12T09:19:44Z",
         "language": "powershell"
@@ -320,7 +320,7 @@
       "id": "design_synthesis",
       "query": {
         "engine": "document-review",
-        "sql": "Get-Content -Raw docs/superpowers/specs/2026-07-07-wiki-reliability-and-premium-rag-design.md\nGet-Content -Raw jarvis/realtime/session.py\nGet-Content -Raw jarvis/brain/wiki_context.py\nGet-Content -Raw jarvis/memory/wiki/watcher.py\nGet-Content -Raw jarvis/memory/wiki/health.py",
+        "sql": "Get-Content -Raw docs/superpowers/specs/2026-07-07-wiki-reliability-and-premium-rag-design.md\nGet-Content -Raw dodaios/realtime/session.py\nGet-Content -Raw dodaios/brain/wiki_context.py\nGet-Content -Raw dodaios/memory/wiki/watcher.py\nGet-Content -Raw dodaios/memory/wiki/health.py",
         "description": "Technical synthesis of the approved wiki reliability design, current implementation, and official provider documentation.",
         "executed_at": "2026-07-12T09:19:44Z",
         "language": "markdown"

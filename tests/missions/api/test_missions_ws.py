@@ -12,20 +12,20 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from jarvis.missions.events import EventEnvelope, MissionDispatched
-from jarvis.missions.manager import MissionManager
-from jarvis.ui.web.missions_auth import (
+from dodaios.missions.events import EventEnvelope, MissionDispatched
+from dodaios.missions.manager import MissionManager
+from dodaios.ui.web.missions_auth import (
     reset_tokens,
 )
-from jarvis.ui.web.missions_auth import (
+from dodaios.ui.web.missions_auth import (
     router as missions_auth_router,
 )
-from jarvis.ui.web.missions_routes import router as missions_router
-from jarvis.ui.web.missions_ws_routes import (
+from dodaios.ui.web.missions_routes import router as missions_router
+from dodaios.ui.web.missions_ws_routes import (
     ConnectionManager,
     _drain_client_frames,
 )
-from jarvis.ui.web.missions_ws_routes import (
+from dodaios.ui.web.missions_ws_routes import (
     router as missions_ws_router,
 )
 

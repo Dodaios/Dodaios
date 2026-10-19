@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.prompt`` (Instance D)."""
+"""Unit tests for ``dodaios.memory.wiki.prompt`` (Instance D)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.memory.wiki.prompt import (
+from dodaios.memory.wiki.prompt import (
     build_consolidator_prompt,
     build_system_prompt,
     build_user_prompt,

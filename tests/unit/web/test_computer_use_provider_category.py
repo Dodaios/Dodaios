@@ -17,11 +17,11 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import config as cfg_mod
-from jarvis.core import config_writer
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.provider_routes import router
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.core import config as cfg_mod
+from dodaios.core import config_writer
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.provider_routes import router
+from dodaios.ui.web.provider_spec import get_spec
 
 
 def _only_claude_key(key: str, *_a, **_kw) -> str | None:
@@ -66,7 +66,7 @@ def test_list_providers_marks_configured_cu_provider_active(monkeypatch):
     app = _app()
     from types import SimpleNamespace
 
-    from jarvis.core.config import BrainTierConfig
+    from dodaios.core.config import BrainTierConfig
 
     app.state.config.brain.computer_use = BrainTierConfig(provider="openai")
     # The Brain tab's "active" field reads app.state.brain (the live
@@ -123,7 +123,7 @@ def test_computer_use_switch_updates_existing_tier_in_memory(monkeypatch):
     monkeypatch.setattr(config_writer, "set_computer_use_provider", lambda name, **kw: None)
 
     app = _app()
-    from jarvis.core.config import BrainTierConfig
+    from dodaios.core.config import BrainTierConfig
 
     app.state.config.brain.computer_use = BrainTierConfig(provider="claude-api")
     client = TestClient(app)
@@ -232,7 +232,7 @@ def test_computer_use_switch_does_not_touch_brain_primary(monkeypatch):
 def test_computer_use_switch_emits_secret_configured_event(monkeypatch):
     monkeypatch.setattr(cfg_mod, "get_secret", lambda *a, **kw: "sk-test")
     monkeypatch.setattr(config_writer, "set_computer_use_provider", lambda name, **kw: None)
-    from jarvis.core.bus import EventBus
+    from dodaios.core.bus import EventBus
 
     bus = EventBus()
     events: list[object] = []

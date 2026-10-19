@@ -5,10 +5,10 @@
 per (feature, reason) — the five-layer shape AP-4 / BUG-008 guards. A drift
 shows up here as one failing test instead of an unknown-reason blank card.
 
-1. ``jarvis/core/events.py``                       — the tuples + dataclasses (source of truth)
-2. ``jarvis/ui/web/schema.py``                     — ``event_to_ws_envelope`` (the /ws wire shape)
-3. ``jarvis/ui/web/frontend/src/lib/permissionEvents.ts`` — the TS const tuples + payload interfaces
-4. ``jarvis/tasks/event_catalog.py``               — routines must NOT be able to trigger on them
+1. ``dodaios/core/events.py``                       — the tuples + dataclasses (source of truth)
+2. ``dodaios/ui/web/schema.py``                     — ``event_to_ws_envelope`` (the /ws wire shape)
+3. ``dodaios/ui/web/frontend/src/lib/permissionEvents.ts`` — the TS const tuples + payload interfaces
+4. ``dodaios/tasks/event_catalog.py``               — routines must NOT be able to trigger on them
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from jarvis.core import events as events_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core import events as events_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     PERMISSION_FEATURES,
     PERMISSION_NEEDED_ORIGINS,
     PERMISSION_NEEDED_PHASES,
@@ -35,10 +35,10 @@ from jarvis.core.events import (
     PermissionNeeded,
     PermissionResolved,
 )
-from jarvis.ui.web.schema import event_to_ws_envelope
+from dodaios.ui.web.schema import event_to_ws_envelope
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-TS_FILE = REPO_ROOT / "jarvis/ui/web/frontend/src/lib/permissionEvents.ts"
+TS_FILE = REPO_ROOT / "dodaios/ui/web/frontend/src/lib/permissionEvents.ts"
 
 _ENVELOPE_FIELDS = {"trace_id", "timestamp_ns", "source_layer"}
 
@@ -307,8 +307,8 @@ def test_permission_events_reach_a_ws_client_through_the_real_forwarder() -> Non
     """
     from fastapi.testclient import TestClient
 
-    from jarvis.core.config import JarvisConfig
-    from jarvis.ui.web.server import WebServer
+    from dodaios.core.config import JarvisConfig
+    from dodaios.ui.web.server import WebServer
 
     cfg = JarvisConfig()
     cfg.ui.dev_mode = True
@@ -422,7 +422,7 @@ def _core_event_names() -> set[str]:
 
 
 def test_the_catalog_exclusion_is_exactly_the_two_permission_events() -> None:
-    from jarvis.tasks.event_catalog import EXCLUDED_EVENT_NAMES
+    from dodaios.tasks.event_catalog import EXCLUDED_EVENT_NAMES
 
     assert frozenset({"PermissionNeeded", "PermissionResolved"}) == EXCLUDED_EVENT_NAMES
     # The exclusion names real events: a rename must not leave it inert.
@@ -430,12 +430,12 @@ def test_the_catalog_exclusion_is_exactly_the_two_permission_events() -> None:
 
 
 def test_event_catalog_omits_the_permission_events_and_nothing_else() -> None:
-    from jarvis.tasks.event_catalog import EXCLUDED_EVENT_NAMES, event_catalog
+    from dodaios.tasks.event_catalog import EXCLUDED_EVENT_NAMES, event_catalog
 
     catalog = event_catalog()
 
     assert not EXCLUDED_EVENT_NAMES & set(catalog)
-    # Every other event of jarvis.core.events is still offered to routines.
+    # Every other event of dodaios.core.events is still offered to routines.
     assert _core_event_names() - EXCLUDED_EVENT_NAMES <= set(catalog)
     assert "DictationRefused" in catalog
 
@@ -445,7 +445,7 @@ def test_event_catalog_omits_the_permission_events_and_nothing_else() -> None:
 def test_routines_cannot_be_scheduled_on_the_permission_events(
     name: str, filter_expr: str | None
 ) -> None:
-    from jarvis.tasks.event_catalog import validate_event_schedule
+    from dodaios.tasks.event_catalog import validate_event_schedule
 
     schedule: dict[str, object] = {"event_name": name}
     if filter_expr:
@@ -455,6 +455,6 @@ def test_routines_cannot_be_scheduled_on_the_permission_events(
 
 
 def test_a_neighbouring_event_stays_schedulable() -> None:
-    from jarvis.tasks.event_catalog import validate_event_schedule
+    from dodaios.tasks.event_catalog import validate_event_schedule
 
     validate_event_schedule({"event_name": "DictationRefused", "filter_expr": "reason == 'no_stt'"})

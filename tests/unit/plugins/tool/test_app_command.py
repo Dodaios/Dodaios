@@ -14,8 +14,8 @@ from types import SimpleNamespace
 import httpx
 from fastapi import FastAPI, HTTPException
 
-from jarvis.commands.registry import get_registry
-from jarvis.plugins.tool.app_command import (
+from dodaios.commands.registry import get_registry
+from dodaios.plugins.tool.app_command import (
     AppCommandTool,
     _validate_args,
     _with_defaults,
@@ -199,7 +199,7 @@ async def test_direct_realtime_tool_uses_the_terminal_visible_in_chat(
     monkeypatch,
 ) -> None:
     """A stale model argument cannot overrule the exact deictic utterance."""
-    from jarvis.agentic_ide import session as session_mod
+    from dodaios.agentic_ide import session as session_mod
 
     t1 = SimpleNamespace(name="T1")
     t4 = SimpleNamespace(name="T4")
@@ -231,7 +231,7 @@ async def test_direct_realtime_tool_uses_the_terminal_visible_in_chat(
 async def test_direct_realtime_tool_keeps_an_explicit_terminal(
     monkeypatch,
 ) -> None:
-    from jarvis.agentic_ide import session as session_mod
+    from dodaios.agentic_ide import session as session_mod
 
     t1 = SimpleNamespace(name="T1")
     t4 = SimpleNamespace(name="T4")
@@ -299,11 +299,11 @@ def test_validator_covers_types_and_ranges() -> None:
 async def test_end_to_end_against_real_webserver_app(monkeypatch) -> None:
     """The full chain: flat tool -> ASGI -> the REAL /api/brain/switch route
     (shared app_control validation) -> readback from the route's response."""
-    from jarvis.core import config as cfg_mod
-    from jarvis.core import control_key as control_key_mod
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import JarvisConfig
-    from jarvis.ui.web.server import WebServer
+    from dodaios.core import config as cfg_mod
+    from dodaios.core import control_key as control_key_mod
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import JarvisConfig
+    from dodaios.ui.web.server import WebServer
 
     class _FakeBrain:
         active_provider = "openai"
@@ -365,7 +365,7 @@ def test_a_full_state_snapshot_is_kept_out_of_the_readback() -> None:
     on 2026-07-27 spent 58 000 input tokens on a single turn and lost track of
     the pane it had just opened, spawning three more.
     """
-    from jarvis.plugins.tool.app_command import _without_snapshots
+    from dodaios.plugins.tool.app_command import _without_snapshots
 
     trimmed = _without_snapshots(
         {"ok": True, "terminals": [{"name": "Kate"}], "state": {"huge": "x" * 5000}}
@@ -376,7 +376,7 @@ def test_a_full_state_snapshot_is_kept_out_of_the_readback() -> None:
 
 def test_a_response_that_is_only_a_snapshot_is_still_returned() -> None:
     """Trimming must never answer with nothing at all."""
-    from jarvis.plugins.tool.app_command import _without_snapshots
+    from dodaios.plugins.tool.app_command import _without_snapshots
 
     payload = {"ok": True, "state": {"active": True}}
 
@@ -391,7 +391,7 @@ def test_a_one_word_state_is_not_mistaken_for_a_snapshot() -> None:
     and trimming that took the outcome out of the very payload the model is
     told to report from.
     """
-    from jarvis.plugins.tool.app_command import _without_snapshots
+    from dodaios.plugins.tool.app_command import _without_snapshots
 
     trimmed = _without_snapshots({"ok": True, "kind": "skill", "state": "installed"})
 

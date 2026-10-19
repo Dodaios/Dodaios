@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.loader import parse_skill
-from jarvis.skills.validator import validate_skill
+from dodaios.skills.loader import parse_skill
+from dodaios.skills.validator import validate_skill
 
 
 GOOD_SKILL = """---

@@ -22,25 +22,25 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.core.protocols import ExecutionContext
-from jarvis.core.review.audit import ReviewAudit
-from jarvis.core.review.checks import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.core.protocols import ExecutionContext
+from dodaios.core.review.audit import ReviewAudit
+from dodaios.core.review.checks import (
     PostCheckRunner,
     PreCheckRunner,
     output_not_empty,
     task_not_empty,
 )
-from jarvis.core.review.pipeline import ReviewPipeline
-from jarvis.core.review.policy import ReviewPolicy
-from jarvis.core.review.state import RunState
-from jarvis.core.review.verdict import (
+from dodaios.core.review.pipeline import ReviewPipeline
+from dodaios.core.review.policy import ReviewPolicy
+from dodaios.core.review.state import RunState
+from dodaios.core.review.verdict import (
     ReviewIssue,
     ReviewStatus,
     ReviewVerdict,
 )
-from jarvis.plugins.tool.dispatch_with_review import (
+from dodaios.plugins.tool.dispatch_with_review import (
     VOICE_HOLDING_PHRASE_DE,
     DispatchWithReviewTool,
 )

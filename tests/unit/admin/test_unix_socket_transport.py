@@ -20,9 +20,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.admin import unix_socket
-from jarvis.admin.transport import AdminTransport
-from jarvis.admin.unix_socket import UnixSocketTransport
+from dodaios.admin import unix_socket
+from dodaios.admin.transport import AdminTransport
+from dodaios.admin.unix_socket import UnixSocketTransport
 
 
 class _FakeWriter:

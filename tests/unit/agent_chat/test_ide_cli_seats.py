@@ -1,8 +1,8 @@
 """The Agentic IDE's coding CLIs are the chat's coding CLIs — every one, as a chat.
 
-Binds the chat catalog (``jarvis.agent_chat.catalog``) to the IDE's registry
-(``jarvis.workspace.agents``) and to the planners that drive each CLI without
-a terminal (``jarvis.agent_chat.runner_cli``), and pins the wire shapes of the
+Binds the chat catalog (``dodaios.agent_chat.catalog``) to the IDE's registry
+(``dodaios.workspace.agents``) and to the planners that drive each CLI without
+a terminal (``dodaios.agent_chat.runner_cli``), and pins the wire shapes of the
 CLIs that joined on 2026-08-27 — OpenCode, Kimi Code, GLM Coding Plan, DeepSeek
 Harness — against lines captured from the installed binaries.
 
@@ -22,11 +22,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import catalog, effort, permissions, typeahead
-from jarvis.agent_chat import runner_cli as rc
-from jarvis.agent_chat.runner_api import TurnHandle
-from jarvis.agent_chat.store import AgentChatSession
-from jarvis.workspace import agents as workspace_agents
+from dodaios.agent_chat import catalog, effort, permissions, typeahead
+from dodaios.agent_chat import runner_cli as rc
+from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.store import AgentChatSession
+from dodaios.workspace import agents as workspace_agents
 
 # ------------------------------------------------------------------ parity
 
@@ -78,7 +78,7 @@ def test_a_cli_the_ide_dropped_leaves_the_picker(monkeypatch: pytest.MonkeyPatch
 
 @pytest.mark.parametrize("surface", ["agent", "jarvis"])
 def test_resolve_runner_names_each_clis_own_runner(surface: str) -> None:
-    from jarvis.agent_chat.service import resolve_runner
+    from dodaios.agent_chat.service import resolve_runner
 
     assert resolve_runner("opencode", surface=surface) == "opencode-cli"
     assert resolve_runner("kimi", surface=surface) == "kimi-cli"

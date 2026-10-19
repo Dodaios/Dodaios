@@ -1,6 +1,6 @@
 """Regression: router tier must resolve to the FAST model, not the deep fallback.
 
-Root-cause bug (jarvis/brain/manager.py from_tier_config): when
+Root-cause bug (dodaios/brain/manager.py from_tier_config): when
 [brain.router].provider == fallback_provider (both "gemini"), the fallback-model
 assignment clobbered the primary-model assignment on the shared
 providers["gemini"] config entry (last-write-wins). The router then silently ran
@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     BrainProviderConfig,
     BrainTierConfig,
     JarvisConfig,
@@ -34,7 +34,7 @@ PROVIDER_FAST_DEEP_CASES = [
 def _all_test_providers_have_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep model-chain assertions independent of the host's key store."""
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret_any",
+        "dodaios.core.config.get_secret_any",
         lambda _candidates: "test-key",
     )
 
@@ -105,7 +105,7 @@ def test_codex_chatgpt_login_does_not_make_codex_a_main_brain(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Codex OAuth unlocks the subagent only; the main router falls back."""
-    monkeypatch.setattr("jarvis.core.config.get_secret_any", lambda *_a, **_k: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret_any", lambda *_a, **_k: None)
 
     class _ConnectedCodexAuth:
         def status(self):
@@ -115,7 +115,7 @@ def test_codex_chatgpt_login_does_not_make_codex_a_main_brain(
 
             return _Status()
 
-    monkeypatch.setattr("jarvis.codex_auth.CodexAuthService", _ConnectedCodexAuth)
+    monkeypatch.setattr("dodaios.codex_auth.CodexAuthService", _ConnectedCodexAuth)
 
     cfg = JarvisConfig()
     cfg.brain.router = BrainTierConfig(provider="codex", fallback_provider="gemini")

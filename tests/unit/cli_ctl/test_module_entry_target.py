@@ -10,12 +10,12 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.cli_ctl import __main__ as canonical
-from jarvis.cli_ctl import config
-from jarvis.cli_ctl.client import JarvisClient
+from dodaios.cli_ctl import __main__ as canonical
+from dodaios.cli_ctl import config
+from dodaios.cli_ctl.client import JarvisClient
 
 pytestmark = pytest.mark.filterwarnings(
-    "ignore:.*jarvis.cli_ctl.__main__.*found in sys.modules.*:RuntimeWarning"
+    "ignore:.*dodaios.cli_ctl.__main__.*found in sys.modules.*:RuntimeWarning"
 )
 
 DEFAULT = "http://fallback.invalid:47900/default"
@@ -51,9 +51,9 @@ def targets(monkeypatch):
 
 
 def invoke_module(monkeypatch, args):
-    monkeypatch.setattr(sys, "argv", ["jarvis.cli_ctl", *args])
+    monkeypatch.setattr(sys, "argv", ["dodaios.cli_ctl", *args])
     with pytest.raises(SystemExit) as outcome:
-        runpy.run_module("jarvis.cli_ctl", run_name="__main__")
+        runpy.run_module("dodaios.cli_ctl", run_name="__main__")
     return outcome.value.code
 
 
