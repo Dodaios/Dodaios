@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Wire up the repo's tracked git hooks (idempotent).
 
-Since 2026-07-18 the repo uses the standard shared-history workflow
-(AGENTS.md rule 2): direct pushes to the public flagship repo are the normal
+Since 2026-07-18 the repo uses the standard shared-history workflow:
+direct pushes to the public flagship repo are the normal
 flow, protected by the fail-closed credential gates inside the tracked
 ``.githooks/pre-push`` hook (secret scan, private-key gate) plus GitHub-side
 secret scanning with push protection. The old raw-push hard-block

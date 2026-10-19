@@ -1,7 +1,6 @@
 # JarvisBar "black box around the pill" — transparency deep dive
 
-**Status:** analysis, 2026-07-28. Companion to BUG-075 and BUG-093 in
-[`docs/BUGS.md`](BUGS.md); the surface lifecycle around it lives in
+**Status:** analysis, 2026-07-28. Companion to BUG-075 and BUG-093; the surface lifecycle around it lives in
 [`overlay-state-machine.md`](overlay-state-machine.md).
 
 The bar is a frameless always-on-top window that must show *only* its pill.
