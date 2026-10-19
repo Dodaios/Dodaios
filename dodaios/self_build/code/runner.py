@@ -95,6 +95,9 @@ class ThreadRunner:
         while True:
             result = self._finished(service, sid, turn_id)
             if result is not None:
+                if not result.ok and service.is_running(sid):
+                    # A question or plan card holds the turn open: end it.
+                    await self._stop(service, sid)
                 return result
             if should_stop():
                 await self._stop(service, sid)
