@@ -8255,7 +8255,15 @@
         "stage_session": "暂存该会话的待处理更改",
         "session_empty": "此会话尚未更改任何文件，或其代理不记录编辑。",
         "session_committed": "已提交",
-        "session_generated": "已隐藏 {n} 个生成的文件"
+        "session_generated": "已隐藏 {n} 个生成的文件",
+        "follow_main": "让此应用始终保持在最新的 main",
+        "follow_main_on": "此应用会自动保持在最新的 main。",
+        "follow_busy_update": "正在更新到最新的 main…",
+        "follow_busy_install": "正在为更新安装软件包…",
+        "follow_busy_build": "正在构建新界面…",
+        "follow_restart_pending": "新代码已就绪；没有任务或通话进行时应用会自动重启。",
+        "follow_updated": "{when}已更新：{subject}",
+        "follow_click_off": "点击以停止跟随 main。"
       }
     },
     "skills": {

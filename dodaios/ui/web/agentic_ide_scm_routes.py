@@ -491,6 +491,45 @@ def stash_drop(body: StashDropBody) -> dict:
     return _ok()
 
 
+class FollowMainBody(BaseModel):
+    enabled: bool
+
+
+def _follow_status() -> dict:
+    from dodaios.core.main_follow import FollowStatus, get_follower
+
+    follower = get_follower()
+    if follower is None:
+        status = FollowStatus(reason="This app instance does not follow main.")
+        try:
+            from dodaios.core.config import load_config
+
+            status.enabled = bool(getattr(load_config().agentic_ide, "follow_main", False))
+        except Exception as exc:  # noqa: BLE001 -- unreadable config: the toggle shows off
+            status.reason = f"The configuration could not be read: {exc}"
+        return status.to_dict()
+    return follower.status.to_dict()
+
+
+@router.get("/follow-main", summary="Does this app keep itself on the newest main?")
+def follow_main_status() -> dict:
+    return _follow_status()
+
+
+@router.put("/follow-main", summary="Keep this app on the newest main, or stop")
+def set_follow_main(body: FollowMainBody) -> dict:
+    """Saved in ``[agentic_ide] follow_main``; the follower looks again at once."""
+    from dodaios.core import config_writer
+    from dodaios.core.main_follow import get_follower
+
+    config_writer.set_agentic_ide_follow_main(body.enabled)
+    follower = get_follower()
+    if follower is not None:
+        follower.status.enabled = body.enabled
+        follower.poke()
+    return _follow_status()
+
+
 @router.get("/session-file", summary="Both sides of one file an agent session changed")
 def session_file(
     workspace_id: str = Query(..., min_length=1),
