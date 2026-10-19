@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from dodaios.core.branding import MACOS_APP_DIR_NAME, MACOS_BUNDLE_ID
+from dodaios.core.branding import MACOS_APP_DIR_NAMES, MACOS_BUNDLE_ID
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 log = logging.getLogger(__name__)
@@ -72,7 +72,8 @@ def is_our_tile(tile: dict) -> bool:
     """Whether a Dock tile is the managed app, wherever it points.
 
     Matches the bundle id the Dock recorded, or — for a tile written before
-    the Dock resolved it — the bundle directory name at the end of its URL.
+    the Dock resolved it — the bundle directory name at the end of its URL,
+    current or earlier.
     """
     data = tile.get("tile-data")
     if not isinstance(data, dict):
@@ -84,7 +85,7 @@ def is_our_tile(tile: dict) -> bool:
     if not isinstance(url, str):
         return False
     path = unquote(urlparse(url).path if "://" in url else url).rstrip("/")
-    return Path(path).name == MACOS_APP_DIR_NAME and "bundle-identifier" not in data
+    return Path(path).name in MACOS_APP_DIR_NAMES and "bundle-identifier" not in data
 
 
 def _tile_for(bundle: Path) -> dict:

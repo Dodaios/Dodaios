@@ -69,8 +69,11 @@ _CURRENT_IDENTITY = {
     "WINDOWS_BRANDED_LAUNCHER_DIR_NAME": "DodaiosApp",
     "LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES": ("PersonalJarvis",),
     "WINDOWS_BRANDED_LAUNCH_ENV_VAR": "JARVIS_BRANDED_LAUNCH",
-    "MACOS_APP_NAME": "Personal Jarvis",
-    "MACOS_APP_DIR_NAME": "Personal Jarvis.app",
+    "MACOS_APP_NAME": "Dodaios",
+    "LEGACY_MACOS_APP_NAMES": ("Personal Jarvis",),
+    "MACOS_APP_DIR_NAME": "Dodaios.app",
+    "LEGACY_MACOS_APP_DIR_NAMES": ("Personal Jarvis.app",),
+    "MACOS_APP_DIR_NAMES": ("Dodaios.app", "Personal Jarvis.app"),
     "MACOS_EXECUTABLE_NAME": "DodaiosApp",
     "LEGACY_MACOS_EXECUTABLE_NAMES": ("PersonalJarvis",),
     "MACOS_BUNDLE_ID": "com.personal-jarvis.desktop",
@@ -124,10 +127,15 @@ _MIGRATED_TO_THE_PRODUCT_NAME = frozenset(
         "LINUX_WM_CLASS",
         # The Python distribution (pip install name, share/<name>).
         "DISTRIBUTION_NAME",
+        # The macOS bundle's name; its ids, login label and signing label stay.
+        "MACOS_APP_NAME",
+        "MACOS_APP_DIR_NAME",
     }
 )
 # Every spelling of a migrated name, the current one first.
-_ALL_SPELLINGS_OF_A_MIGRATED_NAME = frozenset({"MANAGED_INSTALL_MARKERS", "DISTRIBUTION_NAMES"})
+_ALL_SPELLINGS_OF_A_MIGRATED_NAME = frozenset(
+    {"MANAGED_INSTALL_MARKERS", "DISTRIBUTION_NAMES", "MACOS_APP_DIR_NAMES"}
+)
 
 
 def _legacy_values(name: str) -> tuple[str, ...]:
@@ -178,6 +186,18 @@ def test_the_windows_identity_keeps_what_pins_and_installs_resolve_by() -> None:
         branding.WINDOWS_BRANDED_LAUNCHER_DIR_NAME.casefold()
         != branding.WINDOWS_USER_DATA_DIR_NAME.casefold()
     )
+
+
+def test_the_macos_identity_keeps_what_privacy_grants_are_pinned_to() -> None:
+    # A bundle id, the login item's label or the signing certificate's name
+    # that moved would start every macOS privacy grant over: only the bundle's
+    # name moved, and a bundle under its earlier name is renamed in place.
+    assert branding.MACOS_BUNDLE_ID == "com.personal-jarvis.desktop"
+    assert branding.MACOS_DMG_BUNDLE_ID == "ai.personaljarvis.desktop"
+    assert branding.MACOS_AUTOSTART_LABEL == "com.personal-jarvis.autostart"
+    assert branding.MACOS_SIGNING_IDENTITY_LABEL == "Personal Jarvis Local Signing"
+    assert branding.MACOS_APP_DIR_NAMES[0] == branding.MACOS_APP_DIR_NAME
+    assert set(branding.MACOS_APP_DIR_NAMES[1:]) == set(branding.LEGACY_MACOS_APP_DIR_NAMES)
 
 
 def test_display_name_is_separate_from_persistent_identity() -> None:

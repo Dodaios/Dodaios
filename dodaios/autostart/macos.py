@@ -2,7 +2,7 @@
 
 Writes ``~/Library/LaunchAgents/com.personal-jarvis.autostart.plist`` with
 ``RunAtLoad=true``. The canonical launch specification uses ``/usr/bin/open``
-to enter through ``Personal Jarvis.app`` and preserve its TCC identity. A
+to enter through the app bundle and preserve its TCC identity. A
 **LaunchAgent (per-user), not a LaunchDaemon** — the agent
 runs inside the user's GUI session so it keeps microphone access (a Daemon runs
 as a non-interactive system context with no mic/seat, the macOS analogue of the
@@ -22,7 +22,7 @@ import subprocess
 import sys
 from pathlib import Path, PurePath
 
-from dodaios.core.branding import MACOS_APP_DIR_NAME as _APP_DIR_NAME
+from dodaios.core.branding import MACOS_APP_DIR_NAMES as _APP_DIR_NAMES
 from dodaios.core.branding import MACOS_AUTOSTART_LABEL as _LABEL
 
 from .paths import same_path
@@ -104,7 +104,9 @@ def _write_plist_atomically(path: Path, plist: dict) -> None:
 def retarget_launch_agent(bundle: PurePath) -> bool:
     """Point an existing LaunchAgent at ``bundle`` after the app moved.
 
-    The entry names the app by absolute path. Whoever moves the bundle has to
+    The entry names the app by absolute path, under the bundle's current name
+    or an earlier one (a bundle renamed in place is followed the same way; the
+    label stays). Whoever moves the bundle has to
     move the entry with it IN THE SAME STEP: the boot-time reconcile only runs
     once the app is up, and an entry aimed at the old path is exactly what
     keeps it from coming up at login — the app would stay gone from login
@@ -126,7 +128,7 @@ def retarget_launch_agent(bundle: PurePath) -> bool:
         target = str(bundle)
         updated = [
             target
-            if isinstance(arg, str) and Path(arg).name == _APP_DIR_NAME and arg != target
+            if isinstance(arg, str) and Path(arg).name in _APP_DIR_NAMES and arg != target
             else arg
             for arg in arguments
         ]

@@ -590,7 +590,8 @@ renames_bundles = pytest.mark.skipif(
     [
         "Personal Jarvis 2.app",  # Finder's "Keep Both"
         "Assistant.app",  # renamed by hand
-        "personal jarvis.app",  # same name, other case
+        "dodaios.app",  # same name, other case
+        "Dodaios 2.app",  # "Keep Both" of the current name
     ],
 )
 def test_macos_handover_falls_back_to_the_only_bundle_on_the_volume(
@@ -624,6 +625,62 @@ def test_macos_handover_falls_back_to_the_only_bundle_on_the_volume(
     assert sorted(p.name.casefold() for p in app.parent.iterdir()) == sorted(
         [running_name.casefold(), "untouched copy.app"]
     )
+
+
+@renames_bundles
+@pytest.mark.parametrize("running_id", sorted(iu._OWN_MACOS_BUNDLE_IDS))
+def test_macos_handover_gives_a_bundle_under_an_earlier_name_the_current_one(
+    tmp_path: Path, running_id: str
+) -> None:
+    """The image carries the current name and the running bundle an earlier one
+    of ours: the update lands under the current name and the old bundle goes."""
+    dmg = tmp_path / "PersonalJarvis-macOS-arm64.dmg"
+    dmg.write_bytes(PAYLOAD)
+    earlier = iu.LEGACY_MACOS_APP_DIR_NAMES[0]
+    app = tmp_path / "Applications" / earlier
+    _write_bundle(app, "old", running_id)
+    current = app.with_name(iu.MACOS_APP_DIR_NAME)
+    runner = _mounting_runner(iu.MACOS_APP_DIR_NAME, "new", running_id)
+
+    message = apply_installer(
+        dmg, platform_name="darwin", runner=runner, app_path=app, wait_for_pid=31
+    )
+
+    assert _bundle_payload(current) == "new"
+    assert not app.exists()
+    assert sorted(p.name for p in app.parent.iterdir()) == [iu.MACOS_APP_DIR_NAME]
+    assert runner.spawned == [relaunch_after_exit_command(31, [MACOS_OPEN, "-n", str(current)])]
+    assert iu.MACOS_APP_DIR_NAME in message and earlier in message
+
+
+@renames_bundles
+def test_macos_handover_keeps_a_bundle_under_an_earlier_name_when_the_image_has_it_too(
+    tmp_path: Path,
+) -> None:
+    # An image that still carries the earlier name is updated in place: both
+    # names are this app's, and only a move to the CURRENT name is a rename.
+    dmg = tmp_path / "PersonalJarvis-macOS-arm64.dmg"
+    dmg.write_bytes(PAYLOAD)
+    earlier = iu.LEGACY_MACOS_APP_DIR_NAMES[0]
+    app = tmp_path / "Applications" / iu.MACOS_APP_DIR_NAME
+    _write_bundle(app, "old", iu.MACOS_DMG_BUNDLE_ID)
+    runner = _mounting_runner(earlier, "new", iu.MACOS_DMG_BUNDLE_ID)
+
+    apply_installer(dmg, platform_name="darwin", runner=runner, app_path=app, wait_for_pid=2)
+
+    assert _bundle_payload(app) == "new"
+    assert sorted(p.name for p in app.parent.iterdir()) == [iu.MACOS_APP_DIR_NAME]
+
+
+def test_the_updater_keeps_recognising_every_name_and_id_of_ours() -> None:
+    assert iu.MACOS_APP_DIR_NAME == "Dodaios.app"
+    assert "Personal Jarvis.app" in iu.LEGACY_MACOS_APP_DIR_NAMES
+    assert set(iu.MACOS_APP_DIR_NAMES) == {iu.MACOS_APP_DIR_NAME, *iu.LEGACY_MACOS_APP_DIR_NAMES}
+    # The ids did not move with the name: a bundle under either is ours.
+    assert iu._OWN_MACOS_BUNDLE_IDS == {
+        "com.personal-jarvis.desktop",
+        "ai.personaljarvis.desktop",
+    }
 
 
 def _renamed_release(tmp_path: Path, *, running_id: str | None) -> tuple[Path, Path, Path]:

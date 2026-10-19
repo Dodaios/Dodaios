@@ -9,7 +9,7 @@ This module owns the external, per-user artifacts as one lifecycle:
 * Windows: Start-menu launcher, AppUserModel identity, and Installed Apps entry.
   A launcher under the product's earlier name is retired once the current one
   is in place, and only where it starts this installation.
-* macOS: ``~/Applications/Personal Jarvis.app``.
+* macOS: ``/Applications/Dodaios.app`` (``~/Applications`` for a standard account).
 * Linux: ``$XDG_DATA_HOME/applications/dodaios.desktop``. An entry under the
   earlier name (``personal-jarvis.desktop``) is retired the same way as the
   Windows launcher: once the current one is in place, and only where it starts
