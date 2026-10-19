@@ -162,7 +162,7 @@ class VoiceSessionRow(BaseModel):
     total_tokens_in: int = 0
     total_tokens_out: int = 0
     providers_used: list[str] = Field(default_factory=list)
-    language: str = "de"
+    language: str = "en"
     wake_keyword: str = ""
     voice_mode: VoiceMode = VOICE_MODE_UNKNOWN
 

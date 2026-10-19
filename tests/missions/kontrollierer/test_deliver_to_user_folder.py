@@ -90,7 +90,7 @@ def test_build_delivered_summary_single(tmp_path: Path) -> None:
     folder.mkdir()
     f = folder / "report.html"
     f.write_text("x", encoding="utf-8")
-    out = build_delivered_summary([f])
+    out = build_delivered_summary([f], language="de")
     assert "report.html" in out
     # The folder is never spoken (maintainer 2026-08-23): the file is "an artifact".
     assert "Jarvis-Outputs" not in out
@@ -99,7 +99,7 @@ def test_build_delivered_summary_single(tmp_path: Path) -> None:
 
 
 def test_build_delivered_summary_empty() -> None:
-    assert build_delivered_summary([]) == ""
+    assert build_delivered_summary([], language="de") == ""
 
 
 def test_skips_browser_profile_scratch(tmp_path: Path) -> None:

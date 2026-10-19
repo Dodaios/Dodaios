@@ -3198,7 +3198,7 @@ async def test_generative_voice_provider_mute_still_falls_back_to_surface_tts():
     elapsed = asyncio.get_event_loop().time() - start
     assert elapsed >= 2.0, "surface TTS claimed the reply before the wait window"
     spoken = [m for m in jsons if m.get("type") == "error_spoken"]
-    assert [m["text"] for m in spoken] == [scrub_for_voice(reply).cleaned]
+    assert [m["text"] for m in spoken] == [scrub_for_voice(reply, language="de").cleaned]
     assert binaries == []
     provider.session.release.set()
     await sess.end(reason="test")
