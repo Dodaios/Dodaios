@@ -33,6 +33,8 @@ from .github import OWN_PERMISSIONS, Issue, Snapshot, Viewer
 from .triage import triage
 
 INTAKE_EVERY_MS: Final[int] = 30 * 60_000
+#: A brief's keys are checked against the checkout at most this often.
+BRIEF_EVERY_S: Final[float] = 30 * 60.0
 VIEWER_TTL_MS: Final[int] = 6 * 3_600_000
 #: A project opened in the IDE within this many days counts as worked on.
 RECENT_DAYS: Final[int] = 45
@@ -92,6 +94,18 @@ async def viewer(ctx: Context) -> Viewer | None:
     return who
 
 
+def _brief(ctx: Context, folder: str, repo: str) -> Brief:
+    """The project's brief, its keys checked at most every :data:`BRIEF_EVERY_S`."""
+    key = folder.lower()
+    stored = brief_mod.load(ctx.store, folder)
+    checked = ctx.brief_checked.get(key, 0.0)
+    if stored is not None and stored.repo == repo and time.monotonic() - checked < BRIEF_EVERY_S:
+        return stored
+    brief, _rebuilt = brief_mod.refresh(ctx.store, folder, repo=repo)
+    ctx.brief_checked[key] = time.monotonic()
+    return brief
+
+
 def owned_projects(ctx: Context, who: Viewer) -> list[OwnedProject]:
     """Blocking: git calls and brief refreshes for the person's own projects."""
     out: list[OwnedProject] = []
@@ -107,7 +121,7 @@ def owned_projects(ctx: Context, who: Viewer) -> list[OwnedProject]:
         repo = repo_of(folder)
         if not repo or not who.owns(repo) or is_dodaios_source(folder, ctx.dodaios_root):
             continue
-        brief, _rebuilt = brief_mod.refresh(ctx.store, folder, repo=repo)
+        brief = _brief(ctx, folder, repo)
         recent = float(getattr(project, "last_opened_at", 0) or 0) >= cutoff
         mine = bool((brief.parts.get("activity") or {}).get("person_active"))
         if not (recent or mine):
