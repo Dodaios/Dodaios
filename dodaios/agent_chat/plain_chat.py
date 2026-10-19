@@ -17,8 +17,11 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 from pathlib import Path
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 #: Room for what was said before, newest kept. A fresh CLI conversation needs
 #: the thread of the chat, not every word of it.
@@ -144,7 +147,9 @@ def encoded(path: str | Path) -> tuple[str, str] | None:
         return None
     try:
         data = source.read_bytes()
-    except OSError:
+    except OSError as exc:
+        # The picture still goes as its description; only the inline copy is skipped.
+        log.info("plain chat: %s not attached inline (%s)", source.name, exc)
         return None
     return cap_image_b64(mime, base64.b64encode(data).decode("ascii"), MAX_IMAGE_BYTES)
 
