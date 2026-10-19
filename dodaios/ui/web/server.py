@@ -2961,6 +2961,9 @@ class WebServer:
             )
             self.app.state.self_build = _self_build
             _self_build.start_sweeper()
+            from dodaios.self_build.app import install_in_app
+
+            install_in_app(_self_build, self.app.state, self.bus)
         except Exception as exc:  # noqa: BLE001
             logger.opt(exception=exc).warning(
                 "self-build ledger init failed — nothing will be self-built this run"
