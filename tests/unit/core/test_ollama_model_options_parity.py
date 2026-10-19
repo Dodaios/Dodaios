@@ -1,10 +1,10 @@
 """Parity test for the layers that share the per-model Ollama option vocabulary
 (five-layer pattern, AP-4).
 
-1. ``jarvis/core/config.py::OLLAMA_MODEL_OPTION_KEYS``      — the tuple (source of truth)
-2. ``jarvis/core/config.py::OllamaModelOptions``            — the Pydantic fields
-3. ``jarvis/brain/ollama_profiles.py::BAKEABLE_KEYS``       — a subset the profile bakes
-4. ``jarvis/ui/web/frontend/src/lib/ollamaModelOptions.ts`` — the TS const array + interface
+1. ``dodaios/core/config.py::OLLAMA_MODEL_OPTION_KEYS``      — the tuple (source of truth)
+2. ``dodaios/core/config.py::OllamaModelOptions``            — the Pydantic fields
+3. ``dodaios/brain/ollama_profiles.py::BAKEABLE_KEYS``       — a subset the profile bakes
+4. ``dodaios/ui/web/frontend/src/lib/ollamaModelOptions.ts`` — the TS const array + interface
 5. the route body (``OllamaModelOptionsBody`` in ``local_models_routes.py``)
    — checked when that module exists, so the chunk that adds the routes
    inherits the gate without touching this file.
@@ -19,11 +19,11 @@ import importlib
 import re
 from pathlib import Path
 
-from jarvis.brain.ollama_profiles import BAKEABLE_KEYS
-from jarvis.core.config import OLLAMA_MODEL_OPTION_KEYS, OllamaModelOptions
+from dodaios.brain.ollama_profiles import BAKEABLE_KEYS
+from dodaios.core.config import OLLAMA_MODEL_OPTION_KEYS, OllamaModelOptions
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-TS_FILE = REPO_ROOT / "jarvis/ui/web/frontend/src/lib/ollamaModelOptions.ts"
+TS_FILE = REPO_ROOT / "dodaios/ui/web/frontend/src/lib/ollamaModelOptions.ts"
 
 
 def _ts_const_array(name: str) -> list[str]:
@@ -75,7 +75,7 @@ def test_typescript_bakeable_keys_match() -> None:
 def test_route_body_matches_when_the_routes_exist() -> None:
     """Chunk 4 adds ``OllamaModelOptionsBody``; until then this is a no-op."""
     try:
-        module = importlib.import_module("jarvis.ui.web.local_models_routes")
+        module = importlib.import_module("dodaios.ui.web.local_models_routes")
     except ImportError:
         return
     body = getattr(module, "OllamaModelOptionsBody", None)

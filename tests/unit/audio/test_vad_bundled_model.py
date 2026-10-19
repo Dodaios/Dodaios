@@ -1,14 +1,14 @@
 """The Silero VAD model ships in the BASE install (regression guard).
 
 This pins the fix for the "voice only works on the maintainer's machine" bug
-(2026-07-04). End-of-speech detection (``jarvis/audio/vad.py``) runs the Silero
+(2026-07-04). End-of-speech detection (``dodaios/audio/vad.py``) runs the Silero
 ONNX model torch-free via base ``onnxruntime`` — but the model file used to be
 reachable only inside the ``silero-vad`` pip package. So on a fresh base install
 the wake word fired, then the
 first voice frame raised ``RuntimeError('silero_vad package not installed')`` and
 the utterance was never captured: Jarvis kept "listening" and never advanced.
 
-The model is now bundled as an ~2.2 MB MIT asset under ``jarvis/assets/vad/`` and
+The model is now bundled as an ~2.2 MB MIT asset under ``dodaios/assets/vad/`` and
 loaded from there directly. These tests fail-closed against that recurrence: the
 asset must ship in wheels and frozen builds, the loader must use it without the
 package, and the redundant torch-pulling package must stay absent from every
@@ -27,9 +27,9 @@ import numpy as np
 import pytest
 from packaging.requirements import Requirement
 
-from jarvis.assets import bundled_silero_vad_model
-from jarvis.audio.vad import SileroEndpointer
-from jarvis.core.protocols import AudioChunk
+from dodaios.assets import bundled_silero_vad_model
+from dodaios.audio.vad import SileroEndpointer
+from dodaios.core.protocols import AudioChunk
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
@@ -56,7 +56,7 @@ def _optional_dep_names() -> set[str]:
 def test_silero_vad_model_is_bundled() -> None:
     path = bundled_silero_vad_model()
     assert path is not None, (
-        "The Silero VAD model must be bundled under jarvis/assets/vad/ so "
+        "The Silero VAD model must be bundled under dodaios/assets/vad/ so "
         "end-of-speech detection works on a fresh base install. Without it the "
         "voice loop hears the wake word but never closes the utterance."
     )
@@ -69,7 +69,7 @@ def test_wheel_package_data_includes_bundled_assets() -> None:
     """Setuptools must carry the model from the source tree into every wheel."""
     data = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     patterns = data.get("tool", {}).get("setuptools", {}).get("package-data", {})
-    assert "assets/**/*" in patterns.get("jarvis", [])
+    assert "assets/**/*" in patterns.get("dodaios", [])
 
 
 def test_silero_vad_package_is_absent_from_every_install_profile() -> None:
@@ -77,7 +77,7 @@ def test_silero_vad_package_is_absent_from_every_install_profile() -> None:
     base = _base_dep_names()
     assert "silero-vad" not in base, (
         "silero-vad pulls torch and must NOT be a base dependency; the model is "
-        "bundled instead (jarvis/assets/vad/), so base needs only onnxruntime."
+        "bundled instead (dodaios/assets/vad/), so base needs only onnxruntime."
     )
     assert "onnxruntime" in base
     assert "silero-vad" not in _optional_dep_names(), (
@@ -140,7 +140,7 @@ def test_pyinstaller_spec_collects_bundled_vad_asset(monkeypatch, platform) -> N
     )
     bundled = bundled_silero_vad_model()
     assert bundled is not None
-    expected = (str(bundled), str(Path("jarvis/assets/vad")))
+    expected = (str(bundled), str(Path("dodaios/assets/vad")))
     assert expected in globals_after_run["datas"]
 
 

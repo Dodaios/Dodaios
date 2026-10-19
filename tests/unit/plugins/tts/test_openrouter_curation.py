@@ -2,8 +2,8 @@
 active-provider catalog must offer Inworld (the new default)."""
 from __future__ import annotations
 
-from jarvis.brain.model_catalog import TTS_CATALOG
-from jarvis.plugins.tts import curated_catalog as cc
+from dodaios.brain.model_catalog import TTS_CATALOG
+from dodaios.plugins.tts import curated_catalog as cc
 
 _SLOP = {
     "hexgrad/kokoro-82m",

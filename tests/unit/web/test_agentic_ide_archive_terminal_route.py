@@ -7,8 +7,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.agentic_ide.session import SessionError
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide.session import SessionError
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 def _terminal(name: str, *, archived: bool = False) -> SimpleNamespace:

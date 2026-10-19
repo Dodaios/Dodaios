@@ -524,7 +524,7 @@ skills:
       # brand word, and a play-verb next to a music noun is the GENERIC music
       # capture that plugin-spotify owns by design ("Generic capture lands
       # here, then music_service swaps to the preferred connected connector" —
-      # plugin-spotify/SKILL.md, jarvis/core/music_service.py §3). Demanding a
+      # plugin-spotify/SKILL.md, dodaios/core/music_service.py §3). Demanding a
       # brand-only skill win a brand-less sentence asked the matcher to
       # contradict the shipped routing doctrine; the connector is corrected at
       # execute time by reroute_music_tool, which is the real boundary.

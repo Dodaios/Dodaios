@@ -1,4 +1,4 @@
-"""Tests for jarvis.missions.worker_runtime.workspace (the managed AGENTS.md marker)."""
+"""Tests for dodaios.missions.worker_runtime.workspace (the managed AGENTS.md marker)."""
 from __future__ import annotations
 
 import subprocess
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.worker_runtime.workspace import (
+from dodaios.missions.worker_runtime.workspace import (
     _agents_md,
     materialize_worker_contract,
 )

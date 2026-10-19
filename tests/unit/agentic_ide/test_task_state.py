@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import activity, notifications, task_state
+from dodaios.agentic_ide import activity, notifications, task_state
 
 
 @pytest.fixture(autouse=True)

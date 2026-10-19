@@ -7,7 +7,7 @@ threading through the fragile GUI layers.
 """
 from __future__ import annotations
 
-from jarvis.overlay.drop_bridge import (
+from dodaios.overlay.drop_bridge import (
     dispatch_drop,
     set_drop_handler,
 )

@@ -12,16 +12,16 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.plugins.tool.delegate_to_agent import DelegateToAgentTool
-from jarvis.plugins.tool.message_agent import LeadMessageAgentTool
-from jarvis.society.agent_tools import MessageAgentTool
-from jarvis.society.chat_binding import frame_assignment, frame_incoming, make_deliver_hook
-from jarvis.society.communication import reply_policy
-from jarvis.society.delivery import IncomingMessage, incoming_context
-from jarvis.society.events import MsgType, SocietyEnvelope
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.plugins.tool.delegate_to_agent import DelegateToAgentTool
+from dodaios.plugins.tool.message_agent import LeadMessageAgentTool
+from dodaios.society.agent_tools import MessageAgentTool
+from dodaios.society.chat_binding import frame_assignment, frame_incoming, make_deliver_hook
+from dodaios.society.communication import reply_policy
+from dodaios.society.delivery import IncomingMessage, incoming_context
+from dodaios.society.events import MsgType, SocietyEnvelope
+from dodaios.society.runtime import SocietyRuntime
 
 
 class Chat:
@@ -336,8 +336,8 @@ def test_legacy_defaults_and_serialization():
 
 
 async def test_real_chat_completion_hook_returns_final_answer(tmp_path, monkeypatch):
-    from jarvis.agent_chat import service as service_module
-    from jarvis.agent_chat.events import make_event
+    from dodaios.agent_chat import service as service_module
+    from dodaios.agent_chat.events import make_event
 
     async def receiver(handle, prompt, **kwargs):
         await handle.emit(

@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.contacts.store import ContactStore
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.contact_mirror import ContactWikiMirror
-from jarvis.memory.wiki.page import MarkdownPageRepository
+from dodaios.contacts.store import ContactStore
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.contact_mirror import ContactWikiMirror
+from dodaios.memory.wiki.page import MarkdownPageRepository
 
 
 @pytest.fixture()
@@ -93,7 +93,7 @@ async def test_reconcile_heals_missing_and_is_idempotent(env):
 
 async def test_on_contact_changed_routes_actions(env):
     vault, store, mirror = env
-    from jarvis.core.events import ContactChanged
+    from dodaios.core.events import ContactChanged
 
     contact = store.put(name="Laura")
     await mirror.on_contact_changed(

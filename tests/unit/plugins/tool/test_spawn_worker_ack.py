@@ -25,15 +25,15 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.plugins.tool.spawn_worker as spawn_worker_module
-from jarvis.brain.ack_brain.spawn_announcement import (
+import dodaios.plugins.tool.spawn_worker as spawn_worker_module
+from dodaios.brain.ack_brain.spawn_announcement import (
     _FALLBACK_ALREADY_RUNNING,
     _FALLBACK_SPAWN,
     _fix_en_article,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.spawn_worker import SpawnWorkerTool
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.spawn_worker import SpawnWorkerTool
 
 
 def _rendered(pool: tuple[str, ...]) -> set[str]:

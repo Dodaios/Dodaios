@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.events import MsgType, RoomState
-from jarvis.society.failure_reasons import FailureReason
-from jarvis.society.rooms import MAX_MESSAGES, MAX_ROUNDS, RoomError, Rooms
-from jarvis.society.store import SocietyStore
+from dodaios.society.events import MsgType, RoomState
+from dodaios.society.failure_reasons import FailureReason
+from dodaios.society.rooms import MAX_MESSAGES, MAX_ROUNDS, RoomError, Rooms
+from dodaios.society.store import SocietyStore
 
 
 @pytest.fixture

@@ -23,10 +23,10 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.mcp.client as client_mod
-import jarvis.mcp.registry as registry_mod
-from jarvis.mcp.client import MCPClient
-from jarvis.mcp.registry import MCPRegistry, MCPServerSpec
+import dodaios.mcp.client as client_mod
+import dodaios.mcp.registry as registry_mod
+from dodaios.mcp.client import MCPClient
+from dodaios.mcp.registry import MCPRegistry, MCPServerSpec
 
 
 def _spec(name: str = "hang-mcp") -> MCPServerSpec:

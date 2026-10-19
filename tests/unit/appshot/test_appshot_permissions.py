@@ -14,14 +14,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.appshot import gesture, hotkey, region
-from jarvis.appshot import service as appshot_service
-from jarvis.appshot.service import _pick_area
-from jarvis.core.events import ConfigReloaded
-from jarvis.platform import permission_service, screen_access
-from jarvis.screen_context.models import IntentVerdict, VisualIntent
-from jarvis.screen_context.service import ScreenContextService
-from jarvis.ui.web import appshot_routes
+from dodaios.appshot import gesture, hotkey, region
+from dodaios.appshot import service as appshot_service
+from dodaios.appshot.service import _pick_area
+from dodaios.core.events import ConfigReloaded
+from dodaios.platform import permission_service, screen_access
+from dodaios.screen_context.models import IntentVerdict, VisualIntent
+from dodaios.screen_context.service import ScreenContextService
+from dodaios.ui.web import appshot_routes
 from tests.fakes.fake_permission_service import FakePermissionService
 
 
@@ -35,9 +35,9 @@ def gate(monkeypatch):
 
 @pytest.fixture
 def desktop(monkeypatch):
-    import jarvis.core.instance as instance
-    import jarvis.platform as platform
-    import jarvis.platform.probes as probes
+    import dodaios.core.instance as instance
+    import dodaios.platform as platform
+    import dodaios.platform.probes as probes
 
     monkeypatch.setattr(platform, "detect_platform", lambda: "darwin")
     monkeypatch.setattr(probes, "display_present", lambda: True)
@@ -160,7 +160,7 @@ def test_every_appshot_scope_has_the_same_permission_feature(evidence, feature):
 
 @pytest.mark.parametrize("platform", ["win32", "linux"])
 async def test_shortcut_save_never_requests_macos_access_elsewhere(monkeypatch, gate, platform):
-    monkeypatch.setattr("jarvis.platform.detect_platform", lambda: platform)
+    monkeypatch.setattr("dodaios.platform.detect_platform", lambda: platform)
     await hotkey.request_saved_shortcut_access(
         {"window": "alt+alt", "region": ""},
         {"window": "ctrl+alt+a", "region": ""},
@@ -217,10 +217,10 @@ async def test_disable_stops_watchers_and_config_reload_reenables_without_prompt
     gate,
     desktop,
 ):
-    import jarvis.appshot.gesture as gesture
+    import dodaios.appshot.gesture as gesture
 
     config = _config()
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: config)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: config)
     running = []
 
     class Watcher:
@@ -256,7 +256,7 @@ async def test_disable_stops_watchers_and_config_reload_reenables_without_prompt
 
 
 async def test_combo_status_tracks_waiting_grant_and_listener_shutdown(monkeypatch, gate, desktop):
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: _config(window="ctrl+alt+a"))
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: _config(window="ctrl+alt+a"))
     # Only the combo is relevant to this test.
     monkeypatch.setattr(hotkey, "configured_hotkeys", lambda _block: {"window": "ctrl+alt+a"})
 
@@ -277,7 +277,7 @@ async def test_combo_status_tracks_waiting_grant_and_listener_shutdown(monkeypat
             await asyncio.Event().wait()
             yield "appshot"
 
-    monkeypatch.setattr("jarvis.trigger.hotkey.HotkeyTrigger", Trigger)
+    monkeypatch.setattr("dodaios.trigger.hotkey.HotkeyTrigger", Trigger)
     shortcut = hotkey.AppshotShortcut(object())
     try:
         await shortcut.reload()
@@ -306,10 +306,10 @@ def test_readiness_is_backend_support_and_does_not_request_consent(
     wayland,
     supported,
 ):
-    monkeypatch.setattr("jarvis.platform.probes.display_present", lambda: display)
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", lambda: wayland)
+    monkeypatch.setattr("dodaios.platform.probes.display_present", lambda: display)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", lambda: wayland)
     monkeypatch.setattr(
-        "jarvis.cu.indicator.controller.screen_indicator_capability", lambda: (True, "")
+        "dodaios.cu.indicator.controller.screen_indicator_capability", lambda: (True, "")
     )
     monkeypatch.setattr("importlib.util.find_spec", lambda _name: object())
     gate.script("screen_recording", "denied")
@@ -339,12 +339,12 @@ def test_settings_save_asks_after_writing_and_reloads_on_enable_change(
 ):
     config = _config(enabled=enabled)
     events = []
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: config)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: config)
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_appshot_settings", lambda values: events.append("write")
+        "dodaios.core.config_writer.set_appshot_settings", lambda values: events.append("write")
     )
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_screen_context_settings",
+        "dodaios.core.config_writer.set_screen_context_settings",
         lambda values: events.append("write"),
     )
     monkeypatch.setattr(appshot_routes, "_settings_payload", lambda: {"saved": True})
@@ -366,9 +366,9 @@ def test_settings_save_asks_after_writing_and_reloads_on_enable_change(
 def test_disable_is_available_even_with_duplicate_legacy_shortcuts(monkeypatch, gate, desktop):
     config = _config(window="shift+shift")
     writes = []
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: config)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: config)
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_screen_context_settings", writes.append,
+        "dodaios.core.config_writer.set_screen_context_settings", writes.append,
     )
     monkeypatch.setattr(appshot_routes, "_settings_payload", lambda: {"enabled": False})
     monkeypatch.setattr(hotkey, "get_shortcut", lambda: None)
@@ -382,8 +382,8 @@ def test_disable_is_available_even_with_duplicate_legacy_shortcuts(monkeypatch, 
 
 @pytest.fixture
 def mac_keys(monkeypatch, gate):
-    monkeypatch.setattr("jarvis.platform.detect_platform", lambda: "darwin")
-    monkeypatch.setattr("jarvis.platform.probes.display_present", lambda: True)
+    monkeypatch.setattr("dodaios.platform.detect_platform", lambda: "darwin")
+    monkeypatch.setattr("dodaios.platform.probes.display_present", lambda: True)
     monkeypatch.setattr(gesture, "_macos_probe", lambda family: f"probe:{family}")
     return gate
 
@@ -428,7 +428,7 @@ async def test_the_area_picker_never_opens_for_a_refusal_asking_cannot_fix(monke
     monkeypatch.setattr(appshot_service, "_load_config", _region_config)
     monkeypatch.setattr(appshot_service, "_pick_area", pick_area)
     monkeypatch.setattr(
-        "jarvis.screen_context.turn.get_service",
+        "dodaios.screen_context.turn.get_service",
         lambda bus=None: _IssueService("wayland_portal", "Use an X11 session."),
     )
 
@@ -452,7 +452,7 @@ async def test_a_missing_screen_recording_grant_is_left_to_the_just_in_time_ask(
     monkeypatch.setattr(appshot_service, "_load_config", _region_config)
     monkeypatch.setattr(appshot_service, "_pick_area", pick_area)
     monkeypatch.setattr(
-        "jarvis.screen_context.turn.get_service",
+        "dodaios.screen_context.turn.get_service",
         lambda bus=None: _IssueService("capture_permission", "Grant Screen Recording first."),
     )
 

@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.critic.prompts import (
+from dodaios.missions.critic.prompts import (
     ADVERSARIAL_REFRAME_PREFIX,
     CODEX_FLAT_OUTPUT_CONTRACT,
     CRITIC_SYSTEM_PROMPT,
     render_critic_prompt,
 )
-from jarvis.missions.critic.verdict import CRITIC_JSON_SCHEMA
+from dodaios.missions.critic.verdict import CRITIC_JSON_SCHEMA
 
 # --- No defect quota ---
 
@@ -151,8 +151,8 @@ def test_every_verified_evidence_block_carries_the_ground_truth_marker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The prompt refers to ``# ground-truth:``; every block renderer must emit it."""
-    from jarvis.missions.critic import runner
-    from jarvis.missions.kontrollierer import orchestrator
+    from dodaios.missions.critic import runner
+    from dodaios.missions.kontrollierer import orchestrator
 
     blocks = [
         orchestrator._format_external_write_block(Path("C:/out/report.md"), b"hello"),
@@ -240,7 +240,7 @@ def test_render_anchor_present_in_both_modes() -> None:
 def test_the_prompt_schema_drops_titles_but_keeps_the_contract() -> None:
     import json
 
-    from jarvis.missions.critic.runner import _schema_for_prompt
+    from dodaios.missions.critic.runner import _schema_for_prompt
 
     rendered = _schema_for_prompt(CRITIC_JSON_SCHEMA)
     assert '"title"' not in rendered

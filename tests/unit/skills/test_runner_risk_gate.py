@@ -4,8 +4,8 @@ A skill's ``TOOL:`` line must never bypass the same risk-tier discipline
 every other tool invocation goes through. Before this fix, ``_check_risk``
 was a no-op whenever no ``safety_enforcer`` was injected — which was ALWAYS
 true, since none of the three production construction sites ever passed one
-(``jarvis/ui/desktop_app.py``, ``jarvis/brain/factory.py``,
-``jarvis/skills/cli.py``). These tests pin the fail-closed internal gate:
+(``dodaios/ui/desktop_app.py``, ``dodaios/brain/factory.py``,
+``dodaios/skills/cli.py``). These tests pin the fail-closed internal gate:
 ``block`` refuses, ``ask`` refuses (skills/cron triggers have no interactive
 human to approve), ``safe``/``monitor`` still execute.
 """
@@ -16,11 +16,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import SafetyConfig
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.skills.runner import SkillRunner
-from jarvis.skills.schema import (
+from dodaios.core.config import SafetyConfig
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.skills.runner import SkillRunner
+from dodaios.skills.schema import (
     Skill,
     SkillFrontmatter,
     SkillLifecycleState,

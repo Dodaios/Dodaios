@@ -10,8 +10,8 @@ normal "already running" handling untouched.
 
 from __future__ import annotations
 
-from jarvis.ui import desktop_app
-from jarvis.ui.web import launcher
+from dodaios.ui import desktop_app
+from dodaios.ui.web import launcher
 
 
 class _Clock:

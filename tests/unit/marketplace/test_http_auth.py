@@ -8,9 +8,9 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.marketplace.http_auth import PluginHttpAuth
-from jarvis.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.http_auth import PluginHttpAuth
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 from tests.fakes.fake_plugin_http import PluginMcpTransport, RotatingPluginHandler
 
 URL = "https://plugin.example/mcp"
@@ -232,7 +232,7 @@ async def test_registry_and_real_sdk_survive_rotation_mid_session(monkeypatch, p
     """Run real SDK initialization, tools/list and tools/call through the registry."""
     import mcp.client.streamable_http as sdk
 
-    from jarvis.marketplace.plugin_registry import PluginToolRegistry
+    from dodaios.marketplace.plugin_registry import PluginToolRegistry
 
     store, handler, _ = _setup()
     original_tokens = store.load("notion")

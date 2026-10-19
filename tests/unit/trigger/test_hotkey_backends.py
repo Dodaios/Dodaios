@@ -42,8 +42,8 @@ def patch_platform(monkeypatch):
     Patches both the source modules and the names re-imported inside the factory
     so ``make_hotkey_backend`` sees the fake platform/capability shape.
     """
-    import jarvis.platform as plat
-    import jarvis.platform.capabilities as caps_mod
+    import dodaios.platform as plat
+    import dodaios.platform.capabilities as caps_mod
 
     def _apply(platform_name: str, has_hotkey: bool) -> None:
         monkeypatch.setattr(plat, "detect_platform", lambda: platform_name)
@@ -66,8 +66,8 @@ def patch_platform(monkeypatch):
 
 
 def test_factory_selects_global_hotkeys_on_windows(patch_platform):
-    from jarvis.trigger.backends import make_hotkey_backend
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends import make_hotkey_backend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     patch_platform("win32", has_hotkey=True)
     backend = make_hotkey_backend()
@@ -76,9 +76,9 @@ def test_factory_selects_global_hotkeys_on_windows(patch_platform):
 
 def test_factory_selects_quartz_on_macos_with_hotkey(patch_platform):
     """macOS gets the TSM-free Quartz tap backend, never pynput (BUG-077)."""
-    from jarvis.trigger.backends import make_hotkey_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends import make_hotkey_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     patch_platform("darwin", has_hotkey=True)
     backend = make_hotkey_backend()
@@ -87,8 +87,8 @@ def test_factory_selects_quartz_on_macos_with_hotkey(patch_platform):
 
 
 def test_factory_selects_pynput_on_linux_x11(patch_platform):
-    from jarvis.trigger.backends import make_hotkey_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends import make_hotkey_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     patch_platform("linux", has_hotkey=True)
     backend = make_hotkey_backend()
@@ -97,8 +97,8 @@ def test_factory_selects_pynput_on_linux_x11(patch_platform):
 
 def test_factory_selects_noop_on_wayland(patch_platform):
     """Wayland → has_hotkey False → NoopBackend, never raises (AD-8)."""
-    from jarvis.trigger.backends import make_hotkey_backend
-    from jarvis.trigger.backends.noop import NoopBackend
+    from dodaios.trigger.backends import make_hotkey_backend
+    from dodaios.trigger.backends.noop import NoopBackend
 
     patch_platform("linux", has_hotkey=False)
     backend = make_hotkey_backend()
@@ -106,8 +106,8 @@ def test_factory_selects_noop_on_wayland(patch_platform):
 
 
 def test_factory_never_returns_global_hotkeys_off_windows(patch_platform):
-    from jarvis.trigger.backends import make_hotkey_backend
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends import make_hotkey_backend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     for platform_name, has_hotkey in (("darwin", True), ("linux", True), ("linux", False)):
         patch_platform(platform_name, has_hotkey=has_hotkey)
@@ -123,7 +123,7 @@ def test_factory_never_returns_global_hotkeys_off_windows(patch_platform):
 @pytest.fixture()
 def fake_gh():
     """Install a fresh FakeGlobalHotkeys + reset the relocated refcount."""
-    import jarvis.trigger.backends.global_hotkeys as ghb
+    import dodaios.trigger.backends.global_hotkeys as ghb
 
     fake = FakeGlobalHotkeys()
     saved = sys.modules.get("global_hotkeys")
@@ -146,8 +146,8 @@ def _rows():
 
 
 def test_global_backend_refcount_zero_to_one_starts_checker(fake_gh):
-    import jarvis.trigger.backends.global_hotkeys as ghb
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    import dodaios.trigger.backends.global_hotkeys as ghb
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     rows, _ = _rows()
     backend = GlobalHotkeysBackend()
@@ -167,7 +167,7 @@ def test_global_backend_refcount_zero_to_one_starts_checker(fake_gh):
 
 def test_global_backend_two_instances_share_one_checker(fake_gh):
     """Relocated single-checker invariant: peak live checkers stays at 1."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     a = GlobalHotkeysBackend()
     a.register([["f3 + f4", None, lambda: None]])
@@ -185,7 +185,7 @@ def test_global_backend_two_instances_share_one_checker(fake_gh):
 
 def test_global_backend_delivers_one_ptt_press_release_pair(fake_gh):
     """Windows keeps distinct down/up callbacks for a held PTT chord."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     edges: list[str] = []
     backend = GlobalHotkeysBackend()
@@ -203,7 +203,7 @@ def test_global_backend_delivers_one_ptt_press_release_pair(fake_gh):
 
 def test_global_backend_toggle_ends_on_the_first_lifted_key(fake_gh):
     """A toggle fires again while one key stays held; push-to-talk does not."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     def handler() -> None:
         return None
@@ -219,7 +219,7 @@ def test_global_backend_toggle_ends_on_the_first_lifted_key(fake_gh):
 
 def test_global_backend_unregister_removes_by_string(fake_gh):
     """REGRESSION: unregister must pass combo STRINGS, never the rows."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     backend = GlobalHotkeysBackend()
     backend.register([["f1 + f2", None, lambda: None]])
@@ -234,8 +234,8 @@ def test_global_backend_unregister_removes_by_string(fake_gh):
 
 def test_global_backend_register_failure_degrades(fake_gh):
     """A register failure leaves the backend inert and the refcount balanced."""
-    import jarvis.trigger.backends.global_hotkeys as ghb
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    import dodaios.trigger.backends.global_hotkeys as ghb
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     fake_gh.register_error = Exception("simulated register failure")
     backend = GlobalHotkeysBackend()
@@ -253,7 +253,7 @@ def test_global_backend_one_bad_combo_does_not_disable_others(fake_gh):
     so one unknown key name raised and EVERY hotkey (incl. F1+F2) died. Now each
     binding is armed individually: the bad one is skipped, the rest stay live.
     """
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     fired: list[str] = []
     # "numpad_x" stands in for any combo the library cannot register.
@@ -283,8 +283,8 @@ def test_global_backend_one_bad_combo_does_not_disable_others(fake_gh):
 
 def test_global_backend_all_combos_bad_degrades(fake_gh):
     """If NOT ONE combo registers, degrade so the checker never starts empty."""
-    import jarvis.trigger.backends.global_hotkeys as ghb
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    import dodaios.trigger.backends.global_hotkeys as ghb
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     fake_gh.register_error_combos = {"numpad_x"}
     backend = GlobalHotkeysBackend()
@@ -313,7 +313,7 @@ def test_altgr_combo_is_also_armed_with_the_ctrl_the_driver_injects(fake_gh):
     AltGr's phantom Ctrl is down — i.e. on every real press of that very key.
     Arming the Ctrl-carrying chord as well is what makes the user's choice work.
     """
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     fired: list[str] = []
     backend = GlobalHotkeysBackend()
@@ -336,7 +336,7 @@ def test_right_ctrl_combo_names_the_generic_ctrl_it_raises(fake_gh):
     still fires only on the right-hand key: the left one never raises
     ``right_control``.
     """
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     fired: list[str] = []
     backend = GlobalHotkeysBackend()
@@ -358,7 +358,7 @@ def test_compatibility_chord_never_steals_one_another_action_chose(fake_gh):
     second action spelled out. Registering it twice is impossible, so the
     explicit owner keeps it and only its handler runs.
     """
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     fired: list[str] = []
     backend = GlobalHotkeysBackend()
@@ -376,7 +376,7 @@ def test_compatibility_chord_never_steals_one_another_action_chose(fake_gh):
 
 def test_compatibility_chord_is_removed_on_teardown(fake_gh):
     """Both chords must come off, or re-entry dies on "already registered"."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     backend = GlobalHotkeysBackend()
     backend.register([["alt + j", None, lambda: None]])
@@ -388,7 +388,7 @@ def test_compatibility_chord_is_removed_on_teardown(fake_gh):
 
 def test_registration_combos_leaves_ordinary_chords_alone():
     """No variant for a chord Windows reports exactly as pressed."""
-    from jarvis.trigger.backends.global_hotkeys import _registration_combos
+    from dodaios.trigger.backends.global_hotkeys import _registration_combos
 
     assert _registration_combos("f1 + f2") == ["f1 + f2"]
     assert _registration_combos("control + alt + j") == ["control + alt + j"]
@@ -398,7 +398,7 @@ def test_registration_combos_leaves_ordinary_chords_alone():
 
 def test_global_backend_missing_package_degrades():
     """No global_hotkeys package → register degrades to a no-op, no raise."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     saved = sys.modules.get("global_hotkeys")
     sys.modules["global_hotkeys"] = None  # forces ImportError on `import`
@@ -422,11 +422,11 @@ def test_global_backend_missing_package_degrades():
 
 
 def test_noop_backend_logs_once_then_no_ops(caplog):
-    import jarvis.trigger.backends.noop as noop_mod
-    from jarvis.trigger.backends.noop import NoopBackend
+    import dodaios.trigger.backends.noop as noop_mod
+    from dodaios.trigger.backends.noop import NoopBackend
 
     noop_mod._reset_noop_log_flag_for_tests()
-    with caplog.at_level(logging.INFO, logger="jarvis.trigger.backends.noop"):
+    with caplog.at_level(logging.INFO, logger="dodaios.trigger.backends.noop"):
         NoopBackend()
         NoopBackend()  # second construction must NOT log again
     explained = [r for r in caplog.records if "Global hotkeys are unavailable" in r.getMessage()]
@@ -441,20 +441,20 @@ def test_noop_backend_explains_the_ACTUAL_reason(monkeypatch):
     to a diagnostic. The reason is measured now, so each host gets the remedy
     that actually applies to it.
     """
-    from jarvis.trigger.backends.noop import explain_unavailable
+    from dodaios.trigger.backends.noop import explain_unavailable
 
-    monkeypatch.setattr("jarvis.platform.detect_platform", lambda: "linux")
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", lambda: True)
+    monkeypatch.setattr("dodaios.platform.detect_platform", lambda: "linux")
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", lambda: True)
     wayland = explain_unavailable()
     assert "Wayland" in wayland
     assert "pip install" not in wayland  # nothing to install fixes Wayland
 
-    monkeypatch.setattr("jarvis.platform.probes.is_wayland", lambda: False)
+    monkeypatch.setattr("dodaios.platform.probes.is_wayland", lambda: False)
     x11 = explain_unavailable()
     assert "desktop-linux" in x11  # the extra that actually fixes X11
     assert "Wayland" not in x11
 
-    monkeypatch.setattr("jarvis.platform.detect_platform", lambda: "darwin")
+    monkeypatch.setattr("dodaios.platform.detect_platform", lambda: "darwin")
     macos = explain_unavailable()
     # A listen-only tap needs Input Monitoring only; there is no wizard and no restart.
     assert "Input Monitoring" in macos and "Quartz" in macos
@@ -464,18 +464,18 @@ def test_noop_backend_explains_the_ACTUAL_reason(monkeypatch):
 
 def test_noop_backend_reason_never_raises(monkeypatch):
     """A failing probe must still yield a usable sentence."""
-    from jarvis.trigger.backends.noop import explain_unavailable
+    from dodaios.trigger.backends.noop import explain_unavailable
 
     def _boom():
         raise OSError("probe exploded")
 
-    monkeypatch.setattr("jarvis.platform.detect_platform", _boom)
+    monkeypatch.setattr("dodaios.platform.detect_platform", _boom)
     message = explain_unavailable()
     assert message and "wake word" in message
 
 
 def test_noop_backend_methods_never_raise():
-    from jarvis.trigger.backends.noop import NoopBackend
+    from dodaios.trigger.backends.noop import NoopBackend
 
     backend = NoopBackend()
     # Every lifecycle call is a safe no-op.
@@ -488,7 +488,7 @@ def test_noop_backend_methods_never_raise():
 
 def test_noop_backend_message_is_english():
     """The degrade message is English (output-language policy) + mentions wake."""
-    import jarvis.trigger.backends.noop as noop_mod
+    import dodaios.trigger.backends.noop as noop_mod
 
     # Inspect the source so the assertion does not depend on log capture timing.
     src = inspect.getsource(noop_mod.explain_unavailable)
@@ -502,13 +502,13 @@ def test_noop_backend_message_is_english():
 
 
 def test_pynput_combo_translation_modifiers_and_key():
-    from jarvis.trigger.backends.pynput import _parse_combo_tokens
+    from dodaios.trigger.backends.pynput import _parse_combo_tokens
 
     assert _parse_combo_tokens("control + alt + j") == ("ctrl", "alt", "j")
 
 
 def test_pynput_combo_translation_fkeys_passthrough():
-    from jarvis.trigger.backends.pynput import _parse_combo_tokens
+    from dodaios.trigger.backends.pynput import _parse_combo_tokens
 
     assert _parse_combo_tokens("f1 + f2") == ("f1", "f2")
     assert _parse_combo_tokens("f3 + f4") == ("f3", "f4")
@@ -516,7 +516,7 @@ def test_pynput_combo_translation_fkeys_passthrough():
 
 def test_pynput_linux_right_alt_drives_one_ptt_edge_pair():
     """Linux-X11 reports right Alt as ``alt_r``; generic Alt must match it."""
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     edges: list[str] = []
     backend = PynputBackend()
@@ -535,7 +535,7 @@ def test_pynput_linux_right_alt_drives_one_ptt_edge_pair():
 
 def test_pynput_backend_register_does_not_import_pynput():
     """register() only stashes rows — no pynput import, so it works here."""
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     backend = PynputBackend()
     backend.register([["control + alt + j", lambda: None, lambda: None]])
@@ -545,7 +545,7 @@ def test_pynput_backend_register_does_not_import_pynput():
 
 def test_pynput_rearm_refuses_duplicate_when_old_listener_is_stuck(caplog):
     """Linux keeps wake usable instead of stacking a second global hook."""
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     class _StuckListener:
         def stop(self) -> None:
@@ -560,7 +560,7 @@ def test_pynput_rearm_refuses_duplicate_when_old_listener_is_stuck(caplog):
     backend = PynputBackend()
     backend._listener = _StuckListener()
     backend._started = True
-    with caplog.at_level(logging.WARNING, logger="jarvis.trigger.backends.pynput"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.trigger.backends.pynput"):
         backend.stop()
         backend.start()
 
@@ -571,13 +571,13 @@ def test_pynput_rearm_refuses_duplicate_when_old_listener_is_stuck(caplog):
 
 def test_pynput_backend_start_degrades_without_pynput(caplog):
     """When pynput is absent, start() logs + degrades — never raises (AD-6)."""
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     if sys.modules.get("pynput") is not None and _pynput_importable():
         pytest.skip("pynput is installed here — degrade path not exercised")
     backend = PynputBackend()
     backend.register([["control + alt + j", None, lambda: None]])
-    with caplog.at_level(logging.WARNING, logger="jarvis.trigger.backends.pynput"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.trigger.backends.pynput"):
         backend.start()  # must not raise
     backend.stop()  # idempotent, never raises
     assert backend._listener is None
@@ -603,7 +603,7 @@ def _pynput_importable() -> bool:
 )
 def test_pynput_backend_real_listener_lifecycle():
     pytest.importorskip("pynput")
-    from jarvis.trigger.backends.pynput import PynputBackend, _reset_listener_state_for_tests
+    from dodaios.trigger.backends.pynput import PynputBackend, _reset_listener_state_for_tests
 
     _reset_listener_state_for_tests()
     backend = PynputBackend()
@@ -648,8 +648,8 @@ def test_pynput_backend_darwin_without_input_monitoring_degrades(monkeypatch, ca
     # process (uncatchable — BUG-058 class). The backend must preflight the
     # grant and degrade instead of touching pynput at all, and its text names
     # Input Monitoring only (a listen-only tap needs nothing else).
-    import jarvis.trigger.backends.pynput as pynput_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
+    import dodaios.trigger.backends.pynput as pynput_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     built: list = []
     _install_fake_pynput(monkeypatch, built)
@@ -666,8 +666,8 @@ def test_pynput_backend_darwin_without_input_monitoring_degrades(monkeypatch, ca
 
 def test_pynput_backend_darwin_unverifiable_grant_degrades(monkeypatch, caplog):
     # pyobjc absent -> probe returns None -> fail closed on darwin.
-    import jarvis.trigger.backends.pynput as pynput_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
+    import dodaios.trigger.backends.pynput as pynput_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     built: list = []
     _install_fake_pynput(monkeypatch, built)
@@ -684,8 +684,8 @@ def test_pynput_backend_darwin_unverifiable_grant_degrades(monkeypatch, caplog):
 
 
 def test_pynput_backend_darwin_with_grant_starts_listener(monkeypatch):
-    import jarvis.trigger.backends.pynput as pynput_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
+    import dodaios.trigger.backends.pynput as pynput_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     built: list = []
     _install_fake_pynput(monkeypatch, built)
@@ -702,8 +702,8 @@ def test_pynput_backend_darwin_without_layout_snapshot_degrades(monkeypatch, cap
     # listener thread calls the TIS keyboard-layout APIs off the main thread.
     # With no main-thread layout snapshot the backend must degrade — no
     # Listener at all — instead of letting the OS abort the app.
-    import jarvis.trigger.backends.pynput as pynput_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
+    import dodaios.trigger.backends.pynput as pynput_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     built: list = []
     _install_fake_pynput(monkeypatch, built)
@@ -719,8 +719,8 @@ def test_pynput_backend_darwin_without_layout_snapshot_degrades(monkeypatch, cap
 
 def test_pynput_backend_darwin_layout_guard_crash_degrades(monkeypatch, caplog):
     # A raising guard must never propagate out of start() (AD-6).
-    import jarvis.trigger.backends.pynput as pynput_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
+    import dodaios.trigger.backends.pynput as pynput_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     built: list = []
     _install_fake_pynput(monkeypatch, built)
@@ -739,8 +739,8 @@ def test_pynput_backend_darwin_layout_guard_crash_degrades(monkeypatch, caplog):
 
 def test_pynput_backend_off_darwin_needs_no_probe(monkeypatch):
     # AD-7: the preflight is darwin-only; Linux/Windows never consult it.
-    import jarvis.trigger.backends.pynput as pynput_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
+    import dodaios.trigger.backends.pynput as pynput_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     built: list = []
     _install_fake_pynput(monkeypatch, built)
@@ -756,8 +756,8 @@ def test_pynput_backend_off_darwin_needs_no_probe(monkeypatch):
 
 
 def test_pynput_backend_revoked_permission_suppresses_live_callback(monkeypatch):
-    import jarvis.trigger.backends.pynput as pynput_backend
-    from jarvis.trigger.backends.pynput import PynputBackend
+    import dodaios.trigger.backends.pynput as pynput_backend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     built: list = []
     allowed = {"value": True}
@@ -789,7 +789,7 @@ def test_pynput_backend_revoked_permission_suppresses_live_callback(monkeypatch)
 
 def test_quartz_backend_delivers_one_ptt_edge_pair() -> None:
     """Key repeat and the later modifier release never duplicate PTT edges."""
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     edges: list[str] = []
     backend = QuartzHotkeyBackend()
@@ -880,7 +880,7 @@ def _install_fake_quartz(monkeypatch):
 
 def test_quartz_rearm_fully_retires_old_event_tap(monkeypatch) -> None:
     """A Settings save cannot leave an older tap emitting duplicate edges."""
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     quartz = _install_fake_quartz(monkeypatch)
     backend = QuartzHotkeyBackend()
@@ -916,7 +916,7 @@ def test_checker_poll_is_paced_to_hotkey_poll_s() -> None:
     restart settle) and every other ``time`` attribute pass straight through."""
     import types
 
-    from jarvis.trigger.backends import global_hotkeys as ghb
+    from dodaios.trigger.backends import global_hotkeys as ghb
 
     calls: list[float] = []
     real_time = types.SimpleNamespace(sleep=calls.append, monotonic=lambda: 42.0)
@@ -937,7 +937,7 @@ def test_checker_poll_is_paced_to_hotkey_poll_s() -> None:
 def test_checker_poll_pacing_leaves_a_library_without_checker_alone() -> None:
     import types
 
-    from jarvis.trigger.backends import global_hotkeys as ghb
+    from dodaios.trigger.backends import global_hotkeys as ghb
 
     gh = types.SimpleNamespace()
     ghb._pace_checker_poll(gh)  # no hotkey_checker attribute → no-op, no raise

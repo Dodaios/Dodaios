@@ -38,4 +38,4 @@ repos:
         pass_filenames: false
         always_run: false
         # Only triggers when review-relevant files are touched.
-        files: ^(jarvis/core/review/|jarvis/plugins/tool/dispatch_with_review\.py|tests/eval/review_quality/queries\.json)
+        files: ^(dodaios/core/review/|dodaios/plugins/tool/dispatch_with_review\.py|tests/eval/review_quality/queries\.json)

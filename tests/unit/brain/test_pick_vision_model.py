@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import json
 
-import jarvis.core.config as cfg
-from jarvis.brain.model_catalog import pick_vision_model
-from jarvis.brain.model_catalog import pick_fast_vision_model
-from jarvis.cu.brain_call import _speed_tune_chain
+import dodaios.core.config as cfg
+from dodaios.brain.model_catalog import pick_vision_model
+from dodaios.brain.model_catalog import pick_fast_vision_model
+from dodaios.cu.brain_call import _speed_tune_chain
 
 
 def _write_cache(tmp_path, models, provider="openrouter"):
@@ -161,7 +161,7 @@ def test_direct_provider_flagship_falls_back_to_router_tier_default(
     # catalog pick is empty — the provider's curated router-tier default takes
     # over for the mission steps.
     monkeypatch.setattr(cfg, "DATA_DIR", tmp_path)  # no catalog cache at all
-    from jarvis.brain.manager import get_tier_default_model
+    from dodaios.brain.manager import get_tier_default_model
 
     expected = get_tier_default_model("router", "gemini")
     assert expected, "router-tier default for gemini must exist"
@@ -172,7 +172,7 @@ def test_direct_provider_flagship_falls_back_to_router_tier_default(
 def test_explicit_pin_detection_reads_raw_config_field():
     from types import SimpleNamespace
 
-    from jarvis.cu.brain_call import _explicit_cu_pin
+    from dodaios.cu.brain_call import _explicit_cu_pin
 
     class FakeManager:
         def __init__(self, cu_model, model):

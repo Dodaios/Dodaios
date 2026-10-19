@@ -13,10 +13,10 @@ from uuid import uuid4
 import pytest
 
 # config first → satisfies the writer→config→brain→voice→self_mod import order.
-import jarvis.core.config  # noqa: F401, E402  isort:skip
-from jarvis.brain.tool_use_loop import ToolUseLoop  # noqa: E402
-from jarvis.core.protocols import BrainDelta, BrainRequest, ToolResult  # noqa: E402
-from jarvis.core.self_mod import PendingMutation  # noqa: E402
+import dodaios.core.config  # noqa: F401, E402  isort:skip
+from dodaios.brain.tool_use_loop import ToolUseLoop  # noqa: E402
+from dodaios.core.protocols import BrainDelta, BrainRequest, ToolResult  # noqa: E402
+from dodaios.core.self_mod import PendingMutation  # noqa: E402
 
 
 class _ConfigTool:

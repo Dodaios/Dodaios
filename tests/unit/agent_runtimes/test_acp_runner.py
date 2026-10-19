@@ -15,11 +15,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import runner_acp
-from jarvis.agent_chat import runner_cli as rc
-from jarvis.agent_chat.runner_api import TurnHandle
-from jarvis.agent_chat.store import AgentChatSession
-from jarvis.agent_runtimes.acp import AcpTurn
+from dodaios.agent_chat import runner_acp
+from dodaios.agent_chat import runner_cli as rc
+from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.store import AgentChatSession
+from dodaios.agent_runtimes.acp import AcpTurn
 
 _AGENT = Path(__file__).resolve().parents[2] / "fakes" / "fake_acp_agent.py"
 
@@ -248,10 +248,10 @@ def model_gateway(monkeypatch):
     import uvicorn
     from fastapi import FastAPI
 
-    from jarvis.agent_runtimes import gateway
-    from jarvis.core.protocols import BrainDelta
-    from jarvis.ui.web.runtime_gateway_routes import router
-    from jarvis.ui.web.surface_security import SurfaceSecurity
+    from dodaios.agent_runtimes import gateway
+    from dodaios.core.protocols import BrainDelta
+    from dodaios.ui.web.runtime_gateway_routes import router
+    from dodaios.ui.web.surface_security import SurfaceSecurity
 
     state = {"limited": True, "calls": []}
 
@@ -297,9 +297,9 @@ def test_gateway_failure_ends_the_real_acp_runner_and_recovery_keeps_the_questio
     model_gateway,
     wait,
 ):
-    from jarvis.agent_runtimes import gateway
-    from jarvis.agent_runtimes.base import RuntimeLaunch, RuntimeStatus
-    from jarvis.agent_runtimes.model_map import ModelRoute
+    from dodaios.agent_runtimes import gateway
+    from dodaios.agent_runtimes.base import RuntimeLaunch, RuntimeStatus
+    from dodaios.agent_runtimes.model_map import ModelRoute
 
     endpoint, state = model_gateway
     released = []

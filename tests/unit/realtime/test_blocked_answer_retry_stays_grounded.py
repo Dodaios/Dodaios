@@ -25,7 +25,7 @@ import asyncio
 
 import pytest
 
-from jarvis.realtime.session import (
+from dodaios.realtime.session import (
     RealtimeVoiceSession,
     _direct_tool_result_retry_prompt,
     _output_language_retry_prompt,

@@ -14,10 +14,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.capabilities import Capability, get_registry
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.capabilities import Capability, get_registry
+from dodaios.core.config import JarvisConfig
 
 
 class _FakeSpawnTool:

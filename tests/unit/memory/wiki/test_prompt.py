@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.prompt`` (Instance D)."""
+"""Unit tests for ``dodaios.memory.wiki.prompt`` (Instance D)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.memory.wiki.prompt import (
+from dodaios.memory.wiki.prompt import (
     build_consolidator_prompt,
     build_system_prompt,
     build_user_prompt,
@@ -274,7 +274,7 @@ def test_build_user_prompt_demands_json_at_end() -> None:
 
 def test_system_prompt_states_the_applied_checks() -> None:
     """The deterministic checks the model cannot know are stated as facts."""
-    from jarvis.memory.wiki.curator_llm import _MAX_UPDATES_PER_INGEST
+    from dodaios.memory.wiki.curator_llm import _MAX_UPDATES_PER_INGEST
 
     prompt = build_system_prompt(vault_summary=None)
     assert f"At most {_MAX_UPDATES_PER_INGEST} updates apply" in prompt

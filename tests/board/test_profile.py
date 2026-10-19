@@ -15,11 +15,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.board.aggregator import BoardAggregator
-from jarvis.board.profile import BioGenerator, BioStore, make_resolver_from_brain
-from jarvis.board.prompts import render_bio_prompt
-from jarvis.board.store import BoardStore
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.board.aggregator import BoardAggregator
+from dodaios.board.profile import BioGenerator, BioStore, make_resolver_from_brain
+from dodaios.board.prompts import render_bio_prompt
+from dodaios.board.store import BoardStore
+from dodaios.core.protocols import BrainDelta, BrainRequest
 
 
 # ----------------------------------------------------------------------
@@ -57,7 +57,7 @@ class FakeBrain:
 
     ``async def`` with ``yield`` turns the method into an AsyncGenerator —
     the caller gets an ``AsyncIterator`` directly, compatible with
-    ``aggregate()`` from ``jarvis.brain.streaming``.
+    ``aggregate()`` from ``dodaios.brain.streaming``.
     """
 
     def __init__(self, script: list[str] | str) -> None:

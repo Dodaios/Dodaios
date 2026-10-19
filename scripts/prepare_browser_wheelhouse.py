@@ -52,7 +52,7 @@ def main() -> int:
     if sys.platform != "darwin" or platform.machine().lower() not in {"x86_64", "amd64"}:
         print("Browser wheelhouse is only needed on Intel macOS")
         return 0
-    assets = ROOT / "jarvis" / "assets" / "browser"
+    assets = ROOT / "dodaios" / "assets" / "browser"
     lock = (assets / "requirements.lock").read_text(encoding="utf-8")
     wheels = assets / "wheels"
     wheels.mkdir(exist_ok=True)

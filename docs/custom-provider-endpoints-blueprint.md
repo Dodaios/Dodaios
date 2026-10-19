@@ -47,18 +47,18 @@ brain reads.
 
 | # | Gate | Location | Failure when the id is unknown |
 |---|------|----------|-------------------------------|
-| G1 | `PROVIDERS` frozen tuple → `get_spec()` | `jarvis/ui/web/provider_spec.py:520+` | `get_spec()` → `None`; `PUT /api/tool-model` 404 `unknown_provider`; `PUT /providers/{id}/base-url` 404; card never rendered |
-| G2 | `ALLOWED_SECRET_KEYS` (derived from `jarvis.setup.wizard.SECRETS`) | `jarvis/ui/web/provider_routes.py:54` | `POST /api/secrets/{key}` 404 — the key cannot even be stored |
-| G3 | `PROVIDER_SECRET_CANDIDATES` dict | `jarvis/core/config.py:132` | `get_provider_secret(custom_id)` → `""`; `resolve_provider_endpoint()` returns a credential-less endpoint |
-| G4 | entry-point registries (`jarvis.brain`, `jarvis.realtime`) | `jarvis/brain/provider_registry.py`, `jarvis/core/registry.py` | `BrainProviderRegistry.instantiate()` raises `KeyError`; realtime `list_plugins()` never yields the id. Entry points are fixed at `pip install` time — a user cannot add one at runtime |
+| G1 | `PROVIDERS` frozen tuple → `get_spec()` | `dodaios/ui/web/provider_spec.py:520+` | `get_spec()` → `None`; `PUT /api/tool-model` 404 `unknown_provider`; `PUT /providers/{id}/base-url` 404; card never rendered |
+| G2 | `ALLOWED_SECRET_KEYS` (derived from `dodaios.setup.wizard.SECRETS`) | `dodaios/ui/web/provider_routes.py:54` | `POST /api/secrets/{key}` 404 — the key cannot even be stored |
+| G3 | `PROVIDER_SECRET_CANDIDATES` dict | `dodaios/core/config.py:132` | `get_provider_secret(custom_id)` → `""`; `resolve_provider_endpoint()` returns a credential-less endpoint |
+| G4 | entry-point registries (`jarvis.brain`, `jarvis.realtime`) | `dodaios/brain/provider_registry.py`, `dodaios/core/registry.py` | `BrainProviderRegistry.instantiate()` raises `KeyError`; realtime `list_plugins()` never yields the id. Entry points are fixed at `pip install` time — a user cannot add one at runtime |
 
 Two more surfaces reject it *by construction*, not by lookup:
 
-- `jarvis/missions/workers/api_agent_worker.py:97-112` — `_BRAIN_BY_PROVIDER` is
+- `dodaios/missions/workers/api_agent_worker.py:97-112` — `_BRAIN_BY_PROVIDER` is
   a literal dict; `supports_api_agent_worker()` returns `False` for anything
   else, so a custom provider silently cannot run a mission worker.
-- `jarvis/plugins/realtime/openai_realtime.py:1052` and
-  `jarvis/plugins/realtime/gemini_live.py:452` — both construct their SDK client
+- `dodaios/plugins/realtime/openai_realtime.py:1052` and
+  `dodaios/plugins/realtime/gemini_live.py:452` — both construct their SDK client
   with `api_key=` only. There is **no** `base_url` parameter anywhere on the
   realtime path, and `resolve_provider_endpoint()` is never called there. The
   realtime tier is the one tier with zero endpoint indirection today.
@@ -98,7 +98,7 @@ the declared capabilities. A custom provider called `acme-proxy` speaking
 **Why an enum and not "just a URL":** the four wire protocols differ in
 authentication header, base-URL convention (`/v1` included or not), streaming
 frame shape, and tool-call encoding. `_ENDPOINTS` in
-`jarvis/brain/model_catalog.py:110` already documents these conventions per
+`dodaios/brain/model_catalog.py:110` already documents these conventions per
 provider; the adapter kind is that knowledge made selectable.
 
 ### 3.1 Adapter kind is a five-layer value — treat it as one
@@ -109,7 +109,7 @@ the five-layer pattern **preemptively** (AGENTS.md §5), with one source of trut
 and a parity test:
 
 ```
-jarvis/core/provider_adapters.py :: ADAPTERS          (Python, canonical)
+dodaios/core/provider_adapters.py :: ADAPTERS          (Python, canonical)
     ↓ exported by GET /api/providers/custom/adapters   (REST)
     ↓ typed in  src/lib/customProviderApi.ts           (TS union, generated-checked)
     ↓ rendered  CustomProviderDialog                   (UI select)
@@ -120,10 +120,10 @@ tests/unit/core/test_adapter_kind_parity.py            (parity gate)
 
 ## 4. State schema
 
-### 4.1 Python — `jarvis/core/config.py`
+### 4.1 Python — `dodaios/core/config.py`
 
 ```python
-# jarvis/core/provider_adapters.py  (new, tiny, import-light — AP-26)
+# dodaios/core/provider_adapters.py  (new, tiny, import-light — AP-26)
 AdapterKind = Literal[
     "openai-chat",         # OpenAI Chat-Completions wire format (vLLM, LM Studio,
                            # LiteLLM, Together, DeepSeek, Fireworks, most proxies)
@@ -150,7 +150,7 @@ class AdapterDescriptor:
 ```
 
 ```python
-# jarvis/core/config.py
+# dodaios/core/config.py
 class CustomProviderConfig(BaseModel):
     """One user-registered provider instance."""
     model_config = ConfigDict(extra="allow")   # AP-16: forward-compatible
@@ -274,11 +274,11 @@ import or on the startup critical path (AP-26).
 
 ### S1 — Spec overlay: `get_spec()` sees custom rows
 
-`jarvis/ui/web/provider_spec.py` gets a synthesizer. `PROVIDERS` stays exactly as
+`dodaios/ui/web/provider_spec.py` gets a synthesizer. `PROVIDERS` stays exactly as
 it is; every *consumer* moves from the tuple to a function.
 
 ```python
-# jarvis/ui/web/provider_spec.py
+# dodaios/ui/web/provider_spec.py
 def custom_specs(config=None) -> tuple[ProviderSpec, ...]:
     """Synthesize a ProviderSpec for every enabled [brain.custom_providers.*]."""
     out = []
@@ -334,7 +334,7 @@ rows store their URL in `cfg.brain.custom_providers[id].base_url`. Two options;
 row when the id is custom, and the resolver falls back:
 
 ```python
-# jarvis/core/config.py :: resolve_provider_endpoint, after the team-proxy branch
+# dodaios/core/config.py :: resolve_provider_endpoint, after the team-proxy branch
     override = None
     prov = cfg_obj.brain.providers.get(provider_id)
     if prov is not None and prov.base_url:
@@ -357,7 +357,7 @@ listed in `team_proxy.local_providers`.
 one. Keep the dict as the built-in table; add a resolver:
 
 ```python
-# jarvis/core/config.py
+# dodaios/core/config.py
 def provider_secret_candidates(provider: str, config=None) -> tuple[tuple[str, str], ...]:
     builtin = PROVIDER_SECRET_CANDIDATES.get(provider)
     if builtin:
@@ -376,7 +376,7 @@ def get_provider_secret(provider: str) -> str:
 And G2 opens by widening the allowlist to spec-derived slots:
 
 ```python
-# jarvis/ui/web/provider_routes.py
+# dodaios/ui/web/provider_routes.py
 def _allowed_secret_keys() -> frozenset[str]:
     """Wizard slots + every slot declared by a spec, incl. custom rows."""
     return frozenset(s.key for s in WIZARD_SECRETS) | all_secret_keys()
@@ -419,7 +419,7 @@ class LocalOpenAIBrain:
 Then the registry resolves custom ids to a *bound* adapter:
 
 ```python
-# jarvis/brain/provider_registry.py
+# dodaios/brain/provider_registry.py
 class BrainProviderRegistry:
     def available(self) -> list[str]:
         self._load()
@@ -462,7 +462,7 @@ the base class declares.
 This is the largest genuinely-new piece, because the realtime tier has no
 endpoint indirection at all today.
 
-**`jarvis/plugins/realtime/openai_realtime.py`:**
+**`dodaios/plugins/realtime/openai_realtime.py`:**
 
 ```python
 class OpenAIRealtimeProvider:
@@ -502,10 +502,10 @@ and `client`, never a hostname. The session's rebuild path
 the custom endpoint survives a mid-call transport rebuild — verify this
 explicitly in test, it is the subtle failure mode.
 
-**`jarvis/plugins/realtime/gemini_live.py`:** same shape, different SDK call —
+**`dodaios/plugins/realtime/gemini_live.py`:** same shape, different SDK call —
 `genai.Client(api_key=..., http_options=types.HttpOptions(base_url=ep.base_url))`.
 
-**`jarvis/realtime/factory.py`:** `_configured_provider_ids` currently intersects
+**`dodaios/realtime/factory.py`:** `_configured_provider_ids` currently intersects
 with `list_plugins("jarvis.realtime")`, which is entry-point-only. Widen it:
 
 ```python
@@ -594,7 +594,7 @@ model field in the UI — honest, not broken.
 
 ## 6. REST surface
 
-New router section in `jarvis/ui/web/provider_routes.py` (keeps the existing
+New router section in `dodaios/ui/web/provider_routes.py` (keeps the existing
 `providers` tag, so CLI coverage is automatic per the CLI-first mandate):
 
 | Method | Path | Purpose | Notes |
@@ -895,10 +895,10 @@ protocol risk, because it is the first endpoint indirection on the realtime path
 
 ## 12. Explicitly out of scope
 
-- `jarvis/missions/workers/api_agent_tools.py` — worker tool security stays as
+- `dodaios/missions/workers/api_agent_tools.py` — worker tool security stays as
   is; custom providers change *which model* runs the loop, never *which tools*
   it may call.
-- `jarvis/realtime/tools.py` — realtime tool dispatch is credential-free and
+- `dodaios/realtime/tools.py` — realtime tool dispatch is credential-free and
   provider-neutral; it needs no change and must not learn about custom
   credentials.
 - Refactoring the built-in `PROVIDERS` tuple into config. The static catalog

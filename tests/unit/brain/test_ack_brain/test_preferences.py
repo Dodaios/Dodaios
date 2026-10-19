@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import types
 
-from jarvis.brain.ack_brain import AckGenerator, CircuitBreaker
-from jarvis.brain.ack_brain.persona_prompt import get_persona_prompt
-from jarvis.brain.ack_brain.spawn_announcement import (
+from dodaios.brain.ack_brain import AckGenerator, CircuitBreaker
+from dodaios.brain.ack_brain.persona_prompt import get_persona_prompt
+from dodaios.brain.ack_brain.spawn_announcement import (
     SpawnAnnouncementComposer,
     get_spawn_persona,
 )

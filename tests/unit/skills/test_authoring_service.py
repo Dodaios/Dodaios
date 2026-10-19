@@ -21,14 +21,14 @@ from pathlib import Path
 import pytest
 import yaml
 
-from jarvis.skills import prefs
-from jarvis.skills.authoring import (
+from dodaios.skills import prefs
+from dodaios.skills.authoring import (
     SkillAuthoringError,
     SkillAuthoringService,
     SkillCreateRequest,
 )
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.schema import SkillLifecycleState
 
 
 @pytest.fixture
@@ -146,7 +146,7 @@ async def test_create_rejects_duplicate_name(
 async def test_create_rejects_builtin_name(
     registry: SkillRegistry, skills_root: Path
 ) -> None:
-    from jarvis.skills.builtin import BUILTIN_SKILL_NAMES
+    from dodaios.skills.builtin import BUILTIN_SKILL_NAMES
 
     builtin = sorted(BUILTIN_SKILL_NAMES)[0]
     svc = _service(registry, skills_root)

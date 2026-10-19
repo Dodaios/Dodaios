@@ -6,7 +6,7 @@
 
 **Architecture:** The fix is sequenced by *impact-per-risk*, not by code area. Wave 1 stops the largest false-negative source (recovery sweeping live/finished work) with contained changes to `recovery.py` + the boot gate. Wave 2 makes hung/doomed missions fail *fast* at runtime instead of lingering until the next boot's sweep. Wave 3 fixes the structural enabler (the Critic has no evidence channel for non-diff work like Computer-Use) — this one is its own sub-project. Every wave is independently shippable and independently verifiable against the live `data/missions.db`.
 
-**Tech Stack:** Python 3.11, asyncio, SQLite event store (`jarvis/missions/`), Pydantic frozen events, pytest (`asyncio_mode=auto`), fakes (not mocks) per repo convention.
+**Tech Stack:** Python 3.11, asyncio, SQLite event store (`dodaios/missions/`), Pydantic frozen events, pytest (`asyncio_mode=auto`), fakes (not mocks) per repo convention.
 
 ---
 
@@ -58,10 +58,10 @@ ClaudeDirectWorker: primary provider is openai-codex, expected claude-api
 
 ### Root cause — the same provider-coupling defect in TWO paths
 
-Post-Welle-4 the Jarvis-Agents-backed `SubJarvisWorker` was removed (the ~92% nested-claude hang). So `jarvis/missions/init.py::_worker_factory` now routes **every** `[brain.sub_jarvis].provider` that is not `openai-codex`/`chatgpt` (grok, gemini, openai, openrouter, openclaw-claude, **and the unset default** — whose `_resolve_provider_chain` last-ditch stub is `("grok", "grok-4.3")`) to `ClaudeDirectWorker` (the "proven direct Opus worker", `init.py:476`). But both the worker **and** the critic still carried a guard that assumed a *fall-through to a worker that no longer exists*:
+Post-Welle-4 the Jarvis-Agents-backed `SubJarvisWorker` was removed (the ~92% nested-claude hang). So `dodaios/missions/init.py::_worker_factory` now routes **every** `[brain.sub_jarvis].provider` that is not `openai-codex`/`chatgpt` (grok, gemini, openai, openrouter, openclaw-claude, **and the unset default** — whose `_resolve_provider_chain` last-ditch stub is `("grok", "grok-4.3")`) to `ClaudeDirectWorker` (the "proven direct Opus worker", `init.py:476`). But both the worker **and** the critic still carried a guard that assumed a *fall-through to a worker that no longer exists*:
 
-1. **`jarvis/missions/workers/claude_direct_worker.py`** (`spawn`, ex-line 218-241): refused with `"primary provider is <x>, expected claude-api"` unless the resolved chain primary was `claude-api`. → every non-claude/non-codex mission died instantly.
-2. **`jarvis/missions/critic/runner.py`** (`_invoke_once`, ex-line 931-938): the "fall back to the direct claude critic" branch passed `model=primary_model or model` — i.e. the **foreign** provider model (`grok-4.3`) — to `claude --model`, which the claude CLI rejects with `returncode=1`. The critic failed twice → `critic_unavailable`, failing the mission **even after the worker delivered real work** (surfaced the moment fix #1 let the worker run).
+1. **`dodaios/missions/workers/claude_direct_worker.py`** (`spawn`, ex-line 218-241): refused with `"primary provider is <x>, expected claude-api"` unless the resolved chain primary was `claude-api`. → every non-claude/non-codex mission died instantly.
+2. **`dodaios/missions/critic/runner.py`** (`_invoke_once`, ex-line 931-938): the "fall back to the direct claude critic" branch passed `model=primary_model or model` — i.e. the **foreign** provider model (`grok-4.3`) — to `claude --model`, which the claude CLI rejects with `returncode=1`. The critic failed twice → `critic_unavailable`, failing the mission **even after the worker delivered real work** (surfaced the moment fix #1 let the worker run).
 
 Both are the same class: *a heavy-worker/critic path that hard-couples its ability to run to a configured provider slug it no longer has a dedicated backend for.* The Jarvis-Agents escape hatch the guards assumed is gone.
 
@@ -89,7 +89,7 @@ This honours the dedicated workers exactly (`claude-api` → ClaudeDirectWorker,
 
 **Root cause:** the user's **Codex ChatGPT OAuth session is expired and cannot refresh** (`codex login` needed). On top of that operational fact sat two code defects: (a) the worker *crashed* on the structured error instead of surfacing it; (b) a dead codex login failed every codex mission with no fallback.
 
-**The fix (`jarvis/missions/workers/codex_direct_worker.py` + `critic/runner.py`):**
+**The fix (`dodaios/missions/workers/codex_direct_worker.py` + `critic/runner.py`):**
 1. `_coerce_codex_error_text()` — always extract a plain string from the codex error event (nested-dict-safe); `result=str(...)`. No more Pydantic crash; the real message survives.
 2. **Codex auth-expiry → Claude Max fallback (worker):** when the codex terminal error matches `_CODEX_AUTH_EXPIRED_MARKERS` (refresh token / log in again / 401 / …) AND codex did no real work, the worker delegates the task to `ClaudeDirectWorker` (the codex error event is *not* yielded, so `_spawn_worker_collect`'s `worker_error` stays unset and the claude result drives the outcome). The mission COMPLETES on Claude Max.
 3. **Codex critic → Claude critic fallback:** when the codex critic yields no verdict, fall back to `_invoke_via_claude_direct` instead of `critic_unavailable`.
@@ -132,7 +132,7 @@ fix the two largest buckets. The deep-dive for the `task_error` incident is
 **`crash_recovery` (98) — three independent holes, none addressed by the 06-01 fix:**
 
 1. **Liveness is inferred from event-recency, not from process liveness.**
-   `jarvis/missions/recovery.py:143-147` skips a mission only if `events[-1].ts_ms`
+   `dodaios/missions/recovery.py:143-147` skips a mission only if `events[-1].ts_ms`
    is `< 30 min` old (`RECOVERY_STALE_AFTER_MS`, `recovery.py:57`). A real worker
    (Opus, critic loops, Computer-Use) routinely goes silent **>30 min** between
    events. There is **no runtime watchdog and no mission-level wall clock**
@@ -141,7 +141,7 @@ fix the two largest buckets. The deep-dive for the `task_error` incident is
    is defined but **never wired**). So a working-but-silent mission is
    indistinguishable from an orphan and gets swept on the next boot.
 
-2. **The primary-instance gate is fail-OPEN.** `jarvis/ui/web/server.py:1555` —
+2. **The primary-instance gate is fail-OPEN.** `dodaios/ui/web/server.py:1555` —
    `_is_primary = os.environ.get("JARVIS_PRIMARY_INSTANCE", "1") != "0"` defaults
    *unset* to primary, and `bootstrap_missions(recover_missions=True)` /
    `MissionManager.start(recover=True)` default to recovering. Any process that
@@ -191,17 +191,17 @@ fix the two largest buckets. The deep-dive for the `task_error` incident is
 
 | File | Responsibility | Wave |
 |---|---|---|
-| `jarvis/missions/recovery.py` | Add a "delivered-work" guard before the sweep; honest `interrupted` reason | 1 |
-| `jarvis/missions/voice/readback.py` | Phrases for `interrupted` + keep `attempts_timed_out` | 1 |
-| `jarvis/missions/voice/announcer.py` | Suppress/soften `interrupted` like `crash_recovery` already is | 1 |
-| `jarvis/ui/web/server.py` | Fail-CLOSED primary gate (require proof of lock ownership) | 1 |
-| `jarvis/missions/manager.py` / `init.py` | `recover` default → require explicit primary token | 1 |
+| `dodaios/missions/recovery.py` | Add a "delivered-work" guard before the sweep; honest `interrupted` reason | 1 |
+| `dodaios/missions/voice/readback.py` | Phrases for `interrupted` + keep `attempts_timed_out` | 1 |
+| `dodaios/missions/voice/announcer.py` | Suppress/soften `interrupted` like `crash_recovery` already is | 1 |
+| `dodaios/ui/web/server.py` | Fail-CLOSED primary gate (require proof of lock ownership) | 1 |
+| `dodaios/missions/manager.py` / `init.py` | `recover` default → require explicit primary token | 1 |
 | `scripts/smoke_phase6_*.py`, `scripts/_final_*` | Open an isolated DB / pass `recover_missions=False` | 1 |
-| `jarvis/missions/events.py` | `MissionHeartbeat` event (or `last_heartbeat_ms` column) | 2 |
-| `jarvis/missions/kontrollierer/orchestrator.py` | Emit heartbeat while worker runs; wire idle-watchdog; mission deadline | 2 |
-| `jarvis/missions/recovery.py` | Active-guard keys off heartbeat, not last-event | 2 |
-| `jarvis/missions/critic/runner.py`, `stream_evidence.py` | Computer-Use action-observation evidence channel | 3 |
-| `jarvis/missions/recovery.py` (resume) | Resume-and-grade an interrupted mission with a draft | 3 |
+| `dodaios/missions/events.py` | `MissionHeartbeat` event (or `last_heartbeat_ms` column) | 2 |
+| `dodaios/missions/kontrollierer/orchestrator.py` | Emit heartbeat while worker runs; wire idle-watchdog; mission deadline | 2 |
+| `dodaios/missions/recovery.py` | Active-guard keys off heartbeat, not last-event | 2 |
+| `dodaios/missions/critic/runner.py`, `stream_evidence.py` | Computer-Use action-observation evidence channel | 3 |
+| `dodaios/missions/recovery.py` (resume) | Resume-and-grade an interrupted mission with a draft | 3 |
 
 **Five-layer enum discipline (`docs/anti-drift-three-layer.md`):** `interrupted` and
 `attempts_timed_out` are new wire-format `MissionFailed.reason` strings. Each MUST
@@ -220,7 +220,7 @@ map for failure reasons, (c) a parity test asserting de/en/UI coverage. See Task
 ### Task 1.1: A "delivered work" guard before the crash_recovery sweep
 
 **Files:**
-- Modify: `jarvis/missions/recovery.py` (`startup_recover`, branch 3 at lines 149-182; helper near `_last_terminal_state` line 208)
+- Modify: `dodaios/missions/recovery.py` (`startup_recover`, branch 3 at lines 149-182; helper near `_last_terminal_state` line 208)
 - Test: `tests/missions/test_recovery.py` (create if absent; otherwise extend)
 
 - [ ] **Step 1: Write the failing test**
@@ -228,12 +228,12 @@ map for failure reasons, (c) a parity test asserting de/en/UI coverage. See Task
 ```python
 # tests/missions/test_recovery.py
 import pytest
-from jarvis.missions.event_store import MissionEventStore
-from jarvis.missions.events import (
+from dodaios.missions.event_store import MissionEventStore
+from dodaios.missions.events import (
     EventEnvelope, MissionDispatched, WorkerDraftReady, MissionStateChanged, now_ms,
 )
-from jarvis.missions.recovery import startup_recover, RECOVERY_STALE_AFTER_MS
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.recovery import startup_recover, RECOVERY_STALE_AFTER_MS
+from dodaios.missions.state_machine import MissionState
 
 
 async def _append(store, mid, payload, ts):
@@ -357,7 +357,7 @@ def _delivered_artifacts(events: list[EventEnvelope]) -> list[str]:
 ```
 
 > Note: confirm the `WorkerDraftReady` payload field name (`artifacts`) against
-> `jarvis/missions/events.py:66`; if it differs, use the real attribute. The
+> `dodaios/missions/events.py:66`; if it differs, use the real attribute. The
 > `getattr(..., [])` guard makes the helper robust either way.
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -368,15 +368,15 @@ Expected: PASS (both tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add jarvis/missions/recovery.py tests/missions/test_recovery.py
+git add dodaios/missions/recovery.py tests/missions/test_recovery.py
 git commit -m "fix(missions): preserve delivered work on recovery (interrupted != crash_recovery)"
 ```
 
 ### Task 1.2: Fail-CLOSED primary gate (stop side processes sweeping live missions)
 
 **Files:**
-- Modify: `jarvis/ui/web/server.py:1552-1560` (`_init_mission_stack`)
-- Modify: `jarvis/missions/manager.py:66-100` (`start`), `jarvis/missions/init.py:204,238` (`bootstrap_missions`)
+- Modify: `dodaios/ui/web/server.py:1552-1560` (`_init_mission_stack`)
+- Modify: `dodaios/missions/manager.py:66-100` (`start`), `dodaios/missions/init.py:204,238` (`bootstrap_missions`)
 - Test: `tests/missions/test_recovery_gate.py` (create)
 
 - [ ] **Step 1: Write the failing test**
@@ -385,7 +385,7 @@ git commit -m "fix(missions): preserve delivered work on recovery (interrupted !
 # tests/missions/test_recovery_gate.py
 import os
 import pytest
-from jarvis.missions import init as missions_init
+from dodaios.missions import init as missions_init
 
 
 async def test_bootstrap_does_not_recover_without_explicit_primary(monkeypatch, tmp_path):
@@ -398,7 +398,7 @@ async def test_bootstrap_does_not_recover_without_explicit_primary(monkeypatch, 
         calls["recovered"] = True
         return []
 
-    monkeypatch.setattr("jarvis.missions.manager.startup_recover", _spy)
+    monkeypatch.setattr("dodaios.missions.manager.startup_recover", _spy)
     # default call (no recover_missions arg, no env) must be fail-CLOSED
     await missions_init.bootstrap_missions(db_path=str(tmp_path / "m.db"))
     assert calls["recovered"] is False
@@ -411,7 +411,7 @@ Expected: FAIL — current default `recover_missions=True` runs recovery.
 
 - [ ] **Step 3: Write minimal implementation**
 
-(a) `jarvis/missions/init.py` — flip the default to fail-closed:
+(a) `dodaios/missions/init.py` — flip the default to fail-closed:
 
 ```python
 async def bootstrap_missions(
@@ -421,7 +421,7 @@ async def bootstrap_missions(
 ):
 ```
 
-(b) `jarvis/ui/web/server.py:1555` — require POSITIVE proof, not "not 0":
+(b) `dodaios/ui/web/server.py:1555` — require POSITIVE proof, not "not 0":
 
 ```python
         # Fail-CLOSED: only an instance that PROVED it holds the single-instance
@@ -435,7 +435,7 @@ async def bootstrap_missions(
         )
 ```
 
-(c) `jarvis/missions/manager.py:69` — change `recover: bool = True` → `recover: bool = False`
+(c) `dodaios/missions/manager.py:69` — change `recover: bool = True` → `recover: bool = False`
 and update the docstring to say recovery is opt-in for the proven-primary path only.
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -448,7 +448,7 @@ Expected: PASS (fix any caller that legitimately needed recovery by passing `rec
 - [ ] **Step 5: Commit**
 
 ```bash
-git add jarvis/missions/init.py jarvis/missions/manager.py jarvis/ui/web/server.py tests/missions/test_recovery_gate.py
+git add dodaios/missions/init.py dodaios/missions/manager.py dodaios/ui/web/server.py tests/missions/test_recovery_gate.py
 git commit -m "fix(missions): fail-closed recovery gate — only the proven primary sweeps"
 ```
 
@@ -489,16 +489,16 @@ git commit -m "fix(missions): smoke/validate scripts use isolated DB, never swee
 ### Task 1.4: Five-layer parity for `interrupted` + `attempts_timed_out`
 
 **Files:**
-- Modify: `jarvis/missions/voice/readback.py:179-200` (de+en maps — `attempts_timed_out` already added by the in-flight diff; add `interrupted`)
-- Modify: `jarvis/missions/voice/announcer.py:189` (suppress/soften `interrupted` like `crash_recovery`)
-- Modify: any UI failure-reason label map (grep: `crash_recovery` in `jarvis/ui/web/frontend/` + `jarvis/sessions/`/routes)
+- Modify: `dodaios/missions/voice/readback.py:179-200` (de+en maps — `attempts_timed_out` already added by the in-flight diff; add `interrupted`)
+- Modify: `dodaios/missions/voice/announcer.py:189` (suppress/soften `interrupted` like `crash_recovery`)
+- Modify: any UI failure-reason label map (grep: `crash_recovery` in `dodaios/ui/web/frontend/` + `dodaios/sessions/`/routes)
 - Test: `tests/missions/test_voice_readback.py` (extend), `tests/missions/test_voice_announcer.py` (extend)
 
 - [ ] **Step 1: Write the failing parity + suppression tests**
 
 ```python
 # tests/missions/test_voice_readback.py  (add)
-from jarvis.missions.voice.readback import FAILURE_REASON_PHRASES
+from dodaios.missions.voice.readback import FAILURE_REASON_PHRASES
 
 def test_new_failure_reasons_have_de_en_parity():
     for reason in ("interrupted", "attempts_timed_out"):
@@ -555,7 +555,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit (and commit the in-flight attempts_timed_out work with it)**
 
 ```bash
-git add jarvis/missions/voice/ tests/missions/test_voice_*.py jarvis/ui/web/frontend/
+git add dodaios/missions/voice/ tests/missions/test_voice_*.py dodaios/ui/web/frontend/
 git commit -m "feat(missions): honest interrupted/timed-out failure reasons with de/en/UI parity"
 ```
 
@@ -564,7 +564,7 @@ git commit -m "feat(missions): honest interrupted/timed-out failure reasons with
 - [ ] Re-run the forensic query (see §4) against a copy of `data/missions.db`.
 - [ ] Restart the live app (`run.bat`) — **mandatory**: a committed fix is inert
       while `pythonw.exe` holds the old code in RAM (restore-trap, AP-8). Verify
-      `import jarvis; print(jarvis.__file__)` points at the working tree.
+      `import dodaios; print(dodaios.__file__)` points at the working tree.
 - [ ] Dispatch 5 file-producing missions via `POST /api/missions/dispatch`; restart
       the app mid-flight on 2 of them. Confirm: the 2 interrupted ones show
       `reason="interrupted"` WITH artifacts, never `crash_recovery` with `[]`.
@@ -581,9 +581,9 @@ git commit -m "feat(missions): honest interrupted/timed-out failure reasons with
 ### Task 2.1: Mission heartbeat → liveness-based active-guard
 
 **Files:**
-- Modify: `jarvis/missions/events.py` (add `MissionHeartbeat` frozen event, OR add `last_heartbeat_ms` to the missions row + an `upsert_heartbeat` on the store)
-- Modify: `jarvis/missions/kontrollierer/orchestrator.py` (emit a heartbeat every ~20 s while a worker stream is draining — wrap the `async for ev in worker.spawn(...)` loop, ~line 1199)
-- Modify: `jarvis/missions/recovery.py:143-147` (active-guard checks heartbeat freshness, not `events[-1].ts_ms`)
+- Modify: `dodaios/missions/events.py` (add `MissionHeartbeat` frozen event, OR add `last_heartbeat_ms` to the missions row + an `upsert_heartbeat` on the store)
+- Modify: `dodaios/missions/kontrollierer/orchestrator.py` (emit a heartbeat every ~20 s while a worker stream is draining — wrap the `async for ev in worker.spawn(...)` loop, ~line 1199)
+- Modify: `dodaios/missions/recovery.py:143-147` (active-guard checks heartbeat freshness, not `events[-1].ts_ms`)
 - Test: `tests/missions/test_recovery.py` (extend), `tests/missions/kontrollierer/test_loop.py` (extend)
 
 - [ ] **Step 1: Write the failing test** — a mission whose last *event* is 40 min old
@@ -611,7 +611,7 @@ async def test_fresh_heartbeat_protects_silent_worker(store):
 ### Task 2.2: Wire the idle-watchdog + a mission-level deadline
 
 **Files:**
-- Modify: `jarvis/missions/kontrollierer/orchestrator.py` (`_spawn_worker_collect` / the drain at ~1199 — wrap with `WorkerSupervisor` from `workers/supervisor.py:44`, and add an overall `asyncio.wait_for` mission deadline)
+- Modify: `dodaios/missions/kontrollierer/orchestrator.py` (`_spawn_worker_collect` / the drain at ~1199 — wrap with `WorkerSupervisor` from `workers/supervisor.py:44`, and add an overall `asyncio.wait_for` mission deadline)
 - Test: `tests/missions/kontrollierer/test_loop.py`
 
 - [ ] **Step 1: Write the failing test** — a worker that emits one byte then goes idle

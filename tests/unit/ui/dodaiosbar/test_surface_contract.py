@@ -3,7 +3,7 @@ and every method must be safe to call before/without a Tk window."""
 
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 # Every method OrbBusBridge invokes on the surface (directly or via getattr).
 REQUIRED = [

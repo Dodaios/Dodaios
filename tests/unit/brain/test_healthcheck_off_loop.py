@@ -18,8 +18,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.healthcheck import BrainHealthChecker
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.brain.healthcheck import BrainHealthChecker
+from dodaios.core.protocols import BrainDelta, BrainRequest
 
 
 class _InstantBrain:

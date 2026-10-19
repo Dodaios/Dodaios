@@ -14,9 +14,9 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import RealtimeSessionPostmortem
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.core.bus import EventBus
+from dodaios.core.events import RealtimeSessionPostmortem
+from dodaios.realtime.session import RealtimeVoiceSession
 
 TIMEOUT_S = 5.0
 RATE = 24_000

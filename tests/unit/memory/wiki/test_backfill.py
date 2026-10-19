@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.memory.wiki.backfill import backfill_realtime_sessions
+from dodaios.memory.wiki.backfill import backfill_realtime_sessions
 
 
 class _Store:

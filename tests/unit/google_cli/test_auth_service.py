@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import json
 
-import jarvis.google_cli.auth_service as auth_mod
-from jarvis.google_cli.auth_service import (
+import dodaios.google_cli.auth_service as auth_mod
+from dodaios.google_cli.auth_service import (
     GoogleCliAuthService,
     _derive_google_auth,
 )
-from jarvis.google_cli.resolver import GoogleCli
+from dodaios.google_cli.resolver import GoogleCli
 
 
 def test_derive_oauth_personal():

@@ -20,9 +20,9 @@ from collections.abc import AsyncIterator
 import numpy as np
 import pytest
 
-import jarvis.audio.player as player_module
-from jarvis.audio.player import AudioPlayer
-from jarvis.core.protocols import AudioChunk
+import dodaios.audio.player as player_module
+from dodaios.audio.player import AudioPlayer
+from dodaios.core.protocols import AudioChunk
 
 
 def _chunk(samples: np.ndarray, sample_rate: int = 24_000) -> AudioChunk:

@@ -6,7 +6,7 @@ so the contract pins live here.
 """
 from __future__ import annotations
 
-from jarvis.missions.kontrollierer.worker_prompt import (
+from dodaios.missions.kontrollierer.worker_prompt import (
     SUBAGENT_CONTRACT,
     WORKER_CONTRACT,
     compose_worker_prompt,

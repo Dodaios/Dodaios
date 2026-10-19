@@ -1,11 +1,11 @@
-"""Unit tests for `jarvis.memory.frontmatter`.
+"""Unit tests for `dodaios.memory.frontmatter`.
 
 Parse/write roundtrips, section replace/append, error resilience against broken
 YAML.
 """
 from __future__ import annotations
 
-from jarvis.memory.frontmatter import (
+from dodaios.memory.frontmatter import (
     append_to_section,
     parse_frontmatter,
     replace_section,

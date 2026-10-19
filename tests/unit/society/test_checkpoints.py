@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.checkpoints import (
+from dodaios.society.checkpoints import (
     FAMILY_COMMS,
     FAMILY_DESKTOP,
     FAMILY_WEB,
@@ -16,8 +16,8 @@ from jarvis.society.checkpoints import (
     derive,
     family_of_tool,
 )
-from jarvis.society.events import Checkpoint, MsgType, SocietyEnvelope
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.events import Checkpoint, MsgType, SocietyEnvelope
+from dodaios.society.runtime import SocietyRuntime
 
 
 def test_rule_order():

@@ -8,7 +8,7 @@ make the suite order-dependent. Snapshot + restore around every test here.
 """
 import pytest
 
-from jarvis.core.capabilities import get_registry
+from dodaios.core.capabilities import get_registry
 
 
 @pytest.fixture(autouse=True)

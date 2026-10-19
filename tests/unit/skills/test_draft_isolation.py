@@ -13,10 +13,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from jarvis.skills.authoring import SkillDraft, write_draft
-from jarvis.skills.authoring.draft_writer import UnsafeSkillError
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.authoring import SkillDraft, write_draft
+from dodaios.skills.authoring.draft_writer import UnsafeSkillError
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.schema import SkillLifecycleState
 
 # ----------------------------------------------------------------------
 # Fixtures

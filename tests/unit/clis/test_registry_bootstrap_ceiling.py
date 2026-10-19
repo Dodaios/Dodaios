@@ -6,7 +6,7 @@ around the ``probe_all`` gather call site: if a prober implementation still
 wedges (e.g. a future bug reintroduces an unbounded await), the outer
 ceiling must still let ``bootstrap()`` return with an honest "unknown"
 status instead of hanging the caller — notably the SYNCHRONOUS
-``asyncio.run(registry.bootstrap())`` path in ``jarvis/clis/loader.py``,
+``asyncio.run(registry.bootstrap())`` path in ``dodaios/clis/loader.py``,
 which would otherwise wedge the whole process.
 """
 from __future__ import annotations
@@ -16,10 +16,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.clis import registry as registry_mod
-from jarvis.clis.registry import CliToolRegistry
-from jarvis.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
-from jarvis.clis.usage_log import UsageLog
+from dodaios.clis import registry as registry_mod
+from dodaios.clis.registry import CliToolRegistry
+from dodaios.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
+from dodaios.clis.usage_log import UsageLog
 
 
 class _FakeCatalog:

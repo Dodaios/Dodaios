@@ -11,9 +11,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.core.protocols import UIANode
-from jarvis.vision.pruning import RawNode
-from jarvis.vision.uia_tree import UIATreeSource, _flatten, _run_traverser_with_com
+from dodaios.core.protocols import UIANode
+from dodaios.vision.pruning import RawNode
+from dodaios.vision.uia_tree import UIATreeSource, _flatten, _run_traverser_with_com
 
 # --- defaults + copy ---------------------------------------------------------
 

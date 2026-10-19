@@ -14,8 +14,8 @@ import os
 
 import pytest
 
-from jarvis.cu.indicator import protocol
-from jarvis.cu.indicator.controller import CUIndicatorController
+from dodaios.cu.indicator import protocol
+from dodaios.cu.indicator.controller import CUIndicatorController
 
 _HAS_QT = importlib.util.find_spec("PySide6") is not None
 needs_qt = pytest.mark.skipif(
@@ -29,7 +29,7 @@ def qt():
     from PySide6.QtWidgets import QApplication  # noqa: PLC0415
 
     app = QApplication.instance() or QApplication([])
-    from jarvis.cu.indicator import renderer  # noqa: PLC0415
+    from dodaios.cu.indicator import renderer  # noqa: PLC0415
 
     yield renderer, app
     del app
@@ -87,7 +87,7 @@ def _tops(r) -> list[int]:
 def test_the_newest_card_sits_at_the_bottom_and_older_ones_climb() -> None:
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from jarvis.cu.indicator.renderer import _stack_tops
+    from dodaios.cu.indicator.renderer import _stack_tops
 
     assert _stack_tops(1000.0, 0.0, [200.0, 100.0, 150.0], gap=10.0) == [800.0, 690.0, 530.0]
 
@@ -95,7 +95,7 @@ def test_the_newest_card_sits_at_the_bottom_and_older_ones_climb() -> None:
 def test_a_flight_on_its_way_keeps_the_bottom_slot_free() -> None:
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from jarvis.cu.indicator.renderer import _stack_tops
+    from dodaios.cu.indicator.renderer import _stack_tops
 
     assert _stack_tops(1000.0, 0.0, [200.0], gap=10.0, reserve=210.0) == [590.0]
 
@@ -103,7 +103,7 @@ def test_a_flight_on_its_way_keeps_the_bottom_slot_free() -> None:
 def test_cards_without_room_drop_out_oldest_first() -> None:
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from jarvis.cu.indicator.renderer import _stack_tops
+    from dodaios.cu.indicator.renderer import _stack_tops
 
     tops = _stack_tops(500.0, 0.0, [200.0, 200.0, 100.0, 10.0], gap=10.0)
     assert tops == [300.0, 90.0, None, None], "once one does not fit, no older one squeezes in"
@@ -161,7 +161,7 @@ def test_a_gone_card_lets_the_ones_above_it_move_down(renderer) -> None:
 def test_the_stack_holds_at_most_max_cards(renderer, monkeypatch) -> None:
     r, _ = renderer
     # Flat cards, so the small offscreen screen has room for every slot.
-    module = importlib.import_module("jarvis.cu.indicator.renderer")
+    module = importlib.import_module("dodaios.cu.indicator.renderer")
     monkeypatch.setattr(module, "_CARD_MIN_H", 40.0)
     for n in range(protocol.MAX_CARDS + 1):
         _shutter(r, f"{n:08x}", size=(400, 60), rect=[0.1, 0.1, 0.5, 0.05])
@@ -222,7 +222,7 @@ class _Bus:
 
 
 async def test_a_card_action_and_its_status_go_to_that_card(monkeypatch) -> None:
-    from jarvis.appshot import card_actions
+    from dodaios.appshot import card_actions
 
     class _Proc:
         @staticmethod
@@ -248,8 +248,8 @@ async def test_a_card_action_and_its_status_go_to_that_card(monkeypatch) -> None
 
 
 async def test_a_click_on_an_older_card_opens_its_own_appshot(monkeypatch) -> None:
-    from jarvis.appshot import editor_window
-    from jarvis.appshot.store import Appshot, get_store
+    from dodaios.appshot import editor_window
+    from dodaios.appshot.store import Appshot, get_store
 
     store = get_store()
     store.clear()

@@ -27,16 +27,16 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.events import DictationRefused, PermissionNeeded, PermissionResolved
-from jarvis.platform.permission_service import (
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.events import DictationRefused, PermissionNeeded, PermissionResolved
+from dodaios.platform.permission_service import (
     PermissionOutcome,
     get_permission_service,
 )
-from jarvis.platform.permissions import PermissionId
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
-from jarvis.ui.desktop_app import _local_voice_permission_granted, _local_voice_permission_usable
+from dodaios.platform.permissions import PermissionId
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
+from dodaios.ui.desktop_app import _local_voice_permission_granted, _local_voice_permission_usable
 from tests.fakes.fake_permission_service import FakePermissionService, make_result
 from tests.fakes.fake_tcc import (
     DialogPolicy,
@@ -451,7 +451,7 @@ class _Boot:
         self.audio = FakeAudioInput(tcc, caller="boot")
         _Capture.constructed = []
         monkeypatch.setattr(pipeline_mod, "MicrophoneCapture", _Capture)
-        import jarvis.audio.capture as capture
+        import dodaios.audio.capture as capture
 
         monkeypatch.setattr(capture, "sd", SimpleNamespace(InputStream=self.audio))
         monkeypatch.setattr(

@@ -10,7 +10,7 @@ import types
 
 import pytest
 
-from jarvis.audio.ducking.windows import WindowsPycawDucker
+from dodaios.audio.ducking.windows import WindowsPycawDucker
 
 
 class _FakeVolume:
@@ -312,11 +312,11 @@ def test_from_config_clamps_out_of_range_values():
 
 
 def test_factory_threads_cfg_into_the_windows_backend(monkeypatch):
-    from jarvis.audio.ducking.factory import make_audio_ducker
+    from dodaios.audio.ducking.factory import make_audio_ducker
 
-    monkeypatch.setattr("jarvis.audio.ducking.factory.sys.platform", "win32")
+    monkeypatch.setattr("dodaios.audio.ducking.factory.sys.platform", "win32")
     monkeypatch.setattr(
-        "jarvis.audio.ducking.factory._pycaw_available", lambda: True,
+        "dodaios.audio.ducking.factory._pycaw_available", lambda: True,
     )
     cfg = types.SimpleNamespace(
         ducking=types.SimpleNamespace(duck_volume_percent=30),

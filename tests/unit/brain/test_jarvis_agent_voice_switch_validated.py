@@ -12,9 +12,9 @@ from uuid import UUID
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 class _FakeExecutor:
@@ -40,8 +40,8 @@ async def test_voice_subagent_switch_success_speaks_real_target(monkeypatch) -> 
         assert provider == "openai-codex"  # "codex" mapped to canonical
         return {"ok": True, "new_provider": "openai-codex", "requires_restart": True}
 
-    monkeypatch.setattr("jarvis.brain.app_control.apply_provider_switch", _ok)
-    monkeypatch.setattr("jarvis.brain.app_control.resolve_running_cfg", lambda: mgr._config)
+    monkeypatch.setattr("dodaios.brain.app_control.apply_provider_switch", _ok)
+    monkeypatch.setattr("dodaios.brain.app_control.resolve_running_cfg", lambda: mgr._config)
 
     out = await mgr._apply_subagent_provider_switch("codex")
     assert "Codex" in out  # the DISPLAY name of the real target
@@ -57,8 +57,8 @@ async def test_voice_subagent_switch_failure_is_honest(monkeypatch) -> None:
             "error": "Codex is not connected — run 'codex login' first.",
         }
 
-    monkeypatch.setattr("jarvis.brain.app_control.apply_provider_switch", _fail)
-    monkeypatch.setattr("jarvis.brain.app_control.resolve_running_cfg", lambda: mgr._config)
+    monkeypatch.setattr("dodaios.brain.app_control.apply_provider_switch", _fail)
+    monkeypatch.setattr("dodaios.brain.app_control.resolve_running_cfg", lambda: mgr._config)
 
     out = await mgr._apply_subagent_provider_switch("codex")
     assert out  # never silent

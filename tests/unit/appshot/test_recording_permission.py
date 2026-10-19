@@ -1,4 +1,4 @@
-"""The screen recorder's macOS Screen Recording gate (jarvis.platform.screen_access)."""
+"""The screen recorder's macOS Screen Recording gate (dodaios.platform.screen_access)."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import sys
 
 import pytest
 
-from jarvis.platform import permission_service, screen_access
-from jarvis.platform.permissions import PermissionId
+from dodaios.platform import permission_service, screen_access
+from dodaios.platform.permissions import PermissionId
 from tests.fakes.fake_permission_service import FakePermissionService
 
 
@@ -67,11 +67,11 @@ def test_the_recording_status_on_a_mac_without_the_grant(
     # A Linux runner without PulseAudio raises ImportError (libpulse), not ModuleNotFound.
     pytest.importorskip("PySide6.QtMultimedia", exc_type=ImportError)
     pytest.importorskip("av")
-    from jarvis.appshot import recording
+    from dodaios.appshot import recording
 
     gate("denied")
     monkeypatch.setattr(sys, "platform", "darwin")
-    monkeypatch.setattr("jarvis.platform.probes.display_present", lambda: True)
+    monkeypatch.setattr("dodaios.platform.probes.display_present", lambda: True)
 
     status = recording.capability()
 

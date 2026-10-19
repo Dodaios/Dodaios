@@ -1,6 +1,6 @@
 """Fake CancelToken for tests — structurally compatible with the protocol.
 
-The real implementation in `jarvis.control.cancel` lands with Task 4.
+The real implementation in `dodaios.control.cancel` lands with Task 4.
 """
 from __future__ import annotations
 

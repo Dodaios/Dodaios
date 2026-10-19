@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.memory.wiki import secret_guard
-from jarvis.society import memory
+from dodaios.memory.wiki import secret_guard
+from dodaios.society import memory
 
 
 def test_detector_failure_counts_as_secret(monkeypatch: pytest.MonkeyPatch) -> None:

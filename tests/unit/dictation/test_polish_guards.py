@@ -18,14 +18,14 @@ The two asymmetries get their own tests. They are not oversights:
 
 from __future__ import annotations
 
-from jarvis.core.turn_language import detect_text_language
-from jarvis.dictation.polish_guards import (
+from dodaios.core.turn_language import detect_text_language
+from dodaios.dictation.polish_guards import (
     DRIFT_REASONS,
     drift_reason,
     normalize_for_compare,
     rare_tokens,
 )
-from jarvis.dictation.polish_prompt import RAW_CLOSE_DELIMITER
+from dodaios.dictation.polish_prompt import RAW_CLOSE_DELIMITER
 
 # The shipped defaults from the design (§C.4). Kept here as literals rather than
 # imported so a silent widening of the band shows up as a failing test.
@@ -601,7 +601,7 @@ def test_precision_mode_does_not_trade_the_verb_check_away() -> None:
     skipped there too, the strongest protection and the one that replaces it
     would both be gone at once — on the setting that most needs a backstop.
     """
-    from jarvis.dictation.polish_guards import (
+    from dodaios.dictation.polish_guards import (
         PRECISION_DRIFT_REASONS,
         precision_drift_reason,
     )
@@ -636,7 +636,7 @@ def test_portuguese_ordinary_words_are_not_rare() -> None:
 
 
 def test_a_portuguese_negation_cut_is_a_lost_verb() -> None:
-    from jarvis.dictation.polish_guards import _lost_essential_word
+    from dodaios.dictation.polish_guards import _lost_essential_word
 
     assert _lost_essential_word(
         "amanhã não envio o relatório",  # i18n-allow: pt fixture under test
@@ -652,7 +652,7 @@ def test_a_language_with_no_verb_table_has_no_opinion() -> None:
     a Polish sentence trips the rare-token guard first and would hide the
     answer this test is about.
     """
-    from jarvis.dictation.polish_guards import _lost_essential_word
+    from dodaios.dictation.polish_guards import _lost_essential_word
 
     assert not _lost_essential_word(
         "jutro nie wysylam raportu", "Jutro wysylam raportu.", language="pl"

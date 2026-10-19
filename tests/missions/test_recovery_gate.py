@@ -19,8 +19,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import pytest_asyncio
 
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
 
 
 # ---------------------------------------------------------------------------
@@ -55,8 +55,8 @@ async def test_bootstrap_does_not_recover_without_explicit_primary(
         spy_called = True
         return []
 
-    with patch("jarvis.missions.manager.startup_recover", side_effect=_spy_recover):
-        from jarvis.missions.init import bootstrap_missions
+    with patch("dodaios.missions.manager.startup_recover", side_effect=_spy_recover):
+        from dodaios.missions.init import bootstrap_missions
 
         result = await bootstrap_missions(
             db_path=db_path,
@@ -144,8 +144,8 @@ async def test_explicit_primary_still_recovers(
         spy_called = True
         return []
 
-    with patch("jarvis.missions.manager.startup_recover", side_effect=_spy_recover):
-        from jarvis.missions.init import bootstrap_missions
+    with patch("dodaios.missions.manager.startup_recover", side_effect=_spy_recover):
+        from dodaios.missions.init import bootstrap_missions
 
         result = await bootstrap_missions(
             db_path=db_path,

@@ -9,8 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.plugins.wake import vosk_kws_provider as module
+from dodaios.core.protocols import AudioChunk
+from dodaios.plugins.wake import vosk_kws_provider as module
 
 
 class FakeStreamingVerify:

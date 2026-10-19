@@ -10,7 +10,7 @@ Man / Avengers films", no Tony-Stark persona, no Marvel source attribution.
 Those positive-mimicry markers turn a defensible generic name into a documented
 character copy and destroy any "generic name" defense.
 
-This test scans the importable package (``jarvis/**.py`` + ``jarvis/**.md``) and
+This test scans the importable package (``dodaios/**.py`` + ``dodaios/**.md``) and
 fails if any unambiguous Marvel-character marker reappears. The bare name
 "JARVIS" is intentionally NOT forbidden — only the character identification is.
 """
@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-_PACKAGE_ROOT = Path(__file__).resolve().parents[3] / "jarvis"
+_PACKAGE_ROOT = Path(__file__).resolve().parents[3] / "dodaios"
 
 # Unambiguous markers that identify the Marvel character specifically. The bare
 # product name "JARVIS"/"Jarvis" is intentionally absent — the product keeps it.

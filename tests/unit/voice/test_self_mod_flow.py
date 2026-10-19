@@ -1,4 +1,4 @@
-"""Tests for `jarvis.voice.self_mod_flow.SelfModFlowController` (Phase 7.4).
+"""Tests for `dodaios.voice.self_mod_flow.SelfModFlowController` (Phase 7.4).
 
 Plan acceptance criteria §7.4:
 - Misshear test: user reject leads to no write
@@ -24,16 +24,16 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.tools import build_self_mod_tools
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ExecutionContext
-from jarvis.core.self_mod import (
+from dodaios.brain.tools import build_self_mod_tools
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ExecutionContext
+from dodaios.core.self_mod import (
     AtomicConfigWriter,
     PendingMutation,
     PendingMutationStore,
     SelfModAudit,
 )
-from jarvis.voice import (
+from dodaios.voice import (
     FlowState,
     SelfModFlowController,
 )
@@ -107,7 +107,7 @@ def _make_pending_via_tool(
     new_value: Any,
 ) -> PendingMutation:
     """Hilfsfunktion: legt eine Pending-Mutation via Public-API an."""
-    from jarvis.core.self_mod import AuditActor, AuditSource, MutationRequest
+    from dodaios.core.self_mod import AuditActor, AuditSource, MutationRequest
 
     request = MutationRequest(
         path=path,

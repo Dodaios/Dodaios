@@ -1,7 +1,7 @@
 """RunLoader must attach the gap-less transcript to each assembled turn."""
-from jarvis.clis.usage_log import UsageLog
-from jarvis.runs.loader import RunLoader
-from jarvis.sessions.store import SessionStore
+from dodaios.clis.usage_log import UsageLog
+from dodaios.runs.loader import RunLoader
+from dodaios.sessions.store import SessionStore
 
 
 def test_loaded_turn_carries_transcript(tmp_path):

@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.memory.wiki.provider_chain import (
+from dodaios.memory.wiki.provider_chain import (
     build_wiki_provider_chain,
     complete_with_fallback,
     credential_ready_wiki_providers,
@@ -82,8 +82,8 @@ def test_uninstalled_cli_provider_is_excluded_from_the_chain(
     it failed on every call on machines that never installed it (2026-07-18)."""
     from types import SimpleNamespace as NS
 
-    from jarvis.core import config as config_module
-    from jarvis.google_cli import auth_service as google_auth
+    from dodaios.core import config as config_module
+    from dodaios.google_cli import auth_service as google_auth
 
     monkeypatch.setattr(
         config_module,
@@ -107,8 +107,8 @@ def test_keyless_codex_subscription_keeps_the_wiki_working(
 ) -> None:
     from types import SimpleNamespace as NS
 
-    import jarvis.codex_auth as codex_auth
-    from jarvis.core import config as config_module
+    import dodaios.codex_auth as codex_auth
+    from dodaios.core import config as config_module
 
     monkeypatch.setattr(
         config_module,
@@ -134,8 +134,8 @@ def test_disconnected_claude_subscription_is_excluded_from_the_chain(
 ) -> None:
     from types import SimpleNamespace as NS
 
-    import jarvis.claude_auth as claude_auth
-    from jarvis.core import config as config_module
+    import dodaios.claude_auth as claude_auth
+    from dodaios.core import config as config_module
 
     monkeypatch.setattr(
         config_module,
@@ -157,7 +157,7 @@ def test_disconnected_claude_subscription_is_excluded_from_the_chain(
 def test_credential_probe_uses_core_portable_storage_and_keeps_oauth(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.core import config as config_module
+    from dodaios.core import config as config_module
 
     monkeypatch.setattr(
         config_module,
@@ -174,7 +174,7 @@ def test_credential_probe_uses_core_portable_storage_and_keeps_oauth(
 
 
 def _stub_ready(monkeypatch: pytest.MonkeyPatch, ready: set[str]) -> None:
-    import jarvis.memory.wiki.provider_chain as chain_module
+    import dodaios.memory.wiki.provider_chain as chain_module
 
     monkeypatch.setattr(
         chain_module,
@@ -186,7 +186,7 @@ def _stub_ready(monkeypatch: pytest.MonkeyPatch, ready: set[str]) -> None:
 def test_background_work_skips_paid_keys_while_a_subscription_is_connected(
     monkeypatch: pytest.MonkeyPatch, background_billing,  # noqa: ANN001
 ) -> None:
-    import jarvis.memory.wiki.provider_chain as chain_module
+    import dodaios.memory.wiki.provider_chain as chain_module
 
     _stub_ready(monkeypatch, {"openai", "gemini", "codex", "ollama"})
     background_billing.sign_in("codex")
@@ -200,7 +200,7 @@ def test_background_work_skips_paid_keys_while_a_subscription_is_connected(
 def test_background_work_keeps_keys_when_no_subscription_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.memory.wiki.provider_chain as chain_module
+    import dodaios.memory.wiki.provider_chain as chain_module
 
     _stub_ready(monkeypatch, {"openai"})
     ready = chain_module.background_wiki_providers(
@@ -213,8 +213,8 @@ def test_signed_out_subscription_waits_instead_of_using_keys(
     monkeypatch: pytest.MonkeyPatch, background_billing,  # noqa: ANN001
 ) -> None:
     """The 5-EUR leak: one ``False`` probe used to hand the chain every key."""
-    import jarvis.memory.wiki.provider_chain as chain_module
-    from jarvis.brain.background_policy import BackgroundDeferred
+    import dodaios.memory.wiki.provider_chain as chain_module
+    from dodaios.brain.background_policy import BackgroundDeferred
 
     _stub_ready(monkeypatch, {"openai", "gemini", "grok"})
     background_billing.remember_subscription("claude-cli")
@@ -246,7 +246,7 @@ def test_subscription_mode_pins_a_dual_billed_provider_to_its_login(
     monkeypatch: pytest.MonkeyPatch, background_billing,  # noqa: ANN001
 ) -> None:
     """A card with a login AND a key slot must never fall through to the key."""
-    import jarvis.memory.wiki.provider_chain as chain_module
+    import dodaios.memory.wiki.provider_chain as chain_module
 
     class _DualBilled:
         def __init__(self, model: str | None = None, prefer_subscription: bool = False):
@@ -336,7 +336,7 @@ async def test_falls_over_to_first_working_provider():
 
 
 async def test_returns_none_only_when_every_provider_fails():
-    from jarvis.memory.wiki.telemetry import telemetry
+    from dodaios.memory.wiki.telemetry import telemetry
 
     before = telemetry.get("wiki_all_providers_failed")
     reg = _FakeRegistry(fail_providers=set(_ALL))
@@ -381,9 +381,9 @@ async def test_synchronous_aggregation_fault_stops_after_one_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A caller-owned stream adapter bug is not N broken provider families."""
-    from jarvis.memory.wiki import health as health_module
-    from jarvis.memory.wiki import provider_chain as pc
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki import health as health_module
+    from dodaios.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki.health import WikiHealth
 
     isolated_health = WikiHealth()
     monkeypatch.setattr(health_module, "health", isolated_health)
@@ -411,7 +411,7 @@ async def test_synchronous_aggregation_fault_stops_after_one_provider(
 async def test_validator_fault_stops_after_one_provider_without_cooling_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki import provider_chain as pc
 
     reg = _FakeRegistry(fail_providers=set())
 
@@ -454,8 +454,8 @@ async def test_boolean_validator_contract_is_rejected_as_a_shared_fault() -> Non
 async def test_optional_lane_neither_sets_nor_clears_normal_wiki_health(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.memory.wiki import health as health_module
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki import health as health_module
+    from dodaios.memory.wiki.health import WikiHealth
 
     isolated_health = WikiHealth()
     isolated_health.record_chain_failure("normal wiki capture is unavailable")
@@ -490,7 +490,7 @@ async def test_optional_lane_neither_sets_nor_clears_normal_wiki_health(
     )
     assert failure is None
     assert isolated_health.snapshot()["last_chain_failure"] is None
-    from jarvis.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki import provider_chain as pc
 
     assert not pc._in_cooldown("gemini")
     assert pc._in_cooldown("gemini", scope="optional-media")
@@ -661,7 +661,7 @@ async def test_two_valid_empty_opinions_stop_later_provider_attempts() -> None:
 async def test_allowed_rejection_never_cools_the_provider_down() -> None:
     """A valid-but-empty answer is a CONTENT verdict, not provider damage —
     it must not demote the provider for the next 15 minutes."""
-    from jarvis.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki import provider_chain as pc
 
     reg = _ScriptedRegistry(
         {"openrouter": "[]", "gemini": '[{"fact":"usable"}]'}
@@ -686,8 +686,8 @@ async def test_chain_success_clears_the_sticky_health_failure(
     """Live 2026-07-18: one exhausted chain painted the Wiki tab red forever
     ("Obsidian not connected" perception) although later runs succeeded —
     nothing ever cleared last_chain_failure. Any usable outcome must clear it."""
-    from jarvis.memory.wiki import health as health_module
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki import health as health_module
+    from dodaios.memory.wiki.health import WikiHealth
 
     isolated_health = WikiHealth()
     monkeypatch.setattr(health_module, "health", isolated_health)
@@ -731,9 +731,9 @@ async def test_content_verdict_from_healthy_provider_raises_no_chain_failure(
     banner. Live 2026-07-23: a single mis-kinded 'cloudflare-plugin' activity
     demanded a companion page no provider produced, wedging the chain and listing
     all 8 providers as broken on every journal trigger."""
-    from jarvis.memory.wiki import health as health_module
-    from jarvis.memory.wiki import provider_chain as pc
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki import health as health_module
+    from dodaios.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki.health import WikiHealth
 
     pc.reset_provider_failure_memory()
     isolated_health = WikiHealth()
@@ -771,9 +771,9 @@ async def test_healthy_content_verdict_suppresses_banner_beside_dead_rungs(
     provider answered healthily, the pipeline is not bricked — a normal fact
     would have been written — so no chain-failure banner, even beside genuinely
     dead rungs (whose 401/timeout is a separate, constant state)."""
-    from jarvis.memory.wiki import health as health_module
-    from jarvis.memory.wiki import provider_chain as pc
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki import health as health_module
+    from dodaios.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki.health import WikiHealth
 
     pc.reset_provider_failure_memory()
     isolated_health = WikiHealth()
@@ -873,7 +873,7 @@ async def test_cooldown_never_removes_the_last_resort() -> None:
 
 
 async def test_transport_success_clears_the_cooldown() -> None:
-    from jarvis.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki import provider_chain as pc
 
     reg = _FakeRegistry(fail_providers={"openrouter"})
     chain = [("openrouter", None), ("gemini", None)]
@@ -915,7 +915,7 @@ async def test_transport_success_clears_the_cooldown() -> None:
 
 
 async def test_cooldown_expires_by_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki import provider_chain as pc
 
     clock = {"now": 1000.0}
     monkeypatch.setattr(pc.time, "monotonic", lambda: clock["now"])
@@ -930,8 +930,8 @@ async def test_provider_failures_never_expose_raw_exception_secrets(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from jarvis.memory.wiki import health as health_module
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki import health as health_module
+    from dodaios.memory.wiki.health import WikiHealth
 
     secret = "sk-proj-" + "Z" * 32
 
@@ -1026,7 +1026,7 @@ async def test_cli_timeout_kwarg_degrades_for_older_provider_signatures() -> Non
 
 def test_exception_summary_carries_known_safe_diagnosis_only() -> None:
     """Recognised content-free diagnoses ride along; raw text never does."""
-    from jarvis.memory.wiki import provider_chain as pc
+    from dodaios.memory.wiki import provider_chain as pc
 
     safe = pc._exception_summary(
         RuntimeError("Codex (ChatGPT login) did not answer within 90s.")
@@ -1041,8 +1041,8 @@ def test_exception_summary_carries_known_safe_diagnosis_only() -> None:
 
 async def test_before_attempt_deferral_stops_the_chain_before_any_call():
     """The runaway guard raising at the cap is not a provider failure."""
-    from jarvis.brain.background_policy import BackgroundDeferred
-    from jarvis.memory.wiki.health import health
+    from dodaios.brain.background_policy import BackgroundDeferred
+    from dodaios.memory.wiki.health import health
 
     health.record_chain_success()
     reg = _FakeRegistry(fail_providers=set())
@@ -1069,7 +1069,7 @@ async def test_before_attempt_deferral_stops_the_chain_before_any_call():
 
 async def test_chain_failure_can_stay_off_the_red_banner():
     """Subscription-mode callers record a waiting state instead."""
-    from jarvis.memory.wiki.health import health
+    from dodaios.memory.wiki.health import health
 
     health.record_chain_success()
     reg = _FakeRegistry(fail_providers=set(_ALL))

@@ -6,19 +6,19 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import delegation_wait
-from jarvis.agent_chat import service as service_mod
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.runner_api import messages_from_events
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.delegated_work import (
+from dodaios.agent_chat import delegation_wait
+from dodaios.agent_chat import service as service_mod
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.runner_api import messages_from_events
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.delegated_work import (
     DelegatedWork,
     collect_delegated_work,
     register_delegated_work,
     register_dispatch,
 )
-from jarvis.core.protocols import ChatTurn, current_chat_turn
+from dodaios.core.protocols import ChatTurn, current_chat_turn
 
 
 @pytest.mark.parametrize("runner_kind", ["brain", "claude-cli"])

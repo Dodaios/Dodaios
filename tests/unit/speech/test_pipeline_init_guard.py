@@ -16,16 +16,16 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     AnnouncementRequested,
     AudioOutFirst,
     JarvisAgentAnnouncement,
     JarvisAgentBackgroundCompleted,
     VoiceMuteToggleRequested,
 )
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 @dataclass

@@ -19,7 +19,7 @@ import struct
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 
-from jarvis.core.protocols import AudioChunk
+from dodaios.core.protocols import AudioChunk
 
 
 @dataclass(frozen=True, slots=True)

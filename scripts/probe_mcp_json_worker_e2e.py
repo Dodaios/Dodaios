@@ -20,10 +20,10 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO))
 
-from jarvis.marketplace.token_store import InMemoryBackend, TokenStore  # noqa: E402
-from jarvis.missions.init import _assemble_worker_mcp_servers  # noqa: E402
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker  # noqa: E402
-from jarvis.missions.workers.stream_consumer import (  # noqa: E402
+from dodaios.marketplace.token_store import InMemoryBackend, TokenStore  # noqa: E402
+from dodaios.missions.init import _assemble_worker_mcp_servers  # noqa: E402
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker  # noqa: E402
+from dodaios.missions.workers.stream_consumer import (  # noqa: E402
     ClaudeAssistantMessage,
     ClaudeResult,
 )

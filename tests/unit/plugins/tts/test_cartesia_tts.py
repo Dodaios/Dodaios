@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from jarvis.plugins.tts.cartesia_tts import (
+from dodaios.plugins.tts.cartesia_tts import (
     CARTESIA_TTS_SAMPLE_RATE,
     CartesiaTTS,
 )
@@ -31,7 +31,7 @@ class _Resp:
 @pytest.fixture
 def patched_secret():
     with patch(
-        "jarvis.plugins.tts.cartesia_tts.cfg.get_secret",
+        "dodaios.plugins.tts.cartesia_tts.cfg.get_secret",
         return_value="sk_car_test_key",
     ):
         yield
@@ -94,7 +94,7 @@ async def test_401_triggers_cooldown_and_falls_back(tts: CartesiaTTS) -> None:
     tts._client = mock_client
 
     async def fake_fallback(text: str, lang: str | None):
-        from jarvis.core.protocols import AudioChunk
+        from dodaios.core.protocols import AudioChunk
 
         yield AudioChunk(
             pcm=b"FALLBACK", sample_rate=24_000, timestamp_ns=0, channels=1
@@ -115,7 +115,7 @@ async def test_429_triggers_cooldown_and_falls_back(tts: CartesiaTTS) -> None:
     tts._client = mock_client
 
     async def fake_fallback(text: str, lang: str | None):
-        from jarvis.core.protocols import AudioChunk
+        from dodaios.core.protocols import AudioChunk
 
         yield AudioChunk(
             pcm=b"FALLBACK", sample_rate=24_000, timestamp_ns=0, channels=1
@@ -138,7 +138,7 @@ async def test_empty_body_routes_to_cross_provider_fallback(
     tts._client = mock_client
 
     async def fake_fallback(text: str, lang: str | None):
-        from jarvis.core.protocols import AudioChunk
+        from dodaios.core.protocols import AudioChunk
 
         yield AudioChunk(pcm=b"FB", sample_rate=24_000, timestamp_ns=0, channels=1)
 

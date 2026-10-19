@@ -7,7 +7,7 @@ background process). The probe was run against that very image by hand and
 reports exactly those two problems; these tests pin its decisions.
 
 It also asserts the privacy declarations of the bundle: the single table of
-usage-description strings (``jarvis/core/macos_privacy_strings.py``) and, on a
+usage-description strings (``dodaios/core/macos_privacy_strings.py``) and, on a
 signed build, the entitlements ``codesign`` reports. No test here runs
 ``codesign`` (it exists on macOS only): a stand-in runner returns recorded
 output shapes, and what a real ``codesign`` prints on a real Mac is unverified.
@@ -24,11 +24,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import macos_privacy_strings
-from jarvis.core.branding import MACOS_DMG_BUNDLE_ID
+from dodaios.core import macos_privacy_strings
+from dodaios.core.branding import MACOS_DMG_BUNDLE_ID
 from scripts.ci import check_frozen_macos_app as probe
 
-ALL_MODULES = set(probe.REQUIRED_FROZEN_MODULES) | {"jarvis", "jarvis.platform.permissions"}
+ALL_MODULES = set(probe.REQUIRED_FROZEN_MODULES) | {"jarvis", "dodaios.platform.permissions"}
 
 
 def _info(**overrides: object) -> dict:

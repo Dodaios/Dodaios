@@ -25,16 +25,16 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
-# Repo root in sys.path so `from jarvis.missions...` works
+# Repo root in sys.path so `from dodaios.missions...` works
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jarvis.missions.events import EventEnvelope, now_ms  # noqa: E402
-from jarvis.missions.manager import MissionManager  # noqa: E402
-from jarvis.missions.recovery import (  # noqa: E402
+from dodaios.missions.events import EventEnvelope, now_ms  # noqa: E402
+from dodaios.missions.manager import MissionManager  # noqa: E402
+from dodaios.missions.recovery import (  # noqa: E402
     RECOVERY_STALE_AFTER_MS,
     startup_recover,
 )
-from jarvis.missions.state_machine import MissionState  # noqa: E402
+from dodaios.missions.state_machine import MissionState  # noqa: E402
 
 OK = "[OK]"
 FAIL = "[FAIL]"
