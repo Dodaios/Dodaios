@@ -158,7 +158,7 @@ def _bound(info: Any, name: str) -> int | None:
 
 
 @router.get("/settings")
-async def get_settings(request: Request) -> dict[str, Any]:
+def get_settings(request: Request) -> dict[str, Any]:
     """``[self_build]`` as the Settings page edits it, with each number's range."""
     return _settings_payload(getattr(_config(request), "self_build", None))
 
