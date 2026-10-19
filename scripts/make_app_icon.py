@@ -207,9 +207,6 @@ def main() -> None:
         public / "jarvis-gigi-256.png",
         public / "jarvis-logo.png",
         FRONTEND / "src" / "assets" / "jarvis-mark.png",
-        ROOT / "video" / "public" / "jarvis-gigi.png",
-        ROOT / "video" / "public" / "jarvis-mark.png",
-        ROOT / "videos" / "agent-mode-launch" / "assets" / "gigi.png",
     ):
         write_png(path, tile_256)
     write_png(public / "jarvis-mark-256.png", render_mark(256))
