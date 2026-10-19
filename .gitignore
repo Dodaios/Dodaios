@@ -201,6 +201,9 @@ Desktop.ini
 # and the shared Codex hooks are versioned.
 .claude/*
 !.claude/skills/
+# The project hooks (the agent done gate and the repo checks) are shared too;
+# personal hooks and permissions belong in .claude/settings.local.json.
+!.claude/settings.json
 .codex/*
 !.codex/hooks.json
 # ...except the security-github skill: RETIRED 2026-08-05. It orchestrated the

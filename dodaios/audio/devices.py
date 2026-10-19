@@ -64,7 +64,7 @@ from dodaios.audio.player import (
 from dodaios.audio.player import (
     _HOSTAPI_PREFERENCE as _OUTPUT_HOSTAPI_PREFERENCE,
 )
-from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS, no_feedback_startupinfo
 
 #: The config sentinel for "pick a device automatically" (the default in
 #: ``[audio].input_device`` / ``[audio].output_device``).
@@ -159,6 +159,7 @@ def _query_tables_fresh() -> _DeviceTables | None:
                 check=False,
                 close_fds=True,
                 creationflags=NO_WINDOW_CREATIONFLAGS,
+                startupinfo=no_feedback_startupinfo(),
             )
             record = output_path.read_text(encoding="utf-8", errors="replace")
     except (OSError, subprocess.SubprocessError):
