@@ -246,20 +246,31 @@ def test_no_credential_store_call_spells_a_service_name() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_installers_default_to_the_branded_install_directory() -> None:
-    name = re.escape(branding.DEFAULT_INSTALL_DIR_NAME)
-    shell = re.search(
-        r'^INSTALL_DIR="\$\{JARVIS_INSTALL_DIR:-\$HOME/(?P<name>[^}"]+)\}"$',
-        _read("install/install.sh"),
-        re.MULTILINE,
-    )
-    assert shell is not None and re.fullmatch(name, shell.group("name"))
-    powershell = re.search(
-        r"^\$InstallDir = .*Join-Path \$env:USERPROFILE '(?P<name>[^']+)' \}$",
-        _read("install/install.ps1"),
-        re.MULTILINE,
-    )
-    assert powershell is not None and re.fullmatch(name, powershell.group("name"))
+@pytest.mark.parametrize(
+    ("relative_path", "current", "legacy"),
+    [
+        ("install/install.sh", 'DEFAULT_INSTALL_DIR_NAME="{}"', 'LEGACY_INSTALL_DIR_NAME="{}"'),
+        ("install/uninstall.sh", 'DEFAULT_INSTALL_DIR_NAME="{}"', 'LEGACY_INSTALL_DIR_NAME="{}"'),
+        ("install/install.ps1", "$DefaultInstallDirName = '{}'", "$LegacyInstallDirName = '{}'"),
+        ("install/uninstall.ps1", "$DefaultInstallDirName = '{}'", "$LegacyInstallDirName = '{}'"),
+    ],
+)
+def test_the_scripts_restate_the_install_directory_names(
+    relative_path: str, current: str, legacy: str
+) -> None:
+    # Each script names the current folder and the one earlier name it still
+    # recognises; there is one earlier name, so one variable carries it.
+    assert branding.LEGACY_DEFAULT_INSTALL_DIR_NAMES == (".personal-jarvis",)
+    lines = _read(relative_path).splitlines()
+    assert current.format(branding.DEFAULT_INSTALL_DIR_NAME) in lines
+    assert legacy.format(branding.LEGACY_DEFAULT_INSTALL_DIR_NAMES[0]) in lines
+
+
+def test_the_installers_read_the_migration_engine_from_where_it_lives() -> None:
+    engine = "dodaios/core/identity_migration.py"
+    assert (_ROOT / engine).is_file()
+    assert f'IDENTITY_ENGINE_PATH="{engine}"' in _read("install/install.sh").splitlines()
+    assert f"$IdentityEnginePath = '{engine}'" in _read("install/install.ps1").splitlines()
 
 
 @pytest.mark.parametrize(
@@ -567,10 +578,9 @@ def _current_names() -> list[IdentityName]:
 # ``dodaios`` and ``dodaiosctl`` already made that move: they are console
 # scripts now, and the first test sees them among the current names. So did
 # the data directory and the config file: current names now, with their
-# earlier values in LEGACY_* tuples.
+# earlier values in LEGACY_* tuples, and so did the install directory.
 _PLANNED_NAMES: tuple[IdentityName, ...] = (
     IdentityName("executable", "gui-exe", "planned", "DodaiosApp"),
-    IdentityName("home-dir", "install", "planned", ".dodaios"),
     # The launcher folder sits beside the data directory, so it cannot take
     # the plain product name the data directory has now.
     IdentityName("localappdata-dir", "launcher", "planned", "DodaiosApp"),
@@ -624,11 +634,24 @@ def test_the_data_directory_moved_with_its_earlier_names_in_the_table() -> None:
     assert len(_collisions([*names, clash])) == 1
 
 
+def test_the_install_directory_moved_with_its_earlier_name_in_the_table() -> None:
+    names = _current_names()
+    install = {(n.namespace, n.generation, n.value) for n in names if n.role == "install"}
+    assert install == {
+        ("home-dir", "current", ".dodaios"),
+        ("home-dir", "legacy", ".personal-jarvis"),
+    }
+    # The data directory's fallback sits in the same home directory and must
+    # never be spelled like the install directory, under either name.
+    clash = IdentityName("home-dir", "data", "planned", ".DODAIOS")
+    assert len(_collisions([*names, clash])) == 1
+
+
 def test_legacy_constants_join_the_table_by_name() -> None:
     module = ModuleType("branding_after_a_rename")
     for _namespace, _role, constant in _ROLES:
         setattr(module, constant, getattr(branding, constant))
-    module.DEFAULT_INSTALL_DIR_NAME = ".dodaios"
+    module.DEFAULT_INSTALL_DIR_NAME = ".renamed-again"
     module.LEGACY_DEFAULT_INSTALL_DIR_NAMES = (branding.DEFAULT_INSTALL_DIR_NAME,)
     # A new data directory that only differs in case from the OLD install
     # directory would be the same folder on Windows and macOS.

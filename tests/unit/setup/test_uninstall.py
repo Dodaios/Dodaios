@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from dodaios.core import secret_slots
-from dodaios.core.identity_migration import keyring_marker_key
+from dodaios.core.identity_migration import create_directory_link, keyring_marker_key
 from dodaios.core.keychain_bundle import VAULT_ACCOUNT
 from dodaios.setup import uninstall
 from dodaios.setup.uninstall import UninstallPlan
@@ -427,6 +427,77 @@ def test_remove_folder_direct_delete(tmp_path: Path) -> None:
     # on every OS (no self-delete branch).
     assert uninstall._remove_folder(target) is True
     assert not target.exists()
+
+
+def _moved_install(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """``(home, install, link)``: ``~/.dodaios`` and the link left at its earlier name."""
+    home = tmp_path / "home"
+    install = home / ".dodaios"
+    (install / "data").mkdir(parents=True)
+    (install / "data" / "keep.txt").write_text("user data", encoding="utf-8")
+    link = home / ".personal-jarvis"
+    create_directory_link(link, install)
+    return home, install, link
+
+
+def test_the_plan_lists_the_link_an_install_folder_move_left_behind(tmp_path: Path) -> None:
+    home, install, link = _moved_install(tmp_path)
+    unrelated = home / ".elsewhere"
+    unrelated.mkdir()
+
+    assert uninstall._install_links(install, home=home) == (link,)
+    # A real folder under the earlier name is another install, not a link.
+    link_is_real = tmp_path / "other-home"
+    (link_is_real / ".personal-jarvis").mkdir(parents=True)
+    assert uninstall._install_links(install, home=link_is_real) == ()
+
+
+def test_removing_the_link_never_reaches_into_the_folder(tmp_path: Path) -> None:
+    _home, install, link = _moved_install(tmp_path)
+
+    uninstall._remove_link(link)
+
+    assert not os.path.lexists(link)
+    assert (install / "data" / "keep.txt").read_text(encoding="utf-8") == "user data"
+    # And a real folder is never taken for a link.
+    with pytest.raises(OSError, match="not a link"):
+        uninstall._remove_link(install)
+    assert install.is_dir()
+
+
+def test_remove_folder_given_a_link_removes_only_the_link(tmp_path: Path) -> None:
+    _home, install, link = _moved_install(tmp_path)
+
+    assert uninstall._remove_folder(link) is True
+
+    assert not os.path.lexists(link)
+    assert (install / "data" / "keep.txt").is_file()
+
+
+def test_uninstall_removes_the_link_first_then_the_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _home, install, link = _moved_install(tmp_path)
+    plan = UninstallPlan(
+        install_dir=install,
+        is_jarvis_install=True,
+        autostart_supported=False,
+        autostart_entry=None,
+        install_links=(link,),
+    )
+    _use_plan(monkeypatch, plan)
+    called = _record_steps(monkeypatch)
+    monkeypatch.setattr(
+        uninstall,
+        "_remove_folder",
+        lambda p: called.append(f"folder:{os.path.lexists(link)}") or True,
+    )
+
+    uninstall.run_uninstall(assume_yes=True)
+
+    # The link was gone before the folder went.
+    assert called[-1] == "folder:False"
+    assert install.is_dir()
 
 
 def test_running_inside_detects_self_host() -> None:

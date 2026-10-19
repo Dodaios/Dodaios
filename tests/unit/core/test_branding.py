@@ -34,8 +34,11 @@ _CURRENT_IDENTITY = {
     "LEGACY_KEYRING_SERVICE_NAMES": ("personal-jarvis",),
     "CONTROL_KEY_PREFIX": "jctl_",
     "SESSION_COOKIE_NAME": "jarvis_session",
-    "MANAGED_INSTALL_MARKER": ".jarvis-managed-install",
-    "DEFAULT_INSTALL_DIR_NAME": ".personal-jarvis",
+    "MANAGED_INSTALL_MARKER": ".dodaios-managed-install",
+    "LEGACY_MANAGED_INSTALL_MARKERS": (".jarvis-managed-install",),
+    "MANAGED_INSTALL_MARKERS": (".dodaios-managed-install", ".jarvis-managed-install"),
+    "DEFAULT_INSTALL_DIR_NAME": ".dodaios",
+    "LEGACY_DEFAULT_INSTALL_DIR_NAMES": (".personal-jarvis",),
     "WINDOWS_USER_DATA_DIR_NAME": "Dodaios",
     "LEGACY_WINDOWS_USER_DATA_DIR_NAMES": ("Jarvis",),
     "FALLBACK_USER_DATA_DIR_NAME": ".dodaios-data",
@@ -90,8 +93,12 @@ _MIGRATED_TO_THE_PRODUCT_NAME = frozenset(
         "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
         "DELIVERABLES_DIR_NAME",
         "OBSIDIAN_VAULT_FOLDER_NAME",
+        "MANAGED_INSTALL_MARKER",
+        "DEFAULT_INSTALL_DIR_NAME",
     }
 )
+# Every spelling of a migrated name, the current one first.
+_ALL_SPELLINGS_OF_A_MIGRATED_NAME = frozenset({"MANAGED_INSTALL_MARKERS"})
 
 
 def test_every_migrated_name_keeps_its_earlier_values() -> None:
@@ -124,6 +131,7 @@ def test_display_name_is_separate_from_persistent_identity() -> None:
         if (
             "CLI_COMMAND" in name
             or name in _MIGRATED_TO_THE_PRODUCT_NAME
+            or name in _ALL_SPELLINGS_OF_A_MIGRATED_NAME
             or name == "KEYRING_SERVICE_NAME"
         ):
             # Spelled like the product by choice, as literals of their own: the
