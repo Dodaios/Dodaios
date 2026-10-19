@@ -7,7 +7,7 @@ on which you see the agents walk the decks and do their work, and delegated
 every decision below that line. The brief and references are in
 `art/studies/starship-verse/brief.md`.
 
-Code: `jarvis/ui/web/frontend/src/components/society/starship/`. The stage
+Code: `dodaios/ui/web/frontend/src/components/society/starship/`. The stage
 (`ShipStage.tsx`) is what **Agents > Dodaios Verse** and the IDE side panel's
 Verse tab (on engineering, compact) mount.
 

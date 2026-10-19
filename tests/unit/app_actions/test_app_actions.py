@@ -9,12 +9,12 @@ import pytest
 from fastapi import FastAPI, UploadFile
 from pydantic import BaseModel
 
-from jarvis.app_actions import catalog as catalog_mod
-from jarvis.app_actions import history
-from jarvis.app_actions.catalog import build_catalog, default_tier
-from jarvis.app_actions.policy import effective_tier, load_policy, set_mode
-from jarvis.plugins.tool.app_action import FindAppActionTool, RunAppActionTool
-from jarvis.ui.web.app_actions_routes import router as app_actions_router
+from dodaios.app_actions import catalog as catalog_mod
+from dodaios.app_actions import history
+from dodaios.app_actions.catalog import build_catalog, default_tier
+from dodaios.app_actions.policy import effective_tier, load_policy, set_mode
+from dodaios.plugins.tool.app_action import FindAppActionTool, RunAppActionTool
+from dodaios.ui.web.app_actions_routes import router as app_actions_router
 
 
 def _app() -> FastAPI:
@@ -61,7 +61,7 @@ class _Runtime:
 def app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     application = _app()
     monkeypatch.setattr(catalog_mod, "_cache", {})
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_web_app", lambda: application, raising=False)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_web_app", lambda: application, raising=False)
     return application
 
 
@@ -83,7 +83,7 @@ def test_catalog_offers_actions_but_never_secrets_or_its_own_policy(app: FastAPI
 def test_remote_commands_ask_and_the_brain_switch_is_never_offered() -> None:
     """A prompt-injected page must not reach a shell on the person's server or
     flip the user-only main-brain switch through run-app-action."""
-    from jarvis.ui.web.computers_routes import router as computers_router
+    from dodaios.ui.web.computers_routes import router as computers_router
 
     application = FastAPI()
     application.include_router(computers_router)
@@ -104,7 +104,7 @@ def test_coding_panes_are_reached_only_through_the_addressed_workspace_tool() ->
     """The pane prompt and fan-out routes pick a pane by call-sign in the front
     workspace, with no delivery receipt; voice removed the tools wrapping them
     for that reason, and run-app-action must not hand them back."""
-    from jarvis.ui.web.agentic_ide_routes import router as ide_router
+    from dodaios.ui.web.agentic_ide_routes import router as ide_router
 
     application = FastAPI()
     application.include_router(ide_router)
@@ -171,7 +171,7 @@ def test_a_read_is_described_as_a_read_and_a_change_as_a_change(app: FastAPI) ->
     for args in (change, delete, {"action_id": "nope"}):
         assert tool.describe_args(args)["level"] == "modify"
     # A read-only chat still refuses every app action, reads included.
-    from jarvis.core.tool_read_only import allows_read
+    from dodaios.core.tool_read_only import allows_read
 
     assert allows_read(tool, read) is False
     # The person's mode still decides whether a read runs at all.
@@ -291,7 +291,7 @@ async def test_a_misspelled_parameter_is_refused_before_anything_runs(app: FastA
 def test_a_long_response_is_shortened_into_valid_json() -> None:
     import json
 
-    from jarvis.plugins.tool.app_action import _MAX_RESPONSE_CHARS, _trim
+    from dodaios.plugins.tool.app_action import _MAX_RESPONSE_CHARS, _trim
 
     big = {"items": [{"name": f"skill-{i}", "notes": "x" * 300} for i in range(500)]}
     trimmed = _trim(big)

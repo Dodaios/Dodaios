@@ -10,7 +10,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from jarvis.core import config_writer
+from dodaios.core import config_writer
 
 _SAMPLE = """\
 [trigger]

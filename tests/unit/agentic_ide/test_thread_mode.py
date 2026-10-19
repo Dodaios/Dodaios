@@ -18,13 +18,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agentic_ide import cli_title, thread_folders
-from jarvis.ui.web import workspace_routes
-from jarvis.ui.web.agent_chat_routes import router as chat_router
-from jarvis.ui.web.agentic_ide_git_routes import router as git_router
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agentic_ide import cli_title, thread_folders
+from dodaios.ui.web import workspace_routes
+from dodaios.ui.web.agent_chat_routes import router as chat_router
+from dodaios.ui.web.agentic_ide_git_routes import router as git_router
 
 
 @pytest.fixture(autouse=True)
@@ -137,7 +137,7 @@ def test_the_thread_list_offers_the_cli_title_until_the_person_renames(
 
 
 def test_a_thread_the_cli_did_not_name_gets_a_topic_title(tmp_path, monkeypatch) -> None:
-    from jarvis.sessions import chat_titles
+    from dodaios.sessions import chat_titles
 
     class _Titler:
         def titles_for(self, requests):
@@ -173,7 +173,7 @@ def test_the_front_page_list_is_left_alone(tmp_path, monkeypatch) -> None:
         permission_mode="",
         surface="jarvis",
     )
-    monkeypatch.setattr("jarvis.ui.web.agent_chat_routes._title_chats", lambda *args: None)
+    monkeypatch.setattr("dodaios.ui.web.agent_chat_routes._title_chats", lambda *args: None)
     with TestClient(app) as client:
         row = client.get("/api/agent-chat/sessions?surface=jarvis").json()["sessions"][0]
         assert "cli_title" not in row

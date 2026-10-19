@@ -10,11 +10,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core import config as cfg_mod
-from jarvis.core import control_key
-from jarvis.core.bus import EventBus
-from jarvis.ui.web.control_routes import ALLOWED_SECRET_KEYS
-from jarvis.ui.web.control_routes import router as control_router
+from dodaios.core import config as cfg_mod
+from dodaios.core import control_key
+from dodaios.core.bus import EventBus
+from dodaios.ui.web.control_routes import ALLOWED_SECRET_KEYS
+from dodaios.ui.web.control_routes import router as control_router
 
 KEY = "jctl_testkey_abcd"
 AUTH = {"Authorization": f"Bearer {KEY}"}
@@ -212,8 +212,8 @@ def test_ask_tier_invalid_value_is_refused_when_proposed(client) -> None:
 
 
 def test_failed_confirm_is_an_error_status_not_ok_200(client, monkeypatch) -> None:
-    from jarvis.core.self_mod import AtomicConfigWriter
-    from jarvis.core.self_mod.errors import ReloadError
+    from dodaios.core.self_mod import AtomicConfigWriter
+    from dodaios.core.self_mod.errors import ReloadError
 
     tc, _, _ = client
     res = tc.put("/api/control/config", json={"path": ASK_PATH, "value": 90}, headers=AUTH)
@@ -235,8 +235,8 @@ def test_failed_confirm_is_an_error_status_not_ok_200(client, monkeypatch) -> No
 def test_language_switch_is_all_or_nothing(client, monkeypatch) -> None:
     # The verb writes reply_language, then ui.language. When the second write
     # failed, the first used to stay applied: half a language switch.
-    from jarvis.core.self_mod import AtomicConfigWriter
-    from jarvis.core.self_mod.errors import ReloadError
+    from dodaios.core.self_mod import AtomicConfigWriter
+    from dodaios.core.self_mod.errors import ReloadError
 
     tc, _, _ = client
     real_mutate = AtomicConfigWriter.mutate

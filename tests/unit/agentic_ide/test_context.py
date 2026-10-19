@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.context import focus_context_block
-from jarvis.agentic_ide.session import Registry, reset_registry
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.context import focus_context_block
+from dodaios.agentic_ide.session import Registry, reset_registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -111,7 +111,7 @@ async def test_a_brief_being_written_is_stated_as_not_arrived(
     """
     import asyncio
 
-    from jarvis.agentic_ide import fanout
+    from dodaios.agentic_ide import fanout
 
     registry, _ = wired
     await registry.start(str(tmp_path), [{"agent": "claude"}])

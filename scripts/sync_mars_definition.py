@@ -6,8 +6,8 @@ import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "jarvis/society/mars/definition.json"
-TARGET = ROOT / "jarvis/ui/web/frontend/src/components/society/mars/worldDefinition.json"
+SOURCE = ROOT / "dodaios/society/mars/definition.json"
+TARGET = ROOT / "dodaios/ui/web/frontend/src/components/society/mars/worldDefinition.json"
 
 
 def main() -> int:

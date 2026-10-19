@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from jarvis.agent_chat.jarvis_harness import (
+from dodaios.agent_chat.jarvis_harness import (
     ROLLOVER_NOTICE_KIND,
     SOCIETY_ROLLOVER_CHARS,
     society_rollover_due,
 )
-from jarvis.society.conversation import SUMMARY_SYSTEM
+from dodaios.society.conversation import SUMMARY_SYSTEM
 
 
 def _text(chars: int) -> dict:

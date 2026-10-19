@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _PROVIDER_DOWN_PHRASES,
     _TURN_HISTORY_OVERRIDE,
     BrainManager,
     _provider_down_phrase,
 )
-from jarvis.core.protocols import BrainMessage
-from jarvis.core.turn_language import (
+from dodaios.core.protocols import BrainMessage
+from dodaios.core.turn_language import (
     conversation_language_from_history,
     detect_conversation_language,
     detect_language_request,
@@ -103,7 +103,7 @@ def test_everyday_supported_words_never_read_as_another_language(text: str) -> N
 
 
 def test_other_language_word_lists_share_no_word_with_the_supported_ones() -> None:
-    from jarvis.core.turn_language import _OTHER_TOKENS, _SETS, _SUPPORTED_COMMON_WORDS
+    from dodaios.core.turn_language import _OTHER_TOKENS, _SETS, _SUPPORTED_COMMON_WORDS
 
     supported = set().union(*(words for _code, words in _SETS)) | _SUPPORTED_COMMON_WORDS
     for code, words in _OTHER_TOKENS.items():
@@ -111,7 +111,7 @@ def test_other_language_word_lists_share_no_word_with_the_supported_ones() -> No
 
 
 def test_a_pinned_stt_tag_never_runs_german_rules_on_turkish() -> None:
-    from jarvis.core.turn_language import resolve_transcript_language
+    from dodaios.core.turn_language import resolve_transcript_language
 
     assert resolve_transcript_language("german", "Neden çalışmıyor bu program") == "unknown"
 
@@ -119,7 +119,7 @@ def test_a_pinned_stt_tag_never_runs_german_rules_on_turkish() -> None:
 def test_a_continuation_turn_keeps_its_phrase_language() -> None:
     # Inside generate() the turn's resolved language wins over the text, so an
     # internal English prompt never makes a German chat's error phrase English.
-    from jarvis.core.turn_language import TURN_LANGUAGE
+    from dodaios.core.turn_language import TURN_LANGUAGE
 
     m = _mgr(conv="de")
     token = TURN_LANGUAGE.set("de")

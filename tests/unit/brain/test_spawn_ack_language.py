@@ -10,7 +10,7 @@ force-spawned to a worker, and the spoken ACK came back in German
 Root cause: ``_spawn_ack_language`` used the weak ``_looks_german`` stop-word
 heuristic, which scored the English sentence 0-0 and broke the tie to German
 (``score_de >= score_en``). The fix routes the spawn ACK through the canonical
-``jarvis.core.turn_language.detect_text_language`` — the same single source of
+``dodaios.core.turn_language.detect_text_language`` — the same single source of
 truth the pipeline already uses for the turn language — instead of a private,
 weaker detector.
 
@@ -20,7 +20,7 @@ pinned es/pt reply language passes through and Spanish/Portuguese text under
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager, _looks_german
+from dodaios.brain.manager import BrainManager, _looks_german
 
 # The exact English utterance from the 2026-06-14 transcript that regressed to
 # a German spoken ACK.
@@ -68,7 +68,7 @@ def test_portuguese_auto_keeps_portuguese() -> None:
 
 
 def test_every_pinned_reply_language_passes_through() -> None:
-    from jarvis.brain.manager import SUPPORTED_REPLY_LANGUAGES
+    from dodaios.brain.manager import SUPPORTED_REPLY_LANGUAGES
 
     for code in SUPPORTED_REPLY_LANGUAGES:
         if code == "auto":

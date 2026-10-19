@@ -13,8 +13,8 @@ import types
 
 import pytest
 
-from jarvis.core.protocols import Observation, VisionSource
-from jarvis.vision.ax_tree import AXTreeSource, _ax_flatten, _ax_point, _ax_size
+from dodaios.core.protocols import Observation, VisionSource
+from dodaios.vision.ax_tree import AXTreeSource, _ax_flatten, _ax_point, _ax_size
 from tests.fakes.fake_ax_api import (
     FakeAXElement,
     build_fake_ax_traverser,
@@ -33,7 +33,7 @@ def test_protocol_conformance_on_any_os() -> None:
 @pytest.mark.asyncio
 async def test_module_imports_without_pyobjc() -> None:
     # Importing the module + constructing the source must not need a native lib.
-    import jarvis.vision.ax_tree as mod
+    import dodaios.vision.ax_tree as mod
 
     assert mod.AXTreeSource is AXTreeSource
 
@@ -125,7 +125,7 @@ def test_real_pyobjc_axvalue_round_trip_without_tcc() -> None:
     """Exercise the actual manual wrapper on both macOS CI architectures."""
     import HIServices  # type: ignore[import-not-found]
 
-    from jarvis.platform.macos_ax import decode_ax_point, decode_ax_size
+    from dodaios.platform.macos_ax import decode_ax_point, decode_ax_size
 
     point_type = HIServices.kAXValueCGPointType
     size_type = HIServices.kAXValueCGSizeType
@@ -173,7 +173,7 @@ def test_ax_read_is_a_silent_check_of_the_live_accessibility_grant(monkeypatch) 
 
 
 def test_ax_read_reprobes_live_revocation(monkeypatch) -> None:
-    from jarvis.platform.permission_service import get_permission_service
+    from dodaios.platform.permission_service import get_permission_service
 
     tcc = _macos_accessibility(monkeypatch, granted=True)
     assert AXTreeSource._ax_is_process_trusted() is True
@@ -352,7 +352,7 @@ def test_flatten_deadline_returns_partial_tree(monkeypatch) -> None:
     root = make_canned_ax_tree()
     clock = iter([100.0, 100.0, 999.0, 999.0, 999.0, 999.0, 999.0, 999.0])
     monkeypatch.setattr(
-        "jarvis.vision.ax_tree.time.monotonic", lambda: next(clock, 999.0),
+        "dodaios.vision.ax_tree.time.monotonic", lambda: next(clock, 999.0),
     )
     nodes: list = []
     _ax_flatten(

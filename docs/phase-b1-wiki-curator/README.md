@@ -58,14 +58,14 @@ Already committed on branch `impl/wiki-memory` (commit `7d9d3334`):
 - `docs/adr/0013-knowledge-wiki-architecture.md` — the architectural
   decision record. Explains why we picked this pattern and what got
   rejected.
-- `jarvis/memory/wiki/templates/` — versioned copies of the seed files
+- `dodaios/memory/wiki/templates/` — versioned copies of the seed files
   (schema, index, README). The runtime vault is gitignored; templates
   are copied into the vault on bootstrap.
 - `scripts/wiki_migrate_v0_to_v1.py` — one-shot migration from the
   legacy flat workspace to the new layout. Idempotent, backup before
   any write, has 14 unit tests.
 
-The legacy `Curator-Merger` (`jarvis/memory/curator/merger.py`) is **still
+The legacy `Curator-Merger` (`dodaios/memory/curator/merger.py`) is **still
 running** and will continue to write into the legacy flat files until
 Phase B4 removes it. Your code does **not** delete or modify the legacy
 curator. The two systems coexist throughout Phase B1.
@@ -79,7 +79,7 @@ a wave-2 integration step.
 
 When Phase B1 is done, the following becomes true:
 
-- `python -m jarvis.memory.wiki.cli ingest <file>` ingests a markdown
+- `python -m dodaios.memory.wiki.cli ingest <file>` ingests a markdown
   source into the vault. CLI works end-to-end.
 - A real ingest run produces a tree of valid wiki pages, validates
   against `schema.md`, writes a single log entry, never corrupts the
@@ -175,7 +175,7 @@ max_output_tokens = 2000
 timeout_s = 90.0
 ```
 
-The Awareness Verdichter (`jarvis/awareness/verdichter.py`) is your
+The Awareness Verdichter (`dodaios/awareness/verdichter.py`) is your
 reference pattern for "pick a brain via config, fall back gracefully".
 Copy that pattern, do not invent a new one.
 
@@ -196,7 +196,7 @@ Anything `data/workspace/schema.md` says is binding. Specifically:
 
 The runtime vault is at `<repo_root>/data/workspace/`. That directory
 is **gitignored** (it holds the user's personal data). The templates
-under `jarvis/memory/wiki/templates/` are versioned.
+under `dodaios/memory/wiki/templates/` are versioned.
 
 If the vault is empty on first run (no `schema.md` present), the
 WikiCurator bootstraps it by copying the templates. Wave 2 owns this
@@ -221,7 +221,7 @@ inter-instance interaction gets a small integration test against a
 
 Use `unittest.mock` only for the brain (the actual LLM call). All other
 collaborators have hand-written Fakes. Reference: `tests/contract/` and
-`jarvis/awareness/verdichter.py` (FakeBrain pattern).
+`dodaios/awareness/verdichter.py` (FakeBrain pattern).
 
 ### 3.7 Concurrent-edit safety (the user is editing in Obsidian)
 
@@ -254,7 +254,7 @@ These three Protocols are the contract. Wave-2 integration tests
 it. Wave-2 wires them together via dependency injection.
 
 ```python
-# jarvis/memory/wiki/protocols.py  ← Instance A creates this file
+# dodaios/memory/wiki/protocols.py  ← Instance A creates this file
 
 from __future__ import annotations
 from dataclasses import dataclass
@@ -378,7 +378,7 @@ class CuratorLLM(Protocol):
 The four files that hold these implementations:
 
 ```
-jarvis/memory/wiki/
+dodaios/memory/wiki/
 ├── __init__.py                 ← exists (B0)
 ├── templates/                  ← exists (B0)
 ├── protocols.py                ← Instance A creates
@@ -584,7 +584,7 @@ jarvis/memory/wiki/
    - Build the prompt (see § Prompt design below).
    - Call the configured Brain provider via the existing
      `BrainProviderRegistry`. **Do NOT hardcode anthropic or any
-     provider.** The pattern is in `jarvis/awareness/verdichter.py:80-130`
+     provider.** The pattern is in `dodaios/awareness/verdichter.py:80-130`
      — copy it.
    - The LLM returns a structured JSON list of proposed updates. Parse
      it into `list[PageUpdate]`. On JSON parse failure or LLM timeout,
@@ -676,7 +676,7 @@ USER:
   `BrainProviderRegistry.instantiate` and assert it was called with
   the right name. (Note: an earlier draft of this briefing said
   `get_provider`; the real API is `instantiate` — verified at
-  `jarvis/brain/provider_registry.py:45`. Instance D caught and
+  `dodaios/brain/provider_registry.py:45`. Instance D caught and
   worked around this during the initial build.)
 - Empty source content → empty `list[PageUpdate]` without LLM call.
 - LLM returns malformed JSON → empty list + warning logged.
@@ -717,7 +717,7 @@ I (the orchestrator) will:
            await self.vault.append_log_entry(verb="ingest", …)
            return result
    ```
-4. Write `cli.py` for `python -m jarvis.memory.wiki.cli ingest <file>`.
+4. Write `cli.py` for `python -m dodaios.memory.wiki.cli ingest <file>`.
 5. Write the wave-2 integration tests:
    - `tests/integration/memory/wiki/test_curator_ingest_e2e.py` — real
      ingest of a fake source against a temp vault, end-to-end, with a
@@ -771,30 +771,30 @@ Open these in order. The instance-specific ones are listed first.
 2. `docs/adr/0013-knowledge-wiki-architecture.md` — the architectural why.
 3. `CLAUDE.md` — Output Language Policy (English only for new code),
    plus the awareness layer context.
-4. `jarvis/awareness/verdichter.py` — the reference pattern for "call
+4. `dodaios/awareness/verdichter.py` — the reference pattern for "call
    a configured Brain provider, fall back gracefully, handle timeouts."
 
 **Instance A** also reads:
-- `jarvis/memory/recall.py:22-25` — the `_sanitize_fts5_query` pattern
+- `dodaios/memory/recall.py:22-25` — the `_sanitize_fts5_query` pattern
   for tolerating user-typed input safely.
 
 **Instance B** also reads:
-- `jarvis/memory/recall.py:299-386` — for the SQLite-side awareness_episodes_fts
+- `dodaios/memory/recall.py:299-386` — for the SQLite-side awareness_episodes_fts
   pattern, which is how a future MD-FTS shim could look (not in B1 scope).
 - `data/workspace/log.md` — the existing format, so you append in style.
 
 **Instance C** also reads:
-- `jarvis/core/self_mod/writer.py` (if present) — the existing atomic
+- `dodaios/core/self_mod/writer.py` (if present) — the existing atomic
   writer pattern with backup-validate-restore. Reuse the philosophy,
   not necessarily the code.
 - `scripts/wiki_migrate_v0_to_v1.py:make_backup` — the existing tar pattern
   for `data/backups/wiki-*.tar.gz`.
 
 **Instance D** also reads:
-- `jarvis/awareness/prompts.py` — for the system-prompt-building pattern.
-- `jarvis/brain/manager.py:provider_registry` — for how to fetch a
+- `dodaios/awareness/prompts.py` — for the system-prompt-building pattern.
+- `dodaios/brain/manager.py:provider_registry` — for how to fetch a
   brain provider via config.
-- `jarvis/brain/registry.py` — the BrainProviderRegistry class itself.
+- `dodaios/brain/registry.py` — the BrainProviderRegistry class itself.
 
 ---
 
@@ -804,7 +804,7 @@ Open these in order. The instance-specific ones are listed first.
   ask the integrator before guessing.
 - **Protocol question:** check `protocols.py`. If you genuinely need to
   change a Protocol, raise it — do not silently diverge.
-- **Brain provider question:** look at `jarvis/awareness/verdichter.py`.
+- **Brain provider question:** look at `dodaios/awareness/verdichter.py`.
   Same pattern, transplant it.
 - **"Should I add X feature?"** — almost certainly no. B1 is scoped
   tight. If it is not in your instance briefing, it is not in B1.
@@ -841,7 +841,7 @@ Wave 2 is done when:
 
 - [ ] `WikiCurator.ingest(...)` produces a valid update against a real
       vault.
-- [ ] `python -m jarvis.memory.wiki.cli ingest <file>` runs end-to-end.
+- [ ] `python -m dodaios.memory.wiki.cli ingest <file>` runs end-to-end.
 - [ ] Three integration tests in `tests/integration/memory/wiki/` pass.
 - [ ] Full repo test suite stays green (no regressions in awareness or
       brain tests).

@@ -1,6 +1,6 @@
 """Tests for the FTS5 upsert hook wired into AtomicWriter.
 
-Requires ``jarvis.memory.wiki.fts_index`` — skipped when not available.
+Requires ``dodaios.memory.wiki.fts_index`` — skipped when not available.
 
 Test matrix
 -----------
@@ -17,12 +17,12 @@ from pathlib import Path
 import pytest
 
 fts_index = pytest.importorskip(
-    "jarvis.memory.wiki.fts_index",
+    "dodaios.memory.wiki.fts_index",
     reason="fts_index peer module not yet available",
 )
 
-from jarvis.memory.wiki.atomic_writer import AtomicWriter  # noqa: E402
-from jarvis.memory.wiki.protocols import PageUpdate  # noqa: E402
+from dodaios.memory.wiki.atomic_writer import AtomicWriter  # noqa: E402
+from dodaios.memory.wiki.protocols import PageUpdate  # noqa: E402
 
 from .conftest import FakePageRepository  # noqa: E402
 

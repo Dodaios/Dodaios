@@ -1,7 +1,7 @@
 """Smoke: the real runtime drivers launch real Hermes / OpenClaw turns.
 
 Unlike ``agent_runtimes_probe.py`` this goes through Jarvis' own drivers
-(``jarvis.agent_runtimes.hermes`` / ``openclaw``): profile and config
+(``dodaios.agent_runtimes.hermes`` / ``openclaw``): profile and config
 writing, process environment, the OpenClaw Gateway supervisor, and the ACP
 turn. The model is ``tests/fakes/fake_openai_server.py``; no paid key.
 All runtime state lands in a temporary folder.
@@ -25,13 +25,13 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from jarvis.agent_runtimes import base, driver  # noqa: E402
-from jarvis.agent_runtimes.acp import AcpTurn, frame_line  # noqa: E402
-from jarvis.agent_runtimes.base import RuntimeTurn  # noqa: E402
-from jarvis.agent_runtimes.model_map import ModelRoute  # noqa: E402
-from jarvis.core.control_key import get_control_key  # noqa: E402
-from jarvis.core.process_tree import make_process_tree  # noqa: E402
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
+from dodaios.agent_runtimes import base, driver  # noqa: E402
+from dodaios.agent_runtimes.acp import AcpTurn, frame_line  # noqa: E402
+from dodaios.agent_runtimes.base import RuntimeTurn  # noqa: E402
+from dodaios.agent_runtimes.model_map import ModelRoute  # noqa: E402
+from dodaios.core.control_key import get_control_key  # noqa: E402
+from dodaios.core.process_tree import make_process_tree  # noqa: E402
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
 from tests.fakes.fake_openai_server import MODEL_ID, FakeOpenAIServer  # noqa: E402
 
 
@@ -53,7 +53,7 @@ class _IO:
 
 
 async def _run(name: str, turn: RuntimeTurn, text: str) -> tuple[AcpTurn, _IO]:
-    from jarvis.agent_runtimes import gateway
+    from dodaios.agent_runtimes import gateway
 
     runtime = driver(name)
     launch = await runtime.launch(turn)
@@ -141,7 +141,7 @@ def _key_on_disk(root: Path, key: str) -> bool:
 def keep_user_path() -> None:
     """A spike never edits the machine's PATH: the app's one-time cleanup of
     stale Hermes entries (``path_cleanup``) stays the app's job."""
-    from jarvis.agent_runtimes import path_cleanup
+    from dodaios.agent_runtimes import path_cleanup
 
     path_cleanup._done = True  # noqa: SLF001 — the spike opts out of an app duty
 

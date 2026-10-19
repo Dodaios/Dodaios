@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.trigger.backends.pynput import PynputBackend
+from dodaios.trigger.backends.pynput import PynputBackend
 
 #: keysym -> [(keycode, level)] as the X server lists them. "(" also sits on
 #: the keypad's base level (keycode 187), which must not count.

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tomllib
 
-from jarvis.core.config_writer import set_local_idle_release_minutes
+from dodaios.core.config_writer import set_local_idle_release_minutes
 
 
 def _minutes(path) -> int:

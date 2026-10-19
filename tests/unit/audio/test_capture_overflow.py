@@ -9,14 +9,14 @@ real-time detection consumer uses a shallow depth so the bound is small.
 """
 from __future__ import annotations
 
-from jarvis.audio.capture import (
+from dodaios.audio.capture import (
     BLOCKSIZE,
     DEFAULT_QUEUE_CHUNKS,
     REALTIME_QUEUE_CHUNKS,
     SAMPLE_RATE,
     MicrophoneCapture,
 )
-from jarvis.core.protocols import AudioChunk
+from dodaios.core.protocols import AudioChunk
 
 
 def _chunk(tag: int) -> AudioChunk:

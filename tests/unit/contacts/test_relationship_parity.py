@@ -1,6 +1,6 @@
 """Parity guard for the contact ``relationship`` enum (five-layer anti-drift).
 
-The Python source of truth (``jarvis/contacts/schema.py``) and the TypeScript
+The Python source of truth (``dodaios/contacts/schema.py``) and the TypeScript
 mirror (``frontend/src/views/contacts/constants.ts``) must never drift apart —
 that is the BUG-008 multi-layer-enum-drift defense (AP-4). This test regex-reads
 the TS array and compares it to the Python tuple.
@@ -10,11 +10,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jarvis.contacts.schema import RELATIONSHIPS
+from dodaios.contacts.schema import RELATIONSHIPS
 
 _REPO = Path(__file__).resolve().parents[3]
 _CONSTANTS_TS = (
-    _REPO / "jarvis/ui/web/frontend/src/views/contacts/constants.ts"
+    _REPO / "dodaios/ui/web/frontend/src/views/contacts/constants.ts"
 )
 
 

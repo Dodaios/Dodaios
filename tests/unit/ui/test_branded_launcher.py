@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui import icon_utils
+from dodaios.ui import icon_utils
 
 
 def test_branded_launcher_api_is_importable() -> None:
@@ -33,7 +33,7 @@ def test_branded_launcher_api_is_importable() -> None:
 
 def test_launcher_wires_the_reexec() -> None:
     """main() must call the re-exec chokepoint, or nothing brands the taskbar."""
-    import jarvis.ui.web.launcher as launcher
+    import dodaios.ui.web.launcher as launcher
 
     src = inspect.getsource(launcher)
     assert "maybe_reexec_through_branded_launcher" in src

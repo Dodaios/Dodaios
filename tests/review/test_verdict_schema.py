@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from jarvis.core.review.verdict import (
+from dodaios.core.review.verdict import (
     ReviewIssue,
     ReviewStatus,
     ReviewVerdict,

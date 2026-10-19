@@ -16,14 +16,14 @@ Smithery, LobeHub) converged on, adapted from the npm world to a Python app:
 ## The one-source rule
 
 The three strings are computed in **one** place —
-`jarvis/marketplace/install_standard.py` — and flow outward verbatim:
+`dodaios/marketplace/install_standard.py` — and flow outward verbatim:
 
 1. `/api/marketplace/community` embeds an `install` block per entry
    (`marketplace_routes.py::_community_payload`).
 2. The store's detail sheets render that block verbatim
    (`PluginsCommunity.tsx::InstallStandard`) — the frontend never derives
    command strings itself.
-3. The curated command (`jarvis/cli_ctl/commands/marketplace.py`) is the only
+3. The curated command (`dodaios/cli_ctl/commands/marketplace.py`) is the only
    consumer-side implementation. Renaming or reshaping it requires the same
    change in `install_standard.py`, or the store advertises a command that
    does not exist — the one bug a store is judged on.

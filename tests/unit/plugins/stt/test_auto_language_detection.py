@@ -26,10 +26,10 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.plugins.stt.gemini_api import GeminiSTT
-from jarvis.plugins.stt.groq_api import GroqWhisperAPI
-from jarvis.plugins.stt.openai_api import OpenAIWhisperAPI
-from jarvis.plugins.stt.openrouter_stt import OpenRouterSTT
+from dodaios.plugins.stt.gemini_api import GeminiSTT
+from dodaios.plugins.stt.groq_api import GroqWhisperAPI
+from dodaios.plugins.stt.openai_api import OpenAIWhisperAPI
+from dodaios.plugins.stt.openrouter_stt import OpenRouterSTT
 
 _PCM = b"\x00\x00" * 1600  # 0.1 s of silence at 16 kHz
 
@@ -248,7 +248,7 @@ class _FakeWhisperModel:
 
 
 def _fwhisper(captured: dict[str, Any], language: str | None):
-    from jarvis.plugins.stt import fwhisper as fwhisper_mod
+    from dodaios.plugins.stt import fwhisper as fwhisper_mod
 
     provider = fwhisper_mod.FasterWhisperProvider(language=language)
     provider._model = _FakeWhisperModel(captured)

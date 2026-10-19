@@ -20,9 +20,9 @@ from pathlib import Path
 
 import tomlkit
 
-from jarvis.core import config_writer
-from jarvis.core.config import TriggerConfig
-from jarvis.core.config_writer import (
+from dodaios.core import config_writer
+from dodaios.core.config import TriggerConfig
+from dodaios.core.config_writer import (
     DICTATION_HOTKEY_MIGRATION_KEY,
     migrate_dictation_hotkey_defaults,
 )
@@ -243,7 +243,7 @@ def test_an_unbound_other_action_is_not_treated_as_a_collision(
 def test_load_config_heals_the_resolved_path(
     tmp_path: Path, monkeypatch
 ) -> None:
-    from jarvis.core import config as config_module
+    from dodaios.core import config as config_module
 
     path = _write(tmp_path / "jarvis.toml", '[trigger]\nhotkey_dictate = ""\n')
     monkeypatch.setenv("JARVIS_CONFIG", str(path))
@@ -259,7 +259,7 @@ def test_load_config_never_rewrites_an_explicitly_named_file(
     tmp_path: Path, monkeypatch
 ) -> None:
     """A doctor script or a test that names a file gets it READ, not healed."""
-    from jarvis.core import config as config_module
+    from dodaios.core import config as config_module
 
     body = '[trigger]\nhotkey_dictate = ""\n'
     path = _write(tmp_path / "jarvis.toml", body)

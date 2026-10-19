@@ -17,9 +17,9 @@ they part company.
 
 from __future__ import annotations
 
-from jarvis import agent_accounts
-from jarvis.agentic_ide import agent_sessions, intent, names
-from jarvis.workspace import agents as workspace_agents
+from dodaios import agent_accounts
+from dodaios.agentic_ide import agent_sessions, intent, names
+from dodaios.workspace import agents as workspace_agents
 
 
 def test_every_account_platform_is_a_registered_coding_cli() -> None:
@@ -54,7 +54,7 @@ def test_the_voice_schema_offers_exactly_the_registered_clis() -> None:
     the pane opens from the UI, resumes and accepts prompts, and is absent from
     the one surface meant to drive it.
     """
-    from jarvis.commands.registry import _coding_agent_ids
+    from dodaios.commands.registry import _coding_agent_ids
 
     assert set(_coding_agent_ids()) == set(workspace_agents.coding_agent_names())
 
@@ -157,7 +157,7 @@ def test_every_trust_spec_names_a_format_that_has_a_writer() -> None:
     A spec with no writer means the pre-seed silently does nothing and every
     pane opens on the dialog this whole mechanism exists to skip.
     """
-    from jarvis.workspace.trust import _WRITERS
+    from dodaios.workspace.trust import _WRITERS
 
     for entry in workspace_agents.coding_agents():
         if entry.trust is None:
@@ -172,7 +172,7 @@ def test_the_rest_payload_lists_the_same_platforms_as_the_backend() -> None:
     The UI now renders whatever this payload contains, so a platform missing
     here is a section that is simply never drawn — with no error anywhere.
     """
-    from jarvis.ui.web.agent_accounts_routes import _collect
+    from dodaios.ui.web.agent_accounts_routes import _collect
 
     payload = _collect()
     listed = {group["platform"] for group in payload["platforms"]}

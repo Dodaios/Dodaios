@@ -14,8 +14,8 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
-from jarvis.plugins.brain.ollama import (
+from dodaios.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
+from dodaios.plugins.brain.ollama import (
     DEFAULT_SERVER_ROOT,
     RECOMMENDED_PULL,
     RECOMMENDED_VISION_PULL,
@@ -36,8 +36,8 @@ class _FakeOpenAI:
 @pytest.fixture(autouse=True)
 def _forget_context_windows():
     """Sized and verified windows live per process; no test may inherit one."""
-    from jarvis.brain import local_context
-    from jarvis.plugins.brain import ollama as plugin
+    from dodaios.brain import local_context
+    from dodaios.plugins.brain import ollama as plugin
 
     plugin.reset_context_memo()
     local_context.reset_registry()
@@ -305,7 +305,7 @@ async def test_unreachable_server_gives_honest_error(monkeypatch, fake_tags) -> 
 @pytest.fixture()
 def catalog(monkeypatch):
     """Stub the cached model catalog the synchronous vision probe reads."""
-    import jarvis.brain.model_catalog as mc
+    import dodaios.brain.model_catalog as mc
 
     state = {"caps": {}, "has_data": False, "vision_pick": None}
 
@@ -414,7 +414,7 @@ async def test_complete_refuses_an_image_on_a_pinned_blind_model(
     but the turn errors instead of describing a screenshot it cannot see."""
     import openai
 
-    from jarvis.core.protocols import BrainMessage, BrainRequest, ImageBlock
+    from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     _no_override(monkeypatch)
@@ -474,7 +474,7 @@ class _FakeStreamer:
     @classmethod
     async def stream(cls, client: Any, model: str, req: Any, **kwargs: Any):
         cls.calls.append((model, req))
-        from jarvis.core.protocols import BrainDelta
+        from dodaios.core.protocols import BrainDelta
 
         yield BrainDelta(content="ok", finish_reason="stop")
 
@@ -503,8 +503,8 @@ class _FakeProfiles:
 def wired(monkeypatch):
     import openai
 
-    from jarvis.brain import ollama_profiles
-    from jarvis.plugins.brain import ollama as plugin
+    from dodaios.brain import ollama_profiles
+    from dodaios.plugins.brain import ollama as plugin
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     monkeypatch.setattr(plugin, "stream_complete", _FakeStreamer.stream)
@@ -535,7 +535,7 @@ def _config_with_options(monkeypatch, models: dict[str, dict[str, Any]]) -> None
 
 
 def _req(**kwargs: Any):
-    from jarvis.core.protocols import BrainMessage, BrainRequest
+    from dodaios.core.protocols import BrainMessage, BrainRequest
 
     return BrainRequest(messages=(BrainMessage(role="user", content="hi"),), **kwargs)
 
@@ -563,7 +563,7 @@ def test_a_fresh_brain_budgets_for_the_floor_not_the_class_figure(monkeypatch) -
     """Tools are fitted before the first call. Until the window is sized the
     budget is the floor every automatic window starts from, so the first turn
     can never be planned larger than what the server is then asked to run."""
-    from jarvis.brain.ollama_profiles import AUTOMATIC_CONTEXT_FLOOR
+    from dodaios.brain.ollama_profiles import AUTOMATIC_CONTEXT_FLOOR
 
     _config_with_options(monkeypatch, {})
     assert OllamaBrain(model="qwen3.5:9b").context_window == AUTOMATIC_CONTEXT_FLOOR
@@ -621,7 +621,7 @@ async def test_profile_failure_degrades_to_the_base_model(monkeypatch, wired) ->
 
 
 async def test_a_request_the_prepared_window_cannot_hold_is_never_sent(monkeypatch, wired) -> None:
-    from jarvis.brain.local_context import LocalContextError
+    from dodaios.brain.local_context import LocalContextError
 
     _config_with_options(monkeypatch, {"qwen3.5:9b": {"num_ctx": 4096}})
     brain = OllamaBrain(model="qwen3.5:9b")
@@ -668,8 +668,8 @@ class _RoutedClient:
 def routed(monkeypatch):
     import openai
 
-    from jarvis.brain import ollama_profiles, ollama_pull
-    from jarvis.plugins.brain import ollama as plugin
+    from dodaios.brain import ollama_profiles, ollama_pull
+    from dodaios.plugins.brain import ollama as plugin
 
     monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
     monkeypatch.setattr(httpx, "AsyncClient", _RoutedClient)
@@ -704,7 +704,7 @@ async def test_sixteen_gb_of_ram_gets_the_floor_not_the_server_default(routed) -
 
 
 async def test_a_large_card_gets_the_ceiling_not_the_native_window(routed, monkeypatch) -> None:
-    from jarvis.brain import ollama_pull
+    from dodaios.brain import ollama_pull
 
     monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (24.0, "nvidia"))
     brain = OllamaBrain(model="qwen3.5:9b")
@@ -745,7 +745,7 @@ async def test_a_server_that_runs_a_smaller_window_is_believed(routed) -> None:
 
 
 async def test_a_prompt_the_server_cut_short_never_becomes_an_answer(routed) -> None:
-    from jarvis.brain.local_context import LocalContextError
+    from dodaios.brain.local_context import LocalContextError
 
     _FakeProfiles.fail = True
     routed.ps = {"models": [{"name": "qwen3.5:9b", "context_length": 4_096}]}
@@ -768,8 +768,8 @@ async def test_an_unanswered_check_leaves_the_plan_standing(routed) -> None:
 
 
 async def test_a_server_refusal_names_the_setting(routed, monkeypatch) -> None:
-    from jarvis.brain.local_context import LocalContextError
-    from jarvis.plugins.brain import ollama as plugin
+    from dodaios.brain.local_context import LocalContextError
+    from dodaios.plugins.brain import ollama as plugin
 
     async def refusing(client: Any, model: str, req: Any, **kwargs: Any):
         raise RuntimeError("Error code: 400 - the request exceeds the available context size")
@@ -793,7 +793,7 @@ async def test_discovered_model_is_tuned_like_a_pinned_one(monkeypatch, wired, f
 async def test_the_smaller_window_is_enforced_on_every_later_turn(routed) -> None:
     """The first turn learned that the server runs 4,096. A later, larger
     request must be held to that too, not only the turn that asked."""
-    from jarvis.brain.local_context import LocalContextError
+    from dodaios.brain.local_context import LocalContextError
 
     _FakeProfiles.fail = True
     routed.ps = {"models": [{"name": "qwen3.5:9b", "context_length": 4_096}]}
@@ -834,7 +834,7 @@ async def test_a_model_that_declares_a_tiny_window_still_gets_the_floor(routed) 
 
 
 async def test_a_server_still_starting_does_not_fix_the_size_for_good(routed, monkeypatch) -> None:
-    from jarvis.brain import ollama_pull
+    from dodaios.brain import ollama_pull
 
     monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (24.0, "nvidia"))
     routed.tags = None  # /api/tags does not answer yet
@@ -845,7 +845,7 @@ async def test_a_server_still_starting_does_not_fix_the_size_for_good(routed, mo
 
 
 async def test_a_remote_server_is_not_sized_from_this_machine(routed, monkeypatch) -> None:
-    from jarvis.brain import ollama_pull
+    from dodaios.brain import ollama_pull
 
     monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (24.0, "nvidia"))
     _override("http://otherbox:11434", monkeypatch)
@@ -855,7 +855,7 @@ async def test_a_remote_server_is_not_sized_from_this_machine(routed, monkeypatc
 
 
 async def test_a_refused_profile_is_not_requested_again_on_every_turn(routed, monkeypatch) -> None:
-    from jarvis.brain import ollama_profiles
+    from dodaios.brain import ollama_profiles
 
     attempts: list[str] = []
 
@@ -872,7 +872,7 @@ async def test_a_refused_profile_is_not_requested_again_on_every_turn(routed, mo
 
 
 async def test_the_window_is_settled_before_the_first_turn_is_budgeted(routed, monkeypatch) -> None:
-    from jarvis.brain import ollama_pull
+    from dodaios.brain import ollama_pull
 
     monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (24.0, "nvidia"))
     brain = OllamaBrain(model="qwen3.5:9b")

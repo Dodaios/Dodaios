@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.skills.bootstrap as bootstrap
+import dodaios.skills.bootstrap as bootstrap
 
 
 def _sha(p: Path) -> str:
@@ -137,7 +137,7 @@ def _install_copy(dst_root: Path, content: bytes) -> Path:
 
 
 def test_the_retired_routine_is_no_longer_shipped() -> None:
-    from jarvis.skills.builtin import BUILTIN_SKILL_NAMES, BUILTIN_SKILLS_DIR
+    from dodaios.skills.builtin import BUILTIN_SKILL_NAMES, BUILTIN_SKILLS_DIR
 
     assert "morning-routine" not in BUILTIN_SKILL_NAMES
     assert not (BUILTIN_SKILLS_DIR / "morning-routine").exists()
@@ -147,7 +147,7 @@ def test_the_retired_routine_is_no_longer_shipped() -> None:
 
 
 def test_the_renamed_doc_author_retires_its_old_name() -> None:
-    from jarvis.skills.builtin import BUILTIN_SKILL_NAMES, BUILTIN_SKILLS_DIR
+    from dodaios.skills.builtin import BUILTIN_SKILL_NAMES, BUILTIN_SKILLS_DIR
 
     assert "dodaios-doc-author" in BUILTIN_SKILL_NAMES
     assert "jarvis-doc-author" not in BUILTIN_SKILL_NAMES

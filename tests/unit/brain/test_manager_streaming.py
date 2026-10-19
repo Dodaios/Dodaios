@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.protocols import BrainMessage
+from dodaios.brain.manager import BrainManager
+from dodaios.core.protocols import BrainMessage
 
 
 def _bare_manager() -> BrainManager:

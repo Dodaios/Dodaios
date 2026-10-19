@@ -16,10 +16,10 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.agentic_ide import resume_store
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry, SessionError
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide import resume_store
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry, SessionError
+from dodaios.ui.web import agentic_ide_routes as routes
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -28,7 +28,7 @@ def _isolated_recents(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Keep the recents file out of the developer's real data directory."""
-    from jarvis.agentic_ide import recents
+    from dodaios.agentic_ide import recents
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)
@@ -158,7 +158,7 @@ async def test_a_workspace_on_another_folder_is_refused(
     registry: Registry, fake_pty: FakePtyManager, tmp_path: Path
 ) -> None:
     """A pane never moves to another project's folder — and nothing changes."""
-    jarvis_dir, blog_dir = tmp_path / "jarvis", tmp_path / "blog"
+    jarvis_dir, blog_dir = tmp_path / "dodaios", tmp_path / "blog"
     jarvis_dir.mkdir()
     blog_dir.mkdir()
     source = await registry.start(str(jarvis_dir), [{"agent": "claude"}] * 2, name="Jarvis")
@@ -178,7 +178,7 @@ async def test_a_workspace_on_another_folder_is_refused(
 async def test_the_route_refuses_another_folder_as_a_conflict(
     registry: Registry, tmp_path: Path
 ) -> None:
-    jarvis_dir, blog_dir = tmp_path / "jarvis", tmp_path / "blog"
+    jarvis_dir, blog_dir = tmp_path / "dodaios", tmp_path / "blog"
     jarvis_dir.mkdir()
     blog_dir.mkdir()
     source = await registry.start(str(jarvis_dir), [{"agent": "claude"}], name="Jarvis")

@@ -15,14 +15,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.frontier_autoswitch import (
+from dodaios.brain.frontier_autoswitch import (
     ack_pending_switches,
     apply_frontier_resolution,
     get_pending_switches,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import FrontierModelSwitched
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import FrontierModelSwitched
 
 
 class _StubResolver:
@@ -95,7 +95,7 @@ def _mock_toml_persist(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[
         calls.append((provider, {"model": model, "deep_model": deep_model}))
 
     monkeypatch.setattr(
-        "jarvis.brain.frontier_autoswitch.set_brain_provider_model", _stub,
+        "dodaios.brain.frontier_autoswitch.set_brain_provider_model", _stub,
     )
     return calls
 

@@ -6,7 +6,7 @@ no em dashes (which render as hard TTS pauses).
 """
 from __future__ import annotations
 
-from jarvis.brain.ack_brain.persona_prompt import (
+from dodaios.brain.ack_brain.persona_prompt import (
     PERSONA_PROMPT_DE,
     PERSONA_PROMPT_EN,
     PERSONA_PROMPT_ES,

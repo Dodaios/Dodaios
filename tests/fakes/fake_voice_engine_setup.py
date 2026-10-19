@@ -1,4 +1,4 @@
-"""A fake machine for the local voice setup (``jarvis/realtime/local_voice_setup.py``).
+"""A fake machine for the local voice setup (``dodaios/realtime/local_voice_setup.py``).
 
 Records every command, download and pull, and leaves the same files behind the
 real steps would (the venv interpreter, the model directories), so setup and
@@ -13,9 +13,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from jarvis.realtime.local_voice_setup import SetupDeps, SetupError
-from jarvis.voice_engine import models
-from jarvis.voice_engine.paths import venv_python
+from dodaios.realtime.local_voice_setup import SetupDeps, SetupError
+from dodaios.voice_engine import models
+from dodaios.voice_engine.paths import venv_python
 
 
 @dataclass

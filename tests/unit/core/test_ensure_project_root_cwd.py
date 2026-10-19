@@ -13,7 +13,7 @@ CWD-relative path is deterministic.
 import sys
 from pathlib import Path
 
-from jarvis.core import config
+from dodaios.core import config
 
 
 def test_ensure_project_root_cwd_pins_from_foreign_cwd(monkeypatch, tmp_path):

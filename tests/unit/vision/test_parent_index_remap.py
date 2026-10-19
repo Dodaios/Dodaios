@@ -6,7 +6,7 @@ synthetic tree, prunes it, and checks the remap logic.
 """
 from __future__ import annotations
 
-from jarvis.vision.pruning import RawNode, _remap_parent_indices, prune_tree
+from dodaios.vision.pruning import RawNode, _remap_parent_indices, prune_tree
 
 
 def _make_tree() -> list[RawNode]:

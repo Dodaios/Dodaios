@@ -9,7 +9,7 @@ runner-minutes on five shared slots and runs nightly) and
 Selection is textual and deliberately generous — FAIL OPEN:
 
 * a changed test file selects itself;
-* a changed ``jarvis/a/b.py`` selects every test that names ``jarvis.a.b``
+* a changed ``dodaios/a/b.py`` selects every test that names ``jarvis.a.b``
   (import or monkeypatch target) and every ``test_b*.py``;
 * any other changed file (frontend source, docs, assets) selects the tests
   that mention its path or its file stem;
@@ -66,10 +66,10 @@ _EVERYTHING_FILES = {
     "pyproject.toml",
     "requirements.txt",
     "uv.lock",
-    "jarvis/__init__.py",
+    "dodaios/__init__.py",
 }
 # The contract guards AGENTS.md names: cheap, and they pin the invariants a
-# change anywhere in jarvis/ can break without importing them by name.
+# change anywhere in dodaios/ can break without importing them by name.
 SMOKE = (
     "tests/unit/brain/test_routing.py",
     "tests/unit/brain/test_output_filter.py",
@@ -81,7 +81,7 @@ _MIN_STEM = 5
 
 def _needles(path: str) -> list[str]:
     stem = Path(path).stem
-    if path.startswith("jarvis/") and path.endswith(".py"):
+    if path.startswith("dodaios/") and path.endswith(".py"):
         dotted = path[:-3].replace("/", ".")
         if dotted.endswith(".__init__"):
             dotted = dotted[: -len(".__init__")]
@@ -109,7 +109,7 @@ def select(changed: list[str], tests: list[str], texts: dict[str, str]) -> tuple
         if path in test_set:
             chosen.add(path)
             continue
-        if path.startswith("jarvis/"):
+        if path.startswith("dodaios/"):
             touches_product = True
         stem = Path(path).stem
         if path.endswith(".py") and stem != "__init__":
@@ -146,7 +146,7 @@ def mac_focus(tests: list[str]) -> list[str]:
 def mac_lane_tests(tests: list[str]) -> list[str]:
     """The unit tests of every product directory the macOS lane watches."""
     prefixes = tuple(
-        "tests/unit/" + (p[len("jarvis/") :] if p.startswith("jarvis/") else p)
+        "tests/unit/" + (p[len("dodaios/") :] if p.startswith("dodaios/") else p)
         for p in classify_changes._MACOS_PREFIXES
         if p.endswith("/") and not p.startswith(("tests/", "packaging/"))
     )

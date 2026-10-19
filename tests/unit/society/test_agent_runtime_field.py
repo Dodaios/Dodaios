@@ -8,13 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat.service import resolve_runner, session_runner
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.chat_binding import ensure_session
-from jarvis.society.events import AgentRuntime
-from jarvis.society.roster import Roster, RosterError
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.store import SocietyStore
+from dodaios.agent_chat.service import resolve_runner, session_runner
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.chat_binding import ensure_session
+from dodaios.society.events import AgentRuntime
+from dodaios.society.roster import Roster, RosterError
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.store import SocietyStore
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ async def test_the_lead_always_runs_on_jarvis(roster: Roster):
 
 
 async def test_external_runtime_stays_on_this_computer(roster: Roster, monkeypatch):
-    from jarvis.society import roster as roster_mod
+    from dodaios.society import roster as roster_mod
 
     monkeypatch.setattr(roster_mod, "_validate_computer", lambda value: value or None)
     with pytest.raises(RosterError):

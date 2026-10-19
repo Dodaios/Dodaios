@@ -7,12 +7,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.live.config import LiveConfig
-from jarvis.live.playback import AudioTimedFrame, SpeechTimingFrame, source_interval, utf16_length
-from jarvis.live.session import LiveVoiceSession
-from jarvis.live.state import LiveLedger
-from jarvis.live.subscription import SubscriptionLiveVoiceSession
-from jarvis.plugins.realtime.openai_subscription_live import OpenAISubscriptionLiveConnection
+from dodaios.live.config import LiveConfig
+from dodaios.live.playback import AudioTimedFrame, SpeechTimingFrame, source_interval, utf16_length
+from dodaios.live.session import LiveVoiceSession
+from dodaios.live.state import LiveLedger
+from dodaios.live.subscription import SubscriptionLiveVoiceSession
+from dodaios.plugins.realtime.openai_subscription_live import OpenAISubscriptionLiveConnection
 from tests.fakes.fake_subscription_live_wire import SDP, FakeSubscriptionSocket
 from tests.fakes.fake_subscription_session import subscription_provider
 
@@ -203,7 +203,7 @@ async def test_public_live_uses_the_same_timed_output_contract():
 
 
 def test_bad_metadata_does_not_log_provider_payload(caplog):
-    from jarvis.live.playback import playback_frame
+    from dodaios.live.playback import playback_frame
 
     assert (
         playback_frame(

@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.dictation import insert as insert_mod
-from jarvis.dictation.insert import insert_text
+from dodaios.dictation import insert as insert_mod
+from dodaios.dictation.insert import insert_text
 
 from .test_insert import FakeActuator, FakeClipboard  # noqa: TID252
 
@@ -55,13 +55,13 @@ class FakeOffer:
 @pytest.fixture()
 def verified(monkeypatch):
     clipboard, actuator = FakeClipboard(), FakeActuator()
-    import jarvis.platform.clipboard as real_clipboard
+    import dodaios.platform.clipboard as real_clipboard
     monkeypatch.setattr(real_clipboard, "read_text", clipboard.read_text)
     monkeypatch.setattr(real_clipboard, "write_text", clipboard.write_text)
     monkeypatch.setattr(
         insert_mod, "describe_target", lambda: insert_mod.TargetReport(True, "", ""),
     )
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", lambda: actuator)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", lambda: actuator)
     monkeypatch.setattr(insert_mod.time, "sleep", lambda _: None)
     monkeypatch.setattr(insert_mod, "_foreground_target", lambda: TARGET)
     monkeypatch.setattr(insert_mod, "_input_block_reason", lambda _: "")

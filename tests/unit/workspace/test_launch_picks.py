@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.workspace import launch_picks
-from jarvis.workspace.agents import coding_agent_names, get_agent
+from dodaios.workspace import launch_picks
+from dodaios.workspace.agents import coding_agent_names, get_agent
 
 #: Every entry that declares picks — the whole table, so an entry added later
 #: is held to the same rules without a line changing here.
@@ -41,7 +41,7 @@ def test_every_offered_mode_has_a_sentence(agent: str) -> None:
     for mode in launch_picks.permission_modes(agent):
         assert mode["label"] and mode["label"] != mode["id"], (
             f"{agent}: permission mode {mode['id']!r} has no label — "
-            "either describe it in jarvis/agent_chat/permissions.py or stop offering it"
+            "either describe it in dodaios/agent_chat/permissions.py or stop offering it"
         )
         assert mode["description"], f"{agent}: permission mode {mode['id']!r} has no description"
 
@@ -153,7 +153,7 @@ def test_the_pane_retells_where_an_approval_is_answered() -> None:
     reword the chat's copy and this fails instead of quietly leaving a picker
     telling people to look somewhere that has nothing on it.
     """
-    from jarvis.agent_chat.permissions import permission_modes as chat_ladder
+    from dodaios.agent_chat.permissions import permission_modes as chat_ladder
 
     chat = {m.id: m.description for m in chat_ladder("claude-cli")}
     assert "an approval card here in the chat" in chat["default"], (
@@ -202,7 +202,7 @@ async def test_live_models_answers_within_budget_while_a_slow_cli_keeps_loading(
     import asyncio
     import threading
 
-    from jarvis.agent_chat import runner_cli
+    from dodaios.agent_chat import runner_cli
 
     release = threading.Event()
 
@@ -239,7 +239,7 @@ async def test_live_models_does_not_wait_again_for_a_read_an_earlier_request_sta
     """
     import threading
 
-    from jarvis.agent_chat import runner_cli
+    from dodaios.agent_chat import runner_cli
 
     release = threading.Event()
     read_started = threading.Event()

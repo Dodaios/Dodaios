@@ -15,14 +15,14 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.drop_context import items_from_paths
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.streaming import StreamingAggregate
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.overlay import drop_bridge
-from jarvis.ui.drop_intake import capture_presence_drop
+from dodaios.brain.drop_context import items_from_paths
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.streaming import StreamingAggregate
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.overlay import drop_bridge
+from dodaios.ui.drop_intake import capture_presence_drop
 
 
 class _FakeBrain:
@@ -65,7 +65,7 @@ def teardown_function() -> None:
 
 
 def _wire_desktop_app_drop(manager, loop, done: asyncio.Event) -> None:
-    """Wire the overlay drop EXACTLY as jarvis/ui/desktop_app.py does.
+    """Wire the overlay drop EXACTLY as dodaios/ui/desktop_app.py does.
 
     Including the return leg: the bar's visible confirmation is driven by the
     verdict reported here, so a test that omitted it would prove a chain the

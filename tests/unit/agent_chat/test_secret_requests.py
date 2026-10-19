@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agent_chat.secret_requests import asks_for_secret, claims_stored_secret
+from dodaios.agent_chat.secret_requests import asks_for_secret, claims_stored_secret
 
 ASKS = [
     # Replies seen from real agents before the guard existed.

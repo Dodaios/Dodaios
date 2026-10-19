@@ -21,7 +21,7 @@ import asyncio
 
 import pytest
 
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
 
 pytestmark = pytest.mark.usefixtures("granted_microphone")
 

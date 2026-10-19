@@ -1,4 +1,4 @@
-"""Unit tests for the detached self-restart helper (jarvis.ui.relauncher).
+"""Unit tests for the detached self-restart helper (dodaios.ui.relauncher).
 
 The wait loop, command construction, argv handling, the new-instance
 verify/retry loop, and the dying-app quit sequence are all pure and injectable,
@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 from types import SimpleNamespace
 
-from jarvis.ui import relauncher
+from dodaios.ui import relauncher
 
 
 def test_build_launch_command(monkeypatch):
@@ -18,12 +18,12 @@ def test_build_launch_command(monkeypatch):
     assert relauncher.build_launch_command("py.exe") == [
         "py.exe",
         "-m",
-        "jarvis.ui.web.launcher",
+        "dodaios.ui.web.launcher",
     ]
 
 
 def test_build_launch_command_uses_macos_bundle(monkeypatch, tmp_path):
-    import jarvis.setup.macos_app_bundle as bundle_module
+    import dodaios.setup.macos_app_bundle as bundle_module
 
     bundle = tmp_path / "Personal Jarvis.app"
     monkeypatch.setattr(relauncher.sys, "platform", "darwin")
@@ -39,7 +39,7 @@ def test_build_launch_command_uses_macos_bundle(monkeypatch, tmp_path):
 
 
 def test_build_launch_command_fails_closed_without_macos_bundle(monkeypatch, tmp_path):
-    import jarvis.setup.macos_app_bundle as bundle_module
+    import dodaios.setup.macos_app_bundle as bundle_module
 
     monkeypatch.setattr(relauncher.sys, "platform", "darwin")
     monkeypatch.setattr(
@@ -109,7 +109,7 @@ def test_main_waits_then_spawns_fresh_launcher(monkeypatch):
     assert rc == 0
     assert waited == [4242]  # waited for the old pid first
     assert len(spawned) == 1
-    assert spawned[0]["cmd"][1:] == ["-m", "jarvis.ui.web.launcher"]
+    assert spawned[0]["cmd"][1:] == ["-m", "dodaios.ui.web.launcher"]
     assert spawned[0]["kwargs"]["cwd"] == r"C:\repo"
     assert spawned[0]["kwargs"]["stdin"] is relauncher.subprocess.DEVNULL
     assert spawned[0]["kwargs"]["start_new_session"] is True
@@ -247,7 +247,7 @@ def test_spawn_detached_retries_without_breakaway_on_permission_error(monkeypatc
 
 
 def test_build_launch_command_prefers_existing_branded_exe_on_windows(monkeypatch, tmp_path):
-    from jarvis.core.instance import current_instance
+    from dodaios.core.instance import current_instance
 
     branded = tmp_path / current_instance().windows_branded_launcher_file_name
     branded.write_bytes(b"MZ")
@@ -257,29 +257,29 @@ def test_build_launch_command_prefers_existing_branded_exe_on_windows(monkeypatc
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
     cmd = relauncher.build_launch_command("python.exe")
     assert cmd[0] == str(branded)
-    assert cmd[1:] == ["-m", "jarvis.ui.web.launcher"]
+    assert cmd[1:] == ["-m", "dodaios.ui.web.launcher"]
 
 
 def test_apply_branded_launch_env_sets_the_loop_guard_only_for_the_branded_exe(
     monkeypatch, tmp_path
 ):
-    from jarvis.core.instance import current_instance
+    from dodaios.core.instance import current_instance
 
     branded = tmp_path / current_instance().windows_branded_launcher_file_name
     monkeypatch.setattr(relauncher.sys, "platform", "win32")
     python_env = relauncher._apply_branded_launch_env(
-        {"PATH": "/bin"}, [str(tmp_path / "python.exe"), "-m", "jarvis.ui.web.launcher"]
+        {"PATH": "/bin"}, [str(tmp_path / "python.exe"), "-m", "dodaios.ui.web.launcher"]
     )
     assert "JARVIS_BRANDED_LAUNCH" not in python_env
     branded_env = relauncher._apply_branded_launch_env(
-        {"PATH": "/bin"}, [str(branded), "-m", "jarvis.ui.web.launcher"]
+        {"PATH": "/bin"}, [str(branded), "-m", "dodaios.ui.web.launcher"]
     )
     assert branded_env["JARVIS_BRANDED_LAUNCH"] == "1"
 
 
 def test_main_spawns_branded_exe_with_the_loop_guard(monkeypatch, tmp_path):
     """The live Windows restart must be one branded process, not a python hop."""
-    from jarvis.core.instance import current_instance
+    from dodaios.core.instance import current_instance
 
     branded = tmp_path / current_instance().windows_branded_launcher_file_name
     branded.write_bytes(b"MZ")

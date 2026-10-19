@@ -21,11 +21,11 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.events import DictationCompleted
-from jarvis.dictation.merge import transcript_token_count
-from jarvis.dictation.segment import halve_at_quietest, speech_runs
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.config import DictationConfig
+from dodaios.core.events import DictationCompleted
+from dodaios.dictation.merge import transcript_token_count
+from dodaios.dictation.segment import halve_at_quietest, speech_runs
+from dodaios.speech.pipeline import SpeechPipeline
 
 # 16 kHz mono int16 — the capture contract every dictation records under.
 BYTES_PER_SECOND = 16_000 * 2

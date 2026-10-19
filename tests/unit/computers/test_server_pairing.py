@@ -11,11 +11,11 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.computers import pairing
-from jarvis.core.http_pool import HttpClientPool
-from jarvis.ui.web import server_pairing_routes
-from jarvis.ui.web.missions_auth import reset_tokens
-from jarvis.ui.web.surface_security import SurfaceSecurity
+from dodaios.computers import pairing
+from dodaios.core.http_pool import HttpClientPool
+from dodaios.ui.web import server_pairing_routes
+from dodaios.ui.web.missions_auth import reset_tokens
+from dodaios.ui.web.surface_security import SurfaceSecurity
 
 
 @pytest.fixture

@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_runtimes import base, hermes, path_cleanup
-from jarvis.agent_runtimes.base import RuntimeStatus, RuntimeTurn
-from jarvis.agent_runtimes.model_map import ModelRoute
+from dodaios.agent_runtimes import base, hermes, path_cleanup
+from dodaios.agent_runtimes.base import RuntimeStatus, RuntimeTurn
+from dodaios.agent_runtimes.model_map import ModelRoute
 
 _HERMES_PROFILE_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
@@ -137,7 +137,7 @@ def test_a_stale_agent_launcher_on_path_never_answers(tmp_path, monkeypatch):
         launcher.write_text("", encoding="utf-8")
         launcher.chmod(0o755)
     monkeypatch.setenv("PATH", os.pathsep.join([str(stale), str(real)]))
-    import jarvis.core.path_augment as path_augment
+    import dodaios.core.path_augment as path_augment
 
     monkeypatch.setattr(path_augment, "ensure_cli_paths", lambda: [])
     found = hermes._binary()

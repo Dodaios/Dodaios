@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
 
 
 class _NoToolsBrain:
@@ -86,7 +86,7 @@ class _UnrelatedToolErrorBrain:
 
 
 def _patch_brain(monkeypatch: pytest.MonkeyPatch, brain: object) -> None:
-    import jarvis.missions.workers.api_agent_worker as mod
+    import dodaios.missions.workers.api_agent_worker as mod
 
     monkeypatch.setattr(mod, "_build_brain", lambda provider, model: brain, raising=False)
 

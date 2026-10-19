@@ -8,8 +8,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core.protocols import SupervisorToolRequest, ToolResult
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core.protocols import SupervisorToolRequest, ToolResult
 
 
 @dataclass

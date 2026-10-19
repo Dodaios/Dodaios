@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
 
 
 @pytest.mark.parametrize("provider", ["openai", "gemini", "claude-api"])

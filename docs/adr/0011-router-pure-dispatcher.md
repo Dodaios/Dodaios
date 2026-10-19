@@ -32,7 +32,7 @@ Master plan §22 specifies: four router tools (`screen_snapshot`, `multi_spawn`,
 ### 1. ROUTER_TOOLS reduction
 
 ```python
-# jarvis/brain/factory.py
+# dodaios/brain/factory.py
 ROUTER_TOOLS = frozenset({
     "run-shell",
     "screen-snapshot",
@@ -103,7 +103,7 @@ DO-NOT-SPAWN — antworte direkt, WENN:
 ### What changed since 2026-04-25
 
 ```python
-# jarvis/brain/factory.py (Stand 2026-04-28)
+# dodaios/brain/factory.py (Stand 2026-04-28)
 ROUTER_TOOLS = frozenset({
     # Mandat-Phase-3 Baseline (Master-Plan §22, 4 Tools)
     "run-shell",
@@ -158,14 +158,14 @@ If none of these three points occurs, the extension of the tool set is by defini
 `ROUTER_TOOLS` gains one entry: `cli-tools`.
 
 ```python
-# jarvis/brain/factory.py (Stand 2026-05-24)
+# dodaios/brain/factory.py (Stand 2026-05-24)
 ROUTER_TOOLS = frozenset({
     ...,            # unchanged Phase-3/5/7/8/Awareness/B5 set
     "cli-tools",    # NEW — virtual CLI loader
 })
 ```
 
-`cli-tools` is a **virtual loader** (`jarvis/clis/loader.py:CliToolLoader`,
+`cli-tools` is a **virtual loader** (`dodaios/clis/loader.py:CliToolLoader`,
 `is_virtual_loader=True`). The `_load_tools_for_tier` expansion path
 (`factory.py`) recognises it and replaces the single entry with one
 `cli_<name>` tool per **connected & usable** CLI (`cli_gcloud`, `cli_gh`,
@@ -201,7 +201,7 @@ from `CliStatusChanged` at the registry chokepoint), which the live
 `BrainManager.refresh_tools()` consumes to re-expand `cli-tools` — no restart.
 Both the brain (via `CliToolLoader.expand()`) and the safety layer (via
 `make_cli_patterns_fn`) resolve the SAME shared registry
-(`jarvis.clis.shared.get_active_registry`), eliminating the split-brain bug.
+(`dodaios.clis.shared.get_active_registry`), eliminating the split-brain bug.
 
 ### Regression guards
 
@@ -223,10 +223,10 @@ Both the brain (via `CliToolLoader.expand()`) and the safety layer (via
 `ROUTER_TOOLS` gains a thirteenth entry: `computer-use`. It is a first-class,
 clearly-described tool the router calls to drive the user's **live desktop**
 (open apps, click, type, scroll, operate any GUI). Implementation:
-`jarvis/plugins/tool/computer_use_tool.py:ComputerUseTool` (LLM-facing name
-`computer_use`), wired in `jarvis/brain/factory.py:_load_tools_for_tier` with the
+`dodaios/plugins/tool/computer_use_tool.py:ComputerUseTool` (LLM-facing name
+`computer_use`), wired in `dodaios/brain/factory.py:_load_tools_for_tier` with the
 shared `HarnessManager`. It delegates to the in-process computer-use harness
-(`jarvis/plugins/harness/computer_use.py` → `screenshot_only_loop.py`).
+(`dodaios/plugins/harness/computer_use.py` → `screenshot_only_loop.py`).
 
 ### Why it was needed (the bug)
 
@@ -377,8 +377,8 @@ unchanged: those are delegatable direct actions. `update-profile` is a
 
 ## References
 
-- Implementation: `jarvis/brain/factory.py:ROUTER_TOOLS` + `SELF_MOD_TOOL_NAMES_ROUTER`, `jarvis/brain/manager.py:_should_force_sub_jarvis`, `jarvis/brain/router.py:SYSTEM_PROMPT`.
-- Config: `jarvis/core/config.py:BrainRoutingConfig`, `jarvis.toml:[brain.routing]`.
+- Implementation: `dodaios/brain/factory.py:ROUTER_TOOLS` + `SELF_MOD_TOOL_NAMES_ROUTER`, `dodaios/brain/manager.py:_should_force_sub_jarvis`, `dodaios/brain/router.py:SYSTEM_PROMPT`.
+- Config: `dodaios/core/config.py:BrainRoutingConfig`, `jarvis.toml:[brain.routing]`.
 - Tests: `tests/unit/brain/test_routing.py` (26 cases: 5 smalltalk × 2 + 5 spawn × 2 + 3 PC-control + 4 consistency asserts including the new `test_recursive_tools_only_in_router`).
 - Persona mandate: `Jarvis-Behavior/persona-delegation-mandate.md` §"Phase 3 — Routing-Fix".
 - Research: `docs/persona-research.md` sections 2 (routing-bug repro) + 5.1 (master-plan conflicts).
@@ -398,9 +398,9 @@ App configuration by voice/chat:
   key settings, and the configured MCP servers. The "full overview" capability.
 - `switch-provider` (ask, echo-confirm) - switch *which* provider is active for a
   tier ("switch from Grok to Gemini"). Reuses the exact 3-layer persist +
-  live-apply path the REST endpoints use, via `jarvis.core.runtime_refs`.
+  live-apply path the REST endpoints use, via `dodaios.core.runtime_refs`.
 - `manage-mcp-server` (ask, echo-confirm) - add/remove/enable/disable an MCP
-  server in `mcp.json` via `jarvis.mcp.state`. A newly added server starts
+  server in `mcp.json` via `dodaios.mcp.state`. A newly added server starts
   **disabled** (review before activate - AP-15 spirit).
 
 All three are direct safe/ask-gated actions, NEVER spawns - they do not enter any
@@ -409,7 +409,7 @@ is ever accepted. `switch-provider` only flips the active provider (the target
 key must already exist in the Credential Manager); `manage-mcp-server` uses
 `$SECRET_NAME` placeholders. Raw key writes stay UI-only (`/api/secrets/{key}`)
 per AP-2 and the self-mod `FORBIDDEN_PATTERNS` doctrine. The shared credential
-check lives in `jarvis.brain.app_control.is_credential_present` and is imported
+check lives in `dodaios.brain.app_control.is_credential_present` and is imported
 back by `provider_routes` so the UI and the tool never drift (BUG-008 class).
 
 Known follow-up: the deterministic pre-brain force-spawn gate
@@ -431,7 +431,7 @@ read, never a spawn**, so it never enters a worker tool set (AP-5/AP-14).
 
 This is the *pull* path for deictic questions ("what is this?", "was ist das
 da?"). The *push* path is separate and lives off the router schema: a fast
-regex deictic gate (`jarvis.pointer.intent`) in `BrainManager.generate()` rides
+regex deictic gate (`dodaios.pointer.intent`) in `BrainManager.generate()` rides
 the resolved element (+ a tight crop only for unlabeled graphics) on the turn
 context, off the voice hot path with a hard timeout (AP-9). The gate vetoes
 demonstratives completed by a concrete noun ("was ist das *für ein Wetter*"), so
@@ -461,7 +461,7 @@ nowhere else: the router is the only tier that talks to the UI; a worker runs in
 an isolated worktree and has no UI bus.
 
 Anti-drift: the tool's `KNOWN` section ids mirror the frontend `SECTION_IDS`
-(`jarvis/ui/web/frontend/src/store/events.ts`); a parity test reads the TS array
+(`dodaios/ui/web/frontend/src/store/events.ts`); a parity test reads the TS array
 and asserts equality, so a new section added on one side without the other fails
 CI (the wire-format-enum guard from `docs/anti-drift-three-layer.md`). The
 frontend's `isSectionId` check is the second layer of defense — an unknown id is
@@ -528,7 +528,7 @@ PFLICHT routing tests `test_mail_by_name_stays_router_tier` /
 
 ### What changed
 
-1. `ROUTER_TOOLS` gains `search-web` (`jarvis/plugins/tool/search_web.py:
+1. `ROUTER_TOOLS` gains `search-web` (`dodaios/plugins/tool/search_web.py:
    SearchWebTool`, LLM-facing name `search_web`). Read-only DuckDuckGo
    Instant-Answer call via `httpx`, risk `safe`, no key required —
    cloud-first compatible (plain HTTPS, works on the €5-VPS baseline).
@@ -616,7 +616,7 @@ with NO automatic `claude-opus-*` fallback anywhere:
 `[brain.sub_jarvis] provider="claude-api", model="claude-fable-5"`,
 `[brain.providers.claude-api].deep_model="claude-fable-5"`,
 `claude_direct_worker._DEFAULT_CLAUDE_MODEL`, critic escalation
-(`jarvis/missions/critic/escalation.py` — escalation rounds now target
+(`dodaios/missions/critic/escalation.py` — escalation rounds now target
 `FRONTIER_MODEL` instead of the `"opus"` CLI alias), and the computer-use
 planner default (`config.py plan_model`). Drift-guard source
 `scripts/config-soll.json` updated in the same change so the pin survives
@@ -630,7 +630,7 @@ the 5-minute drift sweep (BUG-010 triple defense).
 
 `ROUTER_TOOLS` gains one entry: `mcp-tools`.
 
-`mcp-tools` is a **virtual loader** (`jarvis/mcp/loader.py:McpToolLoader`,
+`mcp-tools` is a **virtual loader** (`dodaios/mcp/loader.py:McpToolLoader`,
 `is_virtual_loader=True`). The `_load_tools_for_tier` expansion path
 (`factory.py`) recognises it and replaces the single entry with one
 `MCPToolAdapter` per tool of every **connected and running** MCP server
@@ -649,16 +649,16 @@ server-connect time never entered the brain's tool dict.
 
 ### Implementation
 
-- **`jarvis/mcp/loader.py`** — new `McpToolLoader`, structured exactly like
-  `PluginToolLoader` (mirror of `jarvis/marketplace/plugin_loader.py`).
+- **`dodaios/mcp/loader.py`** — new `McpToolLoader`, structured exactly like
+  `PluginToolLoader` (mirror of `dodaios/marketplace/plugin_loader.py`).
   Reads `client._tools_cache` **synchronously** (already populated during
   `MCPClient.start()`) — no network I/O, no `await`, no server start.
   Every failure path returns `[]` so a broken MCP server cannot crash the
   factory.
 - **`pyproject.toml`** — `[project.entry-points."jarvis.tool"]` gains
-  `mcp-tools = "jarvis.mcp.loader:McpToolLoader"`.
-- **`jarvis/brain/factory.py`** — `"mcp-tools"` added to `ROUTER_TOOLS`.
-- **`jarvis/core/capabilities.py`** — `_reset_registry_for_tests()` helper
+  `mcp-tools = "dodaios.mcp.loader:McpToolLoader"`.
+- **`dodaios/brain/factory.py`** — `"mcp-tools"` added to `ROUTER_TOOLS`.
+- **`dodaios/core/capabilities.py`** — `_reset_registry_for_tests()` helper
   added (test-only) so the `MCPToolAdapter` side-effect of registering a
   `Capability` in the global singleton does not leak across tests.
 
@@ -771,8 +771,8 @@ independent, hand-maintained registries (UI nav, CLI, brain tools, mirrored
 constants — the AP-4 drift class).
 
 **Decision.** `ROUTER_TOOLS` gains **`app-command`**
-(`jarvis/plugins/tool/app_command.py`): a single structured executor over the
-new Command Registry (`jarvis/commands/registry.py`). Constraints:
+(`dodaios/plugins/tool/app_command.py`): a single structured executor over the
+new Command Registry (`dodaios/commands/registry.py`). Constraints:
 
 - `command_id` is **enum-constrained** to the curated registry — the LLM cannot
   invent a target; arguments are validated against the command's JSON schema
@@ -958,7 +958,7 @@ self-reinforcing hallucination loop.
 ### Decision
 
 `ROUTER_TOOLS` gains `wiki-list`
-(`jarvis/plugins/tool/wiki_list.py::WikiListTool`): a read-only,
+(`dodaios/plugins/tool/wiki_list.py::WikiListTool`): a read-only,
 risk-`safe`, deterministic listing of every markdown page in the vault
 (vault-relative path, size, first heading), with `type: meta` contract
 pages explicitly flagged as system files. Overview questions ("what is
@@ -999,7 +999,7 @@ does expose exactly that.
 ### Decision
 
 `ROUTER_TOOLS` gains `home_assistant`
-(`jarvis/plugins/tool/home_assistant_rest.py::HomeAssistantRestTool`): list
+(`dodaios/plugins/tool/home_assistant_rest.py::HomeAssistantRestTool`): list
 entities (optionally by domain), read one entity's state, and call a service.
 
 Two properties are load-bearing:
@@ -1039,7 +1039,7 @@ reports that as a network problem instead of implying a bad credential.
 
 `ultrawiki-search` joins `ROUTER_TOOLS`: the read-only pull primitive over
 the UltraWiki semantic store (fused keyword + vector retrieval with citation
-permalinks, `jarvis/plugins/tool/ultrawiki_search.py`). Direct safe-gated
+permalinks, `dodaios/plugins/tool/ultrawiki_search.py`). Direct safe-gated
 read, never a spawn (AP-5/AP-14). Resolver-not-instance wiring (the
 UltraWikiService is built by the WebServer after the brain — the wiki-ingest
 lazy-curator precedent); the tool loads even while UltraWiki mode is
@@ -1059,7 +1059,7 @@ queries via hybrid search.
 
 `list-modes`, `switch-mode` and `save-mode` join `ROUTER_TOOLS`: the assistant
 can now read, switch and author its own *mode* — the character it answers in
-(`jarvis/brain/modes.py`, `jarvis/plugins/tool/assistant_mode.py`).
+(`dodaios/brain/modes.py`, `dodaios/plugins/tool/assistant_mode.py`).
 
 The precedent is `switch-provider`, not `open_app`. These tools reconfigure the
 assistant itself; they run in-process, touch no external system, and their
@@ -1099,7 +1099,7 @@ the process.
 ### Retired (2026-08-23)
 
 The assistant-modes feature was removed on the maintainer's decision: the
-shelf of characters, `jarvis/brain/modes.py`, the `/api/modes` routes, the
+shelf of characters, `dodaios/brain/modes.py`, the `/api/modes` routes, the
 `jarvis modes` CLI group, the Modes section and the three router tools above
 are gone, and `ROUTER_TOOLS` no longer lists them. `load_effective_persona_prompt`
 is back to "custom override, else default" with no mode layer, and the Agentic
@@ -1111,7 +1111,7 @@ character layer is ever wanted again.
 ## Amendment: `create-skill` router tool (2026-08-18)
 
 `create-skill` joins `ROUTER_TOOLS`: the brain can now WRITE a new skill from
-the user's spoken description (`jarvis/plugins/tool/create_skill.py`).
+the user's spoken description (`dodaios/plugins/tool/create_skill.py`).
 
 ### Context
 
@@ -1143,7 +1143,7 @@ that service adds a caller, not a place to forget.
 
 ### Decision
 
-- `jarvis/skills/authoring_request.py` — a deterministic resolver ahead of the
+- `dodaios/skills/authoring_request.py` — a deterministic resolver ahead of the
   trigger channel (Channel 0.5 in `BrainManager._match_skill_for_turn`): word
   "skill" + a creation shape (indefinite/new article, or a creation verb in
   any conjugation right before/after the noun) + not an information question.
@@ -1189,7 +1189,7 @@ things") is right, and the two failure classes are:
    `skill-disable`, `skill-delete` (dangerous, echo-confirmed) — flat
    `app-command` tools the model sees by name; (b) the `cli_jarvisctl` tool's
    description carries the WHOLE command tree
-   (`jarvis/cli_ctl/command_index.py`, static, parity-tested against the live
+   (`dodaios/cli_ctl/command_index.py`, static, parity-tested against the live
    Typer app) with argument hints, so workflows, modes, tasks, wiki, board,
    contacts, missions … are all one direct call away — the general fix for the
    `--help`-round class, not a per-feature patch.
@@ -1221,7 +1221,7 @@ automation request → skill-creator), `tests/unit/commands/test_registry_parity
 `create-artifact` joins `ROUTER_TOOLS` and replaces the 2026-08-11 `visualize`
 tool: the brain can have ONE self-contained page built — a dashboard, a
 report, a diagram, a small interactive tool — and shown full-size in the
-Artifacts section (`jarvis/plugins/tool/create_artifact.py`).
+Artifacts section (`dodaios/plugins/tool/create_artifact.py`).
 
 ### Context
 
@@ -1238,7 +1238,7 @@ by the router brain.
 ### Decision
 
 - `create_artifact(title, request, revise?, spoken_ack?)` composes the worker
-  brief (`jarvis/artifacts/brief.py`: one HTML file, all assets inline, no
+  brief (`dodaios/artifacts/brief.py`: one HTML file, all assets inline, no
   network, brand palette, light/dark, the user's language; on a revision the
   previous page verbatim) and dispatches it through the mission stack — the
   same `MissionManager.dispatch` → `Kontrollierer.run_mission` path as
@@ -1249,7 +1249,7 @@ by the router brain.
   (AP-5/AP-14).
 - **Ask-only, structurally.** `BrainManager._hide_artifact_tool_without_request`
   removes the tool from every turn that does not ask for an artifact
-  (`jarvis/brain/artifact_gate.py`: explicit word — visualisier / Artefakt /
+  (`dodaios/brain/artifact_gate.py`: explicit word — visualisier / Artefakt /
   Dashboard / Infografik — or a build verb next to a page noun; navigation to
   the section and definition questions never open it). Regex only (AP-11).
 - The Artifacts section (`VisualizationView`, section id unchanged) shows the
@@ -1257,8 +1257,8 @@ by the router brain.
   `ARTIFACT_PAGE_CSP` (inline scripts allowed, every network path shut) inside
   `sandbox="allow-scripts"` without `allow-same-origin`. Source under "Code",
   the run graph that used to be the section under "Run".
-- `jarvis/visuals/{spec,render,store}.py` and the gallery-as-pseudo-run store
-  are retired; `jarvis/visuals/brand.py` stays (mission map + brief palette).
+- `dodaios/visuals/{spec,render,store}.py` and the gallery-as-pseudo-run store
+  are retired; `dodaios/visuals/brand.py` stays (mission map + brief palette).
 
 ### Regression guards
 
@@ -1285,7 +1285,7 @@ The knowledge surface it fronted does not disappear: `wiki-recall`,
 vault, and they were always loaded beside it.
 
 The `requires=` capability gate on `AppCommand`
-(`jarvis/commands/capabilities.py`) goes with it. That seam existed to keep
+(`dodaios/commands/capabilities.py`) goes with it. That seam existed to keep
 the four UltraWiki commands out of a tool set while the mode was off, it had
 no other entry, and a filter with no criterion is dead code. It returns with
 the feature.
@@ -1307,7 +1307,7 @@ and the last board events without a model call.
 ### Pure-Dispatcher spirit is preserved
 
 - Neither tool spawns. `delegate-to-agent` appends an envelope; the society
-  scheduler (`jarvis/society/scheduler.py`, trusted Python) applies the kill
+  scheduler (`dodaios/society/scheduler.py`, trusted Python) applies the kill
   switch, the tier wall, delegation depth, budgets and caps and only then
   starts work under the target agent's identity. A refusal is a typed `VETO`
   the tool reads back as a spoken reason.
@@ -1387,7 +1387,7 @@ Registry keeps its curated, hand-described commands; these two open the rest
 of the app's own REST surface (about 765 operations) without declaring a
 schema per operation on every turn. `find-app-action` (risk `safe`) ranks the
 catalog built in-process from the live app's OpenAPI document
-(`jarvis/app_actions/catalog.py`) and returns a few matches with their
+(`dodaios/app_actions/catalog.py`) and returns a few matches with their
 parameters. `run-app-action` sends ONE operation through the same in-process
 ASGI transport as `app-command`.
 
@@ -1459,7 +1459,7 @@ native tools.
 
 `ROUTER_TOOLS` says what the router may call. Which of those schemas ride a
 request is a second decision, made per turn in
-`BrainManager._shortlist_tools` (`jarvis/brain/tool_shortlist.py`).
+`BrainManager._shortlist_tools` (`dodaios/brain/tool_shortlist.py`).
 
 Until now the answer was "all that fit": when the set exceeded a small
 model's window the largest schemas were dropped first, which removed the

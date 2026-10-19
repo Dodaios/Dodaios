@@ -1,4 +1,4 @@
-"""Jarvis agents open and steer coding threads (jarvis/society/coding_threads.py).
+"""Jarvis agents open and steer coding threads (dodaios/society/coding_threads.py).
 
 The chat service is the real one with a real store; only the coding CLI is
 replaced by a scripted runner, so no binary runs and nothing is billed.
@@ -13,11 +13,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society import coding_threads
-from jarvis.society.coding_threads import (
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society import coding_threads
+from dodaios.society.coding_threads import (
     MAX_WAKES,
     CodingThreads,
     CodingThreadTool,
@@ -131,7 +131,7 @@ async def test_open_starts_a_thread_the_person_can_watch(
     # The Claude row runs on the CLI when it is installed, else on the API,
     # whose ladder tops out at "auto". Pin the CLI so the check does not depend
     # on what the test machine has installed.
-    import jarvis.agent_chat.service as chat_service
+    import dodaios.agent_chat.service as chat_service
 
     monkeypatch.setattr(chat_service, "resolve_runner", lambda *_a, **_k: "claude-cli")
     rt = society

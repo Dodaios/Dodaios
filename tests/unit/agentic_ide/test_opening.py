@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import agent_transcript, opening
+from dodaios.agentic_ide import agent_transcript, opening
 
 
 @pytest.fixture(autouse=True)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from jarvis.brain.model_catalog import (
+from dodaios.brain.model_catalog import (
     CURATED_MODELS,
     REALTIME_MODELS,
     REALTIME_VOICES,
@@ -15,9 +15,9 @@ from jarvis.brain.model_catalog import (
     is_starred_model,
     parse_models_response,
 )
-from jarvis.plugins.tts import curated_catalog
-from jarvis.plugins.tts.gemini_flash_tts import DEFAULT_VOICES as GEMINI_VOICES
-from jarvis.plugins.tts.grok_voice_tts import DEFAULT_VOICES as XAI_VOICES
+from dodaios.plugins.tts import curated_catalog
+from dodaios.plugins.tts.gemini_flash_tts import DEFAULT_VOICES as GEMINI_VOICES
+from dodaios.plugins.tts.grok_voice_tts import DEFAULT_VOICES as XAI_VOICES
 
 
 def _ids(models: Iterable[ModelInfo]) -> set[str]:

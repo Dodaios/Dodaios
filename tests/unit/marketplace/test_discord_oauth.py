@@ -1,4 +1,4 @@
-"""Unit tests for jarvis.marketplace.oauth_discord.
+"""Unit tests for dodaios.marketplace.oauth_discord.
 
 No network: a fake httpx.AsyncClient answers the request and records it.
 """
@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
-from jarvis.marketplace import oauth_discord as do
+from dodaios.marketplace import oauth_discord as do
 
 
 class _FakeResponse:

@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.skills.authoring_request``.
+"""Unit tests for ``dodaios.skills.authoring_request``.
 
 The resolver states one rule: when the user asks to CREATE a skill, every
 service they name is the skill's CONTENT, never a command — so a brand
@@ -13,14 +13,14 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.skills.authoring_request import (
+from dodaios.skills.authoring_request import (
     AUTHORING_SKILL_NAME,
     is_skill_authoring_request,
     is_skill_lifecycle_request,
     resolve_skill_authoring_request,
     skill_meta_kind,
 )
-from jarvis.skills.match_eval import BAND_FIRE, BAND_NONE, SOURCE_TRIGGER
+from dodaios.skills.match_eval import BAND_FIRE, BAND_NONE, SOURCE_TRIGGER
 
 
 @dataclass

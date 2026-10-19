@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 
-import jarvis.core.child_lifeline as lifeline
+import dodaios.core.child_lifeline as lifeline
 
 
 def test_parent_eof_kills_the_supervised_process_group(monkeypatch) -> None:

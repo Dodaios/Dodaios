@@ -5,7 +5,7 @@ be a tuple in ``renderer`` that ``subprocess_overlay`` hand-copied, and it duly
 drifted: ``"dictate"`` was handled by ``visual_mode`` and ``resolve_click`` for
 weeks while every surface silently dropped it, so the dictation bar never
 appeared on any OS. There is now ONE definition
-(``jarvis.ui.dodaiosbar.modes``) and these tests fail the build if any layer
+(``dodaios.ui.dodaiosbar.modes``) and these tests fail the build if any layer
 restates it, stops accepting a mode, or leaves one without a defined look and a
 defined click behaviour.
 
@@ -21,10 +21,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui.dodaiosbar import interaction, modes, renderer
-from jarvis.ui.dodaiosbar import subprocess_overlay as subprocess_mod
-from jarvis.ui.dodaiosbar.null_overlay import NullOverlay
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar import interaction, modes, renderer
+from dodaios.ui.dodaiosbar import subprocess_overlay as subprocess_mod
+from dodaios.ui.dodaiosbar.null_overlay import NullOverlay
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 _PACKAGE_DIR = Path(renderer.__file__).resolve().parent
 
@@ -58,7 +58,7 @@ def test_no_module_hardcodes_a_mode_tuple() -> None:
             offenders.append(path.name)
     assert not offenders, (
         "these modules restate the coarse-mode vocabulary instead of importing "
-        f"jarvis.ui.dodaiosbar.modes: {offenders}"
+        f"dodaios.ui.dodaiosbar.modes: {offenders}"
     )
 
 
@@ -121,7 +121,7 @@ def test_the_ipc_proxy_accepts_and_forwards_every_mode(mode: str) -> None:
 @pytest.mark.parametrize("mode", modes.MODES)
 def test_the_host_protocol_forwards_every_mode_verbatim(mode: str) -> None:
     """The companion-process protocol carries no mode list of its own."""
-    from jarvis.ui.dodaiosbar import host
+    from dodaios.ui.dodaiosbar import host
 
     class _Surface:
         def __init__(self) -> None:

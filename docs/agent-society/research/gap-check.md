@@ -11,7 +11,7 @@ NOT READY FOR PLANNING — one reconciliation pass required first. The reports a
 1. Inter-agent protocol: Report A adopts Hermes' single prose send path (message_agent-equivalent, natural-language messages with sender prefix, rendered as chat threads); Report B calls the opposite 'the single most important design decision' — typed enum events (ASSIGN/CLAIM/RESULT/QUERY/ANSWER/HOLD/VETO/DIGEST) on a blackboard, explicitly 'not a chat'. The plan must pick one, or explicitly define typed-envelope-with-prose-payload and say which surface renders what.
 2. Group discussions: A adopts hard-bounded natural-language group rooms (2–6 members, <=3 rounds, <=10 messages) as THE consumer-token-budget mechanism and builds the world's meeting-table moment on them; B rejects conversation-centric coordination as the expensive anti-pattern ('not a free-form debate club') and ships no group mechanism at all.
 3. What an agent IS at runtime: A = a persistent agent_chat session per agent (a long-lived conversation engine reusing service.py/runners); B = a durable roster row whose work is done by ephemeral SubagentFanoutRunner workers that are TTL-reaped after 60 s. These imply different RAM footprints, token profiles, and persistence stories — both cannot be the primary definition.
-4. Where agent identity/config persists: A extends jarvis/core/config.py with an [agents.*] schema plus per-agent account directories (jarvis/agent_accounts.py); B creates a society_agents table in a new data/society.db. Two sources of truth for the same model-card data (model/provider pin, tool grants, permission ceiling, avatar).
+4. Where agent identity/config persists: A extends dodaios/core/config.py with an [agents.*] schema plus per-agent account directories (dodaios/agent_accounts.py); B creates a society_agents table in a new data/society.db. Two sources of truth for the same model-card data (model/provider pin, tool grants, permission ceiling, avatar).
 5. Hierarchy and the AP-5/AP-14 no-spawn wall: A says the society is flat specialists under Jarvis and 'the society cannot chain-react' because no society agent can spawn; B's middle tier (orchestrator/kontrollierer agents) explicitly delegates to sub-agents, i.e. some society members DO dispatch workers. The plan must state which tiers may dispatch and where the structural wall sits, because the safety claim differs between the reports.
 6. World data feed: A says the world's data spine is the existing three-source merge (/api/sub-agents/tree + /api/missions + /api/outputs); B says the world is a pure projection of the new society_events log. Two competing single-sources-of-truth for the same view.
 7. Spatial truth: B persists world_x/world_y in the backend roster and claims the world 'can never desync' because it is a projection; A runs idle wander purely client-side for zero cost. Unresolved: who owns position, whether it survives restart, and whether two open app windows (live + dev instance exist today) show the same world.
@@ -22,11 +22,11 @@ NOT READY FOR PLANNING — one reconciliation pass required first. The reports a
 
 ### Voice-loop round trip within the 5-second tool budget
 
-VOICE_TOOL_BUDGET is real code (jarvis/core/tool_budget.py, enforced in jarvis/realtime/session.py), yet neither report designs how the router-tier delegate-to-agent tool acks in under 5 s, how voice status queries ('what is Scout doing?') are answered, how agent completions or blocked approvals re-enter the voice loop, or that agent output reaching voice must pass regex-only scrub_for_voice (AP-11). This is a voice-first product; the society's voice contract is its front door and it is undesigned.
+VOICE_TOOL_BUDGET is real code (dodaios/core/tool_budget.py, enforced in dodaios/realtime/session.py), yet neither report designs how the router-tier delegate-to-agent tool acks in under 5 s, how voice status queries ('what is Scout doing?') are answered, how agent completions or blocked approvals re-enter the voice loop, or that agent output reaching voice must pass regex-only scrub_for_voice (AP-11). This is a voice-first product; the society's voice contract is its front door and it is undesigned.
 
 ### Turn-language and i18n
 
-jarvis/core/turn_language.py decides output language once per turn and no layer may re-derive it; neither report says what language agent chats, inter-agent traffic, routine results, agent self-introductions, or the world HUD use, nor that all new UI strings must go through the hand-formatted locale files and the German CI gate (en.json duplicate-key trap, entry-chunk verification). Agents answering in the wrong language is a shipped-looking-broken bug on the closed product surface.
+dodaios/core/turn_language.py decides output language once per turn and no layer may re-derive it; neither report says what language agent chats, inter-agent traffic, routine results, agent self-introductions, or the world HUD use, nor that all new UI strings must go through the hand-formatted locale files and the German CI gate (en.json duplicate-key trap, entry-chunk verification). Agents answering in the wrong language is a shipped-looking-broken bug on the closed product surface.
 
 ### Headless / no-GPU / no-screen degradation
 
@@ -46,7 +46,7 @@ B adds society.db beside missions.db while both reports route execution through 
 
 ### One authoritative cost ledger
 
-Spend would now live in missions cost_usd, society_events.cost_usd, registry AgentNode, BudgetTracker, and the Costs view. Which is authoritative, how per-agent daily caps compose with the existing $5/mission + $50/day buckets (verified in jarvis/missions/budget.py), and what the world HUD reads must be defined once or the meters will disagree in front of the user.
+Spend would now live in missions cost_usd, society_events.cost_usd, registry AgentNode, BudgetTracker, and the Costs view. Which is authoritative, how per-agent daily caps compose with the existing $5/mission + $50/day buckets (verified in dodaios/missions/budget.py), and what the world HUD reads must be defined once or the meters will disagree in front of the user.
 
 ### Workspace model for non-coding agents
 

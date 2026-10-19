@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.skills.explicit_request``.
+"""Unit tests for ``dodaios.skills.explicit_request``.
 
 The resolver is the deterministic form of the doctrine in
 ``autofire_policy``: the user naming a skill is a sanctioned path to ANY
@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from jarvis.skills.explicit_request import resolve_explicit_skill_request
-from jarvis.skills.match_eval import BAND_FIRE, SOURCE_TRIGGER
+from dodaios.skills.explicit_request import resolve_explicit_skill_request
+from dodaios.skills.match_eval import BAND_FIRE, SOURCE_TRIGGER
 
 
 @dataclass

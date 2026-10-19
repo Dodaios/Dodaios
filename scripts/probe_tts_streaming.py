@@ -21,7 +21,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from jarvis.core.config import load_config  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
 
 TEXT = "Es ist gerade kurz nach sieben Uhr abends, Chef. Soll ich noch etwas vorbereiten?"  # i18n-allow: sample TTS voice output text used to probe streaming
 
@@ -29,7 +29,7 @@ TEXT = "Es ist gerade kurz nach sieben Uhr abends, Chef. Soll ich noch etwas vor
 async def main() -> int:
     cfg = load_config(Path("jarvis.toml"))
     # Build the raw provider exactly like the factory does (no fallback wrap).
-    from jarvis.plugins.tts import _build_provider
+    from dodaios.plugins.tts import _build_provider
 
     tts = _build_provider(cfg.tts, "gemini-flash-tts")
     tts._ensure_client()
