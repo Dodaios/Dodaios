@@ -197,7 +197,9 @@ _AMBIGUOUS_PATTERNS_PT: tuple[str, ...] = (
 ResponseVerdict = Literal["confirm", "veto", "ambiguous", "unknown"]
 
 
-def classify_response(transcript: str, *, language: str = "de") -> ResponseVerdict:
+def classify_response(
+    transcript: str, *, language: str = "de"  # input language, not output
+) -> ResponseVerdict:
     """Deterministically classifies the user's answer (no LLM call).
 
     Order: Veto > Confirm > Ambiguous > Unknown.
@@ -317,7 +319,7 @@ def _lang_key(language: str, table: dict[str, Any]) -> str:
     return language if language in table else "en"
 
 
-def _format_value_for_speech(value: Any, language: str = "de") -> str:
+def _format_value_for_speech(value: Any, language: str = "en") -> str:
     """Voice-friendly string from a primitive value.
 
     Phase 7.4 keeps this simple — number verbalization ("one point three")
@@ -352,7 +354,7 @@ _ECHO_TEMPLATES_SENSITIVE: dict[str, str] = {
 
 
 def format_confirmation(
-    pending: PendingMutation, *, language: str = "de"
+    pending: PendingMutation, *, language: str = "en"
 ) -> str:
     """Renders the echo question per Plan-§7.4 + sensitive protection.
 
@@ -484,7 +486,7 @@ def format_outcome(
     kind: OutcomeKind,
     pending: PendingMutation,
     *,
-    language: str = "de",
+    language: str = "en",
     short_error: str | None = None,
 ) -> str:
     """Plan-§7.4 voice-output templates.
@@ -512,7 +514,7 @@ def format_outcome(
     return template.format(label=label, new=new_str, old=old_str, err=err)
 
 
-def short_error_from_exception(exc: BaseException) -> str:
+def short_error_from_exception(exc: BaseException, language: str | None = None) -> str:
     """Shortens a pipeline exception to a voice-friendly phrase.
 
     Sub-agent-review-MAJOR (2026-04-26): the fallback branch used to pass
@@ -520,14 +522,17 @@ def short_error_from_exception(exc: BaseException) -> str:
     widens the catch block (e.g. `except Exception`), the fallback
     would leak plaintext values into TTS. Now: only a hard allowlist of
     phrases, plus the Pydantic field path (no value) for PreValidateError.
+    The phrase is in ``language`` (the flow's language), English otherwise.
     """
+    from jarvis.i18n import t
+
     if isinstance(exc, PreValidateError):
         # `str(exc)` contains `repr(new_value)` in writer.py:_mutate_locked.
         # We discard the message entirely and return a generic
         # phrase. The detailed trace lands in the audit log, not in the TTS.
-        return "Pre-Validate hat den Wert abgelehnt"  # i18n-allow
+        return t("self_mod.short_error.pre_validate", language)
     if isinstance(exc, ReloadError):
-        return "der Reload-Test hat den neuen Wert abgelehnt"  # i18n-allow
+        return t("self_mod.short_error.reload", language)
     if isinstance(exc, RollbackError):
-        return "der Rollback selbst ist fehlgeschlagen — manueller Restore nötig"  # i18n-allow
-    return "unerwarteter Fehler in der Mutation-Pipeline"  # i18n-allow
+        return t("self_mod.short_error.rollback", language)
+    return t("self_mod.short_error.unexpected", language)

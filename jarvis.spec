@@ -101,6 +101,9 @@ datas.append((str(PROJECT_ROOT / "jarvis/society/browser/pointer.py"), "jarvis/s
 # sweep below also finds them; named here so a narrower sweep cannot drop them
 # and send a frozen app's setup to upstream latest.
 datas.append((str(PROJECT_ROOT / "jarvis/agent_runtimes/runtime-versions.json"), "jarvis/agent_runtimes"))
+# Translated system phrases (jarvis/i18n/catalog.py); without them every
+# error and fallback phrase would raise instead of being spoken.
+datas.append((str(PROJECT_ROOT / "jarvis/i18n/locales"), "jarvis/i18n/locales"))
 
 # The local voice engine runs in its OWN Python environment, so a frozen build
 # must ship its sources as plain files: setup copies them into the engine home

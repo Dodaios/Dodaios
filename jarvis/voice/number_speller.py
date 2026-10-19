@@ -135,7 +135,7 @@ _LAST_WORD_RE = re.compile(r"([^\W\d_]+)\W*$")
 
 def _norm_lang(language: str | None) -> str:
     if not language:
-        return "de"
+        return "en"
     low = language.lower()
     if low.startswith("en"):
         return "en"
@@ -343,7 +343,7 @@ def _spell_dotted_token(token: str, lang: str, cue: str, at_end: bool) -> str | 
     return None if spoken is None else spoken + tail
 
 
-def spell_out_numbers(text: str, language: str = "de") -> str:
+def spell_out_numbers(text: str, language: str = "en") -> str:
     """Spell every digit run in ``text`` out as words for the given locale.
 
     Never raises. A no-op when ``num2words`` is missing, the language is
