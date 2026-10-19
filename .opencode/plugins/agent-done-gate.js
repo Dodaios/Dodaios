@@ -4,9 +4,24 @@
 // session's branch work has landed (PR merged, CI green on main, local main
 // fast-forwarded). If it has not, send the gate's next step back into the
 // session as a new prompt. Any error lets the session rest (fail open).
+// Each decision is logged to ~/.agent-done-gate/opencode.log.
 // See docs/agent-done-gate.md.
 
+import { appendFileSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+const LOG_DIR = join(homedir(), ".agent-done-gate");
 const running = new Set();
+
+function log(line) {
+  try {
+    mkdirSync(LOG_DIR, { recursive: true });
+    appendFileSync(join(LOG_DIR, "opencode.log"), `${new Date().toISOString()} ${line}\n`);
+  } catch {
+    // logging is best effort
+  }
+}
 
 function pythonCandidates() {
   return process.platform === "win32" ? ["python", "py"] : ["python3", "python"];
@@ -43,13 +58,15 @@ export const AgentDoneGate = async ({ client, $, directory, worktree }) => {
         const info = await client.session.get({ path: { id: sessionID } }).catch(() => null);
         if (info?.data?.parentID) return;
         const verdict = await verdictFor(sessionID);
+        log(`${sessionID} ${directory}: ${verdict ? verdict.verdict : "no answer"}`);
         if (!verdict || verdict.may_stop !== false) return;
         await client.session.prompt({
           path: { id: sessionID },
           body: { parts: [{ type: "text", text: verdict.message }] },
         });
-      } catch {
-        // fail open: a broken gate must never trap a session
+        log(`${sessionID}: sent the next step back into the session`);
+      } catch (error) {
+        log(`${sessionID}: gate skipped (${error})`); // fail open
       } finally {
         running.delete(sessionID);
       }
