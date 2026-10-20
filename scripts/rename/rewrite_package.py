@@ -272,7 +272,6 @@ FROZEN_FILES: tuple[Frozen, ...] = (
     Frozen("CHANGELOG.md", "release history: it says what a version shipped, under its old paths"),
     Frozen("docs/supply-chain/**", "signed-release evidence, kept as it was recorded"),
     Frozen("docs/superpowers/**", "dated plans and specs, kept as they were written"),
-    Frozen("docs/BUGS.md", "the bug register cites paths as they were when a bug was found"),
     Frozen("{pkg}/ui/web/dist/**", "generated bundle: moved as is, `npm run build` rewrites it"),
     Frozen("{pkg}/ui/web/frontend/src/i18n/**", "i18n texts are product copy, not references"),
     Frozen(
@@ -325,12 +324,6 @@ UNRESOLVED_PATHS_KEPT: tuple[LocalPrefix, ...] = (
         "docs/agent-society/build-plan-m1-m2.md",
         "`jarvis/agent session lists` names two chat surfaces, not a path",
         ("agent",),
-    ),
-    LocalPrefix(
-        "docs/LLM-CONTEXT.md",
-        "jarvis/sub_jarvis/ is the tombstone of the deleted sub tier, named as a thing that "
-        "must stay dead; it is not tracked and does not move",
-        ("sub_jarvis",),
     ),
     LocalPrefix(
         "docs/agent-society/research/branch-a-product-ui.md",
