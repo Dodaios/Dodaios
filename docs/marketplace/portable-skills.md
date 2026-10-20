@@ -113,7 +113,7 @@ fields, both optional, both tolerated when absent or unknown:
   UI, so the client bounds it: 8 entries, 32 characters each, deduplicated,
   non-strings dropped.
 
-### Registry side (`PersonalJarvis/marketplace`) — written, on branch
+### Registry side (`Dodaios/marketplace`) — written, on branch
 `portable-skills`
 
 - [x] `build_index.py` emits `flavor` and `compatible_agents` on every skill.

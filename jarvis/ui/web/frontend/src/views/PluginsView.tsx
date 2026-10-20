@@ -563,7 +563,6 @@ function loopbackRedirectUri(plugin: Plugin): string | undefined {
   return `http://127.0.0.1:${port}${path}`;
 }
 
-export type StatusFilterId = "all" | "connected" | "not_connected" | "attention";
 
 /** Section order for the store, straight from the catalog. Any category the
  *  backend serves that the order does not mention is appended, so a new
@@ -636,21 +635,6 @@ export function searchPlugins(plugins: Plugin[], query: string): Plugin[] {
  *  category. */
 export function sortPluginsByName(a: Plugin, b: Plugin): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-}
-
-/** "attention" groups needs_reauth and error: both mean the same thing to the
- *  user — this plugin is listed but cannot be called until they act. */
-export function matchesStatus(plugin: Plugin, status: StatusFilterId): boolean {
-  switch (status) {
-    case "connected":
-      return plugin.status === "connected";
-    case "not_connected":
-      return plugin.status === "not_connected";
-    case "attention":
-      return plugin.status === "needs_reauth" || plugin.status === "error";
-    default:
-      return true;
-  }
 }
 
 /** The order the directory lists its category sections in. A category the
@@ -1185,7 +1169,7 @@ export function PluginsView({
   const shell = (content: React.ReactNode) => (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
       <ScrollArea key={pageKey} className="flex-1">
-        <div className="mx-auto w-full max-w-[880px] px-5 pb-12 pt-12 sm:px-8">{content}</div>
+        <div className="mx-auto w-full max-w-[1040px] px-6 pb-14 pt-14 sm:px-10">{content}</div>
       </ScrollArea>
       {dialogs}
     </div>
@@ -1197,39 +1181,31 @@ export function PluginsView({
       setSelectedId(null);
       setSectionId(null);
       setManaging(false);
+      setQuery("");
     },
   };
 
-  // ---- Own HTTP APIs and the community marketplace -------------------------
-  if (view === "custom-apis") {
-    return shell(<Suspense fallback={<p>{translate("custom_apis.loading")}</p>}>
-      <CustomApisView onBack={() => setView("list")} />
-    </Suspense>);
-  }
-
-  if (view === "community") {
-    return shell(
-      <>
-        <Breadcrumbs crumbs={[directoryCrumb, { label: translate("plugins_view.add_community") }]} />
-        <div className="mt-6">
-          <CommunityTab onInstalled={(name) => void handleFreshInstall(name)} />
-        </div>
-      </>,
-    );
-  }
-
   // ---- Plugin page ---------------------------------------------------------
+  // Checked before the community and API pages: the sidebar opens a plugin
+  // from wherever the directory currently is.
   if (selectedId) {
     // The crumb between the directory and the plugin is the list the plugin
     // belongs to — the installed list while managing, otherwise its section —
     // so the path reads the same however the page was reached.
     const home = selectedPlugin ? homeSectionId(selectedPlugin) : null;
     const origin: Crumb | null = managing
-      ? { label: translate("plugins_view.manage_title"), onClick: () => setSelectedId(null) }
+      ? {
+          label: translate("plugins_view.manage_title"),
+          onClick: () => {
+            setView("list");
+            setSelectedId(null);
+          },
+        }
       : home
         ? {
             label: sectionTitle(home),
             onClick: () => {
+              setView("list");
               setSectionId(home);
               setQuery("");
               setSelectedId(null);
@@ -1257,6 +1233,24 @@ export function PluginsView({
             {isLoading ? translate("plugins_view.loading") : translate("plugins_view.not_found")}
           </p>
         )}
+      </>,
+    );
+  }
+
+  // ---- Own HTTP APIs and the community marketplace -------------------------
+  if (view === "custom-apis") {
+    return shell(<Suspense fallback={<p>{translate("custom_apis.loading")}</p>}>
+      <CustomApisView onBack={() => setView("list")} />
+    </Suspense>);
+  }
+
+  if (view === "community") {
+    return shell(
+      <>
+        <Breadcrumbs crumbs={[directoryCrumb, { label: translate("plugins_view.add_community") }]} />
+        <div className="mt-6">
+          <CommunityTab onInstalled={(name) => void handleFreshInstall(name)} />
+        </div>
       </>,
     );
   }
@@ -1300,7 +1294,7 @@ export function PluginsView({
 }
 
 // ---------------------------------------------------------------------------
-// Status vocabulary shared by the table and the detail page
+// Status vocabulary shared by the directory and the plugin page
 // ---------------------------------------------------------------------------
 
 function statusTone(status: PluginStatus): "ok" | "off" | "warn" | "error" {
@@ -1442,7 +1436,7 @@ function PluginDetail({
         </div>
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h3 className="min-w-0 break-words text-xl font-semibold text-foreground-strong">{plugin.name}</h3>
+            <h3 className="min-w-0 break-words text-2xl font-semibold text-foreground-strong">{plugin.name}</h3>
             <PreviewBadge plugin={plugin} />
             {plugin.fromMarketplace && <MarketplaceBadge publisher={plugin.publisher} />}
             {plugin.selfUploaded && (
@@ -1630,7 +1624,7 @@ export function BrandTile({ plugin, size = "md" }: { plugin: Plugin; size?: "xs"
     <div
       className={cn(
         "grid shrink-0 place-items-center overflow-hidden rounded-lg border",
-        size === "xs" ? "h-5 w-5 rounded" : small ? "h-7 w-7 rounded-md" : size === "hero" ? "h-14 w-14 rounded-2xl" : size === "row" ? "h-9 w-9" : "h-10 w-10",
+        size === "xs" ? "h-6 w-6 rounded-md" : small ? "h-7 w-7 rounded-md" : size === "hero" ? "h-14 w-14 rounded-2xl" : size === "row" ? "h-12 w-12 rounded-xl" : "h-10 w-10",
         // White app-icon tiles follow the reference in either interface theme.
         // Existing white monochrome marks are inverted below, keeping their
         // original geometry legible without recolouring multicolour artwork.
@@ -1653,8 +1647,8 @@ export function BrandTile({ plugin, size = "md" }: { plugin: Plugin; size?: "xs"
           alt=""
           className={cn(
             fullColour
-              ? (size === "xs" ? "h-3.5 w-3.5" : small ? "h-5 w-5" : size === "hero" ? "h-10 w-10" : size === "row" ? "h-6 w-6" : "h-7 w-7")
-              : size === "xs" ? "h-3 w-3" : small ? "h-3.5 w-3.5" : size === "hero" ? "h-8 w-8" : "h-5 w-5",
+              ? (size === "xs" ? "h-4 w-4" : small ? "h-5 w-5" : size === "hero" ? "h-10 w-10" : size === "row" ? "h-8 w-8" : "h-7 w-7")
+              : size === "xs" ? "h-3.5 w-3.5" : small ? "h-3.5 w-3.5" : size === "hero" ? "h-8 w-8" : "h-5 w-5",
             ["github", "vercel", "notion", "cal_com"].includes(plugin.id) && "invert",
           )}
           loading="lazy"

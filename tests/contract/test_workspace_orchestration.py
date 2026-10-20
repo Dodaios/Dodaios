@@ -64,6 +64,12 @@ class Sessions:
 
 @pytest.fixture
 def rig(tmp_path, monkeypatch):
+    # The panes below are stamped idle once, at setup. A slow runner can take
+    # longer than the stamp's freshness window to reach the step under test,
+    # and the pane then reads as unknown instead of idle; keep it fresh here.
+    from jarvis.agentic_ide import activity
+
+    monkeypatch.setattr(activity, "STAMP_FRESH_S", 3600.0)
     monkeypatch.setattr(library, "_root", lambda: tmp_path / "library")
     monkeypatch.setattr(resume_store, "_store_path", lambda: tmp_path / "snapshot.json")
     registry = Registry(pty_manager=FakePtyManager())
@@ -1063,6 +1069,36 @@ async def test_watch_refuses_honestly_when_there_is_nothing_to_report(rig, monke
     with _Origin("none"):
         nowhere = await orchestrator.run(watch)
     assert nowhere["status"] == "unavailable" and term.delegation_result is None
+
+
+async def test_watch_without_a_name_follows_the_one_agent_at_work(rig, reportable):
+    # "Tell me when the coding agent is done" with one agent working was asked
+    # back for a call-sign in a live call (2026-10-14).
+    orchestrator, registry, sessions = rig
+    panes = [term for session in registry.sessions for term in session.terminals]
+    with _Origin("voice"):
+        nobody = await orchestrator.run({"action": "watch"})
+    assert nobody["status"] == "needs_clarification" and nobody["working"] == []
+    term = panes[0]
+    term.activity, term.last_prompt = "working", "Run the migration"
+    with _Origin("voice"):
+        watched = await orchestrator.run({"action": "watch"})
+    assert watched["status"] == "watching" and watched["agent"] == term.name
+    assert watched["target"]["terminal_id"] == "pane:" + term.history_id
+    assert term.delegation_result.watched and not sessions.calls
+
+
+async def test_watch_without_a_name_asks_when_several_agents_work(rig, reportable):
+    orchestrator, registry, _sessions = rig
+    panes = [term for session in registry.sessions for term in session.terminals]
+    assert len(panes) >= 2
+    for term in panes[:2]:
+        term.activity = "working"
+    with _Origin("voice"):
+        asked = await orchestrator.run({"action": "watch"})
+    assert asked["status"] == "needs_clarification"
+    assert set(asked["working"]) >= {panes[0].name, panes[1].name}
+    assert all(term.delegation_result is None for term in panes)
 
 
 def test_status_is_a_read_and_watch_is_a_logged_action(rig):

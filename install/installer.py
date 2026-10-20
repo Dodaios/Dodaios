@@ -528,20 +528,20 @@ def step_worker_cli(*, dry_run: bool) -> None:
     try:
         result = run_captured(
             [str(venv_python()), "-c", probe], cwd=repo_root(),
-            label="setting up the Jarvis-Agent worker CLI (npm download)", timeout=600,
+            label="setting up the Dodaios-Agent worker CLI (npm download)", timeout=600,
         )
         stdout = (result.stdout or "").strip()
         verdict = stdout.splitlines()[-1] if stdout else "failed"
     except (OSError, subprocess.TimeoutExpired):
         verdict = "failed"
     if verdict == "present":
-        ok("Jarvis-Agent worker CLI already installed")
+        ok("Dodaios-Agent worker CLI already installed")
     elif verdict == "installed":
-        ok("Jarvis-Agent worker CLI installed (npm)")
+        ok("Dodaios-Agent worker CLI installed (npm)")
     elif verdict == "no-npm":
-        note("Node.js/npm not found - the Jarvis-Agent worker CLI can be added later in-app")
+        note("Node.js/npm not found - the Dodaios-Agent worker CLI can be added later in-app")
     else:
-        note("Jarvis-Agent worker CLI install failed - it can be added later in-app")
+        note("Dodaios-Agent worker CLI install failed - it can be added later in-app")
 
 
 def _write_desktop_integration_log(result: object) -> Path | None:

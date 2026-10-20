@@ -166,6 +166,17 @@ class BrainSupervisorToolGateway:
         # runs, into the MEMORY.md every later conversation reads. Voice-only
         # like the tools above: the router stays a pure dispatcher (ADR-0011).
         tools["remember"] = RememberTool()
+        # A voice carries a takeaway, not a table: exact content goes on screen.
+        from jarvis.plugins.tool.show_on_screen import ShowOnScreenTool
+
+        tools[ShowOnScreenTool.name] = ShowOnScreenTool()
+        if "message_agent" in tools:
+            # With a team on this install, a call can relay a conversation with
+            # one of its agents: ask, wait for the answer, say it.
+            from jarvis.plugins.tool.ask_agent import AskAgentTool
+            from jarvis.society.runtime import current_runtime
+
+            tools[AskAgentTool.name] = AskAgentTool(runtime_resolver=current_runtime)
         if self._workspace_tool is not None:
             # Live delegates coding to one addressed service. The old prompt
             # tools silently choose an ambient pane and cannot safely coexist.

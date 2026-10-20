@@ -1553,7 +1553,7 @@ async def test_idle_session_renders_external_update_as_realtime_spoken_track():
     assert not any(isinstance(event, ResponseGenerated) for event in bus.events)
     assert not any(isinstance(event, VoiceTurnCompleted) for event in bus.events)
     history = "\n".join(str(message.content) for message in sess._delegate_history)
-    assert "Trusted Jarvis-Agent mission result" in history
+    assert "Trusted Dodaios-Agent mission result" in history
     assert "artifact: report.md" in history
 
 
@@ -2410,7 +2410,7 @@ async def test_instructions_carry_tool_role_when_bridge_active():
 
     instructions = provider.opened_with.instructions
     assert "call the matching function" in instructions
-    assert "Jarvis-Agent spawn" in instructions
+    assert "Dodaios-Agent spawn" in instructions
 
 
 @pytest.mark.asyncio
@@ -3198,7 +3198,7 @@ async def test_generative_voice_provider_mute_still_falls_back_to_surface_tts():
     elapsed = asyncio.get_event_loop().time() - start
     assert elapsed >= 2.0, "surface TTS claimed the reply before the wait window"
     spoken = [m for m in jsons if m.get("type") == "error_spoken"]
-    assert [m["text"] for m in spoken] == [scrub_for_voice(reply).cleaned]
+    assert [m["text"] for m in spoken] == [scrub_for_voice(reply, language="de").cleaned]
     assert binaries == []
     provider.session.release.set()
     await sess.end(reason="test")

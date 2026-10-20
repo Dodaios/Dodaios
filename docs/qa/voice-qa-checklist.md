@@ -1,7 +1,7 @@
-# Voice QA Checklist — Personal Jarvis
+# Voice QA Checklist — Dodaios
 
 A reusable manual test script for validating the full feature surface by *talking*
-to Jarvis the way a real user does: general conversation plus multi-step flows,
+to Dodaios the way a real user does: general conversation plus multi-step flows,
 not just one-shot prompts.
 
 Test utterances are given in **German** and **English** because bilingual
@@ -65,7 +65,7 @@ bug history says is most likely to quietly come back.
 | D3 | "Open Discord." | Opens, English confirmation | Conjugation/alias + EN path | |
 | D4 | "Öffne den Rechner und tippe 5 mal 5." | Multi-step goal completes | CU planner for compound goals | |
 
-## E — Jarvis-Agent missions (heavy work)
+## E — Dodaios-Agent missions (heavy work)
 
 | # | Say this | Pass criteria | Probes / red flag | Result |
 |---|----------|---------------|-------------------|--------|
@@ -113,7 +113,7 @@ bug history says is most likely to quietly come back.
 | J1 | Ask a long brain+tool question (e.g. C1) and time it | Still speaks even if the brain thinks >20 s | No-first-frame ceiling beheading tool loops | |
 | J2 | Start a sentence, pause mid-thought, go silent | Short clarify question, not infinite listening | Continuation-buffer clarify timer | |
 | J3 | "Hallo, öffne mal Chrome." | Treated as a command, not smalltalk | Greeting-prefix swallows command | |
-| J4 | Talk over Jarvis while it is speaking | Handles barge-in gracefully | Interrupt handling | |
+| J4 | Talk over Dodaios while it is speaking | Handles barge-in gracefully | Interrupt handling | |
 
 ## K — Flagship end-to-end conversation (run last)
 
@@ -124,7 +124,7 @@ Chain the subsystems the way real use does — the single best "is the whole thi
 - [ ] 3. "Okay, und merk dir bitte, dass ich morgen früh joggen gehen will." → memory write
 - [ ] 4. "Öffne Chrome und such nach Laufschuhen." → computer-use + navigate
 - [ ] 5. "Switch to English. Summarize what we just did." → language switch + context-aware recall
-- [ ] 6. "Schreib mir dazu ein kurzes Notiz-Skript." → heavy Jarvis-Agent mission
+- [ ] 6. "Schreib mir dazu ein kurzes Notiz-Skript." → heavy Dodaios-Agent mission
 - [ ] 7. *(while it runs)* hold-to-abort it → cancel
 
 A clean pass means greeting, search, memory, computer-use, mid-conversation language

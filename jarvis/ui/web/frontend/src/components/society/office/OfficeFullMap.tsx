@@ -24,6 +24,8 @@ import {
 import {
   agentColour, context2d, offscreenLayer, useElementSize, usePixelRatio, useThemeVersion, useThrottledFrames, type OfficeMapAgent,
 } from "./mapHooks";
+import { courierSession } from "./courierStore";
+import { boundsWithPad } from "./skyPad";
 
 export interface OfficeFullMapProps {
   open: boolean;
@@ -61,7 +63,8 @@ function useMapKeys(open: boolean, onOpen: () => void, onClose: () => void): voi
         }
         return;
       }
-      if (event.code !== "KeyM" || event.repeat || ownsKeyboard(event.target)) return;
+      // The full map stays shut while the courier flies.
+      if (event.code !== "KeyM" || event.repeat || ownsKeyboard(event.target) || courierSession.flying) return;
       event.preventDefault();
       show();
     };
@@ -96,7 +99,8 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
   const dpr = usePixelRatio();
   const themeVersion = useThemeVersion();
 
-  const grid = useMemo(() => mapGrid(layout.bounds, GRID_COLUMNS), [layout]);
+  // The sheet reaches out over the sky pad too, so the courier is on the map.
+  const grid = useMemo(() => mapGrid(boundsWithPad(layout.bounds, layout.skyPad), GRID_COLUMNS), [layout]);
   const gridRect = useMemo<Rect>(() => ({
     minX: grid.originX, maxX: grid.originX + grid.columns * grid.cell, minZ: grid.originZ, maxZ: grid.originZ + grid.rows * grid.cell,
   }), [grid]);
@@ -127,6 +131,7 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
     mission: t("society.office.cp_mission"),
     studio: t("society.office.cp_studio"),
     levels: t("society.office.cp_levels"),
+    ship: t("society.office.cp_ship"),
   };
   const roomLabels: Record<RoomKind, string> = {
     lead: t("society.office.room_lead"),

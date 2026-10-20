@@ -1,6 +1,6 @@
 # Agent runtime acceptance evidence
 
-Issue [#428](https://github.com/PersonalJarvis/PersonalJarvis/issues/428) is an
+Issue [#428](https://github.com/Dodaios/Dodaios/issues/428) is an
 epic, not a single defect. This document records a partial implementation and
 its evidence. It does **not** declare the epic or its child issues complete.
 

@@ -134,7 +134,7 @@ describe("office layout", () => {
     expect(plain.variant).toBe("agents");
     expect(plain.rooms.map((r) => r.kind)).toEqual(["lead", "team", "wardrobe", "reception", "break"]);
     // The spawn point creates agents, the reception desk is the one directory and help station; the hall has its own floor.
-    expect(plain.checkpoints.map((c) => c.id)).toEqual(["spawn", "manage", "team", "wardrobe", "lead", "break", "elevator"]);
+    expect(plain.checkpoints.map((c) => c.id)).toEqual(["spawn", "manage", "team", "wardrobe", "lead", "break", "elevator", "ship"]);
     for (const kind of ["levelWall", "studioStage", "rewardPedestal", "levelGuide", "agentTotem"] as const) {
       expect(plain.furniture.some((f) => f.kind === kind), kind).toBe(false);
     }
@@ -177,7 +177,8 @@ describe("office layout", () => {
     expect(layout.studios).toBeUndefined();
     expect(layout.zones).toBeUndefined();
     expect(layout.ambience).toBeUndefined();
-    expect(layout.bounds.maxX - layout.bounds.minX).toBeCloseTo(24.4, 6);
+    // Two bays of 9 m either side of the 6.4 m concourse, plus the 1.6 m window strips.
+    expect(layout.bounds.maxX - layout.bounds.minX).toBeCloseTo(27.6, 6);
     // The elevator stands on the lobby's west edge, by the south wall, like on every floor.
     const lift = layout.checkpoints.find((c) => c.id === "elevator")!;
     const lobby = layout.rooms.find((r) => r.kind === "reception")!;

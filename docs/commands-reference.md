@@ -343,7 +343,7 @@ Restart the Dodaios desktop app (voice + UI restart too).
 
 ## `missions-list` — List missions
 
-List Jarvis-Agent missions and their status, newest first. Set active to see only the ones that have not ended yet.
+List Dodaios-Agent missions and their status, newest first. Set active to see only the ones that have not ended yet.
 
 - **Endpoint:** `GET /api/missions`
 - **Arguments:** `active` (boolean; optional); `limit` (integer; optional)
@@ -353,7 +353,7 @@ List Jarvis-Agent missions and their status, newest first. Set active to see onl
 
 ## `mission-result` — Read a mission result
 
-Read the signed summary and actual deliverable contents of one completed Jarvis-Agent mission. Use this after listing missions when the user asks what a mission found or produced.
+Read the signed summary and actual deliverable contents of one completed Dodaios-Agent mission. Use this after listing missions when the user asks what a mission found or produced.
 
 - **Endpoint:** `GET /api/missions/{mission_id}/result`
 - **Arguments:** `mission_id` (string; required)
@@ -363,7 +363,7 @@ Read the signed summary and actual deliverable contents of one completed Jarvis-
 
 ## `mission-cancel` — Cancel a mission
 
-Cancel a running Jarvis-Agent mission by id.
+Cancel a running Dodaios-Agent mission by id.
 
 - **Endpoint:** `POST /api/missions/{mission_id}/cancel`
 - **Arguments:** `mission_id` (string; required)

@@ -40,7 +40,8 @@ from jarvis.core.protocols import (
     ReasoningEffort,
     Tool,
 )
-from jarvis.core.turn_language import resolve_output_language, resolve_turn_language
+from jarvis.core.turn_language import TURN_LANGUAGE, resolve_output_language
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL, ToolExecutor
 
 from .iteration_budget import IterationBudget
@@ -399,30 +400,20 @@ def _is_meta_debug_intent(utterance: str) -> bool:
 # answered in German. A pinned reply language (brain.reply_language) wins;
 # in "auto" mode the phrase mirrors the language detected from the user's
 # text; ambiguous text keeps the historical German default.
-_ANTI_SILENCE_PHRASES: dict[str, str] = {
-    "de": (
-        "Das kann ich gerade nicht ausführen — "  # i18n-allow: spoken German TTS
-        "mir fehlt dafür das passende Werkzeug."  # i18n-allow: spoken German TTS
-    ),
-    "en": "I can't do that right now — I'm missing the right tool for it.",
-    "es": "Ahora mismo no puedo hacerlo — me falta la herramienta adecuada.",
-    "pt": "Neste momento não consigo fazer isso — falta-me a ferramenta adequada.",
-}
+_ANTI_SILENCE_PHRASES: dict[str, str] = i18n_catalog.table("tool_loop.anti_silence")
 
 # Meta-/debug feedback acknowledgement. Must NOT narrate background bookkeeping
 # (the maintainer finds "ich notiere das Feedback" / "I'm noting that" / "tomo
 # nota" annoying — that work happens silently, BACKGROUND_ACTION_RE strips it
 # anyway). A brief, neutral acknowledgement that invites the actual correction.
-_META_DEBUG_ACK_PHRASES: dict[str, str] = {
-    "de": "Verstanden. Was genau hätte anders sein sollen?",  # i18n-allow: spoken German TTS
-    "en": "Understood. What exactly should have been different?",
-    "es": "Entendido. ¿Qué debería haber sido diferente?",
-    "pt": "Entendido. O que devia ter sido diferente?",
-}
+_META_DEBUG_ACK_PHRASES: dict[str, str] = i18n_catalog.table("tool_loop.meta_debug_ack")
 
 
 def _localized_phrase(
-    phrases: dict[str, str], user_utterance: str, reply_language: str
+    phrases: dict[str, str],
+    user_utterance: str,
+    reply_language: str,
+    conversation_language: str = "",
 ) -> str:
     """Pick the phrase variant matching the pin or the user's turn language.
 
@@ -433,20 +424,35 @@ def _localized_phrase(
     pass ``"unknown"`` as the tag and let the text decide. Ambiguous text keeps
     the historical German default. (Under the common ``[stt].language="de"`` pin
     the tag would resolve to ``de`` anyway, so the text-only path is equivalent
-    there and strictly better when the text is clearly English/Spanish.)
+    there and strictly better when the text is clearly English/Spanish.) The
+    running ``conversation_language`` keeps a short or ambiguous turn in the
+    conversation's language; anything without translations reads English.
     """
-    lang = reply_language if reply_language in phrases else resolve_turn_language(
-        "unknown", user_utterance, default="de"
+    turn = TURN_LANGUAGE.get()
+    if turn and str(reply_language or "").strip().lower() not in phrases:
+        # Inside a brain turn: the language generate() resolved for it, so an
+        # internal English prompt as the utterance never makes this English.
+        return i18n_catalog.pick(phrases, turn)
+    lang = resolve_output_language(
+        reply_language, "unknown", user_utterance, conversation_language=conversation_language
     )
-    return phrases.get(lang, phrases["de"])
+    return i18n_catalog.pick(phrases, lang)
 
 
-def _anti_silence_phrase(user_utterance: str, reply_language: str = "auto") -> str:
-    return _localized_phrase(_ANTI_SILENCE_PHRASES, user_utterance, reply_language)
+def _anti_silence_phrase(
+    user_utterance: str, reply_language: str = "auto", conversation_language: str = ""
+) -> str:
+    return _localized_phrase(
+        _ANTI_SILENCE_PHRASES, user_utterance, reply_language, conversation_language
+    )
 
 
-def _meta_debug_ack_phrase(user_utterance: str, reply_language: str = "auto") -> str:
-    return _localized_phrase(_META_DEBUG_ACK_PHRASES, user_utterance, reply_language)
+def _meta_debug_ack_phrase(
+    user_utterance: str, reply_language: str = "auto", conversation_language: str = ""
+) -> str:
+    return _localized_phrase(
+        _META_DEBUG_ACK_PHRASES, user_utterance, reply_language, conversation_language
+    )
 
 
 def _has_trailing_imperative(utterance: str) -> bool:
@@ -1374,7 +1380,7 @@ class ToolUseLoop:
                     # used to do so even when another call in the same round
                     # had already succeeded, throwing that work away.
                     meta_debug_ack = _meta_debug_ack_phrase(
-                        user_utterance, reply_language
+                        user_utterance, reply_language, conversation_language
                     )
                     tool_result_payload = {
                         "success": False,
@@ -1719,7 +1725,7 @@ class ToolUseLoop:
                 and not self._unattended
             ):
                 suppress_output = _anti_silence_phrase(
-                    user_utterance, reply_language
+                    user_utterance, reply_language, conversation_language
                 )
 
             # Budget check after execution: the results of this round are

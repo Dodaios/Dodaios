@@ -10,12 +10,12 @@ empty hash is treated as "not yet pinned" and accepted unverified).
 Pure-ish: stdlib only at import time; ``httpx`` (the repo's HTTP standard) is
 imported lazily inside ``_http_get`` so importing this module stays light.
 """
+
 from __future__ import annotations
 
 import hashlib
 import io
 import logging
-import os
 import shutil
 import tempfile
 import zipfile
@@ -119,9 +119,10 @@ def resolve_wake_language(cfg: Any) -> str:
 
 
 def _models_root(data_dir: str | None) -> Path:
-    """Same layout ``wake_constants._vosk_models_root`` resolves — do not diverge."""
-    base = data_dir or os.environ.get("JARVIS__MEMORY__DATA_DIR") or "data"
-    return Path(base) / "wake_models" / "vosk"
+    """Use the same data root as runtime wake-plan selection."""
+    from jarvis.speech.wake_constants import _vosk_models_root
+
+    return _vosk_models_root(data_dir)
 
 
 def _is_model_dir(cand: Path) -> bool:

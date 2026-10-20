@@ -7,6 +7,7 @@ import { FOLLOW_DISTANCE, OfficeCameraRig } from "./OfficeCameraRig";
 import { cameraLimitsFor } from "./officeCamera";
 import { officeSession, player, useOfficeStore } from "./officeStore";
 import { campusOf } from "./officeFixtures";
+import { boundsWithPad } from "./skyPad";
 
 const state = vi.hoisted(() => ({
   frames: new Set<(frame: unknown, dt: number) => void>(),
@@ -103,7 +104,8 @@ it("keeps a distance the person zoomed to by hand in the overview", () => {
 
 it("lets the wheel reach the overview of this floor", () => {
   render(tree(0));
-  expect(state.controls.maxDistance).toBe(cameraLimitsFor(campus.layout.bounds, 1280 / 800).maxDistance);
+  // The floor and the sky pad beside it.
+  expect(state.controls.maxDistance).toBe(cameraLimitsFor(boundsWithPad(campus.layout.bounds, campus.layout.skyPad), 1280 / 800).maxDistance);
   expect(state.controls.maxDistance).toBeGreaterThan(100);
 });
 

@@ -17,6 +17,7 @@ import {
 } from "@/lib/voiceInputLevel";
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
+import { useAgentChatStore } from "@/store/agentChat";
 import { SPEAKER_MUTE_EVENT } from "@/lib/speakerMute";
 
 /** Minimal mock for WebSocket (mirrors __tests__/ws.test.ts). */
@@ -386,6 +387,54 @@ describe("useWebSocket VoiceBootStatus handling", () => {
 
     expect(useEventStore.getState().activeSection).toBe("settings");
     expect(useEventStore.getState().visualStage).toBeNull();
+  });
+
+  it("opens a named agent's chat on the front page", async () => {
+    useEventStore.setState({ solo: false, activeSection: "settings", toasts: [] });
+    useHomeStore.setState({ agentChatId: null });
+    render(<Harness />);
+    await Promise.resolve();
+
+    MockWebSocket.last!.deliver(
+      envelope("NavigateSidebar", { section: "chats", target: "agent", target_id: "agent-7" }),
+    );
+
+    expect(useEventStore.getState().activeSection).toBe("chats");
+    expect(useHomeStore.getState().agentChatId).toBe("agent-7");
+  });
+
+  it("opens one conversation and leaves an agent's chat for it", async () => {
+    const openSession = vi.fn();
+    const original = useAgentChatStore.getState().openSession;
+    useAgentChatStore.setState({ openSession });
+    useEventStore.setState({ solo: false, activeSection: "settings", toasts: [] });
+    useHomeStore.setState({ agentChatId: "agent-7", jarvisCardMode: "voice" });
+    render(<Harness />);
+    await Promise.resolve();
+
+    MockWebSocket.last!.deliver(
+      envelope("NavigateSidebar", { section: "chats", target: "chat", target_id: "s-1" }),
+    );
+
+    expect(openSession).toHaveBeenCalledWith("s-1");
+    expect(useHomeStore.getState().agentChatId).toBeNull();
+    expect(useHomeStore.getState().jarvisCardMode).toBe("chat");
+    expect(useEventStore.getState().activeSection).toBe("chats");
+    useAgentChatStore.setState({ openSession: original });
+  });
+
+  it("a detached window keeps its view when a target is opened elsewhere", async () => {
+    useEventStore.setState({ solo: true, activeSection: "settings", toasts: [] });
+    useHomeStore.setState({ agentChatId: null });
+    render(<Harness />);
+    await Promise.resolve();
+
+    MockWebSocket.last!.deliver(
+      envelope("NavigateSidebar", { section: "chats", target: "agent", target_id: "agent-7" }),
+    );
+
+    expect(useEventStore.getState().activeSection).toBe("settings");
+    expect(useHomeStore.getState().agentChatId).toBeNull();
   });
 
   it("invalidates every documentation query after a registry reload", async () => {

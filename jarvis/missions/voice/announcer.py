@@ -38,6 +38,7 @@ from jarvis.brain.output_filter import scrub_for_voice
 from jarvis.brain.scrub_verdict import is_harmless_scrub_residue
 from jarvis.core.bus import EventBus
 from jarvis.core.events import AnnouncementRequested
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.missions.voice.readback import (
     FAILURE_REASON_PHRASES,
     Lang,
@@ -66,30 +67,10 @@ _MISSION_LANGS: tuple[str, ...] = get_args(Lang)
 
 # Fixed announcer phrases per mission language (every supported reply
 # language; an unknown code speaks English).
-_FAILED_PREFIX: dict[str, str] = {
-    "de": "Die Mission ist fehlgeschlagen.",  # i18n-allow: German TTS
-    "en": "The mission failed.",
-    "es": "La misión ha fallado.",  # i18n-allow: Spanish TTS
-    "pt": "A missão falhou.",  # i18n-allow: PT TTS
-}
-_REASON_LABEL: dict[str, str] = {
-    "de": "Grund",  # i18n-allow: German TTS
-    "en": "Reason",
-    "es": "Motivo",  # i18n-allow: Spanish TTS
-    "pt": "Motivo",  # i18n-allow: PT TTS
-}
-_CANCELLED: dict[str, str] = {
-    "de": "Mission abgebrochen.",  # i18n-allow: German TTS
-    "en": "Mission cancelled.",
-    "es": "Misión cancelada.",  # i18n-allow: Spanish TTS
-    "pt": "Missão cancelada.",  # i18n-allow: PT TTS
-}
-_TIMED_OUT: dict[str, str] = {
-    "de": "Die Mission lief in das Zeitlimit.",  # i18n-allow: German TTS
-    "en": "The mission timed out.",
-    "es": "La misión superó el tiempo límite.",  # i18n-allow: Spanish TTS
-    "pt": "A missão excedeu o tempo limite.",  # i18n-allow: PT TTS
-}
+_FAILED_PREFIX: dict[str, str] = i18n_catalog.table("missions.announcer.failed_prefix")
+_REASON_LABEL: dict[str, str] = i18n_catalog.table("missions.announcer.reason_label")
+_CANCELLED: dict[str, str] = i18n_catalog.table("missions.announcer.cancelled")
+_TIMED_OUT: dict[str, str] = i18n_catalog.table("missions.announcer.timed_out")
 
 
 def _phrase(table: dict[str, str], lang: str) -> str:
@@ -131,7 +112,7 @@ class MissionAnnouncer:
         speech_bus: EventBus,
         scrub: bool = True,
         announce_critic_loop: bool = False,
-        language_default: _Lang = "de",
+        language_default: _Lang = "en",
     ) -> None:
         self._bus = bus
         self._store = store

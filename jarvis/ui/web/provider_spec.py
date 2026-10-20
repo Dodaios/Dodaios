@@ -469,7 +469,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         dashboard_url="https://console.x.ai/",
         signup_url="https://grok.com/",
         credential_help=(
-            "xAI API key (starts with xai-) for the Grok brain and Jarvis-Agent "
+            "xAI API key (starts with xai-) for the Grok brain and Dodaios-Agent "
             "tool loops. Your grok.com and xAI API accounts share a login, but "
             "API usage is billed separately through the xAI Console. The same "
             "key also powers Grok Voice TTS."
@@ -937,7 +937,7 @@ PROVIDERS: tuple[ProviderSpec, ...] = (
         dashboard_url="https://aistudio.google.com/app/apikey",
         credential_help=(
             "Google AI Studio key dedicated to Gemini Live. It is not reused by "
-            "the Gemini Brain or Jarvis-Agents. Existing shared Gemini credentials "
+            "the Gemini Brain or Dodaios-Agents. Existing shared Gemini credentials "
             "remain a compatibility fallback until a dedicated key is saved."
         ),
     ),
