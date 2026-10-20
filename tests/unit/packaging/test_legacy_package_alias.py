@@ -2,7 +2,7 @@
 
 ``python -m jarvis`` and ``import jarvis.x`` stay valid for autostart entries
 and MCP registrations written before the rename. The alias source lives in
-``dodaios/_legacy_jarvis`` and setup.py publishes it as the top-level
+``dodaios/_legacy_alias`` and setup.py publishes it as the top-level
 ``jarvis`` package, so the repository itself has no folder or file of that
 name. These tests run the real setup.py helper and the real alias module; a
 wheel round trip is too slow for the unit suite.
@@ -38,7 +38,7 @@ def test_setup_publishes_the_alias_once_under_its_earlier_name() -> None:
     assert script.LEGACY_PACKAGE == branding.LEGACY_PACKAGE_NAMES[0]
     assert packages.count(script.LEGACY_PACKAGE) == 1
     # Built only as ``jarvis``, never a second time as a dodaios subpackage.
-    assert not [name for name in packages if name.startswith("dodaios._legacy_jarvis")]
+    assert not [name for name in packages if name.startswith("dodaios._legacy_alias")]
     assert "dodaios" in packages
     assert (ROOT / script.LEGACY_PACKAGE_DIR / "__init__.py").is_file()
 
@@ -48,7 +48,7 @@ def test_the_alias_resolves_old_names_to_the_same_module_objects() -> None:
     probe = (
         "import importlib.util, sys\n"
         f"sys.path.insert(0, {str(ROOT)!r})\n"
-        f"init = {str(ROOT / 'dodaios' / '_legacy_jarvis' / '__init__.py')!r}\n"
+        f"init = {str(ROOT / 'dodaios' / '_legacy_alias' / '__init__.py')!r}\n"
         "spec = importlib.util.spec_from_file_location('jarvis', init,"
         " submodule_search_locations=[])\n"
         "module = importlib.util.module_from_spec(spec)\n"

@@ -201,8 +201,8 @@ def test_a_branch_from_before_the_move_is_carried_after_main_drops_the_old_folde
     branch from before the move is still carried across, and lands without any
     path under the old name."""
     move = _move_on_main(repo)
-    (repo / "dodaios" / "_legacy_jarvis").mkdir(parents=True)
-    _git(repo, "mv", "jarvis/__init__.py", "dodaios/_legacy_jarvis/__init__.py")
+    (repo / "dodaios" / "_legacy_alias").mkdir(parents=True)
+    _git(repo, "mv", "jarvis/__init__.py", "dodaios/_legacy_alias/__init__.py")
     _git(repo, "commit", "-q", "-m", "move the compatibility package into dodaios")
     _feature_work(repo)
 
@@ -217,8 +217,8 @@ def test_a_branch_from_before_the_move_is_carried_after_main_drops_the_old_folde
     assert _git(repo, "status", "--porcelain").strip() == ""
     tree = _tree(repo)
     assert {name for name in tree if name.startswith("jarvis/")} == set()
-    assert _show(repo, "dodaios/_legacy_jarvis/__init__.py") == _git(
-        repo, "show", "main:dodaios/_legacy_jarvis/__init__.py"
+    assert _show(repo, "dodaios/_legacy_alias/__init__.py") == _git(
+        repo, "show", "main:dodaios/_legacy_alias/__init__.py"
     )
     assert _show(repo, "dodaios/core/alpha.py") == (
         "from dodaios.core import beta, gamma\n\nVALUE = 2\n"

@@ -879,7 +879,7 @@ contact-upsert = "dodaios.plugins.tool.contact_upsert:ContactUpsertTool"
 call-contact = "dodaios.plugins.tool.call_contact:CallContactTool"
 
 # The package list (dodaios, conductor and the legacy ``jarvis`` alias built
-# from dodaios/_legacy_jarvis) is in setup.py: a ``packages`` table here would
+# from dodaios/_legacy_alias) is in setup.py: a ``packages`` table here would
 # override it, and ``packages.find`` cannot publish a folder under another name.
 
 [tool.setuptools.exclude-package-data]
