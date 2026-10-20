@@ -1188,22 +1188,6 @@ def test_the_engine_imports_only_the_standard_library() -> None:
     assert imported <= set(sys.stdlib_module_names), imported - set(sys.stdlib_module_names)
 
 
-def test_the_engine_is_not_wired_into_the_runtime() -> None:
-    """Inert until the identity actually changes: nothing in the product imports it.
-
-    The change that switches the persistent identifiers wires the engine in
-    and deletes this test.
-    """
-    package = MODULE_PATH.parents[1]
-    importers = [
-        path.relative_to(package).as_posix()
-        for path in package.rglob("*.py")
-        if path != MODULE_PATH and "identity_migration" in path.read_text(encoding="utf-8")
-    ]
-
-    assert importers == []
-
-
 # ----------------------------------------------------------------------
 # Keyring migration
 # ----------------------------------------------------------------------
@@ -1434,3 +1418,133 @@ def test_no_secret_value_reaches_the_result_or_a_log_line(
     assert "secret" not in repr(result)
     assert "secret" not in caplog.text
     assert "beta_api_key" in caplog.text
+
+
+# ----------------------------------------------------------------------
+# Command line: what the shell installers run
+# ----------------------------------------------------------------------
+
+
+def _cli(
+    tmp_path: Path, *args: str, capsys: pytest.CaptureFixture[str]
+) -> tuple[int, dict[str, str] | None, str]:
+    code = engine.main(list(args))
+    captured = capsys.readouterr()
+    report = json.loads(captured.out) if captured.out.strip() else None
+    return code, report, captured.err
+
+
+def test_the_cli_migrates_and_reports_the_directory_to_use(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    legacy, current = tmp_path / LEGACY_NAME, tmp_path / CURRENT_NAME
+    files = _populate(legacy)
+
+    code, report, _err = _cli(tmp_path, "migrate", str(legacy), str(current), capsys=capsys)
+
+    assert code == 0
+    assert report == {"outcome": "migrated", "effective": str(current)}
+    assert _snapshot(current) == files
+    assert inspect_legacy(legacy, current) is LegacyState.LINK_TO_CURRENT
+
+
+def test_the_cli_reports_a_refusal_as_a_state_to_go_on_from(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    legacy, current = tmp_path / LEGACY_NAME, tmp_path / CURRENT_NAME
+    _populate(legacy)
+    current.mkdir()
+
+    code, report, _err = _cli(tmp_path, "migrate", str(legacy), str(current), capsys=capsys)
+
+    assert code == 0
+    assert report == {"outcome": "both_exist", "effective": str(legacy)}
+
+
+@pytest.mark.parametrize("moved", [False, True])
+def test_the_cli_resolves_without_moving_anything(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], moved: bool
+) -> None:
+    legacy, current = tmp_path / LEGACY_NAME, tmp_path / CURRENT_NAME
+    _populate(legacy)
+    if moved:
+        migrate_directory(legacy, current)
+
+    code, report, _err = _cli(tmp_path, "resolve", str(legacy), str(current), capsys=capsys)
+
+    assert code == 0
+    assert report == {"outcome": "resolved", "effective": str(current if moved else legacy)}
+    assert legacy.is_dir()
+    assert current.exists() is moved
+
+
+@pytest.mark.parametrize(
+    "args",
+    [(), ("migrate",), ("migrate", "a"), ("move", "a", "b"), ("migrate", "", "b"),
+     ("migrate", "a", "b", "c")],
+)
+def test_the_cli_refuses_a_malformed_command_line_and_prints_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], args: tuple[str, ...]
+) -> None:
+    code, report, err = _cli(tmp_path, *args, capsys=capsys)
+
+    assert code == 2
+    assert report is None
+    assert "usage:" in err
+
+
+def test_the_cli_output_is_ascii_whatever_the_path(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    legacy, current = tmp_path / "Old Café", tmp_path / "New ø"
+    _populate(legacy)
+
+    engine.main(["migrate", str(legacy), str(current)])
+    out = capsys.readouterr().out
+
+    out.encode("ascii")
+    assert json.loads(out)["effective"] == str(current)
+
+
+def test_the_installers_copy_of_the_engine_runs_as_a_program(tmp_path: Path) -> None:
+    """Exactly as install.sh and install.ps1 run it: a copy outside both
+    directories, isolated (-I), no bytecode (-B), from another directory."""
+    copy = tmp_path / "engine-copy" / "dodaios-identity-migration.tmp"
+    copy.parent.mkdir()
+    copy.write_bytes(MODULE_PATH.read_bytes())
+    home = tmp_path / "home"
+    legacy, current = home / ".old-install", home / ".new-install"
+    files = _populate(legacy)
+
+    done = subprocess.run(  # noqa: S603 - test-controlled command
+        [sys.executable, "-I", "-B", str(copy), "migrate", str(legacy), str(current)],
+        cwd=str(home),
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+        creationflags=NO_WINDOW_CREATIONFLAGS,
+    )
+
+    assert done.returncode == 0, done.stderr
+    assert json.loads(done.stdout) == {"outcome": "migrated", "effective": str(current)}
+    assert _snapshot(current) == files
+    # Nothing was written beside the copy: no bytecode cache, no journal.
+    assert sorted(p.name for p in copy.parent.iterdir()) == [copy.name]
+
+
+def test_the_engine_source_is_ascii() -> None:
+    MODULE_PATH.read_bytes().decode("ascii")
+
+
+@pytest.mark.parametrize("kind", ["link", "real", "missing"])
+def test_is_directory_link_never_follows(tmp_path: Path, kind: str) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    path = tmp_path / "probe"
+    if kind == "link":
+        create_directory_link(path, target)
+    elif kind == "real":
+        path.mkdir()
+
+    assert engine.is_directory_link(path) is (kind == "link")

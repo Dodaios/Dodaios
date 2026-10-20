@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SubAgentNode } from "@/store/jarvisAgents";
+import type { SubAgentNode } from "@/store/dodaiosAgents";
 import type { CriticVerdictReady, WorkerKilled } from "@/types/missions";
 import { composeNarrative } from "./narrative";
 import type { AgentOutcome } from "./outcome";

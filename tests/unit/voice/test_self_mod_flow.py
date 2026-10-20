@@ -42,7 +42,7 @@ FIXTURE = (
     Path(__file__).parent.parent
     / "self_mod"
     / "fixtures"
-    / "minimal_jarvis.toml"
+    / "minimal_dodaios.toml"
 )
 
 

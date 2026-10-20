@@ -3,7 +3,7 @@
 Feature 2026-06-14: the user can replace the packaged JARVIS persona with their
 own Markdown in the Settings UI, and reset back to the default with one click.
 The override lives in a sidecar file (``data/custom_system_prompt.md``) so the
-shipped ``JARVIS_PERSONA.md`` is never mutated and "reset to default" is just a
+shipped ``DODAIOS_PERSONA.md`` is never mutated and "reset to default" is just a
 file delete. These lock the persona-loader contract the routes + UI depend on.
 """
 from __future__ import annotations

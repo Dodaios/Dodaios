@@ -1,12 +1,14 @@
 """Turns real app events into XP and announces every award on the bus.
 
 The service listens to the core ``EventBus`` for the handful of events that
-mean "something was achieved" (a finished Jarvis turn, a finished agent task,
-a completed quest) and maps each to one or two rules of
-:mod:`dodaios.progression.rules`. The Verse reports its own small world
-actions (petting the dog, an arcade round) through
-:meth:`ProgressionService.report_action`; the server still applies every
-cooldown and cap, so a client can never award itself XP.
+mean "something was achieved" (a finished assistant turn, a finished agent
+task, a completed quest) and maps each to one or two rules of
+:mod:`dodaios.progression.rules`. The ship reports its own small world
+actions (a deck discovered, a simulator round, a deck inspected) through
+:meth:`ProgressionService.report_action`. Those are the client's word: the
+server applies every cooldown and daily cap and checks every reference (a
+known deck), so a client can at most collect the few capped XP a day that
+playing would have paid.
 
 Every handler is an observer: a failure is logged and swallowed, never
 raised into the bus (AP-18), and the database is opened on the first award,
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +29,7 @@ from .rules import (
     LEAD_AGENT_ID,
     PERSON_ID,
     RULES_BY_SOURCE,
+    VERSE_DECKS,
     WORLD_ACTIONS,
     agent_subject,
     looks_between,
@@ -39,8 +43,7 @@ from .store import Award, ProgressionStore
 
 log = logging.getLogger(__name__)
 
-#: The floors of the Verse a ``floor_discovered`` report may name.
-VERSE_FLOORS = frozenset({"agents", "coding", "arcade", "hall"})
+__all__ = ["VERSE_DECKS", "ProgressionService", "UnknownAction"]
 
 
 class UnknownAction(ValueError):
@@ -56,7 +59,8 @@ class ProgressionService:
         pet_id: Callable[[], str] | None = None,
         clock: Callable[[], int] | None = None,
     ) -> None:
-        self.store = ProgressionStore(db_path, clock=clock)
+        self._clock = clock or (lambda: int(time.time() * 1000))
+        self.store = ProgressionStore(db_path, clock=self._clock)
         self._bus = bus
         self._pet_id = pet_id or (lambda: "gigi")
         self._attached = False
@@ -170,16 +174,25 @@ class ProgressionService:
     # ------------------------------------------------------------ world actions
 
     async def report_action(self, action: str, *, ref: str = "") -> Award | None:
-        """A small action inside the Verse, reported by the client."""
+        """A small action aboard the ship, reported by the client."""
         if action not in WORLD_ACTIONS:
             raise UnknownAction(action)
         rule = RULES_BY_SOURCE[action]
+        today = datetime.fromtimestamp(self._clock() / 1000).astimezone().date().isoformat()
         if action == "daily_visit":
             # The server's own calendar day, whatever the client sent.
-            ref = datetime.now().astimezone().date().isoformat()
-        elif action == "floor_discovered":
-            if ref not in VERSE_FLOORS:
-                raise UnknownAction(f"floor_discovered:{ref}")
+            ref = today
+        elif action == "deck_discovered":
+            if ref not in VERSE_DECKS:
+                raise UnknownAction(f"deck_discovered:{ref}")
+        elif action == "inspection":
+            if ref not in VERSE_DECKS:
+                raise UnknownAction(f"inspection:{ref}")
+            # Each deck's inspection pays once per day.
+            ref = f"{ref}:{today}"
+        elif action == "team_briefing":
+            # Which team gathered is kept for the log; the cooldown and the cap meter it.
+            ref = f"{ref[:40]}@{self._clock()}" if ref else ""
         else:
             ref = ""
         subject = PERSON_ID if rule.kind == "person" else pet_subject(self.current_pet())
@@ -230,8 +243,12 @@ class ProgressionService:
         agent_id = str(getattr(event, "agent_id", "") or "")
         if not agent_id or agent_id == LEAD_AGENT_ID or agent_id in {"user", "scheduler"}:
             return
+        ref = str(getattr(event, "event_id", "") or "")
+        # Without an id a replayed result could not be told apart, and task_done has no cap.
+        if not ref:
+            return
         source = "task_done" if getattr(event, "status", "") == "done" else "task_blocked"
-        self._later((agent_subject(agent_id), source, str(getattr(event, "event_id", ""))))
+        self._later((agent_subject(agent_id), source, ref))
 
     async def _on_message(self, event: Any) -> None:
         kind = str(getattr(event, "msg_type", ""))
@@ -246,6 +263,8 @@ class ProgressionService:
         if getattr(event, "status", "") != "approved":
             return
         mission = str(getattr(event, "mission_id", "") or "")
+        if not mission:
+            return
         self._later((PERSON_ID, "mission_completed", mission))
 
     # ------------------------------------------------------------ reads

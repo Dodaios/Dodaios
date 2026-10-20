@@ -1,0 +1,180 @@
+{
+  "verse": {
+    "ranks": {
+      "rank": {
+        "recruit": "新兵",
+        "deckhand": "甲板水兵",
+        "technician": "技师",
+        "senior_technician": "高级技师",
+        "ensign": "少尉",
+        "lieutenant": "中尉",
+        "senior_lieutenant": "上尉",
+        "commander": "中校",
+        "captain": "上校",
+        "line_captain": "战列舰长",
+        "commodore": "准将",
+        "rear_admiral": "少将",
+        "vice_admiral": "中将",
+        "admiral": "上将",
+        "fleet_admiral": "舰队上将"
+      },
+      "tier": {
+        "deck": "甲板士兵",
+        "line": "战列军官",
+        "command": "指挥层",
+        "flag": "将官"
+      },
+      "uniform": {
+        "deck": "工作服",
+        "line": "战列制服",
+        "command": "指挥制服",
+        "flag": "将官白礼服"
+      },
+      "uniform_note": {
+        "deck": "炭灰色工作服，登船第一天发放。",
+        "line": "授衔军官的橄榄灰制服与军帽。",
+        "command": "黑色制服与军帽，属于指挥舰船的人。",
+        "flag": "将官的白色制服与军帽。"
+      },
+      "ribbon": {
+        "ribbon_good_conduct": "优良品行绶带",
+        "ribbon_meritorious": "功勋服役绶带",
+        "ribbon_distinguished": "杰出服役绶带",
+        "ribbon_fleet_cross": "舰队十字勋章"
+      },
+      "ribbon_note": {
+        "ribbon_good_conduct": "登船最初几周的稳定服役。",
+        "ribbon_meritorious": "为舰队可靠工作数月。",
+        "ribbon_distinguished": "长期服役，成绩有目共睹。",
+        "ribbon_fleet_cross": "舰队最高嘉奖，表彰毕生的舰上生涯。"
+      },
+      "duty": {
+        "working": "执勤中",
+        "waiting": "等你处理",
+        "idle": "休息中",
+        "paused": "已停职",
+        "error": "故障"
+      },
+      "kind": {
+        "person": "指挥官",
+        "agent": "军官",
+        "pet": "随行机器人"
+      },
+      "source": {
+        "chat_turn": "与助手聊天",
+        "voice_turn": "语音对话",
+        "quest_posted": "发布任务",
+        "quest_completed": "任务完成",
+        "agent_hired": "招募军官",
+        "mission_completed": "批准任务成果",
+        "daily_visit": "登船报到",
+        "deck_discovered": "到访甲板",
+        "simulator_round": "模拟器回合",
+        "simulator_record": "模拟器纪录",
+        "team_briefing": "团队简报",
+        "inspection": "甲板巡视",
+        "task_done": "完成工作",
+        "task_blocked": "报告工作受阻",
+        "quest_done": "完成任务",
+        "answered_teammate": "回答了队友",
+        "jarvis_answered": "回答了你",
+        "delegated": "把工作交给船员",
+        "walk_together": "伴你同行",
+        "retired": "早期服役"
+      },
+      "rule": {
+        "chat_turn": "与助手完成一轮聊天。",
+        "voice_turn": "与助手完成一轮语音对话。",
+        "quest_posted": "为船员发布一项任务。",
+        "quest_completed": "你发布的任务被完成。",
+        "agent_hired": "招募一名新军官（每名军官一次）。",
+        "mission_completed": "批准一项已完成的任务。",
+        "daily_visit": "每天在 Verse 登船报到一次。",
+        "deck_discovered": "第一次到访某层甲板。",
+        "simulator_round": "在模拟室完成一局计分回合。",
+        "simulator_record": "在模拟室创下新纪录。",
+        "team_briefing": "在简报室召开团队简报。",
+        "inspection": "走遍一层甲板的所有房间，每层甲板每天一次。",
+        "task_done": "完成一项工作。",
+        "task_blocked": "说明原因并报告工作受阻。",
+        "quest_done": "完成一项任务。",
+        "answered_teammate": "回答队友的问题。",
+        "jarvis_answered": "通过聊天或语音回答你。",
+        "delegated": "把一项工作交给军官。",
+        "walk_together": "陪你在舰上走动。"
+      },
+      "limit": {
+        "per_day": "每天最多 {xp}",
+        "cooldown": "最多每 {time} 一次"
+      },
+      "card": {
+        "level": "等级",
+        "xp": "经验",
+        "next": "下一级军衔",
+        "top": "军衔已到顶",
+        "to_go": "距 {rank} 还差 {xp} 经验",
+        "open": "打开服役档案"
+      },
+      "record": {
+        "title": "服役档案",
+        "close": "关闭",
+        "tabs": {
+          "record": "档案",
+          "ladder": "军衔",
+          "rewards": "军需处",
+          "earn": "如何获得",
+          "crew": "船员"
+        },
+        "rank": "军衔",
+        "level": "等级",
+        "total_xp": "总经验",
+        "this_level": "本级",
+        "next_rank": "下一级军衔",
+        "top_rank": "你已获得舰队的最高军衔。",
+        "log": "日志",
+        "log_empty": "暂无记录。与助手交谈，或给船员分配工作。",
+        "ribbons": "绶带",
+        "no_ribbons": "暂无",
+        "held": "已获得",
+        "current": "当前",
+        "from_level": "等级 {level}",
+        "xp_ahead": "{xp} 经验",
+        "uniforms": "制服",
+        "uniforms_hint": "达到每一级别的首个军衔时，军需处会发放该级别的制服。已发放的制服可任意穿着。",
+        "auto": "已发放的最高级",
+        "auto_hint": "随你的下一级别更换",
+        "issued": "已发放",
+        "opens_at": "等级 {level} 解锁",
+        "wearing": "正在穿着",
+        "ribbons_hint": "表彰长期稳定服役的嘉奖，军官同样可以获得。",
+        "for_you": "你：等级 {level}",
+        "for_crew": "军官：等级 {level}",
+        "earn_person": "你，指挥官",
+        "earn_agent": "军官们",
+        "earn_pet": "你的随行机器人",
+        "earn_hint": "每次奖励都会对照舰上的日志核验：同一件事绝不会奖励两次。",
+        "crew_empty": "舰上还没有军官。",
+        "companion": "随行机器人",
+        "sound": "晋升时鸣响船钟"
+      },
+      "promo": {
+        "eyebrow": "晋升",
+        "eyebrow_drone": "随行机器人晋升",
+        "level_up": "等级 {level}",
+        "salute": {
+          "deck": "今天甲板上的船员站得更直了一些。",
+          "line": "你已获授军官衔。全体船员向你敬礼。",
+          "command": "这艘舰船现在听从你的指挥。",
+          "flag": "舰队将依你所定的航向前进。"
+        },
+        "salute_drone": "你的随行机器人记下了这次晋升，继续紧随在你身边。",
+        "issued": "已发放：{what}",
+        "acknowledge": "收到",
+        "away": "你离开期间",
+        "toast_promoted": "{who} 晋升为 {rank}",
+        "toast_level": "{who} 达到等级 {level}",
+        "you": "你"
+      }
+    }
+  }
+}

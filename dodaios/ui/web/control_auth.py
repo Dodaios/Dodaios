@@ -40,6 +40,28 @@ def _bearer_token(request: Request) -> str | None:
     return None
 
 
+def person_at_window(request: Request) -> bool:
+    """Whether the request positively comes from the person at the app's window.
+
+    The person is identified by what only the desktop UI carries: its session
+    cookie, or (open local access, the default, has no cookie at all) the
+    browser-set ``Sec-Fetch-Site: same-origin`` header on a request without an
+    ``Authorization`` header. A script presenting the control key, an
+    in-process app command the brain made, and a local process presenting no
+    credential at all are not the person.
+
+    Honest limit: ``Sec-Fetch-Site`` is a "forbidden header" for page scripts,
+    so a page cannot fake it, but a local process that deliberately forges it
+    is indistinguishable from the WebView. This tells a person from an agent
+    that follows its instructions; it is not a boundary against malware.
+    """
+    if validate_token(request.cookies.get(COOKIE_NAME, "")):
+        return True
+    if _bearer_token(request) is not None:
+        return False
+    return request.headers.get("sec-fetch-site", "").strip().lower() == "same-origin"
+
+
 async def require_control_key(request: Request) -> None:
     """FastAPI dependency: require a valid Bearer control key (401 otherwise).
 

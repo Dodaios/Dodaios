@@ -24,7 +24,20 @@ def started_by_user() -> Iterator[None]:
 
 
 class CapacityDeferred(RuntimeError):
-    """Unattended work found nothing it may bill and was skipped, not run."""
+    """Unattended work found nothing it may bill and was skipped, not run.
+
+    ``code`` names the reason in a stable, machine-readable word a UI puts in
+    its own (translated) words: ``"api_key_seat"`` when the run's own seat
+    bills a per-token key while a subscription is connected; ``""`` for the
+    generic "no subscription or local model was free". ``provider`` is the seat
+    the code refers to, when there is one. The message stays the readable
+    English sentence for logs and ``last_error``.
+    """
+
+    def __init__(self, *args: object, code: str = "", provider: str = "") -> None:
+        super().__init__(*args)
+        self.code = code
+        self.provider = provider
 
 
 class RoutineDeferred(RuntimeError):

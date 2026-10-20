@@ -219,7 +219,7 @@ _REFUSAL_EN: dict[str, str] = {
 _REFUSAL_EN_FALLBACK = "I have no data access for that right now."
 
 # Spoken Spanish voice replies (TTS-safe, deterministic). All locales are
-# equal (AGENTS.md §1): a Spanish-speaking user gets the refusal in Spanish,
+# equal: a Spanish-speaking user gets the refusal in Spanish,
 # not the English table because no Spanish one existed.
 _REFUSAL_ES: dict[str, str] = {
     "calendar": "Ahora mismo no tengo acceso a tu calendario.",  # i18n-allow
@@ -259,7 +259,7 @@ def _refusal_language(resolved: object, text: str) -> str:
     """Which language the deterministic refusal is spoken in.
 
     The turn's ALREADY-resolved output language wins outright — this module
-    must never re-derive it (AGENTS.md §1: one resolver,
+    must never re-derive it (one resolver,
     ``resolve_output_language``, decides for all layers). It used to sniff the
     utterance with a private de/en-only heuristic, so an explicit
     ``brain.reply_language`` pin was ignored: a Spanish-pinned user asking in
@@ -335,11 +335,8 @@ def check_evidence_domain(
     tool_name = domain_tool_map.get(matched_domain, "")
     if tool_name:
         directive = (
-            f"MANDATORY THIS TURN: the user is asking about {matched_domain} "
-            f"data. You MUST call the `{tool_name}` tool (read-only command, "
-            f"prefer a --json/--format json output flag) BEFORE answering, "
-            f"and answer ONLY from its result. If the call fails, say that it "
-            f"failed and why — NEVER invent {matched_domain} data."
+            f"MANDATORY THIS TURN: call `{tool_name}` (read-only, prefer JSON output) before "
+            f"answering about {matched_domain} data, and answer only from its result."
         )
         return EvidenceVerdict(
             kind="require_tool",

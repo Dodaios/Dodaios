@@ -14,6 +14,7 @@ import {
   AgentsIcon,
   ArtifactsIcon,
   BoardIcon,
+  BuiltIcon,
   CaptureIcon,
   ChatIcon,
   CodeIcon,
@@ -122,6 +123,14 @@ export const NAV_GROUPS: NavItem[][] = [
   // 1) Workspace — what the user builds with and reads back.
   [
     { id: "agents", labelKey: "nav.agents", icon: AgentsIcon },
+    // Built for you — what the self-building loop made on its own, why, and
+    // the one place to keep, undo or pause it (docs/self-build.md).
+    {
+      id: "self-build",
+      labelKey: "nav.self_build",
+      icon: BuiltIcon,
+      fallbackLabel: "Built for you",
+    },
     // The compact catalog opens on Plugins; direct section navigation selects
     // its corresponding tab and keeps this shared row highlighted.
     {

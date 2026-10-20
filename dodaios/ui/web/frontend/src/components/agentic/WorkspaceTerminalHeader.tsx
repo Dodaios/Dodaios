@@ -4,6 +4,7 @@ import { Check, FileDiff, FolderGit2, FolderInput, GitBranch, Maximize2, Minimiz
 import { fill, loadLocaleChunk, useT } from "@/i18n";
 import { AgentMark } from "./AgentMark";
 import { BranchIcon } from "./branchIcon";
+import { PaneDoneGateBadge } from "./PaneDoneGateBadge";
 import { SessionGitHubBadge } from "./SessionGitHubBadge";
 import { usePaneTitle } from "@/store/paneRecaps";
 import { PromptHistoryButton } from "./PromptHistoryButton";
@@ -300,6 +301,7 @@ export function WorkspaceTerminalHeader({
         </span>}
       </button> : renameForm}
       <span id={dragHintId} className="sr-only">{t("ide_panes.header.drag_hint")}</span>
+      <PaneDoneGateBadge workspaceId={githubStatusEnabled ? workspaceId : undefined} name={name} appearance={appearance} />
       <SessionGitHubBadge workspaceId={githubStatusEnabled ? workspaceId : undefined} name={name} appearance={appearance} />
       <div data-header-control="true" className="flex shrink-0 items-center gap-0.5">
         {onReviewChanges && <button type="button" data-testid={`pane-review-changes-${name}`} aria-label={fill(t("agentic_grid.pane.review_changes"), { pane: name })}

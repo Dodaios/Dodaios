@@ -552,7 +552,7 @@ def _codex_first_user_text(session_id: str, home: Path | None) -> str | None:
 
 #: Which CLIs keep a record this module can read. Absence is not a failure — a
 #: CLI without an entry degrades to "watch the live pane", honestly and without
-#: an error (AGENTS.md §3).
+#: an error.
 _READERS: dict[str, Callable[[str, Path | None], list[Turn] | None]] = {
     "claude": _claude_turns,
     "codex": _codex_turns,

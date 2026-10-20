@@ -27,8 +27,8 @@ No existing workflow parsed a single shell script against bash 3.2, so nothing
 could have caught it. This gate does, and it is cheap: a parse check, never an
 execution.
 
-Engine selection (portable by design, per AGENTS.md section 3)
--------------------------------------------------------------
+Engine selection (portable by design)
+-------------------------------------
 1. A local `/bin/bash` that IS 3.2 - the real thing, on a Mac. No Docker.
 2. Docker image `bash:3.2` - on Linux/Windows dev boxes and CI.
 3. Neither available: report and skip, so a contributor without Docker is not

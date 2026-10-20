@@ -33,7 +33,7 @@ from dodaios.core.protocols import AudioChunk
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
-PYINSTALLER_SPEC = REPO_ROOT / "jarvis.spec"
+PYINSTALLER_SPEC = REPO_ROOT / "dodaios.spec"
 UV_LOCK = REPO_ROOT / "uv.lock"
 
 

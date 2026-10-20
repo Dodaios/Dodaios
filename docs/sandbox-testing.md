@@ -36,7 +36,7 @@ UI; it never drives your desktop. **Voice stays ON.**
 
 ```powershell
 # 1. Provision from GitHub (fresh clone, isolated venv, isolation proofs):
-pwsh scripts\sandbox\new-jarvis-sandbox.ps1
+pwsh scripts\sandbox\new-dodaios-sandbox.ps1
 
 # 2. CLOSE your real Jarvis first — voice shares the one mic/speakers.
 
@@ -44,7 +44,7 @@ pwsh scripts\sandbox\new-jarvis-sandbox.ps1
 pwsh ..\Jarvis-Sandbox\run-sandbox.ps1
 
 # 4. When done, tear it down (goes to the Recycle Bin, reversible):
-pwsh scripts\sandbox\remove-jarvis-sandbox.ps1
+pwsh scripts\sandbox\remove-dodaios-sandbox.ps1
 ```
 
 The sandbox runs on its own port (default 47830), so it never clashes with your

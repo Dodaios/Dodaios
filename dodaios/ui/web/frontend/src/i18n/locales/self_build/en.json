@@ -1,0 +1,139 @@
+{
+  "self_build": {
+    "title": "Built for you",
+    "subtitle": "What {name} built on its own, why it did, and how to take it back.",
+    "loading": "Loading builds…",
+    "status": {
+      "running": "Building on its own",
+      "paused": "Paused",
+      "silent": "Taking notes only",
+      "off": "Off"
+    },
+    "pause": "Pause building",
+    "resume": "Resume building",
+    "pause_hint": "Stops noticing, building and settling trials. Everything built so far stays as it is.",
+    "settings": "Settings",
+    "stop_all": "Stop all agents",
+    "stop_all_hint": "Stops every running agent, mission and routine at once, and pauses building.",
+    "stop_confirm_title": "Stop every agent now?",
+    "stop_confirm_body": "Running chats, missions and routines stop at once, and building pauses too. Nothing is deleted.",
+    "cancel": "Cancel",
+    "notes": {
+      "paused": "Building is paused. Nothing is noticed, built or settled until you resume.",
+      "silent": "The first days are quiet: {name} notes what you repeat and builds nothing yet.",
+      "off": "Self-building is off. Nothing is noticed or built.",
+      "stopped": "All agents are stopped. Routines and missions stay halted until you release them.",
+      "release": "Release",
+      "turn_on": "Open settings"
+    },
+    "digest": {
+      "label": "Since yesterday",
+      "built": "{count} built",
+      "proposed": "{count} proposed",
+      "kept": "{count} kept",
+      "archived": "{count} archived",
+      "undone": "{count} undone",
+      "live": "{count} live now",
+      "nothing": "Nothing new."
+    },
+    "shelf": {
+      "waiting": "Waiting for you",
+      "waiting_hint": "Nothing is built until you say yes.",
+      "trial": "On trial",
+      "trial_hint": "Live and labelled. Undo removes it completely.",
+      "working": "Being built",
+      "working_hint": "Checked before it goes live.",
+      "kept": "Kept",
+      "kept_hint": "Earned its place. Still undoable.",
+      "past": "Archived and undone",
+      "past_hint": "Archived builds can be restored."
+    },
+    "show_past": "Show {count}",
+    "hide_past": "Hide",
+    "kind": {
+      "memory": "Memory",
+      "skill": "Skill",
+      "routine": "Routine",
+      "agent": "Agent",
+      "code": "Code change"
+    },
+    "state": {
+      "proposed": "Proposed",
+      "building": "Building",
+      "proving": "Being checked",
+      "trial": "On trial",
+      "kept": "Kept",
+      "archived": "Archived",
+      "undone": "Undone",
+      "rejected": "Turned down",
+      "failed": "Failed"
+    },
+    "step": {
+      "proposed": "Noticed",
+      "building": "Built",
+      "proving": "Checked",
+      "trial": "Trial",
+      "kept": "Kept"
+    },
+    "seen": "seen {count}×",
+    "trial_progress": "Day {days} of {dayLimit} · {uses} of {useLimit} uses",
+    "action": {
+      "accept": "Build it",
+      "reject": "Not this",
+      "keep": "Keep",
+      "restore": "Restore",
+      "undo": "Undo"
+    },
+    "no_builder": "{name} cannot build this kind yet. It stays a suggestion.",
+    "detail": {
+      "select": "Pick a build to see why it exists, how it was checked and what it cost.",
+      "close": "Close",
+      "why": "Why",
+      "noticed": "What it noticed",
+      "noticed_empty": "No evidence recorded.",
+      "proof": "How it was checked",
+      "proof_passed": "Passed",
+      "proof_failed": "Did not pass",
+      "proof_none": "Not checked yet.",
+      "made": "What it made",
+      "made_none": "Nothing exists yet.",
+      "open_link": "Open",
+      "open_thread": "Open the coding thread",
+      "open_thread_title": "Read every step the coding agent took in the Agentic IDE",
+      "use": "Use",
+      "uses": "{count} uses",
+      "unused": "Not used yet.",
+      "cost": "Cost",
+      "cost_none": "Nothing billed",
+      "tokens": "{count} tokens",
+      "history": "History",
+      "note": "Note",
+      "opened": "opened",
+      "code_branch": "branch",
+      "code_pr": "pull request",
+      "code_draft": "draft pull request"
+    },
+    "outcome": {
+      "used": "used",
+      "accepted": "accepted as is",
+      "corrected": "corrected",
+      "ignored": "ignored"
+    },
+    "empty": {
+      "title": "Nothing built yet",
+      "body": "{name} watches for things you keep doing by hand. When something repeats, it builds the smallest thing that takes it off you, checks it, and lets you try it with one-click undo.",
+      "loop": {
+        "notice": "Notice",
+        "decide": "Decide",
+        "build": "Build",
+        "check": "Check",
+        "trial": "Trial",
+        "keep": "Keep"
+      }
+    },
+    "error": {
+      "unavailable": "The build ledger is not running. Restart the app to open it.",
+      "action": "That did not work: {detail}"
+    }
+  }
+}

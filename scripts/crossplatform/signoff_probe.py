@@ -38,7 +38,7 @@ import argparse
 import sys
 from dataclasses import dataclass
 
-# cp1252 is the Windows console default (AGENTS.md "Windows specifics"); this
+# cp1252 is the Windows console default; this
 # script prints check-mark / arrow glyphs, so force UTF-8 to avoid a
 # UnicodeEncodeError on the maintainer's box.
 try:  # pragma: no cover - depends on the console stream type

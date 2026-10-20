@@ -42,6 +42,12 @@ def test_every_supported_language_has_a_catalog_and_nothing_else_does() -> None:
     assert files == set(SUPPORTED_LOCALES)
 
 
+#: Keys whose placeholders differ by design. English reads the engine's own
+#: English sentence; the other languages rebuild it from permission + pane
+#: (dodaios/voice/action_phrases.py, cu_blocked_permission_readback).
+_PLACEHOLDER_EXCEPTIONS = frozenset({"voice.action.phrases.cu_blocked_permission"})
+
+
 @pytest.mark.parametrize("code", [c for c in SUPPORTED_LOCALES if c != DEFAULT_LOCALE])
 def test_catalogs_have_the_same_keys_shapes_and_placeholders(code: str) -> None:
     master, other = _flat(DEFAULT_LOCALE), _flat(code)
@@ -54,6 +60,8 @@ def test_catalogs_have_the_same_keys_shapes_and_placeholders(code: str) -> None:
             pairs = zip(value, theirs, strict=True)
         else:
             pairs = [(value, theirs)]
+        if key in _PLACEHOLDER_EXCEPTIONS:
+            continue
         for mine, translated in pairs:
             assert set(_PLACEHOLDER.findall(mine)) == set(_PLACEHOLDER.findall(translated)), key
 
