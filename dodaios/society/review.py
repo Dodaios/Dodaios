@@ -15,9 +15,15 @@ from .learning import TurnDigest
 
 log = logging.getLogger(__name__)
 
-#: Why the last review attempt in this context could not ask its seat, for the
-#: review status record (``review:last:<agent>``). ``""`` = no recorded reason.
-_wait_reason: ContextVar[str] = ContextVar("society_review_wait_reason", default="")
+#: Why the last review attempt in this context got no answer from its seat,
+#: for the review status record (``review:last:<agent>``): a stable
+#: ``reason_code`` the UI words in the reader's language, plus the English
+#: ``reason`` sentence (when the app wrote one) and the seat's ``provider``.
+#: Codes: ``api_key_seat`` (a per-token seat held back while a subscription is
+#: connected), ``no_seat`` (the seat cannot be built), ``seat_failed`` (the
+#: seat did not answer usably). ``{}`` = no recorded reason (``review_turn``
+#: resets it per attempt).
+_wait_reason: ContextVar[dict[str, str]] = ContextVar("society_review_wait_reason")
 
 # Portions adapted from NousResearch/hermes-agent @ e473f5a
 # (agent/background_review.py: the skill-update order and the "do not capture"
@@ -85,10 +91,13 @@ async def _ask(runtime: Any, agent: Any, prompt: str) -> dict[str, Any] | None:
         # (``brain.background_policy``): nothing is billed and the reason is
         # kept for the agent's review status.
         log.info("society review: %s waits (%s)", agent.agent_id, exc)
-        _wait_reason.set(str(exc))
+        _wait_reason.set(
+            {"reason_code": "api_key_seat", "reason": str(exc), "provider": exc.provider}
+        )
         return None
     except SeatUnavailable as exc:
         log.info("society review: %s has no usable seat (%s)", agent.agent_id, exc)
+        _wait_reason.set({"reason_code": "no_seat", "reason": str(exc)})
         return None
     request = BrainRequest(
         system=_SYSTEM,
@@ -110,8 +119,12 @@ async def _ask(runtime: Any, agent: Any, prompt: str) -> dict[str, Any] | None:
             brain.seat.describe(),
             type(exc).__name__,
         )
+        _wait_reason.set({"reason_code": "seat_failed", "provider": brain.seat.provider})
         return None
-    return result if isinstance(result, dict) else None
+    if not isinstance(result, dict):
+        _wait_reason.set({"reason_code": "seat_failed", "provider": brain.seat.provider})
+        return None
+    return result
 
 
 async def review_turn(runtime: Any, pending: dict[str, Any]) -> bool:
@@ -125,7 +138,7 @@ async def review_turn(runtime: Any, pending: dict[str, Any]) -> bool:
     key = f"review:last:{agent_id}"
     record = {"turn_id": pending["turn_id"], "updated_ms": now_ms(), "state": "reviewing"}
     await runtime.store.set_meta(key, json.dumps(record))
-    reason_token = _wait_reason.set("")
+    reason_token = _wait_reason.set({})
     try:
         done = await _review_turn(runtime, pending)
     except (Exception, asyncio.CancelledError):
@@ -137,10 +150,37 @@ async def review_turn(runtime: Any, pending: dict[str, Any]) -> bool:
     finally:
         _wait_reason.reset(reason_token)
     record.update(state="done" if done else "pending", updated_ms=now_ms())
-    if not done and reason:
-        record["reason"] = reason
+    if not done:
+        record.update({name: value for name, value in reason.items() if value})
     await runtime.store.set_meta(key, json.dumps(record))
     return done
+
+
+async def mark_review_dropped(runtime: Any, pending: dict[str, Any], attempts: int) -> None:
+    """Show the person that a review was given up, and why.
+
+    The review queue drops a review after its bounded retries; the agent's
+    status record (``review:last:<agent>``, served as ``last_review``) then
+    says ``dropped`` with the attempt count and keeps the reason of the last
+    attempt. Nothing is retried again: the agent's next finished chat turn
+    gets its own review.
+    """
+    from .events import now_ms
+    from .surface import agent_id_of
+
+    agent_id = agent_id_of(pending["session"])
+    if not agent_id:
+        return
+    key = f"review:last:{agent_id}"
+    try:
+        record = json.loads(await runtime.store.get_meta(key, "") or "{}")
+    except ValueError:
+        log.warning("society review: unreadable status record for %s, rewritten", agent_id)
+        record = {}
+    if not isinstance(record, dict) or record.get("turn_id") != pending["turn_id"]:
+        record = {"turn_id": pending["turn_id"]}
+    record.update(state="dropped", attempts=int(attempts), updated_ms=now_ms())
+    await runtime.store.set_meta(key, json.dumps(record))
 
 
 async def _review_turn(runtime: Any, pending: dict[str, Any]) -> bool:

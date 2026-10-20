@@ -160,6 +160,19 @@ async def world(tmp_path: Path, fake_brain: FakeBrain):
     def switch(name: str, on: bool) -> None:
         skill_state[name] = "active" if on else "disabled"
 
+    skill_runs: list[dict[str, Any]] = []
+
+    async def run_skill(_config: Any, **kwargs: Any) -> Any:
+        """The read-only replay of a skill's steps: every offered tool ran fine."""
+        from dodaios.self_build.sandbox import Run, Step
+
+        skill_runs.append(kwargs)
+        return Run(
+            kwargs["request"],
+            "The latest CI run on main passed, nothing is failing.",
+            tuple(Step(name, ok=True) for name in kwargs["tools"]),
+        )
+
     env = Env(
         config=lambda: config,
         data_dir=tmp_path,
@@ -170,6 +183,7 @@ async def world(tmp_path: Path, fake_brain: FakeBrain):
         scheduler=lambda: scheduler,
         society=society,
         set_skill_on=switch,
+        run_skill=run_skill,
     )
     the_loop = loop.install(service, env=env, bus=bus)
     world = SimpleNamespace(
@@ -184,6 +198,8 @@ async def world(tmp_path: Path, fake_brain: FakeBrain):
         roster=roster,
         brain=fake_brain,
         skill_state=skill_state,
+        skill_runs=skill_runs,
+        env=env,
     )
 
     def configure(**changes: Any) -> None:
