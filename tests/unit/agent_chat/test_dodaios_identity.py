@@ -13,11 +13,11 @@ from typing import Any
 
 import pytest
 
-from dodaios.agent_chat import jarvis_harness, runner_cli
+from dodaios.agent_chat import dodaios_harness, runner_cli
 from dodaios.agent_chat.events import make_event
 from dodaios.core import runtime_refs
 from dodaios.core.response_style import KEEP_GOING_ON_TOOL_FAILURE
-from dodaios.mcp import jarvis_tools_server as server
+from dodaios.mcp import dodaios_tools_server as server
 from dodaios.ui.web import mcp_server_routes
 
 
@@ -53,19 +53,19 @@ def _history() -> list[dict[str, Any]]:
 
 async def test_identity_has_the_jarvis_layers_the_transcript_and_the_addendum(monkeypatch):
     brain = _Brain()
-    monkeypatch.setattr(jarvis_harness, "_brain", lambda: brain)
-    text = await jarvis_harness.identity_prompt(
+    monkeypatch.setattr(dodaios_harness, "_brain", lambda: brain)
+    text = await dodaios_harness.identity_prompt(
         user_text="and now?", history=_history(), resume=None
     )
     assert text.index("YOU ARE GEORGE") < text.index("Date: today")
     assert "Person: what did we decide?" in text and "You: To ship on Friday." in text
-    assert text.endswith(jarvis_harness.SYSTEM_PREAMBLE)
+    assert text.endswith(dodaios_harness.SYSTEM_PREAMBLE)
     assert brain.asked_with == ["and now?"], "the wiki context is pulled for THIS turn's text"
 
 
 async def test_a_resumed_conversation_carries_no_transcript(monkeypatch):
-    monkeypatch.setattr(jarvis_harness, "_brain", lambda: _Brain())
-    text = await jarvis_harness.identity_prompt(
+    monkeypatch.setattr(dodaios_harness, "_brain", lambda: _Brain())
+    text = await dodaios_harness.identity_prompt(
         user_text="and now?", history=_history(), resume="vendor-session-1"
     )
     assert "This conversation so far" not in text
@@ -73,59 +73,59 @@ async def test_a_resumed_conversation_carries_no_transcript(monkeypatch):
 
 
 async def test_without_a_brain_the_addendum_stands_alone(monkeypatch):
-    monkeypatch.setattr(jarvis_harness, "_brain", lambda: None)
-    text = await jarvis_harness.identity_prompt(user_text="hi", history=[], resume=None)
-    assert text == jarvis_harness.SYSTEM_PREAMBLE
+    monkeypatch.setattr(dodaios_harness, "_brain", lambda: None)
+    text = await dodaios_harness.identity_prompt(user_text="hi", history=[], resume=None)
+    assert text == dodaios_harness.SYSTEM_PREAMBLE
 
 
 async def test_failing_layers_never_cost_the_turn(monkeypatch):
-    monkeypatch.setattr(jarvis_harness, "_brain", lambda: _Brain(fail=True))
-    text = await jarvis_harness.identity_prompt(user_text="hi", history=_history(), resume=None)
-    assert text.endswith(jarvis_harness.SYSTEM_PREAMBLE) and "Person:" in text
+    monkeypatch.setattr(dodaios_harness, "_brain", lambda: _Brain(fail=True))
+    text = await dodaios_harness.identity_prompt(user_text="hi", history=_history(), resume=None)
+    assert text.endswith(dodaios_harness.SYSTEM_PREAMBLE) and "Person:" in text
 
 
 def test_the_compact_cut_keeps_the_addendum_whole():
-    long_text = ("a line of soul\n" * 3000) + "\n\n" + jarvis_harness.SYSTEM_PREAMBLE
-    compact = jarvis_harness.compact_identity(long_text, max_chars=4000)
+    long_text = ("a line of soul\n" * 3000) + "\n\n" + dodaios_harness.SYSTEM_PREAMBLE
+    compact = dodaios_harness.compact_identity(long_text, max_chars=4000)
     assert len(compact) <= 4100
-    assert compact.endswith(jarvis_harness.SYSTEM_PREAMBLE)
+    assert compact.endswith(dodaios_harness.SYSTEM_PREAMBLE)
     assert "…" in compact
 
 
 async def test_a_society_seat_closes_with_the_society_preamble_kept_whole():
-    text = await jarvis_harness.identity_prompt(
+    text = await dodaios_harness.identity_prompt(
         user_text="hi", history=[], resume=None, prompt_override="## You are Scout\n" * 2000
     )
-    assert text.endswith(jarvis_harness.SOCIETY_PREAMBLE)
+    assert text.endswith(dodaios_harness.SOCIETY_PREAMBLE)
     assert "same assistant" not in text and "by voice" not in text
-    compact = jarvis_harness.compact_identity(text, max_chars=4000)
+    compact = dodaios_harness.compact_identity(text, max_chars=4000)
     assert len(compact) <= 4100
-    assert compact.endswith(jarvis_harness.SOCIETY_PREAMBLE)
+    assert compact.endswith(dodaios_harness.SOCIETY_PREAMBLE)
 
 
 def test_the_identity_file_lives_in_the_app_data_dir_and_is_removed(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr(jarvis_harness, "identity_dir", lambda: tmp_path / "identity")
-    path = jarvis_harness.write_identity_file("who I am", turn_id="turn-1")
+    monkeypatch.setattr(dodaios_harness, "identity_dir", lambda: tmp_path / "identity")
+    path = dodaios_harness.write_identity_file("who I am", turn_id="turn-1")
     assert path.parent == tmp_path / "identity" and path.read_text(encoding="utf-8") == "who I am"
-    jarvis_harness.remove_identity_file(path)
+    dodaios_harness.remove_identity_file(path)
     assert not path.exists()
-    jarvis_harness.remove_identity_file(path)  # twice is fine
+    dodaios_harness.remove_identity_file(path)  # twice is fine
 
 
 # --------------------------------------------------------- what each CLI gets
 
 
-def _identity(tmp_path: Path) -> jarvis_harness.Identity:
+def _identity(tmp_path: Path) -> dodaios_harness.Identity:
     path = tmp_path / "id.md"
     path.write_text("FULL IDENTITY", encoding="utf-8")
-    return jarvis_harness.Identity(
+    return dodaios_harness.Identity(
         session_id="sess-1", text="FULL IDENTITY", compact="SHORT IDENTITY", path=path
     )
 
 
 def test_claude_takes_the_identity_as_a_file_and_names_the_session(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli.jarvis_harness, "control_key", lambda: "k")
+    monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     plan = runner_cli.plan_claude(
         prompt="hi",
@@ -141,26 +141,26 @@ def test_claude_takes_the_identity_as_a_file_and_names_the_session(monkeypatch, 
     assert argv[argv.index("--append-system-prompt-file") + 1] == str(tmp_path / "id.md")
     assert "--append-system-prompt" not in argv
     config = argv[argv.index("--mcp-config") + 1]
-    assert jarvis_harness.HEADER_NAME in config and "sess-1" in config
+    assert dodaios_harness.HEADER_NAME in config and "sess-1" in config
     assert plan.stdin_text and "FULL IDENTITY" not in plan.stdin_text
 
 
 def test_claude_without_identity_spawns_exactly_as_before(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
-    monkeypatch.setattr(runner_cli.jarvis_harness, "control_key", lambda: "k")
+    monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     plan = runner_cli.plan_claude(
         prompt="hi", cwd=tmp_path, model="", effort="", permission_mode="ask", resume=None
     )
     assert "--append-system-prompt" in plan.argv
     assert "--append-system-prompt-file" not in plan.argv
-    assert jarvis_harness.HEADER_NAME not in plan.argv[plan.argv.index("--mcp-config") + 1]
+    assert dodaios_harness.HEADER_NAME not in plan.argv[plan.argv.index("--mcp-config") + 1]
 
 
 def test_codex_gets_the_identity_on_stdin_and_the_session_header(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "read_codex_models", lambda: None)
-    monkeypatch.setattr(runner_cli.jarvis_harness, "control_key", lambda: "k")
+    monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     plan = runner_cli.plan_codex(
         prompt="hi",
@@ -225,7 +225,7 @@ def test_grok_plan_mode_does_not_auto_approve(monkeypatch, tmp_path: Path):
 
 def test_grok_with_identity_writes_a_project_mcp_config(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli, "grok_argv_prefix", lambda: ["grok"])
-    monkeypatch.setattr(runner_cli.jarvis_harness, "control_key", lambda: "k")
+    monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     (tmp_path / ".grok").mkdir()
     (tmp_path / ".grok" / "config.toml").write_text(
@@ -283,7 +283,7 @@ def test_agy_takes_the_identity_on_stdin(monkeypatch, tmp_path: Path):
 def test_agy_with_identity_drops_a_workspace_plugin(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(runner_cli, "agy_argv_prefix", lambda: ["agy"])
     monkeypatch.setattr(runner_cli, "_agy_catalog_cached", lambda: None)
-    monkeypatch.setattr(runner_cli.jarvis_harness, "control_key", lambda: "k")
+    monkeypatch.setattr(runner_cli.dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
     runner_cli.plan_agy(
         prompt="hi",
@@ -301,7 +301,7 @@ def test_agy_with_identity_drops_a_workspace_plugin(monkeypatch, tmp_path: Path)
     server = payload["mcpServers"]["dodaios"]
     assert server["serverUrl"].endswith("/api/control/mcp/")
     assert server["headers"]["Authorization"] == "Bearer k"
-    assert server["headers"][jarvis_harness.HEADER_NAME] == "sess-1"
+    assert server["headers"][dodaios_harness.HEADER_NAME] == "sess-1"
 
 
 # ------------------------------------------------------- the session header
@@ -367,12 +367,12 @@ def test_the_tool_server_names_the_chats_card_for_a_session_request():
 
 
 def test_the_config_names_the_header_only_with_a_session(monkeypatch):
-    monkeypatch.setattr(jarvis_harness, "control_key", lambda: "k")
+    monkeypatch.setattr(dodaios_harness, "control_key", lambda: "k")
     runtime_refs.set_api_base_url("http://127.0.0.1:47821")
-    plain = jarvis_harness.mcp_config_json() or ""
-    named = jarvis_harness.mcp_config_json("sess-2") or ""
-    assert jarvis_harness.HEADER_NAME not in plain
-    assert jarvis_harness.HEADER_NAME in named and "sess-2" in named
+    plain = dodaios_harness.mcp_config_json() or ""
+    named = dodaios_harness.mcp_config_json("sess-2") or ""
+    assert dodaios_harness.HEADER_NAME not in plain
+    assert dodaios_harness.HEADER_NAME in named and "sess-2" in named
     assert "${JARVIS_CONTROL_API_KEY}" in named, "the key still travels by env, never in the config"
-    assert not any("http_headers" in a for a in jarvis_harness.codex_config_args())
-    assert any("http_headers" in a for a in jarvis_harness.codex_config_args("sess-2"))
+    assert not any("http_headers" in a for a in dodaios_harness.codex_config_args())
+    assert any("http_headers" in a for a in dodaios_harness.codex_config_args("sess-2"))

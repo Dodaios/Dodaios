@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from dodaios.agent_chat import jarvis_harness
+from dodaios.agent_chat import dodaios_harness
 from dodaios.agent_chat.runner_api import system_prompt
 from dodaios.brain.manager import _WRITTEN_CHAT_STYLE
 from dodaios.brain.persona_loader import load_compact_persona_prompt, load_persona_prompt
@@ -46,8 +46,8 @@ def test_reply_style_keeps_the_person_oriented_without_a_persona() -> None:
 
 
 async def test_cli_without_brain_layers_still_receives_the_shared_default(monkeypatch) -> None:
-    monkeypatch.setattr(jarvis_harness, "_brain", lambda: None)
-    prompt = await jarvis_harness.identity_prompt(user_text="Hello", history=[], resume=None)
+    monkeypatch.setattr(dodaios_harness, "_brain", lambda: None)
+    prompt = await dodaios_harness.identity_prompt(user_text="Hello", history=[], resume=None)
     assert CONVERSATIONAL_TURN_REMINDER in prompt
     assert "think longer and go deeper" not in prompt
     assert "Frontier-lab style" not in prompt

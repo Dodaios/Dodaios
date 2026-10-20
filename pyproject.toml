@@ -917,7 +917,7 @@ dodaios = [
     # Voice persona (brain/persona_loader.py), skill-authoring import
     # allowlist (skills/authoring/draft_writer.py), Jarvis-Agent critic
     # verdict JSON-schema (core/review/spawns.py).
-    "brain/JARVIS_PERSONA.md",
+    "brain/DODAIOS_PERSONA.md",
     "skills/safe_imports.txt",
     "core/review/verdict_schema.json",
     "society/mars/definition.json",

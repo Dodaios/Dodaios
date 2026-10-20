@@ -62,7 +62,7 @@ _MCP_PATH: Final[str] = "/api/control/mcp/"
 _SERVER_NAME: Final[str] = MCP_TOOLS_SERVER_NAME
 
 #: The request header that carries the chat's session id to the tool server.
-#: ``dodaios.mcp.jarvis_tools_server`` reads it (through
+#: ``dodaios.mcp.dodaios_tools_server`` reads it (through
 #: ``dodaios.ui.web.mcp_server_routes``) and stamps the executor's approval
 #: surface with it, so a gate the CLI reaches over MCP is answered by THIS
 #: chat's card. Any other client — or a config without it — gets the
@@ -366,7 +366,7 @@ def apply_env(env: dict[str, str]) -> dict[str, str]:
 def tool_count() -> int:
     """How many Jarvis tools the chat would currently be offered (0 = none)."""
     try:
-        from dodaios.mcp.jarvis_tools_server import offered_tools
+        from dodaios.mcp.dodaios_tools_server import offered_tools
 
         return len(offered_tools())
     except Exception:  # noqa: BLE001 — a count is a nicety, never a failure

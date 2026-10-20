@@ -39,7 +39,7 @@ def _isolate_data_dir(tmp_path, monkeypatch: pytest.MonkeyPatch):
 
 def test_default_persona_block_present_without_custom() -> None:
     prompt = _manager()._build_system_prompt()
-    # A signature phrase from the packaged JARVIS_PERSONA.md persona block
+    # A signature phrase from the packaged DODAIOS_PERSONA.md persona block
     # (persona was reworked; "voice companion" opens the new first sentence).
     assert "voice companion" in prompt
 
