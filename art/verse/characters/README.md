@@ -13,6 +13,7 @@ python scripts/verse/blender.py run --no-lock art/verse/characters/fetch_base.py
 python scripts/verse/blender.py run --no-lock art/verse/characters/build.py        # humans + clips
 python scripts/verse/blender.py run --no-lock art/verse/characters/build_drones.py # drones
 python scripts/verse/blender.py run art/verse/characters/build.py --qa             # + Cycles QA
+python scripts/verse/blender.py run art/verse/characters/build.py --qa-contact     # contact sheets only
 node art/verse/characters/check_glb.mjs                                          # three.js check
 ```
 
@@ -108,7 +109,7 @@ per tier are in `characters.json` (`tiers`, sRGB hex; `THREE.Color.set()` conver
 |---|---|---|
 | `M_Uniform` | tunic, collar | tier colour |
 | `M_Trousers` | riding trousers | tier colour (flag tier: black) |
-| `M_Trim` | cuffs, front-flap seam | tier trim colour (a shade darker) |
+| `M_Trim` | cuffs, front-flap seam (raised bead) | tier trim colour: a shade darker; on the `deck` tier a lighter grey, so the seam and cuffs read as the zip and cuffs of a work suit |
 | `M_Accent` | shoulder-seam and collar piping | the agent's personal accent colour |
 | `M_Cap` | cap (mesh `Cap`) | tier colour |
 | `M_Skin`, `M_Hair` | face, hands / hair | per person |
@@ -125,8 +126,9 @@ per tier are in `characters.json` (`tiers`, sRGB hex; `THREE.Color.set()` conver
   Drones carry their own rig and clips inside their glb.
 - Technician: `M_Uniform` (black suit), `M_Helmet`, `M_Visor`, `M_Mark`, `M_ChestBox`,
   `M_Glow` (chest-box lights), `M_Trim`, `M_Gloves`, `M_Boots`, `M_Belt`, `M_Skin`.
-- Trooper: `M_Armor` (white plates, helmet, boots), `M_Undersuit`, `M_Visor`, `M_Belt`,
-  `M_Gloves`, `M_Accent` (unit band on the left upper arm).
+- Trooper: `M_Armor` (white plates, helmet, boots), `M_Undersuit`, `M_Visor`, `M_Belt`
+  (utility belt and pouches), `M_Gloves`, `M_Accent` (unit band on the left upper arm).
+  Plates are parametric shells with bevelled rims, each rigid on one bone.
 
 ## Using it in three.js
 

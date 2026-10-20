@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 
 from decks.ops import layout as L
-from decks.ops.geo import CUT_H, Mesh, collection, emitter_h, point_light, tag
+from decks.ops.geo import CUT_H, Mesh, area_light, collection, emitter_h, point_light, tag
 from kit.architecture import hull
 from lib import kit
 
@@ -27,15 +27,15 @@ RECESS = "M_Recess_Dark"
 SKIN = 0.025  # panel skin on visible wall faces
 
 FLOOR_MATS = {
-    "mess": "M_Floor_SatinDark",
+    "mess": "M_Floor_GlossBlack",
     "records": "M_Floor_GlossBlack",
-    "simulator": "M_Floor_SatinDark",
+    "simulator": "M_Ops_Floor_Satin",
     "quartermaster": "M_Floor_GlossBlack",
-    "quarters": "M_Floor_SatinDark",
-    "team_a": "M_Floor_SatinDark",
-    "team_b": "M_Floor_SatinDark",
+    "quarters": "M_Ops_Floor_Satin",
+    "team_a": "M_Ops_Floor_Satin",
+    "team_b": "M_Ops_Floor_Satin",
     "lobby": "M_Floor_GlossBlack",
-    "storage": "M_Floor_SatinDark",
+    "storage": "M_Ops_Floor_Satin",
     "medbay": "M_Ops_Floor_SatinGrey",
 }
 
@@ -166,38 +166,81 @@ def hero_wall_body(cavities=()) -> None:
     m = Mesh()
     hz = L.HERO_Z
     xs = [(-2.0, 98.0)]
+    # The hull body stops at the room ceiling: above it the camera looks into
+    # an open cornice gallery (deck beams, pipe runs, maintenance lamps), so
+    # the top edge of the plate is lit ship structure, never a black slab.
+    top = L.ROOM_H
     for x0, x1, h0, h1 in cavities:
         m.box(x0, x1, -3.0, hz - 0.12, -0.6, h0 - 0.12, "M_Hull_Structure")
-        m.box(x0, x1, -3.0, hz - 0.12, h1 + 0.12, L.HULL_H, "M_Hull_Structure")
+        m.box(x0, x1, -3.0, hz - 0.12, h1 + 0.12, top, "M_Hull_Structure")
         m.box(x0, x1, -3.0, hz - 1.6, h0 - 0.12, h1 + 0.12, "M_Hull_Structure")
     holes = [(x0, x1) for x0, x1, _, _ in cavities]
     for a, b in L.solid_spans(xs[0][0], xs[0][1], holes):
-        m.box(a, b, -3.0, hz - 0.12, -0.6, L.HULL_H, "M_Hull_Structure")
-    # Cornice: the cut ceiling structure seen from above, ribbed every 2.4 m.
+        m.box(a, b, -3.0, hz - 0.12, -0.6, top, "M_Hull_Structure")
+    # Cornice: the cut ceiling structure seen from above.
     m.box(-2.0, 98.0, -3.0, hz + 0.32, L.ROOM_H, L.ROOM_H + 0.18, STEEL)
     m.box(-2.0, 98.0, hz + 0.24, hz + 0.32, L.ROOM_H - 0.22, L.ROOM_H, STEEL)
+    tag(m.build("SM_Ops_HullFar", bevel=0.01), nav="block")
+    _cornice_gallery()
+
+
+def _cornice_gallery() -> None:
+    """Open structure on top of the far hull wall: I-section deck beams every
+    2.4 m, pipe runs and a cable tray along the ship, caged maintenance lamps
+    on every second beam (every third one red)."""
+    hz, base = L.HERO_Z, L.ROOM_H + 0.18
+    beams, pipes, lamps = Mesh(), Mesh(), Mesh()
+    deck = "M_Hull_Structure"
     for k in range(0, 41):
         x = -0.6 + 2.4 * k
-        m.box(x - 0.16, x + 0.16, -2.6, hz + 0.3, L.ROOM_H + 0.18, L.HULL_H - 0.12, STEEL)
-    m.box(-2.0, 98.0, -2.6, hz + 0.1, L.HULL_H - 0.12, L.HULL_H, "M_Hull_Structure")
-    tag(m.build("SM_Ops_HullFar", bevel=0.01), nav="block")
-    pipes = Mesh()
-    for i, (dz, r, mat) in enumerate(
-        (
-            (-1.9, 0.16, "M_Hull_PipeInsulated"),
-            (-1.3, 0.09, "M_Hull_Pipe"),
-            (-0.8, 0.11, "M_Hull_Pipe"),
-            (-0.2, 0.06, "M_Trim_BrushedSteel"),
-            (0.6, 0.13, "M_Hull_PipeInsulated"),
-            (1.25, 0.07, "M_Hull_Pipe"),
-        )
-    ):
-        hh = L.ROOM_H + 0.18 + r + 0.02 + (0.08 if i % 2 else 0.0)
+        beams.box(x - 0.025, x + 0.025, -2.6, hz + 0.22, base, L.HULL_H - 0.06, STEEL)
+        beams.box(x - 0.13, x + 0.13, -2.6, hz + 0.22, L.HULL_H - 0.06, L.HULL_H, STEEL)
+        beams.box(x - 0.11, x + 0.11, -2.6, hz + 0.22, base, base + 0.05, STEEL)
+        # Bracket where the beam lands on the cornice face.
+        beams.box(x - 0.09, x + 0.09, hz - 0.1, hz + 0.28, base, base + 0.42, deck)
+    # Longitudinal stringer and a tread plate for the maintenance crews.
+    beams.box(-2.0, 98.0, -0.55, -0.42, base, base + 0.62, STEEL)
+    beams.box(-2.0, 98.0, -0.3, 0.3, base, base + 0.02, "M_Floor_Grating")
+    runs = (
+        (-0.8, 0.11, "M_Hull_Pipe", 0.0),
+        (-0.2, 0.06, "M_Trim_BrushedSteel", 0.22),
+        (0.62, 0.14, "M_Hull_PipeInsulated", 0.0),
+        (1.05, 0.05, "M_Trim_BrushedSteel", 0.3),
+        (1.32, 0.07, "M_Hull_Pipe", 0.1),
+    )
+    for dz, r, mat, lift in runs:
+        hh = base + r + 0.04 + lift
         pipes.tube((-2.0, dz, hh), (98.0, dz, hh), r, mat, 16)
     for k in range(0, 41):
         x = -0.6 + 2.4 * k
-        pipes.box(x - 0.05, x + 0.05, -2.2, 1.6, L.ROOM_H + 0.18, L.ROOM_H + 0.5, STEEL)
-    tag(pipes.build("SM_Ops_HullFarPipes", bevel=0.004), nav="none")
+        # Pipe saddles on every beam.
+        pipes.box(x - 0.06, x + 0.06, -0.95, 1.45, base, base + 0.06, STEEL)
+    # Supply main along the cornice face.
+    pipes.tube(
+        (-2.0, 1.85, base + 0.16), (98.0, 1.85, base + 0.16), 0.11, "M_Hull_PipeInsulated", 16
+    )
+    tag(beams.build("SM_Ops_CorniceBeams", bevel=0.006), nav="none")
+    tag(pipes.build("SM_Ops_CornicePipes", bevel=0.0), nav="none")
+    k = 0
+    cages = Mesh()
+    for i in range(1, 41, 2):
+        x = -0.6 + 2.4 * i
+        red = k % 3 == 2
+        mat = "M_Light_Maint_Red" if red else "M_Ops_Light_Maint"
+        # Bracket off the beam web, lamp clear of the top flange so it shows.
+        cages.box(x + 0.025, x + 0.24, 0.2, 0.3, base + 0.4, base + 0.44, STEEL)
+        cages.box(x + 0.13, x + 0.25, 0.1, 0.4, base + 0.27, base + 0.31, STEEL)
+        lamps.box(x + 0.145, x + 0.235, 0.13, 0.37, base + 0.31, base + 0.4, mat)
+        if red:
+            point_light(f"LT_Cornice_{k}", x + 0.5, 0.25, base + 0.36, 5.0, color=(1.0, 0.1, 0.05))
+        else:
+            point_light(f"LT_Cornice_{k}", x + 0.5, 0.25, base + 0.36, 22.0, kelvin=5000.0)
+        k += 1
+    tag(cages.build("SM_Ops_CorniceCages", bevel=0.003), nav="none")
+    tag(lamps.build("SM_Ops_CorniceLamps", bevel=0.0), nav="none")
+    # Dim cool spill from the deck above, so the beams and pipes between the
+    # lamps keep their shape (never seen, never mirrored).
+    area_light("LT_CorniceSpill", 48.0, 0.9, L.HULL_H + 0.9, 100.0, 3.2, 480.0, kelvin=6000.0)
 
 
 # ---------------------------------------------------------------- corridor
@@ -667,14 +710,64 @@ def trench(
 
 
 def near_wall() -> None:
-    """The near hull wall (z 58..60), cut at 1.1 m; its outer face is hull."""
+    """The near hull wall (z 58..60), cut at 1.1 m: two skins with a service
+    gallery between them (frames, pipe runs, caged maintenance lamps), so the
+    bottom edge of the plate reads as lit hull structure, not a flat band."""
     z0, z1 = L.NEAR_Z, L.NEAR_Z + 2.0
+    t = 0.3
     m = Mesh()
-    m.box(2.4, 93.6, z0, z1, -0.6, CUT_H - 0.012, PAINT_DARK)
-    m.box(2.4, 93.6, z0, z1, CUT_H - 0.012, CUT_H, CAP)
+    for za, zb in ((z0, z0 + t), (z1 - t, z1)):
+        m.box(2.4, 93.6, za, zb, -0.6, CUT_H - 0.012, PAINT_DARK)
+        m.box(2.4, 93.6, za, zb, CUT_H - 0.012, CUT_H, CAP)
     tag(m.build("SM_Ops_Wall_Near", bevel=0.005), nav="block")
     up = Mesh().box(2.4, 93.6, z0, z1, CUT_H, L.ROOM_H, PAINT_MID)
     up.build("SM_Ops_WallUpper_Near", "Ceiling", bevel=0.0)
+    _hull_gallery("Near", 2.7, 93.3, z0 + t, z1 - t)
+
+
+def _hull_gallery(name: str, x0: float, x1: float, z0: float, z1: float) -> None:
+    """Service gallery inside a thick hull wall, running along x."""
+    fl = -0.55
+    m, pipes, lamps = Mesh(), Mesh(), Mesh()
+    m.box(x0, x1, z0, z1, fl - 0.06, fl, "M_Floor_Grating")
+    m.box(x0, x1, z0, z0 + 0.012, fl, CUT_H - 0.02, PAINT_MID)  # inner skin lining
+    for k in range(math.ceil(x0 / 2.4), math.floor(x1 / 2.4) + 1):
+        x = 2.4 * k
+        # Open ring frame across the gallery: bottom and top chords and two
+        # posts, so the lamps light the run beyond each frame too.
+        m.box(x - 0.02, x + 0.02, z0, z1, fl, fl + 0.32, STEEL)
+        m.box(x - 0.02, x + 0.02, z0, z1, 0.86, CUT_H - 0.04, STEEL)
+        m.box(x - 0.1, x + 0.1, z0, z1, CUT_H - 0.08, CUT_H - 0.04, STEEL)
+        for za, zb in ((z0, z0 + 0.12), (z1 - 0.12, z1)):
+            m.box(x - 0.02, x + 0.02, za, zb, fl, CUT_H - 0.04, STEEL)
+    runs = (
+        (z0 + 0.32, fl + 0.36, 0.13, "M_Hull_PipeInsulated"),
+        (z0 + 0.72, fl + 0.24, 0.08, "M_Hull_Pipe"),
+        (z1 - 0.28, fl + 0.4, 0.09, "M_Hull_Pipe"),
+        (z0 + 0.6, 0.62, 0.035, "M_Trim_BrushedSteel"),
+    )
+    for z, hh, r, mat in runs:
+        pipes.tube((x0, z, hh), (x1, z, hh), r, mat, 14)
+    # Cable tray on the inner skin.
+    m.box(x0, x1, z0 + 0.012, z0 + 0.3, 0.42, 0.44, "M_Floor_Grating")
+    for i in range(3):
+        z = z0 + 0.06 + i * 0.08
+        pipes.tube((x0, z, 0.465), (x1, z, 0.465), 0.02, "M_Rubber_Black", 8)
+    x, k = x0 + 1.2, 0
+    while x < x1 - 1.0:
+        red = k % 3 == 2
+        mat = "M_Light_Maint_Red" if red else "M_Ops_Light_Maint"
+        m.box(x - 0.15, x + 0.15, z0 + 0.012, z0 + 0.1, 0.66, 0.84, STEEL)
+        lamps.box(x - 0.12, x + 0.12, z0 + 0.1, z0 + 0.13, 0.69, 0.81, mat)
+        if red:
+            point_light(f"LT_{name}Gallery_{k}", x, z0 + 0.45, 0.72, 3.0, color=(1.0, 0.1, 0.05))
+        else:
+            point_light(f"LT_{name}Gallery_{k}", x, z0 + 0.45, 0.72, 14.0, kelvin=5000.0)
+        x += 4.8
+        k += 1
+    tag(m.build(f"SM_Ops_Gallery_{name}", bevel=0.004), nav="none")
+    tag(pipes.build(f"SM_Ops_GalleryPipes_{name}", bevel=0.0), nav="none")
+    tag(lamps.build(f"SM_Ops_GalleryLamps_{name}", bevel=0.0), nav="none")
 
 
 def med_wall() -> None:
@@ -698,6 +791,42 @@ def side_hulls() -> None:
     for xa, xb in ((2.4, 2.7), (93.3, 93.6)):
         edge.box(xa, xb, L.HERO_Z, L.NEAR_Z + 2.0, -0.6, 0.02, STEEL)
     tag(edge.build("SM_Ops_HullEdges", bevel=0.01), nav="none")
+    _hull_edge_lamps()
+
+
+# (facing, rib x, z offset): the open ribs at x = 0 / 96, the deck-edge copings
+# at x = 2.4 / 93.6, staggered so the lamps zig-zag every 2.4 m.
+_EDGE_RIBS = ((1.0, 0.0, 0.0), (-1.0, 96.0, 0.0), (-1.0, 2.4, 2.4), (1.0, 93.6, 2.4))
+
+
+def _hull_edge_lamps() -> None:
+    """Caged maintenance lamps hung on the first open rib inside each side
+    hull strip (x = 0 and x = 96), every 4.8 m along the ship, every third
+    one red: they pick the frames, pipe runs and tank top out of the dark."""
+    lamps, cages = Mesh(), Mesh()
+    k = 0
+    z = L.HERO_Z + 1.4
+    while z < L.NEAR_Z + 1.6:
+        red = k % 3 == 1
+        mat = "M_Light_Maint_Red" if red else "M_Ops_Light_Maint"
+        for side, rib, dz in _EDGE_RIBS:
+            if z + dz > L.NEAR_Z + 1.6:
+                continue
+            z_ = z + dz
+            xa = rib + side * 0.015
+            xb = xa + side * 0.07
+            cages.box(min(xa, xb), max(xa, xb), z_ - 0.16, z_ + 0.16, -0.62, -0.42, STEEL)
+            xc = xb + side * 0.03
+            lamps.box(min(xb, xc), max(xb, xc), z_ - 0.12, z_ + 0.12, -0.58, -0.46, mat)
+            lx, name = rib + side * 0.35, f"LT_HullEdge_{rib:.0f}_{k}"
+            if red:
+                point_light(name, lx, z_, -0.5, 6.0, color=(1.0, 0.1, 0.05))
+            else:
+                point_light(name, lx, z_, -0.5, 34.0, kelvin=5000.0)
+        z += 4.8
+        k += 1
+    tag(cages.build("SM_Ops_HullEdgeCages", bevel=0.004), nav="none")
+    tag(lamps.build("SM_Ops_HullEdgeLamps", bevel=0.0), nav="none")
 
 
 def lift_core() -> None:
@@ -818,7 +947,9 @@ def ceiling() -> None:
     """One camera-invisible ceiling slab over the rooms (the corridor has its
     own, lower one); the fixtures are dressed per room."""
     m = Mesh()
-    m.box(-2.0, 98.0, -3.0, 62.0, L.ROOM_H, L.ROOM_H + 0.3, "M_Ceiling_Panel")
+    # Starts at the hero wall's face so the lamps of the cornice gallery above
+    # the hull wall can light it (the cornice seals the rooms below).
+    m.box(-2.0, 98.0, L.HERO_Z, 62.0, L.ROOM_H, L.ROOM_H + 0.3, "M_Ceiling_Panel")
     m.build("SM_Ops_Ceiling", "Ceiling", bevel=0.0)
 
 
@@ -874,18 +1005,21 @@ def ring_luminaire(
     r: float = 2.2,
     h: float = L.ROOM_H,
     mat: str = "M_Light_CeilingPanel",
+    fins: bool = True,
 ) -> None:
     """Staff-room luminaire: a diffuser disc framed by a ring of vertical fins
-    (camera-invisible; read in the floor reflection and the light it casts)."""
+    (camera-invisible; read in the floor reflection and the light it casts).
+    ``fins=False`` leaves a plain ring, so its mirror never reads as a spoked
+    emblem."""
     import math as _m
 
-    fins, em = Mesh(), Mesh()
-    fins.cyl(cx, cz, r + 0.12, h - 0.08, h, STEEL, 64)
+    fins_m, em = Mesh(), Mesh()
+    fins_m.cyl(cx, cz, r + 0.12, h - 0.08, h, STEEL, 64)
     n = int(2 * _m.pi * r / 0.12)
-    for i in range(n):
+    for i in range(n if fins else 0):
         t = 2 * _m.pi * i / n
         x, z = cx + (r + 0.05) * _m.cos(t), cz + (r + 0.05) * _m.sin(t)
-        fins.box(x - 0.025, x + 0.025, z - 0.025, z + 0.025, h - 0.6, h - 0.08, PAINT)
+        fins_m.box(x - 0.025, x + 0.025, z - 0.025, z + 0.025, h - 0.6, h - 0.08, PAINT)
     # A lit annulus (the diffuser band inside the fins): mirrored in the deck
     # it reads as a thin ring, never as a white plate on the floor.
     seg = 72
@@ -901,7 +1035,7 @@ def ring_luminaire(
             ],
             mat,
         )
-    fins.build(f"SM_Ops_RingFins_{name}", "Ceiling", bevel=0.0)
+    fins_m.build(f"SM_Ops_RingFins_{name}", "Ceiling", bevel=0.0)
     o = em.build(f"SM_Ops_RingLight_{name}", "Ceiling", bevel=0.0, shadow=False, keep_normals=True)
     o.visible_shadow = False
 

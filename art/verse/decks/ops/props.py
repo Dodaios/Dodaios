@@ -80,6 +80,27 @@ def table_clutter(m: Mesh, cx: float, cz: float, seed: int, length: float = 3.6)
             )
 
 
+def mess_place_settings(m: Mesh, cx: float, cz: float, seed: int, top: float = 0.75) -> None:
+    """Trays, plates and cups left at some places of a kit mess table (six
+    places at x -0.68 / 0 / 0.68 on both long sides; the caddy sits in the
+    middle). Deterministic per table."""
+    rnd = _rng(seed)
+    for side in (-1, 1):
+        for dx in (-0.68, 0.0, 0.68):
+            r = rnd()
+            if r > 0.45:
+                continue
+            x, z = cx + dx + 0.05 * (rnd() - 0.5), cz + side * 0.2
+            m.box(x - 0.2, x + 0.2, z - 0.14, z + 0.14, top, top + 0.012, BRUSHED)
+            m.box(x - 0.19, x + 0.19, z - 0.13, z + 0.13, top + 0.012, top + 0.016, MID)
+            m.cyl(x - 0.06, z, 0.095, top + 0.016, top + 0.03, LIGHT, 20)
+            if r < 0.3:
+                m.cyl(x + 0.12, z - side * 0.06, 0.034, top + 0.016, top + 0.11, BRUSHED, 12)
+            if r < 0.12:
+                za, zb = sorted((z + side * 0.02, z + side * 0.09))
+                m.box(x + 0.07, x + 0.17, za, zb, top + 0.016, top + 0.05, DARK)
+
+
 def serving_counter(m: Mesh, lights: Mesh, x0: float, x1: float, z0: float) -> None:
     """Serving line along the far wall: steel counter, heated wells under a
     sneeze guard, tray slide on the room side."""
@@ -825,6 +846,72 @@ def arena(walk: Mesh, m: Mesh, lights: Mesh, cx: float, cz: float, w: float, d: 
 
 
 SEGMENTS = {"0": "abcdef", "2": "abged"}
+DIGITS = {
+    "0": "abcdef",
+    "1": "bc",
+    "2": "abged",
+    "3": "abgcd",
+    "4": "fgbc",
+    "5": "afgcd",
+    "6": "afgedc",
+    "7": "abc",
+    "8": "abcdefg",
+    "9": "abfgcd",
+    "-": "g",
+}
+
+
+def _seg_boxes(text: str, char_h: float):
+    """Stencil segments of ``text`` as (u0, u1, v0, v1) in a box whose origin
+    is the top-left corner; u to the right, v down. Stencil gaps break every
+    segment at its ends, as on a painted stencil."""
+    w, t, gap = char_h * 0.5, char_h * 0.13, char_h * 0.06
+    out, u = [], 0.0
+    for ch in text:
+        if ch == " ":
+            u += w * 0.8
+            continue
+        hv = char_h / 2
+        segs = {
+            "a": (u + gap, u + w - gap, 0.0, t),
+            "b": (u + w - t, u + w, gap, hv - gap / 2),
+            "c": (u + w - t, u + w, hv + gap / 2, char_h - gap),
+            "d": (u + gap, u + w - gap, char_h - t, char_h),
+            "e": (u, u + t, hv + gap / 2, char_h - gap),
+            "f": (u, u + t, gap, hv - gap / 2),
+            "g": (u + gap, u + w - gap, hv - t / 2, hv + t / 2),
+        }
+        for s in DIGITS[ch]:
+            out.append(segs[s])
+        u += w + char_h * 0.28
+    return out, u - char_h * 0.28
+
+
+def floor_code(m: Mesh, text: str, cx: float, cz: float, char_h: float = 0.36) -> None:
+    """A worn room code stencilled flush on the deck, reading from the camera."""
+    boxes, width = _seg_boxes(text, char_h)
+    x0, z0 = cx - width / 2, cz - char_h / 2
+    for u0, u1, v0, v1 in boxes:
+        m.box(x0 + u0, x0 + u1, z0 + v0, z0 + v1, 0.0005, 0.0025, "M_Deck_Marking_White")
+
+
+def wall_plate(m: Mesh, text: str, x0: float, z: float, h_top: float, char_h: float = 0.09):
+    """Small dark ident plate on a camera-facing wall with white stencil digits."""
+    boxes, width = _seg_boxes(text, char_h)
+    pad = char_h * 0.45
+    x1 = x0 + width + 2 * pad
+    m.box(x0, x1, z, z + 0.012, h_top - char_h - 2 * pad, h_top, DARK)
+    m.box(x0 - 0.01, x1 + 0.01, z - 0.002, z + 0.008, h_top, h_top + 0.012, BRUSHED)
+    for u0, u1, v0, v1 in boxes:
+        m.box(
+            x0 + pad + u0,
+            x0 + pad + u1,
+            z + 0.012,
+            z + 0.015,
+            h_top - pad - v1,
+            h_top - pad - v0,
+            "M_Deck_Marking_White",
+        )
 
 
 def deck_mark(m: Mesh, cx: float, cz: float) -> None:

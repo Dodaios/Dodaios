@@ -203,15 +203,32 @@ def mess(bay_spans) -> None:
             for k in range(5):
                 tx = run_x0 + 1.05 + 2.1 * k
                 place("SM_Table_Mess", tx, cz, 0.0, f"mess_table_{r}{side}{k}", "mess", seat_name)
-            strips.append((run_x0 + 0.3, run_x0 + 10.2, cz - 0.12, cz + 0.12))
+                props.mess_place_settings(rm.hard, tx, cz, seed=101 + r * 17 + side * 7 + k * 3)
+            # A ceiling panel over every table: the rows mirror in the black
+            # deck as dashes down each aisle.
+            for k in range(5):
+                tx = run_x0 + 1.05 + 2.1 * k
+                strips.append((tx - 0.45, tx + 0.45, cz - 0.15, cz + 0.15))
+                if r == 0:
+                    strips.append((tx - 0.45, tx + 0.45, 4.85, 5.15))
+            # Two downlight pools per run: the tables glow, the aisles fall off.
+            for k in (1, 3):
+                pool(f"mess_run_{r}{side}{k}", run_x0 + 1.05 + 2.1 * k, cz, 200.0, 60.0, 6200.0)
+    props.floor_code(rm.flat, "2-01", 17.0, 24.8)
+    # Duty terminal in the far wall's last panel bay (sockets dropped).
+    place("SM_Terminal_Wall", 29.84, L.HERO_Z + 0.02, 0.0, "mess_terminal", "mess", _drop)
     rm.build()
     arch.linear_lights("mess_tables", strips, mat="M_Ops_Light_MessCool")
     # The one warm note: a 3 200 K pool over the serving line.
     pool("mess_galley", hc, L.HERO_Z + 2.3, 280.0, 72.0, kelvin=3200.0)
-    for i, z in enumerate((6.2, 12.6, 18.9, 24.6)):
-        pool(f"mess_{i}", 17.0, z, 380.0, 66.0)
+    pool("mess_aisle_n", 17.0, 6.0, 160.0, 60.0)
     wall_wash("mess_counter", hc, 9.6, 520.0)
-    wall_wash("mess_slit", (sx0 + sx1) / 2, sx1 - sx0, 260.0)
+    wall_wash("mess_slit", (sx0 + sx1) / 2, sx1 - sx0, 200.0)
+
+
+def _drop(kind: str, loc: str) -> None:
+    """Socket rename that drops every socket of a dressing-only kit piece."""
+    return None
 
 
 # ---------------------------------------------------------------- records
@@ -352,7 +369,7 @@ def quartermaster() -> None:
         "LT_QM_Dais", cx, 11.4, 4.4, 90.0, kelvin=6000.0, angle_deg=40.0, blend=0.5, radius=0.3
     )
     wall_wash("qm_lockers", cx, 12.4, 600.0)
-    pool("qm_counter", cx, 20.4, 180.0, 60.0)
+    pool("qm_counter", cx, 19.2, 280.0, 60.0)
 
 
 # ---------------------------------------------------------------- quarters
@@ -400,7 +417,12 @@ def quarters() -> None:
                     )
                     # Reading lamp in front of the head unit, over the pillow.
                     head = cz - 0.75 if heads_north else cz + 0.75
-                    point_light(f"LT_Bunk_{n:02d}", bx, head, 1.35, 5.0, kelvin=5000.0, radius=0.1)
+                    point_light(f"LT_Bunk_{n:02d}", bx, head, 1.35, 5.0, kelvin=5200.0, radius=0.1)
+    # Locker banks closing the gap between the two berth groups at the aisle
+    # end of each double row, doors to the aisle (sockets dropped).
+    for pair_z in BERTH_PAIRS:
+        pid = f"q_gap_{pair_z:.0f}"
+        place("SM_Lockers_Uniform", 23.9, pair_z + 2.02, 0.0, pid, "quarters", _drop)
     # Off-duty corner: two tables by the near wall.
     for i, x in enumerate((20.0, 30.0)):
         place(
@@ -412,20 +434,26 @@ def quarters() -> None:
             "quarters",
             lambda k, loc, i=i: f"quarters_{i * 6 + int(loc)}" if k == "seat" else None,
         )
+        props.mess_place_settings(rm.hard, x, 55.0, seed=71 + i * 13)
+    props.floor_code(rm.flat, "2-11", 15.6, 35.9)
+    # Washroom: grey satin tile laid flush over the deck plate.
+    rm.flat.box(x0, 11.0, z0, 48.0, 0.0005, 0.003, "M_Ops_Floor_WashTile")
     rm.build()
-    arch.linear_lights(
-        "quarters",
-        [
-            (12.6, 36.4, 35.6, 35.75),
-            (12.6, 36.4, 44.3, 44.45),
-            (12.6, 36.4, 53.0, 53.15),
-            (4.0, 10.4, 39.0, 39.15),
-            (4.0, 10.4, 47.0, 47.15),
-        ],
-        mat="M_Ops_Light_Night",
-    )
-    for i, (x, z) in enumerate(((24.7, 36.4), (24.7, 44.4), (24.7, 52.6), (7.2, 42.0))):
-        pool(f"quarters_{i}", x, z, 200.0, 62.0, kelvin=5000.0)
+    # Night strips over the berth rows, placed so each mirrors into the aisle
+    # in front of it; a pool per aisle and group; a clinical pool in the washroom.
+    rows = (33.95, 41.7, 51.9)
+    strips = [
+        (gx + 1.4 * (i + 0.5) - 0.4, gx + 1.4 * (i + 0.5) + 0.4, z, z + 0.15)
+        for z in rows
+        for gx in BERTH_GROUPS
+        for i in range(6)
+    ]
+    strips += [(4.0, 10.4, 39.0, 39.15), (4.0, 10.4, 47.0, 47.15)]
+    arch.linear_lights("quarters", strips, mat="M_Ops_Light_Night")
+    for i, z in enumerate((35.9, 44.4, 54.2)):
+        for j, x in enumerate((18.0, 29.8)):
+            pool(f"quarters_{i}{j}", x, z, 240.0, 64.0, kelvin=5600.0)
+    pool("quarters_wash", 7.2, 42.0, 110.0, 64.0, kelvin=6500.0)
 
 
 # ---------------------------------------------------------------- ready rooms
@@ -461,11 +489,20 @@ def team_room(rid: str, cx: float) -> None:
     spec = props.console(rm.hard, rm.scr, rm.lights, cx - 1.8, cx + 1.8, 53.4, tilt=55.0)
     sx, sz, sh, w, h, tilt = spec
     screen(f"team_{letter}_plan", sx, sz, sh, w, h, tilt_deg=tilt, room=rid)
+    # Standing status consoles flanking the display wall (sockets dropped).
+    for i, dx in enumerate((-4.4, 4.4)):
+        place("SM_Console_Standing", cx + dx, z0 + 1.6, 0.0, f"{rid}_status_{i + 1}", rid, _drop)
+    # The room's code stencilled by the door.
+    props.floor_code(rm.flat, "2-1" + ("2" if letter == "a" else "3"), cx - 3.0, 35.5)
     rm.build()
-    # A light pool over the table, one at the display wall, one at the planning desk.
-    pool(f"{rid}_table", cx, tz, 450.0, 60.0)
+    arch.ring_luminaire(rid, cx, tz, r=2.0, mat="M_Ops_Light_Ring", fins=False)
+    # A light pool over the table, one at the display wall, one at the planning
+    # desk, one over each kit rack.
+    pool(f"{rid}_table", cx, tz, 380.0, 60.0)
     pool(f"{rid}_wall", cx, z0 + 2.4, 260.0, 65.0)
-    pool(f"{rid}_plan", cx, 52.4, 260.0, 65.0)
+    pool(f"{rid}_plan", cx, 52.4, 240.0, 65.0)
+    for side, x in (("w", x0 + 2.1), ("e", x1 - 2.1)):
+        pool(f"{rid}_gear_{side}", x, 50.6, 170.0, 62.0)
 
 
 # ---------------------------------------------------------------- lobby
