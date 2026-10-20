@@ -40,21 +40,56 @@ PERSISTENT_SLUG = "personal-jarvis"
 # text, and hold the same values as ever.
 PRODUCT_COMPACT_NAME = PERSISTENT_COMPACT_NAME
 PRODUCT_SLUG = PERSISTENT_SLUG
-# The name the operating system lists the app under: the Start-Menu shortcut,
-# the macOS bundle, the Linux desktop entry, the entry in Installed Apps. Text
-# that tells a person where to find the app in the OS uses this name, because
-# that is what they will see there until those artifacts are migrated.
-LAUNCHER_ENTRY_NAME = PERSISTENT_PRODUCT_NAME
+# The name Windows lists the app under: the Start-Menu and Desktop shortcut, the
+# entry in Installed Apps, the toast identity. Text that tells a person where to
+# find the app on Windows uses this name. The macOS bundle and the Linux desktop
+# entry have names of their own (``MACOS_APP_NAME``, ``LINUX_APP_NAME``), each
+# moved with its own migration.
+LAUNCHER_ENTRY_NAME = "Dodaios"
+LEGACY_LAUNCHER_ENTRY_NAMES = (PERSISTENT_PRODUCT_NAME,)
 
-CONFIG_FILE_NAME = "jarvis.toml"
-KEYRING_SERVICE_NAME = PERSISTENT_SLUG
+# The configuration file's name. A file under an earlier name is never
+# renamed: while it exists it stays the configuration, and only an install
+# that has none creates one under the current name
+# (``dodaios.core.config.resolve_config_file``).
+CONFIG_FILE_NAME = "dodaios.toml"
+LEGACY_CONFIG_FILE_NAMES = ("jarvis.toml",)
+# The credential-store service every key is filed under (Windows Credential
+# Manager, macOS Keychain, Secret Service, the 0600 file fallback). Spelled as
+# a literal of its own, like the commands: it does not follow the display name.
+KEYRING_SERVICE_NAME = "dodaios"
+# Services earlier versions filed keys under. ``dodaios.core.config`` reads
+# them as a fallback and deletes from them too, and a background job copies
+# their entries once (``dodaios.core.identity_credentials``). Nothing deletes
+# a legacy entry except an explicit delete of that key: it is the way back for
+# a downgrade.
+LEGACY_KEYRING_SERVICE_NAMES = (PERSISTENT_SLUG,)
 CONTROL_KEY_PREFIX = "jctl_"
 SESSION_COOKIE_NAME = "jarvis_session"
-MANAGED_INSTALL_MARKER = ".jarvis-managed-install"
-DEFAULT_INSTALL_DIR_NAME = f".{PERSISTENT_SLUG}"
+# The file the one-line installer writes into the checkout it manages. Its
+# presence (together with the official origin) is what lets the in-app updater
+# reset the checkout. The installer writes every name, so an updater of any
+# version recognises the checkout; every reader accepts any of them.
+MANAGED_INSTALL_MARKER = ".dodaios-managed-install"
+LEGACY_MANAGED_INSTALL_MARKERS = (".jarvis-managed-install",)
+MANAGED_INSTALL_MARKERS = (MANAGED_INSTALL_MARKER, *LEGACY_MANAGED_INSTALL_MARKERS)
+# The one-line installer's checkout in the home directory. An install under an
+# earlier name keeps it while it is a real directory; an update run moves it by
+# one rename and leaves a link behind (``install/install.sh``,
+# ``install/install.ps1``, through ``dodaios.core.identity_migration``).
+DEFAULT_INSTALL_DIR_NAME = ".dodaios"
+LEGACY_DEFAULT_INSTALL_DIR_NAMES = (f".{PERSISTENT_SLUG}",)
 # The Python distribution name (``pip install <name>``) and with it the
 # ``share/<name>`` directory a wheel installs its data files under.
-DISTRIBUTION_NAME = PERSISTENT_SLUG
+DISTRIBUTION_NAME = "dodaios"
+# The distribution's earlier name. Releases publish the same wheel under it for
+# a transition, so ``pip install -U <earlier name>`` keeps updating; its data
+# files stay under ``share/<earlier name>``, which every reader still accepts.
+# Both own the same package files, so an environment should hold only one:
+# the installer removes the earlier one before installing, and the app warns
+# once when it finds both (``dodaios.core.distribution``).
+LEGACY_DISTRIBUTION_NAMES = (PERSISTENT_SLUG,)
+DISTRIBUTION_NAMES = (DISTRIBUTION_NAME, *LEGACY_DISTRIBUTION_NAMES)
 
 # Terminal commands the install puts on PATH. No command may equal the branded
 # launcher's name ignoring case: on Windows and macOS they would be one file.
@@ -80,9 +115,28 @@ SHELL_PROFILE_MARKER = (
 )
 FISH_CONF_FILE_NAME = f"{PERSISTENT_SLUG}.fish"
 
-WINDOWS_USER_DATA_DIR_NAME = "Jarvis"
-FALLBACK_USER_DATA_DIR_NAME = ".jarvis"
-DESKTOP_OUTPUT_MIRROR_DIR_NAME = "Jarvis-Output"
+# The per-user data directory: ``%LOCALAPPDATA%\<name>`` on Windows, ``~/<name>``
+# elsewhere. An existing installation keeps its directory under the earlier
+# name until the primary instance moves it (``dodaios.core.identity_boot``);
+# while a real directory still stands under an earlier name, that one is used.
+WINDOWS_USER_DATA_DIR_NAME = "Dodaios"
+LEGACY_WINDOWS_USER_DATA_DIR_NAMES = ("Jarvis",)
+FALLBACK_USER_DATA_DIR_NAME = ".dodaios-data"
+LEGACY_FALLBACK_USER_DATA_DIR_NAMES = (".jarvis",)
+# Folders a person opens themselves. They are found under an earlier name for
+# as long as one exists there and are never moved, so nothing on the Desktop or
+# in Downloads changes its name under the user's hands.
+DESKTOP_OUTPUT_MIRROR_DIR_NAME = "Dodaios-Output"
+LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES = ("Jarvis-Output",)
+# Where finished mission deliverables are mirrored (Downloads, Desktop or the
+# home directory; lower-cased on a system without a file explorer).
+DELIVERABLES_DIR_NAME = "Dodaios-Outputs"
+LEGACY_DELIVERABLES_DIR_NAMES = ("Jarvis-Outputs",)
+# The folder created inside an existing Obsidian vault the user registers.
+# Only a new registration uses it; a vault root already saved in the
+# configuration keeps naming the folder it names.
+OBSIDIAN_VAULT_FOLDER_NAME = "Dodaios"
+LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES = ("Jarvis",)
 
 # --- Marketplace manifest namespace -------------------------------------------
 # The key a plugin package keeps this app's own data under
@@ -93,23 +147,64 @@ DESKTOP_OUTPUT_MIRROR_DIR_NAME = "Jarvis-Output"
 MARKETPLACE_EXTENSION_NAMESPACE = "io.github.dodaios"
 LEGACY_MARKETPLACE_EXTENSION_NAMESPACES = ("io.github.personaljarvis",)
 
-WINDOWS_MUTEX_NAME = rf"Global\{PERSISTENT_COMPACT_NAME}_v1"
+# The single-instance mutex the primary desktop app holds. A primary claims the
+# current name and every earlier one, and a process that finds any of them taken
+# is a secondary: an old and a new release never run side by side
+# (``dodaios.ui.shell.single_instance``).
+WINDOWS_MUTEX_NAME = r"Global\Dodaios_v1"
+LEGACY_WINDOWS_MUTEX_NAMES = (rf"Global\{PERSISTENT_COMPACT_NAME}_v1",)
+# Kept on purpose: the taskbar groups windows, and resolves pins, by this id.
 WINDOWS_APP_USER_MODEL_ID = f"{PERSISTENT_COMPACT_NAME}.{PERSISTENT_COMPACT_NAME}"
+# Kept on purpose: the key a source install's Installed Apps entry lives under.
+# Only the DisplayName written into it follows ``LAUNCHER_ENTRY_NAME``.
 WINDOWS_UNINSTALL_REGISTRY_SUBKEY = (
     rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{PERSISTENT_COMPACT_NAME}"
 )
-WINDOWS_AUTOSTART_TASK_NAME = f"{PERSISTENT_PRODUCT_NAME} Autostart"
-WINDOWS_SHORTCUT_FILE_NAME = f"{PERSISTENT_PRODUCT_NAME}.lnk"
-WINDOWS_AUTOSTART_DESCRIPTION = f"{PERSISTENT_PRODUCT_NAME} (Autostart)"
-WINDOWS_BRANDED_LAUNCHER_FILE_NAME = f"{PERSISTENT_COMPACT_NAME}.exe"
-WINDOWS_BRANDED_LAUNCHER_DIR_NAME = PERSISTENT_COMPACT_NAME
+# The logon task. A task registered under an earlier name keeps working and
+# counts as current; only an interactive enable registers it under the current
+# name, removing the earlier one in the same elevated step
+# (``dodaios.autostart.windows``).
+WINDOWS_AUTOSTART_TASK_NAME = "Dodaios Autostart"
+LEGACY_WINDOWS_AUTOSTART_TASK_NAMES = (f"{PERSISTENT_PRODUCT_NAME} Autostart",)
+WINDOWS_AUTOSTART_DESCRIPTION = "Dodaios (Autostart)"
+LEGACY_WINDOWS_AUTOSTART_DESCRIPTIONS = (f"{PERSISTENT_PRODUCT_NAME} (Autostart)",)
+# The Start-Menu, Desktop and Startup shortcut. A shortcut under an earlier name
+# is removed only where it points into this installation.
+WINDOWS_SHORTCUT_FILE_NAME = "Dodaios.lnk"
+LEGACY_WINDOWS_SHORTCUT_FILE_NAMES = (f"{PERSISTENT_PRODUCT_NAME}.lnk",)
+# The windowed executable: the branded pythonw copy of a source install and the
+# GUI executable of the frozen build (``jarvis.spec``). Not ``Dodaios.exe``: it
+# shares a folder with the ``dodaios`` command, and Windows paths ignore case.
+# Earlier names are still found, and the frozen build still ships one, because
+# taskbar pins, scheduled tasks and shortcuts name that file.
+WINDOWS_BRANDED_LAUNCHER_FILE_NAME = "DodaiosApp.exe"
+LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES = (f"{PERSISTENT_COMPACT_NAME}.exe",)
+# ``%LOCALAPPDATA%\<name>\bin``, the per-user home of the branded copy. Not the
+# plain product name: that is the data directory beside it.
+WINDOWS_BRANDED_LAUNCHER_DIR_NAME = "DodaiosApp"
+LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES = (PERSISTENT_COMPACT_NAME,)
+# Kept on purpose: a process of an earlier release sets and reads it.
 WINDOWS_BRANDED_LAUNCH_ENV_VAR = "JARVIS_BRANDED_LAUNCH"
 
 # The bundle name: ``/Applications/<name>.app``, and the name macOS lists the
-# app under in Launchpad and in System Settings > Privacy & Security.
-MACOS_APP_NAME = PERSISTENT_PRODUCT_NAME
+# app under in Finder, Launchpad and System Settings > Privacy & Security. A
+# bundle of ours under an earlier name is renamed once, in place
+# (``dodaios.setup.macos_app_bundle``); a rename keeps its signature, and with
+# it every privacy grant, because those name the bundle id and the signing
+# requirement, never the path. The bundle ids, the login item's label and the
+# signing identity below did NOT move: a new one starts the grants over.
+MACOS_APP_NAME = "Dodaios"
+LEGACY_MACOS_APP_NAMES = (PERSISTENT_PRODUCT_NAME,)
 MACOS_APP_DIR_NAME = f"{MACOS_APP_NAME}.app"
-MACOS_EXECUTABLE_NAME = PERSISTENT_COMPACT_NAME
+LEGACY_MACOS_APP_DIR_NAMES = tuple(f"{name}.app" for name in LEGACY_MACOS_APP_NAMES)
+# Every name a bundle of ours may carry in an Applications folder, current first.
+MACOS_APP_DIR_NAMES = (MACOS_APP_DIR_NAME, *LEGACY_MACOS_APP_DIR_NAMES)
+# ``Contents/MacOS/<name>``: the same program as the Windows GUI executable
+# (``jarvis.spec`` builds both under one name). A bundle's designated
+# requirement names its bundle id and certificate, not this file, so the
+# rename keeps every privacy grant.
+MACOS_EXECUTABLE_NAME = "DodaiosApp"
+LEGACY_MACOS_EXECUTABLE_NAMES = (PERSISTENT_COMPACT_NAME,)
 MACOS_BUNDLE_ID = f"com.{PERSISTENT_SLUG}.desktop"
 # The downloadable .dmg (PyInstaller, ``jarvis.spec``) is a second, equally
 # legitimate installed app: its own bundle id and therefore its own macOS
@@ -119,11 +214,22 @@ MACOS_DMG_BUNDLE_ID = f"ai.{PERSISTENT_COMPACT_NAME.lower()}.desktop"
 MACOS_AUTOSTART_LABEL = f"com.{PERSISTENT_SLUG}.autostart"
 # Common name of the per-user self-signed code-signing certificate the
 # installer creates so the app bundle keeps one TCC identity across rebuilds.
-MACOS_SIGNING_IDENTITY_LABEL = f"{MACOS_APP_NAME} Local Signing"
+# Kept on purpose: the certificate already in a user's keychain carries it.
+MACOS_SIGNING_IDENTITY_LABEL = f"{PERSISTENT_PRODUCT_NAME} Local Signing"
 
-LINUX_APP_NAME = PERSISTENT_PRODUCT_NAME
-LINUX_DESKTOP_ENTRY_FILE_NAME = f"{PERSISTENT_SLUG}.desktop"
-LINUX_WM_CLASS = PERSISTENT_SLUG
+# The Linux desktop entry: the name the app menu lists, the entry's file name
+# (in ``applications`` and in ``autostart``) and the window class the running
+# window is pinned to. The three move together: a desktop binds a running
+# window to the entry whose ``StartupWMClass`` equals the window's class, and
+# shows that entry's icon for it. An entry under an earlier name is removed
+# only where it starts this installation, and an earlier-named autostart entry
+# that starts this installation counts as current (``dodaios.autostart.linux``).
+LINUX_APP_NAME = "Dodaios"
+LEGACY_LINUX_APP_NAMES = (PERSISTENT_PRODUCT_NAME,)
+LINUX_DESKTOP_ENTRY_FILE_NAME = "dodaios.desktop"
+LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES = (f"{PERSISTENT_SLUG}.desktop",)
+LINUX_WM_CLASS = "dodaios"
+LEGACY_LINUX_WM_CLASSES = (PERSISTENT_SLUG,)
 
 # --- Plugin entry-point groups -------------------------------------------------
 # A plugin registers under ``<namespace>.<slot>`` (``dodaios.tool``,
@@ -191,23 +297,49 @@ __all__ = [
     "CONTROL_KEY_PREFIX",
     "DEFAULT_OFFICIAL_REPO_SLUG",
     "DEFAULT_INSTALL_DIR_NAME",
+    "LEGACY_DEFAULT_INSTALL_DIR_NAMES",
+    "LEGACY_MANAGED_INSTALL_MARKERS",
+    "DELIVERABLES_DIR_NAME",
     "LEGACY_CLI_COMMAND_NAMES",
+    "LEGACY_CONFIG_FILE_NAMES",
+    "LEGACY_DELIVERABLES_DIR_NAMES",
+    "LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES",
+    "LEGACY_FALLBACK_USER_DATA_DIR_NAMES",
+    "LEGACY_OBSIDIAN_VAULT_FOLDER_NAMES",
+    "LEGACY_LAUNCHER_ENTRY_NAMES",
+    "LEGACY_MACOS_APP_DIR_NAMES",
+    "LEGACY_MACOS_APP_NAMES",
+    "LEGACY_MACOS_EXECUTABLE_NAMES",
+    "LEGACY_WINDOWS_AUTOSTART_DESCRIPTIONS",
+    "LEGACY_WINDOWS_AUTOSTART_TASK_NAMES",
+    "LEGACY_WINDOWS_BRANDED_LAUNCHER_DIR_NAMES",
+    "LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES",
+    "LEGACY_WINDOWS_SHORTCUT_FILE_NAMES",
+    "LEGACY_WINDOWS_MUTEX_NAMES",
+    "LEGACY_WINDOWS_USER_DATA_DIR_NAMES",
     "LEGACY_CONTROL_CLI_COMMAND_NAMES",
     "LEGACY_OFFICIAL_REPO_SLUGS",
     "LEGACY_PACKAGE_NAMES",
     "LEGACY_PLUGIN_GROUP_NAMESPACES",
     "DESKTOP_OUTPUT_MIRROR_DIR_NAME",
     "DISTRIBUTION_NAME",
+    "DISTRIBUTION_NAMES",
+    "LEGACY_DISTRIBUTION_NAMES",
     "FALLBACK_USER_DATA_DIR_NAME",
     "FISH_CONF_FILE_NAME",
     "KEYRING_SERVICE_NAME",
     "LAUNCHER_ENTRY_NAME",
+    "LEGACY_KEYRING_SERVICE_NAMES",
+    "LEGACY_LINUX_APP_NAMES",
+    "LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES",
+    "LEGACY_LINUX_WM_CLASSES",
     "LINUX_APP_NAME",
     "LINUX_DESKTOP_ENTRY_FILE_NAME",
     "LINUX_WM_CLASS",
     "LEGACY_MARKETPLACE_EXTENSION_NAMESPACES",
     "MARKETPLACE_EXTENSION_NAMESPACE",
     "MACOS_APP_DIR_NAME",
+    "MACOS_APP_DIR_NAMES",
     "MACOS_APP_NAME",
     "MACOS_AUTOSTART_LABEL",
     "MACOS_BUNDLE_ID",
@@ -215,10 +347,12 @@ __all__ = [
     "MACOS_EXECUTABLE_NAME",
     "MACOS_SIGNING_IDENTITY_LABEL",
     "MANAGED_INSTALL_MARKER",
+    "MANAGED_INSTALL_MARKERS",
     "MCP_AGENTS_SERVER_NAME",
     "MCP_TOOLS_SERVER_NAME",
     "LEGACY_MCP_AGENTS_SERVER_NAMES",
     "LEGACY_MCP_TOOLS_SERVER_NAMES",
+    "OBSIDIAN_VAULT_FOLDER_NAME",
     "OFFICIAL_RELEASES_LATEST_API_URL",
     "OFFICIAL_REPO_GIT_URL",
     "OFFICIAL_REPO_SLUG",

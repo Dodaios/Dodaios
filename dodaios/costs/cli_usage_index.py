@@ -585,7 +585,19 @@ def _account_roots(platform: str) -> list[Path]:
             roots.extend(p for p in folder.iterdir() if p.is_dir())
     except Exception as exc:  # noqa: BLE001 — same rule: the scan goes on
         log.debug("cli usage index: accounts folder for %s unreadable (%s)", platform, exc)
-    return roots
+    # One spelling per directory: a registered account stores the data
+    # directory under the name it had when it was added, the folder scan
+    # above yields today's name, and after the directory moved both reach the
+    # same files through the link left behind. The real path is the key.
+    return [_real_root(root) for root in roots]
+
+
+def _real_root(root: Path) -> Path:
+    try:
+        return Path(os.path.realpath(root))
+    except (OSError, ValueError):
+        # Unresolvable (gone, bad drive): the spelling given is the only one.
+        return root
 
 
 def _dedup_paths(paths: list[Path]) -> list[Path]:

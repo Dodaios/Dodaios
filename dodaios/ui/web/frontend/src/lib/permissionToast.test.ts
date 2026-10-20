@@ -206,7 +206,7 @@ describe("handlePermissionToastEvent", () => {
     handle("PermissionNeeded", episode());
 
     const t = toast();
-    expect(t.message).toBe("Personal Jarvis needs microphone access to hear you.");
+    expect(t.message).toBe("Dodaios needs microphone access to hear you.");
     expect(t.kind).toBe("warning");
     expect(t.action?.label).toBe("Open System Settings");
     expect(t.expiresAt - now).toBeGreaterThanOrEqual(PERMISSION_TOAST_TTL_MS - 50);
@@ -279,7 +279,7 @@ describe("handlePermissionToastEvent", () => {
     handle("PermissionNeeded", episode({ permissions: ["screen_recording"], reason: "restart_hint" }));
 
     const t = toast();
-    expect(t.message).toBe("Access to screen recording is on, but it only works after Personal Jarvis restarts.");
+    expect(t.message).toBe("Access to screen recording is on, but it only works after Dodaios restarts.");
     expect(t.action).toMatchObject({ label: "Quit and reopen", keepOpen: true });
     await t.action!.onAction();
     expect(restart).toHaveBeenCalledTimes(1);

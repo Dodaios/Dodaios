@@ -142,29 +142,33 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/installers"
-          for deb in personal-jarvis_*_amd64.deb; do
+          for deb in dodaios_*_amd64.deb personal-jarvis_*_amd64.deb; do
             [ -e "$deb" ] || continue
             dpkg-deb --info "$deb" > /dev/null
             echo "$deb: package metadata OK"
           done
           # An AppImage is an executable ELF runtime with the squashfs appended.
+          # Both names are the same file; each is checked as users download it.
           python - <<'PYEOF'
           import sys
-          with open("PersonalJarvis-Linux-x86_64.AppImage", "rb") as stream:
-              if stream.read(4) != b"\x7fELF":
-                  sys.exit("::error::PersonalJarvis-Linux-x86_64.AppImage is not an ELF executable")
-          print("PersonalJarvis-Linux-x86_64.AppImage: ELF runtime OK")
+          for name in ("Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"):
+              with open(name, "rb") as stream:
+                  if stream.read(4) != b"\x7fELF":
+                      sys.exit(f"::error::{name} is not an ELF executable")
+              print(f"{name}: ELF runtime OK")
           PYEOF
 
       - name: Inspect the Windows installer signature
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          $installer = Join-Path $env:RUNNER_TEMP 'installers\PersonalJarvis-Setup-x64.exe'
-          $signature = Get-AuthenticodeSignature -FilePath $installer
-          Write-Host "Authenticode: $($signature.Status) $($signature.SignerCertificate.Subject)"
-          if ($signature.Status -ne 'Valid') {
-            Write-Host "::notice::PersonalJarvis-Setup-x64.exe Authenticode status: $($signature.Status)"
+          foreach ($name in @('Dodaios-Setup-x64.exe', 'PersonalJarvis-Setup-x64.exe')) {
+            $installer = Join-Path $env:RUNNER_TEMP "installers\$name"
+            $signature = Get-AuthenticodeSignature -FilePath $installer
+            Write-Host "${name} Authenticode: $($signature.Status) $($signature.SignerCertificate.Subject)"
+            if ($signature.Status -ne 'Valid') {
+              Write-Host "::notice::$name Authenticode status: $($signature.Status)"
+            }
           }
 
       - name: Inspect the macOS disk images
@@ -173,7 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/installers"
-          for dmg in PersonalJarvis-macOS-arm64.dmg PersonalJarvis-macOS-x64.dmg; do
+          for dmg in Dodaios-macOS-arm64.dmg Dodaios-macOS-x64.dmg PersonalJarvis-macOS-arm64.dmg PersonalJarvis-macOS-x64.dmg; do
             hdiutil verify "$dmg"
             if ! spctl --assess --type open --context context:primary-signature -v "$dmg" 2>&1; then
               echo "::notice::$dmg is not accepted by Gatekeeper (unsigned or not notarized)"

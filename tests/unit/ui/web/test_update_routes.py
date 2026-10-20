@@ -622,6 +622,23 @@ def test_pending_update_write_replaces_old_result(tmp_path: Path) -> None:
     assert payload["schema"] == 1
 
 
+@pytest.mark.parametrize("name", [".dodaios-managed-install", ".jarvis-managed-install"])
+def test_the_installer_marker_counts_under_either_name(tmp_path: Path, name: str) -> None:
+    assert u._marker_path(tmp_path) is None
+    (tmp_path / name).write_text('{"profile": "headless"}\n', encoding="utf-8")
+
+    assert u._marker_path(tmp_path) == tmp_path / name
+    assert u._managed_install_profile(tmp_path) == "headless"
+
+
+def test_the_current_marker_name_is_read_first(tmp_path: Path) -> None:
+    (tmp_path / ".jarvis-managed-install").write_text('{"profile": "full"}\n', encoding="utf-8")
+    (tmp_path / ".dodaios-managed-install").write_text(
+        '{"profile": "headless"}\n', encoding="utf-8"
+    )
+    assert u._managed_install_profile(tmp_path) == "headless"
+
+
 def test_legacy_marker_falls_back_to_desktop_profile(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

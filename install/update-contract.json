@@ -4,6 +4,8 @@
   "launcher_module": "dodaios.ui.web.launcher",
   "version_file": "dodaios/__init__.py",
   "config_file": "jarvis.toml",
-  "macos_app_dir_name": "Personal Jarvis.app",
-  "macos_bundle_id": "com.personal-jarvis.desktop"
+  "config_files": ["jarvis.toml", "dodaios.toml"],
+  "macos_app_dir_name": "Dodaios.app",
+  "macos_bundle_id": "com.personal-jarvis.desktop",
+  "rollback_hook": "dodaios/setup/update_rollback.py"
 }
