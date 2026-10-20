@@ -40,6 +40,8 @@ export interface BuildArtefact {
   branch?: string;
   number?: number;
   draft?: boolean;
+  /** Code builds: the agent-chat session id of the coding run (an Agentic IDE thread). */
+  thread?: string;
   [key: string]: unknown;
 }
 

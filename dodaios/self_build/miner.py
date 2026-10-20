@@ -1,7 +1,8 @@
 """Observe: count what the person keeps asking for, without asking a model.
 
-Every finished turn of the person (voice, Jarvis chat, agent chat) arrives as
-an :class:`Observation` that holds only the person's own words. Text from web
+Every finished turn of the person (voice, Jarvis chat, agent chat) and every
+prompt they type to a coding agent in the IDE (channel ``pane``) arrives as an
+:class:`Observation` that holds only the person's own words. Text from web
 pages, tool results or other agents never gets here: the callers pass the
 typed or spoken request and nothing else, and turns an agent or a routine
 started are dropped before. The tool names the assistant used are kept as
@@ -50,7 +51,10 @@ REPEAT_TIMES: Final[int] = 3
 REPEAT_DAYS: Final[int] = 3
 #: A repeated request is only a skill candidate when the assistant needed a
 #: tool to answer it: a question it answers from knowledge needs no procedure.
+#: Work handed to a coding agent in the IDE counts as done with a tool.
 TOOL_SHARE: Final[float] = 0.5
+#: The channel of a prompt the person typed to a coding agent in the IDE.
+PANE: Final[str] = "pane"
 #: Repeated correction: twice on two days within two weeks. A correction the
 #: person has to repeat is a lesson the assistant did not learn.
 CORRECTION_TIMES: Final[int] = 2
@@ -99,6 +103,9 @@ class Observation:
     agent_id: str = ""
     lang: str = ""
     ref: str = ""
+    #: The assistant's answer, when the surface knows it. Never stored: it is
+    #: read once to tell whether a self-built memory was relied on.
+    answer: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,7 +267,12 @@ class Miner:
             evidence += failures
 
         days = len({t.day for t in turns})
-        if len(turns) >= REPEAT_TIMES and days >= REPEAT_DAYS and tools:
+        delegated = sum(1 for t in turns if t.channel == PANE)
+        if (
+            len(turns) >= REPEAT_TIMES
+            and days >= REPEAT_DAYS
+            and (tools or delegated >= len(turns) * TOOL_SHARE)
+        ):
             reasons.append("repeated")
             rungs.append(Kind.SKILL)
             evidence += turns
@@ -327,11 +339,18 @@ class Miner:
         return pairs
 
     def domain_needs(self, row: TurnRow, *, now: int) -> list[Need]:
-        """Several needs that share one tool family: the only road to a new agent."""
+        """Several needs that share one tool family: the only road to a new agent.
+
+        Turns in an agent's own chat do not count: that work already has an agent.
+        """
         families = {tool_family(t) for t in row.tools if t}
-        if not families:
+        if not families or row.agent_id:
             return []
-        recent = self.store.recent_turns(since_ms=now - WINDOW_DAYS * _DAY_MS)
+        recent = [
+            t
+            for t in self.store.recent_turns(since_ms=now - WINDOW_DAYS * _DAY_MS)
+            if not t.agent_id
+        ]
         needs: list[Need] = []
         for family in sorted(families):
             turns = [t for t in recent if any(tool_family(x) == family for x in t.tools)]

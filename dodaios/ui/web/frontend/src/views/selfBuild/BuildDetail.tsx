@@ -5,11 +5,12 @@
  * made — with the one or two actions that apply to it right now.
  */
 import type { ReactNode } from "react";
-import { ExternalLink, Loader2, X } from "lucide-react";
+import { Code2, ExternalLink, Loader2, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { useRunLocale, fmtInt } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 import { useSelfBuildDetail } from "@/hooks/useSelfBuild";
+import { openCodingThread } from "@/components/agentic/threads/openCodingThread";
 import { reachedStep, trialProgress, type Build, type BuildOutcome } from "@/lib/selfBuildApi";
 import { KindIcon, LifecycleRail, formatUsd, relativeTime } from "./shared";
 import { BuildActions, type ActionHandler } from "./BuildActions";
@@ -53,6 +54,8 @@ export function BuildDetail({
   const proof = current.proof ?? {};
   const hasProof = typeof proof.passed === "boolean";
   const artefact = current.artefact ?? {};
+  // A code build's coding run is a thread in the Agentic IDE: every step it took.
+  const thread = artefact.type === "code" && typeof artefact.thread === "string" ? artefact.thread.trim() : "";
   const outcomes = OUTCOMES.filter((o) => (current.outcomes[o] ?? 0) > 0);
 
   return (
@@ -159,6 +162,18 @@ export function BuildDetail({
                     {t("self_build.detail.open_link")}
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                   </a>
+                )}
+                {thread && (
+                  <button
+                    type="button"
+                    onClick={() => openCodingThread(thread)}
+                    title={t("self_build.detail.open_thread_title")}
+                    data-testid="build-open-thread"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-sm text-sm text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {t("self_build.detail.open_thread")}
+                    <Code2 className="h-3.5 w-3.5" aria-hidden />
+                  </button>
                 )}
               </p>
             ) : (

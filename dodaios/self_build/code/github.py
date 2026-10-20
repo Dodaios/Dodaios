@@ -267,11 +267,31 @@ def _first_error(payload: dict[str, Any]) -> str:
     return ""
 
 
+class _Secret:
+    """Holds the token so a logged traceback or ``repr`` never shows it."""
+
+    __slots__ = ("_value",)
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def reveal(self) -> str:
+        return self._value
+
+    def __repr__(self) -> str:
+        return "<token redacted>"
+
+    __str__ = __repr__
+
+
 class GitHubApi:
     """:class:`GitHub` over GraphQL with the person's token."""
 
     def __init__(self, token: str) -> None:
-        self._token = token
+        self._token = _Secret(token)
+
+    def __repr__(self) -> str:
+        return "GitHubApi(<token redacted>)"
 
     @classmethod
     def connect(cls) -> GitHubApi | None:
@@ -279,7 +299,7 @@ class GitHubApi:
         return cls(cred.token) if cred is not None else None
 
     def _q(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
-        return github_link.graphql(self._token, query, variables or {})
+        return github_link.graphql(self._token.reveal(), query, variables or {})
 
     def viewer(self) -> Viewer:
         data = (self._q(_VIEWER).get("data") or {}).get("viewer") or {}
