@@ -53,7 +53,12 @@ from pathlib import Path
 from typing import TypeVar
 
 from dodaios.core.branding import (
+    LEGACY_PACKAGE_NAMES,
+    LEGACY_WINDOWS_AUTOSTART_TASK_NAMES,
+    LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
     WINDOWS_AUTOSTART_DESCRIPTION,
+    WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
 )
 from dodaios.core.branding import (
     WINDOWS_AUTOSTART_TASK_NAME as TASK_NAME,
@@ -63,6 +68,7 @@ from dodaios.core.branding import (
 )
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
+from .paths import same_path
 from .protocol import AutostartStatus, LaunchSpec
 
 log = logging.getLogger(__name__)
@@ -74,9 +80,26 @@ _T = TypeVar("_T")
 # without the multi-minute Explorer startup throttle.
 _LOGON_DELAY_SECONDS = 20
 
-# Divergent names the old wizard/install paths used — removed on every write so
-# Jarvis never auto-starts twice.
-_LEGACY_NAMES = ("Jarvis.lnk", "Jarvis.bat", "Personal Jarvis.bat")
+# Divergent names the old wizard/install paths used, and the startup shortcut
+# under the product's earlier name: removed on every write so the app never
+# auto-starts twice.
+_LEGACY_NAMES = (
+    "Jarvis.lnk",
+    "Jarvis.bat",
+    "Personal Jarvis.bat",
+    *LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
+)
+# The branded launcher under every name it has had. A logon task written by an
+# earlier release starts the earlier file, which the install still ships beside
+# the current one (``jarvis.spec``): the same program in the same folder.
+_BRANDED_LAUNCHER_NAMES = frozenset(
+    name.lower()
+    for name in (WINDOWS_BRANDED_LAUNCHER_FILE_NAME, *LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES)
+)
+# The import name the launcher module is started under now. A task written
+# before the package moved names it by an earlier one, which still resolves to
+# the same module (the compatibility package), so both spell the same command.
+_PACKAGE_NAME = __name__.split(".", 1)[0]
 _READBACK_SENTINEL = "<<<JARVIS_LNK>>>"
 _QUERY_SENTINEL = "<<<JARVIS_TASK>>>"
 
@@ -107,8 +130,39 @@ def _shortcut_path() -> Path:
     return _startup_dir() / _SHORTCUT_NAME
 
 
-def _norm(p: str | None) -> str:
-    return ntpath.normcase(ntpath.normpath(p)) if p else ""
+def _same_program(actual: str, expected: str) -> bool:
+    """Do two executable paths start the same program?
+
+    The same path does (by text or, through a link left at an earlier install
+    folder, by file: ``same_path``), and so does the branded launcher under its
+    current and its earlier name in one folder, as long as the earlier file is
+    still there: the install ships both.
+    """
+    if same_path(actual, expected, windows=True):
+        return True
+    # ``ntpath.split`` splits at either separator and keeps the text as it is,
+    # so ``same_path`` can still find the folder on disk by its real spelling.
+    actual_dir, actual_name = ntpath.split(actual) if actual else ("", "")
+    expected_dir, expected_name = ntpath.split(expected) if expected else ("", "")
+    return (
+        bool(actual_dir)
+        and same_path(actual_dir, expected_dir, windows=True)
+        and actual_name.lower() in _BRANDED_LAUNCHER_NAMES
+        and expected_name.lower() in _BRANDED_LAUNCHER_NAMES
+        and os.path.isfile(actual)
+    )
+
+
+def _canonical_arguments(arguments: str) -> str:
+    """``arguments`` with a module started under an earlier package name renamed."""
+    parts = arguments.split()
+    for index in range(1, len(parts)):
+        if parts[index - 1] != "-m":
+            continue
+        head, dot, tail = parts[index].partition(".")
+        if head in LEGACY_PACKAGE_NAMES:
+            parts[index] = f"{_PACKAGE_NAME}{dot}{tail}"
+    return " ".join(parts)
 
 
 def _current_user_id() -> str:
@@ -149,9 +203,18 @@ def _ps_lit(value: object) -> str:
 
 
 def build_register_task_script(
-    task_name: str, spec: LaunchSpec, user_id: str, *, delay_seconds: int = _LOGON_DELAY_SECONDS
+    task_name: str,
+    spec: LaunchSpec,
+    user_id: str,
+    *,
+    delay_seconds: int = _LOGON_DELAY_SECONDS,
+    replaced_task_names: tuple[str, ...] = (),
 ) -> str:
     """Pure: the elevated PowerShell that registers the logon task.
+
+    ``replaced_task_names`` are removed in the same elevated step, AFTER the new
+    task is registered: a failed registration leaves them untouched, so the
+    login start never ends up with no task at all and never with two.
 
     ``RunLevel=Limited`` → the launched Jarvis is NOT elevated (mic access);
     ``AtLogOn`` + ``Delay`` → fires a few seconds after login, off the Explorer
@@ -178,8 +241,18 @@ def build_register_task_script(
         f"  Register-ScheduledTask -TaskName '{_ps_lit(task_name)}' -Action $action "
         "-Trigger $trigger -Principal $principal -Settings $settings "
         f"-Description '{_ps_lit(WINDOWS_AUTOSTART_DESCRIPTION)}' -Force | Out-Null\n"
+        f"{_unregister_lines(replaced_task_names)}"
         "  exit 0\n"
         "} catch { exit 1 }\n"
+    )
+
+
+def _unregister_lines(task_names: tuple[str, ...]) -> str:
+    """Pure: one idempotent ``Unregister-ScheduledTask`` line per name."""
+    return "".join(
+        f"  Unregister-ScheduledTask -TaskName '{_ps_lit(name)}' -Confirm:$false "
+        "-ErrorAction SilentlyContinue\n"
+        for name in task_names
     )
 
 
@@ -194,7 +267,7 @@ def _ps_emit_field(sentinel: str, expression: str) -> str:
     profile or project path came back corrupted, and some do not survive at all:
     byte 0x81 (u-umlaut in cp850) has no cp1252 mapping, so it RAISES inside
     subprocess's reader thread and the caller gets nothing. Either way
-    ``_norm(readback) != _norm(spec)``, so the task/shortcut was reported as
+    the read-back never equalled the spec, so the task/shortcut was reported as
     "points at a different install" forever — at every single login, on every
     profile whose name is not plain ASCII. Base64 is pure ASCII, so it survives
     any code page byte for byte and the value is reconstructed exactly (AP-7's
@@ -229,13 +302,12 @@ def build_query_task_script(task_name: str) -> str:
     )
 
 
-def build_unregister_task_script(task_name: str) -> str:
-    """Pure: elevated PowerShell that removes the task (idempotent)."""
+def build_unregister_task_script(task_name: str, *more_task_names: str) -> str:
+    """Pure: elevated PowerShell that removes the task(s) (idempotent), in one step."""
     return (
         "$ErrorActionPreference = 'Stop'\n"
         "try {\n"
-        f"  Unregister-ScheduledTask -TaskName '{_ps_lit(task_name)}' -Confirm:$false "
-        "-ErrorAction SilentlyContinue\n"
+        f"{_unregister_lines((task_name, *more_task_names))}"
         "  exit 0\n"
         "} catch { exit 1 }\n"
     )
@@ -371,7 +443,7 @@ def _icon_matches(actual: str, expected: str | None) -> bool:
     if expected is None:
         return True
     path = (actual or "").rsplit(",", 1)[0].strip().strip('"')
-    return bool(path) and _norm(path) == _norm(expected)
+    return bool(path) and same_path(path, expected, windows=True)
 
 
 def _tag_shortcut_aumid(link: Path) -> bool:
@@ -680,13 +752,20 @@ class WindowsAutostart:
     The side-effecting operations (task probe, elevated run, shortcut I/O) are
     injectable so the decision logic is CI-provable without a real Task Scheduler,
     UAC prompt, or ``WScript.Shell``.
+
+    The task may still carry an earlier name (``legacy_task_names``). One that
+    starts this install counts as current, so the silent boot reconcile never
+    needs elevation for the rename; an interactive enable registers the task
+    under the current name and removes the earlier one in the same elevated
+    step, and an uninstall removes every name.
     """
 
     def __init__(
         self,
         *,
         task_name: str = TASK_NAME,
-        task_probe: Callable[[], _TaskInfo | None] | None = None,
+        legacy_task_names: tuple[str, ...] = LEGACY_WINDOWS_AUTOSTART_TASK_NAMES,
+        task_probe: Callable[[str], _TaskInfo | None] | None = None,
         run_elevated: Callable[[str], bool] | None = None,
         shortcut_present: Callable[[], bool] | None = None,
         shortcut_matches: Callable[[LaunchSpec], bool] | None = None,
@@ -694,32 +773,51 @@ class WindowsAutostart:
         remove_shortcut: Callable[[], None] | None = None,
     ) -> None:
         self._task_name = task_name
+        self._legacy_task_names = tuple(name for name in legacy_task_names if name != task_name)
         self._path = _shortcut_path()
         self._task_probe = task_probe or self._default_task_probe
         self._run_elevated = run_elevated or _run_powershell_elevated
-        self._shortcut_present = shortcut_present or (lambda: self._path.exists())
+        self._shortcut_present = shortcut_present or self._default_shortcut_present
         self._shortcut_matches = shortcut_matches or self._default_shortcut_matches
         self._write_shortcut = write_shortcut or self._default_write_shortcut
         self._remove_shortcut = remove_shortcut or self._default_remove_shortcut
 
     # ---- entry helpers -----------------------------------------------------
 
-    def _task_entry_path(self) -> str:
-        return f"Task Scheduler\\{self._task_name}"
+    def _task_entry_path(self, task_name: str | None = None) -> str:
+        return f"Task Scheduler\\{task_name or self._task_name}"
+
+    def _find_task(self) -> tuple[str, _TaskInfo] | None:
+        """The logon task and the name it is registered under, current name first.
+
+        An earlier name is only asked for while the current one is absent, so
+        an install whose task already moved pays for one probe.
+        """
+        for name in (self._task_name, *self._legacy_task_names):
+            info = self._task_probe(name)
+            if info is not None:
+                return name, info
+        return None
 
     @staticmethod
     def _task_matches(info: _TaskInfo, spec: LaunchSpec) -> bool:
+        # The same file counts, not only the same text: a task written before
+        # the install folder moved reaches the app through the link left at
+        # the earlier path. Judged stale, it could not be rewritten without an
+        # elevation prompt, and the shortcut written instead would start the
+        # app a second time at login.
         return (
-            _norm(info.execute) == _norm(spec.program)
-            and info.arguments.strip() == " ".join(spec.args).strip()
-            and _norm(info.working_dir) == _norm(spec.working_dir)
+            _same_program(info.execute, spec.program)
+            and _canonical_arguments(info.arguments) == _canonical_arguments(" ".join(spec.args))
+            and same_path(info.working_dir, spec.working_dir, windows=True)
         )
 
     # ---- protocol ----------------------------------------------------------
 
     def status(self, spec: LaunchSpec) -> AutostartStatus:
-        info = self._task_probe()
-        if info is not None:
+        found = self._find_task()
+        if found is not None:
+            task_name, info = found
             action_matches = self._task_matches(info, spec)
             # A startup shortcut left beside a matching task launches the app a
             # second time at login, and with whatever working folder it was
@@ -759,7 +857,7 @@ class WindowsAutostart:
                 supported=True,
                 installed=True,
                 matches_spec=action_matches and info.enabled and not leftover_shortcut,
-                entry_path=self._task_entry_path(),
+                entry_path=self._task_entry_path(task_name),
                 detail=detail,
             )
         if self._shortcut_present():
@@ -786,8 +884,14 @@ class WindowsAutostart:
         # "Correct" includes being switched ON: a disabled task matches the spec
         # but never fires, so it must fall through to the refresh/fallback path
         # below instead of being reported as done.
-        info = self._task_probe()
-        if info is not None and info.enabled and self._task_matches(info, spec):
+        found = self._find_task()
+        info = found[1] if found is not None else None
+        task_current = info is not None and info.enabled and self._task_matches(info, spec)
+        # A task under an earlier name that starts this install is current
+        # too. Only an interactive enable moves it to the current name below:
+        # that needs the one elevation a silent boot must never ask for.
+        under_current_name = found is not None and found[0] == self._task_name
+        if task_current and (under_current_name or not interactive):
             # ...except for a leftover fallback .lnk. A boot whose task probe
             # transiently failed (PowerShell is slow under login load, and a
             # failed query is treated as "no task") writes the shortcut, and
@@ -805,12 +909,23 @@ class WindowsAutostart:
 
         if interactive:
             user_id = _current_user_id()
-            script = build_register_task_script(self._task_name, spec, user_id)
+            script = build_register_task_script(
+                self._task_name, spec, user_id, replaced_task_names=self._legacy_task_names
+            )
             if self._run_elevated(script):
                 # Task created → remove the throttled fallback so Jarvis won't
                 # start twice (once via task, once via the .lnk).
                 self._remove_shortcut()
                 log.info("Windows autostart scheduled task registered: %s", self._task_name)
+                return self.status(spec)
+            if task_current:
+                # The rename was declined, but the task under its earlier name
+                # still starts this install at login. A fallback shortcut beside
+                # it would start the app a second time.
+                log.info(
+                    "Autostart task rename not granted (UAC declined) — the task "
+                    "under its earlier name keeps starting this install."
+                )
                 return self.status(spec)
             log.info(
                 "Autostart task not granted (UAC declined) — using startup shortcut fallback."
@@ -837,11 +952,12 @@ class WindowsAutostart:
 
     def uninstall(self, *, interactive: bool = False) -> AutostartStatus:
         self._remove_shortcut()  # non-elevated, always
-        info = self._task_probe()
-        if info is not None and interactive:
-            self._run_elevated(build_unregister_task_script(self._task_name))
-            info = self._task_probe()  # did the elevated removal actually land?
-        if info is not None:
+        registered = self._registered_task_names()
+        if registered and interactive:
+            # Every name in one elevated step: one prompt, never two.
+            self._run_elevated(build_unregister_task_script(*registered))
+            registered = self._registered_task_names()  # did the removal land?
+        if registered:
             # Unregistering the task needs elevation: the silent boot reconcile
             # must never prompt, and an interactive user can decline the UAC
             # prompt. Reporting "disabled" in either case was a lie — the
@@ -855,7 +971,7 @@ class WindowsAutostart:
                 supported=True,
                 installed=True,
                 matches_spec=False,
-                entry_path=self._task_entry_path(),
+                entry_path=self._task_entry_path(registered[0]),
                 detail=(
                     "Startup shortcut removed, but the scheduled task still starts "
                     "Dodaios at login — turn instant start off in Settings and "
@@ -870,18 +986,26 @@ class WindowsAutostart:
             detail="Autostart disabled.",
         )
 
+    def _registered_task_names(self) -> tuple[str, ...]:
+        """Every name, current and earlier, a logon task is registered under."""
+        return tuple(
+            name
+            for name in (self._task_name, *self._legacy_task_names)
+            if self._task_probe(name) is not None
+        )
+
     # ---- real (live) default operations ------------------------------------
 
-    def _default_task_probe(self) -> _TaskInfo | None:
+    def _default_task_probe(self, task_name: str) -> _TaskInfo | None:
         try:
-            return _query_task_in_process(self._task_name)
+            return _query_task_in_process(task_name)
         except LookupError:
             pass  # no pywin32 → the PowerShell query below
         except Exception as exc:  # noqa: BLE001 — query failure → treat as absent
             log.debug("scheduled-task query failed: %s", exc)
             return None
         try:
-            result = _run_powershell(build_query_task_script(self._task_name))
+            result = _run_powershell(build_query_task_script(task_name))
         except Exception as exc:  # noqa: BLE001 — query failure → treat as absent
             log.debug("scheduled-task query failed: %s", exc)
             return None
@@ -907,11 +1031,18 @@ class WindowsAutostart:
             return False
         target, args, workdir, icon = fields[:4]
         return (
-            _norm(target) == _norm(spec.program)
+            same_path(target, spec.program, windows=True)
             and args.strip() == " ".join(spec.args).strip()
-            and _norm(workdir) == _norm(spec.working_dir)
+            and same_path(workdir, spec.working_dir, windows=True)
             and _icon_matches(icon, _resolve_app_icon())
         )
+
+    def _default_shortcut_present(self) -> bool:
+        # A startup entry under an earlier name starts the app just the same, so
+        # it counts: beside a task it is a leftover, and alone it is rewritten
+        # under the current name.
+        startup = _startup_dir()
+        return self._path.exists() or any((startup / name).exists() for name in _LEGACY_NAMES)
 
     def _remove_legacy(self) -> None:
         startup = _startup_dir()

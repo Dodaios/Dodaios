@@ -511,5 +511,16 @@
   },
   "harness": {
     "step_progress": "Step {done} of {total} done."
+  },
+  "self_build": {
+    "proposal": {
+      "memory": "Remember what you keep correcting: \"{request}\".",
+      "skill": "A skill for what you keep asking: \"{request}\".",
+      "routine": "A routine that does this before you ask: \"{request}\".",
+      "agent": "A specialised agent for the work behind \"{request}\"."
+    },
+    "case": {
+      "counted": "Asked {count} times on {days} different days."
+    }
   }
 }

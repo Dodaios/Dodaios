@@ -4,7 +4,7 @@
 This gate models the two installer phases users actually receive:
 
 1. the universal, hash-pinned ``requirements.txt`` base install;
-2. that base plus the advertised ``personal-jarvis[full]`` profile.
+2. that base plus the advertised ``dodaios[full]`` profile.
 
 For every supported CPython/OS/architecture cell, uv produces a target-specific
 PEP 751 lock. Only packages whose markers are active in that cell are checked.
@@ -718,7 +718,7 @@ def _compile_command(
     profile: str,
 ) -> list[str]:
     sources = [str(REQUIREMENTS_TXT), str(PYPROJECT)]
-    extra_flags: list[str] = ["--no-emit-package", "personal-jarvis"]
+    extra_flags: list[str] = ["--no-emit-package", "dodaios"]
     if profile == "full":
         extra_flags.extend(("--extra", "full"))
     return [

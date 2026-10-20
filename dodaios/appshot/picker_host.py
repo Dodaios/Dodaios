@@ -85,15 +85,19 @@ class PickerHost:
                 await reader  # reap closes stdout, including a stuck startup
             raise
 
-    async def pick(self, timeout_s: float, language: str) -> tuple[Any, int | None, bool]:
+    async def pick(
+        self, timeout_s: float, language: str, *, keep_area: bool = False
+    ) -> tuple[Any, int | None, bool]:
         async with self._lock:
             self._active = asyncio.current_task()
             try:
-                return await self._pick(timeout_s, language)
+                return await self._pick(timeout_s, language, keep_area)
             finally:
                 self._active = None
 
-    async def _pick(self, timeout_s: float, language: str) -> tuple[Any, int | None, bool]:
+    async def _pick(
+        self, timeout_s: float, language: str, keep_area: bool
+    ) -> tuple[Any, int | None, bool]:
         started = time.perf_counter()
         proc = await self._ensure()
         try:
@@ -107,7 +111,9 @@ class PickerHost:
         timed_out = False
         try:
             await asyncio.to_thread(
-                self._send, proc, {"cmd": wire.CMD_START, "language": language, **layout}
+                self._send,
+                proc,
+                {"cmd": wire.CMD_START, "language": language, "keep_area": keep_area, **layout},
             )
             loop = asyncio.get_running_loop()
             escape = loop.create_task(region._escape_cancels(proc), name="appshot-region-esc")
@@ -120,8 +126,12 @@ class PickerHost:
                     "appshot: picker visible in %.1f ms", (time.perf_counter() - started) * 1000
                 )
 
+            def option(payload: dict[str, Any]) -> None:
+                if isinstance(payload.get("keep_area"), bool):
+                    loop.call_soon_threadsafe(_remember_keep_area, payload["keep_area"])
+
             reader = asyncio.create_task(
-                asyncio.to_thread(region._read_result, proc, marking, ready)
+                asyncio.to_thread(region._read_result, proc, marking, ready, option)
             )
             try:
                 payload = await asyncio.wait_for(asyncio.shield(reader), timeout_s)
@@ -147,6 +157,29 @@ class PickerHost:
                 await active
         async with self._lock:
             await self._dispose()
+
+
+#: Saves of the "adjust before taking" switch still being written.
+_saving: set[asyncio.Task] = set()
+
+
+def _remember_keep_area(keep: bool) -> None:
+    """Write the switch into ``[appshot].region_keep_area`` off the event loop."""
+
+    def write() -> None:
+        from dodaios.core.config_writer import set_appshot_settings  # noqa: PLC0415
+
+        set_appshot_settings({"region_keep_area": keep})
+
+    async def save() -> None:
+        try:
+            await asyncio.to_thread(write)
+        except Exception:  # noqa: BLE001 - the switch still holds for this selection
+            log.warning("appshot: could not remember the area switch", exc_info=True)
+
+    task = asyncio.get_running_loop().create_task(save(), name="appshot-keep-area")
+    _saving.add(task)
+    task.add_done_callback(_saving.discard)
 
 
 _host: PickerHost | None = None

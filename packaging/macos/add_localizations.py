@@ -1,4 +1,4 @@
-"""Write the translated ``InfoPlist.strings`` into a built ``Personal Jarvis.app``.
+"""Write the translated ``InfoPlist.strings`` into a built ``Dodaios.app``.
 
 PyInstaller's ``BUNDLE`` writes the base (English) ``Info.plist`` and, through
 ``jarvis.spec``, the ``CFBundleLocalizations`` key. The per-language strings that
@@ -13,7 +13,7 @@ importable on the build machine). The managed source-install app writes the same
 files itself (``dodaios.setup.macos_app_bundle``), so both bundles show the same
 sentences.
 
-    python packaging/macos/add_localizations.py --app "dist/Personal Jarvis.app"
+    python packaging/macos/add_localizations.py --app "dist/Dodaios.app"
 
 Exit codes: 0 = written, 1 = the app bundle is not usable (no ``Contents`` folder).
 """
@@ -50,7 +50,7 @@ def add_localizations(app: Path) -> list[Path]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--app", required=True, type=Path, help="the built Personal Jarvis.app")
+    parser.add_argument("--app", required=True, type=Path, help="the built Dodaios.app")
     args = parser.parse_args(argv)
     try:
         written = add_localizations(args.app)

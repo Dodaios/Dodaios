@@ -80,6 +80,10 @@ class RegionUnavailable(RuntimeError):
 _language: contextvars.ContextVar[str] = contextvars.ContextVar(
     "appshot_picker_language", default="en"
 )
+#: "Adjust the area before taking it" for the picker being started.
+_keep_area: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "appshot_picker_keep_area", default=False
+)
 
 #: One picker at a time: a second shortcut press, the page button and the
 #: voice tool must not stack overlays (one Esc would cancel all of them).
@@ -316,11 +320,13 @@ def _spawn(language: str = "en", *, resident: bool = False) -> subprocess.Popen[
 def _read_result(
     proc: subprocess.Popen[str], on_marking: Callable[[], None] | None = None,
     on_ready: Callable[[], None] | None = None,
+    on_option: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any] | None:
     """Block until the picker reports its selection; ``None`` on EOF.
 
-    ``on_marking`` runs (on this reader thread) once the user has chosen an
-    area and the marking toolbar is up.
+    ``on_marking`` runs (on this reader thread) once the user has marked
+    something, so the picker's own Esc may close a text box from then on;
+    ``on_option`` with each switch the user flips in the toolbar.
     """
     from dodaios.appshot import picker as wire  # noqa: PLC0415
 
@@ -337,6 +343,9 @@ def _read_result(
         if event == wire.EVENT_MARKING and on_marking is not None:
             with contextlib.suppress(Exception):  # a lost hint only keeps the global Esc
                 on_marking()
+        if event == wire.EVENT_OPTION and on_option is not None:
+            with contextlib.suppress(Exception):  # a lost switch is only not remembered
+                on_option(payload)
     return None
 
 
@@ -420,11 +429,17 @@ def grab_preview(screen: Any) -> Any | None:
 
 
 async def pick_region(
-    *, timeout_s: float = PICK_TIMEOUT_S, language: str = "en", trace_id: UUID | None = None,
+    *,
+    timeout_s: float = PICK_TIMEOUT_S,
+    language: str = "en",
+    keep_area: bool = False,
+    trace_id: UUID | None = None,
 ) -> Selection | None:
     """Let the user drag a rectangle and mark it up. ``None`` = cancelled or timed out.
 
-    ``language`` is the toolbar's tooltip language (``[ui].language``).
+    ``language`` is the toolbar's tooltip language (``[ui].language``);
+    ``keep_area`` keeps a released area to adjust it before it is taken
+    (``[appshot].region_keep_area``), instead of taking it at once.
     Raises :class:`RegionUnavailable` when no picker can run on this host.
     """
     global _picking
@@ -441,9 +456,11 @@ async def pick_region(
 
         await require_screen_recording_async("appshot", trace_id=trace_id)
         token = _language.set(language or "en")
+        keep_token = _keep_area.set(bool(keep_area))
         try:
             payload, code, timed_out = await _run_picker(timeout_s)
         finally:
+            _keep_area.reset(keep_token)
             _language.reset(token)
     finally:
         _picking = False
@@ -474,7 +491,9 @@ async def _run_picker(timeout_s: float) -> tuple[dict[str, Any] | None, int | No
     from dodaios.appshot.picker_host import get_picker_host
 
     try:
-        return await get_picker_host().pick(timeout_s, _language.get())
+        return await get_picker_host().pick(
+            timeout_s, _language.get(), keep_area=_keep_area.get()
+        )
     except (OSError, TimeoutError) as exc:
         log.warning("appshot: area picker could not be started", exc_info=True)
         raise RegionUnavailable("The selection overlay could not be started.") from exc
