@@ -1,1 +1,0 @@
-const o={holodeck:{room:"Holocubierta",program:"Programa de la holocubierta",loading:"Cargando el programa…",missing:"Este programa no está en la biblioteca de la holocubierta."}},a={ship:o};export{a as default,o as ship};
