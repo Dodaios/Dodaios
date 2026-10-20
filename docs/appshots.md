@@ -10,7 +10,7 @@ text — and hands it to the conversation as context. Settings live under
 | Trigger | What happens |
 |---|---|
 | **Window shortcut** — both Alt keys at once by default (both Option keys on a Mac) | The front window is captured and delivered per **Appshot destination**. |
-| **Area shortcut** — both Shift keys at once by default | Every screen dims; drag a rectangle, mark it up right there with the toolbar that docks under it, and Enter captures exactly that part with your markings and delivers it the same way. Esc or a right-click cancels and sends nothing. |
+| **Area shortcut** — both Shift keys at once by default | Every screen dims with the marking toolbar already at the top. Drag a rectangle (or click a window) and letting go captures exactly that part at once, with whatever you marked on the screen before, and delivers it the same way. Esc or a right-click cancels and sends nothing. |
 | **Voice or chat** — "take an appshot", "mach einen Appshot", "haz un appshot" | The turn that asked captures the front window and answers with it. Only an explicit request for the whole screen ("an appshot of my full screen") captures the monitor the cursor is on instead — the live model's `take_appshot` passes `scope: "screen"` for it. |
 | **Try it** buttons on the Appshots page | "Take appshot in 3 s" waits three seconds so you can switch windows; "Select area" opens the area picker at once. Both then behave like the shortcuts. |
 
@@ -61,27 +61,49 @@ blur previews, markings and windows while keeping Qt loaded. The picker provides
   beside it show the position — while dragging, the width and height in real
   pixels. No lens, no boxed labels, no banner;
 - hovering lifts the window under the pointer out of the dim, and a click
-  without a drag takes exactly that window;
+  without a drag takes exactly that window. On Windows it offers the parts
+  inside the window too (a sidebar, a file list, the page, a panel, a
+  picture): the smallest part under the pointer lights up as soon as the
+  window has been read (typically 10-200 ms), the mouse wheel steps out to the larger
+  parts around it and the whole window (and back in), and a click takes
+  what is lit;
 - a drag clears the dim and tints the selected area a translucent grey
   with one thin border.
 
-### Marking up before the shot
+### Marking up, before or after choosing the area
 
-Letting go of the drag (or clicking a window) does not take the shot yet. The
-area stays on screen with eight resize handles (they are the crop), its size
-in pixels above its corner, and a toolbar docked under it (above it, or
-inside it, when there is no room). Everything drawn here is what the
-assistant sees, so it can be pointed at directly. The tools, keys and looks
-are the same as in the full editor below:
+The marking toolbar is up the moment the screens dim, centred at the top of
+the screen under the pointer (it follows the pointer to another screen until
+something is marked there). The **area** tool is in hand: drag a rectangle,
+or click a window, and letting go takes the appshot at once. There is no
+second step to confirm it.
+
+To point at something, pick a drawing tool first (its button, its letter,
+Tab or the middle mouse button), draw anywhere on the frozen screen, then go
+back to the area tool (K, Tab or the middle button) and drag the area: the
+appshot carries every marking inside it. Space takes the whole screen with
+its markings. With the area tool, a press on a marking moves that marking;
+hold Ctrl to start the area right on top of it.
+
+**Adjust before taking** (the frame button next to Copy) switches to the
+older flow and is remembered (`[appshot].region_keep_area`): a released area
+stays on screen with eight resize handles (they are the crop) and its size
+in pixels above its corner; drag inside it with the area tool to move it,
+mark it up, then Enter, a double-click in it or the check button takes it.
+The toolbar moves under the area when the area would sit under it.
+
+Everything drawn is what the assistant sees, so it can be pointed at
+directly. The tools, keys and looks are the same as in the full editor below:
 
 | Key | Tool | |
 |---|---|---|
+| K | Area (default) | Drag or click a window; letting go takes the appshot (the editor's crop key) |
 | V | Select and move | Click a marking to pick it, drag to move it, Delete removes it, arrow keys nudge it |
 | R | Rectangle | Shift = square |
 | F | Filled rectangle | Shift = square |
 | E | Ellipse | Shift = circle |
 | L | Line | Shift snaps to 45 degrees |
-| A | Arrow (default) | Tapered, classic or two heads; Shift snaps to 45 degrees |
+| A | Arrow | Tapered, classic or two heads; Shift snaps to 45 degrees. The first tool Tab goes to |
 | T | Text | Click, type; Enter finishes, Shift+Enter is a new line, Ctrl+V pastes; plain, label or outline look |
 | P | Pixelate / blur | Hides what is under the box |
 | H | Spotlight | Dims everything outside the box |
@@ -90,8 +112,8 @@ are the same as in the full editor below:
 | M | Highlighter | Wide translucent stroke |
 | B | Background | Puts the area on a gradient or solid frame |
 
-Tools with looks (arrow, text, pixelate/blur, background) show them in a
-second row under the toolbar. Colours: eight presets. Size: keys 1-5, the
+Tools with looks (arrow, text, pixelate/blur, background) show them right
+after the tools, in the same row. Colours: eight presets. Size: keys 1-5, the
 size button or the mouse wheel (new text and step markers follow it). Ctrl+Z
 / Ctrl+Y undo and redo. Every marking shows its points right after it is
 drawn (the previous one loses them), and any drawing tool takes a drawn
@@ -101,18 +123,22 @@ and one in the middle that bends them into a curve, boxes and strokes one at
 each corner, a step marker one on its rim, and text one at each corner —
 dragging that scales the text, font size and all, from the opposite corner. A colour, size or
 look chosen then changes that marking. Double-clicking a text (with V or T)
-edits it. Dragging an area handle resizes the area at any time; a press
-outside an unmarked area, or a right-click on it, starts a new selection.
+edits it. A right-click on a marking removes it. With a kept area, its
+handles resize it at any time, and a right-click on nothing drops it so a new
+one can be drawn.
 
 Finishing:
 
 | Key / button | Result |
 |---|---|
-| Enter / check button | Take the appshot with the markings and deliver it |
+| Letting go of the area drag, or clicking a window | Take that area with the markings and deliver it |
+| Space | Take the whole screen with the markings |
+| Enter / check button | Take the kept area (or the whole screen, when none is kept) with the markings |
+| Double-click in a kept area | The same as Enter |
 | Ctrl+C / Copy | The same, and the finished picture goes to the clipboard |
 | Ctrl+S / Save | The same, and a PNG goes to `~/Downloads` |
 | Ctrl+E / Editor | The same, and the full appshot editor opens on it |
-| Esc / cross | Cancel; nothing is captured |
+| Esc / cross / right-click on nothing | Cancel; nothing is captured |
 
 The capture itself is unchanged: after the overlay closes, Screen Context
 grabs the area (denylist, redaction and all), and only that finished picture
@@ -122,15 +148,26 @@ stretched to the capture's size, then the background frame if one was
 chosen. The markings never show anything the
 privacy filter removed. A marked appshot carries the same note as an editor
 edit (the markings are the user's), and the corner card's thumbnail shows
-them too. While the toolbar is up the global Esc stops cancelling, so Esc can
-end a text box without throwing the selection away.
+them too. Once something is marked the global Esc stops cancelling, so Esc
+can end a text box without throwing the markings away. On Windows the picker
+takes the keyboard when it opens, so Space, Tab and the tool letters work
+before the first click.
 
 The picker reports the rectangle as fractions of the screen it was drawn on;
 the app maps that back to capture pixels (`dodaios/appshot/region.py`), so
 mixed-DPI setups capture exactly what was outlined. A selection stays on one
 screen. The window list for snapping is read before the overlay appears and
 skips minimized and (on Windows) cloaked windows; where no list is available
-(Wayland) only dragging works. The picker gives up after fifteen minutes
+(Wayland) only dragging works. The parts of a window come from UI Automation
+(`dodaios/appshot/picker/elements.py`): one cached query per window on a
+worker thread, the window under the pointer first, each window read once per
+pick. Only containers and pictures count (panes, groups, documents, lists,
+trees, tables, toolbars, tabs, text areas, images); single buttons, rows,
+items, links and web components are left out, and so is any part under
+40 px a side, under 1.5 % of the window, or mostly hidden under another
+window. Nested parts that are nearly the same box count as one wheel step. Off
+Windows, and for windows that expose no parts, hovering snaps to whole
+windows as before. The picker gives up after fifteen minutes
 without a result.
 
 A selected area is about pixels, not about the window in front: unlike a window
@@ -434,6 +471,7 @@ and served with `Cache-Control: no-store`.
 |---|---|---|
 | `hotkey` | `"alt+alt"` | Window appshot. `alt+alt` / `shift+shift` / `ctrl+ctrl` = both keys of that pair; any other combo in the shared hotkey syntax; `""` = off |
 | `region_hotkey` | `"shift+shift"` | Area appshot, same syntax. Must differ from `hotkey` (the app refuses one key for both) |
+| `region_keep_area` | `false` | `false`: letting go of the area drag takes the appshot at once. `true`: the area stays to be adjusted and marked; Enter or a double-click takes it. The picker's "Adjust before taking" button flips it |
 
 Both shortcuts are changed on the Appshots page: **Change** records the next
 key gesture (hold the keys, then let go; Esc cancels), the X turns the
@@ -455,7 +493,7 @@ original any-order behaviour.
 |---|---|---|---|---|
 | Both-Alt shortcut | `GetAsyncKeyState` (AltGr counts as right Alt) | `CGEventSourceKeyState`, needs the Input Monitoring grant; a silent check (never a prompt) reports the shortcut unavailable and names the grant when it is missing | `XQueryKeymap` via python-xlib | Unavailable, reason shown on the page; voice and the button still work where capture works |
 | Other shortcuts (incl. the area shortcut) | Shared hotkey backends (`dodaios/trigger/backends`) | same | same | same as above |
-| Area picker and its marking toolbar | PySide6 overlay; a global Esc also cancels until an area is chosen, because Windows may not hand it keyboard focus until the first click | PySide6 overlay | PySide6 overlay | Unavailable, reason shown on the page; the window appshot still works |
+| Area picker and its marking toolbar | PySide6 overlay; it takes the keyboard when it opens, and a global Esc also cancels until something is marked, in case Windows still keeps the keyboard from it | PySide6 overlay | PySide6 overlay | Unavailable, reason shown on the page; the window appshot still works |
 | Burning the markings into the appshot | Pillow, in the main process (`dodaios/appshot/markup.py`) | same | same | same (no display needed) |
 | Flash + thumbnail | PySide6 overlay, excluded from capture | PySide6 overlay | PySide6 overlay | No overlay; the appshot is still taken where capture works |
 | Capture | Screen Context engine | Needs Screen Recording; macOS asks for it at the first appshot you take | X11 | Honest refusal |

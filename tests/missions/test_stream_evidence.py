@@ -382,8 +382,8 @@ from dodaios.missions.stream_evidence import (  # noqa: E402
     is_informational_request,
 )
 
-# The standing quality directive spawn_worker prepends to EVERY mission prompt
-# (_QUALITY_DIRECTIVE) — the classifier must look past it at the real request.
+# The quality directive spawn_worker used to prepend to every mission prompt;
+# stored missions still carry it, so the classifier must look past it.
 _DIRECTIVE = (
     "Deliver a complete, polished, production-quality result that fully "
     'satisfies the request. A skeleton, stub, placeholder, or "content '
@@ -480,12 +480,19 @@ def test_is_informational_request_true_despite_start_mission_meta() -> None:
         "Kannst du mir bitte eine Sub-Edge-Mission starten, in der du "  # i18n-allow
         "recherchierst, was die aktuellen AI-News sind von den letzten Jahren?"  # i18n-allow
     )
-    # the exact dispatched shape (standing quality directive + meta + Aufgabe)
+    # the legacy dispatched shape (quality directive + German labels)
     assert is_informational_request(
         f"{_DIRECTIVE}\n\nAufgabe: eine umfassende Recherche zu den KI-News der "  # i18n-allow
         "letzten Jahre durchführt.\nWortlaut des Nutzers: \"Kannst du mir bitte "  # i18n-allow
         "eine Sub-Edge-Mission starten, in der du recherchierst, was die "  # i18n-allow
         "aktuellen AI-News sind?\"."  # i18n-allow
+    )
+    # the current dispatched shape (English labels, no directive)
+    assert is_informational_request(
+        "Task: eine umfassende Recherche zu den KI-News der letzten Jahre "  # i18n-allow
+        "durchführt.\nUser's words (verbatim): \"Kannst du mir bitte eine "  # i18n-allow
+        "Sub-Edge-Mission starten, in der du recherchierst, was die aktuellen "  # i18n-allow
+        "AI-News sind?\"."  # i18n-allow
     )
     # English launch-verb + agent noun, same shape
     assert is_informational_request(

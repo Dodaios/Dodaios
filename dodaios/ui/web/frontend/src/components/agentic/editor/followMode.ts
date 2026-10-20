@@ -105,8 +105,11 @@ export function followColumns(lead: CodeEditor, hosts: HTMLElement[]): FollowCol
         // or a jump to a line lands where it was asked to.
         if (event.source !== "keyboard" || !editor.hasTextFocus()) return;
         const before = top;
-        const line = event.selection.getPosition().lineNumber;
-        const target = followColumnOf(editor.getTopForLineNumber(line), before, step(), columns.length, above());
+        // The cursor's own row: a wrapped line spans several rows, and the
+        // cursor may sit on any of them.
+        const row = editor.getScrolledVisiblePosition(event.selection.getPosition());
+        if (!row) return;
+        const target = followColumnOf(row.top + editor.getScrollTop(), before, step(), columns.length, above());
         if (target === null) return;
         // The editor scrolls its cursor into view right after this event
         // (with a line of air below it). The line is on the surface already,

@@ -143,8 +143,7 @@ def _raise_from_gemini(status: int, headers: dict[str, str] | None = None) -> Ba
 #: Every cloud STT plugin, by provider id. The behaviour these share is a
 #: CAPABILITY — "the pipeline can read a status off my failure" — not a type
 #: (AP-21). Groq reaches it through ``httpx.HTTPStatusError`` because that
-#: plugin may not import ``dodaios.*`` at all, not even lazily (AGENTS.md §5,
-#: pinned by tests/contract/test_stt_protocol.py); the other three reach it
+#: plugin may not import ``dodaios.*`` at all, not even lazily (#: pinned by tests/contract/test_stt_protocol.py); the other three reach it
 #: through the shared ``STTHTTPError``. Both satisfy the consumer, which is the
 #: only thing that decides whether a user's turn survives a 429.
 _RAISERS = {

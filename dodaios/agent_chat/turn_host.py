@@ -597,7 +597,14 @@ def _configure_logging(log_path: Path | None) -> None:
     if log_path is None:
         return
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(str(log_path), level="INFO", rotation="2 MB", retention=2, encoding="utf-8")
+    logger.add(
+        str(log_path),
+        level="INFO",
+        rotation="2 MB",
+        retention=2,
+        encoding="utf-8",
+        diagnose=False,  # never dump frame locals (tokens, keys) into the log
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

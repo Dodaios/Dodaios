@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
+from dodaios.i18n import catalog as i18n_catalog
+
 log = logging.getLogger(__name__)
 
 _INPUT_RATE = 16_000
@@ -36,40 +38,7 @@ CORE_MODELS = ("silero-vad-v6", "smart-turn-v3.2", "parakeet-tdt-0.6b-v3-int8")
 #: What a refused call hears and sees, per output language. ``native.py``
 #: speaks ``duplex_unavailable_reason`` verbatim, so it must already be in the
 #: caller's language; the card keeps the engine's own detailed reason.
-_REFUSALS: dict[str, dict[str, str]] = {
-    "not_set_up": {
-        "en": "Local voice is not set up on this machine yet. Run its setup on the "
-              "Local voice card in Settings.",
-        "de": "Die lokale Stimme ist auf diesem Gerät noch nicht "  # i18n-allow
-              "eingerichtet. Starte die Einrichtung in den Einstellungen "  # i18n-allow
-              "auf der Karte Lokale Stimme.",  # i18n-allow
-        "es": "La voz local aún no está configurada en este equipo. "  # i18n-allow
-              "Inicia la configuración en la tarjeta Voz local de los "  # i18n-allow
-              "Ajustes.",  # i18n-allow
-        "pt": "A voz local ainda não está configurada neste computador. "  # i18n-allow
-              "Inicia a configuração no cartão Voz local das "  # i18n-allow
-              "Definições.",  # i18n-allow
-    },
-    "loading": {
-        "en": "Local voice is still loading ({percent} %). The Local voice card "
-              "in Settings shows its progress.",
-        "de": "Die lokale Stimme lädt noch ({percent} %). Die Karte Lokale "  # i18n-allow
-              "Stimme in den Einstellungen zeigt den Fortschritt.",  # i18n-allow
-        "es": "La voz local aún se está cargando ({percent} %). La tarjeta "  # i18n-allow
-              "Voz local de los Ajustes muestra el progreso.",  # i18n-allow
-        "pt": "A voz local ainda está a carregar ({percent} %). O cartão "  # i18n-allow
-              "Voz local das Definições mostra o progresso.",  # i18n-allow
-    },
-    "failed": {
-        "en": "Local voice could not start. The Local voice card in Settings shows why.",
-        "de": "Die lokale Stimme konnte nicht starten. Die Karte Lokale "  # i18n-allow
-              "Stimme in den Einstellungen zeigt den Grund.",  # i18n-allow
-        "es": "La voz local no pudo arrancar. La tarjeta Voz local de los "  # i18n-allow
-              "Ajustes muestra el motivo.",  # i18n-allow
-        "pt": "A voz local não conseguiu arrancar. O cartão Voz local das "  # i18n-allow
-              "Definições mostra o motivo.",  # i18n-allow
-    },
-}
+_REFUSALS: dict[str, dict[str, str]] = i18n_catalog.nested_table("realtime.local_voice.refusals")
 NOT_SET_UP_REASON = _REFUSALS["not_set_up"]["en"]
 
 

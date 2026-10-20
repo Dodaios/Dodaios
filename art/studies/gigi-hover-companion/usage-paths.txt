@@ -31,10 +31,10 @@ dodaios\ui\web\frontend\src\components\deck\DeckOrb.tsx
 dodaios\ui\web\frontend\src\components\board\ShareCard.tsx
 dodaios\ui\web\frontend\src\components\GigiMark.tsx
 dodaios\ui\web\frontend\src\assets\society\figures\SOURCES.md
-dodaios\ui\web\frontend\src\components\JarvisDock.tsx
+dodaios\ui\web\frontend\src\components\DodaiosDock.tsx
 dodaios\ui\web\frontend\src\components\MascotGigi.test.tsx
 dodaios\ui\web\frontend\src\components\deck\room\GigiFigure.tsx
-dodaios\ui\web\frontend\src\components\deck\JarvisOrb.tsx
+dodaios\ui\web\frontend\src\components\deck\DodaiosOrb.tsx
 dodaios\ui\web\frontend\src\components\home\HomeHeader.tsx
 dodaios\ui\web\frontend\src\components\home\Greeting.tsx
 dodaios\ui\web\frontend\src\components\overlay\OverlayStylePreviews.tsx

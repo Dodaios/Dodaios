@@ -43,6 +43,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from dodaios.brain.output_filter import scrub_for_voice
+from dodaios.i18n import catalog as i18n_catalog
 from dodaios.speech.completeness import Completeness, classify_completeness
 from dodaios.speech.hangup import (
     HANGUP_RE,
@@ -81,25 +82,10 @@ log = logging.getLogger("dodaios.telephony.session")
 # product imposes no fixed name here (dodaios/brain/assistant_name.py).
 DEFAULT_GREETING_DE = "Guten Tag, wie kann ich helfen?"  # i18n-allow
 DEFAULT_GREETING_EN = "Hello, how can I help?"
-_DEFAULT_GREETINGS: dict[str, str] = {
-    "de": DEFAULT_GREETING_DE,
-    "en": DEFAULT_GREETING_EN,
-    "es": "Hola, ¿en qué puedo ayudarte?",  # i18n-allow: Spanish TTS
-    "pt": "Olá, em que posso ajudar?",  # i18n-allow: PT TTS
-}
+_DEFAULT_GREETINGS: dict[str, str] = i18n_catalog.table("telephony.default_greetings")
 # Greeting when an assistant name is set; placeholder {name}.
-_NAMED_GREETINGS: dict[str, str] = {
-    "de": "Hier ist {name}. Wie kann ich helfen?",  # i18n-allow: German TTS greeting
-    "en": "{name} here. How can I help?",
-    "es": "Soy {name}. ¿En qué puedo ayudarte?",  # i18n-allow: Spanish TTS
-    "pt": "Olá, sou {name}. Em que posso ajudar?",  # i18n-allow: PT TTS
-}
-_FALLBACK_PHRASES: dict[str, str] = {
-    "de": "Entschuldigung, das habe ich nicht verstanden. Bitte wiederhole es.",  # i18n-allow
-    "en": "Sorry, I did not catch that. Could you say it again?",
-    "es": "Perdona, no te he entendido. ¿Puedes repetirlo?",  # i18n-allow: Spanish TTS
-    "pt": "Desculpa, não percebi. Podes repetir?",  # i18n-allow: PT TTS
-}
+_NAMED_GREETINGS: dict[str, str] = i18n_catalog.table("telephony.named_greetings")
+_FALLBACK_PHRASES: dict[str, str] = i18n_catalog.table("telephony.fallback_phrases")
 
 # Send callback signature: an awaitable that ships one JSON-serialisable dict
 # to Twilio over the WS.

@@ -114,7 +114,7 @@ class RecommendedModel:
 #: When a maintainer last checked the shortlist against the live library.
 #: Surfaced in the download panel ("Shortlist reviewed …") and enforced by
 #: ``tests/integration/test_ollama_catalog_is_current.py``: a review older
-#: than twelve months fails the suite, because AGENTS.md §4 forbids shipping a
+#: than twelve months fails the suite, because the project rule forbids shipping a
 #: year-old local default. Bump it in the same commit that refreshes the list.
 CURATED_REVIEWED_ON = datetime.date(2026, 8, 24)
 

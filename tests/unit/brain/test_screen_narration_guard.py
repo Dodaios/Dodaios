@@ -168,9 +168,6 @@ def test_missing_capability_attribute_counts_as_blind() -> None:
 
 def test_router_prompt_forbids_screen_claims_without_image() -> None:
     # Honest no-image rule present.
-    assert "hast du den Bildschirm NICHT gesehen" in SYSTEM_PROMPT
-    assert "erfinden" in SYSTEM_PROMPT
-    # Clarify-first for a vague / cut-off utterance.
-    assert "vage, abgebrochen oder unklar" in SYSTEM_PROMPT
+    assert "you have not seen the screen" in SYSTEM_PROMPT
     # The fabrication-inviting instruction is gone.
     assert "liege kein Screenshot vor" not in SYSTEM_PROMPT

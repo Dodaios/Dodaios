@@ -343,7 +343,8 @@
     "voice_language": "Language",
     "voice_api_keys": "API Keys",
     "shortcuts": "Keyboard shortcuts",
-    "pets": "My Pets"
+    "pets": "My Pets",
+    "self_build": "Built for you"
   },
   "assistant_view": {
     "header_named": "Your assistant in {0}, woken by “{1}”.",
@@ -3036,18 +3037,18 @@
     "vision_note": "Only models that can see images are listed - Computer-Use reads the screen from screenshots, so a text-only model cannot run it."
   },
   "permissions": {
-    "restart_failed": "Personal Jarvis could not restart. Quit and reopen it manually.",
+    "restart_failed": "Dodaios could not restart. Quit and reopen it manually.",
     "toast": {
-      "microphone": "Personal Jarvis needs microphone access to hear you.",
-      "screen_recording": "Personal Jarvis needs screen recording access to see your screen.",
-      "accessibility": "Personal Jarvis needs accessibility access to control other apps for you.",
-      "input_monitoring": "Personal Jarvis needs input monitoring access so your shortcuts work in other apps.",
-      "automation": "Personal Jarvis needs your permission to control another app.",
-      "generic": "Personal Jarvis needs another permission to do that.",
-      "restricted": "Your Mac does not allow Personal Jarvis to use {what}. Only an administrator can change that.",
-      "restart": "Access to {what} is on, but it only works after Personal Jarvis restarts.",
-      "outside": "Personal Jarvis needs access to {what}; as it is not an installed app, macOS gives that access to the app that started it.",
-      "wake_word": "The wake word cannot listen: microphone access is off for Personal Jarvis.",
+      "microphone": "Dodaios needs microphone access to hear you.",
+      "screen_recording": "Dodaios needs screen recording access to see your screen.",
+      "accessibility": "Dodaios needs accessibility access to control other apps for you.",
+      "input_monitoring": "Dodaios needs input monitoring access so your shortcuts work in other apps.",
+      "automation": "Dodaios needs your permission to control another app.",
+      "generic": "Dodaios needs another permission to do that.",
+      "restricted": "Your Mac does not allow Dodaios to use {what}. Only an administrator can change that.",
+      "restart": "Access to {what} is on, but it only works after Dodaios restarts.",
+      "outside": "Dodaios needs access to {what}; as it is not an installed app, macOS gives that access to the app that started it.",
+      "wake_word": "The wake word cannot listen: microphone access is off for Dodaios.",
       "action_failed": "That did not work. Please open System Settings yourself.",
       "name": {
         "microphone": "the microphone",
@@ -3170,7 +3171,8 @@
       "music": "Music",
       "keybinds": "Keyboard shortcuts",
       "more": "More",
-      "overlay_taskbar": "Overlay & taskbar"
+      "overlay_taskbar": "Overlay & taskbar",
+      "self_build": "Self-building"
     },
     "languages_group_title": "Languages",
     "sections": {
@@ -3515,7 +3517,48 @@
       "system_now_dark": "Following your system, which is currently dark.",
       "system_now_light": "Following your system, which is currently light."
     },
-    "invalid_setting": "Invalid setting"
+    "invalid_setting": "Invalid setting",
+    "self_build": {
+      "title": "Self-building",
+      "description": "How far {name} may go when it builds things for you on its own.",
+      "open_view": "Open Built for you",
+      "enabled_title": "Build on its own",
+      "enabled_description": "Notice what you keep doing and build what would take it off you. Off: nothing is noticed or built.",
+      "autonomy_title": "How far, per kind",
+      "autonomy_description": "Off: never. Suggest: a card asks first. Trial: built, checked and live with one-click undo. Full: like trial, and a trial that was used is kept on its own.",
+      "levels": {
+        "off": "Off",
+        "suggest": "Suggest",
+        "trial": "Trial",
+        "full": "Full"
+      },
+      "kinds": {
+        "memory": "Memories",
+        "skill": "Skills",
+        "routine": "Routines",
+        "agent": "Agents",
+        "code": "Code changes"
+      },
+      "limits_title": "Limits",
+      "limits_description": "Hard caps the loop never passes, whatever it decides.",
+      "limits": {
+        "max_builds_per_day": "Builds per day",
+        "max_open_trials": "Open trials at once",
+        "max_agents_per_week": "New agents per week",
+        "max_code_runs_per_day": "Code runs per day",
+        "trial_days": "Trial length in days",
+        "trial_uses": "Trial length in uses",
+        "max_rejections": "Stop offering after this many no's",
+        "silent_days": "Quiet first days"
+      },
+      "save_error": "Could not save: {detail}",
+      "unavailable": "These settings could not be loaded.",
+      "land_title": "Merge code changes on their own",
+      "land_description": "Repositories listed here get pull requests that merge once CI is green. Every other repository gets draft pull requests that you merge.",
+      "land_warning": "A listed repository's code changes without you looking at the pull request first. Only add repositories you trust the tests of.",
+      "land_add": "Add repository",
+      "land_remove": "Remove {repo}"
+    }
   },
   "telephony_view": {
     "title": "Telephony (experimental)",
@@ -6584,6 +6627,10 @@
       "coding_retry": "Could not load coding agents. Retry.",
       "result_done": "{0} is done",
       "result_blocked": "{0} got stuck",
+      "result_skipped": "{0} skipped “{1}”",
+      "result_skipped_run": "{0} skipped a routine run",
+      "skip_api_key_seat": "Skipped so the routine's API key ({provider}) was not charged. While a subscription is connected, automatic runs only use subscriptions and local models. Pick one of those for this routine, or start it yourself with Test run.",
+      "skip_no_capacity": "Skipped: no subscription or local model was free, and automatic runs never charge a paid API key.",
       "result_agent": "An agent",
       "delegate_line": "Hand this to the agent '{0}' (id {1}) with delegate-to-agent and report back here when it is done.",
       "proposal_title": "{0} proposes a change",
@@ -7242,7 +7289,13 @@
     "hide_changes": "Hide changes",
     "more_files_one": "Show {count} more file",
     "more_files_other": "Show {count} more files",
-    "collapse_files": "Collapse files"
+    "collapse_files": "Collapse files",
+    "errors": {
+      "mandated_tool_unfulfilled": "The required step did not run, so I could not answer reliably. Please try again.",
+      "unbacked_action_claim": "I could not confirm that the action really happened, so I did not claim it. Please try again.",
+      "guarded_response": "The answer was held back because it could not be verified. Please try again.",
+      "delegation_continuation_limit": "The delegated work took too many rounds and was stopped. Please ask again."
+    }
   },
   "work_trace": {
     "tool_failed": "A tool action failed",
@@ -7543,7 +7596,21 @@
       "address": "Address",
       "open_external": "Open in your browser",
       "empty_title": "Enter an address above",
-      "empty_hint": "Made for local previews such as a dev server. Many public sites do not allow being shown inside another app; open those in your browser."
+      "empty_hint": "Made for local previews such as a dev server. Many public sites do not allow being shown inside another app; open those in your browser.",
+      "native": {
+        "opening": "Opening {browser}…",
+        "opening_hint": "Your own browser opens here, signed in with the profile you picked.",
+        "closed_title": "The browser window was closed",
+        "popped_title": "The browser is in its own window now",
+        "reopen": "Show it here again",
+        "error_title": "Your browser could not be shown here",
+        "error_missing": "Install Chrome, Edge or Brave to see it here.",
+        "error_generic": "Try again, or use the built-in view for local previews.",
+        "retry": "Try again",
+        "builtin": "Use the built-in view",
+        "use_native": "Show my browser",
+        "profile": "Browser profile"
+      }
     },
     "all_open": "Every tab is already open",
     "close_tab": "Close tab",
@@ -7582,8 +7649,8 @@
       "delete_file_title": "Delete {file}?",
       "delete_folder_title": "Delete the folder {file} and everything in it?",
       "delete_permanent_title": "Delete {file} permanently?",
-      "delete_body": "It goes to the trash, so you can still restore it.",
-      "delete_permanent_body": "This computer has no trash to move it to. A permanent delete cannot be undone.",
+      "delete_body": "It goes to the trash. Ctrl+Z in the Folder tab brings it back.",
+      "delete_permanent_body": "This computer has no trash. Ctrl+Z can bring small files back for a day; larger ones are gone for good.",
       "delete_permanent": "Delete permanently",
       "cut": "Cut",
       "copy": "Copy",
@@ -7598,7 +7665,33 @@
       "find_in_folder": "Find in folder…",
       "select_compare": "Select for compare",
       "compare_with": "Compare with {file}",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "delete_trash": "Move to trash",
+      "deleted_one": "Deleted {file}.",
+      "deleted_many": "Deleted {count} items.",
+      "action_move": "Move",
+      "move_one_title": "Move {file} into {folder}?",
+      "move_many_title": "Move these {count} items into {folder}?",
+      "move_body": "Ctrl+Z in the Folder tab moves it back.",
+      "moved_one": "Moved {file} into {folder}.",
+      "moved_many": "Moved {count} items into {folder}.",
+      "replace_title": "{folder} already has an item named {file}. Replace it?",
+      "replace_body": "The existing one goes to the trash. Ctrl+Z brings it back.",
+      "replace": "Replace",
+      "and_more": "and {count} more",
+      "dont_ask_again": "Don't ask me again",
+      "undo": "Undo",
+      "redo": "Redo",
+      "undo_action": "Undo {action}",
+      "redo_action": "Redo {action}",
+      "undo_confirm_title": "Undo {action}?",
+      "redo_confirm_title": "Redo {action}?",
+      "undo_confirm_body": "This deletes what that action created. It goes to the trash.",
+      "undone": "Undone: {action}",
+      "redone": "Redone: {action}",
+      "undo_stale": "Newer file actions came after this one. Press Ctrl+Z in the Folder tab to go back step by step.",
+      "undo_too_large": "{file} was too large to keep for Undo. Restore it from the trash.",
+      "ask_again": "Ask again before moving and deleting"
     },
     "search": {
       "placeholder": "Search in all files",
@@ -8262,7 +8355,19 @@
         "stage_session": "Stage the Session's Pending Changes",
         "session_empty": "This session has not changed any file yet, or its agent keeps no record of its edits.",
         "session_committed": "committed",
-        "session_generated": "{n} generated files hidden"
+        "session_generated": "{n} generated files hidden",
+        "follow_main": "Keep This App on the Latest Main",
+        "follow_main_on": "This app keeps itself on the latest main.",
+        "follow_busy_update": "Updating to the latest main…",
+        "follow_busy_install": "Installing packages for the update…",
+        "follow_busy_build": "Building the new interface…",
+        "follow_restart_pending": "New code is in; the app restarts as soon as no mission or call is running.",
+        "follow_updated": "Updated {when}: {subject}",
+        "follow_click_off": "Click to stop following main.",
+        "session_diff_badge": "Changes by {pane}",
+        "follow_clear_lock": "Remove the Stale Git Lock",
+        "follow_clear_lock_title": "Remove the git lock left since {since}?",
+        "follow_clear_lock_body": "A git command that was stopped mid-way left .git/index.lock behind, and it keeps this app from updating. Remove it only if no git command is running in this folder."
       }
     },
     "skills": {
@@ -9217,6 +9322,21 @@
       "refreshing": "Refreshing GitHub status…",
       "loading": "Reading the GitHub status…"
     },
+    "done_gate": {
+      "label_done": "landed",
+      "label_wait": "waiting",
+      "label_fix": "fix",
+      "label_stuck": "stuck",
+      "title_done": "Done gate: the work has landed",
+      "title_wait": "Done gate: waiting before this agent may stop",
+      "title_fix": "Done gate: something needs fixing before this agent may stop",
+      "title_stuck": "Done gate: stuck, a person has to look",
+      "next": "Next: {next}",
+      "pull_request": "Pull request #{number}",
+      "checked": "Checked at {time}",
+      "matched_folder": "Matched by this pane's folder or branch, not its own session",
+      "aria": "{pane}: done gate {state}"
+    },
     "dock": {
       "swap": "Swap positions",
       "left": "Place on the left",
@@ -10047,5 +10167,10 @@
       "objections_one": "{count} objection",
       "objections_other": "{count} objections"
     }
+  },
+  "self_build_badge": {
+    "label": "Built by {name}",
+    "title": "{name} built this on its own. Open its build.",
+    "trial": "on trial"
   }
 }

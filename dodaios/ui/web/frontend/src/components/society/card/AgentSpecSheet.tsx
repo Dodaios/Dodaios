@@ -67,6 +67,7 @@ import { ComputerPicker } from "../create/ComputerPicker";
 import { LeadBrain, LeadInstructions } from "./LeadSections";
 
 import "./agentCard.css";
+import { BuiltByBadge } from "@/components/selfBuild/BuiltByBadge";
 
 /** How far up the three-step ladder a ceiling sits. `block` never reaches a card. */
 const CEILING_STEP: Record<PermissionCeiling, number> = { safe: 1, monitor: 2, ask: 3 };
@@ -298,6 +299,7 @@ export function AgentSpecSheet({ agent, onOpenChat, onRetired }: AgentSpecSheetP
             <span className="truncate">{remoteComputer.name}</span>
           </span>
         ) : null}
+        <BuiltByBadge type="agent" id={agent.agentId} />
         <span className={cn("ac-dot", STATE_FILL[agent.state])} data-state={agent.state} aria-hidden />
         <span className="shrink-0 text-xs text-muted-foreground">
           {activeRuns > 0

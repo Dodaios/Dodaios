@@ -115,6 +115,10 @@
       "review_done": "学习回顾已完成",
       "review_waiting": "等待已完成的对话以进行回顾",
       "last_review": "最近回顾活动",
+      "review_dropped": "最近一次学习回顾在尝试 {0} 次后已放弃。下一次完成的对话会获得新的回顾。",
+      "review_reason_api_key_seat": "已连接订阅，因此从聊天中学习不会使用此智能体的 API 密钥 ({provider}) 计费。请将智能体切换到订阅或本地模型，以便它能够学习。",
+      "review_reason_no_seat": "目前在此应用中无法访问该智能体的模型。",
+      "review_reason_seat_failed": "该智能体的模型没有给出可用的回答。",
       "loading": "加载中…",
       "knowledge_hint": "每个智能体都维护自己的 USER.md（记录你的个人资料和偏好）和 MEMORY.md（记录项目知识和经验）。技能和对话存档单独保存。",
       "kind_memory": "记忆",
@@ -192,7 +196,8 @@
       "remove_schedule": "移除计划",
       "history": "执行历史",
       "no_runs": "还没有执行记录。",
-      "legacy": "较早的执行：有结果，但未记录最终状态。"
+      "legacy": "较早的执行：有结果，但未记录最终状态。",
+      "skipped": "已跳过"
     },
     "chat": {
       "connecting": "正在连接此对话…",

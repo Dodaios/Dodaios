@@ -42,7 +42,7 @@ from dodaios.core.branding import (
     CONTROL_KEY_PREFIX as KEY_PREFIX,
 )
 from dodaios.core.branding import (
-    MACOS_APP_NAME as _MACOS_APP_NAME,
+    MACOS_APP_DIR_NAMES as _MACOS_APP_DIR_NAMES,
 )
 from dodaios.core.branding import (
     MACOS_BUNDLE_ID as _MACOS_BUNDLE_ID,
@@ -187,9 +187,11 @@ def _macos_app_identity_token() -> str | None:
         executable = Path(str(bundle.executablePath() or "")).resolve()
         # Both install locations are canonical: the installer prefers
         # /Applications and falls back to ~/Applications (BUG-161, BUG-216).
+        # So is the bundle's earlier name, until the rename has reached it.
         expected = {
-            (root / f"{_MACOS_APP_NAME}.app").resolve()
+            (root / name).resolve()
             for root in (Path("/Applications"), Path.home() / "Applications")
+            for name in _MACOS_APP_DIR_NAMES
         }
         executable_root = bundle_path / "Contents" / "MacOS"
         if (
@@ -270,27 +272,34 @@ def _remove_macos_owner() -> None:
 
 
 def _macos_keychain_item_exists() -> bool:
-    """Check item attributes without requesting its protected secret data."""
+    """Check item attributes without requesting its protected secret data.
+
+    Looks under the current credential service and every legacy one: a key
+    saved before the service was renamed is still the item to adopt.
+    """
     if sys.platform != "darwin":
         return False
-    try:
-        result = subprocess.run(
-            [
-                "/usr/bin/security",
-                "find-generic-password",
-                "-s",
-                cfg.KEYRING_SERVICE,
-                "-a",
-                KEYRING_SLOT,
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-            timeout=3,
-        )
-        return result.returncode == 0
-    except (OSError, subprocess.SubprocessError):
-        return False
+    for service in (cfg.KEYRING_SERVICE, *cfg.LEGACY_KEYRING_SERVICES):
+        try:
+            result = subprocess.run(
+                [
+                    "/usr/bin/security",
+                    "find-generic-password",
+                    "-s",
+                    service,
+                    "-a",
+                    KEYRING_SLOT,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=3,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if result.returncode == 0:
+            return True
+    return False
 
 
 def _platform_credential_store_active() -> bool:

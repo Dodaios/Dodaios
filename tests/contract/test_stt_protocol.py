@@ -104,7 +104,7 @@ _ALLOWED_PLUGIN_IMPORT_ROOT = "dodaios.plugins.stt."
 
 
 def test_groq_plugin_has_no_jarvis_imports():
-    """The Groq plugin must not import the app core (AGENTS.md section 5).
+    """The Groq plugin must not import the app core.
 
     Its own plugin group is the single exception — see
     :data:`_ALLOWED_PLUGIN_IMPORT_ROOT`.

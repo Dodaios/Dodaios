@@ -1,6 +1,6 @@
 """European Portuguese coverage for ``echo_confirmation.classify_response``.
 
-Runtime Output Language doctrine (AGENTS.md): the yes/no classifier must cover
+Runtime Output Language doctrine: the yes/no classifier must cover
 every supported language. Without its own branch ``language="pt"`` would fall
 into the German patterns, so a Portuguese "sim"/"não" would read as "unknown"
 and a pt-pinned user could not confirm or veto a consequential action by voice.

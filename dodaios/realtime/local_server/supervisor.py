@@ -2178,17 +2178,27 @@ def _path_is_within_root(value: str, root: Path) -> bool:
 
 
 def _lexical_path_is_within_root(value: str, root: Path) -> bool:
-    """Containment without dereferencing a POSIX venv interpreter symlink."""
+    """Containment without dereferencing a POSIX venv interpreter symlink.
+
+    A root inside the per-user data directory is tried under every name that
+    directory has had: a server started before the directory moved still
+    reports its executable under the old spelling.
+    """
     text = (value or "").strip().strip("\"'")
     if not text or not Path(text).is_absolute():
         return False
+    from dodaios.core.identity_boot import data_dir_spellings
+
     candidate = os.path.normcase(os.path.abspath(text))
-    root_text = os.path.normcase(os.path.abspath(root))
-    try:
-        return os.path.commonpath((candidate, root_text)) == root_text
-    except ValueError:
-        # Paths on different drives/roots — reported through the returned False.
-        return False
+    for spelling in data_dir_spellings(root):
+        root_text = os.path.normcase(os.path.abspath(spelling))
+        try:
+            if os.path.commonpath((candidate, root_text)) == root_text:
+                return True
+        except ValueError:
+            # Paths on different drives/roots — this spelling does not contain it.
+            continue
+    return False
 
 
 def _process_identity_is_managed(exe: str, cmdline: tuple[str, ...], root: Path) -> bool:

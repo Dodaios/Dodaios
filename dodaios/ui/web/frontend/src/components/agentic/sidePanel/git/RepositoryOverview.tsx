@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
-import { openExternalUrl } from "@/lib/openExternal";
+import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ideBrowserLinks";
 import { cn } from "@/lib/utils";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import { useEventStore } from "@/store/events";
@@ -295,7 +295,7 @@ export function RepositoryOverview({ onChanged }: { onChanged?: () => void }) {
     if (!data) return;
     const fallback = data.branches.find((row) => row.name === data.default_branch);
     if (item.kind === "cleanup") return setCleaning(data.branches.filter((row) => canCleanUp(row, data.default_branch)));
-    if (item.kind === "default_ci") return void (fallback?.ci.url && openExternalUrl(fallback.ci.url));
+    if (item.kind === "default_ci") return void (fallback?.ci.url && openLinkInIdeBrowser(fallback.ci.url));
     if (item.kind === "default_behind") {
       return fallback && fallback.behind > 0 ? actions.update(fallback.name) : void actions.fetch();
     }

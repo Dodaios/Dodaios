@@ -425,9 +425,8 @@ class WikiCuratorLLM:
         Full root config — we read ``memory.wiki.curator`` and
         ``brain.primary`` / ``brain.providers``.
     schema_path:
-        Path to the binding ``schema.md`` (verbatim in the system
-        prompt). Defaults to ``wiki/obsidian-vault/schema.md`` next to the
-        vault.
+        Path to the vault's ``schema.md``. Kept for callers; the file is
+        documentation for people and no longer part of the prompt.
     log_path:
         Path to the wiki ``log.md`` — used only to enrich the system
         prompt with recent activity. Missing file degrades silently.
@@ -493,14 +492,6 @@ class WikiCuratorLLM:
             )
             return []
 
-        schema_md = await self._load_schema()
-        if schema_md is None:
-            logger.warning(
-                "WikiCuratorLLM: schema file unreadable at %s — returning empty list",
-                self._schema_path,
-            )
-            return []
-
         vault_summary = await asyncio.to_thread(
             compute_vault_summary, vault, log_path=self._log_path,
         )
@@ -514,11 +505,7 @@ class WikiCuratorLLM:
                 "",
             )
         )
-        system_prompt = build_system_prompt(
-            schema_md,
-            vault_summary,
-            user_entity_slug=user_slug,
-        )
+        system_prompt = build_system_prompt(vault_summary, user_entity_slug=user_slug)
         user_prompt = build_user_prompt(source_label, source_content, top_slugs)
 
         request = BrainRequest(
@@ -638,19 +625,6 @@ class WikiCuratorLLM:
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
-
-    async def _load_schema(self) -> str | None:
-        """Read ``schema.md`` from disk on a worker thread."""
-
-        path = self._schema_path
-
-        def _read() -> str | None:
-            try:
-                return path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                return None
-
-        return await asyncio.to_thread(_read)
 
     @staticmethod
     def _collect_candidate_slugs(
