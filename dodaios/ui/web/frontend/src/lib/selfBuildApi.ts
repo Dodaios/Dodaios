@@ -35,6 +35,11 @@ export interface BuildArtefact {
   id?: string;
   label?: string;
   url?: string;
+  /** Code builds: the repository, branch and pull request. */
+  repo?: string;
+  branch?: string;
+  number?: number;
+  draft?: boolean;
   [key: string]: unknown;
 }
 
@@ -109,6 +114,8 @@ export interface SelfBuildSettings {
   max_open_trials: number;
   max_code_runs_per_day: number;
   max_rejections: number;
+  /** Repositories (`owner/name`) whose loop pull requests merge after green CI. */
+  code_land_repos: string[];
 }
 
 export interface SelfBuildSettingsPayload {

@@ -106,7 +106,10 @@
       "tokens": "{count} Tokens",
       "history": "Verlauf",
       "note": "Notiz",
-      "opened": "eröffnet"
+      "opened": "eröffnet",
+      "code_branch": "Branch",
+      "code_pr": "Pull Request",
+      "code_draft": "Entwurfs-Pull-Request"
     },
     "outcome": {
       "used": "genutzt",

@@ -1294,13 +1294,13 @@ SELF_BUILD_SETTING_KEYS: frozenset[str] = frozenset(
     {
         "enabled", "silent_days", "memory", "skill", "routine", "agent", "code",
         "trial_days", "trial_uses", "max_builds_per_day", "max_agents_per_week",
-        "max_open_trials", "max_code_runs_per_day", "max_rejections",
+        "max_open_trials", "max_code_runs_per_day", "max_rejections", "code_land_repos",
     }
 )
 
 
 def set_self_build_settings(
-    values: dict[str, str | bool | int], *, path: Path = DEFAULT_CONFIG_FILE
+    values: dict[str, str | bool | int | list[str]], *, path: Path = DEFAULT_CONFIG_FILE
 ) -> None:
     """Persist a validated ``[self_build]`` patch in one atomic write.
 

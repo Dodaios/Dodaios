@@ -145,10 +145,10 @@ export function BuildDetail({
           </Section>
 
           <Section label={t("self_build.detail.made")}>
-            {artefact.type && artefact.id ? (
-              <p className="flex min-w-0 items-center gap-2 text-base text-foreground">
-                <span className="truncate">{artefact.label || artefact.id}</span>
-                <span className="shrink-0 text-sm text-muted-foreground">{artefact.type}</span>
+            {artefact.type && (artefact.id || artefact.branch) ? (
+              <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-base text-foreground">
+                <span className="truncate">{artefactLabel(artefact, t)}</span>
+                <span className="shrink-0 text-sm text-muted-foreground">{artefactKind(artefact, t)}</span>
                 {typeof artefact.url === "string" && /^https?:\/\//.test(artefact.url) && (
                   <a
                     href={artefact.url}
@@ -243,6 +243,23 @@ export function BuildDetail({
       </div>
     </article>
   );
+}
+
+/** What the person reads for what a build made: its name, never a raw id when a better one exists. */
+function artefactLabel(artefact: Build["artefact"], t: (key: string) => string): string {
+  const str = (key: string) => (typeof artefact[key] === "string" ? (artefact[key] as string) : "");
+  if (artefact.type === "code") {
+    const repo = str("repo");
+    if (typeof artefact.number === "number") return `${repo}#${artefact.number}`;
+    return `${repo}${repo && str("branch") ? " · " : ""}${str("branch")}` || t("self_build.detail.made_none");
+  }
+  return str("label") || str("name") || str("id");
+}
+
+function artefactKind(artefact: Build["artefact"], t: (key: string) => string): string {
+  if (artefact.type !== "code") return String(artefact.type);
+  if (typeof artefact.number !== "number") return t("self_build.detail.code_branch");
+  return artefact.draft === false ? t("self_build.detail.code_pr") : t("self_build.detail.code_draft");
 }
 
 function stateLabel(t: (key: string) => string, state: string): string {
