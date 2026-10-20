@@ -64,7 +64,9 @@ call.
 ## Execution
 
 A case in `building` runs only while the person is away from the computer
-(no keyboard or mouse input and no typing in an IDE pane for 15 minutes) and a
+(for 15 minutes: no keyboard or mouse input, no turn spoken or typed to
+Dodaios, no open call and no typing into a pane's terminal in the app; a
+prompt Jarvis or an agent writes into a pane is not the person) and a
 subscription coding CLI is free (`seat.py`): its plan login is signed in, its
 own API-key variable is not set (the CLI would bill that key), it is not in a
 usage cooldown and no usage window is over 80 %. Otherwise the case waits, for

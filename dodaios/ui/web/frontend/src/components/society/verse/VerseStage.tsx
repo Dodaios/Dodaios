@@ -4,9 +4,10 @@
  * Each deck is a photograph rendered offline (the plate); the stage puts the
  * live crew, their screens and the ship's small lights into it with a camera
  * that matches the photograph exactly (BRIEF §3). The person is the
- * commanding officer; the agents are officers at the bridge consoles; coding
- * panes are technicians at engineering's terminals; stations turn places of
- * the ship into the app's actions.
+ * commanding officer, steered in third person (the keys walk them, the camera
+ * follows) or sent by clicks from a bird's-eye view; the agents are officers
+ * at the bridge consoles; coding panes are technicians at engineering's
+ * terminals; stations turn places of the ship into the app's actions.
  */
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas } from "@react-three/fiber";
@@ -40,6 +41,7 @@ import { useCharacterLibrary } from "./actors/useCharacterLibrary";
 import type { Look } from "./actors/look";
 import { buildCast, COMMANDER_ID, type CommanderState } from "./life/cast";
 import { commanderTarget, type CommanderOrders } from "./life/commander";
+import { stationWithin, type ControlMode } from "./life/control";
 import { useCrewLife } from "./life/useCrewLife";
 import { useWorldActions } from "./life/useWorldActions";
 import { useDevDuty } from "./life/devOverrides";
@@ -158,7 +160,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   // The IDE tab always opens on its deck; another host keeps where the person last was.
   useEffect(() => { if (awake && initialDeck) setDeckId(initialDeck); }, [awake, initialDeck]);
 
-  // A new deck: frame where the commander comes aboard (out of the lift after a ride).
+  // A new deck: frame where the commander comes aboard (out of the lift after a ride); third person closes in on them once they stand there.
   const ordersRef = useRef(orders);
   ordersRef.current = orders;
   useEffect(() => {
@@ -169,7 +171,21 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     if (!deck) return;
     const start = commanderTarget(deck, ordersRef.current);
     runtime.view.setPlate(deck.camera, worldToPlate(deck.camera, start.x, 0, start.z));
+    runtime.control.reframe = true;
   }, [deck, runtime]);
+
+  // Third person (the keys walk the commander, the camera follows) or bird's-eye (the keys pan over the whole deck).
+  const [mode, setMode] = useState<ControlMode>(runtime.control.mode);
+  const switchMode = useCallback((next: ControlMode) => {
+    const control = runtime.control;
+    if (control.mode === next) return;
+    control.mode = next;
+    control.clearKeys();
+    runtime.view.clearKeys();
+    if (next === "overview") runtime.view.overview();
+    else control.reframe = true;
+    setMode(next);
+  }, [runtime]);
 
   // The doors open once the car has arrived and the new deck is on screen (or after a moment, whatever happens).
   useEffect(() => {
@@ -260,6 +276,38 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     }
   }, [walkTo, onOpenLedger, onOpenGroup, teamAtTable, say, t, messUntil, life.crew, later, createAgent]);
 
+  const toggleView = useCallback(() => {
+    const next: ControlMode = runtime.control.mode === "follow" ? "overview" : "follow";
+    switchMode(next);
+    say(t(next === "overview" ? "verse.notice.view_overview" : "verse.notice.view_follow"));
+  }, [runtime, switchMode, say, t]);
+
+  // The use key works the station the commander stands at.
+  const workNearStation = useCallback(() => {
+    const d = runtime.deck;
+    const pose = runtime.poses.get(COMMANDER_ID);
+    const station = d && pose ? stationWithin(d.stations, pose.x, pose.z) : null;
+    if (station) activateStation(station);
+  }, [runtime, activateStation]);
+
+  // Third person: which station is within the commander's reach (checked a few times a second), offered with its key.
+  const [nearStation, setNearStation] = useState<string | null>(null);
+  useEffect(() => {
+    if (!awake) return;
+    let last = 0;
+    const check = () => {
+      const now = performance.now();
+      if (now - last < 200) return;
+      last = now;
+      const d = runtime.deck;
+      const pose = runtime.poses.get(COMMANDER_ID);
+      const id = d && pose && runtime.control.mode === "follow" ? stationWithin(d.stations, pose.x, pose.z)?.id ?? null : null;
+      setNearStation((prev) => (prev === id ? prev : id));
+    };
+    runtime.afterFrame.add(check);
+    return () => { runtime.afterFrame.delete(check); };
+  }, [awake, runtime]);
+
   // Pointer: hover labels, taps on crew, stations and the floor.
   const hit = useCallback((sx: number, sy: number): Hover => {
     const d = runtime.deck;
@@ -309,7 +357,19 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     });
   }, [runtime, webgl, generation]);
 
-  // Keyboard: pan with WASD/arrows, zoom with +/-, Escape closes, F9 the alignment overlay (development).
+  // Opening the full-size stage hands it the keyboard, so the movement keys work at once (unless someone is typing;
+  // the IDE's side panel never takes focus from the terminal beside it).
+  useEffect(() => {
+    if (!awake || compact) return;
+    const focused = document.activeElement;
+    if (typesText(focused) || hostRef.current?.contains(focused)) return;
+    hostRef.current?.focus({ preventScroll: true });
+  }, [awake, compact]);
+
+  // Keyboard: WASD/arrows walk the commander (third person) or pan (bird's-eye), Shift hurries, V switches the view,
+  // E works the station at hand, +/- zoom, Escape closes, F9 the alignment overlay (development).
+  const keyActions = useRef({ toggleView, workNearStation });
+  keyActions.current = { toggleView, workNearStation };
   useEffect(() => {
     if (!awake) return;
     const owns = (e: KeyboardEvent) => {
@@ -318,20 +378,31 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       return !focused || focused === document.body || !!hostRef.current?.contains(focused);
     };
     const down = (e: KeyboardEvent) => {
+      if (e.key === "Shift") runtime.control.run = true;
       if (!owns(e)) return;
       const key = PAN_KEYS[e.code];
       const v = runtime.view;
-      if (key) { e.preventDefault(); v.setKey(key, true, e.shiftKey); return; }
+      if (key) {
+        e.preventDefault();
+        if (runtime.control.mode === "follow") runtime.control.setKey(key, true, e.shiftKey);
+        else v.setKey(key, true, e.shiftKey);
+        return;
+      }
       if (e.code === "Equal" || e.code === "NumpadAdd") v.zoomAt(v.vp.width / 2, v.vp.height / 2, 1.25);
       else if (e.code === "Minus" || e.code === "NumpadSubtract") v.zoomAt(v.vp.width / 2, v.vp.height / 2, 0.8);
+      else if (e.code === "KeyV" && !e.repeat) keyActions.current.toggleView();
+      else if (e.code === "KeyE" && !e.repeat) keyActions.current.workNearStation();
       else if (e.code === "Escape") { setPanel(null); setSelected(null); }
       else if (e.code === "F9" && import.meta.env.DEV) setDebug((d) => !d);
     };
     const up = (e: KeyboardEvent) => {
+      if (e.key === "Shift") runtime.control.run = false;
       const key = PAN_KEYS[e.code];
-      if (key) runtime.view.setKey(key, false, e.shiftKey);
+      if (!key) return;
+      runtime.view.setKey(key, false, e.shiftKey);
+      runtime.control.setKey(key, false, e.shiftKey);
     };
-    const blur = () => runtime.view.clearKeys();
+    const blur = () => { runtime.view.clearKeys(); runtime.control.clearKeys(); };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
@@ -339,7 +410,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
-      runtime.view.clearKeys();
+      blur();
     };
   }, [awake, runtime]);
 
@@ -393,11 +464,14 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       return [{ id, name: m.name, rank: m.role === "technician" ? t("verse.post.terminal") : rankName(id), status: t(`verse.state.${m.status}`), statusKey: m.status, accent }];
     });
   }, [hover, selected, life.crew, life.looks, rankName, t]);
-  const hoveredStation = useMemo(() => {
-    if (hover?.kind !== "station" || !deck) return null;
-    const station = deck.stations.find((s) => s.id === hover.id);
-    return station ? { station, name: t(`verse.station.${station.kind}.name`), action: t(`verse.station.${station.kind}.action`) } : null;
-  }, [hover, deck, t]);
+  // The station under the pointer, else (third person) the one within the commander's reach, with the key that works it.
+  const labelledStation = useMemo(() => {
+    if (!deck) return null;
+    const pointed = hover?.kind === "station";
+    const id = pointed ? hover.id : nearStation;
+    const station = id ? deck.stations.find((s) => s.id === id) : undefined;
+    return station ? { station, name: t(`verse.station.${station.kind}.name`), action: t(`verse.station.${station.kind}.action`), key: pointed ? null : "E" } : null;
+  }, [hover, nearStation, deck, t]);
   const card = useMemo<CrewCardInfo | null>(() => {
     const m = selected ? life.crew.get(selected) : undefined;
     if (!m) return null;
@@ -455,9 +529,16 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       )}
       {chunkReady && (
         <div className="verse-hud">
-          <FloatingLabels runtime={runtime} plates={plates} station={hoveredStation} deck={deck} />
+          <FloatingLabels runtime={runtime} plates={plates} station={labelledStation} deck={deck} />
           <DeckTitle deck={deckId} t={t} counts={counts} rankCard={<RankCard compact={compact} />} />
-          <Toolbar t={t} onLift={() => setPanel("lift")} onCommander={() => focusOn(COMMANDER_ID)} onHelp={() => say(t("verse.stage.help"))} />
+          <Toolbar
+            t={t}
+            mode={mode}
+            onToggleView={toggleView}
+            onLift={() => setPanel("lift")}
+            onCommander={() => { if (runtime.control.mode === "follow") runtime.control.reframe = true; else focusOn(COMMANDER_ID); }}
+            onHelp={() => say(t("verse.stage.help"))}
+          />
           {(!plateReady || problem) && (
             <div className="verse-status" role="status" data-tone={problem ? "error" : "quiet"}>
               {problem ? t("verse.stage.deck_missing") : t("verse.stage.loading")}
