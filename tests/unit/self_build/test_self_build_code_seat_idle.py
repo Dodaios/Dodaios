@@ -259,6 +259,7 @@ def test_linux_logind_idle_hint() -> None:
 def test_linux_without_any_reading_leaves_it_to_the_ide(monkeypatch: pytest.MonkeyPatch) -> None:
     assert idle.os_idle_s(platform="linux", run=_fake({}), env={}) is None
     monkeypatch.setattr(idle, "os_idle_s", lambda: None)
+    monkeypatch.setattr(idle, "dodaios_idle_s", lambda: None)
     monkeypatch.setattr(idle, "ide_idle_s", lambda: None)
     assert idle.person_idle()
     monkeypatch.setattr(idle, "ide_idle_s", lambda: 30.0)
