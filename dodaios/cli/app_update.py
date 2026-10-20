@@ -130,6 +130,10 @@ def _run_child(args: list[str], timeout: float | None, detached: bool) -> tuple[
     cmd = [sys.executable, "-m", "dodaios.cli.app_update", *args]
     env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
     kwargs: dict[str, Any] = {
+        # ``-m`` puts the working directory first on sys.path. Run from the
+        # tree this process came from, so a `dodaios/` folder in the user's
+        # current directory can never stand in for the installed one.
+        "cwd": str(Path(__file__).resolve().parents[2]),
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.DEVNULL,
@@ -257,6 +261,13 @@ def _read_result(root: Path, file_name: str) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _clear_result(root: Path, file_name: str) -> None:
+    try:
+        (root / file_name).unlink(missing_ok=True)
+    except OSError as exc:
+        print(f"  (could not clear the previous update result: {exc})", file=sys.stderr)
+
+
 def run_update(
     *,
     check_only: bool = False,
@@ -311,9 +322,11 @@ def run_update(
         print(f"Run `{main_command()} update` to install it.")
         return 0
 
-    pid = running_app_pid()
+    # The service is found by its own marker, not through the session file: a
+    # live service with a missing or stale session.json would otherwise keep
+    # the venv's native modules open through the whole reinstall.
     service = status.get("service_pid")
-    if pid is not None and service and pid == service:
+    if service:
         print("Stopping the background service for the update...", flush=True)
         if not stop_service(int(service)):
             print(
@@ -322,8 +335,8 @@ def run_update(
                 file=sys.stderr,
             )
             return EXIT_APP_RUNNING
-        pid = None
-    if pid is not None:
+    pid = running_app_pid()
+    if pid is not None and pid != service:
         print(
             "Dodaios is running, and it cannot be updated while it is open.\n"
             "Either click Update inside the app, or quit it (tray icon -> Quit)\n"
@@ -347,15 +360,17 @@ def run_update(
     # release, and an import from this process would read THAT release's files
     # - or fail outright if it moved the package.
     result_file_name = _result_file_name()
+    # A result left by an earlier run must not speak for this one.
+    _clear_result(root, result_file_name)
     with _Ticker(
         f"Installing version {version} - this takes a few minutes, keep this window open...",
         enabled=interactive,
     ):
         code, _ = run_child([FINALIZE_FLAG, str(root)], None, True)
     result = _read_result(root, result_file_name)
-    if code == 0 and result.get("ok", True):
+    if code == 0 and result.get("ok") is True:
         print(f"Done. Dodaios {version} is installed.")
-        print("Start it with: jarvis")
+        print(f"Start it with: {main_command()}")
         return 0
     if result.get("rolled_back"):
         print(
