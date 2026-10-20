@@ -30,6 +30,7 @@ from pathlib import Path
 import pytest
 
 import dodaios.core.installer_update as iu
+from dodaios.core.branding import WINDOWS_BRANDED_LAUNCHER_FILE_NAME
 from dodaios.core.installer_update import (
     SubprocessCommandRunner,
     apply_installer,
@@ -309,6 +310,10 @@ def _uninstall_key_exists() -> bool:
 def _build_setup(iscc: Path, fake_exe: Path, version: str, work: Path) -> Path:
     source = work / f"src-{version}"
     source.mkdir()
+    # The frozen bundle ships the launcher under its current name and, for pins
+    # and logon tasks from before the rename, under its earlier one; Setup
+    # relaunches the current one.
+    shutil.copy2(fake_exe, source / WINDOWS_BRANDED_LAUNCHER_FILE_NAME)
     shutil.copy2(fake_exe, source / "PersonalJarvis.exe")
     (source / "version.txt").write_text(version, encoding="utf-8")
     out = work / f"out-{version}"

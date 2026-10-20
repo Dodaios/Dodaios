@@ -1,4 +1,4 @@
-"""REST API of the Jarvis Verse level system (``dodaios/progression``).
+"""REST API of the Dodaios Verse level system (``dodaios/progression``).
 
 - ``GET  /api/progression``          → every subject's level, the rulebook and recent awards
 - ``POST /api/progression/actions``  → report a world action from the Verse (metered server-side)
@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from dodaios.progression.rules import (
     LOOK_UNLOCKS,
     MAX_LEVEL,
+    RANKS,
     REWARDS,
     RULES,
     TITLES,
@@ -58,6 +59,7 @@ def _rulebook() -> dict[str, Any]:
             }
             for r in REWARDS
         ],
+        "ranks": [{"id": rank, "level": level, "tier": tier} for level, rank, tier in RANKS],
         "looks": [{"look_id": look, "agent": level} for look, level in LOOK_UNLOCKS.items()],
         "titles": {
             kind: [{"level": lvl, "title": t} for lvl, t in bands]
@@ -89,7 +91,7 @@ async def get_progression(
 class WorldAction(BaseModel):
     action: str = Field(..., max_length=40, description="A world-action source from the rulebook")
     ref: str = Field(
-        "", max_length=40, description="The action's subject, e.g. the floor discovered"
+        "", max_length=40, description="The action's subject, a deck or a destination"
     )
 
 

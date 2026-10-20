@@ -34,7 +34,7 @@ def test_agent_briefing_includes_reply_style_without_replacing_its_instructions(
     assert "end with a handoff" not in briefing
 
 
-async def test_cli_identity_carries_the_same_reply_policy_on_fresh_and_resumed_turns() -> None:
+async def test_cli_identity_sends_the_reply_policy_once() -> None:
     for resume in (None, "existing-vendor-session"):
         identity = await identity_prompt(
             user_text="Explain the result.", history=[], resume=resume, prompt_override=_briefing()
@@ -42,12 +42,19 @@ async def test_cli_identity_carries_the_same_reply_policy_on_fresh_and_resumed_t
         assert CONVERSATIONAL_RESPONSE_STYLE in identity
         assert CONVERSATIONAL_RESPONSE_STYLE in compact_identity(identity)
         seat = Identity(
-            session_id="society:reply-style-test", text=identity, compact=compact_identity(identity)
+            session_id="society:reply-style-test",
+            text=identity + "\nStored credentials: none.",
+            compact=compact_identity(identity),
         )
         delivered = _with_identity("Explain the result.", seat, resume)
-        expected = CONVERSATIONAL_TURN_REMINDER if resume else CONVERSATIONAL_RESPONSE_STYLE
-        assert expected in delivered
-        assert KEEP_GOING_ON_TOOL_FAILURE in delivered
+        if resume:
+            # The resumed vendor conversation already holds the fresh identity.
+            assert CONVERSATIONAL_TURN_REMINDER not in delivered
+            assert KEEP_GOING_ON_TOOL_FAILURE not in delivered
+            assert "Stored credentials: none.\n</jarvis_turn_context>" in delivered
+        else:
+            assert CONVERSATIONAL_RESPONSE_STYLE in delivered
+            assert KEEP_GOING_ON_TOOL_FAILURE in delivered
         assert delivered.endswith("Explain the result.")
 
 
@@ -75,6 +82,7 @@ async def test_cli_keeps_explicit_detail_requests_with_the_shared_default(resume
         session_id="society:reply-style-test", text=prompt, compact=compact_identity(prompt)
     )
     delivered = _with_identity(request, seat, resume, compact=compact)
-    assert CONVERSATIONAL_TURN_REMINDER in delivered
+    if resume is None:
+        assert CONVERSATIONAL_TURN_REMINDER in delivered
     assert delivered.endswith(request)
     assert "think longer and go deeper" not in delivered

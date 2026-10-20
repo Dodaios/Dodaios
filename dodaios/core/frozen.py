@@ -8,7 +8,8 @@ Three install kinds exist, and each one ships a different update path:
   Updates arrive as a new installer asset from the GitHub Release, never
   through git.
 * ``managed`` — the one-line installer's git checkout under
-  ``~/.personal-jarvis`` (marker file + official origin; the probe lives in
+  ``~/.dodaios``, or ``~/.personal-jarvis`` for an install not moved yet
+  (marker file + official origin; the probe lives in
   ``dodaios/ui/web/update_routes.py``). Updates are ``git fetch`` + reinstall.
 * ``dev``     — anything else: a maintainer checkout, a fork, a plain
   ``pip install``. Never self-updates.
