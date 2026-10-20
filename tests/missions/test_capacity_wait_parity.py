@@ -14,11 +14,11 @@ from typing import get_args
 
 import pytest
 
-from jarvis.missions.events import CAPACITY_WAIT_REASONS, MissionWaitingCapacity
-from jarvis.missions.state_machine import MissionState
-from jarvis.missions.voice.readback import CAPACITY_WAIT_PHRASES
+from dodaios.missions.events import CAPACITY_WAIT_REASONS, MissionWaitingCapacity
+from dodaios.missions.state_machine import MissionState
+from dodaios.missions.voice.readback import CAPACITY_WAIT_PHRASES
 
-_FRONTEND = Path(__file__).resolve().parents[2] / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = Path(__file__).resolve().parents[2] / "dodaios" / "ui" / "web" / "frontend" / "src"
 _MISSIONS_TS = (_FRONTEND / "types" / "missions.ts").read_text(encoding="utf-8")
 _LOCALES = ("de", "en", "es", "zh")
 
@@ -56,7 +56,7 @@ def test_paid_fallback_reasons_cross_every_layer() -> None:
 
 
 def test_paid_usage_says_whether_it_was_automatic() -> None:
-    from jarvis.missions.events import MissionPaidUsage
+    from dodaios.missions.events import MissionPaidUsage
 
     assert "automatic" in MissionPaidUsage.model_fields
     m = re.search(
@@ -103,9 +103,9 @@ def test_event_fields_python_ts_parity() -> None:
 
 
 def test_repeated_pause_is_not_announced_again() -> None:
-    from jarvis.missions.events import EventEnvelope
-    from jarvis.missions.voice.listener import MissionVoiceListener
-    from jarvis.missions.voice.readback import MissionReadback
+    from dodaios.missions.events import EventEnvelope
+    from dodaios.missions.voice.listener import MissionVoiceListener
+    from dodaios.missions.voice.readback import MissionReadback
 
     first = MissionWaitingCapacity(reason="provider_quota", provider="claude", steps_total=2)
     again = first.model_copy(update={"resume_attempt": 1, "repeat": True})
@@ -122,7 +122,7 @@ def test_repeated_pause_is_not_announced_again() -> None:
 
 @pytest.mark.parametrize("name", ["MissionCapacityDecision", "MissionPaidUsage"])
 def test_decision_events_python_ts_parity(name: str) -> None:
-    from jarvis.missions import events
+    from dodaios.missions import events
 
     m = re.search(rf"export interface {name} extends BasePayload \{{([^}}]+)\}}", _MISSIONS_TS)
     assert m, f"{name} interface not found in missions.ts"
@@ -132,8 +132,8 @@ def test_decision_events_python_ts_parity(name: str) -> None:
 
 
 def test_decision_vocabulary_python_ts_parity() -> None:
-    from jarvis.missions.capacity import CapacityDecision
-    from jarvis.missions.events import MissionCapacityDecision
+    from dodaios.missions.capacity import CapacityDecision
+    from dodaios.missions.events import MissionCapacityDecision
 
     py = set(get_args(CapacityDecision))
     assert py == set(get_args(MissionCapacityDecision.model_fields["decision"].annotation))
@@ -152,6 +152,6 @@ def test_decision_dialog_locales_match() -> None:
     assert all(k == keys[0] for k in keys)
     reasons = set(_locale("en")["capacity_decision"]["reasons"])
     assert reasons == set(CAPACITY_WAIT_REASONS)
-    from jarvis.missions.capacity import CapacityDecision
+    from dodaios.missions.capacity import CapacityDecision
 
     assert set(_locale("en")["capacity_decision"]["logged"]) == set(get_args(CapacityDecision))

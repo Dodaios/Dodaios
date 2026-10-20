@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 
-from jarvis.plugins.wake.vosk_native import (
+from dodaios.plugins.wake.vosk_native import (
     LockedRecognizer,
     build_recognizer,
     is_native_recognizer,
@@ -170,7 +170,7 @@ def test_release_recognizer_frees_on_the_worker_thread() -> None:
     """vosk_recognizer_free runs wherever the last reference dies — measured at
     15 s on the asyncio loop during a cold boot. The release helper must move
     that death onto its own worker."""
-    from jarvis.plugins.wake.vosk_native import release_recognizer
+    from dodaios.plugins.wake.vosk_native import release_recognizer
 
     died_on: list[str] = []
     done = threading.Event()

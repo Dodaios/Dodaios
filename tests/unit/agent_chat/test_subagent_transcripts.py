@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from jarvis.agent_chat.subagent_transcripts import codex_subagents
+from dodaios.agent_chat.subagent_transcripts import codex_subagents
 
 PARENT = "01a0debc-8389-7101-baa5-462e6e90a3c4"
 CHILD = "01a0debd-5013-7810-9557-0fe75ec805fc"
@@ -148,10 +148,10 @@ def test_route_lists_a_codex_threads_subagents(tmp_path: Path, monkeypatch) -> N
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.agent_chat import subagent_transcripts
-    from jarvis.agent_chat.service import AgentChatService
-    from jarvis.agent_chat.store import AgentChatStore
-    from jarvis.ui.web.agent_chat_routes import router
+    from dodaios.agent_chat import subagent_transcripts
+    from dodaios.agent_chat.service import AgentChatService
+    from dodaios.agent_chat.store import AgentChatStore
+    from dodaios.ui.web.agent_chat_routes import router
 
     # The thread was created just now; its sub-agent's rollout is filed under today.
     _write(tmp_path, CHILD, _child_lines(), day=datetime.now(UTC).strftime("%Y/%m/%d"))

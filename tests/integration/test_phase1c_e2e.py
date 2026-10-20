@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.runner import SkillRunner
-from jarvis.skills.trigger_matcher import TriggerMatcher
+from dodaios.core.bus import EventBus
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.runner import SkillRunner
+from dodaios.skills.trigger_matcher import TriggerMatcher
 
 
 @pytest.fixture
 def builtin_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "jarvis" / "skills" / "builtin"
+    return Path(__file__).resolve().parents[2] / "dodaios" / "skills" / "builtin"
 
 
 @pytest.fixture

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.mcp.agents import tokens as tk
+from dodaios.mcp.agents import tokens as tk
 
 
 @pytest.fixture
@@ -122,7 +122,7 @@ def test_full_scope_is_everything() -> None:
 
 def test_every_dangerous_tool_is_classified() -> None:
     """No tool may be dangerous and yet fall outside all three scopes."""
-    from jarvis.mcp.agents import TOOLS
+    from dodaios.mcp.agents import TOOLS
 
     for tool in TOOLS:
         reachable = [s for s in tk.SCOPES if tk.allows(s, tool.name, dangerous=tool.dangerous)]

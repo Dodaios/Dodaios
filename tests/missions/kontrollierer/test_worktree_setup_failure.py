@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.isolation.worktree import SourceCheckoutUnavailableError
-from jarvis.missions.kontrollierer.decomposer import Step
-from jarvis.missions.kontrollierer.orchestrator import Kontrollierer, TaskOutcome
+from dodaios.missions.isolation.worktree import SourceCheckoutUnavailableError
+from dodaios.missions.kontrollierer.decomposer import Step
+from dodaios.missions.kontrollierer.orchestrator import Kontrollierer, TaskOutcome
 
 
 class _NoopBudget:
@@ -200,7 +200,7 @@ async def test_source_checkout_capability_failure_is_distinct(
     outcome = await k._run_task_with_critic_loop(
         mission_id="m-source-unavailable",
         mission_prompt="Fix the router source",
-        step=Step(slug="fix-router", prompt="Fix jarvis/brain/manager.py"),
+        step=Step(slug="fix-router", prompt="Fix dodaios/brain/manager.py"),
         mission_dir=tmp_path,
         reflections=object(),
         sem=asyncio.Semaphore(1),

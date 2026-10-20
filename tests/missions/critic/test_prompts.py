@@ -8,7 +8,7 @@ Checks the applicable design-reviewer criteria from
 """
 from __future__ import annotations
 
-from jarvis.missions.critic.prompts import (
+from dodaios.missions.critic.prompts import (
     ADVERSARIAL_REFRAME_PREFIX,
     CODEX_FLAT_OUTPUT_CONTRACT,
     CRITIC_SYSTEM_PROMPT,

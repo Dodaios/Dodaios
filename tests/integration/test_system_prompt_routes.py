@@ -11,11 +11,11 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-import jarvis.core.config as core_config
-from jarvis.brain import persona_loader
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+import dodaios.core.config as core_config
+from dodaios.brain import persona_loader
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 @pytest.fixture(autouse=True)

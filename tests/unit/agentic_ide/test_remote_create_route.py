@@ -15,10 +15,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import remote
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry
-from jarvis.computers import remote_os, remote_terminal
+from dodaios.agentic_ide import remote
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry
+from dodaios.computers import remote_os, remote_terminal
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -54,8 +54,8 @@ def far(monkeypatch: pytest.MonkeyPatch) -> RemotePool:
 def client(
     far: RemotePool, monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
 ) -> tuple[TestClient, Registry]:
-    from jarvis.agentic_ide import recents
-    from jarvis.ui.web import agentic_ide_routes
+    from dodaios.agentic_ide import recents
+    from dodaios.ui.web import agentic_ide_routes
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)

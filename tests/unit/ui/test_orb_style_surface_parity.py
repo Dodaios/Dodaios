@@ -188,7 +188,7 @@ def test_the_speaker_disc_delegates_when_a_host_owns_the_pipeline() -> None:
 
 def test_the_speaker_disc_leaves_its_icon_alone_without_a_pipeline() -> None:
     """No pipeline, no mute — the disc must not claim one happened."""
-    from jarvis.core import runtime_refs
+    from dodaios.core import runtime_refs
 
     runtime_refs.set_speech_pipeline(None)
     orb = overlay.OrbOverlay(style="voice_orb")

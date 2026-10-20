@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-import jarvis.brain.hf_gguf as hf
+import dodaios.brain.hf_gguf as hf
 
 pytestmark = pytest.mark.integration
 

@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import ProfileUpdated
-from jarvis.memory.user_profile import UserProfile
-from jarvis.plugins.tool.profile_update import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import ProfileUpdated
+from dodaios.memory.user_profile import UserProfile
+from dodaios.plugins.tool.profile_update import (
     _BOOL_FIELDS,
     _CANONICAL_FIELDS,
     _LIST_FIELDS,
@@ -25,7 +25,7 @@ from jarvis.plugins.tool.profile_update import (
 
 def test_canonical_fields_match_matrix_ui():
     """The tool's writable fields MUST equal the Knowledge-matrix UI's
-    CLUSTER_FIELD_KEYS (jarvis/ui/web/frontend/src/views/ProfileView.tsx).
+    CLUSTER_FIELD_KEYS (dodaios/ui/web/frontend/src/views/ProfileView.tsx).
 
     If the tool can write a field the matrix never renders, the brain learns a
     fact that silently never appears — the BUG-008 multi-layer-enum-drift class.
@@ -55,7 +55,7 @@ def test_list_and_bool_field_shapes_match_ui_editor():
     edited as chips (append/remove), a bool as a yes/no toggle. If these drift,
     the editor sends an operation the PATCH /api/profile/field endpoint rejects
     with 400 (e.g. a "set" on a field the UI thinks is scalar). Keep this in sync
-    with jarvis/ui/web/frontend/src/views/profile/ledger.ts.
+    with dodaios/ui/web/frontend/src/views/profile/ledger.ts.
     """
     list_field_names = {field for _cluster, field in _LIST_FIELDS}
     assert list_field_names == {

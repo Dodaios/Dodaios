@@ -16,8 +16,8 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.brain import local_context
-from jarvis.brain.local_context import (
+from dodaios.brain import local_context
+from dodaios.brain.local_context import (
     LOCAL_CONTEXT_MARKER,
     LocalContextError,
     certain_tokens,
@@ -32,7 +32,7 @@ from jarvis.brain.local_context import (
     reported_prompt_tokens,
     truncation_suspected,
 )
-from jarvis.core.protocols import BrainMessage, BrainRequest
+from dodaios.core.protocols import BrainMessage, BrainRequest
 
 ROOT = "http://fake:1234"
 
@@ -261,7 +261,7 @@ def test_a_suspected_window_lapses_but_a_stated_one_stays(monkeypatch) -> None:
 
 
 def test_one_odd_response_changes_nothing_and_two_tighten() -> None:
-    from jarvis.brain.local_context import judge_reported_prompt
+    from dodaios.brain.local_context import judge_reported_prompt
 
     req = _req(60_000)
     assert judge_reported_prompt("local-openai", ROOT, "m", req, 4_096) == ("keep", 0)
@@ -271,7 +271,7 @@ def test_one_odd_response_changes_nothing_and_two_tighten() -> None:
 
 
 def test_an_honest_response_in_between_resets_the_count() -> None:
-    from jarvis.brain.local_context import judge_reported_prompt
+    from dodaios.brain.local_context import judge_reported_prompt
 
     req = _req(60_000)
     judge_reported_prompt("local-openai", ROOT, "m", req, 4_096)
@@ -280,7 +280,7 @@ def test_an_honest_response_in_between_resets_the_count() -> None:
 
 
 def test_a_response_above_the_suspected_window_restores_the_budget() -> None:
-    from jarvis.brain.local_context import judge_reported_prompt
+    from dodaios.brain.local_context import judge_reported_prompt
 
     req = _req(60_000)
     judge_reported_prompt("local-openai", ROOT, "m", req, 4_096)
@@ -316,7 +316,7 @@ def test_an_encoded_image_in_a_block_is_not_counted_as_text() -> None:
 
 
 def test_a_refusal_never_claims_a_prompt_larger_than_the_window() -> None:
-    from jarvis.brain.local_context import refusal_error
+    from dodaios.brain.local_context import refusal_error
 
     err = refusal_error(
         _req(8_000), provider="local-openai", model="qwen", kind="vllm", window_tokens=8_192
@@ -361,7 +361,7 @@ def test_no_token_count_reads_as_an_http_status(needed: int, window: int, kind: 
     """Classifiers across the app take a free-standing three-digit group for
     an HTTP status. Written "18,401 tokens", a too-small window was recorded as
     a rejected key, and "65,536" as an unreachable server."""
-    from jarvis.brain.provider_test import ERROR, classify_provider_error
+    from dodaios.brain.provider_test import ERROR, classify_provider_error
 
     for refused in (False, True):
         message = str(

@@ -62,7 +62,7 @@ card; nothing hidden drives behavior.
   editor, browser). The society-only tools (`society_message_agent`, `society_wiki_note`,
   `society_shell`, `society_browser`, `society_run_skill`) are available on the brain runner
   today and are NOT yet offered over MCP to a seated CLI (tracked gap).
-- `account_id` — which stored subscription of that CLI the agent uses (`jarvis.agent_accounts`;
+- `account_id` — which stored subscription of that CLI the agent uses (`dodaios.agent_accounts`;
   empty = the platform's active account). Pinned per turn through
   `runner_cli.ACCOUNT_OVERRIDE`, so two agents can sit on two Claude Max logins.
 - **Switching later**: `POST /api/society/agents/{id}/model` (or PATCH) changes provider /
@@ -146,7 +146,7 @@ message the agent writes carries an `author`, so the thread shows the agent's
 name above its messages. The agent's chat shows a "Started a … thread" line
 that opens the thread. When a turn the agent started finishes, asks a
 question, presents a plan or waits for an approval, the coordinator
-(`jarvis/society/coding_threads.py`) wakes the agent's chat with the result
+(`dodaios/society/coding_threads.py`) wakes the agent's chat with the result
 as an internal message: the agent checks it against the task, answers,
 follows up or reports to the person. A turn the person typed into the thread
 wakes nobody. Wake-ups per thread stop after 25 until the person writes in
@@ -164,24 +164,24 @@ with a durable notice instead of creating an endless model loop. Pending
 initial deliveries are never automatically replayed after interruption.
 
 Everything a Jarvis brain can call already exists in four registries. The society adds ONE
-read-only view over them — `jarvis/society/capabilities.py` — that returns typed rows
+read-only view over them — `dodaios/society/capabilities.py` — that returns typed rows
 `CapabilityRow(id, kind, label, one_liner, risk_tier, connected: bool, source)`:
 
 | kind | id form | comes from | connected means |
 |---|---|---|---|
-| `plugin` | `plugin:<entry-point name>` (`plugin:gmail`, `plugin:google-calendar`, `plugin:spotify`) | `jarvis.tool` entry points (`jarvis/core/registry.py`), marketplace-installed plugins included | its credential probe is green (`brain/app_control.is_credential_present`) |
-| `cli` | `cli:<name>` (`cli:gcloud`, `cli:gh`) | `jarvis.clis` registry — the `cli_<name>` tools the CLI Test Hub already drives | binary found + connected in the CLIs section |
-| `mcp` | `mcp:<server>` (whole server) and `mcp:<server>/<tool>` | `jarvis/mcp/adapter.py` (`MCPToolAdapter` rows in the tool registry) | server verified (`mcp/bootstrap.verify_server`) |
-| `skill` | `skill:<slug>` | `jarvis/skills/registry.py`, `active` lifecycle only | always (skills are text) |
+| `plugin` | `plugin:<entry-point name>` (`plugin:gmail`, `plugin:google-calendar`, `plugin:spotify`) | `jarvis.tool` entry points (`dodaios/core/registry.py`), marketplace-installed plugins included | its credential probe is green (`brain/app_control.is_credential_present`) |
+| `cli` | `cli:<name>` (`cli:gcloud`, `cli:gh`) | `dodaios.clis` registry — the `cli_<name>` tools the CLI Test Hub already drives | binary found + connected in the CLIs section |
+| `mcp` | `mcp:<server>` (whole server) and `mcp:<server>/<tool>` | `dodaios/mcp/adapter.py` (`MCPToolAdapter` rows in the tool registry) | server verified (`mcp/bootstrap.verify_server`) |
+| `skill` | `skill:<slug>` | `dodaios/skills/registry.py`, `active` lifecycle only | always (skills are text) |
 | `core` | `core:<tool>` (`core:search-web`, `core:wiki-recall`, `core:run-shell`, `core:computer-use`, `core:read/write/edit` folder tools) | the built-in tool set minus the router-only dispatch tools | always |
 
-**The agent's own hands (built 2026-09-02, all in `jarvis/society/`):**
+**The agent's own hands (built 2026-09-02, all in `dodaios/society/`):**
 
 | tool | what | gate |
 |---|---|---|
 | `society_shell` | commands in the agent's OWN workspace folder (`data/society/<id>/workspace`), path containment, output cap, timeout — local by decision (Hermes' default backend is local, OpenClaw's sandbox is off by default); `ShellBackend` is the seam for a later Docker backend | destructive class → `ask`; `approvals.decide` on `core:shell` |
 | `Read/Write/Edit/Ls/Glob/Grep` | the chat's folder tools, wrapped so every path stays inside the workspace | folder tiers |
-| `society_browser` | one browser-use run in the agent's persistent Chromium profile (or its attached Chrome), out of process in a managed venv (`jarvis/society/browser/`), capped steps and time, results and cost on the board | send/buy/delete/publish wording → `ask`; `approvals.decide` on `core:browser`; `browser_allowed_domains` |
+| `society_browser` | one browser-use run in the agent's persistent Chromium profile (or its attached Chrome), out of process in a managed venv (`dodaios/society/browser/`), capped steps and time, results and cost on the board | send/buy/delete/publish wording → `ask`; `approvals.decide` on `core:browser`; `browser_allowed_domains` |
 | `society_run_skill` | loads one of the agent's learned skills as instructions | monitor |
 | `society_message_agent`, `society_wiki_note` | see §4 and §5 | monitor |
 
@@ -215,7 +215,7 @@ Per turn, the society surface kit builds the agent's tool dict in this order:
    their one-liners, then a compact "Also available" line of names by kind.
 
 `focus` is derived ONCE at creation (and on every description edit) by
-`jarvis/society/focus.py`: deterministic keyword matching of the `title` + `description`
+`dodaios/society/focus.py`: deterministic keyword matching of the `title` + `description`
 against catalog labels, one-liners and plugin aliases ("Gmail", "mail", "inbox" → `plugin:gmail`;
 "calendar", "Termin" → `plugin:google-calendar` <!-- i18n-allow: alias example -->; "GitHub", "PR" → `cli:gh` / `mcp:github`).
 No LLM call for this — it must work with any single key and cost nothing. The card shows the
@@ -273,7 +273,7 @@ Jarvis is the harness itself and the one lead; it never runs on the society surf
 gives it nothing. Until 2026-09-03 its router prompt still described the retired sub-agent
 (mission worker) system and listed the word "Agent" as the trigger for `spawn_worker` —
 asked "which agents do you have?", Jarvis answered from that system while a freshly created
-Gmail agent stood on the island. The team card (`jarvis/society/lead_card.py`) is the fix:
+Gmail agent stood on the island. The team card (`dodaios/society/lead_card.py`) is the fix:
 
 - **What it is.** A deterministic, byte-stable block rendered from the roster snapshot and the
   capability catalog — no model call, no database read on the hot path. A rule block (what
@@ -443,7 +443,7 @@ Maps onto [`build-plan-m1-m2.md`](build-plan-m1-m2.md); new items are marked **+
 | Wave | Adds from this document |
 |---|---|
 | 2 | roster schema with §2 fields (`title`, `description`, `grant_mode`, `grants`, `focus`, `denies`, `skills`, `approval_rules`, `workspace_dir`, `wiki_namespace`, `knowledge_scope`, `max_concurrent_runs`) + five-layer parity for the new enums |
-| **2b +** | `jarvis/society/capabilities.py` (catalog over plugins / CLIs / MCPs / skills / core) + `focus.py` (deterministic derivation) + tests with fakes for every registry |
+| **2b +** | `dodaios/society/capabilities.py` (catalog over plugins / CLIs / MCPs / skills / core) + `focus.py` (deterministic derivation) + tests with fakes for every registry |
 | 4 | scheduler enforces §4.3 `RESULT` schema and §4.4 rules; per-trace cap |
 | 5 | REST: `GET /api/society/capabilities`, `POST /agents` derives focus, `PATCH` re-derives on description change; CLI `jarvis society capabilities` |
 | 6 | society surface kit implements §3.2 tool dict + §3.3 prompt assembly; `message_agent` with `refs`; wiki tools namespaced (§5 write path) |

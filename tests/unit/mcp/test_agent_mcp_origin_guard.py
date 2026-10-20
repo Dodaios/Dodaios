@@ -25,8 +25,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.mcp_server_routes import build_mcp_asgi_app
-from jarvis.ui.web.surface_security import SurfaceSecurity
+from dodaios.ui.web.mcp_server_routes import build_mcp_asgi_app
+from dodaios.ui.web.surface_security import SurfaceSecurity
 
 _MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
 _INIT = {
@@ -44,7 +44,7 @@ _INIT = {
 @pytest.fixture
 def guarded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     """The MCP surface behind the real guard, plus a token store of our own."""
-    from jarvis.mcp.agents import tokens
+    from dodaios.mcp.agents import tokens
 
     store = tokens.TokenStore(tmp_path / "mcp_tokens.json")
     monkeypatch.setattr(tokens, "_store", store)

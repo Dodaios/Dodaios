@@ -1,7 +1,7 @@
 """Defaults for the voice continuation-recombine knobs."""
 from __future__ import annotations
 
-from jarvis.core.config import VoiceConfig
+from dodaios.core.config import VoiceConfig
 
 
 def test_continuation_defaults():

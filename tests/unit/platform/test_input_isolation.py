@@ -18,7 +18,7 @@ import os
 
 import pytest
 
-from jarvis.platform.input_isolation import (
+from dodaios.platform.input_isolation import (
     InputIsolationReason,
     describe_input_isolation,
     windows_process_is_elevated,

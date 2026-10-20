@@ -24,11 +24,11 @@
 # Mirror the package layout, including the shared marketplace catalog imported
 # by the frontend. Vite writes the bundle next to the frontend directory.
 FROM node:22-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS web
-WORKDIR /build/jarvis/ui/web/frontend
-COPY jarvis/ui/web/frontend/package.json jarvis/ui/web/frontend/package-lock.json ./
+WORKDIR /build/dodaios/ui/web/frontend
+COPY dodaios/ui/web/frontend/package.json dodaios/ui/web/frontend/package-lock.json ./
 RUN npm ci
-COPY jarvis/ui/web/frontend/ ./
-COPY jarvis/marketplace/seed_catalog.json /build/jarvis/marketplace/seed_catalog.json
+COPY dodaios/ui/web/frontend/ ./
+COPY dodaios/marketplace/seed_catalog.json /build/dodaios/marketplace/seed_catalog.json
 RUN npm run build
 
 # --- Stage 2: runtime --------------------------------------------------------
@@ -57,8 +57,9 @@ WORKDIR /app
 # runtime data dir resolves to the writable /app/data volume below rather than
 # into read-only site-packages.
 COPY pyproject.toml README.md LICENSE NOTICE ./
+COPY dodaios ./dodaios
 COPY jarvis ./jarvis
-COPY --from=web /build/jarvis/ui/web/dist ./jarvis/ui/web/dist
+COPY --from=web /build/dodaios/ui/web/dist ./dodaios/ui/web/dist
 RUN python -m pip install --upgrade pip \
  && python -m pip install -e .
 
@@ -90,4 +91,4 @@ ENV JARVIS_BIND_HOST=0.0.0.0 \
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=6 \
   CMD curl -fsS http://127.0.0.1:8000/api/health || exit 1
 
-CMD ["python", "-m", "jarvis.ui.web.launcher", "--headless", "--port", "8000"]
+CMD ["python", "-m", "dodaios.ui.web.launcher", "--headless", "--port", "8000"]

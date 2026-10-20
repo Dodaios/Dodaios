@@ -52,47 +52,47 @@ def _assert_shared_user32_is_clean() -> None:
 
 
 def test_window_state_focus_leaves_shared_user32_untouched() -> None:
-    """jarvis.platform.window_state binds SetWindowPos et al. on a private DLL."""
-    from jarvis.platform import window_state as ws
+    """dodaios.platform.window_state binds SetWindowPos et al. on a private DLL."""
+    from dodaios.platform import window_state as ws
 
     ws._find_and_focus_windows(_MISSING_WINDOW_TITLE)
     _assert_shared_user32_is_clean()
 
 
 def test_desktop_app_bring_to_front_leaves_shared_user32_untouched() -> None:
-    """jarvis.ui.desktop_app binds SetWindowPos et al. on a private DLL."""
-    from jarvis.ui import desktop_app
+    """dodaios.ui.desktop_app binds SetWindowPos et al. on a private DLL."""
+    from dodaios.ui import desktop_app
 
     desktop_app._bring_window_to_front_by_title(_MISSING_WINDOW_TITLE)
     _assert_shared_user32_is_clean()
 
 
 def test_cu_indicator_win32_leaves_shared_user32_untouched() -> None:
-    """jarvis.cu.indicator.win32 binds GetWindowLongW/SetWindowLongW on a
+    """dodaios.cu.indicator.win32 binds GetWindowLongW/SetWindowLongW on a
     private DLL — those two are also called directly by pywebview."""
-    from jarvis.cu.indicator import win32 as cu_win32
+    from dodaios.cu.indicator import win32 as cu_win32
 
     cu_win32.harden_window(0)
     _assert_shared_user32_is_clean()
 
 
 def test_capture_exclusion_leaves_shared_user32_untouched() -> None:
-    """jarvis.platform.capture_exclusion binds GetParent/SetWindowDisplayAffinity
+    """dodaios.platform.capture_exclusion binds GetParent/SetWindowDisplayAffinity
     on a private DLL. hwnd=1 is a deliberately invalid-but-truthy handle: the
     real Win32 call just fails gracefully, it never dereferences memory."""
-    from jarvis.platform import capture_exclusion
+    from dodaios.platform import capture_exclusion
 
     capture_exclusion.exclude_hwnd_from_capture(1)
     _assert_shared_user32_is_clean()
 
 
 def test_icon_utils_leaves_shared_user32_and_kernel32_untouched(tmp_path) -> None:
-    """jarvis.ui.icon_utils binds SetClassLongPtrW/FindWindowW/... on private
+    """dodaios.ui.icon_utils binds SetClassLongPtrW/FindWindowW/... on private
     DLLs — set_window_icon_by_title with a nonexistent title exercises the
     configuring code path without needing a real HWND. The file only needs
     to exist; FindWindowW returns 0 for the missing title before any icon
     bytes are ever read."""
-    from jarvis.ui import icon_utils
+    from dodaios.ui import icon_utils
 
     fake_ico = tmp_path / "fake.ico"
     fake_ico.write_bytes(b"")
@@ -101,9 +101,9 @@ def test_icon_utils_leaves_shared_user32_and_kernel32_untouched(tmp_path) -> Non
 
 
 def test_msix_redirection_leaves_shared_kernel32_untouched(monkeypatch) -> None:
-    """jarvis.ui.msix_redirection binds GetCurrentPackageFamilyName on a
+    """dodaios.ui.msix_redirection binds GetCurrentPackageFamilyName on a
     private DLL. Reset the module's one-shot cache so the probe actually runs."""
-    from jarvis.ui import msix_redirection
+    from dodaios.ui import msix_redirection
 
     monkeypatch.setattr(msix_redirection, "_FAMILY_PROBED", False)
     msix_redirection.package_family_name()

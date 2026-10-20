@@ -5,11 +5,11 @@ from dataclasses import dataclass
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import TranscriptFinal, TranscriptionUpdate
-from jarvis.core.protocols import AudioChunk, Transcript
-from jarvis.speech.continuation_buffer import ContinuationBuffer
-from jarvis.speech.pipeline import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import TranscriptFinal, TranscriptionUpdate
+from dodaios.core.protocols import AudioChunk, Transcript
+from dodaios.speech.continuation_buffer import ContinuationBuffer
+from dodaios.speech.pipeline import (
     _TIMEOUT_NO_ANSWER_PHRASE,
     SpeechPipeline,
     TurnTakingState,

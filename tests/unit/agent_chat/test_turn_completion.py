@@ -7,14 +7,14 @@ import json
 
 import pytest
 
-from jarvis.agent_chat import service as service_module
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.questions import parse_questions
-from jarvis.agent_chat.runner_api import TurnHandle
-from jarvis.agent_chat.service import AgentChatService, _Running
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agent_chat.turn_completion import TurnCompletion, offer_instead_of_action
-from jarvis.core.protocols import current_chat_turn
+from dodaios.agent_chat import service as service_module
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.questions import parse_questions
+from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.service import AgentChatService, _Running
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.turn_completion import TurnCompletion, offer_instead_of_action
+from dodaios.core.protocols import current_chat_turn
 
 QUESTION = {"question": "Which project?", "options": ["Reading tracker", "Budget tracker"]}
 
@@ -218,7 +218,7 @@ async def test_service_continues_to_artifact_after_question_without_another_user
     runner,
     cancel_wait,
 ):
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.runtime import SocietyRuntime
 
     svc = AgentChatService(AgentChatStore(":memory:"))
     rt = SocietyRuntime(tmp_path, seed_starter_team=False, chat_service=lambda: svc)
@@ -338,7 +338,7 @@ async def finish_with(gate, *events):
 async def test_a_secret_asked_for_in_the_reply_is_steered_to_the_secure_field_once(
     card_world, monkeypatch
 ):
-    from jarvis.agent_chat import turn_completion
+    from dodaios.agent_chat import turn_completion
 
     monkeypatch.setattr(turn_completion, "_stored_credentials", stored([]))
     _, _, gate = card_world
@@ -356,7 +356,7 @@ async def test_a_secret_asked_for_in_the_reply_is_steered_to_the_secure_field_on
 @pytest.mark.parametrize("server", ["dodaios", "jarvis"])
 async def test_a_turn_that_opened_the_field_is_left_alone(card_world, monkeypatch, server):
     """The tool is recognised behind the server's current and its earlier name."""
-    from jarvis.agent_chat import turn_completion
+    from dodaios.agent_chat import turn_completion
 
     monkeypatch.setattr(turn_completion, "_stored_credentials", stored([]))
     _, _, gate = card_world
@@ -371,7 +371,7 @@ async def test_a_turn_that_opened_the_field_is_left_alone(card_world, monkeypatc
 
 
 async def test_a_claimed_token_that_is_not_stored_is_corrected(card_world, monkeypatch):
-    from jarvis.agent_chat import turn_completion
+    from dodaios.agent_chat import turn_completion
 
     _, _, gate = card_world
     claim = make_event(
@@ -386,7 +386,7 @@ async def test_a_claimed_token_that_is_not_stored_is_corrected(card_world, monke
 
 
 async def test_chats_without_the_credential_tool_are_never_steered(card_world, monkeypatch):
-    from jarvis.agent_chat import turn_completion
+    from dodaios.agent_chat import turn_completion
 
     monkeypatch.setattr(turn_completion, "_stored_credentials", stored(None))
     _, _, gate = card_world

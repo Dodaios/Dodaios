@@ -6,9 +6,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agentic_ide.orchestration import WorkspaceOrchestrator
-from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-from jarvis.core.protocols import ExecutionContext
+from dodaios.agentic_ide.orchestration import WorkspaceOrchestrator
+from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+from dodaios.core.protocols import ExecutionContext
 from tests.contract import test_workspace_orchestration as support
 
 rig = support.rig

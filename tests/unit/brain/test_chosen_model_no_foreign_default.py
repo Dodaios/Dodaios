@@ -22,9 +22,9 @@ import logging
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
 
 _FREE = "nvidia/nemotron-3-ultra-550b-a55b:free"
 

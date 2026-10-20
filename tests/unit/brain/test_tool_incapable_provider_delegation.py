@@ -18,11 +18,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.plugins.brain.antigravity import AntigravityBrain
-from jarvis.plugins.brain.codex import CodexBrain
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.plugins.brain.antigravity import AntigravityBrain
+from dodaios.plugins.brain.codex import CodexBrain
 
 
 # --------------------------------------------------------------------------

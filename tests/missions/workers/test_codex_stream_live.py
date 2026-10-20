@@ -23,8 +23,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.workers import codex_direct_worker as cdw
-from jarvis.missions.workers.codex_direct_worker import CodexDirectWorker
+from dodaios.missions.workers import codex_direct_worker as cdw
+from dodaios.missions.workers.codex_direct_worker import CodexDirectWorker
 
 
 class _LiveStream:

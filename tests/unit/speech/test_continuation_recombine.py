@@ -1,8 +1,8 @@
 """Pipeline-level continuation recombine + arm (Unit A/C wiring)."""
 from __future__ import annotations
 
-from jarvis.speech.continuation_window import ContinuationWindow
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.continuation_window import ContinuationWindow
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class FakeBrain:

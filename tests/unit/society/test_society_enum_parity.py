@@ -12,11 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society import events
+from dodaios.society import events
 
 _ROOT = Path(__file__).resolve().parents[3]
-_SQL = _ROOT / "jarvis" / "society" / "society_schema.sql"
-_TS = _ROOT / "jarvis" / "ui" / "web" / "frontend" / "src" / "lib" / "societyApi.ts"
+_SQL = _ROOT / "dodaios" / "society" / "society_schema.sql"
+_TS = _ROOT / "dodaios" / "ui" / "web" / "frontend" / "src" / "lib" / "societyApi.ts"
 
 # (python enum, SQL column whose CHECK lists it, TS const name). ``state`` is
 # pinned in the society_agents block only — rooms and approvals have their own.

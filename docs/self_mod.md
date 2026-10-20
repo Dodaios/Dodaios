@@ -104,7 +104,7 @@ removed below the floor.
 The mutable set is **no longer a hand-maintained list**. It is computed once
 (lazily, then cached) by walking the `JarvisConfig` schema: every leaf primitive
 field (str/int/float/bool, incl. `Optional`/`Literal`) becomes voice-mutable,
-minus `FORBIDDEN_PATTERNS`. See `jarvis/core/self_mod/schema_introspect.py`
+minus `FORBIDDEN_PATTERNS`. See `dodaios/core/self_mod/schema_introspect.py`
 (`introspect_mutable_specs`) and the curated `overrides.OVERRIDES` table.
 
 **AD-1 / AP-11 are preserved (reinterpreted):** the set is still fixed by *code*
@@ -119,14 +119,14 @@ Adding/refining a setting:
    no registry edit needed.
 2. To refine it (a SAFE risk-tier so REST/CLI auto-applies it, a hot-reload
    `needs_restart=False`, a nicer spoken `description`), add a `SpecOverride`
-   for its path in `jarvis/core/self_mod/overrides.py`.
+   for its path in `dodaios/core/self_mod/overrides.py`.
 3. For an **undeclared** `extra="allow"` key the schema walk can't see (e.g.
    `ui.theme`), the override must carry `pydantic_model_name` + `field_name` to
    force-include it.
 4. The parity guard (`tests/unit/self_mod/test_registry.py::TestAllowlistField
    Parity`) checks every emitted spec against the real schema automatically.
 
-**Forbidden paths** (`jarvis/core/self_mod/forbidden.py`): secrets / API keys /
+**Forbidden paths** (`dodaios/core/self_mod/forbidden.py`): secrets / API keys /
 privileged sections (`security.*`, `safety.*`, `harness.*`, `mcp_server.*`,
 `*_api_key`, …) are NEVER in the set — read or write. They surface as an honest
 voice *refusal*, not a confirmation. The "self-lockout" class is mostly closed
@@ -136,7 +136,7 @@ docstring before adding any path there.
 
 **Voice vs. REST/CLI confirmation:** the brain (voice/chat) wiring uses
 `auto_apply="all"` (apply immediately, then an honest deterministic readback —
-`jarvis/voice/config_readback.py`); REST/CLI keep the SAFE-auto / ASK-confirm
+`dodaios/voice/config_readback.py`); REST/CLI keep the SAFE-auto / ASK-confirm
 split (`auto_apply="safe_only"`).
 
 ## 6. Skill authoring (Plan §7.5)
@@ -152,7 +152,7 @@ Manual activation:
 - Web UI: `SkillsView` → draft badge "ENTWURF — vor Aktivierung review"
   (DRAFT — review before activation) → click "Aktivieren" (Activate)
   (Phase 7.6+, UI under construction).
-- CLI: `python -m jarvis.skills.cli --promote <slug>`.
+- CLI: `python -m dodaios.skills.cli --promote <slug>`.
 
 The pre-promote lint blocks `eval/exec/os.system/subprocess(shell=True)`
 as well as reflective bypasses (`getattr(__builtins__, "eval")`). Skills

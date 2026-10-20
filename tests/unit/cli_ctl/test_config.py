@@ -3,8 +3,8 @@ import os
 
 import pytest
 
-from jarvis.cli_ctl import config as cfg
-from jarvis.cli_ctl import paths
+from dodaios.cli_ctl import config as cfg
+from dodaios.cli_ctl import paths
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +42,7 @@ def test_local_control_key_fallback(monkeypatch):
     # helper directly so the test is independent of whether the full Jarvis
     # runtime is importable (keeps the minimal-install CI matrix green).
     monkeypatch.setattr(
-        "jarvis.cli_ctl.config._local_control_key", lambda: "jctl_localkey"
+        "dodaios.cli_ctl.config._local_control_key", lambda: "jctl_localkey"
     )
     prof = cfg.resolve_profile()
     assert prof.control_key == "jctl_localkey"
@@ -62,7 +62,7 @@ def test_session_file_is_discovery_only_not_a_control_credential(monkeypatch, tm
     )
     monkeypatch.setenv("JARVIS_CLI_SESSION_FILE", str(sess))
     monkeypatch.setattr(
-        "jarvis.cli_ctl.config._local_control_key", lambda: "jctl_localkey"
+        "dodaios.cli_ctl.config._local_control_key", lambda: "jctl_localkey"
     )
     prof = cfg.resolve_profile()
     assert prof.base_url == "http://127.0.0.1:48999"

@@ -14,12 +14,12 @@
 
 ## File Structure
 
-- `jarvis/brain/vision_gate.py` — Wave 1: inverted decision + expanded markers (pure functions, ~60 lines).
+- `dodaios/brain/vision_gate.py` — Wave 1: inverted decision + expanded markers (pure functions, ~60 lines).
 - `tests/unit/brain/test_vision_gate.py` — Wave 1: pure-function unit tests (new).
 - `tests/integration/test_conditional_vision.py` — Wave 1: existing wiring tests stay green; add the user's regression case.
-- `jarvis/brain/tool_use_loop.py` — Wave 2: artifact→image feedback after a tool result.
+- `dodaios/brain/tool_use_loop.py` — Wave 2: artifact→image feedback after a tool result.
 - `tests/unit/brain/test_tool_use_loop_image_feedback.py` — Wave 2: image-feedback unit test (new).
-- `jarvis/brain/router.py` — Wave 2: one prompt sentence about `look_at_screen`/screenshot.
+- `dodaios/brain/router.py` — Wave 2: one prompt sentence about `look_at_screen`/screenshot.
 
 ---
 
@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.vision_gate import has_visual_marker, should_attach_screenshot
+from dodaios.brain.vision_gate import has_visual_marker, should_attach_screenshot
 
 # Turns that clearly refer to the screen → attach.
 _VISUAL = [
@@ -89,7 +89,7 @@ Expected: FAIL — `test_non_visual_skips` fails for "was haben wir gerade bespr
 
 - [ ] **Step 3: Rewrite `vision_gate.py` (inverted logic + expanded markers)**
 
-Replace the whole file `jarvis/brain/vision_gate.py` with:
+Replace the whole file `dodaios/brain/vision_gate.py` with:
 
 ```python
 """Visual-reference vision gate (Hybrid — attach-only-on-reference).
@@ -196,7 +196,7 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add jarvis/brain/vision_gate.py tests/unit/brain/test_vision_gate.py tests/integration/test_conditional_vision.py
+git add dodaios/brain/vision_gate.py tests/unit/brain/test_vision_gate.py tests/integration/test_conditional_vision.py
 git commit -m "feat(vision): attach screenshot only on a clear screen reference (Wave 1)"
 ```
 
@@ -207,7 +207,7 @@ git commit -m "feat(vision): attach screenshot only on a clear screen reference 
 ### Task 2: Feed tool image artifacts back into the conversation
 
 **Files:**
-- Modify: `jarvis/brain/tool_use_loop.py` (after the tool-result message append, inside the tool-call loop)
+- Modify: `dodaios/brain/tool_use_loop.py` (after the tool-result message append, inside the tool-call loop)
 - Test: `tests/unit/brain/test_tool_use_loop_image_feedback.py` (create)
 
 - [ ] **Step 1: Write the failing test**
@@ -217,8 +217,8 @@ git commit -m "feat(vision): attach screenshot only on a clear screen reference 
 message carrying an ImageBlock, so a vision provider can see it next iteration."""
 from __future__ import annotations
 
-from jarvis.brain.tool_use_loop import _images_from_artifacts
-from jarvis.core.protocols import ImageBlock
+from dodaios.brain.tool_use_loop import _images_from_artifacts
+from dodaios.core.protocols import ImageBlock
 
 
 def test_image_artifact_becomes_image_block() -> None:
@@ -243,7 +243,7 @@ Expected: FAIL — `ImportError: cannot import name '_images_from_artifacts'`.
 
 - [ ] **Step 3: Add the helper + wire it in `tool_use_loop.py`**
 
-Add this module-level helper near the top of `jarvis/brain/tool_use_loop.py` (after imports; ensure `ImageBlock` is imported from `jarvis.core.protocols`):
+Add this module-level helper near the top of `dodaios/brain/tool_use_loop.py` (after imports; ensure `ImageBlock` is imported from `dodaios.core.protocols`):
 
 ```python
 def _images_from_artifacts(artifacts: object) -> list["ImageBlock"]:
@@ -309,18 +309,18 @@ Expected: PASS (no existing tool-use-loop test broken by the added append).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add jarvis/brain/tool_use_loop.py tests/unit/brain/test_tool_use_loop_image_feedback.py
+git add dodaios/brain/tool_use_loop.py tests/unit/brain/test_tool_use_loop_image_feedback.py
 git commit -m "feat(vision): feed tool image artifacts back into the conversation (Wave 2)"
 ```
 
 ### Task 3: Prompt the router to use the screenshot tool on demand
 
 **Files:**
-- Modify: `jarvis/brain/router.py` (SYSTEM_PROMPT, lines 55-294)
+- Modify: `dodaios/brain/router.py` (SYSTEM_PROMPT, lines 55-294)
 
 - [ ] **Step 1: Read the SYSTEM_PROMPT and locate the tool-guidance area**
 
-Run: `grep -n "screenshot\|screen-snapshot\|Bildschirm\|Tools" jarvis/brain/router.py | head`
+Run: `grep -n "screenshot\|screen-snapshot\|Bildschirm\|Tools" dodaios/brain/router.py | head`
 Confirm where tool usage is described.
 
 - [ ] **Step 2: Add one guidance sentence**
@@ -334,13 +334,13 @@ Wenn du unsicher bist, ob du den aktuellen Bildschirm sehen musst, um eine Frage
 
 - [ ] **Step 3: Verify the screenshot tool is reachable by the router**
 
-Run: `python -c "from jarvis.brain.factory import ROUTER_TOOLS; print('screen-snapshot' in ROUTER_TOOLS)"`
+Run: `python -c "from dodaios.brain.factory import ROUTER_TOOLS; print('screen-snapshot' in ROUTER_TOOLS)"`
 Expected: `True` (already confirmed; this is a regression guard).
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add jarvis/brain/router.py
+git add dodaios/brain/router.py
 git commit -m "feat(vision): tell the router it can pull the screen on demand (Wave 2)"
 ```
 

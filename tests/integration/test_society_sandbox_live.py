@@ -9,7 +9,7 @@ import os
 
 import pytest
 
-from jarvis.society.sandbox import Sandbox, _docker, status
+from dodaios.society.sandbox import Sandbox, _docker, status
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("JARVIS_SANDBOX_LIVE") != "1",

@@ -8,8 +8,8 @@ from pathlib import Path
 import click
 from click.testing import CliRunner
 
-from jarvis.cli_ctl import safety
-from jarvis.cli_ctl.dynamic import build_api_group
+from dodaios.cli_ctl import safety
+from dodaios.cli_ctl.dynamic import build_api_group
 
 _REPO = Path(__file__).resolve().parents[3]
 

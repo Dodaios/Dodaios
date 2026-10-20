@@ -21,7 +21,7 @@ occupies on the same joint. It reports, per combination:
                   floating around the figure rather than worn on it
 
 Rest pose only, and that is the point: a fit problem is a rest-pose problem.
-Stdlib only (`glb_tools.py`); never imports ``jarvis.*``.
+Stdlib only (`glb_tools.py`); never imports ``dodaios.*``.
 
 Exit codes: 0 = every offered combination fits, 1 = at least one does not,
 78 = nothing to audit (no catalog / no assets).
@@ -39,8 +39,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
-_FIGURES = _REPO / "jarvis/ui/web/frontend/src/assets/society/figures"
-_CATALOG = _REPO / "jarvis/ui/web/frontend/src/components/society/figures/catalog.json"
+_FIGURES = _REPO / "dodaios/ui/web/frontend/src/assets/society/figures"
+_CATALOG = _REPO / "dodaios/ui/web/frontend/src/components/society/figures/catalog.json"
 _TOOLS = Path(__file__).resolve().parent / "glb_tools.py"
 
 EXIT_SKIPPED = 78

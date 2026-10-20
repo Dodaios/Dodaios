@@ -8,15 +8,15 @@ from types import SimpleNamespace
 import mcp.types as types
 import pytest
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agent_chat.tool_context import register_turn, restore_turn, unregister_turn
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.core.protocols import ChatTurn, current_chat_turn
-from jarvis.mcp.jarvis_tools_server import CHAT_SESSION_REF, build_server
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.surface import tools_for_cli_session
-from jarvis.tasks.context import client_timezone
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.tool_context import register_turn, restore_turn, unregister_turn
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.core.protocols import ChatTurn, current_chat_turn
+from dodaios.mcp.jarvis_tools_server import CHAT_SESSION_REF, build_server
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.surface import tools_for_cli_session
+from dodaios.tasks.context import client_timezone
 from tests.fakes.fake_agent_chat import FakeChatService
 from tests.unit.society.test_routines import FakeScheduler, FakeTaskStore
 
@@ -227,7 +227,7 @@ def test_context_cleanup_and_isolation():
 
 
 def test_resumed_society_seat_refreshes_routine_contract(monkeypatch, tmp_path):
-    from jarvis.agent_chat import jarvis_harness, runner_cli
+    from dodaios.agent_chat import jarvis_harness, runner_cli
 
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(jarvis_harness, "control_key", lambda: "test-key")
@@ -271,7 +271,7 @@ def test_resumed_society_seat_refreshes_routine_contract(monkeypatch, tmp_path):
 
 
 def test_routine_approval_delegation_is_only_for_society(monkeypatch):
-    from jarvis.agent_chat import jarvis_harness
+    from dodaios.agent_chat import jarvis_harness
 
     monkeypatch.setattr(jarvis_harness, "control_key", lambda: "test-key")
     monkeypatch.setattr(

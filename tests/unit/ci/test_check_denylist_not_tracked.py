@@ -60,7 +60,7 @@ class TestMatching:
             "scripts/ci/check_denylist_not_tracked.py",  # no leading underscore
             "video/src/intro/scenes/Integrations.tsx",  # video/, but not qa-wiki
             "assets/screenshots/app-home.png",
-            "jarvis/core/bus.py",
+            "dodaios/core/bus.py",
         ]
         assert gate._violations(clean, engine, DENYLIST) == []
 
@@ -103,7 +103,7 @@ class TestModes:
     def test_staged_mode_ignores_the_tracked_backlog(self, engine, monkeypatch):
         """The whole point: a dirty tree must not make every commit fail."""
         monkeypatch.setattr(gate, "_load_engine", lambda: engine)
-        monkeypatch.setattr(gate, "_added_paths", lambda: ["jarvis/core/bus.py"])
+        monkeypatch.setattr(gate, "_added_paths", lambda: ["dodaios/core/bus.py"])
         monkeypatch.setattr(gate, "_tracked_paths", lambda: ["scripts/_old_scratch.py"])
         monkeypatch.setattr(
             Path, "read_text", lambda self, **kw: DENYLIST, raising=False

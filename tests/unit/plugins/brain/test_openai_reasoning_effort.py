@@ -21,9 +21,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.protocols import BrainMessage, BrainRequest
-from jarvis.plugins.brain import _openai_base
-from jarvis.plugins.brain._openai_base import (
+from dodaios.core.protocols import BrainMessage, BrainRequest
+from dodaios.plugins.brain import _openai_base
+from dodaios.plugins.brain._openai_base import (
     _create_with_token_param_retry,
     stream_complete,
 )

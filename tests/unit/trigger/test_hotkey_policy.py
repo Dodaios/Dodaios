@@ -19,7 +19,7 @@ import types
 
 import pytest
 
-from jarvis.trigger.hotkey import (
+from dodaios.trigger.hotkey import (
     MOUSE_BUTTON_TOKENS,
     HotkeyVerdict,
     combos_collide,
@@ -111,9 +111,9 @@ def test_every_mouse_token_is_known_to_all_three_backends() -> None:
     """AP-4 parity: one vocabulary, three translations. A token that reaches
     only one backend is a shortcut that works on one OS and silently does
     nothing on the other two."""
-    from jarvis.trigger.backends.global_hotkeys import _MOUSE_TOKEN_TO_VK
-    from jarvis.trigger.backends.pynput import _MOUSE_NAME_TO_TOKEN
-    from jarvis.trigger.backends.quartz import _MOUSE_BUTTON_TO_TOKEN
+    from dodaios.trigger.backends.global_hotkeys import _MOUSE_TOKEN_TO_VK
+    from dodaios.trigger.backends.pynput import _MOUSE_NAME_TO_TOKEN
+    from dodaios.trigger.backends.quartz import _MOUSE_BUTTON_TO_TOKEN
 
     assert set(_MOUSE_TOKEN_TO_VK) == set(MOUSE_BUTTON_TOKENS)
     assert set(_MOUSE_NAME_TO_TOKEN.values()) == set(MOUSE_BUTTON_TOKENS)
@@ -124,7 +124,7 @@ def test_windows_registers_a_mouse_button_as_its_virtual_key() -> None:
     """The library matches on ``GetAsyncKeyState``, which reports mouse buttons
     — but only for a numeric VK token. The friendly token stays readable
     everywhere above the library boundary."""
-    from jarvis.trigger.backends.global_hotkeys import _normalize_combo, _to_library_combo
+    from dodaios.trigger.backends.global_hotkeys import _normalize_combo, _to_library_combo
 
     normalized = _normalize_combo("ctrl+mouse_x2")
     assert normalized == "control + mouse_x2"
@@ -134,7 +134,7 @@ def test_windows_registers_a_mouse_button_as_its_virtual_key() -> None:
 def test_windows_backend_registers_and_removes_the_same_mouse_string() -> None:
     """Registration and removal must be byte-identical, or a stale registration
     survives teardown and bricks the next re-arm (the F1+F2-went-dead class)."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
     from tests.fakes.fake_global_hotkeys import FakeGlobalHotkeys
 
     fake = FakeGlobalHotkeys()
@@ -156,7 +156,7 @@ def test_windows_backend_registers_and_removes_the_same_mouse_string() -> None:
 def test_linux_side_button_drives_one_edge_pair() -> None:
     """X11 numbers the side buttons 8 and 9; a chord of modifier + side button
     must fire exactly one down edge and one up edge."""
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     edges: list[str] = []
     backend = PynputBackend()
@@ -175,7 +175,7 @@ def test_linux_side_button_drives_one_edge_pair() -> None:
 
 def test_linux_ignores_an_unmapped_mouse_button() -> None:
     """A button no token names must be inert, never fire the nearest chord."""
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     edges: list[str] = []
     backend = PynputBackend()
@@ -188,7 +188,7 @@ def test_linux_ignores_an_unmapped_mouse_button() -> None:
 
 def test_linux_keyboard_only_bindings_start_no_mouse_hook() -> None:
     """An idle desktop must not pay for a hook nothing asked for."""
-    from jarvis.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
 
     backend = PynputBackend()
     backend.register([["control + alt + j", None, lambda: None]])
@@ -197,7 +197,7 @@ def test_linux_keyboard_only_bindings_start_no_mouse_hook() -> None:
 
 
 def test_macos_side_button_drives_one_edge_pair() -> None:
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     edges: list[str] = []
     backend = QuartzHotkeyBackend()
@@ -218,7 +218,7 @@ def test_macos_side_button_drives_one_edge_pair() -> None:
 def test_macos_ignores_the_primary_buttons() -> None:
     """Button 0/1 are left/right — the tap never asks for them, and even if one
     arrived it must not touch a chord."""
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     edges: list[str] = []
     backend = QuartzHotkeyBackend()
@@ -243,7 +243,7 @@ def test_mouse_support_is_reported_per_host_with_an_honest_reason() -> None:
 
 
 def test_wayland_reports_no_mouse_shortcuts_instead_of_pretending(monkeypatch) -> None:
-    import jarvis.platform.probes as probes
+    import dodaios.platform.probes as probes
 
     monkeypatch.setattr(probes, "is_wayland", lambda: True)
     ok, reason = mouse_hotkeys_available(platform="linux")

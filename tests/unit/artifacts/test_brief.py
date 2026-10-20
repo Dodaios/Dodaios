@@ -11,18 +11,18 @@ from __future__ import annotations
 
 import re
 
-from jarvis.artifacts.brief import (
+from dodaios.artifacts.brief import (
     MAX_PREVIOUS_HTML_CHARS,
     artifact_filename,
     build_artifact_brief,
 )
-from jarvis.artifacts.design_guide import (
+from dodaios.artifacts.design_guide import (
     GIGI_MARK_SVG,
     PAGE_SKELETON,
     THEME_BOOTSTRAP_JS,
     THEME_CSS,
 )
-from jarvis.missions.stream_evidence import clean_request_body
+from dodaios.missions.stream_evidence import clean_request_body
 
 
 def test_filename_comes_from_the_title_and_stays_short() -> None:

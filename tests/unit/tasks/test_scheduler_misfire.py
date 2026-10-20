@@ -21,11 +21,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.misfire import MISFIRE_GRACE_NS
-from jarvis.tasks.scheduler import TaskScheduler, parse_iso_timestamp_to_ns
-from jarvis.tasks.schema import SpeakAction, TaskSpec, TriggerAtTime, TriggerEvery
-from jarvis.tasks.store import TaskStore
+from dodaios.core.bus import EventBus
+from dodaios.core.misfire import MISFIRE_GRACE_NS
+from dodaios.tasks.scheduler import TaskScheduler, parse_iso_timestamp_to_ns
+from dodaios.tasks.schema import SpeakAction, TaskSpec, TriggerAtTime, TriggerEvery
+from dodaios.tasks.store import TaskStore
 
 _DAY_S = 86_400.0
 _DAY_NS = int(_DAY_S * 1e9)

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import git_changes, scm
-from jarvis.agentic_ide.git_ops import GitError
+from dodaios.agentic_ide import git_changes, scm
+from dodaios.agentic_ide.git_ops import GitError
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 

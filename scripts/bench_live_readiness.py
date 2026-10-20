@@ -22,11 +22,11 @@ sys.path.insert(0, str(Path.cwd()))
 import httpx  # noqa: E402
 import pytest  # noqa: E402
 
-from jarvis.core.bus import EventBus  # noqa: E402
-from jarvis.core.events import RealtimeSessionReady, SystemStateChanged  # noqa: E402
-from jarvis.live import session as host  # noqa: E402
-from jarvis.live.config import LiveConfig  # noqa: E402
-from jarvis.plugins.realtime import _live_transport as transport  # noqa: E402
+from dodaios.core.bus import EventBus  # noqa: E402
+from dodaios.core.events import RealtimeSessionReady, SystemStateChanged  # noqa: E402
+from dodaios.live import session as host  # noqa: E402
+from dodaios.live.config import LiveConfig  # noqa: E402
+from dodaios.plugins.realtime import _live_transport as transport  # noqa: E402
 from tests.fakes.fake_subscription_live_wire import FakeSubscriptionLiveWire  # noqa: E402
 
 

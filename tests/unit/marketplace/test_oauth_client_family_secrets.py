@@ -14,8 +14,8 @@ two halves live in different layers and only meet at runtime.
 """
 from __future__ import annotations
 
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.ui.web.control_routes import ALLOWED_SECRET_KEYS
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.ui.web.control_routes import ALLOWED_SECRET_KEYS
 
 
 def _declared_families() -> set[str]:
@@ -38,7 +38,7 @@ def test_every_oauth_family_has_writable_client_secrets():
     assert not missing, (
         f"OAuth client families declared in the catalog with no writable secret "
         f"key: {missing}. Add a SecretSpec for each to _WIZARD_SECRETS in "
-        f"jarvis/setup/wizard.py, or the Plugins view offers a client field that "
+        f"dodaios/setup/wizard.py, or the Plugins view offers a client field that "
         f"answers 404 when the user saves it."
     )
 

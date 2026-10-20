@@ -1,7 +1,7 @@
 import httpx
 from typer.testing import CliRunner
 
-from jarvis.cli_ctl.__main__ import app
+from dodaios.cli_ctl.__main__ import app
 
 runner = CliRunner()
 
@@ -74,7 +74,7 @@ def test_audio_devices_puts_picked_devices(monkeypatch):
             },
         )
 
-    import jarvis.cli_ctl.client as client_mod
+    import dodaios.cli_ctl.client as client_mod
 
     real_init = client_mod.JarvisClient.__init__
 

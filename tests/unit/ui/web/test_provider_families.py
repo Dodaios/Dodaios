@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from jarvis.core import config as cfg_mod
-from jarvis.ui.web.provider_families import (
+from dodaios.core import config as cfg_mod
+from dodaios.ui.web.provider_families import (
     LOCAL_FAMILY,
     SUBSCRIPTION_FAMILY,
     build_families,
     family_of,
 )
-from jarvis.ui.web.provider_spec import PROVIDERS, provider_billing
+from dodaios.ui.web.provider_spec import PROVIDERS, provider_billing
 
 
 def _families(present: set[str] | None = None) -> dict[str, dict]:

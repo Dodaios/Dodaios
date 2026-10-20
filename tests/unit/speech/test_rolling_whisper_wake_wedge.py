@@ -16,8 +16,8 @@ import re
 
 import numpy as np
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.rolling_whisper_wake import (
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.rolling_whisper_wake import (
     _WEDGE_RECOVER_AFTER_FAILS,
     RollingWhisperWake,
 )

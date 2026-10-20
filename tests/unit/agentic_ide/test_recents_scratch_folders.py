@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import recents
+from dodaios.agentic_ide import recents
 
 # Captured at import, before any fixture can replace it. The root conftest
 # stands the scratch rule down for the whole suite (pytest's own temporary
