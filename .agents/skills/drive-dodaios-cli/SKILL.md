@@ -11,7 +11,7 @@ description: >-
 # Drive Dodaios from the CLI
 
 `dodaios` (older names: `jarvis`, `jarvisctl`, `jctl`) is an HTTP client for a
-**running** Dodaios. Full guide: `docs/jarvis-cli.md`.
+**running** Dodaios. Full guide: `docs/dodaios-cli.md`.
 
 - **Auth is automatic** on the same machine. `dodaios system status` says whether
   Dodaios is reachable; if not, start it (`dodaios serve` for headless) instead

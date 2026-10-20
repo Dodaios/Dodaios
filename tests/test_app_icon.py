@@ -2,7 +2,7 @@
 
 ``scripts/make_app_icon.py`` renders every native icon from
 ``assets/brand/dodaios-logo.svg`` and writes the same path into
-``src/components/brand/jarvisLogoPath.ts`` for the frontend. There is no
+``src/components/brand/dodaiosLogoPath.ts`` for the frontend. There is no
 runtime that can share the two — one side is Python drawing a PNG at build
 time, the other is React drawing SVG in a browser — so a copy nothing checks
 would drift and show up as a taskbar icon that no longer matches the app.
@@ -62,5 +62,5 @@ def test_every_size_renders_a_filled_tile(size: int) -> None:
 
 def test_committed_icons_are_the_current_render() -> None:
     """Re-run ``python scripts/make_app_icon.py`` after editing the logo."""
-    committed = Image.open(ROOT / "dodaios" / "assets" / "icons" / "jarvis.png").convert("RGBA")
+    committed = Image.open(ROOT / "dodaios" / "assets" / "icons" / "dodaios.png").convert("RGBA")
     assert committed.tobytes() == render_tile(256).tobytes()

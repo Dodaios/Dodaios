@@ -1,4 +1,4 @@
-"""``jarvis.spec`` builds the launcher and the console CLI under their names and earlier names.
+"""``dodaios.spec`` builds the launcher and the console CLI under their names and earlier names.
 
 The frozen build ships four executables in one folder: the windowed launcher
 (``DodaiosApp``) and the same windowed program once more as ``PersonalJarvis``,
@@ -21,7 +21,7 @@ import pytest
 from dodaios.core import branding
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SPEC_PATH = REPO_ROOT / "jarvis.spec"
+SPEC_PATH = REPO_ROOT / "dodaios.spec"
 
 
 def _exec_spec(
@@ -70,11 +70,11 @@ def _exec_spec(
         monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.setattr(sys, "platform", platform)
 
-    namespace: dict[str, object] = {"SPECPATH": str(root), "__file__": str(root / "jarvis.spec")}
+    namespace: dict[str, object] = {"SPECPATH": str(root), "__file__": str(root / "dodaios.spec")}
     for builtin in ("Analysis", "PYZ", "EXE", "COLLECT", "BUNDLE"):
         namespace[builtin] = recorder(builtin)
-    source = (root / "jarvis.spec").read_text(encoding="utf-8")
-    exec(compile(source, str(root / "jarvis.spec"), "exec"), namespace)  # noqa: S102
+    source = (root / "dodaios.spec").read_text(encoding="utf-8")
+    exec(compile(source, str(root / "dodaios.spec"), "exec"), namespace)  # noqa: S102
     return calls
 
 
@@ -88,7 +88,7 @@ def spec_root(tmp_path: Path) -> Path:
         REPO_ROOT / "dodaios" / "core" / "macos_privacy_strings.py",
         root / "dodaios" / "core" / "macos_privacy_strings.py",
     )
-    shutil.copy2(SPEC_PATH, root / "jarvis.spec")
+    shutil.copy2(SPEC_PATH, root / "dodaios.spec")
     # The notice collector walks every installed distribution, which has
     # nothing to do with the executables under test: a stand-in with the same
     # entry point keeps this file about the build targets (and fast).

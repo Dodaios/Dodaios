@@ -240,7 +240,7 @@ async def test_missing_asset_is_held_never_answered_with_index_html(tmp_path) ->
         dist_dir=_seed_dist(tmp_path), hold_timeout=0.05, session_token=_TOKEN
     )
     cookie = await _exchange(bs)
-    sent = await _drive(bs.app, _http("/jarvis-logo.png", cookie=cookie))
+    sent = await _drive(bs.app, _http("/dodaios-logo.png", cookie=cookie))
     assert _status(sent) == 503  # held → warming timeout, never index.html 200
     assert b"<div id=root>" not in _body(sent)
 
@@ -290,7 +290,7 @@ def test_boot_page_acknowledges_after_two_frames() -> None:
     html = page.read_text(encoding="utf-8")
     assert "/api/ui/shell-painted" in html
     assert html.count("requestAnimationFrame") >= 2
-    assert '<link rel="icon" href="/jarvis.ico"' in html
+    assert '<link rel="icon" href="/dodaios.ico"' in html
 
 
 # --- listener self-healing (the lock-zombie root cause) ---------------------

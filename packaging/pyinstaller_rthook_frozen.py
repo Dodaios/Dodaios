@@ -32,7 +32,7 @@ The per-user directory had an earlier name (``%LOCALAPPDATA%\\Jarvis``,
 The desktop app itself (the GUI executable, default instance, no other
 instance running) first moves it to the current name with one rename and
 leaves a junction or symlink behind. The engine that does it,
-``dodaios/core/identity_migration.py``, is shipped by ``jarvis.spec`` as a plain
+``dodaios/core/identity_migration.py``, is shipped by ``dodaios.spec`` as a plain
 file so this hook can load it by path. Helpers and the console CLI only
 resolve. When the engine cannot be loaded, the hook resolves with an inline
 copy of the rule and moves nothing. The config file is never renamed: an
@@ -59,7 +59,7 @@ _FALLBACK_USER_DATA_DIR_NAME = ".dodaios-data"
 _LEGACY_FALLBACK_USER_DATA_DIR_NAMES = (".jarvis",)
 _CONFIG_FILE_NAME = "dodaios.toml"
 _LEGACY_CONFIG_FILE_NAMES = ("jarvis.toml",)
-# The executables that are the desktop app itself (jarvis.spec GUI_EXE_NAME and
+# The executables that are the desktop app itself (dodaios.spec GUI_EXE_NAME and
 # LEGACY_GUI_EXE_NAMES). Only one of them migrates the data directory.
 _GUI_EXE_NAMES = ("DodaiosApp", "PersonalJarvis")
 # Single-instance mutexes of a running desktop app, every instance and every
@@ -73,9 +73,9 @@ _MUTEX_NAMES = (
 # Lock files a running primary holds in the data directory
 # (dodaios.core.identity_boot.PRIMARY_LOCK_FILES).
 _PRIMARY_LOCK_FILES = ("instance.lock", os.path.join("data", "jarvis.lock"))
-# The name the bundle ships its default configuration under (jarvis.spec).
+# The name the bundle ships its default configuration under (dodaios.spec).
 _BUNDLED_CONFIG_FILE_NAME = "jarvis.toml"
-# Where jarvis.spec puts the migration engine inside the bundle.
+# Where dodaios.spec puts the migration engine inside the bundle.
 _ENGINE_PATH = ("dodaios", "core", "identity_migration.py")
 _MIGRATION_WAIT_SECONDS = 2.0
 # Carries the hook's one-line migration report to the launcher, which logs it

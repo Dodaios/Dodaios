@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from dodaios.agent_chat import jarvis_harness, runner_cli
+from dodaios.agent_chat import dodaios_harness, runner_cli
 from dodaios.agent_chat.events import make_event
 from dodaios.agent_chat.runner_api import TurnHandle
 from dodaios.agent_chat.task_recovery import ToolRecovery
@@ -138,7 +138,7 @@ def turn(monkeypatch):
         return "Agent instructions"
 
     async def identity(**kwargs):
-        return jarvis_harness.Identity(
+        return dodaios_harness.Identity(
             session.session_id, "Agent instructions", "Agent instructions"
         )
 
@@ -146,7 +146,7 @@ def turn(monkeypatch):
         return "en"
 
     monkeypatch.setattr(runner_cli, "_surface_identity", briefing)
-    monkeypatch.setattr(jarvis_harness, "build_identity", identity)
+    monkeypatch.setattr(dodaios_harness, "build_identity", identity)
     monkeypatch.setattr("dodaios.society.reply_preference.resolve_agent_reply_language", language)
     handle = TurnHandle(
         session=session,

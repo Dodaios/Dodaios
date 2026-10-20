@@ -56,7 +56,7 @@ card; nothing hidden drives behavior.
   decides per box: a seat's CLI when installed (`claude-api` is dual — Claude Code when
   present, else the Anthropic API), Jarvis' brain runner for API rows.
 - **On a seat the CLI runs AS the agent**: its briefing (§3.3) is the identity the CLI is handed
-  (`jarvis_harness.identity_prompt(prompt_override=…)`, Jarvis' own layers stay out), Jarvis'
+  (`dodaios_harness.identity_prompt(prompt_override=…)`, Jarvis' own layers stay out), Jarvis'
   tools reach it over MCP (`mcp__dodaios__*`; `mcp__jarvis__*` in transcripts written before the
   server was renamed, read alike), and it brings its own hands (Claude Code's shell,
   editor, browser). The society-only tools (`society_message_agent`, `society_wiki_note`,

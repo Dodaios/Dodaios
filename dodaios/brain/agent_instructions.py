@@ -3,7 +3,7 @@
 This is the user's own standing-instructions file: free-text Markdown where the
 user writes personal preferences for *how the assistant should treat them* — tone,
 language, formatting, default choices, standing facts. It is deliberately distinct
-from the packaged persona (``JARVIS_PERSONA.md`` / ``data/custom_system_prompt.md``,
+from the packaged persona (``DODAIOS_PERSONA.md`` / ``data/custom_system_prompt.md``,
 handled by ``persona_loader``), which defines *who the assistant is and what it may
 do*. Preferences refine behaviour; they never override safety rules, confirmation
 gates, or capabilities.

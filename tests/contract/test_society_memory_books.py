@@ -241,7 +241,7 @@ async def test_global_profile_writers_are_withheld_but_private_notebook_tool_rem
 
 
 def test_resumed_cli_context_contains_its_own_user_and_memory_notebooks():
-    from dodaios.agent_chat.jarvis_harness import society_memory_refresh
+    from dodaios.agent_chat.dodaios_harness import society_memory_refresh
 
     context = society_memory_refresh(
         "## Your user profile\nUSER.md: Prefers short replies.\n\n"
