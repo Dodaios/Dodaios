@@ -39,7 +39,7 @@ GPU-animated traffic), not authored meshes, because it is a distant
 backdrop of hundreds of objects whose look is light, not form. There is
 therefore no Blender source or GLB export in this study; the runtime
 components are `SingularityCity.tsx`, `cityShaders.ts` and `cityPlan.ts`
-under `jarvis/ui/web/frontend/src/components/society/office/`.
+under `dodaios/ui/web/frontend/src/components/society/office/`.
 
 ## Budgets
 

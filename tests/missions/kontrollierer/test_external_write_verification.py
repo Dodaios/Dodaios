@@ -26,11 +26,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.kontrollierer.orchestrator import (
+from dodaios.missions.kontrollierer.orchestrator import (
     Kontrollierer,
     _real_diff_is_empty,
 )
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 
 # The fixture's git calls ignore the developer's or runner's global and system

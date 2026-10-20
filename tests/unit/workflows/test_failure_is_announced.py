@@ -23,17 +23,17 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AnnouncementRequested
-from jarvis.workflows.runner import FailureAnnouncer, WorkflowRunner
-from jarvis.workflows.scheduler import WorkflowScheduler
-from jarvis.workflows.schema import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AnnouncementRequested
+from dodaios.workflows.runner import FailureAnnouncer, WorkflowRunner
+from dodaios.workflows.scheduler import WorkflowScheduler
+from dodaios.workflows.schema import (
     BrainPromptStep,
     ManualTrigger,
     SpeakStep,
     WorkflowDef,
 )
-from jarvis.workflows.store import WorkflowStore
+from dodaios.workflows.store import WorkflowStore
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ per-mission dir breaks codex's global OAuth home ("Error finding codex home").
 """
 from __future__ import annotations
 
-from jarvis.missions.workers.codex_direct_worker import _build_codex_env
+from dodaios.missions.workers.codex_direct_worker import _build_codex_env
 
 
 def test_oauth_available_strips_key_and_codex_home() -> None:

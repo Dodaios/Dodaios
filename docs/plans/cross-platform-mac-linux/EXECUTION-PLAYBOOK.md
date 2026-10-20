@@ -95,7 +95,7 @@ its merge prompt has reported the CI matrix green (AD-4 / HN-15).**
   agents you do nothing but watch their acceptance commands; if one finishes
   early, tick its card and wait for the others.
 - **Phase-check:** once all three cards are ticked, paste the **Wave 0
-  phase-check** prompt. It confirms `import jarvis` is clean, the platform module
+  phase-check** prompt. It confirms `import dodaios` is clean, the platform module
   caches, and the new tests collect.
 - **Merge:** paste the **Wave 0 merge** prompt. Per the brief's merge order it
   lands **platform module (0-A) → conftest cleanup (0-B) → CI workflow (0-C)
@@ -324,7 +324,7 @@ symptom to the prompt and paste it into a fresh session:
 - **A worktree is stuck / the agent can't find the right files / "works in tests
   but Jarvis behavior unchanged."** Paste the **"unstick a worktree (preflight +
   editable-install check)"** recovery prompt. It runs the mandatory
-  `scripts/preflight.ps1` and confirms `import jarvis` points at the worktree clone
+  `scripts/preflight.ps1` and confirms `import dodaios` points at the worktree clone
   (the four-layer restore trap, BUG-006/014). This is the single most common
   "nothing changed after I ran it" cause.
 

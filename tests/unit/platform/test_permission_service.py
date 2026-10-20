@@ -26,18 +26,18 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     PERMISSION_FEATURES,
     PERMISSION_NEEDED_REASONS,
     Event,
     PermissionNeeded,
     PermissionResolved,
 )
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.core.protocols import PermissionGate
-from jarvis.platform import permission_service as service_module
-from jarvis.platform.permission_service import (
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.protocols import PermissionGate
+from dodaios.platform import permission_service as service_module
+from dodaios.platform.permission_service import (
     EnsureResult,
     PermissionOutcome,
     PermissionService,
@@ -45,7 +45,7 @@ from jarvis.platform.permission_service import (
     get_permission_service,
     user_detail_for,
 )
-from jarvis.platform.permissions import AUTOMATION_TARGETS, PermissionId, PermissionState
+from dodaios.platform.permissions import AUTOMATION_TARGETS, PermissionId, PermissionState
 from tests.fakes.fake_permission_service import FakePermissionService, make_result
 from tests.fakes.fake_tcc import (
     CallKind,
@@ -1259,7 +1259,7 @@ def test_the_singleton_is_lazy_and_reset_drops_it(monkeypatch: pytest.MonkeyPatc
 def test_importing_the_service_loads_no_native_framework() -> None:
     code = (
         "import sys\n"
-        "import jarvis.platform.permission_service as service\n"
+        "import dodaios.platform.permission_service as service\n"
         "service.PermissionService()\n"
         "loaded = [m for m in sys.modules if m.split('.')[0] in "
         "('objc', 'Quartz', 'AppKit', 'Foundation', 'AVFoundation', 'ApplicationServices')]\n"

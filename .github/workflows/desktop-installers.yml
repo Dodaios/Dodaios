@@ -366,11 +366,11 @@ jobs:
           exit "$status"
 
       - name: Preserve native wheel diagnostics on build failure
-        if: failure() && hashFiles('jarvis/assets/browser/wheels/*.whl') != ''
+        if: failure() && hashFiles('dodaios/assets/browser/wheels/*.whl') != ''
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
         with:
           name: browser-wheel-diagnostic-macos-${{ matrix.arch }}
-          path: jarvis/assets/browser/wheels/*.whl
+          path: dodaios/assets/browser/wheels/*.whl
           retention-days: 3
 
       - name: Verify the DMG browser provisioning and restart
@@ -514,18 +514,18 @@ jobs:
 
       # A tag that disagrees with the shipped version would publish installers
       # nobody can trace back to a commit - and the in-app updater compares the
-      # release version against jarvis.__version__, so a mismatch would offer an
+      # release version against dodaios.__version__, so a mismatch would offer an
       # update that installs the same build forever.
-      - name: Verify the tag matches jarvis.__version__
+      - name: Verify the tag matches dodaios.__version__
         if: github.ref_type == 'tag'
         shell: bash
         run: |
           set -euo pipefail
           tag_version="${GITHUB_REF_NAME#v}"
-          package_version="$(python -c 'import re,pathlib; print(re.search(r"__version__ = \"([^\"]+)\"", pathlib.Path("jarvis/__init__.py").read_text()).group(1))')"
+          package_version="$(python -c 'import re,pathlib; print(re.search(r"__version__ = \"([^\"]+)\"", pathlib.Path("dodaios/__init__.py").read_text()).group(1))')"
           echo "tag=${tag_version} package=${package_version}"
           if [ "${tag_version}" != "${package_version}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} does not match jarvis.__version__ (${package_version})."
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match dodaios.__version__ (${package_version})."
             exit 1
           fi
 

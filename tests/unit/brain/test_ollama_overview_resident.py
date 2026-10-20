@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from jarvis.brain import ollama_overview, ollama_roles
-from jarvis.brain.ollama_inventory import OllamaModelInfo, OllamaRunningModel
+from dodaios.brain import ollama_overview, ollama_roles
+from dodaios.brain.ollama_inventory import OllamaModelInfo, OllamaRunningModel
 
 
 def _model(name: str, size_gb: float, *caps: str, params: str = "", quant: str = ""):

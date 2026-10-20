@@ -6,13 +6,13 @@ import sys
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import SafetyConfig
-from jarvis.plugins.tool.run_shell import RunShellTool
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.explicit_intent import command_confirms_destruction
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import ToolExecutor
+from dodaios.core.bus import EventBus
+from dodaios.core.config import SafetyConfig
+from dodaios.plugins.tool.run_shell import RunShellTool
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.explicit_intent import command_confirms_destruction
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import ToolExecutor
 
 
 @pytest.mark.parametrize(

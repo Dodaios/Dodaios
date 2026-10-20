@@ -1,0 +1,343 @@
+"""Single source of truth for the configurable wake-word vocabulary.
+
+Pure stdlib at import time — no eager ``dodaios.*`` or third-party imports — so the
+matcher module (``wake_phrase``), the Pydantic config (``core/config.py``), and
+the tests can all import this without dragging in ``faster_whisper``,
+``sounddevice``, or the openWakeWord runtime. Vosk path lookup loads only the
+stdlib-backed directory helpers, lazily.
+
+Why this module exists:
+- ``WAKE_ENGINES`` is the SoT for the five-layer enum (Python ↔ TOML ↔ Pydantic
+  ↔ TS ↔ UI). The TS mirror (``frontend/src/constants/wakeEngines.ts``) is held
+  in lockstep by ``tests/unit/speech/test_wake_engine_parity.py``.
+- The product ships NO named wake model and never resolves a phrase against a
+  pretrained one (design 2026-07-07): every phrase goes through the generic
+  engine chain in ``wake_phrase.resolve_wake_plan`` (user-trained custom .onnx
+  -> any-word Vosk KWS -> local-Whisper transcript match -> honest degrade).
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import unicodedata
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Five-layer enum — keep in lockstep with frontend/src/constants/wakeEngines.ts
+# ---------------------------------------------------------------------------
+#: ``auto``        — resolve the best engine for the phrase automatically.
+#: ``openwakeword``— neural pretrained model (CPU, instant, fixed vocabulary).
+#: ``vosk_kws``    — per-language Vosk grammar keyword spotting (any phrase,
+#:                   CPU-only, identical on every OS; needs the per-language
+#:                   Vosk model directory — see ``resolve_vosk_model_path``).
+#: ``stt_match``   — local-Whisper transcript match (any phrase, needs whisper).
+#: ``custom_onnx`` — a user-supplied/trained .onnx model (CPU, any phrase).
+WAKE_ENGINES: tuple[str, ...] = ("auto", "openwakeword", "vosk_kws", "stt_match", "custom_onnx")
+
+DEFAULT_WAKE_PHRASE = ""  # empty = neutral pre-onboarding default; user must opt in
+
+# (JARVIS_WAKE_PATTERN — the strict legacy "hey + jarv-stem" regex — was
+# removed 2026-07-07 with the last special-cased wake word. Every phrase now
+# compiles to the same generic fuzzy matcher; BUG-009's bare-core-word guard
+# lives in WakeMatcher.require_known_prefix for prefixed phrases.)
+
+# Known Whisper silence/noise hallucination boilerplate (YouTube end cards,
+# broadcaster subtitle credits, ad outros). Single definition here (leaf
+# module) so BOTH the pipeline's brain-call filter and the rolling wake's
+# bias-echo confirm consume one list (BUG-008 drift rule). Moved from
+# ``pipeline._STT_HALLUCINATION_RE`` 2026-07-02 — pipeline aliases this.
+STT_HALLUCINATION_RE = re.compile(
+    r"\b("
+    r"im\s+auftrag\s+des|"
+    r"untertitel\s+(von|der|im\s+auftrag)|"  # i18n-allow: German Whisper-noise STT vocabulary
+    r"untertitelung\s+des\s+(zdf|wdr|ndr|swr|br|ard|arte)"
+    r"(\s+(fuer|für|fur)\s+funk)?(\s*,?\s*\d{4})?|"  # i18n-allow: Whisper-noise STT vocabulary
+    r"(eine\s+)?(sendung|produktion|redaktion|programm)\s+"
+    r"(des|der|von)\s+(zdf|wdr|ndr|swr|br|ard|arte)"  # i18n-allow: Whisper-noise STT vocabulary
+    r"(\s*,?\s*\d{4})?|"
+    r"(zdf|wdr|ndr|swr|br|ard|arte)\s+"
+    r"(fernsehen|mediagroup|rundfunk)(\s*,?\s*\d{4})?|"
+    r"(norddeutscher|westdeutscher|bayerischer)\s+rundfunk|"
+    r"mediagroup|"
+    r"abonnier(e|t|en)?\s+(den|meinen)\s+kanal|"
+    r"thanks\s+for\s+watching|"
+    r"thank\s+you|"
+    r"vielen\s+dank|"
+    r"mm-?hmm|"
+    r"please\s+subscribe|"
+    r"copyright\s+\d{4}|"
+    r"all\s+rights\s+reserved|"
+    r"www\.|https?://"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Longest recording the silence-hallucination filter is allowed to judge. Above
+# it the filter stands down entirely: a person who spoke for three seconds said
+# something, and "thank you very much for the update" is a real sentence that
+# happens to open with the same words as the boilerplate. Below it there is
+# barely room for a real utterance, which is exactly the window in which a
+# near-silent microphone makes a Whisper-family model produce its subtitle
+# credits.
+SILENCE_HALLUCINATION_MAX_S = 2.5
+
+# Words that occur in the hallucination markers themselves, DERIVED from the one
+# shared pattern rather than written out a second time — a second list would
+# stop agreeing with the first the day either is touched (BUG-008). Regex
+# metacharacters contribute the odd single letter, so anything shorter than two
+# characters is dropped; digits never enter, which is what lets a boilerplate
+# year ("copyright 2020") count as covered.
+_HALLUCINATION_WORD_RE = re.compile(r"[^\W\d_]{2,}", re.UNICODE)
+_HALLUCINATION_VOCABULARY: frozenset[str] = frozenset(
+    _HALLUCINATION_WORD_RE.findall(STT_HALLUCINATION_RE.pattern.lower())
+)
+
+
+def is_silence_hallucination(text: str, duration_s: float) -> bool:
+    """Is *text* boilerplate a silent microphone produced, not speech?
+
+    Two independent conditions, and BOTH are needed — either one alone gets a
+    real utterance deleted:
+
+    * **The recording is short.** Whisper hallucinates on near-silence, so the
+      filter only judges recordings too short to hold much else. The audio
+      length is the honest measure here (see the callers), not the wall clock.
+    * **The boilerplate is the WHOLE utterance.** ``STT_HALLUCINATION_RE``
+      matches a substring, which is the right shape for the voice lane — there
+      the question is "may this reach the brain". On a transcript the question
+      is different: "thank you very much for the update" contains a marker and
+      is a sentence the user dictated. So a match is necessary but not
+      sufficient; every word of the transcript must also come from the markers'
+      own vocabulary. "Thank you for watching!" passes that test (the shared
+      pattern spells the outro "thanks for watching", and the vocabulary covers
+      the other spelling for free). The same holds in every language the
+      pattern carries markers for: a real sentence that merely opens with a
+      polite formula survives, because the words after it — "update", a file
+      name, a question — are nobody's boilerplate.
+
+    Digits are ignored on purpose: the markers carry years, and a year is not
+    what distinguishes a hallucination from a sentence.
+
+    Lives here, in the leaf module beside the pattern itself, because BOTH the
+    dictation delivery gate and the realtime input recognizer need the same
+    verdict — a second copy would stop agreeing with the first (BUG-008).
+    """
+    if duration_s >= SILENCE_HALLUCINATION_MAX_S:
+        return False
+    body = (text or "").strip()
+    if not body or STT_HALLUCINATION_RE.search(body) is None:
+        return False
+    words = _HALLUCINATION_WORD_RE.findall(body.lower())
+    return bool(words) and all(word in _HALLUCINATION_VOCABULARY for word in words)
+
+
+# Common wake prefixes stripped when deriving the phrase *core* for model
+# lookup and canonical keyword names. The matcher may still keep an explicit
+# prefix when the configured phrase includes one.
+WAKE_PREFIXES: frozenset[str] = frozenset(
+    {"hey", "hi", "ok", "okay", "hello", "hallo", "yo", "hej"}
+)
+
+# Quick-pick phrases the Settings UI could offer as one-click suggestions.
+# Permanently empty (design 2026-07-07): the shipped product advertises no
+# wake name and bundles no named model. Users type a phrase of their choice;
+# every phrase resolves through the generic engine chain.
+INSTANT_WAKE_PHRASES: tuple[str, ...] = ()
+
+_NORMALISE_RE = re.compile(r"[^0-9a-zäöüß]+")  # i18n-allow
+_MATCH_NORMALISE_RE = re.compile(r"[^0-9a-z]+")
+
+
+def _strip_diacritics(text: str) -> str:
+    """Return an ASCII-ish form for STT matching, not display."""
+    decomposed = unicodedata.normalize("NFKD", text or "")
+    stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return stripped.replace("ß", "ss")  # i18n-allow
+
+
+def normalize_phrase(phrase: str) -> list[str]:
+    """Lower-case, strip punctuation, split into word tokens.
+
+    Keeps German umlauts/ß. Empty/whitespace input returns ``[]``.  # i18n-allow
+    """
+    cleaned = _NORMALISE_RE.sub(" ", (phrase or "").lower()).strip()
+    return cleaned.split() if cleaned else []
+
+
+def normalize_phrase_for_match(phrase: str) -> list[str]:
+    """Tokenise for fuzzy wake matching with accents folded away."""
+    folded = _strip_diacritics(phrase).lower()
+    cleaned = _MATCH_NORMALISE_RE.sub(" ", folded).strip()
+    return cleaned.split() if cleaned else []
+
+
+def phrase_core(phrase: str) -> list[str]:
+    """Return the phrase tokens with leading wake-prefixes removed.
+
+    ``"Hey Athena"`` -> ``["athena"]``; ``"Computer"`` -> ``["computer"]``.
+    If every token is a prefix (e.g. ``"hey"``) the tokens are kept as-is so we
+    never return an empty core for a non-empty phrase.
+    """
+    tokens = normalize_phrase(phrase)
+    core = list(tokens)
+    while core and core[0] in WAKE_PREFIXES:
+        core.pop(0)
+    return core or tokens
+
+
+def phrase_core_for_match(phrase: str) -> list[str]:
+    """Return wake-prefix-stripped tokens for accent-insensitive matching."""
+    tokens = normalize_phrase_for_match(phrase)
+    core = list(tokens)
+    while core and core[0] in WAKE_PREFIXES:
+        core.pop(0)
+    return core or tokens
+
+
+def sound_fold(token: str) -> str:
+    """Collapse sound-equivalent spelling variants onto one canonical form.
+
+    A small local Whisper mis-spells a proper-noun wake word in sound-equivalent
+    ways ("Nico" -> "Niko"/"Nicko"/"Nikko", "Sophie" -> "Sofie"). Folding the
+    common variances a wake word actually sees — ``c``/``k``, ``ck``, ``ph``/``f``,
+    ``y``/``i``, and doubled letters — makes those forms compare EQUAL so the
+    match no longer needs a perfect spelling. It only canonicalises spelling; it
+    does NOT loosen the fuzzy ratio, so clearly different words still do not
+    match (no extra false wakes). Expects an already lower-cased, accent-folded
+    token (see :func:`normalize_phrase_for_match`). Applied AFTER wake-prefix
+    stripping so a folded "hey" can never break prefix detection. Pure stdlib, so
+    it behaves identically on every OS.
+    """
+    if not token:
+        return token
+    t = token.replace("ph", "f").replace("ck", "k")
+    t = t.replace("c", "k").replace("y", "i")
+    out: list[str] = []
+    for ch in t:
+        if out and out[-1] == ch:  # collapse doubles: Nikko -> niko, Emma -> ema
+            continue
+        out.append(ch)
+    return "".join(out)
+
+
+# (match_known_oww_model / resolve_oww_model_path were removed 2026-07-07:
+# the product neither bundles a named wake model nor probes the openwakeword
+# package's pretrained third-party models. Custom .onnx paths come straight
+# from the user's config; everything else is generic.)
+
+
+# ---------------------------------------------------------------------------
+# Vosk model directory resolution (vosk_kws engine)
+# ---------------------------------------------------------------------------
+
+
+def _vosk_models_root(data_dir: str | None = None) -> Path:
+    """Per-install Vosk model store: ``<data>/wake_models/vosk/<lang>/``.
+
+    Explicit fetch paths and the memory-data override take precedence over the
+    runtime data directory. Verification, prefetch and wake-plan selection all
+    use this resolver so they agree even outside the install directory.
+    """
+    base = data_dir or os.environ.get("JARVIS__MEMORY__DATA_DIR")
+    if not base:
+        from dodaios.core.instance import resolve_data_dir
+        from dodaios.core.paths import repo_root
+
+        base = str(resolve_data_dir(repo_root()))
+    return Path(base) / "wake_models" / "vosk"
+
+
+def _is_vosk_model_dir(cand: Path) -> bool:
+    """True when ``cand`` itself is an extracted Vosk model.
+
+    ``am/`` or ``conf/model.conf`` marks the current layout; a root-level
+    ``final.mdl`` marks the legacy flat layout (vosk-model-small-pt-0.3),
+    which the Vosk runtime still loads.
+    """
+    return (
+        (cand / "am").is_dir()
+        or (cand / "conf" / "model.conf").is_file()
+        or (cand / "final.mdl").is_file()
+    )
+
+
+def _vosk_model_dir(cand: Path) -> Path | None:
+    """The extracted model dir inside a language folder, or None.
+
+    A folder counts as a model when it carries one of the
+    ``_is_vosk_model_dir`` markers (top-level or one level down, so both an
+    extracted ``vosk-model-small-de-0.15/`` inside the lang folder and a
+    flattened layout resolve).
+    """
+    if _is_vosk_model_dir(cand):
+        return cand
+    for sub in sorted(p for p in cand.iterdir() if p.is_dir()):
+        if _is_vosk_model_dir(sub):
+            return sub
+    return None
+
+
+def resolve_vosk_model_path(language: str | None) -> str | None:
+    """Absolute path to an extracted Vosk model dir for ``language``, or None.
+
+    ``language`` is a BCP-47-ish code ("de", "de-DE", "auto", None). A
+    concrete language looks up its own folder; ``auto``/None falls back to
+    the FIRST language folder present (a single-language install just works).
+    """
+    root = _vosk_models_root()
+    if not root.is_dir():
+        return None
+    lang = (language or "").strip().lower().split("-")[0]
+    candidates: list[Path] = []
+    if lang and lang != "auto":
+        candidates.append(root / lang)
+    else:
+        candidates.extend(sorted(p for p in root.iterdir() if p.is_dir()))
+    for cand in candidates:
+        if cand.is_dir():
+            found = _vosk_model_dir(cand)
+            if found is not None:
+                return str(found)
+    return None
+
+
+def resolve_vosk_model_paths(primary_language: str | None = None) -> list[str]:
+    """Every installed Vosk model dir, primary language (if any) first.
+
+    Why ALL models (live forensic 2026-07-11): a wake phrase and the speaker
+    language routinely diverge — "Hey Jarvis" is an ENGLISH name spoken by a
+    GERMAN speaker, so the language-matched de model garbles the name
+    ("hey [unk]", real wakes eaten) while the installed en model spells it
+    natively. Running the grammar over every installed model and letting
+    whichever confirms fire covers both sides; the per-model verify keeps its
+    calibrated precision gates. Order matters only for tie-breaking/logs —
+    the primary (speaker-language) model leads.
+    """
+    root = _vosk_models_root()
+    if not root.is_dir():
+        return []
+    out: list[str] = []
+    primary = resolve_vosk_model_path(primary_language)
+    if primary is not None:
+        out.append(primary)
+    for lang_dir in sorted(p for p in root.iterdir() if p.is_dir()):
+        found = _vosk_model_dir(lang_dir)
+        if found is not None and str(found) not in out:
+            out.append(str(found))
+    return out
+
+
+__all__ = [
+    "WAKE_ENGINES",
+    "DEFAULT_WAKE_PHRASE",
+    "WAKE_PREFIXES",
+    "INSTANT_WAKE_PHRASES",
+    "normalize_phrase",
+    "normalize_phrase_for_match",
+    "phrase_core",
+    "phrase_core_for_match",
+    "sound_fold",
+    "resolve_vosk_model_path",
+    "resolve_vosk_model_paths",
+]

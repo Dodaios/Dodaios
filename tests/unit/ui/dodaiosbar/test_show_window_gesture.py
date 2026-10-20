@@ -6,7 +6,7 @@ must be safe before/without a callback (boot race / no bridge).
 """
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 def test_set_on_show_window_stores_callback() -> None:

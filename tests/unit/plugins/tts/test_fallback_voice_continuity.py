@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.plugins.tts as factory
-from jarvis.plugins.tts import build_tts_from_config
-from jarvis.plugins.tts.curated_catalog import continuity_voice, voice_gender
-from jarvis.plugins.tts.fallback_tts import FallbackTTS
+import dodaios.plugins.tts as factory
+from dodaios.plugins.tts import build_tts_from_config
+from dodaios.plugins.tts.curated_catalog import continuity_voice, voice_gender
+from dodaios.plugins.tts.fallback_tts import FallbackTTS
 
 # --- Curated gender register --------------------------------------------------
 

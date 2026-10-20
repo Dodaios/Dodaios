@@ -1,0 +1,4381 @@
+"""CLI-backed turns — a vendor agent binary drives the session.
+
+Every coding CLI the Agentic IDE registers (``dodaios.workspace.agents``)
+has a planner here, so the chat's picker offers the same CLIs a pane does
+(maintainer, 2026-08-27: the CLIs connected in the Agentic IDE, and each
+one drawn as a chat, never as a terminal). Nine entries, seven wire shapes:
+
+* **Claude-shaped NDJSON** — ``claude`` (Claude Code), ``grok`` (Grok
+  Build, whose ``--output-format streaming-messages-json`` is the Anthropic
+  Messages wire shape on purpose) and GLM Coding Plan, which IS Claude Code
+  pointed at Z.ai's endpoint through the registry's environment factory.
+  One translator turns their ``system`` / ``stream_event`` / ``assistant`` /
+  ``user`` / ``result`` lines into agent-chat events.
+* **Codex NDJSON** — ``codex exec --json`` with ``thread.*`` / ``turn.*`` /
+  ``item.*`` lines.
+* **Antigravity NDJSON** — ``agy --output-format stream-json`` with
+  ``event: init | step_update | result`` lines (``step_update`` carries text
+  deltas and tool steps keyed by ``step_index``; verified against agy 1.1.19).
+* **OpenCode NDJSON** — ``opencode run --format json`` with ``step_start`` /
+  ``text`` / ``reasoning`` / ``tool_use`` / ``step_finish`` / ``error``
+  lines, each wrapping one ``part`` of the session record and naming the
+  session on every line (verified against opencode 1.18.23).
+* **Kimi NDJSON** — ``kimi -p --output-format stream-json`` writes chat
+  messages by ``role``: an ``assistant`` line with its text and
+  ``tool_calls`` (OpenAI's function-call shape, arguments as a JSON string)
+  and a ``tool`` line per result. Nothing streams and nothing names the
+  session, so the id is found afterwards in Kimi's own session store
+  (``agentic_ide.agent_sessions``), the way a pane finds its own
+  (verified against kimi-code 0.29.2).
+* **Plain text** — ``dsh --profile headless`` (DeepSeek Harness) prints the
+  final message and exits: no tool stream, no session, one answer.
+* **Cursor stream-json** — ``agent -p --output-format stream-json`` with
+  ``system`` / ``assistant`` / ``tool_call`` / ``result`` lines (Cursor's
+  documented print-mode wire; session id on every line).
+
+Every CLI that keeps a conversation resumes it natively (``claude --resume``,
+``codex exec resume``, ``grok -r``, ``agy --conversation``, ``opencode run
+--session``, ``kimi --session``, ``agent --resume``), so the session row keeps the vendor's id
+in ``vendor_session`` and a later turn continues the same conversation — the
+tools, skills, MCP servers and permissions are the CLI's own, exactly as in
+a terminal. The person's permission mode maps onto the closest stance each
+CLI offers. A print-mode CLI cannot ask back: Claude answers permission
+prompts over stdin; Codex has ``--approve-for-me``. agy 1.1.26 instead
+soft-denies the tool and **exits**, so the chat shows ``run_command - failed``
+and goes idle with no answer — ``accept-edits`` therefore also passes
+``--dangerously-skip-permissions`` (the same flag the mission worker has
+used since 2026-06). Jarvis tools reached over MCP still go through
+:class:`~dodaios.core.protocols.SupervisorToolGateway`.
+
+Spawning follows the mission workers: shell-free argv, the prompt on stdin
+where the binary accepts it, ``NO_WINDOW_CREATIONFLAGS``, UTF-8 decoding,
+and the agent-account environment (``dodaios.agent_accounts.spawn_env``) so
+the active subscription seat is the one that answers.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import shutil
+import time
+import uuid
+from collections.abc import Callable
+from concurrent.futures import Future
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any, Final
+
+from dodaios.agent_chat import jarvis_harness
+from dodaios.agent_chat.approval_bridge import approval_ref
+from dodaios.agent_chat.cli_catalog import CatalogCache, catalog_key, discover_codex_models
+from dodaios.agent_chat.effort import (
+    ORDER,
+    effort_for_model,
+    effort_note,
+    normalize_effort,
+    snap_to_ladder,
+)
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.permissions import default_permission, normalize_permission
+from dodaios.agent_chat.questions import (
+    CANCELLED,
+    UNATTENDED,
+    TooManyQuestions,
+    parse_questions,
+    recommended_answer,
+)
+from dodaios.agent_chat.runner_api import TurnHandle
+from dodaios.agent_chat.tool_context import register_turn, unregister_turn
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.response_style import (
+    AGENT_QUESTION_GUIDANCE,
+    CREDENTIAL_GUIDANCE,
+    KEEP_GOING_ON_TOOL_FAILURE,
+    TASK_EXECUTION_GUIDANCE,
+)
+
+log = logging.getLogger(__name__)
+
+_READLINE_LIMIT: Final[int] = 16 * 1024 * 1024
+_TURN_TIMEOUT_S: Final[float] = 3600.0
+
+
+class CliUnavailable(RuntimeError):
+    """The binary is not installed (or not on PATH) — the UI says so."""
+
+
+# ------------------------------------------------------------ binaries
+
+
+#: The binaries behind each CLI runner, in the order tried. One table for the
+#: planners below, the catalog route's "installed" flag and the workspace
+#: panes' launch picks — three readers of one fact, so a CLI added here is
+#: offerable everywhere at once.
+CLI_BINARIES: Final[dict[str, tuple[str, ...]]] = {
+    "claude-cli": ("claude", "claude.cmd", "claude.exe"),
+    "codex-cli": ("codex", "codex.cmd", "codex.exe"),
+    "agy-cli": ("agy", "agy.exe"),
+    "grok-cli": ("grok", "grok.exe", "grok.cmd"),
+    "opencode-cli": ("opencode", "opencode.cmd", "opencode.exe"),
+    "kimi-cli": ("kimi", "kimi.cmd", "kimi.exe"),
+    # GLM Coding Plan IS Claude Code — Z.ai ships no binary of its own
+    # (``dodaios.workspace.agents``), so its seat stands on Claude Code's.
+    "glm-cli": ("claude", "claude.cmd", "claude.exe"),
+    "dsh-cli": ("dsh", "dsh.cmd", "dsh.exe"),
+    # Documented command is ``agent``; the Windows installer also drops
+    # ``cursor-agent`` so the generic name does not collide with another
+    # product. Prefer the unambiguous name when both are present.
+    "cursor-cli": (
+        "cursor-agent",
+        "cursor-agent.exe",
+        "agent",
+        "agent.exe",
+        "agent.cmd",
+    ),
+}
+
+
+def _which(*names: str) -> str | None:
+    if _REMOTE_PLANNING.get():
+        return names[0] if names else None
+    # The well-known install dirs a GUI-launched process does not inherit
+    # (``~/.local/bin``, ``~/.grok/bin``, npm's prefix) — best-effort, and the
+    # same augmentation a pane runs before it resolves its CLI.
+    try:
+        from dodaios.core.path_augment import ensure_cli_paths
+
+        ensure_cli_paths()
+    except Exception:  # noqa: BLE001, S110 — PATH augmentation is best-effort
+        pass
+    for name in names:
+        found = shutil.which(name)
+        if found:
+            return found
+    return None
+
+
+def cli_installed(runner: str) -> bool:
+    """Whether ``runner``'s binary resolves from here (False for an unknown runner)."""
+    if runner == "cursor-cli":
+        from dodaios.workspace.cursor_cli import resolve_cursor_binary
+
+        return resolve_cursor_binary() is not None
+    return _which(*CLI_BINARIES.get(runner, ())) is not None
+
+
+def claude_argv_prefix() -> list[str]:
+    binary = _which(*CLI_BINARIES["claude-cli"])
+    if not binary:
+        raise CliUnavailable("Claude Code (claude) is not installed or not on PATH.")
+    from dodaios.claude_auth import claude_cli_argv_prefix
+
+    return claude_cli_argv_prefix(binary)
+
+
+def warm_claude_capabilities() -> None:
+    """Run the Claude CLI's flag probes (blocking, cached) so planning only reads them."""
+    from dodaios.claude_auth import claude_cli_supports_thinking_display
+
+    try:
+        prefix = claude_argv_prefix()
+    except CliUnavailable:
+        return  # planning reports the missing CLI itself
+    claude_cli_supports_thinking_display(prefix)
+
+
+def codex_argv_prefix() -> list[str]:
+    try:
+        from dodaios.missions.workers.codex_direct_worker import _resolve_codex_argv_prefix
+
+        prefix = _resolve_codex_argv_prefix()
+    except Exception:  # noqa: BLE001 — the worker helper is a convenience, not a contract
+        prefix = []
+    if prefix:
+        return list(prefix)
+    binary = _which(*CLI_BINARIES["codex-cli"])
+    if not binary:
+        raise CliUnavailable("Codex CLI (codex) is not installed or not on PATH.")
+    return [binary]
+
+
+def agy_argv_prefix() -> list[str]:
+    try:
+        from dodaios.google_cli.resolver import resolve_google_cli
+
+        cli = resolve_google_cli()
+    except Exception:  # noqa: BLE001 — fall back to PATH below
+        cli = None
+    if cli is not None and cli.kind == "agy":
+        return list(cli.argv_prefix)
+    binary = _which(*CLI_BINARIES["agy-cli"])
+    if not binary:
+        raise CliUnavailable("Antigravity CLI (agy) is not installed or not on PATH.")
+    return [binary]
+
+
+def grok_argv_prefix() -> list[str]:
+    binary = _which(*CLI_BINARIES["grok-cli"])
+    if not binary:
+        raise CliUnavailable("Grok Build (grok) is not installed or not on PATH.")
+    return [binary]
+
+
+def _is_batch(binary: str) -> bool:
+    return binary.lower().endswith((".cmd", ".bat"))
+
+
+def _behind_shim(binary: str, agent: str) -> list[str]:
+    """``binary``, or what its Windows ``.cmd`` shim would have launched.
+
+    These CLIs take the prompt on argv, and through an npm shim argv passes
+    ``cmd.exe``: a line break ends the command there, so a multi-line message
+    reached the agent cut after its first line. The package layout the
+    workspace registry declares (``WinShim``) launches the real program
+    instead; an install laid out differently keeps the shim, and
+    :func:`_argv_prompt` keeps the whole message on one line for it.
+    """
+    if not _is_batch(binary):
+        return [binary]
+    try:
+        from dodaios.workspace import agents as workspace_agents
+
+        spec = workspace_agents.get_agent(agent)
+        direct = workspace_agents.behind_win_shim(spec, binary) if spec is not None else None
+    except Exception:  # noqa: BLE001 — the shim still runs; only line breaks are at risk
+        log.warning("agent chat: could not look behind the %s shim", agent, exc_info=True)
+        direct = None
+    return list(direct) if direct else [binary]
+
+
+def _argv_prompt(prefix: list[str], prompt: str) -> str:
+    """The prompt as one argv value that survives ``prefix``.
+
+    A batch file still in front (an unknown install layout) would drop every
+    line after the first, so the lines are joined with spaces instead: the
+    agent loses the layout, never the words.
+    """
+    if prefix and _is_batch(prefix[0]):
+        return " ".join(line.strip() for line in prompt.splitlines() if line.strip())
+    return prompt
+
+
+def opencode_argv_prefix() -> list[str]:
+    binary = _which(*CLI_BINARIES["opencode-cli"])
+    if not binary:
+        raise CliUnavailable("OpenCode (opencode) is not installed or not on PATH.")
+    return _behind_shim(binary, "opencode")
+
+
+def kimi_argv_prefix() -> list[str]:
+    binary = _which(*CLI_BINARIES["kimi-cli"])
+    if not binary:
+        raise CliUnavailable("Kimi Code (kimi) is not installed or not on PATH.")
+    return _behind_shim(binary, "kimi")
+
+
+def dsh_argv_prefix() -> list[str]:
+    binary = _which(*CLI_BINARIES["dsh-cli"])
+    if not binary:
+        raise CliUnavailable("DeepSeek Harness (dsh) is not installed or not on PATH.")
+    return _behind_shim(binary, "deepseek-harness")
+
+
+def cursor_argv_prefix() -> list[str]:
+    from dodaios.workspace.cursor_cli import resolve_cursor_binary
+
+    binary = resolve_cursor_binary()
+    if not binary:
+        raise CliUnavailable("Cursor CLI (agent) is not installed or not on PATH.")
+    return [binary]
+
+
+#: The subscription seat the CURRENT turn runs on, when its session names one
+#: (an agent-society member pinned to a specific account). Empty = the
+#: platform's active account, exactly as before the society existed.
+ACCOUNT_OVERRIDE: ContextVar[str] = ContextVar("agent_chat.account_override", default="")
+
+
+_CATALOG_IGNORE_CONFIG: ContextVar[bool] = ContextVar("cli_catalog.ignore_config", default=False)
+#: Set while a turn is planned for ANOTHER computer (a society agent placed on
+#: a VPS): binary lookups answer the bare name, since the CLI is found on the
+#: remote PATH, not this one (``dodaios.agent_chat.remote_cli``).
+_REMOTE_PLANNING: ContextVar[bool] = ContextVar("agent_chat.remote_planning", default=False)
+_CATALOG_CWD: ContextVar[Path | None] = ContextVar("cli_catalog.cwd", default=None)
+_ACCOUNT_ENVS: ContextVar[dict[str, dict[str, str]] | None] = ContextVar(
+    "cli_catalog.envs", default=None
+)
+_PREPARED_MODELS: ContextVar[dict[str, list[dict[str, Any]] | None] | None] = ContextVar(
+    "cli_catalog.models", default=None
+)
+
+
+@contextmanager
+def cli_catalog_scope(
+    *, account_id: str | None = None, cwd: Path | None = None, ignore_user_config: bool = False
+):
+    """One request/turn uses one account environment for discovery and spawning."""
+    account_token = ACCOUNT_OVERRIDE.set(account_id) if account_id is not None else None
+    config_token = _CATALOG_IGNORE_CONFIG.set(ignore_user_config)
+    cwd_token = _CATALOG_CWD.set(cwd)
+    env_token = _ACCOUNT_ENVS.set({})
+    model_token = _PREPARED_MODELS.set({})
+    try:
+        yield
+    finally:
+        _PREPARED_MODELS.reset(model_token)
+        _ACCOUNT_ENVS.reset(env_token)
+        _CATALOG_CWD.reset(cwd_token)
+        _CATALOG_IGNORE_CONFIG.reset(config_token)
+        if account_token is not None:
+            ACCOUNT_OVERRIDE.reset(account_token)
+
+
+def _catalog_cwd() -> Path:
+    return _CATALOG_CWD.get() or Path.home()
+
+
+def _remember_models(runner: str, rows: list[dict[str, Any]] | None) -> None:
+    prepared = _PREPARED_MODELS.get()
+    if prepared is not None:
+        prepared[runner] = rows
+
+
+def _login_id(account_id: str) -> str:
+    """The login an account id names; ``""`` (the active one) for a reserved
+    access value (``catalog.ACCESS_ACCOUNTS``), which names no login."""
+    from dodaios.agent_chat.catalog import ACCESS_ACCOUNTS
+
+    return "" if account_id in ACCESS_ACCOUNTS else account_id
+
+
+def _account_env(platform: str) -> dict[str, str]:
+    """The child environment for the subscription seat of ``platform`` — the
+    turn's pinned account when its session names one, else the active one."""
+    snapshot = _ACCOUNT_ENVS.get()
+    if snapshot is not None and platform in snapshot:
+        return dict(snapshot[platform])
+    pinned_platform: str | None = None
+    try:
+        from dodaios import agent_accounts
+
+        requested = _login_id(ACCOUNT_OVERRIDE.get())
+        pinned = agent_accounts.resolve(requested or None)
+        if requested and pinned is None:
+            raise CliUnavailable(
+                "The selected subscription account no longer exists. Choose an account and retry."
+            )
+        pinned_platform = pinned.platform if pinned is not None else None
+        if pinned is not None and pinned.platform == platform:
+            account = pinned
+        else:
+            account = agent_accounts.active_account(platform)  # type: ignore[arg-type]
+        account = _seat_with_budget(platform, account)
+        env = agent_accounts.spawn_env(platform, account.id, base=os.environ)  # type: ignore[arg-type]
+    except CliUnavailable:
+        raise
+    except Exception as exc:  # noqa: BLE001 — unsupported platforms use native credentials
+        if _login_id(ACCOUNT_OVERRIDE.get()) and pinned_platform in (None, platform):
+            raise CliUnavailable("The selected subscription account could not be loaded.") from exc
+        log.debug("CLI account layer unavailable for %s (%s)", platform, type(exc).__name__)
+        env = dict(os.environ)
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    if snapshot is not None:
+        snapshot[platform] = dict(env)
+    return env
+
+
+def _seat_with_budget(platform: str, account: Any) -> Any:
+    """``account``, or the active seat when ``account`` ran out of its plan.
+
+    A thread pinned to a seat that refused for its usage limit would fail
+    every turn until that seat refills; with automatic switching on, the turn
+    runs on the seat the rest of the work already moved to
+    (:mod:`dodaios.agentic_ide.seat_switch`). Its conversation follows it
+    (``_carry_thread_conversation``).
+    """
+    try:
+        from dodaios import agent_accounts
+        from dodaios.agentic_ide import seat_switch
+
+        replacement = seat_switch.preferred_seat(platform, account.id)
+        if replacement is None:
+            return account
+        return agent_accounts.resolve(replacement) or account
+    except Exception as exc:  # noqa: BLE001 - the pinned seat is still a valid answer
+        log.debug("Seat failover unavailable for %s (%s)", platform, type(exc).__name__)
+        return account
+
+
+#: Runner -> (account platform, resume kind) for the CLIs whose conversations
+#: can follow a seat switch (:mod:`dodaios.agentic_ide.seat_handoff`).
+_SEAT_CONVERSATIONS: dict[str, tuple[str, str]] = {
+    "claude-cli": ("claude", "claude_session"),
+    "codex-cli": ("codex", "codex_rollout"),
+    "grok-cli": ("grok-build", "grok_session"),
+}
+
+
+#: (runner, conversation id) -> the seat dir its last turn ran on. A thread
+#: whose seat did not change since needs no search across the other seats —
+#: for Codex that search is a sweep of every rollout folder.
+_CARRIED_HOMES: dict[tuple[str, str], str] = {}
+
+
+def _carry_thread_conversation(runner: str, resume: str | None, env: dict[str, str]) -> None:
+    """Make a resumed thread find its conversation on the seat it runs on now.
+
+    Each seat keeps its own history, so after a switch ``--resume <id>`` on
+    the new seat would answer "no conversation found" and the thread would
+    lose everything it knew. The newest copy across the CLI's seats is
+    carried into the seat this turn runs on. Filesystem work: off the loop.
+    """
+    pair = _SEAT_CONVERSATIONS.get(runner)
+    if not resume or pair is None:
+        return
+    platform, kind = pair
+    try:
+        from dodaios import agent_accounts
+        from dodaios.agentic_ide import seat_handoff
+
+        if platform not in agent_accounts.platforms():
+            return
+        variable = agent_accounts.env_var(platform)
+        raw = env.get(variable or "", "").strip()
+        home = Path(raw).expanduser() if raw else agent_accounts.native_dir(platform)
+        key = (runner, resume)
+        if _CARRIED_HOMES.get(key) == os.path.normcase(str(home)):
+            return
+        homes = [account.config_dir for account in agent_accounts.list_accounts(platform)]
+        if seat_handoff.carry_conversation(kind, resume, home, homes):
+            if len(_CARRIED_HOMES) > 512:
+                _CARRIED_HOMES.clear()
+            _CARRIED_HOMES[key] = os.path.normcase(str(home))
+    except Exception as exc:  # noqa: BLE001 - a fresh start is the honest fallback
+        log.warning("Conversation could not follow the seat for %s: %s", runner, exc)
+
+
+def _registry_env(agent: str, base: dict[str, str]) -> dict[str, str]:
+    """``base`` with the Agentic IDE registry's per-CLI environment on top.
+
+    The same overlay a pane of ``agent`` gets (``dodaios.agentic_ide.session.
+    agent_spawn_overlay``): the entry's fixed variables — an auto-updater
+    switched off so the binary is not swapped under a running turn — and, for
+    an entry whose environment is user configuration, its factory's answer.
+    A factory that answers ``None`` says the CLI is not configured (GLM
+    without a Z.ai key), and that stops the turn here rather than letting
+    Claude Code answer from — and bill — the wrong vendor. An empty value
+    removes the variable from the child, as it does for a pane.
+    """
+    env = dict(base)
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    try:
+        from dodaios.workspace import agents as workspace_agents
+
+        spec = workspace_agents.get_agent(agent)
+    except Exception:  # noqa: BLE001 — no registry, no overlay
+        spec = None
+    if spec is None:
+        return env
+    overlay = dict(spec.spawn_env)
+    if spec.spawn_env_factory is not None:
+        resolved = spec.spawn_env_factory()
+        if resolved is None:
+            raise CliUnavailable(
+                f"{spec.display_name} is not configured yet — add its API key on "
+                "the API Keys page, then send again."
+            )
+        overlay.update(resolved)
+    for key, value in overlay.items():
+        if value:
+            env[key] = value
+        else:
+            env.pop(key, None)
+    return env
+
+
+# ------------------------------------------------------------ argv per CLI
+
+#: Prepended to the prompt for a runner without a plan mode of its own: the
+#: sandbox already forbids changes; this tells the model what to do instead.
+_PLAN_PREAMBLE: Final[str] = (
+    "PLAN MODE: do not change any files or run commands that write. Investigate "
+    "(read, search, list), then answer with a concrete, numbered plan of the "
+    "changes you would make — files, functions, the order — and the open "
+    "questions. The person will switch to Build mode to have it carried out.\n\n"
+)
+
+
+@dataclass(slots=True)
+class CliPlan:
+    argv: list[str]
+    env: dict[str, str]
+    stdin_text: str | None
+    shape: str  # a key of ``_SHAPES``: claude | codex | agy | opencode | kimi | text | cursor
+    #: Vendor session id we chose up front (claude/grok --session-id), or None
+    #: when the CLI assigns one (agy, codex) and we read it from the stream.
+    vendor_session: str | None
+    #: Keep stdin open after the prompt: the CLI talks back on it (Claude
+    #: Code's control protocol — permission prompts answered from the chat).
+    #: The pump closes stdin once the turn's ``result`` line arrived.
+    keep_stdin: bool = False
+    #: The control-protocol handshake, written before the prompt. Claude Code
+    #: only asks about tool calls once a client has announced itself this way.
+    control_init: str | None = None
+    #: For a CLI whose stream never names its session: called once the turn
+    #: is over with the working folder and the wall-clock start, and answers
+    #: the id the CLI's own store gave the conversation (or None).
+    discover: Callable[[Path, float], str | None] | None = None
+    #: An Agent Client Protocol turn (Hermes, OpenClaw — ``runner_acp``): the
+    #: pump hands every stdout object to it instead of a ``_SHAPES`` translator,
+    #: and it writes its own requests on stdin.
+    acp: Any | None = None
+    #: Called once the process is gone (a runtime releasing its Gateway).
+    after_turn: Callable[[], None] | None = None
+    #: The local gateway knows failures that a runtime may render as prose.
+    provider_failure: Future[str] | None = None
+
+
+def claude_control_init() -> str:
+    """The handshake that turns Claude Code's control protocol on.
+
+    Without it, ``--permission-prompt-tool stdio`` is a flag the CLI accepts
+    and never uses: it has no client on the other end that it knows can answer,
+    so every tool call runs straight through and "Ask before acting" behaves
+    exactly like "Auto-accept edits" (maintainer report 2026-08-24). The CLI
+    answers this with a ``control_response`` listing its commands; from then on
+    a permission prompt arrives as ``control_request {subtype: can_use_tool}``
+    and the chat's approval card answers it on stdin.
+
+    ``hooks: null`` says this client registers none of its own — the CLI's
+    configured hooks still run.
+    """
+    return (
+        json.dumps(
+            {
+                "type": "control_request",
+                "request_id": "jarvis-init",
+                "request": {"subtype": "initialize", "hooks": None},
+            },
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
+
+
+def claude_session_rules(tool_name: str, suggestions: Any) -> list[dict[str, Any]]:
+    """What "Always allow" answers Claude Code: its own rule, for this session.
+
+    A ``can_use_tool`` request carries ``permission_suggestions`` — the rule
+    its own prompt would offer ("don't ask again for git log commands here").
+    Those name a settings file as their destination; the chat keeps them to
+    the running session, so a click never writes into the person's repo or
+    user settings. Without a suggestion the tool itself is allowed.
+    """
+    rules = [
+        {**rule, "destination": "session"}
+        for rule in (suggestions if isinstance(suggestions, list) else [])
+        if isinstance(rule, dict) and rule.get("type")
+    ]
+    return rules or [
+        {
+            "type": "addRules",
+            "rules": [{"toolName": tool_name}],
+            "behavior": "allow",
+            "destination": "session",
+        }
+    ]
+
+
+def claude_stream_input(prompt: str) -> str:
+    """One NDJSON user message for ``--input-format stream-json``."""
+    return (
+        json.dumps(
+            {"type": "user", "message": {"role": "user", "content": prompt}},
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
+
+
+def plan_claude(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    return _plan_claude_code(
+        prompt=prompt,
+        cwd=cwd,
+        model=model,
+        effort=effort,
+        permission_mode=permission_mode,
+        resume=resume,
+        identity=identity,
+        env=jarvis_harness.apply_env(_account_env("claude")),
+        thinking_summaries=True,
+    )
+
+
+def plan_glm(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    """GLM Coding Plan: Claude Code's own plan, pointed at Z.ai by the registry.
+
+    Z.ai ships no CLI; its documentation says to run Anthropic's binary
+    against its endpoint, so everything — the control protocol that answers
+    permission prompts from the chat, ``--resume``, the MCP tools — is
+    inherited rather than re-implemented. Two things differ: the environment
+    is ``glm_spawn_env``'s (and its ``None`` refuses the turn instead of
+    letting Claude Code answer from, and bill, the wrong vendor), and no
+    ``--effort`` is sent, because that flag belongs to Anthropic's endpoint
+    (``_GLM_PICKS`` in ``dodaios.workspace.agents``).
+    """
+    return _plan_claude_code(
+        prompt=prompt,
+        cwd=cwd,
+        model=model,
+        effort="",
+        permission_mode=permission_mode,
+        resume=resume,
+        identity=identity,
+        env=jarvis_harness.apply_env(_registry_env("glm", dict(os.environ))),
+    )
+
+
+def _plan_claude_code(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None,
+    env: dict[str, str],
+    thinking_summaries: bool = False,
+) -> CliPlan:
+    mode = normalize_permission("claude-cli", permission_mode)
+    prefix = claude_argv_prefix()
+    argv = [
+        *prefix,
+        "--print",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--include-partial-messages",
+        # The control protocol: the user message goes in as NDJSON and a
+        # permission prompt comes back as a ``control_request`` line that the
+        # chat answers on stdin — so "ask" really asks, here, in the chat.
+        "--input-format",
+        "stream-json",
+        "--permission-prompt-tool",
+        "stdio",
+        "--permission-mode",
+        mode,
+    ]
+    if model:
+        argv += ["--model", model]
+    if effort:
+        argv += ["--effort", effort]
+    # Without this the stream carries empty thinking blocks and the chat shows
+    # no reasoning. The probe ran off the event loop before planning
+    # (``warm_claude_capabilities``); an older CLI without the flag skips it.
+    # Anthropic's endpoint only — GLM's compatible one is not asked for a
+    # thinking setting it never documented.
+    from dodaios.claude_auth import claude_cli_thinking_display_known
+
+    if thinking_summaries and claude_cli_thinking_display_known(prefix):
+        argv += ["--thinking-display", "summarized"]
+    # Jarvis' own tools, and the identity that says when to use them. Both are
+    # skipped when the app cannot offer them (no control key, server not bound
+    # yet) — the session then behaves exactly as it did before. On the Jarvis
+    # surface the identity is Jarvis' whole head, in a FILE: argv cannot carry
+    # it on Windows (32 767 characters for the whole command line).
+    mcp_config = jarvis_harness.mcp_config_json(identity.session_id if identity else None)
+    if mcp_config:
+        argv += ["--mcp-config", mcp_config]
+        if identity is not None and identity.path is not None:
+            argv += ["--append-system-prompt-file", str(identity.path)]
+        else:
+            argv += ["--append-system-prompt", jarvis_harness.SYSTEM_PREAMBLE]
+    if resume:
+        argv += ["--resume", resume]
+        sid = resume
+    else:
+        sid = str(uuid.uuid4())
+        argv += ["--session-id", sid]
+    return CliPlan(
+        argv,
+        env,
+        claude_stream_input(prompt),
+        "claude",
+        sid,
+        keep_stdin=True,
+        control_init=claude_control_init(),
+    )
+
+
+def plan_grok(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    # Grok Build takes the prompt on argv, so the identity rides in front of
+    # it — the compact cut, and only on a fresh conversation.
+    prompt = _with_identity(prompt, identity, resume, compact=True)
+    mode = normalize_permission("grok-cli", permission_mode)
+    work = _resolved_cwd(cwd)
+    if identity is not None:
+        # grok has no --mcp-config; a project `.grok/config.toml` is how
+        # print-mode actually sees Jarvis' tools (gmail, calendar, the rest).
+        jarvis_harness.install_grok_jarvis_mcp(work, identity.session_id)
+    argv = [
+        *grok_argv_prefix(),
+        "--no-auto-update",
+        "--no-alt-screen",
+        "--output-format",
+        "streaming-messages-json",
+        "--include-partial-messages",
+        "--cwd",
+        str(work),
+    ]
+    if mode == "plan":
+        argv += ["--permission-mode", "plan"]
+    else:
+        # Print-mode grok cannot answer a permission prompt. default and
+        # acceptEdits therefore decline MCP tools (live Morning Briefing,
+        # 2026-09-17: jarvis__gmail "Tool not found" / cancelled) and abort
+        # the whole turn (live Bot ersteller, 2026-09-17: run_terminal_command
+        # "User cancelled"). Jarvis' gateway still gates every call.
+        argv += ["--always-approve"]
+    argv += ["--rules", KEEP_GOING_ON_TOOL_FAILURE]
+    if model:
+        argv += ["-m", model]
+    if effort:
+        argv += ["--reasoning-effort", effort]
+    if resume:
+        argv += ["-r", resume]
+        sid = resume
+    else:
+        sid = str(uuid.uuid4())
+        argv += ["--session-id", sid]
+    argv += ["-p", _argv_prompt(argv, prompt)]
+    env = jarvis_harness.apply_env(_account_env("grok-build"))
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    return CliPlan(argv, env, None, "claude", sid)
+
+
+#: agy's own model ids as of 1.1.19, for a box where ``agy models`` cannot be
+#: read (the live list is account-dependent and wins whenever it answers).
+AGY_FALLBACK_MODELS: Final[tuple[tuple[str, str, tuple[str, ...]], ...]] = (
+    ("gemini-3.7-flash", "Gemini 3.7 Flash", ("low", "medium", "high")),
+    ("gemini-3.6-flash", "Gemini 3.6 Flash", ("low", "medium", "high")),
+    ("gemini-3.5-flash", "Gemini 3.5 Flash", ("low", "medium", "high")),
+    ("gemini-3.1-pro", "Gemini 3.1 Pro", ("low", "high")),
+    ("claude-sonnet-4-6", "Claude Sonnet 4.6 (Thinking)", ()),
+    ("claude-opus-4-6-thinking", "Claude Opus 4.6 (Thinking)", ()),
+    ("gpt-oss-120b", "GPT-OSS 120B", ("medium",)),
+)
+
+_AGY_EFFORT_SUFFIXES: Final[tuple[str, ...]] = ("low", "medium", "high")
+
+
+def agy_model_catalog(raw_models: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Fold agy's suffixed ids into base models with an effort ladder each.
+
+    ``agy models`` lists ``gemini-3.5-flash-low`` / ``-medium`` / ``-high``
+    as three ids; the composer shows ONE model with a three-step effort
+    pick, so this folds ``<base>-<effort>`` onto ``<base>`` and records the
+    efforts seen. Ids without a suffix (the Claude models, ``gpt-oss-120b``)
+    keep an empty ladder = no effort pick. ``None`` (no list readable) gives
+    the fallback table.
+    """
+    if not raw_models:
+        return [
+            {"id": mid, "label": label, "efforts": list(efforts)}
+            for mid, label, efforts in AGY_FALLBACK_MODELS
+        ]
+    order: list[str] = []
+    efforts: dict[str, list[str]] = {}
+    labels: dict[str, str] = {}
+    for m in raw_models:
+        mid = str(m.get("id") or "").strip()
+        if not mid:
+            continue
+        label = str(m.get("label") or mid)
+        base, suffix = mid, ""
+        for sfx in _AGY_EFFORT_SUFFIXES:
+            if mid.endswith("-" + sfx):
+                base, suffix = mid[: -(len(sfx) + 1)], sfx
+                break
+        if base not in efforts:
+            efforts[base] = []
+            order.append(base)
+            labels[base] = _strip_effort_label(label) if suffix else label
+        if suffix and suffix not in efforts[base]:
+            efforts[base].append(suffix)
+    return [
+        {
+            "id": base,
+            "label": labels[base],
+            "efforts": sorted(efforts[base], key=_AGY_EFFORT_SUFFIXES.index),
+        }
+        for base in order
+    ]
+
+
+def _strip_effort_label(label: str) -> str:
+    # "Gemini 3.5 Flash (High)" -> "Gemini 3.5 Flash"
+    for sfx in ("(Low)", "(Medium)", "(High)"):
+        if label.endswith(sfx):
+            return label[: -len(sfx)].rstrip()
+    return label
+
+
+def agy_model_args(
+    model: str, effort: str, catalog: list[dict[str, Any]] | None = None
+) -> list[str]:
+    """The ``--model`` / ``--effort`` pair agy accepts for a base id + effort.
+
+    agy is strict: a base Gemini id REQUIRES ``--effort`` (and only the levels
+    that model has — Pro knows low/high), a suffixed id FORBIDS it, and the
+    Claude / GPT-OSS ids take none at all. The catalog says which is which;
+    without one the fallback table does.
+    """
+    rows = catalog or agy_model_catalog(None)
+    by_id = {r["id"]: r for r in rows}
+    if not model:
+        # Default model: agy accepts ``--effort`` alone.
+        return ["--effort", effort] if effort in _AGY_EFFORT_SUFFIXES else []
+    row = by_id.get(model)
+    if (row is None or not row.get("efforts")) and _is_base_gemini_id(model):
+        # A newer Gemini base id still requires --effort when discovery failed
+        # or returned a bare id without its suffixed variants.
+        level = effort if effort in _AGY_EFFORT_SUFFIXES else _AGY_DEFAULT_EFFORT
+        return ["--model", model, "--effort", level]
+    if row is None:
+        # A suffixed or non-Gemini unknown id: pass it through untouched.
+        return ["--model", model]
+    ladder = list(row.get("efforts") or [])
+    if not ladder:
+        return ["--model", model]
+    if ladder == ["medium"] and model.startswith("gpt-oss"):
+        # gpt-oss-120b: the bare id runs; ``-medium`` is the only suffix.
+        return ["--model", model]
+    level = effort if effort in ladder else _nearest_lower(effort, ladder)
+    return ["--model", model, "--effort", level]
+
+
+#: The level a base Gemini id newer than the catalog runs at when nobody chose
+#: one: every Gemini ladder agy publishes has it (Pro knows only low/high).
+_AGY_DEFAULT_EFFORT: Final = "high"
+
+
+def _is_base_gemini_id(model: str) -> bool:
+    """``gemini-3.8-flash`` yes; ``gemini-3.8-flash-high`` and ``claude-…`` no."""
+    return model.startswith("gemini-") and not model.endswith(
+        tuple(f"-{level}" for level in _AGY_EFFORT_SUFFIXES)
+    )
+
+
+def _nearest_lower(effort: str, ladder: list[str]) -> str:
+    order = list(_AGY_EFFORT_SUFFIXES)
+    if effort not in order:
+        return ladder[-1] if "high" in ladder else ladder[0]
+    idx = order.index(effort)
+    lower = [lvl for lvl in ladder if order.index(lvl) <= idx]
+    return lower[-1] if lower else ladder[0]
+
+
+def _resolved_cwd(raw: Path | str | None) -> Path:
+    """Absolute working folder for a CLI spawn.
+
+    agy refuses a relative ``--add-dir`` (``path is not absolute``) and a
+    society session used to store ``data\\society\\<id>\\workspace`` relative
+    to the app cwd. Resolve here so every planner sees the same folder.
+    """
+    path = Path(raw or Path.home()).expanduser()
+    if not path.is_absolute():
+        path = path.resolve()
+    return path
+
+
+def plan_agy(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    mode = normalize_permission("agy-cli", permission_mode)
+    # agy has no system-prompt flag: the identity rides in front of the prompt
+    # on stdin, on a fresh conversation (a resumed one already knows).
+    prompt = _with_identity(prompt, identity, resume)
+    work = _resolved_cwd(cwd)
+    if identity is not None:
+        # agy has no --mcp-config; a workspace plugin is how print-mode
+        # actually sees Jarvis' tools (gmail, linear, the rest of the gateway).
+        jarvis_harness.install_agy_jarvis_plugin(work, identity.session_id)
+    argv = [
+        *agy_argv_prefix(),
+        "--output-format",
+        "stream-json",
+        "--add-dir",
+        str(work),
+        # agy's own print timeout is 5 min; ours is the long one.
+        "--print-timeout",
+        f"{int(_TURN_TIMEOUT_S // 60)}m",
+    ]
+    if mode == "plan":
+        argv += ["--mode", "plan"]
+    else:
+        # Print-mode agy 1.1.26: a tool that still wants a confirmation is
+        # soft-denied and the process exits. ``accept-edits`` still asks for
+        # RunCommand, so without this flag the turn dies after the first
+        # shell call (live 2026-09-04, society:test / society:gamil-agent).
+        argv += ["--dangerously-skip-permissions"]
+        if mode == "accept-edits":
+            argv += ["--mode", "accept-edits"]
+    argv += agy_model_args(model, effort, _agy_catalog_cached())
+    if resume:
+        argv += ["--conversation", resume]
+    env = jarvis_harness.apply_env(_account_env("antigravity"))
+    env.setdefault("AGY_CLI_HIDE_LOGO", "1")
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    # Prompt on stdin: no argv length limit, and no ``-p`` that could swallow
+    # the next flag as its value.
+    return CliPlan(argv, env, prompt, "agy", resume)
+
+
+_CODEX_CATALOG = CatalogCache()
+
+
+def read_codex_models(*, required_model: str = "") -> list[dict[str, Any]] | None:
+    """Ask the installed CLI, never trust another client's models_cache.json.
+
+    Config-isolation flags belong to ``codex exec`` and are not accepted by
+    ``codex app-server``. Discovery only reads model/list; it starts no turn.
+    """
+    env = _account_env("codex")
+    argv = codex_argv_prefix()
+    cwd = _catalog_cwd()
+    rows = _CODEX_CATALOG.read(
+        catalog_key(argv, env, cwd),
+        lambda: discover_codex_models(argv, env, cwd),
+        required_model=required_model,
+    )
+    _remember_models("codex-cli", rows)
+    return rows
+
+
+def read_grok_models() -> list[dict[str, Any]] | None:
+    """Grok Build's account catalog from ``$GROK_HOME/models_cache.json``.
+
+    The CLI refreshes that file itself. It is the same list the Grok Build
+    picker shows for this login (verified against grok 1.0.40: a dict of
+    model id to ``{info: {id, name, hidden, reasoning_efforts}}``). ``None``
+    when the file is missing or unreadable — the caller keeps
+    ``GROK_BUILD_MODELS``.
+    """
+    env = _account_env("grok-build")
+    home = Path(env.get("GROK_HOME") or Path.home() / ".grok")
+    path = home / "models_cache.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        log.debug("agent chat: grok models cache unreadable at %s: %s", path, exc)
+        return None
+    models = data.get("models") if isinstance(data, dict) else None
+    if isinstance(models, dict):
+        entries = list(models.values())
+    elif isinstance(models, list):
+        entries = models
+    else:
+        return None
+    rows: list[dict[str, Any]] = []
+    for entry in entries:
+        info = entry.get("info") if isinstance(entry, dict) else None
+        if not isinstance(info, dict):
+            info = entry if isinstance(entry, dict) else None
+        if not isinstance(info, dict) or info.get("hidden") is True:
+            continue
+        slug = str(info.get("id") or info.get("model") or "").strip()
+        if not slug:
+            continue
+        seen: list[str] = []
+        for level in info.get("reasoning_efforts") or []:
+            if isinstance(level, dict):
+                value = str(level.get("value") or level.get("id") or "")
+            else:
+                value = str(level)
+            value = value.strip().lower()
+            if value and value not in seen:
+                seen.append(value)
+        ordered = [level for level in ORDER if level in seen]
+        ordered += [level for level in seen if level not in ordered]
+        # "" stays the "leave the CLI's own effort alone" choice. The levels
+        # after it are the ones this model actually accepts.
+        efforts = [""] + ordered if ordered else []
+        row: dict[str, Any] = {
+            "id": slug,
+            "label": str(info.get("name") or slug),
+            "efforts": efforts,
+        }
+        note = str(info.get("description") or "").strip()
+        if note:
+            row["note"] = note
+        rows.append(row)
+    return rows or None
+
+
+_AGY_CATALOG: dict[str, Any] = {"at": 0.0, "rows": None}
+_AGY_CATALOG_TTL_S: Final[float] = 600.0
+
+
+def _agy_catalog_cached() -> list[dict[str, Any]] | None:
+    prepared = _PREPARED_MODELS.get()
+    if prepared is not None and "agy-cli" in prepared:
+        return prepared["agy-cli"]
+    key = catalog_key(agy_argv_prefix(), _account_env("antigravity"), _catalog_cwd())
+    rows = _AGY_CATALOG.get("rows") if _AGY_CATALOG.get("key") == key else None
+    return rows if isinstance(rows, list) else None
+
+
+def read_agy_models(timeout_s: float = 8.0, *, required_model: str = "") -> list[dict[str, Any]]:
+    """``agy --output-format json models`` -> the folded catalog (cached 10 min).
+
+    Blocking (a ~2 s subprocess) — call it off the event loop. Any failure
+    yields the fallback table; the cache keeps a failure out of the next
+    request for the TTL too.
+    """
+    import subprocess
+
+    env = _account_env("antigravity")
+    argv = agy_argv_prefix()
+    cwd = _catalog_cwd()
+    key = catalog_key(argv, env, cwd)
+    now = time.monotonic()
+    cached = _agy_catalog_cached()
+    model_known = not required_model or any(row["id"] == required_model for row in cached or [])
+    if cached is not None and model_known and now - _AGY_CATALOG["at"] < _AGY_CATALOG_TTL_S:
+        _remember_models("agy-cli", cached)
+        return list(cached)
+    raw: list[dict[str, Any]] | None = None
+    try:
+        argv = [*argv, "--output-format", "json", "models"]
+        env.setdefault("AGY_CLI_HIDE_LOGO", "1")
+        proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
+            argv,
+            capture_output=True,
+            timeout=timeout_s,
+            env=env,
+            cwd=str(cwd),
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+        )
+        text = proc.stdout.decode("utf-8", errors="replace")
+        for line in text.splitlines():
+            line = line.strip()
+            if not line.startswith("{"):
+                continue
+            obj = json.loads(line)
+            data = ((obj.get("command") or {}).get("data") or {}) if isinstance(obj, dict) else {}
+            models = data.get("models") if isinstance(data, dict) else None
+            if isinstance(models, list):
+                raw = [m for m in models if isinstance(m, dict)]
+                break
+    except (CliUnavailable, OSError, ValueError, subprocess.SubprocessError) as exc:
+        log.debug("agent chat: agy models unavailable: %s", exc)
+    rows = agy_model_catalog(raw)
+    _AGY_CATALOG.update(rows=rows, at=now, key=key)
+    _remember_models("agy-cli", rows)
+    return list(rows)
+
+
+def plan_codex(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    mode = normalize_permission("codex-cli", permission_mode)
+    # Codex reads the prompt from stdin, which has no length limit: the
+    # identity rides in front of it on a fresh conversation. (Its
+    # ``model_instructions_file`` REPLACES the CLI's own instructions rather
+    # than adding to them, so it is not used here.)
+    prompt = _with_identity(prompt, identity, resume)
+    base = codex_argv_prefix()
+    if resume:
+        argv = [*base, "exec", "resume", resume, "--json"]
+    else:
+        argv = [*base, "exec", "--json", "--cd", str(cwd)]
+    argv += ["--skip-git-repo-check"]
+    # Jarvis' own tools over streamable-HTTP MCP, mounted for this run only —
+    # the person's ~/.codex/config.toml is never touched.
+    argv += jarvis_harness.codex_config_args(identity.session_id if identity else None)
+    if identity is not None:
+        # A Jarvis seat must use the browser and connections visible in Jarvis.
+        # Inheriting the coding CLI's plugins gives it a second, unrelated
+        # browser whose actions never appear in the agent's live viewer.
+        argv += ["--ignore-user-config", "--ignore-rules"]
+        for feature in ("browser_use", "plugins", "computer_use", "apps", "web_search_request"):
+            argv += ["--disable", feature]
+    # The TUI's presets, spelled out for ``exec`` (codex 0.149): Read only /
+    # Auto (workspace-write) / Full access (``--yolo``), plus "approve for
+    # me" — Codex's own reviewer model decides what would have asked you,
+    # the one ask-stance a headless run has. ``exec`` never prompts on
+    # stdin; the sandbox decides what may happen. Plan is the read-only
+    # sandbox plus an instruction to plan instead of act. The sandbox goes
+    # through ``-c sandbox_mode`` because ``exec resume`` has no ``-s``.
+    society_seat = identity is not None and identity.session_id.startswith("society:")
+    if society_seat:
+        # The headless CLI cannot relay native approval prompts into Jarvis.
+        # Give it only the app-owned MCP hands; all actions then pass through
+        # the session grant, ToolExecutor and the visible chat approval card.
+        argv += ["-c", 'sandbox_mode="read-only"', "-c", 'approval_policy="never"']
+        for feature in (
+            "shell_tool",
+            "apps",
+            "hooks",
+            "multi_agent",
+            "browser_use",
+            "computer_use",
+            "plugins",
+            "web_search_request",
+        ):
+            argv += ["--disable", feature]
+    elif mode == "full-access":
+        argv += ["--dangerously-bypass-approvals-and-sandbox"]
+    elif mode == "approve-for-me":
+        argv += [
+            "-c",
+            'sandbox_mode="workspace-write"',
+            "-c",
+            'approvals_reviewer="auto_review"',
+            "-c",
+            'approval_policy="on-request"',
+        ]
+    else:
+        sandbox = "workspace-write" if mode == "auto" else "read-only"
+        argv += ["-c", f'sandbox_mode="{sandbox}"']
+    if model:
+        # The account's catalog says which levels THIS model takes (5.5 stops
+        # at xhigh, terra goes to ultra); an unsupported level is snapped
+        # rather than sent for the server to reject.
+        prepared = _PREPARED_MODELS.get()
+        models = (
+            prepared.get("codex-cli")
+            if prepared is not None and "codex-cli" in prepared
+            else read_codex_models()
+        )
+        for row in models or []:
+            if row.get("id") == model and "efforts" in row:
+                effort = snap_to_ladder(effort, list(row["efforts"]))
+                break
+    if effort:
+        argv += ["-c", f"model_reasoning_effort={effort}"]
+    # Without a summary setting no ``reasoning`` items appear at all.
+    argv += ["-c", "model_reasoning_summary=auto"]
+    if model:
+        argv += ["--model", model]
+    argv += ["-"]  # prompt on stdin
+    text = _PLAN_PREAMBLE + prompt if mode == "plan" else prompt
+    return CliPlan(argv, jarvis_harness.apply_env(_account_env("codex")), text, "codex", resume)
+
+
+_OPENCODE_CATALOG: dict[str, Any] = {"at": 0.0, "rows": None}
+_OPENCODE_CATALOG_TTL_S: Final[float] = 600.0
+
+
+def read_opencode_models(timeout_s: float = 20.0) -> list[dict[str, Any]]:
+    """``opencode models`` -> the ids this install can run (cached 10 min).
+
+    OpenCode's ids are ``provider/model`` and the list is whatever providers
+    the person configured — nothing to curate, only to ask. The label is the
+    model half and the note the provider, so ``anthropic/claude-opus-5`` and
+    ``cloudflare-ai-gateway/anthropic/claude-opus-5`` read apart in the picker.
+    Blocking (a ~2 s subprocess) — call it off the event loop. Any failure
+    yields an empty list, and the cache keeps a failure out of the next
+    request for the TTL too.
+    """
+    import subprocess
+
+    env = _registry_env("opencode", _account_env("opencode"))
+    prefix = opencode_argv_prefix()
+    cwd = _catalog_cwd()
+    key = catalog_key(prefix, env, cwd)
+    now = time.monotonic()
+    if (
+        _OPENCODE_CATALOG.get("key") == key
+        and _OPENCODE_CATALOG["rows"] is not None
+        and now - _OPENCODE_CATALOG["at"] < _OPENCODE_CATALOG_TTL_S
+    ):
+        return list(_OPENCODE_CATALOG["rows"])
+    rows: list[dict[str, Any]] = []
+    try:
+        argv = [*prefix, "models"]
+        proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
+            argv,
+            capture_output=True,
+            timeout=timeout_s,
+            env=env,
+            cwd=str(cwd),
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+        )
+        for line in proc.stdout.decode("utf-8", errors="replace").splitlines():
+            mid = line.strip()
+            if not mid or "/" not in mid or " " in mid:
+                continue
+            provider, _, model = mid.partition("/")
+            rows.append({"id": mid, "label": model, "note": provider})
+    except (CliUnavailable, OSError, ValueError, subprocess.SubprocessError) as exc:
+        log.debug("agent chat: opencode models unavailable: %s", exc)
+    _OPENCODE_CATALOG.update(rows=rows, at=now, key=key)
+    return list(rows)
+
+
+def plan_opencode(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    mode = normalize_permission("opencode-cli", permission_mode)
+    # The prompt is a positional of ``run`` (no stdin mode), behind ``--`` so
+    # a sentence that starts with a dash is a sentence and not a flag; the
+    # identity rides in front of it on a fresh conversation.
+    prompt = _with_identity(prompt, identity, resume)
+    argv = [*opencode_argv_prefix(), "run", "--format", "json", "--thinking"]
+    if mode == "auto":
+        argv += ["--auto"]
+    elif mode == "plan":
+        # OpenCode's own plan agent: read-only by its definition.
+        argv += ["--agent", "plan"]
+    if model:
+        argv += ["--model", model]
+    if effort:
+        argv += ["--variant", effort]
+    if resume:
+        argv += ["--session", resume]
+    argv += ["--", _argv_prompt(argv, prompt)]
+    env = _registry_env("opencode", _account_env("opencode"))
+    return CliPlan(argv, env, None, "opencode", resume)
+
+
+def _kimi_session_after(cwd: Path, started_at: float) -> str | None:
+    """The session Kimi's print run in ``cwd`` created after ``started_at``.
+
+    Kimi's stream names no session; its store does. The same search a pane
+    runs for its own conversation — the newest session under this folder's
+    bucket, created after the start, with content — through
+    ``agent_sessions.discover``, so the two never disagree about where Kimi
+    keeps a conversation.
+    """
+    try:
+        from dodaios.agentic_ide import agent_sessions
+
+        handle = agent_sessions.discover("kimi", str(cwd), started_at)
+    except Exception as exc:  # noqa: BLE001 — a lost id costs one resume, not the turn
+        log.debug("agent chat: kimi session discovery failed: %s", exc)
+        return None
+    return handle.id if handle is not None else None
+
+
+def plan_kimi(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    mode = normalize_permission("kimi-cli", permission_mode)
+    prompt = _with_identity(prompt, identity, resume)
+    argv = [*kimi_argv_prefix(), "--output-format", "stream-json"]
+    if model:
+        argv += ["--model", model]
+    # Print mode is autonomous by Kimi's own design (a headless run has nobody
+    # to ask), and Kimi Code refuses ``--auto``, ``--yolo`` and ``--plan`` next
+    # to ``--prompt`` ("Cannot combine --prompt with --auto", 0.29). Plan is
+    # therefore an instruction, not a sandbox — the ladder's sentence says so.
+    if resume:
+        # Long form on purpose: the two Kimi generations disagree on the short
+        # flag (``agent_sessions``).
+        argv += ["--session", resume]
+    text = _PLAN_PREAMBLE + prompt if mode == "plan" else prompt
+    argv += ["--prompt", _argv_prompt(argv, text)]
+    env = _registry_env("kimi", _account_env("kimi"))
+    return CliPlan(
+        argv, env, None, "kimi", resume, discover=None if resume else _kimi_session_after
+    )
+
+
+def plan_dsh(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    """DeepSeek Harness's headless profile: one task in, the final message out.
+
+    No model flag, no session, no tool stream — the harness keeps its key and
+    its policy in its own settings (``dodaios.workspace.agents``). What comes
+    back is text, and the chat shows it as the answer.
+    """
+    prompt = _with_identity(prompt, identity, None, compact=True)
+    prefix = dsh_argv_prefix()
+    argv = [*prefix, "--profile", "headless", _argv_prompt(prefix, prompt)]
+    env = _registry_env("deepseek-harness", _account_env("deepseek-harness"))
+    return CliPlan(argv, env, None, "text", None)
+
+
+def plan_cursor(
+    *,
+    prompt: str,
+    cwd: Path,
+    model: str,
+    effort: str,
+    permission_mode: str,
+    resume: str | None,
+    identity: jarvis_harness.Identity | None = None,
+) -> CliPlan:
+    """Cursor CLI print mode: one prompt in, stream-json events out.
+
+    ``-p`` / ``--print`` is the non-interactive path (scripts, CI, this chat).
+    ``--force`` is what actually applies edits — without it print mode only
+    proposes. Ask and Plan are ``--mode`` flags and do not take ``--force``,
+    because those stances are supposed to leave the tree alone.
+    """
+    del cwd, effort  # cwd is the spawn cwd; Cursor has no effort flag.
+    mode = normalize_permission("cursor-cli", permission_mode)
+    prompt = _with_identity(prompt, identity, resume, compact=True)
+    argv = [
+        *cursor_argv_prefix(),
+        "-p",
+        "--output-format",
+        "stream-json",
+    ]
+    if model:
+        argv += ["--model", model]
+    if mode == "plan":
+        argv += ["--mode", "plan"]
+    elif mode == "ask":
+        argv += ["--mode", "ask"]
+    else:
+        argv += ["--force"]
+    if resume:
+        argv += ["--resume", resume]
+    argv.append(_argv_prompt(argv, prompt))
+    env = _registry_env("cursor", _account_env("cursor"))
+    return CliPlan(argv, env, None, "cursor", resume)
+
+
+def _with_identity(
+    prompt: str,
+    identity: jarvis_harness.Identity | None,
+    resume: str | None,
+    *,
+    compact: bool = False,
+) -> str:
+    """The prompt with the identity in front of it — on a fresh conversation.
+
+    A resumed conversation carries the identity from its first turn; repeating
+    fifty thousand characters of it every turn would cost the subscription's
+    context for nothing. The block is fenced so the model can tell the head
+    from the person's words.
+    """
+    if identity is None:
+        return prompt
+    if resume and identity.session_id.startswith("society:"):
+        prompt = jarvis_harness.society_memory_refresh(identity.text, compact=compact) + prompt
+    if resume:
+        if identity.session_id.startswith("society:"):
+            from dodaios.core.response_style import CONVERSATIONAL_TURN_REMINDER
+
+            # A resumed vendor conversation may remember an old, incomplete
+            # tool catalog. Refresh the execution contract without repeating
+            # the large identity/history block on every turn.
+            return (
+                "<jarvis_turn_context>\n"
+                "You are a Society agent in the running Dodaios app. "
+                "Your current tools are available through the jarvis MCP server. "
+                "For recurring-work requests, inspect society_routines, then call "
+                "society_propose_change with kind=routine, mode=apply and an exact "
+                "request_quote from the current user message. Brief confirmations "
+                "refer to the agreed task. Read back the saved routine with "
+                "society_routines before reporting it active. Do not substitute "
+                "a plan, memory note, shell command or workspace file for scheduling. "
+                "Use existing connected-account information; ask only for essential "
+                "missing information. "
+                + TASK_EXECUTION_GUIDANCE + "\n"
+                + AGENT_QUESTION_GUIDANCE + "\n"
+                + KEEP_GOING_ON_TOOL_FAILURE
+                + " Existing permission rules still apply.\n"
+                + CREDENTIAL_GUIDANCE
+                + jarvis_harness.society_credential_state(identity.text)
+                + "\n"
+                + CONVERSATIONAL_TURN_REMINDER
+                + "\n</jarvis_turn_context>\n\n"
+                + prompt
+            )
+        return prompt
+    text = identity.compact if compact else identity.text
+    return f"<jarvis_identity>\n{text}\n</jarvis_identity>\n\n{prompt}"
+
+
+_PLANNERS: Final[dict[str, Any]] = {
+    "claude-cli": plan_claude,
+    "grok-cli": plan_grok,
+    "agy-cli": plan_agy,
+    "codex-cli": plan_codex,
+    "opencode-cli": plan_opencode,
+    "kimi-cli": plan_kimi,
+    "glm-cli": plan_glm,
+    "dsh-cli": plan_dsh,
+    "cursor-cli": plan_cursor,
+}
+
+#: Every runner this module drives — the catalog route's "is this a CLI
+#: seat" question, answered from the planners rather than a second list.
+CLI_RUNNERS: Final[frozenset[str]] = frozenset(_PLANNERS)
+
+#: The runners that are Claude Code under the hood, and so take its identity
+#: file and its control protocol.
+_CLAUDE_CODE_RUNNERS: Final[frozenset[str]] = frozenset({"claude-cli", "glm-cli"})
+
+
+#: How long an ACP runtime may keep running after it answered the prompt.
+_ACP_EXIT_GRACE_S: Final[float] = 10.0
+
+#: An ACP runtime gets this long after ``session/cancel`` to end its turn
+#: itself (an OpenClaw run lives in its Gateway, so killing the bridge alone
+#: would leave it working and billing) before the process is killed.
+_ACP_CANCEL_GRACE_S: Final[float] = 5.0
+
+#: Stall watchdog for ACP turns (AP-19), checked every tick:
+#: * the runtime must open its session within the handshake limit — generous,
+#:   since a runtime may finish its own setup first (Hermes after an update);
+#: * afterwards, the model must say something within the idle limit. The
+#:   counter resets on every frame, and pauses while a tool runs or the
+#:   person has an approval card open (both take as long as they take).
+_ACP_HANDSHAKE_TIMEOUT_S: Final[float] = 420.0
+_ACP_IDLE_TIMEOUT_S: Final[float] = 300.0
+_ACP_WATCH_TICK_S: Final[float] = 2.0
+
+
+def _release_plan(plan: CliPlan | None) -> None:
+    """Run a plan's ``after_turn`` once (an external runtime's turn slot)."""
+    if plan is None or plan.after_turn is None:
+        return
+    release, plan.after_turn = plan.after_turn, None
+    release()
+
+
+def supports_cli_runner(runner: str) -> bool:
+    from dodaios.agent_chat.runner_acp import supports_runner
+
+    return runner in _PLANNERS or supports_runner(runner)
+
+
+# ------------------------------------------------------------ translation
+
+#: The token fields a Claude CLI message reports. The two cache fields carry
+#: the bulk of a real turn — a warm session reads tens of thousands of cached
+#: tokens while ``input_tokens`` counts only the handful that were new — so a
+#: counter that skips them under-reports by orders of magnitude (BUG-173).
+_CLAUDE_USAGE_KEYS: Final[tuple[str, ...]] = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+)
+
+
+@dataclass(slots=True)
+class _ClaudeState:
+    turn_id: str
+    vendor_session: str | None = None
+    current_message_id: str | None = None
+    text_acc: dict[str, str] = field(default_factory=dict)
+    thinking_acc: dict[str, str] = field(default_factory=dict)
+    thinking_started: dict[str, float] = field(default_factory=dict)
+    #: Message ids whose thinking block was announced live (one card each).
+    thinking_announced: set[str] = field(default_factory=set)
+    #: Per-message usage as the CLI reports it — summed into the live counter.
+    usage_by_message: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: Characters streamed per message so far; a live floor for its output.
+    stream_chars: dict[str, int] = field(default_factory=dict)
+    #: The usage totals last sent, so an unchanged count sends nothing.
+    usage_sent: dict[str, int] = field(default_factory=dict)
+    emitted_tool_ids: set[str] = field(default_factory=set)
+    emitted_text: bool = False
+    status: str = "done"
+    error: str | None = None
+    usage: dict[str, int] = field(default_factory=dict)
+    cost_usd: float | None = None
+    result_text: str = ""
+    #: The turn's ``result`` line arrived — stdin may close, the CLI exits.
+    saw_result: bool = False
+    #: Last tool_result that came back as an error — used when the CLI then
+    #: aborts the turn instead of thinking again (Grok print-mode cancel).
+    last_tool_error: str | None = None
+    #: A sub-agent's own translator state, by the call that spawned it — its
+    #: messages carry ``parent_tool_use_id`` and must never read as the main
+    #: agent's words.
+    agents: dict[str, _ClaudeState] = field(default_factory=dict)
+    #: The CLI's task id -> the spawning call, for task updates that name only the task.
+    agent_tasks: dict[str, str] = field(default_factory=dict)
+
+
+#: Streamed characters per estimated output token (English and code average).
+_CHARS_PER_TOKEN: Final = 4
+#: A streamed estimate is sent once it has grown by this many output tokens,
+#: so a long answer does not send one counter update per text fragment.
+_LIVE_OUTPUT_STEP: Final = 20
+
+
+def _claude_merge_usage(st: _ClaudeState, mid: str, usage: dict[str, Any]) -> bool:
+    """Fold one usage report of message ``mid`` in; True when it changed.
+
+    A message's first report is the ``message_start`` snapshot: the input side
+    is final, ``output_tokens`` a placeholder that only becomes true at the
+    message's end (``message_delta``). Keep the largest value seen so a
+    placeholder can never walk a real count back down (BUG-173).
+    """
+    counted = {
+        k: int(usage[k]) for k in _CLAUDE_USAGE_KEYS if isinstance(usage.get(k), int | float)
+    }
+    previous = st.usage_by_message.get(mid)
+    if previous:
+        counted = {k: max(counted.get(k, 0), previous.get(k, 0)) for k in (*counted, *previous)}
+    if not counted or counted == previous:
+        return False
+    st.usage_by_message[mid] = counted
+    return True
+
+
+def _claude_usage_totals(st: _ClaudeState) -> dict[str, int]:
+    """The turn so far: reported usage, with streamed text as a floor for output."""
+    totals: dict[str, int] = {}
+    streamed_only = (m for m in st.stream_chars if m not in st.usage_by_message)
+    for mid in (*st.usage_by_message, *streamed_only):
+        per_message = dict(st.usage_by_message.get(mid, {}))
+        estimate = st.stream_chars.get(mid, 0) // _CHARS_PER_TOKEN
+        if estimate > per_message.get("output_tokens", 0):
+            per_message["output_tokens"] = estimate
+        for k, v in per_message.items():
+            totals[k] = totals.get(k, 0) + v
+    return totals
+
+
+def _claude_usage_event(st: _ClaudeState, *, min_output_step: int = 0) -> dict[str, Any] | None:
+    """A ``usage_delta`` when the totals moved (by ``min_output_step`` output tokens)."""
+    totals = _claude_usage_totals(st)
+    if not totals or totals == st.usage_sent:
+        return None
+    grown = totals.get("output_tokens", 0) - st.usage_sent.get("output_tokens", 0)
+    only_output_moved = {k: v for k, v in totals.items() if k != "output_tokens"} == {
+        k: v for k, v in st.usage_sent.items() if k != "output_tokens"
+    }
+    if min_output_step and only_output_moved and grown < min_output_step:
+        return None
+    st.usage_sent = totals
+    return make_event("usage_delta", {"turn_id": st.turn_id, "usage": totals})
+
+
+def _claude_request_summary(tool_name: str, tool_input: dict[str, Any]) -> str:
+    for key in ("command", "file_path", "path", "pattern", "url", "query", "description"):
+        val = tool_input.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip().splitlines()[0][:200]
+    return tool_name
+
+
+def _content_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        if any(
+            isinstance(block, dict)
+            and block.get("type")
+            in {"image", "image_url", "input_image", "video", "audio", "resource", "resource_link"}
+            for block in content
+        ):
+            # Preserve structured media for the common chat delivery layer.
+            return json.dumps(content, ensure_ascii=False)
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict):
+                if block.get("type") == "text":
+                    parts.append(str(block.get("text") or ""))
+                elif block.get("type") == "content":
+                    nested = _content_text(block.get("content"))
+                    if nested:
+                        parts.append(nested)
+                elif "text" in block:
+                    parts.append(str(block.get("text") or ""))
+            elif isinstance(block, str):
+                parts.append(block)
+        joined = "\n".join(p for p in parts if p)
+        # Grok wraps a cancelled tool as ``[{type: content, content: {type: text}}]``
+        # — keep the payload readable so recovery can see "User cancelled".
+        return joined if joined else json.dumps(content, ensure_ascii=False)
+    if isinstance(content, dict):
+        if content.get("type") == "text":
+            return str(content.get("text") or "")
+        if content.get("type") == "content":
+            return _content_text(content.get("content"))
+        if "text" in content and not any(
+            key in content for key in ("type", "image", "image_url", "input_image")
+        ):
+            return str(content.get("text") or "")
+        inner = content.get("content")
+        if inner is not None and inner is not content:
+            nested = _content_text(inner)
+            if nested:
+                return nested
+        return json.dumps(content, ensure_ascii=False)
+    return "" if content is None else str(content)
+
+
+#: Claude Code's background-task lines; the agent ones become a sub-agent's card.
+_CLAUDE_TASK_SUBTYPES: Final = frozenset(
+    {"task_started", "task_progress", "task_updated", "task_notification"}
+)
+
+
+def subagent_status(raw: str) -> str:
+    """A vendor's word for how a sub-agent ended, as ``done`` | ``failed`` | ``stopped``."""
+    word = raw.strip().lower()
+    if word in {"completed", "complete", "done", "success", "succeeded"}:
+        return "done"
+    if word in {"failed", "error", "errored"}:
+        return "failed"
+    return "stopped"
+
+
+def _task_usage(obj: dict[str, Any]) -> dict[str, int]:
+    usage = obj.get("usage")
+    if not isinstance(usage, dict):
+        return {}
+    keys = {"total_tokens": "tokens", "tool_uses": "tool_uses", "duration_ms": "duration_ms"}
+    return {
+        ours: int(usage[theirs])
+        for theirs, ours in keys.items()
+        if isinstance(usage.get(theirs), int | float)
+    }
+
+
+def _claude_subagent_line(
+    obj: dict[str, Any], st: _ClaudeState, parent: str
+) -> list[dict[str, Any]]:
+    """A sub-agent's own message, filed under the call that spawned it.
+
+    The CLI streams a sub-agent's turns on the parent's stdout, marked only by
+    ``parent_tool_use_id``. Each sub-agent gets a translator state of its own,
+    so its text, thoughts and calls never merge into the main agent's answer,
+    and every event it yields names the agent (``agent_id``). Its partial
+    stream and token counts stay out: the finished messages carry the words,
+    and the live counter is the main agent's.
+    """
+    if str(obj.get("type") or "") not in {"assistant", "user"}:
+        return []
+    child = st.agents.get(parent)
+    if child is None:
+        child = st.agents[parent] = _ClaudeState(turn_id=st.turn_id)
+    out: list[dict[str, Any]] = []
+    for event in translate_claude_line({**obj, "parent_tool_use_id": None}, child):
+        if event["kind"] == "usage_delta":
+            continue
+        event["payload"]["agent_id"] = parent
+        out.append(event)
+    return out
+
+
+def _claude_task_events(obj: dict[str, Any], st: _ClaudeState) -> list[dict[str, Any]]:
+    """A sub-agent's life from Claude Code's task lines: started, working, finished.
+
+    Background shell commands are tasks too; only agent tasks get a card.
+    """
+    subtype = str(obj.get("subtype") or "")
+    if subtype not in _CLAUDE_TASK_SUBTYPES:
+        return []
+    task_id = str(obj.get("task_id") or "")
+    if subtype == "task_started":
+        call_id = str(obj.get("tool_use_id") or "")
+        task_type = str(obj.get("task_type") or "")
+        if not call_id or not (obj.get("subagent_type") or "agent" in task_type):
+            return []
+        if task_id:
+            st.agent_tasks[task_id] = call_id
+        return [
+            make_event(
+                "subagent_started",
+                {
+                    "turn_id": st.turn_id,
+                    "agent_id": call_id,
+                    "task_id": task_id,
+                    "description": str(obj.get("description") or ""),
+                    "agent_type": str(obj.get("subagent_type") or ""),
+                    "prompt": str(obj.get("prompt") or ""),
+                    "background": bool(obj.get("is_backgrounded")),
+                },
+            )
+        ]
+    call_id = st.agent_tasks.get(task_id) or ""
+    if not call_id:
+        named = str(obj.get("tool_use_id") or "")
+        call_id = named if named in st.agents else ""
+    if not call_id:
+        return []
+    if subtype == "task_progress":
+        return [
+            make_event(
+                "subagent_progress",
+                {
+                    "turn_id": st.turn_id,
+                    "agent_id": call_id,
+                    "activity": str(obj.get("description") or ""),
+                    "last_tool": str(obj.get("last_tool_name") or ""),
+                    **_task_usage(obj),
+                },
+            )
+        ]
+    if subtype == "task_updated":
+        patch = obj.get("patch") if isinstance(obj.get("patch"), dict) else {}
+        status = str(patch.get("status") or "")
+        if status in {"", "running", "pending"}:
+            return []
+        return [
+            make_event(
+                "subagent_finished",
+                {"turn_id": st.turn_id, "agent_id": call_id, "status": subagent_status(status)},
+            )
+        ]
+    return [
+        make_event(
+            "subagent_finished",
+            {
+                "turn_id": st.turn_id,
+                "agent_id": call_id,
+                "status": subagent_status(str(obj.get("status") or "completed")),
+                "summary": str(obj.get("summary") or ""),
+                **_task_usage(obj),
+            },
+        )
+    ]
+
+
+def translate_claude_line(obj: dict[str, Any], st: _ClaudeState) -> list[dict[str, Any]]:
+    """One Claude-shaped NDJSON object -> zero or more agent-chat events."""
+    out: list[dict[str, Any]] = []
+    kind = str(obj.get("type") or "")
+    sid = obj.get("session_id") or obj.get("conversation_id")
+    if sid and not st.vendor_session:
+        st.vendor_session = str(sid)
+
+    parent = obj.get("parent_tool_use_id")
+    if parent:
+        return _claude_subagent_line(obj, st, str(parent))
+
+    if kind == "system":
+        # init / hooks / status are nothing the timeline shows; a sub-agent's
+        # life (started, working, finished) is.
+        return _claude_task_events(obj, st)
+
+    if kind == "stream_event":
+        ev = obj.get("event") or {}
+        et = ev.get("type")
+        if et == "message_start":
+            mid = ((ev.get("message") or {}).get("id")) or uuid.uuid4().hex
+            st.current_message_id = str(mid)
+        elif et == "content_block_start":
+            block = ev.get("content_block") or {}
+            if block.get("type") == "thinking":
+                mid = st.current_message_id or uuid.uuid4().hex
+                st.current_message_id = mid
+                st.thinking_started.setdefault(mid, time.perf_counter())
+                # Claude Code redacts thinking text in its stream, so without
+                # this the UI learned of eight seconds of thought only once it
+                # was over. Announce the block the moment it opens.
+                if mid not in st.thinking_announced:
+                    st.thinking_announced.add(mid)
+                    out.append(
+                        make_event(
+                            "reasoning_started",
+                            {"turn_id": st.turn_id, "message_id": mid},
+                        )
+                    )
+        elif et == "content_block_delta":
+            delta = ev.get("delta") or {}
+            mid = st.current_message_id or uuid.uuid4().hex
+            st.current_message_id = mid
+            if delta.get("type") == "text_delta" and delta.get("text"):
+                # Streamed text counts as text the timeline already has. Without
+                # this, a turn whose closing ``assistant`` message never arrives
+                # (a kill, a crash, a truncated stream) fell through to the
+                # ``result`` fallback below and emitted the SAME answer a second
+                # time under a new message id — the duplicated output the
+                # maintainer saw on 2026-08-25. The Codex shape already does it.
+                st.emitted_text = True
+                out.append(
+                    make_event(
+                        "text_delta",
+                        {"turn_id": st.turn_id, "message_id": mid, "text": delta["text"]},
+                    )
+                )
+            elif delta.get("type") == "thinking_delta" and delta.get("thinking"):
+                st.thinking_started.setdefault(mid, time.perf_counter())
+                out.append(
+                    make_event(
+                        "reasoning_delta",
+                        {"turn_id": st.turn_id, "message_id": mid, "text": delta["thinking"]},
+                    )
+                )
+            # Count what streams as it streams: text, a tool call's input and
+            # readable thinking are all output. The CLI reports a message's
+            # true output count only once the message ends, so between those
+            # reports the counter would otherwise sit on the start-of-message
+            # placeholder ("Working 28s · 39 tokens" on a turn that ended at
+            # 11k). The estimate never overrides a real report.
+            streamed = delta.get("text") or delta.get("partial_json") or delta.get("thinking")
+            if isinstance(streamed, str) and streamed:
+                st.stream_chars[mid] = st.stream_chars.get(mid, 0) + len(streamed)
+                event = _claude_usage_event(st, min_output_step=_LIVE_OUTPUT_STEP)
+                if event is not None:
+                    out.append(event)
+        elif et == "message_delta":
+            # The end of a message: its usage carries the true output count.
+            usage_end = ev.get("usage")
+            mid = st.current_message_id
+            if mid and isinstance(usage_end, dict) and _claude_merge_usage(st, mid, usage_end):
+                event = _claude_usage_event(st)
+                if event is not None:
+                    out.append(event)
+        return out
+
+    if kind == "assistant":
+        message = obj.get("message") or {}
+        mid = str(message.get("id") or st.current_message_id or uuid.uuid4().hex)
+        st.current_message_id = mid
+        usage_now = message.get("usage")
+        if isinstance(usage_now, dict) and _claude_merge_usage(st, mid, usage_now):
+            event = _claude_usage_event(st)
+            if event is not None:
+                out.append(event)
+        content = message.get("content") or []
+        if not isinstance(content, list):
+            content = [{"type": "text", "text": str(content)}]
+        text_blocks = [b for b in content if isinstance(b, dict) and b.get("type") == "text"]
+        snapshot = len(content) > 1
+        visual_blocks = [
+            block
+            for block in content
+            if isinstance(block, dict)
+            and block.get("type")
+            in {"image", "image_url", "input_image", "video", "audio", "resource", "resource_link"}
+        ]
+        if visual_blocks:
+            st.emitted_text = True
+            visual_content = [
+                block
+                for block in content
+                if block in visual_blocks
+                or (isinstance(block, dict) and block.get("type") == "text")
+            ]
+            out.append(
+                make_event(
+                    "assistant_text",
+                    {
+                        "turn_id": st.turn_id,
+                        "message_id": mid,
+                        "text": json.dumps({"content": visual_content}, ensure_ascii=False),
+                    },
+                )
+            )
+            text_blocks = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            btype = block.get("type")
+            if btype == "thinking":
+                thought = str(block.get("thinking") or "")
+                if snapshot:
+                    st.thinking_acc[mid] = thought
+                else:
+                    st.thinking_acc[mid] = st.thinking_acc.get(mid, "") + thought
+                started = st.thinking_started.get(mid)
+                out.append(
+                    make_event(
+                        "reasoning",
+                        {
+                            "turn_id": st.turn_id,
+                            "message_id": mid,
+                            "text": st.thinking_acc[mid],
+                            "duration_ms": int((time.perf_counter() - started) * 1000)
+                            if started
+                            else None,
+                        },
+                    )
+                )
+            elif btype == "tool_use":
+                call_id = str(block.get("id") or uuid.uuid4().hex)
+                if call_id in st.emitted_tool_ids:
+                    continue
+                st.emitted_tool_ids.add(call_id)
+                name = str(block.get("name") or "tool")
+                args = block.get("input") or {}
+                out.append(
+                    make_event(
+                        "tool_call",
+                        {
+                            "turn_id": st.turn_id,
+                            "call_id": call_id,
+                            "name": name,
+                            "input": args if isinstance(args, dict) else {"input": args},
+                            "summary": _cli_tool_summary(name, args),
+                        },
+                    )
+                )
+        if text_blocks:
+            joined = "".join(str(b.get("text") or "") for b in text_blocks)
+            if snapshot:
+                st.text_acc[mid] = joined
+            else:
+                st.text_acc[mid] = st.text_acc.get(mid, "") + joined
+            if st.text_acc[mid].strip():
+                st.emitted_text = True
+                out.append(
+                    make_event(
+                        "assistant_text",
+                        {"turn_id": st.turn_id, "message_id": mid, "text": st.text_acc[mid]},
+                    )
+                )
+        return out
+
+    if kind == "user":
+        message = obj.get("message") or {}
+        content = message.get("content") or []
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    output = _content_text(block.get("content"))
+                    is_error = bool(block.get("is_error"))
+                    if is_error and output.strip():
+                        st.last_tool_error = output.strip()
+                    out.append(
+                        make_event(
+                            "tool_result",
+                            {
+                                "turn_id": st.turn_id,
+                                "call_id": str(block.get("tool_use_id") or ""),
+                                "output": output,
+                                "is_error": is_error,
+                                "duration_ms": None,
+                            },
+                        )
+                    )
+        return out
+
+    if kind == "result":
+        st.saw_result = True
+        st.result_text = str(obj.get("result") or "")
+        if obj.get("is_error"):
+            st.status = "error"
+            errors = obj.get("errors")
+            detail = "; ".join(str(e) for e in errors if e) if isinstance(errors, list) else ""
+            st.error = (
+                st.result_text or detail or st.last_tool_error or str(obj.get("subtype") or "error")
+            )
+        usage = obj.get("usage") or {}
+        if isinstance(usage, dict):
+            for k in (
+                "input_tokens",
+                "output_tokens",
+                "cache_read_input_tokens",
+                "cache_creation_input_tokens",
+            ):
+                if isinstance(usage.get(k), int | float):
+                    st.usage[k] = int(usage[k])
+            details = usage.get("output_tokens_details")
+            if isinstance(details, dict) and isinstance(
+                details.get("thinking_tokens"), int | float
+            ):
+                st.usage["thinking_tokens"] = int(details["thinking_tokens"])
+        cost = obj.get("total_cost_usd", obj.get("cost_usd"))
+        if isinstance(cost, int | float):
+            st.cost_usd = float(cost)
+        return out
+
+    return out
+
+
+def _cli_tool_summary(name: str, args: Any) -> str:
+    if not isinstance(args, dict):
+        return ""
+    for key in (
+        "command",
+        "file_path",
+        "filePath",
+        "target_file",
+        "path",
+        "pattern",
+        "query",
+        "url",
+        "description",
+    ):
+        val = args.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip().splitlines()[0][:200]
+    return ""
+
+
+@dataclass(slots=True)
+class _CodexState:
+    turn_id: str
+    vendor_session: str | None = None
+    status: str = "done"
+    error: str | None = None
+    usage: dict[str, int] = field(default_factory=dict)
+    emitted_text: bool = False
+    #: item id -> (call_id, name) for items that became tool calls
+    items: dict[str, tuple[str, str]] = field(default_factory=dict)
+    started_at: dict[str, float] = field(default_factory=dict)
+    #: The last top-level ``error`` notification (retryable until turn.failed).
+    last_error: str | None = None
+    failed_tools: set[str] = field(default_factory=set)
+    #: A sub-agent's thread id -> the ``spawn_agent`` call that started it.
+    agents: dict[str, str] = field(default_factory=dict)
+    #: Sub-agents whose end was already told, so a later ``close_agent`` that
+    #: reports them shut down does not turn a finished agent into a stopped one.
+    agents_ended: set[str] = field(default_factory=set)
+
+
+#: Codex's word for a sub-agent that is still working.
+_CODEX_AGENT_LIVE: Final = frozenset({"pending_init", "running"})
+
+
+def _codex_collab_events(item: dict[str, Any], phase: str, st: _CodexState) -> list[dict[str, Any]]:
+    """Codex's multi-agent calls (``collab_tool_call``) as sub-agent cards.
+
+    ``spawn_agent`` becomes the card's call; the agent's thread id is
+    remembered, so every later call that reports ``agents_states`` (``wait``,
+    ``send_input``, ``close_agent``) updates that card. ``codex exec`` does not
+    stream a sub-agent's own steps — the card carries its task and its answer.
+    """
+    out: list[dict[str, Any]] = []
+    item_id = str(item.get("id") or uuid.uuid4().hex)
+    tool = str(item.get("tool") or "agent")
+    prompt = str(item.get("prompt") or "")
+    receivers = [str(t) for t in item.get("receiver_thread_ids") or [] if t]
+    states = item.get("agents_states") if isinstance(item.get("agents_states"), dict) else {}
+    if item_id not in st.items:
+        st.items[item_id] = (item_id, tool)
+        st.started_at[item_id] = time.perf_counter()
+        summary = prompt.strip().splitlines()[0][:200] if prompt.strip() else ""
+        args: dict[str, Any] = {"prompt": prompt} if prompt else {}
+        if tool != "spawn_agent" and receivers:
+            args["agents"] = receivers
+        out.append(
+            make_event(
+                "tool_call",
+                {
+                    "turn_id": st.turn_id,
+                    "call_id": item_id,
+                    "name": tool,
+                    "input": args,
+                    "summary": summary,
+                },
+            )
+        )
+    if tool == "spawn_agent":
+        for thread_id in receivers:
+            if thread_id in st.agents:
+                continue
+            st.agents[thread_id] = item_id
+            out.append(
+                make_event(
+                    "subagent_started",
+                    {
+                        "turn_id": st.turn_id,
+                        "agent_id": item_id,
+                        "thread_id": thread_id,
+                        "description": prompt.strip().splitlines()[0][:120] if prompt else "",
+                        "agent_type": "",
+                        "prompt": prompt,
+                        "background": True,
+                    },
+                )
+            )
+    for thread_id, raw in states.items():
+        agent_id = st.agents.get(str(thread_id))
+        state = raw if isinstance(raw, dict) else {}
+        status = str(state.get("status") or "")
+        if not agent_id or not status or status in _CODEX_AGENT_LIVE:
+            continue
+        if status in {"shutdown", "not_found"} and agent_id in st.agents_ended:
+            continue
+        st.agents_ended.add(agent_id)
+        out.append(
+            make_event(
+                "subagent_finished",
+                {
+                    "turn_id": st.turn_id,
+                    "agent_id": agent_id,
+                    "status": subagent_status(status),
+                    "summary": str(state.get("message") or ""),
+                },
+            )
+        )
+    if phase == "completed":
+        started = st.started_at.get(item_id)
+        failed = str(item.get("status") or "") == "failed"
+        out.append(
+            make_event(
+                "tool_result",
+                {
+                    "turn_id": st.turn_id,
+                    "call_id": item_id,
+                    "output": ", ".join(receivers) if tool == "spawn_agent" else "done",
+                    "is_error": failed,
+                    "duration_ms": int((time.perf_counter() - started) * 1000) if started else None,
+                },
+            )
+        )
+    return out
+
+
+def translate_codex_line(obj: dict[str, Any], st: _CodexState) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    kind = str(obj.get("type") or "")
+    if kind == "thread.started":
+        tid = obj.get("thread_id")
+        if tid:
+            st.vendor_session = str(tid)
+        return out
+    if kind == "turn.completed":
+        usage = obj.get("usage") or {}
+        if isinstance(usage, dict):
+            for k in (
+                "input_tokens",
+                "output_tokens",
+                "cached_input_tokens",
+                "cache_write_input_tokens",
+                "reasoning_output_tokens",
+            ):
+                if isinstance(usage.get(k), int | float):
+                    st.usage[k] = int(usage[k])
+        # A completed turn wins over a retryable error seen on the way.
+        st.status = "done"
+        st.error = None
+        return out
+    if kind == "turn.failed":
+        st.status = "error"
+        err = obj.get("error")
+        st.error = (
+            str(err.get("message") or err)
+            if isinstance(err, dict)
+            else str(err or st.last_error or "turn failed")
+        )
+        return out
+    if kind == "error":
+        # A server notification — may be retried by the CLI; remembered, and
+        # only terminal when no turn.completed follows (exit code decides).
+        st.last_error = str(obj.get("message") or "error")
+        return out
+    if not kind.startswith("item."):
+        return out
+
+    item = obj.get("item") or {}
+    item_id = str(item.get("id") or uuid.uuid4().hex)
+    itype = str(item.get("type") or "")
+    phase = kind.split(".", 1)[1]  # started | updated | completed
+
+    if itype == "agent_message":
+        text = str(item.get("text") or "")
+        if phase == "completed" and text.strip():
+            st.emitted_text = True
+            out.append(
+                make_event(
+                    "assistant_text",
+                    {"turn_id": st.turn_id, "message_id": item_id, "text": text},
+                )
+            )
+        return out
+    if itype == "reasoning":
+        text = str(item.get("text") or "")
+        if phase == "started":
+            out.append(
+                make_event(
+                    "reasoning_started",
+                    {"turn_id": st.turn_id, "message_id": item_id},
+                )
+            )
+            return out
+        if phase == "completed" and text.strip():
+            out.append(
+                make_event(
+                    "reasoning",
+                    {
+                        "turn_id": st.turn_id,
+                        "message_id": item_id,
+                        "text": text,
+                        "duration_ms": None,
+                    },
+                )
+            )
+        return out
+    if itype == "collab_tool_call":
+        return _codex_collab_events(item, phase, st)
+    if itype in {"command_execution", "file_change", "mcp_tool_call", "web_search"}:
+        if itype == "command_execution":
+            name, args = "RunCommand", {"command": str(item.get("command") or "")}
+            summary = args["command"].splitlines()[0][:200] if args["command"] else ""
+        elif itype == "file_change":
+            changes = item.get("changes") or []
+            paths = [str(c.get("path") or "") for c in changes if isinstance(c, dict)]
+            name, args = "Edit", {"changes": changes}
+            summary = ", ".join(p for p in paths if p)[:200]
+        elif itype == "mcp_tool_call":
+            name = str(item.get("tool") or item.get("server") or "mcp")
+            args = item.get("arguments") or {}
+            summary = str(item.get("server") or "")
+        else:
+            name, args = "WebSearch", {"query": str(item.get("query") or "")}
+            summary = args["query"]
+        if item_id not in st.items:
+            st.items[item_id] = (item_id, name)
+            st.started_at[item_id] = time.perf_counter()
+            out.append(
+                make_event(
+                    "tool_call",
+                    {
+                        "turn_id": st.turn_id,
+                        "call_id": item_id,
+                        "name": name,
+                        "input": args if isinstance(args, dict) else {"input": args},
+                        "summary": summary,
+                    },
+                )
+            )
+        if phase == "completed":
+            if itype == "command_execution":
+                output = str(item.get("aggregated_output") or "")
+                code = item.get("exit_code")
+                if code is not None:
+                    output = (output.rstrip() + f"\n[exit {code}]").strip()
+                item_status = str(item.get("status") or "")
+                is_error = bool(code) or item_status in {"failed", "declined"}
+                if item_status == "declined":
+                    output = (output.rstrip() + "\n[declined by the sandbox / policy]").strip()
+            elif itype == "file_change":
+                output = "\n".join(
+                    f"{c.get('kind', 'edit')}: {c.get('path', '')}"
+                    for c in (item.get("changes") or [])
+                    if isinstance(c, dict)
+                )
+                is_error = str(item.get("status") or "") == "failed"
+            elif itype == "mcp_tool_call":
+                result = item.get("result")
+                output = json.dumps(result or item.get("error") or {}, ensure_ascii=False)
+                is_error = (
+                    bool(item.get("error"))
+                    or str(item.get("status") or "") == "failed"
+                    or (isinstance(result, dict) and bool(result.get("isError")))
+                )
+                if is_error:
+                    st.failed_tools.add(name)
+                    st.last_error = f"{name} failed: {output[:300]}"
+                else:
+                    st.failed_tools.discard(name)
+            else:
+                output = "done"
+                is_error = False
+            started = st.started_at.get(item_id)
+            out.append(
+                make_event(
+                    "tool_result",
+                    {
+                        "turn_id": st.turn_id,
+                        "call_id": item_id,
+                        "output": output,
+                        "is_error": is_error,
+                        "duration_ms": int((time.perf_counter() - started) * 1000)
+                        if started
+                        else None,
+                    },
+                )
+            )
+        return out
+    if itype == "error":
+        # NOT a failed turn: Codex files warnings here (skills budget, hook
+        # clamps, model reroutes) in every run. Remembered for the error text
+        # should the turn fail without a message of its own.
+        st.last_error = str(item.get("message") or "error")
+    return out
+
+
+# ------------------------------------------------------------ agy translation
+
+
+@dataclass(slots=True)
+class _AgyState:
+    turn_id: str
+    vendor_session: str | None = None
+    status: str = "done"
+    error: str | None = None
+    usage: dict[str, int] = field(default_factory=dict)
+    emitted_text: bool = False
+    result_text: str = ""
+    #: step_index -> wall-clock start, for tool durations
+    started_at: dict[int, float] = field(default_factory=dict)
+    #: step_index of tool steps already announced
+    tool_steps: set[int] = field(default_factory=set)
+    #: text per agent_response step (a DONE step repeats its last delta)
+    text_acc: dict[int, str] = field(default_factory=dict)
+
+
+_AGY_TOOL_SUMMARY_KEYS: Final[tuple[str, ...]] = (
+    "CommandLine",
+    "AbsolutePath",
+    "TargetFile",
+    "Pattern",
+    "SearchDirectory",
+    "DirectoryPath",
+    "Query",
+    "Url",
+)
+
+
+def _agy_summary(params: Any) -> str:
+    if not isinstance(params, dict):
+        return ""
+    for key in _AGY_TOOL_SUMMARY_KEYS:
+        val = params.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip().splitlines()[0][:200]
+    first = next((v for v in params.values() if isinstance(v, str) and v.strip()), "")
+    return first.splitlines()[0][:200] if first else ""
+
+
+def translate_agy_line(obj: dict[str, Any], st: _AgyState) -> list[dict[str, Any]]:
+    """One ``agy --output-format stream-json`` object -> agent-chat events.
+
+    Shape (agy 1.1.19): ``{"event": "init" | "step_update" | "result", ...}``.
+    A ``step_update`` carries ``step_index``, ``state`` (ACTIVE / DONE /
+    ERROR / ...), ``step_type`` (``agent_response`` with ``text_delta``;
+    ``tool`` with ``tool_name`` + ``tool_info{name, parameters, output?,
+    error?}``) and, on DONE, ``duration_seconds`` + ``usage``. The final
+    ``result`` carries ``status`` (SUCCESS / ERROR / CANCELED / ...),
+    ``response``, ``error`` and the conversation id.
+    """
+    out: list[dict[str, Any]] = []
+    kind = str(obj.get("event") or "")
+    if kind == "init":
+        cid = obj.get("conversation_id")
+        if cid:
+            st.vendor_session = str(cid)
+        return out
+
+    if kind == "step_update":
+        su = obj.get("step_update") or {}
+        if not isinstance(su, dict):
+            return out
+        cid = su.get("conversation_id")
+        if cid and not st.vendor_session:
+            st.vendor_session = str(cid)
+        try:
+            idx = int(su.get("step_index") or 0)
+        except (TypeError, ValueError):
+            idx = 0
+        state = str(su.get("state") or "")
+        stype = str(su.get("step_type") or "")
+
+        if stype == "agent_response":
+            delta = str(su.get("text_delta") or "")
+            if delta:
+                acc = st.text_acc.get(idx, "")
+                # The DONE step repeats the last delta — do not double it.
+                if state == "DONE" and acc.endswith(delta):
+                    delta = ""
+            if delta:
+                st.text_acc[idx] = st.text_acc.get(idx, "") + delta
+                st.emitted_text = True
+                out.append(
+                    make_event(
+                        "text_delta",
+                        {"turn_id": st.turn_id, "message_id": f"agy-{idx}", "text": delta},
+                    )
+                )
+            if state in {"DONE", "ERROR"} and st.text_acc.get(idx, "").strip():
+                out.append(
+                    make_event(
+                        "assistant_text",
+                        {
+                            "turn_id": st.turn_id,
+                            "message_id": f"agy-{idx}",
+                            "text": st.text_acc[idx],
+                        },
+                    )
+                )
+            return out
+
+        if stype == "tool":
+            info = su.get("tool_info") if isinstance(su.get("tool_info"), dict) else {}
+            name = str(su.get("tool_name") or info.get("name") or "tool")
+            params = info.get("parameters") if isinstance(info, dict) else None
+            call_id = f"agy-step-{idx}"
+            if idx not in st.tool_steps:
+                st.tool_steps.add(idx)
+                st.started_at[idx] = time.perf_counter()
+                out.append(
+                    make_event(
+                        "tool_call",
+                        {
+                            "turn_id": st.turn_id,
+                            "call_id": call_id,
+                            "name": name,
+                            "input": params if isinstance(params, dict) else {"input": params},
+                            "summary": _agy_summary(params),
+                        },
+                    )
+                )
+            if state in {"DONE", "ERROR", "CANCELED", "INVALID", "HALTED"}:
+                err = info.get("error") if isinstance(info, dict) else None
+                err_text = (
+                    str(err.get("message") or err) if isinstance(err, dict) else str(err or "")
+                )
+                output = _content_text(info.get("output")) if isinstance(info, dict) else ""
+                is_error = state != "DONE" or bool(err_text)
+                if is_error and err_text:
+                    output = (output.rstrip() + ("\n" if output else "") + err_text).strip()
+                dur = su.get("duration_seconds")
+                started = st.started_at.get(idx)
+                duration_ms = (
+                    int(float(dur) * 1000)
+                    if isinstance(dur, int | float)
+                    else int((time.perf_counter() - started) * 1000)
+                    if started
+                    else None
+                )
+                out.append(
+                    make_event(
+                        "tool_result",
+                        {
+                            "turn_id": st.turn_id,
+                            "call_id": call_id,
+                            "output": output or ("done" if not is_error else "failed"),
+                            "is_error": is_error,
+                            "duration_ms": duration_ms,
+                        },
+                    )
+                )
+            return out
+        return out
+
+    if kind == "result":
+        res = obj.get("result") if isinstance(obj.get("result"), dict) else obj
+        cid = res.get("conversation_id")
+        if cid:
+            st.vendor_session = str(cid)
+        status = str(res.get("status") or "SUCCESS").upper()
+        st.result_text = str(res.get("response") or "")
+        usage = res.get("usage") or {}
+        if isinstance(usage, dict):
+            for k in (
+                "input_tokens",
+                "output_tokens",
+                "thinking_tokens",
+                "cache_read_tokens",
+                "total_tokens",
+            ):
+                if isinstance(usage.get(k), int | float):
+                    st.usage[k] = int(usage[k])
+        if status == "SUCCESS":
+            st.status = "done"
+        elif status in {"CANCELED", "INTERRUPTED"}:
+            st.status = "error"
+            st.error = str(res.get("error") or f"agy stopped the turn ({status.lower()})")
+        else:
+            st.status = "error"
+            st.error = str(res.get("error") or f"agy reported {status}")
+        return out
+    return out
+
+
+# ------------------------------------------------------ opencode translation
+
+
+@dataclass(slots=True)
+class _OpenCodeState:
+    turn_id: str
+    vendor_session: str | None = None
+    status: str = "done"
+    error: str | None = None
+    usage: dict[str, int] = field(default_factory=dict)
+    cost_usd: float | None = None
+    emitted_text: bool = False
+    result_text: str = ""
+    #: callIDs already announced as tool rows
+    tool_calls: set[str] = field(default_factory=set)
+    started_at: dict[str, float] = field(default_factory=dict)
+
+
+#: ``step_finish.part.tokens`` -> the usage keys the timeline sums. OpenCode
+#: follows the OpenAI convention: ``input`` INCLUDES the cache read.
+_OPENCODE_TOKEN_KEYS: Final[tuple[tuple[str, str], ...]] = (
+    ("input", "input_tokens"),
+    ("output", "output_tokens"),
+    ("reasoning", "reasoning_output_tokens"),
+)
+
+
+def _part_duration_ms(part: dict[str, Any]) -> int | None:
+    span = part.get("time")
+    if not isinstance(span, dict):
+        return None
+    start, end = span.get("start"), span.get("end")
+    if isinstance(start, int | float) and isinstance(end, int | float) and end >= start:
+        return int(end - start)
+    return None
+
+
+def translate_opencode_line(obj: dict[str, Any], st: _OpenCodeState) -> list[dict[str, Any]]:
+    """One ``opencode run --format json`` object -> agent-chat events.
+
+    Shape (opencode 1.18.23): ``{"type", "timestamp", "sessionID", "part"}``
+    where ``type`` is ``step_start`` / ``text`` / ``reasoning`` / ``tool_use``
+    / ``step_finish``, and ``part`` is the session record's part of that
+    kind — a finished ``text`` part with its ``text``, a ``tool`` part with
+    ``tool``, ``callID`` and ``state{status, input, output, title, time}``,
+    a ``step-finish`` part with ``tokens{input, output, reasoning,
+    cache{read, write}}`` and ``cost``. An ``error`` line carries
+    ``error{name, data{message}}`` instead of a part.
+    """
+    out: list[dict[str, Any]] = []
+    kind = str(obj.get("type") or "")
+    sid = obj.get("sessionID")
+    if sid and not st.vendor_session:
+        st.vendor_session = str(sid)
+    part = obj.get("part") if isinstance(obj.get("part"), dict) else {}
+
+    if kind == "text":
+        text = str(part.get("text") or "")
+        mid = str(part.get("id") or part.get("messageID") or uuid.uuid4().hex)
+        if text.strip():
+            st.emitted_text = True
+            st.result_text = text
+            # An answer after a retryable error means the retry worked.
+            st.status, st.error = "done", None
+            out.append(
+                make_event(
+                    "assistant_text",
+                    {"turn_id": st.turn_id, "message_id": mid, "text": text},
+                )
+            )
+        return out
+
+    if kind == "reasoning":
+        text = str(part.get("text") or "")
+        mid = str(part.get("id") or part.get("messageID") or uuid.uuid4().hex)
+        if text.strip():
+            out.append(
+                make_event(
+                    "reasoning",
+                    {
+                        "turn_id": st.turn_id,
+                        "message_id": mid,
+                        "text": text,
+                        "duration_ms": _part_duration_ms(part),
+                    },
+                )
+            )
+        return out
+
+    if kind == "tool_use":
+        name = str(part.get("tool") or "tool")
+        call_id = str(part.get("callID") or part.get("id") or uuid.uuid4().hex)
+        state = part.get("state") if isinstance(part.get("state"), dict) else {}
+        args = state.get("input") if isinstance(state.get("input"), dict) else {}
+        if call_id not in st.tool_calls:
+            st.tool_calls.add(call_id)
+            st.started_at[call_id] = time.perf_counter()
+            out.append(
+                make_event(
+                    "tool_call",
+                    {
+                        "turn_id": st.turn_id,
+                        "call_id": call_id,
+                        "name": name,
+                        "input": args,
+                        "summary": _cli_tool_summary(name, args)
+                        or str(state.get("title") or "")[:200],
+                    },
+                )
+            )
+        status = str(state.get("status") or "")
+        if status in {"completed", "error"}:
+            is_error = status == "error"
+            output = _content_text(state.get("output"))
+            err = state.get("error")
+            if is_error and err:
+                output = (output.rstrip() + ("\n" if output else "") + str(err)).strip()
+            started = st.started_at.get(call_id)
+            duration_ms = _part_duration_ms(state) or (
+                int((time.perf_counter() - started) * 1000) if started else None
+            )
+            out.append(
+                make_event(
+                    "tool_result",
+                    {
+                        "turn_id": st.turn_id,
+                        "call_id": call_id,
+                        "output": output or ("failed" if is_error else "done"),
+                        "is_error": is_error,
+                        "duration_ms": duration_ms,
+                    },
+                )
+            )
+        return out
+
+    if kind == "step_finish":
+        tokens = part.get("tokens") if isinstance(part.get("tokens"), dict) else {}
+        for theirs, ours in _OPENCODE_TOKEN_KEYS:
+            val = tokens.get(theirs)
+            if isinstance(val, int | float):
+                st.usage[ours] = st.usage.get(ours, 0) + int(val)
+        cache = tokens.get("cache") if isinstance(tokens.get("cache"), dict) else {}
+        for theirs, ours in (
+            ("read", "cached_input_tokens"),
+            ("write", "cache_write_input_tokens"),
+        ):
+            val = cache.get(theirs)
+            if isinstance(val, int | float):
+                st.usage[ours] = st.usage.get(ours, 0) + int(val)
+        cost = part.get("cost")
+        if isinstance(cost, int | float):
+            st.cost_usd = (st.cost_usd or 0.0) + float(cost)
+        if str(part.get("reason") or "") == "stop":
+            st.status, st.error = "done", None
+        return out
+
+    if kind == "error":
+        err = obj.get("error") if isinstance(obj.get("error"), dict) else {}
+        data = err.get("data") if isinstance(err.get("data"), dict) else {}
+        message = data.get("message") or err.get("message") or err.get("name") or "error"
+        # Terminal unless a later part shows the CLI retried and got through.
+        st.status = "error"
+        st.error = str(message)
+        return out
+
+    return out
+
+
+# ---------------------------------------------------------- kimi translation
+
+
+@dataclass(slots=True)
+class _KimiState:
+    turn_id: str
+    vendor_session: str | None = None
+    status: str = "done"
+    error: str | None = None
+    usage: dict[str, int] = field(default_factory=dict)
+    emitted_text: bool = False
+    result_text: str = ""
+    #: assistant lines seen — each is one message on the timeline
+    messages: int = 0
+    started_at: dict[str, float] = field(default_factory=dict)
+
+
+def _kimi_arguments(raw: Any) -> dict[str, Any]:
+    """The call's arguments as a dict — Kimi writes them as a JSON string."""
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            return {"arguments": raw}
+        return parsed if isinstance(parsed, dict) else {"arguments": parsed}
+    return {}
+
+
+def translate_kimi_line(obj: dict[str, Any], st: _KimiState) -> list[dict[str, Any]]:
+    """One ``kimi --output-format stream-json`` object -> agent-chat events.
+
+    Shape (kimi-code 0.29.2, ``PromptJsonWriter``): chat messages by
+    ``role``. ``assistant`` carries ``content`` (the step's whole text) and
+    ``tool_calls`` — OpenAI's function-call shape, ``function.arguments`` a
+    JSON string; ``tool`` carries ``tool_call_id`` and ``content``; ``meta``
+    lines (``turn.step.retrying``) and a goal's ``goal.summary`` are noise.
+    """
+    out: list[dict[str, Any]] = []
+    role = str(obj.get("role") or "")
+
+    if role == "assistant":
+        st.messages += 1
+        mid = f"kimi-{st.messages}"
+        raw_content = obj.get("content")
+        content = _content_text(raw_content) if isinstance(raw_content, list) else raw_content
+        if isinstance(content, str) and content.strip():
+            st.emitted_text = True
+            st.result_text = content
+            out.append(
+                make_event(
+                    "assistant_text",
+                    {"turn_id": st.turn_id, "message_id": mid, "text": content},
+                )
+            )
+        calls = obj.get("tool_calls") if isinstance(obj.get("tool_calls"), list) else []
+        for call in calls:
+            if not isinstance(call, dict):
+                continue
+            fn = call.get("function") if isinstance(call.get("function"), dict) else {}
+            name = str(fn.get("name") or "tool")
+            args = _kimi_arguments(fn.get("arguments"))
+            call_id = str(call.get("id") or uuid.uuid4().hex)
+            st.started_at[call_id] = time.perf_counter()
+            out.append(
+                make_event(
+                    "tool_call",
+                    {
+                        "turn_id": st.turn_id,
+                        "call_id": call_id,
+                        "name": name,
+                        "input": args,
+                        "summary": _cli_tool_summary(name, args),
+                    },
+                )
+            )
+        return out
+
+    if role == "tool":
+        call_id = str(obj.get("tool_call_id") or "")
+        content = obj.get("content")
+        output = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+        started = st.started_at.get(call_id)
+        out.append(
+            make_event(
+                "tool_result",
+                {
+                    "turn_id": st.turn_id,
+                    "call_id": call_id,
+                    "output": output,
+                    # Kimi's record does not say; a failure reads in the text.
+                    "is_error": False,
+                    "duration_ms": int((time.perf_counter() - started) * 1000) if started else None,
+                },
+            )
+        )
+        return out
+
+    return out
+
+
+# ---------------------------------------------------------- cursor translation
+
+
+@dataclass(slots=True)
+class _CursorState:
+    """Cursor CLI ``--output-format stream-json`` print-mode stream."""
+
+    turn_id: str
+    vendor_session: str | None = None
+    status: str = "done"
+    error: str | None = None
+    usage: dict[str, int] = field(default_factory=dict)
+    emitted_text: bool = False
+    result_text: str = ""
+    tool_calls: set[str] = field(default_factory=set)
+    started_at: dict[str, float] = field(default_factory=dict)
+
+
+def _cursor_message_text(message: Any) -> str:
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, dict) and str(block.get("type") or "") == "text":
+            text = str(block.get("text") or "")
+            if text:
+                parts.append(text)
+    return "".join(parts)
+
+
+def _cursor_tool_payload(tool_call: Any) -> tuple[str, dict[str, Any], Any]:
+    """Name, args, and the inner payload of one Cursor ``tool_call`` object."""
+    if not isinstance(tool_call, dict):
+        return "tool", {}, {}
+    for key, payload in tool_call.items():
+        if not isinstance(payload, dict):
+            continue
+        if key.endswith("ToolCall"):
+            name = key[: -len("ToolCall")] or "tool"
+            args = payload.get("args") if isinstance(payload.get("args"), dict) else {}
+            return name, args, payload
+        if key == "function":
+            raw_args = payload.get("arguments")
+            args: dict[str, Any]
+            if isinstance(raw_args, dict):
+                args = raw_args
+            elif isinstance(raw_args, str):
+                try:
+                    parsed = json.loads(raw_args)
+                except ValueError:
+                    parsed = {"arguments": raw_args}
+                args = parsed if isinstance(parsed, dict) else {"arguments": parsed}
+            else:
+                args = {}
+            return str(payload.get("name") or "tool"), args, payload
+    return "tool", {}, {}
+
+
+def _cursor_tool_output(payload: dict[str, Any]) -> tuple[str, bool]:
+    result = payload.get("result")
+    if not isinstance(result, dict):
+        return "", False
+    if "success" in result:
+        success = result.get("success")
+        if isinstance(success, dict):
+            for key in ("content", "path"):
+                val = success.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val, False
+            return json.dumps(success, ensure_ascii=False), False
+        return str(success or "done"), False
+    if "error" in result or "failure" in result:
+        err = result.get("error") or result.get("failure")
+        return str(err or "failed"), True
+    return json.dumps(result, ensure_ascii=False), False
+
+
+def translate_cursor_line(obj: dict[str, Any], st: _CursorState) -> list[dict[str, Any]]:
+    """One Cursor print-mode stream-json object -> agent-chat events.
+
+    Shape (Cursor docs, ``--output-format stream-json``): ``system`` init,
+    ``assistant`` messages (complete between tool calls), ``tool_call``
+    started/completed, terminal ``result``. Session id rides on every line.
+    """
+    out: list[dict[str, Any]] = []
+    kind = str(obj.get("type") or "")
+    sid = obj.get("session_id")
+    if sid and not st.vendor_session:
+        st.vendor_session = str(sid)
+
+    if kind in {"system", "user"}:
+        return out
+
+    if kind == "assistant":
+        # Partial-output duplicates: a pre-tool flush carries ``model_call_id``
+        # and a final flush has no ``timestamp_ms``. Complete messages (the
+        # default without ``--stream-partial-output``) have neither extra
+        # field and are the ones we keep.
+        if "model_call_id" in obj:
+            return out
+        if "timestamp_ms" in obj:
+            return out
+        text = _cursor_message_text(obj.get("message"))
+        if not text.strip():
+            return out
+        st.emitted_text = True
+        st.result_text = text
+        st.status, st.error = "done", None
+        mid = str(sid or uuid.uuid4().hex)
+        out.append(
+            make_event(
+                "assistant_text",
+                {"turn_id": st.turn_id, "message_id": mid, "text": text},
+            )
+        )
+        return out
+
+    if kind == "tool_call":
+        call_id = str(obj.get("call_id") or uuid.uuid4().hex)
+        name, args, payload = _cursor_tool_payload(obj.get("tool_call"))
+        subtype = str(obj.get("subtype") or "")
+        if subtype == "started" or (subtype != "completed" and call_id not in st.tool_calls):
+            if call_id not in st.tool_calls:
+                st.tool_calls.add(call_id)
+                st.started_at[call_id] = time.perf_counter()
+                out.append(
+                    make_event(
+                        "tool_call",
+                        {
+                            "turn_id": st.turn_id,
+                            "call_id": call_id,
+                            "name": name,
+                            "input": args,
+                            "summary": _cli_tool_summary(name, args)
+                            or str(args.get("path") or "")[:200],
+                        },
+                    )
+                )
+        if subtype == "completed":
+            output, is_error = _cursor_tool_output(payload if isinstance(payload, dict) else {})
+            started = st.started_at.get(call_id)
+            duration_ms = int((time.perf_counter() - started) * 1000) if started else None
+            out.append(
+                make_event(
+                    "tool_result",
+                    {
+                        "turn_id": st.turn_id,
+                        "call_id": call_id,
+                        "output": output or ("failed" if is_error else "done"),
+                        "is_error": is_error,
+                        "duration_ms": duration_ms,
+                    },
+                )
+            )
+        return out
+
+    if kind == "result":
+        if sid:
+            st.vendor_session = str(sid)
+        is_error = bool(obj.get("is_error")) or str(obj.get("subtype") or "") != "success"
+        result = str(obj.get("result") or "")
+        if result.strip():
+            st.result_text = result
+            if not st.emitted_text:
+                st.emitted_text = True
+                out.append(
+                    make_event(
+                        "assistant_text",
+                        {
+                            "turn_id": st.turn_id,
+                            "message_id": str(sid or uuid.uuid4().hex),
+                            "text": result,
+                        },
+                    )
+                )
+        if is_error:
+            st.status = "error"
+            st.error = result or "Cursor CLI reported an error"
+        else:
+            st.status, st.error = "done", None
+        return out
+
+    return out
+
+
+# ---------------------------------------------------------- plain-text shape
+
+
+@dataclass(slots=True)
+class _TextState:
+    """A CLI that prints its answer and nothing else — every line is the answer."""
+
+    turn_id: str
+    vendor_session: str | None = None
+    status: str = "done"
+    error: str | None = None
+    usage: dict[str, int] = field(default_factory=dict)
+    emitted_text: bool = False
+    result_text: str = ""
+
+
+def _translate_nothing(obj: dict[str, Any], st: Any) -> list[dict[str, Any]]:
+    return []
+
+
+#: shape -> (a fresh state for a turn, the line translator). The pump below
+#: knows nothing about any CLI: it decodes a line, hands it here, and emits
+#: what comes back. A new wire shape is one row.
+_SHAPES: Final[dict[str, tuple[Callable[[str, str | None], Any], Callable[..., Any]]]] = {
+    "claude": (lambda tid, vs: _ClaudeState(turn_id=tid, vendor_session=vs), translate_claude_line),
+    "codex": (lambda tid, vs: _CodexState(turn_id=tid, vendor_session=vs), translate_codex_line),
+    "agy": (lambda tid, vs: _AgyState(turn_id=tid, vendor_session=vs), translate_agy_line),
+    "opencode": (
+        lambda tid, vs: _OpenCodeState(turn_id=tid, vendor_session=vs),
+        translate_opencode_line,
+    ),
+    "kimi": (lambda tid, vs: _KimiState(turn_id=tid, vendor_session=vs), translate_kimi_line),
+    "cursor": (
+        lambda tid, vs: _CursorState(turn_id=tid, vendor_session=vs),
+        translate_cursor_line,
+    ),
+    "text": (lambda tid, vs: _TextState(turn_id=tid, vendor_session=vs), _translate_nothing),
+}
+
+
+# ------------------------------------------------------------ the turn
+
+
+@dataclass(slots=True)
+class _Outcome:
+    status: str
+    error: str | None
+    usage: dict[str, int]
+    cost_usd: float | None
+    vendor_session: str | None
+
+
+# Error text the CLIs print when the conversation we try to resume is gone
+# (a fresh install, a pruned session store, a first turn that died before
+# the CLI wrote anything). The turn is then re-run once without resume.
+_RESUME_LOST_MARKERS: Final[tuple[str, ...]] = (
+    "no conversation found",
+    "session not found",
+    "no session found",
+    "could not find session",
+    "unknown session",
+    "not found: ",
+    "does not exist",
+)
+
+
+def _resume_was_lost(error: str | None, runner: str = "") -> bool:
+    from dodaios.agent_chat.runner_acp import supports_runner
+
+    if supports_runner(runner):
+        # An ACP runtime says so explicitly; "model does not exist" from the
+        # prompt itself must not buy a second, fresh (and paid) turn.
+        from dodaios.agent_runtimes.acp import RESUME_LOST_ERROR
+
+        return (error or "").startswith(RESUME_LOST_ERROR)
+    low = (error or "").lower()
+    return any(m in low for m in _RESUME_LOST_MARKERS)
+
+
+# A print-mode CLI that cannot ask back treats an unanswered permission
+# prompt as "the user cancelled this tool" and then *exits* — Grok
+# StopCancelled / agy 1.1.26. The model never gets a second round. These
+# markers are that abort, not a person hitting Stop on the chat.
+_TOOL_ABORT_MARKERS: Final[tuple[str, ...]] = (
+    "user cancelled the execution",
+    "cancelled the execution of tool",
+    "tool not found",
+    "permission_cancelled",
+    "permission_rejected",
+    "permission denied",
+    "hasn't granted permission",
+    "has not granted permission",
+    "requires approval",
+    "declined this action",
+    "the person declined",
+)
+
+
+def _tool_abort_is_recoverable(error: str | None) -> bool:
+    low = (error or "").lower()
+    return any(m in low for m in _TOOL_ABORT_MARKERS)
+
+
+def _keep_going_prompt(
+    user_text: str, error: str | None, *, receipt_hint: str | None = None,
+) -> str:
+    err = (error or "the last tool call failed").strip()[:500]
+    review = f"{receipt_hint}\n\n" if receipt_hint else ""
+    return (
+        "The last tool call was cancelled or failed:\n"
+        f"{err}\n\n"
+        f"{KEEP_GOING_ON_TOOL_FAILURE}\n\n"
+        f"{review}"
+        "Original request:\n"
+        f"{user_text}"
+    )
+
+
+def _merge_cli_outcome(first: _Outcome, second: _Outcome) -> _Outcome:
+    usage = dict(first.usage)
+    for key, value in second.usage.items():
+        usage[key] = usage.get(key, 0) + value
+    cost: float | None = None
+    if first.cost_usd is not None or second.cost_usd is not None:
+        cost = (first.cost_usd or 0.0) + (second.cost_usd or 0.0)
+    return _Outcome(
+        second.status,
+        second.error,
+        usage,
+        cost,
+        second.vendor_session or first.vendor_session,
+    )
+
+
+async def _surface_identity(session: Any) -> str | None:
+    """A surface whose identity is per session (an agent-society member's
+    briefing) hands that text over; ``None`` keeps Jarvis' own layers."""
+    from dodaios.agent_chat.surface_kits import kit_for
+
+    kit = kit_for(getattr(session, "surface", "") or "")
+    if kit.session_system_extra is None:
+        return None
+    try:
+        from dodaios.agent_chat.runner_brain import brain_manager
+
+        brain = brain_manager()
+        cfg = getattr(brain, "_config", None)
+        text = await kit.session_system_extra(cfg, brain, session)
+    except Exception:  # noqa: BLE001 — the CLI then runs with Jarvis' layers, never fails
+        log.warning("agent chat: surface identity unavailable this turn", exc_info=True)
+        return None
+    return text or None
+
+
+async def run_cli_turn(
+    handle: TurnHandle,
+    user_text: str,
+    runner: str,
+    *,
+    identity: bool = False,
+    bridge: Any | None = None,
+    always_allowed: set[str] | None = None,
+) -> str | None:
+    """Run one CLI turn. Returns the vendor session id to persist (or None).
+
+    A resume the CLI no longer knows is retried once as a fresh conversation
+    (the person keeps typing; only the CLI-side memory is gone, the timeline
+    here is intact).
+
+    ``identity`` (the Jarvis surface): the CLI runs AS Jarvis — Jarvis' real
+    prompt layers and the chat's transcript go in front of it, and the
+    approval ``bridge`` is armed with the chat's stance so a Jarvis tool the
+    CLI reaches over MCP asks the person on the chat's card (and a tool the
+    CLI already asked about on its own channel is not asked about twice).
+    """
+    t0 = time.perf_counter()
+    session = handle.session
+    resume = session.vendor_session
+    if (
+        resume
+        and identity
+        and session.surface == "society"
+        and jarvis_harness.society_rollover_due(handle.history)
+    ):
+        # One endless chat, bounded CLI conversations: start fresh from the
+        # briefing, memory and recent transcript, and mark where it began.
+        resume = None
+        await handle.emit(
+            make_event(
+                "notice",
+                {
+                    "kind": jarvis_harness.ROLLOVER_NOTICE_KIND,
+                    "text": "Started a fresh working context from memory and recent messages.",
+                },
+            )
+        )
+    from dodaios.agent_chat.task_recovery import ToolRecovery, blocks_automatic_recovery
+
+    recovery = ToolRecovery()
+    original_emit = handle.emit
+    original_ask = handle.request_approval
+
+    async def observe(event: dict[str, Any]) -> None:
+        recovery.observe(event)
+        await original_emit(event)
+
+    async def ask(call_id: str, name: str, args: dict[str, Any], summary: str) -> str:
+        answer = await original_ask(call_id, name, args, summary)
+        if answer in {"deny", "cancel"}:
+            recovery.declined = True
+        return answer
+
+    if session.surface == "society" and not handle.continuation:
+        from dodaios.society.reply_preference import resolve_agent_reply_language
+
+        handle.output_language = await resolve_agent_reply_language(
+            session.session_id, user_text, getattr(handle, "output_language", "")
+        )
+    handle = replace(handle, emit=observe, request_approval=ask)
+    if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
+        user_text += "\nRespond in this language: " + handle.output_language
+    ident: jarvis_harness.Identity | None = None
+    ref = approval_ref(session.session_id)
+    # A society agent's seat: its own briefing is the identity (not Jarvis'
+    # layers), and its pinned subscription account is the seat's login.
+    prompt_override = await _surface_identity(session) if identity else None
+    if identity and getattr(handle, "output_language", ""):
+        prompt_override = (
+            (prompt_override or "") + "\nRespond in this language: " + handle.output_language
+        )
+    account_token = ACCOUNT_OVERRIDE.set(getattr(session, "account_id", "") or "")
+    if identity:
+        ident = await jarvis_harness.build_identity(
+            session_id=session.session_id,
+            turn_id=handle.turn_id,
+            user_text=user_text,
+            history=handle.history,
+            resume=resume,
+            with_file=(runner in _CLAUDE_CODE_RUNNERS),
+            prompt_override=prompt_override,
+        )
+        if bridge is not None:
+            from dodaios.agent_chat.approval_bridge import ChatGrant
+            from dodaios.society.surface import requires_explicit_approval
+
+            bridge.arm(
+                ref,
+                ChatGrant(
+                    session_id=session.session_id,
+                    turn_id=handle.turn_id,
+                    stance=handle.stance or "ask",
+                    always_allowed=always_allowed if always_allowed is not None else set(),
+                    ask=handle.request_approval,
+                    force_ask=(
+                        lambda name, args: requires_explicit_approval(
+                            session.session_id, name, args
+                        )
+                    )
+                    if session.surface == "society"
+                    else lambda _name, _args: False,
+                ),
+            )
+    from dodaios.agent_chat.surface_kits import kit_for
+    from dodaios.agent_chat.turn_prompts import ASK_PROTOCOL
+
+    if (
+        runner not in _CLAUDE_CODE_RUNNERS
+        and kit_for(session.surface).turn_prompts
+        and not user_text.lstrip().startswith("/")
+    ):
+        # No mid-turn channel to ask on: the agent asks at the end of its turn
+        # and the chat shows the block as a question card (turn_prompts).
+        user_text = ASK_PROTOCOL + user_text
+    tool_context = register_turn(session.session_id) if identity else None
+    try:
+        outcome = await _run_cli_once(
+            handle, user_text, runner, resume, identity=ident, bridge=bridge
+        )
+        # agy answers a lost conversation id with a NEW conversation and exit 0
+        # (only a stderr warning) — the id that came back is the truth.
+        if (
+            outcome.status == "error"
+            and resume
+            and not recovery.had_tool_calls
+            and _resume_was_lost(outcome.error, runner)
+            and not handle.cancel.is_set()
+        ):
+            log.info(
+                "agent chat %s: resume lost (%s) — starting fresh", handle.turn_id, outcome.error
+            )
+            if ident is not None:
+                # Fresh conversation: the transcript belongs in front now.
+                jarvis_harness.remove_identity_file(ident.path)
+                ident = await jarvis_harness.build_identity(
+                    session_id=session.session_id,
+                    turn_id=handle.turn_id,
+                    user_text=user_text,
+                    history=handle.history,
+                    resume=None,
+                    with_file=(runner in _CLAUDE_CODE_RUNNERS),
+                    prompt_override=prompt_override,
+                )
+            outcome = await _run_cli_once(
+                handle, user_text, runner, None, identity=ident, bridge=bridge
+            )
+        receipt_hint = recovery.hint() if identity else None
+        if (
+            (
+                (outcome.status == "error" and _tool_abort_is_recoverable(outcome.error))
+                or (outcome.status in {"done", "error"} and receipt_hint is not None)
+            )
+            and not recovery.declined
+            and not recovery.blocked
+            and not blocks_automatic_recovery(outcome.error)
+            and not handle.tools_disabled
+            and not handle.cancel.is_set()
+        ):
+            # Print-mode Grok/agy abort the process after a cancelled tool
+            # instead of thinking again. Resume the same vendor session once
+            # with the error in front so the model can work around it.
+            log.info(
+                "agent chat %s: recovering from cancelled/failed tool (%s)",
+                handle.turn_id,
+                (outcome.error or "")[:180],
+            )
+            recovered = await _run_cli_once(
+                handle,
+                _keep_going_prompt(user_text, outcome.error, receipt_hint=receipt_hint),
+                runner,
+                outcome.vendor_session or resume,
+                identity=ident,
+                bridge=bridge,
+            )
+            outcome = _merge_cli_outcome(outcome, recovered)
+    finally:
+        unregister_turn(session.session_id, tool_context)
+        ACCOUNT_OVERRIDE.reset(account_token)
+        if bridge is not None and identity:
+            bridge.disarm(ref)
+        if ident is not None:
+            jarvis_harness.remove_identity_file(ident.path)
+    await handle.emit(
+        make_event(
+            "turn_finished",
+            {
+                "turn_id": handle.turn_id,
+                "status": outcome.status,
+                "duration_ms": int((time.perf_counter() - t0) * 1000),
+                "usage": outcome.usage,
+                "error": outcome.error,
+                "cost_usd": outcome.cost_usd,
+            },
+        )
+    )
+    return outcome.vendor_session
+
+
+async def resume_hosted_cli_turn(handle: TurnHandle, proc: Any) -> str | None:
+    """Carry on a thread turn whose CLI kept running in the turn host.
+
+    The app restarted while the turn ran; the CLI did not. ``proc`` is the
+    reattached :class:`~dodaios.agent_chat.turn_host_client.HostedCli` (or a
+    spooled one that ended meanwhile). Its ``meta`` holds what the plan said
+    at spawn; the lines the old app already handled rebuild the translator,
+    every later one is emitted, and the turn ends with its real outcome.
+    Returns the vendor session id to persist, like :func:`run_cli_turn`.
+    """
+    meta = dict(getattr(proc, "meta", {}) or {})
+    runner = str(meta.get("runner") or "")
+    shape = str(meta.get("shape") or "text")
+    started_at = float(meta.get("started_at") or time.time())
+    codex_home = str(meta.get("codex_home") or "")
+    plan = CliPlan(
+        argv=[],
+        env={"CODEX_HOME": codex_home} if codex_home else {},
+        stdin_text=None,
+        shape=shape if shape in _SHAPES else "text",
+        vendor_session=str(meta.get("vendor_session") or "") or None,
+        keep_stdin=bool(meta.get("keep_stdin")),
+        # Only its presence matters from here on: control requests are answered.
+        control_init="" if meta.get("control") else None,
+        discover=_kimi_session_after if meta.get("discover") else None,
+    )
+    elapsed = max(0.0, time.time() - started_at)
+    log.info(
+        "agent chat %s: carrying on a %s turn the turn host kept running (%.0f s old)",
+        handle.turn_id,
+        runner,
+        elapsed,
+    )
+    outcome = await _drive_cli(
+        handle,
+        proc,
+        plan,
+        runner,
+        cwd=Path(str(meta.get("cwd") or handle.session.cwd or Path.home())),
+        started_at=started_at,
+        placement=None,
+        tree=None,
+        bridge=None,
+        timeout_s=max(60.0, _TURN_TIMEOUT_S - elapsed),
+    )
+    await handle.emit(
+        make_event(
+            "turn_finished",
+            {
+                "turn_id": handle.turn_id,
+                "status": outcome.status,
+                "duration_ms": int((time.time() - started_at) * 1000),
+                "usage": outcome.usage,
+                "error": outcome.error,
+                "cost_usd": outcome.cost_usd,
+            },
+        )
+    )
+    return outcome.vendor_session
+
+
+def _agy_model_ladder(model: str) -> list[str] | None:
+    """agy's effort levels for ``model`` from the cached catalog (``None`` = unknown)."""
+    try:
+        rows = _agy_catalog_cached()
+    except CliUnavailable:  # agy is missing: the planner reports that right after this
+        return None
+    for row in rows or []:
+        if row.get("id") == model and "efforts" in row:
+            return list(row["efforts"])
+    return None
+
+
+def _agy_effective_effort(model: str, effort: str) -> str:
+    """The ``--effort`` value agy is launched with for ``model`` + ``effort``."""
+    try:
+        rows = _agy_catalog_cached()
+    except CliUnavailable:  # agy is missing: the planner reports that right after this
+        rows = None
+    args = agy_model_args(model, effort, rows)
+    return args[args.index("--effort") + 1] if "--effort" in args else ""
+
+
+async def _run_cli_once(
+    handle: TurnHandle,
+    user_text: str,
+    runner: str,
+    resume: str | None,
+    *,
+    identity: jarvis_harness.Identity | None = None,
+    bridge: Any | None = None,
+) -> _Outcome:
+    session = handle.session
+    cwd = _resolved_cwd(session.cwd or Path.home())
+    effort = normalize_effort(session.provider, session.effort)
+    # The picked model's own levels when the catalog knows them (``None`` =
+    # the provider ladder applies); see ``effort_for_model``.
+    model_ladder: list[str] | tuple[str, ...] | None = None
+    # ``None`` = an external agent runtime, planned asynchronously (runner_acp).
+    planner = _PLANNERS.get(runner)
+    vendor_session: str | None = None
+    from dodaios.society.remote import placement_for_session
+
+    # A society agent placed on another computer runs its CLI there over SSH.
+    placement = await placement_for_session(session)
+    remote_token = _REMOTE_PLANNING.set(placement is not None)
+    from dodaios.agent_chat import plain_chat
+
+    # A plain chat's instructions open every conversation the CLI starts,
+    # the one a lost resume falls back to included.
+    planned_prompt = plain_chat.cli_prompt(handle, user_text, resume)
+    # Set once planning succeeded; an external runtime's plan holds a turn slot.
+    plan: CliPlan | None = None
+    if placement is not None and not getattr(handle, "tools_disabled", False):
+        # Also refresh resumed conversations which remember the old missing bridge.
+        planned_prompt = (
+            "<jarvis_remote_context>\n"
+            "You run on the connected computer. Dodaios MCP tools are connected for this turn "
+            "under your own identity and permissions, including persistent routines, memory "
+            "and the visible Dodaios browser on the main computer. Inspect the real tools; "
+            "earlier messages saying they were unavailable are outdated. Native file tools "
+            "and society_shell run on the connected computer; Dodaios file tools access "
+            "your workspace on the main computer.\n</jarvis_remote_context>\n\n" + user_text
+        )
+
+    try:
+        with cli_catalog_scope(
+            cwd=cwd,
+            ignore_user_config=identity is not None or bool(getattr(handle, "gateway_only", False)),
+        ):
+            if runner == "codex-cli" and placement is None:
+                models = await asyncio.to_thread(read_codex_models, required_model=session.model)
+                if session.model and (
+                    models is None or not any(row["id"] == session.model for row in models)
+                ):
+                    raise CliUnavailable(
+                        "The selected model could not be confirmed for this Codex "
+                        "installation and account. "
+                        "Refresh the model list, check the selected account, or update Codex "
+                        "in the CLIs page, then retry."
+                    )
+                for row in models or []:
+                    if row["id"] == session.model:
+                        model_ladder = list(row.get("efforts", []))
+                        break
+            if runner == "claude-cli":
+                from dodaios.agent_chat.catalog import claude_model_efforts
+
+                # Claude Code folds a level the model lacks on its own (Opus
+                # 4.6 runs ``--effort xhigh`` as high); fold it here first so
+                # the flag, the note below and the composer name one level.
+                model_ladder = claude_model_efforts(session.model)
+            if runner == "agy-cli" and placement is None:
+                # A chat can start before the model picker has loaded its catalog.
+                # Resolve the installed CLI's effort ladder off the event loop so
+                # newly available models keep the required model/effort pairing.
+                await asyncio.to_thread(read_agy_models, required_model=session.model)
+            plan: CliPlan
+            if planner is None:
+                from dodaios.agent_chat.runner_acp import plan_runtime_turn
+
+                plan = await plan_runtime_turn(
+                    handle,
+                    runner,
+                    prompt=planned_prompt,
+                    cwd=cwd,
+                    resume=resume,
+                    identity=identity,
+                )
+            else:
+                if runner == "agy-cli":
+                    model_ladder = _agy_model_ladder(session.model)
+                effort = effort_for_model(session.provider, session.effort, model_ladder)
+                told_effort = (
+                    _agy_effective_effort(session.model, effort) if runner == "agy-cli" else effort
+                )
+                planned_prompt = (
+                    effort_note(session.provider, told_effort, model_ladder) + planned_prompt
+                )
+                if runner == "claude-cli":
+                    await asyncio.to_thread(warm_claude_capabilities)
+                plan = planner(
+                    prompt=planned_prompt,
+                    cwd=cwd,
+                    model=session.model,
+                    effort=effort,
+                    permission_mode=plain_chat.permission_mode(
+                        handle, runner, session.permission_mode
+                    ),
+                    resume=resume,
+                    identity=identity,
+                )
+                await asyncio.to_thread(_carry_thread_conversation, runner, resume, plan.env)
+            if getattr(handle, "tools_disabled", False):
+                from .native_control import disable_cli_tools
+
+                # A plain chat is a conversation: its next turn resumes this one.
+                disable_cli_tools(
+                    plan, runner, keep_session=bool(getattr(handle, "plain_system", ""))
+                )
+            if getattr(handle, "gateway_only", False):
+                if runner == "claude-cli":
+                    plan.argv += ["--tools", "", "--strict-mcp-config"]
+                elif runner == "codex-cli":
+                    plan.argv += ["--ignore-user-config", "--ignore-rules"]
+                    for feature in (
+                        "shell_tool",
+                        "apps",
+                        "hooks",
+                        "multi_agent",
+                        "browser_use",
+                        "web_search_request",
+                        "goals",
+                        "memories",
+                        "plugins",
+                        "computer_use",
+                        "image_generation",
+                        "multi_agent_v2",
+                    ):
+                        plan.argv += ["--disable", feature]
+                else:
+                    raise CliUnavailable("The selected runner cannot isolate task tools.")
+    except CliUnavailable as exc:
+        _release_plan(plan)
+        return _Outcome("error", str(exc), {}, None, None)
+    finally:
+        _REMOTE_PLANNING.reset(remote_token)
+
+    vendor_session = plan.vendor_session
+    if (
+        getattr(handle, "goal_turn", False)
+        and vendor_session
+        and handle.control_service is not None
+    ):
+        handle.control_service.store.update_session(
+            session.session_id, vendor_session=vendor_session
+        )
+    log.info("agent chat %s: %s argv=%s", handle.turn_id, runner, plan.argv[:6])
+    started_at = time.time()
+    tree = None
+    if placement is None and (
+        getattr(handle, "goal_turn", False)
+        or (session.surface == "society" and session.permission_mode == "plan")
+        or plan.acp is not None
+    ):
+        from dodaios.core.process_tree import make_process_tree
+
+        tree = make_process_tree("chat-controlled-cli")
+    proc: Any
+    if placement is not None:
+        from dodaios.agent_chat.remote_cli import RemoteCliUnavailable, spawn
+
+        prompt_files: dict[str, str] = {}
+        if identity is not None and identity.path is not None:
+            try:
+                prompt_files[str(identity.path)] = await asyncio.to_thread(
+                    Path(identity.path).read_text, encoding="utf-8"
+                )
+            except OSError:
+                log.warning("agent chat: identity file unreadable for a remote turn")
+        try:
+            proc = await spawn(
+                placement[0],
+                agent_id=placement[1],
+                runner=runner,
+                binary=CLI_BINARIES[runner][0],
+                argv=plan.argv,
+                local_cwd=str(cwd),
+                env=plan.env,
+                system_prompt_files=prompt_files,
+                session_id=session.session_id,
+                tools_enabled=not getattr(handle, "tools_disabled", False),
+            )
+        except RemoteCliUnavailable as exc:
+            return _Outcome("error", str(exc), {}, None, None)
+    else:
+        hosted = None
+        if tree is None and plan.acp is None and _survives_restart(handle, identity):
+            from dodaios.agent_chat import turn_host_client
+
+            hosted = await turn_host_client.spawn(
+                plan.argv,
+                cwd=str(cwd),
+                env=plan.env,
+                # The host writes the handshake and the prompt itself, so a
+                # restart between spawn and feed cannot leave the CLI waiting.
+                stdin=(
+                    (plan.control_init or "") + plan.stdin_text
+                    if plan.stdin_text is not None
+                    else None
+                ),
+                keep_stdin=plan.keep_stdin,
+                meta=_hosted_meta(handle, runner, plan, cwd, started_at),
+                # Claude Code keeps reading stdin after its result line; the
+                # host closes it there so the CLI ends with no app attached.
+                close_stdin_on="result" if plan.keep_stdin and plan.shape == "claude" else "",
+            )
+        if hosted is not None:
+            proc = hosted
+        else:
+            proc = await _spawn_child(plan, cwd, tree, runner)
+            if isinstance(proc, _Outcome):
+                return proc
+    return await _drive_cli(
+        handle,
+        proc,
+        plan,
+        runner,
+        cwd=cwd,
+        started_at=started_at,
+        placement=placement,
+        tree=tree,
+        bridge=bridge,
+    )
+
+
+def _survives_restart(handle: TurnHandle, identity: Any) -> bool:
+    """Whether this turn's CLI runs in the turn host and outlives an app restart.
+
+    Threads in the Agentic IDE (surface ``agent``) only: their CLI is a plain
+    coding agent whose whole turn is its own process. A turn running AS
+    Jarvis (``identity``), a goal or a tool-less helper turn depends on state
+    that lives in this process (MCP tool context, approval bridge, goal
+    control) and would lose it across a restart, so it stays a child here.
+    """
+    session = handle.session
+    return (
+        getattr(session, "surface", "") == "agent"
+        and identity is None
+        and not getattr(handle, "goal_turn", False)
+        and not getattr(handle, "tools_disabled", False)
+        and not getattr(handle, "gateway_only", False)
+    )
+
+
+def _hosted_meta(
+    handle: TurnHandle, runner: str, plan: CliPlan, cwd: Path, started_at: float
+) -> dict[str, Any]:
+    """What a hosted turn needs to be carried on after an app restart."""
+    return {
+        "session_id": handle.session.session_id,
+        "turn_id": handle.turn_id,
+        "runner": runner,
+        "shape": plan.shape,
+        "keep_stdin": plan.keep_stdin,
+        "control": plan.control_init is not None,
+        "vendor_session": plan.vendor_session,
+        "discover": plan.discover is not None,
+        "codex_home": plan.env.get("CODEX_HOME", ""),
+        "cwd": str(cwd),
+        "started_at": started_at,
+    }
+
+
+async def _spawn_child(
+    plan: CliPlan, cwd: Path, tree: Any, runner: str
+) -> asyncio.subprocess.Process | _Outcome:
+    """Start the CLI as this process's own child (no turn host)."""
+    if plan.acp is not None and plan.env is not None and os.name != "nt":
+        # Every descendant inherits this mark, so the turn's tracker finds a
+        # detached one even when no snapshot saw it (POSIX; Windows: the job).
+        from uuid import uuid4
+
+        from dodaios.core.process_tree import TURN_MARKER_ENV
+
+        plan.env[TURN_MARKER_ENV] = uuid4().hex
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *plan.argv,
+            cwd=str(cwd),
+            env=plan.env,
+            stdin=asyncio.subprocess.PIPE
+            if plan.stdin_text is not None or plan.acp is not None
+            else asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+            start_new_session=tree is not None and os.name != "nt",
+            limit=_READLINE_LIMIT,
+        )
+        if tree is not None:
+            tree.assign(proc.pid)
+    except (OSError, ValueError) as exc:
+        if tree is not None:
+            tree.close()
+        _release_plan(plan)
+        return _Outcome("error", f"Could not start {runner}: {exc}", {}, None, None)
+    return proc
+
+
+async def _drive_cli(
+    handle: TurnHandle,
+    proc: Any,
+    plan: CliPlan,
+    runner: str,
+    *,
+    cwd: Path,
+    started_at: float,
+    placement: Any,
+    tree: Any,
+    bridge: Any | None,
+    timeout_s: float = _TURN_TIMEOUT_S,
+) -> _Outcome:
+    """Read a started CLI to its end: translate, answer, and judge the outcome.
+
+    ``proc`` is a child process, a remote one, or a CLI in the turn host
+    (``turn_host_client.HostedCli``). A hosted CLI reattached after an app
+    restart replays the lines this turn already handled first
+    (``stdout.replaying``): they rebuild the translator's state and emit
+    nothing, so the timeline carries on from the first line it has not seen.
+    """
+    session = handle.session
+    chat_ref = approval_ref(session.session_id)
+    status = "done"
+    error_text: str | None = None
+    vendor_session = plan.vendor_session
+    hosted = bool(getattr(proc, "hosted", False))
+    if plan.acp is not None:
+        state: Any = plan.acp
+        translate: Any = None
+    else:
+        make_state, translate = _SHAPES[plan.shape]
+        state = make_state(handle.turn_id, vendor_session)
+    # Lines that are not the CLI's JSON — a banner, a warning, the whole
+    # answer of a plain-text CLI — shown as they come, and kept as the answer
+    # of last resort when the stream said nothing else.
+    plain: list[str] = []
+    plain_id = f"plain-{handle.turn_id}"
+    stderr_tail: list[str] = []
+
+    def _provider_error() -> str | None:
+        signal = plan.provider_failure
+        if signal is not None and signal.done() and not signal.cancelled():
+            return signal.result()
+        return None
+
+    async def _drain_stderr() -> None:
+        assert proc.stderr is not None
+        while True:
+            try:
+                line = await proc.stderr.readline()
+            except ValueError:
+                # A diagnostic line past the read limit: dropped, never fatal.
+                continue
+            if not line:
+                return
+            text = line.decode("utf-8", errors="replace").rstrip()
+            if text:
+                stderr_tail.append(text)
+                del stderr_tail[:-40]
+
+    async def _say_plain(line: str, *, replay: bool = False) -> None:
+        plain.append(line + "\n")
+        if replay:
+            return
+        await handle.emit(
+            make_event(
+                "text_delta",
+                {"turn_id": handle.turn_id, "message_id": plain_id, "text": line + "\n"},
+            )
+        )
+
+    async def _pump_stdout() -> None:
+        nonlocal grace_kill, status, error_text
+        assert proc.stdout is not None
+        while True:
+            try:
+                raw = await proc.stdout.readline()
+            except ValueError:
+                # One line past _READLINE_LIMIT. For an ACP runtime that is a
+                # broken frame of the turn itself: end it with a plain reason
+                # instead of an unhandled error. Other CLIs: skip the line.
+                if plan.acp is None:
+                    continue
+                status = "error"
+                error_text = (
+                    f"{runner} sent a message larger than "
+                    f"{_READLINE_LIMIT // (1024 * 1024)} MB; the turn was stopped."
+                )
+                _kill(proc)
+                return
+            activity[0] = time.monotonic()
+            if hosted and getattr(proc, "handed_over", False):
+                return
+            if not raw:
+                return
+            # A line this turn handled before an app restart: rebuild state only.
+            replay = hosted and bool(getattr(proc.stdout, "replaying", False))
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line:
+                continue
+            if plan.shape == "text":
+                await _say_plain(line, replay=replay)
+                continue
+            try:
+                obj = json.loads(line)
+            except ValueError:
+                if plan.acp is None:
+                    await _say_plain(line, replay=replay)
+                else:
+                    log.debug("agent chat %s: non-ACP stdout line skipped", handle.turn_id)
+                continue
+            if not isinstance(obj, dict):
+                continue
+            if replay:
+                if obj.get("type") not in ("control_request", "control_response"):
+                    translate(obj, state)
+                continue
+            if plan.acp is not None:
+                if _provider_error() or handle.cancel.is_set():
+                    # Do not present a runtime's synthetic error prose as an
+                    # assistant answer, or process tools after the failure.
+                    continue
+                await plan.acp.on_message(obj, acp_io)
+                if plan.acp.saw_result:
+                    if tracker is not None:
+                        # Last look at its children while the runtime still
+                        # lives: once it exits, detached ones are orphans.
+                        tracker.snapshot()
+                    # The prompt answered; closing stdin lets the runtime exit.
+                    # One that keeps running anyway (a child holding the pipe)
+                    # is ended so the chat is not held busy by a finished turn.
+                    _close_stdin()
+                    if grace_kill is None:
+                        grace_kill = asyncio.get_running_loop().call_later(
+                            _ACP_EXIT_GRACE_S, _kill, proc
+                        )
+                continue
+            if plan.control_init is not None:
+                if obj.get("type") == "control_request":
+                    await _answer_control_request(obj)
+                    continue
+                if obj.get("type") == "control_response":
+                    # The CLI's answer to our handshake (its command list).
+                    # Nothing the timeline shows, and not a line to translate.
+                    continue
+            for ev in translate(obj, state):
+                await handle.emit(ev)
+            if plan.keep_stdin and getattr(state, "saw_result", False):
+                # The turn is over; closing stdin lets the CLI exit.
+                _close_stdin()
+
+    def _close_stdin() -> None:
+        if proc.stdin is None or proc.stdin.is_closing():
+            return
+        try:
+            proc.stdin.close()
+        except OSError as exc:
+            log.debug("agent chat %s: stdin close failed: %s", handle.turn_id, exc)
+
+    async def _write_stdin(text: str) -> None:
+        if proc.stdin is None or proc.stdin.is_closing():
+            return
+        try:
+            proc.stdin.write(text.encode("utf-8"))
+            await proc.stdin.drain()
+        except (BrokenPipeError, ConnectionResetError, OSError) as exc:
+            log.debug("agent chat %s: stdin write failed: %s", handle.turn_id, exc)
+
+    async def _answer_control_request(obj: dict[str, Any]) -> None:
+        """A Claude Code ``control_request`` — a permission prompt — answered
+        from the chat's approval card. Anything that is not ``can_use_tool``
+        is declined (the CLI asks nothing else of a stdio prompt tool today)."""
+        request_id = str(obj.get("request_id") or "")
+        req = obj.get("request") if isinstance(obj.get("request"), dict) else {}
+        subtype = str(req.get("subtype") or "")
+        decision = "deny"
+        message = "Not supported by this chat."
+        tool_name = ""
+        if subtype == "can_use_tool":
+            tool_name = str(req.get("tool_name") or req.get("display_name") or "tool")
+            tool_input = req.get("input") if isinstance(req.get("input"), dict) else {}
+            call_id = str(req.get("tool_use_id") or uuid.uuid4().hex)
+            if tool_name == "AskUserQuestion":
+                await _respond(request_id, await _claude_question(tool_input))
+                return
+            summary = str(req.get("description") or "") or _claude_request_summary(
+                tool_name, tool_input
+            )
+            # The card sits on the tool row the assistant line announced; a
+            # plan's ExitPlanMode has no row yet, so it gets one here.
+            announced: set[str] = getattr(state, "emitted_tool_ids", set())
+            if tool_name == "ExitPlanMode" and call_id not in announced:
+                announced.add(call_id)
+                await handle.emit(
+                    make_event(
+                        "tool_call",
+                        {
+                            "turn_id": handle.turn_id,
+                            "call_id": call_id,
+                            "name": tool_name,
+                            "input": tool_input,
+                            "summary": "Plan ready — approve to start building",
+                        },
+                    )
+                )
+                summary = "Plan ready — approve to start building"
+            decision = await handle.request_approval(call_id, tool_name, tool_input, summary)
+            message = (
+                "The person declined this action."
+                if decision == "deny"
+                else "The turn was stopped."
+            )
+        if decision in {"allow", "allow_always"}:
+            body: dict[str, Any] = {"behavior": "allow", "updatedInput": req.get("input") or {}}
+            if decision == "allow_always" and subtype == "can_use_tool":
+                # Without a rule the CLI asked again at the very next call of
+                # this turn: the session's new access mode only reaches the
+                # next process.
+                body["updatedPermissions"] = claude_session_rules(
+                    tool_name, req.get("permission_suggestions")
+                )
+            if bridge is not None and subtype == "can_use_tool":
+                # A Jarvis tool the CLI just asked about will hit the executor's
+                # own gate over MCP in a moment; the person has answered once.
+                bridge.note_cli_approval(chat_ref, tool_name)
+            if tool_name == "ExitPlanMode":
+                build = await _leave_plan_mode()
+                if build:
+                    body["updatedPermissions"] = [
+                        {"type": "setMode", "mode": build, "destination": "session"}
+                    ]
+        else:
+            body = {"behavior": "deny", "message": message}
+        await _respond(request_id, body)
+
+    async def _respond(request_id: str, body: dict[str, Any]) -> None:
+        frame = {
+            "type": "control_response",
+            "response": {"subtype": "success", "request_id": request_id, "response": body},
+        }
+        await _write_stdin(json.dumps(frame, ensure_ascii=False) + "\n")
+
+    async def _claude_question(tool_input: dict[str, Any]) -> dict[str, Any]:
+        """Claude Code's own ``AskUserQuestion``, answered on the chat's question card.
+
+        The answers go back the way the CLI reads them: ``updatedInput`` keeps
+        the questions and adds ``answers`` keyed by each question's text.
+        """
+        raw = tool_input.get("questions")
+        rows = raw if isinstance(raw, list) else []
+        try:
+            specs = parse_questions({"questions": rows})
+        except ValueError as exc:  # the error text goes back to the model in the deny message
+            return {
+                "behavior": "deny",
+                "message": f"Invalid questions ({exc}). Ask 1-4 questions with 2-4 options each.",
+            }
+        ask = getattr(handle.control_service, "ask_questions", None)
+        if not callable(ask):
+            return {
+                "behavior": "deny",
+                "message": "Nobody can answer here. Decide yourself and state your assumptions.",
+            }
+        try:
+            answers = await ask(session.session_id, specs)
+        except (TooManyQuestions, RuntimeError) as exc:
+            # The turn already used its cards (or has none to show): the
+            # agent's own first options stand, exactly as on an unanswered card.
+            log.info("agent chat %s: question not shown (%s)", handle.turn_id, exc)
+            answers = [recommended_answer(spec, UNATTENDED) for spec in specs]
+        if any(a.source == CANCELLED for a in answers):
+            return {"behavior": "deny", "message": "The turn was stopped."}
+        picked = {
+            str(row.get("question") or ""): a.answer for row, a in zip(rows, answers, strict=True)
+        }
+        return {"behavior": "allow", "updatedInput": {**tool_input, "answers": picked}}
+
+    async def _leave_plan_mode() -> str:
+        """The build mode an approved plan continues in, or "" to leave it to the CLI.
+
+        Coding threads only (``turn_prompts``): the session leaves plan mode
+        for the runner's default, so the next message builds too and the
+        composer's access pick shows it.
+        """
+        from dodaios.agent_chat.surface_kits import kit_for
+
+        if not kit_for(session.surface).turn_prompts:
+            return ""
+        build = default_permission(runner)
+        store = getattr(handle.control_service, "store", None)
+        if store is not None and build != session.permission_mode:
+            store.update_session(session.session_id, permission_mode=build)
+            await handle.emit(make_event("session_updated", {"permission_mode": build}))
+        return build
+
+    async def _feed_stdin() -> None:
+        if proc.stdin is None or hosted:
+            # The turn host wrote the handshake and the prompt at spawn.
+            return
+        try:
+            # The control-protocol handshake goes FIRST, on the same stdin, so
+            # the CLI knows a client is listening before it needs to ask about
+            # the first tool call. Back to back with the prompt on purpose: the
+            # CLI reads its input in order, and waiting for the response would
+            # add a round-trip to every turn for no gain.
+            if plan.control_init is not None:
+                proc.stdin.write(plan.control_init.encode("utf-8"))
+                await proc.stdin.drain()
+            if plan.acp is not None:
+                proc.stdin.write(plan.acp.opening_frame().encode("utf-8"))
+                await proc.stdin.drain()
+            if plan.stdin_text is not None:
+                proc.stdin.write(plan.stdin_text.encode("utf-8"))
+                await proc.stdin.drain()
+        except (BrokenPipeError, ConnectionResetError, OSError) as exc:
+            log.debug("agent chat %s: stdin closed early: %s", handle.turn_id, exc)
+        finally:
+            # A CLI that talks back on stdin keeps it until its result line.
+            if not plan.keep_stdin:
+                _close_stdin()
+
+    async def _acp_cancel() -> None:
+        """Ask an ACP runtime to end its turn (``session/cancel``), then wait briefly.
+
+        Killing the process alone is not a stop for every runtime: an OpenClaw
+        run lives in its Gateway and keeps calling the model and running
+        tools after its bridge dies. The caller kills afterwards either way.
+        """
+        if plan.provider_failure is not None:
+            # Revoke inference before waiting for the runtime to acknowledge stop.
+            plan.provider_failure.cancel()
+        if plan.acp is None or hosted or proc.returncode is not None:
+            return
+        frame = plan.acp.cancel_frame()
+        if frame is None:
+            return
+        from dodaios.agent_runtimes.acp import frame_line
+
+        await _write_stdin(frame_line(frame))
+        deadline = time.monotonic() + _ACP_CANCEL_GRACE_S
+        while time.monotonic() < deadline:
+            if plan.acp.saw_result or proc.returncode is not None:
+                return
+            await asyncio.sleep(0.1)
+
+    async def _watch_cancel() -> None:
+        await handle.cancel.wait()
+        await _acp_cancel()
+        _kill(proc)
+
+    async def _watch_provider_failure() -> None:
+        nonlocal status, error_text
+        if plan.provider_failure is None:
+            return
+        error_text = await asyncio.wrap_future(plan.provider_failure)
+        status = "error"
+        await _acp_cancel()
+        if tree is not None:
+            # Descendants can hold stdout open after the runtime exits. Reap
+            # the containment group now, before waiting for either pipe.
+            tree.close()
+        _kill(proc)
+
+    async def _watch_stall() -> None:
+        """End an ACP turn whose runtime stopped making progress (AP-19)."""
+        nonlocal status, error_text
+        acp = plan.acp
+        if acp is None or hosted:
+            return
+        started = time.monotonic()
+        reason = ""
+        while not acp.saw_result and proc.returncode is None:
+            await asyncio.sleep(_ACP_WATCH_TICK_S)
+            now = time.monotonic()
+            if approval_pending[0] or acp.tool_running():
+                activity[0] = now  # a person or a tool sets this pace
+                continue
+            if not acp.handshaken:
+                if now - started > _ACP_HANDSHAKE_TIMEOUT_S:
+                    reason = (
+                        f"{runner} did not open its session within "
+                        f"{int(_ACP_HANDSHAKE_TIMEOUT_S // 60)} minutes; the turn was stopped."
+                    )
+                    break
+                continue
+            if now - activity[0] > _ACP_IDLE_TIMEOUT_S:
+                reason = (
+                    f"{runner} stopped responding (nothing for "
+                    f"{int(_ACP_IDLE_TIMEOUT_S // 60)} minutes); the turn was stopped."
+                )
+                break
+        if not reason or acp.saw_result:
+            return
+        log.warning("agent chat %s: %s", handle.turn_id, reason)
+        status, error_text = "error", reason
+        await _acp_cancel()
+        _kill(proc)
+
+    class _AcpIO:
+        """What an ACP turn needs from this process: stdin, the chat, the card."""
+
+        async def write(self, frame: dict[str, Any]) -> None:
+            from dodaios.agent_runtimes.acp import frame_line
+
+            await _write_stdin(frame_line(frame))
+
+        async def emit(self, event: dict[str, Any]) -> None:
+            await handle.emit(event)
+
+        async def ask(self, call_id: str, name: str, args: dict[str, Any], summary: str) -> str:
+            approval_pending[0] = True
+            try:
+                decision = await handle.request_approval(call_id, name, args, summary)
+            finally:
+                approval_pending[0] = False
+                activity[0] = time.monotonic()
+            if decision in {"allow", "allow_always"} and bridge is not None:
+                # A Jarvis tool the runtime just asked about reaches the
+                # executor's own gate over MCP next; the person answered once.
+                bridge.note_cli_approval(chat_ref, name)
+            return str(decision)
+
+    acp_io = _AcpIO()
+    grace_kill: asyncio.TimerHandle | None = None
+    # Stall watchdog state: the last stdout frame, and an open approval card.
+    activity = [time.monotonic()]
+    approval_pending = [False]
+    # POSIX: descendants that leave the process group (setsid) are remembered
+    # while the runtime runs and reaped with it (Windows: the job object).
+    tracker = None
+    if plan.acp is not None and tree is not None and not hosted and placement is None:
+        from dodaios.core.process_tree import TURN_MARKER_ENV, DescendantTracker
+
+        tracker = DescendantTracker(proc.pid, marker=(plan.env or {}).get(TURN_MARKER_ENV))
+        tracker.start()
+
+    pump = asyncio.create_task(_pump_stdout())
+    drain = asyncio.create_task(_drain_stderr())
+    feeder = asyncio.create_task(_feed_stdin())
+    watcher = asyncio.create_task(_watch_cancel())
+    provider_watcher = asyncio.create_task(_watch_provider_failure())
+    stall_watcher = asyncio.create_task(_watch_stall())
+    try:
+        # EOF is not process exit: a CLI may close both pipes and keep
+        # running. The deadline must also cover waiting for the process.
+        deadline = None if getattr(handle, "goal_turn", False) else timeout_s
+        async with asyncio.timeout(deadline):
+            await asyncio.gather(pump, drain, feeder)
+            await proc.wait()
+    except TimeoutError:
+        log.warning(
+            "agent chat %s: %s timed out (result=%s, returncode=%s, stdout_done=%s)",
+            handle.turn_id,
+            runner,
+            getattr(state, "saw_result", False),
+            proc.returncode,
+            pump.done(),
+        )
+        await _acp_cancel()
+        _kill(proc)
+        status = "error"
+        error_text = f"{runner} did not finish within {int(_TURN_TIMEOUT_S)} s."
+    except asyncio.CancelledError:
+        if hosted and not handle.cancel.is_set():
+            # The app is going away, nobody pressed Stop: the CLI keeps working
+            # in the turn host and the next app start carries the turn on.
+            proc.detach()
+        else:
+            await _acp_cancel()
+            _kill(proc)
+        raise
+    finally:
+        watcher.cancel()
+        provider_watcher.cancel()
+        stall_watcher.cancel()
+        for task in (pump, drain, feeder):
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(
+            watcher, provider_watcher, stall_watcher, pump, drain, feeder,
+            return_exceptions=True,
+        )
+        if tracker is not None:
+            tracker.close()
+        if tree is not None:
+            tree.close()
+        if proc.returncode is None and not getattr(proc, "detached", False):
+            _kill(proc)
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5)
+            except TimeoutError:
+                log.warning("Agent CLI did not reap after cancellation")
+        if grace_kill is not None:
+            grace_kill.cancel()
+        _release_plan(plan)
+
+    if hosted and getattr(proc, "handed_over", False):
+        from dodaios.agent_chat.turn_host_client import TurnHandedOver
+
+        raise TurnHandedOver(handle.turn_id)
+    if hosted:
+        # Handled to the end: the host (or its spool file) may drop the lines.
+        proc.release()
+        if getattr(proc, "host_lost", False) and not handle.cancel.is_set():
+            status = "error"
+            error_text = "The process that ran this agent stopped unexpectedly."
+    if handle.cancel.is_set():
+        status = "cancelled"
+    elif provider_error := _provider_error():
+        status, error_text = "error", provider_error
+    elif status == "done":
+        if state.status == "error":
+            status, error_text = (
+                "error",
+                state.error or getattr(state, "last_tool_error", None),
+            )
+        elif proc.returncode not in (0, None) and not (
+            # An ACP turn that answered and was then ended by the grace timer.
+            plan.acp is not None and plan.acp.saw_result
+        ):
+            status = "error"
+            error_text = (
+                state.error
+                or getattr(state, "last_error", None)
+                or getattr(state, "last_tool_error", None)
+                or "\n".join(stderr_tail[-8:]).strip()
+                or f"{runner} exited with code {proc.returncode}."
+            )
+        elif plan.shape == "codex" and state.failed_tools:
+            status = "error"
+            error_text = "Unresolved tool failure: " + ", ".join(sorted(state.failed_tools))
+        elif (runner in {"claude-cli", "glm-cli"} or plan.acp is not None) and not state.saw_result:
+            status = "error"
+            error_text = f"{runner} exited without a terminal result; its output may be incomplete."
+
+    usage = dict(state.usage)
+    cost_usd = getattr(state, "cost_usd", None)
+    vendor_session = state.vendor_session or vendor_session
+    if (
+        vendor_session is None
+        and plan.discover is not None
+        and status == "done"
+        and placement is None  # the CLI's store lives on the remote machine
+    ):
+        # A CLI that never said which conversation it opened: ask its store.
+        vendor_session = await asyncio.to_thread(plan.discover, cwd, started_at)
+    result_text = str(getattr(state, "result_text", "") or "")
+    plain_tail = "".join(plain)
+    if not state.emitted_text and result_text.strip():
+        await handle.emit(
+            make_event(
+                "assistant_text",
+                {
+                    "turn_id": handle.turn_id,
+                    "message_id": f"result-{handle.turn_id}",
+                    "text": result_text,
+                },
+            )
+        )
+    elif not state.emitted_text and plain_tail.strip():
+        await handle.emit(
+            make_event(
+                "assistant_text",
+                {
+                    "turn_id": handle.turn_id,
+                    "message_id": plain_id,
+                    "text": plain_tail.strip(),
+                },
+            )
+        )
+
+    if plan.shape == "codex" and vendor_session:
+        delivered = await _deliver_codex_images(handle, plan.env, vendor_session, started_at)
+        if not delivered and status == "done":
+            status = "error"
+            error_text = "A generated image could not be added to the chat artifacts."
+
+    return _Outcome(status, error_text, usage, cost_usd, vendor_session)
+
+
+async def _deliver_codex_images(
+    handle: TurnHandle, env: dict[str, str], thread_id: str, since: float
+) -> bool:
+    """Recover native visual results omitted by the CLI's text event stream."""
+    from dodaios.agent_chat.generated_images import collect_generated_images
+    from dodaios.core.paths import repo_root
+    from dodaios.missions.isolation.worktree import resolve_outputs_root
+
+    raw_home = env.get("CODEX_HOME", "")
+    home = Path(raw_home) if raw_home else Path.home() / ".codex"
+    try:
+        images = await asyncio.to_thread(
+            collect_generated_images,
+            codex_home=home,
+            thread_id=thread_id,
+            since=since,
+            outputs_root=resolve_outputs_root(repo_root()),
+        )
+    except (OSError, ValueError):
+        log.warning("agent chat: generated image delivery failed", exc_info=True)
+        await handle.emit(
+            make_event(
+                "error",
+                {
+                    "turn_id": handle.turn_id,
+                    "message": "A generated image could not be added to the chat artifacts.",
+                },
+            )
+        )
+        return False
+    for image in images:
+        await handle.emit(
+            make_event(
+                "assistant_text",
+                {
+                    "turn_id": handle.turn_id,
+                    "message_id": image.message_id,
+                    "text": image.markdown,
+                },
+            )
+        )
+    return True
+
+
+def _kill(proc: asyncio.subprocess.Process) -> None:
+    if proc.returncode is not None:
+        return
+    try:
+        proc.kill()
+    except (ProcessLookupError, OSError) as exc:
+        log.debug("agent chat: killing the CLI failed: %s", exc)

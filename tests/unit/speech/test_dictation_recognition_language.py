@@ -16,7 +16,7 @@ text-based detector — so the decision has to be made before the call.
 
 from __future__ import annotations
 
-from jarvis.speech.pipeline import (
+from dodaios.speech.pipeline import (
     accept_recognition_reading,
     resolve_recognition_language,
 )
@@ -123,7 +123,7 @@ def _pipeline(*, primed: bool = True):
     running them happens to have dictated. The seeding itself is tested
     separately, against a history built for the purpose.
     """
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.speech.pipeline import SpeechPipeline
 
     pipe = SpeechPipeline.__new__(SpeechPipeline)
     pipe._dictation_anchor_primed = primed
@@ -242,8 +242,8 @@ def test_the_anchor_is_seeded_from_the_stored_history(tmp_path, monkeypatch) -> 
     dictations vote: a short one is what the provider gets wrong, so letting it
     seed would let the guess teach itself.
     """
-    from jarvis.dictation.history import DictationHistory
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.dictation.history import DictationHistory
+    from dodaios.speech.pipeline import SpeechPipeline
 
     path = tmp_path / "history.json"
     store = DictationHistory(path)
@@ -255,7 +255,7 @@ def test_the_anchor_is_seeded_from_the_stored_history(tmp_path, monkeypatch) -> 
         store.add(raw_text="y", text="y", language="de", duration_s=12.0)
 
     monkeypatch.setattr(
-        "jarvis.dictation.history.default_history_path", lambda: path
+        "dodaios.dictation.history.default_history_path", lambda: path
     )
     pipe = SpeechPipeline.__new__(SpeechPipeline)
 
@@ -266,7 +266,7 @@ def test_seeding_happens_once_even_when_the_history_is_unreadable(
     tmp_path, monkeypatch
 ) -> None:
     """A broken history costs an opening guess, never a dictation."""
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.speech.pipeline import SpeechPipeline
 
     calls: list[int] = []
 
@@ -274,7 +274,7 @@ def test_seeding_happens_once_even_when_the_history_is_unreadable(
         calls.append(1)
         raise OSError("history is on a disconnected drive")
 
-    monkeypatch.setattr("jarvis.dictation.history.default_history_path", _boom)
+    monkeypatch.setattr("dodaios.dictation.history.default_history_path", _boom)
     pipe = SpeechPipeline.__new__(SpeechPipeline)
 
     assert pipe._recent_dictation_language() == ""
@@ -295,7 +295,7 @@ class TestBreakingOutOfAWrongLanguage:
     """
 
     def test_a_confident_sustained_disagreement_overrules_the_anchor(self) -> None:
-        from jarvis.speech.pipeline import accept_recognition_correction
+        from dodaios.speech.pipeline import accept_recognition_correction
 
         # One reading is not enough, however sure it is.
         assert not accept_recognition_correction(
@@ -312,7 +312,7 @@ class TestBreakingOutOfAWrongLanguage:
         The anchor exists so a short clip cannot redirect a session; an escape
         hatch that opened as easily as the first reading would hand that back.
         """
-        from jarvis.speech.pipeline import (
+        from dodaios.speech.pipeline import (
             _RECOGNITION_PIN_MIN_PROBABILITY,
             accept_recognition_correction,
         )
@@ -326,7 +326,7 @@ class TestBreakingOutOfAWrongLanguage:
         )
 
     def test_agreeing_readings_are_not_corrections(self) -> None:
-        from jarvis.speech.pipeline import accept_recognition_correction
+        from dodaios.speech.pipeline import accept_recognition_correction
 
         assert not accept_recognition_correction(
             current="de", language="de", probability=1.0, streak=9
@@ -334,7 +334,7 @@ class TestBreakingOutOfAWrongLanguage:
 
     def test_a_non_answer_never_counts_as_a_disagreement(self) -> None:
         """"unknown" is the detector saying it could not tell, not a language."""
-        from jarvis.speech.pipeline import accept_recognition_correction
+        from dodaios.speech.pipeline import accept_recognition_correction
 
         for tag in ("", "auto", "unknown", "und", "nn"):
             assert not accept_recognition_correction(
@@ -342,7 +342,7 @@ class TestBreakingOutOfAWrongLanguage:
             ), tag
 
     def test_a_provider_reporting_no_confidence_is_refused(self) -> None:
-        from jarvis.speech.pipeline import accept_recognition_correction
+        from dodaios.speech.pipeline import accept_recognition_correction
 
         assert not accept_recognition_correction(
             current="en", language="de", probability=None, streak=5

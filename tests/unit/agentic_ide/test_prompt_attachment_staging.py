@@ -7,11 +7,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import fanout
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.prompt_attachments import stage_items_for_prompt_target
-from jarvis.agentic_ide.session import Registry
-from jarvis.brain.drop_context import DroppedItem
+from dodaios.agentic_ide import fanout
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.prompt_attachments import stage_items_for_prompt_target
+from dodaios.agentic_ide.session import Registry
+from dodaios.brain.drop_context import DroppedItem
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 

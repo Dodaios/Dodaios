@@ -2,8 +2,8 @@
 
 import asyncio
 
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.store import AgentChatStore
 
 
 class MeetingChatFake:

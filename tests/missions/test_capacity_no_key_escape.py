@@ -19,13 +19,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions import init as mi
-from jarvis.missions.capacity import WorkerCapacityUnavailable
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions import init as mi
+from dodaios.missions.capacity import WorkerCapacityUnavailable
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
 from tests.fakes.fake_mission_runtime import FakePaidOption, make_kontrollierer
 
 FAKE_API_KEY = "sk-ant-api03-FAKE-NOT-A-SECRET"
@@ -44,34 +44,34 @@ class World:
         mp = monkeypatch
         mp.setattr(mi, "_live_subagent_provider", lambda _snapshot: "claude-api")
         mp.setattr(
-            "jarvis.missions.workers.claude_direct_worker._resolve_claude_binary",
+            "dodaios.missions.workers.claude_direct_worker._resolve_claude_binary",
             lambda: "/usr/local/bin/claude",
         )
         mp.setattr(mi, "_claude_subscription_login_state", lambda: self.login)
         mp.setattr(
-            "jarvis.claude_quota_state.claude_in_quota_cooldown",
+            "dodaios.claude_quota_state.claude_in_quota_cooldown",
             lambda **_k: self.cooldown,
         )
         # Every paid / cross-family door is open, so only the policy can close it.
         mp.setattr(mi, "_claude_cli_auth_viable", lambda: True)
         mp.setattr(mi, "_api_key_family_viable", lambda _p: True)
         mp.setattr(
-            "jarvis.missions.workers.codex_direct_worker._codex_oauth_available",
+            "dodaios.missions.workers.codex_direct_worker._codex_oauth_available",
             lambda: self.codex_login,
         )
-        mp.setattr("jarvis.codex_auth_state.codex_needs_reauth", lambda: False)
-        mp.setattr("jarvis.codex_quota_state.codex_in_quota_cooldown", lambda **_k: False)
-        mp.setattr("jarvis.core.config.get_jarvis_agent_secret", lambda _p: FAKE_API_KEY)
+        mp.setattr("dodaios.codex_auth_state.codex_needs_reauth", lambda: False)
+        mp.setattr("dodaios.codex_quota_state.codex_in_quota_cooldown", lambda **_k: False)
+        mp.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _p: FAKE_API_KEY)
         mp.setattr(mi, "read_live_claude_oauth_token", lambda: self.live_oauth)
         mp.setattr(
-            "jarvis.claude_auth.usable_native_claude_subscription",
+            "dodaios.claude_auth.usable_native_claude_subscription",
             lambda: self.native_subscription,
         )
         mp.setattr(mi, "_assemble_worker_mcp_servers", lambda **_k: ())
 
     def subscription_install(self) -> None:
         """A subscription was seen connected recently (the sticky signal)."""
-        from jarvis.brain import background_policy
+        from dodaios.brain import background_policy
 
         background_policy.note_connected("claude-cli")
 
@@ -123,7 +123,7 @@ async def test_spent_or_unreadable_subscription_parks_instead_of_using_the_key(
 async def test_spent_claude_moves_to_a_connected_codex_login_not_the_key(
     stack: dict[str, Any], world: World
 ) -> None:
-    from jarvis.missions.workers.codex_direct_worker import CodexDirectWorker
+    from dodaios.missions.workers.codex_direct_worker import CodexDirectWorker
 
     world.login, world.cooldown, world.codex_login = True, True, True
     worker = stack["kontrollierer"]._worker_factory(_step())
@@ -160,7 +160,7 @@ async def test_key_only_install_keeps_its_key(
     """Finding 1: Claude Code installed but never logged in, no subscription
     ever seen — the key is this install's primary credential: not pinned, not
     stripped, no parking (AP-22)."""
-    from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
+    from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
 
     World(monkeypatch)  # login None, no codex login, no sticky marker
     assert mi.install_is_pinned() is False

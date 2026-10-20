@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.tts_eval.corpus import EvalItem
-from jarvis.speech.tts_eval.harness import (
+from dodaios.speech.tts_eval.corpus import EvalItem
+from dodaios.speech.tts_eval.harness import (
     EvalReport,
     Metrics,
     SynthResult,

@@ -12,9 +12,9 @@ No **fundamental incompatibility** — the plan is implementable. But three plan
 
 | Plan line | Claim | Reality |
 |---|---|---|
-| §5-A pre-flight #2 | "Know the FlightRecorder event schema (see `jarvis/telemetry/recorder.py` → `_FEATURED_FIELDS`)." | The constant `_FEATURED_FIELDS` does not exist. Today: `_TOP_LEVEL_FIELDS = frozenset({"trace_id", "timestamp_ns", "source_layer"})`. All other fields end up in `payload`. |
-| Appendix B | "`jarvis/telemetry/replay.py` — event schema reference." | `jarvis/telemetry/replay.py` does not exist. The telemetry directory contains only `recorder.py`. The event schema reference is `jarvis/core/events.py`. |
-| Appendix B | "`jarvis/memory/templates.py` — MEMORY.md/SOUL.md schema." | Exists as `jarvis/memory/templates.py` (file confirmed, content not checked in this recon). |
+| §5-A pre-flight #2 | "Know the FlightRecorder event schema (see `dodaios/telemetry/recorder.py` → `_FEATURED_FIELDS`)." | The constant `_FEATURED_FIELDS` does not exist. Today: `_TOP_LEVEL_FIELDS = frozenset({"trace_id", "timestamp_ns", "source_layer"})`. All other fields end up in `payload`. |
+| Appendix B | "`dodaios/telemetry/replay.py` — event schema reference." | `dodaios/telemetry/replay.py` does not exist. The telemetry directory contains only `recorder.py`. The event schema reference is `dodaios/core/events.py`. |
+| Appendix B | "`dodaios/memory/templates.py` — MEMORY.md/SOUL.md schema." | Exists as `dodaios/memory/templates.py` (file confirmed, content not checked in this recon). |
 
 None of these discrepancies block Phase A. They only mean the pre-flight checks must be adjusted accordingly at the Phase A start.
 
@@ -24,7 +24,7 @@ None of these discrepancies block Phase A. They only mean the pre-flight checks 
 
 ### 1.1 Serialization envelope
 
-`jarvis/telemetry/recorder.py` writes **one JSON line** per event with this structure:
+`dodaios/telemetry/recorder.py` writes **one JSON line** per event with this structure:
 
 ```json
 {
@@ -43,7 +43,7 @@ Relevant for aggregation:
 - Daily rotation + size rotation (500 MB → `YYYY-MM-DD-2.jsonl` etc.).
 - `_serialize_event` uses `dataclasses.asdict`, i.e. nested `HarnessResult`/`HarnessTask`/`Transcript` dataclasses are also recursively dict-dumped. Pydantic objects (`.model_dump()`) and `UUID` are handled correctly by `_json_default`.
 
-### 1.2 Event types published today (from `jarvis/core/events.py`)
+### 1.2 Event types published today (from `dodaios/core/events.py`)
 
 Grouped by responsibility. Bold = directly relevant for board Phase A/B.
 
@@ -153,7 +153,7 @@ Safe-to-export fields are generally: event class name, `ts_ns`, `tool_name`, `ha
 
 ## 2. FastAPI app — instantiation, routes, lifespan
 
-**File:** `jarvis/ui/web/server.py`
+**File:** `dodaios/ui/web/server.py`
 
 ### 2.1 App instantiation
 
@@ -182,9 +182,9 @@ Routes are registered in `_build_app()` in two phases:
 - `from .tasks_routes import router`
 - `from .tools_routes import router`
 - `from .workflows_routes import router`
-- `from conductor.api import router` (Conductor is a sibling package, not in `jarvis/`)
+- `from conductor.api import router` (Conductor is a sibling package, not in `dodaios/`)
 
-→ **For Phase A: create a new router `jarvis/ui/web/board_routes.py` and include it following the same pattern.** Inserting it between `workflows_router` and `conductor_router` keeps the group alphabetical.
+→ **For Phase A: create a new router `dodaios/ui/web/board_routes.py` and include it following the same pattern.** Inserting it between `workflows_router` and `conductor_router` keeps the group alphabetical.
 
 ### 2.3 Lifespan hook for background tasks
 
@@ -193,7 +193,7 @@ Routes are registered in `_build_app()` in two phases:
 Instead, `WebServer.start(host, port)` starts Uvicorn with `lifespan="on"` and starts background tasks itself directly in the async context:
 
 ```python
-# jarvis/ui/web/server.py:~707
+# dodaios/ui/web/server.py:~707
 if self._cli_registry is not None:
     async def _bootstrap_clis() -> None: ...
     asyncio.create_task(_bootstrap_clis(), name="cli-registry-bootstrap")
@@ -218,7 +218,7 @@ The skill watcher is activated analogously in `start()` via `self._skill_registr
 
 **Answer: TanStack React Query (`@tanstack/react-query` ^5.56.0).** SWR and custom fetch are **not** used.
 
-`jarvis/ui/web/frontend/package.json` confirms the dependency. All hooks in `jarvis/ui/web/frontend/src/hooks/` follow the identical pattern:
+`dodaios/ui/web/frontend/package.json` confirms the dependency. All hooks in `dodaios/ui/web/frontend/src/hooks/` follow the identical pattern:
 
 ```
 useBrainStatus.ts
@@ -243,7 +243,7 @@ useWorkflows.ts
 8. **A Zustand store** (`zustand` ^5.0.0) additionally exists for **non-server-side** client state (events, chat). No overlap with React Query.
 
 → **For Phase A:**
-- New file `jarvis/ui/web/frontend/src/hooks/useBoard.ts` with `useBoardSummary`, `useBoardHeatmap`, `useBoardTools`, `useBoardRecords` — all as `useQuery` with polling via `refetchInterval: 30_000` (corresponds to plan decision #1 in §5-A).
+- New file `dodaios/ui/web/frontend/src/hooks/useBoard.ts` with `useBoardSummary`, `useBoardHeatmap`, `useBoardTools`, `useBoardRecords` — all as `useQuery` with polling via `refetchInterval: 30_000` (corresponds to plan decision #1 in §5-A).
 - Mutations (bio regenerate, manual refresh) as `useMutation` with `invalidateQueries`.
 - `recharts` must be installed additionally (not in package.json).
 
@@ -256,7 +256,7 @@ useWorkflows.ts
 Grep over `requirements.txt` and `pyproject.toml`: no hit for `apscheduler|APScheduler`. Explicitly rejected in the code:
 
 ```python
-# jarvis/tasks/scheduler.py, Docstring
+# dodaios/tasks/scheduler.py, Docstring
 No cron semantics, no APScheduler, no second thread.
 Everything runs in the main async loop — this is intentional (ADR-0005).
 ```
@@ -265,9 +265,9 @@ Everything runs in the main async loop — this is intentional (ADR-0005).
 
 | Module | Technique | Usage |
 |---|---|---|
-| `jarvis/tasks/scheduler.py` | `asyncio` + `heapq` min-heap, single loop | Phase-5 task queue. Time-based (`after_delay`, `at_time`) + event-based (`on_event`). **No cron.** ADR-0005. |
-| `jarvis/workflows/scheduler.py` | `croniter` + asyncio loop | Workflow cron triggers (Phase 6). |
-| `jarvis/skills/trigger_matcher.py` | `croniter` | Skill `cron` trigger matching. |
+| `dodaios/tasks/scheduler.py` | `asyncio` + `heapq` min-heap, single loop | Phase-5 task queue. Time-based (`after_delay`, `at_time`) + event-based (`on_event`). **No cron.** ADR-0005. |
+| `dodaios/workflows/scheduler.py` | `croniter` + asyncio loop | Workflow cron triggers (Phase 6). |
+| `dodaios/skills/trigger_matcher.py` | `croniter` | Skill `cron` trigger matching. |
 | `conductor/core/scheduler.py` | `croniter` + asyncio poll loop (1 tick/s, `next_run_at_ns` in SQLite) | Standalone cron+interval runner for Conductor. A good model. |
 
 `croniter>=6.0` is anchored in `requirements.txt` line 87.
@@ -277,7 +277,7 @@ Everything runs in the main async loop — this is intentional (ADR-0005).
 **Do not introduce APScheduler — it breaks the project pattern.** Instead:
 
 1. **Primary choice: Conductor** (`conductor/core/scheduler.py`). Is explicitly committed as an "OSS tool for schedule tasks + agentic workflows" (commit `532b172a`). Jobs live in SQLite with `next_run_at_ns`, evaluated by an asyncio poll loop with `croniter`. Board aggregation nightly = a cron job in Conductor that calls `BoardAggregator.run()`. If you need recon detail on this → a separate prompt; listed only as an option in this recon.
-2. **Alternatively: lightweight in the `BoardAggregator` itself.** A dedicated asyncio loop with `asyncio.sleep` until the next 02:00 local-time slot. Analogous to `jarvis/tasks/scheduler.py` (heapq with a single entry). Minimal code, no external dependency. Recommended for Phase A, because the aggregator already runs as a background task anyway and nightly would simply be another `asyncio.create_task(_nightly_loop())`.
+2. **Alternatively: lightweight in the `BoardAggregator` itself.** A dedicated asyncio loop with `asyncio.sleep` until the next 02:00 local-time slot. Analogous to `dodaios/tasks/scheduler.py` (heapq with a single entry). Minimal code, no external dependency. Recommended for Phase A, because the aggregator already runs as a background task anyway and nightly would simply be another `asyncio.create_task(_nightly_loop())`.
 3. **Not recommended:** Duplicating a dedicated `croniter` loop in the board module when the workflow/Conductor pattern already exists. → If cron expressions are needed (user configures the bio-regenerate time in jarvis.toml), reuse `croniter` as in `workflows/scheduler.py`.
 
 → **Concretely for Phase A:** Option 2 (a dedicated sleep-until-next-slot loop in the aggregator), since the plan says "every 6h + on-startup" — that is a fixed interval, not a cron expression. For Phase B (Sunday 18:00 bio regen) the same loop can then be extended, or `croniter` brought in.
@@ -288,22 +288,22 @@ Everything runs in the main async loop — this is intentional (ADR-0005).
 
 **Answer: `aiosqlite` for new async stores, `sqlite3` stdlib for synchronous special cases. No SQLAlchemy, no Alembic.**
 
-Grep results (only `jarvis/` code, excluding `Aufgaben/`):
+Grep results (only `dodaios/` code, excluding `Aufgaben/`):
 
 **`aiosqlite` users (3 modules, the mainstream):**
-- `jarvis/memory/recall.py` — memory/facts
-- `jarvis/tasks/store.py` — task queue (ADR-0003)
-- `jarvis/workflows/store.py` — workflow runs
+- `dodaios/memory/recall.py` — memory/facts
+- `dodaios/tasks/store.py` — task queue (ADR-0003)
+- `dodaios/workflows/store.py` — workflow runs
 
 **`sqlite3` stdlib users (4 modules, special cases):**
-- `jarvis/clis/usage_log.py` — invocation log
-- `jarvis/control/cost.py` — CostMeter (synchronous call from tight loops)
-- `jarvis/skills/link_health.py` — HTTP probe cache
-- `jarvis/skills/local_search.py` — FTS index
+- `dodaios/clis/usage_log.py` — invocation log
+- `dodaios/control/cost.py` — CostMeter (synchronous call from tight loops)
+- `dodaios/skills/link_health.py` — HTTP probe cache
+- `dodaios/skills/local_search.py` — FTS index
 
-**SQLAlchemy/Alembic:** Zero hits in `jarvis/`, `conductor/`. Board plan §2 requires SQLAlchemy + Alembic explicitly for the **backend** (Phase C), not for layer A/B. For Phase A+B, therefore, stay with `aiosqlite`.
+**SQLAlchemy/Alembic:** Zero hits in `dodaios/`, `conductor/`. Board plan §2 requires SQLAlchemy + Alembic explicitly for the **backend** (Phase C), not for layer A/B. For Phase A+B, therefore, stay with `aiosqlite`.
 
-### 5.1 Canonical pattern (from `jarvis/tasks/store.py:28-80`)
+### 5.1 Canonical pattern (from `dodaios/tasks/store.py:28-80`)
 
 ```python
 class TaskStore:
@@ -327,7 +327,7 @@ class TaskStore:
 ```
 
 **Conventions distilled from it:**
-- Schema as a separate `schema.sql` file next to the store (`jarvis/tasks/schema.sql`).
+- Schema as a separate `schema.sql` file next to the store (`dodaios/tasks/schema.sql`).
 - Lazy init via `init()`, `async with` as context manager.
 - `isolation_level=None` (autocommit) + explicit transactions via `BEGIN/COMMIT` where needed.
 - WAL + busy_timeout + foreign_keys are **mandatory PRAGMAs**.
@@ -335,7 +335,7 @@ class TaskStore:
 - The schema is **additive**: all `CREATE TABLE IF NOT EXISTS`. Migration-free through idempotency — no Alembic needed.
 - DB files live under `data/` (convention): `data/memory/jarvis.db`, `data/tasks.db`, `data/workflows/workflows.db`, in future `data/board/personal.db`.
 
-→ **For Phase A:** `jarvis/board/store.py` following the same pattern, schema as `jarvis/board/schema.sql` with the three tables from plan §3 (`daily_stats`, `achievements`, `personal_records`) + `bio` (Phase B) optionally prepared already with `CREATE TABLE IF NOT EXISTS`.
+→ **For Phase A:** `dodaios/board/store.py` following the same pattern, schema as `dodaios/board/schema.sql` with the three tables from plan §3 (`daily_stats`, `achievements`, `personal_records`) + `bio` (Phase B) optionally prepared already with `CREATE TABLE IF NOT EXISTS`.
 
 ---
 
@@ -372,7 +372,7 @@ Reference: Plan §4, `AchievementEvaluator` from §5-B. Assumption: the aggregat
 - `first_mcp`, `tool_dabbler`, `tool_journeyman`, `tool_master`, `triple_combo`, `sub_jarvis_summoner`, `ten_x_engineer`, `one_year_with_jarvis`, `centennial`, `kilo_club`.
 
 **Requires a new event (1/8 mastery):**
-- `clear_speaker` — needs **`VoiceAttemptResult(first_try: bool, retry_of: UUID | None, ...)`** or a semantic equivalent. The publisher site would be the speech pipeline (`jarvis/speech/pipeline.py`) after a successful end-of-turn, either in `SpeechPipeline.run()` or at the router/brain-turn completion.
+- `clear_speaker` — needs **`VoiceAttemptResult(first_try: bool, retry_of: UUID | None, ...)`** or a semantic equivalent. The publisher site would be the speech pipeline (`dodaios/speech/pipeline.py`) after a successful end-of-turn, either in `SpeechPipeline.run()` or at the router/brain-turn completion.
 
 **Alternative heuristic** (if no new event is desired in Phase B):
 - A retry heuristic over two `TranscriptFinal` events in the same thread within 8 seconds without an intervening `ActionExecuted(success=True)` or `ResponseGenerated`. Fragile, but sufficient for the MVP.
@@ -397,14 +397,14 @@ Plan §3 schema `daily_stats` against event sources:
 
 Extracted from the recon, without implementation:
 
-1. **Module path:** `jarvis/board/` alongside `jarvis/workflows/` and `jarvis/tasks/`. Sub-files: `__init__.py`, `aggregator.py`, `store.py`, `schema.sql`, `achievements.py` (Phase B), `profile.py` (Phase B), `prompts.py` (Phase B).
+1. **Module path:** `dodaios/board/` alongside `dodaios/workflows/` and `dodaios/tasks/`. Sub-files: `__init__.py`, `aggregator.py`, `store.py`, `schema.sql`, `achievements.py` (Phase B), `profile.py` (Phase B), `prompts.py` (Phase B).
 2. **DB file:** `data/board/personal.db` (via `JarvisConfig.paths.data_dir / "board" / "personal.db"`).
 3. **Event source:** FlightRecorder JSONL (`data/flight_recorder/*.jsonl`) — envelope see §1.1.
-4. **FastAPI hook:** New router `jarvis/ui/web/board_routes.py`, included in `server.py:_build_app()`. `app.state.board_aggregator` as a handle.
+4. **FastAPI hook:** New router `dodaios/ui/web/board_routes.py`, included in `server.py:_build_app()`. `app.state.board_aggregator` as a handle.
 5. **Background task:** `asyncio.create_task(self._board_aggregator.run_forever(), name="board-aggregator")` in `WebServer.start()`, after `cli-registry-bootstrap`. Stop in `WebServer.stop()`.
-6. **Frontend route:** New view `jarvis/ui/web/frontend/src/views/BoardView.tsx`, registered in the router configuration alongside `ClisView`/`WorkflowsView`. Hooks in `hooks/useBoard.ts` with React Query + polling.
+6. **Frontend route:** New view `dodaios/ui/web/frontend/src/views/BoardView.tsx`, registered in the router configuration alongside `ClisView`/`WorkflowsView`. Hooks in `hooks/useBoard.ts` with React Query + polling.
 7. **Dependencies:** `npm i recharts` (frontend). No new Python deps for Phase A — `aiosqlite` is there, `croniter` is there, no `apscheduler`, no SQLAlchemy.
-8. **New event introduction for Phase B:** `VoiceAttemptResult` in `jarvis/core/events.py` **or** a retry heuristic in the aggregator (§6.4).
+8. **New event introduction for Phase B:** `VoiceAttemptResult` in `dodaios/core/events.py` **or** a retry heuristic in the aggregator (§6.4).
 
 ---
 

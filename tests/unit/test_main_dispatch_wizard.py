@@ -1,4 +1,4 @@
-"""Bare `python -m jarvis` must start the app, never the terminal wizard.
+"""Bare `python -m dodaios` must start the app, never the terminal wizard.
 
 Setup lives in the desktop/browser onboarding since 2026-07-06; the wizard is
 an explicit opt-in (`--wizard`) for SSH-only hosts. If first-run state ever
@@ -7,7 +7,7 @@ the first-launch onboarding both silently break.
 """
 import inspect
 
-import jarvis.__main__ as main_mod
+import dodaios.__main__ as main_mod
 
 
 def test_wizard_only_on_explicit_flag() -> None:

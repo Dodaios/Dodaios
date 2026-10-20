@@ -8,22 +8,22 @@ so behaviour and appearance stay identical across platforms.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     PROVIDER_ALIASES,
     TIER_DEFAULTS_BY_PROVIDER,
     get_tier_default_model,
 )
-from jarvis.brain.model_catalog import _ENDPOINTS, CATALOG_PROVIDERS, catalog_spec
-from jarvis.brain.provider_registry import BrainProviderRegistry
-from jarvis.core import config as cfg
-from jarvis.missions.init import _API_AGENT_SLUGS, _select_subagent_worker_kind
-from jarvis.missions.worker_runtime.provider_map import env_vars_for, to_worker_slug
-from jarvis.missions.workers.api_agent_worker import (
+from dodaios.brain.model_catalog import _ENDPOINTS, CATALOG_PROVIDERS, catalog_spec
+from dodaios.brain.provider_registry import BrainProviderRegistry
+from dodaios.core import config as cfg
+from dodaios.missions.init import _API_AGENT_SLUGS, _select_subagent_worker_kind
+from dodaios.missions.worker_runtime.provider_map import env_vars_for, to_worker_slug
+from dodaios.missions.workers.api_agent_worker import (
     _BRAIN_BY_PROVIDER,
     _DEFAULT_MODEL,
     supports_api_agent_worker,
 )
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.ui.web.provider_spec import get_spec
 
 
 # ── Site 1: API / provider + credential layer ────────────────────────────────
@@ -125,7 +125,7 @@ def test_provider_test_default_timeout_clears_nim_ttfb() -> None:
     connect timeout (~5s) still catches a genuinely dead endpoint fast."""
     import inspect
 
-    from jarvis.brain.provider_test import run_provider_test
+    from dodaios.brain.provider_test import run_provider_test
 
     default = inspect.signature(run_provider_test).parameters["timeout_s"].default
     assert default >= 45.0, f"provider-test timeout {default}s too tight for NIM TTFB"

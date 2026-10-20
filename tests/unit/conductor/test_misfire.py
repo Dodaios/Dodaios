@@ -1,7 +1,7 @@
 """BUG-212 — the Conductor skips a stale slot instead of catching it up.
 
 The Conductor is a standalone package and carries its own copy of the
-misfire grace; the first test pins it to ``jarvis.core.misfire`` so the two
+misfire grace; the first test pins it to ``dodaios.core.misfire`` so the two
 schedulers can never disagree about what "too late" means.
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from conductor.core.scheduler import MISFIRE_GRACE_NS, Scheduler
-from jarvis.core.misfire import MISFIRE_GRACE_NS as JARVIS_GRACE_NS
+from dodaios.core.misfire import MISFIRE_GRACE_NS as JARVIS_GRACE_NS
 
 _HOUR_NS = 3_600 * 1_000_000_000
 

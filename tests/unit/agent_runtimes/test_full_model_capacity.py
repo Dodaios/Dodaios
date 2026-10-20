@@ -2,12 +2,12 @@
 
 import pytest
 
-from jarvis.agent_runtimes import gateway
-from jarvis.agent_runtimes.model_limits import ModelLimits, resolve_limits
-from jarvis.brain.model_catalog import ModelInfo
-from jarvis.core.config import OllamaModelOptions
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
-from jarvis.plugins.brain.ollama import OllamaBrain
+from dodaios.agent_runtimes import gateway
+from dodaios.agent_runtimes.model_limits import ModelLimits, resolve_limits
+from dodaios.brain.model_catalog import ModelInfo
+from dodaios.core.config import OllamaModelOptions
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
+from dodaios.plugins.brain.ollama import OllamaBrain
 
 
 def test_known_output_capacity_is_not_halved():
@@ -60,7 +60,7 @@ def test_invalid_explicit_limits_are_rejected(bad):
 
 
 async def test_ollama_really_allocates_the_advertised_context(monkeypatch):
-    from jarvis.brain import ollama_profiles
+    from dodaios.brain import ollama_profiles
 
     configured = OllamaModelOptions(temperature=0.2)
     brain = OllamaBrain(model="m")
@@ -93,7 +93,7 @@ async def test_a_new_user_limit_is_not_overwritten_by_an_older_plan(monkeypatch)
 
 
 async def test_ollama_does_not_silently_serve_a_smaller_context(monkeypatch):
-    from jarvis.brain import ollama_profiles
+    from dodaios.brain import ollama_profiles
 
     brain = OllamaBrain(model="m")
     brain.set_context_window(131072)
@@ -110,8 +110,8 @@ async def test_ollama_does_not_silently_serve_a_smaller_context(monkeypatch):
 
 
 async def test_gateway_configures_capable_brain_before_inference(monkeypatch):
-    from jarvis.agent_chat import runner_api
-    from jarvis.core import config
+    from dodaios.agent_chat import runner_api
+    from dodaios.core import config
 
     gateway.reset()
     token = gateway.grant_token("full", "ollama")

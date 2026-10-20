@@ -14,12 +14,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from jarvis.core.config_writer import set_jarvisx_settings
-from jarvis.dodaiosx import capture
-from jarvis.dodaiosx import service as service_module
-from jarvis.dodaiosx import store as store_module
-from jarvis.dodaiosx.overlay.controller import Selection
-from jarvis.dodaiosx.service import JarvisXService
+from dodaios.core.config_writer import set_jarvisx_settings
+from dodaios.dodaiosx import capture
+from dodaios.dodaiosx import service as service_module
+from dodaios.dodaiosx import store as store_module
+from dodaios.dodaiosx.overlay.controller import Selection
+from dodaios.dodaiosx.service import JarvisXService
 
 _MONITORS = [
     {"left": 0, "top": 0, "width": 200, "height": 100},
@@ -177,7 +177,7 @@ async def test_effect_off_means_no_card(tmp_path, fake_screen) -> None:
 
 
 async def test_recording_lifecycle_with_a_fake_recorder(tmp_path, fake_screen, monkeypatch) -> None:
-    from jarvis.dodaiosx import recorder as rec
+    from dodaios.dodaiosx import recorder as rec
 
     monkeypatch.setattr(
         rec,
@@ -246,8 +246,8 @@ def test_settings_writer_round_trip_and_allowlist(tmp_path) -> None:
 
 @pytest.fixture
 def client(tmp_path, monkeypatch, fake_screen):
-    from jarvis.dodaiosx import recorder as rec
-    from jarvis.ui.web.jarvisx_routes import router
+    from dodaios.dodaiosx import recorder as rec
+    from dodaios.ui.web.jarvisx_routes import router
 
     config_path = tmp_path / "jarvis.toml"
     config_path.write_text(

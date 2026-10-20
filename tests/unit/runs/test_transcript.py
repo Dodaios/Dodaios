@@ -6,8 +6,8 @@ chronological transcript that weaves the user's utterance, every Jarvis phrase
 outcomes, and system outputs (exit codes, denials, errors) into one ordered
 stream. This is the requirement the event-kind Timeline panel does not meet:
 the Timeline truncates text to 80 chars and is not role-tagged."""
-from jarvis.runs.analyzer import build_transcript
-from jarvis.runs.constants import (
+from dodaios.runs.analyzer import build_transcript
+from dodaios.runs.constants import (
     ROLE_ERROR,
     ROLE_JARVIS,
     ROLE_SYSTEM,
@@ -15,8 +15,8 @@ from jarvis.runs.constants import (
     ROLE_USER,
     TRANSCRIPT_ROLES,
 )
-from jarvis.runs.model import RunTurn, TranscriptLine
-from jarvis.sessions.models import VoiceEventRow
+from dodaios.runs.model import RunTurn, TranscriptLine
+from dodaios.sessions.models import VoiceEventRow
 
 
 def _ev(kind, ts_ms=0, **payload):

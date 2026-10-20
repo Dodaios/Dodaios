@@ -6,16 +6,16 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
-from jarvis.missions.event_bus import MissionBus
-from jarvis.missions.events import (
+from dodaios.missions.event_bus import MissionBus
+from dodaios.missions.events import (
     EventEnvelope,
     MissionDispatched,
     MissionFailed,
     MissionStateChanged,
     now_ms,
 )
-from jarvis.missions.manager import MissionManager, MissionView
-from jarvis.missions.state_machine import IllegalStateTransition, MissionState
+from dodaios.missions.manager import MissionManager, MissionView
+from dodaios.missions.state_machine import IllegalStateTransition, MissionState
 
 
 # --- Fixtures ---

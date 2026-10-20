@@ -27,7 +27,7 @@ if "!WATCHDOG_PID!"=="" goto :stop_empty
 tasklist /FI "PID eq !WATCHDOG_PID!" 2>NUL | find "!WATCHDOG_PID!" >NUL
 if errorlevel 1 goto :stop_stale
 REM PID is alive — verify it is really our watchdog (PID reuse guard).
-python -c "import sys; from jarvis.speech.watchdog import recorded_watchdog_alive; sys.exit(0 if recorded_watchdog_alive() else 1)" >NUL 2>&1
+python -c "import sys; from dodaios.speech.watchdog import recorded_watchdog_alive; sys.exit(0 if recorded_watchdog_alive() else 1)" >NUL 2>&1
 if errorlevel 1 goto :stop_foreign
 echo Stoppe PID !WATCHDOG_PID!
 taskkill /PID !WATCHDOG_PID! /F
@@ -58,7 +58,7 @@ set /p WATCHDOG_PID=<"%PIDFILE%"
 if "!WATCHDOG_PID!"=="" goto :stale_pid
 tasklist /FI "PID eq !WATCHDOG_PID!" 2>NUL | find "!WATCHDOG_PID!" >NUL
 if errorlevel 1 goto :stale_pid
-python -c "import sys; from jarvis.speech.watchdog import recorded_watchdog_alive; sys.exit(0 if recorded_watchdog_alive() else 1)" >NUL 2>&1
+python -c "import sys; from dodaios.speech.watchdog import recorded_watchdog_alive; sys.exit(0 if recorded_watchdog_alive() else 1)" >NUL 2>&1
 if not errorlevel 1 goto :already_running
 :stale_pid
 del "%PIDFILE%" 2>NUL
@@ -71,7 +71,7 @@ goto :end
 
 if "%1"=="--quiet" (
     REM Headless: pythonw laesst keine Console, Logs gehen in data/jarvis_watchdog.log
-    start "" pythonw -m jarvis.speech.watchdog
+    start "" pythonw -m dodaios.speech.watchdog
     echo Voice-Watchdog gestartet im Hintergrund.
     echo Logs: data\jarvis_watchdog.log
 ) else (
@@ -80,7 +80,7 @@ if "%1"=="--quiet" (
     echo   Voice-Watchdog startet. Beenden mit Strg+C oder 'voice --stop'.
     echo   Logs laufen ins Terminal + data\jarvis_watchdog.log
     echo ================================================================
-    python -m jarvis.speech.watchdog
+    python -m dodaios.speech.watchdog
 )
 
 :end

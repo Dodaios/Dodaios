@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _DEAD_LIST_KINDS,
     _PROVIDER_DOWN_CAUSE_PHRASES,
     BrainManager,
@@ -266,7 +266,7 @@ class TestLocalContextCause:
 
     @staticmethod
     def _error() -> str:
-        from jarvis.brain.local_context import LocalContextError, fix_hint
+        from dodaios.brain.local_context import LocalContextError, fix_hint
 
         return str(
             LocalContextError(
@@ -316,7 +316,7 @@ class TestWindowIsSettledBeforeFitting:
     budgeted for a figure the server does not run."""
 
     async def test_a_brain_that_can_ask_is_asked_first(self) -> None:
-        from jarvis.brain.manager import _settle_context_window
+        from dodaios.brain.manager import _settle_context_window
 
         class _Asking(_FakeBrain):
             async def prepare_context_window(self) -> None:
@@ -327,7 +327,7 @@ class TestWindowIsSettledBeforeFitting:
         assert brain.context_window == 4_096
 
     async def test_a_hosted_brain_is_not_touched(self) -> None:
-        from jarvis.brain.manager import _settle_context_window
+        from dodaios.brain.manager import _settle_context_window
 
         brain = _FakeBrain(1_000_000)
         await _settle_context_window(brain)
@@ -336,7 +336,7 @@ class TestWindowIsSettledBeforeFitting:
     async def test_a_failing_or_slow_probe_never_costs_the_turn(self, monkeypatch) -> None:
         import asyncio
 
-        import jarvis.brain.manager as manager
+        import dodaios.brain.manager as manager
 
         class _Broken(_FakeBrain):
             async def prepare_context_window(self) -> None:
@@ -379,6 +379,6 @@ class TestToolCountCap:
         assert fitted is tools and dropped == []
 
     def test_grok_declares_its_cap(self) -> None:
-        from jarvis.plugins.brain.grok import GrokBrain
+        from dodaios.plugins.brain.grok import GrokBrain
 
         assert GrokBrain.max_tools == 350

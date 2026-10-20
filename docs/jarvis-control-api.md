@@ -7,9 +7,9 @@ the reply language, rotate provider keys, read the providers snapshot. It is the
 real, deterministic alternative to Computer-Use for self-configuration.
 
 Mounted at **`/api/control/*`** on the same FastAPI server the desktop UI uses.
-Implemented as a thin authenticated facade (`jarvis/ui/web/control_routes.py`)
+Implemented as a thin authenticated facade (`dodaios/ui/web/control_routes.py`)
 over the production-ready layers — `AtomicConfigWriter` (atomic backup +
-validate + rollback + audit), `jarvis.brain.app_control` (live provider switch),
+validate + rollback + audit), `dodaios.brain.app_control` (live provider switch),
 and the keyring secret store. It reimplements none of them.
 
 ## The per-user API key
@@ -97,7 +97,7 @@ experience; `auto` only affects replies.
 `ConfigReloaded` subscriber calls `BrainManager.set_reply_language`) with **no
 restart**. `brain.proactivity` (off/balanced/high, how much initiative the
 assistant takes) reloads the same way through
-`jarvis.brain.proactivity.apply_level`; the assistant page sets it with
+`dodaios.brain.proactivity.apply_level`; the assistant page sets it with
 `PUT /api/soul/initiative`.
 `brain.primary`, `tts.provider`, `stt.*` are **ASK** — `PUT /config` returns
 `needs_confirmation=true` + a `pending_id`; confirm to apply. `requires_restart`
@@ -130,7 +130,7 @@ allowlist, the same atomic writer, and the same audit log.
 
 ## The default skill
 
-A built-in skill `control-api` (`jarvis/skills/builtin/control-api/SKILL.md`,
+A built-in skill `control-api` (`dodaios/skills/builtin/control-api/SKILL.md`,
 `category: meta`, shipped VALIDATED, no voice triggers) is copied into every
 install's skills dir on first boot. It is the recipe a local coding agent reads
 when asked "can you change something on my Dodaios?" — base URL, key location,

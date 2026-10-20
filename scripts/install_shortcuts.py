@@ -13,7 +13,7 @@ Both shortcuts point to run.bat in the project folder. run.bat uses
 pythonw.exe, so no console window pops up.
 
 Dev instance (a second, freely restartable desktop app — see
-``jarvis/core/instance.py``):
+``dodaios/core/instance.py``):
 
     python scripts/install_shortcuts.py --dev
 
@@ -38,12 +38,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from jarvis.core.branding import (  # noqa: E402 - script source path above
+from dodaios.core.branding import (  # noqa: E402 - script source path above
     PRODUCT_NAME,
     WINDOWS_APP_USER_MODEL_ID,
     WINDOWS_SHORTCUT_FILE_NAME,
 )
-from jarvis.core.instance import (  # noqa: E402 - script source path above
+from dodaios.core.instance import (  # noqa: E402 - script source path above
     DEV_INSTANCE_NAME,
     InstanceIdentity,
 )
@@ -61,7 +61,7 @@ APP_USER_MODEL_ID = WINDOWS_APP_USER_MODEL_ID
 DESCRIPTION = f"{PRODUCT_NAME} — voice-controlled meta-orchestrator"
 
 # Jarvis launcher module (pywebview window, no console)
-LAUNCHER_MODULE = "jarvis.ui.web.launcher"
+LAUNCHER_MODULE = "dodaios.ui.web.launcher"
 
 
 def desktop_path() -> Path:
@@ -240,15 +240,15 @@ def create_shortcut(
 
 
 def _enable_autostart_via_port() -> None:
-    """Delegate login-autostart to the cross-platform ``jarvis.autostart`` port.
+    """Delegate login-autostart to the cross-platform ``dodaios.autostart`` port.
 
     Collapses the two historical Windows autostart mechanisms (this script's own
     ``create_shortcut(startup_path())`` + the wizard's ``Jarvis.bat`` hack) into
     the single port implementation, and persists ``[autostart].enabled = true``.
     """
-    from jarvis.autostart import make_autostart_manager, resolve_launch_spec
-    from jarvis.core import config_writer
-    from jarvis.platform.capabilities import detect_capabilities
+    from dodaios.autostart import make_autostart_manager, resolve_launch_spec
+    from dodaios.core import config_writer
+    from dodaios.platform.capabilities import detect_capabilities
 
     try:
         config_writer.set_autostart(True)
@@ -265,9 +265,9 @@ def _enable_autostart_via_port() -> None:
 
 
 def _disable_autostart_via_port() -> None:
-    from jarvis.autostart import make_autostart_manager
-    from jarvis.core import config_writer
-    from jarvis.platform.capabilities import detect_capabilities
+    from dodaios.autostart import make_autostart_manager
+    from dodaios.core import config_writer
+    from dodaios.platform.capabilities import detect_capabilities
 
     try:
         config_writer.set_autostart(False)

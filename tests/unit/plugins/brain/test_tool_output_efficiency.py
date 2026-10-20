@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.tool_use_loop import ToolUseLoop
-from jarvis.core.protocols import BrainDelta, BrainMessage, ToolResult
-from jarvis.live.session import LiveVoiceSession
-from jarvis.plugins.brain._openai_base import (
+from dodaios.brain.tool_use_loop import ToolUseLoop
+from dodaios.core.protocols import BrainDelta, BrainMessage, ToolResult
+from dodaios.live.session import LiveVoiceSession
+from dodaios.plugins.brain._openai_base import (
     _chat_messages_to_responses_input,
     _to_openai_messages,
 )

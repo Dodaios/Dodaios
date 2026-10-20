@@ -43,9 +43,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from jarvis.core.protocols import AudioChunk  # noqa: E402
-from jarvis.plugins.wake.vosk_kws_provider import VoskKwsProvider  # noqa: E402
-from jarvis.speech.wake_constants import (  # noqa: E402
+from dodaios.core.protocols import AudioChunk  # noqa: E402
+from dodaios.plugins.wake.vosk_kws_provider import VoskKwsProvider  # noqa: E402
+from dodaios.speech.wake_constants import (  # noqa: E402
     phrase_core,
     resolve_vosk_model_paths,
 )

@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from jarvis.core.config import SpeechConfig
+from dodaios.core.config import SpeechConfig
 
 
 def test_default_is_automatic() -> None:
@@ -27,8 +27,8 @@ def test_automatic_resolves_to_the_pipelines_own_window() -> None:
     resolved value explicitly, but keeping the constructor default aligned
     stops a stale 1.0 s from creeping back via a bare construction.
     """
-    from jarvis.audio.vad import SileroEndpointer
-    from jarvis.speech.pipeline import _local_silence_window_ms
+    from dodaios.audio.vad import SileroEndpointer
+    from dodaios.speech.pipeline import _local_silence_window_ms
 
     resolved = _local_silence_window_ms(SpeechConfig().vad_silence_ms)
     assert resolved == 1500
@@ -60,7 +60,7 @@ def test_rejects_above_maximum() -> None:
 def test_writer_roundtrips_to_speech_table(tmp_path) -> None:
     import tomllib
 
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     p = tmp_path / "jarvis.toml"
     p.write_text("", encoding="utf-8")
@@ -72,7 +72,7 @@ def test_writer_roundtrips_to_speech_table(tmp_path) -> None:
 def test_writer_clamps_out_of_range(tmp_path) -> None:
     import tomllib
 
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     p = tmp_path / "jarvis.toml"
     p.write_text("", encoding="utf-8")
@@ -85,7 +85,7 @@ def test_writer_keeps_automatic_as_zero(tmp_path) -> None:
     """0 is the automatic setting, not a 0 ms window — it must survive the clamp."""
     import tomllib
 
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     p = tmp_path / "jarvis.toml"
     p.write_text("", encoding="utf-8")

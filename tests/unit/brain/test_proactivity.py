@@ -2,7 +2,7 @@
 
 Locks the three pieces the 2026-10-07 change added:
 
-* the rule per level (``jarvis.brain.proactivity.directive``) and the one
+* the rule per level (``dodaios.brain.proactivity.directive``) and the one
   boundary every level that allows ideas must carry: an idea never
   authorises sending, contacting, spending, deleting, changing settings or
   starting background work;
@@ -22,14 +22,14 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.core.config as core_config
-from jarvis.brain import proactivity
-from jarvis.brain.manager import _TURN_OVERRIDE, BrainManager
-from jarvis.brain.turn_override import TurnOverride
-from jarvis.core.config import BrainConfig, load_config
-from jarvis.core.self_mod.registry import SelfModRegistry
-from jarvis.memory.learning import notebook as notebook_module
-from jarvis.memory.learning.notebook import JarvisNotebook, note_dates
+import dodaios.core.config as core_config
+from dodaios.brain import proactivity
+from dodaios.brain.manager import _TURN_OVERRIDE, BrainManager
+from dodaios.brain.turn_override import TurnOverride
+from dodaios.core.config import BrainConfig, load_config
+from dodaios.core.self_mod.registry import SelfModRegistry
+from dodaios.memory.learning import notebook as notebook_module
+from dodaios.memory.learning.notebook import JarvisNotebook, note_dates
 
 TODAY = date(2026, 10, 7)
 
@@ -292,7 +292,7 @@ def test_a_society_agents_turn_gets_no_initiative_rule(
 
 
 def test_realtime_instructions_carry_the_rule_and_the_dated_plans(tmp_path: Path) -> None:
-    from jarvis.realtime.session import _session_instructions
+    from dodaios.realtime.session import _session_instructions
 
     _book_with_plans(tmp_path)
     full = _session_instructions("de", proactivity_level="balanced")
@@ -308,7 +308,7 @@ def test_realtime_instructions_carry_the_rule_and_the_dated_plans(tmp_path: Path
 
 
 def test_gpt_live_identity_carries_the_rule(tmp_path: Path) -> None:
-    from jarvis.live.session import _identity
+    from dodaios.live.session import _identity
 
     _book_with_plans(tmp_path)
     cfg = load_config()
@@ -327,8 +327,8 @@ async def test_a_voice_or_chat_change_applies_on_the_next_turn(
     import time
     from uuid import uuid4
 
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import ConfigReloaded
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import ConfigReloaded
 
     target = tmp_path / "jarvis.toml"
     target.write_text('[brain]\nproactivity = "off"\n', encoding="utf-8")

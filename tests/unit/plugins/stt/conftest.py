@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.core.config as cfg
+import dodaios.core.config as cfg
 
 
 @pytest.fixture(autouse=True)

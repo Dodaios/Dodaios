@@ -19,7 +19,7 @@ def _api_key_available() -> bool:
 @pytest.mark.skipif(not _api_key_available(), reason="no brain API key")
 @pytest.mark.asyncio
 async def test_haiku_speed_under_5s():
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     brain = build_default_brain()
     t0 = time.perf_counter()
     r = await asyncio.wait_for(brain.generate("Sag nur 'Hi'. Nichts sonst."), timeout=20)
@@ -39,7 +39,7 @@ async def test_haiku_spawn_multiple_terminals():
     that the brain answers within the deadline. (open_app used to be the
     assertion anchor in older builds; the tool was removed — now pure latency.)
     """
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
     brain = build_default_brain()
 
     t0 = time.perf_counter()

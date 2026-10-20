@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import file_index, prompt_composer
+from dodaios.agentic_ide import file_index, prompt_composer
 
 
 @pytest.fixture(autouse=True)
@@ -57,8 +57,8 @@ class _Writer:
 
 @pytest.fixture()
 def workspace(tmp_path: Path) -> _Session:
-    (tmp_path / "jarvis").mkdir(parents=True)
-    (tmp_path / "jarvis" / "wake.py").write_text("x")
+    (tmp_path / "dodaios").mkdir(parents=True)
+    (tmp_path / "dodaios" / "wake.py").write_text("x")
     file_index.reset_cache()
     file_index._CACHE[str(tmp_path)] = file_index.build_index(tmp_path)  # noqa: SLF001
     return _Session(folder=str(tmp_path))

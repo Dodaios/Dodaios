@@ -41,7 +41,7 @@ STALE_MODELS = {
 
 def check_toml() -> int:
     """Reads jarvis.toml and checks that all [brain.providers.*] are frontier."""
-    from jarvis.core.config import load_config
+    from dodaios.core.config import load_config
 
     cfg = load_config()
     issues = []
@@ -136,18 +136,18 @@ def check_db(post_restart_only: bool = True) -> int:
 def check_brain_module_imports() -> int:
     """Imports laufen ohne ModuleNotFoundError."""
     try:
-        from jarvis.brain import (  # noqa: F401
+        from dodaios.brain import (  # noqa: F401
             cost,
             factory,
             frontier_autoswitch,
             frontier_resolver,
             manager,
         )
-        from jarvis.core.events import (  # noqa: F401
+        from dodaios.core.events import (  # noqa: F401
             BrainTurnCompleted,
             BrainTurnStarted,
         )
-        from jarvis.sessions import recorder, store  # noqa: F401
+        from dodaios.sessions import recorder, store  # noqa: F401
     except ImportError as exc:
         print(f"FAIL: Import-Error: {exc}")
         return 1

@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.harness.screenshot_only_loop import (
+from dodaios.harness.screenshot_only_loop import (
     _VALID_ACTIONS,
     CULoopError,
     _capture_monitor_geometry,
@@ -109,7 +109,7 @@ def test_capture_monitor_geometry_mss_fallback_off_windows(monkeypatch) -> None:
     # Pin the selector to the physical monitor (avoid the Windows ctypes path
     # the real selector would take while this test runs on a Windows host).
     monkeypatch.setattr(
-        "jarvis.vision.screenshot.select_capture_monitor",
+        "dodaios.vision.screenshot.select_capture_monitor",
         lambda monitors, **kw: monitors[1],
     )
 
@@ -293,7 +293,7 @@ def test_execute_wait_sleeps_the_requested_duration() -> None:
         sleeps.append(s)
 
     # Inject the fake sleep via monkeypatching the module's asyncio.sleep.
-    import jarvis.harness.screenshot_only_loop as mod
+    import dodaios.harness.screenshot_only_loop as mod
     real = mod.asyncio.sleep
     mod.asyncio.sleep = fake_sleep
     try:
@@ -420,7 +420,7 @@ def test_execute_open_app_reports_missing_tool_cleanly() -> None:
 
 
 def test_cancel_active_cu_registry() -> None:
-    from jarvis.harness.computer_use_context import (
+    from dodaios.harness.computer_use_context import (
         cancel_active_cu,
         register_active_cu_token,
     )
@@ -463,7 +463,7 @@ def test_cancel_active_cu_cancels_all_concurrent_missions() -> None:
     cancelled one mission while the other kept clicking the screen for ~22 s
     after the user hung up (data/jarvis_desktop.log 20:45:54 -> 20:46:16).
     """
-    from jarvis.harness.computer_use_context import (
+    from dodaios.harness.computer_use_context import (
         cancel_active_cu,
         register_active_cu_token,
         unregister_active_cu_token,
@@ -510,7 +510,7 @@ def test_cancel_active_cu_cancels_all_concurrent_missions() -> None:
 
 
 def test_render_plan_marks_current_step() -> None:
-    from jarvis.harness.screenshot_only_loop import _render_plan
+    from dodaios.harness.screenshot_only_loop import _render_plan
 
     plan = [
         {"intent": "open Spotify", "success": "window visible"},
@@ -547,7 +547,7 @@ def test_make_plan_parses_ordered_steps() -> None:
         '{"intent": "type the song name", "success": "query text visible"},'
         '{"intent": "press play", "success": "elapsed timer advancing"}]}'
     )
-    from jarvis.harness.screenshot_only_loop import _make_plan
+    from dodaios.harness.screenshot_only_loop import _make_plan
 
     obs = _DummyObs()
     plan = asyncio.run(
@@ -559,7 +559,7 @@ def test_make_plan_parses_ordered_steps() -> None:
 
 
 def test_make_plan_returns_empty_on_garbage() -> None:
-    from jarvis.harness.screenshot_only_loop import _make_plan
+    from dodaios.harness.screenshot_only_loop import _make_plan
 
     obs = _DummyObs()
     plan = asyncio.run(
@@ -625,7 +625,7 @@ class _StreamCtx:
 
 
 def _action_stream_deltas():
-    from jarvis.core.protocols import BrainDelta
+    from dodaios.core.protocols import BrainDelta
 
     return [
         BrainDelta(content='{"action": '),
@@ -638,7 +638,7 @@ def _action_stream_deltas():
 def test_call_brain_early_stops_on_complete_json_action() -> None:
     import json as _json
 
-    from jarvis.harness.screenshot_only_loop import _call_brain
+    from dodaios.harness.screenshot_only_loop import _call_brain
 
     consumed: list[int] = []
     brain = _StreamBrain(_action_stream_deltas(), consumed)
@@ -657,7 +657,7 @@ def test_call_brain_early_stops_on_complete_json_action() -> None:
 
 
 def test_call_brain_default_drains_whole_stream() -> None:
-    from jarvis.harness.screenshot_only_loop import _call_brain
+    from dodaios.harness.screenshot_only_loop import _call_brain
 
     consumed: list[int] = []
     brain = _StreamBrain(_action_stream_deltas(), consumed)
@@ -677,8 +677,8 @@ def test_call_brain_default_drains_whole_stream() -> None:
 
 def test_make_plan_early_stops_at_complete_json() -> None:
     """The planner call (max 512 out tokens) also early-stops at the plan JSON."""
-    from jarvis.core.protocols import BrainDelta
-    from jarvis.harness.screenshot_only_loop import _make_plan
+    from dodaios.core.protocols import BrainDelta
+    from dodaios.harness.screenshot_only_loop import _make_plan
 
     consumed: list[int] = []
     deltas = [
@@ -744,7 +744,7 @@ def test_execute_key_missing_hotkey_tool_reports_cleanly() -> None:
 
 
 def test_goal_needs_result_matches_compute_goals() -> None:
-    from jarvis.harness.screenshot_only_loop import _goal_needs_result
+    from dodaios.harness.screenshot_only_loop import _goal_needs_result
 
     assert _goal_needs_result("rechne 8x8 plus 7") is True
     assert _goal_needs_result("berechne 12 geteilt durch 4") is True
@@ -754,7 +754,7 @@ def test_goal_needs_result_matches_compute_goals() -> None:
 
 
 def test_compute_goal_arms_verification() -> None:
-    from jarvis.harness.screenshot_only_loop import _goal_needs_verification
+    from dodaios.harness.screenshot_only_loop import _goal_needs_verification
 
     # Compute goals must arm the verifier so a wrong display isn't reported done.
     assert _goal_needs_verification("rechne 8x8 plus 7") is True
@@ -765,7 +765,7 @@ def test_compute_goal_arms_verification() -> None:
 
 
 def test_parse_verdict_tolerates_fences_and_garbage() -> None:
-    from jarvis.harness.screenshot_only_loop import _parse_verdict
+    from dodaios.harness.screenshot_only_loop import _parse_verdict
 
     assert _parse_verdict('{"done": true, "proof": "shows 71"}') == (True, "shows 71")
     assert _parse_verdict('```json\n{"done": false, "proof": "shows 130"}\n```') == (
@@ -858,7 +858,7 @@ def test_execute_type_settles_before_dispatch(monkeypatch) -> None:
     """The CU loop must pause briefly before typing so a freshly-focused
     webview/Tauri input is listening -- otherwise leading characters drop
     (CU typo bug 2026-06-15). The settle is awaited BEFORE the type is sent."""
-    import jarvis.harness.screenshot_only_loop as loop
+    import dodaios.harness.screenshot_only_loop as loop
 
     # One shared list records both events in execution order, so we can prove
     # the settle is awaited BEFORE the dispatch -- not merely that both happened.
@@ -976,7 +976,7 @@ async def _drain(agen):
 
 
 def test_open_app_launched_at_most_once_per_mission(monkeypatch) -> None:
-    import jarvis.harness.screenshot_only_loop as loop
+    import dodaios.harness.screenshot_only_loop as loop
 
     # Fast + deterministic on Windows: no real UIA enumeration, no real
     # monitor probing (open_app needs neither).

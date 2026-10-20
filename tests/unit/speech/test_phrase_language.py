@@ -21,8 +21,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from jarvis.speech import pipeline as pipeline_mod
-from jarvis.speech.pipeline import (
+from dodaios.speech import pipeline as pipeline_mod
+from dodaios.speech.pipeline import (
     _ACTION_DONE_PHRASE,
     _BRAIN_UNAVAILABLE_PHRASE,
     _CLARIFY_QUESTION_PHRASE,

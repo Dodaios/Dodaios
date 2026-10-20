@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ToolResult
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ToolResult
 
 
 class _RecordingExecutor:

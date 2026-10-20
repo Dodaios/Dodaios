@@ -8,8 +8,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain import app_control
-from jarvis.core import config_writer
+from dodaios.brain import app_control
+from dodaios.core import config_writer
 
 
 @pytest.fixture(autouse=True)
@@ -121,7 +121,7 @@ def test_failed_switch_preserves_memory(monkeypatch):
 @pytest.mark.parametrize("legacy", [False, True])
 @pytest.mark.parametrize("selected", ["openai-codex", "gemini"])
 def test_divergent_environment_reload(tmp_path, monkeypatch, legacy, selected):
-    from jarvis.core.config import load_config
+    from dodaios.core.config import load_config
 
     config = tmp_path / "jarvis.toml"
     config.write_text('[brain.worker]\nprovider = "openai-codex"\nmodel = "gpt-model"\n')

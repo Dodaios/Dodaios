@@ -26,7 +26,7 @@ _LEFT_UP = 0x0004
 def _pointer_actuator(refuse_after: int | None = None):
     """Recording ``WindowsActuator`` whose first ``_send`` optionally reports a
     partial injection, the way SendInput does when UIPI truncates a batch."""
-    from jarvis.cu.actuate.windows import SendInputRefused, WindowsActuator
+    from dodaios.cu.actuate.windows import SendInputRefused, WindowsActuator
 
     actuator = WindowsActuator.__new__(WindowsActuator)
     actuator._t = None
@@ -60,7 +60,7 @@ def test_click_sends_move_then_press_and_release() -> None:
 
 def test_click_releases_the_button_a_refused_batch_left_down() -> None:
     """Move + DOWN accepted, UP rejected — the button must come back up."""
-    from jarvis.cu.actuate.windows import SendInputRefused
+    from dodaios.cu.actuate.windows import SendInputRefused
 
     actuator, sent = _pointer_actuator(refuse_after=2)
 
@@ -75,7 +75,7 @@ def test_click_sends_no_stray_release_when_only_the_move_landed() -> None:
     """Refused before the press: a WM_LBUTTONUP with no preceding DOWN is real
     input the caller never asked for, and applications that watch raw button
     transitions do react to it."""
-    from jarvis.cu.actuate.windows import SendInputRefused
+    from dodaios.cu.actuate.windows import SendInputRefused
 
     actuator, sent = _pointer_actuator(refuse_after=1)
 
@@ -86,7 +86,7 @@ def test_click_sends_no_stray_release_when_only_the_move_landed() -> None:
 
 
 def test_click_sends_no_stray_release_when_nothing_landed() -> None:
-    from jarvis.cu.actuate.windows import SendInputRefused
+    from dodaios.cu.actuate.windows import SendInputRefused
 
     actuator, sent = _pointer_actuator(refuse_after=0)
 
@@ -102,7 +102,7 @@ def test_double_click_recovery_tracks_the_actual_button_state() -> None:
     stray event the previous test guards. Truncated one event later it is held,
     and the release is owed. A naive "did we press at all" check gets the first
     case wrong."""
-    from jarvis.cu.actuate.windows import SendInputRefused
+    from dodaios.cu.actuate.windows import SendInputRefused
 
     actuator, sent = _pointer_actuator(refuse_after=3)
     with pytest.raises(SendInputRefused):
@@ -119,7 +119,7 @@ def test_double_click_recovery_tracks_the_actual_button_state() -> None:
 def test_click_at_cursor_also_recovers_a_held_button() -> None:
     """The no-positioning path (the visible glide animation already moved the
     cursor) shares the same hazard and the same guard."""
-    from jarvis.cu.actuate.windows import SendInputRefused
+    from dodaios.cu.actuate.windows import SendInputRefused
 
     actuator, sent = _pointer_actuator(refuse_after=1)
 
@@ -134,7 +134,7 @@ def test_click_at_cursor_also_recovers_a_held_button() -> None:
 def test_send_input_refused_carries_the_injected_count() -> None:
     """The recovery decision is only possible because the exception carries how
     far the batch got — a plain WinError threw that away."""
-    from jarvis.cu.actuate.windows import SendInputRefused
+    from dodaios.cu.actuate.windows import SendInputRefused
 
     exc = SendInputRefused("nope", injected=2, total=5)
     assert exc.injected == 2

@@ -43,8 +43,8 @@ _INLINE_ESCAPE = "design-ref-allow"
 _ALLOWED_PATHS: tuple[str, ...] = (
     "**/THIRD_PARTY_NOTICES*",
     "CODE_OF_CONDUCT.md",
-    "jarvis/skills/builtin/skill-creator/references/*",
-    "jarvis/ui/web/frontend/src/components/society/AgentSymbol.tsx",
+    "dodaios/skills/builtin/skill-creator/references/*",
+    "dodaios/ui/web/frontend/src/components/society/AgentSymbol.tsx",
     "scripts/readme-video/src/identity/AgentSymbol.tsx",
     "scripts/ci/check_design_references.py",
     "tests/unit/ci/test_check_design_references.py",

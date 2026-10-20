@@ -6,8 +6,8 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.brain import model_catalog as catalog_module
-from jarvis.brain.model_catalog import ModelCatalog
+from dodaios.brain import model_catalog as catalog_module
+from dodaios.brain.model_catalog import ModelCatalog
 
 
 class _SequenceClient:

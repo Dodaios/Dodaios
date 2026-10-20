@@ -9,7 +9,7 @@ import re
 
 import pytest
 
-from jarvis.marketplace.token_store import (
+from dodaios.marketplace.token_store import (
     ChunkedBackend,
     InMemoryBackend,
     KeyringBackend,
@@ -130,7 +130,7 @@ def test_chunked_backend_cleanup_stops_after_silent_delete_failure():
 def test_keyring_delete_is_strict_but_housekeeping_remains_best_effort(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from jarvis.core import config
+    from dodaios.core import config
 
     monkeypatch.setattr(config, "delete_secret", lambda _key: False)
     backend = KeyringBackend()

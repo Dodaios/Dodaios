@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.backup``.
+"""Unit tests for ``dodaios.memory.wiki.backup``.
 
 The :class:`BackupManager` is a thin tar.gz helper but it is the only
 recovery surface the writer trusts. The tests focus on:
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.backup import (
+from dodaios.memory.wiki.backup import (
     BACKUP_FILENAME_GLOB,
     DEFAULT_MAX_BACKUPS,
     BackupError,

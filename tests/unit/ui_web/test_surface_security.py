@@ -14,10 +14,10 @@ import pytest
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from jarvis.core import control_key
-from jarvis.ui.web import surface_security
-from jarvis.ui.web.missions_auth import register_token, reset_tokens
-from jarvis.ui.web.surface_security import (
+from dodaios.core import control_key
+from dodaios.ui.web import surface_security
+from dodaios.ui.web.missions_auth import register_token, reset_tokens
+from dodaios.ui.web.surface_security import (
     COOKIE_NAME,
     SurfaceSecurity,
     build_set_cookie_header,

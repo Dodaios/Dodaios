@@ -9,19 +9,19 @@ from typing import Any
 
 import pytest
 
-import jarvis.claude_auth_state as claude_auth_state
-import jarvis.codex_auth_state as codex_auth_state
-import jarvis.codex_quota_state as codex_quota_state
-import jarvis.missions.init as missions_init
-import jarvis.missions.workers.claude_direct_worker as claude_module
-import jarvis.missions.workers.codex_direct_worker as codex_module
-import jarvis.missions.workers.google_cli_worker as google_module
-from jarvis.google_cli.resolver import GoogleCli
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
-from jarvis.missions.workers.codex_direct_worker import CodexDirectWorker
-from jarvis.missions.workers.gemini_worker import GeminiWorker
-from jarvis.missions.workers.google_cli_worker import (
+import dodaios.claude_auth_state as claude_auth_state
+import dodaios.codex_auth_state as codex_auth_state
+import dodaios.codex_quota_state as codex_quota_state
+import dodaios.missions.init as missions_init
+import dodaios.missions.workers.claude_direct_worker as claude_module
+import dodaios.missions.workers.codex_direct_worker as codex_module
+import dodaios.missions.workers.google_cli_worker as google_module
+from dodaios.google_cli.resolver import GoogleCli
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions.workers.codex_direct_worker import CodexDirectWorker
+from dodaios.missions.workers.gemini_worker import GeminiWorker
+from dodaios.missions.workers.google_cli_worker import (
     BrokerMcpConfigurationError,
     GoogleCliWorker,
     _build_agy_worker_env,
@@ -43,7 +43,7 @@ class _CountingBinding:
         return {
             "jarvis_worker_tools": {
                 "command": "python",
-                "args": ["-m", "jarvis.missions.workers.broker_stdio"],
+                "args": ["-m", "dodaios.missions.workers.broker_stdio"],
             }
         }
 

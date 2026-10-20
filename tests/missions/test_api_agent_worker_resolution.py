@@ -25,9 +25,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions import init as mi
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions import init as mi
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
 
 # --- _resolve_api_agent_worker ------------------------------------------------
 
@@ -95,12 +95,12 @@ def _patch_codex_dead_login(
     claude_api_key_viable: bool = False,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_binary",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_binary",
         lambda: claude_binary,
     )
     monkeypatch.setattr(mi, "_claude_cli_auth_viable", lambda: claude_auth_viable)
     monkeypatch.setattr(
-        "jarvis.claude_quota_state.claude_in_quota_cooldown",
+        "dodaios.claude_quota_state.claude_in_quota_cooldown",
         lambda: claude_quota_capped,
     )
     monkeypatch.setattr(

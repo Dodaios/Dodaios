@@ -5,10 +5,10 @@ import inspect
 
 import pytest
 
-from jarvis.harness.manager import HarnessManager
+from dodaios.harness.manager import HarnessManager
 
 # Registered ``jarvis.harness`` entry-points. NB: ``codex`` is a *brain*
-# entry-point (jarvis.plugins.brain.codex:CodexBrain), not a harness — the
+# entry-point (dodaios.plugins.brain.codex:CodexBrain), not a harness — the
 # Codex worker is a mission worker (CodexDirectWorker), so it is intentionally
 # absent here.
 HARNESSES = [

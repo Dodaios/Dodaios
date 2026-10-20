@@ -6,9 +6,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from jarvis.brain.loop_control import LoopControl, VerifyOutcome, VerifyRequest
-from jarvis.brain.tool_use_loop import ToolUseLoop
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest, ToolResult
+from dodaios.brain.loop_control import LoopControl, VerifyOutcome, VerifyRequest
+from dodaios.brain.tool_use_loop import ToolUseLoop
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest, ToolResult
 
 
 class _Tool:

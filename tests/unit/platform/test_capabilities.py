@@ -6,8 +6,8 @@ import sys
 
 import pytest
 
-from jarvis.platform import detect_platform
-from jarvis.platform.capabilities import (
+from dodaios.platform import detect_platform
+from dodaios.platform.capabilities import (
     Capabilities,
     detect_capabilities,
     reset_capabilities_cache,

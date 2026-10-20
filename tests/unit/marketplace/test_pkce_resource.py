@@ -6,12 +6,12 @@ from pathlib import Path
 import httpx
 import pytest
 
-from jarvis.marketplace.auth.oauth_pkce_loopback import (
+from dodaios.marketplace.auth.oauth_pkce_loopback import (
     PkceLoopbackConfig,
     PkceLoopbackHandler,
     _PendingPkceFlow,
 )
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.token_store import Tokens
 
 TEST_CLIENT_SECRET = "unit-test-client-secret"  # noqa: S105
 OLD_REFRESH_TOKEN = "old-refresh"  # noqa: S105
@@ -89,7 +89,7 @@ def test_shopify_authorize_params_carry_resource_and_comma_scopes():
     indicator and comma-joined read scopes — never back to DCR."""
     manifest_path = (
         Path(__file__).resolve().parents[3]
-        / "jarvis/marketplace/drafts/shopify/plugin.json"
+        / "dodaios/marketplace/drafts/shopify/plugin.json"
     )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     auth = manifest["extensions"]["io.github.personaljarvis"]["auth"]
@@ -244,8 +244,8 @@ async def test_refresh_legacy_public_client_binds_client_id_without_secret(
         "client_id": "public-client",
         "token_endpoint_auth_method": "none",
     }
-    from jarvis.marketplace.catalog_data import load_catalog
-    from jarvis.marketplace.revoke import revoke_tokens
+    from dodaios.marketplace.catalog_data import load_catalog
+    from dodaios.marketplace.revoke import revoke_tokens
 
     assert await revoke_tokens(load_catalog().by_id("google_drive"), tokens) == "revoked"
     assert captured["data"]["token"] == OLD_REFRESH_TOKEN
@@ -335,10 +335,10 @@ async def test_figma_exchanges_at_token_url_and_refreshes_at_refresh_url(
 ):
     """Figma takes the code at /v1/oauth/token and the refresh grant at
     /v1/oauth/refresh, both with the client in an HTTP Basic header."""
-    from jarvis.marketplace.catalog import OAuthPkceLoopbackAuth
+    from dodaios.marketplace.catalog import OAuthPkceLoopbackAuth
 
     manifest_path = (
-        Path(__file__).resolve().parents[3] / "jarvis/marketplace/plugins/figma/plugin.json"
+        Path(__file__).resolve().parents[3] / "dodaios/marketplace/plugins/figma/plugin.json"
     )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     auth = OAuthPkceLoopbackAuth.model_validate(

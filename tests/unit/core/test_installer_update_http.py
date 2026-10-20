@@ -24,7 +24,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from jarvis.core.installer_update import (
+from dodaios.core.installer_update import (
     CHECKSUMS_ASSET_NAME,
     MAX_CHECKSUMS_BYTES,
     HttpxAssetFetcher,

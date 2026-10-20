@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.society.failure_reasons import (
+from dodaios.society.failure_reasons import (
     FailureReason,
     RetryAction,
     classify_error,
