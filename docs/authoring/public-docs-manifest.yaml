@@ -408,7 +408,7 @@ pages:
       - dodaios/ui/web/frontend/src/views/AssistantProfileView.tsx
       - dodaios/brain/agent_instructions.py
       - dodaios/brain/persona_loader.py
-      - dodaios/brain/JARVIS_PERSONA.md
+      - dodaios/brain/DODAIOS_PERSONA.md
       - dodaios/ui/web/frontend/src/views/settings/SystemPromptGroup.tsx
     related:
       - chats

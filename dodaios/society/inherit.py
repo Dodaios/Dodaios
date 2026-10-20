@@ -49,7 +49,7 @@ def caller_session_id() -> str | None:
     know which agent is creating a teammate.
     """
     try:
-        from dodaios.mcp.jarvis_tools_server import CHAT_SESSION_REF
+        from dodaios.mcp.dodaios_tools_server import CHAT_SESSION_REF
 
         stamped = CHAT_SESSION_REF.get()
         if stamped:

@@ -173,7 +173,7 @@
     "dodaios/mcp/agents/tools.py": 4,
     "dodaios/mcp/bootstrap.py": 3,
     "dodaios/mcp/claude_export.py": 2,
-    "dodaios/mcp/jarvis_tools_server.py": 1,
+    "dodaios/mcp/dodaios_tools_server.py": 1,
     "dodaios/mcp/server.py": 3,
     "dodaios/mcp/state.py": 2,
     "dodaios/memory/bootstrap_runner.py": 1,
