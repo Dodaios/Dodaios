@@ -8278,7 +8278,10 @@
         "follow_restart_pending": "Neuer Code ist da; die App startet neu, sobald keine Mission und kein Anruf läuft.",
         "follow_updated": "Aktualisiert {when}: {subject}",
         "follow_click_off": "Klicken, um main nicht mehr zu folgen.",
-        "session_diff_badge": "Änderungen von {pane}"
+        "session_diff_badge": "Änderungen von {pane}",
+        "follow_clear_lock": "Alten git-Lock entfernen",
+        "follow_clear_lock_title": "Den git-Lock von {since} entfernen?",
+        "follow_clear_lock_body": "Ein abgebrochener git-Befehl hat .git/index.lock zurückgelassen, und das hält diese App vom Aktualisieren ab. Nur entfernen, wenn in diesem Ordner gerade kein git-Befehl läuft."
       }
     },
     "skills": {

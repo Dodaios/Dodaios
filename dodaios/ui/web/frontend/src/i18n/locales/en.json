@@ -8278,7 +8278,10 @@
         "follow_restart_pending": "New code is in; the app restarts as soon as no mission or call is running.",
         "follow_updated": "Updated {when}: {subject}",
         "follow_click_off": "Click to stop following main.",
-        "session_diff_badge": "Changes by {pane}"
+        "session_diff_badge": "Changes by {pane}",
+        "follow_clear_lock": "Remove the Stale Git Lock",
+        "follow_clear_lock_title": "Remove the git lock left since {since}?",
+        "follow_clear_lock_body": "A git command that was stopped mid-way left .git/index.lock behind, and it keeps this app from updating. Remove it only if no git command is running in this folder."
       }
     },
     "skills": {
