@@ -13,7 +13,7 @@ that …" is answered by ONE `create-skill` tool call, not by an interview. Diff
 runtime:
 
 1. **Frontmatter schema:** Jarvis requires more than Anthropic's minimal
-   `name` + `description` — see `references/jarvis-schema.md` for the full
+   `name` + `description` — see `references/dodaios-schema.md` for the full
    `SkillFrontmatter` with triggers, risk tiers and tool requirements.
 2. **Skill location:** finished skills land in the user skills directory
    (`user_skills_dir()`), not in a coding-agent project folder.

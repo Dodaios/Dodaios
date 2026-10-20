@@ -112,7 +112,11 @@ export type SectionId =
   // The Jarvis Marketplace, in the app: everything the community published —
   // plugins and skills — browsable and installable in one place instead of
   // scattered across unrelated sections.
-  | "marketplace";
+  | "marketplace"
+  // Built for you: everything Dodaios built on its own initiative (the
+  // self-building loop, docs/self-build.md) — why, how it was checked, what it
+  // cost — with keep, undo and the loop's pause in one place.
+  | "self-build";
 
 export const SECTION_IDS = [
   "chats",
@@ -154,6 +158,7 @@ export const SECTION_IDS = [
   "chat-workspace",
   "agentic-ide-classic",
   "marketplace",
+  "self-build",
 ] as const satisfies readonly SectionId[];
 
 export function isSectionId(value: unknown): value is SectionId {
@@ -250,6 +255,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   "chat-workspace": "Chat",
   "agentic-ide-classic": "Terminal grid",
   marketplace: "Marketplace",
+  "self-build": "Built for you",
 };
 /**
  * i18n keys for `SECTION_LABELS`, for user-facing readbacks (the voice-navigation
@@ -293,6 +299,7 @@ export const SECTION_LABEL_KEYS: Record<SectionId, string> = {
   "chat-workspace": "nav.chat_workspace",
   "agentic-ide-classic": "quick_switch.terminal_grid",
   marketplace: "nav.marketplace",
+  "self-build": "nav.self_build",
 };
 
 export interface EventItem {

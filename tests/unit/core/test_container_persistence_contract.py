@@ -28,3 +28,18 @@ def test_non_root_image_keeps_config_inside_the_persisted_writable_volume() -> N
     assert "libportaudio2 curl git" in dockerfile
     assert non_root_user in dockerfile
     assert dockerfile.index(chown_data) < dockerfile.index(non_root_user)
+
+
+def test_the_image_is_named_dodaios_and_existing_deployments_keep_their_volume() -> None:
+    """The rename moves the image name, never the data an earlier image left behind."""
+    import yaml
+
+    dockerfile = (_REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    compose = yaml.safe_load((_REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+
+    assert 'org.opencontainers.image.title="Dodaios"' in dockerfile
+    assert "docker build -t dodaios ." in dockerfile
+    service = compose["services"]["jarvis"]
+    assert service["image"] == "dodaios:local"
+    assert service["volumes"] == [f"jarvis-data:{_DATA_DIR.as_posix()}"]
+    assert set(compose["volumes"]) == {"jarvis-data"}

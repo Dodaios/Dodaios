@@ -13,8 +13,7 @@ auslegen"):
   keeps the old bio and the next board event tries again. It never slides onto
   a per-token API key.
 * **Key-only install** (no subscription ever connected): today's frontier
-  chain, unchanged, so a single-key download keeps a working bio (AGENTS.md
-  "any single key must work").
+  chain, unchanged, so a single-key download keeps a working bio.
 * ``[board.bio].override_provider/override_model`` is the user's deliberate
   pin and is honoured as-is in both modes, even when it names a keyed
   provider: it is the only way the bio bills a per-token key while a

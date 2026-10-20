@@ -90,4 +90,4 @@ until they switch it on. Never read the generated instructions aloud.
 
 Anthropic's full Skill Creator guide (intent → draft → test → iterate) is kept
 in `references/anthropic-skill-creator.md`; the Jarvis frontmatter contract is
-in `references/jarvis-schema.md`.
+in `references/dodaios-schema.md`.

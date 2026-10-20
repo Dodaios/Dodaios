@@ -18,13 +18,10 @@ from typing import Final
 #: brief for another agent. Kept short: it rides in the voice tool catalog,
 #: which has a byte budget (``dodaios.live.tools._CATALOG_BYTE_BUDGET``).
 AGENT_BRIEF_RULE: Final[str] = (
-    "Write the brief as a work order the agent completes on its own: find the cause, "
-    "make the change, verify it, then report back what changed, where things stand "
-    "and any decision the user has to make; when blocked, report that too. 'Check', 'look into', "
-    "'deep dive' or 'audit' include fixing what is found. Never add read-only, "
-    "no-changes or report-only limits yourself; use them only when the user "
-    "explicitly asked just for analysis, a plan or an answer. Let the agent decide "
-    "steps without asking back, except before destructive or outward actions."
+    "Brief another agent with a work order: find the cause, make the change, verify, then "
+    "report back what changed and any decision the user has to make; when blocked, report "
+    "that too. 'Check' or 'deep dive' include fixing; never add read-only limits unless the "
+    "user explicitly asked for analysis only."
 )
 
 __all__ = ["AGENT_BRIEF_RULE"]

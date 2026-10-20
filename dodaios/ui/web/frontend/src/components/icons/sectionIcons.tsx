@@ -124,6 +124,16 @@ export const AgentsIcon = defineIcon(
   </>,
 );
 
+/** A block set down beside the one it was built on: something made for you. */
+export const BuiltIcon = defineIcon(
+  "BuiltIcon",
+  <>
+    <path d="M12 3.5 19 7.5v8.5L12 20 5 16V7.5Z" />
+    <path d="M5 7.5 12 11.5 19 7.5" />
+    <path d="M12 11.5V20" />
+  </>,
+);
+
 /** Three tiles and a fourth turned on its corner: something added on. */
 export const ExtensionsIcon = defineIcon(
   "ExtensionsIcon",

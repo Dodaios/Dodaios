@@ -153,7 +153,7 @@ _WORD_RE = re.compile(r"\w+", re.UNICODE)
 
 # i18n-allow: the table below is speech-recognition vocabulary — the literal
 # tokens a matcher must contain to recognise a mis-transcription. Matching
-# data, not prose (AGENTS.md §1, category 3).
+# data, not prose (category 3).
 
 #: Known mis-transcriptions, per language. Replacement is whole-word and
 #: case-insensitive; the replacement inherits nothing from the source casing.

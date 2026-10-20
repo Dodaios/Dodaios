@@ -5,7 +5,7 @@ import { create } from "zustand";
  *
  * The drag source (a rail row in the Artifacts section, via `lib/missionDnd`)
  * and the drop surface
- * (`JarvisDock`, far away in the tree) need to agree that a drag is in flight so
+ * (`DodaiosDock`, far away in the tree) need to agree that a drag is in flight so
  * the dock can bloom into a big, forgiving target and mount its full-window
  * catch layer. A tiny zustand store is the lightest way to bridge them — same
  * pattern as `useEventStore` / `useI18nStore`.

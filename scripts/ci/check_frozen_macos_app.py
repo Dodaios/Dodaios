@@ -39,7 +39,7 @@ It also asserts the privacy-permission declarations of the bundle:
   run the app.
 
 Usage:
-    python scripts/ci/check_frozen_macos_app.py --app "dist/Personal Jarvis.app"
+    python scripts/ci/check_frozen_macos_app.py --app "dist/Dodaios.app"
 
 Exit codes: 0 = fine (skipped parts are printed as NOTE lines), 1 = the app would
 ship broken (problems listed), 2 = could not check (missing file, unreadable
@@ -96,7 +96,7 @@ def check_info_plist(info: dict, macos_dir: Path) -> list[str]:
     if info.get("LSBackgroundOnly"):
         problems.append(
             "LSBackgroundOnly is true: LaunchServices would run the app as a faceless "
-            "background process (no Dock icon, no windows). Set it to False in jarvis.spec."
+            "background process (no Dock icon, no windows). Set it to False in dodaios.spec."
         )
     executable = info.get("CFBundleExecutable")
     if not isinstance(executable, str) or not (macos_dir / executable).is_file():
@@ -135,13 +135,13 @@ def check_usage_strings(info: Mapping[str, object]) -> list[str]:
         elif value != expected[key]:
             problems.append(
                 f"{key} differs from dodaios/core/macos_privacy_strings.py: the bundle was "
-                "not built from the single usage-string table (jarvis.spec must load it)"
+                "not built from the single usage-string table (dodaios.spec must load it)"
             )
     for key in macos_privacy_strings.REMOVED_USAGE_KEYS:
         if key in info:
             problems.append(
                 f"{key} is in Info.plist but Jarvis has no caller for that permission: "
-                "remove it from jarvis.spec (least privilege)"
+                "remove it from dodaios.spec (least privilege)"
             )
     return problems
 
@@ -154,7 +154,7 @@ def check_localization_keys(info: Mapping[str, object]) -> list[str]:
         if info.get(key) != value:
             problems.append(
                 f"{key} is {info.get(key)!r}, expected {value!r}: the bundle declares no "
-                "German/Spanish localisation (jarvis.spec must spread "
+                "German/Spanish localisation (dodaios.spec must spread "
                 "localization_plist_keys() into its Info.plist)"
             )
     return problems
@@ -297,7 +297,7 @@ def check_frozen_modules(names: Collection[str]) -> list[str]:
     present = set(names)
     return [
         f"the frozen archive has no {module!r} module (needs the [desktop-macos] extra "
-        "on the build machine and a hidden import in jarvis.spec)"
+        "on the build machine and a hidden import in dodaios.spec)"
         for module in REQUIRED_FROZEN_MODULES
         if module not in present
     ]
@@ -343,7 +343,7 @@ def check_app(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--app", required=True, type=Path, help="the built Personal Jarvis.app")
+    parser.add_argument("--app", required=True, type=Path, help="the built Dodaios.app")
     args = parser.parse_args(argv)
     notes: list[str] = []
     try:

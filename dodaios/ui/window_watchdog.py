@@ -345,7 +345,7 @@ class BlankWindowPolicy:
 # ---------------------------------------------------------------------------
 
 #: One entry per reason per language. German, Spanish, Chinese and Portuguese are product surface
-#: (AGENTS.md §1): this page is shown TO the user, and it cannot reach the
+#:: this page is shown TO the user, and it cannot reach the
 #: bundle's i18n — the bundle is exactly what failed to load. The language is
 #: picked in the page from ``navigator.language``, the same way
 #: ``frontend/index.html`` picks it, so both blank-window paths speak alike.

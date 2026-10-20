@@ -25,7 +25,7 @@ a model that takes 800 ms turns the preview into a lagging distraction. The
 FINAL text is never produced here — it always comes from the configured
 provider, so the words that land in the user's document are the good ones.
 
-Degrades honestly (AGENTS.md §3): on a host without ``faster_whisper`` — a base
+Degrades honestly: on a host without ``faster_whisper`` — a base
 or headless install — this reports unavailable and the caller falls back to the
 budgeted cloud preview. No GPU is required either; the engine picks CPU and the
 caller simply sees a slower preview.
@@ -103,10 +103,10 @@ def faster_whisper_available() -> bool:
 def _child_python() -> str:
     """The interpreter for the preview worker, beside the running executable.
 
-    ``sys.executable`` in the desktop app is the branded ``PersonalJarvis.exe``,
+    ``sys.executable`` in the desktop app is the branded ``DodaiosApp.exe``,
     which cannot take ``-m``. Usually the real ``python(.exe)`` lives in the
     same directory, but the per-user branded copy in
-    ``%LOCALAPPDATA%\\PersonalJarvis\\bin`` carries only the runtime DLLs — so
+    ``%LOCALAPPDATA%\\DodaiosApp\\bin`` carries only the runtime DLLs — so
     the active environment's own interpreter directory, then the base
     install's, are searched next. Without that fallback every dictation after
     a launch through that copy failed with "no local dictation worker".

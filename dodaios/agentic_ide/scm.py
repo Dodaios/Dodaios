@@ -422,16 +422,13 @@ def unstage_all(folder: str | Path) -> None:
 
 def _trash(target: Path) -> bool:
     """Move an untracked file to the system trash; False when there is none."""
+    from .system_trash import move_to_trash
+
     try:
-        from send2trash import send2trash  # type: ignore[import-not-found]
-    except ImportError:  # no trash support on this machine: the caller deletes for good
-        return False
-    try:
-        send2trash(str(target))
+        return move_to_trash(target)
     except OSError as exc:
         logger.info("Source control: the trash refused {}: {}", target.name, exc)
         return False
-    return True
 
 
 def _remove_untracked(root: Path, rel: str) -> None:

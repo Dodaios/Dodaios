@@ -127,15 +127,13 @@ def _child_main(argv: list[str]) -> int:
 # Parent side: lean orchestration and plain-language output
 # --------------------------------------------------------------------------- #
 def _run_child(args: list[str], timeout: float | None, detached: bool) -> tuple[int, str]:
-    import dodaios
-
     cmd = [sys.executable, "-m", "dodaios.cli.app_update", *args]
     env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
     kwargs: dict[str, Any] = {
         # ``-m`` puts the working directory first on sys.path. Run from the
         # tree this process came from, so a `dodaios/` folder in the user's
         # current directory can never stand in for the installed one.
-        "cwd": str(Path(dodaios.__file__).resolve().parent.parent),
+        "cwd": str(Path(__file__).resolve().parents[2]),
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.DEVNULL,
@@ -372,7 +370,7 @@ def run_update(
     result = _read_result(root, result_file_name)
     if code == 0 and result.get("ok") is True:
         print(f"Done. Dodaios {version} is installed.")
-        print("Start it with: jarvis")
+        print(f"Start it with: {main_command()}")
         return 0
     if result.get("rolled_back"):
         print(

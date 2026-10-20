@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { MissionSummary } from "@/types/missions";
-import type { SubAgentNode } from "@/store/jarvisAgents";
+import type { SubAgentNode } from "@/store/dodaiosAgents";
 import { mergeBoardRows, missionToNode, normalizeTraceId } from "./missionRows";
 
 function mission(over: Partial<MissionSummary> = {}): MissionSummary {

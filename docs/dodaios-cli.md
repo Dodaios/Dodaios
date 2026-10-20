@@ -1,0 +1,308 @@
+# The Dodaios CLI
+
+`dodaios` is a command-line interface to a **running** Dodaios instance. It
+exposes the same action surface as the desktop WebUI, so anything you can click in
+the UI you can also do from a terminal — and, more importantly, so can an external
+coding agent (Claude Code, Codex) or a script.
+
+This is the same relationship `gcloud` / `aws` / `az` have with their cloud
+platforms: a single CLI that surfaces the full capability plane of a service. You
+point it at a running Dodaios and drive it.
+
+> The command was called `jarvis` before the product was renamed. `jarvis`,
+> `personal-jarvis`, `jarvisctl` and `jctl` are still installed and do exactly
+> what `dodaios` and `dodaiosctl` do, so existing scripts keep working; help
+> output repeats whichever name you typed.
+>
+> Full command list: [`dodaios-cli-reference.md`](dodaios-cli-reference.md)
+> (auto-generated). Design rationale: [`superpowers/specs/2026-06-21-jarvis-cli-design.md`](superpowers/specs/2026-06-21-jarvis-cli-design.md).
+
+## How it works
+
+The CLI is a **thin HTTP client over the REST API**, in two layers:
+
+1. **Dynamic layer (`dodaios api <tag> <op>`)** — every mounted REST endpoint is
+   surfaced automatically from the server's OpenAPI spec. New features become
+   commands with no extra code. This is what guarantees *every* WebUI action is
+   reachable.
+2. **Curated layer (`dodaios <group> <command>`)** — hand-written, ergonomic
+   commands for the common domains: `brain`, `config`, `missions`, `wiki`,
+   `sessions`, `skills`, `outputs`, `board`, `costs`, `workflows`, `conductor`,
+   `contacts`, `telephony`, `marketplace`, `mcps`, `docs`, `frontier`,
+   `local-models`, `clis`, `commands`, `computer-use`, `friends`, `ide`,
+   `permissions`, `socials`, plus `auth`, `system`, `tasks`.
+
+Because the CLI only ever calls the same routes the WebUI calls, it inherits all
+of Dodaios's safety machinery (risk tiers, the atomic config-write pipeline, the
+event bus, audit) for free — it cannot bypass a guardrail it never re-implements.
+
+It runs on Linux, macOS, and Windows (pure-Python: `typer`, `httpx`,
+`platformdirs`, `rich` — all base dependencies), including a headless VPS.
+
+## Install
+
+The one-line installer puts the commands on your PATH on every OS, per user and
+without administrator rights (`dodaios/setup/cli_path.py`):
+
+| OS | Where the commands live | How the terminal finds them |
+| --- | --- | --- |
+| Windows | `<install folder>in\dodaios.exe`, `dodaiosctl.exe` (and the earlier names `jarvis.exe`, `personal-jarvis.exe`, `jarvisctl.exe`) | that folder is added to the per-user `Path` |
+| macOS | symlinks in `~/.local/bin` | one guarded line in `~/.zshrc` (or the profile of your shell) |
+| Linux | symlinks in `~/.local/bin` | one guarded line in `~/.bashrc` (or the profile of your shell) |
+
+Open a new terminal after the install. An unrelated command that already owns a
+name is kept, never overwritten, and `dodaios --uninstall` removes all of it
+again. A plain `pip install -e .` provides the same commands inside that
+environment.
+
+## Start and update the app
+
+`jarvis` and `personal-jarvis` are earlier names of `dodaios` and still work.
+
+```bash
+dodaios                     # start the desktop app (window + voice + orb)
+dodaios update              # install the newest published version
+dodaios update --check      # only report whether a newer version exists
+dodaios serve               # headless server for a VPS (no window)
+dodaios version
+```
+
+Typed into an interactive terminal, `dodaios` starts the app in the background
+and hands the prompt back at once; closing the terminal does not close the app.
+If the app is already open, its window comes to the front. `dodaios --foreground`
+keeps the app attached to the terminal with its log, and shortcuts, autostart
+entries and scripts (no terminal) keep the in-process start they always had. On
+a Linux machine without a screen, `dodaios` stays in the foreground and explains
+what is missing.
+
+`dodaios update` is the terminal twin of the in-app **Update** button for an
+install made with the one-line installer. It uses the same release check, the
+same pinned GitHub release tag and the same installer run, and it rolls back to
+the previous version automatically if anything fails. It reports success only
+when the installer confirms it. The app has to be closed first: a running
+desktop app is never quit from the terminal (only a click in the app may do
+that), so `dodaios update` asks you to quit it or click Update in the app
+instead. A background service that keeps routines running is asked to hand back
+on its own. A developer checkout or a `pip install` cannot update itself and
+gets the matching command (`git pull` / `pip install --upgrade`) instead.
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | updated, or already the newest version |
+| 1 | the check, download or install failed (an install failure is rolled back) |
+| 2 | this copy cannot update itself (developer checkout, pip install, native installer) |
+| 3 | the app is running and has to be closed first |
+
+Only the control subcommands (`dodaios missions …`, `dodaios brain …`, etc.)
+route into the control CLI described below.
+
+## Auth & discovery
+
+**Local is zero-config.** When Dodaios is running on the same machine, the desktop
+app writes its live port + control token to a single-instance session file; the
+CLI discovers it automatically (and falls back to the machine's control key). Just
+run commands:
+
+```bash
+dodaios system status        # {"reachable": true} when Dodaios is up
+dodaios --json brain status
+```
+
+Resolution order (highest first): explicit `--url` / `--key` → `JARVISCTL_BASE_URL`
+/ `JARVISCTL_CONTROL_KEY` env → saved profile (`dodaios auth login`) → the live
+session file → the local control key + default `127.0.0.1:47821`.
+
+**Environment variables: set either prefix.** Every variable the CLI and the app
+read may be written as `DODAIOS_…` or `JARVIS_…`: `DODAIOSCTL_BASE_URL` or
+`JARVISCTL_BASE_URL`, `DODAIOS_CLI_ASSUME_YES` or `JARVIS_CLI_ASSUME_YES`,
+`DODAIOS__SECTION__KEY` or `JARVIS__SECTION__KEY`. If both are set to different
+values, the `DODAIOS_` one is used and one log line names the variable. Inside
+the app and in child processes the `JARVIS_` spelling is what is present: the
+`DODAIOS_` name is moved to it at start and then removed, so a script or plugin
+the app starts reads `JARVIS_…`.
+
+**Remote / VPS.** Tunnel the loopback port and the CLI treats it as local:
+
+```bash
+ssh -L 47821:127.0.0.1:47821 <host>
+```
+
+Or save a remote profile (the key is read from a hidden prompt — never an inline
+argument that would land in shell history):
+
+```bash
+dodaios auth login --url https://jarvis.example:47821
+# (prompts for the control key; or: echo "$JCTL" | dodaios auth login --url … --key -)
+```
+
+## Output
+
+Put `--json` **before** the group for machine-readable output; omit it for human
+tables:
+
+```bash
+dodaios --json missions list          # JSON, for scripts/agents
+dodaios missions list                 # rich table, for humans
+```
+
+## Installing from the marketplace
+
+A marketplace page prints one line to copy. It works for every kind of entry —
+skills and plugins — and you never have to know which one you are looking at:
+
+```bash
+dodaios marketplace install three-bullet-brief
+dodaios marketplace browse                       # everything on offer + what you have
+```
+
+At a terminal the command first shows what the entry is and where it comes from,
+asks once, and then says plainly what happened. What "installed" is worth differs
+per kind, and the answer says which one you got: a skill that validated is usable
+immediately, and a plugin lands on your list but stays powerless until you
+connect your account. **Exit code 1 means
+"not usable"**: an unknown name, a declined prompt, or a skill whose file failed
+validation. Piped or with `--json` it skips the prose and the prompt and prints
+the API payload (`POST /api/marketplace/community/install/<name>`).
+
+The same install is reachable by just asking for it — "install the skill
+three-bullet-brief" — because both the browse and the install are Command-Registry
+entries (`marketplace-browse`, `marketplace-install`), so the assistant can look
+the name up and then install it. Installing pulls somebody else's published
+content onto your machine, so that path asks you to confirm out loud first.
+
+## Local models from the terminal
+
+The "Local models" section — what is installed on the pull-capable local server
+(Ollama today), which download fills each role, per-model option profiles, the
+public catalogue, Hugging Face GGUF browsing and the server itself — is one
+curated group. The provider defaults to `ollama`; `--provider <id>` names
+another pull-capable card (a cloud card answers with a sentence, never an empty
+table):
+
+```bash
+dodaios local-models roles                          # chat / tools_screen / deep / embedding
+dodaios local-models roles set deep qwen3:32b
+dodaios local-models models                         # every download, what is loaded, disk total
+dodaios local-models models show qwen3:32b
+dodaios local-models models unload qwen3:32b --yes  # frees memory; the next turn reloads
+dodaios local-models models delete old:7b --reassign qwen3:32b --yes
+dodaios local-models options set qwen3:32b num_ctx=16384 temperature=0.2 think=false
+dodaios local-models options suggest qwen3:32b     # an advisory profile for this machine
+dodaios local-models catalog search "vision" --capability vision
+dodaios local-models catalog tags qwen3
+dodaios local-models catalog recommended
+dodaios local-models hf enable on                   # off by default; nothing calls huggingface.co until then
+dodaios local-models hf search "llama 3.1 gguf"
+dodaios local-models hf files bartowski Llama-3.1-8B-Instruct-GGUF
+dodaios local-models hf pull bartowski Llama-3.1-8B-Instruct-GGUF --quant Q4_K_M
+dodaios local-models server status
+dodaios local-models server test http://127.0.0.1:11434
+dodaios local-models server verify                  # the server, one real chat answer, one real embedding
+dodaios local-models server autostart off           # on by default; fires only while local models are in use
+dodaios local-models server log --lines 80
+dodaios local-models server env-guide --os linux
+dodaios local-models server stop --yes              # only a server Dodaios itself started
+```
+
+`options set` replaces the whole profile: `KEY=VALUE` pairs are typed (numbers,
+`true`/`false`, JSON lists such as `stop='["</s>"]'`), and the writer clamps the
+values rather than rejecting them. Deleting a download is refused with a 409
+while a configured role still points at it, unless `--reassign` names another
+installed model — then the roles are rewritten first, and the delete runs only
+on a valid config. `--json` before the group prints the untouched API payload.
+
+## macOS privacy permissions from the terminal
+
+Dodaios asks macOS for a permission at the moment a feature first needs
+it, never at launch. The `permissions` group is the terminal view of that:
+
+```bash
+dodaios permissions status                          # read only: never prompts, never blocks
+dodaios permissions status --include-automation     # also read Music/Spotify (they must be running)
+dodaios permissions request microphone --yes        # ask now, through the same service the app uses
+dodaios permissions open-settings microphone --yes  # open the matching System Settings pane
+dodaios permissions reset microphone --dry-run      # preview the tccutil command, run nothing
+dodaios permissions reset microphone --yes          # forget macOS's answer so it asks again (macOS only)
+```
+
+`status` prints each permission (`granted`, `not_determined`, `denied`, `restricted`,
+`not_required` off macOS, ...) and `needed`, the features currently waiting on one.
+`request` answers at once with an outcome (`granted`, `pending` while macOS may be
+showing its dialog, `needs_settings`, `denied`, `unavailable`); the person's answer
+arrives afterwards, so run `status` again. A denial is final from macOS's side: it
+does not ask a second time, and `request` does not pretend otherwise. When Dodaios
+is not running as the installed app, `request` asks nothing and says so. The CLI
+only ever asks for the installed app: without the installed bundle `request`
+refuses before anything is sent, and a grant for the app that started Dodaios (a
+terminal, an IDE) can only be confirmed in the Dodaios window, never from the
+CLI. An AI agent driving the CLI must never answer a macOS dialog on the user's
+behalf. Both `request` and `open-settings` are rate limited by
+the server (HTTP 429). Off macOS every permission reads `not_required` and
+`request` does nothing.
+
+`reset` is the way back from a stuck "denied" answer, since macOS never asks twice
+and the app has no permissions page. It runs `/usr/bin/tccutil reset <Service>
+<bundle id>` on this Mac, for the installed app's own bundle id only (the
+installer's `com.personal-jarvis.desktop` or the downloaded app's
+`ai.personaljarvis.desktop`; read from the app's `Info.plist`, or named with
+`--bundle-id` when both are installed), never another app's. It does not go
+through the running app (the app's own reset route refuses scripts on purpose),
+so it works with Dodaios closed; quit and reopen Dodaios afterwards, then use the
+feature and macOS asks again. It needs `--yes` (or `JARVIS_CLI_ASSUME_YES=1`) and
+`--dry-run` prints the exact `tccutil` argv. Off macOS it prints one line and
+exits 1. Permissions without a macOS privacy record (the Keychain) are refused.
+The raw `tccutil` commands are in the troubleshooting guide.
+
+## Safety model
+
+The CLI is agent-first, so it stays out of your way for safe work and only gates
+the genuinely consequential:
+
+- **Reads** (`GET`) and **reversible mutations** (switch provider, set language,
+  enable a skill) just run.
+- **Destructive** actions — every `DELETE`, plus `config set`, `missions dispatch`,
+  `telephony outbound`, `local-models models unload` and `local-models server
+  stop` — refuse unless you pass `--yes` (or set
+  `JARVIS_CLI_ASSUME_YES=1`). A prompt is not an accepted substitute.
+- **Desktop restart is UI-only.** Control/API clients, including
+  `dodaios system restart`, cannot restart the app even with `--yes --force`;
+  the maintainer must click Restart in the desktop UI. This preserves live
+  Agentic-IDE terminals and makes human presence explicit.
+- `--dry-run` on any command prints the exact request (method, path, body, whether
+  auth is attached) and sends nothing — the safe way to inspect before acting.
+- Secrets are never accepted as inline arguments; they are read from a hidden
+  prompt or stdin and stored in the OS credential store.
+
+## Driving Dodaios from a Claude Code / Codex session
+
+This is a first-class use case. An external coding agent can control your running
+Dodaios end-to-end through its shell:
+
+1. **It's already installed and authenticated.** After `pip install -e .` the
+   `dodaios` binary is on PATH, and local auth is zero-config (session-file
+   discovery). The agent runs `dodaios system status` to confirm Dodaios is up.
+2. **It discovers the surface** with `dodaios --help`, `dodaios <group> --help`, and
+   `dodaios api --help` for the full generated list.
+3. **It reads with `--json`** and parses, and **acts with explicit intent**, using
+   `--dry-run` to preview and `--yes` to authorize destructive actions.
+
+Worked example — switch the brain provider, then dispatch a mission:
+
+```bash
+dodaios --json brain status                       # see the active provider
+dodaios brain switch openai                        # reversible → runs immediately
+dodaios brain subagent-switch openai               # switch the worker provider too
+dodaios missions dispatch "summarize today's PRs" --yes   # destructive → needs --yes
+dodaios --json missions list --state RUNNING       # watch it
+```
+
+The `drive-dodaios-cli` skill (in `.claude/skills/`) packages these conventions so
+an agent can pick them up automatically.
+
+## Extending the CLI
+
+When you add a REST route for a new feature, it becomes CLI-reachable
+automatically via the dynamic layer — provided the router is **mounted**. The
+`scripts/ci/check_cli_coverage.py` gate fails CI/pre-push if a route module is
+defined but never mounted (an unreachable feature). Run
+`scripts/ci/gen_cli_reference.py` to refresh the reference after adding commands.

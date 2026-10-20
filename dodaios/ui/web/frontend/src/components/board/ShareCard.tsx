@@ -107,7 +107,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                   boxShadow: "0 0 24px -6px rgba(245,244,239,0.5)",
                 }}
               >
-                <img src="/jarvis-mark-256.png?v=hood" width={38} height={38} alt="" style={{ display: "block" }} />
+                <img src="/dodaios-mark-256.png?v=hood" width={38} height={38} alt="" style={{ display: "block" }} />
               </span>
               <span
                 style={{

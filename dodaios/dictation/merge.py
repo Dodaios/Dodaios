@@ -26,8 +26,7 @@ Chinese, Japanese, Thai, Lao, Khmer and Burmese are written without spaces
 between words, so a token-based overlap search finds nothing there and a
 token-based join inserts spaces a reader of those scripts would call wrong. The
 search falls back to characters, and the join asks the two boundary characters
-whether a space belongs between them. No language is the default one
-(AGENTS.md §1).
+whether a space belongs between them. No language is the default one.
 
 Pure functions over strings: no model, no I/O, no configuration.
 """
@@ -243,7 +242,7 @@ def transcript_token_count(text: str) -> int:
     scripts written with spaces, characters for the space-free scripts (an
     ideograph or kana is roughly one spoken syllable). Counting a Chinese
     sentence as "one word" would make every Chinese transcript look truncated,
-    and no language is the default one (AGENTS.md §1).
+    and no language is the default one.
     """
     total = 0
     for token in _normalize(text).split():

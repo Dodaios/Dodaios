@@ -8,7 +8,8 @@
 #   1. Verifies Python 3.11+ and git are available.
 #   2. Offers to install either missing prerequisite, then re-checks in place.
 #   3. Checks for Node.js 18+ (optional - a missing Node never blocks the install).
-#   4. Clones (or updates) personal-jarvis into ~/.personal-jarvis.
+#   4. Clones (or updates) Dodaios into ~/.dodaios (an update moves an install
+#      made under the earlier name ~/.personal-jarvis there).
 #   5. Creates a Python venv, installs `rich` + `packaging`.
 #   6. Hands control to install/installer.py (the Stage 2 orchestrator).
 #
@@ -52,10 +53,33 @@ if [[ ! "$OFFICIAL_REPO_SLUG" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
 fi
 REPO_URL="${JARVIS_INSTALL_REPO:-https://github.com/${OFFICIAL_REPO_SLUG}.git}"
 LEGACY_OFFICIAL_REPO_SLUG="PersonalJarvis/PersonalJarvis"
-CONFIG_FILE_NAME="jarvis.toml"
+CONFIG_FILE_NAME="dodaios.toml"
+# An install keeps a config file under this earlier name; it is never renamed.
+LEGACY_CONFIG_FILE_NAME="jarvis.toml"
 MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
 BRANCH="${JARVIS_INSTALL_REF:-main}"
-INSTALL_DIR="${JARVIS_INSTALL_DIR:-$HOME/.personal-jarvis}"
+# --- install-dir-choice begin (extracted by tests/unit/install/test_install_dir_move.py)
+# The checkout lives in ~/.dodaios. An install made under the earlier name
+# keeps its directory for as long as that is a real directory, and an update
+# run moves it (migrate_install_dir below). A directory given in
+# JARVIS_INSTALL_DIR (or DODAIOS_INSTALL_DIR) is used as given, never moved.
+DEFAULT_INSTALL_DIR_NAME=".dodaios"
+LEGACY_INSTALL_DIR_NAME=".personal-jarvis"
+CURRENT_INSTALL_DIR="$HOME/$DEFAULT_INSTALL_DIR_NAME"
+LEGACY_INSTALL_DIR="$HOME/$LEGACY_INSTALL_DIR_NAME"
+MIGRATE_LEGACY_INSTALL_DIR=0
+if [ -n "${JARVIS_INSTALL_DIR:-}" ]; then
+    INSTALL_DIR="$JARVIS_INSTALL_DIR"
+elif [ -d "$LEGACY_INSTALL_DIR" ] && [ ! -L "$LEGACY_INSTALL_DIR" ]; then
+    INSTALL_DIR="$LEGACY_INSTALL_DIR"
+    MIGRATE_LEGACY_INSTALL_DIR=1
+else
+    INSTALL_DIR="$CURRENT_INSTALL_DIR"
+fi
+# --- install-dir-choice end
+# The migration engine inside the release being installed. It is read from
+# the fetched commit, never from the checkout that is about to change.
+IDENTITY_ENGINE_PATH="dodaios/core/identity_migration.py"
 PREREQUISITE_MODE="${JARVIS_INSTALL_PREREQS:-ask}"
 
 # Brand palette (docs/BRAND.md): Signal Yellow on matte black, with the
@@ -995,30 +1019,40 @@ tarball_fallback() {
     esac
     _repo_path="${REPO_URL#*github.com/}"
     _repo_path="${_repo_path%.git}"
-    _asset_url="https://github.com/$_repo_path/releases/latest/download/personal-jarvis-src.tar.gz"
+    _asset_base="https://github.com/$_repo_path/releases/latest/download"
+    # The archive's current name first; releases cut before the rename only
+    # carry the earlier one.
+    _asset_names='dodaios-src.tar.gz personal-jarvis-src.tar.gz'
     _snapshot_url="https://codeload.github.com/$_repo_path/tar.gz/refs/heads/$BRANCH"
     if [ -n "${JARVIS_PAYLOAD_COMMIT:-}" ]; then
         # A verified install is pinned to ONE signed commit; the "latest"
         # release asset cannot honor that pin, so go straight to the
         # commit-addressed snapshot - the URL itself names the exact tree.
-        _asset_url=''
+        _asset_names=''
         _snapshot_url="https://codeload.github.com/$_repo_path/tar.gz/$JARVIS_PAYLOAD_COMMIT"
     fi
     _tmp="${INSTALL_DIR%/}.payload.tar.gz"
     note 'git transfer keeps stalling on this network - switching to a resumable archive download'
     _got=''
-    _try=1
-    while [ -n "$_asset_url" ] && [ "$_try" -le 8 ]; do
-        if curl -fL -# --speed-limit 1024 --speed-time 60 -C - -o "$_tmp" "$_asset_url"; then
-            _got=1
-            break
-        fi
-        _rc=$?
-        # 22 = HTTP error (e.g. asset missing on old releases): not retryable.
-        [ "$_rc" -eq 22 ] && break
-        note "archive download interrupted - resuming where it stopped ($_try/8) ..."
-        _try=$((_try + 1))
-        sleep 3
+    for _asset_name in $_asset_names; do
+        # A partial download of one archive must never be resumed as another.
+        rm -f "$_tmp" 2>/dev/null || true
+        _try=1
+        while [ "$_try" -le 8 ]; do
+            _rc=0
+            curl -fL -# --speed-limit 1024 --speed-time 60 -C - -o "$_tmp" \
+                "$_asset_base/$_asset_name" || _rc=$?
+            if [ "$_rc" -eq 0 ]; then
+                _got=1
+                break
+            fi
+            # 22 = HTTP error (this archive is not on the release): try the next name.
+            if [ "$_rc" -eq 22 ]; then break; fi
+            note "archive download interrupted - resuming where it stopped ($_try/8) ..."
+            _try=$((_try + 1))
+            sleep 3
+        done
+        if [ -n "$_got" ]; then break; fi
     done
     if [ -z "$_got" ]; then
         rm -f "$_tmp" 2>/dev/null || true
@@ -1052,7 +1086,7 @@ fetch_payload() {
 # Self-heal a broken install dir (leftover non-git folder from an earlier or
 # aborted install, or a checkout whose git state no longer updates): keep the
 # old tree as a timestamped sibling backup — never delete — clone fresh, then
-# carry the user's local state (data/, jarvis.toml, .env) into the new
+# carry the user's local state (data/, the config file, .env) into the new
 # checkout. A stale folder must never require manual cleanup to install.
 salvage_reclone() {
     local stale_backup
@@ -1103,7 +1137,7 @@ salvage_reclone() {
     # exist on both sides are overlay-MERGED (user files win over seed).
     # --- salvage-copy begin (extracted by tests/unit/install/test_install_salvage_copy.py)
     local item
-    for item in data "$CONFIG_FILE_NAME" .env wiki; do
+    for item in data "$LEGACY_CONFIG_FILE_NAME" "$CONFIG_FILE_NAME" .env wiki; do
         [ -e "$stale_backup/$item" ] || continue
         if [ ! -e "$INSTALL_DIR/$item" ]; then
             if cp -R "$stale_backup/$item" "$INSTALL_DIR/$item"; then
@@ -1205,6 +1239,55 @@ stop_running_app() {
     return 0
 }
 
+# Move an install made under the earlier directory name to the current one.
+# It runs once the app is stopped and before the checkout changes: nothing
+# runs out of the directory, and the release about to be checked out is the
+# one that knows the new name. The engine is that release's own copy, read
+# from the fetched commit into a temporary file outside both directories and
+# run isolated (-I), without writing bytecode (-B), from the home directory.
+# It renames once and leaves a link at the old path, or changes nothing; the
+# directory it reports is where the update goes on. Any failure goes on in
+# place: an install under the earlier name is a valid state, not a broken one.
+migrate_install_dir() {
+    # --- migrate-install-dir begin (extracted by tests/unit/install/test_install_dir_move.py)
+    [ "$MIGRATE_LEGACY_INSTALL_DIR" = 1 ] || return 0
+    MIGRATE_LEGACY_INSTALL_DIR=0
+    _mig_engine="$(mktemp "${TMPDIR:-/tmp}/dodaios-identity-migration.XXXXXX" 2>/dev/null)" || return 0
+    _mig_report=''
+    if git -C "$INSTALL_DIR" show "origin/$BRANCH:$IDENTITY_ENGINE_PATH" \
+        </dev/null >"$_mig_engine" 2>/dev/null && [ -s "$_mig_engine" ]; then
+        _mig_report="$(cd "$HOME" && "$PYTHON_EXE" -I -B "$_mig_engine" migrate \
+            "$LEGACY_INSTALL_DIR" "$CURRENT_INSTALL_DIR" </dev/null 2>/dev/null)" || _mig_report=''
+    fi
+    rm -f "$_mig_engine"
+    # One JSON object; Python reads it, so no path spelling can confuse a shell parser.
+    _mig_parsed="$(printf '%s' "$_mig_report" | "$PYTHON_EXE" -I -B -c \
+        'import json, sys; r = json.load(sys.stdin); print(r["outcome"]); print(r["effective"])' \
+        2>/dev/null | tr -d '\r')" || _mig_parsed=''
+    _mig_nl='
+'
+    _mig_outcome="${_mig_parsed%%"$_mig_nl"*}"
+    _mig_dir="${_mig_parsed#*"$_mig_nl"}"
+    if [ -z "$_mig_parsed" ] || [ "$_mig_outcome" = "$_mig_parsed" ] || [ ! -d "$_mig_dir" ]; then
+        note "kept the install in $INSTALL_DIR (the move to $CURRENT_INSTALL_DIR did not run)"
+        return 0
+    fi
+    case "$_mig_outcome" in
+        migrated|link_restored|already_linked)
+            note "moved the install to $_mig_dir (the old folder name still leads there)"
+            ;;
+        migrated_without_link)
+            note "moved the install to $_mig_dir"
+            ;;
+        *)
+            note "kept the install in $_mig_dir (it could not be renamed: $_mig_outcome)"
+            ;;
+    esac
+    INSTALL_DIR="$_mig_dir"
+    # --- migrate-install-dir end
+    return 0
+}
+
 # The fetch only writes inside .git, so the app keeps running through it: a
 # failed download (offline, an outage) then leaves a working app behind. It is
 # stopped at the last moment, right before the files it runs from change.
@@ -1213,6 +1296,7 @@ if [ -d "$INSTALL_DIR/.git" ]; then
     # shellcheck disable=SC2086  # GIT_NET_OPTS must word-split into -c pairs
     if pretty_git git $GIT_NET_OPTS -C "$INSTALL_DIR" fetch "$GIT_VERBOSITY" --depth 1 origin "$BRANCH" \
         && stop_running_app \
+        && migrate_install_dir \
         && git -C "$INSTALL_DIR" checkout --quiet "$BRANCH" \
         && git -C "$INSTALL_DIR" reset --quiet --hard "origin/$BRANCH"; then
         ok 'updated existing checkout to latest'

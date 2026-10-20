@@ -47,8 +47,12 @@ _DEFAULT_DIST_DIR = Path(__file__).resolve().parent / "dist"
 # app's SPA fallback in server.py.
 ASSET_SUFFIXES = frozenset(
     {
+        ".avif",
+        ".bin",
         ".css",
+        ".glb",
         ".gif",
+        ".hdr",
         ".ico",
         ".jpeg",
         ".jpg",
