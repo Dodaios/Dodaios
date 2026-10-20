@@ -104,6 +104,12 @@ multilingual tokenizer). A need crosses its threshold when, within 28 days:
 | sequence | B follows A within 15 minutes, on 3 days | skill |
 | domain | 3 needs (each twice) on one tool family, 10 requests over 14 days | agent |
 
+Habits are counted on the person's wall clock: the time zone their UI
+reported, or, until it has reported one, this computer's own zone (read as an
+IANA name and checked against the offsets the operating system reports; the
+log says once that the fallback is in use). A self-built routine is scheduled
+in the same zone.
+
 **Gate, no model.** A need is dropped when a build for it is open, kept or
 archived, the person rejected or undid one in the last 30 days, a decide
 verdict said "nothing" in the last 30 days (unless the need has doubled since),
@@ -111,7 +117,11 @@ earlier builds failed their proof twice, an installed skill already catches
 its requests, or `admit` refuses every candidate kind.
 
 **Decide.** After 90 seconds of quiet (or when a call ends), at most one model
-call per need and four per day. Without a signed-in subscription or a local
+call per need and four per day. Quiet means no new turn and, where the
+computer can tell, no keyboard or mouse input and no typing in an IDE pane for
+those 90 seconds (the same idle reading the code builder uses,
+`self_build/code/idle.py`); while the person is busy the need waits and is
+looked at again after the next quiet stretch. Without a signed-in subscription or a local
 model the loop writes a plain card from the counts and builds nothing until a
 model can write the spec. Calls are tagged `self_build:decide` in the cost
 ledger; build calls `self_build:<id>`.
