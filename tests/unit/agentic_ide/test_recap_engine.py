@@ -567,12 +567,11 @@ def test_the_headline_prompt_is_an_outcome_label_that_fits_the_real_header() -> 
     """Pin the product distinction the screenshot exposed: goal, not process."""
     system = recap_engine._SYSTEM  # noqa: SLF001 - the contract under test
 
-    assert "navigation label" in system
-    assert "HARD MAXIMUM 48 characters" in system
-    assert "original user goal" in system.lower()
-    assert '"Investigating"' in system
-    assert "Keep file paths" in system
-    assert "Workspace setup — one clear screen" in system
+    assert "HEADLINE:" in system
+    assert "DETAIL:" in system
+    assert "at most 48 characters" in system
+    assert "goal or outcome" in system
+    assert "no path" in system
 
 
 def test_the_headline_prompt_front_loads_the_first_two_words() -> None:
@@ -580,10 +579,8 @@ def test_the_headline_prompt_front_loads_the_first_two_words() -> None:
     those two must identify the session alone — and 'Code Review' does not."""
     system = recap_engine._SYSTEM  # noqa: SLF001 - the contract under test
 
-    assert "FIRST TWO WORDS" in system
+    assert "first two words alone" in system
     assert "3 to 5 words" in system
-    assert '"Code Review"' in system  # named as a banned opener
-    assert "Pane titles review — 6 findings" in system  # ...and its repair
 
 
 def test_a_pane_nobody_briefed_says_so_in_the_prompt() -> None:

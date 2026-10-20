@@ -171,26 +171,29 @@ def _make_generator(brain: object, jsonl: Path, db: Path) -> BioGenerator:
 
 
 # ----------------------------------------------------------------------
-# Tests — Prompt-Rendering (neue Tuple-Rueckgabe)
+# Tests — prompt rendering
 # ----------------------------------------------------------------------
 
 def test_render_returns_system_user_tuple() -> None:
-    system, user = render_bio_prompt({"days_observed": 14, "top_tools": ["bash"]})
-    assert "Ich-Form" in system
-    assert "beissend" in system or "scharf" in system.lower()
+    system, user = render_bio_prompt(
+        {"days_observed": 14, "top_tools": ["bash"]}, language="German",
+    )
+    assert "first person" in system
+    assert "sharp" in system
+    assert "in German" in system
     assert "bash" in user
-    assert "14 Tage" in user
+    assert "14 days" in user
 
 
 def test_render_cold_start_hint_under_7_days() -> None:
     _, user = render_bio_prompt({"days_observed": 3})
-    assert "COLD-START" in user
-    assert "Mehr in 4 Tagen" in user
+    assert "COLD START" in user
+    assert "More in 4 days" in user
 
 
 def test_render_no_cold_start_after_7_days() -> None:
     _, user = render_bio_prompt({"days_observed": 7})
-    assert "COLD-START" not in user
+    assert "COLD START" not in user
 
 
 def test_render_previous_bio_block() -> None:
@@ -198,7 +201,7 @@ def test_render_previous_bio_block() -> None:
         "days_observed": 30,
         "previous_bio": "Du bist immer noch praezise und ungeduldig.",  # i18n-allow: fed verbatim into the German bio prompt, asserted below
     })
-    assert "FRUEHERE BIO" in user
+    assert "PREVIOUS BIO" in user
     assert "praezise" in user
 
 
@@ -207,8 +210,8 @@ def test_render_feedback_vector_haerter_lowers_threshold() -> None:
         "days_observed": 30,
         "feedback_vector": {"trifft": 1, "trifft_nicht": 0, "haerter": 3},  # i18n-allow: real API/DB contract values, matched in logic
     })
-    assert "BISSIGER" in user
-    assert "Hoeflichkeitsschwelle" in user
+    assert "SHARPER" in user
+    assert "politeness threshold" in user
 
 
 def test_render_feedback_vector_trifft_nicht_dominant() -> None:  # i18n-allow: name matches real API/DB contract value "trifft_nicht"
@@ -216,7 +219,7 @@ def test_render_feedback_vector_trifft_nicht_dominant() -> None:  # i18n-allow: 
         "days_observed": 30,
         "feedback_vector": {"trifft": 0, "trifft_nicht": 4, "haerter": 1},  # i18n-allow: real API/DB contract values, matched in logic
     })
-    assert "konkreter an den Daten" in user
+    assert "closer to the data" in user
 
 
 def test_render_episodes_block() -> None:
@@ -228,7 +231,7 @@ def test_render_episodes_block() -> None:
             "Browser-Tab mit GitHub PRs offen.",
         ],
     })
-    assert "EPISODEN" in user
+    assert "EPISODES" in user
     assert "geschimpft" in user
 
 
@@ -238,7 +241,7 @@ def test_render_missions_block() -> None:
         "missions": {"approved": 5, "failed": 2, "aborted": 1, "open_overdue": ["Refactor X"]},
     })
     assert "MISSIONS" in user
-    assert "Abgeschlossen: 5" in user
+    assert "Done: 5" in user
     assert "Refactor X" in user
 
 
@@ -247,7 +250,7 @@ def test_render_self_mod_block() -> None:
         "days_observed": 14,
         "self_mod": {"tts.provider": 3, "ui.theme": 1},
     })
-    assert "KONFIG-MUTATIONEN" in user
+    assert "CONFIG CHANGES" in user
     assert "tts.provider: 3x" in user
 
 
@@ -458,7 +461,7 @@ async def test_collect_facts_passes_previous_bio_and_feedback(tmp_path: Path) ->
     jsonl, db = _power_user_db(tmp_path)
     bio_store = BioStore(db)
     # Two bios required: BioStore.previous() uses LIMIT 1 OFFSET 1, so it
-    # returns the second-newest entry. The older one is the "FRUEHERE BIO"
+    # returns the second-newest entry. The older one is the "PREVIOUS BIO"
     # the Wochen-Delta context references.
     bio_store.insert("erste bio mit charakter", triggered_by="weekly")
     # Tiny sleep so the second insert gets a strictly-later ISO timestamp.
@@ -480,5 +483,22 @@ async def test_collect_facts_passes_previous_bio_and_feedback(tmp_path: Path) ->
     request = brain.calls[0]
     user_text = request.messages[0].content
     assert isinstance(user_text, str)
-    assert "FRUEHERE BIO" in user_text
-    assert "BISSIGER" in user_text
+    assert "PREVIOUS BIO" in user_text
+    assert "SHARPER" in user_text
+
+
+@pytest.mark.asyncio
+async def test_bio_language_follows_the_reply_language_pin(tmp_path: Path) -> None:
+    jsonl, db = _power_user_db(tmp_path)
+    brain = FakeBrain("Ich beobachte dich seit 14 Tagen.")  # i18n-allow: scripted model reply
+    gen = BioGenerator(
+        brain_resolver=make_resolver_from_brain(brain),
+        store=BoardStore(db),
+        bio_store=BioStore(db),
+        jsonl_dir=jsonl,
+        reply_language=lambda: "de",
+    )
+    await gen.generate_bio()
+
+    assert brain.calls, "Brain was not called"
+    assert "in German" in brain.calls[0].system

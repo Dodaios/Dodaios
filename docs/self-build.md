@@ -147,6 +147,7 @@ turn; no model call and no timer unless a need is waiting to be decided.
 | `max_open_trials` | `5` | |
 | `max_code_runs_per_day` | `1` | |
 | `max_rejections` | `2` | |
+| `code_land_repos` | `[]` | repositories (`owner/name`) whose loop pull requests are merged after green CI ([code builds](self-build-code.md)) |
 
 At `suggest` a card asks first. At `trial` the build goes live on trial; an
 unused trial is archived on its own, a used one waits for the person's keep.

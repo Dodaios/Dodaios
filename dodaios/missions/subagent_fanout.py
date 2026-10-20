@@ -186,7 +186,7 @@ class SubagentFanoutRunner:
     ) -> SubagentResult:
         from .ids import uuid7_str
         from .kontrollierer.decomposer import Step
-        from .kontrollierer.worker_prompt import compose_worker_prompt
+        from .kontrollierer.worker_prompt import SUBAGENT_CONTRACT, compose_worker_prompt
         from .workers.worker_tool_broker import EmptyWorkerToolBrokerBinding
 
         started = asyncio.get_running_loop().time()
@@ -225,16 +225,7 @@ class SubagentFanoutRunner:
                 )
 
         child_prompt = compose_worker_prompt(
-            "",
-            (
-                "You are ONE of several parallel sub-agents working on parts "
-                "of a larger task; a coordinating agent will integrate the "
-                "results. Work ONLY inside your assigned working directory. "
-                "Your final message IS your deliverable back to the "
-                "coordinator: end with a complete, self-contained answer "
-                "(plus the relative paths of any files you created).\n\n"
-                f"Your sub-task: {prompt}"
-            ),
+            "", f"Sub-task: {prompt}", contract=SUBAGENT_CONTRACT
         )
 
         cost = 0.0

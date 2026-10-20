@@ -225,8 +225,11 @@ class BioGenerator:
         temperature: float = 0.85,
         max_tokens: int = 400,
         timeout_s: float = 30.0,
+        reply_language: Callable[[], object] | None = None,
     ) -> None:
         self._resolver = brain_resolver
+        #: Reads ``brain.reply_language`` live; ``None`` mirrors the data.
+        self._reply_language = reply_language
         self._store = store
         self._bio_store = bio_store
         self._jsonl_dir = Path(jsonl_dir) if jsonl_dir is not None else None
@@ -246,6 +249,22 @@ class BioGenerator:
         #: "brain unavailable" (a deferred subscription resolve). The refresh
         #: route shows it to the user.
         self.last_skip_reason: str | None = None
+
+    def _bio_language(self, facts: dict[str, Any]) -> str:
+        """The bio's language, through the one output-language resolver."""
+        from dodaios.core.turn_language import resolve_output_language
+        from dodaios.dictation.translate_prompt import language_display_name
+
+        pin: object = ""
+        if self._reply_language is not None:
+            try:
+                pin = self._reply_language()
+            except Exception:  # noqa: BLE001 - a config read never blocks the bio
+                pin = ""
+        sample = " ".join(
+            [*(str(e) for e in facts.get("episodes") or []), str(facts.get("memory_excerpt") or "")]
+        )
+        return language_display_name(resolve_output_language(pin, "", sample))
 
     # --------------- Public API ---------------
 
@@ -287,7 +306,9 @@ class BioGenerator:
         facts = await asyncio.to_thread(
             self._collect_facts, memory_text=memory_text, soul_text=soul_text,
         )
-        system_prompt, user_prompt = render_bio_prompt(facts)
+        system_prompt, user_prompt = render_bio_prompt(
+            facts, language=self._bio_language(facts),
+        )
 
         request = BrainRequest(
             messages=(BrainMessage(role="user", content=user_prompt),),
