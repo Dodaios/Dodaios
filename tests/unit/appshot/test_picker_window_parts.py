@@ -23,13 +23,15 @@ needs_qt = pytest.mark.skipif(
 
 W, H = 1600, 900
 WINDOW = [100, 100, 1000, 700]
-#: A sidebar, a list item in it, a content pane and a pane's inner area that
-#: is nearly the pane itself.
+#: A sidebar, a list in it, a content pane, the pane's inner area that is
+#: nearly the pane itself, a single button row (too small to offer) and a
+#: speck.
 PARTS = [
     [100, 100, 250, 700],
-    [110, 200, 230, 40],
+    [110, 200, 230, 120],
     [350, 100, 750, 700],
     [356, 104, 740, 690],
+    [110, 400, 230, 30],
     [0, 0, 5, 5],
 ]
 MONITORS = [
@@ -49,24 +51,40 @@ def test_window_parts_are_cut_to_the_window_without_copies_or_slivers() -> None:
             (50.0, 150.0, 200.0, 100.0),  # sticks out on the left
             (50.0, 150.0, 200.0, 100.0),  # the same again
             (100.0, 100.0, 1000.0, 700.0),  # the window itself
-            (300.0, 300.0, 10.0, 10.0),  # too small
+            (300.0, 300.0, 10.0, 10.0),  # a speck
+            (300.0, 300.0, 400.0, 30.0),  # a button row: thinner than 40 px
+            (300.0, 400.0, 90.0, 90.0),  # a tile: under 1.5 % of the window
             (2000.0, 0.0, 100.0, 100.0),  # outside
         ],
     )
     assert parts == [(100.0, 150.0, 150.0, 100.0)]
 
 
+def test_a_part_mostly_under_another_window_is_not_offered() -> None:
+    window = (0.0, 0.0, 1000.0, 1000.0)
+    sidebar = (0.0, 0.0, 300.0, 1000.0)
+    page = (300.0, 0.0, 700.0, 1000.0)
+    on_top = [(250.0, 0.0, 750.0, 1000.0)]
+    assert mm.window_parts(window, [sidebar, page], covers=on_top) == [sidebar]
+
+
 def test_candidates_run_from_the_smallest_part_out_to_the_window() -> None:
     window = (100.0, 100.0, 1000.0, 700.0)
     parts = [tuple(float(v) for v in p) for p in PARTS[:4]]
     assert mm.snap_candidates((120, 210), window, parts) == [
-        (110.0, 200.0, 230.0, 40.0),
+        (110.0, 200.0, 230.0, 120.0),
         (100.0, 100.0, 250.0, 700.0),
         window,
     ]
     # The pane's inner area is nearly the pane: one step, the larger one.
     assert mm.snap_candidates((600, 400), window, parts) == [(350.0, 100.0, 750.0, 700.0), window]
     assert mm.snap_candidates((5, 5), window, parts) == [window]
+
+
+def test_a_page_under_browser_bars_stays_its_own_step() -> None:
+    window = (0.0, 0.0, 2560.0, 1392.0)
+    page = (0.0, 120.0, 2560.0, 1272.0)
+    assert mm.snap_candidates((900, 700), window, [page]) == [page, window]
 
 
 def test_the_layout_carries_a_handle_beside_each_window(monkeypatch) -> None:
@@ -246,7 +264,7 @@ def test_hovering_asks_for_the_parts_and_lights_the_smallest_one(picker) -> None
     assert win._hole() == win._snaps[0], "until its parts arrive, the whole window lights up"
     win.add_parts(4242, PARTS)
     assert (win._hole().x(), win._hole().y(), win._hole().width(), win._hole().height()) == (
-        110, 200, 230, 40,
+        110, 200, 230, 120,
     )
 
 
@@ -274,6 +292,14 @@ def test_a_new_part_under_the_pointer_starts_at_the_smallest_again(picker) -> No
     _wheel(win, 120, 210, up=True)
     _move(win, 600, 400)
     assert win._hole().width() == 750
+
+
+@needs_qt
+def test_small_pieces_are_never_lit(picker) -> None:
+    owner, win, events, asked = picker
+    win.add_parts(4242, PARTS)
+    _move(win, 120, 410)
+    assert win._hole().width() == 250, "the button row is skipped: the sidebar lights up"
 
 
 @needs_qt

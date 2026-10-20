@@ -155,11 +155,14 @@ earlier builds failed their proof twice, an installed skill already catches
 its requests, or `admit` refuses every candidate kind.
 
 **Decide.** After 90 seconds of quiet (or when a call ends), at most one model
-call per need and four per day. Quiet means no new turn and, where the
-computer can tell, no keyboard or mouse input and no typing in an IDE pane for
-those 90 seconds (the same idle reading the code builder uses,
-`self_build/code/idle.py`); while the person is busy the need waits and is
-looked at again after the next quiet stretch. Without a signed-in subscription or a local
+call per need and four per day. Quiet means the person is not in the middle
+of talking to Dodaios: no turn of theirs (voice, chat, agent chat, a prompt
+typed to a pane through the app), no typing into a pane's terminal in the app
+and no open call for those 90 seconds (`core/presence.py`). The operating
+system's input idle time is not asked: a person working in other programs
+moves the mouse every second, and the decide call is light. While the person
+talks to Dodaios the need waits and is looked at again after the next quiet
+stretch, and it is decided at the latest 20 minutes after it was queued. Without a signed-in subscription or a local
 model the loop writes a plain card from the counts and builds nothing until a
 model can write the spec. Calls are tagged `self_build:decide` in the cost
 ledger; build calls `self_build:<id>`.

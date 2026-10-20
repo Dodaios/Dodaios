@@ -584,26 +584,52 @@ def clip_to(box: Box, sel: Box) -> Box | None:
 # Snapping to the parts of a window
 # --------------------------------------------------------------------------
 
-#: Parts of a window smaller than this (logical px, either side) are no
-#: snap targets: icons and single words would make the pointer jumpy.
-MIN_PART_PX = 16.0
+#: A part must be at least this wide and tall (logical px) ...
+MIN_PART_PX = 40.0
+#: ... and cover at least this share of its window. Hovering then offers the
+#: big pieces (a sidebar, a file list, the page, a picture), not every
+#: button, row and text field.
+MIN_PART_SHARE = 0.015
+#: A part more than this share hidden under windows above it is left out:
+#: lighting it up would light the window on top of it too.
+MAX_PART_COVERED = 0.3
 
 
-def window_parts(window: Box, boxes: list[Box], min_px: float = MIN_PART_PX) -> list[Box]:
-    """A window's parts (panels, lists, fields, buttons), cut to the window.
+def _overlap(a: Box, b: Box) -> float:
+    shared = clip_to(a, b)
+    return shared[2] * shared[3] if shared is not None else 0.0
 
-    Slivers, copies and parts that are the window itself are dropped; what is
-    left is what hovering may lift out of the dim instead of the whole window.
+
+def window_parts(
+    window: Box,
+    boxes: list[Box],
+    *,
+    min_px: float = MIN_PART_PX,
+    min_share: float = MIN_PART_SHARE,
+    covers: list[Box] | None = None,
+) -> list[Box]:
+    """A window's parts worth snapping to, cut to the window.
+
+    Slivers, small pieces, copies, parts that are the window itself and parts
+    mostly hidden under the windows in ``covers`` (those above this one) are
+    dropped; what is left is what hovering may lift out of the dim instead of
+    the whole window.
     """
     out: list[Box] = []
     seen: set[tuple[int, int, int, int]] = set()
     whole = tuple(round(v) for v in window)
+    least = window[2] * window[3] * min_share
     for box in boxes:
         clipped = clip_to(box, window)
         if clipped is None or clipped[2] < min_px or clipped[3] < min_px:
             continue
+        area = clipped[2] * clipped[3]
+        if area < least:
+            continue
         key = (round(clipped[0]), round(clipped[1]), round(clipped[2]), round(clipped[3]))
         if key in seen or key == whole:
+            continue
+        if covers and sum(_overlap(clipped, top) for top in covers) > area * MAX_PART_COVERED:
             continue
         seen.add(key)
         out.append(clipped)
@@ -611,20 +637,23 @@ def window_parts(window: Box, boxes: list[Box], min_px: float = MIN_PART_PX) -> 
 
 
 #: Two nested parts this close on every edge (logical px, or this share of
-#: the larger side) count as one: a wheel step must visibly change the area.
-NEAR_PX = 12.0
-NEAR_SHARE = 0.05
+#: the larger box along that axis) count as one: a wheel step must visibly
+#: change the area, and the light must not flicker between near-identical
+#: wrappers. Per axis, so a web page under a browser's 120 px of bars stays
+#: its own step in a tall window.
+NEAR_PX = 16.0
+NEAR_SHARE = 0.06
 
 
 def _nearly_same(a: Box, b: Box) -> bool:
-    reach = max(NEAR_PX, NEAR_SHARE * max(a[2], a[3], b[2], b[3]))
-    edges = (
-        (a[0], b[0]),
-        (a[1], b[1]),
-        (a[0] + a[2], b[0] + b[2]),
-        (a[1] + a[3], b[1] + b[3]),
+    across = max(NEAR_PX, NEAR_SHARE * max(a[2], b[2]))
+    down = max(NEAR_PX, NEAR_SHARE * max(a[3], b[3]))
+    return (
+        abs(a[0] - b[0]) <= across
+        and abs((a[0] + a[2]) - (b[0] + b[2])) <= across
+        and abs(a[1] - b[1]) <= down
+        and abs((a[1] + a[3]) - (b[1] + b[3])) <= down
     )
-    return all(abs(x - y) <= reach for x, y in edges)
 
 
 def snap_candidates(point: Point, window: Box, parts: list[Box]) -> list[Box]:
@@ -725,7 +754,9 @@ __all__ = [
     "HANDLES",
     "HIGHLIGHT",
     "LINE",
+    "MAX_PART_COVERED",
     "MIN_PART_PX",
+    "MIN_PART_SHARE",
     "MOVE",
     "PALETTE",
     "PEN",
