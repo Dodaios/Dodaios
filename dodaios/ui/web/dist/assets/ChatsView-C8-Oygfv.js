@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/ChatsView-C8-Oygfv.js
 import{j as s}from"./index-CXoCyLhG.js";import{P as n}from"./PageHeader-CIzpjSQ6.js";import"./WorkTrace-CQM90R3f.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+|||||||| parent of 70397b6539 (build(ui): rebuild the bundle so the Live calls tab shows the voice engine switch (#761)):dodaios/ui/web/dist/assets/ChatsView-Cd1w1HJg.js
+import{j as s}from"./index-BZsAknEC.js";import{P as n}from"./PageHeader-CEZoyK-b.js";import"./WorkTrace-Ke_5Iu5J.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+========
+import{j as s}from"./index-DUdONhWV.js";import{P as n}from"./PageHeader-CxARkbOg.js";import"./WorkTrace-Be-68Ucp.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+>>>>>>>> 70397b6539 (build(ui): rebuild the bundle so the Live calls tab shows the voice engine switch (#761)):dodaios/ui/web/dist/assets/ChatsView-Db4CX5LP.js
