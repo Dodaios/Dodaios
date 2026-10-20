@@ -5,11 +5,20 @@
 # https://github.com/Dodaios/Dodaios/releases/latest/download/<name>,
 # so the asset names below are a contract, not a convention.
 #
-#   PersonalJarvis-Setup-x64.exe          Windows 10/11 x64, per-user Inno wizard
-#   PersonalJarvis-macOS-arm64.dmg        Apple Silicon
-#   PersonalJarvis-macOS-x64.dmg          Intel Mac
-#   PersonalJarvis-Linux-x86_64.AppImage  Linux x86_64
-#   installers-SHA256SUMS.txt             what the updater verifies against
+#   Dodaios-Setup-x64.exe          Windows 10/11 x64, per-user Inno wizard
+#   Dodaios-macOS-arm64.dmg        Apple Silicon
+#   Dodaios-macOS-x64.dmg          Intel Mac
+#   Dodaios-Linux-x86_64.AppImage  Linux x86_64
+#   installers-SHA256SUMS.txt      what the updater verifies against
+#
+# Every installer is ALSO published under its earlier name
+# (PersonalJarvis-Setup-x64.exe, PersonalJarvis-macOS-<arch>.dmg,
+# PersonalJarvis-Linux-x86_64.AppImage) with identical bytes: installs frozen
+# before the rename only look for that name. The release job makes the copies
+# after signing (scripts/ci/installer_aliases.py) and the checksum manifest
+# lists both names. The Windows setup is built and signed under the earlier
+# name, because the SignPath artifact configuration pins it
+# (docs/code-signing-policy.md); its current name is the copy.
 #
 # Each OS job runs the SAME script a maintainer runs locally
 # (packaging/<os>/build.*), so a green run here means the documented command
@@ -142,7 +151,7 @@ jobs:
         run: pwsh packaging/windows/build.ps1
 
       - name: Verify frozen browser provisioning and restart
-        run: python scripts/ci/check_frozen_browser.py --executable dist/Jarvis/PersonalJarvis.exe --output frozen-browser-proof
+        run: python scripts/ci/check_frozen_browser.py --executable dist/Jarvis/DodaiosApp.exe --output frozen-browser-proof
 
       - name: Preserve frozen browser evidence
         if: always()
@@ -248,6 +257,8 @@ jobs:
         run: |
           echo "::notice::Neither SignPath (SIGNPATH_API_TOKEN + SIGNPATH_ORGANIZATION_ID/PROJECT_SLUG/SIGNING_POLICY_SLUG) nor AZURE_* signing is configured - the installer is UNSIGNED."
 
+      # The signed setup under the name SignPath pins; the release job adds the
+      # byte-identical Dodaios-Setup-x64.exe.
       - name: Upload the installer
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
@@ -346,7 +357,7 @@ jobs:
       # headless smoke test below, so look at the built app itself (BUG-222).
       - name: Verify the app bundle can use macOS permissions
         shell: bash
-        run: python scripts/ci/check_frozen_macos_app.py --app "dist/Personal Jarvis.app"
+        run: python scripts/ci/check_frozen_macos_app.py --app "dist/Dodaios.app"
 
       - name: Remove signing credentials even after a failed build
         if: always() && env.HAS_APPLE_SIGNING == 'true'
@@ -379,9 +390,9 @@ jobs:
           set -euo pipefail
           mount_point="${RUNNER_TEMP}/jarvis-browser-dmg"
           mkdir -p "$mount_point"
-          hdiutil attach "dist/installers/PersonalJarvis-macOS-${{ matrix.arch }}.dmg" -readonly -nobrowse -mountpoint "$mount_point"
+          hdiutil attach "dist/installers/Dodaios-macOS-${{ matrix.arch }}.dmg" -readonly -nobrowse -mountpoint "$mount_point"
           trap 'hdiutil detach "$mount_point"' EXIT
-          python scripts/ci/check_frozen_browser.py --executable "$mount_point/Personal Jarvis.app/Contents/MacOS/PersonalJarvis" --output frozen-browser-proof
+          python scripts/ci/check_frozen_browser.py --executable "$mount_point/Dodaios.app/Contents/MacOS/DodaiosApp" --output frozen-browser-proof
 
       - name: Preserve frozen browser evidence
         if: always()
@@ -398,7 +409,7 @@ jobs:
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: installer-macos-${{ matrix.arch }}
-          path: dist/installers/PersonalJarvis-macOS-${{ matrix.arch }}.dmg
+          path: dist/installers/Dodaios-macOS-${{ matrix.arch }}.dmg
           if-no-files-found: error
           retention-days: 14
 
@@ -462,7 +473,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dist/installers/PersonalJarvis-Linux-x86_64.AppImage --appimage-extract > /dev/null
+          dist/installers/Dodaios-Linux-x86_64.AppImage --appimage-extract > /dev/null
           python scripts/ci/check_frozen_browser.py --executable squashfs-root/AppRun --output frozen-browser-proof
 
       - name: Preserve frozen browser evidence
@@ -481,8 +492,8 @@ jobs:
         with:
           name: installer-linux-x86_64
           path: |
-            dist/installers/PersonalJarvis-Linux-x86_64.AppImage
-            dist/installers/personal-jarvis_*_amd64.deb
+            dist/installers/Dodaios-Linux-x86_64.AppImage
+            dist/installers/*_amd64.deb
           if-no-files-found: error
           retention-days: 14
 
@@ -536,6 +547,10 @@ jobs:
           path: installers
           merge-multiple: true
 
+      # After signing, on purpose: both names must carry the signed bytes.
+      - name: Publish every installer under both of its names
+        run: python scripts/ci/installer_aliases.py installers
+
       - name: Write installers-SHA256SUMS.txt
         shell: bash
         run: |
@@ -545,6 +560,10 @@ jobs:
           # Every asset the download page and the updater promise must be here.
           # A silently missing DMG would ship a release that only half works.
           required=(
+            Dodaios-Setup-x64.exe
+            Dodaios-macOS-arm64.dmg
+            Dodaios-macOS-x64.dmg
+            Dodaios-Linux-x86_64.AppImage
             PersonalJarvis-Setup-x64.exe
             PersonalJarvis-macOS-arm64.dmg
             PersonalJarvis-macOS-x64.dmg
@@ -559,7 +578,7 @@ jobs:
           # Flat names only: the updater looks each asset up by its file name.
           rm -f installers-SHA256SUMS.txt
           sha256sum "${required[@]}" > installers-SHA256SUMS.txt
-          for optional in personal-jarvis_*_amd64.deb; do
+          for optional in dodaios_*_amd64.deb personal-jarvis_*_amd64.deb; do
             [ -e "$optional" ] || continue
             sha256sum "$optional" >> installers-SHA256SUMS.txt
           done
@@ -575,7 +594,7 @@ jobs:
           retention-days: 14
 
       # SLSA build provenance for every native installer the manifest lists
-      # (.exe, both .dmg, .AppImage, .deb), signed with this workflow's OIDC
+      # (.exe, both .dmg, .AppImage, .deb, under both names), signed with this workflow's OIDC
       # identity and stored in GitHub's attestation store. It runs before the
       # upload so a release can never carry installers without provenance, and
       # it attests the final (signed) bytes that the OS jobs uploaded.

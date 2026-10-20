@@ -33,9 +33,8 @@ from starlette.routing import Match
 from starlette.types import Scope
 
 from dodaios import __version__
-from dodaios.core.branding import CONFIG_FILE_NAME
 from dodaios.core.bus import EventBus, get_default_bus
-from dodaios.core.config import JarvisConfig
+from dodaios.core.config import JarvisConfig, resolve_config_path
 from dodaios.core.events import (
     AnnouncementRequested,
     ErrorOccurred,
@@ -2662,6 +2661,29 @@ class WebServer:
             "will be renewed in the background."
         )
 
+    def _schedule_credential_migration(self) -> None:
+        """Copy keys from the renamed credential service once, off the boot path (AP-26).
+
+        A daemon thread in the main instance only, started with a delay; reads
+        never depend on it (``get_secret`` falls back to the legacy service),
+        so a process that skips it loses nothing.
+        """
+        try:
+            from dodaios.core.identity_credentials import schedule_credential_migration
+
+            schedule_credential_migration()
+        except Exception as exc:  # noqa: BLE001 -- a background copy must never block boot
+            logger.opt(exception=exc).warning("Credential copy did not schedule.")
+
+    def _schedule_distribution_check(self) -> None:
+        """Warn once, off the boot path (AP-26), when both package names are installed."""
+        try:
+            from dodaios.core.distribution import schedule_duplicate_distribution_check
+
+            schedule_duplicate_distribution_check()
+        except Exception as exc:  # noqa: BLE001 -- a diagnostic must never block boot
+            logger.opt(exception=exc).debug("Duplicate distribution check did not schedule.")
+
     def _schedule_appshot_shortcut(self) -> None:
         """Arm the global appshot shortcut once the wake model has loaded.
 
@@ -3153,6 +3175,8 @@ class WebServer:
         # transport for it.
         self._schedule_realtime_transport_warm()
         self._schedule_appshot_shortcut()
+        self._schedule_credential_migration()
+        self._schedule_distribution_check()
         # Browser provisioning includes a Chromium probe and may need Linux
         # system libraries. Leave it to explicit browser use/setup; boot and
         # shell-paint acknowledgements must keep headless installations usable.
@@ -3737,12 +3761,12 @@ class WebServer:
         )
 
     def _read_sessions_toml_section(self) -> dict:
-        """The raw ``[sessions]`` section from jarvis.toml (may be empty).
+        """The raw ``[sessions]`` section from the config file (may be empty).
 
         That section is NOT in the Pydantic tree (see assumption A-2 in the
         Phase-7 bootstrap), hence tomllib directly.
         """
-        toml_path = Path(CONFIG_FILE_NAME)
+        toml_path = resolve_config_path()
         if not toml_path.exists():
             return {}
         try:

@@ -3,8 +3,8 @@
 Responsibilities:
 
 1. **Secret resolution**: on the first ``execute()`` call the HMAC secret is
-   fetched from the Credential Manager (keyring service = ``personal-jarvis``,
-   key = ``jarvis_admin_hmac``). If none is present → auto-generation
+   fetched from the Credential Manager (keyring service = ``dodaios``, or the
+   earlier ``personal-jarvis``; key = ``jarvis_admin_hmac``). If none is present → auto-generation
    (via the ``launcher.py`` path). This module assumes the secret exists — if
    not, ``execute`` fails with ``error_code="no_secret"``.
 2. **Destructiveness check**: ops in ``DESTRUCTIVE_OPS`` are not sent

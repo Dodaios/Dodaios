@@ -103,10 +103,10 @@ def faster_whisper_available() -> bool:
 def _child_python() -> str:
     """The interpreter for the preview worker, beside the running executable.
 
-    ``sys.executable`` in the desktop app is the branded ``PersonalJarvis.exe``,
+    ``sys.executable`` in the desktop app is the branded ``DodaiosApp.exe``,
     which cannot take ``-m``. Usually the real ``python(.exe)`` lives in the
     same directory, but the per-user branded copy in
-    ``%LOCALAPPDATA%\\PersonalJarvis\\bin`` carries only the runtime DLLs — so
+    ``%LOCALAPPDATA%\\DodaiosApp\\bin`` carries only the runtime DLLs — so
     the active environment's own interpreter directory, then the base
     install's, are searched next. Without that fallback every dictation after
     a launch through that copy failed with "no local dictation worker".

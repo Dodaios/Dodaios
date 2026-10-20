@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 #
-# Build the distributable Linux AppImage for Personal Jarvis.
+# Build the distributable Linux AppImage for Dodaios.
 #
 #   packaging/linux/build.sh
 #
 # Output (per the release contract):
-#   dist/installers/PersonalJarvis-Linux-x86_64.AppImage
+#   dist/installers/Dodaios-Linux-x86_64.AppImage
 #   dist/installers/personal-jarvis_<version>_amd64.deb   (when dpkg-deb exists)
+#
+# The installed names are already the current ones: the Debian package
+# "dodaios" (it replaces the earlier "personal-jarvis" package), /opt/Dodaios,
+# dodaios.desktop and the dodaios icon. A release also publishes the AppImage
+# as PersonalJarvis-Linux-x86_64.AppImage, a byte-identical copy for installs
+# from before the rename (scripts/ci/installer_aliases.py).
 #
 # The AppImage is one downloadable file that needs no Python, no pip and no
 # system packages: double-click it to run the app, or call it like the CLI
-# ("./PersonalJarvis-Linux-x86_64.AppImage serve"). Both entry points come out
+# ("./Dodaios-Linux-x86_64.AppImage serve"). Both entry points come out
 # of the same PyInstaller onedir freeze.
 #
 # What this AppImage does NOT contain is a native desktop window - read
@@ -41,7 +47,7 @@ FREEZE_DIR="${FREEZE_DIR:-${DIST_DIR}/Jarvis}"
 OUT_DIR="${DIST_DIR}/installers"
 APPDIR="${DIST_DIR}/AppDir"
 FRONTEND_DIST="${REPO_ROOT}/dodaios/ui/web/dist"
-APPIMAGE_PATH="${OUT_DIR}/PersonalJarvis-Linux-x86_64.AppImage"
+APPIMAGE_PATH="${OUT_DIR}/Dodaios-Linux-x86_64.AppImage"
 
 # Pinned build tool. "continuous" is a moving target and an unpinned build tool
 # is an unpinned supply chain, so this is an exact release plus its digest; the
@@ -52,10 +58,23 @@ APPIMAGETOOL_SHA256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb3
 APPIMAGETOOL_CACHE="${DIST_DIR}/.build-tools/appimagetool-${APPIMAGETOOL_VERSION}-x86_64.AppImage"
 
 ICON_SOURCE="${REPO_ROOT}/assets/icons/jarvis-gigi-256.png"
-DESKTOP_FILE_NAME="personal-jarvis.desktop"
+# The desktop entry, its icon and the window class share one name
+# (dodaios/core/branding.py: LINUX_DESKTOP_ENTRY_FILE_NAME, LINUX_WM_CLASS).
+DESKTOP_FILE_NAME="dodaios.desktop"
 # The console command and its earlier name; both ship (jarvis.spec builds both).
 CLI_EXE_NAMES=("dodaios" "jarvis")
-ICON_FILE_NAME="personal-jarvis.png"
+ICON_FILE_NAME="dodaios.png"
+# usr/share/<name> inside the AppDir; AppRun reads its browser-ui marker there.
+SHARE_DIR_NAME="dodaios"
+# The Debian package. It takes over from the package under its earlier name:
+# Conflicts + Replaces let dpkg remove that package while installing this one,
+# and Provides keeps anything that depends on the earlier name satisfied.
+DEB_PACKAGE_NAME="dodaios"
+LEGACY_DEB_PACKAGE_NAME="personal-jarvis"
+DEB_INSTALL_DIR="/opt/Dodaios"
+# The earlier command that opens the app; kept so a launcher, a script or a
+# habit that calls it keeps working.
+LEGACY_APP_COMMAND_NAME="personal-jarvis"
 
 log() { printf '[linux-build] %s\n' "$*"; }
 die() { printf '[linux-build] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -132,11 +151,12 @@ else
   )
 fi
 
-# The windowed target is named PersonalJarvis in jarvis.spec, because `Jarvis`
-# and `jarvis` are the SAME path on Windows and on a default macOS volume and
+# The windowed target is named DodaiosApp in jarvis.spec, because `Dodaios`
+# and `dodaios` are the SAME path on Windows and on a default macOS volume and
 # the second executable would overwrite the first. Linux has no such problem,
-# but the freeze is shared, so accept either name rather than pinning one.
-GUI_EXE_CANDIDATES=("PersonalJarvis" "Jarvis")
+# but the freeze is shared, so accept the earlier names too rather than pinning
+# one. The freeze also ships the launcher under its earlier name PersonalJarvis.
+GUI_EXE_CANDIDATES=("DodaiosApp" "PersonalJarvis" "Jarvis")
 GUI_EXE_NAME=""
 if building; then
   for candidate in "${GUI_EXE_CANDIDATES[@]}"; do
@@ -149,7 +169,7 @@ if building; then
     || die "PyInstaller produced none of ${GUI_EXE_CANDIDATES[*]} in '${FREEZE_DIR}' - jarvis.spec has no windowed EXE target"
   log "windowed executable: ${GUI_EXE_NAME}"
 else
-  GUI_EXE_NAME="PersonalJarvis"
+  GUI_EXE_NAME="${GUI_EXE_CANDIDATES[0]}"
 fi
 
 # --- 3. AppDir --------------------------------------------------------------
@@ -159,7 +179,7 @@ run rm -rf "${APPDIR}"
 run mkdir -p "${APPDIR}/usr/bin" \
   "${APPDIR}/usr/share/applications" \
   "${APPDIR}/usr/share/icons/hicolor/256x256/apps" \
-  "${APPDIR}/usr/share/personal-jarvis"
+  "${APPDIR}/usr/share/${SHARE_DIR_NAME}"
 
 if building; then
   # The whole onedir tree lands in usr/bin so PyInstaller's "_internal next to
@@ -190,7 +210,8 @@ else
 fi
 
 run "${PYTHON}" "${SCRIPT_DIR}/make_desktop_entry.py" \
-  "${APPDIR}/usr/share/applications/${DESKTOP_FILE_NAME}" --exec Jarvis
+  "${APPDIR}/usr/share/applications/${DESKTOP_FILE_NAME}" --exec Jarvis \
+  --icon "${ICON_FILE_NAME%.png}"
 
 [ -f "${ICON_SOURCE}" ] || die "icon master missing: ${ICON_SOURCE}"
 run cp "${ICON_SOURCE}" "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${ICON_FILE_NAME}"
@@ -211,12 +232,12 @@ run chmod +x "${APPDIR}/AppRun"
 # opening the extra tab on its own, with no second place to remember.
 if building && [ -d "${APPDIR}/usr/bin/_internal/gi" ]; then
   log "freeze contains PyGObject - native window backend available, no browser hand-off"
-  run rm -f "${APPDIR}/usr/share/personal-jarvis/browser-ui"
+  run rm -f "${APPDIR}/usr/share/${SHARE_DIR_NAME}/browser-ui"
 else
   log "freeze has no PyGObject - the app will serve its interface over HTTP and AppRun opens it in the default browser"
   if building; then
     printf '%s\n' "This build has no bundled GTK/WebKit window backend; AppRun opens the UI in the default browser." \
-      > "${APPDIR}/usr/share/personal-jarvis/browser-ui"
+      > "${APPDIR}/usr/share/${SHARE_DIR_NAME}/browser-ui"
   fi
 fi
 
@@ -275,26 +296,31 @@ elif ! command -v dpkg-deb >/dev/null 2>&1; then
 else
   VERSION="$("${PYTHON}" -c "import sys; sys.path.insert(0, '${REPO_ROOT}'); import dodaios; print(dodaios.__version__)")"
   DEB_ROOT="${DIST_DIR}/deb-root"
+  # The release asset keeps its earlier file name (see the header); the
+  # package inside it is DEB_PACKAGE_NAME.
   DEB_PATH="${OUT_DIR}/personal-jarvis_${VERSION}_amd64.deb"
   log "building ${DEB_PATH}"
   run rm -rf "${DEB_ROOT}"
   run mkdir -p "${DEB_ROOT}/DEBIAN" \
-    "${DEB_ROOT}/opt/PersonalJarvis" \
+    "${DEB_ROOT}${DEB_INSTALL_DIR}" \
     "${DEB_ROOT}/usr/bin" \
     "${DEB_ROOT}/usr/share/applications" \
     "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps"
   if building; then
     # The very same AppDir: one tree, two package formats, so a bug can only
     # exist in both or in neither.
-    cp -a "${APPDIR}/." "${DEB_ROOT}/opt/PersonalJarvis/"
+    cp -a "${APPDIR}/." "${DEB_ROOT}${DEB_INSTALL_DIR}/"
     cat > "${DEB_ROOT}/DEBIAN/control" <<EOF
-Package: personal-jarvis
+Package: ${DEB_PACKAGE_NAME}
 Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: amd64
 Depends: libc6
 Recommends: libportaudio2
+Replaces: ${LEGACY_DEB_PACKAGE_NAME}
+Conflicts: ${LEGACY_DEB_PACKAGE_NAME}
+Provides: ${LEGACY_DEB_PACKAGE_NAME}
 Maintainer: Dodaios contributors <https://github.com/Dodaios/Dodaios>
 Description: AI agent for your computer
  Dodaios coordinates desktop apps, tools, models and specialized
@@ -302,14 +328,14 @@ Description: AI agent for your computer
  system Python and no pip installation.
 EOF
     for cli_name in "${CLI_EXE_NAMES[@]}"; do
-      ln -sf "/opt/PersonalJarvis/usr/bin/${cli_name}" "${DEB_ROOT}/usr/bin/${cli_name}"
+      ln -sf "${DEB_INSTALL_DIR}/usr/bin/${cli_name}" "${DEB_ROOT}/usr/bin/${cli_name}"
     done
-    ln -sf /opt/PersonalJarvis/AppRun "${DEB_ROOT}/usr/bin/personal-jarvis"
+    ln -sf "${DEB_INSTALL_DIR}/AppRun" "${DEB_ROOT}/usr/bin/${LEGACY_APP_COMMAND_NAME}"
     cp "${ICON_SOURCE}" "${DEB_ROOT}/usr/share/icons/hicolor/256x256/apps/${ICON_FILE_NAME}"
   fi
   run "${PYTHON}" "${SCRIPT_DIR}/make_desktop_entry.py" \
     "${DEB_ROOT}/usr/share/applications/${DESKTOP_FILE_NAME}" \
-    --exec /opt/PersonalJarvis/AppRun
+    --exec "${DEB_INSTALL_DIR}/AppRun" --icon "${ICON_FILE_NAME%.png}"
   run dpkg-deb --build --root-owner-group "${DEB_ROOT}" "${DEB_PATH}"
   run rm -rf "${DEB_ROOT}"
 fi

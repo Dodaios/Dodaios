@@ -20,7 +20,7 @@ from dodaios.ui import icon_utils
 
 
 def _entry(applications_dir: Path) -> Path:
-    return applications_dir / "personal-jarvis.desktop"
+    return applications_dir / "dodaios.desktop"
 
 
 def test_linux_entry_carries_search_keywords(tmp_path: Path) -> None:
