@@ -39,7 +39,10 @@ export function modelSeats(options: ProviderOption[], providers: SocietyProvider
   // Installed CLIs without an account reader (such as OpenCode) own their login.
   const known = new Set(usable.filter((option) => option.connected).map((option) => option.id));
   return brainSeats(usable, providers, mergedLive, known).map((seat) => {
-    const models = [...new Map(seat.provider.curated_models.map((model) => [model.id, model])).values()];
+    // Agents need tools. Unknown metadata remains selectable; a provider's
+    // explicit refusal must not become the default for a newly created agent.
+    const models = [...new Map(seat.provider.curated_models.filter((model) => model.tools !== false)
+      .map((model) => [model.id, model])).values()];
     // The IDE can launch a CLI without a model override. Preserve that same
     // choice when the vendor keeps its catalog private or its discovery fails.
     // API/local seats still need their own model ids; an empty id is not one.
@@ -50,6 +53,57 @@ export function modelSeats(options: ProviderOption[], providers: SocietyProvider
   });
 }
 
+/**
+ * The seats a Hermes / OpenClaw agent can sit on: an API key, a local model or
+ * a subscription Jarvis' model gateway serves (`gateway`); never a
+ * subscription CLI's own loop. A dual row (Claude: subscription CLI or API
+ * key) runs on its API key there — or, without one, on the Claude Code login
+ * (`login`), billed as extra usage — so the CLI's own aliases ("opusplan",
+ * "default") are not models to offer. A gateway subscription keeps its
+ * accounts: the login decides who pays.
+ */
+export function runtimeSeats(
+  all: BrainSeat[],
+  supported: readonly string[],
+  gateway: readonly string[] = [],
+  login: readonly string[] = [],
+): BrainSeat[] {
+  const usable = new Set(supported);
+  const served = new Set(gateway);
+  const onLogin = new Set(login);
+  return all.filter((seat) => usable.has(seat.provider.id))
+    .map((seat) => seat.kind === "subscription" && !served.has(seat.provider.id) ? {
+      ...seat,
+      kind: onLogin.has(seat.provider.id) ? "subscription" as const : "api" as const,
+      accounts: [],
+      extraUsage: onLogin.has(seat.provider.id),
+      provider: { ...seat.provider, curated_models: apiModels(seat.provider.curated_models) },
+    } : seat);
+}
+
+/**
+ * Why a Hermes / OpenClaw seat cannot answer right now ("" when it can): the
+ * provider refuses the way this seat pays (`/api/agent-runtimes` →
+ * `access_blocked`). Claude's login is refused while its Extra Usage is off;
+ * the seat pays that way when it is the login seat (`extraUsage`) or the
+ * agent is pinned to its subscription (`account_id` "subscription").
+ */
+export function seatBlocked(
+  seat: BrainSeat,
+  blocked: Record<string, Record<string, string>> | undefined,
+  pinnedAccount = "",
+): string {
+  const refused = blocked?.[seat.provider.id];
+  if (!refused || typeof refused !== "object") return "";
+  const way = seat.extraUsage || pinnedAccount === "subscription" ? "subscription" : seat.kind;
+  return typeof refused[way] === "string" ? refused[way] : "";
+}
+
+/** A CLI catalog narrowed to real model ids: its aliases mean nothing to an API. */
+export function apiModels(models: CuratedModel[]): CuratedModel[] {
+  return models.filter((model) => /\d/.test(model.id));
+}
+
 /** Display names only; availability and routing always come from the catalog. */
 export function providerTitle(seat: BrainSeat, t: (key: string) => string): string {
   const names: Record<string, string> = {
@@ -58,7 +112,8 @@ export function providerTitle(seat: BrainSeat, t: (key: string) => string): stri
   };
   if (seat.kind === "subscription") {
     const key = names[seat.provider.runner];
-    return key ? t(`society.chat.${key}`) : seat.provider.label;
+    const title = key ? t(`society.chat.${key}`) : seat.provider.label;
+    return seat.extraUsage ? `${title} · ${t("society.chat.model_extra_usage")}` : title;
   }
   return `${seat.provider.label} · ${t(`society.create.kind_${seat.kind}`)}`;
 }

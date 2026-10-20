@@ -67,7 +67,7 @@ def _tool_capable(provider: str) -> bool:
     that cannot be loaded here answers True: the turn then fails honestly
     instead of a healthy provider being skipped by a probe glitch.
     """
-    from importlib.metadata import entry_points
+    from jarvis.core.entry_points import entry_points
 
     try:
         eps = [ep for ep in entry_points(group="jarvis.brain") if ep.name == provider]

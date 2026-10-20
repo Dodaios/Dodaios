@@ -84,9 +84,11 @@ interface CodeBlockProps {
    * header bars never stack.
    */
   chrome?: boolean;
+  /** Less air around the frame: a chat answer, not a long guide. */
+  dense?: boolean;
 }
 
-export function CodeBlock({ language, code, chrome = true }: CodeBlockProps) {
+export function CodeBlock({ language, code, chrome = true, dense = false }: CodeBlockProps) {
   const t = useT();
   const [html, setHtml] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -145,48 +147,50 @@ export function CodeBlock({ language, code, chrome = true }: CodeBlockProps) {
     <div
       className={cn(
         "not-prose group relative overflow-hidden",
-        chrome && "my-4 rounded-md border border-border bg-muted/40",
+        chrome && "rounded-lg border border-border bg-card",
+        chrome && (dense ? "my-3" : "my-6"),
       )}
     >
-      {/* Header-Bar */}
       {chrome && (
-      <div className="flex items-center justify-between border-b border-border/40 bg-muted/20 px-3 py-1">
-        <span className="text-micro uppercase tracking-wider text-muted-foreground">
-          {language || "text"}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className={cn(
-            "rounded p-1 text-muted-foreground opacity-60 transition",
-            "hover:bg-muted hover:text-foreground hover:opacity-100",
-            "group-hover:opacity-100",
-          )}
-          title={t("docs_content.copy_code")}
-          aria-label={
-            copied ? t("docs_content.code_copied") : t("docs_content.copy_code")
-          }
-        >
-          {copied ? (
-            <Check className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-          ) : (
-            <Copy className="h-3 w-3" aria-hidden="true" />
-          )}
-          <span className="sr-only" aria-live="polite">
-            {copied ? t("docs_content.code_copied") : ""}
+        <div className="flex h-9 items-center justify-between border-b border-border pl-4 pr-1.5">
+          <span className="font-mono text-xs text-muted-foreground">
+            {language || "text"}
           </span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-sm px-2 text-xs font-medium text-muted-foreground transition-colors",
+              "hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            )}
+            title={t("docs_content.copy_code")}
+            aria-label={
+              copied ? t("docs_content.code_copied") : t("docs_content.copy_code")
+            }
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-success" aria-hidden="true" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            <span aria-hidden="true">
+              {copied ? t("docs_content.code_copied") : t("docs_content.copy")}
+            </span>
+            <span className="sr-only" aria-live="polite">
+              {copied ? t("docs_content.code_copied") : ""}
+            </span>
+          </button>
+        </div>
       )}
       {/* Body — either Shiki HTML or plain text */}
       {html ? (
         <div
-          className="overflow-x-auto px-3 py-2 text-xs leading-relaxed [&_pre]:m-0 [&_pre]:!bg-transparent"
+          className="code-block-body overflow-x-auto px-4 py-3.5 font-mono text-sm leading-6 [&_pre]:m-0 [&_pre]:!bg-transparent [&_pre]:font-mono"
           // sanitized by Shiki — our code is only rendered locally
           dangerouslySetInnerHTML={{ __html: html }}
         />
       ) : (
-        <pre className="m-0 overflow-x-auto px-3 py-2 text-xs leading-relaxed text-foreground/90">
+        <pre className="m-0 overflow-x-auto px-4 py-3.5 font-mono text-sm leading-6 text-foreground">
           <code>{code}</code>
         </pre>
       )}

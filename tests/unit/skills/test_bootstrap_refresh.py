@@ -146,6 +146,21 @@ def test_the_retired_routine_is_no_longer_shipped() -> None:
     assert bootstrap._V2_SHIPPED_HASHES["morning-routine"] in shipped_versions
 
 
+def test_the_renamed_doc_author_retires_its_old_name() -> None:
+    from jarvis.skills.builtin import BUILTIN_SKILL_NAMES, BUILTIN_SKILLS_DIR
+
+    assert "dodaios-doc-author" in BUILTIN_SKILL_NAMES
+    assert "jarvis-doc-author" not in BUILTIN_SKILL_NAMES
+    assert not (BUILTIN_SKILLS_DIR / "jarvis-doc-author").exists()
+    shipped_versions = bootstrap._RETIRED_SHIPPED_HASHES["jarvis-doc-author"]
+    assert bootstrap._V2_SHIPPED_HASHES["jarvis-doc-author"] in shipped_versions
+    # Only the name changed, so the copy an install holds under the old name
+    # differs from the shipped file in exactly that line and counts as unedited.
+    renamed = (BUILTIN_SKILLS_DIR / "dodaios-doc-author" / "SKILL.md").read_bytes()
+    old_copy = renamed.replace(b"name: dodaios-doc-author", b"name: jarvis-doc-author", 1)
+    assert bootstrap._lf_sha256(old_copy) in shipped_versions
+
+
 def test_an_unedited_copy_of_a_retired_builtin_is_removed(retired) -> None:
     dst_root, forgotten = retired
     folder = _install_copy(dst_root, _SHIPPED_ROUTINE.encode())

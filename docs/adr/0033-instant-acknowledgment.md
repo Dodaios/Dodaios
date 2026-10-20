@@ -35,7 +35,7 @@ One shared core, `jarvis/voice/instant_ack.py`, used by both voice engines.
    **immediately**; ACTION and local personal lookups wait a **3 s grace**
    (1.2 s until 2026-08-18) and speak only if the turn is still processing. Plain conversation, voice
    control and vague orchestrator turns get nothing.
-2. **State only what Jarvis is doing.** Closed de/en/es pools per class
+2. **State only what Dodaios is doing.** Closed de/en/es pools per class
    (no-repeat memory, `{agent}` = wake-word brand). The ACTION pool is empty
    by design: an action line is model-composed (the live model in realtime,
    the flash `ReadbackComposer` in the pipeline) and accepted only by the
@@ -57,7 +57,7 @@ One shared core, `jarvis/voice/instant_ack.py`, used by both voice engines.
    its surface-TTS ack to the bridge whenever a plan exists.
 5. **Gates.** The instant ack is exempt from the pipeline's anti-loop cap and
    wording dedup (it is armed once per user utterance and cancels its
-   predecessor); the "user holds the floor" and "Jarvis already speaking"
+   predecessor); the "user holds the floor" and "Dodaios already speaking"
    drops and the `should_play` predicate still apply. `[ack_brain].instant_ack
    = false` is the kill switch. Mission heartbeat first beat 30 → 20 s.
 6. **One grounded progress line.** When the work outlasts the first line by

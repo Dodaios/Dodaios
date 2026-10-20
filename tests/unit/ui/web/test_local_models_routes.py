@@ -397,6 +397,26 @@ def test_options_without_a_bakeable_knob_have_no_alias(server, fake, option_writ
     assert body["options"] == {"temperature": 0.2}
 
 
+def test_option_save_and_reset_refresh_the_next_agent_budget(server, option_writes, monkeypatch):
+    from types import SimpleNamespace
+
+    from jarvis.agent_runtimes import gateway
+    from jarvis.agent_runtimes.model_limits import ModelLimits
+
+    refreshed = []
+    server.app.state.brain = SimpleNamespace(reactivate_provider=refreshed.append)
+    grant = gateway.Grant("agent", "ollama")
+    monkeypatch.setattr(gateway, "_MODEL_LIMITS", {grant: {"model": ModelLimits(128_000)}})
+    with TestClient(server.app) as client:
+        saved = client.put(f"{BASE}/models/qwen3.5:4b/options", json={"num_ctx": 4096})
+        assert saved.status_code == 200 and refreshed == ["ollama"]
+        assert grant not in gateway._MODEL_LIMITS
+        gateway._MODEL_LIMITS[grant] = {"model": ModelLimits(4096)}
+        reset = client.delete(f"{BASE}/models/qwen3.5:4b/options")
+        assert reset.status_code == 200 and refreshed == ["ollama", "ollama"]
+        assert grant not in gateway._MODEL_LIMITS
+
+
 def test_suggested_options_are_judged_against_this_machine(server, fake, monkeypatch) -> None:
     monkeypatch.setattr(ollama_pull, "accelerator_gb", lambda: (16.0, "nvidia-smi"))
     monkeypatch.setattr(ollama_pull, "total_memory_gb", lambda: 32.0)
@@ -711,31 +731,34 @@ def test_roles_carry_the_voice_brains_context(server: WebServer, fake, monkeypat
 async def test_server_and_inventory_overlap_instead_of_queueing(server, fake, monkeypatch) -> None:
     """The runtime probe is synchronous (urllib, up to 1.5 s when Ollama is
     down); it used to run ON the loop, so ``/inventory`` waited behind it.
-    Off the loop, the two requests take about the slowest one, not the sum."""
-    import asyncio
-    import time
 
-    def _slow_status() -> dict:
-        time.sleep(0.4)
+    Proven by a rendezvous instead of elapsed time: the probe blocks until
+    ``/inventory`` has answered. Off the loop ``/inventory`` answers while the
+    probe waits; on the loop the probe would starve it until the guard fired.
+    """
+    import asyncio
+    import threading
+
+    probe_started = threading.Event()
+    inventory_answered = threading.Event()
+
+    def _blocking_status() -> dict:
+        probe_started.set()
+        assert inventory_answered.wait(30), "/inventory could not answer during the probe"
         return _status(False)
 
-    monkeypatch.setattr(ollama_runtime, "runtime_status", _slow_status)
-
-    async def _slow_inventory(root: str, **_kw) -> list:
-        await asyncio.sleep(0.4)
-        return []
-
-    monkeypatch.setattr(ollama_inventory, "list_models", _slow_inventory)
+    monkeypatch.setattr(ollama_runtime, "runtime_status", _blocking_status)
     # Loopback peer + loopback Host, so the surface guard serves it like the app.
     transport = httpx.ASGITransport(app=server.app, client=("127.0.0.1", 1))
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1") as client:
-        started = time.perf_counter()
-        first, second = await asyncio.gather(
-            client.get(f"{BASE}/server"), client.get(f"{BASE}/inventory")
-        )
-        elapsed = time.perf_counter() - started
+        status_request = asyncio.ensure_future(client.get(f"{BASE}/server"))
+        try:
+            assert await asyncio.to_thread(probe_started.wait, 30), "the probe never started"
+            second = await asyncio.wait_for(client.get(f"{BASE}/inventory"), 30)
+        finally:
+            inventory_answered.set()
+        first = await asyncio.wait_for(status_request, 30)
     assert first.status_code == 200 and second.status_code == 200
-    assert elapsed < 0.7, f"the two requests queued: {elapsed:.2f}s"
 
 
 def test_one_paint_costs_one_sweep(server, fake, shortlist, monkeypatch) -> None:

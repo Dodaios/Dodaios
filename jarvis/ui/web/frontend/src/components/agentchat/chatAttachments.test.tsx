@@ -131,7 +131,7 @@ describe("chat composer attachments", () => {
     vi.restoreAllMocks();
   });
 
-  it("takes a pasted image and shows what was read from it", async () => {
+  it("takes a pasted image and shows it without a read receipt", async () => {
     composer();
     const box = screen.getByTestId("composer-chip-field");
     const png = new File([new Uint8Array([1, 2, 3])], "image.png", { type: "image/png" });
@@ -141,9 +141,9 @@ describe("chat composer attachments", () => {
     });
 
     await waitFor(() => expect(screen.getByTestId("chat-attachment-shot.png")).toBeDefined());
-    // The chip says the model could SEE it — that is the outcome a person has
-    // to be able to read before pressing Send.
-    expect(screen.getByTestId("chat-attachment-shot.png").textContent).toContain("described");
+    // The strip shows the file alone, as the thread composer does; the
+    // described / not described receipt is gone.
+    expect(screen.getByTestId("chat-attachment-shot.png").textContent).not.toContain("described");
 
     const [url, init] = fetchMock.mock.calls.find(([u]) =>
       String(u).includes("/attachments"),
@@ -293,6 +293,23 @@ describe("the timeline's receipt for a message that carried files", () => {
   });
 });
 
+describe("the thumbnail strip", () => {
+  it("shows the picture alone, without a read receipt", () => {
+    render(
+      <ChatAttachmentStrip
+        look="thumbnail"
+        attachments={[{ name: "shot.png", kind: "image", described_by: "none", detail: "", note: "" } as unknown as ChatAttachment]}
+        analyzing={0}
+        onRemove={() => {}}
+        previews={{ "shot.png": "blob:shot" }}
+      />,
+    );
+    const card = screen.getByTestId("chat-attachment-shot.png");
+    expect(card.querySelector("img")?.getAttribute("src")).toBe("blob:shot");
+    expect(card.textContent).not.toContain("not described");
+  });
+});
+
 describe("the app-wide file drop guard", () => {
   function Guarded() {
     useFileDropGuard();
@@ -338,22 +355,5 @@ describe("the app-wide file drop guard", () => {
     window.dispatchEvent(event);
     expect(prevent).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
-  });
-});
-
-describe("the thumbnail strip", () => {
-  it("shows the picture alone, without a read receipt", () => {
-    render(
-      <ChatAttachmentStrip
-        look="thumbnail"
-        attachments={[{ name: "shot.png", kind: "image", described_by: "none", detail: "", note: "" } as unknown as ChatAttachment]}
-        analyzing={0}
-        onRemove={() => {}}
-        previews={{ "shot.png": "blob:shot" }}
-      />,
-    );
-    const card = screen.getByTestId("chat-attachment-shot.png");
-    expect(card.querySelector("img")?.getAttribute("src")).toBe("blob:shot");
-    expect(card.textContent).not.toContain("not described");
   });
 });

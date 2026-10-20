@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { Download, Eye, ExternalLink, FolderOpen, Trash2 } from "lucide-react";
+import { Download, Eye, ExternalLink, FolderOpen, Star, StarOff, Trash2 } from "lucide-react";
 
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -19,9 +19,9 @@ import { rowTitle, type RailRow } from "@/components/visualization/galleryModel"
  * The desktop WebView has no native context menu, and the app-wide
  * Cut/Copy/Paste menu lives on `document`, so the card stops its own
  * right-click and opens this one instead. What it offers follows the card:
- * an artifact can be opened, opened in the browser, saved and shown in its
- * folder; a run without one can be opened and shown in its folder; anything
- * finished can be deleted. A card whose run is still working cannot be
+ * an artifact can be opened, starred, opened in the browser, saved and shown
+ * in its folder; a run without one can be opened, starred and shown in its
+ * folder; anything finished can be deleted. A card whose run is still working cannot be
  * deleted — its worker may be writing into that very folder — so the item is
  * there but disabled, with the reason on hover.
  */
@@ -46,8 +46,10 @@ export function ArtifactCardMenu({
   x,
   y,
   canReveal,
+  favorite = false,
   onDismiss,
   onOpen,
+  onToggleFavorite,
   onOpenExternal,
   onDownload,
   onReveal,
@@ -58,8 +60,12 @@ export function ArtifactCardMenu({
   y: number;
   /** Desktop only — a headless host has no file manager to open. */
   canReveal: boolean;
+  /** The card carries a star. */
+  favorite?: boolean;
   onDismiss: () => void;
   onOpen: () => void;
+  /** Star or unstar the card; the item is left out where stars are not offered. */
+  onToggleFavorite?: () => void;
   onOpenExternal: () => void;
   onDownload: () => void;
   onReveal: () => void;
@@ -132,6 +138,15 @@ export function ArtifactCardMenu({
       <MenuItem icon={<Eye />} testId="artifact-menu-open" onClick={onOpen}>
         {t("visualization.menu_open")}
       </MenuItem>
+      {onToggleFavorite && row.kind !== "build" && (
+        <MenuItem
+          icon={favorite ? <StarOff /> : <Star />}
+          testId="artifact-menu-favorite"
+          onClick={onToggleFavorite}
+        >
+          {t(favorite ? "visualization.favorite_remove" : "visualization.favorite_add")}
+        </MenuItem>
+      )}
       {isVisual && (
         <MenuItem icon={<ExternalLink />} testId="artifact-menu-open-external" onClick={onOpenExternal}>
           {t("visualization.open_external")}

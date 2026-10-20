@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fill, translate } from "@/i18n";
 import { mintWsTicket } from "@/lib/ws";
 import { jitteredDelay, requestConnect } from "@/lib/connectBudget";
 import { BROWSER_PROFILE_CHANGED_EVENT } from "@/lib/browserProfiles";
@@ -23,6 +24,10 @@ export interface BrowserViewState {
   pointer?: BrowserPointerState;
   approval?: { id: string; action: string };
   dialog?: { type: string; message: string };
+  /** Another agent holds this shared browser profile; the view retries until it is free. */
+  busy?: { holderId: string; holderName: string; running: boolean };
+  /** The shared profile was opened for another agent; this view stops reconnecting. */
+  movedTo?: string;
 }
 const empty: BrowserViewState = {
   connected: false, ready: false, fullWindow: false, extendedInput: false, previewPaused: false, loginAvailable: false, loginMode: false, loginReady: false, manual: false, running: false, controlPending: false,
@@ -68,6 +73,7 @@ export function useBrowserView(agentId: string, enabled = true) {
     let decodeBusy = false;
     let lastLiveEvent = Date.now();
     let renderedFrames = 0;
+    let moved = false;
     let latestFrame: { data: string; sequence: number; timestamp: number; generation: string; geometry_id?: string; extended_input?: boolean } | null = null;
     manual.current = false;
     previewPaused.current = false;
@@ -113,7 +119,7 @@ export function useBrowserView(agentId: string, enabled = true) {
       };
       image.onerror = () => {
         decodeBusy = false;
-        if (!disposed) setState((s) => ({ ...s, error: "Browser image could not be decoded" }));
+        if (!disposed) setState((s) => ({ ...s, error: translate("society.browser_live.error_image") }));
       };
       image.src = "data:image/jpeg;base64," + frame.data;
     };
@@ -141,6 +147,7 @@ export function useBrowserView(agentId: string, enabled = true) {
           try {
             const event = JSON.parse(message.data);
             if (event.kind === "frame") {
+              setState((s) => s.busy ? { ...s, busy: undefined } : s);
               if (previewPaused.current || (loginMode.current && !loginReady.current)) return;
               if (typeof event.data !== "string" || typeof event.sequence !== "number") return;
               if (!Number.isFinite(event.timestamp)) return;
@@ -172,10 +179,20 @@ export function useBrowserView(agentId: string, enabled = true) {
                 && event.width > 0 && event.height > 0) {
                 setState((s) => ({ ...s, pointer: event }));
               }
+            } else if (event.kind === "error" && event.code === "profile_busy") {
+              lastLiveEvent = Date.now();
+              setState((s) => ({ ...s, ready: false, error: "", busy: {
+                holderId: String(event.holder_id ?? ""), holderName: String(event.holder_name ?? ""),
+                running: event.running === true } }));
+            } else if (event.kind === "disconnected" && event.reason === "moved") {
+              // Reconnecting would take the profile straight back from the other agent.
+              moved = true;
+              setState((s) => ({ ...s, movedTo: String(event.agent_name || event.agent_id || "") }));
             } else if (event.kind === "error") {
               setState((s) => ({ ...s, ready: false, error: event.error }));
             } else if (event.kind === "state") {
               lastLiveEvent = Date.now();
+              setState((s) => s.busy ? { ...s, busy: undefined } : s);
               loginCapability.current = event.login_available === true;
               loginMode.current = event.login_mode === true;
               loginReady.current = event.login_ready === true;
@@ -247,7 +264,7 @@ export function useBrowserView(agentId: string, enabled = true) {
               setState((s) => ({ ...s, error: event.error }));
             }
           } catch {
-            setState((s) => ({ ...s, error: "Browser stream returned invalid data" }));
+            setState((s) => ({ ...s, error: translate("society.browser_live.error_stream") }));
           }
         };
         ws.onclose = (event) => {
@@ -267,13 +284,14 @@ export function useBrowserView(agentId: string, enabled = true) {
           loginReady.current = false;
           inputs.current = [];
           setState((s) => ({ ...s, connected: false, ready: false, manual: false, extendedInput: false, loginAvailable: false, loginReady: false, controlPending: false, pointer: undefined }));
+          if (moved) return;
           cancelConnect = requestConnect(() => void connect(), jitteredDelay(attempt++));
         };
         ws.onerror = () => ws.close();
       } catch (error) {
         if (disposed) return;
         setState((s) => ({ ...s, connected: false,
-          error: error instanceof Error ? error.message : "Browser connection failed" }));
+          error: error instanceof Error ? error.message : translate("society.browser_live.error_connect") }));
         cancelConnect = requestConnect(() => void connect(), jitteredDelay(attempt++));
       }
     };
@@ -310,8 +328,8 @@ export function useBrowserView(agentId: string, enabled = true) {
     if (op === "cancel") {
       void fetch("/api/society/agents/" + encodeURIComponent(agentId) + "/browser/cancel",
         { method: "POST", headers: { "X-Jarvis-Stop-Chat": "1" } }).then((res) => {
-          if (!res.ok) setState((s) => ({ ...s, error: "Browser stop failed: " + res.status }));
-        }).catch(() => setState((s) => ({ ...s, error: "Browser stop could not connect" })));
+          if (!res.ok) setState((s) => ({ ...s, error: fill(translate("society.browser_live.error_stop"), { status: res.status }) }));
+        }).catch(() => setState((s) => ({ ...s, error: translate("society.browser_live.error_stop_unreachable") })));
       return;
     }
     if (socket.current?.readyState !== WebSocket.OPEN) return;
@@ -332,7 +350,7 @@ export function useBrowserView(agentId: string, enabled = true) {
     if (["click", "scroll", "text", "key"].includes(op)
       && (!manual.current || (loginCapability.current && !loginMode.current))) {
       if (inputs.current.length >= 128) {
-        setState((s) => ({ ...s, error: "Waiting for browser control; input queue is full" }));
+        setState((s) => ({ ...s, error: translate("society.browser_live.error_queue_full") }));
         return;
       }
       inputs.current.push({ op, args });
@@ -364,7 +382,7 @@ export function useBrowserView(agentId: string, enabled = true) {
       body: JSON.stringify({ approve: allow }),
     });
     if (!response.ok) {
-      setState((s) => ({ ...s, error: "Approval " + response.status }));
+      setState((s) => ({ ...s, error: fill(translate("society.browser_live.error_approval"), { status: response.status }) }));
     } else setState((s) => ({ ...s, approval: undefined }));
   }, [state.approval]);
   return { canvas, state, control, approve };

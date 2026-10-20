@@ -2,7 +2,7 @@
 
 Why a dedicated ledger
 ----------------------
-"How much does my friend use Personal Jarvis" needs a number that survives
+"How much does my friend use Dodaios" needs a number that survives
 retention. Every store that already holds this information holds it *with
 content attached*: the session database keeps transcripts, the mission store
 keeps titles, the dictation history keeps the dictated text. Deriving a shared

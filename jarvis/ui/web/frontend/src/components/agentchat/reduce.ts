@@ -107,6 +107,41 @@ export function isQuestionTool(name: string): boolean {
 }
 
 /**
+ * An agent's secure credential field (jarvis/agent_chat/credential_requests.py).
+ * The person pastes a secret that goes straight to the agent's vault; no event
+ * ever carries the value. `status` is `null` until the person saves or declines.
+ * Older event logs can also contain `timeout` or `cancelled` resolutions.
+ */
+export interface CredentialState {
+  requestId: string;
+  asker: string;
+  env: string;
+  label: string;
+  description: string;
+  placeholder: string;
+  replace: boolean;
+  expiresMs: number | null;
+  status: string | null;
+}
+
+/** The tool an agent asks for a credential with — bare or behind an MCP prefix. */
+export const CREDENTIAL_TOOL = "society_request_credential";
+
+export function isCredentialTool(name: string): boolean {
+  return name === CREDENTIAL_TOOL || name.endsWith(`__${CREDENTIAL_TOOL}`);
+}
+
+/** The call shows a card the person answers: a question or a credential field. */
+export function hasPersonCard(block: ToolBlock): boolean {
+  return Boolean(block.question || block.credential);
+}
+
+/** The call's card still waits for the person. */
+export function waitsOnCard(block: ToolBlock): boolean {
+  return Boolean((block.question && !block.question.closed) || (block.credential && block.credential.status === null));
+}
+
+/**
  * A coding agent's plan card (jarvis/agent_chat/turn_prompts.py): the turn
  * finished in plan mode. `decision` is `build`, `keep`, `superseded` (the
  * person started another turn instead) or `null` while it waits.
@@ -127,8 +162,45 @@ export interface ToolBlock {
   approval: ApprovalState | null;
   /** The question card this call shows, when the call is an agent's question. */
   question?: QuestionState;
+  /** The secure credential field this call shows, when the agent asked for a secret. */
+  credential?: CredentialState;
   /** When the call was made; a result without its own duration is timed from here. */
   startedMs: number;
+  /** The sub-agent this call spawned, when the runner reported one (`subagent_*` events). */
+  subagent?: SubagentState;
+}
+
+/** How a sub-agent stands: still working, or how it ended. */
+export type SubagentStatus = "running" | "done" | "failed" | "stopped";
+
+/**
+ * A sub-agent a coding agent spawned, filed on the call that spawned it. Its
+ * own conversation — text, thoughts, calls, its own sub-agents — folds into
+ * `blocks` from the events that name it (`agent_id`), never into the turn.
+ */
+export interface SubagentState {
+  /** The short task title ("Explore the auth code"). */
+  description: string;
+  /** The vendor's agent kind ("general-purpose", "Explore"); "" when it names none. */
+  agentType: string;
+  /** The whole task the main agent gave it. */
+  prompt: string;
+  /** It runs beside the main agent; the spawn call's own result is only a receipt. */
+  background: boolean;
+  /** The vendor's thread id for the agent, when it has one (Codex). */
+  threadId: string;
+  status: SubagentStatus;
+  /** Its answer, as the vendor reported it at the end. */
+  summary: string;
+  /** What it is doing now ("Running the tests"). */
+  activity: string;
+  lastTool: string;
+  tokens: number | null;
+  toolUses: number | null;
+  durationMs: number | null;
+  startedMs: number;
+  finishedMs: number | null;
+  blocks: TurnBlock[];
 }
 
 export type TurnBlock = TextBlock | ReasoningBlock | ToolBlock;
@@ -136,7 +208,12 @@ export type TurnBlock = TextBlock | ReasoningBlock | ToolBlock;
 export type TurnStatus = "running" | "done" | "cancelled" | "error";
 
 export interface UserItem {
-  origin?: "control";
+  /**
+   * Not typed by the person: "control" is a chat command's own turn,
+   * "background" opens the result of an earlier request whose agents
+   * finished after its turn had closed (`text` is that request).
+   */
+  origin?: "control" | "background";
   type: "user";
   id: string;
   /**
@@ -152,7 +229,26 @@ export interface UserItem {
   /** Files that went in with this message; empty on an ordinary one. */
   attachments: UserAttachment[];
   toolChoices?: ToolChoice[];
+  /** A Jarvis agent wrote this message into a coding thread on the person's behalf. */
+  author?: { agentId: string; name: string };
+  /**
+   * The team engine woke a team lead with this turn; nobody typed it. `update`
+   * brings members' results, `check` asks for the report, `resumed` continues
+   * a goal the person resumed.
+   */
+  teamEvent?: TeamEvent;
   tsMs: number;
+}
+
+export type TeamEvent = "update" | "check" | "resumed";
+
+/** The frame the team engine puts on a lead's managing turn (jarvis/society/team_lead.py `_frame`). */
+const TEAM_FRAME = /^\[team (update|goal check|goal resumed) for team /;
+const TEAM_EVENTS: Record<string, TeamEvent> = { update: "update", "goal check": "check", "goal resumed": "resumed" };
+
+function teamEventOf(prompt: string): TeamEvent | undefined {
+  const match = TEAM_FRAME.exec(prompt);
+  return match ? TEAM_EVENTS[match[1]] : undefined;
 }
 
 /** One file's receipt in the timeline — enough to say what was sent, no more. */
@@ -188,6 +284,11 @@ export interface TurnItem {
   error: string | null;
   /** The plan card of a turn that finished in plan mode. */
   plan?: PlanState;
+  /**
+   * Who still works on this turn's request after it closed: the turn handed
+   * its seat to the next message and the result arrives in a turn of its own.
+   */
+  background?: string[];
 }
 
 export interface ErrorItem {
@@ -258,6 +359,14 @@ export const EMPTY_TIMELINE: Timeline = {
 };
 
 /** The attachment receipts off one `user_message`, tolerant of any shape. */
+/** Who wrote a message on the person's behalf (`author` on `user_message`), if anyone. */
+function messageAuthor(raw: unknown): { agentId: string; name: string } | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const row = raw as Record<string, unknown>;
+  const name = typeof row.name === "string" ? row.name : "";
+  return name ? { agentId: typeof row.agent_id === "string" ? row.agent_id : "", name } : undefined;
+}
+
 function userAttachments(raw: unknown): UserAttachment[] {
   if (!Array.isArray(raw)) return [];
   const out: UserAttachment[] = [];
@@ -401,6 +510,57 @@ function settleWaitingCards(items: TimelineItem[]): TimelineItem[] {
   return changed ? next : items;
 }
 
+function updateCredential(
+  tl: Timeline,
+  turnId: string,
+  requestId: string,
+  fn: (c: CredentialState) => CredentialState,
+): Timeline {
+  return updateTurn(tl, turnId, (turn) => {
+    const i = turn.blocks.findIndex((b) => b.kind === "tool" && b.credential?.requestId === requestId);
+    if (i < 0) return turn;
+    const block = turn.blocks[i] as ToolBlock;
+    return { ...turn, blocks: replaceAt(turn.blocks, i, { ...block, credential: fn(block.credential!) }) };
+  });
+}
+
+/** Attach a credential field to its tool row: the open request call, else a row of its own. */
+function withCredential(turn: TurnItem, credential: CredentialState, tsMs: number): TurnItem {
+  let index = -1;
+  for (let i = turn.blocks.length - 1; i >= 0; i -= 1) {
+    const b = turn.blocks[i];
+    if (b.kind !== "tool") continue;
+    if (b.credential?.requestId === credential.requestId) return turn;
+    if (isCredentialTool(b.name) && !b.credential) {
+      index = i;
+      break;
+    }
+  }
+  if (index >= 0) {
+    const block = turn.blocks[index] as ToolBlock;
+    return { ...turn, blocks: replaceAt(turn.blocks, index, { ...block, credential }) };
+  }
+  const closed = closeLiveReasoning(turn, tsMs);
+  return {
+    ...closed,
+    blocks: [
+      ...closed.blocks,
+      {
+        kind: "tool",
+        callId: `cred-${credential.requestId}`,
+        name: CREDENTIAL_TOOL,
+        input: null,
+        output: null,
+        isError: false,
+        durationMs: null,
+        approval: null,
+        credential,
+        startedMs: tsMs,
+      },
+    ],
+  };
+}
+
 function withQuestion(turn: TurnItem, question: QuestionState, tsMs: number): TurnItem {
   let index = -1;
   for (let i = turn.blocks.length - 1; i >= 0; i -= 1) {
@@ -450,6 +610,170 @@ function upsertBlock<B extends TurnBlock>(
   return { ...turn, blocks: replaceAt(turn.blocks, i, next) };
 }
 
+function emptySubagent(startedMs: number): SubagentState {
+  return {
+    description: "",
+    agentType: "",
+    prompt: "",
+    background: false,
+    threadId: "",
+    status: "running",
+    summary: "",
+    activity: "",
+    lastTool: "",
+    tokens: null,
+    toolUses: null,
+    durationMs: null,
+    startedMs,
+    finishedMs: null,
+    blocks: [],
+  };
+}
+
+/**
+ * `blocks` with the first tool block `match` picks — at the top or inside
+ * any sub-agent's conversation — replaced by `fn(block)`. Null when none matches.
+ */
+function mapToolDeep(
+  blocks: TurnBlock[],
+  match: (b: ToolBlock) => boolean,
+  fn: (b: ToolBlock) => ToolBlock,
+): TurnBlock[] | null {
+  for (let i = 0; i < blocks.length; i += 1) {
+    const b = blocks[i];
+    if (b.kind !== "tool") continue;
+    if (match(b)) {
+      const next = fn(b);
+      return next === b ? blocks : replaceAt(blocks, i, next);
+    }
+    if (b.subagent) {
+      const inner = mapToolDeep(b.subagent.blocks, match, fn);
+      if (inner) {
+        return inner === b.subagent.blocks ? blocks : replaceAt(blocks, i, { ...b, subagent: { ...b.subagent, blocks: inner } });
+      }
+    }
+  }
+  return null;
+}
+
+/** A row whose approval was never answered, closed as `expired` — its sub-agent's rows too. */
+function expireOpenApproval(block: TurnBlock): TurnBlock {
+  if (block.kind !== "tool") return block;
+  const open = block.approval !== null && block.approval.decision === null;
+  const inner = block.subagent?.blocks.map(expireOpenApproval);
+  const innerChanged = inner !== undefined && inner.some((b, i) => b !== block.subagent?.blocks[i]);
+  if (!open && !innerChanged) return block;
+  return {
+    ...block,
+    approval: open && block.approval ? { ...block.approval, decision: "expired" } : block.approval,
+    ...(innerChanged && block.subagent && inner ? { subagent: { ...block.subagent, blocks: inner } } : {}),
+  };
+}
+
+/**
+ * Record `decision` on approval `approvalId`: its row stops asking and its
+ * card leaves the composer. The `approval_resolved` event lands here, and so
+ * does a decision the backend already confirmed (or reported expired) before
+ * that event arrived — the card must not wait on the socket to go away.
+ */
+export function settleApproval(tl: Timeline, approvalId: string, decision: string, turnId = ""): Timeline {
+  const owner = turnId || tl.pendingApprovals.find((a) => a.approvalId === approvalId)?.turnId || "";
+  const settle = (turn: TurnItem): TurnItem => {
+    const blocks = mapToolDeep(
+      turn.blocks,
+      (b) => b.approval?.approvalId === approvalId,
+      (b) => (b.approval && b.approval.decision === null ? { ...b, approval: { ...b.approval, decision } } : b),
+    );
+    return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
+  };
+  const withTurn = owner
+    ? updateTurn(tl, owner, settle)
+    : (() => {
+        const items = tl.items.map((item) => (item.type === "turn" ? settle(item) : item));
+        return items.some((item, i) => item !== tl.items[i]) ? { ...tl, items } : tl;
+      })();
+  const pendingApprovals = withTurn.pendingApprovals.filter((a) => a.approvalId !== approvalId);
+  return pendingApprovals.length === withTurn.pendingApprovals.length ? withTurn : { ...withTurn, pendingApprovals };
+}
+
+/** Update the sub-agent `agentId` spawned; a spawn call the stream never announced gets a row of its own. */
+function updateSubagent(
+  turn: TurnItem,
+  agentId: string,
+  tsMs: number,
+  fn: (sub: SubagentState) => SubagentState,
+): TurnItem {
+  const apply = (b: ToolBlock): ToolBlock => {
+    const sub = b.subagent ?? emptySubagent(b.startedMs);
+    const next = fn(sub);
+    return next === sub && b.subagent ? b : { ...b, subagent: next };
+  };
+  const blocks = mapToolDeep(turn.blocks, (b) => b.callId === agentId, apply);
+  if (blocks) return blocks === turn.blocks ? turn : { ...turn, blocks };
+  const spawn: ToolBlock = {
+    kind: "tool", callId: agentId, name: "Agent", input: null, output: null,
+    isError: false, durationMs: null, approval: null, startedMs: tsMs,
+  };
+  return { ...turn, blocks: [...turn.blocks, apply(spawn)] };
+}
+
+/**
+ * Fold a block-level step into a sub-agent's own conversation: the same step
+ * the turn would take, taken on the sub-agent's blocks.
+ */
+function updateHost(tl: Timeline, turnId: string, agentId: string, tsMs: number, fn: (turn: TurnItem) => TurnItem): Timeline {
+  if (!agentId) return updateTurn(tl, turnId, fn);
+  return updateTurn(tl, turnId, (turn) =>
+    updateSubagent(turn, agentId, tsMs, (sub) => {
+      const host: TurnItem = { ...turn, blocks: sub.blocks };
+      const next = fn(host);
+      return next === host || next.blocks === sub.blocks ? sub : { ...sub, blocks: next.blocks };
+    }),
+  );
+}
+
+function closeLiveBlocks(blocks: TurnBlock[], nowMs: number): TurnBlock[] {
+  return blocks.some((b) => b.kind === "reasoning" && b.live)
+    ? blocks.map((b) => b.kind === "reasoning" && b.live ? { ...b, live: false, durationMs: b.durationMs ?? Math.max(0, nowMs - b.startedMs) } : b)
+    : blocks;
+}
+
+function finishSubagent(sub: SubagentState, status: SubagentStatus, nowMs: number, summary = ""): SubagentState {
+  return {
+    ...sub,
+    status,
+    summary: summary || sub.summary,
+    activity: "",
+    finishedMs: sub.finishedMs ?? nowMs,
+    durationMs: sub.durationMs ?? Math.max(0, nowMs - sub.startedMs),
+    blocks: closeLiveBlocks(sub.blocks, nowMs),
+  };
+}
+
+/**
+ * A turn's end settles every sub-agent still marked working, however deep: a
+ * foreground one by its call's result, a background one that never reported
+ * its end as stopped — its process is gone.
+ */
+function settleSubagents(blocks: TurnBlock[], nowMs: number): TurnBlock[] {
+  let changed = false;
+  const next = blocks.map((b) => {
+    if (b.kind !== "tool" || !b.subagent) return b;
+    const inner = settleSubagents(b.subagent.blocks, nowMs);
+    let sub = inner === b.subagent.blocks ? b.subagent : { ...b.subagent, blocks: inner };
+    if (sub.status === "running") {
+      const answered = !sub.background && b.output !== null;
+      sub = finishSubagent(sub, answered ? (b.isError ? "failed" : "done") : "stopped", nowMs, answered ? b.output ?? "" : "");
+    }
+    if (sub === b.subagent) return b;
+    changed = true;
+    return { ...b, subagent: sub };
+  });
+  return changed ? next : blocks;
+}
+
+const SUBAGENT_STATUSES: readonly SubagentStatus[] = ["running", "done", "failed", "stopped"];
+
 /** Fold one event. Pure; returns `tl` itself when nothing changed. */
 export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
   const p = ev.payload ?? {};
@@ -457,6 +781,8 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
   const base: Timeline =
     seq > tl.lastSeq ? { ...tl, lastSeq: seq, sessionPatch: null } : tl.sessionPatch ? { ...tl, sessionPatch: null } : tl;
   const turnId = str(p.turn_id);
+  // A sub-agent's own step names the agent; it folds into that agent's conversation.
+  const agentId = str(p.agent_id);
 
   switch (ev.kind) {
     case "agent_message": {
@@ -492,6 +818,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             type: "user",
             id: `u-${seq || ev.ts_ms}`,
             ...(p.origin === "control" ? { origin: "control" as const } : {}),
+            ...(p.origin === "background" ? { origin: "background" as const } : {}),
+            ...(messageAuthor(p.author) ? { author: messageAuthor(p.author) } : {}),
+            ...(teamEventOf(str(p.text)) ? { teamEvent: teamEventOf(str(p.text)) } : {}),
             // `typed` is present only when the message carried files, and it
             // is the person's own sentence; `text` is the composed prompt.
             text: str(p.typed) || str(p.text),
@@ -530,7 +859,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       const id = str(p.message_id, "live");
       const delta = str(p.text);
       if (!delta) return base;
-      return updateTurn(base, turnId, (turn) =>
+      return updateHost(base, turnId, agentId, ev.ts_ms, (turn) =>
         upsertBlock<TextBlock>(
           closeLiveReasoning(turn, ev.ts_ms),
           (b) => b.kind === "text" && b.id === id,
@@ -542,7 +871,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
     case "assistant_text": {
       const id = str(p.message_id, "live");
       const text = str(p.text);
-      return updateTurn(base, turnId, (turn) =>
+      return updateHost(base, turnId, agentId, ev.ts_ms, (turn) =>
         upsertBlock<TextBlock>(
           closeLiveReasoning(turn, ev.ts_ms),
           (b) => b.kind === "text" && b.id === id,
@@ -555,7 +884,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       // The model began to think. Its thinking may never stream (Claude Code
       // redacts it), so this is what the person sees meanwhile: one live
       // row, "Thinking…", counting the seconds until the finished block.
-      return updateTurn(base, turnId, (turn) => {
+      return updateHost(base, turnId, agentId, ev.ts_ms, (turn) => {
         const last = turn.blocks[turn.blocks.length - 1];
         if (last && last.kind === "reasoning" && last.live) return turn;
         return {
@@ -577,7 +906,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
     case "reasoning_delta": {
       const delta = str(p.text);
       if (!delta) return base;
-      return updateTurn(base, turnId, (turn) => {
+      return updateHost(base, turnId, agentId, ev.ts_ms, (turn) => {
         // Deltas grow the newest live reasoning block; a finished one starts a new block.
         const last = turn.blocks[turn.blocks.length - 1];
         if (last && last.kind === "reasoning" && last.live) {
@@ -610,7 +939,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       const text = str(p.text);
       const durationMs = num(p.duration_ms);
       const messageId = str(p.message_id) || undefined;
-      return updateTurn(base, turnId, (turn) => {
+      return updateHost(base, turnId, agentId, ev.ts_ms, (turn) => {
         const last = turn.blocks[turn.blocks.length - 1];
         if (last && last.kind === "reasoning" && last.live) {
           return {
@@ -660,7 +989,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
 
     case "tool_call": {
       const callId = str(p.call_id);
-      return updateTurn(base, turnId, (turn) =>
+      return updateHost(base, turnId, agentId, ev.ts_ms, (turn) =>
         upsertBlock<ToolBlock>(
           closeLiveReasoning(turn, ev.ts_ms),
           (b) => b.kind === "tool" && b.callId === callId,
@@ -682,12 +1011,14 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
 
     case "tool_result": {
       const callId = str(p.call_id);
-      return updateTurn(base, turnId, (turn) =>
+      const answered = updateHost(base, turnId, agentId, ev.ts_ms, (turn) =>
         upsertBlock<ToolBlock>(
           turn,
           (b) => b.kind === "tool" && b.callId === callId,
           (ex) => ({
             ...(ex?.question ? { question: ex.question } : {}),
+            ...(ex?.credential ? { credential: ex.credential } : {}),
+            ...(ex?.subagent ? { subagent: ex.subagent } : {}),
             kind: "tool",
             callId,
             name: ex?.name ?? str(p.name),
@@ -702,6 +1033,61 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             startedMs: ex?.startedMs ?? ev.ts_ms,
           }),
         ),
+      );
+      // A foreground sub-agent's answer IS its spawn call's result.
+      return updateTurn(answered, turnId, (turn) => {
+        const blocks = mapToolDeep(
+          turn.blocks,
+          (b) => b.callId === callId && b.subagent?.status === "running" && !b.subagent.background,
+          (b) => ({ ...b, subagent: finishSubagent(b.subagent!, b.isError ? "failed" : "done", ev.ts_ms, b.output ?? "") }),
+        );
+        return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
+      });
+    }
+
+    case "subagent_started": {
+      if (!agentId) return base;
+      return updateTurn(base, turnId, (turn) =>
+        updateSubagent(turn, agentId, ev.ts_ms, (sub) => ({
+          ...sub,
+          description: str(p.description) || sub.description,
+          agentType: str(p.agent_type) || sub.agentType,
+          prompt: str(p.prompt) || sub.prompt,
+          background: Boolean(p.background),
+          threadId: str(p.thread_id) || sub.threadId,
+        })),
+      );
+    }
+
+    case "subagent_progress": {
+      if (!agentId) return base;
+      return updateTurn(base, turnId, (turn) =>
+        updateSubagent(turn, agentId, ev.ts_ms, (sub) => sub.status !== "running" ? sub : {
+          ...sub,
+          activity: str(p.activity) || sub.activity,
+          lastTool: str(p.last_tool) || sub.lastTool,
+          tokens: num(p.tokens) ?? sub.tokens,
+          toolUses: num(p.tool_uses) ?? sub.toolUses,
+          durationMs: num(p.duration_ms) ?? sub.durationMs,
+        }),
+      );
+    }
+
+    case "subagent_finished": {
+      if (!agentId) return base;
+      const raw = str(p.status, "done") as SubagentStatus;
+      const status = SUBAGENT_STATUSES.includes(raw) && raw !== "running" ? raw : "done";
+      return updateTurn(base, turnId, (turn) =>
+        updateSubagent(turn, agentId, ev.ts_ms, (sub) => {
+          const ended = finishSubagent({ ...sub, durationMs: num(p.duration_ms) ?? sub.durationMs }, status, ev.ts_ms, str(p.summary));
+          return {
+            ...ended,
+            // A later report (the notification after a status patch) may only add to the first.
+            status: sub.status === "running" ? status : sub.status,
+            tokens: num(p.tokens) ?? sub.tokens,
+            toolUses: num(p.tool_uses) ?? sub.toolUses,
+          };
+        }),
       );
     }
 
@@ -731,8 +1117,11 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         input: p.input,
         summary: str(p.summary),
       };
-      const withTurn = updateTurn(base, turnId, (turn) =>
-        upsertBlock<ToolBlock>(
+      const withTurn = updateTurn(base, turnId, (turn) => {
+        const approval = { approvalId, summary: pending.summary, decision: null };
+        const nested = mapToolDeep(turn.blocks, (b) => b.callId === callId, (b) => ({ ...b, approval }));
+        if (nested) return nested === turn.blocks ? turn : { ...turn, blocks: nested };
+        return upsertBlock<ToolBlock>(
           turn,
           (b) => b.kind === "tool" && b.callId === callId,
           (ex) => ({
@@ -743,42 +1132,23 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             output: ex?.output ?? null,
             isError: ex?.isError ?? false,
             durationMs: ex?.durationMs ?? null,
-            approval: { approvalId, summary: pending.summary, decision: null },
+            approval,
             startedMs: ex?.startedMs ?? ev.ts_ms,
           }),
-        ),
-      );
+        );
+      });
+      // The same call asking again (its CLI outlived an app restart) replaces
+      // the older card: nothing waits on that one any more.
+      const replaced = (a: PendingApproval) =>
+        a.approvalId === approvalId || (callId !== "" && a.turnId === turnId && a.callId === callId);
       return {
         ...withTurn,
-        pendingApprovals: [
-          ...withTurn.pendingApprovals.filter((a) => a.approvalId !== approvalId),
-          pending,
-        ],
+        pendingApprovals: [...withTurn.pendingApprovals.filter((a) => !replaced(a)), pending],
       };
     }
 
-    case "approval_resolved": {
-      const approvalId = str(p.approval_id);
-      const decision = str(p.decision);
-      const withTurn = updateTurn(base, turnId, (turn) => {
-        const i = turn.blocks.findIndex(
-          (b) => b.kind === "tool" && b.approval?.approvalId === approvalId,
-        );
-        if (i < 0) return turn;
-        const block = turn.blocks[i] as ToolBlock;
-        return {
-          ...turn,
-          blocks: replaceAt(turn.blocks, i, {
-            ...block,
-            approval: block.approval ? { ...block.approval, decision } : null,
-          }),
-        };
-      });
-      return {
-        ...withTurn,
-        pendingApprovals: withTurn.pendingApprovals.filter((a) => a.approvalId !== approvalId),
-      };
-    }
+    case "approval_resolved":
+      return settleApproval(base, str(p.approval_id), str(p.decision), turnId);
 
     case "question_required": {
       const questionId = str(p.question_id);
@@ -821,14 +1191,41 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       }));
     }
 
+    case "credential_required": {
+      const requestId = str(p.request_id);
+      const env = str(p.env);
+      if (!requestId || !env) return base;
+      const credential: CredentialState = {
+        requestId,
+        asker: str(p.asker),
+        env,
+        label: str(p.label) || env,
+        description: str(p.description),
+        placeholder: str(p.placeholder),
+        replace: Boolean(p.replace),
+        expiresMs: num(p.expires_ms),
+        status: null,
+      };
+      return updateTurn(base, turnId, (turn) => withCredential(turn, credential, ev.ts_ms));
+    }
+
+    case "credential_resolved": {
+      return updateCredential(base, turnId, str(p.request_id), (c) => ({ ...c, status: str(p.status, "cancelled") }));
+    }
+
     case "turn_finished": {
+      // Older event logs can contain a stale reader's timeout after the real
+      // process completed. Only a terminal event settles a turn, and it does
+      // so once; streamed text alone never suppresses a genuine timeout.
+      const existing = base.items[findTurn(base.items, turnId)];
+      if (existing?.type === "turn" && existing.durationMs !== null) return base;
       const status = str(p.status, "done") as TurnStatus;
       const finished = updateTurn(base, turnId, (turn) => ({
         ...turn,
         status: status === "running" ? "done" : status,
         // A turn that ended mid-stream closes its live reasoning block, and
         // a question nobody can answer any more stops asking.
-        blocks: turn.blocks.map((b) =>
+        blocks: settleSubagents(turn.blocks, ev.ts_ms).map((b) =>
           b.kind === "reasoning" && b.live
             ? {
                 ...b,
@@ -844,8 +1241,10 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
                     answers: b.question.answers.map((a) => a ?? { text: "", optionIndex: null, source: "closed" }),
                   },
                 }
+              // Credential entry belongs to the person, not the turn's lifetime.
               : b,
-        ),
+        // An approval nobody answered stops offering buttons nothing listens to.
+        ).map(expireOpenApproval),
         durationMs: num(p.duration_ms) ?? Math.max(0, ev.ts_ms - turn.startedMs),
         usage:
           p.usage && typeof p.usage === "object" && Object.keys(p.usage as object).length > 0
@@ -853,6 +1252,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             : turn.liveUsage,
         costUsd: num(p.cost_usd),
         error: str(p.error, "") || null,
+        ...(Array.isArray(p.background) && p.background.length > 0
+          ? { background: (p.background as unknown[]).map((name) => str(name)) }
+          : {}),
       }));
       return {
         ...finished,

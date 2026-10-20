@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from jarvis.agent_chat import jarvis_harness
 from jarvis.agent_chat.runner_api import system_prompt
 from jarvis.brain.manager import _WRITTEN_CHAT_STYLE
@@ -21,11 +23,34 @@ def test_api_and_main_chat_receive_the_same_reporting_policy(tmp_path: Path) -> 
 def test_fresh_and_resumed_defaults_allow_detail_and_preserve_essential_information() -> None:
     assert CONVERSATIONAL_TURN_REMINDER in CONVERSATIONAL_RESPONSE_STYLE
     for policy in (CONVERSATIONAL_RESPONSE_STYLE, CONVERSATIONAL_TURN_REMINDER):
-        assert "one to three short sentences in one paragraph" in policy
+        assert "one or two short paragraphs" in policy
+        assert "someone who is not technical understands it" in policy
         assert "user asks for detail or the task needs" in policy
         assert "not a hard length limit" in policy
         assert "blockers, uncertainty and essential questions" in policy
         assert "Follow explicit user preferences" in policy
+
+
+def test_reply_style_keeps_the_person_oriented_without_a_persona() -> None:
+    # What is happening, what is done, what the person does next — in plain
+    # words, with concrete numbers and click paths instead of theory.
+    for phrase in (
+        "what is happening now, what is done, and what they can do next",
+        "Open with the state in the first words",
+        "a short yes plus what you are doing now",
+        "real numbers, times and names",
+        "exact click path",
+        "say sorry once",
+        "secure field, never into the chat",
+        "No headings, bold labels or bullet walls",
+        "your first message comes before the first tool call",
+        "no reasoning and no tool log, only your messages",
+        "Two messages in a row are fine",
+    ):
+        assert phrase in CONVERSATIONAL_RESPONSE_STYLE, phrase
+    # A general style: no persona, name or flirt register leaks in.
+    for leak in ("Jenny", "flirt", "Discord"):
+        assert leak not in CONVERSATIONAL_RESPONSE_STYLE
 
 
 async def test_cli_without_brain_layers_still_receives_the_shared_default(monkeypatch) -> None:
@@ -48,3 +73,30 @@ def test_both_voice_personas_include_reporting_without_losing_spoken_rules() -> 
         assert "REPORTING RESULTS" in prompt
         assert "SPOKEN" in prompt
         assert "spell every number" in prompt
+
+
+@pytest.mark.parametrize("briefed", [True, False])
+def test_society_api_turn_carries_the_reply_policy_exactly_once(briefed: bool) -> None:
+    from types import SimpleNamespace
+
+    from jarvis.brain.manager import _TURN_OVERRIDE, BrainManager
+    from jarvis.brain.turn_override import TurnOverride
+
+    briefing = "## How to reply to the person\n" + CONVERSATIONAL_RESPONSE_STYLE
+    manager = BrainManager.__new__(BrainManager)
+    manager._config = SimpleNamespace(performance=SimpleNamespace(cache_optimized_prompt=True))
+    manager._render_live_tool_block = lambda: "TOOLS"
+    manager._reply_language_directive = lambda: "LANGUAGE"
+    token = _TURN_OVERRIDE.set(
+        TurnOverride(
+            provider="test",
+            system_extra=briefing if briefed else "## Agent\nScout",
+            tool_context={"tool_origin": "society"},
+        )
+    )
+    try:
+        prompt = manager._build_system_prompt()
+    finally:
+        _TURN_OVERRIDE.reset(token)
+    assert prompt.count(CONVERSATIONAL_RESPONSE_STYLE) == 1
+    assert "WRITTEN CHAT STYLE" in prompt

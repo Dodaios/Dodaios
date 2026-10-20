@@ -2,7 +2,7 @@
 
 The server is a fake behind ``httpx.MockTransport`` (a real httpx feature, no
 ``unittest.mock``): it records every call so the tests can pin how many
-round-trips a turn costs, which is the whole point of the idempotency memo.
+round-trips a turn costs and whether other callers' profiles survive.
 """
 
 from __future__ import annotations
@@ -110,26 +110,41 @@ async def test_ensure_profile_creates_once_and_is_idempotent() -> None:
     assert create == [
         {"model": alias, "from": "qwen3.5:9b", "parameters": {"num_ctx": 16384}, "stream": False}
     ]
-    # Second call: the process memo answers, no HTTP at all.
+    # Recheck existence without recreating the profile.
     before = len(server.calls)
     assert await ensure_profile(ROOT, "qwen3.5:9b", opts, transport=server.transport) == alias
-    assert len(server.calls) == before
+    assert server.calls[before:] == [("GET", "/api/tags", None)]
     # A fresh process finds the alias on the server and skips the create.
     profiles.reset_process_memo()
     assert await ensure_profile(ROOT, "qwen3.5:9b", opts, transport=server.transport) == alias
     assert server.paths("POST").count("/api/create") == 1
 
 
-async def test_ensure_profile_deletes_the_stale_alias_when_the_hash_changes() -> None:
+async def test_ensure_profile_preserves_other_callers_option_sets() -> None:
     old = profile_name("qwen3.5:9b", OllamaModelOptions(num_ctx=8192))
     other = profile_name("gemma4:12b", OllamaModelOptions(num_ctx=8192))
     server = FakeOllamaServer(["qwen3.5:9b", f"{old}:latest", f"{other}:latest"])
     new_opts = OllamaModelOptions(num_ctx=16384)
     alias = await ensure_profile(ROOT, "qwen3.5:9b", new_opts, transport=server.transport)
     deleted = [b["model"] for m, p, b in server.calls if p == "/api/delete"]
-    assert deleted == [old]  # the other base's alias is left alone
+    assert deleted == []
+    assert f"{old}:latest" in server.models
     assert f"{alias}:latest" in server.models
     assert f"{other}:latest" in server.models
+
+
+async def test_two_agents_can_alternate_context_profiles_and_recover_removal() -> None:
+    server = FakeOllamaServer(["qwen3.5:9b"])
+    small = OllamaModelOptions(num_ctx=4096)
+    large = OllamaModelOptions(num_ctx=8192)
+    first = await ensure_profile(ROOT, "qwen3.5:9b", small, transport=server.transport)
+    second = await ensure_profile(ROOT, "qwen3.5:9b", large, transport=server.transport)
+    assert await ensure_profile(ROOT, "qwen3.5:9b", small, transport=server.transport) == first
+    assert {f"{first}:latest", f"{second}:latest"}.issubset(server.models)
+    server.models.remove(f"{first}:latest")
+    assert await ensure_profile(ROOT, "qwen3.5:9b", small, transport=server.transport) == first
+    assert f"{first}:latest" in server.models
+    assert "/api/delete" not in server.paths()
 
 
 async def test_ensure_profile_without_bakeable_knobs_returns_the_base() -> None:
@@ -260,3 +275,36 @@ def test_every_knob_has_one_sentence() -> None:
     set_keys = [k for k in ("num_ctx", "num_gpu", "keep_alive") if getattr(opts, k) is not None]
     assert len(reasons) == 1 + 3  # the budget sentence + one per knob (placement always speaks)
     assert set_keys == ["num_ctx", "num_gpu", "keep_alive"]
+
+
+# ── automatic_context (a model the person set no context for) ────────────
+def test_the_automatic_window_never_drops_below_the_floor() -> None:
+    """Memory decides how far above the floor the window goes, never whether
+    the prompt fits at all: below it the app has no room for its tools."""
+    tokens, reason = profiles.automatic_context(
+        size_gb=6.0, native_context=262_144, accelerator_gb=0.0, ram_gb=8.0
+    )
+    assert tokens == profiles.AUTOMATIC_CONTEXT_FLOOR
+    assert "floor" in reason
+
+
+def test_the_automatic_window_stops_at_the_ceiling() -> None:
+    tokens, _ = profiles.automatic_context(
+        size_gb=2.0, native_context=262_144, accelerator_gb=48.0, ram_gb=64.0
+    )
+    assert tokens == profiles.AUTOMATIC_CONTEXT_CEILING
+
+
+def test_the_automatic_window_respects_a_small_native_window() -> None:
+    tokens, _ = profiles.automatic_context(
+        size_gb=4.0, native_context=8_192, accelerator_gb=24.0, ram_gb=64.0
+    )
+    assert tokens == 8_192
+
+
+def test_unreadable_size_and_memory_still_give_the_floor() -> None:
+    tokens, reason = profiles.automatic_context(
+        size_gb=None, native_context=None, accelerator_gb=0.0, ram_gb=None
+    )
+    assert tokens == profiles.AUTOMATIC_CONTEXT_FLOOR
+    assert "unreadable memory" in reason

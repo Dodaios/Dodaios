@@ -1,7 +1,9 @@
-import { Fragment, memo, useMemo } from "react";
+import { Fragment, memo, useMemo, type ReactNode } from "react";
 import { ChatMarkdown, MediaPreview, mediaKind } from "@/components/agentchat/ChatMarkdown";
 import { CircleAlert, FileText, ImageIcon } from "lucide-react";
 import { InternalMessageBubble, type InternalParticipant } from "./InternalMessageBubble";
+import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
+import { codingThreadOf, foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { MessageWithChips } from "./ToolChoiceChips";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { effortLabel } from "./AgentComposer";
@@ -9,7 +11,8 @@ import { TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
 import type { TimelineItem, TurnItem, TextBlock } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
-import { useT } from "@/i18n";
+import { useI18nStore, useT } from "@/i18n";
+import { localeForUiLanguage } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 
 /** Shared transcript shell; the work trace owns all execution presentation. */
@@ -23,6 +26,7 @@ export function AgentTimeline({
   bubbles = false,
   traceLook = "rail",
   traceCompanion = false,
+  traceFace,
 }: {
   items: TimelineItem[];
   assistantName: string;
@@ -33,7 +37,7 @@ export function AgentTimeline({
   /** Sender faces by agent id, where the caller has a roster. */
   agentsById?: Record<string, InternalParticipant>;
   /**
-   * The front page's conversation look (2026-10-01, after the Claude app):
+   * The front page's conversation look (2026-10-01):
    * your words in a soft rounded bubble on the right, the assistant's answer
    * as plain text with no name-and-model header above it, and a quiet
    * centred time stamp wherever the conversation paused. The Agentic IDE
@@ -44,14 +48,17 @@ export function AgentTimeline({
   traceLook?: TraceLook;
   /** Jarvis's own chat: live traces show the user's pet at work. */
   traceCompanion?: boolean;
+  /** An agent's own chat: live traces show that agent's face (or the pet it wears) at work. */
+  traceFace?: ReactNode;
 }) {
   const t = useT();
   // On the rail look an agent's answer to a working turn is a quiet line in
   // that turn's trace, so the reply stays the last thing in the chat.
-  const { items: shown, messagesByTurn } = useMemo(
-    () => traceLook === "rail" ? attachTurnMessages(items) : { items, messagesByTurn: NO_MESSAGES },
-    [items, traceLook],
-  );
+  const { items: shown, messagesByTurn } = useMemo(() => {
+    // A coding thread's unchanged status is one row, however often it arrived.
+    const folded = foldRepeatedThreadStatus(items);
+    return traceLook === "rail" ? attachTurnMessages(folded) : { items: folded, messagesByTurn: NO_MESSAGES };
+  }, [items, traceLook]);
   const stamps = bubbles ? timeStamps(shown) : null;
   return (
     <>
@@ -71,6 +78,10 @@ export function AgentTimeline({
   );
 
   function renderItem(item: TimelineItem) {
+    if (item.type === "internal" && codingThreadOf(item.message.sender_id)) {
+      return <CodingThreadActivity key={item.id} label={item.message.text}
+        threadId={codingThreadOf(item.message.sender_id)} failed={item.message.status === "failed"} />;
+    }
     if (item.type === "internal") {
       return (
         <InternalMessageBubble
@@ -83,6 +94,20 @@ export function AgentTimeline({
     }
     if (item.type === "user") {
       if (item.origin === "control") return <div key={item.id} data-message-id={item.id} className="text-xs text-muted-foreground">{t("slash.control_turn")}{item.attachments.map((file) => <span key={file.name} className="ml-2">{file.name}</span>)}</div>;
+      if (item.origin === "background") {
+        // An earlier request coming back after other messages: the line
+        // names it, so the answer below is read as that request's result.
+        return (
+          <div
+            key={item.id}
+            data-message-id={item.id}
+            data-testid="background-result"
+            className="mx-auto max-w-[85%] text-center text-xs text-muted-foreground"
+          >
+            {t("society.chat.background_result")} · {item.text}
+          </div>
+        );
+      }
       return (
         <div
           key={item.id}
@@ -177,6 +202,36 @@ export function AgentTimeline({
     }
     if (item.type === "notice") {
       if (item.kind === "native_goal_verdict") return <p key={item.id} className="text-xs text-muted-foreground">{t("slash.verifying")}</p>;
+      if (item.kind === "message_queued") {
+        // A message typed while a turn is still answering: it starts next.
+        return (
+          <p key={item.id} data-message-id={item.id} data-testid="message-queued"
+            className="flex justify-end py-1 text-xs text-muted-foreground">
+            {t("society.chat.message_waiting")} · {item.text}
+          </p>
+        );
+      }
+      if (item.kind === "message_dequeued") {
+        return (
+          <p key={item.id} data-message-id={item.id} role="alert"
+            className="flex justify-end py-1 text-xs text-destructive">
+            {t("society.chat.message_not_sent").replace("{0}", item.text)}
+          </p>
+        );
+      }
+      if (item.kind === "background_result_lost") {
+        return (
+          <p key={item.id} data-message-id={item.id} role="alert"
+            className="mx-auto max-w-[85%] py-1 text-center text-xs text-destructive">
+            {t("society.chat.background_result_lost").replace("{0}", item.text)}
+          </p>
+        );
+      }
+      if (item.kind === "coding_thread") {
+        const started = t("society.chat.coding_thread_started").replace("{0}", String(item.data.agent ?? ""));
+        return <CodingThreadActivity key={item.id} label={`${started} · ${String(item.data.title ?? "")}`}
+          threadId={String(item.data.thread_id ?? "")} />;
+      }
       // The society reporting back on a task Jarvis handed out: the
       // agent's name as the headline, its summary underneath. Muted and
       // centred like a stamp — it is not Jarvis speaking.
@@ -208,6 +263,7 @@ export function AgentTimeline({
         bubbles={bubbles}
         traceLook={traceLook}
         traceCompanion={traceCompanion}
+        traceFace={traceFace}
         messages={messagesByTurn.get(item.id)}
       />
     );
@@ -239,9 +295,10 @@ export function timeStamps(items: TimelineItem[], now: Date = new Date()): Map<s
 }
 
 function stampLabel(at: Date, now: Date): string {
-  const time = at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const locale = localeForUiLanguage(useI18nStore.getState().ui);
+  const time = at.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
   if (at.toDateString() === now.toDateString()) return time;
-  const date = at.toLocaleDateString(undefined, {
+  const date = at.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
@@ -251,8 +308,8 @@ function stampLabel(at: Date, now: Date): string {
 
 const NO_MESSAGES = new Map<string, TraceMessage[]>();
 
-const Turn = memo(function Turn({ turn, assistantName, providerLabel, onDecide, bubbles = false, traceLook, traceCompanion = false, messages }: {
-  turn: TurnItem; assistantName: string; providerLabel: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean;
+const Turn = memo(function Turn({ turn, assistantName, providerLabel, onDecide, bubbles = false, traceLook, traceCompanion = false, traceFace, messages }: {
+  turn: TurnItem; assistantName: string; providerLabel: string; onDecide: Decide; bubbles?: boolean; traceLook: TraceLook; traceCompanion?: boolean; traceFace?: ReactNode;
   /** Agent messages that arrived while this turn worked. */
   messages?: TraceMessage[];
 }) {
@@ -270,7 +327,12 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, onDecide, 
         {turn.effort ? <span>{effortLabel(turn.effort, t)}</span> : null}
       </div>
     )}
-    <TurnTrace turn={turn} look={traceLook} companion={traceCompanion} extras={extras} onDecide={onDecide} renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />} />
+    <TurnTrace turn={turn} look={traceLook} companion={traceCompanion} face={traceFace} extras={extras} onDecide={onDecide} renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />} />
+    {turn.background && turn.background.length > 0 ? (
+      <p className="text-xs text-muted-foreground" data-testid="turn-background">
+        {t("society.chat.background_running").replace("{0}", turn.background.join(", "))}
+      </p>
+    ) : null}
   </div>;
 });
 
@@ -280,7 +342,7 @@ function Prose({ block }: { block: TextBlock }) {
     <div
       data-testid="agent-text"
       className={cn(
-        // Compact reading size, like the Claude app: headings stay close to body
+        // Compact reading size: headings stay close to body
         // size and set apart by weight and spacing, not by scale.
         "prose prose-neutral max-w-none text-[15px] leading-[25px] text-foreground dark:prose-invert dark:text-foreground [overflow-wrap:anywhere]",
         "[&>div>:first-child]:mt-0 [&>div>:last-child]:mb-0",

@@ -59,6 +59,7 @@ import {
   BookOpenText,
   Check,
   FileDiff,
+  FolderGit2,
   GripVertical,
   Loader2,
   Maximize2,
@@ -159,11 +160,13 @@ import { PromptReceipt } from "./PromptReceipt";
 import { PromptHistoryButton } from "./PromptHistoryButton";
 import { PaneConversationDialog } from "./PaneConversationDialog";
 import { PaneChangesDialog } from "./PaneChangesDialog";
+import { useGitSessionStore } from "@/store/gitSession";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { prefetchPaneChanges } from "./paneChangesApi";
 import { WorkspaceTerminalHeader } from "./WorkspaceTerminalHeader";
 import { usePaneContextMenu } from "./usePaneContextMenu";
 import { SessionGitHubBadge } from "./SessionGitHubBadge";
-import { loadLocaleChunk, useT } from "@/i18n";
+import { fill, loadLocaleChunk, translate, useT } from "@/i18n";
 
 /**
  * How old a delivery may be and still raise its receipt on a fresh connection.
@@ -742,6 +745,8 @@ export function AgenticTerminal({
   // process together) without reaching into the connect effect's socket.
   const resizeRef = useRef<(() => void) | null>(null);
   const claimResizeRef = useRef<(() => void) | null>(null);
+  /** The refit a pane makes on coming back on stage — see `returnResize`. */
+  const returnResizeRef = useRef<(() => void) | null>(null);
   /** Asks the agent to paint its whole screen again — see RETURN_REPAINT_NUDGE_MS. */
   const repaintOnReturnRef = useRef<(() => void) | null>(null);
   /** Was this pane parked off the stage since it last took it? */
@@ -764,6 +769,7 @@ export function AgenticTerminal({
   const statusRef = useRef<PaneStatus>("connecting");
   // Mirrored into state purely so the header can show/hide the restart button;
   // it transitions a handful of times per pane, never per output chunk.
+  const t = useT();
   const [visibleStatus, setVisibleStatus] = useState<PaneStatus>("connecting");
   /*
    * What the socket said ABOUT that status, in the user's words.
@@ -1143,7 +1149,7 @@ export function AgenticTerminal({
         isMac,
         onUnavailable: () =>
           onAttachErrorRef.current?.(
-            "Could not copy the terminal selection on this machine.",
+            translate("agentic_grid.pane.copy_unavailable"),
           ),
       },
     );
@@ -1161,7 +1167,7 @@ export function AgenticTerminal({
         isMac,
         onUnavailable: () =>
           onAttachErrorRef.current?.(
-            "Could not read the clipboard on this machine.",
+            translate("agentic_grid.pane.paste_unavailable"),
           ),
       },
     );
@@ -1218,6 +1224,22 @@ export function AgenticTerminal({
     } catch {
       /* not measured yet — the ResizeObserver below will fit */
     }
+    /*
+     * Did this socket's handshake go out without a size (`UNMEASURED_SIZE`),
+     * with the server's report of the agent's real size still to come?
+     *
+     * The server replays the agent's screen BEFORE it sends that report, and
+     * the screen is addressed by row at the agent's size. Parsed into this
+     * grid first — xterm's constructed 80x24 when the pane mounted hidden or
+     * in a minimized window — every row below the 24th landed on the last one
+     * (the status line written over the prompt box), and the report then grew
+     * the grid with blank rows underneath. Nothing repaired it: the PTY
+     * already had the size the pane went on to ask for, so the agent was never
+     * asked to paint again (reported 2026-10-06, the window reloading while
+     * the IDE showed the thread layout). So output is held until the report
+     * arrives and drawn after the grid has taken it (see `onGeometry`).
+     */
+    let awaitingSizeReport = false;
 
     const report = (status: PaneStatus, detail?: string) => {
       statusRef.current = status;
@@ -1344,7 +1366,10 @@ export function AgenticTerminal({
         return;
       }
       paneVisible = true;
-      flushHeld(afterFlush);
+      // Held output waits for the size report (see `awaitingSizeReport`); its
+      // deadline flush is still armed, so waiting cannot freeze the pane.
+      if (awaitingSizeReport) afterFlush?.();
+      else flushHeld(afterFlush);
     };
 
     const parkPane = () => {
@@ -1506,7 +1531,7 @@ export function AgenticTerminal({
       // at it. Cheap to call per chunk: React bails out on an unchanged value.
       setPainted(true);
       if (!paneVisible) recheckParked();
-      if (paneVisible) {
+      if (paneVisible && !awaitingSizeReport) {
         writeToTerminal(text, afterWrite);
         return;
       }
@@ -1577,7 +1602,10 @@ export function AgenticTerminal({
       // callback, `setTailReady(false)` may not reach the DOM before xterm's
       // write queue starts parsing. Hide the canvas host imperatively BEFORE
       // reset/write; React still mirrors the curtain below for later renders.
-      const curtain = paneVisible && activeRef.current;
+      // A replay waiting for the size report is held (see
+      // `awaitingSizeReport`), and the callback that would lift a curtain
+      // goes with it.
+      const curtain = paneVisible && !awaitingSizeReport && activeRef.current;
       if (curtain) {
         container.style.visibility = "hidden";
         replayCurtainRef.current = true;
@@ -1727,6 +1755,12 @@ export function AgenticTerminal({
       // well as at the gate: a deferred fit runs a moment later, and the tile it
       // was asked for may be gone by then.
       if (disposed || !measurable()) return;
+      // A pane off the stage never sizes its agent. A grid covered by the
+      // maximized side panel is invisible but still laid out, in a tile the
+      // panel narrowed: fitting there squeezed every agent behind it to a strip
+      // (37 columns, measured) and its output stayed wrapped at that width in
+      // the scrollback. Coming back on stage refits (the `active` effect).
+      if (!activeRef.current) return;
       // The pane draws at the READER'S text size, never one it picked itself.
       // An auto-shrink that walked this size down until the floor grid fit the
       // tile shipped and was rejected within hours (2026-08-11): it silently
@@ -1928,24 +1962,48 @@ export function AgenticTerminal({
      * tile is deliberately silent (see `applyResize`).
      */
     const repaintOnReturn = () => {
-      const size = sentSize;
+      // The grid this pane HOLDS, never the size it last asked for. The two
+      // differ while the pane follows a geometry the server chose (see
+      // `onGeometry`), and a nudge carrying the old request was granted
+      // silently: the agent went back to the tile's width while xterm stayed
+      // at the followed one, so every line it drew wrapped into word
+      // fragments down the pane's edge (reported 2026-10-06, after switching
+      // from the thread layout back to the grid).
+      const size = sentSize ? { cols: term.cols, rows: term.rows } : null;
       if (disposed || !size || !socket) return;
-      const claimOwner = viewerMayOwn();
+      // Coming back on stage is a change made in THIS window (see `returnResize`).
+      const claimOwner = activeRef.current && mayLead();
       const kind = claimOwner ? "claim" : "r";
       const shorter = Math.max(MIN_REAL_ROWS, size.rows - 1);
       if (shorter === size.rows) return;
       if (!socket.send({ t: kind, cols: size.cols, rows: shorter })) return;
       window.setTimeout(() => {
         if (disposed) return;
-        // A refit may have landed during the wait; give back the newest size.
-        const back = sentSize ?? size;
-        if (socket?.send({ t: kind, cols: back.cols, rows: back.rows }) && claimOwner) {
+        // A refit may have landed during the wait; give back the grid as it is now.
+        const back = { cols: term.cols, rows: term.rows };
+        if (!socket?.send({ t: kind, cols: back.cols, rows: back.rows })) return;
+        // What the agent was last asked for, so the next refit of the tile is
+        // compared against it and not against an older request.
+        sentSize = back;
+        if (claimOwner) {
           owned = true;
           displaced = false;
         }
       }, RETURN_REPAINT_NUDGE_MS);
     };
     repaintOnReturnRef.current = repaintOnReturn;
+    /**
+     * Refit a pane that comes back on stage, taking the size if this window may.
+     *
+     * A layout switch, a workspace switch or leaving the Verse is something the
+     * user did in this window, so it claims like a gesture in the pane does —
+     * without asking `document.hasFocus()`, whose answer the desktop shell lets
+     * lag (see `viewerMayOwn`). Only asking left a pane that had followed
+     * another geometry while it was hidden at that geometry: `applyResize`
+     * stays silent for a tile it already requested.
+     */
+    const returnResize = () => sendResize(activeRef.current && mayLead());
+    returnResizeRef.current = returnResize;
     /**
      * The same, on the strength of a gesture INSIDE this pane.
      *
@@ -2028,6 +2086,9 @@ export function AgenticTerminal({
      */
     let openedWithClaim = viewerMayOwn();
     const connectSize = () => {
+      // Without a size the server answers with the agent's (see
+      // `awaitingSizeReport`), and output waits for that answer.
+      awaitingSizeReport = true;
       if (!mountMeasured || !measurable()) return UNMEASURED_SIZE;
       let proposed: { cols: number; rows: number } | undefined;
       try {
@@ -2038,6 +2099,7 @@ export function AgenticTerminal({
       const cols = proposed?.cols ?? term.cols;
       const rows = proposed?.rows ?? term.rows;
       if (!Number.isFinite(cols) || !Number.isFinite(rows)) return UNMEASURED_SIZE;
+      awaitingSizeReport = false;
       // The same floors `applyResize` puts on the grid.
       return {
         cols: Math.max(cols, MIN_REAL_COLS),
@@ -2118,6 +2180,19 @@ export function AgenticTerminal({
               /* the terminal is being torn down — nothing left to reconcile */
             }
           };
+          // The report a handshake without a size was waiting for. What this
+          // pane holds — the replayed screen and anything after it — was
+          // drawn at THIS size, so the grid takes it first (see
+          // `awaitingSizeReport`). Something already parsing was flushed
+          // early by the hold's deadline; it keeps the ordinary order below.
+          if (awaitingSizeReport) {
+            awaitingSizeReport = false;
+            if (parsing === 0) {
+              applyGeometry();
+              flushHeld();
+              return;
+            }
+          }
           // A size frame belongs BETWEEN the output before and after it.
           // xterm parses writes asynchronously, and a hidden workspace can
           // still hold older output outside xterm. Resizing immediately made
@@ -2186,10 +2261,10 @@ export function AgenticTerminal({
           report(
             "live",
             reattached
-              ? "still running — picked up where you left it"
+              ? translate("agentic_grid.pane.ready_reattached")
               : resumed
-                ? "continued its previous conversation"
-                : "started a new conversation",
+                ? translate("agentic_grid.pane.ready_resumed")
+                : translate("agentic_grid.pane.ready_fresh"),
           );
           if (
             activeRef.current &&
@@ -2415,6 +2490,7 @@ export function AgenticTerminal({
       resizeRef.current = null;
       claimResizeRef.current = null;
       repaintOnReturnRef.current = null;
+      returnResizeRef.current = null;
       takeOwnershipRef.current = null;
       if (visibilityRef.current === visibility) visibilityRef.current = null;
     };
@@ -2467,7 +2543,7 @@ export function AgenticTerminal({
     const returningViewport = preservedViewportRef.current;
     const restoreViewport = () => {
       resizeRef.current?.();
-      claimResizeRef.current?.();
+      (returning ? returnResizeRef : claimResizeRef).current?.();
       restoreTerminalViewport(termRef.current, returningViewport);
     };
     // Measure the now-mounted stage before parsing held output. Once xterm has
@@ -2707,7 +2783,7 @@ export function AgenticTerminal({
   const attach = useCallback(
     async (payload: PaneDropPayload) => {
       if (isEmptyPayload(payload)) {
-        onAttachError?.("That drop carried no file this pane could use.");
+        onAttachError?.(translate("agentic_grid.pane.drop_empty"));
         return;
       }
       setAttaching(true);
@@ -2817,6 +2893,14 @@ export function AgenticTerminal({
   // A pane whose agent runs on another computer changes files THERE, which
   // this machine's git cannot read — so only a local pane offers the review.
   const reviewChanges = workspaceId && !computerName ? () => setChangesOpen(true) : undefined;
+  // The Git tab, narrowed to what this pane's agent session changed.
+  const showInGit =
+    workspaceId && !computerName
+      ? () => {
+          useGitSessionStore.getState().show(workspaceId, name);
+          useIdeSidePanelStore.getState().openTab("git");
+        }
+      : undefined;
   const prefetchReview = workspaceId && !computerName
     ? () => {
       void loadLocaleChunk("pane_review");
@@ -2850,6 +2934,7 @@ export function AgenticTerminal({
     onOpenChat,
     onReviewChanges: reviewChanges,
     onReviewChangesPrefetch: prefetchReview,
+    onShowInGit: showInGit,
     onRestart,
     onFork,
     branch,
@@ -3082,7 +3167,7 @@ export function AgenticTerminal({
               style={{ background: chrome.shell, borderColor: chrome.border }}
             >
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Starting {displayName}…</span>
+              <span>{fill(t("agentic_grid.pane.starting"), { agent: displayName })}</span>
             </div>
           </div>
         )}
@@ -3100,13 +3185,14 @@ export function AgenticTerminal({
             {attaching ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                <span>Attaching to {name}…</span>
+                <span>{fill(t("agentic_grid.pane.attaching"), { pane: name })}</span>
               </>
             ) : (
               <>
                 <Paperclip className="h-4 w-4 text-muted-foreground" />
                 <span>
-                  Drop to put it in front of <strong>{name}</strong>
+                  {t("agentic_grid.pane.drop_hint_before")}<strong>{name}</strong>
+                  {t("agentic_grid.pane.drop_hint_after")}
                 </span>
               </>
             )}
@@ -3162,6 +3248,7 @@ function PaneHeader({
   onOpenChat,
   onReviewChanges,
   onReviewChangesPrefetch,
+  onShowInGit,
 }: {
   workspaceId?: string;
   githubStatusEnabled: boolean;
@@ -3199,6 +3286,8 @@ function PaneHeader({
   onReviewChanges?: () => void;
   /** Starts reading the review the moment the pointer reaches its button. */
   onReviewChangesPrefetch?: () => void;
+  /** Opens the Git tab showing only what this pane's agent session changed. */
+  onShowInGit?: () => void;
 }) {
   const t = useT();
   const light = appearance === "light";
@@ -3319,16 +3408,16 @@ function PaneHeader({
   // a maximized pane cannot be dragged, so its sentence never claims it can.
   const tipText = [
     onArrangeStart
-      ? `Drag ${name} by this bar to move it.`
+      ? fill(t("agentic_grid.pane.tip_drag"), { pane: name })
       : "",
     onToggleMaximize
       ? onArrangeStart
         ? maximized
-          ? "Double-click to put it back."
-          : "Double-click to fill the workspace."
+          ? t("agentic_grid.pane.tip_restore")
+          : t("agentic_grid.pane.tip_fill")
         : maximized
-          ? `Double-click to put ${name} back in the grid.`
-          : `Double-click to make ${name} fill the workspace.`
+          ? fill(t("agentic_grid.pane.tip_restore_named"), { pane: name })
+          : fill(t("agentic_grid.pane.tip_fill_named"), { pane: name })
       : "",
   ]
     .filter(Boolean)
@@ -3450,7 +3539,7 @@ function PaneHeader({
       />
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {showArrangeHandle && onArrangeStart && (
-          <button type="button" aria-label={`Move ${name}`} title={`Move ${name}`}
+          <button type="button" aria-label={fill(t("agentic_grid.pane.move"), { pane: name })} title={fill(t("agentic_grid.pane.move"), { pane: name })}
             data-ide-drag-handle="true"
             data-testid={`pane-move-${name}`}
             onPointerDown={(event) => {
@@ -3490,7 +3579,7 @@ function PaneHeader({
               value={draft}
               maxLength={MAX_TERMINAL_NAME}
               disabled={saving}
-              aria-label={`Rename ${name}`}
+              aria-label={fill(t("agentic_grid.pane.rename"), { pane: name })}
               data-testid={`pane-rename-input-${name}`}
               onFocus={(event) => event.currentTarget.select()}
               onChange={(event) => setDraft(event.target.value)}
@@ -3515,7 +3604,7 @@ function PaneHeader({
             <button
               type="submit"
               disabled={saving || !draft.trim()}
-              aria-label={`Save name for ${name}`}
+              aria-label={fill(t("agentic_grid.pane.rename_save"), { pane: name })}
               data-testid={`pane-rename-save-${name}`}
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[color:var(--pane-ink)]",
@@ -3532,7 +3621,7 @@ function PaneHeader({
             <button
               type="button"
               disabled={saving}
-              aria-label={`Cancel renaming ${name}`}
+              aria-label={fill(t("agentic_grid.pane.rename_cancel"), { pane: name })}
               onClick={() => setDraft(null)}
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
@@ -3594,8 +3683,8 @@ function PaneHeader({
             {onRename && (
               <button
                 type="button"
-                aria-label={`Rename ${name}`}
-                title={`Rename ${name}`}
+                aria-label={fill(t("agentic_grid.pane.rename"), { pane: name })}
+                title={fill(t("agentic_grid.pane.rename"), { pane: name })}
                 data-testid={`pane-rename-${name}`}
                 onClick={() => setDraft(name)}
                 onMouseDown={(event) => event.stopPropagation()}
@@ -3670,7 +3759,7 @@ function PaneHeader({
             // the lift chip, with no rim: the fill already separates it.
             className="min-w-0 max-w-[8rem] truncate rounded-full px-2 py-px font-display text-micro font-medium tracking-wide"
             style={{ color: brand.inkMuted, backgroundColor: brand.chip }}
-            title={`Running on ${accountLabel}`}
+            title={fill(t("agentic_grid.pane.running_on_account"), { account: accountLabel })}
             data-testid={`pane-account-${name}`}
           >
             {accountLabel}
@@ -3724,7 +3813,7 @@ function PaneHeader({
         </PaneAction>
         {onReviewChanges && (
           <PaneAction
-            label={`Review changes by ${name}`}
+            label={fill(t("agentic_grid.pane.review_changes"), { pane: name })}
             testId={`pane-review-changes-${name}`}
             onClick={onReviewChanges}
             onHover={onReviewChangesPrefetch}
@@ -3732,8 +3821,20 @@ function PaneHeader({
             <FileDiff className="h-3.5 w-3.5" aria-hidden="true" />
           </PaneAction>
         )}
+        {onShowInGit && (
+          <PaneAction
+            label={fill(t("agentic_grid.pane.show_in_git"), { pane: name })}
+            testId={`pane-show-in-git-${name}`}
+            onClick={onShowInGit}
+          >
+            <FolderGit2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </PaneAction>
+        )}
         <PaneAction
-          label={maximized ? `Restore ${name}` : `Maximize ${name}`}
+          label={fill(
+            t(maximized ? "agentic_grid.pane.restore" : "agentic_grid.pane.maximize"),
+            { pane: name },
+          )}
           testId={`pane-maximize-${name}`}
           onClick={onToggleMaximize}
         >
@@ -3744,7 +3845,7 @@ function PaneHeader({
           )}
         </PaneAction>
         <PaneAction
-          label={`Open another terminal beside ${name}`}
+          label={fill(t("agentic_grid.pane.split_right"), { pane: name })}
           testId={`pane-split-right-${name}`}
           disabled={splitDisabled}
           expanded={offersChoice ? picking === "right" : undefined}
@@ -3753,7 +3854,7 @@ function PaneHeader({
           <SplitRightIcon className="h-3.5 w-3.5" />
         </PaneAction>
         <PaneAction
-          label={`Split ${name} and open a terminal below it`}
+          label={fill(t("agentic_grid.pane.split_down"), { pane: name })}
           testId={`pane-split-down-${name}`}
           disabled={splitDisabled}
           expanded={offersChoice ? picking === "down" : undefined}
@@ -3762,7 +3863,7 @@ function PaneHeader({
           <SplitBelowIcon className="h-3.5 w-3.5" />
         </PaneAction>
         <PaneAction
-          label={`Close ${name}`}
+          label={fill(t("agentic_grid.close_pane.aria"), { pane: name })}
           testId={`pane-close-${name}`}
           danger
           onClick={onClose}
@@ -3774,9 +3875,18 @@ function PaneHeader({
       {picking && (
         <AgentPickerMenu
           title={
-            picking === "right" ? "Open beside — what?" : "Split below — what?"
+            picking === "right"
+              ? t("agentic_grid.pane.split_right_picker")
+              : t("agentic_grid.pane.split_down_picker")
           }
-          ariaLabel={`What should run ${picking === "right" ? "beside" : "below"} ${name}?`}
+          ariaLabel={fill(
+            t(
+              picking === "right"
+                ? "agentic_grid.pane.split_right_picker_aria"
+                : "agentic_grid.pane.split_down_picker_aria",
+            ),
+            { pane: name },
+          )}
           agents={choices}
           testId={`pane-split-menu-${picking}-${name}`}
           itemTestId={(agent) => `pane-split-${picking}-${name}-${agent}`}
@@ -4031,6 +4141,7 @@ function PaneStatusNotice({
   light: boolean;
   onRestart?: () => void;
 }) {
+  const t = useT();
   if (status !== "exited" && status !== "error") return null;
   const appearance: TerminalAppearance = light ? "light" : "dark";
   const tone = NOTICE_TONE[status === "error" ? "error" : "warning"][appearance];
@@ -4045,10 +4156,10 @@ function PaneStatusNotice({
    */
   const message =
     status === "error"
-      ? detail || `${name} could not be reached.`
+      ? detail || fill(t("agentic_grid.pane.unreachable"), { pane: name })
       : detail
-        ? `${displayName} ${detail}`
-        : `${displayName} is no longer running in ${name}.`;
+        ? fill(t("agentic_grid.pane.exited_detail"), { agent: displayName, detail })
+        : fill(t("agentic_grid.pane.exited"), { agent: displayName, pane: name });
   return (
     <div
       data-testid={`pane-notice-${name}`}
@@ -4082,8 +4193,8 @@ function PaneStatusNotice({
       {onRestart && (
         <button
           type="button"
-          aria-label={`Restart ${name}`}
-          title={`Start a fresh ${displayName} in ${name}`}
+          aria-label={fill(t("agentic_grid.pane.restart_aria"), { pane: name })}
+          title={fill(t("agentic_grid.pane.restart_title"), { agent: displayName, pane: name })}
           data-testid={`pane-restart-${name}`}
           onClick={(e) => {
             e.stopPropagation();
@@ -4103,7 +4214,7 @@ function PaneStatusNotice({
           )}
         >
           <RotateCcw className="h-3 w-3" aria-hidden="true" />
-          Restart
+          {t("agentic_grid.pane.restart")}
         </button>
       )}
     </div>

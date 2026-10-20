@@ -5,7 +5,7 @@ Why this exists: one monolithic ``pytest tests/`` process took 75-95 minutes
 on a 4-core runner and routinely hit the job timeout. A single wedged test ate
 the whole budget, and module state leaked across the ~2 000 test files.
 
-How it works (the idea is borrowed from Hermes Agent's per-file runner):
+How it works (a per-file runner):
 
 1. **Discover** every ``test_*.py`` / ``*_test.py`` under the roots.
 2. **Shard** (``--shard 2/6``): longest-processing-time bin packing over the
@@ -17,11 +17,15 @@ How it works (the idea is borrowed from Hermes Agent's per-file runner):
    in fresh processes, and a failed file gets one more fresh attempt. A pass
    on that attempt is reported as FLAKY, not as a failure.
 5. **Bound**: every process has a wall-clock budget and is killed with its
-   whole process tree, so a hang costs one file, never the job.
+   whole process tree, so a hang costs one file, never the job. A file that
+   runs out of its budget alone gets one more attempt with a longer one: a
+   file the history has never timed starts on the generic floor, and a slow
+   file on a loaded runner is not a hang.
 
 Outputs: ``--report`` (JSON: failed test ids, flaky files, counts) and
 ``--junit-out`` (merged JUnit XML), plus ``--durations-out`` (timings of files
-that passed on the first attempt — a hang can never ratchet its own budget).
+that passed on the first attempt or alone after a timeout — a killed run has no
+timing, so a hang can never ratchet its own budget).
 
 The runner exits 1 when any test failed for real; whether that blocks the
 build is ``test_ratchet.py``'s decision (known failures are baselined).
@@ -55,7 +59,21 @@ MIN_FILE_TIMEOUT = 300.0
 MAX_FILE_TIMEOUT = 900.0
 BATCH_TARGET_SECONDS = 45.0
 BATCH_MAX_FILES = 12
+MAX_BATCH_TIMEOUT = 1800.0
+BATCH_TIMEOUT_FACTOR = 6.0  # times the batch's own history
+# A file that timed out alone runs once more with this multiple of its budget.
+# The floor is a guess for a file without history: on Windows a file whose
+# tests each start a contained command took 160 s on a quiet runner and more
+# than the 300 s floor on a loaded one, and every such timeout ejected a pull
+# request from the merge queue. A real hang now costs the floor three times.
+TIMEOUT_RETRY_FACTOR = 2.0
 _OK_EXIT_CODES = {0, 5}  # 5 = every test deselected / none collected
+# A new batch waits while less than this much memory is left to commit. A local
+# run shares the machine with the user's apps: eight batches on a box already
+# near its commit limit once ran Windows out of virtual memory, and every
+# process that allocated next (a Claude Code pane, OBS) died with 0xC0000409.
+MEMORY_RESERVE_BYTES = 6 * 1024**3
+MEMORY_POLL_SECONDS = 2.0
 
 
 # --------------------------------------------------------------------------- discovery
@@ -135,7 +153,108 @@ def file_timeout(file: str, durations: dict[str, float]) -> float:
     return min(MAX_FILE_TIMEOUT, max(MIN_FILE_TIMEOUT, 3 * durations.get(file, 0.0)))
 
 
+def retry_timeout(file: str, durations: dict[str, float]) -> float:
+    """Wall clock for the one attempt a timed-out file gets on its own."""
+    return min(MAX_FILE_TIMEOUT, TIMEOUT_RETRY_FACTOR * file_timeout(file, durations))
+
+
+def batch_timeout(batch: list[str], durations: dict[str, float]) -> float:
+    """Wall clock for one batch: its slowest file's budget, or a multiple of its load.
+
+    A batch is built to ~45 s of history. Summing every file's five-minute
+    floor gave a twelve-file batch thirty minutes, so one wedged test held a
+    shard until the job timeout killed it without a report. A batch killed
+    early costs nothing but time: each of its files runs again alone.
+    """
+    load = sum(estimate(file, durations) for file in batch)
+    slowest = max(file_timeout(file, durations) for file in batch)
+    return min(MAX_BATCH_TIMEOUT, max(slowest, BATCH_TIMEOUT_FACTOR * load))
+
+
 # --------------------------------------------------------------------------- execution
+
+
+def available_memory() -> int | None:
+    """Bytes the OS can still hand out, or None where it cannot be read.
+
+    Windows reports the commit headroom (RAM plus page file): that is the
+    limit an allocation fails against. Linux reports MemAvailable.
+    """
+    if os.name == "nt":
+        import ctypes
+
+        class _MemoryStatusEx(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+
+        status = _MemoryStatusEx()
+        status.dwLength = ctypes.sizeof(_MemoryStatusEx)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return int(status.ullAvailPageFile)
+    try:
+        with open("/proc/meminfo", encoding="ascii") as meminfo:
+            for line in meminfo:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError):
+        return None  # macOS and other systems without /proc: no gate
+    return None
+
+
+class MemoryGate:
+    """Holds back a new batch while the machine is short of memory.
+
+    A batch only waits while another one is running, so the gate can slow a
+    run down but never stall it: with nothing else in flight the next batch
+    always starts, and its finish is what frees the memory others wait for.
+    """
+
+    def __init__(
+        self,
+        reserve: int = MEMORY_RESERVE_BYTES,
+        probe=available_memory,
+        poll_seconds: float = MEMORY_POLL_SECONDS,
+    ):
+        self.reserve = reserve
+        self.probe = probe
+        self.poll_seconds = poll_seconds
+        self.running = 0
+        self.waits = 0
+        self._cond = threading.Condition()
+
+    def _short(self) -> bool:
+        free = self.probe()
+        return free is not None and free < self.reserve
+
+    def acquire(self) -> None:
+        with self._cond:
+            warned = False
+            while self.running > 0 and self._short():
+                if not warned:
+                    self.waits += 1
+                    warned = True
+                    print(
+                        f"[runner] under {self.reserve // 1024**3} GiB memory left; "
+                        f"waiting for one of {self.running} running batches",
+                        flush=True,
+                    )
+                self._cond.wait(self.poll_seconds)
+            self.running += 1
+
+    def release(self) -> None:
+        with self._cond:
+            self.running -= 1
+            self._cond.notify_all()
 
 
 @dataclass
@@ -214,10 +333,17 @@ def parse_junit(path: Path, files: list[str]) -> tuple[list[str], dict[str, floa
 
 
 class Runner:
-    def __init__(self, args: argparse.Namespace, durations: dict[str, float], workdir: Path):
+    def __init__(
+        self,
+        args: argparse.Namespace,
+        durations: dict[str, float],
+        workdir: Path,
+        gate: MemoryGate | None = None,
+    ):
         self.args = args
         self.durations = durations
         self.workdir = workdir
+        self.gate = gate or MemoryGate()
         self._seq = 0
         self._lock = threading.Lock()
 
@@ -254,24 +380,28 @@ class Runner:
             popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         else:
             popen_kwargs["start_new_session"] = True
+        self.gate.acquire()
         started = time.monotonic()
         timed_out = False
-        with log.open("wb") as sink:
-            proc = subprocess.Popen(  # noqa: S603
-                cmd,
-                cwd=REPO_ROOT,
-                stdout=sink,
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.DEVNULL,
-                env=env,
-                **popen_kwargs,  # type: ignore[arg-type]
-            )
-            try:
-                exit_code = proc.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                _kill_tree(proc)
-                exit_code = proc.wait()
+        try:
+            with log.open("wb") as sink:
+                proc = subprocess.Popen(  # noqa: S603
+                    cmd,
+                    cwd=REPO_ROOT,
+                    stdout=sink,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                    env=env,
+                    **popen_kwargs,  # type: ignore[arg-type]
+                )
+                try:
+                    exit_code = proc.wait(timeout=timeout)
+                except subprocess.TimeoutExpired:
+                    timed_out = True
+                    _kill_tree(proc)
+                    exit_code = proc.wait()
+        finally:
+            self.gate.release()
         duration = time.monotonic() - started
         failed, seconds, counts = parse_junit(junit, files)
         tail = ""
@@ -288,25 +418,37 @@ class Runner:
 
     def run_unit(self, batch: list[str]) -> dict[str, object]:
         """Run one batch with isolation-on-failure and a flaky retry."""
-        budget = min(1800.0, sum(file_timeout(f, self.durations) for f in batch))
+        budget = batch_timeout(batch, self.durations)
         first = self.run(batch, budget)
-        outcome: dict[str, object] = {"runs": [first], "flaky": [], "first_pass": []}
+        outcome: dict[str, object] = {"runs": [first], "flaky": [], "first_pass": [], "slow": []}
         if first.ok:
             outcome["first_pass"] = list(batch)
             return outcome
         runs: list[RunResult] = []
         flaky: list[str] = []
+        slow: list[str] = []
         for file in batch:
             budget_one = file_timeout(file, self.durations)
             single = first if len(batch) == 1 else self.run([file], budget_one)
-            if not single.ok and not single.timed_out:
-                retry = self.run([file], budget_one)
+            if not single.ok:
+                timed_out = single.timed_out
+                again = retry_timeout(file, self.durations) if timed_out else budget_one
+                retry = self.run([file], again)
                 if retry.ok:
                     flaky.append(file)
+                    if timed_out:
+                        # Its real duration, so the next history gives it room.
+                        slow.append(file)
+                        print(
+                            f"[runner] SLOW: {file} passed in {retry.duration:.0f}s "
+                            f"after running out of {int(budget_one)}s",
+                            flush=True,
+                        )
                     single = retry
             runs.append(single)
         outcome["runs"] = runs
         outcome["flaky"] = flaky
+        outcome["slow"] = slow
         return outcome
 
 
@@ -373,6 +515,7 @@ def main(argv: list[str] | None = None) -> int:
     all_runs: list[RunResult] = []
     flaky: list[str] = []
     first_pass: list[str] = []
+    slow: list[str] = []
     done = 0
     with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
         futures = [pool.submit(runner.run_unit, batch) for batch in batches]
@@ -382,6 +525,7 @@ def main(argv: list[str] | None = None) -> int:
             all_runs.extend(runs)  # type: ignore[arg-type]
             flaky.extend(outcome["flaky"])  # type: ignore[arg-type]
             first_pass.extend(outcome["first_pass"])  # type: ignore[arg-type]
+            slow.extend(outcome["slow"])  # type: ignore[arg-type]
             done += 1
             for run in runs:  # type: ignore[attr-defined]
                 if not run.ok:
@@ -416,9 +560,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.durations_out:
         fresh: dict[str, float] = {}
+        timed = {*first_pass, *slow}
         for run in all_runs:
             for file, secs in run.file_seconds.items():
-                if file in first_pass:
+                if file in timed:
                     fresh[file] = round(secs + 1.0, 2)  # + interpreter start-up share
         payload = json.dumps(fresh, indent=1, sort_keys=True) + "\n"
         args.durations_out.write_text(payload, encoding="utf-8")

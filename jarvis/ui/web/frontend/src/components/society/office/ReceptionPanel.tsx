@@ -1,53 +1,35 @@
 /**
- * Reception: the office's front desk and help centre. Three tabs — a welcome
- * with hiring and every place on the floor, the complete controls guide (from
- * officeControls, searchable), and the map's settings (officeSettings). H
- * opens it on the controls tab from anywhere, so nobody has to find the desk
- * to learn the keys.
+ * Reception: the office's directory. Four tabs — everyone on the floor (show
+ * on the map, open, the agents view), every place of the floor (open it, or
+ * walk there), the complete controls guide (from officeControls, searchable)
+ * and the map's settings (officeSettings). H opens it on the controls tab
+ * from anywhere, so nobody has to find the desk to learn the keys.
+ *
+ * Nothing is created here: new agents come from the spawn terminal.
  */
-import { useId, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronRight, Footprints, Search } from "lucide-react";
 import { useT } from "@/i18n";
-import type { OfficeLayout } from "./officeLayout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { SocietyAgent } from "../data";
+import { countStates, type OfficeLayout } from "./officeLayout";
 import { useOfficeStore, type OfficeFloor } from "./officeStore";
-import { CHECKPOINT_ICON, IconSvg } from "./CheckpointMarker";
-import { arrowCap, CONTROL_GROUPS, controlsFor, mouseGesture, type ControlGroup, type OfficeControl } from "./officeControls";
+import { agentPositions } from "./walkerRegistry";
+import { isReception, stationsFor, type Station } from "./stations";
+import { AgentFace } from "./AgentFace";
+import { StationGlyph } from "./stationIcons";
+import { stationAction, stationLabel } from "./stationText";
+import { arrowCap, CONTROL_GROUPS, controlsFor, mouseGesture, type ArrowKey, type OfficeControl } from "./officeControls";
 import { useOfficeSettings, useReceptionTab, type ReceptionTab } from "./officeSettings";
+import type { OfficeActions } from "./OfficePanels";
 import "./reception.css";
 
-const TABS: readonly ReceptionTab[] = ["welcome", "controls", "settings"];
+const TABS: readonly ReceptionTab[] = ["agents", "places", "controls", "settings"];
 
-/** Stroke-only glyphs in a 24 × 24 box, drawn like the checkpoint icons. */
-const GLYPH = {
-  welcome: "M3 11l9-7 9 7M5.5 9.5V20h5v-6h3v6h5V9.5",
-  controls: "M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM7 10h.01M11 10h.01M15 10h.01M8 14h8",
-  settings: "M4 7h9M17 7h3M15 5v4M4 17h3M11 17h9M9 15v4",
-  move: "M12 3v18M3 12h18M9 6l3-3 3 3M18 9l3 3-3 3M9 18l3 3 3-3M6 9l-3 3 3 3",
-  camera: "M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
-  interact: "M9 11V5.5a1.5 1.5 0 0 1 3 0V11M12 10V8.5a1.5 1.5 0 0 1 3 0V12M15 11a1.5 1.5 0 0 1 3 0v3a7 7 0 0 1-7 7h-.5A6.5 6.5 0 0 1 5 16.5L3.8 13a1.5 1.5 0 0 1 2.7-1.2L9 15",
-  map: "M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14",
-  arcade: "M7 9h10a4 4 0 0 1 0 8c-1.4 0-2.3-.8-2.8-2H9.8c-.5 1.2-1.4 2-2.8 2a4 4 0 0 1 0-8zM8 11.5v3M6.5 13h3M15.5 12.5h.01M17.5 14h.01",
-  run: "M13 4a1.5 1.5 0 1 0 0 .01M9 20l3-6 3 2v4M7 12l3-4 4 1 2 3 3 1",
-  bar: "M3 17h18v3H3zM6 18.5h.01M10 18.5h6M3 5h18v8H3z",
-  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4",
-  chevron: "M9 6l6 6-6 6",
-  reset: "M4 12a8 8 0 1 0 2.4-5.7M4 4v5h5",
-  ArrowUp: "M12 19V5M6 11l6-6 6 6",
-  ArrowDown: "M12 5v14M6 13l6 6 6-6",
-  ArrowLeft: "M19 12H5M11 6l-6 6 6 6",
-  ArrowRight: "M5 12h14M13 6l6 6-6 6",
-} as const;
-
-type GlyphName = keyof typeof GLYPH;
-
-function Glyph({ name }: { name: GlyphName }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={GLYPH[name]} />
-    </svg>
-  );
-}
-
-const GROUP_GLYPH: Record<ControlGroup, GlyphName> = { move: "move", camera: "camera", interact: "interact", map: "map", arcade: "arcade" };
+const ARROW_ICON: Record<ArrowKey, typeof ArrowUp> = { up: ArrowUp, down: ArrowDown, left: ArrowLeft, right: ArrowRight };
 
 /** How a key cap reads aloud and in the search ("Space", "Arrow up", "Drag"). */
 function useCapLabel() {
@@ -61,23 +43,156 @@ function useCapLabel() {
   };
 }
 
-function KeyCaps({ control }: { control: OfficeControl }) {
+export function KeyCaps({ control }: { control: Pick<OfficeControl, "keys"> }) {
   const t = useT();
   const label = useCapLabel();
   return (
-    <span className="office-rx-keys">
+    <span className="office-keys">
       {control.keys.map((alt, i) => (
-        <span key={i} className="office-rx-alt">
-          {i > 0 && <span className="office-rx-or">{t("society.office.guide.or")}</span>}
+        <span key={i} className="office-keys-alt">
+          {i > 0 && <span className="office-keys-or">{t("society.office.guide.or")}</span>}
           {alt.map((cap, j) => {
-            if (cap === "+") return <span key={j} className="office-rx-plus" aria-hidden>+</span>;
-            if (mouseGesture(cap)) return <kbd key={j} className="office-rx-cap" data-mouse>{label(cap)}</kbd>;
-            if (arrowCap(cap)) return <kbd key={j} className="office-rx-cap" aria-label={label(cap)}><Glyph name={cap as GlyphName} /></kbd>;
-            return <kbd key={j} className="office-rx-cap">{label(cap)}</kbd>;
+            if (cap === "+") return <span key={j} className="office-keys-plus" aria-hidden>+</span>;
+            if (mouseGesture(cap)) return <kbd key={j} className="office-key" data-mouse>{label(cap)}</kbd>;
+            const arrow = arrowCap(cap);
+            if (arrow) {
+              const Icon = ARROW_ICON[arrow];
+              return <kbd key={j} className="office-key" aria-label={label(cap)}><Icon size={12} aria-hidden /></kbd>;
+            }
+            return <kbd key={j} className="office-key">{label(cap)}</kbd>;
           })}
         </span>
       ))}
     </span>
+  );
+}
+
+/**
+ * Arrow keys inside the places list: up and down move through the rows, right
+ * goes to a row's "walk there" and left back to the row, Home and End jump.
+ * Returns the button to focus, or null when the key is not one of them.
+ */
+export function placesKeyTarget(list: HTMLElement, from: Element | null, key: string): HTMLElement | null {
+  const rows = [...list.querySelectorAll<HTMLElement>("[data-place-open]")];
+  if (rows.length === 0) return null;
+  const row = from instanceof HTMLElement ? from.closest<HTMLElement>("[data-place-row]") : null;
+  const index = row ? rows.findIndex((button) => row.contains(button)) : -1;
+  if (key === "Home") return rows[0]!;
+  if (key === "End") return rows[rows.length - 1]!;
+  if (key === "ArrowDown") return rows[index < 0 ? 0 : Math.min(rows.length - 1, index + 1)]!;
+  if (key === "ArrowUp") return rows[index < 0 ? rows.length - 1 : Math.max(0, index - 1)]!;
+  if (!row) return null;
+  if (key === "ArrowRight") return row.querySelector<HTMLElement>("[data-place-walk]");
+  if (key === "ArrowLeft") return row.querySelector<HTMLElement>("[data-place-open]");
+  return null;
+}
+
+/**
+ * Every place of the floor as a real button: open it from here, or walk
+ * there. Also the keyboard path to every station. The rooms' stations come
+ * first, then the team studios' boards under their team's name.
+ */
+export function PlacesList({ layout, onPicked, withReception = false }: {
+  layout: OfficeLayout; onPicked?: () => void;
+  /** The reception itself is a place too, except in its own directory. */
+  withReception?: boolean;
+}) {
+  const t = useT();
+  const store = useOfficeStore;
+  const stations = stationsFor(layout).filter((station) => withReception || !isReception(station.selection));
+  const groups = [
+    { id: "places", label: t("society.office.hud_places"), rows: stations.filter((station) => station.selection.kind !== "team") },
+    { id: "teams", label: t("society.office.places_teams"), rows: stations.filter((station) => station.selection.kind === "team") },
+  ].filter((group) => group.rows.length > 0);
+  const point = (station: Station | null) => store.getState().setHover(station ? station.selection : null);
+  // Whatever closes the list must not leave a place lit in the world.
+  const done = () => { point(null); onPicked?.(); };
+  return (
+    <div className="grid gap-2" data-places
+      onKeyDown={(event) => {
+        const target = placesKeyTarget(event.currentTarget, document.activeElement, event.key);
+        if (!target) return;
+        // The arrows belong to the list while focus is in it; they must not walk the character too.
+        event.preventDefault();
+        event.stopPropagation();
+        target.focus();
+        target.scrollIntoView?.({ block: "nearest" });
+      }}>
+      {groups.map((group) => (
+        <section key={group.id} className="grid gap-0.5" aria-label={group.label}>
+          {groups.length > 1 && <h3 className="px-2 pt-1 text-xs font-semibold text-muted-foreground">{group.label}</h3>}
+          <ul className="grid list-none gap-0.5 p-0">
+            {group.rows.map((station) => {
+              const name = stationLabel(station, t);
+              const action = stationAction(station, t);
+              return (
+                <li key={station.key} data-place-row className="flex items-center gap-1 rounded-md hover:bg-secondary focus-within:bg-secondary"
+                  onPointerEnter={() => point(station)} onPointerLeave={() => point(null)}>
+                  <button type="button" data-place-open className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`${name}: ${action}`}
+                    onFocus={() => point(station)} onBlur={() => point(null)}
+                    onClick={() => { done(); store.getState().select(station.selection); }}>
+                    <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-background text-muted-foreground"><StationGlyph icon={station.icon} size={15} /></span>
+                    <span className="grid min-w-0 gap-0.5">
+                      <span className="truncate text-sm font-medium text-foreground">{name}</span>
+                      <span className="truncate text-xs text-muted-foreground">{action}</span>
+                    </span>
+                    <ChevronRight size={14} aria-hidden className="ml-auto shrink-0 text-muted-foreground" />
+                  </button>
+                  <button type="button" data-place-walk className="mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={t("society.office.guide.place_walk_label").replace("{0}", name)} title={t("society.office.guide.place_walk")}
+                    onClick={() => { done(); store.getState().select(null); store.getState().requestWalk(station.approach); }}>
+                    <Footprints size={15} aria-hidden />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function AgentsTab({ agents, actions }: { agents: readonly SocietyAgent[]; actions: OfficeActions }) {
+  const t = useT();
+  const counts = countStates(agents);
+  const show = (agent: SocietyAgent) => {
+    const store = useOfficeStore.getState();
+    const where = agentPositions.get(agent.agentId);
+    if (where) store.focusOn(where);
+    store.select({ kind: "agent", id: agent.agentId });
+  };
+  return (
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {[t("society.office.count_working").replace("{0}", String(counts.working)), t("society.office.count_waiting").replace("{0}", String(counts.waiting)),
+            t("society.office.count_idle").replace("{0}", String(counts.idle))].join(" · ")}
+        </p>
+        <Button type="button" size="sm" variant="outline" onClick={actions.onOpenLedger}>{t("society.office.manage_action")}</Button>
+      </div>
+      {agents.length === 0 ? <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">{t("society.office.manage_empty")}</p> : (
+        <ul className="grid max-h-[22rem] list-none gap-0.5 overflow-y-auto p-0">
+          {agents.map((agent) => (
+            <li key={agent.agentId} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-secondary/60">
+              <AgentFace agent={agent} />
+              <span className="grid min-w-0 flex-1">
+                <span className="truncate text-sm font-medium" title={agent.name}>{agent.name}</span>
+                {(agent.title || agent.providerLabel) && <span className="truncate text-xs text-muted-foreground">{agent.title || agent.providerLabel}</span>}
+              </span>
+              <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                <i className="office-dot" data-state={agent.state} aria-hidden />{t(`society.office.state_${agent.state}`)}
+              </span>
+              <Button type="button" size="sm" variant="ghost" aria-label={t("society.office.show_agent").replace("{0}", agent.name)}
+                onClick={() => show(agent)}>{t("society.office.action_show")}</Button>
+              <Button type="button" size="sm" variant="ghost" aria-label={t("society.office.open_agent").replace("{0}", agent.name)}
+                onClick={() => actions.onOpenAgent(agent.agentId)}>{t("society.office.action_open")}</Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -94,22 +209,22 @@ function ControlsTab({ floor }: { floor: OfficeFloor }) {
     .map((group) => ({ group, controls: controlsFor(group, floor).filter(matches) }))
     .filter((g) => g.controls.length > 0);
   return (
-    <>
-      <label className="office-rx-search">
-        <Glyph name="search" />
-        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("society.office.guide.search")}
+    <div className="grid gap-3">
+      <div className="relative">
+        <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Input type="search" className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("society.office.guide.search")}
           aria-label={t("society.office.guide.search")}
           onKeyDown={(e) => { if (e.key === "Escape" && query) { e.preventDefault(); e.stopPropagation(); setQuery(""); } }} />
-      </label>
-      {groups.length === 0 ? <p className="office-rx-empty" role="status">{t("society.office.guide.search_empty")}</p> : (
-        <div className="office-rx-groups">
+      </div>
+      {groups.length === 0 ? <p className="py-4 text-center text-sm text-muted-foreground" role="status">{t("society.office.guide.search_empty")}</p> : (
+        <div className="grid gap-4">
           {groups.map(({ group, controls }) => (
-            <section key={group} className="office-rx-group" aria-label={t(`society.office.guide.group_${group}`)}>
-              <h3><Glyph name={GROUP_GLYPH[group]} />{t(`society.office.guide.group_${group}`)}</h3>
-              <ul>
+            <section key={group} className="grid gap-1" aria-label={t(`society.office.guide.group_${group}`)}>
+              <h3 className="text-xs font-semibold text-muted-foreground">{t(`society.office.guide.group_${group}`)}</h3>
+              <ul className="grid list-none p-0">
                 {controls.map((control) => (
-                  <li key={control.id}>
-                    <span className="office-rx-what">{t(`society.office.guide.ctl_${control.id}`)}</span>
+                  <li key={control.id} className="flex items-center justify-between gap-3 border-t border-border/60 py-1.5 text-sm first:border-t-0">
+                    <span className="min-w-0">{t(`society.office.guide.ctl_${control.id}`)}</span>
                     <KeyCaps control={control} />
                   </li>
                 ))}
@@ -118,25 +233,19 @@ function ControlsTab({ floor }: { floor: OfficeFloor }) {
           ))}
         </div>
       )}
-    </>
+      <p className="flex items-center gap-2 text-xs text-muted-foreground"><kbd className="office-key">H</kbd>{t("society.office.guide.tip_guide")}</p>
+    </div>
   );
 }
 
-function Toggle({ glyph, label, hint, checked, onChange }: {
-  glyph: GlyphName; label: string; hint: string; checked: boolean; onChange: (next: boolean) => void;
-}) {
-  const hintId = useId();
+function SettingRow({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
   return (
-    <div className="office-rx-setting">
-      <span className="office-rx-icon"><Glyph name={glyph} /></span>
-      <div>
-        <strong>{label}</strong>
-        <span id={hintId}>{hint}</span>
-      </div>
-      <button type="button" role="switch" className="office-rx-switch" aria-checked={checked} aria-label={label}
-        aria-describedby={hintId} onClick={() => onChange(!checked)}>
-        <i aria-hidden />
-      </button>
+    <div className="flex items-center justify-between gap-4 p-3">
+      <span className="grid min-w-0 gap-0.5">
+        <span className="text-sm font-medium">{title}</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
+      </span>
+      {children}
     </div>
   );
 }
@@ -145,104 +254,39 @@ function SettingsTab() {
   const t = useT();
   const settings = useOfficeSettings();
   return (
-    <>
-      <p className="office-rx-lead">{t("society.office.guide.settings_intro")}</p>
-      <h3 className="office-rx-heading">{t("society.office.guide.set_section_move")}</h3>
-      <div className="office-rx-settings">
-        <Toggle glyph="run" label={t("society.office.guide.set_always_run")} hint={t("society.office.guide.set_always_run_hint")}
-          checked={settings.alwaysRun} onChange={(alwaysRun) => settings.set({ alwaysRun })} />
+    <div className="grid gap-3">
+      <p className="text-sm text-muted-foreground">{t("society.office.guide.settings_intro")}</p>
+      <div className="divide-y divide-border rounded-lg border border-border">
+        <SettingRow title={t("society.office.guide.set_always_run")} hint={t("society.office.guide.set_always_run_hint")}>
+          <Switch checked={settings.alwaysRun} aria-label={t("society.office.guide.set_always_run")}
+            onCheckedChange={(alwaysRun) => settings.set({ alwaysRun })} />
+        </SettingRow>
+        <SettingRow title={t("society.office.guide.set_hints")} hint={t("society.office.guide.set_hints_hint")}>
+          <Button type="button" size="sm" variant="outline" disabled={!settings.hintsSeen} onClick={() => settings.set({ hintsSeen: false })}>
+            {t("society.office.guide.set_hints_action")}
+          </Button>
+        </SettingRow>
       </div>
-      <h3 className="office-rx-heading">{t("society.office.guide.set_section_view")}</h3>
-      <div className="office-rx-settings">
-        <Toggle glyph="bar" label={t("society.office.guide.set_hint_bar")} hint={t("society.office.guide.set_hint_bar_hint")}
-          checked={settings.showHintBar} onChange={(showHintBar) => settings.set({ showHintBar })} />
-      </div>
-      <button type="button" className="office-rx-reset" onClick={settings.reset}><Glyph name="reset" />{t("society.office.guide.set_reset")}</button>
-    </>
+      <div><Button type="button" size="sm" variant="ghost" onClick={settings.reset}>{t("society.office.guide.set_reset")}</Button></div>
+    </div>
   );
 }
 
-function WelcomeTab({ floor, layout, onCreateAgent }: { floor: OfficeFloor; layout: OfficeLayout; onCreateAgent?: () => void }) {
-  const t = useT();
-  const places = layout.checkpoints.filter((cp) => cp.id !== "create");
-  const walk = (x: number, z: number) => {
-    const store = useOfficeStore.getState();
-    store.select(null);
-    store.requestWalk({ x, z });
-  };
-  return (
-    <>
-      {floor === "agents" && (
-        <div className="office-rx-hero">
-          <span className="office-rx-icon" data-tone="gold"><IconSvg icon="plus" /></span>
-          <div>
-            <strong>{t("society.office.guide.hero_title")}</strong>
-            <p>{t("society.office.create_body")}</p>
-            <button type="button" className="office-action office-action-primary" disabled={!onCreateAgent} onClick={() => onCreateAgent?.()}>
-              {t("society.office.create_action")}
-            </button>
-          </div>
-        </div>
-      )}
-      <h3 className="office-rx-heading">{t("society.office.guide.places")}</h3>
-      <ul className="office-rx-places">
-        {places.map((cp) => {
-          const name = t(`society.office.cp_${cp.id}`);
-          return (
-            <li key={cp.id}>
-              <button type="button" className="office-rx-place" aria-label={t("society.office.guide.place_walk_label").replace("{0}", name)}
-                onClick={() => walk((cp.approach ?? cp).x, (cp.approach ?? cp).z)}>
-                <span className="office-rx-icon"><IconSvg icon={CHECKPOINT_ICON[cp.id]} /></span>
-                <span className="office-rx-place-text">
-                  <strong>{name}</strong>
-                  <span>{t(`society.office.cp_${cp.id}_hint`)}</span>
-                </span>
-                <span className="office-rx-go" aria-hidden>{t("society.office.guide.place_walk")}<Glyph name="chevron" /></span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="office-rx-tip"><kbd className="office-rx-cap">H</kbd>{t("society.office.guide.tip_guide")}</p>
-    </>
-  );
-}
-
-export function ReceptionPanel({ floor, layout, onCreateAgent }: { floor: OfficeFloor; layout: OfficeLayout; onCreateAgent?: () => void }) {
+export function ReceptionPanel({ floor, layout, agents, actions }: {
+  floor: OfficeFloor; layout: OfficeLayout; agents: readonly SocietyAgent[]; actions: OfficeActions;
+}) {
   const t = useT();
   const tab = useReceptionTab((s) => s.tab);
   const setTab = useReceptionTab((s) => s.setTab);
-  const baseId = useId();
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  // Arrow keys move between tabs (WAI-ARIA tabs pattern); the map's walking keys listen on the window, not here.
-  const onTabKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    if (!step) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const next = TABS[(TABS.indexOf(tab) + step + TABS.length) % TABS.length]!;
-    setTab(next);
-    tabRefs.current[TABS.indexOf(next)]?.focus();
-  };
   return (
-    <div className="office-reception">
-      <div className="office-rx-tabs" role="tablist" aria-label={t("society.office.guide.tablist")} onKeyDown={onTabKey}
-        style={{ "--rx-tab": TABS.indexOf(tab) } as CSSProperties}>
-        <i className="office-rx-tab-thumb" aria-hidden />
-        {TABS.map((id, i) => (
-          <button key={id} ref={(el) => { tabRefs.current[i] = el; }} type="button" role="tab" id={`${baseId}-${id}`}
-            aria-selected={tab === id} aria-controls={`${baseId}-${id}-panel`} tabIndex={tab === id ? 0 : -1}
-            className="office-rx-tab" onClick={() => setTab(id)}>
-            <Glyph name={id} />{t(`society.office.guide.tab_${id}`)}
-          </button>
-        ))}
-      </div>
-      {/* Keyed by tab so each switch replays the short entrance. */}
-      <div key={tab} role="tabpanel" id={`${baseId}-${tab}-panel`} aria-labelledby={`${baseId}-${tab}`} className="office-rx-body">
-        {tab === "welcome" && <WelcomeTab floor={floor} layout={layout} onCreateAgent={onCreateAgent} />}
-        {tab === "controls" && <ControlsTab floor={floor} />}
-        {tab === "settings" && <SettingsTab />}
-      </div>
-    </div>
+    <Tabs value={tab} onValueChange={(value) => setTab(value as ReceptionTab)}>
+      <TabsList aria-label={t("society.office.guide.tablist")}>
+        {TABS.map((id) => <TabsTrigger key={id} value={id}>{t(`society.office.guide.tab_${id}`)}</TabsTrigger>)}
+      </TabsList>
+      <TabsContent value="agents"><AgentsTab agents={agents} actions={actions} /></TabsContent>
+      <TabsContent value="places"><PlacesList layout={layout} /></TabsContent>
+      <TabsContent value="controls"><ControlsTab floor={floor} /></TabsContent>
+      <TabsContent value="settings"><SettingsTab /></TabsContent>
+    </Tabs>
   );
 }

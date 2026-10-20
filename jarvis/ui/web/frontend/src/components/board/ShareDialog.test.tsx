@@ -19,7 +19,8 @@ import {
 } from "@testing-library/react";
 
 import { ShareDialog } from "@/components/board/ShareDialog";
-import { shareToX } from "@/lib/shareImage";
+import { REPO_LABEL, shareToX } from "@/lib/shareImage";
+import { uiLocale } from "@/lib/boardInsights";
 import { toBlob } from "html-to-image";
 
 vi.mock("html-to-image", () => ({
@@ -86,11 +87,11 @@ describe("ShareDialog", () => {
     expect(screen.getByTestId("share-x")).toBeDefined();
     // The repo URL is baked into the card (preview + capture copies).
     expect(
-      screen.getAllByText(/github\.com\/PersonalJarvis\/PersonalJarvis/).length,
+      screen.getAllByText((text) => text.includes(REPO_LABEL)).length,
     ).toBeGreaterThan(0);
-    // Hero number rendered (locale-agnostic — matches whatever separator
-    // toLocaleString uses in the test environment).
-    const hero = (10874).toLocaleString();
+    // Hero number rendered in the UI language's locale, as the card draws it —
+    // not in the locale of the machine that runs the test.
+    const hero = (10874).toLocaleString(uiLocale());
     expect(screen.getAllByText(hero).length).toBeGreaterThan(0);
   });
 

@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import en from "@/i18n/locales/en.json";
 import de from "@/i18n/locales/de.json";
 import es from "@/i18n/locales/es.json";
+import pt from "@/i18n/locales/pt.json";
 import { reduceThinkingSteps, type ThinkingStep } from "@/lib/thinkingSteps";
 import type { ToolBlock, TurnBlock } from "./reduce";
 import {
-  buildTimeline, commandBinary, shortPath, traceDuration, withoutCd,
+  buildTimeline, commandBinary, ownServerTool, shortPath, traceDuration, withoutCd,
   type ActivityEntry, type Call, type TimelineOptions,
 } from "./traceEntries";
 import { stepsToBlocks } from "./VoiceWorkTrace";
@@ -43,7 +44,7 @@ function replay(events: Array<[string, Record<string, unknown>]>): ThinkingStep[
   return steps.map((s) => (s.status === "active" ? { ...s, status: "done" } : s));
 }
 
-describe("trace timeline (Codex-style)", () => {
+describe("trace timeline", () => {
   it("alternates the model's words with one line per stretch of calls", () => {
     const line = buildTimeline([
       text("n1", "I'll look at the blog first."),
@@ -88,6 +89,25 @@ describe("trace timeline (Codex-style)", () => {
     expect(own).toMatchObject({ kind: "tool", text: "Society routines" });
     const cli = only(tool("j", { name: "mcp__jarvis__cli_jarvisctl", input: { command: "jarvisctl outputs list" }, output: "" }));
     expect(cli).toMatchObject({ kind: "command", text: "jarvisctl outputs list" });
+  });
+
+  it("reads the app's own server under its current and its earlier name alike", () => {
+    for (const server of ["dodaios", "jarvis"]) {
+      const plugin = only(tool("g", { name: `mcp__${server}__gmail`, input: { query: "is:unread" }, output: "[]" }));
+      expect(plugin).toMatchObject({ kind: "service", text: "Gmail" });
+      expect(plugin.brand).toBeTruthy();
+      const own = only(tool("r", { name: `mcp__${server}__society_routines`, input: {}, output: "{}" }));
+      expect(own).toMatchObject({ kind: "tool", text: "Society routines" });
+      const cli = only(tool("j", { name: `mcp__${server}__cli_jarvisctl`, input: { command: "jarvisctl outputs list" }, output: "" }));
+      expect(cli).toMatchObject({ kind: "command", text: "jarvisctl outputs list" });
+      const artifact = only(tool("a", { name: `mcp__${server}__create_artifact`, input: { title: "GitHub Stars" }, output: "Built." }));
+      expect(artifact).toMatchObject({ kind: "family", text: "Created an artifact", detail: "GitHub Stars" });
+    }
+    expect(ownServerTool("dodaios/gmail")).toBe("gmail");
+    expect(ownServerTool("Jarvis/gmail")).toBe("gmail");
+    expect(ownServerTool("github/create_issue")).toBeNull();
+    expect(ownServerTool("gmail")).toBeNull();
+    expect(ownServerTool("dodaios/")).toBeNull();
   });
 
   it("keeps Jarvis's own tools in their words and a terse result", () => {
@@ -156,7 +176,7 @@ describe("trace timeline (Codex-style)", () => {
     expect(shortPath("C:\\Users\\me\\repo\\src\\a.ts")).toBe("…/repo/src/a.ts");
   });
 
-  it.each([["de", de], ["es", es]] as const)("fills every %s line", (lang, dict) => {
+  it.each([["de", de], ["es", es], ["pt", pt]] as const)("fills every %s line", (lang, dict) => {
     const tl = translator(dict as Dict);
     const line = buildTimeline([
       text("n", "Why."),
@@ -177,7 +197,7 @@ describe("trace_report locale parity", () => {
     return Object.entries(obj).flatMap(([k, v]) => (v && typeof v === "object" ? keys(v as Dict, `${prefix}${k}.`) : [`${prefix}${k}`]));
   }
   const base = keys((en as Dict).trace_report as Dict).sort();
-  it.each([["de", de], ["es", es]] as const)("%s carries exactly the English keys", (_lang, dict) => {
+  it.each([["de", de], ["es", es], ["pt", pt]] as const)("%s carries exactly the English keys", (_lang, dict) => {
     expect(keys((dict as Dict).trace_report as Dict).sort()).toEqual(base);
   });
   it("never uses {name}, which the i18n layer fills with the assistant's name", () => {

@@ -17,6 +17,7 @@ import logging
 from dataclasses import asdict, dataclass
 from typing import Any, Final, Literal
 
+from jarvis.core.branding import PRODUCT_NAME
 from jarvis.core.config import delete_secret, get_secret, set_secret
 from jarvis.core.http_pool import HttpClientPool
 
@@ -205,7 +206,7 @@ async def _request(
     try:
         return response.json()
     except ValueError as exc:
-        raise CloudError(f"{spec.name} sent an answer Jarvis cannot read.") from exc
+        raise CloudError(f"{spec.name} sent an answer Dodaios cannot read.") from exc
 
 
 # -- parsers (pure; covered by unit tests) ------------------------------------
@@ -515,7 +516,7 @@ async def attach_public_key(
             api_token,
             "POST",
             "/api/vps/v1/public-keys",
-            body={"name": "Personal Jarvis", "key": public_key.strip()},
+            body={"name": PRODUCT_NAME, "key": public_key.strip()},
             client=client,
         )
         key_id = _as_int((created or {}).get("id")) if isinstance(created, dict) else None

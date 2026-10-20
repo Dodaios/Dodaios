@@ -9,7 +9,7 @@ import { WSClient } from "@/lib/ws";
  * React Query caches that project vault state every time the server connects
  * or pushes a `page_changed` message.
  *
- * Mount this hook once at the WikiView level. Switching away from the wiki
+ * Mount this hook once at the MemoryView level. Switching away from the wiki
  * tab unmounts the hook and closes the socket, so no background connection
  * remains while the user is on another tab.
  *
@@ -69,6 +69,8 @@ export function useWikiLive(): UseWikiLiveResult {
         ["wiki", "search"],
         ["wiki", "page"],
         ["wiki", "backlinks"],
+        // The Memory section's path-addressed index, pages, map and activity.
+        ["wiki", "memory"],
       ]) {
         void queryClient.invalidateQueries({ queryKey });
       }

@@ -9,6 +9,109 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [3.2.0] — 2026-10-13
+
+### Added
+
+- Bring 3D agent shapes to life at rest (#624)
+- Show everything running for the user on one board (#635)
+- Make a team's Lead tab the chat with its lead (#594)
+- One set of conversation rules for every live engine, and a report-back duty for agents and missions (#634)
+- Record where a tool call's target came from (#631)
+- Answer "what is running, what is done" in one call and watch hand-started agents (#629)
+- Report how often each tool actually ran (#628)
+- Turn the Git tab into a control center for git and GitHub (#600)
+- Show a model the tools it needs and keep the rest reachable (#618)
+- Let the stars of a starry design twinkle on 3D agent faces (#615)
+- Take several orders at once in a live call and in the chat (#595)
+- Keep the motion of designs and cigar smoke on 3D agent faces (#606)
+- Write the io.github.dodaios manifest namespace and read both (#583)
+- Adopt every DODAIOS_ option in the programs that run before the package (#603)
+- Pixel creatures as the default agent look, shapes as 3D figures (#545)
+- Add the dodaios and dodaiosctl commands beside the earlier names (#587)
+- Always show the branch a pane works in, with its pull request (#584)
+- Editor groups side by side and stacked, with tabs that drag between them (#564)
+- Accept the DODAIOS_ prefix wherever JARVIS_ is read (#591)
+- Refuse every move of local main to a commit no remote has (#585)
+- Discover plugins under the dodaios.<slot> entry-point groups (#579)
+- Offer the app's MCP servers as dodaios and keep reading jarvis (#581)
+- Let a release tell the previous version where its files live (#567)
+- Keep local main a mirror of origin/main (#576)
+- Rebuild the agents floor as a team campus (#561)
+- Group the sidebar chat list under one heading per day (#517)
+- A drill file that reproduces a slow start in a running app (#573)
+- Add the install identity migration engine (#571)
+- Add European Portuguese (pt-PT) across UI, replies and voice (#551)
+- Explorer right-click menu and a second editor to the side (#547)
+- Rename the product to Dodaios in the Python runtime (#553)
+- A lead for every agent team that plans, assigns and reviews on its own (#537)
+- Show a loading loop on the bar and pets while a realtime call connects (#492)
+- Rebuild the library as a wall of full-bleed tiles (#538)
+- Make the hooded figure the Dodaios logo (#535)
+
+### Changed
+
+- Give numpy and scipy one BLAS thread instead of one per core (#580)
+- Give every identity name one source and pin the copies (#570)
+
+### Fixed
+
+- Branch off instead of committing on the default branch, and never hide the local state (#632)
+- Give the session branch list room for a full branch name (#612)
+- Say when an account is not offered subscription voice (#627)
+- Stop the avatar wall job from marking every merged pull request red (#623)
+- Cap a merge group at two macOS jobs (#633)
+- Show the lead under the name the user gave the assistant (#620)
+- Finish the visible rename in the app, the vault templates and the Publish form (#616)
+- Never let a local server shorten a prompt unnoticed (#611)
+- Quarantine a hung Automation probe when the wait ran out (#609)
+- Start a Windows worker command without PowerShell module discovery (#608)
+- Fire a shortcut again while one of its keys stays held (#598)
+- Label the assistant's lines by the name the user gave it (#577)
+- Give a session its CLI left unnamed a real title (#593)
+- Give a file that ran out of its budget one longer attempt (#589)
+- Keep the app's PATH short enough to start programs (#575)
+- Suppress duplicate desktop pets during boot measurements (#502)
+- Make bypass permissions the project-wide default (#486)
+- Wait for GitHub to compute mergeability before the merge train plans (#565)
+- Link the frontend to the Dodaios/Dodaios repository (#563)
+- Recover a lost team task from the member's chat and show a goal's text once (#559)
+- Point the installer at the launcher entry and name the agents Dodaios-Agents (#560)
+- Keep the bot token out of errors, status, logs and tracebacks (#554)
+- Keep unattended agent runs off per-token API keys (#555)
+- Title a pane whose session opened with a slash command (#550)
+- Keep installs cloned before the rename on the update channel (#544)
+- Preserve licenses and correct OAuth disclosures (#491)
+- Name new agents from their chat role (#489)
+- Point the remaining live URLs at Dodaios/Dodaios (#530)
+- Point the installers at Dodaios/Dodaios (#526)
+
+---
+
+## [3.1.1] — 2026-10-10
+
+### Fixed
+
+- Never report a stopped event loop as stalled (#523)
+
+---
+
+## [3.1.0] — 2026-10-09
+
+### Added
+
+- Integrate the remaining local desktop work after 3.0.0 (#514)
+
+### Fixed
+
+- Enqueue the release candidate; fix macOS non-terminal installs (#513)
+
+---
+
+## [3.0.0] — 2026-10-09
+
 ### Changed
 
 - Built-in plugins that have not yet passed a full end-to-end sign-in test now show a Preview badge, and releases no longer wait for every plugin to pass that test. A plugin is marked verified only after its complete journey was observed.
@@ -44,7 +147,7 @@ versioning per [SemVer](https://semver.org/).
 ### Added
 
 - An editor for appshots, opened from the corner card
-- Draw traces the way the Codex app does
+- Draw traces as quiet prose lines
 - Change floors with the elevator doors and a real button panel
 - A clickable, draggable appshot card in the screen corner
 - Make the area picker's magnifier a round lens
@@ -57,13 +160,13 @@ versioning per [SemVer](https://semver.org/).
 - Bring back the quiet session counts in the project tree
 - Drop the workspace pane limit and the 4x4 grid bound
 - Drop the running marks from the project tree
-- Restyle the project tree as a quiet Codex-style folder list
+- Restyle the project tree as a quiet folder list
 - Arcade floor with ten playable retro cabinets
 - The SOUL.md section shows the assistant's whole profile
 - Drag a stack of side-by-side seams as one line from a seam's ends
 - Record the appshot shortcuts and default the area to both Shift keys
-- Give the area picker ShareX's region-capture look
-- Draw turns as a Claude/Codex-style timeline
+- Give the area picker a cleaner region-capture look
+- Draw turns as a timeline
 - Select an area of the screen on its own shortcut
 - Tell a finished turn's work as a written report
 - Jarvis follows the person as their chosen pet, in 3D
@@ -176,7 +279,7 @@ versioning per [SemVer](https://semver.org/).
 
 ### Added
 
-- A quiet, Claude-style front page: one greeting, one composer, and a voice mode that lives inside the chat with a flowing aurora glow.
+- A quiet front page: one greeting, one composer, and a voice mode that lives inside the chat with a flowing aurora glow.
 - Open any agent's chat on the front page from the sidebar; `@` in the Jarvis chat names your agents and connected plugins.
 - Reasoning traces drawn as a threaded rail, with a wider, calmer column for agent chats.
 - A restyled sidebar with search, your most-used agents, every recent chat, and the update button in its footer.

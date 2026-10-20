@@ -88,3 +88,26 @@ async def list_tools_brief(request: Request) -> dict[str, Any]:
         "total": full["total"],
         "by_source": full["by_source"],
     }
+
+
+@router.get("/usage")
+async def tool_usage_report(request: Request, days: int = 30) -> dict[str, Any]:
+    """How often each tool actually ran over the last ``days`` days.
+
+    Read from the flight recorder's daily files, which already hold every
+    executed tool call on every surface; nothing extra is recorded.
+    ``coverage`` says how many of the most used tools carry 50, 80, 90, 95 and
+    99 percent of all calls, and ``never_used`` lists the registered tools
+    that did not run once in the window. ``days=0`` reads everything on disk.
+    """
+    import asyncio
+
+    from jarvis.telemetry import tool_usage as usage
+
+    full = await list_tools(request)
+    registered = [t["name"] for t in full["tools"]]
+    window = max(0, min(int(days), 3650))
+    # The files are read off the event loop: a month of them is tens of MB.
+    return await asyncio.to_thread(
+        usage.tool_usage, usage.DEFAULT_DATA_DIR, days=window, registered=registered
+    )

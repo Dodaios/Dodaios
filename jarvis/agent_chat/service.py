@@ -26,6 +26,7 @@ import re
 import shutil
 import sqlite3
 import time
+import traceback
 import uuid
 from collections.abc import Callable
 from dataclasses import replace
@@ -36,8 +37,14 @@ from jarvis.agent_chat import attachments as chat_attachments
 from jarvis.agent_chat import turn_prompts
 from jarvis.agent_chat.approval_bridge import ChatApprovalBridge
 from jarvis.agent_chat.catalog import PROVIDER_ROWS, api_seat, offers, provider_row
+from jarvis.agent_chat.credential_requests import (
+    CREDENTIAL_TIMEOUT_S,
+    CredentialRequests,
+    CredentialSpec,
+)
 from jarvis.agent_chat.effort import normalize_effort
 from jarvis.agent_chat.events import make_event
+from jarvis.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
 from jarvis.agent_chat.permissions import default_permission, ladder_key, normalize_permission
 from jarvis.agent_chat.questions import (
     CANCELLED,
@@ -62,18 +69,54 @@ from jarvis.agent_chat.store import (
 )
 from jarvis.agent_chat.surface_kits import kit_for
 from jarvis.agent_chat.turn_host_client import TurnHandedOver
+from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
 from jarvis.core.protocols import ChatCompletion, ChatTurn, current_chat_turn
 from jarvis.society.delivery import IncomingMessage
 
 log = logging.getLogger(__name__)
+#: A ``[tools: a, b]`` capability-pin line. The list starts with a
+#: non-space character, so the padding and the list cannot both claim the
+#: same spaces: matching stays linear on long lines of spaces.
+_TOOL_PIN_LINE = re.compile(r"(?m)^\[tools:[ \t]*([^\]\s][^\]\r\n]*)\][ \t\r]*$")
+
+
+def _stop_caller() -> str:
+    """The code that asked a turn to stop, as ``module:function`` hops.
+
+    A stopped turn otherwise only says "cancelled"; this names the path that
+    ended it (HTTP stop, goal pause, society runtime, browser cancel).
+    """
+    frames = traceback.extract_stack(limit=6)[:-2]
+    return " <- ".join(
+        f"{Path(frame.filename).stem}:{frame.name}" for frame in reversed(frames)
+    )
 
 #: What a turn cut off by a restart says (``_seal_orphaned_turns``).
 _ORPHANED_TURN_ERROR: Final = (
-    "Jarvis restarted while this turn was running. "
+    "Dodaios restarted while this turn was running. "
     "Everything after the last step shown here was not captured."
 )
 
 Subscriber = asyncio.Queue[dict[str, Any]]
+
+
+#: The app's loop, resolved by the route layer BEFORE it takes its build lock
+#: (``remember_app_loop``). Asking the loop from inside that lock deadlocked
+#: the whole app (2026-10-07): the worker waited for the loop while the loop
+#: waited for the lock in an ``async`` route.
+_KNOWN_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+def remember_app_loop() -> None:
+    """Find and record the app's loop, so building the service never asks it.
+
+    Call it without holding any lock the loop could be waiting for: from a
+    worker thread, finding the loop waits until the loop answers.
+    """
+    global _KNOWN_LOOP  # one process-wide reference, set before the service is built
+    loop, _on_loop = _app_loop()
+    if loop is not None:
+        _KNOWN_LOOP = loop
 
 
 def _app_loop() -> tuple[asyncio.AbstractEventLoop | None, bool]:
@@ -89,6 +132,9 @@ def _app_loop() -> tuple[asyncio.AbstractEventLoop | None, bool]:
         return asyncio.get_running_loop(), True
     except RuntimeError:  # no loop on this thread: fall through to the dispatching loop
         pass
+    known = _KNOWN_LOOP
+    if known is not None and known.is_running():
+        return known, False
     try:
         from anyio.from_thread import run_sync
 
@@ -131,7 +177,17 @@ def _claude_cli_installed() -> bool:
     return bool(shutil.which("claude") or shutil.which("claude.cmd") or shutil.which("claude.exe"))
 
 
-def resolve_runner(provider: str, *, surface: str = "agent") -> str:
+#: Society agent runtimes that replace the provider's runner (``AgentRuntime``
+#: minus ``jarvis``), each answered by its ACP driver in ``runner_cli``.
+EXTERNAL_RUNTIME_RUNNERS: Final[dict[str, str]] = {
+    "hermes": "hermes-cli",
+    "openclaw": "openclaw-cli",
+}
+
+
+def resolve_runner(
+    provider: str, *, surface: str = "agent", runtime: str = "", account_id: str = ""
+) -> str:
     """Which runner answers for ``provider`` on this machine, right now.
 
     ``claude-api`` is dual: Claude Code (the CLI) when it is installed — that
@@ -144,7 +200,15 @@ def resolve_runner(provider: str, *, surface: str = "agent") -> str:
     (``SurfaceKit.cli_seats``, maintainer 2026-08-26), so a vendor CLI never
     answers there — not even the dual Claude row, which runs on the Anthropic
     API behind its key like every other seat.
+
+    ``account_id`` is the seat's login, or a reserved access value
+    (``catalog.ACCESS_ACCOUNTS``) that pins the dual Claude row to its API key
+    or to its subscription for one agent, over the API Keys page's setting.
     """
+    if runtime in EXTERNAL_RUNTIME_RUNNERS and surface == "society":
+        # A Hermes / OpenClaw agent: that runtime's loop answers every turn and
+        # the provider only names the model it is configured with.
+        return EXTERNAL_RUNTIME_RUNNERS[runtime]
     kit = kit_for(surface)
     api_runner = "brain" if kit.brain_runner else "api"
     row = provider_row(provider)
@@ -159,13 +223,26 @@ def resolve_runner(provider: str, *, surface: str = "agent") -> str:
         # The API Keys page can set the agents' Claude to its key instead of
         # the subscription; that choice narrows the agents' surface only.
         from jarvis.agent_chat.agent_provider_prefs import forces_api
+        from jarvis.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
 
-        if forces_api(row.id, surface):
+        if account_id == API_KEY_ACCOUNT:
+            return api_runner
+        if account_id != SUBSCRIPTION_ACCOUNT and forces_api(row.id, surface):
             return api_runner
         return "claude-cli" if _claude_cli_installed() else api_runner
     if row.runner == "api":
         return api_runner
     return row.runner
+
+
+def session_runner(session: Any) -> str:
+    """:func:`resolve_runner` for a stored chat session (its runtime included)."""
+    return resolve_runner(
+        session.provider,
+        surface=session.surface,
+        runtime=str(getattr(session, "runtime", "") or ""),
+        account_id=str(getattr(session, "account_id", "") or ""),
+    )
 
 
 #: ``AgentChatStore.data_version`` after the front page's chat gave up its
@@ -256,6 +333,47 @@ def _expires_ms(timeout_s: float) -> int:
     return int(time.time() * 1000 + timeout_s * 1000)
 
 
+async def _redact_credentials(session_id: str, event: dict[str, Any]) -> dict[str, Any]:
+    """``event`` with the society agent's stored credential values masked.
+
+    A command that prints a token shows ``[credential ENV]`` in the chat, its
+    log and the live stream instead of the value (jarvis/society/credentials.py).
+    """
+    try:
+        from jarvis.society.credentials import current_vault
+        from jarvis.society.surface import agent_id_of
+
+        vault = current_vault()
+        agent_id = agent_id_of(session_id)
+        if vault is None or agent_id is None:
+            return event
+        if not vault.is_loaded(agent_id):
+            await asyncio.to_thread(vault.values, agent_id)
+        payload = event.get("payload")
+        redacted = vault.redact_payload(agent_id, payload)
+    except Exception:  # noqa: BLE001 — fails closed: the text is withheld, the event stays
+        log.warning("agent chat: credential redaction failed for %s", session_id, exc_info=True)
+        return {**event, "payload": _withheld(event.get("payload"))}
+    return event if redacted is payload else {**event, "payload": redacted}
+
+
+#: Payload keys that name an event, never carry printed text.
+_EVENT_IDS: Final[frozenset[str]] = frozenset(
+    {"turn_id", "call_id", "message_id", "agent_id", "name", "request_id", "question_id"}
+)
+
+
+def _withheld(payload: Any) -> Any:
+    """``payload`` with all its text replaced: what an unmaskable event shows."""
+    if isinstance(payload, dict):
+        return {k: v if k in _EVENT_IDS else _withheld(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [_withheld(item) for item in payload]
+    if isinstance(payload, str):
+        return "[hidden: the credential check failed]" if payload else payload
+    return payload
+
+
 def _current_task() -> asyncio.Task[Any] | None:
     try:
         return asyncio.current_task()
@@ -291,7 +409,7 @@ class AgentChatService:
         bus: Callable[[], Any | None] | None = None,
     ) -> None:
         self.store = store
-        self._assistant_name = assistant_name or (lambda: "Jarvis")
+        self._assistant_name = assistant_name or (lambda: DEFAULT_ASSISTANT_NAME)
         self._default_cwd = default_cwd or (lambda: str(Path.home()))
         # The app bus, resolved late (the server builds this service before
         # the brain is up). The brain runner reads its tool events off it and
@@ -309,11 +427,22 @@ class AgentChatService:
         # started yet, but a competing send and Stop must both see this owner.
         self._preparing: dict[str, _Running] = {}
         self._subscribers: dict[str, set[Subscriber]] = {}
+        # Synchronous observers of every stored event (add_event_listener).
+        self._event_listeners: list[Callable[[str, dict[str, Any]], None]] = []
         self._approvals: dict[str, asyncio.Future[str]] = {}
         self._approval_session: dict[str, str] = {}
+        # Cards a restart left unanswered on a thread turn the turn host kept
+        # running, by (session, turn, call): the CLI asks again and that card
+        # answers it (_hold_unanswered_approvals).
+        self._unanswered: dict[tuple[str, str, str], str] = {}
         # Questions an agent is waiting on (questions.py), by question id.
         self._questions: dict[str, _OpenQuestion] = {}
         self._question_tasks: set[asyncio.Task[None]] = set()
+        # Credential cards (credential_requests.py): the value never enters a chat event.
+        self._credentials = CredentialRequests(
+            self._emit, self._running_turn_id,
+            history=self.store.credential_events, restore_save=self._restore_credential_save,
+        )
         # "Always allow" on the Jarvis surface: the tools a person waved through
         # for the rest of the session, per session. Claude Code's "don't ask
         # again for this tool" rather than a mode flip — the unified ladder has
@@ -514,10 +643,19 @@ class AgentChatService:
             stance=session.permission_mode if kit.uses_stance else "",
             control_service=self,
         )
+        superseded = self._hold_unanswered_approvals(session_id, turn_id, handle.history)
 
         async def _carry_on() -> None:
             finished = False
             try:
+                for approval_id in superseded:
+                    await self._emit(
+                        session_id,
+                        make_event(
+                            "approval_resolved",
+                            {"turn_id": turn_id, "approval_id": approval_id, "decision": "expired"},
+                        ),
+                    )
                 vendor = await resume_hosted_cli_turn(handle, proc)
                 finished = True
                 if vendor and vendor != session.vendor_session:
@@ -564,6 +702,8 @@ class AgentChatService:
                     self._approval_session.pop(aid, None)
                     if fut is not None and not fut.done():
                         fut.set_result("cancel")
+                for key in [k for k in self._unanswered if k[:2] == (session_id, turn_id)]:
+                    self._unanswered.pop(key, None)
                 self._cancel_questions(session_id)
                 if finished and kit.turn_prompts:
                     try:
@@ -573,6 +713,45 @@ class AgentChatService:
 
         run.task = asyncio.create_task(_carry_on(), name=f"agent-chat-{turn_id[:8]}")
         run.ready.set()
+
+    def _hold_unanswered_approvals(
+        self, session_id: str, turn_id: str, history: list[dict[str, Any]]
+    ) -> list[str]:
+        """Keep a restart's open approval cards for the CLI to ask again.
+
+        The previous process waited on the card's answer when it quit; the CLI
+        in the turn host still waits on its permission prompt, and the host
+        replays that line because it was never acknowledged, so the resumed
+        runner asks again. That question must reuse the card already on screen:
+        a fresh id left the old card on top of the composer, and its buttons
+        answered "no such pending approval" for ever (2026-10-06). The newest
+        open card per tool call is held for :meth:`_ask`; the ids returned are
+        older duplicates (or cards without a call id) that only get closed.
+        """
+        open_by_call: dict[str, list[str]] = {}
+        resolved: set[str] = set()
+        for event in history:
+            payload = event.get("payload") or {}
+            if str(payload.get("turn_id") or "") != turn_id:
+                continue
+            approval_id = str(payload.get("approval_id") or "")
+            if not approval_id:
+                continue
+            if event.get("kind") == "approval_resolved":
+                resolved.add(approval_id)
+            elif event.get("kind") == "approval_required":
+                call_id = str(payload.get("call_id") or "")
+                open_by_call.setdefault(call_id, []).append(approval_id)
+        superseded: list[str] = []
+        for call_id, ids in open_by_call.items():
+            still_open = [aid for aid in dict.fromkeys(ids) if aid not in resolved]
+            if not still_open:
+                continue
+            if call_id:
+                self._unanswered[(session_id, turn_id, call_id)] = still_open[-1]
+                still_open = still_open[:-1]
+            superseded.extend(still_open)
+        return superseded
 
     def _retire_cli_seats(self) -> None:
         """Move chats off a CLI seat their surface no longer offers.
@@ -666,7 +845,8 @@ class AgentChatService:
                 f"Provider {provider!r} is not offered on the {surface!r} chat. "
                 "That chat runs on a provider API behind a key, not on a vendor CLI."
             )
-        ladder = ladder_key(surface, resolve_runner(provider, surface=surface))
+        runner = resolve_runner(provider, surface=surface, account_id=account_id)
+        ladder = ladder_key(surface, runner)
         permission_mode = normalize_permission(ladder, permission_mode)
         eff = normalize_effort(provider, effort) if effort is not None else ""
         if effort is None:
@@ -690,6 +870,28 @@ class AgentChatService:
             return True
         run = self._running.get(session_id)
         return bool(run and (run.task is None or not run.task.done()))
+
+    @property
+    def parked_work(self) -> ParkedWorkBoard:
+        """Requests whose delegates still work after their turn closed."""
+        board = getattr(self, "_parked_work", None)
+        if board is None:  # a service built without __init__ (test doubles)
+            board = self._parked_work = ParkedWorkBoard(self)
+        return board
+
+    def delegate_wait(self, handle: Any, gate: Any) -> Any:
+        """Mark a turn as only waiting for its delegates (a context manager)."""
+        return self.parked_work.waiting(handle, gate)
+
+    def carry_delegation(
+        self, handle: Any, gate: Any, original: str, rows: list[dict[str, Any]]
+    ) -> None:
+        """Continue a wait whose turn handed its seat to the next message."""
+        self.parked_work.carry(handle, gate, original, rows)
+
+    async def release_waiting_turn(self, session_id: str) -> bool:
+        """Free the chat for a new message when its running turn only waits."""
+        return await self.parked_work.release(session_id)
 
     def running_session_ids(self) -> list[str]:
         """Sessions occupying a chat seat, including pre-admission setup."""
@@ -762,6 +964,24 @@ class AgentChatService:
         if not subs:
             self._subscribers.pop(session_id, None)
 
+    def add_event_listener(self, listener: Callable[[str, dict[str, Any]], None]) -> None:
+        """Call ``listener(session_id, stored_event)`` after every stored event.
+
+        For coordinators that react to another chat's progress (an agent
+        steering a coding thread). The listener runs inline on the emitting
+        path, so it must only record and schedule — never await or do I/O.
+        """
+        listeners = getattr(self, "_event_listeners", None)
+        if listeners is None:  # a service built without __init__ (test doubles)
+            listeners = self._event_listeners = []
+        if listener not in listeners:
+            listeners.append(listener)
+
+    def remove_event_listener(self, listener: Callable[[str, dict[str, Any]], None]) -> None:
+        listeners = getattr(self, "_event_listeners", [])
+        if listener in listeners:
+            listeners.remove(listener)
+
     async def post_notice(self, session_id: str, payload: dict[str, Any]) -> None:
         """A system line in a session's timeline that is not a turn: the agent
         society posts learned skills, login requests and queued approvals here.
@@ -771,6 +991,8 @@ class AgentChatService:
     async def _emit(self, session_id: str, event: dict[str, Any]) -> None:
         # One delivery path for every runner. Normalize only finished receipts;
         # token deltas and voice-critical streaming never perform file I/O.
+        if session_id.startswith("society:"):
+            event = await _redact_credentials(session_id, event)
         if event.get("kind") in {"assistant_text", "tool_result", "user_message"}:
             from jarvis.agent_chat.media import normalize_media_event
             from jarvis.core.paths import repo_root
@@ -804,9 +1026,19 @@ class AgentChatService:
         self._publish_event(session_id, event)
 
     def _publish_event(self, session_id: str, event: dict[str, Any]) -> None:
+        if event.get("kind") == "turn_finished":
+            turn_id = str((event.get("payload") or {}).get("turn_id") or "")
+            if turn_id and self.store.turn_terminal(session_id, turn_id) is not None:
+                log.warning("agent chat: ignored duplicate completion for turn %s", turn_id)
+                return
         stored = self.store.append_event(session_id, event)
         if event.get("kind") == "turn_finished":
             self._announce_jarvis_turn(session_id, event)
+        for listener in list(getattr(self, "_event_listeners", ())):
+            try:
+                listener(session_id, stored)
+            except Exception:  # noqa: BLE001 — an observer never breaks the chat it watches
+                log.warning("agent chat: event listener failed for %s", session_id, exc_info=True)
         for q in list(self._subscribers.get(session_id, ())):
             try:
                 q.put_nowait(stored)
@@ -835,7 +1067,8 @@ class AgentChatService:
             if kind == "assistant_text" and (not turn_id or data.get("turn_id") == turn_id):
                 replies.append(str(data.get("text") or ""))
             elif kind == "user_message":
-                user_text = str(data.get("text") or "")
+                # What the person wrote, not the composed prompt around it.
+                user_text = str(data.get("typed") or data.get("text") or "")
                 break
         try:
             loop = asyncio.get_running_loop()
@@ -908,8 +1141,20 @@ class AgentChatService:
         native_goal: bool = False,
         display_text: str | None = None,
         routine_run: bool = False,
+        author: dict[str, str] | None = None,
+        background_result: bool = False,
     ) -> str:
         """Persist the person's message and start the turn. Returns turn_id.
+
+        ``background_result`` continues an earlier request of the person whose
+        delegates finished after its turn had closed (``parked_work``). It is
+        their own task, so the turn runs with their standing, but nothing was
+        typed: no command parsing, no goal steering, and the timeline marks
+        the message as that request's result instead of a new bubble.
+
+        ``author`` marks a message another agent wrote on the person's behalf
+        (``{"agent_id", "name"}``, a Jarvis agent steering a coding thread):
+        it rides on the ``user_message`` so the thread shows who wrote it.
 
         ``attachments`` are what the composer already had read for this message
         (``jarvis.agent_chat.attachments``): a described screenshot, an
@@ -924,6 +1169,9 @@ class AgentChatService:
         session = self.store.get_session(session_id)
         if session is None:
             raise NoSuchSession(session_id)
+        # Nothing was typed for a background result: it passes the gates a
+        # control-owned message passes, and keeps the person's standing.
+        control_owned = control_owned or background_result
         if session.surface == "society":
             session = await self.bind_society_session(session_id, routine_run=routine_run)
         selected_runner = None
@@ -1040,13 +1288,13 @@ class AgentChatService:
             # browser pin to the same validated receipt used by the root composer.
             if session.surface == "jarvis" and any(
                 "core:browser" in {item.strip() for item in match.split(",")}
-                for match in re.findall(r"(?m)^\[tools:\s*([^\]\r\n]+)\]\s*$", text)
+                for match in _TOOL_PIN_LINE.findall(text)
             ):
                 tool_choices = list(dict.fromkeys([*(tool_choices or []), "tool:society_browser"]))
             selected = []
             if tool_choices:
                 if session.surface != "jarvis":
-                    raise ValueError("Tool selections are supported by the Jarvis chat")
+                    raise ValueError("Tool selections are supported by the Dodaios chat")
                 from jarvis.agent_chat.runner_brain import brain_manager
                 from jarvis.agent_chat.tool_catalog import live_catalog, resolve_choices
 
@@ -1143,6 +1391,8 @@ class AgentChatService:
                             # NEXT turn (runner_api.messages_from_events).
                             "text": prompt,
                             **({"origin": "control"} if control_owned and not direct_user else {}),
+                            **({"origin": BACKGROUND_ORIGIN} if background_result else {}),
+                            **({"author": dict(author)} if author else {}),
                             **(
                                 {"tool_choices": [row.model_dump(mode="json") for row in selected]}
                                 if selected
@@ -1174,7 +1424,7 @@ class AgentChatService:
                         },
                     ),
                 )
-            runner = selected_runner or resolve_runner(session.provider, surface=session.surface)
+            runner = selected_runner or session_runner(session)
             turn_started_emitted = True
             await self._emit(
                 session_id,
@@ -1197,6 +1447,13 @@ class AgentChatService:
             )
 
             bus = self._bus()
+            # A plain chat's system prompt is the surface's own. Written per
+            # turn, so its workspace notes follow the session's folder.
+            plain_system = (
+                await kit.plain_chat(session, text, self._assistant_name())
+                if kit.plain_chat is not None
+                else ""
+            )
             handle = TurnHandle(
                 session=session,
                 turn_id=turn_id,
@@ -1206,6 +1463,8 @@ class AgentChatService:
                 ),
                 cancel=cancel,
                 history=history,
+                tools_disabled=kit.plain,
+                plain_system=plain_system,
                 assistant_name=self._assistant_name(),
                 bus=bus,
                 surface=session.surface,
@@ -1317,9 +1576,14 @@ class AgentChatService:
                     # agent. Asked of the kit rather than the surface name, so
                     # a surface that combines the two keeps working.
                     as_jarvis = kit.brain_runner and kit.cli_seats
+                    # Requests still running behind this turn; the brain
+                    # runner carries the same note in its briefing.
+                    background = self.parked_work.context_note(session_id)
                     vendor = await run_cli_turn(
                         active_handle,
-                        run_prompt + selection_briefing(selected),
+                        run_prompt
+                        + selection_briefing(selected)
+                        + (f"\n\n{background}" if background else ""),
                         runner,
                         identity=as_jarvis,
                         bridge=self._bridge_for(bus) if as_jarvis else None,
@@ -1382,6 +1646,12 @@ class AgentChatService:
                     # The CLI keeps working in the turn host; the next app
                     # start carries this turn on, so it stays open.
                     raise
+                log.info(
+                    "agent chat %s: turn %s task was cancelled (stop flag %s)",
+                    session_id,
+                    turn_id,
+                    "set" if run.cancel.is_set() else "NOT set",
+                )
                 await self._emit(
                     session_id,
                     make_event(
@@ -1669,6 +1939,12 @@ class AgentChatService:
         if expected_turn_id is not None and run.turn_id != expected_turn_id:
             return False
         run.cancel.set()
+        log.info(
+            "agent chat %s: turn %s told to stop by %s",
+            session_id,
+            run.turn_id,
+            _stop_caller(),
+        )
         if run.task is None and run.setup_task is not None:
             run.setup_task.cancel()
         for aid in self.pending_approvals(session_id):
@@ -1756,7 +2032,10 @@ class AgentChatService:
         args: dict[str, Any],
         summary: str,
     ) -> str:
-        approval_id = uuid.uuid4().hex
+        # The same tool call asked again after a restart answers on the card
+        # the person already sees (_hold_unanswered_approvals).
+        held = self._unanswered.pop((session_id, turn_id, call_id), "") if call_id else ""
+        approval_id = held if held and held not in self._approvals else uuid.uuid4().hex
         loop = asyncio.get_running_loop()
         fut: asyncio.Future[str] = loop.create_future()
         self._approvals[approval_id] = fut
@@ -1822,6 +2101,39 @@ class AgentChatService:
         if fut is None or fut.done():
             return False
         fut.set_result(decision)
+        return True
+
+    async def close_stale_approval(self, session_id: str, approval_id: str) -> bool:
+        """Close a card the transcript still shows open but nothing waits on.
+
+        Its asker is gone — an app restart took the waiting call with it, or
+        the CLI asked again under another card. Answering it can change
+        nothing, so the card is closed for good instead of offering buttons
+        that fail on every click and come back on every reload. Returns
+        whether such a card was found.
+        """
+        if approval_id in self._approvals:
+            return False
+        turn_id = ""
+        for event in await asyncio.to_thread(self.store.list_events, session_id):
+            payload = event.get("payload") or {}
+            if str(payload.get("approval_id") or "") != approval_id:
+                continue
+            if event.get("kind") == "approval_resolved":
+                return False
+            if event.get("kind") == "approval_required":
+                turn_id = str(payload.get("turn_id") or "")
+        if not turn_id:
+            return False
+        for key in [k for k, v in self._unanswered.items() if v == approval_id]:
+            self._unanswered.pop(key, None)
+        await self._emit(
+            session_id,
+            make_event(
+                "approval_resolved",
+                {"turn_id": turn_id, "approval_id": approval_id, "decision": "expired"},
+            ),
+        )
         return True
 
     # ------------------------------------------------------------ questions
@@ -2042,6 +2354,9 @@ class AgentChatService:
 
     def _cancel_questions(self, session_id: str) -> None:
         # Tolerates a service built without __init__ (test doubles), like _controls.
+        credentials: CredentialRequests | None = getattr(self, "_credentials", None)
+        if credentials is not None:
+            credentials.finish_turn(session_id)
         questions: dict[str, _OpenQuestion] = getattr(self, "_questions", {})
         for qid, open_q in list(questions.items()):
             if open_q.session_id != session_id:
@@ -2050,6 +2365,83 @@ class AgentChatService:
                 open_q.closing = CANCELLED
                 open_q.wake.set()
             questions.pop(qid, None)
+
+    # ------------------------------------------------------------ credentials
+
+    @staticmethod
+    def _restore_credential_save(session_id: str, spec: CredentialSpec) -> Callable | None:
+        """Rebuild only a Society field's save callback, never a stored secret."""
+        from jarvis.society.credentials import save_requested_credential, validate_env_name
+        from jarvis.society.surface import agent_id_of
+
+        agent_id = agent_id_of(session_id)
+        if agent_id is None:
+            return None
+        try:
+            validate_env_name(spec.env)
+        except ValueError:
+            log.warning("agent chat: ignored invalid stored credential field metadata")
+            return None
+
+        async def save(value: str) -> None:
+            await save_requested_credential(agent_id, spec.env, value, label=spec.label)
+
+        return save
+
+    def _running_turn_id(self, session_id: str) -> str | None:
+        run = self._running.get(session_id)
+        if run is None or run.task is None or run.task.done():
+            return None
+        return run.turn_id
+
+    async def open_credential_request(
+        self,
+        session_id: str,
+        spec: CredentialSpec,
+        save: Callable[[str], Any],
+        *,
+        asker: str = "",
+        timeout_s: float = CREDENTIAL_TIMEOUT_S,
+    ) -> str:
+        """Show a secure credential field in the running turn; returns its request id.
+
+        ``save`` receives the pasted value and is its only destination. Raises
+        ``RuntimeError`` without a running turn and ``TooManyCredentialRequests``
+        once the turn used its cards.
+        """
+        return await self._credentials.open(
+            session_id, spec, save, asker=asker, timeout_s=timeout_s
+        )
+
+    async def wait_credential_request(
+        self, session_id: str, request_id: str, timeout_s: float | None = None
+    ) -> str | None:
+        """``saved`` or ``declined``, or ``None`` while the field remains open."""
+        return await self._credentials.wait(session_id, request_id, timeout_s)
+
+    def credential_request_spec(self, session_id: str, request_id: str) -> CredentialSpec:
+        return self._credentials.spec(session_id, request_id)
+
+    async def restore_credential_requests(self, session_id: str) -> None:
+        await self._credentials.restore(session_id)
+
+    async def submit_credential(self, session_id: str, request_id: str, value: str) -> bool:
+        """The person's pasted value; ``ValueError`` when the vault refuses it."""
+        if self.store.get_session(session_id) is None:
+            return False
+        return await self._credentials.submit(session_id, request_id, value)
+
+    async def decline_credential(self, session_id: str, request_id: str) -> bool:
+        if self.store.get_session(session_id) is None:
+            return False
+        return await self._credentials.decline(session_id, request_id)
+
+    async def discard_credential_requests(self, session_id: str) -> None:
+        await self._credentials.discard_session(session_id)
+
+    def pending_credential_requests(self, session_id: str) -> list[str]:
+        credentials: CredentialRequests | None = getattr(self, "_credentials", None)
+        return credentials.pending(session_id) if credentials is not None else []
 
     # ------------------------------------------------------------ end-of-turn cards
 
@@ -2111,6 +2503,7 @@ class AgentChatService:
         index: int = 0,
         option_index: int | None = None,
         text: str | None = None,
+        author: dict[str, str] | None = None,
     ) -> bool:
         """The person's answer to one question of an end-of-turn card.
 
@@ -2143,10 +2536,12 @@ class AgentChatService:
                 return True
             final = [a for a in answers if a is not None]
             await self._resolve_turn_question(session_id, card, final)
-        await self._send_turn_answer(session_id, card, final)
+        await self._send_turn_answer(session_id, card, final, author=author)
         return True
 
-    async def skip_turn_question(self, session_id: str, question_id: str) -> bool:
+    async def skip_turn_question(
+        self, session_id: str, question_id: str, *, author: dict[str, str] | None = None
+    ) -> bool:
         """The person closed an end-of-turn card: the agent's recommendations stand."""
         async with self._turn_prompt_lock():
             card = turn_prompts.open_ask(self.store.list_events(session_id), question_id)
@@ -2154,7 +2549,7 @@ class AgentChatService:
                 return False
             final = turn_prompts.skipped(card)
             await self._resolve_turn_question(session_id, card, final)
-        await self._send_turn_answer(session_id, card, final)
+        await self._send_turn_answer(session_id, card, final, author=author)
         return True
 
     async def _resolve_turn_question(
@@ -2173,15 +2568,28 @@ class AgentChatService:
         )
 
     async def _send_turn_answer(
-        self, session_id: str, card: turn_prompts.OpenAsk, answers: list[QuestionAnswer]
+        self,
+        session_id: str,
+        card: turn_prompts.OpenAsk,
+        answers: list[QuestionAnswer],
+        *,
+        author: dict[str, str] | None = None,
     ) -> None:
         await self.send(
             session_id,
             turn_prompts.answers_prompt(card.specs, answers),
             display_text=turn_prompts.answers_display(card.specs, answers),
+            author=author,
         )
 
-    async def resolve_turn_plan(self, session_id: str, turn_id: str, decision: str) -> bool:
+    async def resolve_turn_plan(
+        self,
+        session_id: str,
+        turn_id: str,
+        decision: str,
+        *,
+        author: dict[str, str] | None = None,
+    ) -> bool:
         """The person's answer to a plan card: ``build`` or ``keep``.
 
         ``build`` moves the session to the build mode the card offered and
@@ -2209,7 +2617,7 @@ class AgentChatService:
                     session_id,
                     make_event("session_updated", {"permission_mode": build}),
                 )
-        await self.send(session_id, turn_prompts.PLAN_GO_AHEAD)
+        await self.send(session_id, turn_prompts.PLAN_GO_AHEAD, author=author)
         return True
 
 
@@ -2221,4 +2629,5 @@ __all__ = [
     "SessionBusy",
     "Subscriber",
     "resolve_runner",
+    "session_runner",
 ]

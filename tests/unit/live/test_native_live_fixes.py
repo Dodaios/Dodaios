@@ -13,7 +13,10 @@ from types import SimpleNamespace
 
 import pytest
 
+from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
+from jarvis.cu.direct import tool_schema
 from jarvis.live import native, runtime
+from jarvis.live.coordination import NAMED_TOOLS
 from jarvis.live.native import NativeLiveVoiceSession
 from jarvis.live.state import LiveLedger
 from jarvis.live.tools import LiveTools
@@ -298,17 +301,17 @@ async def test_slow_tool_releases_the_model_with_an_honest_pending_result(
         _, _, result = connection.tool_results[0]
         assert result["pending"] is True and result["success"] is False
         assert "still running" in result["error"]
+        assert result["task_id"] == "task-1"
         assert gateway.finished == []  # the tool itself was not cancelled
-        assert session._has_pending_work()  # its receipt is still owed
+        assert session._background_work  # it runs on as a background task
+        assert not session._has_pending_work()  # and holds no other report up
         release.set()
         # Await the released work itself instead of polling a wall clock: its
         # receipt lands after the tool body returns, which a loaded Windows CI
         # runner can stretch past half a second.
-        await asyncio.wait_for(
-            asyncio.gather(*[job for job in session._jobs if not job.done()]), _HANG_GUARD_S
-        )
+        await asyncio.wait_for(asyncio.gather(*session._background_work), _HANG_GUARD_S)
         assert gateway.finished == ["search_web"]
-        assert not session._has_pending_work()
+        assert not session._background_work
         assert len(connection.tool_results) == 1  # the late result is not re-sent
     finally:
         session._ledger.close()
@@ -338,6 +341,208 @@ async def test_fast_tool_answers_with_its_real_result(tmp_path, monkeypatch, mak
         session._ledger.close()
 
 
+def _screen_gateway(*, success=True):
+    gateway = FakeToolGateway((
+        SupervisorToolDescriptor("computer", "Operate the screen", tool_schema(), "monitor"),
+    ))
+    gateway.results["computer"] = ToolResult(
+        success,
+        {"executed": ["click at (20,30)"] if success else [],
+         "frame": {"frame_id": "fresh-frame"},
+         "_image": {"mime": "image/jpeg", "data": "ZnJlc2gtc2NyZWVu"}},
+        None if success else "The foreground window changed; nothing was pressed.",
+    )
+    return gateway
+
+
+def _screen_call():
+    return RealtimeEvent(type="tool_call", call_id="screen-call", tool_name="computer",
+                         tool_args={"steps": [{"action": "screenshot"}]})
+
+
+@both_providers
+@pytest.mark.parametrize("entry", ["speech", "text"])
+@pytest.mark.asyncio
+async def test_new_user_input_does_not_open_a_report_pause_during_reasoning(
+    tmp_path, make_provider, entry,
+):
+    session, _, _ = _in_call(make_provider(), tmp_path)
+    try:
+        await session._native_event(RealtimeEvent(type="turn_complete"))
+        if entry == "speech":
+            await session._native_event(RealtimeEvent(
+                type="input_transcript", text="Check the current screen", is_final=True,
+            ))
+        else:
+            await session.handle_control({"type": "text_input", "text": "Check the screen"})
+        await session._note_thinking()
+        session._notify_pause()
+        assert not session.ready_for_report
+        await _settle(session)
+    finally:
+        session._ledger.close()
+
+
+@both_providers
+@pytest.mark.parametrize("success", [True, False])
+@pytest.mark.asyncio
+async def test_late_computer_receipt_and_image_reach_the_model_at_a_pause(
+    tmp_path, monkeypatch, make_provider, success,
+):
+    monkeypatch.setattr(native, "_TOOL_DEADLINE_S", 0.01)
+    gateway = _screen_gateway(success=success)
+    release = gateway.hold("computer")
+    session, connection, _ = _in_call(make_provider(), tmp_path, gateway=gateway)
+    try:
+        await session._native_event(_screen_call())
+        await asyncio.wait_for(connection.tool_result_sent.wait(), _HANG_GUARD_S)
+        assert connection.tool_results[0][2]["pending"] is True
+        # The pending spoken answer must finish before its final result interrupts it.
+        release.set()
+        await asyncio.wait_for(
+            asyncio.gather(*session._jobs, *session._background_work), _HANG_GUARD_S
+        )
+        assert "send_image" not in connection.names()
+        assert "send_text" not in connection.names()
+        await session._native_event(RealtimeEvent(type="turn_complete"))
+        await _settle(session)
+        assert connection.names()[-2:] == ["send_image", "send_text"]
+        report = connection.calls[-1][1]
+        assert '"success": ' + str(success).lower() in report
+        assert "fresh-frame" in report
+        assert ("click at (20,30)" if success else "nothing was pressed") in report
+        assert gateway.calls == [("computer", {"steps": [{"action": "screenshot"}]})]
+        assert len(connection.tool_results) == 1  # No duplicate function response.
+        session._notify_pause()
+        await _settle(session)
+        assert connection.names().count("send_text") == 1
+    finally:
+        session._cancel_report_timeout()
+        session._ledger.close()
+
+
+@both_providers
+@pytest.mark.asyncio
+async def test_computer_finishing_after_pending_speech_wakes_its_report(
+    tmp_path, monkeypatch, make_provider,
+):
+    monkeypatch.setattr(native, "_TOOL_DEADLINE_S", 0.01)
+    gateway = _screen_gateway()
+    release = gateway.hold("computer")
+    session, connection, _ = _in_call(make_provider(), tmp_path, gateway=gateway)
+    try:
+        await session._native_event(_screen_call())
+        await asyncio.wait_for(connection.tool_result_sent.wait(), _HANG_GUARD_S)
+        await session._native_event(RealtimeEvent(type="turn_complete"))
+        session._input_active = True
+        release.set()
+        await asyncio.wait_for(
+            asyncio.gather(*session._jobs, *session._background_work), _HANG_GUARD_S
+        )
+        await _settle(session)
+        assert "send_text" not in connection.names()  # The person is speaking.
+        session._input_active = False
+        session._notify_pause()
+        await _settle(session)
+        assert connection.names().count("send_text") == 1
+    finally:
+        session._cancel_report_timeout()
+        session._ledger.close()
+
+
+@both_providers
+@pytest.mark.asyncio
+async def test_late_computer_report_waits_for_other_pending_work(
+    tmp_path, monkeypatch, make_provider,
+):
+    monkeypatch.setattr(native, "_TOOL_DEADLINE_S", 0.01)
+    gateway = _screen_gateway()
+    release = gateway.hold("computer")
+    session, connection, _ = _in_call(make_provider(), tmp_path, gateway=gateway)
+    other_done = asyncio.Event()
+    other = asyncio.create_task(other_done.wait())
+    session._track_job(other)
+    try:
+        await session._call(_screen_call(), 0)
+        await session._native_event(RealtimeEvent(type="turn_complete"))
+        work = tuple(session._background_work)
+        release.set()
+        await asyncio.wait_for(asyncio.gather(*work), _HANG_GUARD_S)
+        assert "send_text" not in connection.names()
+        other_done.set()
+        await other
+        await _settle(session)
+        assert connection.names().count("send_text") == 1
+    finally:
+        other.cancel()
+        await asyncio.gather(other, return_exceptions=True)
+        session._cancel_report_timeout()
+        session._ledger.close()
+
+
+@both_providers
+@pytest.mark.parametrize("change", ["request", "connection", "stop", "close"])
+@pytest.mark.asyncio
+async def test_late_computer_never_revives_an_obsolete_request(
+    tmp_path, monkeypatch, make_provider, change,
+):
+    monkeypatch.setattr(native, "_TOOL_DEADLINE_S", 0.01)
+    gateway = _screen_gateway()
+    release = gateway.hold("computer")
+    session, connection, _ = _in_call(make_provider(), tmp_path, gateway=gateway)
+    try:
+        await session._native_event(_screen_call())
+        await asyncio.wait_for(connection.tool_result_sent.wait(), _HANG_GUARD_S)
+        # Receipt I/O can outlive the short deadline on a loaded host. This
+        # case stops an action already running, not one still being claimed.
+        await asyncio.wait_for(gateway.execution_started.wait(), _HANG_GUARD_S)
+        await session._native_event(RealtimeEvent(type="turn_complete"))
+        if change == "request":
+            session._tools.revision += 1
+        elif change == "connection":
+            session._wire_epoch += 1
+        elif change == "stop":
+            session._tools.cancel_token.cancel("escape")
+        else:
+            session._closing = True
+        release.set()
+        await asyncio.wait_for(
+            asyncio.gather(*session._jobs, *session._background_work), _HANG_GUARD_S
+        )
+        await _settle(session)
+        assert "send_image" not in connection.names()
+        assert "send_text" not in connection.names()
+        assert gateway.finished == ["computer"]
+        assert session._ledger.operation("native-live", "0:screen-call")["success"] is True
+    finally:
+        session._cancel_report_timeout()
+        session._ledger.close()
+
+
+@both_providers
+@pytest.mark.parametrize("image_support", ["missing", "fails"])
+@pytest.mark.asyncio
+async def test_image_delivery_failure_still_answers_with_the_execution_receipt(
+    tmp_path, monkeypatch, make_provider, image_support,
+):
+    monkeypatch.setattr(native, "_TOOL_DEADLINE_S", _HANG_GUARD_S)
+    session, connection, _ = _in_call(make_provider(), tmp_path, gateway=_screen_gateway())
+
+    async def failed_image(*_args):
+        raise OSError("Image transport failed")
+
+    connection.send_image = None if image_support == "missing" else failed_image
+    try:
+        await session._call(_screen_call(), 0)
+        assert len(connection.tool_results) == 1
+        result = connection.tool_results[0][2]
+        assert result["success"] is False and result["verified"] is False
+        assert result["output"]["executed"] == ["click at (20,30)"]
+        assert "Do not claim visual success" in result["error"]
+    finally:
+        session._ledger.close()
+
+
 # 5. Declaration budget -------------------------------------------------------------
 
 
@@ -351,9 +556,10 @@ async def test_declarations_respect_the_providers_budget(call, make_provider):
     try:
         tools = provider.opened_with[0].tools
         names = [tool["name"] for tool in tools]
-        for builtin in ("end_call", "discover_tools", "call_tool", "confirm_action"):
+        builtins = ("end_call", "discover_tools", "call_tool", "confirm_action", "task_status")
+        for builtin in builtins:
             assert builtin in names
-        described = [tool["description"].split(": ", 1)[0] for tool in tools[4:]]
+        described = [tool["description"].split(": ", 1)[0] for tool in tools[len(builtins):]]
         if provider.tool_declaration_budget_tokens:
             assert len(json.dumps(tools)) <= provider.tool_declaration_budget_tokens * 4
             assert len(described) <= native._DIRECT_TOOL_LIMIT
@@ -367,6 +573,141 @@ async def test_declarations_respect_the_providers_budget(call, make_provider):
         else:
             # Gemini keeps the whole catalog LiveTools declares.
             assert len(described) == 34
+    finally:
+        await live.session.end()
+
+
+@both_providers
+@pytest.mark.asyncio
+async def test_tools_the_rules_name_stay_direct_under_a_budget(call, make_provider):
+    # A crowded install: every preferred tool is there, so the direct limit bites.
+    names = {*native._DIRECT_TOOL_PREFERENCE, *NAMED_TOOLS} - native._SESSION_TOOLS
+    named = tuple(
+        SupervisorToolDescriptor(
+            name,
+            f"Does {name}. " + "x" * 200,
+            {"type": "object", "properties": {"value": {"type": "string"}}},
+            "safe",
+        )
+        for name in sorted(names)
+    )
+    provider = make_provider()
+    live = call(provider, gateway=FakeToolGateway(catalog_of(30) + named))
+    await live.start()
+    try:
+        tools = provider.opened_with[0].tools
+        described = {tool["description"].split(": ", 1)[0] for tool in tools}
+        described |= {tool["name"] for tool in tools}
+        assert set(NAMED_TOOLS) <= described
+    finally:
+        await live.session.end()
+
+
+def _real_named_tools() -> tuple[SupervisorToolDescriptor, ...]:
+    """The tools the rules name, with the descriptions and schemas they ship with."""
+    from jarvis.brain.workspace_git_tool import WorkspaceGitTool
+    from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
+    from jarvis.commands.registry import get_command
+    from jarvis.plugins.tool.app_command import RegistryCommandTool
+    from jarvis.plugins.tool.ask_agent import AskAgentTool
+    from jarvis.plugins.tool.navigate import NavigateTool
+    from jarvis.plugins.tool.show_on_screen import ShowOnScreenTool
+
+    amend = RegistryCommandTool(get_command("mission-amend"), runtime=None)
+    tools = (
+        WorkspaceOrchestrationTool, WorkspaceGitTool, ShowOnScreenTool, NavigateTool,
+        AskAgentTool, amend,
+    )
+    return tuple(
+        SupervisorToolDescriptor(tool.name, tool.description, tool.schema, "monitor")
+        for tool in tools
+    )
+
+
+@both_providers
+@pytest.mark.asyncio
+async def test_every_named_tool_fits_a_small_models_budget_as_it_ships(call, make_provider):
+    # workspace-orchestrate alone is larger than the local voice's whole budget,
+    # so a small model never saw it and could neither check nor watch an agent.
+    real = _real_named_tools()
+    assert {tool.name for tool in real} | {"task_status"} == set(NAMED_TOOLS)
+    provider = make_provider()
+    live = call(provider, gateway=FakeToolGateway(catalog_of(30) + real))
+    await live.start()
+    try:
+        tools = provider.opened_with[0].tools
+        described = {tool["description"].split(": ", 1)[0]: tool for tool in tools}
+        assert set(NAMED_TOOLS) - {"task_status"} <= set(described)
+        assert "task_status" in {tool["name"] for tool in tools}
+        orchestrate = described["workspace-orchestrate"]["parameters"]
+        assert {"status", "watch"} <= set(orchestrate["properties"]["action"]["enum"])
+        if provider.tool_declaration_budget_tokens:
+            assert len(json.dumps(tools)) <= provider.tool_declaration_budget_tokens * 4
+    finally:
+        await live.session.end()
+
+
+def test_a_short_declaration_keeps_every_argument_and_drops_only_prose():
+    declaration = {
+        "name": "jarvis_show_on_screen",
+        "description": "show_on_screen: Shows content. " + "More words here. " * 60,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Heading."},
+                "description": {"type": "string", "title": "Body"},
+                "kind": {"type": "string", "enum": ["a", "b"], "description": "Which."},
+                "items": {
+                    "type": "array",
+                    "items": {"type": "object", "properties": {"x": {"type": "integer",
+                              "description": "An x."}}},
+                },
+            },
+            "required": ["title"],
+            "description": "Arguments.",
+        },
+    }
+    short = native._compact(declaration)
+    params = short["parameters"]
+    assert set(params["properties"]) == {"title", "description", "kind", "items"}
+    assert params["required"] == ["title"] and params["properties"]["kind"]["enum"] == ["a", "b"]
+    assert "description" not in params and "description" not in params["properties"]["title"]
+    assert "title" not in params["properties"]["description"]
+    assert params["properties"]["items"]["items"]["properties"]["x"] == {"type": "integer"}
+    assert short["description"].startswith("show_on_screen: Shows content.")
+    assert short["description"].endswith("Full schema: discover_tools.")
+    assert len(short["description"]) < len(declaration["description"])
+    # A short description stays as it is.
+    tiny = {"name": "t", "description": "t: Does t.", "parameters": {"type": "object"}}
+    assert native._compact(tiny)["description"] == "t: Does t."
+
+
+@both_providers
+@pytest.mark.asyncio
+async def test_free_direct_slots_go_only_to_safe_tools(call, make_provider):
+    # A sparse install left slots free, and catalog order handed one to app-restart.
+    def tool(name, risk):
+        schema = {"type": "object", "properties": {"value": {"type": "string"}}}
+        return SupervisorToolDescriptor(name, f"Does {name}.", schema, risk)
+
+    catalog = (
+        tool("app-restart", "ask"),
+        tool("a-delete-all", "monitor"),
+        tool("b-safe-lookup", "safe"),
+        tool("search_web", "safe"),
+    )
+    provider = make_provider()
+    live = call(provider, gateway=FakeToolGateway(catalog))
+    await live.start()
+    try:
+        tools = provider.opened_with[0].tools
+        described = {tool["description"].split(": ", 1)[0] for tool in tools}
+        if provider.tool_declaration_budget_tokens:
+            assert {"search_web", "b-safe-lookup"} <= described
+            assert not {"app-restart", "a-delete-all"} & described
+        else:
+            # Without a budget every tool is declared; nothing is trimmed.
+            assert {"app-restart", "a-delete-all", "b-safe-lookup"} <= described
     finally:
         await live.session.end()
 

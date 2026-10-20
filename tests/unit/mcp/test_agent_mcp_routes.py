@@ -146,10 +146,10 @@ def test_snippet_route_returns_pasteable_config(connect_app: FastAPI) -> None:
     with TestClient(connect_app) as client:
         body = client.get("/api/agent-mcp/snippet", params={"client": "claude-desktop"}).json()
         parsed = json.loads(body["snippet"])
-        assert list(parsed["mcpServers"]) == ["jarvis-agents"]
+        assert list(parsed["mcpServers"]) == ["dodaios-agents"]
 
         toml = client.get("/api/agent-mcp/snippet", params={"client": "codex"}).json()
-        assert toml["snippet"].startswith("[mcp_servers.jarvis-agents]")
+        assert toml["snippet"].startswith("[mcp_servers.dodaios-agents]")
 
         bad = client.get("/api/agent-mcp/snippet", params={"client": "emacs"})
         assert bad.status_code == 404
@@ -169,7 +169,7 @@ def test_connect_writes_into_a_clients_config(
     assert body["ok"] is True
     assert body["restart_required"] is True
     written = json.loads((tmp_path / ".cursor" / "mcp.json").read_text(encoding="utf-8"))
-    assert "jarvis-agents" in written["mcpServers"]
+    assert list(written["mcpServers"]) == ["dodaios-agents"]
 
 
 # ------------------------------------------------------- per-client tokens
@@ -271,11 +271,11 @@ def test_pair_returns_a_finished_config_with_its_own_credential(
     assert secret.startswith("jarvis_mcp_")
 
     # The config is finished: paste it, restart the client, done.
-    entry = body["config"]["mcpServers"]["jarvis-agents"]
+    entry = body["config"]["mcpServers"]["dodaios-agents"]
     assert entry["args"] == ["-m", "jarvis.mcp.agents.bridge"]
     assert entry["env"]["JARVIS_MCP_TOKEN"] == secret
     assert "JARVIS_CONTROL_KEY" not in entry["env"], "pairing must not hand out the master key"
-    assert json.loads(body["config_text"])["mcpServers"]["jarvis-agents"] == entry
+    assert json.loads(body["config_text"])["mcpServers"]["dodaios-agents"] == entry
 
     # And it really works as a credential.
     assert token_store.verify(secret) is not None
@@ -292,7 +292,7 @@ def test_pair_for_another_machine_uses_that_address(connect_app: FastAPI, token_
             },
         ).json()
 
-    entry = body["config"]["mcpServers"]["jarvis-agents"]
+    entry = body["config"]["mcpServers"]["dodaios-agents"]
     assert entry["url"] == "http://192.168.1.50:47821/api/control/mcp/agents"
     assert entry["headers"]["Authorization"] == f"Bearer {body['secret']}"
 

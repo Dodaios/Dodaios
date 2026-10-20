@@ -5,6 +5,8 @@ import { useEventStore, type ConversationSummary } from "@/store/events";
 import { useAgentChatStore } from "@/store/agentChat";
 import { useHomeStore } from "@/store/home";
 import { transcriptFromMessages } from "@/lib/homeTranscript";
+import { useI18nStore } from "@/i18n";
+import { localeForUiLanguage } from "@/components/runs/format";
 
 /**
  * The one chat history the app has, and the one way to open a row of it.
@@ -152,7 +154,10 @@ export function useChatRows({ poll = false }: { poll?: boolean } = {}): ChatRows
  */
 export function chatRowLabel(row: ChatRow, t: (key: string) => string): { text: string; untitled: boolean } {
   const title = row.title.trim();
-  if (title) return { text: title, untitled: false };
+  // "New Chat" is the placeholder title `ensureActiveThread` stores for a fresh
+  // text thread; it is not a topic, so it reads in the UI language like any
+  // other untitled row.
+  if (title && title !== "New Chat") return { text: title, untitled: false };
   if (row.kind === "voice") {
     const when = formatChatWhen(row.updatedMs);
     const kind = t("sidebar.untitled_voice_chat");
@@ -168,9 +173,9 @@ export function formatChatWhen(ms: number): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (d.getTime() >= today.getTime()) {
-    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(localeForUiLanguage(useI18nStore.getState().ui), { hour: "2-digit", minute: "2-digit" });
   }
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleDateString(localeForUiLanguage(useI18nStore.getState().ui), { month: "short", day: "numeric" });
 }
 
 export type ChatDayBucket = "today" | "yesterday" | "week" | "month" | "older";
@@ -206,6 +211,50 @@ export function groupChatRows(rows: ChatRow[], now = Date.now()): Array<{ bucket
     bucket,
     rows: buckets.get(bucket) ?? [],
   }));
+}
+
+export interface ChatDayGroup {
+  /** Local midnight of the day, so a key stays stable across renders. */
+  dayMs: number;
+  /** "today" and "yesterday" get a word; every other day is a date. */
+  relative: "today" | "yesterday" | null;
+  rows: ChatRow[];
+}
+
+/**
+ * Group rows under one heading per calendar day, newest day first and the
+ * newest chat first inside each day. Days are local days, so a chat at 23:50
+ * and one at 00:10 land under different headings.
+ */
+export function groupChatRowsByDay(rows: ChatRow[], now = Date.now()): ChatDayGroup[] {
+  const startOfDay = (ms: number) => {
+    const d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const today = startOfDay(now);
+  const yesterday = startOfDay(today - 1);
+  const days = new Map<number, ChatRow[]>();
+  for (const row of [...rows].sort((a, b) => b.updatedMs - a.updatedMs)) {
+    const day = startOfDay(row.updatedMs);
+    const list = days.get(day);
+    if (list) list.push(row);
+    else days.set(day, [row]);
+  }
+  return [...days.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([dayMs, group]) => ({
+      dayMs,
+      relative: dayMs >= today ? "today" : dayMs === yesterday ? "yesterday" : null,
+      rows: group,
+    }));
+}
+
+/** A day heading's date: "Oct 7", with the year only when it is not this year's. */
+export function formatChatDay(dayMs: number, lang: string, now = Date.now()): string {
+  const d = new Date(dayMs);
+  const sameYear = d.getFullYear() === new Date(now).getFullYear();
+  return d.toLocaleDateString(lang, sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
 }
 
 /** Case-insensitive match over title and preview. An empty query keeps everything. */

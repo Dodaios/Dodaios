@@ -50,7 +50,7 @@ class SpawnSkillAuthorTool:
     risk_tier: ClassVar[str] = "ask"
     description: ClassVar[str] = (
         "Use this whenever the user asks to create, build, or design a skill, "
-        "or describes a workflow they want Jarvis to learn permanently. Also "
+        "or describes a workflow they want Dodaios to learn permanently. Also "
         "for 'automate X' or 'jedes Mal wenn Y, dann Z'. Returns a draft skill "
         "that the user must explicitly activate in the UI — does NOT auto-enable."
     )

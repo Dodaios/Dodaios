@@ -253,7 +253,7 @@ ACHIEVEMENTS: list[AchievementSpec] = [
     ),
     AchievementSpec(
         id="one_year_with_jarvis",
-        title="One Year with Jarvis",
+        title="One Year with Dodaios",
         description="365 days since first activity.",
         tier="reflection",
         evaluator=_eval_one_year,

@@ -35,6 +35,7 @@ from typing import Any
 
 import httpx
 
+from jarvis.brain import local_context
 from jarvis.core import config as cfg
 from jarvis.core.protocols import BrainDelta, BrainRequest
 
@@ -90,6 +91,11 @@ class LocalOpenAIBrain:
         self._server_root: str | None = None
         self._credential: str | None = None
         self.supports_vision = _declared_vision_support(self._model)
+        # Tool fitting happens before complete(): publish the window this
+        # model was last seen running with, so the budget is the real one.
+        seen = local_context.known_window_for_model(self.name, self._model) if self._model else None
+        if seen:
+            self.context_window = seen
 
     def can_call_tools(self) -> bool:
         return self.supports_tools
@@ -151,6 +157,78 @@ class LocalOpenAIBrain:
         log.info("local-openai: no model configured — using first served: %s", self._model)
         return self._model
 
+    def _probe_headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self._credential}"} if self._credential else {}
+
+    async def _guard_window(
+        self, req: BrainRequest, root: str, model: str, *, fresh: bool = False
+    ) -> bool:
+        """Refuse ``req`` when the server's own window cannot hold it.
+
+        Returns whether the server stated its window. A stated window also
+        becomes this brain's ``context_window``, so the next turn's tool
+        surface is budgeted against what really runs.
+        """
+        window = await local_context.probe_server_window(
+            root, model, headers=self._probe_headers(), fresh=fresh
+        )
+        if window is None:
+            return False
+        self.context_window = window.tokens
+        local_context.ensure_fits(
+            req, window.tokens, provider=self.name, model=model, kind=window.kind
+        )
+        return True
+
+    async def prepare_context_window(self) -> None:
+        """Settle ``context_window`` before the caller budgets a turn.
+
+        Tools are fitted before ``complete()`` runs, so the first turn after a
+        model was chosen would otherwise be planned for the class figure and
+        refused whole instead of having its tools trimmed. One cached question
+        to the server; a brain still discovering its model skips it. Never
+        raises.
+        """
+        if not self._model:
+            return
+        try:
+            root = self._resolve_root()
+            window = await local_context.probe_server_window(
+                root, self._model, headers=self._probe_headers()
+            )
+        except Exception as exc:  # noqa: BLE001 — sizing must never cost the turn
+            log.debug("local-openai: could not settle the context window early: %s", exc)
+            return
+        if window is not None:
+            self.context_window = window.tokens
+
+    def _judge_reported_prompt(
+        self, req: BrainRequest, root: str, model: str, reported: int | None
+    ) -> None:
+        """Compare what a server that states no window says it read.
+
+        Two responses in a row that read far less than was sent tighten the
+        budget of the next turn; one that read more than a recorded suspicion
+        clears it. Never fails the turn: the signal is a suspicion.
+        """
+        verdict, tokens = local_context.judge_reported_prompt(
+            self.name, root, model, req, reported
+        )
+        if verdict == "tighten":
+            self.context_window = tokens
+            log.warning(
+                "local-openai: %s at %s twice read about %d prompt tokens of requests "
+                "at least twice that size, so the server is most likely cutting the "
+                "prompt short. Planning the next turn for %d tokens. %s",
+                model,
+                root,
+                tokens,
+                tokens,
+                local_context.fix_hint("unknown", local_context.certain_tokens(req)),
+            )
+        elif verdict == "restore":
+            self.context_window = type(self).context_window
+
     async def complete(self, req: BrainRequest) -> AsyncIterator[BrainDelta]:
         client = self._client
         if client is None:
@@ -158,10 +236,43 @@ class LocalOpenAIBrain:
             # the event loop (BUG-189; see claude_api.py for the measurement).
             client = await asyncio.to_thread(self._ensure_client)
         model = await self._resolve_model()
-        async for delta in stream_complete(
-            client, model, req, supports_vision=self.supports_vision
-        ):
-            yield delta
+        root = self._resolve_root()
+        stated = await self._guard_window(req, root, model)
+        reported: int | None = None
+        stream = stream_complete(client, model, req, supports_vision=self.supports_vision)
+        try:
+            first = True
+            async for delta in stream:
+                if first and not stated:
+                    # A server that loads on demand only knows its window once
+                    # the model is in memory, which the first token proves.
+                    # Ask again before anything is handed on, so a prompt that
+                    # was cut short never reaches the caller as an answer.
+                    stated = await self._guard_window(req, root, model, fresh=True)
+                first = False
+                if delta.usage:
+                    reported = local_context.reported_prompt_tokens(delta.usage)
+                yield delta
+        except local_context.LocalContextError:
+            raise
+        except Exception as exc:
+            if not local_context.is_overflow_refusal(str(exc)):
+                raise
+            # The server refused the size itself. Say how large it has to be
+            # and where to change it instead of passing a bare HTTP 400 on.
+            known = local_context.known_window(self.name, root, model)
+            stated_window = known is not None and known[1] == "server"
+            raise local_context.refusal_error(
+                req,
+                provider=self.name,
+                model=model,
+                kind=known[2] if known is not None and stated_window else "unknown",
+                window_tokens=known[0] if known is not None and stated_window else 0,
+            ) from exc
+        finally:
+            await stream.aclose()
+        if not stated:
+            self._judge_reported_prompt(req, root, model, reported)
 
     def estimate_cost(self, req: BrainRequest) -> float:
         # Local inference has no per-token bill.

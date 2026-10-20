@@ -23,7 +23,7 @@ from urllib.parse import urldefrag, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "packaging" / "native-crypto.json"
-PUBLISH_ROOT = "https://personaljarvis.github.io/PersonalJarvis/native-crypto"
+PUBLISH_ROOT = "https://dodaios.github.io/Dodaios/native-crypto"
 PLATFORMS = {
     "macos-x86_64": "macosx_13_0_x86_64",
     "windows-arm64": "win_arm64",
@@ -166,8 +166,8 @@ def build_site(artifact_dir: Path, output: Path) -> None:
     (version_dir / "manifest.json").write_text(json.dumps(spec, indent=2) + "\n", encoding="utf-8")
     (output / ".nojekyll").write_text("", encoding="utf-8")
     (output / "index.html").write_text(
-        "<!doctype html><title>Personal Jarvis native packages</title>"
-        "<h1>Personal Jarvis native packages</h1>"
+        "<!doctype html><title>Dodaios native packages</title>"
+        "<h1>Dodaios native packages</h1>"
         "<p>Compiler-free dependencies rebuilt from hash-pinned upstream sources. "
         "Official artifacts remain hosted by PyPI.</p>"
         f'<a href="native-crypto/{publication}/simple/">cryptography {version}</a> '

@@ -1328,7 +1328,7 @@ def _foreground_app_window_windows() -> WindowInfo | None:
             is_desktop=lambda hwnd: _window_class_windows(hwnd) in _DESKTOP_WINDOW_CLASSES,
         )
         if chosen is None:
-            log.info("foreground is a Jarvis overlay with no app window under it")
+            log.info("foreground is a Dodaios overlay with no app window under it")
             return None
         length = int(user32.GetWindowTextLengthW(chosen))
         buf = ctypes.create_unicode_buffer(length + 1)

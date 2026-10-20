@@ -54,8 +54,11 @@ if str(_SOURCE_ROOT) not in sys.path:
     sys.path.insert(0, str(_SOURCE_ROOT))
 
 from jarvis.core.branding import (  # noqa: E402 - bootstrap source path above
+    CLI_COMMAND_NAME,
+    LAUNCHER_ENTRY_NAME,
     MACOS_APP_NAME,
     MANAGED_INSTALL_MARKER,
+    OFFICIAL_REPO_SLUG,
     PRODUCT_NAME,
 )
 
@@ -525,20 +528,20 @@ def step_worker_cli(*, dry_run: bool) -> None:
     try:
         result = run_captured(
             [str(venv_python()), "-c", probe], cwd=repo_root(),
-            label="setting up the Jarvis-Agent worker CLI (npm download)", timeout=600,
+            label="setting up the Dodaios-Agent worker CLI (npm download)", timeout=600,
         )
         stdout = (result.stdout or "").strip()
         verdict = stdout.splitlines()[-1] if stdout else "failed"
     except (OSError, subprocess.TimeoutExpired):
         verdict = "failed"
     if verdict == "present":
-        ok("Jarvis-Agent worker CLI already installed")
+        ok("Dodaios-Agent worker CLI already installed")
     elif verdict == "installed":
-        ok("Jarvis-Agent worker CLI installed (npm)")
+        ok("Dodaios-Agent worker CLI installed (npm)")
     elif verdict == "no-npm":
-        note("Node.js/npm not found - the Jarvis-Agent worker CLI can be added later in-app")
+        note("Node.js/npm not found - the Dodaios-Agent worker CLI can be added later in-app")
     else:
-        note("Jarvis-Agent worker CLI install failed - it can be added later in-app")
+        note("Dodaios-Agent worker CLI install failed - it can be added later in-app")
 
 
 def _write_desktop_integration_log(result: object) -> Path | None:
@@ -590,7 +593,7 @@ def _note_stalled_spotlight() -> None:
     if (result.stdout or "").strip().splitlines()[-1:] != ["False"]:
         return
     note("Spotlight on this Mac is not indexing new apps, so search will not find")
-    note(f"{PRODUCT_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
+    note(f"{LAUNCHER_ENTRY_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
     note("To repair the macOS search index, run:  sudo mdutil -E /")
 
 
@@ -828,7 +831,7 @@ def step_launch(*, headless: bool, dry_run: bool) -> None:
 
 
 def step_cli_links(*, dry_run: bool) -> None:
-    """Make `jarvis` / `personal-jarvis` plain terminal commands on every OS.
+    """Make `dodaios` and its earlier names plain terminal commands on every OS.
 
     The venv's console scripts are linked (macOS/Linux, ``~/.local/bin``) or
     copied (Windows, ``<install>\\bin``) onto the user's PATH — see
@@ -875,20 +878,21 @@ def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
     """
     rows: list[tuple[str, str, str]] = [("Installed to", str(repo_root()), "muted")]
     if sys.platform == "win32":
-        rows.append(("Start again", f'Windows search -> "{PRODUCT_NAME}"', "brand"))
+        # The entry the OS lists, not the display name: this is what a search finds.
+        rows.append(("Start again", f'Windows search -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
     elif sys.platform == "darwin":
         rows.append(
-            ("Start again", f'Launchpad or Spotlight → "{PRODUCT_NAME}"', "brand")
+            ("Start again", f'Launchpad or Spotlight → "{LAUNCHER_ENTRY_NAME}"', "brand")
         )
         rows.append(("Permissions", "macOS asks on first launch - approve each prompt", "muted"))
     elif sys.platform.startswith("linux") and not (headless or is_headless_linux()):
-        rows.append(("Start again", f'app menu -> "{PRODUCT_NAME}"', "brand"))
+        rows.append(("Start again", f'app menu -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
     else:
         rows.append(("Start again", ".venv/bin/python -m jarvis.ui.web.launcher", "brand"))
         rows.append(("", "(in the install folder)", "muted"))
     if not (headless or is_headless_linux()):
-        rows.append(("", "or type jarvis in a new terminal", "muted"))
-    rows.append(("Update", "type jarvis update in a terminal", "muted"))
+        rows.append(("", f"or type {CLI_COMMAND_NAME} in a new terminal", "muted"))
+    rows.append(("Update", f"type {CLI_COMMAND_NAME} update in a terminal", "muted"))
     rows.append(("", "(or re-run the same install one-liner)", "muted"))
     if update:
         rows.append(("Next", "your setup and settings are kept - no re-onboarding", "muted"))
@@ -904,7 +908,7 @@ def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
     # Most installs never find their way back to the repo page; one quiet line
     # in the finale is the only place a new user learns how to support it.
     rows.append(("Like it?", "a GitHub star helps others find it:", "muted"))
-    rows.append(("", "github.com/PersonalJarvis/PersonalJarvis", "brand"))
+    rows.append(("", f"github.com/{OFFICIAL_REPO_SLUG}", "brand"))
 
     title = f"{PRODUCT_NAME} is {'updated' if update else 'ready'}"
     key_w = 13
