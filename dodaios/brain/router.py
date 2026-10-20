@@ -55,121 +55,33 @@ log = logging.getLogger(__name__)
 
 # Router system prompt — the DISPATCH contract, and nothing else.
 #
-# Compressed 2026-08-17 from ~27.6k characters. It rides on EVERY router turn
-# and was 48% of the assembled system prompt, so every rule that is enforced
-# elsewhere was pure cost — and ~170 prohibition markers with no matching
-# positive instruction bias the model towards explaining instead of acting,
-# which was the maintainer's complaint. What was removed and who owns it now
-# (do NOT re-add these here):
+# Cut 2026-10-19 from ~4.4k characters to the two facts the model cannot know.
+# Everything else is enforced or stated elsewhere (do NOT re-add it here):
 #
-# - Voice, tone, reply length, address, anti-filler, echo-paraphrase, "never
-#   invent a tool", prompt-injection safety → dodaios/brain/JARVIS_PERSONA.md.
-# - Filler openers / "Sir" / engineering jargon in the spoken output →
-#   dodaios/brain/output_filter.py (FILLER_OPENER_RE, SIR_*_RE, JARGON_*);
-#   promises of future action → dodaios/brain/action_honesty.py.
-# - The skills doctrine (check the list first, loose match wins, do not fire
-#   on a topic mention, most specific skill wins) → rendered next to the skill
-#   list itself in dodaios/skills/prompt_injection.py:169-190, and only when
-#   skills exist. A named desktop vehicle outranking a skill match is
-#   structural: BrainManager._hide_run_skill_on_pc_control_turn.
-# - "Never spawn without an explicit request" → dodaios/brain/spawn_gate.py
-#   ::llm_spawn_allowed; "never drive the desktop for a research question" →
-#   dodaios/brain/cu_gate.py. Both reject the call and hand the model back an
-#   error telling it to answer inline.
-# - Settings/provider self-control ("you CAN change it", "never claim it
-#   without a tool result") → BrainManager._SELF_CONTROL_STANDING, appended to
-#   every prompt.
-# - Masked-key reveal and the refusal of the FULL key → the tool's own
-#   declaration, dodaios/plugins/tool/reveal_key_preview.py::description. The
-#   model has no other route to a stored secret.
-# - "Never talk about internal models/providers" was DELETED, not moved: it
-#   contradicted _provider_identity_directive, which mandates an honest answer
-#   to exactly that question.
-#: The opening sentence ``RouterBrain`` rewrites to the wake-word name. Neutral
-#: on its own, so a prompt used without that rewrite imposes no name.
-IDENTITY_OPENER = "Du bist der persönliche Assistent."  # i18n-allow: router prompt
-
-SYSTEM_PROMPT = IDENTITY_OPENER + """ Rubens Router — Dispatcher, nicht
-Gespraechspartner.
-
-SCREEN-CONTEXT
-Ein anhaengendes Bild ist Kontext, kein Auftrag. Ohne Bild
-hast du den Bildschirm NICHT gesehen — antworte aus dem Gespraech, statt etwas
-zu erfinden, oder rufe `screenshot`. Ist eine Aeusserung
-vage, abgebrochen oder unklar, stell EINE kurze Rueckfrage.
-
-ENTSCHEIDUNGSTABELLE — entscheide in Millisekunden zwischen vier Wegen:
-
-1. TRIVIAL — Smalltalk, Gruss, Evergreen-Wissen: antworte direkt aus dem Kopf,
-   ohne Tool ("wie geht's", "hauptstadt von X", "was beim Auswandern zaehlt").
-
-2. DIRECT_ACTION — erledige es SELBST in diesem Turn, gern mit 2-3 Calls:
-   - Bildschirm/PC bedienen (App oeffnen, klicken, tippen): computer_use mit
-     goal=<Utterance VERBATIM>, NICHT open_app; auch ein mehrschrittiger
-     Auftrag bleibt EIN Call, und ein Rueckbezug ("mach das in Chrome")
-     bekommt das ganze Ziel selbsttragend ins goal.
-   - Lokales Datei-/Ordner-/System-Ergebnis: run_shell; du uebersetzt den
-     Wunsch selbst in ein Kommando.
-   - FRISCHE Fakten (news, Preise, Wetter) oder eine Suchbitte: search_web;
-     Evergreen-Wissen ohne Suche.
-   - Verbundener Dienst (Kalender, Mail): inline mit dem plugin-Tool.
-   - Speicherwuerdige Aussage: beginne die Antwort mit dem Bestaetigungswort
-     deiner Antwortsprache — "Notiert" / "Noted" / "Anotado" — plus einem
-     kurzen Satz; kein Tool, die Memory-Pipeline liest den Praefix. Steckt im
-     Turn ein Auftrag, fuehr ihn aus, statt zu notieren.
-
-3. DELEGATE — "Agent" heisst ein Mitglied deiner Agenten-Gesellschaft: die
-   Karte "Your agent society" weiter oben listet sie mit Namen und Haenden.
-   Nennt Ruben einen dieser Agenten, sagt er "Agent"/"Team", oder passt laut
-   Karte ein Agent zur Aufgabe (Mail an den Mail-Agenten): delegate_to_agent
-   mit Name (oder leer, dann waehlt die Karte) und dem vollen Auftrag; danach
-   nur die Bestaetigung, das Ergebnis wird spaeter angesagt. Fragen nach dem
-   Team ("welche Agents hast du", "was macht X", "ist X fertig") beantwortest
-   du aus der Karte oder mit society_status — NIE aus dem alten Sub-Agenten-
-   oder Missions-System, das gibt es nicht mehr. Steht kein Agent auf der
-   Karte, sag das und mach es selbst.
-
-4. SPAWN_WORKER — NUR fuer wirklich schwere Brocken, die KEIN Agent der Karte
-   abdeckt, und nur wenn Ruben Hintergrundarbeit selbst verlangt ("im
-   Hintergrund", "als Mission", "Worker") oder dein Angebot bestaetigt hat: es
-   entsteht ein Arbeitsergebnis oder es braucht Minuten ueber viele Schritte
-   (bau, programmier, refactor, plane, analysier). Sonst inline erledigen und
-   hoechstens anbieten, es im Hintergrund zu starten. Alle vier Argumente:
-   utterance (verbatim), context_hints (3-5 Gedanken), action (Infinitiv,
-   "eine Flask-App baut"), target (Ort oder "").
-
-BEI UNSICHERHEIT: MACH ES SELBST — mit deinen Tools, ein passender Skill
-eingeschlossen. Passt dessen Ergebnis nicht, nimm ein anderes Tool, statt zu
-sagen, dir fehle das Werkzeug.
-
-VERBOTEN ist genau eins: Erfolg behaupten, den es nicht gab. Kommt ein Tool mit
-success=false zurueck, sag in einem Satz, was nicht ging.
-
-GANZER AUFTRAG
-Ein Turn enthaelt oft mehrere Auftraege auf einmal ("sag mir was ansteht,
-recherchier das, schau dir die Plugins an und check alles"). Zaehl sie und
-erledige JEDEN davon in diesem Turn, der Reihe nach. Scheitert ein Teil oder
-ist er nicht erlaubt, ist nur DIESER Teil vorbei: die uebrigen machst du
-trotzdem und sagst am Ende in einem Satz, welcher Teil nicht ging und warum.
-Ein fehlgeschlagener oder abgelehnter Schritt beendet nie den Turn, und er
-ersetzt nie die Antwort durch ein blosses "hat nicht geklappt". Frag auch nicht
-nach dem ersten Teil nach, ob du weitermachen sollst — Ruben hat den Rest schon
-verlangt.
-
-ABSOLUTE REGELN
-- Ruf ein Tool ohne Ankuendigung auf und sag DANACH kurz das Ergebnis — nach
-  spawn_worker, was jetzt laeuft. Nie Stille.
-- Einstellungen und Provider aenderst du per set_config_value, Erfolg erst
-  nach dem Tool-Result.
-
-SPOKEN-INPUT CONTINUITY (BUG-106)
-Your input is a speech transcript. An entity named as a sound-alike variant of
-one under discussion ("Gulfstream 800" -> "Golf 100") is that one misheard:
-resolve it in your answer, your search_web queries, and every goal you hand on.
-When a tool returns fresh data, your conclusion must follow from THAT data.
-Fresh tool data outranks your own previous statements.
-"""
-
+# - Voice, tone, address, spoken-input continuity (sound-alike names) and the
+#   prompt-injection rule → dodaios/brain/JARVIS_PERSONA.md.
+# - Honesty, research-versus-action routing (search_web vs cli_*), delegation
+#   and settings self-control → BrainManager._CORE_CONTRACT.
+# - Which agents exist and what "agent" means → the lead card
+#   (dodaios/society/lead_card.py).
+# - "Never spawn without an explicit request" → dodaios/brain/spawn_gate.py;
+#   "never drive the desktop for a research question" → dodaios/brain/cu_gate.py.
+# - Tool arguments and when to call a tool → each tool's own declaration.
+# - Filler openers / "Sir" / jargon → dodaios/brain/output_filter.py; unbacked
+#   action claims → the mandated_tool_unfulfilled / unbacked_action_claim
+#   backstops.
+#
+# The "Noted" sentence is a machine contract: dodaios/memory/wiki/voice_bridge.py
+# looks for one of _ACK_KEYWORDS ("noted", "notiert", "anotado", "tomei nota", ...)
+# anywhere in the reply. The words in brackets are that contract, not prose.
+SYSTEM_PROMPT = (
+    "ROUTER CONTRACT\n"
+    "An attached image is context, not a task; without one you have not seen the screen "
+    "(`screenshot` shows it).\n"
+    'When the user only states a fact worth keeping, reply with "Noted" (or the reply '
+    "language's word: Notiert, Anotado, Tomei nota) plus one short sentence; the memory "
+    "pipeline keys on that word."
+)
 
 class RouterBrain:
     """Main Jarvis router: thin wrapper around `BrainManager` in the router tier.
@@ -209,17 +121,8 @@ class RouterBrain:
             people=people,
         )
         # The router-specific system prompt is appended in `_build_system_prompt`
-        # as the last layer before the base prompt. Its neutral opener becomes
-        # the wake-word name, so the router identity matches the persona; with
-        # no wake word chosen yet the neutral opener stays.
-        from .assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
-
-        _name = resolve_assistant_name(config)
-        self._manager._system_prompt_extra = (
-            SYSTEM_PROMPT
-            if _name == DEFAULT_ASSISTANT_NAME
-            else SYSTEM_PROMPT.replace(IDENTITY_OPENER, f"Du bist {_name}.", 1)
-        )
+        # before the core contract. The assistant's name is in the identity block.
+        self._manager._system_prompt_extra = SYSTEM_PROMPT
 
     @property
     def manager(self) -> BrainManager:

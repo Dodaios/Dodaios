@@ -6,11 +6,9 @@ prompt is the plain text inside the first code fence (```) after the line
 `## System-Prompt`. Everything around it (docs, router notes, sources) is
 maintainer metadata — never sent to the LLM.
 
-A second, much shorter block lives after `## System-Prompt (Compact)`: the
-distilled persona for small self-hosted realtime brains, where the full 15k
-characters cost multiple seconds of prompt processing EVERY turn (7.8 s
-measured against qwen2.5:7b, 2026-08-07). Missing compact section falls back
-to the full block — honest, never a silent truncation.
+The block is about a thousand characters, short enough for small self-hosted
+realtime brains too, so there is no separate compact persona any more;
+`load_compact_persona_prompt` is kept for its callers and returns the same block.
 
 This loader:
 
@@ -34,7 +32,6 @@ log = logging.getLogger(__name__)
 
 _PERSONA_MD_FILENAME = "JARVIS_PERSONA.md"
 _SECTION_MARKER = "## System-Prompt"
-_COMPACT_SECTION_MARKER = "## System-Prompt (Compact)"
 _FENCE = "```"
 
 
@@ -93,28 +90,14 @@ def load_persona_prompt() -> str:
     return block
 
 
-@lru_cache(maxsize=1)
 def load_compact_persona_prompt() -> str:
-    """The distilled persona for small self-hosted brains — cached.
-
-    Falls back to the FULL block when the compact section is absent: a
-    persona that silently shrank to nothing would change the voice, while a
-    temporarily slower prompt merely changes latency.
-    """
-    compact = _extract_fence_after_marker(_read_persona_md(), _COMPACT_SECTION_MARKER)
-    if compact:
-        return compact
-    log.info(
-        "JARVIS_PERSONA.md: no '%s' section — compact requests use the full persona.",
-        _COMPACT_SECTION_MARKER,
-    )
+    """The persona for small self-hosted brains: the same short block."""
     return load_persona_prompt()
 
 
 def invalidate_cache() -> None:
-    """Invalidate the caches — for tests or hot reload after an MD edit."""
+    """Invalidate the cache — for tests or hot reload after an MD edit."""
     load_persona_prompt.cache_clear()
-    load_compact_persona_prompt.cache_clear()
 
 
 # ---------------------------------------------------------------------------

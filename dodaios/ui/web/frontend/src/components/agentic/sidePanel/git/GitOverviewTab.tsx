@@ -85,6 +85,20 @@ export function GitOverviewTab() {
       window.clearTimeout(timer);
     };
   }, []);
+  const clearFollowLock = useCallback(async () => {
+    if (!follow?.lock_since) return;
+    const since = new Date(follow.lock_since * 1000).toLocaleString(lang);
+    const answer = await choice.ask({
+      title: fill(t("ide_side_panel.git.scm.follow_clear_lock_title"), { since }),
+      body: t("ide_side_panel.git.scm.follow_clear_lock_body"),
+      buttons: [{ id: "remove", label: t("ide_side_panel.git.scm.follow_clear_lock"), destructive: true }],
+    });
+    if (answer !== "remove") return;
+    scmApi
+      .clearFollowLock()
+      .then(setFollow)
+      .catch((err: Error) => pushToast("error", err.message));
+  }, [follow, lang, choice, pushToast, t]);
   const toggleFollow = useCallback(() => {
     if (!follow) return;
     scmApi
@@ -166,6 +180,9 @@ export function GitOverviewTab() {
       viewSortMenu(settings, setSettings, t),
       ...(follow
         ? ([{ id: "follow-main", label: t("ide_side_panel.git.scm.follow_main"), checked: follow.enabled, run: toggleFollow }] as MenuItem[])
+        : []),
+      ...(follow?.enabled && follow.lock_stale
+        ? ([{ id: "follow-clear-lock", label: `${t("ide_side_panel.git.scm.follow_clear_lock")}…`, run: () => void clearFollowLock() }] as MenuItem[])
         : []),
       { kind: "separator", id: "m0" },
       { id: "pull", label: t("ide_side_panel.git.scm.pull"), run: () => void commands.pull() },
@@ -282,7 +299,7 @@ export function GitOverviewTab() {
         ],
       },
     ];
-  }, [status, settings, commands, runCommit, undoLastCommit, follow, toggleFollow, t]);
+  }, [status, settings, commands, runCommit, undoLastCommit, follow, toggleFollow, clearFollowLock, t]);
 
   const pickSession = async () => {
     type Pick = { pane: string | null };

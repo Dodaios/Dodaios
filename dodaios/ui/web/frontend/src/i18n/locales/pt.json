@@ -8281,7 +8281,10 @@
         "follow_restart_pending": "Há código novo; a app reinicia assim que nenhuma missão ou chamada estiver em andamento.",
         "follow_updated": "Atualizado {when}: {subject}",
         "follow_click_off": "Clique para deixar de seguir o main.",
-        "session_diff_badge": "Alterações de {pane}"
+        "session_diff_badge": "Alterações de {pane}",
+        "follow_clear_lock": "Remover o bloqueio antigo do git",
+        "follow_clear_lock_title": "Remover o bloqueio do git que existe desde {since}?",
+        "follow_clear_lock_body": "Um comando do git interrompido deixou .git/index.lock para trás, e isso impede que esta app se atualize. Remova só se nenhum comando do git estiver rodando nesta pasta."
       }
     },
     "skills": {

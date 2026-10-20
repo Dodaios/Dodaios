@@ -116,6 +116,10 @@ export interface FollowMain {
   busy: string;
   restart_pending: boolean;
   blocked_by: string[];
+  /** When a git lock blocking the update was last written (epoch s); 0 = none. */
+  lock_since?: number;
+  /** That lock is old enough to belong to no running command: it can be removed. */
+  lock_stale?: boolean;
 }
 
 async function put<T>(path: string, body: object): Promise<T> {
@@ -191,6 +195,7 @@ export const scmApi = {
     get<{ path: string; before: string | null; after: string | null; binary: boolean }>("/session-file", { workspace_id, pane, path, base }),
   followMain: () => get<FollowMain>("/follow-main", {}),
   setFollowMain: (enabled: boolean) => put<FollowMain>("/follow-main", { enabled }),
+  clearFollowLock: () => post<FollowMain>("/follow-main/clear-lock", {}),
   stashes: (workspace_id: string) => get<{ stashes: Stash[] }>("/stashes", { workspace_id }),
 
   stage: (workspace_id: string, paths: string[]) => post("/stage", { workspace_id, paths }),

@@ -194,8 +194,6 @@ Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电�
 
 可以从一个 [good first issue](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) 和[10 分钟完成你的第一次贡献](https://github.com/Dodaios/Dodaios/blob/main/CONTRIBUTING.md#your-first-contribution-in-10-minutes)开始。问题和想法请发到 [Discussions](https://github.com/Dodaios/Dodaios/discussions)，安全问题请参阅 [SECURITY.md](https://github.com/Dodaios/Dodaios/blob/main/SECURITY.md)。
 
-如果你是协助维护本仓库的 AI 智能体，请先阅读 [`AGENTS.md`](https://github.com/Dodaios/Dodaios/blob/main/AGENTS.md)。
-
 如果 Dodaios 对你有用，**点一个 Star 能帮助更多人发现它。** 赞助者名单见 [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md)。
 贡献者名单见[英文 README](https://github.com/Dodaios/Dodaios/blob/main/README.md#contribute)。
 
