@@ -115,6 +115,10 @@
       "review_done": "Lernprüfung abgeschlossen",
       "review_waiting": "Wartet auf ein abgeschlossenes Gespräch zur Lernprüfung",
       "last_review": "Letzte Lernaktivität",
+      "review_dropped": "Die letzte Lernprüfung wurde nach {0} Versuchen verworfen. Das nächste abgeschlossene Gespräch bekommt eine neue.",
+      "review_reason_api_key_seat": "Ein Abo ist verbunden, deshalb wird der API-Schlüssel dieses Agenten ({provider}) für das Lernen aus seinen Chats nicht belastet. Stelle den Agenten auf ein Abo oder ein lokales Modell um, damit er lernen kann.",
+      "review_reason_no_seat": "Das Modell des Agenten ist in dieser App gerade nicht erreichbar.",
+      "review_reason_seat_failed": "Das Modell des Agenten hat keine brauchbare Antwort gegeben.",
       "loading": "Wird geladen…",
       "knowledge_hint": "Jeder Agent pflegt seine eigene USER.md für dein Profil und deine Präferenzen sowie MEMORY.md für Projektwissen und Erfahrungen. Skills und Gesprächsarchive bleiben separat.",
       "kind_memory": "Memory",
@@ -192,7 +196,8 @@
       "remove_schedule": "Zeitplan entfernen",
       "history": "Ausführungsverlauf",
       "no_runs": "Noch keine Ausführungen.",
-      "legacy": "Ältere Ausführung: Ergebnis vorhanden; Abschlussstatus wurde nicht aufgezeichnet."
+      "legacy": "Ältere Ausführung: Ergebnis vorhanden; Abschlussstatus wurde nicht aufgezeichnet.",
+      "skipped": "Übersprungen"
     },
     "chat": {
       "connecting": "Verbindung zu diesem Chat wird hergestellt…",

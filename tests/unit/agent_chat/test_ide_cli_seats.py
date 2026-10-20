@@ -321,7 +321,7 @@ def stubbed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(rc, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(rc, "_account_env", lambda platform: {"HOME": "h"})
     monkeypatch.setattr(rc, "_registry_env", lambda agent, base: {**base, "AGENT": agent})
-    monkeypatch.setattr(rc.jarvis_harness, "mcp_config_json", lambda sid=None: None)
+    monkeypatch.setattr(rc.dodaios_harness, "mcp_config_json", lambda sid=None: None)
 
 
 def test_plan_opencode_speaks_run_json_and_the_stance_flags(stubbed: None) -> None:
@@ -826,7 +826,7 @@ def test_a_cancelled_tool_resumes_instead_of_failing_the_turn(
     assert len(prompts) == 2
     assert "Which accounts are connected?" in prompts[0]
     assert "User cancelled the execution" in prompts[1]
-    assert "keep going" in prompts[1].lower() or "not the end of the task" in prompts[1]
+    assert "does not end the task" in prompts[1]
     assert resumes[1] == "sess-recover"
     assert _kinds(events) == [
         "tool_call",

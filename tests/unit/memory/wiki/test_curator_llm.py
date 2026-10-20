@@ -625,10 +625,10 @@ async def test_propose_updates_brain_exception_returns_empty(
 
 
 @pytest.mark.asyncio
-async def test_propose_updates_missing_schema_returns_empty(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture,
+async def test_propose_updates_does_not_need_schema_md(
+    tmp_path: Path,
 ) -> None:
-    """If ``schema.md`` is unreadable, no LLM call happens."""
+    """``schema.md`` is vault documentation; a missing file no longer blocks ingest."""
 
     cfg = _make_config()
     brain = FakeBrain(_ok_response())
@@ -639,12 +639,12 @@ async def test_propose_updates_missing_schema_returns_empty(
         schema_path=tmp_path / "nonexistent-schema.md",
         registry=registry,
     )
-    caplog.set_level("WARNING")
-    result = await llm.propose_updates(
-        "source", "label", repo=FakeRepo(), vault=FakeVault(),
+    await llm.propose_updates(
+        "a source long enough to reach the curator model", "label",
+        repo=FakeRepo(), vault=FakeVault(),
     )
-    assert result == []
-    assert brain.received_requests == []
+    assert len(brain.received_requests) == 1
+    assert "# Wiki Schema" not in brain.received_requests[0].system
 
 
 @pytest.mark.asyncio

@@ -21,7 +21,7 @@ from dodaios.core.config import JarvisConfig
 from dodaios.core.self_mod import AtomicConfigWriter, SelfModAudit
 from dodaios.core.self_mod.schema import MutationRequest
 
-FIXTURE = Path(__file__).parent / "fixtures" / "minimal_jarvis.toml"
+FIXTURE = Path(__file__).parent / "fixtures" / "minimal_dodaios.toml"
 
 
 def _loader(path: Path) -> JarvisConfig:

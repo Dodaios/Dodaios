@@ -426,7 +426,7 @@ jobs:
         shell: bash
         run: |
           # A plugin ships as "verified" only with a completed browser journey;
-          # every other one ships labeled "preview" in the app (AGENTS.md section 3).
+          # every other one ships labeled "preview" in the app.
           report="$(python scripts/ci/check_plugin_auth_contract.py --require-e2e-pass)"
           printf '%s\n' "$report"
           # The last line counts verified and preview plugins for the release.

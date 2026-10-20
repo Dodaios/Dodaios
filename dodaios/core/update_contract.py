@@ -27,7 +27,12 @@ import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from dodaios.core.branding import CONFIG_FILE_NAME, MACOS_APP_DIR_NAME, MACOS_BUNDLE_ID
+from dodaios.core.branding import (
+    CONFIG_FILE_NAME,
+    LEGACY_CONFIG_FILE_NAMES,
+    MACOS_APP_DIR_NAME,
+    MACOS_BUNDLE_ID,
+)
 
 log = logging.getLogger(__name__)
 
@@ -72,8 +77,16 @@ class UpdateContract:
     launcher_module: str = "dodaios.ui.web.launcher"
     #: File whose ``__version__ = "..."`` line names the release.
     version_file: str = "dodaios/__init__.py"
-    #: Name of the user's config file in the checkout root.
-    config_file: str = CONFIG_FILE_NAME
+    #: Name of the user's config file in the checkout root, as an updater from
+    #: before ``config_files`` reads it. That updater only reads the admin port
+    #: from it, so the earlier name it can still find is the one stated.
+    config_file: str = LEGACY_CONFIG_FILE_NAMES[0]
+    #: Every name the config file may have in the checkout root, in order of
+    #: precedence: the first that exists is the configuration. A file is never
+    #: renamed, so an installation keeps its ``jarvis.toml`` and a new one has
+    #: ``dodaios.toml``. A document that states only ``config_file`` means that
+    #: one name.
+    config_files: tuple[str, ...] = (*LEGACY_CONFIG_FILE_NAMES, CONFIG_FILE_NAME)
     #: Directory name of the macOS application bundle the installer builds.
     macos_app_dir_name: str = MACOS_APP_DIR_NAME
     #: ``CFBundleIdentifier`` of that bundle. A bundle of the right name with
@@ -134,6 +147,19 @@ def _is_bundle_id(value: object) -> bool:
     )
 
 
+# A short, ordered list of config file names; more than a handful is not one.
+_MAX_CONFIG_FILES = 8
+
+
+def _is_file_name_list(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and 0 < len(value) <= _MAX_CONFIG_FILES
+        and all(_is_file_name(item) for item in value)
+        and len(set(value)) == len(value)
+    )
+
+
 def _is_rollback_hook(value: object) -> bool:
     return value is None or (_is_relative_path(value) and str(value).endswith(".py"))
 
@@ -143,6 +169,7 @@ _FIELD_CHECKS = (
     ("launcher_module", _is_module_name),
     ("version_file", _is_relative_path),
     ("config_file", _is_file_name),
+    ("config_files", _is_file_name_list),
     ("macos_app_dir_name", _is_app_dir_name),
     ("macos_bundle_id", _is_bundle_id),
     ("rollback_hook", _is_rollback_hook),
@@ -176,7 +203,7 @@ def parse_update_contract(text: str) -> UpdateContract:
         )
         return DEFAULT_CONTRACT
 
-    stated: dict[str, str | None] = {}
+    stated: dict[str, object] = {}
     for name, is_valid in _FIELD_CHECKS:
         if name not in payload:
             continue
@@ -186,7 +213,10 @@ def parse_update_contract(text: str) -> UpdateContract:
                 "update contract has an invalid %s; using the default locations", name
             )
             return DEFAULT_CONTRACT
-        stated[name] = value
+        stated[name] = tuple(value) if isinstance(value, list) else value
+    if "config_file" in stated and "config_files" not in stated:
+        # A release from before the list names exactly one file.
+        stated["config_files"] = (stated["config_file"],)
     return replace(DEFAULT_CONTRACT, **stated)
 
 

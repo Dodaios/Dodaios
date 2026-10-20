@@ -25,6 +25,18 @@ def pytest_configure(config) -> None:  # noqa: ANN001
 
 
 @pytest.fixture(autouse=True)
+def _not_the_main_instance(monkeypatch):  # noqa: ANN001
+    """No test inherits the desktop app's main-instance flag.
+
+    A test run launched from a pane inside the running app inherits
+    ``JARVIS_PRIMARY_INSTANCE=1``. A server started under it would schedule
+    main-instance-only background work, such as the credential copy against
+    the developer's real OS keyring. A test that needs the flag sets it itself.
+    """
+    monkeypatch.delenv("JARVIS_PRIMARY_INSTANCE", raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _society_runtime_isolated():
     """Put the process-wide society runtime back after every test.
 

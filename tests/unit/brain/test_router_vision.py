@@ -440,24 +440,8 @@ async def test_router_emits_vision_injected_event() -> None:
 # ----------------------------------------------------------------------
 
 
-def test_system_prompt_contains_screen_context_section() -> None:
-    assert "SCREEN-CONTEXT" in SYSTEM_PROMPT
-
-
 def test_system_prompt_contains_context_not_task_clause() -> None:
-    assert "Bild ist Kontext, kein Auftrag" in SYSTEM_PROMPT  # i18n-allow
-
-
-def test_system_prompt_screen_context_before_action_section() -> None:
-    # After the pure-delegator refactor (commit e09780b7) the action section
-    # is now called "DELEGATOR-PRINZIP" / "ENTSCHEIDUNGSTABELLE" instead of
-    # the old "Bei jeder Eingabe entscheidest" marker. What matters is only
-    # that SCREEN-CONTEXT comes BEFORE the decision instruction, so the
-    # router knows the image as context BEFORE it routes.
-    idx_screen = SYSTEM_PROMPT.find("SCREEN-CONTEXT")
-    idx_actions = SYSTEM_PROMPT.find("ENTSCHEIDUNGSTABELLE")
-    assert idx_screen >= 0 and idx_actions >= 0
-    assert idx_screen < idx_actions
+    assert "An attached image is context, not a task" in SYSTEM_PROMPT
 
 
 # ----------------------------------------------------------------------

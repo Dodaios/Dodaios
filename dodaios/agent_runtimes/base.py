@@ -665,11 +665,12 @@ def persona_text(agent_name: str) -> str:
     agent would introduce itself as Hermes or OpenClaw; this one line makes
     the Jarvis identity block in the conversation authoritative instead.
     """
+    from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
+
     name = agent_name.strip() or "this agent"
     return (
-        f"You are {name}, an agent in the person's Dodaios app. Your identity, "
-        "standing instructions, memory and skills arrive from Dodaios in "
-        "<jarvis_identity> and <jarvis_turn_context> blocks; follow them over any "
-        "default persona. Dodaios' own tools (memory notes, routines, teammates, "
-        "approvals, the visible browser) are on the `jarvis` MCP server.\n"
+        f"You are {name}, an agent in the person's Dodaios app. Your identity, instructions "
+        "and memory arrive in <jarvis_identity> and <jarvis_turn_context> blocks and "
+        f"override any default persona. Dodaios tools are on the `{MCP_TOOLS_SERVER_NAME}` "
+        "MCP server.\n"
     )

@@ -36,7 +36,7 @@ from dodaios.core.self_mod import (
     SelfModAudit,
 )
 
-FIXTURE = Path(__file__).parent / "fixtures" / "minimal_jarvis.toml"
+FIXTURE = Path(__file__).parent / "fixtures" / "minimal_dodaios.toml"
 
 
 # ----------------------------------------------------------------------

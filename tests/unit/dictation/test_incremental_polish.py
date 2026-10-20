@@ -69,9 +69,9 @@ def test_the_continuation_clause_is_opt_in() -> None:
     cont = build_polish_prompt(
         language="en", style="neutral", protected_terms=(), continuation=True
     )
-    assert "CONTINUATION" not in plain
-    assert "CONTINUATION" in cont
-    assert "Never repeat it" in cont
+    assert CONTEXT_OPEN_DELIMITER not in plain
+    assert CONTEXT_OPEN_DELIMITER in cont
+    assert "never repeat it" in cont
 
 
 # --------------------------------------------------------------------------

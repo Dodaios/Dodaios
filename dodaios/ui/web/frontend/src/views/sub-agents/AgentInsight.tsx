@@ -41,7 +41,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-import type { SubAgentNode, ToolCallEntry } from "@/store/jarvisAgents";
+import type { SubAgentNode, ToolCallEntry } from "@/store/dodaiosAgents";
 import type {
   CriticAxisResult,
   CriticVerdictReady,

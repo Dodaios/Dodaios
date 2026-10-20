@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dodaios.dev/schema/verse.deck/1",
+  "title": "Verse deck manifest (verse.deck/1)",
+  "description": "Cooked runtime description of one deck. All positions are three.js world axes in metres (X screen right, Y up, Z toward the camera). URLs are relative to the manifest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "name", "floor", "quality", "camera", "plate", "occluders", "nav", "env", "probes", "rooms", "sockets", "stations", "stats"],
+  "properties": {
+    "schema": { "const": "verse.deck/1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "floor": { "type": "integer", "minimum": 0 },
+    "quality": { "enum": ["preview", "final"] },
+    "camera": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pitch_deg", "yaw_deg", "px_per_m", "centre", "right", "up", "forward", "distance", "frame_w_m", "frame_h_m", "plate_w_px", "plate_h_px", "view_transform", "look", "exposure"],
+      "properties": {
+        "pitch_deg": { "type": "number", "description": "Degrees below the horizon (60)." },
+        "yaw_deg": { "type": "number", "description": "0: the camera looks toward -Z." },
+        "px_per_m": { "type": "integer", "minimum": 1, "description": "Plate pixels per metre along the plate's u axis at L0." },
+        "centre": { "$ref": "#/$defs/vec3", "description": "Point on the floor plane (y = 0) at the plate centre." },
+        "right": { "$ref": "#/$defs/vec3" },
+        "up": { "$ref": "#/$defs/vec3" },
+        "forward": { "$ref": "#/$defs/vec3", "description": "View direction." },
+        "distance": { "type": "number", "exclusiveMinimum": 0, "description": "Camera position = centre - forward * distance." },
+        "frame_w_m": { "type": "number", "exclusiveMinimum": 0 },
+        "frame_h_m": { "type": "number", "exclusiveMinimum": 0 },
+        "plate_w_px": { "type": "integer", "minimum": 1 },
+        "plate_h_px": { "type": "integer", "minimum": 1 },
+        "view_transform": { "type": "string" },
+        "look": { "type": "string" },
+        "exposure": { "type": "number", "description": "Stops; the runtime uses toneMappingExposure = 2^exposure." }
+      }
+    },
+    "plate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "tile_px", "cols", "rows", "tile_url", "l1_url", "l1_w_px", "l1_h_px"],
+      "properties": {
+        "format": { "const": "avif" },
+        "tile_px": { "type": "integer", "minimum": 256 },
+        "cols": { "type": "integer", "minimum": 1 },
+        "rows": { "type": "integer", "minimum": 1 },
+        "tile_url": { "type": "string", "pattern": "\\{col\\}.*\\{row\\}", "description": "L0 tiles (full density, px_per_m)." },
+        "mips": {
+          "description": "Optional tiled mip levels between L0 and L1, finest first: the plate downscaled by `divisor` and cut into tile_px tiles (edge tiles smaller). Absent in older manifests.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["divisor", "w_px", "h_px", "cols", "rows", "tile_url"],
+            "properties": {
+              "divisor": { "type": "integer", "minimum": 2, "description": "Density = px_per_m / divisor." },
+              "w_px": { "type": "integer", "minimum": 1, "description": "round(plate_w_px / divisor)." },
+              "h_px": { "type": "integer", "minimum": 1, "description": "round(plate_h_px / divisor)." },
+              "cols": { "type": "integer", "minimum": 1 },
+              "rows": { "type": "integer", "minimum": 1 },
+              "tile_url": { "type": "string", "pattern": "\\{col\\}.*\\{row\\}" }
+            }
+          }
+        },
+        "l1_url": { "type": "string" },
+        "l1_w_px": { "type": "integer", "minimum": 1 },
+        "l1_h_px": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "occluders": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "triangles"],
+      "properties": {
+        "url": { "type": "string" },
+        "triangles": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "nav": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "origin_x", "origin_z", "cell", "w", "h", "height_zero", "height_step", "max_step", "clearance", "walkable_cells"],
+      "properties": {
+        "url": { "type": "string" },
+        "origin_x": { "type": "number", "description": "World x of the left edge of column 0." },
+        "origin_z": { "type": "number", "description": "World z of the top edge of row 0 (rows grow toward +Z)." },
+        "cell": { "type": "number", "exclusiveMinimum": 0 },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 },
+        "height_zero": { "type": "integer", "minimum": 1, "maximum": 255, "description": "Pixel value 0 = blocked; v > 0: floor y = (v - height_zero) * height_step." },
+        "height_step": { "type": "number", "exclusiveMinimum": 0 },
+        "max_step": { "type": "number", "exclusiveMinimum": 0, "description": "Neighbouring cells whose floor heights differ by more are not connected." },
+        "clearance": { "type": "number", "minimum": 0, "description": "Body radius the walkable area is already eroded by (metres)." },
+        "walkable_cells": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "w", "h", "position"],
+      "properties": {
+        "url": { "type": "string" },
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 },
+        "position": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "probes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["room", "position", "sh"],
+        "properties": {
+          "room": { "type": "string" },
+          "position": { "$ref": "#/$defs/vec3" },
+          "sh": {
+            "description": "9 RGB radiance coefficients in three.js SphericalHarmonics3 order and basis.",
+            "type": "array",
+            "minItems": 9,
+            "maxItems": 9,
+            "items": { "$ref": "#/$defs/vec3" }
+          }
+        }
+      }
+    },
+    "rooms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "floor_y", "polygon", "centre", "area_m2", "main"],
+        "properties": {
+          "id": { "$ref": "#/$defs/ident" },
+          "name": { "type": "string" },
+          "floor_y": { "type": "number" },
+          "polygon": {
+            "description": "Outline on the floor plane as [x, z] points.",
+            "type": "array",
+            "minItems": 3,
+            "items": { "$ref": "#/$defs/vec2" }
+          },
+          "centre": { "$ref": "#/$defs/vec3" },
+          "area_m2": { "type": "number", "exclusiveMinimum": 0 },
+          "main": { "type": "boolean" },
+          "props": { "type": "object", "description": "Remaining custom properties of the ROOM_ mesh (e.g. kind)." }
+        }
+      }
+    },
+    "sockets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/socket" }
+    },
+    "stations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "room", "position", "yaw_deg", "sockets"],
+        "properties": {
+          "id": { "$ref": "#/$defs/ident" },
+          "kind": { "type": "string" },
+          "room": { "type": ["string", "null"] },
+          "position": { "$ref": "#/$defs/vec3" },
+          "yaw_deg": { "type": "number" },
+          "sockets": {
+            "description": "Member socket ids by socket kind.",
+            "type": "object",
+            "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/ident" } }
+          }
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "required": ["samples", "blender", "plate_s", "bytes", "plate_bytes"],
+      "properties": {
+        "samples": { "type": "integer" },
+        "blender": { "type": "string" },
+        "plate_s": { "type": "number" },
+        "nav_s": { "type": "number" },
+        "occluders_s": { "type": "number" },
+        "lighting_s": { "type": "number" },
+        "blender_s": { "type": "number" },
+        "package_s": { "type": "number" },
+        "bytes": { "type": "integer" },
+        "plate_bytes": { "type": "integer" }
+      }
+    }
+  },
+  "$defs": {
+    "vec2": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+    "vec3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
+    "ident": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_\\-]*$" },
+    "socket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "position", "yaw_deg", "room"],
+      "properties": {
+        "id": { "$ref": "#/$defs/ident" },
+        "kind": { "enum": ["screen", "seat", "stand", "bunk", "holo", "light", "door", "spawn", "lift", "station", "waypoint"] },
+        "position": { "$ref": "#/$defs/vec3" },
+        "yaw_deg": { "type": "number", "description": "Rotation about +Y; 0 faces +Z (the camera), 90 faces +X (screen right)." },
+        "room": { "type": ["string", "null"] },
+        "station": { "$ref": "#/$defs/ident" },
+        "size": { "$ref": "#/$defs/vec2", "description": "Screens: width, height in metres." },
+        "normal": { "$ref": "#/$defs/vec3", "description": "Screens: unit normal toward the viewer." },
+        "corners": {
+          "description": "Screens: top-left, top-right, bottom-right, bottom-left as seen by the viewer.",
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/vec3" }
+        },
+        "props": { "type": "object", "description": "Remaining custom properties of the socket empty." }
+      },
+      "if": { "properties": { "kind": { "const": "screen" } } },
+      "then": { "required": ["size", "normal", "corners"] }
+    }
+  }
+}

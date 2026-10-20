@@ -49,8 +49,6 @@ from scripts.ci import agent_runtime_suite  # noqa: E402
 # Everything NOT listed keeps the python lane on — unknown means relevant.
 _PY_IRRELEVANT_PREFIXES = (
     "wiki-video/",
-    "homebrew-tap/",
-    "scoop-bucket/",
     "board-backend/",
     "qa/",
     "skillbook/",
@@ -172,7 +170,7 @@ _MACOS_FILES = {
     "pyproject.toml",
     "uv.lock",
     ".githooks/pre-push",
-    "jarvis.spec",
+    "dodaios.spec",
     "dodaios/core/macos_privacy_strings.py",
     "dodaios/core/branding.py",
     "dodaios/core/events.py",

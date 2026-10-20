@@ -20,6 +20,7 @@ import { toolIdentityStyle } from "./toolIdentity";
 import { timelineItems, useTimeline, type TimelineRenderers } from "./TraceTimeline";
 import { traceDuration } from "./traceEntries";
 import "./WorkTrace.css";
+import { turnErrorText } from "./turnError";
 
 export type Decide = (id: string, decision: ApprovalDecision) => void | Promise<void>;
 type Group = { id: string; blocks: TurnBlock[]; family: string | null };
@@ -797,7 +798,7 @@ export function TurnTrace({ turn, ...props }: { turn: TurnItem; onDecide?: Decid
   const t = useT();
   const tokens = outputTokens(turn.usage ?? turn.liveUsage);
   const answered = turn.blocks.some(block => block.kind === "text" && block.text.trim());
-  return <WorkTrace {...props} blocks={turn.blocks} status={turn.status} startedMs={turn.startedMs} durationMs={turn.durationMs} error={turn.error}
+  return <WorkTrace {...props} blocks={turn.blocks} status={turn.status} startedMs={turn.startedMs} durationMs={turn.durationMs} error={turnErrorText(turn.error, t)}
     completionLabel={!answered ? t("agent_chat.turn_no_answer") : undefined}
     receipt={tokens !== null && tokens > 0 || turn.costUsd !== null && turn.costUsd > 0 ? <>
       {tokens !== null && tokens > 0 ? <span aria-live="off" className="tabular-nums">{formatTokens(tokens)} {t("agent_chat.tokens")}</span> : null}
