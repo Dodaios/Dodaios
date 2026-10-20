@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from dodaios.core.branding import DISTRIBUTION_NAME
+from dodaios.core.branding import DISTRIBUTION_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +79,11 @@ def read_terms_text() -> str:
         sysconfig.get_path("data"),
         sysconfig.get_path("data", scheme=sysconfig.get_preferred_scheme("user")),
     )
+    # A wheel under the earlier distribution name installs under that name.
     installed_paths = (
-        Path(root) / "share" / DISTRIBUTION_NAME / "docs" / "legal" / "TERMS.md"
+        Path(root) / "share" / distribution / "docs" / "legal" / "TERMS.md"
         for root in data_roots
+        for distribution in DISTRIBUTION_NAMES
     )
     for terms_path in dict.fromkeys((_TERMS_PATH, *installed_paths)):
         try:

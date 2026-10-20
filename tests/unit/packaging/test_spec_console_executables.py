@@ -1,8 +1,10 @@
-"""``jarvis.spec`` builds the console CLI under its name and its earlier name.
+"""``jarvis.spec`` builds the launcher and the console CLI under their names and earlier names.
 
-The frozen build ships three executables in one folder: the windowed launcher,
-the console command (``dodaios``) and the same console program once more as
-``jarvis``, which scripts and shell history still call. This runs the real
+The frozen build ships four executables in one folder: the windowed launcher
+(``DodaiosApp``) and the same windowed program once more as ``PersonalJarvis``,
+which taskbar pins and logon tasks of earlier releases start, the console
+command (``dodaios``) and the same console program once more as ``jarvis``,
+which scripts and shell history still call. This runs the real
 spec with stand-in PyInstaller names and checks the targets it declares, for
 every OS the spec is built on.
 """
@@ -107,8 +109,12 @@ def test_the_freeze_ships_the_console_program_under_both_names(
     executables = [kwargs for name, _args, kwargs in calls if name == "EXE"]
     built = [(kwargs["name"], kwargs["console"]) for kwargs in executables]
     gui = Path(branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME).stem
+    legacy_gui = Path(branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES[0]).stem
     assert built == [
         (gui, False),
+        # The windowed launcher under its earlier name: pins, logon tasks and
+        # shortcuts of earlier releases start that file.
+        (legacy_gui, False),
         (branding.CLI_COMMAND_NAME, True),
         (branding.LEGACY_CLI_COMMAND_NAMES[0], True),
     ]
@@ -121,11 +127,11 @@ def test_the_freeze_ships_the_console_program_under_both_names(
     collected = [item.name for item in collect if getattr(item, "target", None) == "EXE"]
     assert collected == [name for name, _console in built]
 
-    # The console builds differ in nothing but their name.
-    new, legacy = executables[1], executables[2]
-    assert {k: v for k, v in new.items() if k != "name"} == {
-        k: v for k, v in legacy.items() if k != "name"
-    }
+    # The two builds of each program differ in nothing but their name.
+    for new, legacy in ((executables[0], executables[1]), (executables[2], executables[3])):
+        assert {k: v for k, v in new.items() if k != "name"} == {
+            k: v for k, v in legacy.items() if k != "name"
+        }
 
 
 def test_the_macos_bundle_still_launches_the_windowed_executable(

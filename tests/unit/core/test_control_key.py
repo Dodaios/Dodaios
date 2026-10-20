@@ -489,3 +489,28 @@ def test_get_logs_a_warning_naming_the_remedy(isolated, monkeypatch, caplog) -> 
         and "fresh random value" in record.getMessage()
         for record in caplog.records
     )
+
+
+def test_the_macos_keychain_probe_looks_under_every_credential_service(monkeypatch) -> None:
+    probed: list[str] = []
+
+    def fake_run(argv, **_kwargs):  # noqa: ANN001, ANN003
+        service = argv[argv.index("-s") + 1]
+        probed.append(service)
+        # Only the legacy service holds the item: a key saved before the rename.
+        return SimpleNamespace(returncode=0 if service in cfg.LEGACY_KEYRING_SERVICES else 44)
+
+    monkeypatch.setattr(ck.sys, "platform", "darwin")
+    monkeypatch.setattr(ck.subprocess, "run", fake_run)
+
+    assert ck._macos_keychain_item_exists() is True
+    assert probed == [cfg.KEYRING_SERVICE, *cfg.LEGACY_KEYRING_SERVICES]
+
+
+def test_the_macos_keychain_probe_finds_nothing_when_no_service_has_the_item(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(ck.sys, "platform", "darwin")
+    monkeypatch.setattr(ck.subprocess, "run", lambda *_a, **_k: SimpleNamespace(returncode=44))
+
+    assert ck._macos_keychain_item_exists() is False

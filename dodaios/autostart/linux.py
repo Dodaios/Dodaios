@@ -1,6 +1,6 @@
 """Linux login autostart via the freedesktop XDG autostart spec.
 
-Writes ``$XDG_CONFIG_HOME/autostart/personal-jarvis.desktop`` (default
+Writes ``$XDG_CONFIG_HOME/autostart/dodaios.desktop`` (default
 ``~/.config/autostart/...``). Desktop environments (GNOME/KDE/XFCE/...) launch
 every ``.desktop`` there at graphical login — which keeps Jarvis in the user's
 session with microphone access. This is the desktop-login path chosen in
@@ -16,6 +16,14 @@ two nested escaping layers; the failure mode it prevents is specific to this fil
 and invisible from both sides — the desktop discards a malformed entry without a
 word, and a writer comparing its own unescaped string still reports the dead
 entry as installed and current.
+
+Earlier releases wrote the entry as ``personal-jarvis.desktop``
+(``LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES``). One that starts this install
+counts as current, exactly like a logon task under its earlier name on
+Windows, so the boot reconcile leaves a working entry alone. Writing the entry
+(the Settings toggle, or a reconcile that found it stale) removes the earlier
+one, and so does an uninstall; an earlier-named entry of ANOTHER install is
+never touched (:func:`entry_belongs_to_install`).
 """
 
 from __future__ import annotations
@@ -24,6 +32,9 @@ import logging
 import os
 from pathlib import Path
 
+from dodaios.core.branding import (
+    LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES as _LEGACY_ENTRY_NAMES,
+)
 from dodaios.core.branding import (
     LINUX_APP_NAME as _APP_NAME,
 )
@@ -35,6 +46,7 @@ from dodaios.core.branding import (
 )
 from dodaios.core.desktop_entry import (
     escape_value,
+    exec_program,
     exec_value,
     read_field,
     reads_as_false,
@@ -42,6 +54,7 @@ from dodaios.core.desktop_entry import (
     unescape_value,
 )
 
+from .paths import same_path
 from .protocol import AutostartStatus, LaunchSpec
 
 log = logging.getLogger(__name__)
@@ -152,11 +165,142 @@ def _disabled_by_desktop(text: str) -> bool:
     )
 
 
-class LinuxAutostart:
-    """XDG ``.desktop`` autostart manager."""
+def _points_here(text: str, spec: LaunchSpec) -> bool:
+    """Does the entry start this install, under any spelling of its folder?
 
-    def __init__(self) -> None:
-        self._path = _autostart_dir() / _ENTRY_NAME
+    Exec is compared in its ENCODED form (both sides come from
+    ``_exec_value``); Path is compared decoded, so an entry another tool
+    re-encoded differently still recognises its own install. An entry written
+    before the install folder moved names the folder by its earlier path, which
+    a link still leads to: it is this install when that folder is the same one
+    on disk and its command is this command with the earlier folder spelled in.
+    """
+    stored_exec = read_field(text, "Exec")
+    stored_dir = unescape_value(read_field(text, "Path") or "")
+    if stored_exec == _exec_value(spec) and stored_dir == spec.working_dir:
+        return True
+    if not stored_dir or not same_path(stored_dir, spec.working_dir):
+        return False
+    try:
+        inner = os.path.relpath(spec.program, spec.working_dir)
+    except ValueError:
+        # Another drive (Windows only): the program is not inside the folder.
+        inner = os.pardir
+    if inner == os.pardir or inner.startswith(os.pardir + os.sep):
+        program = spec.program
+    else:
+        program = os.path.join(stored_dir, inner)
+    return stored_exec == exec_value(program, spec.args) and same_path(program, spec.program)
+
+
+def _inside(path: str, folder: str) -> bool:
+    """Is ``path`` inside ``folder`` once both are resolved on disk?"""
+    if not path or not folder:
+        return False
+    try:
+        real_path = os.path.realpath(path)
+        real_folder = os.path.realpath(folder)
+        return real_path != real_folder and (
+            os.path.commonpath([real_path, real_folder]) == real_folder
+        )
+    except (OSError, ValueError):
+        # A path that will not resolve, or sits on another drive, is not inside.
+        return False
+
+
+def entry_belongs_to_install(text: str, install_dir: str) -> bool:
+    """Does the desktop entry ``text`` start the install in ``install_dir``?
+
+    It does when its working folder (``Path=``) is that folder, under any
+    spelling that leads to it on disk, or when the program its ``Exec=`` starts
+    lies inside it (the install's virtual environment). The interpreter alone
+    proves nothing: a system ``python3`` starts every checkout on the machine.
+    Asked before an entry under an earlier name is removed, since such an
+    entry may just as well belong to another installation.
+    """
+    stored_dir = unescape_value(read_field(text, "Path") or "")
+    if stored_dir and same_path(stored_dir, install_dir):
+        return True
+    return _inside(exec_program(read_field(text, "Exec")), install_dir)
+
+
+def remove_entries_of_install(
+    paths: tuple[Path, ...] | list[Path], install_dir: str
+) -> tuple[tuple[Path, ...], tuple[str, ...]]:
+    """Delete each entry in ``paths`` that starts the install in ``install_dir``.
+
+    An entry that is missing, unreadable or another install's is kept. Returns
+    the removed paths and one message per entry that could not be removed.
+    """
+    removed: list[Path] = []
+    failures: list[str] = []
+    for path in paths:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue  # no entry under this earlier name: nothing to remove
+        except OSError as exc:
+            log.warning("Kept %s: it could not be read: %s", path, exc)
+            continue
+        if not entry_belongs_to_install(text, install_dir):
+            log.debug("Kept %s: it starts another install.", path)
+            continue
+        try:
+            path.unlink()
+        except OSError as exc:
+            log.warning("Could not remove %s: %s", path, exc)
+            failures.append(f"could not remove {path.name}: {exc}")
+            continue
+        removed.append(path)
+        log.info("Removed the desktop entry under its earlier name: %s", path)
+    return tuple(removed), tuple(failures)
+
+
+class LinuxAutostart:
+    """XDG ``.desktop`` autostart manager.
+
+    ``install_dir`` names the install an uninstall cleans up after, which
+    decides whether an earlier-named entry is this install's own when no launch
+    spec is at hand. It defaults to the running checkout, the folder
+    ``resolve_launch_spec`` writes as the entry's working folder.
+    """
+
+    def __init__(self, *, install_dir: str | None = None) -> None:
+        directory = _autostart_dir()
+        self._path = directory / _ENTRY_NAME
+        self._legacy_paths = tuple(
+            directory / name for name in _LEGACY_ENTRY_NAMES if name != _ENTRY_NAME
+        )
+        self._install_dir = install_dir
+
+    def _own_install_dir(self) -> str:
+        if self._install_dir is not None:
+            return self._install_dir
+        from dodaios.core.config import PROJECT_ROOT
+
+        return str(PROJECT_ROOT)
+
+    def _legacy_entries(self, install_dir: str) -> list[tuple[Path, str]]:
+        """Every earlier-named entry that starts THIS install, with its text."""
+        found: list[tuple[Path, str]] = []
+        for path in self._legacy_paths:
+            try:
+                text = path.read_text(encoding="utf-8")
+            except FileNotFoundError:
+                continue  # no entry under this earlier name
+            except OSError as exc:
+                log.warning("Kept %s: it could not be read: %s", path, exc)
+                continue
+            if entry_belongs_to_install(text, install_dir):
+                found.append((path, text))
+            else:
+                log.debug("Kept %s: it starts another install.", path)
+        return found
+
+    def _remove_legacy(self, install_dir: str) -> str:
+        """Remove the earlier-named entries of this install; the first failure."""
+        _removed, failures = remove_entries_of_install(self._legacy_paths, install_dir)
+        return failures[0] if failures else ""
 
     @property
     def _tmp_path(self) -> Path:
@@ -171,6 +315,13 @@ class LinuxAutostart:
 
     def status(self, spec: LaunchSpec) -> AutostartStatus:
         if not self._path.exists():
+            legacy = self._legacy_entries(spec.working_dir)
+            if legacy:
+                # Written by an earlier release under the earlier name, and it
+                # starts this install: judged like the current file, so a
+                # working entry is left as it is.
+                path, text = legacy[0]
+                return self._judge(path, text, spec)
             return AutostartStatus(
                 supported=True,
                 installed=False,
@@ -189,13 +340,27 @@ class LinuxAutostart:
                 entry_path=str(self._path),
                 detail=f"Autostart entry present but unreadable: {exc}.",
             )
-        # Exec is compared in its ENCODED form (both sides come from
-        # ``_exec_value``); Path is compared decoded, so an entry another tool
-        # re-encoded differently still recognises its own install.
-        points_here = (
-            read_field(text, "Exec") == _exec_value(spec)
-            and unescape_value(read_field(text, "Path") or "") == spec.working_dir
-        )
+        status = self._judge(self._path, text, spec)
+        if status.matches_spec and self._legacy_entries(spec.working_dir):
+            # Two entries of one install start the app twice at login. Not
+            # current, so the reconcile runs install(), which removes the
+            # earlier one.
+            return AutostartStatus(
+                supported=True,
+                installed=True,
+                matches_spec=False,
+                entry_path=str(self._path),
+                detail=(
+                    "An autostart entry under the earlier name also starts this "
+                    "install (will be removed)."
+                ),
+            )
+        return status
+
+    @staticmethod
+    def _judge(path: Path, text: str, spec: LaunchSpec) -> AutostartStatus:
+        """Status of the readable entry ``text`` at ``path`` against ``spec``."""
+        points_here = _points_here(text, spec)
         switched_off = _disabled_by_desktop(text)
         matches = points_here and not switched_off
         if matches:
@@ -211,7 +376,7 @@ class LinuxAutostart:
             supported=True,
             installed=True,
             matches_spec=matches,
-            entry_path=str(self._path),
+            entry_path=str(path),
             detail=detail,
         )
 
@@ -233,6 +398,9 @@ class LinuxAutostart:
             tmp.unlink(missing_ok=True)
             raise
         log.info("Linux autostart entry written: %s", self._path)
+        # Left beside the new file, the entry under the earlier name would
+        # start the app a second time at login.
+        self._remove_legacy(spec.working_dir)
         return self.status(spec)
 
     def uninstall(self, *, interactive: bool = False) -> AutostartStatus:  # noqa: ARG002
@@ -251,6 +419,7 @@ class LinuxAutostart:
             except OSError as exc:
                 log.warning("Could not remove %s: %s", self._path, exc)
                 error = str(exc)
+        error = error or self._remove_legacy(self._own_install_dir())
         if error:
             # Reporting "Autostart disabled." while the .desktop survives was a
             # lie: the desktop environment still launches Jarvis at the next
@@ -275,4 +444,4 @@ class LinuxAutostart:
         )
 
 
-__all__ = ["LinuxAutostart"]
+__all__ = ["LinuxAutostart", "entry_belongs_to_install", "remove_entries_of_install"]

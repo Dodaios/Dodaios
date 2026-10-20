@@ -46,7 +46,7 @@ def test_frontend_source_change_keeps_python_on_because_tests_read_it():
 
 
 def test_unrelated_subproject_skips_python():
-    result = classify_changes.classify(["wiki-video/src/scene.tsx", "homebrew-tap/Formula/x.rb"])
+    result = classify_changes.classify(["wiki-video/src/scene.tsx", "board-backend/x.ts"])
     assert result["python"] is False
     assert not any(result[lane] for lane in classify_changes.LANES)
 

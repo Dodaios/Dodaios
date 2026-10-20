@@ -20,6 +20,8 @@ autostart still works (just possibly delayed) — covered by ``test_windows_scri
 
 from __future__ import annotations
 
+import re
+
 from dodaios.autostart.protocol import LaunchSpec
 from dodaios.autostart.windows import (
     TASK_NAME,
@@ -29,6 +31,12 @@ from dodaios.autostart.windows import (
     build_register_task_script,
     build_unregister_task_script,
     parse_task_query,
+)
+from dodaios.core.branding import (
+    LEGACY_WINDOWS_AUTOSTART_TASK_NAMES,
+    LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
+    WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
 )
 
 _SPEC = LaunchSpec(
@@ -191,6 +199,9 @@ def build_fake_query_output(
 # --------------------------------------------------------------------------- #
 
 
+_LEGACY_TASK_NAME = LEGACY_WINDOWS_AUTOSTART_TASK_NAMES[0]
+
+
 def _mk(
     *,
     task_info: _TaskInfo | None = None,
@@ -198,21 +209,56 @@ def _mk(
     shortcut_present: bool = False,
     shortcut_matches: bool = False,
 ) -> tuple[WindowsAutostart, list[str]]:
-    calls: list[str] = []
-    state = {"task": task_info, "shortcut": shortcut_present}
+    mgr, calls, _tasks, _probed = _scheduler(
+        task_info=task_info,
+        elevate_ok=elevate_ok,
+        shortcut_present=shortcut_present,
+        shortcut_matches=shortcut_matches,
+    )
+    return mgr, calls
 
-    def task_probe() -> _TaskInfo | None:
-        return state["task"]
+
+def _scheduler(
+    *,
+    task_info: _TaskInfo | None = None,
+    legacy_task_info: _TaskInfo | None = None,
+    elevate_ok: bool = True,
+    shortcut_present: bool = False,
+    shortcut_matches: bool = False,
+) -> tuple[WindowsAutostart, list[str], dict[str, _TaskInfo], list[str]]:
+    """A manager over an in-memory Task Scheduler keyed by task name.
+
+    Returns the manager, its side effects in order, the registered tasks by
+    name, and every name the manager asked the scheduler about.
+    """
+    calls: list[str] = []
+    tasks: dict[str, _TaskInfo] = {}
+    if task_info is not None:
+        tasks[TASK_NAME] = task_info
+    if legacy_task_info is not None:
+        tasks[_LEGACY_TASK_NAME] = legacy_task_info
+    probed: list[str] = []
+    state = {"shortcut": shortcut_present}
+
+    def task_probe(name: str) -> _TaskInfo | None:
+        probed.append(name)
+        return tasks.get(name)
 
     def run_elevated(script: str) -> bool:
-        if "Register-ScheduledTask" in script:
+        registered = re.findall(r"^  Register-ScheduledTask -TaskName '([^']+)'", script, re.M)
+        unregistered = re.findall(
+            r"^  Unregister-ScheduledTask -TaskName '([^']+)'", script, re.M
+        )
+        if registered:
             calls.append("elevate_register")
-            if elevate_ok:
-                state["task"] = _MATCHING_INFO
-        elif "Unregister-ScheduledTask" in script:
+        elif unregistered:
             calls.append("elevate_unregister")
-            if elevate_ok:
-                state["task"] = None
+        calls.extend(f"unregister:{name}" for name in unregistered)
+        if elevate_ok:
+            for name in registered:
+                tasks[name] = _MATCHING_INFO
+            for name in unregistered:
+                tasks.pop(name, None)
         return elevate_ok
 
     def sc_present() -> bool:
@@ -237,7 +283,7 @@ def _mk(
         write_shortcut=write_sc,
         remove_shortcut=remove_sc,
     )
-    return mgr, calls
+    return mgr, calls, tasks, probed
 
 
 def test_status_reports_scheduled_task_when_present_and_matching() -> None:
@@ -554,7 +600,7 @@ def test_boot_reconcile_writes_the_shortcut_without_powershell(monkeypatch, tmp_
         "_write_shortcut_in_process",
         lambda link, spec, icon: written.append((link, spec, icon)) or True,
     )
-    mgr = WindowsAutostart(task_probe=lambda: None, run_elevated=lambda s: False)
+    mgr = WindowsAutostart(task_probe=lambda name: None, run_elevated=lambda s: False)
     mgr.install(_SPEC)
     assert len(written) == 1
     assert written[0][1] == _SPEC
@@ -580,7 +626,7 @@ def test_task_probe_uses_com_and_skips_powershell(monkeypatch) -> None:
 
     monkeypatch.setattr(win_mod, "_run_powershell", _no_powershell)
     monkeypatch.setattr(win_mod, "_query_task_in_process", lambda name: _MATCHING_INFO)
-    assert WindowsAutostart()._default_task_probe() == _MATCHING_INFO
+    assert WindowsAutostart()._default_task_probe(TASK_NAME) == _MATCHING_INFO
 
 
 def test_task_probe_com_failure_reads_as_absent_not_powershell(monkeypatch) -> None:
@@ -591,7 +637,7 @@ def test_task_probe_com_failure_reads_as_absent_not_powershell(monkeypatch) -> N
 
     monkeypatch.setattr(win_mod, "_run_powershell", _no_powershell)
     monkeypatch.setattr(win_mod, "_query_task_in_process", boom)
-    assert WindowsAutostart()._default_task_probe() is None
+    assert WindowsAutostart()._default_task_probe(TASK_NAME) is None
 
 
 def test_task_probe_without_pywin32_falls_back_to_powershell(monkeypatch) -> None:
@@ -605,4 +651,179 @@ def test_task_probe_without_pywin32_falls_back_to_powershell(monkeypatch) -> Non
         "_run_powershell",
         lambda script: subprocess.CompletedProcess(["powershell"], 0, stdout="", stderr=""),
     )
-    assert WindowsAutostart()._default_task_probe() is None
+    assert WindowsAutostart()._default_task_probe(TASK_NAME) is None
+
+
+# --------------------------------------------------------------------------- #
+# The task under the product's earlier name                                    #
+# --------------------------------------------------------------------------- #
+
+
+def test_a_matching_task_under_the_earlier_name_counts_as_current() -> None:
+    mgr, calls, tasks, probed = _scheduler(legacy_task_info=_MATCHING_INFO)
+
+    st = mgr.status(_SPEC)
+    mgr.install(_SPEC, interactive=False)
+
+    assert st.installed is True and st.matches_spec is True
+    assert st.entry_path == f"Task Scheduler\\{_LEGACY_TASK_NAME}"
+    # The silent boot reconcile never elevates and writes no second entry.
+    assert calls == []
+    assert set(tasks) == {_LEGACY_TASK_NAME}
+    assert probed[:2] == [TASK_NAME, _LEGACY_TASK_NAME]
+
+
+def test_the_earlier_name_is_not_asked_for_once_the_task_moved() -> None:
+    mgr, _calls, _tasks, probed = _scheduler(
+        task_info=_MATCHING_INFO, legacy_task_info=_MATCHING_INFO
+    )
+
+    mgr.status(_SPEC)
+
+    assert probed == [TASK_NAME]
+
+
+def test_an_earlier_task_starting_the_earlier_launcher_and_package_still_matches(
+    tmp_path,
+) -> None:
+    # An earlier release registered {app}\PersonalJarvis.exe -m jarvis...; the
+    # install ships that file beside DodaiosApp.exe and the old module path
+    # resolves to the same module, so the task starts this install unchanged.
+    app = tmp_path / "Programs" / "Dodaios"
+    app.mkdir(parents=True)
+    legacy_exe = app / LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES[0]
+    legacy_exe.write_bytes(b"MZ")
+    spec = LaunchSpec(
+        program=str(app / WINDOWS_BRANDED_LAUNCHER_FILE_NAME),
+        args=("-m", "dodaios.ui.web.launcher"),
+        working_dir=str(app),
+    )
+    old = _TaskInfo(
+        execute=str(legacy_exe),
+        arguments="-m jarvis.ui.web.launcher",
+        working_dir=str(app),
+    )
+    mgr, calls, _tasks, _probed = _scheduler(legacy_task_info=old)
+
+    assert mgr.status(spec).matches_spec is True
+    mgr.install(spec, interactive=False)
+    assert calls == []
+
+
+def test_an_earlier_launcher_name_that_is_gone_is_drift(tmp_path) -> None:
+    app = tmp_path / "app"
+    app.mkdir()
+    spec = LaunchSpec(
+        program=str(app / WINDOWS_BRANDED_LAUNCHER_FILE_NAME),
+        args=("-m", "dodaios.ui.web.launcher"),
+        working_dir=str(app),
+    )
+    old = _TaskInfo(
+        execute=str(app / LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES[0]),
+        arguments="-m dodaios.ui.web.launcher",
+        working_dir=str(app),
+    )
+    mgr, _calls, _tasks, _probed = _scheduler(legacy_task_info=old)
+
+    assert mgr.status(spec).matches_spec is False
+
+
+def test_an_unrelated_executable_in_the_same_folder_is_drift(tmp_path) -> None:
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "other.exe").write_bytes(b"MZ")
+    spec = LaunchSpec(
+        program=str(app / WINDOWS_BRANDED_LAUNCHER_FILE_NAME),
+        args=("-m", "dodaios.ui.web.launcher"),
+        working_dir=str(app),
+    )
+    other = _TaskInfo(
+        execute=str(app / "other.exe"),
+        arguments="-m dodaios.ui.web.launcher",
+        working_dir=str(app),
+    )
+    mgr, _calls, _tasks, _probed = _scheduler(legacy_task_info=other)
+
+    assert mgr.status(spec).matches_spec is False
+
+
+def test_an_interactive_enable_moves_the_task_to_the_current_name_in_one_step() -> None:
+    mgr, calls, tasks, _probed = _scheduler(legacy_task_info=_MATCHING_INFO)
+
+    st = mgr.install(_SPEC, interactive=True)
+
+    # One elevation registers the current name and removes the earlier one.
+    assert calls.count("elevate_register") == 1
+    assert f"unregister:{_LEGACY_TASK_NAME}" in calls
+    assert "write_shortcut" not in calls
+    assert set(tasks) == {TASK_NAME}
+    assert st.matches_spec is True
+    assert st.entry_path == f"Task Scheduler\\{TASK_NAME}"
+
+
+def test_a_declined_rename_keeps_the_earlier_task_and_writes_no_second_entry() -> None:
+    mgr, calls, tasks, _probed = _scheduler(
+        legacy_task_info=_MATCHING_INFO, elevate_ok=False
+    )
+
+    st = mgr.install(_SPEC, interactive=True)
+
+    assert "elevate_register" in calls
+    assert "write_shortcut" not in calls
+    assert set(tasks) == {_LEGACY_TASK_NAME}
+    assert st.matches_spec is True
+
+
+def test_the_register_script_removes_the_earlier_name_only_after_registering() -> None:
+    script = build_register_task_script(
+        TASK_NAME, _SPEC, user_id="u", replaced_task_names=(_LEGACY_TASK_NAME,)
+    )
+
+    register = script.index(f"Register-ScheduledTask -TaskName '{TASK_NAME}'")
+    unregister = script.index(f"Unregister-ScheduledTask -TaskName '{_LEGACY_TASK_NAME}'")
+    assert register < unregister
+    # Both inside the one try block: a failed registration skips the removal.
+    assert unregister < script.index("} catch { exit 1 }")
+
+
+def test_an_interactive_uninstall_removes_every_name_in_one_elevation() -> None:
+    mgr, calls, tasks, _probed = _scheduler(
+        task_info=_MATCHING_INFO, legacy_task_info=_MATCHING_INFO
+    )
+
+    st = mgr.uninstall(interactive=True)
+
+    assert calls.count("elevate_unregister") == 1
+    assert {f"unregister:{TASK_NAME}", f"unregister:{_LEGACY_TASK_NAME}"} <= set(calls)
+    assert tasks == {}
+    assert st.installed is False
+
+
+def test_a_silent_uninstall_reports_a_surviving_task_under_the_earlier_name() -> None:
+    mgr, calls, _tasks, _probed = _scheduler(legacy_task_info=_MATCHING_INFO)
+
+    st = mgr.uninstall(interactive=False)
+
+    assert "elevate_unregister" not in calls
+    assert st.installed is True
+    assert st.entry_path == f"Task Scheduler\\{_LEGACY_TASK_NAME}"
+
+
+def test_a_startup_shortcut_under_the_earlier_name_counts_and_is_retired(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    from dodaios.autostart import windows as win_mod
+
+    startup = win_mod._startup_dir()
+    startup.mkdir(parents=True)
+    old = startup / LEGACY_WINDOWS_SHORTCUT_FILE_NAMES[0]
+    old.write_bytes(b"lnk")
+    mgr = WindowsAutostart(task_probe=lambda _name: None)
+
+    # It starts the app at login just the same: present, and beside a task a
+    # second start, so it is retired like every earlier startup entry.
+    assert mgr._default_shortcut_present() is True
+    mgr._default_remove_shortcut()
+    assert not old.exists()
+    assert mgr._default_shortcut_present() is False

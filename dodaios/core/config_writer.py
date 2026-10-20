@@ -1006,9 +1006,9 @@ def set_screen_context_settings(
 #: The master switch is ``[screen_context].enabled``, written by the setter above.
 APPSHOT_SETTING_KEYS: frozenset[str] = frozenset(
     {"keep_newest",
-     "hotkey", "region_hotkey", "recording_hotkey", "target", "sound", "effect", "card_seconds",
-     "library", "copy_to_clipboard", "recording_resolution", "recording_fps", "recording_bitrate_mbps",
-     "recording_system_audio"}
+     "hotkey", "region_hotkey", "region_keep_area", "recording_hotkey", "target", "sound",
+     "effect", "card_seconds", "library", "copy_to_clipboard", "recording_resolution",
+     "recording_fps", "recording_bitrate_mbps", "recording_system_audio"}
 )
 
 
