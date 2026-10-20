@@ -85,7 +85,7 @@ def audio_seconds(pcm: object, sample_rate: object = 16_000) -> float:
         return 0.0
     try:
         rate = int(sample_rate or 16_000)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # an unusable rate means the 16 kHz default
         rate = 16_000
     return len(pcm) / float(max(1, rate) * 2)
 
