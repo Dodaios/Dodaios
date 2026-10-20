@@ -52,7 +52,7 @@ irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 |
 curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
 ```
 
-安装程序会检查 Python 3.11+ 和 Git，提示安装缺少的组件，注册桌面启动器并打开应用。
+无需预先安装任何东西。如果缺少 Python，安装程序会为 Dodaios 单独下载一份私有副本；在 Windows 上 Git 也是如此，不需要管理员权限，也不会询问。随后它会注册桌面启动器并打开应用。
 再次运行即可更新现有安装。语言、唤醒词和模型都在应用内设置。
 
 **你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
@@ -99,6 +99,10 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 > 也可以随时在“设置 > 语言”中切换。
 
 ## 成倍放大的 Vibe Coding
+
+https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
+
+<p align="center"><sub>Agentic IDE 的真实录屏：三个智能体同时工作，侧边栏里是你自己的 Chrome，还有文件、Git 差异和第二个工作区。</sub></p>
 
 **Agentic IDE** 把一块屏幕变成一个编程车间。打开一个项目，把它拆分成多个窗格，再给每个窗格分配一个编程智能体。
 每个窗格都有自己的呼号，你可以完全不用动手地指挥它们：

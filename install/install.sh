@@ -5,8 +5,10 @@
 #   curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
 #
 # This bootstrap is intentionally small. It:
-#   1. Verifies Python 3.11+ and git are available.
-#   2. Offers to install either missing prerequisite, then re-checks in place.
+#   1. Uses Python 3.11+ and git when they are installed. A missing Python
+#      is fetched as a self-contained per-user copy via uv (no sudo, no
+#      prompt).
+#   2. Offers to install a missing git, then re-checks in place.
 #   3. Checks for Node.js 18+ (optional - a missing Node never blocks the install).
 #   4. Clones (or updates) Dodaios into ~/.dodaios (an update moves an install
 #      made under the earlier name ~/.personal-jarvis there).
@@ -397,6 +399,7 @@ git_available() {
 # fetch a self-contained CPython 3.13 via uv (per-user, no sudo) and use it
 # for the venv — the speech pack then installs during THIS run.
 _PY_BOOTSTRAP_TRIED=0
+_PY_BOOTSTRAPPED=""
 
 _bootstrap_target_version() {
     # Intel Macs: the native voice stack's last x86_64 wheels end at cp312
@@ -426,6 +429,10 @@ _py_full_support() {
 
 bootstrap_full_support_python() {
     [ -n "${JARVIS_NO_PYTHON_BOOTSTRAP:-}" ] && return 1
+    if [ -n "$_PY_BOOTSTRAPPED" ]; then
+        PYTHON_EXE="$_PY_BOOTSTRAPPED"
+        return 0
+    fi
     [ "$_PY_BOOTSTRAP_TRIED" -eq 1 ] && return 1
     _PY_BOOTSTRAP_TRIED=1
     _uv=$(command -v uv 2>/dev/null || true)
@@ -443,12 +450,28 @@ bootstrap_full_support_python() {
     _bp=$("$_uv" python find "$_target" 2>/dev/null) || return 1
     [ -x "$_bp" ] || return 1
     PYTHON_EXE="$_bp"
+    _PY_BOOTSTRAPPED="$_bp"
     return 0
 }
 
 refresh_prerequisite_state() {
     PYTHON_EXE=""
     if find_python; then PYTHON_READY=1; else PYTHON_READY=0; fi
+    # No Python at all: fetch the same per-user copy instead of asking for a
+    # system package. It needs no sudo and changes nothing outside the user's
+    # own folders, so there is nothing to ask about. The package-manager
+    # prompt below stays the fallback when this download fails.
+    if [ "$PYTHON_READY" -eq 0 ] && [ -z "${JARVIS_PYTHON:-}" ] \
+        && [ "${PREREQUISITE_MODE:-ask}" != 'never' ]; then
+        _first_fetch=0
+        [ -z "$_PY_BOOTSTRAPPED" ] && _first_fetch=1
+        if bootstrap_full_support_python; then
+            PYTHON_READY=1
+            if [ "$_first_fetch" -eq 1 ]; then
+                ok "fetched self-contained Python $(_bootstrap_target_version) (per-user, no sudo)"
+            fi
+        fi
+    fi
     # An explicit JARVIS_PYTHON pin is authoritative — never substituted.
     if [ "$PYTHON_READY" -eq 1 ] && [ -z "${JARVIS_PYTHON:-}" ] \
         && ! _py_full_support "$PYTHON_EXE"; then

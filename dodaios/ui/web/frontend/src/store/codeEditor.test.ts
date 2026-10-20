@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { reloadHeld } from "@/lib/reloadHold";
 import { fileKeyOf, tabKeyOf, tabsOf, useCodeEditorStore } from "./codeEditor";
+import { useIdeSidePanelStore } from "./ideSidePanel";
 
 const store = () => useCodeEditorStore.getState();
 const paths = () => store().tabs.map((tab) => `${tab.path}${tab.preview ? "*" : ""}`);
@@ -11,6 +12,23 @@ beforeEach(() => {
 });
 
 describe("code editor tabs", () => {
+  it("restores a maximized side panel when a file opens, so the editor is on screen", () => {
+    const maximize = () => useIdeSidePanelStore.setState({ open: true, maximized: true });
+    maximize();
+    store().openFile("w1", "a.ts", { mode: "diff" });
+    expect(useIdeSidePanelStore.getState().maximized).toBe(false);
+
+    maximize();
+    store().activate(tabKeyOf("diff", fileKeyOf("w1", "a.ts")));
+    expect(useIdeSidePanelStore.getState().maximized).toBe(false);
+
+    maximize();
+    store().setVisible(false);
+    expect(useIdeSidePanelStore.getState().maximized).toBe(true);
+    store().setVisible(true);
+    expect(useIdeSidePanelStore.getState().maximized).toBe(false);
+  });
+
   it("lets a single-click preview tab be replaced by the next one", () => {
     store().openFile("w1", "a.ts");
     store().openFile("w1", "b.ts");
