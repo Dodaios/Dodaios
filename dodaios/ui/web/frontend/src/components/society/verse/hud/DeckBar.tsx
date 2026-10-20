@@ -1,12 +1,13 @@
 /**
  * The HUD's fixed parts: the deck title top left (number, name, who is on
  * duty) with the commander's rank card beside it, and the tool rail top right
- * (turbolift, bring the camera to the commander, help). Development builds
+ * (bird's-eye on or off, turbolift, bring the camera to the commander, help). Development builds
  * add a frame readout bottom right.
  */
 import { useEffect, useRef, type ReactNode } from "react";
 import { deckNumber, type DeckId } from "../decks";
 import type { StageRuntime } from "../runtime";
+import type { ControlMode } from "../life/control";
 
 interface TitleProps {
   deck: DeckId;
@@ -43,6 +44,9 @@ export function DeckTitle({ deck, t, counts, rankCard }: TitleProps) {
 
 interface ToolProps {
   t: (key: string) => string;
+  /** Third person (the commander under the keys) or bird's-eye. */
+  mode: ControlMode;
+  onToggleView: () => void;
   onLift: () => void;
   onCommander: () => void;
   onHelp: () => void;
@@ -52,9 +56,14 @@ const icon = (d: string) => (
   <svg width="13" height="13" viewBox="0 0 13 13" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.2"><path d={d} /></svg>
 );
 
-export function Toolbar({ t, onLift, onCommander, onHelp }: ToolProps) {
+export function Toolbar({ t, mode, onToggleView, onLift, onCommander, onHelp }: ToolProps) {
   return (
     <nav className="verse-tools" aria-label={t("verse.stage.title")}>
+      <button type="button" className="verse-tool" onClick={onToggleView} aria-pressed={mode === "overview"} title={`${t("verse.tools.overview")} (V)`}>
+        {icon("M1 3.5l3.8-1.5 3.4 1.5L12 2v7.5L8.2 11 4.8 9.5 1 11zM4.8 2v7.5M8.2 3.5V11")}
+        <span className="verse-tool-text">{t("verse.tools.overview")}</span>
+        <kbd aria-hidden>V</kbd>
+      </button>
       <button type="button" className="verse-tool" onClick={onLift} title={t("verse.tools.lift")}>
         {icon("M3.5 1.5v10M1 4l2.5-2.5L6 4M9.5 11.5v-10M7 9l2.5 2.5L12 9")}
         <span className="verse-tool-text">{t("verse.tools.lift")}</span>

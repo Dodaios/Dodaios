@@ -1,9 +1,10 @@
 /**
  * The camera's pan and zoom state over one plate: a target view the input
  * moves, and a current view that follows it with damping each frame. Drags
- * move both (the plate stays under the pointer); wheel, keys, focus and fling
- * move the target only. Every view is clamped (view.ts), so the plate always
- * covers the viewport. With reduced motion the current view jumps.
+ * move both (the plate stays under the pointer); wheel, keys, focus, fling
+ * and the third-person follow move the target only. Every view is clamped
+ * (view.ts), so the plate always covers the viewport. With reduced motion
+ * the current view jumps.
  */
 import type { PlateCamera } from "./plateMath";
 import { clampView, damp, panBy, scaleLimits, screenToPlate, settled, zoomAt, type View, type Viewport } from "./view";
@@ -13,6 +14,8 @@ const HALF_LIFE_S = 0.09;
 const KEY_PAN_PX_S = 720;
 /** A released drag keeps going for about this long. */
 const FLING_S = 0.22;
+/** The third-person camera shows about this many metres across the longer side of the viewport. */
+const FOLLOW_SPAN_M = 24;
 
 export type PanKey = "left" | "right" | "up" | "down";
 
@@ -24,8 +27,8 @@ export class ViewController {
   reduced = false;
   private keys = new Set<PanKey>();
   private focusPoint: { u: number; v: number } | null = null;
-  /** The viewport has a real size. */
-  private measured = false;
+  /** The viewport has a real size (read-only outside this class). */
+  measured = false;
   /** The current plate was framed against a real viewport. */
   private framed = false;
   private fast = false;
@@ -90,6 +93,31 @@ export class ViewController {
   focus(u: number, v: number, scale = this.target.scale): void {
     if (!this.cam) return;
     this.target = clampView(this.cam, this.vp, { cu: u, cv: v, scale });
+  }
+
+  /**
+   * The third-person zoom: close enough that a person on the deck reads as a
+   * figure (about 24 m across the longer side of the viewport), never below
+   * 40 px per metre in a small panel; clamped to the plate's limits.
+   */
+  followScale(): number {
+    if (!this.cam) return this.target.scale;
+    const { min, max } = scaleLimits(this.cam, this.vp);
+    const wanted = Math.max(40, Math.max(this.vp.width, this.vp.height) / FOLLOW_SPAN_M);
+    return Math.min(max, Math.max(min, wanted));
+  }
+
+  /** Keep a moving plate point (the commander) in the middle of the screen, at the current zoom. */
+  follow(u: number, v: number): void {
+    if (!this.cam) return;
+    this.target = clampView(this.cam, this.vp, { cu: u, cv: v, scale: this.target.scale });
+  }
+
+  /** Bird's-eye: pull back as far as the plate allows, around what is in the middle now. */
+  overview(): void {
+    if (!this.cam) return;
+    const { min } = scaleLimits(this.cam, this.vp);
+    this.target = clampView(this.cam, this.vp, { ...this.target, scale: min });
   }
 
   /** Double-click: centre the point and zoom in, or back out when already close. */
