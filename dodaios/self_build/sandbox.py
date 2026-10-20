@@ -185,7 +185,7 @@ async def run(
                 _run_local(seat, local, skill_name, skill_body, request, offered, executor),
                 timeout=TIMEOUT_S,
             )
-    except TimeoutError:
+    except TimeoutError:  # not silent: the timeout is the failed proof the judge reports
         return Run(request, "", error=f"no answer within {TIMEOUT_S:.0f} s")
     finally:
         await asyncio.to_thread(shutil.rmtree, workdir, True)
@@ -198,6 +198,7 @@ def _calls_tools(instance: Any) -> bool:
         try:
             return bool(probe())
         except Exception:  # noqa: BLE001 - an unanswerable probe means no tools
+            log.debug("self_build: tool-calling probe of %s failed", instance, exc_info=True)
             return False
     return bool(getattr(instance, "supports_tools", False))
 
