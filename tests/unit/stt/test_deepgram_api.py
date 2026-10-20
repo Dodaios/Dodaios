@@ -17,7 +17,7 @@ from io import BytesIO
 import httpx
 import pytest
 
-from jarvis.plugins.stt.deepgram_api import (
+from dodaios.plugins.stt.deepgram_api import (
     DEFAULT_MODEL,
     DeepgramSTT,
     _payload_to_transcript,

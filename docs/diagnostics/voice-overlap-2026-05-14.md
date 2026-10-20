@@ -47,7 +47,7 @@ File: `data/jarvis_desktop.log`, lines 19990–20069 (turn at 19:36:43 .. 19:37:
 Two `AudioOutFirst` events from the *same turn* prove two distinct
 `play_chunks()` calls were alive at the same time, because
 `first_audio_published` is a closure-local variable scoped to one
-`play_chunks` invocation (`jarvis/audio/player.py:433, 453-459`).
+`play_chunks` invocation (`dodaios/audio/player.py:433, 453-459`).
 
 Same pattern repeats throughout the log:
 
@@ -72,13 +72,13 @@ on turns where `ack_emitted_total` had been logged earlier.
 ```
 User speech
   └─ VAD endpoint (audio.capture → speech.pipeline)
-       └─ _handle_utterance (jarvis/speech/pipeline.py:1696)
+       └─ _handle_utterance (dodaios/speech/pipeline.py:1696)
             ├─ STT (final transcript)
             ├─ Skills direct trigger? (line 1810) ──► run skill (may TTS) ┐
             ├─ turn-state -> PROCESSING (line 1814)                       │
             ├─ FORK A: asyncio.create_task(_spawn_flash_brain_ack(...))   │
             │           (line 1830, "flash-brain-ack")                    │
-            │     └─ jarvis/speech/pipeline.py:1045-1116                  │
+            │     └─ dodaios/speech/pipeline.py:1045-1116                  │
             │          ├─ ack = await ack_brain.run(...)                  │
             │          ├─ suppress-gate poll (lines 1085-1103)            │
             │          │     ◆ 100-ms steps, max 2000 ms,                 │
@@ -104,7 +104,7 @@ User speech
                                  ├─ if not spoken_anything:                │
                                  │     turn-state -> JARVIS_SPEAKING       │
                                  └─ await self._speak(sentence)            │
-                                       │  jarvis/speech/pipeline.py:2236   │
+                                       │  dodaios/speech/pipeline.py:2236   │
                                        ├─ tts.synthesize(...)              │
                                        ├─ asyncio.create_task(             │
                                        │   self._player.play_chunks(...))  │
@@ -122,7 +122,7 @@ User speech
 
 ### The unsynchronised resource
 
-`jarvis/audio/player.py` defines `class AudioPlayer` (line 231).
+`dodaios/audio/player.py` defines `class AudioPlayer` (line 231).
 `play_chunks` (line 391) and `play_pcm` (line 280) are plain `async def`
 methods that wrap `asyncio.to_thread(...)`. There is:
 
@@ -139,7 +139,7 @@ hears both phrases at once.
 
 `_spawn_flash_brain_ack` polls `self._turn_state` every 100 ms for
 `suppress_if_brain_faster_than_ms` (default 2000 ms,
-`jarvis/speech/pipeline.py:1085-1103`). It drops the ack only if the
+`dodaios/speech/pipeline.py:1085-1103`). It drops the ack only if the
 state has *already* moved out of `PROCESSING`. Two distinct races defeat
 it:
 
@@ -185,7 +185,7 @@ and `play_pcm`. Callers behave the same; the lock guarantees only one
 audio stream is ever open at a time.
 
 ```python
-# jarvis/audio/player.py
+# dodaios/audio/player.py
 class AudioPlayer:
     def __init__(self, ...):
         ...

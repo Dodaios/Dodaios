@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.harness.screenshot_only_loop import (
+from dodaios.harness.screenshot_only_loop import (
     CULoopError,
     _dispatch_raw_click,
     _normalize_click_button,

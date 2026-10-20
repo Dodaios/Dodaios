@@ -1,4 +1,4 @@
-"""Unit tests for the cross-platform uninstaller (jarvis/setup/uninstall.py).
+"""Unit tests for the cross-platform uninstaller (dodaios/setup/uninstall.py).
 
 Safety: every test drives tmp_path directories or fakes — NOTHING here deletes a
 real install, the real keyring, or the real autostart entry. The removal helpers
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.setup import uninstall
-from jarvis.setup.uninstall import UninstallPlan
+from dodaios.setup import uninstall
+from dodaios.setup.uninstall import UninstallPlan
 
 
 def _fake_plan(
@@ -56,7 +56,7 @@ def _record_steps(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 # ---------------------------------------------------------------- guard
 def test_looks_like_jarvis_install_true(tmp_path: Path) -> None:
-    (tmp_path / "jarvis").mkdir()
+    (tmp_path / "dodaios").mkdir()
     (tmp_path / "pyproject.toml").write_text(
         "[project]\nname='personal-jarvis'\n", encoding="utf-8"
     )
@@ -74,7 +74,7 @@ def test_build_plan_reflects_real_repo(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(uninstall, "_keyring_keys_present", lambda: [])
     monkeypatch.setattr(uninstall, "_find_running_instances", lambda _p: [])
     plan = uninstall.build_plan()
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
 
     assert plan.install_dir == Path(cfg.PROJECT_ROOT).resolve()
     # The repo we run from IS a Jarvis install.
@@ -315,7 +315,7 @@ def test_keyring_keys_present_darwin_never_reads_secret_values(
     """When the attributes-only probe answers, no decrypting read may happen."""
     import keyring
 
-    from jarvis.setup.wizard import SECRETS
+    from dodaios.setup.wizard import SECRETS
 
     target = SECRETS[0].key
 
@@ -336,7 +336,7 @@ def test_keyring_keys_present_still_sees_file_fallback_copies(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A key saved to the 0600 file store (Keychain declined) must be removed too."""
-    from jarvis.setup.wizard import SECRETS
+    from dodaios.setup.wizard import SECRETS
 
     target = SECRETS[0].key
 

@@ -27,9 +27,9 @@ try:  # cp1252-safe output on a Windows console (AGENTS.md Windows note)
 except Exception:
     pass
 
-from jarvis.pointer.context import resolve_pointer_context  # noqa: E402
-from jarvis.pointer.intent import is_pointing_intent  # noqa: E402
-from jarvis.pointer.turn import resolve_turn_pointer  # noqa: E402
+from dodaios.pointer.context import resolve_pointer_context  # noqa: E402
+from dodaios.pointer.intent import is_pointing_intent  # noqa: E402
+from dodaios.pointer.turn import resolve_turn_pointer  # noqa: E402
 
 _GATE_CASES = [
     ("was ist das da?", True),

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.platform.deescalate import (
+from dodaios.platform.deescalate import (
     DEESCALATION_ATTEMPTED_ENV,
     KEEP_ELEVATION_ENV,
     DeescalationResult,
@@ -151,7 +151,7 @@ class TestBootTimeDeescalation:
         calls: list = []
 
         result = maybe_relaunch_unelevated(
-            ["py", "-m", "jarvis.ui.web.launcher"],
+            ["py", "-m", "dodaios.ui.web.launcher"],
             cwd="C:\\repo",
             env={"A": "1"},
             _elevated=lambda: True,
@@ -159,7 +159,7 @@ class TestBootTimeDeescalation:
         )
 
         assert result is not None and result.ok is True
-        assert calls[0]["argv"] == ["py", "-m", "jarvis.ui.web.launcher"]
+        assert calls[0]["argv"] == ["py", "-m", "dodaios.ui.web.launcher"]
 
     def test_the_child_is_marked_so_a_still_elevated_relaunch_stops(self, monkeypatch):
         """Without this the app boot-loops on an account whose shell token is

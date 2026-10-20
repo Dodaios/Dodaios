@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.ui.web.launcher import _serve_bootstrap_with_retry
+from dodaios.ui.web.launcher import _serve_bootstrap_with_retry
 
 
 class _FakeBootstrap:

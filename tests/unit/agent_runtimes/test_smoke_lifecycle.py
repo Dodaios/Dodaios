@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_runtimes.base import RuntimeLaunch, RuntimeTurn
-from jarvis.agent_runtimes.model_map import ModelRoute
+from dodaios.agent_runtimes.base import RuntimeLaunch, RuntimeTurn
+from dodaios.agent_runtimes.model_map import ModelRoute
 from scripts.spikes import agent_runtimes_e2e as smoke
 
 
@@ -76,7 +76,7 @@ async def test_success_releases_slot(monkeypatch, tmp_path):
 async def test_probe_owns_its_gateway_turn_and_releases_it(monkeypatch, tmp_path, missing):
     from dataclasses import replace
 
-    from jarvis.agent_runtimes import gateway
+    from dodaios.agent_runtimes import gateway
 
     turn, released = setup_probe(monkeypatch, tmp_path, missing=missing)
     token = gateway.grant_token("smoke-owned-turn", "ollama", require_active_turn=True)

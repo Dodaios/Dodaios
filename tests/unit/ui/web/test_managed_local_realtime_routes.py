@@ -14,11 +14,11 @@ import threading
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.realtime.local_server import brain_link, install, preflight
-from jarvis.ui.web import provider_routes
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.realtime.local_server import brain_link, install, preflight
+from dodaios.ui.web import provider_routes
+from dodaios.ui.web.server import WebServer
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ def test_install_accepts_an_empty_body(
 def test_status_pairs_progress_with_failclosed_probe(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(supervisor, "_port_open", lambda port, timeout=1.0: False)
     with TestClient(server.app) as client:
@@ -141,8 +141,8 @@ def test_start_without_a_launch_command_answers_409(server: WebServer) -> None:
 def test_start_forwards_the_supervisor_refusal(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core.config import BrainProviderConfig
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.core.config import BrainProviderConfig
+    from dodaios.realtime.local_server import supervisor
 
     server.app.state.config.brain.providers["local-realtime"] = BrainProviderConfig(
         launch_command="serve --flag"
@@ -159,8 +159,8 @@ def test_start_forwards_the_supervisor_refusal(
 def test_start_spawns_and_schedules_the_brain_warm(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core.config import BrainProviderConfig
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.core.config import BrainProviderConfig
+    from dodaios.realtime.local_server import supervisor
 
     server.app.state.config.brain.providers["local-realtime"] = BrainProviderConfig(
         launch_command="serve --flag"
@@ -201,8 +201,8 @@ def test_start_spawns_and_schedules_the_brain_warm(
 def test_start_does_not_compete_for_gpu_while_speech_is_still_loading(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core.config import BrainProviderConfig
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.core.config import BrainProviderConfig
+    from dodaios.realtime.local_server import supervisor
 
     server.app.state.config.brain.providers["local-realtime"] = BrainProviderConfig(
         launch_command="serve --flag"
@@ -226,7 +226,7 @@ def test_start_does_not_compete_for_gpu_while_speech_is_still_loading(
 async def test_background_warm_waits_for_managed_pool_before_brain(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     calls: list[tuple[str, object]] = []
     monkeypatch.setattr(supervisor, "is_managed_launch_command", lambda command: True)
@@ -272,8 +272,8 @@ async def test_background_warm_waits_for_managed_pool_before_brain(
 def test_brain_route_voice_tests_before_adopting_the_model(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core.config import BrainProviderConfig
-    from jarvis.realtime.local_server import configure
+    from dodaios.core.config import BrainProviderConfig
+    from dodaios.realtime.local_server import configure
 
     entrypoint = (install.install_root() / "venv" / "s.exe").as_posix()
     old_command = f"'{entrypoint}' --mode realtime --model_name qwen2.5:7b"
@@ -319,7 +319,7 @@ def test_brain_route_voice_tests_before_adopting_the_model(
 def test_brain_models_route_lists_annotated_choices(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.core.config import BrainProviderConfig
+    from dodaios.core.config import BrainProviderConfig
 
     server.app.state.config.brain.providers["local-realtime"] = BrainProviderConfig(
         launch_command="serve --model_name qwen2.5:7b"
@@ -345,7 +345,7 @@ def test_brain_route_refuses_to_swap_an_explicit_choice(
 ) -> None:
     """A named model that does not fit gets an honest 409 — never a silent
     substitution (user autonomy)."""
-    from jarvis.core.config import BrainProviderConfig
+    from dodaios.core.config import BrainProviderConfig
 
     entrypoint = (install.install_root() / "venv" / "s.exe").as_posix()
     server.app.state.config.brain.providers["local-realtime"] = BrainProviderConfig(
@@ -383,7 +383,7 @@ def test_brain_route_answers_409_without_a_local_brain(
 def test_stop_answers_409_when_nothing_is_owned(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(
         supervisor, "stop", lambda **kwargs: (False, "no owned server process found")
@@ -396,7 +396,7 @@ def test_stop_answers_409_when_nothing_is_owned(
 def test_stop_reports_success(
     server: WebServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     calls: list[str] = []
 

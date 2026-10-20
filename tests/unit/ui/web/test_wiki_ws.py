@@ -1,4 +1,4 @@
-"""Unit tests for :mod:`jarvis.ui.web.wiki_ws`.
+"""Unit tests for :mod:`dodaios.ui.web.wiki_ws`.
 
 These tests stand up a minimal FastAPI app with the wiki-ws router and
 a real :class:`EventBus` on ``app.state``. We exercise the WS forwarding
@@ -21,9 +21,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import WikiPageChanged
-from jarvis.ui.web.wiki_ws import router as wiki_ws_router
+from dodaios.core.bus import EventBus
+from dodaios.core.events import WikiPageChanged
+from dodaios.ui.web.wiki_ws import router as wiki_ws_router
 
 
 def _make_app() -> tuple[FastAPI, EventBus]:
@@ -180,7 +180,7 @@ def test_disconnect_without_any_event_still_unsubscribes(client_bus):
 
 def test_unrelated_event_does_not_appear(client_bus):
     """Events of a different type are not forwarded."""
-    from jarvis.core.events import SystemStateChanged
+    from dodaios.core.events import SystemStateChanged
 
     client, bus = client_bus
     with client.websocket_connect("/api/wiki/live") as ws:

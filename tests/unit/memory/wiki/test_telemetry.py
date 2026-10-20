@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.telemetry`` (B8.7).
+"""Unit tests for ``dodaios.memory.wiki.telemetry`` (B8.7).
 
 The telemetry singleton must be:
 
@@ -18,7 +18,7 @@ import threading
 
 import pytest
 
-from jarvis.memory.wiki.telemetry import (
+from dodaios.memory.wiki.telemetry import (
     DEFAULT_COUNTERS,
     MemoryTelemetry,
     format_summary,
@@ -177,7 +177,7 @@ async def test_hourly_summary_loop_emits_one_log_line_per_tick(
     instance = MemoryTelemetry()
     instance.inc("voice_turns_seen", amount=4)
 
-    with caplog.at_level(logging.INFO, logger="jarvis.memory.wiki.telemetry"):
+    with caplog.at_level(logging.INFO, logger="dodaios.memory.wiki.telemetry"):
         task = asyncio.create_task(
             run_hourly_summary_loop(interval_seconds=0.05, instance=instance),
         )

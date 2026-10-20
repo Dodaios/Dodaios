@@ -7,10 +7,10 @@ import json
 import httpx
 import pytest
 
-from jarvis.core.http_pool import HttpClientPool
-from jarvis.core.protocols import Brain, BrainMessage, BrainRequest, ImageBlock
-from jarvis.live.subscription_auth import SubscriptionCredentials
-from jarvis.live.subscription_reasoning import (
+from dodaios.core.http_pool import HttpClientPool
+from dodaios.core.protocols import Brain, BrainMessage, BrainRequest, ImageBlock
+from dodaios.live.subscription_auth import SubscriptionCredentials
+from dodaios.live.subscription_reasoning import (
     SubscriptionReasoning,
     SubscriptionReasoningBrain,
     SubscriptionReasoningError,
@@ -441,7 +441,7 @@ async def test_a_refused_model_the_account_no_longer_carries_is_named(catalog, c
 
 @pytest.mark.asyncio
 async def test_a_login_lost_during_the_catalog_check_keeps_the_original_refusal():
-    from jarvis.live.subscription_auth import SubscriptionAuthError
+    from dodaios.live.subscription_auth import SubscriptionAuthError
 
     calls = []
 

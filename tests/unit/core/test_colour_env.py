@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.colour_env import sanitize_process_environment, stale_colour_claims
+from dodaios.core.colour_env import sanitize_process_environment, stale_colour_claims
 
 
 def test_an_environment_that_says_nothing_about_colour_is_left_alone() -> None:
@@ -97,8 +97,8 @@ def _main_stopped_at_arg_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
     its environment happens after it, so a drop that still ran is a drop that
     beat every spawn path.
     """
-    import jarvis.core.path_augment as path_augment
-    import jarvis.ui.web.launcher as launcher
+    import dodaios.core.path_augment as path_augment
+    import dodaios.ui.web.launcher as launcher
 
     monkeypatch.setattr(path_augment, "ensure_cli_paths", lambda: None)
 

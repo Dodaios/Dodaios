@@ -8,9 +8,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import agent_transcript, awareness, session, task_state
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
-from jarvis.agentic_ide.control import CodingSessionControl
+from dodaios.agentic_ide import agent_transcript, awareness, session, task_state
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide.control import CodingSessionControl
 
 
 def pane(**kwargs):

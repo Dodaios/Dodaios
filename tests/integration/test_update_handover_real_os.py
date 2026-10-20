@@ -29,8 +29,8 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.core.installer_update as iu
-from jarvis.core.installer_update import (
+import dodaios.core.installer_update as iu
+from dodaios.core.installer_update import (
     SubprocessCommandRunner,
     apply_installer,
 )

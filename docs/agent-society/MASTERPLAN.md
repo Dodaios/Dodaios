@@ -9,7 +9,7 @@ Status: **building.** Wave landings use the standard Git workflow; a product
 release stays explicit and separate. Working
 codename: `society`; the section keeps the name "Jarvis Agents" (§10).
 
-Progress (2026-09-01/02): **M1 done** — `jarvis/society/` substrate, `/api/society`, the
+Progress (2026-09-01/02): **M1 done** — `dodaios/society/` substrate, `/api/society`, the
 headless contract test. **M2 backend done** — the `society` chat surface with per-agent hands
 and briefing, canonical chat binding, `society_message_agent` / `society_wiki_note`, the
 approvals queue, `[agent:*]` routines. **M2 frontend mostly done (2026-09-02)** — the section
@@ -146,8 +146,8 @@ Branch B's verified finding: ~80 % of the substrate exists. We add a durable lay
     awareness-episode compaction pattern), with **taint/provenance columns** (`source_agent,
     source_event, origin (user|tool|web|agent), reviewed`) — see §6.
   - `approvals` — the unattended ask-queue (§2.9).
-- **Persist-before-publish** exactly as `jarvis/missions/event_store.py` does; the bus
-  (`jarvis/core/bus.py`, AP-18 protections) fans out live; startup replays `events_since(seq)`.
+- **Persist-before-publish** exactly as `dodaios/missions/event_store.py` does; the bus
+  (`dodaios/core/bus.py`, AP-18 protections) fans out live; startup replays `events_since(seq)`.
 - **Identity is free:** only `ToolExecutor.execute()` writes to the board (AP-3), so no agent can
   forge another's messages (the incident had to retrofit signing; we get it by chokepoint).
 - **Scheduler:** trusted Python. Consumes `ASSIGN`, checks tier + budget (`assert_under_limit`
@@ -392,7 +392,7 @@ add the four controls it lacked: authenticated writes (chokepoint), bounded non-
 ## 9. Target folder structure
 
 ```
-jarvis/society/                     # backend package (M1) — see its README
+dodaios/society/                     # backend package (M1) — see its README
   __init__.py                       # lazy; nothing on the boot path
   roster.py                         # society_agents CRUD + validation
   events.py                         # typed envelopes (msg_type enums, five-layer home)
@@ -403,8 +403,8 @@ jarvis/society/                     # backend package (M1) — see its README
   curator.py                        # event-driven knowledge compaction (+ taint)
   approvals.py                      # unattended ask-queue
   society_schema.sql
-jarvis/ui/web/society_routes.py     # REST (+ CLI coverage via generate-cli-command)
-jarvis/ui/web/frontend/src/components/society/
+dodaios/ui/web/society_routes.py     # REST (+ CLI coverage via generate-cli-command)
+dodaios/ui/web/frontend/src/components/society/
   world/                            # R3F scene, checkpoints, walkers, choreography queue
   card/                             # model card (rotating GLB figure + spec sheet)
   ledger/                           # DepartureBoard successor tab / fallback

@@ -225,7 +225,7 @@ reviewer.
 
 ## API and CLI
 
-`/api/team-threads` (see `jarvis/ui/web/team_thread_routes.py`): list, `seats`,
+`/api/team-threads` (see `dodaios/ui/web/team_thread_routes.py`): list, `seats`,
 start, read, `message`, `pause`, `resume`, `accept`, `stop`, delete. `seats`
 lists each seat's `model_options` (id, label, effort levels) and `efforts`,
 `max_members` and the default turn bound per team size (`max_turns`). Start

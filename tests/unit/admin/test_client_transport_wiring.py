@@ -13,12 +13,12 @@ import asyncio
 
 import pytest
 
-from jarvis.admin.client import AdminClient
-from jarvis.admin.executor import AdminExecutor
-from jarvis.admin.ipc import AdminPipeClient, AdminPipeServer
-from jarvis.admin.schema import InstallWingetOp, ReadRegistryOp
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AdminOperationRejected, AdminOperationRequested
+from dodaios.admin.client import AdminClient
+from dodaios.admin.executor import AdminExecutor
+from dodaios.admin.ipc import AdminPipeClient, AdminPipeServer
+from dodaios.admin.schema import InstallWingetOp, ReadRegistryOp
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AdminOperationRejected, AdminOperationRequested
 from tests.fakes.fake_admin_transport import FakeAdminTransport
 from tests.fakes.fake_elevator import FakeElevator
 
@@ -60,7 +60,7 @@ async def test_null_elevator_refusal_is_typed_response(monkeypatch):
     Not an injected pipe_client, so the elevation gate fires. We stub the secret
     so the no_secret path doesn't pre-empt the elevation check.
     """
-    from jarvis.admin import client as client_mod
+    from dodaios.admin import client as client_mod
 
     monkeypatch.setattr(
         client_mod.AdminClient, "_load_secret", lambda self: SECRET
@@ -85,7 +85,7 @@ async def test_null_elevator_refusal_is_typed_response(monkeypatch):
 @pytest.mark.asyncio
 async def test_no_secret_still_refuses_when_secret_absent(monkeypatch):
     """The original no_secret refusal shape is preserved."""
-    from jarvis.admin import client as client_mod
+    from dodaios.admin import client as client_mod
 
     monkeypatch.setattr(
         client_mod.AdminClient, "_load_secret", lambda self: None

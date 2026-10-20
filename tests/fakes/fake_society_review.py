@@ -3,7 +3,7 @@
 import asyncio
 from types import SimpleNamespace
 
-from jarvis.core.protocols import BrainDelta
+from dodaios.core.protocols import BrainDelta
 
 
 class SummaryProvider:

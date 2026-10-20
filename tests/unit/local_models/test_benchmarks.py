@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.ollama_pull import CURATED_REVIEWED_ON, RECOMMENDED_MODELS
-from jarvis.core import config as cfg_mod
-from jarvis.local_models import benchmarks as bm
+from dodaios.brain.ollama_pull import CURATED_REVIEWED_ON, RECOMMENDED_MODELS
+from dodaios.core import config as cfg_mod
+from dodaios.local_models import benchmarks as bm
 
 pytestmark = pytest.mark.asyncio
 

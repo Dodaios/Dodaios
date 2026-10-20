@@ -2,7 +2,7 @@
 ONLY those two — no branded hey_* model may ever be smuggled back in."""
 from pathlib import Path
 
-import jarvis.assets as assets
+import dodaios.assets as assets
 
 
 def test_backbones_are_bundled_and_resolvable():

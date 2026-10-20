@@ -11,7 +11,7 @@ ONLY for that exact tool (other action tools stay blocked under research).
 """
 from __future__ import annotations
 
-from jarvis.brain.tool_use_loop import _should_block_action_as_research
+from dodaios.brain.tool_use_loop import _should_block_action_as_research
 
 _RESEARCH = "Vergleiche mir mal, was ich bei Google Cloud verbraucht habe"
 

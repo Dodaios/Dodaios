@@ -20,9 +20,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import STTConfig
-from jarvis.realtime import input_transcription as module
-from jarvis.realtime.input_transcription import LocalInputTranscriber
+from dodaios.core.config import STTConfig
+from dodaios.realtime import input_transcription as module
+from dodaios.realtime.input_transcription import LocalInputTranscriber
 
 RATE = 24_000
 
@@ -64,10 +64,10 @@ def stt_builds(monkeypatch: pytest.MonkeyPatch) -> _FakeSttFactory:
     config = type("_Config", (), {"stt": STTConfig(provider="groq-api", language="en")})
 
     monkeypatch.setattr(
-        "jarvis.core.config.load_config", lambda *a, **k: config, raising=True
+        "dodaios.core.config.load_config", lambda *a, **k: config, raising=True
     )
     monkeypatch.setattr(
-        "jarvis.plugins.stt.build_stt_from_config", builder, raising=True
+        "dodaios.plugins.stt.build_stt_from_config", builder, raising=True
     )
     return builder
 

@@ -16,7 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.realtime.session as session_mod
+import dodaios.realtime.session as session_mod
 from tests.unit.realtime.test_gemini_live import (
     _drive,
     _steering_session,

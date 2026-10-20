@@ -3,7 +3,7 @@
 The product promise under test: Jarvis looks at the TARGET WINDOW, works with
 window-relative positions, and translates them into global screen positions
 via window origin + scale — through ONE central translation
-(:class:`jarvis.cu.geometry.CoordinateMapper`), no matter which monitor the
+(:class:`dodaios.cu.geometry.CoordinateMapper`), no matter which monitor the
 window sits on and no matter the monitor's size or scale factor.
 
 Every case simulates a real platform layout end-to-end through the actual
@@ -27,9 +27,9 @@ import math
 
 import pytest
 
-from jarvis.cu import capture as capture_mod
-from jarvis.cu.capture import capture_stable_frame, grabber_for, mss_grab
-from jarvis.cu.geometry import MonitorInfo
+from dodaios.cu import capture as capture_mod
+from dodaios.cu.capture import capture_stable_frame, grabber_for, mss_grab
+from dodaios.cu.geometry import MonitorInfo
 
 # Each case: (id, window rect in input units, grab scale (pixels per input
 # unit — 1.0 everywhere except macOS Retina), probe points relative to the
@@ -145,8 +145,8 @@ def test_model_coordinates_can_never_escape_the_capture_rect(
 # ---------------------------------------------------------------------------
 
 def test_window_target_carries_the_platform_window_handle(monkeypatch):
-    from jarvis.platform import window_state as ws
-    from jarvis.platform.window_state import WindowInfo
+    from dodaios.platform import window_state as ws
+    from dodaios.platform.window_state import WindowInfo
 
     monitor = MonitorInfo(left=-2560, top=0, width=2560, height=1440,
                           name="left")
@@ -166,7 +166,7 @@ def test_window_target_carries_the_platform_window_handle(monkeypatch):
 
 
 def test_monitor_fallback_target_has_no_window_handle(monkeypatch):
-    from jarvis.platform import window_state as ws
+    from dodaios.platform import window_state as ws
 
     monitor = MonitorInfo(left=0, top=0, width=1920, height=1080)
     monkeypatch.setattr(
@@ -182,7 +182,7 @@ def test_grabber_for_plain_monitor_is_the_rect_grab():
 
 
 def test_grabber_for_window_uses_native_grab_when_available(monkeypatch):
-    from jarvis.platform import window_capture
+    from dodaios.platform import window_capture
 
     native = ((80, 60), bytes(80 * 60 * 3))
     monkeypatch.setattr(
@@ -198,7 +198,7 @@ def test_grabber_for_window_uses_native_grab_when_available(monkeypatch):
 
 
 def test_grabber_for_window_falls_back_to_rect_grab(monkeypatch):
-    from jarvis.platform import window_capture
+    from dodaios.platform import window_capture
 
     fallback = ((80, 60), b"\x01" * (80 * 60 * 3))
     monkeypatch.setattr(window_capture, "grab_window",
@@ -228,7 +228,7 @@ def test_grabber_for_window_falls_back_to_rect_grab(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_refine_crop_translation_resolves_through_central_mapper():
-    from jarvis.cu.engine import _crop_norm_to_screen
+    from dodaios.cu.engine import _crop_norm_to_screen
 
     bbox = {"left": -2440, "top": 200, "width": 440, "height": 440}
     assert _crop_norm_to_screen(bbox, (440, 440), 500, 500) == (-2220, 420)
@@ -246,7 +246,7 @@ def test_refine_crop_translation_resolves_through_central_mapper():
 # ---------------------------------------------------------------------------
 
 def test_snap_never_leaves_the_capture_rect():
-    from jarvis.cu.verify import snap_point_to_element
+    from dodaios.cu.verify import snap_point_to_element
 
     # Element sticks out of the window capture on the right: its center lies
     # OUTSIDE the rect. Snapping there would click outside the window.
@@ -269,8 +269,8 @@ def test_snap_never_leaves_the_capture_rect():
 # ---------------------------------------------------------------------------
 
 def test_wayland_refusal_points_to_x11_and_xwayland(monkeypatch):
-    import jarvis.platform.probes as probes
-    from jarvis.cu.engine import _wayland_refusal
+    import dodaios.platform.probes as probes
+    from dodaios.cu.engine import _wayland_refusal
 
     monkeypatch.setattr(probes, "is_wayland", lambda: True)
     msg = _wayland_refusal()

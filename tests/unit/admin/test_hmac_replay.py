@@ -12,15 +12,15 @@ import time
 
 import pytest
 
-from jarvis.admin.executor import AdminExecutor
-from jarvis.admin.ipc import (
+from dodaios.admin.executor import AdminExecutor
+from dodaios.admin.ipc import (
     _TIMESTAMP_WINDOW_NS,
     AdminPipeServer,
     _AuthFailure,
     _canonical_args_json,
     _compute_hmac,
 )
-from jarvis.admin.schema import InstallWingetOp, ReadRegistryOp
+from dodaios.admin.schema import InstallWingetOp, ReadRegistryOp
 
 SECRET = b"x" * 32
 

@@ -1,5 +1,5 @@
 """prefetch_all: resolves the same models the runtime uses; degrades cleanly."""
-from jarvis.setup import prefetch
+from dodaios.setup import prefetch
 
 
 def test_reports_bundled_wakeword(monkeypatch) -> None:

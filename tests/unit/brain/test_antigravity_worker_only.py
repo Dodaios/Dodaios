@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     SUBAGENT_ONLY_BRAIN_PROVIDERS,
     TIER_DEFAULTS_BY_PROVIDER,
     BrainManager,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainTierConfig, JarvisConfig
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainTierConfig, JarvisConfig
 
 
 def test_antigravity_is_not_a_main_brain_tier_default() -> None:

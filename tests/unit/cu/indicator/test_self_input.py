@@ -1,9 +1,9 @@
-"""Self-typed-Escape suppression stamps (jarvis/cu/indicator/self_input)."""
+"""Self-typed-Escape suppression stamps (dodaios/cu/indicator/self_input)."""
 from __future__ import annotations
 
 import pytest
 
-from jarvis.cu.indicator import self_input
+from dodaios.cu.indicator import self_input
 
 
 @pytest.fixture(autouse=True)

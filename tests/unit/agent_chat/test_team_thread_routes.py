@@ -8,9 +8,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat.team import TeamThreads, TeamThreadStore
-from jarvis.ui.web import team_thread_routes
-from jarvis.ui.web.team_thread_routes import default_team, router
+from dodaios.agent_chat.team import TeamThreads, TeamThreadStore
+from dodaios.ui.web import team_thread_routes
+from dodaios.ui.web.team_thread_routes import default_team, router
 from tests.fakes.fake_team_turns import FakeTurns, FakeWorkspace, object_to
 
 

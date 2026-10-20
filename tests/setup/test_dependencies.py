@@ -1,4 +1,4 @@
-"""Tests for jarvis.setup.dependencies — CLI probes + auto-install.
+"""Tests for dodaios.setup.dependencies — CLI probes + auto-install.
 
 Welle 3 (2026-05-17): the wizard auto-installs the claude CLI on
 fresh installs. The probe + install logic must not depend on the
@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.setup import dependencies as deps
+from dodaios.setup import dependencies as deps
 
 
 # --- DependencyStatus surface ---------------------------------------------

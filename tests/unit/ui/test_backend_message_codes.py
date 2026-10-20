@@ -17,17 +17,17 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.board.achievements import ACHIEVEMENTS
-from jarvis.codex_auth import CODEX_STATUS_MESSAGE_CODES
-from jarvis.google_cli.auth_service import GOOGLE_CLI_STATUS_MESSAGE_CODES
-from jarvis.marketplace.amd_mcp import AMD_UNAVAILABLE_REASONS, amd_unavailable_reason_code
-from jarvis.mcp.state import CLAUDE_DESKTOP_IMPORT_NOTE_CODES
-from jarvis.speech.wake_phrase import WAKE_PLAN_MESSAGE_CODES, resolve_wake_plan
-from jarvis.trigger.hotkey import MOUSE_HOTKEY_REASONS, mouse_hotkeys_reason_code
-from jarvis.ui.web.settings_routes import WAKE_HINT_CODES, WAKE_MESSAGE_CODES
+from dodaios.board.achievements import ACHIEVEMENTS
+from dodaios.codex_auth import CODEX_STATUS_MESSAGE_CODES
+from dodaios.google_cli.auth_service import GOOGLE_CLI_STATUS_MESSAGE_CODES
+from dodaios.marketplace.amd_mcp import AMD_UNAVAILABLE_REASONS, amd_unavailable_reason_code
+from dodaios.mcp.state import CLAUDE_DESKTOP_IMPORT_NOTE_CODES
+from dodaios.speech.wake_phrase import WAKE_PLAN_MESSAGE_CODES, resolve_wake_plan
+from dodaios.trigger.hotkey import MOUSE_HOTKEY_REASONS, mouse_hotkeys_reason_code
+from dodaios.ui.web.settings_routes import WAKE_HINT_CODES, WAKE_MESSAGE_CODES
 
 _REPO = Path(__file__).resolve().parents[3]
-_LOCALES = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src" / "i18n" / "locales"
+_LOCALES = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src" / "i18n" / "locales"
 _LANGS = ("en", "de", "es", "zh", "pt")
 _PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
@@ -104,7 +104,7 @@ def test_seed_catalog_longevity_notes_are_translated_verbatim() -> None:
     entry must equal the catalog's own note, so an edited note cannot keep
     showing a stale translation unnoticed."""
     raw = json.loads(
-        (_REPO / "jarvis" / "marketplace" / "seed_catalog.json").read_text(encoding="utf-8")
+        (_REPO / "dodaios" / "marketplace" / "seed_catalog.json").read_text(encoding="utf-8")
     )
     plugins = raw.get("plugins", raw) if isinstance(raw, dict) else raw
     notes = {}

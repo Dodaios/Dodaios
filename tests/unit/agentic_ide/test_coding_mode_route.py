@@ -16,8 +16,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry, reset_registry
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry, reset_registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -33,7 +33,7 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> Registry:
     monkeypatch.setattr(session_mod, "agent_argv", lambda name: (f"/usr/bin/{name}",))
     reg = Registry(pty_manager=FakePtyManager())
     monkeypatch.setattr(session_mod, "get_registry", lambda: reg)
-    from jarvis.ui.web import agentic_ide_routes
+    from dodaios.ui.web import agentic_ide_routes
 
     monkeypatch.setattr(agentic_ide_routes, "get_registry", lambda: reg)
     return reg
@@ -64,7 +64,7 @@ def bus() -> _RecordingBus:
 
 @pytest.fixture
 def client(registry: Registry, bus: _RecordingBus) -> TestClient:
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -150,7 +150,7 @@ async def test_a_missing_bus_never_breaks_the_toggle(
     registry: Registry, tmp_path: Path
 ) -> None:
     """Headless hosts and tests have no bus; the mode must still switch."""
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)

@@ -12,9 +12,9 @@ import asyncio
 
 import pytest
 
-from jarvis.computers import identity, remote_os, remote_terminal
-from jarvis.computers.remote_terminal import SshPtyPool, tmux_session_name
-from jarvis.computers.service import ComputerService
+from dodaios.computers import identity, remote_os, remote_terminal
+from dodaios.computers.remote_terminal import SshPtyPool, tmux_session_name
+from dodaios.computers.service import ComputerService
 from tests.fakes.fake_tmux_server import FakeTmuxServer
 
 

@@ -6,17 +6,17 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     JarvisConfig,
     SafetyBlacklistConfig,
     SafetyConfig,
     SafetyWhitelistConfig,
 )
-from jarvis.core.events import ActionExecuted, ActionProposed
-from jarvis.core.protocols import BrainDelta, ExecutionContext, ToolResult
-from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+from dodaios.core.events import ActionExecuted, ActionProposed
+from dodaios.core.protocols import BrainDelta, ExecutionContext, ToolResult
+from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 from tests.fixtures.brain.fake_brain import FakeBrain, tool_call_delta
 
 

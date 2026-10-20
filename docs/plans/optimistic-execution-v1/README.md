@@ -17,12 +17,12 @@ v1.0 promise, end-to-end, measured".
 
 | v1.0 concept | Live component | Status | Gap this plan closes |
 |---|---|---|---|
-| Main Jarvis (Talker) | Router-Brain (`jarvis/brain/factory.py` `ROUTER_TOOLS`) + Ack-Brain (`jarvis/brain/ack_brain/`) | exceeded | ACK must fire *before* dispatch, guaranteed |
+| Main Jarvis (Talker) | Router-Brain (`dodaios/brain/factory.py` `ROUTER_TOOLS`) + Ack-Brain (`dodaios/brain/ack_brain/`) | exceeded | ACK must fire *before* dispatch, guaranteed |
 | Heavy-Duty Worker ("4.6") | Mission-Manager + Worker-Critic + `claude-cli` Sonnet (OAuth) | live | success-rate telemetry |
-| Event-Bus / Task-Queue | `jarvis/core/bus.py` + mission event store | live | latency spans on the bus |
+| Event-Bus / Task-Queue | `dodaios/core/bus.py` + mission event store | live | latency spans on the bus |
 | Optimistic Execution | Force-spawn ACK + `BrainManager._should_force_spawn` | partial | make it the guaranteed default path |
-| Smart Tools (Gmail/MCP) | `jarvis/mcp/adapter.py` + Jarvis-Agent worker | Welle 2/3 open | worker-makes-the-call, end-to-end |
-| Dumb Tools (local scripts) | `jarvis/brain/local_action_gate.py` | gaps (BUG-020) | allowlist coverage + zero false-spawn |
+| Smart Tools (Gmail/MCP) | `dodaios/mcp/adapter.py` + Jarvis-Agent worker | Welle 2/3 open | worker-makes-the-call, end-to-end |
+| Dumb Tools (local scripts) | `dodaios/brain/local_action_gate.py` | gaps (BUG-020) | allowlist coverage + zero false-spawn |
 | Oops protocol / VAD / organic correction | Always-speak guards (BUG-020) + announcement path + Silero VAD | **no closed loop** | the full error→inject→VAD-gated→correct loop |
 | Latency < 3s | AsyncIterator streaming + `voice_latency` marker | **no SLO gate** | p95 budgets enforced in CI |
 
@@ -54,10 +54,10 @@ v1.0 promise, end-to-end, measured".
 
 ### 1.3 MCP & Tooling Specialist
 - Spec-correct invariant: the **worker** (not the talker) issues the MCP call. Gmail is
-  the canonical Smart-Tool path via `jarvis/mcp/adapter.py` + Jarvis-Agent worker; it is
+  the canonical Smart-Tool path via `dodaios/mcp/adapter.py` + Jarvis-Agent worker; it is
   live-testable through the `gws` CLI / Gmail MCP.
 - Dumb tools (local scripts: "mach die Adjusties", "spiel X ab") resolve in-process via
-  `jarvis/brain/local_action_gate.py` — no worker wakeup, milliseconds.
+  `dodaios/brain/local_action_gate.py` — no worker wakeup, milliseconds.
 - Tool-surface discipline is sacred: `ROUTER_TOOLS` is a frozenset; a worker tool set
   must NEVER contain `spawn-openclaw`/`dispatch-with-review`/`run-skill` (D9 recursion,
   AP-5/AP-14).
@@ -122,7 +122,7 @@ missions** (CQRS-flavoured: Talker = command + immediate ACK; Worker = execution
 EventBus = append-only log; mission store = read model).
 
 **Tech-stack recommendations (extend, do not replace):**
-- **Event-Bus:** keep `jarvis/core/bus.py` (frozen dataclasses, `trace_id`,
+- **Event-Bus:** keep `dodaios/core/bus.py` (frozen dataclasses, `trace_id`,
   `timestamp_ns`, `_safe_dispatch` swallow). The talker↔worker queue is the mission event
   store. No external broker (cloud-first doctrine).
 - **Router logic:** keep the `_should_force_spawn` heuristic (smalltalk allowlist >
@@ -147,17 +147,17 @@ EventBus = append-only log; mission store = read model).
 
 ### Wave 1 — Optimistic Execution as the guaranteed default + latency instrumentation
 - **1.1** Add `trace_id`-stamped latency spans (wake-end, ACK-start, ACK-end, intent-end,
-  spawn-dispatched) as frozen bus events (`jarvis/core/events.py` + `pipeline.py`).
+  spawn-dispatched) as frozen bus events (`dodaios/core/events.py` + `pipeline.py`).
 - **1.2** `tests/voice_latency/` assertion: p95 ACK-start < 1.2 s against recorded traces.
 - **1.3** Guarantee ACK fires **before** spawn dispatch returns; audit
   `_handle_utterance` return paths (BUG-007/BUG-020 territory).
 - **1.4** Verify the Ack-Brain suppress-if-fast gate (2000 ms) composes with the
-  optimistic path (`jarvis/brain/ack_brain/`).
+  optimistic path (`dodaios/brain/ack_brain/`).
 - **1.5** `GET /api/telemetry/latency` → p50/p95 per span.
 
 ### Wave 2 — Harden Smart/Dumb routing
 - **2.1** Extend `local_action_gate` allowlist + regression cases ("mach die Adjusties",
-  "spiel X ab") (`jarvis/brain/local_action_gate.py` + `tests/unit/brain/test_local_action_gate.py`).
+  "spiel X ab") (`dodaios/brain/local_action_gate.py` + `tests/unit/brain/test_local_action_gate.py`).
 - **2.2** False-spawn guard: every allowlist entry must NOT trigger
   `_should_force_spawn` (`tests/unit/brain/test_routing.py`).
 - **2.3** Instrument router decision latency; CI fails if p95 > 150 ms.

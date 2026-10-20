@@ -9,8 +9,8 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 
-from jarvis.appshot import card_actions
-from jarvis.appshot.store import Appshot, AppshotStore
+from dodaios.appshot import card_actions
+from dodaios.appshot.store import Appshot, AppshotStore
 
 
 def _png() -> bytes:
@@ -21,7 +21,7 @@ def _png() -> bytes:
 
 @pytest.fixture
 def held(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.appshot import store as store_module
+    from dodaios.appshot import store as store_module
 
     store = AppshotStore()
     store.remember(
@@ -42,7 +42,7 @@ def held(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(store_module, "_STORE", store)
     monkeypatch.setattr(
-        "jarvis.core.config.load_config", lambda: SimpleNamespace(ui=SimpleNamespace(language="en"))
+        "dodaios.core.config.load_config", lambda: SimpleNamespace(ui=SimpleNamespace(language="en"))
     )
 
     def denied(_shot):

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.speech.pipeline as pl
-from jarvis.audio.chime import CHIME_SAMPLE_RATE, READY_PCM
-from jarvis.speech.pipeline import SpeechPipeline
+import dodaios.speech.pipeline as pl
+from dodaios.audio.chime import CHIME_SAMPLE_RATE, READY_PCM
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class FakePlayer:

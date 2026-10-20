@@ -199,7 +199,7 @@ Today the rules exist twice: `scripts/validate.py` in the registry and
 would make it three copies and guarantee drift.
 
 **Decision: the client loader is the single implementation.** Extract the
-rule set into `jarvis/marketplace/submission_rules.py`; the registry's CI
+rule set into `dodaios/marketplace/submission_rules.py`; the registry's CI
 job installs the published `personal-jarvis` package and calls it. The
 client keeps re-validating at install time — that is not duplication, it is
 the deliberate defence against a poisoned index — but it runs *the same

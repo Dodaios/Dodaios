@@ -8,9 +8,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import permissions, runner_cli
-from jarvis.agent_chat.catalog import provider_row
-from jarvis.agent_chat.runner_cli import (
+from dodaios.agent_chat import permissions, runner_cli
+from dodaios.agent_chat.catalog import provider_row
+from dodaios.agent_chat.runner_cli import (
     _AgyState,
     agy_model_args,
     agy_model_catalog,
@@ -19,7 +19,7 @@ from jarvis.agent_chat.runner_cli import (
     plan_codex,
     translate_agy_line,
 )
-from jarvis.plugins.brain._anthropic_base import _is_reasoning_model, reasoning_kwargs
+from dodaios.plugins.brain._anthropic_base import _is_reasoning_model, reasoning_kwargs
 
 # ------------------------------------------------------------ permissions
 
@@ -176,7 +176,7 @@ def test_claude_planner_passes_the_cli_mode_through(monkeypatch, tmp_path: Path)
 
 def test_claude_planner_asks_for_thinking_summaries(monkeypatch, tmp_path: Path):
     """Print mode leaves thinking blocks empty; summaries are the thread's reasoning."""
-    from jarvis import claude_auth
+    from dodaios import claude_auth
 
     monkeypatch.setattr(runner_cli, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(runner_cli, "_registry_env", lambda _name, env: env)

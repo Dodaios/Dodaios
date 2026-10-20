@@ -20,9 +20,9 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.brain.turn_planner import TurnPath, TurnPlan
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.brain.turn_planner import TurnPath, TurnPlan
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 TIMEOUT_S = 5.0
 RATE = 24_000

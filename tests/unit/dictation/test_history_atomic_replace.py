@@ -6,8 +6,8 @@ import errno
 
 import pytest
 
-from jarvis.dictation import stats
-from jarvis.dictation.history import DictationHistory
+from dodaios.dictation import stats
+from dodaios.dictation.history import DictationHistory
 from tests.fakes.fake_atomic_replace import FailingReplace
 
 

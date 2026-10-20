@@ -16,7 +16,7 @@ import asyncio
 
 import pytest
 
-from jarvis.realtime.protocol import RealtimeEvent
+from dodaios.realtime.protocol import RealtimeEvent
 from tests.unit.realtime.test_session import (
     FakeBrain,
     FakeProvider,

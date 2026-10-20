@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import base64
 
-from jarvis.brain.drop_context import (
+from dodaios.brain.drop_context import (
     DROP_SOURCE_LAYER,
     DroppedItem,
     classify_and_compose,

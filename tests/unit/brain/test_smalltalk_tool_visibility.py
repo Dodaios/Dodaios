@@ -12,7 +12,7 @@ oben links steht", where the brain could only stall.
 """  # i18n-allow: verbatim quotes of the live German utterances
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 def _mgr(tools: dict, *, required: str = "", skill_match: object = None) -> BrainManager:

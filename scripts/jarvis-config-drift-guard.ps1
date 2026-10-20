@@ -432,7 +432,7 @@ if ($ToastOnDrift -and $fixesApplied -gt 0) {
         Import-Module BurntToast -ErrorAction Stop
         New-BurntToastNotification `
             -Text "Personal Jarvis -- config drift repaired", "$fixesApplied repair(s) applied" `
-            -AppLogo (Join-Path $RepoRoot "jarvis\assets\icon.ico" -ErrorAction SilentlyContinue) `
+            -AppLogo (Join-Path $RepoRoot "dodaios\assets\icon.ico" -ErrorAction SilentlyContinue) `
             -ErrorAction Stop
     } catch {
         Write-Log "WARN" "BurntToast notification failed: $_"

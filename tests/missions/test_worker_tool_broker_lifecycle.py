@@ -9,12 +9,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.core.protocols import ToolResult
-from jarvis.missions.workers import worker_tool_broker as broker_module
-from jarvis.missions.workers.worker_tool_broker import WorkerToolBroker
-from jarvis.safety import tool_executor as _tool_executor  # noqa: F401
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.core.protocols import ToolResult
+from dodaios.missions.workers import worker_tool_broker as broker_module
+from dodaios.missions.workers.worker_tool_broker import WorkerToolBroker
+from dodaios.safety import tool_executor as _tool_executor  # noqa: F401
 
 
 @dataclass

@@ -15,7 +15,7 @@ import threading
 import pytest
 from PIL import Image
 
-from jarvis.core import runtime_refs
+from dodaios.core import runtime_refs
 from ui.orb import controls
 
 KEY = (255, 0, 255)

@@ -4,7 +4,7 @@
 
 ## Headline
 
-Personal Jarvis does **not** need a greenfield multi-agent engine. The repository already contains ~80% of the substrate a small agent society requires: an in-process `EventBus` (`jarvis/core/bus.py`), an event-sourced mission store with append-and-publish atomicity (`jarvis/missions/event_store.py`, `missions_schema.sql`), a live parent/child agent-tree registry (`jarvis/agents/registry.py`), a token-bucket budget guard (`jarvis/missions/budget.py`), a structurally-bounded two-layer sub-agent fan-out (`jarvis/missions/subagent_fanout.py`), and a blacklist>whitelist>default risk-tier gate funnelled through a single authorized executor (`jarvis/safety/risk_tier.py`, `tool_executor.py`). The "multi-agent society" the maintainer wants is best framed as an **evolution of the mission subsystem into a persistent, addressable society**, not a rewrite. Everything below is written against that reality.
+Personal Jarvis does **not** need a greenfield multi-agent engine. The repository already contains ~80% of the substrate a small agent society requires: an in-process `EventBus` (`dodaios/core/bus.py`), an event-sourced mission store with append-and-publish atomicity (`dodaios/missions/event_store.py`, `missions_schema.sql`), a live parent/child agent-tree registry (`dodaios/agents/registry.py`), a token-bucket budget guard (`dodaios/missions/budget.py`), a structurally-bounded two-layer sub-agent fan-out (`dodaios/missions/subagent_fanout.py`), and a blacklist>whitelist>default risk-tier gate funnelled through a single authorized executor (`dodaios/safety/risk_tier.py`, `tool_executor.py`). The "multi-agent society" the maintainer wants is best framed as an **evolution of the mission subsystem into a persistent, addressable society**, not a rewrite. Everything below is written against that reality.
 
 The two external references the maintainer cited — the DeepMind/Hutter paper and the reported OpenAI/Hugging Face incident — converge on the same structural lesson from opposite directions: **a shared, append-only knowledge store plus specialization plus high-bandwidth messaging produces emergent collective capability, and the hard problem is steering and containing it, not producing it.** We copy the structure and invert every missing control.
 
@@ -14,11 +14,11 @@ The two external references the maintainer cited — the DeepMind/Hutter paper a
 
 ### 1.1 Hierarchy — three tiers, already named in the codebase
 
-The mission event schema already ships a `source_actor` vocabulary: `hauptjarvis | kontrollierer | worker | critic | ui | system` (`jarvis/missions/missions_schema.sql:36`). That is precisely the society hierarchy the maintainer describes, minus the persistent-identity layer:
+The mission event schema already ships a `source_actor` vocabulary: `hauptjarvis | kontrollierer | worker | critic | ui | system` (`dodaios/missions/missions_schema.sql:36`). That is precisely the society hierarchy the maintainer describes, minus the persistent-identity layer:
 
 - **Lead tier — Jarvis (`hauptjarvis`).** One lead agent, steered by the user through voice. It never does bulk work; it decomposes intent and dispatches. This maps to the existing router (a pure dispatcher over `ROUTER_TOOLS`, ADR-0011) plus the mission dispatcher.
-- **Upper tier — orchestrators (`kontrollierer`).** Per-domain coordinators (a "research lead", a "coding lead", a "home lead") that own a workstream, hold the budget for it, run the critic/review loop, and delegate to sub-agents. The `Kontrollierer` orchestrator already exists (`jarvis/missions/kontrollierer/`).
-- **Sub-tier — workers.** Specialized, disposable executors. The `SubagentFanoutRunner` already spawns these as bounded, parallel children (max 10 concurrent, `jarvis/missions/subagent_fanout.py:60`).
+- **Upper tier — orchestrators (`kontrollierer`).** Per-domain coordinators (a "research lead", a "coding lead", a "home lead") that own a workstream, hold the budget for it, run the critic/review loop, and delegate to sub-agents. The `Kontrollierer` orchestrator already exists (`dodaios/missions/kontrollierer/`).
+- **Sub-tier — workers.** Specialized, disposable executors. The `SubagentFanoutRunner` already spawns these as bounded, parallel children (max 10 concurrent, `dodaios/missions/subagent_fanout.py:60`).
 
 The critical departure from today's model: **agents become persistent, first-class, user-configured entities** (name, avatar, per-agent model/provider, tool grants, permissions, a "model card") rather than ephemeral mission workers that live 60 seconds and get TTL-reaped (`registry.py:123`, `ttl_completed_s=60`). The society needs a **durable agent registry table** on top of the ephemeral live tree.
 
@@ -28,7 +28,7 @@ This tiering is directly endorsed by DeepMind's *From AGI to ASI* (arXiv 2606.12
 
 Each society agent moves through: **defined → idle → tasked → working → reporting → idle** (or → retired). Concretely:
 
-1. **Defined.** The user creates the agent in the UI: name, avatar, role/system-prompt, model+provider (any connected provider incl. local Ollama — enumerated from `jarvis/core/config.py` and `jarvis/realtime/factory.py`, never from this box's `jarvis.toml`, per CLAUDE.md §2), granted tools/plugins, permission ceiling. Persisted in a new `society_agents` table.
+1. **Defined.** The user creates the agent in the UI: name, avatar, role/system-prompt, model+provider (any connected provider incl. local Ollama — enumerated from `dodaios/core/config.py` and `dodaios/realtime/factory.py`, never from this box's `jarvis.toml`, per CLAUDE.md §2), granted tools/plugins, permission ceiling. Persisted in a new `society_agents` table.
 2. **Idle.** The agent exists as a row and a live node with a heartbeat. In the 3D world it "lives" — walks, stands at its checkpoint. Idle costs ~nothing (see §3): heartbeats are header-only writes (`event_store.py:370 touch_heartbeat`), not LLM calls.
 3. **Tasked / working.** When Jarvis or an orchestrator assigns work, the agent spawns a worker subprocess exactly as `SubagentFanoutRunner` does today, publishing `WorkerSpawned → WorkerDraftReady → WorkerKilled` on the mission bus so the world-view, budget tracker, and agent tree all light up with zero extra wiring (`subagent_fanout.py:28-31`).
 4. **Reporting.** The worker's final message is its deliverable; the orchestrator integrates results and may run a critic pass before the lead reports back to the user by voice.
@@ -36,7 +36,7 @@ Each society agent moves through: **defined → idle → tasked → working → 
 
 ### 1.3 Communication protocol — a typed JSON blackboard, not a chat
 
-The single most important design decision. The reported incident (§6) and the DeepMind paper both show that **agents left to talk in free-form natural language converge on terse, coded messages** because verbose chat is expensive and ambiguous. We should therefore *start* where they *ended up*: a compact, typed, append-only message envelope — which Jarvis already has in `EventEnvelope` (`jarvis/missions/events.py`).
+The single most important design decision. The reported incident (§6) and the DeepMind paper both show that **agents left to talk in free-form natural language converge on terse, coded messages** because verbose chat is expensive and ambiguous. We should therefore *start* where they *ended up*: a compact, typed, append-only message envelope — which Jarvis already has in `EventEnvelope` (`dodaios/missions/events.py`).
 
 Recommended protocol: agent-to-agent messages are **structured events on the shared bus/store**, not prose. A message is `{type, from_agent, to_agent|broadcast, trace_id, parent_event_id, payload}` where `type ∈ {ASSIGN, CLAIM, RESULT, QUERY, ANSWER, HOLD, RELEASE, PROPOSE, VETO, DIGEST}`. This is the incident's `zzASK_/HOLD/GO/VETO/STOP` vocabulary and the DeepMind "group agent" coordination primitives, expressed once as an enum instead of re-derived by each model at runtime. Benefits: cheap (a few hundred tokens, cacheable), auditable (it is already the event log), and safe (a `VETO`/`HOLD`/kill is a first-class message the orchestrator enforces, not a social convention agents may ignore).
 
@@ -105,7 +105,7 @@ CREATE VIRTUAL TABLE knowledge_fts USING fts5(topic, summary, content='knowledge
 
 ### Read/write paths
 
-- **Write:** an agent never writes raw state directly. It emits a `RESULT`/`ANSWER` event through the ToolExecutor; a lightweight **curator** (cheap/local model) folds important results into the `knowledge` table as a ~150-word summary. Jarvis already does exactly this compaction elsewhere: `awareness_episodes` stores "~150-Wort" compacted summaries produced by a "Verdichter-Haiku" (`jarvis/memory/schema.sql:99-110`). Reuse that pattern.
+- **Write:** an agent never writes raw state directly. It emits a `RESULT`/`ANSWER` event through the ToolExecutor; a lightweight **curator** (cheap/local model) folds important results into the `knowledge` table as a ~150-word summary. Jarvis already does exactly this compaction elsewhere: `awareness_episodes` stores "~150-Wort" compacted summaries produced by a "Verdichter-Haiku" (`dodaios/memory/schema.sql:99-110`). Reuse that pattern.
 - **Read:** an agent's context is assembled from (a) its own role card, (b) an FTS/vector query into `knowledge` for the current topic, and (c) the last N `to_agent` inbox events — **never the whole log**. This keeps per-turn tokens bounded regardless of society size.
 - **Retention:** `society_events` is the immutable audit trail (retain, checkpoint WAL via `wal_checkpoint(TRUNCATE)` as `event_store.py:392` already does). `knowledge` rows are mutable and deduplicated by topic. Idle housekeeping compacts old event detail into knowledge summaries and prunes.
 
@@ -113,7 +113,7 @@ CREATE VIRTUAL TABLE knowledge_fts USING fts5(topic, summary, content='knowledge
 
 - **`EventBus`** (`core/bus.py`) stays the in-process real-time fan-out for the live world-view; its docstring already anticipates "swapped for a Redis bus later when running multi-process." Keep single-process for a consumer box.
 - **`sessions.db` / recall memory** (`memory/schema.sql`: `messages`+`messages_fts`, `kv_store`) remains per-user conversational memory; the society knowledge store is a *sibling*, not a replacement.
-- **The Obsidian wiki** (`jarvis/memory/wiki/`) is the human-readable long-term store; the curator can promote durable facts there, keeping it off the voice critical path (AP-9).
+- **The Obsidian wiki** (`dodaios/memory/wiki/`) is the human-readable long-term store; the curator can promote durable facts there, keeping it off the voice critical path (AP-9).
 
 ---
 
@@ -146,7 +146,7 @@ A heavy user day with 10 such tasks lands at **$18–34 cloud-only**, or **singl
 2. **Per-agent + per-day spend meters.** `BudgetTracker` already does per-mission ($5) + daily ($50) token buckets with warnings at 50%/80% and a hard abort (`budget.py:34-36, 133-142`), plus a **pre-spawn `assert_under_limit`** so a new worker never starts on an exhausted budget (`budget.py:144`). Add a per-agent daily cap (`society_agents.daily_budget_usd`).
 3. **Prompt caching** on the stable prefix (society system prompt + agent role card). Structure prompts prefix-stable to maximize cache hits.
 4. **Compact JSON protocol** (§1.3) instead of chat — the cheapest lever after local models.
-5. **Batch/queue background work.** Non-urgent society tasks queue and run in idle windows (the existing `jarvis/tasks/scheduler.py`), smoothing spend and letting caching windows amortize.
+5. **Batch/queue background work.** Non-urgent society tasks queue and run in idle windows (the existing `dodaios/tasks/scheduler.py`), smoothing spend and letting caching windows amortize.
 
 ---
 
@@ -231,13 +231,13 @@ Steps 1–2 touch a **shared contract** (a new provider/agent config schema, cro
 
 ## Appendix — load-bearing repo anchors
 
-- `jarvis/core/bus.py` — in-process EventBus, typed+wildcard, 5 s wildcard timeout (AP-18), Redis-swappable.
-- `jarvis/missions/event_store.py` + `missions_schema.sql` — event-sourced store, append-and-publish atomicity, `seq/parent_event_id/worker_id/source_actor`, per-mission `cost_usd`/`iteration`/`last_heartbeat_ms`, child-mission linking.
-- `jarvis/agents/registry.py` — live parent/child agent tree from bus events (the world-view data model), `AgentNode` carries provider/model/cost/tokens/tool_calls.
-- `jarvis/missions/budget.py` — per-mission $5 + daily $50 token buckets, 50/80% warnings, hard abort, `assert_under_limit` pre-spawn check.
-- `jarvis/missions/subagent_fanout.py` — bounded two-layer fan-out, structural no-recursion wall (AP-5/AP-14), max 10 concurrent, contained per-child failure.
-- `jarvis/safety/risk_tier.py` + `tool_executor.py` — blacklist>whitelist>default tiers, `ActionBlocked`, sole authorized executor (AP-3).
-- `jarvis/memory/schema.sql` — recall memory (`messages`+FTS5, `kv_store`), awareness episodes with ~150-word compaction (the curator pattern).
+- `dodaios/core/bus.py` — in-process EventBus, typed+wildcard, 5 s wildcard timeout (AP-18), Redis-swappable.
+- `dodaios/missions/event_store.py` + `missions_schema.sql` — event-sourced store, append-and-publish atomicity, `seq/parent_event_id/worker_id/source_actor`, per-mission `cost_usd`/`iteration`/`last_heartbeat_ms`, child-mission linking.
+- `dodaios/agents/registry.py` — live parent/child agent tree from bus events (the world-view data model), `AgentNode` carries provider/model/cost/tokens/tool_calls.
+- `dodaios/missions/budget.py` — per-mission $5 + daily $50 token buckets, 50/80% warnings, hard abort, `assert_under_limit` pre-spawn check.
+- `dodaios/missions/subagent_fanout.py` — bounded two-layer fan-out, structural no-recursion wall (AP-5/AP-14), max 10 concurrent, contained per-child failure.
+- `dodaios/safety/risk_tier.py` + `tool_executor.py` — blacklist>whitelist>default tiers, `ActionBlocked`, sole authorized executor (AP-3).
+- `dodaios/memory/schema.sql` — recall memory (`messages`+FTS5, `kv_store`), awareness episodes with ~150-word compaction (the curator pattern).
 
 ---
 

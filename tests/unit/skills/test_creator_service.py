@@ -20,16 +20,16 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta
-from jarvis.skills import prefs
-from jarvis.skills.creator_service import (
+from dodaios.core.protocols import BrainDelta
+from dodaios.skills import prefs
+from dodaios.skills.creator_service import (
     SkillCreatorInput,
     SkillCreatorService,
     render_skill_md,
     validate_skill_md,
 )
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.schema import SkillLifecycleState
 
 
 # ----------------------------------------------------------------------
@@ -226,7 +226,7 @@ class _PinnableBrainManager(_FakeBrainManager):
 async def test_draft_uses_the_operation_pinned_model_first(registry) -> None:
     """A voice session that pinned its (cheap) thinking model drafts skills on
     it, not on the chat tier's active frontier model."""
-    from jarvis.core.model_selection import ModelSelection, use_operation_model
+    from dodaios.core.model_selection import ModelSelection, use_operation_model
 
     active = _FakeBrain("not json")
     pinned = _FakeBrain(_GOOD_BRAIN_JSON)
@@ -336,7 +336,7 @@ async def test_brain_ladder_crosses_a_dead_active_provider(registry, monkeypatch
     the user a skeleton (AP-22)."""
     from types import SimpleNamespace
 
-    from jarvis.brain import resolver as resolver_mod
+    from dodaios.brain import resolver as resolver_mod
 
     dead = _DeadBrain()
     bm = _FakeBrainManager(dead, name="openrouter")
@@ -361,8 +361,8 @@ async def test_a_seat_only_creator_never_climbs_the_ladder(registry, monkeypatch
     with a config present. Other callers keep the ladder above."""
     from types import SimpleNamespace
 
-    from jarvis.brain import resolver as resolver_mod
-    from jarvis.core.model_selection import ModelSelection, use_operation_model
+    from dodaios.brain import resolver as resolver_mod
+    from dodaios.core.model_selection import ModelSelection, use_operation_model
 
     def ladder(cfg, bus=None):  # noqa: ANN001
         raise AssertionError("a seat-only creator climbed the resolver ladder")
@@ -388,7 +388,7 @@ async def test_a_seat_only_creator_never_climbs_the_ladder(registry, monkeypatch
 async def test_prompt_carries_the_live_inventory_and_the_skill_contract(registry) -> None:
     """What makes the draft a WORKING skill: the model sees which connectors
     are attached (by name) and the trigger/schedule contract."""
-    from jarvis.skills.creator_service import AuthoringContext
+    from dodaios.skills.creator_service import AuthoringContext
 
     brain = _RecordingBrain(_GOOD_BRAIN_JSON)
     ctx = AuthoringContext(
@@ -415,7 +415,7 @@ async def test_brain_draft_is_normalised_triggers_and_tools(registry) -> None:
     """Overbroad / invalid voice patterns and invalid crons are dropped, the
     caller's cron hint is added when the model forgot it, and requires_tools is
     filtered to connectors that exist."""
-    from jarvis.skills.creator_service import AuthoringContext
+    from dodaios.skills.creator_service import AuthoringContext
 
     ctx = AuthoringContext(tools=(("gmail", ""), ("youtube_music", "")))
     svc = SkillCreatorService(brain=_FakeBrain(_ROUTINE_BRAIN_JSON), registry=registry, context=ctx)
@@ -454,7 +454,7 @@ async def test_author_commits_the_brain_draft_as_a_draft_skill(registry, skills_
 async def test_author_refuses_to_commit_a_skeleton(registry, skills_root) -> None:
     """No brain → no skill. The skeleton is the user's sentence pasted into a
     template; on the voice path nobody edits it, so nothing must be written."""
-    from jarvis.skills.creator_service import SkillCreatorUnavailable
+    from dodaios.skills.creator_service import SkillCreatorUnavailable
 
     svc = SkillCreatorService(brain=None, registry=registry, user_skills_root=skills_root)
     with pytest.raises(SkillCreatorUnavailable):

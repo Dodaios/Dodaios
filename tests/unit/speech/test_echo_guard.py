@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import time
 
-from jarvis.speech.echo_guard import SelfEchoGuard
+from dodaios.speech.echo_guard import SelfEchoGuard
 
 
 def test_garbled_echo_fragment_is_flagged() -> None:

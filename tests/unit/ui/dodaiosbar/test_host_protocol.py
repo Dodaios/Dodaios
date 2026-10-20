@@ -1,4 +1,4 @@
-"""Bar host process protocol (jarvis.ui.dodaiosbar.host).
+"""Bar host process protocol (dodaios.ui.dodaiosbar.host).
 
 The host lets the bar's Tk mainloop run on a companion process's MAIN thread
 (the only thread Aqua-Tk accepts on macOS, BUG-057). These tests drive the
@@ -18,7 +18,7 @@ import sys
 
 import pytest
 
-from jarvis.ui.dodaiosbar import host
+from dodaios.ui.dodaiosbar import host
 
 
 class _RecordingBar:
@@ -227,7 +227,7 @@ def test_build_surface_mascot_builds_an_orb_overlay(monkeypatch) -> None:
 
 def test_build_surface_defaults_to_the_tk_bar_off_macos(monkeypatch) -> None:
     """Windows/Linux keep the established Tk color-key implementation."""
-    from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+    from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
     monkeypatch.delenv("JARVIS_BAR_HOST_FAKE", raising=False)
     monkeypatch.setattr(host.sys, "platform", "linux")
@@ -241,7 +241,7 @@ def test_build_surface_uses_qt_bar_on_macos_without_tk_bootstrap(
     monkeypatch,
 ) -> None:
     """Darwin must never initialize Tk before the Qt Cocoa application."""
-    from jarvis.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
+    from dodaios.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
 
     monkeypatch.delenv("JARVIS_BAR_HOST_FAKE", raising=False)
     monkeypatch.setattr(host.sys, "platform", "darwin")
@@ -303,7 +303,7 @@ def test_host_process_round_trip_with_echo_bar() -> None:
     env = dict(os.environ)
     env["JARVIS_BAR_HOST_FAKE"] = "1"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "jarvis.ui.dodaiosbar.host"],
+        [sys.executable, "-m", "dodaios.ui.dodaiosbar.host"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -339,7 +339,7 @@ def test_host_process_round_trip_with_mascot_surface() -> None:
     env = dict(os.environ)
     env["JARVIS_BAR_HOST_FAKE"] = "1"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "jarvis.ui.dodaiosbar.host"],
+        [sys.executable, "-m", "dodaios.ui.dodaiosbar.host"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -389,7 +389,7 @@ def test_host_process_round_trip_with_qt_bar_offscreen() -> None:
     env = dict(os.environ)
     env["QT_QPA_PLATFORM"] = "offscreen"
     proc = subprocess.Popen(
-        [sys.executable, "-m", "jarvis.ui.dodaiosbar.host"],
+        [sys.executable, "-m", "dodaios.ui.dodaiosbar.host"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import private_directory
-from jarvis.core.private_directory import ensure_owner_only_directory
+from dodaios.core import private_directory
+from dodaios.core.private_directory import ensure_owner_only_directory
 
 _POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="POSIX permission test")
 _WINDOWS_ONLY = pytest.mark.skipif(os.name != "nt", reason="Windows ACL test")

@@ -9,7 +9,7 @@ import { Button } from "@app/components/ui/button";
 import { AppShell } from "./shared";
 import { AgentSymbol } from "./identity/AgentSymbol";
 import { defaultCompanion } from "./identity/appearance";
-// Exact source asset: jarvis/ui/web/frontend/src/assets/gigi-companion-avatar.png.
+// Exact source asset: dodaios/ui/web/frontend/src/assets/gigi-companion-avatar.png.
 // SHA-256: 7B9E3128AD160644B5ECA8EA223D614EABD5BA029A8CD825D15898AC791E53E0.
 import gigiCompanionMark from "./assets/gigi-companion-avatar.png";
 
@@ -40,7 +40,7 @@ const typed = (text: string, frame: number, start: number, duration: number) =>
   })));
 
 /**
- * Current jarvis/ui/web/frontend/src/components/society/AgentSwatch.tsx structure.
+ * Current dodaios/ui/web/frontend/src/components/society/AgentSwatch.tsx structure.
  * Uses the snapshotted vectors; Remotion Img waits for the source avatar to load.
  */
 const AgentIdentity: React.FC<{ agent: DemoAgent; size: number }> = ({ agent, size }) => (

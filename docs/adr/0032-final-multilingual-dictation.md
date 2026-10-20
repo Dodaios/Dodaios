@@ -51,7 +51,7 @@ control.
 6. Raw PortAudio PCM stays byte-identical. The audit reports NS/AGC/AEC as
    unavailable (or AEC as off) until a platform backend advertises and passes a
    quality regression corpus. An unverified DSP filter is not a fallback.
-7. `python -m jarvis.speech.stt_eval` compares exact provider/model pairs on a
+7. `python -m dodaios.speech.stt_eval` compares exact provider/model pairs on a
    user-supplied, consented 16 kHz mono WAV corpus. It measures WER, annotated
    switch-anchor loss, median latency, billed gateway cost (when returned),
    explicit price-based estimates, and repeat variance. Reports omit reference
@@ -86,7 +86,7 @@ Run it with the same harness (quote each contender because `|` is a shell
 operator):
 
 ```powershell
-python -m jarvis.speech.stt_eval `
+python -m dodaios.speech.stt_eval `
   --corpus data/stt-eval/corpus.jsonl `
   --contender "current|openrouter-stt|openai/whisper-large-v3-turbo|0" `
   --contender "candidate|openrouter-stt|openai/gpt-4o-transcribe|0" `

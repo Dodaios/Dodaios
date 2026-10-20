@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide import layout_tree as lt
-from jarvis.agentic_ide.layout_tree import Leaf, Split
+from dodaios.agentic_ide import layout_tree as lt
+from dodaios.agentic_ide.layout_tree import Leaf, Split
 
 
 def check_canonical(node: lt.LayoutNode | None) -> None:

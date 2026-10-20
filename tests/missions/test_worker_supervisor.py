@@ -1,6 +1,6 @@
 """Tests for WorkerSupervisor signal classification + Kontrollierer wire.
 
-H9 (2026-05-17 audit): WorkerSupervisor (jarvis/missions/workers/supervisor.py)
+H9 (2026-05-17 audit): WorkerSupervisor (dodaios/missions/workers/supervisor.py)
 was implemented but never instantiated in production code — the
 audit-team-2 verdict was "dead code". This test file pins both the
 class behaviour and the new wire-up inside ``_spawn_worker_collect``
@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.workers.supervisor import (
+from dodaios.missions.workers.supervisor import (
     WorkerState,
     WorkerSupervisor,
 )

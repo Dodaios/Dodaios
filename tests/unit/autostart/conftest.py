@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.platform import PlatformName
-from jarvis.platform.capabilities import Capabilities
+from dodaios.platform import PlatformName
+from dodaios.platform.capabilities import Capabilities
 
 
 def make_caps(

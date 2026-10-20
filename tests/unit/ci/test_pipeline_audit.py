@@ -438,7 +438,7 @@ def test_the_proven_lookup_fails_open():
 
 def test_a_proven_push_runs_nothing_but_detection_and_the_gate():
     ci = workflows()["ci.yml"]["jobs"]
-    lanes = classify_changes.classify(["jarvis/core/config.py"], proven=True)
+    lanes = classify_changes.classify(["dodaios/core/config.py"], proven=True)
     assert not any(lanes.values())
     proven = next(s for s in ci["detect"]["steps"] if s.get("id") == "proven")
     # Only a run on main that is neither a full nor a macOS run may skip.
@@ -987,11 +987,11 @@ def test_release_cut_lands_through_protection_and_tags_the_merge_commit():
 
 
 def test_release_cut_updates_only_the_root_lock_version(tmp_path):
-    (tmp_path / "jarvis").mkdir()
+    (tmp_path / "dodaios").mkdir()
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname = "personal-jarvis"\nversion = "1.0.0"\n'
     )
-    (tmp_path / "jarvis/__init__.py").write_text('__version__ = "1.0.0"\n')
+    (tmp_path / "dodaios/__init__.py").write_text('__version__ = "1.0.0"\n')
     (tmp_path / "CHANGELOG.md").write_text("# Changes\n\n## [Unreleased]\n\n- Added\n")
     (tmp_path / "uv.lock").write_text(
         '[[package]]\nname = "personal-jarvis"\nversion = "1.0.0"\n'

@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.factory import (
+from dodaios.brain.factory import (
     _KONTROLLIERER_REF,
     _MISSION_MANAGER_REF,
     _WORKER_BOOTSTRAP_FAILED,
@@ -30,8 +30,8 @@ from jarvis.brain.factory import (
     set_mission_manager,
     set_worker_bootstrap_failed,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ExecutionContext
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ExecutionContext
 
 
 @pytest.fixture(autouse=True)
@@ -119,8 +119,8 @@ async def test_post_hoc_set_mission_manager_makes_tool_functional() -> None:
     assert "build hello world" in call.kwargs["prompt"]
     # A turn with no language follows the ambient answer language (reply pin,
     # then locale) instead of a hard-coded German default.
-    from jarvis.missions.events import coerce_mission_language
-    from jarvis.voice.action_phrases import resolve_ambient_language
+    from dodaios.missions.events import coerce_mission_language
+    from dodaios.voice.action_phrases import resolve_ambient_language
 
     assert call.kwargs["language"] == coerce_mission_language(resolve_ambient_language())
     assert call.kwargs["source_actor"] == "hauptjarvis"
@@ -148,7 +148,7 @@ def test_force_spawn_heuristic_triggers_when_tool_present() -> None:
 
 def test_init_requires_manager_or_resolver() -> None:
     """SpawnWorkerTool refuses to construct without any manager source."""
-    from jarvis.plugins.tool.spawn_worker import SpawnWorkerTool
+    from dodaios.plugins.tool.spawn_worker import SpawnWorkerTool
 
     bus = EventBus()
     with pytest.raises(ValueError, match="manager.*manager_resolver"):
@@ -158,7 +158,7 @@ def test_init_requires_manager_or_resolver() -> None:
 @pytest.mark.asyncio
 async def test_eager_manager_still_works() -> None:
     """Backwards compat: passing manager directly (test path) still works."""
-    from jarvis.plugins.tool.spawn_worker import SpawnWorkerTool
+    from dodaios.plugins.tool.spawn_worker import SpawnWorkerTool
 
     bus = EventBus()
     fake_manager = MagicMock()
@@ -247,8 +247,8 @@ async def test_voice_path_kontrollierer_crash_publishes_completed_event() -> Non
     success=False to give the user spoken failure feedback (e.g.
     "the mission crashed", localized). Without this publish the user would just hear silence.
     """
-    from jarvis.core.events import JarvisAgentBackgroundCompleted
-    from jarvis.plugins.tool.spawn_worker import SpawnWorkerTool
+    from dodaios.core.events import JarvisAgentBackgroundCompleted
+    from dodaios.plugins.tool.spawn_worker import SpawnWorkerTool
 
     bus = EventBus()
     received: list[JarvisAgentBackgroundCompleted] = []

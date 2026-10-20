@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.events import Event, LatencyPhase, LatencySpan
+from dodaios.core.events import Event, LatencyPhase, LatencySpan
 
 
 def test_latency_span_inherits_event_base_and_carries_timing() -> None:

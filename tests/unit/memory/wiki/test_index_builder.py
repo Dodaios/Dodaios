@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.index_builder.IndexBuilder``.
+"""Unit tests for ``dodaios.memory.wiki.index_builder.IndexBuilder``.
 
 Covers:
 * Render produces the four category sections in the documented order.
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.index_builder import IndexBuilder
-from jarvis.memory.wiki.vault_index import VaultIndex
+from dodaios.memory.wiki.index_builder import IndexBuilder
+from dodaios.memory.wiki.vault_index import VaultIndex
 
 from tests.unit.memory.wiki.conftest import FakePageRepository, write_page
 
