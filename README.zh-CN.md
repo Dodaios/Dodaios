@@ -52,7 +52,7 @@ irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 |
 curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
 ```
 
-安装程序会检查 Python 3.11+ 和 Git，提示安装缺少的组件，注册桌面启动器并打开应用。
+无需预先安装任何东西。如果缺少 Python，安装程序会为 Dodaios 单独下载一份私有副本；在 Windows 上 Git 也是如此，不需要管理员权限，也不会询问。随后它会注册桌面启动器并打开应用。
 再次运行即可更新现有安装。语言、唤醒词和模型都在应用内设置。
 
 **你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
