@@ -11,9 +11,12 @@ Wiring (all event-driven; nothing here runs on a timer that wakes a model):
   failed proofs, an installed skill that already serves it, and
   :func:`~.policy.admit` for every candidate kind. Most needs stop here.
 * **Decide.** Needs that pass wait until the person has been quiet for
-  :data:`QUIET_S` (or a call ends), then get at most one model call each on a
-  subscription or local seat, :data:`DECIDE_PER_DAY` at most per day. With no
-  such seat a plain proposal is written from the counts instead.
+  :data:`QUIET_S`: no new turn, and no keyboard or mouse input and no typing
+  in an IDE pane for that long (the idle reading the code builder uses,
+  :func:`.code.idle.person_idle`), or until a call ends. Then they get at most
+  one model call each on a subscription or local seat, :data:`DECIDE_PER_DAY`
+  at most per day. With no such seat a plain proposal is written from the
+  counts instead.
 * **Build** through :class:`~.builders.Builders`; **prove** in :mod:`.judge`.
 * **Measure.** Uses are recorded from what really happens: a self-built skill
   fires (``SkillInvoked``) and is or is not corrected in the next turn, a
@@ -33,7 +36,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
 from dodaios.costs.ledger import usage_context
@@ -50,6 +53,7 @@ log = logging.getLogger(__name__)
 
 _DAY_MS: Final[int] = 86_400_000
 #: Needs are decided after this much quiet: never while the person is busy.
+#: Quiet means no new turn AND no keyboard, mouse or pane input for this long.
 QUIET_S: Final[float] = 90.0
 #: Model calls the decide step may make per day, whatever crosses.
 DECIDE_PER_DAY: Final[int] = 4
@@ -74,7 +78,14 @@ _current: SelfBuildLoop | None = None
 
 
 class SelfBuildLoop:
-    def __init__(self, service: Any, store: SignalStore, *, builders: Builders) -> None:
+    def __init__(
+        self,
+        service: Any,
+        store: SignalStore,
+        *,
+        builders: Builders,
+        idle: Callable[[float], bool] | None = None,
+    ) -> None:
         self.service = service
         self.store = store
         self.builders = builders
@@ -86,6 +97,8 @@ class SelfBuildLoop:
         self._subscriptions: list[tuple[type[Any], Any]] = []
         self._bus: Any = None
         self._maintained = 0.0
+        #: ``idle(seconds) -> bool``: no input for that long (``code/idle.py``).
+        self._idle = idle if idle is not None else _person_idle
         #: The last self-built skill that fired: ``(build id, ms, conversation)``;
         #: the conversation is filled in by the turn that fired it, so the
         #: person's NEXT turn there is the one judged for a correction.
@@ -272,7 +285,22 @@ class SelfBuildLoop:
             loop = asyncio.get_running_loop()
         except RuntimeError:  # no loop: the queue waits for the next event
             return
-        self._timer = loop.call_later(QUIET_S, lambda: self._spawn(self.run_queue(), "decide"))
+        self._timer = loop.call_later(QUIET_S, lambda: self._spawn(self._when_quiet(), "decide"))
+
+    async def _when_quiet(self) -> None:
+        """No turn for :data:`QUIET_S`; decide only if the person is away from the input too."""
+        self._timer = None
+        if not self._queue:
+            return
+        try:
+            idle = await asyncio.to_thread(self._idle, QUIET_S)
+        except Exception:  # noqa: BLE001 - an unreadable idle clock never blocks deciding
+            log.debug("self_build: idle reading failed", exc_info=True)
+            idle = True
+        if not idle:
+            self._arm()  # still typing or pointing: look again after another quiet stretch
+            return
+        await self.run_queue()
 
     # ------------------------------------------------------------ gate
 
@@ -536,6 +564,8 @@ class SelfBuildLoop:
             return
         stamp = now if now is not None else now_ms()
         await asyncio.to_thread(self.store.prune, now=stamp)
+        # Turns filed while no zone could be named get their clock now.
+        await asyncio.to_thread(self.store.fill_clocks)
         kept = await asyncio.to_thread(self.ledger.list, states=[State.KEPT], kinds=KINDS)
         for record in kept:
             last = max(record.last_used_ms, record.trial_started_ms, record.created_ms)
@@ -563,6 +593,12 @@ class SelfBuildLoop:
         for record in waiting:
             if stamp - record.updated_ms >= RETRY_MS and not self.builders.running(record.id):
                 self.service.spawn(self.builders.build(record), f"retry {record.id}")
+
+
+def _person_idle(seconds: float) -> bool:
+    from .code.idle import person_idle
+
+    return person_idle(seconds)
 
 
 def _fields(obs: Observation) -> dict[str, Any]:

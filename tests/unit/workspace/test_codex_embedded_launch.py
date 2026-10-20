@@ -27,6 +27,8 @@ def test_embedded_codex_suppresses_update_box_on_every_launch(
         assert argv[-2:] == ("resume", "conversation")
 
     assert argv[1:3] == ("-c", "check_for_update_on_startup=false")
+    # Real scrollback in the pane, so its scrollbar shows the true position.
+    assert argv[3] == "--no-alt-screen"
     # Only pane launches get the override, never detection or the plain CLI
     # command used outside the embedded IDE.
     agent = get_agent("codex")
