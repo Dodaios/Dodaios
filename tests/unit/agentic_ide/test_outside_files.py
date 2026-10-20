@@ -134,7 +134,13 @@ def test_a_file_inside_the_workspace_answers_its_relative_path(workspace: Path) 
     inner = workspace / "src" / "app.py"
     inner.parent.mkdir()
     inner.write_text("x = 1\n", encoding="utf-8")
-    assert _grant(str(inner))["path"] == "src/app.py"
+    assert _grant(str(inner)) == {"workspace_id": "w1", "path": "src/app.py", "kind": "file"}
+    # A folder inside the workspace is named for the Folder tab, not granted.
+    assert _grant("src/")["kind"] == "directory"
+    assert _grant("src")["path"] == "src"
+    # The workspace root itself is not a target.
+    with pytest.raises(HTTPException):
+        _grant(".")
 
 
 def test_a_home_relative_path_finds_the_file_in_the_home_folder(
