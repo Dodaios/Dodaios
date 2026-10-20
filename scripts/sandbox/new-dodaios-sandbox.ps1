@@ -147,7 +147,7 @@ Write-Ok "installed .[full] + keyrings.alt into the sandbox venv"
 # --- 5. Seed isolated config (Computer-Use OFF) ----------------------------
 Write-Step "5. Seed sandbox config"
 $sandboxConfig = Join-Path $SandboxRoot "jarvis.toml"
-$exampleConfig = Join-Path $SandboxRoot "jarvis.toml.example"
+$exampleConfig = Join-Path $SandboxRoot "dodaios.toml.example"
 if (Test-Path $exampleConfig) { Copy-Item $exampleConfig $sandboxConfig -Force }
 else { Set-Content -Path $sandboxConfig -Value "# sandbox config" -Encoding utf8 }
 $cuOverride = "`r`n# --- sandbox override: never drive the physical desktop ---`r`n[computer_use]`r`nenabled = false`r`n"

@@ -1,10 +1,11 @@
 # ============================================================
 #  Dodaios — configuration TEMPLATE
 # ------------------------------------------------------------
-#  This file is OPTIONAL. Dodaios boots with no jarvis.toml at all
+#  This file is OPTIONAL. Dodaios boots with no config file at all
 #  (every value below has a built-in default in dodaios/core/config.py).
-#  Copy this to `jarvis.toml` only if you want to override defaults:
-#      cp jarvis.toml.example jarvis.toml
+#  Copy this to `dodaios.toml` only if you want to override defaults
+#  (an install that already has a `jarvis.toml` keeps using that file):
+#      cp dodaios.toml.example dodaios.toml
 #
 #  SECRETS DO NOT GO HERE. API keys live in your OS credential manager
 #  (run `python -m dodaios --wizard`) or in `.env` (see .env.example).

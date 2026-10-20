@@ -38,7 +38,7 @@ def test_router_vision_config_defaults():
 
 def test_public_example_loads_without_router_vision_override():
     """The public example loads without requiring a private jarvis.toml."""
-    toml_path = REPO_ROOT / "jarvis.toml.example"
+    toml_path = REPO_ROOT / "dodaios.toml.example"
     assert toml_path.exists(), f"public config example not found at {toml_path}"
 
     with toml_path.open("rb") as f:
