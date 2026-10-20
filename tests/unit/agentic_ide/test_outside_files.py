@@ -8,6 +8,7 @@ works as for a workspace file.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -140,7 +141,8 @@ def test_a_home_relative_path_finds_the_file_in_the_home_folder(
     workspace: Path, downloads: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: downloads.parent.parent))
-    key = _grant("Downloads\\TODO.md")["path"]
+    printed = "Downloads\\TODO.md" if os.name == "nt" else "Downloads/TODO.md"
+    key = _grant(printed)["path"]
     assert key == str(downloads.resolve()).replace("\\", "/")
     # A workspace file of the same name wins.
     (workspace / "Downloads").mkdir()
