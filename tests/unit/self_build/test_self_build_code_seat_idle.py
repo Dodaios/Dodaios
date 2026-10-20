@@ -312,3 +312,23 @@ def test_pull_request_text_carries_no_local_paths() -> None:
     assert "Program Files" not in out and "Python311" not in out
     assert "/home/me" not in out and "/Users/me" not in out
     assert "`tests/test_calc.py`" in out  # repository paths stay
+
+
+def test_leftover_worktree_folder_goes_only_when_it_holds_caches(tmp_path: Path) -> None:
+    from dodaios.self_build.code.builder import _drop_if_empty, _sweep
+
+    parent = tmp_path / ".worktrees"
+    left = parent / "dodaios-issue-1-x"
+    (left / "tests" / "__pycache__").mkdir(parents=True)
+    (left / "tests" / "__pycache__" / "test_calc.pyc").write_bytes(b"x")
+    (left / "__pycache__").mkdir()
+    _sweep(left)
+    _drop_if_empty(parent)
+    assert not left.exists() and not parent.exists()
+
+    kept = parent / "dodaios-issue-2-y"
+    kept.mkdir(parents=True)
+    (kept / "notes.txt").write_text("the person's", encoding="utf-8")
+    _sweep(kept)
+    _drop_if_empty(parent)
+    assert (kept / "notes.txt").exists()
