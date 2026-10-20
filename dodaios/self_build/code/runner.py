@@ -45,6 +45,7 @@ class Runner(Protocol):
         timeout_s: float,
         should_stop: Callable[[], bool],
         on_session: Callable[[str], Awaitable[None]] | None = None,
+        drop_env: tuple[str, ...] = (),
     ) -> RunResult: ...
 
     async def outcome(self, session_id: str) -> RunResult | None: ...
@@ -72,7 +73,9 @@ class ThreadRunner:
         timeout_s: float,
         should_stop: Callable[[], bool],
         on_session: Callable[[str], Awaitable[None]] | None = None,
+        drop_env: tuple[str, ...] = (),
     ) -> RunResult:
+        from dodaios.agent_chat.runner_cli import drop_child_env, release_child_env
         from dodaios.agent_chat.service import resolve_runner
         from dodaios.society.coding_threads import THREAD_SURFACE, access_mode
 
@@ -88,9 +91,26 @@ class ThreadRunner:
             surface=THREAD_SURFACE,
         )
         sid = session.session_id
-        if on_session is not None:
-            await on_session(sid)
-        turn_id = await service.send(sid, prompt, author=dict(AUTHOR))
+        if drop_env:
+            # The CLI bills its plan only without these (``seat``); the app's
+            # own environment keeps them.
+            drop_child_env(sid, drop_env)
+        try:
+            if on_session is not None:
+                await on_session(sid)
+            turn_id = await service.send(sid, prompt, author=dict(AUTHOR))
+            return await self._wait(service, sid, turn_id, timeout_s, should_stop)
+        finally:
+            release_child_env(sid)
+
+    async def _wait(
+        self,
+        service: Any,
+        sid: str,
+        turn_id: str,
+        timeout_s: float,
+        should_stop: Callable[[], bool],
+    ) -> RunResult:
         deadline = time.monotonic() + timeout_s
         while True:
             result = self._finished(service, sid, turn_id)

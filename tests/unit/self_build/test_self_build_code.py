@@ -121,6 +121,7 @@ class FakeRunner:
     change: str = "good"
     prompts: list[str] = field(default_factory=list)
     stopped: list[str] = field(default_factory=list)
+    dropped: list[tuple[str, ...]] = field(default_factory=list)
 
     async def run(
         self,
@@ -132,8 +133,10 @@ class FakeRunner:
         timeout_s: float,
         should_stop: Any,
         on_session: Any = None,
+        drop_env: tuple[str, ...] = (),
     ) -> RunResult:
         self.prompts.append(prompt)
+        self.dropped.append(drop_env)
         if on_session is not None:
             await on_session("thread-1")
         root = Path(folder)
@@ -265,6 +268,8 @@ def test_issue_becomes_draft_pull_request_proven_by_ci_and_undoable(world: World
     assert record.artefact["id"] == "https://x/me/proj/pull/100"
     assert record.artefact["repo"] == "me/proj"
     assert record.artefact["draft"] is True
+    # The coding thread stays linked from the build detail.
+    assert record.artefact["thread"] == "thread-1"
     branch = record.undo["branch"]
     assert branch.startswith("dodaios/issue-1-")
     assert branch in world.remote_branches()

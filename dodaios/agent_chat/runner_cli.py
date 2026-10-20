@@ -63,7 +63,7 @@ import os
 import shutil
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from concurrent.futures import Future
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -347,6 +347,39 @@ def _login_id(account_id: str) -> str:
     from dodaios.agent_chat.catalog import ACCESS_ACCOUNTS
 
     return "" if account_id in ACCESS_ACCOUNTS else account_id
+
+
+#: Sessions whose CLI must start without these environment variables
+#: (``drop_child_env``). In memory: a run that outlives the app keeps the
+#: environment it was spawned with in the turn host.
+_CHILD_ENV_DROPS: dict[str, frozenset[str]] = {}
+
+
+def drop_child_env(session_id: str, names: Iterable[str]) -> None:
+    """Spawn this session's CLI turns without ``names`` in their environment.
+
+    For background work on a subscription (the self-building loop's coding
+    runs): a key variable in the app's environment would make the CLI bill the
+    key instead of the plan it is signed in with. Only the child's environment
+    changes; the app's own is never touched.
+    """
+    cleaned = frozenset(str(name) for name in names if str(name).strip())
+    if cleaned:
+        _CHILD_ENV_DROPS[session_id] = cleaned
+
+
+def release_child_env(session_id: str) -> None:
+    _CHILD_ENV_DROPS.pop(session_id, None)
+
+
+def apply_child_env_drops(session_id: str, env: dict[str, str] | None) -> None:
+    """Remove the variables :func:`drop_child_env` named for ``session_id`` from ``env``."""
+    names = _CHILD_ENV_DROPS.get(session_id)
+    if not names or env is None:
+        return
+    upper = {name.upper() for name in names}
+    for key in [key for key in env if key.upper() in upper]:
+        env.pop(key, None)
 
 
 def _account_env(platform: str) -> dict[str, str]:
@@ -3098,7 +3131,10 @@ def _tool_abort_is_recoverable(error: str | None) -> bool:
 
 
 def _keep_going_prompt(
-    user_text: str, error: str | None, *, receipt_hint: str | None = None,
+    user_text: str,
+    error: str | None,
+    *,
+    receipt_hint: str | None = None,
 ) -> str:
     err = (error or "the last tool call failed").strip()[:500]
     review = f"{receipt_hint}\n\n" if receipt_hint else ""
@@ -3581,6 +3617,7 @@ async def _run_cli_once(
                     identity=identity,
                 )
                 await asyncio.to_thread(_carry_thread_conversation, runner, resume, plan.env)
+            apply_child_env_drops(session.session_id, plan.env)
             if getattr(handle, "tools_disabled", False):
                 from .native_control import disable_cli_tools
 
@@ -4245,7 +4282,12 @@ async def _drive_cli(
             if not task.done():
                 task.cancel()
         await asyncio.gather(
-            watcher, provider_watcher, stall_watcher, pump, drain, feeder,
+            watcher,
+            provider_watcher,
+            stall_watcher,
+            pump,
+            drain,
+            feeder,
             return_exceptions=True,
         )
         if tracker is not None:
