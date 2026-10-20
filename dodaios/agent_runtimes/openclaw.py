@@ -2,11 +2,12 @@
 
 OpenClaw's documented embedding path is a supervised Gateway child plus its
 own clients; Jarvis follows it exactly. Each agent gets its own state folder
-and its own loopback Gateway (started on the agent's first turn, stopped
-after :data:`IDLE_STOP_S` without one), and every turn runs the
-version-matched ``openclaw acp`` bridge against it. No Gateway WebSocket
-client is written here: that wire protocol requires an exact version match,
-the bridge that ships with the install always has it.
+and its own loopback Gateway (started when the agent's chat is opened or on
+its first turn, stopped after :data:`IDLE_STOP_S` without one), and turns run
+on the version-matched ``openclaw acp`` bridge against it, which stays warm
+between turns (``warm.py``). No Gateway WebSocket client is written here:
+that wire protocol requires an exact version match, the bridge that ships
+with the install always has it.
 
 Jarvis installs its own copy, at the tested release, into
 ``<tools_root>/openclaw-cli`` with a private Node.js: no administrator
@@ -71,11 +72,22 @@ LABEL: Final[str] = "OpenClaw"
 #: The one conversation of an agent inside its own state folder.
 SESSION_KEY: Final[str] = "agent:main:main"
 
-#: Stop an agent's Gateway after this long without a turn.
-IDLE_STOP_S: Final[float] = 15 * 60
+#: Stop an agent's Gateway after this long without a turn (with its warm
+#: bridge: ``warm.IDLE_STOP_S`` is the same).
+IDLE_STOP_S: Final[float] = 30 * 60
 
 #: How long a Gateway may take to listen (16-46 s measured on Windows).
 _START_TIMEOUT_S: Final[float] = 120.0
+
+#: Gateways kept running at once (about 1.3 GB of memory each); the least
+#: recently used idle one stops for a new one.
+_MAX_GATEWAYS: Final[int] = 3
+
+#: The Gateway session a warm-up run uses, never an agent's conversation.
+_WARMUP_SESSION_KEY: Final[str] = "agent:main:dodaios-warmup"
+
+#: A warm-up only runs when the agent's turn slot is free at once.
+_WARM_SLOT_WAIT_S: Final[float] = 0.5
 
 #: How long ``openclaw doctor --fix`` may run before it is stopped.
 _DOCTOR_TIMEOUT_S: Final[float] = 120.0
@@ -97,7 +109,8 @@ _EMBED_ENV: Final[dict[str, str]] = {
 
 #: Native tools that duplicate a Jarvis feature (routines, messaging, other
 #: devices, the visible browser) and would bypass Jarvis' own approvals and
-#: budgets.
+#: budgets, and tools for OpenClaw's own apps and dashboards no Dodaios agent
+#: has (their schemas were about a quarter of every request).
 _ALWAYS_DENIED: Final[tuple[str, ...]] = (
     "automations",
     "message",
@@ -106,6 +119,17 @@ _ALWAYS_DENIED: Final[tuple[str, ...]] = (
     "gateway",
     "nodes",
     "browser",
+    "skill_workshop",
+    "theme",
+    "dashboard",
+    "mobile_ui",
+    "progress_card",
+    "presence",
+    "portal",
+    "tts",
+    "github_identity_status",
+    "plugins",
+    "node_inference",
 )
 
 #: Bundled plugins no Jarvis agent loads: a headless browser, desktop control
@@ -283,6 +307,8 @@ class _Gateway:
     last_used: float = field(default_factory=time.monotonic)
     in_use: int = 0
     poisoned: bool = False
+    #: Its first agent run (seconds of lazy set-up) is done.
+    warmed_up: bool = False
 
     def alive(self) -> bool:
         return self.proc.returncode is None
@@ -340,7 +366,10 @@ class OpenClawRuntime:
     label = LABEL
 
     def __init__(self) -> None:
+        from dodaios.agent_runtimes.warm import WarmPool
+
         self._detect = DetectCache()
+        self._warm = WarmPool(NAME)
         self._gateways: dict[str, _Gateway] = {}
         self._locks: dict[str, asyncio.Lock] = {}
         self._slots = TurnSlots(NAME, lock_dir=lambda: base.runtimes_root() / "locks")
@@ -352,12 +381,18 @@ class OpenClawRuntime:
 
     # ----------------------------------------------------------- detection
 
-    def detect(self, *, refresh: bool = False) -> RuntimeStatus:
+    def detect(self, *, refresh: bool = False, fast: bool = False) -> RuntimeStatus:
+        """Installed, version, ready. ``fast`` (a turn): an expired *ready*
+        answer is used and checked again in the background."""
         if refresh:
             self._detect.clear()
         cached = self._detect.get()
         if cached is not None:
             return cached
+        if fast:
+            stale = self._detect.stale_ready(lambda: self.detect(refresh=True))
+            if stale is not None:
+                return stale
         pin = versions.pin(NAME)
         minimum = format_version(pin.minimum)
         launcher = _launcher()
@@ -496,6 +531,9 @@ class OpenClawRuntime:
                 "port": port,
                 "bind": "loopback",
                 "auth": {"mode": "token", "token": token},
+                # Nobody opens OpenClaw's own web UI here; building its
+                # assets cost seconds of CPU after every start.
+                "controlUi": {"enabled": False},
             },
             "models": {"mode": "replace", "providers": {RUNTIME_PROVIDER_NAME: provider}},
             "agents": {
@@ -510,7 +548,11 @@ class OpenClawRuntime:
                     "contextInjection": "never",
                 }
             },
+            # The thinking level travels with each prompt (``_meta.thinking``),
+            # so a changed effort never restarts the Gateway.
             "session": {"reset": {"mode": "none"}},
+            # Dodaios pins and updates OpenClaw; no network check per start.
+            "update": {"checkOnStart": False},
             # Heartbeat is only one background caller. The memory plugin can
             # create dreaming jobs at startup even with heartbeat disabled.
             # Jarvis owns memory and scheduling; neither may call this key.
@@ -530,9 +572,6 @@ class OpenClawRuntime:
             # temp-folder log every OpenClaw on the machine appends to.
             "logging": {"file": str(home / "state" / "logs" / "openclaw.log")},
         }
-        thinking = "off" if turn.effort == "none" else turn.effort
-        if thinking in _THINKING_LEVELS:
-            config["agents"]["defaults"]["thinkingDefault"] = thinking
         if turn.mcp_url and turn.control_key:
             from dodaios.agent_chat.dodaios_harness import HEADER_NAME
             from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
@@ -557,7 +596,7 @@ class OpenClawRuntime:
     # -------------------------------------------------------------- launch
 
     async def launch(self, turn: RuntimeTurn) -> RuntimeLaunch:
-        status = await asyncio.to_thread(self.detect)
+        status = await asyncio.to_thread(self.detect, fast=True)
         if not status.ready:
             raise RuntimeUnavailable(status.problem or "OpenClaw is not ready.")
         launcher = _launcher()
@@ -567,10 +606,124 @@ class OpenClawRuntime:
         # One turn at a time per Gateway: its config is this turn's.
         release_slot = await self._slots.acquire(key)
         try:
-            return await self._launch(turn, key, launcher, release_slot)
+            launch, gateway = await self._launch(turn, key, launcher, release_slot)
         except BaseException:
             release_slot()
             raise
+        try:
+            if turn.warm:
+                launch.proc = await self._warm.lease(
+                    key, *self._warm_spec(key, launch, gateway)
+                )
+            return launch
+        except BaseException:
+            # The launch counts the Gateway as in use; only its release undoes it.
+            if launch.release is not None:
+                launch.release()
+            raise
+
+    async def warm(
+        self, turn: RuntimeTurn, latest_resume: Callable[[], str | None] | None = None
+    ) -> bool:
+        """Start the agent's Gateway and bridge before a message (no paid call).
+
+        The Gateway start is OpenClaw's slow part (16-46 s on Windows); done
+        while the person reads the chat, their message starts at the model.
+        Skipped unless the agent's turn slot is free right now. A warm-up
+        never resets the conversation: a fresh one is reset by its turn.
+        ``latest_resume`` re-reads the chat's conversation once the slot is
+        held (a turn may have finished since ``turn`` was built).
+        """
+        status = await asyncio.to_thread(self.detect)
+        launcher = _launcher()
+        if not status.ready or launcher is None:
+            return False
+        key = home_key(turn.agent_id, turn.session_id)
+        try:
+            release_slot = await self._slots.acquire(key, wait_s=_WARM_SLOT_WAIT_S)
+        except RuntimeUnavailable:
+            return False  # a turn (or another warm-up) has the agent right now
+        if latest_resume is not None:
+            turn.resume = latest_resume()
+        try:
+            launch, gateway = await self._launch(turn, key, launcher, release_slot)
+        except BaseException:
+            release_slot()
+            raise
+        try:
+            spec, want = self._warm_spec(key, launch, gateway)
+            if not gateway.warmed_up and turn.route.api_key:
+                gateway.warmed_up = await self._warm_up_run(key, spec, launch, turn)
+            return await self._warm.warm(key, spec, want if turn.resume is not None else None)
+        finally:
+            if launch.release is not None:
+                launch.release()
+
+    async def _warm_up_run(
+        self, key: str, spec: Any, launch: RuntimeLaunch, turn: RuntimeTurn
+    ) -> bool:
+        """The Gateway's first agent run, before the person's message.
+
+        A fresh Gateway sets its agent loop up on its first run (about 6 s on
+        Windows, measured; no setting skips it). This run pays it in a
+        session of its own, and Dodaios' model gateway answers its model call
+        itself (``gateway.warmup_prompt``): no provider call, nothing billed.
+        """
+        from dodaios.agent_runtimes import gateway as model_gateway
+        from dodaios.agent_runtimes.acp import session_params
+
+        token = turn.route.api_key or ""
+        if model_gateway.verify(token) is None:
+            # A route that does not go through Dodaios' model gateway (only
+            # test rigs build one): nothing could stop its call from billing.
+            return False
+        started = time.monotonic()
+        params = session_params(
+            str(launch.cwd), [], {"sessionKey": _WARMUP_SESSION_KEY, "resetSession": True}
+        )
+        with model_gateway.warming(token):
+            done = await self._warm.exercise(key, spec, params, "Reply with: ok")
+        log.info("agent runtimes: OpenClaw warm-up run for %s %s in %.1f s",
+                 key, "done" if done else "failed", time.monotonic() - started)
+        return done
+
+    def _warm_spec(
+        self, key: str, launch: RuntimeLaunch, gateway: _Gateway
+    ) -> tuple[Any, Any]:
+        """The bridge's launch and the session a turn wants on it.
+
+        The conversation lives in the Gateway under the agent's session key;
+        ``session/new`` names it (and resets it for a fresh conversation) in
+        its ``_meta``, so one bridge serves every turn of the agent."""
+        from dodaios import __version__
+        from dodaios.agent_runtimes.acp import session_params
+        from dodaios.agent_runtimes.warm import SessionWant, WarmSpec, signature
+
+        spec = WarmSpec(
+            argv=launch.argv,
+            env=launch.env,
+            cwd=launch.cwd,
+            # The bridge belongs to one Gateway run: a restarted Gateway (new
+            # config, new process) gets a new bridge.
+            signature=signature(
+                launch.argv, launch.env, str(launch.cwd), gateway.port, gateway.proc.pid
+            ),
+            client_version=__version__,
+        )
+        meta = launch.session_meta or {}
+        want = SessionWant(
+            resume=None,
+            params=session_params(str(launch.cwd), launch.mcp_servers, meta),
+            # A continued conversation: any open session on its key serves.
+            # A reset one: only a session opened (and reset) for it ahead.
+            bound=not meta.get("resetSession"),
+            # The session a reset turn opened serves the turns after it.
+            match=session_params(
+                str(launch.cwd), launch.mcp_servers,
+                {k: v for k, v in meta.items() if k != "resetSession"},
+            ),
+        )
+        return spec, want
 
     async def _launch(
         self,
@@ -578,7 +731,7 @@ class OpenClawRuntime:
         key: str,
         launcher: list[str],
         release_slot: Callable[[], None],
-    ) -> RuntimeLaunch:
+    ) -> tuple[RuntimeLaunch, _Gateway]:
         home = await asyncio.to_thread(agent_home, NAME, key)
         token = await asyncio.to_thread(_gateway_token, home)
         gateway_env = child_env(
@@ -603,14 +756,8 @@ class OpenClawRuntime:
             f"ws://127.0.0.1:{gateway.port}",
             "--token-file",
             str(home / "gateway.token"),
-            "--session",
-            session_key(turn.agent_id, turn.session_id),
         ]
-        if turn.resume is None:
-            # A fresh conversation (first turn, rollover): the Jarvis identity
-            # and recent transcript lead the prompt, so the old one must go.
-            argv.append("--reset-session")
-        return RuntimeLaunch(
+        launch = RuntimeLaunch(
             argv=argv,
             env=child_env({**_EMBED_ENV, **_state_env(home)}),
             cwd=turn.workspace,
@@ -618,7 +765,16 @@ class OpenClawRuntime:
             vendor_session=session_key(turn.agent_id, turn.session_id),
             release=release,
             invalidate=lambda: setattr(gateway, "poisoned", True),
+            session_meta={
+                "sessionKey": session_key(turn.agent_id, turn.session_id),
+                # A fresh conversation (first turn, rollover): the Dodaios
+                # identity and recent transcript lead the prompt, so the old
+                # one must go.
+                "resetSession": turn.resume is None,
+            },
+            prompt_meta=prompt_meta(turn),
         )
+        return launch, gateway
 
     async def _ensure_gateway(
         self,
@@ -653,6 +809,7 @@ class OpenClawRuntime:
                 await self._stop_gateway(current)
                 current = None
             if current is None:
+                await self._make_room(key)
                 current = await self._start_gateway(
                     turn, key, home, port, token, env_hash, launcher, env
                 )
@@ -664,6 +821,19 @@ class OpenClawRuntime:
 
     def _gateway_lock(self, key: str) -> asyncio.Lock:
         return self._locks.setdefault(key, asyncio.Lock())
+
+    async def _make_room(self, starting: str) -> None:
+        """Stop the least recently used idle Gateway(s) above :data:`_MAX_GATEWAYS`."""
+        idle = [
+            g for k, g in self._gateways.items()
+            if k != starting and g.in_use == 0 and not self._gateway_lock(k).locked()
+        ]
+        while len(self._gateways) >= _MAX_GATEWAYS and idle:
+            oldest = min(idle, key=lambda g: g.last_used)
+            idle.remove(oldest)
+            log.info("agent runtimes: stopping OpenClaw gateway %s for %s", oldest.key, starting)
+            await self._warm.stop({oldest.key})
+            await self._stop_gateway(oldest)
 
     async def _start_gateway(
         self,
@@ -760,7 +930,7 @@ class OpenClawRuntime:
                     break
                 if await _healthy(port) and proc.returncode is None:
                     return gateway
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.1)
         except BaseException:
             # A cancelled turn (Stop during a cold start) must not leave a
             # Gateway behind with the key in its environment.
@@ -820,16 +990,27 @@ class OpenClawRuntime:
                     idle = time.monotonic() - gateway.last_used
                     if not gateway.alive() or idle > IDLE_STOP_S:
                         log.info("agent runtimes: stopping idle OpenClaw gateway %s", key)
+                        await self._warm.stop({key})
                         await self._stop_gateway(gateway)
 
     def busy(self) -> bool:
         return self._slots.busy()
 
     async def stop(self, agent_id: str | None = None) -> None:
+        await self._warm.stop(None if agent_id is None else {agent_id, f"{agent_id}~runs"})
         for key, gateway in list(self._gateways.items()):
             if agent_id is None or key in (agent_id, f"{agent_id}~runs"):
                 async with self._gateway_lock(key):
                     await self._stop_gateway(gateway)
+
+
+def prompt_meta(turn: RuntimeTurn) -> dict[str, Any] | None:
+    """``session/prompt`` ``_meta``: the agent's thinking level for this prompt.
+
+    Per prompt, not ``thinkingDefault`` in the config: a changed effort then
+    never restarts the Gateway. No level = the model's own default."""
+    thinking = "off" if turn.effort == "none" else turn.effort
+    return {"thinking": thinking} if thinking in _THINKING_LEVELS else None
 
 
 def session_key(agent_id: str, chat_session_id: str) -> str:

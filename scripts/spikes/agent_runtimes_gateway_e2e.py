@@ -34,6 +34,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "spikes"))
 
 from agent_runtimes_e2e import (  # noqa: E402
+    _report,
     _run,
     keep_user_path,
     prepare,
@@ -288,12 +289,24 @@ async def _turns(name, provider, wanted, workspace, port, *, replay):
     print(f"turn 1 took {time.monotonic() - started:.1f} s")
     print("turn 1:", first.status, first.error, repr(first.result_text[:120]))
     turn.resume = first.vendor_session
-    second, _io2 = await _run(name, turn, "Which word did I ask you to remember? One word.")
+    second, io2 = await _run(name, turn, "Which word did I ask you to remember? One word.")
     print("turn 2:", second.status, second.error, repr(second.result_text[:120]))
+    _report("turn 2 (warm process)", io2)
+    # The app restarted: the chat is opened, the runtime warms up (OpenClaw:
+    # Gateway, bridge and a warm-up run answered by the gateway itself).
+    await driver(name).stop()
+    turn.resume = second.vendor_session
+    warmed = time.monotonic()
+    ready = await driver(name).warm(turn)
+    print(f"warm-up: {ready} in {time.monotonic() - warmed:.1f} s")
+    third, io3 = await _run(name, turn, "Which word did I ask you to remember? One word.")
+    print("turn 3:", third.status, third.error, repr(third.result_text[:120]))
+    _report("turn 3 (after warm-up)", io3)
     await driver(name).stop()
     ok = (
         first.status == "done"
         and second.status == "done"
+        and third.status == "done"
         and "pelican" in second.result_text.lower()
     )
     print("RESULT:", "PASS" if ok else "FAIL")

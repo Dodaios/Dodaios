@@ -8,7 +8,7 @@ through it instead of their CLI flags or internal APIs: an upstream update
 keeps working as long as the protocol does.
 
 One :class:`AcpTurn` drives one process from handshake to the prompt's
-response:
+response (a warm process, ``warm.Lease``, starts at the session or the prompt):
 
 1. ``initialize`` (protocol version + client capabilities),
 2. ``session/load`` of the stored conversation, or ``session/new``,
@@ -167,6 +167,17 @@ class AcpTurn:
     #: What the chat stores as its vendor session instead of the ACP session
     #: id (OpenClaw addresses the conversation by a fixed session key).
     report_session: str | None = None
+    #: A warm process (``warm.Lease``) answered ``initialize`` already: its
+    #: result, so the turn starts at the session instead of the handshake.
+    initialized: dict[str, Any] | None = None
+    #: The ACP session already open in that process with this turn's
+    #: parameters: the turn goes straight to ``session/prompt``.
+    open_session: str = ""
+    #: ``_meta`` of ``session/new`` / ``session/load`` (OpenClaw: which
+    #: Gateway session, and whether to reset it) and of ``session/prompt``
+    #: (OpenClaw: this prompt's thinking level).
+    session_meta: dict[str, Any] | None = None
+    prompt_meta: dict[str, Any] | None = None
 
     # --- fields the CLI runner reads after the turn ---
     vendor_session: str | None = None
@@ -198,27 +209,28 @@ class AcpTurn:
     # ------------------------------------------------------------------ frames
 
     def opening_frame(self) -> str:
-        """The ``initialize`` request, written as soon as the process starts."""
-        return frame_line(
-            {
-                "jsonrpc": "2.0",
-                "id": _INITIALIZE_ID,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": PROTOCOL_VERSION,
-                    # No fs / terminal capability: the agent uses its own tools
-                    # in its own working folder; Jarvis is not an editor.
-                    "clientCapabilities": {
-                        "fs": {"readTextFile": False, "writeTextFile": False},
-                        "terminal": False,
-                    },
-                    "clientInfo": {
-                        "name": self.client_name,
-                        "version": self.client_version or "0",
-                    },
-                },
-            }
-        )
+        """The first request, written as soon as the process is there.
+
+        ``initialize`` for a fresh process. On a warm one (``initialized``)
+        the session request, or ``session/prompt`` straight away when the
+        session is already open.
+        """
+        if self.initialized is None:
+            return frame_line(
+                initialize_request(_INITIALIZE_ID, self.client_version, self.client_name)
+            )
+        self._take_initialize(self.initialized)
+        if self.open_session:
+            self._acp_session = self.open_session
+            self.vendor_session = self.report_session or self._acp_session
+            return frame_line(self._prompt_request())
+        request = self._session_request()
+        return frame_line(request) if request is not None else ""
+
+    @property
+    def acp_session(self) -> str:
+        """The ACP session the turn ran in ("" before it opened)."""
+        return self._acp_session
 
     def cancel_frame(self) -> dict[str, Any] | None:
         """The ``session/cancel`` notification for the running prompt (``None`` when
@@ -242,7 +254,38 @@ class AcpTurn:
         return any(call not in self._finished_tools for call in self._tool_started)
 
     def _session_params(self) -> dict[str, Any]:
-        return {"cwd": self.cwd, "mcpServers": [s.to_acp() for s in self.mcp_servers]}
+        return session_params(self.cwd, self.mcp_servers, self.session_meta)
+
+    def _take_initialize(self, res: dict[str, Any]) -> None:
+        info = res.get("agentInfo") if isinstance(res.get("agentInfo"), dict) else {}
+        self.agent_name = str(info.get("name") or "")
+        self.agent_version = str(info.get("version") or "")
+        caps = (
+            res.get("agentCapabilities") if isinstance(res.get("agentCapabilities"), dict) else {}
+        )
+        self.can_load = bool(caps.get("loadSession"))
+
+    def _session_request(self) -> dict[str, Any] | None:
+        """``session/load`` or ``session/new``; ``None`` when the turn failed instead."""
+        if self.resume and self.can_load:
+            self._replaying = True
+            params = self._session_params() | {"sessionId": self.resume}
+            return _request(_SESSION_ID, "session/load", params)
+        if self.resume:
+            # The agent cannot reopen conversations: let the runner start
+            # fresh with the transcript in front instead.
+            self._fail(f"{RESUME_LOST_ERROR}: this agent cannot load sessions")
+            return None
+        return _request(_SESSION_ID, "session/new", self._session_params())
+
+    def _prompt_request(self) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "sessionId": self._acp_session,
+            "prompt": [{"type": "text", "text": self.prompt_text}],
+        }
+        if self.prompt_meta:
+            params["_meta"] = dict(self.prompt_meta)
+        return _request(_PROMPT_ID, "session/prompt", params)
 
     # ---------------------------------------------------------------- dispatch
 
@@ -268,26 +311,10 @@ class AcpTurn:
             if error is not None:
                 self._fail(f"ACP initialize failed: {_error_text(error)}")
                 return
-            res = result if isinstance(result, dict) else {}
-            info = res.get("agentInfo") if isinstance(res.get("agentInfo"), dict) else {}
-            self.agent_name = str(info.get("name") or "")
-            self.agent_version = str(info.get("version") or "")
-            caps = (
-                res.get("agentCapabilities")
-                if isinstance(res.get("agentCapabilities"), dict)
-                else {}
-            )
-            self.can_load = bool(caps.get("loadSession"))
-            if self.resume and self.can_load:
-                self._replaying = True
-                params = self._session_params() | {"sessionId": self.resume}
-                await io.write(_request(_SESSION_ID, "session/load", params))
-            elif self.resume:
-                # The agent cannot reopen conversations: let the runner start
-                # fresh with the transcript in front instead.
-                self._fail(f"{RESUME_LOST_ERROR}: this agent cannot load sessions")
-            else:
-                await io.write(_request(_SESSION_ID, "session/new", self._session_params()))
+            self._take_initialize(result if isinstance(result, dict) else {})
+            request = self._session_request()
+            if request is not None:
+                await io.write(request)
             return
         if rid == _SESSION_ID:
             self._replaying = False
@@ -307,16 +334,7 @@ class AcpTurn:
                 self._fail("ACP session/new returned no session id")
                 return
             self.vendor_session = self.report_session or self._acp_session
-            await io.write(
-                _request(
-                    _PROMPT_ID,
-                    "session/prompt",
-                    {
-                        "sessionId": self._acp_session,
-                        "prompt": [{"type": "text", "text": self.prompt_text}],
-                    },
-                )
-            )
+            await io.write(self._prompt_request())
             return
         if rid == _PROMPT_ID:
             await self._flush_thought(io)
@@ -626,6 +644,37 @@ def _error_text(error: dict[str, Any]) -> str:
 
 def _request(rid: int, method: str, params: dict[str, Any]) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": rid, "method": method, "params": params}
+
+
+def initialize_request(
+    rid: int | str, client_version: str = "", client_name: str = "personal-jarvis"
+) -> dict[str, Any]:
+    """The ``initialize`` request (protocol version + client capabilities)."""
+    return {
+        "jsonrpc": "2.0",
+        "id": rid,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": PROTOCOL_VERSION,
+            # No fs / terminal capability: the agent uses its own tools in its
+            # own working folder; Dodaios is not an editor.
+            "clientCapabilities": {
+                "fs": {"readTextFile": False, "writeTextFile": False},
+                "terminal": False,
+            },
+            "clientInfo": {"name": client_name, "version": client_version or "0"},
+        },
+    }
+
+
+def session_params(
+    cwd: str, mcp_servers: list[McpServer], meta: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """``session/new`` / ``session/load`` parameters."""
+    params: dict[str, Any] = {"cwd": cwd, "mcpServers": [s.to_acp() for s in mcp_servers]}
+    if meta:
+        params["_meta"] = dict(meta)
+    return params
 
 
 def frame_line(frame: dict[str, Any]) -> str:

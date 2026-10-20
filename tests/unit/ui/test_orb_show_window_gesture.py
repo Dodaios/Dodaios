@@ -13,6 +13,9 @@ from pathlib import Path
 
 import pytest
 
+# The still-picture mascot; without a configured image the mascot is a pet.
+pytestmark = pytest.mark.usefixtures("still_picture_mascot")
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) in sys.path:
     sys.path.remove(str(_REPO_ROOT))

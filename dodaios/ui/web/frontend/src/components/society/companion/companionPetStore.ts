@@ -1,7 +1,8 @@
 /**
  * The pets the Jarvis Verse draws, shared by every place in the scene that
- * shows one: Jarvis's own companion (the pet chosen in My Pets) and the pets
- * agents wear instead of their shape (`companion.pet`). The stages feed it
+ * shows one: Jarvis's own companion (the pet chosen in My Pets, or the
+ * mascot's pet while the mascot is the display style) and the pets agents
+ * wear instead of their shape (`companion.pet`). The stages feed it
  * from the pets query outside the WebGL canvas; the flyer, the lead walker
  * and every agent follower read it inside. An entry only changes when its
  * pet does, so a refetch never reloads a model or a sprite sheet.
@@ -9,6 +10,7 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { create } from "zustand";
+import { MASCOT_PET_ID, useOverlayStyle } from "@/hooks/useOverlayStyle";
 import { pickActivePet, petKeys } from "@/hooks/usePets";
 import { fetchPets } from "@/lib/petsApi";
 import { companionFor, GIGI_COMPANION, type CompanionPet } from "./petCompanions";
@@ -58,17 +60,20 @@ export function useSyncCompanionPet(): void {
   const { data } = useQuery({ queryKey: petKeys.all, queryFn: fetchPets, staleTime: Infinity });
   const setPet = useCompanionPet((s) => s.setPet);
   const setCatalog = useCompanionPet((s) => s.setCatalog);
+  const mascot = useOverlayStyle().config?.style === "mascot";
   // Until the pets answer arrives the last known companion stays (Gigi on a cold start).
   useEffect(() => {
     if (!data) return;
-    const active = pickActivePet(data);
+    const pets = Array.isArray(data.pets) ? data.pets : [];
+    // The mascot style shows its own pet on the desktop; the same one walks here.
+    const active = (mascot ? pets.find((pet) => pet.id === MASCOT_PET_ID) : undefined) ?? pickActivePet(data);
     if (active) setPet(companionFor(active));
     const catalog: Record<string, CompanionPet> = {};
-    for (const pet of Array.isArray(data.pets) ? data.pets : []) {
+    for (const pet of pets) {
       // A drawn pet without a usable sheet would come back as Gigi; leave it out so the agent keeps its shape.
       const companion = companionFor(pet);
       if (companion.id === pet.id) catalog[pet.id] = companion;
     }
     setCatalog(catalog);
-  }, [data, setPet, setCatalog]);
+  }, [data, mascot, setPet, setCatalog]);
 }

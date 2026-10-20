@@ -36,9 +36,12 @@ from tests.fakes.fake_openai_server import MODEL_ID, FakeOpenAIServer  # noqa: E
 
 
 class _IO:
-    def __init__(self, proc: asyncio.subprocess.Process) -> None:
+    def __init__(self, proc: Any) -> None:
         self.proc = proc
         self.events: list[dict[str, Any]] = []
+        self.started = time.monotonic()
+        #: Seconds from the turn's start to its first answer text.
+        self.first_text_s: float | None = None
 
     async def write(self, frame: dict[str, Any]) -> None:
         assert self.proc.stdin is not None
@@ -46,6 +49,8 @@ class _IO:
         await self.proc.stdin.drain()
 
     async def emit(self, event: dict[str, Any]) -> None:
+        if self.first_text_s is None and event.get("kind") in ("text_delta", "assistant_text"):
+            self.first_text_s = time.monotonic() - self.started
         self.events.append(event)
 
     async def ask(self, call_id: str, name: str, args: dict[str, Any], summary: str) -> str:
@@ -53,8 +58,11 @@ class _IO:
 
 
 async def _run(name: str, turn: RuntimeTurn, text: str) -> tuple[AcpTurn, _IO]:
+    """One turn the way the CLI runner drives it: on the agent's warm process
+    when the driver hands one over (``launch.proc``), else a fresh one."""
     from dodaios.agent_runtimes import gateway
 
+    started = time.monotonic()
     runtime = driver(name)
     launch = await runtime.launch(turn)
     acp = AcpTurn(
@@ -65,9 +73,15 @@ async def _run(name: str, turn: RuntimeTurn, text: str) -> tuple[AcpTurn, _IO]:
         mcp_servers=launch.mcp_servers,
         auto_allow=True,
         report_session=launch.vendor_session,
+        session_meta=launch.session_meta,
+        prompt_meta=launch.prompt_meta,
     )
+    if launch.proc is not None:
+        acp.initialized = launch.proc.initialized
+        acp.open_session = launch.proc.open_session
+        launch.proc.turn = acp
     tree = make_process_tree("runtime-e2e")
-    proc = None
+    proc = launch.proc
     failure = None
     token = turn.route.api_key or ""
     try:
@@ -75,19 +89,21 @@ async def _run(name: str, turn: RuntimeTurn, text: str) -> tuple[AcpTurn, _IO]:
             # Match the chat runner's ownership of each model-gateway turn.
             failure = gateway.watch_failure(token, effort=turn.effort or "")
         with (turn.workspace.parent / "runtime-stderr.log").open("ab") as stderr:
-            proc = await asyncio.create_subprocess_exec(
-                *launch.argv,
-                cwd=str(launch.cwd),
-                env=launch.env,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=stderr,
-                limit=16 * 1024 * 1024,
-                creationflags=NO_WINDOW_CREATIONFLAGS,
-                start_new_session=os.name != "nt",
-            )
-            tree.assign(proc.pid)
+            if proc is None:
+                proc = await asyncio.create_subprocess_exec(
+                    *launch.argv,
+                    cwd=str(launch.cwd),
+                    env=launch.env,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=stderr,
+                    limit=16 * 1024 * 1024,
+                    creationflags=NO_WINDOW_CREATIONFLAGS,
+                    start_new_session=os.name != "nt",
+                )
+                tree.assign(proc.pid)
             io = _IO(proc)
+            io.started = started
             assert proc.stdin is not None and proc.stdout is not None
             proc.stdin.write(acp.opening_frame().encode("utf-8"))
             await proc.stdin.drain()
@@ -122,6 +138,11 @@ async def _run(name: str, turn: RuntimeTurn, text: str) -> tuple[AcpTurn, _IO]:
         finally:
             if launch.release is not None:
                 launch.release()
+
+
+def _report(label: str, io: _IO) -> None:
+    first = f"{io.first_text_s:.2f} s" if io.first_text_s is not None else "never"
+    print(f"{label}: first answer text after {first}")
 
 
 def _key_on_disk(root: Path, key: str) -> bool:
@@ -250,6 +271,18 @@ async def main(name: str) -> int:
         print("turn 2:", second.status, second.error, repr(second.result_text[:80]))
         history = len(server.requests[-1].get("messages", [])) if server.requests else 0
         print("  model saw", history, "messages on turn 2")
+        _report("turn 1 (cold)", io1)
+        _report("turn 2 (warm process)", io2)
+        # The app restarted (or the agent idled out): the chat is opened, the
+        # runtime warms up while it is read, then the message is sent.
+        await driver(name).stop()
+        turn.resume = second.vendor_session
+        warmed = time.monotonic()
+        ready = await driver(name).warm(turn)
+        print(f"warm-up: {ready} in {time.monotonic() - warmed:.1f} s")
+        third, io3 = await _run(name, turn, "third message")
+        print("turn 3:", third.status, third.error, repr(third.result_text[:80]))
+        _report("turn 3 (after warm-up)", io3)
     # Stopped first: a running Gateway holds some of its files open.
     await driver(name).stop()
     secret_leak = _key_on_disk(tmp / "agent_runtimes", key)
@@ -260,6 +293,7 @@ async def main(name: str) -> int:
     ok = (
         first.status == "done"
         and second.status == "done"
+        and third.status == "done"
         and history > 2
         and not secret_leak
         and path_kept

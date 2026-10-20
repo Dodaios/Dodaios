@@ -180,11 +180,15 @@ class FakeOrbWindow(FakeOld):
     def set_style(self, style):
         self.style = style
 
+    def show(self, mode="listen"):
+        self.hidden = False
+
 
 def test_mascot_to_voice_orb_restyles_live_without_a_new_root():
     # Both orb looks live in ONE window, so this transition needs no second Tk
     # root and must not send the user through a restart.
     bridge, orb = FakeBridge(), FakeOrbWindow("mascot")
+    orb._mode = "listen"  # mid-conversation; an idle mascot would make way
     app = _app(orb_style="mascot", bridge=bridge, orb=orb)
     app._surfaces = {"mascot": orb}
 
@@ -205,6 +209,7 @@ def test_voice_orb_back_to_mascot_also_applies_live():
 
     assert app.swap_overlay("mascot")["applied_live"] is True
     assert orb.style == "mascot"
+    assert orb.hidden is False  # the mascot is a pet: it is on screen at once
 
 
 def test_bar_to_voice_orb_starts_the_orb_window_hosted():
@@ -218,10 +223,10 @@ def test_bar_to_voice_orb_starts_the_orb_window_hosted():
     assert bridge.surface is built[0]
 
 
-def test_pet_to_mascot_hides_the_idle_window_although_the_route_prewrote_cfg():
+def test_pet_to_voice_orb_hides_the_idle_window_although_the_route_prewrote_cfg():
     # The settings route stores the NEW style in cfg before calling
     # swap_overlay, so "what was on screen" must not be read from cfg: an idle
-    # pet turned mascot has to go off the screen (the mascot pops per session).
+    # pet turned voice orb has to go off the screen (the orb pops per session).
     class Window(FakeOrbWindow):
         _mode = "idle"
 
@@ -229,9 +234,9 @@ def test_pet_to_mascot_hides_the_idle_window_although_the_route_prewrote_cfg():
             self.hidden = False
 
     bridge, window = FakeBridge(), Window("pet")
-    app = _app(orb_style="mascot", bridge=bridge, orb=window)
+    app = _app(orb_style="voice_orb", bridge=bridge, orb=window)
     app._surfaces = {"pet": window}
     app._live_overlay_style = "pet"
 
-    assert app.swap_overlay("mascot")["applied_live"] is True
+    assert app.swap_overlay("voice_orb")["applied_live"] is True
     assert window.hidden is True
