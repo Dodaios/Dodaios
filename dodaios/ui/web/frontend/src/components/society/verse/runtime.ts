@@ -9,6 +9,7 @@ import type { Deck } from "./content/deck";
 import { worldToPlate } from "./engine/plateMath";
 import { plateToScreen } from "./engine/view";
 import { ViewController } from "./engine/viewController";
+import { CommanderControl } from "./life/control";
 
 /** Where a body is; updated in place every frame. */
 export interface ActorPose {
@@ -35,6 +36,8 @@ export interface FrameStats {
 
 export class StageRuntime {
   readonly view = new ViewController();
+  /** Third person or bird's-eye, and the movement keys held for the commander. */
+  readonly control = new CommanderControl();
   deck: Deck | null = null;
   /** Live poses of every actor on the deck, crew and commander alike, by id. */
   readonly poses = new Map<string, ActorPose>();

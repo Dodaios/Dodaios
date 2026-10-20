@@ -5,7 +5,7 @@
       "loading": "Loading deck",
       "unavailable": "The ship needs WebGL, which this window cannot start right now.",
       "deck_missing": "This deck has not been built yet.",
-      "help": "Drag to pan, scroll or pinch to zoom, double-click to focus. Click the deck to walk there, click a crew member for their record."
+      "help": "Third person: WASD or the arrow keys walk the commander, Shift hurries, E works the station within reach. V switches to the bird's-eye view and back. Drag to look around, scroll to zoom. Click the deck to walk there, click a crew member for their record."
     },
     "deck": {
       "label": "Deck {n}",
@@ -90,6 +90,7 @@
       "elsewhere": "Elsewhere aboard"
     },
     "tools": {
+      "overview": "Bird's-eye",
       "lift": "Turbolift",
       "commander": "Commander",
       "help": "Help"
@@ -102,7 +103,9 @@
       "mess_called": "{count} off-duty crew called to the mess.",
       "mess_nobody": "Nobody is off duty right now.",
       "mess_ended": "The crew goes back to their routine.",
-      "no_team": "No team meets at this table yet. Create one in the crew list."
+      "no_team": "No team meets at this table yet. Create one in the crew list.",
+      "view_overview": "Bird's-eye view: WASD pans the map. V takes you back to the commander.",
+      "view_follow": "Third person: WASD walks the commander, E works the station within reach. V switches to the bird's-eye view."
     },
     "screen": {
       "standby": "STANDBY",

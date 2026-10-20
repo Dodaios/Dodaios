@@ -5,7 +5,7 @@
       "loading": "Cargando cubierta",
       "unavailable": "La nave necesita WebGL y esta ventana no puede iniciarlo ahora.",
       "deck_missing": "Esta cubierta aún no está construida.",
-      "help": "Arrastra para desplazarte, usa la rueda o pellizca para hacer zoom, doble clic para enfocar. Haz clic en la cubierta para caminar hasta allí y en un tripulante para ver su ficha."
+      "help": "Tercera persona: WASD o las flechas mueven al comandante, Mayús para ir más rápido, E usa la estación al alcance. V cambia a vista de pájaro y vuelve. Arrastra para mirar alrededor, usa la rueda para el zoom. Haz clic en la cubierta para caminar hasta allí y en un tripulante para ver su ficha."
     },
     "deck": {
       "label": "Cubierta {n}",
@@ -90,6 +90,7 @@
       "elsewhere": "En otro lugar de la nave"
     },
     "tools": {
+      "overview": "Vista de pájaro",
       "lift": "Turboascensor",
       "commander": "Comandante",
       "help": "Ayuda"
@@ -102,7 +103,9 @@
       "mess_called": "{count} tripulantes francos llamados al comedor.",
       "mess_nobody": "Ahora nadie está franco de servicio.",
       "mess_ended": "La tripulación vuelve a su rutina.",
-      "no_team": "Ningún equipo se reúne aún en esta mesa. Crea uno en la lista de tripulantes."
+      "no_team": "Ningún equipo se reúne aún en esta mesa. Crea uno en la lista de tripulantes.",
+      "view_overview": "Vista de pájaro: WASD desplaza el mapa. V te devuelve al comandante.",
+      "view_follow": "Tercera persona: WASD mueve al comandante, E usa la estación al alcance. V cambia a vista de pájaro."
     },
     "screen": {
       "standby": "EN ESPERA",
