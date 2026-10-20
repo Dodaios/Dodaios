@@ -199,6 +199,84 @@ def served_by(installed: list[Any], said: list[str]) -> str | None:
     return name if count >= _needed(len(said), SKILL_RECALL) else None
 
 
+def served_by_agent(skills: list[Any], said: list[str], core: frozenset[str]) -> str | None:
+    """The agent skill (active or draft) that already does what ``said`` asks, if any.
+
+    An agent's own skills mostly stay drafts (AP-15), which the router skips,
+    so each is replayed as if it were active. A skill without routable
+    triggers still serves the need when its name, description and "when to
+    use" cover at least half of the need's core words (and two of them).
+    """
+    import dataclasses
+
+    from dodaios.self_build.miner import stems as stems_of
+    from dodaios.skills.schema import SkillLifecycleState
+
+    usable = [s for s in skills if getattr(s, "frontmatter", None) is not None]
+    if not usable or not said:
+        return None
+    live = []
+    for skill in usable:
+        try:
+            live.append(dataclasses.replace(skill, state=SkillLifecycleState.ACTIVE))
+        except TypeError:  # not a Skill dataclass: replay it as it is
+            live.append(skill)
+    routed = served_by(live, said)
+    if routed:
+        return routed
+    if len(core) < 2:
+        return None
+    for skill in usable:
+        fm = skill.frontmatter
+        words = " ".join(
+            str(getattr(fm, field, "") or "") for field in ("name", "description", "when_to_use")
+        )
+        shared = core & stems_of(words)
+        if len(shared) >= 2 and len(shared) * 2 >= len(core):
+            return str(getattr(fm, "name", "") or getattr(skill, "name", ""))
+    return None
+
+
+# ------------------------------------------------------------------ memory use
+
+#: Words every notebook entry carries; they say nothing about its subject.
+_GENERIC_WORDS: Final[str] = "user users person people prefers always never"
+
+
+def _entry_terms(entry: str) -> frozenset[str]:
+    from dodaios.self_build.miner import stems as stems_of
+
+    return stems_of(entry) - stems_of(_GENERIC_WORDS)
+
+
+def memory_concerned(entry: str, *, said: frozenset[str]) -> bool:
+    """The person's words touch the entry's subject (one of its words)."""
+    return bool(_entry_terms(entry) & said)
+
+
+def memory_relied(entry: str, *, said: frozenset[str], answer: str, topic: bool) -> bool:
+    """Deterministic: did a turn rely on this notebook entry? No model.
+
+    ``said`` are the stems of the person's request, ``answer`` the assistant's
+    reply when the surface knows it, ``topic`` whether the request belongs to
+    the need the entry was built from. Relied on means either the person's
+    words name the entry's subject (two of its words, or all of a short one),
+    or the request is about it (its topic, or one of its words) and the answer
+    carries a word that only the entry could have given.
+    """
+    from dodaios.self_build.miner import stems as stems_of
+
+    terms = _entry_terms(entry)
+    if not terms:
+        return False
+    named = terms & said
+    if len(named) >= min(2, len(terms)):
+        return True
+    if not answer or not (topic or named):
+        return False
+    return bool((terms & stems_of(answer)) - said)
+
+
 # ------------------------------------------------------------------ routine
 
 
@@ -292,4 +370,16 @@ def agent(
     return Proof.ok("agent", f"focus {focus}; answered {len(answered)} recorded requests in shadow")
 
 
-__all__ = ["JUDGE", "Proof", "agent", "memory", "outbound", "routine", "served_by", "skill"]
+__all__ = [
+    "JUDGE",
+    "Proof",
+    "agent",
+    "memory",
+    "memory_concerned",
+    "memory_relied",
+    "outbound",
+    "routine",
+    "served_by",
+    "served_by_agent",
+    "skill",
+]

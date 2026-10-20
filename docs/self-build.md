@@ -87,12 +87,15 @@ and one undoer for each of the four kinds, and the event subscriptions below.
 | `builders.py` | build, undo, archive (dormant) and restore per kind |
 | `loop.py` | event intake, the gate, the decide queue, use counting, maintenance |
 
-**Observe.** Inputs are finished voice turns (`VoiceTurnCompleted`) and the
+**Observe.** Inputs are finished voice turns (`VoiceTurnCompleted`), the
 person's own typed turns in the Jarvis chat and agent chats (the chat
-surfaces' completion hook; turns an agent or routine started are dropped).
-Only the person's words are stored; tool names are kept as context. Requests
-are grouped by six-letter stems of their content words (the skill matcher's
-multilingual tokenizer). A need crosses its threshold when, within 28 days:
+surfaces' completion hook; turns an agent or routine started are dropped), and
+the prompts the person types to coding agents in the IDE (channel `pane`).
+Only the person's words are stored; tool names are kept as context, and the
+assistant's answer is read once for memory use (below), never stored.
+Requests are grouped by six-letter stems of their content words (the skill
+matcher's multilingual tokenizer). A need crosses its threshold when, within
+28 days:
 
 | Need | Threshold | Rungs |
 |---|---|---|
@@ -103,6 +106,40 @@ multilingual tokenizer). A need crosses its threshold when, within 28 days:
 | recurring failure | 3 failed answers on 2 days | memory, skill |
 | sequence | B follows A within 15 minutes, on 3 days | skill |
 | domain | 3 needs (each twice) on one tool family, 10 requests over 14 days | agent |
+
+A prompt typed to a coding agent counts as work done with a tool (the coding
+agent is one), so a pane prompt repeated on three days is a repeated request.
+A pane prompt is never a correction of the assistant.
+
+**Pane prompts.** The IDE writes every prompt a pane receives to its prompt
+history (`agentic_ide/prompt_history.py`, one append-only JSONL file per
+pane). A row carries `origin: "person"` only when the person sent it from the
+app's window: the prompt bar, a pane's chat or the launcher, recognised by the
+desktop session cookie or the browser's `Sec-Fetch-Site: same-origin` without
+a control key (`control_auth.person_at_window`). Briefs the brain or an agent
+sent to a pane carry no origin and are never evidence; the person's spoken
+request behind a brief is already counted as a voice turn. From a row the loop
+files `typed` (the person's sentence) when the prompt was a brief written
+around it, else the prompt itself; a row whose text is only dropped files'
+contents is skipped. The route tells the loop when such a prompt was stored,
+and each pass reads a history file from where the last one stopped, so a
+prompt is filed once; the maintenance pass catches a missed notice. While the
+loop is paused or off the read position still moves, so nothing typed then is
+filed later. Prompts typed straight into a terminal (not through the app) are
+not in the history and are not counted.
+
+**Agent chats.** A request typed to a society agent is filed like any other
+turn and also counts as a use of a self-built agent. Whose need it is follows
+one rule: a need whose turns all come from one agent's chat belongs to that
+agent's own learning (`society/learning.py`, which writes the agent a skill
+after a turn with a real procedure) and the loop leaves it alone; a need that
+spans several agents, or an agent and the assistant, is the loop's, unless
+one of those agents already has a skill, active or draft, that serves it (its
+requests replayed through the router as if the skill were active, or its name,
+description and "when to use" covering the need's core words). Then neither a
+global skill nor another agent is built, and the verdict is recorded as
+"served". Turns in agent chats do not count towards a domain: that work
+already has an agent.
 
 Habits are counted on the person's wall clock: the time zone their UI
 reported, or, until it has reported one, this computer's own zone (read as an
@@ -140,8 +177,15 @@ Every artefact carries the shared join key `id` next to its own fields: the skil
 **Measure.** A skill run counts as a use, a correction within two minutes as
 corrected. A routine run counts, a manual request within a day after a run as
 corrected, a failed run as ignored. A turn in a self-built agent's chat
-counts. A memory counts once per conversation its need comes up in, a
-repeated correction as corrected. Kept builds unused for 30 days are archived.
+counts. A memory counts when it was in the prompt and the turn relied on it,
+at most once per conversation: its entry text is in the notebook snapshot the
+assistant's prompts carry (an archived or edited entry is not), and the
+person's words name the entry's subject (two of its words), or the request
+is about it (its need, or one of its words) and the answer carries a word only
+the entry could have given (`judge.memory_relied`, no model). A correction in
+a turn about the entry, or the next turn after one that relied on it, counts
+as corrected. Pane and agent-chat turns never count: those agents do not read
+the assistant's notebook. Kept builds unused for 30 days are archived.
 
 **Idle cost.** One SQLite insert and a scan of four weeks of clusters per
 turn; no model call and no timer unless a need is waiting to be decided.

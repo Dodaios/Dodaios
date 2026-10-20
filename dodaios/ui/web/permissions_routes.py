@@ -76,9 +76,7 @@ from dodaios.platform.permissions import (
     settings_path_text,
 )
 
-from .control_auth import _bearer_token, require_control_key_or_session
-from .missions_auth import validate_token
-from .surface_security import COOKIE_NAME
+from .control_auth import person_at_window, require_control_key_or_session
 
 log = logging.getLogger(__name__)
 
@@ -767,11 +765,7 @@ def _is_agent_caller(request: Request) -> bool:
     supported release is UNVERIFIED; a WebView without it only loses the two
     conveniences above and nothing is ever granted by it.
     """
-    if validate_token(request.cookies.get(COOKIE_NAME, "")):
-        return False
-    if _bearer_token(request) is not None:
-        return True
-    return request.headers.get("sec-fetch-site", "").strip().lower() != "same-origin"
+    return not person_at_window(request)
 
 
 def _requires_ui_response(detail: str) -> JSONResponse:
