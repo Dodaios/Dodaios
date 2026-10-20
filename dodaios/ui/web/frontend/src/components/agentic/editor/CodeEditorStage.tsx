@@ -126,6 +126,7 @@ export function CodeEditorStage({
   const focusedGroupId = useCodeEditorStore((state) => (workspaceId ? state.focusedGroup[workspaceId] : undefined));
   const visible = useCodeEditorStore((state) => state.visible);
   const quickOpen = useCodeEditorStore((state) => state.quickOpen);
+  const panelCovers = useIdeSidePanelStore((state) => state.open && state.maximized);
   const files = useCodeEditorStore((state) => state.files);
   const diffBases = useCodeEditorStore((state) => state.diffBases);
   const [pending, setPending] = useState<PendingClose | null>(null);
@@ -724,7 +725,10 @@ export function CodeEditorStage({
         ref={stage}
         data-testid="code-editor"
         data-path={focusTab.path}
-        className="absolute inset-0 z-20 flex min-h-0 flex-col bg-background"
+        // `hidden`, not the frame's `invisible`, under a maximized side panel:
+        // Monaco's diff widget writes an inline `visibility: visible` on both
+        // of its halves, so the diff stayed painted over the panel.
+        className={cn("absolute inset-0 z-20 min-h-0 flex-col bg-background", panelCovers ? "hidden" : "flex")}
       >
         <div className="flex min-h-0 flex-1">{renderNode(tree)}</div>
 
