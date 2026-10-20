@@ -52,7 +52,7 @@
 #define AppPublisher "Dodaios"
 #define AppUrl "https://github.com/Dodaios/Dodaios"
 #define GuiExeName "DodaiosApp.exe"
-; The windowed launcher's earlier name. The bundle ships it too (jarvis.spec).
+; The windowed launcher's earlier name. The bundle ships it too (dodaios.spec).
 #define LegacyGuiExeName "PersonalJarvis.exe"
 ; The product's earlier name: the Start-menu group and the shortcuts an
 ; earlier release created are spelled this way.

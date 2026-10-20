@@ -433,7 +433,7 @@ def test_every_lane_a_package_change_can_reach_is_reached_under_both_names():
 
 
 def test_a_file_that_is_not_in_the_package_is_not_mistaken_for_it():
-    assert classify_changes.classify(["jarvis.spec"])["macos_desktop"] is True
+    assert classify_changes.classify(["dodaios.spec"])["macos_desktop"] is True
     assert classify_changes.classify(["docs/jarvis/notes.md"])["frontend"] is False
     assert classify_changes.classify(["dodaios.md"]) == classify_changes.classify(["notes.md"])
 

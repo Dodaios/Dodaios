@@ -6,7 +6,7 @@ Two callers cannot import the package normally and therefore load THIS FILE BY
 PATH (``importlib.util.spec_from_file_location``), so neither carries a private
 copy of the strings:
 
-* ``jarvis.spec`` - PyInstaller evaluates the spec from the checkout before the
+* ``dodaios.spec`` - PyInstaller evaluates the spec from the checkout before the
   package is importable, and the strings end up in the downloadable ``.dmg``
   app's ``Info.plist``.
 * ``dodaios.setup.macos_app_bundle._bundle_plist`` - the managed source-install
@@ -115,7 +115,7 @@ def usage_descriptions() -> dict[str, str]:
 # overrides the base ``Info.plist`` value, and ``CFBundleLocalizations`` lists the
 # languages the bundle carries. English stays the base text in ``Info.plist``
 # itself (and the development region), so a language without a table falls back to
-# it. The two bundles share this one table: ``jarvis.spec`` lists the languages in
+# it. The two bundles share this one table: ``dodaios.spec`` lists the languages in
 # its plist and ``packaging/macos/add_localizations.py`` writes the files into the
 # built ``.dmg`` app before it is signed; the managed bundle does both itself.
 # The wording follows the English table and the in-app German/Spanish/Portuguese

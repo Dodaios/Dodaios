@@ -117,7 +117,7 @@ _PRIVACY_STRINGS_PATH = Path(__file__).resolve().parents[1] / "core" / "macos_pr
 
 
 def _privacy_strings() -> ModuleType:
-    """Load the shared usage-string table BY PATH, exactly as ``jarvis.spec`` does.
+    """Load the shared usage-string table BY PATH, exactly as ``dodaios.spec`` does.
 
     The managed app is built from a source checkout, so the file is on disk. The
     path load (rather than an ordinary import) is what lets the parity test
@@ -747,7 +747,7 @@ def _bundle_plist() -> dict[str, object]:
         "LSMinimumSystemVersion": "11.0",
         "NSHighResolutionCapable": True,
         # Every NS...UsageDescription string comes from the one table shared
-        # with jarvis.spec (the .dmg app), never from a copy kept here. The
+        # with dodaios.spec (the .dmg app), never from a copy kept here. The
         # German and Spanish text is declared here and written as
         # <lang>.lproj/InfoPlist.strings by _write_localizations.
         **_privacy_strings().usage_descriptions(),

@@ -25,7 +25,7 @@
 # - Excluding unused GUI frameworks saves roughly 500 MB.
 #
 # Invoke through the per-OS build script (packaging/<os>/build.*) or directly
-# with `pyinstaller jarvis.spec --noconfirm --clean`.
+# with `pyinstaller dodaios.spec --noconfirm --clean`.
 
 # ruff: noqa
 
@@ -318,7 +318,7 @@ if sys.platform == "darwin":
         try:
             hiddenimports += collect_submodules(pkg)
         except Exception as exc:
-            print(f"[jarvis.spec] WARNING: cannot collect {pkg}: {exc}")
+            print(f"[dodaios.spec] WARNING: cannot collect {pkg}: {exc}")
 
 
 # --- Bundle-size exclusions -------------------------------------------------
@@ -459,7 +459,7 @@ def _icon_path():
     candidate = ICON_DIR / ("dodaios.icns" if sys.platform == "darwin" else "dodaios.ico")
     if candidate.is_file():
         return str(candidate)
-    print(f"[jarvis.spec] icon {candidate} is missing - building without one")
+    print(f"[dodaios.spec] icon {candidate} is missing - building without one")
     return None
 
 

@@ -61,7 +61,7 @@ def test_updater_change_turns_on_the_cross_os_updater_lane():
     for path in (
         "dodaios/core/installer_update.py",
         "dodaios\\ui\\relauncher.py",
-        "packaging/windows/PersonalJarvis.iss",
+        "packaging/windows/Dodaios.iss",
         "tests/unit/ui/web/test_update_routes_frozen.py",
     ):
         assert classify_changes.classify([path])["updater"] is True, path
@@ -78,7 +78,7 @@ def test_unrelated_python_change_leaves_the_updater_lane_off():
     [
         # Packaging: the spec, the build script, the entitlements and the single
         # usage-string table both macOS bundles load.
-        "jarvis.spec",
+        "dodaios.spec",
         "packaging/macos/build.sh",
         "packaging/macos/entitlements.plist",
         "packaging/macos/README.md",
@@ -135,7 +135,7 @@ def test_macos_permission_and_packaging_paths_turn_on_the_macos_lane(path):
     [
         "dodaios/society/roster.py",
         "dodaios/ui/web/society_browser_routes.py",
-        "packaging/windows/PersonalJarvis.iss",
+        "packaging/windows/Dodaios.iss",
         "packaging/linux/build.sh",
         "docs/macos-permissions.md",
     ],
@@ -146,7 +146,7 @@ def test_unrelated_paths_leave_the_macos_lane_off(path):
 
 def test_the_macos_lane_gate_names_the_new_paths_it_adds_to_the_prefix_tables():
     """Guard the data, not just the outcome: a refactor must not drop an entry."""
-    assert {"jarvis.spec", "dodaios/core/macos_privacy_strings.py"} <= classify_changes._MACOS_FILES
+    assert {"dodaios.spec", "dodaios/core/macos_privacy_strings.py"} <= classify_changes._MACOS_FILES
     assert "dodaios/ui/web/permissions_routes.py" in classify_changes._MACOS_FILES
     assert {
         "dodaios/plugins/tool/screen_snapshot.py",
