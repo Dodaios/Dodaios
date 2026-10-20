@@ -156,7 +156,9 @@ async def _hold_unattended_run_off_keys(provider: str, account_id: str) -> None:
     raise BackgroundDeferred(
         f"A subscription is connected, so this scheduled run did not bill the routine's "
         f"API-key seat ({provider}). Pick a subscription or local model for the routine, "
-        "or start it with Run now."
+        "or start it with Run now.",
+        code="api_key_seat",
+        provider=provider,
     )
 
 
