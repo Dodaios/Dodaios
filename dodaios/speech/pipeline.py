@@ -12369,8 +12369,8 @@ class SpeechPipeline:
         user has already told us they care about travel with the request and are
         checked afterwards by the drift guard.
 
-        Three sources, all of them things the user chose: the STT dictionary
-        (words they added by hand for exactly this reason), the configured wake
+        Three sources: the STT dictionary (words the user added by hand for
+        exactly this reason, plus the shipped defaults they kept), the configured wake
         word (a name, and names are what get "corrected"), and the assistant
         name derived from it. Nothing here is a secret and nothing is free text
         from a voice turn — AP-2 territory stays out of the prompt.
@@ -12380,9 +12380,11 @@ class SpeechPipeline:
         """
         terms: list[str] = []
         try:
-            from dodaios.speech.stt_dictionary import dictionary_bias_words
+            # Shipped defaults included (the product name, PyPI, GitHub …):
+            # a rewrite model "correcting" them is the same failure.
+            from dodaios.speech.stt_dictionary import dictionary_protected_words
 
-            terms.extend(dictionary_bias_words())
+            terms.extend(dictionary_protected_words())
         except Exception as exc:  # noqa: BLE001 — an unreadable store is not fatal
             log.debug("dictation protected terms: dictionary unavailable (%s)", exc)
         phrase = getattr(self, "_wake_phrase_label", "") or ""
