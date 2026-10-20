@@ -185,6 +185,18 @@ EXTERNAL_RUNTIME_RUNNERS: Final[dict[str, str]] = {
 }
 
 
+async def society_execution_environment(session_id: str) -> str | None:
+    """Where a society agent's tools execute; ``None`` when it cannot be read."""
+    from dodaios.society.runtime import current_runtime
+    from dodaios.society.surface import agent_id_of
+
+    runtime = current_runtime()
+    if runtime is None:
+        return None
+    agent = await runtime.roster.get(agent_id_of(session_id) or "")
+    return None if agent is None else str(getattr(agent, "execution_environment", "local"))
+
+
 def resolve_runner(
     provider: str, *, surface: str = "agent", runtime: str = "", account_id: str = ""
 ) -> str:
@@ -1563,25 +1575,16 @@ class AgentChatService:
 
             async def run_attempt(active_handle: TurnHandle, run_prompt: str) -> None:
                 if session.surface == "society":
-                    from dodaios.society.runtime import current_runtime
-                    from dodaios.society.surface import agent_id_of
-
-                    sandbox_runtime = current_runtime()
-                    sandbox_agent = (
-                        await sandbox_runtime.roster.get(agent_id_of(session_id) or "")
-                        if sandbox_runtime is not None else None
-                    )
-                    if sandbox_agent is None and runner != "brain":
+                    environment = await society_execution_environment(session_id)
+                    if environment is None and runner != "brain":
                         raise ValueError(
                             "Agent execution environment is unavailable; native execution refused."
                         )
-                    if (
-                        sandbox_agent is not None
-                        and getattr(sandbox_agent, "execution_environment", "local") == "sandbox"
-                        and (runner != "brain" or control_runner is not None or native_goal)
+                    if environment == "sandbox" and (
+                        runner != "brain" or control_runner is not None or native_goal
                     ):
                         raise ValueError(
-                            "The sandbox requires a Jarvis API or local model; "
+                            "The sandbox requires a Dodaios API or local model; "
                             "a native agent cannot run on the host in sandbox mode."
                         )
                 if control_runner is not None:

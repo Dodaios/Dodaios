@@ -1,6 +1,6 @@
 # Agent code sandbox
 
-Choose **Code sandbox** when creating a Jarvis agent, or change its execution
+Choose **Code sandbox** when creating a Dodaios agent, or change its execution
 environment in the agent card while it is idle. Use an API or local model.
 Native coding CLIs and external agent runtimes are refused in this mode.
 
@@ -8,7 +8,7 @@ Docker must be running with Linux containers. The agent card checks readiness;
 the explicit **Download runtime** action downloads the Python runtime image.
 Missing Docker or an image never falls back to commands on the host.
 
-The model and conversation remain in Jarvis. Its only machine-facing tool is
+The model and conversation remain in Dodaios. Its only machine-facing tool is
 society_sandbox: run a command, write a UTF-8 file, read a file, or list a
 directory. Other tools, plugins, desktop control and delegation are excluded.
 Existing grants, denials, approval rules and read-only modes still apply.
@@ -21,7 +21,7 @@ and at most 15 minutes per command. Persistent volume storage has no aggregate
 quota; this is container isolation, not a separate kernel per agent.
 
 The chat Stop button cancels the command and removes its container. An internal
-deadline also limits work if the Jarvis host crashes. Files persist separately
+deadline also limits work if the Dodaios host crashes. Files persist separately
 from the host workspace. Refresh files in the agent card and click a result to
 download it (up to 1 MB). Changing back to local execution retains the sandbox
 files; it does not copy them onto the host.

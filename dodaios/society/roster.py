@@ -449,7 +449,7 @@ def _check_sandbox_placement(row: dict[str, Any]) -> None:
     if runner != "brain":
         raise RosterError(
             FailureReason.BLOCKED_BY_POLICY,
-            "Choose a Jarvis API or local model for the code sandbox. "
+            "Choose a Dodaios API or local model for the code sandbox. "
             "Native CLI agents and external runtimes are not sandboxed yet.",
         )
 
@@ -464,9 +464,9 @@ def _check_runtime_placement(runtime: Any, computer_id: Any) -> None:
 
 
 def _coerce(field_name: str, value: Any) -> Any:
+    """Validate one editable field and return its column value."""
     if field_name == "execution_environment":
         return str(_enum(ExecutionEnvironment, value, field_name))
-    """Validate one editable field and return its column value."""
     if field_name == "name":
         return _validate_name(value)
     if field_name == "title":
