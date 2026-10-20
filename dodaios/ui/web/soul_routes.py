@@ -182,8 +182,16 @@ def _book_file(folder: Path | None, target: str) -> dict[str, Any]:
     return base
 
 
-def _activity(folder: Path | None) -> list[dict[str, Any]]:
-    """The most recent learning-ledger lines, newest first."""
+#: Ledger fields that name the model call behind a line (``review.SeatChoice``).
+_SEAT_FIELDS = ("seat", "seat_label", "billing")
+
+
+def _seat(record: dict[str, Any]) -> dict[str, str]:
+    return {name: str(record.get(name, "") or "") for name in _SEAT_FIELDS}
+
+
+def _ledger_lines(folder: Path | None) -> list[dict[str, Any]]:
+    """The ledger's tail as records, newest first."""
     from dodaios.memory.learning.notebook import LEDGER_NAME
 
     if folder is None:
@@ -200,15 +208,38 @@ def _activity(folder: Path | None) -> list[dict[str, Any]]:
     lines = tail.splitlines()
     if size > _LEDGER_TAIL_BYTES and lines:
         lines = lines[1:]  # the first line of a mid-file tail is cut off
-    out: list[dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
     for line in reversed(lines):
         try:
             record = json.loads(line)
         except ValueError:  # a torn ledger line is skipped
             continue
-        if not isinstance(record, dict):
-            continue
+        if isinstance(record, dict):
+            records.append(record)
+    return records
+
+
+def _last_review(records: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The newest model call of the loop: when, how it ended, where it ran and how it billed."""
+    for record in records:
+        if record.get("operation") == "review":
+            return {
+                "ts": str(record.get("ts", "")),
+                "source": str(record.get("source", "")),
+                "outcome": str(record.get("outcome", "")),
+                "changes": int(record.get("changes", 0) or 0),
+                **_seat(record),
+            }
+    return None
+
+
+def _activity(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The most recent changes the ledger holds, newest first."""
+    out: list[dict[str, Any]] = []
+    for record in records:
         operation = str(record.get("operation", ""))
+        if operation == "review":
+            continue  # a model call, not a change: ``last_review`` carries it
         text = str(record.get("before" if operation == "remove" else "after", "") or "")
         evidence = str(record.get("evidence", "") or "")
         if len(evidence) > _EVIDENCE_CHARS:
@@ -221,6 +252,7 @@ def _activity(folder: Path | None) -> list[dict[str, Any]]:
                 "operation": operation,
                 "text": text,
                 "evidence": evidence,
+                **_seat(record),
             }
         )
         if len(out) >= _ACTIVITY_LIMIT:
@@ -246,6 +278,7 @@ def _payload(request: Request) -> dict[str, Any]:
         log.debug("soul: assistant name unavailable", exc_info=True)
         name = DEFAULT_ASSISTANT_NAME
     folder = _notebook_folder(config)
+    records = _ledger_lines(folder)
     return {
         "name": name,
         "named": name != DEFAULT_ASSISTANT_NAME,
@@ -258,7 +291,8 @@ def _payload(request: Request) -> dict[str, Any]:
             _book_file(folder, "memory"),
             _book_file(folder, "user"),
         ],
-        "activity": _activity(folder),
+        "activity": _activity(records),
+        "last_review": _last_review(records),
     }
 
 
