@@ -114,7 +114,7 @@ export function AssistantProfileView() {
             <CharacterSection soul={fileOf(data, "soul")} onEdit={() => setOpen("soul")} />
             {data.initiative && <InitiativeSection initiative={data.initiative} />}
             <MemorySection profile={data} />
-            <RecentSection activity={data.activity} />
+            <RecentSection activity={data.activity} lastReview={data.last_review} />
           </div>
         )}
       </div>

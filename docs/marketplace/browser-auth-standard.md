@@ -52,9 +52,16 @@ Rules:
   (use the `ERROR_*` codes + `sanitize_provider_error`).
 - Cancel, timeout, retry, reconnect, disconnect. Understandable errors for
   denied consent, missing admin approval, and provider outages.
-- "Connected" is shown only after authorization completed AND a
-  side-effect-free functional check passed. An opened browser tab or a
-  merely stored token is not enough.
+- "Connected" is shown only after authorization completed. An opened
+  browser tab is not enough. The completed grant is stored FIRST, then a
+  side-effect-free functional check runs, and its outcome is reported as
+  capability health beside the auth status (`capability_state`
+  "verified" or "degraded" with a `capability_reason`). A check that fails
+  for any reason other than the provider refusing the credential (missing
+  scope, rate limit, outage) never discards the grant: the plugin stays
+  connected but degraded, so the user is not sent through a consent that
+  already succeeded. A credential the provider rejects (HTTP 401) is an
+  error and leaves the previous stored state untouched.
 - Existing working connections migrate cleanly. Required re-logins go
   through the new browser flow. Own OAuth clients stay, at most, a clearly
   separated expert option — never the default prerequisite.
@@ -95,7 +102,8 @@ Enforced by:
   instance-address authorization configuration;
 - `dodaios/marketplace/publisher_clients.py` — shared resolution;
 - `dodaios/marketplace/connection_verification.py` — bounded resource checks
-  before publishing a successful OAuth connection; unknown hooks fail closed;
+  after a grant is stored, classified as auth rejection or degraded
+  capability; an unknown hook never counts as verified;
 - `tests/contract/test_plugin_auth_standard.py` — mandatory contract tests;
 - `scripts/ci/check_plugin_auth_contract.py` — blocking configuration and
   browser-evidence gate. `plugin-e2e-audit.json` records all seven observed

@@ -20,10 +20,21 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     return TestClient(app)
 
 
-def test_list_empty(client: TestClient) -> None:
+def _user_entries(client: TestClient) -> list[dict]:
+    """The user's own rows — the shipped defaults are listed after them."""
+    return [e for e in client.get("/api/dictionary").json()["entries"] if not e["default"]]
+
+
+def test_list_holds_only_the_shipped_defaults_on_a_fresh_install(
+    client: TestClient,
+) -> None:
     r = client.get("/api/dictionary")
     assert r.status_code == 200
-    assert r.json() == {"entries": []}
+    entries = r.json()["entries"]
+    assert entries, "a fresh install starts with the default vocabulary"
+    assert all(e["default"] for e in entries)
+    assert all(e["id"].startswith("default-") for e in entries)
+    assert "Dodaios" in [e["word"] for e in entries]
 
 
 def test_create_and_list(client: TestClient) -> None:
@@ -39,8 +50,11 @@ def test_create_and_list(client: TestClient) -> None:
     r2 = client.get("/api/dictionary")
     assert r2.status_code == 200
     entries = r2.json()["entries"]
-    assert len(entries) == 1
     assert entries[0]["word"] == "GitHub"
+    assert entries[0]["default"] is False
+    # The user's GitHub replaces the shipped one rather than sitting beside it.
+    assert [e["word"] for e in entries].count("GitHub") == 1
+    assert len(_user_entries(client)) == 1
 
 
 def test_create_plain_word_without_misheard(client: TestClient) -> None:
@@ -95,3 +109,32 @@ def test_delete_idempotent(client: TestClient) -> None:
     r2 = client.delete(f"/api/dictionary/{created['id']}")
     assert r2.status_code == 200
     assert r2.json() == {"ok": True, "removed": False}
+
+
+def test_deleting_a_default_keeps_it_deleted(client: TestClient) -> None:
+    r = client.delete("/api/dictionary/default-pypi")
+    assert r.json() == {"ok": True, "removed": True}
+    words = [e["word"] for e in client.get("/api/dictionary").json()["entries"]]
+    assert "PyPI" not in words
+    assert client.delete("/api/dictionary/default-pypi").json()["removed"] is False
+
+
+def test_editing_a_default_makes_it_the_users_entry(client: TestClient) -> None:
+    r = client.patch(
+        "/api/dictionary/default-pypi", json={"misheard": ["Pipey", "Pie Pie"]}
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["id"] == "default-pypi"
+    assert body["default"] is False
+    assert body["misheard"] == ["Pipey", "Pie Pie"]
+    # A second edit in flight with the same id still lands.
+    r2 = client.patch("/api/dictionary/default-pypi", json={"word": "PyPI.org"})
+    assert r2.status_code == 200
+    entries = client.get("/api/dictionary").json()["entries"]
+    assert [e["word"] for e in entries].count("PyPI") == 0
+    assert any(e["word"] == "PyPI.org" and not e["default"] for e in entries)
+    # Deleting the edited copy does not bring the default back.
+    client.delete("/api/dictionary/default-pypi")
+    words = [e["word"] for e in client.get("/api/dictionary").json()["entries"]]
+    assert "PyPI" not in words and "PyPI.org" not in words
