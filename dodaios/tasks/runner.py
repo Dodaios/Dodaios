@@ -130,7 +130,7 @@ class TaskRunner:
         tool_registry: _ToolRegistryLike | Any = None,
         agent_brain: _AgentBrainLike | None = None,
         auto_approver: _AutoApproverLike | None = None,
-        result_sink: Callable[[tuple[str, ...], str, str], Awaitable[None]] | None = None,
+        result_sink: Callable[..., Awaitable[None]] | None = None,
         owned_agent_runner: Callable[[str, tuple[str, ...], str, Any], Awaitable[str | None]]
         | None = None,
         workflow_services: Any = None,
@@ -149,7 +149,9 @@ class TaskRunner:
         self._approver = auto_approver
         #: ``(tags, text, status)`` after an agent action — where a tagged
         #: task's result also goes (a society agent's routine reports into its
-        #: own chat). Optional: tasks never import the society.
+        #: own chat). Optional: tasks never import the society. A skipped
+        #: run adds ``details=`` (``reason_code``, ``provider``, ``routine``)
+        #: so the chat can say why in the reader's language.
         self._result_sink = result_sink
         self._owned_agent_runner = owned_agent_runner
         self._workflow_services = workflow_services
@@ -227,14 +229,23 @@ class TaskRunner:
                 raise
             duration_ms = int((time.perf_counter() - start) * 1000)
             error_msg = readable_error(exc)
-            if isinstance(exc, CapacityDeferred):
+            skip = exc if isinstance(exc, CapacityDeferred) else None
+            if skip is not None:
                 # Nothing this unattended run may bill was usable: the run is
-                # skipped (no key was used); a recurring task tries again next time.
+                # skipped (no key was used); a recurring task tries again next
+                # time. The skip step ends the run in its history, with a
+                # reason code the UI words in the reader's language.
                 error_msg = str(exc)
                 await self._store.append_step(
                     task_id,
                     "log",
-                    {"event": "skipped", "reason": "waiting_capacity", "message": error_msg},
+                    {
+                        "event": "skipped",
+                        "reason": "waiting_capacity",
+                        "code": skip_code(skip),
+                        "provider": str(getattr(skip, "provider", "") or ""),
+                        "message": error_msg,
+                    },
                 )
                 log.warning("Task %s skipped: %s", task_id, error_msg)
             # A recurring automation survives a failed run: it goes back to
@@ -248,7 +259,10 @@ class TaskRunner:
                 "scheduled" if is_recurring else "failed",
                 error=error_msg,
             )
-            await self._store.append_step(task_id, "log", {"event": "error", "message": error_msg})
+            if skip is None:
+                await self._store.append_step(
+                    task_id, "log", {"event": "error", "message": error_msg}
+                )
             await self._bus.publish(
                 TaskFailed(
                     task_id=task_id,
@@ -257,14 +271,29 @@ class TaskRunner:
                     source_layer="tasks.runner",
                 )
             )
-            log.exception("Task %s failed after %dms", task_id, duration_ms)
+            if skip is None:
+                log.exception("Task %s failed after %dms", task_id, duration_ms)
             tags = tuple(str(tag) for tag in spec.tags)
             if self._result_sink is not None and tags:
                 # The owner's chat gets a sentence; ``last_error`` keeps the
                 # precise ``Type: message`` line for the Runs tab.
-                notice = routine_failure_sentence(str(getattr(spec, "title", "") or ""), error_msg)
+                title = str(getattr(spec, "title", "") or "")
                 try:
-                    await self._result_sink(tags, notice, "failed")
+                    if skip is None:
+                        await self._result_sink(
+                            tags, routine_failure_sentence(title, error_msg), "failed"
+                        )
+                    else:
+                        await self._result_sink(
+                            tags,
+                            routine_skip_sentence(title, error_msg),
+                            "skipped",
+                            details={
+                                "reason_code": skip_code(skip),
+                                "provider": str(getattr(skip, "provider", "") or ""),
+                                "routine": routine_display_title(title),
+                            },
+                        )
                 except Exception:  # noqa: BLE001 — the run already failed; delivery is best effort
                     log.warning(
                         "task %s: failure sink failed for tags %s", task_id, tags, exc_info=True
@@ -928,6 +957,24 @@ _AGENT_TITLE_TAG_RE = re.compile(r"^\s*\[agent:[^\]]*\]\s*")
 _ROUTINE_WRAPPER_RE = re.compile(r"^The routine chat failed:\s*", re.IGNORECASE)
 
 
+def skip_code(exc: CapacityDeferred) -> str:
+    """The stable reason word of a skipped unattended run (``no_capacity`` by default)."""
+    return str(getattr(exc, "code", "") or "no_capacity")
+
+
+def routine_display_title(title: str) -> str:
+    """A routine's title without the ``[agent:Name]`` tag its task carries."""
+    return _AGENT_TITLE_TAG_RE.sub("", title).strip()
+
+
+def routine_skip_sentence(title: str, reason: str) -> str:
+    """How a skipped routine run is reported: which one, and why it did not run."""
+    name = routine_display_title(title)
+    head = f'The routine "{name}" was skipped' if name else "A routine run was skipped"
+    reason = reason.strip().rstrip(".")
+    return f"{head}: {reason}." if reason else f"{head}."
+
+
 def routine_failure_sentence(title: str, error: str) -> str:
     """How a failed routine is reported to a person: which one, and why.
 
@@ -939,7 +986,7 @@ def routine_failure_sentence(title: str, error: str) -> str:
     reason = _ROUTINE_WRAPPER_RE.sub("", reason).strip().rstrip(".")
     if _EXCEPTION_NAME_RE.fullmatch(reason):
         reason = ""  # a bare class name tells a listener nothing
-    name = _AGENT_TITLE_TAG_RE.sub("", title).strip()
+    name = routine_display_title(title)
     head = f'The routine "{name}" failed' if name else "A routine failed"
     return f"{head}: {reason}." if reason else f"{head}."
 
