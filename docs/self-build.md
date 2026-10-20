@@ -84,6 +84,7 @@ and one undoer for each of the four kinds, and the event subscriptions below.
 | `decide.py` | the one decide call: prompt, parse, the no-model fallback |
 | `brain.py` | model access: signed-in subscriptions and local models only |
 | `judge.py` | the proofs, pure Python |
+| `sandbox.py` | runs a drafted skill's steps read-only on a past request (subscription or local seat, side-effect tools held back) |
 | `builders.py` | build, undo, archive (dormant) and restore per kind |
 | `loop.py` | event intake, the gate, the decide queue, use counting, maintenance |
 
@@ -168,7 +169,7 @@ ledger; build calls `self_build:<id>`.
 | Kind | Built through | Proof | Archived means |
 |---|---|---|---|
 | memory | the learning notebook (`MEMORY.md`/`USER.md`) | the learning review's evidence check | entry removed, text kept |
-| skill | the skill creator's writer, then the registry's `promote` ([ADR-0043](adr/0043-self-built-skills-go-live-on-trial.md)) | replay through the skill router, lint, duplicates, tools | switched off |
+| skill | the skill creator's writer, then the registry's `promote` ([ADR-0043](adr/0043-self-built-skills-go-live-on-trial.md)) | replay through the skill router, lint, duplicates, tools; then its steps run read-only on one or two accepted requests (`sandbox.py`) | switched off |
 | routine | a lead-owned Automations task on a subscription or local seat, no plugin grants, no announcement | schedule before 2/3 of the requests, grounded prompt, nothing outbound, a shadow run | paused |
 | agent | `Roster.create` on a subscription or local seat | free name, clean instructions, focus from used tools, shadow answers | paused |
 
