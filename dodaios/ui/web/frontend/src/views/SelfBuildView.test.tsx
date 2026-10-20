@@ -10,6 +10,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 
 import { SelfBuildView } from "@/views/SelfBuildView";
 import { BuiltByBadge } from "@/components/selfBuild/BuiltByBadge";
+import { BuildDetail } from "@/views/selfBuild/BuildDetail";
+import { useIdeThreadsStore } from "@/store/ideThreads";
 import { loadLocaleChunk, setUiLanguage } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import { useSelfBuildFocus } from "@/store/selfBuildFocus";
@@ -257,5 +259,34 @@ describe("BuildDetail for code", () => {
     expect(within(detail).getByText("octo/app#7")).toBeTruthy();
     expect(within(detail).getByText("draft pull request")).toBeTruthy();
     expect(within(detail).getByRole("link", { name: /open/i }).getAttribute("href")).toBe("https://github.com/octo/app/pull/7");
+  });
+
+  it("opens the build's coding thread in the Agentic IDE", async () => {
+    installFetch();
+    const coding = build({
+      id: "c1",
+      kind: "code",
+      state: "proving",
+      title: "Add a greeting",
+      artefact: { type: "code", id: "", repo: "octo/app", branch: "dodaios/issue-3-add-a-greeting", stage: "pushed", thread: "sess-42" },
+    });
+    renderWith(
+      <BuildDetail build={coding} limits={undefined} canBuild busy={false} onAction={() => {}} onClose={() => {}} />,
+    );
+    const open = await screen.findByTestId("build-open-thread");
+    expect(open.textContent).toContain("Open the coding thread");
+    fireEvent.click(open);
+    expect(useIdeThreadsStore.getState().selection.sessionId).toBe("sess-42");
+    expect(useIdeThreadsStore.getState().layout).toBe("threads");
+    expect(useEventStore.getState().activeSection).toBe("agentic-ide");
+  });
+
+  it("offers no thread link for a code build without a coding thread", async () => {
+    installFetch();
+    renderWith(
+      <BuildDetail build={BUILDS[4]} limits={undefined} canBuild busy={false} onAction={() => {}} onClose={() => {}} />,
+    );
+    await screen.findByTestId("build-detail");
+    expect(screen.queryByTestId("build-open-thread")).toBeNull();
   });
 });
