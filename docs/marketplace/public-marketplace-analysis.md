@@ -41,7 +41,8 @@ Two further pieces matter for a public marketplace:
 * **Packaging standard already adopted.** Since 2026-08-08 every new
   marketplace plugin must be an Agent Plugins v1.0.0 directory
   (`plugin.json`, optional `mcp.json`, Dodaios specifics under the
-  `io.github.personaljarvis` extension namespace). The
+  `io.github.dodaios` extension namespace, called `io.github.personaljarvis`
+  before the rename and still read under that name). The
   [standard doc](agent-plugins-standard.md) explicitly defers a
   "loader/aggregation wave" — a public marketplace **is** that wave.
 * **"Install" is already a file write.** Because the catalog loader keeps
@@ -222,7 +223,7 @@ to zero tools), the keyword relevance gate, risk tiers via
 * **Usage cards + logos.** Submission requirements to decide: a usage card
   (keywords) strongly improves the relevance gate; a `logo_slug`/`logo_url`
   keeps the store visually consistent. Both fit in the
-  `io.github.personaljarvis/` extension directory.
+  `io.github.dodaios/` extension directory.
 * **Runs parity is free.** Because `mcp_bridge.py` assembles the worker MCP
   config from the same catalog + token store, every installed community
   plugin reaches delegated agentic runs with no extra work. The only open

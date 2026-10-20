@@ -63,6 +63,7 @@ from jarvis.core.turn_language import (
     resolve_output_language,
     validate_output_language,
 )
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.realtime.audio import StreamingPcm16Resampler
 from jarvis.realtime.protocol import RealtimeSessionConfig, RealtimeUnavailableError
 from jarvis.realtime.report_prompt import clip_report, report_update_prompt
@@ -881,7 +882,7 @@ _HYBRID_ROLE_DIRECTIVE = (
     "instead of calling anything. Never tell the user you lack a tool, an "
     "API, access, or permission for something in their world, and never "
     "propose manual workarounds instead of acting: call the function (again, "
-    "with the user's correction folded in). The Jarvis-Agent spawn function "
+    "with the user's correction folded in). The Dodaios-Agent spawn function "
     "is EXPLICIT-REQUEST ONLY: call it when the user themselves asks for an "
     "agent, a subagent, spawning, delegating, or background work — or has "
     "just said yes to your offer to start one; never on your own initiative, "
@@ -1038,22 +1039,14 @@ _HANDOVER_END_REASONS = frozenset({HANGUP_DESKTOP_FALLBACK, HANGUP_REALTIME_FALL
 # owner prevents garbage collection from cancelling that user-visible debt.
 _DETACHED_DELEGATE_TASKS: set[asyncio.Task[None]] = set()
 
-_LOCAL_OUTPUT_FAILURE: dict[str, str] = {
-    "de": "Ich konnte das gerade nicht abspielen. Der Lautsprecher war weg.",  # i18n-allow
-    "en": "I couldn't play that just now. The speaker disappeared.",
-    "es": "No pude reproducirlo ahora. El altavoz desapareció.",  # i18n-allow
-}
+_LOCAL_OUTPUT_FAILURE: dict[str, str] = i18n_catalog.table("realtime.local_output_failure")
 _HISTORY_LOST_INSTRUCTION = (
     "The previous realtime connection dropped and this is a FRESH session. "
     "You have no memory of earlier turns in this call. Do not invent, recall, "
     "or assert any prior topic, name, or request. Wait for the user's next "
     "words and treat them as the start of the conversation."
 )
-_OUTPUT_LANGUAGE_FAILURE: dict[str, str] = {
-    "de": "Ich konnte gerade keine sichere Antwort auf Deutsch erzeugen.",  # i18n-allow
-    "en": "I couldn't produce a safe answer in English just now.",
-    "es": "No pude generar una respuesta segura en español ahora mismo.",  # i18n-allow
-}
+_OUTPUT_LANGUAGE_FAILURE: dict[str, str] = i18n_catalog.table("realtime.output_language_failure")
 _PUBLIC_FACT_UNCERTAINTY: dict[str, str] = {
     "de": (  # i18n-allow
         "Ich konnte das gerade nicht zuverlässig mit einer öffentlichen "  # i18n-allow
@@ -1062,6 +1055,9 @@ _PUBLIC_FACT_UNCERTAINTY: dict[str, str] = {
     "en": "I couldn't verify that reliably with a public source just now.",
     "es": (  # i18n-allow
         "No pude verificarlo de forma fiable con una fuente pública ahora mismo."
+    ),
+    "pt": (  # i18n-allow
+        "Não consegui confirmar isso com fiabilidade numa fonte pública agora."
     ),
 }
 # When a delegated Brain reply ends in a question (clarify or confirmation),
@@ -1705,6 +1701,12 @@ _DELEGATE_BRIDGE_TEXTS: dict[str, tuple[str, ...]] = {
         "Sigo en ello, un momento.",
         "Dame un momento más.",
     ),
+    "pt": (  # i18n-allow: localized runtime progress output
+        "Ainda estou a tratar disso.",
+        "Só um momento, está quase.",
+        "Continuo nisso, dá-me um momento.",
+        "Dá-me só mais um momento.",
+    ),
 }
 
 
@@ -1715,66 +1717,9 @@ _DELEGATE_BRIDGE_TEXTS: dict[str, tuple[str, ...]] = {
 #: apology: "it did not come up in time" and "it could not be reached" send the
 #: user to different places, and the whole point of speaking here is that the
 #: call used to end after the full handshake budget with nothing said at all.
-_HANDSHAKE_FAILURE_MESSAGES: dict[str, dict[str, str]] = {
-    "timeout": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Die Sprachverbindung kam nicht rechtzeitig zustande, "  # i18n-allow
-            "deshalb habe ich abgebrochen."  # i18n-allow
-        ),
-        "en": (
-            "The voice connection did not come up in time, so I stopped."
-        ),
-        "es": (  # i18n-allow: localized runtime voice output
-            "La conexión de voz no se estableció a tiempo, así que lo detuve."
-        ),
-    },
-    "unavailable": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Ich konnte die Sprachverbindung gerade nicht aufbauen."  # i18n-allow
-        ),
-        "en": "I couldn't establish the voice connection just now.",
-        "es": (  # i18n-allow: localized runtime voice output
-            "No pude establecer la conexión de voz ahora mismo."
-        ),
-    },
-    "rate_limited": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Die Sprachverbindung ist gerade überlastet. "  # i18n-allow
-            "Bitte versuch es gleich noch einmal."  # i18n-allow
-        ),
-        "en": (
-            "The voice connection is busy right now. "
-            "Please try again in a moment."
-        ),
-        "es": (  # i18n-allow: localized runtime voice output
-            "La conexión de voz está saturada ahora mismo. "
-            "Inténtalo de nuevo en un momento."
-        ),
-    },
-    "no_credits": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Das Guthaben für die Sprachverbindung ist aufgebraucht. "  # i18n-allow
-            "Lade es beim Anbieter auf, dann klappt es wieder."  # i18n-allow
-        ),
-        "en": (
-            "The credit for the voice connection is used up. "
-            "Top it up with the provider and it will work again."
-        ),
-        "es": (  # i18n-allow: localized runtime voice output
-            "Se agotó el saldo de la conexión de voz. "
-            "Recárgalo con el proveedor y volverá a funcionar."
-        ),
-    },
-    "dropped": {
-        "de": (  # i18n-allow: localized runtime voice output
-            "Die Sprachverbindung ist abgebrochen."  # i18n-allow
-        ),
-        "en": "The voice connection dropped.",
-        "es": (  # i18n-allow: localized runtime voice output
-            "Se cortó la conexión de voz."
-        ),
-    },
-}
+_HANDSHAKE_FAILURE_MESSAGES: dict[str, dict[str, str]] = i18n_catalog.nested_table(
+    "realtime.handshake_failure"
+)
 
 
 def _handshake_failure_message(cause: str, language: str) -> str:
@@ -1843,6 +1788,11 @@ _INTERRUPT_ACK_TEXTS: dict[str, tuple[str, ...]] = {
         "Vale, lo he detenido.",
         "De acuerdo, lo cancelo.",
         "Vale, lo dejo.",
+    ),
+    "pt": (  # i18n-allow: localized runtime voice output
+        "Ok, parei isso.",
+        "Está bem, vou cancelar isso.",
+        "Ok, deixo isso.",
     ),
 }
 
@@ -1955,7 +1905,9 @@ _REALTIME_SAFETY_APPENDIX = (
     "delivered it to the user. Never repeat or paraphrase an earlier tagged "
     "result in a later turn unless the user explicitly asks for a repeat."
 )
-_LANGUAGE_NAMES = {"de": "German", "en": "English", "es": "Spanish"}
+_LANGUAGE_NAMES = {
+    "de": "German", "en": "English", "es": "Spanish", "pt": "European Portuguese",
+}
 
 _REALTIME_ENDING_SECTION_RE = re.compile(
     r"(?ms)^ENDING THE CALL[ \t]*\r?\n.*?(?=^CONTEXT[ \t]*(?:\r?\n|\Z)|\Z)"
@@ -2066,7 +2018,7 @@ _TOOL_ROLE_DIRECTIVE = (
     "computer. When the user asks you to DO something — create a file, write "
     "code, research, start background work, open a view, change a setting, "
     "control the computer — call the matching function instead of claiming "
-    "you cannot act. The Jarvis-Agent spawn function is EXPLICIT-REQUEST "
+    "you cannot act. The Dodaios-Agent spawn function is EXPLICIT-REQUEST "
     "ONLY: call it when the user themselves asks for an agent, a subagent, "
     "spawning, delegating, or background work — or has just said yes to your "
     "offer to start one. Never start it on your own initiative during "
@@ -4744,7 +4696,7 @@ class RealtimeVoiceSession:
         self._announcement_context_signatures = self._announcement_context_signatures[-16:]
 
         label = (
-            "Trusted Jarvis-Agent mission result"
+            "Trusted Dodaios-Agent mission result"
             if kind == "subagent"
             else "Trusted background completion"
         )

@@ -62,14 +62,14 @@
         "token_creation_url": "https://vercel.com/account/tokens",
         "token_prefix": "vcp",
         "validation_endpoint": "https://api.vercel.com/v2/user",
-        "instruction_md": "1. Click 'Create Token'\n2. Name: 'Personal Jarvis'\n3. Choose 'Full Account' or a specific team\n4. Copy the token (shown once)\n5. Paste below"
+        "instruction_md": "1. Click 'Create Token'\n2. Name: 'Dodaios'\n3. Choose 'Full Account' or a specific team\n4. Copy the token (shown once)\n5. Paste below"
       },
       "mcp_server": {
         "transport": "http",
         "url": "https://mcp.vercel.com",
         "auth_header_template": "Authorization: Bearer $plugin_vercel_access_token"
       },
-      "post_install_hint_md": "Sign in through the official provider browser page. Jarvis captures the callback and verifies the connection automatically."
+      "post_install_hint_md": "Sign in through the official provider browser page. Dodaios captures the callback and verifies the connection automatically."
     },
     {
       "id": "supabase",
@@ -91,13 +91,13 @@
         "url": "https://mcp.supabase.com/mcp?read_only=true",
         "auth_header_template": "Authorization: Bearer $plugin_supabase_access_token"
       },
-      "post_install_hint_md": "Sign in through the official provider browser page. Jarvis captures the callback and verifies the connection automatically. The hosted MCP endpoint uses read-only mode.",
+      "post_install_hint_md": "Sign in through the official provider browser page. Dodaios captures the callback and verifies the connection automatically. The hosted MCP endpoint uses read-only mode.",
       "fallback_auth": {
         "mode": "pat_paste",
         "token_creation_url": "https://supabase.com/dashboard/account/tokens",
         "token_prefix": "sbp",
         "validation_endpoint": "https://api.supabase.com/v1/projects",
-        "instruction_md": "1. Click 'Generate new token'\n2. Name: 'Personal Jarvis'\n3. Copy the token (shown once)"
+        "instruction_md": "1. Click 'Generate new token'\n2. Name: 'Dodaios'\n3. Copy the token (shown once)"
       }
     },
     {
@@ -167,7 +167,7 @@
         "refresh_token_ttl_days": 30
       },
       "native_tool": "slack",
-      "post_install_hint_md": "Sign in to your Slack workspace in the browser and approve access. Jarvis acts as you with your own permissions, not as a bot: it can search and read the channels and direct messages you belong to, and it posts a message only after you confirm it. Some workspaces require an admin to approve new apps; Slack shows that request during sign-in. The sign-in renews itself; if it lapses after 30 days without use, reconnect here."
+      "post_install_hint_md": "Sign in to your Slack workspace in the browser and approve access. Dodaios acts as you with your own permissions, not as a bot: it can search and read the channels and direct messages you belong to, and it posts a message only after you confirm it. Some workspaces require an admin to approve new apps; Slack shows that request during sign-in. The sign-in renews itself; if it lapses after 30 days without use, reconnect here."
     },
     {
       "id": "linear",
@@ -210,13 +210,13 @@
         "url": "https://mcp.stripe.com",
         "auth_header_template": "Authorization: Bearer ${plugin_stripe_access_token}"
       },
-      "post_install_hint_md": "Sign in through the official provider browser page. Jarvis captures the callback and verifies the connection automatically.",
+      "post_install_hint_md": "Sign in through the official provider browser page. Dodaios captures the callback and verifies the connection automatically.",
       "fallback_auth": {
         "mode": "pat_paste",
         "token_creation_url": "https://dashboard.stripe.com/apikeys",
         "token_prefix": "",
         "validation_endpoint": "https://api.stripe.com/v1/balance",
-        "instruction_md": "1. Open https://dashboard.stripe.com/apikeys and click 'Create restricted key'.\n2. Name it 'Personal Jarvis'. Set the resources Jarvis should read to 'Read' — at minimum 'Balance: Read', plus e.g. Customers, Products, Invoices, Subscriptions.\n3. Create the key and copy the value starting with 'rk_live_' (or 'rk_test_').\n4. Paste it below. A full secret key 'sk_' also works but grants full access — a restricted read key is safer."
+        "instruction_md": "1. Open https://dashboard.stripe.com/apikeys and click 'Create restricted key'.\n2. Name it 'Dodaios'. Set the resources Dodaios should read to 'Read' — at minimum 'Balance: Read', plus e.g. Customers, Products, Invoices, Subscriptions.\n3. Create the key and copy the value starting with 'rk_live_' (or 'rk_test_').\n4. Paste it below. A full secret key 'sk_' also works but grants full access — a restricted read key is safer."
       }
     },
     {
@@ -249,7 +249,7 @@
     {
       "id": "discord",
       "display_name": "Discord",
-      "description": "Chat with Jarvis from Discord — browser sign-in, your bot",
+      "description": "Chat with Dodaios from Discord — browser sign-in, your bot",
       "category": "Messaging",
       "logo_slug": "discord",
       "logo_color": "5865F2",
@@ -287,7 +287,7 @@
     {
       "id": "telegram",
       "display_name": "Telegram",
-      "description": "Chat with Jarvis from Telegram (your bot)",
+      "description": "Chat with Dodaios from Telegram (your bot)",
       "category": "Messaging",
       "logo_slug": "telegram",
       "logo_color": "26A5E4",
@@ -302,7 +302,7 @@
         "validation_endpoint": "https://api.telegram.org/bot{token}/getMe",
         "instruction_md": "1. Open @BotFather in Telegram (https://t.me/BotFather).\n2. Send /newbot, pick a name and a username ending in 'bot'.\n3. Copy the token BotFather gives you (looks like 123456789:AAH...).\n4. Paste it below, then send /start to your new bot so it can reach you."
       },
-      "post_install_hint_md": "This enables the Telegram channel — message your bot to talk to Jarvis. Outbound replies pass through the voice scrubber and your allowlist."
+      "post_install_hint_md": "This enables the Telegram channel — message your bot to talk to Dodaios. Outbound replies pass through the voice scrubber and your allowlist."
     },
     {
       "id": "asana",
@@ -392,7 +392,7 @@
         "offline_access": true
       },
       "native_tool": "gmail",
-      "post_install_hint_md": "Setup: see docs/marketplace/google-oauth-setup.md (shares the Google client with Drive). In Google 'Testing' status the refresh grant expires after 7 days. Publish the consent app to 'In production' and complete restricted-scope verification when Google requires it so Jarvis can refresh offline access automatically. A user, account, or administrator can still revoke the grant."
+      "post_install_hint_md": "Setup: see docs/marketplace/google-oauth-setup.md (shares the Google client with Drive). In Google 'Testing' status the refresh grant expires after 7 days. Publish the consent app to 'In production' and complete restricted-scope verification when Google requires it so Dodaios can refresh offline access automatically. A user, account, or administrator can still revoke the grant."
     },
     {
       "id": "google_calendar",
@@ -422,7 +422,7 @@
         "offline_access": true
       },
       "native_tool": "google_calendar",
-      "post_install_hint_md": "Setup: shares the Google OAuth client with Gmail/Drive. Add the full 'calendar' scope to the OAuth consent screen (it reads events across ALL your calendars, not just the primary one). A 'Testing' refresh grant expires after 7 days; publish the consent app to 'In production' so Jarvis can refresh offline access automatically. A user, account, or administrator can still revoke the grant."
+      "post_install_hint_md": "Setup: shares the Google OAuth client with Gmail/Drive. Add the full 'calendar' scope to the OAuth consent screen (it reads events across ALL your calendars, not just the primary one). A 'Testing' refresh grant expires after 7 days; publish the consent app to 'In production' so Dodaios can refresh offline access automatically. A user, account, or administrator can still revoke the grant."
     },
     {
       "id": "todoist",
@@ -455,7 +455,7 @@
       "logo_color": "7B68EE",
       "featured": false,
       "longevity": "permanent",
-      "longevity_note": "ClickUp states its access token does not expire, so this connection needs no renewal. That is a policy rather than a guarantee, so Jarvis still asks you to reconnect if it is ever rejected.",
+      "longevity_note": "ClickUp states its access token does not expire, so this connection needs no renewal. That is a policy rather than a guarantee, so Dodaios still asks you to reconnect if it is ever rejected.",
       "auth": {
         "mode": "hosted_mcp_oauth_dcr",
         "discovery_url": "https://mcp.clickup.com/.well-known/oauth-protected-resource",
@@ -544,7 +544,7 @@
       "logo_color": "18BFFF",
       "featured": false,
       "longevity": "self_renewing",
-      "longevity_note": "Airtable ends a connection after 60 days without use. Jarvis renews it in the background every 12 hours, so it stays open as long as this machine runs from time to time.",
+      "longevity_note": "Airtable ends a connection after 60 days without use. Dodaios renews it in the background every 12 hours, so it stays open as long as this machine runs from time to time.",
       "auth": {
         "mode": "hosted_mcp_oauth_dcr",
         "discovery_url": "https://mcp.airtable.com/.well-known/oauth-protected-resource",
@@ -566,7 +566,7 @@
       "logo_color": "292929",
       "featured": false,
       "longevity": "self_renewing",
-      "longevity_note": "Cal.com publishes no token lifetime, so how long this stays connected has not been confirmed. Jarvis renews it in the background and will ask you to reconnect if that ever fails.",
+      "longevity_note": "Cal.com publishes no token lifetime, so how long this stays connected has not been confirmed. Dodaios renews it in the background and will ask you to reconnect if that ever fails.",
       "auth": {
         "mode": "hosted_mcp_oauth_dcr",
         "discovery_url": "https://mcp.cal.com/.well-known/oauth-protected-resource",
@@ -596,7 +596,7 @@
           "label": "Your Home Assistant address",
           "placeholder": "http://192.168.1.20:8123",
           "validation_path": "/api/",
-          "help_md": "The address you use in your browser. Home Assistant runs on your home network, so a Jarvis on a different machine, behind a VPN or in a container may not reach it."
+          "help_md": "The address you use in your browser. Home Assistant runs on your home network, so Dodaios running on a different machine, behind a VPN or in a container may not reach it."
         }
       },
       "native_tool": "home_assistant",
@@ -611,7 +611,7 @@
           "label": "Your Home Assistant address",
           "placeholder": "http://192.168.1.20:8123",
           "validation_path": "/api/",
-          "help_md": "The address you use in your browser. Home Assistant runs on your home network, so a Jarvis on a different machine, behind a VPN or in a container may not reach it."
+          "help_md": "The address you use in your browser. Home Assistant runs on your home network, so Dodaios running on a different machine, behind a VPN or in a container may not reach it."
         }
       },
       "browser_flow": "hosted",
@@ -693,7 +693,7 @@
       "logo_color": "D1FE17",
       "featured": false,
       "longevity": "self_renewing",
-      "longevity_note": "Higgsfield issues a refresh token. How long the access token lasts is unpublished; Jarvis renews it in the background and will ask you to reconnect if that ever fails.",
+      "longevity_note": "Higgsfield issues a refresh token. How long the access token lasts is unpublished; Dodaios renews it in the background and will ask you to reconnect if that ever fails.",
       "auth": {
         "mode": "hosted_mcp_oauth_dcr",
         "discovery_url": "https://mcp.higgsfield.ai/.well-known/oauth-protected-resource/mcp",

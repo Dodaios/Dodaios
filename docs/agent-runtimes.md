@@ -294,7 +294,10 @@ replayed during `session/load` is swallowed because the chat already shows it.
   in the process environment.
 - **Dodaios tools:** passed per session in `session/new` / `session/load`
   `mcpServers` (HTTP with headers); `HERMES_ACP_SKIP_CONFIGURED_MCP=1` keeps
-  any configured servers out. Hermes names them `mcp__jarvis__<tool>`.
+  any configured servers out. The server is mounted as `dodaios`, so Hermes
+  names them `mcp__dodaios__<tool>`; a conversation started while the server
+  was still mounted as `jarvis` has its pinned tool list discarded on resume
+  and rebuilt under the new name.
 - **Sessions:** persisted in the profile's `state.db`; `session/load` restores
   a conversation in a new process and replays it. An unknown id answers
   `session/load` with an empty result, which Dodaios treats as "resume lost" and
@@ -357,8 +360,10 @@ replayed during `session/load` is swallowed because the chat already shows it.
 - **Dodaios tools:** OpenClaw rejects per-session `mcpServers`, so the Dodaios
   server is configured in the agent's own state directory. Values such as
   `${JARVIS_CONTROL_API_KEY}` are substituted from the Gateway's environment,
-  so no key is written to disk. OpenClaw names them `jarvis__<tool>`; Dodaios
-  normalises that to `mcp__jarvis__<tool>`.
+  so no key is written to disk. OpenClaw names them `dodaios__<tool>`; Dodaios
+  normalises that to `mcp__dodaios__<tool>`. Names under the server's earlier
+  name (`jarvis__<tool>`, `mcp__jarvis__<tool>`) are read the same way
+  everywhere a tool name is matched (`jarvis/core/mcp_names.py`).
 - **Sessions:** the fixed session key keeps one conversation across bridge
   processes; the ACP session id changes per process and is not stored.
 - **Heartbeat:** OpenClaw runs a background model turn every 30 minutes by
@@ -402,16 +407,18 @@ each of them:
 
 | Job | Where | What it proves |
 |---|---|---|
-| `agent-runtimes-unit` | Linux and Windows on a pull request, macOS added in the merge queue; the portable base install | The runtime drivers, gateway, ACP runner, chat service, send queue, controls, society binding, roster, routines and society routes (`python scripts/ci/agent_runtime_suite.py`). Fakes only. |
+| `agent-runtimes-unit` | Linux and Windows on every pull request and merge group, macOS nightly and on release; the portable base install | The runtime drivers, gateway, ACP runner, chat service, send queue, controls, society binding, roster, routines and society routes (`python scripts/ci/agent_runtime_suite.py`). Fakes only. |
 | `agent-runtimes-headless` | `python:3.11-slim` | The runtime package imports and its tests pass on a server with no GPU, audio or desktop stack, and the app's Hermes setup without curl stops with "Setup needs curl". |
-| `agent-runtimes-e2e` | Every pull request and merge group: Linux × Hermes, OpenClaw and Windows × OpenClaw. Nightly and release: Windows × Hermes and macOS × Hermes, OpenClaw added | `scripts/ci/agent_runtime_e2e.py`: the app's own setup job (`manager.wait_ready`) installs the release pinned in `jarvis/agent_runtimes/runtime-versions.json` with a desktop app's PATH, never npm or a manual installer. Then two turns per model-gateway protocol against scripted providers (`--replay`), the fake-model driver check with turn-1 budgets (Hermes 30 s, OpenClaw 90 s), `pytest tests/unit/agent_runtimes`, and proof that the Windows user PATH gained no `agent_runtimes` entry and OpenClaw edited no shell profile. No key and no network to a model. |
+| `agent-runtimes-e2e` | Every pull request and merge group: Linux × Hermes, OpenClaw and Windows × OpenClaw. Nightly and release: macOS × Hermes, OpenClaw and Windows × Hermes added | `scripts/ci/agent_runtime_e2e.py`: the app's own setup job (`manager.wait_ready`) installs the release pinned in `jarvis/agent_runtimes/runtime-versions.json` with a desktop app's PATH, never npm or a manual installer. Then two turns per model-gateway protocol against scripted providers (`--replay`), the fake-model driver check with turn-1 budgets (Hermes 30 s, OpenClaw 90 s), `pytest tests/unit/agent_runtimes`, and proof that the Windows user PATH gained no `agent_runtimes` entry and OpenClaw edited no shell profile. No key and no network to a model. |
 
-Before a change lands, the merge queue has run the unit suite on all three
-OSes, both real runtimes on Linux and OpenClaw on Windows
-(`scripts/ci/plan_run.py` sizes the matrices). The Hermes install on Windows
-(14 to 23 minutes a job, 13 of them the upstream installer) and the real
-runtimes on macOS (10 and 7 minutes, on five runner slots shared with every
-merge group) run nightly, on release tags and on request
+Before a change lands, the merge queue has run the unit suite on Linux and
+Windows, both real runtimes on Linux and OpenClaw on Windows
+(`scripts/ci/plan_run.py` sizes the matrices), and on macOS the tests of
+this suite through the impact selection (`tests-macos-impact`). The lane
+itself on macOS, both real runtimes on macOS (10 and 7 minutes of one of
+five shared macOS slots) and the Hermes install on Windows (14 to 23
+minutes a job, 13 of them the upstream installer) run nightly, on release
+tags and on request
 (`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`). The
 impact selection of `scripts/agent_land.py` adds the same suite whenever the
 lane is on, so a runtime change also runs the chat and society tests, not

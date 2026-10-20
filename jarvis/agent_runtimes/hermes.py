@@ -465,10 +465,11 @@ class HermesRuntime:
         servers: list[McpServer] = []
         if turn.mcp_url and turn.control_key:
             from jarvis.agent_chat.jarvis_harness import HEADER_NAME
+            from jarvis.core.branding import MCP_TOOLS_SERVER_NAME
 
             servers.append(
                 McpServer(
-                    name="jarvis",
+                    name=MCP_TOOLS_SERVER_NAME,
                     url=turn.mcp_url,
                     headers={
                         # Travels inside the ACP frame on stdin, never on argv.

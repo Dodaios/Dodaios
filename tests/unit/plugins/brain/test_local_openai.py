@@ -219,3 +219,175 @@ def test_wizard_whitelists_the_optional_secret() -> None:
     # App-only: local servers usually need no key — it must not lengthen
     # first-run onboarding.
     assert spec.prompt is False
+
+
+# ── Context window: ask the server, refuse what cannot fit ───────────────
+class _Stream:
+    """Stands in for the shared streamer; records whether it was reached."""
+
+    calls: list[str] = []
+    usage: dict[str, int] | None = None
+    error: Exception | None = None
+
+    @classmethod
+    async def stream(cls, client: Any, model: str, req: Any, **kwargs: Any):
+        from jarvis.core.protocols import BrainDelta
+
+        cls.calls.append(model)
+        if cls.error is not None:
+            raise cls.error
+        yield BrainDelta(content="ok", finish_reason="stop")
+        if cls.usage is not None:
+            yield BrainDelta(usage=cls.usage)
+
+
+@pytest.fixture()
+def served(monkeypatch):
+    """A brain wired to a fake stream and a server whose window the test sets."""
+    import openai
+
+    from jarvis.brain import local_context
+    from jarvis.plugins.brain import local_openai as plugin
+
+    local_context.reset_registry()
+    monkeypatch.setattr(openai, "AsyncOpenAI", _FakeOpenAI)
+    monkeypatch.setattr(plugin, "stream_complete", _Stream.stream)
+    _with_base_url("http://localhost:1234", monkeypatch)
+    _Stream.calls = []
+    _Stream.usage = None
+    _Stream.error = None
+    state: dict[str, Any] = {"before": None, "after": None, "asked": []}
+
+    async def probe(root: str, model: str, *, headers=None, transport=None, fresh=False):
+        state["asked"].append(fresh)
+        window = state["after"] if fresh else state["before"]
+        if window is not None:
+            local_context.remember_window(
+                "local-openai", root, model, window.tokens, source="server", kind=window.kind
+            )
+        return window
+
+    monkeypatch.setattr(local_context, "probe_server_window", probe)
+    yield state
+    local_context.reset_registry()
+
+
+def _request(chars: int = 20):
+    from jarvis.core.protocols import BrainMessage, BrainRequest
+
+    return BrainRequest(messages=(BrainMessage(role="user", content="x" * chars),))
+
+
+async def _drain(brain: LocalOpenAIBrain, req: Any) -> list[Any]:
+    return [delta async for delta in brain.complete(req)]
+
+
+async def test_the_servers_own_window_becomes_the_budget(served) -> None:
+    from jarvis.brain.local_context import ServerWindow
+
+    served["before"] = ServerWindow(8_192, "llama.cpp")
+    brain = LocalOpenAIBrain(model="qwen")
+    assert brain.context_window == LocalOpenAIBrain.context_window
+    await _drain(brain, _request())
+    assert brain.context_window == 8_192
+    # A brain built for the next turn budgets its tools for the real window.
+    assert LocalOpenAIBrain(model="qwen").context_window == 8_192
+
+
+async def test_a_request_the_loaded_window_cannot_hold_is_never_sent(served) -> None:
+    from jarvis.brain.local_context import LocalContextError, ServerWindow
+
+    served["before"] = ServerWindow(4_096, "lm-studio")
+    with pytest.raises(LocalContextError) as err:
+        await _drain(LocalOpenAIBrain(model="qwen"), _request(80_000))
+    assert _Stream.calls == []
+    msg = str(err.value)
+    assert "4096" in msg and "LM Studio" in msg and "Context Length" in msg
+
+
+async def test_a_model_loaded_by_the_request_is_checked_before_the_answer(served) -> None:
+    """LM Studio loads on demand: before the request the window is unknown,
+    after the first token the server states it. A prompt it cut short must not
+    reach the caller as an answer."""
+    from jarvis.brain.local_context import LocalContextError, ServerWindow
+
+    served["after"] = ServerWindow(4_096, "lm-studio")
+    handed_on: list[Any] = []
+    with pytest.raises(LocalContextError):
+        async for delta in LocalOpenAIBrain(model="qwen").complete(_request(80_000)):
+            handed_on.append(delta)
+    assert handed_on == []
+    assert served["asked"] == [False, True]
+
+
+async def test_a_server_refusal_names_the_setting(served) -> None:
+    from jarvis.brain.local_context import LocalContextError
+
+    _Stream.error = RuntimeError(
+        "Error code: 400 - the request exceeds the available context size"
+    )
+    with pytest.raises(LocalContextError) as err:
+        await _drain(LocalOpenAIBrain(model="qwen"), _request(80_000))
+    assert "--ctx-size" in str(err.value) and "Context Length" in str(err.value)
+
+
+async def test_other_server_errors_pass_through_unchanged(served) -> None:
+    _Stream.error = RuntimeError("Error code: 500 - model crashed")
+    with pytest.raises(RuntimeError) as err:
+        await _drain(LocalOpenAIBrain(model="qwen"), _request())
+    assert "model crashed" in str(err.value)
+
+
+async def test_a_silent_server_that_read_far_less_tightens_the_next_budget(served) -> None:
+    """No way to ask and no refusal: the only evidence is how many prompt
+    tokens the server says it read. That is a suspicion, so the turn is not
+    failed; the next one is planned for what the server demonstrably holds."""
+    _Stream.usage = {"input_tokens": 4_096, "output_tokens": 5}
+    brain = LocalOpenAIBrain(model="qwen")
+    deltas = await _drain(brain, _request(80_000))
+    assert deltas[0].content == "ok"
+    # One odd response changes nothing.
+    assert brain.context_window == LocalOpenAIBrain.context_window
+    await _drain(brain, _request(80_000))
+    assert brain.context_window == 4_096
+    assert LocalOpenAIBrain(model="qwen").context_window == 4_096
+
+
+async def test_a_later_full_read_clears_the_suspicion(served) -> None:
+    _Stream.usage = {"input_tokens": 4_096, "output_tokens": 5}
+    brain = LocalOpenAIBrain(model="qwen")
+    await _drain(brain, _request(80_000))
+    await _drain(brain, _request(80_000))
+    assert brain.context_window == 4_096
+    # The server now reports more than the suspected window, so it was wrong.
+    _Stream.usage = {"input_tokens": 12_000, "output_tokens": 5}
+    await _drain(brain, _request(40_000))
+    assert brain.context_window == LocalOpenAIBrain.context_window
+    assert LocalOpenAIBrain(model="qwen").context_window == LocalOpenAIBrain.context_window
+
+
+async def test_the_window_is_settled_before_the_first_turn_is_budgeted(served) -> None:
+    """Tools are fitted before complete(). A brain that only learned its
+    window there would have its first turn refused whole, not trimmed."""
+    from jarvis.brain.local_context import ServerWindow
+
+    served["before"] = ServerWindow(8_192, "llama.cpp")
+    brain = LocalOpenAIBrain(model="qwen")
+    await brain.prepare_context_window()
+    assert brain.context_window == 8_192
+    assert _Stream.calls == []
+
+
+async def test_a_refusal_does_not_claim_a_prompt_larger_than_the_window(served) -> None:
+    """vLLM counts prompt plus reply. The sentence must not say the prompt
+    needs less than the window and then call the window too small."""
+    from jarvis.brain.local_context import LocalContextError, ServerWindow
+
+    served["before"] = ServerWindow(8_192, "vllm")
+    _Stream.error = RuntimeError("This model's maximum context length is 8192 tokens")
+    with pytest.raises(LocalContextError) as err:
+        await _drain(LocalOpenAIBrain(model="qwen"), _request(8_000))
+    msg = str(err.value)
+    assert err.value.refused is True
+    assert "refused this request as too large" in msg
+    assert "--max-model-len 16384" in msg

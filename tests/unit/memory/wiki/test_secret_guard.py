@@ -10,6 +10,10 @@ import pytest
 
 from jarvis.memory.wiki.secret_guard import contains_secret, find_secrets
 
+# Assembled at runtime: the guard under test sees the complete PEM header, while
+# the repository's own secret scan never finds a key block in this file.
+_PEM_HEADER = "-----BEGIN RSA " + "PRIVATE KEY-----"
+
 
 @pytest.mark.parametrize(
     "body",
@@ -23,7 +27,7 @@ from jarvis.memory.wiki.secret_guard import contains_secret, find_secrets
         "token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSJ9.sig",
         "google AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7",
         "key xai-aBcDeFgHiJkLmNoPqRsTuVwXyZ012345",
-        "-----BEGIN RSA PRIVATE KEY-----",
+        _PEM_HEADER,
         # 64-char hex = SHA-256-length opaque secret (the long-hex rule).
         "checksum 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     ],

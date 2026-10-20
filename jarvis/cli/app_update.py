@@ -42,6 +42,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from jarvis.cli.command_name import main_command
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 PROBE_FLAG = "--probe"
@@ -158,7 +159,8 @@ def _run_child(args: list[str], timeout: float | None, detached: bool) -> tuple[
                 "so this keeps going - please wait.",
                 flush=True,
             )
-        except subprocess.TimeoutExpired:  # Kill and reap the timed-out probe, then return a failure result.
+        except subprocess.TimeoutExpired:
+            # Kill and reap the timed-out probe, then return a failure result.
             proc.kill()
             proc.communicate()
             return -1, ""
@@ -240,12 +242,17 @@ def _stop_background_service(pid: int, *, wait: Callable[..., bool] | None = Non
         clear_handover_request()
 
 
-def _read_result(root: Path) -> dict[str, Any]:
+def _result_file_name() -> str:
     from jarvis.ui.relauncher import UPDATE_RESULT_FILENAME
 
+    return UPDATE_RESULT_FILENAME
+
+
+def _read_result(root: Path, file_name: str) -> dict[str, Any]:
     try:
-        payload = json.loads((root / UPDATE_RESULT_FILENAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):  # An absent or incomplete update receipt represents no available result.
+        payload = json.loads((root / file_name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        # An absent or incomplete update receipt represents no available result.
         return {}
     return payload if isinstance(payload, dict) else {}
 
@@ -301,7 +308,7 @@ def run_update(
         return 0
     print(f"Version {latest} is available (you have {current}).")
     if check_only:
-        print("Run `jarvis update` to install it.")
+        print(f"Run `{main_command()} update` to install it.")
         return 0
 
     pid = running_app_pid()
@@ -311,7 +318,7 @@ def run_update(
         if not stop_service(int(service)):
             print(
                 "The background service did not stop. Open Dodaios, quit it\n"
-                "from the tray icon, then run `jarvis update` again.",
+                f"from the tray icon, then run `{main_command()} update` again.",
                 file=sys.stderr,
             )
             return EXIT_APP_RUNNING
@@ -320,7 +327,7 @@ def run_update(
         print(
             "Dodaios is running, and it cannot be updated while it is open.\n"
             "Either click Update inside the app, or quit it (tray icon -> Quit)\n"
-            "and run `jarvis update` again.",
+            f"and run `{main_command()} update` again.",
             file=sys.stderr,
         )
         return EXIT_APP_RUNNING
@@ -336,12 +343,16 @@ def run_update(
 
     root = Path(str(staged["root"]))
     version = staged.get("version") or latest
+    # Resolved before the install step. Afterwards the checkout holds the new
+    # release, and an import from this process would read THAT release's files
+    # - or fail outright if it moved the package.
+    result_file_name = _result_file_name()
     with _Ticker(
         f"Installing version {version} - this takes a few minutes, keep this window open...",
         enabled=interactive,
     ):
         code, _ = run_child([FINALIZE_FLAG, str(root)], None, True)
-    result = _read_result(root)
+    result = _read_result(root, result_file_name)
     if code == 0 and result.get("ok", True):
         print(f"Done. Dodaios {version} is installed.")
         print("Start it with: jarvis")
@@ -364,7 +375,7 @@ def run_update(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="jarvis update",
+        prog=f"{main_command()} update",
         description="Update Dodaios to the newest published version.",
     )
     parser.add_argument(

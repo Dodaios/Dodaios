@@ -77,8 +77,8 @@ const SocietyView = lazyView(["agents"], () =>
     default: m.SocietyView,
   })),
 );
-const WikiView = lazyView(["memory"], () =>
-  import("@/views/WikiView").then((m) => ({ default: m.WikiView })),
+const MemoryView = lazyView(["memory"], () =>
+  import("@/views/MemoryView").then((m) => ({ default: m.MemoryView })),
 );
 type PluginArea = "plugins" | "mcps" | "skills";
 const isPluginArea = (section: string): section is PluginArea =>
@@ -366,7 +366,7 @@ function SwitchOnActiveSection({ active }: { active: string }) {
     case "board":
       return <BoardView />;
     case "memory":
-      return <WikiView />;
+      return <MemoryView />;
     // The merged voice section: Dictation (default landing) + Dictionary +
     // Shortcuts + Language + the speech-to-text keys, behind one tab bar. The
     // active id doubles as the tab state, so a voice deep-link to any of them

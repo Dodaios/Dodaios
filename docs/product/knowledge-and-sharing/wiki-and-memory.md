@@ -8,7 +8,7 @@ order: 1
 diataxis: explanation
 status: active
 owner: maintainers
-last_reviewed: 2026-07-21
+last_reviewed: 2026-10-14
 phase: "-"
 audience: end-user
 tags: [wiki, memory, context, profile, contacts, privacy]
@@ -41,33 +41,44 @@ history, and links to other subjects.
 
 ## Explore the Wiki
 
-1. **Open Wiki from the sidebar.** The view opens on **Wiki · Memory Map** and
-   shows the number of pages and links currently available.
+1. **Open Wiki from the sidebar.** The Memory section opens on an overview:
+   how many pages hold content, how many links and mentions connect them, what
+   changed recently, the most connected pages, and a feed of recent writes.
 
-2. **Read the health strips.** They show whether the vault is available,
-   whether a write succeeded or failed, whether candidate facts are pending,
-   and whether the search index needs rebuilding. **No writes recorded yet**
-   means that the current process and candidate journal have no write result to
-   show. It does not mean that an existing vault is empty.
+2. **Check the health indicator.** The dot at the top right shows whether
+   writes land and whether the search index is current. Select it for the
+   reason and for **Rebuild search index**.
 
-3. **Browse by subject.** Expand **entities**, **concepts**, **projects**, or
-   **sessions** in the Vault list, then choose a page. The tree also shows
-   other visible Markdown folders, such as **people** for contact companion
-   pages. Session pages are summaries rather than full transcripts, but the
-   current default does not create them from activity episodes.
+3. **Browse by area.** **People & things**, **Projects**, **Concepts**, and
+   **Journal** list pages with their first sentence, how connected they are,
+   and when they changed. Pages without content are folded away until you show
+   them. **Agents** lists each agent's two notebooks (what it learned about its
+   work, and what it knows about you) and its reports, under the agent's
+   current name. Notebooks of deleted or unknown agents are folded away, and
+   empty ones can be moved to the vault's `_archive` folder with **Tidy up
+   empty notebooks**; nothing is deleted.
 
-4. **Use the Memory Map.** Select a node to open its page. A connection means
-   that one page contains a Wiki link to another; it does not prove that the
-   relationship is current or correct.
+4. **Read a page and its connections.** The side rail lists the pages that
+   link here, the pages this one links to, pages that mention it by name
+   without linking it, and related pages that share a connection. A dashed
+   link points to a page that does not exist yet; select it to create one.
 
-5. **Follow links and backlinks.** A link inside a page opens the referenced
-   subject. **Backlinks** show pages that point to the page you are reading.
-   A broken link points to a page that does not currently exist.
+5. **Use the Map.** Pages with content are dots, links are solid lines and
+   mentions dashed ones. Select a dot to open its page, or use **Show on the
+   map** from a page. A connection means that one page refers to another; it
+   does not prove that the relationship is current or correct.
 
-The in-app Wiki is a reader. To edit the underlying notes yourself, connect an
-optional Markdown editor through [Connect Obsidian](connect-obsidian). Dodaios
-works without Obsidian because the files remain ordinary Markdown on your
-computer.
+6. **Search with Ctrl+K** (Cmd+K on macOS). Titles match as you type, text
+   and, when switched on, similar meaning follow, and a name that has no page
+   yet can become one.
+
+You can create, edit, rename, and archive knowledge pages in the app. Editing
+saves the page body and keeps its frontmatter, refuses to overwrite a page
+that changed since you opened it, and renaming updates every link that
+pointed to the old name. Agent notebooks are kept by their agents and are
+read-only here. The files remain ordinary Markdown on your computer, so you
+can also edit them with an optional editor through
+[Connect Obsidian](connect-obsidian).
 
 ## Save Something Deliberately
 
@@ -80,8 +91,7 @@ written summaries.`
 Dodaios acknowledges that the write has started, then reports whether it was
 saved or failed. Wait for that completion result before relying on the note.
 Open **Wiki** and inspect the page named in the result when the detail matters.
-The Wiki view has no note editor or save form; the explicit chat or voice
-request is the in-app manual write path.
+You can also write or correct a page yourself in the Wiki view.
 
 > [!warning] Never ask your assistant to remember a password, credential, recovery
 > code, or access token. The write guard blocks common secret shapes, but the
@@ -101,7 +111,7 @@ request is the in-app manual write path.
   text through the guarded curator and announces success only after at least
   one page was written. Unsupported, duplicate, sensitive, malformed, or
   conflicting content can still result in no write.
-- **Index repair does not create knowledge.** **Rebuild index** refreshes the
+- **Index repair does not create knowledge.** **Rebuild search index** refreshes the
   derived full-text search data from the Markdown vault. It does not extract a
   fact or change a note.
 - **Advanced backfill is opt-in.** The `jarvis wiki backfill` command can
@@ -157,10 +167,10 @@ Markdown vault when needed.
    written.
 
 3. **The curator updates local notes.** Approved changes pass through guarded
-   writes, backups, validation, and a local full-text search index. The tree,
+   writes, backups, validation, and a local full-text search index. The page list,
    page, graph, and backlink views read the Markdown files directly. The index
    supports search and later recall. The file watcher normally updates it after
-   manual Markdown edits; the health strip marks it stale if an update is
+   manual Markdown edits; the health indicator marks it stale if an update is
    missed. A slow or missing automatic lookup is skipped rather than holding up
    the reply.
 
@@ -168,7 +178,7 @@ Markdown vault when needed.
    Profile directly supplies response preferences. Contacts keep full contact
    details. Saving a contact creates or refreshes a **people** page with the
    contact's name, aliases, relationship, and note while excluding phone,
-   email, and street address. These companion pages appear in the Wiki tree,
+   email, and street address. These companion pages appear in the Wiki,
    but you should edit the authoritative record in **Contacts**.
 
 5. **Dodaios-Agents use a short-lived supervisor grant.** A mission can receive
@@ -196,7 +206,7 @@ personal information.
    summaries.`
 2. Wait for Dodaios to report a successful save. A message that it is still
    writing is not the final result.
-3. Open **Wiki** and confirm that the health strip reports a successful last
+3. Open **Wiki** and confirm that the health indicator reports a successful last
    write rather than a pending or failed one.
 4. Open the page named in the completion result and confirm that the statement
    appears in the right context.
@@ -213,10 +223,10 @@ preference.
 | The Wiki is empty after ordinary conversations | No durable candidate has passed both review stages, or the Wiki has not completed its first write | Make one explicit, non-sensitive Wiki save request and wait for the completion result |
 | **Facts are waiting to be written** | Review work is queued, the app closed before consolidation, or a provider is temporarily unavailable | Keep the app running, check the Wiki provider status, and wait before repeating the same note |
 | **Chain failure** or **Last write failed** | Every eligible Wiki provider failed, timed out, or returned unusable output | Open **API Keys > Advanced > Wiki (long-term memory)**, connect or choose a working provider, then retry a harmless test note |
-| **Search index** shows fewer indexed pages than vault pages | The Markdown files and the derived local index are out of sync | Select **Rebuild index**, then reopen the affected page |
+| **Search index** shows fewer indexed pages than vault pages | The Markdown files and the derived local index are out of sync | Select **Rebuild search index**, then reopen the affected page |
 | A saved contact has no companion page under **people** | Contact-to-Wiki synchronization has not completed, the Wiki is unavailable, or a recent manual edit temporarily blocked the write | Keep **Contacts** as the authoritative record, reopen Wiki after synchronization, then check Wiki health and vault permissions if the page is still missing |
 | The **sessions** folder is empty | Activity-to-Wiki session-page writing is disabled by default; normal conversation capture stores durable facts on subject pages instead | Use Chats or Sessions for transcripts and run an approved Realtime backfill only when you deliberately want to review recent voice sessions |
-| **No writes recorded yet** appears even though pages exist | The status has no current-process or journaled write result to display, which can happen after a restart or for manually added files | Treat the Markdown page as the source of truth; use **Rebuild index** only if search is also stale |
+| The health indicator says **Not checked** even though pages exist | The memory writer has no write result from this run to report yet, which can happen after a restart or for manually added files | Treat the Markdown page as the source of truth; use **Rebuild search index** only if search is also stale |
 | A linked page cannot be opened | The target page is missing, invalid, or the page list has not refreshed | Reopen Wiki, rebuild the index if it is stale, and correct the link in the Markdown vault if the target truly does not exist |
 
 ## Next Steps

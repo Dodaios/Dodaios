@@ -74,7 +74,7 @@ class SourceCheckoutUnavailableError(RuntimeError):
     def __init__(self, repo_root: Path) -> None:
         self.repo_root = repo_root
         super().__init__(
-            "This Jarvis-Agent task requires the Dodaios source "
+            "This Dodaios-Agent task requires the Dodaios source "
             "checkout, but this installation only contains application "
             "files without Git history. Repository-independent tasks remain "
             "available in isolated workspaces."

@@ -5,7 +5,7 @@ Bootstrap context: [docsplansphase-7-self-mod/PROJEKT_KONTEXT.md](../docsplansph
 
 ## 1. What can I (the user) do, and what not?
 
-Personal Jarvis can, at runtime and on a voice or chat command, change a
+Dodaios can, at runtime and on a voice or chat command, change a
 **hardcoded** list of its own settings and create new skills. Both are
 possible ONLY via speech/chat — the web UI is read-only.
 
@@ -22,7 +22,7 @@ possible ONLY via speech/chat — the web UI is read-only.
 | `ui.theme` | SAFE | no | UI theme (light/dark/auto) |
 | `profile.language` | ASK | no | Profile language (DE/EN/auto) |
 
-**What Jarvis does NOT mutate:**
+**What Dodaios does NOT mutate:**
 - API keys (only via the UI in Phase 7.7+)
 - `security.*`, `mcp_server.*`, `harness.*` paths (privilege protection)
 - Generic tool configuration
@@ -31,10 +31,10 @@ possible ONLY via speech/chat — the web UI is read-only.
 
 ```
 User:    "Wechsle TTS auf Gemini Flash."
-Jarvis:  "Verstanden — TTS-Provider wechselt von elevenlabs zu
+Dodaios:  "Verstanden — TTS-Provider wechselt von elevenlabs zu
           gemini-flash-tts. Bestätigen?"  <!-- i18n-allow -->
 User:    "Ja."
-Jarvis:  "Erledigt — TTS-Provider ist jetzt gemini-flash-tts."
+Dodaios:  "Erledigt — TTS-Provider ist jetzt gemini-flash-tts."
 ```
 
 The **end-focus pattern** (old value first, new value last) is
@@ -142,8 +142,8 @@ split (`auto_apply="safe_only"`).
 ## 6. Skill authoring (Plan §7.5)
 
 A voice command like "Erstelle einen Skill, der Spotify pausiert wenn ich <!-- i18n-allow -->
-rede" (Create a skill that pauses Spotify when I speak) → main Jarvis
-calls the `spawn_skill_author` tool → a Jarvis-Agent (Opus 4.7) generates
+rede" (Create a skill that pauses Spotify when I speak) → main Dodaios
+calls the `spawn_skill_author` tool → a Dodaios-Agent (Opus 4.7) generates
 SKILL.md → forces `state=draft`. The draft lands in
 `~/.jarvis/skills/<slug>/` and is visible in the hot-reload pool, but is
 **not active**.

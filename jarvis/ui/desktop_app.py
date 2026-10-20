@@ -1716,11 +1716,13 @@ _CONDUCTOR_NEWS_PHRASES: dict[str, dict[str, str]] = {
         "de": "Der geplante Job {name} schlägt gerade fehl.",  # i18n-allow
         "en": "The scheduled job {name} has started failing.",
         "es": "El trabajo programado {name} está fallando.",
+        "pt": "A tarefa agendada {name} começou a falhar.",  # i18n-allow
     },
     "recovered": {
         "de": "Der geplante Job {name} läuft wieder.",  # i18n-allow
         "en": "The scheduled job {name} is working again.",
         "es": "El trabajo programado {name} vuelve a funcionar.",
+        "pt": "A tarefa agendada {name} voltou a funcionar.",  # i18n-allow
     },
 }
 
@@ -3771,7 +3773,7 @@ class DesktopApp:
             # second macOS first-boot crash (BUG-057; the first was the
             # BUG-056 tray). Both surfaces therefore live in their own
             # companion process whose MAIN thread owns the Tk mainloop
-            # (jarvis.ui.jarvisbar.host), remote-driven over stdio; the init
+            # (jarvis.ui.dodaiosbar.host), remote-driven over stdio; the init
             # line's "surface" key selects bar vs. mascot.
             if style != "none":
                 hosted = self._build_hosted_surface(
@@ -3779,15 +3781,15 @@ class DesktopApp:
                 )
                 if hosted is not None:
                     return hosted
-            from jarvis.ui.jarvisbar import NullOverlay
+            from jarvis.ui.dodaiosbar import NullOverlay
 
             return NullOverlay()
         if style == "none":
-            from jarvis.ui.jarvisbar import NullOverlay
+            from jarvis.ui.dodaiosbar import NullOverlay
 
             return NullOverlay()
         if style == "jarvis_bar":
-            from jarvis.ui.jarvisbar import JarvisBarOverlay
+            from jarvis.ui.dodaiosbar import JarvisBarOverlay
 
             # The startup gate is stronger than merely starting withdrawn: early
             # state/wake events cannot reveal the bar while voice is warming.
@@ -3814,7 +3816,7 @@ class DesktopApp:
     def _build_hosted_surface(self, style: str, *, gate_until_voice_ready: bool = False):
         """Start the bar or the orb window in its own companion process.
 
-        ``jarvis.ui.jarvisbar.host`` owns the Tk (or Qt) root on its own MAIN
+        ``jarvis.ui.dodaiosbar.host`` owns the Tk (or Qt) root on its own MAIN
         thread, so nothing in this process ever creates or destroys a root.
         That makes it the macOS boot surface (BUG-057) and, on every OS, the
         surface a live style switch builds: a second in-process root aborts
@@ -3828,7 +3830,7 @@ class DesktopApp:
 
         try:
             if style == BAR_STYLE:
-                from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessBarOverlay
+                from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessBarOverlay
 
                 surface = SubprocessBarOverlay(
                     persistent=self.cfg.ui.bar_persistent,
@@ -3838,7 +3840,7 @@ class DesktopApp:
                     follow_cursor_monitor=getattr(self.cfg.ui, "bar_follow_cursor_monitor", True),
                 )
             elif style in ORB_STYLES:
-                from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessMascotOverlay
+                from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 
                 surface = SubprocessMascotOverlay(
                     mascot_path=self.cfg.ui.orb_mascot_path or None,
@@ -3856,7 +3858,7 @@ class DesktopApp:
         if getattr(surface, "_proc", None) is None:
             logger.warning("Overlay host for style={} did not start.", style)
             return None
-        logger.info("Overlay hosted out-of-process (jarvis.ui.jarvisbar.host, style={}).", style)
+        logger.info("Overlay hosted out-of-process (jarvis.ui.dodaiosbar.host, style={}).", style)
         return surface
 
     def _pet_surface_kwargs(self) -> dict[str, object]:
@@ -4007,7 +4009,7 @@ class DesktopApp:
         """
         from loguru import logger
 
-        from jarvis.ui.jarvisbar import renderer
+        from jarvis.ui.dodaiosbar import renderer
 
         scale = renderer.clamp_user_size(scale)
         try:
@@ -4129,7 +4131,7 @@ class DesktopApp:
             if style == HIDDEN_STYLE:
                 new = cache.get(HIDDEN_STYLE)
                 if new is None:
-                    from jarvis.ui.jarvisbar import NullOverlay  # no Tk root
+                    from jarvis.ui.dodaiosbar import NullOverlay  # no Tk root
 
                     new = NullOverlay()
                     cache[HIDDEN_STYLE] = new
@@ -4190,7 +4192,7 @@ class DesktopApp:
         """
         from loguru import logger
 
-        from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessBarOverlay
+        from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessBarOverlay
 
         try:
             if isinstance(surface, SubprocessBarOverlay):
@@ -4661,7 +4663,7 @@ class DesktopApp:
             # complex dependencies (dispatch-to-harness, spawn-worker) are
             # skipped; those are Jarvis-Agent specialties anyway, not meant for
             # skill bodies. ``remember`` and friends all fit this schema.
-            from importlib.metadata import entry_points as _eps
+            from jarvis.core.entry_points import entry_points as _eps
 
             skill_tool_registry: dict[str, Any] = {}
             for _ep in _eps(group="jarvis.tool"):

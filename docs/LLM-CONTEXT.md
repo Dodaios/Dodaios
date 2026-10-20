@@ -272,7 +272,7 @@ L0 OS/Hardware     Win32, CUDA, Mic/Speakers, global-hotkeys
 
 Seven groups frozen as `PLUGIN_GROUPS` in `jarvis/core/protocols.py:363-371`: `jarvis.wakeword`, `jarvis.stt`, `jarvis.tts`, `jarvis.brain`, `jarvis.harness`, `jarvis.tool`, `jarvis.channel` (plus `jarvis.turn` for end-of-turn detection, declared in `pyproject.toml:104`).
 
-Plugins live under `jarvis/plugins/<group>/<name>.py`, register via `pyproject.toml` `[project.entry-points."jarvis.<group>"]`, and **must not import from `jarvis.*`** — only structural Protocol compatibility (registry at `jarvis/core/registry.py`). After editing entry-points: **`pip install -e . --no-deps`** is mandatory to activate them (this is the fourth layer of BUG-006/014).
+Plugins live under `jarvis/plugins/<group>/<name>.py`, register via `pyproject.toml` `[project.entry-points."dodaios.<group>"]` (the earlier `jarvis.<group>` name stays valid and is read alongside it; the first-party tables still use it), and **must not import from `jarvis.*`** — only structural Protocol compatibility (registry at `jarvis/core/registry.py`). After editing entry-points: **`pip install -e . --no-deps`** is mandatory to activate them (this is the fourth layer of BUG-006/014).
 
 ---
 

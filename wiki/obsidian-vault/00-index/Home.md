@@ -5,7 +5,7 @@ created: 2026-05-12
 
 # Home
 
-Welcome to your Personal Jarvis knowledge vault. Jarvis fills this wiki
+Welcome to your Dodaios knowledge vault. Dodaios fills this wiki
 automatically as you talk to it: durable facts, people, tools, places, and
 projects from your conversations become linked Markdown pages here.
 
@@ -28,5 +28,5 @@ jump between pages by name with **Ctrl+P**. Every `[[link]]` is clickable.
 ## Editing by hand
 
 This is a normal Obsidian vault: you can add, edit, and link your own notes
-freely. The maintenance rules Jarvis follows when it writes are documented
+freely. The maintenance rules Dodaios follows when it writes are documented
 in [[schema]] at the vault root.

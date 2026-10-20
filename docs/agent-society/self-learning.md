@@ -171,7 +171,7 @@ dependency on Windows, Linux and macOS. The native symlink test can skip on
 Windows accounts without symlink permission; Linux runs that test. Native macOS
 CI passed the realtime and private-learning contracts at `dc053c1d0` (55 passed,
 two capability skips). See the
-[native macOS execution log](https://github.com/PersonalJarvis/PersonalJarvis/actions/runs/35435846490/job/105878237409).
+[native macOS execution log](https://github.com/Dodaios/Dodaios/actions/runs/35435846490/job/105878237409).
 The final local Linux learning/continuity run passed all 51 tests.
 
 ## Hermes reference

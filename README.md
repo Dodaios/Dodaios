@@ -6,8 +6,14 @@
 </p>
 
 <p align="center">
-  <strong>The open-source AI agent super-app for your desktop.</strong><br />
-  Run every coding agent side by side, talk to your computer, and keep a team of AI agents working while you are away.
+  <strong>Dodaios is an open-source agent OS for your desktop.</strong><br />
+  It is the layer between you and your AI agents: it runs them, remembers for them, connects their tools and keeps you in control.
+</p>
+
+<p align="center">
+  <a href="#install"><strong>Install in one line</strong></a> ·
+  <a href="https://github.com/Dodaios/Dodaios/releases/latest">Download the desktop app</a><br />
+  <sub>No API key needed if you have a Claude or ChatGPT subscription, or a local model.</sub>
 </p>
 
 <p align="center"><sub>Formerly Personal Jarvis.</sub></p>
@@ -20,7 +26,6 @@
 </p>
 
 <p align="center">
-  <a href="#install">Install</a> ·
   <a href="https://dodaios.ai">Website</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md">Docs</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
@@ -32,6 +37,31 @@ https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
 <p align="center"><sub>A real, unedited recording of the app with sound: talking to Dodaios by voice, handing work to agents, and following them in the coding workspace.</sub></p>
 
 ---
+
+## Install
+
+**Windows (PowerShell)**
+
+```powershell
+irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
+```
+
+**macOS and Linux**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
+```
+
+The installer checks for Python 3.11 or newer and Git, offers to install
+whatever is missing, adds the desktop launcher and opens the app. If you run it
+again, it updates your existing installation. You choose your language, wake
+phrase and models inside the app.
+
+You need one API key, a subscription or a local model. A microphone helps for
+voice. You do not need a GPU. Desktop installers and the server setup are under
+[more ways to install](#more-ways-to-install).
+
+## What's inside
 
 Dodaios is one desktop app for everything AI can do on a computer. It
 has a workspace where several coding agents run side by side, AI agents that
@@ -46,14 +76,12 @@ It is free and open source, and it runs on your own machine. You do not need an
 account, and there is no cloud of ours between you and your models. It runs on
 Windows, macOS and Linux, and as a server without a screen.
 
-## What's inside
-
 | | |
 |---|---|
 | **Agentic IDE** | Run Claude Code, Codex, OpenCode, Kimi Code, GLM, Grok Build, Antigravity, Cursor CLI and DeepSeek Harness side by side in live terminal panes, as many as your machine can hold. You can brief them by voice. |
+| **Voice** | A wake word, live conversations, dictation into any app, and phone calls. You can interrupt it mid-sentence. |
 | **Dodaios Agents** | Build a team of AI agents that stay around. Each one has its own chat, instructions, tools, schedule and memory, and learns from its own work. |
 | **Dodaios Verse** | Watch your agents in a 3D world. They walk to their desks, pick up work, and show what they are doing right now. |
-| **Voice** | A wake word, live conversations, dictation into any app, and phone calls. You can interrupt it mid-sentence. |
 | **Computer use** | Dodaios clicks, types and reads the screen on your desktop and in your browser. You decide what it may do. |
 | **Marketplace** | More than 40 plugins, MCP servers, skills and command-line tools you install with one click, including GitHub, Google Workspace, Notion, Slack, Linear, Spotify and Home Assistant. |
 | **Any model** | OpenAI, Anthropic, Gemini, OpenRouter, NVIDIA, Ollama and any local server, or your Claude and ChatGPT subscriptions. You can pick a different one for each task. |
@@ -145,25 +173,10 @@ machine unless you connect a service that needs it.
 Read more about [safety and approvals](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/safety-and-approvals.md)
 and [privacy and local data](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/privacy-and-local-data.md).
 
-## Install
+## More ways to install
 
-**Windows (PowerShell)**
-
-```powershell
-irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
-```
-
-**macOS and Linux**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
-```
-
-The installer checks for Python 3.11 or newer and Git, offers to install
-whatever is missing, adds the desktop launcher and opens the app. If you run it
-again, it updates your existing installation. You choose your language, wake
-phrase and models inside the app.
-Later, open it from the desktop launcher or from a terminal:
+The [one-line installer](#install) is the quickest way in. After it has run,
+open Dodaios from the desktop launcher or from a terminal:
 
 ```bash
 jarvis          # full desktop
@@ -193,9 +206,6 @@ explains the setup. If you install with pip or pipx by hand on an Intel Mac or
 on Windows ARM64, you also need the
 [native package index](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/install-dodaios.md#install-the-isolated-pypi-package).
 The installer sets that up for you.
-
-You need one API key, a subscription or a local model. A microphone helps for
-voice. You do not need a GPU.
 
 ## First steps
 

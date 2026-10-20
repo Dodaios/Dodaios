@@ -17,11 +17,15 @@ How it works (a per-file runner):
    in fresh processes, and a failed file gets one more fresh attempt. A pass
    on that attempt is reported as FLAKY, not as a failure.
 5. **Bound**: every process has a wall-clock budget and is killed with its
-   whole process tree, so a hang costs one file, never the job.
+   whole process tree, so a hang costs one file, never the job. A file that
+   runs out of its budget alone gets one more attempt with a longer one: a
+   file the history has never timed starts on the generic floor, and a slow
+   file on a loaded runner is not a hang.
 
 Outputs: ``--report`` (JSON: failed test ids, flaky files, counts) and
 ``--junit-out`` (merged JUnit XML), plus ``--durations-out`` (timings of files
-that passed on the first attempt — a hang can never ratchet its own budget).
+that passed on the first attempt or alone after a timeout — a killed run has no
+timing, so a hang can never ratchet its own budget).
 
 The runner exits 1 when any test failed for real; whether that blocks the
 build is ``test_ratchet.py``'s decision (known failures are baselined).
@@ -57,6 +61,12 @@ BATCH_TARGET_SECONDS = 45.0
 BATCH_MAX_FILES = 12
 MAX_BATCH_TIMEOUT = 1800.0
 BATCH_TIMEOUT_FACTOR = 6.0  # times the batch's own history
+# A file that timed out alone runs once more with this multiple of its budget.
+# The floor is a guess for a file without history: on Windows a file whose
+# tests each start a contained command took 160 s on a quiet runner and more
+# than the 300 s floor on a loaded one, and every such timeout ejected a pull
+# request from the merge queue. A real hang now costs the floor three times.
+TIMEOUT_RETRY_FACTOR = 2.0
 _OK_EXIT_CODES = {0, 5}  # 5 = every test deselected / none collected
 # A new batch waits while less than this much memory is left to commit. A local
 # run shares the machine with the user's apps: eight batches on a box already
@@ -141,6 +151,11 @@ def make_batches(files: list[str], durations: dict[str, float]) -> list[list[str
 
 def file_timeout(file: str, durations: dict[str, float]) -> float:
     return min(MAX_FILE_TIMEOUT, max(MIN_FILE_TIMEOUT, 3 * durations.get(file, 0.0)))
+
+
+def retry_timeout(file: str, durations: dict[str, float]) -> float:
+    """Wall clock for the one attempt a timed-out file gets on its own."""
+    return min(MAX_FILE_TIMEOUT, TIMEOUT_RETRY_FACTOR * file_timeout(file, durations))
 
 
 def batch_timeout(batch: list[str], durations: dict[str, float]) -> float:
@@ -405,23 +420,35 @@ class Runner:
         """Run one batch with isolation-on-failure and a flaky retry."""
         budget = batch_timeout(batch, self.durations)
         first = self.run(batch, budget)
-        outcome: dict[str, object] = {"runs": [first], "flaky": [], "first_pass": []}
+        outcome: dict[str, object] = {"runs": [first], "flaky": [], "first_pass": [], "slow": []}
         if first.ok:
             outcome["first_pass"] = list(batch)
             return outcome
         runs: list[RunResult] = []
         flaky: list[str] = []
+        slow: list[str] = []
         for file in batch:
             budget_one = file_timeout(file, self.durations)
             single = first if len(batch) == 1 else self.run([file], budget_one)
-            if not single.ok and not single.timed_out:
-                retry = self.run([file], budget_one)
+            if not single.ok:
+                timed_out = single.timed_out
+                again = retry_timeout(file, self.durations) if timed_out else budget_one
+                retry = self.run([file], again)
                 if retry.ok:
                     flaky.append(file)
+                    if timed_out:
+                        # Its real duration, so the next history gives it room.
+                        slow.append(file)
+                        print(
+                            f"[runner] SLOW: {file} passed in {retry.duration:.0f}s "
+                            f"after running out of {int(budget_one)}s",
+                            flush=True,
+                        )
                     single = retry
             runs.append(single)
         outcome["runs"] = runs
         outcome["flaky"] = flaky
+        outcome["slow"] = slow
         return outcome
 
 
@@ -488,6 +515,7 @@ def main(argv: list[str] | None = None) -> int:
     all_runs: list[RunResult] = []
     flaky: list[str] = []
     first_pass: list[str] = []
+    slow: list[str] = []
     done = 0
     with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
         futures = [pool.submit(runner.run_unit, batch) for batch in batches]
@@ -497,6 +525,7 @@ def main(argv: list[str] | None = None) -> int:
             all_runs.extend(runs)  # type: ignore[arg-type]
             flaky.extend(outcome["flaky"])  # type: ignore[arg-type]
             first_pass.extend(outcome["first_pass"])  # type: ignore[arg-type]
+            slow.extend(outcome["slow"])  # type: ignore[arg-type]
             done += 1
             for run in runs:  # type: ignore[attr-defined]
                 if not run.ok:
@@ -531,9 +560,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.durations_out:
         fresh: dict[str, float] = {}
+        timed = {*first_pass, *slow}
         for run in all_runs:
             for file, secs in run.file_seconds.items():
-                if file in first_pass:
+                if file in timed:
                     fresh[file] = round(secs + 1.0, 2)  # + interpreter start-up share
         payload = json.dumps(fresh, indent=1, sort_keys=True) + "\n"
         args.durations_out.write_text(payload, encoding="utf-8")

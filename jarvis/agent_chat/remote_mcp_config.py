@@ -10,9 +10,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import secrets
 from dataclasses import dataclass, field
 from typing import Any
+
+from jarvis.core.mcp_names import TOOLS_SERVER_NAMES
 
 from .remote_mcp import RemoteToolsUnavailable
 
@@ -30,6 +33,9 @@ SUPPORTED_RUNNERS = frozenset(
     }
 )
 TOKEN_ENV = "JARVIS_REMOTE_MCP_TOKEN"  # noqa: S105 — environment name, not a credential
+#: The name the tools server is mounted under, and the names an earlier turn
+#: may have left behind in a project file it could not clean up.
+_SERVER_NAME, *_LEGACY_SERVER_NAMES = TOOLS_SERVER_NAMES
 _project_configs: set[tuple[str, str]] = set()
 
 
@@ -92,6 +98,28 @@ class ConfigFiles:
         self.written.clear()
 
 
+_OWN_MOUNT_URL = re.compile(r"^http://127\.0\.0\.1:\d{1,5}/mcp$")
+
+
+def _is_own_mount(entry: Any) -> bool:
+    """Whether a project MCP entry is a mount this module wrote.
+
+    Identified by its target, never by its name alone: the loopback forward
+    this app opens for a turn (``remote_mcp``) and nothing but a bearer token
+    beside it.
+    """
+    if not isinstance(entry, dict) or set(entry) - {"url", "headers", "type"}:
+        return False
+    headers = entry.get("headers")
+    return (
+        isinstance(entry.get("url"), str)
+        and _OWN_MOUNT_URL.fullmatch(entry["url"]) is not None
+        and isinstance(headers, dict)
+        and set(headers) == {"Authorization"}
+        and str(headers["Authorization"]).startswith("Bearer ")
+    )
+
+
 async def configure(
     opened: Any,
     host: Any,
@@ -133,14 +161,16 @@ async def configure(
             "default_tools_approval_mode": '"approve"',
         }
         config.args = [
-            part for k, v in values.items() for part in ("-c", f"mcp_servers.jarvis.{k}={v}")
+            part
+            for k, v in values.items()
+            for part in ("-c", f"mcp_servers.{_SERVER_NAME}.{k}={v}")
         ]
         return config
     if runner == "opencode-cli":
         config.env["OPENCODE_CONFIG_CONTENT"] = json.dumps(
             {
                 "mcp": {
-                    "jarvis": {
+                    _SERVER_NAME: {
                         "type": "remote",
                         "url": url,
                         "headers": auth,
@@ -149,8 +179,10 @@ async def configure(
                         "timeout": 600000,
                     }
                 },
-                # Jarvis' executor owns approval for this one server.
-                "permission": {"jarvis_*": "allow"},
+                # Jarvis' executor owns approval for this one server. opencode
+                # names its tools ``<server>_<tool>``; a session resumed from a
+                # mount under an earlier server name still asks for those.
+                "permission": {f"{name}_*": "allow" for name in TOOLS_SERVER_NAMES},
             }
         )
         return config
@@ -160,7 +192,7 @@ async def configure(
     suffix = secrets.token_hex(8)
     if runner in {"claude-cli", "kimi-cli"}:
         path = f"{cwd}/.jarvis-mcp-{suffix}.json"
-        await files.write(path, json.dumps({"mcpServers": {"jarvis": server}}))
+        await files.write(path, json.dumps({"mcpServers": {_SERVER_NAME: server}}))
         flag = "--mcp-config" if runner == "claude-cli" else "--mcp-config-file"
         config.args = [flag, path]
     elif runner == "agy-cli":
@@ -170,7 +202,7 @@ async def configure(
             f"{folder}/mcp_config.json",
             json.dumps(
                 {
-                    "mcpServers": {"jarvis": {"serverUrl": url, "headers": auth}},
+                    "mcpServers": {_SERVER_NAME: {"serverUrl": url, "headers": auth}},
                 }
             ),
         )
@@ -187,7 +219,15 @@ async def configure(
         old = await files.read(path)
         try:
             previous = json.loads(old) if old is not None else {}
-            previous.setdefault("mcpServers", {})["jarvis"] = server
+            servers = previous.setdefault("mcpServers", {})
+            for stale in _LEGACY_SERVER_NAMES:
+                # A turn that could not clean up left its mount under the
+                # earlier name. Two entries for one server show every tool
+                # twice, so that one goes; anything else under the name is the
+                # person's own and stays.
+                if _is_own_mount(servers.get(stale)):
+                    del servers[stale]
+            servers[_SERVER_NAME] = server
         except (ValueError, TypeError, AttributeError) as exc:
             raise RemoteToolsUnavailable(
                 "The computer's project MCP settings need repair in Cursor."

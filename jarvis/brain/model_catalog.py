@@ -343,8 +343,9 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
     # Piper (on-device). A Piper voice speaks ONE language, so this picker is a
     # speaker choice, not a language choice: the provider still resolves the
     # file from the turn's output language. Both sets are listed; the masculine
-    # trio is what the install downloads, and the feminine one is fetched on
-    # demand. Kept in sync with SHERPA_BUNDLES in jarvis/speech/local_models.py.
+    # set is what the install downloads, and the feminine one is fetched on
+    # demand (Piper has no feminine European Portuguese voice, so Tugão serves
+    # both profiles for pt). Kept in sync with SHERPA_BUNDLES in jarvis/speech/local_models.py.
     "piper-local": (
         "voice",
         _curated(
@@ -352,6 +353,7 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
                 ("vits-piper-de_DE-thorsten-medium", "Thorsten — German, masculine"),
                 ("vits-piper-en_US-ryan-medium", "Ryan — English, masculine"),
                 ("vits-piper-es_ES-davefx-medium", "Dave — Spanish, masculine"),
+                ("vits-piper-pt_PT-tugao-medium", "Tugão — European Portuguese, masculine"),
                 ("vits-piper-de_DE-ramona-low", "Ramona — German, feminine"),
                 ("vits-piper-en_US-amy-medium", "Amy — English, feminine"),
                 ("vits-piper-es_ES-sharvard-medium", "Sharvard — Spanish, feminine"),
@@ -364,7 +366,7 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
     # voice) instead of a curated one — kept in sync with DEFAULT_VOICES in
     # jarvis/plugins/tts/elevenlabs_tts.py.
     # Inworld — the new premium default (arena-#1 realtime, mid-2026). Voices are
-    # multilingual; these native masculine de/en/es voices are the curated pick,
+    # multilingual; these native de/en/es/pt voices are the curated pick,
     # kept in sync with DEFAULT_VOICE_* in jarvis/plugins/tts/inworld_tts.py.
     "inworld": (
         "voice",
@@ -376,6 +378,8 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
                 ("Ashley", "Ashley — English, bright"),
                 ("Diego", "Diego — Spanish, formal"),
                 ("Lupita", "Lupita — Spanish, warm"),
+                ("Leonor", "Leonor — European Portuguese"),
+                ("Heitor", "Heitor — Brazilian Portuguese, masculine"),
             ]
         ),
     ),
@@ -1052,6 +1056,27 @@ def model_capabilities(provider: str, model_id: str) -> dict[str, bool | None]:
     except Exception:  # noqa: BLE001, S110 — missing/corrupt cache means unknown
         pass
     return {"vision": None, "tools": None}
+
+
+def model_context_length(provider: str, model_id: str) -> int | None:
+    """A model's declared context window, read SYNCHRONOUSLY from the cached
+    catalog; ``None`` when the cache does not know it.
+
+    For a brain constructor that has to publish a budget before it may touch
+    the network (same route and same reason as :func:`model_capabilities`).
+    """
+    from jarvis.core import config as _cfg
+
+    cache_path = _cfg.DATA_DIR / "model_catalog_cache.json"
+    wanted = {(model_id or "").strip(), (model_id or "").strip().removesuffix(":latest")}
+    try:
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        for m in data.get(provider, {}).get("models", []):
+            if str(m.get("id") or "").removesuffix(":latest") in wanted:
+                return _positive_limit(m.get("context_length"))
+    except Exception:  # noqa: BLE001, S110 — missing/corrupt cache means unknown
+        pass
+    return None
 
 
 def pick_vision_model(provider: str) -> str | None:

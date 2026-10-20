@@ -119,6 +119,8 @@ ACK_SKIP_TOOLS: frozenset[str] = frozenset({
     # passive observations
     "screen_snapshot",
     "whoami",
+    # looking up which tool to use is not something to announce
+    "find_tools",
     # fast passive memory reads (2026-07-06: wiki-recall answered in 72 ms —
     # a spoken "one moment" for that is pure chatter)
     "wiki_recall",
@@ -137,6 +139,7 @@ _FINAL_MARKERS: dict[str, str] = {
     "de": "Erledigt.",  # i18n-allow: German runtime voice product (completion marker)
     "en": "Done.",
     "es": "Listo.",
+    "pt": "Feito.",
 }
 
 # A brain text that already opens with one of these is treated as
@@ -197,23 +200,19 @@ def _normalize_tool_name(name: str) -> str:
 
 
 def _normalize_language(language: str | None) -> str:
-    """Reduce any language hint to a supported code ('de', 'en' or 'es').
+    """Reduce any language hint to a supported code ('de', 'en', 'es' or 'pt').
 
     The caller resolves the authoritative turn language through the ONE
     resolver (jarvis/core/turn_language.py) and passes a concrete code, so
-    'es' must survive here — collapsing it to 'de' would flip a Spanish turn's
-    ack to German (a runtime-output-language doctrine violation). Anything
-    unrecognised falls back to 'de' as the module's last resort; the real
-    default-locale decision already happened upstream.
+    'es'/'pt' must survive here — collapsing them to another language would
+    flip a Spanish turn's ack (a runtime-output-language doctrine violation).
+    Anything unrecognised falls back to English (``DEFAULT_LOCALE``), the one
+    fallback language of every system phrase.
     """
-    if not language:
-        return "de"
-    low = language.lower()
-    if low.startswith("en"):
-        return "en"
-    if low.startswith("es"):
-        return "es"
-    return "de"
+    from jarvis.core.turn_language import normalize_language_tag
+    from jarvis.i18n import phrase_locale
+
+    return phrase_locale(normalize_language_tag(language))
 
 
 def _trim_to_words(text: str, max_chars: int) -> str:
@@ -256,6 +255,13 @@ _GENERIC_ACK: dict[str, tuple[str, ...]] = {
         "Voy, un segundito.",
         "De acuerdo, espera un poco.",
     ),
+    "pt": (
+        "Está bem, um momento.",
+        "Um segundo.",
+        "Já vai, dá-me um momento.",
+        "Vou já, só um segundinho.",
+        "Combinado, espera um pouco.",
+    ),
 }
 
 _SHELL_ACK: dict[str, tuple[str, ...]] = {
@@ -282,6 +288,13 @@ _SHELL_ACK: dict[str, tuple[str, ...]] = {
         "Dame un segundo para mirarlo.",
         "Le echo un vistazo rápido.",
     ),
+    "pt": (
+        "Um momento, vou verificar.",
+        "Deixa-me dar uma vista de olhos.",
+        "Vejo isso agora mesmo.",
+        "Dá-me um segundo para ver.",
+        "Dou uma vista de olhos rápida.",
+    ),
 }
 
 # {service} is interpolated with a human-readable CLI service name
@@ -307,6 +320,13 @@ _CLI_SERVICE_ACK: dict[str, tuple[str, ...]] = {
         "Déjame mirarlo en {service}.",
         "Reviso {service} ahora mismo.",
         "Voy a ver en {service}.",
+    ),
+    "pt": (
+        "Dou uma vista de olhos rápida a {service}.",
+        "Um momento, consulto {service}.",
+        "Deixa-me ver isso em {service}.",
+        "Verifico {service} agora mesmo.",
+        "Vou ver em {service}.",
     ),
 }
 
@@ -354,6 +374,13 @@ _HARNESS_ACK: dict[str, tuple[str, ...]] = {
         "Okay, me pongo con ello.",
         "Claro, un momento.",
     ),
+    "pt": (
+        "Entendido, eu trato disso.",
+        "Está bem, fico eu com isso.",
+        "Combinado, estou a tratar disso.",
+        "Okay, vou pôr mãos à obra.",
+        "Claro, um momento.",
+    ),
 }
 
 _SEARCH_TOPIC_ACK: dict[str, tuple[str, ...]] = {
@@ -374,6 +401,12 @@ _SEARCH_TOPIC_ACK: dict[str, tuple[str, ...]] = {
         "Un momento, investigo {topic}.",
         "Voy a ver qué encuentro sobre {topic}.",
         "Buscando {topic} ahora.",
+    ),
+    "pt": (
+        "Está bem, procuro {topic}.",
+        "Um momento, vou pesquisar {topic}.",
+        "Vou ver o que encontro sobre {topic}.",
+        "A procurar {topic} agora.",
     ),
 }
 
@@ -396,6 +429,12 @@ _SEARCH_GENERIC_ACK: dict[str, tuple[str, ...]] = {
         "Un momento, echo un vistazo.",
         "Dame un momento para reunir los datos.",
     ),
+    "pt": (
+        "Está bem, vou pesquisar um pouco.",
+        "Deixa-me procurar.",
+        "Um momento, dou uma vista de olhos.",
+        "Dá-me um momento para reunir os dados.",
+    ),
 }
 
 _MULTI_SPAWN_ACK: dict[str, tuple[str, ...]] = {
@@ -413,6 +452,11 @@ _MULTI_SPAWN_ACK: dict[str, tuple[str, ...]] = {
         "Vale, hago {n} cosas en paralelo.",
         "Me pongo con las {n} tareas a la vez.",
         "{n} cosas en paralelo — voy.",
+    ),
+    "pt": (
+        "Está bem, faço {n} coisas em paralelo.",
+        "Vou tratar das {n} tarefas ao mesmo tempo.",
+        "{n} coisas em paralelo — vou já.",
     ),
 }
 
@@ -432,6 +476,11 @@ _OPEN_APP_ACK: dict[str, tuple[str, ...]] = {
         "Un segundo, lanzo {app}.",
         "Inicio {app}.",
     ),
+    "pt": (
+        "Está bem, abro {app}.",
+        "Um segundo, inicio {app}.",
+        "A iniciar {app}.",
+    ),
 }
 
 _RUN_SKILL_ACK: dict[str, tuple[str, ...]] = {
@@ -449,6 +498,11 @@ _RUN_SKILL_ACK: dict[str, tuple[str, ...]] = {
         "Vale, ejecuto {skill}.",
         "Un momento, arranco {skill}.",
         "Pongo {skill} en marcha.",
+    ),
+    "pt": (
+        "Está bem, executo {skill}.",
+        "Um momento, arranco com {skill}.",
+        "Ponho {skill} a correr.",
     ),
 }
 
@@ -471,6 +525,12 @@ _GMAIL_READ_ACK: dict[str, tuple[str, ...]] = {
         "Echo un vistazo a tus correos.",
         "Miro tu bandeja de entrada.",
     ),
+    "pt": (
+        "Está bem, vejo o teu correio.",
+        "Um momento, abro a tua caixa de entrada.",
+        "Dou uma vista de olhos aos teus e-mails.",
+        "Vejo a tua caixa de entrada.",
+    ),
 }
 
 _CALENDAR_ACK: dict[str, tuple[str, ...]] = {
@@ -492,6 +552,12 @@ _CALENDAR_ACK: dict[str, tuple[str, ...]] = {
         "Compruebo tus citas.",
         "Un vistazo rápido a tu calendario.",
     ),
+    "pt": (
+        "Está bem, vejo o teu calendário.",
+        "Um momento, vejo a tua agenda.",
+        "Verifico os teus compromissos.",
+        "Uma vista de olhos rápida ao teu calendário.",
+    ),
 }
 
 _REMEMBER_ACK: dict[str, tuple[str, ...]] = {
@@ -512,6 +578,11 @@ _REMEMBER_ACK: dict[str, tuple[str, ...]] = {
         "Entendido, lo recordaré.",
         "Me lo apunto.",
     ),
+    "pt": (
+        "Está bem, tomo nota.",
+        "Entendido, vou lembrar-me.",
+        "Fica anotado.",
+    ),
 }
 
 _VERIFY_ACK: dict[str, tuple[str, ...]] = {
@@ -529,6 +600,11 @@ _VERIFY_ACK: dict[str, tuple[str, ...]] = {
         "Vale, lo compruebo.",
         "Un momento, lo pruebo.",
         "Déjame verificarlo.",
+    ),
+    "pt": (
+        "Está bem, vou verificar.",
+        "Um momento, vou testar.",
+        "Deixa-me confirmar.",
     ),
 }
 
@@ -548,6 +624,11 @@ _SERVER_ACK: dict[str, tuple[str, ...]] = {
         "Un momento, arranco el servidor.",
         "Levanto el servidor.",
     ),
+    "pt": (
+        "Está bem, inicio o servidor.",
+        "Um momento, arranco o servidor.",
+        "Ponho o servidor a correr.",
+    ),
 }
 
 _SET_CONFIG_ACK: dict[str, tuple[str, ...]] = {
@@ -565,6 +646,11 @@ _SET_CONFIG_ACK: dict[str, tuple[str, ...]] = {
         "Vale, lo cambio.",
         "Un momento, lo ajusto.",
         "Lo adapto ahora.",
+    ),
+    "pt": (
+        "Está bem, eu altero isso.",
+        "Um momento, vou ajustar.",
+        "Adapto isso agora.",
     ),
 }
 
@@ -710,7 +796,7 @@ def generate_ack(
     tool_name: str,
     tool_args: Mapping[str, Any] | None = None,
     *,
-    language: str = "de",
+    language: str = "en",
     picker: AckPhrasePicker | None = None,
 ) -> str | None:
     """Render a short, task-specific ack string for the given tool call.
@@ -824,7 +910,7 @@ def describe_tool_action(
     return "working on the request"
 
 
-def final_summary_marker(language: str = "de") -> str:
+def final_summary_marker(language: str = "en") -> str:
     """Return the short completion phrase ('Erledigt.' / 'Done.')."""
     return _FINAL_MARKERS[_normalize_language(language)]
 

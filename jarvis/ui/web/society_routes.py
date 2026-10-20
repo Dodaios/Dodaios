@@ -23,9 +23,9 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import HTTPConnection
 
-from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 from jarvis.core.protocols import started_by_user
 from jarvis.society.companion import CompanionSkin
+from jarvis.society.display_name import display_name, display_row
 from jarvis.society.events import MsgType
 from jarvis.society.failure_reasons import FailureReason, retry_action
 from jarvis.society.memory import MEMORY_SHARE_CAPABILITY, MemoryRefused
@@ -269,13 +269,7 @@ def _agent_row(agent: AgentRecord, request: HTTPConnection) -> dict[str, Any]:
     surface (office, roster, chat, CLI) shows what the user calls it. Resolved per
     request, so a changed wake word shows up without a restart.
     """
-    row = agent.to_dict()
-    if agent.tier == "lead":
-        config = getattr(request.app.state, "config", None)
-        name = resolve_assistant_name(config) if config is not None else ""
-        if name and name != DEFAULT_ASSISTANT_NAME:
-            row["name"] = name
-    return row
+    return display_row(agent, getattr(request.app.state, "config", None))
 
 
 @router.get("/agents")
@@ -408,7 +402,7 @@ async def create_agent(body: CreateAgentBody, request: Request) -> dict[str, Any
         except Exception:  # noqa: BLE001 — the agent exists; its first turn retries the setup
             log.warning("society: %s setup could not start", agent.runtime, exc_info=True)
     return {
-        "agent": agent.to_dict(),
+        "agent": _agent_row(agent, request),
         "created": created,
         "readback": _capability_readback(rt, agent),
     }
@@ -540,7 +534,10 @@ async def agent_conversations(agent_id: str, request: Request) -> dict[str, Any]
         sessions = await asyncio.to_thread(
             svc.store.list_sessions_matching, agent.session_id + PAIR_SESSION_MARKER
         )
-    names = {member.agent_id: member.name for member in await rt.roster.list()}
+    config = getattr(request.app.state, "config", None)
+    names = {
+        member.agent_id: display_name(member, config) for member in await rt.roster.list()
+    }
     rows: list[dict[str, Any]] = []
     for session in sessions:
         sid = session.session_id
@@ -574,7 +571,7 @@ async def archive_agent(agent_id: str, request: Request) -> dict[str, Any]:
         archived = await rt.roster.archive(agent.agent_id)
     except RosterError as exc:
         raise _typed_error(exc) from exc
-    return {"agent": archived.to_dict()}
+    return {"agent": _agent_row(archived, request)}
 
 
 @router.get(
@@ -732,6 +729,9 @@ class TeamMissionBody(BaseModel):
 class TeamCheckinBody(BaseModel):
     #: Minutes between the lead's unprompted looks at its team; 0 = off.
     minutes: int = Field(default=0, ge=0, le=1_440)
+    #: Whether such a look may also set the team's next goal from its mission;
+    #: left out, the team keeps the way it has.
+    initiative: bool | None = None
 
 
 class TeamGoalBody(BaseModel):
@@ -801,7 +801,7 @@ async def create_team_lead(
     progression = getattr(request.app.state, "progression", None)
     if progression is not None:
         await progression.note_agent_hired(agent.agent_id)
-    return {**await rt.team_leads.snapshot(group_id), "agent": agent.to_dict()}
+    return {**await rt.team_leads.snapshot(group_id), "agent": _agent_row(agent, request)}
 
 
 @router.put("/chat-groups/{group_id}/mission")
@@ -821,10 +821,15 @@ async def set_team_mission(
 async def set_team_checkin(
     group_id: str, body: TeamCheckinBody, request: Request
 ) -> dict[str, Any]:
-    """Switch the lead's unprompted team check-in on (0 = off). Each check-in is a turn."""
+    """Switch the lead's unprompted team check-in on (0 = off). Each check-in is a turn;
+    with ``initiative`` it may also set the team's next goal."""
     rt = await _runtime(request)
     try:
-        await rt.team_leads.set_checkin(group_id, body.minutes)
+        initiative = body.initiative
+        if initiative is None:
+            # A caller that only changes the rhythm must not switch initiative off.
+            initiative = (await rt.team_leads.checkin(group_id))[1]
+        await rt.team_leads.set_checkin(group_id, body.minutes, initiative=initiative)
         return await rt.team_leads.snapshot(group_id)
     except TeamLeadError as exc:
         raise _team_error(exc) from exc
@@ -1091,7 +1096,7 @@ async def apply_seed_proposals(body: ApplySeedsBody, request: Request) -> dict[s
     for agent_id in ids:
         agent = await rt.roster.get(agent_id)
         if agent is not None:
-            created.append(agent.to_dict())
+            created.append(_agent_row(agent, request))
     return {"agents": created, "total": len(created)}
 
 
@@ -2184,7 +2189,7 @@ async def install_template(template: dict[str, Any], request: Request) -> dict[s
             updated = await rt.roster.update(agent_row["agent_id"], {"knowledge_scope": "own"})
         except RosterError as exc:
             raise _typed_error(exc) from exc
-        agent_row = updated.to_dict()
+        agent_row = _agent_row(updated, request)
     return {
         "agent": agent_row,
         "created": bool(created.get("created")),

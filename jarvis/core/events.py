@@ -130,6 +130,20 @@ class VoiceTranscriptUpdated(Event):
 
 
 @dataclass(frozen=True, slots=True)
+class VoiceContentShown(Event):
+    """Content put on screen during a spoken conversation instead of read out.
+
+    ``markdown`` is shown as a card in the conversation the user is looking at
+    (``lib/homeTranscript.ts``). ``session_id`` names the live call it belongs
+    to; empty when no live call owns the turn.
+    """
+
+    session_id: str = ""
+    title: str = ""
+    markdown: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class ReasoningSummaryUpdated(Event):
     """Provider-exposed reasoning summary, never private reasoning or audio."""
 
@@ -642,6 +656,13 @@ class ActionProposed(Event):
     # Run Inspector + local diary can show *why* Jarvis chose this action.
     # Already redacted + length-capped by the ToolExecutor before publish.
     rationale: str = ""
+    # Where the call's target came from (ADR-0040, record only): the kind of
+    # effect, the class of the target (``jarvis.safety.origin.TARGET_ORIGINS``,
+    # ``""`` when the call has no target argument) and the tool whose result
+    # held the value. Never the value itself.
+    effect: str = ""
+    target_origin: str = ""
+    origin_source: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -665,6 +686,11 @@ class ActionApprovalRequired(Event):
     #: context so its bridge recognises the calls of ITS turn and no other.
     #: ``None`` on every other surface.
     approval_ref: str | None = None
+    # Same three as on ``ActionProposed``, so a confirmation can say why this
+    # call is different ("recipient taken from a page").
+    effect: str = ""
+    target_origin: str = ""
+    origin_source: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -859,8 +885,14 @@ class NavigateSidebar(Event):
     id is a graceful no-op there. ``section`` mirrors the frontend
     ``SECTION_IDS`` (``store/events.ts``) — kept in sync via the navigate tool's
     parity test.
+
+    ``target`` narrows the destination inside the section: ``"agent"`` opens
+    the chat of the agent ``target_id``, ``"chat"`` the conversation
+    ``target_id``. Empty for a plain section switch.
     """
     section: str = ""
+    target: str = ""
+    target_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)

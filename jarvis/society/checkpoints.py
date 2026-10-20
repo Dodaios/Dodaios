@@ -54,6 +54,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Final
 
+from jarvis.core.mcp_names import CLI_TOOL_PREFIX, own_cli_tool
+
 from .capabilities import CapabilityKind, capability_id_for_tool
 from .events import AgentState, Checkpoint, MsgType, RoomState, SocietyEnvelope
 from .memory import MEMORY_HOLD_S
@@ -146,10 +148,10 @@ _WORK_FAMILY: Final[dict[str, str]] = {
 #: teammate messaging carry their own work family (``_WORK_FAMILY``).
 _SOCIETY_SKILL_TOOL: Final[str] = "society_run_skill"
 _SOCIETY_PREFIX: Final[str] = "society_"
-#: A coding CLI names an MCP tool ``mcp__<server>__<tool>``; Jarvis' own server
-#: carries the plugins, so those calls are classified by the tool behind them.
-_CLI_MCP_PREFIX: Final[str] = "mcp__"
-_JARVIS_MCP_SERVER: Final[str] = "jarvis"
+#: A coding CLI names an MCP tool ``mcp__<server>__<tool>``; this app's own
+#: server carries the plugins, so those calls are classified by the tool behind
+#: them — under every name that server is registered as
+#: (``jarvis.core.mcp_names``).
 
 
 def family_of_tool(tool_name: str, *, cli_seat: bool = False) -> str:
@@ -167,9 +169,9 @@ def family_of_tool(tool_name: str, *, cli_seat: bool = False) -> str:
     read through the ``mcp__<server>__<tool>`` name — Jarvis' server hands out
     the plugins, any other server is an MCP capability.
     """
-    if tool_name.startswith(_CLI_MCP_PREFIX):
-        server, _, inner = tool_name[len(_CLI_MCP_PREFIX) :].partition("__")
-        if server == _JARVIS_MCP_SERVER and inner:
+    if tool_name.startswith(CLI_TOOL_PREFIX):
+        inner = own_cli_tool(tool_name)
+        if inner:
             return family_of_tool(inner)
         return str(CapabilityKind.MCP)
     work = _WORK_FAMILY.get(tool_name)

@@ -2093,15 +2093,15 @@
     },
     {
       "name": "jarvisctl",
-      "display_name": "Jarvis Control CLI",
-      "description": "Control this running Jarvis via its own CLI: switch the brain / sub-agent provider, read or change config, search the wiki, list missions / sessions / outputs, manage skills. Reads run free; destructive / recursive commands (dispatch, restart, delete, outbound, …) are blocked.",
+      "display_name": "Dodaios Control CLI",
+      "description": "Control this running Dodaios via its own CLI: switch the brain / sub-agent provider, read or change config, search the wiki, list missions / sessions / outputs, manage skills. Reads run free; destructive / recursive commands (dispatch, restart, delete, outbound, …) are blocked.",
       "homepage": "https://github.com/Dodaios/Dodaios",
       "binary_name": "jarvisctl",
       "check_command": [
         "jarvisctl",
         "version"
       ],
-      "version_parse_regex": "Personal Jarvis (\\S+)",
+      "version_parse_regex": "(?:Dodaios|Personal Jarvis) ([^\\s)]+)",
       "install": {
         "winget_id": null,
         "scoop_package": null,
@@ -2180,7 +2180,7 @@
             "yourself",
             "jarvis"
           ],
-          "description": "Self-control: inspect and manage Jarvis's own tasks, settings, and lifecycle from the terminal."
+          "description": "Self-control: inspect and manage Dodaios's own tasks, settings, and lifecycle from the terminal."
         }
       ]
     }

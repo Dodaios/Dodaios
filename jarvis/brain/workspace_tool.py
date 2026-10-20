@@ -41,6 +41,10 @@ def _point_at_jarvis_agent(args: dict, result: dict) -> dict:
     return {**result, "jarvis_agent": hint, "reason": f"{reason} {earlier}".strip()}
 
 
+# Actions that only look. ``watch`` is not one: it arranges a later report.
+_READS = frozenset({"status", "inspect", "resolve", "context", "observe"})
+
+
 class WorkspaceOrchestrationTool:
     name = "workspace-orchestrate"
     # Handing a task to the user's own coding agent is Jarvis's job, not an
@@ -67,10 +71,21 @@ class WorkspaceOrchestrationTool:
         "presses keys such as enter, escape, up/down, digits, shift+tab (permission mode); "
         "interrupt stops its current turn; restart starts a stopped or failed agent again "
         "under the same terminal_id on its own conversation (a running one is left alone, so "
-        "a repeat is harmless); close removes it. These are the user's own app "
+        "a repeat is harmless); close removes it; fork opens a copy that continues the "
+        "same conversation beside it, and with worktree=true in a new git worktree and "
+        "branch (name), so two agents can work on one task or one can try another way "
+        "without touching the other's files. These are the user's own app "
         "actions: run them when asked, without asking back. A send refused because the agent "
         "is not running (stopped: true) types nothing: when the user wants that agent to do "
         "the task, restart it and resend with the same request_id and prompt. "
+        "status answers what is running, what finished and who needs the user, in one "
+        "call: one row per open agent across every workspace (busy, needs_input, idle, "
+        "empty, needs_attention; how long; its job) and each workspace's git state "
+        "(branch, ahead/behind, uncommitted files, linked worktree). Use it for 'how far "
+        "are they', 'is it done', 'which branch' instead of inspecting or observing each "
+        "agent; pass workspace or project to narrow it. watch (agent call-sign or "
+        "terminal_id) reports back to this conversation when an agent the USER started by "
+        "hand ends its current job; a task you sent is already followed, never watch it. "
         "Inspect the current graph (pass workspace to scope it): each session includes "
         "availability, history, last user/assistant messages, recent tools and screen excerpts. "
         "Empty is unused; idle has an existing conversation; stopped/failed/unknown is not free. "
@@ -114,6 +129,8 @@ class WorkspaceOrchestrationTool:
             "action": {
                 "type": "string",
                 "enum": [
+                    "status",
+                    "watch",
                     "inspect",
                     "resolve",
                     "send",
@@ -128,6 +145,7 @@ class WorkspaceOrchestrationTool:
                     "interrupt",
                     "restart",
                     "close",
+                    "fork",
                 ],
             },
             **{
@@ -203,7 +221,8 @@ class WorkspaceOrchestrationTool:
                 "type": "string",
                 "description": (
                     "create: optional name for a single new agent; open_workspace: the new "
-                    "workspace's tab name."
+                    "workspace's tab name; fork with worktree: the branch name (suggested "
+                    "when omitted)."
                 ),
             },
             "agents": {
@@ -222,6 +241,13 @@ class WorkspaceOrchestrationTool:
                 "type": "string",
                 "description": "open_workspace: absolute path of the folder to open.",
             },
+            "worktree": {
+                "type": "boolean",
+                "description": (
+                    "fork: run the copy in a new git worktree on a new branch instead of "
+                    "the same folder."
+                ),
+            },
             "keys": {
                 "type": "array",
                 "maxItems": 10,
@@ -236,11 +262,10 @@ class WorkspaceOrchestrationTool:
         self.gateway = gateway
 
     def risk_tier_for_args(self, args: dict) -> str:
-        reads = {"inspect", "resolve", "context", "observe"}
-        return "safe" if args.get("action") in reads else "monitor"
+        return "safe" if args.get("action") in _READS else "monitor"
 
     def read_only_for_args(self, args: dict) -> bool:
-        return args.get("action") in {"inspect", "resolve", "context", "observe"}
+        return args.get("action") in _READS
 
     def describe_args(self, args: dict) -> dict:
         return {

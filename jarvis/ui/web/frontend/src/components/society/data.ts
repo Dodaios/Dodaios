@@ -21,10 +21,12 @@ import type { CompanionAppearance } from "./companion/appearance";
 import { useCreateAgentDialog } from "./create/createAgentStore";
 
 import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
+import { societyChatGroupsQuery } from "@/lib/societyChatGroups";
 import { useEventStore } from "@/store/events";
+import { translate } from "@/i18n";
 
 import { PALETTE_PRESETS, resolvePalette, type FigureRecipe } from "./figures/figureRecipe";
-import { SAMPLE_ROSTER } from "./mockRoster";
+import { localizeSampleRoster, SAMPLE_ROSTER } from "./mockRoster";
 import { beginRetirement, retirementRunning, retirementStageMounted } from "./world/retireStore";
 import { announceSpawn } from "./world/spawnStore";
 
@@ -209,6 +211,12 @@ function paletteFor(figure: FigureRecipe | null): AgentPalette {
   return { primary: p.primary, secondary: p.secondary, accent: p.accent };
 }
 
+/** Provider labels that are words, not brand names: translated when a row is read. */
+const PROVIDER_LABEL_KEYS: Record<string, string> = {
+  ollama: "society.provider_label.ollama",
+  "local-openai": "society.provider_label.local_server",
+};
+
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
@@ -218,14 +226,17 @@ const PROVIDER_LABELS: Record<string, string> = {
   groq: "Groq",
   mistral: "Mistral",
   deepseek: "DeepSeek",
-  ollama: "Ollama (local)",
-  "local-openai": "Local server",
   "claude-api": "Anthropic Claude",
   "openai-codex": "OpenAI Codex",
   grok: "xAI Grok",
   openrouter: "OpenRouter",
   nvidia: "NVIDIA NIM",
 };
+
+function providerLabelFor(provider: string): string {
+  const key = PROVIDER_LABEL_KEYS[provider];
+  return key ? translate(key) : PROVIDER_LABELS[provider] ?? provider;
+}
 
 export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
   const tier = row.tier as AgentTier;
@@ -246,7 +257,7 @@ export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
     description: row.description,
     tier,
     provider: row.provider,
-    providerLabel: row.provider ? (PROVIDER_LABELS[row.provider] ?? row.provider) : "",
+    providerLabel: row.provider ? providerLabelFor(row.provider) : "",
     model: row.model,
     accountId: row.account_id,
     computerId: row.computer_id ?? null,
@@ -303,7 +314,7 @@ async function fetchSocietyRoster(): Promise<RosterData> {
   } catch {
     // Unreachable backend: the sample roster below says so on the rail.
   }
-  const rows = [...SAMPLE_ROSTER].filter((a) => !RETIRED_SAMPLE.has(a.agentId));
+  const rows = [...localizeSampleRoster()].filter((a) => !RETIRED_SAMPLE.has(a.agentId));
   return { agents: rows, sample: true };
 }
 
@@ -320,6 +331,33 @@ function patchRoster(
     prev && !prev.sample ? { ...prev, agents: change(prev.agents) } : prev,
   );
   void client.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
+}
+
+/** A list this fresh is not asked for again by `warmSocietyLists`. */
+const WARM_FRESH_MS = 2_000;
+
+/**
+ * Load the roster and the teams ahead of the views that show them.
+ *
+ * The Agents section starts some twenty requests when it mounts and a browser
+ * sends six at a time to one host, so the two lists, asked last, waited over a
+ * second for answers that take milliseconds: new agents were missing and every
+ * team member stood alone until then. Asked here (at app start and on the
+ * switch to the section, before it renders) both are there for its first paint.
+ */
+export async function warmSocietyLists(client: QueryClient): Promise<void> {
+  // A refetch mid-ceremony would delete the figure being carried to the mine.
+  if (retirementRunning()) return;
+  const rosterQuery = { queryKey: ROSTER_QUERY_KEY, queryFn: fetchSocietyRoster, staleTime: WARM_FRESH_MS };
+  const teams = () => client.prefetchQuery({ ...societyChatGroupsQuery, staleTime: WARM_FRESH_MS });
+  // The sample roster has no teams; a roster known to be real asks for both at once.
+  const known = client.getQueryData<RosterData>(ROSTER_QUERY_KEY);
+  if (known && !known.sample) {
+    await Promise.all([client.prefetchQuery(rosterQuery), teams()]);
+    return;
+  }
+  const roster = await client.fetchQuery(rosterQuery);
+  if (!roster.sample) await teams();
 }
 
 /**

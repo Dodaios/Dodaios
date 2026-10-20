@@ -1,0 +1,136 @@
+{
+  "brain": {
+    "cli_failure": {
+      "cause": "The command failed: {cause}",
+      "code": "The command failed with exit code {code}.",
+      "bare": "The command failed."
+    },
+    "nothing_found": "I couldn't find anything on that.",
+    "navigation_ack": "Opening {label}.",
+    "evidence_unfulfilled": "I couldn't retrieve that just now — the tool call didn't go through. Say the word and I'll try again.",
+    "evidence_domain_labels": {
+      "calendar": "your calendar",
+      "email": "your inbox",
+      "tasks": "your tasks",
+      "repos": "your repositories",
+      "deployments": "your deployments",
+      "cloud": "your cloud billing",
+      "activity": "your activity history"
+    },
+    "evidence_unfulfilled_domain": "I couldn't pull {label} just now — the access didn't go through. Say the word and I'll try again.",
+    "action_unfulfilled": {
+      "society_propose_change": "The routine was not created. The save action did not run.",
+      "society-create-routine": "The routine was not created. The save action did not run.",
+      "contact-upsert": "I haven't actually saved that contact yet — give me the details once more and I'll add it.",
+      "wiki-ingest": "I haven't actually noted that in your wiki yet — say it once more and I'll write it down.",
+      "run_shell": "I haven't actually done that yet — the command never ran. Say it once more and I'll do it right away."
+    },
+    "lang_switch_confirm_session": "For this session I'll reply in English — saving it permanently didn't work.",
+    "subagent_switch_confirm": "Done — your sub-agent will run on {p} from your next mission.",
+    "subagent_switch_fail": {
+      "missing_credential": "{p} isn't connected — set it up first, then I'll switch.",
+      "other": "I couldn't switch the sub-agent to {p}."
+    },
+    "provider_switch_confirm": "Done — your main brain now runs on {p}.",
+    "provider_switch_fail": {
+      "missing_credential": "{p} isn't set up — add its key first, then I'll switch.",
+      "subagent_only": "{p} only works as a sub-agent, not as the main brain.",
+      "other": "I couldn't switch the main brain to {p}."
+    },
+    "cancel_confirm": "Done — stopped {n} running task(s).",
+    "cancel_none": "Nothing was running to stop.",
+    "depth_confirm": {
+      "deep": "Got it — I'll think more deeply from now on.",
+      "fast": "Got it — I'll think faster from now on."
+    },
+    "provider_down": [
+      "Sorry, I can't reach my language model right now. One moment, please.",
+      "I'm afraid my language model is unavailable at the moment. I'll try again shortly.",
+      "I can't answer just now — my connection to the model is failing. Give me a second."
+    ],
+    "provider_down_cause": {
+      "missing_key": "Sorry — no API key is set for my language model right now. Open the API keys in the sidebar and add one, and I can continue right away.",
+      "bad_key": "Sorry — my stored API key is being rejected; it looks invalid or expired. Please replace it under API keys in the sidebar.",
+      "account_blocked": "Sorry — my language model's account is blocking right now, most likely the credit is used up or a limit was reached. Please take a look at the provider account.",
+      "rate_limit": "Sorry — my provider is throttling me for too many requests. Give it a moment and just ask me again.",
+      "invalid_model": "Sorry — the configured model is not accepted by the provider. Please check the model selection in the settings.",
+      "context_overflow": "Sorry — this request is too large for the configured model; its context window is too small for it. Pick a model with a larger context or start a new chat.",
+      "local_context": "Sorry — your local model runs with a context window too small for this request. Raise the context length in your local model server and reload the model; for the models under Local Models, use Tune. The log names the size it needs.",
+      "unreachable": "Sorry — I can't reach my provider right now, likely a network or provider issue. Please try again in a moment.",
+      "vision_unsupported": "Sorry — none of the connected assistants can inspect images right now. The key is there; vision is not. Pick a vision-capable provider under API keys."
+    },
+    "mid_answer_error": "I ran the steps, but something went wrong while composing the answer. Please ask me again in a moment.",
+    "action_failed": "I recognized the action but couldn't execute it.",
+    "lang_switch_confirm": "Done — I'll reply in English from now on.",
+    "lang_switch_confirm_auto": "Done — from now on I'll match the language you use."
+  },
+  "tool_loop": {
+    "anti_silence": "I can't do that right now — I'm missing the right tool for it.",
+    "meta_debug_ack": "Understood. What exactly should have been different?"
+  },
+  "output_filter": {
+    "fallback": "An error occurred."
+  },
+  "speech": {
+    "brain_unavailable": "Sorry, Ruben — I can't reach any of my language models right now. Please check whether your providers still have credit.",
+    "stt_unavailable": "Sorry, I didn't catch that just now. Could you say it again?",
+    "realtime_unavailable": "The realtime connection is unavailable right now. I am switching this session to the classic voice pipeline.",
+    "timeout_tool_stall": "I couldn't get an answer in time. A tool I was waiting on didn't respond.",
+    "timeout_no_answer": "I couldn't find that out just now."
+  },
+  "missions": {
+    "announcer": {
+      "failed_prefix": "The mission failed.",
+      "reason_label": "Reason",
+      "cancelled": "Mission cancelled.",
+      "timed_out": "The mission timed out."
+    },
+    "readback": {
+      "failure_reason": {
+        "critic_loop_exhausted": "Three attempts were not enough.",
+        "critic_rejected": "The review wasn't satisfied.",
+        "task_error": "The worker aborted.",
+        "attempts_timed_out": "The time limit was reached.",
+        "review_time_budget_exhausted": "The review time budget was reached; partial output is available.",
+        "budget_exceeded": "The cost limit was reached.",
+        "decompose_failed": "I could not break the task down.",
+        "crash_recovery": "An old mission was cleaned up.",
+        "interrupted": "A running mission was interrupted; the partial results are available.",
+        "empty_diff": "No files were written.",
+        "critic_unavailable": "The reviewer crashed; the work is preserved in the worktree.",
+        "worktree_setup_failed": "I could not create a workspace.",
+        "checkpoint_missing": "The saved progress is missing, so I cannot continue.",
+        "git_missing": "{agents} require git to be installed and on PATH.",
+        "git_not_a_repository": "{agents} require a git checkout (install via the git-based installer, not a ZIP download).",
+        "source_checkout_unavailable": "This {agent} task requires the source checkout, which is not available in this installation.",
+        "provider_auth": "The AI provider sign-in is invalid or expired.",
+        "provider_quota": "The AI provider's quota is exhausted.",
+        "provider_unreachable": "The AI provider is currently unreachable.",
+        "worker_timeout": "The worker hit its time limit."
+      },
+      "empty_summary": "Task completed.",
+      "unknown_reason": "unknown error",
+      "no_tool_call": "I could not do that — no tool call was made."
+    }
+  },
+  "realtime": {
+    "local_output_failure": "I couldn't play that just now. The speaker disappeared.",
+    "output_language_failure": "I couldn't produce a safe answer in English just now.",
+    "handshake_failure": {
+      "timeout": "The voice connection did not come up in time, so I stopped.",
+      "unavailable": "I couldn't establish the voice connection just now.",
+      "rate_limited": "The voice connection is busy right now. Please try again in a moment.",
+      "no_credits": "The credit for the voice connection is used up. Top it up with the provider and it will work again.",
+      "not_offered": "Your account does not offer this voice connection right now. Check its plan or select another account.",
+      "dropped": "The voice connection dropped."
+    }
+  },
+  "self_mod": {
+    "short_error": {
+      "pre_validate": "the pre-check rejected the value",
+      "reload": "the reload test rejected the new value",
+      "rollback": "the rollback itself failed — a manual restore is needed",
+      "unexpected": "an unexpected error while changing the setting"
+    }
+  }
+}

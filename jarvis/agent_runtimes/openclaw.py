@@ -535,10 +535,11 @@ class OpenClawRuntime:
             config["agents"]["defaults"]["thinkingDefault"] = thinking
         if turn.mcp_url and turn.control_key:
             from jarvis.agent_chat.jarvis_harness import HEADER_NAME
+            from jarvis.core.branding import MCP_TOOLS_SERVER_NAME
 
             config["mcp"] = {
                 "servers": {
-                    "jarvis": {
+                    MCP_TOOLS_SERVER_NAME: {
                         "url": turn.mcp_url,
                         "transport": "streamable-http",
                         "headers": {

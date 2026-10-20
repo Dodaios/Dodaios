@@ -38,6 +38,7 @@ from jarvis.core.spoken_names import (
     resolve_name,
 )
 
+from .display_name import LIVE, display_name, is_lead, names_the_lead
 from .roster import LEAD_AGENT_ID, AgentRecord, AgentState
 
 log = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ class AgentLookup:
         return self.resolution.decision
 
     def available_names(self) -> list[str]:
-        return [a.name for a in self.roster if a.state is not AgentState.ARCHIVED]
+        return [display_name(a) for a in self.roster if a.state is not AgentState.ARCHIVED]
 
     def match_info(self) -> dict[str, Any] | None:
         """How the name was matched, when it was not spelled exactly."""
@@ -104,8 +105,12 @@ def role_tags(agent: AgentRecord) -> frozenset[str]:
     return frozenset({"coding"}) if has_coding_role(agent.name, agent.title) else frozenset()
 
 
-def candidate_for(agent: AgentRecord, custom: Iterable[str] = ()) -> NameCandidate:
+def candidate_for(
+    agent: AgentRecord, custom: Iterable[str] = (), *, shown: bool = True
+) -> NameCandidate:
+    """``shown=False`` leaves the lead's displayed name out: a teammate owns that name."""
     roles = role_tags(agent)
+    label = display_name(agent)
     aliases: list[str] = []
     if normalize(agent.title) not in _GENERIC_TITLES:
         aliases.append(agent.title)
@@ -114,8 +119,12 @@ def candidate_for(agent: AgentRecord, custom: Iterable[str] = ()) -> NameCandida
     aliases.extend(custom)
     return NameCandidate(
         key=agent.agent_id,
-        label=agent.name,
-        names=(agent.name, agent.agent_id.replace("-", " ")),
+        label=label,
+        names=tuple(
+            dict.fromkeys(
+                (*((label,) if shown else ()), agent.name, agent.agent_id.replace("-", " "))
+            )
+        ),
         aliases=tuple(dict.fromkeys(a for a in aliases if a)),
         roles=roles,
     )
@@ -175,9 +184,18 @@ def lookup_in(
         for a in agents
         if a.state is not AgentState.ARCHIVED and (include_lead or a.agent_id != LEAD_AGENT_ID)
     )
+    # A teammate's stored name wins over the lead's displayed one (see resolve_shown).
+    taken = {normalize(a.name) for a in live if not is_lead(a)}
     resolution = resolve_name(
         spoken,
-        [candidate_for(a, custom.get(a.agent_id, ())) for a in live],
+        [
+            candidate_for(
+                a,
+                custom.get(a.agent_id, ()),
+                shown=not is_lead(a) or normalize(display_name(a)) not in taken,
+            )
+            for a in live
+        ],
         context=context,
         surface=surface,
     )
@@ -193,6 +211,25 @@ def lookup_in(
     )
 
 
+async def resolve_shown(runtime: Any, ref: str) -> AgentRecord | None:
+    """``Roster.resolve`` that also knows the name the lead is shown under.
+
+    The rule, in order: a stored id, name or slug of a live agent wins, so no
+    reference that resolved before changes and a teammate who carries the same
+    name as the wake word keeps it. Only then does the lead's displayed name
+    mean the lead. The lead stays reachable by its stored name and id throughout.
+    """
+    exact: AgentRecord | None = await runtime.roster.resolve(ref)
+    if exact is not None and exact.state is not AgentState.ARCHIVED:
+        return exact
+    config = getattr(runtime, "config", None)
+    if names_the_lead(ref, config() if callable(config) else LIVE):
+        lead: AgentRecord | None = await runtime.roster.get(LEAD_AGENT_ID)
+        if lead is not None and lead.state is not AgentState.ARCHIVED:
+            return lead
+    return exact
+
+
 async def lookup_agent(
     runtime: Any,
     spoken: str,
@@ -204,10 +241,11 @@ async def lookup_agent(
     """Resolve a spoken agent reference against the live roster.
 
     An exact id, name or slug wins first, exactly as ``Roster.resolve`` always
-    did — so nothing that worked before changes. Only a reference that names
-    no agent exactly (or only an archived one) goes through the scoring.
+    did — so nothing that worked before changes — and after it the lead's
+    displayed name (``resolve_shown``). Only a reference that names no agent
+    exactly (or only an archived one) goes through the scoring.
     """
-    exact = await runtime.roster.resolve(spoken)
+    exact = await resolve_shown(runtime, spoken)
     if exact is not None and exact.state is not AgentState.ARCHIVED:
         resolution = resolve_name(
             spoken, [candidate_for(exact)], surface=surface
@@ -260,9 +298,9 @@ def jarvis_agent_hint(spoken: str, *, context: str = "") -> dict[str, Any] | Non
         return None
     found = lookup_in(agents, spoken, context=context, surface="workspace-orchestrate:hint")
     if found.decision == "act" and found.agent is not None:
-        names, certain = [found.agent.name], True
+        names, certain = [display_name(found.agent)], True
     elif found.decision == "ask" and found.candidates:
-        names, certain = [a.name for a in found.candidates], False
+        names, certain = [display_name(a) for a in found.candidates], False
     else:
         return None
     return {"heard": found.heard, "agents": names, "certain": certain}
@@ -311,6 +349,7 @@ __all__ = [
     "load_custom_aliases",
     "lookup_agent",
     "lookup_in",
+    "resolve_shown",
     "role_tags",
     "set_custom_aliases",
 ]

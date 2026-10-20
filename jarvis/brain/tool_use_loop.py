@@ -17,7 +17,7 @@ import json
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -40,7 +40,8 @@ from jarvis.core.protocols import (
     ReasoningEffort,
     Tool,
 )
-from jarvis.core.turn_language import resolve_output_language, resolve_turn_language
+from jarvis.core.turn_language import TURN_LANGUAGE, resolve_output_language
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL, ToolExecutor
 
 from .iteration_budget import IterationBudget
@@ -55,6 +56,7 @@ from .loop_control import (
 )
 from .streaming import StreamingAggregate, aggregate, aggregate_with_consumer
 from .tool_call_recovery import extract_leaked_tool_calls
+from .tool_shortlist import FIND_TOOLS_NAME
 
 # Central backstop for tool-output bloat: no tool result may exceed this many
 # chars in the tool-role message fed back to the brain. Individual tools should
@@ -398,52 +400,59 @@ def _is_meta_debug_intent(utterance: str) -> bool:
 # answered in German. A pinned reply language (brain.reply_language) wins;
 # in "auto" mode the phrase mirrors the language detected from the user's
 # text; ambiguous text keeps the historical German default.
-_ANTI_SILENCE_PHRASES: dict[str, str] = {
-    "de": (
-        "Das kann ich gerade nicht ausführen — "  # i18n-allow: spoken German TTS
-        "mir fehlt dafür das passende Werkzeug."  # i18n-allow: spoken German TTS
-    ),
-    "en": "I can't do that right now — I'm missing the right tool for it.",
-    "es": "Ahora mismo no puedo hacerlo — me falta la herramienta adecuada.",
-}
+_ANTI_SILENCE_PHRASES: dict[str, str] = i18n_catalog.table("tool_loop.anti_silence")
 
 # Meta-/debug feedback acknowledgement. Must NOT narrate background bookkeeping
 # (the maintainer finds "ich notiere das Feedback" / "I'm noting that" / "tomo
 # nota" annoying — that work happens silently, BACKGROUND_ACTION_RE strips it
 # anyway). A brief, neutral acknowledgement that invites the actual correction.
-_META_DEBUG_ACK_PHRASES: dict[str, str] = {
-    "de": "Verstanden. Was genau hätte anders sein sollen?",  # i18n-allow: spoken German TTS
-    "en": "Understood. What exactly should have been different?",
-    "es": "Entendido. ¿Qué debería haber sido diferente?",
-}
+_META_DEBUG_ACK_PHRASES: dict[str, str] = i18n_catalog.table("tool_loop.meta_debug_ack")
 
 
 def _localized_phrase(
-    phrases: dict[str, str], user_utterance: str, reply_language: str
+    phrases: dict[str, str],
+    user_utterance: str,
+    reply_language: str,
+    conversation_language: str = "",
 ) -> str:
     """Pick the phrase variant matching the pin or the user's turn language.
 
-    A pinned ``reply_language`` (de/en/es) wins outright. In ``auto`` mode the
+    A pinned ``reply_language`` (de/en/es/pt) wins outright. In ``auto`` mode the
     language is detected from the utterance TEXT — the tool-use loop never
     receives the STT language tag (the pipeline resolves the turn language from
     that tag separately, and the loop is only handed ``user_utterance``), so we
     pass ``"unknown"`` as the tag and let the text decide. Ambiguous text keeps
     the historical German default. (Under the common ``[stt].language="de"`` pin
     the tag would resolve to ``de`` anyway, so the text-only path is equivalent
-    there and strictly better when the text is clearly English/Spanish.)
+    there and strictly better when the text is clearly English/Spanish.) The
+    running ``conversation_language`` keeps a short or ambiguous turn in the
+    conversation's language; anything without translations reads English.
     """
-    lang = reply_language if reply_language in phrases else resolve_turn_language(
-        "unknown", user_utterance, default="de"
+    turn = TURN_LANGUAGE.get()
+    if turn and str(reply_language or "").strip().lower() not in phrases:
+        # Inside a brain turn: the language generate() resolved for it, so an
+        # internal English prompt as the utterance never makes this English.
+        return i18n_catalog.pick(phrases, turn)
+    lang = resolve_output_language(
+        reply_language, "unknown", user_utterance, conversation_language=conversation_language
     )
-    return phrases.get(lang, phrases["de"])
+    return i18n_catalog.pick(phrases, lang)
 
 
-def _anti_silence_phrase(user_utterance: str, reply_language: str = "auto") -> str:
-    return _localized_phrase(_ANTI_SILENCE_PHRASES, user_utterance, reply_language)
+def _anti_silence_phrase(
+    user_utterance: str, reply_language: str = "auto", conversation_language: str = ""
+) -> str:
+    return _localized_phrase(
+        _ANTI_SILENCE_PHRASES, user_utterance, reply_language, conversation_language
+    )
 
 
-def _meta_debug_ack_phrase(user_utterance: str, reply_language: str = "auto") -> str:
-    return _localized_phrase(_META_DEBUG_ACK_PHRASES, user_utterance, reply_language)
+def _meta_debug_ack_phrase(
+    user_utterance: str, reply_language: str = "auto", conversation_language: str = ""
+) -> str:
+    return _localized_phrase(
+        _META_DEBUG_ACK_PHRASES, user_utterance, reply_language, conversation_language
+    )
 
 
 def _has_trailing_imperative(utterance: str) -> bool:
@@ -639,10 +648,21 @@ class ToolUseLoop:
         reasoning_effort: ReasoningEffort | None = None,
         tool_context: dict[str, Any] | None = None,
         loop_control: LoopControl | None = None,
+        deferred_tools: Iterable[str] = (),
     ) -> None:
         self._brain = brain
         self._tools = tools
         self._executor = executor
+        # Tools of this turn whose schemas are NOT sent (jarvis/brain/
+        # tool_shortlist.py). They stay in ``tools`` and run when called; the
+        # ``find_tools`` tool reveals the ones the model asked about, and the
+        # next round then carries their schemas.
+        self._hidden: set[str] = {name for name in deferred_tools if name in tools}
+        self._surface_changed = False
+        finder = tools.get(FIND_TOOLS_NAME) if self._hidden else None
+        bind = getattr(finder, "bind", None)
+        if callable(bind):
+            bind(self._reveal_tools)
         # Caller-supplied keys for every tool's ``ExecutionContext.config``
         # (see BrainDispatcher.tool_context). Per-turn keys set below win.
         self._tool_context = dict(tool_context or {})
@@ -807,8 +827,16 @@ class ToolUseLoop:
                 "description": getattr(tool, "description", ""),
                 "input_schema": tool.schema,
             }
-            for tool in self._tools.values()
+            for name, tool in self._tools.items()
+            if name not in self._hidden
         ]
+
+    def _reveal_tools(self, names: Iterable[str]) -> None:
+        """Show the schemas of deferred tools from the next round on."""
+        found = {name for name in names if name in self._hidden}
+        if found:
+            self._hidden -= found
+            self._surface_changed = True
 
     async def _phase(self, phase: str, detail: str = "") -> None:
         """Report what the turn is doing — once per change, never per token."""
@@ -939,7 +967,7 @@ class ToolUseLoop:
         block tool execution.
 
         ``reply_language`` (live bug 2026-06-10): the ``brain.reply_language``
-        pin (``auto``/``de``/``en``/``es``) — selects the language of the
+        pin (``auto``/``de``/``en``/``es``/``pt``) — selects the language of the
         spoken fallback phrases; ``auto`` mirrors the user's utterance.
         """
         tid = trace_id or uuid4()
@@ -976,6 +1004,12 @@ class ToolUseLoop:
                 log.info("tool_use_loop: %d steer message(s) folded in", len(pending))
             round_no += 1
             await self._phase(PHASE_GATHER, f"round {round_no}")
+            if self._surface_changed:
+                self._surface_changed = False
+                # Only while tools are still on offer: a round that was forced
+                # tool-less (deadline, final answer) must stay that way.
+                if tools_payload:
+                    tools_payload = self._tool_schemas()
 
             req = BrainRequest(
                 messages=tuple(current_messages),
@@ -1292,7 +1326,10 @@ class ToolUseLoop:
                     # prompt advertises skills/CLIs it was not granted recovers
                     # from "run-skill is not here" only if it learns what is
                     # (BUG-212 — the briefing ended on the fallback phrase).
-                    available = ", ".join(sorted(self._tools)) or "none"
+                    available = (
+                        ", ".join(sorted(n for n in self._tools if n not in self._hidden))
+                        or "none"
+                    )
                     tool_result_payload = {
                         "error": (
                             f"Tool '{tool_name}' is not available in this turn. "
@@ -1343,7 +1380,7 @@ class ToolUseLoop:
                     # used to do so even when another call in the same round
                     # had already succeeded, throwing that work away.
                     meta_debug_ack = _meta_debug_ack_phrase(
-                        user_utterance, reply_language
+                        user_utterance, reply_language, conversation_language
                     )
                     tool_result_payload = {
                         "success": False,
@@ -1491,7 +1528,12 @@ class ToolUseLoop:
                     )
                     result = await self._executor.execute(
                         tool, tool_args,
-                        user_utterance=user_utterance,
+                        # A turn whose text the application composed (a
+                        # continuation with delegated results) names the
+                        # person's own request for the tools' checks.
+                        user_utterance=str(
+                            self._tool_context.get("person_request") or user_utterance
+                        ),
                         config_snapshot={
                             **self._tool_context,
                             "output_language": out_lang,
@@ -1560,7 +1602,10 @@ class ToolUseLoop:
                     # absent — this is what keeps the voice pipeline from speaking
                     # "Erledigt." for a desktop action that did not happen
                     # (2026-06-09).
-                    if result.success:
+                    # A lookup that only names other tools is not an action:
+                    # counting it would let "I sent the mail" stand after a
+                    # turn that only searched for the mail tool.
+                    if result.success and not getattr(tool, "is_lookup_only", False):
                         final_agg.executed_tool_names.add(tool_name)
                     # suppress_response=True: tool provides its own final response,
                     # the second brain iteration is skipped (fix for 1-3 s stall
@@ -1680,7 +1725,7 @@ class ToolUseLoop:
                 and not self._unattended
             ):
                 suppress_output = _anti_silence_phrase(
-                    user_utterance, reply_language
+                    user_utterance, reply_language, conversation_language
                 )
 
             # Budget check after execution: the results of this round are

@@ -1,5 +1,5 @@
 /**
- * The wardrobe checkpoint: dress your own character or any agent on foot —
+ * The wardrobe mirror: dress your own character or any agent on foot —
  * office outfits in curated colourways, hair style and colour, skin tone and
  * eyewear. Your own look saves in this browser at once; an agent's look is a
  * draft with a live preview until you save it to the roster (the same
@@ -8,6 +8,8 @@
 import { lazy, Suspense, useId, useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useT } from "@/i18n";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { SocietyAgent } from "../data";
 import type { FigureRecipe } from "../figures/figureRecipe";
 import { playerLook, playerRecipe, type PlayerProfile } from "./playerProfile";
@@ -146,7 +148,6 @@ export function WardrobePanel({ profile, onProfile, agents, sample }: {
 
   return (
     <>
-      <p>{t("society.office.wardrobe_body")}</p>
       {people.length > 0 && (
         <Section label={t("society.office.wardrobe_who")}>
           <button type="button" className="office-chip" aria-pressed={target === YOU} onClick={() => { setTarget(YOU); setStatus("idle"); }}>
@@ -165,22 +166,22 @@ export function WardrobePanel({ profile, onProfile, agents, sample }: {
           <Suspense fallback={null}><AgentFigureViewer recipe={recipe} quiet /></Suspense>
         </div>
       ) : (
-        <label className="office-field">
-          <span>{t("society.office.wardrobe_name")}</span>
-          <input value={profile.name} maxLength={40} placeholder={t("society.office.you")} autoComplete="off" spellCheck={false}
+        <label className="grid gap-1 text-sm font-medium">
+          {t("society.office.wardrobe_name")}
+          <Input value={profile.name} maxLength={40} placeholder={t("society.office.you")} autoComplete="off" spellCheck={false}
             onChange={(e) => onProfile({ ...profile, name: e.target.value })} />
-          <span>{t("society.office.wardrobe_saved")}</span>
+          <span className="text-xs font-normal text-muted-foreground">{t("society.office.wardrobe_saved")}</span>
         </label>
       )}
       <LookEditor recipe={recipe} onChange={change} />
-      <button type="button" className="office-action" onClick={() => change(randomLook(recipe, `${target}:${Math.random()}`))}>
+      <Button type="button" size="sm" variant="outline" onClick={() => change(randomLook(recipe, `${target}:${Math.random()}`))}>
         {t("society.office.wardrobe_random")}
-      </button>
+      </Button>
       {agent && (
         <>
-          <button type="button" className="office-action office-action-primary" disabled={!dirty || saving || sample} aria-busy={saving} onClick={() => void save()}>
+          <Button type="button" size="sm" disabled={!dirty || saving || sample} aria-busy={saving} onClick={() => void save()}>
             {t(saving ? "society.card.saving" : "society.office.wardrobe_save_agent").replace("{0}", agent.name)}
-          </button>
+          </Button>
           {sample && <p className="office-hint">{t("society.office.wardrobe_sample_hint")}</p>}
           {status === "saved" && <p className="office-success" role="status">{t("society.office.wardrobe_saved_agent").replace("{0}", agent.name)}</p>}
           {status === "error" && <p className="office-error" role="alert">{t("society.office.wardrobe_save_error")}</p>}

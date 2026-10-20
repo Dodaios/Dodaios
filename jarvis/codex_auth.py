@@ -39,7 +39,7 @@ import threading
 import time
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +61,12 @@ _BINARY_CANDIDATES: tuple[str, ...] = ("codex", "codex.cmd", "codex.exe")
 # connect/disconnect state stays fresh while the latency disappears. A failed
 # probe is cached too, so a hanging/absent codex never re-pays the 4 s timeout.
 _VERSION_CACHE: dict[str, str | None] = {}
+
+# Why the last ``codex --version`` probe of a binary could not be started at
+# all, keyed like ``_VERSION_CACHE``. A host that refuses the spawn is not a
+# broken install, and an install test that says so sends the user reinstalling
+# a working CLI. (BUG-233)
+_VERSION_SPAWN_ERRORS: dict[str, str] = {}
 
 # A dedicated subscription login must not inherit provider, cloud, proxy,
 # dynamic-loader, keyring, or agent-session state.  Keep this list deliberately
@@ -324,6 +330,15 @@ def clear_version_cache() -> None:
     it, so they don't call this).
     """
     _VERSION_CACHE.clear()
+    _VERSION_SPAWN_ERRORS.clear()
+
+
+def version_spawn_error(binary: str | None) -> str | None:
+    """Why the host could not start ``binary`` for its version probe, if it could not.
+
+    ``None`` when the probe ran (whatever it answered) or never happened.
+    """
+    return _VERSION_SPAWN_ERRORS.get(binary) if binary else None
 
 # Visible-console flag for the interactive login (Windows only). The desktop app
 # runs under pythonw.exe (no console); without a fresh console the user could
@@ -425,6 +440,18 @@ def codex_login_in(codex_home: Path) -> tuple[bool, str, str | None]:
 # ----------------------------------------------------------------------
 
 
+#: Every ``CodexAuthStatus.message_code``. The desktop UI translates each one
+#: (``apikeys_codex.status_msg.<code>``); ``tests/unit/ui/test_backend_message_codes.py``
+#: keeps both sides in step.
+CODEX_STATUS_MESSAGE_CODES: tuple[str, ...] = (
+    "not_installed",
+    "not_logged_in",
+    "connected_chatgpt",
+    "connected_chatgpt_email",
+    "connected_api_key",
+)
+
+
 @dataclass(frozen=True)
 class CodexAuthStatus:
     """Snapshot of the Codex CLI auth state for the UI + provider routes."""
@@ -438,6 +465,10 @@ class CodexAuthStatus:
     user_email: str | None = None
     binary_path: str = "codex"
     error: str | None = None
+    # Stable code + fill-ins for ``message`` (``CODEX_STATUS_MESSAGE_CODES``) so
+    # the desktop UI shows it in the user's language; ``message`` stays English.
+    message_code: str = ""
+    message_params: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -445,6 +476,8 @@ class CodexAuthStatus:
             "connected": self.connected,
             "mode": self.mode,
             "message": self.message,
+            "message_code": self.message_code,
+            "message_params": dict(self.message_params),
             "version": self.version,
             "account_label": self.accountLabel,
             "user_email": self.user_email,
@@ -746,9 +779,15 @@ class CodexAuthService:
                 creationflags=NO_WINDOW_CREATIONFLAGS,
                 env=self._subprocess_environment(),
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        except subprocess.TimeoutExpired:
             _VERSION_CACHE[binary] = None
             return None
+        except OSError as exc:
+            # The spawn itself was refused; keep the reason for the install test.
+            _VERSION_SPAWN_ERRORS[binary] = str(exc)
+            _VERSION_CACHE[binary] = None
+            return None
+        _VERSION_SPAWN_ERRORS.pop(binary, None)
         out = (proc.stdout or proc.stderr or "").strip()
         version = out or None
         _VERSION_CACHE[binary] = version
@@ -913,6 +952,8 @@ class CodexAuthService:
                 connected=False,
                 mode="unknown",
                 message="Codex CLI is not installed (run: npm i -g @openai/codex).",
+                message_code="not_installed",
+                message_params={"command": "npm i -g @openai/codex"},
                 binary_path=self._binary_path,
                 error="codex binary not found",
             )
@@ -928,15 +969,18 @@ class CodexAuthService:
 
         if not connected:
             message = "Codex is installed but not logged in — run 'codex login'."
+            message_code = "not_logged_in"
             account_label: str | None = None
         elif mode == "chatgpt":
             account_label = "ChatGPT/Codex-Login"
             message = (
                 f"Connected via ChatGPT ({email})." if email else "Connected via ChatGPT."
             )
+            message_code = "connected_chatgpt_email" if email else "connected_chatgpt"
         else:  # api_key
             account_label = "OpenAI API key"
             message = "Connected via OpenAI API key."
+            message_code = "connected_api_key"
 
         log.info(
             "codex status: installed=True connected=%s mode=%s", connected, mode
@@ -946,6 +990,8 @@ class CodexAuthService:
             connected=connected,
             mode=mode,
             message=message,
+            message_code=message_code,
+            message_params={"email": email} if email else {},
             version=version,
             accountLabel=account_label,
             user_email=email,

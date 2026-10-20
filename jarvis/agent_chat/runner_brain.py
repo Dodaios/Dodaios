@@ -30,6 +30,7 @@ import re
 import time
 import uuid
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, get_args
 
@@ -42,7 +43,8 @@ from jarvis.agent_chat.surface_kits import kit_for
 from jarvis.agent_chat.tool_catalog import ToolChoice
 from jarvis.agent_chat.tools import summarize_call
 from jarvis.brain.turn_override import TurnOverride
-from jarvis.core.protocols import BrainMessage, ReasoningEffort, Tool
+from jarvis.core.protocols import BrainMessage, ReasoningEffort, Tool, current_chat_turn
+from jarvis.i18n import is_known_language, is_supported_locale
 
 if TYPE_CHECKING:
     from uuid import UUID
@@ -167,6 +169,9 @@ def build_override(
             kit.tool_filter,
             kit.session_tool_filter(session) if kit.session_tool_filter is not None else None,
             plan_filter if stance == PLAN_STANCE else None,
+        ),
+        tools_direct=(
+            kit.session_direct_tools(session) if kit.session_direct_tools is not None else None
         ),
         credential_scope=kit.credential_scope,
         system_extra=system_extra,
@@ -448,6 +453,44 @@ async def run_brain_turn(
     cwd = Path(session.cwd or Path.home())
     stance = handle.stance or "ask"
     kit_tools, system_extra = await kit_payload(session, brain)
+    from jarvis.agent_chat.delegation_wait import CONTINUE_TURN, is_continuation_prompt
+
+    person_request = ""
+    if is_continuation_prompt(text):
+        # The brain reads the turn's text for deterministic routes: which
+        # coding pane is addressed, what to cancel, where to navigate. A
+        # continuation quotes the original order and the agents' reports, so
+        # read as the person's words it would send that order to the pane
+        # again. It is this turn's briefing instead.
+        system_extra += "\n\n" + text
+        text = CONTINUE_TURN
+        from jarvis.core.protocols import current_chat_turn
+
+        origin = current_chat_turn.get()
+        person_request = origin.user_text if origin is not None else ""
+        if person_request and not handle.output_language:
+            # The answer follows the request it continues, not the neutral
+            # English line above — in any language, not only the four with
+            # translated system phrases.
+            from jarvis.core.turn_language import (
+                conversation_language_from_history,
+                resolve_conversation_language,
+            )
+
+            language = resolve_conversation_language(
+                getattr(brain, "reply_language", "auto") or "auto",
+                "unknown",
+                person_request,
+                conversation_language=conversation_language_from_history(
+                    brain_history_from_events(handle.history)
+                ),
+            )
+            if is_known_language(language):
+                handle.output_language = language
+    board = getattr(getattr(handle, "control_service", None), "parked_work", None)
+    background = board.context_note(session.session_id) if board is not None else ""
+    if background:
+        system_extra += "\n\n" + background
     if tool_choices:
         from jarvis.agent_chat.tool_catalog import (
             live_catalog,
@@ -477,6 +520,13 @@ async def run_brain_turn(
         kit_tools=kit_tools,
         system_extra=system_extra,
     )
+    if person_request:
+        # Tools that check a call against what the person asked for (a task
+        # unrelated to the turn, an authorized fan-out) read the request, not
+        # the neutral continue line.
+        override = replace(
+            override, tool_context={**override.tool_context, "person_request": person_request}
+        )
     _note_skill_trigger(brain, text)
 
     if bridge is not None:
@@ -591,6 +641,14 @@ async def _generate(
     }
     if output_language:
         kwargs["force_output_language"] = output_language
+    from jarvis.agent_chat.delegation_wait import CONTINUE_TURN
+
+    if text == CONTINUE_TURN:
+        # The neutral English "continue" line is not the person's words: the
+        # conversation keeps its own language (a Turkish chat flipped to
+        # English on every delegated result, forensic 2026-10-19).
+        origin = current_chat_turn.get()
+        kwargs["language_text"] = origin.user_text if origin is not None else ""
     secret = _agent_secret(get_jarvis_agent_secret, session.provider)
     overrides = {session.provider: secret} if secret else {}
     pending_before = set(getattr(brain, "_ide_background_tasks", ()))
@@ -633,10 +691,10 @@ async def _generate(
             # turn lock; do not detect language from an English result prompt.
             if not handle.output_language:
                 pin = getattr(brain, "reply_language", "")
-                language = pin if pin in {"de", "en", "es"} else getattr(
+                language = pin if is_supported_locale(pin) else getattr(
                     brain, "conversation_language", ""
                 )
-                if language in {"de", "en", "es"}:
+                if is_known_language(language):
                     handle.output_language = language
             return result
         task.cancel()

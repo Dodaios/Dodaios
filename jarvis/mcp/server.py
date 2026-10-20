@@ -15,7 +15,10 @@ Resources:
   - jarvis://core-memory/all         — full core-memory JSON
 
 Registration in the external `openclaw` CLI:
-  claude mcp add jarvis python -m jarvis.mcp.server
+  claude mcp add dodaios python -m jarvis.mcp.server
+
+A registration made earlier under the name ``jarvis`` keeps working: the name
+is the client's own label for this command, and nothing here reads it.
 
 Loop detection:
   Every request handler checks the `JARVIS_MCP_DEPTH` env var. If it is

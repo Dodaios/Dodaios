@@ -7,7 +7,7 @@ working on the app from inside the app.
 
 **Answer.** Run two desktop apps from the same working tree:
 
-| | **Personal Jarvis** (default instance) | **Personal Jarvis Dev** (dev instance) |
+| | **Dodaios** (default instance) | **Dodaios Dev** (dev instance) |
 |---|---|---|
 | Purpose | The app you live in: voice, hotkeys, channels, the Agentic-IDE sessions you vibe-code from. Never restarted for a code change. | A second window you restart as often as you like to look at the current working tree. |
 | Start | `run.bat` / `./run.sh`, the Start-Menu / Desktop shortcut, autostart | `run-dev.bat` / `./run-dev.sh`, the **Personal Jarvis Dev** shortcut, or `python -m jarvis.ui.web.launcher --instance dev` |
@@ -16,7 +16,7 @@ working on the app from inside the app.
 | Data directory | `data/` | `data-dev/` (created on first start, seeded once with `setup_state.json`, `identity_card.json`, `core_memory.json` and a snapshot of `chats.db`) |
 | Ports | `[ui].admin_api_port` etc. as configured (47821 …) | every configured port **+100** (47921 …) |
 | Config, keys, agent accounts, skills | shared (`jarvis.toml`, keyring, `%LOCALAPPDATA%\Jarvis` / `~/.jarvis`) | shared — same providers, same logins, so "everything works" |
-| Window title / taskbar / tray | Personal Jarvis, mascot icon | Personal Jarvis **Dev**, mascot with a yellow **DEV** tag, own taskbar group, own tray entry; the sidebar shows a small **DEV** badge |
+| Window title / taskbar / tray | Dodaios, logo icon | Dodaios **Dev**, logo with a yellow **DEV** tag, own taskbar group, own tray entry; the sidebar shows a small **DEV** badge |
 | Wake word, global hotkeys | as configured | **off** — the microphone and the key combos belong to the default app (the in-window mic button and chat still work) |
 | Chat channels (Telegram/Discord), autostart | as configured | **off** — a second poller on the same bot token would collide; the dev app never touches the login autostart entry |
 | On-screen overlay (Jarvis Bar / orb) | as configured | **off** — the dev app draws no bar or orb and its Settings refuse to switch the style (HTTP 409): both apps read ONE `jarvis.toml`, and a second bar on the same spot that someone then switched off once took the default app's bar away on its next restart (2026-08-23) |

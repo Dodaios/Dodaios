@@ -8,10 +8,10 @@ from contextlib import asynccontextmanager
 from typing import Any
 from uuid import uuid4
 
-from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 from jarvis.core.turn_language import resolve_output_language
 
 from .chat_binding import agent_busy, ensure_session
+from .display_name import display_name
 from .events import RoomState
 from .rooms import MAX_MEMBERS, Room
 
@@ -26,15 +26,6 @@ MEETING_PASS = "[[MEETING_PASS]]"  # noqa: S105 — a silence marker, not a cred
 def is_pass(reply: str) -> bool:
     """Whether a reply is the silence marker alone (stray closing punctuation allowed)."""
     return reply.strip().rstrip(".!").rstrip() == MEETING_PASS
-
-
-def _speaker_name(agent: Any, cfg: Any) -> str:
-    """The name members see; the lead wears the wake-word name, as on every surface."""
-    if str(getattr(agent, "tier", "")) == "lead":
-        name = resolve_assistant_name(cfg)
-        if name and name != DEFAULT_ASSISTANT_NAME:
-            return name
-    return agent.name
 
 
 class Meetings:
@@ -107,7 +98,9 @@ class Meetings:
                 if agent is None or agent.state in ("archived", "paused"):
                     raise ValueError("A meeting member is unavailable.")
                 if agent_busy(svc, agent):
-                    raise ValueError(f"{agent.name} is already working.")
+                    raise ValueError(
+                        f"{display_name(agent, self.runtime.config())} is already working."
+                    )
                 ensure_session(svc, self.runtime.config(), agent)
                 agents.append(agent)
             previous = await self.snapshot(group_id)
@@ -133,7 +126,7 @@ class Meetings:
         sending: asyncio.Task[str] | None = None
         try:
             cfg = self.runtime.config()
-            names = {agent.agent_id: _speaker_name(agent, cfg) for agent in agents}
+            names = {agent.agent_id: display_name(agent, cfg) for agent in agents}
             # Earlier rounds are stored by agent id; every member reads names.
             context = [
                 *({**m, "speaker": names.get(m["speaker"], m["speaker"])} for m in context),
