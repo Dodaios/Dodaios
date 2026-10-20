@@ -58,13 +58,31 @@ export interface NotebookFile extends FileBase {
 
 export type SoulFile = CharacterFile | InstructionsFile | NotebookFile;
 
-export interface SoulActivity {
+/** The model call behind a ledger line; empty strings on older lines. */
+export interface SoulSeat {
+  seat?: string;
+  /** The provider as the person knows it ("OpenAI Codex"). */
+  seat_label?: string;
+  /** "subscription" | "local" | "metered". */
+  billing?: string;
+}
+
+export interface SoulActivity extends SoulSeat {
   ts: string;
   source: string;
   target: string;
   operation: string;
   text: string;
   evidence: string;
+}
+
+/** The learning loop's newest review or merge call. */
+export interface SoulReview extends SoulSeat {
+  ts: string;
+  source: string;
+  /** "answered" | "failed" | "dropped". */
+  outcome: string;
+  changes: number;
 }
 
 export interface SoulProfile {
@@ -76,6 +94,7 @@ export interface SoulProfile {
   learning: boolean;
   files: SoulFile[];
   activity: SoulActivity[];
+  last_review?: SoulReview | null;
 }
 
 export const SOUL_QUERY_KEY = ["soul"] as const;

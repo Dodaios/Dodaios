@@ -21,9 +21,12 @@ their own loop and never feed this one.
 
 Turns stay pending until a review has really looked at them: a failed or
 cancelled review hands them back, and a failing reviewer is retried after a
-growing pause, never on every turn. The reviewer asks only the Jarvis lead's
-own seat (``review.ModelReviewer``), so after four failed reviews in a row the
-turns are dropped with one log line. Nothing here runs on the voice path.
+growing pause, never on every turn. The reviewer asks the Jarvis lead's
+provider, on its subscription when one is signed in (``review.seat_choices``),
+so after four failed reviews in a row the turns are dropped with one log line.
+Every review and merge call leaves a ``review`` line in the learning ledger
+naming its seat, its billing mode and how it ended (``answered``, ``failed``,
+``dropped``). Nothing here runs on the voice path.
 """
 
 from __future__ import annotations
@@ -54,9 +57,15 @@ _MAX_CONVERSATIONS: Final[int] = 32
 _BACKOFF_S: Final[float] = 60.0
 _BACKOFF_CAP_S: Final[float] = 3_600.0
 #: Consecutive failed reviews (the first plus three retries after the pause)
-#: after which the turns are dropped. The reviewer asks only the Jarvis seat,
-#: so a seat that keeps failing must not keep its turns forever.
+#: after which the turns are dropped. The reviewer asks only the Jarvis
+#: provider's seats, so a seat that keeps failing must not keep its turns forever.
 _MAX_FAILURES: Final[int] = 4
+
+
+def _seat_of(reviewer: Any) -> dict[str, str]:
+    """Seat, runner and billing of the reviewer's last call, for the ledger."""
+    fields = getattr(getattr(reviewer, "last_choice", None), "ledger_fields", None)
+    return fields() if callable(fields) else {}
 
 
 @dataclass
@@ -344,16 +353,20 @@ class JarvisLearningLoop:
             conversation.reviewing = True
             answered = False
             written = 0
+            outcome = "failed"
             try:
                 written, answered = await self._review_said(said, reason)
             finally:
                 conversation.reviewing = False
+                if answered:
+                    outcome = "answered"
                 if not answered and conversation.failures + 1 >= _MAX_FAILURES:
                     # The seat kept failing: give these turns up (turns that
                     # arrived meanwhile stay) and start the count afresh.
+                    outcome = "dropped"
                     log.warning(
                         "learning: dropped %d turn(s) of %s after %d failed reviews; "
-                        "only the Jarvis seat is ever asked",
+                        "only the Jarvis provider's seats are asked",
                         count,
                         key,
                         conversation.failures + 1,
@@ -370,6 +383,13 @@ class JarvisLearningLoop:
                 else:
                     conversation.failures = 0
                     conversation.retry_at = 0.0
+            await asyncio.to_thread(
+                self.notebook.note_review,
+                source=f"review: {reason}",
+                outcome=outcome,
+                changes=written,
+                seat=_seat_of(self._reviewer),
+            )
             if written:
                 log.info("learning: %d notebook change(s) from %s", written, key)
                 await self._compact_locked()
@@ -391,6 +411,7 @@ class JarvisLearningLoop:
             raw = None
         if raw is None:
             return 0, False
+        seat = _seat_of(self._reviewer)
         # Evidence may come from the picked turns only: nothing else was shown.
         accepted, rejected = validate(
             raw, user_texts=[row["user"] for row in said], entries=entries
@@ -399,11 +420,12 @@ class JarvisLearningLoop:
             log.info("learning: rejected a proposal — %s", why)
         written = 0
         for proposal in accepted:
-            written += await asyncio.to_thread(self._apply_proposal, proposal, reason)
+            written += await asyncio.to_thread(self._apply_proposal, proposal, reason, seat)
         return written, True
 
-    def _apply_proposal(self, proposal: Proposal, reason: str) -> int:
+    def _apply_proposal(self, proposal: Proposal, reason: str, seat: dict[str, str]) -> int:
         return self._write(
+            seat=seat,
             target=proposal.target,
             operation=proposal.operation,
             text=proposal.text,
@@ -496,8 +518,16 @@ class JarvisLearningLoop:
             raise
         except Exception:  # noqa: BLE001 — a failed merge leaves the notebook as it was
             log.warning("learning: compaction failed", exc_info=True)
-            return 0
+            raw = None
+        seat = _seat_of(self._compactor)
         if not isinstance(raw, dict):
+            await asyncio.to_thread(
+                self.notebook.note_review,
+                source=f"compaction: {target}",
+                outcome="failed",
+                changes=0,
+                seat=seat,
+            )
             return 0
         merges, outdated, rejected = compact.validate(raw, rows)
         for why in rejected:
@@ -515,6 +545,7 @@ class JarvisLearningLoop:
                 evidence=", ".join(merge.sources),
                 source="compaction: merge",
                 enforce_budget=False,
+                seat=seat,
             )
             if not added:
                 continue  # Keep the sources when the merged entry did not land.
@@ -537,6 +568,13 @@ class JarvisLearningLoop:
                 expected=texts[entry_id],
                 source="compaction: outdated",
             )
+        await asyncio.to_thread(
+            self.notebook.note_review,
+            source=f"compaction: {target}",
+            outcome="answered",
+            changes=changed,
+            seat=seat,
+        )
         return changed
 
     def pending(self) -> dict[str, int]:
