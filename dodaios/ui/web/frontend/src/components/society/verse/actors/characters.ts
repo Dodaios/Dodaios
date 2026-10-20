@@ -37,6 +37,8 @@ export interface SkeletonEntry {
 
 export interface TierColours {
   M_Uniform: string;
+  /** Breeches; older manifests leave it out and the tunic colour is used. */
+  M_Trousers?: string;
   M_Trim: string;
   M_Cap: string;
   tile: string;

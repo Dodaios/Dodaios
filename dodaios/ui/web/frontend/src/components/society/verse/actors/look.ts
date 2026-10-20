@@ -40,6 +40,7 @@ export function applyLook(instance: CharacterInstance, contract: CharacterContra
     for (const m of standard(instance.materials.get(name))) m.color.set(colour);
   };
   paint("M_Uniform", tier.M_Uniform);
+  paint("M_Trousers", tier.M_Trousers ?? tier.M_Uniform);
   paint("M_Trim", tier.M_Trim);
   paint("M_Cap", tier.M_Cap);
   if (look.accent) paint("M_Accent", look.accent);

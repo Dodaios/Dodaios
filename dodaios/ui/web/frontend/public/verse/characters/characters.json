@@ -137,7 +137,7 @@
     "deck": {
       "M_Uniform": "#3b3f47",
       "M_Trousers": "#3b3f47",
-      "M_Trim": "#2f3238",
+      "M_Trim": "#5a5f68",
       "M_Cap": "#3b3f47",
       "tile": "#a9adb2",
       "cap": false
@@ -271,20 +271,20 @@
         "M_RankTile_6"
       ],
       "height": 1.68,
-      "triangles": 12222,
-      "bytes": 565800,
+      "triangles": 12300,
+      "bytes": 569036,
       "defaults": {},
       "rankPlate": {
         "bone": "Chest",
         "position": [
-          0.0873,
-          1.281,
-          0.0946
+          0.088,
+          1.2811,
+          0.0949
         ],
         "normal": [
-          0.1163,
-          0.1992,
-          0.973
+          0.2937,
+          0.2269,
+          0.9286
         ]
       }
     },
@@ -318,20 +318,20 @@
         "M_RankTile_6"
       ],
       "height": 1.78,
-      "triangles": 12054,
-      "bytes": 561840,
+      "triangles": 12132,
+      "bytes": 565380,
       "defaults": {},
       "rankPlate": {
         "bone": "Chest",
         "position": [
-          0.0923,
+          0.0922,
           1.3569,
-          0.1167
+          0.1173
         ],
         "normal": [
-          0.077,
-          0.1367,
-          0.9876
+          0.0593,
+          0.1274,
+          0.9901
         ]
       }
     },
@@ -383,8 +383,8 @@
         "M_Visor"
       ],
       "height": 1.78,
-      "triangles": 13471,
-      "bytes": 572972,
+      "triangles": 13894,
+      "bytes": 659452,
       "defaults": {}
     }
   ]
