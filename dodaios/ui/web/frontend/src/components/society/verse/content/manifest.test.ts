@@ -68,3 +68,51 @@ describe("parseDeckManifest", () => {
     expect(screen?.corners).toHaveLength(4);
   });
 });
+
+describe("plate mips", () => {
+  // The bridge as the close-up cook writes it: L0 at 192 px/m, M2 and M4 tile levels, the overview at 1/8.
+  function closeUp(): Record<string, unknown> {
+    const m = JSON.parse(readFileSync(BRIDGE, "utf8")) as Record<string, Record<string, unknown>>;
+    const w = 14016;
+    const h = 8096;
+    m.camera = { ...m.camera, px_per_m: 192, plate_w_px: w, plate_h_px: h };
+    const level = (divisor: number, prefix: string) => {
+      const lw = Math.round(w / divisor);
+      const lh = Math.round(h / divisor);
+      return { divisor, w_px: lw, h_px: lh, cols: Math.ceil(lw / 2048), rows: Math.ceil(lh / 2048), tile_url: `plate/${prefix}_{col}_{row}.avif` };
+    };
+    m.plate = {
+      format: "avif", tile_px: 2048, cols: Math.ceil(w / 2048), rows: Math.ceil(h / 2048), tile_url: "plate/L0_{col}_{row}.avif",
+      mips: [level(2, "M2"), level(4, "M4")],
+      l1_url: "plate/L1.avif", l1_w_px: Math.round(w / 8), l1_h_px: Math.round(h / 8),
+    };
+    return m;
+  }
+
+  it.runIf(existsSync(BRIDGE))("accepts a manifest with mips and one without", () => {
+    const withMips = parseDeckManifest(closeUp());
+    expect(withMips.plate.mips?.map((mip) => [mip.divisor, mip.cols, mip.rows])).toEqual([[2, 4, 2], [4, 2, 1]]);
+    // An older cook: the same plate without the mips key.
+    const old = closeUp();
+    delete (old.plate as Record<string, unknown>).mips;
+    const without = parseDeckManifest(old);
+    expect(without.plate.mips).toBeUndefined();
+  });
+
+  it.runIf(existsSync(BRIDGE))("names a mip that does not match the plate", () => {
+    const bad = (edit: (mip: Record<string, unknown>) => void, field: RegExp) => {
+      const m = closeUp();
+      edit(((m.plate as Record<string, unknown>).mips as Record<string, unknown>[])[1]);
+      expect(() => parseDeckManifest(m)).toThrow(field);
+    };
+    bad((mip) => { mip.cols = 3; }, /plate\.mips\[1\]: cols\/rows/);
+    bad((mip) => { mip.w_px = 9000; }, /plate\.mips\[1\]: w_px\/h_px/);
+    bad((mip) => { mip.divisor = 1; }, /plate\.mips\[1\]\.divisor/);
+    bad((mip) => { mip.tile_url = "plate/M4.avif"; }, /plate\.mips\[1\]\.tile_url/);
+    // A rounding mode one pixel off is fine.
+    const m = closeUp();
+    const mip = ((m.plate as Record<string, unknown>).mips as Record<string, number>[])[1];
+    mip.w_px += 1;
+    expect(() => parseDeckManifest(m)).not.toThrow();
+  });
+});

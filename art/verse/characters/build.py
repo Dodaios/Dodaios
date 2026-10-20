@@ -23,7 +23,10 @@ from mathutils import Vector
 from characters import anim as A
 from characters import common as C
 from characters import crew
+from characters import looks as LK
+from characters import looks_gear as LG
 from characters import outfits as O
+from characters import paint as PT
 from characters import posing as P
 
 CHARACTERS = {
@@ -33,6 +36,9 @@ CHARACTERS = {
     "SK_Technician": ("M", "build_technician", "technician"),
     "SK_Trooper": ("M", "build_trooper", "trooper"),
 }
+
+# Atlas painters per model kind.
+PAINTERS = {"officer": LK.officer, "technician": LG.technician, "trooper": LG.trooper}
 
 # Reference colours per rank tier (sRGB hex). The runtime tints by material name.
 TIERS = {
@@ -73,7 +79,9 @@ TILE_UNLIT = "#2a2d31"
 
 # Per-model default colours for shared slot names (the glb material keeps the slot name).
 DEFAULTS = {
-    "SK_Technician": {"M_Uniform": "#17181a", "M_Trim": "#2a2d31"},
+    # Gunner black, lifted a touch so the suit's seams, harness and pads still read at
+    # the close game camera under dim room light.
+    "SK_Technician": {"M_Uniform": "#1f2124", "M_Trim": "#34373c"},
 }
 
 
@@ -84,44 +92,28 @@ def _srgb_to_linear(h: str):
 
 
 def apply_defaults(cid: str, objs):
-    """Give the model its own copies of shared materials with its default colours."""
+    """Set the model's default colours on its own material copies ('M_X@cid')."""
     for name, col in DEFAULTS.get(cid, {}).items():
-        src = bpy.data.materials[name]
-        mat = src.copy()
-        mat.name = f"{name}@{cid}"
-        bsdf = mat.node_tree.nodes["Principled BSDF"]
-        bsdf.inputs["Base Color"].default_value = (*_srgb_to_linear(col), 1.0)
-        mat.diffuse_color = (*_srgb_to_linear(col), 1.0)
+        rgba = (*_srgb_to_linear(col), 1.0)
         for o in objs:
             for i, m in enumerate(o.data.materials):
-                if m == src:
-                    o.data.materials[i] = mat
+                if m is None or m.name.split("@")[0] != name:
+                    continue
+                if not m.name.endswith(f"@{cid}"):
+                    own = bpy.data.materials.get(f"{name}@{cid}")
+                    if own is None:
+                        own = m.copy()
+                        own.name = f"{name}@{cid}"
+                    o.data.materials[i] = own
+                    m = own
+                PT.set_factor(m, rgba)
 
 
-class slot_names:
-    """Temporarily rename 'M_X@model' copies to 'M_X' for the export."""
+slot_names = PT.export_names
 
-    def __init__(self, cid: str):
-        self.cid = cid
-        self.swaps = []
 
-    def __enter__(self):
-        for m in list(bpy.data.materials):
-            if m.name.endswith(f"@{self.cid}"):
-                base = m.name.split("@")[0]
-                orig = bpy.data.materials.get(base)
-                if orig:
-                    orig.name = f"{base}@__orig"
-                m.name = base
-                self.swaps.append((m, orig, base))
-        return self
-
-    def __exit__(self, *exc):
-        for m, orig, base in self.swaps:
-            m.name = f"{base}@{self.cid}"
-            if orig:
-                orig.name = base
-        return False
+# WebP quality of the atlases inside the glb files (base colour and normal map).
+IMAGE_QUALITY = 90
 
 
 def export_glb(path: Path, objects, animations: bool):
@@ -149,6 +141,8 @@ def export_glb(path: Path, objects, animations: bool):
         export_vertex_color="ACTIVE",
         export_cameras=False,
         export_lights=False,
+        export_image_format="WEBP",
+        export_image_quality=IMAGE_QUALITY,
         export_extras=False,
         export_anim_slide_to_zero=True,
     )
@@ -198,10 +192,19 @@ def main(argv):
         variant, builder, kind = CHARACTERS[cid]
         fn = getattr(O, builder, None) or getattr(crew, builder)
         ctx = ctxs.get(variant) or ctxs.setdefault(variant, O.Ctx(variant))
+        ctx.hi, ctx.look = None, {}  # set by the builder for its own garment
         objs = fn(ctx)
         for o in objs:
             o.name = o.name.split(".")[0]
             o.data.name = o.name
+        PT.texture(
+            cid,
+            objs,
+            PAINTERS[kind](ctx),
+            hi=getattr(ctx, "hi", None),
+            weight=LK.density(ctx),
+            debug_dir=C.CACHE / "atlas",
+        )
         apply_defaults(cid, objs)
         with slot_names(cid):
             size = export_glb(out / f"{cid}.glb", [ctx.arm] + objs, animations=False)

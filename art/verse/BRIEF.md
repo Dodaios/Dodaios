@@ -69,7 +69,8 @@ Blender is the level editor, the cook is the build, the browser is the engine.
 - The plate camera: centre `C`, right vector `R = (1, 0, 0)`, up vector
   `U = (0, cos 60°, −sin 60°)`, view direction `D = (0, −sin 60°, −cos 60°)`.
   A world point P maps to plate metres `u = (P−C)·R`, `v = (P−C)·U`.
-- Density: **96 px per metre** along u at full resolution (L0).
+- Density: **192 px per metre** along u at full resolution (L0), served as a
+  tile pyramid (L0, mips at 1/2 and 1/4, overview L1 at 1/8).
 
 ## 5. Cutaway rules (the look of a section drawing, fixed)
 
@@ -143,7 +144,8 @@ beacon), **idle** (seeded off-duty life: mess, corridor, viewports), **paused**
 - Only CC0 third-party textures/HDRIs (e.g. Poly Haven), recorded in a license
   ledger with URL and hash.
 - Cooked output lives in `dodaios/ui/web/frontend/public/verse/` (plates as
-  AVIF tiles, glb, json). Budget for the whole cooked Verse: **≤ 30 MB**.
+  AVIF tiles, glb, json). Budget for the whole cooked Verse: **≤ 90 MB**,
+  at most 16 MB of plate per deck.
 - Gates: asset validator (names, budgets, sockets, manifest schema), cook
   reproducibility, runtime checks (draw calls, frame time), visual QA in Chrome
   against the reference contact sheet.

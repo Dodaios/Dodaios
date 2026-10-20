@@ -224,6 +224,8 @@ def build_technician(ctx):
     belt_z = 0.585 * ctx.H
     neck_z = ctx.L["neck"].z
     garment = O.garment_body(ctx, lambda c: classify_suit(c, boot_top), name="Garment")
+    ctx.hi = {"Garment": O.keep_hi(garment, "Hi_Technician")}
+    ctx.look = {"belt_z": belt_z, "boot_top": boot_top, "neck_z": neck_z, "female": False}
     O.decimate(garment, 8000 / C.tri_count(garment))
     parts = [garment]
     parts.append(O.boots(ctx, boot_top, flare=0.004, inflate=0.008))
@@ -686,6 +688,8 @@ def build_trooper(ctx):
         ),
         name="Garment",
     )
+    ctx.hi = {"Garment": O.keep_hi(garment, "Hi_Trooper")}
+    ctx.look = {"belt_z": belt_z, "boot_top": boot_top, "neck_z": neck_z, "female": False}
     O.decimate(garment, 4000 / C.tri_count(garment))
     parts = [garment]
     torso_bvh = _region_bvh(ctx, ["Spine", "Chest", "Hips", "Neck", "Shoulder_L", "Shoulder_R"])

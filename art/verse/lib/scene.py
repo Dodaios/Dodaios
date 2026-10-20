@@ -48,8 +48,10 @@ class QualityPreset:
 
 
 QUALITY = {
+    # 192 px/m (5 mm plate pixels): the runtime's close third-person camera
+    # shows the plate at up to ~200 CSS px per metre, so L0 stays 1:1 there.
     "final": QualityPreset(
-        px_per_m=96, samples=384, adaptive_threshold=0.01, env_samples=256, probe_samples=128
+        px_per_m=192, samples=192, adaptive_threshold=0.02, env_samples=256, probe_samples=128
     ),
     "preview": QualityPreset(
         px_per_m=48, samples=96, adaptive_threshold=0.03, env_samples=64, probe_samples=32
@@ -164,15 +166,16 @@ def configure_render(scene: bpy.types.Scene, quality: str = "final", exposure: f
 def plate_camera(
     scene: bpy.types.Scene,
     bounds: Bounds,
-    px_per_m: int = 96,
+    px_per_m: int | None = None,
     collection: bpy.types.Collection | None = None,
 ) -> bpy.types.Object:
-    """The scene's plate camera (created if missing), framed on `bounds`."""
+    """The scene's plate camera (created if missing), framed on `bounds`
+    (default density: the final preset's)."""
     camera = scene.objects.get("CAM_plate")
     if camera is None:
         camera = _add_plate_camera(scene, collection or scene.collection)
     scene.camera = camera
-    apply_frame(scene, camera, frame_for(bounds, px_per_m))
+    apply_frame(scene, camera, frame_for(bounds, px_per_m or QUALITY["final"].px_per_m))
     return camera
 
 
