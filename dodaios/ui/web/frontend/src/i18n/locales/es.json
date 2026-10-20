@@ -5798,7 +5798,10 @@
       "restart_aria": "Reiniciar {pane}",
       "restart_title": "Iniciar un {agent} nuevo en {pane}",
       "restart": "Reiniciar",
-      "show_in_git": "Mostrar los cambios de {pane} en Git"
+      "show_in_git": "Mostrar los cambios de {pane} en Git",
+      "scrollbar": "Desplazar la terminal",
+      "scroll_up": "Desplazar hacia arriba",
+      "scroll_down": "Desplazar hacia abajo"
     }
   },
   "prompt_writer": {
@@ -8316,7 +8319,10 @@
         "follow_restart_pending": "Hay código nuevo; la app se reinicia en cuanto no haya ninguna misión ni llamada en curso.",
         "follow_updated": "Actualizado {when}: {subject}",
         "follow_click_off": "Haz clic para dejar de seguir main.",
-        "session_diff_badge": "Cambios de {pane}"
+        "session_diff_badge": "Cambios de {pane}",
+        "follow_clear_lock": "Quitar el bloqueo de git antiguo",
+        "follow_clear_lock_title": "¿Quitar el bloqueo de git que existe desde {since}?",
+        "follow_clear_lock_body": "Un comando de git interrumpido dejó .git/index.lock, y eso impide que esta app se actualice. Quítalo solo si ningún comando de git se está ejecutando en esta carpeta."
       }
     },
     "skills": {

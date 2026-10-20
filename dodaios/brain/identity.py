@@ -37,10 +37,8 @@ _FORMER_PRODUCT_NAME: Final[str] = "Personal Jarvis"
 _FORMER_SHORT_NAME: Final[str] = "Jarvis"
 #: Tells a model that holds the ``update_soul`` tool to keep SOUL.md current.
 SOUL_UPDATE_DIRECTIVE: Final[str] = (
-    "Keep your character file current yourself: when the user tells you how you should be "
-    "or present yourself, or corrects it, save that right away with the update_soul tool "
-    "as one short third-person note (replace a note on the same subject instead of adding "
-    "a near-duplicate). Facts about the user do not belong there."
+    "When the user says how you should be, save it with update_soul as one short third-person "
+    "note, replacing older notes on that subject. Facts about the user do not belong there."
 )
 #: Minimum seconds between two mtime checks of SOUL.md from a prompt path.
 _STAT_INTERVAL_S: Final[float] = 2.0
@@ -53,33 +51,30 @@ _cache: dict[tuple[str, bool], tuple[float, float, str]] = {}
 def name_directive(name: str) -> str:
     """The identity sentence every surface puts first."""
     name = " ".join((name or "").split())
-    app = f"{PRODUCT_NAME} (formerly {_FORMER_PRODUCT_NAME})"
     if not name or name == DEFAULT_ASSISTANT_NAME:
         return (
-            f"You are the user's personal assistant inside the {app} app. You have "
-            "no personal name yet (the user gives you one by choosing a wake word), so "
-            f"introduce yourself as their assistant in {PRODUCT_NAME}, never as a model or "
-            "provider."
+            f"You are the user's personal assistant inside the {PRODUCT_NAME} app. You have "
+            "no personal name yet (the user gives you one by choosing a wake word); never "
+            "introduce yourself as a model or provider."
         )
     key = name.casefold()
-    if key == PRODUCT_NAME.casefold():
-        # The user named the assistant after the app: there is nothing to tell apart.
-        app_line = f"The app you run inside is called {app} as well."
-        example = f"I'm {name}, your assistant"
-    else:
-        app_line = f"{app} is the name of the app you run inside, not your name."
-        example = f"I'm {name}, your assistant in {PRODUCT_NAME}"
     # A name the user chose for the assistant is never forbidden to it.
     never = ", ".join(
         f"as {other}"
         for other in (PRODUCT_NAME, _FORMER_PRODUCT_NAME, _FORMER_SHORT_NAME)
         if other.casefold() != key
     )
+    if key == PRODUCT_NAME.casefold():
+        # The user named the assistant after the app: there is nothing to tell apart.
+        return (
+            f"YOUR NAME IS {name.upper()}. You are {name}, the user's personal assistant "
+            f"inside the app of the same name; you never introduce yourself {never} or by "
+            "a model or provider name."
+        )
     return (
-        f"YOUR NAME IS {name.upper()}. You are {name}, the user's personal assistant. "
-        f"{app_line} When asked who or what you are, answer as {name} (for example: "
-        f"\"{example}\") and sign as {name}; never introduce yourself {never} or by a "
-        "model or provider name."
+        f"YOUR NAME IS {name.upper()}. You are {name}, the user's personal assistant; "
+        f"{PRODUCT_NAME} is the name of the app you run inside, not your name, and you "
+        f"never introduce yourself {never} or by a model or provider name."
     )
 
 

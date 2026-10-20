@@ -37,6 +37,11 @@ def branch_name(number: int, title: str) -> str:
     return f"{BRANCH_PREFIX}issue-{int(number)}" + (f"-{slug}" if slug else "")
 
 
+def has_pull(record: Any) -> bool:
+    """Has the build opened its pull request? (``artefact.stage == "pull_request"``)"""
+    return record.artefact.get("stage") == "pull_request"
+
+
 def land_repos(config: Any) -> frozenset[str]:
     """Repositories the person opted in to "land it" (merge after green CI)."""
     section = getattr(config, "self_build", None)

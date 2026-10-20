@@ -25,14 +25,13 @@ install/uninstall.ps1        text eol=lf
 # Wave 6: the hash-pinned dependency lockfile + its source `requirements.in`
 # are signed alongside the install scripts. Same LF-pinning discipline so
 # the cross-runner hash assertion (cross-runner-hash.yml) does not break
-# on Windows. `verify-wave6.sh` is the goal-terminal proof script.
+# on Windows.
 requirements.txt             text eol=lf
 requirements.in              text eol=lf
 dodaios/assets/browser/requirements.lock text eol=lf
 dodaios/assets/browser/requirements.in text eol=lf
 dodaios/assets/browser/bootstrap.lock text eol=lf
 dodaios/assets/browser/bootstrap.in text eol=lf
-verify-wave6.sh              text eol=lf
 
 # Git hooks run through a POSIX shell and must never be checked out as CRLF.
 .githooks/*                  text eol=lf

@@ -125,6 +125,8 @@ ledger; build calls `self_build:<id>`.
 | routine | a lead-owned Automations task on a subscription or local seat, no plugin grants, no announcement | schedule before 2/3 of the requests, grounded prompt, nothing outbound, a shadow run | paused |
 | agent | `Roster.create` on a subscription or local seat | free name, clean instructions, focus from used tools, shadow answers | paused |
 
+Every artefact carries the shared join key `id` next to its own fields: the skill name, the routine's task id, the agent id, or the memory notebook's path in the vault (with `entry_id`).
+
 **Measure.** A skill run counts as a use, a correction within two minutes as
 corrected. A routine run counts, a manual request within a day after a run as
 corrected, a failed run as ignored. A turn in a self-built agent's chat
