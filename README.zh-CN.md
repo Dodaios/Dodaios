@@ -100,6 +100,10 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 
 ## 成倍放大的 Vibe Coding
 
+https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
+
+<p align="center"><sub>Agentic IDE 的真实录屏：三个智能体同时工作，侧边栏里是你自己的 Chrome，还有文件、Git 差异和第二个工作区。</sub></p>
+
 **Agentic IDE** 把一块屏幕变成一个编程车间。打开一个项目，把它拆分成多个窗格，再给每个窗格分配一个编程智能体。
 每个窗格都有自己的呼号，你可以完全不用动手地指挥它们：
 
