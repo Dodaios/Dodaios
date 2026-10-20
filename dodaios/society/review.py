@@ -175,6 +175,7 @@ async def mark_review_dropped(runtime: Any, pending: dict[str, Any], attempts: i
     try:
         record = json.loads(await runtime.store.get_meta(key, "") or "{}")
     except ValueError:
+        log.warning("society review: unreadable status record for %s, rewritten", agent_id)
         record = {}
     if not isinstance(record, dict) or record.get("turn_id") != pending["turn_id"]:
         record = {"turn_id": pending["turn_id"]}
