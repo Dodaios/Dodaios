@@ -41,7 +41,7 @@ produce a *managed* or *dev* install, which updates through git - see
 Everything starts from one PyInstaller build:
 
 ```bash
-pyinstaller jarvis.spec --noconfirm --clean
+pyinstaller dodaios.spec --noconfirm --clean
 ```
 
 `onedir`, not `onefile`: no 3-5 second extraction on every launch, and each DLL
@@ -109,7 +109,7 @@ Two flags shorten the loop: `-SkipPyInstaller` repackages the existing
 `dist/Jarvis` (seconds instead of ~12 minutes) and `-SkipFrontend` refuses to
 run npm.
 
-The wizard itself is `packaging/windows/PersonalJarvis.iss`:
+The wizard itself is `packaging/windows/Dodaios.iss`:
 
 - **per-user** (`PrivilegesRequired=lowest`, `{localappdata}\Programs\Personal
   Jarvis`) - no administrator prompt, exactly like Chrome. This is also what
@@ -140,12 +140,12 @@ freeze, so an unusable certificate fails early), `APPLE_SIGNING_IDENTITY`
 `APPLE_TEAM_ID` and `APPLE_APP_SPECIFIC_PASSWORD`; with none of them set it
 ad-hoc signs, skips notarization and prints a one-line notice. The `.app`'s
 identity (bundle id, minimum system version) comes from the `BUNDLE` block in
-`jarvis.spec`. The usage strings macOS shows in its permission dialogs
+`dodaios.spec`. The usage strings macOS shows in its permission dialogs
 (microphone, screen capture, Apple events, the Desktop / Documents / Downloads /
 removable-volume / network-volume folders, local network) come from ONE table,
-`dodaios/core/macos_privacy_strings.py`, which `jarvis.spec` and the managed
+`dodaios/core/macos_privacy_strings.py`, which `dodaios.spec` and the managed
 source-install app both load by path, so the two apps cannot drift apart. The same
-table carries the German and Spanish versions: `jarvis.spec` declares the languages
+table carries the German and Spanish versions: `dodaios.spec` declares the languages
 (`CFBundleLocalizations`) and `build.sh` writes
 `Contents/Resources/{de,es}.lproj/InfoPlist.strings` into the finished `.app`
 (`packaging/macos/add_localizations.py`) BEFORE it signs it, because the files are

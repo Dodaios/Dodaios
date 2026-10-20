@@ -56,7 +56,7 @@ import { useAppZoom } from "@/hooks/useAppZoom";
 import { ZoomIndicator } from "@/components/ZoomIndicator";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
 import { useCreateAgentDialog } from "@/components/society/create/createAgentStore";
-import { JarvisDock } from "@/components/JarvisDock";
+import { DodaiosDock } from "@/components/DodaiosDock";
 import { CliConnectPoller } from "@/components/CliConnectPoller";
 import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
 import { installDictationFocusTracker } from "@/lib/dictationTarget";
@@ -419,7 +419,7 @@ export default function App() {
       <EditContextMenu />
       {/* Always-present "Jarvis presence" drop dock — drag a mission/output
           card here to pull it into the live conversation context. */}
-      <JarvisDock />
+      <DodaiosDock />
       {/* Background polling for CLI OAuth logins — polls /check every 3s
           as long as a cliConnectCoach is set in the store. */}
       <CliConnectPoller />

@@ -71,7 +71,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final
 
-from dodaios.agent_chat import jarvis_harness
+from dodaios.agent_chat import dodaios_harness
 from dodaios.agent_chat.approval_bridge import approval_ref
 from dodaios.agent_chat.cli_catalog import CatalogCache, catalog_key, discover_codex_models
 from dodaios.agent_chat.effort import (
@@ -606,7 +606,7 @@ def plan_claude(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     return _plan_claude_code(
         prompt=prompt,
@@ -616,7 +616,7 @@ def plan_claude(
         permission_mode=permission_mode,
         resume=resume,
         identity=identity,
-        env=jarvis_harness.apply_env(_account_env("claude")),
+        env=dodaios_harness.apply_env(_account_env("claude")),
         thinking_summaries=True,
     )
 
@@ -629,7 +629,7 @@ def plan_glm(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     """GLM Coding Plan: Claude Code's own plan, pointed at Z.ai by the registry.
 
@@ -650,7 +650,7 @@ def plan_glm(
         permission_mode=permission_mode,
         resume=resume,
         identity=identity,
-        env=jarvis_harness.apply_env(_registry_env("glm", dict(os.environ))),
+        env=dodaios_harness.apply_env(_registry_env("glm", dict(os.environ))),
     )
 
 
@@ -662,7 +662,7 @@ def _plan_claude_code(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None,
+    identity: dodaios_harness.Identity | None,
     env: dict[str, str],
     thinking_summaries: bool = False,
 ) -> CliPlan:
@@ -703,13 +703,13 @@ def _plan_claude_code(
     # yet) — the session then behaves exactly as it did before. On the Jarvis
     # surface the identity is Jarvis' whole head, in a FILE: argv cannot carry
     # it on Windows (32 767 characters for the whole command line).
-    mcp_config = jarvis_harness.mcp_config_json(identity.session_id if identity else None)
+    mcp_config = dodaios_harness.mcp_config_json(identity.session_id if identity else None)
     if mcp_config:
         argv += ["--mcp-config", mcp_config]
         if identity is not None and identity.path is not None:
             argv += ["--append-system-prompt-file", str(identity.path)]
         else:
-            argv += ["--append-system-prompt", jarvis_harness.SYSTEM_PREAMBLE]
+            argv += ["--append-system-prompt", dodaios_harness.SYSTEM_PREAMBLE]
     if resume:
         argv += ["--resume", resume]
         sid = resume
@@ -735,7 +735,7 @@ def plan_grok(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     # Grok Build takes the prompt on argv, so the identity rides in front of
     # it — the compact cut, and only on a fresh conversation.
@@ -745,7 +745,7 @@ def plan_grok(
     if identity is not None:
         # grok has no --mcp-config; a project `.grok/config.toml` is how
         # print-mode actually sees Jarvis' tools (gmail, calendar, the rest).
-        jarvis_harness.install_grok_jarvis_mcp(work, identity.session_id)
+        dodaios_harness.install_grok_jarvis_mcp(work, identity.session_id)
     argv = [
         *grok_argv_prefix(),
         "--no-auto-update",
@@ -777,7 +777,7 @@ def plan_grok(
         sid = str(uuid.uuid4())
         argv += ["--session-id", sid]
     argv += ["-p", _argv_prompt(argv, prompt)]
-    env = jarvis_harness.apply_env(_account_env("grok-build"))
+    env = dodaios_harness.apply_env(_account_env("grok-build"))
     env.setdefault("PYTHONIOENCODING", "utf-8")
     return CliPlan(argv, env, None, "claude", sid)
 
@@ -925,7 +925,7 @@ def plan_agy(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     mode = normalize_permission("agy-cli", permission_mode)
     # agy has no system-prompt flag: the identity rides in front of the prompt
@@ -935,7 +935,7 @@ def plan_agy(
     if identity is not None:
         # agy has no --mcp-config; a workspace plugin is how print-mode
         # actually sees Jarvis' tools (gmail, linear, the rest of the gateway).
-        jarvis_harness.install_agy_jarvis_plugin(work, identity.session_id)
+        dodaios_harness.install_agy_jarvis_plugin(work, identity.session_id)
     argv = [
         *agy_argv_prefix(),
         "--output-format",
@@ -959,7 +959,7 @@ def plan_agy(
     argv += agy_model_args(model, effort, _agy_catalog_cached())
     if resume:
         argv += ["--conversation", resume]
-    env = jarvis_harness.apply_env(_account_env("antigravity"))
+    env = dodaios_harness.apply_env(_account_env("antigravity"))
     env.setdefault("AGY_CLI_HIDE_LOGO", "1")
     env.setdefault("PYTHONIOENCODING", "utf-8")
     # Prompt on stdin: no argv length limit, and no ``-p`` that could swallow
@@ -1119,7 +1119,7 @@ def plan_codex(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     mode = normalize_permission("codex-cli", permission_mode)
     # Codex reads the prompt from stdin, which has no length limit: the
@@ -1135,7 +1135,7 @@ def plan_codex(
     argv += ["--skip-git-repo-check"]
     # Jarvis' own tools over streamable-HTTP MCP, mounted for this run only —
     # the person's ~/.codex/config.toml is never touched.
-    argv += jarvis_harness.codex_config_args(identity.session_id if identity else None)
+    argv += dodaios_harness.codex_config_args(identity.session_id if identity else None)
     if identity is not None:
         # A Jarvis seat must use the browser and connections visible in Jarvis.
         # Inheriting the coding CLI's plugins gives it a second, unrelated
@@ -1203,7 +1203,7 @@ def plan_codex(
         argv += ["--model", model]
     argv += ["-"]  # prompt on stdin
     text = _PLAN_PREAMBLE + prompt if mode == "plan" else prompt
-    return CliPlan(argv, jarvis_harness.apply_env(_account_env("codex")), text, "codex", resume)
+    return CliPlan(argv, dodaios_harness.apply_env(_account_env("codex")), text, "codex", resume)
 
 
 _OPENCODE_CATALOG: dict[str, Any] = {"at": 0.0, "rows": None}
@@ -1265,7 +1265,7 @@ def plan_opencode(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     mode = normalize_permission("opencode-cli", permission_mode)
     # The prompt is a positional of ``run`` (no stdin mode), behind ``--`` so
@@ -1316,7 +1316,7 @@ def plan_kimi(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     mode = normalize_permission("kimi-cli", permission_mode)
     prompt = _with_identity(prompt, identity, resume)
@@ -1347,7 +1347,7 @@ def plan_dsh(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     """DeepSeek Harness's headless profile: one task in, the final message out.
 
@@ -1370,7 +1370,7 @@ def plan_cursor(
     effort: str,
     permission_mode: str,
     resume: str | None,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
 ) -> CliPlan:
     """Cursor CLI print mode: one prompt in, stream-json events out.
 
@@ -1416,7 +1416,7 @@ def _digest(text: str) -> str:
 
 def _with_identity(
     prompt: str,
-    identity: jarvis_harness.Identity | None,
+    identity: dodaios_harness.Identity | None,
     resume: str | None,
     *,
     compact: bool = False,
@@ -1434,13 +1434,13 @@ def _with_identity(
     society = identity.session_id.startswith("society:")
     if not resume:
         if society:
-            refresh = jarvis_harness.society_memory_refresh(identity.text, compact=compact)
+            refresh = dodaios_harness.society_memory_refresh(identity.text, compact=compact)
             _REFRESH_SENT[identity.session_id] = (_digest(refresh), 0)
         text = identity.compact if compact else identity.text
         return f"<jarvis_identity>\n{text}\n</jarvis_identity>\n\n{prompt}"
     if not society:
         return prompt
-    refresh = jarvis_harness.society_memory_refresh(identity.text, compact=compact)
+    refresh = dodaios_harness.society_memory_refresh(identity.text, compact=compact)
     digest = _digest(refresh)
     sent, turns = _REFRESH_SENT.get(identity.session_id, ("", 0))
     if sent == digest and turns + 1 < _REFRESH_EVERY:
@@ -1448,7 +1448,7 @@ def _with_identity(
     else:
         head, turns = refresh, 0
     _REFRESH_SENT[identity.session_id] = (digest, turns)
-    state = jarvis_harness.society_turn_state(identity.text)
+    state = dodaios_harness.society_turn_state(identity.text)
     if state:
         head += f"<jarvis_turn_context>\n{state}\n</jarvis_turn_context>\n\n"
     return head + prompt
@@ -3176,7 +3176,7 @@ async def run_cli_turn(
         resume
         and identity
         and session.surface == "society"
-        and jarvis_harness.society_rollover_due(handle.history)
+        and dodaios_harness.society_rollover_due(handle.history)
     ):
         # One endless chat, bounded CLI conversations: start fresh from the
         # briefing, memory and recent transcript, and mark where it began.
@@ -3185,7 +3185,7 @@ async def run_cli_turn(
             make_event(
                 "notice",
                 {
-                    "kind": jarvis_harness.ROLLOVER_NOTICE_KIND,
+                    "kind": dodaios_harness.ROLLOVER_NOTICE_KIND,
                     "text": "Started a fresh working context from memory and recent messages.",
                 },
             )
@@ -3215,7 +3215,7 @@ async def run_cli_turn(
     handle = replace(handle, emit=observe, request_approval=ask)
     if getattr(handle, "output_language", "") and not user_text.startswith("/goal"):
         user_text += "\nRespond in this language: " + handle.output_language
-    ident: jarvis_harness.Identity | None = None
+    ident: dodaios_harness.Identity | None = None
     ref = approval_ref(session.session_id)
     # A society agent's seat: its own briefing is the identity (not Jarvis'
     # layers), and its pinned subscription account is the seat's login.
@@ -3226,7 +3226,7 @@ async def run_cli_turn(
         )
     account_token = ACCOUNT_OVERRIDE.set(getattr(session, "account_id", "") or "")
     if identity:
-        ident = await jarvis_harness.build_identity(
+        ident = await dodaios_harness.build_identity(
             session_id=session.session_id,
             turn_id=handle.turn_id,
             user_text=user_text,
@@ -3286,8 +3286,8 @@ async def run_cli_turn(
             )
             if ident is not None:
                 # Fresh conversation: the transcript belongs in front now.
-                jarvis_harness.remove_identity_file(ident.path)
-                ident = await jarvis_harness.build_identity(
+                dodaios_harness.remove_identity_file(ident.path)
+                ident = await dodaios_harness.build_identity(
                     session_id=session.session_id,
                     turn_id=handle.turn_id,
                     user_text=user_text,
@@ -3334,7 +3334,7 @@ async def run_cli_turn(
         if bridge is not None and identity:
             bridge.disarm(ref)
         if ident is not None:
-            jarvis_harness.remove_identity_file(ident.path)
+            dodaios_harness.remove_identity_file(ident.path)
     await handle.emit(
         make_event(
             "turn_finished",
@@ -3477,7 +3477,7 @@ async def _run_cli_once(
     runner: str,
     resume: str | None,
     *,
-    identity: jarvis_harness.Identity | None = None,
+    identity: dodaios_harness.Identity | None = None,
     bridge: Any | None = None,
 ) -> _Outcome:
     session = handle.session

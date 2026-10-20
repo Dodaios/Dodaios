@@ -76,7 +76,7 @@ def test_extract_fence_missing_fence_returns_empty() -> None:
 
 
 def test_load_persona_prompt_extracts_real_persona(monkeypatch) -> None:
-    """Integration test against the real JARVIS_PERSONA.md in the repo.
+    """Integration test against the real DODAIOS_PERSONA.md in the repo.
 
     Checks sections that have been live in the MD since persona mandate
     phase 2 (2026-04-25) — critical for the hangup contract and echo
@@ -123,7 +123,7 @@ def test_compact_falls_back_to_full_when_section_missing(
     """A persona that silently shrank to nothing would change the voice;
     a missing compact section must serve the full block instead."""
     invalidate_cache()
-    md_file = tmp_path / "JARVIS_PERSONA.md"
+    md_file = tmp_path / "DODAIOS_PERSONA.md"
     md_file.write_text(
         "## System-Prompt\n```\nFull only.\n```\n", encoding="utf-8"
     )
@@ -160,7 +160,7 @@ def test_load_persona_prompt_missing_file_returns_empty(monkeypatch, tmp_path) -
 def test_load_persona_prompt_cache_reuses_read(monkeypatch, tmp_path) -> None:
     """`load_persona_prompt` reads the file only once per cache window."""
     invalidate_cache()
-    md_file = tmp_path / "JARVIS_PERSONA.md"
+    md_file = tmp_path / "DODAIOS_PERSONA.md"
     md_file.write_text(
         "## System-Prompt\n```\nFirst version.\n```\n", encoding="utf-8"
     )
@@ -184,7 +184,7 @@ def test_load_persona_prompt_cache_reuses_read(monkeypatch, tmp_path) -> None:
 def test_load_persona_prompt_crlf_normalized(monkeypatch, tmp_path) -> None:
     """Windows CRLF is processed as LF."""
     invalidate_cache()
-    md_file = tmp_path / "JARVIS_PERSONA.md"
+    md_file = tmp_path / "DODAIOS_PERSONA.md"
     md_file.write_bytes(
         b"## System-Prompt\r\n```\r\nCRLF content.\r\n```\r\n"
     )

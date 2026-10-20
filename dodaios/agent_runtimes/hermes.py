@@ -464,7 +464,7 @@ class HermesRuntime:
         )
         servers: list[McpServer] = []
         if turn.mcp_url and turn.control_key:
-            from dodaios.agent_chat.jarvis_harness import HEADER_NAME
+            from dodaios.agent_chat.dodaios_harness import HEADER_NAME
             from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
 
             servers.append(

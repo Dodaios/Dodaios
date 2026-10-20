@@ -70,8 +70,8 @@ DEV_INSTANCE_NAME = "dev"
 #: The dev instance listens this many ports above every configured port.
 DEV_PORT_OFFSET = 100
 #: Icon file (in ``assets/icons``) each instance shows on taskbar, dock and tray.
-DEFAULT_ICON_FILE_NAME = "jarvis.ico"
-DEV_ICON_FILE_NAME = "jarvis-dev.ico"
+DEFAULT_ICON_FILE_NAME = "dodaios.ico"
+DEV_ICON_FILE_NAME = "dodaios-dev.ico"
 #: Short label appended to the product name ("Dodaios Dev").
 DEV_LABEL = "Dev"
 
