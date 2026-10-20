@@ -306,6 +306,17 @@ class SeatChoice:
         }
 
 
+def _failure_kind(exc: BaseException) -> str:
+    """A fixed word for why a review call failed, safe to log."""
+    import asyncio
+
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+        return "timeout"
+    if isinstance(exc, asyncio.CancelledError):
+        return "cancelled"
+    return "error"
+
+
 def _billing(seat: Any) -> str:
     from dodaios.society.seat_brain import bills_per_token
 
@@ -418,6 +429,7 @@ class ModelReviewer:
             if answered:
                 log.info("learning review answered on %s: %s", choice.describe(), choice.why)
                 return result
+            log.warning("learning review: %s did not answer (%s)", choice.describe(), result)
         return None
 
     async def _ask(
@@ -442,8 +454,6 @@ class ModelReviewer:
             )
             return True, self._parse(agg.text)
         except Exception as exc:  # noqa: BLE001 - a failed attempt; the next seat or a retry
-            # The type only: a provider's error body never reaches a log (AP-34).
-            log.warning(
-                "learning review: %s did not answer (%s)", choice.describe(), type(exc).__name__
-            )
-            return False, None
+            # A fixed category only: nothing derived from the call (which carries
+            # the person's conversation) or a provider's error body is logged (AP-34).
+            return False, _failure_kind(exc)
