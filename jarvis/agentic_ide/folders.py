@@ -286,7 +286,7 @@ def list_dir(
                     )
                 )
     except PermissionError:
-        return [], f"Jarvis is not allowed to look inside {target}. Pick another folder."
+        return [], f"Dodaios is not allowed to look inside {target}. Pick another folder."
     except OSError as exc:
         return [], f"Cannot read {target}: {exc}"
 
@@ -508,7 +508,7 @@ def create_folder(parent: str | Path | None, name: str) -> tuple[FolderEntry | N
             return None, f"{target} already exists and is a file, not a folder."
         target.mkdir()
     except PermissionError:
-        return None, f"Jarvis is not allowed to create folders inside {base}."
+        return None, f"Dodaios is not allowed to create folders inside {base}."
     except OSError as exc:
         return None, f"Could not create {target}: {exc}"
 

@@ -36,24 +36,24 @@ _JARGON = (
 
 
 class TestProviderDownPhrase:
-    @pytest.mark.parametrize("lang", ["de", "en", "es"])
+    @pytest.mark.parametrize("lang", ["de", "en", "es", "pt"])
     def test_three_variants_per_supported_language(self, lang: str) -> None:
         assert len(_PROVIDER_DOWN_PHRASES[lang]) == 3
         assert len(set(_PROVIDER_DOWN_PHRASES[lang])) == 3  # all distinct
 
-    @pytest.mark.parametrize("lang", ["de", "en", "es"])
+    @pytest.mark.parametrize("lang", ["de", "en", "es", "pt"])
     def test_rotation_is_deterministic_and_cycles(self, lang: str) -> None:
         got = [_provider_down_phrase(lang, i) for i in range(6)]
         assert got[0] == got[3] and got[1] == got[4] and got[2] == got[5]
         assert len({got[0], got[1], got[2]}) == 3
 
-    def test_auto_falls_back_to_german(self) -> None:
-        assert _provider_down_phrase("auto", 0) == _PROVIDER_DOWN_PHRASES["de"][0]
+    def test_auto_falls_back_to_english(self) -> None:
+        assert _provider_down_phrase("auto", 0) == _PROVIDER_DOWN_PHRASES["en"][0]
 
-    def test_unknown_language_falls_back_to_german(self) -> None:
-        assert _provider_down_phrase("fr", 1) == _PROVIDER_DOWN_PHRASES["de"][1]
+    def test_language_without_translations_falls_back_to_english(self) -> None:
+        assert _provider_down_phrase("tr", 1) == _PROVIDER_DOWN_PHRASES["en"][1]
 
-    @pytest.mark.parametrize("lang", ["de", "en", "es", "auto", "FR"])
+    @pytest.mark.parametrize("lang", ["de", "en", "es", "pt", "auto", "FR"])
     def test_phrase_is_voice_safe_no_provider_jargon(self, lang: str) -> None:
         for i in range(3):
             low = _provider_down_phrase(lang, i).lower()
@@ -64,6 +64,10 @@ class TestProviderDownPhrase:
         # Orthographic correctness — never ASCII-fold Spanish.
         joined = " ".join(_PROVIDER_DOWN_PHRASES["es"])
         assert any(c in joined for c in "áéíóúñ¿¡")
+
+    def test_portuguese_diacritics_preserved(self) -> None:
+        joined = " ".join(_PROVIDER_DOWN_PHRASES["pt"])
+        assert any(c in joined for c in "ãõçáéíóúâêô")
 
 
 class TestNextProviderDownPhraseAutoDetect:
@@ -89,9 +93,9 @@ class TestNextProviderDownPhraseAutoDetect:
         m = self._manager("auto", "es")
         assert m._next_provider_down_phrase() == _PROVIDER_DOWN_PHRASES["es"][0]
 
-    def test_auto_mode_unknown_turn_keeps_german_default(self) -> None:
+    def test_auto_mode_unknown_turn_uses_english_default(self) -> None:
         m = self._manager("auto", "")
-        assert m._next_provider_down_phrase() == _PROVIDER_DOWN_PHRASES["de"][0]
+        assert m._next_provider_down_phrase() == _PROVIDER_DOWN_PHRASES["en"][0]
 
     def test_pin_wins_over_detected_turn_language(self) -> None:
         m = self._manager("de", "en")
@@ -124,7 +128,7 @@ class TestCauseAwareProviderDownPhrase:
         from jarvis.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
 
         for cause, table in _PROVIDER_DOWN_CAUSE_PHRASES.items():
-            assert set(table) == {"de", "en", "es"}, cause
+            assert set(table) == {"de", "en", "es", "pt"}, cause
 
     def test_cause_phrases_are_voice_safe(self) -> None:
         from jarvis.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
@@ -144,11 +148,11 @@ class TestCauseAwareProviderDownPhrase:
     def test_unknown_cause_falls_back_to_generic_rotation(self) -> None:
         assert _provider_down_phrase("en", 1, "weird_kind") == (_PROVIDER_DOWN_PHRASES["en"][1])
 
-    def test_unknown_language_falls_back_to_german_cause_phrase(self) -> None:
+    def test_language_without_translations_falls_back_to_english_cause_phrase(self) -> None:
         from jarvis.brain.manager import _PROVIDER_DOWN_CAUSE_PHRASES
 
-        got = _provider_down_phrase("fr", 0, "rate_limit")
-        assert got == _PROVIDER_DOWN_CAUSE_PHRASES["rate_limit"]["de"]
+        got = _provider_down_phrase("tr", 0, "rate_limit")
+        assert got == _PROVIDER_DOWN_CAUSE_PHRASES["rate_limit"]["en"]
 
 
 class TestPrimaryProviderDownCause:

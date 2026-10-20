@@ -593,7 +593,7 @@ skills:
   # skill's own vocabulary, not a threshold change — which is exactly what the
   # quality gate is for.
   #
-  # (jarvis-doc-author would belong here too, but it is on disk WITHOUT being
+  # (dodaios-doc-author would belong here too, but it is on disk WITHOUT being
   # in BUILTIN_SKILL_NAMES, so a fresh install never receives it. The registry
   # coverage test caught that; do not add it back without shipping it first.)
   control-api:

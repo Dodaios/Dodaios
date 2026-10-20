@@ -1,6 +1,6 @@
 """In-app updater — one "Update Now" button over two very different installs.
 
-Personal Jarvis reaches a machine in one of two supported ways, and each one
+Dodaios reaches a machine in one of two supported ways, and each one
 updates itself differently:
 
 * **frozen** — the visitor downloaded a native installer from the website
@@ -20,7 +20,7 @@ Anything else (a maintainer checkout, a fork, a plain ``pip install``) is
 
 The managed path
 ----------------
-An end user installs Personal Jarvis with the one-line installer, which clones
+An end user installs Dodaios with the one-line installer, which clones
 the public flagship repo into ``~/.personal-jarvis`` and runs the app from that
 checkout. This module lets the running desktop app offer a one-click "Update
 Now" button so the user never has to re-run the installer from a terminal:
@@ -73,8 +73,11 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Request
 
 from jarvis.core.branding import (
+    DEFAULT_OFFICIAL_REPO_SLUG,
+    LEGACY_OFFICIAL_REPO_SLUGS,
     MANAGED_INSTALL_MARKER,
     OFFICIAL_RELEASES_LATEST_API_URL,
+    OFFICIAL_REPO_GIT_URL,
     OFFICIAL_REPO_SLUG,
     UPDATER_USER_AGENT,
 )
@@ -85,13 +88,22 @@ from jarvis.core.installer_update import (
     apply_installer,
     download_and_verify,
     download_workdir,
-    installer_asset_name,
+    installer_asset_names,
     machine_for_update,
     select_asset,
+    select_installer_assets,
     sweep_stale_downloads,
     update_blocker,
 )
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from jarvis.core.update_contract import (
+    CONTRACT_PATH,
+    DEFAULT_CONTRACT,
+    VERSION_PATTERN,
+    UpdateContract,
+    parse_update_contract,
+    read_update_contract,
+)
 
 log = logging.getLogger(__name__)
 
@@ -101,6 +113,7 @@ router = APIRouter(prefix="/api/update", tags=["update"])
 # guard verifies the installed checkout's ``origin`` resolves here before any
 # ``git reset --hard`` runs, so a dev checkout or a fork can never be self-reset.
 _OFFICIAL_REPO_SLUG = OFFICIAL_REPO_SLUG
+_LEGACY_OFFICIAL_REPO_SLUGS = LEGACY_OFFICIAL_REPO_SLUGS
 _RELEASES_LATEST_API = OFFICIAL_RELEASES_LATEST_API_URL
 # Written by install/installer.py into the checkout root. Its presence is one
 # half of "this copy is safe to self-update".
@@ -147,6 +160,19 @@ def _running_version() -> str:
         return "unknown"
 
 
+def _version_sources(contract: UpdateContract) -> tuple[tuple[str, str], ...]:
+    """``(path, pattern)`` pairs that can name a tree's version, best first.
+
+    The version file is the one the tree itself names in its update contract,
+    so a release that moved its package is still read correctly by the version
+    before it. ``pyproject.toml`` never moves and stays the fallback.
+    """
+    return (
+        (contract.version_file, VERSION_PATTERN),
+        ("pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
+    )
+
+
 def _version_on_disk(root: Path) -> str | None:
     """Parse the version from the freshly-pulled files on disk.
 
@@ -154,12 +180,9 @@ def _version_on_disk(root: Path) -> str | None:
     memory is still the OLD version, so the post-update version must be read
     from disk, not from ``jarvis.__version__``.
     """
-    for rel, pattern in (
-        (Path("jarvis") / "__init__.py", r'__version__\s*=\s*"([^"]+)"'),
-        (Path("pyproject.toml"), r'^version\s*=\s*"([^"]+)"'),
-    ):
+    for rel, pattern in _version_sources(read_update_contract(root)):
         try:
-            text = (root / rel).read_text(encoding="utf-8")
+            text = root.joinpath(*rel.split("/")).read_text(encoding="utf-8")
         except OSError:
             # Not "file absent" alone — an unreadable version file makes the
             # installed version look older than it is, which shows up as an
@@ -387,15 +410,60 @@ def _normalize_remote(url: str) -> str:
     return tail
 
 
+def _remote_matches_slug(url: str, slug: str) -> bool:
+    """True when ``url`` resolves to exactly ``slug``, not a look-alike name."""
+    norm = _normalize_remote(url).lower()
+    needle = slug.lower()
+    return norm == needle or norm.endswith("/" + needle)
+
+
+def _accepted_official_slugs() -> tuple[str, ...]:
+    """Current slug, plus the pre-rename address while that slug is still ours.
+
+    An environment override points the updater at a different repository on
+    purpose, so the legacy address is accepted only for the stock slug.
+    """
+    if _OFFICIAL_REPO_SLUG != DEFAULT_OFFICIAL_REPO_SLUG:
+        return (_OFFICIAL_REPO_SLUG,)
+    return (_OFFICIAL_REPO_SLUG, *_LEGACY_OFFICIAL_REPO_SLUGS)
+
+
 def _remote_is_official(url: str) -> bool:
-    """True only if ``url`` resolves to exactly the official ``owner/name``.
+    """True only if ``url`` resolves to an accepted official ``owner/name``.
 
     Must MATCH the last two path segments, not merely contain the slug — so a
-    look-alike fork (``.../PersonalJarvis/PersonalJarvisEvil``) is rejected.
+    look-alike fork (``.../Dodaios/DodaiosEvil``) is rejected. A checkout whose
+    origin is still ``PersonalJarvis/PersonalJarvis`` stays official; applying
+    an update rewrites that remote to the current URL.
     """
-    norm = _normalize_remote(url).lower()
-    slug = _OFFICIAL_REPO_SLUG.lower()
-    return norm == slug or norm.endswith("/" + slug)
+    return any(_remote_matches_slug(url, slug) for slug in _accepted_official_slugs())
+
+
+async def _retarget_legacy_origin(root: Path) -> None:
+    """Point a pre-rename origin at the current official URL.
+
+    Git still fetches through GitHub's redirect, but the next release of this
+    app identifies the checkout by the stored remote. Rewriting it here is what
+    keeps one-click updates working after the legacy slug is no longer enough.
+    """
+    origin = await _git_output(["remote", "get-url", "origin"], cwd=root)
+    if origin is None or _remote_matches_slug(origin, _OFFICIAL_REPO_SLUG):
+        return
+    if not _remote_is_official(origin):
+        return
+    rc, _out, err = await _git(
+        ["remote", "set-url", "origin", OFFICIAL_REPO_GIT_URL],
+        cwd=root,
+        timeout_s=30.0,
+    )
+    if rc != 0:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "could not retarget origin to the current repository: "
+                f"{err[:300] or 'unknown error'}"
+            ),
+        )
 
 
 async def _resolve_managed_repo() -> Path | None:
@@ -429,7 +497,21 @@ async def _fetch_latest_release() -> dict[str, Any] | None:
     try:
         import httpx
 
-        async with httpx.AsyncClient(timeout=_NETWORK_TIMEOUT_S) as client:
+        async def _stay_on_github_api(response: httpx.Response) -> None:
+            # A renamed repository answers 301. Follow that hop, and refuse any
+            # hop that leaves GitHub's API host: the JSON decides which
+            # installer the button will download.
+            if not response.has_redirect_location:
+                return
+            target = response.url.join(response.headers.get("location") or "")
+            if target.scheme != "https" or target.host != "api.github.com":
+                raise httpx.HTTPError(f"refusing a release-check redirect to {target}")
+
+        async with httpx.AsyncClient(
+            timeout=_NETWORK_TIMEOUT_S,
+            follow_redirects=True,
+            event_hooks={"response": [_stay_on_github_api]},
+        ) as client:
             resp = await client.get(
                 _RELEASES_LATEST_API,
                 headers={
@@ -610,12 +692,17 @@ async def _pending_update_overlay(root: Path) -> dict[str, Any]:
 
 
 async def _version_at_revision(root: Path, revision: str) -> str | None:
-    """Read a target version without checking that target out over the live app."""
+    """Read a target version without checking that target out over the live app.
 
-    for rel, pattern in (
-        ("jarvis/__init__.py", r'__version__\s*=\s*"([^"]+)"'),
-        ("pyproject.toml", r'^version\s*=\s*"([^"]+)"'),
-    ):
+    Where the version is written is asked of the TARGET revision's own update
+    contract, not assumed from this version's layout. A revision without a
+    contract is read as laid out like this version; ``pyproject.toml`` names
+    its version wherever the package is.
+    """
+
+    raw_contract = await _git_output(["show", f"{revision}:{CONTRACT_PATH}"], cwd=root)
+    contract = DEFAULT_CONTRACT if raw_contract is None else parse_update_contract(raw_contract)
+    for rel, pattern in _version_sources(contract):
         raw = await _git_output(["show", f"{revision}:{rel}"], cwd=root)
         if raw is None:
             continue
@@ -830,9 +917,9 @@ def _on_git_progress(line: str) -> None:
     _progress.advance(PHASE_DOWNLOADING, low + (high - low) * share)
 
 
-def _frozen_asset_name() -> str | None:
-    """The installer asset this machine installs, or ``None`` if there is none."""
-    return installer_asset_name(sys.platform, machine_for_update())
+def _frozen_asset_names() -> tuple[str, ...]:
+    """The installer assets this machine can install, best first; empty if none."""
+    return installer_asset_names(sys.platform, machine_for_update())
 
 
 # Old update downloads are reclaimed once per process, on the first status
@@ -852,13 +939,20 @@ async def _sweep_old_downloads_once() -> None:
 
 
 def _frozen_release_assets(
-    release: dict[str, Any], asset_name: str
-) -> tuple[Any | None, Any | None]:
-    """``(installer asset, checksum manifest asset)`` from a release payload."""
+    release: dict[str, Any], asset_names: tuple[str, ...]
+) -> tuple[tuple[Any, ...], Any | None]:
+    """``(installer assets, checksum manifest asset)`` from a release payload.
+
+    The installers are this machine's file under every accepted name the
+    release carries, best first — one entry for any release published so far.
+    """
     assets = release.get("assets") or []
     if not isinstance(assets, list):
-        return None, None
-    return select_asset(assets, asset_name), select_asset(assets, CHECKSUMS_ASSET_NAME)
+        return (), None
+    return (
+        select_installer_assets(assets, asset_names),
+        select_asset(assets, CHECKSUMS_ASSET_NAME),
+    )
 
 
 async def _frozen_status(current: str) -> dict[str, object]:
@@ -890,11 +984,13 @@ async def _frozen_status(current: str) -> dict[str, object]:
         # announced — the user should learn it exists — and apply refuses with
         # this sentence before downloading anything.
         "blocked_reason": None,
+        # The same verdict as a stable code the UI translates.
+        "blocked_code": None,
     }
     await _sweep_old_downloads_once()
 
-    asset_name = _frozen_asset_name()
-    if asset_name is None:
+    asset_names = _frozen_asset_names()
+    if not asset_names:
         # No installer is published for this OS/CPU pair (a Windows ARM64 box,
         # a Linux aarch64 box). Never offer what cannot be installed.
         log.info(
@@ -912,7 +1008,8 @@ async def _frozen_status(current: str) -> dict[str, object]:
         return result
 
     version = str(latest.get("version") or "")
-    asset, checksums = _frozen_release_assets(latest, asset_name)
+    installers, checksums = _frozen_release_assets(latest, asset_names)
+    asset = installers[0] if installers else None
     result["latest"] = version or None
     result["published_at"] = latest.get("published_at")
     result["release_url"] = latest.get("release_url")
@@ -923,7 +1020,7 @@ async def _frozen_status(current: str) -> dict[str, object]:
         log.info(
             "[update] release %s carries no %s / %s — not offering a frozen update",
             version or "?",
-            asset_name,
+            " / ".join(asset_names),
             CHECKSUMS_ASSET_NAME,
         )
         return result
@@ -932,7 +1029,10 @@ async def _frozen_status(current: str) -> dict[str, object]:
     if _is_newer(version, current):
         result["update_available"] = True
         result["notes"] = latest.get("notes")
-        result["blocked_reason"] = update_blocker()
+        blocker = update_blocker()
+        if blocker is not None:
+            result["blocked_reason"] = blocker.message
+            result["blocked_code"] = blocker.code
     return result
 
 
@@ -1011,12 +1111,12 @@ async def _apply_frozen(
     _progress.begin(INSTALL_KIND_FROZEN)
     _refuse_if_missions_run(request, force=force)
     current = _running_version()
-    asset_name = _frozen_asset_name()
-    if asset_name is None:
+    asset_names = _frozen_asset_names()
+    if not asset_names:
         raise HTTPException(
             status_code=501,
             detail=(
-                f"no Personal Jarvis installer is published for "
+                f"no Dodaios installer is published for "
                 f"{sys.platform}/{platform_module.machine()}"
             ),
         )
@@ -1044,12 +1144,13 @@ async def _apply_frozen(
     if not _is_newer(release_version, current):
         raise HTTPException(status_code=409, detail="no newer published release exists")
 
-    asset, checksums = _frozen_release_assets(latest, asset_name)
-    if asset is None:
+    installers, checksums = _frozen_release_assets(latest, asset_names)
+    if not installers:
         raise HTTPException(
             status_code=502,
-            detail=f"release {release_tag} does not contain {asset_name}",
+            detail=f"release {release_tag} does not contain {' or '.join(asset_names)}",
         )
+    asset = installers[0]
     if checksums is None:
         raise HTTPException(
             status_code=502,
@@ -1063,7 +1164,7 @@ async def _apply_frozen(
     if blocker is not None:
         # Asked before the download: otherwise the user waits for several
         # hundred MB only to learn the app cannot replace itself where it is.
-        raise HTTPException(status_code=409, detail=blocker)
+        raise HTTPException(status_code=409, detail=blocker.message)
 
     _progress.version = release_version
 
@@ -1081,9 +1182,21 @@ async def _apply_frozen(
     workdir = download_workdir()
     try:
         _progress.enter(PHASE_DOWNLOADING, detail=asset.name)
-        installer = await download_and_verify(
-            asset, checksums, dest_dir=workdir, on_progress=on_bytes
-        )
+        if len(installers) > 1:
+            # The release carries this installer under more than one accepted
+            # name; the checksum manifest decides which of them is downloaded.
+            installer = await download_and_verify(
+                asset,
+                checksums,
+                dest_dir=workdir,
+                on_progress=on_bytes,
+                alternatives=installers[1:],
+            )
+            asset = next((a for a in installers if a.name == installer.name), asset)
+        else:
+            installer = await download_and_verify(
+                asset, checksums, dest_dir=workdir, on_progress=on_bytes
+            )
         # download_and_verify hashes the file after the last byte lands, so by
         # the time it returns the verify phase is already over — the window is
         # closed here rather than announced, to keep the bar truthful.
@@ -1121,7 +1234,7 @@ async def _apply_frozen(
     # The new version starts once this process is gone — so go.
     quitting = _quit_for_update(request)
     if not quitting:
-        handover = f"{handover} — restart Personal Jarvis to finish the update"
+        handover = f"{handover} — restart Dodaios to finish the update"
 
     # On Windows the installer that replaces this app is running from the
     # download right now, so it stays (deleting it would kill the update). On
@@ -1374,6 +1487,8 @@ async def _apply_managed() -> dict[str, object]:
             status_code=500,
             detail="could not identify the currently installed revision",
         )
+
+    await _retarget_legacy_origin(root)
 
     # Fetch the published tag, never the moving main branch. The update button
     # promises a specific GitHub Release; applying an unreleased main commit

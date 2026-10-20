@@ -153,7 +153,7 @@ it("marks a queued workspace before the active workspace changes", () => {
   expect(menu.className).toContain("group-hover/space:opacity-100");
 });
 
-it("gives every workspace row a ⋯ menu and dispatches Jarvis Live", () => {
+it("gives every workspace row a ⋯ menu and dispatches Dodaios Live", () => {
   const base = project();
   useIdeProjectsStore.setState({ projects: [{ ...base, workspaces: [...base.workspaces, { ...base.workspaces[0], id: "p1-w2", name: "Other" }] }] });
   render(<IdeProjectTree />);
@@ -162,7 +162,7 @@ it("gives every workspace row a ⋯ menu and dispatches Jarvis Live", () => {
   expect(screen.getByRole("menu", { name: "Workspace actions for Other" })).toBeDefined();
   fireEvent.click(screen.getByRole("button", { name: "Workspace actions for Other" }));
   expect(screen.queryByRole("menu")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Jarvis Live" }));
+  fireEvent.click(screen.getByRole("button", { name: "Dodaios Live" }));
   expect(useIdeProjectsStore.getState().action?.kind).toBe("toggle-voice");
 });
 

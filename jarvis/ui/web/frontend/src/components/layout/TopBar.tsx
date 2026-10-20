@@ -12,13 +12,15 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { CodingModeBadge } from "@/components/layout/CodingModeBadge";
 import { SectionNavButtons } from "@/components/layout/SectionNavButtons";
+import { SectionWindowButton } from "@/components/layout/SectionWindowButton";
+import { sectionWindow } from "@/lib/sectionWindows";
 import { IdeLayoutSwitch } from "@/components/agentic/threads/IdeLayoutSwitch";
 import { IDE_SECTIONS } from "@/lib/ideSections";
+import { openExternalUrl } from "@/lib/openExternal";
 import { IdeSidePanelToggle } from "@/components/agentic/sidePanel/IdeSidePanelToggle";
 import { ThreadTerminalToggle } from "@/components/agentic/threads/ThreadTerminalToggle";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { useIdeThreadsStore } from "@/store/ideThreads";
-import { WikiInspectorToggle } from "@/components/wiki/WikiInspectorToggle";
 import { useDesktopChrome, WindowControls } from "@/components/layout/WindowControls";
 
 /**
@@ -76,6 +78,8 @@ const CHROME_ARMED = "bg-warning text-background";
 
 export function TopBar() {
   const chrome = useDesktopChrome();
+  const solo = useEventStore((s) => s.solo);
+  const section = useEventStore((s) => sectionWindow(s.activeSection));
   const controls = chrome.frameless ? chrome.controls : "none";
 
   return (
@@ -93,6 +97,8 @@ export function TopBar() {
         <WindowControls controls={controls} maximized={chrome.maximized} onCommand={chrome.command} />
       )}
       <SectionNavButtons />
+      {/* Modal hubs carry this action inside their own focus scope. */}
+      {(solo || !["settings", "plugins"].includes(section)) && <SectionWindowButton />}
       <div
         className="pywebview-drag-region min-w-0 flex-1"
         onDoubleClick={() => {
@@ -103,7 +109,6 @@ export function TopBar() {
       <div className="flex shrink-0 items-center">
         <CodingModeBadge />
         <IdeCaptionPanelToggle />
-        <WikiCaptionPanelToggle />
         {controls === "trailing" && (
           <WindowControls controls={controls} maximized={chrome.maximized} onCommand={chrome.command} />
         )}
@@ -126,12 +131,6 @@ function IdeCaptionSwitch() {
       <IdeLayoutSwitch className="pointer-events-auto" />
     </div>
   );
-}
-
-/** The Wiki inspector's open / close button, only on the Wiki section. */
-function WikiCaptionPanelToggle() {
-  const onWiki = useEventStore((s) => s.activeSection === "memory");
-  return onWiki ? <WikiInspectorToggle /> : null;
 }
 
 /**
@@ -620,6 +619,16 @@ export function UpdateButton({ placement = "titlebar" }: { placement?: "titlebar
       ? t("topbar.update_now")
       : t("topbar.update_finish_restart");
   const notes = status.notes ? plainNotes(status.notes) : "";
+  // Said in the panel BEFORE any click: this install cannot replace itself
+  // where it runs, so "Update & restart" would only download and then refuse.
+  // A known code is translated; an unknown one shows the server's sentence.
+  const blockedKey = status.blocked_code ? `topbar.update_blocked_${status.blocked_code}` : null;
+  const blockedTranslated = blockedKey ? t(blockedKey) : null;
+  const blocked = hasOffer
+    ? (blockedTranslated && blockedTranslated !== blockedKey
+        ? blockedTranslated
+        : (status.blocked_reason ?? null))
+    : null;
 
   return (
     <div ref={rootRef} className="relative">
@@ -708,10 +717,20 @@ export function UpdateButton({ placement = "titlebar" }: { placement?: "titlebar
                   {notes}
                 </div>
               )}
+              {blocked && (
+                <div
+                  data-testid="update-blocked"
+                  className="mt-2.5 border-t border-border pt-2.5 text-micro leading-relaxed text-warning"
+                >
+                  {blocked}
+                </div>
+              )}
               <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
-                <span className="min-w-0 text-micro text-muted-foreground">
-                  {t("topbar.update_restart_note")}
-                </span>
+                {!blocked && (
+                  <span className="min-w-0 text-micro text-muted-foreground">
+                    {t("topbar.update_restart_note")}
+                  </span>
+                )}
                 <div className="ml-auto flex shrink-0 items-center gap-1.5">
                   <button
                     type="button"
@@ -720,19 +739,32 @@ export function UpdateButton({ placement = "titlebar" }: { placement?: "titlebar
                   >
                     {t("topbar.update_later")}
                   </button>
-                  <button
-                    type="button"
-                    onClick={onInstall}
-                    data-testid="update-install"
-                    className={clsx(
-                      "h-7 rounded-md px-2.5 text-micro font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      forceArmed
-                        ? CHROME_ARMED
-                        : "bg-primary text-primary-foreground hover:bg-primary/90",
-                    )}
-                  >
-                    {actionLabel}
-                  </button>
+                  {blocked ? (
+                    status.release_url && (
+                      <button
+                        type="button"
+                        onClick={() => void openExternalUrl(status.release_url!)}
+                        data-testid="update-open-release"
+                        className="h-7 rounded-md bg-primary px-2.5 text-micro font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {t("topbar.update_open_release")}
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onInstall}
+                      data-testid="update-install"
+                      className={clsx(
+                        "h-7 rounded-md px-2.5 text-micro font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        forceArmed
+                          ? CHROME_ARMED
+                          : "bg-primary text-primary-foreground hover:bg-primary/90",
+                      )}
+                    >
+                      {actionLabel}
+                    </button>
+                  )}
                 </div>
               </div>
             </>

@@ -426,7 +426,7 @@ class QuartzHotkeyBackend:
         if self._teardown_failed:
             log.warning(
                 "Quartz hotkeys remain disabled after an event-tap teardown "
-                "failure; restart Jarvis to re-arm them safely. Voice still "
+                "failure; restart Dodaios to re-arm them safely. Voice still "
                 "works via the wake word."
             )
             return
@@ -441,7 +441,7 @@ class QuartzHotkeyBackend:
             self._waiting_for_permission = True
             log.info(
                 "Global shortcuts are waiting for Input Monitoring: macOS has "
-                "not allowed it for Personal Jarvis yet, so no event tap is "
+                "not allowed it for Dodaios yet, so no event tap is "
                 "created. They arm themselves once it is allowed; voice still "
                 "works via the wake word and the buttons.",
             )

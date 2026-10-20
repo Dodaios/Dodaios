@@ -13,17 +13,19 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type Keyboard
 import { X } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { useT } from "@/i18n";
-import type { CheckpointKind, OfficeLayout, Rect, RoomKind } from "./officeLayout";
+import type { CampusZoneKind, CheckpointKind, OfficeLayout, Rect, RoomKind } from "./officeLayout";
 import { cameraView, player, useOfficeStore } from "./officeStore";
 import { agentPositions } from "./walkerRegistry";
 import { ownsKeyboard } from "./OfficePlayer";
 import {
   MAP_PAINT, clampToRect, columnLabel, drawAgentToken, drawCheckpointBadge, drawFloorArt, drawMapLabel, drawPlayerArrow,
-  drawViewCone, fitTransform, gridLabel, mapGrid, mapToWorld, placeAt, worldToMap, type AgentToken, type MapPoint, type MapTransform,
+  drawViewCone, fitSheet, fitTransform, gridLabel, mapGrid, mapToWorld, placeAt, worldToMap, type AgentToken, type MapPoint, type MapTransform,
 } from "./minimap";
 import {
   agentColour, context2d, offscreenLayer, useElementSize, usePixelRatio, useThemeVersion, useThrottledFrames, type OfficeMapAgent,
 } from "./mapHooks";
+import { courierSession } from "./courierStore";
+import { boundsWithPad } from "./skyPad";
 
 export interface OfficeFullMapProps {
   open: boolean;
@@ -61,7 +63,8 @@ function useMapKeys(open: boolean, onOpen: () => void, onClose: () => void): voi
         }
         return;
       }
-      if (event.code !== "KeyM" || event.repeat || ownsKeyboard(event.target)) return;
+      // The full map stays shut while the courier flies.
+      if (event.code !== "KeyM" || event.repeat || ownsKeyboard(event.target) || courierSession.flying) return;
       event.preventDefault();
       show();
     };
@@ -84,6 +87,8 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
   const reduced = useReducedMotion() ?? false;
   const titleId = useId();
   const hintId = useId();
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -94,10 +99,20 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
   const dpr = usePixelRatio();
   const themeVersion = useThemeVersion();
 
-  const grid = useMemo(() => mapGrid(layout.bounds, GRID_COLUMNS), [layout]);
+  // The sheet reaches out over the sky pad too, so the courier is on the map.
+  const grid = useMemo(() => mapGrid(boundsWithPad(layout.bounds, layout.skyPad), GRID_COLUMNS), [layout]);
   const gridRect = useMemo<Rect>(() => ({
     minX: grid.originX, maxX: grid.originX + grid.columns * grid.cell, minZ: grid.originZ, maxZ: grid.originZ + grid.rows * grid.cell,
   }), [grid]);
+  // The sheet takes the plan's shape: a floor that is nearly square or taller than wide leaves no empty band beside it.
+  const outer = useElementSize(backdropRef);
+  const head = useElementSize(headRef);
+  const sheet = useMemo(() => {
+    // The backdrop pads 3 % of its width on every side.
+    const inset = outer.width * 0.03;
+    const availW = outer.width - inset * 2, availH = outer.height - inset * 2;
+    return availW > 200 && availH > 200 ? fitSheet(gridRect, availW, availH, GRID_PAD, head.height || 46) : null;
+  }, [outer, head.height, gridRect]);
   const transform = useMemo<MapTransform | null>(
     () => (size.width > GRID_PAD * 2 && size.height > GRID_PAD * 2 ? fitTransform(gridRect, size.width, size.height, GRID_PAD) : null),
     [gridRect, size],
@@ -116,6 +131,7 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
     mission: t("society.office.cp_mission"),
     studio: t("society.office.cp_studio"),
     levels: t("society.office.cp_levels"),
+    ship: t("society.office.cp_ship"),
   };
   const roomLabels: Record<RoomKind, string> = {
     lead: t("society.office.room_lead"),
@@ -134,11 +150,22 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
     snack: t("society.office.room_snack"),
     levels: t("society.office.room_levels"),
   };
-  const openSpace = t("society.office.open_space");
+  // Agents floor: the campus between the studios. The pool studio has no team name; the map gives it one.
+  const zoneLabels: Record<CampusZoneKind, string> = {
+    boulevard: t("society.office.zone_boulevard"),
+    plaza: t("society.office.zone_boulevard"),
+    atrium: t("society.office.zone_atrium"),
+    plot: t("society.office.zone_plot"),
+    garden: t("society.office.zone_garden"),
+    booths: t("society.office.zone_booths"),
+    library: t("society.office.zone_library"),
+    cafe: t("society.office.zone_cafe"),
+  };
+  const openSpace = t(layout.variant === "agents" ? "society.office.studio_pool" : "society.office.open_space");
   const youLabel = t("society.office.minimap_you");
-  const labelKey = JSON.stringify([checkpointLabels, roomLabels, openSpace]);
-  const labels = useRef({ checkpointLabels, roomLabels, openSpace, youLabel });
-  labels.current = { checkpointLabels, roomLabels, openSpace, youLabel };
+  const labelKey = JSON.stringify([checkpointLabels, roomLabels, zoneLabels, openSpace]);
+  const labels = useRef({ checkpointLabels, roomLabels, zoneLabels, openSpace, youLabel });
+  labels.current = { checkpointLabels, roomLabels, zoneLabels, openSpace, youLabel };
 
   // Focus moves into the dialog and returns to where it was on close.
   useEffect(() => {
@@ -220,15 +247,24 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
     }
     ctx.stroke();
 
-    const { roomLabels: rooms, checkpointLabels: cps, openSpace: spare } = labels.current;
+    const { roomLabels: rooms, checkpointLabels: cps, zoneLabels: zoneNames, openSpace: spare } = labels.current;
     const roomPx = Math.max(11, Math.min(15, transform.scale * 0.75));
+    // The campus's own places, quieter than rooms and studios; the streets need no name.
+    for (const zone of layout.zones ?? []) {
+      if (zone.kind === "boulevard" || zone.kind === "plaza") continue;
+      // Along the zone's south edge: its seats and tables stay readable, and the atrium's name sits under the spawn point.
+      const c = worldToMap(transform, { x: (zone.minX + zone.maxX) / 2, z: zone.maxZ - 0.9 });
+      drawMapLabel(ctx, zoneNames[zone.kind], c.x, c.y, roomPx * 0.8, 700, (zone.maxX - zone.minX - 0.6) * transform.scale);
+    }
     for (const room of layout.rooms) {
       const c = worldToMap(transform, { x: (room.minX + room.maxX) / 2, z: room.minZ + 1.1 });
       drawMapLabel(ctx, rooms[room.kind].toLocaleUpperCase(), c.x, c.y, roomPx, 800);
     }
+    // A studio's name stands on the street behind its name wall, clear of everyone working inside, and never
+    // wider than the studio itself.
     for (const dept of layout.departments) {
-      const c = worldToMap(transform, { x: (dept.minX + dept.maxX) / 2, z: dept.minZ + 0.9 });
-      drawMapLabel(ctx, (dept.label || spare).toLocaleUpperCase(), c.x, c.y, roomPx * 0.85, 800);
+      const c = worldToMap(transform, { x: (dept.minX + dept.maxX) / 2, z: dept.minZ - 1.0 });
+      drawMapLabel(ctx, (dept.label || spare).toLocaleUpperCase(), c.x, c.y, roomPx * 0.85, 800, (dept.maxX - dept.minX - 0.6) * transform.scale);
     }
     const badge = Math.max(14, Math.min(22, transform.scale * 1.1));
     for (const cp of layout.checkpoints) {
@@ -265,7 +301,8 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
     const place = placeAt(layout, world);
     const name = place?.kind === "checkpoint" ? checkpointLabels[place.id]
       : place?.kind === "room" ? roomLabels[place.id]
-        : place?.kind === "department" ? place.label || openSpace : "";
+        : place?.kind === "department" ? place.label || openSpace
+          : place?.kind === "zone" ? zoneLabels[place.id] : "";
     const next = { cell: gridLabel(grid, world), place: name };
     setReadout((prev) => (prev && prev.cell === next.cell && prev.place === next.place ? prev : next));
   };
@@ -281,10 +318,11 @@ function FullMapDialog({ onClose, layout, agents, selectedId }: Omit<OfficeFullM
   const cellPx = transform ? grid.cell * transform.scale : 0;
 
   return (
-    <div className="office-fullmap-backdrop" data-office-ui onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div ref={backdropRef} className="office-fullmap-backdrop" data-office-ui onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div ref={dialogRef} className="office-card office-fullmap" role="dialog" aria-modal="true" data-state="open"
-        aria-labelledby={titleId} aria-describedby={hintId} onKeyDown={onKeyDown}>
-        <header className="office-fullmap-head">
+        aria-labelledby={titleId} aria-describedby={hintId} onKeyDown={onKeyDown}
+        style={sheet ? { width: sheet.width, height: sheet.height } : undefined}>
+        <header ref={headRef} className="office-fullmap-head">
           <div className="office-fullmap-heading">
             <h2 id={titleId}>{t("society.office.map_title")}</h2>
             <span id={hintId}>{t("society.office.map_hint")}</span>

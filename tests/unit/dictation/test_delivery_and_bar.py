@@ -20,7 +20,7 @@ from jarvis.core.config import DictationConfig
 from jarvis.core.events import DictationCompleted, DictationTranscript
 from jarvis.dictation.insert import InsertResult
 from jarvis.speech.pipeline import SpeechPipeline
-from jarvis.ui.jarvisbar import interaction, renderer
+from jarvis.ui.dodaiosbar import interaction, renderer
 
 # --------------------------------------------------------------------------
 # Delivery

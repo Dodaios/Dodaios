@@ -14,6 +14,9 @@ a parity test (tests/unit/plugins/tool/test_navigate.py) guards against drift.
 
 from __future__ import annotations
 
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from jarvis.core.events import NavigateSidebar
@@ -303,8 +306,84 @@ def _resolve(raw: str) -> str | None:
     return None
 
 
+log = logging.getLogger(__name__)
+
+# What a target lookup answers: ``found`` with an id and a name, ``ask`` with
+# the candidates that fit, ``unknown`` with what exists, or ``unavailable``.
+Lookup = dict[str, Any]
+#: How many conversations a title is matched against, newest first.
+_CHAT_SEARCH_LIMIT = 200
+
+
+def _find_agent(spoken: str) -> Lookup:
+    """The named agent a spoken reference means, from the live roster."""
+    try:
+        from jarvis.society.agent_names import display_name, lookup_in
+        from jarvis.society.runtime import current_runtime
+
+        runtime = current_runtime()
+        if runtime is None:
+            return {"status": "unavailable"}
+        found = lookup_in(runtime.roster.snapshot(), spoken, surface="navigate")
+    except Exception:  # noqa: BLE001 - no agent team on this install: say so, do not crash
+        log.warning("navigate: agent lookup failed", exc_info=True)
+        return {"status": "unavailable"}
+    if found.decision == "act" and found.agent is not None:
+        return {"status": "found", "id": found.agent.agent_id, "name": display_name(found.agent)}
+    if found.decision == "ask" and found.candidates:
+        return {"status": "ask", "candidates": [display_name(a) for a in found.candidates]}
+    return {"status": "unknown", "available": found.available_names()}
+
+
+async def _find_chat(spoken: str) -> Lookup:
+    """The conversation with this id or title among the assistant's own chats."""
+    from jarvis.core.runtime_refs import get_web_app
+
+    service = getattr(getattr(get_web_app(), "state", None), "agent_chat", None)
+    store = getattr(service, "store", None)
+    if store is None:
+        return {"status": "unavailable"}
+    sessions = await asyncio.to_thread(store.list_sessions, _CHAT_SEARCH_LIMIT, surface="jarvis")
+    wanted = " ".join(spoken.split()).casefold()
+    exact = [
+        s for s in sessions
+        if s.session_id == spoken.strip() or " ".join(s.title.split()).casefold() == wanted
+    ]
+    matches = exact or [s for s in sessions if wanted and wanted in s.title.casefold()]
+    if len(matches) == 1 or exact:
+        # Several chats can carry one title; the newest is the one meant.
+        return {"status": "found", "id": matches[0].session_id, "name": matches[0].title}
+    if matches:
+        return {"status": "ask", "candidates": [s.title for s in matches[:8]]}
+    return {"status": "unknown", "available": [s.title for s in sessions[:8] if s.title]}
+
+
+async def _show_workspace(spoken: str) -> Lookup:
+    """Bring a coding workspace on screen through the workspace service."""
+    try:
+        from jarvis.agentic_ide.orchestration import get_orchestrator
+
+        result = await get_orchestrator().run({"action": "show", "workspace": spoken})
+    except Exception:  # noqa: BLE001 - no coding surface on this install: say so
+        log.warning("navigate: workspace lookup failed", exc_info=True)
+        return {"status": "unavailable"}
+    if result.get("status") == "shown":
+        return {"status": "found", "id": "", "name": str(result.get("workspace") or spoken)}
+    candidates = [
+        str(item.get("name") or item.get("workspace") or "")
+        for item in result.get("candidates") or []
+        if isinstance(item, dict)
+    ]
+    return {
+        "status": "ask" if candidates else "unknown",
+        "candidates": candidates,
+        "available": candidates,
+        "reason": str(result.get("reason") or ""),
+    }
+
+
 class NavigateTool:
-    """Switch the desktop app's active sidebar section."""
+    """Switch the desktop app's active section, or open one thing inside it."""
 
     name: str = "navigate"
     risk_tier: str = "safe"
@@ -312,8 +391,10 @@ class NavigateTool:
         "Open/switch the desktop app to a sidebar section (the UI screen the user "
         "sees). Use when the user asks to show or open a section — 'zeig die "
         "Socials', 'open settings', 'show the agents', 'geh zu den Aufgaben'. Pass "
-        "the section id in 'section'. Do NOT use it for anything other than moving "
-        "the UI."
+        "the section id in 'section'. To open one thing instead, pass exactly one of "
+        "agent (a named agent's chat), chat (a conversation, by its title) or "
+        "workspace (a coding workspace) and no section. Do NOT use it for anything "
+        "other than moving the UI."
     )
     schema: dict[str, Any] = {
         "type": "object",
@@ -324,19 +405,54 @@ class NavigateTool:
                 "description": (
                     "The sidebar section id to open (e.g. 'socials', 'settings', 'agents')."
                 ),
-            }
+            },
+            "agent": {
+                "type": "string",
+                "description": "A named agent: opens the chat with that agent.",
+            },
+            "chat": {
+                "type": "string",
+                "description": "A conversation's title (or id): opens that conversation.",
+            },
+            "workspace": {
+                "type": "string",
+                "description": "A coding workspace's name: brings it on screen.",
+            },
         },
-        "required": ["section"],
     }
 
-    def __init__(self, bus: Any) -> None:
+    def __init__(
+        self,
+        bus: Any,
+        *,
+        find_agent: Callable[[str], Lookup] = _find_agent,
+        find_chat: Callable[[str], Awaitable[Lookup]] = _find_chat,
+        show_workspace: Callable[[str], Awaitable[Lookup]] = _show_workspace,
+    ) -> None:
         self._bus = bus
+        self._find_agent = find_agent
+        self._find_chat = find_chat
+        self._show_workspace = show_workspace
 
     @classmethod
     def known_sections(cls) -> set[str]:
         return set(KNOWN)
 
     async def execute(self, args: dict[str, Any], ctx: Any) -> ToolResult:
+        targets = {
+            kind: " ".join(str(args.get(kind) or "").split())
+            for kind in ("agent", "chat", "workspace")
+        }
+        named = {kind: value for kind, value in targets.items() if value}
+        if len(named) > 1 or (named and str(args.get("section") or "").strip()):
+            return ToolResult(
+                success=False,
+                output={"requested": dict(args)},
+                error="Pass one destination: a section, or one of agent, chat, workspace.",
+            )
+        if named:
+            kind, spoken = next(iter(named.items()))
+            return await self._open(kind, spoken)
         section = _resolve(str(args.get("section", "")))
         if section is None:
             return ToolResult(
@@ -353,4 +469,44 @@ class NavigateTool:
         return ToolResult(
             success=True,
             output={"section": section, "summary": f"Opened the {section} section."},
+        )
+
+    async def _open(self, kind: str, spoken: str) -> ToolResult:
+        """Resolve one named destination and move the UI to it, or say why not."""
+        if kind == "agent":
+            found = self._find_agent(spoken)
+        elif kind == "chat":
+            found = await self._find_chat(spoken)
+        else:
+            found = await self._show_workspace(spoken)
+        status = found.get("status")
+        if status != "found":
+            if status == "ask":
+                error = (
+                    f"More than one {kind} fits {spoken!r}: "
+                    + ", ".join(found.get("candidates") or [])
+                    + ". Ask the user which one."
+                )
+            elif status == "unknown":
+                known = ", ".join(found.get("available") or []) or "none"
+                detail = f" {found['reason']}" if found.get("reason") else ""
+                error = f"No {kind} is called {spoken!r}. Known: {known}.{detail}"
+            else:
+                error = f"This app cannot open a {kind} right now."
+            return ToolResult(success=False, output={"requested": spoken, **found}, error=error)
+        if kind == "workspace":
+            # The workspace service already brought it on screen; show its section.
+            event = NavigateSidebar(section="agentic-ide", source_layer="brain.tool.navigate")
+        else:
+            event = NavigateSidebar(
+                section="chats", target=kind, target_id=str(found["id"]),
+                source_layer="brain.tool.navigate",
+            )
+        await self._bus.publish(event)
+        return ToolResult(
+            success=True,
+            output={
+                "section": event.section, kind: found["name"],
+                "summary": f"Opened the {kind} {found['name']}.",
+            },
         )

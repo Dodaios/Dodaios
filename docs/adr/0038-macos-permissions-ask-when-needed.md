@@ -78,7 +78,7 @@ This is rule AP-35. Its nine principles are binding:
 6. **Identity decides who may reset and whether we may auto-ask, not whether we may
    act.** We act on whatever grant exists. Native requests are made only from an
    installed app bundle, or after an explicit confirmation (since the UI reset: one click on a toast that
-   says the app that started Jarvis receives the grant).
+   says the app that started Dodaios receives the grant).
    Reset runs only from the installed app's own bundle id.
 7. **Opt-in features own their permission.** A feature the user has not switched on
    never touches its permission (wake word, mute music, computer use, global shortcuts).
@@ -269,7 +269,7 @@ still fails; that silence is the only gap left.
    toast is gone. A toast raised while the window was hidden is not queued. The
    action is **Open System Settings**; **Ask macOS now** when macOS can still ask or the app runs
    outside the installed bundle (the one click is the confirmation; the sentence says generically
-   that the app that started Jarvis receives the access, it names no app); **Quit and reopen**
+   that the app that started Dodaios receives the access, it names no app); **Quit and reopen**
    for a granted permission that does not work. A background origin never toasts, except one
    toast per app session for a denied microphone for the wake word. The native bar text and the
    spoken computer-use readbacks are unchanged.
@@ -293,7 +293,7 @@ AP-35 and the nine principles stay true as written; principle 8's UI half is ame
 
 - The permission surface of the app is one toast. Apple's dialog stays the place a person
   decides; ours only explains a silent failure.
-- The toast is web-styled, not an Apple alert, and invisible while the Jarvis window is hidden
+- The toast is web-styled, not an Apple alert, and invisible while the Dodaios window is hidden
   (the native bar and the spoken readbacks cover dictation and computer use; a deaf shortcut
   tap has no other surface). Its look in the real web view is unverified.
 - The `?activated=1` refocus hint of the GET routes has no caller any more; a PROMPT-ONCE episode

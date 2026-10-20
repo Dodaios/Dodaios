@@ -78,7 +78,21 @@ def test_stalled_reader_process_is_reaped(monkeypatch, tmp_path):
     assert reader.read_with_deadline() is None
     assert time.monotonic() - started < 5
     assert pid_file.exists(), "the helper must have started for this test to prove cleanup"
-    assert not psutil.pid_exists(int(pid_file.read_text()))
+    assert not _helper_still_runs(int(pid_file.read_text()), str(pid_file))
+
+
+def _helper_still_runs(pid: int, marker: str) -> bool:
+    """Whether the process with this PID is still the helper, by its command line.
+
+    Windows hands a finished process's PID to the next process it starts. On a
+    runner with four test workers that happens within milliseconds, so
+    ``pid_exists`` alone can name a stranger and fail the test for a helper
+    that was reaped.
+    """
+    try:
+        return marker in " ".join(psutil.Process(pid).cmdline())
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return False
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="windowed Windows pipe contract")

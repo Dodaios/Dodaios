@@ -1,4 +1,4 @@
-"""Track only Jarvis-requested pane jobs and return fresh, attributed evidence."""
+"""Track pane jobs Jarvis sent or was asked to watch, and return fresh, attributed evidence."""
 
 from __future__ import annotations
 
@@ -28,6 +28,8 @@ class PendingResult:
     reply_session_id: str = ""
     submitted_at: float | None = None
     prepared_at: float = 0.0
+    #: The job was typed by someone else and only its end is awaited (``watch``).
+    watched: bool = False
 
 
 def _events(term: Any) -> list:
@@ -77,6 +79,8 @@ def _completion_report(events: list, pending: PendingResult) -> str:
     if start is None:
         return ""
     user = events[start]
+    if pending.watched:
+        return _watched_report(events[start + 1:], pending)
     expected = agent_transcript._clip(agent_transcript._spoken(pending.prompt))
     if (
         int(user.get("ts_ms") or 0)
@@ -99,6 +103,62 @@ def _completion_report(events: list, pending: PendingResult) -> str:
         ),
         "",
     )
+
+
+def _watched_report(own: list, pending: PendingResult) -> str:
+    """The final answer of a turn that ended after its watch began.
+
+    A watched job was not typed by Jarvis, so there is no prompt to match. The
+    CLI's own end marker, recorded after the watch started, identifies it.
+    """
+    if not own or own[-1]["kind"] != "turn_finished":
+        return ""
+    finish = own[-1]["payload"]
+    if finish.get("status") != "done" or not finish.get("turn_id"):
+        return ""
+    if int(own[-1].get("ts_ms") or 0) < int(pending.prepared_at * 1000):
+        return ""
+    return next(
+        (
+            str(event["payload"].get("text") or "").strip()
+            for event in reversed(own)
+            if event["kind"] == "assistant_text"
+            and event["payload"].get("turn_id") == finish["turn_id"]
+        ),
+        "",
+    )
+
+
+def can_report(term: Any) -> bool:
+    """Whether this pane's CLI keeps a local record a completion can be read from."""
+    return (
+        not getattr(term, "computer_id", "")
+        and term.resume is not None
+        and agent_transcript.can_read(term.agent)
+    )
+
+
+async def watch(term: Any, origin: dict[str, str]) -> PendingResult:
+    """Await the end of the job this pane is already working on, whoever typed it.
+
+    The pane's own later submission, a restart, or a brief sent through Jarvis
+    replaces the watch, exactly as it replaces a tracked brief.
+    """
+    prepared_at = time.time()
+    events = await asyncio.to_thread(_snapshot, term)
+    job = " ".join(str(term.last_prompt or "").split())[:600]
+    pending = PendingResult(
+        request_id=uuid4().hex, prompt=str(term.last_prompt or ""),
+        request=f"Report when {term.name} finishes its current job"
+        + (f": {job}" if job else "."),
+        language=origin.get("lang", ""), baseline=_fingerprint(events),
+        generation=term.process_generation,
+        reply_session_id=origin.get("reply_session_id", ""),
+        submitted_at=term.last_submit_at, prepared_at=prepared_at, watched=True,
+    )
+    term.delegation_result = pending
+    term.delegation_probe_at = 0.0
+    return pending
 
 
 async def prepare(term: Any, prompt: str, request: str, origin: dict[str, str]) -> PendingResult:

@@ -10,19 +10,24 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import time
 from typing import Any
 
 from .questions import CANCELLED, MAX_ASKS_PER_TURN
+from .secret_requests import asks_for_secret, claims_stored_secret
 from .task_recovery import ToolRecovery
 
+log = logging.getLogger(__name__)
+
 _REQUEST = re.compile(
-    r"^\s*(?:(?:hello|hi|hallo|hola)[,! ]+)?"  # i18n-allow
+    r"^\s*(?:(?:hello|hi|hallo|hola|ol[aá])[,! ]+)?"  # i18n-allow
     r"(?:(?:please|bitte|por favor)\s+)?"  # i18n-allow
     r"(?:can you|could you|i want you to|create|write|build|make|fix|save|send|"
     r"kannst du|k[oö]nntest du|ich m[oö]chte|erstelle|schreib\w*|baue?|mach\w*|"  # i18n-allow
-    r"reparier\w*|speicher\w*|sende|por favor|puedes|crea|escribe|haz|guarda)\b",  # i18n-allow
+    r"reparier\w*|speicher\w*|sende|por favor|puedes|crea|escribe|haz|guarda|"  # i18n-allow
+    r"podes|consegues|quero que|cria|escreve|faz|corrige|envia)\b",  # i18n-allow
     re.I,
 )
 _ADVICE = re.compile(
@@ -32,14 +37,18 @@ _ADVICE = re.compile(
     r"ideen|vorschl[aä]g\w*|empfiehl\w*|erkl[aä]r\w*|"  # i18n-allow
     r"wie kann|wie geht|hast du|warum|wieso|"  # i18n-allow
     r"[uü]bersetz\w*|zitiere|beispiel|gedicht|geschichte|entwurf|plan|planning|"  # i18n-allow
-    r"explica|traduce|ejemplo|sugerencias)\b",  # i18n-allow
+    r"explica|traduce|ejemplo|sugerencias|"  # i18n-allow
+    r"traduz\w*|exemplo|sugest[oõ]es|ideias|recomenda\w*|porqu[eê]|"  # i18n-allow
+    r"como posso|como fa[cç]o)\b",  # i18n-allow
     re.I,
 )
 _OFFER = re.compile(
-    r"^(?:(?:sure|yes|okay|ok|gerne|klar|nat[uü]rlich|ja|s[ií])[.!,: —-]*\s*)?"  # i18n-allow
+    r"^(?:(?:sure|yes|okay|ok|gerne|klar|nat[uü]rlich|ja|s[ií]|"  # i18n-allow
+    r"sim|claro)[.!,: —-]*\s*)?"  # i18n-allow
     r"(?:i (?:can|could|would|suggest)|if you (?:want|like)|would you like me|shall i|"
     r"ich (?:kann|k[oö]nnte|w[uü]rde|schlage)|wenn du (?:m[oö]chtest|willst)|"  # i18n-allow
-    r"soll ich|m[oö]chtest du|vorschlag|puedo|podr[ií]a|si quieres|te propongo)\b",  # i18n-allow
+    r"soll ich|m[oö]chtest du|vorschlag|puedo|podr[ií]a|si quieres|te propongo|"  # i18n-allow
+    r"posso|poderia|se quiseres|proponho|queres que)\b",  # i18n-allow
     re.I,
 )
 _READS = frozenset(
@@ -65,7 +74,8 @@ def offer_instead_of_action(request: str, response: str) -> bool:
         return False
     answer = response.strip().lstrip("* ")
     if re.match(
-        r"(?:I can confirm|Ich kann best[aä]tigen|Puedo confirmar)\b", answer, re.I  # i18n-allow: detect localized confirmation replies
+        r"(?:I can confirm|Ich kann best[aä]tigen|Puedo confirmar|Posso confirmar)\b",  # i18n-allow
+        answer, re.I,
     ):  # i18n-allow
         return False
     blocking_question = (
@@ -75,7 +85,8 @@ def offer_instead_of_action(request: str, response: str) -> bool:
         and bool(
             re.match(
                 r"(?:which|what|where|when|who|"
-                r"welch\w*|was|wo|wann|wer|qu[eé]|cu[aá]l)\b",  # i18n-allow
+                r"welch\w*|was|wo|wann|wer|qu[eé]|cu[aá]l|"  # i18n-allow
+                r"qual|quais|onde|quando|quem)\b",  # i18n-allow
                 answer,
                 re.I,
             )
@@ -109,6 +120,14 @@ class TurnCompletion:
         self.calls: dict[str, tuple[str, dict[str, Any]]] = {}
         self.receipts = ToolRecovery()
         self.did_work = False
+        # Credential guard: everything the agent said this turn, and whether it
+        # opened a secure credential field (society_request_credential).
+        self.texts: list[str] = []
+        self.credential_asked = False
+        self.credential_corrected = False
+        self.background_corrected = False
+        self.background_unregistered = False
+        self.background_tasks: set[str] = set()
 
     async def emit(self, event: dict[str, Any]) -> None:
         payload = event.get("payload") or {}
@@ -126,11 +145,39 @@ class TurnCompletion:
         self.receipts.observe(event)
         if kind == "assistant_text":
             self.last_text = str(payload.get("text") or "")
+            self.texts.append(self.last_text)
+            from .background_work import has_scheduled_work, promises_background_work
+
+            self.background_unregistered = (
+                promises_background_work(self.request, self.last_text)
+                and not await has_scheduled_work(
+                    self.handle.session.session_id, self.background_tasks,
+                )
+            )
+            if self.background_unregistered:
+                from .background_work import without_background_promises
+
+                # Preserve findings; remove only unsupported future commitments.
+                await self.handle.emit({**event, "payload": {
+                    **payload, "text": without_background_promises(self.last_text),
+                }})
+                return
         elif kind == "tool_call":
             name = str(payload.get("name") or "").rsplit("__", 1)[-1].lower()
             self.calls[str(payload.get("call_id") or "")] = (name, payload.get("input") or {})
+            if name == CREDENTIAL_TOOL:
+                self.credential_asked = True
         elif kind == "tool_result":
             name, _ = self.calls.pop(str(payload.get("call_id") or ""), ("", {}))
+            if name == "society_propose_change" and not payload.get("is_error"):
+                output = payload.get("output")
+                if isinstance(output, str):
+                    try:
+                        output = json.loads(output)
+                    except ValueError:
+                        output = None  # Non-JSON output cannot certify a stored task.
+                if isinstance(output, dict) and output.get("applied") and output.get("task_id"):
+                    self.background_tasks.add(str(output["task_id"]))
             if name and name not in _READS and not payload.get("is_error"):
                 self.did_work = True
         await self.handle.emit(event)
@@ -181,6 +228,31 @@ class TurnCompletion:
                     + "\nOriginal request:\n"
                     + self.context
                 )
+        correction = await self._credential_correction(sid)
+        if correction is not None:
+            return correction
+        if self.background_unregistered:
+            if (
+                self.allow_correction and not self.background_corrected
+                and not self.receipts.declined and not self.receipts.blocked
+                and not self.service.pending_approvals(sid)
+            ):
+                self.background_corrected = True
+                return (
+                    "Your last answer promised future work without a registered task. "
+                    "Finish the work now, or register the goal-derived follow-up with "
+                    "society_propose_change(kind=routine, mode=autonomous), quoting the "
+                    "current user goal. Use a one-time trigger unless the goal needs "
+                    "recurrence. Inspect existing routines first and preserve completed "
+                    "effects. Confirm only the saved task's actual state and next run. "
+                    "If scheduling is unavailable or excluded, explain that blocker "
+                    "without promising future execution.\nOriginal request:\n" + self.context
+                )
+            self.finish_event["payload"].update(
+                status="error",
+                error="Future work was not registered; no later execution is confirmed",
+            )
+            return None
         if (
             self.allow_correction
             and not self.corrected
@@ -203,6 +275,40 @@ class TurnCompletion:
             )
         return None
 
+    async def _credential_correction(self, sid: str) -> str | None:
+        """Steer a reply that asks for a secret in plain text back to the secure field.
+
+        Once per turn, only when the agent did not open a credential field
+        itself. A reply that claims a credential is stored counts too when the
+        agent has none stored.
+        """
+        if (
+            not self.allow_correction
+            or self.credential_corrected
+            or self.credential_asked
+            or self.receipts.declined
+            or self.receipts.blocked
+        ):
+            return None
+        said = "\n".join(self.texts)
+        stored = await _stored_credentials(sid)
+        if stored is None:
+            return None  # no credential tool in this chat (a routine, or no society)
+        if not asks_for_secret(said) and not (not stored and claims_stored_secret(said)):
+            return None
+        self.credential_corrected = True
+        return (
+            "Your reply asks the user for a credential, says where to put one, or claims one is "
+            f"stored, but you did not call {CREDENTIAL_TOOL}. Secrets reach you only through "
+            f"that tool. Call {CREDENTIAL_TOOL} now for each credential the task needs (env, "
+            "label, and a description of what it is for and where the user creates it), wait "
+            "for its result, then continue the original task. Do not ask for the value in the "
+            "chat and do not repeat the request in plain text. Stored credentials right now: "
+            + (", ".join(stored) if stored else "none")
+            + ". If the task needs no credential from the user, finish without mentioning one."
+            "\nOriginal request:\n" + self.context
+        )
+
     async def publish(self) -> None:
         if self.finish_event is not None:
             payload = {
@@ -213,3 +319,25 @@ class TurnCompletion:
             if self.cost is not None:
                 payload["cost_usd"] = self.cost
             await self.handle.emit({**self.finish_event, "payload": payload})
+
+
+#: The secure credential field's tool (jarvis/society/credential_tool.py).
+CREDENTIAL_TOOL = "society_request_credential"
+
+
+async def _stored_credentials(session_id: str) -> list[str] | None:
+    """Env names stored for the chat's society agent; ``None`` without the tool."""
+    from jarvis.society.credentials import current_vault
+    from jarvis.society.routine_runner import is_routine_session
+    from jarvis.society.surface import agent_id_of
+
+    agent_id = agent_id_of(session_id)
+    vault = current_vault()
+    if agent_id is None or vault is None or is_routine_session(session_id):
+        return None
+    try:
+        rows = await asyncio.to_thread(vault.list, agent_id)
+    except Exception:  # noqa: BLE001 — an unreadable index skips the guard, never the turn
+        log.warning("credential guard: index unavailable for %s", session_id, exc_info=True)
+        return None
+    return [row.env for row in rows]

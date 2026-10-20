@@ -34,6 +34,7 @@ from jarvis.tasks.schema import (
     WorkflowAction,
 )
 
+from .display_name import display_name
 from .roster import AgentRecord
 
 #: Appended to a routine whose prompt asks for an artifact. The build runs in
@@ -218,8 +219,9 @@ def next_run_readback(due_at_ns: int | None, timezone: str | None) -> str | None
 
 def _routine_prompt(agent: AgentRecord, prompt: str) -> str:
     lines = [
-        f"You are {agent.name}" + (f", {agent.title}" if agent.title else "") + ",",
-        "an agent in the user's agent society led by Jarvis, running a scheduled routine.",
+        # Stored with the routine, so it names no lead: that name follows the wake word.
+        f"You are {display_name(agent)}" + (f", {agent.title}" if agent.title else "") + ",",
+        "an agent in the user's agent society, running a scheduled routine.",
     ]
     if agent.description.strip():
         lines += ["", "Standing instructions:", agent.description.strip()]
@@ -381,7 +383,11 @@ async def create_routine(task_store: Any, scheduler: Any | None, spec: TaskSpec)
 
 
 async def count_routines(task_store: Any, agent_id: str) -> int:
-    return len(await list_routines(task_store, agent_id))
+    # Completed follow-ups and cancellation receipts do not consume live slots.
+    terminal = {"completed", "cancelled", "failed", "interrupted"}
+    return sum(
+        row.get("state") not in terminal for row in await list_routines(task_store, agent_id)
+    )
 
 
 MAX_ROUTINES_PER_AGENT: Final[int] = _MAX_ROUTINES
@@ -447,11 +453,16 @@ async def manage_routine(
         await scheduler.pause(tid)
     elif operation == "resume":
         await scheduler.resume(tid)
+    elif operation == "cancel":
+        await scheduler.cancel_task(tid)
     elif operation == "delete":
         if row.get("state") == "running":
             raise ValueError("Pause or cancel the running routine before deleting it")
         await scheduler.cancel_task(tid)
-        await task_store.delete(tid)
+        # Keep autonomous cancellation receipts so duplicate delivery cannot
+        # recreate a job the person stopped. Ordinary deletion is unchanged.
+        if "autonomous" not in _tags_of(row):
+            await task_store.delete(tid)
     else:
         raise ValueError("Unknown routine operation")
     return f"Routine {tid}: {operation} applied"

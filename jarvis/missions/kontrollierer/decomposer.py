@@ -73,7 +73,7 @@ _REPO_AFFINITY_RE: Final = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-# Positive evidence that a task can run without the Personal Jarvis checkout.
+# Positive evidence that a task can run without the Dodaios checkout.
 # Connected services are remote capabilities; standalone artifacts are lean
 # only when an artifact action and artifact noun occur near each other. This
 # positive-evidence rule is intentional: an ambiguous prompt such as "improve
@@ -165,7 +165,7 @@ class Step(BaseModel):
     # (HTTP 400). See docs/jarvis-agents-spawn-failure-analysis-2026-05-18.md.
     model: str = ""
     allowed_tools: str = "Read,Edit,Write,Bash,Grep,Glob"
-    # Whether this step needs a full git worktree of the Personal Jarvis repo
+    # Whether this step needs a full git worktree of the Dodaios repo
     # as its workspace. Default True keeps every existing path byte-compatible:
     # old persisted plan payloads (which never carried the field) deserialize
     # fine, and any step the decomposer does NOT explicitly classify as a lean
@@ -334,9 +334,9 @@ class MissionDecomposer:
             "- DO NOT split if tasks share files (race conditions).\n"
             "- DO NOT include task_id (auto-generated).\n"
             "- Set needs_repo=true only when the step must read or modify the "
-            "Personal Jarvis source checkout.\n"
+            "Dodaios source checkout.\n"
             "- Set needs_repo=false for research, connected-service actions, "
-            "and standalone artifacts that do not use Personal Jarvis source.\n"
+            "and standalone artifacts that do not use Dodaios source.\n"
             "- Default worker_cli is 'claude'; only use 'codex' for OpenAI-specific work.\n"
             "- Default model is 'sonnet'; use 'opus' only for reasoning-heavy steps."
         )

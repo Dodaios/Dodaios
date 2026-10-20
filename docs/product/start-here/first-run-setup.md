@@ -148,7 +148,7 @@ open the Agentic IDE.
 - Connect and test models under **API Keys**; the same page connects coding
   agents by key or subscription.
 - Repair macOS access in **System Settings > Privacy & Security**; when a feature
-  you started needs a permission, Personal Jarvis shows one short message with a
+  you started needs a permission, Dodaios shows one short message with a
   button that opens it. [App Permissions](permissions) explains how to start over.
 - Change the phrase, spoken wake language, activation switch, or local wake
   pack under **Settings > Wake Word**, and the Call shortcut under **Settings >

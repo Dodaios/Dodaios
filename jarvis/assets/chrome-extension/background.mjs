@@ -31,7 +31,7 @@ async function visible(session) {
   const tab = await chrome.tabs.get(session.tabId);
   const window = await chrome.windows.get(tab.windowId);
   if (!tab.active || !window.focused || window.state === "minimized") {
-    throw new Error("Bring the Jarvis Chrome tab to the foreground");
+    throw new Error("Bring the Dodaios Chrome tab to the foreground");
   }
   if (!allowedUrl(tab.url || "about:blank", session.domains, true)) throw new Error("Website is not permitted");
   return tab;
@@ -184,7 +184,7 @@ export async function dispatch(message, transport = socket) {
       await attach(session);
       await rememberTabs();
     } catch (error) { await release(session, true); throw error; }
-    return {generation: id, target: String(tab.id), tabs: [{id: String(tab.id), url: "about:blank", title: "Jarvis"}], url: "about:blank"};
+    return {generation: id, target: String(tab.id), tabs: [{id: String(tab.id), url: "about:blank", title: "Dodaios"}], url: "about:blank"};
   }
   const session = sessions.get(id);
   if (!session) throw new Error("Session was disconnected; start a new task");
@@ -287,7 +287,7 @@ async function connect() {
     current.onclose = () => {
       if (socket !== current) return;
       socket = null; connecting = false; clearInterval(heartbeat);
-      status = "Disconnected; waiting for Jarvis";
+      status = "Disconnected; waiting for Dodaios";
       for (const session of sessions.values()) session.revoked = true;
       // Revoke immediately: the next input step fails even if dispatch is in flight.
       void releaseAll().finally(scheduleReconnect);
@@ -334,12 +334,12 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
         method: "POST", headers: {"Content-Type": "application/json"}, credentials: "omit",
         body: JSON.stringify({code, installation_id}), signal: AbortSignal.timeout(10000),
       });
-      if (!response.ok) throw new Error("Pairing failed. Generate a new code in Jarvis.");
+      if (!response.ok) throw new Error("Pairing failed. Generate a new code in Dodaios.");
       const value = await response.json();
       if (typeof value.profile_id !== "string" || typeof value.token !== "string") throw new Error("Invalid pairing response");
       await chrome.storage.local.set({connection: {server_url, installation_id, profile_id: value.profile_id, token: value.token}});
       if (socket) socket.close(); else await connect();
-      return {ok: true, status: "Paired. Connecting to Jarvis."};
+      return {ok: true, status: "Paired. Connecting to Dodaios."};
     }
     throw new Error("Unsupported request");
   };

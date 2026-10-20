@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { translate } from "@/i18n";
 
 /**
  * What keeps running after the desktop window closes — GET/PUT
@@ -6,6 +7,9 @@ import { useCallback, useEffect, useState } from "react";
  */
 export interface BackgroundAgentsConfig {
   keep_agents_running: boolean;
+  persistent_server: boolean;
+  server_url: string;
+  running_as_server: boolean;
   background_only_at_login: boolean;
   autostart_enabled: boolean;
   /** This page is served by the windowless background service itself. */
@@ -17,7 +21,8 @@ export interface BackgroundAgentsConfig {
 }
 
 export type BackgroundAgentsPatch = Partial<
-  Pick<BackgroundAgentsConfig, "keep_agents_running" | "background_only_at_login">
+  Pick<BackgroundAgentsConfig,
+    "keep_agents_running" | "background_only_at_login" | "persistent_server" | "server_url">
 >;
 
 /** Loads the background-agents settings and exposes save(). Mirrors useAutostart. */
@@ -50,7 +55,14 @@ export function useBackgroundAgents() {
       body: JSON.stringify(patch),
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.detail ?? `HTTP ${res.status}`);
+    if (!res.ok) {
+      const detail = body.detail;
+      const message = typeof detail === "string" ? detail
+        : Array.isArray(detail)
+          ? detail.map((item: { msg?: string }) => item.msg ?? translate("settings_view.invalid_setting")).join("; ")
+          : `HTTP ${res.status}`;
+      throw new Error(message);
+    }
     setConfig(body as BackgroundAgentsConfig);
     return body as BackgroundAgentsConfig;
   }, []);

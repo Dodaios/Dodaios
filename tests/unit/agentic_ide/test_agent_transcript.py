@@ -239,6 +239,58 @@ class TestOpening:
             "What is this   button?"
         )
 
+    def test_claude_session_opened_with_a_slash_command_is_named_by_its_request(
+        self, tmp_path: Path
+    ) -> None:
+        """``/goal <request>`` is one command block; its arguments are the request."""
+        _claude_session(
+            tmp_path,
+            "abc",
+            [
+                _msg(
+                    "user",
+                    "<command-name>/goal</command-name>\n"
+                    "            <command-message>goal</command-message>\n"
+                    "            <command-args>Speed up the CI pipeline\nwithout losing tests"
+                    "</command-args>",
+                ),
+                _msg("user", "<local-command-stdout>Goal set: Speed up</local-command-stdout>"),
+                _msg("user", "a later question"),
+            ],
+        )
+        assert agent_transcript.first_user_text("claude", "abc", home=tmp_path) == (
+            "Speed up the CI pipeline without losing tests"
+        )
+
+    def test_claude_command_switches_and_compact_summaries_open_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        _claude_session(
+            tmp_path,
+            "abc",
+            [
+                _msg(
+                    "user",
+                    "<command-name>/code-review</command-name>"
+                    "<command-message>code-review</command-message>"
+                    "<command-args>high</command-args>",
+                ),
+                _msg("user", "<command-name>/clear</command-name><command-args></command-args>"),
+                {
+                    "type": "user",
+                    "isCompactSummary": True,
+                    "message": {
+                        "role": "user",
+                        "content": "This session is being continued from a previous conversation.",
+                    },
+                },
+                _msg("user", "Fix the sidebar"),
+            ],
+        )
+        assert agent_transcript.first_user_text("claude", "abc", home=tmp_path) == (
+            "Fix the sidebar"
+        )
+
     def test_a_missing_file_is_none_and_a_silent_one_is_empty(self, tmp_path: Path) -> None:
         assert agent_transcript.first_user_text("claude", "abc", home=tmp_path) is None
         _claude_session(tmp_path, "abc", [{"type": "queue-operation"}])

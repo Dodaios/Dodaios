@@ -15,6 +15,7 @@ from jarvis.core.branding import (
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     MACOS_APP_DIR_NAME,
     MACOS_AUTOSTART_LABEL,
+    MACOS_BUNDLE_ID,
     OFFICIAL_REPO_SLUG_ENV_VAR,
     WINDOWS_APP_USER_MODEL_ID,
     WINDOWS_SHORTCUT_FILE_NAME,
@@ -88,6 +89,13 @@ def test_verifier_identity_regexes_are_derived_from_resolved_slug() -> None:
             DEFAULT_INSTALL_DIR_NAME,
         ),
         ("install/uninstall.sh", "MACOS_APP_DIR_NAME", '"', MACOS_APP_DIR_NAME),
+        ("install/uninstall.sh", "MACOS_BUNDLE_ID", '"', MACOS_BUNDLE_ID),
+        (
+            "install/uninstall.sh",
+            "MACOS_AUTOSTART_LABEL",
+            '"',
+            MACOS_AUTOSTART_LABEL,
+        ),
         (
             "install/uninstall.sh",
             "LINUX_DESKTOP_ENTRY_FILE_NAME",

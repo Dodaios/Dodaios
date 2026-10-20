@@ -230,7 +230,7 @@ def test_explicit_heavy_request_stands_the_skill_down() -> None:
 
 
 def test_guards_module_has_no_jarvis_imports() -> None:
-    """A reverse import would close the jarvis.brain -> jarvis.skills cycle."""
+    """A reverse import would close the cycle between the brain and the skills package."""
     from pathlib import Path
 
     import jarvis.skills.guards as module

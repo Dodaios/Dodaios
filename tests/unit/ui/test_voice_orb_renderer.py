@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from jarvis.ui.jarvisbar.modes import MODES
+from jarvis.ui.dodaiosbar.modes import MODES
 from ui.orb.voice_orb import MOTIONS, VoiceOrbRenderer
 
 KEY = (255, 0, 255)

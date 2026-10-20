@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 
+from jarvis.marketplace.bundled_servers import runs_bundled_server, runs_connected_server
 from jarvis.marketplace.catalog import PluginSpec
 from jarvis.marketplace.mcp_bridge import _resolve_placeholders, _token_replacements
 from jarvis.marketplace.token_store import Tokens
@@ -23,8 +24,9 @@ def plugin_to_mcp_server_spec(
     """Return (MCPServerSpec, env_overrides) for a connected plugin, or None.
 
     None when the plugin has no mcp_server block or an MCP-incompatible
-    transport (rest_wrapper / unknown). stdio + http are supported — the same
-    two transports the worker bridge speaks.
+    transport (rest_wrapper / unknown). stdio, http and sse are supported —
+    the same transports the worker bridge speaks; sse only reaches older
+    remote servers a custom connector was pointed at.
     """
     spec = plugin.mcp_server
     if not spec:
@@ -32,7 +34,7 @@ def plugin_to_mcp_server_spec(
     repl = _token_replacements(plugin.id, tokens.access)
     transport = str(spec.get("transport") or "").lower()
 
-    if transport == "http":
+    if transport in ("http", "sse"):
         url = spec.get("url")
         if not url:
             return None
@@ -48,7 +50,7 @@ def plugin_to_mcp_server_spec(
             display=plugin.display_name,
             description=plugin.description,
             install_command=[],
-            transport="http",
+            transport="sse" if transport == "sse" else "http",
             url=str(url),
             headers=headers,
         )
@@ -59,16 +61,13 @@ def plugin_to_mcp_server_spec(
         if not install:
             return None
         resolved_install = [_resolve_placeholders(str(a), repl) for a in install]
-        if resolved_install[:2] == ["python", "-m"] and resolved_install[2:3] in (
-            ["jarvis.plugins.tool.connected_server"],
-            ["jarvis.marketplace.amd_mcp"],
-        ):
+        if resolved_install[:1] == ["python"] and runs_bundled_server(resolved_install):
             resolved_install[0] = sys.executable
         env_template = spec.get("env_template") or {}
         env_overrides = {
             str(k): _resolve_placeholders(str(v), repl) for k, v in env_template.items()
         }
-        if resolved_install[1:3] == ["-m", "jarvis.plugins.tool.connected_server"]:
+        if runs_connected_server(resolved_install):
             env_overrides["JARVIS_CONNECTOR_AUTH_TYPE"] = (
                 "oauth" if tokens.extra.get("client_id") else "pat"
             )

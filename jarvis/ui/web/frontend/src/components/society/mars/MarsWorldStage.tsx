@@ -23,6 +23,7 @@ import { useAgentFollowTarget } from "./useAgentFollowTarget";
 import { bindFollowEscape } from "./followInput";
 import { ownsTextOrUi } from "./input";
 import "./mars.css";
+import { useSyncCompanionPet } from "../companion/companionPetStore";
 
 export interface MarsWorldStageProps {
   topRight?: ReactNode;
@@ -51,6 +52,8 @@ export function MarsWorldStage({ topRight, onOpenLedger, onSelectAgent, stationP
   const ready = useLocaleChunk("society");
   const hostRef = useRef<HTMLDivElement>(null);
   const awake = useCanvasAwake(hostRef);
+  // Agents that wear a pet need the pets inside the canvas.
+  useSyncCompanionPet();
   const [initial] = useState(readViewPreferences);
   const [mode, setMode] = useState<CameraMode>(initial.mode);
   const [followAgentId, setFollowAgentId] = useState(initial.followAgentId);
@@ -162,7 +165,7 @@ export function MarsWorldStage({ topRight, onOpenLedger, onSelectAgent, stationP
         {navigation.isError && <p role="status">{t("society.mars.positions_offline")}</p>}
         <MarsBackgroundControl />
         <p>{t(mode === "player" ? "society.mars.player_help" : "society.mars.orbit_help")}</p>
-        <p role="status" aria-live="polite">{selectedBuilding ? `${selectedBuilding.name} — ${t(selectedBuilding.access === "required-interior" ? "society.mars.interior_pending" : "society.mars.access_pending")}` : t("society.mars.placeholder_actor")}</p>
+        <p role="status" aria-live="polite">{selectedBuilding ? `${t(`society.mars.building_${selectedBuilding.id}`)} — ${t(selectedBuilding.access === "required-interior" ? "society.mars.interior_pending" : "society.mars.access_pending")}` : t("society.mars.placeholder_actor")}</p>
         {selected === "operations" && onOpenStation && <button type="button" className="mars-use-station" onClick={onOpenStation}>{t("society.mars.station_title")}</button>}
       </div>
     </section>

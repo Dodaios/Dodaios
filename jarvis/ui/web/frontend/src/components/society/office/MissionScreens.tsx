@@ -15,7 +15,8 @@
  *    the desk monitors use. Mounting the real IDE would attach a second xterm
  *    to every PTY and resize the user's live terminals to monitor size.
  */
-import { Suspense, lazy, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { Suspense, lazy, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { CanvasActivity } from "@/hooks/useCanvasAwake";
 import { Html } from "@react-three/drei";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useT } from "@/i18n";
@@ -29,7 +30,7 @@ import { WorkspaceTerminalHeader } from "@/components/agentic/WorkspaceTerminalH
 import type { PaneEdgeState } from "@/components/agentic/terminalThemes";
 import { RosterRail } from "@/components/society/roster/RosterRail";
 import { useSocietyRoster, type SocietyAgent } from "../data";
-import { useSocietyChatGroups } from "@/lib/societyChatGroups";
+import { chatGroupsKnown, useSocietyChatGroups } from "@/lib/societyChatGroups";
 import { paneLabel, paneOccupants, type PaneOccupant } from "./codingFloor";
 import { PaneScreenView } from "./PaneLiveScreen";
 import { screenChanged } from "./terminalScreen";
@@ -78,7 +79,8 @@ function AgentsScreen() {
   const roster = useSocietyRoster();
   const agents = useMemo(() => roster.data?.agents ?? [], [roster.data]);
   const sample = roster.data?.sample ?? true;
-  const groups = useSocietyChatGroups(!sample).data ?? [];
+  const groupsQuery = useSocietyChatGroups(!sample);
+  const groups = groupsQuery.data ?? [];
   const shown = pickShownAgent(agents);
   const shownId = shown?.agentId ?? null;
   const store = useMemo(() => (shownId ? createAgentChatStore("society", `office-mission:${shownId}`) : null), [shownId]);
@@ -86,7 +88,7 @@ function AgentsScreen() {
   useEffect(() => () => store?.getState().disconnect(), [store]);
   return (
     <div className="grid h-full min-h-0 grid-cols-[300px_minmax(0,1fr)] bg-card">
-      <RosterRail agents={agents} groups={groups} loading={roster.isLoading} sample={sample}
+      <RosterRail agents={agents} groups={groups} loading={roster.isLoading} teamsPending={!sample && !chatGroupsKnown(groupsQuery)} sample={sample}
         activeAgentId={shownId} onOpen={() => undefined} onCreate={() => undefined}
         side="left" className="w-full border-0 jarvis-nav-surface" />
       <section className="flex min-h-0 flex-col overflow-hidden rounded-tl-[12px] border-l border-border bg-background">
@@ -242,9 +244,16 @@ const SECTIONS: Record<MonitorSection, () => ReactNode> = {
 };
 
 /** `section`, live, on a monitor `widthM` metres wide whose glass sits at `position`. */
-export function MissionLiveScreen({ section, widthM, position }: {
+type MissionLiveScreenProps = {
   section: MonitorSection; widthM: number; position: [number, number, number];
-}) {
+};
+
+export function MissionLiveScreen(props: MissionLiveScreenProps) {
+  const active = useContext(CanvasActivity);
+  return active ? <ActiveMissionLiveScreen {...props} /> : null;
+}
+
+function ActiveMissionLiveScreen({ section, widthM, position }: MissionLiveScreenProps) {
   // drei renders <Html> content in a separate React root: the app's data client
   // must be handed over, or the sections' queries throw and the screen stays blank.
   const client = useQueryClient();

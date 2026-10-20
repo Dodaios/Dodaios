@@ -1,4 +1,4 @@
-"""Cross-platform desktop registration for managed Personal Jarvis installs.
+"""Cross-platform desktop registration for managed Dodaios installs.
 
 The public installer is source-based: it creates a virtual environment and runs
 the desktop through Python.  Without explicit shell registration that leaves a
@@ -15,7 +15,7 @@ an update cannot move the code while leaving its launcher behind.  Registration
 is restricted to installer-managed trees by default; a developer checkout must
 never acquire an uninstall entry which could delete the checkout.
 
-**A frozen build registers nothing.**  When Personal Jarvis arrived through a
+**A frozen build registers nothing.**  When Dodaios arrived through a
 native installer (Windows ``Setup.exe``, macOS ``.dmg``, Linux ``.AppImage`` or
 ``.deb``) that installer owns every shell artifact: it created the Start-menu
 entry, the ``Applications`` bundle, the ``.desktop`` file and the uninstall
@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from jarvis.core.branding import (
+    LAUNCHER_ENTRY_NAME,
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     OFFICIAL_REPO_URL,
     PRODUCT_NAME,
@@ -152,9 +153,9 @@ def windows_uninstall_values(
         str(script),
     ]
     values: dict[str, str | int] = {
-        "DisplayName": PRODUCT_NAME,
+        "DisplayName": LAUNCHER_ENTRY_NAME,
         "DisplayVersion": version or _version(),
-        "Publisher": f"{PRODUCT_NAME} contributors",
+        "Publisher": f"{LAUNCHER_ENTRY_NAME} contributors",
         "InstallLocation": str(install_dir),
         "UninstallString": subprocess.list2cmdline(base),
         "QuietUninstallString": subprocess.list2cmdline([*base, "--yes"]),

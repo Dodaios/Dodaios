@@ -152,7 +152,7 @@ class ChromeSession:
             except Exception:
                 log.debug("Chrome preview unavailable")
                 self.publish(
-                    {"kind": "warning", "error": "Bring the Jarvis Chrome tab to the foreground"}
+                    {"kind": "warning", "error": "Bring the Dodaios Chrome tab to the foreground"}
                 )
                 self.publish(self.state)
             await asyncio.sleep(1)

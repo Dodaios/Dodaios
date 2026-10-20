@@ -67,7 +67,7 @@ individual is officially representing the community in public spaces.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the maintainers through
-[GitHub's private reporting form](https://github.com/PersonalJarvis/PersonalJarvis/security/advisories/new)
+[GitHub's private reporting form](https://github.com/Dodaios/Dodaios/security/advisories/new)
 or by direct message to a maintainer on
 [Discord](https://discord.gg/x7USduHxbc).
 

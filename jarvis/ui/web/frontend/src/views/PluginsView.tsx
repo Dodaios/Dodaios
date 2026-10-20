@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   type QueryClient,
   useMutation,
@@ -8,8 +8,6 @@ import {
 import { useEventStore } from "@/store/events";
 import {
   ExternalLink,
-  Search,
-  RefreshCw,
   RotateCw,
   Plus,
   Check,
@@ -17,36 +15,27 @@ import {
   X,
   Loader2,
   AlertTriangle,
-  Upload,
-  Store,
   MoreHorizontal,
   ArrowRight,
+  Trash2,
 } from "lucide-react";
 import { CommunityTab } from "@/views/PluginsCommunity";
+import { Breadcrumbs, type Crumb, PluginBrowse, sectionTitle } from "@/views/plugins/PluginBrowse";
+import { homeSectionId, type PluginScope } from "@/views/plugins/sections";
 import { PluginUploadDialog } from "@/views/PluginUploadDialog";
-import { fill, translate } from "@/i18n";
+import { AddConnectorDialog, AddPluginTabs, type AddPluginMode } from "@/views/AddConnectorDialog";
+import { removeAddedPlugin, takePluginFocus } from "@/lib/customConnector";
+import { fill, translate, useLocaleChunk } from "@/i18n";
+import { backendMessage } from "@/lib/backendMessage";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BrandedSelect } from "@/components/ui/select";
 import {
   ActionMenu,
-  BackLink,
-  Cell,
   ClampedText,
-  DetailHeader,
-  EmptyRow,
   FactRows,
   IconButton,
-  InlineSearch,
-  MenuPill,
   Panel,
-  PanelHeader,
-  SegmentedFilter,
   SoftButton,
   StatusDot,
-  Table,
-  TableHead,
-  TableRow,
-  type Column,
 } from "@/components/extensions/primitives";
 import { FileCard, type CardFile } from "@/components/extensions/FileCard";
 import { cn } from "@/lib/utils";
@@ -55,6 +44,9 @@ import { openExternalUrl } from "@/lib/openExternal";
 import { robustCopy } from "@/lib/clipboard";
 import { PRODUCT_NAME } from "@/lib/branding";
 import { bundledPluginLogo as bundledLogo } from "@/lib/pluginLogos";
+import { useRunLocale } from "@/components/runs/format";
+
+const CustomApisView = lazy(() => import("@/views/CustomApisView").then((module) => ({ default: module.CustomApisView })));
 
 // ---------------------------------------------------------------------------
 // Wire types — mirror the JSON shape served by /api/marketplace/plugins.
@@ -67,7 +59,8 @@ type AuthMode =
   | "oauth_pkce_loopback"
   | "instance_browser"
   | "local"
-  | "hosted_mcp_allowlist";
+  | "hosted_mcp_allowlist"
+  | "hosted_mcp_open";
 
 type PluginStatus = "not_connected" | "connected" | "needs_reauth" | "error";
 /** Deliberately a plain string, mirroring the backend. The catalog serves the
@@ -95,11 +88,11 @@ type ReauthReason =
  *  breaking for no reason" and "my own OAuth app is still in Testing mode".
  */
 const REAUTH_EXPLANATION: Record<ReauthReason, string> = {
-  provider_rejected: "The provider no longer accepts this authorization",
-  client_rejected: "The provider no longer accepts this app's OAuth client",
-  client_missing: "Connected before Jarvis stored the OAuth client",
-  rotation_lost: "A renewed token could not be saved, so it was retired",
-  refresh_missing: "The access token expired and cannot be renewed automatically",
+  provider_rejected: "plugins_view.reauth_provider_rejected",
+  client_rejected: "plugins_view.reauth_client_rejected",
+  client_missing: "plugins_view.reauth_client_missing",
+  rotation_lost: "plugins_view.reauth_rotation_lost",
+  refresh_missing: "plugins_view.reauth_refresh_missing",
 };
 
 /** Whether Jarvis will keep trying on its own, so the card never implies the
@@ -117,9 +110,9 @@ function flaggedAgo(stamp: string | null | undefined, now: number = Date.now()):
   const then = Date.parse(stamp);
   if (Number.isNaN(then)) return null;
   const days = Math.floor(Math.max(0, now - then) / 86_400_000);
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  return `${days} days ago`;
+  if (days < 1) return translate("plugins_view.ago_today");
+  if (days === 1) return translate("plugins_view.ago_yesterday");
+  return fill(translate("plugins_view.ago_days"), { count: days });
 }
 
 interface CatalogPlugin {
@@ -145,6 +138,9 @@ interface CatalogPlugin {
   status: PluginStatus;
   live_callable?: boolean;
   unavailable_reason?: string | null;
+  /** Stable code for `unavailable_reason` (jarvis/marketplace/amd_mcp.py
+   *  AMD_UNAVAILABLE_REASONS); translated at render, else the English text. */
+  unavailable_reason_code?: string | null;
   /** Why the connection is flagged, and since when. Only set while
    *  `status === "needs_reauth"`; `null` when it died before Jarvis recorded
    *  reasons. Never carries provider error text. */
@@ -158,6 +154,8 @@ interface CatalogPlugin {
   publisher?: string | null;
   version?: string | null;
   source_url?: string | null;
+  /** Transport block; a custom connector's `url` is the server it reaches. */
+  mcp_server?: { transport?: string; url?: string; [key: string]: unknown } | null;
 }
 
 interface CatalogResponse {
@@ -242,6 +240,7 @@ export interface Plugin {
   featured?: boolean;
   liveCallable?: boolean;
   unavailableReason?: string;
+  unavailableReasonCode?: string;
   longevity: Longevity;
   longevityNote?: string;
   /** Undefined only in hand-built fixtures; the catalog always states it. */
@@ -264,6 +263,35 @@ export interface Plugin {
   selfUploaded: boolean;
   publisher?: string;
   sourceUrl?: string;
+  /** Remote MCP address, shown for plugins the owner added by URL. */
+  mcpUrl?: string;
+}
+
+/** Why a plugin cannot run here, in the UI language when the backend named
+ *  the reason with a code; otherwise its own sentence. */
+export function unavailableReasonText(plugin: Plugin): string | undefined {
+  if (!plugin.unavailableReason) return undefined;
+  return backendMessage(
+    translate,
+    "plugins_view.unavailable_reason",
+    plugin.unavailableReasonCode,
+    null,
+    plugin.unavailableReason,
+  );
+}
+
+/** A shipped plugin's longevity note in the UI language (keyed by plugin id);
+ *  a marketplace or uploaded plugin's own note is shown as published. */
+function longevityNoteText(plugin: Plugin): string | undefined {
+  if (!plugin.longevityNote) return undefined;
+  const shipped = !plugin.fromMarketplace && !plugin.selfUploaded;
+  return backendMessage(
+    translate,
+    "plugins_view.longevity_note",
+    shipped ? plugin.id : "",
+    null,
+    plugin.longevityNote,
+  );
 }
 
 function adapt(p: CatalogPlugin): Plugin {
@@ -281,6 +309,7 @@ function adapt(p: CatalogPlugin): Plugin {
     featured: p.featured ?? false,
     liveCallable: p.live_callable ?? false,
     unavailableReason: p.unavailable_reason ?? undefined,
+    unavailableReasonCode: p.unavailable_reason_code ?? undefined,
     longevity: p.longevity ?? "self_renewing",
     longevityNote: p.longevity_note ?? undefined,
     acceptance: p.acceptance ?? "preview",
@@ -298,7 +327,24 @@ function adapt(p: CatalogPlugin): Plugin {
     selfUploaded: p.source === "local",
     publisher: p.publisher ?? undefined,
     sourceUrl: p.source_url ?? undefined,
+    mcpUrl: typeof p.mcp_server?.url === "string" ? p.mcp_server.url : undefined,
   };
+}
+
+/** The plugin catalog as one shared, polled query. Every surface of the section
+ *  reads it through this hook, so a connection made on one page is seen by the
+ *  sidebar and the directory at the same moment. */
+export function usePluginCatalog() {
+  const query = useQuery({
+    queryKey: ["marketplace-plugins"],
+    queryFn: fetchCatalog,
+    refetchInterval: 30_000,
+  });
+  const plugins = useMemo<Plugin[]>(
+    () => query.data?.plugins.map(adapt) ?? [],
+    [query.data],
+  );
+  return { ...query, plugins };
 }
 
 // --- Brand marks -----------------------------------------------------------
@@ -349,10 +395,11 @@ function isFullColourMark(p: { id?: string; logoUrl?: string }): boolean {
   return Boolean((p.id && bundledLogo(p.id)) || p.logoUrl);
 }
 
+/** Translation keys; translated where rendered so a language switch applies. */
 const LONGEVITY_LABEL: Record<Longevity, string> = {
-  permanent: "Stays connected",
-  self_renewing: "Renews itself",
-  provider_limited: "Sign in again periodically",
+  permanent: "plugins_view.longevity_permanent",
+  self_renewing: "plugins_view.longevity_self_renewing",
+  provider_limited: "plugins_view.longevity_provider_limited",
 };
 
 async function fetchCatalog(): Promise<CatalogResponse> {
@@ -368,14 +415,16 @@ async function fetchCatalog(): Promise<CatalogResponse> {
   return res.json();
 }
 
+/** Translation keys; translated where rendered so a language switch applies. */
 const AUTH_LABELS: Record<AuthMode, string> = {
-  instance_browser: "Browser Login",
-  local: "Local device",
-  oauth_device_flow: "Device Flow",
-  pat_paste: "Access Token",
-  hosted_mcp_oauth_dcr: "One-Click",
-  oauth_pkce_loopback: "Browser Login",
-  hosted_mcp_allowlist: "Allowlist",
+  instance_browser: "plugins_view.auth_browser_login",
+  local: "plugins_view.auth_local",
+  oauth_device_flow: "plugins_view.auth_device_flow",
+  pat_paste: "plugins_view.auth_access_token",
+  hosted_mcp_oauth_dcr: "plugins_view.auth_one_click",
+  oauth_pkce_loopback: "plugins_view.auth_browser_login",
+  hosted_mcp_allowlist: "plugins_view.auth_allowlist",
+  hosted_mcp_open: "plugins_view.auth_no_signin",
 };
 
 // Provider families supporting an optional expert OAuth client override: use their
@@ -406,6 +455,21 @@ const OAUTH_FAMILY_LABEL: Record<string, string> = {
   figma: "Figma",
   hubspot: "HubSpot",
 };
+
+/** Render a translated sentence with one `{slot}` replaced by a React node,
+ *  so links and emphasised terms can sit anywhere the language needs them. */
+function withSlot(text: string, slot: string, node: React.ReactNode): React.ReactNode {
+  const marker = `{${slot}}`;
+  const at = text.indexOf(marker);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      {node}
+      {text.slice(at + marker.length)}
+    </>
+  );
+}
 
 function oauthClientFamily(
   plugin: Plugin,
@@ -438,28 +502,36 @@ const OAUTH_CLIENT_CONSOLE: Record<string, string> = {
 // What a client id actually looks like, per provider. The field used to show
 // Google's `…apps.googleusercontent.com` to everyone, which reads as "you are
 // in the wrong place" when the provider is Spotify or Slack.
+// Literal example values stay as they are; prose hints are translation keys
+// (prefixed "plugins_view.") and are translated where rendered.
 const OAUTH_CLIENT_ID_PLACEHOLDER: Record<string, string> = {
   google: "…apps.googleusercontent.com",
-  spotify: "32-character id from the app's settings",
+  spotify: "plugins_view.client_id_hint_spotify",
   slack: "1234567890123.1234567890123",
   asana: "1234567890123456",
-  github: "Iv1.… from the OAuth App settings",
-  gitlab: "64-character application id",
-  figma: "client id from the app's settings",
-  hubspot: "UUID from the app's Auth settings",
+  github: "plugins_view.client_id_hint_github",
+  gitlab: "plugins_view.client_id_hint_gitlab",
+  figma: "plugins_view.client_id_hint_figma",
+  hubspot: "plugins_view.client_id_hint_hubspot",
 };
+
+/** Render an OAUTH_CLIENT_ID_PLACEHOLDER entry: a key is translated, a
+ *  literal example value is returned as is. */
+function clientIdPlaceholder(value: string): string {
+  return value.startsWith("plugins_view.") ? translate(value) : value;
+}
 
 // Providers whose PKCE flow needs no secret at all. Saying so beats an empty
 // box captioned "optional for some providers", which leaves the reader to
 // guess whether they are one of them.
 const OAUTH_NO_SECRET_NEEDED: Record<string, string> = {
-  microsoft: "not needed for a public/native app",
-  x: "not needed for a Native App",
-  spotify: "not needed — leave this empty",
-  google: "usually not needed",
-  github: "not needed — leave this empty",
-  gitlab: "usually not needed",
-  figma: "usually not needed",
+  microsoft: "plugins_view.secret_not_needed_public",
+  x: "plugins_view.secret_not_needed_native",
+  spotify: "plugins_view.secret_not_needed_empty",
+  google: "plugins_view.secret_usually_not_needed",
+  github: "plugins_view.secret_not_needed_empty",
+  gitlab: "plugins_view.secret_usually_not_needed",
+  figma: "plugins_view.secret_usually_not_needed",
 };
 
 /** The redirect URI the provider must have registered for the login to work.
@@ -491,8 +563,6 @@ function loopbackRedirectUri(plugin: Plugin): string | undefined {
   return `http://127.0.0.1:${port}${path}`;
 }
 
-type FilterId = "all" | Category;
-export type StatusFilterId = "all" | "connected" | "not_connected" | "attention";
 
 /** Section order for the store, straight from the catalog. Any category the
  *  backend serves that the order does not mention is appended, so a new
@@ -524,6 +594,7 @@ export function matchesQuery(plugin: Plugin, query: string): boolean {
     plugin.name,
     plugin.description,
     plugin.category,
+    categoryLabel(plugin.category),
     plugin.id,
     oauthClientFamily(plugin)?.label ?? "",
   ]
@@ -548,6 +619,17 @@ export function matchesNamePrefix(plugin: Plugin, query: string): boolean {
   return false;
 }
 
+/** What a search box lists for `query`: the plugins whose name starts with it
+ *  when any do, otherwise every plugin that mentions all its words — always
+ *  A-Z, never grouped. An empty query returns the list untouched. */
+export function searchPlugins(plugins: Plugin[], query: string): Plugin[] {
+  const trimmed = query.trim();
+  if (trimmed === "") return plugins;
+  const prefixed = plugins.filter((p) => matchesNamePrefix(p, trimmed));
+  const hits = prefixed.length > 0 ? prefixed : plugins.filter((p) => matchesQuery(p, trimmed));
+  return [...hits].sort(sortPluginsByName);
+}
+
 /** A-Z by display name, case-insensitive. Used whenever a search query is
  *  active so "G" lists Gmail before Google Drive instead of grouping by
  *  category. */
@@ -555,38 +637,70 @@ export function sortPluginsByName(a: Plugin, b: Plugin): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 }
 
-/** "attention" groups needs_reauth and error: both mean the same thing to the
- *  user — this plugin is listed but cannot be called until they act. */
-export function matchesStatus(plugin: Plugin, status: StatusFilterId): boolean {
-  switch (status) {
-    case "connected":
-      return plugin.status === "connected";
-    case "not_connected":
-      return plugin.status === "not_connected";
-    case "attention":
-      return plugin.status === "needs_reauth" || plugin.status === "error";
-    default:
-      return true;
-  }
-}
-
-export type ListFilter = "all" | "installed" | "attention" | "recommended";
-
-const WINDOW_CATEGORY_ORDER = [
+/** The order the directory lists its category sections in. A category the
+ *  catalog serves but this list does not name follows in catalog order. */
+const DIRECTORY_CATEGORY_ORDER = [
   "Calendar & Mail", "Files & Photos", "Knowledge & Reading", "Messaging",
   "Lists & Tasks", "Developer", "Media & Creativity", "Home & Devices",
 ];
 
-export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
+/** Translation keys for the catalog's category names (jarvis/marketplace/
+ *  catalog.py CATEGORY_ORDER plus the custom-connector category). The catalog
+ *  value stays the identifier; an unknown category renders verbatim. */
+const CATEGORY_LABEL_KEYS: Record<string, string> = {
+  "Home & Devices": "plugins_category.home_devices",
+  "Lists & Tasks": "plugins_category.lists_tasks",
+  "Calendar & Mail": "plugins_category.calendar_mail",
+  "Messaging": "plugins_category.messaging",
+  "Knowledge & Reading": "plugins_category.knowledge_reading",
+  "Media & Creativity": "plugins_category.media_creativity",
+  "Files & Photos": "plugins_category.files_photos",
+  "Developer": "plugins_category.developer",
+  "Custom": "plugins_category.custom",
+};
+
+/** Display label for a catalog category in the current UI language. */
+export function categoryLabel(category: string): string {
+  const key = CATEGORY_LABEL_KEYS[category];
+  return key ? translate(key) : category;
+}
+
+export function PluginsView({
+  selectedId: controlledId,
+  onSelect,
+}: {
+  /** The open plugin page, when the surrounding frame owns the selection (its
+   *  sidebar opens installed plugins). Left out, the view keeps its own. */
+  selectedId?: string | null;
+  onSelect?: (id: string | null) => void;
+} = {}) {
   const qc = useQueryClient();
   const setActiveSection = useEventStore((s) => s.setActiveSection);
-  const [view, setView] = useState<"list" | "community">("list");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [listFilter, setListFilter] = useState<ListFilter>(inDialog ? "recommended" : "all");
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [view, setView] = useState<"list" | "community" | "custom-apis">("list");
+  const [ownSelectedId, setOwnSelectedId] = useState<string | null>(null);
+  const selectedId = controlledId !== undefined ? controlledId : ownSelectedId;
+  const setSelectedId = (id: string | null) => {
+    setOwnSelectedId(id);
+    onSelect?.(id);
+  };
+  const [scope, setScope] = useState<PluginScope>("catalog");
+  // The section whose full list is open; null on the directory's home page.
+  const [sectionId, setSectionId] = useState<string | null>(null);
+  // The installed list with its connection states, instead of the directory.
+  const [managing, setManaging] = useState(false);
+  // Which half of the "Add a plugin" dialog is open: a server URL or a folder.
+  const [addMode, setAddMode] = useState<AddPluginMode | null>(null);
+  const [removingPlugin, setRemovingPlugin] = useState<Plugin | null>(null);
+  const pushToast = useEventStore((s) => s.pushToast);
+  useLocaleChunk("marketplace");
+  // Another surface (the composer's Add menu) asked for one plugin's page.
+  useEffect(() => {
+    const focus = takePluginFocus();
+    if (focus) setSelectedId(focus);
+    // Runs once on mount: the focus request is consumed by reading it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<FilterId>("all");
   const [connectingPlugin, setConnectingPlugin] = useState<Plugin | null>(null);
   const [instancePlugin, setInstancePlugin] = useState<Plugin | null>(null);
   // Browser plugin awaiting publisher readiness or an optional expert override.
@@ -595,11 +709,8 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
   // Plugin awaiting a "really disconnect?" confirmation. Removing a plugin is
   // destructive (tokens dropped, brain tools re-expanded), so it must ask first.
   const [disconnectingPlugin, setDisconnectingPlugin] = useState<Plugin | null>(null);
-  const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ["marketplace-plugins"],
-    queryFn: fetchCatalog,
-    refetchInterval: 30_000,
-  });
+  const { data, isLoading, error, refetch, isFetching, plugins: allPlugins } =
+    usePluginCatalog();
 
   const publishPluginStatus = (pluginId: string, status: PluginStatus) => {
     cachePluginStatus(qc, pluginId, status);
@@ -726,7 +837,7 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
         }).verification_uri_complete;
         const userCode = (r as unknown as { user_code?: string }).user_code;
         if (!verifyUrl || !userCode) {
-          setConnectFailure("The sign-in session could not be created. Please try again.");
+          setConnectFailure(translate("plugins_view.err_session_failed"));
           return false;
         }
         // Auto-open the pre-filled verify URL if available; user lands
@@ -748,7 +859,7 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
         return true;
       }
       if (!r.open_url) {
-        setConnectFailure("The sign-in page is unavailable. Please try again.");
+        setConnectFailure(translate("plugins_view.err_signin_page_unavailable"));
         return false;
       }
       // Awaited: the bridge must dispatch before the pending dialog paints.
@@ -767,11 +878,11 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
     } catch (e) {
       const code = e instanceof Error ? e.message : "connect_failed";
       const messages: Record<string, string> = {
-        denied: "Sign-in was declined. You can try again when ready.",
-        timeout: "Sign-in timed out. Please try again.",
-        provider_unreachable: "The provider could not be reached. Please try again later.",
-        port_in_use: "The sign-in callback is busy. Close the other sign-in attempt and try again.",
-        misconfigured: "Browser sign-in is pending publisher setup. No developer setup is required from you.",
+        denied: translate("plugins_view.err_denied"),
+        timeout: translate("plugins_view.err_timeout"),
+        provider_unreachable: translate("plugins_view.err_provider_unreachable"),
+        port_in_use: translate("plugins_view.err_port_in_use"),
+        misconfigured: translate("plugins_view.err_misconfigured"),
       };
       // Known OAuth codes map to a short sentence; anything else is already a
       // backend-provided human-readable detail (e.g. the 409 provisioning
@@ -805,8 +916,7 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
       authMode: "pat_paste",
       authConfig: { ...p.fallbackAuth, mode: "pat_paste" },
       fallbackNotice:
-        notice ??
-        "Browser login needs the publisher client, which isn't provisioned yet — you can connect with a token meanwhile.",
+        notice ?? translate("plugins_view.fallback_notice"),
     });
   };
 
@@ -837,6 +947,7 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
     }
     if (
       p.authMode === "hosted_mcp_oauth_dcr" ||
+      p.authMode === "hosted_mcp_open" ||
       p.authMode === "local" ||
       p.authMode === "oauth_device_flow" ||
       p.authMode === "oauth_pkce_loopback"
@@ -845,13 +956,9 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
       return;
     }
     // hosted_mcp_allowlist (Vercel v2) — needs cloud proxy, deferred.
-    setConnectFailure("This connection is pending publisher setup. Please try again when browser sign-in is available.");
+    setConnectFailure(translate("plugins_view.err_pending_publisher"));
   };
 
-  const allPlugins = useMemo<Plugin[]>(
-    () => data?.plugins.map(adapt) ?? [],
-    [data],
-  );
   const handleDisconnect = (id: string) =>
     setDisconnectingPlugin(allPlugins.find((p) => p.id === id) ?? null);
 
@@ -862,7 +969,10 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
   // card connected optimistically.
   const handleFreshInstall = async (pluginId: string) => {
     setView("list");
-    setListFilter("installed");
+    setScope("yours");
+    setSectionId(null);
+    setManaging(false);
+    setQuery("");
     try {
       const fresh = await fetchCatalog();
       qc.setQueryData<CatalogResponse>(["marketplace-plugins"], fresh);
@@ -876,36 +986,13 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
     }
     void qc.refetchQueries({ queryKey: ["marketplace-plugins"] });
   };
-  const categoryOrder = useMemo(
-    () => orderedCategories(data, allPlugins),
-    [data, allPlugins],
-  );
-  // "Installed" keeps every plugin the user ever connected — including a revoked
-  // (needs_reauth) or errored one — so a dead token surfaces a Reconnect prompt
-  // here instead of silently dropping back into the full list as a plain "+".
-  //
-  // A plugin installed from the marketplace belongs here from the moment it is
-  // installed, connected or not: the shipped catalog is always "available", so
-  // a community plugin that only appeared in the full list was indistinguishable
-  // from the twenty the app came with — somebody who had just installed one had
-  // no place to look for it.
-  const installed = useMemo(
-    () =>
-      allPlugins.filter(
-        (p) =>
-          p.status === "connected" ||
-          p.status === "needs_reauth" ||
-          p.status === "error" ||
-          p.fromMarketplace,
-      ),
-    [allPlugins],
-  );
-  const connectedCount = useMemo(
-    () => allPlugins.filter((p) => p.status === "connected").length,
-    [allPlugins],
-  );
+  const categoryOrder = useMemo(() => {
+    const served = orderedCategories(data, allPlugins);
+    const ranked = DIRECTORY_CATEGORY_ORDER.filter((c) => served.includes(c));
+    return [...ranked, ...served.filter((c) => !ranked.includes(c))];
+  }, [data, allPlugins]);
   // Every plugin that needs a reconnect (revoked/expired token) or errored —
-  // the ones the "needs attention" banner names and the attention filter shows.
+  // the ones the "needs attention" banner names.
   const attentionPlugins = useMemo(
     () =>
       allPlugins.filter(
@@ -914,44 +1001,6 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
     [allPlugins],
   );
 
-  const visible = useMemo(() => {
-    const base =
-      listFilter === "recommended"
-        ? allPlugins.filter((p) => p.featured || p.status === "connected")
-        : listFilter === "installed"
-        ? installed
-        : listFilter === "attention"
-          ? attentionPlugins
-          : allPlugins;
-    const inCategory = (p: Plugin) => filter === "all" || p.category === filter;
-    const trimmed = query.trim();
-    if (trimmed !== "") {
-      const candidates = base.filter(inCategory);
-      const prefixed = candidates.filter((p) => matchesNamePrefix(p, trimmed));
-      if (prefixed.length > 0) return [...prefixed].sort(sortPluginsByName);
-      return candidates.filter((p) => matchesQuery(p, trimmed)).sort(sortPluginsByName);
-    }
-    const order = inDialog ? [...WINDOW_CATEGORY_ORDER, ...categoryOrder] : categoryOrder;
-    const ranked = [...base].sort((a, b) =>
-      order.indexOf(a.category) - order.indexOf(b.category)
-      || (inDialog ? a.name.localeCompare(b.name) : 0),
-    );
-    return ranked.filter((p) => {
-      if (filter !== "all" && p.category !== filter) return false;
-      return true;
-    });
-  }, [listFilter, query, filter, allPlugins, installed, attentionPlugins, categoryOrder, inDialog]);
-
-  const filtersActive = query.trim() !== "" || filter !== "all";
-  const resetFilters = () => {
-    setQuery("");
-    setFilter("all");
-  };
-  const closeSearch = () => {
-    resetFilters();
-    setSearchOpen(false);
-  };
-
   const selectedPlugin = selectedId
     ? allPlugins.find((p) => p.id === selectedId) ?? null
     : null;
@@ -959,22 +1008,50 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
   const dialogs = (
     <>
       {connectFailure && (
-        <div role="alertdialog" aria-modal="true" aria-label="Connection unavailable" className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/70">
+        <div role="alertdialog" aria-modal="true" aria-label={translate("plugins_view.connection_unavailable")} className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim/70">
           <div className="max-w-md rounded-lg bg-popover p-5 text-sm text-foreground shadow-float">
-            <h2 className="font-semibold">Connection unavailable</h2>
+            <h2 className="font-semibold">{translate("plugins_view.connection_unavailable")}</h2>
             <p className="mt-2">{connectFailure}</p>
-            <button type="button" onClick={() => setConnectFailure(null)} className="mt-4 rounded-md border border-border px-3 py-1.5">Close</button>
+            <button type="button" onClick={() => setConnectFailure(null)} className="mt-4 rounded-md border border-border px-3 py-1.5">{translate("common.close")}</button>
           </div>
         </div>
       )}
+      <AddConnectorDialog
+        open={addMode === "connector"}
+        onClose={() => setAddMode(null)}
+        tabs={<AddPluginTabs mode="connector" onChange={setAddMode} />}
+        onAdded={(result) => {
+          setAddMode(null);
+          pushToast(
+            "success",
+            fill(translate("plugins_view.plugin_added"), { plugin: result.plugin.display_name }),
+          );
+          void handleFreshInstall(result.plugin.id);
+        }}
+      />
       <PluginUploadDialog
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
+        open={addMode === "folder"}
+        onClose={() => setAddMode(null)}
+        tabs={<AddPluginTabs mode="folder" onChange={setAddMode} />}
         onInstalled={(id) => {
-          setUploadOpen(false);
+          setAddMode(null);
           void handleFreshInstall(id);
         }}
       />
+
+      {removingPlugin && (
+        <RemovePluginDialog
+          plugin={removingPlugin}
+          onCancel={() => setRemovingPlugin(null)}
+          onRemoved={() => {
+            const name = removingPlugin.name;
+            setRemovingPlugin(null);
+            setSelectedId(null);
+            pushToast("success", fill(translate("plugins_view.plugin_removed"), { plugin: name }));
+            void qc.refetchQueries({ queryKey: ["marketplace-plugins"] });
+          }}
+        />
+      )}
 
       {connectingPlugin && (
         <PatConnectDialog
@@ -1084,39 +1161,72 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
     </>
   );
 
+  // Each page of the section starts at the top: the scroll area is keyed on
+  // what it shows, so opening a plugin never lands mid-page.
+  const pageKey = view !== "list"
+    ? view
+    : selectedId ? `plugin:${selectedId}` : managing ? "manage" : sectionId ?? "home";
   const shell = (content: React.ReactNode) => (
     <div className="flex h-full min-h-0 flex-col bg-transparent">
-      {inDialog && view === "list" && !selectedId ? content : (
-        <ScrollArea className="flex-1">
-          <div className={cn("mx-auto w-full max-w-4xl px-8 py-6", inDialog && "pt-12")}>{content}</div>
-        </ScrollArea>
-      )}
+      <ScrollArea key={pageKey} className="flex-1">
+        <div className="mx-auto w-full max-w-[1040px] px-6 pb-14 pt-14 sm:px-10">{content}</div>
+      </ScrollArea>
       {dialogs}
     </div>
   );
+  const directoryCrumb: Crumb = {
+    label: translate("plugins_view.title"),
+    onClick: () => {
+      setView("list");
+      setSelectedId(null);
+      setSectionId(null);
+      setManaging(false);
+      setQuery("");
+    },
+  };
 
-  // ---- Community marketplace (the "Browse" page) --------------------------
-  if (view === "community") {
-    return shell(
-      <>
-        <BackLink label={translate("plugins_view.title")} onClick={() => setView("list")} />
-        <div className="mt-5">
-          <CommunityTab onInstalled={(name) => void handleFreshInstall(name)} />
-        </div>
-      </>,
-    );
-  }
-
-  // ---- Detail page -------------------------------------------------------
+  // ---- Plugin page ---------------------------------------------------------
+  // Checked before the community and API pages: the sidebar opens a plugin
+  // from wherever the directory currently is.
   if (selectedId) {
+    // The crumb between the directory and the plugin is the list the plugin
+    // belongs to — the installed list while managing, otherwise its section —
+    // so the path reads the same however the page was reached.
+    const home = selectedPlugin ? homeSectionId(selectedPlugin) : null;
+    const origin: Crumb | null = managing
+      ? {
+          label: translate("plugins_view.manage_title"),
+          onClick: () => {
+            setView("list");
+            setSelectedId(null);
+          },
+        }
+      : home
+        ? {
+            label: sectionTitle(home),
+            onClick: () => {
+              setView("list");
+              setSectionId(home);
+              setQuery("");
+              setSelectedId(null);
+            },
+          }
+        : null;
     return shell(
       <>
-        <BackLink label={translate("plugins_view.title")} onClick={() => setSelectedId(null)} />
+        <Breadcrumbs
+          crumbs={[
+            directoryCrumb,
+            ...(origin ? [origin] : []),
+            { label: selectedPlugin?.name ?? translate("plugins_view.plugin_fallback") },
+          ]}
+        />
         {selectedPlugin ? (
           <PluginDetail
             plugin={selectedPlugin}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
+            onRemove={setRemovingPlugin}
           />
         ) : (
           <p className="mt-6 text-sm text-muted-foreground">
@@ -1127,151 +1237,50 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
     );
   }
 
-  // ---- List page ---------------------------------------------------------
-  const subtitle = isLoading
-    ? translate("plugins_view.loading")
-    : error
-      ? translate("plugins_view.unreachable")
-      : fill(translate("plugins_view.count"), {
-          n: allPlugins.length,
-          connected: connectedCount,
-        });
+  // ---- Own HTTP APIs and the community marketplace -------------------------
+  if (view === "custom-apis") {
+    return shell(<Suspense fallback={<p>{translate("custom_apis.loading")}</p>}>
+      <CustomApisView onBack={() => setView("list")} />
+    </Suspense>);
+  }
 
-  if (inDialog) {
+  if (view === "community") {
     return shell(
-      <PluginWindowCatalog
-        plugins={visible} installed={installed} total={allPlugins.length}
-        listFilter={listFilter} onListFilter={(value) => { setListFilter(value); setFilter("all"); }}
-        query={query} onQuery={(value) => { setQuery(value); if (value.trim()) setListFilter("all"); }}
-        category={filter} categories={categoryOrder}
-        onCategory={(value) => { setFilter(value); setListFilter("all"); }}
-        loading={isLoading} error={error instanceof Error ? error.message : null}
-        refreshing={isFetching} onRefresh={() => void refetch()}
-        onBrowse={() => setView("community")} onUpload={() => setUploadOpen(true)}
-        onOpen={setSelectedId} onConnect={handleConnect} onDisconnect={handleDisconnect}
-        onReset={() => { resetFilters(); setListFilter("all"); }}
-        attention={attentionPlugins.length} subtitle={subtitle}
-      />,
+      <>
+        <Breadcrumbs crumbs={[directoryCrumb, { label: translate("plugins_view.add_community") }]} />
+        <div className="mt-6">
+          <CommunityTab onInstalled={(name) => void handleFreshInstall(name)} />
+        </div>
+      </>,
     );
   }
 
+  // ---- Directory -----------------------------------------------------------
   return shell(
-    <>
-      <PanelHeader
-        title={translate("plugins_view.title")}
-        subtitle={subtitle}
-        actions={
-          <>
-            <IconButton
-              label={translate("plugins_view.search_placeholder")}
-              active={searchOpen}
-              onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
-            >
-              <Search className="h-4 w-4" />
-            </IconButton>
-            <IconButton
-              label={translate("plugins_view.refresh")}
-              onClick={() => void refetch()}
-              busy={isFetching && !data}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </IconButton>
-            <SoftButton onClick={() => setView("community")} className="ml-1">
-              {translate("plugins_view.browse")}
-            </SoftButton>
-            <ActionMenu
-              label={translate("plugins_view.add")}
-              actions={[
-                {
-                  id: "upload",
-                  label: translate("plugins_view.add_upload"),
-                  icon: <Upload className="h-3.5 w-3.5" />,
-                  onSelect: () => setUploadOpen(true),
-                },
-                {
-                  id: "community",
-                  label: translate("plugins_view.add_community"),
-                  icon: <Store className="h-3.5 w-3.5" />,
-                  onSelect: () => setView("community"),
-                },
-                {
-                  id: "marketplace",
-                  label: translate("plugins_view.add_marketplace"),
-                  icon: <ExternalLink className="h-3.5 w-3.5" />,
-                  separatorAbove: true,
-                  onSelect: () => setActiveSection("marketplace"),
-                },
-              ]}
-              trigger={({ open, toggle }) => (
-                <MenuPill open={open} toggle={toggle}>
-                  {translate("plugins_view.add")}
-                </MenuPill>
-              )}
-            />
-          </>
-        }
-      />
-
-      {searchOpen && (
-        <div className="mt-4 flex items-center gap-2">
-          <div className="flex-1">
-            <InlineSearch
-              value={query}
-              onChange={setQuery}
-              placeholder={translate("plugins_view.search_placeholder")}
-              autoFocus
-            />
-          </div>
-          <IconButton label={translate("common.close")} onClick={closeSearch}>
-            <X className="h-4 w-4" />
-          </IconButton>
-        </div>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <SegmentedFilter<ListFilter>
-          label={translate("plugins_view.filter_label")}
-          value={listFilter}
-          onChange={setListFilter}
-          options={[
-            { id: "all", label: translate("plugins_view.filter_all"), count: allPlugins.length },
-            { id: "installed", label: translate("plugins_view.filter_installed"), count: installed.length },
-            ...(attentionPlugins.length > 0
-              ? [{ id: "attention" as const, label: translate("plugins_view.filter_attention"), count: attentionPlugins.length }]
-              : []),
-          ]}
-        />
-        <div className="ml-auto flex items-center gap-2">
-          {filtersActive && (
-            <>
-              <span className="text-micro text-muted-foreground">
-                {fill(translate("plugins_view.matches"), { n: visible.length })}
-              </span>
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="text-micro text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-              >
-                {translate("plugins_view.clear_filters")}
-              </button>
-            </>
-          )}
-          {categoryOrder.length > 1 && (
-            <BrandedSelect
-              value={filter}
-              onValueChange={(v) => setFilter((v || "all") as FilterId)}
-              ariaLabel={translate("plugins_view.col_category")}
-              className="h-7 w-auto rounded-md px-2 py-0 text-micro"
-              options={[
-                { value: "all", label: translate("plugins_view.all_categories") },
-                ...categoryOrder.map((c) => ({ value: c, label: c })),
-              ]}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="mt-4">
+    <PluginBrowse
+      plugins={allPlugins}
+      categoryOrder={categoryOrder}
+      loading={isLoading}
+      error={error instanceof Error ? error.message : null}
+      refreshing={isFetching}
+      onRefresh={() => void refetch()}
+      scope={scope}
+      onScope={setScope}
+      sectionId={sectionId}
+      onSection={setSectionId}
+      query={query}
+      onQuery={setQuery}
+      managing={managing}
+      onManage={setManaging}
+      onAdd={setAddMode}
+      onCommunity={() => setView("community")}
+      onMarketplace={() => setActiveSection("marketplace")}
+      onCustomApis={() => setView("custom-apis")}
+      onOpen={setSelectedId}
+      onConnect={handleConnect}
+      onDisconnect={handleDisconnect}
+      onRemove={setRemovingPlugin}
+      banner={
         <AttentionBanner
           plugins={attentionPlugins}
           onJump={() => {
@@ -1279,168 +1288,13 @@ export function PluginsView({ inDialog = false }: { inDialog?: boolean } = {}) {
             if (target) setSelectedId(target.id);
           }}
         />
-        {error && (
-          <div className="rounded-lg bg-secondary p-3 text-sm text-destructive">
-            {(error as Error).message}
-          </div>
-        )}
-        {!error && (
-          <PluginTable
-            plugins={visible}
-            loading={isLoading}
-            filtersActive={filtersActive || listFilter !== "all"}
-            onOpen={(id) => setSelectedId(id)}
-            onConnect={handleConnect}
-            onDisconnect={handleDisconnect}
-            onReset={() => {
-              resetFilters();
-              setListFilter("all");
-            }}
-          />
-        )}
-      </div>
-    </>,
+      }
+    />,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Window catalog: larger original marks, readable descriptions and category groups.
-// The connection state and all actions are shared with the full detail view.
-// ---------------------------------------------------------------------------
-
-function PluginWindowCatalog({
-  plugins, installed, total, listFilter, onListFilter, query, onQuery,
-  category, categories, onCategory, loading, error, refreshing, onRefresh,
-  onBrowse, onUpload, onOpen, onConnect, onDisconnect, onReset, attention, subtitle,
-}: {
-  plugins: Plugin[]; installed: Plugin[]; total: number; listFilter: ListFilter;
-  onListFilter: (value: ListFilter) => void; query: string; onQuery: (value: string) => void;
-  category: string; categories: string[]; onCategory: (value: string) => void;
-  loading: boolean; error: string | null; refreshing: boolean; onRefresh: () => void;
-  onBrowse: () => void; onUpload: () => void; onOpen: (id: string) => void;
-  onReset: () => void; attention: number; subtitle: string;
-} & ConnectHandlers) {
-  const tabs: { id: ListFilter; label: string; count?: number }[] = [
-    { id: "all", label: translate("plugins_view.filter_all"), count: total },
-    { id: "recommended", label: translate("plugins_view.filter_recommended") },
-    { id: "installed", label: translate("plugins_view.filter_installed"), count: installed.length },
-    ...(attention ? [{ id: "attention" as const, label: translate("plugins_view.filter_attention"), count: attention }] : []),
-  ];
-  const grouped = listFilter === "all" && !query.trim() && category === "all";
-  const heading = query.trim()
-    ? fill(translate("plugins_view.matches"), { n: plugins.length })
-    : category !== "all" ? category : tabs.find((tab) => tab.id === listFilter)?.label;
-  return (
-    <>
-      <div className="shrink-0 px-5 pb-4 pt-7 sm:px-7">
-        <div className="flex items-center gap-3 pr-9">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground-strong">{translate("plugins_view.title")}</h2>
-          <div className="ml-auto flex items-center gap-1">
-            <IconButton label={translate("plugins_view.refresh")} onClick={onRefresh} busy={refreshing}>
-              <RefreshCw className="h-3.5 w-3.5" />
-            </IconButton>
-            <SoftButton onClick={onBrowse}>{translate("plugins_view.browse")}</SoftButton>
-            <IconButton label={translate("plugins_view.add_upload")} onClick={onUpload}>
-              <Plus className="h-4 w-4" />
-            </IconButton>
-          </div>
-        </div>
-        <p className="sr-only">{subtitle}</p>
-        <button type="button" onClick={() => onListFilter("installed")}
-          className="my-4 flex max-w-full items-center gap-3 rounded-lg py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {installed.length > 0 && <span className="flex -space-x-2" aria-hidden>
-            {installed.slice(0, 4).map((plugin) => <BrandTile key={plugin.id} plugin={plugin} size="sm" />)}
-          </span>}
-          <span>{installed.length} {translate("plugins_view.filter_installed").toLocaleLowerCase()}</span>
-          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-        </button>
-        <label className="flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-secondary px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
-          <Search className="h-4 w-4 shrink-0" aria-hidden />
-          <input type="search" value={query} onChange={(event) => onQuery(event.target.value)}
-            placeholder={translate("plugins_view.search_placeholder")} aria-label={translate("plugins_view.search_placeholder")}
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground" />
-        </label>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div role="tablist" aria-label={translate("plugins_view.filter_label")} className="flex flex-wrap gap-1.5">
-            {tabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={listFilter === tab.id && category === "all"}
-              onClick={() => onListFilter(tab.id)}
-              className={cn("rounded-full px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                listFilter === tab.id && category === "all" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
-              {tab.label}{tab.count !== undefined && <span className="ml-1.5 opacity-65">{tab.count}</span>}
-            </button>)}
-          </div>
-          <BrandedSelect value={category} onValueChange={onCategory}
-            ariaLabel={translate("plugins_view.col_category")}
-            testId="plugin-window-category"
-            className="h-8 w-auto max-w-full rounded-full bg-secondary px-3 text-xs"
-            options={[{ value: "all", label: translate("plugins_view.all_categories") },
-              ...[...categories].sort((a, b) => WINDOW_CATEGORY_ORDER.indexOf(a) - WINDOW_CATEGORY_ORDER.indexOf(b)).map((name) => ({ value: name, label: name }))]} />
-        </div>
-      </div>
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="px-4 pb-6 sm:px-6">
-          {error && <div role="alert" className="rounded-xl bg-secondary p-4 text-sm text-destructive">{error}</div>}
-          {loading && <p role="status" className="p-4 text-sm text-muted-foreground">{translate("plugins_view.loading")}</p>}
-          {!error && !loading && <>
-            {!grouped && <h3 className="px-2 pb-3 pt-2 text-sm font-semibold text-foreground-strong">{heading}</h3>}
-            <ul aria-label={translate("plugins_view.title")}>
-              {plugins.map((plugin, index) => <li key={plugin.id}>
-                {grouped && (index === 0 || plugins[index - 1].category !== plugin.category) &&
-                  <h3 className={cn("px-2 pb-2 text-sm font-semibold text-foreground-strong", index ? "pt-5" : "pt-2")}>{plugin.category}</h3>}
-                <div className="group flex min-h-[76px] items-center gap-3 rounded-xl px-2 py-3 hover:bg-secondary/70">
-                  <button type="button" onClick={() => onOpen(plugin.id)} aria-label={plugin.name}
-                    className="flex min-w-0 flex-1 items-center gap-3.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <BrandTile plugin={plugin} size="window" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium leading-6 text-foreground-strong">{plugin.name}</span>
-                      <span className="block truncate text-[13px] leading-5 text-muted-foreground" title={plugin.description}>{plugin.description}</span>
-                      {plugin.unavailableReason && <span className="block text-xs text-muted-foreground" title={plugin.unavailableReason}>Unsupported on this device</span>}
-                      {plugin.status === "needs_reauth" && <span className="block text-xs text-warning"><ReauthExplanation plugin={plugin} inline /></span>}
-                      <GrantExpiry plugin={plugin} />
-                    </span>
-                  </button>
-                  <WindowConnectButton plugin={plugin} onConnect={onConnect} onDisconnect={onDisconnect} />
-                </div>
-              </li>)}
-            </ul>
-            {plugins.length === 0 && <div className="py-12 text-center text-sm text-muted-foreground">
-              <p>{translate("plugins_view.no_hits")}</p>
-              <button type="button" onClick={onReset} className="mt-3 underline underline-offset-4">{translate("plugins_view.show_all")}</button>
-            </div>}
-          </>}
-        </div>
-      </ScrollArea>
-    </>
-  );
-}
-
-function WindowConnectButton({ plugin, onConnect, onDisconnect }: { plugin: Plugin } & ConnectHandlers) {
-  const [busy, setBusy] = useState(false);
-  const connected = plugin.status === "connected";
-  const reconnect = plugin.status === "needs_reauth" || plugin.status === "error";
-  const act = async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      if (connected) await onDisconnect(plugin.id);
-      else await onConnect(plugin);
-    } finally { setBusy(false); }
-  };
-  // Connection state in connection words, never install words: "Installed"
-  // already names the marketplace tab and the community badge, so a connected
-  // card saying "Added" read as done-before-authed. Connected says Connected,
-  // untouched says Connect.
-  return <button type="button" disabled={busy || Boolean(plugin.unavailableReason)} title={plugin.unavailableReason} onClick={() => void act()}
-    aria-label={translate(connected ? "plugins_view.disconnect" : reconnect ? "plugins_view.reconnect" : "plugins_view.connect")}
-    className={cn("flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
-      connected ? "text-muted-foreground hover:bg-secondary" : "bg-secondary text-foreground hover:bg-accent-soft")}>
-    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : connected ? <Check className="h-3.5 w-3.5 text-success" /> : reconnect ? <RotateCw className="h-3.5 w-3.5" /> : null}
-    {translate(connected ? "plugins_view.status_connected" : reconnect ? "plugins_view.reconnect" : "plugins_view.connect")}
-  </button>;
-}
-
-// ---------------------------------------------------------------------------
-// Status vocabulary shared by the table and the detail page
+// Status vocabulary shared by the directory and the plugin page
 // ---------------------------------------------------------------------------
 
 function statusTone(status: PluginStatus): "ok" | "off" | "warn" | "error" {
@@ -1456,8 +1310,8 @@ function statusTone(status: PluginStatus): "ok" | "off" | "warn" | "error" {
   }
 }
 
-function statusLabel(plugin: Plugin): string {
-  if (plugin.unavailableReason) return "Unsupported on this device";
+export function pluginStatusLabel(plugin: Plugin): string {
+  if (plugin.unavailableReason) return translate("plugins_view.unsupported_device");
   switch (plugin.status) {
     case "connected":
       return plugin.liveCallable
@@ -1473,133 +1327,6 @@ function statusLabel(plugin: Plugin): string {
 }
 
 // ---------------------------------------------------------------------------
-// Table
-// ---------------------------------------------------------------------------
-
-function PluginTable({
-  plugins,
-  loading,
-  filtersActive,
-  onOpen,
-  onConnect,
-  onDisconnect,
-  onReset,
-}: {
-  plugins: Plugin[];
-  loading: boolean;
-  filtersActive: boolean;
-  onOpen: (id: string) => void;
-  onReset: () => void;
-} & ConnectHandlers) {
-  const columns: Column[] = [
-    { id: "plugin", label: translate("plugins_view.col_plugin") },
-    { id: "category", label: translate("plugins_view.col_category"), width: "150px" },
-    { id: "status", label: translate("plugins_view.col_status"), width: "180px" },
-    { id: "action", label: translate("plugins_view.col_action"), width: "36px", srOnly: true, align: "right" },
-  ];
-
-  if (loading) {
-    return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        {translate("plugins_view.loading")}
-      </div>
-    );
-  }
-
-  return (
-    <Table label={translate("plugins_view.title")}>
-      <TableHead columns={columns} />
-      {plugins.map((plugin) => (
-        <PluginTableRow
-          key={plugin.id}
-          plugin={plugin}
-          columns={columns}
-          onOpen={() => onOpen(plugin.id)}
-          onConnect={onConnect}
-          onDisconnect={onDisconnect}
-        />
-      ))}
-      {plugins.length === 0 && (
-        <EmptyRow>
-          <p>
-            {filtersActive
-              ? translate("plugins_view.no_hits")
-              : translate("plugins_view.empty")}
-          </p>
-          {filtersActive && (
-            <button
-              type="button"
-              onClick={onReset}
-              className="mt-3 text-xs text-foreground-strong hover:underline"
-            >
-              {translate("plugins_view.show_all")}
-            </button>
-          )}
-        </EmptyRow>
-      )}
-    </Table>
-  );
-}
-
-function PluginTableRow({
-  plugin,
-  columns,
-  onOpen,
-  onConnect,
-  onDisconnect,
-}: { plugin: Plugin; columns: Column[]; onOpen: () => void } & ConnectHandlers) {
-  return (
-    <TableRow
-      id={`plugin-row-${plugin.id}`}
-      columns={columns}
-      onClick={onOpen}
-      ariaLabel={plugin.name}
-    >
-      <Cell>
-        <div className="flex items-center gap-3" title={plugin.description}>
-          <BrandTile plugin={plugin} size="sm" />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-title font-medium">{plugin.name}</span>
-              <PreviewBadge plugin={plugin} />
-              {plugin.fromMarketplace && <MarketplaceBadge publisher={plugin.publisher} />}
-              {plugin.selfUploaded && (
-                <span
-                  className="rounded-full bg-secondary px-1.5 text-micro font-medium text-foreground"
-                  title={translate("plugin_upload.unreviewed")}
-                >
-                  {translate("plugin_upload.self_badge")}
-                </span>
-              )}
-            </div>
-            {plugin.status === "needs_reauth" && (
-              <p className="mt-0.5 truncate text-xs">
-                <ReauthExplanation plugin={plugin} inline />
-              </p>
-            )}
-            <GrantExpiry plugin={plugin} />
-          </div>
-        </div>
-      </Cell>
-      <Cell muted>
-        <span className="truncate">{plugin.category}</span>
-      </Cell>
-      <Cell>
-        <StatusDot tone={statusTone(plugin.status)} label={statusLabel(plugin)} />
-      </Cell>
-      <Cell align="right" stop>
-        <ConnectIconButton
-          status={plugin.status}
-          unavailableReason={plugin.unavailableReason}
-          onConnect={() => onConnect(plugin)}
-          onDisconnect={() => onDisconnect(plugin.id)}
-        />
-      </Cell>
-    </TableRow>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Detail page
 // ---------------------------------------------------------------------------
 
@@ -1611,7 +1338,12 @@ async function fetchPluginFiles(pluginId: string): Promise<{ files: CardFile[] }
   return res.json();
 }
 
-function PluginDetail({ plugin, onConnect, onDisconnect }: { plugin: Plugin } & ConnectHandlers) {
+function PluginDetail({
+  plugin,
+  onConnect,
+  onDisconnect,
+  onRemove,
+}: { plugin: Plugin; onRemove?: (plugin: Plugin) => void } & ConnectHandlers) {
   const { busy, run } = useConnectLock(() => onConnect(plugin));
   const filesQuery = useQuery({
     queryKey: ["marketplace-plugin-files", plugin.id],
@@ -1644,15 +1376,67 @@ function PluginDetail({ plugin, onConnect, onDisconnect }: { plugin: Plugin } & 
           },
         ]
       : []),
+    // A plugin the owner added (URL, folder or community install) can leave
+    // again; a built-in one can only be disconnected.
+    ...(onRemove && (plugin.selfUploaded || plugin.fromMarketplace)
+      ? [
+          {
+            id: "remove",
+            label: translate("custom_connector.remove"),
+            icon: <Trash2 className="h-3.5 w-3.5" />,
+            destructive: true,
+            separatorAbove: Boolean(plugin.sourceUrl) || connected || needsReconnect,
+            onSelect: () => onRemove(plugin),
+          },
+        ]
+      : []),
   ];
 
+  const primaryAction = connected ? (
+    <>
+      <SoftButton onClick={() => void run()} disabled={busy || Boolean(plugin.unavailableReason)}>
+        {busy && <Loader2 className="animate-spin" />}
+        {translate("plugins_view.reconnect")}
+      </SoftButton>
+      <span className="inline-flex h-9 items-center gap-1.5 rounded-md bg-secondary px-3 text-base font-medium text-foreground-strong">
+        <Check className="h-4 w-4 text-success" aria-hidden />
+        {translate("plugins_view.status_connected")}
+      </span>
+    </>
+  ) : (
+    <SoftButton
+      primary={!needsReconnect}
+      onClick={() => void run()}
+      disabled={busy || Boolean(plugin.unavailableReason)}
+    >
+      {busy ? <Loader2 className="animate-spin" /> : needsReconnect ? <RotateCw /> : <Plus />}
+      {needsReconnect ? translate("plugins_view.reconnect") : translate("plugins_view.connect")}
+    </SoftButton>
+  );
+
   return (
-    <div className="mt-5">
-      <DetailHeader
-        leading={<BrandTile plugin={plugin} />}
-        title={plugin.name}
-        titleAccessory={
-          <>
+    <article className="mt-6 flex flex-col gap-8">
+      <header className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <BrandTile plugin={plugin} size="hero" />
+          <div className="flex flex-wrap items-center justify-end gap-2" title={unavailableReasonText(plugin)}>
+            {menuActions.length > 0 && (
+              <ActionMenu
+                label={translate("plugins_view.more_actions")}
+                actions={menuActions}
+                trigger={({ open, toggle }) => (
+                  <IconButton label={translate("plugins_view.more_actions")} onClick={toggle} active={open} className="h-9 w-9">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </IconButton>
+                )}
+              />
+            )}
+            {primaryAction}
+          </div>
+        </div>
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h3 className="min-w-0 break-words text-2xl font-semibold text-foreground-strong">{plugin.name}</h3>
             <PreviewBadge plugin={plugin} />
             {plugin.fromMarketplace && <MarketplaceBadge publisher={plugin.publisher} />}
             {plugin.selfUploaded && (
@@ -1663,133 +1447,102 @@ function PluginDetail({ plugin, onConnect, onDisconnect }: { plugin: Plugin } & 
                 {translate("plugin_upload.self_badge")}
               </span>
             )}
-          </>
-        }
-        byline={
-          <span className="inline-flex items-center gap-2">
-            <StatusDot tone={statusTone(plugin.status)} label={statusLabel(plugin)} />
-            <span>· {plugin.category}</span>
+          </div>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-base text-muted-foreground">
+            <StatusDot tone={statusTone(plugin.status)} label={pluginStatusLabel(plugin)} />
+            <span>· {categoryLabel(plugin.category)}</span>
             {plugin.publisher && (
               <span>· {fill(translate("plugins_view.by"), { publisher: plugin.publisher })}</span>
             )}
-          </span>
-        }
-        actions={
-          <>
-            {connected ? (
-              <>
-              <span className="inline-flex h-8 items-center gap-1.5 rounded-md bg-secondary px-3 text-xs font-medium text-foreground-strong">
-                <Check className="h-3.5 w-3.5" />
-                {translate("plugins_view.status_connected")}
-              </span>
-              <SoftButton onClick={() => void run()} disabled={busy || Boolean(plugin.unavailableReason)}>
-                {translate("plugins_view.reconnect")}
-              </SoftButton>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void run()}
-                disabled={busy || Boolean(plugin.unavailableReason)}
-                title={plugin.unavailableReason}
-                aria-busy={busy}
-                className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                  needsReconnect
-                    ? "bg-secondary text-foreground hover:bg-popover"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90",
-                )}
-              >
-                {busy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : needsReconnect ? (
-                  <RotateCw className="h-3.5 w-3.5" />
-                ) : (
-                  <Plus className="h-3.5 w-3.5" />
-                )}
-                {needsReconnect ? translate("plugins_view.reconnect") : translate("plugins_view.connect")}
-              </button>
-            )}
-            {menuActions.length > 0 && (
-              <ActionMenu
-                label={translate("plugins_view.more_actions")}
-                actions={menuActions}
-                trigger={({ open, toggle }) => (
-                  <IconButton label={translate("plugins_view.more_actions")} onClick={toggle} active={open}>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </IconButton>
-                )}
-              />
-            )}
-          </>
-        }
-      />
-
-      {plugin.unavailableReason && <p className="mt-3 text-sm text-muted-foreground">{plugin.unavailableReason}</p>}
-      {plugin.status === "needs_reauth" ? (
-        <div className="mt-4 rounded-md bg-secondary px-3 py-2.5 text-xs">
-          <ReauthExplanation plugin={plugin} />
+          </p>
         </div>
-      ) : null}
+      </header>
 
-      <GrantExpiry plugin={plugin} />
-
-      {plugin.description && (
-        <ClampedText
-          className="mt-4"
-          text={plugin.description}
-          moreLabel={translate("common.see_more")}
-          lessLabel={translate("common.see_less")}
-        />
+      {(plugin.unavailableReason || plugin.status === "needs_reauth" || plugin.description) && (
+        <div className="flex flex-col gap-3">
+          {plugin.unavailableReason && (
+            <p className="text-base text-muted-foreground">{unavailableReasonText(plugin)}</p>
+          )}
+          {plugin.status === "needs_reauth" ? (
+            <div className="rounded-lg bg-secondary px-3 py-2.5 text-xs">
+              <ReauthExplanation plugin={plugin} />
+            </div>
+          ) : null}
+          <GrantExpiry plugin={plugin} />
+          {plugin.description && (
+            <ClampedText
+              text={plugin.description}
+              moreLabel={translate("common.see_more")}
+              lessLabel={translate("common.see_less")}
+            />
+          )}
+        </div>
       )}
 
-      <Panel className="mt-4">
-        <div className="px-5 py-4">
-          <FactRows
-            rows={[
-              { label: translate("plugins_view.col_status"), value: statusLabel(plugin) },
-              { label: translate("plugins_view.fact_signin"), value: AUTH_LABELS[plugin.authMode] },
-              {
-                label: translate("plugins_view.fact_connection"),
-                value: (
-                  <span className={cn(plugin.longevity === "provider_limited" && "text-foreground")}>
-                    {LONGEVITY_LABEL[plugin.longevity]}
-                    {plugin.longevityNote ? (
-                      <span className="block text-xs text-muted-foreground">{plugin.longevityNote}</span>
-                    ) : null}
-                  </span>
-                ),
-              },
-              {
-                label: translate("plugins_view.fact_oauth_client"),
-                value: family
-                  ? plugin.oauthClientConfigured
-                    ? fill(translate("plugins_view.oauth_client_own"), { family: family.label })
-                    : "Browser sign-in is pending publisher setup. No developer setup is required from you."
-                  : null,
-              },
-              { label: translate("plugins_view.fact_publisher"), value: plugin.publisher ?? null },
-              {
-                label: translate("plugins_view.fact_source"),
-                value: plugin.selfUploaded
-                  ? translate("plugin_upload.unreviewed")
-                  : plugin.fromMarketplace
-                    ? translate("marketplace_origin.tooltip")
+      <section aria-labelledby="plugin-information" className="flex flex-col gap-3">
+        <h4 id="plugin-information" className="text-title font-semibold text-foreground-strong">
+          {translate("plugins_view.detail_information")}
+        </h4>
+        <Panel>
+          <div className="px-5 py-4">
+            <FactRows
+              rows={[
+                { label: translate("plugins_view.col_status"), value: pluginStatusLabel(plugin) },
+                { label: translate("plugins_view.col_category"), value: categoryLabel(plugin.category) },
+                { label: translate("plugins_view.fact_signin"), value: translate(AUTH_LABELS[plugin.authMode]) },
+                {
+                  label: translate("plugins_view.fact_connection"),
+                  value: (
+                    <span className={cn(plugin.longevity === "provider_limited" && "text-foreground")}>
+                      {translate(LONGEVITY_LABEL[plugin.longevity])}
+                      {plugin.longevityNote ? (
+                        <span className="block text-xs text-muted-foreground">{longevityNoteText(plugin)}</span>
+                      ) : null}
+                    </span>
+                  ),
+                },
+                {
+                  label: translate("plugins_view.fact_oauth_client"),
+                  value: family
+                    ? plugin.oauthClientConfigured
+                      ? fill(translate("plugins_view.oauth_client_own"), { family: family.label })
+                      : translate("plugins_view.err_misconfigured")
                     : null,
-              },
-            ]}
-          />
-        </div>
-      </Panel>
+                },
+                {
+                  label: translate("custom_connector.fact_server"),
+                  value:
+                    plugin.selfUploaded && plugin.mcpUrl ? (
+                      <code className="break-all font-mono text-meta">{plugin.mcpUrl}</code>
+                    ) : null,
+                },
+                { label: translate("plugins_view.fact_publisher"), value: plugin.publisher ?? null },
+                {
+                  label: translate("plugins_view.fact_source"),
+                  value: plugin.selfUploaded
+                    ? translate("plugin_upload.unreviewed")
+                    : plugin.fromMarketplace
+                      ? translate("marketplace_origin.tooltip")
+                      : null,
+                },
+              ]}
+            />
+          </div>
+        </Panel>
+      </section>
 
-      <FileCard
-        className="mt-4"
-        rootLabel={plugin.id}
-        files={filesQuery.data?.files ?? []}
-        loading={filesQuery.isPending}
-        error={filesQuery.error ? (filesQuery.error as Error).message : null}
-      />
-    </div>
+      <section aria-labelledby="plugin-files" className="flex flex-col gap-3">
+        <h4 id="plugin-files" className="text-title font-semibold text-foreground-strong">
+          {translate("plugins_view.detail_files")}
+        </h4>
+        <FileCard
+          rootLabel={plugin.id}
+          files={filesQuery.data?.files ?? []}
+          loading={filesQuery.isPending}
+          error={filesQuery.error ? (filesQuery.error as Error).message : null}
+        />
+      </section>
+    </article>
   );
 }
 
@@ -1812,8 +1565,8 @@ function AttentionBanner({
   const names = plugins.map((p) => p.name);
   const one = plugins.length === 1;
   const headline = one
-    ? `${names[0]} needs reconnecting`
-    : `${plugins.length} connections need reconnecting`;
+    ? fill(translate("plugins_view.attention_one"), { plugin: names[0] })
+    : fill(translate("plugins_view.attention_many"), { count: plugins.length });
 
   return (
     <div className="mb-4 flex items-center gap-3 rounded-lg bg-secondary px-3 py-2">
@@ -1825,13 +1578,15 @@ function AttentionBanner({
             ? // The banner is the first thing the user reads, so it states the
               // actual cause rather than the old catch-all guess ("expired or
               // was revoked"), which was wrong as often as it was right.
-              `${
-                plugins[0].reauthReason &&
-                plugins[0].reauthReason in REAUTH_EXPLANATION
-                  ? REAUTH_EXPLANATION[plugins[0].reauthReason as ReauthReason]
-                  : "The authorization stopped working"
-              } — reconnect to keep it working.`
-            : `Reconnect to keep them working: ${names.join(", ")}`}
+              fill(translate("plugins_view.attention_one_detail"), {
+                reason: translate(
+                  plugins[0].reauthReason &&
+                    plugins[0].reauthReason in REAUTH_EXPLANATION
+                    ? REAUTH_EXPLANATION[plugins[0].reauthReason as ReauthReason]
+                    : "plugins_view.reauth_unknown",
+                ),
+              })
+            : fill(translate("plugins_view.attention_many_detail"), { plugins: names.join(", ") })}
         </p>
       </div>
       <button
@@ -1839,7 +1594,7 @@ function AttentionBanner({
         onClick={onJump}
         className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-secondary px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-popover"
       >
-        {one ? "Jump to it" : "Jump to first"}
+        {translate(one ? "plugins_view.jump_to_it" : "plugins_view.jump_to_first")}
         <ArrowRight className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -1858,18 +1613,18 @@ interface ConnectHandlers {
   onDisconnect: (id: string) => void;
 }
 
-export function BrandTile({ plugin, size = "md" }: { plugin: Plugin; size?: "sm" | "md" | "window" }) {
+export function BrandTile({ plugin, size = "md" }: { plugin: Plugin; size?: "xs" | "sm" | "md" | "row" | "hero" }) {
   const [failed, setFailed] = useState(false);
   const tile = brandTile(plugin);
   const fullColour = isFullColourMark(plugin);
   const showMonogram = failed || !plugin.logoSlug;
-  const small = size === "sm";
+  const small = size === "sm" || size === "xs";
 
   return (
     <div
       className={cn(
         "grid shrink-0 place-items-center overflow-hidden rounded-lg border",
-        small ? "h-7 w-7 rounded-md" : size === "window" ? "h-12 w-12 rounded-xl" : "h-10 w-10",
+        size === "xs" ? "h-6 w-6 rounded-md" : small ? "h-7 w-7 rounded-md" : size === "hero" ? "h-14 w-14 rounded-2xl" : size === "row" ? "h-12 w-12 rounded-xl" : "h-10 w-10",
         // White app-icon tiles follow the reference in either interface theme.
         // Existing white monochrome marks are inverted below, keeping their
         // original geometry legible without recolouring multicolour artwork.
@@ -1881,7 +1636,7 @@ export function BrandTile({ plugin, size = "md" }: { plugin: Plugin; size?: "sm"
     >
       {showMonogram ? (
         <span
-          className={cn("font-semibold", small ? "text-xs" : "text-sm")}
+          className={cn("font-semibold", small ? "text-xs" : size === "hero" ? "text-xl" : "text-sm")}
           style={{ color: `#${glyphColor(tile)}` }}
         >
           {plugin.name.slice(0, 1).toUpperCase()}
@@ -1891,7 +1646,9 @@ export function BrandTile({ plugin, size = "md" }: { plugin: Plugin; size?: "sm"
           src={resolveLogoUrl(plugin)}
           alt=""
           className={cn(
-            fullColour ? (small ? "h-5 w-5" : size === "window" ? "h-9 w-9" : "h-7 w-7") : small ? "h-3.5 w-3.5" : size === "window" ? "h-8 w-8" : "h-5 w-5",
+            fullColour
+              ? (size === "xs" ? "h-4 w-4" : small ? "h-5 w-5" : size === "hero" ? "h-10 w-10" : size === "row" ? "h-8 w-8" : "h-7 w-7")
+              : size === "xs" ? "h-3.5 w-3.5" : small ? "h-3.5 w-3.5" : size === "hero" ? "h-8 w-8" : "h-5 w-5",
             ["github", "vercel", "notion", "cal_com"].includes(plugin.id) && "invert",
           )}
           loading="lazy"
@@ -1933,13 +1690,13 @@ export function LongevityBadge({ plugin }: { plugin: Plugin }) {
   const limited = plugin.longevity === "provider_limited";
   return (
     <span
-      title={plugin.longevityNote ?? LONGEVITY_LABEL[plugin.longevity]}
+      title={plugin.longevityNote ?? translate(LONGEVITY_LABEL[plugin.longevity])}
       className={cn(
         "text-micro font-medium ",
         limited ? "text-foreground/80" : "text-muted-foreground/45",
       )}
     >
-      {LONGEVITY_LABEL[plugin.longevity]}
+      {translate(LONGEVITY_LABEL[plugin.longevity])}
     </span>
   );
 }
@@ -1957,11 +1714,12 @@ export function LongevityBadge({ plugin }: { plugin: Plugin }) {
  *  grant every 7 days) — buried in a tooltip it never reached anyone.
  */
 export function GrantExpiry({ plugin }: { plugin: Plugin }) {
+  const locale = useRunLocale();
   const stamp = plugin.refreshExpiresAt;
   const end = stamp ? Date.parse(stamp) : NaN;
   if (plugin.status !== "connected" || !Number.isFinite(end)) return null;
   const expired = end <= Date.now();
-  const date = new Date(end).toLocaleString();
+  const date = new Date(end).toLocaleString(locale);
   return (
     <span className={cn("block text-xs", expired ? "text-warning" : "text-muted-foreground")}>
       {fill(translate(expired ? "plugins_view.grant_expired" : "plugins_view.grant_ends"), { date })}
@@ -1971,12 +1729,13 @@ export function GrantExpiry({ plugin }: { plugin: Plugin }) {
 
 export function ReauthExplanation({ plugin, inline }: { plugin: Plugin; inline?: boolean }) {
   const reason = plugin.reauthReason;
-  const explanation =
+  const explanation = translate(
     reason && reason in REAUTH_EXPLANATION
       ? REAUTH_EXPLANATION[reason as ReauthReason]
       : // Flagged before Jarvis recorded reasons, or by a version that did not.
         // Say so plainly rather than guess at a cause.
-        "The authorization stopped working";
+        "plugins_view.reauth_unknown",
+  );
   const ago = flaggedAgo(plugin.reauthAt);
   const headline = ago ? `${explanation} · ${ago}` : explanation;
   const retrying = retriesItself(reason);
@@ -1992,8 +1751,8 @@ export function ReauthExplanation({ plugin, inline }: { plugin: Plugin; inline?:
         className="truncate text-xs text-foreground"
         title={
           retrying
-            ? `${headline}. Jarvis retries this once a day; reconnect to fix it now.`
-            : `${headline}. This one cannot be retried automatically — reconnect to fix it.`
+            ? fill(translate("plugins_view.reauth_retrying"), { headline })
+            : fill(translate("plugins_view.reauth_no_retry"), { headline })
         }
       >
         {headline}
@@ -2010,8 +1769,8 @@ export function ReauthExplanation({ plugin, inline }: { plugin: Plugin; inline?:
  *  — a burst of browser tabs and stray client registrations. `busyRef` is the
  *  SYNCHRONOUS guard (React state is async and would let a fast double-click
  *  through before the re-render disables the button); `busy` drives the UI.
- *  PluginRow owns one lock and hands it to the icon button, so a click on the
- *  card and a click on the "+" can never race into two flows.
+ *  A directory row owns one lock for its "+" and its menu's Reconnect, so the
+ *  two can never race into two flows.
  */
 export function useConnectLock(onConnect: () => void | Promise<void>) {
   const [busy, setBusy] = useState(false);
@@ -2030,97 +1789,6 @@ export function useConnectLock(onConnect: () => void | Promise<void>) {
   };
 
   return { busy, run };
-}
-
-export function ConnectIconButton({
-  status,
-  onConnect,
-  onDisconnect,
-  busy: busyFromRow,
-  unavailableReason,
-}: {
-  status: PluginStatus;
-  onConnect: () => void | Promise<void>;
-  onDisconnect: () => void;
-  /** Set when the surrounding card owns the lock, so a flow started by clicking
-   *  the card still spins this button. */
-  busy?: boolean;
-  unavailableReason?: string;
-}) {
-  const lock = useConnectLock(onConnect);
-  const busy = busyFromRow ?? lock.busy;
-
-  if (status === "connected") {
-    return (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDisconnect();
-        }}
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-secondary text-foreground-strong transition-colors hover:bg-popover hover:text-destructive"
-        aria-label="Disconnect plugin"
-        title="Disconnect"
-      >
-        <Check className="h-3.5 w-3.5" />
-      </button>
-    );
-  }
-
-  // The card around this button is clickable too — without stopPropagation the
-  // same click would reach both handlers.
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    void lock.run();
-  };
-
-  // A revoked / errored token re-runs the SAME connect flow, but is shown as a
-  // distinct amber "Reconnect" affordance so it can never be mistaken for a
-  // never-connected "+" (the silent-rot bug this view used to have).
-  const needsReconnect = status === "needs_reauth" || status === "error";
-  if (needsReconnect) {
-    return (
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={busy || Boolean(unavailableReason)}
-        aria-busy={busy}
-        className={cn(
-          "grid h-7 w-7 shrink-0 place-items-center rounded-full bg-secondary text-foreground transition-all hover:bg-popover group-hover:scale-105",
-          busy && "cursor-not-allowed opacity-60 group-hover:scale-100",
-        )}
-        aria-label="Reconnect plugin"
-        title={unavailableReason ?? "Reconnect"}
-      >
-        {busy ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <RotateCw className="h-3.5 w-3.5" />
-        )}
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={busy || Boolean(unavailableReason)}
-      aria-busy={busy}
-      className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border bg-background text-muted-foreground transition-all hover:border-border-strong hover:bg-secondary hover:text-foreground-strong group-hover:scale-105",
-        busy && "cursor-not-allowed opacity-60 hover:bg-secondary hover:text-muted-foreground group-hover:scale-100",
-      )}
-      title={unavailableReason}
-      aria-label="Connect plugin"
-    >
-      {busy ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <Plus className="h-3.5 w-3.5" />
-      )}
-    </button>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -2150,17 +1818,17 @@ function CopyableUrl({ url, hint }: { url: string; hint?: string }) {
           readOnly
           value={url}
           onFocus={(e) => e.currentTarget.select()}
-          aria-label="Authorization link"
+          aria-label={translate("plugins_view.authorization_link")}
           className="min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-micro text-muted-foreground focus:border-border-strong focus:outline-none"
         />
         <button
           type="button"
           onClick={copy}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-micro font-medium text-foreground transition-colors hover:border-border-strong hover:text-foreground-strong"
-          title="Copy link"
+          title={translate("plugins_view.copy_link")}
         >
           {copied ? <Check className="h-3 w-3 text-muted-foreground" /> : <Copy className="h-3 w-3" />}
-          {copied ? "Copied" : "Copy"}
+          {translate(copied ? "plugins_view.copied" : "plugins_view.copy")}
         </button>
       </div>
       {hint && (
@@ -2239,7 +1907,7 @@ function OAuthRedirectDialog({
   const state = poll.data?.state ?? "pending";
   const errorMessage =
     state === "error"
-      ? poll.data?.error ?? "Unknown error"
+      ? poll.data?.error ?? translate("plugins_view.unknown_error")
       : poll.error instanceof Error
         ? poll.error.message
         : null;
@@ -2257,17 +1925,17 @@ function OAuthRedirectDialog({
         <header className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <h2 className="font-display text-base font-semibold tracking-tight">
-              Connecting {pluginName}
+              {fill(translate("plugins_view.connecting_plugin"), { plugin: pluginName })}
             </h2>
             <p className="text-micro text-muted-foreground">
-              Browser login
+              {translate("plugins_view.browser_login")}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Close"
+            aria-label={translate("common.close")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -2279,27 +1947,22 @@ function OAuthRedirectDialog({
               <Loader2 className="h-8 w-8 animate-spin text-foreground-strong" />
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Authorize {PRODUCT_NAME} in your browser
+                  {fill(translate("plugins_view.authorize_in_browser"), { product: PRODUCT_NAME })}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Continue in the browser tab for {pluginName} — sign in if
-                  prompted, click "Authorize", then come back here. No tab
-                  visible? Open it again or copy the link below. The plugin
-                  stays "Not connected" until you finish there.
+                  {fill(translate("plugins_view.continue_in_browser"), { plugin: pluginName })}
                 </p>
               </div>
               {redirectUri && (
                 <div className="w-full rounded-md border border-border bg-background px-3 py-2 text-left">
                   <p className="text-micro text-muted-foreground">
-                    Waiting for {pluginName} to call back at
+                    {fill(translate("plugins_view.waiting_callback"), { plugin: pluginName })}
                   </p>
                   <code className="mt-0.5 block select-all break-all font-mono text-micro text-foreground">
                     {redirectUri}
                   </code>
                   <p className="mt-1 text-micro text-muted-foreground">
-                    If the provider shows an error instead of asking for
-                    approval, allow exactly this address in your provider
-                    app's redirect settings, then open the sign-in again.
+                    {translate("plugins_view.redirect_hint")}
                   </p>
                 </div>
               )}
@@ -2308,12 +1971,12 @@ function OAuthRedirectDialog({
                 onClick={() => void openExternalUrl(openUrl)}
                 className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
               >
-                Open {pluginName} again
+                {fill(translate("plugins_view.open_plugin_again"), { plugin: pluginName })}
                 <ExternalLink className="h-3 w-3" />
               </button>
               <CopyableUrl
                 url={openUrl}
-                hint="Or copy this link and paste it into your browser's address bar."
+                hint={translate("plugins_view.copy_link_hint_paste")}
               />
             </div>
           )}
@@ -2324,7 +1987,7 @@ function OAuthRedirectDialog({
                 <Check className="h-6 w-6" />
               </div>
               <p className="font-display text-base font-semibold tracking-tight text-foreground">
-                {pluginName} connected
+                {fill(translate("plugins_view.plugin_connected"), { plugin: pluginName })}
               </p>
             </div>
           )}
@@ -2342,7 +2005,7 @@ function OAuthRedirectDialog({
             onClick={onClose}
             className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {state === "pending" ? "Cancel" : "Close"}
+            {translate(state === "pending" ? "common.cancel" : "common.close")}
           </button>
         </footer>
       </div>
@@ -2424,7 +2087,7 @@ function DeviceCodeDialog({
   const state = poll.data?.state ?? "pending";
   const errorMessage =
     state === "error"
-      ? poll.data?.error ?? "Unknown error"
+      ? poll.data?.error ?? translate("plugins_view.unknown_error")
       : poll.error instanceof Error
         ? poll.error.message
         : null;
@@ -2445,17 +2108,17 @@ function DeviceCodeDialog({
         <header className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
             <h2 className="font-display text-base font-semibold tracking-tight">
-              Connect {pluginName}
+              {fill(translate("plugins_view.connect_named"), { plugin: pluginName })}
             </h2>
             <p className="text-micro text-muted-foreground">
-              Device flow
+              {translate("plugins_view.device_flow")}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Close"
+            aria-label={translate("common.close")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -2466,26 +2129,26 @@ function DeviceCodeDialog({
             <>
               <div>
                 <p className="text-micro text-muted-foreground">
-                  Step 1 — copy this code
+                  {translate("plugins_view.device_step1")}
                 </p>
                 <button
                   type="button"
                   onClick={copyCode}
                   className="group mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-3 transition-colors hover:border-border-strong hover:bg-secondary"
-                  title="Copy"
+                  title={translate("plugins_view.copy")}
                 >
                   <span className="font-mono text-2xl font-semibold tracking-[0.3em] tabular-nums text-foreground">
                     {userCode}
                   </span>
                   <span className="text-micro text-muted-foreground group-hover:text-foreground-strong">
-                    {copied ? "Copied!" : "Copy"}
+                    {translate(copied ? "plugins_view.copied_bang" : "plugins_view.copy")}
                   </span>
                 </button>
               </div>
 
               <div>
                 <p className="text-micro text-muted-foreground">
-                  Step 2 — paste it on {pluginName}
+                  {fill(translate("plugins_view.device_step2"), { plugin: pluginName })}
                 </p>
                 <a
                   href={verificationUriComplete ?? verificationUri}
@@ -2497,20 +2160,20 @@ function DeviceCodeDialog({
                   }}
                   className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
                 >
-                  Open {pluginName}
+                  {fill(translate("plugins_view.open_plugin"), { plugin: pluginName })}
                   <ExternalLink className="h-3 w-3" />
                 </a>
                 <div className="mt-2">
                   <CopyableUrl
                     url={verificationUri}
-                    hint="Or copy this link, open it in your browser, and enter the code above."
+                    hint={translate("plugins_view.copy_link_hint_code")}
                   />
                 </div>
               </div>
 
               <div className="flex items-center gap-2 text-micro text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                Waiting for authorization…
+                {translate("plugins_view.waiting_authorization")}
                 {secondsLeft > 0 && (
                   <span className="ml-auto font-mono tabular-nums">
                     {String(mins).padStart(2, "0")}:
@@ -2527,7 +2190,7 @@ function DeviceCodeDialog({
                 <Check className="h-6 w-6" />
               </div>
               <p className="font-display text-base font-semibold tracking-tight text-foreground">
-                {pluginName} connected
+                {fill(translate("plugins_view.plugin_connected"), { plugin: pluginName })}
               </p>
             </div>
           )}
@@ -2545,7 +2208,7 @@ function DeviceCodeDialog({
             onClick={onClose}
             className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {state === "pending" ? "Cancel" : "Close"}
+            {translate(state === "pending" ? "common.cancel" : "common.close")}
           </button>
         </footer>
       </div>
@@ -2620,7 +2283,7 @@ export function PkceConnectDialog({
       const proceeded = await onProceed();
       if (proceeded !== false) onClose();
     } catch (e) {
-      setErr("Could not save the connection settings. Please try again.");
+      setErr(translate("plugins_view.err_save_settings"));
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -2645,10 +2308,14 @@ export function PkceConnectDialog({
               id="pkce-connect-title"
               className="font-display text-sm font-semibold tracking-tight"
             >
-              Connect {plugin.name}
+              {fill(translate("plugins_view.connect_named"), { plugin: plugin.name })}
             </h2>
             <p className="text-micro text-muted-foreground">
-              {clientRequired ? "Browser sign-in is not available yet." : `You'll sign in with your ${fam?.label ?? "provider"} account in the browser.`}
+              {clientRequired
+                ? translate("plugins_view.pkce_browser_unavailable")
+                : fill(translate("plugins_view.pkce_signin_with"), {
+                    family: fam?.label ?? translate("plugins_view.provider_fallback"),
+                  })}
             </p>
           </div>
         </header>
@@ -2657,10 +2324,10 @@ export function PkceConnectDialog({
           {clientRequired ? (
             <div className="rounded-md bg-secondary px-3 py-2 text-micro text-foreground">
               <p>
-                Browser sign-in is pending publisher setup. Connect today with
-                your own free {fam?.label ?? "provider"} app — a few minutes,
-                no code. Continue opens the real {plugin.name} login in your
-                browser once the client below is filled in.
+                {fill(translate("plugins_view.pkce_pending_intro"), {
+                  family: fam?.label ?? translate("plugins_view.provider_fallback"),
+                  plugin: plugin.name,
+                })}
               </p>
               {fam && OAUTH_CLIENT_CONSOLE[fam.family] && (
                 <button
@@ -2668,7 +2335,7 @@ export function PkceConnectDialog({
                   onClick={() => void openExternalUrl(OAUTH_CLIENT_CONSOLE[fam.family])}
                   className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-micro font-semibold text-primary-foreground transition-all hover:bg-primary/90"
                 >
-                  Step 1 — open the {fam.label} app console
+                  {fill(translate("plugins_view.pkce_step1"), { family: fam.label })}
                   <ExternalLink className="h-3 w-3" />
                 </button>
               )}
@@ -2683,54 +2350,58 @@ export function PkceConnectDialog({
                 aria-expanded={showClient}
                 className="text-micro font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
               >
-                {clientRequired ? "Your OAuth client" : "Use your own OAuth client (advanced)"}
+                {translate(clientRequired ? "plugins_view.pkce_your_client" : "plugins_view.pkce_own_client_advanced")}
               </button>
               {showClient && (
                 <div className="mt-2 space-y-2">
                   <p className="text-micro text-muted-foreground">
                     {clientRequired ? (
-                      <>
-                        Step 2 — paste the client from the app you just
-                        created{fam.family === "google" &&
-                          ". One client covers Gmail, Drive, Calendar and YouTube Music"}
-                        .
-                      </>
+                      translate(
+                        fam.family === "google"
+                          ? "plugins_view.pkce_step2_google"
+                          : "plugins_view.pkce_step2",
+                      )
                     ) : (
                       <>
-                        Optional expert override. Paste a client from your own{" "}
-                        {fam.label}{" "}
-                        {OAUTH_CLIENT_CONSOLE[fam.family] && (
-                          <a
-                            href={OAUTH_CLIENT_CONSOLE[fam.family]}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="underline underline-offset-2 hover:text-foreground"
-                          >
-                            console
-                          </a>
-                        )}
-                        .{" "}
+                        {withSlot(
+                          fill(translate("plugins_view.pkce_override"), { family: fam.label }),
+                          "console",
+                          OAUTH_CLIENT_CONSOLE[fam.family] && (
+                            <a
+                              href={OAUTH_CLIENT_CONSOLE[fam.family]}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline underline-offset-2 hover:text-foreground"
+                            >
+                              {translate("plugins_view.pkce_console")}
+                            </a>
+                          ),
+                        )}{" "}
                         {fam.family === "google" &&
-                          "One client covers Gmail, Drive, Calendar and YouTube Music."}
+                          translate("plugins_view.pkce_google_one_client")}
                       </>
                     )}
                   </p>
                   {redirectUri && (
                     <div className="rounded-md border border-border bg-background px-2.5 py-2">
                       <p className="text-micro text-muted-foreground">
-                        {clientRequired ? "Step 3 — while" : "While"} creating the app, register this as its{" "}
-                        <span className="font-medium text-foreground">
-                          redirect URI
-                        </span>
-                        , character for character:
+                        {withSlot(
+                          translate(clientRequired ? "plugins_view.pkce_redirect_step3" : "plugins_view.pkce_redirect"),
+                          "term",
+                          <span className="font-medium text-foreground">
+                            {translate("plugins_view.pkce_redirect_term")}
+                          </span>,
+                        )}
                       </p>
                       <code className="mt-1 block select-all break-all rounded bg-muted px-1.5 py-1 text-micro text-foreground">
                         {redirectUri}
                       </code>
                       <p className="mt-1 text-micro text-muted-foreground">
-                        It must be the numeric address, not{" "}
-                        <code className="text-micro">localhost</code>, and
-                        carry no trailing slash.
+                        {withSlot(
+                          translate("plugins_view.pkce_redirect_numeric"),
+                          "localhost",
+                          <code className="text-micro">localhost</code>,
+                        )}
                       </p>
                     </div>
                   )}
@@ -2739,7 +2410,7 @@ export function PkceConnectDialog({
                       htmlFor="pkce-client-id"
                       className="block text-micro font-medium text-muted-foreground"
                     >
-                      Client ID
+                      {translate("plugins_view.client_id")}
                     </label>
                     <input
                       id="pkce-client-id"
@@ -2747,8 +2418,9 @@ export function PkceConnectDialog({
                       onChange={(e) => setClientId(e.target.value)}
                       className="mt-1 h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-faint-foreground focus:border-border-strong focus:outline-none"
                       placeholder={
-                        OAUTH_CLIENT_ID_PLACEHOLDER[fam.family] ??
-                        `Client ID from ${fam.label}`
+                        OAUTH_CLIENT_ID_PLACEHOLDER[fam.family]
+                          ? clientIdPlaceholder(OAUTH_CLIENT_ID_PLACEHOLDER[fam.family])
+                          : fill(translate("plugins_view.client_id_from"), { family: fam.label })
                       }
                     />
                   </div>
@@ -2757,7 +2429,7 @@ export function PkceConnectDialog({
                       htmlFor="pkce-client-secret"
                       className="block text-micro font-medium text-muted-foreground"
                     >
-                      Client Secret
+                      {translate("plugins_view.client_secret")}
                     </label>
                     <input
                       id="pkce-client-secret"
@@ -2766,8 +2438,10 @@ export function PkceConnectDialog({
                       onChange={(e) => setClientSecret(e.target.value)}
                       className="mt-1 h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-faint-foreground focus:border-border-strong focus:outline-none"
                       placeholder={
-                        OAUTH_NO_SECRET_NEEDED[fam.family] ??
-                        "optional for some providers"
+                        translate(
+                          OAUTH_NO_SECRET_NEEDED[fam.family] ??
+                            "plugins_view.secret_optional_some",
+                        )
                       }
                     />
                   </div>
@@ -2783,11 +2457,9 @@ export function PkceConnectDialog({
           )}
           {onUseFallback && plugin.fallbackAuth && (
             <details className="rounded-md border border-border px-3 py-2.5 text-micro text-muted-foreground">
-              <summary className="cursor-pointer">Expert token alternative</summary>
+              <summary className="cursor-pointer">{translate("plugins_view.expert_token_alt")}</summary>
               <p>
-                The shared browser login isn't provisioned yet. You can
-                connect with a provider token meanwhile — the browser flow
-                stays the default and takes over automatically once ready.
+                {translate("plugins_view.expert_token_alt_body")}
               </p>
               <button
                 type="button"
@@ -2795,7 +2467,7 @@ export function PkceConnectDialog({
                 disabled={busy}
                 className="mt-1.5 font-medium text-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-60"
               >
-                Paste a token instead
+                {translate("plugins_view.paste_token_instead")}
               </button>
             </details>
           )}
@@ -2808,7 +2480,7 @@ export function PkceConnectDialog({
             disabled={busy}
             className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
           >
-            Cancel
+            {translate("common.cancel")}
           </button>
           <button
             type="button"
@@ -2817,7 +2489,7 @@ export function PkceConnectDialog({
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-3 w-3 animate-spin" />}
-            Continue
+            {translate("plugins_view.continue")}
           </button>
         </footer>
       </div>
@@ -2872,10 +2544,10 @@ function DisconnectConfirmDialog({
                 id="disconnect-dialog-title"
                 className="font-display text-base font-semibold tracking-tight"
               >
-                Remove {plugin.name}?
+                {fill(translate("plugins_view.remove_named"), { plugin: plugin.name })}
               </h2>
               <p className="text-micro text-muted-foreground">
-                Disconnect plugin
+                {translate("plugins_view.disconnect_plugin")}
               </p>
             </div>
           </div>
@@ -2884,7 +2556,7 @@ function DisconnectConfirmDialog({
             onClick={onCancel}
             disabled={isPending}
             className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-            aria-label="Cancel"
+            aria-label={translate("common.cancel")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -2892,9 +2564,11 @@ function DisconnectConfirmDialog({
 
         <div className="px-5 py-5">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            This disconnects{" "}
-            <span className="font-medium text-foreground">{plugin.name}</span> and
-            deletes its stored credentials. {assistantName} loses access until you reconnect it.
+            {withSlot(
+              fill(translate("plugins_view.disconnect_body"), { assistant: assistantName }),
+              "plugin",
+              <span className="font-medium text-foreground">{plugin.name}</span>,
+            )}
           </p>
           {errorMessage && (
             <div className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs text-destructive">
@@ -2910,7 +2584,7 @@ function DisconnectConfirmDialog({
             disabled={isPending}
             className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
           >
-            Cancel
+            {translate("common.cancel")}
           </button>
           <button
             type="button"
@@ -2921,11 +2595,95 @@ function DisconnectConfirmDialog({
             {isPending ? (
               <>
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Removing…
+                {translate("plugins_view.removing")}
               </>
             ) : (
-              "Remove"
+              translate("plugins_view.remove")
             )}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+/** "Remove {name}?" for a plugin the owner added: drops the catalog entry,
+ *  its stored sign-in and its tools. Built-in plugins never reach here. */
+function RemovePluginDialog({
+  plugin,
+  onCancel,
+  onRemoved,
+}: {
+  plugin: Plugin;
+  onCancel: () => void;
+  onRemoved: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel, pending]);
+
+  const remove = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      await removeAddedPlugin(plugin.id);
+      onRemoved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPending(false);
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="remove-plugin-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !pending) onCancel();
+      }}
+    >
+      <div className="relative w-full max-w-sm overflow-hidden rounded-lg bg-popover shadow-float">
+        <header className="flex items-center gap-3 border-b border-border px-5 py-4">
+          <BrandTile plugin={plugin} />
+          <h2 id="remove-plugin-title" className="font-display text-base font-semibold tracking-tight">
+            {fill(translate("plugins_view.remove_named"), { plugin: plugin.name })}
+          </h2>
+        </header>
+        <div className="px-5 py-5">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {translate("custom_connector.remove_body")}
+          </p>
+          {error && (
+            <div role="alert" className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs text-destructive">
+              {error}
+            </div>
+          )}
+        </div>
+        <footer className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={pending}
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+          >
+            {translate("common.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void remove()}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3.5 py-1.5 text-xs font-semibold text-destructive-foreground transition-all hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {pending && <Loader2 className="h-3 w-3 animate-spin" />}
+            {translate("custom_connector.remove")}
           </button>
         </footer>
       </div>
@@ -2970,13 +2728,13 @@ function InstanceBrowserDialog({ plugin, isPending, onClose, onSubmit }: {
         event.preventDefault();
         if (valid && !isPending) void onSubmit(address.trim());
       }}>
-        <h2 id="instance-browser-title" className="font-semibold">Connect {plugin.name}</h2>
-        <p className="text-sm text-muted-foreground">Enter your instance address, then sign in and approve access in your browser.</p>
-        <label className="block text-sm" htmlFor="instance-browser-address">Instance address</label>
+        <h2 id="instance-browser-title" className="font-semibold">{fill(translate("plugins_view.connect_named"), { plugin: plugin.name })}</h2>
+        <p className="text-sm text-muted-foreground">{translate("plugins_view.instance_intro")}</p>
+        <label className="block text-sm" htmlFor="instance-browser-address">{translate("plugins_view.instance_address")}</label>
         <input id="instance-browser-address" type="url" autoFocus required value={address} disabled={isPending} onChange={(event) => setAddress(event.target.value)} placeholder="http://homeassistant.local:8123" className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
         <div className="flex justify-end gap-2">
-          <button type="button" disabled={isPending} onClick={onClose} className="rounded-md border border-border px-3 py-2 text-sm">Cancel</button>
-          <button type="submit" disabled={!valid || isPending} className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50">{isPending ? "Opening browser…" : "Continue in browser"}</button>
+          <button type="button" disabled={isPending} onClick={onClose} className="rounded-md border border-border px-3 py-2 text-sm">{translate("common.cancel")}</button>
+          <button type="submit" disabled={!valid || isPending} className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50">{translate(isPending ? "plugins_view.opening_browser" : "plugins_view.continue_in_browser_btn")}</button>
         </div>
       </form>
     </div>
@@ -3024,13 +2782,13 @@ export function PatConnectDialog({
       const res = await fetch("/api/marketplace/plugins/discord/identity");
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
-        throw new Error(err.detail || `Could not read your Discord ID (HTTP ${res.status})`);
+        throw new Error(err.detail || `${translate("plugins_view.err_discord_id")} (HTTP ${res.status})`);
       }
       const data = await res.json();
-      if (!data.user_id) throw new Error("Discord returned no user id.");
+      if (!data.user_id) throw new Error(translate("plugins_view.err_discord_no_id"));
       setUserId(String(data.user_id));
     } catch (e) {
-      setDiscordIdError(e instanceof Error ? e.message : "Could not read your Discord ID.");
+      setDiscordIdError(e instanceof Error ? e.message : translate("plugins_view.err_discord_id"));
     } finally {
       setDiscordIdLoading(false);
     }
@@ -3043,14 +2801,14 @@ export function PatConnectDialog({
       const res = await fetch("/api/marketplace/plugins/discord/invite");
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
-        throw new Error(err.detail || `Could not build the invite link (HTTP ${res.status})`);
+        throw new Error(err.detail || `${translate("plugins_view.err_discord_invite")} (HTTP ${res.status})`);
       }
       const data = await res.json();
-      if (!data.invite_url) throw new Error("Discord returned no invite link.");
+      if (!data.invite_url) throw new Error(translate("plugins_view.err_discord_no_invite"));
       await openExternalUrl(data.invite_url);
     } catch (e) {
       setDiscordInviteError(
-        e instanceof Error ? e.message : "Could not build the invite link.",
+        e instanceof Error ? e.message : translate("plugins_view.err_discord_invite"),
       );
     } finally {
       setDiscordInviteLoading(false);
@@ -3109,10 +2867,10 @@ export function PatConnectDialog({
                 id="pat-dialog-title"
                 className="font-display text-base font-semibold tracking-tight"
               >
-                Connect {plugin.name}
+                {fill(translate("plugins_view.connect_named"), { plugin: plugin.name })}
               </h2>
               <p className="text-micro text-muted-foreground">
-                Access token · {AUTH_LABELS[plugin.authMode]}
+                {translate("plugins_view.access_token")} · {translate(AUTH_LABELS[plugin.authMode])}
               </p>
             </div>
           </div>
@@ -3121,7 +2879,7 @@ export function PatConnectDialog({
             onClick={onClose}
             disabled={isPending}
             className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-            aria-label="Close"
+            aria-label={translate("common.close")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -3133,9 +2891,10 @@ export function PatConnectDialog({
               {notice}
             </p>
           )}
+          {auth.token_creation_url ? (
           <Step
             num={1}
-            title={`Generate a token at ${plugin.name}`}
+            title={fill(translate("plugins_view.pat_generate"), { plugin: plugin.name })}
             body={auth.instruction_md}
           >
             <a
@@ -3148,16 +2907,21 @@ export function PatConnectDialog({
               }}
               className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90"
             >
-              Open {plugin.name} tokens
+              {fill(translate("plugins_view.pat_open_tokens"), { plugin: plugin.name })}
               <ExternalLink className="h-3 w-3" />
             </a>
             <div className="mt-2">
               <CopyableUrl
                 url={auth.token_creation_url}
-                hint="Or copy this link and open it in your browser yourself."
+                hint={translate("plugins_view.copy_link_hint_open")}
               />
             </div>
           </Step>
+          ) : (
+            // A custom connector: no page is known that issues its key, so
+            // the step only says which key and where it goes.
+            <Step num={1} title={fill(translate("plugins_view.pat_get_key"), { plugin: plugin.name })} body={auth.instruction_md} />
+          )}
 
           {instanceField && (
             <Step num={2} title={instanceField.label} body={instanceField.help_md ?? undefined}>
@@ -3178,7 +2942,7 @@ export function PatConnectDialog({
             </Step>
           )}
 
-          <Step num={instanceField ? 3 : 2} title="Paste the token below">
+          <Step num={instanceField ? 3 : 2} title={translate("plugins_view.pat_paste_below")}>
             <input
               type="password"
               autoComplete="off"
@@ -3189,7 +2953,9 @@ export function PatConnectDialog({
                 if (e.key === "Enter" && canSubmit) submit();
               }}
               placeholder={
-                expectedPrefixes.length > 0 ? `${expectedPrefixes.join(" or ")}…` : "Token"
+                expectedPrefixes.length > 0
+                  ? `${expectedPrefixes.join(translate("plugins_view.or_separator"))}…`
+                  : translate("plugins_view.token")
               }
               className="mt-2 w-full rounded-md bg-input px-3 py-2 font-mono text-xs text-foreground placeholder:text-faint-foreground focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-border-strong/30"
               autoFocus
@@ -3197,20 +2963,23 @@ export function PatConnectDialog({
             />
             {token && expectedPrefixes.length > 0 && !prefixOk && (
               <p className="mt-1.5 text-micro text-foreground">
-                Should start with{" "}
-                <span className="font-mono">{expectedPrefixes.join(" or ")}</span>
+                {withSlot(
+                  translate("plugins_view.pat_should_start"),
+                  "prefix",
+                  <span className="font-mono">{expectedPrefixes.join(translate("plugins_view.or_separator"))}</span>,
+                )}
               </p>
             )}
           </Step>
 
           {ownerLock && (
-            <Step num={3} title="Lock the bot to you (recommended)">
+            <Step num={3} title={translate("plugins_view.owner_lock_title")}>
               <input
                 type="text"
                 inputMode="numeric"
                 autoComplete="off"
                 spellCheck={false}
-                aria-label="Your numeric user id"
+                aria-label={translate("plugins_view.owner_lock_aria")}
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
                 onKeyDown={(e) => {
@@ -3221,8 +2990,7 @@ export function PatConnectDialog({
                 disabled={isPending}
               />
               <p className="mt-1.5 text-micro text-muted-foreground">
-                Only this user id can command the bot. Leave blank to let the
-                first person who messages it claim access instead.
+                {translate("plugins_view.owner_lock_hint")}
               </p>
               {discordHelpers && (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -3232,7 +3000,7 @@ export function PatConnectDialog({
                     onClick={() => void fetchDiscordId()}
                     className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
                   >
-                    {discordIdLoading ? "Looking up…" : "Fill in my Discord ID"}
+                    {translate(discordIdLoading ? "plugins_view.looking_up" : "plugins_view.discord_fill_id")}
                   </button>
                   <button
                     type="button"
@@ -3240,7 +3008,7 @@ export function PatConnectDialog({
                     onClick={() => void openDiscordInvite()}
                     className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
                   >
-                    {discordInviteLoading ? "Opening…" : "Add the bot to my server"}
+                    {translate(discordInviteLoading ? "plugins_view.opening" : "plugins_view.discord_add_bot")}
                   </button>
                 </div>
               )}
@@ -3251,7 +3019,7 @@ export function PatConnectDialog({
               )}
               {userIdTrimmed !== "" && !userIdOk && (
                 <p className="mt-1 text-micro text-foreground">
-                  User id must be digits only.
+                  {translate("plugins_view.owner_lock_digits")}
                 </p>
               )}
             </Step>
@@ -3271,7 +3039,7 @@ export function PatConnectDialog({
             disabled={isPending}
             className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
           >
-            Cancel
+            {translate("common.cancel")}
           </button>
           <button
             type="button"
@@ -3282,11 +3050,11 @@ export function PatConnectDialog({
             {isPending ? (
               <>
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Validating…
+                {translate("plugins_view.validating")}
               </>
             ) : (
               <>
-                Connect
+                {translate("plugins_view.connect")}
                 <ArrowRight className="h-3 w-3" />
               </>
             )}
@@ -3306,7 +3074,7 @@ function Step({
   num: number;
   title: string;
   body?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="flex gap-3">

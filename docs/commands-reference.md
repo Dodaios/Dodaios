@@ -83,7 +83,7 @@ List one agent's scheduled routines with ids, schedules, state and next run.
 
 ## `society-create-routine` — Schedule a routine for an agent
 
-The ONLY way to make an agent do something on a schedule (daily briefing, weekly report, every morning at 8). Never use create-skill for this. The prompt is the complete task the agent runs each time: sources, steps, output. Speak the returned next_run; on timezone_required ask the user.
+The ONLY way to make an agent do something on a schedule (daily briefing, weekly report, every morning at 8). Never use create-skill for this. The prompt is the complete task the agent runs each time: sources, steps, output. For a routine that watches something, write into the prompt that the agent stays quiet while nothing changed and reports only a real change, a completion, a failure or something the user must do, unless the user asked for regular updates. Speak the returned next_run; on timezone_required ask the user.
 
 - **Endpoint:** `POST /api/society/agents/{agent_id}/routines`
 - **Arguments:** `agent_id` (string; required); `title` (string; required); `prompt` (string; required); `schedule` (object; required); `announce_on_success` (string; optional)
@@ -203,10 +203,10 @@ Test connectivity and authentication for one provider.
 
 ## `reply-language-set` — Set reply language
 
-Pin the language Jarvis answers in (auto follows the spoken language).
+Pin the language Dodaios answers in (auto follows the spoken language).
 
 - **Endpoint:** `PUT /api/settings/reply-language`
-- **Arguments:** `language` (one of: auto, de, en, es; required); `persist` (boolean; optional)
+- **Arguments:** `language` (one of: auto, de, en, es, pt; required); `persist` (boolean; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `languages`
 - **Voice example (EN):** "answer in german from now on"
@@ -233,7 +233,7 @@ Show the current wake word and wake-engine settings.
 
 ## `wake-word-set` — Change wake word
 
-Set the phrase that wakes Jarvis up.
+Set the phrase that wakes Dodaios up.
 
 - **Endpoint:** `PUT /api/settings/wake-word`
 - **Arguments:** `phrase` (string; required)
@@ -331,9 +331,9 @@ Finish the running dictation and deliver the text.
 - **Desktop UI section:** `dictation`
 - **Voice example (EN):** "stop dictation"
 
-## `app-restart` — Restart Jarvis
+## `app-restart` — Restart Dodaios
 
-Restart the Jarvis desktop app (voice + UI restart too).
+Restart the Dodaios desktop app (voice + UI restart too).
 
 - **Endpoint:** `POST /api/settings/restart-app`
 - **Arguments:** none
@@ -343,17 +343,17 @@ Restart the Jarvis desktop app (voice + UI restart too).
 
 ## `missions-list` — List missions
 
-List Jarvis-Agent missions and their status.
+List Dodaios-Agent missions and their status, newest first. Set active to see only the ones that have not ended yet.
 
 - **Endpoint:** `GET /api/missions`
-- **Arguments:** none
+- **Arguments:** `active` (boolean; optional); `limit` (integer; optional)
 - **Requires confirmation:** no
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "show me the missions"
 
 ## `mission-result` — Read a mission result
 
-Read the signed summary and actual deliverable contents of one completed Jarvis-Agent mission. Use this after listing missions when the user asks what a mission found or produced.
+Read the signed summary and actual deliverable contents of one completed Dodaios-Agent mission. Use this after listing missions when the user asks what a mission found or produced.
 
 - **Endpoint:** `GET /api/missions/{mission_id}/result`
 - **Arguments:** `mission_id` (string; required)
@@ -363,13 +363,23 @@ Read the signed summary and actual deliverable contents of one completed Jarvis-
 
 ## `mission-cancel` — Cancel a mission
 
-Cancel a running Jarvis-Agent mission by id.
+Cancel a running Dodaios-Agent mission by id.
 
 - **Endpoint:** `POST /api/missions/{mission_id}/cancel`
 - **Arguments:** `mission_id` (string; required)
 - **Requires confirmation:** yes
 - **Desktop UI section:** `agents`
 - **Voice example (EN):** "cancel the mission"
+
+## `mission-amend` — Correct a running mission
+
+Give a mission that is still running the user's correction or changed wish, in their words, without restarting it. The running worker cannot be interrupted: the next attempt gets the correction. Read applies in the result and tell the user that, never that it is already done. A mission that has ended refuses; start a new one for the change.
+
+- **Endpoint:** `POST /api/missions/{mission_id}/amend`
+- **Arguments:** `mission_id` (string; required); `instruction` (string; required)
+- **Requires confirmation:** no
+- **Desktop UI section:** `agents`
+- **Voice example (EN):** "tell the mission to do it differently"
 
 ## `tasks-list` — List tasks
 

@@ -25,7 +25,7 @@ there, then keep the separate delivered copy when the file matters to you.
 
 - Complete a file-producing mission. The Agents area follows your assistant's
   name—for example, **Nova-Agents**; the neutral fallback is
-  **Assistant-Agents**. The underlying system is Jarvis-Agents.
+  **Assistant-Agents**. The underlying system is Dodaios-Agents.
 - Use the local desktop app to launch another app or reveal a file in the
   host's file manager. A remote browser cannot open apps on your computer.
 > [!warning] Review every generated file. A protected preview reduces browser
@@ -37,7 +37,7 @@ there, then keep the separate delivered copy when the file matters to you.
 |---|---|---|
 | **Chats** | A dropped file is temporary request context, not a durable attachment. | No. Add it again when needed. |
 | **Agentic IDE** | An IDE pane edits the project folder you opened. Those edits remain in that project. | No. The project folder is the source of truth. |
-| **Jarvis-Agents mission** | Deliverables are archived, and approved files get a visible copy. | Yes. |
+| **Dodaios-Agents mission** | Deliverables are archived, and approved files get a visible copy. | Yes. |
 
 Add an IDE edit from its project folder or a mission file from its delivered
 folder when a chat needs the actual contents.
@@ -69,7 +69,7 @@ no stored steps are available.
 
 ## Keep or Download a Generated File
 
-Approved files are copied to a visible folder on the host running Jarvis.
+Approved files are copied to a visible folder on the host running Dodaios.
 Windows normally uses **Downloads > Jarvis-Outputs**, falling back to the
 Desktop or home folder. macOS, Linux, and headless hosts normally use
 `~/jarvis-outputs`; an unwritable home can fall back to a temporary folder.
@@ -146,7 +146,7 @@ a separate delivered copy.
 | What you see | Likely cause | What to do |
 |---|---|---|
 | **No Agent sessions yet** | No retained file-producing mission exists | Start a concrete file task from Chats or the Agents area. |
-| An older mission is missing | It is outside the 20-card list, or cleanup removed it | Check the host's Jarvis output folder. |
+| An older mission is missing | It is outside the 20-card list, or cleanup removed it | Check the host's Dodaios output folder. |
 | **This session has no saved files** | No deliverable was archived | Read the status and reason, fix the underlying problem, then retry when offered. |
 | A card stays **running** after interruption | Recovery is protecting recent work from a false failure | Wait for reconciliation; restart if it later becomes **error**. |
 | Preview is shortened, binary, or lacks **Open** | Its size or format is unsupported there | Use a desktop app or transfer it securely from the host. |
@@ -156,6 +156,6 @@ For persistent loading, connection, or provider problems, see
 
 ## Next Steps
 
-- Read [Jarvis-Agents](jarvis-agents) for mission review and recovery.
+- Read [Dodaios-Agents](jarvis-agents) for mission review and recovery.
 - Read [Chats](chats) for temporary dropped-file context.
 - Review [Privacy and Local Data](privacy-and-local-data) before sensitive work.

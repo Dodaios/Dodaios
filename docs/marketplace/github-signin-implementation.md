@@ -20,7 +20,7 @@ lets it be reopened safely.
 
 ## 1. What to register at GitHub
 
-One **GitHub App**, owned by the `PersonalJarvis` organisation. Cost: €0.
+One **GitHub App**, owned by the `Dodaios` organisation. Cost: €0.
 Settings → Developer settings → GitHub Apps → New GitHub App.
 
 | Field | Value | Note |
@@ -42,7 +42,7 @@ After creation:
 1. **Generate a client secret** → `GITHUB_APP_CLIENT_SECRET`.
 2. **Generate a private key** (PEM download) → `GITHUB_APP_PRIVATE_KEY`.
 3. Note the **App ID** and **Client ID**.
-4. **Install the App** on `PersonalJarvis/marketplace` only. Note the
+4. **Install the App** on `Dodaios/marketplace` only. Note the
    resulting **installation id** (visible in the installation URL) —
    caching it avoids one API call per submission.
 
@@ -59,7 +59,7 @@ GITHUB_APP_CLIENT_ID
 GITHUB_APP_CLIENT_SECRET
 GITHUB_APP_PRIVATE_KEY_B64
 GITHUB_APP_INSTALLATION_ID
-REGISTRY_REPO=PersonalJarvis/marketplace
+REGISTRY_REPO=Dodaios/marketplace
 SESSION_SIGNING_KEY          # 32 random bytes, base64
 TURNSTILE_SECRET_KEY         # anti-spam, §6
 ```

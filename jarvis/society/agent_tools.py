@@ -20,6 +20,7 @@ folder.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from pathlib import Path
@@ -29,6 +30,7 @@ from jarvis.core.protocols import ToolResult
 
 from .communication import REPLY_POLICY_SCHEMA, reply_policy, select_reply_policy
 from .delivery import incoming_context
+from .display_name import display_name
 from .events import MsgType
 from .failure_reasons import FailureReason, retry_action
 from .memory import MemoryRefused
@@ -85,7 +87,7 @@ class MessageAgentTool:
         "teammate whose role fits; do not fan out to several. Use kind 'query' when "
         "you need an answer, 'propose' to suggest a plan, 'answer' when replying to a "
         "query, else 'say'. The teammate reads it in their own chat and may reply "
-        "later; this call returns at once. It never assigns work — ask Jarvis or an "
+        "later; this call returns at once. It never assigns work — ask the lead or an "
         "orchestrator to assign. Include the objective, relevant known context, scope "
         "and expected evidence, not just a paraphrase. Select reply_policy from the "
         "intent: none for information, on_error for blockers only, always for findings. "
@@ -176,14 +178,14 @@ class MessageAgentTool:
             failure = _failure(FailureReason.TARGET_UNKNOWN, f"no teammate named {target_key!r}")
             if found.decision == "ask" and found.candidates:
                 # Close, but not certain: name the candidates instead of a bare miss.
-                failure.output["did_you_mean"] = [a.name for a in found.candidates]
+                failure.output["did_you_mean"] = [display_name(a) for a in found.candidates]
             else:
                 failure.output["available"] = found.available_names()
             return failure
         if target.agent_id == caller.agent_id:
             return _failure(FailureReason.BLOCKED_BY_POLICY, "you cannot message yourself")
         if target.state is AgentState.PAUSED:
-            return _failure(FailureReason.TARGET_PAUSED, f"{target.name} is paused")
+            return _failure(FailureReason.TARGET_PAUSED, f"{display_name(target)} is paused")
         kind = str(args.get("kind") or "say").strip().lower()
         msg_type = _KINDS.get(kind)
         if msg_type is None:
@@ -270,8 +272,8 @@ class MessageAgentTool:
             output={
                 "status": status,
                 "message_id": env.event_id,
-                "target": target.name,
-                **({"delivered_to": target.name} if status == "delivered" else {}),
+                "target": display_name(target),
+                **({"delivered_to": display_name(target)} if status == "delivered" else {}),
                 "kind": kind,
                 "reply_policy": policy,
                 "in_reply_to": parent.event_id if parent is not None else None,
@@ -478,8 +480,8 @@ class MemoryRecallTool:
 class ProposeChangeTool:
     """``society_propose_change`` — configuration by chat (agent-definition §3.5).
 
-    An explicit current request can apply in this turn. Inferred changes
-    park on a proposal card until confirmed; permission changes always do.
+    Goal-derived background work can apply autonomously in the user's turn.
+    Other inferred configuration changes and permission changes use a card.
     """
 
     name: str = PROPOSE_TOOL_NAME
@@ -488,6 +490,13 @@ class ProposeChangeTool:
     description: str = (
         "Configure ONE aspect of how you work. Use mode=apply with an exact request_quote "
         "for an explicitly requested change; otherwise mode=propose asks on a chat card. "
+        "For kind=routine, mode=autonomous registers useful background follow-ups or "
+        "recurring work derived from the user's goal, without requiring a request to "
+        "create a routine. Quote that goal in request_quote and explain why in reason. "
+        "Use a one-time trigger for one-time work. Register work BEFORE promising to "
+        "do it later; read back task_id, state and next_run. List existing work first "
+        "and update it instead of creating duplicates. Information questions, quotations "
+        "and hypothetical suggestions are not execution requests. Honor exclusions. "
         "kind 'rule' adds a standing instruction (operation replace/remove uses old_text) to your "
         "description ({text}); 'skill' saves the procedure you just used under a name "
         "({name, goal, steps[], outcome}); 'routine' schedules recurring work "
@@ -503,7 +512,7 @@ class ProposeChangeTool:
         "workflow chains. "
         "Use society_routines for the source schema and available drivers before configuring one. "
         "Call society_routines for existing schedules and supported event names/fields. "
-        "routine operation update/pause/resume/delete uses task_id from society_routines; "
+        "routine operation update/pause/resume/cancel/delete uses task_id from society_routines; "
         "update also requires title, prompt and schedule. "
         "'approval_rule' changes what needs the user's approval ({require_approval[], "
         "always_allow[]} of capability ids like plugin:gmail:send); 'focus' changes which "
@@ -512,6 +521,10 @@ class ProposeChangeTool:
         "you are still new (no title and no description), your first identity applies at "
         "once from the "
         "user's message, so propose it as soon as the user has told you what you are for. "
+        "If your name is still a temporary creation label, an identity payload containing "
+        "only name also saves automatically in your own direct user chat, even when your "
+        "role is already stored. Choose a short role-based name within the first one to "
+        "three meaningful replies; keep an already chosen name unless the user changes it. "
         "Say why in 'reason'. "
         "Use it when the user states a lasting preference, asks you to remember a way of "
         "working, to save a procedure, or to run something regularly. Never propose the "
@@ -522,8 +535,11 @@ class ProposeChangeTool:
         "properties": {
             "mode": {
                 "type": "string",
-                "enum": ["propose", "apply"],
-                "description": "apply for an explicit current user request; otherwise propose.",
+                "enum": ["propose", "apply", "autonomous"],
+                "description": (
+                    "autonomous for goal-derived routine work; "
+                    "apply for explicit configuration; otherwise propose."
+                ),
             },
             "request_quote": {
                 "type": "string",
@@ -557,7 +573,7 @@ class ProposeChangeTool:
         from jarvis.core.protocols import current_chat_turn
 
         from .proposals import ProposalRefused, propose, resolve
-        from .roster import is_fresh
+        from .roster import has_placeholder_name, is_fresh
         from .surface import agent_id_of
 
         rt = self._runtime
@@ -576,14 +592,27 @@ class ProposeChangeTool:
         # A fresh agent takes its first identity from its person's turn in its
         # own chat without a card; the outcome card offers undo.
         payload = args.get("payload") if isinstance(args.get("payload"), dict) else {}
+        first_name = (
+            has_placeholder_name(caller)
+            and set(payload) == {"name"}
+            and turn is not None
+            and turn.session_id == caller.session_id
+            and (not self._session_id or self._session_id == caller.session_id)
+        )
+        keeps_name = (
+            "name" not in payload
+            or str(payload["name"]).strip() == caller.name
+            or has_placeholder_name(caller)
+        )
         fresh_apply = (
             kind == "identity"
-            and is_fresh(caller)
+            and ((is_fresh(caller) and keeps_name) or first_name)
             and own_user_turn
             # A long role text is a card, not an automatic change.
             and len(str(payload.get("description") or "")) <= FRESH_IDENTITY_MAX_CHARS
         )
-        apply_now = fresh_apply or args.get("mode") == "apply"
+        autonomous = args.get("mode") == "autonomous"
+        apply_now = fresh_apply or args.get("mode") == "apply" or autonomous
         if apply_now and not fresh_apply:
             quote = str(args.get("request_quote") or "").strip()
             if (
@@ -598,6 +627,14 @@ class ProposeChangeTool:
                 )
             if kind == "approval_rule":
                 apply_now = False
+        if autonomous:
+            from .autonomous_routines import apply_autonomous_routine
+
+            if self._session_id and turn.session_id != self._session_id:
+                return _failure(
+                    FailureReason.BLOCKED_BY_POLICY, "current chat does not own this call",
+                )
+            return await apply_autonomous_routine(rt, caller, turn, args)
         try:
             item = await propose(
                 rt,
@@ -633,7 +670,7 @@ class ProposeChangeTool:
 
     def risk_tier_for_args(self, args: dict[str, Any]) -> str:
         # An identity rewrites the standing instructions: never a silent "safe".
-        if args.get("mode") == "apply" or str(args.get("kind") or "") == "identity":
+        if args.get("mode") in {"apply", "autonomous"} or str(args.get("kind") or "") == "identity":
             return "monitor"
         return "safe"
 
@@ -753,9 +790,17 @@ class ShellTool:
         from .remote import backend_for
 
         backend = self._backend or backend_for(caller, self._workspace)
-        result = await backend.run(command, cwd=cwd, timeout_s=timeout)
+        from .credentials import current_vault
+
+        vault = current_vault()
+        secrets = await asyncio.to_thread(vault.shell_env, caller.agent_id) if vault else {}
+        if secrets and getattr(backend, "accepts_env", False):
+            result = await backend.run(command, cwd=cwd, timeout_s=timeout, extra_env=secrets)
+        else:
+            result = await backend.run(command, cwd=cwd, timeout_s=timeout)
+        output = vault.redact(caller.agent_id, result.output) if vault else result.output
         body = {
-            "output": result.output,
+            "output": output,
             "exit_code": result.exit_code,
             "seconds": round(result.seconds, 2),
             "folder": str(cwd),
@@ -765,9 +810,14 @@ class ShellTool:
         if runs_on:
             # A remote command did not run in the local ``folder`` above; say where.
             body["runs_on"] = runs_on
+        if secrets and not getattr(backend, "accepts_env", False):
+            body["credentials"] = (
+                "Your stored credentials are only set for commands on this computer, "
+                "not on the computer this command ran on."
+            )
         if result.timed_out:
             return ToolResult(success=False, output=body, error="command timed out")
         if result.failed_to_start:
-            return ToolResult(success=False, output=body, error=result.output)
+            return ToolResult(success=False, output=body, error=output)
         error = None if result.ok else f"exit {result.exit_code}"
         return ToolResult(success=result.ok, output=body, error=error)

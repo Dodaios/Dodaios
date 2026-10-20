@@ -1,6 +1,6 @@
-# Contributing to Personal Jarvis
+# Contributing to Dodaios
 
-Personal Jarvis is a cross-platform desktop application for voice, agents, and
+Dodaios is a cross-platform desktop application for voice, agents, and
 connected tools. We welcome focused fixes, tests, accessibility work, platform
 reports, and documentation improvements. The useful first step is a problem you
 can reproduce and explain; familiarity with the whole repository is not required.
@@ -9,14 +9,14 @@ can reproduce and explain; familiarity with the whole repository is not required
 
 | Starting point | A useful, reviewable result |
 |---|---|
-| [Open bugs](https://github.com/PersonalJarvis/PersonalJarvis/issues?q=is%3Aissue%20is%3Aopen%20label%3Abug) | Confirm an issue still reproduces on current `main`, add a focused regression test, and fix it. Comment on the issue before starting if its scope is unclear. |
+| [Open bugs](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue%20is%3Aopen%20label%3Abug) | Confirm an issue still reproduces on current `main`, add a focused regression test, and fix it. Comment on the issue before starting if its scope is unclear. |
 | Installation or product docs | Follow one documented path on a named OS, then correct the exact step that differs from reality. Include the command, observed result, and working replacement. |
 | Desktop accessibility | Improve one keyboard, focus, or screen-reader interaction in `jarvis/ui/web/frontend/src/`. Show the before/after behavior in light and dark mode. |
 | Platform parity | Test one existing feature on Windows, macOS, Linux, or a headless host, then submit a reproducible report or a narrow fix. Check [OS parity](docs/os-parity.md) first. |
 
-Use [GitHub Issues](https://github.com/PersonalJarvis/PersonalJarvis/issues/new/choose)
+Use [GitHub Issues](https://github.com/Dodaios/Dodaios/issues/new/choose)
 for a concrete bug or task. For a larger design, use
-[Discussions](https://github.com/PersonalJarvis/PersonalJarvis/discussions) to
+[Discussions](https://github.com/Dodaios/Dodaios/discussions) to
 agree on scope before implementing it. You can open a small, self-contained PR
 without an issue. The `good first issue` label is used when a specific task has
 been scoped; browse open bugs or propose a small task if that list is empty.
@@ -35,7 +35,7 @@ code.
 ### Path A: a docs or frontend text change (Markdown, `.md`, `.json` locale files)
 
 1. Fork the repo and clone your fork.
-2. Find a task: browse [issues labeled `good first issue`](https://github.com/PersonalJarvis/PersonalJarvis/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+2. Find a task: browse [issues labeled `good first issue`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
    Comment on it to claim it if you plan to start right away.
 3. Make your edit directly in the file the issue points to. No install needed
    for a Markdown-only change.
@@ -60,7 +60,7 @@ You do not need the Python backend running for this path.
 ### Path B: a Python change (a fix, a new test, a small feature)
 
 1. Fork the repo and clone your fork.
-2. Find a task: browse [issues labeled `good first issue`](https://github.com/PersonalJarvis/PersonalJarvis/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+2. Find a task: browse [issues labeled `good first issue`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
    Comment on it to claim it if you plan to start right away.
 3. Set up once (Python 3.11+ and Git required):
    ```bash
@@ -187,4 +187,4 @@ data out of the repository and PR. Contributions are licensed under
 For private security reports, follow [SECURITY.md](SECURITY.md). For conduct
 concerns, see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Usage questions belong
 in [Discord](https://discord.gg/x7USduHxbc) or
-[Discussions](https://github.com/PersonalJarvis/PersonalJarvis/discussions).
+[Discussions](https://github.com/Dodaios/Dodaios/discussions).

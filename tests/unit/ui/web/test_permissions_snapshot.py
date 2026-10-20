@@ -388,7 +388,7 @@ def test_a_fresh_mac_offers_every_row_a_way_forward(make_env) -> None:
         assert row["can_reset"] is True, permission
         assert row["restart_hint"] is False
         assert row["settings_path"].startswith("System Settings > Privacy & Security > ")
-    assert rows["microphone"]["detail"].startswith("Personal Jarvis needs Microphone access")
+    assert rows["microphone"]["detail"].startswith("Dodaios needs Microphone access")
 
 
 def test_granted_rows_offer_nothing_to_fix(make_env) -> None:
@@ -448,7 +448,7 @@ def test_a_missing_framework_reads_unavailable_with_a_fixed_sentence(make_env) -
     row = env.rows()["microphone"]
 
     assert row["status"] == "unavailable" and row["can_request"] is False
-    assert row["detail"] == "Personal Jarvis cannot ask for Microphone access in this session."
+    assert row["detail"] == "Dodaios cannot ask for Microphone access in this session."
 
 
 def test_a_missing_usage_string_means_the_row_cannot_be_asked(make_env) -> None:

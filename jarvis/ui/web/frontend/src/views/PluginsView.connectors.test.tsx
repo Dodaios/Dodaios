@@ -17,7 +17,7 @@ it("starts instance browser sign-in with an address and no token", async () => {
   vi.stubGlobal("fetch", fetcher);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(<QueryClientProvider client={client}><PluginsView /></QueryClientProvider>);
-  fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Connect / }));
   expect(screen.queryByLabelText(/token/i)).toBeNull();
   const proceed = screen.getByRole("button", { name: "Continue in browser" }) as HTMLButtonElement;
   expect(proceed.disabled).toBe(true);
@@ -65,21 +65,21 @@ function setupLocal(available: boolean) {
 
 it("enables a supported local device without opening an OAuth browser", async () => {
   const { fetcher, alerts } = setupLocal(true);
-  fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
-  await screen.findByRole("button", { name: "Disconnect plugin" });
+  fireEvent.click(await screen.findByRole("button", { name: /^Connect / }));
+  await screen.findByRole("img", { name: "Connected" });
   expect(fetcher.mock.calls.some(([url]) => String(url).endsWith("/amd_gpu/connect/start"))).toBe(true);
   expect(alerts).not.toHaveBeenCalled();
 });
 
 it("keeps an unavailable device disconnected and explains the missing capability", async () => {
   const { alerts, fetcher } = setupLocal(false);
-  const connect = await screen.findByRole("button", { name: "Connect plugin" });
+  const connect = await screen.findByRole("button", { name: /^Connect / });
   expect((connect as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByText("Unsupported on this device")).toBeDefined();
   fireEvent.click(connect);
   expect(fetcher.mock.calls.some(([url]) => String(url).endsWith("/connect/start"))).toBe(false);
   expect(alerts).not.toHaveBeenCalled();
-  expect(screen.queryByRole("button", { name: "Disconnect plugin" })).toBeNull();
+  expect(screen.queryByRole("img", { name: "Connected" })).toBeNull();
 });
 
 
@@ -96,7 +96,7 @@ it("shows a normalized connection error without exposing provider response bodie
   const alerts = vi.spyOn(window, "alert").mockImplementation(() => {});
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(<QueryClientProvider client={client}><PluginsView /></QueryClientProvider>);
-  fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Connect / }));
   await screen.findByRole("alertdialog", { name: "Connection unavailable" });
   expect(screen.getByText(/provider could not be reached/i)).toBeDefined();
   expect(screen.queryByText(/PRIVATE PROVIDER BODY/)).toBeNull();
@@ -113,7 +113,7 @@ it("keeps unprovisioned device login pending with an explicit collapsed token al
   vi.stubGlobal("fetch", fetcher);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(<QueryClientProvider client={client}><PluginsView /></QueryClientProvider>);
-  fireEvent.click(await screen.findByRole("button", { name: "Connect plugin" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Connect / }));
   await screen.findByRole("dialog");
   expect(screen.getByText(/pending publisher setup/i)).toBeDefined();
   const alternative = screen.getByText("Expert token alternative").closest("details");

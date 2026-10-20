@@ -7,6 +7,9 @@
  * sends a template of its own to publish, so what leaves the machine is
  * exactly what the server's scrubber let through.
  */
+import { fill, translate } from "@/i18n";
+
+import { MARKETPLACE_REPO_URL } from "@/lib/branding";
 
 export type ShareFindingKind = "secret" | "email" | "path" | "phone" | "address";
 
@@ -106,8 +109,7 @@ export class ShareError extends Error {
 export const shareDraftKey = (agentId: string) => ["society", "share-template", agentId] as const;
 
 /** The registry's issue form — the browser route when the app may not file it. */
-export const MARKETPLACE_ISSUE_FORM_URL =
-  "https://github.com/PersonalJarvis/marketplace/issues/new?template=publish.yml";
+export const MARKETPLACE_ISSUE_FORM_URL = `${MARKETPLACE_REPO_URL}/issues/new?template=publish.yml`;
 
 async function readError(res: Response): Promise<ShareError> {
   const body = (await res.json().catch(() => ({}))) as {
@@ -115,7 +117,7 @@ async function readError(res: Response): Promise<ShareError> {
   };
   const detail = body.detail;
   if (typeof detail === "string") return new ShareError(detail, res.status);
-  const message = detail?.error ?? detail?.detail ?? `Request failed (${res.status})`;
+  const message = detail?.error ?? detail?.detail ?? fill(translate("common.request_failed"), { status: res.status });
   return new ShareError(message, res.status, detail?.field ?? null);
 }
 

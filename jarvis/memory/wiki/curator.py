@@ -188,6 +188,7 @@ class WikiCurator:
         source_label: str,
         verb: str = "merge",
         all_or_nothing: bool = False,
+        keep_unresolved_links: bool = False,
     ) -> WriteResult:
         """Apply pre-built updates through the full guarded write pipeline.
 
@@ -200,6 +201,9 @@ class WikiCurator:
         use ``merge``). ``all_or_nothing=True`` makes this call one write
         transaction: a lock conflict, secret block, write failure, or schema
         failure leaves every page in its pre-call state.
+        ``keep_unresolved_links=True`` is for a person editing a page by hand:
+        a ``[[link]]`` to a page that does not exist yet is their intent (the
+        reader offers to create it), not model noise to demote.
         """
         # The LLM is taught (via schema.md) to emit vault-relative targets
         # like "entities/ruben.md". Python's Path() treats that as a
@@ -217,7 +221,8 @@ class WikiCurator:
         # (or no page created in THIS same batch) must be demoted to plain
         # text, never left dangling. Deterministic, regex only, no LLM,
         # no I/O — mirrors the session-rollup post-pass.
-        updates = self._demote_dangling_links(updates)
+        if not keep_unresolved_links:
+            updates = self._demote_dangling_links(updates)
 
         # ----- 1c. canonicalise Sources citations ----------------------
         # Deterministic tidy of the ## Sources section (dedupe, drop

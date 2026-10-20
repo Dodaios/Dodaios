@@ -849,7 +849,7 @@ def _generic_usage(account: AgentAccount) -> AccountUsage:
         account_id=account.id,
         platform=account.platform,
         status="unsupported",
-        message=f"{name} does not publish plan usage that Jarvis can read.",
+        message=f"{name} does not publish plan usage that Dodaios can read.",
     )
 
 
