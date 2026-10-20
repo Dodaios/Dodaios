@@ -155,3 +155,28 @@ def test_society_kill_switch_pauses_the_loop(
 
     monkeypatch.setattr(service_module, "_current", None)
     assert runtime._pause_self_build() is False
+
+
+def test_land_repos_are_cleaned_and_saved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    toml = tmp_path / "jarvis.toml"
+    toml.write_text("", encoding="utf-8")
+    real = config_writer.set_self_build_settings
+    monkeypatch.setattr(
+        config_writer, "set_self_build_settings", lambda values: real(values, path=toml)
+    )
+    cfg = SimpleNamespace(self_build=SelfBuildConfig())
+    client, svc = _client(tmp_path, cfg)
+    put = client.put(
+        "/api/self-build/settings",
+        json={"code_land_repos": [" octo/app ", "https://github.com/Octo/App.git", "", "me/tool"]},
+    )
+    assert put.status_code == 200, put.text
+    assert put.json()["settings"]["code_land_repos"] == ["octo/app", "me/tool"]
+    assert cfg.self_build.code_land_repos == ["octo/app", "me/tool"]
+    assert 'code_land_repos = ["octo/app", "me/tool"]' in toml.read_text(encoding="utf-8")
+    bad = client.put("/api/self-build/settings", json={"code_land_repos": ["not a repo"]})
+    assert bad.status_code == 400
+    assert cfg.self_build.code_land_repos == ["octo/app", "me/tool"]
+    svc.ledger.close()
