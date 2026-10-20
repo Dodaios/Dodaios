@@ -183,6 +183,25 @@ def snap_rects_on_screen(
     screen; slivers under ``min_px`` and rects on other screens are dropped.
     Order (top-most first) is kept, so the first hit is the visible window.
     """
+    return [
+        rect
+        for _index, rect in snap_targets_on_screen(screen, size, monitors, windows, min_px=min_px)
+    ]
+
+
+def snap_targets_on_screen(
+    screen: dict,
+    size: tuple[float, float],
+    monitors: list[dict],
+    windows: list[list[int]],
+    *,
+    min_px: float,
+) -> list[tuple[int, FRect]]:
+    """:func:`snap_rects_on_screen`, each rect with its index in ``windows``.
+
+    The index ties a rect that survived the clipping back to what came with
+    it (the window handle its elements are read from).
+    """
     monitor = match_monitor(screen, monitors)
     if monitor is None:
         return []
@@ -191,16 +210,19 @@ def snap_rects_on_screen(
     mh = max(1.0, float(monitor.get("height", 1)))
     width, height = float(size[0]), float(size[1])
     sx, sy = width / mw, height / mh
-    out: list[FRect] = []
-    for rect in windows:
+    out: list[tuple[int, FRect]] = []
+    for index, rect in enumerate(windows):
         if not isinstance(rect, (list, tuple)) or len(rect) != 4:
             continue
-        left, top, w, h = (float(v) for v in rect)
+        try:
+            left, top, w, h = (float(v) for v in rect)
+        except (TypeError, ValueError):  # a garbled rect is no snap target
+            continue
         x0, y0 = max(0.0, (left - ml) * sx), max(0.0, (top - mt) * sy)
         x1 = min(width, (left + w - ml) * sx)
         y1 = min(height, (top + h - mt) * sy)
         if x1 - x0 >= min_px and y1 - y0 >= min_px:
-            out.append((x0, y0, x1 - x0, y1 - y0))
+            out.append((index, (x0, y0, x1 - x0, y1 - y0)))
     return out
 
 
@@ -279,11 +301,15 @@ def snap_layout() -> dict[str, Any]:
     Read BEFORE the picker exists, so its own overlay never becomes a target.
     Rects are in capture coordinates, top-most window first; an empty window
     list (Wayland, an unreadable desktop) only switches snapping off.
+    ``handles`` runs alongside ``windows`` (``0`` = unknown): the picker reads
+    the parts of the window under the pointer through them, to snap to a
+    panel, list or button instead of the whole window.
     """
     from dodaios.screen_context.ports import make_display_enumerator  # noqa: PLC0415
 
     monitors = make_display_enumerator().monitors()
     windows: list[list[int]] = []
+    handles: list[int] = []
     try:
         from dodaios.platform import window_state as ws  # noqa: PLC0415
         from dodaios.screen_context.ports import _input_space  # noqa: PLC0415
@@ -294,10 +320,12 @@ def snap_layout() -> dict[str, Any]:
                     continue
                 rect = ws.window_frame_rect(win) or ws.window_rect(win)
                 if rect and rect[2] > 0 and rect[3] > 0:
+                    handle = getattr(win, "handle", None)
                     windows.append([int(v) for v in rect])
+                    handles.append(handle if isinstance(handle, int) else 0)
     except Exception:  # noqa: BLE001 - snapping is a convenience; dragging still works
         log.debug("appshot: window list for snapping unavailable", exc_info=True)
-    return {"monitors": [dict(m) for m in monitors], "windows": windows}
+    return {"monitors": [dict(m) for m in monitors], "windows": windows, "handles": handles}
 
 
 def _spawn(language: str = "en", *, resident: bool = False) -> subprocess.Popen[str]:
@@ -514,4 +542,5 @@ __all__ = [
     "selection_to_bbox",
     "snap_layout",
     "snap_rects_on_screen",
+    "snap_targets_on_screen",
 ]
