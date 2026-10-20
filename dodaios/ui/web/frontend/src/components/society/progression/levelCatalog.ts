@@ -1,64 +1,93 @@
 /**
- * The ship's copy of the level system's ids (dodaios/progression/rules.py):
- * subject kinds, reward slots, reward ids, rank ids and XP sources. The
- * server sends levels and amounts; this file only knows the ids, so a
- * surface can name and draw them. tests/unit/progression/test_frontend_parity.py
- * pins every list here to the Python rulebook (AP-4): add an id in Python
- * first, then here. The rank ladder itself (levels, tiers, pips) lives in
- * `starship/levels/ranks.ts`.
+ * The Verse's copy of the level system's ids and reward levels
+ * (dodaios/progression/rules.py): subject kinds, reward slots, rewards with
+ * the level each kind opens them at, XP sources and world actions, plus the
+ * level curve. tests/unit/progression/test_frontend_parity.py pins every list
+ * here to the Python rulebook: add an id in Python first, then here.
+ *
+ * The client keeps its own copy of the rewards and the curve so the Verse
+ * still reads right when the running backend is older than this build (the
+ * desktop app keeps its Python until it restarts). The rank ladder itself
+ * lives in `verse/ranks/ranks.ts`.
  */
 
 export const SUBJECT_KINDS = ["person", "agent", "pet"] as const;
 export type SubjectKind = (typeof SUBJECT_KINDS)[number];
 
-/** What a level opens: a suit for the captain's figure, a destination for the helm, a decoration. */
-export const SLOTS = ["suit", "destination", "decoration"] as const;
+/** What a level opens: a uniform for the commander's figure, a ribbon on the service record. */
+export const SLOTS = ["uniform", "ribbon"] as const;
 export type Slot = (typeof SLOTS)[number];
 
 export const REWARD_IDS = [
-  "suit_field_armor", "suit_command_coat", "suit_dress_whites", "suit_admiral_coat",
-  "destination_gas_giant", "destination_crimson_nebula", "destination_ice_moon", "destination_twin_suns",
-  "destination_event_horizon", "destination_aurora_world", "destination_galactic_core",
-  "decoration_service_ribbon", "decoration_commendation", "decoration_star_medal", "decoration_legion_of_merit",
+  "uniform_deck", "uniform_line", "uniform_command", "uniform_flag",
+  "ribbon_good_conduct", "ribbon_meritorious", "ribbon_distinguished", "ribbon_fleet_cross",
 ] as const;
 export type RewardId = (typeof REWARD_IDS)[number];
-export type SuitId = Extract<RewardId, `suit_${string}`>;
+export type UniformRewardId = Extract<RewardId, `uniform_${string}`>;
+export type RibbonId = Extract<RewardId, `ribbon_${string}`>;
 
-/** The rank ladder, lowest first (the server's `RANKS`, the ship's `ranks.ts`). */
-export const RANK_IDS = [
-  "cadet", "crewman", "specialist", "petty_officer", "chief_petty_officer", "warrant_officer", "ensign",
-  "lieutenant_junior_grade", "lieutenant", "lieutenant_commander", "commander", "captain", "commodore",
-  "rear_admiral", "vice_admiral", "admiral",
-] as const;
-export type RankId = (typeof RANK_IDS)[number];
+/** The level each subject kind opens a reward at; null = never for that kind. */
+export type RewardLevels = Record<SubjectKind, number | null>;
+
+/** The rulebook's `REWARDS`, in its order. */
+export const REWARD_LEVELS: Readonly<Record<RewardId, RewardLevels>> = {
+  uniform_deck: { person: 1, agent: null, pet: null },
+  uniform_line: { person: 11, agent: null, pet: null },
+  uniform_command: { person: 29, agent: null, pet: null },
+  uniform_flag: { person: 37, agent: null, pet: null },
+  ribbon_good_conduct: { person: 6, agent: 4, pet: null },
+  ribbon_meritorious: { person: 19, agent: 16, pet: null },
+  ribbon_distinguished: { person: 31, agent: 27, pet: null },
+  ribbon_fleet_cross: { person: 47, agent: 43, pet: null },
+};
 
 export const XP_SOURCES = [
   "chat_turn", "voice_turn", "quest_posted", "quest_completed", "agent_hired", "mission_completed",
-  "daily_visit", "deck_discovered", "holodeck_round", "holodeck_record", "team_briefing", "warp_jump",
+  "daily_visit", "deck_discovered", "simulator_round", "simulator_record", "team_briefing", "inspection",
   "task_done", "task_blocked", "quest_done", "answered_teammate",
   "jarvis_answered", "delegated", "walk_together",
 ] as const;
 export type XpSource = (typeof XP_SOURCES)[number];
 
 /** The world actions the ship itself reports (`trigger: "world"` in the rulebook). */
-export type WorldAction = "daily_visit" | "deck_discovered" | "holodeck_round" | "holodeck_record"
-  | "team_briefing" | "warp_jump" | "walk_together";
+export type WorldAction = "daily_visit" | "deck_discovered" | "simulator_round" | "simulator_record"
+  | "team_briefing" | "inspection" | "walk_together";
+
+export const MAX_LEVEL = 50;
+
+/** XP from `level` to the next (the rulebook's `xp_to_next`); 0 at the cap. */
+export function xpToNext(level: number): number {
+  if (level >= MAX_LEVEL) return 0;
+  const l = Math.max(1, Math.floor(level));
+  const raw = 40 + 25 * (l - 1) ** 1.1;
+  return Math.round(raw / 5) * 5;
+}
+
+/** Total XP at which each level starts, index 0 = level 1 (the server's `level_xp`). */
+export const LEVEL_XP: readonly number[] = (() => {
+  const totals = [0];
+  for (let level = 1; level < MAX_LEVEL; level++) totals.push(totals[level - 1] + xpToNext(level));
+  return totals;
+})();
+
+/** The level `totalXp` reaches on the curve. */
+export function levelForXp(totalXp: number, curve: readonly number[] = LEVEL_XP): number {
+  let level = 1;
+  while (level < curve.length && totalXp >= curve[level]) level += 1;
+  return level;
+}
 
 export function slotOf(reward: RewardId): Slot {
   return reward.slice(0, reward.indexOf("_")) as Slot;
 }
 
-/** The reward's name inside its slot; for a destination, the helm's destination id. */
+/** The reward's name inside its slot; for a uniform, the rank tier it belongs to. */
 export function rewardKey(reward: RewardId): string {
   return reward.slice(reward.indexOf("_") + 1);
 }
 
 export function isRewardId(value: unknown): value is RewardId {
   return typeof value === "string" && (REWARD_IDS as readonly string[]).includes(value);
-}
-
-export function isRankId(value: unknown): value is RankId {
-  return typeof value === "string" && (RANK_IDS as readonly string[]).includes(value);
 }
 
 export function isXpSource(value: unknown): value is XpSource {

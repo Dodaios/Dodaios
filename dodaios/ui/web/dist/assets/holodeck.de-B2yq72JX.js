@@ -1,1 +1,0 @@
-const o={holodeck:{room:"Holodeck",program:"Holodeck-Programm",loading:"Das Programm wird geladen …",missing:"Dieses Programm ist nicht in der Bibliothek des Holodecks."}},e={ship:o};export{e as default,o as ship};

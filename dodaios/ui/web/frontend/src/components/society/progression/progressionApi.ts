@@ -3,12 +3,15 @@
  * and the shape of the `ProgressionAwarded` push the WebSocket forwards.
  *
  * Parsing is forgiving: a ledger row may carry a source this build no longer
- * knows (the office tower's `dog_petted`, `floor_discovered`, …); it is kept as
- * a plain string, never dropped and never fatal.
+ * knows (an older build's `holodeck_round`, `warp_jump`, `dog_petted`, …); it
+ * is kept as a plain string, never dropped and never fatal. A server older
+ * than this build sends other rank and reward ids: rank ids are only kept for
+ * reference (the Verse derives every rank from the level), unknown rewards
+ * are left out and `rewardsOf` falls back to the client's own table.
  */
-import type { RankTier } from "../starship/levels/ranks";
+import { RANK_TIERS, type RankTier } from "../verse/ranks/ranks";
 import type { RewardId, Slot, SubjectKind, WorldAction } from "./levelCatalog";
-import { isRewardId } from "./levelCatalog";
+import { REWARD_IDS, REWARD_LEVELS, isRewardId, slotOf } from "./levelCatalog";
 
 export interface SubjectLevel {
   subjectId: string;
@@ -50,7 +53,7 @@ export interface AwardRow {
   xp: number;
   levelBefore: number;
   levelAfter: number;
-  /** What the award was for: a deck, `<destination>@<ms>` for a warp jump, a quest id, … */
+  /** What the award was for: a deck, `<deck>:<day>` for an inspection, a quest id, … */
   ref: string;
   tsMs: number;
 }
@@ -65,7 +68,7 @@ export interface ProgressionSnapshot {
   levelXp: number[];
   rules: XpRuleRow[];
   rewards: RewardRow[];
-  /** The rank ladder as the server has it (empty from a server older than the ship). */
+  /** The rank ladder as the server has it; informative only, ranks are derived from levels. */
   ranks: RankRow[];
   titles: Record<SubjectKind, { level: number; title: string }[]>;
   /** The agent level each wearable look opens at (companion accessory ids). */
@@ -92,7 +95,7 @@ type Raw = Record<string, unknown>;
 const num = (value: unknown, fallback = 0): number => (typeof value === "number" && Number.isFinite(value) ? value : fallback);
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
 const kindOf = (value: unknown): SubjectKind => (value === "agent" || value === "pet" ? value : "person");
-const tierOf = (value: unknown): RankTier => (value === "warrant" || value === "officer" || value === "flag" ? value : "enlisted");
+const tierOf = (value: unknown): RankTier => ((RANK_TIERS as readonly unknown[]).includes(value) ? (value as RankTier) : "deck");
 const list = (value: unknown): Raw[] => (Array.isArray(value) ? value.filter((v): v is Raw => !!v && typeof v === "object") : []);
 
 export function parseSnapshot(body: Raw): ProgressionSnapshot {
@@ -146,11 +149,27 @@ export async function fetchProgression(afterSeq = 0): Promise<ProgressionSnapsho
   return parseSnapshot((await res.json()) as Raw);
 }
 
+/** The client's own copy of the rulebook's rewards, in rulebook order. */
+export const LOCAL_REWARDS: readonly RewardRow[] = REWARD_IDS.map((rewardId) => ({
+  rewardId, slot: slotOf(rewardId), levels: { ...REWARD_LEVELS[rewardId] },
+}));
+
 /**
- * The office tower's arcade names, still sent by the shared retro games:
- * they are the holodeck's rounds now.
+ * The rewards to show: the server's when it sends rewards this build knows,
+ * else the client's own table (a backend older than this build, or none yet).
  */
-const RENAMED_ACTIONS = { arcade_round: "holodeck_round", arcade_record: "holodeck_record" } as const satisfies Record<string, WorldAction>;
+export function rewardsOf(snapshot: Pick<ProgressionSnapshot, "rewards"> | null | undefined): readonly RewardRow[] {
+  return snapshot && snapshot.rewards.length > 0 ? snapshot.rewards : LOCAL_REWARDS;
+}
+
+/**
+ * Older names for the simulator's rounds: the shared retro games still say
+ * "arcade", the previous ship said "holodeck".
+ */
+const RENAMED_ACTIONS = {
+  arcade_round: "simulator_round", arcade_record: "simulator_record",
+  holodeck_round: "simulator_round", holodeck_record: "simulator_record",
+} as const satisfies Record<string, WorldAction>;
 export type RenamedAction = keyof typeof RENAMED_ACTIONS;
 
 /** Report a world action; the server decides whether it pays. Never throws; a report the server refuses is logged. */

@@ -22,6 +22,7 @@ from dodaios.progression.rules import (
     REWARDS,
     RULES,
     TITLES,
+    VERSE_DECKS,
     total_xp_for_level,
 )
 from dodaios.progression.service import ProgressionService, UnknownAction
@@ -60,6 +61,7 @@ def _rulebook() -> dict[str, Any]:
             for r in REWARDS
         ],
         "ranks": [{"id": rank, "level": level, "tier": tier} for level, rank, tier in RANKS],
+        "decks": list(VERSE_DECKS),
         "looks": [{"look_id": look, "agent": level} for look, level in LOOK_UNLOCKS.items()],
         "titles": {
             kind: [{"level": lvl, "title": t} for lvl, t in bands]
@@ -91,7 +93,7 @@ async def get_progression(
 class WorldAction(BaseModel):
     action: str = Field(..., max_length=40, description="A world-action source from the rulebook")
     ref: str = Field(
-        "", max_length=40, description="The action's subject, a deck or a destination"
+        "", max_length=40, description="The action's subject: a deck, a team or a game"
     )
 
 

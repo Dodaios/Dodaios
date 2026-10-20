@@ -1,7 +1,7 @@
 # Mars runtime reference
 
 Status: development reference, not the completed colony. Since 2026-09-28
-**Agents > Map** opens the Dodaios Verse starship ([starship-verse.md](starship-verse.md)) instead
+**Agents > Map** opens the Dodaios Verse capital ship ([../verse/README.md](../verse/README.md)) instead
 of Mars; this page documents the Mars code and backend contracts, which remain
 in the tree. No older URL restores a previous world. The Agents workspace and communications-station
 controls remain separate from rendering. Final character/rover art, player
