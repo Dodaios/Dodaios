@@ -132,7 +132,7 @@ class AgentApprovalMode(StrEnum):
 
 
 class ExecutionEnvironment(StrEnum):
-    """Where a Jarvis agent's machine-facing tools execute."""
+    """Where a Dodaios agent's machine-facing tools execute."""
 
     LOCAL = "local"
     SANDBOX = "sandbox"

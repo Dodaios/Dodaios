@@ -1,6 +1,6 @@
 """Opt-in code sandbox. Only Docker-managed volumes cross command boundaries.
 
-The model/controller stays in Jarvis; all code runs in an unprivileged Linux
+The model/controller stays in Dodaios; all code runs in an unprivileged Linux
 container with no host mounts, credentials, network, or Docker socket. This is
 container isolation, not a separate kernel per agent. No local fallback exists.
 """
