@@ -1,8 +1,9 @@
 /**
  * Invisible terminal scrolling helpers.
  *
- * xterm owns the scroll position and wheel input remains contained inside the
- * pane. The visible scrollbar is drawn by ./PaneScrollbar, not by xterm.
+ * Agentic IDE panes intentionally draw no scrollbar. xterm still owns the
+ * scroll position, wheel input remains contained inside the pane, and the
+ * recorded conversation is opened from the book button in the pane header.
  *
  * `captureWheelForTerminalHistory` covers the one awkward input shape: a
  * NORMAL-buffer CLI that has negotiated mouse tracking. There xterm has real
