@@ -5,7 +5,7 @@
       "loading": "Carregando o convés",
       "unavailable": "A nave precisa de WebGL, que esta janela não consegue iniciar agora.",
       "deck_missing": "Este convés ainda não foi construído.",
-      "help": "Arraste para mover, use a roda ou faça pinça para o zoom, clique duas vezes para focar. Clique no convés para caminhar até lá e num tripulante para ver a ficha."
+      "help": "Terceira pessoa: WASD ou as setas movem o comandante, Shift para ir mais rápido, E usa a estação ao alcance. V alterna para a vista aérea e volta. Arraste para olhar em volta, use a roda para o zoom. Clique no convés para caminhar até lá e num tripulante para ver a ficha."
     },
     "deck": {
       "label": "Convés {n}",
@@ -90,6 +90,7 @@
       "elsewhere": "Em outro lugar da nave"
     },
     "tools": {
+      "overview": "Vista aérea",
       "lift": "Turboelevador",
       "commander": "Comandante",
       "help": "Ajuda"
@@ -102,7 +103,9 @@
       "mess_called": "{count} tripulantes de folga chamados ao refeitório.",
       "mess_nobody": "Ninguém está de folga agora.",
       "mess_ended": "A tripulação volta à rotina.",
-      "no_team": "Nenhuma equipe se reúne nesta mesa ainda. Crie uma na lista da tripulação."
+      "no_team": "Nenhuma equipe se reúne nesta mesa ainda. Crie uma na lista da tripulação.",
+      "view_overview": "Vista aérea: WASD move o mapa. V leva você de volta ao comandante.",
+      "view_follow": "Terceira pessoa: WASD move o comandante, E usa a estação ao alcance. V alterna para a vista aérea."
     },
     "screen": {
       "standby": "EM ESPERA",

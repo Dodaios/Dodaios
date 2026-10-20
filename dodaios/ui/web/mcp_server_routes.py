@@ -102,7 +102,7 @@ class _Surface:
 
 
 def _build_tools_server() -> Any:
-    from dodaios.mcp.jarvis_tools_server import build_server
+    from dodaios.mcp.dodaios_tools_server import build_server
 
     return build_server()
 
@@ -308,8 +308,8 @@ def build_mcp_asgi_app() -> Any:
         # The session travels in a ContextVar: the stateless transport runs
         # the tool call in a task started from this request, which inherits
         # the context, and the tool server reads it when it builds the
-        # executor's approval surface (jarvis_tools_server.approval_snapshot).
-        from dodaios.mcp.jarvis_tools_server import CHAT_SESSION_REF
+        # executor's approval surface (dodaios_tools_server.approval_snapshot).
+        from dodaios.mcp.dodaios_tools_server import CHAT_SESSION_REF
 
         token = CHAT_SESSION_REF.set(session_ref(scope))
         try:

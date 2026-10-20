@@ -255,7 +255,7 @@ class RunAppActionTool:
     ) -> tuple[int | None, Any]:
         import httpx
 
-        from dodaios.agent_chat.jarvis_harness import HEADER_NAME
+        from dodaios.agent_chat.dodaios_harness import HEADER_NAME
         from dodaios.society.inherit import caller_session_id
         from dodaios.tasks.context import CLIENT_TIMEZONE_HEADER, turn_timezone
 

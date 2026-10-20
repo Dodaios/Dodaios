@@ -260,7 +260,7 @@ _KITS: Final[dict[str, SurfaceKit]] = {
         surface="jarvis",
         brain_runner=True,
         # Subscription seats may answer here too: the CLI then runs inside the
-        # Jarvis harness (``jarvis_harness``) with Jarvis' tools over MCP, so a
+        # Jarvis harness (``dodaios_harness``) with Jarvis' tools over MCP, so a
         # plan bills the subscription instead of a key.
         cli_seats=True,
         ladder=_JARVIS_LADDER,

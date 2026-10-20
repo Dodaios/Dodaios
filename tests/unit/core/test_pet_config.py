@@ -199,7 +199,7 @@ def test_shipped_pet_toggle_cannot_fire_the_both_alt_appshot_gesture() -> None:
 
 
 def test_example_config_documents_the_pet_keys() -> None:
-    example = Path(__file__).resolve().parents[3] / "jarvis.toml.example"
+    example = Path(__file__).resolve().parents[3] / "dodaios.toml.example"
     data = tomllib.loads(example.read_text(encoding="utf-8"))
     assert data["ui"]["pet_id"] == UIConfig().pet_id
     assert data["ui"]["pet_scale"] == UIConfig().pet_scale

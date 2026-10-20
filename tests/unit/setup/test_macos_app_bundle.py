@@ -592,7 +592,7 @@ def test_icns_iconset_members_use_only_apple_valid_names(
     resources = tmp_path / "Resources"
     resources.mkdir()
 
-    assert mab._try_build_icns(resources) == "jarvis"
+    assert mab._try_build_icns(resources) == "dodaios"
 
     valid = {
         f"icon_{size}x{size}{scale}.png"

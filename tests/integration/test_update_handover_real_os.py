@@ -325,7 +325,7 @@ def _build_setup(iscc: Path, fake_exe: Path, version: str, work: Path) -> Path:
             f"/DSourceDir={source}",
             f"/DOutputDir={out}",
             f"/DAppGuid={TEST_APP_GUID}",
-            str(REPO / "packaging" / "windows" / "PersonalJarvis.iss"),
+            str(REPO / "packaging" / "windows" / "Dodaios.iss"),
         ],
         check=True,
         timeout=600,

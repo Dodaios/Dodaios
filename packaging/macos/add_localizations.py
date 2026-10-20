@@ -1,14 +1,14 @@
 """Write the translated ``InfoPlist.strings`` into a built ``Dodaios.app``.
 
 PyInstaller's ``BUNDLE`` writes the base (English) ``Info.plist`` and, through
-``jarvis.spec``, the ``CFBundleLocalizations`` key. The per-language strings that
+``dodaios.spec``, the ``CFBundleLocalizations`` key. The per-language strings that
 macOS shows in its permission dialogs live in ``Contents/Resources/<lang>.lproj/
 InfoPlist.strings`` and cannot come from the spec, so ``packaging/macos/build.sh``
 runs this script on the finished ``.app`` BEFORE it signs it: the files are part of
 the code seal, and a file added afterwards would invalidate the signature.
 
 The text comes from the single table in ``dodaios/core/macos_privacy_strings.py``,
-loaded by path exactly like ``jarvis.spec`` does (the package is not necessarily
+loaded by path exactly like ``dodaios.spec`` does (the package is not necessarily
 importable on the build machine). The managed source-install app writes the same
 files itself (``dodaios.setup.macos_app_bundle``), so both bundles show the same
 sentences.

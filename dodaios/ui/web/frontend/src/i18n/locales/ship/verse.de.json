@@ -5,7 +5,7 @@
       "loading": "Deck wird geladen",
       "unavailable": "Das Schiff braucht WebGL, das dieses Fenster gerade nicht starten kann.",
       "deck_missing": "Dieses Deck ist noch nicht gebaut.",
-      "help": "Ziehen zum Verschieben, Scrollen oder Zwei-Finger-Geste zum Zoomen, Doppelklick zum Fokussieren. Ein Klick auf das Deck schickt dich dorthin, ein Klick auf ein Crewmitglied öffnet seine Akte."
+      "help": "Third Person: WASD oder Pfeiltasten steuern den Kommandanten, Shift läuft schneller, E benutzt die Station in Reichweite. V schaltet in die Vogelperspektive und zurück. Ziehen verschiebt die Ansicht, Scrollen zoomt. Ein Klick auf das Deck schickt dich dorthin, ein Klick auf ein Crewmitglied öffnet seine Akte."
     },
     "deck": {
       "label": "Deck {n}",
@@ -90,6 +90,7 @@
       "elsewhere": "Woanders an Bord"
     },
     "tools": {
+      "overview": "Vogelperspektive",
       "lift": "Turbolift",
       "commander": "Kommandant",
       "help": "Hilfe"
@@ -102,7 +103,9 @@
       "mess_called": "{count} dienstfreie Crewmitglieder in die Messe gerufen.",
       "mess_nobody": "Gerade hat niemand dienstfrei.",
       "mess_ended": "Die Crew kehrt zu ihrer Routine zurück.",
-      "no_team": "An diesem Tisch trifft sich noch kein Team. Lege eins in der Crewliste an."
+      "no_team": "An diesem Tisch trifft sich noch kein Team. Lege eins in der Crewliste an.",
+      "view_overview": "Vogelperspektive: WASD verschiebt die Karte. V bringt dich zurück hinter den Kommandanten.",
+      "view_follow": "Third Person: WASD steuert den Kommandanten, E benutzt die Station in Reichweite. V wechselt in die Vogelperspektive."
     },
     "screen": {
       "standby": "BEREIT",

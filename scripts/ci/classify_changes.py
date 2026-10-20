@@ -170,7 +170,7 @@ _MACOS_FILES = {
     "pyproject.toml",
     "uv.lock",
     ".githooks/pre-push",
-    "jarvis.spec",
+    "dodaios.spec",
     "dodaios/core/macos_privacy_strings.py",
     "dodaios/core/branding.py",
     "dodaios/core/events.py",

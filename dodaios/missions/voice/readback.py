@@ -1,6 +1,6 @@
 """DE/EN voice templates for mission status.
 
-Tone anchor: `dodaios/brain/JARVIS_PERSONA.md` — butler register, no hardcoded
+Tone anchor: `dodaios/brain/DODAIOS_PERSONA.md` — butler register, no hardcoded
 owner name. The spoken persona addresses the user by the name in their profile;
 these mission-status templates stay name-neutral so a fresh clone never speaks
 the maintainer's name. Hard cap of 280 characters per voice output (TTS latency

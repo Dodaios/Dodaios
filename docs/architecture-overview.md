@@ -118,7 +118,7 @@ When the active/selected provider lacks a needed capability — e.g. a text-only
 
 Ack-Brain (`dodaios/brain/ack_brain/`) emits a sub-second butler-style preamble before the deep brain replies. Suppress-if-fast gate at 2000ms keeps it out of the way when the deep brain is already fast.
 
-**Persona / custom system prompt:** the live persona comes from `dodaios/brain/persona_loader.py`. `base_persona_prompt()` returns an editable override (`data/custom_system_prompt.md`, written atomically via the Settings UI / `settings_routes.py`) when present, else the packaged `JARVIS_PERSONA.md`. `load_effective_persona_prompt()` is what the brains call: the base **plus the active mode's character block**. Edits apply on the **next turn** (no restart); `invalidate_cache()` clears the in-process cache. Never hardcode the persona string elsewhere.
+**Persona / custom system prompt:** the live persona comes from `dodaios/brain/persona_loader.py`. `base_persona_prompt()` returns an editable override (`data/custom_system_prompt.md`, written atomically via the Settings UI / `settings_routes.py`) when present, else the packaged `DODAIOS_PERSONA.md`. `load_effective_persona_prompt()` is what the brains call: the base **plus the active mode's character block**. Edits apply on the **next turn** (no restart); `invalidate_cache()` clears the in-process cache. Never hardcode the persona string elsewhere.
 
 ### The typed chat: two surfaces, three runners (2026-08-26)
 
@@ -179,12 +179,12 @@ is False on every turn today. The machinery stays wired to the kit
 surface that wants both works without a rebuild. How it works, when reached:
 a subscription CLI keeps its own loop (that is what the subscription pays
 for; only the vendor's official binary spends it) but runs with Dodaios' head: `BrainManager.render_surface_prompt` renders the
-voice turn's prompt layers read-only, `jarvis_harness.build_identity` adds the
+voice turn's prompt layers read-only, `dodaios_harness.build_identity` adds the
 chat's transcript on a fresh conversation and the surface addendum, and each
 CLI takes it the way it can (Claude Code: `--append-system-prompt-file`; Codex
 and agy: in front of the stdin prompt; Grok Build: a compact cut on argv). The
 CLI's MCP config names the session in an `X-Jarvis-Chat-Session` header;
-`mcp_server_routes` reads it into `jarvis_tools_server.CHAT_SESSION_REF`, and a
+`mcp_server_routes` reads it into `dodaios_tools_server.CHAT_SESSION_REF`, and a
 Dodaios tool the CLI reaches over MCP asks on the chat's card instead of failing
 fast as unattended.
 
@@ -296,7 +296,7 @@ The six desktop power-user features that were historically Windows-only are now 
 
 ## Brand mark / logo (BINDING)
 
-**The official Dodaios logo is the hooded figure** in `assets/brand/dodaios-logo.svg` (black ink on white, one even-odd path). Every app icon — `assets/icons/jarvis.ico`/`.icns`/`jarvis-1024.png`, the bundled `dodaios/assets/icons/jarvis.png`, the DEV copy, the frontend favicon, splash and `jarvis-mark-256.png` — is rendered from it by `python scripts/make_app_icon.py`, which also writes `src/components/brand/jarvisLogoPath.ts` for the in-app mark; `tests/test_app_icon.py` fails when the two drift. Edit the SVG and re-run the script; never hand-edit a PNG or ICO.
+**The official Dodaios logo is the hooded figure** in `assets/brand/dodaios-logo.svg` (black ink on white, one even-odd path). Every app icon — `assets/icons/dodaios.ico`/`.icns`/`dodaios-1024.png`, the bundled `dodaios/assets/icons/dodaios.png`, the DEV copy, the frontend favicon, splash and `dodaios-mark-256.png` — is rendered from it by `python scripts/make_app_icon.py`, which also writes `src/components/brand/dodaiosLogoPath.ts` for the in-app mark; `tests/test_app_icon.py` fails when the two drift. Edit the SVG and re-run the script; never hand-edit a PNG or ICO.
 
 ---
 

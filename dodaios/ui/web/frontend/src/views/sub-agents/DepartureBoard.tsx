@@ -22,7 +22,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, Bot, CheckCircle2, ChevronRight, CircleAlert, Radio, Wrench } from "lucide-react";
 
-import type { SubAgentNode } from "@/store/jarvisAgents";
+import type { SubAgentNode } from "@/store/dodaiosAgents";
 import type { SectionHealth } from "@/hooks/useProviders";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
