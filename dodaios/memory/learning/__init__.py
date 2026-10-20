@@ -1,4 +1,4 @@
-"""Jarvis' own self-learning loop (``docs/jarvis-learning.md``).
+"""Jarvis' own self-learning loop (``docs/dodaios-learning.md``).
 
 * ``notebook``  USER.md and MEMORY.md of the lead identity, plus the cached
                 prompt snapshot every Jarvis prompt builder appends

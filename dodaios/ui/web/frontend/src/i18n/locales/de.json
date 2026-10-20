@@ -343,7 +343,8 @@
     "voice_language": "Sprache",
     "voice_api_keys": "API-Keys",
     "shortcuts": "Tastenkürzel",
-    "pets": "Meine Pets"
+    "pets": "Meine Pets",
+    "self_build": "Für dich gebaut"
   },
   "assistant_view": {
     "header_named": "Dein Assistent in {0}, geweckt mit „{1}“.",
@@ -3036,18 +3037,18 @@
     "vision_note": "Es werden nur Modelle angezeigt, die Bilder verstehen - Computer-Use liest den Bildschirm über Screenshots, ein reines Text-Modell kann es nicht steuern."
   },
   "permissions": {
-    "restart_failed": "Personal Jarvis konnte nicht neu starten. Beende und öffne es manuell erneut.",
+    "restart_failed": "Dodaios konnte nicht neu starten. Beende und öffne es manuell erneut.",
     "toast": {
-      "microphone": "Personal Jarvis braucht Zugriff auf das Mikrofon, um dich zu hören.",
-      "screen_recording": "Personal Jarvis braucht Zugriff auf die Bildschirmaufnahme, um deinen Bildschirm zu sehen.",
-      "accessibility": "Personal Jarvis braucht Zugriff auf die Bedienungshilfen, um andere Apps für dich zu steuern.",
-      "input_monitoring": "Personal Jarvis braucht Zugriff auf die Eingabeüberwachung, damit deine Kürzel auch in anderen Apps funktionieren.",
-      "automation": "Personal Jarvis braucht deine Erlaubnis, eine andere App zu steuern.",
-      "generic": "Personal Jarvis braucht dafür eine weitere Berechtigung.",
-      "restricted": "Dein Mac erlaubt Personal Jarvis den Zugriff auf {what} nicht. Das kann nur ein Administrator ändern.",
-      "restart": "Der Zugriff auf {what} ist an, wirkt aber erst, wenn Personal Jarvis neu startet.",
-      "outside": "Personal Jarvis braucht Zugriff auf {what}; da es nicht als App installiert ist, gibt macOS den Zugriff an die App, die es gestartet hat.",
-      "wake_word": "Das Wake-Word kann nicht zuhören: Der Mikrofonzugriff ist für Personal Jarvis ausgeschaltet.",
+      "microphone": "Dodaios braucht Zugriff auf das Mikrofon, um dich zu hören.",
+      "screen_recording": "Dodaios braucht Zugriff auf die Bildschirmaufnahme, um deinen Bildschirm zu sehen.",
+      "accessibility": "Dodaios braucht Zugriff auf die Bedienungshilfen, um andere Apps für dich zu steuern.",
+      "input_monitoring": "Dodaios braucht Zugriff auf die Eingabeüberwachung, damit deine Kürzel auch in anderen Apps funktionieren.",
+      "automation": "Dodaios braucht deine Erlaubnis, eine andere App zu steuern.",
+      "generic": "Dodaios braucht dafür eine weitere Berechtigung.",
+      "restricted": "Dein Mac erlaubt Dodaios den Zugriff auf {what} nicht. Das kann nur ein Administrator ändern.",
+      "restart": "Der Zugriff auf {what} ist an, wirkt aber erst, wenn Dodaios neu startet.",
+      "outside": "Dodaios braucht Zugriff auf {what}; da es nicht als App installiert ist, gibt macOS den Zugriff an die App, die es gestartet hat.",
+      "wake_word": "Das Wake-Word kann nicht zuhören: Der Mikrofonzugriff ist für Dodaios ausgeschaltet.",
       "action_failed": "Das hat nicht geklappt. Bitte öffne die Systemeinstellungen selbst.",
       "name": {
         "microphone": "das Mikrofon",
@@ -3170,7 +3171,8 @@
       "music": "Musik",
       "keybinds": "Tastenkürzel",
       "more": "Weiteres",
-      "overlay_taskbar": "Overlay & Taskleiste"
+      "overlay_taskbar": "Overlay & Taskleiste",
+      "self_build": "Selbstbau"
     },
     "languages_group_title": "Sprachen",
     "sections": {
@@ -3515,7 +3517,48 @@
       "system_now_dark": "Folgt Ihrem System, das derzeit dunkel ist.",
       "system_now_light": "Folgt Ihrem System, das derzeit hell ist."
     },
-    "invalid_setting": "Ungültige Einstellung"
+    "invalid_setting": "Ungültige Einstellung",
+    "self_build": {
+      "title": "Selbstbau",
+      "description": "Wie weit {name} gehen darf, wenn es von sich aus Dinge für dich baut.",
+      "open_view": "„Für dich gebaut“ öffnen",
+      "enabled_title": "Von sich aus bauen",
+      "enabled_description": "Bemerken, was du immer wieder tust, und bauen, was es dir abnimmt. Aus: Nichts wird bemerkt oder gebaut.",
+      "autonomy_title": "Wie weit, je Art",
+      "autonomy_description": "Aus: nie. Vorschlagen: Eine Karte fragt zuerst. Probe: gebaut, geprüft und live, mit Rückgängig per Klick. Voll: wie Probe, und eine genutzte Probe wird von selbst behalten.",
+      "levels": {
+        "off": "Aus",
+        "suggest": "Vorschlagen",
+        "trial": "Probe",
+        "full": "Voll"
+      },
+      "kinds": {
+        "memory": "Erinnerungen",
+        "skill": "Skills",
+        "routine": "Routinen",
+        "agent": "Agenten",
+        "code": "Code-Änderungen"
+      },
+      "limits_title": "Grenzen",
+      "limits_description": "Feste Obergrenzen, die die Schleife nie überschreitet, egal was sie entscheidet.",
+      "limits": {
+        "max_builds_per_day": "Bauten pro Tag",
+        "max_open_trials": "Gleichzeitige Proben",
+        "max_agents_per_week": "Neue Agenten pro Woche",
+        "max_code_runs_per_day": "Code-Läufe pro Tag",
+        "trial_days": "Probedauer in Tagen",
+        "trial_uses": "Probedauer in Nutzungen",
+        "max_rejections": "Nach so vielen Absagen nicht mehr anbieten",
+        "silent_days": "Ruhige erste Tage"
+      },
+      "save_error": "Speichern fehlgeschlagen: {detail}",
+      "unavailable": "Diese Einstellungen konnten nicht geladen werden.",
+      "land_title": "Code-Änderungen selbst mergen",
+      "land_description": "Repositories in dieser Liste bekommen Pull Requests, die nach grüner CI gemergt werden. Alle anderen bekommen Entwurfs-Pull-Requests, die du mergst.",
+      "land_warning": "Der Code eines gelisteten Repositorys ändert sich, ohne dass du den Pull Request vorher ansiehst. Füge nur Repositorys hinzu, deren Tests du vertraust.",
+      "land_add": "Repository hinzufügen",
+      "land_remove": "{repo} entfernen"
+    }
   },
   "telephony_view": {
     "title": "Telefonie (experimentell)",
@@ -6571,6 +6614,10 @@
       "coding_retry": "Coding-Agents konnten nicht geladen werden. Erneut versuchen.",
       "result_done": "{0} ist fertig",
       "result_blocked": "{0} kam nicht weiter",
+      "result_skipped": "{0} hat „{1}“ übersprungen",
+      "result_skipped_run": "{0} hat einen Routinelauf übersprungen",
+      "skip_api_key_seat": "Übersprungen, damit der API-Schlüssel der Routine ({provider}) nicht belastet wird. Solange ein Abo verbunden ist, nutzen automatische Läufe nur Abos und lokale Modelle. Wähle eines davon für diese Routine oder starte sie selbst mit Testlauf.",
+      "skip_no_capacity": "Übersprungen: Kein Abo und kein lokales Modell war frei, und automatische Läufe belasten nie einen kostenpflichtigen API-Schlüssel.",
       "result_agent": "Ein Agent",
       "delegate_line": "Hand this to the agent '{0}' (id {1}) with delegate-to-agent and report back here when it is done.",
       "proposal_title": "{0} schlägt eine Änderung vor",
@@ -7229,7 +7276,13 @@
     "hide_changes": "Änderungen ausblenden",
     "more_files_one": "{count} weitere Datei zeigen",
     "more_files_other": "{count} weitere Dateien zeigen",
-    "collapse_files": "Dateien einklappen"
+    "collapse_files": "Dateien einklappen",
+    "errors": {
+      "mandated_tool_unfulfilled": "Der nötige Schritt ist nicht gelaufen, deshalb konnte ich nicht verlässlich antworten. Bitte versuch es noch einmal.",
+      "unbacked_action_claim": "Ich konnte nicht bestätigen, dass die Aktion wirklich passiert ist, deshalb habe ich es nicht behauptet. Bitte versuch es noch einmal.",
+      "guarded_response": "Die Antwort wurde zurückgehalten, weil sie sich nicht prüfen ließ. Bitte versuch es noch einmal.",
+      "delegation_continuation_limit": "Die delegierte Arbeit hat zu viele Runden gebraucht und wurde gestoppt. Bitte frag noch einmal."
+    }
   },
   "work_trace": {
     "tool_failed": "Eine Tool-Aktion ist fehlgeschlagen",
@@ -7530,7 +7583,21 @@
       "address": "Adresse",
       "open_external": "Im Browser öffnen",
       "empty_title": "Gib oben eine Adresse ein",
-      "empty_hint": "Gedacht für lokale Vorschauen wie einen Dev-Server. Viele öffentliche Seiten erlauben keine Anzeige in einer anderen App; öffne sie in deinem Browser."
+      "empty_hint": "Gedacht für lokale Vorschauen wie einen Dev-Server. Viele öffentliche Seiten erlauben keine Anzeige in einer anderen App; öffne sie in deinem Browser.",
+      "native": {
+        "opening": "{browser} wird geöffnet…",
+        "opening_hint": "Hier öffnet sich dein eigener Browser, angemeldet mit dem gewählten Profil.",
+        "closed_title": "Das Browserfenster wurde geschlossen",
+        "popped_title": "Der Browser läuft jetzt in einem eigenen Fenster",
+        "reopen": "Wieder hier anzeigen",
+        "error_title": "Dein Browser konnte hier nicht angezeigt werden",
+        "error_missing": "Installiere Chrome, Edge oder Brave, um ihn hier zu sehen.",
+        "error_generic": "Versuch es noch einmal oder nutze die eingebaute Ansicht für lokale Vorschauen.",
+        "retry": "Erneut versuchen",
+        "builtin": "Eingebaute Ansicht nutzen",
+        "use_native": "Meinen Browser zeigen",
+        "profile": "Browserprofil"
+      }
     },
     "all_open": "Alle Tabs sind bereits offen",
     "close_tab": "Tab schließen",
@@ -7569,8 +7636,8 @@
       "delete_file_title": "{file} löschen?",
       "delete_folder_title": "Den Ordner {file} mit allem Inhalt löschen?",
       "delete_permanent_title": "{file} endgültig löschen?",
-      "delete_body": "Es landet im Papierkorb und lässt sich von dort wiederherstellen.",
-      "delete_permanent_body": "Dieser Computer hat keinen Papierkorb. Endgültiges Löschen lässt sich nicht rückgängig machen.",
+      "delete_body": "Es landet im Papierkorb. Strg+Z im Ordner-Tab holt es zurück.",
+      "delete_permanent_body": "Dieser Computer hat keinen Papierkorb. Strg+Z holt kleine Dateien einen Tag lang zurück; größere sind endgültig weg.",
       "delete_permanent": "Endgültig löschen",
       "cut": "Ausschneiden",
       "copy": "Kopieren",
@@ -7585,7 +7652,33 @@
       "find_in_folder": "In Ordner suchen…",
       "select_compare": "Für Vergleich auswählen",
       "compare_with": "Mit {file} vergleichen",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "delete_trash": "In den Papierkorb",
+      "deleted_one": "{file} gelöscht.",
+      "deleted_many": "{count} Einträge gelöscht.",
+      "action_move": "Verschieben",
+      "move_one_title": "{file} nach {folder} verschieben?",
+      "move_many_title": "Diese {count} Einträge nach {folder} verschieben?",
+      "move_body": "Strg+Z im Ordner-Tab verschiebt es zurück.",
+      "moved_one": "{file} nach {folder} verschoben.",
+      "moved_many": "{count} Einträge nach {folder} verschoben.",
+      "replace_title": "In {folder} gibt es schon {file}. Ersetzen?",
+      "replace_body": "Das vorhandene landet im Papierkorb. Strg+Z holt es zurück.",
+      "replace": "Ersetzen",
+      "and_more": "und {count} weitere",
+      "dont_ask_again": "Nicht mehr fragen",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
+      "undo_action": "{action} rückgängig machen",
+      "redo_action": "{action} wiederholen",
+      "undo_confirm_title": "{action} rückgängig machen?",
+      "redo_confirm_title": "{action} wiederholen?",
+      "undo_confirm_body": "Damit wird gelöscht, was dieser Schritt angelegt hat. Es landet im Papierkorb.",
+      "undone": "Rückgängig gemacht: {action}",
+      "redone": "Wiederholt: {action}",
+      "undo_stale": "Danach kamen weitere Dateiaktionen. Mit Strg+Z im Ordner-Tab geht es Schritt für Schritt zurück.",
+      "undo_too_large": "{file} war zu groß, um es für Rückgängig aufzubewahren. Hol es aus dem Papierkorb zurück.",
+      "ask_again": "Vor Verschieben und Löschen wieder fragen"
     },
     "search": {
       "placeholder": "In allen Dateien suchen",
@@ -8249,7 +8342,19 @@
         "stage_session": "Offene Änderungen der Session bereitstellen",
         "session_empty": "Diese Session hat noch keine Datei geändert, oder ihr Agent führt kein Protokoll seiner Änderungen.",
         "session_committed": "committet",
-        "session_generated": "{n} generierte Dateien ausgeblendet"
+        "session_generated": "{n} generierte Dateien ausgeblendet",
+        "follow_main": "App immer auf dem neuesten main halten",
+        "follow_main_on": "Diese App hält sich selbst auf dem neuesten main.",
+        "follow_busy_update": "Aktualisiere auf den neuesten main…",
+        "follow_busy_install": "Installiere Pakete für das Update…",
+        "follow_busy_build": "Baue die neue Oberfläche…",
+        "follow_restart_pending": "Neuer Code ist da; die App startet neu, sobald keine Mission und kein Anruf läuft.",
+        "follow_updated": "Aktualisiert {when}: {subject}",
+        "follow_click_off": "Klicken, um main nicht mehr zu folgen.",
+        "session_diff_badge": "Änderungen von {pane}",
+        "follow_clear_lock": "Alten git-Lock entfernen",
+        "follow_clear_lock_title": "Den git-Lock von {since} entfernen?",
+        "follow_clear_lock_body": "Ein abgebrochener git-Befehl hat .git/index.lock zurückgelassen, und das hält diese App vom Aktualisieren ab. Nur entfernen, wenn in diesem Ordner gerade kein git-Befehl läuft."
       }
     },
     "skills": {
@@ -9204,6 +9309,21 @@
       "refreshing": "GitHub-Status wird aktualisiert…",
       "loading": "GitHub-Status wird gelesen…"
     },
+    "done_gate": {
+      "label_done": "gelandet",
+      "label_wait": "wartet",
+      "label_fix": "beheben",
+      "label_stuck": "festgefahren",
+      "title_done": "Done-Gate: die Arbeit ist gelandet",
+      "title_wait": "Done-Gate: wartet, bevor dieser Agent aufhören darf",
+      "title_fix": "Done-Gate: etwas muss behoben werden, bevor dieser Agent aufhören darf",
+      "title_stuck": "Done-Gate: festgefahren, ein Mensch muss draufschauen",
+      "next": "Nächster Schritt: {next}",
+      "pull_request": "Pull-Request #{number}",
+      "checked": "Geprüft um {time}",
+      "matched_folder": "Über den Ordner oder Branch dieses Panes zugeordnet, nicht über seine eigene Sitzung",
+      "aria": "{pane}: Done-Gate {state}"
+    },
     "dock": {
       "swap": "Plätze tauschen",
       "left": "Links platzieren",
@@ -10034,5 +10154,10 @@
       "objections_one": "{count} Einwand",
       "objections_other": "{count} Einwände"
     }
+  },
+  "self_build_badge": {
+    "label": "Gebaut von {name}",
+    "title": "{name} hat das von sich aus gebaut. Zum Bau öffnen.",
+    "trial": "auf Probe"
   }
 }

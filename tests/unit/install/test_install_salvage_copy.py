@@ -32,7 +32,8 @@ DRIVER = """#!/usr/bin/env bash
 set -u
 note() { printf 'NOTE|%s\\n' "$*"; }
 err() { printf 'ERR|%s\\n' "$*" >&2; }
-CONFIG_FILE_NAME="jarvis.toml"
+CONFIG_FILE_NAME="dodaios.toml"
+LEGACY_CONFIG_FILE_NAME="jarvis.toml"
 salvage_copy() {
     source "$BLOCK_FILE"
 }

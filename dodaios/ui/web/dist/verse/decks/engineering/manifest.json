@@ -1,0 +1,3193 @@
+{
+ "schema": "verse.deck/1",
+ "id": "engineering",
+ "name": "Reactor Engineering",
+ "floor": 3,
+ "quality": "final",
+ "camera": {
+  "pitch_deg": 60.0,
+  "yaw_deg": 0.0,
+  "px_per_m": 192,
+  "centre": [
+   42.0,
+   0.0,
+   23.8246
+  ],
+  "right": [
+   1.0,
+   0.0,
+   0.0
+  ],
+  "up": [
+   0.0,
+   0.5,
+   -0.8660254
+  ],
+  "forward": [
+   0.0,
+   -0.8660254,
+   -0.5
+  ],
+  "distance": 250.0,
+  "frame_w_m": 85.0,
+  "frame_h_m": 54.333333333333336,
+  "plate_w_px": 16320,
+  "plate_h_px": 10432,
+  "view_transform": "AgX",
+  "look": "None",
+  "exposure": 0.0
+ },
+ "plate": {
+  "format": "avif",
+  "tile_px": 2048,
+  "cols": 8,
+  "rows": 6,
+  "tile_url": "plate/L0_{col}_{row}.avif",
+  "mips": [
+   {
+    "divisor": 2,
+    "w_px": 8160,
+    "h_px": 5216,
+    "cols": 4,
+    "rows": 3,
+    "tile_url": "plate/M2_{col}_{row}.avif"
+   },
+   {
+    "divisor": 4,
+    "w_px": 4080,
+    "h_px": 2608,
+    "cols": 2,
+    "rows": 2,
+    "tile_url": "plate/M4_{col}_{row}.avif"
+   }
+  ],
+  "l1_url": "plate/L1.avif",
+  "l1_w_px": 2040,
+  "l1_h_px": 1304
+ },
+ "occluders": {
+  "url": "occluders.glb",
+  "triangles": 2460
+ },
+ "nav": {
+  "url": "nav.png",
+  "origin_x": 0.0,
+  "origin_z": -0.0,
+  "cell": 0.2,
+  "w": 420,
+  "h": 270,
+  "height_zero": 128,
+  "height_step": 0.025,
+  "max_step": 0.3,
+  "clearance": 0.25,
+  "walkable_cells": 69562
+ },
+ "env": {
+  "url": "env.hdr",
+  "w": 512,
+  "h": 256,
+  "position": [
+   17.0,
+   1.4,
+   21.3
+  ]
+ },
+ "probes": [
+  {
+   "room": "bay",
+   "position": [
+    23.7,
+    1.4,
+    46.7
+   ],
+   "sh": [
+    [
+     1.21406,
+     1.11921,
+     1.1331
+    ],
+    [
+     1.21522,
+     1.11352,
+     1.11913
+    ],
+    [
+     -0.11339,
+     -0.10732,
+     -0.11302
+    ],
+    [
+     0.03547,
+     0.03401,
+     0.03337
+    ],
+    [
+     0.01223,
+     0.01096,
+     0.01138
+    ],
+    [
+     -0.07506,
+     -0.06947,
+     -0.07048
+    ],
+    [
+     -0.36525,
+     -0.33212,
+     -0.33075
+    ],
+    [
+     -0.02698,
+     -0.0237,
+     -0.02661
+    ],
+    [
+     -0.59393,
+     -0.54073,
+     -0.54354
+    ]
+   ]
+  },
+  {
+   "room": "control",
+   "position": [
+    17.0,
+    1.4,
+    21.3
+   ],
+   "sh": [
+    [
+     0.80077,
+     0.73839,
+     0.74635
+    ],
+    [
+     0.58468,
+     0.53598,
+     0.53934
+    ],
+    [
+     -0.26179,
+     -0.24601,
+     -0.25043
+    ],
+    [
+     -0.00409,
+     -0.00413,
+     -0.00426
+    ],
+    [
+     -0.0037,
+     -0.00331,
+     -0.00334
+    ],
+    [
+     -0.43573,
+     -0.39975,
+     -0.40274
+    ],
+    [
+     0.22229,
+     0.21062,
+     0.21521
+    ],
+    [
+     0.00112,
+     0.00085,
+     0.00081
+    ],
+    [
+     -0.02788,
+     -0.02511,
+     -0.02477
+    ]
+   ]
+  },
+  {
+   "room": "gallery",
+   "position": [
+    58.0,
+    1.4,
+    45.2
+   ],
+   "sh": [
+    [
+     1.13618,
+     1.04521,
+     1.05895
+    ],
+    [
+     0.91203,
+     0.83562,
+     0.83978
+    ],
+    [
+     -0.06996,
+     -0.06753,
+     -0.07317
+    ],
+    [
+     -0.00074,
+     -0.00089,
+     -0.00046
+    ],
+    [
+     0.00087,
+     0.00081,
+     0.00088
+    ],
+    [
+     0.21123,
+     0.19303,
+     0.19341
+    ],
+    [
+     -0.09976,
+     -0.08856,
+     -0.08499
+    ],
+    [
+     -0.02076,
+     -0.01924,
+     -0.02061
+    ],
+    [
+     -0.12622,
+     -0.11434,
+     -0.11383
+    ]
+   ]
+  },
+  {
+   "room": "lobby",
+   "position": [
+    8.3,
+    1.4,
+    46.7
+   ],
+   "sh": [
+    [
+     1.25235,
+     1.15173,
+     1.16434
+    ],
+    [
+     1.26896,
+     1.1632,
+     1.17103
+    ],
+    [
+     -0.1848,
+     -0.17226,
+     -0.17675
+    ],
+    [
+     0.01483,
+     0.01518,
+     0.01663
+    ],
+    [
+     -0.00621,
+     -0.00573,
+     -0.0057
+    ],
+    [
+     -0.22704,
+     -0.20891,
+     -0.21137
+    ],
+    [
+     -0.21133,
+     -0.19173,
+     -0.19062
+    ],
+    [
+     0.03633,
+     0.03305,
+     0.0331
+    ],
+    [
+     -0.51497,
+     -0.46981,
+     -0.47084
+    ]
+   ]
+  },
+  {
+   "room": "reactor",
+   "position": [
+    57.5,
+    1.4,
+    20.05
+   ],
+   "sh": [
+    [
+     0.17746,
+     0.13861,
+     0.12842
+    ],
+    [
+     0.02295,
+     0.0182,
+     0.03087
+    ],
+    [
+     -0.06305,
+     -0.05367,
+     -0.05445
+    ],
+    [
+     0.06426,
+     0.06185,
+     0.05667
+    ],
+    [
+     -0.00435,
+     0.01569,
+     0.02212
+    ],
+    [
+     -0.04826,
+     -0.03575,
+     -0.03783
+    ],
+    [
+     0.03284,
+     0.03876,
+     0.04381
+    ],
+    [
+     -0.01282,
+     -0.01522,
+     -0.0151
+    ],
+    [
+     0.00038,
+     0.01512,
+     0.02025
+    ]
+   ]
+  }
+ ],
+ "rooms": [
+  {
+   "id": "bay",
+   "name": "Maintenance Bay",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     15.4,
+     52.0
+    ],
+    [
+     32.0,
+     52.0
+    ],
+    [
+     32.0,
+     41.4
+    ],
+    [
+     15.4,
+     41.4
+    ]
+   ],
+   "centre": [
+    23.7,
+    0.0,
+    46.7
+   ],
+   "area_m2": 175.96,
+   "main": false,
+   "props": {
+    "kind": "bay"
+   }
+  },
+  {
+   "id": "control",
+   "name": "Engineering Control",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     2.0,
+     40.6
+    ],
+    [
+     32.0,
+     40.6
+    ],
+    [
+     32.0,
+     2.0
+    ],
+    [
+     2.0,
+     2.0
+    ]
+   ],
+   "centre": [
+    17.0,
+    0.0,
+    21.3
+   ],
+   "area_m2": 1158.0,
+   "main": true,
+   "props": {
+    "kind": "control"
+   }
+  },
+  {
+   "id": "gallery",
+   "name": "Power Conduit Gallery",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     34.0,
+     52.0
+    ],
+    [
+     82.0,
+     52.0
+    ],
+    [
+     82.0,
+     38.4
+    ],
+    [
+     34.0,
+     38.4
+    ]
+   ],
+   "centre": [
+    58.0,
+    0.0,
+    45.2
+   ],
+   "area_m2": 652.8,
+   "main": false,
+   "props": {
+    "kind": "gallery"
+   }
+  },
+  {
+   "id": "lobby",
+   "name": "Turbolift Lobby",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     2.0,
+     52.0
+    ],
+    [
+     14.6,
+     52.0
+    ],
+    [
+     14.6,
+     41.4
+    ],
+    [
+     2.0,
+     41.4
+    ]
+   ],
+   "centre": [
+    8.3,
+    0.0,
+    46.7
+   ],
+   "area_m2": 133.56,
+   "main": false,
+   "props": {
+    "kind": "lobby"
+   }
+  },
+  {
+   "id": "reactor",
+   "name": "Reactor Shaft",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     33.0,
+     38.1
+    ],
+    [
+     82.0,
+     38.1
+    ],
+    [
+     82.0,
+     2.0
+    ],
+    [
+     33.0,
+     2.0
+    ]
+   ],
+   "centre": [
+    57.5,
+    0.0,
+    20.05
+   ],
+   "area_m2": 1768.9,
+   "main": false,
+   "props": {
+    "kind": "reactor"
+   }
+  }
+ ],
+ "sockets": [
+  {
+   "id": "bay_gallery",
+   "kind": "door",
+   "position": [
+    33.0,
+    0.0,
+    46.4
+   ],
+   "yaw_deg": 90.0,
+   "room": null,
+   "props": {
+    "width": 2.4
+   }
+  },
+  {
+   "id": "control_bay",
+   "kind": "door",
+   "position": [
+    23.0,
+    0.0,
+    41.25
+   ],
+   "yaw_deg": 0.0,
+   "room": null,
+   "props": {
+    "socket_kind": "door",
+    "owner": "control_bay",
+    "width": 2.4,
+    "height": 3.0,
+    "state": "open"
+   }
+  },
+  {
+   "id": "control_lobby",
+   "kind": "door",
+   "position": [
+    12.2,
+    0.0,
+    41.25
+   ],
+   "yaw_deg": 0.0,
+   "room": null,
+   "props": {
+    "socket_kind": "door",
+    "owner": "control_lobby",
+    "width": 2.4,
+    "height": 3.0,
+    "state": "open"
+   }
+  },
+  {
+   "id": "gallery_1",
+   "kind": "door",
+   "position": [
+    39.6,
+    0.0,
+    38.25
+   ],
+   "yaw_deg": 0.0,
+   "room": null,
+   "props": {
+    "socket_kind": "door",
+    "owner": "gallery_1",
+    "width": 2.4,
+    "height": 3.0,
+    "state": "open"
+   }
+  },
+  {
+   "id": "gallery_2",
+   "kind": "door",
+   "position": [
+    54.0,
+    0.0,
+    38.25
+   ],
+   "yaw_deg": 0.0,
+   "room": null,
+   "props": {
+    "socket_kind": "door",
+    "owner": "gallery_2",
+    "width": 2.4,
+    "height": 3.0,
+    "state": "open"
+   }
+  },
+  {
+   "id": "gallery_3",
+   "kind": "door",
+   "position": [
+    72.0,
+    0.0,
+    38.25
+   ],
+   "yaw_deg": 0.0,
+   "room": null,
+   "props": {
+    "socket_kind": "door",
+    "owner": "gallery_3",
+    "width": 2.4,
+    "height": 3.0,
+    "state": "open"
+   }
+  },
+  {
+   "id": "lobby_bay",
+   "kind": "door",
+   "position": [
+    15.0,
+    0.0,
+    47.0
+   ],
+   "yaw_deg": 90.0,
+   "room": null,
+   "props": {
+    "width": 2.4
+   }
+  },
+  {
+   "id": "partition",
+   "kind": "door",
+   "position": [
+    32.5,
+    0.0,
+    22.0
+   ],
+   "yaw_deg": 90.0,
+   "room": null,
+   "props": {
+    "width": 2.4
+   }
+  },
+  {
+   "id": "main",
+   "kind": "lift",
+   "position": [
+    4.4,
+    0.0,
+    41.65
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "station": "lift",
+   "props": {
+    "socket_kind": "lift",
+    "owner": "main",
+    "width": 1.5,
+    "height": 2.6,
+    "decks": "all"
+   }
+  },
+  {
+   "id": "core",
+   "kind": "light",
+   "position": [
+    54.0,
+    2.0,
+    22.0
+   ],
+   "yaw_deg": 0.0,
+   "room": "reactor",
+   "props": {
+    "colour": "#ffb47a",
+    "intensity": 1.0,
+    "radius": 16.0,
+    "pulse_hz": 0.12
+   }
+  },
+  {
+   "id": "lift_call",
+   "kind": "light",
+   "position": [
+    5.4,
+    1.35,
+    41.5
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "props": {
+    "colour": "#ff9a2a",
+    "blink_hz": 0.5
+   }
+  },
+  {
+   "id": "EngLobbyDirectory",
+   "kind": "screen",
+   "position": [
+    6.2,
+    1.5805,
+    41.514
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "size": [
+    0.5,
+    0.34
+   ],
+   "normal": [
+    0.0,
+    0.121869,
+    0.992546
+   ],
+   "corners": [
+    [
+     5.95,
+     1.7492,
+     41.4933
+    ],
+    [
+     6.45,
+     1.7492,
+     41.4933
+    ],
+    [
+     6.45,
+     1.4118,
+     41.5347
+    ],
+    [
+     5.95,
+     1.4118,
+     41.5347
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "EngLobbyDirectory"
+   }
+  },
+  {
+   "id": "master__1",
+   "kind": "screen",
+   "position": [
+    13.2,
+    1.182,
+    3.5535
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "station": "master",
+   "size": [
+    1.56,
+    0.6
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     12.42,
+     1.4418,
+     3.4035
+    ],
+    [
+     13.98,
+     1.4418,
+     3.4035
+    ],
+    [
+     13.98,
+     0.9222,
+     3.7035
+    ],
+    [
+     12.42,
+     0.9222,
+     3.7035
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "coding_launcher",
+    "owner": "master"
+   }
+  },
+  {
+   "id": "master__2",
+   "kind": "screen",
+   "position": [
+    15.1,
+    1.182,
+    3.5535
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "station": "master",
+   "size": [
+    1.56,
+    0.6
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     14.32,
+     1.4418,
+     3.4035
+    ],
+    [
+     15.88,
+     1.4418,
+     3.4035
+    ],
+    [
+     15.88,
+     0.9222,
+     3.7035
+    ],
+    [
+     14.32,
+     0.9222,
+     3.7035
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "coding_launcher",
+    "owner": "master"
+   }
+  },
+  {
+   "id": "master__3",
+   "kind": "screen",
+   "position": [
+    17.0,
+    1.182,
+    3.5535
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "station": "master",
+   "size": [
+    1.56,
+    0.6
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     16.22,
+     1.4418,
+     3.4035
+    ],
+    [
+     17.78,
+     1.4418,
+     3.4035
+    ],
+    [
+     17.78,
+     0.9222,
+     3.7035
+    ],
+    [
+     16.22,
+     0.9222,
+     3.7035
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "coding_launcher",
+    "owner": "master"
+   }
+  },
+  {
+   "id": "master__4",
+   "kind": "screen",
+   "position": [
+    18.9,
+    1.182,
+    3.5535
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "station": "master",
+   "size": [
+    1.56,
+    0.6
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     18.12,
+     1.4418,
+     3.4035
+    ],
+    [
+     19.68,
+     1.4418,
+     3.4035
+    ],
+    [
+     19.68,
+     0.9222,
+     3.7035
+    ],
+    [
+     18.12,
+     0.9222,
+     3.7035
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "coding_launcher",
+    "owner": "master"
+   }
+  },
+  {
+   "id": "master__5",
+   "kind": "screen",
+   "position": [
+    20.8,
+    1.182,
+    3.5535
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "station": "master",
+   "size": [
+    1.56,
+    0.6
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     20.02,
+     1.4418,
+     3.4035
+    ],
+    [
+     21.58,
+     1.4418,
+     3.4035
+    ],
+    [
+     21.58,
+     0.9222,
+     3.7035
+    ],
+    [
+     20.02,
+     0.9222,
+     3.7035
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "coding_launcher",
+    "owner": "master"
+   }
+  },
+  {
+   "id": "master_wall",
+   "kind": "screen",
+   "position": [
+    17.0,
+    3.4,
+    2.165
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "station": "master",
+   "size": [
+    9.4,
+    2.4
+   ],
+   "normal": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "corners": [
+    [
+     12.3,
+     4.6,
+     2.165
+    ],
+    [
+     21.7,
+     4.6,
+     2.165
+    ],
+    [
+     21.7,
+     2.2,
+     2.165
+    ],
+    [
+     12.3,
+     2.2,
+     2.165
+    ]
+   ],
+   "props": {
+    "group": "wall"
+   }
+  },
+  {
+   "id": "reactor_ring__ring_1",
+   "kind": "screen",
+   "position": [
+    58.7235,
+    0.97,
+    17.2765
+   ],
+   "yaw_deg": -45.0,
+   "room": "reactor",
+   "size": [
+    0.88,
+    0.46
+   ],
+   "normal": [
+    -0.331967,
+    0.882948,
+    0.331967
+   ],
+   "corners": [
+    [
+     58.5559,
+     1.078,
+     16.8218
+    ],
+    [
+     59.1782,
+     1.078,
+     17.4441
+    ],
+    [
+     58.891,
+     0.862,
+     17.7313
+    ],
+    [
+     58.2687,
+     0.862,
+     17.109
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "reactor_ring"
+   }
+  },
+  {
+   "id": "reactor_ring__ring_2",
+   "kind": "screen",
+   "position": [
+    49.2765,
+    0.97,
+    17.2765
+   ],
+   "yaw_deg": 45.0,
+   "room": "reactor",
+   "size": [
+    0.88,
+    0.46
+   ],
+   "normal": [
+    0.331967,
+    0.882948,
+    0.331967
+   ],
+   "corners": [
+    [
+     48.8218,
+     1.078,
+     17.4441
+    ],
+    [
+     49.4441,
+     1.078,
+     16.8218
+    ],
+    [
+     49.7313,
+     0.862,
+     17.109
+    ],
+    [
+     49.109,
+     0.862,
+     17.7313
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "reactor_ring"
+   }
+  },
+  {
+   "id": "reactor_ring__ring_3",
+   "kind": "screen",
+   "position": [
+    49.2765,
+    0.97,
+    26.7235
+   ],
+   "yaw_deg": 135.0,
+   "room": "reactor",
+   "size": [
+    0.88,
+    0.46
+   ],
+   "normal": [
+    0.331967,
+    0.882948,
+    -0.331967
+   ],
+   "corners": [
+    [
+     49.4441,
+     1.078,
+     27.1782
+    ],
+    [
+     48.8218,
+     1.078,
+     26.5559
+    ],
+    [
+     49.109,
+     0.862,
+     26.2687
+    ],
+    [
+     49.7313,
+     0.862,
+     26.891
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "reactor_ring"
+   }
+  },
+  {
+   "id": "reactor_ring__ring_4",
+   "kind": "screen",
+   "position": [
+    58.7235,
+    0.97,
+    26.7235
+   ],
+   "yaw_deg": -135.0,
+   "room": "reactor",
+   "size": [
+    0.88,
+    0.46
+   ],
+   "normal": [
+    -0.331967,
+    0.882948,
+    -0.331967
+   ],
+   "corners": [
+    [
+     59.1782,
+     1.078,
+     26.5559
+    ],
+    [
+     58.5559,
+     1.078,
+     27.1782
+    ],
+    [
+     58.2687,
+     0.862,
+     26.891
+    ],
+    [
+     58.891,
+     0.862,
+     26.2687
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "reactor_ring"
+   }
+  },
+  {
+   "id": "term_1",
+   "kind": "screen",
+   "position": [
+    7.4,
+    1.1427,
+    14.2284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     6.75,
+     1.4056,
+     14.0641
+    ],
+    [
+     8.05,
+     1.4056,
+     14.0641
+    ],
+    [
+     8.05,
+     0.8798,
+     14.3926
+    ],
+    [
+     6.75,
+     0.8798,
+     14.3926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_1",
+    "group": "terminal",
+    "link": "term_1",
+    "order": 1
+   }
+  },
+  {
+   "id": "term_10",
+   "kind": "screen",
+   "position": [
+    12.2,
+    1.1427,
+    31.0284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     11.55,
+     1.4056,
+     30.8641
+    ],
+    [
+     12.85,
+     1.4056,
+     30.8641
+    ],
+    [
+     12.85,
+     0.8798,
+     31.1926
+    ],
+    [
+     11.55,
+     0.8798,
+     31.1926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_10",
+    "group": "terminal",
+    "link": "term_10",
+    "order": 10
+   }
+  },
+  {
+   "id": "term_11",
+   "kind": "screen",
+   "position": [
+    21.8,
+    1.1427,
+    31.0284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     21.15,
+     1.4056,
+     30.8641
+    ],
+    [
+     22.45,
+     1.4056,
+     30.8641
+    ],
+    [
+     22.45,
+     0.8798,
+     31.1926
+    ],
+    [
+     21.15,
+     0.8798,
+     31.1926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_11",
+    "group": "terminal",
+    "link": "term_11",
+    "order": 11
+   }
+  },
+  {
+   "id": "term_12",
+   "kind": "screen",
+   "position": [
+    26.6,
+    1.1427,
+    31.0284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     25.95,
+     1.4056,
+     30.8641
+    ],
+    [
+     27.25,
+     1.4056,
+     30.8641
+    ],
+    [
+     27.25,
+     0.8798,
+     31.1926
+    ],
+    [
+     25.95,
+     0.8798,
+     31.1926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_12",
+    "group": "terminal",
+    "link": "term_12",
+    "order": 12
+   }
+  },
+  {
+   "id": "term_2",
+   "kind": "screen",
+   "position": [
+    12.2,
+    1.1427,
+    14.2284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     11.55,
+     1.4056,
+     14.0641
+    ],
+    [
+     12.85,
+     1.4056,
+     14.0641
+    ],
+    [
+     12.85,
+     0.8798,
+     14.3926
+    ],
+    [
+     11.55,
+     0.8798,
+     14.3926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_2",
+    "group": "terminal",
+    "link": "term_2",
+    "order": 2
+   }
+  },
+  {
+   "id": "term_3",
+   "kind": "screen",
+   "position": [
+    21.8,
+    1.1427,
+    14.2284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     21.15,
+     1.4056,
+     14.0641
+    ],
+    [
+     22.45,
+     1.4056,
+     14.0641
+    ],
+    [
+     22.45,
+     0.8798,
+     14.3926
+    ],
+    [
+     21.15,
+     0.8798,
+     14.3926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_3",
+    "group": "terminal",
+    "link": "term_3",
+    "order": 3
+   }
+  },
+  {
+   "id": "term_4",
+   "kind": "screen",
+   "position": [
+    26.6,
+    1.1427,
+    14.2284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     25.95,
+     1.4056,
+     14.0641
+    ],
+    [
+     27.25,
+     1.4056,
+     14.0641
+    ],
+    [
+     27.25,
+     0.8798,
+     14.3926
+    ],
+    [
+     25.95,
+     0.8798,
+     14.3926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_4",
+    "group": "terminal",
+    "link": "term_4",
+    "order": 4
+   }
+  },
+  {
+   "id": "term_5",
+   "kind": "screen",
+   "position": [
+    7.4,
+    1.1427,
+    22.6284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     6.75,
+     1.4056,
+     22.4641
+    ],
+    [
+     8.05,
+     1.4056,
+     22.4641
+    ],
+    [
+     8.05,
+     0.8798,
+     22.7926
+    ],
+    [
+     6.75,
+     0.8798,
+     22.7926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_5",
+    "group": "terminal",
+    "link": "term_5",
+    "order": 5
+   }
+  },
+  {
+   "id": "term_6",
+   "kind": "screen",
+   "position": [
+    12.2,
+    1.1427,
+    22.6284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     11.55,
+     1.4056,
+     22.4641
+    ],
+    [
+     12.85,
+     1.4056,
+     22.4641
+    ],
+    [
+     12.85,
+     0.8798,
+     22.7926
+    ],
+    [
+     11.55,
+     0.8798,
+     22.7926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_6",
+    "group": "terminal",
+    "link": "term_6",
+    "order": 6
+   }
+  },
+  {
+   "id": "term_7",
+   "kind": "screen",
+   "position": [
+    21.8,
+    1.1427,
+    22.6284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     21.15,
+     1.4056,
+     22.4641
+    ],
+    [
+     22.45,
+     1.4056,
+     22.4641
+    ],
+    [
+     22.45,
+     0.8798,
+     22.7926
+    ],
+    [
+     21.15,
+     0.8798,
+     22.7926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_7",
+    "group": "terminal",
+    "link": "term_7",
+    "order": 7
+   }
+  },
+  {
+   "id": "term_8",
+   "kind": "screen",
+   "position": [
+    26.6,
+    1.1427,
+    22.6284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     25.95,
+     1.4056,
+     22.4641
+    ],
+    [
+     27.25,
+     1.4056,
+     22.4641
+    ],
+    [
+     27.25,
+     0.8798,
+     22.7926
+    ],
+    [
+     25.95,
+     0.8798,
+     22.7926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_8",
+    "group": "terminal",
+    "link": "term_8",
+    "order": 8
+   }
+  },
+  {
+   "id": "term_9",
+   "kind": "screen",
+   "position": [
+    7.4,
+    1.1427,
+    31.0284
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    1.3,
+    0.62
+   ],
+   "normal": [
+    0.0,
+    0.529919,
+    0.848048
+   ],
+   "corners": [
+    [
+     6.75,
+     1.4056,
+     30.8641
+    ],
+    [
+     8.05,
+     1.4056,
+     30.8641
+    ],
+    [
+     8.05,
+     0.8798,
+     31.1926
+    ],
+    [
+     6.75,
+     0.8798,
+     31.1926
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "term_9",
+    "group": "terminal",
+    "link": "term_9",
+    "order": 9
+   }
+  },
+  {
+   "id": "workshop_11",
+   "kind": "screen",
+   "position": [
+    7.4,
+    1.2117,
+    36.5676
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    0.4,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.422618,
+    0.906308
+   ],
+   "corners": [
+    [
+     7.2,
+     1.325,
+     36.5148
+    ],
+    [
+     7.6,
+     1.325,
+     36.5148
+    ],
+    [
+     7.6,
+     1.0984,
+     36.6204
+    ],
+    [
+     7.2,
+     1.0984,
+     36.6204
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "workshop_11"
+   }
+  },
+  {
+   "id": "workshop_12",
+   "kind": "screen",
+   "position": [
+    12.2,
+    1.2117,
+    36.5676
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    0.4,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.422618,
+    0.906308
+   ],
+   "corners": [
+    [
+     12.0,
+     1.325,
+     36.5148
+    ],
+    [
+     12.4,
+     1.325,
+     36.5148
+    ],
+    [
+     12.4,
+     1.0984,
+     36.6204
+    ],
+    [
+     12.0,
+     1.0984,
+     36.6204
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "workshop_12"
+   }
+  },
+  {
+   "id": "workshop_13",
+   "kind": "screen",
+   "position": [
+    21.8,
+    1.2117,
+    36.5676
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    0.4,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.422618,
+    0.906308
+   ],
+   "corners": [
+    [
+     21.6,
+     1.325,
+     36.5148
+    ],
+    [
+     22.0,
+     1.325,
+     36.5148
+    ],
+    [
+     22.0,
+     1.0984,
+     36.6204
+    ],
+    [
+     21.6,
+     1.0984,
+     36.6204
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "workshop_13"
+   }
+  },
+  {
+   "id": "workshop_14",
+   "kind": "screen",
+   "position": [
+    26.6,
+    1.2117,
+    36.5676
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "size": [
+    0.4,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.422618,
+    0.906308
+   ],
+   "corners": [
+    [
+     26.4,
+     1.325,
+     36.5148
+    ],
+    [
+     26.8,
+     1.325,
+     36.5148
+    ],
+    [
+     26.8,
+     1.0984,
+     36.6204
+    ],
+    [
+     26.4,
+     1.0984,
+     36.6204
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "workshop_14"
+   }
+  },
+  {
+   "id": "term_1",
+   "kind": "seat",
+   "position": [
+    7.4,
+    0.46,
+    15.25
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_1",
+    "group": "terminal",
+    "link": "term_1",
+    "order": 1
+   }
+  },
+  {
+   "id": "term_10",
+   "kind": "seat",
+   "position": [
+    12.2,
+    0.46,
+    32.05
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_10",
+    "group": "terminal",
+    "link": "term_10",
+    "order": 10
+   }
+  },
+  {
+   "id": "term_11",
+   "kind": "seat",
+   "position": [
+    21.8,
+    0.46,
+    32.05
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_11",
+    "group": "terminal",
+    "link": "term_11",
+    "order": 11
+   }
+  },
+  {
+   "id": "term_12",
+   "kind": "seat",
+   "position": [
+    26.6,
+    0.46,
+    32.05
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_12",
+    "group": "terminal",
+    "link": "term_12",
+    "order": 12
+   }
+  },
+  {
+   "id": "term_2",
+   "kind": "seat",
+   "position": [
+    12.2,
+    0.46,
+    15.25
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_2",
+    "group": "terminal",
+    "link": "term_2",
+    "order": 2
+   }
+  },
+  {
+   "id": "term_3",
+   "kind": "seat",
+   "position": [
+    21.8,
+    0.46,
+    15.25
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_3",
+    "group": "terminal",
+    "link": "term_3",
+    "order": 3
+   }
+  },
+  {
+   "id": "term_4",
+   "kind": "seat",
+   "position": [
+    26.6,
+    0.46,
+    15.25
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_4",
+    "group": "terminal",
+    "link": "term_4",
+    "order": 4
+   }
+  },
+  {
+   "id": "term_5",
+   "kind": "seat",
+   "position": [
+    7.4,
+    0.46,
+    23.65
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_5",
+    "group": "terminal",
+    "link": "term_5",
+    "order": 5
+   }
+  },
+  {
+   "id": "term_6",
+   "kind": "seat",
+   "position": [
+    12.2,
+    0.46,
+    23.65
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_6",
+    "group": "terminal",
+    "link": "term_6",
+    "order": 6
+   }
+  },
+  {
+   "id": "term_7",
+   "kind": "seat",
+   "position": [
+    21.8,
+    0.46,
+    23.65
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_7",
+    "group": "terminal",
+    "link": "term_7",
+    "order": 7
+   }
+  },
+  {
+   "id": "term_8",
+   "kind": "seat",
+   "position": [
+    26.6,
+    0.46,
+    23.65
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_8",
+    "group": "terminal",
+    "link": "term_8",
+    "order": 8
+   }
+  },
+  {
+   "id": "term_9",
+   "kind": "seat",
+   "position": [
+    7.4,
+    0.46,
+    32.05
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "term_9",
+    "group": "terminal",
+    "link": "term_9",
+    "order": 9
+   }
+  },
+  {
+   "id": "commander",
+   "kind": "spawn",
+   "position": [
+    4.4,
+    0.0,
+    42.6
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "spawn",
+    "owner": "main"
+   }
+  },
+  {
+   "id": "drone",
+   "kind": "spawn",
+   "position": [
+    31.03,
+    0.06,
+    49.8
+   ],
+   "yaw_deg": -90.0,
+   "room": "bay",
+   "props": {
+    "socket_kind": "spawn",
+    "owner": "EngDroneDock"
+   }
+  },
+  {
+   "id": "EngLobbyDirectory",
+   "kind": "stand",
+   "position": [
+    6.2,
+    0.0,
+    42.05
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "EngLobbyDirectory"
+   }
+  },
+  {
+   "id": "EngLobbyLockers__1",
+   "kind": "stand",
+   "position": [
+    7.7,
+    0.0,
+    42.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "EngLobbyLockers"
+   }
+  },
+  {
+   "id": "EngLobbyLockers__2",
+   "kind": "stand",
+   "position": [
+    8.3,
+    0.0,
+    42.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "EngLobbyLockers"
+   }
+  },
+  {
+   "id": "EngLobbyLockers__3",
+   "kind": "stand",
+   "position": [
+    8.9,
+    0.0,
+    42.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "EngLobbyLockers"
+   }
+  },
+  {
+   "id": "EngLobbyLockers__4",
+   "kind": "stand",
+   "position": [
+    9.5,
+    0.0,
+    42.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "EngLobbyLockers"
+   }
+  },
+  {
+   "id": "reactor_ring__ring_1",
+   "kind": "stand",
+   "position": [
+    58.2356,
+    0.0,
+    17.7644
+   ],
+   "yaw_deg": 135.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "reactor_ring"
+   }
+  },
+  {
+   "id": "reactor_ring__ring_2",
+   "kind": "stand",
+   "position": [
+    49.7644,
+    0.0,
+    17.7644
+   ],
+   "yaw_deg": -135.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "reactor_ring"
+   }
+  },
+  {
+   "id": "reactor_ring__ring_3",
+   "kind": "stand",
+   "position": [
+    49.7644,
+    0.0,
+    26.2356
+   ],
+   "yaw_deg": -45.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "reactor_ring"
+   }
+  },
+  {
+   "id": "reactor_ring__ring_4",
+   "kind": "stand",
+   "position": [
+    58.2356,
+    0.0,
+    26.2356
+   ],
+   "yaw_deg": 45.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "reactor_ring"
+   }
+  },
+  {
+   "id": "term_1",
+   "kind": "stand",
+   "position": [
+    7.4,
+    0.0,
+    15.95
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_1",
+    "group": "terminal",
+    "link": "term_1",
+    "order": 1
+   }
+  },
+  {
+   "id": "term_10",
+   "kind": "stand",
+   "position": [
+    12.2,
+    0.0,
+    32.75
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_10",
+    "group": "terminal",
+    "link": "term_10",
+    "order": 10
+   }
+  },
+  {
+   "id": "term_11",
+   "kind": "stand",
+   "position": [
+    21.8,
+    0.0,
+    32.75
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_11",
+    "group": "terminal",
+    "link": "term_11",
+    "order": 11
+   }
+  },
+  {
+   "id": "term_12",
+   "kind": "stand",
+   "position": [
+    26.6,
+    0.0,
+    32.75
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_12",
+    "group": "terminal",
+    "link": "term_12",
+    "order": 12
+   }
+  },
+  {
+   "id": "term_2",
+   "kind": "stand",
+   "position": [
+    12.2,
+    0.0,
+    15.95
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_2",
+    "group": "terminal",
+    "link": "term_2",
+    "order": 2
+   }
+  },
+  {
+   "id": "term_3",
+   "kind": "stand",
+   "position": [
+    21.8,
+    0.0,
+    15.95
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_3",
+    "group": "terminal",
+    "link": "term_3",
+    "order": 3
+   }
+  },
+  {
+   "id": "term_4",
+   "kind": "stand",
+   "position": [
+    26.6,
+    0.0,
+    15.95
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_4",
+    "group": "terminal",
+    "link": "term_4",
+    "order": 4
+   }
+  },
+  {
+   "id": "term_5",
+   "kind": "stand",
+   "position": [
+    7.4,
+    0.0,
+    24.35
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_5",
+    "group": "terminal",
+    "link": "term_5",
+    "order": 5
+   }
+  },
+  {
+   "id": "term_6",
+   "kind": "stand",
+   "position": [
+    12.2,
+    0.0,
+    24.35
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_6",
+    "group": "terminal",
+    "link": "term_6",
+    "order": 6
+   }
+  },
+  {
+   "id": "term_7",
+   "kind": "stand",
+   "position": [
+    21.8,
+    0.0,
+    24.35
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_7",
+    "group": "terminal",
+    "link": "term_7",
+    "order": 7
+   }
+  },
+  {
+   "id": "term_8",
+   "kind": "stand",
+   "position": [
+    26.6,
+    0.0,
+    24.35
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_8",
+    "group": "terminal",
+    "link": "term_8",
+    "order": 8
+   }
+  },
+  {
+   "id": "term_9",
+   "kind": "stand",
+   "position": [
+    7.4,
+    0.0,
+    32.75
+   ],
+   "yaw_deg": 0.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "term_9",
+    "group": "terminal",
+    "link": "term_9",
+    "order": 9
+   }
+  },
+  {
+   "id": "workshop_1",
+   "kind": "stand",
+   "position": [
+    31.2,
+    0.0,
+    9.6
+   ],
+   "yaw_deg": 90.0,
+   "room": "control"
+  },
+  {
+   "id": "workshop_10",
+   "kind": "stand",
+   "position": [
+    36.4,
+    0.0,
+    30.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "reactor"
+  },
+  {
+   "id": "workshop_11",
+   "kind": "stand",
+   "position": [
+    7.4,
+    0.0,
+    37.224
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "workshop_11"
+   }
+  },
+  {
+   "id": "workshop_12",
+   "kind": "stand",
+   "position": [
+    12.2,
+    0.0,
+    37.224
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "workshop_12"
+   }
+  },
+  {
+   "id": "workshop_13",
+   "kind": "stand",
+   "position": [
+    21.8,
+    0.0,
+    37.224
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "workshop_13"
+   }
+  },
+  {
+   "id": "workshop_14",
+   "kind": "stand",
+   "position": [
+    26.6,
+    0.0,
+    37.224
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "workshop_14"
+   }
+  },
+  {
+   "id": "workshop_2",
+   "kind": "stand",
+   "position": [
+    31.2,
+    0.0,
+    26.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "control"
+  },
+  {
+   "id": "workshop_3",
+   "kind": "stand",
+   "position": [
+    31.2,
+    0.0,
+    36.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "control"
+  },
+  {
+   "id": "workshop_4",
+   "kind": "stand",
+   "position": [
+    15.8,
+    0.0,
+    11.4
+   ],
+   "yaw_deg": 180.0,
+   "room": "control"
+  },
+  {
+   "id": "workshop_5",
+   "kind": "stand",
+   "position": [
+    18.2,
+    0.0,
+    11.4
+   ],
+   "yaw_deg": 180.0,
+   "room": "control"
+  },
+  {
+   "id": "workshop_6",
+   "kind": "stand",
+   "position": [
+    20.4,
+    0.0,
+    42.9
+   ],
+   "yaw_deg": 180.0,
+   "room": "bay"
+  },
+  {
+   "id": "workshop_7",
+   "kind": "stand",
+   "position": [
+    75.2,
+    0.0,
+    17.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "reactor"
+  },
+  {
+   "id": "workshop_8",
+   "kind": "stand",
+   "position": [
+    75.2,
+    0.0,
+    27.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "reactor"
+  },
+  {
+   "id": "workshop_9",
+   "kind": "stand",
+   "position": [
+    36.4,
+    0.0,
+    14.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "reactor"
+  },
+  {
+   "id": "lift",
+   "kind": "station",
+   "position": [
+    4.4,
+    0.0,
+    43.3
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "station_kind": "lift"
+   }
+  },
+  {
+   "id": "master",
+   "kind": "station",
+   "position": [
+    17.0,
+    0.0,
+    5.35
+   ],
+   "yaw_deg": 180.0,
+   "room": "control",
+   "station": "master",
+   "props": {
+    "socket_kind": "station",
+    "station_kind": "coding_launcher",
+    "owner": "master"
+   }
+  },
+  {
+   "id": "patrol_core_1",
+   "kind": "waypoint",
+   "position": [
+    54.0,
+    0.0,
+    15.0
+   ],
+   "yaw_deg": 0.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "reactor_catwalk_1"
+   }
+  },
+  {
+   "id": "patrol_core_2",
+   "kind": "waypoint",
+   "position": [
+    54.0,
+    0.0,
+    9.5
+   ],
+   "yaw_deg": 0.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "reactor_catwalk_1"
+   }
+  },
+  {
+   "id": "patrol_core_3",
+   "kind": "waypoint",
+   "position": [
+    66.5,
+    0.0,
+    22.0
+   ],
+   "yaw_deg": -90.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "reactor_catwalk_2"
+   }
+  },
+  {
+   "id": "patrol_core_4",
+   "kind": "waypoint",
+   "position": [
+    61.0,
+    0.0,
+    22.0
+   ],
+   "yaw_deg": -90.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "reactor_catwalk_2"
+   }
+  },
+  {
+   "id": "patrol_core_5",
+   "kind": "waypoint",
+   "position": [
+    54.0,
+    0.0,
+    29.0
+   ],
+   "yaw_deg": 180.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "reactor_catwalk_3"
+   }
+  },
+  {
+   "id": "patrol_core_6",
+   "kind": "waypoint",
+   "position": [
+    54.0,
+    0.0,
+    34.5
+   ],
+   "yaw_deg": 180.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "reactor_catwalk_3"
+   }
+  },
+  {
+   "id": "patrol_core_7",
+   "kind": "waypoint",
+   "position": [
+    41.5,
+    0.0,
+    22.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "reactor_catwalk_4"
+   }
+  },
+  {
+   "id": "patrol_core_8",
+   "kind": "waypoint",
+   "position": [
+    47.0,
+    0.0,
+    22.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "reactor",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "reactor_catwalk_4"
+   }
+  },
+  {
+   "id": "patrol_gallery_1",
+   "kind": "waypoint",
+   "position": [
+    36.6,
+    0.0,
+    45.2
+   ],
+   "yaw_deg": 90.0,
+   "room": "gallery"
+  },
+  {
+   "id": "patrol_gallery_2",
+   "kind": "waypoint",
+   "position": [
+    48.0,
+    0.0,
+    45.2
+   ],
+   "yaw_deg": 90.0,
+   "room": "gallery"
+  },
+  {
+   "id": "patrol_gallery_3",
+   "kind": "waypoint",
+   "position": [
+    60.0,
+    0.0,
+    45.2
+   ],
+   "yaw_deg": 90.0,
+   "room": "gallery"
+  },
+  {
+   "id": "patrol_gallery_4",
+   "kind": "waypoint",
+   "position": [
+    72.0,
+    0.0,
+    45.2
+   ],
+   "yaw_deg": 90.0,
+   "room": "gallery"
+  },
+  {
+   "id": "patrol_gallery_5",
+   "kind": "waypoint",
+   "position": [
+    80.4,
+    0.0,
+    45.2
+   ],
+   "yaw_deg": -90.0,
+   "room": "gallery"
+  },
+  {
+   "id": "patrol_hall_1",
+   "kind": "waypoint",
+   "position": [
+    37.2,
+    0.0,
+    7.2
+   ],
+   "yaw_deg": 96.11,
+   "room": "reactor"
+  },
+  {
+   "id": "patrol_hall_2",
+   "kind": "waypoint",
+   "position": [
+    54.0,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": 83.89,
+   "room": "reactor"
+  },
+  {
+   "id": "patrol_hall_3",
+   "kind": "waypoint",
+   "position": [
+    70.8,
+    0.0,
+    7.2
+   ],
+   "yaw_deg": 22.07,
+   "room": "reactor"
+  },
+  {
+   "id": "patrol_hall_4",
+   "kind": "waypoint",
+   "position": [
+    76.8,
+    0.0,
+    22.0
+   ],
+   "yaw_deg": -24.12,
+   "room": "reactor"
+  },
+  {
+   "id": "patrol_hall_5",
+   "kind": "waypoint",
+   "position": [
+    70.8,
+    0.0,
+    35.4
+   ],
+   "yaw_deg": -85.24,
+   "room": "reactor"
+  },
+  {
+   "id": "patrol_hall_6",
+   "kind": "waypoint",
+   "position": [
+    54.0,
+    0.0,
+    36.8
+   ],
+   "yaw_deg": -94.94,
+   "room": "reactor"
+  },
+  {
+   "id": "patrol_hall_7",
+   "kind": "waypoint",
+   "position": [
+    37.8,
+    0.0,
+    35.4
+   ],
+   "yaw_deg": -172.35,
+   "room": "reactor"
+  },
+  {
+   "id": "patrol_hall_8",
+   "kind": "waypoint",
+   "position": [
+    36.0,
+    0.0,
+    22.0
+   ],
+   "yaw_deg": 175.37,
+   "room": "reactor"
+  },
+  {
+   "id": "service_1",
+   "kind": "waypoint",
+   "position": [
+    26.4,
+    0.0,
+    47.0
+   ],
+   "yaw_deg": 95.19,
+   "room": "bay"
+  },
+  {
+   "id": "service_2",
+   "kind": "waypoint",
+   "position": [
+    33.0,
+    0.0,
+    46.4
+   ],
+   "yaw_deg": 94.01,
+   "room": null
+  },
+  {
+   "id": "service_3",
+   "kind": "waypoint",
+   "position": [
+    44.4,
+    0.0,
+    45.6
+   ],
+   "yaw_deg": 90.0,
+   "room": "gallery"
+  },
+  {
+   "id": "service_4",
+   "kind": "waypoint",
+   "position": [
+    58.8,
+    0.0,
+    45.6
+   ],
+   "yaw_deg": -90.0,
+   "room": "gallery"
+  },
+  {
+   "id": "service_5",
+   "kind": "waypoint",
+   "position": [
+    44.4,
+    0.0,
+    45.6
+   ],
+   "yaw_deg": -85.99,
+   "room": "gallery"
+  },
+  {
+   "id": "service_6",
+   "kind": "waypoint",
+   "position": [
+    33.0,
+    0.0,
+    46.4
+   ],
+   "yaw_deg": -84.81,
+   "room": null
+  }
+ ],
+ "stations": [
+  {
+   "id": "lift",
+   "kind": "lift",
+   "room": "lobby",
+   "position": [
+    4.4,
+    0.0,
+    43.3
+   ],
+   "yaw_deg": 180.0,
+   "sockets": {
+    "lift": [
+     "main"
+    ]
+   }
+  },
+  {
+   "id": "master",
+   "kind": "coding_launcher",
+   "room": "control",
+   "position": [
+    17.0,
+    0.0,
+    5.35
+   ],
+   "yaw_deg": 180.0,
+   "sockets": {
+    "screen": [
+     "master__1",
+     "master__2",
+     "master__3",
+     "master__4",
+     "master__5",
+     "master_wall"
+    ],
+    "station": [
+     "master"
+    ]
+   }
+  }
+ ],
+ "stats": {
+  "samples": 192,
+  "blender": "5.0.1",
+  "plate_s": 1217.56,
+  "nav_s": 7.59,
+  "occluders_s": 0.17,
+  "lighting_s": 23.33,
+  "blender_s": 1257.8,
+  "package_s": 141.53,
+  "plate_bytes": 3740702,
+  "bytes": 4225303
+ }
+}

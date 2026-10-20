@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 import { fill, useT } from "@/i18n";
-import { attachToTerminal, openTerminalTarget } from "@/lib/agenticIdeApi";
+import { attachToTerminal, openTerminalTarget, revealTerminalTarget } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 import { revealInExplorer } from "@/store/ideExplorer";
@@ -27,6 +27,7 @@ import { groupsOf, layoutFor, tabsOf, useCodeEditorStore, type EditorGroup, type
 import { FileTypeIcon } from "@/components/agentic/sidePanel/explorer/FileTypeIcon";
 import { absoluteWorkspacePath } from "@/components/agentic/sidePanel/explorer/explorerApi";
 import { ThreadMenuHeading, ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "@/components/agentic/threads/ThreadPopover";
+import { isOutsidePath } from "./editorApi";
 import { checkDisk, discardFile, languageName, reopenWithEncoding, revertFile, saveAll, saveFile, setLineEnding } from "./editorModels";
 import { ENCODINGS, encodingLabel, encodingOptionLabel } from "./encodings";
 import { QuickOpen } from "./QuickOpen";
@@ -310,7 +311,15 @@ export function CodeEditorStage({
 
   const openExternally = (path: string) =>
     void openTerminalTarget(workspaceId, path).catch((error: unknown) => pushToast("error", (error as Error).message));
-  const absolute = (path: string) => absoluteWorkspacePath(workspacePath, path);
+  // A file opened from outside the workspace is already named by its absolute path.
+  const absolute = (path: string) =>
+    isOutsidePath(path)
+      ? (/^[a-z]:\//i.test(path) ? path.replace(/\//g, "\\") : path)
+      : absoluteWorkspacePath(workspacePath, path);
+  const reveal = (path: string) =>
+    isOutsidePath(path)
+      ? void revealTerminalTarget(workspaceId, path).catch((error: unknown) => pushToast("error", (error as Error).message))
+      : revealInExplorer({ workspaceId, path });
 
   const quick = quickOpen ? <QuickOpen workspaceId={workspaceId} /> : null;
   if (!shown) return quick;
@@ -733,8 +742,8 @@ export function CodeEditorStage({
             <ThreadMenuItem icon={<Columns2 className="h-4 w-4" />} label={t("code_editor.split_right")} onSelect={() => { setMenu(null); store.splitRight(menu.key); }} />
             <ThreadMenuSeparator />
             <ThreadMenuItem icon={<Copy className="h-4 w-4" />} label={t("code_editor.menu.copy_path")} onSelect={() => { setMenu(null); copyText(absolute(menu.path)); }} />
-            <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.copy_relative_path")} onSelect={() => { setMenu(null); copyText(menu.path); }} />
-            <ThreadMenuItem icon={<FolderSearch className="h-4 w-4" />} label={t("code_editor.menu.reveal")} onSelect={() => { setMenu(null); revealInExplorer({ workspaceId, path: menu.path }); }} />
+            {!isOutsidePath(menu.path) && <ThreadMenuItem icon={<span aria-hidden />} label={t("code_editor.menu.copy_relative_path")} onSelect={() => { setMenu(null); copyText(menu.path); }} />}
+            <ThreadMenuItem icon={<FolderSearch className="h-4 w-4" />} label={t("code_editor.menu.reveal")} onSelect={() => { setMenu(null); reveal(menu.path); }} />
           </div>
         )}
       </ThreadPopover>

@@ -14,6 +14,8 @@ from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import quote_plus
 
+from dodaios.i18n import catalog as i18n_catalog
+
 #: Entry-point name of the screenshot-based computer-use harness (see
 #: ``pyproject.toml`` ``[project.entry-points."jarvis.harness"]`` +
 #: ``dodaios/plugins/harness/computer_use.py``). Canonical home for the
@@ -731,28 +733,9 @@ def _matches_orb_reset(text: str) -> bool:
     return any(pattern.match(text) for pattern in _ORB_RESET_PATTERNS)
 
 
-_UNSUPPORTED_RESPONSE: dict[str, str] = {
-    "de": (
-        "Das kann ich noch nicht. "  # i18n-allow: German TTS
-        "Mir fehlt dafür ein Werkzeug — wenn du mir verrätst welches MCP "  # i18n-allow
-        "oder welche Integration zuständig wäre, kann ich's lernen."  # i18n-allow
-    ),
-    "en": (
-        "I can't do that yet. "
-        "I don't have a registered tool for it. "
-        "Tell me which MCP or integration should handle it and I can learn."
-    ),
-    "es": (
-        "Eso todavía no lo sé hacer. "  # i18n-allow: Spanish TTS
-        "No tengo ninguna herramienta registrada para ello. "  # i18n-allow: Spanish TTS
-        "Dime qué MCP o integración debería encargarse y puedo aprenderlo."  # i18n-allow
-    ),
-    "pt": (
-        "Ainda não consigo fazer isso. "  # i18n-allow: PT TTS
-        "Não tenho nenhuma ferramenta registada para isso. "  # i18n-allow: PT TTS
-        "Diz-me que MCP ou integração deve tratar disso e posso aprender."  # i18n-allow
-    ),
-}
+_UNSUPPORTED_RESPONSE: dict[str, str] = i18n_catalog.table(
+    "brain.local_action_gate.unsupported_response"
+)
 
 
 def _unsupported_response(text: str, lang: str) -> str:

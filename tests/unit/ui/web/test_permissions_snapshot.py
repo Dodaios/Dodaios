@@ -494,12 +494,23 @@ def test_the_installed_app_reports_a_stable_identity(make_env) -> None:
 
     assert snapshot["outside_installed_app"] is False
     assert snapshot["app_identity"] == {
-        "app_name": "Personal Jarvis",
+        "app_name": "Dodaios",
         "bundle_id": "com.personal-jarvis.desktop",
-        "bundle_path": "/Applications/Personal Jarvis.app",
+        "bundle_path": "/Applications/Dodaios.app",
         "launched_as_bundle": True,
         "stable": True,
     }
+
+
+def test_the_bundle_under_its_earlier_name_stays_a_stable_identity(make_env) -> None:
+    """Until the one-time rename reaches it, the bundle still sits at its earlier
+    path; its bundle id did not move, so it is the same installed app."""
+    snapshot = make_env(bundle_path="/Applications/Personal Jarvis.app").status()
+
+    assert snapshot["outside_installed_app"] is False
+    assert snapshot["app_identity"]["bundle_path"] == "/Applications/Personal Jarvis.app"
+    assert snapshot["app_identity"]["bundle_id"] == "com.personal-jarvis.desktop"
+    assert snapshot["app_identity"]["stable"] is True
 
 
 def test_the_dmg_app_is_an_installed_app_too(make_env) -> None:

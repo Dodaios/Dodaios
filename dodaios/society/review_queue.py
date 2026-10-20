@@ -3,7 +3,9 @@
 A review runs on the reviewed agent's own seat and nothing else
 (``seat_brain``). When that seat keeps failing, a review gets at most
 ``MAX_ATTEMPTS`` seat calls in total, spaced by a jittered backoff, and is
-then dropped with one log line. The budget is durable: the attempt count and
+then dropped with one log line; the agent's review status
+(``review:last:<agent>``) says ``dropped`` and why, so the person sees it in
+the agent's profile. The budget is durable: the attempt count and
 the next due time live on the review row, so neither a burst of turns nor an
 app restart hands a failing seat extra calls.
 
@@ -21,7 +23,7 @@ import random
 from typing import Any, Final
 
 from .events import now_ms
-from .review import review_turn
+from .review import mark_review_dropped, review_turn
 
 log = logging.getLogger(__name__)
 
@@ -77,6 +79,10 @@ async def _drain_once(runtime: Any) -> None:
         )
         if attempts >= MAX_ATTEMPTS:
             archive.drop_review(*key)
+            try:
+                await mark_review_dropped(runtime, pending, attempts)
+            except Exception:  # noqa: BLE001 - the drop stands; the status line is best effort
+                log.warning("society review: could not record the drop", exc_info=True)
             log.warning(
                 "society review of turn %s (%s) dropped after %d failed attempts; "
                 "only the agent's own seat is ever asked",

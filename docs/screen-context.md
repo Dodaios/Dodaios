@@ -78,7 +78,7 @@ handle.
 Screen Context sits in its own package, `dodaios/screen_context/`, above the
 platform seam and below the brain. It imports platform modules; nothing in
 `dodaios/platform/` imports it. That direction is the 8-layer dependency rule
-(AGENTS.md §5) and it is what keeps the package testable without a display.
+ and it is what keeps the package testable without a display.
 
 ```
         voice session / bar / REST / brain tool
@@ -205,7 +205,7 @@ visual signal succeeded.
 **Ambiguity does not capture, and does not silently drop the turn either.**
 `AMBIGUOUS` produces a question, in the resolved output language, through the
 one resolver (`dodaios/core/turn_language.py`) — never a per-layer phrase table
-(AGENTS.md §1). The user's next turn resolves it; a bare "yes" inside the
+. The user's next turn resolves it; a bare "yes" inside the
 confirmation window promotes the *previous* utterance to `SCREEN`.
 
 ### 3.1 Intent classification
@@ -356,7 +356,7 @@ which asks macOS once per episode; only a live grant lets the capture continue
 (ADR-0038, `docs/macos-permissions.md`).
 
 Every denial produces a message that names the exact setting to change and is
-recoverable in-app (AGENTS.md §3) — never a stack trace, never a silent no-op.
+recoverable in-app — never a stack trace, never a silent no-op.
 
 ### 4.2 Privacy rules
 
@@ -518,7 +518,7 @@ patterns on, monitor-wide denylist check, 120 s TTL, nothing on disk), and every
 key remains readable and writable through the REST surface and therefore through
 `jarvis api screen-context get-settings|put-settings`. A settings card that asks
 a non-technical user to write regular expressions before a feature works is a
-card they switch off instead of using; the CLI-first contract (AGENTS.md §5) is
+card they switch off instead of using; the CLI-first contract is
 what makes hiding it safe rather than lossy.
 
 ### Wave 5 — OCR supplement ✅ *implemented*

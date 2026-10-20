@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
+from dodaios.core.identity_migration import create_directory_link
 from dodaios.setup import cli_path
 from dodaios.setup.cli_path import (
     COMMAND_NAMES,
@@ -356,3 +358,81 @@ def test_a_headless_container_gets_every_command_and_a_profile_block(
     assert report.path_updated == str(home / ".profile")
     assert (home / ".profile").read_text(encoding="utf-8").count(PROFILE_MARKER) == 1
     assert report.needs_new_terminal is True
+
+
+# ------------------------------------------------- an install folder that moved
+def _moved_windows_install(tmp_path: Path) -> tuple[Path, Path]:
+    home = tmp_path / "home"
+    root = home / ".dodaios"
+    scripts = root / ".venv" / "Scripts"
+    scripts.mkdir(parents=True)
+    for command in COMMAND_NAMES:
+        (scripts / f"{command}.exe").write_bytes(b"launcher:" + command.encode())
+    return home, root
+
+
+@pytest.mark.parametrize("legacy_state", ["absent", "link"])
+def test_the_earlier_install_folder_is_retired_once_it_is_no_install_of_its_own(
+    tmp_path, legacy_state
+):
+    home, root = _moved_windows_install(tmp_path)
+    if legacy_state == "link":
+        create_directory_link(home / ".personal-jarvis", root)
+
+    assert cli_path.retired_install_roots(root, home=home) == [home / ".personal-jarvis"]
+
+
+def test_a_real_folder_under_the_earlier_name_is_another_install_and_stays(tmp_path):
+    home, root = _moved_windows_install(tmp_path)
+    (home / ".personal-jarvis").mkdir()
+
+    assert cli_path.retired_install_roots(root, home=home) == []
+    # Nor is an install that still lives under the earlier name its own past.
+    assert cli_path.retired_install_roots(home / ".personal-jarvis", home=home) == []
+
+
+def test_a_moved_windows_install_swaps_its_path_entry(tmp_path):
+    home, root = _moved_windows_install(tmp_path)
+    old_bin = home / ".personal-jarvis" / "bin"
+    store = FakeUserPath(rf"C:\Tools;{old_bin}", kind=2)
+
+    report = install_commands(
+        root, platform_name="win32", home=home, environ={}, store=store, which=_never_found,
+        retired_roots=cli_path.retired_install_roots(root, home=home),
+    )
+
+    assert store.value == rf"C:\Tools;{root / 'bin'}"
+    assert store.kind == 2
+    assert report.path_retired == [str(old_bin)]
+    assert report.path_updated is not None
+
+    removed = remove_commands(
+        root, platform_name="win32", home=home, store=FakeUserPath(store.value + f";{old_bin}"),
+        retired_roots=[home / ".personal-jarvis"],
+    )
+    assert len(removed) == 2
+
+
+def test_a_posix_link_through_the_earlier_folder_name_is_pointed_at_the_folder(
+    tmp_path, symlinks_available
+):
+    home = tmp_path / "home"
+    root = home / ".dodaios"
+    venv_bin = root / ".venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    for command in COMMAND_NAMES:
+        (venv_bin / command).write_text("#!/bin/sh\n", encoding="utf-8")
+    (home / ".personal-jarvis").symlink_to(root, target_is_directory=True)
+    links = home / ".local" / "bin"
+    links.mkdir(parents=True)
+    old = links / "dodaios"
+    old.symlink_to(home / ".personal-jarvis" / ".venv" / "bin" / "dodaios")
+
+    report = install_commands(
+        root, platform_name="linux", home=home, environ={"PATH": str(links)},
+        which=_never_found,
+    )
+
+    assert "dodaios" in report.linked
+    # Windows reports a link target with its long-path prefix; compare the place.
+    assert os.path.samefile(os.readlink(old), venv_bin / "dodaios")

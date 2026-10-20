@@ -2712,3 +2712,18 @@ class MarketplaceItemInstalled(Event):
     item_id: str = ""
     title: str = ""
     ready: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class SelfBuildChanged(Event):
+    """A build in the self-building ledger was opened or changed state.
+
+    Published by :class:`dodaios.self_build.service.SelfBuild` after the row
+    was committed. The WebSocket forwards it; the "Built for you" view re-reads
+    the ledger instead of waiting for its next poll.
+    """
+
+    build_id: str = ""
+    kind: str = ""
+    state: str = ""
+    title: str = ""

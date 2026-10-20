@@ -375,7 +375,7 @@ class RegistryCommandTool:
             headers[CLIENT_TIMEZONE_HEADER] = zone
         session_id = caller_session_id()
         if session_id:
-            from dodaios.agent_chat.jarvis_harness import HEADER_NAME
+            from dodaios.agent_chat.dodaios_harness import HEADER_NAME
 
             headers[HEADER_NAME] = session_id
         try:

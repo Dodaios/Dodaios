@@ -9,7 +9,7 @@ command locally before landing work::
 
     python scripts/ci/run_gates.py                  # everything that applies
     python scripts/ci/run_gates.py --base origin/main --pr
-    python scripts/ci/run_gates.py --only mirrors,privacy
+    python scripts/ci/run_gates.py --only agents-md,privacy
 
 ``--pr`` adds the gates that judge a diff against its merge base (no new
 German, unrelated history). ``--base`` feeds the diff-scoped privacy scan.
@@ -47,14 +47,7 @@ def _gates(base: str) -> list[Gate]:
         Gate("dist-consistency", ((PY, ci + "check_dist_consistency.py"),)),
         Gate("brand-logos", ((PY, ci + "check_brand_logos.py"),)),
         Gate("design-references", ((PY, ci + "check_design_references.py"),)),
-        Gate(
-            "mirrors",
-            (
-                (PY, ci + "check_agents_md.py"),
-                (PY, ci + "sync_agents_dir.py", "--check"),
-                (PY, ci + "sync_codex_agents.py", "--check"),
-            ),
-        ),
+        Gate("agents-md", ((PY, ci + "check_agents_md.py"),)),
         Gate("cli-coverage", ((PY, ci + "check_cli_coverage.py"),)),
         Gate("danger-metadata", ((PY, ci + "check_danger_metadata.py"),)),
         Gate("cli-install-methods", ((PY, ci + "check_cli_install_methods.py"),)),

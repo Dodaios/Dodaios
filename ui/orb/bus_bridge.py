@@ -2048,7 +2048,7 @@ class OrbBusBridge:
         """The dictation shortcut was pressed and DECLINED — say so on screen.
 
         This is the whole reported bug. Every refusal used to end as a
-        ``log.info`` in a file the desktop app cannot open (AGENTS.md §9: the
+        ``log.info`` in a file the desktop app cannot open (the
         window is a WebView with no dev tools), so on the maintainer's
         configuration — one wake word, ``session_idle_timeout_s = 0``, no hangup
         key — a voice conversation stayed open all day and from then on EVERY
