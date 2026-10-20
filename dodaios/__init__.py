@@ -1,6 +1,6 @@
 """Dodaios — a voice-driven, cross-platform meta-orchestrator."""
 
-__version__ = "3.2.0"
+__version__ = "4.0.0"
 
 # A variable written as ``DODAIOS_<NAME>`` is moved to the ``JARVIS_<NAME>``
 # spelling the code reads. Done here, on the first import of the package, so
