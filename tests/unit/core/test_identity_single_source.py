@@ -26,6 +26,7 @@ import pytest
 
 import dodaios.core.branding as branding
 from dodaios.core import config as core_config
+from dodaios.core import identity_boot
 from dodaios.core.instance import (
     DATA_DIR_ENV_VAR,
     DEV_INSTANCE_NAME,
@@ -65,10 +66,16 @@ def _module_constant(relative_path: str, name: str) -> object:
     "relative_path",
     ["dodaios/plugins/stt/deepgram_api.py", "dodaios/plugins/stt/groq_api.py"],
 )
-def test_a_plugin_reads_keys_from_the_hosts_keyring_service(relative_path: str) -> None:
+def test_a_plugin_reads_keys_from_the_hosts_keyring_services(relative_path: str) -> None:
     assert _module_constant(relative_path, "_KEYRING_SERVICE") == branding.KEYRING_SERVICE_NAME
-    # The named constant is the only spelling: no second literal beside it.
-    assert _read(relative_path).count(f'"{branding.KEYRING_SERVICE_NAME}"') == 1
+    assert (
+        _module_constant(relative_path, "_LEGACY_KEYRING_SERVICES")
+        == branding.LEGACY_KEYRING_SERVICE_NAMES
+    )
+    # The named constants are the only spellings: no second literal beside them.
+    source = _read(relative_path)
+    for service in (branding.KEYRING_SERVICE_NAME, *branding.LEGACY_KEYRING_SERVICE_NAMES):
+        assert source.count(f'"{service}"') == 1, service
 
 
 @pytest.mark.parametrize(
@@ -88,12 +95,43 @@ def test_a_plugin_attributes_requests_to_the_official_repository(relative_path: 
     ("name", "expected"),
     [
         ("_WINDOWS_USER_DATA_DIR_NAME", branding.WINDOWS_USER_DATA_DIR_NAME),
+        ("_LEGACY_WINDOWS_USER_DATA_DIR_NAMES", branding.LEGACY_WINDOWS_USER_DATA_DIR_NAMES),
         ("_FALLBACK_USER_DATA_DIR_NAME", branding.FALLBACK_USER_DATA_DIR_NAME),
+        ("_LEGACY_FALLBACK_USER_DATA_DIR_NAMES", branding.LEGACY_FALLBACK_USER_DATA_DIR_NAMES),
         ("_CONFIG_FILE_NAME", branding.CONFIG_FILE_NAME),
+        ("_LEGACY_CONFIG_FILE_NAMES", branding.LEGACY_CONFIG_FILE_NAMES),
+        ("_MUTEX_NAMES", identity_boot.primary_mutex_names()),
+        ("_REPORT_ENV_VAR", identity_boot.HOOK_REPORT_ENV_VAR),
     ],
 )
-def test_the_frozen_runtime_hook_restates_the_directory_names(name: str, expected: str) -> None:
+def test_the_frozen_runtime_hook_restates_the_directory_names(name: str, expected: object) -> None:
     assert _module_constant("packaging/pyinstaller_rthook_frozen.py", name) == expected
+
+
+def test_the_frozen_runtime_hook_restates_the_lock_files_and_launcher_names() -> None:
+    hook_path = "packaging/pyinstaller_rthook_frozen.py"
+    assert _load_runtime_hook()._PRIMARY_LOCK_FILES == identity_boot.PRIMARY_LOCK_FILES
+    # Every executable that is the desktop app may migrate, under its current
+    # and its earlier names; nothing else.
+    windows_names = (
+        branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
+        *branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    )
+    gui_names = {
+        branding.MACOS_EXECUTABLE_NAME,
+        *branding.LEGACY_MACOS_EXECUTABLE_NAMES,
+        *(name.removesuffix(".exe") for name in windows_names),
+        _module_constant("jarvis.spec", "GUI_EXE_NAME"),
+        *_module_constant("jarvis.spec", "LEGACY_GUI_EXE_NAMES"),
+    }
+    assert set(_module_constant(hook_path, "_GUI_EXE_NAMES")) == gui_names
+    # The bundle seeds a first-run config from the file jarvis.spec ships.
+    bundled = _module_constant(hook_path, "_BUNDLED_CONFIG_FILE_NAME")
+    assert f'datas.append((str(PROJECT_ROOT / "{bundled}"), "."))' in _read("jarvis.spec")
+    # And the engine it loads by path is shipped as a plain file.
+    engine = "/".join(_module_constant(hook_path, "_ENGINE_PATH"))
+    assert f'(str(PROJECT_ROOT / "{engine}"), "dodaios/core")' in _read("jarvis.spec")
+    assert (_ROOT / engine).is_file()
 
 
 def test_the_pyinstaller_spec_restates_the_bundle_names() -> None:
@@ -102,6 +140,14 @@ def test_the_pyinstaller_spec_restates_the_bundle_names() -> None:
         f'{_module_constant("jarvis.spec", "GUI_EXE_NAME")}.exe'
         == branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME
     )
+    # The windowed launcher ships under its earlier name too: pins, logon tasks
+    # and shortcuts of earlier releases start that file.
+    legacy_gui = _module_constant("jarvis.spec", "LEGACY_GUI_EXE_NAMES")
+    assert legacy_gui == branding.LEGACY_MACOS_EXECUTABLE_NAMES
+    assert tuple(f"{name}.exe" for name in legacy_gui) == (
+        branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES
+    )
+    assert "*legacy_gui_exes," in _read("jarvis.spec")
     assert _module_constant("jarvis.spec", "CLI_EXE_NAME") == branding.CLI_COMMAND_NAME
     # The frozen build keeps the command's first earlier name beside the new one.
     legacy_exes = _module_constant("jarvis.spec", "LEGACY_CLI_EXE_NAMES")
@@ -122,6 +168,7 @@ _RESTATEMENTS_ALLOWED = {
     "dodaios/core/branding.py": "the single source",
     "dodaios/plugins/stt/deepgram_api.py": "plugin without dodaios.* imports, pinned above",
     "dodaios/plugins/stt/groq_api.py": "plugin without dodaios.* imports, pinned above",
+    "packaging/pyinstaller_rthook_frozen.py": "runtime hook, no dodaios.* imports, pinned above",
     "dodaios/agent_runtimes/acp.py": "ACP client name, an identifier of its own",
     "dodaios/agentic_ide/github_link.py": "HTTP user agent, an identifier of its own",
     "dodaios/brain/identity.py": "the former product name told to a model",
@@ -153,8 +200,12 @@ def _shipped_python_files() -> list[Path]:
 
 def test_no_module_restates_an_identity_value() -> None:
     values = _distinctive_identity_values()
-    assert branding.KEYRING_SERVICE_NAME in values
+    assert branding.LEGACY_KEYRING_SERVICE_NAMES[0] in values
     assert branding.MACOS_BUNDLE_ID in values
+    # The current credential service is the bare product word, which is also
+    # the package, the command and the MCP server name: a literal equal to it
+    # is no evidence of a copy. Store calls are checked for it by the next test.
+    assert branding.KEYRING_SERVICE_NAME not in values
     offenders: list[str] = []
     for path in _shipped_python_files():
         relative = path.relative_to(_ROOT).as_posix()
@@ -172,25 +223,69 @@ def test_no_module_restates_an_identity_value() -> None:
     assert not offenders, "import the constant from dodaios.core.branding:\n" + "\n".join(offenders)
 
 
+_STORE_CALLS = frozenset({"get_password", "set_password", "delete_password", "peek_password"})
+
+
+def _store_calls_naming_a_service(source: str, services: frozenset[str]) -> list[int]:
+    """Lines where a credential-store call spells one of ``services`` as a literal."""
+    lines: list[int] = []
+    for node in ast.walk(ast.parse(source)):
+        if not (isinstance(node, ast.Call) and node.args):
+            continue
+        callee = node.func.attr if isinstance(node.func, ast.Attribute) else None
+        first = node.args[0]
+        if callee in _STORE_CALLS and isinstance(first, ast.Constant) and first.value in services:
+            lines.append(node.lineno)
+    return lines
+
+
+def test_no_credential_store_call_spells_a_service_name() -> None:
+    services = frozenset({branding.KEYRING_SERVICE_NAME, *branding.LEGACY_KEYRING_SERVICE_NAMES})
+    offenders: list[str] = []
+    for path in _shipped_python_files():
+        relative = path.relative_to(_ROOT).as_posix()
+        if relative in _RESTATEMENTS_ALLOWED:
+            continue
+        source = path.read_text(encoding="utf-8-sig")
+        offenders += [
+            f"{relative}:{line}" for line in _store_calls_naming_a_service(source, services)
+        ]
+    assert not offenders, "use dodaios.core.config.KEYRING_SERVICE: " + ", ".join(offenders)
+    # And the check has teeth.
+    probe = f'keyring.get_password("{branding.KEYRING_SERVICE_NAME}", "slot")'
+    assert _store_calls_naming_a_service(probe, services) == [1]
+
+
 # ---------------------------------------------------------------------------
 # Scripts, packaging and project metadata
 # ---------------------------------------------------------------------------
 
 
-def test_the_installers_default_to_the_branded_install_directory() -> None:
-    name = re.escape(branding.DEFAULT_INSTALL_DIR_NAME)
-    shell = re.search(
-        r'^INSTALL_DIR="\$\{JARVIS_INSTALL_DIR:-\$HOME/(?P<name>[^}"]+)\}"$',
-        _read("install/install.sh"),
-        re.MULTILINE,
-    )
-    assert shell is not None and re.fullmatch(name, shell.group("name"))
-    powershell = re.search(
-        r"^\$InstallDir = .*Join-Path \$env:USERPROFILE '(?P<name>[^']+)' \}$",
-        _read("install/install.ps1"),
-        re.MULTILINE,
-    )
-    assert powershell is not None and re.fullmatch(name, powershell.group("name"))
+@pytest.mark.parametrize(
+    ("relative_path", "current", "legacy"),
+    [
+        ("install/install.sh", 'DEFAULT_INSTALL_DIR_NAME="{}"', 'LEGACY_INSTALL_DIR_NAME="{}"'),
+        ("install/uninstall.sh", 'DEFAULT_INSTALL_DIR_NAME="{}"', 'LEGACY_INSTALL_DIR_NAME="{}"'),
+        ("install/install.ps1", "$DefaultInstallDirName = '{}'", "$LegacyInstallDirName = '{}'"),
+        ("install/uninstall.ps1", "$DefaultInstallDirName = '{}'", "$LegacyInstallDirName = '{}'"),
+    ],
+)
+def test_the_scripts_restate_the_install_directory_names(
+    relative_path: str, current: str, legacy: str
+) -> None:
+    # Each script names the current folder and the one earlier name it still
+    # recognises; there is one earlier name, so one variable carries it.
+    assert branding.LEGACY_DEFAULT_INSTALL_DIR_NAMES == (".personal-jarvis",)
+    lines = _read(relative_path).splitlines()
+    assert current.format(branding.DEFAULT_INSTALL_DIR_NAME) in lines
+    assert legacy.format(branding.LEGACY_DEFAULT_INSTALL_DIR_NAMES[0]) in lines
+
+
+def test_the_installers_read_the_migration_engine_from_where_it_lives() -> None:
+    engine = "dodaios/core/identity_migration.py"
+    assert (_ROOT / engine).is_file()
+    assert f'IDENTITY_ENGINE_PATH="{engine}"' in _read("install/install.sh").splitlines()
+    assert f"$IdentityEnginePath = '{engine}'" in _read("install/install.ps1").splitlines()
 
 
 @pytest.mark.parametrize(
@@ -206,6 +301,22 @@ def test_the_shell_uninstaller_restates_the_macos_identifiers(
     assert f'\n{variable}="{expected}"\n' in _read("install/uninstall.sh")
 
 
+def test_the_shell_uninstaller_restates_both_bundle_names() -> None:
+    script = _read("install/uninstall.sh")
+    assert f'\nMACOS_APP_DIR_NAME="{branding.MACOS_APP_DIR_NAME}"\n' in script
+    assert branding.LEGACY_MACOS_APP_DIR_NAMES == ("Personal Jarvis.app",)
+    legacy = branding.LEGACY_MACOS_APP_DIR_NAMES[0]
+    assert f'\nLEGACY_MACOS_APP_DIR_NAME="{legacy}"\n' in script
+    assert 'for app_dir_name in "$MACOS_APP_DIR_NAME" "$LEGACY_MACOS_APP_DIR_NAME"; do' in script
+
+
+def test_the_shell_uninstaller_names_every_credential_service() -> None:
+    script = _read("install/uninstall.sh")
+    assert f'\nKEYRING_SERVICE_NAME="{branding.KEYRING_SERVICE_NAME}"\n' in script
+    legacy = " ".join(branding.LEGACY_KEYRING_SERVICE_NAMES)
+    assert f'\nLEGACY_KEYRING_SERVICE_NAMES="{legacy}"\n' in script
+
+
 @pytest.mark.parametrize(
     ("definition", "expected"),
     [
@@ -214,6 +325,9 @@ def test_the_shell_uninstaller_restates_the_macos_identifiers(
         ("CliExeName", f"{branding.CLI_COMMAND_NAME}.exe"),
         ("LegacyCliExeName", f"{branding.LEGACY_CLI_COMMAND_NAMES[0]}.exe"),
         ("UserDataDirDisplay", rf"%LOCALAPPDATA%\{branding.WINDOWS_USER_DATA_DIR_NAME}"),
+        ("AppPublisher", branding.LAUNCHER_ENTRY_NAME),
+        ("LegacyAppName", branding.LEGACY_LAUNCHER_ENTRY_NAMES[0]),
+        ("LegacyGuiExeName", branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES[0]),
     ],
 )
 def test_the_windows_installer_script_restates_the_names(definition: str, expected: str) -> None:
@@ -222,23 +336,46 @@ def test_the_windows_installer_script_restates_the_names(definition: str, expect
     )
 
 
+def test_the_windows_installer_retires_the_earlier_shortcuts_and_keeps_its_identity() -> None:
+    script = _read("packaging/windows/PersonalJarvis.iss")
+    # Windows upgrades by AppId: a new one would install a second product.
+    assert '#define AppGuid "7F1C4E42-2E5B-4F0A-9E1B-1A7B6C0D5E88"' in script
+    # The shortcuts an earlier release created under the earlier name go; the
+    # Desktop one only where it starts this installation.
+    install_delete = script.split("\n[InstallDelete]\n", 1)[1].split("\n[", 1)[0]
+    assert r'"{autoprograms}\{#LegacyAppName}\{#LegacyAppName}.lnk"' in install_delete
+    assert "Check: LegacyShortcutStartsThisApp(" in install_delete
+    assert "UsePreviousGroup=no" in script
+    # The setup's product name is what the SignPath artifact configuration
+    # checks (docs/code-signing-policy.md): it stays until that pin moves.
+    assert "VersionInfoProductName={#SignedProductName}" in script
+    policy = _read("docs/code-signing-policy.md")
+    signed = re.search(r'#define SignedProductName "([^"]+)"', script)
+    assert signed is not None and f'product-name="{signed.group(1)}"' in policy
+
+
 def test_the_packaging_scripts_restate_the_names() -> None:
     windows = _read("packaging/windows/build.ps1")
     frozen_cli_names = (branding.CLI_COMMAND_NAME, branding.LEGACY_CLI_COMMAND_NAMES[0])
     required = (
         branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
+        *branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
         *(f"{name}.exe" for name in frozen_cli_names),
     )
     assert "@(" + ", ".join(f'"{name}"' for name in required) + ")" in windows
     quoted = " ".join(f'"{name}"' for name in frozen_cli_names)
     assert f"\nCLI_EXE_NAMES=({quoted})\n" in _read("packaging/linux/build.sh")
+    # The AppImage links its launcher to the windowed executable, current name first.
+    gui = (branding.MACOS_EXECUTABLE_NAME, *branding.LEGACY_MACOS_EXECUTABLE_NAMES)
+    quoted_gui = " ".join(f'"{name}"' for name in gui)
+    assert f'\nGUI_EXE_CANDIDATES=({quoted_gui} "Jarvis")\n' in _read("packaging/linux/build.sh")
     assert f"for cli_name in {' '.join(frozen_cli_names)}; do" in _read(
         "packaging/macos/build.sh"
     )
-    assert (
-        f'\nDESKTOP_FILE_NAME="{branding.LINUX_DESKTOP_ENTRY_FILE_NAME}"\n'
-        in _read("packaging/linux/build.sh")
-    )
+    linux = _read("packaging/linux/build.sh")
+    assert f'\nDESKTOP_FILE_NAME="{branding.LINUX_DESKTOP_ENTRY_FILE_NAME}"\n' in linux
+    # The installed icon carries the window class's name, like the entry.
+    assert f'\nICON_FILE_NAME="{branding.LINUX_WM_CLASS}.png"\n' in linux
     assert f'\nAPP_NAME="{branding.MACOS_APP_NAME}"\n' in _read("packaging/macos/build.sh")
 
 
@@ -264,6 +401,16 @@ def test_the_project_metadata_restates_the_distribution_and_its_commands() -> No
     assert data_files, "the wheel ships its reader documents as data files"
     for target in data_files:
         assert target.startswith(f"share/{branding.DISTRIBUTION_NAME}/"), target
+    # The extras refer to the project by its own name, never by the earlier one.
+    for group in project["project"]["optional-dependencies"].values():
+        for legacy in branding.LEGACY_DISTRIBUTION_NAMES:
+            assert not any(item.startswith(f"{legacy}[") for item in group), group
+
+
+def test_the_frozen_build_bundles_the_metadata_under_either_distribution_name() -> None:
+    spec = _read("jarvis.spec")
+    assert f"\nDISTRIBUTION_NAMES = {branding.DISTRIBUTION_NAMES!r}\n" in spec
+    assert "datas += copy_metadata(_installed_distribution())" in spec
 
 
 def test_the_frontend_restates_the_display_name_and_a_known_repository() -> None:
@@ -390,6 +537,8 @@ def test_the_frozen_hook_points_the_data_directory_inside_the_user_directory(
     assert Path(os.environ[DATA_DIR_ENV_VAR]) == user_data_dir() / "data"
     assert resolve_data_dir(tmp_path / "ignored") == user_data_dir() / "data"
     assert Path(os.environ["JARVIS_CONFIG"]) == user_data_dir() / branding.CONFIG_FILE_NAME
+    # The package resolves the same file the hook pointed at.
+    assert core_config.resolve_config_file(user_data_dir()) == Path(os.environ["JARVIS_CONFIG"])
 
 
 # ---------------------------------------------------------------------------
@@ -428,6 +577,12 @@ _ROLES: tuple[tuple[str, str, str], ...] = (
     ("applications-dir", "app", "MACOS_APP_DIR_NAME"),
     ("start-menu", "app", "WINDOWS_SHORTCUT_FILE_NAME"),
     ("desktop-entry", "app", "LINUX_DESKTOP_ENTRY_FILE_NAME"),
+    # The config file sits in the checkout root or in the per-user directory.
+    ("config-dir", "config", "CONFIG_FILE_NAME"),
+    # Both folders can land on the Desktop (deliverables fall back to it).
+    ("desktop-dir", "output-mirror", "DESKTOP_OUTPUT_MIRROR_DIR_NAME"),
+    ("desktop-dir", "deliverables", "DELIVERABLES_DIR_NAME"),
+    ("vault-dir", "wiki", "OBSIDIAN_VAULT_FOLDER_NAME"),
 )
 
 
@@ -481,15 +636,16 @@ def _current_names() -> list[IdentityName]:
 # yet. When they become the branding values, today's values become LEGACY_*
 # and the first test below covers them without this table. The commands
 # ``dodaios`` and ``dodaiosctl`` already made that move: they are console
-# scripts now, and the first test sees them among the current names.
+# scripts now, and the first test sees them among the current names. So did
+# the data directory and the config file, the install directory, the
+# Windows identity (the windowed executable, its per-user folder, the
+# shortcut), the Linux desktop entry and the macOS bundle's name: current names
+# now, with their earlier values in LEGACY_* tuples. The macOS bundle ids below
+# are planned only: a new id starts every privacy grant over, so they wait for
+# their own migration.
 _PLANNED_NAMES: tuple[IdentityName, ...] = (
-    IdentityName("executable", "gui-exe", "planned", "DodaiosApp"),
-    IdentityName("home-dir", "install", "planned", ".dodaios"),
-    IdentityName("home-dir", "data", "planned", ".dodaios-data"),
-    IdentityName("localappdata-dir", "data", "planned", "Dodaios"),
     IdentityName("macos-bundle-id", "managed", "planned", "com.dodaios.desktop"),
     IdentityName("macos-bundle-id", "dmg", "planned", "ai.dodaios.desktop"),
-    IdentityName("keyring-service", "app", "planned", "dodaios"),
 )
 
 
@@ -506,29 +662,78 @@ def test_no_two_current_or_legacy_names_collide() -> None:
     assert _collisions(names) == []
 
 
-def test_the_planned_launcher_name_stays_clear_of_the_commands_that_exist() -> None:
-    # The planned windowed executable shares a folder with the console
-    # scripts. The commands are real now, so this is the pair that would
-    # collide if the launcher were ever named like the command.
-    planned_gui = [name for name in _PLANNED_NAMES if name.role == "gui-exe"]
-    assert planned_gui, "the planned launcher name left the table"
+def test_the_launcher_names_stay_clear_of_the_commands_that_exist() -> None:
+    # The windowed executable shares a folder with the console scripts, under
+    # its current name and its earlier one (the frozen build ships both).
+    gui = [name for name in _current_names() if name.role == "gui-exe"]
+    assert {(name.generation, name.value) for name in gui} >= {
+        ("current", "DodaiosApp"),
+        ("legacy", "PersonalJarvis"),
+    }
     commands = {name.casefold() for name in _console_scripts()}
-    for name in planned_gui:
+    for name in gui:
         assert name.value.casefold() not in commands
     # And the check has teeth: a launcher spelled like the command is caught.
     clash = IdentityName("executable", "gui-exe", "planned", branding.CLI_COMMAND_NAME.title())
     assert len(_collisions([*_current_names(), clash])) == 1
 
 
+def test_the_windows_identity_moved_with_its_earlier_names_in_the_table() -> None:
+    names = _current_names()
+    found = {(n.namespace, n.role, n.generation, n.value) for n in names}
+    assert ("localappdata-dir", "launcher", "current", "DodaiosApp") in found
+    assert ("localappdata-dir", "launcher", "legacy", "PersonalJarvis") in found
+    assert ("start-menu", "app", "current", "Dodaios.lnk") in found
+    assert ("start-menu", "app", "legacy", "Personal Jarvis.lnk") in found
+    # The launcher folder sits beside the data directory, so it cannot take
+    # the plain product name the data directory has.
+    data = next(n for n in names if n.role == "data" and n.namespace == "localappdata-dir")
+    clash = IdentityName("localappdata-dir", "launcher", "planned", data.value)
+    assert len(_collisions([*names, clash])) == 1
+
+
+def test_the_macos_bundle_name_moved_with_its_earlier_name_in_the_table() -> None:
+    names = _current_names()
+    bundle = {(n.generation, n.value) for n in names if n.namespace == "applications-dir"}
+    assert bundle == {("current", "Dodaios.app"), ("legacy", "Personal Jarvis.app")}
+
+
 def test_the_planned_names_collide_with_nothing_an_installation_carries() -> None:
     assert _collisions([*_current_names(), *_PLANNED_NAMES]) == []
+
+
+def test_the_data_directory_moved_with_its_earlier_names_in_the_table() -> None:
+    names = _current_names()
+    data = {(n.namespace, n.generation, n.value) for n in names if n.role == "data"}
+    assert ("localappdata-dir", "current", "Dodaios") in data
+    assert ("localappdata-dir", "legacy", "Jarvis") in data
+    assert ("home-dir", "current", ".dodaios-data") in data
+    assert ("home-dir", "legacy", ".jarvis") in data
+    config = {(n.generation, n.value) for n in names if n.role == "config"}
+    assert config == {("current", "dodaios.toml"), ("legacy", "jarvis.toml")}
+    # A launcher folder named like the data directory would be the same folder.
+    clash = IdentityName("localappdata-dir", "launcher", "planned", "dodaios")
+    assert len(_collisions([*names, clash])) == 1
+
+
+def test_the_install_directory_moved_with_its_earlier_name_in_the_table() -> None:
+    names = _current_names()
+    install = {(n.namespace, n.generation, n.value) for n in names if n.role == "install"}
+    assert install == {
+        ("home-dir", "current", ".dodaios"),
+        ("home-dir", "legacy", ".personal-jarvis"),
+    }
+    # The data directory's fallback sits in the same home directory and must
+    # never be spelled like the install directory, under either name.
+    clash = IdentityName("home-dir", "data", "planned", ".DODAIOS")
+    assert len(_collisions([*names, clash])) == 1
 
 
 def test_legacy_constants_join_the_table_by_name() -> None:
     module = ModuleType("branding_after_a_rename")
     for _namespace, _role, constant in _ROLES:
         setattr(module, constant, getattr(branding, constant))
-    module.DEFAULT_INSTALL_DIR_NAME = ".dodaios"
+    module.DEFAULT_INSTALL_DIR_NAME = ".renamed-again"
     module.LEGACY_DEFAULT_INSTALL_DIR_NAMES = (branding.DEFAULT_INSTALL_DIR_NAME,)
     # A new data directory that only differs in case from the OLD install
     # directory would be the same folder on Windows and macOS.

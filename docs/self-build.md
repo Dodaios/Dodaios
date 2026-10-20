@@ -72,6 +72,68 @@ A `signature` is a stable key for the need (for example
 time, and a signature the person rejected or undid `max_rejections` times is
 not offered again.
 
+## The loop for memories, skills, routines and agents
+
+`dodaios/self_build/app.py` installs it at boot (`install_in_app`): one builder
+and one undoer for each of the four kinds, and the event subscriptions below.
+
+| Module | Holds |
+|---|---|
+| `miner.py` | counts the person's requests into needs; the thresholds |
+| `signals.py` | `self_build_signals.db`: turns, clusters, verdicts, lessons, specs, artefact index |
+| `decide.py` | the one decide call: prompt, parse, the no-model fallback |
+| `brain.py` | model access: signed-in subscriptions and local models only |
+| `judge.py` | the proofs, pure Python |
+| `builders.py` | build, undo, archive (dormant) and restore per kind |
+| `loop.py` | event intake, the gate, the decide queue, use counting, maintenance |
+
+**Observe.** Inputs are finished voice turns (`VoiceTurnCompleted`) and the
+person's own typed turns in the Jarvis chat and agent chats (the chat
+surfaces' completion hook; turns an agent or routine started are dropped).
+Only the person's words are stored; tool names are kept as context. Requests
+are grouped by six-letter stems of their content words (the skill matcher's
+multilingual tokenizer). A need crosses its threshold when, within 28 days:
+
+| Need | Threshold | Rungs |
+|---|---|---|
+| repeated request | 3 times on 3 days, a tool used in half of them | skill |
+| weekly habit | same weekday in 3 weeks, within 3 hours | skill, routine |
+| daily habit | 4 days within 14, within 2 hours | skill, routine |
+| repeated correction | 2 corrections on 2 days within 14 | memory |
+| recurring failure | 3 failed answers on 2 days | memory, skill |
+| sequence | B follows A within 15 minutes, on 3 days | skill |
+| domain | 3 needs (each twice) on one tool family, 10 requests over 14 days | agent |
+
+**Gate, no model.** A need is dropped when a build for it is open, kept or
+archived, the person rejected or undid one in the last 30 days, a decide
+verdict said "nothing" in the last 30 days (unless the need has doubled since),
+earlier builds failed their proof twice, an installed skill already catches
+its requests, or `admit` refuses every candidate kind.
+
+**Decide.** After 90 seconds of quiet (or when a call ends), at most one model
+call per need and four per day. Without a signed-in subscription or a local
+model the loop writes a plain card from the counts and builds nothing until a
+model can write the spec. Calls are tagged `self_build:decide` in the cost
+ledger; build calls `self_build:<id>`.
+
+**Build and prove.**
+
+| Kind | Built through | Proof | Archived means |
+|---|---|---|---|
+| memory | the learning notebook (`MEMORY.md`/`USER.md`) | the learning review's evidence check | entry removed, text kept |
+| skill | the skill creator's writer, then the registry's `promote` ([ADR-0043](adr/0043-self-built-skills-go-live-on-trial.md)) | replay through the skill router, lint, duplicates, tools | switched off |
+| routine | a lead-owned Automations task on a subscription or local seat, no plugin grants, no announcement | schedule before 2/3 of the requests, grounded prompt, nothing outbound, a shadow run | paused |
+| agent | `Roster.create` on a subscription or local seat | free name, clean instructions, focus from used tools, shadow answers | paused |
+
+**Measure.** A skill run counts as a use, a correction within two minutes as
+corrected. A routine run counts, a manual request within a day after a run as
+corrected, a failed run as ignored. A turn in a self-built agent's chat
+counts. A memory counts once per conversation its need comes up in, a
+repeated correction as corrected. Kept builds unused for 30 days are archived.
+
+**Idle cost.** One SQLite insert and a scan of four weeks of clusters per
+turn; no model call and no timer unless a need is waiting to be decided.
+
 ## Settings: `[self_build]`
 
 | Key | Default | Meaning |

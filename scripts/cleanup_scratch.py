@@ -88,7 +88,7 @@ HEAVY_DIRS = [
 ]
 
 #: Live config and data a glob above might otherwise match.
-NEVER_TOUCH = {"jarvis.toml", "usage.db", "jarvis.toml.example", "mcp.json"}
+NEVER_TOUCH = {"jarvis.toml", "dodaios.toml", "usage.db", "jarvis.toml.example", "mcp.json"}
 
 
 def human(num_bytes: int) -> str:

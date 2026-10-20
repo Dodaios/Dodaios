@@ -145,10 +145,13 @@ surface, Dodaios falls back to the tray or no visible surface; chat continues.
 
 ## Storage and Network Defaults
 
-The managed installer uses `%USERPROFILE%\.personal-jarvis` on Windows and
-`~/.personal-jarvis` on macOS and Linux. Its Python environment lives inside
-that folder. Normal runtime data uses `%LOCALAPPDATA%\Jarvis` on Windows when
-that location exists and `~/.jarvis` elsewhere. Some managed-install state,
+The managed installer uses `%USERPROFILE%\.dodaios` on Windows and
+`~/.dodaios` on macOS and Linux. An install made under the earlier name
+`.personal-jarvis` keeps that folder until its next update run moves it and
+leaves a link at the old path. Its Python environment lives inside that
+folder. Normal runtime data uses `%LOCALAPPDATA%\Dodaios` on Windows when
+that location exists and `~/.dodaios-data` elsewhere (an earlier `Jarvis` or
+`~/.jarvis` folder stays in use until the app moves it). Some managed-install state,
 including the default `jarvis.toml`, remains in the install folder. Read the
 [Configuration Reference](configuration-reference) before changing a path on a
 managed or read-only host.

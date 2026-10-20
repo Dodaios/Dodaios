@@ -1,8 +1,9 @@
 """The area picker for region appshots — an isolated PySide6 sidecar.
 
-``python -m dodaios.appshot.picker --lang de`` dims every screen, lets the
-user drag one rectangle, mark it up in place with a toolbar and prints
-the result as one JSON line on stdout, then exits. The main process never
+``python -m dodaios.appshot.picker --lang de`` dims every screen with the
+marking toolbar already up, lets the user mark the screen and drag one
+rectangle (in either order) and prints the result as one JSON line on
+stdout, then exits. The main process never
 imports PySide6 (AP-26); it talks to this process through
 :mod:`dodaios.appshot.region`.
 
@@ -16,7 +17,10 @@ stdout::
 
     {"event": "standby"}                                # resident runtime loaded
     {"event": "ready"}                                  # overlay is up
-    {"event": "marking"}                                # area chosen, toolbar up
+    {"event": "marking"}                                # something is marked; the
+                                                        # parent drops its global Esc
+    {"event": "option", "keep_area": true}              # "adjust before taking"
+                                                        # flipped; the parent saves it
     {"event": "selection", "screen": {"x":…, "y":…,     # the Qt screen,
      "w":…, "h":…, "dpr":…}, "rect": [fx, fy, fw, fh],  # fractions of it,
      "action": "done" | "copy" | "save" | "edit",       # what the user pressed,
@@ -28,7 +32,7 @@ stdout::
 stdin::
 
     {"cmd": "start", "language": "en", "monitors": [],   # resident: fresh capture
-     "windows": []}
+     "windows": [], "keep_area": false}                 # (keep the released area)
     {"cmd": "quit"}                                     # release the runtime
     {"cmd": "layout", "monitors": [...],                # mss monitors and the
      "windows": [[l, t, w, h], ...]}                    # snap targets, top first
@@ -49,6 +53,7 @@ EVENT_READY = "ready"
 EVENT_STANDBY = "standby"
 EVENT_MARKING = "marking"
 EVENT_SELECTION = "selection"
+EVENT_OPTION = "option"
 #: What finishing the selection asks for besides taking the appshot.
 ACTION_DONE = "done"
 ACTION_COPY = "copy"
@@ -85,6 +90,7 @@ __all__ = [
     "CMD_START",
     "CMD_QUIT",
     "EVENT_MARKING",
+    "EVENT_OPTION",
     "EVENT_READY",
     "EVENT_STANDBY",
     "EVENT_SELECTION",

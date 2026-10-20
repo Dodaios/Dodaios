@@ -6,14 +6,14 @@ import pytest
 
 pytest.importorskip("PySide6.QtWidgets")
 
-from dodaios.appshot.picker import renderer  # noqa: E402
+from dodaios.appshot.picker import markup_window, renderer  # noqa: E402
 
 
 def test_release_capture_drops_frozen_pixels_and_blur_cache():
     window = SimpleNamespace(
         _frozen=object(), _patches=object(), _markup=object(), _scale=lambda: 1
     )
-    renderer._SelectWindow.release_capture(window)
+    markup_window.MarkupWindow.release_capture(window)
     assert window._frozen is None
     assert window._patches._frozen is None
     assert window._patches._cache == {}
