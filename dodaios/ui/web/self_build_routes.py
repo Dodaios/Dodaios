@@ -9,6 +9,9 @@ Endpoints (all under ``/api/self-build``)::
     POST   /{build_id}/accept  Build a proposed build
     POST   /{build_id}/keep    Keep a build on trial (or restore an archived one)
     POST   /{build_id}/undo    Remove what the build created, or reject the proposal
+    GET    /provenance      Which agents, skills and routines a build created (the badge)
+    GET    /settings        ``[self_build]`` with each number's range
+    PUT    /settings        Change ``[self_build]``; written to jarvis.toml, applied at once
 
 The ledger is opened at boot (``dodaios.self_build.service.start``).
 """
@@ -17,7 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -90,6 +93,103 @@ async def pause(request: Request, body: PauseBody) -> dict[str, Any]:
     service = _service(request)
     await asyncio.to_thread(service.set_paused, body.paused)
     return await asyncio.to_thread(service.status)
+
+
+@router.get("/provenance")
+async def provenance(request: Request, type: str = "") -> dict[str, Any]:  # noqa: A002 — the query name
+    """``{"items": {"<type>:<id>": {build_id, state, title, ...}}}`` for the
+    "built by Dodaios" badge. Empty (not 503) while the ledger is not running,
+    so a list that asks for badges never fails because of them."""
+    service = getattr(request.app.state, "self_build", None) or current_service()
+    if service is None:
+        return {"items": {}}
+    return {"items": await asyncio.to_thread(service.provenance, type or None)}
+
+
+# ------------------------------------------------------------------ settings
+
+_LEVELS = ("off", "suggest", "trial", "full")
+
+
+class SettingsBody(BaseModel):
+    enabled: bool | None = None
+    silent_days: int | None = None
+    memory: Literal["off", "suggest", "trial", "full"] | None = None
+    skill: Literal["off", "suggest", "trial", "full"] | None = None
+    routine: Literal["off", "suggest", "trial", "full"] | None = None
+    agent: Literal["off", "suggest", "trial", "full"] | None = None
+    code: Literal["off", "suggest", "trial", "full"] | None = None
+    trial_days: int | None = None
+    trial_uses: int | None = None
+    max_builds_per_day: int | None = None
+    max_agents_per_week: int | None = None
+    max_open_trials: int | None = None
+    max_code_runs_per_day: int | None = None
+    max_rejections: int | None = None
+
+
+def _config(request: Request) -> Any:
+    return getattr(request.app.state, "config", None) or getattr(request.app.state, "cfg", None)
+
+
+def _settings_payload(section: Any) -> dict[str, Any]:
+    from dodaios.core.config import SelfBuildConfig
+
+    values = (section or SelfBuildConfig()).model_dump()
+    bounds = {
+        name: {"min": _bound(info, "ge"), "max": _bound(info, "le")}
+        for name, info in SelfBuildConfig.model_fields.items()
+        if info.annotation is int
+    }
+    keys = SelfBuildConfig.model_fields.keys()
+    return {
+        "settings": {key: values[key] for key in keys if key in values},
+        "levels": list(_LEVELS),
+        "bounds": bounds,
+    }
+
+
+def _bound(info: Any, name: str) -> int | None:
+    for item in info.metadata:
+        value = getattr(item, name, None)
+        if value is not None:
+            return int(value)
+    return None
+
+
+@router.get("/settings")
+def get_settings(request: Request) -> dict[str, Any]:
+    """``[self_build]`` as the Settings page edits it, with each number's range."""
+    return _settings_payload(getattr(_config(request), "self_build", None))
+
+
+@router.put("/settings")
+async def put_settings(request: Request, body: SettingsBody) -> dict[str, Any]:
+    """Change ``[self_build]``: validated, written to jarvis.toml, applied now.
+
+    The loop reads ``self.cfg`` through a getter, so replacing the in-memory
+    section is the whole hot-apply. Excluded from the brain's app actions: only
+    the person changes how far the loop may go (docs/self-build.md, rule 3).
+    """
+    from dodaios.core import config_writer
+    from dodaios.core.config import SelfBuildConfig
+
+    changes = body.model_dump(exclude_none=True)
+    if not changes:
+        raise HTTPException(status_code=400, detail="No settings were provided.")
+    cfg = _config(request)
+    current = getattr(cfg, "self_build", None) or SelfBuildConfig()
+    try:
+        merged = SelfBuildConfig(**{**current.model_dump(), **changes})
+    except Exception as exc:  # noqa: BLE001 — pydantic raises its own type
+        raise HTTPException(status_code=400, detail=f"Invalid setting: {exc}") from exc
+    await asyncio.to_thread(config_writer.set_self_build_settings, changes)
+    if cfg is not None:
+        try:
+            cfg.self_build = merged
+        except Exception as exc:  # noqa: BLE001 — the toml write still counts after a restart
+            log.warning("self_build: in-memory settings update skipped: %s", exc)
+    return _settings_payload(merged)
 
 
 @router.get("/{build_id}")

@@ -171,6 +171,34 @@ class SelfBuild:
             "items": [r.to_json() for r in rows[:20]],
         }
 
+    def provenance(self, artefact_type: str | None = None) -> dict[str, dict[str, Any]]:
+        """Which artefacts a build created, keyed by ``"<type>:<id>"``.
+
+        The "built by Dodaios" badge on agents, skills and routines joins on
+        this. Only builds whose artefact still exists count: on trial, kept or
+        archived (archived artefacts are kept, so the badge still links back).
+        """
+        wanted = (artefact_type or "").strip().lower()
+        out: dict[str, dict[str, Any]] = {}
+        rows = self.ledger.list(states=LIVE_STATES | {State.ARCHIVED}, limit=500)
+        for record in rows:
+            kind = str(record.artefact.get("type") or "").strip().lower()
+            ident = str(record.artefact.get("id") or "").strip()
+            if not kind or not ident or (wanted and kind != wanted):
+                continue
+            # Newest change first: the first row for an id is the current one.
+            out.setdefault(
+                f"{kind}:{ident}",
+                {
+                    "build_id": record.id,
+                    "type": kind,
+                    "id": ident,
+                    "state": record.state.value,
+                    "title": record.title,
+                },
+            )
+        return out
+
     # ------------------------------------------------------------ plumbing
 
     def spawn(self, coro: Awaitable[None], label: str) -> None:

@@ -13,6 +13,7 @@ import {
   type NavItem,
 } from "@/components/layout/navGroups";
 import { useEventStore } from "@/store/events";
+import { useSelfBuildWaiting } from "@/hooks/useSelfBuild";
 import { useSectionPrefetch } from "@/hooks/useSectionPrefetch";
 import { useVoiceReadiness } from "@/hooks/useVoiceReadiness";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
@@ -270,6 +271,9 @@ export function Sidebar({
   const agentsCount = useEventStore((s) =>
     s.events.filter((e) => e.name === "AgentStateChange").length > 0 ? undefined : 0,
   );
+  // Proposals that wait for the person's yes or no — a quiet number, never a
+  // toast or a sound (the self-building loop does not interrupt).
+  const selfBuildWaiting = useSelfBuildWaiting();
 
   // Read for the status line's connecting phase. Same resolver as the
   // mission-deck header and orb (`useVoiceMode`): a negotiating realtime
@@ -319,7 +323,7 @@ export function Sidebar({
   // retired "Jarvis Tools" folder used to be — it was the only entry hiding
   // behind "Show more" that users reached for daily, while the tools folder
   // duplicated exactly what "Show more" already lists.
-  const primaryIds = ["chats", "agents", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"];
+  const primaryIds = ["chats", "agents", "self-build", "dictation", "visualization", "agentic-ide", "plugins", "marketplace"];
   // The Settings hub owns its entries — they live in the hub's left
   // navigation now, so "Show more" must not list them a second time. The set
   // itself is named once in `navGroups` (`SETTINGS_HUB_IDS`).
@@ -336,7 +340,7 @@ export function Sidebar({
     const item = presentNavItem(raw, surface);
     return <NavRow key={item.id} item={item} label={resolveNavLabel(t, item)} compact={compact}
       active={item.matchIds ? item.matchIds.includes(active) : item.id === active}
-      badge={item.id === "agents" ? agentsCount : undefined}
+      badge={item.id === "agents" ? agentsCount : item.id === "self-build" ? selfBuildWaiting : undefined}
       betaLabel={item.beta ? t("nav.agentic_ide_beta") : undefined}
       alert={item.id === "apikeys" && apikeysHasError} alertTitle={t("sidebar.apikeys_alert")}
       warn={item.id === "plugins" && pluginsNeedReconnect}
@@ -528,6 +532,8 @@ export function Sidebar({
               {!railed && <span>{t("sidebar.new_chat")}</span>}
             </button></li>
             {renderRow(findItem("agents"))}
+            {/* What the agents and the loop built on their own, beside them. */}
+            {renderRow(findItem("self-build"))}
             {renderRow(findItem("dictation"))}
           </ul>
           <ul className="space-y-px">

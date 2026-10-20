@@ -343,7 +343,8 @@
     "voice_language": "Idioma",
     "voice_api_keys": "Chaves de API",
     "shortcuts": "Atalhos de teclado",
-    "pets": "Os meus Pets"
+    "pets": "Os meus Pets",
+    "self_build": "Feito para si"
   },
   "assistant_view": {
     "header_named": "O teu assistente em {0}, despertado por “{1}”.",
@@ -3170,7 +3171,8 @@
       "music": "Música",
       "keybinds": "Atalhos de teclado",
       "more": "Mais",
-      "overlay_taskbar": "Overlay e barra de tarefas"
+      "overlay_taskbar": "Overlay e barra de tarefas",
+      "self_build": "Autoconstrução"
     },
     "languages_group_title": "Idiomas",
     "sections": {
@@ -3515,7 +3517,43 @@
       "system_now_dark": "A seguir o teu sistema, que de momento está escuro.",
       "system_now_light": "A seguir o teu sistema, que de momento está claro."
     },
-    "invalid_setting": "Definição inválida"
+    "invalid_setting": "Definição inválida",
+    "self_build": {
+      "title": "Autoconstrução",
+      "description": "Até onde {name} pode ir quando constrói coisas para si por iniciativa própria.",
+      "open_view": "Abrir Feito para si",
+      "enabled_title": "Construir por iniciativa própria",
+      "enabled_description": "Reparar no que faz repetidamente e construir o que lhe tira esse trabalho. Desligado: nada é notado nem construído.",
+      "autonomy_title": "Até onde, por tipo",
+      "autonomy_description": "Desligado: nunca. Sugerir: um cartão pergunta primeiro. Ensaio: construído, verificado e ativo, com anulação num clique. Total: como ensaio, e um ensaio que foi usado é mantido sozinho.",
+      "levels": {
+        "off": "Desligado",
+        "suggest": "Sugerir",
+        "trial": "Ensaio",
+        "full": "Total"
+      },
+      "kinds": {
+        "memory": "Memórias",
+        "skill": "Competências",
+        "routine": "Rotinas",
+        "agent": "Agentes",
+        "code": "Alterações de código"
+      },
+      "limits_title": "Limites",
+      "limits_description": "Tetos fixos que o ciclo nunca ultrapassa, decida o que decidir.",
+      "limits": {
+        "max_builds_per_day": "Construções por dia",
+        "max_open_trials": "Ensaios abertos em simultâneo",
+        "max_agents_per_week": "Novos agentes por semana",
+        "max_code_runs_per_day": "Execuções de código por dia",
+        "trial_days": "Duração do ensaio em dias",
+        "trial_uses": "Duração do ensaio em utilizações",
+        "max_rejections": "Deixar de propor após tantas recusas",
+        "silent_days": "Primeiros dias em silêncio"
+      },
+      "save_error": "Não foi possível guardar: {detail}",
+      "unavailable": "Não foi possível carregar estas definições."
+    }
   },
   "telephony_view": {
     "title": "Telefonia (experimental)",
@@ -10110,5 +10148,10 @@
       "objections_one": "{count} objeção",
       "objections_other": "{count} objeções"
     }
+  },
+  "self_build_badge": {
+    "label": "Feito por {name}",
+    "title": "{name} construiu isto por iniciativa própria. Abrir a construção.",
+    "trial": "em ensaio"
   }
 }
