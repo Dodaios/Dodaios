@@ -121,6 +121,14 @@ jobs:
         run: |
           if [ -n "$VERSION" ]; then arg=(--version "$VERSION"); else arg=(--bump "$BUMP"); fi
           new="$(python scripts/ci/cut_release.py "${arg[@]}" --notes-out "$RUNNER_TEMP/notes.md" | tail -1)"
+          # A second cut dispatched before the first one landed starts from the
+          # old main and computes the same version again. Stop before it opens
+          # a candidate PR and lands an empty duplicate version commit.
+          git fetch --quiet --tags origin
+          if git show-ref --verify --quiet "refs/tags/v$new"; then
+            echo "::error::v$new is already tagged. main moved after this run was dispatched; start a new cut from current main."
+            exit 1
+          fi
           echo "version=$new" >> "$GITHUB_OUTPUT"
           git diff --stat
       - name: Mint a release bot token for the candidate

@@ -222,7 +222,8 @@ class MarkupWindow(_SelectWindow):
             )
         ]
         window = self._snaps[indices[0]]
-        parts = mm.window_parts(_box(window), boxes)
+        above = [_box(rect) for rect in self._snaps[: indices[0]]]
+        parts = mm.window_parts(_box(window), boxes, covers=above)
         self._parts[handle] = [QRectF(*box) for box in parts]
         if self._pointer is not None and self._choosing():
             self._follow_parts(self._pointer)
