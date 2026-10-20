@@ -1037,9 +1037,13 @@ class FakeTurnService(FakeService):
 
     async def send(self, session_id: str, text: str, attachments=None, *, incoming=None) -> str:
         self.sent.append((session_id, text))
+        # A sent turn runs until it finishes, as in the real service: the
+        # watcher must not take a quiet but live turn for one that has ended.
+        self.busy.add(session_id)
         return "turn-1"
 
     async def finish(self, session_id: str, text: str, *, status: str = "ok") -> None:
+        self.busy.discard(session_id)
         for q in list(self.queues.get(session_id, [])):
             q.put_nowait({"kind": "assistant_text", "payload": {"turn_id": "turn-1", "text": text}})
             q.put_nowait(
