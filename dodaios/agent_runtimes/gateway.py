@@ -38,7 +38,7 @@ import threading
 import time
 import uuid
 from collections import OrderedDict
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from email.utils import parsedate_to_datetime
@@ -98,6 +98,14 @@ _GRANTS_MAX: Final[int] = 1024
 _CLIENTS: dict[str, Any] = {}
 _MODEL_LIMITS: dict[Grant, dict[str, ModelLimits]] = {}
 _CATALOG: Any = None
+
+#: Catalog facts read for a turn are reused this long: a model's context
+#: window does not change between two messages, and the read (a provider's
+#: model list) sat in front of every turn's first token.
+_METADATA_TTL_S: Final[float] = 15 * 60
+#: ``(provider, account, model)`` -> (read at, catalog facts or ``None``).
+_METADATA: dict[tuple[str, str, str], tuple[float, Any]] = {}
+_METADATA_REFRESH: dict[tuple[str, str, str], asyncio.Task[Any]] = {}
 _FAILURES: dict[Grant, Future[str]] = {}
 _TURN_EFFORTS: dict[Grant, str] = {}
 _COOLDOWNS: OrderedDict[tuple[str, str, str], float] = OrderedDict()
@@ -240,7 +248,41 @@ def model_limits(grant: Grant, model: str) -> ModelLimits:
 
 
 async def refresh_model_limits(grant: Grant, model: str, config: Any) -> ModelLimits:
-    """Read catalog facts only; unavailable metadata keeps the conservative budget."""
+    """Read catalog facts only; unavailable metadata keeps the conservative budget.
+
+    Facts read in the last :data:`_METADATA_TTL_S` answer at once; older
+    ones still answer at once and are read again in the background, so only
+    the very first turn on a model waits for the provider's list.
+    """
+    key = (grant.provider, grant.account_id, model)
+    cached = _METADATA.get(key)
+    if cached is None:
+        found, metadata = await _read_metadata(grant, model)
+        if not found:
+            return await asyncio.to_thread(model_limits, grant, model)
+    else:
+        read_at, metadata = cached
+        if time.monotonic() - read_at > _METADATA_TTL_S and key not in _METADATA_REFRESH:
+            task = asyncio.get_running_loop().create_task(_read_metadata(grant, model))
+            _METADATA_REFRESH[key] = task
+            task.add_done_callback(lambda done: _metadata_refreshed(key, done))
+    if metadata is None or (
+        not getattr(metadata, "context_length", None)
+        and not getattr(metadata, "max_output_tokens", None)
+    ):
+        return await asyncio.to_thread(model_limits, grant, model)
+    return resolve_limits(config, grant.provider, model, metadata)
+
+
+def _metadata_refreshed(key: tuple[str, str, str], task: asyncio.Task[Any]) -> None:
+    _METADATA_REFRESH.pop(key, None)
+    if not task.cancelled() and task.exception() is not None:
+        # The facts already held keep answering; the next turn tries again.
+        log.warning("runtime gateway: background metadata read failed: %s", task.exception())
+
+
+async def _read_metadata(grant: Grant, model: str) -> tuple[bool, Any]:
+    """``(read, facts)`` from the provider's model list; remembered when read."""
     global _CATALOG  # one lazy catalog cache; no work on the boot path
     from types import SimpleNamespace
 
@@ -252,7 +294,7 @@ async def refresh_model_limits(grant: Grant, model: str, config: Any) -> ModelLi
         if grant.provider == SUBSCRIPTION_PROVIDER:
             rows = await asyncio.wait_for(_client(grant.account_id).list_models(), timeout=5)
             row = next((row for row in rows if row.get("id") == model), {})
-            metadata = SimpleNamespace(**row)
+            metadata: Any = SimpleNamespace(**row)
         else:
             if _CATALOG is None:
                 _CATALOG = await asyncio.to_thread(ModelCatalog)
@@ -261,13 +303,120 @@ async def refresh_model_limits(grant: Grant, model: str, config: Any) -> ModelLi
             metadata = next((row for row in catalog.models if row.id in aliases), None)
     except (TimeoutError, SubscriptionAuthError, SubscriptionReasoningError):
         log.info("runtime gateway: model metadata unavailable for %s", grant.provider)
-        return await asyncio.to_thread(model_limits, grant, model)
-    if metadata is None or (
-        not getattr(metadata, "context_length", None)
-        and not getattr(metadata, "max_output_tokens", None)
-    ):
-        return await asyncio.to_thread(model_limits, grant, model)
-    return resolve_limits(config, grant.provider, model, metadata)
+        return False, None
+    _METADATA[(grant.provider, grant.account_id, model)] = (time.monotonic(), metadata)
+    return True, metadata
+
+
+#: Grants in a warm-up run right now (:func:`warming`), with a nesting count.
+_WARMING: dict[Grant, int] = {}
+
+
+@contextlib.contextmanager
+def warming(token: str) -> Iterator[None]:
+    """While inside, EVERY model call of this token is answered here.
+
+    A runtime sets its agent loop up lazily on its first run (OpenClaw:
+    seconds per Gateway start). Dodaios runs that first run before the
+    person's message, inside this block: whatever model calls the run makes
+    (the prompt, a retry, anything else) get a fixed reply from the gateway
+    itself. No provider call, nothing billed, no usage recorded. Fail-closed
+    by grant, never by matching prompt text. The caller holds the agent's
+    turn slot, so no turn of the person runs on this token meanwhile.
+    """
+    grant = verify(token)
+    if grant is None:
+        raise GatewayError("Unknown runtime gateway token.", status=401)
+    with _LOCK:
+        _WARMING[grant] = _WARMING.get(grant, 0) + 1
+    try:
+        yield
+    finally:
+        with _LOCK:
+            left = _WARMING.get(grant, 0) - 1
+            if left > 0:
+                _WARMING[grant] = left
+            else:
+                _WARMING.pop(grant, None)
+
+
+def is_warmup(grant: Grant) -> bool:
+    """Whether this grant's model calls belong to a warm-up run (:func:`warming`)."""
+    with _LOCK:
+        return _WARMING.get(grant, 0) > 0
+
+
+#: What a warm-up run's model call is answered with.
+_WARMUP_REPLY: Final[str] = "ok"
+
+
+async def warmup_chat_stream(model: str) -> AsyncIterator[bytes]:
+    chat_id = f"chatcmpl-warmup-{uuid.uuid4().hex}"
+    yield _chunk(chat_id, model, {"role": "assistant", "content": ""})
+    yield _chunk(chat_id, model, {"content": _WARMUP_REPLY})
+    yield _chunk(chat_id, model, {}, finish="stop", usage=_openai_usage({}))
+    yield b"data: [DONE]\n\n"
+
+
+def warmup_chat_completion(model: str) -> dict[str, Any]:
+    return {
+        "id": f"chatcmpl-warmup-{uuid.uuid4().hex}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": _WARMUP_REPLY},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": _openai_usage({}),
+    }
+
+
+def _warmup_response(model: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    message = {
+        "id": f"msg_warmup_{uuid.uuid4().hex}",
+        "type": "message",
+        "role": "assistant",
+        "status": "completed",
+        "content": [{"type": "output_text", "text": _WARMUP_REPLY, "annotations": []}],
+    }
+    response = {
+        "id": f"resp_warmup_{uuid.uuid4().hex}",
+        "object": "response",
+        "created_at": int(time.time()),
+        "model": model,
+        "status": "completed",
+        "output": [message],
+        "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+    }
+    return message, response
+
+
+async def warmup_response_stream(model: str) -> AsyncIterator[bytes]:
+    message, response = _warmup_response(model)
+    started = {**response, "status": "in_progress", "output": []}
+    yield _sse({"type": "response.created", "response": started})
+    yield _sse({
+        "type": "response.output_item.added",
+        "output_index": 0,
+        "item": {**message, "status": "in_progress", "content": []},
+    })
+    part = {"item_id": message["id"], "output_index": 0, "content_index": 0}
+    yield _sse({
+        "type": "response.content_part.added", **part,
+        "part": {"type": "output_text", "text": "", "annotations": []},
+    })
+    yield _sse({"type": "response.output_text.delta", **part, "delta": _WARMUP_REPLY})
+    yield _sse({"type": "response.output_text.done", **part, "text": _WARMUP_REPLY})
+    yield _sse({"type": "response.output_item.done", "output_index": 0, "item": message})
+    yield _sse({"type": "response.completed", "response": response})
+
+
+def warmup_response(model: str) -> dict[str, Any]:
+    return _warmup_response(model)[1]
 
 
 def watch_failure(token: str, *, effort: str = "") -> Future[str]:
@@ -1083,7 +1232,8 @@ async def _deltas(
         login: str | None = None
         try:
             _require_turn(grant, signal)
-            secret = get_jarvis_agent_secret(grant.provider)
+            # A keyring read: never on the event loop.
+            secret = await asyncio.to_thread(get_jarvis_agent_secret, grant.provider)
             overrides = {grant.provider: secret} if secret else {}
             with override_provider_secrets(overrides), usage_context(RUNTIME_CALLER):
                 on_login, login = await asyncio.to_thread(
@@ -1435,3 +1585,5 @@ def reset() -> None:
         _FAILURES.clear()
         _TURN_EFFORTS.clear()
         _COOLDOWNS.clear()
+        _WARMING.clear()
+        _METADATA.clear()

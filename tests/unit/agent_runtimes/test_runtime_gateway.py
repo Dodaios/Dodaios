@@ -888,3 +888,75 @@ def test_vertex_runs_on_a_cloud_project_without_a_key(monkeypatch) -> None:
         monkeypatch.setattr(config, "vertex_credential_configured", lambda *a: True)
         assert model_map._checked_model(cfg, "vertex", "gemini-3-pro") == "gemini-3-pro"
 
+
+
+# --------------------------------------------------------------- warm-up runs
+
+
+def test_a_warm_up_run_is_answered_here_without_a_provider_call(fake, brain, guarded) -> None:
+    """While a runtime's warm-up run is in progress (its first agent run, before
+    the person's message), EVERY model call of that agent's token gets a fixed
+    reply from the gateway itself, whatever its prompt: nothing is billed."""
+    sub = gateway.grant_token("agent-1", "openai-codex")
+    key = gateway.grant_token("agent-1", "openai")
+    with gateway.warming(sub), gateway.warming(key):
+        answer = _post(guarded, sub, {
+            "model": "gpt-5.6-sol", "stream": True,
+            "input": [{"role": "user", "content": [{"type": "input_text", "text": "hi"}]}],
+        })
+        assert answer.status_code == 200, answer.text
+        frames = [
+            json.loads(line[5:]) for line in answer.text.splitlines() if line.startswith("data:")
+        ]
+        assert frames[0]["type"] == "response.created"
+        assert frames[-1]["type"] == "response.completed"
+        assert [f["delta"] for f in frames if f["type"] == "response.output_text.delta"] == ["ok"]
+        assert _post(guarded, sub, {"model": "gpt-5.6-sol", "input": "x"}).json()["status"] == (
+            "completed"
+        )
+
+        # Any prompt at all, a retry or a call nobody expected: still not forwarded.
+        streamed = _chat(guarded, key, {**_CHAT, "stream": True})
+        rows = streamed.text.splitlines()
+        lines = [line[5:].strip() for line in rows if line.startswith("data:")]
+        assert lines[-1] == "[DONE]"
+        text = "".join(
+            json.loads(line)["choices"][0]["delta"].get("content") or "" for line in lines[:-1]
+        )
+        assert text == "ok"
+        assert _chat(guarded, key, {**_CHAT, "stream": False}).json()["choices"][0][
+            "message"
+        ] == {"role": "assistant", "content": "ok"}
+    assert fake.calls == []
+    assert brain["requests"] == []
+    # Over: the agent's next call is a real one again.
+    _chat(guarded, key, {**_CHAT, "stream": True})
+    assert len(brain["requests"]) == 1
+
+
+def test_a_warm_up_needs_no_turn_of_the_person(fake, brain, guarded) -> None:
+    """Agent routes infer only inside a turn of the person; a warm-up run has
+    none (it holds the turn slot instead) and is still answered here, while
+    the same token outside a warm-up is refused as before."""
+    sub = gateway.grant_token("agent-1", "openai-codex", require_active_turn=True)
+    key = gateway.grant_token("agent-1", "openai", require_active_turn=True)
+    with gateway.warming(sub), gateway.warming(key):
+        answer = _post(guarded, sub, {"model": "gpt-5.6-sol", "input": "x"})
+        assert answer.status_code == 200, answer.text
+        assert answer.json()["status"] == "completed"
+        chat = _chat(guarded, key, {**_CHAT, "stream": False})
+        assert chat.status_code == 200, chat.text
+        assert chat.json()["choices"][0]["message"]["content"] == "ok"
+    assert _chat(guarded, key, {**_CHAT, "stream": False}).status_code == 409
+    assert fake.calls == [] and brain["requests"] == []
+
+
+def test_a_warm_up_covers_only_its_own_agent(fake, brain, guarded) -> None:
+    mine = gateway.grant_token("agent-1", "openai")
+    other = gateway.grant_token("agent-2", "openai")
+    with gateway.warming(mine):
+        answer = _chat(guarded, other, {**_CHAT, "stream": True})
+    assert answer.status_code == 200
+    assert len(brain["requests"]) == 1  # agent-2's own turn, on its own route
+    with pytest.raises(gateway.GatewayError), gateway.warming("jrg_unknown"):
+        pass

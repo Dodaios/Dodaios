@@ -1,0 +1,7 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/useCanvasAwake-D8TegIWj.js
+import{r as e}from"./index-Dgl0YDC3.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+|||||||| parent of 929f0ef611 (perf(agent-runtimes): keep Hermes and OpenClaw agents warm between turns):dodaios/ui/web/dist/assets/useCanvasAwake-E5AJsAvM.js
+import{r as e}from"./index-CYB7DSZW.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+========
+import{r as e}from"./index-BdyC9_VE.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+>>>>>>>> 929f0ef611 (perf(agent-runtimes): keep Hermes and OpenClaw agents warm between turns):dodaios/ui/web/dist/assets/useCanvasAwake-wyLl_sMI.js

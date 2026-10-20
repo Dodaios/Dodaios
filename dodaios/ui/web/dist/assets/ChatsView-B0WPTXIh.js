@@ -1,0 +1,7 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/ChatsView-B0WPTXIh.js
+import{j as s}from"./index-Dgl0YDC3.js";import{P as n}from"./PageHeader-B83xFikn.js";import"./WorkTrace-CLyusXUa.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+|||||||| parent of 929f0ef611 (perf(agent-runtimes): keep Hermes and OpenClaw agents warm between turns):dodaios/ui/web/dist/assets/ChatsView-C9nKnJIe.js
+import{j as s}from"./index-CYB7DSZW.js";import{P as n}from"./PageHeader-BJdIL_RP.js";import"./WorkTrace-DLSyuHAM.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+========
+import{j as s}from"./index-BdyC9_VE.js";import{P as n}from"./PageHeader-DflaX-ts.js";import"./WorkTrace-Bcrodu1S.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+>>>>>>>> 929f0ef611 (perf(agent-runtimes): keep Hermes and OpenClaw agents warm between turns):dodaios/ui/web/dist/assets/ChatsView-C7JbQPnH.js

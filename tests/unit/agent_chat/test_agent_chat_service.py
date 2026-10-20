@@ -900,3 +900,36 @@ def test_a_new_process_closes_turns_a_restart_left_open(tmp_path: Path) -> None:
     finished = [e for e in store.list_events(done_chat.session_id) if e["kind"] == "turn_finished"]
     assert len(finished) == 1
     assert store.open_turns() == []
+
+
+def test_opening_a_runtime_agents_chat_warms_its_runtime(tmp_path: Path, monkeypatch):
+    """POST /warm starts a Hermes/OpenClaw agent's process ahead of the message;
+    every other chat answers with a no-op."""
+    from dodaios.agent_chat import runner_acp
+
+    warmed: list[str] = []
+
+    async def fake_warm(session, store=None) -> bool:
+        assert store is not None  # the turn slot re-reads the conversation id
+        warmed.append(session.session_id)
+        return True
+
+    monkeypatch.setattr(runner_acp, "warm_session", fake_warm)
+    app = _app(tmp_path)
+    with TestClient(app) as client:
+        svc = app.state.agent_chat_factory()
+        app.state.agent_chat = svc
+        plain = svc.store.create_session(
+            provider="fakeprov", model="m", effort="", cwd=str(tmp_path)
+        )
+        agent = svc.store.create_session(
+            provider="ollama", model="m", effort="", cwd=str(tmp_path),
+            session_id="society:hermit", surface="society", runtime="hermes",
+        )
+        assert client.post(f"/api/agent-chat/sessions/{plain.session_id}/warm").json() == {
+            "warming": False, "session_id": plain.session_id,
+        }
+        answer = client.post(f"/api/agent-chat/sessions/{agent.session_id}/warm").json()
+        assert answer["warming"] is True
+        assert client.post("/api/agent-chat/sessions/nope/warm").status_code == 404
+    assert warmed == ["society:hermit"]
