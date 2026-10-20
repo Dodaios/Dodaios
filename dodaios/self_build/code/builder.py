@@ -362,9 +362,17 @@ async def _record(
         "repo": undo["repo"],
         "branch": undo["branch"],
         "stage": stage,
+        **_thread(undo),
         **extra,
     }
     await asyncio.to_thread(ctx.ledger.attach_artefact, record.id, artefact, dict(undo))
+
+
+def _thread(undo: dict[str, Any]) -> dict[str, str]:
+    """``{"thread": <agent-chat session id>}`` once the coding run has one: the
+    build detail links to it, so the person can read every step."""
+    session_id = str(undo.get("session_id") or "")
+    return {"thread": session_id} if session_id else {}
 
 
 async def _fail(ctx: Context, record: BuildRecord, error: BuildError, *, repo: str) -> None:
@@ -412,11 +420,18 @@ async def _guarded(ctx: Context, record: BuildRecord, step: Any) -> None:
         await _fail(ctx, record, BuildError(f"unexpected error: {type(exc).__name__}"), repo=repo)
 
 
-async def build(ctx: Context, record: BuildRecord, *, provider: str) -> None:
-    """Run one build to ``proving`` (pull request open), ``failed``, or back to the queue."""
+async def build(
+    ctx: Context, record: BuildRecord, *, provider: str, drop_env: tuple[str, ...] = ()
+) -> None:
+    """Run one build to ``proving`` (pull request open), ``failed``, or back to the queue.
+
+    ``drop_env``: variables the coding CLI's process must not see (``seat``).
+    """
 
     async def step(repo: str, issue: Issue, data: dict[str, Any]) -> None:
-        await _build(ctx, record, repo=repo, issue=issue, data=data, provider=provider)
+        await _build(
+            ctx, record, repo=repo, issue=issue, data=data, provider=provider, drop_env=drop_env
+        )
 
     await _guarded(ctx, record, step)
 
@@ -454,6 +469,7 @@ async def _build(
     issue: Issue,
     data: dict[str, Any],
     provider: str,
+    drop_env: tuple[str, ...] = (),
 ) -> None:
     folder = str(data["folder"])
     issue = await recheck(ctx, repo, issue, data)
@@ -500,7 +516,7 @@ async def _build(
 
     async def remember_session(session_id: str) -> None:
         undo["session_id"] = session_id
-        await _record(ctx, record, "coding", undo, thread=session_id)
+        await _record(ctx, record, "coding", undo)
 
     def should_stop() -> bool:
         try:
@@ -517,6 +533,7 @@ async def _build(
         timeout_s=ctx.run_timeout_s,
         should_stop=should_stop,
         on_session=remember_session,
+        drop_env=drop_env,
     )
     checkpoint(ctx, record)
     if not result.ok:
@@ -605,6 +622,7 @@ async def finish(
         "tests": detail[:500],
         "changed": changed[:30],
         "opened_ms": now_ms(),
+        **_thread(undo),
     }
     await asyncio.to_thread(ledger.attach_artefact, record.id, artefact, dict(undo))
     checkpoint(ctx, record)
