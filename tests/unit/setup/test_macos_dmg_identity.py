@@ -1,6 +1,6 @@
 """The downloadable .dmg app is its own installed app, with its own identity.
 
-``jarvis.spec`` (PyInstaller) cannot import ``dodaios.core.branding``, so it
+``dodaios.spec`` (PyInstaller) cannot import ``dodaios.core.branding``, so it
 carries the .dmg bundle id as a literal. The permission port accepts that id as
 an installed identity; if the two ever drift apart, every macOS feature of the
 .dmg app fails closed again — with every permission granted and no button left
@@ -22,7 +22,7 @@ from dodaios.platform.permissions import ACCEPTED_BUNDLE_IDS
 from dodaios.setup.macos_app_bundle import APP_DIR_NAME, installed_macos_app_bundle_path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-PYINSTALLER_SPEC = REPO_ROOT / "jarvis.spec"
+PYINSTALLER_SPEC = REPO_ROOT / "dodaios.spec"
 
 
 def test_the_spec_names_the_bundle_id_the_app_accepts_as_its_own() -> None:
@@ -30,7 +30,7 @@ def test_the_spec_names_the_bundle_id_the_app_accepts_as_its_own() -> None:
 
     match = re.search(r'^MACOS_BUNDLE_IDENTIFIER\s*=\s*"([^"]+)"', spec, re.MULTILINE)
 
-    assert match is not None, "jarvis.spec must declare MACOS_BUNDLE_IDENTIFIER"
+    assert match is not None, "dodaios.spec must declare MACOS_BUNDLE_IDENTIFIER"
     assert match.group(1) == MACOS_DMG_BUNDLE_ID
     # The Info.plist and the BUNDLE call must both use that one literal.
     assert '"CFBundleIdentifier": MACOS_BUNDLE_IDENTIFIER' in spec
@@ -96,3 +96,26 @@ def test_without_any_install_the_managed_location_is_reported(roots) -> None:
     assert path.name == APP_DIR_NAME
     assert path.parent in {system, user}
     assert not path.exists()
+
+
+def test_the_image_carries_the_app_under_its_current_name_and_its_old_id() -> None:
+    """The .dmg app took the current bundle name; its bundle id did not move,
+    so every privacy grant of an installed copy still names it."""
+    from dodaios.core.branding import MACOS_APP_DIR_NAME, MACOS_APP_NAME
+
+    spec = PYINSTALLER_SPEC.read_text(encoding="utf-8")
+    assert re.search(r'^MACOS_APP_NAME\s*=\s*"([^"]+)"', spec, re.MULTILINE).group(1) == (
+        MACOS_APP_DIR_NAME
+    )
+    assert f'"CFBundleName": "{MACOS_APP_NAME}"' in spec
+    assert f'"CFBundleDisplayName": "{MACOS_APP_NAME}"' in spec
+    assert MACOS_DMG_BUNDLE_ID == "ai.personaljarvis.desktop"
+    build = (REPO_ROOT / "packaging" / "macos" / "build.sh").read_text(encoding="utf-8")
+    assert f'\nAPP_NAME="{MACOS_APP_NAME}"\n' in build
+    # The mounted volume shows the same name as the app inside it.
+    assert f'\nVOLUME_NAME="{MACOS_APP_NAME}"\n' in build
+    workflow = (REPO_ROOT / ".github" / "workflows" / "desktop-installers.yml").read_text(
+        encoding="utf-8"
+    )
+    assert f'--app "dist/{MACOS_APP_DIR_NAME}"' in workflow
+    assert f'"$mount_point/{MACOS_APP_DIR_NAME}/Contents/MacOS/' in workflow

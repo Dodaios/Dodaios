@@ -1,15 +1,13 @@
-"""The always-on self-control line must reach EVERY system prompt.
+"""The self-control facts in the core contract must reach EVERY system prompt.
 
-Forensic 2026-07-10: a keyword-free self-control utterance ("ich will dich
-ab jetzt Edith rufen koennen"; i18n-allow: quoted utterance) missed _SELF_CONTROL_PATTERN, so the router
-LLM got no self-control guidance, answered in prose, and CLAIMED the wake-
-word change without any tool call. The standing line closes that hole
-without keyword whack-a-mole; these tests pin it.
-"""  # i18n-allow: quoted German utterance under test
+A keyword-free self-control request once got no self-control guidance, and the
+router LLM claimed a wake-word change without any tool call. The standing core
+contract closes that hole without keyword matching; these tests pin it.
+"""
 from __future__ import annotations
 
 from dodaios.brain.manager import (
-    _SELF_CONTROL_STANDING,
+    _CORE_CONTRACT,
     BrainManager,
 )
 from dodaios.core.config import load_config
@@ -32,33 +30,19 @@ def _manager() -> BrainManager:
     return m
 
 
-def test_standing_line_present_without_keyword_directive() -> None:
-    """No keyworded directive set — the standing line must be there anyway."""
-    m = _manager()
-    assert getattr(m, "_self_control_directive", "") == ""
-    prompt = m._build_system_prompt()
-    assert _SELF_CONTROL_STANDING in prompt
+def test_core_contract_is_in_every_prompt() -> None:
+    prompt = _manager()._build_system_prompt()
+    assert _CORE_CONTRACT in prompt
 
 
-def test_standing_line_names_the_structured_path_and_forbids_claiming() -> None:
-    # Flat registry tools (post-2026-07-11 rework): the line must name real
-    # callable tool names, not the retired `app-command` umbrella interface.
-    assert "brain-switch" in _SELF_CONTROL_STANDING
-    assert "wake-word-set" in _SELF_CONTROL_STANDING
-    low = _SELF_CONTROL_STANDING.lower()
+def test_core_contract_names_the_structured_path_and_forbids_claiming() -> None:
+    # The line must name real callable tool names.
+    assert "brain-switch" in _CORE_CONTRACT
+    assert "wake-word-set" in _CORE_CONTRACT
+    low = _CORE_CONTRACT.lower()
     # The anti-"said it, did nothing" rule, in plain words.
     assert "never" in low
     assert "tool call" in low
     # Wake-phrase renames are the reproduced failure — must be named so a
     # keyword-free phrasing still maps.
     assert "wake" in low
-
-
-def test_keyworded_directive_still_stacks_on_top() -> None:
-    from dodaios.brain.manager import _SELF_CONTROL_DIRECTIVE
-
-    m = _manager()
-    m._self_control_directive = _SELF_CONTROL_DIRECTIVE
-    prompt = m._build_system_prompt()
-    assert _SELF_CONTROL_STANDING in prompt
-    assert _SELF_CONTROL_DIRECTIVE in prompt

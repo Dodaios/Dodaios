@@ -41,6 +41,11 @@ class PromptHistoryEntry:
     #: :mod:`dodaios.agentic_ide.prompt_receipts` writes (name, kind, path, …).
     #: Empty on an ordinary prompt, so nothing changes there.
     attachments: tuple[dict[str, Any], ...] = ()
+    #: ``"person"`` when the person typed it at the app's window (the prompt
+    #: bar, a pane's chat, the launcher); empty for a brief Jarvis or an agent
+    #: sent, and for rows written before the field existed. Only the person's
+    #: own prompts are evidence for the self-building loop.
+    origin: str = ""
 
     @staticmethod
     def from_dict(value: Any) -> PromptHistoryEntry | None:
@@ -61,6 +66,7 @@ class PromptHistoryEntry:
         if submitted not in (True, False, None):
             submitted = None
         typed = value.get("typed")
+        origin = value.get("origin")
         raw_attachments = value.get("attachments")
         return PromptHistoryEntry(
             id=entry_id,
@@ -76,13 +82,24 @@ class PromptHistoryEntry:
                 for item in (raw_attachments if isinstance(raw_attachments, list) else ())
                 if isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"]
             ),
+            origin=origin if isinstance(origin, str) else "",
         )
+
+
+def store_dir() -> Path:
+    """Where every pane's history file lives (one ``<sha256>.jsonl`` per pane)."""
+    return _store_dir()
 
 
 def _store_dir() -> Path:
     from dodaios.core.paths import user_data_dir
 
     return user_data_dir() / "agentic_ide" / "prompt_history"
+
+
+def path_for(history_id: str) -> Path:
+    """The history file of the pane ``history_id`` (it may not exist yet)."""
+    return _path(history_id)
 
 
 def _path(history_id: str) -> Path:

@@ -1,7 +1,7 @@
 """European Portuguese speech input reaches the same workspace intents as the
 other supported locales — and ordinary Portuguese sentences stay out of them.
 
-Every utterance below is spoken input under test (AGENTS.md §1 list #4).
+Every utterance below is spoken input under test (list #4).
 """
 from __future__ import annotations
 

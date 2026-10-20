@@ -796,7 +796,7 @@ class PetDesign:
 
 # -- Gigi: the Jarvis ghost ---------------------------------------------------
 #
-# Drawn after the brand mark (``assets/icons/jarvis-gigi-256.png``, docs/BRAND.md):
+# Drawn after the brand mark (``assets/icons/dodaios-gigi-256.png``, docs/BRAND.md):
 # a black body with a white edge, a rounded head with straight sides, white
 # oval eyes with black pupils, grey cheek marks, two grey bands with a small
 # "o" mouth between them, thin hanging arms, three sharp teeth along the hem

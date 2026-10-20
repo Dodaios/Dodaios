@@ -74,7 +74,7 @@ def test_the_card_rides_the_cached_prefix_in_both_layouts(
 
     assert "Nova User" in prompt
     assert "Short answers" in prompt
-    assert "silence beats a personal fact nobody asked for" in prompt.lower()
+    assert "never recite it" in prompt.lower()
 
 
 def test_the_block_is_byte_stable_across_turns(tmp_path: Path) -> None:

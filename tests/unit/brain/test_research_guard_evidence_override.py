@@ -60,3 +60,24 @@ def test_non_action_tool_never_blocked() -> None:
     assert _should_block_action_as_research(
         tool, "search_web", _RESEARCH, "deep", evidence_required_tool=""
     ) is False
+
+
+class _FakeActionTool(_FakeTool):
+    is_action_tool = True
+
+
+def test_handoff_to_an_own_agent_is_never_blocked_as_research() -> None:
+    # Live 2026-10-20: "Create an agent named Vega whose job is web research,
+    # then ask Vega to introduce itself" had every message_agent /
+    # delegate_to_agent call denied as research, and the lead then made up
+    # the agent's answer. Handing work to one of the user's own agents is not a
+    # query against a connected system.
+    utterance = "Ask Vega, the web research agent, to introduce itself"
+    for name in ("message_agent", "delegate_to_agent", "ask_agent"):
+        assert _should_block_action_as_research(
+            _FakeActionTool(name), name, utterance, "deep", evidence_required_tool=""
+        ) is False
+    assert _should_block_action_as_research(
+        _FakeActionTool("cli_gcloud"), "cli_gcloud", utterance, "deep",
+        evidence_required_tool="",
+    ) is True

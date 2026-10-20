@@ -10,7 +10,7 @@ from dodaios.core.protocols import SupervisorToolRequest, ToolResult
 
 
 async def test_desktop_bootstrap_publishes_the_mcp_endpoint(monkeypatch):
-    from dodaios.agent_chat import jarvis_harness
+    from dodaios.agent_chat import dodaios_harness
     from dodaios.core import runtime_refs
     from dodaios.core.bus import EventBus
     from dodaios.ui.web.server import WebServer
@@ -18,7 +18,7 @@ async def test_desktop_bootstrap_publishes_the_mcp_endpoint(monkeypatch):
     urls = []
     monkeypatch.setattr(runtime_refs, "set_api_base_url", urls.append)
     monkeypatch.setattr(runtime_refs, "get_api_base_url", lambda: urls[-1] if urls else None)
-    monkeypatch.setattr(jarvis_harness, "control_key", lambda: "test-placeholder")
+    monkeypatch.setattr(dodaios_harness, "control_key", lambda: "test-placeholder")
 
     class ProbeFinished(Exception):
         pass
@@ -38,7 +38,7 @@ async def test_desktop_bootstrap_publishes_the_mcp_endpoint(monkeypatch):
     )
     with pytest.raises(ProbeFinished):
         await WebServer.start(probe, start_serving=False)
-    entry = jarvis_harness.agy_mcp_server_entry("society:nala")
+    entry = dodaios_harness.agy_mcp_server_entry("society:nala")
     assert entry["serverUrl"] == "http://127.0.0.1:48123/api/control/mcp/"
     assert entry["headers"]["X-Jarvis-Chat-Session"] == "society:nala"
 
@@ -195,14 +195,14 @@ async def test_root_subscription_browser_uses_chat_model_without_changing_roster
 def test_jarvis_codex_seat_uses_owned_browser_not_inherited_plugins(
     tmp_path, monkeypatch, session_id, resume
 ):
-    from dodaios.agent_chat import jarvis_harness, runner_cli
+    from dodaios.agent_chat import dodaios_harness, runner_cli
 
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "_account_env", lambda _: {})
     monkeypatch.setattr(
-        jarvis_harness, "endpoint", lambda: "http://127.0.0.1:47821/api/control/mcp/"
+        dodaios_harness, "endpoint", lambda: "http://127.0.0.1:47821/api/control/mcp/"
     )
-    monkeypatch.setattr(jarvis_harness, "control_key", lambda: "test-placeholder")
+    monkeypatch.setattr(dodaios_harness, "control_key", lambda: "test-placeholder")
     args = dict(
         prompt="Use the browser",
         cwd=tmp_path,
@@ -211,7 +211,7 @@ def test_jarvis_codex_seat_uses_owned_browser_not_inherited_plugins(
         permission_mode="ask",
         resume=resume,
     )
-    identity = jarvis_harness.Identity(session_id, "identity", "identity")
+    identity = dodaios_harness.Identity(session_id, "identity", "identity")
     plan = runner_cli.plan_codex(**args, identity=identity)
     assert "--ignore-user-config" in plan.argv
     assert "--ignore-rules" in plan.argv
@@ -228,7 +228,7 @@ async def test_failed_browser_mcp_preserves_partial_outcome_and_error_flag(monke
 
     import mcp.types as types
 
-    from dodaios.mcp import jarvis_tools_server as server
+    from dodaios.mcp import dodaios_tools_server as server
 
     tool = SimpleNamespace(
         name="society_browser",
@@ -261,7 +261,7 @@ async def test_cli_browser_retries_keep_the_user_turn_trace(monkeypatch):
 
     from dodaios.agent_chat.tool_context import register_turn, unregister_turn
     from dodaios.core.protocols import ChatTurn, current_chat_turn
-    from dodaios.mcp import jarvis_tools_server as server
+    from dodaios.mcp import dodaios_tools_server as server
 
     seen = []
     tool = SimpleNamespace(

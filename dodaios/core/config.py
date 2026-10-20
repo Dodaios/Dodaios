@@ -42,8 +42,9 @@ from dodaios.speech.wake_constants import DEFAULT_WAKE_PHRASE, WAKE_ENGINES
 # as safe here as wake_constants.
 from dodaios.ui.pets.states import DEFAULT_PET_ID
 
-from .branding import CONFIG_FILE_NAME, KEYRING_SERVICE_NAME
+from .branding import KEYRING_SERVICE_NAME, LEGACY_KEYRING_SERVICE_NAMES
 from .env_prefix import accepted_names
+from .identity_boot import resolve_config_file
 from .instance import current_instance, resolve_data_dir
 from .protocols import RiskTier
 
@@ -61,7 +62,10 @@ if TYPE_CHECKING:
 # ----------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_CONFIG_FILE = PROJECT_ROOT / CONFIG_FILE_NAME
+# ``jarvis.toml`` while the checkout has one (it is never renamed), else
+# ``dodaios.toml``: resolved once, like every other path constant here, so the
+# reader and every writer in ``config_writer`` address the same file (AP-7).
+DEFAULT_CONFIG_FILE = resolve_config_file(PROJECT_ROOT)
 PROFILES_DIR = PROJECT_ROOT / "profiles"
 
 
@@ -132,7 +136,11 @@ def _resolve_writable_data_dir() -> Path:
 
 
 def resolve_config_path() -> Path:
-    """Return the active ``jarvis.toml`` path, honouring ``JARVIS_CONFIG``.
+    """Return the active config file path, honouring ``JARVIS_CONFIG``.
+
+    Without the override it is :data:`DEFAULT_CONFIG_FILE`: the checkout's
+    ``jarvis.toml`` while one exists, else ``dodaios.toml``
+    (:func:`dodaios.core.identity_boot.resolve_config_file`).
 
     Cloud-first: a headless ``python:3.11-slim`` container (or any VPS where
     ``PROJECT_ROOT`` is read-only / does not exist) sets ``JARVIS_CONFIG`` to a
@@ -147,6 +155,15 @@ def resolve_config_path() -> Path:
 
 
 KEYRING_SERVICE = KEYRING_SERVICE_NAME
+# Services earlier versions filed credentials under. ``get_secret`` reads them
+# when the current service holds nothing for a slot (many slot names are only
+# known at runtime, so a one-time copy can never be complete), ``delete_secret``
+# clears them too (or a deleted key would come back through that read), and
+# ``set_secret`` refreshes an entry that already exists there so a downgrade
+# reads the new value. Nothing else ever writes to them.
+LEGACY_KEYRING_SERVICES: tuple[str, ...] = tuple(
+    service for service in LEGACY_KEYRING_SERVICE_NAMES if service != KEYRING_SERVICE_NAME
+)
 
 # Provider-secrets are intentionally kept out of TOML. Keep the accepted
 # Credential-Manager slots and ENV fallbacks in one place so pre-boot checks,
@@ -2009,7 +2026,7 @@ class JarvisAgentHarnessConfig(BaseModel):
     ⚠️ INERT TODAY (2026-06-28): Jarvis-Agent is NOT a registered harness —
     there is no ``jarvis_agent`` (formerly ``openclaw``) entry-point in
     pyproject.toml (Welle-4 removed the subprocess
-    worker, ~92% hang; see docs/BUGS.md). This block is a Wave-2 schema stub:
+    worker, ~92% hang). This block is a Wave-2 schema stub:
     setting ``enabled = true`` has NO effect — the harness cannot be dispatched
     and "start a subagent" routes to ``spawn_worker`` regardless. The boot path
     logs a warning when ``enabled`` is true but the harness is unregistered
@@ -2720,6 +2737,12 @@ class AppshotConfig(BaseModel):
     #: keys pairs with both-Alt for the window, exists on every keyboard and
     #: collides with no app or OS shortcut.
     region_hotkey: str = "shift+shift"
+
+    #: Off: releasing the area drag takes the appshot at once, with whatever
+    #: was marked on the screen before it. On: the area stays with resize
+    #: handles to adjust and mark it, and Enter or a double-click takes it.
+    #: The picker's toolbar flips it (read by ``dodaios.appshot.service``).
+    region_keep_area: bool = False
 
     #: One shortcut selects a recording area; pressing it again stops and saves.
     recording_hotkey: str = "ctrl+shift+9"
@@ -4541,6 +4564,17 @@ class AgenticIdeConfig(BaseModel):
         ),
     )
 
+    follow_main: bool = Field(
+        default=False,
+        description=(
+            "Keep a desktop app that runs from a git checkout on the newest main: "
+            "fetch origin every minute, fast-forward, rebuild the frontend and restart "
+            "for new Python code once nothing would be lost (no mission, no live call). "
+            "Never merges, rebases, resets or stashes; local edits that would be "
+            "overwritten stop the update and are reported."
+        ),
+    )
+
     pane_notifications: bool = Field(
         default=True,
         description=(
@@ -4663,6 +4697,41 @@ class VoiceEngineConfig(BaseModel):
         return cleaned or ["de", "en"]
 
 
+class SelfBuildConfig(BaseModel):
+    """``[self_build]`` — the self-building loop (docs/self-build.md).
+
+    Dodaios notices what the person keeps doing and builds what would take it
+    off them: a memory, a skill, a routine, an agent or a code change. Each
+    kind has its own autonomy level: ``off``, ``suggest`` (a card, nothing is
+    built before the person accepts), ``trial`` (built, checked and live with
+    one-click undo) or ``full`` (as trial, and the trial ends by measure).
+    Every key is read by ``dodaios.self_build.policy`` (AP-31).
+    """
+
+    model_config = {"extra": "allow"}
+
+    enabled: bool = True
+    #: The first days after the loop first ran only record build cases.
+    silent_days: int = Field(default=7, ge=0, le=90)
+    memory: Literal["off", "suggest", "trial", "full"] = "trial"
+    skill: Literal["off", "suggest", "trial", "full"] = "suggest"
+    routine: Literal["off", "suggest", "trial", "full"] = "suggest"
+    agent: Literal["off", "suggest", "trial", "full"] = "suggest"
+    code: Literal["off", "suggest", "trial", "full"] = "suggest"
+    #: A trial ends after this many days or this many uses, whichever is first.
+    trial_days: int = Field(default=14, ge=1, le=90)
+    trial_uses: int = Field(default=10, ge=1, le=1_000)
+    max_builds_per_day: int = Field(default=3, ge=0, le=50)
+    max_agents_per_week: int = Field(default=1, ge=0, le=10)
+    max_open_trials: int = Field(default=5, ge=0, le=50)
+    max_code_runs_per_day: int = Field(default=1, ge=0, le=20)
+    #: A need the person rejected or undid this often is not offered again.
+    max_rejections: int = Field(default=2, ge=1, le=20)
+    #: Repositories (``owner/name``) whose loop pull requests are merged once CI is
+    #: green ("land it"). Empty: every loop pull request is a draft the person merges.
+    code_land_repos: list[str] = Field(default_factory=list)
+
+
 class JarvisConfig(BaseModel):
     """Root config model."""
 
@@ -4682,6 +4751,7 @@ class JarvisConfig(BaseModel):
     # Google key routing (AI Studio vs Vertex express) — see GoogleAuthConfig.
     google: GoogleAuthConfig = Field(default_factory=GoogleAuthConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    self_build: SelfBuildConfig = Field(default_factory=SelfBuildConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
     harness: HarnessConfig = Field(default_factory=HarnessConfig)
@@ -5477,6 +5547,11 @@ class _FileCredStore:
             data.pop(self._k(service, username), None)
             self._save(data)
 
+    def usernames(self, service: str) -> tuple[str, ...]:
+        """Every entry name stored under ``service`` (this store, unlike an OS one, can list)."""
+        prefix = self._k(service, "")
+        return tuple(name[len(prefix) :] for name in self._load() if name.startswith(prefix))
+
 
 def _is_platform_keyring_backend(backend: Any) -> bool:
     """Return whether *backend* is a real platform credential-store candidate."""
@@ -5733,6 +5808,108 @@ def try_recover_platform_credential_store() -> bool:
     return True
 
 
+def _peek_password(backend: Any, service: str, key: str) -> str | None:
+    """Read one entry without letting the backend write anything on the way.
+
+    The macOS vault wrapper folds a per-item entry it finds into the vault on a
+    normal read; ``peek_password`` is its read-only twin. Every other backend
+    only reads in ``get_password``.
+    """
+    peek = getattr(backend, "peek_password", None)
+    if callable(peek):
+        return peek(service, key)
+    return backend.get_password(service, key)
+
+
+def _read_legacy_secret(key: str) -> tuple[str | None, str | None]:
+    """``(platform value, file value)`` of ``key`` under the first legacy service holding it.
+
+    Mirrors the current-service read in ``get_secret`` (the platform backend,
+    and the 0600 file store next to it) without ever writing, and without
+    degrading the process to the file backend when a legacy read fails: the
+    current service answered, so the store itself is usable.
+    """
+    for service in LEGACY_KEYRING_SERVICES:
+        file_val: str | None = None
+        try:
+            file_val = _FileCredStore().get(service, key)
+        except Exception:  # noqa: BLE001, S110 — unreadable fallback is absent
+            pass
+        platform_val: str | None = None
+        try:
+            import keyring
+
+            active_backend = keyring.get_keyring()
+            if getattr(active_backend, "_jarvis_file_backend", False):
+                # The active backend IS the file store read above; the platform
+                # copy, if any, lives in the retained backend.
+                platform_backend = _PLATFORM_KEYRING_BACKEND
+                if platform_backend is not None and _is_platform_keyring_backend(
+                    platform_backend
+                ):
+                    platform_val = _peek_password(platform_backend, service, key)
+            elif _is_platform_keyring_backend(active_backend):
+                # Through the module, like the current-service read above, so
+                # whatever the process routes ``keyring`` to is what answers.
+                peek = getattr(active_backend, "peek_password", None)
+                platform_val = (
+                    peek(service, key) if callable(peek) else keyring.get_password(service, key)
+                )
+        except Exception as exc:  # noqa: BLE001 — a legacy entry that cannot be read is absent
+            logging.getLogger(__name__).debug(
+                "legacy credential read for %s under %s failed (%s)",
+                key,
+                service,
+                type(exc).__name__,
+            )
+        if platform_val or file_val:
+            return platform_val, file_val
+    return None, None
+
+
+def _refresh_legacy_copies(key: str, value: str) -> None:
+    """Rewrite ``key`` under a legacy service where an entry already exists.
+
+    A transition measure: an install that goes back to a version that reads
+    only the legacy service must see the value saved last, not the one it
+    left behind. An entry is never created there, and a failure only costs
+    that downgrade the fresh value, so it is logged and never fails the save.
+    """
+    log = logging.getLogger(__name__)
+    for service in LEGACY_KEYRING_SERVICES:
+        try:
+            import keyring
+
+            backend = keyring.get_keyring()
+            if getattr(backend, "_jarvis_file_backend", False):
+                pass  # the file store is refreshed below
+            else:
+                peek = getattr(backend, "peek_password", None)
+                existing = (
+                    peek(service, key) if callable(peek) else keyring.get_password(service, key)
+                )
+                if existing is not None:
+                    keyring.set_password(service, key, value)
+        except Exception as exc:  # noqa: BLE001 — best effort, see the docstring
+            log.warning(
+                "legacy credential copy of %s under %s not refreshed (%s)",
+                key,
+                service,
+                type(exc).__name__,
+            )
+        try:
+            store = _FileCredStore()
+            if store.get(service, key) is not None:
+                store.set(service, key, value)
+        except Exception as exc:  # noqa: BLE001 — best effort, see the docstring
+            log.warning(
+                "legacy file credential copy of %s under %s not refreshed (%s)",
+                key,
+                service,
+                type(exc).__name__,
+            )
+
+
 def get_secret(key: str, env_fallback: str | None = None) -> str | None:
     """Retrieve a secret value from every portable credential source.
 
@@ -5740,6 +5917,10 @@ def get_secret(key: str, env_fallback: str | None = None) -> str | None:
     fallback. A fallback value for the same slot is newer than a stale OS copy,
     while ENV and ``.env`` keep their documented precedence. This lets an
     in-app save survive both a temporary keyring outage and the next restart.
+
+    A slot with no value under the current service is looked up under the
+    legacy services (``LEGACY_KEYRING_SERVICES``) next, at the same places in
+    that order, so a key saved before the service was renamed still beats ENV.
 
     Args:
         key: Secret name in the Credential Manager (e.g. "anthropic_api_key").
@@ -5797,6 +5978,13 @@ def get_secret(key: str, env_fallback: str | None = None) -> str | None:
                 file_val = keyring.get_password(KEYRING_SERVICE, key) or file_val
             except Exception:  # noqa: BLE001, S110
                 pass
+
+    # Nothing under the current service: the slot may still sit under the name
+    # an earlier version filed it under. Its values take the places the current
+    # ones would have had, so a legacy OS-keyring value still beats ENV exactly
+    # as before the rename. Read-only: this path never writes either service.
+    if not platform_val and not file_val:
+        platform_val, file_val = _read_legacy_secret(key)
 
     # Preserve OS-keyring-over-ENV precedence when this exact slot has no newer
     # fallback value. When both copies exist, ENV/.env keep their documented
@@ -6334,6 +6522,7 @@ def set_secret(key: str, value: str) -> bool:
                             return False
                     except Exception:  # noqa: BLE001
                         return False
+        _refresh_legacy_copies(key, value)
         _mark_secret_changed(key)
         return True
     except Exception as exc:  # noqa: BLE001
@@ -6346,11 +6535,76 @@ def set_secret(key: str, value: str) -> bool:
                 import keyring
 
                 keyring.set_password(KEYRING_SERVICE, key, value)
+                _refresh_legacy_copies(key, value)
                 _mark_secret_changed(key)
                 return True
             except Exception:  # noqa: BLE001
                 return False
         return False
+
+
+def _delete_secret_in(service: str, key: str) -> tuple[bool, bool]:
+    """Delete ``key`` under one service: ``(nothing is left there, a store confirmed it)``."""
+    # When a platform failure swapped this process onto the file backend, the
+    # retained platform store is a second live copy. Delete and verify it first.
+    # If that cannot be confirmed, leave the newer file copy intact: removing it
+    # would immediately reveal the stale platform value through get_secret().
+    retained_backend = _PLATFORM_KEYRING_BACKEND
+    if _FILE_BACKEND_ACTIVE and _is_platform_keyring_backend(retained_backend):
+        try:
+            from keyring.errors import PasswordDeleteError
+
+            try:
+                retained_backend.delete_password(service, key)
+            except PasswordDeleteError:
+                pass
+            if retained_backend.get_password(service, key) is not None:
+                return False, False
+        except Exception:  # noqa: BLE001
+            return False, False
+
+    keyring_ok = False
+    try:
+        import keyring
+        from keyring.errors import PasswordDeleteError
+
+        try:
+            keyring.delete_password(service, key)
+        except PasswordDeleteError:
+            # Every backend we rely on raises this specifically when the
+            # entry is already absent (e.g. the Windows Credential Manager
+            # backend; the file-fallback backend's delete is idempotent and
+            # never raises at all) — "nothing to delete" is itself a success.
+            pass
+        # Some backends return success without deleting anything. Read the
+        # active backend back before removing a newer fallback copy or claiming
+        # that the secret is gone.
+        keyring_ok = keyring.get_password(service, key) is None
+    except Exception:  # noqa: BLE001
+        # A genuine backend failure (locked Secret Service, transport
+        # error, ...). Deliberately do not retry via
+        # _install_file_cred_backend here: swapping the process-global
+        # keyring backend just because one delete failed would silently
+        # degrade every other credential read/write in this process while
+        # the real OS-keyring entry survives untouched.
+        keyring_ok = False
+
+    if not keyring_ok and not _FILE_BACKEND_ACTIVE:
+        # The fallback is authoritative when both copies exist. Preserve it
+        # until the platform deletion can be confirmed; removing it here would
+        # immediately resurface the stale platform credential through
+        # ``get_secret`` and make a later retry impossible.
+        return False, False
+
+    file_ok = False
+    try:
+        store = _FileCredStore()
+        if store.get(service, key) is not None:
+            store.delete(service, key)
+        file_ok = store.get(service, key) is None
+    except Exception:  # noqa: BLE001, S110
+        pass
+    return keyring_ok and file_ok, keyring_ok or file_ok
 
 
 def delete_secret(key: str) -> bool:
@@ -6367,71 +6621,18 @@ def delete_secret(key: str) -> bool:
     successful delete: the file copy (if any) was removed and ``True`` came
     back, while the real OS-keyring entry survived untouched and reappeared
     on the next boot. The ENV layer is read-only here and is never touched.
+
+    The key is deleted under the current service AND every legacy service:
+    ``get_secret`` reads a legacy entry when the current service has none, so
+    a copy left there would bring the deleted key straight back.
     """
     _ensure_keyring_backend()
-
-    # When a platform failure swapped this process onto the file backend, the
-    # retained platform store is a second live copy. Delete and verify it first.
-    # If that cannot be confirmed, leave the newer file copy intact: removing it
-    # would immediately reveal the stale platform value through get_secret().
-    retained_backend = _PLATFORM_KEYRING_BACKEND
-    if _FILE_BACKEND_ACTIVE and _is_platform_keyring_backend(retained_backend):
-        try:
-            from keyring.errors import PasswordDeleteError
-
-            try:
-                retained_backend.delete_password(KEYRING_SERVICE, key)
-            except PasswordDeleteError:
-                pass
-            if retained_backend.get_password(KEYRING_SERVICE, key) is not None:
-                return False
-        except Exception:  # noqa: BLE001
-            return False
-
-    keyring_ok = False
-    try:
-        import keyring
-        from keyring.errors import PasswordDeleteError
-
-        try:
-            keyring.delete_password(KEYRING_SERVICE, key)
-        except PasswordDeleteError:
-            # Every backend we rely on raises this specifically when the
-            # entry is already absent (e.g. the Windows Credential Manager
-            # backend; the file-fallback backend's delete is idempotent and
-            # never raises at all) — "nothing to delete" is itself a success.
-            pass
-        # Some backends return success without deleting anything. Read the
-        # active backend back before removing a newer fallback copy or claiming
-        # that the secret is gone.
-        keyring_ok = keyring.get_password(KEYRING_SERVICE, key) is None
-    except Exception:  # noqa: BLE001
-        # A genuine backend failure (locked Secret Service, transport
-        # error, ...). Deliberately do not retry via
-        # _install_file_cred_backend here: swapping the process-global
-        # keyring backend just because one delete failed would silently
-        # degrade every other credential read/write in this process while
-        # the real OS-keyring entry survives untouched.
-        keyring_ok = False
-
-    if not keyring_ok and not _FILE_BACKEND_ACTIVE:
-        # The fallback is authoritative when both copies exist. Preserve it
-        # until the platform deletion can be confirmed; removing it here would
-        # immediately resurface the stale platform credential through
-        # ``get_secret`` and make a later retry impossible.
-        return False
-
-    file_ok = False
-    try:
-        store = _FileCredStore()
-        if store.get(KEYRING_SERVICE, key) is not None:
-            store.delete(KEYRING_SERVICE, key)
-        file_ok = store.get(KEYRING_SERVICE, key) is None
-    except Exception:  # noqa: BLE001, S110
-        pass
-    if keyring_ok or file_ok:
+    results = [
+        _delete_secret_in(service, key) for service in (KEYRING_SERVICE, *LEGACY_KEYRING_SERVICES)
+    ]
+    if any(changed for _gone, changed in results):
         _mark_secret_changed(key)
-    return keyring_ok and file_ok
+    return all(gone for gone, _changed in results)
 
 
 # ----------------------------------------------------------------------

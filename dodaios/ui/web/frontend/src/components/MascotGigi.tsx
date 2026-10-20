@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { JARVIS_LOGO_PATH } from "@/components/brand/jarvisLogoPath";
+import { JARVIS_LOGO_PATH } from "@/components/brand/dodaiosLogoPath";
 import { cn } from "@/lib/utils";
 import { fill, translate, useT } from "@/i18n";
 import { useEventStore, type VoiceState, type SectionId } from "@/store/events";

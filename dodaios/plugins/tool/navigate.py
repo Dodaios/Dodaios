@@ -73,6 +73,8 @@ KNOWN: frozenset[str] = frozenset(
         "pets",
         # Keyboard shortcuts: every shortcut in one place, with a key tester.
         "shortcuts",
+        # Built for you: what the self-building loop made, with keep and undo.
+        "self-build",
     }
 )
 
@@ -258,6 +260,12 @@ _ALIASES: dict[str, str] = {
     "claves de entrada de voz": "voice-api-keys",  # i18n-allow: input vocab
     # The marketplace. "store"/"shop" are the words people actually reach for,
     # and none of these names anything else in the app.
+    "built for you": "self-build",
+    "self build": "self-build",
+    "self-building": "self-build",
+    "what you built": "self-build",
+    "für dich gebaut": "self-build",  # i18n-allow: input vocab
+    "construido para ti": "self-build",  # i18n-allow: input vocab
     "market": "marketplace",
     "market place": "marketplace",
     "store": "marketplace",

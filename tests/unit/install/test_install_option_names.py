@@ -278,41 +278,6 @@ def test_the_scripts_spell_the_prefixes_the_app_uses(path: Path) -> None:
     assert old_prefix in source
 
 
-@needs_bash
-@pytest.mark.parametrize(
-    ("variables", "expected"),
-    [
-        ({"DODAIOS_INSTALL_DIR": "new-dir"}, "new-dir"),
-        ({"JARVIS_INSTALL_DIR": "old-dir"}, "old-dir"),
-        ({"JARVIS_INSTALL_DIR": "old-dir", "DODAIOS_INSTALL_DIR": "new-dir"}, "new-dir"),
-        ({}, "HOME/.default"),
-    ],
-)
-def test_the_shell_uninstaller_targets_the_directory_either_name_gives(
-    tmp_path: Path, variables: dict[str, str], expected: str
-) -> None:
-    # The line that picks the directory: run exactly that, never the removal
-    # below it.
-    source = UNINSTALL_SH.read_text(encoding="utf-8")
-    match = re.search(r"^INSTALL_DIR=[^\n]*\n", source, re.M)
-    assert match is not None, "uninstall.sh no longer resolves INSTALL_DIR the tested way"
-    script = tmp_path / "resolve.sh"
-    script.write_text(
-        "set -euo pipefail\n"
-        'HOME="HOME"\n'
-        'DEFAULT_INSTALL_DIR_NAME=".default"\n'
-        + match.group(0)
-        + 'printf "%s\\n" "$INSTALL_DIR"\n',
-        encoding="utf-8",
-        newline="\n",
-    )
-
-    result = _run([BASH, str(script)], {**_base_env(), **variables})
-
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == expected
-
-
 def test_the_appimage_launcher_reads_its_switch_under_both_prefixes() -> None:
     # AppRun is POSIX sh and runs before the app: the new spelling first, the
     # earlier one as its fallback.

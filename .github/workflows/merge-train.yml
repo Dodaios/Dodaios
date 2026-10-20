@@ -21,6 +21,17 @@
 #      head commit its CI tested). A head the queue already failed is held
 #      until a new push or a train update. Without a queue on main (the
 #      rollback path) the train squash-merges one green PR per tick instead.
+#   4. Watchdog, for when an agent's session ended before its PR landed:
+#      `stuck` (label + one comment per head naming the next step) on a PR
+#      green for 30 min but neither queued nor set to auto-merge, red for
+#      60 min with no new commit, or with a conflict the train could not
+#      resolve; lifted once it moves. A PR (drafts too) with no commit for
+#      7 days is labelled `stale` and closed after 14 unless labelled `keep`.
+#   5. Merge freeze: while a PR carries a `merge-freeze` label younger than
+#      2 h (scripts/ci/merge_freeze.py), no other PR is enqueued or merged;
+#      updates, approvals and reruns go on. An older label is pointed out
+#      once on its PR and no longer holds main.
+#   A dry run (workflow_dispatch input) only reports all of this.
 #
 # Trust: three jobs, three privilege levels.
 #   plan       read-only token, no secrets, runs no pull-request code.
@@ -86,6 +97,7 @@ jobs:
       pull-requests: read
       actions: read
       checks: read
+      issues: read # label events: merge-freeze and stale ages
     outputs:
       updates: ${{ steps.plan.outputs.updates }}
     steps:
@@ -129,14 +141,14 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
-      - name: Regenerator dependencies (mirrors, reference docs, locks)
+      - name: Regenerator dependencies (reference docs, locks)
         # main's own checkout; each PR worktree is put first on PYTHONPATH
         # when its generators run.
         run: |
           python -m pip install -e . --no-deps
           python -m pip install typer platformdirs click httpx rich pyyaml pydantic loguru python-dotenv packaging uv==0.11.19
       - name: Restore recorded conflict resolutions (git rerere)
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .git/rr-cache
           key: rerere-${{ github.run_id }}
@@ -193,6 +205,7 @@ jobs:
       contents: write
       pull-requests: write
       actions: write
+      issues: write # the train's labels: stuck, stale, keep, merge-freeze
     env:
       DRY_RUN: ${{ inputs.dry_run }}
     steps:

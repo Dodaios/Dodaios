@@ -4,8 +4,7 @@
 
 ## Context
 
-Dodaios is cloud-first (CLAUDE.md §3, `docs/SINGLE-SOURCE-OF-TRUTH.md`
-§2): the baseline user is on a headless `python:3.11-slim` VPS with 1 vCPU, no
+Dodaios is cloud-first: the baseline user is on a headless `python:3.11-slim` VPS with 1 vCPU, no
 GPU, no CUDA, no audio hardware. The maintainer's RTX-5070-Ti workstation is a
 power-user profile representing <0.1 % of the intended install base. A fresh
 clone and a fresh deployment must therefore run on **CPU by default**, and a GPU
@@ -38,8 +37,7 @@ Two hard constraints shape any fix:
   blocking probe to a startup / hot path.
 
 (The mission brief referenced a `DA-Agents.md` key doc that does not exist in
-this tree; this ADR plus `docs/SINGLE-SOURCE-OF-TRUTH.md` §2 are the authoritative
-device-posture documents instead.)
+this tree; this ADR is the authoritative device-posture document instead.)
 
 ## Decision
 
@@ -152,4 +150,3 @@ the default flip would not change what a fresh clone actually does.
 - Tests: `tests/unit/core/test_device.py`
 - Anti-patterns: AP-21 (gate on capability, not provider), AP-24/AP-25 (native
   inference + GPU wake), AP-26 (no heavy init on the critical path)
-- Doctrine: CLAUDE.md §3, `docs/SINGLE-SOURCE-OF-TRUTH.md` §2, `CLOUD.md`

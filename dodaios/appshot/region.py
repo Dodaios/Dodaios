@@ -80,6 +80,10 @@ class RegionUnavailable(RuntimeError):
 _language: contextvars.ContextVar[str] = contextvars.ContextVar(
     "appshot_picker_language", default="en"
 )
+#: "Adjust the area before taking it" for the picker being started.
+_keep_area: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "appshot_picker_keep_area", default=False
+)
 
 #: One picker at a time: a second shortcut press, the page button and the
 #: voice tool must not stack overlays (one Esc would cancel all of them).
@@ -179,6 +183,25 @@ def snap_rects_on_screen(
     screen; slivers under ``min_px`` and rects on other screens are dropped.
     Order (top-most first) is kept, so the first hit is the visible window.
     """
+    return [
+        rect
+        for _index, rect in snap_targets_on_screen(screen, size, monitors, windows, min_px=min_px)
+    ]
+
+
+def snap_targets_on_screen(
+    screen: dict,
+    size: tuple[float, float],
+    monitors: list[dict],
+    windows: list[list[int]],
+    *,
+    min_px: float,
+) -> list[tuple[int, FRect]]:
+    """:func:`snap_rects_on_screen`, each rect with its index in ``windows``.
+
+    The index ties a rect that survived the clipping back to what came with
+    it (the window handle its elements are read from).
+    """
     monitor = match_monitor(screen, monitors)
     if monitor is None:
         return []
@@ -187,16 +210,19 @@ def snap_rects_on_screen(
     mh = max(1.0, float(monitor.get("height", 1)))
     width, height = float(size[0]), float(size[1])
     sx, sy = width / mw, height / mh
-    out: list[FRect] = []
-    for rect in windows:
+    out: list[tuple[int, FRect]] = []
+    for index, rect in enumerate(windows):
         if not isinstance(rect, (list, tuple)) or len(rect) != 4:
             continue
-        left, top, w, h = (float(v) for v in rect)
+        try:
+            left, top, w, h = (float(v) for v in rect)
+        except (TypeError, ValueError):  # a garbled rect is no snap target
+            continue
         x0, y0 = max(0.0, (left - ml) * sx), max(0.0, (top - mt) * sy)
         x1 = min(width, (left + w - ml) * sx)
         y1 = min(height, (top + h - mt) * sy)
         if x1 - x0 >= min_px and y1 - y0 >= min_px:
-            out.append((x0, y0, x1 - x0, y1 - y0))
+            out.append((index, (x0, y0, x1 - x0, y1 - y0)))
     return out
 
 
@@ -275,11 +301,15 @@ def snap_layout() -> dict[str, Any]:
     Read BEFORE the picker exists, so its own overlay never becomes a target.
     Rects are in capture coordinates, top-most window first; an empty window
     list (Wayland, an unreadable desktop) only switches snapping off.
+    ``handles`` runs alongside ``windows`` (``0`` = unknown): the picker reads
+    the parts of the window under the pointer through them, to snap to a
+    panel, list or button instead of the whole window.
     """
     from dodaios.screen_context.ports import make_display_enumerator  # noqa: PLC0415
 
     monitors = make_display_enumerator().monitors()
     windows: list[list[int]] = []
+    handles: list[int] = []
     try:
         from dodaios.platform import window_state as ws  # noqa: PLC0415
         from dodaios.screen_context.ports import _input_space  # noqa: PLC0415
@@ -290,10 +320,12 @@ def snap_layout() -> dict[str, Any]:
                     continue
                 rect = ws.window_frame_rect(win) or ws.window_rect(win)
                 if rect and rect[2] > 0 and rect[3] > 0:
+                    handle = getattr(win, "handle", None)
                     windows.append([int(v) for v in rect])
+                    handles.append(handle if isinstance(handle, int) else 0)
     except Exception:  # noqa: BLE001 - snapping is a convenience; dragging still works
         log.debug("appshot: window list for snapping unavailable", exc_info=True)
-    return {"monitors": [dict(m) for m in monitors], "windows": windows}
+    return {"monitors": [dict(m) for m in monitors], "windows": windows, "handles": handles}
 
 
 def _spawn(language: str = "en", *, resident: bool = False) -> subprocess.Popen[str]:
@@ -316,11 +348,13 @@ def _spawn(language: str = "en", *, resident: bool = False) -> subprocess.Popen[
 def _read_result(
     proc: subprocess.Popen[str], on_marking: Callable[[], None] | None = None,
     on_ready: Callable[[], None] | None = None,
+    on_option: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any] | None:
     """Block until the picker reports its selection; ``None`` on EOF.
 
-    ``on_marking`` runs (on this reader thread) once the user has chosen an
-    area and the marking toolbar is up.
+    ``on_marking`` runs (on this reader thread) once the user has marked
+    something, so the picker's own Esc may close a text box from then on;
+    ``on_option`` with each switch the user flips in the toolbar.
     """
     from dodaios.appshot import picker as wire  # noqa: PLC0415
 
@@ -337,6 +371,9 @@ def _read_result(
         if event == wire.EVENT_MARKING and on_marking is not None:
             with contextlib.suppress(Exception):  # a lost hint only keeps the global Esc
                 on_marking()
+        if event == wire.EVENT_OPTION and on_option is not None:
+            with contextlib.suppress(Exception):  # a lost switch is only not remembered
+                on_option(payload)
     return None
 
 
@@ -420,11 +457,17 @@ def grab_preview(screen: Any) -> Any | None:
 
 
 async def pick_region(
-    *, timeout_s: float = PICK_TIMEOUT_S, language: str = "en", trace_id: UUID | None = None,
+    *,
+    timeout_s: float = PICK_TIMEOUT_S,
+    language: str = "en",
+    keep_area: bool = False,
+    trace_id: UUID | None = None,
 ) -> Selection | None:
     """Let the user drag a rectangle and mark it up. ``None`` = cancelled or timed out.
 
-    ``language`` is the toolbar's tooltip language (``[ui].language``).
+    ``language`` is the toolbar's tooltip language (``[ui].language``);
+    ``keep_area`` keeps a released area to adjust it before it is taken
+    (``[appshot].region_keep_area``), instead of taking it at once.
     Raises :class:`RegionUnavailable` when no picker can run on this host.
     """
     global _picking
@@ -441,9 +484,11 @@ async def pick_region(
 
         await require_screen_recording_async("appshot", trace_id=trace_id)
         token = _language.set(language or "en")
+        keep_token = _keep_area.set(bool(keep_area))
         try:
             payload, code, timed_out = await _run_picker(timeout_s)
         finally:
+            _keep_area.reset(keep_token)
             _language.reset(token)
     finally:
         _picking = False
@@ -474,7 +519,9 @@ async def _run_picker(timeout_s: float) -> tuple[dict[str, Any] | None, int | No
     from dodaios.appshot.picker_host import get_picker_host
 
     try:
-        return await get_picker_host().pick(timeout_s, _language.get())
+        return await get_picker_host().pick(
+            timeout_s, _language.get(), keep_area=_keep_area.get()
+        )
     except (OSError, TimeoutError) as exc:
         log.warning("appshot: area picker could not be started", exc_info=True)
         raise RegionUnavailable("The selection overlay could not be started.") from exc
@@ -495,4 +542,5 @@ __all__ = [
     "selection_to_bbox",
     "snap_layout",
     "snap_rects_on_screen",
+    "snap_targets_on_screen",
 ]

@@ -32,7 +32,7 @@ const MODES = [
   { value: "agents", labelKey: "society.roster.title", Icon: Users },
 ] as const;
 
-const loadWorld = () => import("@/views/JarvisAgentsView").then((m) => ({ default: m.JarvisAgentsView }));
+const loadWorld = () => import("@/views/DodaiosAgentsView").then((m) => ({ default: m.DodaiosAgentsView }));
 const JarvisAgentsBoard = lazy(loadWorld);
 const preloadWorld = () => { void loadWorld().catch((error) => console.debug("World preload unavailable", error)); };
 

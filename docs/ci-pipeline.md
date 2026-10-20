@@ -99,7 +99,7 @@ request, merge queue, and again on the push of the same commit).
 | Stage | What it does | Script |
 | --- | --- | --- |
 | `detect` | Picks the tier and the matrices, then classifies the diff into lanes. Fails open: an empty diff, a pipeline change, the nightly run and a manual run turn every lane on. A merge-queue group is classified against the queue base. Only a push the merge queue already proved turns every lane off. | `scripts/ci/plan_run.py`, `scripts/ci/classify_changes.py` |
-| `static gates` | ~20 repository gates (keys, bundle, mirrors, privacy, docs, CLI coverage, ratchets, bash 3.2, no new German) in one job. Every gate reports. | `scripts/ci/run_gates.py` |
+| `static gates` | ~20 repository gates (keys, bundle, AGENTS.md, privacy, docs, CLI coverage, ratchets, bash 3.2, no new German) in one job. Every gate reports. | `scripts/ci/run_gates.py` |
 | `zizmor` / `dependency review` | Workflow security audit on every event (merge queue included, exceptions in `.github/zizmor.yml`); dependency review on pull requests only, failing on an added dependency with a high or critical advisory. `security.yml` keeps the Security-tab uploads. | — |
 | `live third-party sites` | Nightly only and non-blocking: the opt-in live checks of pages the app parses (`JARVIS_LIVE_NETWORK_TESTS=1`, ollama.com's library). A site redesign shows as a failed step and a run warning, never as a red gate. | — |
 | `python contracts (fast)` | Import cleanliness on the bare install, the named contract guards, skill-routing precision and recall, plugin auth. Blocking, no baseline. | — |
@@ -252,9 +252,9 @@ merge queue), and hourly as a safety net:
    those already labelled `needs-rebase`: in number order the three oldest
    pull requests, two of them unresolvable, had held every slot for days.
 2. Conflicts resolve by file class: **generated** files (frontend `dist/`,
-   agent mirrors, CLI reference docs, lockfiles, timing caches) take main's
+   CLI reference docs, lockfiles, timing caches) take main's
    copy and are regenerated; **append-only** files (CHANGELOG, allowlists,
-   `.gitignore`, `docs/BUGS.md`) are union-merged; **everything else** goes
+   `.gitignore`) are union-merged; **everything else** goes
    to the optional AI resolver (`ANTHROPIC_API_KEY` → Claude Code,
    `OPENAI_API_KEY` → Codex CLI, both pinned to exact versions). Its result
    must leave no conflict markers and must still parse, and CI re-runs on it
@@ -301,6 +301,40 @@ login (`gh pr merge <branch> --auto --squash`): once `CI gate` is green,
 GitHub adds the pull request to the merge queue itself and the `merge_group`
 run starts normally. A pull request opened another way gets the same with
 that one command. Drafts and the opt-out labels are left alone.
+
+**Watchdog.** A coding agent's session can end before its pull request
+lands. Every tick the train also looks for pull requests that stopped moving
+(`scripts/ci/agent_integrate.py`, `watch_verdict` and `stale_sweep`):
+
+- `stuck`: CI green for 30 min but neither in the merge queue nor set to
+  auto-merge; CI red for 60 min with no new commit; or a conflict the train
+  could not resolve (next to `needs-rebase`). The label comes with one
+  comment per head commit that names the next step ("Request auto-merge:
+  `gh pr merge <n> --auto --squash`", "Fix the failing checks: …"); a hidden
+  marker in that comment keeps later ticks quiet. The label goes as soon as
+  the pull request moves (new head, queued, auto-merge requested, or updated
+  by the train). With the merge bot token a green pull request is simply
+  enqueued, so it only gets the label when the queue refuses it.
+- `stale`: an agent pull request, drafts included, with no commit of its own
+  for 7 days (the train's merges of main do not count) gets the label and
+  the comment "No activity for 7 days; this closes in 7 more days unless
+  labelled `keep`." It is closed after 14 days without a commit, and never
+  before the label has been on it for a full week. `keep`, `needs-human`,
+  `merge-freeze` and the opt-out labels exempt a pull request; Dependabot's
+  are never touched. A new commit lifts the label.
+
+**Merge freeze.** A change that rewrites much of the tree (a package move)
+needs main to stand still until it lands. Its author labels it
+`merge-freeze` (`scripts/ci/merge_freeze.py`). While that label is younger
+than 2 h the train enqueues and merges no other pull request; branch updates,
+approvals and reruns go on. An older label no longer holds main, so a dead
+session cannot freeze it for good; the train says so once on that pull
+request.
+
+The train creates its labels (`stuck`, `stale`, `keep`, `merge-freeze`) the
+first time it sets one. A dry run (the workflow's `dry_run` input, or
+`agent_integrate.py train --dry-run`) lists every label, comment and close it
+would make and makes none.
 
 **Rollback.** If the queue stalls, disable the "main merge queue" ruleset
 (Settings → Rules → Rulesets, or `gh api -X PUT
@@ -413,8 +447,9 @@ A release happens **only** when the maintainer asks for one.
   while CI still runs). A separate main run cannot replace this tag's evidence.
   Tag CI is excluded from branch-run cancellation. The checkout, tag and SHA must identify the same commit;
   failure to fetch main cannot fall back to stale ancestry.
-* The GitHub Release (notes + the resumable `personal-jarvis-src.tar.gz`) is
-  staged as a draft. `release_assets.py` waits for all three publishers and
+* The GitHub Release (notes + the resumable source archive, published as
+  `dodaios-src.tar.gz` and as `personal-jarvis-src.tar.gz` for installers from
+  before the rename) is staged as a draft. `release_assets.py` waits for all three publishers and
   verifies each actual publication job in its latest attempt; workflow success
   with a skipped publication job is insufficient. It
   verifies required assets and GitHub's stored digests against both checksum
@@ -435,13 +470,32 @@ A release happens **only** when the maintainer asks for one.
   Re-run failed jobs with their original build artifacts to recover a partial
   upload; a full rebuild with different bytes requires an explicit decision.
   The in-app updater follows `releases/latest`; draft releases remain hidden.
+* **Two names per installer.** Every native installer is published as
+  `Dodaios-*` and, with identical bytes, under its earlier `PersonalJarvis-*`
+  name, the only one installs from before the rename look for. The macOS and
+  Linux builds produce the `Dodaios-*` file; the Windows setup is built and
+  signed as `PersonalJarvis-Setup-x64.exe`, because the SignPath artifact
+  configuration pins that name (docs/code-signing-policy.md). After signing,
+  the release job copies each file to its other name
+  (`scripts/ci/installer_aliases.py`), `installers-SHA256SUMS.txt` lists both,
+  and finalization refuses a release whose two names of one installer differ.
+* **Two names on PyPI.** `release.yml` builds the wheel and sdist as `dodaios`
+  and again as `personal-jarvis`, the earlier name, from a copy of
+  `pyproject.toml` that differs only in the names
+  (`scripts/ci/build_distributions.py`), and publishes `personal-jarvis` first,
+  then `dodaios`. Both projects trust the same publisher (this repository,
+  `release.yml`, environment `pypi`). The two distributions own the same
+  files, so `install/installer.py` uninstalls `personal-jarvis` before it
+  installs the checkout, and the app logs one warning when an environment
+  holds both.
 * **Build provenance.** On a tag, `desktop-installers.yml` attests every
   native installer listed in `installers-SHA256SUMS.txt` (`.exe`, both
-  `.dmg`, `.AppImage`, `.deb`) with `actions/attest-build-provenance` before
-  the upload. Anyone can check a download:
+  `.dmg`, `.AppImage`, `.deb`, under both names) with
+  `actions/attest-build-provenance` before the upload. Anyone can check a
+  download:
 
   ```bash
-  gh attestation verify PersonalJarvis-Setup-x64.exe -R Dodaios/Dodaios
+  gh attestation verify Dodaios-Setup-x64.exe -R Dodaios/Dodaios
   ```
 
   Releases up to and including v2.9.0 predate this and have no attestation.

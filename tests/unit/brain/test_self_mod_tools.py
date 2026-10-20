@@ -39,7 +39,7 @@ FIXTURE = (
     Path(__file__).parent.parent
     / "self_mod"
     / "fixtures"
-    / "minimal_jarvis.toml"
+    / "minimal_dodaios.toml"
 )
 
 
@@ -219,7 +219,7 @@ class TestListMutableSettings:
     def test_current_values_match_fixture(self, tools: dict[str, Any]) -> None:
         result = _exec(tools["list_mutable_settings"], {})
         by_path = {entry["path"]: entry for entry in result.output}
-        # From minimal_jarvis.toml:
+        # From minimal_dodaios.toml:
         assert by_path["tts.provider"]["current_value"] == "gemini-flash-tts"
         assert by_path["tts.speed"]["current_value"] == 1.0
         assert by_path["profile.language"]["current_value"] == "de"

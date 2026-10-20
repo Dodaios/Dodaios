@@ -1,0 +1,257 @@
+# ============================================================
+#  Dodaios — configuration TEMPLATE
+# ------------------------------------------------------------
+#  This file is OPTIONAL. Dodaios boots with no config file at all
+#  (every value below has a built-in default in dodaios/core/config.py).
+#  Copy this to `dodaios.toml` only if you want to override defaults
+#  (an install that already has a `jarvis.toml` keeps using that file):
+#      cp dodaios.toml.example dodaios.toml
+#
+#  SECRETS DO NOT GO HERE. API keys live in your OS credential manager
+#  (run `python -m dodaios --wizard`) or in `.env` (see .env.example).
+#  Never commit a real jarvis.toml — it is gitignored.
+#
+#  Overrides cascade: jarvis.toml  →  ENV (JARVIS__SECTION__KEY=...)
+#  DODAIOS__SECTION__KEY=... is the same override; if both are set, it wins.
+#  Any section you delete falls back to the code defaults.
+#  This template ships cloud-first defaults (no GPU, no local model,
+#  no microphone required) so it runs on a 1 vCPU / 1 GB VPS.
+# ============================================================
+
+[profile]
+name = "default"
+language = "auto"            # "de" | "en" | "auto" (bilingual auto-detect)
+
+[persona]
+# The assistant's name. Empty -> derived from your chosen wake-word phrase
+# below (e.g. a phrase like "Hey Nova" gives the name "Nova"). Leave blank
+# to keep the default. The wake word is always YOUR choice — nothing is
+# preset for you.
+name = ""
+
+# ── Voice trigger (optional; irrelevant on a headless/browser-only host) ──
+[trigger]
+wake_word_enabled = true     # always-on wake listener (needs a mic)
+single_turn_mode = false     # false = conversation stays open until "hang up"/idle
+hotkey_pet_toggle = "alt+win+p"  # hide / show the desktop pet (macOS: cmd+alt+p); "" = off
+
+[trigger.wake_word]
+# Type any phrase you like — no wake word ships with the product (design
+# 2026-07-07). "auto" resolves the best generic engine for your phrase:
+# your own trained .onnx -> any-word Vosk keyword spotting -> local-Whisper
+# transcript match -> honest hotkey-only mode with a clear message.
+# Leave blank to pick your word during onboarding.
+phrase = ""
+engine = "auto"              # auto | openwakeword | vosk_kws | stt_match | custom_onnx
+sensitivity = 0.5            # 0.5..1 (values below 0.5 are lifted — the wake would be deaf)
+
+# ── Speech-to-Text ──
+[stt]
+provider = "groq-api"        # groq-api | openai-api | openrouter-stt | gemini-api | vertex-stt | faster-whisper (local)
+device = "cpu"               # cpu | cuda — keep "cpu" unless you have a local GPU
+language = "auto"            # auto, or a weak ISO-639 preference such as "fr"
+bias_prompt = ""             # optional comma-separated vocab to stabilize proper nouns
+temperature = 0.0            # deterministic when the selected model supports it
+
+# Cloud model pins are provider-specific; an omitted pin uses that plugin's
+# default. Configure these in the app's model picker in normal use.
+[stt.models]
+# openai-api = "gpt-4o-transcribe"
+# openrouter-stt = "openai/gpt-4o-transcribe"
+
+# ── Dictation quality ──
+[dictation]
+# Short segments update the live preview. Delivery comes from a second pass
+# over the complete recording in long overlapping windows.
+final_quality_pass = true
+final_window_seconds = 25.0
+final_overlap_seconds = 1.5
+# Auto-detect each final window so language changes remain in the spoken
+# language. Turn this off only to apply the preference as a hard monolingual pin.
+code_switching = true
+
+# ── Text-to-Speech ──
+# Cloud default = Gemini Flash TTS (reuses your GEMINI_API_KEY). Alternatives:
+#   provider = "cartesia"    (Sonic 3.5, 42 languages — needs CARTESIA_API_KEY + [tts.cartesia] voice ids)
+#   provider = "grok-voice"  (reuses GROK_API_KEY)
+#   provider = "elevenlabs"  (needs ELEVENLABS_API_KEY)
+[tts]
+provider = "gemini-flash-tts"
+fallback = "grok-voice"
+model = "gemini-3.1-flash-tts-preview"
+voice_de = "Charon"
+voice_en = "Charon"
+language_code = "auto"
+streaming = true
+# Legacy TTS-only Vertex route (predates the [google] section below). Kept for
+# existing installs; new setups should pick provider = "vertex-tts" instead, which
+# shares ONE Vertex credential with the brain, STT and realtime tiers.
+use_vertex = false
+vertex_project = ""
+service_account_path = "~/.config/jarvis/vertex-sa.json"
+
+# ── Google endpoint routing (AI Studio vs Google Cloud Vertex AI) ──
+# vertex_mode decides where an AMBIGUOUS key stored in a Gemini slot goes:
+#   "auto"   probe once per process and remember (default)
+#   "always" force Vertex   |   "never" force AI Studio
+# The vertex_* fields below configure the dedicated Vertex provider family
+# (brain "vertex", stt "vertex-stt", tts "vertex-tts", realtime "vertex-live",
+# and the same slug as a subagent). Leave vertex_project empty to authenticate
+# with a Vertex API key; set it to use a Google Cloud project with Application
+# Default Credentials and no key at all.
+# Note that Vertex takes an API key ONLY in express mode (AQ.). A normal Cloud
+# project authenticates via Application Default Credentials — no key at all:
+#   gcloud auth application-default login
+[google]
+vertex_mode = "auto"
+vertex_project = ""
+# "global" carries the current Gemini generation; a named region (europe-west4,
+# us-central1, …) is what data residency needs — and regions lag on new models.
+vertex_location = "global"
+# The Live/realtime socket is a DIFFERENT endpoint: "global" serves no Live
+# session at all, so realtime needs a region. Empty = follow vertex_location
+# when it names a region, else fall back to a region and log which one.
+vertex_realtime_location = ""
+service_account_path = ""     # only when this machine is not signed in with gcloud
+
+# ── Brain (multi-provider; never hardcode a single vendor) ──
+# Cloud-reachable default = Gemini (needs only GEMINI_API_KEY). Switch the
+# whole stack by changing these four to "claude-api" | "openai" | "grok" |
+# "openrouter" | "vertex" and supplying that provider's key.
+[brain]
+primary = "gemini"
+fallback = "gemini"
+deep_brain = "gemini"
+routing_provider = "gemini"
+routing_model = "gemini-3.5-flash"
+
+[brain.providers.gemini]
+model = "gemini-3.5-flash"          # fast router/voice tier
+deep_model = "gemini-3.1-pro-preview"  # heavy worker/critic tier
+
+[brain.providers.claude-api]
+auth_mode = "api_key"               # uses ANTHROPIC_API_KEY
+model = "claude-haiku-4-5-20251001"
+deep_model = "claude-opus-4-8"
+
+[brain.providers.openai]
+model = "gpt-5.5"
+deep_model = "gpt-5.5-pro"
+
+[brain.providers.grok]
+model = "grok-4.3"
+deep_model = "grok-4.3"
+
+[brain.providers.openrouter]
+model = "anthropic/claude-opus-4.8"
+base_url = "https://openrouter.ai/api/v1"
+
+# Optional current local preset. Keep the cloud-first [brain] defaults above
+# unless you intentionally run this server. Start llama.cpp with the matching
+# stable alias (cross-platform commands are in the local-AI guide), then make
+# "local-openai" the active Brain in-app. Keep a ready provider from another
+# family in the fallback chain (AP-22).
+[brain.providers.local-openai]
+model = "gemma-4-12b-it-qat-q4_0"
+base_url = "http://127.0.0.1:8080"
+
+# ── Safety: anti-confirmation-fatigue whitelist + hard blacklist ──
+[safety]
+approval_mode = "bypass"
+default_tier = "safe"
+always_confirm_tiers = ["ask"]
+always_block_tiers = ["block"]
+
+[safety.whitelist]
+# fnmatch patterns against "<tool_name> <args>" or the bare "<args>"; a match
+# downgrades to "safe". Do NOT add "run_shell *": shell commands come with a
+# tiered model out of the box (Claude-Code permission style) — commands that
+# only read or modify run without confirmation, destructive commands (rm,
+# del, format, Remove-Item, ...) ask first UNLESS the user's own request
+# already named the destruction ("delete the folder X"). A blanket
+# "run_shell *" entry would switch all of that off.
+commands = [
+    "open_app *", "type_text *", "search_web *", "remember *",
+    "dispatch_to_harness *", "screenshot *",
+    "git status", "git log *", "git diff *",
+]
+
+[safety.blacklist]
+commands = ["format *", "rm -rf /", "del /f /s /q C:\\", "shutdown /p", "reg delete HKLM\\*"]
+
+# ── Audio I/O ──
+[audio]
+input_device = "auto"        # "auto" | shortest-unique device-name token (e.g. "PRO X")
+output_device = "auto"
+echo_cancellation = true       # requested; raw PortAudio reports unavailable honestly
+sample_rate = 16000          # mandatory 16 kHz (AP-L-16)
+
+# ── Browser voice (hosts without a microphone: a VPS, `jarvis serve`) ──
+# The browser that presses Start holds the call over /ws/audio. Realtime mode
+# always serves it; this switch covers the classic speech-to-text -> brain ->
+# text-to-speech bridge in pipeline mode. See docs/headless-vps-deployment.md.
+[browser_voice]
+enabled = true
+
+# ── UI / tray ──
+[ui]
+tray_enabled = true
+admin_api_port = 47821
+startup_chime = true
+# On-screen overlay shown by default on a desktop install: the slim
+# "jarvis_bar" (the Dodaios Bar). Alternatives: "mascot" (the hooded figure
+# of the logo, as a desktop pet), "voice_orb" (the procedural voice orb),
+# "pet" (the desktop pet chosen under My Pets) or "none".
+# This mirrors the built-in default — listed here so the bar is the obvious,
+# self-documented out-of-the-box choice and never silently disappears.
+orb_style = "jarvis_bar"
+bar_persistent = true        # keep the bar visible at all times (not only during a voice session)
+pet_id = "gigi"              # desktop pet (orb_style = "pet"): built-in id, your own u… id, or "none"
+pet_scale = 1.0              # pet size multiplier, 0.5–2.0
+pet_bubble = true            # show the pet's status bubble (what Dodaios is doing)
+pet_strip_always = false     # true: the pet's buttons always show; false: only while active or hovered
+
+# ── Memory ──
+[memory]
+recall_store = "sqlite"
+archival_store = "sqlite"   # chromadb was removed; sqlite is the supported backend
+data_dir = "./data"          # per-user runtime data (gitignored)
+
+# ── Knowledge wiki (Obsidian vault) — self-creates an empty vault on first run ──
+[wiki_integration]
+enabled = true
+vault_root = "wiki/obsidian-vault"
+# Runaway guard: the most model calls the wiki may make on its own per day
+# (it counts calls, it never shortens a prompt or an answer).
+# max_background_llm_calls_per_day = 200
+
+# ── Login autostart — ON by default; toggle in Settings ──
+# Launches the full desktop app (voice + Orb) at login so the wake listener
+# starts right after a reboot. On a headless host (no display) this is a
+# graceful no-op. Set to false to opt out, or use the "App settings" toggle.
+[autostart]
+enabled = true
+
+# Phase-5/6 features (vision, computer_use, admin, missions, board, telephony)
+# default to enabled = false in code. Enable them individually once configured;
+# see dodaios/core/config.py for every available section and its defaults.
+
+# -- Mission workers: tool pre-authorization (ADR-0031) --
+# Tools listed here are auto-approved for a mission's OWN supervisor-granted
+# calls (the gate is answered on the event bus with a full audit trail, never
+# bypassed). Entries are exact tool names, or an MCP server family written
+# with a trailing slash (e.g. "github/"). Prefer exact names: a family prefix
+# silently authorizes every future tool that server adds. Keep messaging /
+# mail / social-send tools OUT unless you explicitly accept unattended sends.
+# Set worker_tool_auto_approve = false to restore "every ask-tier call waits
+# for a human" behavior.
+[phase6.safety]
+worker_tool_auto_approve = true
+auto_approve_tool_families = [
+  "search_web",
+  "wiki-list",
+  "wiki-recall",
+  "wiki-page-read",
+  "wiki-ingest",
+  "session-latest-turn",
+]

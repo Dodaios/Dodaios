@@ -5,7 +5,7 @@
 # Two jobs, in this order:
 #
 #   1. Pass every argument straight through to the frozen executable, so
-#      `./PersonalJarvis-Linux-x86_64.AppImage serve`, `--version`, `--doctor`
+#      `./Dodaios-Linux-x86_64.AppImage serve`, `--version`, `--doctor`
 #      and every other CLI invocation behave exactly like the pip-installed
 #      `jarvis` command. This is the whole reason the AppImage is also the CLI.
 #
@@ -33,7 +33,7 @@ else
 fi
 
 APP="${HERE}/usr/bin/Jarvis"
-BROWSER_UI_MARKER="${HERE}/usr/share/personal-jarvis/browser-ui"
+BROWSER_UI_MARKER="${HERE}/usr/share/dodaios/browser-ui"
 
 # Default port from dodaios/core/config.py (ui.admin_api_port). A user who
 # changed it in jarvis.toml simply gets no auto-opened tab: the probe below
