@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/dodaios-logo-on-dark.svg" />
+    <img alt="Dodaios" src="assets/brand/dodaios-logo-on-light.svg" width="112" />
+  </picture>
+</p>
+
 <h1 align="center">Dodaios</h1>
 
 <p align="center">
@@ -11,14 +18,6 @@
 </p>
 
 <p align="center">
-  <a href="#install"><strong>Install in one line</strong></a> ·
-  <a href="https://github.com/Dodaios/Dodaios/releases/latest">Download the desktop app</a><br />
-  <sub>No API key needed if you have a Claude or ChatGPT subscription, or a local model.</sub>
-</p>
-
-<p align="center"><sub>Formerly Personal Jarvis.</sub></p>
-
-<p align="center">
   <a href="https://pypi.org/project/personal-jarvis/"><img alt="PyPI" src="https://img.shields.io/pypi/v/personal-jarvis?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
   <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache_2.0-F7F7F4?labelColor=0A0A0A" /></a>
   <a href="https://github.com/Dodaios/Dodaios/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Dodaios/Dodaios/actions/workflows/ci.yml/badge.svg" /></a>
@@ -26,17 +25,16 @@
 </p>
 
 <p align="center">
-  <a href="https://dodaios.ai">Website</a> ·
+  <a href="#install"><strong>Install</strong></a> ·
+  <a href="#from-one-prompt-to-a-merged-pull-request">Workflow</a> ·
+  <a href="#everything-in-one-app">Features</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md">Docs</a> ·
+  <a href="https://dodaios.ai">Website</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
   <a href="https://x.com/dodaios">X</a>
 </p>
 
-https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
-
-<p align="center"><sub>A real, unedited recording of the app with sound: talking to Dodaios by voice, handing work to agents, and following them in the coding workspace.</sub></p>
-
-<p align="center">If Dodaios is useful to you, <a href="https://github.com/Dodaios/Dodaios/stargazers">a star on GitHub</a> helps other people find it.</p>
+<p align="center"><sub>No API key needed if you have a Claude or ChatGPT subscription, or a local model. Formerly Personal Jarvis.</sub></p>
 
 ---
 
@@ -63,34 +61,44 @@ You need one API key, a subscription or a local model. A microphone helps for
 voice. You do not need a GPU. Desktop installers and the server setup are under
 [more ways to install](#more-ways-to-install).
 
-## What's inside
+## From one prompt to a merged pull request
 
-Dodaios is one desktop app for everything AI can do on a computer. It
-has a workspace where several coding agents run side by side, AI agents that
-keep their own memory, a voice assistant with a wake word, control of your
-desktop and browser, and a plugin marketplace. It works with the models you
-already pay for, whether hosted, local or through a subscription you have.
+1. **Plan with the lead agent.** Say what you want, by voice or in chat. The lead agent asks what it needs and hands the work to the right agent or pane.
+2. **Build in parallel.** Claude Code, Codex, OpenCode and six more coding agents run side by side in live panes, each on its own branch in its own git worktree if you want.
+3. **Review every change.** Diffs, source control and an editor sit next to the panes, so you read each line before it lands.
+4. **Ship from the Git panel.** Branches, pull requests, CI checks and merges, without switching to the browser.
+5. **Hand off the rest.** Assistant agents, built in or running on Hermes and OpenClaw, write the release notes, draft the launch posts and keep their routines going.
+6. **Remember it all.** A local memory wiki keeps the context of every chat, agent and project for next time.
 
-You say what you want. Dodaios answers you, does the task on your computer, or
-hands it to the agent that fits, and you can watch every step.
+## Everything in one app
 
-It is free and open source, and it runs on your own machine. You do not need an
-account, and there is no cloud of ours between you and your models. It runs on
-Windows, macOS and Linux, and as a server without a screen.
+<table>
+  <tr>
+    <td width="33%"><strong>Agentic IDE</strong><br />Every coding agent in live terminal panes, side by side.</td>
+    <td width="33%"><strong>Git and pull requests</strong><br />Diffs, branches, PRs and CI checks built in.</td>
+    <td width="33%"><strong>Lead agent</strong><br />One assistant that plans, delegates and reports back.</td>
+  </tr>
+  <tr>
+    <td><strong>Agent team</strong><br />Specialists with their own chat, tools, schedule and memory.</td>
+    <td><strong>Hermes and OpenClaw</strong><br />Run agents on the open agent runtimes you already use.</td>
+    <td><strong>Voice</strong><br />Wake word, live conversations, dictation and phone calls.</td>
+  </tr>
+  <tr>
+    <td><strong>Computer use</strong><br />Clicks, types and reads your desktop and browser.</td>
+    <td><strong>Memory</strong><br />A local wiki your agents read, write and cite.</td>
+    <td><strong>Plugins, MCP and skills</strong><br />More than 40 one-click integrations, or bring your own.</td>
+  </tr>
+  <tr>
+    <td><strong>Any model</strong><br />Hosted, local, or your Claude and ChatGPT subscriptions.</td>
+    <td><strong>Routines</strong><br />Agents do recurring work on a schedule, without being asked.</td>
+    <td><strong>Artifacts</strong><br />Every report, page and file your agents make, in one place.</td>
+  </tr>
+</table>
 
-| | |
-|---|---|
-| **Agentic IDE** | Run Claude Code, Codex, OpenCode, Kimi Code, GLM, Grok Build, Antigravity, Cursor CLI and DeepSeek Harness side by side in live terminal panes, as many as your machine can hold. You can brief them by voice. |
-| **Voice** | A wake word, live conversations, dictation into any app, and phone calls. You can interrupt it mid-sentence. |
-| **Dodaios Agents** | Build a team of AI agents that stay around. Each one has its own chat, instructions, tools, schedule and memory, and learns from its own work. |
-| **Dodaios Verse** | Watch your agents in a 3D world. They walk to their desks, pick up work, and show what they are doing right now. |
-| **Computer use** | Dodaios clicks, types and reads the screen on your desktop and in your browser. You decide what it may do. |
-| **Marketplace** | More than 40 plugins, MCP servers, skills and command-line tools you install with one click, including GitHub, Google Workspace, Notion, Slack, Linear, Spotify and Home Assistant. |
-| **Any model** | OpenAI, Anthropic, Gemini, OpenRouter, NVIDIA, Ollama and any local server, or your Claude and ChatGPT subscriptions. You can pick a different one for each task. |
-| **Memory** | A local wiki that Dodaios reads, writes and cites, so it remembers context across chats, agents and days. |
-| **Routines** | Work that repeats on a schedule, such as a morning briefing, an inbox sweep or a nightly report. |
-| **Appshots** | Press two keys to show Dodaios the window you are looking at, or just one area of it. You can record clips the same way. |
-| **Pets** | A small animated companion on your desktop that reacts while Dodaios listens, thinks and talks. |
+It is free and open source, and it runs on your own machine: Windows, macOS,
+Linux, or a server without a screen. You do not need an account, and there is
+no cloud of ours between you and your models. Every action that could change
+your system waits for your approval.
 
 ## Run every coding agent at once
 
