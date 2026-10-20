@@ -18,7 +18,7 @@ python scripts/art/build_outpost_reference.py -- --validate-export art/studies/m
 python scripts/art_pipeline.py check art/studies/mars-outpost-reference/study.json
 ```
 
-The recipe reads only the canonical `jarvis/society/mars/definition.json` and
+The recipe reads only the canonical `dodaios/society/mars/definition.json` and
 the study manifest. It does not read private concept PNGs, old world assets,
 third-party textures or a local profile path. All geometry, materials and
 wayfinding text in this source are newly authored by the recipe for this

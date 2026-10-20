@@ -14,9 +14,9 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from jarvis.core.http_pool import SyncHttpClientPool
-from jarvis.live import login_helper as module
-from jarvis.live.login_helper import LoginHelperError, NativeArtifact, install_login_helper
+from dodaios.core.http_pool import SyncHttpClientPool
+from dodaios.live import login_helper as module
+from dodaios.live.login_helper import LoginHelperError, NativeArtifact, install_login_helper
 
 
 def _artifact(data=b"verified native fixture"):
@@ -65,8 +65,8 @@ def no_existing_cli(monkeypatch):
 
 
 def test_install_verifies_private_binary_without_advertising_global_codex(tmp_path, monkeypatch):
-    from jarvis.codex_auth import CodexAuthService
-    from jarvis.core import path_augment, paths
+    from dodaios.codex_auth import CodexAuthService
+    from dodaios.core import path_augment, paths
 
     root = tmp_path / "user-data"
     monkeypatch.setattr(paths, "user_data_dir", lambda: root)
@@ -108,7 +108,7 @@ def test_install_verifies_private_binary_without_advertising_global_codex(tmp_pa
     ],
 )
 def test_every_supported_platform_uses_existing_audited_pin(monkeypatch, operating_system, machine):
-    from jarvis.codex_app_server import _SUPPORTED_CODEX_VERSION, _TRUSTED_CODEX_TARGETS
+    from dodaios.codex_app_server import _SUPPORTED_CODEX_VERSION, _TRUSTED_CODEX_TARGETS
 
     monkeypatch.setattr(module.sys, "platform", operating_system)
     monkeypatch.setattr(module.platform, "machine", lambda: machine)
@@ -213,8 +213,8 @@ def test_concurrent_install_is_rejected_without_creating_files(tmp_path):
 
 
 def test_account_login_alone_resolves_private_helper_without_coding_cli(tmp_path, monkeypatch):
-    from jarvis.agent_accounts import AgentAccount, _describe_codex, login_command
-    from jarvis.codex_auth import CodexAuthService
+    from dodaios.agent_accounts import AgentAccount, _describe_codex, login_command
+    from dodaios.codex_auth import CodexAuthService
 
     artifact = _artifact()
     install_login_helper(
@@ -275,7 +275,7 @@ def test_private_helper_tampering_is_not_reported_ready(tmp_path, monkeypatch):
 async def test_route_joins_cancelled_worker_and_cleans_staging_before_return(
     monkeypatch, disconnect
 ):
-    from jarvis.ui.web.live_routes import install_live_login_helper
+    from dodaios.ui.web.live_routes import install_live_login_helper
 
     loop = asyncio.get_running_loop()
     started = asyncio.Event()
@@ -316,7 +316,7 @@ async def test_route_joins_cancelled_worker_and_cleans_staging_before_return(
 
 @pytest.mark.asyncio
 async def test_route_returns_ready_only_after_installer_finishes_and_never_signs_in(monkeypatch):
-    from jarvis.ui.web.live_routes import install_live_login_helper
+    from dodaios.ui.web.live_routes import install_live_login_helper
 
     steps = []
 
@@ -335,7 +335,7 @@ async def test_route_returns_ready_only_after_installer_finishes_and_never_signs
 
 @pytest.mark.asyncio
 async def test_helper_status_hashing_runs_off_the_request_loop(monkeypatch):
-    from jarvis.ui.web.live_routes import get_live_login_helper
+    from dodaios.ui.web.live_routes import get_live_login_helper
 
     caller = threading.get_ident()
 

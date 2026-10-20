@@ -7,7 +7,7 @@ so a port's seam-factory can be exercised for macOS/Linux from a Windows box.
 
 from __future__ import annotations
 
-from jarvis.platform.capabilities import Capabilities
+from dodaios.platform.capabilities import Capabilities
 
 
 def fake_windows_capabilities(**overrides) -> Capabilities:

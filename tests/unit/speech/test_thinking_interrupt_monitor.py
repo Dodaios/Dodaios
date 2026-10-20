@@ -6,9 +6,9 @@ import time
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 def _guard_pipeline(*, enabled=True):

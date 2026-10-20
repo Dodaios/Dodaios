@@ -17,7 +17,7 @@ def _isolate_dirs(monkeypatch, tmp_path):
         monkeypatch.delenv(k, raising=False)
     # Prevent the local control_key fallback from finding a real key in tests.
     monkeypatch.setattr(
-        "jarvis.core.control_key.get_control_key", lambda: None, raising=False
+        "dodaios.core.control_key.get_control_key", lambda: None, raising=False
     )
 
 
@@ -34,7 +34,7 @@ def mock_api(monkeypatch):
         status, payload = spec
         return httpx.Response(status, json=payload)
 
-    import jarvis.cli_ctl.client as client_mod
+    import dodaios.cli_ctl.client as client_mod
 
     real_init = client_mod.JarvisClient.__init__
 
@@ -73,7 +73,7 @@ def capture_api(monkeypatch):
         status, payload = routes.get((request.method, request.url.path), (200, {"ok": True}))
         return httpx.Response(status, json=payload)
 
-    import jarvis.cli_ctl.client as client_mod
+    import dodaios.cli_ctl.client as client_mod
 
     real_init = client_mod.JarvisClient.__init__
 

@@ -12,7 +12,7 @@
     second native instance collide with the real install:
 
       1. Python import  -- a dedicated venv inside the sandbox dir. The editable
-                           install pins ONLY that venv; the global 'import jarvis'
+                           install pins ONLY that venv; the global 'import dodaios'
                            is untouched (defeats the BUG-006/014/015 restore trap).
       2. Credentials    -- PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring
                            redirects keyring to an isolated throwaway file. The
@@ -100,14 +100,14 @@ $pyMajor = [int]$pyParts[0]; $pyMinor = [int]$pyParts[1]
 if ($pyMajor -lt 3 -or ($pyMajor -eq 3 -and $pyMinor -lt 11)) { Fail ("Python {0}.{1} found; need >= 3.11." -f $pyMajor, $pyMinor) }
 Write-Ok ("python: {0} ({1}.{2})" -f $pyExe, $pyMajor, $pyMinor)
 
-# Capture the GLOBAL 'import jarvis' origin BEFORE we touch anything. Run from a
+# Capture the GLOBAL 'import dodaios' origin BEFORE we touch anything. Run from a
 # NEUTRAL dir so the current directory's ./jarvis cannot shadow the real answer
 # (python -c puts the CWD on sys.path[0]).
 Push-Location $env:TEMP
-$globalJarvisBefore = & $pyExe -c "import importlib.util as u; s=u.find_spec('jarvis'); print(s.origin if s else 'NONE')" 2>$null
+$globalJarvisBefore = & $pyExe -c "import importlib.util as u; s=u.find_spec('dodaios'); print(s.origin if s else 'NONE')" 2>$null
 Pop-Location
 if (-not $globalJarvisBefore) { $globalJarvisBefore = "NONE" }
-Write-Ok ("global 'import jarvis' baseline: {0}" -f $globalJarvisBefore)
+Write-Ok ("global 'import dodaios' baseline: {0}" -f $globalJarvisBefore)
 
 # --- 2. Sandbox dir --------------------------------------------------------
 Write-Step "2. Sandbox directory"
@@ -185,7 +185,7 @@ $runLines = @(
     "`$env:PYTHON_KEYRING_BACKEND = 'keyrings.alt.file.PlaintextKeyring'",
     "`$env:JARVIS_VOICE = '1'",
     ("Write-Host 'Launching isolated Jarvis sandbox on port {0} (Computer-Use OFF)...' -ForegroundColor Cyan" -f $Port),
-    ("& '{0}' -m jarvis.ui.web.launcher --no-lock --port {1}" -f $venvPy, $Port)
+    ("& '{0}' -m dodaios.ui.web.launcher --no-lock --port {1}" -f $venvPy, $Port)
 )
 Set-Content -Path $runScript -Value ($runLines -join "`r`n") -Encoding utf8
 Write-Ok ("wrote {0}" -f $runScript)
@@ -198,13 +198,13 @@ $allPass = $true
 # sandbox's ./jarvis on sys.path[0] (the CWD) can mask the editable install each
 # interpreter actually resolves. This is what makes the proof trustworthy.
 Push-Location $env:TEMP
-$sandboxImport = & $venvPy -c "import jarvis; print(jarvis.__file__)" 2>$null
-$globalAfter = & $pyExe -c "import importlib.util as u; s=u.find_spec('jarvis'); print(s.origin if s else 'NONE')" 2>$null
+$sandboxImport = & $venvPy -c "import dodaios; print(dodaios.__file__)" 2>$null
+$globalAfter = & $pyExe -c "import importlib.util as u; s=u.find_spec('dodaios'); print(s.origin if s else 'NONE')" 2>$null
 Pop-Location
-if ($sandboxImport -and $sandboxImport.StartsWith($SandboxRoot)) { Write-Ok ("sandbox 'import jarvis' -> {0}" -f $sandboxImport) }
+if ($sandboxImport -and $sandboxImport.StartsWith($SandboxRoot)) { Write-Ok ("sandbox 'import dodaios' -> {0}" -f $sandboxImport) }
 else { Write-Warn2 ("sandbox import origin unexpected: {0}" -f $sandboxImport); $allPass = $false }
 if (-not $globalAfter) { $globalAfter = "NONE" }
-if ($globalAfter -eq $globalJarvisBefore) { Write-Ok ("global 'import jarvis' unchanged ({0})" -f $globalAfter) }
+if ($globalAfter -eq $globalJarvisBefore) { Write-Ok ("global 'import dodaios' unchanged ({0})" -f $globalAfter) }
 else { Write-Warn2 ("global import CHANGED: '{0}' -> '{1}'" -f $globalJarvisBefore, $globalAfter); $allPass = $false }
 
 $env:PYTHON_KEYRING_BACKEND = 'keyrings.alt.file.PlaintextKeyring'
@@ -219,13 +219,13 @@ else { Write-Warn2 ("keyring backend looks wrong: {0}" -f $kr); $allPass = $fals
 $savedLAD = $env:LOCALAPPDATA
 $env:LOCALAPPDATA = $appLocal
 Push-Location $env:TEMP
-$udd = & $venvPy -c "from jarvis.core.paths import user_data_dir; print(user_data_dir())" 2>$null
+$udd = & $venvPy -c "from dodaios.core.paths import user_data_dir; print(user_data_dir())" 2>$null
 Pop-Location
 $env:LOCALAPPDATA = $savedLAD
 if ($udd -and $udd.StartsWith($SandboxRoot)) { Write-Ok ("sandbox user-data dir -> {0}" -f $udd) }
 else { Write-Warn2 ("user-data dir NOT isolated (board/skills would touch the real install): {0}" -f $udd); $allPass = $false }
 
-if (Test-Path (Join-Path $SandboxRoot "jarvis\ui\web\dist\index.html")) { Write-Ok "prebuilt UI present -- no Node build needed" }
+if (Test-Path (Join-Path $SandboxRoot "dodaios\ui\web\dist\index.html")) { Write-Ok "prebuilt UI present -- no Node build needed" }
 else { Write-Warn2 "no prebuilt UI found -- the clone may need a frontend build"; $allPass = $false }
 
 # --- 8. Summary ------------------------------------------------------------

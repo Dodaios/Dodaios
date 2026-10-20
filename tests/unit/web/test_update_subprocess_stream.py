@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui.web.update_routes import _run
+from dodaios.ui.web.update_routes import _run
 
 
 def _python(code: str) -> list[str]:

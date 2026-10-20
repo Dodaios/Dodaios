@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.turn_planner import (
+from dodaios.brain.turn_planner import (
     PUBLIC_FACT_GROUNDING_CAPABILITY,
     PUBLIC_FACT_GROUNDING_TIMEOUT_S,
     GroundingFailurePolicy,
@@ -13,7 +13,7 @@ from jarvis.brain.turn_planner import (
     is_public_fact_question,
     plan_turn,
 )
-from jarvis.core.capabilities import Capability, CapabilityRegistry
+from dodaios.core.capabilities import Capability, CapabilityRegistry
 
 
 @pytest.fixture
@@ -898,7 +898,7 @@ def test_domain_cli_verb_without_its_object_is_not_an_action(
 def test_calendar_evidence_domain_is_connected_not_public(
 ) -> None:
     """'steht morgen … an' is the user's calendar, never a web search."""
-    from jarvis.core.config import EvidenceDomainsConfig
+    from dodaios.core.config import EvidenceDomainsConfig
 
     plan = plan_turn(
         "Was steht morgen an?",  # i18n-allow: German speech-input fixture

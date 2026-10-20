@@ -19,8 +19,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import ToolResult
-from jarvis.harness.action_registry import (
+from dodaios.core.protocols import ToolResult
+from dodaios.harness.action_registry import (
     DEFAULT_REGISTRY,
     ActionRegistry,
     ActionSpec,
@@ -150,7 +150,7 @@ def test_transform_open_terminal_default_is_platform_native(
     expected_app: str,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.harness.action_registry.detect_platform",
+        "dodaios.harness.action_registry.detect_platform",
         lambda: platform_name,
     )
     result = _transform_open_terminal({})
@@ -167,7 +167,7 @@ def test_transform_open_terminal_generic_alias_is_platform_native(
     expected_app: str,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.harness.action_registry.detect_platform",
+        "dodaios.harness.action_registry.detect_platform",
         lambda: platform_name,
     )
     result = _transform_open_terminal({"profile": "terminal"})
@@ -209,7 +209,7 @@ def test_registry_planner_vocabulary_is_platform_native(
     terminal_name: str,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.harness.action_registry.detect_platform",
+        "dodaios.harness.action_registry.detect_platform",
         lambda: platform_name,
     )
     registry = build_default_registry()
@@ -278,7 +278,7 @@ async def test_composite_open_new_tab_uses_platform_shortcut(
     modifier: str,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.harness.action_registry.detect_platform",
+        "dodaios.harness.action_registry.detect_platform",
         lambda: platform_name,
     )
     executor = _FakeExecutor()

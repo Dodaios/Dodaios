@@ -5,7 +5,7 @@ import asyncio
 
 import pytest
 
-from jarvis.missions.critic.log_summarizer import (
+from dodaios.missions.critic.log_summarizer import (
     DEFAULT_MAX_CHARS,
     HEAD_LINES,
     TAIL_LINES,

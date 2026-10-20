@@ -25,14 +25,14 @@ if "%1"=="--debug" (
     REM --debug ist batch-lokal: Console sichtbar + Verbose-Logging.
     REM Weiterreichen an den Launcher wuerde argparse-Fehler ausloesen.
     set JARVIS_DEBUG=1
-    python -m jarvis.ui.web.launcher
+    python -m dodaios.ui.web.launcher
 ) else if "%1"=="--headless" (
-    python -m jarvis.ui.web.launcher --headless
+    python -m dodaios.ui.web.launcher --headless
 ) else if "%1"=="--dev" (
     set JARVIS_DEV=1
-    python -m jarvis.ui.web.launcher --dev
+    python -m dodaios.ui.web.launcher --dev
 ) else (
-    start "" pythonw -m jarvis.ui.web.launcher
+    start "" pythonw -m dodaios.ui.web.launcher
 )
 
 endlocal

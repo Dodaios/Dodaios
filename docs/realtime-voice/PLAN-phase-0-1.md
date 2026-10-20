@@ -4,7 +4,7 @@
 
 **Goal:** Ship the first working, testable slice of the realtime voice mode — a browser, OpenAI-Realtime, conversation-only duplex path that is default-OFF and reuses the existing `/ws/audio` transport, with the load-bearing audio-hold voice-scrub gate in place from day one.
 
-**Architecture:** A new `jarvis/realtime/` orchestrator drives a provider-agnostic duplex session; a `jarvis.realtime` plugin group holds one provider adapter (OpenAI GA `gpt-realtime`). A new `RealtimeVoiceSession` implements the exact duck interface (`handle_audio_frame`/`handle_control`/`end`) the existing `/ws/audio` route already calls, so the route is branched in one place (`_build_browser_session`) and otherwise untouched. Model audio is buffered by a `ScrubHoldGate` and released only after its transcript passes the regex-only `scrub_for_voice`. The classic pipeline and the classic browser bridge are unchanged.
+**Architecture:** A new `dodaios/realtime/` orchestrator drives a provider-agnostic duplex session; a `jarvis.realtime` plugin group holds one provider adapter (OpenAI GA `gpt-realtime`). A new `RealtimeVoiceSession` implements the exact duck interface (`handle_audio_frame`/`handle_control`/`end`) the existing `/ws/audio` route already calls, so the route is branched in one place (`_build_browser_session`) and otherwise untouched. Model audio is buffered by a `ScrubHoldGate` and released only after its transcript passes the regex-only `scrub_for_voice`. The classic pipeline and the classic browser bridge are unchanged.
 
 **Tech Stack:** Python 3.11+ (asyncio, Pydantic v2, tomlkit), the installed `openai` SDK (`AsyncOpenAI().realtime.connect`), FastAPI/Starlette WebSockets, React 18 + Vite 6 + TypeScript 5.6 (Web Audio `AudioWorklet`), pytest (fakes, not `unittest.mock`), vitest.
 
@@ -20,41 +20,41 @@ Every task's requirements implicitly include this section. Values copied verbati
 - **AP-21 / AP-22** — gate on capability + key presence, never a provider name; Phase 1 is OpenAI-only by explicit scope (documented), with the classic pipeline as the always-present fallback when realtime is unbuildable.
 - **AP-26** — no provider SDK import at module top level, in `_run_backend`, the `WebServer` ctor, or `_start_speech_and_orb`; import `openai` lazily inside the adapter's `connect()`. Keep the pre-push boot-budget gate green.
 - **AP-20** — a realtime WS receive path treats any non-`WebSocketDisconnect` teardown error as terminal (`break`, never `continue`).
-- **Cross-platform** — no hard `audioop` import for new resampling in code that must run on Python 3.13 (`audioop` is removed there); reuse `jarvis/telephony/audio.py::Resampler` (which already carries the `audioop-lts` backport concern) or a numpy path.
-- **Config writes** — only via `jarvis/core/config_writer.py` helpers (`_patch_table` → `_atomic_write`, lock + tempfile + BOM-safe, AP-7). Never hand-write `jarvis.toml`.
-- **Sample rates** — mic capture browser-rate (default 48000) → 16000 for STT is the classic path; OpenAI realtime input is upsampled 16000→24000; OpenAI output is 24000. `STT_SAMPLE_RATE=16000`, `TTS_SAMPLE_RATE=24000` (`jarvis/telephony/audio.py:37`).
-- **No new plugin group is discoverable** until it is BOTH added to `PLUGIN_GROUPS` (`jarvis/core/protocols.py:380`) AND given a `[project.entry-points."jarvis.<group>"]` block, followed by `pip install -e . --no-deps`.
+- **Cross-platform** — no hard `audioop` import for new resampling in code that must run on Python 3.13 (`audioop` is removed there); reuse `dodaios/telephony/audio.py::Resampler` (which already carries the `audioop-lts` backport concern) or a numpy path.
+- **Config writes** — only via `dodaios/core/config_writer.py` helpers (`_patch_table` → `_atomic_write`, lock + tempfile + BOM-safe, AP-7). Never hand-write `jarvis.toml`.
+- **Sample rates** — mic capture browser-rate (default 48000) → 16000 for STT is the classic path; OpenAI realtime input is upsampled 16000→24000; OpenAI output is 24000. `STT_SAMPLE_RATE=16000`, `TTS_SAMPLE_RATE=24000` (`dodaios/telephony/audio.py:37`).
+- **No new plugin group is discoverable** until it is BOTH added to `PLUGIN_GROUPS` (`dodaios/core/protocols.py:380`) AND given a `[project.entry-points."jarvis.<group>"]` block, followed by `pip install -e . --no-deps`.
 
 ---
 
 ## File Structure
 
 **New files**
-- `jarvis/realtime/__init__.py` — lazy exports (`build_realtime_session`); no heavy imports (AP-26).
-- `jarvis/realtime/protocol.py` — `RealtimeEvent` union + `RealtimeProvider`/`RealtimeSession` `@runtime_checkable` Protocols + `RealtimeSessionConfig`.
-- `jarvis/realtime/scrub_gate.py` — `ScrubHoldGate` (buffer audio, release after transcript passes `scrub_for_voice`; HARD-leak → drop + fallback).
-- `jarvis/realtime/session.py` — `RealtimeVoiceSession` (the `/ws/audio` duck interface, provider→gate→`send_binary`, barge-in, language resolve, latency marks).
-- `jarvis/realtime/factory.py` — `build_realtime_session(...)`: OpenAI-key-gated builder returning `None` when unbuildable.
-- `jarvis/plugins/realtime/__init__.py` — plugin package marker (no `jarvis.*` import).
-- `jarvis/plugins/realtime/openai_realtime.py` — `OpenAIRealtimeProvider` (`RealtimeProvider`), lazy `openai` import.
-- `jarvis/ui/web/frontend/src/lib/pcm-worklet.ts` — capture (downsample to int16) + playback (24 kHz jitter buffer) `AudioWorkletProcessor`s.
-- `jarvis/ui/web/frontend/src/lib/realtimeAudio.ts` — dedicated `/ws/audio` client (own WebSocket, `binaryType="arraybuffer"`).
-- `jarvis/ui/web/frontend/src/hooks/useVoiceMode.ts` — React-Query GET/PUT for the voice-mode toggle.
-- `jarvis/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx` — the default-OFF settings toggle.
+- `dodaios/realtime/__init__.py` — lazy exports (`build_realtime_session`); no heavy imports (AP-26).
+- `dodaios/realtime/protocol.py` — `RealtimeEvent` union + `RealtimeProvider`/`RealtimeSession` `@runtime_checkable` Protocols + `RealtimeSessionConfig`.
+- `dodaios/realtime/scrub_gate.py` — `ScrubHoldGate` (buffer audio, release after transcript passes `scrub_for_voice`; HARD-leak → drop + fallback).
+- `dodaios/realtime/session.py` — `RealtimeVoiceSession` (the `/ws/audio` duck interface, provider→gate→`send_binary`, barge-in, language resolve, latency marks).
+- `dodaios/realtime/factory.py` — `build_realtime_session(...)`: OpenAI-key-gated builder returning `None` when unbuildable.
+- `dodaios/plugins/realtime/__init__.py` — plugin package marker (no `dodaios.*` import).
+- `dodaios/plugins/realtime/openai_realtime.py` — `OpenAIRealtimeProvider` (`RealtimeProvider`), lazy `openai` import.
+- `dodaios/ui/web/frontend/src/lib/pcm-worklet.ts` — capture (downsample to int16) + playback (24 kHz jitter buffer) `AudioWorkletProcessor`s.
+- `dodaios/ui/web/frontend/src/lib/realtimeAudio.ts` — dedicated `/ws/audio` client (own WebSocket, `binaryType="arraybuffer"`).
+- `dodaios/ui/web/frontend/src/hooks/useVoiceMode.ts` — React-Query GET/PUT for the voice-mode toggle.
+- `dodaios/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx` — the default-OFF settings toggle.
 - Tests: `tests/unit/realtime/test_scrub_gate.py`, `test_session.py`, `test_factory.py`, `tests/contract/test_realtime_provider_contract.py`, `tests/unit/core/test_voice_mode_config.py`, `tests/unit/web/test_voice_mode_route.py`.
 
 **Modified files**
-- `jarvis/core/protocols.py` — add `"jarvis.realtime"` to `PLUGIN_GROUPS`.
+- `dodaios/core/protocols.py` — add `"jarvis.realtime"` to `PLUGIN_GROUPS`.
 - `pyproject.toml` — add `[project.entry-points."jarvis.realtime"]`.
-- `jarvis/core/config.py` — `VoiceConfig.mode`; `BrainConfig.realtime: BrainTierConfig | None`; remove dead `BrainPolicyConfig.use_realtime_for_smalltalk`.
-- `jarvis/core/config_writer.py` — `set_voice_mode(mode)`.
-- `jarvis/core/events.py` — 3 `LatencyPhase` members.
-- `jarvis/browser_voice/route.py` — branch `_build_browser_session` on `cfg.voice.mode`; invert the connect gate to default-OFF for the realtime path.
-- `jarvis/ui/web/settings_routes.py` — `GET`/`PUT /api/settings/voice-mode`.
-- `jarvis/ui/web/frontend/src/views/SettingsView.tsx` — mount `<RealtimeVoiceGroup/>`.
-- `jarvis/ui/web/frontend/src/i18n/locales/{en,de,es}.json` — toggle strings.
+- `dodaios/core/config.py` — `VoiceConfig.mode`; `BrainConfig.realtime: BrainTierConfig | None`; remove dead `BrainPolicyConfig.use_realtime_for_smalltalk`.
+- `dodaios/core/config_writer.py` — `set_voice_mode(mode)`.
+- `dodaios/core/events.py` — 3 `LatencyPhase` members.
+- `dodaios/browser_voice/route.py` — branch `_build_browser_session` on `cfg.voice.mode`; invert the connect gate to default-OFF for the realtime path.
+- `dodaios/ui/web/settings_routes.py` — `GET`/`PUT /api/settings/voice-mode`.
+- `dodaios/ui/web/frontend/src/views/SettingsView.tsx` — mount `<RealtimeVoiceGroup/>`.
+- `dodaios/ui/web/frontend/src/i18n/locales/{en,de,es}.json` — toggle strings.
 
-**Scope note (documented, not a placeholder):** Phase 0+1 is browser-only, OpenAI-only, conversation-only. NO tools, NO ask-tier confirmation, NO Gemini, NO desktop `_realtime_session()`, NO `[brain.realtime]` cross-family chain wiring beyond the config field, NO capability seed (a conversation-only mode is not an action surface, and `Capability.source` is a closed Literal without a `realtime` value — `jarvis/core/capabilities.py:126`). Those land in Phases 2–5, each with its own plan.
+**Scope note (documented, not a placeholder):** Phase 0+1 is browser-only, OpenAI-only, conversation-only. NO tools, NO ask-tier confirmation, NO Gemini, NO desktop `_realtime_session()`, NO `[brain.realtime]` cross-family chain wiring beyond the config field, NO capability seed (a conversation-only mode is not an action surface, and `Capability.source` is a closed Literal without a `realtime` value — `dodaios/core/capabilities.py:126`). Those land in Phases 2–5, each with its own plan.
 
 ---
 
@@ -63,8 +63,8 @@ Every task's requirements implicitly include this section. Values copied verbati
 ### Task 1: Config surface — voice mode toggle + realtime tier field + retire dead flag
 
 **Files:**
-- Modify: `jarvis/core/config.py` (`VoiceConfig` at :1838, `BrainConfig` at :733, `BrainPolicyConfig` at :400)
-- Modify: `jarvis/core/config_writer.py` (add `set_voice_mode` near `set_computer_use_engine` at :529)
+- Modify: `dodaios/core/config.py` (`VoiceConfig` at :1838, `BrainConfig` at :733, `BrainPolicyConfig` at :400)
+- Modify: `dodaios/core/config_writer.py` (add `set_voice_mode` near `set_computer_use_engine` at :529)
 - Test: `tests/unit/core/test_voice_mode_config.py`
 
 **Interfaces:**
@@ -77,8 +77,8 @@ Every task's requirements implicitly include this section. Values copied verbati
 # tests/unit/core/test_voice_mode_config.py
 from pathlib import Path
 
-from jarvis.core import config as cfg_mod
-from jarvis.core import config_writer
+from dodaios.core import config as cfg_mod
+from dodaios.core import config_writer
 
 
 def test_voice_mode_defaults_to_pipeline():
@@ -115,7 +115,7 @@ Expected: FAIL — `AttributeError: 'VoiceConfig' object has no attribute 'mode'
 
 - [ ] **Step 3: Add the `mode` field to `VoiceConfig`**
 
-In `jarvis/core/config.py`, inside `class VoiceConfig(BaseModel):` (has `model_config = ConfigDict(extra="allow")`), add after `completion_detection_enabled`:
+In `dodaios/core/config.py`, inside `class VoiceConfig(BaseModel):` (has `model_config = ConfigDict(extra="allow")`), add after `completion_detection_enabled`:
 
 ```python
     # Voice engine selector. "pipeline" = the classic STT->brain->TTS chain
@@ -144,11 +144,11 @@ In `class BrainPolicyConfig(BaseModel):` (config.py:400) delete the line:
     use_realtime_for_smalltalk: bool = False
 ```
 
-(Confirm no reader references it: `grep -rn "use_realtime_for_smalltalk" jarvis/ tests/` must return only this deletion. It is dead — verified in the prior-art research pass.)
+(Confirm no reader references it: `grep -rn "use_realtime_for_smalltalk" dodaios/ tests/` must return only this deletion. It is dead — verified in the prior-art research pass.)
 
 - [ ] **Step 6: Add the `set_voice_mode` writer**
 
-In `jarvis/core/config_writer.py`, after `set_computer_use_engine` (:529), add:
+In `dodaios/core/config_writer.py`, after `set_computer_use_engine` (:529), add:
 
 ```python
 def set_voice_mode(mode: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
@@ -171,7 +171,7 @@ Expected: PASS (4 passed).
 - [ ] **Step 8: Commit**
 
 ```bash
-git add jarvis/core/config.py jarvis/core/config_writer.py tests/unit/core/test_voice_mode_config.py
+git add dodaios/core/config.py dodaios/core/config_writer.py tests/unit/core/test_voice_mode_config.py
 git commit -m "feat(realtime): add [voice].mode + [brain].realtime config, retire dead flag"
 ```
 
@@ -180,7 +180,7 @@ git commit -m "feat(realtime): add [voice].mode + [brain].realtime config, retir
 ### Task 2: Latency phases for the realtime hot path
 
 **Files:**
-- Modify: `jarvis/core/events.py` (`LatencyPhase` StrEnum at :942)
+- Modify: `dodaios/core/events.py` (`LatencyPhase` StrEnum at :942)
 - Test: `tests/unit/core/test_realtime_latency_phases.py`
 
 **Interfaces:**
@@ -192,7 +192,7 @@ git commit -m "feat(realtime): add [voice].mode + [brain].realtime config, retir
 # tests/unit/core/test_realtime_latency_phases.py
 from uuid import uuid4
 
-from jarvis.core.events import LatencyPhase, LatencySpan
+from dodaios.core.events import LatencyPhase, LatencySpan
 
 
 def test_realtime_phases_exist_and_are_accepted_by_the_span_guard():
@@ -219,7 +219,7 @@ Expected: FAIL — `AttributeError: REALTIME_INPUT_COMMITTED`.
 
 - [ ] **Step 3: Add the three enum members**
 
-In `jarvis/core/events.py`, inside `class LatencyPhase(StrEnum):`, append after `TTS_STREAM_DONE = "tts_stream_done"`:
+In `dodaios/core/events.py`, inside `class LatencyPhase(StrEnum):`, append after `TTS_STREAM_DONE = "tts_stream_done"`:
 
 ```python
     # Realtime duplex voice mode (browser/OpenAI). REALTIME_INPUT_COMMITTED is
@@ -240,7 +240,7 @@ Expected: PASS (2 passed).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add jarvis/core/events.py tests/unit/core/test_realtime_latency_phases.py
+git add dodaios/core/events.py tests/unit/core/test_realtime_latency_phases.py
 git commit -m "feat(realtime): add realtime latency phases to the single-source enum"
 ```
 
@@ -249,21 +249,21 @@ git commit -m "feat(realtime): add realtime latency phases to the single-source 
 ### Task 3: Plugin group + provider Protocol + event union
 
 **Files:**
-- Create: `jarvis/realtime/__init__.py`, `jarvis/realtime/protocol.py`
-- Create: `jarvis/plugins/realtime/__init__.py`
-- Modify: `jarvis/core/protocols.py` (`PLUGIN_GROUPS` at :380)
+- Create: `dodaios/realtime/__init__.py`, `dodaios/realtime/protocol.py`
+- Create: `dodaios/plugins/realtime/__init__.py`
+- Modify: `dodaios/core/protocols.py` (`PLUGIN_GROUPS` at :380)
 - Modify: `pyproject.toml` (new entry-point block)
 - Test: `tests/unit/realtime/test_protocol.py`
 
 **Interfaces:**
-- Produces: `RealtimeSessionConfig`, `RealtimeEvent`, `RealtimeProvider` (Protocol), `RealtimeSession` (Protocol) in `jarvis/realtime/protocol.py`; plugin group `"jarvis.realtime"`.
+- Produces: `RealtimeSessionConfig`, `RealtimeEvent`, `RealtimeProvider` (Protocol), `RealtimeSession` (Protocol) in `dodaios/realtime/protocol.py`; plugin group `"jarvis.realtime"`.
 - Consumes: `AudioChunk` (protocols.py:22), `runtime_checkable` pattern.
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
 # tests/unit/realtime/test_protocol.py
-from jarvis.core.protocols import PLUGIN_GROUPS
+from dodaios.core.protocols import PLUGIN_GROUPS
 
 
 def test_realtime_group_registered():
@@ -271,7 +271,7 @@ def test_realtime_group_registered():
 
 
 def test_protocol_types_importable():
-    from jarvis.realtime.protocol import (
+    from dodaios.realtime.protocol import (
         RealtimeEvent,
         RealtimeProvider,
         RealtimeSession,
@@ -290,11 +290,11 @@ def test_protocol_types_importable():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/unit/realtime/test_protocol.py -v`
-Expected: FAIL — `"jarvis.realtime" not in PLUGIN_GROUPS` and `ModuleNotFoundError: jarvis.realtime.protocol`.
+Expected: FAIL — `"jarvis.realtime" not in PLUGIN_GROUPS` and `ModuleNotFoundError: dodaios.realtime.protocol`.
 
 - [ ] **Step 3: Register the plugin group**
 
-In `jarvis/core/protocols.py`, extend the `PLUGIN_GROUPS` tuple (:380):
+In `dodaios/core/protocols.py`, extend the `PLUGIN_GROUPS` tuple (:380):
 
 ```python
 PLUGIN_GROUPS: tuple[str, ...] = (
@@ -312,13 +312,13 @@ PLUGIN_GROUPS: tuple[str, ...] = (
 - [ ] **Step 4: Create the protocol module**
 
 ```python
-# jarvis/realtime/protocol.py
+# dodaios/realtime/protocol.py
 """Contracts for the realtime (full-duplex speech-to-speech) plugin group.
 
 A realtime provider fuses STT + reasoning + TTS + VAD into one stateful
 WebSocket session. None of the Brain/STT/TTS protocols can express this, so this
 is its own ``jarvis.realtime`` group. Provider modules live under
-``jarvis/plugins/realtime/`` and MUST NOT import ``jarvis.*`` at module import.
+``dodaios/plugins/realtime/`` and MUST NOT import ``dodaios.*`` at module import.
 """
 
 from __future__ import annotations
@@ -327,7 +327,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from jarvis.core.protocols import AudioChunk
+from dodaios.core.protocols import AudioChunk
 
 RealtimeEventType = Literal[
     "audio_delta",
@@ -395,20 +395,20 @@ class RealtimeProvider(Protocol):
 - [ ] **Step 5: Create the package inits**
 
 ```python
-# jarvis/realtime/__init__.py
+# dodaios/realtime/__init__.py
 """Realtime (full-duplex speech-to-speech) orchestrator package.
 
 Nothing heavy is imported at module load (AP-26): the OpenAI SDK is imported
 lazily inside the provider adapter. Use ``build_realtime_session`` from
-``jarvis.realtime.factory`` to construct a session.
+``dodaios.realtime.factory`` to construct a session.
 """
 ```
 
 ```python
-# jarvis/plugins/realtime/__init__.py
+# dodaios/plugins/realtime/__init__.py
 """Realtime provider plugins (jarvis.realtime group).
 
-Per the structural plugin rule these modules MUST NOT import ``jarvis.*`` at
+Per the structural plugin rule these modules MUST NOT import ``dodaios.*`` at
 module import; keep the provider SDK import lazy inside methods.
 """
 ```
@@ -421,7 +421,7 @@ In `pyproject.toml`, after the `[project.entry-points."jarvis.channel"]` block, 
 [project.entry-points."jarvis.realtime"]
 # Full-duplex speech-to-speech providers (Phase realtime-voice). OpenAI GA
 # gpt-realtime is the first; Gemini Live follows in Phase 4.
-openai-realtime = "jarvis.plugins.realtime.openai_realtime:OpenAIRealtimeProvider"
+openai-realtime = "dodaios.plugins.realtime.openai_realtime:OpenAIRealtimeProvider"
 ```
 
 - [ ] **Step 7: Activate entry-points and run the test**
@@ -432,7 +432,7 @@ Expected: PASS (2 passed). (The `openai_realtime` module lands in Task 5; the en
 - [ ] **Step 8: Commit**
 
 ```bash
-git add jarvis/core/protocols.py jarvis/realtime/__init__.py jarvis/realtime/protocol.py jarvis/plugins/realtime/__init__.py pyproject.toml tests/unit/realtime/test_protocol.py
+git add dodaios/core/protocols.py dodaios/realtime/__init__.py dodaios/realtime/protocol.py dodaios/plugins/realtime/__init__.py pyproject.toml tests/unit/realtime/test_protocol.py
 git commit -m "feat(realtime): add jarvis.realtime plugin group + provider Protocol + event union"
 ```
 
@@ -443,7 +443,7 @@ git commit -m "feat(realtime): add jarvis.realtime plugin group + provider Proto
 ### Task 4: The load-bearing audio-hold scrub gate
 
 **Files:**
-- Create: `jarvis/realtime/scrub_gate.py`
+- Create: `dodaios/realtime/scrub_gate.py`
 - Test: `tests/unit/realtime/test_scrub_gate.py`
 
 **Interfaces:**
@@ -458,8 +458,8 @@ git commit -m "feat(realtime): add jarvis.realtime plugin group + provider Proto
 # tests/unit/realtime/test_scrub_gate.py
 import pytest
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.scrub_gate import ScrubHoldGate
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.scrub_gate import ScrubHoldGate
 
 _HARD_LEAK_ACTIONS = {"replaced_stacktrace", "replaced_raw_repr", "replaced_shell_command"}
 
@@ -496,7 +496,7 @@ async def test_hard_leak_transcript_marks_leak_and_drops_audio():
 @pytest.mark.asyncio
 async def test_scrub_is_regex_only_no_llm(monkeypatch):
     # Guard AP-11: the gate must call scrub_for_voice and nothing that awaits a model.
-    import jarvis.realtime.scrub_gate as mod
+    import dodaios.realtime.scrub_gate as mod
 
     calls = {"n": 0}
     real = mod.scrub_for_voice
@@ -514,12 +514,12 @@ async def test_scrub_is_regex_only_no_llm(monkeypatch):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/unit/realtime/test_scrub_gate.py -v`
-Expected: FAIL — `ModuleNotFoundError: jarvis.realtime.scrub_gate`.
+Expected: FAIL — `ModuleNotFoundError: dodaios.realtime.scrub_gate`.
 
 - [ ] **Step 3: Implement the gate**
 
 ```python
-# jarvis/realtime/scrub_gate.py
+# dodaios/realtime/scrub_gate.py
 """Audio-hold voice-scrub gate for realtime duplex mode (AP-11 / ADR-0010).
 
 A duplex model speaks audio natively and its transcript is co-timed but NOT
@@ -532,8 +532,8 @@ Regex-only, no LLM (AP-11).
 
 from __future__ import annotations
 
-from jarvis.brain.output_filter import FALLBACK_PHRASES, scrub_for_voice
-from jarvis.core.protocols import AudioChunk
+from dodaios.brain.output_filter import FALLBACK_PHRASES, scrub_for_voice
+from dodaios.core.protocols import AudioChunk
 
 _HARD_LEAK_ACTIONS = frozenset(
     {"replaced_stacktrace", "replaced_raw_repr", "replaced_shell_command", "replaced_with_fallback_residue"}
@@ -607,7 +607,7 @@ Expected: PASS (3 passed).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add jarvis/realtime/scrub_gate.py tests/unit/realtime/test_scrub_gate.py
+git add dodaios/realtime/scrub_gate.py tests/unit/realtime/test_scrub_gate.py
 git commit -m "feat(realtime): audio-hold voice-scrub gate (load-bearing safety, AP-11)"
 ```
 
@@ -616,14 +616,14 @@ git commit -m "feat(realtime): audio-hold voice-scrub gate (load-bearing safety,
 ### Task 5: OpenAI Realtime provider adapter + provider contract test
 
 **Files:**
-- Create: `jarvis/plugins/realtime/openai_realtime.py`
+- Create: `dodaios/plugins/realtime/openai_realtime.py`
 - Test: `tests/contract/test_realtime_provider_contract.py`
 
 **Interfaces:**
 - Produces: `OpenAIRealtimeProvider` implementing `RealtimeProvider`; its `open_session` returns an object implementing `RealtimeSession` whose `receive()` yields normalized `RealtimeEvent`s.
-- Consumes: `jarvis.realtime.protocol` types; `get_provider_secret("openai")` (config.py:2515); the installed `openai` SDK (`AsyncOpenAI().realtime.connect(model="gpt-realtime")`).
+- Consumes: `dodaios.realtime.protocol` types; `get_provider_secret("openai")` (config.py:2515); the installed `openai` SDK (`AsyncOpenAI().realtime.connect(model="gpt-realtime")`).
 
-**Design note:** The adapter maps wire events → `RealtimeEvent`: `response.output_audio.delta` (base64 24 kHz PCM16) → `audio_delta`; `response.output_audio_transcript.delta` → `output_transcript_delta`; `conversation.item.input_audio_transcription.completed` → `input_transcript(is_final=True)`; `input_audio_buffer.speech_started` → `speech_started`; `response.done` → `turn_complete`; errors → `error`. Input is upsampled 16 kHz→24 kHz before `input_audio_buffer.append` using `jarvis.telephony.audio.resample_pcm16` (no hard `audioop` import in this module). `can_open_duplex_session()` returns `bool(get_provider_secret("openai"))` — a cheap key probe; a live connect probe is Phase 4.
+**Design note:** The adapter maps wire events → `RealtimeEvent`: `response.output_audio.delta` (base64 24 kHz PCM16) → `audio_delta`; `response.output_audio_transcript.delta` → `output_transcript_delta`; `conversation.item.input_audio_transcription.completed` → `input_transcript(is_final=True)`; `input_audio_buffer.speech_started` → `speech_started`; `response.done` → `turn_complete`; errors → `error`. Input is upsampled 16 kHz→24 kHz before `input_audio_buffer.append` using `dodaios.telephony.audio.resample_pcm16` (no hard `audioop` import in this module). `can_open_duplex_session()` returns `bool(get_provider_secret("openai"))` — a cheap key probe; a live connect probe is Phase 4.
 
 - [ ] **Step 1: Write the failing contract test**
 
@@ -631,11 +631,11 @@ git commit -m "feat(realtime): audio-hold voice-scrub gate (load-bearing safety,
 # tests/contract/test_realtime_provider_contract.py
 import pytest
 
-from jarvis.realtime.protocol import RealtimeProvider
+from dodaios.realtime.protocol import RealtimeProvider
 
 
 def _load_provider_class():
-    from jarvis.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
+    from dodaios.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
     return OpenAIRealtimeProvider
 
 
@@ -649,7 +649,7 @@ def test_provider_is_structurally_conformant():
 
 @pytest.mark.asyncio
 async def test_can_open_duplex_session_returns_bool_when_keyless(monkeypatch):
-    import jarvis.plugins.realtime.openai_realtime as mod
+    import dodaios.plugins.realtime.openai_realtime as mod
 
     monkeypatch.setattr(mod, "get_provider_secret", lambda _p: None)
     inst = _load_provider_class()()
@@ -661,7 +661,7 @@ def test_module_does_not_import_openai_at_top_level():
     import ast
     import pathlib
 
-    src = pathlib.Path("jarvis/plugins/realtime/openai_realtime.py").read_text("utf-8")
+    src = pathlib.Path("dodaios/plugins/realtime/openai_realtime.py").read_text("utf-8")
     tree = ast.parse(src)
     top_imports = [
         n
@@ -675,17 +675,17 @@ def test_module_does_not_import_openai_at_top_level():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/contract/test_realtime_provider_contract.py -v`
-Expected: FAIL — `ModuleNotFoundError: jarvis.plugins.realtime.openai_realtime`.
+Expected: FAIL — `ModuleNotFoundError: dodaios.plugins.realtime.openai_realtime`.
 
 - [ ] **Step 3: Implement the adapter**
 
 ```python
-# jarvis/plugins/realtime/openai_realtime.py
+# dodaios/plugins/realtime/openai_realtime.py
 """OpenAI GA realtime provider (gpt-realtime) for the jarvis.realtime group.
 
 Uses the RELEASED interface AsyncOpenAI().realtime.connect(...) (NOT the removed
 client.beta.realtime). The openai SDK import is lazy inside connect() (AP-26).
-This module must not import jarvis.* beyond the config secret helper and the
+This module must not import dodaios.* beyond the config secret helper and the
 protocol types (both stdlib-light, no heavy side effects).
 """
 
@@ -695,9 +695,9 @@ import base64
 from collections.abc import AsyncIterator
 from typing import Any
 
-from jarvis.core.config import get_provider_secret
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.protocol import RealtimeEvent, RealtimeSessionConfig
+from dodaios.core.config import get_provider_secret
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.protocol import RealtimeEvent, RealtimeSessionConfig
 
 _MODEL = "gpt-realtime"
 _OUTPUT_RATE = 24000
@@ -712,7 +712,7 @@ class _OpenAIRealtimeSession:
         self._last_item_id = ""
 
     async def send_audio(self, chunk: AudioChunk) -> None:
-        from jarvis.telephony.audio import resample_pcm16
+        from dodaios.telephony.audio import resample_pcm16
 
         pcm = chunk.pcm
         if chunk.sample_rate != _INPUT_RATE:
@@ -804,7 +804,7 @@ Expected: PASS (3 passed). `open_session` is not exercised here (it needs a live
 - [ ] **Step 5: Commit**
 
 ```bash
-git add jarvis/plugins/realtime/openai_realtime.py tests/contract/test_realtime_provider_contract.py
+git add dodaios/plugins/realtime/openai_realtime.py tests/contract/test_realtime_provider_contract.py
 git commit -m "feat(realtime): OpenAI GA realtime provider adapter + contract test"
 ```
 
@@ -813,7 +813,7 @@ git commit -m "feat(realtime): OpenAI GA realtime provider adapter + contract te
 ### Task 6: RealtimeVoiceSession — the /ws/audio duck interface
 
 **Files:**
-- Create: `jarvis/realtime/session.py`
+- Create: `dodaios/realtime/session.py`
 - Test: `tests/unit/realtime/test_session.py`
 
 **Interfaces:**
@@ -830,9 +830,9 @@ import asyncio
 
 import pytest
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.realtime.protocol import RealtimeEvent, RealtimeSessionConfig
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.core.protocols import AudioChunk
+from dodaios.realtime.protocol import RealtimeEvent, RealtimeSessionConfig
+from dodaios.realtime.session import RealtimeVoiceSession
 
 
 class FakeSession:
@@ -937,12 +937,12 @@ async def test_hard_leak_transcript_drops_audio():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/unit/realtime/test_session.py -v`
-Expected: FAIL — `ModuleNotFoundError: jarvis.realtime.session`.
+Expected: FAIL — `ModuleNotFoundError: dodaios.realtime.session`.
 
 - [ ] **Step 3: Implement the session**
 
 ```python
-# jarvis/realtime/session.py
+# dodaios/realtime/session.py
 """RealtimeVoiceSession — the duplex session that slots into /ws/audio.
 
 Implements the same duck interface (handle_audio_frame/handle_control/end) as
@@ -957,11 +957,11 @@ import asyncio
 import logging
 from typing import Any
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.core.turn_language import resolve_output_language
-from jarvis.realtime.protocol import RealtimeSessionConfig
-from jarvis.realtime.scrub_gate import ScrubHoldGate
-from jarvis.telephony.audio import STT_SAMPLE_RATE, Resampler
+from dodaios.core.protocols import AudioChunk
+from dodaios.core.turn_language import resolve_output_language
+from dodaios.realtime.protocol import RealtimeSessionConfig
+from dodaios.realtime.scrub_gate import ScrubHoldGate
+from dodaios.telephony.audio import STT_SAMPLE_RATE, Resampler
 
 log = logging.getLogger(__name__)
 
@@ -1039,7 +1039,7 @@ class RealtimeVoiceSession:
         await self._session.send_audio(AudioChunk(pcm=pcm16, sample_rate=STT_SAMPLE_RATE, timestamp_ns=0))
 
     async def _pump(self) -> None:
-        from jarvis.telemetry.latency import LatencyPhase, mark_phase
+        from dodaios.telemetry.latency import LatencyPhase, mark_phase
 
         try:
             async for ev in self._session.receive():
@@ -1076,7 +1076,7 @@ class RealtimeVoiceSession:
 
     async def _emit_audio(self, chunk: AudioChunk) -> None:
         if self._ms_sent == 0 and self._bus is not None:
-            from jarvis.core.events import AudioOutFirst
+            from dodaios.core.events import AudioOutFirst
 
             try:
                 await self._bus.publish(AudioOutFirst())
@@ -1119,7 +1119,7 @@ Expected: PASS (2 passed).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add jarvis/realtime/session.py tests/unit/realtime/test_session.py
+git add dodaios/realtime/session.py tests/unit/realtime/test_session.py
 git commit -m "feat(realtime): RealtimeVoiceSession duck interface for /ws/audio"
 ```
 
@@ -1128,8 +1128,8 @@ git commit -m "feat(realtime): RealtimeVoiceSession duck interface for /ws/audio
 ### Task 7: Factory + browser route branch (default OFF)
 
 **Files:**
-- Create: `jarvis/realtime/factory.py`
-- Modify: `jarvis/browser_voice/route.py` (`_browser_voice_enabled` at :29, `_build_browser_session` at :44)
+- Create: `dodaios/realtime/factory.py`
+- Modify: `dodaios/browser_voice/route.py` (`_browser_voice_enabled` at :29, `_build_browser_session` at :44)
 - Test: `tests/unit/realtime/test_factory.py`, `tests/unit/web/test_voice_mode_route.py` (route branch part)
 
 **Interfaces:**
@@ -1142,31 +1142,31 @@ git commit -m "feat(realtime): RealtimeVoiceSession duck interface for /ws/audio
 # tests/unit/realtime/test_factory.py
 from types import SimpleNamespace
 
-from jarvis.realtime.factory import build_realtime_session
+from dodaios.realtime.factory import build_realtime_session
 
 
 def _cfg(mode, key):
-    import jarvis.core.config as c
+    import dodaios.core.config as c
     orig = c.get_provider_secret
     return SimpleNamespace(voice=SimpleNamespace(mode=mode), brain=SimpleNamespace(reply_language="en")), orig, key
 
 
 def test_returns_none_when_mode_is_pipeline(monkeypatch):
-    import jarvis.realtime.factory as f
+    import dodaios.realtime.factory as f
     monkeypatch.setattr(f, "get_provider_secret", lambda _p: "sk-x")
     cfg = SimpleNamespace(voice=SimpleNamespace(mode="pipeline"), brain=SimpleNamespace(reply_language="en"))
     assert build_realtime_session(cfg=cfg, bus=None, session_id="s", send_binary=None, send_json=None) is None
 
 
 def test_returns_none_when_no_openai_key(monkeypatch):
-    import jarvis.realtime.factory as f
+    import dodaios.realtime.factory as f
     monkeypatch.setattr(f, "get_provider_secret", lambda _p: None)
     cfg = SimpleNamespace(voice=SimpleNamespace(mode="realtime"), brain=SimpleNamespace(reply_language="en"))
     assert build_realtime_session(cfg=cfg, bus=None, session_id="s", send_binary=None, send_json=None) is None
 
 
 def test_builds_session_when_realtime_and_keyed(monkeypatch):
-    import jarvis.realtime.factory as f
+    import dodaios.realtime.factory as f
     monkeypatch.setattr(f, "get_provider_secret", lambda _p: "sk-x")
     cfg = SimpleNamespace(voice=SimpleNamespace(mode="realtime"), brain=SimpleNamespace(reply_language="en"))
     sess = build_realtime_session(cfg=cfg, bus=None, session_id="s", send_binary=lambda b: None, send_json=lambda m: None)
@@ -1177,12 +1177,12 @@ def test_builds_session_when_realtime_and_keyed(monkeypatch):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/unit/realtime/test_factory.py -v`
-Expected: FAIL — `ModuleNotFoundError: jarvis.realtime.factory`.
+Expected: FAIL — `ModuleNotFoundError: dodaios.realtime.factory`.
 
 - [ ] **Step 3: Implement the factory**
 
 ```python
-# jarvis/realtime/factory.py
+# dodaios/realtime/factory.py
 """Build a RealtimeVoiceSession for the browser /ws/audio path.
 
 Returns None (=> caller runs the classic path) when realtime is not selected or
@@ -1195,7 +1195,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from jarvis.core.config import get_provider_secret
+from dodaios.core.config import get_provider_secret
 
 log = logging.getLogger(__name__)
 
@@ -1210,8 +1210,8 @@ def build_realtime_session(
         log.info("realtime: no OpenAI key — falling back to the classic path")
         return None
     try:
-        from jarvis.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
-        from jarvis.realtime.session import RealtimeVoiceSession
+        from dodaios.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
+        from dodaios.realtime.session import RealtimeVoiceSession
 
         return RealtimeVoiceSession(
             session_id=session_id,
@@ -1228,12 +1228,12 @@ def build_realtime_session(
 
 - [ ] **Step 4: Branch the browser route (default-OFF for realtime)**
 
-In `jarvis/browser_voice/route.py`, in `_build_browser_session` (:44), add the realtime branch at the very top of the function body, before the factory-seam check:
+In `dodaios/browser_voice/route.py`, in `_build_browser_session` (:44), add the realtime branch at the very top of the function body, before the factory-seam check:
 
 ```python
     # Realtime mode branch (default OFF): only when [voice].mode == "realtime"
     # AND an OpenAI key exists. Otherwise fall through to the classic bridge.
-    from jarvis.realtime.factory import build_realtime_session
+    from dodaios.realtime.factory import build_realtime_session
 
     rt = build_realtime_session(
         cfg=cfg, bus=bus, session_id=session_id, send_binary=send_binary, send_json=send_json
@@ -1262,7 +1262,7 @@ def _browser_voice_enabled(cfg: Any) -> bool:
 # tests/unit/web/test_voice_mode_route.py  (route-branch half)
 from types import SimpleNamespace
 
-from jarvis.browser_voice.route import _browser_voice_enabled
+from dodaios.browser_voice.route import _browser_voice_enabled
 
 
 def test_gate_default_off_when_pipeline_and_no_browser_voice():
@@ -1293,7 +1293,7 @@ Expected: PASS — confirm the inverted default gate didn't break the existing s
 - [ ] **Step 8: Commit**
 
 ```bash
-git add jarvis/realtime/factory.py jarvis/browser_voice/route.py tests/unit/realtime/test_factory.py tests/unit/web/test_voice_mode_route.py
+git add dodaios/realtime/factory.py dodaios/browser_voice/route.py tests/unit/realtime/test_factory.py tests/unit/web/test_voice_mode_route.py
 git commit -m "feat(realtime): factory + browser route branch, default-OFF connect gate"
 ```
 
@@ -1302,7 +1302,7 @@ git commit -m "feat(realtime): factory + browser route branch, default-OFF conne
 ### Task 8: Settings route — GET/PUT /api/settings/voice-mode
 
 **Files:**
-- Modify: `jarvis/ui/web/settings_routes.py` (existing router, prefix `/api/settings`, tags at :44)
+- Modify: `dodaios/ui/web/settings_routes.py` (existing router, prefix `/api/settings`, tags at :44)
 - Test: `tests/unit/web/test_voice_mode_route.py` (route handler half — append)
 
 **Interfaces:**
@@ -1318,7 +1318,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from types import SimpleNamespace
 
-from jarvis.ui.web.settings_routes import router
+from dodaios.ui.web.settings_routes import router
 
 
 def _app(mode="pipeline", key="sk-x", monkeypatch=None):
@@ -1329,7 +1329,7 @@ def _app(mode="pipeline", key="sk-x", monkeypatch=None):
 
 
 def test_get_voice_mode(monkeypatch):
-    import jarvis.ui.web.settings_routes as sr
+    import dodaios.ui.web.settings_routes as sr
     monkeypatch.setattr(sr, "get_provider_secret", lambda _p: "sk-x")
     client = TestClient(_app(mode="realtime"))
     r = client.get("/api/settings/voice-mode")
@@ -1346,14 +1346,14 @@ def test_put_voice_mode_invalid_is_400():
 
 
 def test_put_voice_mode_updates_live_and_persists(monkeypatch):
-    import jarvis.ui.web.settings_routes as sr
+    import dodaios.ui.web.settings_routes as sr
     persisted = {"called": False}
     monkeypatch.setattr(sr, "get_provider_secret", lambda _p: "sk-x")
 
     def fake_set(mode, **kw):
         persisted["called"] = True
 
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
     monkeypatch.setattr(cw, "set_voice_mode", fake_set)
     app = _app()
     client = TestClient(app)
@@ -1371,7 +1371,7 @@ Expected: FAIL — 404 (routes not defined).
 
 - [ ] **Step 3: Add the routes**
 
-In `jarvis/ui/web/settings_routes.py`, add near the reply-language handlers. Import at the top of the file (with the other imports): `from jarvis.core.config import get_provider_secret`. Then:
+In `dodaios/ui/web/settings_routes.py`, add near the reply-language handlers. Import at the top of the file (with the other imports): `from dodaios.core.config import get_provider_secret`. Then:
 
 ```python
 _VOICE_MODES = ("pipeline", "realtime")
@@ -1409,7 +1409,7 @@ async def put_voice_mode(body: VoiceModeBody, request: Request) -> dict[str, obj
     persisted = False
     if body.persist:
         try:
-            from jarvis.core import config_writer
+            from dodaios.core import config_writer
 
             config_writer.set_voice_mode(body.mode)
             persisted = True
@@ -1432,7 +1432,7 @@ Expected: PASS — `settings_routes.py` is already imported in `server.py` and d
 - [ ] **Step 6: Commit**
 
 ```bash
-git add jarvis/ui/web/settings_routes.py tests/unit/web/test_voice_mode_route.py
+git add dodaios/ui/web/settings_routes.py tests/unit/web/test_voice_mode_route.py
 git commit -m "feat(realtime): GET/PUT /api/settings/voice-mode with in-app persist"
 ```
 
@@ -1441,13 +1441,13 @@ git commit -m "feat(realtime): GET/PUT /api/settings/voice-mode with in-app pers
 ### Task 9: Frontend — PCM worklet, realtime client, settings toggle
 
 **Files:**
-- Create: `jarvis/ui/web/frontend/src/lib/pcm-worklet.ts` (capture + playback `AudioWorkletProcessor`s)
-- Create: `jarvis/ui/web/frontend/src/lib/realtimeAudio.ts` (dedicated `/ws/audio` client)
-- Create: `jarvis/ui/web/frontend/src/hooks/useVoiceMode.ts`
-- Create: `jarvis/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx`
-- Modify: `jarvis/ui/web/frontend/src/views/SettingsView.tsx` (mount the group at :70)
-- Modify: `jarvis/ui/web/frontend/src/i18n/locales/{en,de,es}.json` (toggle strings)
-- Test: `jarvis/ui/web/frontend/src/lib/realtimeAudio.test.ts` (vitest)
+- Create: `dodaios/ui/web/frontend/src/lib/pcm-worklet.ts` (capture + playback `AudioWorkletProcessor`s)
+- Create: `dodaios/ui/web/frontend/src/lib/realtimeAudio.ts` (dedicated `/ws/audio` client)
+- Create: `dodaios/ui/web/frontend/src/hooks/useVoiceMode.ts`
+- Create: `dodaios/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx`
+- Modify: `dodaios/ui/web/frontend/src/views/SettingsView.tsx` (mount the group at :70)
+- Modify: `dodaios/ui/web/frontend/src/i18n/locales/{en,de,es}.json` (toggle strings)
+- Test: `dodaios/ui/web/frontend/src/lib/realtimeAudio.test.ts` (vitest)
 
 **Interfaces:**
 - Produces: `RealtimeAudioClient` (`connect()`, `disconnect()`), `useVoiceMode()` hook (`{mode, realtimeAvailable, setMode, isLoading}`), `<RealtimeVoiceGroup/>`.
@@ -1458,7 +1458,7 @@ git commit -m "feat(realtime): GET/PUT /api/settings/voice-mode with in-app pers
 - [ ] **Step 1: Write the failing test (client URL + handshake)**
 
 ```ts
-// jarvis/ui/web/frontend/src/lib/realtimeAudio.test.ts
+// dodaios/ui/web/frontend/src/lib/realtimeAudio.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { buildAudioSocketUrl } from "./realtimeAudio";
 
@@ -1476,13 +1476,13 @@ describe("realtime audio client", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd jarvis/ui/web/frontend && npm run test -- realtimeAudio`
+Run: `cd dodaios/ui/web/frontend && npm run test -- realtimeAudio`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement the realtime client**
 
 ```ts
-// jarvis/ui/web/frontend/src/lib/realtimeAudio.ts
+// dodaios/ui/web/frontend/src/lib/realtimeAudio.ts
 // Dedicated /ws/audio client for realtime voice. Separate from the JSON-only
 // WSClient (src/lib/ws.ts): this one carries binary int16 PCM (arraybuffer).
 
@@ -1558,7 +1558,7 @@ export class RealtimeAudioClient {
 - [ ] **Step 4: Implement the PCM worklet**
 
 ```ts
-// jarvis/ui/web/frontend/src/lib/pcm-worklet.ts
+// dodaios/ui/web/frontend/src/lib/pcm-worklet.ts
 // Standalone AudioWorklet module (loaded via addModule). Not part of the main
 // bundle graph. tsconfig lib lacks AudioWorklet globals, so declare them here.
 declare const sampleRate: number;
@@ -1626,7 +1626,7 @@ registerProcessor("pcm-playback", PcmPlayback);
 - [ ] **Step 5: Implement the settings hook + group**
 
 ```ts
-// jarvis/ui/web/frontend/src/hooks/useVoiceMode.ts
+// dodaios/ui/web/frontend/src/hooks/useVoiceMode.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 type VoiceModeResp = { mode: string; realtime_available: boolean; active_provider: string | null };
@@ -1660,7 +1660,7 @@ export function useVoiceMode() {
 ```
 
 ```tsx
-// jarvis/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx
+// dodaios/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx
 import { useTranslation } from "react-i18next";
 import { Radio } from "lucide-react";
 
@@ -1698,7 +1698,7 @@ export function RealtimeVoiceGroup() {
 
 - [ ] **Step 6: Mount the group + add i18n keys**
 
-In `jarvis/ui/web/frontend/src/views/SettingsView.tsx`, add `import { RealtimeVoiceGroup } from "@/views/settings/RealtimeVoiceGroup";` and place `<RealtimeVoiceGroup />` in the group list after `<AppSettingsGroup />`. Add to each of `src/i18n/locales/{en,de,es}.json` under `settings_view`:
+In `dodaios/ui/web/frontend/src/views/SettingsView.tsx`, add `import { RealtimeVoiceGroup } from "@/views/settings/RealtimeVoiceGroup";` and place `<RealtimeVoiceGroup />` in the group list after `<AppSettingsGroup />`. Add to each of `src/i18n/locales/{en,de,es}.json` under `settings_view`:
 
 ```json
 "realtime_voice": {
@@ -1712,13 +1712,13 @@ In `jarvis/ui/web/frontend/src/views/SettingsView.tsx`, add `import { RealtimeVo
 
 - [ ] **Step 7: Run the frontend checks**
 
-Run: `cd jarvis/ui/web/frontend && npm run test -- realtimeAudio && npm run build`
+Run: `cd dodaios/ui/web/frontend && npm run test -- realtimeAudio && npm run build`
 Expected: the URL test passes; `tsc -b && vite build` succeeds (the worklet emits as a standalone asset).
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add jarvis/ui/web/frontend/src/lib/pcm-worklet.ts jarvis/ui/web/frontend/src/lib/realtimeAudio.ts jarvis/ui/web/frontend/src/lib/realtimeAudio.test.ts jarvis/ui/web/frontend/src/hooks/useVoiceMode.ts jarvis/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx jarvis/ui/web/frontend/src/views/SettingsView.tsx jarvis/ui/web/frontend/src/i18n/locales/en.json jarvis/ui/web/frontend/src/i18n/locales/de.json jarvis/ui/web/frontend/src/i18n/locales/es.json
+git add dodaios/ui/web/frontend/src/lib/pcm-worklet.ts dodaios/ui/web/frontend/src/lib/realtimeAudio.ts dodaios/ui/web/frontend/src/lib/realtimeAudio.test.ts dodaios/ui/web/frontend/src/hooks/useVoiceMode.ts dodaios/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx dodaios/ui/web/frontend/src/views/SettingsView.tsx dodaios/ui/web/frontend/src/i18n/locales/en.json dodaios/ui/web/frontend/src/i18n/locales/de.json dodaios/ui/web/frontend/src/i18n/locales/es.json
 git commit -m "feat(realtime): browser PCM worklet + /ws/audio client + voice-mode settings toggle"
 ```
 
@@ -1740,7 +1740,7 @@ import asyncio
 
 import pytest
 
-from jarvis.core.config import get_provider_secret
+from dodaios.core.config import get_provider_secret
 
 pytestmark = pytest.mark.integration
 
@@ -1748,8 +1748,8 @@ pytestmark = pytest.mark.integration
 @pytest.mark.skipif(not get_provider_secret("openai"), reason="no OpenAI key")
 @pytest.mark.asyncio
 async def test_open_and_close_a_real_session():
-    from jarvis.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
-    from jarvis.realtime.protocol import RealtimeSessionConfig
+    from dodaios.plugins.realtime.openai_realtime import OpenAIRealtimeProvider
+    from dodaios.realtime.protocol import RealtimeSessionConfig
 
     prov = OpenAIRealtimeProvider()
     assert await prov.can_open_duplex_session() is True
@@ -1779,7 +1779,7 @@ Expected: PASS — the realtime imports are lazy, so boot stays within the windo
 
 - [ ] **Step 4: Run the full fast suite + lint + typecheck**
 
-Run: `pytest -m "not slow" && ruff check jarvis/ && mypy jarvis/realtime/ jarvis/plugins/realtime/`
+Run: `pytest -m "not slow" && ruff check dodaios/ && mypy dodaios/realtime/ dodaios/plugins/realtime/`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**

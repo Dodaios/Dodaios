@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from jarvis.telephony.twiml import build_connect_stream_twiml, build_reject_twiml
+from dodaios.telephony.twiml import build_connect_stream_twiml, build_reject_twiml
 
 
 def test_connect_stream_twiml_is_well_formed_and_has_stream():

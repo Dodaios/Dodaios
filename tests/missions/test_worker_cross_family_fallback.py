@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions import init as mi
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
-from jarvis.missions.workers.codex_direct_worker import CodexDirectWorker
+from dodaios.missions import init as mi
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions.workers.codex_direct_worker import CodexDirectWorker
 
 
 def _patch_env(
@@ -32,24 +32,24 @@ def _patch_env(
 ) -> None:
     """Pin every probe the last-resort helper consults to a known world."""
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_binary",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_binary",
         lambda: claude_binary,
     )
     monkeypatch.setattr(mi, "_claude_cli_auth_viable", lambda: claude_auth_viable)
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._codex_oauth_available",
+        "dodaios.missions.workers.codex_direct_worker._codex_oauth_available",
         lambda: codex_oauth,
     )
     monkeypatch.setattr(
-        "jarvis.codex_auth_state.codex_needs_reauth", lambda: codex_reauth
+        "dodaios.codex_auth_state.codex_needs_reauth", lambda: codex_reauth
     )
     monkeypatch.setattr(
-        "jarvis.codex_quota_state.codex_in_quota_cooldown",
+        "dodaios.codex_quota_state.codex_in_quota_cooldown",
         lambda **_k: codex_quota_capped,
     )
     keyset = {k.strip().lower() for k in keys}
     monkeypatch.setattr(
-        "jarvis.core.config.get_provider_secret",
+        "dodaios.core.config.get_provider_secret",
         lambda p: "KEY" if (p or "").strip().lower() in keyset else None,
     )
     # The claude-binary branch assembles MCP servers; keep that cheap + offline.
@@ -150,7 +150,7 @@ def test_stale_oauth_bearer_does_not_count_as_claude_api_key(
         keys=("openrouter",),
     )
     monkeypatch.setattr(
-        "jarvis.core.config.get_provider_secret",
+        "dodaios.core.config.get_provider_secret",
         lambda p: {
             "claude-api": "sk-ant-oat01-STALE-COPY",
             "openrouter": "KEY",
@@ -203,11 +203,11 @@ def test_quota_depleted_family_is_skipped_in_the_walk(
     (429) and every retry re-picked gemini — openrouter, one slot further in
     the SAME loop, was never reached. A family in quota cooldown must be
     walked past."""
-    from jarvis.api_family_quota_state import (
+    from dodaios.api_family_quota_state import (
         clear_api_family_cooldown,
         mark_api_family_cooldown,
     )
-    from jarvis.claude_auth_state import credential_fingerprint
+    from dodaios.claude_auth_state import credential_fingerprint
 
     _patch_env(monkeypatch, keys=("gemini", "openrouter"))
     mark_api_family_cooldown(

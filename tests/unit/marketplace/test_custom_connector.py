@@ -14,8 +14,8 @@ import json
 import httpx
 import pytest
 
-from jarvis.marketplace.catalog import PluginSpec
-from jarvis.marketplace.custom_connector import (
+from dodaios.marketplace.catalog import PluginSpec
+from dodaios.marketplace.custom_connector import (
     ConnectorError,
     ConnectorProbe,
     build_connector_spec,
@@ -27,8 +27,8 @@ from jarvis.marketplace.custom_connector import (
     probe_connector,
     resolve_auth,
 )
-from jarvis.marketplace.plugin_mcp import plugin_to_mcp_server_spec
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.plugin_mcp import plugin_to_mcp_server_spec
+from dodaios.marketplace.token_store import Tokens
 
 URL = "https://mcp.example.com/mcp"
 

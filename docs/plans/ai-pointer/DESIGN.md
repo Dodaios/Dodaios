@@ -63,15 +63,15 @@ accessibility tree; the crop is a scoped fallback for unlabeled pixels.
 
 | # | Unit | File | Responsibility | Depends on |
 |---|------|------|----------------|------------|
-| 1 | `PointerElement` | `jarvis/vision/pointer_types.py` | frozen dataclass: name, role, value, bounds, app_name, window_title, has_text, source | — |
-| 2 | Intent gate | `jarvis/pointer/intent.py` | `is_pointing_intent(text) -> bool` — fast regex deictic detector + negative guard | config |
-| 3 | Mouse backend | `jarvis/platform/mouse.py` | `MouseBackend` protocol + `make_mouse_backend()` (Win ctypes / Mac+Linux pynput / null) | platform seam |
-| 4 | Element-at-point | `jarvis/vision/element_at_point.py` | `make_pointer_resolver()` → per-OS point query → `PointerElement \| None` | tree caps |
-| 5 | Region crop | extend `jarvis/vision/screenshot.py` | `capture_region(bbox) -> bytes` (PIL crop around point) | mss/PIL |
-| 6 | Context resolver | `jarvis/pointer/context.py` | `PointerContext` + `resolve_pointer_context()` — compose 3→4→(5) with a hard timeout; render a compact text block + optional `ImageBlock` | 1,3,4,5 |
-| 7 | Pull tool | `jarvis/plugins/tool/inspect_pointer.py` | `inspect_pointer` router-tier tool (risk `safe`) for the chat path / explicit calls | 6 |
-| 8 | Push injection | edit `jarvis/brain/manager.py` | on a gated turn, attach the pointer block to that single turn's prompt | 2,6 |
-| 9 | Config | edit `jarvis/core/config.py` | `[pointer]` section: enabled, patterns, crop radius, timeout | — |
+| 1 | `PointerElement` | `dodaios/vision/pointer_types.py` | frozen dataclass: name, role, value, bounds, app_name, window_title, has_text, source | — |
+| 2 | Intent gate | `dodaios/pointer/intent.py` | `is_pointing_intent(text) -> bool` — fast regex deictic detector + negative guard | config |
+| 3 | Mouse backend | `dodaios/platform/mouse.py` | `MouseBackend` protocol + `make_mouse_backend()` (Win ctypes / Mac+Linux pynput / null) | platform seam |
+| 4 | Element-at-point | `dodaios/vision/element_at_point.py` | `make_pointer_resolver()` → per-OS point query → `PointerElement \| None` | tree caps |
+| 5 | Region crop | extend `dodaios/vision/screenshot.py` | `capture_region(bbox) -> bytes` (PIL crop around point) | mss/PIL |
+| 6 | Context resolver | `dodaios/pointer/context.py` | `PointerContext` + `resolve_pointer_context()` — compose 3→4→(5) with a hard timeout; render a compact text block + optional `ImageBlock` | 1,3,4,5 |
+| 7 | Pull tool | `dodaios/plugins/tool/inspect_pointer.py` | `inspect_pointer` router-tier tool (risk `safe`) for the chat path / explicit calls | 6 |
+| 8 | Push injection | edit `dodaios/brain/manager.py` | on a gated turn, attach the pointer block to that single turn's prompt | 2,6 |
+| 9 | Config | edit `dodaios/core/config.py` | `[pointer]` section: enabled, patterns, crop radius, timeout | — |
 
 ### Data flow (a gated turn)
 
@@ -125,7 +125,7 @@ brain still reads the actual question.
 - `pynput` is already in the `[desktop]` extra; Windows uses stdlib `ctypes`.
   Windows UIA point query uses `comtypes`/`uiautomation` (Windows-only, lazy
   import inside the function body — HN-7). **No new hard dependency.**
-- Capability probe `has_cursor` added to `jarvis/platform/probes.py`.
+- Capability probe `has_cursor` added to `dodaios/platform/probes.py`.
 
 ## 7. Verification honesty (per SIGNOFF-LOG convention)
 

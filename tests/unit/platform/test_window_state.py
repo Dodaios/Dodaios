@@ -1,4 +1,4 @@
-"""Phase 0: jarvis/platform/window_state.py — reusable, cross-platform window
+"""Phase 0: dodaios/platform/window_state.py — reusable, cross-platform window
 enumeration / focus / already-running detection behind the platform seam.
 
 Seam-level only: the platform is forced via detect_platform/probes and the
@@ -12,8 +12,8 @@ import subprocess
 import sys
 import types
 
-from jarvis.platform import window_state as ws
-from jarvis.platform.window_state import WindowInfo
+from dodaios.platform import window_state as ws
+from dodaios.platform.window_state import WindowInfo
 
 
 def _cp(returncode: int, stdout: str = "", stderr: str = ""):

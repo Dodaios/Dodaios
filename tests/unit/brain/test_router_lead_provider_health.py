@@ -14,9 +14,9 @@ provider's answer as final instead of falling through correctly.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 
 class _ToolIncapableBrain:

@@ -1,4 +1,4 @@
-"""Shared master-output-volume gain (jarvis.audio.gain).
+"""Shared master-output-volume gain (dodaios.audio.gain).
 
 Covers the loudness maths every TTS sink relies on: the 0.0-1.0 knob maps to a
 makeup boost so 100% is genuinely louder than the raw signal, a look-ahead peak
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from jarvis.audio import gain
+from dodaios.audio import gain
 
 
 def _rms(a) -> float:

@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.wikilink``.
+"""Unit tests for ``dodaios.memory.wiki.wikilink``.
 
 Covers extraction (all four documented forms + escape + edge cases)
 and resolution (short form, explicit-prefix form, ambiguous, missing).
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.wikilink import (
+from dodaios.memory.wiki.wikilink import (
     SEARCHABLE_DIRS,
     extract_wikilinks,
     resolve_wikilink,

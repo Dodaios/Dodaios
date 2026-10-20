@@ -12,13 +12,13 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import Event, MemoryFileWrite
-from jarvis.memory import write_feedback
-from jarvis.memory.learning import notebook as notebook_module
-from jarvis.memory.learning.notebook import OWNER_ID, JarvisNotebook
-from jarvis.memory.templates import render_soul_md
-from jarvis.ui.web.schema import event_to_ws_envelope
+from dodaios.core.bus import EventBus
+from dodaios.core.events import Event, MemoryFileWrite
+from dodaios.memory import write_feedback
+from dodaios.memory.learning import notebook as notebook_module
+from dodaios.memory.learning.notebook import OWNER_ID, JarvisNotebook
+from dodaios.memory.templates import render_soul_md
+from dodaios.ui.web.schema import event_to_ws_envelope
 
 PLAIN_FACT = "The user likes short answers in the morning."
 
@@ -176,7 +176,7 @@ async def test_connect_publishes_ordered_events_from_a_worker_thread(book: Jarvi
 async def test_remember_tool_announces_the_memory_file(book: JarvisNotebook):
     from types import SimpleNamespace
 
-    from jarvis.plugins.tool.remember import RememberTool
+    from dodaios.plugins.tool.remember import RememberTool
 
     notebook_module.set_active(book)
     sink = RecordingSink()
@@ -189,7 +189,7 @@ async def test_remember_tool_announces_the_memory_file(book: JarvisNotebook):
 
 
 async def test_an_agent_notebook_write_names_its_file(tmp_path: Path):
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.runtime import SocietyRuntime
 
     runtime = SocietyRuntime(tmp_path, seed_starter_team=False)
     await runtime.ensure_started()

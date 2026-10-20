@@ -7,15 +7,15 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     ActionExecuted,
     HarnessDispatched,
     KillRequested,
     ObservationCaptured,
 )
-from jarvis.core.protocols import HarnessTask
-from jarvis.telemetry import FlightRecorder
+from dodaios.core.protocols import HarnessTask
+from dodaios.telemetry import FlightRecorder
 
 
 @pytest.mark.asyncio
@@ -106,7 +106,7 @@ async def test_recorder_externalizes_large_blobs(tmp_path):
     """Bytes > blob_inline_limit_bytes end up in blobs/, not inline."""
     from dataclasses import dataclass
 
-    from jarvis.core.events import Event
+    from dodaios.core.events import Event
 
     @dataclass(frozen=True, slots=True)
     class BigEvent(Event):

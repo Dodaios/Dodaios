@@ -11,8 +11,8 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from jarvis.society import focus, seeds
-from jarvis.society.capabilities import capability_id_for_tool
+from dodaios.society import focus, seeds
+from dodaios.society.capabilities import capability_id_for_tool
 
 _PYPROJECT = Path(__file__).resolve().parents[3] / "pyproject.toml"
 # Folder tools are added per chat session, not through entry points.
@@ -38,7 +38,7 @@ def test_every_hard_coded_capability_id_names_a_registered_tool() -> None:
 
 def test_briefing_words_reach_mail_calendar_and_search() -> None:
     catalog_tools = {name: None for name in ("gmail", "google_calendar", "search-web")}
-    from jarvis.society.capabilities import build_catalog
+    from dodaios.society.capabilities import build_catalog
 
     catalog = build_catalog(catalog_tools)
     derived = focus.derive_focus(
@@ -50,7 +50,7 @@ def test_briefing_words_reach_mail_calendar_and_search() -> None:
 
 
 def test_runtime_catalog_marks_an_unauthorised_plugin_unconnected(tmp_path: Path) -> None:
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.runtime import SocietyRuntime
 
     tools = {"gmail": None, "google_calendar": None, "search-web": None}
     runtime = SocietyRuntime(
@@ -65,7 +65,7 @@ def test_runtime_catalog_marks_an_unauthorised_plugin_unconnected(tmp_path: Path
 
 
 def test_runtime_catalog_without_a_probe_keeps_every_plugin_connected(tmp_path: Path) -> None:
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.runtime import SocietyRuntime
 
     runtime = SocietyRuntime(tmp_path, brain_tools=lambda: {"gmail": None})
     assert all(row.connected for row in runtime.catalog() if row.id == "plugin:gmail")

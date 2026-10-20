@@ -1,4 +1,4 @@
-"""Client-safe error text helpers (jarvis/ui/web/error_text.py)."""
+"""Client-safe error text helpers (dodaios/ui/web/error_text.py)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from jarvis.ui.web.error_text import LOG_HINT, diagnostic_text, internal_error
+from dodaios.ui.web.error_text import LOG_HINT, diagnostic_text, internal_error
 
 
 def test_internal_error_hides_exception_and_logs_traceback(
@@ -16,7 +16,7 @@ def test_internal_error_hides_exception_and_logs_traceback(
     try:
         raise error
     except RuntimeError as exc:
-        with caplog.at_level(logging.WARNING, logger="jarvis.ui.web.error_text"):
+        with caplog.at_level(logging.WARNING, logger="dodaios.ui.web.error_text"):
             message = internal_error("config write", exc)
 
     assert message == f"config write failed. {LOG_HINT}"

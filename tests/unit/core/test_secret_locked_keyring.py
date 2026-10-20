@@ -21,7 +21,7 @@ import keyring.backend
 import pytest
 from keyring.errors import KeyringLocked
 
-from jarvis.core import config as c
+from dodaios.core import config as c
 
 
 @pytest.fixture(autouse=True)

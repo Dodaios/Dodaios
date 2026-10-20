@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain import resolver
+from dodaios.brain import resolver
 
 
 class _FakeRegistry:
@@ -150,7 +150,7 @@ def test_a_provider_whose_fast_and_deep_defaults_coincide_is_not_filtered_away(
 ) -> None:
     """Filtering must never leave a provider with nothing. grok's router and
     deep defaults are the same model, so it is that provider's only option."""
-    from jarvis.brain.manager import TIER_DEFAULTS_BY_PROVIDER
+    from dodaios.brain.manager import TIER_DEFAULTS_BY_PROVIDER
 
     router_default = TIER_DEFAULTS_BY_PROVIDER["router"].get("grok")
     deep_default = TIER_DEFAULTS_BY_PROVIDER["deep"].get("grok")

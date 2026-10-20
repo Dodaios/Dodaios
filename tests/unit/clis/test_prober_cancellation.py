@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.clis import prober as module
-from jarvis.clis.prober import CliStatusProber
+from dodaios.clis import prober as module
+from dodaios.clis.prober import CliStatusProber
 
 
 @pytest.mark.asyncio

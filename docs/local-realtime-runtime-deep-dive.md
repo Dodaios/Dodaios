@@ -64,7 +64,7 @@ latency, memory, isolation, and readiness contracts.
 
 The pipeline providers determine readiness from two independent facts—runtime
 importability and complete model presence—and fail closed when either is
-unknown (`jarvis/speech/local_models.py:1-34` and `64-87`). Managed realtime
+unknown (`dodaios/speech/local_models.py:1-34` and `64-87`). Managed realtime
 does not reuse that contract; its install marker and TCP probe form a second,
 weaker definition of “ready”. The long-term runtime should generalize the
 existing fail-closed local-model contract to all engines while keeping native
@@ -116,14 +116,14 @@ from a dead process for 40-80 seconds. Extending client retries to 120 seconds
 does not solve this; it turns infrastructure warm-up into a blocked call.
 
 The Jarvis provider explicitly encodes that wait in
-`jarvis/plugins/realtime/openai_realtime.py:1243-1261`, then retries the entire
+`dodaios/plugins/realtime/openai_realtime.py:1243-1261`, then retries the entire
 open path in `1631-1676`.
 
 ### 2. Reachability, liveness, readiness, and ownership are conflated
 
 `supervisor.status()` calls a TCP port probe, and `ensure_running()` returns
 `already-running` for either any listener or a recorded parent process
-(`jarvis/realtime/local_server/supervisor.py:224-267`). Neither answer proves
+(`dodaios/realtime/local_server/supervisor.py:224-267`). Neither answer proves
 that the Realtime protocol works, a pipeline slot is available, or STT/LLM/TTS
 are ready.
 
@@ -168,8 +168,8 @@ cold retry.
 ### 5. Provider selection races model preparation
 
 Boot warming waits for voice usability, adds a delay, and warms only providers
-that were selected at that moment (`jarvis/ui/desktop_app.py:2941-3004` and
-`jarvis/realtime/factory.py:220-253`). Selecting local realtime later persists
+that were selected at that moment (`dodaios/ui/desktop_app.py:2941-3004` and
+`dodaios/realtime/factory.py:220-253`). Selecting local realtime later persists
 the choice and immediately reconnects the active call
 (`provider_routes.py:4408-4454`); it does not first start the server and wait for
 full readiness. The user therefore becomes the warm-up probe. The separate

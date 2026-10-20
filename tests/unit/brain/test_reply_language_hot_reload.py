@@ -13,10 +13,10 @@ from __future__ import annotations
 import time
 from uuid import uuid4
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import load_config
-from jarvis.core.events import ConfigReloaded
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import load_config
+from dodaios.core.events import ConfigReloaded
 
 
 def _manager_with_bus(bus: EventBus, reply_language: str) -> BrainManager:

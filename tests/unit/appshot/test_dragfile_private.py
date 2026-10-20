@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.appshot import dragfile
+from dodaios.appshot import dragfile
 
 pytestmark = pytest.mark.skipif(os.name == "nt", reason="Windows %TEMP% is per user already")
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.memory.wiki.session_links import (
+from dodaios.memory.wiki.session_links import (
     SlugIndex,
     build_related_footer,
     promote_plaintext_links,

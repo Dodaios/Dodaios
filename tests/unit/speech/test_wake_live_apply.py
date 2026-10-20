@@ -15,9 +15,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.speech import wake_phrase as wp
-from jarvis.speech.pipeline import SpeechPipeline
-from jarvis.speech.wake_phrase import resolve_wake_plan
+from dodaios.speech import wake_phrase as wp
+from dodaios.speech.pipeline import SpeechPipeline
+from dodaios.speech.wake_phrase import resolve_wake_plan
 
 
 @pytest.fixture(autouse=True)
@@ -125,7 +125,7 @@ async def test_verify_oww_hit_trusts_non_jarvis_model_without_stt() -> None:
 
 
 async def test_verify_oww_hit_still_rejects_bare_core_word() -> None:
-    from jarvis.speech.wake_phrase import compile_wake_matcher
+    from dodaios.speech.wake_phrase import compile_wake_matcher
 
     pipe = SpeechPipeline.__new__(SpeechPipeline)
     pipe._require_hey_prefix = True

@@ -11,7 +11,7 @@ Architecture note (AD-OE6):
     the worker itself (NETWORK_ERROR, one retry) OR arrive here as a
     WorkerCorrectionNeeded. There is no code path that drops a failure quietly.
 
-Standard-library only — no third-party imports, no ``import jarvis.*``.
+Standard-library only — no third-party imports, no ``import dodaios.*``.
 """
 from __future__ import annotations
 

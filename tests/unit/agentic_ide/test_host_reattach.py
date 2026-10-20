@@ -15,8 +15,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import host_mode, resume_store
-from jarvis.agentic_ide import session as ide
+from dodaios.agentic_ide import host_mode, resume_store
+from dodaios.agentic_ide import session as ide
 from tests.unit.agentic_ide.test_pty_host_adoption import ConnectRecorder, FakeHostedPool
 
 

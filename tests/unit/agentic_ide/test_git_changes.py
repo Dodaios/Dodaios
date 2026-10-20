@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import git_changes
+from dodaios.agentic_ide import git_changes
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
@@ -149,7 +149,7 @@ def test_reading_changes_never_rewrites_the_index(repo: Path) -> None:
     """A polled read must not take the index lock from someone's own git command."""
     import os
 
-    from jarvis.agentic_ide import git_ops
+    from dodaios.agentic_ide import git_ops
 
     tracked = next(path for path in repo.iterdir() if path.is_file())
     index = repo / ".git" / "index"

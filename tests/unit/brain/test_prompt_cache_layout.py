@@ -9,8 +9,8 @@ actually warms up.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.config import load_config
+from dodaios.brain.manager import BrainManager
+from dodaios.core.config import load_config
 
 _WIKI = "WIKI_CONTEXT_MARKER: The fictional test user prefers synthwave."
 

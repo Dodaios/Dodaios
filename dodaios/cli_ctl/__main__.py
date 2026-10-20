@@ -1,0 +1,294 @@
+"""jarvisctl entry point. Real commands are wired in here."""
+
+from __future__ import annotations
+
+import logging
+import os
+import sys
+from typing import Any
+
+import click
+import typer
+from typer.core import TyperGroup
+
+# Windows defaults to cp1252; force UTF-8 so non-ASCII help/output is intact.
+try:  # reconfigure exists on TextIO in 3.7+; guard for exotic stdio wrappers
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+    sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+except (AttributeError, ValueError):  # pragma: no cover - exotic stdio
+    pass
+
+from dodaios.cli_ctl import config as _config
+from dodaios.cli_ctl import openapi_cache
+from dodaios.cli_ctl.client import JarvisClient
+from dodaios.cli_ctl.commands import auth as auth_cmd
+from dodaios.cli_ctl.commands import board as board_cmd
+from dodaios.cli_ctl.commands import brain as brain_cmd
+from dodaios.cli_ctl.commands import clis as clis_cmd
+from dodaios.cli_ctl.commands import commands as commands_cmd
+from dodaios.cli_ctl.commands import computer_use as computer_use_cmd
+from dodaios.cli_ctl.commands import conductor as conductor_cmd
+from dodaios.cli_ctl.commands import config as config_cmd
+from dodaios.cli_ctl.commands import contacts as contacts_cmd
+from dodaios.cli_ctl.commands import costs as costs_cmd
+from dodaios.cli_ctl.commands import docs as docs_cmd
+from dodaios.cli_ctl.commands import friends as friends_cmd
+from dodaios.cli_ctl.commands import frontier as frontier_cmd
+from dodaios.cli_ctl.commands import ide as ide_cmd
+from dodaios.cli_ctl.commands import local_models as local_models_cmd
+from dodaios.cli_ctl.commands import marketplace as marketplace_cmd
+from dodaios.cli_ctl.commands import mcps as mcps_cmd
+from dodaios.cli_ctl.commands import missions as missions_cmd
+from dodaios.cli_ctl.commands import outputs as outputs_cmd
+from dodaios.cli_ctl.commands import permissions as permissions_cmd
+from dodaios.cli_ctl.commands import sessions as sessions_cmd
+from dodaios.cli_ctl.commands import skills as skills_cmd
+from dodaios.cli_ctl.commands import socials as socials_cmd
+from dodaios.cli_ctl.commands import system as system_cmd
+from dodaios.cli_ctl.commands import tasks as tasks_cmd
+from dodaios.cli_ctl.commands import telephony as telephony_cmd
+from dodaios.cli_ctl.commands import wiki as wiki_cmd
+from dodaios.cli_ctl.commands import workflows as workflows_cmd
+from dodaios.core.branding import CONTROL_CLI_COMMAND_NAME
+
+
+class _CompatibleRootGroup(TyperGroup):
+    """Honor external Click command exits under Typer's vendored Click root.
+
+    Dynamic commands use the declared Click dependency. Newer Typer versions
+    vendor a separate exception family, so nested help/errors otherwise escape
+    the root handler as tracebacks. Older shared-Click Typer versions simply
+    finish inside the parent handler and never reach this compatibility boundary.
+    """
+
+    def main(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return super().main(*args, **kwargs)
+        except click.exceptions.Exit as exc:
+            if not kwargs.get("standalone_mode", True):
+                return exc.exit_code
+            raise SystemExit(exc.exit_code) from None
+        except click.ClickException as exc:
+            if not kwargs.get("standalone_mode", True):
+                raise
+            exc.show()
+            raise SystemExit(exc.exit_code) from None
+        except click.Abort:
+            if not kwargs.get("standalone_mode", True):
+                raise
+            click.echo("Aborted!", err=True)
+            raise SystemExit(1) from None
+
+
+app = typer.Typer(
+    name=CONTROL_CLI_COMMAND_NAME,
+    cls=_CompatibleRootGroup,
+    no_args_is_help=True,
+    add_completion=True,
+    help="Control a running Dodaios instance from the terminal.",
+)
+
+# Shared state set by the root callback and read by commands.
+STATE: dict[str, object] = {"json": False, "url": None, "key": None}
+
+
+@app.callback()
+def _root(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit raw JSON instead of human tables."
+    ),
+    url: str | None = typer.Option(
+        None, "--url", help="Override the Dodaios base URL (e.g. http://host:port)."
+    ),
+    key: str | None = typer.Option(
+        None,
+        "--key",
+        hide_input=True,
+        help="Override the control API key (Bearer token) for this call only.",
+    ),
+) -> None:
+    """Thin HTTP control client for a running Dodaios server."""
+    STATE["json"] = json_output
+    STATE["url"] = url
+    STATE["key"] = key
+
+
+def as_json() -> bool:
+    return bool(STATE["json"])
+
+
+def make_client(url: str | None = None, key: str | None = None) -> JarvisClient:
+    """Build a client from explicit overrides, the ``--url`` / ``--key`` global
+    options, or the resolved profile (env / config / live session / local key)."""
+    prof = _config.resolve_profile()
+    return JarvisClient(
+        base_url=url or STATE.get("url") or prof.base_url,  # type: ignore[arg-type]
+        control_key=key or STATE.get("key") or prof.control_key,  # type: ignore[arg-type]
+    )
+
+
+@app.command()
+def version(ctx: typer.Context) -> None:
+    """Print the CLI version."""
+    from dodaios import __version__
+
+    # The name the command was started under: dodaios, dodaiosctl, or an
+    # earlier name of either.
+    command = ctx.find_root().info_name or CONTROL_CLI_COMMAND_NAME
+    typer.echo(f"{command} (Dodaios {__version__})")
+
+
+@app.command()
+def refresh() -> None:
+    """Clear the cached API schema (next call re-fetches it)."""
+    openapi_cache.clear_cache()
+    typer.echo("Schema cache cleared.")
+
+
+app.add_typer(auth_cmd.app, name="auth")
+app.add_typer(system_cmd.app, name="system")
+app.add_typer(tasks_cmd.app, name="tasks")
+app.add_typer(brain_cmd.app, name="brain")
+app.add_typer(commands_cmd.app, name="commands")
+app.add_typer(computer_use_cmd.app, name="computer-use")
+app.add_typer(config_cmd.app, name="config")
+app.add_typer(missions_cmd.app, name="missions")
+app.add_typer(wiki_cmd.app, name="wiki")
+app.add_typer(sessions_cmd.app, name="sessions")
+app.add_typer(skills_cmd.app, name="skills")
+app.add_typer(outputs_cmd.app, name="outputs")
+app.add_typer(permissions_cmd.app, name="permissions")
+app.add_typer(board_cmd.app, name="board")
+app.add_typer(workflows_cmd.app, name="workflows")
+app.add_typer(conductor_cmd.app, name="conductor")
+app.add_typer(contacts_cmd.app, name="contacts")
+app.add_typer(friends_cmd.app, name="friends")
+app.add_typer(socials_cmd.app, name="socials")
+app.add_typer(telephony_cmd.app, name="telephony")
+app.add_typer(marketplace_cmd.app, name="marketplace")
+app.add_typer(mcps_cmd.app, name="mcps")
+app.add_typer(clis_cmd.app, name="clis")
+app.add_typer(costs_cmd.app, name="costs")
+app.add_typer(docs_cmd.app, name="docs")
+app.add_typer(frontier_cmd.app, name="frontier")
+app.add_typer(ide_cmd.app, name="ide")
+app.add_typer(local_models_cmd.app, name="local-models")
+
+
+def _in_completion() -> bool:
+    # Typer/Click set a *_COMPLETE env var during shell completion. Never do
+    # network I/O on that hot path — use cache-only.
+    return any(k.endswith("_COMPLETE") for k in os.environ)
+
+
+def _dynamic_runner(method, path, params, body, *, timeout_s=None):
+    with make_client() as client:
+        return client.request(
+            method,
+            path,
+            params=params,
+            json=body,
+            timeout_s=timeout_s,
+        )
+
+
+# Root options that consume the NEXT argv token as their value; skipped when
+# scanning for the invoked subcommand.
+_VALUE_OPTIONS = frozenset({"--url", "--key"})
+
+
+def _first_subcommand(argv: list[str]) -> str | None:
+    """Return the first non-option argv token (the invoked top-level command)."""
+    skip_next = False
+    for tok in argv:
+        if skip_next:
+            skip_next = False
+            continue
+        if tok in _VALUE_OPTIONS:
+            skip_next = True
+            continue
+        if tok.startswith("-"):
+            continue
+        return tok
+    return None
+
+
+def _root_options(root: click.Group, argv: list[str]) -> tuple[dict[str, object], str | None]:
+    """Parse root options without running Click/Typer parameter or command callbacks.
+
+    The root callback runs only after the dynamic command tree must exist.
+    Click's option parser already handles split/equal values, ``--`` and root
+    option boundaries; raw token scanning cannot safely supply credentials.
+    """
+    context = root.context_class(root)
+    values, remaining, _ = root.make_parser(context).parse_args(list(argv))
+    return values, remaining[0] if remaining else None
+
+
+def build_root_command(argv: list[str] | None = None) -> click.Group:
+    """Return the Click root: the Typer app plus the grafted dynamic `api` group.
+
+    The OpenAPI document is fetched over the network ONLY when the invocation
+    actually targets the dynamic ``api`` group. Every other command — including
+    ``--help`` and shell completion — grafts from the disk cache alone, so a
+    stale cache plus an unreachable server can never block e.g. ``jarvis
+    version`` on a connect timeout.
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+    root: click.Group = typer.main.get_command(app)
+    try:
+        options, command = _root_options(root, argv)
+        wants_api = not _in_completion() and not options.get("help") and command == "api"
+        # Construction must not read STATE: it may still describe a previous
+        # invocation in an embedded CLI or CliRunner process. The real root
+        # callback will set STATE later for actual command execution.
+        profile = _config.resolve_profile()
+        url_option, key_option = options.get("url"), options.get("key")
+        selected_url = (
+            url_option if isinstance(url_option, str) and url_option else profile.base_url
+        )
+        selected_key = (
+            key_option if isinstance(key_option, str) and key_option else profile.control_key
+        )
+        if wants_api:
+            with JarvisClient(base_url=selected_url, control_key=selected_key) as client:
+                spec = openapi_cache.load_spec(client)
+        else:
+            # Cache-only for this origin: TTL effectively infinite, no fetch attempt.
+            spec, _ = openapi_cache._read_cache(base_url=selected_url)
+        if spec:
+            from dodaios.cli_ctl.dynamic import build_api_group
+
+            root.add_command(build_api_group(spec, _dynamic_runner))
+        elif wants_api:
+            # `jarvis api ...` would otherwise die with Click's bare
+            # "No such command 'api'" — say what actually went wrong, with
+            # the cause-specific unreachable diagnosis (not one canned line).
+            from dodaios.cli_ctl import doctor
+
+            click.echo(
+                "The dynamic `api` command group is unavailable (no cached "
+                "schema yet). "
+                + doctor.unreachable_message(openapi_cache.server_origin(selected_url)),
+                err=True,
+            )
+    except Exception as exc:  # noqa: S110 - static surface must work if dynamic build fails
+        # The static surface must always work even if the dynamic build fails;
+        # log at DEBUG so a missing `api` group stays diagnosable.
+        # Parser/client exceptions may contain option values or a credential-bearing
+        # URL. Preserve the failure class, never credentials or remote response text.
+        logging.getLogger(__name__).debug("dynamic api group unavailable (%s)", type(exc).__name__)
+    return root
+
+
+def main() -> None:
+    build_root_command(sys.argv[1:])()
+
+
+if __name__ == "__main__":
+    # Static commands import this canonical module for request/output state.
+    # Executing a separate __main__ instance would lose explicit URL/key flags.
+    from dodaios.cli_ctl.__main__ import main as canonical_main
+
+    canonical_main()

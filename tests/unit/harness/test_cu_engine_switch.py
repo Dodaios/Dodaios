@@ -2,7 +2,7 @@
 
 Covers (a) the harness selector that picks the maintained vs the frozen
 "june13" engine per config, and (b) a runtime smoke proving the frozen
-2026-06-10 engine (jarvis/harness/screenshot_only_loop_june13.py) still drives a
+2026-06-10 engine (dodaios/harness/screenshot_only_loop_june13.py) still drives a
 trivial mission to completion against TODAY's codebase — the compatibility claim
 the switch relies on.
 """
@@ -13,10 +13,10 @@ from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
-import jarvis.harness.screenshot_only_loop_june13 as june13
-import jarvis.plugins.harness.computer_use as harness
-from jarvis.core.protocols import HarnessTask, Observation
-from jarvis.harness.computer_use_context import ComputerUseContext
+import dodaios.harness.screenshot_only_loop_june13 as june13
+import dodaios.plugins.harness.computer_use as harness
+from dodaios.core.protocols import HarnessTask, Observation
+from dodaios.harness.computer_use_context import ComputerUseContext
 
 # --- minimal fakes (mirror tests/unit/harness/test_cu_loop_robustness.py) -----
 
@@ -92,7 +92,7 @@ async def test_june13_engine_runs_a_trivial_mission_to_completion():
 
 def _patch_engine(monkeypatch, value: str) -> None:
     monkeypatch.setattr(
-        "jarvis.core.config.load_config",
+        "dodaios.core.config.load_config",
         lambda: SimpleNamespace(computer_use=SimpleNamespace(engine=value)),
     )
 
@@ -100,19 +100,19 @@ def _patch_engine(monkeypatch, value: str) -> None:
 def test_selector_routes_june13_to_guarded_v2(monkeypatch):
     _patch_engine(monkeypatch, "june13")
     loop = harness._resolve_run_cu_loop()
-    assert loop.__module__ == "jarvis.cu.engine"
+    assert loop.__module__ == "dodaios.cu.engine"
 
 
 def test_selector_routes_current_to_guarded_v2(monkeypatch):
     _patch_engine(monkeypatch, "current")
     loop = harness._resolve_run_cu_loop()
-    assert loop.__module__ == "jarvis.cu.engine"
+    assert loop.__module__ == "dodaios.cu.engine"
 
 
 def test_selector_picks_v2_when_configured(monkeypatch):
     _patch_engine(monkeypatch, "v2")
     loop = harness._resolve_run_cu_loop()
-    assert loop.__module__ == "jarvis.cu.engine"
+    assert loop.__module__ == "dodaios.cu.engine"
 
 
 def test_selector_refuses_unguarded_legacy_engines_on_macos(monkeypatch):
@@ -121,13 +121,13 @@ def test_selector_refuses_unguarded_legacy_engines_on_macos(monkeypatch):
 
     loop = harness._resolve_run_cu_loop()
 
-    assert loop.__module__ == "jarvis.cu.engine"
+    assert loop.__module__ == "dodaios.cu.engine"
 
 
 def test_selector_routes_stable_to_guarded_v2(monkeypatch):
     _patch_engine(monkeypatch, "stable")
     loop = harness._resolve_run_cu_loop()
-    assert loop.__module__ == "jarvis.cu.engine"
+    assert loop.__module__ == "dodaios.cu.engine"
 
 
 def test_selector_falls_back_to_default_engine_on_config_error(monkeypatch):
@@ -136,6 +136,6 @@ def test_selector_falls_back_to_default_engine_on_config_error(monkeypatch):
     def _boom() -> Any:
         raise RuntimeError("config unreadable")
 
-    monkeypatch.setattr("jarvis.core.config.load_config", _boom)
+    monkeypatch.setattr("dodaios.core.config.load_config", _boom)
     loop = harness._resolve_run_cu_loop()
-    assert loop.__module__ == "jarvis.cu.engine"
+    assert loop.__module__ == "dodaios.cu.engine"

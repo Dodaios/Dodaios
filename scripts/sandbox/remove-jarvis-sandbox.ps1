@@ -7,7 +7,7 @@
     Reversible by design -- the sandbox dir goes to the Recycle Bin, not a
     permanent delete. Then it re-checks that the real 'personal-jarvis' Windows
     Credential Manager entries are still present (the sandbox used an isolated
-    file keyring) and that the global 'import jarvis' still resolves to the real
+    file keyring) and that the global 'import dodaios' still resolves to the real
     repo.
 
 .PARAMETER SandboxRoot
@@ -55,7 +55,7 @@ $realKeys = (cmdkey /list 2>$null | Select-String "personal-jarvis").Count
 Write-Host ("  real 'personal-jarvis' credential entries still present: {0}" -f $realKeys)
 $pyExe = "C:\Program Files\Python311\python.exe"
 if (Test-Path $pyExe) {
-    $globalJarvis = & $pyExe -c "import importlib.util as u; s=u.find_spec('jarvis'); print(s.origin if s else 'NONE')" 2>$null
-    Write-Host ("  global 'import jarvis' resolves to: {0}" -f $globalJarvis)
+    $globalJarvis = & $pyExe -c "import importlib.util as u; s=u.find_spec('dodaios'); print(s.origin if s else 'NONE')" 2>$null
+    Write-Host ("  global 'import dodaios' resolves to: {0}" -f $globalJarvis)
 }
 Write-Host "  [ok] teardown complete -- host left as it was." -ForegroundColor Green

@@ -1,0 +1,118 @@
+"""REST routes for the Claude (Anthropic) subscription connect flow.
+
+Dual billing, mirror of Codex / Antigravity: the heavy-task Jarvis-Agent runs over
+the **Claude subscription** (the ``claude`` CLI's platform-native login — no
+per-token API bill) OR over an **Anthropic API key** (billed per token). This
+module surfaces an honest snapshot of which one is live, plus the connected
+account email + subscription tier, so the Jarvis-Agent card can render
+"Connected as <email>" exactly like the Codex / Antigravity cards.
+
+This is the Anthropic sibling of ``/api/codex/*``
+(:mod:`dodaios.ui.web.provider_routes`) and ``/api/antigravity/*``
+(:mod:`dodaios.ui.web.antigravity_routes`). Kept in its own router module so the
+feature ships as a self-contained unit. Mount alongside the other routers::
+
+    from .claude_routes import router as claude_router
+    app.include_router(claude_router)
+
+The endpoint returns NO secret — only the display-safe account email + tier and
+connection booleans.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+
+from dodaios.brain import background_policy
+from dodaios.claude_auth import ClaudeAuthService, claude_install_command
+from dodaios.core.interactive_terminal import InteractiveTerminalUnavailable
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api", tags=["claude"])
+
+
+def _real_api_key_present() -> bool:
+    """True when a CLASSIC Anthropic API key (sk-ant-api…) is stored.
+
+    A stored ``anthropic_api_key`` that is actually an OAuth bearer (sk-ant-oat,
+    auto-populated from a Claude Max login) is NOT an API-key billing path — that
+    is the subscription, already detected from the credentials file. Only a real
+    API key flips the service into ``api_key`` mode.
+    """
+    try:
+        from dodaios.core.config import get_jarvis_agent_secret
+
+        key = get_jarvis_agent_secret("claude-api")
+    except Exception:  # noqa: BLE001
+        return False
+    return bool(key) and not str(key).startswith("sk-ant-oat")
+
+
+def _service() -> ClaudeAuthService:
+    return ClaudeAuthService(api_key_present=_real_api_key_present())
+
+
+@router.get("/claude/status")
+async def claude_status() -> dict[str, Any]:
+    """Honest snapshot of the Claude login (installed / connected / account)."""
+    return (await asyncio.to_thread(_service().status)).to_dict()
+
+
+@router.post("/claude/test")
+async def claude_test() -> dict[str, Any]:
+    """Live CLI test: cache-busting binary + version + login probe.
+
+    Re-augments PATH first, so a CLI installed after app start is found without
+    a restart. Runs off the event loop — the probe spawns the real binary.
+    """
+    from dodaios.agent_cli_probe import test_claude
+
+    return (await asyncio.to_thread(test_claude)).to_dict()
+
+
+@router.post("/claude/login")
+async def claude_login() -> dict[str, Any]:
+    """Start the interactive Claude sign-in in a terminal. 409 if no CLI is found."""
+    service = _service()
+    status = await asyncio.to_thread(service.status)
+    if not status.installed:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Claude CLI is not installed",
+                "install_command": claude_install_command(),
+            },
+        )
+    try:
+        launch = await asyncio.to_thread(service.start_login)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except InteractiveTerminalUnavailable as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500,
+            detail=f"Claude login could not be started: {type(exc).__name__}: {exc}",
+        ) from exc
+    return {
+        "ok": True,
+        "pid": launch.pid,
+        "message": "Claude login was started in the terminal",
+    }
+
+
+@router.post("/claude/logout")
+async def claude_logout() -> dict[str, Any]:
+    """Disconnect the Claude subscription through its native CLI credential store."""
+    service = _service()
+    ok, error = await asyncio.to_thread(service.logout_blocking)
+    if not ok:
+        raise HTTPException(status_code=500, detail=error or "Claude logout failed")
+    # A deliberate sign-out ends subscription mode for background work now,
+    # not after the 30-day memory in background_policy.
+    await asyncio.to_thread(background_policy.forget, "claude-cli")
+    return {"ok": True, "message": "Claude was disconnected"}

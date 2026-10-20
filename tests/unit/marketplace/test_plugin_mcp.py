@@ -1,8 +1,8 @@
 """plugin_to_mcp_server_spec maps a connected plugin's mcp_server dict + token
 into the in-process MCPServerSpec the MCPClient consumes."""
-from jarvis.marketplace.plugin_mcp import plugin_to_mcp_server_spec
-from jarvis.marketplace.catalog import PluginSpec
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.plugin_mcp import plugin_to_mcp_server_spec
+from dodaios.marketplace.catalog import PluginSpec
+from dodaios.marketplace.token_store import Tokens
 
 
 def _spec(mcp_server, source: str = "builtin") -> PluginSpec:

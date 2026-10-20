@@ -20,9 +20,9 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.core.config_writer as config_writer_module
-from jarvis.core.config import load_config
-from jarvis.core.config_writer import migrate_worker_tier_table
+import dodaios.core.config_writer as config_writer_module
+from dodaios.core.config import load_config
+from dodaios.core.config_writer import migrate_worker_tier_table
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -76,7 +76,7 @@ def test_only_legacy_table_still_reads(tmp_path: Path) -> None:
 def test_both_tables_worker_wins_and_warns(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.WARNING, logger="jarvis.core.config"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.core.config"):
         cfg = load_config(_write(tmp_path, _BOTH_TABLES))
     assert cfg.brain.worker is not None
     assert cfg.brain.worker.provider == "openai-codex"

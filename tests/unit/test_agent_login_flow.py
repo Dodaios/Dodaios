@@ -16,9 +16,9 @@ from typing import Any
 
 import pytest
 
-from jarvis import agent_accounts, agent_login_flow
-from jarvis.agent_accounts import AgentAccount
-from jarvis.agent_login_flow import GuidedLoginUnavailable
+from dodaios import agent_accounts, agent_login_flow
+from dodaios.agent_accounts import AgentAccount
+from dodaios.agent_login_flow import GuidedLoginUnavailable
 
 _URL = (
     "https://claude.ai/oauth/authorize?code=true&client_id=abc123"
@@ -89,7 +89,7 @@ def _fast_and_isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setattr(agent_login_flow, "_POLL_S", 0.005)
     # Every test decides for itself when the login "landed".
     monkeypatch.setattr(agent_login_flow, "_connected", lambda account: False)
-    monkeypatch.setattr("jarvis.core.process_tree.make_process_tree", lambda name: FakeTree())
+    monkeypatch.setattr("dodaios.core.process_tree.make_process_tree", lambda name: FakeTree())
     agent_login_flow._REGISTRY.clear()
     yield
     for flow_id in list(agent_login_flow._REGISTRY):
@@ -109,7 +109,7 @@ def _account(tmp_path: Path) -> AgentAccount:
 def _start(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, chunks: list[str]):
     handle = FakeHandle(chunks)
     backend = FakeBackend(handle)
-    monkeypatch.setattr("jarvis.terminal.backend.make_pty_backend", lambda: backend)
+    monkeypatch.setattr("dodaios.terminal.backend.make_pty_backend", lambda: backend)
     state = agent_login_flow.start_flow(_account(tmp_path))
     return handle, backend, state
 
@@ -263,7 +263,7 @@ def test_a_host_with_no_pty_capability_says_so(
         def spawn(self, **kwargs: Any) -> Any:
             raise RuntimeError("no PTY capability on this host")
 
-    monkeypatch.setattr("jarvis.terminal.backend.make_pty_backend", lambda: NoPty())
+    monkeypatch.setattr("dodaios.terminal.backend.make_pty_backend", lambda: NoPty())
     with pytest.raises(GuidedLoginUnavailable):
         agent_login_flow.start_flow(_account(tmp_path))
 

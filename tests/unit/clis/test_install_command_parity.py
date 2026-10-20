@@ -9,9 +9,9 @@ the terminal runs another is worse than one that shows nothing.
 
 from __future__ import annotations
 
-from jarvis.clis.installer import CliInstaller
-from jarvis.clis.spec import AuthConfig, CliSpec, InstallMethods, RiskConfig
-from jarvis.ui.web.cli_routes import _install_methods_of
+from dodaios.clis.installer import CliInstaller
+from dodaios.clis.spec import AuthConfig, CliSpec, InstallMethods, RiskConfig
+from dodaios.ui.web.cli_routes import _install_methods_of
 
 
 def _spec(**install: object) -> CliSpec:

@@ -40,7 +40,7 @@ DIST_DIR="${REPO_ROOT}/dist"
 FREEZE_DIR="${FREEZE_DIR:-${DIST_DIR}/Jarvis}"
 OUT_DIR="${DIST_DIR}/installers"
 APPDIR="${DIST_DIR}/AppDir"
-FRONTEND_DIST="${REPO_ROOT}/jarvis/ui/web/dist"
+FRONTEND_DIST="${REPO_ROOT}/dodaios/ui/web/dist"
 APPIMAGE_PATH="${OUT_DIR}/PersonalJarvis-Linux-x86_64.AppImage"
 
 # Pinned build tool. "continuous" is a moving target and an unpinned build tool
@@ -86,12 +86,12 @@ fi
 if [ -d "${FRONTEND_DIST}" ] && [ -f "${FRONTEND_DIST}/index.html" ]; then
   log "web bundle present: ${FRONTEND_DIST}"
 elif [ "${SKIP_FRONTEND}" = "1" ]; then
-  die "web bundle missing and SKIP_FRONTEND=1 - build it with 'npm run build' in jarvis/ui/web/frontend"
+  die "web bundle missing and SKIP_FRONTEND=1 - build it with 'npm run build' in dodaios/ui/web/frontend"
 else
   log "web bundle missing - building it"
   command -v npm >/dev/null 2>&1 || die "npm is required to build the web bundle"
   (
-    cd "${REPO_ROOT}/jarvis/ui/web/frontend"
+    cd "${REPO_ROOT}/dodaios/ui/web/frontend"
     if [ ! -d node_modules ]; then
       run npm ci
     fi
@@ -273,7 +273,7 @@ if [ "${BUILD_DEB}" = "0" ]; then
 elif ! command -v dpkg-deb >/dev/null 2>&1; then
   log "dpkg-deb not installed - skipping the Debian package"
 else
-  VERSION="$("${PYTHON}" -c "import sys; sys.path.insert(0, '${REPO_ROOT}'); import jarvis; print(jarvis.__version__)")"
+  VERSION="$("${PYTHON}" -c "import sys; sys.path.insert(0, '${REPO_ROOT}'); import dodaios; print(dodaios.__version__)")"
   DEB_ROOT="${DIST_DIR}/deb-root"
   DEB_PATH="${OUT_DIR}/personal-jarvis_${VERSION}_amd64.deb"
   log "building ${DEB_PATH}"

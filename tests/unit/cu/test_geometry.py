@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.cu.geometry import (
+from dodaios.cu.geometry import (
     CoordinateMapper,
     MonitorInfo,
     input_space,

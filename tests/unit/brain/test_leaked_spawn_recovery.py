@@ -17,14 +17,14 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     BrainManager,
     _extract_leaked_spawn_call,
     _looks_like_tool_use_leak,
     _render_recovered_tool_output,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 
 # Canonical fragments of the leak-recovery "couldn't execute" fallback. A
 # recovered read tool that produced a usable result must NEVER speak these.
