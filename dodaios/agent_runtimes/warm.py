@@ -550,7 +550,7 @@ class WarmPool:
         """A line outside any turn: the pool's own requests, else dropped."""
         try:
             obj = json.loads(raw)
-        except ValueError:
+        except ValueError:  # runtime diagnostics between turns are not ACP frames
             return
         if not isinstance(obj, dict):
             return
