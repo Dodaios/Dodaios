@@ -108,6 +108,52 @@ describe("damping", () => {
   });
 });
 
+describe("third-person and bird's-eye camera", () => {
+  function settle(v: ViewController) {
+    for (let i = 0; i < 200; i++) v.step(0.05);
+  }
+
+  it("closes in on a figure: closer than the first framing, inside the plate's limits", () => {
+    const v = new ViewController();
+    v.setPlate(cam, { u: 0, v: 0 });
+    v.resize(wide);
+    const { min, max } = scaleLimits(cam, wide);
+    const s = v.followScale();
+    expect(s).toBeGreaterThan(Math.sqrt(min * max));
+    expect(s).toBeLessThanOrEqual(max);
+    expect(s).toBeGreaterThanOrEqual(min);
+  });
+
+  it("follows a moving point at the zoom it has, and never past the plate's edge", () => {
+    const v = new ViewController();
+    v.setPlate(cam, { u: 0, v: 0 });
+    v.resize(wide);
+    v.focus(0, 0, v.followScale());
+    settle(v);
+    const scale = v.current.scale;
+    v.follow(12, -3);
+    settle(v);
+    expect(v.current.cu).toBeCloseTo(12, 6);
+    expect(v.current.cv).toBeCloseTo(-3, 6);
+    expect(v.current.scale).toBeCloseTo(scale, 6);
+    v.follow(1000, 0);
+    settle(v);
+    expect(covers(v.current, wide)).toBe(true);
+  });
+
+  it("pulls all the way back for the bird's-eye view", () => {
+    const v = new ViewController();
+    v.setPlate(cam, { u: 0, v: 0 });
+    v.resize(wide);
+    v.focus(20, 5, v.followScale());
+    settle(v);
+    v.overview();
+    settle(v);
+    expect(v.current.scale).toBeCloseTo(scaleLimits(cam, wide).min, 6);
+    expect(covers(v.current, wide)).toBe(true);
+  });
+});
+
 describe("first framing", () => {
   it("frames a plate set before the viewport was measured on the first real size (regression: first open fully zoomed out)", () => {
     const v = new ViewController();
