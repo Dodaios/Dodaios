@@ -17,6 +17,8 @@ export interface GitSessionRequest {
 interface GitSessionStore {
   request: GitSessionRequest | null;
   show: (workspaceId: string, pane: string) => void;
+  /** The Git tab took the request: a tab opened later starts unfiltered. */
+  consume: (nonce: number) => void;
 }
 
 let nonce = 0;
@@ -24,4 +26,5 @@ let nonce = 0;
 export const useGitSessionStore = create<GitSessionStore>((set) => ({
   request: null,
   show: (workspaceId, pane) => set({ request: { workspaceId, pane, nonce: ++nonce } }),
+  consume: (taken) => set((state) => (state.request?.nonce === taken ? { request: null } : {})),
 }));

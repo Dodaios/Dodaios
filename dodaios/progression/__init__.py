@@ -1,4 +1,4 @@
-"""The Jarvis Verse level system: XP, levels, titles and cosmetic rewards.
+"""The Dodaios Verse level system: XP, levels, ranks and the rewards they open.
 
 ``rules`` is the pure rulebook, ``store`` the SQLite ledger and ``service``
 the bus listener that pays XP for real achievements. Contract:

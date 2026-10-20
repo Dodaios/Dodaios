@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Personal Jarvis — headless server image (the cloud-first / VPS path).
+# Dodaios — headless server image (the cloud-first / VPS path).
 #
 # Boots the FastAPI + WebSocket backend and serves the prebuilt browser UI, so a
 # user reaches the full Router-Brain experience through any browser without a
@@ -8,22 +8,26 @@
 # are opt-in and useless in a headless container (see AGENTS.md, cloud-first
 # doctrine). Bring your own provider keys via environment variables.
 #
-#   docker build -t personal-jarvis .
+#   docker build -t dodaios .
 #   docker run --rm -p 127.0.0.1:8000:8000 \
 #       -v jarvis-data:/app/data \
 #       -e JARVIS_CONTROL_API_KEY=jctl_change_me \
 #       -e ANTHROPIC_API_KEY=sk-ant-... \
-#       personal-jarvis
+#       dodaios
 #   # then open http://localhost:8000
 #
 # Or use the bundled docker-compose.yml.
+#
+# The volume keeps its earlier name `jarvis-data` and the configuration stays
+# at /app/data/jarvis.toml: a container started from this image reads the data
+# and settings an earlier image left in that volume.
 
 # --- Stage 1: build the React UI ---------------------------------------------
 # The frontend source lives in the repo; build it once here so the runtime image
 # carries a ready-to-serve dist/ and needs no Node.
 # Mirror the package layout, including the shared marketplace catalog imported
 # by the frontend. Vite writes the bundle next to the frontend directory.
-FROM node:22-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS web
+FROM node:25-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS web
 WORKDIR /build/dodaios/ui/web/frontend
 COPY dodaios/ui/web/frontend/package.json dodaios/ui/web/frontend/package-lock.json ./
 RUN npm ci
@@ -32,7 +36,7 @@ COPY dodaios/marketplace/seed_catalog.json /build/dodaios/marketplace/seed_catal
 RUN npm run build
 
 # --- Stage 2: runtime --------------------------------------------------------
-FROM python:3.11-slim@sha256:a2bc8c35469b6fe37735f7c4dae39049470b2ce068e73f799c02452de31d24c6 AS runtime
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -56,9 +60,8 @@ WORKDIR /app
 # [local-voice] extras). An editable install keeps PROJECT_ROOT == /app, so the
 # runtime data dir resolves to the writable /app/data volume below rather than
 # into read-only site-packages.
-COPY pyproject.toml README.md LICENSE NOTICE ./
+COPY pyproject.toml setup.py README.md LICENSE NOTICE ./
 COPY dodaios ./dodaios
-COPY jarvis ./jarvis
 COPY --from=web /build/dodaios/ui/web/dist ./dodaios/ui/web/dist
 RUN python -m pip install --upgrade pip \
  && python -m pip install -e .
@@ -75,6 +78,11 @@ RUN useradd --system --uid 1000 --shell /usr/sbin/nologin jarvis \
 USER jarvis
 
 EXPOSE 8000
+
+LABEL org.opencontainers.image.title="Dodaios" \
+      org.opencontainers.image.description="Dodaios headless server: the API and the browser interface" \
+      org.opencontainers.image.source="https://github.com/Dodaios/Dodaios" \
+      org.opencontainers.image.licenses="Apache-2.0"
 
 # JARVIS_BIND_HOST=0.0.0.0 makes the headless listener reachable through the
 # published port (the control key is the security boundary — see compose).

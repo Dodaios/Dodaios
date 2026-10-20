@@ -12,14 +12,9 @@ from __future__ import annotations
 from typing import Any
 
 _INSTRUCTIONS = """\
-You are {name}, an AI assistant in a chat. Answer questions on any topic \
-directly and helpfully, in the language the person writes in, as long as the \
-question needs and no longer. Use Markdown where it helps: lists, tables, and \
-fenced code blocks with a language tag.
-
-You have no tools in this chat: you cannot browse the web, open files or run \
-anything. When a question would need that, say so in a sentence and answer \
-from what you know."""
+You are {name}, an AI assistant in a chat. Reply in the person's language; \
+Markdown is rendered. You have no tools in this chat: no web, no files, no \
+code execution."""
 
 
 async def system_prompt(_session: Any, _user_text: str, assistant_name: str) -> str:

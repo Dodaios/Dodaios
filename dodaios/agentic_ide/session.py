@@ -7020,6 +7020,7 @@ class Registry:
         followup: dict[str, str] | None = None,
         expected_location: tuple[str, str, str] | None = None,
         when_busy: str = "refuse",
+        origin: str = "",
     ) -> Terminal:
         """Serialize deliveries and pin the pane before the first await.
 
@@ -7107,6 +7108,7 @@ class Registry:
                 allow_question=allow_question,
                 pending_result=pending,
                 expected_location=expected_location,
+                origin=origin,
             )
             result.last_send_mid_turn = mid_turn
             from .delegation_wait import track_submission
@@ -7218,6 +7220,7 @@ class Registry:
         allow_question: bool = False,
         pending_result: Any = None,
         expected_location: tuple[str, str, str] | None = None,
+        origin: str = "",
     ) -> Terminal:
         """Type ``text`` into a terminal, press Enter, and CONFIRM it was sent.
 
@@ -7392,6 +7395,7 @@ class Registry:
             # Only when it differs: a verbatim prompt IS what the person typed.
             typed=typed.strip() if typed.strip() != payload.strip() else "",
             attachments=receipts_for(attachments),
+            origin=origin,
         )
         # Memory first: even a read-only or temporarily unavailable data folder
         # must not make a prompt disappear from the history while the pane is

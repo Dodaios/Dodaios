@@ -54,6 +54,7 @@ class SettingsPatch(BaseModel):
     enabled: bool | None = None
     hotkey: str | None = Field(default=None, max_length=64)
     region_hotkey: str | None = Field(default=None, max_length=64)
+    region_keep_area: bool | None = None
     recording_hotkey: str | None = Field(default=None, max_length=64)
     recording_resolution: Literal["720p", "1080p", "1440p", "2160p", "native"] | None = None
     recording_fps: Literal[30, 60, 120] | None = None
@@ -148,6 +149,7 @@ def _settings_payload() -> dict[str, Any]:
         "enabled": bool(config.screen_context.enabled),
         "hotkey": hotkeys["window"],
         "region_hotkey": hotkeys["region"],
+        "region_keep_area": bool(getattr(block, "region_keep_area", False)),
         "recording_hotkey": hotkeys["recording"],
         **{f"recording_{key}": value
            for key, value in RecordingOptions.from_config(block).model_dump().items()},

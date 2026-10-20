@@ -433,7 +433,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "office",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Office",
       "label": "Office",
       "styles": [
@@ -445,7 +445,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "casual",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Casual",
       "label": "Casual",
       "styles": [
@@ -457,7 +457,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "chibi",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Chibi",
       "label": "Chibi",
       "styles": [
@@ -469,7 +469,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "android",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Android",
       "label": "Android",
       "styles": [
@@ -481,7 +481,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "worker",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Worker",
       "label": "Worker",
       "styles": [
@@ -493,7 +493,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "athlete",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Athlete",
       "label": "Athlete",
       "styles": [
@@ -505,7 +505,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "medic",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Medic",
       "label": "Medic",
       "styles": [
@@ -517,7 +517,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "toon",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Toon",
       "label": "Toon",
       "styles": [
@@ -529,7 +529,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "blockhead",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Blockhead",
       "label": "Blockhead",
       "styles": [
@@ -541,7 +541,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "pilot",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Pilot",
       "label": "Pilot",
       "styles": [
@@ -553,7 +553,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "trooper",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Trooper",
       "label": "Trooper",
       "styles": [
@@ -565,7 +565,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "scientist",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Scientist",
       "label": "Scientist",
       "styles": [
@@ -577,7 +577,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "dwarf",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Dwarf",
       "label": "Dwarf",
       "styles": [
@@ -589,7 +589,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "elf",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Elf",
       "label": "Elf",
       "styles": [
@@ -601,7 +601,7 @@
       "archetype": "biped",
       "variant": "medium",
       "base": "monk",
-      "source": "jarvis-humanoids",
+      "source": "dodaios-humanoids",
       "character": "Monk",
       "label": "Monk",
       "styles": [
@@ -613,7 +613,7 @@
       "archetype": "quadruped",
       "variant": "default",
       "base": "fox",
-      "source": "jarvis-animals",
+      "source": "dodaios-animals",
       "character": "Fox",
       "label": "Fox",
       "styles": [
@@ -625,7 +625,7 @@
       "archetype": "quadruped",
       "variant": "default",
       "base": "cat",
-      "source": "jarvis-animals",
+      "source": "dodaios-animals",
       "character": "Cat",
       "label": "Cat",
       "styles": [
@@ -637,7 +637,7 @@
       "archetype": "quadruped",
       "variant": "default",
       "base": "dog",
-      "source": "jarvis-animals",
+      "source": "dodaios-animals",
       "character": "Dog",
       "label": "Dog",
       "styles": [
@@ -649,7 +649,7 @@
       "archetype": "quadruped",
       "variant": "default",
       "base": "wolf",
-      "source": "jarvis-animals",
+      "source": "dodaios-animals",
       "character": "Wolf",
       "label": "Wolf",
       "styles": [
@@ -661,7 +661,7 @@
       "archetype": "quadruped",
       "variant": "default",
       "base": "rabbit",
-      "source": "jarvis-animals",
+      "source": "dodaios-animals",
       "character": "Rabbit",
       "label": "Rabbit",
       "styles": [
@@ -673,7 +673,7 @@
       "archetype": "quadruped",
       "variant": "default",
       "base": "bear",
-      "source": "jarvis-animals",
+      "source": "dodaios-animals",
       "character": "Bear",
       "label": "Bear",
       "styles": [

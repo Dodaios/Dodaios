@@ -1,0 +1,180 @@
+{
+  "verse": {
+    "ranks": {
+      "rank": {
+        "recruit": "Rekrut",
+        "deckhand": "Decksmann",
+        "technician": "Techniker",
+        "senior_technician": "Obertechniker",
+        "ensign": "Fähnrich",
+        "lieutenant": "Leutnant",
+        "senior_lieutenant": "Oberleutnant",
+        "commander": "Kommandeur",
+        "captain": "Kapitän",
+        "line_captain": "Linienkapitän",
+        "commodore": "Kommodore",
+        "rear_admiral": "Konteradmiral",
+        "vice_admiral": "Vizeadmiral",
+        "admiral": "Admiral",
+        "fleet_admiral": "Flottenadmiral"
+      },
+      "tier": {
+        "deck": "Deckspersonal",
+        "line": "Linienoffiziere",
+        "command": "Kommando",
+        "flag": "Flaggoffiziere"
+      },
+      "uniform": {
+        "deck": "Arbeitsuniform",
+        "line": "Linienrock",
+        "command": "Kommandorock",
+        "flag": "Flaggweiß"
+      },
+      "uniform_note": {
+        "deck": "Anthrazitfarbene Arbeitsuniform, ausgegeben an deinem ersten Tag an Bord.",
+        "line": "Olivgrauer Rock und Mütze eines Offiziers mit Patent.",
+        "command": "Schwarzer Rock und Mütze für alle, die ein Schiff führen.",
+        "flag": "Weißer Rock und Mütze eines Flaggoffiziers."
+      },
+      "ribbon": {
+        "ribbon_good_conduct": "Band für gute Führung",
+        "ribbon_meritorious": "Band für verdienstvollen Dienst",
+        "ribbon_distinguished": "Band für hervorragenden Dienst",
+        "ribbon_fleet_cross": "Flottenkreuz"
+      },
+      "ribbon_note": {
+        "ribbon_good_conduct": "Verlässlicher Dienst in den ersten Wochen an Bord.",
+        "ribbon_meritorious": "Monate zuverlässiger Arbeit für die Flotte.",
+        "ribbon_distinguished": "Langer Dienst mit einer Bilanz, die sich sehen lässt.",
+        "ribbon_fleet_cross": "Die höchste Auszeichnung der Flotte, für eine Laufbahn an Bord."
+      },
+      "duty": {
+        "working": "Im Dienst",
+        "waiting": "Wartet auf dich",
+        "idle": "Dienstfrei",
+        "paused": "Abgemeldet",
+        "error": "Störung"
+      },
+      "kind": {
+        "person": "Kommandant",
+        "agent": "Offizier",
+        "pet": "Begleitdrohne"
+      },
+      "source": {
+        "chat_turn": "Chat mit dem Assistenten",
+        "voice_turn": "Sprachgespräch",
+        "quest_posted": "Quest ausgeschrieben",
+        "quest_completed": "Quest erledigt",
+        "agent_hired": "Offizier angeheuert",
+        "mission_completed": "Mission abgenommen",
+        "daily_visit": "An Bord gemeldet",
+        "deck_discovered": "Deck besucht",
+        "simulator_round": "Simulatorrunde",
+        "simulator_record": "Simulatorrekord",
+        "team_briefing": "Teambesprechung",
+        "inspection": "Deckinspektion",
+        "task_done": "Aufgabe erledigt",
+        "task_blocked": "Aufgabe als blockiert gemeldet",
+        "quest_done": "Quest abgeschlossen",
+        "answered_teammate": "Einem Kameraden geantwortet",
+        "jarvis_answered": "Dir geantwortet",
+        "delegated": "Arbeit an die Crew übergeben",
+        "walk_together": "Gang an deiner Seite",
+        "retired": "Früherer Dienst"
+      },
+      "rule": {
+        "chat_turn": "Einen Chat-Zug mit dem Assistenten abschließen.",
+        "voice_turn": "Einen Sprach-Zug mit dem Assistenten abschließen.",
+        "quest_posted": "Eine Quest für die Crew ausschreiben.",
+        "quest_completed": "Eine Quest, die du ausgeschrieben hast, wird erledigt.",
+        "agent_hired": "Einen neuen Offizier anheuern (einmal pro Offizier).",
+        "mission_completed": "Eine fertige Mission abnehmen.",
+        "daily_visit": "Dich im Verse an Bord melden, einmal am Tag.",
+        "deck_discovered": "Ein Deck zum ersten Mal besuchen.",
+        "simulator_round": "Eine gewertete Runde im Simulatorraum spielen.",
+        "simulator_record": "Einen neuen Bestwert im Simulatorraum aufstellen.",
+        "team_briefing": "Eine Teambesprechung im Besprechungsraum abhalten.",
+        "inspection": "Jeden Raum eines Decks abgehen, einmal pro Deck und Tag.",
+        "task_done": "Eine Aufgabe erledigen.",
+        "task_blocked": "Eine Aufgabe mit Begründung als blockiert melden.",
+        "quest_done": "Eine Quest abschließen.",
+        "answered_teammate": "Die Frage eines Kameraden beantworten.",
+        "jarvis_answered": "Dir antworten, im Chat oder per Sprache.",
+        "delegated": "Eine Aufgabe an einen Offizier übergeben.",
+        "walk_together": "Mit dir durchs Schiff gehen."
+      },
+      "limit": {
+        "per_day": "bis zu {xp} am Tag",
+        "cooldown": "höchstens alle {time}"
+      },
+      "card": {
+        "level": "Stufe",
+        "xp": "EP",
+        "next": "Nächster",
+        "top": "Spitze der Rangleiter",
+        "to_go": "{xp} EP bis {rank}",
+        "open": "Dienstakte öffnen"
+      },
+      "record": {
+        "title": "Dienstakte",
+        "close": "Schließen",
+        "tabs": {
+          "record": "Akte",
+          "ladder": "Rangleiter",
+          "rewards": "Kammer",
+          "earn": "So verdienst du",
+          "crew": "Crew"
+        },
+        "rank": "Rang",
+        "level": "Stufe",
+        "total_xp": "EP gesamt",
+        "this_level": "Diese Stufe",
+        "next_rank": "Nächster Rang",
+        "top_rank": "Du trägst den höchsten Rang der Flotte.",
+        "log": "Logbuch",
+        "log_empty": "Noch keine Einträge. Sprich mit dem Assistenten oder gib der Crew Arbeit.",
+        "ribbons": "Bänder",
+        "no_ribbons": "Noch keine",
+        "held": "Erreicht",
+        "current": "Aktuell",
+        "from_level": "Stufe {level}",
+        "xp_ahead": "{xp} EP",
+        "uniforms": "Uniformen",
+        "uniforms_hint": "Die Kammer gibt die Uniform jeder Laufbahn aus, sobald du deren ersten Rang erreichst. Trag jede, die du bekommen hast.",
+        "auto": "Höchste ausgegebene",
+        "auto_hint": "Wechselt mit deiner nächsten Laufbahn",
+        "issued": "Ausgegeben",
+        "opens_at": "Ab Stufe {level}",
+        "wearing": "Getragen",
+        "ribbons_hint": "Auszeichnungen für langen, verlässlichen Dienst. Offiziere verdienen sie auch.",
+        "for_you": "Du: Stufe {level}",
+        "for_crew": "Offiziere: Stufe {level}",
+        "earn_person": "Du, der Kommandant",
+        "earn_agent": "Die Offiziere",
+        "earn_pet": "Deine Begleitdrohne",
+        "earn_hint": "Jede Vergabe wird gegen das Logbuch des Schiffs geprüft: Dasselbe zahlt nie zweimal.",
+        "crew_empty": "Noch keine Offiziere an Bord.",
+        "companion": "Begleitdrohne",
+        "sound": "Schiffsglocke bei Beförderungen"
+      },
+      "promo": {
+        "eyebrow": "Beförderung",
+        "eyebrow_drone": "Begleitdrohne befördert",
+        "level_up": "Stufe {level}",
+        "salute": {
+          "deck": "Die Deckscrew steht heute ein wenig gerader.",
+          "line": "Das Patent ist deins. Die Crew salutiert.",
+          "command": "Das Schiff hört jetzt auf dich.",
+          "flag": "Die Flotte nimmt ihren Kurs von dir."
+        },
+        "salute_drone": "Deine Begleitdrohne vermerkt die Beförderung und bleibt dir dicht auf den Fersen.",
+        "issued": "Ausgegeben: {what}",
+        "acknowledge": "Verstanden",
+        "away": "Während du weg warst",
+        "toast_promoted": "{who} befördert zum {rank}",
+        "toast_level": "{who} hat Stufe {level} erreicht",
+        "you": "Du"
+      }
+    }
+  }
+}

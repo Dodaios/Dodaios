@@ -1,7 +1,7 @@
 """The learning loop keeps SOUL.md, the assistant's own character, up to date.
 
 Real files under ``tmp_path`` and a scripted reviewer, like
-``test_jarvis_learning``; no provider, no mocks.
+``test_dodaios_learning``; no provider, no mocks.
 """
 
 from __future__ import annotations

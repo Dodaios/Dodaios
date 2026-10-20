@@ -1,253 +1,190 @@
+/**
+ * The Verse's level data layer: the API parses forgivingly (old ledger
+ * sources, an older server's rank and reward ids), the store applies awards
+ * once and celebrates the right way per kind, the cosmetics pick the
+ * commander's uniform, and the client's copy of the curve and the rewards
+ * reads like the server's.
+ */
 import { beforeEach, describe, expect, it } from "vitest";
-import { equippedFor, levelFraction, progressFor, unlockedFor } from "./cosmetics";
-import { parseAwardEvent, parseSnapshot, type ProgressionSnapshot, type RewardRow } from "./progressionApi";
-import { awayCelebrations, looksBetween, useProgression } from "./progressionStore";
-import { RANK_INFO, rankAt, REWARD_IDS, slotOf, TITLE_IDS } from "./levelCatalog";
-import { rankArt } from "./insignia/rankArt";
-import { rackRows, ribbonsFor } from "./regalia/decorations3d";
-import { dressedLook, regaliaFor, uniformStyle } from "./regalia/dress";
-import type { ToyLook } from "../office/toyFigureModel";
+import { issuedUniforms, levelFraction, progressFor, rewardRoad, rewardsBetween, uniformFor, unlockedFor, xpUntilLevel } from "./cosmetics";
+import { LEVEL_XP, MAX_LEVEL, REWARD_IDS, REWARD_LEVELS, levelForXp, slotOf, xpToNext } from "./levelCatalog";
+import { LOCAL_REWARDS, parseAwardEvent, parseSnapshot, rewardsOf, type ProgressionSnapshot } from "./progressionApi";
+import { CHEER_MS, awayCelebrations, looksBetween, useProgression } from "./progressionStore";
 
-const REWARDS: RewardRow[] = [
-  { rewardId: "decoration_ribbon_bar", slot: "decoration", levels: { person: 3, agent: 3, pet: null } },
-  { rewardId: "decoration_ribbon_rack", slot: "decoration", levels: { person: 10, agent: 10, pet: null } },
-  { rewardId: "uniform_service_shirt", slot: "uniform", levels: { person: 2, agent: null, pet: null } },
-  { rewardId: "uniform_field_jacket", slot: "uniform", levels: { person: 5, agent: null, pet: null } },
-  { rewardId: "headwear_patrol_cap", slot: "headwear", levels: { person: 7, agent: null, pet: null } },
+/** The rulebook's `level_xp` (total_xp_for_level for levels 1..50), unchanged since the first build. */
+const RULEBOOK_LEVEL_XP = [
+  0, 40, 105, 200, 325, 480, 665, 885, 1140, 1425, 1745, 2100, 2490, 2915, 3375, 3870, 4400, 4970, 5575, 6215,
+  6895, 7610, 8360, 9150, 9975, 10840, 11740, 12680, 13660, 14675, 15730, 16825, 17960, 19130, 20340, 21590,
+  22880, 24210, 25575, 26980, 28425, 29910, 31435, 33000, 34605, 36250, 37935, 39660, 41425, 43230,
 ];
+const CURVE = RULEBOOK_LEVEL_XP.slice(0, 12);
 
-const BANDS = [{ level: 1, title: "private" }, { level: 2, title: "private_second_class" }, { level: 4, title: "private_first_class" }];
-
-/** Total XP at which each level starts, the server's `level_xp` for the first few levels. */
-const CURVE = [0, 40, 105, 195, 310, 450];
-
-function snapshot(overrides: Partial<ProgressionSnapshot> = {}): ProgressionSnapshot {
+function snapshot(over: Partial<ProgressionSnapshot> = {}): ProgressionSnapshot {
   return {
-    subjects: [], petId: "ember", recent: [], latestSeq: 0, maxLevel: 50, levelXp: CURVE, rules: [], rewards: REWARDS,
-    titles: { person: BANDS, agent: BANDS, pet: BANDS }, looks: { cap: 1, suit: 4, crown: 10 },
-    ...overrides,
+    subjects: [], petId: "gigi", recent: [], latestSeq: 0, maxLevel: 50, levelXp: [...LEVEL_XP], rules: [], rewards: [...LOCAL_REWARDS],
+    ranks: [], titles: { person: [], agent: [], pet: [] }, looks: {}, ...over,
   };
 }
 
-describe("cosmetics", () => {
-  it("unlocks by the subject kind's own level", () => {
-    expect(unlockedFor(REWARDS, "person", 2).map((r) => r.rewardId)).toEqual(["uniform_service_shirt"]);
-    expect(unlockedFor(REWARDS, "pet", 50)).toEqual([]);
-    expect(unlockedFor(REWARDS, "agent", 4).map((r) => r.rewardId)).toEqual(["decoration_ribbon_bar"]);
+describe("levelCatalog", () => {
+  it("keeps the rulebook's curve", () => {
+    expect([1, 2, 10, 49].map(xpToNext)).toEqual([40, 65, 320, 1805]);
+    expect(xpToNext(MAX_LEVEL)).toBe(0);
+    expect(LEVEL_XP).toHaveLength(MAX_LEVEL);
+    expect(LEVEL_XP[MAX_LEVEL - 1]).toBe(43_230);
+    expect(LEVEL_XP).toEqual(RULEBOOK_LEVEL_XP);
+    expect(levelForXp(0)).toBe(1);
+    expect(levelForXp(39)).toBe(1);
+    expect(levelForXp(40)).toBe(2);
+    expect(levelForXp(1745)).toBe(11);
+    expect(levelForXp(10_000_000)).toBe(MAX_LEVEL);
   });
 
-  it("wears the latest unlock per slot unless the person chose", () => {
-    expect(equippedFor(REWARDS, "person", 7))
-      .toEqual({ decoration: "decoration_ribbon_bar", uniform: "uniform_field_jacket", headwear: "headwear_patrol_cap" });
-    expect(equippedFor(REWARDS, "person", 7, { uniform: "uniform_service_shirt", headwear: "none" }))
-      .toEqual({ decoration: "decoration_ribbon_bar", uniform: "uniform_service_shirt" });
-  });
-
-  it("ignores a chosen piece that is not unlocked (any more)", () => {
-    expect(equippedFor(REWARDS, "person", 4, { decoration: "decoration_ribbon_rack" }))
-      .toEqual({ decoration: "decoration_ribbon_bar", uniform: "uniform_service_shirt" });
-  });
-
-  it("measures progress inside a level from the server's curve", () => {
-    expect(progressFor(CURVE, 120, 3)).toEqual({ into: 15, size: 90 });
-    expect(progressFor([0, 40], 999, 2)).toEqual({ into: 959, size: 0 });
-    expect(levelFraction({ xpIntoLevel: 15, xpForNext: 60 })).toBe(0.25);
-    expect(levelFraction({ xpIntoLevel: 0, xpForNext: 0 })).toBe(1);
-    expect(levelFraction(undefined)).toBe(0);
+  it("names every reward by a slot it knows and gives each a level for the commander", () => {
+    for (const id of REWARD_IDS) {
+      expect(["uniform", "ribbon"]).toContain(slotOf(id));
+      expect(REWARD_LEVELS[id].person).not.toBeNull();
+    }
   });
 });
 
 describe("progressionApi", () => {
-  it("parses the snapshot and drops unknown rewards", () => {
+  it("parses the snapshot, keeps old sources and drops an older server's rewards", () => {
     const parsed = parseSnapshot({
-      subjects: [{ subject_id: "person", kind: "person", xp: 50, level: 2, xp_into_level: 10, xp_for_next: 65, title: "newcomer" }],
-      pet_id: "miso", recent: [], latest_seq: 7, max_level: 50, level_xp: [0, 40],
-      rules: [{ source: "chat_turn", kind: "person", xp: 5, trigger: "server", cooldown_s: 0, daily_cap: 100 }],
-      rewards: [{ reward_id: "headwear_beret", slot: "headwear", levels: { person: 24, agent: null, pet: null } }, { reward_id: "trail_rainbow", slot: "trail", levels: {} }],
-      titles: { person: [{ level: 1, title: "newcomer" }] },
+      subjects: [{ subject_id: "person", kind: "person", xp: 120, level: 3, xp_into_level: 15, xp_for_next: 90, title: "crewman" }],
+      recent: [{ seq: 4, subject_id: "person", kind: "person", source: "warp_jump", xp: 5, level_before: 3, level_after: 3, ref: "home@1", ts_ms: 9 }],
+      rewards: [{ reward_id: "suit_field_armor", slot: "suit", levels: { person: 6, agent: null, pet: null } },
+        { reward_id: "uniform_line", slot: "uniform", levels: { person: 11, agent: null, pet: null } }],
+      ranks: [{ id: "cadet", level: 1, tier: "enlisted" }, { id: "fleet_admiral", level: 50, tier: "flag" }, { id: "", level: 2 }],
+      rules: [{ source: "holodeck_round", kind: "person", xp: 8, trigger: "world", cooldown_s: 45, daily_cap: 80 }],
+      level_xp: CURVE, max_level: 50, pet_id: "miso", latest_seq: 4,
     });
-    expect(parsed.subjects[0]).toMatchObject({ subjectId: "person", level: 2, xpIntoLevel: 10, xpForNext: 65 });
+    expect(parsed.recent[0]).toMatchObject({ source: "warp_jump", ref: "home@1" });
+    expect(parsed.rewards.map((r) => r.rewardId)).toEqual(["uniform_line"]);
+    // An older server's tier names read as the lowest tier; the Verse derives ranks from levels anyway.
+    expect(parsed.ranks).toEqual([{ id: "cadet", level: 1, tier: "deck" }, { id: "fleet_admiral", level: 50, tier: "flag" }]);
+    expect(parsed.rules[0].source).toBe("holodeck_round");
     expect(parsed.petId).toBe("miso");
-    expect(parsed.rewards.map((r) => r.rewardId)).toEqual(["headwear_beret"]);
-    expect(parsed.rewards[0].levels.pet).toBeNull();
-    expect(parsed.rules[0]).toMatchObject({ source: "chat_turn", dailyCap: 100 });
+    expect(parseSnapshot({}).ranks).toEqual([]);
   });
 
-  it("parses an award push and refuses one without a subject", () => {
-    expect(parseAwardEvent({ subject_id: "agent:scout", subject_kind: "agent", xp: 40, total_xp: 108, level: 3, previous_level: 2, unlocked: ["decoration_ribbon_bar", "gadget_crown"] }))
-      .toMatchObject({ subjectId: "agent:scout", kind: "agent", level: 3, unlocked: ["decoration_ribbon_bar"] });
-    expect(parseAwardEvent({ xp: 5 })).toBeNull();
-    expect(parseAwardEvent(null)).toBeNull();
+  it("falls back to the client's rewards when the server sends none it knows", () => {
+    const old = parseSnapshot({ rewards: [{ reward_id: "suit_field_armor", slot: "suit", levels: { person: 6 } }] });
+    expect(old.rewards).toEqual([]);
+    expect(rewardsOf(old)).toBe(LOCAL_REWARDS);
+    expect(rewardsOf(null).map((r) => r.rewardId)).toEqual([...REWARD_IDS]);
+    const current = snapshot({ rewards: [LOCAL_REWARDS[1]] });
+    expect(rewardsOf(current)).toEqual([LOCAL_REWARDS[1]]);
+  });
+
+  it("parses a push and keeps only reward ids it knows", () => {
+    const award = parseAwardEvent({ subject_id: "agent:scout", subject_kind: "agent", xp_source: "task_done", xp: 40, total_xp: 300,
+      level: 4, previous_level: 3, title: "deckhand", unlocked: ["ribbon_good_conduct", "decoration_service_ribbon"], seq: 7 });
+    expect(award).toMatchObject({ kind: "agent", level: 4, unlocked: ["ribbon_good_conduct"] });
+    expect(parseAwardEvent({})).toBeNull();
+  });
+});
+
+describe("cosmetics", () => {
+  it("opens rewards by level and orders the road", () => {
+    expect(unlockedFor(LOCAL_REWARDS, "person", 6).map((r) => r.rewardId)).toEqual(["uniform_deck", "ribbon_good_conduct"]);
+    expect(rewardRoad(LOCAL_REWARDS, "agent").map((r) => r.rewardId)).toEqual([
+      "ribbon_good_conduct", "ribbon_meritorious", "ribbon_distinguished", "ribbon_fleet_cross",
+    ]);
+    expect(rewardRoad(LOCAL_REWARDS, "pet")).toEqual([]);
+    expect(rewardsBetween(LOCAL_REWARDS, "person", 5, 12).map((r) => r.rewardId)).toEqual(["ribbon_good_conduct", "uniform_line"]);
+  });
+
+  it("issues the uniforms by tier and wears the highest unless the commander chose", () => {
+    expect(issuedUniforms(LOCAL_REWARDS, 1)).toEqual(["deck"]);
+    expect(issuedUniforms(LOCAL_REWARDS, 30)).toEqual(["deck", "line", "command"]);
+    expect(issuedUniforms([], 30)).toEqual(["deck"]);
+    expect(uniformFor(LOCAL_REWARDS, 1)).toBe("deck");
+    expect(uniformFor(LOCAL_REWARDS, 12)).toBe("line");
+    expect(uniformFor(LOCAL_REWARDS, 40, "line")).toBe("line");
+    expect(uniformFor(LOCAL_REWARDS, 12, "flag")).toBe("line");
+    expect(uniformFor(LOCAL_REWARDS, MAX_LEVEL)).toBe("flag");
+  });
+
+  it("measures the bar on the server's curve, or on the client's without one", () => {
+    expect(progressFor(CURVE, 120, 3)).toEqual({ into: 15, size: 95 });
+    expect(progressFor([], 120, 3)).toEqual({ into: 15, size: 95 });
+    expect(progressFor(LEVEL_XP, 50_000, MAX_LEVEL)).toEqual({ into: 50_000 - 43_230, size: 0 });
+    expect(xpUntilLevel(LEVEL_XP, 100, 3)).toBe(5);
+    expect(xpUntilLevel(LEVEL_XP, 900, 3)).toBe(0);
+    expect(levelFraction({ xpIntoLevel: 45, xpForNext: 90 })).toBe(0.5);
+    expect(levelFraction({ xpIntoLevel: 0, xpForNext: 0 })).toBe(1);
   });
 });
 
 describe("progressionStore", () => {
   beforeEach(() => {
-    useProgression.setState({ snapshot: null, subjects: {}, banners: [], toasts: [], popups: [], bursts: [], cheerUntil: 0, choices: {} });
+    useProgression.setState({ snapshot: null, subjects: {}, banners: [], toasts: [], popups: [], cheerUntil: 0, record: null });
+  });
+
+  it("applies an award once, logs it and celebrates per kind", () => {
     useProgression.getState().hydrate(snapshot(), []);
-  });
-
-  it("applies a gain as a popup without a celebration", () => {
-    useProgression.getState().apply({ seq: 1, subjectId: "person", kind: "person", source: "chat_turn", xp: 5, totalXp: 5, level: 1, previousLevel: 1, title: "newcomer", unlocked: [] }, 1000);
+    const push = { seq: 1, subjectId: "person", kind: "person" as const, source: "chat_turn", xp: 5, totalXp: 45, level: 2, previousLevel: 1, title: "recruit", unlocked: [] };
+    useProgression.getState().apply(push, 100);
+    useProgression.getState().apply(push, 200);
     const s = useProgression.getState();
-    expect(s.subjects.person).toMatchObject({ xp: 5, xpIntoLevel: 5, xpForNext: 40 });
+    expect(s.subjects.person).toMatchObject({ xp: 45, level: 2, xpIntoLevel: 5, xpForNext: 65 });
+    expect(s.banners).toHaveLength(1);
     expect(s.popups).toHaveLength(1);
-    expect(s.banners).toHaveLength(0);
-    expect(s.bursts).toHaveLength(0);
+    // Level 2 is still a recruit: a level-up, not a promotion, so nobody salutes.
+    expect(s.cheerUntil).toBe(0);
+    expect(s.snapshot?.recent.map((r) => r.source)).toEqual(["chat_turn"]);
+    useProgression.getState().apply({ ...push, seq: 2, subjectId: "agent:scout", kind: "agent", totalXp: 45 }, 300);
+    expect(useProgression.getState().toasts).toHaveLength(1);
+    expect(useProgression.getState().banners).toHaveLength(1);
   });
 
-  it("celebrates the person with a banner, a burst and a cheer; an agent with a toast", () => {
-    useProgression.getState().apply({ seq: 2, subjectId: "person", kind: "person", source: "agent_hired", xp: 50, totalXp: 50, level: 2, previousLevel: 1, title: "newcomer", unlocked: ["uniform_service_shirt"] }, 1000);
-    useProgression.getState().apply({ seq: 3, subjectId: "agent:scout", kind: "agent", source: "task_done", xp: 40, totalXp: 40, level: 2, previousLevel: 1, title: "rookie", unlocked: [] }, 1000);
-    const s = useProgression.getState();
-    expect(s.banners.map((b) => b.subjectId)).toEqual(["person"]);
-    expect(s.toasts.map((b) => b.subjectId)).toEqual(["agent:scout"]);
-    expect(s.bursts).toHaveLength(2);
-    // The burst carries the climb, so the world can tell a promotion from a level.
-    expect(s.bursts[0]).toMatchObject({ level: 2, previousLevel: 1, title: "newcomer" });
-    expect(s.cheerUntil).toBeGreaterThan(1000);
+  it("salutes the commander on a promotion only", () => {
+    useProgression.getState().hydrate(snapshot(), []);
+    const push = { seq: 1, subjectId: "person", kind: "person" as const, source: "chat_turn", xp: 5, totalXp: 45, level: 2, previousLevel: 1, title: "recruit", unlocked: [] };
+    useProgression.getState().apply(push, 100);
+    expect(useProgression.getState().cheerUntil).toBe(0);
+    // An officer's promotion is theirs: the commander's crew does not salute it.
+    useProgression.getState().apply({ ...push, seq: 2, subjectId: "agent:scout", kind: "agent", totalXp: 120, level: 3, previousLevel: 2 }, 200);
+    expect(useProgression.getState().cheerUntil).toBe(0);
+    // Level 3 makes the commander a deckhand: a new rank.
+    useProgression.getState().apply({ ...push, seq: 3, totalXp: 120, level: 3, previousLevel: 2, title: "deckhand" }, 300);
+    expect(useProgression.getState().cheerUntil).toBe(300 + CHEER_MS);
+    // The next level keeps the rank: a salute already under way is left alone.
+    useProgression.getState().apply({ ...push, seq: 4, totalXp: 215, level: 4, previousLevel: 3, title: "deckhand" }, 400);
+    expect(useProgression.getState().cheerUntil).toBe(300 + CHEER_MS);
   });
 
-  it("never rolls a subject back to a read older than a push", () => {
-    useProgression.getState().apply({ seq: 9, subjectId: "person", kind: "person", source: "agent_hired", xp: 50, totalXp: 50, level: 2, previousLevel: 1, title: "newcomer", unlocked: [] }, 0);
-    useProgression.getState().hydrate(snapshot({ subjects: [{ subjectId: "person", kind: "person", xp: 25, level: 1, xpIntoLevel: 25, xpForNext: 40, title: "newcomer" }] }), []);
-    expect(useProgression.getState().subjects.person.xp).toBe(50);
+  it("measures a push that lands before the first read on the client's curve", () => {
+    useProgression.getState().apply({ seq: 1, subjectId: "person", kind: "person", source: "chat_turn", xp: 5, totalXp: 120, level: 3, previousLevel: 3, title: "", unlocked: [] }, 0);
+    expect(useProgression.getState().subjects.person).toMatchObject({ xpIntoLevel: 15, xpForNext: 95 });
   });
 
-  it("measures a push that arrived before the first read once the curve is there", () => {
-    useProgression.setState({ snapshot: null, subjects: {} });
-    // No curve yet: the level is known, the distance to the next one is not.
-    useProgression.getState().apply({ seq: 6, subjectId: "person", kind: "person", source: "daily_visit", xp: 25, totalXp: 130, level: 3, previousLevel: 3, title: "private_second_class", unlocked: [] }, 0);
-    expect(useProgression.getState().subjects.person.xpForNext).toBe(0);
-    // The read is older than the push (105 XP), so the push stays — measured on the curve now.
-    useProgression.getState().hydrate(snapshot({ subjects: [{ subjectId: "person", kind: "person", xp: 105, level: 3, xpIntoLevel: 0, xpForNext: 90, title: "private_second_class" }] }), []);
-    expect(useProgression.getState().subjects.person).toMatchObject({ xp: 130, xpIntoLevel: 25, xpForNext: 90 });
-  });
-
-  it("ignores a late duplicate push", () => {
-    const award = { seq: 4, subjectId: "person", kind: "person" as const, source: "chat_turn", xp: 5, totalXp: 5, level: 1, previousLevel: 1, title: "newcomer", unlocked: [] };
-    useProgression.getState().apply(award, 1000);
-    useProgression.getState().apply(award, 1000);
-    expect(useProgression.getState().popups).toHaveLength(1);
-  });
-
-  it("expires popups and bursts on the scene clock", () => {
-    useProgression.getState().apply({ seq: 5, subjectId: "person", kind: "person", source: "agent_hired", xp: 50, totalXp: 50, level: 2, previousLevel: 1, title: "newcomer", unlocked: [] }, 0);
-    useProgression.getState().expire(100_000);
-    expect(useProgression.getState().popups).toHaveLength(0);
-    expect(useProgression.getState().bursts).toHaveLength(0);
-  });
-
-  it("tells each subject's missed level-ups once, and nothing on a first visit", () => {
-    const missed = snapshot({
-      subjects: [{ subjectId: "agent:scout", kind: "agent", xp: 200, level: 4, xpIntoLevel: 5, xpForNext: 115, title: "rookie" }],
+  it("tells the level-ups missed while away once per subject, with what opened", () => {
+    const snap = snapshot({
+      subjects: [{ subjectId: "person", kind: "person", xp: 1800, level: 11, xpIntoLevel: 55, xpForNext: 380, title: "ensign" }],
       recent: [
-        { seq: 3, subjectId: "agent:scout", kind: "agent", source: "task_done", xp: 40, levelBefore: 1, levelAfter: 2, tsMs: 0 },
-        { seq: 4, subjectId: "agent:scout", kind: "agent", source: "quest_done", xp: 60, levelBefore: 2, levelAfter: 4, tsMs: 0 },
-        { seq: 5, subjectId: "person", kind: "person", source: "chat_turn", xp: 5, levelBefore: 1, levelAfter: 1, tsMs: 0 },
+        { seq: 3, subjectId: "person", kind: "person", source: "chat_turn", xp: 5, levelBefore: 4, levelAfter: 5, ref: "", tsMs: 1 },
+        { seq: 4, subjectId: "person", kind: "person", source: "chat_turn", xp: 5, levelBefore: 10, levelAfter: 11, ref: "", tsMs: 2 },
       ],
     });
-    const away = awayCelebrations(missed, 2);
+    expect(awayCelebrations(snap, null)).toEqual([]);
+    const away = awayCelebrations(snap, 2);
     expect(away).toHaveLength(1);
-    expect(away[0]).toMatchObject({ subjectId: "agent:scout", level: 4, previousLevel: 1, away: true, unlocked: ["decoration_ribbon_bar"] });
-    expect(awayCelebrations(missed, null)).toEqual([]);
-    expect(awayCelebrations(missed, 4)).toEqual([]);
-  });
-});
-
-describe("rank insignia", () => {
-  it("climbs from no insignia to five stars, sleeve first, shoulder for officers", () => {
-    expect(rankArt("private").parts).toEqual([]);
-    expect(rankArt("private").mount).toBe("none");
-    expect(rankArt("sergeant").mount).toBe("sleeve");
-    expect(rankArt("second_lieutenant").mount).toBe("shoulder");
-    expect(rankArt("general_of_the_army").mount).toBe("shoulder");
-    // Chevrons and rockers count up: one chevron, then three, then three with three rockers.
-    const gold = (rank: Parameters<typeof rankArt>[0]) => rankArt(rank).parts.filter((p) => p.finish === "gold" && !p.detail).length;
-    expect(gold("private_second_class")).toBe(1);
-    expect(gold("sergeant")).toBe(3);
-    expect(gold("master_sergeant")).toBe(6);
-    expect(gold("first_sergeant")).toBe(7);
-    // Generals: one star per grade, five at the cap.
-    expect(rankArt("brigadier_general").parts).toHaveLength(1);
-    expect(rankArt("general").parts).toHaveLength(4);
-    expect(rankArt("general_of_the_army").parts).toHaveLength(5);
+    expect(away[0]).toMatchObject({ level: 11, previousLevel: 4, away: true, unlocked: ["ribbon_good_conduct", "uniform_line"] });
+    // An older server sent no rewards this build knows: the client's own table names what opened.
+    const old = awayCelebrations({ ...snap, rewards: [] }, 2);
+    expect(old[0].unlocked).toEqual(["ribbon_good_conduct", "uniform_line"]);
+    expect(looksBetween({ cap: 1, crown: 10 }, 1, 10)).toEqual(["crown"]);
   });
 
-  it("draws every polygon inside its own box", () => {
-    for (const rank of TITLE_IDS) {
-      const art = rankArt(rank);
-      for (const part of art.parts) {
-        for (const [x, y] of part.pts) {
-          expect(x).toBeGreaterThanOrEqual(-1);
-          expect(x).toBeLessThanOrEqual(art.w + 1);
-          expect(y).toBeGreaterThanOrEqual(-1);
-          expect(y).toBeLessThanOrEqual(art.h + 1);
-        }
-      }
-    }
-  });
-
-  it("reads the rank off the server's bands, private before any arrive", () => {
-    expect(rankAt(BANDS, 3)).toBe("private_second_class");
-    expect(rankAt(BANDS, 50)).toBe("private_first_class");
-    expect(rankAt(undefined, 30)).toBe("private");
-    expect(RANK_INFO.colonel).toEqual({ grade: "O-6", tier: "officer" });
-  });
-});
-
-describe("regalia", () => {
-  const look = { skin: "#f1c4a0", hair: "#2a1d15", hairStyle: "short", shirt: "#3f7fd6", shirtAccent: "#e5674f", inner: "#ffffff",
-    pants: "#2f4a7a", shoes: "#f4f4f2", blush: false, outfit: "hoodie", eyewear: "none" } as ToyLook;
-
-  it("dresses the figure in the uniform's colours and keeps its own face", () => {
-    expect(dressedLook(look, undefined, "sergeant")).toBe(look);
-    const blues = dressedLook(look, "uniform_dress_blues", "captain");
-    expect(blues).toMatchObject({ skin: look.skin, hair: look.hair, shirt: "#1c2541", outfit: "suit" });
-    // Officers wear gold braid on the cuffs; a private's blues have no trouser stripe.
-    expect(blues.uniform?.cuffBraid).toBeTruthy();
-    expect(uniformStyle("uniform_dress_blues", "private").stripe).toBeUndefined();
-    expect(uniformStyle("uniform_mess_dress", "private").tieKind).toBe("bow");
-  });
-
-  it("wears enlisted rank on the sleeves, officer rank on the shoulders, and nothing else unworn", () => {
-    expect(regaliaFor("sergeant", {})).toMatchObject({ shoulder: undefined, chest: undefined, hat: undefined });
-    expect(regaliaFor("sergeant", {}).sleeve).toBeTruthy();
-    expect(regaliaFor("colonel", {}).sleeve).toBeUndefined();
-    expect(regaliaFor("colonel", {}).shoulder).toBeTruthy();
-    expect(regaliaFor("private", {}).sleeve).toBeUndefined();
-    const full = regaliaFor("major", { headwear: "headwear_service_cap", decoration: "decoration_medals" });
-    expect(full.hat).toBeTruthy();
-    expect(full.chest).toBeTruthy();
-  });
-
-  it("grows the ribbon rack with the decoration, rows of three", () => {
-    expect(ribbonsFor("decoration_ribbon_bar")).toHaveLength(3);
-    expect(ribbonsFor("decoration_ribbon_rack")).toHaveLength(9);
-    expect(ribbonsFor("decoration_medals")).toHaveLength(5);
-    expect(rackRows(9)).toEqual([3, 3, 3]);
-    expect(rackRows(5)).toEqual([2, 3]);
-  });
-});
-
-describe("level catalog", () => {
-  it("names every reward after its slot", () => {
-    for (const id of REWARD_IDS) expect(["uniform", "headwear", "decoration"]).toContain(slotOf(id));
-  });
-});
-
-describe("agent looks as level rewards", () => {
-  it("names the looks an agent climb opened, lowest first", () => {
-    expect(looksBetween({ cap: 1, suit: 4, crown: 10 }, 1, 4)).toEqual(["suit"]);
-    expect(looksBetween({ cap: 1, suit: 4, crown: 10 }, 3, 12)).toEqual(["suit", "crown"]);
-    expect(looksBetween({ cap: 1 }, 1, 1)).toEqual([]);
-  });
-  it("tells an away agent level-up with the looks it opened", () => {
-    const snap = snapshot({
-      subjects: [{ subjectId: "agent:scout", kind: "agent", xp: 200, level: 4, xpIntoLevel: 5, xpForNext: 115, title: "private_first_class" }],
-      recent: [{ seq: 7, subjectId: "agent:scout", kind: "agent", source: "task_done", xp: 40, levelBefore: 3, levelAfter: 4, tsMs: 1 }],
-    });
-    const [party] = awayCelebrations(snap, 1);
-    expect(party?.looks).toEqual(["suit"]);
+  it("opens and closes the service record and remembers the uniform", () => {
+    useProgression.getState().openRecord("ladder");
+    expect(useProgression.getState().record).toBe("ladder");
+    useProgression.getState().openRecord(null);
+    expect(useProgression.getState().record).toBeNull();
+    useProgression.getState().chooseUniform("line");
+    expect(useProgression.getState().uniform).toBe("line");
+    useProgression.getState().chooseUniform("auto");
   });
 });

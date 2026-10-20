@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from dodaios.agent_chat import jarvis_harness
+from dodaios.agent_chat import dodaios_harness
 from dodaios.agent_chat.runner_api import system_prompt
 from dodaios.brain.manager import _WRITTEN_CHAT_STYLE
 from dodaios.brain.persona_loader import load_compact_persona_prompt, load_persona_prompt
@@ -24,28 +24,20 @@ def test_fresh_and_resumed_defaults_allow_detail_and_preserve_essential_informat
     assert CONVERSATIONAL_TURN_REMINDER in CONVERSATIONAL_RESPONSE_STYLE
     for policy in (CONVERSATIONAL_RESPONSE_STYLE, CONVERSATIONAL_TURN_REMINDER):
         assert "one or two short paragraphs" in policy
-        assert "someone who is not technical understands it" in policy
-        assert "user asks for detail or the task needs" in policy
-        assert "not a hard length limit" in policy
-        assert "blockers, uncertainty and essential questions" in policy
+        assert "is not technical" in policy
+        assert "Go longer only when asked or needed" in policy
+        assert "failure evidence" in policy
         assert "Follow explicit user preferences" in policy
 
 
 def test_reply_style_keeps_the_person_oriented_without_a_persona() -> None:
-    # What is happening, what is done, what the person does next — in plain
-    # words, with concrete numbers and click paths instead of theory.
+    # State first, a line before the first tool call, concrete outcome, plain words.
     for phrase in (
-        "what is happening now, what is done, and what they can do next",
-        "Open with the state in the first words",
-        "a short yes plus what you are doing now",
-        "real numbers, times and names",
-        "exact click path",
-        "say sorry once",
-        "secure field, never into the chat",
-        "No headings, bold labels or bullet walls",
-        "your first message comes before the first tool call",
-        "no reasoning and no tool log, only your messages",
-        "Two messages in a row are fine",
+        "reads only your messages",
+        "open with the state or the answer",
+        "Before your first tool call",
+        "concrete terms (numbers, times, names)",
+        "no headings",
     ):
         assert phrase in CONVERSATIONAL_RESPONSE_STYLE, phrase
     # A general style: no persona, name or flirt register leaks in.
@@ -54,8 +46,8 @@ def test_reply_style_keeps_the_person_oriented_without_a_persona() -> None:
 
 
 async def test_cli_without_brain_layers_still_receives_the_shared_default(monkeypatch) -> None:
-    monkeypatch.setattr(jarvis_harness, "_brain", lambda: None)
-    prompt = await jarvis_harness.identity_prompt(user_text="Hello", history=[], resume=None)
+    monkeypatch.setattr(dodaios_harness, "_brain", lambda: None)
+    prompt = await dodaios_harness.identity_prompt(user_text="Hello", history=[], resume=None)
     assert CONVERSATIONAL_TURN_REMINDER in prompt
     assert "think longer and go deeper" not in prompt
     assert "Frontier-lab style" not in prompt

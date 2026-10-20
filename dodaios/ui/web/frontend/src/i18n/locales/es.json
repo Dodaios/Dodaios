@@ -343,7 +343,8 @@
     "voice_language": "Idioma",
     "voice_api_keys": "Claves API",
     "shortcuts": "Atajos de teclado",
-    "pets": "Mis mascotas"
+    "pets": "Mis mascotas",
+    "self_build": "Hecho para ti"
   },
   "assistant_view": {
     "header_named": "Tu asistente en {0}, se despierta con «{1}».",
@@ -3036,18 +3037,18 @@
     "vision_note": "Solo se muestran modelos que entienden imágenes: Computer-Use lee la pantalla mediante capturas, un modelo de solo texto no puede controlarlo."
   },
   "permissions": {
-    "restart_failed": "Personal Jarvis no pudo reiniciarse. Ciérralo y ábrelo de nuevo manualmente.",
+    "restart_failed": "Dodaios no pudo reiniciarse. Ciérralo y ábrelo de nuevo manualmente.",
     "toast": {
-      "microphone": "Personal Jarvis necesita acceso al micrófono para oírte.",
-      "screen_recording": "Personal Jarvis necesita acceso a la grabación de pantalla para ver tu pantalla.",
-      "accessibility": "Personal Jarvis necesita acceso a la accesibilidad para controlar otras apps.",
-      "input_monitoring": "Personal Jarvis necesita acceso a la monitorización de entrada para que tus atajos funcionen en otras apps.",
-      "automation": "Personal Jarvis necesita tu permiso para controlar otra app.",
-      "generic": "Personal Jarvis necesita otro permiso para hacer eso.",
-      "restricted": "Tu Mac no permite que Personal Jarvis use {what}. Solo un administrador puede cambiarlo.",
-      "restart": "El acceso a {what} está activado, pero solo funciona cuando Personal Jarvis se reinicia.",
-      "outside": "Personal Jarvis necesita acceso a {what}; como no es una app instalada, macOS da ese acceso a la app que lo inició.",
-      "wake_word": "La palabra de activación no puede escuchar: el acceso al micrófono está desactivado para Personal Jarvis.",
+      "microphone": "Dodaios necesita acceso al micrófono para oírte.",
+      "screen_recording": "Dodaios necesita acceso a la grabación de pantalla para ver tu pantalla.",
+      "accessibility": "Dodaios necesita acceso a la accesibilidad para controlar otras apps.",
+      "input_monitoring": "Dodaios necesita acceso a la monitorización de entrada para que tus atajos funcionen en otras apps.",
+      "automation": "Dodaios necesita tu permiso para controlar otra app.",
+      "generic": "Dodaios necesita otro permiso para hacer eso.",
+      "restricted": "Tu Mac no permite que Dodaios use {what}. Solo un administrador puede cambiarlo.",
+      "restart": "El acceso a {what} está activado, pero solo funciona cuando Dodaios se reinicia.",
+      "outside": "Dodaios necesita acceso a {what}; como no es una app instalada, macOS da ese acceso a la app que lo inició.",
+      "wake_word": "La palabra de activación no puede escuchar: el acceso al micrófono está desactivado para Dodaios.",
       "action_failed": "No funcionó. Abre Ajustes del Sistema manualmente.",
       "name": {
         "microphone": "el micrófono",
@@ -3170,7 +3171,8 @@
       "music": "Música",
       "keybinds": "Atajos de teclado",
       "more": "Más",
-      "overlay_taskbar": "Overlay y barra de tareas"
+      "overlay_taskbar": "Overlay y barra de tareas",
+      "self_build": "Autoconstrucción"
     },
     "languages_group_title": "Idiomas",
     "sections": {
@@ -3515,7 +3517,48 @@
       "system_now_dark": "Sigue a su sistema, que actualmente está en modo oscuro.",
       "system_now_light": "Sigue a su sistema, que actualmente está en modo claro."
     },
-    "invalid_setting": "Ajuste no válido"
+    "invalid_setting": "Ajuste no válido",
+    "self_build": {
+      "title": "Autoconstrucción",
+      "description": "Hasta dónde puede llegar {name} cuando construye cosas para ti por su cuenta.",
+      "open_view": "Abrir Hecho para ti",
+      "enabled_title": "Construir por su cuenta",
+      "enabled_description": "Notar lo que haces una y otra vez y construir lo que te lo quite de encima. Desactivado: no se nota ni se construye nada.",
+      "autonomy_title": "Hasta dónde, por tipo",
+      "autonomy_description": "Desactivado: nunca. Sugerir: una tarjeta pregunta primero. Prueba: construido, comprobado y activo, con deshacer en un clic. Completo: como prueba, y una prueba que se usó se conserva sola.",
+      "levels": {
+        "off": "Desactivado",
+        "suggest": "Sugerir",
+        "trial": "Prueba",
+        "full": "Completo"
+      },
+      "kinds": {
+        "memory": "Recuerdos",
+        "skill": "Habilidades",
+        "routine": "Rutinas",
+        "agent": "Agentes",
+        "code": "Cambios de código"
+      },
+      "limits_title": "Límites",
+      "limits_description": "Topes fijos que el ciclo nunca supera, decida lo que decida.",
+      "limits": {
+        "max_builds_per_day": "Construcciones por día",
+        "max_open_trials": "Pruebas abiertas a la vez",
+        "max_agents_per_week": "Agentes nuevos por semana",
+        "max_code_runs_per_day": "Ejecuciones de código por día",
+        "trial_days": "Duración de la prueba en días",
+        "trial_uses": "Duración de la prueba en usos",
+        "max_rejections": "Dejar de ofrecer tras tantos noes",
+        "silent_days": "Primeros días en silencio"
+      },
+      "save_error": "No se pudo guardar: {detail}",
+      "unavailable": "No se pudieron cargar estos ajustes.",
+      "land_title": "Fusionar cambios de código por su cuenta",
+      "land_description": "Los repositorios de esta lista reciben pull requests que se fusionan cuando la CI está en verde. Los demás reciben pull requests en borrador que fusionas tú.",
+      "land_warning": "El código de un repositorio de la lista cambia sin que mires antes el pull request. Añade solo repositorios en cuyas pruebas confíes.",
+      "land_add": "Añadir repositorio",
+      "land_remove": "Quitar {repo}"
+    }
   },
   "telephony_view": {
     "title": "Telefonía",
@@ -6571,6 +6614,10 @@
       "coding_retry": "No se pudieron cargar los agentes. Reintentar.",
       "result_done": "{0} ha terminado",
       "result_blocked": "{0} se quedó atascado",
+      "result_skipped": "{0} omitió «{1}»",
+      "result_skipped_run": "{0} omitió una ejecución de rutina",
+      "skip_api_key_seat": "Se omitió para no cobrar la clave de API de la rutina ({provider}). Mientras haya una suscripción conectada, las ejecuciones automáticas solo usan suscripciones y modelos locales. Elige uno de ellos para esta rutina o iníciala tú con Prueba.",
+      "skip_no_capacity": "Se omitió: no había ninguna suscripción ni modelo local libre, y las ejecuciones automáticas nunca cobran una clave de API de pago.",
       "result_agent": "Un agente",
       "delegate_line": "Hand this to the agent '{0}' (id {1}) with delegate-to-agent and report back here when it is done.",
       "proposal_title": "{0} propone un cambio",
@@ -7229,7 +7276,13 @@
     "hide_changes": "Ocultar cambios",
     "more_files_one": "Mostrar {count} archivo más",
     "more_files_other": "Mostrar {count} archivos más",
-    "collapse_files": "Contraer archivos"
+    "collapse_files": "Contraer archivos",
+    "errors": {
+      "mandated_tool_unfulfilled": "El paso necesario no se ejecutó, así que no pude responder con fiabilidad. Inténtalo de nuevo.",
+      "unbacked_action_claim": "No pude confirmar que la acción ocurriera de verdad, así que no lo afirmé. Inténtalo de nuevo.",
+      "guarded_response": "La respuesta se retuvo porque no se pudo verificar. Inténtalo de nuevo.",
+      "delegation_continuation_limit": "El trabajo delegado necesitó demasiadas rondas y se detuvo. Vuelve a preguntar."
+    }
   },
   "work_trace": {
     "tool_failed": "Falló una acción de herramienta",
@@ -7530,7 +7583,21 @@
       "address": "Dirección",
       "open_external": "Abrir en tu navegador",
       "empty_title": "Escribe una dirección arriba",
-      "empty_hint": "Pensado para vistas previas locales, como un servidor de desarrollo. Muchos sitios públicos no permiten mostrarse dentro de otra app; ábrelos en tu navegador."
+      "empty_hint": "Pensado para vistas previas locales, como un servidor de desarrollo. Muchos sitios públicos no permiten mostrarse dentro de otra app; ábrelos en tu navegador.",
+      "native": {
+        "opening": "Abriendo {browser}…",
+        "opening_hint": "Aquí se abre tu propio navegador, con la sesión del perfil que elegiste.",
+        "closed_title": "Se cerró la ventana del navegador",
+        "popped_title": "El navegador está ahora en su propia ventana",
+        "reopen": "Mostrarlo aquí otra vez",
+        "error_title": "No se pudo mostrar tu navegador aquí",
+        "error_missing": "Instala Chrome, Edge o Brave para verlo aquí.",
+        "error_generic": "Inténtalo de nuevo o usa la vista integrada para vistas previas locales.",
+        "retry": "Reintentar",
+        "builtin": "Usar la vista integrada",
+        "use_native": "Mostrar mi navegador",
+        "profile": "Perfil del navegador"
+      }
     },
     "all_open": "Todas las pestañas ya están abiertas",
     "close_tab": "Cerrar pestaña",
@@ -7569,8 +7636,8 @@
       "delete_file_title": "¿Eliminar {file}?",
       "delete_folder_title": "¿Eliminar la carpeta {file} y todo su contenido?",
       "delete_permanent_title": "¿Eliminar {file} definitivamente?",
-      "delete_body": "Irá a la papelera, así que aún podrás restaurarlo.",
-      "delete_permanent_body": "Este equipo no tiene papelera. Una eliminación definitiva no se puede deshacer.",
+      "delete_body": "Va a la papelera. Ctrl+Z en la pestaña Carpeta lo recupera.",
+      "delete_permanent_body": "Este equipo no tiene papelera. Ctrl+Z puede recuperar archivos pequeños durante un día; los grandes se pierden para siempre.",
       "delete_permanent": "Eliminar definitivamente",
       "cut": "Cortar",
       "copy": "Copiar",
@@ -7585,7 +7652,33 @@
       "find_in_folder": "Buscar en la carpeta…",
       "select_compare": "Seleccionar para comparar",
       "compare_with": "Comparar con {file}",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "delete_trash": "Mover a la papelera",
+      "deleted_one": "{file} eliminado.",
+      "deleted_many": "{count} elementos eliminados.",
+      "action_move": "Mover",
+      "move_one_title": "¿Mover {file} a {folder}?",
+      "move_many_title": "¿Mover estos {count} elementos a {folder}?",
+      "move_body": "Ctrl+Z en la pestaña Carpeta lo devuelve a su sitio.",
+      "moved_one": "{file} movido a {folder}.",
+      "moved_many": "{count} elementos movidos a {folder}.",
+      "replace_title": "{folder} ya tiene un elemento llamado {file}. ¿Reemplazarlo?",
+      "replace_body": "El existente va a la papelera. Ctrl+Z lo recupera.",
+      "replace": "Reemplazar",
+      "and_more": "y {count} más",
+      "dont_ask_again": "No volver a preguntar",
+      "undo": "Deshacer",
+      "redo": "Rehacer",
+      "undo_action": "Deshacer {action}",
+      "redo_action": "Rehacer {action}",
+      "undo_confirm_title": "¿Deshacer {action}?",
+      "redo_confirm_title": "¿Rehacer {action}?",
+      "undo_confirm_body": "Esto elimina lo que creó esa acción. Va a la papelera.",
+      "undone": "Deshecho: {action}",
+      "redone": "Rehecho: {action}",
+      "undo_stale": "Después hubo más acciones con archivos. Pulsa Ctrl+Z en la pestaña Carpeta para volver paso a paso.",
+      "undo_too_large": "{file} era demasiado grande para guardarlo para Deshacer. Recupéralo de la papelera.",
+      "ask_again": "Volver a preguntar antes de mover y eliminar"
     },
     "search": {
       "placeholder": "Buscar en todos los archivos",
@@ -8249,7 +8342,19 @@
         "stage_session": "Preparar los cambios pendientes de la sesión",
         "session_empty": "Esta sesión todavía no ha cambiado ningún archivo, o su agente no guarda registro de sus ediciones.",
         "session_committed": "confirmado",
-        "session_generated": "{n} archivos generados ocultos"
+        "session_generated": "{n} archivos generados ocultos",
+        "follow_main": "Mantener esta app en el main más reciente",
+        "follow_main_on": "Esta app se mantiene en el main más reciente.",
+        "follow_busy_update": "Actualizando al main más reciente…",
+        "follow_busy_install": "Instalando paquetes para la actualización…",
+        "follow_busy_build": "Construyendo la nueva interfaz…",
+        "follow_restart_pending": "Hay código nuevo; la app se reinicia en cuanto no haya ninguna misión ni llamada en curso.",
+        "follow_updated": "Actualizado {when}: {subject}",
+        "follow_click_off": "Haz clic para dejar de seguir main.",
+        "session_diff_badge": "Cambios de {pane}",
+        "follow_clear_lock": "Quitar el bloqueo de git antiguo",
+        "follow_clear_lock_title": "¿Quitar el bloqueo de git que existe desde {since}?",
+        "follow_clear_lock_body": "Un comando de git interrumpido dejó .git/index.lock, y eso impide que esta app se actualice. Quítalo solo si ningún comando de git se está ejecutando en esta carpeta."
       }
     },
     "skills": {
@@ -9204,6 +9309,21 @@
       "refreshing": "Actualizando el estado de GitHub…",
       "loading": "Leyendo el estado de GitHub…"
     },
+    "done_gate": {
+      "label_done": "integrado",
+      "label_wait": "esperando",
+      "label_fix": "corregir",
+      "label_stuck": "atascado",
+      "title_done": "Done gate: el trabajo ya está integrado",
+      "title_wait": "Done gate: esperando antes de que este agente pueda parar",
+      "title_fix": "Done gate: hay algo que corregir antes de que este agente pueda parar",
+      "title_stuck": "Done gate: atascado, una persona tiene que revisarlo",
+      "next": "Siguiente: {next}",
+      "pull_request": "Pull request #{number}",
+      "checked": "Comprobado a las {time}",
+      "matched_folder": "Asociado por la carpeta o la rama de este panel, no por su propia sesión",
+      "aria": "{pane}: done gate {state}"
+    },
     "dock": {
       "swap": "Intercambiar posiciones",
       "left": "Colocar a la izquierda",
@@ -10034,5 +10154,10 @@
       "objections_one": "{count} objeción",
       "objections_other": "{count} objeciones"
     }
+  },
+  "self_build_badge": {
+    "label": "Hecho por {name}",
+    "title": "{name} lo construyó por su cuenta. Abrir su construcción.",
+    "trial": "en prueba"
   }
 }

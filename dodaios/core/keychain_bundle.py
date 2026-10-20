@@ -47,12 +47,14 @@ from __future__ import annotations
 
 import base64
 import binascii
+import enum
 import json
 import logging
 import re
 import subprocess
 import sys
 import threading
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -68,7 +70,8 @@ _SECURITY_BIN = "/usr/bin/security"
 # probed empirically; the only non-zero exit treated as a clean "no value".
 _SECURITY_NOT_FOUND_EXIT = 44
 # Tokens interpolated into a ``security -i`` command line. Service and account
-# names are fixed internal constants ("personal-jarvis", "__jarvis_vault__");
+# names are fixed internal constants ("dodaios" and the legacy
+# "personal-jarvis", "__jarvis_vault__");
 # anything outside this conservative charset falls back to the inner backend
 # rather than risking the CLI's whitespace/quote parsing.
 _SAFE_CLI_TOKEN = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -274,11 +277,12 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
         # inner backend. In practice dodaios/core/config.py always passes the
         # same ``KEYRING_SERVICE`` constant, so this holds exactly one entry.
         self._cache: dict[str, dict[str, str]] = {}
-        # Set once an existing vault item fails to parse as a JSON object.
-        # From then on every call for the rest of the process delegates
-        # straight to the inner backend so the malformed item is read
-        # (logged once), never silently overwritten or destroyed.
-        self._bundle_unusable = False
+        # Services whose existing vault item failed to parse as a JSON object.
+        # From then on every call for that service, for the rest of the
+        # process, delegates straight to the inner backend so the malformed
+        # item is read (logged once), never silently overwritten or destroyed.
+        # Per service: a broken legacy vault must not hide the current one.
+        self._unusable_services: set[str] = set()
 
     # -- internal helpers ---------------------------------------------------
 
@@ -309,9 +313,9 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
     def _load_locked(self, service: str, *, refresh: bool = False) -> dict[str, str]:
         """Return the parsed vault dict for *service*, loading it once.
 
-        Caller must hold ``self._lock``. On a JSON-decode error, sets
-        ``self._bundle_unusable`` and returns an empty dict without touching
-        the stored item.
+        Caller must hold ``self._lock``. On a JSON-decode error, marks
+        *service* unusable and returns an empty dict without touching the
+        stored item.
 
         ``refresh=True`` bypasses the cache and re-reads the stored item:
         every mutation path uses it so a concurrent WRITE from another
@@ -325,21 +329,7 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
         cached = self._cache.get(service)
         if cached is not None and not refresh:
             return cached
-        raw: str | None = None
-        used_cli = False
-        if self._cli is not None:
-            try:
-                raw = self._cli.read(service, VAULT_ACCOUNT)
-                used_cli = True
-            except Exception:  # noqa: BLE001 -- CLI oddity must not hide the vault
-                logger.warning(
-                    "security CLI vault read failed; falling back to the "
-                    "in-process keyring read (which may show one Keychain "
-                    "dialog).",
-                    exc_info=True,
-                )
-        if not used_cli:
-            raw = self._inner.get_password(service, VAULT_ACCOUNT)
+        raw, used_cli = self._read_raw_locked(service)
         if raw is None:
             bundle: dict[str, str] = {}
             self._cache[service] = bundle
@@ -352,7 +342,7 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
                 "malformed item is left untouched.",
                 VAULT_ACCOUNT,
             )
-            self._bundle_unusable = True
+            self._unusable_services.add(service)
             return {}
         bundle = {str(k): str(v) for k, v in parsed.items()}
         self._cache[service] = bundle
@@ -371,6 +361,23 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
                     exc_info=True,
                 )
         return bundle
+
+    def _read_raw_locked(self, service: str) -> tuple[str | None, bool]:
+        """The stored vault payload of *service* and whether the CLI served it.
+
+        Caller holds the lock. Reads only: no format upgrade, no cache update.
+        """
+        if self._cli is not None:
+            try:
+                return self._cli.read(service, VAULT_ACCOUNT), True
+            except Exception:  # noqa: BLE001 -- CLI oddity must not hide the vault
+                logger.warning(
+                    "security CLI vault read failed; falling back to the "
+                    "in-process keyring read (which may show one Keychain "
+                    "dialog).",
+                    exc_info=True,
+                )
+        return self._inner.get_password(service, VAULT_ACCOUNT), False
 
     def _save_locked(self, service: str, bundle: dict[str, str]) -> None:
         """Persist *bundle* as the single vault item. Caller holds the lock."""
@@ -410,12 +417,12 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
         if key == VAULT_ACCOUNT:
             # The vault item itself is never bundled into itself.
             return self._inner.get_password(service, key)
-        if self._bundle_unusable:
+        if service in self._unusable_services:
             return self._inner.get_password(service, key)
 
         with self._lock:
             bundle = self._load_locked(service)
-            if self._bundle_unusable:
+            if service in self._unusable_services:
                 # Discovered just now while loading; do not treat this read
                 # as a bundle miss, delegate straight through instead.
                 return self._inner.get_password(service, key)
@@ -443,7 +450,7 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
     def _migrate_legacy(self, service: str, key: str, value: str) -> None:
         with self._lock:
             bundle = self._load_locked(service, refresh=True)
-            if self._bundle_unusable:
+            if service in self._unusable_services:
                 # Nothing to migrate into; leave the legacy item alone.
                 return
             bundle[key] = value
@@ -460,12 +467,12 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
         if key == VAULT_ACCOUNT:
             self._inner.set_password(service, key, value)
             return
-        if self._bundle_unusable:
+        if service in self._unusable_services:
             self._inner.set_password(service, key, value)
             return
         with self._lock:
             bundle = self._load_locked(service, refresh=True)
-            if self._bundle_unusable:
+            if service in self._unusable_services:
                 self._inner.set_password(service, key, value)
                 return
             bundle[key] = value
@@ -475,14 +482,14 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
         if key == VAULT_ACCOUNT:
             self._inner.delete_password(service, key)
             return
-        if self._bundle_unusable:
+        if service in self._unusable_services:
             self._inner.delete_password(service, key)
             return
 
         removed_from_bundle = False
         with self._lock:
             bundle = self._load_locked(service, refresh=True)
-            if self._bundle_unusable:
+            if service in self._unusable_services:
                 self._inner.delete_password(service, key)
                 return
             if key in bundle:
@@ -502,3 +509,116 @@ class DarwinBundleKeyringBackend(_KeyringBackendBase):  # type: ignore[valid-typ
 
         if not removed_from_bundle and not removed_legacy:
             self._raise_missing_password_error(service, key)
+
+    # -- read-only access and the service rename ------------------------------
+
+    def _peek_bundle_locked(self, service: str) -> dict[str, str] | None:
+        """The vault of *service* without any side effect; ``None`` if malformed.
+
+        Caller holds the lock. A parsed vault is cached like a normal load (a
+        later mutation re-reads it anyway); a malformed one is neither cached
+        nor recorded, so it changes nothing for the rest of the process.
+        """
+        cached = self._cache.get(service)
+        if cached is not None:
+            return cached
+        raw, _used_cli = self._read_raw_locked(service)
+        if raw is None:
+            bundle: dict[str, str] = {}
+        else:
+            parsed, _was_base64 = self._decode_vault_payload(raw)
+            if parsed is None:
+                return None
+            bundle = {str(k): str(v) for k, v in parsed.items()}
+        self._cache[service] = bundle
+        return bundle
+
+    def peek_password(self, service: str, key: str) -> str | None:
+        """Read one value without writing anything, in this service or another.
+
+        ``get_password`` folds a per-item entry it finds into the vault and may
+        rewrite a vault into the any-application format. Neither may happen on
+        a read of a legacy service (``dodaios.core.config.get_secret``): its
+        entries are the way back for a downgrade and stay exactly as they are.
+        """
+        if key == VAULT_ACCOUNT or service in self._unusable_services:
+            return self._inner.get_password(service, key)
+        with self._lock:
+            bundle = self._peek_bundle_locked(service)
+        if bundle is not None and key in bundle:
+            return bundle[key]
+        return self._inner.get_password(service, key)
+
+    def stored_keys(self, service: str) -> tuple[str, ...]:
+        """Every key the vault of *service* holds (read-only, never prompts per key)."""
+        if service in self._unusable_services:
+            return ()
+        with self._lock:
+            bundle = self._peek_bundle_locked(service)
+        return tuple(bundle) if bundle else ()
+
+    def copy_vault(self, legacy_service: str, current_service: str, *, marker: str) -> VaultCopy:
+        """Copy the legacy vault into the current service in ONE vault write.
+
+        The vault holds every key, so this replaces a per-key migration that
+        would rewrite the current vault once per key. When the current service
+        has no vault yet, the legacy payload is taken over whole; when it has
+        one (a key saved under the new name already), only the keys it lacks
+        are added: a current value is never overwritten. ``marker`` is written
+        into the same payload, so the copy and the "done" record land together.
+        The legacy vault is only read, never changed. The written payload is
+        read back before the copy counts.
+        """
+        with self._lock:
+            legacy_raw, _ = self._read_raw_locked(legacy_service)
+            if legacy_raw is None:
+                return VaultCopy(VaultCopyOutcome.NO_LEGACY_VAULT)
+            legacy, _ = self._decode_vault_payload(legacy_raw)
+            if legacy is None:
+                logger.warning(
+                    "Legacy Keychain vault of %r is malformed; it is left untouched "
+                    "and its keys are read one by one instead.",
+                    legacy_service,
+                )
+                return VaultCopy(VaultCopyOutcome.MALFORMED)
+            current_raw, _ = self._read_raw_locked(current_service)
+            current: dict[str, Any] = {}
+            if current_raw is not None:
+                parsed, _ = self._decode_vault_payload(current_raw)
+                if parsed is None:
+                    return VaultCopy(VaultCopyOutcome.MALFORMED)
+                current = parsed
+            if current.get(marker):
+                return VaultCopy(VaultCopyOutcome.ALREADY_COPIED)
+            merged = {str(k): str(v) for k, v in legacy.items()}
+            copied = tuple(key for key in merged if key not in current)
+            merged.update({str(k): str(v) for k, v in current.items()})
+            merged[marker] = "1"
+            self._save_locked(current_service, merged)
+            stored_raw, _ = self._read_raw_locked(current_service)
+            stored, _ = self._decode_vault_payload(stored_raw) if stored_raw else (None, False)
+            if stored != merged:
+                self._cache.pop(current_service, None)
+                logger.warning("Copied Keychain vault did not read back; it is retried later.")
+                return VaultCopy(VaultCopyOutcome.FAILED)
+            self._cache[current_service] = merged
+        return VaultCopy(VaultCopyOutcome.COPIED, copied=copied)
+
+
+class VaultCopyOutcome(enum.Enum):
+    """What :meth:`DarwinBundleKeyringBackend.copy_vault` did."""
+
+    COPIED = "copied"
+    ALREADY_COPIED = "already_copied"
+    # Nothing was ever saved under the legacy name in vault form.
+    NO_LEGACY_VAULT = "no_legacy_vault"
+    MALFORMED = "malformed"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True, slots=True)
+class VaultCopy:
+    """The outcome of one vault copy. Key names only, never a value."""
+
+    outcome: VaultCopyOutcome
+    copied: tuple[str, ...] = ()

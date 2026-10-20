@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 #
-# Build the distributable macOS disk image for Personal Jarvis.
+# Build the distributable macOS disk image for Dodaios.
 #
 #   packaging/macos/build.sh
 #
 # Output (per the release contract):
-#   dist/installers/PersonalJarvis-macOS-arm64.dmg   on Apple Silicon
-#   dist/installers/PersonalJarvis-macOS-x64.dmg     on Intel
+#   dist/installers/Dodaios-macOS-arm64.dmg   on Apple Silicon
+#   dist/installers/Dodaios-macOS-x64.dmg     on Intel
 #
-# The disk image contains "Personal Jarvis.app" next to a symlink to
+# A release also publishes each image as PersonalJarvis-macOS-<arch>.dmg, a
+# byte-identical copy for installs from before the rename
+# (scripts/ci/installer_aliases.py).
+#
+# The disk image contains "Dodaios.app" next to a symlink to
 # /Applications, which is the drag-to-install layout every Mac user already
-# knows. The app is a PyInstaller BUNDLE built from jarvis.spec.
+# knows. The app is a PyInstaller BUNDLE built from dodaios.spec.
 #
 # Signing and notarization are driven entirely by the environment, so the same
 # script runs unchanged on a maintainer's Mac and on a GitHub runner:
@@ -46,8 +50,8 @@ DRY_RUN="${DRY_RUN:-0}"
 PYTHON="${PYTHON:-python3}"
 SKIP_FRONTEND="${SKIP_FRONTEND:-0}"
 
-APP_NAME="Personal Jarvis"
-VOLUME_NAME="Personal Jarvis"
+APP_NAME="Dodaios"
+VOLUME_NAME="Dodaios"
 DIST_DIR="${REPO_ROOT}/dist"
 APP_BUNDLE="${DIST_DIR}/${APP_NAME}.app"
 OUT_DIR="${DIST_DIR}/installers"
@@ -56,7 +60,7 @@ ENTITLEMENTS="${SCRIPT_DIR}/entitlements.plist"
 # The copy of ENTITLEMENTS that codesign embeds; see prepare_entitlements().
 NORMALIZED_ENTITLEMENTS="${DIST_DIR}/entitlements.normalized.plist"
 SIGNING_ENTITLEMENTS="${ENTITLEMENTS}"
-ICNS="${REPO_ROOT}/assets/icons/jarvis.icns"
+ICNS="${REPO_ROOT}/assets/icons/dodaios.icns"
 
 log() { printf '[macos-build] %s\n' "$*"; }
 die() { printf '[macos-build] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -89,7 +93,7 @@ case "${MACHINE}" in
   x86_64) ARCH_TAG="x64" ;;
   *)      die "unsupported macOS architecture: ${MACHINE}" ;;
 esac
-DMG_PATH="${OUT_DIR}/PersonalJarvis-macOS-${ARCH_TAG}.dmg"
+DMG_PATH="${OUT_DIR}/Dodaios-macOS-${ARCH_TAG}.dmg"
 log "host ${MACHINE} -> building ${ARCH_TAG}"
 
 # A half-configured certificate is a mistake worth hearing about before the
@@ -226,19 +230,19 @@ if building; then
     || die "PyInstaller is not installed for ${PYTHON} (pip install pyinstaller)"
 fi
 
-# jarvis.spec bundles ./jarvis.toml unconditionally, and that file is
+# dodaios.spec bundles ./jarvis.toml unconditionally, and that file is
 # .gitignore'd - a fresh clone (every CI runner) does not have one and
 # PyInstaller aborts before it starts. Seed the shipped default so the build
 # works from a clean checkout. On a machine that already has a live config the
 # spec bundles THAT file as-is, which is a privacy question the build cannot
 # answer for the maintainer, so it says so instead of quietly shipping it.
 if [ ! -f "${REPO_ROOT}/jarvis.toml" ]; then
-  [ -f "${REPO_ROOT}/jarvis.toml.example" ] \
-    || die "neither jarvis.toml nor jarvis.toml.example exists; jarvis.spec cannot bundle a default configuration"
-  log "seeding jarvis.toml from jarvis.toml.example (clean checkout)"
-  run cp "${REPO_ROOT}/jarvis.toml.example" "${REPO_ROOT}/jarvis.toml"
-elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/jarvis.toml.example"; then
-  log "WARNING: jarvis.spec bundles this machine's jarvis.toml into the app, and it differs from jarvis.toml.example. Check it carries nothing personal before publishing the build."
+  [ -f "${REPO_ROOT}/dodaios.toml.example" ] \
+    || die "neither jarvis.toml nor dodaios.toml.example exists; dodaios.spec cannot bundle a default configuration"
+  log "seeding jarvis.toml from dodaios.toml.example (clean checkout)"
+  run cp "${REPO_ROOT}/dodaios.toml.example" "${REPO_ROOT}/jarvis.toml"
+elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/dodaios.toml.example"; then
+  log "WARNING: dodaios.spec bundles this machine's jarvis.toml into the app, and it differs from dodaios.toml.example. Check it carries nothing personal before publishing the build."
 fi
 
 if [ -f "${ICNS}" ] || [ "${DRY_RUN}" = "1" ]; then
@@ -254,12 +258,12 @@ run "${PYTHON}" "${REPO_ROOT}/scripts/prepare_browser_wheelhouse.py"
 log "running PyInstaller"
 (
   cd "${REPO_ROOT}"
-  run "${PYTHON}" -m PyInstaller jarvis.spec --noconfirm --clean
+  run "${PYTHON}" -m PyInstaller dodaios.spec --noconfirm --clean
 )
 
 if building; then
-  [ -d "${APP_BUNDLE}" ] || die "PyInstaller did not produce '${APP_BUNDLE}'. jarvis.spec must contain a darwin BUNDLE(...) block that names the app '${APP_NAME}'."
-  # The console command and its earlier name; jarvis.spec builds both.
+  [ -d "${APP_BUNDLE}" ] || die "PyInstaller did not produce '${APP_BUNDLE}'. dodaios.spec must contain a darwin BUNDLE(...) block that names the app '${APP_NAME}'."
+  # The console command and its earlier name; dodaios.spec builds both.
   for cli_name in dodaios jarvis; do
     [ -x "${APP_BUNDLE}/Contents/MacOS/${cli_name}" ] \
       || die "'${APP_BUNDLE}/Contents/MacOS/${cli_name}' is missing. The bundle must ship the console CLI entry so '${cli_name} serve' works from a native install."
@@ -284,7 +288,7 @@ fi
 log "app bundle: ${APP_BUNDLE}"
 
 # German and Spanish permission-dialog text. The languages are declared in the
-# plist by jarvis.spec; the <lang>.lproj/InfoPlist.strings files are written here
+# plist by dodaios.spec; the <lang>.lproj/InfoPlist.strings files are written here
 # from the same table, BEFORE signing: they are part of the code seal, so a file
 # added after codesign would break the signature (and the notarization).
 run "${PYTHON}" "${SCRIPT_DIR}/add_localizations.py" --app "${APP_BUNDLE}"
@@ -383,7 +387,7 @@ if [ "${SIGNED_FOR_DISTRIBUTION}" = "1" ] && notary_credentials_present; then
   # stapled INTO the bundle. A ticket stapled only to the .dmg disappears the
   # moment the user drags the app out of it, which is the one thing every user
   # does - the app would then need a network round trip on first launch.
-  ZIP_PATH="${DIST_DIR}/PersonalJarvis-macOS-${ARCH_TAG}-notarize.zip"
+  ZIP_PATH="${DIST_DIR}/Dodaios-macOS-${ARCH_TAG}-notarize.zip"
   run rm -f "${ZIP_PATH}"
   run ditto -c -k --keepParent "${APP_BUNDLE}" "${ZIP_PATH}"
   notarize "${ZIP_PATH}"
