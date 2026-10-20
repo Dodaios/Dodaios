@@ -1,8 +1,8 @@
 ---
 version: 3.1
-name: Personal Jarvis
+name: Dodaios
 description: >-
-  The design system for the Personal Jarvis desktop application. Graphite
+  The design system for the Dodaios desktop application. Graphite
   surfaces provide visible edges and readable text. Bundled typefaces keep
   the interface consistent offline. One signal blue, four semantic tones,
   coloured diffs and a coloured run graph communicate actions and state.
@@ -327,7 +327,7 @@ components:
 
 ## Overview
 
-This document specifies the **Personal Jarvis desktop application** through
+This document specifies the **Dodaios desktop application** through
 surface roles, text hierarchy, semantic colours and interaction states.
 
 - **Visible structure.** The dark room uses `#121212`; cards and composers

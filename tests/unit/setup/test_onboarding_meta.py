@@ -34,7 +34,7 @@ def test_meta_constants():
 
 def test_read_terms_text_returns_versioned_body():
     text = m.read_terms_text()
-    assert "Personal Jarvis" in text
+    assert "Dodaios" in text
     assert f"v{m.CURRENT_TERMS_VERSION}" in text
     # The 'no affiliation' clause must be present (legal core).
     assert "affiliat" in text.lower()

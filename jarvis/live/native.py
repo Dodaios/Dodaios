@@ -18,7 +18,13 @@ from jarvis.core.paths import user_data_dir
 from jarvis.core.runtime_refs import get_supervisor_tool_gateway
 from jarvis.core.tool_budget import VOICE_TOOL_BUDGET_S
 from jarvis.cu.direct import COMPUTER_CONTROL_RULES
-from jarvis.live.coordination import WORK_STATUS_RULE, conversation_rules
+from jarvis.live.coordination import (
+    NAMED_TOOLS,
+    ON_SCREEN_RULE,
+    TEAM_TALK_RULE,
+    WORK_STATUS_RULE,
+    conversation_rules,
+)
 from jarvis.live.product import PRODUCT_BRIEF
 from jarvis.live.runtime import claim, register, unregister
 from jarvis.live.session import LiveVoiceSession, _identity
@@ -49,10 +55,14 @@ _SESSION_TOOLS = frozenset({
 # or ``[voice].realtime_tool_declaration_budget_tokens``, the smaller wins), at
 # most this many catalog tools are declared directly; every other tool stays
 # reachable through discover_tools/call_tool. A small local model pays a full
-# LLM round per discovery step, so the frequent tools come first.
+# LLM round per discovery step, so the frequent tools come first. Every tool the
+# conversation rules call by name comes before them: a small model that does
+# not see a named tool declares it missing instead of discovering it.
 _DIRECT_TOOL_LIMIT = 12
+# How much of a named tool's description its short declaration keeps.
+_COMPACT_DESCRIPTION_CHARS = 240
 _DIRECT_TOOL_PREFERENCE = (
-    "workspace-orchestrate",
+    *(name for name in NAMED_TOOLS if name not in _SESSION_TOOLS),
     "find-app-action",
     "run-app-action",
     "search_web",
@@ -77,12 +87,28 @@ def _declared_name(declaration: dict) -> str:
     return str(declaration.get("description", "")).split(": ", 1)[0]
 
 
-def _fit_declarations(declarations: list[dict], budget_chars: int) -> tuple[dict, ...]:
-    """Session built-ins plus a curated direct set that fits ``budget_chars``."""
+def _fit_declarations(
+    declarations: list[dict],
+    budget_chars: int,
+    *,
+    fillers: frozenset[str] | None = None,
+) -> tuple[dict, ...]:
+    """Session built-ins plus a curated direct set that fits ``budget_chars``.
+
+    Slots the preferred tools leave free go to other catalog tools; with
+    ``fillers`` only to those, so a tool with an effect of its own (restarting
+    the app) is never one of a small model's few direct tools by catalog order
+    alone. It stays reachable through discover_tools.
+    """
     session = [d for d in declarations if d.get("name") in _SESSION_TOOLS]
     rank = {name: index for index, name in enumerate(_DIRECT_TOOL_PREFERENCE)}
     catalog = sorted(
-        (d for d in declarations if d.get("name") not in _SESSION_TOOLS),
+        (
+            d
+            for d in declarations
+            if d.get("name") not in _SESSION_TOOLS
+            and (fillers is None or _declared_name(d) in rank or _declared_name(d) in fillers)
+        ),
         key=lambda d: rank.get(_declared_name(d), len(rank)),
     )
     used = sum(len(json.dumps(d)) for d in session)
@@ -90,12 +116,66 @@ def _fit_declarations(declarations: list[dict], budget_chars: int) -> tuple[dict
     for declaration in catalog:
         if len(direct) >= _DIRECT_TOOL_LIMIT:
             break
+        if _declared_name(declaration) in NAMED_TOOLS:
+            # A tool the rules call by name is always declared, in short:
+            # workspace-orchestrate alone outgrew a small model's whole budget.
+            declaration = _compact(declaration)
         size = len(json.dumps(declaration))
         if used + size > budget_chars:
             continue
         used += size
         direct.append(declaration)
     return (*session, *direct)
+
+
+def _compact(declaration: dict) -> dict:
+    """The same tool in short: its first sentences, and its arguments without prose.
+
+    Names, types, enums and required fields stay, so a call built from it is
+    valid; discover_tools still returns the full schema.
+    """
+    text = str(declaration.get("description", ""))
+    short = text[:_COMPACT_DESCRIPTION_CHARS]
+    if len(text) > len(short):
+        cut = short.rfind(". ")
+        short = (short[: cut + 1] if cut > 0 else short) + " Full schema: discover_tools."
+    return {
+        **declaration,
+        "description": short,
+        "parameters": _without_prose(declaration.get("parameters", {})),
+    }
+
+
+# Annotations and value limits a short declaration leaves out. The full schema
+# still validates every call, and a refused call names the accepted arguments.
+_SCHEMA_PROSE = frozenset({
+    "description", "examples", "title", "$comment", "default",
+    "minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems", "pattern",
+    "format",
+})
+
+
+def _without_prose(schema: Any) -> Any:
+    """A JSON schema with its prose and value limits removed, structure kept.
+
+    Only annotations go: a ``properties`` map keeps every argument, also one
+    that is itself called description or title.
+    """
+    if isinstance(schema, list):
+        return [_without_prose(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    kept: dict = {}
+    for key, value in schema.items():
+        if key in _SCHEMA_PROSE:
+            continue
+        if key in ("properties", "patternProperties", "$defs", "definitions") and isinstance(
+            value, dict
+        ):
+            kept[key] = {name: _without_prose(sub) for name, sub in value.items()}
+        else:
+            kept[key] = _without_prose(value)
+    return kept
 
 
 def _log_late_probe(task: asyncio.Future) -> None:
@@ -178,6 +258,8 @@ class NativeLiveVoiceSession(LiveVoiceSession):
                     "Do not switch the UI to address another workspace. Reuse request_id on "
                     "retries and never replay uncertain delivery. "
                     + WORK_STATUS_RULE
+                    + ON_SCREEN_RULE
+                    + TEAM_TALK_RULE
                     + AGENT_BRIEF_RULE
                 ),
                 history=tuple(
@@ -276,7 +358,12 @@ class NativeLiveVoiceSession(LiveVoiceSession):
         budget = self._declaration_budget_tokens()
         if budget <= 0:
             return tuple(declarations)
-        fitted = _fit_declarations(declarations, budget * 4)
+        safe = frozenset(
+            descriptor.name
+            for descriptor in self._tools.catalog()
+            if str(getattr(descriptor, "risk_tier", "")) == "safe"
+        )
+        fitted = _fit_declarations(declarations, budget * 4, fillers=safe)
         # AP-30: a trimmed tool set looks exactly like a complete one.
         log.info(
             "Native voice declares %d of %d tools under a %d-token budget for %s; "

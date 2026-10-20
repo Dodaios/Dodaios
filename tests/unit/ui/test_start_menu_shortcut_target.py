@@ -540,3 +540,23 @@ class TestShortcutWriterRefusesASpeechLessInterpreter:
             "the shortcut, which is how local speech silently disappears"
         )
         assert result is True, "an existing entry is still present, so report it"
+
+
+@windows_only
+def test_a_short_spelling_of_the_install_path_still_matches(tmp_path: Path) -> None:
+    """``sys.executable`` under an 8.3 name made every launch rewrite the shortcut."""
+    import ctypes
+
+    folder = tmp_path / "a folder with a long name"
+    folder.mkdir()
+    exe = folder / "PersonalJarvis.exe"
+    exe.write_bytes(b"")
+    buffer = ctypes.create_unicode_buffer(1024)
+    ctypes.windll.kernel32.GetShortPathNameW(str(exe), buffer, len(buffer))
+    short = buffer.value
+    if not short or short.lower() == str(exe).lower():
+        pytest.skip("this volume keeps no short names")
+    assert icon_utils._same_file_path(str(exe), Path(short))
+    assert icon_utils._same_file_path(short, exe)
+    assert not icon_utils._same_file_path(str(exe), folder / "other.exe")
+    assert not icon_utils._same_file_path("", exe)

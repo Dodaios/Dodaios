@@ -25,9 +25,8 @@ import { useT } from "@/i18n";
 /**
  * The wiki on the deck — the vault's memory map, in space.
  *
- * This is the SAME scene the Wiki section draws (`components/wiki/WikiGraph3D`):
- * the same request, the same nodes, colours and size rule, the same ambient
- * orbit. The deck adds three things a front page needs: it fits into a card
+ * The vault drawn as a 3D scene (`components/wiki/WikiGraph3D`) with an
+ * ambient orbit. The deck adds three things a front page needs: it fits into a card
  * and keeps working there, it can expand to the whole window on one click,
  * and pages that changed this session glow so the newest memory is the one
  * the eye lands on.
@@ -59,9 +58,8 @@ export function warmWikiScene(): void {
     /* a chunk that fails to preload simply loads later, as it always did */
   });
 }
-const WikiGraph2D = lazy(() =>
-  import("@/components/wiki/WikiGraph").then((m) => ({ default: m.WikiGraph })),
-);
+// Without WebGL the deck falls back to the Memory section's flat map.
+const WikiGraph2D = lazy(() => import("@/components/memory/MemoryMap"));
 
 const GRAPH_QUERY_KEY = ["wiki", "graph"] as const; // shared with the Wiki section's map
 
@@ -139,7 +137,7 @@ function DeckWikiScene({
               linkLabel={linkLabel}
             />
           ) : (
-            <WikiGraph2D onNodeClick={onNodeClick} highlightSlug={highlightSlug} />
+            <WikiGraph2D onOpen={onNodeClick} focus={null} compact />
           )}
         </Suspense>
       )}

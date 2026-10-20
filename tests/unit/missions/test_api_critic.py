@@ -149,6 +149,11 @@ async def test_critic_walks_to_next_api_family_after_invalid_verdict(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    # A key-only install: on a machine with a connected subscription the
+    # capacity policy would park the critic instead of walking API families.
+    monkeypatch.setattr(
+        "jarvis.missions.critic.runner._critic_subscription_only", lambda _p: False
+    )
     monkeypatch.setattr(
         "jarvis.missions.critic.runner._resolve_critic_provider_model",
         lambda: ("antigravity", None),

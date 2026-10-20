@@ -347,12 +347,12 @@ export function formatTurnPlain(
       : "";
     jarvisLines.push({
       ts_ms: turn.ended_ms ?? Number.MAX_SAFE_INTEGER,
-      lines: [`[JARVIS] ${prefix}${turn.jarvis_text}`],
+      lines: [`[ASSISTANT] ${prefix}${turn.jarvis_text}`],
     });
   }
   for (const s of spoken) {
     if (s.spoken_kind === "reply") {
-      jarvisLines.push({ ts_ms: s.ts_ms, lines: [`[JARVIS] ${s.text}`] });
+      jarvisLines.push({ ts_ms: s.ts_ms, lines: [`[ASSISTANT] ${s.text}`] });
       continue;
     }
     const label = (kindLabel[s.spoken_kind] ?? s.spoken_kind).toUpperCase();

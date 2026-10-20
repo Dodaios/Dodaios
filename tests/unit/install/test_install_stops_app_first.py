@@ -31,7 +31,7 @@ INSTALL_PS1 = REPO / "install" / "install.ps1"
 
 BLOCK_BEGIN = "# --- stop-running-app begin"
 BLOCK_END = "# --- stop-running-app end"
-STOPPED_NOTE = "NOTE|stopped the running Jarvis app for the update"
+STOPPED_NOTE = "NOTE|stopped the running Dodaios app for the update"
 INSIDE_APP = "ERR|this installer was started from inside the running app."
 GUARD_BEGIN = "# --- salvage-guard begin"
 GUARD_END = "# --- salvage-guard end"

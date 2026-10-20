@@ -47,6 +47,6 @@ def test_no_output_language_call_pins_its_own_default() -> None:
 def test_the_two_honesty_guards_share_one_resolution() -> None:
     """The evidence fallback and the action-honesty guard read one variable."""
     source = _MANAGER.read_text(encoding="utf-8")
-    assert "honesty_lang = resolve_output_language(" in source
+    assert "honesty_lang = _turn_phrase_language(self, " in source
     assert source.count("lang=honesty_lang") == 1
     assert source.count("language=honesty_lang") == 1

@@ -12,7 +12,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from jarvis.ui.desktop_app import DesktopApp
-from jarvis.ui.jarvisbar.null_overlay import NullOverlay
+from jarvis.ui.dodaiosbar.null_overlay import NullOverlay
 
 
 def _app(*, orb_style="jarvis_bar", bridge=..., orb=None):
@@ -120,7 +120,7 @@ def test_swap_falls_back_to_restart_when_the_host_will_not_start():
 
 
 def test_leaving_a_hosted_surface_stops_its_process(monkeypatch):
-    from jarvis.ui.jarvisbar import subprocess_overlay
+    from jarvis.ui.dodaiosbar import subprocess_overlay
 
     class FakeHostProc(subprocess_overlay.SubprocessBarOverlay):
         def __init__(self):

@@ -39,7 +39,7 @@ never moves an agent, starts work or invents activity (world-behaviour-manual
 | Furniture | A contemporary workplace built from rounded primitives: light-oak bench desks on black steel T-legs with a white pedestal and a felt privacy screen, slim monitors on arms, ergonomic chairs with a mesh back on a five-star base, open oak-and-steel shelving, low modular sofas on slim legs, tall charcoal planters with full crowns. Department back walls are fluted acoustic felt with a charcoal name plate in white type and oak ledges with small plants. |
 | Materials | Mostly matte; black steel and chrome arms carry a little metalness. Light microcement floor, a rounded felt rug per department whose colour also dyes that department's felt screens and seat fabric (`DEPARTMENT_ZONES`). Rooms: slate felt (team), terrazzo (wardrobe), pale stone (reception), light oak (break room). Glass walls and the outer balustrade have slim black frames. |
 | Light | Cool sky / neutral ground hemisphere light plus one soft, slightly warm directional sun with PCF shadows. Always bright enough to read, never moody. |
-| Setting | The agents floor and the Level Hall are floors of a tower in a city at night: a window wall on the far sides, the tower's body below, lit towers outside (§5h). The coding floor still floats in its own violet night behind glass railings. |
+| Setting | The agents floor and the Level Hall are floors of a tower in the city in the singularity: a window wall on the far sides, the tower's glass body falling away below, a megacity and the singularity outside (§5h). The coding floor is a floor of the same tower (§5j). |
 | Camera | Perspective, 35° FOV, three-quarter view from the south-east about 40° below the horizon. Orbit, pan and zoom within limits (20°–72° polar, from 2.5 m out to wherever the overview needs: 140 m at least, more on a large campus). The overview frames the whole floor (§5i). |
 | Labels | From across the floor an agent is one small state dot. The dark translucent plate (hexagon badge with the initial or the lead's star, name, rank chip, state dot and activity) fades in over the dot when the camera or the person is near, when the pointer or keyboard focus rests on the agent, or when it is selected (§5g). Scale is clamped by distance. |
 | State language | Green = working (pulsing floor ring, code on the monitor), amber = waiting for the person, grey = idle (smiley monitor) or paused (dark monitor). |
@@ -189,7 +189,7 @@ the floor plan differ.
   `companion/petCompanions.ts` maps a pet to its companion:
   Gigi keeps its hover model; the eight other built-ins have authored Blender
   models (`scripts/art/build_pet_companions.py`, study
-  `art/studies/jarvis-pet-companions`, one GLB per pet under
+  `art/studies/dodaios-pet-companions`, one GLB per pet under
   `assets/society/companions/pets/`) and a gait of their own: Ember the
   dragon flies with beating wings, Miso the cat trots, Cocoa the puppy trots
   with flopping ears and a wagging tail, Bolt the battery
@@ -600,15 +600,116 @@ street of team rooms round an atrium, with commons people use in between.
   window wall with steel mullions and a ceiling edge. The floor is shown like
   a cut-open model: a side's window wall stands only while the camera is on
   the opposite side of the floor; the other sides keep the glass balustrade.
-  Outside lies a city at night that stays a backdrop: a few dozen unlit
-  towers a shade lighter than the deep navy sky, the first 62 m from the
-  building, every roof at least 24 m below the floor and the nearest ones
-  lowest. About one window in twenty is dimly lit, from one small tiling
-  texture; a tower sinks into the sky's colour towards its foot and with its
-  distance, the scene's sun never reaches it, and the faintest glow lies
-  over the streets where detail would be. Apart from the sparse windows
-  nothing outside is brighter than a dark navy (#1a2233). The office is
-  always the brightest and most detailed thing on screen.
+  Outside lies the city in the singularity (`SingularityCity.tsx`, plan in
+  `cityPlan.ts`, shaders in `cityShaders.ts`): a megacity 330 m below the
+  floor, seen from high above. Several hundred glass towers of four kinds
+  (block, setback, tapering prism, spire) stand on a 36 m street grid; their
+  windows are drawn in world metres, lit in office runs that switch now and
+  then, and fade to their average glow once a window is smaller than a
+  pixel or two. Some towers carry gold, cyan or white light seams with
+  pulses climbing them, a lit crown, a lit parapet or a landing ring; tall
+  roofs carry aviation lights. The streets glow with kerb lamps, avenues
+  carry a cyan centre line and traffic both ways, and flying traffic circles
+  the tower in seven lanes high over the rooftops. Beams of light rise from
+  the tallest far roofs; mist drifts between the roofs. Off to the north
+  hovers the singularity: a black core with its photon ring, a turning
+  accretion disc, polar jets and three gold orbital rings, inside a crater
+  ringed by eighteen gold-crowned spires. The building's own tower is the
+  same glass with gold seams.
+  The floor stays the subject: an empty plaza of 70 m round the slab, every
+  roof within 330 m at least 70 m below the floor (about 170 m below beside
+  the plaza), and every tower under a traffic lane kept below it; at the
+  camera's flattest angle the far towers form a skyline at the horizon.
+  Everything outside is self-lit (the scene's sun never reaches it) and
+  sinks with distance into the sky's own colour; the scene's background and
+  fog take the haze's colour, and the coding floor alone keeps the starry
+  night. The whole city is about twenty draw calls, nothing casts or
+  receives a shadow, traffic is computed on the GPU, and with reduced motion
+  its clock stands still. Measured 2026-10-14 on an RTX 5070 Ti at
+  2560 × 1217 px: the city adds about 0.4 ms per frame in the overview.
+- **The sky pad and the courier** (`skyPad.ts`, `SkyPadStructure.tsx`,
+  `SkyCourier.tsx`, agents floor only): the main boulevard runs on through a
+  doorway in the east window wall (the balustrade has the same gap) as a 5 m
+  bridge to a round landing deck of 12 m radius, at floor level, inside the
+  city's empty plaza. The deck is graphite with a gold landing circle,
+  chevrons and a touchdown cross, a breathing cyan light round its rim, glass
+  rails, four light masts (glowing lamps, not light sources) and steel struts
+  back into the tower. The courier
+  stands on it: a chrome and gold starship authored in Blender
+  (`art/studies/sky-pad-courier-study/source/build_courier.py`, three levels
+  of detail exported as glTF into `src/assets/society/courier/`), scaled to
+  about 22 m beside the 1.3 m figures and centred on the deck. A lens hull
+  with a crisp blade edge and needle points, chrome back and charcoal belly
+  split by a gold edge trim, inlaid panel seams and belly vents, a bridge
+  with a framed visor, slim pods with flush gold bands, recessed glowing
+  nozzles and stabilisers round long tail spikes, swept wings, keel and
+  dorsal fins, gold nose pinstripes and red, green and strobing white
+  navigation lights. The bridge and the deck are walkable
+  (the navigation grid reaches beyond `layout.floor` for them, an idle wander
+  never does), the courier is solid, and the full map, the minimap and the
+  overview frame the pad too.
+- **Boarding and flying:** the ship is a station (`ship`, beside its hatch).
+  E there, or a click on the ship once the person stands there, boards it (a
+  click from afar walks over first, as at the elevator). The flight
+  (`courierFlight.ts`) is a rigid body with thrust, lift, pitch, yaw and roll:
+  *arcade* assist (the default) is made for fun: it flies where the nose
+  points, turns fast, climbs and dives as steeply as the pilot likes, its
+  lift thrusters push straight up or down at up to 30 m/s whatever the
+  attitude, and it banks into turns and levels its wings (never its nose);
+  *simulation* is Newtonian with momentum and drift. Cruise 85 m/s, boost
+  to 170 m/s on a charge that drains and refills, brake. A click into the
+  view captures the mouse for *mouse aim*: moving it moves a ring (where the
+  pilot aims), a dot marks where the nose points, and the ship keeps
+  turning onto the ring by itself whether or not the mouse is still moving;
+  the chase camera looks along the aim, and the turn and pitch keys move the
+  ring too (Escape lets the mouse go). Where the host refuses to capture the
+  mouse (an unfocused window, an embedded view), the visible cursor steers
+  instead: its distance from the middle of the view sets how fast the ring
+  turns, and a cursor resting off the middle keeps turning. Every tower, the Dodaios tower with its floor, the pad, the
+  street level and the singularity's core are solid (`courierWorld.ts`):
+  the ship bounces off in sub-steps no longer than 1.5 m (no tunnelling at
+  full boost), its shield flashes and the camera shakes. Past the city's
+  edge or above 420 m it is turned back gently. The landing assist flies to
+  a hover point over the pad, turns to the pad's heading and sets the ship
+  down with its gear out; any stick input hands control back. The gear comes
+  down by itself below 14 m over the deck. On the pad, E (or F, or the HUD's
+  button) steps out beside the hatch and the office camera takes over again.
+- **Cameras:** a chase camera behind and above with smoothing, pulled in
+  short of any tower between it and the ship; a cockpit view from the
+  canopy. Wider field of view while boosting.
+- **Effects and sound:** engine flames and an engine light that grow with
+  the throttle, glowing exhaust rings, contrails at high speed, a fresnel
+  shield on impact, dust blown across the deck when landing or lifting off.
+  The engine sound is synthesised with Web Audio (no audio files), placed at
+  the ship and heard from the camera (HRTF panning), pitch-shifted by the
+  relative speed (Doppler), muffled in the cockpit, with a thud on impact.
+  With reduced motion the flames, dust and camera shake stay calm. Not
+  built: a heat-haze distortion and a bloom/lens/motion-blur post-process
+  (the renderer has no post-processing pass; glow comes from emissive and
+  additive materials).
+- **Controls** (defaults; rebindable, kept per browser):
+
+  | Action | Keys | Gamepad |
+  | --- | --- | --- |
+  | Throttle up / down | W / S | right / left trigger |
+  | Turn left / right | A / D (or the mouse aim) | left stick x |
+  | Nose up / down | ↑ / ↓ (or the mouse aim) | left stick y |
+  | Roll left / right | Q / E, ← / → | right stick x |
+  | Rise / sink | Space / C or Ctrl | right stick y |
+  | Boost / brake | Shift / X | A / B |
+  | Flight assist | T | Back |
+  | Camera | V | Y |
+  | Landing assist | L | X |
+  | Step out (landed) | E or F | Start |
+  | Help / settings | H / Esc | — |
+
+  The settings (Esc or the HUD's button) switch the assist and the camera,
+  invert pitch, set the engine volume and rebind any action by pressing a
+  key; "Reset keys" restores the defaults. The flight HUD shows speed,
+  height over the deck (or the street level), throttle, boost charge, the
+  assist and camera, the landing assist, and stepping out once landed. While
+  the courier flies, the office's own H, L and M keys and the walking keys
+  rest. The reception's controls guide lists the courier's default keys.
 - **One material language** from the studios to the last room: light plank
   oak, limestone and felt on the floor; light oak for timber; dark steel for
   metal, with bronze as the one accent; steel-framed clear glass with a
@@ -875,6 +976,35 @@ by a rebuilt floor plan is put on the nearest free ground.
 - `__officeCamera.cut()` — the walls lowered right now; `.walls()` how many
   wall objects are tagged; `.limits()` this floor's zoom limits.
 
+## 5j. Coding floor as a tech campus floor (2026-10-14)
+
+Two looks were rejected on the same day: a sci-fi "Foundry deck" (reactor,
+drones, sky beams) as no office at all, and the studio look of §5b moved into
+the tower as "as boring as before". The maintainer asked for a floor built the
+way large technology companies build theirs. The floor plan stays (rooms,
+stations, desk slots, the 6.4 m concourse); everything on it is new:
+
+- **Zones by material** (`CodingFloorLook.tsx`): polished pale concrete with
+  saw-cut joints is the ground; the concourse is a terrazzo main street with
+  brass strips; every workspace is a team neighbourhood on an island of
+  white-oak planks.
+- **Team neighbourhoods**: a living moss wall in a white-oak frame on the
+  north edge carries the team's name on an oak header with a stripe of the
+  team's colour (`CODING_TEAMS`), over a planter with trailing plants.
+- **Long shared tables** (`CodingTables.tsx`): each bench of desk slots is one
+  continuous white-oak table on dark steel A-frames with a low felt screen in
+  the team's colour down its spine; every seat keeps its monitor (the live
+  terminal is drawn where it was), keyboard and a task chair in the team's felt.
+- **Along the glass** (`codingAmbience.ts`): per outer neighbourhood a glass
+  phone booth lined in the team's felt and a planter trough, either side of the
+  window spot; tree planters at the cross aisles.
+- **Main street**: a grove in the middle of every row — a tall tree in a round
+  planter ringed by an oak bench — and the terrazzo medallion round the spawn
+  terminal (`CodingPlaza.tsx`).
+- **Busy lights** (`DeskBusyLights.tsx`): a lamp on every occupied desk in the
+  pane's state (green working, amber blinking when it waits, red failed, grey idle).
+- The floor stands in the tower like the agents floor (`BuildingShell`).
+
 ## 6. Plan
 
 1. First map (done 2026-09-28).
@@ -906,6 +1036,25 @@ by a rebuilt floor plan is put on the nearest free ground.
   free plot) is covered by unit tests for the plan (the stand and its
   standing place, the arch at the desk, 1.2 m or more to walk along both
   windows) and was then checked in a browser by the orchestrator.
+- Sky pad and courier (2026-10-14): `courierFlight.test.ts` holds the pad
+  (outside the slab on the boulevard's line, walkable from the floor to the
+  hatch, the courier solid, no idle wander onto it, the `ship` checkpoint on
+  the agents floor only), the collision world, the flight (lift-off, arcade
+  holding the nose and levelling, simulation drifting, boost and charge, no
+  passing through a tower at full boost, the autopilot landing from out over
+  the city, handing back on input) and the controls (keys and pad into one
+  input, dead zone, rebinding and its storage). `CampusScene.test.tsx` mounts
+  the pad structure and the east doorway. Checked in Chrome against the dev
+  build: walking out to the pad, boarding, chase and cockpit views over the
+  city, the landing assist starting, stepping out.
+- City (2026-10-14): `cityPlan.test.ts` holds the plan for a hall-sized, a
+  typical and a large floor: deterministic, the plaza empty, every roof
+  within the roof limit, no two towers on one spot, the crater clear with
+  its ring of spires and the disc and rings inside it, every lane below the
+  floor, outside the plaza and above the roofs under it.
+  `CampusScene.test.tsx` mounts the city without a GPU (draw calls, no
+  shadows, towers on the street level). Checked in Chrome against the dev
+  build: overview, walking view and the flattest angle.
 - Floors (2026-10-12): `progression/verseFloors.test.ts` reads
   `VERSE_FLOORS` from jarvis/progression/service.py and holds it equal to the
   client's `METERED_FLOORS` and the elevator's `OFFICE_FLOORS`; a world

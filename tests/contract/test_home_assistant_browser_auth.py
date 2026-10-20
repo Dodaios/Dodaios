@@ -118,6 +118,11 @@ def test_legacy_builtin_auth_migrates_but_custom_address_does_not():
             "instance_url",
         )
     }
+    # A saved block keeps the help text it shipped with, from before the rename.
+    legacy["auth"]["instance_url"]["help_md"] = (
+        "The address you use in your browser. Home Assistant runs on your home network, "
+        "so a Jarvis on a different machine, behind a VPN or in a container may not reach it."
+    )
     assert (
         _merge_with_seed({"plugins": [legacy]}, seed)["plugins"][0]["auth"]["mode"]
         == "instance_browser"

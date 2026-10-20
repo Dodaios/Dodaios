@@ -428,6 +428,13 @@ label,
   font-weight: var(--shiki-dark-font-weight) !important;
   text-decoration: var(--shiki-dark-text-decoration) !important;
 }
+/* Inside the app's code block the frame is the background. The dark theme's
+   own ground (github-dark's near-black) would otherwise paint a second, darker
+   box behind every line inside the card. */
+.dark .code-block-body .shiki,
+.dark .code-block-body .shiki span {
+  background-color: transparent !important;
+}
 
 /* xterm.js viewport scrollbar — PLAIN (non-@layer) CSS on purpose. Tailwind
    tree-shakes `@layer utilities` by class usage, and `.xterm-viewport` is
@@ -2997,5 +3004,33 @@ body {
   @keyframes team-step-now {
     0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.45); }
     50% { box-shadow: 0 0 0 4px hsl(var(--accent) / 0); }
+  }
+  /* A canvas line a member is working on right now flows towards it. */
+  .team-flow {
+    stroke-dasharray: 6 5;
+    animation: team-flow 0.9s linear infinite;
+  }
+  @keyframes team-flow {
+    to { stroke-dashoffset: -11; }
+  }
+  /* The team room's canvas wears the app's theme: its ground, dots and controls. */
+  .team-canvas .react-flow {
+    --xy-background-color: transparent;
+    --xy-background-pattern-dots-color-default: hsl(var(--border-strong) / 0.6);
+    --xy-edge-label-background-color: hsl(var(--card));
+    --xy-controls-button-background-color: hsl(var(--card));
+    --xy-controls-button-background-color-hover: hsl(var(--secondary));
+    --xy-controls-button-color: hsl(var(--muted-foreground));
+    --xy-controls-button-color-hover: hsl(var(--foreground));
+    --xy-controls-button-border-color: hsl(var(--border));
+    --xy-controls-box-shadow: none;
+  }
+  .team-canvas .react-flow__controls {
+    border: 1px solid hsl(var(--border));
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .team-canvas .react-flow__node {
+    cursor: default;
   }
 }

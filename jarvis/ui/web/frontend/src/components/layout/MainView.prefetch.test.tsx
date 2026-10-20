@@ -15,9 +15,9 @@ vi.mock("@/views/society/SocietyView", () => {
   loads.push("agents");
   return { SocietyView: () => <div>agents ready</div> };
 });
-vi.mock("@/views/WikiView", () => {
+vi.mock("@/views/MemoryView", () => {
   loads.push("memory");
-  return { WikiView: () => null };
+  return { MemoryView: () => null };
 });
 vi.mock("@/views/PluginsDialog", () => {
   loads.push("plugins");

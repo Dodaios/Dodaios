@@ -10,6 +10,10 @@ contributions and nothing else, so a team thread is never an open model loop:
     build      the plan's author implements it
     review     the others review; findings go back to the builder until all approve
 
+That is the ``peers`` mode. The ``planner_builder`` mode gives each member a
+role instead: one owns a living plan, one builds it a step at a time, the
+others review the plan and every step (``plan_mode.PlannedWork``).
+
 Every step is derived from the entries already in the thread, so a paused or
 interrupted thread continues where it stopped. Nothing resumes by itself: a
 thread that was running when the app closed comes back paused.
@@ -30,9 +34,10 @@ from pathlib import Path
 from typing import Any, Final
 
 from . import prompts
+from .plan_mode import PlannedWork, default_roles, plan_issues
 from .port import TurnPort, TurnResult
 from .signals import parse_review, parse_vote
-from .store import TeamThreadStore
+from .store import MODES, ROLES, TeamThreadStore
 from .workspace import GitWorkspace
 
 log = logging.getLogger(__name__)
@@ -40,7 +45,10 @@ log = logging.getLogger(__name__)
 __all__ = ["MAX_MEMBERS", "MIN_MEMBERS", "Limits", "SeatPick", "TeamError", "TeamThreads"]
 
 MIN_MEMBERS: Final[int] = 2
-MAX_MEMBERS: Final[int] = 4
+#: A swarm: more members than this cost more than another review catches.
+MAX_MEMBERS: Final[int] = 8
+#: Model turns each member brings to a team's default turn bound.
+_TURNS_PER_MEMBER: Final[int] = 10
 _MAX_TASK: Final[int] = 40_000
 _MAX_TEXT: Final[int] = 60_000
 
@@ -53,7 +61,18 @@ _STEP_LABEL: Final[dict[str, str]] = {
     "build": "Team thread: build the plan",
     "review": "Team thread: review the change",
     "fix": "Team thread: answer the review",
+    "plan_version": "Team thread: write the plan",
+    "plan_review": "Team thread: review the plan",
+    "step_build": "Team thread: build a step",
+    "step_review": "Team thread: review a step",
 }
+
+#: needs_input reasons a message from the person settles with one more round.
+_DISAGREEMENTS: Final[tuple[str, ...]] = (
+    "plan_disagreement",
+    "review_disagreement",
+    "step_disagreement",
+)
 
 
 class TeamError(ValueError):
@@ -73,6 +92,9 @@ class SeatPick:
     effort: str = ""
     name: str = ""
     family: str = ""
+    #: The model's short display name, where the person picked the model;
+    #: it follows the seat's name ("Anthropic Claude · Opus 5.5").
+    model_label: str = ""
     #: A model the account lists. Tried once when the seat's own default is
     #: refused on the member's first turn, so a CLI configured for a model the
     #: signed-in account may not use does not cost the team a member.
@@ -95,8 +117,13 @@ class Limits:
     max_cost_usd: float = 0.0
 
     @classmethod
-    def of(cls, raw: dict[str, Any] | None) -> Limits:
-        base = cls()
+    def for_team(cls, members: int) -> Limits:
+        """The default bounds of a team this size: a bigger team takes more turns per step."""
+        return cls(max_turns=max(cls().max_turns, _TURNS_PER_MEMBER * members))
+
+    @classmethod
+    def of(cls, raw: dict[str, Any] | None, *, members: int = 0) -> Limits:
+        base = cls.for_team(members)
         raw = raw or {}
 
         def whole(key: str, low: int, high: int) -> int:
@@ -119,7 +146,7 @@ class Limits:
         )
 
 
-class TeamThreads:
+class TeamThreads(PlannedWork):
     def __init__(
         self,
         store: TeamThreadStore,
@@ -152,6 +179,8 @@ class TeamThreads:
         seats: list[SeatPick],
         limits: dict[str, Any] | None = None,
         title: str = "",
+        mode: str = "peers",
+        roles: list[str] | None = None,
     ) -> dict[str, Any]:
         task = (task or "").strip()
         if not task:
@@ -160,6 +189,9 @@ class TeamThreads:
             raise TeamError("The task is too long for a team thread.")
         if not MIN_MEMBERS <= len(seats) <= MAX_MEMBERS:
             raise TeamError(f"A team thread has {MIN_MEMBERS} to {MAX_MEMBERS} members.")
+        if mode not in MODES:
+            raise TeamError(f"Unknown team mode: {mode}")
+        picked = _roles_of(mode, roles, len(seats))
         if self._closing:
             raise TeamError("Team threads are shutting down.")
         folder = Path(cwd or "")
@@ -193,26 +225,35 @@ class TeamThreads:
             for member in members:
                 self._discard(member["session_id"])
             raise TeamError(f"A member could not be seated: {exc}") from exc
+        work: dict[str, Any] = {}
+        if picked:
+            work = {
+                "roles": {m["member_id"]: role for m, role in zip(members, picked, strict=True)},
+                "builder": members[picked.index("builder")]["member_id"],
+                "plan_round": 1,
+                "plan_base": 1,
+            }
         try:
             team_id = self._store.create(
                 title=title,
                 task=task,
                 cwd=str(folder),
                 lang=self._language(task),
-                limits=asdict(Limits.of(limits)),
+                limits=asdict(Limits.of(limits, members=len(seats))),
                 members=members,
+                mode=mode,
+                work=work,
             )
         except Exception:
             for member in members:
                 self._discard(member["session_id"])
             raise
-        self._store.append(
-            team_id, kind="user", author="user", phase="draft", payload={"text": task}
-        )
+        first = "planning" if picked else "draft"
+        self._store.append(team_id, kind="user", author="user", phase=first, payload={"text": task})
         families = {seat.family or seat.provider for seat in seats}
         if len(families) == 1:
             # Honest about what a one-family team cannot give (AP-22).
-            self._notice(team_id, "draft", "same_family")
+            self._notice(team_id, first, "same_family")
         self._spawn(team_id)
         return await asyncio.to_thread(self.snapshot, team_id)
 
@@ -231,10 +272,7 @@ class TeamThreads:
             phase=team["phase"],
             payload={"text": text[:_MAX_TASK]},
         )
-        if team["state"] == "needs_input" and team["reason"] in (
-            "plan_disagreement",
-            "review_disagreement",
-        ):
+        if team["state"] == "needs_input" and team["reason"] in _DISAGREEMENTS:
             # The answer settles the open points: one more round with it.
             return await self.resume(team_id)
         return await asyncio.to_thread(self.snapshot, team_id)
@@ -270,8 +308,11 @@ class TeamThreads:
         if reason == "plan_disagreement":
             limits["plan_rounds"] = int(limits["plan_rounds"]) + 1
             work["plan_round"] = int(work.get("plan_round", 1)) + 1
-        elif reason == "review_disagreement":
+        elif reason in ("review_disagreement", "step_disagreement"):
             limits["review_rounds"] = int(limits["review_rounds"]) + 1
+        elif reason == "plan_unreadable":
+            # The planner gets its two tries again, from here.
+            work["plan_retry_from"] = self._store.entries(team_id)[-1]["seq"]
         elif reason == "limit_time":
             limits["max_minutes"] = int(limits["max_minutes"]) + max(
                 30, int(limits["max_minutes"]) // 2
@@ -290,14 +331,15 @@ class TeamThreads:
     async def accept(self, team_id: str) -> dict[str, Any]:
         """The person ends a disagreement: take the plan, or the work, as it is."""
         team = self._require(team_id)
-        if team["state"] != "needs_input" or team["reason"] not in (
-            "plan_disagreement",
-            "review_disagreement",
-        ):
+        if team["state"] != "needs_input" or team["reason"] not in _DISAGREEMENTS:
             raise TeamError("There is no disagreement to settle.")
         if self._closing:
             raise TeamError("Team threads are shutting down.")
-        if team["reason"] == "plan_disagreement":
+        if team["mode"] == "planner_builder":
+            self._accept_planned(team)
+            if self._store.get(team_id)["state"] == "running":  # type: ignore[index]
+                self._spawn(team_id)
+        elif team["reason"] == "plan_disagreement":
             round_no = int(team["work"].get("plan_round", 1))
             plan = self._last(team_id, "plan", round_no)
             if plan is None:
@@ -343,6 +385,7 @@ class TeamThreads:
                     "team_id": team["team_id"],
                     "title": team["title"],
                     "cwd": team["cwd"],
+                    "mode": team["mode"],
                     "state": team["state"],
                     "phase": team["phase"],
                     "reason": team["reason"],
@@ -369,6 +412,8 @@ class TeamThreads:
         team = self._require(team_id)
         work = team["work"]
         working = self._working.get(team_id, {})
+        planned = team["mode"] == "planner_builder"
+        roles = dict(work.get("roles") or {})
         members = []
         for member in self._store.members(team_id):
             busy = member["member_id"] in working
@@ -391,14 +436,20 @@ class TeamThreads:
                     "working": busy,
                     "since_ms": working.get(member["member_id"], 0),
                     "waiting": busy and self._waiting(member["session_id"]),
+                    # "" in the peers mode, where nobody holds a role.
+                    "role": roles.get(member["member_id"], ""),
                 }
             )
         all_entries = self._store.entries(team_id)
+        done = team["state"] == "done" and not work.get("accepted_open")
+        if planned:
+            done = team["state"] == "done" and not work.get("accepted_open_all")
         return {
             "team_id": team_id,
             "title": team["title"],
             "task": team["task"],
             "cwd": team["cwd"],
+            "mode": team["mode"],
             "state": team["state"],
             "phase": team["phase"],
             "reason": team["reason"],
@@ -411,16 +462,20 @@ class TeamThreads:
                 # Some turns ran on a seat that reports no price.
                 "cost_partial": bool(work.get("cost_partial", False)),
             },
-            "rounds": {
+            "rounds": self._planned_rounds(team)
+            if planned
+            else {
                 "plan": int(work.get("plan_round", 0)),
                 "review": int(work.get("review_round", 0)),
             },
             "builder": work.get("builder", ""),
             "members": members,
+            # The living plan of the planner-and-builder mode; None for peers.
+            "plan": self._plan_view(team, all_entries) if planned else None,
             "entries": [e for e in all_entries if e["seq"] > after],
-            "issues": _issues(
-                all_entries, done=team["state"] == "done" and not work.get("accepted_open")
-            ),
+            "issues": plan_issues(all_entries, done=done)
+            if planned
+            else _issues(all_entries, done=done),
             "created_ms": team["created_ms"],
             "updated_ms": team["updated_ms"],
         }
@@ -848,6 +903,9 @@ class TeamThreads:
     def _finish(self, team_id: str, *, accepted_open: bool = False) -> None:
         team = self._store.get(team_id)
         assert team is not None
+        if team["mode"] == "planner_builder":
+            self._finish_planned(team_id, accepted_open=accepted_open)
+            return
         work = dict(team["work"])
         work["accepted_open"] = accepted_open
         entries = self._store.entries(team_id)
@@ -892,12 +950,14 @@ class TeamThreads:
         round_no: int = 0,
         record: Callable[[dict[str, Any], TurnResult], Any] | None = None,
         guard: bool = False,
+        label: str = "",
     ) -> None:
         """Run one turn per member at once and file each answer as it arrives.
 
         A member whose turn fails leaves the team; a turn over its time halts
         the thread. ``guard`` checks that a step that must not change files
-        left the folder as it was.
+        left the folder as it was. ``label`` is what the member's own thread
+        shows for the turn (the step's default label without it).
         """
         if not members:
             return
@@ -947,7 +1007,9 @@ class TeamThreads:
             started = int(time.time() * 1000)
             self._working.setdefault(team_id, {})[mid] = started
             try:
-                result = await self._turn(team_id, member, text, kind, fresh["lang"], timeout_s)
+                result = await self._turn(
+                    team_id, member, text, kind, fresh["lang"], timeout_s, label=label
+                )
                 if result.status == "failed":
                     # One more try before the member counts as failed: an
                     # overloaded provider or a dropped connection passes. Where
@@ -963,7 +1025,9 @@ class TeamThreads:
                             "member_model_changed",
                             {"member_id": mid, "model": fallback, "error": result.error[:500]},
                         )
-                    result = await self._turn(team_id, member, text, kind, fresh["lang"], timeout_s)
+                    result = await self._turn(
+                        team_id, member, text, kind, fresh["lang"], timeout_s, label=label
+                    )
             finally:
                 if self._working.get(team_id, {}).get(mid) == started:
                     self._working[team_id].pop(mid, None)
@@ -1046,6 +1110,8 @@ class TeamThreads:
         kind: str,
         language: str,
         timeout_s: float,
+        *,
+        label: str = "",
     ) -> TurnResult:
         """One member turn, counted against the bounds.
 
@@ -1059,7 +1125,7 @@ class TeamThreads:
             result = await self._port.ask(
                 member["session_id"],
                 text,
-                display=_STEP_LABEL[kind],
+                display=label or _STEP_LABEL[kind],
                 language=language,
                 timeout_s=timeout_s,
             )
@@ -1067,7 +1133,11 @@ class TeamThreads:
             self._price(team_id, None)  # stopped half way: what it cost is unknown
             raise
         self._price(team_id, result.cost_usd)
-        if result.status == "ok" and not result.text.strip() and kind not in ("build", "fix"):
+        if (
+            result.status == "ok"
+            and not result.text.strip()
+            and kind not in ("build", "fix", "step_build")
+        ):
             # A plan, a vote or a review without words is no contribution. A
             # build without a report still changed the files, and counts.
             return TurnResult(
@@ -1222,9 +1292,38 @@ def _title_from(task: str) -> str:
     return line if len(line) <= 60 else line[:59].rstrip() + "…"
 
 
+def _roles_of(mode: str, roles: list[str] | None, count: int) -> list[str]:
+    """Each member's role in the planner-and-builder mode; ``[]`` for peers.
+
+    Without a pick, member 1 plans, member 2 builds and the rest review. A pick
+    needs exactly one planner and one builder, so every plan and every step is
+    reviewed by someone who did not write it.
+    """
+    if mode != "planner_builder":
+        return []
+    picked = [str(role or "").strip().lower() for role in roles or []]
+    if not any(picked):
+        return default_roles(count)
+    if len(picked) != count or any(role not in ROLES for role in picked):
+        raise TeamError(f"Give each member one role of: {', '.join(ROLES)}.")
+    if picked.count("planner") != 1 or picked.count("builder") != 1:
+        raise TeamError("A team needs exactly one planner and one builder.")
+    return picked
+
+
 def _unique_names(seats: list[SeatPick]) -> list[str]:
-    """Each member's display name; two seats of one kind are told apart by number."""
-    base = [(seat.name or seat.model or seat.provider).strip() or seat.provider for seat in seats]
+    """Each member's display name, unique in the team.
+
+    A member is named after its seat, and a model the person picked follows
+    the name ("Anthropic Claude · Opus 5.5"), so two members on one seat with
+    different models read apart. Members that still share a name are told
+    apart by number ("Anthropic Claude 1", "Anthropic Claude 2").
+    """
+    base = []
+    for seat in seats:
+        name = (seat.name or seat.model or seat.provider).strip() or seat.provider
+        label = seat.model_label.strip()
+        base.append(f"{name} · {label}" if label and not name.endswith(label) else name)
     counts: dict[str, int] = {}
     names = []
     for name in base:
