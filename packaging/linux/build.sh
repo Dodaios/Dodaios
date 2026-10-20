@@ -57,11 +57,11 @@ APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download/${A
 APPIMAGETOOL_SHA256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
 APPIMAGETOOL_CACHE="${DIST_DIR}/.build-tools/appimagetool-${APPIMAGETOOL_VERSION}-x86_64.AppImage"
 
-ICON_SOURCE="${REPO_ROOT}/assets/icons/jarvis-gigi-256.png"
+ICON_SOURCE="${REPO_ROOT}/assets/icons/dodaios-gigi-256.png"
 # The desktop entry, its icon and the window class share one name
 # (dodaios/core/branding.py: LINUX_DESKTOP_ENTRY_FILE_NAME, LINUX_WM_CLASS).
 DESKTOP_FILE_NAME="dodaios.desktop"
-# The console command and its earlier name; both ship (jarvis.spec builds both).
+# The console command and its earlier name; both ship (dodaios.spec builds both).
 CLI_EXE_NAMES=("dodaios" "jarvis")
 ICON_FILE_NAME="dodaios.png"
 # usr/share/<name> inside the AppDir; AppRun reads its browser-ui marker there.
@@ -122,19 +122,19 @@ fi
 
 command -v "${PYTHON}" >/dev/null 2>&1 || die "interpreter not found: ${PYTHON}"
 
-# jarvis.spec bundles ./jarvis.toml unconditionally, and that file is
+# dodaios.spec bundles ./jarvis.toml unconditionally, and that file is
 # .gitignore'd - a fresh clone (every CI runner) does not have one and
 # PyInstaller aborts before it starts. Seed the shipped default so the build
 # works from a clean checkout. On a machine that already has a live config the
 # spec bundles THAT file as-is, which is a privacy question the build cannot
 # answer for the maintainer, so it says so instead of quietly shipping it.
 if [ ! -f "${REPO_ROOT}/jarvis.toml" ]; then
-  [ -f "${REPO_ROOT}/jarvis.toml.example" ] \
-    || die "neither jarvis.toml nor jarvis.toml.example exists; jarvis.spec cannot bundle a default configuration"
-  log "seeding jarvis.toml from jarvis.toml.example (clean checkout)"
-  run cp "${REPO_ROOT}/jarvis.toml.example" "${REPO_ROOT}/jarvis.toml"
-elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/jarvis.toml.example"; then
-  log "WARNING: jarvis.spec bundles this machine's jarvis.toml into the package, and it differs from jarvis.toml.example. Check it carries nothing personal before publishing the build."
+  [ -f "${REPO_ROOT}/dodaios.toml.example" ] \
+    || die "neither jarvis.toml nor dodaios.toml.example exists; dodaios.spec cannot bundle a default configuration"
+  log "seeding jarvis.toml from dodaios.toml.example (clean checkout)"
+  run cp "${REPO_ROOT}/dodaios.toml.example" "${REPO_ROOT}/jarvis.toml"
+elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/dodaios.toml.example"; then
+  log "WARNING: dodaios.spec bundles this machine's jarvis.toml into the package, and it differs from dodaios.toml.example. Check it carries nothing personal before publishing the build."
 fi
 
 if [ "${SKIP_PYINSTALLER}" = "1" ]; then
@@ -147,11 +147,11 @@ else
   log "running PyInstaller"
   (
     cd "${REPO_ROOT}"
-    run "${PYTHON}" -m PyInstaller jarvis.spec --noconfirm --clean
+    run "${PYTHON}" -m PyInstaller dodaios.spec --noconfirm --clean
   )
 fi
 
-# The windowed target is named DodaiosApp in jarvis.spec, because `Dodaios`
+# The windowed target is named DodaiosApp in dodaios.spec, because `Dodaios`
 # and `dodaios` are the SAME path on Windows and on a default macOS volume and
 # the second executable would overwrite the first. Linux has no such problem,
 # but the freeze is shared, so accept the earlier names too rather than pinning
@@ -166,7 +166,7 @@ if building; then
     fi
   done
   [ -n "${GUI_EXE_NAME}" ] \
-    || die "PyInstaller produced none of ${GUI_EXE_CANDIDATES[*]} in '${FREEZE_DIR}' - jarvis.spec has no windowed EXE target"
+    || die "PyInstaller produced none of ${GUI_EXE_CANDIDATES[*]} in '${FREEZE_DIR}' - dodaios.spec has no windowed EXE target"
   log "windowed executable: ${GUI_EXE_NAME}"
 else
   GUI_EXE_NAME="${GUI_EXE_CANDIDATES[0]}"
@@ -189,7 +189,7 @@ if building; then
 
   # AppRun and the .desktop entry address the launcher as usr/bin/Jarvis, which
   # is the name the release contract uses. A symlink keeps that stable whatever
-  # jarvis.spec calls the binary; PyInstaller resolves its _internal directory
+  # dodaios.spec calls the binary; PyInstaller resolves its _internal directory
   # through /proc/self/exe, which follows the link into the same directory.
   if [ ! -e "${APPDIR}/usr/bin/Jarvis" ]; then
     ln -s "${GUI_EXE_NAME}" "${APPDIR}/usr/bin/Jarvis"
@@ -201,7 +201,7 @@ if building; then
       # for even when the spec ships no such executable. Say it loudly: on
       # Windows and macOS a missing console target is a real gap, not a
       # cosmetic one.
-      log "WARNING: the freeze has no '${cli_name}' executable - jarvis.spec has no console CLI EXE target of that name. Linking it to ${GUI_EXE_NAME} so the CLI entry exists."
+      log "WARNING: the freeze has no '${cli_name}' executable - dodaios.spec has no console CLI EXE target of that name. Linking it to ${GUI_EXE_NAME} so the CLI entry exists."
       ln -s "${GUI_EXE_NAME}" "${APPDIR}/usr/bin/${cli_name}"
     fi
   done

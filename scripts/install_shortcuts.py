@@ -5,7 +5,7 @@ Run once:
     python scripts/install_shortcuts.py
 
 Result:
-  1. assets/icons/jarvis.ico — multi-size Windows icon (black + signal yellow)
+  1. assets/icons/dodaios.ico — multi-size Windows icon (black + signal yellow)
   2. Desktop\\Dodaios.lnk — double-click opens the window
   3. shell:startup\\Dodaios.lnk — starts Jarvis at Windows login
 
@@ -49,7 +49,7 @@ from dodaios.core.instance import (  # noqa: E402 - script source path above
 )
 
 ICON_DIR = PROJECT_ROOT / "assets" / "icons"
-ICON_PATH = ICON_DIR / "jarvis.ico"
+ICON_PATH = ICON_DIR / "dodaios.ico"
 DEV_INSTANCE = InstanceIdentity(DEV_INSTANCE_NAME)
 DEV_ICON_PATH = ICON_DIR / DEV_INSTANCE.icon_file_name
 DEV_SHORTCUT_NAME = DEV_INSTANCE.windows_shortcut_file_name

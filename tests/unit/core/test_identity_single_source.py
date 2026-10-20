@@ -121,43 +121,43 @@ def test_the_frozen_runtime_hook_restates_the_lock_files_and_launcher_names() ->
         branding.MACOS_EXECUTABLE_NAME,
         *branding.LEGACY_MACOS_EXECUTABLE_NAMES,
         *(name.removesuffix(".exe") for name in windows_names),
-        _module_constant("jarvis.spec", "GUI_EXE_NAME"),
-        *_module_constant("jarvis.spec", "LEGACY_GUI_EXE_NAMES"),
+        _module_constant("dodaios.spec", "GUI_EXE_NAME"),
+        *_module_constant("dodaios.spec", "LEGACY_GUI_EXE_NAMES"),
     }
     assert set(_module_constant(hook_path, "_GUI_EXE_NAMES")) == gui_names
-    # The bundle seeds a first-run config from the file jarvis.spec ships.
+    # The bundle seeds a first-run config from the file dodaios.spec ships.
     bundled = _module_constant(hook_path, "_BUNDLED_CONFIG_FILE_NAME")
-    assert f'datas.append((str(PROJECT_ROOT / "{bundled}"), "."))' in _read("jarvis.spec")
+    assert f'datas.append((str(PROJECT_ROOT / "{bundled}"), "."))' in _read("dodaios.spec")
     # And the engine it loads by path is shipped as a plain file.
     engine = "/".join(_module_constant(hook_path, "_ENGINE_PATH"))
-    assert f'(str(PROJECT_ROOT / "{engine}"), "dodaios/core")' in _read("jarvis.spec")
+    assert f'(str(PROJECT_ROOT / "{engine}"), "dodaios/core")' in _read("dodaios.spec")
     assert (_ROOT / engine).is_file()
 
 
 def test_the_pyinstaller_spec_restates_the_bundle_names() -> None:
-    assert _module_constant("jarvis.spec", "GUI_EXE_NAME") == branding.MACOS_EXECUTABLE_NAME
+    assert _module_constant("dodaios.spec", "GUI_EXE_NAME") == branding.MACOS_EXECUTABLE_NAME
     assert (
-        f'{_module_constant("jarvis.spec", "GUI_EXE_NAME")}.exe'
+        f'{_module_constant("dodaios.spec", "GUI_EXE_NAME")}.exe'
         == branding.WINDOWS_BRANDED_LAUNCHER_FILE_NAME
     )
     # The windowed launcher ships under its earlier name too: pins, logon tasks
     # and shortcuts of earlier releases start that file.
-    legacy_gui = _module_constant("jarvis.spec", "LEGACY_GUI_EXE_NAMES")
+    legacy_gui = _module_constant("dodaios.spec", "LEGACY_GUI_EXE_NAMES")
     assert legacy_gui == branding.LEGACY_MACOS_EXECUTABLE_NAMES
     assert tuple(f"{name}.exe" for name in legacy_gui) == (
         branding.LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES
     )
-    assert "*legacy_gui_exes," in _read("jarvis.spec")
-    assert _module_constant("jarvis.spec", "CLI_EXE_NAME") == branding.CLI_COMMAND_NAME
+    assert "*legacy_gui_exes," in _read("dodaios.spec")
+    assert _module_constant("dodaios.spec", "CLI_EXE_NAME") == branding.CLI_COMMAND_NAME
     # The frozen build keeps the command's first earlier name beside the new one.
-    legacy_exes = _module_constant("jarvis.spec", "LEGACY_CLI_EXE_NAMES")
+    legacy_exes = _module_constant("dodaios.spec", "LEGACY_CLI_EXE_NAMES")
     assert legacy_exes == branding.LEGACY_CLI_COMMAND_NAMES[:1]
-    assert "*legacy_cli_exes," in _read("jarvis.spec")
-    assert _module_constant("jarvis.spec", "MACOS_APP_NAME") == branding.MACOS_APP_DIR_NAME
+    assert "*legacy_cli_exes," in _read("dodaios.spec")
+    assert _module_constant("dodaios.spec", "MACOS_APP_NAME") == branding.MACOS_APP_DIR_NAME
     assert (
-        _module_constant("jarvis.spec", "MACOS_BUNDLE_IDENTIFIER") == branding.MACOS_DMG_BUNDLE_ID
+        _module_constant("dodaios.spec", "MACOS_BUNDLE_IDENTIFIER") == branding.MACOS_DMG_BUNDLE_ID
     )
-    spec = _read("jarvis.spec")
+    spec = _read("dodaios.spec")
     assert f'"CFBundleName": "{branding.MACOS_APP_NAME}"' in spec
     assert f'"CFBundleDisplayName": "{branding.MACOS_APP_NAME}"' in spec
 
@@ -332,12 +332,12 @@ def test_the_shell_uninstaller_names_every_credential_service() -> None:
 )
 def test_the_windows_installer_script_restates_the_names(definition: str, expected: str) -> None:
     assert f'\n#define {definition} "{expected}"\n' in _read(
-        "packaging/windows/PersonalJarvis.iss"
+        "packaging/windows/Dodaios.iss"
     )
 
 
 def test_the_windows_installer_retires_the_earlier_shortcuts_and_keeps_its_identity() -> None:
-    script = _read("packaging/windows/PersonalJarvis.iss")
+    script = _read("packaging/windows/Dodaios.iss")
     # Windows upgrades by AppId: a new one would install a second product.
     assert '#define AppGuid "7F1C4E42-2E5B-4F0A-9E1B-1A7B6C0D5E88"' in script
     # The shortcuts an earlier release created under the earlier name go; the
@@ -408,7 +408,7 @@ def test_the_project_metadata_restates_the_distribution_and_its_commands() -> No
 
 
 def test_the_frozen_build_bundles_the_metadata_under_either_distribution_name() -> None:
-    spec = _read("jarvis.spec")
+    spec = _read("dodaios.spec")
     assert f"\nDISTRIBUTION_NAMES = {branding.DISTRIBUTION_NAMES!r}\n" in spec
     assert "datas += copy_metadata(_installed_distribution())" in spec
 

@@ -680,7 +680,7 @@ reset gate and the outside-app logic.
 ### 4.12 Packaging
 
 - **One usage-string table:** `dodaios/core/macos_privacy_strings.py`, stdlib-only, loaded by path
-  from `jarvis.spec` and from the managed bundle's `Info.plist` writer, so the two apps cannot
+  from `dodaios.spec` and from the managed bundle's `Info.plist` writer, so the two apps cannot
   drift. Keys: microphone, screen capture (parity, effect unverified), Apple events, Desktop,
   Documents, Downloads, removable volumes, network volumes, local network. A parity test and the
   frozen-app probe assert it on the built bundle. The wording is short and calm: the Apple Events
@@ -694,7 +694,7 @@ reset gate and the outside-app logic.
   `en.lproj`). The `.dmg` app gets the files from `packaging/macos/add_localizations.py`, which
   `packaging/macos/build.sh` runs on the finished `.app` BEFORE it signs it (the files are part of
   the code seal, so one added later would break the signature and the notarization); the
-  languages are declared by `jarvis.spec`. The managed bundle writes the same files when it lays
+  languages are declared by `dodaios.spec`. The managed bundle writes the same files when it lays
   out the bundle (`dodaios/setup/macos_app_bundle.py`). `scripts/ci/check_frozen_macos_app.py` asserts
   the two plist keys and that each `.strings` file equals the table. The bundle format version is
   **not** bumped (a bump would rebuild every installed bundle, and an ad-hoc rebuild is a new

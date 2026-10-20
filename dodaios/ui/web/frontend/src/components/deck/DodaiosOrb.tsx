@@ -1,0 +1,107 @@
+import { motion, useReducedMotion, type TargetAndTransition } from "framer-motion";
+import { PetMark } from "@/components/pets/PetMark";
+import type { VoiceState } from "@/store/events";
+import { cn } from "@/lib/utils";
+
+/**
+ * The centre of the deck: the mascot itself.
+ *
+ * It used to be `/deck-orb.png` — a sphere cut out of the marketing render.
+ * A picture of a light, not a light: its halo was baked in as milky white
+ * pixels, so on the dark deck it read as a grey box, and the reticle around
+ * it sliced that box off at the ring. The maintainer asked repeatedly for the
+ * PNG to go and for the mascot to carry the product instead (2026-08-20), so
+ * both PNGs are gone from the tree and the middle is the mascot. Since
+ * 2026-10-02 that is the user's own pet (Settings -> My Pets, Gigi by
+ * default), drawn from its sprite sheet by `PetMark`.
+ *
+ * The staging is a dark figure standing in golden light. The glow behind it
+ * (`.deck-orb-glow`, DeckOrb.tsx) throws the silhouette forward; the corona's
+ * slow rays come up behind it in the voice. The pet brings its own life —
+ * its idle row floats and blinks, and with `reactive` it listens, thinks and
+ * talks along. That is why the reticle around it no
+ * longer needs to dance: the living thing is alive, the instruments stay
+ * still until they have something to show.
+ *
+ * Voice moves the whole figure, honestly and cheaply. At rest a slow breath
+ * (framer, a gentle loop). While something is happening, the VOICE itself:
+ * the deck orb computes one level — the real microphone while listening, a
+ * speech-shaped envelope while the assistant speaks, a heartbeat while it
+ * thinks — and writes it to `--orb-level`; the reactor wrapper here scales
+ * and brightens Gigi with it, and the corona behind it comes up in that same
+ * light (CSS, index.css). The framer loops are therefore tiny: the level is
+ * the motion. Dimmed and drained on an error. `prefers-reduced-motion` gets
+ * the still figure.
+ */
+const MOTION: Record<VoiceState, { animate: TargetAndTransition; duration: number }> = {
+  idle: {
+    animate: { scale: [1, 1.012, 1], filter: ["brightness(1)", "brightness(1.04)", "brightness(1)"] },
+    duration: 6.5,
+  },
+  connecting: {
+    animate: { scale: [1, 1.006, 1], filter: ["brightness(0.94)", "brightness(1.02)", "brightness(0.94)"] },
+    duration: 1.4,
+  },
+  listening: {
+    animate: { scale: [1, 1.006, 1], filter: ["brightness(1)", "brightness(1.03)", "brightness(1)"] },
+    duration: 2.2,
+  },
+  thinking: {
+    animate: { scale: [1, 1.006, 1], filter: ["brightness(1)", "brightness(1.03)", "brightness(1)"] },
+    duration: 1.8,
+  },
+  speaking: {
+    animate: { scale: [1, 1.006, 1], filter: ["brightness(1)", "brightness(1.03)", "brightness(1)"] },
+    duration: 2.2,
+  },
+  paused: {
+    animate: { scale: 1, filter: "brightness(0.85) saturate(0.7)" },
+    duration: 0,
+  },
+  error: {
+    animate: { scale: 1, filter: "brightness(0.6) saturate(0)" },
+    duration: 0,
+  },
+};
+
+export function DodaiosOrb({
+  size,
+  voiceState,
+  className,
+}: {
+  size: number;
+  voiceState: VoiceState;
+  className?: string;
+}) {
+  const reduced = useReducedMotion() ?? false;
+  const spec = MOTION[voiceState] ?? MOTION.idle;
+  const looping = spec.duration > 0;
+
+  return (
+    <div
+      data-testid="jarvis-orb"
+      data-voice={voiceState}
+      className={cn("relative select-none", className)}
+      style={{ width: size, height: size }}
+    >
+      {/* the corona: slow-turning rays behind the mascot, lit by the level */}
+      <div aria-hidden className="deck-orb-corona pointer-events-none absolute rounded-full" />
+      {/* the reactor: the figure, sized and lit by the level */}
+      <div className="deck-orb-reactor absolute inset-0">
+        <motion.div
+          className="grid h-full w-full place-items-center"
+          animate={reduced ? undefined : spec.animate}
+          transition={
+            reduced
+              ? undefined
+              : looping
+                ? { duration: spec.duration, repeat: Infinity, ease: "easeInOut" }
+                : { duration: 0.4 }
+          }
+        >
+          <PetMark size={size} reactive />
+        </motion.div>
+      </div>
+    </div>
+  );
+}

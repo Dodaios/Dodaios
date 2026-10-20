@@ -17,7 +17,7 @@ GitHub Release for the tag.
 
 Shared pieces that are not per-OS:
 
-- **`../jarvis.spec`** - the PyInstaller build every script starts from. One
+- **`../dodaios.spec`** - the PyInstaller build every script starts from. One
   `onedir` bundle: the windowed launcher (`PersonalJarvis`) and the console CLI
   (`dodaios`, built a second time as `jarvis`, its earlier name).
 - **`pyinstaller_rthook_frozen.py`** - runtime hook that points a frozen

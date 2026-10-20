@@ -2601,7 +2601,7 @@ class BrainManager:
         """
         tier_cfg = getattr(config.brain, tier, None)
         if tier_cfg is None:
-            # A fresh install ships NO [brain.router] block: jarvis.toml.example
+            # A fresh install ships NO [brain.router] block: dodaios.toml.example
             # has a [brain] table but no [brain.router] sub-table, and neither
             # the wizard, the installer, nor onboarding ever writes one. Raising
             # here left ``app.state.brain = None``, which bricked BOTH the
@@ -3835,7 +3835,7 @@ class BrainManager:
 
         Layer order (Jarvis-Agent priority map):
         1. SOUL.md           — Jarvis' own persona (who I am, tone rules)
-        2. JARVIS_PERSONA.md — voice persona incl. the hang-up contract
+        2. DODAIOS_PERSONA.md — voice persona incl. the hang-up contract
         3. USER.md           — about the user (name, communication style, values, …)
         4. people/           — list of known people in the user's environment
         5. CoreMemory        — legacy JSON facts (transitional, kept for back-compat)
@@ -3879,7 +3879,7 @@ class BrainManager:
             )
         )
 
-        # Persona block from JARVIS_PERSONA.md incl. the hang-up contract.
+        # Persona block from DODAIOS_PERSONA.md incl. the hang-up contract.
         # The "effective" loader returns the user's custom system prompt when one
         # is set in Settings (data/custom_system_prompt.md), else the packaged
         # default. Read fresh each turn, so an edit/reset applies on the next turn
