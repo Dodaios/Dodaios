@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/value-Cg6-Ttc3.js
 import{gO as U,co as C}from"./index-BVYI_PV2.js";import{c as G,i as O,a as q,b as M,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+|||||||| parent of 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/value-D2y5vDBU.js
+import{gO as U,co as C}from"./index-C_GzrgOE.js";import{c as G,i as O,a as q,b as M,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+========
+import{gO as U,co as C}from"./index-jj6_dZ-W.js";import{c as G,i as O,a as q,b as M,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+>>>>>>>> 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/value-BsXw5EiN.js
  * @license React
  * use-sync-external-store-shim.production.js
  *

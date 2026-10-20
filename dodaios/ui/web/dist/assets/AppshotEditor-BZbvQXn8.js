@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/AppshotEditor-BZbvQXn8.js
 import{c as wr,t as xn,u as mn,a as pn,b as gn,d as er,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as tr,X as kr,R as wn,B as ft,G as rr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-BVYI_PV2.js";import{S as nr}from"./switch-6b-h9Ahm.js";import{Q as D}from"./tooltip-DAzS7Gp7.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-DgvtozA9.js";import{C as Tn}from"./check-DzyrIChz.js";import{U as En,R as Ln,C as zn}from"./undo-2-hyXRLMR4.js";/**
+|||||||| parent of 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/AppshotEditor-Cxjn9aRi.js
+import{c as wr,t as xn,u as mn,a as pn,b as gn,d as er,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as tr,X as kr,R as wn,B as ft,G as rr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-C_GzrgOE.js";import{S as nr}from"./switch-BAzmX8MD.js";import{Q as D}from"./tooltip-B8e-2k4r.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BQ_MZyOw.js";import{C as Tn}from"./check-BByqNbVv.js";import{U as En,R as Ln,C as zn}from"./undo-2-lt4wDGu9.js";/**
+========
+import{c as wr,t as xn,u as mn,a as pn,b as gn,d as er,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as tr,X as kr,R as wn,B as ft,G as rr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-jj6_dZ-W.js";import{S as nr}from"./switch-Blq7KLi5.js";import{Q as D}from"./tooltip-bDM1iGyY.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BAzSiZhP.js";import{C as Tn}from"./check-Bke9_DgV.js";import{U as En,R as Ln,C as zn}from"./undo-2-DAoW8_us.js";/**
+>>>>>>>> 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/AppshotEditor-Bi2EHZsT.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

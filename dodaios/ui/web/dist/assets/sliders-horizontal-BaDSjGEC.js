@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/sliders-horizontal-BaDSjGEC.js
 import{c as y}from"./index-BVYI_PV2.js";/**
+|||||||| parent of 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/sliders-horizontal-Vj-J9qef.js
+import{c as y}from"./index-C_GzrgOE.js";/**
+========
+import{c as y}from"./index-jj6_dZ-W.js";/**
+>>>>>>>> 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/sliders-horizontal-U__fe1za.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

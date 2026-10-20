@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/PluginsCommunity-_SlGcLLE.js
 import{c as W,f as m,t as C,r as x,u as _,cn as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cy as T,B as y,cc as A,q as ee,S as te,L as $,cx as U,cv as P,x as ne}from"./index-BVYI_PV2.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-DzyrIChz.js";import{S as re,C as oe}from"./store-L4iXZ0A8.js";/**
+|||||||| parent of 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/PluginsCommunity-CdZHJWAW.js
+import{c as W,f as m,t as C,r as x,u as _,cn as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cy as T,B as y,cc as A,q as ee,S as te,L as $,cx as U,cv as P,x as ne}from"./index-C_GzrgOE.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-BByqNbVv.js";import{S as re,C as oe}from"./store-yDVdpews.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,cn as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cy as T,B as y,cc as A,q as ee,S as te,L as $,cx as U,cv as P,x as ne}from"./index-jj6_dZ-W.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-Bke9_DgV.js";import{S as re,C as oe}from"./store-D_eG7z3l.js";/**
+>>>>>>>> 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/PluginsCommunity-B_c-38k_.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

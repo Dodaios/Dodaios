@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/folder-bBmN6lM3.js
 import{c as a}from"./index-BVYI_PV2.js";/**
+|||||||| parent of 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/folder-BcXxVDbA.js
+import{c as a}from"./index-C_GzrgOE.js";/**
+========
+import{c as a}from"./index-jj6_dZ-W.js";/**
+>>>>>>>> 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/folder-DQKC_huA.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
