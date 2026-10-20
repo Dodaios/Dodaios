@@ -170,34 +170,59 @@ def remove_local(
         removed = gitcmd.git(
             ["worktree", "remove", *(["--force"] if force else []), worktree], root
         )
-        if removed.ok:
-            _sweep(Path(worktree))
-        _drop_if_empty(Path(worktree).parent)
+        if not removed.ok:
+            logger.info("self-build code: git left {}: {}", worktree, removed.tail(200))
     gitcmd.git(["worktree", "prune"], root)
+    if worktree and not _registered(root, worktree):
+        # Windows: a file the run's processes still held keeps the folder for a moment.
+        _sweep(Path(worktree))
+        _drop_if_empty(Path(worktree).parent)
     if tip:
         gitcmd.git(["branch", "-D", branch], root)
     return True
 
 
-def _sweep(worktree: Path) -> None:
-    """Delete what ``git worktree remove`` leaves of the loop's worktree: ignored caches.
+def _registered(root: Path, worktree: str) -> bool:
+    """Does git still know ``worktree`` as one of the repository's worktrees?"""
+    listing = gitcmd.git(["worktree", "list", "--porcelain"], root)
+    if not listing.ok:
+        return True  # unknown: nothing is deleted
+    want = Path(worktree).resolve()
+    for line in listing.out.splitlines():
+        if line.startswith("worktree ") and Path(line[9:].strip()).resolve() == want:
+            return True
+    return False
 
-    Git removes its files and forgets the worktree but keeps ignored files
-    (``__pycache__`` of the test run), so the folder stayed behind. Only a
-    folder that holds nothing but such caches is deleted.
+
+def _sweep(worktree: Path, *, attempts: int = 5, pause_s: float = 1.0) -> None:
+    """Delete what is left of the loop's worktree once git forgot it: caches only.
+
+    Live on Windows the folder stayed behind with the test run's
+    ``__pycache__`` when a process of the finished run still held a file as
+    git removed it. Only a folder that holds nothing but such caches is
+    deleted; a short retry covers the moment the handle is released.
     """
     import shutil
+    import time
 
-    if not worktree.is_dir():
-        return
-    try:
-        files = [path for path in worktree.rglob("*") if path.is_file()]
-    except OSError:  # unreadable: left alone
-        return
-    if any(not any(part in _JUNK for part in path.relative_to(worktree).parts) for path in files):
-        logger.info("self-build code: kept {}: it holds more than caches", worktree)
-        return
-    shutil.rmtree(worktree, ignore_errors=True)
+    for attempt in range(attempts):
+        if not worktree.is_dir():
+            return
+        try:
+            files = [path for path in worktree.rglob("*") if path.is_file()]
+        except OSError:  # unreadable: left alone
+            return
+        parts = [path.relative_to(worktree).parts for path in files]
+        if any(not any(part in _JUNK for part in rel) for rel in parts):
+            logger.info("self-build code: kept {}: it holds more than caches", worktree)
+            return
+        try:
+            shutil.rmtree(worktree)
+            return
+        except OSError:  # still held by a process that is ending: try again shortly
+            if attempt + 1 < attempts:
+                time.sleep(pause_s)
+    logger.info("self-build code: {} is still in use; left for now", worktree)
 
 
 def _drop_if_empty(folder: Path) -> None:
