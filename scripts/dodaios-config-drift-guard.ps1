@@ -41,10 +41,10 @@
     Attempts a BurntToast notification after a repair.
 
 .EXAMPLE
-    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/jarvis-config-drift-guard.ps1
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dodaios-config-drift-guard.ps1
 
 .EXAMPLE
-    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/jarvis-config-drift-guard.ps1 -DryRun
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dodaios-config-drift-guard.ps1 -DryRun
 #>
 
 [CmdletBinding()]

@@ -2,7 +2,7 @@ README architecture illustration
 
 Generated using the built-in image_gen tool. The tool exposes no model-version selector.
 Reviewed against the README's original request-routing diagram.
-Output: how-personal-jarvis-works-v2.png
+Output: how-dodaios-works-v2.png
 
 Generation prompt:
 Use case: infographic-diagram.
