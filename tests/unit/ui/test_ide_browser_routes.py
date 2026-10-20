@@ -195,3 +195,53 @@ def test_embed_open_tab_refuses_without_a_shown_window(monkeypatch: pytest.Monke
     assert embed.open_tab("https://example.com")["reason"] == "not_embedded"
     assert embed.status()["state"] == "idle"
     assert started == []
+
+
+class _FakeUser32:
+    """Records window calls; the window refuses to close unless told otherwise."""
+
+    def __init__(self, closes: bool) -> None:
+        self.closes = closes
+        self.alive = True
+        self.calls: list[tuple[str, int]] = []
+
+    def IsWindow(self, _hwnd: int) -> bool:  # noqa: N802 - Win32 name
+        return self.alive
+
+    def IsHungAppWindow(self, _hwnd: int) -> bool:  # noqa: N802 - Win32 name
+        return False
+
+    def PostMessageW(self, _hwnd: int, msg: int, *_: int) -> bool:  # noqa: N802 - Win32 name
+        self.calls.append(("post", msg))
+        if self.closes:
+            self.alive = False
+        return True
+
+    def ShowWindow(self, _hwnd: int, cmd: int) -> bool:  # noqa: N802 - Win32 name
+        self.calls.append(("show", cmd))
+        return True
+
+    def SetWindowRgn(self, *_: object) -> int:  # noqa: N802 - Win32 name
+        return 1
+
+
+@pytest.mark.parametrize("closes", [True, False])
+def test_closing_a_window_that_refuses_shows_it_again(
+    monkeypatch: pytest.MonkeyPatch, closes: bool,
+) -> None:
+    """A page that asks "Leave site?" must not leave the user's window hidden for good."""
+    from types import SimpleNamespace
+
+    from dodaios.ui import browser_embed
+
+    monkeypatch.setattr(browser_embed, "CLOSE_GRACE_S", 0.05)
+    embed = browser_embed.ChromeEmbed()
+    user32 = _FakeUser32(closes)
+    embed._api = SimpleNamespace(user32=user32)  # type: ignore[assignment]
+    embed._chrome = 4242
+    monkeypatch.setattr(embed, "_forget", lambda: None)
+
+    embed._give_back(close=True, focus=False)
+
+    assert ("post", browser_embed.WM_CLOSE) in user32.calls
+    assert (("show", browser_embed.SW_SHOWNA) in user32.calls) is not closes
