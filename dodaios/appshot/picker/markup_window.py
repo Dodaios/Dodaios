@@ -6,6 +6,11 @@ Runs ONLY inside ``python -m dodaios.appshot.picker`` (PySide6, AP-26).
   screen under the pointer, and the **area** tool chosen. Dragging an area,
   or clicking a window, takes the appshot the moment the mouse is released:
   there is no second step to confirm it.
+- Hovering offers the parts of the window under the pointer too: a panel,
+  a list, a field, a button (:mod:`dodaios.appshot.picker.elements`). The
+  smallest part under the pointer lights up; the mouse wheel steps out to
+  the larger parts around it and the whole window, and back in. A click
+  takes what is lit.
 - Any drawing tool can be picked first (its button, its letter, Tab or the
   middle mouse button) and used anywhere on the frozen screen. Back on the
   area tool, the area drag then takes the appshot with every marking in it.
@@ -25,12 +30,13 @@ painting and the toolbar in :mod:`dodaios.appshot.picker.annotate`.
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QCursor, QGuiApplication, QPainter, QPainterPath, QPen
 
 from dodaios.appshot import picker as wire
 from dodaios.appshot.picker import annotate
 from dodaios.appshot.picker import markup_model as mm
-from dodaios.appshot.picker.renderer import EDGE_GAP, HALO, INK, _SelectWindow
+from dodaios.appshot.picker.renderer import EDGE_GAP, HALO, INK, _screen_info, _SelectWindow
+from dodaios.appshot.region import snap_targets_on_screen
 
 #: Cursor per kept-area resize handle.
 _HANDLE_CURSORS = {
@@ -156,6 +162,12 @@ class MarkupWindow(_SelectWindow):
         self._toolbar: annotate.Toolbar | None = None
         #: Where the marking being drawn or dragged was painted last.
         self._painted_live: QRectF | None = None
+        #: The parts of each snap window (by handle), in logical pixels.
+        self._parts: dict[int, list[QRectF]] = {}
+        #: How far the mouse wheel stepped out from the smallest part under
+        #: the pointer, and which part that was (a new one starts at 0 again).
+        self._depth = 0
+        self._depth_base: QRectF | None = None
 
     def release_capture(self) -> None:
         """Drop pixels explicitly, including the preview's bound-method cycle."""
@@ -182,6 +194,70 @@ class MarkupWindow(_SelectWindow):
         for name in _MarkupState.STYLE:
             value = getattr(state, name)
             setattr(self._markup, name, dict(value) if isinstance(value, dict) else value)
+
+    # -- the parts of the window under the pointer ----------------------------
+    def ask_parts_under_cursor(self) -> None:
+        point = QPointF(self.mapFromGlobal(QCursor.pos()))
+        if self.rect().contains(point.toPoint()):
+            self._ask_parts(point)
+
+    def _ask_parts(self, point: QPointF) -> None:
+        index = self._window_at(point)
+        if index is not None:
+            self._owner.want_parts(self._snap_handles[index])
+
+    def add_parts(self, handle: int, rects: list) -> None:
+        """Window ``handle``'s parts (capture space) arrived: keep the ones on this screen."""
+        indices = [i for i, h in enumerate(self._snap_handles) if h == handle]
+        if not indices:
+            return
+        boxes = [
+            box
+            for _i, box in snap_targets_on_screen(
+                _screen_info(self.screen_ref),
+                (self.width(), self.height()),
+                self._monitors,
+                rects,
+                min_px=mm.MIN_PART_PX,
+            )
+        ]
+        window = self._snaps[indices[0]]
+        parts = mm.window_parts(_box(window), boxes)
+        self._parts[handle] = [QRectF(*box) for box in parts]
+        if self._pointer is not None and self._choosing():
+            self._follow_parts(self._pointer)
+            self._repaint_changes()
+
+    def _window_at(self, point: QPointF) -> int | None:
+        """The top-most snap window under ``point``."""
+        for index, rect in enumerate(self._snaps):
+            if rect.contains(point):
+                return index
+        return None
+
+    def _candidates(self, point: QPointF) -> list[QRectF]:
+        """What a click at ``point`` may take: parts smallest first, then the window."""
+        index = self._window_at(point)
+        if index is None:
+            return []
+        window = self._snaps[index]
+        parts = self._parts.get(self._snap_handles[index], [])
+        boxes = mm.snap_candidates((point.x(), point.y()), _box(window), [_box(p) for p in parts])
+        return [QRectF(*box) for box in boxes]
+
+    def _follow_parts(self, point: QPointF) -> None:
+        """A new part under the pointer starts the wheel over at the smallest one."""
+        candidates = self._candidates(point)
+        smallest = candidates[0] if candidates else None
+        if smallest != self._depth_base:
+            self._depth_base = smallest
+            self._depth = 0
+
+    def _snap_at(self, point: QPointF) -> QRectF | None:
+        candidates = self._candidates(point)
+        if not candidates:
+            return None
+        return candidates[min(self._depth, len(candidates) - 1)]
 
     def _ensure_toolbar(self) -> annotate.Toolbar:
         if self._toolbar is None:
@@ -758,6 +834,9 @@ class MarkupWindow(_SelectWindow):
             self._touch_live()
             return
         self._pointer = p
+        if self._choosing():
+            self._ask_parts(p)
+            self._follow_parts(p)
         self._repaint_changes()
         self._update_cursor(point)
 
@@ -814,8 +893,17 @@ class MarkupWindow(_SelectWindow):
         if self._inert():
             return
         steps = event.angleDelta().y()
-        if steps:
-            self._step_width(1 if steps > 0 else -1)
+        if not steps:
+            return
+        if self._choosing() and self._start is None and self._pointer is not None:
+            # Choosing: the wheel steps out to the larger parts and back in.
+            candidates = self._candidates(self._pointer)
+            if candidates:
+                step = 1 if steps > 0 else -1
+                self._depth = max(0, min(len(candidates) - 1, self._depth + step))
+                self._repaint_changes()
+            return
+        self._step_width(1 if steps > 0 else -1)
 
     def _pointer_point(self) -> mm.Point | None:
         p = self._pointer

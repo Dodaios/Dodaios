@@ -61,7 +61,12 @@ blur previews, markings and windows while keeping Qt loaded. The picker provides
   beside it show the position — while dragging, the width and height in real
   pixels. No lens, no boxed labels, no banner;
 - hovering lifts the window under the pointer out of the dim, and a click
-  without a drag takes exactly that window;
+  without a drag takes exactly that window. On Windows it offers the parts
+  inside the window too (a sidebar, a list, a field, a panel, a button):
+  the smallest part under the pointer lights up as soon as the window has
+  been read (typically 10-200 ms), the mouse wheel steps out to the larger
+  parts around it and the whole window (and back in), and a click takes
+  what is lit;
 - a drag clears the dim and tints the selected area a translucent grey
   with one thin border.
 
@@ -153,7 +158,13 @@ the app maps that back to capture pixels (`dodaios/appshot/region.py`), so
 mixed-DPI setups capture exactly what was outlined. A selection stays on one
 screen. The window list for snapping is read before the overlay appears and
 skips minimized and (on Windows) cloaked windows; where no list is available
-(Wayland) only dragging works. The picker gives up after fifteen minutes
+(Wayland) only dragging works. The parts of a window come from UI Automation
+(`dodaios/appshot/picker/elements.py`): one cached query per window on a
+worker thread, the window under the pointer first, each window read once per
+pick; text runs, links, scroll bars and parts under 16 px are left out, and
+nested parts that are nearly the same box count as one wheel step. Off
+Windows, and for windows that expose no parts, hovering snaps to whole
+windows as before. The picker gives up after fifteen minutes
 without a result.
 
 A selected area is about pixels, not about the window in front: unlike a window
