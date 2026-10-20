@@ -194,6 +194,11 @@ on macOS at all:
 | `JARVIS_PYTHON`           | Use one explicit Python interpreter; the pin is authoritative. |
 | `JARVIS_INSTALL_NO_PIP`   | Skip the pip steps (re-run only prefetch / launch). |
 
+Each variable in this table also answers to its `DODAIOS_` spelling
+(`DODAIOS_INSTALL_DIR`, `DODAIOS_INSTALL_REF`, `DODAIOS_PYTHON`, ...). When both
+spellings are set to different values, the `DODAIOS_` one is used and the
+installer names the option.
+
 ## Local development of the installer
 
 ```bash

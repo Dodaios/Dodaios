@@ -33,7 +33,7 @@ the retired voice header is absent, the caption is 32px high, and Agents uses
 the vector companion identities, updated Gigi avatar, and Character & companion control. Reproducible
 identity snapshots and their MIT attribution are in `src/identity/`.
 Ultra Swarm follows commit `9a7ee4cc8b1fca6f2457c2f3036501a6e3d7b48e` in
-[PR #186](https://github.com/PersonalJarvis/PersonalJarvis/pull/186). Keep its
+[PR #186](https://github.com/Dodaios/Dodaios/pull/186). Keep its
 development-preview label until the feature reaches the default install.
 Re-check this mapping when the product UI changes.
 

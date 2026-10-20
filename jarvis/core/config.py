@@ -43,6 +43,7 @@ from jarvis.speech.wake_constants import DEFAULT_WAKE_PHRASE, WAKE_ENGINES
 from jarvis.ui.pets.states import DEFAULT_PET_ID
 
 from .branding import CONFIG_FILE_NAME, KEYRING_SERVICE_NAME
+from .env_prefix import accepted_names
 from .instance import current_instance, resolve_data_dir
 from .protocols import RiskTier
 
@@ -1636,7 +1637,7 @@ class BrainConfig(BaseModel):
         validation_alias=AliasChoices("tool_model", "computer_use"),
     )
     # User-facing reply language pin (desktop "Languages" view → Reply Language).
-    # "auto" mirrors the user's input language (DE/EN/ES); "de"/"en"/"es" force
+    # "auto" mirrors the user's input language (DE/EN/ES/PT); "de"/"en"/"es"/"pt" force
     # that language as a hard rule for every Jarvis reply. Consumed by
     # ``BrainManager._reply_language_directive``. Persisted via
     # ``config_writer.set_reply_language``.
@@ -2144,7 +2145,7 @@ class UIConfig(BaseModel):
     # value, so a voice command or the Control API can change it and the open UI
     # switches live (a ConfigReloaded / UiLanguageChanged event reaches the
     # frontend over /ws). Distinct from brain.reply_language (what Jarvis SPEAKS).
-    language: Literal["en", "de", "es", "zh"] = "en"
+    language: Literal["en", "de", "es", "pt", "zh"] = "en"
     # Colour theme of the whole desktop app: "dark" (the product default —
     # matte black + signal yellow), "light" (warm paper + dark gold), or
     # "system" (follow the OS appearance, re-evaluated live when the OS flips).
@@ -2195,7 +2196,7 @@ class UIConfig(BaseModel):
     # relative spot (so different-sized monitors line up). Off pins it to one
     # monitor. Default on. Works on Windows/Linux (Tk bar) and macOS (Qt bar);
     # a headless / Wayland host with no reliable per-monitor geometry keeps the
-    # single-monitor behaviour. See jarvis/ui/jarvisbar/interaction.py.
+    # single-monitor behaviour. See jarvis/ui/dodaiosbar/interaction.py.
     bar_follow_cursor_monitor: bool = True
     # Desktop pet (orb_style = "pet", docs/pets.md). ``pet_id`` is a built-in
     # id, a user-created ``u…`` id, or "none" (the control strip without a
@@ -2761,12 +2762,12 @@ class AppshotConfig(BaseModel):
 class JarvisXConfig(BaseModel):
     """Top-level ``[jarvisx]`` config — the built-in screenshot and screen recorder.
 
-    Jarvis X is a plain capture tool (``jarvis/jarvisx/``): region, window and
+    Jarvis X is a plain capture tool (``jarvis/dodaiosx/``): region, window and
     full-screen screenshots plus region / full-screen recordings, each on its
     own global shortcut, saved to a folder and kept in a local library. It
     never involves the assistant: no Screen Context privacy pipeline, no
     delivery into a conversation. Every key below is read by
-    ``jarvis.jarvisx`` (AP-31).
+    ``jarvis.dodaiosx`` (AP-31).
     """
 
     model_config = {"extra": "allow"}
@@ -2795,7 +2796,7 @@ class JarvisXConfig(BaseModel):
     thumbnail_dismiss_s: int = 30
 
     #: Folder new captures are saved to. Empty = the user's Pictures folder
-    #: (``Pictures/Jarvis X``), or the Jarvis data folder where there is none.
+    #: (``Pictures/Dodaios X``), or the data folder where there is none.
     save_dir: str = ""
 
     #: Also put each new screenshot on the system clipboard.
@@ -2809,7 +2810,7 @@ class JarvisXConfig(BaseModel):
 
     #: Delete old captures automatically: only the newest N screenshots and
     #: the newest N recordings stay, files included (read by
-    #: ``jarvis.jarvisx.service``). ``0`` keeps everything. Clamped to
+    #: ``jarvis.dodaiosx.service``). ``0`` keeps everything. Clamped to
     #: 0..1000 where it is read.
     keep_newest: int = 0
 
@@ -3229,6 +3230,13 @@ class WikiContextConfig(BaseModel):
     # reach. Relative by design — the vault's scores are only comparable
     # within one call, so an absolute cutoff would be noise.
     min_relative_score: float = 0.35
+
+    # Semantic search (jarvis/memory/wiki/semantic_search.py): find pages by
+    # what they mean, across languages, next to the word search. Off unless
+    # the user switches it on in the app, because switching it on downloads a
+    # 135 MB model once and keeps it in memory. Written only by the app's own
+    # switch (config_writer.set_wiki_semantic_search).
+    semantic_search: bool = False
 
     # Ambient personal knowledge — the standing identity card
     # (jarvis/brain/identity_card.py). Unlike the per-turn snippets above this
@@ -4521,10 +4529,12 @@ class AgenticIdeConfig(BaseModel):
     smart_recaps: bool = Field(
         default=False,
         description=(
-            "Let a model write a pane's header title when its coding CLI has not "
-            "named the session itself. Off (the default) uses the CLI's own title "
-            "(Claude Code, Codex) and otherwise the pane's first or last prompt, "
-            "which costs nothing. On spends background model requests."
+            "Let a model write and refresh a pane's header recap when its coding "
+            "CLI has not named the session itself. Off (the default) uses the "
+            "CLI's own title (Claude Code, Codex); a session the CLI left unnamed "
+            "gets one title from its opening request, written by a connected "
+            "subscription, and otherwise shows the pane's first or last prompt. "
+            "On spends background model requests."
         ),
     )
 
@@ -4706,7 +4716,7 @@ class JarvisConfig(BaseModel):
     # request (jarvis/appshot/). Captures through Screen Context above.
     appshot: AppshotConfig = Field(default_factory=AppshotConfig)
     # Jarvis X: the built-in screenshot / screen-recording tool
-    # (jarvis/jarvisx/). Independent of Screen Context and the assistant.
+    # (jarvis/dodaiosx/). Independent of Screen Context and the assistant.
     jarvisx: JarvisXConfig = Field(default_factory=JarvisXConfig)
     # Phase 5/6 — Computer-Use-POAV-Harness (ADR-0008).
     computer_use: ComputerUseConfig = Field(default_factory=ComputerUseConfig)
@@ -5794,16 +5804,22 @@ def get_secret(key: str, env_fallback: str | None = None) -> str | None:
     if env_fallback and (val := os.environ.get(env_fallback)):
         return val
 
-    # Development fallback: .env file.
+    # Development fallback: .env file. A JARVIS_ name may be written under the
+    # DODAIOS_ prefix there too; as in the environment, the new spelling wins.
     env_file = PROJECT_ROOT / ".env"
     if env_file.exists() and env_fallback:
+        names = accepted_names(env_fallback)
+        found: dict[str, str] = {}
         for line in env_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
             k, _, v = line.partition("=")
-            if k.strip() == env_fallback:
-                return v.strip().strip('"').strip("'")
+            if k.strip() in names:
+                found.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+        for name in names:
+            if name in found:
+                return found[name]
 
     if file_val:
         return file_val

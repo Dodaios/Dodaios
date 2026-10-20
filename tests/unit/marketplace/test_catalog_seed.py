@@ -345,6 +345,31 @@ def test_developer_browser_oauth_uses_official_hosted_mcp(plugin_id) -> None:
     assert spec.mcp_server["url"] == spec.auth.mcp_url
 
 
+# The help text of the PAT auth blocks as they were stored in users' `data/`
+# overrides before browser login; `_LEGACY_PAT_AUTH_DIGESTS` matches these
+# exact blocks. The seed's fallback text has since been reworded, so a legacy
+# block is no longer a plain copy of today's `fallback_auth`.
+_LEGACY_PAT_INSTRUCTIONS = {
+    "vercel": (
+        "1. Click 'Create Token'\n2. Name: 'Personal Jarvis'\n"
+        "3. Choose 'Full Account' or a specific team\n4. Copy the token (shown once)\n"
+        "5. Paste below"
+    ),
+    "supabase": (
+        "1. Click 'Generate new token'\n2. Name: 'Personal Jarvis'\n"
+        "3. Copy the token (shown once)"
+    ),
+    "stripe": (
+        "1. Open https://dashboard.stripe.com/apikeys and click 'Create restricted key'.\n"
+        "2. Name it 'Personal Jarvis'. Set the resources Jarvis should read to 'Read' — "
+        "at minimum 'Balance: Read', plus e.g. Customers, Products, Invoices, Subscriptions.\n"
+        "3. Create the key and copy the value starting with 'rk_live_' (or 'rk_test_').\n"
+        "4. Paste it below. A full secret key 'sk_' also works but grants full access — "
+        "a restricted read key is safer."
+    ),
+}
+
+
 @pytest.mark.parametrize("plugin_id", ["github", "vercel", "supabase", "stripe"])
 @pytest.mark.parametrize("custom", [None, "auth", "mcp"])
 def test_legacy_pat_override_migrates_only_unchanged_builtin(
@@ -354,6 +379,8 @@ def test_legacy_pat_override_migrates_only_unchanged_builtin(
     seed = json.loads(catalog_data._PACKAGE_SEED_PATH.read_text(encoding="utf-8"))
     plugin = next(item for item in seed["plugins"] if item["id"] == plugin_id)
     plugin["auth"] = dict(plugin["fallback_auth"])
+    if plugin_id in _LEGACY_PAT_INSTRUCTIONS:
+        plugin["auth"]["instruction_md"] = _LEGACY_PAT_INSTRUCTIONS[plugin_id]
     if plugin_id == "github":
         plugin["auth"].pop("token_prefixes", None)
         plugin["auth"]["instruction_md"] = (

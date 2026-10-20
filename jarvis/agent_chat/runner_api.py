@@ -155,6 +155,9 @@ class TurnHandle:
     surface: str = "agent"
     stance: str = ""
     tools_disabled: bool = False
+    #: A plain chat's whole system prompt (``SurfaceKit.plain_chat``); empty on
+    #: every other surface. With it the turn carries no tools.
+    plain_system: str = ""
     gateway_only: bool = False
     output_language: str = ""
     goal_turn: bool = False
@@ -327,7 +330,9 @@ async def run_api_turn(handle: TurnHandle, user_text: str) -> None:
     messages = messages_from_events(handle.history)
     messages.append(BrainMessage(role="user", content=user_text))
     permission_mode = normalize_permission("api", session.permission_mode)
-    system = system_prompt(
+    # Either says it: a turn told to carry no tools never gets the tool set.
+    plain = handle.tools_disabled or bool(handle.plain_system)
+    system = handle.plain_system or system_prompt(
         cwd=cwd, assistant_name=handle.assistant_name, plan=permission_mode == "plan"
     )
     if handle.output_language:
@@ -337,8 +342,11 @@ async def run_api_turn(handle: TurnHandle, user_text: str) -> None:
         system += "\n\n" + note.strip()
     # Plan mode hands the model only the reading tools: it cannot change a
     # thing, and it is told so in the system prompt.
+    # A plain chat hands it none at all: the answer is the whole turn.
     tools: tuple[dict[str, Any], ...] = (
-        tuple(spec for spec in TOOL_SPECS if spec["name"] in READ_ONLY_TOOLS)
+        ()
+        if plain
+        else tuple(spec for spec in TOOL_SPECS if spec["name"] in READ_ONLY_TOOLS)
         if permission_mode == "plan"
         else TOOL_SPECS
     )
@@ -425,7 +433,7 @@ async def run_api_turn(handle: TurnHandle, user_text: str) -> None:
                         )
                     )
 
-                if not tool_calls:
+                if not tool_calls or plain:
                     break
 
                 # Record the assistant round (text + tool_use blocks) for the

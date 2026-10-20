@@ -17,6 +17,32 @@
 
 set -euo pipefail
 
+# --- install-option-names begin
+# Every JARVIS_ option this script reads also answers to its DODAIOS_
+# spelling. When both are set to different values the DODAIOS_ one wins, and
+# the clash is named, never its values. The rest of this script, and
+# installer.py after it, read the JARVIS_ spelling (jarvis/core/env_prefix.py
+# does the same for the app). JARVIS_PAYLOAD_COMMIT is not an option: it is
+# the signed commit the verifying installer hands over, and no second name
+# may override it.
+adopt_install_option_names() {
+    local option new_name old_name new_value old_value
+    for option in INSTALL_REPO INSTALL_REF INSTALL_DIR INSTALL_PREREQS INSTALL_YES \
+        OFFICIAL_REPO_SLUG PYTHON PYTHON_SEARCH_DIRS NO_PYTHON_BOOTSTRAP; do
+        new_name="DODAIOS_$option"
+        old_name="JARVIS_$option"
+        new_value="${!new_name:-}"
+        old_value="${!old_name:-}"
+        [ -n "$new_value" ] || continue
+        if [ -n "$old_value" ] && [ "$old_value" != "$new_value" ]; then
+            printf '%s and %s differ; using %s.\n' "$new_name" "$old_name" "$new_name" >&2
+        fi
+        export "$old_name=$new_value"
+    done
+}
+adopt_install_option_names
+# --- install-option-names end
+
 # Standalone bootstrap projections of jarvis/core/branding.py. The branding
 # contract test rejects drift because this script runs before Python is installed.
 OFFICIAL_REPO_SLUG="${JARVIS_OFFICIAL_REPO_SLUG:-Dodaios/Dodaios}"
@@ -152,29 +178,22 @@ else
     printf '\n'
 fi
 
-# Wordmark glyphs are machine-generated (figlet "ANSI Shadow", the full
-# PERSONAL JARVIS — maintainer request 2026-07-16); do not hand-edit — that is
-# how the historical "Harvis" typo crept in. The 12 rows are colored as ONE
-# continuous vertical gradient (hi → brand → deep) so both words read as a
-# single forged-gold wordmark.
+# Wordmark glyphs are machine-generated (figlet "ANSI Shadow", DODAIOS); do
+# not hand-edit — that is how the historical "Harvis" typo crept in. The 6 rows
+# are colored as ONE continuous vertical gradient (hi → brand → deep) so the
+# word reads as a single forged-gold wordmark.
 cat <<EOF
 
-${GOLD_HI}██████╗ ███████╗██████╗ ███████╗ ██████╗ ███╗   ██╗ █████╗ ██╗${RST}
-${GOLD_HI}██╔══██╗██╔════╝██╔══██╗██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║${RST}
-${GOLD_HI}██████╔╝█████╗  ██████╔╝███████╗██║   ██║██╔██╗ ██║███████║██║${RST}
-${GOLD_HI}██╔═══╝ ██╔══╝  ██╔══██╗╚════██║██║   ██║██║╚██╗██║██╔══██║██║${RST}
-${GOLD}██║     ███████╗██║  ██║███████║╚██████╔╝██║ ╚████║██║  ██║███████╗${RST}
-${GOLD}╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝${RST}
-${GOLD}                ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗${RST}
-${GOLD}                ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝${RST}
-${GOLD_DEEP}                ██║███████║██████╔╝██║   ██║██║███████╗${RST}
-${GOLD_DEEP}           ██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║${RST}
-${GOLD_DEEP}           ╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║${RST}
-${GOLD_DEEP}            ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝${RST}
+${GOLD_HI}       ██████╗  ██████╗ ██████╗  █████╗ ██╗ ██████╗ ███████╗${RST}
+${GOLD_HI}       ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██║██╔═══██╗██╔════╝${RST}
+${GOLD}       ██║  ██║██║   ██║██║  ██║███████║██║██║   ██║███████╗${RST}
+${GOLD}       ██║  ██║██║   ██║██║  ██║██╔══██║██║██║   ██║╚════██║${RST}
+${GOLD_DEEP}       ██████╔╝╚██████╔╝██████╔╝██║  ██║██║╚██████╔╝███████║${RST}
+${GOLD_DEEP}       ╚═════╝  ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚══════╝${RST}
 
 ${DIM}     talk to your computer · installs the full profile · launches when done${RST}
 
-${DIM}┌${RST}  ${GOLD}Personal Jarvis installer${RST}
+${DIM}┌${RST}  ${GOLD}Dodaios installer${RST}
 EOF
 
 # -------------------------------------------------------------- welcome gate
@@ -200,10 +219,10 @@ ask_welcome() {
         "$GUT" "$GUT" "$DIM" "$RST" > /dev/tty
     while :; do
         if [ "$_sel" -eq 0 ]; then
-            printf '\r%s◆%s  %sWould you like to install Personal Jarvis?%s   %s%s ▸ Yes %s   %s   No  %s' \
+            printf '\r%s◆%s  %sWould you like to install Dodaios?%s   %s%s ▸ Yes %s   %s   No  %s' \
                 "$GOLD" "$RST" "$BOLD" "$RST" "$GOLD" "$REV" "$RST" "$DIM" "$RST" > /dev/tty
         else
-            printf '\r%s◆%s  %sWould you like to install Personal Jarvis?%s   %s   Yes %s   %s%s ▸ No  %s' \
+            printf '\r%s◆%s  %sWould you like to install Dodaios?%s   %s   Yes %s   %s%s ▸ No  %s' \
                 "$GOLD" "$RST" "$BOLD" "$RST" "$DIM" "$RST" "$RED" "$REV" "$RST" > /dev/tty
         fi
         IFS= read -rsn1 _key < /dev/tty || return 0
@@ -432,7 +451,7 @@ write_prerequisite_state() {
     elif [ "$_show_missing" -eq 1 ]; then
         err 'Python 3.11+ not found.'
         if [ -n "$FOUND_TOO_OLD" ]; then
-            note "Closest match: $FOUND_TOO_OLD - too old: Jarvis needs 3.11+."
+            note "Closest match: $FOUND_TOO_OLD - too old: Dodaios needs 3.11+."
             note 'Python versions count 3.8 < 3.9 < 3.10 < 3.11.'
         fi
     fi
@@ -504,11 +523,11 @@ request_prerequisite_consent() {
 
     note "Missing required software: $_missing."
     if [ -n "$PREREQ_MANAGER" ]; then
-        note "Jarvis can install it with $PREREQ_MANAGER, wait, and continue this same run."
+        note "Dodaios can install it with $PREREQ_MANAGER, wait, and continue this same run."
         note 'Continuing authorizes the package manager to accept the relevant package agreements.'
         _prompt='  Install the missing prerequisites now? [Y/n] '
     else
-        note 'No supported package manager was found; Jarvis can keep this run open while you install it.'
+        note 'No supported package manager was found; Dodaios can keep this run open while you install it.'
         _prompt='  Show the manual path and keep checking this run? [Y/n] '
     fi
     printf '%s' "$_prompt" >/dev/tty
@@ -764,7 +783,7 @@ ensure_linux_desktop_tools() {
         *)
             if has_install_tty; then
                 note "Optional desktop tools for window control are missing: $_missing_bins $_missing_gi"
-                note "Without them, asking Jarvis to click / type / switch windows cannot work on X11."
+                note "Without them, asking Dodaios to click / type / switch windows cannot work on X11."
                 printf '  Install them now with %s? [Y/n] ' "$PREREQ_MANAGER" >/dev/tty
                 IFS= read -r _answer </dev/tty || _answer='n'
                 case "$_answer" in ''|y|Y|yes|YES|Yes) _consent=1 ;; esac
@@ -865,7 +884,7 @@ else
     if [ "$node_ok" -eq 1 ]; then
         ok "Node.js $(node --version)"
     else
-        note 'Node.js 18+ not found - continuing, Jarvis runs fine without it.'
+        note 'Node.js 18+ not found - continuing, Dodaios runs fine without it.'
         note 'It only powers the optional coding-agent worker (Claude Code / Codex).'
         note 'Install it any time ("brew install node" / https://nodejs.org/) and'
         note 'add the worker later in-app.'
@@ -873,7 +892,7 @@ else
 fi
 
 # -------------------------------------------------------------- clone / update
-phase '2/6' 'Fetching Personal Jarvis'
+phase '2/6' 'Fetching Dodaios'
 note "$INSTALL_DIR"
 
 # On a terminal, git paints its own "Receiving objects: NN%" progress so a
@@ -1037,6 +1056,35 @@ fetch_payload() {
 # checkout. A stale folder must never require manual cleanup to install.
 salvage_reclone() {
     local stale_backup
+    # --- salvage-guard begin (extracted by tests/unit/install/test_install_stops_app_first.py)
+    # Nothing is stopped or moved until the download server answers. Without a
+    # connection the fresh copy cannot arrive, and an install that was moved
+    # aside for nothing is worse than one that simply was not updated.
+    # git is asked first. A network that lets no git transfer through still
+    # reaches the archive download the installer falls back to, so a plain
+    # HTTPS answer from the same host counts as well.
+    _reachable=0
+    # shellcheck disable=SC2086  # GIT_NET_OPTS must word-split into -c pairs
+    if git $GIT_NET_OPTS ls-remote --quiet --heads "$REPO_URL" >/dev/null 2>&1; then
+        _reachable=1
+    else
+        case "$REPO_URL" in
+            *github.com/*)
+                _probe_path="${REPO_URL#*github.com/}"
+                if command -v curl >/dev/null 2>&1 \
+                    && curl -fsIL --max-time 20 "https://github.com/${_probe_path%.git}" >/dev/null 2>&1; then
+                    _reachable=1
+                fi
+                ;;
+        esac
+    fi
+    if [ "$_reachable" -ne 1 ]; then
+        err 'cannot reach the download server right now - nothing was changed.'
+        note 'Check your internet connection (Wi-Fi, VPN, proxy), then re-run the installer.'
+        exit 1
+    fi
+    stop_running_app
+    # --- salvage-guard end
     stale_backup="${INSTALL_DIR%/}.stale-$(date +%Y%m%d-%H%M%S)"
     if ! mv "$INSTALL_DIR" "$stale_backup"; then
         err "cannot move the broken install dir aside ($INSTALL_DIR -> $stale_backup)."
@@ -1100,10 +1148,71 @@ retarget_legacy_origin() {
     # --- retarget-legacy-origin end
 }
 
+# Stop any Jarvis still running out of THIS install. Called right before the
+# checkout is replaced and again before its environment is rebuilt: a release
+# may move or delete files the live app still loads, and an app left running
+# across that keeps serving a half-old, half-new program until it falls over.
+# Safe to call twice - the second call finds nothing left to stop.
+#
+# The installer refuses to do this to itself. Started from a terminal inside
+# the app, its own parents run out of this install's environment; stopping
+# them would end the installer mid-way with the app gone and nothing
+# installed. It stops BEFORE anything was touched and says where to run it.
+stop_running_app() {
+    # --- stop-running-app begin (extracted by tests/unit/install/test_install_stops_app_first.py)
+    _stop_venv="$INSTALL_DIR/.venv"
+    if [ -x "$_stop_venv/bin/python" ]; then
+        _stop_pid=$$
+        _stop_depth=0
+        while [ -n "$_stop_pid" ] && [ "$_stop_pid" -gt 1 ] 2>/dev/null && [ "$_stop_depth" -lt 32 ]; do
+            # -ww: BSD ps cuts the command line at the terminal width, and
+            # the stop below matches against the whole of it.
+            _stop_args="$(ps -ww -o args= -p "$_stop_pid" 2>/dev/null || true)"
+            case "$_stop_args" in
+                *"$_stop_venv"*)
+                    err 'this installer was started from inside the running app.'
+                    note 'Updating stops the app, which would end this installer with it.'
+                    note 'Nothing was changed. Run the install command again from a normal'
+                    note 'terminal outside the app.'
+                    exit 1
+                    ;;
+            esac
+            _stop_parent="$(ps -o ppid= -p "$_stop_pid" 2>/dev/null | tr -d ' ' || true)"
+            [ "$_stop_parent" = "$_stop_pid" ] && break
+            _stop_pid="$_stop_parent"
+            _stop_depth=$((_stop_depth + 1))
+        done
+        _stop_found=0
+        if pkill -f "$_stop_venv" 2>/dev/null; then
+            _stop_found=1
+            note 'stopped the running Dodaios app for the update'
+        fi
+        if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+            launchctl unload "$HOME/Library/LaunchAgents/${MACOS_AUTOSTART_LABEL}.plist" >/dev/null 2>&1 || true
+        fi
+        if [ "$_stop_found" -eq 1 ]; then
+            # The signal only asks. Give the app a moment to be gone before
+            # its files change under it; an app that ignores it is not waited
+            # for longer than five seconds.
+            _stop_ticks=0
+            while [ "$_stop_ticks" -lt 50 ] && pgrep -f "$_stop_venv" >/dev/null 2>&1; do
+                sleep 0.1
+                _stop_ticks=$((_stop_ticks + 1))
+            done
+        fi
+    fi
+    # --- stop-running-app end
+    return 0
+}
+
+# The fetch only writes inside .git, so the app keeps running through it: a
+# failed download (offline, an outage) then leaves a working app behind. It is
+# stopped at the last moment, right before the files it runs from change.
 if [ -d "$INSTALL_DIR/.git" ]; then
     retarget_legacy_origin
     # shellcheck disable=SC2086  # GIT_NET_OPTS must word-split into -c pairs
     if pretty_git git $GIT_NET_OPTS -C "$INSTALL_DIR" fetch "$GIT_VERBOSITY" --depth 1 origin "$BRANCH" \
+        && stop_running_app \
         && git -C "$INSTALL_DIR" checkout --quiet "$BRANCH" \
         && git -C "$INSTALL_DIR" reset --quiet --hard "origin/$BRANCH"; then
         ok 'updated existing checkout to latest'
@@ -1170,14 +1279,9 @@ VENV_PYTHON="$VENV_PATH/bin/python"
 # keeps serving stale, half-updated features while pip rewrites the venv
 # under it — the "app is already open but nothing works yet" field report
 # (2026-07-14). The installer relaunches a fresh instance as its last step.
-if [ -x "$VENV_PYTHON" ]; then
-    if pkill -f "$VENV_PATH" 2>/dev/null; then
-        note 'stopped the running Jarvis app for the update'
-    fi
-    if [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
-        launchctl unload "$HOME/Library/LaunchAgents/${MACOS_AUTOSTART_LABEL}.plist" >/dev/null 2>&1 || true
-    fi
-fi
+# The app was already stopped once before the checkout was replaced; this
+# second call catches one the login autostart revived in between.
+stop_running_app
 
 # Rebuild the venv when the selected interpreter's major.minor changed
 # (BUG-059 follow-up): the 3.13-first preference is useless for an EXISTING

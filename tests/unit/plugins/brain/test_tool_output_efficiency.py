@@ -145,7 +145,7 @@ async def test_live_result_keeps_unicode_and_every_list_item():
         providers=[SimpleNamespace(name="test")],
         config=SimpleNamespace(brain=SimpleNamespace(reply_language="en")),
     )
-    session._tools = SimpleNamespace(execute=execute, end_requested=False)
+    session._tools = SimpleNamespace(execute_releasable=execute, end_requested=False)
     session._connection = SimpleNamespace(send=send)
     await session._run_calls([{"call_id": "call_1", "name": "read_data", "arguments": "{}"}], 0)
     output = sent[0]["item"]["output"]

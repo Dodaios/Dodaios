@@ -2,7 +2,7 @@
 
 ## Current: Apache License 2.0
 
-Personal Jarvis project code is licensed under the
+Dodaios project code is licensed under the
 [Apache License 2.0](../LICENSE), with the attribution notice in
 [`NOTICE`](../NOTICE), starting with version 2.0.0. Third-party code, fonts,
 models, images, and native libraries retain their own licenses.

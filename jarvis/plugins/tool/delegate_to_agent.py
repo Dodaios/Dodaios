@@ -29,6 +29,7 @@ from jarvis.core.delegation import origin_metadata
 from jarvis.core.protocols import ExecutionContext, ToolResult
 from jarvis.society.agent_names import AgentLookup, coding_pane_hint, lookup_agent
 from jarvis.society.communication import REPLY_POLICY_SCHEMA, select_reply_policy
+from jarvis.society.display_name import display_name
 
 log = logging.getLogger(__name__)
 
@@ -38,81 +39,97 @@ _ACK: Final[dict[str, str]] = {
     "de": "{name} ist dran, ich sage Bescheid.",  # i18n-allow: spoken ack
     "en": "{name} is on it, I will let you know.",
     "es": "{name} se encarga, te aviso.",
+    "pt": "{name} trata disso, eu aviso-te.",
 }
 _QUIET_ACK: Final[dict[str, str]] = {
     "de": "{name} ist dran.",  # i18n-allow: spoken ack
     "en": "{name} is on it.",
     "es": "{name} se encarga.",
+    "pt": "{name} trata disso.",
 }
 _ERROR_ACK: Final[dict[str, str]] = {
     "de": "{name} ist dran; ich melde mich bei Hindernissen.",  # i18n-allow: spoken ack
     "en": "{name} is on it; I will report any blockers.",
     "es": "{name} se encarga; te avisare si hay impedimentos.",
+    "pt": "{name} trata disso; aviso-te se houver impedimentos.",
 }
 _QUEUED: Final[dict[str, str]] = {
     "de": "Aufgabe für {name} erfasst; Start noch nicht bestätigt.",  # i18n-allow: spoken ack
     "en": "The task for {name} is recorded; its start is not confirmed yet.",
     "es": "La tarea para {name} está registrada; su inicio aún no está confirmado.",
+    "pt": "A tarefa para {name} está registada; o início ainda não está confirmado.",
 }
 _NO_AGENT: Final[dict[str, str]] = {
     "de": "Ich kenne keinen Agenten namens {target}.",  # i18n-allow: spoken reply
     "en": "I do not know an agent called {target}.",
     "es": "No conozco ningún agente llamado {target}.",
+    "pt": "Não conheço nenhum agente chamado {target}.",
 }
 _ASK_AGENT: Final[dict[str, str]] = {
     "de": "Meinst du {names}?",  # i18n-allow: spoken reply
     "en": "Did you mean {names}?",
     "es": "¿Te refieres a {names}?",
+    "pt": "Referes-te a {names}?",
 }
 _OR: Final[dict[str, str]] = {
     "de": " oder ",  # i18n-allow: spoken reply
     "en": " or ",
     "es": " o ",
+    "pt": " ou ",
 }
 _AVAILABLE: Final[dict[str, str]] = {
     "de": "Verfügbar sind: {names}.",  # i18n-allow: spoken reply
     "en": "Available agents: {names}.",
     "es": "Agentes disponibles: {names}.",
+    "pt": "Agentes disponíveis: {names}.",
 }
 _NO_FIT: Final[dict[str, str]] = {
     "de": "Keiner deiner Agenten passt zu dieser Aufgabe.",  # i18n-allow: spoken reply
     "en": "None of your agents fits this task.",
     "es": "Ninguno de tus agentes encaja con esta tarea.",
+    "pt": "Nenhum dos teus agentes se adequa a esta tarefa.",
 }
 _REFUSED: Final[dict[str, str]] = {
     "de": "{name} kann das gerade nicht übernehmen: {reason}.",  # i18n-allow: spoken reply
     "en": "{name} cannot take that right now: {reason}.",
     "es": "{name} no puede encargarse ahora: {reason}.",
+    "pt": "{name} não pode tratar disso agora: {reason}.",
 }
 _NOT_READY: Final[dict[str, str]] = {
     "de": "Die Agenten sind noch nicht bereit.",  # i18n-allow: spoken reply
     "en": "The agents are not ready yet.",
     "es": "Los agentes aún no están listos.",
+    "pt": "Os agentes ainda não estão prontos.",
 }
 _STATUS_IDLE: Final[dict[str, str]] = {
     "de": "{name} hat gerade nichts zu tun.",  # i18n-allow: spoken reply
     "en": "{name} has nothing to do right now.",
     "es": "{name} no tiene nada que hacer ahora.",
+    "pt": "{name} não tem nada para fazer agora.",
 }
 _STATUS_WORKING: Final[dict[str, str]] = {
     "de": "{name} arbeitet gerade: {text}",  # i18n-allow: spoken reply
     "en": "{name} is working on: {text}",
     "es": "{name} está trabajando en: {text}",
+    "pt": "{name} está a trabalhar em: {text}",
 }
 _STATUS_LAST: Final[dict[str, str]] = {
     "de": "{name}: zuletzt {kind}, {text}",  # i18n-allow: spoken reply
     "en": "{name}: last {kind}, {text}",
     "es": "{name}: último {kind}, {text}",
+    "pt": "{name}: último {kind}, {text}",
 }
 _ROSTER: Final[dict[str, str]] = {
     "de": "Deine Agenten: {names}.",  # i18n-allow: spoken reply
     "en": "Your agents: {names}.",
     "es": "Tus agentes: {names}.",
+    "pt": "Os teus agentes: {names}.",
 }
 _EMPTY_ROSTER: Final[dict[str, str]] = {
     "de": "Du hast noch keine Team-Agenten.",  # i18n-allow: spoken reply
     "en": "You do not have any team agents yet.",
     "es": "Todavía no tienes agentes en tu equipo.",
+    "pt": "Ainda não tens agentes na tua equipa.",
 }
 
 
@@ -265,7 +282,7 @@ class DelegateToAgentTool:
                 break
         tracking = {
             "agent_id": target.agent_id,
-            "agent_name": target.name,
+            "agent_name": display_name(target),
             "assignment_id": env.event_id,
             "trace_id": env.trace_id,
             "reply_policy": policy,
@@ -280,7 +297,9 @@ class DelegateToAgentTool:
                 output={
                     **tracking,
                     "state": "refused",
-                    "acknowledgement": _REFUSED[lang].format(name=target.name, reason=reason),
+                    "acknowledgement": _REFUSED[lang].format(
+                        name=display_name(target), reason=reason
+                    ),
                 },
                 error=str(outcome.payload.get("reason") or "vetoed"),
             )
@@ -291,7 +310,7 @@ class DelegateToAgentTool:
                 **tracking,
                 "state": "running" if outcome is not None else "recorded",
                 "acknowledgement": (ack if outcome is not None else _QUEUED)[lang].format(
-                    name=target.name,
+                    name=display_name(target),
                 ),
             },
             artifacts=(
@@ -331,7 +350,7 @@ async def _unresolved(found: AgentLookup, lang: str) -> ToolResult:
     the two kinds of agent are reached through different tools.
     """
     if found.decision == "ask" and found.candidates:
-        names = [a.name for a in found.candidates]
+        names = [display_name(a) for a in found.candidates]
         return ToolResult(
             success=False,
             output={
@@ -365,6 +384,10 @@ async def _status_target(runtime: Any, target_key: str, lang: str) -> Any:
     return await _unresolved(found, lang)
 
 
+# How much of an agent's newest note the team board repeats.
+_BOARD_NOTE_CHARS = 200
+
+
 class SocietyStatusTool:
     """What an agent (or the whole team) is doing — read-only, no model call."""
 
@@ -374,10 +397,11 @@ class SocietyStatusTool:
         "Answer 'what is <agent> doing?', 'is Scout done?', 'who is on the team?' from the "
         "agent society's board. Read-only. Pass the agent's name, or nothing for the team. "
         "Set details=true for responsibilities, capabilities, state and recorded activity/cost "
-        "statistics (these are observations, not quality scores). Pass assignment_id "
+        "statistics (these are observations, not quality scores). Set board=true for one "
+        "short row per agent: working or idle, and its newest note. Pass assignment_id "
         "to inspect that exact assignment; trace_id is optional. If prior tool ids are "
         "no longer in context, use agent + latest_assignment=true to retrieve the newest "
-        "assignment Jarvis sent that agent from the stored board, including its task and "
+        "assignment you sent that agent from the stored board, including its task and "
         "result. This means newest assignment, not an arbitrary recent event. If 'that task' "
         "could mean an older task or several agents, clarify the agent/task first."
     )
@@ -386,12 +410,16 @@ class SocietyStatusTool:
         "properties": {
             "agent": {"type": "string", "description": "An agent's name; omit for the team."},
             "details": {"type": "boolean", "description": "Include actual roster and evidence."},
+            "board": {
+                "type": "boolean",
+                "description": "One short row per agent: working or idle, and its newest note.",
+            },
             "assignment_id": {"type": "string", "description": "Assignment event id."},
             "trace_id": {"type": "string", "description": "Optional expected assignment trace."},
             "latest_assignment": {
                 "type": "boolean",
                 "description": (
-                    "With agent: inspect the newest assignment sent by Jarvis. "
+                    "With agent: inspect the newest assignment you sent. "
                     "Do not combine with assignment_id."
                 ),
             },
@@ -525,6 +553,29 @@ class SocietyStatusTool:
                     ),
                 },
             )
+        if args.get("board") is True:
+            rows = []
+            for agent in await runtime.roster.list():
+                if agent.agent_id == runtime.lead_id:
+                    continue
+                running = runtime.scheduler.active_runs(agent.agent_id)
+                recent = await runtime.store.events_for_agent(agent.agent_id, limit=10)
+                note = next((e.text for e in reversed(recent) if e.text), "")
+                # What it was asked to do says more than "took the task".
+                task = next(
+                    (e.text for e in reversed(recent) if e.msg_type is MsgType.ASSIGN and e.text),
+                    "",
+                ) if running > 0 else ""
+                rows.append(
+                    {
+                        "agent": display_name(agent),
+                        "state": "working" if running > 0 else "idle",
+                        **({"runs": running} if running > 1 else {}),
+                        **({"task": " ".join(task.split())[:_BOARD_NOTE_CHARS]} if task else {}),
+                        **({"latest": " ".join(note.split())[:_BOARD_NOTE_CHARS]} if note else {}),
+                    }
+                )
+            return ToolResult(success=True, output={"agents": rows})
         if not target_key:
             agents = await runtime.roster.list()
             names = ", ".join(a.name for a in agents if a.agent_id != runtime.lead_id)
@@ -538,15 +589,18 @@ class SocietyStatusTool:
             events = await runtime.store.events_for_agent(target.agent_id, limit=5)
             text = next((e.text for e in reversed(events) if e.text), "")
             return ToolResult(
-                success=True, output=_STATUS_WORKING[lang].format(name=target.name, text=text)
+                success=True,
+                output=_STATUS_WORKING[lang].format(name=display_name(target), text=text),
             )
         events = await runtime.store.events_for_agent(target.agent_id, limit=1)
         if not events:
-            return ToolResult(success=True, output=_STATUS_IDLE[lang].format(name=target.name))
+            return ToolResult(
+                success=True, output=_STATUS_IDLE[lang].format(name=display_name(target))
+            )
         last = events[-1]
         return ToolResult(
             success=True,
             output=_STATUS_LAST[lang].format(
-                name=target.name, kind=str(last.msg_type).lower(), text=last.text[:200]
+                name=display_name(target), kind=str(last.msg_type).lower(), text=last.text[:200]
             ),
         )

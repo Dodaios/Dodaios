@@ -151,7 +151,7 @@ if ($SkipPyInstaller) {
         -WorkingDirectory $RepoRoot -What "pyinstaller"
 }
 
-foreach ($required in @("PersonalJarvis.exe", "jarvis.exe")) {
+foreach ($required in @("PersonalJarvis.exe", "dodaios.exe", "jarvis.exe")) {
     $candidate = Join-Path $BundleDir $required
     if (-not (Test-Path $candidate)) {
         Stop-WithError "the frozen bundle is missing $required (expected at $candidate)"

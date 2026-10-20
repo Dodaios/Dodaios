@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "personal-jarvis"
-version = "3.1.1"
+version = "3.2.0"
 description = "Turn your computer into an AI agent that coordinates apps, tools, models, and other agents"
 requires-python = ">=3.11,<3.15"
 readme = "README.md"
@@ -506,22 +506,39 @@ tts-eval = [
 ]
 
 [project.scripts]
+# `dodaios` starts the app (and `dodaios update` updates it). The names below it
+# are the command's earlier names: the same entry point, kept so that scripts,
+# shell history and other tools that call them keep working.
+# Never add a command that spells the branded launcher ignoring case (a
+# `personaljarvis` alias today): Windows paths ignore case, and the venv's
+# Scripts folder already holds `PersonalJarvis.exe`.
+dodaios = "jarvis.__main__:main"
 jarvis = "jarvis.__main__:main"
-# Same entry point under the product name, so `personal-jarvis` in a terminal
-# starts (and `personal-jarvis update` updates) the app exactly like `jarvis`.
-# Never add a `personaljarvis` alias: Windows paths ignore case, and the venv's
-# Scripts folder already holds `PersonalJarvis.exe`, the branded launcher.
 personal-jarvis = "jarvis.__main__:main"
 # Phase 8.5 — Review-Pipeline-Run-GC (Plan §6.5).
 jarvis-review-gc = "jarvis.cli.review_gc:main"
 # Phase 8.6 — Review-Pipeline-Eval-Harness (Plan §6.6).
 jarvis-review-eval = "jarvis.cli.review_eval:main"
-# jarvisctl — control CLI for a running Dodaios instance.
+# dodaiosctl — control CLI for a running Dodaios instance. `jarvisctl` and
+# `jctl` are its earlier names and stay.
+dodaiosctl = "jarvis.cli_ctl.__main__:main"
 jarvisctl = "jarvis.cli_ctl.__main__:main"
 jctl = "jarvis.cli_ctl.__main__:main"
 
 # Plugin entry points — all slots are already declared.
 # New plugins are discovered without any core changes.
+#
+# A slot has two names: `dodaios.<slot>` (what a new plugin registers under)
+# and `jarvis.<slot>` (what every plugin published earlier registers under).
+# The app reads both in one scan, for good (jarvis/core/entry_points.py).
+#
+# The first-party plugins below stay in the `jarvis.<slot>` tables on purpose:
+# an install's entry points are frozen into its `*.dist-info` when the
+# environment is built, so an install that updates its source without
+# rebuilding still carries the tables of the version that wrote them, and an
+# older version rolled back onto a newer environment reads `jarvis.<slot>`
+# only. One table that both read keeps every first-party plugin loading
+# exactly once in each case.
 
 [project.entry-points."jarvis.wakeword"]
 openwakeword = "jarvis.plugins.wake.openwakeword_provider:OpenWakeWordProvider"
@@ -903,6 +920,8 @@ jarvis = [
     # The Hermes / OpenClaw releases setup installs and accepts
     # (agent_runtimes/versions.py); without it setup falls back to latest.
     "agent_runtimes/runtime-versions.json",
+    # Translated system phrases, one file per language (jarvis/i18n/catalog.py).
+    "i18n/locales/*.json",
     # Seed catalogs (CLI tools / skills / marketplace plugins) — named
     # explicitly rather than a repo-wide "**/*.json" glob, which would also
     # sweep in jarvis/ui/web/frontend's SOURCE config (package.json,

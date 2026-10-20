@@ -1,7 +1,8 @@
 """Plugin discovery via entry_points.
 
-All plugin slots are declared in pyproject.toml under
-[project.entry-points."jarvis.*"]. This module lists them at runtime, loads
+A plugin registers under ``[project.entry-points."dodaios.<slot>"]``; the
+earlier ``jarvis.<slot>`` spelling stays valid forever and is read alongside it
+(``jarvis.core.entry_points``). This module lists the plugins at runtime, loads
 them lazily, and checks them against the matching Protocol.
 
 Important: `load()` only imports on actual invocation — this allows optional
@@ -12,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from .entry_points import entry_points_for
+from .entry_points import entry_points_for, group_spellings
 from .protocols import PLUGIN_GROUPS
 
 
@@ -28,13 +29,18 @@ class PluginContractError(TypeError):
     """Plugin does not structurally implement the expected Protocol."""
 
 
+def _is_plugin_group(group: str) -> bool:
+    """Whether ``group`` names a plugin slot under either of its spellings."""
+    return any(spelling in PLUGIN_GROUPS for spelling in group_spellings(group))
+
+
 def list_plugins(group: str) -> list[str]:
     """Lists all available plugin names in a group.
 
     Args:
-        group: e.g. "jarvis.brain", "jarvis.stt", see PLUGIN_GROUPS.
+        group: e.g. "jarvis.brain" or "dodaios.brain", see PLUGIN_GROUPS.
     """
-    if group not in PLUGIN_GROUPS:
+    if not _is_plugin_group(group):
         raise ValueError(f"Unknown plugin group: {group}. Allowed: {PLUGIN_GROUPS}")
     eps = entry_points_for(group)
     return sorted(ep.name for ep in eps)
@@ -60,7 +66,7 @@ def load(group: str, name: str, protocol: type[Protocol] | None = None) -> type[
     Raises:
         PluginNotFoundError, PluginLoadError, PluginContractError.
     """
-    if group not in PLUGIN_GROUPS:
+    if not _is_plugin_group(group):
         raise ValueError(f"Unknown plugin group: {group}")
 
     eps = entry_points_for(group)

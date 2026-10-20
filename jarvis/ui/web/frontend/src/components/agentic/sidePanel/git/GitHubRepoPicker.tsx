@@ -26,6 +26,53 @@ export function ConnectGitHubCard() {
 }
 
 /**
+ * GitHub is connected but this folder has no repository picked yet. The local
+ * state stays on screen; this card offers the one click that adds pull
+ * requests and CI — the repository the folder's remote points at, or the list.
+ */
+export function ConnectRepositoryCard({
+  suggested,
+  busy,
+  onUse,
+  onChoose,
+}: {
+  suggested: string;
+  busy: boolean;
+  onUse: (repo: string) => void;
+  onChoose: () => void;
+}) {
+  const t = useT();
+  return (
+    <div data-testid="git-connect-repo" className="mx-3 my-2.5 space-y-2 rounded-lg border border-border/60 bg-muted/30 p-2.5">
+      <p className="text-[11.5px] leading-snug text-muted-foreground">{t("ide_side_panel.git.connect_repo_body")}</p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {suggested && (
+          <button
+            type="button"
+            data-testid="git-connect-suggested"
+            disabled={busy}
+            onClick={() => onUse(suggested)}
+            className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md bg-primary px-2.5 text-[11.5px] font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-hidden /> : <Github className="h-3 w-3 shrink-0" aria-hidden />}
+            <span className="truncate font-mono">{suggested}</span>
+          </button>
+        )}
+        <button
+          type="button"
+          data-testid="git-connect-choose"
+          disabled={busy}
+          onClick={onChoose}
+          className="inline-flex h-7 items-center rounded-md border border-border-strong px-2.5 text-[11.5px] font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+        >
+          {t(suggested ? "ide_side_panel.git.connect_repo_other" : "ide_side_panel.git.connect_repo_choose")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * "Which of your GitHub repositories is this folder?" — asked once per
  * folder. The repository the folder's git remote points at comes first,
  * marked as the recommendation; one click remembers the choice.

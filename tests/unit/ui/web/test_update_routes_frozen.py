@@ -82,7 +82,9 @@ def _patch_frozen(
 ) -> None:
     monkeypatch.setattr(u, "is_frozen", lambda: frozen)
     monkeypatch.setattr(u, "_running_version", lambda: running)
-    monkeypatch.setattr(u, "installer_asset_name", lambda _p, _m: asset_name)
+    monkeypatch.setattr(
+        u, "installer_asset_names", lambda _p, _m: (asset_name,) if asset_name else ()
+    )
     # The real preflight inspects THIS process (no AppImage on a CI runner, no
     # app bundle in a test run); the cases below opt into a blocker explicitly.
     monkeypatch.setattr(u, "update_blocker", lambda: None)
@@ -632,9 +634,11 @@ def test_the_frozen_asset_follows_the_native_cpu(monkeypatch: pytest.MonkeyPatch
     seen: list[tuple[str, str]] = []
     monkeypatch.setattr(u, "machine_for_update", lambda: "arm64")
     monkeypatch.setattr(
-        u, "installer_asset_name", lambda platform, machine: seen.append((platform, machine))
+        u,
+        "installer_asset_names",
+        lambda platform, machine: seen.append((platform, machine)) or (),
     )
-    u._frozen_asset_name()
+    u._frozen_asset_names()
     assert seen and seen[0][1] == "arm64"
 
 
@@ -650,3 +654,141 @@ def test_apply_downloads_into_a_fresh_private_folder(
 
     assert client.post("/api/update/apply").status_code == 200
     assert seen["installer"].parent == workdir
+
+
+# --------------------------------------------------------------------------- #
+# A release may carry the installer under more than one accepted name
+# --------------------------------------------------------------------------- #
+NEW_SETUP_NAME = "Dodaios-Setup-x64.exe"
+
+
+def _asset_entry(name: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "browser_download_url": f"https://example.invalid/{name}",
+        "size": 123,
+    }
+
+
+def _patch_frozen_names(monkeypatch: pytest.MonkeyPatch, *names: str) -> None:
+    _patch_frozen(monkeypatch)
+    monkeypatch.setattr(u, "installer_asset_names", lambda _p, _m: names)
+
+
+def test_real_asset_names_cover_what_this_machine_would_ask_for() -> None:
+    """The route asks the one table; a Windows x64 box accepts both names."""
+    from jarvis.core.installer_update import installer_asset_names
+
+    assert installer_asset_names("win32", "AMD64") == (NEW_SETUP_NAME, SETUP_NAME)
+
+
+def test_status_offers_the_preferred_name_when_a_release_carries_both(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_frozen_names(monkeypatch, NEW_SETUP_NAME, SETUP_NAME)
+    assets = [
+        _asset_entry(SETUP_NAME),
+        _asset_entry(NEW_SETUP_NAME),
+        _asset_entry(CHECKSUMS_ASSET_NAME),
+    ]
+    _patch_latest(monkeypatch, _release("1.6.0", assets=assets))
+
+    body = client.get("/api/update/status").json()
+
+    assert body["update_available"] is True
+    assert body["asset"]["name"] == NEW_SETUP_NAME
+
+
+@pytest.mark.parametrize("published", [SETUP_NAME, NEW_SETUP_NAME])
+def test_status_offers_whichever_single_name_a_release_carries(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, published: str
+) -> None:
+    _patch_frozen_names(monkeypatch, NEW_SETUP_NAME, SETUP_NAME)
+    assets = [_asset_entry(published), _asset_entry(CHECKSUMS_ASSET_NAME)]
+    _patch_latest(monkeypatch, _release("1.6.0", assets=assets))
+
+    body = client.get("/api/update/status").json()
+
+    assert body["update_available"] is True
+    assert body["asset"]["name"] == published
+
+
+@pytest.mark.parametrize("published", [SETUP_NAME, NEW_SETUP_NAME])
+def test_apply_with_one_published_name_downloads_exactly_as_before(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, published: str
+) -> None:
+    """One candidate: the download is called without any alternative."""
+    _patch_frozen_names(monkeypatch, NEW_SETUP_NAME, SETUP_NAME)
+    assets = [_asset_entry(published), _asset_entry(CHECKSUMS_ASSET_NAME)]
+    _patch_latest(monkeypatch, _release("1.6.0", assets=assets))
+    # This recorder accepts no ``alternatives`` keyword - passing one fails.
+    seen = _capture_install(monkeypatch)
+
+    response = client.post("/api/update/apply")
+
+    assert response.status_code == 200
+    assert seen["asset"].name == published
+    assert response.json()["asset"]["name"] == published
+
+
+def test_apply_lets_the_checksum_manifest_choose_between_two_names(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _patch_frozen_names(monkeypatch, NEW_SETUP_NAME, SETUP_NAME)
+    assets = [
+        _asset_entry(SETUP_NAME),
+        _asset_entry(NEW_SETUP_NAME),
+        _asset_entry(CHECKSUMS_ASSET_NAME),
+    ]
+    _patch_latest(monkeypatch, _release("1.6.0", assets=assets))
+    seen: dict[str, Any] = {}
+
+    def _write(path: Path) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"verified installer")
+        return path
+
+    async def _download(
+        asset: Any,
+        checksums: Any,
+        *,
+        dest_dir: Path,
+        on_progress: Any = None,
+        alternatives: Any = (),
+    ) -> Path:
+        seen["asset"] = asset.name
+        seen["alternatives"] = [candidate.name for candidate in alternatives]
+        # The manifest of this release only vouches for the second name.
+        return _write(dest_dir / alternatives[0].name)
+
+    def _apply(installer: Path, **_kwargs: Any) -> str:
+        seen["installer"] = installer.name
+        return "the Windows installer is running"
+
+    monkeypatch.setattr(u, "download_and_verify", _download)
+    monkeypatch.setattr(u, "apply_installer", _apply)
+    monkeypatch.setattr(u, "download_workdir", lambda: tmp_path / "work")
+
+    response = client.post("/api/update/apply")
+
+    assert response.status_code == 200
+    assert seen["asset"] == NEW_SETUP_NAME
+    assert seen["alternatives"] == [SETUP_NAME]
+    assert seen["installer"] == SETUP_NAME
+    # The answer names the file that was actually verified and handed over.
+    assert response.json()["asset"]["name"] == SETUP_NAME
+
+
+def test_apply_names_every_accepted_file_when_a_release_has_none(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_frozen_names(monkeypatch, NEW_SETUP_NAME, SETUP_NAME)
+    _patch_latest(
+        monkeypatch, _release("1.6.0", assets=[_asset_entry(CHECKSUMS_ASSET_NAME)])
+    )
+
+    response = client.post("/api/update/apply")
+
+    assert response.status_code == 502
+    assert NEW_SETUP_NAME in response.json()["detail"]
+    assert SETUP_NAME in response.json()["detail"]

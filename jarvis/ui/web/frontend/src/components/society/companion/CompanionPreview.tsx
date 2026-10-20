@@ -1,5 +1,6 @@
 import { Component, Suspense, useEffect, useRef, type ReactNode } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import type { Group } from "three";
 import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
 import { useReducedMotion } from "framer-motion";
 import { useCanvasAwake } from "@/hooks/useCanvasAwake";
@@ -78,6 +79,34 @@ function Frame({ framing }: { framing: Framing }) {
   return null;
 }
 
+/**
+ * A shape at rest on the table: it sways to each side, breathes, leans and
+ * hops every few seconds, so the preview shows its volume and its character
+ * without being turned by hand. A pet brings
+ * its own life (PetModel) and is left alone.
+ */
+/** The preview's shape hops this often, and one hop takes this long, seconds. */
+const HOP_EVERY_S = 3.4, HOP_S = 0.7;
+
+function Idle({ enabled, heightM, children }: { enabled: boolean; heightM: number; children: ReactNode }) {
+  const group = useRef<Group>(null);
+  useFrame(({ clock }) => {
+    const node = group.current;
+    if (!node || !enabled) return;
+    const t = clock.getElapsedTime();
+    const breath = Math.sin(t * 1.9) * 0.02;
+    // Every few seconds a hop: down into a squash, up, and a soft landing.
+    const beat = (t % HOP_EVERY_S) / HOP_S;
+    const air = beat < 1 ? Math.sin(beat * Math.PI) : 0;
+    const squash = beat < 1 ? Math.sin(beat * Math.PI * 2) * -0.07 : 0;
+    node.rotation.y = Math.sin(t * 0.8) * 0.5;
+    node.rotation.z = Math.sin(t * 1.3) * 0.05;
+    node.position.y = air * heightM * 0.22;
+    node.scale.set(1 + breath - squash, 1 - breath + squash, 1 + breath - squash);
+  });
+  return <group ref={group}>{children}</group>;
+}
+
 export function CompanionPreview({ appearance, lead = false }: { appearance: CompanionAppearance; lead?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const { generation } = useWebglSurface(host);
@@ -90,17 +119,18 @@ export function CompanionPreview({ appearance, lead = false }: { appearance: Com
   const framing = pet
     ? previewFraming(pet.heightM, companionFlies(pet) ? WORN_PET_LIFT_M : 0)
     : previewFraming(appearance.sizeM, 0);
-  // A pet breathes, blinks and turns on the table; a still preview only draws when asked.
-  const live = !!pet && !reduced;
+  // A pet breathes, blinks and turns on the table; a shape sways and breathes. Reduced motion draws only when asked.
+  const live = !reduced;
+  const turning = !!pet && live;
   return <div ref={host} className="h-56 w-full touch-none" data-testid="companion-preview">
     {supported && awake && <PreviewBoundary key={generation}>
       <Canvas frameloop={live ? "always" : "demand"} shadows dpr={[1, 2]}
         camera={{ position: framing.position, fov: FOV, near: 0.02, far: 20 }} gl={{ alpha: true, antialias: true }}>
         <Studio />
         <Frame framing={framing} />
-        <Suspense fallback={null}><CompanionModel appearance={appearance} lead={lead} /></Suspense>
+        <Suspense fallback={null}><Idle enabled={live && !pet} heightM={appearance.sizeM}><CompanionModel appearance={appearance} lead={lead} /></Idle></Suspense>
         <ContactShadows position={[0, 0.001, 0]} opacity={0.5} scale={Math.max(1, framing.target[1] * 6)} blur={2.6} far={1} resolution={512} frames={live ? Infinity : 1} />
-        <OrbitControls makeDefault target={framing.target} enablePan={false} enableZoom={false} autoRotate={live} autoRotateSpeed={0.9}
+        <OrbitControls makeDefault target={framing.target} enablePan={false} enableZoom={false} autoRotate={turning} autoRotateSpeed={0.9}
           minPolarAngle={0.25} maxPolarAngle={Math.PI * 0.55} />
       </Canvas>
     </PreviewBoundary>}

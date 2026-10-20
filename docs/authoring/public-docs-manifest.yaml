@@ -471,7 +471,9 @@ pages:
     diataxis: explanation
     summary: Understand what Dodaios can remember, how the Wiki connects ideas, and how memory supports chats, contacts, and agents.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/WikiView.tsx
+      - jarvis/ui/web/frontend/src/views/MemoryView.tsx
+      - jarvis/ui/web/memory_vault_routes.py
+      - jarvis/memory/wiki/vault_model.py
       - jarvis/ui/web/wiki_routes.py
       - jarvis/memory/wiki/integration.py
       - jarvis/memory/wiki/curator.py

@@ -85,3 +85,38 @@ def test_environment_still_precedes_file_fallback(monkeypatch, tmp_path):
     )
 
     assert get_secret("openai_api_key", "OPENAI_API_KEY") == "environment-value"
+
+
+@pytest.mark.parametrize(
+    ("dotenv", "expected"),
+    [
+        ("JARVIS_ADMIN_HMAC=old-name-value\n", "old-name-value"),
+        ("DODAIOS_ADMIN_HMAC='new-name-value'\n", "new-name-value"),
+        # Both spellings in one file: the new one wins, whatever the order.
+        ("JARVIS_ADMIN_HMAC=old\nDODAIOS_ADMIN_HMAC=new\n", "new"),
+        ("DODAIOS_ADMIN_HMAC=new\nJARVIS_ADMIN_HMAC=old\n", "new"),
+        ("OTHER_ADMIN_HMAC=unrelated\n", None),
+    ],
+)
+def test_the_dotenv_fallback_reads_a_prefixed_name_under_both_prefixes(
+    monkeypatch, tmp_path, dotenv, expected
+):
+    from jarvis.core import config
+
+    monkeypatch.setattr(keyring, "get_password", lambda *a, **k: None)
+    monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+    monkeypatch.delenv("JARVIS_ADMIN_HMAC", raising=False)
+    (tmp_path / ".env").write_text(dotenv, encoding="utf-8")
+
+    assert get_secret("admin_hmac", env_fallback="JARVIS_ADMIN_HMAC") == expected
+
+
+def test_the_dotenv_fallback_matches_an_unprefixed_name_exactly(monkeypatch, tmp_path):
+    from jarvis.core import config
+
+    monkeypatch.setattr(keyring, "get_password", lambda *a, **k: None)
+    monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    (tmp_path / ".env").write_text("GROQ_API_KEY=gsk-from-file\n", encoding="utf-8")
+
+    assert get_secret("groq_api_key") == "gsk-from-file"

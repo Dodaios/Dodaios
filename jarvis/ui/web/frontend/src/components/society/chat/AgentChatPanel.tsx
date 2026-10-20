@@ -6,9 +6,9 @@ import {
   DelegationActivity,
   RoutineActivity,
   assignmentOf,
-  routineTask,
-} from "./ChatActivity";
+  routineTask, TeamEventLine } from "./ChatActivity";
 import { MemoryNoticeViewer, MemoryUpdateNotice, memoryNoticePath, memoryNoticeTitle } from "./MemoryUpdateNotice";
+import { TeamReportNotice } from "./TeamReportNotice";
 import { foldMemoryNotices } from "./memoryNotices";
 import { foldRepeatedThreadStatus } from "@/components/agentic/threads/openCodingThread";
 import { mergeOutgoingMessages, useOutgoingMessages } from "@/components/agentchat/useOutgoingMessages";
@@ -32,7 +32,7 @@ import { mergeOutgoingMessages, useOutgoingMessages } from "@/components/agentch
  * the voice runs on the realtime tier (`[brain.realtime]`), which no text
  * runner can drive. The header says so while voice is showing.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRoutineNavigation } from "./routineNavigation";
 import { notifyRoutineChanged } from "../cardData";
 import { routineTaskId } from "./routineExecution";
@@ -64,7 +64,8 @@ import {
 import { AwaitingTurn, MessengerTurn, type MemoryLink } from "@/components/agentchat/MessengerTurn";
 import { VoiceStage } from "@/components/home/VoiceStage";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
-import { useT } from "@/i18n";
+import { fill, useT } from "@/i18n";
+import { useRunLocale } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { createAgentChatStore, useAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
@@ -126,6 +127,8 @@ export interface AgentChatPanelProps {
   roster: SocietyAgent[];
   /** An isolated store lets two canonical agent sessions remain open side by side. */
   chatStore?: AgentChatStoreHook;
+  /** Shown directly above the composer of an agent's own chat (a team lead's actions). */
+  composerExtras?: ReactNode;
 }
 
 /**
@@ -184,7 +187,7 @@ export function AgentChatPanel(props: AgentChatPanelProps) {
   </PairConversationBoundary>;
 }
 
-function AgentChatPanelContent({ agent, roster, chatStore }: AgentChatPanelProps) {
+function AgentChatPanelContent({ agent, roster, chatStore, composerExtras }: AgentChatPanelProps) {
   if (agent.tier === "lead") {
     return (
       <AgentChatStoreProvider store={useAgentChatStore}>
@@ -195,7 +198,7 @@ function AgentChatPanelContent({ agent, roster, chatStore }: AgentChatPanelProps
   if (!agent.chatSessionId) return <NotBoundYet />;
   return (
     <AgentChatStoreProvider store={chatStore ?? useSocietyChatStore}>
-      <SpecialistChat agent={agent} roster={roster} />
+      <SpecialistChat agent={agent} roster={roster} composerExtras={composerExtras} />
     </AgentChatStoreProvider>
   );
 }
@@ -215,7 +218,7 @@ async function bindAgentChat(agentId: string): Promise<void> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
-function SpecialistChat({ agent, roster }: AgentChatPanelProps) {
+function SpecialistChat({ agent, roster, composerExtras }: AgentChatPanelProps) {
   const t = useT();
   const items = useAgentChat((s) => s.timeline.items);
   const activeSessionId = useAgentChat((s) => s.activeSessionId);
@@ -316,6 +319,7 @@ function SpecialistChat({ agent, roster }: AgentChatPanelProps) {
           {`${t("society.card.chat_bind_failed")} (${bindError})`}
         </p>
       ) : null}
+      {composerExtras}
       <Composer
         key={agent.agentId}
         agent={agent}
@@ -740,6 +744,8 @@ export function Transcript({
                 <AgentMessageActivity item={item} roster={roster} />
               ) : item.type === "user" && assignmentOf(item.text) ? (
                 <DelegationActivity {...assignmentOf(item.text)!} roster={roster} />
+              ) : item.type === "user" && item.teamEvent ? (
+                <TeamEventLine event={item.teamEvent} text={item.text} />
               ) : item.type === "user" ? (
                 <UserBubble item={item} agentId={agent.agentId} sessionId={sessionId ?? agent.chatSessionId ?? undefined} tint={tint} />
               ) : item.type === "turn" ? (
@@ -767,10 +773,11 @@ export function Transcript({
 
 function TimeStamp({ ms }: { ms: number }) {
   const t = useT();
+  const locale = useRunLocale();
   const date = new Date(ms);
   const today = new Date().toDateString() === date.toDateString();
-  const time = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  const day = today ? t("society.chat.today") : date.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+  const time = date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const day = today ? t("society.chat.today") : date.toLocaleDateString(locale, { day: "2-digit", month: "short" });
   return <p className="my-4 text-center text-[11px] text-muted-foreground">{`${day} ${time}`}</p>;
 }
 
@@ -782,6 +789,7 @@ function TimeStamp({ ms }: { ms: number }) {
 export function NoticeLine({ item }: { item: NoticeItem }) {
   const t = useT();
   if (item.kind === "memory_updated") return <MemoryUpdateNotice item={item} />;
+  if (item.kind === "team_report") return <TeamReportNotice item={item} />;
   if (item.kind === "message_queued") {
     return <p className="self-end py-1 text-xs text-muted-foreground" data-testid="message-queued">
       {t("society.chat.message_waiting")} · {item.text}
@@ -843,7 +851,7 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
 }
 
 /** One human-readable line per proposal kind, read off the typed payload. */
-function proposalDetail(kind: string, payload: Record<string, unknown>): string {
+function proposalDetail(kind: string, payload: Record<string, unknown>, t: (key: string) => string): string {
   const list = (v: unknown): string => (Array.isArray(v) ? v.map(String).join(", ") : "");
   switch (kind) {
     case "rule":
@@ -859,8 +867,8 @@ function proposalDetail(kind: string, payload: Record<string, unknown>): string 
     }
     case "approval_rule": {
       const parts: string[] = [];
-      if (list(payload.require_approval)) parts.push(`ask first: ${list(payload.require_approval)}`);
-      if (list(payload.always_allow)) parts.push(`always allow: ${list(payload.always_allow)}`);
+      if (list(payload.require_approval)) parts.push(fill(t("society.chat.proposal_ask_first"), { tools: list(payload.require_approval) }));
+      if (list(payload.always_allow)) parts.push(fill(t("society.chat.proposal_always_allow"), { tools: list(payload.always_allow) }));
       return parts.join(" · ");
     }
     case "focus":
@@ -892,7 +900,7 @@ function ProposalCard({ item }: { item: NoticeItem }) {
   const summary = String(item.data.summary ?? item.text);
   const reason = String(item.data.reason ?? "");
   const payload = (item.data.payload ?? {}) as Record<string, unknown>;
-  const detail = proposalDetail(kind, payload);
+  const detail = proposalDetail(kind, payload, t);
   const outcome = item.text.includes("\n") ? item.text.slice(item.text.indexOf("\n") + 1) : "";
   // A team offer is a pick list: everyone is proposed, the person keeps the
   // ones they want and the picked names ride along in the decision's note.
@@ -1273,7 +1281,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
       lines.push(
         `${MENTION_MARK} Current sender: the user. Current recipient: ${JSON.stringify(agent.name)} (id ${JSON.stringify(agent.agentId)}). ` +
         `Mentioned teammates: ${teammates}. For teammate contact requested by the user, use society_message_agent; ` +
-        "use kind 'query' when asking for information. If a work assignment is needed, contact Jarvis or an orchestrator with that tool. " +
+        "use kind 'query' when asking for information. If a work assignment is needed, contact the lead or an orchestrator with that tool. " +
         "Reply to the user here. An @mention or prose addressed to a teammate does not deliver a message.",
       );
     } else if (surface === "jarvis") {

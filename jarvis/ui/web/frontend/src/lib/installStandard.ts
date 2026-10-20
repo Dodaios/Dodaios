@@ -31,6 +31,7 @@
  * answers.
  */
 
+import { fill, translate } from "@/i18n";
 import { PRODUCT_NAME } from "@/lib/branding";
 
 export type EntryKind = "plugin" | "skill";
@@ -90,7 +91,7 @@ const NAME_RE = /^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$/;
  * What a GitHub owner, repository, or folder segment may contain.
  *
  * Deliberately its own rule rather than `NAME_RE`: GitHub allows uppercase and
- * underscores (`PersonalJarvis/marketplace`), which our registry names do not.
+ * underscores (`Dodaios/marketplace`), which our registry names do not.
  * It stays strict about everything a shell would interpret, because this value
  * is pasted into a command line unquoted.
  */
@@ -208,7 +209,7 @@ export function installBlock(
       id: "jarvis",
       label: PRODUCT_NAME,
       command: cli,
-      note: `Runs in any terminal while ${PRODUCT_NAME} is running.`,
+      note: fill(translate("install_standard.note_jarvis"), { product: PRODUCT_NAME }),
     },
   ];
 
@@ -222,7 +223,7 @@ export function installBlock(
         id: "skills",
         label: "skills.sh",
         command: skillsShCommand(target),
-        note: "Installs the same skill into Claude Code, Cursor, Codex, and other agents.",
+        note: translate("install_standard.note_skills_sh"),
       });
     }
   }

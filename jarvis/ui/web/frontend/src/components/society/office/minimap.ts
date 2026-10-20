@@ -10,10 +10,11 @@
  * transforms, clamping, bearings, grid labels and hit-testing are unit-tested
  * and the drawing takes any 2D context (an offscreen layer or a test recorder).
  */
+import type { SkyPad } from "./skyPad";
 import { CHECKPOINT_GOLD, DEPARTMENT_TINTS, ROOM_FLOOR_COLOURS } from "./officePalette";
 import {
   FURNITURE_SIZE, allDesks, deskRect, footprint, roomAt,
-  type CheckpointKind, type FurnitureKind, type OfficeLayout, type Point, type Rect, type RoomKind,
+  type CampusZoneKind, type CheckpointKind, type FurnitureKind, type OfficeLayout, type Point, type Rect, type RoomKind,
 } from "./officeLayout";
 
 export type MinimapAgentState = "idle" | "working" | "waiting" | "paused";
@@ -50,12 +51,43 @@ export function centredTransform(centre: Point, metresAcross: number, widthPx: n
   return { scale, offsetX: widthPx / 2 - centre.x * scale, offsetY: heightPx / 2 - centre.z * scale, width: widthPx, height: heightPx };
 }
 
+/**
+ * Where the minimap looks: at the person, but never further than `margin` metres past the floor's edge — standing
+ * at a window or by the elevator, the card shows the floor behind the person instead of half a card of night.
+ * A floor narrower than the view on an axis is simply centred on it.
+ */
+export function minimapCentre(at: Point, bounds: Rect, metresAcross: number, margin = 1.5): Point {
+  const half = metresAcross / 2;
+  const hold = (value: number, min: number, max: number) => {
+    const low = min - margin + half, high = max + margin - half;
+    return low > high ? (min + max) / 2 : Math.min(high, Math.max(low, value));
+  };
+  return { x: hold(at.x, bounds.minX, bounds.maxX), z: hold(at.z, bounds.minZ, bounds.maxZ) };
+}
+
 export function worldToMap(t: MapTransform, p: Point): MapPoint {
   return { x: t.offsetX + p.x * t.scale, y: t.offsetY + p.z * t.scale };
 }
 
 export function mapToWorld(t: MapTransform, p: MapPoint): Point {
   return { x: (p.x - t.offsetX) / t.scale, z: (p.y - t.offsetY) / t.scale };
+}
+
+/**
+ * The size of the full map's sheet for a plan: as tall as the space allows, as wide as the plan's shape asks —
+ * or, where that is too wide, the full width and less height. The sheet then holds the plan with `pad` px round
+ * it and nothing else, whatever the floor's proportions. `chromeH` is the sheet's header.
+ */
+export function fitSheet(plan: Rect, availW: number, availH: number, pad: number, chromeH: number, maxW = 1200): { width: number; height: number } {
+  const aspect = Math.max(1e-6, plan.maxX - plan.minX) / Math.max(1e-6, plan.maxZ - plan.minZ);
+  const widest = Math.max(1, Math.min(availW, maxW));
+  let bodyH = Math.max(pad * 2 + 1, availH - chromeH);
+  let width = (bodyH - pad * 2) * aspect + pad * 2;
+  if (width > widest) {
+    width = widest;
+    bodyH = (width - pad * 2) / aspect + pad * 2;
+  }
+  return { width: Math.round(width), height: Math.round(bodyH + chromeH) };
 }
 
 /** Clamp a world point onto the walkable floor (a click on the railing still means "over there"). */
@@ -65,9 +97,9 @@ export function clampToRect(p: Point, r: Rect): Point {
 
 // ---------------------------------------------------------------------- zoom
 
-/** Minimap zoom: metres across the card. */
+/** Minimap zoom: metres across the card. The widest step shows the agents floor's campus from window to window. */
 export const ZOOM_MIN_M = 16;
-export const ZOOM_MAX_M = 60;
+export const ZOOM_MAX_M = 90;
 export const ZOOM_DEFAULT_M = 26;
 
 export function clampZoom(metres: number): number {
@@ -224,17 +256,28 @@ export function pickNearest<T extends MapPoint>(items: readonly T[], at: MapPoin
 export type MinimapPlace =
   | { kind: "checkpoint"; id: CheckpointKind }
   | { kind: "room"; id: RoomKind }
-  | { kind: "department"; label: string };
+  | { kind: "department"; label: string }
+  | { kind: "zone"; id: CampusZoneKind };
 
-/** What lies under a world point: a checkpoint (within its radius) beats a room, a room beats a department. */
+/** Campus zones overlap (the atrium lies on the plaza, the plaza crosses the boulevard): the most specific one names a point. */
+const ZONE_PRIORITY: readonly CampusZoneKind[] = ["atrium", "plot", "garden", "booths", "library", "cafe", "plaza", "boulevard"];
+
+/**
+ * What lies under a world point: a checkpoint (within its radius) beats a room, a room beats a department (on the
+ * agents floor: a team studio), and a studio beats the campus zone round it.
+ */
 export function placeAt(layout: OfficeLayout, p: Point): MinimapPlace | null {
   for (const cp of layout.checkpoints) {
     if ((cp.x - p.x) ** 2 + (cp.z - p.z) ** 2 <= cp.radius * cp.radius) return { kind: "checkpoint", id: cp.id };
   }
   const room = roomAt(layout, p);
   if (room) return { kind: "room", id: room.kind };
-  const dept = layout.departments.find((d) => p.x >= d.minX && p.x <= d.maxX && p.z >= d.minZ && p.z <= d.maxZ);
-  return dept ? { kind: "department", label: dept.label } : null;
+  const within = (r: Rect) => p.x >= r.minX && p.x <= r.maxX && p.z >= r.minZ && p.z <= r.maxZ;
+  const dept = layout.departments.find(within);
+  if (dept) return { kind: "department", label: dept.label };
+  const zones = (layout.zones ?? []).filter(within);
+  for (const kind of ZONE_PRIORITY) if (zones.some((z) => z.kind === kind)) return { kind: "zone", id: kind };
+  return null;
 }
 
 // -------------------------------------------------------------------- colour
@@ -295,6 +338,22 @@ export const MAP_PAINT = {
   furniture: "#8d7a66",
   plant: "#5fa35a",
   rug: "#d8c8ae",
+  // Agents floor: the boulevards' limestone, the atrium's disc and bronze ring, planted ground, a free plot, trees and benches.
+  paving: "#e6dfd1",
+  atrium: "#f3eee4",
+  inlay: "#a8865a",
+  moss: "#c3d0ae",
+  felt: "#c3cbd3",
+  tile: "#eadfcd",
+  plot: "#f1eadc",
+  olive: "#6f9a5f",
+  tree: "#4f8a55",
+  bench: "#c9a878",
+  // A studio's screens, and the oak and white of built fittings (booths, step seating, kitchen, cabinets, tables).
+  screen: "#6f675c",
+  oak: "#d9bf97",
+  sofa: "#bdb6aa",
+  counter: "#f6f3ee",
   checkpoint: CHECKPOINT_GOLD.face,
   checkpointDeep: CHECKPOINT_GOLD.faceDeep,
   checkpointIcon: CHECKPOINT_GOLD.icon,
@@ -315,10 +374,10 @@ const FURNITURE_PAINT: Partial<Record<FurnitureKind, string>> = {
   beanbag: "#e27d60", bookshelf: "#8a6240", plant: MAP_PAINT.plant, rug: MAP_PAINT.rug, elevator: "#c9ced6",
   breakSofa: "#d8cdb9", breakSofaCorner: "#d8cdb9", breakTable: "#d6b98f", breakRug: "#e2c9a8", breakBookcase: "#a88660",
   readingNook: "#93a58a", foosball: "#3f7d4a", breakPlant: MAP_PAINT.plant, arcadeMat: "#2a2548",
-  leadWall: "#3a2416", executiveRug: "#26335a", guestChair: "#a9683c", chesterfield: "#7a2c22", loungeTable: "#d8ae52",
-  executiveBar: "#5b3a25", globe: "#5f8f96", floorLamp: "#d8ae52", commandWall: "#3a2a20", commandDesk: "#c9b79c",
+  leadWall: "#6a4f37", executiveRug: "#48515e", guestChair: "#b98558", chesterfield: "#8e5a3a", loungeTable: "#b08d5c",
+  executiveBar: "#8b6b4a", globe: "#5f8f96", floorLamp: "#b08d5c", commandWall: "#3a2a20", commandDesk: "#c9b79c",
   serverRack: "#23272e", coldAisle: "#b3bac3", nocConsole: "#2b3038", statusWall: "#1a1d22", ups: "#2b3038", fireSuppression: "#c8262b",
-  teamWall: "#6a4631", credenza: "#6a4631", designerPlant: MAP_PAINT.plant, teamRug: "#e6dccb",
+  teamWall: "#b99a72", credenza: "#b99a72", designerPlant: MAP_PAINT.plant, teamRug: "#e6dccb",
   wardrobeWall: "#d2b187", dressingMirror: "#e9edf0", tailorDummy: "#e8dfcf", dressingBench: "#7e9378", coatStand: "#a88660",
   roundRug: "#e6ddca",
   brandWall: "#d2b286", agentTotem: "#2b2f33", lobbySofa: "#efe9de", lobbyArmchair: "#a8653a", lobbyTable: "#e7ddcc",
@@ -327,19 +386,20 @@ const FURNITURE_PAINT: Partial<Record<FurnitureKind, string>> = {
   retroCabinet: "#7c5cff", prizeCounter: "#d6457f", tokenMachine: "#e0b23a", clawMachine: "#ff5fa2", airHockey: "#3d8bff",
   pinball: "#9b5cff", snackCounter: "#c47a3a",
   levelWall: "#1d2b52", studioStage: "#e9c46a", rewardPedestal: "#f0e6cf", levelRoad: "#3a4f8f", levelGuide: "#1d2b52",
+  studioBoard: "#2a2d33", teamStand: "#d9bf97",
 };
 
 export const STATE_RING: Record<MinimapAgentState, string> = {
   working: MAP_PAINT.working, waiting: MAP_PAINT.waiting, idle: MAP_PAINT.idle, paused: MAP_PAINT.paused,
 };
 
-/** Checkpoint icon per checkpoint kind; the same pictures as the 3D tokens (CheckpointMarker). */
-export const CHECKPOINT_ICON_KEYS: Record<CheckpointKind, "spawn" | "plus" | "list" | "team" | "shirt" | "star" | "coffee" | "elevator" | "target" | "sparkle" | "trophy"> = {
+/** Checkpoint icon per checkpoint kind, for the maps' gold badges. */
+export const CHECKPOINT_ICON_KEYS: Record<CheckpointKind, "spawn" | "plus" | "list" | "team" | "shirt" | "star" | "coffee" | "elevator" | "target" | "sparkle" | "trophy" | "ship"> = {
   spawn: "spawn", launch: "spawn", create: "plus", manage: "list", team: "team", wardrobe: "shirt", lead: "star", break: "coffee", elevator: "elevator", mission: "target",
-  studio: "sparkle", levels: "trophy",
+  studio: "sparkle", levels: "trophy", ship: "ship",
 };
 
-/** Stroke-only icons in a 24 × 24 box; kept in sync with CheckpointMarker's paths. */
+/** Stroke-only icons in a 24 × 24 box. */
 const ICON_PATHS: Record<(typeof CHECKPOINT_ICON_KEYS)[CheckpointKind], string> = {
   spawn: "M12 8.5v7M8.5 12h7M5.2 7.5A8 8 0 0 1 18.8 7.5M18.8 16.5A8 8 0 0 1 5.2 16.5",
   plus: "M12 5v14M5 12h14",
@@ -351,6 +411,7 @@ const ICON_PATHS: Record<(typeof CHECKPOINT_ICON_KEYS)[CheckpointKind], string> 
   elevator: "M5 3h14v18H5zM9 10l3-3 3 3M9 14l3 3 3-3",
   target: "M12 3a9 9 0 1 1 0 18a9 9 0 1 1 0-18zM12 8a4 4 0 1 1 0 8a4 4 0 1 1 0-8zM12 1v4M12 19v4M1 12h4M19 12h4",
   sparkle: "M10 3l1.6 5.4L17 10l-5.4 1.6L10 17l-1.6-5.4L3 10l5.4-1.6zM18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z",
+  ship: "M12 2.5c3 2.6 4.4 6.4 4.4 10.4v4.6l-4.4 2.5-4.4-2.5v-4.6c0-4 1.4-7.8 4.4-10.4zM7.6 14l-3.1 3v3l3.1-1.5M16.4 14l3.1 3v3l-3.1-1.5M12 9.5h.01",
   trophy: "M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4.5a2.5 2.5 0 0 0 2.6 3.6M17 6h2.5a2.5 2.5 0 0 1-2.6 3.6M12 14v3M8 20h8M9.5 17h5",
 };
 
@@ -424,6 +485,7 @@ export function drawFloorArt(ctx: Ctx, layout: OfficeLayout, t: MapTransform, ar
   ctx.strokeStyle = MAP_PAINT.slabEdge;
   ctx.lineWidth = 1.5;
   ctx.stroke();
+  if (layout.skyPad) drawSkyPad(ctx, layout.skyPad, t);
 
   ctx.fillStyle = MAP_PAINT.floor;
   rectPath(ctx, t, layout.floor, 0.4);
@@ -451,6 +513,46 @@ export function drawFloorArt(ctx: Ctx, layout: OfficeLayout, t: MapTransform, ar
     ctx.stroke();
     ctx.restore();
     ctx.globalAlpha = 1;
+  }
+
+  // Agents floor: the paved boulevards, planted courts, the free plot and the atrium, under everything built on them.
+  const zones = layout.zones ?? [];
+  if (zones.length > 0) {
+    const paint = (kinds: readonly CampusZoneKind[], colour: string, radiusM: number) => {
+      ctx.fillStyle = colour;
+      for (const zone of zones) {
+        if (!kinds.includes(zone.kind)) continue;
+        rectPath(ctx, t, zone, radiusM);
+        ctx.fill();
+      }
+    };
+    paint(["boulevard", "plaza"], MAP_PAINT.paving, 0);
+    paint(["garden"], MAP_PAINT.moss, 0.6);
+    paint(["booths"], MAP_PAINT.felt, 0.6);
+    paint(["cafe"], MAP_PAINT.tile, 0.6);
+    const plot = zones.find((z) => z.kind === "plot");
+    if (plot) {
+      rectPath(ctx, t, plot, 0.3);
+      ctx.fillStyle = MAP_PAINT.plot;
+      ctx.fill();
+      // A dashed outline: marked out, not built yet.
+      ctx.setLineDash?.([Math.max(2, t.scale * 0.5), Math.max(2, t.scale * 0.35)]);
+      ctx.strokeStyle = MAP_PAINT.inlay;
+      ctx.lineWidth = Math.max(1, Math.min(2, t.scale * 0.12));
+      ctx.stroke();
+      ctx.setLineDash?.([]);
+    }
+    const atrium = zones.find((z) => z.kind === "atrium");
+    if (atrium) {
+      const c = worldToMap(t, { x: (atrium.minX + atrium.maxX) / 2, z: (atrium.minZ + atrium.maxZ) / 2 });
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 5 * t.scale, 0, Math.PI * 2);
+      ctx.fillStyle = MAP_PAINT.atrium;
+      ctx.fill();
+      ctx.strokeStyle = MAP_PAINT.inlay;
+      ctx.lineWidth = Math.max(1, t.scale * 0.14);
+      ctx.stroke();
+    }
   }
 
   // Department carpets and rooms: painted areas with soft darker outlines.
@@ -499,6 +601,48 @@ export function drawFloorArt(ctx: Ctx, layout: OfficeLayout, t: MapTransform, ar
         ctx.lineWidth = 0.8;
         ctx.stroke();
       }
+    }
+  }
+
+  // Agents floor: trees as round crowns (a large tree's spreads wider), standing tables as discs, everything else
+  // as a block in its own tone: screens dark and slim, sofas soft, built fittings oak or white.
+  const BLOCK: Record<string, string> = {
+    bench: MAP_PAINT.bench, planter: MAP_PAINT.plant, screen: MAP_PAINT.screen, cabinet: MAP_PAINT.counter, sofa: MAP_PAINT.sofa,
+    booth: MAP_PAINT.oak, steps: MAP_PAINT.oak, counter: MAP_PAINT.counter, island: MAP_PAINT.oak, crate: MAP_PAINT.oak,
+  };
+  for (const item of layout.ambience ?? []) {
+    if (item.kind === "olive" || item.kind === "tree" || item.kind === "hightable") {
+      const c = worldToMap(t, { x: (item.minX + item.maxX) / 2, z: (item.minZ + item.maxZ) / 2 });
+      const radiusM = item.kind === "tree" ? 1.25 : item.kind === "olive" ? 0.62 : 0.4;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, Math.max(1.4, radiusM * t.scale), 0, Math.PI * 2);
+      ctx.fillStyle = item.kind === "tree" ? MAP_PAINT.tree : item.kind === "olive" ? MAP_PAINT.olive : MAP_PAINT.oak;
+      ctx.globalAlpha = item.kind === "hightable" ? 1 : 0.9;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    } else {
+      rectPath(ctx, t, item, 0.08);
+      ctx.fillStyle = BLOCK[item.kind] ?? MAP_PAINT.furniture;
+      ctx.fill();
+      if (item.kind === "booth" || item.kind === "steps" || item.kind === "counter" || item.kind === "island" || item.kind === "sofa") {
+        ctx.strokeStyle = shade(BLOCK[item.kind], -0.3);
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+    }
+  }
+  // Agents floor: every studio's name wall along its north edge, in the studio's colour.
+  if (layout.studios && layout.studios.length > 0) {
+    ctx.lineCap = "butt";
+    ctx.lineWidth = Math.max(1.5, Math.min(4, t.scale * 0.22));
+    for (const dept of layout.departments) {
+      const a = worldToMap(t, { x: dept.minX + 0.2, z: dept.minZ + 0.11 });
+      const b = worldToMap(t, { x: dept.maxX - 0.2, z: dept.minZ + 0.11 });
+      ctx.strokeStyle = shade(DEPARTMENT_TINTS[dept.tint % DEPARTMENT_TINTS.length], -0.45);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
     }
   }
 
@@ -709,10 +853,28 @@ export function drawEdgeArrow(ctx: Ctx, x: number, y: number, angle: number, tok
   ctx.stroke();
 }
 
-/** A game-map label: white text with a dark halo, centred on (x, y). */
-export function drawMapLabel(ctx: Ctx, text: string, x: number, y: number, px: number, weight = 700): void {
+/**
+ * A game-map label: white text with a dark halo, centred on (x, y). With `maxWidth` (px) a long name first
+ * shrinks to three quarters of its size and is then cut with an ellipsis, so it stays over its own place.
+ */
+export function drawMapLabel(ctx: Ctx, text: string, x: number, y: number, px: number, weight = 700, maxWidth?: number): void {
   if (!text) return;
-  ctx.font = `${weight} ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  const font = (size: number) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  ctx.font = font(px);
+  if (maxWidth !== undefined && typeof ctx.measureText === "function") {
+    const widthOf = (value: string) => ctx.measureText(value)?.width ?? 0;
+    let size = px;
+    while (size > px * 0.75 && widthOf(text) > maxWidth) {
+      size -= 0.5;
+      ctx.font = font(size);
+    }
+    px = size;
+    if (widthOf(text) > maxWidth) {
+      let cut = text;
+      while (cut.length > 1 && widthOf(`${cut}…`) > maxWidth) cut = cut.slice(0, -1);
+      text = `${cut.trimEnd()}…`;
+    }
+  }
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
@@ -721,4 +883,34 @@ export function drawMapLabel(ctx: Ctx, text: string, x: number, y: number, px: n
   ctx.strokeText(text, x, y);
   ctx.fillStyle = MAP_PAINT.label;
   ctx.fillText(text, x, y);
+}
+
+/** The sky pad outside the east windows: its bridge, the deck with its gold landing circle, and the courier on it. */
+function drawSkyPad(ctx: CanvasRenderingContext2D, pad: SkyPad, t: MapTransform): void {
+  const deck = worldToMap(t, pad.pad), r = pad.pad.r * t.scale;
+  ctx.fillStyle = MAP_PAINT.slab;
+  const a = worldToMap(t, { x: pad.bridge.minX, z: pad.gap.minZ }), b = worldToMap(t, { x: pad.pad.x, z: pad.gap.maxZ });
+  ctx.fillRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+  ctx.beginPath();
+  ctx.arc(deck.x, deck.y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = MAP_PAINT.slabEdge;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.strokeStyle = CHECKPOINT_GOLD.rim;
+  ctx.lineWidth = Math.max(1, t.scale * 0.25);
+  ctx.beginPath();
+  ctx.arc(deck.x, deck.y, r * 0.78, 0, Math.PI * 2);
+  ctx.stroke();
+  // The courier: a slim lozenge along its heading (north).
+  const nose = worldToMap(t, { x: pad.ship.x, z: pad.shipRect.minZ + 0.6 }), tail = worldToMap(t, { x: pad.ship.x, z: pad.shipRect.maxZ - 0.6 });
+  const half = ((pad.shipRect.maxX - pad.shipRect.minX) / 4) * t.scale;
+  ctx.fillStyle = "#d7dce4";
+  ctx.beginPath();
+  ctx.moveTo(nose.x, nose.y);
+  ctx.lineTo(nose.x + half, (nose.y + tail.y) / 2);
+  ctx.lineTo(tail.x, tail.y);
+  ctx.lineTo(nose.x - half, (nose.y + tail.y) / 2);
+  ctx.closePath();
+  ctx.fill();
 }

@@ -25,7 +25,7 @@ from jarvis.core.events import (
     JarvisChatTurnFinished,
     MissionCompleted,
 )
-from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessMascotOverlay
+from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 from jarvis.ui.pets import notices
 from ui.orb import controls, pet_cards, thought_bubble
 from ui.orb import notice_stack as ns
@@ -68,7 +68,7 @@ def test_jarvis_started_tasks_report_back() -> None:
 
 def test_every_locale_has_its_own_labels() -> None:
     for key, labels in notices.NOTICE_LABELS.items():
-        assert set(labels) == {"en", "de", "es", "zh"}, key
+        assert set(labels) == {"en", "de", "es", "zh", "pt"}, key
     assert notices.label("task_done", "fr") == "Task done"  # unknown locale: English
 
 
@@ -400,7 +400,7 @@ async def test_the_chat_service_announces_finished_jarvis_turns() -> None:
 
 
 def test_the_proxy_and_host_carry_cards_and_keep_the_bell_across_a_respawn() -> None:
-    from jarvis.ui.jarvisbar import host
+    from jarvis.ui.dodaiosbar import host
 
     proxy = SubprocessMascotOverlay(style="pet")
     sent: list[dict] = []

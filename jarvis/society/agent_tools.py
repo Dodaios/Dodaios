@@ -30,6 +30,7 @@ from jarvis.core.protocols import ToolResult
 
 from .communication import REPLY_POLICY_SCHEMA, reply_policy, select_reply_policy
 from .delivery import incoming_context
+from .display_name import display_name
 from .events import MsgType
 from .failure_reasons import FailureReason, retry_action
 from .memory import MemoryRefused
@@ -86,7 +87,7 @@ class MessageAgentTool:
         "teammate whose role fits; do not fan out to several. Use kind 'query' when "
         "you need an answer, 'propose' to suggest a plan, 'answer' when replying to a "
         "query, else 'say'. The teammate reads it in their own chat and may reply "
-        "later; this call returns at once. It never assigns work — ask Jarvis or an "
+        "later; this call returns at once. It never assigns work — ask the lead or an "
         "orchestrator to assign. Include the objective, relevant known context, scope "
         "and expected evidence, not just a paraphrase. Select reply_policy from the "
         "intent: none for information, on_error for blockers only, always for findings. "
@@ -177,14 +178,14 @@ class MessageAgentTool:
             failure = _failure(FailureReason.TARGET_UNKNOWN, f"no teammate named {target_key!r}")
             if found.decision == "ask" and found.candidates:
                 # Close, but not certain: name the candidates instead of a bare miss.
-                failure.output["did_you_mean"] = [a.name for a in found.candidates]
+                failure.output["did_you_mean"] = [display_name(a) for a in found.candidates]
             else:
                 failure.output["available"] = found.available_names()
             return failure
         if target.agent_id == caller.agent_id:
             return _failure(FailureReason.BLOCKED_BY_POLICY, "you cannot message yourself")
         if target.state is AgentState.PAUSED:
-            return _failure(FailureReason.TARGET_PAUSED, f"{target.name} is paused")
+            return _failure(FailureReason.TARGET_PAUSED, f"{display_name(target)} is paused")
         kind = str(args.get("kind") or "say").strip().lower()
         msg_type = _KINDS.get(kind)
         if msg_type is None:
@@ -271,8 +272,8 @@ class MessageAgentTool:
             output={
                 "status": status,
                 "message_id": env.event_id,
-                "target": target.name,
-                **({"delivered_to": target.name} if status == "delivered" else {}),
+                "target": display_name(target),
+                **({"delivered_to": display_name(target)} if status == "delivered" else {}),
                 "kind": kind,
                 "reply_policy": policy,
                 "in_reply_to": parent.event_id if parent is not None else None,

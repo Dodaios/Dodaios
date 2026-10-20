@@ -705,3 +705,175 @@ async def test_release_check_refuses_a_redirect_off_the_github_api(
     assert await u._fetch_latest_release() is None
     assert seen == [u._RELEASES_LATEST_API]
     assert u._last_good_release is None
+
+
+# --------------------------------------------------------------------------- #
+# The version is read where the TARGET revision says it lives
+# --------------------------------------------------------------------------- #
+def _patch_git_show(
+    monkeypatch: pytest.MonkeyPatch, files: dict[str, str]
+) -> list[list[str]]:
+    """Serve ``git show <rev>:<path>`` from ``files``; record every question."""
+    asked: list[list[str]] = []
+
+    async def _fake_git_output(args, *, cwd, timeout_s=15.0):
+        asked.append(args)
+        if args == ["rev-parse", "HEAD"]:
+            return "a" * 40
+        if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
+            return "b" * 40
+        if args[0] == "show":
+            return files.get(args[1])
+        return None
+
+    async def _fake_git(args, *, cwd, timeout_s=60.0, on_stderr_line=None):
+        asked.append(args)
+        return 0, "", ""
+
+    monkeypatch.setattr(u, "_git", _fake_git)
+    monkeypatch.setattr(u, "_git_output", _fake_git_output)
+    return asked
+
+
+def _moved_contract(**overrides: object) -> str:
+    return json.dumps({"schema": 1, "version_file": "newpkg/__init__.py", **overrides})
+
+
+async def test_version_at_revision_follows_the_targets_update_contract(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    revision = "c" * 40
+    asked = _patch_git_show(
+        monkeypatch,
+        {
+            f"{revision}:install/update-contract.json": _moved_contract(),
+            f"{revision}:newpkg/__init__.py": '__version__ = "3.0.0"',
+        },
+    )
+
+    assert await u._version_at_revision(tmp_path, revision) == "3.0.0"
+    # The package moved: its old location is not even looked at.
+    assert ["show", f"{revision}:jarvis/__init__.py"] not in asked
+
+
+async def test_version_at_revision_without_a_contract_reads_the_default_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    revision = "c" * 40
+    asked = _patch_git_show(
+        monkeypatch, {f"{revision}:jarvis/__init__.py": '__version__ = "2.9.9"'}
+    )
+
+    assert await u._version_at_revision(tmp_path, revision) == "2.9.9"
+    assert asked[0] == ["show", f"{revision}:install/update-contract.json"]
+
+
+@pytest.mark.parametrize(
+    "contract",
+    [
+        "not json",
+        json.dumps({"schema": 99, "version_file": "newpkg/__init__.py"}),
+        json.dumps({"schema": 1, "version_file": "../../outside/__init__.py"}),
+        json.dumps({"schema": 1, "version_file": "/etc/passwd"}),
+    ],
+)
+async def test_version_at_revision_never_follows_a_contract_it_cannot_trust(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, contract: str
+) -> None:
+    revision = "c" * 40
+    asked = _patch_git_show(
+        monkeypatch,
+        {
+            f"{revision}:install/update-contract.json": contract,
+            f"{revision}:newpkg/__init__.py": '__version__ = "6.6.6"',
+            f"{revision}:jarvis/__init__.py": '__version__ = "2.9.9"',
+        },
+    )
+
+    assert await u._version_at_revision(tmp_path, revision) == "2.9.9"
+    shown = [args[1].split(":", 1)[1] for args in asked if args[0] == "show"]
+    assert shown == ["install/update-contract.json", "jarvis/__init__.py"]
+
+
+async def test_version_at_revision_still_falls_back_to_pyproject(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    revision = "c" * 40
+    _patch_git_show(
+        monkeypatch,
+        {
+            f"{revision}:install/update-contract.json": _moved_contract(),
+            f"{revision}:pyproject.toml": '[project]\nversion = "3.1.0"\n',
+        },
+    )
+    assert await u._version_at_revision(tmp_path, revision) == "3.1.0"
+
+
+def _stage_moved_release(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, tree_version: str
+) -> None:
+    _patch_managed(monkeypatch, tmp_path)
+    (tmp_path / ".jarvis-managed-install").write_text('{"profile": "full"}\n', encoding="utf-8")
+    monkeypatch.setattr(u, "_running_version", lambda: "1.0.1")
+    _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
+    _patch_git_show(
+        monkeypatch,
+        {
+            f"{'b' * 40}:install/update-contract.json": _moved_contract(),
+            f"{'b' * 40}:newpkg/__init__.py": f'__version__ = "{tree_version}"',
+        },
+    )
+
+
+def test_apply_stages_a_release_that_moved_its_version_file(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stage_moved_release(monkeypatch, tmp_path, tree_version="1.0.2")
+
+    body = client.post("/api/update/apply").json()
+
+    assert body["ok"] is True
+    assert body["version"] == "1.0.2"
+    pending = json.loads((tmp_path / u._PENDING_UPDATE_NAME).read_text(encoding="utf-8"))
+    assert pending["target_revision"] == "b" * 40
+
+
+def test_apply_still_refuses_a_moved_release_whose_version_disagrees(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The safety property survives the move: tag bytes must match the release."""
+    _stage_moved_release(monkeypatch, tmp_path, tree_version="1.0.3")
+
+    response = client.post("/api/update/apply")
+
+    assert response.status_code == 502
+    assert not (tmp_path / u._PENDING_UPDATE_NAME).exists()
+
+
+def test_apply_refuses_a_moved_release_whose_version_cannot_be_read(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _patch_managed(monkeypatch, tmp_path)
+    monkeypatch.setattr(u, "_running_version", lambda: "1.0.1")
+    _patch_latest(monkeypatch, {"version": "1.0.2", "tag": "v1.0.2"})
+    # The contract names a version file the revision does not contain.
+    _patch_git_show(
+        monkeypatch, {f"{'b' * 40}:install/update-contract.json": _moved_contract()}
+    )
+
+    assert client.post("/api/update/apply").status_code == 502
+    assert not (tmp_path / u._PENDING_UPDATE_NAME).exists()
+
+
+def test_version_on_disk_follows_the_checked_out_contract(tmp_path: Path) -> None:
+    (tmp_path / "jarvis").mkdir()
+    (tmp_path / "jarvis" / "__init__.py").write_text('__version__ = "1.0.0"\n', encoding="utf-8")
+    assert u._version_on_disk(tmp_path) == "1.0.0"
+
+    (tmp_path / "newpkg").mkdir()
+    (tmp_path / "newpkg" / "__init__.py").write_text('__version__ = "2.0.0"\n', encoding="utf-8")
+    (tmp_path / "install").mkdir()
+    (tmp_path / "install" / "update-contract.json").write_text(
+        _moved_contract(), encoding="utf-8"
+    )
+    assert u._version_on_disk(tmp_path) == "2.0.0"

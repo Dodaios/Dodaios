@@ -106,6 +106,38 @@ def test_codex_honors_configured_binary_path(monkeypatch):
     assert "npm i -g @openai/codex" in result.message
 
 
+def test_codex_spawn_refused_by_the_host_is_not_called_a_broken_install(monkeypatch):
+    """GitHub issue #574: Windows refused the spawn and the card blamed the CLI."""
+    refusal = "[WinError 8] Not enough memory resources are available"
+    monkeypatch.setattr(
+        codex_auth.CodexAuthService,
+        "status",
+        lambda self: CodexAuthStatus(installed=True, binary_path="/x/codex"),
+    )
+    monkeypatch.setattr(codex_auth, "clear_version_cache", lambda: None)
+    monkeypatch.setitem(codex_auth._VERSION_SPAWN_ERRORS, "/x/codex", refusal)
+
+    result = agent_cli_probe.test_codex()
+
+    assert result.ok is False
+    assert refusal in result.message
+    assert "broken" not in result.message
+
+
+def test_codex_version_probe_records_why_the_spawn_was_refused(monkeypatch):
+    def refuse(*_args, **_kwargs):
+        raise OSError(8, "Not enough memory resources")
+
+    monkeypatch.setattr(codex_auth, "_VERSION_CACHE", {})
+    monkeypatch.setattr(codex_auth, "_VERSION_SPAWN_ERRORS", {})
+    monkeypatch.setattr(codex_auth.subprocess, "run", refuse)
+
+    assert codex_auth.CodexAuthService()._probe_version("/x/codex") is None
+    assert "Not enough memory" in (codex_auth.version_spawn_error("/x/codex") or "")
+    codex_auth.clear_version_cache()
+    assert codex_auth.version_spawn_error("/x/codex") is None
+
+
 def test_antigravity_names_the_resolved_cli_kind(monkeypatch):
     from jarvis.google_cli import auth_service as gsvc
 

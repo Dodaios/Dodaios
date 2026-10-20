@@ -22,10 +22,13 @@ import inspect
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import AsyncExitStack
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 from uuid import uuid4
+
+from jarvis.missions.events import MISSION_LANGUAGES
 
 from .approvals import Approvals
 from .bridge import MissionBridge
@@ -35,6 +38,7 @@ from .checkpoints import CheckpointEngine
 from .communication import reply_policy, should_report
 from .conversation import ConversationArchive
 from .delivery import IncomingMessage, incoming_context
+from .display_name import display_name, lead_display_name
 from .events import MsgType, QuestState, RoomState, SocietyEnvelope, Tier, now_ms
 from .focus import derive_approval_rules, derive_focus
 from .learning import AgentSkills, LearningPass, TurnDigest, default_creator_factory
@@ -63,6 +67,17 @@ class _UsablePlugins:
     read_at: float
 
 
+#: Set by a caller that waits for the reply to the message it is about to send
+#: and says that reply itself (``jarvis.plugins.tool.ask_agent``).
+#: The value is an empty list that receives the id of the ONE question it
+#: marks; a task that inherits the context finds the list already used.
+#: How many answers said inside a call are remembered until their delivery runs.
+_ANSWERED_INLINE_MAX: Final[int] = 256
+reply_awaited_inline: ContextVar[list[str] | None] = ContextVar(
+    "reply_awaited_inline", default=None
+)
+
+
 class SocietyRuntimeClosed(RuntimeError):
     """This runtime owner has entered terminal shutdown."""
 
@@ -83,6 +98,9 @@ _WATCH_EVENT_POLL_SECONDS: Final[float] = 2.0
 #: running turn before the watcher stops waiting for a terminal event. Two, so a
 #: turn that ends between the read and the check is still read on the next poll.
 _WATCH_GONE_POLLS: Final[int] = 2
+#: The drill switch: a file in the data dir that injects a named fault.
+_DRILL_FILE: Final[str] = "society_drill.json"
+_DRILL_MAX_S: Final[float] = 30.0
 
 _current: SocietyRuntime | None = None
 
@@ -109,11 +127,12 @@ def _turn_alive(svc: Any, session_id: str) -> bool:
         return True
 
 
-def _agent_frame(agent: AgentRecord, task: str) -> str:
+def _agent_frame(agent: AgentRecord, task: str, config: Any = None) -> str:
     """The mission prompt that carries the agent's identity to a worker."""
+    name = display_name(agent, config)
     lines = [
-        f"You are {agent.name}" + (f", {agent.title}" if agent.title else "") + ",",
-        f"a {agent.tier} agent in the user's agent society led by Jarvis.",
+        f"You are {name}" + (f", {agent.title}" if agent.title else "") + ",",
+        f"a {agent.tier} agent in the user's agent society led by {lead_display_name(config)}.",
     ]
     if agent.description.strip():
         lines += ["", "Standing instructions:", agent.description.strip()]
@@ -193,6 +212,13 @@ class SocietyRuntime:
             self._data_dir / "society-conversations.db", defer_open=True
         )
         self._review_lock = asyncio.Lock()
+        #: Requests whose reply a caller is waiting for and will speak itself;
+        #: their answer is not announced a second time (``reply_awaited_inline``).
+        self._awaited_inline: set[str] = set()
+        #: Requests whose answer a caller already received and said. The runtime
+        #: may deliver that answer only after the caller stopped waiting; this
+        #: keeps that late delivery quiet (in insertion order, bounded).
+        self._answered_inline: dict[str, None] = {}
         #: The Quest Board: the person's jobs, routed to one taker, read back off the board.
         self.quests = Quests(self)
         from .team_lead import TeamLeads
@@ -405,8 +431,13 @@ class SocietyRuntime:
     ) -> None:
         from jarvis.core.delegation import result_announcement
 
+        # Read before the first await: the asker may stop waiting meanwhile.
+        said_inline = request.event_id in self._awaited_inline or (
+            self._answered_inline.pop(request.event_id, False) is None
+        )
         event = result_announcement(
-            source="society.lead", request_id=request.event_id, name=target.name,
+            source="society.lead", request_id=request.event_id,
+            name=self.display_name(target),
             request=request.text, status=status, report=summary,
             language=str(request.payload.get("lang") or ""),
         )
@@ -422,13 +453,18 @@ class SocietyRuntime:
                 session = svc.store.get_session(session_id) if session_id else None
                 if session is not None and session.surface == "jarvis":
                     await post(session_id, {
-                        "kind": kind, "agent_id": target.agent_id, "agent_name": target.name,
+                        "kind": kind, "agent_id": target.agent_id,
+                        "agent_name": self.display_name(target),
                         "msg_type": message_type, "status": status, "text": summary[:1000],
                         "session_id": target.session_id, "trace_id": request.trace_id,
                         "assignment_id": request.event_id, "report": event.report,
                     })
             except Exception:  # A chat failure must not suppress the voice result.
                 log.warning("society: result notice delivery failed", exc_info=True)
+        if said_inline or request.event_id in self._awaited_inline:
+            # The asker is waiting on this very answer, or already has it, and
+            # says it itself; the chat notice above keeps the durable copy.
+            return
         surface = request.payload.get("reply_surface")
         if surface == "voice" or (surface is None and request.trace_id.startswith("voice:")):
             if self._publish_event is not None:
@@ -438,6 +474,19 @@ class SocietyRuntime:
                         await value
                 except Exception:  # The durable board and chat still retain the report.
                     log.warning("society: result announcement failed", exc_info=True)
+
+    def stop_awaiting_inline(self, request_id: str, *, answered: bool = False) -> None:
+        """The caller stopped waiting.
+
+        ``answered``: it has the answer and said it, so that answer's delivery
+        stays quiet even when it runs later. Otherwise a later reply is
+        announced as usual.
+        """
+        self._awaited_inline.discard(request_id)
+        if answered:
+            self._answered_inline[request_id] = None
+            while len(self._answered_inline) > _ANSWERED_INLINE_MAX:
+                self._answered_inline.pop(next(iter(self._answered_inline)))
 
     async def _deliver_pending(self) -> None:
         """Recover committed messages and retry busy chats without opening sockets."""
@@ -459,6 +508,10 @@ class SocietyRuntime:
     def config(self) -> Any:
         """The live app config the chat binding reads provider defaults from."""
         return self._get_cfg()
+
+    def display_name(self, agent: AgentRecord) -> str:
+        """The name to show, speak or send for ``agent`` (``display_name`` module)."""
+        return display_name(agent, self._get_cfg())
 
     async def close(self) -> None:
         # HTTP serving continues during independent server cleanup. Fence this
@@ -543,11 +596,30 @@ class SocietyRuntime:
         await asyncio.to_thread(self.conversations.ingest, session.session_id, events)
         await self._complete_message_reply(session, completion, events)
         terminal = [e for e in events if e.get("kind") == "turn_finished"]
-        if not terminal or terminal[-1].get("payload", {}).get("status") not in {
+        finished = bool(terminal) and terminal[-1].get("payload", {}).get("status") in {
             "done",
             "ok",
             "completed",
-        }:
+        }
+        if completion.turn.direct_user:
+            from .surface import agent_id_of
+
+            owner = agent_id_of(session.session_id)
+            if owner and self.team_leads.group_led_by(owner) is not None:
+                # The person's own turn in a team lead's chat: a goal the lead
+                # acted on in it is followed up like a managing turn.
+                final = next(
+                    (
+                        str(e.get("payload", {}).get("text") or "")
+                        for e in reversed(events)
+                        if e.get("kind") == "assistant_text"
+                    ),
+                    "",
+                )
+                self.background(
+                    self.team_leads.person_turn_ended(owner, ok=finished, final=final)
+                )
+        if not finished:
             return
         names = {
             str(e.get("payload", {}).get("name") or "")
@@ -840,6 +912,25 @@ class SocietyRuntime:
             return await self.team_leads.accept_assignment(target, env)
         return await self._dispatch_chat(target, env)
 
+    def _drill_seconds(self, key: str) -> float:
+        """A fault the person switched on for a drill, in seconds; ``0`` = off.
+
+        Read from ``<data dir>/society_drill.json`` on every use, so a drill
+        starts and ends without a restart and is off whenever the file is
+        absent. Capped: a drill delays one start, it never hangs the society.
+        """
+        path = self._data_dir / _DRILL_FILE
+        if not path.is_file():
+            return 0.0
+        try:
+            import json
+
+            value = float(json.loads(path.read_text(encoding="utf-8")).get(key) or 0)
+        except (OSError, ValueError, TypeError, AttributeError):
+            log.warning("society drill: %s is unreadable; no fault is injected", path)
+            return 0.0
+        return max(0.0, min(value, _DRILL_MAX_S))
+
     async def _dispatch_chat(self, target: AgentRecord, env: SocietyEnvelope) -> str:
         svc = self._get_chat()
         if svc is None:
@@ -848,26 +939,28 @@ class SocietyRuntime:
 
         # Work Jarvis or a teammate hands out runs in the agent's one chat; the
         # chat shows the framed assignment as a delegation card from its sender.
+        sender = await self.roster.get(env.from_agent)
+        sender_name = self.display_name(sender) if sender is not None else env.from_agent
         session = ensure_session(svc, self._get_cfg(), target)
         if svc.is_running(session.session_id):
-            raise RuntimeError(f"target busy: {target.name} is running a turn")
+            raise RuntimeError(f"target busy: {self.display_name(target)} is running a turn")
         queue = svc.subscribe(session.session_id)
         # Both API and CLI turns inherit the same trusted request provenance.
         token = incoming_context.set(
             IncomingMessage(
                 message_id=env.event_id,
                 sender_id=env.from_agent,
-                sender_name=env.from_agent,
+                sender_name=sender_name,
                 sender_kind="jarvis" if env.from_agent == LEAD_AGENT_ID else "agent",
                 text=env.text,
-                prompt=frame_assignment(env),
+                prompt=frame_assignment(env, sender_name),
                 trace_id=env.trace_id,
             )
         )
         try:
             turn_id = await svc.send(
                 session.session_id,
-                frame_assignment(env),
+                frame_assignment(env, sender_name),
                 **({"read_only": True} if env.payload.get("read_only") is True else {}),
                 **(
                     {"direct_user": False}
@@ -880,6 +973,17 @@ class SocietyRuntime:
             raise
         finally:
             incoming_context.reset(token)
+        hold = self._drill_seconds("slow_start_s")
+        if hold:
+            # A drill the person switched on (docs/agent-society/team-leads.md):
+            # the turn is running, and this start now takes long enough for the
+            # board to give up on it, exactly as a slow start does.
+            log.warning("society drill: holding the start of %s for %.0f s", target.name, hold)
+            try:
+                await asyncio.sleep(hold)
+            except asyncio.CancelledError:
+                svc.unsubscribe(session.session_id, queue)
+                raise
         run_id = f"turn:{turn_id}"
         watcher = asyncio.create_task(
             self._watch_turn(svc, session.session_id, queue, turn_id, run_id, target, env)
@@ -1137,10 +1241,10 @@ class SocietyRuntime:
         task = env.text or str(env.payload.get("task", "")) or "(no task text)"
         language = env.payload.get("lang")
         kwargs: dict[str, Any] = {
-            "prompt": _agent_frame(target, task),
+            "prompt": _agent_frame(target, task, self._get_cfg()),
             "source_actor": "hauptjarvis",
         }
-        if language in ("de", "en"):
+        if language in MISSION_LANGUAGES:
             kwargs["language"] = language
         mission_id = await manager.dispatch(**kwargs)
         self._owners[str(mission_id)] = target.agent_id
@@ -1253,16 +1357,30 @@ class SocietyRuntime:
         turn = current_chat_turn.get()
         if turn is not None and turn.direct_user:
             body["reply_session_id"] = turn.session_id
-        envelope = await self.store.append_and_publish(
-            SocietyEnvelope(
-                msg_type=msg_type,
-                from_agent=from_agent,
-                to_agent=to_agent,
-                trace_id=trace_id or f"chat:{uuid4().hex}",
-                payload=body,
-                parent_event_id=parent_event_id,
-            )
+        outgoing = SocietyEnvelope(
+            msg_type=msg_type,
+            from_agent=from_agent,
+            to_agent=to_agent,
+            trace_id=trace_id or f"chat:{uuid4().hex}",
+            payload=body,
+            parent_event_id=parent_event_id,
         )
+        marked = reply_awaited_inline.get()
+        if (
+            marked is not None
+            and not marked
+            and from_agent == self.lead_id
+            and msg_type is MsgType.QUERY
+        ):
+            # Marked before it is stored: no reply can arrive ahead of the mark.
+            marked.append(outgoing.event_id)
+            self._awaited_inline.add(outgoing.event_id)
+        try:
+            envelope = await self.store.append_and_publish(outgoing)
+        except BaseException:
+            # Never sent: nothing may stay marked for a reply that cannot come.
+            self._awaited_inline.discard(outgoing.event_id)
+            raise
         from .delegation_wait import track_request
 
         await track_request(self, envelope)

@@ -7,12 +7,16 @@ import hashlib
 import json
 import logging
 import re
+import sys
 from typing import Any
 from uuid import UUID, uuid4
 
+from jarvis.brain.cu_gate import CU_VEHICLE_TOOL_NAMES
 from jarvis.control.cancel import CancelToken
 from jarvis.core.protocols import SupervisorToolGateway, SupervisorToolRequest
+from jarvis.live.coordination import NAMED_TOOLS
 from jarvis.live.state import LiveLedger
+from jarvis.live.tasks import BackgroundTask, TaskBoard
 from jarvis.safety.tool_executor import VOICE_CONFIRM_SENTINEL
 from jarvis.speech.hangup import (
     HangupConfirmation,
@@ -26,7 +30,9 @@ log = logging.getLogger(__name__)
 # A session.started event includes its declarations. Keep room for prompts and
 # history inside the 64 KiB message limit of smaller WebRTC clients.
 _CATALOG_BYTE_BUDGET = 24_000
-_BUILTIN_TOOLS = frozenset({"discover_tools", "call_tool", "confirm_action", "end_call"})
+_BUILTIN_TOOLS = frozenset(
+    {"discover_tools", "call_tool", "confirm_action", "end_call", "task_status"}
+)
 # An approval is a short answer made only of go-ahead words: "Ja, send ihn"
 # approves (refused live 2026-10-01 by an exact-phrase list), while "yes,
 # change the target" or "ja, aber warte" carry something else and do not.
@@ -43,15 +49,40 @@ _GO_AHEAD_WORDS = frozenset(
         # Spanish
         "sí", "si", "claro", "vale", "dale", "confirmo", "hazlo", "envía", "envialo",
         "envíalo", "adelante",
+        # European Portuguese  # i18n-allow: spoken confirmation vocabulary
+        "sim", "avança", "avanca", "força", "forca", "pode", "podes", "faz",
+        "isso", "manda", "envia", "certo", "confirmado",
     }
 )  # fmt: skip
-_APPROVAL_LOCALES = ("de", "en", "es")
+_APPROVAL_LOCALES = ("de", "en", "es", "pt")
 _RECENT_SEGMENTS = 4
 _REQUEST_TEXT_CHARS = 1200
-# Declared before every other tool so the size budget never drops them.
-_PRIORITY_TOOLS = frozenset({"workspace-orchestrate", "find-app-action", "run-app-action"})
+# Declared before every other tool so the size budget never drops them: the
+# app-steering tools and every tool the conversation rules name. A model that
+# is not given a tool it was told to use says it does not exist (live
+# 2026-10-14, a busy catalog sorted show_on_screen past the budget).
+_PRIORITY_TOOLS = frozenset({"find-app-action", "run-app-action", *NAMED_TOOLS})
 # Declared under its canonical name in every mode (see ``declarations``).
 _DIRECT_TOOLS = frozenset({"computer", "take_appshot"})
+# One screen, one mouse: these never run side by side, and a result that
+# arrives after the user asked for something else describes a screen that has
+# moved on. ``computer_use`` is the delegated vehicle for the same screen.
+_SCREEN_TOOLS = _DIRECT_TOOLS | CU_VEHICLE_TOOL_NAMES
+# The hang-up question is asked once: its state changes across an await.
+# ``confirm_action`` takes its pending approval in one step and then runs the
+# approved effect, which must not hold anything else up.
+_CONTROL_TOOLS = frozenset({"end_call"})
+# After the user moves on, an action that is about to finish still answers its
+# own call; only one that keeps running becomes a background task.
+MOVE_ON_GRACE_S = 0.6
+# Where the user's other running work is read for the one board, by section:
+# the catalog tool that knows it and the arguments for its compact listing.
+_BOARD_SOURCES: tuple[tuple[str, str, dict], ...] = (
+    ("coding_agents", "workspace-orchestrate", {"action": "status"}),
+    ("missions", "missions-list", {"active": True, "limit": 20}),
+    ("team", "society_status", {"board": True}),
+)
+_BOARD_ERROR_CHARS = 200
 _APPROVAL_NEXT_STEP = (
     "Ask the user to approve this action. After an explicit yes, call confirm_action "
     "directly (not through call_tool) with this approval_id. A yes is never a hang-up."
@@ -92,8 +123,83 @@ def function(name: str, description: str, properties: dict, required: list[str])
     }
 
 
+def _accepted_arguments(schema: Any) -> str:
+    """One sentence naming a tool's top-level arguments, for a rejected call.
+
+    The validation message alone names what was wrong, not what is right; a
+    small model then repeats the same call (live 2026-10-14: three identical
+    rejected calls in one turn).
+    """
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    if not isinstance(properties, dict) or not properties:
+        return ""
+    required = set(schema.get("required") or ())
+    parts = []
+    for name, spec in properties.items():
+        part = f"{name} (required)" if name in required else str(name)
+        values = spec.get("enum") if isinstance(spec, dict) else None
+        if isinstance(values, list) and values:
+            part += ": one of " + ", ".join(str(value) for value in values[:20])
+        parts.append(part)
+    return ("Accepted arguments: " + "; ".join(parts))[:600] + ". "
+
+
+def _numbers_from_text(args: dict, schema: Any) -> dict:
+    """Top-level number arguments a model wrote as text, as numbers.
+
+    ``"wait_seconds": "5"`` was refused twice in a row (live 2026-10-14). Only
+    a string that is exactly a number of the declared type is changed;
+    anything else is left for validation to refuse.
+    """
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    if not isinstance(properties, dict):
+        return args
+    fixed = dict(args)
+    for name, value in args.items():
+        spec = properties.get(name)
+        kind = spec.get("type") if isinstance(spec, dict) else None
+        if not isinstance(value, str) or kind not in ("integer", "number"):
+            continue
+        text = value.strip()
+        try:
+            number: int | float = int(text) if kind == "integer" else float(text)
+        except ValueError:  # not a number: validation names the argument
+            continue
+        if kind == "number" and number != number:  # NaN is no answer
+            continue
+        fixed[name] = number
+    return fixed
+
+
+def _board_section(section: str, output: Any) -> Any:
+    """One source's listing as the board shows it; None when it has another shape."""
+    if section == "coding_agents":
+        if not isinstance(output, dict) or output.get("status") != "ok":
+            return None
+        return {key: output[key] for key in ("counts", "needs_you", "workspaces") if key in output}
+    if section == "missions":
+        response = output.get("response") if isinstance(output, dict) else None
+        missions = response.get("missions") if isinstance(response, dict) else None
+        if not isinstance(missions, list):
+            return None
+        return [
+            {"mission_id": row.get("id"), "state": row.get("state"), "request": row.get("prompt")}
+            for row in missions
+            if isinstance(row, dict)
+        ]
+    if section == "team":
+        agents = output.get("agents") if isinstance(output, dict) else None
+        return agents if isinstance(agents, list) else None
+    return None
+
+
 class LiveTools:
-    """Single execution owner, including when both RTC and sideband see events."""
+    """Single execution owner, including when both RTC and sideband see events.
+
+    Independent actions run side by side; only the screen and the session's
+    own controls are serialized. An action that outlives its turn becomes a
+    background task on ``tasks`` (see ``execute_releasable``).
+    """
 
     def __init__(
         self,
@@ -116,14 +222,46 @@ class LiveTools:
         self.ask_hangup: Any = None
         self.model_selection = model_selection
         self.user_text = ""
-        self.revision = 0
+        self._revision = 0
+        self._revision_waiters: list[asyncio.Future] = []
         self.cancel_token = CancelToken()
-        self._lock = asyncio.Lock()
+        self._screen_lock = asyncio.Lock()
+        self._control_lock = asyncio.Lock()
+        # One execution per call ID: RTC and the sideband can both deliver it.
+        self._inflight: dict[str, tuple[str, str, asyncio.Future]] = {}
+        # Actions awaited by ``execute_releasable``, and those of them that
+        # left their turn while still running (see the approval gate in
+        # ``_execute``).
+        self._releasable: set[str] = set()
+        self._released: set[str] = set()
+        # Approvals whose effect is being carried out right now.
+        self._confirming: set[str] = set()
+        self.tasks = TaskBoard()
+        # The session's hooks for a task leaving its turn and for its receipt.
+        self.on_task_released: Any = None
+        self.on_task_finished: Any = None
+        # The session's connection generation, stamped on every task.
+        self.wire_epoch: Any = lambda: 0
         self._pending: dict[str, tuple[UUID, str, dict, int]] = {}
         self._names: dict[str, str] = {}
         self._defer_catalog = False
         self.end_requested = False
         self.accepting = True
+
+    @property
+    def revision(self) -> int:
+        """Counts the user's requests: a changed value means they moved on."""
+        return self._revision
+
+    @revision.setter
+    def revision(self, value: int) -> None:
+        if value == self._revision:
+            return
+        self._revision = value
+        waiters, self._revision_waiters = self._revision_waiters, []
+        for waiter in waiters:
+            if not waiter.done():
+                waiter.set_result(None)
 
     def catalog(self):
         read = getattr(self.gateway, "voice_catalog", self.gateway.catalog)
@@ -139,6 +277,8 @@ class LiveTools:
         self.cancel_token.cancel("user_cancelled")
         self.accepting = False
         self.revision += 1
+        for task in self.tasks.cancel_all():
+            log.info("Live background %s (%s) cancelled by the user", task.task_id, task.tool)
         await self._cancel_confirmations("user_cancelled")
 
     def declarations(self, *, defer_catalog: bool = False) -> list[dict]:
@@ -170,6 +310,23 @@ class LiveTools:
                 "Resume the exact pending action the user approved. Never infer approval.",
                 {"approval_id": {"type": "string"}},
                 ["approval_id"],
+            ),
+            function(
+                "task_status",
+                "One board of everything running for the user: this call's background "
+                "tasks (actions that kept running while the user moved on, each with its "
+                "request, state and result), every open coding agent with its workspace's "
+                "git state, the missions that have not ended, and the agent team. "
+                "needs_you names what is waiting for the user. Use it when the user asks "
+                "what is running, how far something is, what came out of it or who needs "
+                "them. Leave scope out for that; scope call is only for a question about "
+                "this call's own tasks and leaves the rest out. Pass cancel with a "
+                "task_id only when the user asks to stop that task.",
+                {
+                    "cancel": {"type": "string"},
+                    "scope": {"type": "string", "enum": ["all", "call"]},
+                },
+                [],
             ),
         ]
         # The screen is operated in many short rounds (ADR-0039): declare the
@@ -211,7 +368,7 @@ class LiveTools:
         for descriptor in ordered:
             if descriptor.name in _DIRECT_TOOLS:
                 continue
-            alias = "jarvis_" + hashlib.sha256(descriptor.name.encode()).hexdigest()[:20]
+            alias = self._alias(descriptor.name)
             definition = {
                 "type": "function",
                 "name": alias,
@@ -226,65 +383,339 @@ class LiveTools:
             definitions.append(definition)
         return definitions
 
+    def _alias(self, name: str) -> str:
+        """The function name a catalog tool is declared under: readable and unique.
+
+        Every provider accepts letters, digits and underscores up to 64
+        characters. The tool's own name stays legible in it: behind opaque
+        hashes a small model confused app-restart with show_on_screen (live
+        2026-10-14). A name that would collide or not fit keeps a hash suffix.
+        """
+        readable = "jarvis_" + re.sub(r"[^A-Za-z0-9_]", "_", name)
+        owner = self._names.get(readable)
+        if len(readable) <= 64 and owner in (None, name):
+            return readable
+        digest = hashlib.sha256(name.encode()).hexdigest()[:20]
+        return readable[:43] + "_" + digest
+
     async def execute(
         self, call_id: str, name: str, args: dict, revision: int,
         *, replay_result: dict | None = None,
     ) -> dict:
-        async with self._lock:
-            if (self._hangup_confirmation.pending_turn is not None
-                    and confirms_hangup(self.user_text) and name != "end_call"):
-                return {
-                    "success": False, "executed": False,
-                    "error": "This yes answers the hang-up question, not an action approval.",
-                }
-            if not self.accepting:
-                return {"success": False, "status": "voice_closed_before_execution"}
-            receipt = await asyncio.to_thread(
-                self.ledger.claim,
-                self.session_id,
-                call_id,
-                name,
-                args,
-                revision,
-            )
-            if receipt is not None:
-                return receipt
-            try:
-                if replay_result is not None and self.steering_replay_key(name, args) is None:
-                    result = {
-                        "success": False, "executed": False,
-                        "error": "Controls, approvals and reads require a fresh evaluation.",
-                    }
-                elif replay_result is not None and revision == self.revision:
-                    # The session retained this result from an earlier execution.
-                    # Record the new model call ID without performing another effect.
-                    result = {**replay_result, "reused_receipt": True}
-                else:
-                    result = await self._execute(name, args, revision)
-            except asyncio.CancelledError:
-                # Leave the claim uncertain: a cancelled request may already have acted.
-                raise
-            except Exception:
-                log.exception("Live tool execution failed for %s", name)
-                result = {
-                    "success": False,
-                    "error": "Tool execution failed; inspect its state before retrying.",
-                }
-            if revision != self.revision:
-                result = {
-                    **result,
-                    "superseded": True,
-                    "task_revision": revision,
-                    "current_revision": self.revision,
-                }
-            receipt = dict(result)
-            if isinstance(receipt.get("output"), dict):
-                receipt["output"] = {k: v for k, v in receipt["output"].items() if k != "_image"}
-            take_images(receipt)
-            await asyncio.to_thread(self.ledger.finish, self.session_id, call_id, receipt)
-            return result
+        identity = json.dumps(args, sort_keys=True, default=str)
+        running = self._inflight.get(call_id)
+        if running is not None and running[:2] == (name, identity):
+            # The same call from the second transport waits for the first's
+            # receipt. Shielded: giving up on the copy never stops the action.
+            return await asyncio.shield(running[2])
+        work = asyncio.ensure_future(
+            self._execute_claimed(call_id, name, args, revision, replay_result)
+        )
+        if running is None:
+            self._inflight[call_id] = (name, identity, work)
+            work.add_done_callback(lambda _done: self._inflight.pop(call_id, None))
+        return await work
 
-    async def _execute(self, name: str, args: dict, revision: int) -> dict:
+    async def execute_releasable(
+        self, call_id: str, name: str, args: dict, revision: int,
+        *, deadline_s: float | None = None, replay_result: dict | None = None,
+    ) -> dict:
+        """Run a call, but stop waiting once it should not hold the conversation.
+
+        An action still running when the user moves on to another request, and
+        any call still running after ``deadline_s`` (a wire whose model is
+        blocked on the result), becomes a background task: the caller gets a
+        pending receipt now, the call keeps running, and the session reports
+        its real receipt at a pause. Nothing is cancelled or repeated here.
+        """
+        token = self.cancel_token
+        # Read now: by the time the call is released, the user's next words
+        # are the latest segment, and they are not what this call answers.
+        request = self.request_text
+        # Resolved now: an approval is taken off the list once its effect runs.
+        call = self._effect_of(name, args)
+        if self._is_background_action(name, args):
+            self._releasable.add(call_id)
+        work = asyncio.ensure_future(
+            self.execute(call_id, name, args, revision, replay_result=replay_result)
+        )
+        work.add_done_callback(lambda _done: self._releasable.discard(call_id))
+        try:
+            released = await self._outlives_its_turn(work, name, args, revision, deadline_s)
+        except asyncio.CancelledError:
+            work.cancel()  # cancelling the call still cancels its tool
+            raise
+        if not released:
+            return work.result()
+        self._released.add(call_id)
+        work.add_done_callback(lambda _done: self._released.discard(call_id))
+        task = self.tasks.add(
+            tool=call[0],
+            arguments=call[1],
+            summary=self._task_summary(*call),
+            request_text=request,
+            revision=revision,
+            epoch=int(self.wire_epoch()),
+            work=work,
+            cancel_token=token,
+            obsolete_on_new_request=not self._is_background_action(name, args),
+        )
+        work.add_done_callback(lambda done: self._task_settled(task, done))
+        log.info(
+            "Live tool %s keeps running as background %s (%s)",
+            task.tool, task.task_id,
+            "the user moved on" if revision != self.revision else "past its deadline",
+        )
+        if callable(self.on_task_released):
+            self.on_task_released(task)
+        return {
+            "success": False,
+            "pending": True,
+            "status": "running_in_background",
+            "task_id": task.task_id,
+            "error": (
+                f"This call is still running and continues in the background as "
+                f"{task.task_id}. Its result is handed to you when it finishes. Tell the "
+                "user in one short sentence that it is running, never that it is done; do "
+                "not call it again, and carry on with the user's latest request. If that "
+                "request needs this result, say it follows once the task has finished: you "
+                "carry it out when the result arrives."
+            ),
+            "background_tasks": [item.describe() for item in self.tasks.running()],
+        }
+
+    async def _outlives_its_turn(
+        self, work: asyncio.Future, name: str, args: dict, revision: int,
+        deadline_s: float | None,
+    ) -> bool:
+        """Wait for ``work``; True once it has to continue without its caller."""
+        loop = asyncio.get_running_loop()
+        deadline = None if deadline_s is None else loop.time() + deadline_s
+        action = self._is_background_action(name, args)
+        while not work.done():
+            if action and revision != self.revision:
+                await asyncio.wait({work}, timeout=MOVE_ON_GRACE_S)
+                return not work.done()
+            timeout = None if deadline is None else deadline - loop.time()
+            if timeout is not None and timeout <= 0:
+                return True
+            waiting: set[asyncio.Future] = {work}
+            moved: asyncio.Future | None = None
+            if action:
+                moved = loop.create_future()
+                self._revision_waiters.append(moved)
+                waiting.add(moved)
+            try:
+                await asyncio.wait(waiting, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
+            finally:
+                if moved is not None and not moved.done():
+                    moved.cancel()
+                    if moved in self._revision_waiters:
+                        self._revision_waiters.remove(moved)
+        return False
+
+    def _effect_of(self, name: str, args: dict) -> tuple[str, dict]:
+        """The tool and arguments a call acts with; an approval names its action."""
+        call = self._replay_call(name, args) or (name, args)
+        if call[0] == "confirm_action":
+            pending = self._pending.get(str(call[1].get("approval_id", "")))
+            if pending is None and len(self._pending) == 1:
+                pending = next(iter(self._pending.values()))
+            if pending is not None:
+                return pending[1], dict(pending[2])
+        return call
+
+    def _is_background_action(self, name: str, args: dict) -> bool:
+        """An effect in the user's world whose outcome is owed whatever came next."""
+        call = self._replay_call(name, args)
+        if call is None or call[0] in _SCREEN_TOOLS:
+            return False
+        if call[0] == "confirm_action":
+            return True  # the approved effect runs inside this call
+        if call[0] in _BUILTIN_TOOLS:
+            return False
+        return not self._reads_only(*call)
+
+    def _task_summary(self, tool: str, args: dict) -> str:
+        descriptor = next((d for d in self.catalog() if d.name == tool), None)
+        describe = getattr(descriptor, "describe_args", None)
+        if callable(describe):
+            try:
+                detail = describe(args)
+            except Exception:
+                log.warning("Live task summary failed for %s", tool, exc_info=True)
+            else:
+                parts = [str(detail.get(key) or "") for key in ("agent", "workspace", "task")]
+                text = " · ".join(part for part in parts if part)
+                if text:
+                    return f"{tool}: {text}"
+        return tool
+
+    def approval_presented(self, approval_id: str) -> None:
+        """A background task's approval question has now reached the user."""
+        pending = self._pending.get(str(approval_id or ""))
+        if pending is not None and pending[3] == sys.maxsize:
+            self._pending[str(approval_id)] = (*pending[:3], self.revision)
+
+    async def _task_status(self, args: dict) -> dict:
+        wanted = str(args.get("cancel") or "").strip()
+        if not wanted:
+            board: dict = {"success": True, "tasks": self.tasks.snapshot()}
+            if str(args.get("scope") or "all") != "call":
+                board.update(await self._work_elsewhere())
+            needs_you = [
+                f"{task.task_id}: approval for {task.summary}"
+                for task in self.tasks.waiting_for_approval()
+            ]
+            agents = board.get("coding_agents")
+            if isinstance(agents, dict):
+                needs_you.extend(str(name) for name in agents.get("needs_you") or [])
+            board["needs_you"] = needs_you
+            return board
+        task = self.tasks.get(wanted)
+        if task is None or not self.tasks.cancel(task):
+            return {
+                "success": False,
+                "executed": False,
+                "error": "No running background task has that task_id.",
+                "tasks": self.tasks.snapshot(),
+            }
+        log.info("Live background %s (%s) cancelled on request", task.task_id, task.tool)
+        return {
+            "success": True,
+            "cancelled": task.task_id,
+            "note": "Stopped. An effect that already happened is not undone.",
+            "tasks": self.tasks.snapshot(),
+        }
+
+    async def _work_elsewhere(self) -> dict:
+        """The user's running work outside this call, one section per source.
+
+        Each section is read through the same gated tool the model could call
+        itself. A source that is missing from the catalog is left out; one
+        that fails says so instead of emptying the whole board.
+        """
+        available = {descriptor.name for descriptor in self.catalog()}
+        sources = [source for source in _BOARD_SOURCES if source[1] in available]
+        answers = await asyncio.gather(
+            *(self.gateway.execute(tool, dict(args), self._request(uuid4()))
+              for _section, tool, args in sources),
+            return_exceptions=True,
+        )
+        board: dict = {}
+        for (section, tool, _args), answer in zip(sources, answers, strict=True):
+            if isinstance(answer, asyncio.CancelledError):
+                raise answer
+            if isinstance(answer, BaseException):
+                log.warning("Live board: %s failed", tool, exc_info=answer)
+                board[section] = {"unavailable": "This part could not be read."}
+                continue
+            output = self._result(answer).get("output")
+            rows = _board_section(section, output) if answer.success else None
+            board[section] = rows if rows is not None else {
+                "unavailable": str(answer.error or output or "No answer.")[:_BOARD_ERROR_CHARS]
+            }
+        return board
+
+    def _task_settled(self, task: BackgroundTask, work: asyncio.Future) -> None:
+        if not work.cancelled() and work.exception() is not None:
+            log.warning(
+                "Live background %s (%s) raised", task.task_id, task.tool,
+                exc_info=work.exception(),
+            )
+        self.tasks.settle(task, work)
+        if task.result is not None:
+            # The action ran for its own request; that the user said more
+            # meanwhile is why it is a background task, not a defect of it.
+            task.result = {
+                key: value for key, value in task.result.items()
+                if key not in {"superseded", "task_revision", "current_revision"}
+            }
+        log.info(
+            "Live background %s (%s) ended %s after %.0f s",
+            task.task_id, task.tool, task.status, task.finished_at - task.started_at,
+        )
+        if callable(self.on_task_finished):
+            self.on_task_finished(task)
+
+    def _lane(self, name: str, args: dict) -> asyncio.Lock | None:
+        """The lock a call runs under; ``None`` for independent work."""
+        call = self._replay_call(name, args)
+        canonical = call[0] if call is not None else name
+        if canonical in _SCREEN_TOOLS:
+            return self._screen_lock
+        if canonical in _CONTROL_TOOLS:
+            return self._control_lock
+        return None
+
+    async def _execute_claimed(
+        self, call_id: str, name: str, args: dict, revision: int, replay_result: dict | None,
+    ) -> dict:
+        lane = self._lane(name, args)
+        if lane is None:
+            return await self._execute_recorded(call_id, name, args, revision, replay_result)
+        async with lane:
+            return await self._execute_recorded(call_id, name, args, revision, replay_result)
+
+    async def _execute_recorded(
+        self, call_id: str, name: str, args: dict, revision: int, replay_result: dict | None,
+    ) -> dict:
+        if (self._hangup_confirmation.pending_turn is not None
+                and confirms_hangup(self.user_text) and name != "end_call"):
+            return {
+                "success": False, "executed": False,
+                "error": "This yes answers the hang-up question, not an action approval.",
+            }
+        if not self.accepting:
+            return {"success": False, "status": "voice_closed_before_execution"}
+        receipt = await asyncio.to_thread(
+            self.ledger.claim,
+            self.session_id,
+            call_id,
+            name,
+            args,
+            revision,
+        )
+        if receipt is not None:
+            return receipt
+        try:
+            if replay_result is not None and self.steering_replay_key(name, args) is None:
+                result = {
+                    "success": False, "executed": False,
+                    "error": "Controls, approvals and reads require a fresh evaluation.",
+                }
+            elif replay_result is not None and revision == self.revision:
+                # The session retained this result from an earlier execution.
+                # Record the new model call ID without performing another effect.
+                result = {**replay_result, "reused_receipt": True}
+            else:
+                result = await self._execute(name, args, revision, call_id=call_id)
+        except asyncio.CancelledError:
+            # Leave the claim uncertain: a cancelled request may already have acted.
+            raise
+        except Exception:
+            log.exception("Live tool execution failed for %s", name)
+            result = {
+                "success": False,
+                "error": "Tool execution failed; inspect its state before retrying.",
+            }
+        if revision != self.revision:
+            result = {
+                **result,
+                "superseded": True,
+                "task_revision": revision,
+                "current_revision": self.revision,
+            }
+        receipt = dict(result)
+        if isinstance(receipt.get("output"), dict):
+            receipt["output"] = {k: v for k, v in receipt["output"].items() if k != "_image"}
+        take_images(receipt)
+        await asyncio.to_thread(self.ledger.finish, self.session_id, call_id, receipt)
+        return result
+
+    async def _execute(
+        self, name: str, args: dict, revision: int, *, call_id: str = "",
+    ) -> dict:
         operation_token = self.cancel_token
         if operation_token.is_cancelled():
             return {"success": False, "status": "cancelled"}
@@ -354,6 +785,8 @@ class LiveTools:
             except (TypeError, ValueError):  # a malformed offset starts the listing from the top
                 offset = 0
             return discover(self.catalog(), str(args.get("query", "")), offset)
+        if name == "task_status":
+            return await self._task_status(args)
         if name == "confirm_action":
             approval_id = str(args.get("approval_id", ""))
             if approval_id not in self._pending and len(self._pending) == 1:
@@ -361,6 +794,14 @@ class LiveTools:
                 # model that mistypes the 36-character id must not void it.
                 approval_id = next(iter(self._pending))
             pending = self._pending.get(approval_id)
+            if pending is None and approval_id in self._confirming:
+                # The same yes delivered twice: the first call is carrying it out.
+                return {
+                    "success": False,
+                    "executed": False,
+                    "status": "already_running",
+                    "error": "This approved action is already being carried out.",
+                }
             if pending is None or self.revision <= pending[3] or not self._user_approved():
                 # Say why, or the model asks the same question again and again.
                 return {
@@ -376,13 +817,19 @@ class LiveTools:
             trace, _, _, _ = self._pending.pop(approval_id)
             from jarvis.core.model_selection import ModelSelection, use_operation_model
 
-            if self.backend_model:
-                with use_operation_model(
-                    self.model_selection or ModelSelection("openai", self.backend_model)
-                ):
+            self._confirming.add(approval_id)
+            try:
+                if self.backend_model:
+                    with use_operation_model(
+                        self.model_selection or ModelSelection("openai", self.backend_model)
+                    ):
+                        result = await self.gateway.execute_confirmed(
+                            trace, self._request(trace)
+                        )
+                else:
                     result = await self.gateway.execute_confirmed(trace, self._request(trace))
-            else:
-                result = await self.gateway.execute_confirmed(trace, self._request(trace))
+            finally:
+                self._confirming.discard(approval_id)
             return self._result(result)
         canonical = self._names.get(name, name)
         if name == "call_tool":
@@ -407,6 +854,7 @@ class LiveTools:
             }
         import jsonschema  # type: ignore[import-untyped]
 
+        args = _numbers_from_text(args, descriptor.input_schema)
         try:
             jsonschema.validate(args, descriptor.input_schema)
         except jsonschema.ValidationError as exc:
@@ -417,7 +865,11 @@ class LiveTools:
                 "success": False,
                 "executed": False,
                 "retryable": True,
-                "error": f"Invalid {field}: {exc.message[:300]}. Correct it and call again.",
+                "error": (
+                    f"Invalid {field}: {exc.message[:300]}. "
+                    f"{_accepted_arguments(descriptor.input_schema)}"
+                    "Correct it and call again."
+                ),
             }
         trace = uuid4()
         from jarvis.core.model_selection import ModelSelection, use_operation_model
@@ -441,14 +893,22 @@ class LiveTools:
                 }
             result = await self.gateway.execute(canonical, args, self._request(trace))
         if result.error == VOICE_CONFIRM_SENTINEL:
-            if operation_token.is_cancelled() or revision != self.revision:
+            # An action the session still follows is the user's order even
+            # after they said more: its approval question is kept. Only a call
+            # nobody waits for any more is withdrawn.
+            overtaken = revision != self.revision and call_id not in self._releasable
+            if operation_token.is_cancelled() or overtaken:
                 await self.gateway.cancel_pending(trace, reason="superseded")
                 return {"success": False, "status": "superseded"}
             if not self.accepting:
                 await self.gateway.cancel_pending(trace, reason="voice_session_closed")
                 return {"success": False, "status": "voice_closed_before_confirmation"}
             approval_id = str(trace)
-            self._pending[approval_id] = (trace, canonical, dict(args), self.revision)
+            # A yes counts only when it was said after the question. A call
+            # that already left its turn has not asked yet: its approval is
+            # unanswerable until its report was told (``approval_presented``).
+            asked_at = sys.maxsize if call_id in self._released else self.revision
+            self._pending[approval_id] = (trace, canonical, dict(args), asked_at)
             return {
                 "success": False,
                 "confirmation_required": True,
@@ -503,6 +963,8 @@ class LiveTools:
                 args = json.loads(args.get("arguments_json") or "{}")
             except (TypeError, ValueError):
                 return False  # Unknown arguments cannot prove a read-only call.
+        if name == "task_status":
+            return isinstance(args, dict) and not str(args.get("cancel") or "").strip()
         canonical = self._names.get(name, name)
         descriptor = next((d for d in self.catalog() if d.name == canonical), None)
         if descriptor is None or not isinstance(args, dict):

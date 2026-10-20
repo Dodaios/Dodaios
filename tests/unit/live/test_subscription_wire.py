@@ -440,3 +440,30 @@ async def test_cancelled_setup_retires_allocated_call_without_new_mutation():
     assert len(wire.requests) == 1
     assert wire.socket.sent == [{"type": "session.close"}]
     assert wire.socket.closed == 1
+
+
+@pytest.mark.parametrize(
+    "plan,named",
+    [("free", "(Free plan)"), ("", "account is not"), ("evil\nplan: <b>", "account is not")],
+)
+async def test_a_refused_call_route_names_the_account_instead_of_a_passing_outage(plan, named):
+    """Live 2026-10-13: an account whose paid plan had ended got 404 on every
+    call and was told voice is "temporarily unavailable" for days."""
+    wire = FakeSubscriptionLiveWire([httpx.Response(404, text="provider-private-secret")])
+
+    plain = wire.credentials
+
+    async def credentials(*, force_refresh: bool = False):
+        login = await plain(force_refresh=force_refresh)
+        login.plan = plan
+        return login
+
+    wire.credentials = credentials
+    with pytest.raises(SubscriptionLiveError) as caught:
+        await wire.provider().open_session(wire.config())
+    assert caught.value.code == "voice_not_offered"
+    assert named in str(caught.value)
+    assert "temporarily" not in str(caught.value)
+    assert "provider-private-secret" not in str(caught.value)
+    assert "evil" not in str(caught.value)
+    assert not wire.connects and len(wire.requests) == 1

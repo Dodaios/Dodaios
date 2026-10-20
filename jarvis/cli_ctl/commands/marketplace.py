@@ -14,6 +14,7 @@ from typing import Any
 
 import typer
 
+from jarvis.cli.command_name import main_command
 from jarvis.cli_ctl import invoke, options, render
 from jarvis.cli_ctl.client import ApiError
 
@@ -152,8 +153,8 @@ def _report_installed(payload: dict[str, Any]) -> int:
             "Status",
             "ready to use — Dodaios picked it up already, no restart needed",
         )
-        _field("Check", f"jarvis skills show {item_id}")
-        _field("Turn off", f"jarvis skills disable {item_id}")
+        _field("Check", f"{main_command()} skills show {item_id}")
+        _field("Turn off", f"{main_command()} skills disable {item_id}")
         render.line()
         return 0
 
@@ -162,7 +163,7 @@ def _report_installed(payload: dict[str, Any]) -> int:
             "Status",
             "on your list, but NOT connected — it cannot do anything yet",
         )
-        _field("Next", f"jarvis marketplace connect-start {item_id}")
+        _field("Next", f"{main_command()} marketplace connect-start {item_id}")
         _field("Or", "open the app → Plugins → Community and press Connect")
         render.line()
         return 0
@@ -170,7 +171,7 @@ def _report_installed(payload: dict[str, Any]) -> int:
     _field("Status", f"{payload.get('state') or 'unknown'} — Dodaios will not use it")
     if payload.get("problem"):
         _field("Problem", str(payload["problem"]))
-    _field("Look", f"jarvis skills show {item_id}")
+    _field("Look", f"{main_command()} skills show {item_id}")
     render.line()
     return 1
 
@@ -198,7 +199,7 @@ def _report_already_there(kind: str, item_id: str, client: Any) -> int:
         )
         if detail.get("error"):
             _field("Problem", str(detail["error"]))
-        _field("Look", f"jarvis skills show {item_id}")
+        _field("Look", f"{main_command()} skills show {item_id}")
         render.line()
         return 0 if ready else 1
     status = "unknown"
@@ -214,7 +215,7 @@ def _report_already_there(kind: str, item_id: str, client: Any) -> int:
         _field("Status", "connected and usable")
     else:
         _field("Status", f"{status} — connect it before it can do anything")
-        _field("Next", f"jarvis marketplace connect-start {item_id}")
+        _field("Next", f"{main_command()} marketplace connect-start {item_id}")
     render.line()
     return 0
 
@@ -258,7 +259,7 @@ def install(
                 render.error(
                     f"{item_id!r} is not in the marketplace."
                     f"{_suggest(index if isinstance(index, dict) else {}, item_id)} "
-                    "Run `jarvis marketplace browse` to see everything on offer."
+                    f"Run `{main_command()} marketplace browse` to see everything on offer."
                 )
                 raise typer.Exit(code=1)
             kind, entry = found
