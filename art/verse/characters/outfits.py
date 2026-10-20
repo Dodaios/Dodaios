@@ -28,13 +28,14 @@ from characters import posing as P
 
 # name: (base colour linear RGB, roughness, metallic, extra)
 MATERIALS = {
-    "M_Uniform": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.1}),
-    "M_Trim": ((0.075, 0.078, 0.066), 0.74, 0.0, {"sheen": 0.1}),
+    "M_Uniform": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.08}),
+    "M_Trim": ((0.075, 0.078, 0.066), 0.74, 0.0, {"sheen": 0.08}),
     "M_Accent": ((0.42, 0.045, 0.035), 0.55, 0.0, {}),
     "M_Skin": ((0.62, 0.38, 0.27), 0.52, 0.0, {}),
-    "M_Hair": ((0.022, 0.014, 0.010), 0.55, 0.0, {}),
+    # hair: the atlas darkens it between the locks (factor = the lit lock colour)
+    "M_Hair": ((0.055, 0.036, 0.025), 0.48, 0.0, {}),
     "M_Boots": ((0.010, 0.010, 0.011), 0.24, 0.0, {"coat": 0.8}),
-    "M_Cap": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.1}),
+    "M_Cap": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.08}),
     "M_Belt": ((0.014, 0.014, 0.015), 0.38, 0.0, {"coat": 0.3}),
     "M_RankPlate": ((0.40, 0.42, 0.45), 0.3, 1.0, {}),
     "M_Helmet": ((0.012, 0.012, 0.013), 0.14, 0.0, {"coat": 1.0}),
@@ -43,9 +44,11 @@ MATERIALS = {
     "M_Glow": ((0.9, 0.55, 0.12), 0.4, 0.0, {"emit": 3.0}),
     "M_Gloves": ((0.016, 0.016, 0.017), 0.48, 0.0, {}),
     "M_Armor": ((0.60, 0.60, 0.58), 0.32, 0.0, {"coat": 0.45}),
-    "M_Undersuit": ((0.023, 0.026, 0.030), 0.72, 0.0, {"sheen": 0.1}),
-    "M_Trousers": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.1}),
+    "M_Undersuit": ((0.023, 0.026, 0.030), 0.72, 0.0, {"sheen": 0.08}),
+    "M_Trousers": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.08}),
     "M_Mark": ((0.78, 0.78, 0.76), 0.5, 0.0, {}),
+    # eyeballs: white factor, the atlas paints sclera, iris and pupil
+    "M_Eye": ((0.86, 0.85, 0.83), 0.2, 0.0, {"coat": 0.6}),
 }
 for _i in range(1, 7):
     MATERIALS[f"M_RankTile_{_i}"] = ((0.023, 0.026, 0.030), 0.35, 0.0, {})
@@ -62,7 +65,11 @@ def make_materials():
         bsdf.inputs["Roughness"].default_value = rough
         bsdf.inputs["Metallic"].default_value = metal
         if "sheen" in extra:
-            bsdf.inputs["Sheen Weight"].default_value = extra["sheen"]
+            # The glTF exporter writes the sheen *tint* as sheenColorFactor and drops the
+            # weight, so the amount lives in the tint (weight 1). A white tint made every
+            # uniform look washed out in three.js.
+            bsdf.inputs["Sheen Weight"].default_value = 1.0
+            bsdf.inputs["Sheen Tint"].default_value = (*([extra["sheen"]] * 3), 1.0)
             bsdf.inputs["Sheen Roughness"].default_value = 0.6
         if "coat" in extra:
             bsdf.inputs["Coat Weight"].default_value = extra["coat"]
@@ -365,6 +372,26 @@ def garment_body(ctx: Ctx, classify, name="Body"):
     return ob
 
 
+def hair_volume(ctx: Ctx, V: np.ndarray, female: bool) -> np.ndarray:
+    """Thickness of the hair over the scalp (metres at 1.78 m), per vertex.
+
+    Male: a short side-parted cut with volume on top and a lifted front, tapered
+    over the ears and at the nape. Female: hair drawn back smoothly into the bun,
+    a little fuller at the crown."""
+    ez, ey = ctx.eyes[0].z, ctx.eyes[0].y
+    up = np.clip((V[:, 2] - (ez + 0.015)) / 0.085, 0.0, 1.0)
+    up = up * up * (3 - 2 * up)
+    nape = np.clip((ez - 0.01 - V[:, 2]) / 0.06, 0.0, 1.0) * (V[:, 1] > ey + 0.06)
+    if female:
+        t = 0.0045 + 0.0055 * up
+        crown = np.exp(-(((V[:, 1] - (ey + 0.09)) / 0.05) ** 2)) * up
+        return (t + 0.003 * crown) * (1.0 - 0.4 * nape)
+    t = 0.004 + 0.010 * up
+    front = np.exp(-(((V[:, 1] - (ey + 0.025)) / 0.035) ** 2)) * up
+    side = np.clip((np.abs(V[:, 0]) - 0.055) / 0.03, 0.0, 1.0) * (1.0 - up)
+    return (t + 0.006 * front) * (1.0 - 0.45 * side) * (1.0 - 0.55 * nape)
+
+
 def hairline(ctx: Ctx, V: np.ndarray, female: bool) -> np.ndarray:
     """Height of the hairline for every vertex (scalp is above)."""
     ez = ctx.eyes[0].z
@@ -506,7 +533,9 @@ def collar(ctx: Ctx, z0: float, z1: float, out=0.011, mat="M_Trim", piping="M_Ac
     neck = neck[np.abs(neck[:, 0]) < 0.09]
     c = neck[:, :2].mean(axis=0)
     ang, r = polar_radii(neck, c, 28, smooth=3)
-    r = np.minimum(r, np.median(r) * 1.15)
+    # Follow the wider base of the neck at the back corners (a tight clamp let the
+    # shoulder cloth show inside the collar from behind), but not the shoulders.
+    r = np.minimum(r, np.median(r) * 1.3)
     tilt = 0.012 * np.sin(ang)  # higher at the back (+Y)
     bm = bmesh.new()
     rings = [
@@ -514,6 +543,7 @@ def collar(ctx: Ctx, z0: float, z1: float, out=0.011, mat="M_Trim", piping="M_Ac
         ring_points(c, ang, r + out + 0.002, z1 + tilt),
         ring_points(c, ang, r + out - 0.004, z1 + tilt + 0.003),
         ring_points(c, ang, r + 0.002, z1 + tilt - 0.004),
+        ring_points(c, ang, r - 0.002, z1 + tilt - 0.03),
     ]
     tube(bm, rings, mat=0)
     mats = [mat]
@@ -534,6 +564,28 @@ def collar(ctx: Ctx, z0: float, z1: float, out=0.011, mat="M_Trim", piping="M_Ac
     return ob
 
 
+def collar_pin(ctx: Ctx, col, z: float, mat="M_RankPlate"):
+    """12 mm steel hexagon on the right collar point (style bible 7.2)."""
+    bvh = BVHTree.FromObject(col, bpy.context.evaluated_depsgraph_get())
+    a = math.radians(-90 - 32)  # front, towards the wearer's right (-X)
+    d = Vector((math.cos(a), math.sin(a), 0.0))
+    hit, nrm, _i, _d = bvh.ray_cast(Vector((0.0, ctx.L["neck"].y, z)) + d * 0.3, -d)
+    if hit is None:
+        raise RuntimeError("collar pin: collar not found")
+    out = Vector((nrm.x, nrm.y, 0.0)).normalized()
+    if out.dot(d) < 0:
+        out = -out
+    up = Vector((0, 0, 1))
+    side = up.cross(out).normalized()
+    bm = bmesh.new()
+    hexagon(bm, hit + out * 0.0006, side, up, out, 0.012, 0.0104, 0.0022, chamfer=0.003)
+    ob = new_obj("CollarPin", bm, [mat])
+    for p in ob.data.polygons:
+        p.use_smooth = False
+    ctx.transfer(ob)
+    return ob
+
+
 def skirt(
     ctx: Ctx,
     garment,
@@ -548,6 +600,14 @@ def skirt(
     # Hull of the pelvis only (not the spread thighs of the rest pose). `cloth` is the
     # garment surface per naked vertex (tailored), else a flat 8 mm over the body.
     pelvis = ctx.bone_mask("Hips", "Spine")
+    # The seat and the top of the thighs belong to the leg bones; the skirt must close
+    # over them too, or the trousers show through it from behind (the game camera
+    # follows the commander from the back).
+    pelvis |= (
+        ctx.bone_mask("UpperLeg_L", "UpperLeg_R")
+        & (ctx.V[:, 2] > z_hem - 0.03)
+        & (ctx.V[:, 1] > ctx.L["hip"].y + 0.02)
+    )
     if cloth is not None:
         Vg = cloth[pelvis]
     else:
@@ -582,7 +642,14 @@ def skirt(
     ob = new_obj("Skirt", bm, [mat])
     top = z_top
     span = max(1e-3, z_top - z_hem)
-    ctx.transfer(ob, hips_blend=lambda co: 0.45 + 0.35 * C.clamp((top - co.z) / span, 0, 1))
+    # Front and back bridge both legs and ride the hips; the sides ride the thighs, so a
+    # leg drawn in at rest or swung while walking carries the skirt with it instead of
+    # pushing the breeches out through it.
+    def hips_blend(co):
+        side = C.clamp((abs(co.x) - 0.06 * ctx.s) / (0.06 * ctx.s), 0, 1)
+        return (0.45 + 0.35 * C.clamp((top - co.z) / span, 0, 1)) * (1.0 - 0.75 * side)
+
+    ctx.transfer(ob, hips_blend=hips_blend)
     return ob
 
 
@@ -756,16 +823,16 @@ def shoulder_piping(ctx: Ctx, garment, mat="M_Accent"):
     return ob
 
 
-def eyes(ctx: Ctx, mat="M_Skin"):
+def eyes(ctx: Ctx, mat="M_Eye"):
+    """Eyeballs (the atlas paints sclera, iris and pupil)."""
     bm = bmesh.new()
     for e in ctx.eyes:
-        m = Matrix.Translation(e)
+        m = Matrix.Translation(e) @ Matrix.Rotation(math.pi / 2, 4, "X")
         bmesh.ops.create_uvsphere(
-            bm, u_segments=10, v_segments=6, radius=ctx.eye_r * 0.98, matrix=m
+            bm, u_segments=14, v_segments=8, radius=ctx.eye_r * 0.98, matrix=m
         )
     ob = new_obj("Eyes", bm, [mat])
     ctx.rigid(ob, "Head")
-    ob["dark"] = 1
     return ob
 
 
@@ -823,8 +890,12 @@ def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
     smooth = np.full(n, 3.0)
     neck_z = ctx.L["neck"].z
     pad = shoulder_pad(ctx)
-    skin_z = neck_z + 0.026 * ctx.s + 0.012 * np.clip(V[:, 1] / 0.06, -1, 1)
+    # Skin starts just under the collar's top edge (the collar rises towards the back),
+    # so no neck skin shows outside the collar where the trapezius is wider than it.
+    skin_z = neck_z + (0.032 + 0.016 * np.clip(V[:, 1] / 0.06, -1, 1)) * ctx.s
     hl = hairline(ctx, V, female)
+    vol = hair_volume(ctx, V, female)
+    tuck = np.zeros(n)  # how far the cloth hidden under the skirt is taken in
     for i in range(n):
         z = V[i, 2]
         if z < boot_top - 0.035:
@@ -833,8 +904,9 @@ def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
         if head[i] and z > skin_z[i]:
             if z > hl[i]:
                 labels[i] = "M_Hair"
-                k = C.smoothstep(hl[i], hl[i] + 0.03, z)
-                inflate[i] = (0.003 + (0.006 if not female else 0.010) * k) * ctx.s
+                # a short ramp: the hair edge stands off the skin like real hair
+                k = C.smoothstep(hl[i], hl[i] + 0.009, z)
+                inflate[i] = (0.0015 + vol[i] * k) * ctx.s
                 smooth[i] = 2
             else:
                 labels[i] = "M_Skin"
@@ -855,7 +927,9 @@ def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
             inflate[i] = 0.0045 + 0.003 * C.smoothstep(0.6, 1.0, t[i]) * fore[i] + pad[i]
             continue
         lat = max(0.0, N[i, 0] * (1 if V[i, 0] > 0 else -1))
-        if thigh[i] or z < ctx.crotch:
+        # Under the tunic skirt the body is tunic cloth, not breeches: where a moving
+        # leg pushes it out through the skirt it shows the skirt's own colour.
+        if (thigh[i] or z < ctx.crotch) and z < ctx.crotch - 0.03:
             # Riding breeches: a slight flare on the outer thigh only, slim front, back
             # and inside, narrow at the knee, a small blouse over the boot top.
             ft = C.clamp((z - (boot_top + 0.04)) / (ctx.crotch - boot_top - 0.02), 0, 1)
@@ -865,6 +939,11 @@ def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
             bl = 0.005 * C.smoothstep(boot_top + 0.07, boot_top, z)
             labels[i] = "M_Trousers"
             inflate[i] = 0.0035 + (fl - take_in) * ctx.s + bl
+            # Under the tunic skirt the breeches are taken in, so a moving leg never
+            # pushes them out through the skirt's hem.
+            under = C.smoothstep(ctx.crotch - 0.05, ctx.crotch - 0.01, z)
+            tuck[i] = inflate[i] * under + 0.004 * under
+            inflate[i] -= tuck[i]
             smooth[i] = 4
             continue
         # torso
@@ -879,6 +958,9 @@ def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
         bk = C.clamp((N[i, 1] - 0.3) / 0.5, 0.0, 1.0)
         trim = 0.011 * fr * waist + 0.004 * lat * waist + 0.009 * lat * hip + 0.006 * bk * hip
         base = 0.006 - trim * ctx.s + pad[i]
+        # below the belt the body is hidden by the skirt piece: keep it well inside
+        tuck[i] = 0.006 * C.smoothstep(belt_z - 0.025, belt_z - 0.06, z)
+        base -= tuck[i]
         # Asymmetric closure: the front flap ends in a straight vertical edge 70 mm to
         # the wearer's right of the centre line (a small step in the cloth).
         edge = flap_edge_x(ctx, z, belt_z, neck_z)
@@ -886,6 +968,7 @@ def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
             inflate[i] = base + 0.0025 * C.smoothstep(0.14 * ctx.s, edge, V[i, 0])
         else:
             inflate[i] = base
+    ctx.tuck = tuck
     return labels, inflate, smooth
 
 
@@ -931,9 +1014,25 @@ def flap_seam(ctx: Ctx, garment, belt_z: float, neck_z: float, mat="M_Trim"):
 # ------------------------------------------------------------------------ finish
 
 
+def tag_part(ob, name: str):
+    """Face attribute 'part' (index into ob['parts']) so the painter knows each piece."""
+    me = ob.data
+    attr = me.attributes.get("part") or me.attributes.new("part", "INT", "FACE")
+    attr.data.foreach_set("value", [0] * len(me.polygons))
+    ob["parts"] = [name]
+
+
 def finish(ctx: Ctx, parts: list, body_name: str):
-    """Join parts into the skinned 'Body' mesh, bake AO into COLOR_0, bind to the rig."""
+    """Join parts into the skinned 'Body' mesh, bake AO into COLOR_0, bind to the rig.
+
+    Every face keeps the name of the piece it came from (attribute 'part', names in
+    the object's 'parts' property) for the texture painter."""
     main = parts[0]
+    names = [p.name.split(".")[0] for p in parts]
+    for k, p in enumerate(parts):
+        me = p.data
+        attr = me.attributes.get("part") or me.attributes.new("part", "INT", "FACE")
+        attr.data.foreach_set("value", [k] * len(me.polygons))
     for o in bpy.context.scene.objects:
         o.select_set(False)
     for p in parts:
@@ -951,9 +1050,57 @@ def finish(ctx: Ctx, parts: list, body_name: str):
         bpy.ops.object.join()
     main.name = body_name
     main.data.name = body_name
+    main["parts"] = names
     bake_vertex_ao(main, dark_ranges)
     bind(ctx, main)
     return main
+
+
+def keep_hi(ob, name: str):
+    """A hidden full-resolution copy of `ob` (rest pose) to bake shading normals from."""
+    hi = ob.copy()
+    hi.data = ob.data.copy()
+    hi.name = name
+    hi.data.name = name
+    hi.modifiers.clear()
+    hi.vertex_groups.clear()
+    C.link(hi)
+    hi.hide_render = True
+    hi.hide_viewport = True
+    return hi
+
+
+def decimate_head_aware(ob, ctx: Ctx, total: int, head_tris: int):
+    """Decimate to about `total` triangles, keeping `head_tris` of them on the head.
+
+    The face reads at close range (nose, lips, ears, chin), so it keeps more of the
+    source resolution than the cloth, whose detail goes into the baked normal map."""
+    z_cut = ctx.L["neck"].z + 0.035 * ctx.s
+
+    def head_faces():
+        return [p.index for p in ob.data.polygons if p.center.z > z_cut]
+
+    n_head = sum(len(ob.data.polygons[i].vertices) - 2 for i in head_faces())
+    n_all = C.tri_count(ob)
+    n_body = n_all - n_head
+    for sel_head, target, have in ((False, total - head_tris, n_body), (True, head_tris, n_head)):
+        ratio = min(1.0, target / max(1, have))
+        if ratio >= 0.999:
+            continue
+        C.set_active(ob)
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_mode(type="FACE")
+        bpy.ops.mesh.select_all(action="DESELECT")
+        bpy.ops.object.mode_set(mode="OBJECT")
+        heads = set(head_faces())
+        for p in ob.data.polygons:
+            p.select = (p.index in heads) == sel_head
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.decimate(ratio=ratio, use_symmetry=True, symmetry_axis="X")
+        bpy.ops.object.mode_set(mode="OBJECT")
+    repair_spikes(ob)
+    # collapsing edges mixes the weights of both ends: back to 4 influences per vertex
+    B.normalise_weights(ob)
 
 
 def bind(ctx: Ctx, ob):
@@ -1009,18 +1156,23 @@ def build_officer(ctx: Ctx):
     belt_z = (0.597 if female else 0.585) * ctx.H  # natural waist
     neck_z = ctx.L["neck"].z
     cut = classify_officer(ctx, female, boot_top, belt_z)
-    cloth = ctx.V + ctx.N * cut[1][:, None]
+    # the skirt is fitted over the cloth as it would be without the tuck under it
+    cloth = ctx.V + ctx.N * (cut[1] + ctx.tuck)[:, None]
     garment = garment_body(ctx, lambda c: cut, name="Garment")
-    decimate(garment, 8200 / C.tri_count(garment))
+    ctx.hi = {"Garment": keep_hi(garment, f"Hi_Officer_{ctx.variant}")}
+    ctx.look = {"belt_z": belt_z, "boot_top": boot_top, "neck_z": neck_z, "female": female}
+    decimate_head_aware(garment, ctx, 8200, 2900)
     parts = [garment]
     parts.append(boots(ctx, boot_top, flare=0.006, inflate=0.006))
     parts.append(
         skirt(
-            ctx, garment, belt_z - 0.02, ctx.crotch - 0.01 * s, out=0.003, flare=0.005, cloth=cloth
+            ctx, garment, belt_z - 0.02, ctx.crotch - 0.01 * s, out=0.005, flare=0.006, cloth=cloth
         )
     )
     parts.append(belt(ctx, belt_z, out=0.013, buckle=True, pts=B.verts_np(garment)))
-    parts.append(collar(ctx, neck_z - 0.004, neck_z + 0.040 * s, mat="M_Uniform"))
+    col = collar(ctx, neck_z - 0.004, neck_z + 0.040 * s, mat="M_Uniform")
+    parts.append(col)
+    parts.append(collar_pin(ctx, col, neck_z + 0.022 * s))
     parts.append(shoulder_piping(ctx, garment))
     parts.append(flap_seam(ctx, garment, belt_z, neck_z))
     parts.append(eyes(ctx))

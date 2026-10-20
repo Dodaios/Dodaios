@@ -3,8 +3,9 @@
     python scripts/verse/validate.py [--root dodaios/ui/web/frontend/public/verse]
 
 Checks every deck manifest against art/verse/schema/deck.schema.json, file
-existence and image sizes, naming, cross references, that every socket lies
-inside the plate frame, and the content budgets.
+existence and image sizes (L0 tiles, the M2/M4 mip tiles, L1), naming, cross
+references, that every socket lies inside the plate frame, and the content
+budgets.
 """
 
 from __future__ import annotations
@@ -26,9 +27,10 @@ SCHEMA_PATH = REPO_ROOT / "art" / "verse" / "schema" / "deck.schema.json"
 PUBLIC_VERSE = REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "public" / "verse"
 
 MB = 1024 * 1024
-BUDGET_TOTAL = 30 * MB
-BUDGET_PLATE = 6 * MB
+BUDGET_TOTAL = 90 * MB
+BUDGET_PLATE = 16 * MB  # L0 + mips + L1 of one deck
 BUDGET_CHARACTER_GLB = 2 * MB
+MIP_DIVISORS = (2, 4)  # the tiled mip levels every cooked deck carries
 CHARACTER_PREFIXES = ("SK_", "SM_", "A_", "T_")
 
 
@@ -144,18 +146,19 @@ def _check_camera(where: str, camera: dict) -> list[str]:
     return problems
 
 
-def _check_plate(where: str, deck_dir: Path, manifest: dict) -> list[str]:
-    problems = []
-    plate, camera = manifest["plate"], manifest["camera"]
-    tile = plate["tile_px"]
-    width, height = camera["plate_w_px"], camera["plate_h_px"]
-    if plate["cols"] != math.ceil(width / tile) or plate["rows"] != math.ceil(height / tile):
-        problems.append(f"{where}: plate cols/rows do not cover {width}x{height} at {tile} px")
-    expected_tiles = set()
-    for row in range(plate["rows"]):
-        for col in range(plate["cols"]):
-            name = plate["tile_url"].format(col=col, row=row)
-            expected_tiles.add(Path(name).name)
+def _tile_problems(
+    where: str, deck_dir: Path, url: str, size: tuple[int, int], grid: tuple[int, int], tile: int
+) -> tuple[list[str], set[str]]:
+    """Missing or mis-sized tiles of one level, and the tile file names it expects."""
+    problems, names = [], set()
+    width, height = size
+    cols, rows = grid
+    if cols != math.ceil(width / tile) or rows != math.ceil(height / tile):
+        problems.append(f"{where}: {url} cols/rows do not cover {width}x{height} at {tile} px")
+    for row in range(rows):
+        for col in range(cols):
+            name = url.format(col=col, row=row)
+            names.add(Path(name).name)
             path = deck_dir / name
             if not path.is_file():
                 problems.append(f"{where}: missing tile {name}")
@@ -163,6 +166,62 @@ def _check_plate(where: str, deck_dir: Path, manifest: dict) -> list[str]:
             expected = (min(tile, width - col * tile), min(tile, height - row * tile))
             if avif_size(path) != expected:
                 problems.append(f"{where}: tile {name} is {avif_size(path)}, expected {expected}")
+    return problems, names
+
+
+def _check_mips(where: str, plate: dict, camera: dict) -> list[str]:
+    """The mip levels follow the manifest contract: divisors 2 and 4, sizes from the plate."""
+    mips = plate.get("mips")
+    if mips is None:
+        return [f"{where}: plate.mips missing (cook with the current packager)"]
+    problems = []
+    divisors = [mip["divisor"] for mip in mips]
+    if tuple(divisors) != MIP_DIVISORS:
+        expected = list(MIP_DIVISORS)
+        problems.append(f"{where}: plate.mips divisors are {divisors}, expected {expected}")
+    width, height = camera["plate_w_px"], camera["plate_h_px"]
+    urls = [plate["tile_url"]]
+    for mip in mips:
+        divisor = mip["divisor"]
+        expected = (round(width / divisor), round(height / divisor))
+        if (mip["w_px"], mip["h_px"]) != expected:
+            problems.append(
+                f"{where}: mip /{divisor} is {mip['w_px']}x{mip['h_px']}, expected "
+                f"{expected[0]}x{expected[1]}"
+            )
+        if Path(mip["tile_url"]).parent != Path(plate["tile_url"]).parent:
+            problems.append(f"{where}: mip /{divisor} tiles must sit next to the L0 tiles")
+        urls.append(mip["tile_url"])
+    if len(set(urls)) != len(urls):
+        problems.append(f"{where}: plate levels share a tile_url")
+    coarsest = max(divisors, default=1)
+    if plate["l1_w_px"] * coarsest >= width or plate["l1_h_px"] * coarsest >= height:
+        problems.append(f"{where}: L1 is not coarser than the last mip level")
+    if abs(plate["l1_w_px"] / width - plate["l1_h_px"] / height) * max(width, height) > 8:
+        problems.append(f"{where}: L1 aspect differs from the plate")
+    return problems
+
+
+def _check_plate(where: str, deck_dir: Path, manifest: dict) -> list[str]:
+    plate, camera = manifest["plate"], manifest["camera"]
+    tile = plate["tile_px"]
+    width, height = camera["plate_w_px"], camera["plate_h_px"]
+    problems, expected_files = _tile_problems(
+        where, deck_dir, plate["tile_url"], (width, height), (plate["cols"], plate["rows"]), tile
+    )
+    mip_problems = _check_mips(where, plate, camera)
+    problems += mip_problems
+    for mip in plate.get("mips") or []:
+        found, names = _tile_problems(
+            where,
+            deck_dir,
+            mip["tile_url"],
+            (mip["w_px"], mip["h_px"]),
+            (mip["cols"], mip["rows"]),
+            tile,
+        )
+        problems += found
+        expected_files |= names
     l1 = deck_dir / plate["l1_url"]
     if not l1.is_file():
         problems.append(f"{where}: missing {plate['l1_url']}")
@@ -170,12 +229,14 @@ def _check_plate(where: str, deck_dir: Path, manifest: dict) -> list[str]:
         problems.append(f"{where}: L1 size differs from the manifest")
     tile_dir = (deck_dir / plate["tile_url"]).parent
     if tile_dir.is_dir():
-        extra = {p.name for p in tile_dir.iterdir()} - expected_tiles - {Path(plate["l1_url"]).name}
+        extra = {p.name for p in tile_dir.iterdir()} - expected_files - {Path(plate["l1_url"]).name}
         if extra:
             problems.append(f"{where}: stray files in the plate folder: {sorted(extra)}")
         plate_bytes = sum(p.stat().st_size for p in tile_dir.iterdir() if p.is_file())
         if plate_bytes > BUDGET_PLATE:
-            problems.append(f"{where}: plate is {plate_bytes / MB:.2f} MB (budget 6 MB)")
+            problems.append(
+                f"{where}: plate is {plate_bytes / MB:.2f} MB (budget {BUDGET_PLATE // MB} MB)"
+            )
     return problems
 
 
@@ -289,7 +350,7 @@ def validate_all(root: Path = PUBLIC_VERSE) -> list[str]:
     problems += _check_characters(root)
     size = total_bytes(root)
     if size > BUDGET_TOTAL:
-        problems.append(f"public/verse is {size / MB:.2f} MB (budget 30 MB)")
+        problems.append(f"public/verse is {size / MB:.2f} MB (budget {BUDGET_TOTAL // MB} MB)")
     return problems
 
 
@@ -301,7 +362,10 @@ def _main(argv: list[str] | None = None) -> int:
     for problem in problems:
         print(f"FAIL {problem}")
     size = total_bytes(options.root) if options.root.is_dir() else 0
-    print(f"[verse] {len(problems)} problem(s); public/verse = {size / MB:.2f} MB of 30 MB")
+    print(
+        f"[verse] {len(problems)} problem(s); public/verse = {size / MB:.2f} MB "
+        f"of {BUDGET_TOTAL // MB} MB"
+    )
     return 1 if problems else 0
 
 

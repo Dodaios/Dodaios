@@ -37,12 +37,31 @@ tiles, glb, json). Code lives in
 ## Controls
 
 The person is the commanding officer and steers them in **third person** by
-default: WASD or the arrow keys walk the commander (Shift hurries), the camera
-stays close and follows them, and E works the station within reach (its label
-shows the key). **V** (or the bird's-eye button on the tool rail) pulls the
-camera back over the whole deck; there WASD pans the map. V again returns to
-the commander. In both views a click on the floor walks there, a click on a
-crew member selects them, a drag looks around and the wheel zooms.
+default, as in a game: WASD or the arrow keys walk the commander (Shift
+hurries), and E works the station within reach (its label shows the key). The
+camera sits close, about 12.5 m across the longer side of the window (on a
+2560 px window about 205 px per metre, so the commander stands some 225 px
+tall), leads them a little in the direction they walk and eases back onto them
+when they stop. A small panel such as the IDE's side panel keeps the same
+framing at its own size; a low, wide one still shows at least 5 m of floor top
+to bottom. The camera never comes closer than the plate is sharp: an older
+deck cooked at 96 px/m, or a HiDPI screen, stops a little further out.
+
+**V** (or the bird's-eye button on the tool rail) pulls the camera back over
+the whole deck; there WASD pans the map. V again returns to the commander at
+the close zoom. In both views a click on the floor walks there, a click on a
+crew member selects them, a drag looks around (the camera picks the commander
+up again when they walk) and the wheel or +/- zooms between the whole deck and
+the closest view the plate allows.
+
+To stay sharp that close, a deck's plate is a pyramid: full-density L0 tiles
+(192 px/m), two tiled mips (M2, M4) and a small overview of the whole deck.
+The runtime streams the coarsest level that is still sharp for the current
+zoom, only for the tiles in view plus a one-tile ring, keeps the level it
+already has drawn underneath while a finer one loads, and holds GPU memory to
+a shared budget (`engine/tiles.ts`, `engine/tileStreamer.ts`,
+`engine/plateLayer.ts`). Older decks without mips stream the overview and L0
+as before.
 
 The deck stays a pre-rendered plate seen from one fixed angle, so the third
 person camera follows from above, not from behind the shoulder; a camera

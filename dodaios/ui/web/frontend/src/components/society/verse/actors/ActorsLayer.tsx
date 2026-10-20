@@ -212,14 +212,18 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
       else seatedCrew.delete(actor.id);
     }
     runtime.stats.actors = actors.current.size;
-    // The third-person camera stays on the commander while they move (a drag looks around until they walk again).
-    if (lead && !lead.gone && control.mode === "follow" && runtime.view.measured && (lead.moving || control.reframe)) {
+    // The third-person camera stays on the commander, leading them a little while they walk and easing back onto
+    // them when they stop; a drag looks around until they walk again.
+    const view = runtime.view;
+    if (lead?.moving) control.looking = false;
+    if (lead && !lead.gone && control.mode === "follow" && view.measured && (!control.looking || control.reframe || view.leading)) {
       const p = worldToPlate(deck.camera, lead.x, lead.y + lead.height * 0.5, lead.z);
       if (control.reframe) {
         control.reframe = false;
-        runtime.view.focus(p.u, p.v, runtime.view.followScale());
+        control.looking = false;
+        view.reframeOn(p.u, p.v);
       } else {
-        runtime.view.follow(p.u, p.v);
+        view.follow(p.u, p.v, dtS);
       }
     }
   }, -1);

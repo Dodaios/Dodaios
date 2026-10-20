@@ -1,9 +1,11 @@
 """Deck cook, package side (outside Blender): raw cook output -> runtime content.
 
-Encodes the plate into AVIF tiles (L0, full density, 2048 px tiles) plus one
-quarter-resolution overview (L1), the nav grid into an 8-bit PNG, copies the
-occluder GLB and the environment map, and writes `manifest.json`
-(schema `verse.deck/1`). The output directory is replaced atomically.
+Encodes the plate into a tile pyramid of AVIF images: L0 at full density in
+2048 px tiles, mip levels M2 and M4 (the plate downscaled by 2 and 4, cut into
+2048 px tiles the same way) and one whole-plate overview L1 at 1/8. Also
+writes the nav grid as an 8-bit PNG, copies the occluder GLB and the
+environment map, and writes `manifest.json` (schema `verse.deck/1`). The
+output directory is replaced atomically.
 """
 
 from __future__ import annotations
@@ -20,7 +22,11 @@ from PIL import Image
 
 SCHEMA = "verse.deck/1"
 TILE_PX = 2048
-L1_DIVISOR = 4
+MIP_DIVISORS = (2, 4)  # tiled mip levels between L0 and L1
+L1_DIVISOR = 8  # whole-plate overview (~24 px/m at the final density)
+L0_TILE_URL = "plate/L0_{col}_{row}.avif"
+MIP_TILE_URL = "plate/M{divisor}_{{col}}_{{row}}.avif"
+L1_URL = "plate/L1.avif"
 
 
 @dataclass(frozen=True)
@@ -64,11 +70,54 @@ def assemble_plate(raw_dir: Path, cook: dict) -> Image.Image:
     return plate
 
 
-def _encode_plate(plate: Image.Image, out_dir: Path) -> dict:
-    width, height = plate.size
-    cols, rows = math.ceil(width / TILE_PX), math.ceil(height / TILE_PX)
-    tile_dir = out_dir / "plate"
-    tile_dir.mkdir(parents=True, exist_ok=True)
+def level_size(width: int, height: int, divisor: int) -> tuple[int, int]:
+    """Pixel size of the plate downscaled by `divisor` (the manifest contract)."""
+    return round(width / divisor), round(height / divisor)
+
+
+def tile_grid(width: int, height: int) -> tuple[int, int]:
+    """Columns and rows of TILE_PX tiles covering width x height."""
+    return math.ceil(width / TILE_PX), math.ceil(height / TILE_PX)
+
+
+def plate_levels(width: int, height: int) -> dict:
+    """The manifest `plate` block for an L0 plate of width x height pixels."""
+    cols, rows = tile_grid(width, height)
+    mips = []
+    for divisor in MIP_DIVISORS:
+        w_px, h_px = level_size(width, height, divisor)
+        mip_cols, mip_rows = tile_grid(w_px, h_px)
+        mips.append(
+            {
+                "divisor": divisor,
+                "w_px": w_px,
+                "h_px": h_px,
+                "cols": mip_cols,
+                "rows": mip_rows,
+                "tile_url": MIP_TILE_URL.format(divisor=divisor),
+            }
+        )
+    l1_w, l1_h = level_size(width, height, L1_DIVISOR)
+    return {
+        "format": "avif",
+        "tile_px": TILE_PX,
+        "cols": cols,
+        "rows": rows,
+        "tile_url": L0_TILE_URL,
+        "mips": mips,
+        "l1_url": L1_URL,
+        "l1_w_px": l1_w,
+        "l1_h_px": l1_h,
+    }
+
+
+def _downscale(plate: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """High-quality reduction of the 8-bit plate (Lanczos, box pre-reduction)."""
+    return plate.resize(size, Image.Resampling.LANCZOS, reducing_gap=3.0)
+
+
+def _write_tiles(image: Image.Image, out_dir: Path, url: str, cols: int, rows: int) -> None:
+    width, height = image.size
     for row in range(rows):
         for col in range(cols):
             box = (
@@ -77,20 +126,20 @@ def _encode_plate(plate: Image.Image, out_dir: Path) -> dict:
                 min(width, (col + 1) * TILE_PX),
                 min(height, (row + 1) * TILE_PX),
             )
-            _save_avif(plate.crop(box), tile_dir / f"L0_{col}_{row}.avif", AVIF)
-    l1_size = (round(width / L1_DIVISOR), round(height / L1_DIVISOR))
-    overview = plate.resize(l1_size, Image.Resampling.LANCZOS)
-    _save_avif(overview, tile_dir / "L1.avif", L1_AVIF)
-    return {
-        "format": "avif",
-        "tile_px": TILE_PX,
-        "cols": cols,
-        "rows": rows,
-        "tile_url": "plate/L0_{col}_{row}.avif",
-        "l1_url": "plate/L1.avif",
-        "l1_w_px": l1_size[0],
-        "l1_h_px": l1_size[1],
-    }
+            _save_avif(image.crop(box), out_dir / url.format(col=col, row=row), AVIF)
+
+
+def _encode_plate(plate: Image.Image, out_dir: Path) -> dict:
+    width, height = plate.size
+    levels = plate_levels(width, height)
+    (out_dir / "plate").mkdir(parents=True, exist_ok=True)
+    _write_tiles(plate, out_dir, levels["tile_url"], levels["cols"], levels["rows"])
+    for mip in levels["mips"]:
+        image = _downscale(plate, (mip["w_px"], mip["h_px"]))
+        _write_tiles(image, out_dir, mip["tile_url"], mip["cols"], mip["rows"])
+    overview = _downscale(plate, (levels["l1_w_px"], levels["l1_h_px"]))
+    _save_avif(overview, out_dir / levels["l1_url"], L1_AVIF)
+    return levels
 
 
 def _encode_nav(nav_npy: Path, out_dir: Path, nav: dict) -> dict:
