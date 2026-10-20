@@ -60,7 +60,7 @@ why; the agent's next finished conversation gets a new review. An explicit
 "remember that" request is still saved without a model call.
 The assistant's own learning loop is the one exception: it runs on the
 default provider's subscription when that is signed in and otherwise still
-on the key (`docs/jarvis-learning.md`).
+on the key (`docs/dodaios-learning.md`).
 
 ## Configuring routines by chat
 
