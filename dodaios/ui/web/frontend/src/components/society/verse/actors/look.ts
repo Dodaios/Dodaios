@@ -22,7 +22,7 @@ export function lookForLevel(level: number, accent: string | null): Look {
 
 /** Plate slots 0–5 (top row left to right, then the bottom row) that are lit. Pure. */
 export function litSlots(plate: string): number[] {
-  const bits = plate.replace("|", "");
+  const bits = plate.split("|").join("");
   const out: number[] = [];
   for (let i = 0; i < bits.length && i < 6; i++) if (bits[i] === "1") out.push(i);
   return out;
