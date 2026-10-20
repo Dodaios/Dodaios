@@ -844,6 +844,11 @@ _HTML_TITLE_MAX_CHARS: int = 200
 # synchronous read or spike memory while rendering. Larger files use /download.
 _VIEW_MAX_BYTES: int = 2 * 1_048_576
 
+# Inline downloads that skip the sandboxing CSP: formats the browser renders
+# with a plugin viewer, which a sandboxed document refuses to load. Nothing
+# else belongs here (see download_output_artifact).
+_INLINE_PLUGIN_TYPES: Final = frozenset({"application/pdf"})
+
 
 def _is_deliverable_relpath(rel_parts: tuple[str, ...]) -> bool:
     """True iff a mission-relative path is a genuine worker deliverable.
@@ -1112,11 +1117,13 @@ async def download_output_artifact(
     target = _resolve_artifact_target(request, slug, path)
     media_type, _ = mimetypes.guess_type(target.name)
     headers = {"X-Content-Type-Options": "nosniff"}
-    # HTML and SVG are active document formats when rendered inline in the app
-    # origin. Apply the same no-script CSP used by the /view route so a
-    # worker-authored artifact cannot execute code against the app.
-    active_document_types = {"text/html", "image/svg+xml"}
-    if disposition == "inline" and media_type in active_document_types:
+    # A worker-written file rendered inline lives in the app origin, so every
+    # inline response gets the sandboxing no-script CSP the /view route uses.
+    # A list of "active" types is a trap: XHTML, XML with an XHTML namespace
+    # and future formats all run script too. The one exception is PDF: the
+    # browser's PDF viewer is a plugin, plugins never load in a sandboxed
+    # document, and the viewer renders out of the app origin anyway.
+    if disposition == "inline" and media_type not in _INLINE_PLUGIN_TYPES:
         headers["Content-Security-Policy"] = VIEW_HEADER_CSP
     return FileResponse(
         target,
