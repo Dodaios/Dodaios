@@ -1,7 +1,14 @@
-"""Bounded, read-only resource checks before a new grant becomes connected.
+"""Bounded, read-only resource checks for a freshly granted connection.
 
 These checks validate access, not a completed plugin smoke-test audit. No token
 is stored here, and provider payloads never become diagnostic messages.
+
+The connect flow persists the grant BEFORE it runs this check. A failure is
+then classified: only a provider that rejects the credential itself (HTTP 401,
+or Slack's ``invalid_auth`` family) means the grant is unusable. Every other
+failure (a missing scope, a rate limit, an outage, an empty tool list) leaves a
+valid grant connected with degraded capability, so the user is never sent back
+through a browser consent that already succeeded.
 """
 
 from __future__ import annotations
@@ -18,8 +25,70 @@ VERIFY_TIMEOUT_SECONDS = 30.0
 CLOSE_TIMEOUT_SECONDS = 5.0
 
 
+# Why a capability check failed. Fixed codes only: provider text never leaves
+# this module, because an error body can echo a token back.
+CAPABILITY_UNAUTHORIZED = "unauthorized"
+"""The provider rejected the credential itself; the grant is unusable."""
+CAPABILITY_FORBIDDEN = "forbidden"
+"""Signed in, but the account or scopes do not reach the probed resource."""
+CAPABILITY_RATE_LIMITED = "rate_limited"
+"""The provider throttled the check; access itself is unknown."""
+CAPABILITY_UNAVAILABLE = "unavailable"
+"""Anything else: outage, timeout, transport error, unusable response."""
+
+# Slack answers HTTP 200 with ok=false; these error codes reject the token.
+_SLACK_REJECTED_ERRORS = frozenset(
+    {"invalid_auth", "not_authed", "token_revoked", "token_expired", "account_inactive"}
+)
+
+
 class ConnectionVerificationError(RuntimeError):
-    """A fixed, safe explanation suitable for the connection dialog."""
+    """A fixed, safe explanation suitable for the connection dialog.
+
+    ``reason`` is one of the ``CAPABILITY_*`` codes. Only
+    ``CAPABILITY_UNAUTHORIZED`` means the grant itself was refused.
+    """
+
+    def __init__(self, message: str, *, reason: str = CAPABILITY_UNAVAILABLE) -> None:
+        super().__init__(message)
+        self.reason = reason
+
+    @property
+    def rejected(self) -> bool:
+        """True when the provider refused the credential, not just a capability."""
+        return self.reason == CAPABILITY_UNAUTHORIZED
+
+
+def _http_status(exc: BaseException) -> int | None:
+    """Find the HTTP status behind a failure, through groups and chained causes."""
+    pending: list[BaseException] = [exc]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, httpx.HTTPStatusError):
+            return current.response.status_code
+        status = getattr(current, "status_code", None)
+        if isinstance(status, int) and not isinstance(status, bool):
+            return status
+        if isinstance(current, BaseExceptionGroup):
+            pending.extend(current.exceptions)
+        for linked in (current.__cause__, current.__context__):
+            if linked is not None:
+                pending.append(linked)
+    return None
+
+
+def _reason_for_status(status: int | None) -> str:
+    if status == 401:
+        return CAPABILITY_UNAUTHORIZED
+    if status == 403:
+        return CAPABILITY_FORBIDDEN
+    if status == 429:
+        return CAPABILITY_RATE_LIMITED
+    return CAPABILITY_UNAVAILABLE
 
 
 # Explicit operations avoid accidentally verifying through a future write tool.
@@ -83,6 +152,16 @@ async def _verify_native(spec: PluginSpec, tokens: Tokens) -> None:
         response.raise_for_status()
         payload = response.json()
         if (
+            spec.id == "slack"
+            and isinstance(payload, dict)
+            and payload.get("ok") is False
+            and str(payload.get("error", "")) in _SLACK_REJECTED_ERRORS
+        ):
+            raise ConnectionVerificationError(
+                "Slack rejected the authorization. Connect again.",
+                reason=CAPABILITY_UNAUTHORIZED,
+            )
+        if (
             not isinstance(payload, dict)
             or expected not in payload
             or payload.get("error")
@@ -138,10 +217,17 @@ async def _verify_mcp(spec: PluginSpec, tokens: Tokens) -> None:
 
 
 async def verify_connection(spec: PluginSpec, tokens: Tokens) -> None:
-    """Raise safely on failed access; leave persistence to the successful caller."""
+    """Raise a safe, classified ``ConnectionVerificationError`` on failed access.
+
+    Persistence is the caller's job; ``exc.rejected`` tells it whether the
+    grant itself was refused or only a capability is degraded.
+    """
     try:
         if not tokens.access or tokens.needs_reauth:
-            raise ConnectionVerificationError("Authorization is missing or expired. Connect again.")
+            raise ConnectionVerificationError(
+                "Authorization is missing or expired. Connect again.",
+                reason=CAPABILITY_UNAUTHORIZED,
+            )
         if spec.verification_hook is not None:
             if spec.verification_hook != "home_assistant_api" or spec.id != "home_assistant":
                 raise ConnectionVerificationError(
@@ -156,19 +242,24 @@ async def verify_connection(spec: PluginSpec, tokens: Tokens) -> None:
             await _verify_mcp(spec, tokens)
     except ConnectionVerificationError:
         raise
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as exc:
         task = asyncio.current_task()
         if task is not None and task.cancelling():
             raise
         # A failed MCP transport can cancel its internal owner and forward
         # that exception without cancellation of this verification task.
         raise ConnectionVerificationError(
-            "The provider connection closed during verification. Try again."
+            "The provider connection closed during verification. Try again.",
+            reason=_reason_for_status(_http_status(exc)),
         ) from None
     except TimeoutError:
         raise ConnectionVerificationError("The connection check timed out. Try again.") from None
-    except Exception:
-        # Exception text can contain tokens, response bodies or account data.
-        raise ConnectionVerificationError(
-            "The provider connection check failed. Check account access and try again."
-        ) from None
+    except Exception as exc:
+        # Exception text can contain tokens, response bodies or account data;
+        # only the HTTP status is read from it, never the message.
+        reason = _reason_for_status(_http_status(exc))
+        if reason == CAPABILITY_UNAUTHORIZED:
+            message = "The provider rejected the authorization. Connect again."
+        else:
+            message = "The provider connection check failed. Check account access and try again."
+        raise ConnectionVerificationError(message, reason=reason) from None
