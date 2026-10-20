@@ -16,6 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from loguru import logger
+
 from dodaios.agentic_ide import github_link
 from dodaios.agentic_ide.github_link import GitHubError
 
@@ -138,11 +140,13 @@ class GitHub(Protocol):
 
 
 _VIEWER = """
+query { viewer { login } }
+"""
+#: Asked apart from the login: it needs the ``read:org`` scope, which a token
+#: from the in-app GitHub connection may not carry.
+_VIEWER_ORGS = """
 query {
-  viewer {
-    login
-    organizations(first: 100) { nodes { login viewerCanAdminister } }
-  }
+  viewer { organizations(first: 100) { nodes { login viewerCanAdminister } } }
 }
 """
 
@@ -303,12 +307,27 @@ class GitHubApi:
 
     def viewer(self) -> Viewer:
         data = (self._q(_VIEWER).get("data") or {}).get("viewer") or {}
+        return Viewer(login=str(data.get("login") or ""), admin_orgs=self._admin_orgs())
+
+    def _admin_orgs(self) -> frozenset[str]:
+        """Organisations the person administers; none when the token may not read them.
+
+        Without ``read:org`` GitHub refuses the whole query. The person's own
+        repositories are still theirs; only organisation repositories are left
+        out until the connection can read organisations.
+        """
+        try:
+            payload = self._q(_VIEWER_ORGS)
+        except GitHubError as exc:
+            logger.info("self-build code: organisations unreadable ({}); own repos only", exc)
+            return frozenset()
+        data = (payload.get("data") or {}).get("viewer") or {}
         orgs = frozenset(
             str(node.get("login") or "").lower()
             for node in (data.get("organizations") or {}).get("nodes") or []
             if isinstance(node, dict) and node.get("viewerCanAdminister")
         )
-        return Viewer(login=str(data.get("login") or ""), admin_orgs=orgs - {""})
+        return orgs - {""}
 
     def snapshot(self, repo: str) -> Snapshot:
         owner, name = _split(repo)

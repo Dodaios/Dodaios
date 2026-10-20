@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -122,6 +125,11 @@ def detect(folder: str | Path) -> dict[str, Any]:
         test.append(["make", "test"])
         label = "make"
     return {"label": label, "setup": setup, "test": test, "ci": ci_lines(root)}
+
+
+def runnable(argv: list[str]) -> str:
+    """A command exactly as the judge runs it, quoted for this platform's shell."""
+    return subprocess.list2cmdline(argv) if sys.platform == "win32" else shlex.join(argv)
 
 
 def shown(argv: list[str]) -> str:

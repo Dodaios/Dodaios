@@ -72,6 +72,24 @@ function json(method: string, body: unknown): RequestInit {
   return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
 
+/**
+ * Is this editor path a file outside the workspace? Those are named by their
+ * absolute path (`C:/Users/me/Downloads/notes.md`); workspace files never are.
+ */
+export function isOutsidePath(path: string): boolean {
+  return /^(?:[a-z]:[\\/]|\/)/i.test(path);
+}
+
+/**
+ * Let the editor open a file Ctrl+clicked in a terminal, even outside the
+ * workspace. Answers the path the editor names it by: relative for a
+ * workspace file, absolute for one outside it.
+ */
+export async function openOutsideFile(workspaceId: string, printed: string): Promise<string> {
+  const answer = await send<{ path: string }>(`${base(workspaceId)}/outside-files`, json("POST", { path: printed }));
+  return answer.path;
+}
+
 /** `encoding` forces how the bytes are read ("Reopen with encoding"). */
 export function loadTextFile(workspaceId: string, path: string, encoding?: string): Promise<TextFile> {
   const params = new URLSearchParams({ path });
