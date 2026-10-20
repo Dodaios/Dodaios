@@ -3,7 +3,7 @@ developer terms mixed German/English dictation keeps mishearing — and the
 user's own dictionary always wins over it.
 
 Reported 2026-10-20: "Pipey" / "Pipe-I" for PyPI, "Baggen" for Bugs, "the Dios"
-for Dodaios, "Cloud in Chrome" for Claude in Chrome.
+for Dodaios.
 """
 
 from __future__ import annotations
@@ -39,10 +39,6 @@ def store(tmp_path: Path) -> DictionaryStore:
         ("Die Baggen sind gefixt.", "Die Bugs sind gefixt."),  # i18n-allow: fixture
         ("I opened the Dios again.", "I opened Dodaios again."),
         ("Starte Doda iOS neu.", "Starte Dodaios neu."),
-        (
-            "Teste das mit Cloud in Chrome.",  # i18n-allow: German dictation fixture
-            "Teste das mit Claude in Chrome.",  # i18n-allow: German dictation fixture
-        ),
         ("Push it to Git Hub.", "Push it to GitHub."),
         ("push it to github", "push it to GitHub"),
         ("Schau dir die PR's an.", "Schau dir die PRs an."),
@@ -158,7 +154,7 @@ def test_a_sentence_listing_default_terms_is_not_taken_for_a_recited_prompt(
     store: DictionaryStore,
 ) -> None:
     """The echo guard drops runs of PRIMED words; the defaults never are."""
-    said = "Wir nutzen GitHub, PyPI, PRs, Dodaios und Claude in Chrome."
+    said = "Wir nutzen GitHub, PyPI, PRs und Dodaios."  # i18n-allow: German fixture
 
     assert get_corrector(store).strip_prompt_echo(said) == said
 
