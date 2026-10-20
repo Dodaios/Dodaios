@@ -61,7 +61,8 @@ export function ChatGroupDialog({ group, agents, onClose, onSaved }: Props) {
             {choices.map((agent) => <label key={agent.agentId} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-secondary">
               <input type="checkbox" checked={members.includes(agent.agentId)} onChange={() => setMembers((current) => current.includes(agent.agentId) ? current.filter((id) => id !== agent.agentId) : [...current, agent.agentId])} />
               <AgentSwatch agent={agent} size={28} />
-              <span className="min-w-0 truncate text-sm">{societyDisplayName(agent, assistantName)}</span>
+              <span className="min-w-0 flex-1 truncate text-sm">{societyDisplayName(agent, assistantName)}</span>
+              {group?.lead_agent_id === agent.agentId && <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">{t("society.lead.role")}</span>}
             </label>)}
           </div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

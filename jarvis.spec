@@ -3,12 +3,14 @@
 # Strategy:
 # - `onedir` instead of `onefile` avoids 3-5 seconds of MEIPASS extraction and
 #   allows each DLL to be signed independently.
-# - TWO executables share ONE Analysis/COLLECT, because a native install has to
-#   cover both surfaces the project promises:
+# - Several executables share ONE Analysis/COLLECT, because a native install
+#   has to cover both surfaces the project promises:
 #     * a windowed GUI launcher (Start Menu / Applications / .desktop), and
-#     * a console CLI named `jarvis`, so `jarvis serve`, `jarvis --version`,
-#       `jarvis missions list` behave exactly like the pip console script.
-#   Both run `jarvis/__main__.py`; only the console flag differs.
+#     * a console CLI named `dodaios`, so `dodaios serve`, `dodaios --version`,
+#       `dodaios missions list` behave exactly like the pip console script.
+#       The same console program is built a second time as `jarvis`, the
+#       command's earlier name, which scripts and shell history still call.
+#   All of them run `jarvis/__main__.py`; only the console flag differs.
 # - The GUI binary is `PersonalJarvis`, not `Jarvis`: `Jarvis` and `jarvis`
 #   are the SAME path on Windows (NTFS) and on a default macOS APFS volume, so
 #   the second executable would overwrite the first. `PersonalJarvis` is the
@@ -47,7 +49,10 @@ BUNDLE_DIR_NAME = "Jarvis"
 # Windowed launcher; see the header note on the case-collision.
 GUI_EXE_NAME = "PersonalJarvis"
 # Console entry point. Same name as the pip console script on purpose.
-CLI_EXE_NAME = "jarvis"
+CLI_EXE_NAME = "dodaios"
+# The console entry point under its earlier name, built from the same program.
+# No name here may equal GUI_EXE_NAME ignoring case: they share one folder.
+LEGACY_CLI_EXE_NAMES = ("jarvis",)
 
 MACOS_APP_NAME = "Personal Jarvis.app"
 MACOS_BUNDLE_IDENTIFIER = "ai.personaljarvis.desktop"
@@ -96,6 +101,9 @@ datas.append((str(PROJECT_ROOT / "jarvis/society/browser/pointer.py"), "jarvis/s
 # sweep below also finds them; named here so a narrower sweep cannot drop them
 # and send a frozen app's setup to upstream latest.
 datas.append((str(PROJECT_ROOT / "jarvis/agent_runtimes/runtime-versions.json"), "jarvis/agent_runtimes"))
+# Translated system phrases (jarvis/i18n/catalog.py); without them every
+# error and fallback phrase would raise instead of being spoken.
+datas.append((str(PROJECT_ROOT / "jarvis/i18n/locales"), "jarvis/i18n/locales"))
 
 # The local voice engine runs in its OWN Python environment, so a frozen build
 # must ship its sources as plain files: setup copies them into the engine home
@@ -119,6 +127,16 @@ if FRONTEND_DIST.exists():
 # never reads or writes the copy inside the bundle.
 datas.append((str(PROJECT_ROOT / "jarvis.toml"), "."))
 datas.append((str(PROJECT_ROOT / "docs" / "product"), "docs/product"))
+# The onboarding terms and redistribution notices must survive freezing.
+# Source-tree references in NOTICE are useful only when their target texts ship.
+datas.append((str(PROJECT_ROOT / "docs" / "legal" / "TERMS.md"), "docs/legal"))
+datas.append((str(PROJECT_ROOT / "docs" / "licensing.md"), "docs"))
+for name in ("LICENSE", "NOTICE"):
+    datas.append((str(PROJECT_ROOT / name), "."))
+for pattern in ("*/LICENSE", "*/NOTICE*", "*/ThirdPartyNotices.txt"):
+    for entry in sorted((PROJECT_ROOT / "third_party").glob(pattern)):
+        if entry.is_file():
+            datas.append((str(entry), str(entry.relative_to(PROJECT_ROOT).parent)))
 
 # Include build-time desktop assets such as icons and chimes when present.
 assets_dir = PROJECT_ROOT / "assets"
@@ -322,6 +340,22 @@ a = Analysis(
     noarchive=False,
 )
 
+# Preserve notices of distributions actually present in the frozen graph. The
+# generated inventory deliberately leaves native transitive/source obligations
+# unassessed: copying Python package notices cannot settle those terms.
+import importlib.util
+
+_notice_helper_path = PROJECT_ROOT / "scripts" / "packaging" / "native_notices.py"
+_notice_helper_spec = importlib.util.spec_from_file_location("_native_notices", _notice_helper_path)
+if _notice_helper_spec is None or _notice_helper_spec.loader is None:
+    raise SystemExit(f"cannot load the native notice collector from {_notice_helper_path}")
+_notice_helper = importlib.util.module_from_spec(_notice_helper_spec)
+_notice_helper_spec.loader.exec_module(_notice_helper)
+a.datas += _notice_helper.collect_native_notices(
+    a.pure, a.binaries, a.datas,
+    Path(globals().get("WORKPATH", PROJECT_ROOT / "build")) / "native-notices",
+)
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 
@@ -395,7 +429,8 @@ ICON = _icon_path()
 
 
 # --- Executables ------------------------------------------------------------
-# Two targets, one COLLECT: the windowed launcher and the console CLI.
+# One COLLECT: the windowed launcher, the console CLI, and the console CLI
+# again under each earlier name.
 
 exe_gui = EXE(
     pyz,
@@ -418,30 +453,36 @@ exe_gui = EXE(
     uac_admin=False,       # Run asInvoker; elevate only individual actions.
 )
 
-exe_cli = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name=CLI_EXE_NAME,
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=False,
-    console=True,          # `jarvis serve` must print to the terminal it ran in.
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon=ICON,
-    version=version_resource,
-    uac_admin=False,
-)
+def _console_exe(name):
+    return EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=name,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,
+        console=True,          # `dodaios serve` must print to the terminal it ran in.
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICON,
+        version=version_resource,
+        uac_admin=False,
+    )
+
+
+exe_cli = _console_exe(CLI_EXE_NAME)
+legacy_cli_exes = [_console_exe(name) for name in LEGACY_CLI_EXE_NAMES]
 
 coll = COLLECT(
     exe_gui,
     exe_cli,
+    *legacy_cli_exes,
     a.binaries,
     a.zipfiles,
     a.datas,
@@ -472,7 +513,7 @@ if sys.platform == "darwin":
             "CFBundleVersion": VERSION,
             "CFBundlePackageType": "APPL",
             # PyInstaller sets LSBackgroundOnly=True whenever the LAST executable
-            # of the COLLECT is a console one - and the `jarvis` CLI is. A
+            # of the COLLECT is a console one - and the CLI is. A
             # background-only app gets no Dock icon, no menu bar and no windows
             # from LaunchServices; the v2.5.0 image shipped that way. This is a
             # windowed app (the CLI entry runs from a terminal, not through

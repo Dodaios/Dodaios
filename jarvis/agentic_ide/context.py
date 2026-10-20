@@ -118,7 +118,7 @@ def _terminal_block(  # noqa: ANN001 - Terminal, avoid import cycle
     if status == "error" and term.error:
         bits.append(term.error)
     if term.prompts_sent:
-        bits.append(f"{term.prompts_sent} prompt(s) sent from Jarvis")
+        bits.append(f"{term.prompts_sent} prompt(s) sent from Dodaios")
     lines = [f"- {', '.join(bits)}"]
     if term.last_prompt:
         lines.append(f'  last prompt sent: "{term.last_prompt[:200]}"')

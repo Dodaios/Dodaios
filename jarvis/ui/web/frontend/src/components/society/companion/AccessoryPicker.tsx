@@ -5,6 +5,7 @@ import { AgentSymbol } from "../AgentSymbol";
 import { ACCESSORY_IDS_BY_SLOT, OFFERED_SLOTS, randomAccessories, type AccessoryChoice, type AccessorySlot } from "./accessories";
 import { lookOpen, nextLook, useAgentLooks } from "./agentLooks";
 import type { CompanionAppearance } from "./appearance";
+import { SegmentedChoice } from "./SegmentedChoice";
 
 /** Picker order: what people change most comes first; empty slots stay hidden. */
 const PICKER_SLOTS = (["outfit", "head", "face", "mouth", "neck", "back", "held"] as AccessorySlot[])
@@ -31,7 +32,7 @@ export function AccessoryPicker({ value, onChange, agentId }: { value: Companion
     const rolled = randomAccessories();
     onChange(Object.fromEntries(Object.entries(rolled).filter(([, id]) => id && wearable(id))) as AccessoryChoice);
   };
-  const tile = "relative grid h-[76px] w-[76px] place-items-center rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  const tile = "relative grid h-[84px] w-[84px] place-items-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   return <div data-testid="accessory-picker">
     <div className="mb-2 flex items-center justify-between gap-2">
       <span className="text-sm font-medium">{t("society.companion.accessories")}</span>
@@ -52,13 +53,9 @@ export function AccessoryPicker({ value, onChange, agentId }: { value: Companion
           : t("society.companion.all_looks_open")}
       </p>
     )}
-    <div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label={t("society.companion.accessories")}>
-      {PICKER_SLOTS.map(s => <button key={s} type="button" role="tab" aria-selected={slot === s} onClick={() => setSlot(s)}
-        className={`relative rounded-full border px-2.5 py-1 text-xs ${slot === s ? "border-transparent bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-secondary"}`}>
-        {t(`society.companion.slots.${s}`)}
-        {worn[s] && <span aria-hidden className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-current align-middle" />}
-      </button>)}
-    </div>
+    <div className="mb-3"><SegmentedChoice role="tablist" label={t("society.companion.accessories")} value={slot} onChange={setSlot}
+      options={PICKER_SLOTS.map(id => ({ id, label: t(`society.companion.slots.${id}`) }))}
+      marked={new Set(PICKER_SLOTS.filter(s => worn[s]))} /></div>
     <div className="flex flex-wrap gap-2" role="group" aria-label={t(`society.companion.slots.${slot}`)}>
       <button type="button" aria-pressed={!worn[slot]} aria-label={t("society.companion.none")} title={t("society.companion.none")} onClick={() => choose(undefined)}
         className={`${tile} text-xs text-muted-foreground ${!worn[slot] ? "border-foreground bg-secondary" : "border-border hover:bg-secondary"}`}>
@@ -75,7 +72,7 @@ export function AccessoryPicker({ value, onChange, agentId }: { value: Companion
           data-locked={open ? undefined : "true"}
           className={`${tile} ${active ? "border-foreground bg-secondary" : open ? "border-border hover:bg-secondary" : "cursor-not-allowed border-dashed border-border"}`}>
           <span className={open ? undefined : "opacity-35 grayscale"}>
-            <AgentSymbol shape={value.shape} color={value.color} eyes={value.eyes} skin={value.skin} accessories={{ ...worn, [slot]: id }} size={60} />
+            <AgentSymbol shape={value.shape} color={value.color} eyes={value.eyes} skin={value.skin} accessories={{ ...worn, [slot]: id }} size={68} />
           </span>
           {!open && <span className="absolute bottom-1 left-1/2 inline-flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] font-semibold text-foreground shadow-sm">
             <Lock size={9} aria-hidden />{t("society.level.lv").replace("{0}", String(at))}

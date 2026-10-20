@@ -93,7 +93,7 @@ class WorldAction(BaseModel):
     )
 
 
-@router.post("/actions", summary="Report a small action inside the Jarvis Verse")
+@router.post("/actions", summary="Report a small action inside the Dodaios Verse")
 async def post_action(body: WorldAction, request: Request) -> dict[str, Any]:
     service = _service(request)
     try:

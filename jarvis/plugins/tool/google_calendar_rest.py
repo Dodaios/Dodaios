@@ -42,7 +42,7 @@ _NEEDS_RECONNECT = (
 )
 _NODE_MISSING = (
     "Node.js is required for the Google Calendar bot but was not found — "
-    "install Node.js (18+) and restart Jarvis."
+    "install Node.js (18+) and restart Dodaios."
 )
 
 # A runner takes (action, args, access_token) and returns the bot's JSON result

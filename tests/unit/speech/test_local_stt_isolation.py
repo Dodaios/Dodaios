@@ -92,7 +92,7 @@ def test_live_switch_does_not_share_local_final_with_preview(monkeypatch, settin
         ("de", "en", "en", None, "de"),
         ("es", "en", "en", None, "es"),
         ("auto", "es", "de", None, "es"),
-        ("auto", "", "de", None, "de"),
+        ("auto", "", "de", None, "en"),  # never the UI language: English
         ("auto", "", "en", None, "en"),
         ("en", "", "en", "es", "es"),
     ],

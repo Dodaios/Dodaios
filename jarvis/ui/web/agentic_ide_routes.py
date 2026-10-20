@@ -13,6 +13,7 @@ Endpoints (prefix ``/api/agentic-ide``):
 * ``POST   /folders/native``             → open it and return what was picked
 * ``POST   /folders/create``             → make one new folder inside an existing one
 * ``POST   /terminal-target/open``       → open a path printed by one terminal
+* ``POST   /terminal-target/reveal``     → show a workspace path in the file manager
 * ``GET    /workspaces``                 → every open workspace, in tab order
 * ``PUT    /workspaces/order``           → reorder workspace tabs via drag and drop
 * ``GET    /workspaces/{id}/files``      → browse that workspace's file tree
@@ -465,7 +466,7 @@ class CloseTerminalsRequest(BaseModel):
 
 class ModeRequest(BaseModel):
     enabled: bool = Field(
-        description="True narrows Jarvis to this workspace; False returns to normal."
+        description="True narrows Dodaios to this workspace; False returns to normal."
     )
 
 
@@ -823,7 +824,7 @@ class AgentStatus(BaseModel):
     accepts_prompts: bool = Field(
         default=True,
         description=(
-            "Can Jarvis type a message into a pane of this entry at all? False "
+            "Can Dodaios type a message into a pane of this entry at all? False "
             "for an entry whose own interface is somewhere else (DeepSeek "
             "Harness boots a server and puts its chat in the browser), which a "
             "surface that opens a CHAT has to know before it offers the entry."
@@ -2024,7 +2025,7 @@ async def native_picker_support(request: Request) -> NativePickerSupport:
         return NativePickerSupport(
             available=False,
             reason=(
-                "The folder window would open on the computer running Jarvis, not on "
+                "The folder window would open on the computer running Dodaios, not on "
                 "this one. Browse or paste a path instead."
             ),
         )
@@ -2054,7 +2055,7 @@ async def open_native_picker(request: Request, req: NativePickRequest) -> Native
         raise HTTPException(
             status_code=403,
             detail=(
-                "The folder window can only be opened from the computer running Jarvis. "
+                "The folder window can only be opened from the computer running Dodaios. "
                 "Browse to the folder or paste its path instead."
             ),
         )
@@ -2582,14 +2583,10 @@ async def delete_workspace_entry(
     return {"workspace_id": workspace_id, "path": req.path, "trashed": trashed}
 
 
-@router.post(
-    "/terminal-target/open",
-    summary="Open a file or folder linked in an Agentic-IDE terminal",
-)
-async def open_terminal_target(
-    request: Request, req: OpenTerminalTargetRequest
+async def _launch_terminal_target(
+    request: Request, req: OpenTerminalTargetRequest, *, reveal: bool
 ) -> dict[str, object]:
-    """Open a modifier-clicked workspace path with the operating-system default.
+    """Open a workspace path, or show it selected in the system file manager.
 
     This is local-desktop-only: a remote browser would otherwise act on the
     server's screen. Resolution is confined to the addressed open workspace
@@ -2598,7 +2595,7 @@ async def open_terminal_target(
     if not is_loopback_request(request.scope):
         raise HTTPException(
             status_code=403,
-            detail="Terminal paths can only be opened on the computer running Jarvis.",
+            detail="Terminal paths can only be opened on the computer running Dodaios.",
         )
     if not getattr(request.app.state, "native_file_actions", False):
         raise HTTPException(status_code=404, detail="native file actions unavailable")
@@ -2615,16 +2612,45 @@ async def open_terminal_target(
 
     from jarvis.platform import open_path
 
-    opened = await asyncio.to_thread(open_path.open_file, target)
+    opener = open_path.reveal_in_folder if reveal else open_path.open_file
+    opened = await asyncio.to_thread(opener, target)
     kind = "directory" if target.is_dir() else "file"
     log.info(
-        "Agentic IDE terminal target: workspace=%s kind=%s opened=%s path=%s",
+        "Agentic IDE terminal target: workspace=%s kind=%s reveal=%s opened=%s path=%s",
         req.workspace_id,
         kind,
+        reveal,
         opened,
         target,
     )
     return {"opened": bool(opened), "kind": kind, "path": str(target)}
+
+
+@router.post(
+    "/terminal-target/open",
+    summary="Open a file or folder linked in an Agentic-IDE terminal",
+)
+async def open_terminal_target(
+    request: Request, req: OpenTerminalTargetRequest
+) -> dict[str, object]:
+    """Open a modifier-clicked workspace path with the operating-system default."""
+    return await _launch_terminal_target(request, req, reveal=False)
+
+
+@router.post(
+    "/terminal-target/reveal",
+    summary="Show a workspace file or folder in the system file manager",
+)
+async def reveal_terminal_target(
+    request: Request, req: OpenTerminalTargetRequest
+) -> dict[str, object]:
+    """Show a workspace path selected in the file manager, without launching it.
+
+    A route of its own rather than a flag on ``/terminal-target/open``: a
+    backend that does not know it answers 404, where an ignored flag would
+    have launched the file.
+    """
+    return await _launch_terminal_target(request, req, reveal=True)
 
 
 @router.get("/recents", response_model=RecentsResponse, summary="Recently opened workspaces")
@@ -3216,13 +3242,13 @@ async def forget_resume_offer() -> dict:
 async def set_mode(request: Request, req: ModeRequest) -> dict:
     """Turn the focused coding mode on or off.
 
-    While on, Jarvis answers inside the open workspace — it knows the folder,
+    While on, the assistant answers inside the open workspace — it knows the folder,
     the codebase, and what each named terminal is doing. Turning it off returns
     the assistant to its normal, whole-machine behaviour; the terminals keep
     running either way.
 
     The switch is announced on the bus because coding mode is NOT local to this
-    view: it changes how Jarvis answers on every screen, so the app-wide
+    view: it changes how the assistant answers on every screen, so the app-wide
     indicator has to hear about a switch made anywhere — including one made by
     voice or by the CLI while the user is looking at a different section.
     """
@@ -4114,7 +4140,7 @@ async def refresh_terminal_recap(name: str, workspace_id: str | None = None) -> 
 def get_last_prompt(name: str, workspace_id: str | None = None) -> LastPrompt:
     """What terminal ``name`` was last told to do, word for word.
 
-    This is the proof half of a delivery. Jarvis composes a brief, types it
+    This is the proof half of a delivery. Dodaios composes a brief, types it
     into a pane and says it did — and until this existed, the only evidence was
     the pane's own screen, which is exactly what is missing in every case worth
     checking: a pane that had parked its output, an emulator that never
@@ -5030,7 +5056,7 @@ async def terminal_prompt(
     running — speech artefacts removed, the task stated as an imperative, and
     the relevant files of this workspace attached as ``@path`` references. Both
     the spoken path and the UI's typed prompt bar send with it on (maintainer
-    decision 2026-08-12): typed or said, Jarvis writes the brief either way.
+    decision 2026-08-12): typed or said, Dodaios writes the brief either way.
 
     ``dry_run=true`` returns the composed prompt without sending it, so a caller
     can show it for approval first.
@@ -5079,11 +5105,17 @@ async def terminal_prompt(
             # nobody asked to send are noise.
             beat_bus = getattr(request.app.state, "bus", None)
             on_progress = None
+            from jarvis.brain.assistant_name import resolve_assistant_name
+
+            # The stdout line leads with the name the user gave the assistant.
+            _speaker_name = resolve_assistant_name(
+                getattr(request.app.state, "config", None)
+            )
             if beat_bus is not None and not req.dry_run:
                 from jarvis.core.events import AgenticIdeComposeProgress
 
                 def _publish_beat(notice: ComposeNotice) -> None:
-                    print_notice(notice)
+                    print_notice(notice, speaker=_speaker_name)
                     task = asyncio.get_running_loop().create_task(
                         beat_bus.publish(
                             AgenticIdeComposeProgress(

@@ -44,6 +44,7 @@ from jarvis.agent_chat.credential_requests import (
 )
 from jarvis.agent_chat.effort import normalize_effort
 from jarvis.agent_chat.events import make_event
+from jarvis.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
 from jarvis.agent_chat.permissions import default_permission, ladder_key, normalize_permission
 from jarvis.agent_chat.questions import (
     CANCELLED,
@@ -68,6 +69,7 @@ from jarvis.agent_chat.store import (
 )
 from jarvis.agent_chat.surface_kits import kit_for
 from jarvis.agent_chat.turn_host_client import TurnHandedOver
+from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
 from jarvis.core.protocols import ChatCompletion, ChatTurn, current_chat_turn
 from jarvis.society.delivery import IncomingMessage
 
@@ -91,7 +93,7 @@ def _stop_caller() -> str:
 
 #: What a turn cut off by a restart says (``_seal_orphaned_turns``).
 _ORPHANED_TURN_ERROR: Final = (
-    "Jarvis restarted while this turn was running. "
+    "Dodaios restarted while this turn was running. "
     "Everything after the last step shown here was not captured."
 )
 
@@ -407,7 +409,7 @@ class AgentChatService:
         bus: Callable[[], Any | None] | None = None,
     ) -> None:
         self.store = store
-        self._assistant_name = assistant_name or (lambda: "Jarvis")
+        self._assistant_name = assistant_name or (lambda: DEFAULT_ASSISTANT_NAME)
         self._default_cwd = default_cwd or (lambda: str(Path.home()))
         # The app bus, resolved late (the server builds this service before
         # the brain is up). The brain runner reads its tool events off it and
@@ -869,6 +871,28 @@ class AgentChatService:
         run = self._running.get(session_id)
         return bool(run and (run.task is None or not run.task.done()))
 
+    @property
+    def parked_work(self) -> ParkedWorkBoard:
+        """Requests whose delegates still work after their turn closed."""
+        board = getattr(self, "_parked_work", None)
+        if board is None:  # a service built without __init__ (test doubles)
+            board = self._parked_work = ParkedWorkBoard(self)
+        return board
+
+    def delegate_wait(self, handle: Any, gate: Any) -> Any:
+        """Mark a turn as only waiting for its delegates (a context manager)."""
+        return self.parked_work.waiting(handle, gate)
+
+    def carry_delegation(
+        self, handle: Any, gate: Any, original: str, rows: list[dict[str, Any]]
+    ) -> None:
+        """Continue a wait whose turn handed its seat to the next message."""
+        self.parked_work.carry(handle, gate, original, rows)
+
+    async def release_waiting_turn(self, session_id: str) -> bool:
+        """Free the chat for a new message when its running turn only waits."""
+        return await self.parked_work.release(session_id)
+
     def running_session_ids(self) -> list[str]:
         """Sessions occupying a chat seat, including pre-admission setup."""
         return [
@@ -1043,7 +1067,8 @@ class AgentChatService:
             if kind == "assistant_text" and (not turn_id or data.get("turn_id") == turn_id):
                 replies.append(str(data.get("text") or ""))
             elif kind == "user_message":
-                user_text = str(data.get("text") or "")
+                # What the person wrote, not the composed prompt around it.
+                user_text = str(data.get("typed") or data.get("text") or "")
                 break
         try:
             loop = asyncio.get_running_loop()
@@ -1117,8 +1142,15 @@ class AgentChatService:
         display_text: str | None = None,
         routine_run: bool = False,
         author: dict[str, str] | None = None,
+        background_result: bool = False,
     ) -> str:
         """Persist the person's message and start the turn. Returns turn_id.
+
+        ``background_result`` continues an earlier request of the person whose
+        delegates finished after its turn had closed (``parked_work``). It is
+        their own task, so the turn runs with their standing, but nothing was
+        typed: no command parsing, no goal steering, and the timeline marks
+        the message as that request's result instead of a new bubble.
 
         ``author`` marks a message another agent wrote on the person's behalf
         (``{"agent_id", "name"}``, a Jarvis agent steering a coding thread):
@@ -1137,6 +1169,9 @@ class AgentChatService:
         session = self.store.get_session(session_id)
         if session is None:
             raise NoSuchSession(session_id)
+        # Nothing was typed for a background result: it passes the gates a
+        # control-owned message passes, and keeps the person's standing.
+        control_owned = control_owned or background_result
         if session.surface == "society":
             session = await self.bind_society_session(session_id, routine_run=routine_run)
         selected_runner = None
@@ -1259,7 +1294,7 @@ class AgentChatService:
             selected = []
             if tool_choices:
                 if session.surface != "jarvis":
-                    raise ValueError("Tool selections are supported by the Jarvis chat")
+                    raise ValueError("Tool selections are supported by the Dodaios chat")
                 from jarvis.agent_chat.runner_brain import brain_manager
                 from jarvis.agent_chat.tool_catalog import live_catalog, resolve_choices
 
@@ -1356,6 +1391,7 @@ class AgentChatService:
                             # NEXT turn (runner_api.messages_from_events).
                             "text": prompt,
                             **({"origin": "control"} if control_owned and not direct_user else {}),
+                            **({"origin": BACKGROUND_ORIGIN} if background_result else {}),
                             **({"author": dict(author)} if author else {}),
                             **(
                                 {"tool_choices": [row.model_dump(mode="json") for row in selected]}
@@ -1411,6 +1447,13 @@ class AgentChatService:
             )
 
             bus = self._bus()
+            # A plain chat's system prompt is the surface's own. Written per
+            # turn, so its workspace notes follow the session's folder.
+            plain_system = (
+                await kit.plain_chat(session, text, self._assistant_name())
+                if kit.plain_chat is not None
+                else ""
+            )
             handle = TurnHandle(
                 session=session,
                 turn_id=turn_id,
@@ -1420,6 +1463,8 @@ class AgentChatService:
                 ),
                 cancel=cancel,
                 history=history,
+                tools_disabled=kit.plain,
+                plain_system=plain_system,
                 assistant_name=self._assistant_name(),
                 bus=bus,
                 surface=session.surface,
@@ -1531,9 +1576,14 @@ class AgentChatService:
                     # agent. Asked of the kit rather than the surface name, so
                     # a surface that combines the two keeps working.
                     as_jarvis = kit.brain_runner and kit.cli_seats
+                    # Requests still running behind this turn; the brain
+                    # runner carries the same note in its briefing.
+                    background = self.parked_work.context_note(session_id)
                     vendor = await run_cli_turn(
                         active_handle,
-                        run_prompt + selection_briefing(selected),
+                        run_prompt
+                        + selection_briefing(selected)
+                        + (f"\n\n{background}" if background else ""),
                         runner,
                         identity=as_jarvis,
                         bridge=self._bridge_for(bus) if as_jarvis else None,

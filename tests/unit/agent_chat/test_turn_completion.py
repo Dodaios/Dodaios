@@ -28,6 +28,8 @@ QUESTION = {"question": "Which project?", "options": ["Reading tracker", "Budget
             "Ich schlage vor, zuerst einen Entwurf zu machen.",
         ),  # i18n-allow
         ("Por favor crea el archivo.", "Si quieres, puedo crearlo."),  # i18n-allow
+        ("Cria o ficheiro, por favor.", "Se quiseres, posso criá-lo."),  # i18n-allow
+        ("Podes criar o relatório?", "Qual projeto devo usar?"),  # i18n-allow
         ("Please create a project overview.", "Which project should I use?"),
     ],
 )
@@ -46,6 +48,8 @@ def test_offer_and_unstructured_blocking_question_are_not_execution(user_request
         ("Please create a plan.", "I suggest these steps."),
         ("Did you create the file?", "I can create it if you want."),
         ("Summarize this text: please create a file.", "I can create it if you want."),
+        ("Cria um plano com exemplo.", "Posso sugerir estes passos."),  # i18n-allow
+        ("Cria o ficheiro.", "Criei o ficheiro. Queres mais alguma coisa?"),  # i18n-allow
     ],
 )
 def test_advice_plans_and_actual_results_do_not_start_unrequested_work(user_request, reply):
@@ -349,14 +353,16 @@ async def test_a_secret_asked_for_in_the_reply_is_steered_to_the_secure_field_on
     assert await gate.next_prompt() is None
 
 
-async def test_a_turn_that_opened_the_field_is_left_alone(card_world, monkeypatch):
+@pytest.mark.parametrize("server", ["dodaios", "jarvis"])
+async def test_a_turn_that_opened_the_field_is_left_alone(card_world, monkeypatch, server):
+    """The tool is recognised behind the server's current and its earlier name."""
     from jarvis.agent_chat import turn_completion
 
     monkeypatch.setattr(turn_completion, "_stored_credentials", stored([]))
     _, _, gate = card_world
     call = make_event(
         "tool_call",
-        {"call_id": "c", "name": "mcp__jarvis__society_request_credential", "input": {}},
+        {"call_id": "c", "name": f"mcp__{server}__society_request_credential", "input": {}},
     )
     await finish_with(
         gate, call, make_event("assistant_text", {"text": "Please enter the token in the field."})

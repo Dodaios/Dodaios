@@ -68,7 +68,7 @@ class OpenRouterBrain:
                 timeout=CLIENT_TIMEOUT,
                 default_headers={
                     "HTTP-Referer": "https://github.com/Dodaios/Dodaios",
-                    "X-Title": "Personal Jarvis",
+                    "X-Title": "Dodaios",
                 },
             )
         return self._client

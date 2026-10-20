@@ -22,6 +22,7 @@
  */
 
 import { fill } from "@/i18n";
+import { MCP_TOOLS_SERVER_NAMES } from "@/lib/branding";
 import { cliVendor } from "@/lib/cliVendors";
 import { resolveToolBrand } from "@/lib/toolBrand";
 import { describeToolStep } from "@/lib/toolStepLabel";
@@ -305,19 +306,31 @@ export function commandBinary(command: string): string {
   return "";
 }
 
+/**
+ * The tool behind a call to the app's own MCP server, under every name that
+ * server has had ("dodaios/gmail", "jarvis/gmail" → "gmail"); null for
+ * another server's tool or a name without a server.
+ */
+export function ownServerTool(name: string): string | null {
+  const slash = name.indexOf("/");
+  if (slash <= 0 || slash === name.length - 1) return null;
+  return MCP_TOOLS_SERVER_NAMES.includes(name.slice(0, slash).toLowerCase()) ? name.slice(slash + 1) : null;
+}
+
 /** One finished or running call as its line. */
 function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: string): Call {
   const view = traceToolIdentity(block);
   const record = inputRecord(block);
   const { status, reason } = statusOf(block, turn, t);
   const name = traceToolName(block.name);
-  const own = /^jarvis\//i.test(name) ? describeToolStep(name.slice("jarvis/".length), block.input) : null;
+  const ownTool = ownServerTool(name);
+  const own = ownTool !== null ? describeToolStep(ownTool, block.input) : null;
   const description = own && (FAMILIES.has(own.family) || own.family === "shell") ? own : view.description;
   const action = view.action === "memory" ? null : view.action;
   const base = { id: block.callId, block, status, reason, added: 0, removed: 0, result: "", detail: "", brand: null as string | null };
 
-  // Jarvis's CLI wrappers ("mcp__jarvis__cli_jarvisctl") run a command line.
-  const wrapper = /^jarvis\/cli_/i.test(name) && firstString(record, ACTION_KEYS.command);
+  // The app's CLI wrappers ("mcp__dodaios__cli_jarvisctl") run a command line.
+  const wrapper = ownTool !== null && /^cli_/i.test(ownTool) && firstString(record, ACTION_KEYS.command);
   if (action === "command" || description.family === "shell" || wrapper) {
     const raw = firstString(record, ACTION_KEYS.command) || (typeof block.input === "string" ? block.input : "") || description.detail;
     const command = oneLine(withoutCd(raw.split(/\r?\n/).find((line) => line.trim()) ?? ""), 200);
@@ -351,10 +364,10 @@ function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: string):
     const kind: CallKind = family === "web" ? "web" : "family";
     return { ...base, kind, text: capitalize(tr(t, `family.${family}`)), detail: oneLine(description.detail, 100), result, bucket: `family:${family}` };
   }
-  if (own) {
-    // Jarvis's own server is the road, not the destination: "jarvis/gmail"
-    // is the Gmail plugin, "jarvis/society_routines" is that tool by name.
-    const rest = name.slice("jarvis/".length);
+  if (own && ownTool !== null) {
+    // The app's own server is the road, not the destination: "dodaios/gmail"
+    // is the Gmail plugin, "dodaios/society_routines" is that tool by name.
+    const rest = ownTool;
     const brand = resolveToolBrand(rest);
     if (brand.logoUrl) {
       return { ...base, kind: "service", text: brand.label, detail: oneLine(own.detail, 100), result, bucket: `used:${brand.label}`, brand: brand.brandId ?? brand.label };

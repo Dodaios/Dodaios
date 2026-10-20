@@ -30,8 +30,10 @@ import {
   usePublishIdentity,
 } from "@/components/marketplace/PublishIdentity";
 import { PublishStudio } from "@/components/marketplace/PublishStudio";
-import { fill, useI18nStore, useLocaleChunk, useT } from "@/i18n";
+import { fill, translate, useI18nStore, useLocaleChunk, useT } from "@/i18n";
+import { localeForUiLanguage } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
+import { MARKETPLACE_REPO_URL } from "@/lib/branding";
 import { openExternalUrl } from "@/lib/openExternal";
 import { bundledPluginLogo } from "@/lib/pluginLogos";
 import { useEventStore, type SectionId } from "@/store/events";
@@ -67,7 +69,7 @@ import {
 // ---------------------------------------------------------------------------
 
 /** The public storefront — the same catalogue, on the web. */
-const MARKETPLACE_WEB_URL = "https://github.com/PersonalJarvis/marketplace";
+const MARKETPLACE_WEB_URL = MARKETPLACE_REPO_URL;
 
 type Kind = "plugin" | "skill" | "agent";
 type KindFilter = "all" | Kind | "installed" | "mine";
@@ -255,7 +257,7 @@ function categoryLabel(category: string): string {
 
 async function fetchCommunity(): Promise<CommunityResponse> {
   const res = await fetch("/api/marketplace/community", { cache: "no-store" });
-  if (!res.ok) throw new Error(`Marketplace request failed (${res.status})`);
+  if (!res.ok) throw new Error(fill(translate("marketplace.request_failed"), { status: res.status }));
   return res.json();
 }
 
@@ -306,7 +308,7 @@ export function MarketplaceView() {
   const refresh = useMutation({
     mutationFn: async (): Promise<CommunityResponse> => {
       const res = await fetch("/api/marketplace/community/refresh", { method: "POST" });
-      if (!res.ok) throw new Error(`Refresh failed (${res.status})`);
+      if (!res.ok) throw new Error(fill(translate("marketplace.refresh_failed"), { status: res.status }));
       return res.json();
     },
     onSuccess: (fresh) => queryClient.setQueryData(["marketplace-community"], fresh),
@@ -324,7 +326,7 @@ export function MarketplaceView() {
           .then((body: { detail?: string }) => body.detail)
           .catch(() => undefined);
         // A failure names its cause — a bare "that did not work" is a bug.
-        throw new Error(detail ?? `Install failed (${res.status})`);
+        throw new Error(detail ?? fill(translate("marketplace.install_failed"), { status: res.status }));
       }
       return res.json();
     },
@@ -690,7 +692,7 @@ function subtitleFor(
 function formatDate(iso: string): string {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return iso;
-  return parsed.toLocaleDateString(useI18nStore.getState().ui, {
+  return parsed.toLocaleDateString(localeForUiLanguage(useI18nStore.getState().ui), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -1227,7 +1229,7 @@ function useEntryContents(name: string | null) {
         `/api/marketplace/community/${encodeURIComponent(name ?? "")}/contents`,
         { cache: "no-store" },
       );
-      if (!res.ok) throw new Error(`Could not read that entry (${res.status})`);
+      if (!res.ok) throw new Error(fill(translate("marketplace.contents_failed"), { status: res.status }));
       return res.json();
     },
   });
@@ -1584,7 +1586,7 @@ function Destination({ entry, t }: { entry: Entry; t: Translate }) {
       rows.push({ label: t("marketplace.metadata_only") });
     }
     const auth = entry.authMode ? AUTH_MODE_LABEL[entry.authMode] : undefined;
-    if (auth) rows.push({ label: t("marketplace.sign_in_method"), value: auth });
+    if (auth) rows.push({ label: t("marketplace.sign_in_method"), value: t(auth) });
   }
 
   if (entry.kind === "agent" && entry.agent) {
@@ -1646,11 +1648,11 @@ function Destination({ entry, t }: { entry: Entry; t: Translate }) {
 
 /** Mirrors the plugin consent dialog's labels — one vocabulary for one act. */
 const AUTH_MODE_LABEL: Record<string, string> = {
-  pat_paste: "Personal access token",
-  oauth_device_flow: "Device sign-in",
-  hosted_mcp_oauth_dcr: "OAuth sign-in",
-  oauth_pkce_loopback: "OAuth sign-in",
-  hosted_mcp_allowlist: "Account allowlist",
+  pat_paste: "plugins_community.auth_pat",
+  oauth_device_flow: "plugins_community.auth_device",
+  hosted_mcp_oauth_dcr: "plugins_community.auth_oauth",
+  oauth_pkce_loopback: "plugins_community.auth_oauth",
+  hosted_mcp_allowlist: "plugins_community.auth_allowlist",
 };
 
 /**

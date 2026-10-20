@@ -260,8 +260,8 @@ Per session: `listening -> user_speaking -> turn_pending -> responding
 
 ### 4.4 The seam: adapter contract and `jarvis/live` fixes
 
-Adapter `jarvis/plugins/realtime/local_voice.py` (entry point
-`jarvis.realtime`, no `jarvis.*` import at module import):
+Adapter `jarvis/plugins/realtime/local_voice.py` (registered in the
+`jarvis.realtime` entry-point group; the module loads nothing from `jarvis.*`):
 
 - Class attributes: `supports_realtime=True`, `native_tool_orchestration=True`,
   `browser_audio=True`, `implicit_usage_fallback_allowed=False`,

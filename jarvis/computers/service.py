@@ -156,7 +156,7 @@ def import_private_key(pem: str | None, passphrase: str | None) -> Any:
         if passphrase and not _bcrypt_kdf_available():
             raise ComputerError(
                 "This protected key cannot be unlocked on this install: the "
-                "bcrypt package is missing. Reinstall Personal Jarvis, or add "
+                "bcrypt package is missing. Reinstall Dodaios, or add "
                 "the key without a passphrase.",
                 kind="bad_key",
             ) from exc

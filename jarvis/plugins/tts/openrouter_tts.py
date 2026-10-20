@@ -164,7 +164,7 @@ class OpenRouterTTS:
                 "Content-Type": "application/json",
                 # OpenRouter attribution headers (same as the brain plugin).
                 "HTTP-Referer": "https://github.com/Dodaios/Dodaios",
-                "X-Title": "Personal Jarvis",
+                "X-Title": "Dodaios",
             },
         )
         self._resolved_credential = ep.credential

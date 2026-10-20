@@ -6,6 +6,7 @@ import { floorLevel, OFFICE_FLOORS, officeSession, player, switchFloor, useOffic
 import { callDirection } from "./ElevatorCallButton";
 import { floorForKey, PANEL_FLOORS } from "./ElevatorPanel";
 import { buildArcadeLayout } from "../arcade/arcadeFloorLayout";
+import { buildHallLayout } from "./hallFloorLayout";
 
 const AGENTS: OfficeAgentInput[] = [
   { agentId: "a1", name: "One", tier: "specialist", providerLabel: "Codex", state: "working", createdMs: 1 },
@@ -24,26 +25,28 @@ afterEach(resetBuilding);
 
 describe("floors", () => {
   it("stacks the floors bottom to top, and the elevator panel lists them top first", () => {
-    expect(OFFICE_FLOORS).toEqual(["agents", "coding", "arcade"]);
-    expect(OFFICE_FLOORS.map(floorLevel)).toEqual([0, 1, 2]);
-    expect(PANEL_FLOORS).toEqual(["arcade", "coding", "agents"]);
+    expect(OFFICE_FLOORS).toEqual(["agents", "coding", "arcade", "hall"]);
+    expect(OFFICE_FLOORS.map(floorLevel)).toEqual([0, 1, 2, 3]);
+    expect(PANEL_FLOORS).toEqual(["hall", "arcade", "coding", "agents"]);
     expect(callDirection("agents")).toBe("up");
     expect(callDirection("coding")).toBe("both");
-    expect(callDirection("arcade")).toBe("down");
+    expect(callDirection("arcade")).toBe("both");
+    expect(callDirection("hall")).toBe("down");
   });
 
   it("picks a floor by its number key", () => {
     expect(floorForKey("0")).toBe("agents");
     expect(floorForKey("1")).toBe("coding");
     expect(floorForKey("2")).toBe("arcade");
-    expect(floorForKey("3")).toBeNull();
+    expect(floorForKey("3")).toBe("hall");
+    expect(floorForKey("4")).toBeNull();
     expect(floorForKey("e")).toBeNull();
     expect(floorForKey("12")).toBeNull();
   });
 
   it("steps out of the elevator onto walkable floor, facing away from the doors, on every floor", () => {
-    for (const variant of ["agents", "coding", "arcade"] as const) {
-      const layout = variant === "arcade" ? buildArcadeLayout() : buildOfficeLayout(AGENTS, { variant });
+    for (const variant of ["agents", "coding", "arcade", "hall"] as const) {
+      const layout = variant === "arcade" ? buildArcadeLayout() : variant === "hall" ? buildHallLayout() : buildOfficeLayout(AGENTS, { variant });
       const stop = layout.checkpoints.find((cp) => cp.id === "elevator");
       expect(stop, variant).toBeDefined();
       const pose = arrivalPose(layout, "elevator");
@@ -72,6 +75,9 @@ describe("floors", () => {
     expect(noteArrivals(known, ["p2", "p3"])).toEqual([]);
     expect(noteArrivals(known, ["p1", "p2", "p3"])).toEqual(["p1"]);
     expect(knownOnFloor("agents")).not.toBe(knownOnFloor("coding"));
+    // Nobody works in the arcade or the Level Hall: neither ever has a newcomer of the floors below.
+    expect(knownOnFloor("hall")).not.toBe(knownOnFloor("agents"));
+    expect(knownOnFloor("hall")).not.toBe(knownOnFloor("coding"));
   });
 
   it("switching floors forgets the old floor's panels and calls, and remembers where the character stood", () => {

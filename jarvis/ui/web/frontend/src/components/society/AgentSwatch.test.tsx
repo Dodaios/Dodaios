@@ -1,8 +1,9 @@
-import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AgentSwatch } from "./AgentSwatch";
 import { symbolAppearance } from "./AgentSymbol";
+import { useCreatureDefault } from "./companion/creatureDefault";
 import type { SocietyAgent } from "./data";
 
 const agent: Pick<SocietyAgent, "agentId" | "tier" | "figure" | "palette" | "name"> = {
@@ -13,7 +14,28 @@ const agent: Pick<SocietyAgent, "agentId" | "tier" | "figure" | "palette" | "nam
   palette: { primary: "#111111", secondary: "#222222", accent: "#333333" },
 };
 
+describe("an agent that never picked a look", () => {
+  afterEach(cleanup);
+
+  it("shows as a pixel creature that acts out the agent's run state", () => {
+    const { container, rerender } = render(<AgentSwatch agent={{ ...agent, state: "idle" }} />);
+    const face = () => container.querySelector<HTMLElement>("[data-agent-creature]")!;
+    expect(container.querySelector("svg")).toBeNull();
+    expect(face().dataset.creatureState).toBe("idle");
+    rerender(<AgentSwatch agent={{ ...agent, state: "working" }} />);
+    expect(face().dataset.creatureState).toBe("working");
+    expect(face().querySelector("[data-agent-working]")).not.toBeNull();
+    rerender(<AgentSwatch agent={{ ...agent, state: "waiting" }} />);
+    expect(face().dataset.creatureState).toBe("asking");
+    expect(face().querySelector("[data-agent-working]")).toBeNull();
+  });
+});
+
 describe("agent vector identities", () => {
+  // The shape symbols, as they show with pixel creatures switched off on this device.
+  beforeEach(() => useCreatureDefault.setState({ enabled: false }));
+  afterEach(() => { cleanup(); useCreatureDefault.setState({ enabled: true }); });
+
   it("animates only a real working status, including the lead", () => {
     const { container, rerender } = render(<AgentSwatch agent={{ ...agent, state: "working" }} />);
     expect(container.querySelector("[data-thinking=true]")).not.toBeNull();
@@ -22,8 +44,11 @@ describe("agent vector identities", () => {
       expect(container.querySelector("[data-thinking=true]")).toBeNull();
     }
     rerender(<AgentSwatch agent={{ ...agent, tier: "lead", state: "working" }} />);
+    // The lead stays in the picture at work and carries the same bubble as everyone else.
     expect(container.querySelector("[data-agent-mascot=gigi]")).not.toBeNull();
     expect(container.querySelector("[data-thinking=true]")).not.toBeNull();
+    expect(container.querySelector("[data-agent-working]")).not.toBeNull();
+    expect(container.querySelector(".society-agent-symbol [data-agent-mascot=gigi]")).toBeNull();
   });
   it("renders a symbol immediately without a portrait, image request or canvas", () => {
     const { container } = render(<AgentSwatch agent={agent} size={40} />);

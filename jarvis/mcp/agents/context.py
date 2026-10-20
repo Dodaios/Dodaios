@@ -49,7 +49,7 @@ async def society() -> Any:
     if state is None:
         raise EcosystemUnavailable(
             "the agent society",
-            "Jarvis' web server is still starting. Try again in a moment.",
+            "Dodaios' web server is still starting. Try again in a moment.",
         )
     runtime = getattr(state, "society", None)
     if runtime is None:
@@ -57,7 +57,7 @@ async def society() -> Any:
         if factory is None:
             raise EcosystemUnavailable(
                 "the agent society",
-                "this Jarvis build has no society runtime configured.",
+                "this Dodaios build has no society runtime configured.",
             )
         try:
             runtime = factory()
@@ -76,7 +76,7 @@ def chat_service() -> Any:
     state = _app_state()
     if state is None:
         raise EcosystemUnavailable(
-            "agent chat", "Jarvis' web server is still starting. Try again in a moment."
+            "agent chat", "Dodaios' web server is still starting. Try again in a moment."
         )
     service = getattr(state, "agent_chat", None)
     if service is not None:
@@ -110,9 +110,13 @@ async def resolve_agent(runtime: Any, ref: str) -> Any:
     stores. ``roster.resolve`` already accepts both; this wrapper exists so
     every tool refuses an unknown agent with the same sentence.
     """
-    agent = await runtime.roster.resolve(ref)
+    from jarvis.society.agent_names import resolve_shown
+    from jarvis.society.display_name import display_name
+
+    agent = await resolve_shown(runtime, ref)
     if agent is None:
-        known = [a.name for a in await runtime.roster.list()]
+        config = runtime.config()
+        known = [display_name(a, config) for a in await runtime.roster.list()]
         raise EcosystemUnavailable(
             f"agent {ref!r}",
             f"no agent by that id or name. On this box: {', '.join(known) or 'none yet'}.",

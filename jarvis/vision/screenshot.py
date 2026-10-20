@@ -51,7 +51,7 @@ _DEFAULT_BLOB_DIR = Path("data") / "flight_recorder" / "blobs"
 # READ the state: they never ask macOS (the gesture entry points do, through
 # ``jarvis.platform.screen_access``).
 _SCREEN_RECORDING_MSG = (
-    "macOS Screen Recording permission not granted — allow Personal Jarvis in "
+    "macOS Screen Recording permission not granted — allow Dodaios in "
     "System Settings > Privacy & Security > Screen & System Audio Recording; "
     "without it screenshots can contain only the desktop wallpaper and "
     "Computer-Use would click blind."

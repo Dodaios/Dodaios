@@ -12,10 +12,10 @@ last_reviewed: 2026-10-02
 phase: "-"
 audience: end-user
 tags: [troubleshooting, diagnostics, recovery, startup, providers, voice, connections, support]
-related: [install-personal-jarvis, providers-and-api-keys, audio-and-wake-word, platform-support]
+related: [install-dodaios, providers-and-api-keys, audio-and-wake-word, platform-support]
 ---
 
-Personal Jarvis combines a local app, optional online providers, operating
+Dodaios combines a local app, optional online providers, operating
 system permissions, connected tools, and background work. One part can fail
 while the rest of the app remains healthy. Find the affected part before you
 change any settings.
@@ -77,7 +77,7 @@ reinstalling the app.
   [Platform Support](platform-support) before treating those missing desktop
   surfaces as a crash.
 - If the normal launcher never appears after installation, follow
-  [Install Personal Jarvis](install-personal-jarvis). Do not delete the data
+  [Install Dodaios](install-dodaios). Do not delete the data
   directory as a first repair step.
 
 ### An Update or Restart Does Not Finish
@@ -122,7 +122,7 @@ documentation** while it builds the search index.
   Use the magnifying-glass search, or `Ctrl+K` on Windows and Linux or
   `Command+K` on macOS, to search page content.
 - If both copies fail, test them separately. Local Docs depends on the running
-  Jarvis app. Hosted Docs depends on the browser and internet connection.
+  Dodaios app. Hosted Docs depends on the browser and internet connection.
 
 ### Chat Does Not Answer or Uses the Wrong Provider
 
@@ -134,7 +134,7 @@ facts.
   invalid**, **Out of credits**, **Rate limited**, **Model unavailable**,
   **Unreachable**, and **Integration error**. Repair that account or select a
   ready provider that supports the required capability.
-- Jarvis can skip an unavailable provider and cross to another compatible
+- Dodaios can skip an unavailable provider and cross to another compatible
   provider family when one is configured. Fallback cannot help if every
   compatible provider is missing, unavailable, or out of credit.
 - If chat works but a tool action fails, check the **Tool Model** and the tool
@@ -178,25 +178,25 @@ They do not diagnose a turn that was never recorded.
 
 ### A Permission or Approval Blocks an Action
 
-An operating system permission and a Jarvis safety approval answer different
+An operating system permission and a Dodaios safety approval answer different
 questions. The operating system controls microphone, screen, accessibility,
-and input access. Jarvis then decides whether a particular action is safe,
+and input access. Dodaios then decides whether a particular action is safe,
 needs confirmation, or must be blocked.
 
 - On macOS, if you said no to Apple's dialog, it never asks again. Use the button
-  on the short message Jarvis shows, or start over (below).
+  on the short message Dodaios shows, or start over (below).
 - Windows and Linux do not show the macOS permission message. Use the operating
   system's own microphone, display, and accessibility controls when the
   affected feature requires them.
 - Review the exact target and effect before approving an action. Never weaken a
   safety rule just to make an unclear request proceed.
 - A granted permission proves only the operating system grant, not that the action
-  is supported or that Jarvis will approve it.
+  is supported or that Dodaios will approve it.
 
 ### Start Over for One macOS Permission
 
 If macOS shows no dialog, or a switch is on but the feature fails, quit
-Personal Jarvis and run `jarvis permissions reset <permission>
+Dodaios and run `jarvis permissions reset <permission>
 --yes` (add `--bundle-id` for the other app). If `jarvis` is not found, the
 downloaded app's command is `/Applications/Personal Jarvis.app/Contents/MacOS/jarvis`.
 Without the command, run `tccutil` with
@@ -209,7 +209,7 @@ for s in Microphone ScreenCapture Accessibility ListenEvent AppleEvents; do
 done
 ```
 
-Reopen Jarvis; macOS asks again.
+Reopen Dodaios; macOS asks again.
 
 ### A Plugin, MCP Server, or CLI Is Disconnected
 
@@ -235,7 +235,7 @@ See [Plugins](plugins), [MCP Connections](mcp-connections), and
 ### A Task, Agent Mission, or File Appears Stuck or Missing
 
 - In **Tasks**, select **Refresh** and expand the card's Timeline. A scheduled
-  task can run one missed occurrence when the scheduler returns, so Jarvis does
+  task can run one missed occurrence when the scheduler returns, so Dodaios does
   not have to be running at the exact due time. Work interrupted during
   shutdown is not automatically repeated.
 - In the Agents view, open the mission row and read its status and detail before
@@ -278,7 +278,7 @@ the project's GitHub Issues page if Discord is unavailable.
 
 Include only what another person needs to reproduce the problem:
 
-- Personal Jarvis version, operating system, and whether you use the desktop
+- Dodaios version, operating system, and whether you use the desktop
   app, a browser, or a headless host;
 - the affected view and exact visible status or error;
 - the shortest numbered steps, expected result, and actual result;
@@ -319,7 +319,7 @@ Verify only the path you repaired:
 
 ## Next Steps
 
-- Read [Install Personal Jarvis](install-personal-jarvis) if the app or its
+- Read [Install Dodaios](install-dodaios) if the app or its
   normal launcher never reaches a usable start.
 - Use [Providers and API Keys](providers-and-api-keys) for account, model,
   quota, category, and fallback problems.

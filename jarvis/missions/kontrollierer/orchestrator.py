@@ -61,6 +61,8 @@ from ..capacity import (
     worker_family,
     write_checkpoint,
 )
+from ..corrections import Correction, CorrectionInbox, with_corrections
+from ..corrections import render as render_corrections
 from ..critic.escalation import FRONTIER_MODEL
 from ..critic.reflections import ReflectionMemory
 from ..critic.runner import MAX_CRITIC_LOOPS, CriticRunner
@@ -114,6 +116,7 @@ from ..worker_runtime.workspace import materialize_worker_contract
 from ..workers.base import WorkerProtocol
 from .decomposer import MissionDecomposer, MissionPlan, Step
 from .deliverable import (
+    MISSION_COMPLETED_PHRASES,
     build_deliverable_summary,
     build_delivered_summary,
     deliver_to_user_folder,
@@ -1013,6 +1016,43 @@ class Kontrollierer:
         finally:
             self._running_missions.pop(mission_id, None)
 
+    def amend_mission(self, mission_id: str, instruction: str) -> dict[str, Any]:
+        """Keep a correction the user gave while the mission runs.
+
+        The running worker cannot be told anything; every later attempt of
+        every step is given the correction, and an attempt it arrived during
+        is followed by one more. Raises ``ValueError`` for an empty or
+        oversized instruction. Blocking file I/O: call off the event loop.
+        """
+        mission_dir = self._isolation_root / f"mission_{mission_id[:13]}"
+        inbox = CorrectionInbox(mission_dir)
+        correction = inbox.add(instruction)
+        logger.info("Mission %s: correction %d recorded", mission_id, correction.number)
+        return {
+            "number": correction.number,
+            "text": correction.text,
+            "running": mission_id in self._running_missions,
+        }
+
+    def mission_corrections(self, mission_id: str) -> dict[str, Any]:
+        """The mission's corrections and the ones a step finished without."""
+        inbox = CorrectionInbox(self._isolation_root / f"mission_{mission_id[:13]}")
+        corrections = inbox.read()
+        if not corrections:
+            return {}
+        return {
+            "corrections": [item.to_dict() for item in corrections],
+            "unapplied_corrections": [item.to_dict() for item in inbox.unapplied()],
+        }
+
+    @staticmethod
+    def _can_start_correction(iteration: int, task_t0: float) -> bool:
+        """Whether one more attempt fits: an attempt left and time to finish it."""
+        if iteration + 1 >= MAX_CRITIC_LOOPS:
+            return False
+        needed_s = _CORRECTION_WORKER_TIMEOUT_S + _CRITIC_TIME_RESERVE_S
+        return time.monotonic() - task_t0 + needed_s <= _TASK_TIME_BUDGET_S
+
     def cancel_running_mission(self, mission_id: str) -> bool:
         """Cancel the in-flight ``run_mission`` task for this mission.
 
@@ -1616,12 +1656,23 @@ class Kontrollierer:
         # return EXHAUSTED (the worker was given real feedback and
         # still didn't fix things).
         critic_ok_count = 0
+        # What the user said about this mission after it started. ``handed``
+        # are the corrections the attempt being judged was given.
+        inbox = CorrectionInbox(mission_dir)
+        handed: list[Correction] = []
 
         for iteration in range(MAX_CRITIC_LOOPS):
             # Per-iteration: render reflections, spawn worker, capture diff+log
             prior_block = reflections.render_for_worker_prompt(n=3)
             if resumed and iteration == 0 and not review_only:
                 prior_block = "\n\n".join(b for b in (_RESUME_NOTE, prior_block) if b)
+            if not (review_only and iteration == 0):
+                # A restored result that only waits for its review was made
+                # before these corrections; they count as not yet handed.
+                handed = await asyncio.to_thread(inbox.read)
+                prior_block = "\n\n".join(
+                    b for b in (prior_block, render_corrections(handed)) if b
+                )
             # Lead every worker prompt with the artifact-language directive so
             # generated code defaults to English regardless of the request
             # language (the German-request -> German-code leak). This is the one
@@ -2093,7 +2144,8 @@ class Kontrollierer:
             )
             try:
                 verdict = await self._runner.run(
-                    mission_prompt=mission_prompt,
+                    # Judged against the task as the user corrected it.
+                    mission_prompt=with_corrections(mission_prompt, handed),
                     worker_diff=diff_text,
                     worker_log=critic_log,
                     prior_reflections=prior_block,
@@ -2223,6 +2275,35 @@ class Kontrollierer:
 
             # Verdict evaluation
             if is_approval_valid(verdict):
+                # A correction that arrived while this attempt ran: the result
+                # is good for the task as it was, not as the user changed it.
+                # The next attempt changes the same workspace, so from here on
+                # the step ends as that attempt ends, also when it fails.
+                late = (await asyncio.to_thread(inbox.read))[len(handed):]
+                if late and self._can_start_correction(iteration, task_t0):
+                    reflections.append(
+                        iteration,
+                        "The result was accepted, but the user changed the task while "
+                        "this attempt ran. Apply the user's corrections to it.",
+                        [],
+                    )
+                    await self._publish_correction(
+                        mission_id=mission_id,
+                        worker_id=spawn_result.worker_id,
+                        instruction=late[-1].text,
+                        iteration=iteration,
+                        next_model=(FRONTIER_MODEL if iteration + 1 >= 2 else "sonnet"),
+                        # The user asked for this attempt, not the reviewer.
+                        source_actor="ui",
+                    )
+                    continue
+                if late:
+                    logger.warning(
+                        "Task %s: %d correction(s) arrived too late for another "
+                        "attempt and were not applied",
+                        step.task_id, len(late),
+                    )
+                    await asyncio.to_thread(inbox.note_unapplied, step.task_id, late)
                 # Read-only / informational task: capture the worker's answer
                 # so the mission speaks it back instead of "Mission
                 # abgeschlossen." Two shapes qualify — (a) empty diff + real
@@ -4284,6 +4365,17 @@ class Kontrollierer:
             or build_deliverable_summary(mission_dir, language="en")
             or "Mission completed."
         )
+        # es/pt (every dispatch language besides de/en) get their own spoken
+        # summary, so the readback never falls back to the English one.
+        summary_local = ""
+        mission_language = await self._mission_language(mission_id)
+        if mission_language not in ("de", "en"):
+            summary_local = (
+                answer_summary
+                or build_delivered_summary(delivered, language=mission_language)
+                or build_deliverable_summary(mission_dir, language=mission_language)
+                or MISSION_COMPLETED_PHRASES.get(mission_language, "")
+            )
         env = EventEnvelope(
             mission_id=mission_id,
             source_actor="kontrollierer",
@@ -4295,9 +4387,21 @@ class Kontrollierer:
                 wall_ms=0,
                 summary_de=summary_de,
                 summary_en=summary_en,
+                summary_local=summary_local,
             ),
         )
         await self._manager.store.append_and_publish(env)
+
+    async def _mission_language(self, mission_id: str) -> str:
+        """The mission's dispatch language, English when it cannot be read."""
+        try:
+            view = await self._manager.store.get_mission_view(mission_id)
+        except Exception:  # noqa: BLE001 — the readback language is never mission-fatal
+            logger.warning(
+                "could not read the dispatch language of %s", mission_id, exc_info=True
+            )
+            return "en"
+        return str(view[2]) if view else "en"
 
     async def _fail_mission(
         self,
@@ -4521,11 +4625,12 @@ class Kontrollierer:
         instruction: str,
         iteration: int,
         next_model: str,
+        source_actor: Literal["critic", "ui"] = "critic",
     ) -> None:
         env = EventEnvelope(
             mission_id=mission_id,
             worker_id=worker_id,
-            source_actor="critic",
+            source_actor=source_actor,
             ts_ms=now_ms(),
             payload=WorkerCorrectionRequired(
                 worker_id=worker_id,

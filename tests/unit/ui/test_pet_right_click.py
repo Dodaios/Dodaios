@@ -8,9 +8,9 @@ import pytest
 
 from jarvis.core.bus import EventBus
 from jarvis.core.events import PetVisibilityToggleRequested
-from jarvis.ui.jarvisbar import host
-from jarvis.ui.jarvisbar.modes import MODES
-from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessMascotOverlay
+from jarvis.ui.dodaiosbar import host
+from jarvis.ui.dodaiosbar.modes import MODES
+from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 from jarvis.ui.pets import context_menu
 from ui.orb import overlay, pet_context_menu
 from ui.orb.bus_bridge import OrbBusBridge

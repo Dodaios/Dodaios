@@ -15,21 +15,23 @@
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Footprints, Hand, LocateFixed, Maximize2, Mic, Square, UserPlus } from "lucide-react";
+import { ArrowUp, Footprints, Hand, LocateFixed, Maximize2, Mic, Square, UserPlus, X } from "lucide-react";
 import { useT } from "@/i18n";
 import { getWSClient } from "@/hooks/useWebSocket";
 import { useEventStore } from "@/store/events";
 import type { TimelineItem } from "@/components/agentchat/reduce";
 import type { SocietyAgent } from "../data";
 import { player, useOfficeStore } from "./officeStore";
+import { CALL_MS } from "./stations";
+
+// The session command panel imports the call duration from here.
+export { CALL_MS };
 import { agentPositions } from "./walkerRegistry";
 import { ownsKeyboard } from "./OfficePlayer";
 import { useBubbleLabels } from "./OfficeBubbles";
 import { bubbleText, itemsFor, talkStoreFor, turnBubble, useOfficeTalk } from "./officeTalk";
 import "./officeTalk.css";
 
-/** How long called or gathered agents stay before they drift back to their day. */
-export const CALL_MS = 25_000;
 /** A press on the microphone longer than this is push-to-talk: releasing sends. */
 const HOLD_MS = 350;
 /** After the microphone closes, the transcript usually lands within a few seconds. */
@@ -242,7 +244,7 @@ export function AgentTalkPanel({ agent, actions, onClose }: { agent: SocietyAgen
           <h2 id={headingId}>{agent.name}</h2>
           <span><StateDot state={agent.state} />{t(`society.office.state_${agent.state}`)}{agent.title || agent.providerLabel ? ` · ${agent.title || agent.providerLabel}` : ""}</span>
         </div>
-        <button type="button" className="office-icon-button" onClick={onClose} aria-label={t("society.office.close")}>×</button>
+        <button type="button" className="office-icon-button" onClick={onClose} aria-label={t("society.office.close")}><X size={16} aria-hidden /></button>
       </header>
 
       <ol ref={log} className="office-talk-log" aria-live="polite" aria-label={t("society.office.talk_log").replace("{0}", agent.name)}>

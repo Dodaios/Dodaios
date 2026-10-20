@@ -81,6 +81,7 @@ if len(sys.argv) >= 2 and sys.argv[1] == "update":
     raise SystemExit(_update_main(sys.argv[2:]))
 
 from jarvis import __version__
+from jarvis.cli.command_name import main_command
 from jarvis.core import config as cfg
 from jarvis.core import registry
 from jarvis.hardware import detection
@@ -90,9 +91,10 @@ if TYPE_CHECKING:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    command = main_command()
     parser = argparse.ArgumentParser(
-        prog="jarvis",
-        description="Personal Jarvis — turn your computer into an AI agent.",
+        prog=command,
+        description="Dodaios — turn your computer into an AI agent.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--wizard", action="store_true", help="Restart the setup wizard.")
@@ -103,7 +105,7 @@ def _build_parser() -> argparse.ArgumentParser:
              "component, status, message, hint) instead of the human report, so an "
              "installer can gate on the result without parsing prose. Exit codes are "
              "unchanged. Must follow the command flag — a LEADING `--json` is the "
-             "control CLI's own global option (`jarvis --json missions list`).",
+             f"control CLI's own global option (`{command} --json missions list`).",
     )
     parser.add_argument("--plugins", action="store_true", help="List the plugin registry.")
     parser.add_argument(
@@ -160,7 +162,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--uninstall",
         action="store_true",
-        help="Remove this Jarvis install from the machine: the install folder, "
+        help="Remove this Dodaios install from the machine: the install folder, "
              "the login-autostart entry, and the API keys saved in the OS "
              "keychain. Asks for confirmation first.",
     )
@@ -185,13 +187,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--tray",
         action="store_true",
         help="Only the tray icon, no backend and no window. A diagnostic "
-             "leftover — the product entry point is bare `jarvis`.",
+             f"leftover — the product entry point is bare `{command}`.",
     )
     parser.add_argument(
         "--foreground",
         action="store_true",
         help="Keep the desktop app attached to this terminal (logs here, closes "
-             "with it). By default `jarvis` typed in a terminal starts the app "
+             f"with it). By default `{command}` typed in a terminal starts the app "
              "in the background and returns the prompt.",
     )
     parser.add_argument(
@@ -201,7 +203,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="serve: start the headless web UI (browser/server, no desktop) — "
              "the cloud-first path for a VPS, Mac or Linux. Open the printed URL. "
              "update: install the newest published version "
-             "(`jarvis update --check` only reports).",
+             f"(`{command} update --check` only reports).",
     )
     return parser
 
@@ -229,11 +231,11 @@ def _cmd_phase5_doctor() -> int:
     """Status check for all Phase-5 features. Shows what is enabled,
     what is missing, and what is running on defaults. No config changes.
     """
-    import importlib.metadata as _md
+    from jarvis.core.entry_points import entry_points
 
     config = cfg.load_config()
     lines: list[str] = []
-    lines.append(f"Jarvis {__version__} — Phase-5-Doctor")
+    lines.append(f"Dodaios {__version__} — Phase-5-Doctor")
     lines.append("=" * 60)
 
     # Entry points
@@ -241,7 +243,7 @@ def _cmd_phase5_doctor() -> int:
         # Computer-use harness name sourced from the local action gate
         # (single home for the literal).
         from jarvis.brain.local_action_gate import HARNESS_NAME
-        eps = list(_md.entry_points(group="jarvis.harness"))
+        eps = list(entry_points(group="jarvis.harness"))
         have_cu = any(ep.name == HARNESS_NAME for ep in eps)
         lines.append(f"[{'OK' if have_cu else 'FAIL'}] Harness plugin "
                       f"{HARNESS_NAME!r} in entry-points index: {have_cu}")
@@ -249,7 +251,7 @@ def _cmd_phase5_doctor() -> int:
         lines.append(f"[FAIL] Harness entry points not readable: {exc}")
 
     try:
-        eps = list(_md.entry_points(group="jarvis.tool"))
+        eps = list(entry_points(group="jarvis.tool"))
         have_admin = any(ep.name == "dispatch-to-admin" for ep in eps)
         lines.append(f"[{'OK' if have_admin else 'FAIL'}] Tool plugin "
                       f"'dispatch-to-admin' in entry-points index: {have_admin}")
@@ -314,7 +316,7 @@ def _cmd_doctor(as_json: bool = False) -> int:
         ]))
         return 1 if has_failures(findings) else 0
 
-    lines: list[str] = [f"Jarvis {__version__} — Doctor (completeness self-check)",
+    lines: list[str] = [f"Dodaios {__version__} — Doctor (completeness self-check)",
                         "=" * 64]
     last_cat: str | None = None
     for f in findings:
@@ -361,7 +363,7 @@ def _cmd_orb_doctor() -> int:
 
     toml_path = Path(cfg.DEFAULT_CONFIG_FILE)
     lines: list[str] = []
-    lines.append(f"Jarvis {__version__} — Orb-Doctor")
+    lines.append(f"Dodaios {__version__} — Orb-Doctor")
     lines.append("=" * 60)
     lines.append(f"Config: {toml_path}")
     lines.append("")
@@ -484,7 +486,7 @@ async def _run_tray_app(debug: bool = False) -> int:
     from jarvis.ui.tray import JarvisState, JarvisTray
 
     config = cfg.load_config()
-    print(f"Jarvis {__version__} started (profile: {config.profile.name}).")
+    print(f"Dodaios {__version__} started (profile: {config.profile.name}).")
     if debug:
         print(f"Config file: {cfg.DEFAULT_CONFIG_FILE}")
         print(f"Brain primary: {config.brain.primary}")
@@ -546,7 +548,7 @@ async def _run_tray_app(debug: bool = False) -> int:
     finally:
         handler_task.cancel()
         tray.stop()
-    print("Jarvis stopped.")
+    print("Dodaios stopped.")
     return 0
 
 
@@ -565,7 +567,7 @@ def _run_control(argv: list[str]) -> int:
 
     root = build_root_command()
     try:
-        rv = root.main(args=argv, prog_name="jarvis", standalone_mode=False)
+        rv = root.main(args=argv, prog_name=main_command(), standalone_mode=False)
         return rv if isinstance(rv, int) else 0
     except click.exceptions.Exit as exc:
         return int(getattr(exc, "exit_code", 0) or 0)
@@ -732,13 +734,13 @@ def _launch_detached() -> int:
     try:
         launch_desktop_detached()
     except OSError as exc:
-        print(f"Could not start Personal Jarvis: {exc}", file=sys.stderr)
-        print("Try `jarvis --foreground` to see what goes wrong.", file=sys.stderr)
+        print(f"Could not start Dodaios: {exc}", file=sys.stderr)
+        print(f"Try `{main_command()} --foreground` to see what goes wrong.", file=sys.stderr)
         return 1
     if running:
-        print("Personal Jarvis is already running - bringing its window to the front.")
+        print("Dodaios is already running - bringing its window to the front.")
     else:
-        print("Starting Personal Jarvis... the window opens in a few seconds.")
+        print("Starting Dodaios... the window opens in a few seconds.")
     return 0
 
 
@@ -760,7 +762,7 @@ def _missing_desktop_dependency() -> str | None:
     return (
         "The desktop window needs pywebview, which this install does not have.\n"
         "  Install it:  pip install 'personal-jarvis[full]'\n"
-        "  Or run without a window:  jarvis serve"
+        f"  Or run without a window:  {main_command()} serve"
     )
 
 

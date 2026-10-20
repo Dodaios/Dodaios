@@ -74,7 +74,7 @@ class RemoteScreenSession(ScreenSession):
         if version != PROTOCOL_VERSION:
             raise AgentScreenUnavailable(
                 f"the screen runner speaks protocol v{version}, this build "
-                f"needs v{PROTOCOL_VERSION}. Restart Personal Jarvis so the "
+                f"needs v{PROTOCOL_VERSION}. Restart Dodaios so the "
                 "runner is re-deployed into the screen.",
             )
         if envelope.get("ok") is not True:

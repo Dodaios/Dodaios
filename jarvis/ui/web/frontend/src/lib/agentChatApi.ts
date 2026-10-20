@@ -144,7 +144,7 @@ export async function fetchVoiceChat(): Promise<VoiceChatBinding> {
  * (``jarvis/agent_chat/surface_kits.py``): the front page, the coding
  * agents, and the Local models section's setup assistant.
  */
-export type AgentChatSurface = "jarvis" | "agent" | "local-models" | "society";
+export type AgentChatSurface = "jarvis" | "agent" | "local-models" | "society" | "side";
 
 export interface AgentChatSession {
   session_id: string;
@@ -170,6 +170,8 @@ export interface AgentChatSession {
    * the stored title is still the first message's; absent otherwise.
    */
   cli_title?: string;
+  /** The team thread this session is a member of ("" or absent: an ordinary thread). */
+  team_id?: string;
 }
 
 export const INTERNAL_DELIVERY_STATUSES = ["queued", "delivered", "failed"] as const;
@@ -449,11 +451,13 @@ export async function deleteAgentChatSession(sessionId: string): Promise<void> {
 
 export async function fetchAgentChatSession(
   sessionId: string,
-  options: { tail?: number } = {},
+  options: { tail?: number; signal?: AbortSignal } = {},
 ): Promise<{ session: AgentChatSession; events: AgentChatEvent[] }> {
   const query = options.tail ? `?tail=${Math.max(1, Math.round(options.tail))}` : "";
+  const url = `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}${query}`;
   return json(
-    await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}${query}`),
+    // A caller that schedules its own reads (the office's desk monitors) can give them a deadline.
+    options.signal ? await fetch(url, { signal: options.signal }) : await fetch(url),
     "session-failed",
   );
 }

@@ -27,11 +27,15 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING, Final, Literal
 
+from jarvis.i18n import catalog as i18n_catalog
+
 if TYPE_CHECKING:
     from jarvis.missions.critic.runner import CapabilityHonestyCheck
 
 
-Lang = Literal["de", "en"]
+# Every supported reply language (``SUPPORTED_REPLY_LANGUAGES`` minus "auto");
+# all locales are equal, so every table below carries each of them.
+Lang = Literal["de", "en", "es", "pt"]
 TemplateKey = Literal[
     "approved",
     "failed",
@@ -62,6 +66,14 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
             "Done. {summary}",
             "Completed. {summary}",
         ],
+        "es": [
+            "Hecho. {summary}",  # i18n-allow: Spanish TTS
+            "Listo. {summary}",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Feito. {summary}",  # i18n-allow: PT TTS
+            "Pronto. {summary}",  # i18n-allow: PT TTS
+        ],
     },
     "failed": {
         "de": [
@@ -73,6 +85,14 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
             "The task failed. Reason: {reason}",
             "Task failed. {reason}",
         ],
+        "es": [
+            "La tarea ha fallado. Motivo: {reason}",  # i18n-allow: Spanish TTS
+            "Tarea fallida. {reason}",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "A tarefa falhou. Motivo: {reason}",  # i18n-allow: PT TTS
+            "Tarefa falhada. {reason}",  # i18n-allow: PT TTS
+        ],
     },
     "timeout": {
         "de": [
@@ -81,6 +101,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         ],
         "en": [
             "The task timed out.",
+        ],
+        "es": [
+            "La tarea superó el tiempo límite.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "A tarefa excedeu o tempo limite.",  # i18n-allow: PT TTS
         ],
     },
     "cancelled": {
@@ -91,6 +117,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         "en": [
             "Task cancelled.",
         ],
+        "es": [
+            "Tarea cancelada.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Tarefa cancelada.",  # i18n-allow: PT TTS
+        ],
     },
     "budget_warn_50": {
         "de": [
@@ -99,6 +131,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         ],
         "en": [
             "Half the budget used.",
+        ],
+        "es": [
+            "La mitad del presupuesto está gastada.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Metade do orçamento já foi gasta.",  # i18n-allow: PT TTS
         ],
     },
     "budget_warn_80": {
@@ -109,6 +147,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         "en": [
             "Eighty percent of budget used.",
         ],
+        "es": [
+            "El ochenta por ciento del presupuesto está gastado.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Oitenta por cento do orçamento já foi gasto.",  # i18n-allow: PT TTS
+        ],
     },
     "budget_exceeded": {
         "de": [
@@ -117,6 +161,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         ],
         "en": [
             "Budget exhausted. Task aborted.",
+        ],
+        "es": [
+            "Presupuesto agotado. Tarea cancelada.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Orçamento esgotado. Tarefa cancelada.",  # i18n-allow: PT TTS
         ],
     },
     "injection_blocked": {
@@ -127,6 +177,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         "en": [
             "Injection attempt detected. Task terminated.",
         ],
+        "es": [
+            "Intento de inyección detectado. Tarea detenida.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Tentativa de injeção detetada. Tarefa parada.",  # i18n-allow: PT TTS
+        ],
     },
     "path_guard_blocked": {
         "de": [
@@ -135,6 +191,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         ],
         "en": [
             "A protected path was touched. Task aborted.",
+        ],
+        "es": [
+            "Se tocó una ruta protegida. Tarea cancelada.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Foi tocado um caminho protegido. Tarefa cancelada.",  # i18n-allow: PT TTS
         ],
     },
     "destructive_confirm": {
@@ -145,6 +207,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         "en": [
             "This will destroy {target}. Are you sure? Please confirm in the UI.",
         ],
+        "es": [
+            "Esto eliminará {target}. ¿Seguro? Confírmalo en la interfaz.",  # i18n-allow
+        ],
+        "pt": [
+            "Isto vai eliminar {target}. Tens a certeza? Confirma na interface.",  # i18n-allow
+        ],
     },
     "crash_recovery": {
         "de": [
@@ -154,6 +222,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         "en": [
             "A previous task was aborted due to a crash.",
         ],
+        "es": [
+            "Una tarea anterior se canceló por un fallo.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Uma tarefa anterior foi cancelada devido a uma falha.",  # i18n-allow: PT TTS
+        ],
     },
     "iteration_running": {
         "de": [
@@ -162,6 +236,12 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
         ],
         "en": [
             "Iteration {n} running.",
+        ],
+        "es": [
+            "Iteración {n} en curso.",  # i18n-allow: Spanish TTS
+        ],
+        "pt": [
+            "Iteração {n} em curso.",  # i18n-allow: PT TTS
         ],
     },
 }
@@ -180,98 +260,25 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
 # so a code without an entry falls back cleanly. The de/en parity gate
 # (``test_failure_reason_phrases_de_en_parity``) still guards those two; ``es``
 # here carries only the keys that have been translated so far.
-FAILURE_REASON_PHRASES: Final[dict[str, dict[str, str]]] = {
-    "de": {
-        "critic_loop_exhausted": "Drei Versuche haben nicht gereicht.",  # i18n-allow
-        "critic_rejected": "Die Prüfung war nicht zufrieden.",  # i18n-allow
-        "task_error": "Der Worker ist abgebrochen.",  # i18n-allow
-        "attempts_timed_out": "Das Zeitlimit wurde überschritten.",  # i18n-allow (DE TTS phrase)
-        "review_time_budget_exhausted": (  # i18n-allow: German TTS phrase
-            "Das Prüfzeitlimit ist erreicht; das Zwischenergebnis ist verfügbar."  # i18n-allow
-        ),
-        "budget_exceeded": "Das Kostenlimit ist erreicht.",  # i18n-allow
-        "decompose_failed": "Die Aufgabe konnte ich nicht zerlegen.",  # i18n-allow
-        "crash_recovery": "Eine alte Mission wurde aufgeräumt.",  # i18n-allow
-        "interrupted": "Eine laufende Mission wurde unterbrochen.",  # i18n-allow (DE TTS phrase)
-        "empty_diff": "Es wurden keine Dateien geschrieben.",  # i18n-allow
-        "critic_unavailable": "Der Prüfer ist abgestürzt, die Arbeit liegt im Worktree.",  # i18n-allow
-        "worktree_setup_failed": "Ich konnte keinen Arbeitsbereich anlegen.",  # i18n-allow
-        "checkpoint_missing": (
-            "Der gesicherte Zwischenstand fehlt, ich kann nicht fortsetzen."  # i18n-allow
-        ),
-        "git_missing": "{agents} brauchen eine Git-Installation im PATH.",  # i18n-allow
-        "git_not_a_repository": (
-            "{agents} brauchen einen Git-Checkout, bitte über den "  # i18n-allow
-            "Git-Installer installieren, nicht als ZIP."  # i18n-allow
-        ),
-        "source_checkout_unavailable": (
-            "Diese {agent}-Aufgabe braucht den "  # i18n-allow: German TTS
-            "Quellcode-Checkout, der in dieser "  # i18n-allow: German TTS
-            "Installation nicht verfügbar ist."  # i18n-allow: German TTS
-        ),
-        # error_class keys (looked up BEFORE the reason key; see
-        # failure_phrase_key). Same table so announcer + direct-TTS listener
-        # cannot drift (2026-05-27 finding #7).
-        "provider_auth": (
-            "Die Anmeldung beim KI-Anbieter ist ungültig oder abgelaufen."  # i18n-allow
-        ),
-        "provider_quota": "Das Kontingent des KI-Anbieters ist erschöpft.",  # i18n-allow
-        "provider_unreachable": "Der KI-Anbieter ist gerade nicht erreichbar.",  # i18n-allow
-        "worker_timeout": "Der Worker hat das Zeitlimit überschritten.",  # i18n-allow
-    },
-    "en": {
-        "critic_loop_exhausted": "Three attempts were not enough.",
-        "critic_rejected": "The review wasn't satisfied.",
-        "task_error": "The worker aborted.",
-        "attempts_timed_out": "The time limit was reached.",
-        "review_time_budget_exhausted": (
-            "The review time budget was reached; partial output is available."
-        ),
-        "budget_exceeded": "The cost limit was reached.",
-        "decompose_failed": "I could not break the task down.",
-        "crash_recovery": "An old mission was cleaned up.",
-        "interrupted": "A running mission was interrupted; the partial results are available.",
-        "empty_diff": "No files were written.",
-        "critic_unavailable": (
-            "The reviewer crashed; the work is preserved in the worktree."
-        ),
-        "worktree_setup_failed": "I could not create a workspace.",
-        "checkpoint_missing": "The saved progress is missing, so I cannot continue.",
-        "git_missing": "{agents} require git to be installed and on PATH.",
-        "git_not_a_repository": (
-            "{agents} require a git checkout (install via the "
-            "git-based installer, not a ZIP download)."
-        ),
-        "source_checkout_unavailable": (
-            "This {agent} task requires the source checkout, which is "
-            "not available in this installation."
-        ),
-        "provider_auth": "The AI provider sign-in is invalid or expired.",
-        "provider_quota": "The AI provider's quota is exhausted.",
-        "provider_unreachable": "The AI provider is currently unreachable.",
-        "worker_timeout": "The worker hit its time limit.",
-    },
-    # Spanish is an equal supported product-surface language (AGENTS.md §1).
-    # Only the portable workspace-setup reason keys carry ``es`` for now — the
-    # rest of the table is de/en pending a broader translation pass; a missing
-    # key here falls back via ``.get(language, {})``.
-    "es": {
-        "review_time_budget_exhausted": (  # i18n-allow: Spanish TTS phrase
-            "Se agotó el tiempo de revisión; el resultado parcial está "  # i18n-allow
-            "disponible."  # i18n-allow
-        ),
-        "git_missing": "{agents} necesitan que git esté instalado y en el PATH.",  # i18n-allow: Spanish TTS product-surface phrase
-        "git_not_a_repository": (
-            "{agents} necesitan una copia de git (instala con el "  # i18n-allow: Spanish TTS product-surface phrase
-            "instalador de git, no con una descarga ZIP)."  # i18n-allow: Spanish TTS product-surface phrase
-        ),
-        "source_checkout_unavailable": (
-            "Esta tarea de {agent} necesita el "  # i18n-allow: Spanish TTS
-            "repositorio del código fuente, que no está "  # i18n-allow: Spanish TTS
-            "disponible en esta instalación."  # i18n-allow: Spanish TTS
-        ),
-    },
-}
+FAILURE_REASON_PHRASES: Final[dict[str, dict[str, str]]] = i18n_catalog.locale_maps(
+    "missions.readback.failure_reason"
+)
+
+
+def approved_summary(payload: object, language: str) -> str:
+    """The runtime-signed approval summary to speak in *language*.
+
+    ``summary_de``/``summary_en`` cover German and English; ``summary_local``
+    carries the dispatch language for every other locale. An event from
+    before ``summary_local`` existed falls back to ``summary_en``.
+    """
+    if language == "de":
+        return str(getattr(payload, "summary_de", "") or "")
+    if language != "en":
+        local = str(getattr(payload, "summary_local", "") or "")
+        if local:
+            return local
+    return str(getattr(payload, "summary_en", "") or "")
 
 
 def render_agent_brand(phrase: str) -> str:
@@ -357,6 +364,56 @@ CAPACITY_WAIT_PHRASES: Final[dict[str, dict[str, str]]] = {
         "wait_auth": "The mission is waiting until you sign in again.",
         "paid": "Paid API use only with your explicit approval in Artifacts.",
     },
+    "es": {
+        "provider_quota": "La capacidad de {provider} está agotada por ahora.",  # i18n-allow
+        "provider_auth": "El inicio de sesión de {provider} ha caducado.",  # i18n-allow
+        "provider_unavailable": "{provider} no se puede usar ahora mismo.",  # i18n-allow
+        "paid_cap_reached": (
+            "Se alcanzó el límite de coste de esta misión para {provider}."  # i18n-allow
+        ),
+        "paid_daily_cap_reached": (
+            "Se alcanzó el límite diario de uso automático de {provider}."  # i18n-allow
+        ),
+        "paid_consent_revoked": (
+            "El uso automático de {provider} se ha desactivado."  # i18n-allow: Spanish TTS
+        ),
+        "saved": "El progreso hasta ahora se ha guardado.",  # i18n-allow: Spanish TTS
+        "progress": "{done} de {total} pasos hechos, {open} pendientes.",  # i18n-allow: Spanish TTS
+        "progress_single": "La tarea en sí sigue pendiente.",  # i18n-allow: Spanish TTS
+        "file": "1 archivo guardado.",  # i18n-allow: Spanish TTS
+        "files": "{files} archivos guardados.",  # i18n-allow: Spanish TTS
+        "wait": "La misión espera hasta que vuelva a haber capacidad.",  # i18n-allow: Spanish TTS
+        "wait_auth": "La misión espera hasta que vuelvas a iniciar sesión.",  # i18n-allow
+        "paid": (
+            "Uso de API de pago solo con tu aprobación expresa "  # i18n-allow: Spanish TTS
+            "en Artefactos."  # i18n-allow: Spanish TTS
+        ),
+    },
+    "pt": {
+        "provider_quota": "A capacidade de {provider} está esgotada por agora.",  # i18n-allow
+        "provider_auth": "O início de sessão em {provider} expirou.",  # i18n-allow: PT TTS
+        "provider_unavailable": "{provider} não pode ser usado neste momento.",  # i18n-allow
+        "paid_cap_reached": (
+            "O limite de custo desta missão para {provider} foi atingido."  # i18n-allow: PT TTS
+        ),
+        "paid_daily_cap_reached": (
+            "O limite diário de uso automático de {provider} foi atingido."  # i18n-allow: PT TTS
+        ),
+        "paid_consent_revoked": (
+            "O uso automático de {provider} foi desligado."  # i18n-allow: PT TTS
+        ),
+        "saved": "O progresso até agora foi guardado.",  # i18n-allow: PT TTS
+        "progress": "{done} de {total} passos feitos, {open} por fazer.",  # i18n-allow: PT TTS
+        "progress_single": "A tarefa em si ainda está por fazer.",  # i18n-allow: PT TTS
+        "file": "1 ficheiro guardado.",  # i18n-allow: PT TTS
+        "files": "{files} ficheiros guardados.",  # i18n-allow: PT TTS
+        "wait": "A missão aguarda até haver capacidade outra vez.",  # i18n-allow: PT TTS
+        "wait_auth": "A missão aguarda até voltares a iniciar sessão.",  # i18n-allow: PT TTS
+        "paid": (
+            "Uso de API paga só com a tua aprovação explícita "  # i18n-allow: PT TTS
+            "em Artefactos."  # i18n-allow: PT TTS
+        ),
+    },
 }
 
 _MAX_PROVIDER_CHARS: Final[int] = 40
@@ -377,6 +434,31 @@ _PROVIDER_DISPLAY: Final[dict[str, str]] = {
 }
 
 
+# Spoken name for a provider slug the runtime could not resolve.
+_PROVIDER_FALLBACK_NAME: Final[dict[str, str]] = {
+    "de": "KI-Anbieter",  # i18n-allow: German TTS
+    "en": "AI provider",
+    "es": "proveedor de IA",  # i18n-allow: Spanish TTS
+    "pt": "fornecedor de IA",  # i18n-allow: PT TTS
+}
+
+# Spoken defaults for an empty summary / reason / destructive target.
+_EMPTY_SUMMARY: Final[dict[str, str]] = i18n_catalog.table("missions.readback.empty_summary")
+_UNKNOWN_REASON: Final[dict[str, str]] = i18n_catalog.table("missions.readback.unknown_reason")
+_NO_TOOL_CALL: Final[dict[str, str]] = i18n_catalog.table("missions.readback.no_tool_call")
+_DEFAULT_TARGET: Final[dict[str, str]] = {
+    "de": "diese Aktion",  # i18n-allow: German TTS
+    "en": "this action",
+    "es": "esta acción",  # i18n-allow: Spanish TTS
+    "pt": "esta ação",  # i18n-allow: PT TTS
+}
+
+
+def _localized(table: dict[str, str], language: str) -> str:
+    """Phrase for *language*; an unknown code speaks English."""
+    return table.get(language, table["en"])
+
+
 def render_capacity_wait(
     *,
     reason: str,
@@ -391,7 +473,7 @@ def render_capacity_wait(
     what is done, what is open, and the options (wait / approve paid use)."""
     table = CAPACITY_WAIT_PHRASES.get(language, CAPACITY_WAIT_PHRASES["en"])
     slug = (provider or "").strip()
-    fallback = "KI-Anbieter" if language == "de" else "AI provider"  # i18n-allow
+    fallback = _PROVIDER_FALLBACK_NAME.get(language, _PROVIDER_FALLBACK_NAME["en"])
     name = (_PROVIDER_DISPLAY.get(slug.lower(), slug) or fallback)[:_MAX_PROVIDER_CHARS]
     head = [table.get(reason, table["provider_unavailable"]).format(provider=name)]
     if checkpoint_saved:
@@ -449,7 +531,9 @@ class MissionReadback:
         """Choose a template, avoiding immediate repetition."""
         pool = READBACK_TEMPLATES.get(key, {}).get(lang, [])
         if not pool:
-            other: Lang = "en" if lang == "de" else "de"
+            # An unknown code speaks English, never German (AP-21: an
+            # arbitrary user is not a German speaker).
+            other: Lang = "de" if lang == "en" else "en"
             pool = READBACK_TEMPLATES.get(key, {}).get(other, [])
         if not pool:
             return ""
@@ -489,10 +573,17 @@ class MissionReadback:
         # --- Capability-Honesty last-resort check ---
         if honesty_check is not None and honesty_check.honesty_overridden:
             # The "approved" verdict is a false-positive: render failure.
-            override_reason = (
-                honesty_check.verdict.summary_de
-                or "Konnte ich nicht ausführen — kein Tool-Aufruf."  # i18n-allow: German TTS fallback phrase
-            )
+            verdict = honesty_check.verdict
+            # The corrected verdict text exists in de/en only; any other
+            # language speaks its own fixed phrase rather than a German one.
+            if language == "de":
+                override_reason = verdict.summary_de or _localized(_NO_TOOL_CALL, "de")
+            elif language == "en":
+                override_reason = (
+                    verdict.summary or _localized(_NO_TOOL_CALL, "en")
+                )
+            else:
+                override_reason = _localized(_NO_TOOL_CALL, language)
             return self.render_failed(reason=override_reason, language=language)
 
         template = self._pick("approved", language)
@@ -500,7 +591,7 @@ class MissionReadback:
             return ""
         # Insert cap so the final string does not exceed 280 chars
         max_insert = MAX_VOICE_CHARS - len(template) + len("{summary}")
-        safe_summary = (summary or "Aufgabe erledigt.").strip()
+        safe_summary = (summary or _localized(_EMPTY_SUMMARY, language)).strip()
         if len(safe_summary) > max_insert:
             safe_summary = safe_summary[:max_insert].rstrip()
         return _truncate(template.format(summary=safe_summary))
@@ -533,7 +624,9 @@ class MissionReadback:
         mapped = FAILURE_REASON_PHRASES.get(language, {}).get(short_reason)
         if mapped:
             mapped = render_agent_brand(mapped)
-        safe_reason = mapped if mapped else (reason or "unbekannter Fehler").strip()  # i18n-allow: German TTS fallback phrase
+        safe_reason = mapped if mapped else (
+            reason or _localized(_UNKNOWN_REASON, language)
+        ).strip()
         max_insert = MAX_VOICE_CHARS - len(template) + len("{reason}")
         if len(safe_reason) > max_insert:
             safe_reason = safe_reason[:max_insert].rstrip()
@@ -562,13 +655,13 @@ class MissionReadback:
         return _truncate(self._pick("path_guard_blocked", language))
 
     def render_destructive_confirm(
-        self, *, target: str = "diese Aktion", language: Lang = "de"
+        self, *, target: str = "", language: Lang = "de"
     ) -> str:
         template = self._pick("destructive_confirm", language)
         if not template:
             return ""
         max_insert = MAX_VOICE_CHARS - len(template) + len("{target}")
-        safe_target = (target or "diese Aktion").strip()
+        safe_target = (target or _localized(_DEFAULT_TARGET, language)).strip()
         if len(safe_target) > max_insert:
             safe_target = safe_target[:max_insert].rstrip()
         return _truncate(template.format(target=safe_target))
@@ -587,6 +680,7 @@ __all__ = [
     "MAX_VOICE_CHARS",
     "MissionReadback",
     "READBACK_TEMPLATES",
+    "approved_summary",
     "TemplateKey",
     "failure_phrase_key",
 ]

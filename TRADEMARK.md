@@ -1,11 +1,11 @@
 # Trademarks
 
-Personal Jarvis is free, open-source software. This notice explains how names and
+Dodaios is free, open-source software. This notice explains how names and
 logos are used in this project. It is informational, not legal advice.
 
 ## No affiliation
 
-Personal Jarvis is an independent project. It is **not** affiliated with, endorsed by, or
+Dodaios (formerly Personal Jarvis) is an independent project. It is **not** affiliated with, endorsed by, or
 sponsored by Marvel, Disney, Amazon, Apple, Google, Microsoft, Samsung, OpenAI, Anthropic,
 or any other company whose product or character may share a name with this project, a
 feature, or a word a user could choose.

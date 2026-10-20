@@ -231,7 +231,7 @@ async def _capability_check(root: str, check: RoleCheck, *, transport: Any) -> R
             ERROR,
             check.latency_ms,
             f"{check.model} answers, but does not declare {' + '.join(missing)} — "
-            "it cannot read the screen or call tools for Jarvis.",
+            "it cannot read the screen or call tools for Dodaios.",
         )
     return RoleCheck(check.model, "ok", check.latency_ms, "Answered; declares tools + vision.")
 

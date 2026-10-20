@@ -38,15 +38,23 @@
 # times - pull request, merge queue, and again on the push that landed the
 # very same commit.
 #   pr     pull request: the whole Linux + Windows suite and every affected
-#          lane on Linux and Windows. No macOS, no 18-minute real-runtime leg.
-#   queue  merge-queue group: everything `pr` runs, one macOS leg per affected
-#          lane and the slow legs. The only blocking macOS proof per change.
+#          lane on Linux and Windows. No macOS: five macOS slots serve
+#          every run, and macOS legs on each push made pull requests wait.
+#   queue  merge-queue group: everything `pr` runs plus at most two macOS
+#          jobs: the macOS tests the change can reach, filled up to about
+#          five minutes with the tests that name macOS, and the Apple Silicon
+#          desktop bundle when the macOS lane is affected. Five macOS slots
+#          serve every group; eleven macOS jobs a group waited 30-54 minutes.
 #   full   nightly, release tags, manual full dispatch: Intel macOS, the ARM
-#          runners, every interpreter, the macOS test shards.
+#          runners, every interpreter, the macOS test shards, and the
+#          Hermes install on Windows (14-23 minutes). A red nightly opens an
+#          issue (nightly-alert.yml).
 # A push to main whose commit the merge queue already passed runs nothing
 # but `detect` and the gate (`proven`); a push that bypassed the queue runs
 # the `queue` tier. A branch gets macOS feedback before the queue with
 # `gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.
+# After the merge, macos-main-sweep.yml runs the whole suite on macOS on one
+# runner, outside the gate.
 #
 # Action SHAs are pinned to 40-char commits (CVE-2025-30066 hardening).
 
@@ -59,7 +67,11 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 2 * * *" # nightly strict full run, macOS included
+    # Nightly strict full run, macOS included. GitHub starts this
+    # repository's schedules about seven hours late (measured over a week:
+    # the 02:17 slot ran between 08:30 and 09:30 UTC, in the middle of the
+    # working morning). 18:17 aims at the small hours.
+    - cron: "17 18 * * *"
   workflow_dispatch:
     inputs:
       full:
@@ -134,6 +146,9 @@ jobs:
       e2e_matrix: ${{ steps.mode.outputs.e2e_matrix }}
       browser_os: ${{ steps.mode.outputs.browser_os }}
       desktop_legs: ${{ steps.mode.outputs.desktop_legs }}
+      matrix_parallel: ${{ steps.mode.outputs.matrix_parallel }}
+      mac_tests: ${{ steps.mactests.outputs.mode != 'none' }}
+      mac_test_shards: ${{ steps.mactests.outputs.shards == '[]' && '[1]' || steps.mactests.outputs.shards }}
       duration_snapshot: ${{ steps.snapshot.outputs.name }}
       release: ${{ github.ref_type == 'tag' }}
     steps:
@@ -215,23 +230,61 @@ jobs:
       # snapshot; staggered runners must never compute different partitions.
       - name: Restore duration history once
         if: steps.lanes.outputs.python == 'true'
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: test_durations.json
           key: test-durations-never-exact
           restore-keys: test-durations-
+      # Windows runs the same files at other speeds: sharded by the Linux
+      # history, one Windows shard took 12 minutes while the others took 7 to
+      # 8, and the gate waits for the slowest. It has a history of its own,
+      # in a cache of its own so the Linux one keeps its key and version.
+      - name: Restore the Windows duration history once
+        if: steps.lanes.outputs.python == 'true'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test_durations_windows.json
+          key: test-durations-windows-never-exact
+          restore-keys: test-durations-windows-
       - name: Ensure a duration snapshot exists
         id: snapshot
         if: steps.lanes.outputs.python == 'true'
         run: |
           test -f test_durations.json || echo '{}' > test_durations.json
+          # Until Windows has a history it shards by the Linux one, as before.
+          test -s test_durations_windows.json || cp test_durations.json test_durations_windows.json
           echo "name=test-duration-snapshot-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+      # A merge group runs the macOS tests its change can reach, on ONE
+      # runner: the whole suite on macOS is 27 runner-minutes on five shared
+      # slots. A change that reaches everything (or no diff: changed.txt
+      # missing or empty) runs the macOS-focused set instead. The runner then
+      # has minutes left before the Windows shards finish: the duration
+      # history fills them with the tests that name macOS or belong to the
+      # macOS lane, up to about five minutes of tests in all.
+      - name: Select the macOS tests this change can reach
+        id: mactests
+        shell: bash
+        env:
+          PYTHON_LANE: ${{ steps.lanes.outputs.python }}
+          MAC_IMPACT: ${{ steps.mode.outputs.mac_impact }}
+        run: |
+          : > mac_tests.txt
+          if [ "$PYTHON_LANE" = "true" ] && [ "$MAC_IMPACT" = "true" ]; then
+            test -f changed.txt || : > changed.txt
+            python3 scripts/ci/select_tests.py --one-runner --changed-from changed.txt --out mac_tests.txt \
+              --durations test_durations.json
+          else
+            { echo "mode=none"; echo "shards=[]"; } | tee -a "$GITHUB_OUTPUT"
+          fi
       - name: Share duration snapshot with every shard
         if: steps.lanes.outputs.python == 'true'
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: ${{ steps.snapshot.outputs.name }}
-          path: test_durations.json
+          path: |
+            test_durations.json
+            test_durations_windows.json
+            mac_tests.txt
           if-no-files-found: error
           retention-days: 7
 
@@ -519,8 +572,10 @@ jobs:
           total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
           python scripts/ci/run_tests_parallel.py tests \
             --shard "$SHARD/$total" \
+            --durations test_durations_windows.json \
             --report "out/test-report-windows-$SHARD.json" \
-            --junit-out "out/junit-windows-$SHARD.xml"
+            --junit-out "out/junit-windows-$SHARD.xml" \
+            --durations-out "out/durations-windows-$SHARD.json"
       - name: Ratchet (a failure not in the baseline blocks)
         env:
           SHARD: ${{ matrix.shard }}
@@ -538,6 +593,7 @@ jobs:
     if: needs.detect.outputs.macos == 'true' && needs.detect.outputs.python == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         shard: [1, 2, 3]
     runs-on: macos-latest
@@ -573,6 +629,57 @@ jobs:
           path: out/
           retention-days: 14
 
+  # The macOS tests the change can reach, before it lands (merge queue), on
+  # one runner; a change that reaches everything (the pipeline, conftest,
+  # the lockfile) runs the macOS-focused set. The nightly and release runs
+  # keep the whole suite in `tests-macos`.
+  tests-macos-impact:
+    needs: detect
+    if: needs.detect.outputs.python == 'true' && needs.detect.outputs.mac_tests == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.detect.outputs.mac_test_shards) }}
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Install
+        uses: ./.github/actions/install-locked
+        with:
+          extras: dev telephony
+      - name: Download the shared duration snapshot
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: ${{ needs.detect.outputs.duration_snapshot }}
+      - name: Run the selected tests
+        continue-on-error: true
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ needs.detect.outputs.mac_test_shards }}
+        run: |
+          total=$(python -c "import json,os; print(len(json.loads(os.environ['SHARDS'])))")
+          python scripts/ci/run_tests_parallel.py tests --files-from mac_tests.txt \
+            --shard "$SHARD/$total" \
+            --report "out/test-report-macos-impact-$SHARD.json" \
+            --junit-out "out/junit-macos-impact-$SHARD.xml"
+      - name: Ratchet (a failure not in the baseline blocks)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: python scripts/ci/ratchet_tests.py check --baseline scripts/ci/test-baseline-macos.json "out/test-report-macos-impact-$SHARD.json"
+      - name: Upload shard report
+        if: always()
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: tests-macos-impact-${{ matrix.shard }}
+          path: out/
+          retention-days: 14
+
   test-report:
     name: test report + floor
     needs: [detect, tests-linux]
@@ -605,18 +712,59 @@ jobs:
       - name: Flaky files and failures (report only)
         if: ${{ !cancelled() }}
         run: python scripts/ci/flaky_report.py summary reports
-      # The nightly run refreshes the cache: a push the merge queue already
-      # proved runs no tests, and only a run on main may write a cache every
-      # branch can read.
-      - name: Merge the duration cache (main only)
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
-        run: python scripts/ci/ratchet_tests.py durations --out test_durations.json reports
-      - name: Save the duration cache (main only)
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+
+  # Shard timings for the next runs, one history per OS. Only a run on main
+  # may write a cache every branch can read: the nightly run, a manual run on
+  # main and a push that bypassed the queue (a push the merge queue already
+  # proved runs no tests). Only complete, green shards feed it: a history
+  # with holes would unbalance every run after it.
+  duration-cache:
+    name: duration cache (main only)
+    needs: [detect, tests-linux, tests-windows]
+    if: needs.detect.outputs.python == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Download the Linux shard reports
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          pattern: tests-linux-*
+          path: reports/linux
+          merge-multiple: true
+      - name: Download the Windows shard reports
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          pattern: tests-windows-*
+          path: reports/windows
+          merge-multiple: true
+      - name: Download the duration history this run started from
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: ${{ needs.detect.outputs.duration_snapshot }}
+      # On top of the history the run started from. A file that was flaky in
+      # this run reports no timing, and a history rebuilt from one run alone
+      # forgot it: the file fell back to the generic budget, timed out on a
+      # loaded runner, and could never report a timing again.
+      - name: Merge the shard timings
+        run: |
+          python scripts/ci/ratchet_tests.py durations --base test_durations.json --out test_durations.json reports/linux
+          python scripts/ci/ratchet_tests.py durations --base test_durations_windows.json --out test_durations_windows.json reports/windows
+      - name: Save the Linux duration cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: test_durations.json
           key: test-durations-${{ github.run_id }}
+      - name: Save the Windows duration cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: test_durations_windows.json
+          key: test-durations-windows-${{ github.run_id }}
 
   # Three test shards and the build side by side: `npm test` alone took seven
   # minutes in one process and was the longest Linux leg of a run.
@@ -661,6 +809,7 @@ jobs:
     if: needs.detect.outputs.cli == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         os: ${{ fromJSON(needs.detect.outputs.os_matrix) }}
     runs-on: ${{ matrix.os }}
@@ -718,8 +867,9 @@ jobs:
     if: needs.detect.outputs.deps == 'true'
     strategy:
       fail-fast: false
-      # Windows ARM on a pull request, Intel macOS added in the queue, both
-      # interpreters and Apple Silicon in the wide matrix (plan_run.py).
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
+      # Windows ARM on every change; Intel macOS, both interpreters and
+      # Apple Silicon in the wide matrix (plan_run.py).
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.crypto_matrix) }}
     runs-on: ${{ matrix.runner }}
@@ -756,6 +906,7 @@ jobs:
     if: needs.detect.outputs.realtime == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         os: ${{ fromJSON(needs.detect.outputs.lane_os) }}
     runs-on: ${{ matrix.os }}
@@ -794,7 +945,7 @@ jobs:
   # app differently (Inno handover, .app swap, AppImage swap, git transaction
   # + restart helper), and the POSIX-only tests run the real relaunch waiter.
   # A pull request runs Linux and the real Windows upgrade; the merge queue
-  # adds macOS and the second Windows interpreter; the wide matrix adds the
+  # adds the second Windows interpreter; the wide matrix adds macOS and the
   # Intel Mac (scripts/ci/plan_run.py).
   #
   # Python: 3.11 is the floor, 3.12 is what the native installers freeze.
@@ -809,6 +960,7 @@ jobs:
     if: needs.detect.outputs.updater == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.updater_matrix) }}
     runs-on: ${{ matrix.os }}
@@ -928,6 +1080,7 @@ jobs:
     if: needs.detect.outputs.dragdrop == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         os: ${{ fromJSON(needs.detect.outputs.os_matrix) }}
     runs-on: ${{ matrix.os }}
@@ -984,14 +1137,16 @@ jobs:
 
   # Hermes / OpenClaw society agents on every OS a person runs them on. The
   # lane (scripts/ci/agent_runtime_suite.py) covers the runtimes AND the chat
-  # and society code that drives them. A pull request proves Linux and
-  # Windows, the merge queue adds macOS before anything lands. Fakes only: no
-  # key, no network to a model.
+  # and society code that drives them. Every change proves Linux and
+  # Windows; on macOS the merge queue runs this suite's tests through the
+  # impact selection (tests-macos-impact), the wide matrix runs the lane
+  # itself. Fakes only: no key, no network to a model.
   agent-runtimes-unit:
     needs: detect
     if: needs.detect.outputs.agent_runtimes == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         os: ${{ fromJSON(needs.detect.outputs.lane_os) }}
     runs-on: ${{ matrix.os }}
@@ -1044,14 +1199,16 @@ jobs:
   # budgets, the runtime unit tests on the same machine, and proof that the
   # user PATH and shell profiles stayed put (scripts/ci/agent_runtime_e2e.py).
   # No key, no network to a model. The weekly canary does the same at
-  # upstream latest and raises the pin. A pull request runs both runtimes on
-  # Linux and OpenClaw on Windows; the 18-minute Hermes install on Windows
-  # and both macOS legs run in the merge queue (scripts/ci/plan_run.py).
+  # upstream latest and raises the pin. Every change runs both runtimes on
+  # Linux and OpenClaw on Windows; nightly and release runs add both
+  # runtimes on macOS and the Hermes install on Windows (14-23 minutes)
+  # (scripts/ci/plan_run.py).
   agent-runtimes-e2e:
     needs: detect
     if: needs.detect.outputs.agent_runtimes == 'true'
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(needs.detect.outputs.matrix_parallel) }}
       matrix:
         include: ${{ fromJSON(needs.detect.outputs.e2e_matrix) }}
     runs-on: ${{ matrix.os }}
@@ -1105,7 +1262,9 @@ jobs:
       - tests-linux
       - tests-windows
       - tests-macos
+      - tests-macos-impact
       - test-report
+      - duration-cache
       - frontend
       - jarvisctl
       - deps

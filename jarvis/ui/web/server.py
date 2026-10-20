@@ -247,6 +247,11 @@ class WebServer:
         # unchanged. See docs/superpowers/specs/2026-05-11-pre-thinking-ack-
         # flash-brain-design.md §4.
         self.bus.subscribe(AnnouncementRequested, self._forward_preamble_to_chat)
+        # An owed result reaches a live call through the speech pipeline; an
+        # install without one (headless, browser voice only) hands it over here.
+        from jarvis.live.announcements import deliver_to_live_call
+
+        self.bus.subscribe(AnnouncementRequested, deliver_to_live_call)
         from jarvis.core import runtime_refs
         from jarvis.missions.tool_approvals import (
             MissionToolApprovalCoordinator,
@@ -319,7 +324,7 @@ class WebServer:
 
     def _build_app(self) -> FastAPI:
         app = FastAPI(
-            title="Personal Jarvis — Admin/UI API",
+            title="Dodaios — Admin/UI API",
             version=__version__,
             # Swagger UI on ``/api/_swagger`` — the semantic ``/api/docs``
             # path belongs to the doc-browser router (see docs_routes.py).
@@ -479,6 +484,7 @@ class WebServer:
         from .agent_mcp_routes import router as agent_mcp_router
         from .agent_runtime_routes import router as agent_runtime_router
         from .agentic_ide_git_routes import router as agentic_ide_git_router
+        from .agentic_ide_scm_routes import router as agentic_ide_scm_router
         from .agentic_ide_routes import router as agentic_ide_router
         from .antigravity_routes import router as antigravity_router
         from .app_actions_routes import router as app_actions_router
@@ -527,6 +533,7 @@ class WebServer:
         from .marketplace_publish_routes import router as marketplace_publish_router
         from .marketplace_routes import router as marketplace_router
         from .mcp_routes import router as mcp_router
+        from .memory_vault_routes import router as memory_vault_router
         from .mission_billing_routes import router as mission_billing_router
         from .missions_auth import router as missions_auth_router
         from .missions_pty_routes import router as missions_pty_router
@@ -562,6 +569,7 @@ class WebServer:
         from .starter_plan_routes import router as starter_plan_router
         from .sub_agents_routes import router as sub_agents_router
         from .tasks_routes import router as tasks_router
+        from .team_thread_routes import router as team_thread_router
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router
         from .tools_routes import router as tools_router
@@ -690,7 +698,10 @@ class WebServer:
         # workspace above; adds the folder picker, call-signs, transcripts, and
         # the focused coding mode.
         # Before the IDE router, so its /{…} paths never shadow /git/….
+        app.include_router(agentic_ide_scm_router)
         app.include_router(agentic_ide_git_router)
+        app.state.team_threads = None
+        app.include_router(team_thread_router)
         # The Skills tab's library of saved Markdown prompts (/api/agentic-ide/skills/*).
         app.include_router(ide_skills_router)
         app.include_router(agentic_ide_router)
@@ -820,6 +831,8 @@ class WebServer:
         app.include_router(onboarding_router)
         # Phase B3 — Wiki view (read-only REST API over the Obsidian vault).
         app.include_router(wiki_router)
+        # Path-addressed Memory section API (index, reader, map, edits).
+        app.include_router(memory_vault_router)
         # Phase B3 — Desktop wiki view live-reload WS endpoint.
         # Forwards WikiPageChanged events from the shared EventBus to
         # subscribed UI clients. WikiWatcher is started in start().
@@ -3433,8 +3446,23 @@ class WebServer:
         from jarvis.memory.wiki.db_path import resolve_wiki_db_path
         from jarvis.memory.wiki.fts_index import rebuild_index
 
+        def _resume_semantic_search() -> None:
+            # Semantic search, when the user switched it on: its own thread
+            # loads the model and encodes only the pages that changed. Called
+            # on every way out of this function, so the switch always learns
+            # an honest state, also when there is no vault to search.
+            try:
+                from jarvis.memory.wiki import semantic_setup
+
+                semantic_setup.resume(self.cfg)
+            except Exception:  # noqa: BLE001 - the word search stands on its own
+                logger.opt(exception=True).warning(
+                    "wiki_boot_index: semantic search could not be resumed"
+                )
+
         wiki_cfg = self.cfg.wiki_integration
         if not wiki_cfg.enabled:
+            _resume_semantic_search()
             return
 
         from jarvis.memory.wiki.vault_root import resolve_vault_root
@@ -3442,6 +3470,7 @@ class WebServer:
         vault_root = resolve_vault_root(wiki_cfg.vault_root).path
         if not vault_root.is_dir():
             logger.info("wiki_boot_index: vault missing — skipping ({})", vault_root)
+            _resume_semantic_search()
             return
 
         db_path = resolve_wiki_db_path(self.cfg.memory.data_dir)
@@ -3469,6 +3498,8 @@ class WebServer:
                     logger.debug("wiki index health recording failed", exc_info=True)
             finally:
                 conn.close()
+            # Behind the word index, so it never competes with start-up (AP-26).
+            _resume_semantic_search()
 
         if background:
             thread = threading.Thread(
@@ -3950,7 +3981,7 @@ class WebServer:
         """Build the agent-chat service on first use (see agent_chat_routes)."""
         from jarvis.agent_chat.service import AgentChatService
         from jarvis.agent_chat.store import AgentChatStore
-        from jarvis.brain.assistant_name import resolve_assistant_name
+        from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 
         data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
         store = AgentChatStore(data_dir / "agent_chat.db")
@@ -3959,7 +3990,7 @@ class WebServer:
             try:
                 return resolve_assistant_name(self.cfg)
             except Exception:  # noqa: BLE001 — the name is cosmetic
-                return "Jarvis"
+                return DEFAULT_ASSISTANT_NAME
 
         from jarvis.core.events import DelegationResultReady
 
@@ -4078,6 +4109,15 @@ class WebServer:
             await stop_learning()
         except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
             logger.opt(exception=exc).debug("Jarvis learning loop stop failed")
+
+        team_threads = getattr(self.app.state, "team_threads", None)
+        if team_threads is not None:
+            # Before the chat turns end: a coordinator that sees its members'
+            # turns cancelled under it would read that as members failing.
+            try:
+                await team_threads.close()
+            except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
+                logger.opt(exception=exc).debug("team threads close failed")
 
         agent_chat = getattr(self.app.state, "agent_chat", None)
         if agent_chat is not None:

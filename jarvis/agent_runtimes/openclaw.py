@@ -390,7 +390,7 @@ class OpenClawRuntime:
             node_version = parse_version(run_version([node, "--version"])) if node else None
             if not _node_supported(node_version) and not _private_node_present():
                 problem = (
-                    "OpenClaw needs Node.js 24.16+ or 26.1+. Jarvis installs its own "
+                    "OpenClaw needs Node.js 24.16+ or 26.1+. Dodaios installs its own "
                     "copy of OpenClaw with a suitable Node.js."
                 )
                 kind = "node"
@@ -535,10 +535,11 @@ class OpenClawRuntime:
             config["agents"]["defaults"]["thinkingDefault"] = thinking
         if turn.mcp_url and turn.control_key:
             from jarvis.agent_chat.jarvis_harness import HEADER_NAME
+            from jarvis.core.branding import MCP_TOOLS_SERVER_NAME
 
             config["mcp"] = {
                 "servers": {
-                    "jarvis": {
+                    MCP_TOOLS_SERVER_NAME: {
                         "url": turn.mcp_url,
                         "transport": "streamable-http",
                         "headers": {
@@ -680,7 +681,7 @@ class OpenClawRuntime:
         lock = HomeFileLock(home / "gateway.lock")
         if not await asyncio.to_thread(lock.try_acquire):
             raise RuntimeUnavailable(
-                "Another Jarvis process runs this agent's OpenClaw right now. Close it, "
+                "Another Dodaios process runs this agent's OpenClaw right now. Close it, "
                 "then try again."
             )
         try:

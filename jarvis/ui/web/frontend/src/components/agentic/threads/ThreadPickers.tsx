@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { brainValue, splitBrainValue } from "@/components/agentchat/AgentComposer";
 import { ComposerBrainPicker, type BrainSection } from "@/components/agentchat/ComposerBrainPicker";
 import { AgentMark } from "@/components/agentic/AgentMark";
+import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { isUnguardedPermissionMode, permissionModeIcon } from "@/components/agentchat/permissionIcons";
 import { Combobox, type ComboboxGroup, type ComboboxOption } from "@/components/ui/combobox";
 import { useT } from "@/i18n";
@@ -35,6 +36,16 @@ export function agentName(provider: Pick<ProviderOption, "agent" | "label">): st
   }
 }
 
+/**
+ * A row's own mark: a coding agent's, or the provider's logo for a seat that
+ * is an API behind a key. Never a letter in a box.
+ */
+function ProviderMark({ provider }: { provider: ProviderOption }) {
+  return provider.agent
+    ? <AgentMark agent={provider.agent} label={provider.label} logoUrl={provider.logoUrl} variant="plain" size="sm" />
+    : <ProviderLogo providerId={provider.id} label={provider.label} size="sm" />;
+}
+
 const EFFORTS = new Set(["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]);
 
 /** An effort level in the chat's own words ("" is the agent's default). */
@@ -66,12 +77,15 @@ export function AgentModelPicker({
   const t = useT();
   const olderLabel = t("agent_chat.older_models");
   const defaultLabel = t("agent_chat.model_default");
+  const newThreadHint = t("ide_threads.hint_new_thread");
+  const notInstalledHint = t("agent_chat.provider_not_installed");
+  const connectFirstHint = t("ide_threads.hint_connect_first");
   const saved = useSavedHiddenModels((state) => state.hidden);
   const groups = useMemo<ComboboxGroup[]>(() => providers.map((provider) => {
     const locked = lockedProvider !== null && provider.id !== lockedProvider;
     const disabled = !provider.connected || locked;
-    const hint = locked ? "new thread" : !provider.connected ? (provider.cli_installed === false ? "not installed" : "connect first") : undefined;
-    const icon = <AgentMark agent={provider.agent ?? ""} label={provider.label} logoUrl={provider.logoUrl} variant="plain" size="sm" />;
+    const hint = locked ? newThreadHint : !provider.connected ? (provider.cli_installed === false ? notInstalledHint : connectFirstHint) : undefined;
+    const icon = <ProviderMark provider={provider} />;
     // Whose model a row is, on a quiet second line under its name.
     const owner = (note?: string) => <span className="inline-flex min-w-0 items-center gap-1.5">
       <span className="inline-flex shrink-0 scale-[0.86]">{icon}</span>
@@ -99,22 +113,22 @@ export function AgentModelPicker({
       ],
       more: ranked.older.length ? { label: olderLabel, options: ranked.older.map(toOption) } : undefined,
     };
-  }), [providers, liveModels, lockedProvider, draft.provider, draft.model, saved, olderLabel, defaultLabel]);
+  }), [providers, liveModels, lockedProvider, draft.provider, draft.model, saved, olderLabel, defaultLabel, newThreadHint, notInstalledHint, connectFirstHint]);
   // The rail on the panel's left: one mark per coding agent, plus favourites.
   const sections = useMemo<BrainSection[]>(() => providers.map((provider) => ({
     id: provider.id,
     family: provider.family,
     access: provider.keyless ? "local" : isApiRunner(provider.runner) ? "api" : "subscription",
     label: agentName(provider),
-    icon: <AgentMark agent={provider.agent ?? ""} label={provider.label} logoUrl={provider.logoUrl} variant="plain" size="sm" />,
+    icon: <ProviderMark provider={provider} />,
     muted: !provider.connected || (lockedProvider !== null && provider.id !== lockedProvider),
   })), [providers, lockedProvider]);
   const pickedIcon = providers.find((provider) => provider.id === draft.provider);
-  return <ComposerBrainPicker testId="thread-model-picker" ariaLabel="Coding agent and model"
+  return <ComposerBrainPicker testId="thread-model-picker" ariaLabel={t("ide_threads.agent_model_aria")}
     value={brainValue(draft.provider, draft.model)} groups={groups} sections={sections} currentSection={draft.provider}
     onChange={(value) => { const [provider, model] = splitBrainValue(value); onPick(provider, model); }}
-    fallbackLabel={draft.model || (providers.length ? "Choose an agent" : "Loading agents…")} searchPlaceholder="Search agents and models"
-    triggerPrefix={pickedIcon ? <AgentMark agent={pickedIcon.agent ?? ""} label={pickedIcon.label} logoUrl={pickedIcon.logoUrl} variant="plain" size="sm" /> : undefined} />;
+    fallbackLabel={draft.model || (providers.length ? t("ide_threads.choose_agent") : t("ide_threads.loading_agents"))} searchPlaceholder={t("ide_threads.search_agents_models")}
+    triggerPrefix={pickedIcon ? <ProviderMark provider={pickedIcon} /> : undefined} />;
 }
 
 export function EffortPicker({ provider, draft, liveModels, onPick, separated = false }: {
@@ -132,7 +146,7 @@ export function EffortPicker({ provider, draft, liveModels, onPick, separated = 
   if (levels.length === 0 || (levels.length === 1 && levels[0] === "")) return null;
   return <>
     {separated && <Separator />}
-    <Combobox ariaLabel="Reasoning effort" testId="thread-effort-picker" value={draft.effort}
+    <Combobox ariaLabel={t("agent_chat.pick_effort")} testId="thread-effort-picker" value={draft.effort}
       groups={[{ id: "effort", options: levels.map((level) => ({ value: level, label: effortLabel(level, t) })) }]}
       onChange={onPick} fallbackLabel={effortLabel(draft.effort, t)} triggerHint={false} className={TRIGGER} />
   </>;
@@ -144,14 +158,15 @@ export function AccessPicker({ provider, draft, onPick, separated = false }: {
   draft: ComposerDraft;
   onPick: (mode: string) => void;
 }) {
+  const t = useT();
   const modes = provider?.permission_modes ?? [];
   if (modes.length === 0) return null;
   return <>
     {separated && <Separator />}
-    <Combobox ariaLabel="What the agent may do without asking" testId="thread-access-picker" value={draft.permissionMode}
+    <Combobox ariaLabel={t("ide_threads.access_aria")} testId="thread-access-picker" value={draft.permissionMode}
       groups={[{
         id: "access",
-        label: "Permissions",
+        label: t("agent_chat.pick_permission"),
         options: modes.map((mode) => {
           const Icon = permissionModeIcon(mode.id);
           const unguarded = isUnguardedPermissionMode(mode.id);
@@ -166,7 +181,7 @@ export function AccessPicker({ provider, draft, onPick, separated = false }: {
           };
         }),
       }]}
-      onChange={onPick} fallbackLabel={draft.permissionMode || "Access"} triggerHint={false} panelMinWidth={340}
+      onChange={onPick} fallbackLabel={draft.permissionMode || t("agent_chat.model_access")} triggerHint={false} panelMinWidth={340}
       className={cn(TRIGGER, isUnguardedPermissionMode(draft.permissionMode) && "text-warning hover:text-warning")} />
   </>;
 }

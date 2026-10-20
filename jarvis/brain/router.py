@@ -85,7 +85,11 @@ log = logging.getLogger(__name__)
 # - "Never talk about internal models/providers" was DELETED, not moved: it
 #   contradicted _provider_identity_directive, which mandates an honest answer
 #   to exactly that question.
-SYSTEM_PROMPT = """Du bist Jarvis. Rubens Router — Dispatcher, nicht
+#: The opening sentence ``RouterBrain`` rewrites to the wake-word name. Neutral
+#: on its own, so a prompt used without that rewrite imposes no name.
+IDENTITY_OPENER = "Du bist der persönliche Assistent."  # i18n-allow: router prompt
+
+SYSTEM_PROMPT = IDENTITY_OPENER + """ Rubens Router — Dispatcher, nicht
 Gespraechspartner.
 
 SCREEN-CONTEXT
@@ -205,14 +209,16 @@ class RouterBrain:
             people=people,
         )
         # The router-specific system prompt is appended in `_build_system_prompt`
-        # as the last layer before the base prompt. Replace the hardcoded
-        # "Jarvis" with the configured name (no-op when the name is still
-        # Jarvis) so that the router identity matches the persona.
-        from .assistant_name import resolve_assistant_name
+        # as the last layer before the base prompt. Its neutral opener becomes
+        # the wake-word name, so the router identity matches the persona; with
+        # no wake word chosen yet the neutral opener stays.
+        from .assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 
         _name = resolve_assistant_name(config)
-        self._manager._system_prompt_extra = SYSTEM_PROMPT.replace(
-            "Du bist Jarvis.", f"Du bist {_name}."
+        self._manager._system_prompt_extra = (
+            SYSTEM_PROMPT
+            if _name == DEFAULT_ASSISTANT_NAME
+            else SYSTEM_PROMPT.replace(IDENTITY_OPENER, f"Du bist {_name}.", 1)
         )
 
     @property
@@ -236,39 +242,12 @@ class RouterBrain:
     # Perceived-latency acknowledgment hook
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _detect_utterance_language(utterance: str) -> str:
-        """Quick-and-dirty bilingual classifier for picking the ack language.
-
-        German is the project default — anything ambiguous falls back to ``de``.
-        We only flip to ``en`` when the utterance shows clear English structure
-        (function words like ``the/what/how``) AND lacks German diacritics or
-        common particles. Pure heuristic, regex-free, no dependencies.
-        """
-        if not utterance:
-            return "de"
-        text = utterance.lower()
-        # Umlauts or sharp-s are an unambiguous German signal.
-        if any(c in text for c in "äöüß"):
-            return "de"
-        de_markers = (" der ", " die ", " das ", " und ", " ich ", " du ",
-                      " ist ", " auf ", " mit ", " nicht ", " für ", " wie ")
-        en_markers = (" the ", " what ", " how ", " is ", " are ", " you ",
-                      " can ", " could ", " would ", " please ", " do ")
-        padded = " " + text + " "
-        de_hits = sum(1 for m in de_markers if m in padded)
-        en_hits = sum(1 for m in en_markers if m in padded)
-        if en_hits >= 2 and de_hits == 0:
-            return "en"
-        return "de"
-
     def _output_locale(self, utterance: str) -> str:
         """The turn's output language, via the ONE resolver (AGENTS.md §1.3).
 
-        Deliberately NOT ``_detect_utterance_language`` above: that helper is a
-        de/en-only ack heuristic with a German default, so a Spanish user would
-        be asked a clarifying question in German. Anything Jarvis actually says
-        to the user resolves through ``resolve_output_language``, which honours
+        Anything Jarvis says to the user (clarifying questions, the tool ack,
+        the completion marker) resolves through ``resolve_output_language``,
+        never a local de/en heuristic, which honours
         the ``brain.reply_language`` pin, conversation stickiness, and every
         supported locale equally.
         """
@@ -312,7 +291,7 @@ class RouterBrain:
         if is_voice_control_utterance(utterance):
             return None
         bus = self._bus
-        language = self._detect_utterance_language(utterance)
+        language = self._output_locale(utterance)
 
         async def emit(tool_name: str, tool_args: dict) -> None:
             text = generate_ack(tool_name, tool_args, language=language)
@@ -548,9 +527,12 @@ class RouterBrain:
             # "task done" cleanly. Trivial-path turns (no tool_calls) skip
             # this; Voice-Control utterances skip too (action == confirmation).
             final_text = agg.text or ""
-            if agg.tool_calls and not is_voice_control_utterance(utterance):
+            # A turn that only looked up which tool exists did nothing to
+            # report as done.
+            acted = any(tc.get("name") != "find_tools" for tc in agg.tool_calls)
+            if acted and not is_voice_control_utterance(utterance):
                 from .ack_generator import final_summary_marker
-                lang = self._detect_utterance_language(utterance)
+                lang = self._output_locale(utterance)
                 marker = final_summary_marker(language=lang)
                 if final_text.strip():
                     final_text = final_text.rstrip().rstrip(".") + ". " + marker
@@ -606,12 +588,12 @@ def _detect_image_mime(data: bytes) -> str:
         return "image/jpeg"
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
-    raise ValueError("Observation enthaelt kein unterstuetztes Bildformat")
+    raise ValueError("The observation is not in a supported image format")
 
 
 async def _read_observation_png_b64(obs: Observation) -> str:
     """Backwards-compatible helper for old tests/callsites."""
     mime, data_b64 = await _read_observation_image_b64(obs)
     if mime != "image/png":
-        raise ValueError(f"Observation ist {mime}, nicht image/png")
+        raise ValueError(f"The observation is {mime}, not image/png")
     return data_b64
