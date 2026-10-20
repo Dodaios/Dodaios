@@ -249,7 +249,10 @@ def test_issue_becomes_draft_pull_request_proven_by_ci_and_undoable(world: World
     assert pull["base"] == "main"
     assert pull["body"].startswith("Closes #1")
     assert "passed in" in pull["body"]
-    assert record.artefact["type"] == "pull_request"
+    # The provenance join key every "built by Dodaios" badge reads.
+    assert record.artefact["type"] == "code"
+    assert record.artefact["id"] == "https://x/me/proj/pull/100"
+    assert record.artefact["repo"] == "me/proj"
     assert record.artefact["draft"] is True
     branch = record.undo["branch"]
     assert branch.startswith("dodaios/issue-1-")
@@ -758,3 +761,37 @@ def test_thread_runner_stops_at_a_question(monkeypatch: pytest.MonkeyPatch) -> N
     )
     assert not result.ok and "question" in result.error
     assert chat.cancelled == ["s1"]  # the waiting turn is ended, not left open
+
+
+def test_plan_call_uses_the_loops_seats_and_is_attributed(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dodaios.self_build import brain
+    from dodaios.self_build.code import planner
+
+    seen: list[str] = []
+
+    async def answer(system: str, prompt: str, max_tokens: int) -> str:
+        from dodaios.costs.ledger import current_caller
+
+        seen.append(current_caller() or "")
+        return "SIZE: small\nPLAN:\n- edit calc.py"
+
+    brain.set_override(answer, provider="claude-cli")
+    try:
+        plan = asyncio.run(planner.plan("b1", make_issue(), "brief", config=lambda: None))
+    finally:
+        brain.set_override(None)
+    assert plan.size == "small" and plan.text == "- edit calc.py"
+    assert seen == ["self_build:b1"]
+
+
+def test_no_seat_means_no_plan_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dodaios.brain.background_policy import BackgroundDeferred
+    from dodaios.self_build import brain
+    from dodaios.self_build.code import planner
+
+    async def refuse(config: Any, system: str, prompt: str, *, max_tokens: int) -> str:
+        raise BackgroundDeferred("none")
+
+    monkeypatch.setattr(brain, "ask", refuse)
+    plan = asyncio.run(planner.plan("b1", make_issue(), "brief", config=lambda: None))
+    assert plan == Plan()
