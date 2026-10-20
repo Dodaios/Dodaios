@@ -89,6 +89,18 @@ def test_windows_candidates_cover_official_antigravity_installer(
     assert str(local / "agy" / "bin") in dirs
 
 
+def test_windows_candidates_find_the_installers_private_git_last(tmp_path, monkeypatch):
+    """install.ps1 puts MinGit here on a machine without Git; the updater needs it."""
+    local = tmp_path / "LocalAppData"
+    monkeypatch.setenv("LOCALAPPDATA", str(local))
+
+    dirs = path_augment._windows_candidates()
+
+    private_git = str(local / "Dodaios" / "tools" / "git" / "cmd")
+    assert private_git in dirs
+    assert dirs[-1] == private_git
+
+
 def test_windows_candidates_refresh_node_installer_paths(tmp_path, monkeypatch):
     """A GUI already running during Node installation must find the runtime.
 

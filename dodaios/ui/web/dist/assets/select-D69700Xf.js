@@ -1,0 +1,5 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/select-DPlT9iO4.js
+import{r as b,j as l}from"./index-IsKFJEuT.js";import{C as u}from"./combobox-Chp_HmU8.js";function C({value:o,options:r,onValueChange:s,ariaLabel:t,placeholder:e,disabled:a=!1,className:n,id:m,ariaDescribedBy:p,testId:i,searchPlaceholder:x,emptyLabel:c}){const f=b.useMemo(()=>[{id:"options",options:[...r]}],[r]);return l.jsx(u,{value:o,groups:f,onChange:s,ariaLabel:t,fallbackLabel:e??o,searchPlaceholder:x,emptyLabel:c,disabled:a,className:n,id:m,ariaDescribedBy:p,testId:i})}export{C as B};
+========
+import{r as b,j as l}from"./index-B6-h5dLc.js";import{C as u}from"./combobox-D_5gnd_P.js";function C({value:o,options:r,onValueChange:s,ariaLabel:t,placeholder:e,disabled:a=!1,className:n,id:m,ariaDescribedBy:p,testId:i,searchPlaceholder:x,emptyLabel:c}){const f=b.useMemo(()=>[{id:"options",options:[...r]}],[r]);return l.jsx(u,{value:o,groups:f,onChange:s,ariaLabel:t,fallbackLabel:e??o,searchPlaceholder:x,emptyLabel:c,disabled:a,className:n,id:m,ariaDescribedBy:p,testId:i})}export{C as B};
+>>>>>>>> e252e8a0f33f5ea79cba6a48a5890479a49b7d93:dodaios/ui/web/dist/assets/select-D69700Xf.js

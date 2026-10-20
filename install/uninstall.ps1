@@ -230,5 +230,18 @@ if (-not $DryRun) {
     }
     # --- uninstall-remove end
     Write-Ok "Removed $RealInstallDir"
+    # The private Python and Git copies install.ps1 fetched on a machine that
+    # had neither. Only the venv just deleted used them.
+    if ($env:LOCALAPPDATA) {
+        $BundledTools = Join-Path $env:LOCALAPPDATA 'Dodaios\tools'
+        if (Test-Path -LiteralPath $BundledTools) {
+            try {
+                Remove-Item -LiteralPath $BundledTools -Recurse -Force -ErrorAction Stop
+                Write-Ok "Removed $BundledTools"
+            } catch {
+                Write-Note "Could not remove $BundledTools - delete it yourself."
+            }
+        }
+    }
     Write-Step 'Done. Dodaios has been uninstalled.'
 }
