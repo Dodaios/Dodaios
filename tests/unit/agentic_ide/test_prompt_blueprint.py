@@ -1,12 +1,8 @@
-"""The shape of a composed prompt, and the guardrails each task kind carries.
+"""The shape of a composed prompt, and what each task kind asks for.
 
-A note on how these tests are written. The obvious test — "no system prompt
-contains the phrase 'double-check'" — cannot work here: the rule we want IS
-"never write double-check into the prompt", so the phrase appears in the
-instruction that forbids it. A word-blacklist cannot tell a prohibition from a
-request. So the guardrails are asserted POSITIVELY: the prohibition must be
-present and phrased as one. Whether the writer model then obeys is a live
-question, not a unit-test question.
+The writer's system prompt is a contract, not a lecture: the output shape,
+the handover/back-reference facts, goal-not-implementation, and one line per
+task kind. ``@path`` hygiene is enforced by the composer, not by the prompt.
 """
 
 from __future__ import annotations
@@ -16,7 +12,6 @@ import pytest
 from dodaios.agentic_ide.prompt_blueprint import (
     MAX_BODY_CHARS,
     TARGET_MAX_CHARS,
-    TARGET_MIN_CHARS,
     ends_on_reference,
     looks_truncated,
     render_fallback,
@@ -51,111 +46,54 @@ def test_every_kind_demands_the_markdown_skeleton(kind):
     assert "## Task" in text
     assert "## Key files" in text
     assert "## Done when" in text
-    # A lean brief: the agent opens the @files, so these sections stay out
-    # of the skeleton (they may still be named in the "do not add" rule).
-    skeleton = _skeleton_only(text)
-    assert "## How it works today" not in skeleton
-    assert "## Why this matters" not in skeleton
-    assert "## Scope" not in skeleton
-
-
-def _skeleton_only(text: str) -> str:
-    """The markdown skeleton block, not the surrounding rules that mention it."""
-    start = text.find("## Task")
-    end = text.find("- Output ONLY the brief")
-    return text[start:end] if start != -1 and end != -1 else text
-
-
-@pytest.mark.parametrize("kind", _ALL_KINDS)
-def test_every_kind_bans_the_two_leak_prone_subjects_outright(kind):
-    """Verification and reasoning must not appear at all — in EITHER direction.
-
-    The first version said "do not ask the agent to verify", and a live
-    composition dutifully wrote "Do not narrate your internal reasoning or
-    double-check your own work" INTO the finished prompt: the rule leaked
-    instead of being followed. Banning the subject rather than one direction of
-    it is what closes that.
-    """
-    text = system_prompt(kind)
-    assert "must not appear in the prompt AT ALL" in text
-    assert "not as a requirement and not as a prohibition" in text.replace("\n", " ")
-    assert "Write neither." in text
-
-
-@pytest.mark.parametrize("kind", _ALL_KINDS)
-def test_every_kind_names_the_leak_as_a_defect(kind):
-    """Showing the exact leaked line is what makes the rule recognisable."""
-    assert "being LEAKED instead of followed" in system_prompt(kind)
+    # A lean brief: the agent opens the @files itself.
+    assert "## How it works today" not in text
+    assert "## Why this matters" not in text
+    assert "## Scope" not in text
 
 
 @pytest.mark.parametrize("kind", _ALL_KINDS)
 def test_every_kind_forbids_inventing_requirements(kind):
-    """Still the hard rule — it just no longer suppresses description with it."""
-    text = system_prompt(kind)
-    assert "INVENTING is forbidden" in text
-    assert "the user did not state and the workspace does not establish" in text
-
-
-@pytest.mark.parametrize("kind", _ALL_KINDS)
-def test_every_kind_forbids_ending_on_a_file_reference(kind):
-    """A trailing @path holds the completion popup open and never submits."""
-    assert "never end the prompt on" in system_prompt(kind).lower()
+    assert "only outcomes the user stated" in system_prompt(kind)
 
 
 def test_only_the_task_section_is_mandatory():
     for kind in _ALL_KINDS:
-        assert "`## Task` is mandatory" in system_prompt(kind)
+        assert "`## Task` is required" in system_prompt(kind)
 
 
-def test_review_asks_for_every_finding_and_warns_against_conservatism():
+def test_review_asks_for_every_finding():
     text = system_prompt(KIND_REVIEW)
-    assert "REVIEW task" in text
-    assert "every finding" in text.lower()
-    # The prohibition must be phrased as one, not merely absent.
-    assert "never instruct the agent to report only serious issues" in text.lower()
+    assert "Kind: review" in text
+    assert "every finding" in text
+    assert "filtered later" in text
 
 
 def test_investigate_makes_the_diagnosis_the_deliverable():
     text = system_prompt(KIND_INVESTIGATE)
-    assert "INVESTIGATION task" in text
-    assert "diagnosis" in text.lower()
-    assert "not apply a fix" in text.lower()
+    assert "Kind: investigation" in text
+    assert "cause and its evidence" in text
+    assert "no fix" in text
 
 
-def test_implement_specifies_the_outcome_without_dictating_the_route():
-    """Complete is a statement about CONTEXT, not about enumerated steps.
-
-    The first version paired "give the COMPLETE specification" with a list of
-    generic prohibitions to put in `## Scope` — no surrounding cleanup, no
-    unrequested refactors, no speculative abstractions. Measured live
-    2026-07-27, that combination produced a brief telling the agent to "use
-    non-blocking background tasks for writer resolution": a solution the
-    composer had ALREADY implemented, so the agent's task became re-doing
-    finished work. Specify the outcome; leave the route to the agent, which can
-    read the code the writer only saw an outline of.
-    """
+def test_implement_states_the_outcome_not_the_route():
     text = system_prompt(KIND_IMPLEMENT)
-    assert "IMPLEMENTATION task" in text
-    assert "Specify the OUTCOME completely" in text
-    # Complete must be defined as context, not as dictated steps.
-    assert "not that you dictated the steps" in text
-    # A bound the user drew belongs in the task, not in a Scope dump.
-    assert "A bound the user actually drew belongs in `## Task`" in text
-    assert "Do not narrate how those files work today" in text
+    assert "Kind: implementation." in text
+    assert "not an implementation" in text
 
 
 def test_question_forbids_changing_anything():
     text = system_prompt(KIND_QUESTION)
-    assert "QUESTION" in text
-    assert "not change anything" in text.lower()
+    assert "Kind: question" in text
+    assert "nothing is changed" in text
 
 
 def test_neutral_carries_only_the_universally_safe_steers():
     text = system_prompt(KIND_NEUTRAL)
-    assert "not clearly determined" in text.lower()
+    assert "Kind: unclear" in text
     # It must not claim a kind it does not know.
-    assert "REVIEW task" not in text
-    assert "IMPLEMENTATION task" not in text
+    assert "Kind: review" not in text
+    assert "Kind: implementation" not in text
 
 
 def test_user_block_carries_the_skeletons_and_the_house_rules():
@@ -272,58 +210,21 @@ def test_ends_on_reference_detects_the_failure_shape():
 
 
 def test_the_target_length_sits_inside_the_hard_ceiling():
-    """The ceiling says what is allowed; the target says what is good.
-
-    Stating only the ceiling produced 549/865/904-character prompts against a
-    3000 budget — a model reads "under N" as "be brief".
-    """
-    assert TARGET_MIN_CHARS < TARGET_MAX_CHARS < MAX_BODY_CHARS
+    """The ceiling says what the fallback may hold; the target says what is good."""
+    assert TARGET_MAX_CHARS < MAX_BODY_CHARS
     assert TARGET_MAX_CHARS == 1200
-    assert TARGET_MIN_CHARS == 280
 
 
 @pytest.mark.parametrize("kind", _ALL_KINDS)
-def test_every_kind_states_the_target_length_not_only_the_ceiling(kind):
-    """Both bounds, and the words are spent on the task plus key files.
-
-    The 1400-2400 floor bought a map of the code the agent then re-read from
-    the same @files. The new target is the cleaned task plus a Key files list.
-    """
-    text = system_prompt(kind)
-    assert str(TARGET_MIN_CHARS) in text
-    assert str(TARGET_MAX_CHARS) in text
-    assert "clean task and a concrete Key files" in text
-
-
-@pytest.mark.parametrize("kind", _ALL_KINDS)
-def test_every_kind_forbids_inventing_without_asking_for_a_code_map(kind):
-    """Invent nothing, and do not narrate the files the agent will open."""
-    text = system_prompt(kind)
-    assert "INVENTING is forbidden" in text
-    assert "the agent will open the @files" in text
-    assert "DESCRIBING is wanted" not in text
+def test_every_kind_states_the_target_length(kind):
+    assert str(TARGET_MAX_CHARS) in system_prompt(kind)
 
 
 @pytest.mark.parametrize("kind", _ALL_KINDS)
 def test_every_kind_asks_for_the_goal_and_not_the_implementation(kind):
-    """The rule the whole blueprint turns on, so it is pinned for every kind.
-
-    The writer sees bounded file OUTLINES; the agent sees the code. A route
-    chosen from the outline is a guess, and a guessed route gets built even
-    when it is wrong or already there — measured live 2026-07-27, a brief
-    asked for concurrency that the target module already had. Every current
-    frontier prompting guide converges on the same instruction: state the
-    goal and the bounds, leave the route to the model.
-    """
-    text = system_prompt(kind)
-    assert "never the implementation" in text
-    assert "leave the route open" in text
-
-
-@pytest.mark.parametrize("kind", _ALL_KINDS)
-def test_no_kind_asks_the_writer_to_map_todays_code(kind):
-    """The agent opens the @files. Narrating them was the 10-30 s wait."""
-    assert "Do not add a `## Scope` or `## How it works today` section" in system_prompt(kind)
+    """The writer sees bounded file outlines; the agent sees the code. A route
+    chosen from the outline is a guess, and a guessed route gets built."""
+    assert "not an implementation" in system_prompt(kind)
 
 
 def test_no_kind_tells_the_writer_to_keep_it_short():

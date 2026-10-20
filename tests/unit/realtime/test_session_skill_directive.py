@@ -249,18 +249,19 @@ def test_a_broken_renderer_falls_back_silently(skills_root: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_directive_sits_below_the_safety_appendix() -> None:
-    """Safety must still frame a skill's instructions, not the other way round."""
+def test_the_directive_sits_below_the_voice_contract_and_the_role() -> None:
+    """The standing contract and role frame a skill's instructions, not the
+    other way round."""
     instructions = session_module._session_instructions(
         "de",
         tool_directive="TOOLDIRECTIVE",
         skill_directive="SKILLDIRECTIVE",
     )
     assert "SKILLDIRECTIVE" in instructions
-    assert instructions.index("TOOLDIRECTIVE") < instructions.index("SKILLDIRECTIVE")
-    assert instructions.index("SKILLDIRECTIVE") < instructions.index(
-        session_module._REALTIME_SAFETY_APPENDIX[:40]
+    assert instructions.index(session_module._VOICE_CONTRACT) < instructions.index(
+        "TOOLDIRECTIVE"
     )
+    assert instructions.index("TOOLDIRECTIVE") < instructions.index("SKILLDIRECTIVE")
 
 
 def test_omitting_the_directive_changes_nothing() -> None:

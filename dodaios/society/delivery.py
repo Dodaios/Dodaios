@@ -30,10 +30,9 @@ class IncomingMessage(BaseModel):
 #: The person's chat keeps one main answer per message they wrote; a wake-up
 #: earns a message only when it brings news the person needs.
 FOLLOW_UP_RULE: str = (
-    "This turn was not started by the person. Write to them only for a finished result, a "
-    "new problem that needs their decision, or an answer they asked for. Never repeat a status, "
-    "a waiting approval or a blocker you already told them about; when nothing is new, end the "
-    "turn without a message. Never hide an error that changes the outcome."
+    "This turn was not started by the person. Message them only for a finished result, a "
+    "decision that is theirs, an answer they asked for or an error that changes the "
+    "outcome; otherwise end the turn without a message."
 )
 
 

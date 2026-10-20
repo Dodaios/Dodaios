@@ -11,6 +11,11 @@ import aiosqlite
 
 from .schema import HookOptions
 
+#: Delivery outcomes. ``skipped``: the run did not start because unattended
+#: work may not bill the routine's seat right now (``CapacityDeferred``); the
+#: delivery is settled, never replayed (see ``TaskScheduler._run_hook``).
+DELIVERY_STATUSES = ("pending", "running", "done", "failed", "interrupted", "skipped")
+
 MAX_PAYLOAD_BYTES = 32_768
 MAX_PENDING = 100
 MAX_PER_MINUTE = 60
@@ -29,11 +34,62 @@ CREATE TABLE IF NOT EXISTS task_hook_deliveries (
     lineage_json TEXT NOT NULL DEFAULT '[]',
     received_ns INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending'
-        CHECK(status IN ('pending','running','done','failed','interrupted')),
+        CHECK(status IN ('pending','running','done','failed','interrupted','skipped')),
     PRIMARY KEY(task_id, delivery_id)
 );
 CREATE INDEX IF NOT EXISTS idx_task_hooks_pending ON task_hook_deliveries(status,received_ns);
 """
+
+#: The deliveries table as created before ``skipped`` existed is rebuilt onto
+#: this one (SQLite cannot alter a CHECK); see :func:`migrate_status_check`.
+_DELIVERIES_REBUILD_SQL = """
+CREATE TABLE task_hook_deliveries_new (
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    delivery_id TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    lineage_json TEXT NOT NULL DEFAULT '[]',
+    received_ns INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending','running','done','failed','interrupted','skipped')),
+    PRIMARY KEY(task_id, delivery_id)
+)
+"""
+
+
+async def migrate_status_check(conn: aiosqlite.Connection) -> bool:
+    """Rebuild ``task_hook_deliveries`` if its status CHECK predates ``skipped``.
+
+    Copies every row, then the caller re-runs the schema to restore the index
+    and the counter trigger (both go with the old table). Returns whether the
+    table was rebuilt. The counter lives in ``task_hook_state`` and is not
+    touched, so ``max_firings`` budgets survive.
+    """
+    async with conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='task_hook_deliveries'"
+    ) as cursor:
+        row = await cursor.fetchone()
+    table_sql = str(row[0] or "") if row else ""
+    if "CHECK" not in table_sql or "'skipped'" in table_sql:
+        return False
+    await conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        await conn.execute("BEGIN")
+        await conn.execute(_DELIVERIES_REBUILD_SQL)
+        await conn.execute(
+            "INSERT INTO task_hook_deliveries_new"
+            "(task_id,delivery_id,payload_json,lineage_json,received_ns,status) "
+            "SELECT task_id,delivery_id,payload_json,lineage_json,received_ns,status "
+            "FROM task_hook_deliveries"
+        )
+        await conn.execute("DROP TABLE task_hook_deliveries")
+        await conn.execute("ALTER TABLE task_hook_deliveries_new RENAME TO task_hook_deliveries")
+        await conn.execute("COMMIT")
+    except Exception:
+        await conn.execute("ROLLBACK")
+        raise
+    finally:
+        await conn.execute("PRAGMA foreign_keys = ON")
+    return True
 
 
 def encode_payload(payload: Any) -> str:
@@ -127,7 +183,7 @@ class HookInbox:
                 return "changed"
             await self._conn.execute(
                 "DELETE FROM task_hook_deliveries WHERE task_id=? AND status IN "
-                "('done','failed','interrupted') "
+                "('done','failed','interrupted','skipped') "
                 "AND delivery_id NOT IN (SELECT delivery_id FROM task_hook_deliveries WHERE "
                 "task_id=? ORDER BY received_ns DESC LIMIT ?)",
                 (task_id, task_id, HISTORY_LIMIT),
@@ -142,6 +198,8 @@ class HookInbox:
             return [dict(row) for row in await cursor.fetchall()]
 
     async def mark(self, task_id: str, delivery_id: str, status: str) -> None:
+        if status not in DELIVERY_STATUSES:
+            raise ValueError(f"unknown hook delivery status {status!r}")
         await self._conn.execute(
             "UPDATE task_hook_deliveries SET status=? WHERE task_id=? AND delivery_id=?",
             (status, task_id, delivery_id),

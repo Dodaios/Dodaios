@@ -7,7 +7,8 @@
 #   1. Verifies Python 3.11+ and git are available.
 #   2. Offers to install either missing prerequisite, then re-checks in place.
 #   3. Checks for Node.js 18+ (optional - a missing Node never blocks the install).
-#   4. Clones (or updates) personal-jarvis into ~\.personal-jarvis.
+#   4. Clones (or updates) Dodaios into ~\.dodaios (an update moves an install
+#      made under the earlier name ~\.personal-jarvis there).
 #   5. Creates a Python venv, installs `rich` + `packaging`.
 #   6. Hands control to install/installer.py (the Stage 2 orchestrator).
 #
@@ -219,9 +220,41 @@ if ($OfficialRepoSlug -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
 }
 $RepoUrl    = if ($env:JARVIS_INSTALL_REPO) { $env:JARVIS_INSTALL_REPO } else { "https://github.com/$OfficialRepoSlug.git" }
 $LegacyOfficialRepoSlug = 'PersonalJarvis/PersonalJarvis'
-$ConfigFileName = 'jarvis.toml'
+$ConfigFileName = 'dodaios.toml'
+# An install keeps a config file under this earlier name; it is never renamed.
+$LegacyConfigFileName = 'jarvis.toml'
 $Branch     = if ($env:JARVIS_INSTALL_REF)  { $env:JARVIS_INSTALL_REF }  else { 'main' }
-$InstallDir = if ($env:JARVIS_INSTALL_DIR)  { $env:JARVIS_INSTALL_DIR }  else { Join-Path $env:USERPROFILE '.personal-jarvis' }
+# --- install-dir-choice begin (extracted by tests/unit/install/test_install_dir_move.py)
+# The checkout lives in ~\.dodaios. An install made under the earlier name
+# keeps its directory for as long as that is a real directory (not a junction
+# or a link), and an update run moves it (Invoke-InstallDirMigration below). A
+# directory given in JARVIS_INSTALL_DIR (or DODAIOS_INSTALL_DIR) is used as
+# given, never moved.
+$DefaultInstallDirName = '.dodaios'
+$LegacyInstallDirName = '.personal-jarvis'
+$CurrentInstallDir = Join-Path $env:USERPROFILE $DefaultInstallDirName
+$LegacyInstallDir = Join-Path $env:USERPROFILE $LegacyInstallDirName
+$MigrateLegacyInstallDir = $false
+function Test-RealDirectory([string]$Path) {
+    try {
+        $Item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    } catch {
+        return $false
+    }
+    return ($Item.PSIsContainer -and -not $Item.LinkType)
+}
+if ($env:JARVIS_INSTALL_DIR) {
+    $InstallDir = $env:JARVIS_INSTALL_DIR
+} elseif (Test-RealDirectory $LegacyInstallDir) {
+    $InstallDir = $LegacyInstallDir
+    $MigrateLegacyInstallDir = $true
+} else {
+    $InstallDir = $CurrentInstallDir
+}
+# --- install-dir-choice end
+# The migration engine inside the release being installed. It is read from
+# the fetched commit, never from the checkout that is about to change.
+$IdentityEnginePath = 'dodaios/core/identity_migration.py'
 $PrerequisiteMode = if ($env:JARVIS_INSTALL_PREREQS) { $env:JARVIS_INSTALL_PREREQS.ToLowerInvariant() } else { 'ask' }
 $InitialPath = $env:Path
 
@@ -607,26 +640,34 @@ function Invoke-TarballFallback {
     if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) { return $false }
     if ($RepoUrl -notmatch 'github\.com/') { return $false }
     $RepoPath = ($RepoUrl -split 'github\.com/', 2)[1] -replace '\.git$', ''
-    $AssetUrl = "https://github.com/$RepoPath/releases/latest/download/personal-jarvis-src.tar.gz"
+    $AssetBase = "https://github.com/$RepoPath/releases/latest/download"
+    # The archive's current name first; releases cut before the rename only
+    # carry the earlier one.
+    $AssetNames = @('dodaios-src.tar.gz', 'personal-jarvis-src.tar.gz')
     $SnapshotUrl = "https://codeload.github.com/$RepoPath/tar.gz/refs/heads/$Branch"
     if ($env:JARVIS_PAYLOAD_COMMIT) {
         # A verified install is pinned to ONE signed commit; the "latest"
         # release asset cannot honor that pin, so go straight to the
         # commit-addressed snapshot - the URL itself names the exact tree.
-        $AssetUrl = ''
+        $AssetNames = @()
         $SnapshotUrl = "https://codeload.github.com/$RepoPath/tar.gz/$($env:JARVIS_PAYLOAD_COMMIT)"
     }
     $Tmp = "$InstallDir.payload.tar.gz"
     Write-Note 'git transfer keeps stalling on this network - switching to a resumable archive download'
     $Got = $false
-    $Try = 1
-    while ($AssetUrl -and $Try -le 8) {
-        & curl.exe -fL --speed-limit 1024 --speed-time 60 -C - -o $Tmp $AssetUrl
-        if ($LASTEXITCODE -eq 0) { $Got = $true; break }
-        if ($LASTEXITCODE -eq 22) { break }  # HTTP error (e.g. asset missing): not retryable
-        Write-Note "archive download interrupted - resuming where it stopped ($Try/8) ..."
-        $Try++
-        Start-Sleep -Seconds 3
+    foreach ($AssetName in $AssetNames) {
+        # A partial download of one archive must never be resumed as another.
+        try { Remove-Item -LiteralPath $Tmp -Force -ErrorAction Stop } catch {}
+        $Try = 1
+        while ($Try -le 8) {
+            & curl.exe -fL --speed-limit 1024 --speed-time 60 -C - -o $Tmp "$AssetBase/$AssetName"
+            if ($LASTEXITCODE -eq 0) { $Got = $true; break }
+            if ($LASTEXITCODE -eq 22) { break }  # HTTP error (this archive is not on the release): try the next name
+            Write-Note "archive download interrupted - resuming where it stopped ($Try/8) ..."
+            $Try++
+            Start-Sleep -Seconds 3
+        }
+        if ($Got) { break }
     }
     if (-not $Got) {
         try { Remove-Item -LiteralPath $Tmp -Force -ErrorAction Stop } catch {}
@@ -686,7 +727,7 @@ function Test-RepositoryReachable {
 # Self-heal a broken install dir (leftover non-git folder from an earlier or
 # aborted install, or a checkout whose git state no longer updates): keep the
 # old tree as a timestamped sibling backup - never delete - clone fresh, then
-# carry the user's local state (data/, jarvis.toml, .env) into the new
+# carry the user's local state (data/, the config file, .env) into the new
 # checkout. A stale folder must never require manual cleanup to install.
 function Invoke-SalvageReclone {
     if (-not (Test-RepositoryReachable)) {
@@ -713,7 +754,7 @@ function Invoke-SalvageReclone {
     # the fresh clone ships a tracked seed wiki/ skeleton, so the guard
     # would silently never restore the user's real vault. Directories that
     # exist on both sides are overlay-MERGED (user files win over seed).
-    foreach ($Item in @('data', $ConfigFileName, '.env', 'wiki')) {
+    foreach ($Item in @('data', $LegacyConfigFileName, $ConfigFileName, '.env', 'wiki')) {
         $Old = Join-Path $StaleBackup $Item
         $New = Join-Path $InstallDir $Item
         if (-not (Test-Path $Old)) { continue }
@@ -824,6 +865,73 @@ function Stop-RunningApp {
     }
 }
 
+# Move an install made under the earlier directory name to the current one,
+# once the app is stopped and before the checkout changes. The engine is the
+# copy inside the fetched release, written to a temporary file outside both
+# directories byte for byte: it never passes through a PowerShell pipeline,
+# which would re-encode it. It runs isolated (-I), without writing bytecode
+# (-B), from the home directory, renames once and leaves a junction at the old
+# path, or changes nothing; the directory it reports is where the update goes
+# on. Any failure goes on in place: an install under the earlier name is a
+# valid state, not a broken one. Returns the directory to go on in; nothing
+# else may reach the output. (POSIX twin: migrate_install_dir in install.sh.)
+function Invoke-InstallDirMigration {
+    if (-not $MigrateLegacyInstallDir) { return $InstallDir }
+    # Native stderr must never become a terminating error here.
+    $ErrorActionPreference = 'Continue'
+    $Engine = Join-Path ([IO.Path]::GetTempPath()) ('dodaios-identity-migration-' + [guid]::NewGuid().ToString('N') + '.py')
+    $Report = $null
+    try {
+        if ($Branch -notmatch '^[A-Za-z0-9._/-]+$') { throw 'unusual branch name' }
+        $Git = Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1
+        $Start = New-Object System.Diagnostics.ProcessStartInfo
+        $Start.FileName = $Git.Source
+        $Start.Arguments = 'show "origin/' + $Branch + ':' + $IdentityEnginePath + '"'
+        $Start.WorkingDirectory = $InstallDir
+        $Start.UseShellExecute = $false
+        $Start.RedirectStandardOutput = $true
+        $Start.RedirectStandardError = $true
+        $Start.CreateNoWindow = $true
+        $Process = [System.Diagnostics.Process]::Start($Start)
+        $ErrorText = $Process.StandardError.ReadToEndAsync()
+        $Bytes = New-Object System.IO.MemoryStream
+        $Process.StandardOutput.BaseStream.CopyTo($Bytes)
+        $Process.WaitForExit()
+        [void]$ErrorText.Result
+        if ($Process.ExitCode -ne 0 -or $Bytes.Length -eq 0) { throw 'the release carries no migration engine' }
+        [IO.File]::WriteAllBytes($Engine, $Bytes.ToArray())
+        # Windows refuses to rename a folder that is any process's working
+        # directory, this one's included.
+        [Environment]::CurrentDirectory = $env:USERPROFILE
+        Push-Location -LiteralPath $env:USERPROFILE
+        try {
+            $Output = & $pythonExe -I -B $Engine migrate $LegacyInstallDir $CurrentInstallDir 2>$null
+            if ($LASTEXITCODE -eq 0) { $Report = ($Output | Out-String) | ConvertFrom-Json }
+        } finally {
+            Pop-Location
+        }
+    } catch {
+        $Report = $null
+    } finally {
+        try { Remove-Item -LiteralPath $Engine -Force -ErrorAction Stop } catch {}
+    }
+    $Effective = $null
+    if ($Report -and $Report.effective) { $Effective = [string]$Report.effective }
+    if (-not $Effective -or -not (Test-Path -LiteralPath $Effective -PathType Container)) {
+        Write-Note "kept the install in $InstallDir (the move to $CurrentInstallDir did not run)"
+        return $InstallDir
+    }
+    $Outcome = [string]$Report.outcome
+    if (@('migrated', 'link_restored', 'already_linked') -contains $Outcome) {
+        Write-Note "moved the install to $Effective (the old folder name still leads there)"
+    } elseif ($Outcome -eq 'migrated_without_link') {
+        Write-Note "moved the install to $Effective"
+    } else {
+        Write-Note "kept the install in $Effective (it could not be renamed: $Outcome)"
+    }
+    return $Effective
+}
+
 # The fetch only writes inside .git, so the app keeps running through it: a
 # failed download (offline, an outage) then leaves a working app behind. It is
 # stopped at the last moment, right before the files it runs from change.
@@ -836,6 +944,8 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
         if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
         if ($UpdateOk) {
             Stop-RunningApp
+            $InstallDir = [string](Invoke-InstallDirMigration)
+            Set-Location -LiteralPath $InstallDir
             & git checkout --quiet $Branch
             if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
         }

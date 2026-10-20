@@ -490,7 +490,7 @@ class NativeCodexGoal:
     async def _run(self, handle: Any, objective: str) -> str | None:
         started_at = time.monotonic()
         from .events import make_event
-        from .jarvis_harness import build_identity, codex_config_args
+        from .dodaios_harness import build_identity, codex_config_args
         from .runner_cli import (
             ACCOUNT_OVERRIDE,
             _account_env,

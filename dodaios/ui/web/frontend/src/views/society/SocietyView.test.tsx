@@ -26,7 +26,7 @@ vi.mock("@/components/society/data", () => ({ useQuickCreateAgent: () => quick.c
   { agentId: "lead", name: "Lead", tier: "lead", state: "idle" },
   { agentId: "specialist", name: "Specialist", tier: "specialist", state: "idle" },
 ] }, isLoading: false }) }));
-vi.mock("@/views/JarvisAgentsView", () => ({ JarvisAgentsView: ({ active, onSelectAgent, onOpenAgents, onMarsSelectionChange }: any) => (
+vi.mock("@/views/DodaiosAgentsView", () => ({ DodaiosAgentsView: ({ active, onSelectAgent, onOpenAgents, onMarsSelectionChange }: any) => (
   <div data-testid="map" data-active={active}><button onClick={() => onSelectAgent("specialist")}>Map specialist</button><button onClick={onOpenAgents}>Map fallback</button><div data-mars-ui><input aria-label="Mars draft" /></div><div data-mars-mode="player"><button>Player viewport</button></div><div data-mars-mode="follow"><button>Follow viewport</button></div><button onClick={() => onMarsSelectionChange(false)}>Previous world</button><button onClick={() => onMarsSelectionChange(true)}>Mars world</button></div>
 ) }));
 vi.mock("@/components/society/mars/MarsStationPanel", () => ({ MarsStationPanel: ({ onClose }: any) => <aside aria-label="Mars station"><button onClick={onClose}>Close station</button></aside> }));

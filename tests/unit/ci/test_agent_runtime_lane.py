@@ -235,5 +235,5 @@ def test_the_runtime_pins_ship_in_the_wheel_and_the_frozen_app():
     assert "agent_runtimes/runtime-versions.json" in (
         pyproject["tool"]["setuptools"]["package-data"]["dodaios"]
     )
-    spec = (ROOT / "jarvis.spec").read_text(encoding="utf-8")
+    spec = (ROOT / "dodaios.spec").read_text(encoding="utf-8")
     assert '"dodaios/agent_runtimes/runtime-versions.json"), "dodaios/agent_runtimes")' in spec

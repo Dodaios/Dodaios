@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from dodaios.agent_chat.jarvis_harness import COMPACT_MAX_CHARS, Identity
+from dodaios.agent_chat.dodaios_harness import COMPACT_MAX_CHARS, Identity
 from dodaios.agent_chat.runner_cli import _with_identity
 from dodaios.core.chat_turn import ChatTurn
 from dodaios.core.protocols import current_chat_turn
@@ -70,8 +70,12 @@ async def test_first_three_turns_keep_naming_guidance_until_identity_is_saved(wo
             identity,
             "vendor-session" if turn > 1 else None,
         )
-        assert AGENT_NAMING_GUIDANCE in prompt
-        assert "society_propose_change" in prompt
+        if turn == 1:
+            assert AGENT_NAMING_GUIDANCE in prompt
+            assert "society_propose_change" in prompt
+        else:
+            # The vendor conversation already holds it; an unchanged refresh is not resent.
+            assert AGENT_NAMING_GUIDANCE not in prompt
         assert (await rt.roster.get(agent.agent_id)).name == "New Agent"
     result = await _choose(rt, agent, "Discord-Mod")
     assert result.success
@@ -146,7 +150,7 @@ async def test_compact_resume_keeps_name_guidance_ahead_of_long_memory(world):  
     rt, _ = world
     agent, _ = await rt.roster.create(description="Research sources.")
     text = build_briefing(agent, [], [], memory="## Your memory\n" + "A fact.\n" * 3000)
-    from dodaios.agent_chat.jarvis_harness import society_memory_refresh
+    from dodaios.agent_chat.dodaios_harness import society_memory_refresh
 
     refreshed = society_memory_refresh(text, compact=True)
     assert AGENT_NAMING_GUIDANCE in refreshed

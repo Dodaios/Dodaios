@@ -29,6 +29,7 @@ from dodaios.core.review.pipeline import ReviewPipeline
 from dodaios.core.review.spawns import ReviewerSpawner, WorkerSpawner
 from dodaios.core.review.state import PipelineOutcome, PipelineResult
 from dodaios.harness.manager import HarnessManager
+from dodaios.i18n import catalog as i18n_catalog
 
 # AD-14: voice phrases are hardcoded here (never generated, never mutable via
 # voice/config) and byte-exact matched in the smoke tests. Each phrase exists
@@ -36,65 +37,16 @@ from dodaios.harness.manager import HarnessManager
 # text and stays unchanged. The tool speaks the turn's output language
 # (``ctx.config["output_language"]``, decided once per turn by
 # ``dodaios/core/turn_language.py``), else the ambient answer language.
-VOICE_HOLDING_PHRASES: dict[str, str] = {
-    "de": "Lass mich kurz an der Aufgabe arbeiten.",  # i18n-allow: German TTS phrase
-    "en": "Let me work on that task for a moment.",
-    "es": "Déjame trabajar un momento en la tarea.",
-    "pt": "Deixa-me trabalhar um pouco na tarefa.",
-}
-VOICE_OUTCOME_TEMPLATES: dict[str, dict[str, str]] = {
-    "de": {
-        "success": "Erledigt — {summary}",  # i18n-allow: German TTS phrase
-        "cap_fired": "Mein bestes Ergebnis liegt vor, mit einer Einschränkung: {top_issue}",  # i18n-allow: German TTS phrase
-        "fail": "Das funktioniert so nicht — {summary}",  # i18n-allow: German TTS phrase
-        "precheck_fail": "Die Aufgabe ist zu kurz oder unklar — versuch's nochmal mit mehr Kontext.",  # i18n-allow: German TTS phrase
-    },
-    "en": {
-        "success": "Done — {summary}",
-        "cap_fired": "Here is my best result, with one caveat: {top_issue}",
-        "fail": "That does not work like this — {summary}",
-        "precheck_fail": "The task is too short or unclear — try again with more context.",
-    },
-    "es": {
-        "success": "Hecho — {summary}",
-        "cap_fired": "Aquí está mi mejor resultado, con una salvedad: {top_issue}",
-        "fail": "Así no funciona — {summary}",
-        "precheck_fail": (
-            "La tarea es demasiado corta o poco clara — vuelve a intentarlo con más contexto."
-        ),
-    },
-    "pt": {
-        "success": "Feito — {summary}",
-        "cap_fired": "Aqui está o meu melhor resultado, com uma ressalva: {top_issue}",
-        "fail": "Assim não funciona — {summary}",
-        "precheck_fail": (
-            "A tarefa é demasiado curta ou pouco clara — tenta outra vez com mais contexto."
-        ),
-    },
-}
+VOICE_HOLDING_PHRASES: dict[str, str] = i18n_catalog.table(
+    "tools.dispatch_review.voice_holding_phrases"
+)
+VOICE_OUTCOME_TEMPLATES: dict[str, dict[str, str]] = i18n_catalog.locale_maps(
+    "tools.dispatch_review.voice_outcome_templates"
+)
 #: Fallback fillers when the reviewer left no summary / issue to quote.
-VOICE_FALLBACK_FILLERS: dict[str, dict[str, str]] = {
-    "de": {
-        "success": "fertig",  # i18n-allow: German TTS phrase fallback
-        "cap_fired": "kleine Restbedenken",  # i18n-allow: German TTS phrase fallback
-        "fail": "Architektur-Defekt",  # i18n-allow: German TTS phrase fallback
-    },
-    "en": {
-        "success": "finished",
-        "cap_fired": "a few minor remaining concerns",
-        "fail": "an architectural defect",
-    },
-    "es": {
-        "success": "terminado",
-        "cap_fired": "algunas pequeñas dudas pendientes",
-        "fail": "un defecto de arquitectura",
-    },
-    "pt": {
-        "success": "concluído",
-        "cap_fired": "algumas pequenas dúvidas pendentes",
-        "fail": "um defeito de arquitetura",
-    },
-}
+VOICE_FALLBACK_FILLERS: dict[str, dict[str, str]] = i18n_catalog.locale_maps(
+    "tools.dispatch_review.voice_fallback_fillers"
+)
 
 # Back-compat aliases for callers that imported the German-only names.
 VOICE_HOLDING_PHRASE_DE = VOICE_HOLDING_PHRASES["de"]

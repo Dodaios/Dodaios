@@ -61,12 +61,10 @@ jobs:
       security-events: write
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
     with:
-      # Only what an installed Jarvis actually runs; the marketing video
-      # projects carry their own lockfiles and ship nothing.
+      # Only what an installed Dodaios actually runs.
       scan-args: |-
         -L requirements.txt
         -L dodaios/voice_engine/requirements-engine.txt
-        -L keyproxy/requirements.txt
         -L scripts/ci/requirements-build.txt
         -L dodaios/ui/web/frontend/package-lock.json
       fail-on-vuln: false

@@ -1,7 +1,7 @@
 /** The agent's routine editor, backed by the existing task scheduler. */
 import { useState } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Clock, Plus, X } from "lucide-react";
+import { ArrowLeft, Check, Clock, Plus, SkipForward, X } from "lucide-react";
 import { useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +13,7 @@ import { WebhookConnection } from "./WebhookConnection";
 import { SourceControls } from "./SourceControls";
 import { RoutineSeatPicker, type RoutineSeat } from "./RoutineSeatPicker";
 import { useRoutineNavigation } from "../chat/routineNavigation";
+import { routineSkipReason } from "@/lib/skipReasons";
 
 const field = "w-full rounded-lg border border-border bg-background px-3 py-2 text-[12px] text-foreground";
 const button = "rounded-md bg-secondary px-2.5 py-1.5 text-[12px] text-foreground hover:bg-secondary/70 disabled:opacity-50";
@@ -20,7 +21,11 @@ const recurring = ["every", "calendar", "cron", "webhook", "event_hook", "source
 const terminal = ["completed", "failed", "cancelled", "interrupted"];
 const timeKinds = ["every", "calendar", "cron"];
 
-interface Run { id: string; taskId: string; timestamp: number; status: string; text: string; sessionId?: string; startedMs?: number; finishedMs?: number }
+interface Run {
+  id: string; taskId: string; timestamp: number; status: string; text: string; sessionId?: string; startedMs?: number; finishedMs?: number;
+  /** A skipped run's reason code and seat (`skipped` step), worded by `routineSkipReason`. */
+  skipCode?: string; skipProvider?: string;
+}
 
 /** New runs have explicit boundaries; retain older result/error records too. */
 export function routineRuns(taskId: string, steps: TaskStep[]): Run[] {
@@ -37,9 +42,17 @@ export function routineRuns(taskId: string, steps: TaskStep[]): Run[] {
       current.sessionId = step.payload.session_id;
     } else if (event === "agent_result" && current) {
       current.text = text;
+    } else if (event === "skipped") {
+      // Unattended work that may not bill its seat: no turn started. The skip
+      // ends the run; an older history also logged an "error" right after it.
+      const skip = { status: "skipped", text, finishedMs: step.timestamp_ns / 1e6,
+        skipCode: String(step.payload.code ?? ""), skipProvider: String(step.payload.provider ?? "") };
+      if (current) Object.assign(current, skip);
+      else { current = { id: `${taskId}:${step.seq}`, taskId, timestamp: step.timestamp_ns / 1e6, ...skip }; runs.push(current); }
     } else if (["run_completed", "run_cancelled", "error", "deferred"].includes(String(event))) {
       const status = event === "run_completed" ? "completed" : event === "run_cancelled" ? "cancelled" : event === "deferred" ? "pending" : "failed";
-      if (current) { current.status = status; current.finishedMs = step.timestamp_ns / 1e6; if (text) current.text = text; current = undefined; }
+      if (current?.status === "skipped") current = undefined;
+      else if (current) { current.status = status; current.finishedMs = step.timestamp_ns / 1e6; if (text) current.text = text; current = undefined; }
       else runs.push({ id: `${taskId}:${step.seq}`, taskId, timestamp: step.timestamp_ns / 1e6, finishedMs: step.timestamp_ns / 1e6, status, text });
     } else if (event === "agent_result") {
       // Legacy runners persisted the result before the final state transition.
@@ -130,7 +143,8 @@ export function AgentRoutineDetail({ agentId, routine, onClose }: {
   const openRun = (run: Run) => {
     const ownChat = run.sessionId?.startsWith(`society:${agentId}:routine:${run.taskId}:`);
     openChat({ agentId, sessionId: ownChat ? run.sessionId! : `society:${agentId}`,
-      title: saved.title, timestamp: run.timestamp, result: run.text,
+      title: saved.title, timestamp: run.timestamp,
+      result: run.status === "skipped" ? routineSkipReason(t, run.skipCode, run.skipProvider, run.text) : run.text,
       ...(!ownChat ? { legacy: { taskId: run.taskId, startedMs: run.startedMs, finishedMs: run.finishedMs } } : {}),
     });
   };
@@ -214,9 +228,15 @@ export function AgentRoutineDetail({ agentId, routine, onClose }: {
       <h4 className="text-[11px] text-muted-foreground">{label("history")}</h4>
       {runs.length > 0 && <button type="button" className={button} onClick={() => openRun(runs[0])}>{label("latest_chat")}</button>}
       {ready && runs.length === 0 && <p className="text-[12px] text-muted-foreground">{label("no_runs")}</p>}
-      {runs.map((run) => <button key={run.id} type="button" data-testid={`routine-run-${run.id}`} aria-label={`${label("open_chat")} · ${new Date(run.timestamp).toLocaleString(locale)}`} onClick={() => openRun(run)} className="flex w-full cursor-pointer items-center justify-between gap-2 rounded py-1 text-left text-[12px] hover:bg-secondary focus-visible:outline focus-visible:outline-ring"><time dateTime={new Date(run.timestamp).toISOString()}>{new Date(run.timestamp).toLocaleString()}</time><span className="flex items-center gap-1" title={run.status === "legacy" ? label("legacy") : t(`tasks_view.state.${run.status}`)}>
-          {run.status === "completed" ? <Check size={15} className="text-success" aria-label={t("tasks_view.state.completed")} /> : run.status === "failed" || run.status === "cancelled" ? <X size={15} className="text-destructive" aria-label={t(`tasks_view.state.${run.status}`)} /> : <Clock size={15} aria-label={run.status === "legacy" ? label("legacy") : t(`tasks_view.state.${run.status}`)} />}
-        </span></button>)}
+      {runs.map((run) => {
+        const state = run.status === "legacy" ? label("legacy") : run.status === "skipped" ? label("skipped") : t(`tasks_view.state.${run.status}`);
+        return <button key={run.id} type="button" data-testid={`routine-run-${run.id}`} aria-label={`${label("open_chat")} · ${new Date(run.timestamp).toLocaleString(locale)} · ${state}`} onClick={() => openRun(run)} className="block w-full cursor-pointer rounded py-1 text-left text-[12px] hover:bg-secondary focus-visible:outline focus-visible:outline-ring">
+          <span className="flex items-center justify-between gap-2"><time dateTime={new Date(run.timestamp).toISOString()}>{new Date(run.timestamp).toLocaleString()}</time><span className="flex items-center gap-1" title={state}>
+            {run.status === "completed" ? <Check size={15} className="text-success" aria-label={state} /> : run.status === "failed" || run.status === "cancelled" ? <X size={15} className="text-destructive" aria-label={state} /> : run.status === "skipped" ? <SkipForward size={15} className="text-muted-foreground" aria-label={state} /> : <Clock size={15} aria-label={state} />}
+          </span></span>
+          {run.status === "skipped" && <span data-testid="routine-run-skip-reason" className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{routineSkipReason(t, run.skipCode, run.skipProvider, run.text)}</span>}
+        </button>;
+      })}
     </div>
   </section>;
 }

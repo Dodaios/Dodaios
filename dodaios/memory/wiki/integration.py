@@ -859,13 +859,9 @@ def _build_curator(
     vault = VaultIndex(repo=repo)
 
     schema_path = vault_root / "schema.md"
-    # CRIT-4 (2026-05-17 audit-7): missing schema.md silently broke every
-    # wiki-ingest call -- WikiCuratorLLM._load_schema returned None,
-    # downstream returned [] in many code paths, and "merk dir das" lied
-    # to the user about persisting anything. Seed the file from the
-    # canonical template if the vault is missing it; safe for fresh
-    # installs and for vaults that lost the file through a manual
-    # cleanup.
+    # schema.md documents the vault for people (it is not part of the
+    # curator prompt). Seed it from the canonical template if the vault is
+    # missing it; safe for fresh installs and for manual cleanups.
     _ensure_schema_present(vault_root, schema_path)
     llm = WikiCuratorLLM(
         config=root_config,

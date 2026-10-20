@@ -16,27 +16,8 @@ from dodaios.clis.tool import TOOL_NAME_PREFIX
 
 log = logging.getLogger(__name__)
 
-_HEADER = (
-    "CONNECTED CLIS\n"
-    "You have direct command-line tools for these connected services. Prefer "
-    "them for matching requests instead of refusing, spawning a worker, or "
-    "using an equivalent plugin — these CLIs are faster and cheaper, and a "
-    "plugin is only a fallback when no CLI covers the task:\n"
-)
-_FOOTER = (
-    "\nAnswer ONLY from the tool result — never invent external data. Prefer "
-    "machine-readable output flags (--json, --format json) when the CLI "
-    "supports them. If you are unsure of the exact command or flags, first run "
-    "`<cli> --help` or `<cli> <group> --help` (read-only) to discover them, "
-    "then issue the real command.\n"
-    "Each cli_* tool result is a structured object: "
-    "{success, output:{exit_code, stdout, stderr, duration_ms}, error}. "
-    "An exit_code of 0 means success and stdout holds the real result (often "
-    "JSON) — read it, then summarize it in your own natural words. Never read "
-    "the result object, the JSON envelope, the exit code, or table characters "
-    "aloud. On a non-zero exit_code, briefly explain the cause from stderr in "
-    "plain language; never quote the error object."
-)
+_HEADER = "CONNECTED CLIS (preferred over a plugin for the same service):\n"
+_FOOTER = "\nRun `<cli> --help` when unsure of a command; prefer --json output."
 
 
 def render_connected_clis_section(cli_registry: Any) -> str:

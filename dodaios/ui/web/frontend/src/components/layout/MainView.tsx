@@ -127,6 +127,11 @@ const MarketplaceView = lazyView(["marketplace"], () =>
     default: m.MarketplaceView,
   })),
 );
+const SelfBuildView = lazyView(["self-build"], () =>
+  import("@/views/SelfBuildView").then((m) => ({
+    default: m.SelfBuildView,
+  })),
+);
 
 /** Quiet time before a loading section admits it is loading. */
 export const LOADING_HINT_MS = 400;
@@ -386,6 +391,9 @@ function SwitchOnActiveSection({ active }: { active: string }) {
     // place, installable without leaving the app.
     case "marketplace":
       return <MarketplaceView />;
+    // Built for you: every self-built thing, with keep, undo and the pause.
+    case "self-build":
+      return <SelfBuildView />;
     // Deliberately nothing: the coding workspace is rendered by the STICKY
     // branch in `MainView` above, which keeps it mounted across section
     // changes. This switch is not rendered at all while one of those ids is
