@@ -18,7 +18,12 @@ from pathlib import Path
 import pytest
 
 import dodaios
-from dodaios.core.branding import CONFIG_FILE_NAME, MACOS_APP_DIR_NAME, MACOS_BUNDLE_ID
+from dodaios.core.branding import (
+    CONFIG_FILE_NAME,
+    LEGACY_CONFIG_FILE_NAMES,
+    MACOS_APP_DIR_NAME,
+    MACOS_BUNDLE_ID,
+)
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from dodaios.core.update_contract import (
     CONTRACT_PATH,
@@ -41,12 +46,36 @@ def _document(**overrides: object) -> str:
 # The tracked contract describes this tree
 # --------------------------------------------------------------------------- #
 def test_the_tracked_contract_is_the_default_contract() -> None:
-    """A release without the file must behave exactly like this one."""
+    """A release without the file must behave exactly like this one.
+
+    Except for the rollback hook: it belongs to the release that ships it, and
+    a tree that states none has nothing to undo.
+    """
     payload = json.loads((REPO / CONTRACT_PATH).read_text(encoding="utf-8"))
     assert payload.pop("schema") == CONTRACT_SCHEMA
-    stated = {key: value for key, value in asdict(DEFAULT_CONTRACT).items() if value is not None}
+    hook = payload.pop("rollback_hook")
+    stated = {
+        key: list(value) if isinstance(value, tuple) else value
+        for key, value in asdict(DEFAULT_CONTRACT).items()
+        if value is not None
+    }
     assert payload == stated
-    assert read_update_contract(REPO) == DEFAULT_CONTRACT
+    assert read_update_contract(REPO) == replace(DEFAULT_CONTRACT, rollback_hook=hook)
+
+
+def test_the_rollback_hook_is_a_file_this_tree_tracks() -> None:
+    # The updater runs only a tracked file; a hook it skips undoes nothing.
+    hook = read_update_contract(REPO).rollback_hook
+    assert hook is not None
+    assert (REPO / hook).is_file()
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", hook],
+        cwd=REPO,
+        capture_output=True,
+        check=False,
+        creationflags=NO_WINDOW_CREATIONFLAGS,
+    )
+    assert tracked.returncode == 0, f"{hook} is not tracked"
 
 
 def test_the_contract_points_at_files_this_tree_really_has() -> None:
@@ -75,11 +104,14 @@ def test_a_package_move_publishes_a_contract_this_reader_follows() -> None:
 
     published = codemod.Rewriter(package, moved, layout).transform(CONTRACT_PATH, shipped)
 
+    hook = read_update_contract(REPO).rollback_hook
+    assert hook is not None and hook.startswith(f"{package}/")
     assert parse_update_contract(published.decode("utf-8")) == replace(
         read_update_contract(REPO),
         ui_bundle_dir=f"{moved}/ui/web/dist",
         launcher_module=f"{moved}.ui.web.launcher",
         version_file=f"{moved}/__init__.py",
+        rollback_hook=f"{moved}/{hook.removeprefix(f'{package}/')}",
     )
 
 
@@ -87,7 +119,10 @@ def test_the_contract_agrees_with_every_other_copy_of_these_names() -> None:
     from dodaios.autostart.command import LAUNCHER_MODULE as autostart_launcher
     from dodaios.ui import relauncher
 
-    assert DEFAULT_CONTRACT.config_file == CONFIG_FILE_NAME
+    # Legacy name first: an existing jarvis.toml stays the configuration, and
+    # an updater from before ``config_files`` reads the one name it knows.
+    assert DEFAULT_CONTRACT.config_files == (*LEGACY_CONFIG_FILE_NAMES, CONFIG_FILE_NAME)
+    assert DEFAULT_CONTRACT.config_file == LEGACY_CONFIG_FILE_NAMES[0]
     assert DEFAULT_CONTRACT.macos_app_dir_name == MACOS_APP_DIR_NAME
     assert DEFAULT_CONTRACT.macos_bundle_id == MACOS_BUNDLE_ID
     assert DEFAULT_CONTRACT.launcher_module == autostart_launcher
@@ -143,6 +178,7 @@ def test_a_moved_tree_is_read_as_it_describes_itself(tmp_path: Path) -> None:
         launcher_module="newpkg.ui.web.launcher",
         version_file="newpkg/__init__.py",
         config_file="newpkg.toml",
+        config_files=("newpkg.toml",),
         macos_app_dir_name="New Product.app",
         macos_bundle_id="com.new-product.desktop",
         rollback_hook="install/rollback.py",
@@ -311,6 +347,24 @@ def test_a_file_that_is_not_utf8_is_not_a_contract(tmp_path: Path) -> None:
 # released with, so these must keep parsing to these values: tightening a rule
 # here silently turns a published contract into "use the defaults", which for a
 # release that moved its files means every update rolls back.
+# The contract this tree ships: the earlier single name for the updaters that
+# read only ``config_file``, and every name for the ones that read the list.
+# The macOS bundle has its current name (the installer renames it in place,
+# under the bundle id it always had), and a failed update gives it back the
+# name the revision it falls back to knows.
+SHIPPED_DOCUMENT = """{
+  "schema": 1,
+  "ui_bundle_dir": "dodaios/ui/web/dist",
+  "launcher_module": "dodaios.ui.web.launcher",
+  "version_file": "dodaios/__init__.py",
+  "config_file": "jarvis.toml",
+  "config_files": ["jarvis.toml", "dodaios.toml"],
+  "macos_app_dir_name": "Dodaios.app",
+  "macos_bundle_id": "com.personal-jarvis.desktop",
+  "rollback_hook": "dodaios/setup/update_rollback.py"
+}
+"""
+
 SCHEMA_1_GOLDEN = [
     (
         """{
@@ -328,9 +382,23 @@ SCHEMA_1_GOLDEN = [
             launcher_module="dodaios.ui.web.launcher",
             version_file="dodaios/__init__.py",
             config_file="jarvis.toml",
+            config_files=("jarvis.toml",),
             macos_app_dir_name="Personal Jarvis.app",
             macos_bundle_id="com.personal-jarvis.desktop",
             rollback_hook=None,
+        ),
+    ),
+    (
+        SHIPPED_DOCUMENT,
+        UpdateContract(
+            ui_bundle_dir="dodaios/ui/web/dist",
+            launcher_module="dodaios.ui.web.launcher",
+            version_file="dodaios/__init__.py",
+            config_file="jarvis.toml",
+            config_files=("jarvis.toml", "dodaios.toml"),
+            macos_app_dir_name="Dodaios.app",
+            macos_bundle_id="com.personal-jarvis.desktop",
+            rollback_hook="dodaios/setup/update_rollback.py",
         ),
     ),
     (
@@ -344,6 +412,7 @@ SCHEMA_1_GOLDEN = [
             launcher_module="dodaios.ui.web.launcher",
             version_file="dodaios/__init__.py",
             config_file="dodaios.toml",
+            config_files=("dodaios.toml",),
             macos_app_dir_name="Dodaios.app",
             macos_bundle_id="ai.dodaios.desktop",
             rollback_hook="install/rollback_hook.py",
@@ -366,6 +435,7 @@ SCHEMA_1_GOLDEN = [
             launcher_module="_app2.ui.web.launcher_v2",
             version_file="src/app_2/_version.py",
             config_file=".app-2.toml",
+            config_files=(".app-2.toml",),
             macos_app_dir_name="App 2 beta-x.app",
             macos_bundle_id="io.app-2.Desktop",
             rollback_hook=None,
@@ -384,4 +454,26 @@ def test_schema_1_documents_keep_their_meaning(
 def test_the_shipped_contract_is_the_first_golden_document() -> None:
     """Byte for byte: what an installed copy of the previous version will read."""
     shipped = (REPO / CONTRACT_PATH).read_bytes().replace(b"\r\n", b"\n")
-    assert shipped.decode("utf-8") == SCHEMA_1_GOLDEN[0][0]
+    assert shipped.decode("utf-8") == SHIPPED_DOCUMENT
+    # The single name an older updater reads is a file such an install has.
+    assert json.loads(SHIPPED_DOCUMENT)["config_file"] == LEGACY_CONFIG_FILE_NAMES[0]
+
+
+def test_a_document_that_names_one_config_file_means_only_that_one() -> None:
+    contract = parse_update_contract(_document(config_file="x.toml"))
+    assert contract.config_files == ("x.toml",)
+
+
+def test_the_config_file_list_is_read_in_order() -> None:
+    contract = parse_update_contract(_document(config_files=["b.toml", "a.toml"]))
+    assert contract.config_files == ("b.toml", "a.toml")
+    # A list stated without the single name keeps that name's default.
+    assert contract.config_file == DEFAULT_CONTRACT.config_file
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [[], "jarvis.toml", ["../jarvis.toml"], ["a.toml", "a.toml"], [1], ["a.toml"] * 9],
+)
+def test_an_invalid_config_file_list_rejects_the_document(bad: object) -> None:
+    assert parse_update_contract(_document(config_files=bad)) == DEFAULT_CONTRACT

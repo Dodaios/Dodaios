@@ -1,16 +1,23 @@
-# Publish Personal Jarvis to PyPI on every `v*` tag.
+# Publish Dodaios to PyPI on every `v*` tag.
 #
 # No API token and no repository secret is involved: PyPI's Trusted Publishing
 # mints a short-lived, single-use credential from this workflow's OIDC identity.
 # That identity is (owner, repository, workflow FILE NAME, environment), so the
-# five values below must match the publisher registered on PyPI exactly —
-# renaming this file or the environment silently breaks every future release:
+# values below must match the publisher registered on PyPI exactly — renaming
+# this file or the environment silently breaks every future release:
 #
-#   PyPI project   personal-jarvis
+#   PyPI projects  dodaios, personal-jarvis (both trust the same publisher)
 #   Owner          Dodaios
 #   Repository     Dodaios
 #   Workflow       release.yml
 #   Environment    pypi
+#
+# Two projects, one code base: the distribution is `dodaios` now, and every
+# release also publishes the same wheel and sdist as `personal-jarvis`, its
+# earlier name, so `pip install -U personal-jarvis` keeps updating until those
+# installs have moved (scripts/ci/build_distributions.py). Both own the same
+# package files, which is why install/installer.py removes `personal-jarvis`
+# before it installs `dodaios`.
 #
 # The build and the publish are two jobs on purpose. Only the tiny publish job
 # holds `id-token: write` and enters the `pypi` environment, so the OIDC token
@@ -109,15 +116,16 @@ jobs:
       - name: Verify the README has no repo-relative URLs
         run: python scripts/ci/check_readme_absolute_urls.py README.md
 
+      # dist/dodaios/ and dist/personal-jarvis/: one wheel and one sdist each.
       - name: Build
-        run: python -m build --no-isolation
+        run: python scripts/ci/build_distributions.py --outdir dist
 
       # Metadata only. Do NOT read this as "the README was checked": twine maps
       # `text/markdown` to no renderer at all ("Rendering cannot fail"), so a
       # Markdown long_description is never rendered here and always passes. The
       # README's real failure mode is covered by the URL gate above instead.
       - name: Check the packaging metadata
-        run: python -m twine check --strict dist/*
+        run: python -m twine check --strict dist/*/*
 
       - name: Upload the artifacts
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
@@ -144,5 +152,17 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Publish
+      # The established project first: existing installs update from it. A
+      # re-run after a partial upload skips the files PyPI already holds
+      # (released files are immutable, so they are the ones this tag built).
+      - name: Publish personal-jarvis (earlier name)
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/personal-jarvis/
+          skip-existing: true
+
+      - name: Publish dodaios
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/dodaios/
+          skip-existing: true

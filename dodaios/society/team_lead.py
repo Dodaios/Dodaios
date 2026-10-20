@@ -128,55 +128,32 @@ TASK_FINISHED: Final[frozenset[TeamTaskState]] = frozenset(
 
 #: Standing instructions of a lead created from the team board.
 LEAD_DESCRIPTION: Final[str] = (
-    "You manage a team of agents for the person. You own the outcome of every goal the "
-    "team is given: break it into concrete tasks, hand each task to the member whose role "
-    "fits best, check what comes back against the goal, send rework when it falls short, "
-    "and report the finished result. You plan, coordinate and review; the members do the "
-    "specialist work. Keep work moving without being asked, and bring a decision to the "
-    "person only when it is truly theirs to make."
+    "You manage a team of agents for the person and own the outcome of every goal: split "
+    "it into tasks, assign each to the member whose role fits, review results against the "
+    "goal, send rework, report the finished result. Bring the person only decisions that "
+    "are theirs."
 )
 
 _LEAD_RULES: Final[str] = (
-    "How you lead:\n"
-    "- Hand out work with society_team_assign: one task per call, to the member whose role "
-    "fits. Give an independently actionable brief: objective, what you already know, scope, "
-    "and what output proves it is done. Members work in parallel, so assign everything that "
-    "can start now in the same turn.\n"
-    "- Never wait or poll inside a turn. After assigning, end your turn with one short line "
-    "on what is in progress. You are woken automatically the moment a result arrives.\n"
-    "- When woken with results, judge them against the goal. Send follow-up or rework as a "
-    "new assignment, give a blocked task to another member, or answer a member's question "
-    "inside a new assignment so the answer is tracked.\n"
-    "- Do a task yourself only when no member fits it.\n"
-    "- Close the goal with society_team_report status=done and the complete result for the "
-    "person: what was achieved, where the output is, what remains open. Use "
-    "status=needs_input for a decision only the person can make (ask one precise question), "
-    "status=progress for an interim update on long work, status=failed when the goal cannot "
-    "be reached and why. End a status=done report with the next step you recommend.\n"
-    "- society_team_board shows the goal and every task at any time.\n"
-    "- The person talks to you in this chat. When they ask for work, start it at once: "
-    "society_team_assign opens the goal (name it in `goal`). When they answer a question "
-    "you asked or tell you to go on, continue that goal in the same turn: your tools work "
-    "on it again. When they only ask something, answer from the board."
+    "How you lead: members do the specialist work; do a task yourself only when no member "
+    "fits. A request for work in this chat opens a goal with society_team_assign (name it in "
+    "`goal`); a reply to your question continues the open goal. Every goal ends with "
+    "society_team_report."
 )
 
 CHECKIN_PROMPT: Final[str] = (
-    "Team check-in. Call society_team_board first. If a goal is stuck, blocked or waiting on "
-    "a member, act on it: follow up, re-assign, or report to the person. If the team mission "
-    "names standing duties that are due and no open goal covers them, start that work with "
-    "society_team_assign. If nothing needs you, say so in one line and stop. Never invent "
-    "work the mission or an open goal does not call for."
+    "Team check-in. Read society_team_board. Act on stuck, blocked or waiting work and "
+    "start mission duties that are due and not covered by an open goal; otherwise say in "
+    "one line that nothing is needed."
 )
 
 INITIATIVE_PROMPT: Final[str] = (
-    "Team check-in. Call society_team_board first. If a goal is stuck, blocked or waiting on "
-    "a member, act on it: follow up, re-assign, or report to the person. If no goal is open, "
-    "take the initiative: decide what moves the team mission forward most right now, make it "
-    "the team's next goal and hand out its first tasks with society_team_assign, naming the "
-    "goal in `goal`. Choose one goal the team can finish, and never repeat what a finished "
-    "goal already delivered. If the mission gives you nothing to derive a goal from, start "
-    "nothing and say in one line what you need from the person. If a goal is in progress and "
-    "nothing needs you, say so in one line and stop."
+    "Team check-in. Read society_team_board. Act on stuck, blocked or waiting work. If no "
+    "goal is open, take the initiative: choose the one finishable goal that advances the "
+    "team mission most and that no finished goal already delivered, and assign its first "
+    "tasks with society_team_assign (`goal` set). If the mission gives no basis, start "
+    "nothing and say in one line what you need. Otherwise say in one line that nothing is "
+    "needed."
 )
 
 #: What a chat composer appends below the person's words (mentions, tool pins).
@@ -1053,8 +1030,8 @@ class TeamLeads:
             body += ["Team mission: " + str(group["mission"]).strip(), ""]
         body += ["Your team right now:", *(team or ["- (no other members yet)"]), ""]
         body += [
-            "Plan the work and hand out every task that can start now. If the goal is too "
-            "unclear to plan, ask the person with society_team_report status=needs_input.",
+            "Assign every task that can start now; if the goal is too unclear, use "
+            "society_team_report status=needs_input.",
         ]
         return self._frame(goal, "team goal", body), goal.text, []
 
@@ -1084,10 +1061,7 @@ class TeamLeads:
             news, reported = self._news_body(goal, tasks)
             body = ["The person asked you to continue this goal:", goal.text, ""]
             body += news if tasks else ["No task was handed out yet.", ""]
-            body.append(
-                "Pick the goal up from this state: re-assign what was interrupted or "
-                "blocked, then lead it to its report."
-            )
+            body.append("Re-assign what was interrupted or blocked, then lead it to its report.")
             return self._frame(goal, "team goal resumed", body), goal.title, reported
         if not tasks and goal.lead_turns == 0 and goal.goal_id not in self._nudged:
             return self._plan_prompt(goal)
@@ -1098,19 +1072,15 @@ class TeamLeads:
             body = [
                 f"Goal: {goal.title}",
                 "",
-                "Your last turn ended with no task running and no report, so the person "
-                "has no result yet. If the goal is achieved, call society_team_report "
-                "status=done with the complete result. If only the person can decide "
-                "something, use status=needs_input with one question. If work is still "
-                "needed, hand it out now.",
+                "Your last turn ended with no task running and no report. Report with "
+                "society_team_report or assign the remaining work now.",
             ]
             return self._frame(goal, "team goal check", body), goal.title, []
         body = [f"Goal: {goal.title}", "", *news]
         body.append(
-            "Decide now. Accept what is good, send rework or the next step as a new "
-            "assignment, re-assign what is blocked, or close the goal with "
-            "society_team_report. If work is still running and nothing needs a decision, "
-            "end the turn in one line; you are woken again."
+            "Decide: accept, assign rework or next steps, re-assign blocked work, or close "
+            "with society_team_report. If work is running and nothing needs you, end in one "
+            "line."
         )
         shown = f"{goal.title}: {len(reported)} result" + ("s" if len(reported) != 1 else "")
         return self._frame(goal, "team update", body), shown, reported
@@ -1956,8 +1926,7 @@ class TeamLeads:
                 continue
             parts.append(
                 f'## Your team\nYou are a member of the team "{group["name"]}", led by '
-                f"{lead.name}. Tasks from {lead.name} are your team's work: report the "
-                "actual outcome and evidence in your final answer, and put a blocker or an "
-                f"open question there too, so {lead.name} can act on it."
+                f"{lead.name}. Answer tasks from {lead.name} with the outcome, evidence and "
+                "any blocker or open question in your final response."
             )
         return "\n\n".join(parts)

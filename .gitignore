@@ -19,6 +19,7 @@ boot-baseline.json
 
 # Config-Drift-Guard temp backups (never commit)
 jarvis.toml.tmp
+dodaios.toml.tmp
 *.toml.tmp
 *.key
 secrets/
@@ -56,6 +57,7 @@ dodaios/ui/web/.frontend-*
 # time to opt a checkout into in-app self-update. Must NEVER be committed — a
 # manual clone or a dev tree must not look like a managed install (else the
 # in-app updater could git-reset --hard it). See dodaios/ui/web/update_routes.py.
+.dodaios-managed-install
 .jarvis-managed-install
 # Atomic in-app update handoff/result files. They are local lifecycle state and
 # must never make a source checkout look like an update is pending.
@@ -240,9 +242,14 @@ git-worktree-status.csv
 # Downloads/Open-Source-Privacy-Separation.md for the full plan.
 # ============================================================
 
-# Personal config instance — ship jarvis.toml.example instead. Jarvis already
-# boots with NO jarvis.toml (pure Pydantic defaults, core/config.py).
+# Personal config instance — ship jarvis.toml.example instead. The app already
+# boots with no config file (pure Pydantic defaults, core/config.py). An install
+# keeps a jarvis.toml it has; a new one writes dodaios.toml. The config writer's
+# unique tempfiles sit beside either.
 /jarvis.toml
+/dodaios.toml
+/.jarvis.toml.*.tmp
+/.dodaios.toml.*.tmp
 # Per-user MCP server config — ship mcp.json.example instead.
 /mcp.json
 

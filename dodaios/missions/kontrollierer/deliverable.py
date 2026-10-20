@@ -39,6 +39,9 @@ from typing import Final
 
 from dodaios.i18n import catalog as i18n_catalog
 
+from dodaios.core.branding import DELIVERABLES_DIR_NAME, LEGACY_DELIVERABLES_DIR_NAMES
+from dodaios.core.identity_boot import resolve_named_dir
+
 from ..stream_evidence import clean_request_body
 from .deliverable_paths import is_nondeliverable_scratch
 
@@ -79,7 +82,9 @@ _TRANSLIT: Final[dict[str, str]] = {
 #: actually find them. Lives under the user's Downloads on Windows (the place
 #: every file dialog + Explorer sidebar surfaces), grouped in one subfolder so
 #: it never clutters Downloads with dozens of loose files.
-_DELIVERABLES_FOLDER_NAME: Final[str] = "Jarvis-Outputs"
+#: The name comes from ``dodaios.core.branding``; a folder under an earlier
+#: name stays in use while it exists, so nothing the user already opens moves.
+_DELIVERABLES_FOLDER_NAME: Final[str] = DELIVERABLES_DIR_NAME
 
 
 #: TTS templates for the deliverable / delivered summaries, keyed by the
@@ -328,17 +333,27 @@ def materialize_answer_document(
         return None
 
 
+def _deliverables_folder(parent: Path, *, lower: bool = False) -> Path:
+    """The deliverables folder in ``parent``: one under an earlier name while it exists."""
+    name = _DELIVERABLES_FOLDER_NAME.lower() if lower else _DELIVERABLES_FOLDER_NAME
+    legacy = [old.lower() if lower else old for old in LEGACY_DELIVERABLES_DIR_NAMES]
+    return resolve_named_dir(parent, name, legacy)
+
+
 def resolve_deliverables_dir(override: str | None = None) -> Path:
     """Return the user-visible folder mission deliverables are mirrored into.
 
     Resolution order:
       * ``override`` (e.g. a future ``[phase6].deliverables_dir`` config key) —
         ``expanduser`` + ``resolve``, used verbatim.
-      * Windows with a real ``~/Downloads``: ``~/Downloads/Jarvis-Outputs``.
-      * Windows without Downloads: ``~/Desktop/Jarvis-Outputs``, else
-        ``~/Jarvis-Outputs``.
-      * Non-Windows / headless (cloud-first VPS): ``~/jarvis-outputs`` — never
+      * Windows with a real ``~/Downloads``: ``~/Downloads/Dodaios-Outputs``.
+      * Windows without Downloads: ``~/Desktop/Dodaios-Outputs``, else
+        ``~/Dodaios-Outputs``.
+      * Non-Windows / headless (cloud-first VPS): ``~/dodaios-outputs`` — never
         assumes a Desktop/Downloads or an Explorer.
+
+    In each place a folder under the earlier name (``Jarvis-Outputs`` /
+    ``jarvis-outputs``) is used instead while it exists.
 
     The directory is created (``parents=True, exist_ok=True``). Never raises for
     a missing parent; on an unwritable home it falls back to the system temp
@@ -351,14 +366,14 @@ def resolve_deliverables_dir(override: str | None = None) -> Path:
         home = Path.home()
         downloads = home / "Downloads"
         if downloads.is_dir():
-            target = downloads / _DELIVERABLES_FOLDER_NAME
+            target = _deliverables_folder(downloads)
         elif (home / "Desktop").is_dir():
-            target = home / "Desktop" / _DELIVERABLES_FOLDER_NAME
+            target = _deliverables_folder(home / "Desktop")
         else:
-            target = home / _DELIVERABLES_FOLDER_NAME
+            target = _deliverables_folder(home)
     else:
         # Cloud-first: no Explorer, no Downloads assumption on a Linux VPS.
-        target = Path.home() / "jarvis-outputs"
+        target = _deliverables_folder(Path.home(), lower=True)
 
     try:
         target.mkdir(parents=True, exist_ok=True)

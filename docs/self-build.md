@@ -1,0 +1,174 @@
+# Self-building loop
+
+Dodaios notices what the person keeps doing and builds what would take that
+work off them: a memory, a skill, a routine, a specialised agent or a code
+change in one of their projects. It does this without being asked, keeps
+only what proves useful, and lets the person see and undo everything.
+
+```
+ observe ──> decide ──> build ──> prove ──> trial ──> keep / archive
+ (free)     (1 call)  (sandbox) (judge)   (live,     (measured)
+                                           undoable)
+```
+
+- **Observe** counts repetition in the person's own actions. No model is asked
+  and untrusted content (web pages, tool results, other agents) is never
+  evidence.
+- **Decide** picks the smallest artefact that meets the need, in this order:
+  memory, skill, routine, agent, code. "Build nothing" is a valid answer.
+- **Build** goes through the existing creation paths (proposals, the skill
+  creator, routines, the roster, coding threads), never a new back door. No
+  agent gets a tool that creates agents.
+- **Prove**: a judge the builder cannot edit checks the build before it counts
+  (replay of the turns that triggered it, shadow runs, tests and CI).
+- **Trial**: the build is live, labelled "built by Dodaios" and undoable with
+  one click.
+- **Keep or archive** is decided from use, corrections and cost. Archived
+  builds are restorable, never deleted.
+
+## The ledger: `dodaios/self_build/`
+
+Every build has one row in `self_build.db` (in the data directory). Each stage
+writes there and nowhere else.
+
+| Module | Holds |
+|---|---|
+| `records.py` | `Kind`, `State`, `Outcome`, `BuildRecord`, the allowed state moves |
+| `ledger.py` | `BuildLedger`: `open_case`, `set_state`, `attach_proof`, `attach_artefact`, `record_use`, reads, rejections, meta |
+| `policy.py` | `admit` (may a build open, and how far may it go), `trial_over`, `settle`, the kill switch, the silent first days |
+| `undo.py` | `UndoRegistry`: one undoer per kind |
+| `cost.py` | `attributed(build_id)` tags model calls; `spent(record)` sums them from the cost ledger |
+| `service.py` | `SelfBuild`, started at boot; `current()` returns it; `register_builder(kind, fn)` |
+
+States:
+
+```
+proposed → building → proving → trial → kept | archived | undone
+    │          └──────────┴─────────┴──> failed
+    └─> rejected
+```
+
+`kept` and `archived` can still be undone; `archived` can be kept again.
+
+### How a builder plugs in
+
+1. Register an undoer for the kind: `service.undo.register(Kind.SKILL, fn)`. A
+   kind without an undoer is never built, only proposed.
+2. Register a builder: `service.register_builder(Kind.SKILL, fn)`. It is
+   called with the record when a proposal is accepted.
+3. To open a build, call `service.admit(kind, signature)`. `start` is `None`
+   (do not open), `PROPOSED` (open as a card) or `BUILDING` (build now).
+4. Open it with `ledger.open_case(kind, signature, title, case=..., evidence=...,
+   state=admission.start)`. `title` is one sentence the person reads.
+5. Run every model call inside `cost.attributed(record.id)`.
+6. Record what you created with `attach_artefact(id, artefact, undo)`, the
+   judge's verdict with `attach_proof`, then move the record to `trial` or
+   `failed`.
+7. Report each use with `record_use(id, Outcome.ACCEPTED | CORRECTED | USED |
+   IGNORED)`.
+
+A `signature` is a stable key for the need (for example
+`routine:weekly-sales-report`). Only one build per signature can be open at a
+time, and a signature the person rejected or undid `max_rejections` times is
+not offered again.
+
+## The loop for memories, skills, routines and agents
+
+`dodaios/self_build/app.py` installs it at boot (`install_in_app`): one builder
+and one undoer for each of the four kinds, and the event subscriptions below.
+
+| Module | Holds |
+|---|---|
+| `miner.py` | counts the person's requests into needs; the thresholds |
+| `signals.py` | `self_build_signals.db`: turns, clusters, verdicts, lessons, specs, artefact index |
+| `decide.py` | the one decide call: prompt, parse, the no-model fallback |
+| `brain.py` | model access: signed-in subscriptions and local models only |
+| `judge.py` | the proofs, pure Python |
+| `builders.py` | build, undo, archive (dormant) and restore per kind |
+| `loop.py` | event intake, the gate, the decide queue, use counting, maintenance |
+
+**Observe.** Inputs are finished voice turns (`VoiceTurnCompleted`) and the
+person's own typed turns in the Jarvis chat and agent chats (the chat
+surfaces' completion hook; turns an agent or routine started are dropped).
+Only the person's words are stored; tool names are kept as context. Requests
+are grouped by six-letter stems of their content words (the skill matcher's
+multilingual tokenizer). A need crosses its threshold when, within 28 days:
+
+| Need | Threshold | Rungs |
+|---|---|---|
+| repeated request | 3 times on 3 days, a tool used in half of them | skill |
+| weekly habit | same weekday in 3 weeks, within 3 hours | skill, routine |
+| daily habit | 4 days within 14, within 2 hours | skill, routine |
+| repeated correction | 2 corrections on 2 days within 14 | memory |
+| recurring failure | 3 failed answers on 2 days | memory, skill |
+| sequence | B follows A within 15 minutes, on 3 days | skill |
+| domain | 3 needs (each twice) on one tool family, 10 requests over 14 days | agent |
+
+**Gate, no model.** A need is dropped when a build for it is open, kept or
+archived, the person rejected or undid one in the last 30 days, a decide
+verdict said "nothing" in the last 30 days (unless the need has doubled since),
+earlier builds failed their proof twice, an installed skill already catches
+its requests, or `admit` refuses every candidate kind.
+
+**Decide.** After 90 seconds of quiet (or when a call ends), at most one model
+call per need and four per day. Without a signed-in subscription or a local
+model the loop writes a plain card from the counts and builds nothing until a
+model can write the spec. Calls are tagged `self_build:decide` in the cost
+ledger; build calls `self_build:<id>`.
+
+**Build and prove.**
+
+| Kind | Built through | Proof | Archived means |
+|---|---|---|---|
+| memory | the learning notebook (`MEMORY.md`/`USER.md`) | the learning review's evidence check | entry removed, text kept |
+| skill | the skill creator's writer, then the registry's `promote` ([ADR-0043](adr/0043-self-built-skills-go-live-on-trial.md)) | replay through the skill router, lint, duplicates, tools | switched off |
+| routine | a lead-owned Automations task on a subscription or local seat, no plugin grants, no announcement | schedule before 2/3 of the requests, grounded prompt, nothing outbound, a shadow run | paused |
+| agent | `Roster.create` on a subscription or local seat | free name, clean instructions, focus from used tools, shadow answers | paused |
+
+**Measure.** A skill run counts as a use, a correction within two minutes as
+corrected. A routine run counts, a manual request within a day after a run as
+corrected, a failed run as ignored. A turn in a self-built agent's chat
+counts. A memory counts once per conversation its need comes up in, a
+repeated correction as corrected. Kept builds unused for 30 days are archived.
+
+**Idle cost.** One SQLite insert and a scan of four weeks of clusters per
+turn; no model call and no timer unless a need is waiting to be decided.
+
+## Settings: `[self_build]`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | `true` | master switch |
+| `silent_days` | `7` | the first days after the loop first ran only record cases |
+| `memory`, `skill`, `routine`, `agent`, `code` | `trial`, `suggest`, `suggest`, `suggest`, `suggest` | autonomy per kind: `off`, `suggest`, `trial`, `full` |
+| `trial_days`, `trial_uses` | `14`, `10` | a trial ends at whichever comes first |
+| `max_builds_per_day` | `3` | builds past the proposal stage per day |
+| `max_agents_per_week` | `1` | |
+| `max_open_trials` | `5` | |
+| `max_code_runs_per_day` | `1` | |
+| `max_rejections` | `2` | |
+
+At `suggest` a card asks first. At `trial` the build goes live on trial; an
+unused trial is archived on its own, a used one waits for the person's keep.
+At `full` a used trial is kept on its own too.
+
+## REST: `/api/self-build`
+
+`GET ""` (builds and status), `GET /digest?hours=24`, `POST /pause`
+(`{"paused": true}` is the kill switch), `GET /{id}` (record, history, cost),
+`POST /{id}/accept`, `POST /{id}/keep`, `POST /{id}/undo`. Every change
+publishes `SelfBuildChanged` on the app bus, and the WebSocket forwards it.
+
+## Rules enforced in code
+
+1. Background work for the loop never bills a per-token key. It runs on
+   subscriptions or local models, or it waits.
+2. Only the person's own actions are evidence.
+3. The builder cannot edit the judge, the budgets, `[self_build]`, the kill
+   switch, `security.*`, secrets or the self-mod allowlist.
+4. No agent tool creates agents; only the trusted builder service does.
+5. A build without an undo path is not created.
+6. Hard caps per day and week (above).
+7. Nothing leaves the machine on the loop's initiative: no messages, emails or
+   posts, and no comments in other people's repos.
+8. Dodaios never speaks about its builds unprompted.

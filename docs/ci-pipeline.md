@@ -447,8 +447,9 @@ A release happens **only** when the maintainer asks for one.
   while CI still runs). A separate main run cannot replace this tag's evidence.
   Tag CI is excluded from branch-run cancellation. The checkout, tag and SHA must identify the same commit;
   failure to fetch main cannot fall back to stale ancestry.
-* The GitHub Release (notes + the resumable `personal-jarvis-src.tar.gz`) is
-  staged as a draft. `release_assets.py` waits for all three publishers and
+* The GitHub Release (notes + the resumable source archive, published as
+  `dodaios-src.tar.gz` and as `personal-jarvis-src.tar.gz` for installers from
+  before the rename) is staged as a draft. `release_assets.py` waits for all three publishers and
   verifies each actual publication job in its latest attempt; workflow success
   with a skipped publication job is insufficient. It
   verifies required assets and GitHub's stored digests against both checksum
@@ -469,13 +470,32 @@ A release happens **only** when the maintainer asks for one.
   Re-run failed jobs with their original build artifacts to recover a partial
   upload; a full rebuild with different bytes requires an explicit decision.
   The in-app updater follows `releases/latest`; draft releases remain hidden.
+* **Two names per installer.** Every native installer is published as
+  `Dodaios-*` and, with identical bytes, under its earlier `PersonalJarvis-*`
+  name, the only one installs from before the rename look for. The macOS and
+  Linux builds produce the `Dodaios-*` file; the Windows setup is built and
+  signed as `PersonalJarvis-Setup-x64.exe`, because the SignPath artifact
+  configuration pins that name (docs/code-signing-policy.md). After signing,
+  the release job copies each file to its other name
+  (`scripts/ci/installer_aliases.py`), `installers-SHA256SUMS.txt` lists both,
+  and finalization refuses a release whose two names of one installer differ.
+* **Two names on PyPI.** `release.yml` builds the wheel and sdist as `dodaios`
+  and again as `personal-jarvis`, the earlier name, from a copy of
+  `pyproject.toml` that differs only in the names
+  (`scripts/ci/build_distributions.py`), and publishes `personal-jarvis` first,
+  then `dodaios`. Both projects trust the same publisher (this repository,
+  `release.yml`, environment `pypi`). The two distributions own the same
+  files, so `install/installer.py` uninstalls `personal-jarvis` before it
+  installs the checkout, and the app logs one warning when an environment
+  holds both.
 * **Build provenance.** On a tag, `desktop-installers.yml` attests every
   native installer listed in `installers-SHA256SUMS.txt` (`.exe`, both
-  `.dmg`, `.AppImage`, `.deb`) with `actions/attest-build-provenance` before
-  the upload. Anyone can check a download:
+  `.dmg`, `.AppImage`, `.deb`, under both names) with
+  `actions/attest-build-provenance` before the upload. Anyone can check a
+  download:
 
   ```bash
-  gh attestation verify PersonalJarvis-Setup-x64.exe -R Dodaios/Dodaios
+  gh attestation verify Dodaios-Setup-x64.exe -R Dodaios/Dodaios
   ```
 
   Releases up to and including v2.9.0 predate this and have no attestation.

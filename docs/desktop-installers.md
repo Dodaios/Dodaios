@@ -16,11 +16,19 @@ contract - the website's download button and the in-app updater both resolve
 
 | Asset                                  | Platform                                  |
 | -------------------------------------- | ----------------------------------------- |
-| `PersonalJarvis-Setup-x64.exe`         | Windows 10/11 x64, per-user Inno Setup    |
-| `PersonalJarvis-macOS-arm64.dmg`       | Apple Silicon                             |
-| `PersonalJarvis-macOS-x64.dmg`         | Intel Mac                                 |
-| `PersonalJarvis-Linux-x86_64.AppImage` | Linux x86_64                              |
+| `Dodaios-Setup-x64.exe`                | Windows 10/11 x64, per-user Inno Setup    |
+| `Dodaios-macOS-arm64.dmg`              | Apple Silicon                             |
+| `Dodaios-macOS-x64.dmg`                | Intel Mac                                 |
+| `Dodaios-Linux-x86_64.AppImage`        | Linux x86_64                              |
 | `installers-SHA256SUMS.txt`            | what the updater verifies every download against |
+
+Every installer is published a second time, with identical bytes, under its
+earlier name (`PersonalJarvis-Setup-x64.exe`, `PersonalJarvis-macOS-arm64.dmg`,
+`PersonalJarvis-macOS-x64.dmg`, `PersonalJarvis-Linux-x86_64.AppImage`):
+installs from before the rename only look for those. The checksum manifest
+lists both names. The Windows setup is signed under its earlier name, which
+the SignPath configuration pins, and copied to `Dodaios-Setup-x64.exe` after
+signing (`scripts/ci/installer_aliases.py`).
 
 The terminal one-liner and `pipx install personal-jarvis` stay supported. They
 produce a *managed* or *dev* install, which updates through git - see
@@ -122,7 +130,7 @@ The wizard itself is `packaging/windows/PersonalJarvis.iss`:
 
 ```bash
 ./packaging/macos/build.sh
-# -> dist/installers/PersonalJarvis-macOS-<arm64|x64>.dmg
+# -> dist/installers/Dodaios-macOS-<arm64|x64>.dmg
 ```
 
 Owned by `packaging/macos/`. It reads `APPLE_CERTIFICATE_P12_BASE64` and
@@ -191,7 +199,7 @@ own grants.
 
 ```bash
 ./packaging/linux/build.sh
-# -> dist/installers/PersonalJarvis-Linux-x86_64.AppImage
+# -> dist/installers/Dodaios-Linux-x86_64.AppImage
 ```
 
 Owned by `packaging/linux/`. Built on the oldest supported runner
@@ -285,9 +293,10 @@ For a frozen install (`dodaios/core/installer_update.py`):
 
 1. **Pick the asset.** OS plus CPU architecture map to one row of
    `INSTALLER_ASSET_NAMES` in `dodaios/core/installer_update.py`: the name from
-   the table in section 1, and the same file under the `Dodaios-` prefix. The
-   updater takes the first accepted name a release carries; when a release
-   carries more than one, the first that `installers-SHA256SUMS.txt` lists. No
+   the table in section 1, and the same file under its earlier
+   `PersonalJarvis-` name. The updater takes the first accepted name a release
+   carries; when a release carries more than one, the first that
+   `installers-SHA256SUMS.txt` lists. No
    mapping (Windows on ARM, Linux on aarch64) means the button never appears.
 2. **Refuse to offer what cannot be installed.** `status` reports
    `update_available: true` only when the release actually carries both this

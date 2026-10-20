@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AppWindow, Globe, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { BrandedSelect } from "@/components/ui/select";
 import { fill, useT } from "@/i18n";
@@ -9,17 +9,11 @@ import {
   NATIVE_BROWSER_STATUS_QUERY,
   initialChoice,
   launchNativeBrowser,
-  releaseNativeBrowser,
   rememberChoice,
   type NativeBrowserChoice,
   type NativeBrowserStatus,
 } from "./nativeBrowserApi";
 import { useNativePlacement } from "./useNativePlacement";
-
-const TOOL_BTN =
-  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors " +
-  "hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-  "disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent";
 
 const LINK_BTN =
   "rounded-md border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary " +
@@ -39,8 +33,10 @@ function parseChoice(value: string): NativeBrowserChoice {
  *
  * A real window of the installed Chrome (or Edge, Brave) sits on top of this
  * component's body, opened with the picked profile, so every site works and
- * every sign-in is there; its own tabs and address bar are the panel's. The
- * body underneath only shows while the window is opening, closed or failed.
+ * every sign-in is there. The browser's own tab strip and address bar are the
+ * panel's only toolbar: the window fills the whole panel. What lies underneath
+ * shows only while no window is there (opening, closed, failed), and that is
+ * also where the profile is picked.
  */
 export function NativeBrowserPanel({
   status,
@@ -61,8 +57,6 @@ export function NativeBrowserPanel({
   const autoStarted = useRef(false);
 
   const state = launching ? "launching" : status.state;
-  const shown = state === "embedded"
-    && status.browser === choice?.browser && status.profile === choice?.profile;
   // Resend the rectangle whenever the backend took a new window.
   const visible = useNativePlacement(body, owner, `${state}:${status.browser}:${status.profile}`);
 
@@ -105,72 +99,58 @@ export function NativeBrowserPanel({
     void launch(next);
   };
 
-  const popOut = async () => {
-    const result = await releaseNativeBrowser(false);
-    queryClient.setQueryData(NATIVE_BROWSER_STATUS_QUERY, (old: NativeBrowserStatus | undefined) =>
-      old ? { ...old, ...result, browsers: old.browsers } : old);
-  };
-
   const browserLabel = status.browsers.find((b) => b.id === choice?.browser)?.label ?? "Chrome";
 
+  const picker = choice && options.length > 1 && (
+    <BrandedSelect
+      value={choiceValue(choice)}
+      options={options}
+      onValueChange={pick}
+      ariaLabel={t("ide_side_panel.browser.native.profile")}
+      testId="ide-browser-profile"
+      className="h-8 w-full max-w-xs text-sm"
+    />
+  );
+
   return (
-    <div data-testid="ide-browser-tab" data-mode="native" className="flex h-full min-h-0 flex-col">
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border/60 px-2">
-        <Globe className="ml-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-        {choice && (
-          <BrandedSelect
-            value={choiceValue(choice)}
-            options={options}
-            onValueChange={pick}
-            ariaLabel={t("ide_side_panel.browser.native.profile")}
-            testId="ide-browser-profile"
-            className="h-7 min-w-0 max-w-[24rem] flex-1 text-sm"
-          />
-        )}
-        <div className="flex-1" />
-        <button type="button" onClick={() => void popOut()} disabled={!shown}
-          aria-label={t("ide_side_panel.browser.native.pop_out")} title={t("ide_side_panel.browser.native.pop_out")}
-          data-testid="ide-browser-pop-out" className={TOOL_BTN}>
-          <AppWindow className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      </div>
-      <div ref={body} data-testid="ide-browser-native-body"
-        className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-        {state === "launching" && (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
-            <p className="text-sm text-foreground">{fill(t("ide_side_panel.browser.native.opening"), { browser: browserLabel })}</p>
-            <p className="max-w-xs text-xs text-muted-foreground">{t("ide_side_panel.browser.native.opening_hint")}</p>
-          </>
-        )}
-        {state !== "launching" && (failure || state === "error") && (
-          <>
-            <p className="text-sm text-foreground">{t("ide_side_panel.browser.native.error_title")}</p>
-            <p className="max-w-xs text-xs text-muted-foreground">
-              {(failure ?? status.reason) === "browser_missing"
-                ? t("ide_side_panel.browser.native.error_missing")
-                : t("ide_side_panel.browser.native.error_generic")}
-            </p>
-            <div className="flex gap-2">
-              {choice && <button type="button" className={LINK_BTN} onClick={() => void launch(choice)}>
-                {t("ide_side_panel.browser.native.retry")}</button>}
-              <button type="button" className={LINK_BTN} onClick={onUseBuiltin}>
-                {t("ide_side_panel.browser.native.builtin")}</button>
-            </div>
-          </>
-        )}
-        {state !== "launching" && !failure && (state === "closed" || state === "released" || (state === "idle" && autoStarted.current)) && (
-          <>
-            <p className="text-sm text-foreground">
-              {state === "released"
-                ? t("ide_side_panel.browser.native.popped_title")
-                : t("ide_side_panel.browser.native.closed_title")}
-            </p>
-            {choice && <button type="button" className={LINK_BTN} data-testid="ide-browser-reopen"
-              onClick={() => void launch(choice)}>{t("ide_side_panel.browser.native.reopen")}</button>}
-          </>
-        )}
-      </div>
+    <div ref={body} data-testid="ide-browser-tab" data-mode="native"
+      className="relative flex h-full min-h-0 flex-col items-center justify-center gap-3 px-6 text-center">
+      {state === "launching" && (
+        <>
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
+          <p className="text-sm text-foreground">{fill(t("ide_side_panel.browser.native.opening"), { browser: browserLabel })}</p>
+          <p className="max-w-xs text-xs text-muted-foreground">{t("ide_side_panel.browser.native.opening_hint")}</p>
+        </>
+      )}
+      {state !== "launching" && (failure || state === "error") && (
+        <>
+          <p className="text-sm text-foreground">{t("ide_side_panel.browser.native.error_title")}</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            {(failure ?? status.reason) === "browser_missing"
+              ? t("ide_side_panel.browser.native.error_missing")
+              : t("ide_side_panel.browser.native.error_generic")}
+          </p>
+          {picker}
+          <div className="flex gap-2">
+            {choice && <button type="button" className={LINK_BTN} onClick={() => void launch(choice)}>
+              {t("ide_side_panel.browser.native.retry")}</button>}
+            <button type="button" className={LINK_BTN} onClick={onUseBuiltin}>
+              {t("ide_side_panel.browser.native.builtin")}</button>
+          </div>
+        </>
+      )}
+      {state !== "launching" && !failure && (state === "closed" || state === "released" || (state === "idle" && autoStarted.current)) && (
+        <>
+          <p className="text-sm text-foreground">
+            {state === "released"
+              ? t("ide_side_panel.browser.native.popped_title")
+              : t("ide_side_panel.browser.native.closed_title")}
+          </p>
+          {picker}
+          {choice && <button type="button" className={LINK_BTN} data-testid="ide-browser-reopen"
+            onClick={() => void launch(choice)}>{t("ide_side_panel.browser.native.reopen")}</button>}
+        </>
+      )}
     </div>
   );
 }

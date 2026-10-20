@@ -5,17 +5,19 @@
 #   allows each DLL to be signed independently.
 # - Several executables share ONE Analysis/COLLECT, because a native install
 #   has to cover both surfaces the project promises:
-#     * a windowed GUI launcher (Start Menu / Applications / .desktop), and
+#     * a windowed GUI launcher (Start Menu / Applications / .desktop), built a
+#       second time under its earlier name `PersonalJarvis`, because taskbar
+#       pins, logon tasks and shortcuts of earlier releases name that file, and
 #     * a console CLI named `dodaios`, so `dodaios serve`, `dodaios --version`,
 #       `dodaios missions list` behave exactly like the pip console script.
 #       The same console program is built a second time as `jarvis`, the
 #       command's earlier name, which scripts and shell history still call.
 #   All of them run `dodaios/__main__.py`; only the console flag differs.
-# - The GUI binary is `PersonalJarvis`, not `Jarvis`: `Jarvis` and `jarvis`
+# - The GUI binary is `DodaiosApp`, not `Dodaios`: `Dodaios` and `dodaios`
 #   are the SAME path on Windows (NTFS) and on a default macOS APFS volume, so
-#   the second executable would overwrite the first. `PersonalJarvis` is the
-#   name dodaios.core.branding already uses for the Windows branded launcher and
-#   the macOS bundle executable.
+#   the second executable would overwrite the first. `DodaiosApp` is the name
+#   dodaios.core.branding uses for the Windows branded launcher and the macOS
+#   bundle executable; `PersonalJarvis` is their earlier name.
 # - Downloaded ML models are not bundled. The first-run wizard downloads them to
 #   the platform-specific Jarvis model directory when the user enables them.
 # - Optional native voice engines are loaded lazily and degrade to cloud paths
@@ -47,14 +49,26 @@ ICON_DIR = PROJECT_ROOT / "assets" / "icons"
 # the release contract address the bundle as `dist/Jarvis/`.
 BUNDLE_DIR_NAME = "Jarvis"
 # Windowed launcher; see the header note on the case-collision.
-GUI_EXE_NAME = "PersonalJarvis"
+GUI_EXE_NAME = "DodaiosApp"
+# The windowed launcher under its earlier name, built from the same program:
+# a pinned taskbar button, a logon task or a shortcut of an earlier release
+# starts `{app}\PersonalJarvis.exe`, and must keep finding it.
+LEGACY_GUI_EXE_NAMES = ("PersonalJarvis",)
 # Console entry point. Same name as the pip console script on purpose.
 CLI_EXE_NAME = "dodaios"
 # The console entry point under its earlier name, built from the same program.
-# No name here may equal GUI_EXE_NAME ignoring case: they share one folder.
+# No name here may equal a GUI name ignoring case: they share one folder.
 LEGACY_CLI_EXE_NAMES = ("jarvis",)
 
-MACOS_APP_NAME = "Personal Jarvis.app"
+# The Python distribution this tree is installed as, current name first
+# (dodaios.core.branding.DISTRIBUTION_NAMES). An environment set up before the
+# rename still carries the earlier one.
+DISTRIBUTION_NAMES = ('dodaios', 'personal-jarvis')
+
+# The bundle name (``dodaios.core.branding.MACOS_APP_DIR_NAME``). Its bundle id
+# below did not move with it: the privacy grants of every installed copy name
+# that id, and the in-app updater installs a renamed bundle beside the old one.
+MACOS_APP_NAME = "Dodaios.app"
 MACOS_BUNDLE_IDENTIFIER = "ai.personaljarvis.desktop"
 MACOS_MIN_SYSTEM_VERSION = "12.0"
 
@@ -104,6 +118,10 @@ datas.append((str(PROJECT_ROOT / "dodaios/agent_runtimes/runtime-versions.json")
 # Translated system phrases (dodaios/i18n/catalog.py); without them every
 # error and fallback phrase would raise instead of being spoken.
 datas.append((str(PROJECT_ROOT / "dodaios/i18n/locales"), "dodaios/i18n/locales"))
+# The data-directory migration engine as a plain file: the runtime hook loads it
+# by path before anything from the package is importable
+# (packaging/pyinstaller_rthook_frozen.py::_load_engine).
+datas.append((str(PROJECT_ROOT / "dodaios/core/identity_migration.py"), "dodaios/core"))
 
 # The local voice engine runs in its OWN Python environment, so a frozen build
 # must ship its sources as plain files: setup copies them into the engine home
@@ -123,8 +141,9 @@ if FRONTEND_DIST.exists():
             datas.append((str(entry), str(Path("dodaios/ui/web/dist") / rel)))
 
 # Include the default configuration a fresh install is seeded from. The runtime
-# hook copies it to the per-user app directory on first launch; the frozen app
-# never reads or writes the copy inside the bundle.
+# hook copies it to the per-user app directory on first launch (as dodaios.toml
+# when that directory has no jarvis.toml of its own); the frozen app never reads
+# or writes the copy inside the bundle.
 datas.append((str(PROJECT_ROOT / "jarvis.toml"), "."))
 datas.append((str(PROJECT_ROOT / "docs" / "product"), "docs/product"))
 # The onboarding terms and redistribution notices must survive freezing.
@@ -198,8 +217,23 @@ if profiles_dir.exists():
             datas.append((str(entry), str(Path("profiles") / rel)))
 
 # Preserve distribution metadata so importlib.metadata can discover the Jarvis
-# entry-point plugins in the frozen layout.
-datas += copy_metadata("personal-jarvis")
+# entry-point plugins in the frozen layout. The build environment holds the
+# tree under one of its distribution names; bundle the first one installed.
+def _installed_distribution() -> str:
+    from importlib import metadata
+
+    for name in DISTRIBUTION_NAMES:
+        try:
+            metadata.distribution(name)
+        except metadata.PackageNotFoundError:
+            continue
+        return name
+    raise SystemExit(
+        f"none of {', '.join(DISTRIBUTION_NAMES)} is installed; run pip install -e . first"
+    )
+
+
+datas += copy_metadata(_installed_distribution())
 
 # Legacy optional data packages are collected only when installed.
 for pkg in ("chromadb", "sentence_transformers"):
@@ -396,7 +430,11 @@ if sys.platform == "win32":
                     StringTable(
                         "040904B0",
                         [
-                            StringStruct("CompanyName", "Personal Jarvis"),
+                            StringStruct("CompanyName", "Dodaios"),
+                            # TODO(signpath): FileDescription and ProductName keep
+                            # the earlier name until the SignPath artifact
+                            # configuration pins the new product name
+                            # (docs/code-signing-policy.md). Change them together.
                             StringStruct("FileDescription", "Personal Jarvis"),
                             StringStruct("FileVersion", VERSION),
                             StringStruct("InternalName", GUI_EXE_NAME),
@@ -429,29 +467,36 @@ ICON = _icon_path()
 
 
 # --- Executables ------------------------------------------------------------
-# One COLLECT: the windowed launcher, the console CLI, and the console CLI
-# again under each earlier name.
+# One COLLECT: the windowed launcher, the windowed launcher again under each
+# earlier name, the console CLI, and the console CLI again under each earlier
+# name.
 
-exe_gui = EXE(
-    pyz,
-    a.scripts,
-    [],
-    exclude_binaries=True,
-    name=GUI_EXE_NAME,
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=False,             # UPX commonly triggers antivirus false positives.
-    console=False,         # Match pythonw behavior without a console window.
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon=ICON,
-    version=version_resource,
-    uac_admin=False,       # Run asInvoker; elevate only individual actions.
-)
+def _gui_exe(name):
+    return EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=name,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,             # UPX commonly triggers antivirus false positives.
+        console=False,         # Match pythonw behavior without a console window.
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICON,
+        version=version_resource,
+        uac_admin=False,       # Run asInvoker; elevate only individual actions.
+    )
+
+
+exe_gui = _gui_exe(GUI_EXE_NAME)
+legacy_gui_exes = [_gui_exe(name) for name in LEGACY_GUI_EXE_NAMES]
+
 
 def _console_exe(name):
     return EXE(
@@ -481,6 +526,7 @@ legacy_cli_exes = [_console_exe(name) for name in LEGACY_CLI_EXE_NAMES]
 
 coll = COLLECT(
     exe_gui,
+    *legacy_gui_exes,
     exe_cli,
     *legacy_cli_exes,
     a.binaries,
@@ -505,8 +551,8 @@ if sys.platform == "darwin":
         bundle_identifier=MACOS_BUNDLE_IDENTIFIER,
         version=VERSION,
         info_plist={
-            "CFBundleName": "Personal Jarvis",
-            "CFBundleDisplayName": "Personal Jarvis",
+            "CFBundleName": "Dodaios",
+            "CFBundleDisplayName": "Dodaios",
             "CFBundleExecutable": GUI_EXE_NAME,
             "CFBundleIdentifier": MACOS_BUNDLE_IDENTIFIER,
             "CFBundleShortVersionString": VERSION,
