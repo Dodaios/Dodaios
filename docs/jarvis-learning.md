@@ -195,7 +195,7 @@ engines. No upstream code was copied.
 
 ## Verification
 
-`tests/unit/memory/learning/test_jarvis_learning.py` covers the evidence and
+`tests/unit/memory/learning/test_dodaios_learning.py` covers the evidence and
 safety rules, ledger and budgets, every trigger, the dead-reviewer fallbacks,
 the voice and chat inputs, and both prompt integrations;
 `test_soul_learning.py` covers the `soul` target end to end;

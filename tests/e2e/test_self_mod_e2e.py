@@ -59,7 +59,7 @@ FIXTURE = (
     / "unit"
     / "self_mod"
     / "fixtures"
-    / "minimal_jarvis.toml"
+    / "minimal_dodaios.toml"
 )
 
 
