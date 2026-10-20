@@ -211,7 +211,7 @@ class DefaultTerm:
 #: Vocabulary every install starts with, because mixed German/English dictation
 #: about this product and about software work keeps coming back with the same
 #: misspellings (reported 2026-10-20: "the Dios" for the product name, "Pipey"
-#: for PyPI, "Baggen" for Bugs, "Cloud in Chrome").
+#: for PyPI, "Baggen" for Bugs).
 #:
 #: These are ordinary dictionary entries the user can edit or delete in the
 #: Dictionary view, and they never override the user's own: a user entry for
@@ -237,7 +237,6 @@ DEFAULT_TERMS: tuple[DefaultTerm, ...] = (
     DefaultTerm("github", "GitHub", ("Git Hub", "Git-Hub")),
     DefaultTerm("prs", "PRs", ("PR's", "P.R.s")),
     DefaultTerm("bugs", "Bugs", ("Baggen",), casing=False),
-    DefaultTerm("claude-in-chrome", "Claude in Chrome", ("Cloud in Chrome",)),
 )
 
 _DEFAULTS_BY_ID: dict[str, DefaultTerm] = {t.entry_id: t for t in DEFAULT_TERMS}
