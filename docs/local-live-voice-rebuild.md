@@ -504,7 +504,7 @@ a light-mode check of the card body, and item 7 (local classic fallback).
 | P2 Jarvis integration (3–4 d) | `local-voice` adapter; `dodaios/live/native.py` fixes (4.4); card with setup progress, self-test, tier and expected latency; prepare-then-handover switch; Ollama coupling | 20 real calls, 0 silent failures; barge-in p95 ≤ 250 ms; GPT-Live to local and back without restart; Gemini Live regression tests green |
 | P3 Installer and platforms (4–6 d) | uv venv, per-platform locks in CI, model store, uninstall; Mac and Linux runs | Fresh-install drill on Windows, macOS (real Apple Silicon) and the CPU container; Linux NVIDIA stays marked unverified until run on hardware |
 | P4 Premium voice (3–5 d) | Qwen3-TTS on CUDA and MLX; free-memory governor; degrade path | First audio p50 ≤ 300 ms on 12–16 GB NVIDIA; ≥ 20 % headroom; an out-of-memory drill degrades instead of failing |
-| P5 Cutover and removal (2–3 d) | Alias `local-realtime` to `local-voice`; delete the old stack (section 9); update `docs/os-parity.md` (P-28, P-40) and `docs/BUGS.md`; mark old docs superseded | CI gate green; no reference to `speech-to-speech` left outside history |
+| P5 Cutover and removal (2–3 d) | Alias `local-realtime` to `local-voice`; delete the old stack (section 9); update `docs/os-parity.md` (P-28, P-40); mark old docs superseded | CI gate green; no reference to `speech-to-speech` left outside history |
 
 ## 7. Release SLOs
 

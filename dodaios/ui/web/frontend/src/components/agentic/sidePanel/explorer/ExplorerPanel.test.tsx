@@ -9,6 +9,7 @@ import { useIdeChatStore } from "@/store/ideChat";
 import { groupsOf, useCodeEditorStore } from "@/store/codeEditor";
 import { parsePrintedPath, useExplorerPathRouting } from "@/store/ideExplorer";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { useFileUndoStore } from "./explorerUndo";
 
 const CHANGES = {
   workspace_id: "w1",
@@ -31,9 +32,15 @@ const CHANGES = {
 
 const calls: { url: string; body: string }[] = [];
 
-function respond(url: string): unknown {
+const TOKEN = "0123456789abcdef01234567";
+
+function respond(url: string, body: string): unknown {
   if (url.includes("/changes")) return CHANGES;
   if (url.includes("/text-file/version")) return { version: url.includes("src") ? null : "v1" };
+  if (url.endsWith("/entries/move")) return { path: JSON.parse(body).destination };
+  if (url.endsWith("/entries/copy")) return { path: JSON.parse(body).destination.replace(/(\.\w+)$/, " copy$1") };
+  if (url.endsWith("/entries/delete")) return { path: JSON.parse(body).path, trashed: true, undo_token: TOKEN };
+  if (url.endsWith("/entries/restore")) return { path: "README.md" };
   if (url.includes("/entries")) return { path: "src/new.ts", trashed: true };
   if (url.includes("/files")) {
     if (url.includes("?path=src")) {
@@ -54,13 +61,17 @@ beforeEach(() => {
   calls.length = 0;
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    calls.push({ url, body: String(init?.body ?? "") });
-    return new Response(JSON.stringify(respond(url)), { status: 200, headers: { "Content-Type": "application/json" } });
+    const body = String(init?.body ?? "");
+    calls.push({ url, body });
+    return new Response(JSON.stringify(respond(url, body)), { status: 200, headers: { "Content-Type": "application/json" } });
   }));
   useEventStore.setState({ activeSection: "agentic-ide" });
   useIdeChatStore.setState({ workspace: { id: "w1", name: "App", path: "/code/app" }, stagedPane: null });
   useCodeEditorStore.setState({ tabs: [], active: {}, files: {}, visible: false, reveal: null, closed: [] });
   useIdeSidePanelStore.setState({ open: false, tabs: ["agents", "changes", "files"], active: "agents" });
+  useFileUndoStore.setState({ undo: {}, redo: {}, busy: false });
+  useEventStore.setState({ toasts: [] });
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -176,8 +187,8 @@ describe("ExplorerPanel", () => {
     expect(screen.getAllByTestId("explorer-tree-row").filter((row) => row.dataset.selected)).toHaveLength(2);
 
     fireEvent.keyDown(readme, { key: "Delete" });
-    expect(screen.getByTestId("explorer-delete-dialog").textContent).toContain("2");
-    fireEvent.click(screen.getByTestId("explorer-delete-confirm"));
+    expect((await screen.findByTestId("explorer-dialog")).textContent).toContain("2");
+    fireEvent.click(screen.getByTestId("explorer-dialog-confirm"));
     await waitFor(() => expect(calls.filter((call) => call.url.includes("/entries/delete"))).toHaveLength(2));
     const sent = calls.filter((call) => call.url.includes("/entries/delete")).map((call) => JSON.parse(call.body).path);
     expect(sent.sort()).toEqual(["README.md", "src"]);
@@ -196,12 +207,9 @@ describe("ExplorerPanel", () => {
     expect(sent).toEqual({ source: "README.md", destination: "src/README.md", unique: true });
   });
 
-  it("moves a dragged row into the folder it is dropped on", async () => {
-    render(<ExplorerPanel view="files" />);
-    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
-    const [src, readme] = screen.getAllByTestId("explorer-tree-row");
+  const dragTransfer = () => {
     const data: Record<string, string> = {};
-    const dataTransfer = {
+    return {
       setData: (type: string, value: string) => {
         data[type] = value;
       },
@@ -212,13 +220,120 @@ describe("ExplorerPanel", () => {
       effectAllowed: "",
       dropEffect: "",
     };
-    fireEvent.dragStart(readme, { dataTransfer });
-    fireEvent.dragOver(src, { dataTransfer });
-    fireEvent.drop(src, { dataTransfer });
+  };
+  const dragOnto = (from: HTMLElement, to: HTMLElement) => {
+    const dataTransfer = dragTransfer();
+    fireEvent.dragStart(from, { dataTransfer });
+    fireEvent.dragOver(to, { dataTransfer });
+    fireEvent.drop(to, { dataTransfer });
+    fireEvent.dragEnd(from, { dataTransfer });
+  };
+  const moves = () => calls.filter((call) => call.url.endsWith("/entries/move")).map((call) => JSON.parse(call.body));
+  const treeRow = (path: string) => screen.getAllByTestId("explorer-tree-row").find((entry) => entry.dataset.path === path)!;
+  const menuItem = (menu: HTMLElement, name: RegExp) =>
+    [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((entry) => name.test(entry.textContent ?? ""));
 
-    await waitFor(() => expect(calls.some((call) => call.url.endsWith("/entries/move"))).toBe(true));
-    const sent = JSON.parse(calls.find((call) => call.url.endsWith("/entries/move"))!.body);
-    expect(sent).toEqual({ source: "README.md", destination: "src/README.md" });
+  it("asks before moving a dragged row into the folder it is dropped on", async () => {
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    dragOnto(treeRow("README.md"), treeRow("src"));
+
+    const dialog = await screen.findByTestId("explorer-dialog");
+    expect(dialog.textContent).toContain("README.md");
+    expect(dialog.textContent).toContain("src");
+    expect(moves()).toEqual([]);
+    fireEvent.click(screen.getByTestId("explorer-dialog-confirm"));
+
+    await waitFor(() => expect(moves()).toEqual([{ source: "README.md", destination: "src/README.md" }]));
+    // The target folder is read again AFTER the move, or the moved file would not show in it.
+    const moveAt = calls.findIndex((call) => call.url.endsWith("/entries/move"));
+    await waitFor(() =>
+      expect(calls.slice(moveAt + 1).some((call) => call.url.includes("/files?path=src"))).toBe(true),
+    );
+  });
+
+  it("does nothing when the move is cancelled", async () => {
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    dragOnto(treeRow("README.md"), treeRow("src"));
+    fireEvent.click(await screen.findByTestId("explorer-dialog-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("explorer-dialog")).toBeNull());
+    expect(moves()).toEqual([]);
+  });
+
+  it("stops asking once told not to, and asks again from the menu", async () => {
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    dragOnto(treeRow("README.md"), treeRow("src"));
+    fireEvent.click(await screen.findByTestId("explorer-dialog-dont-ask"));
+    fireEvent.click(screen.getByTestId("explorer-dialog-confirm"));
+    await waitFor(() => expect(moves()).toHaveLength(1));
+    expect(window.localStorage.getItem("dodaios.explorer.confirm.move")).toBe("never");
+
+    // The fake server keeps listing README.md at the root, so it can be dragged again.
+    dragOnto(treeRow("README.md"), treeRow("src"));
+    await waitFor(() => expect(moves()).toHaveLength(2));
+    expect(screen.queryByTestId("explorer-dialog")).toBeNull();
+
+    fireEvent.contextMenu(screen.getByTestId("explorer-tree"), { clientX: 10, clientY: 10 });
+    fireEvent.click(menuItem(await screen.findByTestId("explorer-menu"), /Ask again before moving/)!);
+    expect(window.localStorage.getItem("dodaios.explorer.confirm.move")).toBeNull();
+  });
+
+  it("ignores a drop into the folder the row already sits in", async () => {
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    dragOnto(treeRow("README.md"), screen.getByTestId("explorer-tree"));
+    expect(screen.queryByTestId("explorer-dialog")).toBeNull();
+    expect(moves()).toEqual([]);
+  });
+
+  it("moves back with Ctrl+Z and again with Ctrl+Y", async () => {
+    window.localStorage.setItem("dodaios.explorer.confirm.move", "never");
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    dragOnto(treeRow("README.md"), treeRow("src"));
+    await waitFor(() => expect(moves()).toHaveLength(1));
+    // The toast offers the same Undo.
+    await waitFor(() => expect(useEventStore.getState().toasts.some((toast) => toast.action?.label === "Undo")).toBe(true));
+
+    const tree = screen.getByTestId("explorer-tree");
+    fireEvent.keyDown(tree, { key: "z", code: "KeyZ", ctrlKey: true });
+    await waitFor(() => expect(moves()).toHaveLength(2));
+    expect(moves()[1]).toEqual({ source: "src/README.md", destination: "README.md" });
+
+    fireEvent.keyDown(tree, { key: "y", code: "KeyY", ctrlKey: true });
+    await waitFor(() => expect(moves()).toHaveLength(3));
+    expect(moves()[2]).toEqual({ source: "README.md", destination: "src/README.md" });
+  });
+
+  it("brings a deleted file back with Ctrl+Z", async () => {
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    fireEvent.keyDown(treeRow("README.md"), { key: "Delete" });
+    fireEvent.click(await screen.findByTestId("explorer-dialog-confirm"));
+    await waitFor(() => expect(calls.some((call) => call.url.endsWith("/entries/delete"))).toBe(true));
+    await waitFor(() => expect(useFileUndoStore.getState().undo.w1).toHaveLength(1));
+
+    fireEvent.keyDown(screen.getByTestId("explorer-tree"), { key: "z", code: "KeyZ", ctrlKey: true });
+    await waitFor(() => expect(calls.some((call) => call.url.endsWith("/entries/restore"))).toBe(true));
+    expect(JSON.parse(calls.find((call) => call.url.endsWith("/entries/restore"))!.body)).toEqual({ token: TOKEN });
+  });
+
+  it("asks before an undo that deletes what a paste created", async () => {
+    render(<ExplorerPanel view="files" />);
+    await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
+    fireEvent.click(treeRow("README.md"));
+    fireEvent.keyDown(treeRow("README.md"), { key: "c", ctrlKey: true });
+    fireEvent.keyDown(treeRow("README.md"), { key: "v", ctrlKey: true });
+    await waitFor(() => expect(useFileUndoStore.getState().undo.w1).toHaveLength(1));
+
+    fireEvent.keyDown(screen.getByTestId("explorer-tree"), { key: "z", code: "KeyZ", ctrlKey: true });
+    expect((await screen.findByTestId("explorer-dialog")).textContent).toContain("Paste");
+    expect(calls.some((call) => call.url.endsWith("/entries/delete"))).toBe(false);
+    fireEvent.click(screen.getByTestId("explorer-dialog-confirm"));
+    await waitFor(() => expect(calls.some((call) => call.url.endsWith("/entries/delete"))).toBe(true));
+    expect(JSON.parse(calls.find((call) => call.url.endsWith("/entries/delete"))!.body).path).toBe("README copy.md");
   });
 
   const openRowMenu = async (path: string) => {
@@ -307,7 +422,7 @@ describe("ExplorerPanel", () => {
     await waitFor(() => expect(screen.getAllByTestId("explorer-tree-row")).toHaveLength(2));
     fireEvent.keyDown(screen.getAllByTestId("explorer-tree-row")[1], { key: "Delete" });
     expect(calls.some((call) => call.url.includes("/entries/delete"))).toBe(false);
-    fireEvent.click(await screen.findByTestId("explorer-delete-confirm"));
+    fireEvent.click(await screen.findByTestId("explorer-dialog-confirm"));
     await waitFor(() => expect(calls.some((call) => call.url.includes("/entries/delete"))).toBe(true));
     const sent = calls.find((call) => call.url.includes("/entries/delete"));
     expect(JSON.parse(sent!.body)).toEqual({ path: "README.md", permanent: false });

@@ -30,7 +30,7 @@
     must use [System.IO.File]::WriteAllText with UTF8Encoding($false);
     this script writes nothing, but the convention stays).
 
-    Reference: BUG-006, BUG-014, BUG-015 in docs/BUGS.md.
+    Reference: BUG-006, BUG-014, BUG-015.
 
 .EXAMPLE
     pwsh scripts/preflight.ps1

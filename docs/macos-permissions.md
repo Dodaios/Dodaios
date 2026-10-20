@@ -32,7 +32,7 @@ macOS runner result is never presented as fact. Rule name in code comments and c
 
 ## 2. Root-cause analysis from git history
 
-Method: `git log -p`, `git show`, `git blame`, the bug register (`docs/BUGS.md`), the
+Method: `git log -p`, `git show`, `git blame`, the
 cross-platform plan set (`docs/plans/cross-platform-mac-linux/`), ADRs and `docs/os-parity.md`.
 Dates are commit dates. Author names are left out on purpose: git alone cannot say which
 sentence is human intent, so rationales are quoted from the artefact and not attributed.
@@ -255,7 +255,7 @@ command `jarvis permissions reset` (4.16).
 
 AP-35 is the rule name used in code comments and commit messages. It is recorded in the
 `AGENTS.md` register (section 3), in `docs/adr/0038-macos-permissions-ask-when-needed.md` (the
-same nine principles) and as the prevention rule of BUG-225 in `docs/BUGS.md`; this table is the
+same nine principles) and as the prevention rule of BUG-225; this table is the
 detailed statement.
 
 | # | Principle |
