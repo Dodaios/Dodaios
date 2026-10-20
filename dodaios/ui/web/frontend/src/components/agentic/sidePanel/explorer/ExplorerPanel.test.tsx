@@ -36,8 +36,13 @@ const TOKEN = "0123456789abcdef01234567";
 
 function respond(url: string, body: string): unknown {
   if (url.includes("/changes")) return CHANGES;
-  if (url.endsWith("/outside-files")) return { path: JSON.parse(body).path.replace(/:\d+$/, "").replace(/\\/g, "/") };
-  if (url.includes("/text-file/version")) return { version: url.includes("src") ? null : "v1" };
+  if (url.endsWith("/outside-files")) {
+    const printed: string = JSON.parse(body).path.replace(/:\d+$/, "").replace(/\\/g, "/");
+    if (printed.includes("missing")) return { __status: 404, detail: "That file is unavailable." };
+    if (/^src\/?$/.test(printed)) return { path: "src", kind: "directory" };
+    return { path: printed.startsWith("Downloads/") ? `C:/Users/me/${printed}` : printed, kind: "file" };
+  }
+  if (url.includes("/text-file/version")) return { version: /src|Downloads|missing/.test(url) ? null : "v1" };
   if (url.endsWith("/entries/move")) return { path: JSON.parse(body).destination };
   if (url.endsWith("/entries/copy")) return { path: JSON.parse(body).destination.replace(/(\.\w+)$/, " copy$1") };
   if (url.endsWith("/entries/delete")) return { path: JSON.parse(body).path, trashed: true, undo_token: TOKEN };
@@ -64,7 +69,9 @@ beforeEach(() => {
     const url = String(input);
     const body = String(init?.body ?? "");
     calls.push({ url, body });
-    return new Response(JSON.stringify(respond(url, body)), { status: 200, headers: { "Content-Type": "application/json" } });
+    const answer = respond(url, body) as { __status?: number } | null;
+    const status = answer && typeof answer === "object" && answer.__status ? answer.__status : 200;
+    return new Response(JSON.stringify(answer), { status, headers: { "Content-Type": "application/json" } });
   }));
   useEventStore.setState({ activeSection: "agentic-ide" });
   useIdeChatStore.setState({ workspace: { id: "w1", name: "App", path: "/code/app" }, stagedPane: null });
@@ -457,6 +464,25 @@ describe("terminal path clicks", () => {
     const grant = calls.find((call) => call.url.includes("/outside-files"));
     expect(grant?.body).toContain("Downloads");
     expect(calls.some((call) => call.url.includes("terminal-target"))).toBe(false);
+  });
+
+  it("open a home-folder file named without its drive, not the workspace tree", async () => {
+    renderHook(() => useExplorerPathRouting());
+    act(() =>
+      activateTerminalLink(new MouseEvent("click", { button: 0, ctrlKey: true }), "Downloads\\TODO.md", { workspaceId: "w1" }),
+    );
+    await waitFor(() => expect(useCodeEditorStore.getState().tabs.map((tab) => tab.path)).toEqual(["C:/Users/me/Downloads/TODO.md"]));
+    expect(useIdeSidePanelStore.getState().active).not.toBe("files");
+  });
+
+  it("report a missing file instead of showing the folder tree", async () => {
+    renderHook(() => useExplorerPathRouting());
+    act(() =>
+      activateTerminalLink(new MouseEvent("click", { button: 0, ctrlKey: true }), "docs/missing.md", { workspaceId: "w1" }),
+    );
+    await waitFor(() => expect(useEventStore.getState().toasts.some((toast) => toast.message === "That file is unavailable.")).toBe(true));
+    expect(useCodeEditorStore.getState().tabs).toEqual([]);
+    expect(useIdeSidePanelStore.getState().active).not.toBe("files");
   });
 
   it("fall back to the OS for another workspace's pane", () => {
