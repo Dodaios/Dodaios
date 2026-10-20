@@ -138,12 +138,22 @@ def test_the_release_builds_both_names_and_publishes_each() -> None:
     build_runs = "\n".join(step.get("run", "") for step in jobs["build"]["steps"])
     assert "scripts/ci/build_distributions.py --outdir dist" in build_runs
     assert "python -m build " not in build_runs
-    publishes = [
-        step
-        for step in jobs["publish"]["steps"]
-        if "gh-action-pypi-publish@" in step.get("uses", "")
-    ]
-    assert [step["with"]["packages-dir"] for step in publishes] == [
-        "dist/personal-jarvis/",
-        "dist/dodaios/",
-    ]
+    # PyPI scopes an upload token to the one trusted publisher that matched,
+    # so each project publishes from its own job and environment.
+    uploads = {
+        job_id: (
+            jobs[job_id]["environment"],
+            [
+                step["with"]["packages-dir"]
+                for step in jobs[job_id]["steps"]
+                if "gh-action-pypi-publish@" in step.get("uses", "")
+            ],
+        )
+        for job_id in ("publish", "publish-legacy")
+    }
+    assert uploads == {
+        "publish": ("pypi", ["dist/dodaios/"]),
+        "publish-legacy": ("pypi-legacy", ["dist/personal-jarvis/"]),
+    }
+    for job_id in uploads:
+        assert jobs[job_id]["permissions"] == {"id-token": "write"}
