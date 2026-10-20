@@ -82,7 +82,6 @@ UNION: tuple[str, ...] = (
     "CHANGELOG.md",
     "scripts/ci/german-allowlist.txt",
     ".gitignore",
-    "docs/BUGS.md",
 )
 # The package directory before and after its rename, and the script whose
 # output IS the commit that renames it. Until main carries the new directory
