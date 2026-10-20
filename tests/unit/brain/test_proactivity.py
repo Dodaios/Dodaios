@@ -16,7 +16,7 @@ Locks the three pieces the 2026-10-07 change added:
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -180,17 +180,22 @@ def test_upcoming_lines_keep_the_next_two_weeks_nearest_first() -> None:
     assert len(proactivity.upcoming_lines(notes, today=TODAY, limit=1)) == 1
 
 
-def _book_with_plans(tmp_path: Path) -> JarvisNotebook:
+def _book_with_plans(tmp_path: Path, launch: date = date(2026, 10, 9)) -> JarvisNotebook:
     book = JarvisNotebook(tmp_path / "vault", budgets={"user": 1_000, "memory": 1_000})
     book.apply(
         target="user",
         operation="add",
-        text="The user is preparing a product launch for 2026-10-09.",
+        text=f"The user is preparing a product launch for {launch.isoformat()}.",
         importance=8,
     )
     book.apply(target="user", operation="add", text="The user lives in Hamburg.")
     notebook_module.set_active(book)
     return book
+
+
+def _launch_soon() -> date:
+    """A plan date two days from the real today, for tests that read the clock."""
+    return date.today() + timedelta(days=2)
 
 
 def test_the_notebooks_dated_plans_reach_the_block(tmp_path: Path) -> None:
@@ -248,7 +253,7 @@ def _manager(level: str = "balanced") -> BrainManager:
 
 
 def test_the_brain_prompt_carries_the_configured_rule(tmp_path: Path) -> None:
-    _book_with_plans(tmp_path)
+    _book_with_plans(tmp_path, _launch_soon())
     prompt = _manager("balanced")._build_system_prompt()
     assert proactivity.directive("balanced") in prompt
     assert "## Coming up (dated plans from your notes)" in prompt
@@ -260,7 +265,7 @@ def test_the_brain_prompt_carries_the_configured_rule(tmp_path: Path) -> None:
 def test_cache_optimized_prompts_keep_dated_plans_out_of_the_cached_prefix(
     tmp_path: Path,
 ) -> None:
-    _book_with_plans(tmp_path)
+    _book_with_plans(tmp_path, _launch_soon())
     m = _manager("high")
     m._config.performance.cache_optimized_prompt = True
     assert proactivity.directive("high") in m._build_system_prompt()
@@ -268,11 +273,8 @@ def test_cache_optimized_prompts_keep_dated_plans_out_of_the_cached_prefix(
     assert "## Coming up (dated plans from your notes)" in m._build_turn_context()
 
 
-def test_a_society_agents_turn_gets_no_initiative_rule(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_a_society_agents_turn_gets_no_initiative_rule() -> None:
     m = _manager("high")
-    monkeypatch.setattr(BrainManager, "_render_live_tool_block", lambda self: "")
     token = _TURN_OVERRIDE.set(
         TurnOverride(
             provider="p",
@@ -294,7 +296,7 @@ def test_a_society_agents_turn_gets_no_initiative_rule(
 def test_realtime_instructions_carry_the_rule_and_the_dated_plans(tmp_path: Path) -> None:
     from dodaios.realtime.session import _session_instructions
 
-    _book_with_plans(tmp_path)
+    _book_with_plans(tmp_path, _launch_soon())
     full = _session_instructions("de", proactivity_level="balanced")
     assert proactivity.directive("balanced") in full
     assert "## Coming up (dated plans from your notes)" in full
@@ -310,12 +312,12 @@ def test_realtime_instructions_carry_the_rule_and_the_dated_plans(tmp_path: Path
 def test_gpt_live_identity_carries_the_rule(tmp_path: Path) -> None:
     from dodaios.live.session import _identity
 
-    _book_with_plans(tmp_path)
+    _book_with_plans(tmp_path, _launch_soon())
     cfg = load_config()
     cfg.brain.proactivity = "high"
     text = _identity(cfg)
     assert proactivity.directive("high") in text
-    assert "2026-10-09" in text
+    assert _launch_soon().isoformat() in text
 
 
 async def test_a_voice_or_chat_change_applies_on_the_next_turn(
