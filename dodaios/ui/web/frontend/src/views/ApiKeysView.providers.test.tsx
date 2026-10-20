@@ -7,12 +7,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+const voiceMode = vi.hoisted(() => ({
+  mode: "realtime",
+  realtimeAvailable: true,
+  setMode: (() => undefined) as (mode: string) => void,
+}));
 vi.mock("@/hooks/useVoiceMode", () => ({
   useVoiceMode: () => ({
-    mode: "realtime",
-    realtimeAvailable: true,
+    mode: voiceMode.mode,
+    realtimeAvailable: voiceMode.realtimeAvailable,
     statusKnown: true,
-    setMode: vi.fn(),
+    setMode: voiceMode.setMode,
+    saveError: null,
     isLoading: false,
     isSaving: false,
     sessionActive: false,
@@ -97,6 +103,9 @@ let calls: { url: string; method: string; body: unknown }[] = [];
 let prefs: { disabled: string[]; api_only: string[]; hidden_models: Record<string, string[]> };
 
 beforeEach(() => {
+  voiceMode.mode = "realtime";
+  voiceMode.realtimeAvailable = true;
+  voiceMode.setMode = vi.fn();
   calls = [];
   prefs = { disabled: [], api_only: [], hidden_models: {} };
   _resetProvidersCacheForTests();
@@ -168,6 +177,37 @@ describe("ApiKeysView — Live calls", () => {
     renderPage();
     await screen.findByTestId("apikeys-voice");
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Agents", "Live calls"]);
+  });
+
+  it("offers the Pipeline as the other voice engine", async () => {
+    renderPage();
+    const engine = await screen.findByTestId("voice-engine-switch");
+    expect(within(engine).getByRole("radio", { name: "GPT-Live" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(within(engine).getByRole("radio", { name: "Pipeline" }));
+    expect(voiceMode.setMode).toHaveBeenCalledWith("pipeline");
+  });
+
+  it("shows voice input, the brain and voice output while the Pipeline is the engine", async () => {
+    voiceMode.mode = "pipeline";
+    renderPage();
+    const pipeline = await screen.findByTestId("voice-pipeline");
+    expect(screen.queryByTestId("live-profile")).toBeNull();
+    expect(within(pipeline).getByText("Voice Input (STT)")).toBeTruthy();
+    expect(within(pipeline).getByText("Voice Output (TTS)")).toBeTruthy();
+    const brain = within(pipeline).getByTestId("voice-pipeline-brain");
+    fireEvent.click(within(brain).getByRole("button", { name: "Change in Agents" }));
+    expect(await screen.findByTestId("apikeys-agents")).toBeTruthy();
+  });
+
+  it("shows GPT-Live's settings without switching while no live provider is ready", async () => {
+    voiceMode.mode = "pipeline";
+    voiceMode.realtimeAvailable = false;
+    renderPage();
+    const engine = await screen.findByTestId("voice-engine-switch");
+    fireEvent.click(within(engine).getByRole("radio", { name: "GPT-Live" }));
+    expect(await screen.findByTestId("live-profile")).toBeTruthy();
+    expect(voiceMode.setMode).not.toHaveBeenCalled();
+    expect(screen.getByTestId("voice-engine").textContent).toContain("Set up GPT-Live below");
   });
 
   it("opens on Agents the first time", async () => {
