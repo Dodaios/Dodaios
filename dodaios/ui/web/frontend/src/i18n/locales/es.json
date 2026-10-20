@@ -5803,10 +5803,7 @@
       "restart_aria": "Reiniciar {pane}",
       "restart_title": "Iniciar un {agent} nuevo en {pane}",
       "restart": "Reiniciar",
-      "show_in_git": "Mostrar los cambios de {pane} en Git",
-      "scrollbar": "Desplazar la terminal",
-      "scroll_up": "Desplazar hacia arriba",
-      "scroll_down": "Desplazar hacia abajo"
+      "show_in_git": "Mostrar los cambios de {pane} en Git"
     }
   },
   "prompt_writer": {

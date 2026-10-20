@@ -5803,10 +5803,7 @@
       "restart_aria": "重启 {pane}",
       "restart_title": "在 {pane} 中重新启动一个 {agent}",
       "restart": "重启",
-      "show_in_git": "在 Git 中显示 {pane} 的更改",
-      "scrollbar": "滚动终端",
-      "scroll_up": "向上滚动",
-      "scroll_down": "向下滚动"
+      "show_in_git": "在 Git 中显示 {pane} 的更改"
     }
   },
   "prompt_writer": {
