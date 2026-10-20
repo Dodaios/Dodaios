@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { setReloadHold } from "@/lib/reloadHold";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import type { LineEnding, TextEncoding } from "@/components/agentic/editor/editorApi";
 import type { ViewKind } from "@/components/agentic/editor/fileKinds";
 
@@ -326,6 +327,16 @@ function settle(
 
 let revealNonce = 0;
 
+/**
+ * The editor comes forward. A maximized side panel covers the whole view, so
+ * it goes back to its own width; otherwise a click on a file in the panel
+ * would open that file where nobody can see it.
+ */
+function bringForward(): void {
+  const panel = useIdeSidePanelStore.getState();
+  if (panel.maximized) panel.setMaximized(false);
+}
+
 export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
   tabs: [],
   active: {},
@@ -413,6 +424,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
     const mode = options.mode ?? "edit";
     const preview = options.preview ?? true;
     const fileKey = fileKeyOf(workspaceId, path);
+    bringForward();
     set((state) => {
       // The group that takes the file: the one named, the one to the right of
       // the group that has the keyboard ("to the side"), or that group itself.
@@ -523,6 +535,7 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
   activate: (key) => {
     const tab = get().tabs.find((entry) => entry.key === key);
     if (!tab) return;
+    bringForward();
     const group = tab.group ?? 0;
     set((state) => ({
       ...settle(
@@ -578,7 +591,10 @@ export const useCodeEditorStore = create<CodeEditorState>((set, get) => ({
       return { files: { ...state.files, [fileKey]: file }, tabs };
     }),
 
-  setVisible: (visible) => set({ visible }),
+  setVisible: (visible) => {
+    if (visible) bringForward();
+    set({ visible });
+  },
   setQuickOpen: (quickOpen) => set({ quickOpen }),
   setCursor: (cursor) => set({ cursor }),
 
