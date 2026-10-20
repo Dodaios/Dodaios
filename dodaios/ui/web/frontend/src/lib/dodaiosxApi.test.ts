@@ -13,7 +13,7 @@ import {
   saveJarvisXSettings,
   withVersion,
   type JarvisXItem,
-} from "@/lib/jarvisxApi";
+} from "@/lib/dodaiosxApi";
 
 function json(body: unknown, status = 200): Response {
   return { ok: status < 400, status, json: async () => body } as Response;
@@ -35,7 +35,7 @@ function item(id: string, created_at: string): JarvisXItem {
   };
 }
 
-describe("jarvisxApi", () => {
+describe("dodaiosxApi", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

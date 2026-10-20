@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef } from "react";
 import { useEventStore, type VoiceState } from "@/store/events";
-import { JarvisOrb } from "@/components/deck/JarvisOrb";
+import { DodaiosOrb } from "@/components/deck/DodaiosOrb";
 import type { ThinkingStep } from "@/lib/thinkingSteps";
 import { HudHaloDefs } from "@/components/deck/HudFrame";
 import { readVoiceInputLevel } from "@/lib/voiceInputLevel";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
  * bright arc per running step, the voice meter, and four small readouts at
  * the corners.
  *
- * The middle is Gigi itself (`JarvisOrb`), moved by the real voice state,
+ * The middle is Gigi itself (`DodaiosOrb`), moved by the real voice state,
  * with a soft accent glow throwing the dark silhouette forward. It was a PNG
  * of a glowing sphere until 2026-08-20; the maintainer had asked repeatedly
  * for that picture to go and for the mascot to carry the product, and the
@@ -281,7 +281,7 @@ export function DeckOrb({
  * The orb — the part of the centre a press lands on.
  *
  * Back to front: a soft accent glow wider than the sphere (`.deck-orb-glow`,
- * keyed on the voice state), then the mascot itself (`JarvisOrb`).
+ * keyed on the voice state), then the mascot itself (`DodaiosOrb`).
  */
 function OrbFace({ voiceState, orbSize }: { voiceState: VoiceState; orbSize: number }) {
   // The light behind the figure, a little wider than it so the silhouette
@@ -296,7 +296,7 @@ function OrbFace({ voiceState, orbSize }: { voiceState: VoiceState; orbSize: num
         data-voice={voiceState}
         style={{ width: glow, height: glow }}
       />
-      <JarvisOrb size={orbSize} voiceState={voiceState} className="absolute inset-0" />
+      <DodaiosOrb size={orbSize} voiceState={voiceState} className="absolute inset-0" />
     </>
   );
 }

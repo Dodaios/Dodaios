@@ -17,7 +17,7 @@ interface RotateResult {
 }
 
 /** Loads /api/control/api-key and exposes rotate() + setKey(). Mirrors useAutostart. */
-export function useJarvisApi() {
+export function useDodaiosApi() {
   const [data, setData] = useState<ControlApiKey | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

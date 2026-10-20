@@ -3,7 +3,7 @@
  *
  * Fed by the WebSocket hook (9 event types: JarvisAgentTaskStarted/Review/
  * Completed, BrainTurnStarted/Completed, ToolCallStarted/Completed, Harness-
- * Dispatched/Completed) and rendered in <JarvisAgentsView /> as a live table.
+ * Dispatched/Completed) and rendered in <DodaiosAgentsView /> as a live table.
  */
 import { create } from "zustand";
 

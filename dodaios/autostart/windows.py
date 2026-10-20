@@ -360,7 +360,7 @@ def build_create_script(link: Path, spec: LaunchSpec, *, icon: str | None = None
 
     WindowStyle 7 = minimized (tray-friendly), 1 = normal/visible.
 
-    ``icon`` is the absolute path to ``jarvis.ico``. When given, the shortcut
+    ``icon`` is the absolute path to ``dodaios.ico``. When given, the shortcut
     carries ``IconLocation`` so the taskbar button is branded with the Jarvis
     icon from the moment the app autostarts — instead of the bare ``pythonw.exe``
     Python logo. Without it (the historical behaviour) an autostart launch on a
@@ -416,7 +416,7 @@ def build_read_script(link: Path) -> str:
 
 
 def _resolve_app_icon() -> str | None:
-    """Absolute ``jarvis.ico`` path for the shortcut, or ``None`` if unresolved.
+    """Absolute ``dodaios.ico`` path for the shortcut, or ``None`` if unresolved.
 
     Lazy import (never at module scope, HN-7): keeps this Windows-only module
     free of a UI import on other OSes and off the boot critical path. Returns the

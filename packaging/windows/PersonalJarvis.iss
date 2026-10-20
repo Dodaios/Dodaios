@@ -39,7 +39,7 @@
   #define OutputDir "..\..\dist\installers"
 #endif
 #ifndef IconFile
-  #define IconFile "..\..\assets\icons\jarvis.ico"
+  #define IconFile "..\..\assets\icons\dodaios.ico"
 #endif
 ; NEVER change this default. It is the identity Windows upgrades against. Only
 ; the installer end-to-end test overrides it (/DAppGuid=...), so its throwaway

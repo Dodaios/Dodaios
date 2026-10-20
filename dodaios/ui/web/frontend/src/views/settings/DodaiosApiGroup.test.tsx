@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { JarvisApiGroup } from "./JarvisApiGroup";
+import { DodaiosApiGroup } from "./DodaiosApiGroup";
 
 const KEY = "jctl_secretvalue1234";
 const MASKED = "jctl_…1234";
@@ -31,10 +31,10 @@ function stubKeyFetch(
   return mock;
 }
 
-describe("JarvisApiGroup", () => {
+describe("DodaiosApiGroup", () => {
   it("renders the 'Control Key' heading and the masked key (full key hidden)", async () => {
     stubKeyFetch();
-    render(<JarvisApiGroup />);
+    render(<DodaiosApiGroup />);
 
     expect(screen.getByRole("heading", { name: "Control Key" })).toBeTruthy();
     await waitFor(() => expect(screen.getByText(MASKED)).toBeTruthy());
@@ -44,7 +44,7 @@ describe("JarvisApiGroup", () => {
 
   it("reveals the full key when Show is clicked", async () => {
     stubKeyFetch();
-    render(<JarvisApiGroup />);
+    render(<DodaiosApiGroup />);
     await waitFor(() => screen.getByText(MASKED));
 
     fireEvent.click(screen.getByRole("button", { name: /show/i }));
@@ -53,7 +53,7 @@ describe("JarvisApiGroup", () => {
 
   it("copies the clear key via robustCopy", async () => {
     stubKeyFetch();
-    render(<JarvisApiGroup />);
+    render(<DodaiosApiGroup />);
     await waitFor(() => screen.getByText(MASKED));
 
     fireEvent.click(screen.getByRole("button", { name: /copy/i }));
@@ -69,7 +69,7 @@ describe("JarvisApiGroup", () => {
           }
         : undefined,
     );
-    render(<JarvisApiGroup />);
+    render(<DodaiosApiGroup />);
     await waitFor(() => screen.getByText(MASKED));
 
     fireEvent.click(screen.getByRole("button", { name: /generate random key/i }));
@@ -91,7 +91,7 @@ describe("JarvisApiGroup", () => {
         ? { ok: true, json: async () => ({ ok: true, masked: "…tery" }) }
         : undefined,
     );
-    render(<JarvisApiGroup />);
+    render(<DodaiosApiGroup />);
     await waitFor(() => screen.getByText(MASKED));
 
     fireEvent.click(screen.getByRole("button", { name: /choose my own key/i }));
@@ -116,7 +116,7 @@ describe("JarvisApiGroup", () => {
 
   it("rejects a too-short custom key locally without any request", async () => {
     stubKeyFetch();
-    render(<JarvisApiGroup />);
+    render(<DodaiosApiGroup />);
     await waitFor(() => screen.getByText(MASKED));
     const fetchMock = window.fetch as ReturnType<typeof vi.fn>;
     const callsBefore = fetchMock.mock.calls.length;
@@ -152,7 +152,7 @@ describe("JarvisApiGroup", () => {
           }
         : undefined,
     );
-    render(<JarvisApiGroup />);
+    render(<DodaiosApiGroup />);
     await waitFor(() => screen.getByText(MASKED));
 
     fireEvent.click(screen.getByRole("switch"));
@@ -188,7 +188,7 @@ describe("JarvisApiGroup", () => {
           : undefined,
       true,
     );
-    render(<JarvisApiGroup />);
+    render(<DodaiosApiGroup />);
     await waitFor(() => screen.getByText(MASKED));
     await waitFor(() =>
       expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("true"),

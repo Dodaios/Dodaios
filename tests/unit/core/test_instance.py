@@ -159,7 +159,7 @@ def test_dev_icons_ship_in_both_icon_homes() -> None:
     root = Path(inst.__file__).resolve().parents[2]
     for home in (root / "dodaios" / "assets" / "icons", root / "assets" / "icons"):
         assert (home / inst.DEV_ICON_FILE_NAME).is_file(), home
-        assert (home / "jarvis-dev.png").is_file(), home
+        assert (home / "dodaios-dev.png").is_file(), home
 
 
 # ---------------------------------------------------------------------------

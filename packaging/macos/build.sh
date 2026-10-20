@@ -60,7 +60,7 @@ ENTITLEMENTS="${SCRIPT_DIR}/entitlements.plist"
 # The copy of ENTITLEMENTS that codesign embeds; see prepare_entitlements().
 NORMALIZED_ENTITLEMENTS="${DIST_DIR}/entitlements.normalized.plist"
 SIGNING_ENTITLEMENTS="${ENTITLEMENTS}"
-ICNS="${REPO_ROOT}/assets/icons/jarvis.icns"
+ICNS="${REPO_ROOT}/assets/icons/dodaios.icns"
 
 log() { printf '[macos-build] %s\n' "$*"; }
 die() { printf '[macos-build] ERROR: %s\n' "$*" >&2; exit 1; }

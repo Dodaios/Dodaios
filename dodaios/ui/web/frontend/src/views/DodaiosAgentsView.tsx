@@ -7,7 +7,7 @@ import { useLocaleChunk } from "@/i18n";
 import type { PlaceId } from "@/components/society/world/islandLayout";
 import { VerseStage } from "@/components/society/verse/VerseStage";
 
-export interface JarvisAgentsViewProps {
+export interface DodaiosAgentsViewProps {
   onSelectAgent?: (agentId: string | null) => void;
   onSelectPlace?: (place: PlaceId) => void;
   onOpenAgents: () => void;
@@ -16,7 +16,7 @@ export interface JarvisAgentsViewProps {
   active?: boolean;
 }
 
-export function JarvisAgentsView({ onSelectAgent, onOpenAgents, onCreateAgent, onOpenGroup, active = true }: JarvisAgentsViewProps) {
+export function DodaiosAgentsView({ onSelectAgent, onOpenAgents, onCreateAgent, onOpenGroup, active = true }: DodaiosAgentsViewProps) {
   const ready = useLocaleChunk("society");
   if (!ready) return null;
   return (

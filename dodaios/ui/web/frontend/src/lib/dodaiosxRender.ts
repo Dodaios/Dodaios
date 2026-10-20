@@ -18,7 +18,7 @@ import {
   type EditorDoc,
   type Shape,
   type TextShape,
-} from "@/lib/jarvisxEditorModel";
+} from "@/lib/dodaiosxEditorModel";
 
 export const TEXT_FONT_FAMILY = '"Inter Variable", Inter, system-ui, sans-serif';
 const TEXT_LINE_HEIGHT = 1.25;

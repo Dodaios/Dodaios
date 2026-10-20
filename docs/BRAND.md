@@ -137,5 +137,5 @@ Write like a senior engineer who respects the reader's time.
 | Product Orb | `dodaios/ui/web/frontend/public/hero-orb.png` |
 | Logo (vector source) | `assets/brand/dodaios-logo.svg` |
 | Logo (raster master, 1254 px) | `assets/brand/dodaios-logo.png` |
-| App icon (rendered) | `assets/icons/jarvis.ico`, `jarvis-1024.png`, `jarvis.icns` |
+| App icon (rendered) | `assets/icons/dodaios.ico`, `dodaios-1024.png`, `dodaios.icns` |
 | App screenshots | `assets/screenshots/` |

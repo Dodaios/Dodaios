@@ -698,17 +698,17 @@ def unregister_from_launch_services(bundle: Path) -> bool:
 
 
 def _try_build_icns(resources_dir: Path) -> str | None:
-    """Best-effort ``jarvis.icns`` creation; never block bundle creation."""
+    """Best-effort ``dodaios.icns`` creation; never block bundle creation."""
     if sys.platform != "darwin":
         return None
     try:
         from PIL import Image  # noqa: PLC0415 - optional at this boundary
 
-        source = Path(__file__).resolve().parents[1] / "assets" / "icons" / "jarvis.png"
+        source = Path(__file__).resolve().parents[1] / "assets" / "icons" / "dodaios.png"
         if not source.is_file():
             return None
         with tempfile.TemporaryDirectory() as raw_tmp:
-            iconset = Path(raw_tmp) / "jarvis.iconset"
+            iconset = Path(raw_tmp) / "dodaios.iconset"
             iconset.mkdir()
             image = Image.open(source).convert("RGBA")
             # Apple's iconset grammar allows exactly 16/32/128/256/512 (+@2x);
@@ -718,7 +718,7 @@ def _try_build_icns(resources_dir: Path) -> str | None:
             for size in (16, 32, 128, 256, 512):
                 image.resize((size, size)).save(iconset / f"icon_{size}x{size}.png")
                 image.resize((size * 2, size * 2)).save(iconset / f"icon_{size}x{size}@2x.png")
-            output = resources_dir / "jarvis.icns"
+            output = resources_dir / "dodaios.icns"
             result = subprocess.run(
                 ["iconutil", "-c", "icns", str(iconset), "-o", str(output)],
                 capture_output=True,
@@ -728,7 +728,7 @@ def _try_build_icns(resources_dir: Path) -> str | None:
                 creationflags=NO_WINDOW_CREATIONFLAGS,
             )
             if result.returncode == 0 and output.is_file():
-                return "jarvis"
+                return "dodaios"
     except Exception as exc:  # noqa: BLE001 - the icon is optional
         log.debug("icns build skipped: %s", exc)
     return None

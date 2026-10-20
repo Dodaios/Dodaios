@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useBrowserLock } from "@/hooks/useBrowserLock";
-import { useJarvisApi } from "@/hooks/useJarvisApi";
+import { useDodaiosApi } from "@/hooks/useDodaiosApi";
 import { robustCopy } from "@/lib/clipboard";
 import { useEventStore } from "@/store/events";
 import { useT } from "@/i18n";
@@ -38,9 +38,9 @@ const CUSTOM_KEY_RE = /^[A-Za-z0-9._~-]+$/;
  * with a memorable key of their own. Reveal/change are session-permitted so
  * the panel works before the user possesses the key.
  */
-export function JarvisApiGroup() {
+export function DodaiosApiGroup() {
   const t = useT();
-  const { data, loading, error, rotate, setKey } = useJarvisApi();
+  const { data, loading, error, rotate, setKey } = useDodaiosApi();
   const browserLock = useBrowserLock();
   const pushToast = useEventStore((s) => s.pushToast);
   const [revealed, setRevealed] = useState(false);

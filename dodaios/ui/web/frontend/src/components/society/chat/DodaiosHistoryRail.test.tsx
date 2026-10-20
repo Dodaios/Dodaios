@@ -5,7 +5,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { JarvisHistoryRail } from "@/components/society/chat/JarvisHistoryRail";
+import { DodaiosHistoryRail } from "@/components/society/chat/DodaiosHistoryRail";
 import { useAgentChatStore } from "@/store/agentChat";
 import { useEventStore } from "@/store/events";
 import { useHomeStore } from "@/store/home";
@@ -64,7 +64,7 @@ function json(body: unknown, status = 200) {
   } as Response;
 }
 
-describe("JarvisHistoryRail", () => {
+describe("DodaiosHistoryRail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useHomeStore.setState({ voiceSelectionPending: false, voiceSwitchStopping: false, continuedVoiceId: null });
@@ -116,7 +116,7 @@ describe("JarvisHistoryRail", () => {
   });
 
   test("lists typed chats and voice sessions in two sections", async () => {
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     expect(await screen.findByTestId("jarvis-history-chat-row")).toBeTruthy();
     expect(await screen.findByTestId("jarvis-history-voice-row")).toBeTruthy();
     expect(screen.getByTestId("jarvis-history-chat-row").textContent).toContain("Typed questions");
@@ -124,14 +124,14 @@ describe("JarvisHistoryRail", () => {
   });
 
   test("opening a chat row shows that session in the column", async () => {
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     fireEvent.click(await screen.findByTestId("jarvis-history-chat-row"));
     expect(useAgentChatStore.getState().activeSessionId).toBe("chat-1");
   });
 
   test("opening a voice row clears the chat and marks the thread", async () => {
     useAgentChatStore.setState({ activeSessionId: "chat-1" });
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     fireEvent.click(await screen.findByTestId("jarvis-history-voice-row"));
     expect(useAgentChatStore.getState().activeSessionId).toBeNull();
     expect(useEventStore.getState().activeThreadId).toBe("voice-1");
@@ -145,7 +145,7 @@ describe("JarvisHistoryRail", () => {
     const transcript = [{ id: "live", who: "assistant" as const, text: "Current answer", ts: 3 }];
     useEventStore.setState({ voiceState: "speaking" });
     useHomeStore.setState({ liveSessionId: "voice-1", transcript, liveReply: "Still answering" });
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     fireEvent.click(await screen.findByTestId("jarvis-history-voice-row"));
     expect(useHomeStore.getState().transcript).toBe(transcript);
     expect(useHomeStore.getState().liveReply).toBe("Still answering");
@@ -158,7 +158,7 @@ describe("JarvisHistoryRail", () => {
 
   test("a late archive response cannot restore the previous call after hangup", async () => {
     let finish!: (response: Response) => void;
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     await screen.findByTestId("jarvis-history-voice-row");
     vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }));
     fireEvent.click(screen.getByTestId("jarvis-history-voice-row"));
@@ -175,7 +175,7 @@ describe("JarvisHistoryRail", () => {
   test("switching archives ends the active call before resuming and keeps the selected context", async () => {
     useEventStore.setState({ voiceState: "listening" });
     useHomeStore.setState({ liveSessionId: "other-call", continuedVoiceId: "other-archive" });
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     fireEvent.click(await screen.findByTestId("jarvis-history-voice-row"));
     await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/voice/hangup", { method: "POST", cache: "no-store" }));
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith("/resume"))).toBe(false);
@@ -195,7 +195,7 @@ describe("JarvisHistoryRail", () => {
   test("the new button clears whatever is open", async () => {
     useAgentChatStore.setState({ activeSessionId: "chat-1" });
     useEventStore.setState({ activeKind: "voice", activeThreadId: "voice-1" });
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     fireEvent.click(await screen.findByTestId("jarvis-history-new"));
     expect(useAgentChatStore.getState().activeSessionId).toBeNull();
     expect(useEventStore.getState().activeThreadId).toBeNull();
@@ -205,7 +205,7 @@ describe("JarvisHistoryRail", () => {
     useAgentChatStore.setState({ activeSessionId: "chat-1" });
     useEventStore.setState({ activeKind: "voice", activeThreadId: "voice-1", transcription: "unfinished", transcriptionFinal: false });
     useHomeStore.getState().seedTranscript([{ id: "old", who: "user", text: "Previous call", ts: 1 }]);
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     await screen.findByTestId("jarvis-history-voice-row");
     fireEvent.click(screen.getByTestId("jarvis-history-new-voice"));
     await waitFor(() => expect(setJarvisCardMode).toHaveBeenCalledWith("voice"));
@@ -220,7 +220,7 @@ describe("JarvisHistoryRail", () => {
 
   test("a failed voice reset preserves the conversation and offers a retry", async () => {
     useHomeStore.getState().seedTranscript([{ id: "old", who: "user", text: "Previous call", ts: 1 }]);
-    render(<JarvisHistoryRail />);
+    render(<DodaiosHistoryRail />);
     await screen.findByTestId("jarvis-history-voice-row");
     vi.mocked(fetch).mockResolvedValueOnce(json({}, 500));
     fireEvent.click(screen.getByTestId("jarvis-history-new-voice"));
