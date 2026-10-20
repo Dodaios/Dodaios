@@ -150,6 +150,18 @@ class DictionaryEntry:
     misheard: tuple[str, ...] = ()
     created_at: str = ""
     updated_at: str = ""
+    #: ``True`` for a shipped default (:data:`DEFAULT_TERMS`) the user has not
+    #: edited. Reported to the UI; never written to the sidecar.
+    default: bool = False
+    #: ``False`` makes the entry replacement-only: its misheard variants are
+    #: rewritten, but the word gets no casing rule and no fuzzy repair. Only
+    #: shipped defaults that are COMMON words use it — a casing rule for
+    #: "Bugs" would capitalise every English "bugs" mid-sentence.
+    casing: bool = True
+    #: ``False`` keeps the word out of the sound-alike repair while its casing
+    #: rule stays. Shipped defaults whose phonetic key real words share use it:
+    #: "PyPI" folds like "Pipi" and "Pippi".
+    fuzzy: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -158,7 +170,113 @@ class DictionaryEntry:
             "misheard": list(self.misheard),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "default": self.default,
         }
+
+    def to_storage(self) -> dict[str, Any]:
+        """The sidecar row — the user's data only, no derived flags."""
+        return {
+            "id": self.id,
+            "word": self.word,
+            "misheard": list(self.misheard),
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+
+# ----------------------------------------------------------------------
+# Shipped default vocabulary
+# ----------------------------------------------------------------------
+
+#: Id prefix of a shipped default entry. User ids are 12 hex characters, so the
+#: two can never collide.
+DEFAULT_ID_PREFIX = "default-"
+
+
+@dataclass(frozen=True, slots=True)
+class DefaultTerm:
+    """One shipped vocabulary entry: ``word`` plus the spellings it arrives as."""
+
+    slug: str
+    word: str
+    misheard: tuple[str, ...] = ()
+    casing: bool = True
+    fuzzy: bool = True
+
+    @property
+    def entry_id(self) -> str:
+        return f"{DEFAULT_ID_PREFIX}{self.slug}"
+
+
+#: Vocabulary every install starts with, because mixed German/English dictation
+#: about this product and about software work keeps coming back with the same
+#: misspellings (reported 2026-10-20: "the Dios" for the product name, "Pipey"
+#: for PyPI, "Baggen" for Bugs).
+#:
+#: These are ordinary dictionary entries the user can edit or delete in the
+#: Dictionary view, and they never override the user's own: a user entry for
+#: the same word (or one that lists the word as a mishearing) hides the default,
+#: a user spelling hides the default variant that collides with it, and a
+#: deleted default stays deleted (``removed_defaults`` in the sidecar).
+#:
+#: Rules for adding one, since every variant rewrites EVERYONE's transcripts:
+#: a variant must not be a word a person would say on purpose ("Pipi", "PyPy",
+#: "Dios" on its own, "merken" are all out), and a common word is only ever a
+#: replacement target with ``casing=False``; a word whose sound-alike key real
+#: words share gets ``fuzzy=False``. No personal names, no contact data.
+#: The defaults are post-recognition corrections only — they are NOT added to
+#: any decoder prompt (BUG-185/BUG-211: a primed Whisper recites its prompt
+#: over silence), and the prompt-echo guard ignores them for the same reason.
+DEFAULT_TERMS: tuple[DefaultTerm, ...] = (
+    DefaultTerm(
+        "dodaios",
+        "Dodaios",
+        ("the Dios", "Doda iOS", "Doda ios", "Dodai OS", "Dodaius", "Dodayos"),
+    ),
+    DefaultTerm("pypi", "PyPI", ("Pipey", "Pipe-I", "Pai-Pi"), fuzzy=False),
+    DefaultTerm("github", "GitHub", ("Git Hub", "Git-Hub")),
+    DefaultTerm("prs", "PRs", ("PR's", "P.R.s")),
+    DefaultTerm("bugs", "Bugs", ("Baggen",), casing=False),
+)
+
+_DEFAULTS_BY_ID: dict[str, DefaultTerm] = {t.entry_id: t for t in DEFAULT_TERMS}
+
+
+def active_default_entries(
+    user_entries: list[DictionaryEntry],
+    removed: frozenset[str] | set[str] = frozenset(),
+    defaults: tuple[DefaultTerm, ...] = DEFAULT_TERMS,
+) -> list[DictionaryEntry]:
+    """The shipped defaults still in force next to ``user_entries``.
+
+    A default steps aside for the user in every way they can express it: they
+    deleted it (``removed``), edited it (their copy carries its id), added the
+    same word themselves, or listed the word as a mishearing of something else.
+    A default VARIANT that is one of the user's own words or spellings is
+    dropped, so the user's rule is the only one for that spelling.
+    """
+    user_ids = {e.id for e in user_entries}
+    taken = {e.word.casefold() for e in user_entries} | {
+        v.casefold() for e in user_entries for v in e.misheard
+    }
+    out: list[DictionaryEntry] = []
+    for term in defaults:
+        entry_id = term.entry_id
+        if entry_id in removed or entry_id in user_ids:
+            continue
+        if term.word.casefold() in taken:
+            continue
+        out.append(
+            DictionaryEntry(
+                id=entry_id,
+                word=term.word,
+                misheard=tuple(v for v in term.misheard if v.casefold() not in taken),
+                default=True,
+                casing=term.casing,
+                fuzzy=term.fuzzy,
+            )
+        )
+    return out
 
 
 def _now_iso() -> str:
@@ -220,16 +338,48 @@ class DictionaryStore:
 
     # -- read ----------------------------------------------------------
 
-    def list_all(self) -> list[DictionaryEntry]:
+    def _load(self) -> tuple[list[DictionaryEntry], frozenset[str]]:
+        """``(user entries, ids of the shipped defaults the user deleted)``."""
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8"))
         except FileNotFoundError:
-            return []
+            return [], frozenset()
         except Exception as exc:  # noqa: BLE001 — a corrupt sidecar must never crash voice
             log.warning("STT dictionary unreadable (%s); treating as empty.", exc)
-            return []
+            return [], frozenset()
+        if not isinstance(raw, dict):
+            return [], frozenset()
+        removed_raw = raw.get("removed_defaults", [])
+        removed = frozenset(
+            item
+            for item in (removed_raw if isinstance(removed_raw, list) else [])
+            if isinstance(item, str) and item.startswith(DEFAULT_ID_PREFIX)
+        )
+        return self._parse_entries(raw), removed
+
+    def list_all(self) -> list[DictionaryEntry]:
+        """The USER's entries, as stored. Shipped defaults are not included."""
+        return self._load()[0]
+
+    def removed_defaults(self) -> frozenset[str]:
+        """Ids of the shipped defaults the user deleted."""
+        return self._load()[1]
+
+    def effective_entries(self) -> list[DictionaryEntry]:
+        """User entries followed by the shipped defaults still in force.
+
+        This is what corrects transcripts and what the Dictionary view lists.
+        """
+        user, removed = self._load()
+        return user + active_default_entries(user, removed)
+
+    @staticmethod
+    def _parse_entries(raw: dict[str, Any]) -> list[DictionaryEntry]:
         entries: list[DictionaryEntry] = []
-        for item in raw.get("entries", []) if isinstance(raw, dict) else []:
+        items = raw.get("entries", [])
+        for item in items if isinstance(items, list) else []:
+            if not isinstance(item, dict):
+                continue
             try:
                 word = _clean_word(str(item.get("word", "")))
                 entries.append(
@@ -246,7 +396,7 @@ class DictionaryStore:
         return entries
 
     def get(self, entry_id: str) -> DictionaryEntry | None:
-        for entry in self.list_all():
+        for entry in self.effective_entries():
             if entry.id == entry_id:
                 return entry
         return None
@@ -279,7 +429,31 @@ class DictionaryStore:
         misheard: Any = None,
         misheard_set: bool = False,
     ) -> DictionaryEntry | None:
-        entries = self.list_all()
+        entries, removed = self._load()
+        if not any(e.id == entry_id for e in entries):
+            # Editing a shipped default turns it into the user's own entry,
+            # under the same id, so a second edit in flight still finds it and
+            # the default stays hidden behind it from then on.
+            default = next(
+                (
+                    d
+                    for d in active_default_entries(entries, removed)
+                    if d.id == entry_id
+                ),
+                None,
+            )
+            if default is None:
+                return None
+            now = _now_iso()
+            entries = entries + [
+                DictionaryEntry(
+                    id=default.id,
+                    word=default.word,
+                    misheard=default.misheard,
+                    created_at=now,
+                    updated_at=now,
+                )
+            ]
         for i, entry in enumerate(entries):
             if entry.id != entry_id:
                 continue
@@ -307,15 +481,29 @@ class DictionaryStore:
         return None
 
     def delete(self, entry_id: str) -> bool:
-        entries = self.list_all()
+        entries, removed = self._load()
         kept = [e for e in entries if e.id != entry_id]
-        if len(kept) == len(entries):
+        newly_removed = entry_id in _DEFAULTS_BY_ID and entry_id not in removed
+        if len(kept) == len(entries) and not newly_removed:
             return False
-        self._write(kept)
+        # A deleted default must stay deleted — also when the user had edited
+        # it first, which made it their entry under the default's id.
+        self._write(kept, removed | {entry_id} if newly_removed else removed)
         return True
 
-    def _write(self, entries: list[DictionaryEntry]) -> None:
-        payload = {"version": 1, "entries": [e.to_dict() for e in entries]}
+    def _write(
+        self,
+        entries: list[DictionaryEntry],
+        removed_defaults: frozenset[str] | set[str] | None = None,
+    ) -> None:
+        if removed_defaults is None:
+            removed_defaults = self.removed_defaults()
+        payload: dict[str, Any] = {
+            "version": 1,
+            "entries": [e.to_storage() for e in entries],
+        }
+        if removed_defaults:
+            payload["removed_defaults"] = sorted(removed_defaults)
         self._path.parent.mkdir(parents=True, exist_ok=True)
         # Atomic tempfile + os.replace so a crash mid-write never leaves a
         # torn sidecar (same discipline as the config writer, AP-7).
@@ -457,7 +645,15 @@ def _splice_out_run(before: str, after: str) -> str:
 class TranscriptCorrector:
     """Compiled correction rules over a fixed snapshot of entries."""
 
-    def __init__(self, entries: list[DictionaryEntry]) -> None:
+    def __init__(
+        self,
+        entries: list[DictionaryEntry],
+        *,
+        echo_entries: list[DictionaryEntry] | None = None,
+    ) -> None:
+        """``echo_entries`` are the words a decoder was actually primed with —
+        the only ones whose run can be a recited prompt. ``None`` means all of
+        ``entries`` (the historical behaviour)."""
         # Explicit misheard → word replacements, longest source first so an
         # overlapping shorter rule never shadows a longer phrase.
         self._replacements: list[tuple[re.Pattern[str], str]] = []
@@ -473,6 +669,7 @@ class TranscriptCorrector:
         self._casing: list[tuple[re.Pattern[str], str]] = [
             (_boundary_pattern(e.word), e.word)
             for e in sorted(entries, key=lambda e: len(e.word), reverse=True)
+            if e.casing
         ]
 
         # Fuzzy-repair index for SINGLE-token canonical words, keyed by the
@@ -483,6 +680,8 @@ class TranscriptCorrector:
         for entry in entries:
             word = entry.word
             self._canonical_tokens.add(word.casefold())
+            if not entry.casing or not entry.fuzzy:
+                continue
             if " " in word or len(word) < _FUZZY_MIN_TOKEN_LEN:
                 continue
             if not word[0].isalpha():
@@ -491,7 +690,9 @@ class TranscriptCorrector:
             self._fuzzy_index.setdefault(fold[:1], []).append((word, fold))
 
         self._token_re = re.compile(r"[^\W\d_][\w''\-]*", re.UNICODE)
-        self._echo_run_re, self._echo_item_re = _compile_echo_patterns(entries)
+        self._echo_run_re, self._echo_item_re = _compile_echo_patterns(
+            entries if echo_entries is None else echo_entries
+        )
         self.rule_count = len(self._replacements) + len(self._casing)
 
     def strip_prompt_echo(self, text: str) -> str:
@@ -624,14 +825,18 @@ def get_corrector(store: DictionaryStore | None = None) -> TranscriptCorrector:
             or fresh_path
             or signature != _cached_signature
         ):
-            entries = (store or DictionaryStore(path)).list_all()
-            _cached_corrector = TranscriptCorrector(entries)
+            user, removed = (store or DictionaryStore(path))._load()
+            entries = user + active_default_entries(user, removed)
+            # Only the user's words are ever primed into a decoder
+            # (``dictionary_bias_words``), so only they can be "recited".
+            _cached_corrector = TranscriptCorrector(entries, echo_entries=user)
             _cached_signature = signature
             _cached_path = path
-            if entries:
+            if user:
                 log.info(
-                    "STT dictionary loaded: %d entries, %d rules.",
-                    len(entries),
+                    "STT dictionary loaded: %d entries (+%d defaults), %d rules.",
+                    len(user),
+                    len(entries) - len(user),
                     _cached_corrector.rule_count,
                 )
         return _cached_corrector
@@ -652,6 +857,16 @@ def dictionary_bias_words(store: DictionaryStore | None = None) -> list[str]:
         words.append(entry.word)
         total += cost
     return words
+
+
+def dictionary_protected_words(store: DictionaryStore | None = None) -> list[str]:
+    """Every word the dictionary stands for, shipped defaults included.
+
+    For the dictation polish pass, which must not "correct" these spellings
+    into something familiar. Unlike :func:`dictionary_bias_words` this is not
+    a decoder prompt, so the defaults belong here.
+    """
+    return [entry.word for entry in (store or DictionaryStore()).effective_entries()]
 
 
 # ----------------------------------------------------------------------
@@ -777,8 +992,13 @@ def wrap_stt_with_dictionary(provider: Any) -> Any:
 
 
 __all__ = [
+    "DEFAULT_ID_PREFIX",
+    "DEFAULT_TERMS",
+    "DefaultTerm",
     "DictionaryEntry",
     "DictionaryStore",
+    "active_default_entries",
+    "dictionary_protected_words",
     "TranscriptCorrector",
     "DictionaryCorrectingSTT",
     "dictionary_bias_words",

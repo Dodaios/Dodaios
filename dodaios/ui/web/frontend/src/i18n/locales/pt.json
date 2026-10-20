@@ -5731,7 +5731,15 @@
       "close": "Fechar a bolha de voz",
       "mute": "Silenciar a voz de {0} nesta sessão",
       "unmute": "Reativar a voz de {0}",
-      "start_failed": "Não foi possível começar a ouvir — talvez já esteja uma conversa a decorrer.",
+      "start_failed": "Não foi possível iniciar a voz. Tente novamente.",
+      "start_refused": {
+        "busy": "Já está aberta uma conversa de voz. Desligue primeiro e depois comece de novo.",
+        "muted": "A voz está silenciada. Reative-a para iniciar uma conversa.",
+        "dictation": "Um ditado está a usar o microfone. Termine-o e depois comece de novo.",
+        "microphone_in_use": "Outra chamada de voz está a usar o microfone. Termine-a e depois comece de novo.",
+        "microphone": "O microfone não está disponível. Permita o acesso ao microfone nas definições do sistema e tente novamente.",
+        "unavailable": "A voz não está pronta neste momento. Reinicie a aplicação e tente novamente."
+      },
       "notice_jump": "Ir para {0}",
       "notice_dismiss": "Ocultar esta atualização"
     },

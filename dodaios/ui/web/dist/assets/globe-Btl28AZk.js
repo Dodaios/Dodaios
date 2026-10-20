@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/globe-muTDCdwL.js
+import{c as e}from"./index-CReRNaIe.js";/**
+========
+import{c as e}from"./index-DAuhb_qg.js";/**
+>>>>>>>> 0cfeda693d964c3df71fd9caac9362c4cb1bf725:dodaios/ui/web/dist/assets/globe-Btl28AZk.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const o=e("Globe",[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["path",{d:"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20",key:"13o1zl"}],["path",{d:"M2 12h20",key:"9i4pu4"}]]);export{o as G};

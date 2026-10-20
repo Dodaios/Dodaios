@@ -6,6 +6,7 @@ import {
   requestVoiceCall,
   requestVoiceHangup,
 } from "@/lib/voiceApi";
+import { voiceStartRefusalKey } from "@/lib/voiceStartRefusal";
 import { useEventStore, type VoiceState } from "@/store/events";
 import { useHomeStore } from "@/store/home";
 
@@ -64,9 +65,23 @@ export function useVoiceCall() {
         if (!stopBrowserVoiceCall()) await requestVoiceHangup();
       } else {
         try {
-          const { armed } = await requestVoiceCall();
+          const { armed, reason } = await requestVoiceCall();
           if (!armed) {
-            pushToast("warning", t("agentic_grid.voice_bubble.start_failed"));
+            const message = t(voiceStartRefusalKey(reason));
+            if (reason === "busy") {
+              // A session this window does not show as running can only be
+              // ended from here, so the refusal carries the way out.
+              pushToast("warning", message, {
+                action: {
+                  label: t("agentic_grid.voice_bubble.hang_up"),
+                  onAction: async () => {
+                    if (!stopBrowserVoiceCall()) await requestVoiceHangup();
+                  },
+                },
+              });
+            } else {
+              pushToast("warning", message);
+            }
           }
         } catch (error) {
           if (
