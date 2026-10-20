@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/useCanvasAwake-DGk8F1DU.js
 import{r as e}from"./index-BU-hIery.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+|||||||| parent of 267a8ac9d7 (build(ui): rebuild the bundle for the learning review line):dodaios/ui/web/dist/assets/useCanvasAwake-CYdS9IDo.js
+import{r as e}from"./index-BVYI_PV2.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+========
+import{r as e}from"./index-Cbzq16jV.js";const i=e.createContext(!0);function v(t){const s=e.useContext(i),[o,c]=e.useState(!0);return e.useEffect(()=>{const r=t.current;if(!r||typeof IntersectionObserver>"u")return;const n=new IntersectionObserver(a=>{for(const u of a)c(u.isIntersecting)},{threshold:.05});return n.observe(r),()=>n.disconnect()},[t]),s&&o}export{i as C,v as u};
+>>>>>>>> 267a8ac9d7 (build(ui): rebuild the bundle for the learning review line):dodaios/ui/web/dist/assets/useCanvasAwake-CGKRu6Tc.js
