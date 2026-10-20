@@ -16,13 +16,13 @@ from typing import Any
 
 import pytest
 
-import jarvis.core.config as cfg
-from jarvis.brain.model_catalog import (
+import dodaios.core.config as cfg
+from dodaios.brain.model_catalog import (
     CATALOG_PROVIDERS,
     ModelCatalog,
     parse_models_response,
 )
-from jarvis.core.config import JarvisConfig
+from dodaios.core.config import JarvisConfig
 from tests.fakes.provider_config import install_provider_config
 
 
@@ -210,7 +210,7 @@ def _local_env(
 ) -> None:
     """Hermetic env for the LOCAL providers: optional base-url overrides, no
     real keyring, no ambient OLLAMA_HOST."""
-    from jarvis.core.config import BrainConfig, BrainProviderConfig
+    from dodaios.core.config import BrainConfig, BrainProviderConfig
 
     providers = {pid: BrainProviderConfig(base_url=url) for pid, url in (base_urls or {}).items()}
     conf = JarvisConfig(brain=BrainConfig(providers=providers))

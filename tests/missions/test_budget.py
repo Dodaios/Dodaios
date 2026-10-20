@@ -5,15 +5,15 @@ import asyncio
 
 import pytest
 
-from jarvis.missions.budget import (
+from dodaios.missions.budget import (
     DEFAULT_DAILY_USD,
     DEFAULT_PER_MISSION_USD,
     DEFAULT_WARN_PCT,
     BudgetExceeded,
     BudgetTracker,
 )
-from jarvis.missions.event_bus import MissionBus
-from jarvis.missions.events import (
+from dodaios.missions.event_bus import MissionBus
+from dodaios.missions.events import (
     EventEnvelope,
     MissionBudgetWarning,
     WorkerDraftReady,
@@ -276,7 +276,7 @@ async def test_bind_to_event_bus_ignores_non_draft_events() -> None:
     bt = BudgetTracker()
     bt.bind_to_event_bus(bus)
 
-    from jarvis.missions.events import MissionDispatched
+    from dodaios.missions.events import MissionDispatched
 
     env = EventEnvelope(
         mission_id="m1",

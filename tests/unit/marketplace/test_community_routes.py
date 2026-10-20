@@ -16,10 +16,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.marketplace import catalog_data, community_source
-from jarvis.marketplace.agent_plugins_loader import EXTENSION_NAMESPACE
-from jarvis.marketplace.usage_cards import loader as cards_loader
-from jarvis.ui.web.marketplace_routes import router
+from dodaios.marketplace import catalog_data, community_source
+from dodaios.marketplace.agent_plugins_loader import EXTENSION_NAMESPACE
+from dodaios.marketplace.usage_cards import loader as cards_loader
+from dodaios.ui.web.marketplace_routes import router
 
 
 def _plugin_entry(name: str = "todo-fox", **manifest_overrides: Any) -> dict[str, Any]:
@@ -93,7 +93,7 @@ def community_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(community_source, "index_url", lambda: "https://reg.example/index.json")
     monkeypatch.setattr(catalog_data, "_DEFAULT_CATALOG_PATH", tmp_path / "plugin_catalog.json")
     monkeypatch.setattr(cards_loader, "_DATA_CARDS_DIR", tmp_path / "usage_cards")
-    monkeypatch.setattr("jarvis.core.paths.user_skills_dir", lambda: tmp_path / "skills")
+    monkeypatch.setattr("dodaios.core.paths.user_skills_dir", lambda: tmp_path / "skills")
     catalog_data.clear_cache()
     cards_loader.load_usage_card.cache_clear()
     yield tmp_path
@@ -252,7 +252,7 @@ Produce three bullets and one takeaway line.
 
 def _client_with_skills(skills_root: Path) -> tuple[httpx.AsyncClient, Any]:
     """Test client whose app carries a real SkillRegistry (skill installs need it)."""
-    from jarvis.skills.registry import SkillRegistry
+    from dodaios.skills.registry import SkillRegistry
 
     app = FastAPI()
     app.include_router(router)
@@ -273,7 +273,7 @@ def offline_skill_download(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     in tests/unit/marketplace/test_community_hardening.py; here we only need a
     file on disk so the registry parse + lifecycle state are the REAL ones.
     """
-    from jarvis.skills.finder import SkillFinder
+    from dodaios.skills.finder import SkillFinder
 
     async def fake_install(self: Any, candidate: Any) -> Path:
         target_dir = tmp_path / "skills" / candidate.name
@@ -311,7 +311,7 @@ async def test_install_by_name_installs_a_skill_and_reports_it_ready(
 def _broken_download(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, content: str
 ) -> None:
-    from jarvis.skills.finder import SkillFinder
+    from dodaios.skills.finder import SkillFinder
 
     async def fake_install(self: Any, candidate: Any) -> Path:
         target_dir = tmp_path / "skills" / candidate.name

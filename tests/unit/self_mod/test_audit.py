@@ -16,7 +16,7 @@ from uuid import UUID
 
 import pytest
 
-from jarvis.core.self_mod import (
+from dodaios.core.self_mod import (
     AuditActor,
     AuditEvent,
     AuditSource,
@@ -272,7 +272,7 @@ class TestRobustness:
         monkeypatch.setattr(Path, "open", failing_open)
 
         with caplog.at_level(
-            logging.WARNING, logger="jarvis.core.self_mod.audit"
+            logging.WARNING, logger="dodaios.core.self_mod.audit"
         ):
             audit.record(sample_event)
 
@@ -325,7 +325,7 @@ class TestTail:
         audit.record(sample_event)
 
         with caplog.at_level(
-            logging.WARNING, logger="jarvis.core.self_mod.audit"
+            logging.WARNING, logger="dodaios.core.self_mod.audit"
         ):
             entries = audit.tail()
 

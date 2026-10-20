@@ -6,7 +6,7 @@ import json
 import tomllib
 from pathlib import Path
 
-from jarvis.workspace.trust import ensure_trusted
+from dodaios.workspace.trust import ensure_trusted
 
 
 def _repo(tmp_path: Path) -> Path:

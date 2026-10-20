@@ -1,4 +1,4 @@
-"""Plan 4.4 fixes in ``jarvis/live/native.py``, each on Gemini- and local-voice-like wires.
+"""Plan 4.4 fixes in ``dodaios/live/native.py``, each on Gemini- and local-voice-like wires.
 
 ``NativeLiveVoiceSession`` serves Gemini Live and the Jarvis-owned local voice
 engine, so every behaviour here is pinned on both connection shapes from
@@ -13,14 +13,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
-from jarvis.cu.direct import tool_schema
-from jarvis.live import native, runtime
-from jarvis.live.coordination import NAMED_TOOLS
-from jarvis.live.native import NativeLiveVoiceSession
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
-from jarvis.realtime.protocol import RealtimeEvent, RealtimeUnavailableError
+from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
+from dodaios.cu.direct import tool_schema
+from dodaios.live import native, runtime
+from dodaios.live.coordination import NAMED_TOOLS
+from dodaios.live.native import NativeLiveVoiceSession
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
+from dodaios.realtime.protocol import RealtimeEvent, RealtimeUnavailableError
 from tests.fakes.fake_native_voice import (
     FakeNativeConnection,
     FakeToolGateway,
@@ -605,13 +605,13 @@ async def test_tools_the_rules_name_stay_direct_under_a_budget(call, make_provid
 
 def _real_named_tools() -> tuple[SupervisorToolDescriptor, ...]:
     """The tools the rules name, with the descriptions and schemas they ship with."""
-    from jarvis.brain.workspace_git_tool import WorkspaceGitTool
-    from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-    from jarvis.commands.registry import get_command
-    from jarvis.plugins.tool.app_command import RegistryCommandTool
-    from jarvis.plugins.tool.ask_agent import AskAgentTool
-    from jarvis.plugins.tool.navigate import NavigateTool
-    from jarvis.plugins.tool.show_on_screen import ShowOnScreenTool
+    from dodaios.brain.workspace_git_tool import WorkspaceGitTool
+    from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+    from dodaios.commands.registry import get_command
+    from dodaios.plugins.tool.app_command import RegistryCommandTool
+    from dodaios.plugins.tool.ask_agent import AskAgentTool
+    from dodaios.plugins.tool.navigate import NavigateTool
+    from dodaios.plugins.tool.show_on_screen import ShowOnScreenTool
 
     amend = RegistryCommandTool(get_command("mission-amend"), runtime=None)
     tools = (

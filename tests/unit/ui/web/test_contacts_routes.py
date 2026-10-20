@@ -1,6 +1,6 @@
 """Tests for the Contacts section REST endpoints (CRUD + validation).
 
-Contract (see jarvis/ui/web/contacts_routes.py):
+Contract (see dodaios/ui/web/contacts_routes.py):
 - GET    /api/contacts          → {"contacts": [summary, ...]} sorted by name.
 - GET    /api/contacts/{slug}   → full contact dict, or 404.
 - POST   /api/contacts          → create one (server derives slug); returns full (201).
@@ -34,7 +34,7 @@ def _isolate_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _client() -> TestClient:
-    from jarvis.ui.web.contacts_routes import router
+    from dodaios.ui.web.contacts_routes import router
 
     app = FastAPI()
     app.include_router(router)

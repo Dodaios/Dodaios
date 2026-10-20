@@ -20,7 +20,7 @@ the next step.
 Jarvis keeps the parts a model should not guess: coordinates are pixels of the
 latest screenshot and map through that frame's `CoordinateMapper`; a stale
 frame or a changed front window presses nothing. Before any capture or input
-`jarvis/cu/direct.py::readiness` names the blocker for the current OS:
+`dodaios/cu/direct.py::readiness` names the blocker for the current OS:
 
 | OS | Checked before acting | Answer |
 | --- | --- | --- |
@@ -37,10 +37,10 @@ and the CLI still use the mission engine described below.
 While Jarvis operates the screen, a thin blue line with a narrow glow runs
 along every monitor edge, and an "Esc to cancel" pill sits top-center. The
 pointer turns into the agent pointer: a slim blue arrowhead with a white rim
-and a soft halo (`jarvis/cu/indicator/agent_pointer.py`). It glides to each
+and a soft halo (`dodaios/cu/indicator/agent_pointer.py`). It glides to each
 target on a gently bowed path, leans into its motion, and dips with a ring
 on every click; a click waits about a quarter second so the user sees the
-pointer arrive. The motion model is `jarvis/cu/indicator/pointer_motion.py`.
+pointer arrive. The motion model is `dodaios/cu/indicator/pointer_motion.py`.
 
 On Windows the system pointer is hidden during control (`SetSystemCursor`)
 and the user's own cursor scheme is reloaded when control ends
@@ -53,19 +53,19 @@ only, never the agent pointer.
 ## Engine v2 (default since 2026-07-02)
 
 The POAV Computer-Use engine was rebuilt from scratch as the modular package
-`jarvis/cu/` and is the default (`[computer_use].engine = "v2"`). The product
+`dodaios/cu/` and is the default (`[computer_use].engine = "v2"`). The product
 mechanism is unchanged — a screenshot is the perception, mouse + keyboard are
 the actuation — but the structural defects of the legacy monolith are fixed:
 
 | Module | Responsibility |
 | --- | --- |
-| `jarvis/cu/geometry.py` | One `CoordinateMapper` per captured frame (model space -> image space -> screen input units, negative virtual-desktop origins and Retina points included) + the thread DPI pin that keeps capture, metrics and input in ONE coordinate space on mixed-DPI Windows. |
-| `jarvis/cu/capture.py` | UI-idle stable-frame capture (bounded re-grab until two area-filtered thumbnails match), one call-scoped capture session per frame, deferred BGRX conversion, and reducing-gap downscale to `[computer_use].image_max_dimension` (default 1366). |
-| `jarvis/cu/conventions.py` | Coordinate conventions as a per-provider capability: Gemini family emits a 0-1000 normalized grid, Claude/OpenAI emit pixels on the sent image. Prompt block AND parsing derive from one resolution (`[computer_use].coordinate_space` pins it). |
-| `jarvis/cu/actuate/` | Platform-native input: Windows SendInput with absolute virtual-desktop positioning, macOS/Linux-X11 via pynput (points/pixels, no primary-screen clamping), Wayland/headless refuse honestly. `verified_move` turns silent misses into diagnosable failures; cursor animation remains configurable but adds no delay by default. |
-| `jarvis/cu/verify.py` | Pixel/UI comparison primitives, accessibility read-back after typing, focus confirmation, and human-handoff detection. The engine polls compact local/global probes and requires a persistent second observation before accepting a visual effect. |
-| `jarvis/cu/ledger.py` | Idempotency ledger: an action that already executed against a visually identical screen is refused deterministically — the double-type/double-click killer. |
-| `jarvis/cu/engine.py` | The perceive->act->verify state machine; one pointer action per frame; a failed effect check truncates the batch and forces re-perception; verified-done judge with the proof spoken in the user's language. Exit codes and readback contract match the legacy engine. |
+| `dodaios/cu/geometry.py` | One `CoordinateMapper` per captured frame (model space -> image space -> screen input units, negative virtual-desktop origins and Retina points included) + the thread DPI pin that keeps capture, metrics and input in ONE coordinate space on mixed-DPI Windows. |
+| `dodaios/cu/capture.py` | UI-idle stable-frame capture (bounded re-grab until two area-filtered thumbnails match), one call-scoped capture session per frame, deferred BGRX conversion, and reducing-gap downscale to `[computer_use].image_max_dimension` (default 1366). |
+| `dodaios/cu/conventions.py` | Coordinate conventions as a per-provider capability: Gemini family emits a 0-1000 normalized grid, Claude/OpenAI emit pixels on the sent image. Prompt block AND parsing derive from one resolution (`[computer_use].coordinate_space` pins it). |
+| `dodaios/cu/actuate/` | Platform-native input: Windows SendInput with absolute virtual-desktop positioning, macOS/Linux-X11 via pynput (points/pixels, no primary-screen clamping), Wayland/headless refuse honestly. `verified_move` turns silent misses into diagnosable failures; cursor animation remains configurable but adds no delay by default. |
+| `dodaios/cu/verify.py` | Pixel/UI comparison primitives, accessibility read-back after typing, focus confirmation, and human-handoff detection. The engine polls compact local/global probes and requires a persistent second observation before accepting a visual effect. |
+| `dodaios/cu/ledger.py` | Idempotency ledger: an action that already executed against a visually identical screen is refused deterministically — the double-type/double-click killer. |
+| `dodaios/cu/engine.py` | The perceive->act->verify state machine; one pointer action per frame; a failed effect check truncates the batch and forces re-perception; verified-done judge with the proof spoken in the user's language. Exit codes and readback contract match the legacy engine. |
 
 Rollback is one config line: `[computer_use].engine = "current"` (last legacy
 loop) or `"stable"` / `"june13"` (frozen snapshots). The engine is resolved

@@ -3,15 +3,15 @@
 import pytest
 from fastapi import Response
 
-from jarvis.marketplace.catalog import PluginCatalog
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.marketplace.token_store import InMemoryBackend, TokenStore
-from jarvis.ui.web import marketplace_routes as routes
+from dodaios.marketplace.catalog import PluginCatalog
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.token_store import InMemoryBackend, TokenStore
+from dodaios.ui.web import marketplace_routes as routes
 
 
 @pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
 async def test_catalog_marks_missing_amd_capability_before_connect(monkeypatch, platform):
-    from jarvis.marketplace import amd_mcp
+    from dodaios.marketplace import amd_mcp
 
     spec = load_catalog().by_id("amd_gpu")
     catalog = PluginCatalog(version=1, schema_version="test", plugins=[spec])

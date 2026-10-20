@@ -31,9 +31,9 @@ from collections.abc import Callable
 import numpy as np
 import sounddevice as sd
 
-from jarvis.audio.mic_level import LevelNormalizer
+from dodaios.audio.mic_level import LevelNormalizer
 
-_log = logging.getLogger("jarvis.ui.orb.mic_listener")
+_log = logging.getLogger("dodaios.ui.orb.mic_listener")
 
 SAMPLE_RATE = 16000
 FRAME_MS = 20

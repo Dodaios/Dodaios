@@ -1,4 +1,4 @@
-from jarvis.setup import state as st
+from dodaios.setup import state as st
 
 
 def test_default_state_path_is_cwd_independent(monkeypatch, tmp_path):
@@ -22,7 +22,7 @@ def test_default_state_path_is_cwd_independent(monkeypatch, tmp_path):
     assert from_here.is_absolute()
     # It must live next to the rest of the app's persistent data (config.DATA_DIR),
     # anchored to the installed package — not to wherever the process was started.
-    from jarvis.core import config
+    from dodaios.core import config
 
     assert from_here == (config.DATA_DIR / "setup_state.json").resolve()
 

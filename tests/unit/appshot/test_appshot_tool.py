@@ -13,10 +13,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.appshot import service as appshot_service
-from jarvis.appshot.store import get_store
-from jarvis.plugins.tool.appshot import AppshotTool
-from jarvis.screen_context.models import (
+from dodaios.appshot import service as appshot_service
+from dodaios.appshot.store import get_store
+from dodaios.plugins.tool.appshot import AppshotTool
+from dodaios.screen_context.models import (
     CaptureTarget,
     ScreenContext,
     TargetKind,
@@ -24,7 +24,7 @@ from jarvis.screen_context.models import (
     VisualIntent,
     WindowFacts,
 )
-from jarvis.screen_context.service import CaptureOutcome
+from dodaios.screen_context.service import CaptureOutcome
 
 
 def _context(intent: VisualIntent) -> ScreenContext:
@@ -97,8 +97,8 @@ def _config(*, enabled: bool = True):
 
 @pytest.fixture
 def wired(monkeypatch):
-    import jarvis.plugins.tool.appshot as appshot_tool
-    import jarvis.screen_context.turn as turn
+    import dodaios.plugins.tool.appshot as appshot_tool
+    import dodaios.screen_context.turn as turn
 
     service = FakeService()
     bus = Bus()

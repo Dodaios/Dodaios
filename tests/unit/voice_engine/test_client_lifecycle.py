@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.voice_engine import protocol as p
-from jarvis.voice_engine.client import EngineClient
+from dodaios.voice_engine import protocol as p
+from dodaios.voice_engine.client import EngineClient
 
 
 class Pipe:

@@ -12,12 +12,12 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.marketplace.hosted_callback import (
+from dodaios.marketplace.hosted_callback import (
     _PENDING,
     HostedCallbackServer,
     set_public_callback_base_url,
 )
-from jarvis.ui.web.marketplace_routes import router
+from dodaios.ui.web.marketplace_routes import router
 
 
 @pytest.fixture(autouse=True)

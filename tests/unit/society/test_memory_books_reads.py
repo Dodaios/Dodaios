@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from jarvis.society.memory_books import edit_book, has_books, read_books
+from dodaios.society.memory_books import edit_book, has_books, read_books
 
 
 def _agent(agent_id: str = "vega") -> SimpleNamespace:

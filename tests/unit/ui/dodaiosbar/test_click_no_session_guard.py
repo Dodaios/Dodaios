@@ -13,8 +13,8 @@ always escape the stuck state.
 
 from __future__ import annotations
 
-from jarvis.ui.dodaiosbar import renderer as R
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar import renderer as R
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 from ui.orb.controls import pet_strip_layout
 
 
@@ -44,9 +44,9 @@ def _x_glyph() -> int:
 
 
 def _patch_pipeline(monkeypatch, fake) -> None:
-    # _on_click does `from jarvis.core.runtime_refs import get_speech_pipeline`
+    # _on_click does `from dodaios.core.runtime_refs import get_speech_pipeline`
     # at call time, so patching the module attribute is enough.
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: fake)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: fake)
 
 
 def test_stuck_active_bar_without_session_starts_session_not_hangup(monkeypatch):
@@ -78,7 +78,7 @@ def test_repeated_close_click_does_not_reopen_session(monkeypatch):
     """A rapid second click lands where the X used to be after the optimistic
     collapse; it must not be reinterpreted as an idle-body session start."""
     now = [100.0]
-    monkeypatch.setattr("jarvis.ui.dodaiosbar.overlay.time.monotonic", lambda: now[0])
+    monkeypatch.setattr("dodaios.ui.dodaiosbar.overlay.time.monotonic", lambda: now[0])
     bar = JarvisBarOverlay()
     bar._mode = "listen"
     fake = _FakePipeline(session_active=True)
@@ -121,7 +121,7 @@ def test_missing_accessor_preserves_legacy_hangup(monkeypatch):
             ...
 
     fake = _Legacy()
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: fake)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: fake)
     bar = JarvisBarOverlay()
     bar._mode = "listen"
 
@@ -134,7 +134,7 @@ def test_missing_accessor_preserves_legacy_hangup(monkeypatch):
 def test_external_talk_callback_bypasses_child_runtime_refs(monkeypatch):
     """The macOS host resolves the click, but the parent owns the pipeline."""
     monkeypatch.setattr(
-        "jarvis.core.runtime_refs.get_speech_pipeline",
+        "dodaios.core.runtime_refs.get_speech_pipeline",
         lambda: (_ for _ in ()).throw(AssertionError("child pipeline lookup")),
     )
     fired: list[str] = []
@@ -149,7 +149,7 @@ def test_external_talk_callback_bypasses_child_runtime_refs(monkeypatch):
 def test_external_hangup_callback_bypasses_child_runtime_refs(monkeypatch):
     """A hosted close click is forwarded and acknowledged locally."""
     monkeypatch.setattr(
-        "jarvis.core.runtime_refs.get_speech_pipeline",
+        "dodaios.core.runtime_refs.get_speech_pipeline",
         lambda: (_ for _ in ()).throw(AssertionError("child pipeline lookup")),
     )
     fired: list[str] = []

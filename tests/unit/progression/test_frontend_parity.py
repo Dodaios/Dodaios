@@ -11,7 +11,7 @@ import json
 import re
 from pathlib import Path
 
-from jarvis.progression.rules import (
+from dodaios.progression.rules import (
     LOOK_UNLOCKS,
     REWARDS,
     RULES,
@@ -21,7 +21,7 @@ from jarvis.progression.rules import (
     WORLD_ACTIONS,
 )
 
-_FRONTEND = Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src"
+_FRONTEND = Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src"
 _CATALOG = _FRONTEND / "components/society/progression/levelCatalog.ts"
 _LOCALES = _FRONTEND / "i18n/locales/society"
 

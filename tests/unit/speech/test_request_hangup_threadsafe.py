@@ -13,7 +13,7 @@ import threading
 
 import pytest
 
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
 
 
 def _pipeline(owner_loop) -> SpeechPipeline:

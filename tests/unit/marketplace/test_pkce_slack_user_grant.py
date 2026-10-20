@@ -12,12 +12,12 @@ from datetime import UTC, datetime, timedelta
 import httpx
 import pytest
 
-from jarvis.marketplace.auth.oauth_pkce_loopback import (
+from dodaios.marketplace.auth.oauth_pkce_loopback import (
     PkceLoopbackConfig,
     PkceLoopbackHandler,
     _PendingPkceFlow,
 )
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.token_store import Tokens
 
 _ACCESS = "xoxe.xoxp-1-user"
 _ROTATED = "xoxe-1-rotated"

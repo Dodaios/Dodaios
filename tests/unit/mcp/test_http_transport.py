@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.mcp.client import MCPClient
-from jarvis.mcp.registry import MCPRegistry, MCPServerSpec
+from dodaios.mcp.client import MCPClient
+from dodaios.mcp.registry import MCPRegistry, MCPServerSpec
 
 
 def _http_spec(
@@ -61,7 +61,7 @@ def test_load_from_mcp_json_http_entry(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         }
     }
-    monkeypatch.setattr("jarvis.mcp.state.load_config", lambda: fake_cfg)
+    monkeypatch.setattr("dodaios.mcp.state.load_config", lambda: fake_cfg)
     reg = MCPRegistry()
     reg.load_from_mcp_json()
     spec = reg.get_spec("zapier")
@@ -75,7 +75,7 @@ def test_load_from_mcp_json_http_without_url_is_skipped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_cfg = {"mcpServers": {"broken": {"transport": "http", "enabled": True}}}
-    monkeypatch.setattr("jarvis.mcp.state.load_config", lambda: fake_cfg)
+    monkeypatch.setattr("dodaios.mcp.state.load_config", lambda: fake_cfg)
     reg = MCPRegistry()
     reg.load_from_mcp_json()
     assert reg.get_spec("broken") is None
@@ -94,7 +94,7 @@ def test_load_from_mcp_json_stdio_entry_still_works(
             }
         }
     }
-    monkeypatch.setattr("jarvis.mcp.state.load_config", lambda: fake_cfg)
+    monkeypatch.setattr("dodaios.mcp.state.load_config", lambda: fake_cfg)
     reg = MCPRegistry()
     reg.load_from_mcp_json()
     spec = reg.get_spec("fs")
@@ -109,7 +109,7 @@ def test_resolve_headers_substitutes_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.mcp.client.get_secret",
+        "dodaios.mcp.client.get_secret",
         lambda name, env_fallback=None: "SEKRET" if name == "ZAPIER_TOKEN" else None,
     )
     spec = _http_spec(
@@ -124,7 +124,7 @@ def test_resolve_headers_keeps_placeholder_when_secret_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.mcp.client.get_secret", lambda name, env_fallback=None: None
+        "dodaios.mcp.client.get_secret", lambda name, env_fallback=None: None
     )
     spec = _http_spec(headers={"Authorization": "Bearer $MISSING"})
     client = MCPClient(spec)
@@ -183,7 +183,7 @@ async def test_start_http_transport_wires_streamablehttp_client(
     )
     monkeypatch.setattr("mcp.ClientSession", _Session, raising=False)
     monkeypatch.setattr(
-        "jarvis.mcp.client.get_secret",
+        "dodaios.mcp.client.get_secret",
         lambda name, env_fallback=None: "TOK" if name == "ZAPIER_TOKEN" else None,
     )
 

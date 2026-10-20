@@ -16,8 +16,8 @@ guards the pure-smalltalk cases against over-reach.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.config import JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.config import JarvisConfig
 
 
 def _mgr(*, extra_smalltalk: list[str] | None = None) -> BrainManager:

@@ -15,18 +15,18 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.chat_binding import make_deliver_hook
-from jarvis.society.conversation import ConversationArchive
-from jarvis.society.events import MsgType
-from jarvis.society.roster import (
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.chat_binding import make_deliver_hook
+from dodaios.society.conversation import ConversationArchive
+from dodaios.society.events import MsgType
+from dodaios.society.roster import (
     canonical_session_id,
     conversation_session_id,
     pair_session_id,
 )
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.surface import agent_id_of, counterpart_of
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.surface import agent_id_of, counterpart_of
 
 
 class TurnService:
@@ -155,8 +155,8 @@ async def test_messages_wait_while_the_agent_works_in_any_chat(tmp_path: Path):
 
 
 async def test_the_person_can_step_into_a_conversation_and_apply_a_change(tmp_path: Path):
-    from jarvis.core.chat_turn import ChatTurn, current_chat_turn
-    from jarvis.society.agent_tools import ProposeChangeTool
+    from dodaios.core.chat_turn import ChatTurn, current_chat_turn
+    from dodaios.society.agent_tools import ProposeChangeTool
 
     svc = TurnService(AgentChatStore(tmp_path / "agent_chat.db"))
     rt = _runtime(tmp_path, svc)
@@ -210,7 +210,7 @@ def test_recall_searches_every_chat_the_agent_owns(tmp_path: Path):
 
 
 def test_mcp_session_header_accepts_conversation_chats():
-    from jarvis.ui.web.mcp_server_routes import session_ref
+    from dodaios.ui.web.mcp_server_routes import session_ref
 
     def ref(value: str) -> str | None:
         return session_ref({"headers": [(b"x-jarvis-chat-session", value.encode())]})
@@ -223,7 +223,7 @@ def test_mcp_session_header_accepts_conversation_chats():
 async def test_conversations_route_lists_only_older_side_chats(tmp_path: Path):
     import httpx
 
-    from jarvis.ui.web import society_routes
+    from dodaios.ui.web import society_routes
 
     svc = TurnService(AgentChatStore(tmp_path / "agent_chat.db"))
     rt = _runtime(tmp_path, svc)
@@ -269,8 +269,8 @@ async def test_conversations_route_lists_only_older_side_chats(tmp_path: Path):
 
 
 async def test_a_message_records_the_chat_it_was_written_in(tmp_path: Path):
-    from jarvis.core.chat_turn import ChatTurn, current_chat_turn
-    from jarvis.society.agent_tools import MessageAgentTool
+    from dodaios.core.chat_turn import ChatTurn, current_chat_turn
+    from dodaios.society.agent_tools import MessageAgentTool
 
     svc = TurnService(AgentChatStore(tmp_path / "agent_chat.db"))
     rt = _runtime(tmp_path, svc)

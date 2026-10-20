@@ -13,8 +13,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.downloads_routes as downloads_routes
-from jarvis.ui.web.downloads_routes import router as downloads_router
+import dodaios.ui.web.downloads_routes as downloads_routes
+from dodaios.ui.web.downloads_routes import router as downloads_router
 
 
 def _client(native: bool, home: Path) -> TestClient:
@@ -31,7 +31,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     # Windows asks the known-folder API, which ignores Path.home().
     monkeypatch.setattr(
-        "jarvis.platform.user_dirs.downloads_dir", lambda: tmp_path / "Downloads"
+        "dodaios.platform.user_dirs.downloads_dir", lambda: tmp_path / "Downloads"
     )
     return tmp_path
 
@@ -170,7 +170,7 @@ def test_reveal_open_missing_file_returns_404(home: Path, route: str) -> None:
 def test_reveal_invokes_helper_with_resolved_path(
     home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.platform.open_path as open_path
+    import dodaios.platform.open_path as open_path
 
     calls: list[Path] = []
     monkeypatch.setattr(
@@ -187,7 +187,7 @@ def test_reveal_invokes_helper_with_resolved_path(
 def test_open_invokes_helper_and_reports_failure(
     home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import jarvis.platform.open_path as open_path
+    import dodaios.platform.open_path as open_path
 
     calls: list[Path] = []
     monkeypatch.setattr(open_path, "open_file", lambda p: (calls.append(p), False)[1])

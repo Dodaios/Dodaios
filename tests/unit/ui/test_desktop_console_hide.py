@@ -16,8 +16,8 @@ probes are injectable.
 
 from __future__ import annotations
 
-from jarvis.ui import desktop_app
-from jarvis.ui.desktop_app import _console_owned_exclusively, hide_accidental_console
+from dodaios.ui import desktop_app
+from dodaios.ui.desktop_app import _console_owned_exclusively, hide_accidental_console
 
 # --- the pure sole-owner decision (cross-platform) -------------------------
 

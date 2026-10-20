@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import config as config_module
-from jarvis.core.config import clear_config_cache, resolve_provider_endpoint
+from dodaios.core import config as config_module
+from dodaios.core.config import clear_config_cache, resolve_provider_endpoint
 
 
 @pytest.fixture(autouse=True)
@@ -169,7 +169,7 @@ def test_team_proxy_still_flips_every_provider(_clean, monkeypatch):
 
 def test_an_explicit_config_bypasses_the_cache(_clean):
     """The test seam still answers from what it was handed, not from the file."""
-    from jarvis.core.config import JarvisConfig
+    from dodaios.core.config import JarvisConfig
 
     resolve_provider_endpoint("openrouter")  # populate the cache from the file
 

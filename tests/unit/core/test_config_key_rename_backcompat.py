@@ -13,7 +13,7 @@ import os
 
 import pytest
 
-from jarvis.core.config import BrainConfig, HarnessConfig, JarvisConfig
+from dodaios.core.config import BrainConfig, HarnessConfig, JarvisConfig
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +187,7 @@ def test_migrate_worker_env_vars_copies_old_to_new(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Old JARVIS__BRAIN__SUB_JARVIS__PROVIDER is copied to the new name."""
-    from jarvis.core.config import _migrate_worker_env_vars
+    from dodaios.core.config import _migrate_worker_env_vars
 
     monkeypatch.setenv("JARVIS__BRAIN__SUB_JARVIS__PROVIDER", "antigravity")
     monkeypatch.delenv("JARVIS__BRAIN__WORKER__PROVIDER", raising=False)
@@ -201,7 +201,7 @@ def test_migrate_worker_env_vars_does_not_overwrite_new(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Does not overwrite JARVIS__BRAIN__WORKER__PROVIDER if already set."""
-    from jarvis.core.config import _migrate_worker_env_vars
+    from dodaios.core.config import _migrate_worker_env_vars
 
     monkeypatch.setenv("JARVIS__BRAIN__SUB_JARVIS__PROVIDER", "old-value")
     monkeypatch.setenv("JARVIS__BRAIN__WORKER__PROVIDER", "gemini")
@@ -215,7 +215,7 @@ def test_migrate_worker_env_vars_noop_when_old_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No-op when neither old nor new is set."""
-    from jarvis.core.config import _migrate_worker_env_vars
+    from dodaios.core.config import _migrate_worker_env_vars
 
     monkeypatch.delenv("JARVIS__BRAIN__SUB_JARVIS__PROVIDER", raising=False)
     monkeypatch.delenv("JARVIS__BRAIN__WORKER__PROVIDER", raising=False)

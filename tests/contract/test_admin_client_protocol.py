@@ -14,14 +14,14 @@ import inspect
 
 import pytest
 
-from jarvis.admin.client import (
+from dodaios.admin.client import (
     ADMIN_HMAC_ENV,
     ADMIN_HMAC_KEY,
     AdminClient,
     DestructiveRequiresApproval,
     admin_secret_configured,
 )
-from jarvis.admin.schema import AdminOperation, AdminResponse
+from dodaios.admin.schema import AdminOperation, AdminResponse
 
 
 def test_admin_client_class_exists():
@@ -46,7 +46,7 @@ def test_destructive_requires_approval_is_exception():
 
 
 def test_destructive_exception_carries_op_metadata():
-    from jarvis.admin.schema import UninstallWingetOp
+    from dodaios.admin.schema import UninstallWingetOp
     op = UninstallWingetOp(package_id="7zip.7zip")
     exc = DestructiveRequiresApproval(op)
     assert exc.op_id == str(op.op_id)
@@ -71,13 +71,13 @@ def test_admin_secret_configured_callable():
 async def test_admin_client_returns_adminresponse_on_no_secret(monkeypatch):
     """Without a stored secret: ``execute`` returns an AdminResponse
     with ``error_code=no_secret``, not an exception."""
-    from jarvis.admin import client as client_mod
+    from dodaios.admin import client as client_mod
 
     def _no_secret(*_args, **_kwargs):
         return None
 
     monkeypatch.setattr(client_mod, "get_secret", _no_secret)
-    from jarvis.admin.schema import InstallWingetOp
+    from dodaios.admin.schema import InstallWingetOp
     c = AdminClient()
     resp = await c.execute(InstallWingetOp(package_id="7zip.7zip"))
     assert isinstance(resp, AdminResponse)
@@ -87,7 +87,7 @@ async def test_admin_client_returns_adminresponse_on_no_secret(monkeypatch):
 
 def test_admin_operation_and_response_importable_from_admin():
     """Sanity: die zentrale __init__-Exports existieren."""
-    from jarvis import admin
+    from dodaios import admin
 
     assert hasattr(admin, "AdminOperation")
     assert hasattr(admin, "AdminResponse")

@@ -4,11 +4,11 @@ import asyncio
 
 import pytest
 
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.routine_runner import run_owned_routine
-from jarvis.society.routines import build_task_spec
-from jarvis.tasks.runner import _owner_blocks_fallback
-from jarvis.tasks.store import TaskStore
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.routine_runner import run_owned_routine
+from dodaios.society.routines import build_task_spec
+from dodaios.tasks.runner import _owner_blocks_fallback
+from dodaios.tasks.store import TaskStore
 from tests.contract.test_society_continuity import world as world
 
 
@@ -166,8 +166,8 @@ async def test_cancelling_routine_preserves_main_chat(world, monkeypatch, via_ch
 async def test_a_run_that_leaves_its_owners_runtime_says_so(world, tmp_path, monkeypatch):
     from dataclasses import replace
 
-    from jarvis.society import routine_runner
-    from jarvis.society.events import AgentRuntime
+    from dodaios.society import routine_runner
+    from dodaios.society.events import AgentRuntime
 
     runtime, service, _, _ = world
     store = TaskStore(tmp_path / "tasks.db")
@@ -201,7 +201,7 @@ async def test_a_run_that_leaves_its_owners_runtime_says_so(world, tmp_path, mon
 def test_only_a_run_off_its_owners_external_runtime_is_noted():
     from types import SimpleNamespace
 
-    from jarvis.society.routine_runner import _left_runtime
+    from dodaios.society.routine_runner import _left_runtime
 
     assert _left_runtime(SimpleNamespace(runtime="hermes"), "") == "hermes"
     assert _left_runtime(SimpleNamespace(runtime="openclaw"), "openclaw") == ""

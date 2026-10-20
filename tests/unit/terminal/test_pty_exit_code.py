@@ -7,7 +7,7 @@ and the pane handed all ten digits to the user unchanged.
 Underneath it sat a second, quieter defect. The code was read as
 ``int(proc.exitstatus or -1)``, so a CLEAN exit (0) was reported as -1: quitting
 an agent with ``/exit`` looked exactly like a crash, and the resume
-self-healing in ``jarvis/agentic_ide/session.py`` — which restarts a pane whose
+self-healing in ``dodaios/agentic_ide/session.py`` — which restarts a pane whose
 exit code is not 0 — restarted agents the user had deliberately closed.
 
 These pin both halves, on every OS: the handle is a fake, so no real
@@ -21,8 +21,8 @@ from collections import deque
 
 import pytest
 
-import jarvis.terminal.pty_manager as pty_mod
-from jarvis.terminal.pty_manager import (
+import dodaios.terminal.pty_manager as pty_mod
+from dodaios.terminal.pty_manager import (
     UNKNOWN_EXIT_CODE,
     PtyManager,
     normalize_exit_code,

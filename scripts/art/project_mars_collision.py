@@ -9,8 +9,8 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CANONICAL = ROOT / "jarvis/society/mars/definition.json"
-FRONTEND = ROOT / "jarvis/ui/web/frontend/src/components/society/mars/worldDefinition.json"
+CANONICAL = ROOT / "dodaios/society/mars/definition.json"
+FRONTEND = ROOT / "dodaios/ui/web/frontend/src/components/society/mars/worldDefinition.json"
 SOURCE = ROOT / "art/studies/mars-outpost-reference/source/geometry-contract.json"
 
 

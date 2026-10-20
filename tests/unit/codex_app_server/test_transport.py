@@ -20,8 +20,8 @@ from typing import Any
 
 import pytest
 
-import jarvis.codex_app_server as transport
-from jarvis.codex_app_server import (
+import dodaios.codex_app_server as transport
+from dodaios.codex_app_server import (
     CodexAppServerCapability,
     CodexAppServerClient,
     CodexAppServerDisconnected,
@@ -1066,7 +1066,7 @@ def test_capability_reads_only_the_dedicated_file_backed_profile(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         constructor: tuple[object, dict[str, object]] | None = None
@@ -1121,7 +1121,7 @@ def test_capability_revalidates_profile_after_login_status_probe(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -1165,7 +1165,7 @@ def test_capability_revalidates_profile_after_login_status_probe(
 def test_missing_dedicated_profile_is_a_login_required_capability(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -1649,7 +1649,7 @@ def test_capability_maps_probe_failed_login_status_to_busy(
     tmp_path: Path,
 ) -> None:
     """A CLI spawn failure or timeout is unknown state, never 'not logged in'."""
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -1708,8 +1708,8 @@ def test_reaper_launch_failure_releases_guard_and_state(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as auth_module
-    import jarvis.core.private_directory as private_directory
+    import dodaios.codex_auth as auth_module
+    import dodaios.core.private_directory as private_directory
 
     released: list[str] = []
 
@@ -1847,7 +1847,7 @@ async def test_shared_client_ignores_active_codex_account_profiles(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.agent_accounts as accounts
+    import dodaios.agent_accounts as accounts
 
     monkeypatch.setattr(
         accounts,
@@ -1961,7 +1961,7 @@ def test_dedicated_profile_rejects_agents_and_other_artifacts(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path)
     home = transport._prepare_subscription_login_home()
@@ -2543,7 +2543,7 @@ def test_wrong_release_maps_to_not_installed(
 ) -> None:
     """A real-but-different codex release is 'install the pinned one', not a
     profile defect — the card then shows the pinned npm command."""
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -2788,7 +2788,7 @@ def test_unreadable_profile_reports_busy_not_setup_invalid(
 ) -> None:
     """An antivirus-locked or slow-disk profile read is transiently unknown —
     never 'create a fresh voice-only login'."""
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -3002,7 +3002,7 @@ def test_headless_linux_reports_lifecycle_with_a_coherent_reason(
 ) -> None:
     """The reason TEXT degrades with the code: every surface renders one of
     the two, and they must tell the same story."""
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -3048,7 +3048,7 @@ def test_capability_survives_a_version_probe_that_prints_a_shell_error(
     tmp_path: Path,
 ) -> None:
     """npm's codex launcher without node prints a localized error, not a version."""
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -3155,7 +3155,7 @@ def test_trusted_binary_discovery_recovers_from_a_windows_store_launcher(
     monkeypatch.setattr(transport.sys, "platform", "win32")
     monkeypatch.setattr(transport, "_normalized_machine", lambda: "x86_64")
     monkeypatch.setenv("PATH", str(npm_dir))
-    monkeypatch.setattr("jarvis.core.path_augment.candidate_dirs", lambda: [])
+    monkeypatch.setattr("dodaios.core.path_augment.candidate_dirs", lambda: [])
     monkeypatch.setattr(
         transport,
         "_sha256_file",
@@ -3221,7 +3221,7 @@ def test_dedicated_profile_rejects_hardlinked_auth_file(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path / "data")
     home = transport._prepare_subscription_login_home()
@@ -3243,7 +3243,7 @@ def test_dedicated_profile_rejects_permissive_windows_auth_acl(
     import win32con
     import win32security
 
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path / "data")
     home = transport._prepare_subscription_login_home()
@@ -3359,7 +3359,7 @@ def test_exact_windows_codex_runtime_state_is_allowed_and_tampering_is_refused(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path / "data")
     if os.name == "posix":
@@ -3369,7 +3369,7 @@ def test_exact_windows_codex_runtime_state_is_allowed_and_tampering_is_refused(
             assert os.fstat(descriptor).st_mode & 0o777 == 0o600
 
         monkeypatch.setattr(
-            "jarvis.core.exclusive_process_lock._validate_windows_file_security",
+            "dodaios.core.exclusive_process_lock._validate_windows_file_security",
             private_fixture_file,
         )
     monkeypatch.setattr(transport.sys, "platform", "win32")
@@ -3462,7 +3462,7 @@ def test_exact_unix_codex_runtime_aliases_must_target_trusted_binary(
         # path prefix, so the simulated Linux layout never matches the trusted
         # binary there.
         pytest.skip("Unix runtime aliases are only validated on a POSIX host")
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path / "data")
     monkeypatch.setattr(transport.sys, "platform", "linux")
@@ -3532,7 +3532,7 @@ def test_subscription_login_guard_covers_process_and_reaper(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     cleanup_targets: list[Callable[[], None]] = []
     processes: list[object] = []
@@ -3627,7 +3627,7 @@ def test_subscription_login_spawn_failure_releases_guard(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.codex_auth as auth_module
+    import dodaios.codex_auth as auth_module
 
     class FakeAuthService:
         def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -3677,7 +3677,7 @@ def test_subscription_logout_is_idempotent_and_deletes_only_dedicated_auth(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    import jarvis.core.paths as paths
+    import dodaios.core.paths as paths
 
     monkeypatch.setattr(paths, "user_data_dir", lambda: tmp_path / "data")
     monkeypatch.setattr(transport, "_subscription_login_in_flight", False)

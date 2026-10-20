@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from jarvis.missions.safety.injection_scanner import (
+from dodaios.missions.safety.injection_scanner import (
     INJECTION_PATTERNS,
     extract_worker_authored_text,
     has_high_severity,

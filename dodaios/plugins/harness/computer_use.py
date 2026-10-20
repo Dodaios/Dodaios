@@ -1,0 +1,392 @@
+"""Computer-Use harness — in-process Plan-Observe-Act-Verify loop (ADR-0008).
+
+This harness is the exception to the subprocess pattern used by other
+harnesses: it runs in the main process because it requires direct access to
+`VisionEngine`, `BrainManager`, `ToolExecutor`, `CancelToken`, and
+`CostMeter`.
+
+The actual loop lives in `dodaios.harness.computer_use_loop.run_cu_loop`.
+This module only provides the protocol binding (health/invoke/cancel).
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import sys
+import time
+import uuid
+from collections.abc import AsyncIterator
+
+from dodaios.control import CancelScope
+from dodaios.core.events import CUControlEnded, CUControlStarted
+from dodaios.core.protocols import HarnessResult, HarnessTask
+from dodaios.harness import cu_run_registry
+from dodaios.harness.computer_use_context import (
+    ComputerUseContext,
+    cu_recently_cancelled,
+    get_computer_use_context,
+    register_active_cu_token,
+    unregister_active_cu_token,
+)
+
+# env keys the run-control REST surface uses to thread identity/provenance
+# through the (frozen) HarnessTask without a protocol change (H-09).
+CU_MISSION_ID_ENV_KEY = "JARVIS_CU_MISSION_ID"
+CU_SOURCE_ENV_KEY = "JARVIS_CU_SOURCE"
+
+_log = logging.getLogger(__name__)
+
+_TIMEOUT_EXIT_CODE = 124
+_CANCEL_EXIT_CODE = 130
+
+# Heartbeat for the per-step cancellation check (Esc / voice hangup / Emergency
+# Stop). The think-phase brain call is ONE long uninterruptible await (15-68 s
+# live), so without this the token is only read at the loop's next
+# is_cancelled() checkpoint and Esc "does nothing" until the current step ends
+# (live 2026-07-23: five Esc presses over 3 s, the mission ran ~9 s more). We
+# POLL the token flag on a short slice instead of awaiting a cancel EVENT on
+# purpose: on the py3.11 Windows proactor loop an event wakeup can be absorbed
+# when no timer is armed (BUG-081), which would make an event-based wait miss
+# the cancel entirely; a bounded slice always re-checks the flag on resume. At
+# 120 ms the abort is perceptually instant yet adds no measurable idle cost.
+_CANCEL_HEARTBEAT_S = 0.12
+
+# Global desktop actuation lock (deep-dive 2026-07-15, H-10). There is ONE
+# physical mouse/keyboard/foreground focus: two missions with DIFFERENT goals
+# used to run concurrently (the tool only dedupes IDENTICAL goals) and raced
+# each other's pointer moves and foreground guards. Every launch route (voice,
+# LLM tool, scheduled task) funnels through this harness, so serializing here
+# covers them all. A queued mission waits on a SEPARATE queue allowance (not on
+# its mission budget, AU-17) and stays cancellable throughout; the wait is
+# logged so "nothing happens" is diagnosable.
+_DESKTOP_LOCK = asyncio.Lock()
+
+
+async def _publish_cu_control(bus, event) -> None:
+    """Publish a control-indicator event; a publish failure must never
+    break the mission (the indicator is strictly best-effort)."""
+    if bus is None:
+        return
+    try:
+        await bus.publish(event)
+    except Exception:  # noqa: BLE001
+        _log.debug("[cu] control event publish failed", exc_info=True)
+
+
+def _resolve_run_cu_loop():
+    """Resolve every live Computer-Use mission to the guarded v2 engine.
+
+    ``"v2"`` is the only action-capable engine: it owns live permission,
+    monitor-topology and foreground-window guards. Historical ``current``,
+    ``june13`` and ``stable`` values remain readable for config compatibility
+    but route to v2; their frozen loops can still be imported by forensic tests
+    and must never dispatch live desktop input. Read per mission so config
+    recovery applies without restart. Never raises: a config-read problem also
+    falls back to v2.
+    """
+    try:
+        from dodaios.core.config import load_config  # noqa: PLC0415
+
+        cu = getattr(load_config(), "computer_use", None)
+        engine = str(getattr(cu, "engine", "v2") or "v2")
+    except Exception:  # noqa: BLE001 — a config read must never break a mission
+        engine = "v2"
+    if engine != "v2":
+        _log.warning(
+            "[cu] ENGINE = %s is retired for live input because legacy loops "
+            "lack current permission, topology and foreground-window action "
+            "guards on %s; using the maintained v2 engine instead.",
+            engine,
+            sys.platform,
+        )
+        engine = "v2"
+    # One engine, one import. The frozen loops (screenshot_only_loop.py and its
+    # _stable / _june13 snapshots) are deliberately NOT reachable from here:
+    # every value above normalizes to v2, so a branch per engine would be code
+    # that can never run while reading as if the choice were live. They remain
+    # in the tree as forensic restore points (see cu-restore-points/ and each
+    # file's header) and are imported only by tests.
+    from dodaios.cu.engine import run_cu_loop as _loop  # noqa: PLC0415
+
+    _log.debug("[cu] ENGINE = v2 (rebuilt perceive->act->verify engine)")
+    return _loop
+
+
+class ComputerUseHarness:
+    """Plugin entry for `entry_points."jarvis.harness".screenshot`.
+
+    The app must call
+    `dodaios.harness.computer_use_context.set_computer_use_context(...)`
+    once before the first dispatch. Without a context, `invoke()` raises a
+    clear error.
+    """
+
+    name: str = "screenshot"
+    version: str = "0.1.0"
+    supports_versions: str = ">=0.1"
+
+    def __init__(self, context: ComputerUseContext | None = None) -> None:
+        # The constructor can be called with an explicit context (for
+        # tests). Without a context, `invoke()` falls back to the global one.
+        self._explicit_context = context
+        self._cancelled = False
+        self._active_token = None           # set while invoke() is running
+
+    async def health(self) -> bool:
+        """True when a context is set and all core deps exist."""
+        try:
+            ctx = self._explicit_context or get_computer_use_context()
+        except RuntimeError:
+            return False
+        return all([
+            ctx.vision_engine is not None,
+            ctx.brain_manager is not None,
+            ctx.tool_executor is not None,
+        ])
+
+    async def invoke(self, task: HarnessTask) -> AsyncIterator[HarnessResult]:
+        """Delegates to `run_cu_loop` inside its own CancelScope.
+
+        The scope registers a dedicated token with the KillSwitch. The
+        KillSwitch cancels IT on `KillRequested`, and the loop propagates
+        that until the next `is_cancelled()` check. Without this scope, the
+        kill switch would never reach the CU loop (ADR-0004).
+        """
+        ctx = self._explicit_context or get_computer_use_context()
+        timeout_s = max(0.001, float(task.timeout_s))
+        # AU-17: the budget bounds the WORK, not the queue. Waiting for the
+        # ONE desktop is not mission work, and charging it to the mission
+        # timeout let a queued mission die of a timeout without ever having
+        # started — with the 600 s ceiling of bdf15515 that is ten minutes of
+        # burning nothing and then reporting failure. So the queue gets its
+        # OWN allowance of the same size, and the work deadline below is armed
+        # only once the desktop is actually held. One equal allowance is
+        # exactly enough to outlast a full-length predecessor, because the
+        # active mission is bounded by the same ceiling.
+        queue_deadline = time.monotonic() + timeout_s
+        deadline = queue_deadline  # re-armed to the full budget on acquire
+        t_start = time.time_ns()
+        # BUG-CU-HANGUP-RACE (2026-05-28): if the user said "auflegen" in the
+        # window between this mission being requested and it actually starting,
+        # abort silently NOW -- do not click or speak after a hangup. Returns
+        # success with empty output so the dispatcher stays silent (no spoken
+        # "harness failed" after the user already hung up).
+        if cu_recently_cancelled():
+            import logging as _logging
+            _logging.getLogger(__name__).info(
+                "[cu] mission suppressed — a voice hangup fired just before it "
+                "started; not running.",
+            )
+            yield HarnessResult(stdout="", exit_code=0, is_final=True)
+            return
+        async with CancelScope(ctx.kill_switch, holder="cu_loop") as token:
+            self._active_token = token
+            # Register CU-scoped so the voice hangup ("auflegen") can cancel
+            # THIS mission without touching Jarvis-Agent (BUG-CU-HANGUP). The
+            # registry is a SET — concurrent CU missions each register so a
+            # single hangup cancels them ALL (BUG-CU-CONCURRENT-CANCEL).
+            register_active_cu_token(token)
+            # Run-control registry (H-09): the REST surface may pre-assign the
+            # mission id via task.env so it can hand it back to the caller;
+            # every other launch route gets a fresh one. Registered as
+            # "queued" here, "running" once the desktop lock is held, and
+            # terminal in the finally — so `jarvis api` status/cancel sees
+            # every mission regardless of how it was started.
+            task_env = task.env or {}
+            mission_id = (
+                str(task_env.get(CU_MISSION_ID_ENV_KEY, "") or "")
+                or uuid.uuid4().hex[:12]
+            )
+            cu_run_registry.register_run(
+                mission_id,
+                task.prompt,
+                token,
+                source=str(task_env.get(CU_SOURCE_ENV_KEY, "") or "app"),
+            )
+            end_reason = "finished"
+            final_exit_code: int | None = None
+            final_stdout = ""
+            control_started = False
+            lock_acquired = False
+            stream = None
+            pending_anext: asyncio.Future | None = None
+            try:
+                # H-10: ONE mission drives the desktop at a time. Waiting in
+                # short slices keeps the queue responsive to the mission's own
+                # deadline and to cancellation (hangup / Emergency Stop).
+                if _DESKTOP_LOCK.locked():
+                    _log.info(
+                        "[cu] desktop busy — mission queued behind the "
+                        "active one",
+                    )
+                while not lock_acquired:
+                    if token.is_cancelled():
+                        end_reason = "cancelled"
+                        final_exit_code = _CANCEL_EXIT_CODE
+                        yield HarnessResult(
+                            stderr="[cu] cancelled while waiting for the desktop\n",
+                            exit_code=_CANCEL_EXIT_CODE,
+                            is_final=True,
+                        )
+                        return
+                    remaining_s = queue_deadline - time.monotonic()
+                    if remaining_s <= 0:
+                        end_reason = "timeout"
+                        final_exit_code = _TIMEOUT_EXIT_CODE
+                        yield HarnessResult(
+                            stderr=(
+                                f"[cu] timeout after {timeout_s:.3g}s waiting "
+                                "for the desktop (another mission was active)\n"
+                            ),
+                            exit_code=_TIMEOUT_EXIT_CODE,
+                            is_final=True,
+                        )
+                        return
+                    try:
+                        await asyncio.wait_for(
+                            _DESKTOP_LOCK.acquire(),
+                            timeout=min(0.25, remaining_s),
+                        )
+                        lock_acquired = True
+                    except TimeoutError:
+                        continue
+                # The desktop is ours: the mission's own budget starts NOW,
+                # undiminished by however long the queue took (AU-17).
+                # ``t_start`` deliberately stays at invoke() entry — the
+                # reported duration is honest wall time, queue included.
+                deadline = time.monotonic() + timeout_s
+                # Control-indicator contract (dodaios.cu.indicator): Started
+                # fires the moment this mission may actually drive
+                # mouse/keyboard (token registered AND desktop lock held);
+                # Ended ALWAYS fires in the finally below, on every exit path.
+                await _publish_cu_control(
+                    ctx.bus, CUControlStarted(mission_id=mission_id)
+                )
+                control_started = True
+                cu_run_registry.mark_running(mission_id)
+                run_cu_loop = _resolve_run_cu_loop()
+                stream = run_cu_loop(task, ctx, cancel_token=token)
+                while True:
+                    remaining_s = deadline - time.monotonic()
+                    if remaining_s <= 0:
+                        raise TimeoutError
+                    # Drive the next step as a task so a cancel can ABORT the
+                    # in-flight await (the think-phase brain call) the instant
+                    # Esc is pressed, instead of waiting for the step to finish
+                    # and only then hitting the loop's is_cancelled() checkpoint.
+                    # Polled on a short heartbeat (see _CANCEL_HEARTBEAT_S) so a
+                    # proactor-lost cancel wakeup can never strand a running
+                    # mission after Esc.
+                    if pending_anext is None:
+                        pending_anext = asyncio.ensure_future(anext(stream))
+                    slice_s = min(_CANCEL_HEARTBEAT_S, remaining_s)
+                    await asyncio.wait({pending_anext}, timeout=slice_s)
+                    if token.is_cancelled():
+                        pending_anext.cancel()
+                        # Await the settle: the cancel throws CancelledError
+                        # (BaseException) into the step's await, and its own
+                        # error/StopAsyncIteration may surface — swallow all so
+                        # the honest exit-130 below is what the caller sees.
+                        try:
+                            await pending_anext
+                        except asyncio.CancelledError:
+                            pass
+                        except Exception:  # noqa: BLE001 — step is being aborted
+                            _log.debug(
+                                "[cu] in-flight step raised during Esc/cancel "
+                                "abort", exc_info=True,
+                            )
+                        pending_anext = None
+                        end_reason = "cancelled"
+                        final_exit_code = _CANCEL_EXIT_CODE
+                        yield HarnessResult(
+                            stderr="[cu] cancelled\n",
+                            exit_code=_CANCEL_EXIT_CODE,
+                            is_final=True,
+                        )
+                        return
+                    if not pending_anext.done():
+                        continue  # heartbeat expired mid-step — re-check cancel
+                    try:
+                        chunk = pending_anext.result()
+                    except StopAsyncIteration:
+                        return
+                    finally:
+                        pending_anext = None
+                    yield chunk
+                    if chunk.is_final:
+                        final_exit_code = chunk.exit_code
+                        final_stdout = chunk.stdout or ""
+                        if not final_stdout and chunk.exit_code != 0:
+                            # A mission stopped by a macOS permission or a system
+                            # dialog keeps its sentence where run control reads the
+                            # outcome (the "[cu] blocked_permission" line sits in
+                            # stderr, which the registry does not store).
+                            from dodaios.voice.action_phrases import (  # noqa: PLC0415
+                                cu_blocked_permission_sentence,
+                            )
+
+                            final_stdout = cu_blocked_permission_sentence(chunk.stderr) or ""
+                        if chunk.exit_code == _CANCEL_EXIT_CODE:
+                            end_reason = "cancelled"
+                        elif chunk.exit_code != 0:
+                            end_reason = "error"
+                        return
+            except TimeoutError:
+                end_reason = "timeout"
+                final_exit_code = _TIMEOUT_EXIT_CODE
+                token.cancel("computer_use_harness_timeout")
+                duration_ms = (time.time_ns() - t_start) // 1_000_000
+                yield HarnessResult(
+                    stderr=f"[cu] timeout after {timeout_s:.3g}s\n",
+                    exit_code=_TIMEOUT_EXIT_CODE,
+                    duration_ms=duration_ms,
+                    is_final=True,
+                )
+            finally:
+                cu_run_registry.finish_run(
+                    mission_id,
+                    end_reason,
+                    exit_code=final_exit_code,
+                    result_text=final_stdout,
+                )
+                # Tear down an in-flight step task before closing the generator
+                # (e.g. invoke() itself was cancelled mid-step): aclose() on a
+                # generator whose anext is still running raises "already
+                # running". Awaiting the cancelled task first settles it.
+                if pending_anext is not None and not pending_anext.done():
+                    pending_anext.cancel()
+                    try:
+                        await pending_anext
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception:  # noqa: BLE001 — step torn down on exit
+                        _log.debug(
+                            "[cu] in-flight step raised during teardown",
+                            exc_info=True,
+                        )
+                if stream is not None:
+                    await stream.aclose()
+                if lock_acquired:
+                    _DESKTOP_LOCK.release()
+                self._active_token = None
+                # Remove only THIS mission's token — a concurrently-running
+                # sibling stays registered and cancelable (BUG-CU-CONCURRENT-
+                # CANCEL: clearing the whole registry here orphaned the sibling
+                # so a later hangup found no token at all).
+                unregister_active_cu_token(token)
+                if control_started:
+                    await _publish_cu_control(
+                        ctx.bus,
+                        CUControlEnded(mission_id=mission_id, reason=end_reason),
+                    )
+
+    async def cancel(self) -> None:
+        """Aborts the running invoke.
+
+        Cancels the active token — the loop reacts on the next
+        `_is_cancelled()` check and yields a final chunk. If `invoke()` isn't
+        running, the call is a no-op.
+        """
+        if self._active_token is not None:
+            self._active_token.cancel("harness_direct_cancel")

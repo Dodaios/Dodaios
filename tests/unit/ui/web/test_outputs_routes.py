@@ -31,14 +31,14 @@ import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.missions.standalone_run import MARKER_NAME as STANDALONE_MARKER_NAME
-from jarvis.missions.standalone_run import write_marker as write_standalone_marker
-from jarvis.ui.web.outputs_routes import (
+from dodaios.missions.standalone_run import MARKER_NAME as STANDALONE_MARKER_NAME
+from dodaios.missions.standalone_run import write_marker as write_standalone_marker
+from dodaios.ui.web.outputs_routes import (
     _is_deliverable_relpath,
     _mission_id_prefix_for_dir,
     _parse_slug,
 )
-from jarvis.ui.web.outputs_routes import (
+from dodaios.ui.web.outputs_routes import (
     router as outputs_router,
 )
 
@@ -47,7 +47,7 @@ from jarvis.ui.web.outputs_routes import (
 def _reset_openers_cache_between_tests():
     """The opener list is memoized per process; clear it around every test so
     the editor-detection cases don't see each other's cached result."""
-    from jarvis.ui.web import outputs_routes
+    from dodaios.ui.web import outputs_routes
 
     outputs_routes._reset_openers_cache()
     yield
@@ -58,7 +58,7 @@ def _reset_openers_cache_between_tests():
 def _no_real_editor_installs(monkeypatch: pytest.MonkeyPatch) -> None:
     """Editor detection probes standard install paths first; keep the test
     machine's own VS Code or Cursor out so only the stubbed resolver decides."""
-    from jarvis.ui.web import outputs_routes
+    from dodaios.ui.web import outputs_routes
 
     monkeypatch.setattr(outputs_routes, "_editor_install_candidates", lambda app_id: [])
 
@@ -270,7 +270,7 @@ async def test_list_outputs_counts_artifacts_off_the_event_loop(
     _seed(session / "tasks" / "task-1" / "artifacts" / "files" / "report.md")
     await _insert_mission(db_conn, mission_id=mission_id, state="completed")
 
-    from jarvis.ui.web import outputs_routes
+    from dodaios.ui.web import outputs_routes
 
     original = outputs_routes._count_deliverables
 
@@ -790,7 +790,7 @@ async def test_list_outputs_shows_a_marked_standalone_run(
     ``mission_<short>`` sibling. A standalone run (an on-demand visualisation)
     has no sibling, so hiding it does not de-duplicate anything: it makes a
     finished, complete run invisible. The marker is the explicit opt-out —
-    see jarvis/missions/standalone_run.py.
+    see dodaios/missions/standalone_run.py.
     """
     run_dir = _make_worktree_dir(tmp_path, utterance="drawn-on-request", short="feedface")
     write_standalone_marker(
@@ -1338,7 +1338,7 @@ def test_open_session_folder_calls_reveal_in_folder(app):
     target = root / slug
     target.mkdir(parents=True, exist_ok=True)
     client = TestClient(app)
-    with patch("jarvis.platform.open_path.reveal_in_folder", return_value=True) as rev:
+    with patch("dodaios.platform.open_path.reveal_in_folder", return_value=True) as rev:
         r = client.post(f"/api/outputs/{slug}/open")
     assert r.status_code == 200
     assert r.json() == {"opened": True, "path": str(target.resolve())}
@@ -1352,7 +1352,7 @@ def test_open_session_folder_reports_failure_honestly(app):
     slug = "mission_019ed2dfd0fab"
     (root / slug).mkdir(parents=True, exist_ok=True)
     client = TestClient(app)
-    with patch("jarvis.platform.open_path.reveal_in_folder", return_value=False):
+    with patch("dodaios.platform.open_path.reveal_in_folder", return_value=False):
         r = client.post(f"/api/outputs/{slug}/open")
     assert r.status_code == 200
     body = r.json()
@@ -1385,7 +1385,7 @@ def test_reveal_calls_platform_when_enabled(app):
     rel = _make_deliverable(root, "019ed2dfd0fab1234", "report.md", "# Hi")
     app.state.native_file_actions = True
     client = TestClient(app)
-    with patch("jarvis.platform.open_path.reveal_in_folder", return_value=True) as rev:
+    with patch("dodaios.platform.open_path.reveal_in_folder", return_value=True) as rev:
         r = client.post(f"/api/outputs/{slug}/files/{rel}/reveal")
     assert r.status_code == 200
     assert r.json()["opened"] is True
@@ -1398,7 +1398,7 @@ def test_open_native_calls_platform_when_enabled(app):
     rel = _make_deliverable(root, "019ed2dfd0fab1234", "report.md", "# Hi")
     app.state.native_file_actions = True
     client = TestClient(app)
-    with patch("jarvis.platform.open_path.open_file", return_value=True) as opn:
+    with patch("dodaios.platform.open_path.open_file", return_value=True) as opn:
         r = client.post(f"/api/outputs/{slug}/files/{rel}/open-native")
     assert r.status_code == 200
     assert r.json()["opened"] is True
@@ -1508,7 +1508,7 @@ def test_download_attachment_html_no_csp_needed(app):
 
 
 def test_view_rejects_oversize_file(app, monkeypatch):
-    import jarvis.ui.web.outputs_routes as oroutes
+    import dodaios.ui.web.outputs_routes as oroutes
 
     monkeypatch.setattr(oroutes, "_VIEW_MAX_BYTES", 4)
     root = Path(app.state.outputs_root)
@@ -1525,7 +1525,7 @@ def test_view_rejects_oversize_file(app, monkeypatch):
 
 from types import SimpleNamespace  # noqa: E402
 
-from jarvis.plugins.tool.app_resolver import LaunchTarget  # noqa: E402
+from dodaios.plugins.tool.app_resolver import LaunchTarget  # noqa: E402
 
 
 def _fake_resolver_only(*installed: str):
@@ -1553,10 +1553,10 @@ def test_openers_always_includes_default(app):
     app.state.native_file_actions = True
     with (
         patch(
-            "jarvis.plugins.tool.app_resolver.resolve_app_launch_target",
+            "dodaios.plugins.tool.app_resolver.resolve_app_launch_target",
             side_effect=_fake_resolver_only(),
         ),
-        patch("jarvis.ui.web.outputs_routes._resolve_browser_target", return_value=None),
+        patch("dodaios.ui.web.outputs_routes._resolve_browser_target", return_value=None),
     ):
         client = TestClient(app)
         r = client.get("/api/outputs/openers")
@@ -1568,10 +1568,10 @@ def test_openers_detects_installed_editor_only(app):
     app.state.native_file_actions = True
     with (
         patch(
-            "jarvis.plugins.tool.app_resolver.resolve_app_launch_target",
+            "dodaios.plugins.tool.app_resolver.resolve_app_launch_target",
             side_effect=_fake_resolver_only("code"),
         ),
-        patch("jarvis.ui.web.outputs_routes._resolve_browser_target", return_value=None),
+        patch("dodaios.ui.web.outputs_routes._resolve_browser_target", return_value=None),
     ):
         client = TestClient(app)
         r = client.get("/api/outputs/openers")
@@ -1590,8 +1590,8 @@ def test_openers_result_is_memoized(app):
     app.state.native_file_actions = True
     resolver = MagicMock(side_effect=_fake_resolver_only("code"))
     with (
-        patch("jarvis.plugins.tool.app_resolver.resolve_app_launch_target", resolver),
-        patch("jarvis.ui.web.outputs_routes._resolve_browser_target", return_value=None),
+        patch("dodaios.plugins.tool.app_resolver.resolve_app_launch_target", resolver),
+        patch("dodaios.ui.web.outputs_routes._resolve_browser_target", return_value=None),
     ):
         client = TestClient(app)
         first = client.get("/api/outputs/openers")
@@ -1619,7 +1619,7 @@ def test_open_with_default_calls_open_file(app):
     rel = _make_deliverable(root, "019ed2dfd0fab1234", "report.md", "# Hi")
     app.state.native_file_actions = True
     client = TestClient(app)
-    with patch("jarvis.platform.open_path.open_file", return_value=True) as opn:
+    with patch("dodaios.platform.open_path.open_file", return_value=True) as opn:
         r = client.post(
             f"/api/outputs/{slug}/files/{rel}/open-with",
             json={"opener": "default"},
@@ -1637,10 +1637,10 @@ def test_open_with_editor_calls_open_file_with(app):
     client = TestClient(app)
     with (
         patch(
-            "jarvis.plugins.tool.app_resolver.resolve_app_launch_target",
+            "dodaios.plugins.tool.app_resolver.resolve_app_launch_target",
             side_effect=_fake_resolver_only("code"),
         ),
-        patch("jarvis.platform.open_path.open_file_with", return_value=True) as opn,
+        patch("dodaios.platform.open_path.open_file_with", return_value=True) as opn,
     ):
         r = client.post(
             f"/api/outputs/{slug}/files/{rel}/open-with",
@@ -1704,7 +1704,7 @@ def test_get_preferred_opener_defaults_empty(app):
 def test_put_preferred_opener_persists_and_updates(app):
     app.state.config = SimpleNamespace(ui=SimpleNamespace(preferred_opener=""))
     client = TestClient(app)
-    with patch("jarvis.core.config_writer.set_preferred_opener") as setter:
+    with patch("dodaios.core.config_writer.set_preferred_opener") as setter:
         r = client.put("/api/outputs/preferred-opener", json={"opener": "code"})
     assert r.status_code == 200
     setter.assert_called_once_with("code")

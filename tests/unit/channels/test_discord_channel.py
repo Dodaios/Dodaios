@@ -1,4 +1,4 @@
-"""Unit tests for :class:`jarvis.channels.discord.DiscordChannel`.
+"""Unit tests for :class:`dodaios.channels.discord.DiscordChannel`.
 
 Strategy mirrors ``test_telegram_channel.py``: no real ``discord.py`` library is
 needed on the test path. Discord ``Message``/``Client`` objects are faked with
@@ -14,11 +14,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.channels.discord import DiscordChannel, InflightMap
-from jarvis.channels.manager import ChannelContext
-from jarvis.core.bus import EventBus
-from jarvis.core.config import DiscordConfig
-from jarvis.core.events import ResponseGenerated
+from dodaios.channels.discord import DiscordChannel, InflightMap
+from dodaios.channels.manager import ChannelContext
+from dodaios.core.bus import EventBus
+from dodaios.core.config import DiscordConfig
+from dodaios.core.events import ResponseGenerated
 
 BOT_ID = 999_000
 
@@ -84,7 +84,7 @@ def test_inflightmap_expires_after_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
     tid = uuid4()
     fake_now = [time.time_ns()]
     monkeypatch.setattr(
-        "jarvis.channels.discord.time.time_ns", lambda: fake_now[0]
+        "dodaios.channels.discord.time.time_ns", lambda: fake_now[0]
     )
     m.set(tid, 99)
     assert m.get(tid) == 99
@@ -189,7 +189,7 @@ def test_pair_first_dm_refused_after_the_pairing_window(
     not claim it: messaging the bot is prompting Jarvis with its tools."""
     persisted: list[int] = []
     monkeypatch.setattr(
-        "jarvis.core.config_writer.add_discord_allowed_user_id",
+        "dodaios.core.config_writer.add_discord_allowed_user_id",
         lambda user_id: persisted.append(user_id),
     )
     cfg = DiscordConfig(enabled=True, allowed_user_ids=[], pair_on_first_dm=True)
@@ -201,7 +201,7 @@ def test_pair_first_dm_refused_after_the_pairing_window(
 
 
 def test_pairing_window_spans_the_documented_length() -> None:
-    from jarvis.channels.base import FIRST_CONTACT_PAIRING_WINDOW_S
+    from dodaios.channels.base import FIRST_CONTACT_PAIRING_WINDOW_S
 
     before = time.monotonic()
     ch = _make_channel(DiscordConfig(enabled=True, allowed_user_ids=[]))
@@ -312,7 +312,7 @@ async def test_send_text_aborts_when_client_none() -> None:
 
 @pytest.mark.asyncio
 async def test_send_message_drops_without_channel_id() -> None:
-    from jarvis.channels.base import ChannelMessage
+    from dodaios.channels.base import ChannelMessage
 
     cfg = DiscordConfig(enabled=True, allowed_user_ids=[100])
     ch = _make_channel(cfg)
@@ -328,7 +328,7 @@ async def test_send_message_drops_without_channel_id() -> None:
 
 @pytest.mark.asyncio
 async def test_on_bus_event_ignores_non_response_generated() -> None:
-    from jarvis.core.events import SystemStateChanged
+    from dodaios.core.events import SystemStateChanged
 
     cfg = DiscordConfig(enabled=True, allowed_user_ids=[100])
     ch = _make_channel(cfg)

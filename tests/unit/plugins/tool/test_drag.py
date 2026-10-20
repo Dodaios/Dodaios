@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.plugins.tool import drag as drag_mod
-from jarvis.plugins.tool.drag import DragTool
+from dodaios.plugins.tool import drag as drag_mod
+from dodaios.plugins.tool.drag import DragTool
 
 
 @pytest.fixture
@@ -76,7 +76,7 @@ async def test_drag_refuses_engine_capture_from_different_window(
     _no_real_mouse,
 ):
     monkeypatch.setattr(
-        "jarvis.plugins.tool.click._window_signature_matches",
+        "dodaios.plugins.tool.click._window_signature_matches",
         lambda _expected: False,
     )
 
@@ -117,7 +117,7 @@ def test_drag_tool_identity():
 async def test_drag_reports_actuation_unavailable_verbatim(monkeypatch):
     """Wayland/headless: the actionable capability-probe message must reach
     the model verbatim (no generic 'failed' wrapper around it)."""
-    from jarvis.cu.actuate.base import ActuationUnavailable
+    from dodaios.cu.actuate.base import ActuationUnavailable
 
     def _unavailable(*_a, **_k):
         raise ActuationUnavailable(
@@ -151,7 +151,7 @@ def test_perform_drag_posix_routes_through_capability_probe(monkeypatch):
             self.current = (x2, y2)
 
     monkeypatch.setattr(
-        "jarvis.cu.actuate.base.get_actuator", lambda: _FakeActuator()
+        "dodaios.cu.actuate.base.get_actuator", lambda: _FakeActuator()
     )
     drag_mod._perform_drag(1, 2, 3, 4, 0.25)
     assert drags == [(1, 2, 3, 4, 0.25)]

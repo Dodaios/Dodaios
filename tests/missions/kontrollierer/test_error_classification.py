@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions.events import MISSION_ERROR_CLASSES
-from jarvis.missions.kontrollierer.orchestrator import _classify_worker_error
+from dodaios.missions.events import MISSION_ERROR_CLASSES
+from dodaios.missions.kontrollierer.orchestrator import _classify_worker_error
 
 
 @pytest.mark.parametrize(

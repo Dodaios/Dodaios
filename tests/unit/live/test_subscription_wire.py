@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.plugins.realtime.openai_subscription_live import (
+from dodaios.plugins.realtime.openai_subscription_live import (
     CALL_URL,
     OpenAISubscriptionLiveConnection,
     SubscriptionLiveError,
@@ -170,7 +170,7 @@ async def test_subscription_offer_cannot_create_a_competing_browser_control_chan
 
 
 async def test_sideband_indexing_retry_reuses_one_allocation_and_pays_shared_budget(monkeypatch):
-    import jarvis.plugins.realtime.openai_subscription_live as module
+    import dodaios.plugins.realtime.openai_subscription_live as module
 
     delays = []
 
@@ -338,7 +338,7 @@ async def test_read_cancellation_is_not_reclassified_as_provider_failure():
 
 
 async def test_reattach_preserves_live_call_transcripts_and_exactly_once_handoffs(monkeypatch):
-    import jarvis.plugins.realtime.openai_subscription_live as module
+    import dodaios.plugins.realtime.openai_subscription_live as module
 
     async def sleep(_delay):
         return None
@@ -381,7 +381,7 @@ async def test_reattach_preserves_live_call_transcripts_and_exactly_once_handoff
 
 @pytest.mark.parametrize("status", [404, 410])
 async def test_reattach_returns_none_only_when_provider_says_call_ended(status, monkeypatch):
-    import jarvis.plugins.realtime.openai_subscription_live as module
+    import dodaios.plugins.realtime.openai_subscription_live as module
 
     async def sleep(_delay):
         return None
@@ -399,7 +399,7 @@ async def test_reattach_returns_none_only_when_provider_says_call_ended(status, 
 
 
 async def test_reattach_auth_refresh_never_reallocates_the_voice_call(monkeypatch):
-    import jarvis.plugins.realtime.openai_subscription_live as module
+    import dodaios.plugins.realtime.openai_subscription_live as module
 
     async def sleep(_delay):
         return None

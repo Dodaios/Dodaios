@@ -3,10 +3,10 @@
 import re
 from pathlib import Path
 
-from jarvis.ui.desktop_app import DETACHABLE_VIEWS
-from jarvis.ui.section_windows import WINDOW_GROUPS
+from dodaios.ui.desktop_app import DETACHABLE_VIEWS
+from dodaios.ui.section_windows import WINDOW_GROUPS
 
-FRONTEND = Path(__file__).parents[3] / "jarvis/ui/web/frontend/src"
+FRONTEND = Path(__file__).parents[3] / "dodaios/ui/web/frontend/src"
 
 
 def _ids(source: str, name: str) -> set[str]:

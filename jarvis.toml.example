@@ -2,12 +2,12 @@
 #  Dodaios — configuration TEMPLATE
 # ------------------------------------------------------------
 #  This file is OPTIONAL. Dodaios boots with no jarvis.toml at all
-#  (every value below has a built-in default in jarvis/core/config.py).
+#  (every value below has a built-in default in dodaios/core/config.py).
 #  Copy this to `jarvis.toml` only if you want to override defaults:
 #      cp jarvis.toml.example jarvis.toml
 #
 #  SECRETS DO NOT GO HERE. API keys live in your OS credential manager
-#  (run `python -m jarvis --wizard`) or in `.env` (see .env.example).
+#  (run `python -m dodaios --wizard`) or in `.env` (see .env.example).
 #  Never commit a real jarvis.toml — it is gitignored.
 #
 #  Overrides cascade: jarvis.toml  →  ENV (JARVIS__SECTION__KEY=...)
@@ -232,7 +232,7 @@ enabled = true
 
 # Phase-5/6 features (vision, computer_use, admin, missions, board, telephony)
 # default to enabled = false in code. Enable them individually once configured;
-# see jarvis/core/config.py for every available section and its defaults.
+# see dodaios/core/config.py for every available section and its defaults.
 
 # -- Mission workers: tool pre-authorization (ADR-0031) --
 # Tools listed here are auto-approved for a mission's OWN supervisor-granted

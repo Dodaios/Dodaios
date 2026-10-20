@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.agent_tools import WikiNoteTool
-from jarvis.society.knowledge import list_files, read_file
-from jarvis.society.memory import MemoryRefused
-from jarvis.society.memory_books import ensure_books, read_books
-from jarvis.society.notebook import Entry, render
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.agent_tools import WikiNoteTool
+from dodaios.society.knowledge import list_files, read_file
+from dodaios.society.memory import MemoryRefused
+from dodaios.society.memory_books import ensure_books, read_books
+from dodaios.society.notebook import Entry, render
+from dodaios.society.runtime import SocietyRuntime
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ async def test_writes_reads_and_corrections_are_agent_and_target_scoped(rt):
 
 
 async def test_interrupted_two_file_migration_recovers_without_entry_loss(rt, monkeypatch):
-    from jarvis.society import memory
+    from dodaios.society import memory
 
     scout = await rt.roster.get("scout")
     folder = rt.memory.root() / "society" / "scout"
@@ -155,7 +155,7 @@ async def test_bad_legacy_metadata_never_overwrites_originals(rt):
 
 
 async def test_interrupted_migration_refuses_to_overwrite_a_new_manual_edit(rt, monkeypatch):
-    from jarvis.society import memory
+    from dodaios.society import memory
 
     scout = await rt.roster.get("scout")
     folder = rt.memory.root() / "society" / "scout"
@@ -200,8 +200,8 @@ async def test_notebook_and_note_links_cannot_expose_another_agents_profile(rt):
     "briefing", ["## Your user profile\nSCOUT PROFILE\n## Your memory\nSCOUT FACTS", ""]
 )
 def test_api_agent_prompt_does_not_read_global_profile_or_ambient_context(briefing):
-    from jarvis.brain.manager import _TURN_OVERRIDE, BrainManager
-    from jarvis.brain.turn_override import TurnOverride
+    from dodaios.brain.manager import _TURN_OVERRIDE, BrainManager
+    from dodaios.brain.turn_override import TurnOverride
 
     class PrivateGlobalData:
         def render_for_prompt(self, **kwargs):
@@ -228,7 +228,7 @@ def test_api_agent_prompt_does_not_read_global_profile_or_ambient_context(briefi
 
 
 async def test_global_profile_writers_are_withheld_but_private_notebook_tool_remains(rt):
-    from jarvis.society.surface import society_tool_filter
+    from dodaios.society.surface import society_tool_filter
 
     scout = await rt.roster.get("scout")
     rt.cache_agent(scout)
@@ -242,7 +242,7 @@ async def test_global_profile_writers_are_withheld_but_private_notebook_tool_rem
 
 
 def test_resumed_cli_context_contains_its_own_user_and_memory_notebooks():
-    from jarvis.agent_chat.jarvis_harness import society_memory_refresh
+    from dodaios.agent_chat.jarvis_harness import society_memory_refresh
 
     context = society_memory_refresh(
         "## Your user profile\nUSER.md: Prefers short replies.\n\n"
@@ -257,8 +257,8 @@ def test_resumed_cli_context_contains_its_own_user_and_memory_notebooks():
 async def test_agent_response_does_not_feed_the_global_profile_curator():
     import asyncio
 
-    from jarvis.brain.manager import _TURN_OVERRIDE, BrainManager
-    from jarvis.brain.turn_override import TurnOverride
+    from dodaios.brain.manager import _TURN_OVERRIDE, BrainManager
+    from dodaios.brain.turn_override import TurnOverride
 
     calls = []
 

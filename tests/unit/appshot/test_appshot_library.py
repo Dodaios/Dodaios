@@ -10,9 +10,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from jarvis.appshot import library
-from jarvis.appshot import service as appshot_service
-from jarvis.appshot.store import Appshot, get_store
+from dodaios.appshot import library
+from dodaios.appshot import service as appshot_service
+from dodaios.appshot.store import Appshot, get_store
 
 
 def _png(width: int = 64, height: int = 48, colour=(20, 120, 200)) -> bytes:
@@ -121,7 +121,7 @@ async def test_take_keeps_the_appshot_only_while_the_library_is_on(monkeypatch) 
 
 @pytest.fixture
 def client():
-    from jarvis.ui.web.appshot_routes import router
+    from dodaios.ui.web.appshot_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -144,7 +144,7 @@ def test_the_gallery_route_lists_and_serves_pictures(client) -> None:
 
 
 def test_opening_a_kept_picture_holds_it_for_the_editor(client, monkeypatch) -> None:
-    from jarvis.appshot import editor_window
+    from dodaios.appshot import editor_window
 
     async def no_window(_shot_id: str) -> bool:
         return False

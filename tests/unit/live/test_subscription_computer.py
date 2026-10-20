@@ -8,14 +8,14 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.core.http_pool import HttpClientPool
-from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
-from jarvis.cu.direct import TOOL_DESCRIPTION, tool_schema
-from jarvis.live.config import LiveConfig
-from jarvis.live.state import LiveLedger
-from jarvis.live.subscription_auth import SubscriptionCredentials
-from jarvis.live.subscription_reasoning import SubscriptionReasoning
-from jarvis.live.tools import LiveTools
+from dodaios.core.http_pool import HttpClientPool
+from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
+from dodaios.cu.direct import TOOL_DESCRIPTION, tool_schema
+from dodaios.live.config import LiveConfig
+from dodaios.live.state import LiveLedger
+from dodaios.live.subscription_auth import SubscriptionCredentials
+from dodaios.live.subscription_reasoning import SubscriptionReasoning
+from dodaios.live.tools import LiveTools
 from tests.fakes.fake_subscription_session import (
     ScriptedSubscriptionReasoning,
     SubscriptionConnection,
@@ -97,7 +97,7 @@ def _computer_call(index: int) -> dict:
 
 
 def _session(monkeypatch, tmp_path, rounds):
-    import jarvis.live.subscription as module
+    import dodaios.live.subscription as module
 
     reasoning = ScriptedSubscriptionReasoning(rounds)
     monkeypatch.setattr(module, "SubscriptionReasoning", lambda **kwargs: reasoning)
@@ -142,7 +142,7 @@ def _session(monkeypatch, tmp_path, rounds):
 async def test_a_screen_task_may_take_more_rounds_and_keeps_only_recent_screenshots(
     monkeypatch, tmp_path
 ):
-    from jarvis.live import subscription
+    from dodaios.live import subscription
 
     steps = subscription._MAX_ROUNDS + 6  # more than an ordinary request may use
     rounds = [completed_response(f"r{i}", [_computer_call(i)]) for i in range(steps)]
@@ -171,7 +171,7 @@ async def test_a_screen_task_may_take_more_rounds_and_keeps_only_recent_screensh
 
 @pytest.mark.asyncio
 async def test_ordinary_requests_keep_the_short_round_budget(monkeypatch, tmp_path):
-    from jarvis.live import subscription
+    from dodaios.live import subscription
 
     read = {
         "id": "item",

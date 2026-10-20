@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain import provider_health_ledger as ledger
-from jarvis.brain import provider_test as pt
+from dodaios.brain import provider_health_ledger as ledger
+from dodaios.brain import provider_test as pt
 
 
 class _Clock:
@@ -322,8 +322,8 @@ def test_changes_reach_the_bus_from_any_thread(tmp_path: Path) -> None:
     """The web server bridges the record onto the bus; the /ws fan-out then
     carries it to every window. A record made on a voice worker thread must
     arrive too."""
-    from jarvis.core.bus import EventBus
-    from jarvis.core.events import ProviderHealthChanged
+    from dodaios.core.bus import EventBus
+    from dodaios.core.events import ProviderHealthChanged
 
     async def scenario() -> list[ProviderHealthChanged]:
         bus = EventBus()
