@@ -1,4 +1,7 @@
-"""Jarvis' learning loop reviews on the Jarvis lead's own seat, and nothing else.
+"""Jarvis' learning loop reviews on the Jarvis lead's own seat.
+
+(With no subscription of that provider signed in; the subscription case is in
+``test_learning_billing.py``.)
 
 The seat is the front-page chat's: the Agents selection (``[brain.worker]``)
 with its provider, model and auth mode. An explicit ``[memory.learning]``

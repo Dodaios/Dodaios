@@ -93,6 +93,11 @@ def subscription_seat(provider: str) -> tuple[str, str] | None:
     return seat
 
 
+def subscription_seats() -> dict[str, tuple[str, str]]:
+    """Every subscription card and the ``(chat row, CLI runner)`` seat it answers on."""
+    return dict(_SEATS)
+
+
 def dual_seat_subscription(provider: str) -> str | None:
     """The subscription card behind a dual slot, ``None`` for every other slot.
 
