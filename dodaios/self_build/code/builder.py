@@ -167,12 +167,37 @@ def remove_local(
         if not force and _unsaved(worktree):
             logger.info("self-build code: kept {}: it has uncommitted changes", worktree)
             return False
-        gitcmd.git(["worktree", "remove", *(["--force"] if force else []), worktree], root)
+        removed = gitcmd.git(
+            ["worktree", "remove", *(["--force"] if force else []), worktree], root
+        )
+        if removed.ok:
+            _sweep(Path(worktree))
         _drop_if_empty(Path(worktree).parent)
     gitcmd.git(["worktree", "prune"], root)
     if tip:
         gitcmd.git(["branch", "-D", branch], root)
     return True
+
+
+def _sweep(worktree: Path) -> None:
+    """Delete what ``git worktree remove`` leaves of the loop's worktree: ignored caches.
+
+    Git removes its files and forgets the worktree but keeps ignored files
+    (``__pycache__`` of the test run), so the folder stayed behind. Only a
+    folder that holds nothing but such caches is deleted.
+    """
+    import shutil
+
+    if not worktree.is_dir():
+        return
+    try:
+        files = [path for path in worktree.rglob("*") if path.is_file()]
+    except OSError:  # unreadable: left alone
+        return
+    if any(not any(part in _JUNK for part in path.relative_to(worktree).parts) for path in files):
+        logger.info("self-build code: kept {}: it holds more than caches", worktree)
+        return
+    shutil.rmtree(worktree, ignore_errors=True)
 
 
 def _drop_if_empty(folder: Path) -> None:
@@ -268,7 +293,8 @@ def compose_prompt(
         "- If the issue cannot be done safely, change nothing and say why in one paragraph.",
         "- End with a short summary of what you changed and how you checked it; it becomes "
         "the pull request description, so write it for the repository's reviewers: no paths "
-        "on this computer, no notes about its tools or shell.",
+        "on this computer, no notes about its tools or shell. Write it in the language the "
+        "issue is written in.",
     ]
     return "\n".join(parts)
 
