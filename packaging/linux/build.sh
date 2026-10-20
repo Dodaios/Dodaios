@@ -129,12 +129,12 @@ command -v "${PYTHON}" >/dev/null 2>&1 || die "interpreter not found: ${PYTHON}"
 # spec bundles THAT file as-is, which is a privacy question the build cannot
 # answer for the maintainer, so it says so instead of quietly shipping it.
 if [ ! -f "${REPO_ROOT}/jarvis.toml" ]; then
-  [ -f "${REPO_ROOT}/jarvis.toml.example" ] \
-    || die "neither jarvis.toml nor jarvis.toml.example exists; dodaios.spec cannot bundle a default configuration"
-  log "seeding jarvis.toml from jarvis.toml.example (clean checkout)"
-  run cp "${REPO_ROOT}/jarvis.toml.example" "${REPO_ROOT}/jarvis.toml"
-elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/jarvis.toml.example"; then
-  log "WARNING: dodaios.spec bundles this machine's jarvis.toml into the package, and it differs from jarvis.toml.example. Check it carries nothing personal before publishing the build."
+  [ -f "${REPO_ROOT}/dodaios.toml.example" ] \
+    || die "neither jarvis.toml nor dodaios.toml.example exists; dodaios.spec cannot bundle a default configuration"
+  log "seeding jarvis.toml from dodaios.toml.example (clean checkout)"
+  run cp "${REPO_ROOT}/dodaios.toml.example" "${REPO_ROOT}/jarvis.toml"
+elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/dodaios.toml.example"; then
+  log "WARNING: dodaios.spec bundles this machine's jarvis.toml into the package, and it differs from dodaios.toml.example. Check it carries nothing personal before publishing the build."
 fi
 
 if [ "${SKIP_PYINSTALLER}" = "1" ]; then

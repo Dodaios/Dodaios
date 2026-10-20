@@ -2605,7 +2605,7 @@ class Kontrollierer:
         # secret-panel code was killed AFTER delivering a clean diff
         # (live mission 019eadaf-272d, 2026-06-09 — 20 min of work
         # discarded via WorkerKilled(injection_detected) on rm -rf / from
-        # jarvis.toml.example). Authored channels (assistant prose,
+        # dodaios.toml.example). Authored channels (assistant prose,
         # commands, tool_use inputs) stay fully scanned.
         detections = injection_scan(diff_text, where="diff")
         detections += injection_scan(

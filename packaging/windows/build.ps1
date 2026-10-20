@@ -134,16 +134,16 @@ if (Test-Path (Join-Path $FrontendDist "index.html")) {
 # they were written; this script did not, which is why the first CI run
 # produced a DMG and an AppImage and no .exe.
 $ConfigFile = Join-Path $RepoRoot "jarvis.toml"
-$ConfigExample = Join-Path $RepoRoot "jarvis.toml.example"
+$ConfigExample = Join-Path $RepoRoot "dodaios.toml.example"
 if (-not (Test-Path $ConfigFile)) {
     if (-not (Test-Path $ConfigExample)) {
-        Stop-WithError "neither jarvis.toml nor jarvis.toml.example exists; dodaios.spec cannot bundle a default configuration"
+        Stop-WithError "neither jarvis.toml nor dodaios.toml.example exists; dodaios.spec cannot bundle a default configuration"
     }
-    Write-Step "seeding jarvis.toml from jarvis.toml.example (clean checkout)"
+    Write-Step "seeding jarvis.toml from dodaios.toml.example (clean checkout)"
     Copy-Item -LiteralPath $ConfigExample -Destination $ConfigFile
 } elseif ((Test-Path $ConfigExample) -and
           ((Get-FileHash -LiteralPath $ConfigFile).Hash -ne (Get-FileHash -LiteralPath $ConfigExample).Hash)) {
-    Write-Step "WARNING: dodaios.spec bundles this machine's jarvis.toml into the installer, and it differs from jarvis.toml.example. Check it carries nothing personal before publishing the build."
+    Write-Step "WARNING: dodaios.spec bundles this machine's jarvis.toml into the installer, and it differs from dodaios.toml.example. Check it carries nothing personal before publishing the build."
 }
 
 if ($SkipPyInstaller) {

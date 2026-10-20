@@ -2601,7 +2601,7 @@ class BrainManager:
         """
         tier_cfg = getattr(config.brain, tier, None)
         if tier_cfg is None:
-            # A fresh install ships NO [brain.router] block: jarvis.toml.example
+            # A fresh install ships NO [brain.router] block: dodaios.toml.example
             # has a [brain] table but no [brain.router] sub-table, and neither
             # the wizard, the installer, nor onboarding ever writes one. Raising
             # here left ``app.state.brain = None``, which bricked BOTH the
