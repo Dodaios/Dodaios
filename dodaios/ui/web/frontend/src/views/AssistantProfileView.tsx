@@ -110,7 +110,7 @@ export function AssistantProfileView() {
             <FilesSection files={data.files} onOpen={setOpen} />
             <CharacterSection soul={fileOf(data, "soul")} onEdit={() => setOpen("soul")} />
             <MemorySection profile={data} />
-            <RecentSection activity={data.activity} />
+            <RecentSection activity={data.activity} lastReview={data.last_review} />
           </div>
         )}
       </div>
