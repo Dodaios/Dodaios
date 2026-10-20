@@ -32,7 +32,7 @@ Plugins store: GitHub, Notion, Slack, Gmail, …).
    wave has landed for COMMUNITY plugins: `agent_plugins_loader.py` converts
    Agent Plugins v1.0.0 manifests from the
    [community registry](community-registry.md) into `PluginSpec` at install
-   time. The runtime keeps consuming `jarvis/marketplace/seed_catalog.json`
+   time. The runtime keeps consuming `dodaios/marketplace/seed_catalog.json`
    unchanged for the shipped catalog — this document tracks WHAT must change
    per seed plugin; that migration remains open.
 
@@ -53,7 +53,7 @@ Target layout per plugin (seed side; the gitignored `data/` override keeps its
 merge semantics):
 
 ```
-jarvis/marketplace/plugins/<name>/
+dodaios/marketplace/plugins/<name>/
 ├── plugin.json                      # $schema, name, description, version, license
 ├── mcp.json                         # only when a hosted/stdio MCP server exists
 └── io.github.dodaios/               # auth, branding, longevity, hints (extension files)
@@ -86,8 +86,8 @@ for a package laid out before the rename, from
   the copy keeps new submissions valid for both. It is dropped once the
   registry accepts the new namespace
   ([validator-parity.md](validator-parity.md), "The extension namespace").
-- **The shipped packages** under `jarvis/marketplace/plugins/` and
-  `jarvis/marketplace/drafts/` keep `io.github.personaljarvis`. They are
+- **The shipped packages** under `dodaios/marketplace/plugins/` and
+  `dodaios/marketplace/drafts/` keep `io.github.personaljarvis`. They are
   packages in the published format, and that format's authority still
   requires the earlier key. They move together with the registry.
 
@@ -136,7 +136,7 @@ Home Assistant); 4 need a spec-conformant rename.
 
 ## Definition of done for migrating one plugin
 
-- [ ] Directory `jarvis/marketplace/plugins/<name>/` exists; `<name>` passes
+- [ ] Directory `dodaios/marketplace/plugins/<name>/` exists; `<name>` passes
       the spec's name constraints
 - [ ] `plugin.json` with canonical `$schema`, `name`, `description`,
       `version`, `license` validates against the published schema
@@ -155,5 +155,5 @@ Home Assistant); 4 need a spec-conformant rename.
 
 - `CONTRIBUTING.md` → "Plugin, tool, or skill?" states the submission rule
   and links here.
-- `jarvis/marketplace/catalog.py` (the catalog schema) points here so any
+- `dodaios/marketplace/catalog.py` (the catalog schema) points here so any
   agent editing the catalog sees the policy before adding an entry.

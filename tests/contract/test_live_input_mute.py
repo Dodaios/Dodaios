@@ -9,11 +9,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.core.bus import EventBus
-from jarvis.core.events import VoiceInputHeld, VoiceMuteChanged
-from jarvis.live.native import NativeLiveVoiceSession
-from jarvis.live.session import LiveVoiceSession
+from dodaios.core import runtime_refs
+from dodaios.core.bus import EventBus
+from dodaios.core.events import VoiceInputHeld, VoiceMuteChanged
+from dodaios.live.native import NativeLiveVoiceSession
+from dodaios.live.session import LiveVoiceSession
 
 
 class _Connection:
@@ -136,7 +136,7 @@ async def test_a_call_that_starts_during_a_dictation_adopts_the_hold(call):
 
 @pytest.mark.asyncio
 async def test_a_held_call_leaves_the_microphone_meter_to_the_dictation(call):
-    from jarvis.audio import mic_level
+    from dodaios.audio import mic_level
 
     mic_level.reset_for_tests()
     seen: list[float] = []

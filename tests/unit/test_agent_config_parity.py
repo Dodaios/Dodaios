@@ -25,8 +25,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import agent_accounts, agent_config_parity
-from jarvis.agent_config_parity import ensure_parity
+from dodaios import agent_accounts, agent_config_parity
+from dodaios.agent_config_parity import ensure_parity
 
 
 @pytest.fixture(autouse=True)

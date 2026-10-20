@@ -5,8 +5,8 @@ import asyncio
 import numpy as np
 import pytest
 
-from jarvis.audio.vad import VAD_FRAME_SAMPLES
-from jarvis.realtime.desktop import (
+from dodaios.audio.vad import VAD_FRAME_SAMPLES
+from dodaios.realtime.desktop import (
     DesktopRealtimeBargeInDetector,
     DesktopRealtimePlayback,
 )
@@ -489,7 +489,7 @@ def test_synthesis_delay_cannot_consume_echo_calibration(
     now = 100.0
     output_is_active = False
     monkeypatch.setattr(
-        "jarvis.realtime.desktop.time.monotonic", lambda: now
+        "dodaios.realtime.desktop.time.monotonic", lambda: now
     )
     model = _AlwaysSpeechModel()
     detector = DesktopRealtimeBargeInDetector(

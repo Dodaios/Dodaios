@@ -20,8 +20,8 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web import diagnostics_routes
-from jarvis.ui.web.diagnostics_routes import router
+from dodaios.ui.web import diagnostics_routes
+from dodaios.ui.web.diagnostics_routes import router
 
 
 def _app() -> FastAPI:

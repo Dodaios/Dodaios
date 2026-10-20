@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
@@ -23,20 +23,20 @@ from jarvis.core.config import (
     SchedulerConfig,
     WikiMemoryConfig,
 )
-from jarvis.core.events import VoiceSessionEnded, VoiceTurnCompleted
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.consolidator import Consolidator
-from jarvis.memory.wiki.curator import WikiCurator
-from jarvis.memory.wiki.curator_llm import WikiCuratorLLM
-from jarvis.memory.wiki.extractor import ConversationFactExtractor
-from jarvis.memory.wiki.journal import CandidateJournal
-from jarvis.memory.wiki.lock import VaultLock
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.scheduler import CuratorScheduler
-from jarvis.memory.wiki.vault_index import VaultIndex
-from jarvis.memory.wiki.voice_bridge import VoiceFactBridge
+from dodaios.core.events import VoiceSessionEnded, VoiceTurnCompleted
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.consolidator import Consolidator
+from dodaios.memory.wiki.curator import WikiCurator
+from dodaios.memory.wiki.curator_llm import WikiCuratorLLM
+from dodaios.memory.wiki.extractor import ConversationFactExtractor
+from dodaios.memory.wiki.journal import CandidateJournal
+from dodaios.memory.wiki.lock import VaultLock
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.scheduler import CuratorScheduler
+from dodaios.memory.wiki.vault_index import VaultIndex
+from dodaios.memory.wiki.voice_bridge import VoiceFactBridge
 
 
 class _ReviewBrain:

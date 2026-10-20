@@ -4,7 +4,7 @@ from __future__ import annotations
 
 
 class FakeSecretStore:
-    """The ``SecretStore`` shape of ``jarvis.society.credentials``."""
+    """The ``SecretStore`` shape of ``dodaios.society.credentials``."""
 
     def __init__(self, *, refuse: bool = False) -> None:
         self.values: dict[str, str] = {}

@@ -109,7 +109,7 @@ def _render_all() -> str:
     lines = [
         "# Voice compare — 10 scenarios for subjective acceptance testing",
         "# After the persona refactor on 2026-04-23.",
-        "# Expectation per scenario, see `pattern`. Source: `jarvis/brain/JARVIS_PERSONA.md`.",
+        "# Expectation per scenario, see `pattern`. Source: `dodaios/brain/JARVIS_PERSONA.md`.",
         "",
     ]
     for s in SCENARIOS:

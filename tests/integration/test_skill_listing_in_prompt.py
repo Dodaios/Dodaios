@@ -1,7 +1,7 @@
 """Integration tests for AVAILABLE SKILLS injection into BrainManager system prompt.
 
 Skills-Brain-Integration (Track B): the Markdown section produced by
-``jarvis.skills.prompt_injection.render_available_skills_section`` must
+``dodaios.skills.prompt_injection.render_available_skills_section`` must
 land in the assembled system prompt that ``BrainManager._build_system_prompt``
 returns — when (and only when) a process-wide ``SkillContext`` is set.
 
@@ -17,11 +17,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.skill_context import (
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.skill_context import (
     SkillContext,
     set_skill_context,
 )
@@ -131,7 +131,7 @@ def test_skill_section_failure_doesnt_crash_prompt(
 
     # Patch at the module the manager imports from (lazy import inside
     # _build_system_prompt resolves to this attribute).
-    import jarvis.skills.prompt_injection as pi_mod
+    import dodaios.skills.prompt_injection as pi_mod
 
     monkeypatch.setattr(pi_mod, "render_available_skills_section", _boom)
 

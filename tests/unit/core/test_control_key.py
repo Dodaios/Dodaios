@@ -16,8 +16,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import config as cfg
-from jarvis.core import control_key as ck
+from dodaios.core import config as cfg
+from dodaios.core import control_key as ck
 
 _REAL_MACOS_APP_IDENTITY_TOKEN = ck._macos_app_identity_token
 
@@ -482,7 +482,7 @@ def test_get_logs_a_warning_naming_the_remedy(isolated, monkeypatch, caplog) -> 
     # of whatever ran earlier in the same session.
     monkeypatch.setattr(ck, "_warned_shipped_placeholder", False)
     monkeypatch.setenv("JARVIS_CONTROL_API_KEY", ck.SHIPPED_PLACEHOLDER_KEY)
-    with caplog.at_level("WARNING", logger="jarvis.core.control_key"):
+    with caplog.at_level("WARNING", logger="dodaios.core.control_key"):
         assert ck.get_control_key() is None
     assert any(
         "JARVIS_CONTROL_API_KEY" in record.getMessage()

@@ -19,7 +19,7 @@
 3. **API key** from the Personal Jarvis Credential Manager via `get_secret(...)` into the provider-specific ENV var — see B-2 for the mapping table.
 4. **Run the spike:**
    ```powershell
-   $env:GEMINI_API_KEY = (python -c "from jarvis.core.config import get_secret; print(get_secret('gemini_api_key', env_fallback='GEMINI_API_KEY'))")
+   $env:GEMINI_API_KEY = (python -c "from dodaios.core.config import get_secret; print(get_secret('gemini_api_key', env_fallback='GEMINI_API_KEY'))")
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/spikes/openclaw_probe.ps1
    ```
    The default model is `google/gemini-3.1-pro-preview` (frontier premium); for a fast cheap-path test, pass `-Model "google/gemini-3-flash-preview"`.
@@ -195,7 +195,7 @@ Example (Flash run):
 Plus `meta.agentMeta.promptTokens: 21030` and `meta.agentMeta.contextTokens: 1048576` (model capacity display).
 
 **Implication for CostMeter:**
-- Direct `usage` mapping to the `jarvis/control/cost_meter.py` structure
+- Direct `usage` mapping to the `dodaios/control/cost_meter.py` structure
 - `cacheRead`/`cacheWrite` are separate fields → the bridge can track prompt-cache efficiency (important for the Phase-L.5 1h-TTL pattern)
 - With `aborted: true` there is no `usage` block (see the Pro run under B-8) → CostMeter must handle the `aborted` path (no crash on a missing key)
 
@@ -210,7 +210,7 @@ Plus `meta.agentMeta.promptTokens: 21030` and `meta.agentMeta.contextTokens: 104
 **Mechanics (validated without a live test):**
 - `openclaw` is a PowerShell wrapper script (`openclaw.ps1`) that internally spawns `node.exe + openclaw.mjs`
 - `Stop-Process -Id <wrapper-PID>` only kills the wrapper; the `node.exe` child survives orphaned
-- Correct path: `taskkill /F /T /PID <node-PID>` or a dedicated Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (the Phase-6 pattern from `jarvis/missions/isolation/job_object.py`)
+- Correct path: `taskkill /F /T /PID <node-PID>` or a dedicated Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (the Phase-6 pattern from `dodaios/missions/isolation/job_object.py`)
 - `meta.aborted: true` in the JSON is set on idle timeout — a reliable cancellation indicator (see B-10)
 
 **Test inconclusive — reason:**
@@ -383,7 +383,7 @@ Total: system prompt 35.4k chars (`projectContextChars: 13783` + `nonProjectCont
 On every cancellation path (idle timeout, hard-kill, provider error) `openclaw` sets `meta.aborted: true` in the JSON output. The bridge uses this as a reliable trigger instead of stderr parsing.
 
 ```python
-# In jarvis/missions/jarvis_agent_bridge.py:
+# In dodaios/missions/jarvis_agent_bridge.py:
 result = json.loads(stdout)
 if result["meta"].get("aborted", False):
     # Mission-State auf ABORTED, mission_event_bus.publish(MissionAborted(...))
@@ -435,6 +435,6 @@ Or write a template file `openclaw.config.json` directly into `OPENCLAW_CONFIG_P
 
 **Recommendation:** Architecture viable, start Wave 2. Prerequisites for Wave 2:
 1. Bridge-docs update via `/skill jarvis-agent-doc-update` — amend AD-1..AD-21, new ADs (AD-22+) for B-8/B-9/B-12
-2. `jarvis/missions/jarvis_agent/` module skeleton (subprocess spawn wrapper, provider-slug mapper, JSON parser)
+2. `dodaios/missions/jarvis_agent/` module skeleton (subprocess spawn wrapper, provider-slug mapper, JSON parser)
 3. Pre-boot setup routine: `openclaw config patch` with provider config (B-12) + workspace isolation (B-9)
 4. Mock bridge test: a local echo server instead of the real `openclaw`, validates the spawn-wrapper mechanics in isolation

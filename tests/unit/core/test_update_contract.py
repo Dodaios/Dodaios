@@ -1,4 +1,4 @@
-"""``jarvis.core.update_contract`` — where a release tells its updater to look.
+"""``dodaios.core.update_contract`` — where a release tells its updater to look.
 
 Two things are pinned here. The tracked ``install/update-contract.json`` must
 describe THIS tree truthfully, because the version before a release believes
@@ -17,10 +17,10 @@ from pathlib import Path
 
 import pytest
 
-import jarvis
-from jarvis.core.branding import CONFIG_FILE_NAME, MACOS_APP_DIR_NAME, MACOS_BUNDLE_ID
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.core.update_contract import (
+import dodaios
+from dodaios.core.branding import CONFIG_FILE_NAME, MACOS_APP_DIR_NAME, MACOS_BUNDLE_ID
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.update_contract import (
     CONTRACT_PATH,
     CONTRACT_SCHEMA,
     DEFAULT_CONTRACT,
@@ -58,7 +58,7 @@ def test_the_contract_points_at_files_this_tree_really_has() -> None:
     version_text = (REPO / contract.version_file).read_text(encoding="utf-8")
     match = re.search(VERSION_PATTERN, version_text)
     assert match is not None
-    assert match.group(1) == jarvis.__version__
+    assert match.group(1) == dodaios.__version__
 
 
 def test_a_package_move_publishes_a_contract_this_reader_follows() -> None:
@@ -67,7 +67,7 @@ def test_a_package_move_publishes_a_contract_this_reader_follows() -> None:
     it has to parse - under this reader - to the moved locations."""
     from scripts.rename import rewrite_package as codemod
 
-    package = jarvis.__name__
+    package = dodaios.__name__
     moved = "pkg_after_the_move"
     layout = ["__init__.py", "ui/web/launcher.py", "ui/web/dist/index.html"]
     assert all((REPO / package / path).is_file() for path in layout)
@@ -84,8 +84,8 @@ def test_a_package_move_publishes_a_contract_this_reader_follows() -> None:
 
 
 def test_the_contract_agrees_with_every_other_copy_of_these_names() -> None:
-    from jarvis.autostart.command import LAUNCHER_MODULE as autostart_launcher
-    from jarvis.ui import relauncher
+    from dodaios.autostart.command import LAUNCHER_MODULE as autostart_launcher
+    from dodaios.ui import relauncher
 
     assert DEFAULT_CONTRACT.config_file == CONFIG_FILE_NAME
     assert DEFAULT_CONTRACT.macos_app_dir_name == MACOS_APP_DIR_NAME
@@ -99,7 +99,7 @@ def test_the_reader_is_standard_library_only() -> None:
     """The restart helper loads it; it must not drag the runtime in."""
     probe = (
         "import sys\n"
-        "import jarvis.core.update_contract\n"
+        "import dodaios.core.update_contract\n"
         "print('\\n'.join(sorted(m for m in sys.modules if m.split('.')[0] in "
         "{'pydantic', 'fastapi', 'httpx', 'loguru'})))\n"
     )
@@ -182,7 +182,7 @@ def test_a_byte_order_mark_does_not_hide_the_contract(tmp_path: Path) -> None:
         "",
         "not json",
         "[]",
-        '"jarvis/ui/web/dist"',
+        '"dodaios/ui/web/dist"',
         json.dumps({"ui_bundle_dir": "newpkg/dist"}),  # no schema at all
         json.dumps({"schema": 2, "ui_bundle_dir": "newpkg/dist"}),
         json.dumps({"schema": "1", "ui_bundle_dir": "newpkg/dist"}),
@@ -315,18 +315,18 @@ SCHEMA_1_GOLDEN = [
     (
         """{
   "schema": 1,
-  "ui_bundle_dir": "jarvis/ui/web/dist",
-  "launcher_module": "jarvis.ui.web.launcher",
-  "version_file": "jarvis/__init__.py",
+  "ui_bundle_dir": "dodaios/ui/web/dist",
+  "launcher_module": "dodaios.ui.web.launcher",
+  "version_file": "dodaios/__init__.py",
   "config_file": "jarvis.toml",
   "macos_app_dir_name": "Personal Jarvis.app",
   "macos_bundle_id": "com.personal-jarvis.desktop"
 }
 """,
         UpdateContract(
-            ui_bundle_dir="jarvis/ui/web/dist",
-            launcher_module="jarvis.ui.web.launcher",
-            version_file="jarvis/__init__.py",
+            ui_bundle_dir="dodaios/ui/web/dist",
+            launcher_module="dodaios.ui.web.launcher",
+            version_file="dodaios/__init__.py",
             config_file="jarvis.toml",
             macos_app_dir_name="Personal Jarvis.app",
             macos_bundle_id="com.personal-jarvis.desktop",

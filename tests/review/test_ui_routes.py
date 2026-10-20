@@ -36,14 +36,14 @@ if _ROUTER_OK:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from jarvis.core.review.audit import (
+    from dodaios.core.review.audit import (
         AuditPhase,
         AuditRecord,
         AuditStatus,
         ReviewAudit,
     )
-    from jarvis.core.review.io import RunDirectory
-    from jarvis.ui.web.review_routes import router as review_router
+    from dodaios.core.review.io import RunDirectory
+    from dodaios.ui.web.review_routes import router as review_router
 
 
 def _build_app(audit: ReviewAudit, runs_root: Path) -> FastAPI:
@@ -284,7 +284,7 @@ def test_stats_window_days_invalid_rejected(client_factory) -> None:
 
 def test_stats_cached_within_60s(client_factory, monkeypatch) -> None:
     """Repeated call with the same window_days → cache hit (no re-read)."""
-    from jarvis.ui.web import review_routes
+    from dodaios.ui.web import review_routes
 
     # Clear the cache in case another test filled it
     review_routes._STATS_CACHE.clear()

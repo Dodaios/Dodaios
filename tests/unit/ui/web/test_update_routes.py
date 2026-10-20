@@ -1,4 +1,4 @@
-"""Route + guard tests for the in-app updater (jarvis/ui/web/update_routes.py).
+"""Route + guard tests for the in-app updater (dodaios/ui/web/update_routes.py).
 
 Covers the safety-critical contract: an unmanaged checkout (dev tree / manual
 clone) never sees an update and can never be self-reset, version comparison is
@@ -13,8 +13,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.update_routes as u
-from jarvis.ui.web.update_routes import router as update_router
+import dodaios.ui.web.update_routes as u
+from dodaios.ui.web.update_routes import router as update_router
 
 
 @pytest.fixture(autouse=True)
@@ -208,7 +208,7 @@ def test_apply_happy_path_pulls_and_signals_restart(
             return "a" * 40
         if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
             return "b" * 40
-        if args == ["show", f"{'b' * 40}:jarvis/__init__.py"]:
+        if args == ["show", f"{'b' * 40}:dodaios/__init__.py"]:
             return '__version__ = "1.0.2"'
         return None
 
@@ -267,7 +267,7 @@ def test_apply_rewrites_legacy_origin_before_fetch(
             return "a" * 40
         if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
             return "b" * 40
-        if args == ["show", f"{'b' * 40}:jarvis/__init__.py"]:
+        if args == ["show", f"{'b' * 40}:dodaios/__init__.py"]:
             return '__version__ = "1.0.2"'
         return None
 
@@ -301,7 +301,7 @@ def test_apply_leaves_current_origin_untouched(
             return "a" * 40
         if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
             return "b" * 40
-        if args == ["show", f"{'b' * 40}:jarvis/__init__.py"]:
+        if args == ["show", f"{'b' * 40}:dodaios/__init__.py"]:
             return '__version__ = "1.0.2"'
         return None
 
@@ -373,7 +373,7 @@ def test_apply_preserves_headless_profile_for_deferred_installer(
             return "1" * 40
         if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
             return "2" * 40
-        if args == ["show", f"{'2' * 40}:jarvis/__init__.py"]:
+        if args == ["show", f"{'2' * 40}:dodaios/__init__.py"]:
             return '__version__ = "1.0.2"'
         return None
 
@@ -421,7 +421,7 @@ def _patch_git_show_version(
     monkeypatch: pytest.MonkeyPatch, revision: str, version: str
 ) -> None:
     async def _fake_git_output(args, *, cwd, timeout_s=15.0):
-        if args == ["show", f"{revision}:jarvis/__init__.py"]:
+        if args == ["show", f"{revision}:dodaios/__init__.py"]:
             return f'__version__ = "{version}"'
         return None
 
@@ -446,7 +446,7 @@ def test_apply_falls_back_to_cached_release_when_refetch_fails(
             return "a" * 40
         if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
             return "b" * 40
-        if args == ["show", f"{'b' * 40}:jarvis/__init__.py"]:
+        if args == ["show", f"{'b' * 40}:dodaios/__init__.py"]:
             return '__version__ = "1.0.2"'
         return None
 
@@ -593,7 +593,7 @@ def test_apply_invalidates_status_cache(
             return "a" * 40
         if args == ["rev-parse", "FETCH_HEAD^{commit}"]:
             return "b" * 40
-        if args == ["show", f"{'b' * 40}:jarvis/__init__.py"]:
+        if args == ["show", f"{'b' * 40}:dodaios/__init__.py"]:
             return '__version__ = "1.0.2"'
         return None
 
@@ -753,7 +753,7 @@ async def test_version_at_revision_follows_the_targets_update_contract(
 
     assert await u._version_at_revision(tmp_path, revision) == "3.0.0"
     # The package moved: its old location is not even looked at.
-    assert ["show", f"{revision}:jarvis/__init__.py"] not in asked
+    assert ["show", f"{revision}:dodaios/__init__.py"] not in asked
 
 
 async def test_version_at_revision_without_a_contract_reads_the_default_file(
@@ -761,7 +761,7 @@ async def test_version_at_revision_without_a_contract_reads_the_default_file(
 ) -> None:
     revision = "c" * 40
     asked = _patch_git_show(
-        monkeypatch, {f"{revision}:jarvis/__init__.py": '__version__ = "2.9.9"'}
+        monkeypatch, {f"{revision}:dodaios/__init__.py": '__version__ = "2.9.9"'}
     )
 
     assert await u._version_at_revision(tmp_path, revision) == "2.9.9"
@@ -786,13 +786,13 @@ async def test_version_at_revision_never_follows_a_contract_it_cannot_trust(
         {
             f"{revision}:install/update-contract.json": contract,
             f"{revision}:newpkg/__init__.py": '__version__ = "6.6.6"',
-            f"{revision}:jarvis/__init__.py": '__version__ = "2.9.9"',
+            f"{revision}:dodaios/__init__.py": '__version__ = "2.9.9"',
         },
     )
 
     assert await u._version_at_revision(tmp_path, revision) == "2.9.9"
     shown = [args[1].split(":", 1)[1] for args in asked if args[0] == "show"]
-    assert shown == ["install/update-contract.json", "jarvis/__init__.py"]
+    assert shown == ["install/update-contract.json", "dodaios/__init__.py"]
 
 
 async def test_version_at_revision_still_falls_back_to_pyproject(
@@ -866,8 +866,8 @@ def test_apply_refuses_a_moved_release_whose_version_cannot_be_read(
 
 
 def test_version_on_disk_follows_the_checked_out_contract(tmp_path: Path) -> None:
-    (tmp_path / "jarvis").mkdir()
-    (tmp_path / "jarvis" / "__init__.py").write_text('__version__ = "1.0.0"\n', encoding="utf-8")
+    (tmp_path / "dodaios").mkdir()
+    (tmp_path / "dodaios" / "__init__.py").write_text('__version__ = "1.0.0"\n', encoding="utf-8")
     assert u._version_on_disk(tmp_path) == "1.0.0"
 
     (tmp_path / "newpkg").mkdir()

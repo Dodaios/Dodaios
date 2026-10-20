@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_chat.team.store import (
+from dodaios.agent_chat.team.store import (
     ENTRY_KINDS,
     MODES,
     PHASES,
@@ -17,7 +17,7 @@ from jarvis.agent_chat.team.store import (
     STEP_STATUSES,
 )
 
-_SRC = Path(__file__).resolve().parents[3] / "jarvis" / "ui" / "web" / "frontend" / "src"
+_SRC = Path(__file__).resolve().parents[3] / "dodaios" / "ui" / "web" / "frontend" / "src"
 _API = _SRC / "lib" / "teamThreadsApi.ts"
 _LOCALES = sorted((_SRC / "i18n" / "locales").glob("*.json"))
 
@@ -57,7 +57,7 @@ def test_every_locale_names_every_state_step_and_reason(locale: Path) -> None:
     assert set(texts["member_role"]) == set(ROLES)
     assert set(texts["step_status"]) == set(STEP_STATUSES)
     # Every reason and notice the engine can write has words.
-    team = Path(__file__).resolve().parents[3] / "jarvis" / "agent_chat" / "team"
+    team = Path(__file__).resolve().parents[3] / "dodaios" / "agent_chat" / "team"
     engine = "\n".join(
         (team / name).read_text(encoding="utf-8") for name in ("engine.py", "plan_mode.py")
     )

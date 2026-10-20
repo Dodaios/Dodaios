@@ -20,9 +20,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.skills import prefs
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills import prefs
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.schema import SkillLifecycleState
 
 
 @pytest.fixture(autouse=True)
@@ -46,7 +46,7 @@ def _make_skill(root: Path, name: str, *, state: str | None = None) -> None:
 
 
 def _client(skills_root: Path) -> tuple[TestClient, SkillRegistry]:
-    from jarvis.ui.web.skills_routes import router
+    from dodaios.ui.web.skills_routes import router
 
     reg = SkillRegistry(
         skills_root, bus=None, state_prefs_loader=prefs.load_state_overrides
@@ -187,7 +187,7 @@ def test_delete_prunes_prefs(skills_root: Path) -> None:
 
 
 def test_delete_builtin_is_refused(skills_root: Path) -> None:
-    from jarvis.skills.builtin import BUILTIN_SKILL_NAMES
+    from dodaios.skills.builtin import BUILTIN_SKILL_NAMES
 
     builtin_name = sorted(BUILTIN_SKILL_NAMES)[0]
     _make_skill(skills_root, builtin_name)
@@ -222,7 +222,7 @@ def test_bulk_delete_removes_multiple_user_skills(skills_root: Path) -> None:
 
 
 def test_bulk_delete_refuses_builtins_but_deletes_the_rest(skills_root: Path) -> None:
-    from jarvis.skills.builtin import BUILTIN_SKILL_NAMES
+    from dodaios.skills.builtin import BUILTIN_SKILL_NAMES
 
     builtin_name = sorted(BUILTIN_SKILL_NAMES)[0]
     _make_skill(skills_root, builtin_name)
@@ -280,7 +280,7 @@ def test_bulk_delete_prunes_prefs(skills_root: Path) -> None:
 
 
 # --- Skill Creator routes (deterministic, no brain in tests) ----------------
-# ``jarvis.skills.creator_service`` is now shipped, so the creator routes work.
+# ``dodaios.skills.creator_service`` is now shipped, so the creator routes work.
 # With no brain wired on ``app.state`` they return the deterministic skeleton
 # draft (``brain_used`` False) — the cloud-first fallback that must always work.
 # The ``link-health`` route still 501s while its optional module is absent.
@@ -383,7 +383,7 @@ def test_creator_author_refuses_without_brain_and_writes_nothing(skills_root: Pa
 
 
 def test_creator_author_writes_a_draft_skill_with_a_brain(skills_root: Path) -> None:
-    from jarvis.core.protocols import BrainDelta
+    from dodaios.core.protocols import BrainDelta
 
     class _Brain:
         def complete(self, request):  # noqa: ANN001, ANN202
@@ -401,7 +401,7 @@ def test_creator_author_writes_a_draft_skill_with_a_brain(skills_root: Path) -> 
 
             return _gen()
 
-    from jarvis.ui.web.skills_routes import router
+    from dodaios.ui.web.skills_routes import router
 
     reg = SkillRegistry(skills_root, bus=None, state_prefs_loader=prefs.load_state_overrides)
     reg.reload_sync()

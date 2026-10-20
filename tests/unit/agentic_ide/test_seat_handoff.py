@@ -12,7 +12,7 @@ import os
 import time
 from pathlib import Path
 
-from jarvis.agentic_ide import seat_handoff
+from dodaios.agentic_ide import seat_handoff
 
 SID = "0f4d7c1e-1111-4222-8333-944455556666"
 

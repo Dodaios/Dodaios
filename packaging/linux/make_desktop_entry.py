@@ -5,7 +5,7 @@ The AppImage spec requires exactly one ``.desktop`` file in the AppDir root
 integrate an AppImage - AppImageLauncher, appimaged, GNOME's "Add to
 favourites" - read the application's name, icon and categories from it.
 
-The encoding is NOT hand-rolled here. ``jarvis/core/desktop_entry.py`` is the
+The encoding is NOT hand-rolled here. ``dodaios/core/desktop_entry.py`` is the
 one place in this project that knows the two nested escaping layers a
 ``.desktop`` file carries, and a desktop environment silently discards an entry
 it cannot parse - so a hand-written ``Exec=`` line fails invisibly. This script
@@ -32,13 +32,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from jarvis import __version__  # noqa: E402  - needs REPO_ROOT on sys.path first
-from jarvis.core.branding import (  # noqa: E402
+from dodaios import __version__  # noqa: E402  - needs REPO_ROOT on sys.path first
+from dodaios.core.branding import (  # noqa: E402
     LINUX_APP_NAME,
     LINUX_WM_CLASS,
     PRODUCT_SLUG,
 )
-from jarvis.core.desktop_entry import escape_value, exec_value  # noqa: E402
+from dodaios.core.desktop_entry import escape_value, exec_value  # noqa: E402
 
 #: Same one-line summary the source install's menu entry uses.
 COMMENT = "Turn your computer into an AI agent"
@@ -71,7 +71,7 @@ def render(exec_name: str = "Jarvis", icon_name: str = PRODUCT_SLUG) -> str:
         f"Keywords={KEYWORDS}\n"
         # Binds the running window to this entry, so a desktop that does get a
         # native window shows the Jarvis icon in the dock rather than a generic
-        # one. Matches jarvis.ui.icon_utils.pin_linux_wm_class().
+        # one. Matches dodaios.ui.icon_utils.pin_linux_wm_class().
         f"StartupWMClass={escape_value(LINUX_WM_CLASS)}\n"
         f"X-AppImage-Version={escape_value(__version__)}\n"
     )

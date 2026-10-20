@@ -12,8 +12,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import ExecutionContext, Observation, UIANode
-from jarvis.plugins.tool.click_element import ClickElementTool
+from dodaios.core.protocols import ExecutionContext, Observation, UIANode
+from dodaios.plugins.tool.click_element import ClickElementTool
 
 
 def _ctx() -> ExecutionContext:
@@ -46,7 +46,7 @@ class _FakeVisionSource:
 @pytest.fixture(autouse=True)
 def stable_foreground(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "jarvis.plugins.tool.click_element._foreground_window_signature",
+        "dodaios.plugins.tool.click_element._foreground_window_signature",
         lambda: ("handle", 11, (0, 0, 800, 600)),
     )
 
@@ -66,10 +66,10 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, int, str, bool]
         calls.append((x, y, button, double))
 
     monkeypatch.setattr(
-        "jarvis.plugins.tool.click_element._click_windows", _record
+        "dodaios.plugins.tool.click_element._click_windows", _record
     )
     # Force the Windows native path so the recorder is hit on every platform.
-    monkeypatch.setattr("jarvis.plugins.tool.click_element.os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr("dodaios.plugins.tool.click_element.os", SimpleNamespace(name="nt"))
     return calls
 
 
@@ -156,9 +156,9 @@ async def test_posix_unavailable_backend_reports_actionable_message(
     """Non-Windows without an input backend: the capability-probe message
     (Wayland/headless/extras missing) must reach the model — not a raw
     pyautogui ImportError (§3 honest degradation)."""
-    from jarvis.cu.actuate.base import ActuationUnavailable
+    from dodaios.cu.actuate.base import ActuationUnavailable
 
-    monkeypatch.setattr("jarvis.plugins.tool.click_element.os.name", "posix")
+    monkeypatch.setattr("dodaios.plugins.tool.click_element.os.name", "posix")
 
     def _unavailable() -> None:
         raise ActuationUnavailable(
@@ -167,7 +167,7 @@ async def test_posix_unavailable_backend_reports_actionable_message(
             "'personal-jarvis[desktop]') to get pynput/pyautogui."
         )
 
-    monkeypatch.setattr("jarvis.cu.actuate.base.get_actuator", _unavailable)
+    monkeypatch.setattr("dodaios.cu.actuate.base.get_actuator", _unavailable)
 
     nodes = (
         UIANode(role="Button", name="Save", bounds=(10, 20, 100, 40), enabled=True),
@@ -188,7 +188,7 @@ async def test_refuses_engine_capture_from_a_different_foreground_window(
     current = ("handle", 22, (0, 0, 800, 600))
     captured = ("handle", 11, (0, 0, 800, 600))
     monkeypatch.setattr(
-        "jarvis.plugins.tool.click_element._foreground_window_signature",
+        "dodaios.plugins.tool.click_element._foreground_window_signature",
         lambda: current,
     )
     tool = ClickElementTool(vision_source=_FakeVisionSource((
@@ -215,7 +215,7 @@ async def test_refuses_switch_during_async_ui_tree_observation(
         ("handle", 22, (0, 0, 800, 600)),
     ))
     monkeypatch.setattr(
-        "jarvis.plugins.tool.click_element._foreground_window_signature",
+        "dodaios.plugins.tool.click_element._foreground_window_signature",
         lambda: next(signatures),
     )
     tool = ClickElementTool(vision_source=_FakeVisionSource((

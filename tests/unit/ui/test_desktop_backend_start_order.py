@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.ui.desktop_app import DesktopApp
+from dodaios.ui.desktop_app import DesktopApp
 
 
 class _FakeBus:
@@ -125,7 +125,7 @@ class _FakeLoop:
 
     def set_default_executor(self, executor: Any) -> None:
         # The backend hands the loop a prewarmed pool before anything awaits
-        # (``jarvis/core/loop_executor.py``); a fake loop has to accept it.
+        # (``dodaios/core/loop_executor.py``); a fake loop has to accept it.
         self.default_executor = executor
 
     def run_until_complete(self, coro: Any) -> Any:
@@ -187,47 +187,47 @@ def test_desktop_voice_start_does_not_wait_for_brain_ready(monkeypatch, tmp_path
 
     _install_fake_module(
         monkeypatch,
-        "jarvis.speech.warmup_prefetch",
+        "dodaios.speech.warmup_prefetch",
         start_wake_import_prefetch=lambda: None,
         start_tts_import_prefetch=lambda: None,
         start_anthropic_import_prefetch=lambda: None,
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.audio.device_init",
+        "dodaios.audio.device_init",
         start_audio_device_prefetch=lambda: None,
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.ui.web.server",
+        "dodaios.ui.web.server",
         WebServer=_FakeWebServer,
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.ui.web.fast_bootstrap",
+        "dodaios.ui.web.fast_bootstrap",
         FastBootstrap=_FakeBootstrap,
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.state.chat_store",
+        "dodaios.state.chat_store",
         ChatStore=_FakeChatStore,
         ChatMessage=type("ChatMessage", (), {}),
         default_chats_db_path=lambda _data_dir: tmp_path / "chats.db",
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.state.supervisor",
+        "dodaios.state.supervisor",
         Supervisor=_FakeSupervisor,
         SupervisorState=type("SupervisorState", (), {}),
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.state.turn_trace",
+        "dodaios.state.turn_trace",
         TurnTraceCollector=lambda _bus: SimpleNamespace(),
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.brain.factory",
+        "dodaios.brain.factory",
         build_default_brain=lambda **_kwargs: (
             events.append("build_brain") or SimpleNamespace(active_provider="fake")
         ),
@@ -238,31 +238,31 @@ def test_desktop_voice_start_does_not_wait_for_brain_ready(monkeypatch, tmp_path
 
     _install_fake_module(
         monkeypatch,
-        "jarvis.brain.frontier_autoswitch",
+        "dodaios.brain.frontier_autoswitch",
         apply_frontier_resolution=_no_switches,
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.brain.frontier_resolver",
+        "dodaios.brain.frontier_resolver",
         FrontierResolver=lambda **_kwargs: object(),
     )
     fake_mcp_state = _install_fake_module(
         monkeypatch,
-        "jarvis.mcp.state",
+        "dodaios.mcp.state",
         get_enabled_names=lambda: [],
     )
-    fake_mcp_pkg = types.ModuleType("jarvis.mcp")
+    fake_mcp_pkg = types.ModuleType("dodaios.mcp")
     fake_mcp_pkg.state = fake_mcp_state
     fake_mcp_pkg.__path__ = []  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "jarvis.mcp", fake_mcp_pkg)
+    monkeypatch.setitem(sys.modules, "dodaios.mcp", fake_mcp_pkg)
     _install_fake_module(
         monkeypatch,
-        "jarvis.mcp.registry",
+        "dodaios.mcp.registry",
         MCPRegistry=_FakeMCPRegistry,
     )
     _install_fake_module(
         monkeypatch,
-        "jarvis.core.runtime_refs",
+        "dodaios.core.runtime_refs",
         set_mcp_registry=lambda _registry: None,
     )
 
@@ -271,7 +271,7 @@ def test_desktop_voice_start_does_not_wait_for_brain_ready(monkeypatch, tmp_path
 
     _install_fake_module(
         monkeypatch,
-        "jarvis.workflows",
+        "dodaios.workflows",
         WorkflowRunner=lambda **_kwargs: object(),
         WorkflowScheduler=lambda **_kwargs: object(),
         WorkflowStore=lambda _path: _FakeWorkflowStore(),

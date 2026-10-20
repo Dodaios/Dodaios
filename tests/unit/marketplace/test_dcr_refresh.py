@@ -20,12 +20,12 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from jarvis.marketplace.auth.oauth_dcr import (
+from dodaios.marketplace.auth.oauth_dcr import (
     DcrConfig,
     HostedMcpDcrHandler,
     _PendingFlow,
 )
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.token_store import Tokens
 
 TOKEN_ENDPOINT = "https://auth.example/token"  # noqa: S105 (a URL, not a secret)
 

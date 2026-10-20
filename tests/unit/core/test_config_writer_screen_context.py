@@ -6,7 +6,7 @@ import tomllib
 
 import pytest
 
-from jarvis.core.config_writer import set_screen_context_settings
+from dodaios.core.config_writer import set_screen_context_settings
 
 
 def test_screen_context_patch_is_written_as_one_table_update(tmp_path) -> None:

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from jarvis.core import paths
+from dodaios.core import paths
 
 
 def test_product_docs_are_the_reader_registry_root(

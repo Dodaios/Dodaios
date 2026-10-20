@@ -1,8 +1,8 @@
 # Jarvis Verse level system
 
-Status: **built 2026-10-03.** Backend `jarvis/progression/`, REST
+Status: **built 2026-10-03.** Backend `dodaios/progression/`, REST
 `/api/progression`, frontend `components/society/progression/`. The rulebook
-in `jarvis/progression/rules.py` is the source of truth; this page is its
+in `dodaios/progression/rules.py` is the source of truth; this page is its
 readable version.
 
 ## 1. Who levels up

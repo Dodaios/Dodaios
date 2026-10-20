@@ -13,15 +13,15 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.trigger.backends import HotkeyBackend
+from dodaios.trigger.backends import HotkeyBackend
 from tests.fakes.fake_hotkey_backend import FakeHotkeyBackend
 
 
 def _backend_factories():
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
-    from jarvis.trigger.backends.noop import NoopBackend
-    from jarvis.trigger.backends.pynput import PynputBackend
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.noop import NoopBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     return [
         pytest.param(GlobalHotkeysBackend, id="windows"),
@@ -88,7 +88,7 @@ def test_optional_probes_never_claim_a_listener_before_start(factory):
 @pytest.mark.parametrize("factory", _backend_factories())
 def test_the_trigger_reads_a_backend_without_probes_as_unknown(factory):
     """``listening()`` is ``None`` for a backend that cannot say, never ``False``."""
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     trigger = HotkeyTrigger({"call": ["f3+f4"]})
     backend = factory()
@@ -100,10 +100,10 @@ def test_the_trigger_reads_a_backend_without_probes_as_unknown(factory):
 
 def test_only_the_macos_and_the_noop_backends_have_a_listener_probe():
     """Windows and Linux keep today's pill behaviour; the no-op backend says "never"."""
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
-    from jarvis.trigger.backends.noop import NoopBackend
-    from jarvis.trigger.backends.pynput import PynputBackend
-    from jarvis.trigger.backends.quartz import QuartzHotkeyBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.noop import NoopBackend
+    from dodaios.trigger.backends.pynput import PynputBackend
+    from dodaios.trigger.backends.quartz import QuartzHotkeyBackend
 
     assert callable(QuartzHotkeyBackend().is_listening)
     # Nothing is ever armed by the no-op backend: "not listening", not "cannot say".

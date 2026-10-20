@@ -1,9 +1,9 @@
-"""Tests for jarvis.brain.cost — pricing table + calculate_cost_usd."""
+"""Tests for dodaios.brain.cost — pricing table + calculate_cost_usd."""
 from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.cost import (
+from dodaios.brain.cost import (
     PRICING_USD_PER_MTOK,
     REALTIME_AUDIO_PRICING_USD_PER_MTOK,
     calculate_cost_usd,
@@ -152,7 +152,7 @@ class TestCalculateRealtimeCostUsd:
 
 def test_table_prices_the_models_the_workers_actually_run() -> None:
     """Static table only — a network feed must not be what keeps these priced."""
-    from jarvis.brain.cost import MODEL_ALIASES, PRICING_USD_PER_MTOK
+    from dodaios.brain.cost import MODEL_ALIASES, PRICING_USD_PER_MTOK
 
     assert "grok-4.5" in PRICING_USD_PER_MTOK
     for alias, canonical in MODEL_ALIASES.items():
@@ -160,7 +160,7 @@ def test_table_prices_the_models_the_workers_actually_run() -> None:
 
 
 def test_a_variant_tag_prices_as_the_untagged_model() -> None:
-    from jarvis.brain.cost import resolve_rates
+    from dodaios.brain.cost import resolve_rates
 
     assert resolve_rates("kimi-k2.5:cloud") == resolve_rates("kimi-k2.5")
     assert resolve_rates("kimi-k2.5:cloud") is not None
@@ -168,20 +168,20 @@ def test_a_variant_tag_prices_as_the_untagged_model() -> None:
 
 def test_a_free_tag_stays_unknown_to_the_rate_table() -> None:
     """``:free`` is the free tier, settled by price_entry, never a variant."""
-    from jarvis.brain.cost import resolve_rates
+    from dodaios.brain.cost import resolve_rates
 
     assert resolve_rates("kimi-k2.5:free") is None
 
 
 def test_grok_cache_reads_bill_at_a_quarter() -> None:
-    from jarvis.brain.cost import cache_read_fraction
+    from dodaios.brain.cost import cache_read_fraction
 
     assert cache_read_fraction("grok-4.6-build") == 0.25
     assert cache_read_fraction("gpt-5.5") == 0.10
 
 
 def test_zai_glm_rates_do_not_inherit_anthropic_pricing() -> None:
-    from jarvis.brain.cost import calculate_cost_usd
+    from dodaios.brain.cost import calculate_cost_usd
 
     assert calculate_cost_usd("glm-4.6", 1_000_000, 1_000_000) == pytest.approx(2.80)
     assert calculate_cost_usd("glm-5.1", 1_000_000, 1_000_000) == pytest.approx(5.80)
@@ -189,7 +189,7 @@ def test_zai_glm_rates_do_not_inherit_anthropic_pricing() -> None:
 
 
 def test_zai_glm_cache_reads_use_twenty_percent_of_input_rate() -> None:
-    from jarvis.brain.cost import cache_read_fraction, calculate_cost_usd
+    from dodaios.brain.cost import cache_read_fraction, calculate_cost_usd
 
     assert cache_read_fraction("glm-5.3") == pytest.approx(0.20)
     assert calculate_cost_usd("glm-5.3", 0, 0, 1_000_000) == pytest.approx(0.28)

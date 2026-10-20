@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.lock import VaultLock
+from dodaios.memory.wiki.lock import VaultLock
 
 
 def _write_lock(path: Path, ts: float, *, pid: int | None = None) -> None:

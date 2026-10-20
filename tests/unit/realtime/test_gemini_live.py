@@ -6,13 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.model_catalog import REALTIME_MODELS
-from jarvis.plugins.realtime.gemini_live import (
+from dodaios.brain.model_catalog import REALTIME_MODELS
+from dodaios.plugins.realtime.gemini_live import (
     GeminiLiveProvider,
     VertexLiveProvider,
     _GeminiLiveSession,
 )
-from jarvis.realtime.protocol import RealtimeSessionConfig
+from dodaios.realtime.protocol import RealtimeSessionConfig
 
 
 def _fake_message(*, data=None, server_content=None, tool_call=None, go_away=None):
@@ -1552,7 +1552,7 @@ async def test_blank_only_history_still_closes_the_declared_seed(
 
 
 def _sanitize(schema):
-    from jarvis.plugins.realtime.gemini_live import _sanitize_schema_for_gemini
+    from dodaios.plugins.realtime.gemini_live import _sanitize_schema_for_gemini
 
     return _sanitize_schema_for_gemini(schema)
 
@@ -1658,7 +1658,7 @@ def test_sanitizer_renders_enum_members_as_strings() -> None:
 
 def test_declaration_the_sdk_rejects_is_dropped_not_raised() -> None:
     """One malformed tool must never cost the user their voice provider."""
-    from jarvis.plugins.realtime.gemini_live import _sanitize_declarations
+    from dodaios.plugins.realtime.gemini_live import _sanitize_declarations
 
     class _Types:
         class FunctionDeclaration:
@@ -1678,7 +1678,7 @@ def test_declaration_the_sdk_rejects_is_dropped_not_raised() -> None:
 def test_declarations_pass_the_real_sdk_after_sanitizing() -> None:
     """The exact live failure, validated against the installed google-genai."""
     types = pytest.importorskip("google.genai.types")
-    from jarvis.plugins.realtime.gemini_live import _sanitize_declarations
+    from dodaios.plugins.realtime.gemini_live import _sanitize_declarations
 
     declarations = _sanitize_declarations(
         (
@@ -1726,11 +1726,11 @@ def test_sanitizer_is_idempotent() -> None:
 @pytest.mark.parametrize(
     "module_name, class_name",
     [
-        ("jarvis.plugins.tool.describe_app_settings", "DescribeAppSettingsTool"),
-        ("jarvis.plugins.tool.dispatch_with_review", "DispatchWithReviewTool"),
-        ("jarvis.plugins.tool.manage_mcp_server", "ManageMcpServerTool"),
-        ("jarvis.plugins.tool.reveal_key_preview", "RevealKeyPreviewTool"),
-        ("jarvis.plugins.tool.switch_provider", "SwitchProviderTool"),
+        ("dodaios.plugins.tool.describe_app_settings", "DescribeAppSettingsTool"),
+        ("dodaios.plugins.tool.dispatch_with_review", "DispatchWithReviewTool"),
+        ("dodaios.plugins.tool.manage_mcp_server", "ManageMcpServerTool"),
+        ("dodaios.plugins.tool.reveal_key_preview", "RevealKeyPreviewTool"),
+        ("dodaios.plugins.tool.switch_provider", "SwitchProviderTool"),
     ],
 )
 def test_real_router_tool_schemas_survive_sanitizing(

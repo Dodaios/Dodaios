@@ -15,8 +15,8 @@ sounddevice, no audio hardware) and must never raise.
 """
 from __future__ import annotations
 
-import jarvis.audio.device_init as di
-from jarvis.audio.device_init import wait_for_stable_audio_devices
+import dodaios.audio.device_init as di
+from dodaios.audio.device_init import wait_for_stable_audio_devices
 
 
 class FakeClock:

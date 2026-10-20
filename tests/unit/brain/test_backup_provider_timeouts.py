@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.core.config as cfg
-from jarvis.plugins.brain.openai import OpenAIBrain
-from jarvis.plugins.brain.openrouter import OpenRouterBrain
+import dodaios.core.config as cfg
+from dodaios.plugins.brain.openai import OpenAIBrain
+from dodaios.plugins.brain.openrouter import OpenRouterBrain
 
 
 @pytest.mark.parametrize("brain_cls", [OpenAIBrain, OpenRouterBrain])

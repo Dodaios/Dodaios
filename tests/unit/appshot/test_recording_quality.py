@@ -8,7 +8,7 @@ import threading
 import pytest
 from pydantic import ValidationError
 
-from jarvis.appshot.recording_options import RecordingOptions, effective_fps, output_size
+from dodaios.appshot.recording_options import RecordingOptions, effective_fps, output_size
 
 
 @pytest.mark.parametrize("source,resolution,expected", [
@@ -39,9 +39,9 @@ def test_config_api_and_worker_share_defaults_and_validation(tmp_path):
     import tomllib
     from pathlib import Path
 
-    from jarvis.core.config import AppshotConfig
-    from jarvis.core.config_writer import set_appshot_settings
-    from jarvis.ui.web.appshot_routes import SettingsPatch
+    from dodaios.core.config import AppshotConfig
+    from dodaios.core.config_writer import set_appshot_settings
+    from dodaios.ui.web.appshot_routes import SettingsPatch
 
     expected = {f"recording_{key}": value for key, value in RecordingOptions().model_dump().items()}
     block = AppshotConfig()
@@ -56,7 +56,7 @@ def test_config_api_and_worker_share_defaults_and_validation(tmp_path):
     assert stored == {"sound": True, **changed}
     assert RecordingOptions.from_config(AppshotConfig(**stored)).fps == 120
     # Every locale exposes the same real preference labels.
-    root = Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src/i18n/locales"
+    root = Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src/i18n/locales"
     keys = ["recording_resolution", "recording_fps", "recording_bitrate", "recording_system_audio"]
     for locale in ("en", "de", "es"):
         labels = json.loads((root / f"{locale}.json").read_text(encoding="utf-8"))["appshots"]
@@ -68,8 +68,8 @@ def test_config_api_and_worker_share_defaults_and_validation(tmp_path):
     ("bitrate_mbps", 101), ("bitrate_mbps", 1.5), ("bitrate_mbps", True),
 ])
 def test_invalid_quality_is_rejected_at_all_boundaries(field, value):
-    from jarvis.core.config import AppshotConfig
-    from jarvis.ui.web.appshot_routes import SettingsPatch
+    from dodaios.core.config import AppshotConfig
+    from dodaios.ui.web.appshot_routes import SettingsPatch
 
     for cls, values in ((RecordingOptions, {field: value}),
                         (AppshotConfig, {f"recording_{field}": value}),
@@ -81,7 +81,7 @@ def test_invalid_quality_is_rejected_at_all_boundaries(field, value):
 def _encoder(tmp_path, *, fps=60, size=(64, 48), resolution="native", audio=False):
     pytest.importorskip("av")
     qt = pytest.importorskip("PySide6.QtGui")
-    from jarvis.appshot.video_encoder import VideoEncoder
+    from dodaios.appshot.video_encoder import VideoEncoder
 
     encoder = VideoEncoder(tmp_path / "capture.mp4", options=RecordingOptions(
         resolution=resolution, fps=fps, bitrate_mbps=7, system_audio=audio))
@@ -124,7 +124,7 @@ def test_real_mp4_downscales_the_pixels(tmp_path):
 def test_real_mp4_audio_survives_trim_and_speed_changes(tmp_path, monkeypatch, speed, offset):
     av = pytest.importorskip("av")
     np = pytest.importorskip("numpy")
-    from jarvis.appshot import recording_audio
+    from dodaios.appshot import recording_audio
 
     class Audio:
         def __init__(self, epoch):
@@ -154,7 +154,7 @@ def test_real_mp4_audio_survives_trim_and_speed_changes(tmp_path, monkeypatch, s
         data = np.concatenate([frame.to_ndarray() for frame in source.decode(audio)], axis=1)
         assert np.max(np.abs(data)) > 0.05
 
-    from jarvis.appshot import recording, video_edit
+    from dodaios.appshot import recording, video_edit
 
     monkeypatch.setattr(recording, "recording_dir", lambda: tmp_path)
     monkeypatch.setattr(video_edit, "recording_dir", lambda: tmp_path)
@@ -174,7 +174,7 @@ def test_real_mp4_audio_survives_trim_and_speed_changes(tmp_path, monkeypatch, s
 
 
 def test_audio_unavailable_never_falls_back_to_microphone(monkeypatch):
-    from jarvis.appshot import recording_audio
+    from dodaios.appshot import recording_audio
 
     monkeypatch.setattr(recording_audio.sys, "platform", "darwin")
     assert not recording_audio.capability()["available"]
@@ -207,7 +207,7 @@ def test_capture_gaps_are_reported_without_speeding_up_playback(tmp_path):
 def test_hardware_encoder_failure_closes_candidate_before_software_fallback(tmp_path):
     from types import SimpleNamespace
 
-    from jarvis.appshot.recording_codec import open_video
+    from dodaios.appshot.recording_codec import open_video
 
     attempts = []
 
@@ -238,7 +238,7 @@ def test_hardware_encoder_failure_closes_candidate_before_software_fallback(tmp_
 
 def test_subframe_clock_jitter_keeps_frames_and_editor_rate(tmp_path, monkeypatch):
     av = pytest.importorskip("av")
-    from jarvis.appshot import recording, video_edit
+    from dodaios.appshot import recording, video_edit
 
     encoder = _encoder(tmp_path)
     image = encoder.frames.queue[0][0]
@@ -265,7 +265,7 @@ async def test_saved_display_details_do_not_collide_with_preview_geometry():
     import json
     from types import SimpleNamespace
 
-    from jarvis.appshot.recording import RecordingService
+    from dodaios.appshot.recording import RecordingService
 
     class Events:
         async def __aiter__(self):
@@ -303,7 +303,7 @@ def test_software_only_install_can_encode_without_a_gpu(tmp_path, monkeypatch, c
 
 
 def test_requested_audio_failure_never_reports_a_silent_success(tmp_path, monkeypatch):
-    from jarvis.appshot import recording_audio
+    from dodaios.appshot import recording_audio
 
     class UnavailableAudio:
         def __init__(self, epoch):
@@ -344,7 +344,7 @@ def test_clip_rate_snaps_jittered_average_to_the_capture_rate():
     from fractions import Fraction
     from types import SimpleNamespace
 
-    from jarvis.appshot.video_edit import _nominal_rate
+    from dodaios.appshot.video_edit import _nominal_rate
 
     def stream(declared, average):
         return SimpleNamespace(

@@ -2,20 +2,20 @@
 
 > **HISTORICAL — superseded, not a plan of record.** This document designs a
 > subprocess bridge to the external `openclaw` worker CLI. That bridge was
-> **never built**: `jarvis/plugins/harness/jarvis_agent.py` does not exist, no
+> **never built**: `dodaios/plugins/harness/jarvis_agent.py` does not exist, no
 > `jarvis.harness` entry point was ever registered for it (see
 > `pyproject.toml` → `[project.entry-points."jarvis.harness"]`, which registers
-> only `python-script` and `screenshot`), and `jarvis/core/config.py:1353`
+> only `python-script` and `screenshot`), and `dodaios/core/config.py:1353`
 > records the same fact. Heavy work is instead carried by **direct mission
 > workers** — `ClaudeDirectWorker`, `CodexDirectWorker`, `GoogleCliWorker`, and
 > the in-process `ApiAgentWorker` — selected by the cross-family resolver in
-> `jarvis/missions/init.py`. The only surviving `openclaw` code path,
-> `jarvis/missions/workers/provider_chain.py`, is imported by nothing in
-> `jarvis/`. Read this doc for the Wave-1 spike findings (SP-1..SP-8) and the
+> `dodaios/missions/init.py`. The only surviving `openclaw` code path,
+> `dodaios/missions/workers/provider_chain.py`, is imported by nothing in
+> `dodaios/`. Read this doc for the Wave-1 spike findings (SP-1..SP-8) and the
 > architecture decisions AD-1..AD-21 that later work still cites; do **not**
 > read its wave plan, file paths, or `OPENCLAW_STATE_DIR` environment contract
 > as a description of the shipping system. The live worker state directory
-> variable is `MISSION_STATE_DIR` (`jarvis/missions/isolation/env.py:221`).
+> variable is `MISSION_STATE_DIR` (`dodaios/missions/isolation/env.py:221`).
 
 **Status:** HISTORICAL — Wave 1 (Spike) complete; Wave 2 (Implementation) was
 never executed under this design (superseded by the direct mission workers)
@@ -33,10 +33,10 @@ So that this doc, the code, and the subagent files consistently speak the same l
 | Term | Meaning | What it was called before 2026-05-09 |
 |---|---|---|
 | **Personal Jarvis** | The overall voice-assistant product. What the user sees, hears, talks to. **Not** a subagent. | "Jarvis" |
-| **Jarvis-Brain** / **Router-Brain** | Inner classifier brain (Haiku 4.5) that triages user utterances into trivial / direct_action / spawn-subagent. Lives in `jarvis/brain/manager.py` as `BrainManager` with tier `"router"`. | "Hauptjarvis" |
+| **Jarvis-Brain** / **Router-Brain** | Inner classifier brain (Haiku 4.5) that triages user utterances into trivial / direct_action / spawn-subagent. Lives in `dodaios/brain/manager.py` as `BrainManager` with tier `"router"`. | "Hauptjarvis" |
 | **Jarvis-Agent** | The **only** subagent. Heavy-worker for tasks that the Router-Brain delegates. Runs via the external `openclaw` worker CLI through the bridge plugin. *(This Wave-1 doc originally coined the tier itself "OpenClaw"; the tier was renamed to **Jarvis-Agent** in the 2026-06-30 rebrand — see the Language rule below. The external `openclaw` CLI keeps its own name throughout this doc.)* | "Sub-Jarvis" / "Sub-Jarvis tier" |
-| **Bridge** | `jarvis/plugins/harness/jarvis_agent.py` (this Wave-1 plan's path; never actually created under this name — see §4.1) — adapter layer that starts the external `openclaw` worker CLI as a subprocess, passes MCPs through, parses stdout, and emits bus events. | (did not exist) |
-| **Mission-Manager** | Phase-6 skeleton under `jarvis/missions/` — orchestrates worktree, Job-Object, Critic-Loop, Kontrollierer around the bridge. | (Phase 6, was installed in parallel but not in the voice path) |
+| **Bridge** | `dodaios/plugins/harness/jarvis_agent.py` (this Wave-1 plan's path; never actually created under this name — see §4.1) — adapter layer that starts the external `openclaw` worker CLI as a subprocess, passes MCPs through, parses stdout, and emits bus events. | (did not exist) |
+| **Mission-Manager** | Phase-6 skeleton under `dodaios/missions/` — orchestrates worktree, Job-Object, Critic-Loop, Kontrollierer around the bridge. | (Phase 6, was installed in parallel but not in the voice path) |
 | **Sub-Jarvis** | **Deprecated term.** The Phase-5 tiered-routing construct with a second Opus brain instance (`SubJarvisManager`, `from_tier_config("sub_jarvis")`). Deleted entirely in Wave 4 — no parallel operation. | (was: second Opus brain instance) |
 | **Hauptjarvis** | **Deprecated term.** Was used in contrast to Sub-Jarvis. Now called **Jarvis-Brain** or **Router-Brain**. | (was: Haiku dispatcher) |
 
@@ -68,21 +68,21 @@ Instead of evolving these loops ourselves, **we replace the Jarvis-Agent tier en
 | AD-1 | The external `openclaw` CLI runs as a **one-shot subprocess per task** (`openclaw agent --message ...`) | Cleanly isolated per task, killable via Job-Object, no state leak between spawns. Cold-start latency ~2–5s is acceptable because heavy-worker tasks run >30s anyway. |
 | AD-2 | The external `openclaw` CLI runs **natively on Windows Node**, no WSL2 | Jarvis is native Windows (WASAPI, Win32, Credential Manager). A WSL2 layer would bring in a path-mapping + performance layer. **Needs a spike**: the README says WSL2 for Windows — we verify native operability as a pre-condition. |
 | AD-3 | **Black-box model** — the external `openclaw` CLI's own skills, channels, UI, voice-wake are ignored entirely | Jarvis already has all of these layers. The external `openclaw` CLI is used as a pure brain engine. Duplicate state and trigger conflicts are avoided. No fork — we use upstream unchanged. |
-| AD-4 | The bridge lives as a new plugin in `jarvis/plugins/harness/jarvis_agent.py` | Fits into the existing `jarvis.harness` plugin schema alongside `openclaw`/Codex/Open-Interpreter. The Phase-6 worker calls the harness instead of an LLM client directly. Clean layer separation. |
+| AD-4 | The bridge lives as a new plugin in `dodaios/plugins/harness/jarvis_agent.py` | Fits into the existing `jarvis.harness` plugin schema alongside `openclaw`/Codex/Open-Interpreter. The Phase-6 worker calls the harness instead of an LLM client directly. Clean layer separation. |
 | AD-5 | **The worker harness is the only Jarvis-Agent tier**, running on the external `openclaw` worker CLI. The Phase-5 Jarvis-Agent tier (`SubJarvisManager` module, `BrainManager.from_tier_config("sub_jarvis")`, `_should_force_sub_jarvis`, `_force_spawn_sub_jarvis`, `spawn_sub_jarvis` tool) is deleted entirely in Wave 4. | No parallel operation, no backwards compatibility. All spawn requests from the Router-Brain run through the renamed `spawn_openclaw` tool (Wave-4 name; further renamed to `spawn_worker` in the later 2026-06-30 rebrand, still recognized as a legacy alias) → Mission-Manager → Jarvis-Agents-Bridge. **Not affected:** the `openclaw`/Codex/Open-Interpreter harness plugins stay registered, because `dispatch-to-harness` is an orthogonal mechanism (direct harness call without a Jarvis-Agent tier). Skill authoring (Phase 7.5) must be switched from SubJarvisManager to Mission-Manager spawn — see R-6. |
 | AD-6 | API keys come from the Windows Credential Manager via a **new wizard section** | Single source of truth for secrets. Wizard and Desktop-App extend the `SECRETS` list with `JARVIS_AGENT_<PROVIDER>_API_KEY`. The bridge passes those to the subprocess as ENV. *(Rejected before implementation — see Amendment AD-6 below: no custom namespace was ever created.)* |
 | AD-7 | Model choice is **static in `[harness.jarvis_agent].model`**, hot-reload via watchdog | "Everyone should be able to pick their own model." A config edit switches the frontier model without a code change. A voice switch is deliberately not added (Phase-7 self-mod dependency, can be retrofitted later). *(This section originally used `[harness.openclaw].model`; the config key is now `[harness.jarvis_agent]`, which still accepts `[harness.openclaw]` as a read-time legacy alias.)* |
 | AD-8 | **All registered MCPs** are passed through to the external `openclaw` CLI | Convenience mode. Consequence: at registration, the MCP wizard must display "this MCP is also passed on to Jarvis-Agents". User awareness instead of an engineering filter. |
 | AD-9 | **Full trust for tool calls** inside the external `openclaw` CLI, no bridge intercept | The safety valves are: (a) worktree isolation, (b) Job-Object hard kill, (c) the Critic-Loop in front of it, (d) MCP selection (placed upstream). Tool latency stays low; the risk-tier policy does not apply to `openclaw`-internal calls. |
 | AD-10 | The external `openclaw` CLI runs **async / fire-and-forget** | "Auflegen" (hanging up) ends the voice session; `openclaw` keeps running in the background. Personal Jarvis says immediately "okay, mache ich" (okay, will do) and releases the voice mic. |
-| AD-11 | **Stop is explicitly separated** from hang-up — voice + UI + auto-stop on time-cap | Voice patterns "brich ab", "stop openclaw", "abbrechen" (cancel/abort)  <!-- i18n-allow --> + UI button + automatic abort when the 30-min limit is exceeded. The lowercase `openclaw`/`claw` tokens are still live spoken-trigger words recognized by the current stop/status pattern matcher (`jarvis/brain/mission_command_gate.py`), alongside "mission"/"auftrag". |
+| AD-11 | **Stop is explicitly separated** from hang-up — voice + UI + auto-stop on time-cap | Voice patterns "brich ab", "stop openclaw", "abbrechen" (cancel/abort)  <!-- i18n-allow --> + UI button + automatic abort when the 30-min limit is exceeded. The lowercase `openclaw`/`claw` tokens are still live spoken-trigger words recognized by the current stop/status pattern matcher (`dodaios/brain/mission_command_gate.py`), alongside "mission"/"auftrag". |
 | AD-12 | **Status read** via voice ("läuft das noch?", "Status?" — is it still running? / status?)  <!-- i18n-allow --> plus a UI live view | The Router-Brain recognizes status phrases via pattern match and calls a Mission-Manager read instead of a spawn. The UI Mission-Control view shows everything in parallel. |
 | AD-13 | **Concurrency cap 3** — up to 3 Jarvis-Agent missions in parallel | Configurable via `[harness.jarvis_agent].concurrency` (`[harness.openclaw].concurrency` is the accepted legacy alias). A fourth request goes into the Mission-Manager queue. |
 | AD-14 | **Crash persistence via SQLite**, reattach on restart | Phase 6 already has this. On a Jarvis restart, live `openclaw` subprocesses are reattached via PID + worktree state. Orphans (mission deleted, subprocess alive) are killed. |
 | AD-15 | **Stateless per spawn** — no conversation memory between spawns | Multi-step tasks via Mission-Manager composition. `openclaw` always gets atomic assignments. |
 | AD-16 | **Retry on 429, otherwise hard fail** | The Phase-5 RateLimitTracker provides backoff logic (max 3x). Crash, hallucination, worktree corruption → mission failure, the Critic sees an empty result. |
 | AD-17 | **Notifications via the existing `_on_announcement` bus** | pipeline.py:647 is the bus bypass for Jarvis-Agent/skill announcements. The Jarvis-Agents-Bridge pipes the `summary_de` in there, scrubbed via `scrub_for_voice`. Reuse of existing, tested infrastructure. |
-| AD-18 | **Telemetry minimal**: only start/end events on the bus | `JarvisAgentTaskStarted(task_id, model)` and `JarvisAgentTaskCompleted(task_id, cost, ms, success)` (these are the real current event classes in `jarvis/core/events.py`; this Wave-1 doc originally named them `JarvisAgentTaskStarted`/`JarvisAgentTaskCompleted`). Enough to fix the "who is answering" bug (clear identification) without bus-traffic bloat. |
+| AD-18 | **Telemetry minimal**: only start/end events on the bus | `JarvisAgentTaskStarted(task_id, model)` and `JarvisAgentTaskCompleted(task_id, cost, ms, success)` (these are the real current event classes in `dodaios/core/events.py`; this Wave-1 doc originally named them `JarvisAgentTaskStarted`/`JarvisAgentTaskCompleted`). Enough to fix the "who is answering" bug (clear identification) without bus-traffic bloat. |
 | AD-19 | **Time cap fixed at 30 min**, no per-task override | Carried over from Phase 5. Auto-stop on exceeding via the Mission-Manager. |
 | AD-20 | **No cost cap** in v1, the schema leaves room for retrofitting | The time cap acts as an implicit brake (~$5–15 per mission worst case). `[harness.jarvis_agent].cost_cap_eur` stays reserved in the schema for later retrofitting. |
 | AD-21 | **Pinned version** for the external `openclaw` worker CLI, manual bump | `[harness.jarvis_agent].version` fixes the version. New upstream versions are verified via spike + bridge tests before a bump. Protection against breakage from upstream drift. |
@@ -121,10 +121,10 @@ The following ADs are **refined** by empirical findings from `docs/spike-results
   while the brain plugin supplies its own dummy SDK key. The key names in
   `MAPPINGS` for those two are placeholders that keep the row shape uniform.
 
-  Bridge mechanics: read the matching Personal-Jarvis secret key, set the ENV var `openclaw` expects in the subprocess spawn (`subprocess.Popen(env={...,"GEMINI_API_KEY": secret})` or `[System.Environment]::SetEnvironmentVariable($name, $value, "Process")`). **NO** custom `OPENCLAW_*` namespace in the wizard; instead, reuse the existing `gemini_api_key`/`anthropic_api_key`/etc. secrets from `jarvis/setup/wizard.py:SECRETS`. Plus: provider-slug mapping is critical (`gemini` → `google`, `grok` → `xai`, `claude-api` → `anthropic`).
+  Bridge mechanics: read the matching Personal-Jarvis secret key, set the ENV var `openclaw` expects in the subprocess spawn (`subprocess.Popen(env={...,"GEMINI_API_KEY": secret})` or `[System.Environment]::SetEnvironmentVariable($name, $value, "Process")`). **NO** custom `OPENCLAW_*` namespace in the wizard; instead, reuse the existing `gemini_api_key`/`anthropic_api_key`/etc. secrets from `dodaios/setup/wizard.py:SECRETS`. Plus: provider-slug mapping is critical (`gemini` → `google`, `grok` → `xai`, `claude-api` → `anthropic`).
 
 - **Amendment AD-8 (MCP handover)** — see B-4. Against the assumption "MCPs as a `--mcp <json>` CLI argument to `openclaw agent`", there is **no** `--mcp` flag. MCP configuration runs via its own top-level subcommand `openclaw mcp <add|set|...>` and is read implicitly by the `agent --local` run from `~/.openclaw/<state>`. Bridge obligations:
-  1. Pre-boot setup per mission: `openclaw mcp add <each-mcp>` for each MCP from `jarvis.mcp.registry`
+  1. Pre-boot setup per mission: `openclaw mcp add <each-mcp>` for each MCP from `dodaios.mcp.registry`
   2. State isolation: set `OPENCLAW_STATE_DIR=<mission_dir>` (see AD-23) — otherwise MCP state leaks between missions
   3. Default persistence: without `OPENCLAW_STATE_DIR`, everything lands in `~/.openclaw/`, which is unsafe for parallel missions
 
@@ -151,7 +151,7 @@ Three findings were outside the scope of the original ADs and are appended here 
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ Personal Jarvis Brain (Haiku 4.5, Pure Dispatcher)          │
-│   = jarvis/brain/manager.py BrainManager Tier "router"      │
+│   = dodaios/brain/manager.py BrainManager Tier "router"      │
 │   - recognizes spawn verb / external-system marker          │
 │   - or: recognizes status/stop phrase via pattern match     │
 └─────────────────┬───────────────────────────────────────────┘
@@ -167,7 +167,7 @@ Three findings were outside the scope of the original ADs and are appended here 
                   │  (async, max 3 in parallel)
                   ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ Bridge: jarvis/plugins/harness/jarvis_agent.py                  │
+│ Bridge: dodaios/plugins/harness/jarvis_agent.py                  │
 │   1. git worktree add agent/<task-id>                       │
 │   2. ENV: <PROVIDER>_API_KEY = get_secret(...)             │
 │      (mapping: gemini→GEMINI_API_KEY, claude-api→          │
@@ -224,11 +224,11 @@ Parallel paths:
 
 ## 4. Components
 
-### 4.1 Bridge plugin (`jarvis/plugins/harness/jarvis_agent.py`)
+### 4.1 Bridge plugin (`dodaios/plugins/harness/jarvis_agent.py`)
 
-*(This path was never actually created under this name — Welle-4 dropped the standalone harness-plugin approach in favor of the Mission-Manager's own worker provider chain, `jarvis/missions/workers/provider_chain.py`, which drives the same external `openclaw` CLI directly. The design below stayed a Wave-1 plan.)*
+*(This path was never actually created under this name — Welle-4 dropped the standalone harness-plugin approach in favor of the Mission-Manager's own worker provider chain, `dodaios/missions/workers/provider_chain.py`, which drives the same external `openclaw` CLI directly. The design below stayed a Wave-1 plan.)*
 
-Implements the `jarvis.harness` protocol (see `jarvis/core/protocols.py`). Expected methods:
+Implements the `jarvis.harness` protocol (see `dodaios/core/protocols.py`). Expected methods:
 
 - `dispatch(task: HarnessTask) -> AsyncIterator[HarnessChunk]` — spawns the external `openclaw` subprocess, yields exactly one result chunk for a one-shot run.
 - `cancel(task_id: str) -> None` — calls the Mission-Manager cancel path, which terminates the Job-Object.
@@ -271,11 +271,11 @@ voice_when_active = true                       # voice announcement only when li
 
 `[harness.openclaw]` (and `[harness.openclaw.notification]`) remain accepted as read-time legacy aliases for old installs.
 
-**Pydantic model:** `JarvisAgentHarnessConfig` in `jarvis/core/config.py` alongside the existing sections (this Wave-1 doc originally called it `OpenClawConfig`). Hot-reload via the config watchdog (Phase 0, present).
+**Pydantic model:** `JarvisAgentHarnessConfig` in `dodaios/core/config.py` alongside the existing sections (this Wave-1 doc originally called it `OpenClawConfig`). Hot-reload via the config watchdog (Phase 0, present).
 
 ### 4.3 Wizard / setup extension
 
-**Amendment 2026-05-09 (via B-2):** **No new `OPENCLAW_*` secrets** are created in the Credential Manager. The external `openclaw` worker CLI reads the standard provider ENV vars (`GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, etc.). The Personal-Jarvis wizard `SECRETS` list in `jarvis/setup/wizard.py` already contains all needed keys (`gemini_api_key`, `anthropic_api_key`, `openai_api_key`, `openrouter_api_key`). The bridge fetches them via `get_secret(...)` and sets the ENV var the external CLI expects in the subprocess spawn. See the full mapping table at the AD-6 amendment above.
+**Amendment 2026-05-09 (via B-2):** **No new `OPENCLAW_*` secrets** are created in the Credential Manager. The external `openclaw` worker CLI reads the standard provider ENV vars (`GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, etc.). The Personal-Jarvis wizard `SECRETS` list in `dodaios/setup/wizard.py` already contains all needed keys (`gemini_api_key`, `anthropic_api_key`, `openai_api_key`, `openrouter_api_key`). The bridge fetches them via `get_secret(...)` and sets the ENV var the external CLI expects in the subprocess spawn. See the full mapping table at the AD-6 amendment above.
 
 The Desktop-App `SettingsView` gets a new section **"Jarvis-Agents"** with:
 - Model dropdown (extensible via config; the default is the frontier-Pro configured in `jarvis.toml [brain.providers.<primary>].deep_model`)
@@ -289,13 +289,13 @@ In Wave 4 the following components are **removed entirely** — no parallel oper
 
 | Asset | Path | What gets removed |
 |---|---|---|
-| SubJarvisManager module | `jarvis/sub_jarvis/manager.py` (entire directory) | Class `SubJarvisManager`, all helpers |
-| Sub-Jarvis tier configuration | `jarvis/brain/factory.py` line ~156 + lines ~395-405 | `"sub_jarvis"` entry in the tier definitions, SubJarvisManager construction and wiring |
-| Force-spawn heuristic | `jarvis/brain/manager.py` `_should_force_sub_jarvis()`, `_force_spawn_sub_jarvis()`, pattern definitions | Replaced by `_should_force_openclaw()` (same patterns, new tool name); superseded again by the current `_should_force_spawn()` / `_force_spawn_worker()` in the later 2026-06-30 rebrand |
-| Sub-Jarvis tool | `jarvis/plugins/tool/spawn_sub_jarvis.py` | File renamed to `spawn_openclaw.py`, calls the Mission-Manager instead of SubJarvisManager; the tool file is `jarvis/plugins/tool/spawn_worker.py` today, with `spawn_openclaw`/`spawn_sub_jarvis` kept only as recognized legacy strings |
-| Tier branch in `from_tier_config` | `jarvis/brain/manager.py` line ~362 | Remove the literal `"sub_jarvis"` from the type hint, the method becomes router-only |
-| Sub-Jarvis events | `jarvis/missions/events.py` (or wherever `SubJarvisCompleted` is defined) | Renamed to `JarvisAgentTaskCompleted` (see AD-18; the real current class lives in `jarvis/core/events.py`). Achievement subscribers must be migrated along with it |
-| Achievement references | `jarvis/board/{achievements,evaluator,aggregator,prompts}.py` | `SubJarvisCompleted` → `JarvisAgentTaskCompleted`, `sub_jarvis_success_total` → `openclaw_success_total` (still the live field/property name today), adjust persona strings in `prompts.py` line ~44 |
+| SubJarvisManager module | `dodaios/sub_jarvis/manager.py` (entire directory) | Class `SubJarvisManager`, all helpers |
+| Sub-Jarvis tier configuration | `dodaios/brain/factory.py` line ~156 + lines ~395-405 | `"sub_jarvis"` entry in the tier definitions, SubJarvisManager construction and wiring |
+| Force-spawn heuristic | `dodaios/brain/manager.py` `_should_force_sub_jarvis()`, `_force_spawn_sub_jarvis()`, pattern definitions | Replaced by `_should_force_openclaw()` (same patterns, new tool name); superseded again by the current `_should_force_spawn()` / `_force_spawn_worker()` in the later 2026-06-30 rebrand |
+| Sub-Jarvis tool | `dodaios/plugins/tool/spawn_sub_jarvis.py` | File renamed to `spawn_openclaw.py`, calls the Mission-Manager instead of SubJarvisManager; the tool file is `dodaios/plugins/tool/spawn_worker.py` today, with `spawn_openclaw`/`spawn_sub_jarvis` kept only as recognized legacy strings |
+| Tier branch in `from_tier_config` | `dodaios/brain/manager.py` line ~362 | Remove the literal `"sub_jarvis"` from the type hint, the method becomes router-only |
+| Sub-Jarvis events | `dodaios/missions/events.py` (or wherever `SubJarvisCompleted` is defined) | Renamed to `JarvisAgentTaskCompleted` (see AD-18; the real current class lives in `dodaios/core/events.py`). Achievement subscribers must be migrated along with it |
+| Achievement references | `dodaios/board/{achievements,evaluator,aggregator,prompts}.py` | `SubJarvisCompleted` → `JarvisAgentTaskCompleted`, `sub_jarvis_success_total` → `openclaw_success_total` (still the live field/property name today), adjust persona strings in `prompts.py` line ~44 |
 
 ### 4.5 Reused Phase-6 infrastructure
 
@@ -303,22 +303,22 @@ The following components stay unchanged and are used by the bridge:
 
 | Asset | Path | Provides |
 |---|---|---|
-| Mission-Manager | `jarvis/missions/manager.py` | Spawn lifecycle, concurrency tracking, SQLite persistence |
-| Event-Store | `jarvis/missions/event_store.py` | Mission-event replay after a crash |
-| Worktree isolation | `jarvis/missions/isolation/` | `git worktree add agent/<id>` |
-| Job-Object (Windows) | `jarvis/missions/workers/` | Subprocess-tree kill |
-| Critic-Loop | `jarvis/missions/critic/` | Reflexion ≤ 3, verdict schema |
-| Kontrollierer | `jarvis/missions/kontrollierer/` | summary_de signature (NEVER LLM output directly to voice) |
-| Cost-Tracker | `jarvis/control/cost.py` | Per-mission cost accumulation |
-| Cancel-Token | `jarvis/control/cancel.py` | Cancellation propagation |
+| Mission-Manager | `dodaios/missions/manager.py` | Spawn lifecycle, concurrency tracking, SQLite persistence |
+| Event-Store | `dodaios/missions/event_store.py` | Mission-event replay after a crash |
+| Worktree isolation | `dodaios/missions/isolation/` | `git worktree add agent/<id>` |
+| Job-Object (Windows) | `dodaios/missions/workers/` | Subprocess-tree kill |
+| Critic-Loop | `dodaios/missions/critic/` | Reflexion ≤ 3, verdict schema |
+| Kontrollierer | `dodaios/missions/kontrollierer/` | summary_de signature (NEVER LLM output directly to voice) |
+| Cost-Tracker | `dodaios/control/cost.py` | Per-mission cost accumulation |
+| Cancel-Token | `dodaios/control/cancel.py` | Cancellation propagation |
 
 ### 4.6 Reused Phase-1 / Phase-3 infrastructure
 
 | Asset | Path | Provides |
 |---|---|---|
-| Announcement-Bus | `jarvis/speech/pipeline.py:647` | Voice bypass for Jarvis-Agent/skill announcements |
-| `scrub_for_voice` | `jarvis/brain/output_filter.py:193` | Tool-use-leak protection, markdown strip |
-| Router-Brain | `jarvis/brain/manager.py` (tier `"router"`) | Spawn-verb recognition, status-phrase recognition (NEW for AD-12) |
+| Announcement-Bus | `dodaios/speech/pipeline.py:647` | Voice bypass for Jarvis-Agent/skill announcements |
+| `scrub_for_voice` | `dodaios/brain/output_filter.py:193` | Tool-use-leak protection, markdown strip |
+| Router-Brain | `dodaios/brain/manager.py` (tier `"router"`) | Spawn-verb recognition, status-phrase recognition (NEW for AD-12) |
 
 ---
 
@@ -332,7 +332,7 @@ Forbidden when building / extending the bridge — this list is also mirrored in
 - **AP-OC4 Passing LLM output directly to voice** — the Kontrollierer must sign `summary_de`. Otherwise hallucinations, sycophancy, tool-use leak in the voice path.
 - **AP-OC5 Status-phrase recognition in the LLM** — must be a pattern match in the Router-Brain. Otherwise latency and hallucination ("yes of course it's still running", even though the mission is dead).
 - **AP-OC6 Adding the cost cap later as a bridge layer** — when needed, that belongs in the Mission-Manager (central cost accumulation), not separately in every harness plugin.
-- **AP-OC7 Placing `openclaw` skills in the user skill directory** — `openclaw`'s skill system is **dead**. The skill layer is Jarvis-owned (`jarvis/skills/builtin/` + `~/.jarvis/skills/`).
+- **AP-OC7 Placing `openclaw` skills in the user skill directory** — `openclaw`'s skill system is **dead**. The skill layer is Jarvis-owned (`dodaios/skills/builtin/` + `~/.jarvis/skills/`).
 - **AP-OC8 Voice switch for model choice** — violates AD-7. The Phase-7 self-mod mechanism is needed and not yet live. A manual config edit is enough for v1.
 - **AP-OC9 Vetting MCP tools from inside the `openclaw` subprocess** — we chose "full trust" (AD-9). Security is placed upstream (which MCPs are registered at all) rather than downstream (tool-call filter).
 - **AP-OC10 Mapping the stop command to "Auflegen" (hang up)** — violates AD-11. Hanging up lets `openclaw` keep running. Only explicit stop phrases / UI button / time cap kill the mission.
@@ -340,7 +340,7 @@ Forbidden when building / extending the bridge — this list is also mirrored in
 - **AP-OC12 "Who is answering?" confusion** — the bus events `JarvisAgentTaskStarted/Completed` must be fired with `task_id` AND `model`. Otherwise the Phase-5 bug comes back.
 - **AP-OC13 Leaving the model to default** — the spawn args MUST contain `--model <value-from-config>`. If missing, `openclaw` uses its own default — cost and quality drift.
 - **AP-OC14 Leaving Sub-Jarvis code alongside the Jarvis-Agent tier** — the Phase-5 Sub-Jarvis tier (SubJarvisManager module, force-spawn methods, `spawn_sub_jarvis` tool, tier configuration) is deleted entirely in Wave 4 (see AD-5). Backwards-compatibility attempts ("let's just leave it in case…") are a violation of AD-5 — the only subagent is the Jarvis-Agent tier, running on the external `openclaw` worker CLI.
-- **AP-OC15 Not isolating the `openclaw` workspace per mission** *(new from the Wave-1 spike, B-9)* — the external `openclaw` CLI automatically injects ~35.4k chars of system prompt from `~/.openclaw/workspace/{AGENTS,SOUL,TOOLS,IDENTITY,USER}.md`. Without `OPENCLAW_STATE_DIR=<mission_dir>/openclaw_state` plus a minimal workspace profile in the mission dir, `openclaw`'s default persona (e.g. SOUL.md with "I am OpenClaw, an automation assistant…") leaks into the prompt — overriding the Personal-Jarvis persona mandate from `jarvis/brain/persona.py` and potentially surfacing via voice readback. Pre-spawn obligation of the bridge: workspace isolation per mission + audit via `meta.systemPromptReport.injectedWorkspaceFiles[]` from the JSON output.
+- **AP-OC15 Not isolating the `openclaw` workspace per mission** *(new from the Wave-1 spike, B-9)* — the external `openclaw` CLI automatically injects ~35.4k chars of system prompt from `~/.openclaw/workspace/{AGENTS,SOUL,TOOLS,IDENTITY,USER}.md`. Without `OPENCLAW_STATE_DIR=<mission_dir>/openclaw_state` plus a minimal workspace profile in the mission dir, `openclaw`'s default persona (e.g. SOUL.md with "I am OpenClaw, an automation assistant…") leaks into the prompt — overriding the Personal-Jarvis persona mandate from `dodaios/brain/persona.py` and potentially surfacing via voice readback. Pre-spawn obligation of the bridge: workspace isolation per mission + audit via `meta.systemPromptReport.injectedWorkspaceFiles[]` from the JSON output.
 
 ---
 
@@ -406,15 +406,15 @@ Phases for the implementation, each testably completed before the next starts:
 | # | Phase | Provides | Acceptance criterion |
 |---|---|---|---|
 | 1 | **Spike** | `docs/spike-results-jarvis-agents.md` with empirical findings on SP-1..SP-8 | Native Windows run confirmed, stdout format documented |
-| 2 | **Pydantic schema + config** | `JarvisAgentHarnessConfig` in `jarvis/core/config.py`, `[harness.jarvis_agent]` in `jarvis.toml` (this Wave-1 doc originally spelled these `OpenClawConfig` / `[harness.openclaw]`) | Hot-reload takes effect, validation throws on an invalid model spec |
+| 2 | **Pydantic schema + config** | `JarvisAgentHarnessConfig` in `dodaios/core/config.py`, `[harness.jarvis_agent]` in `jarvis.toml` (this Wave-1 doc originally spelled these `OpenClawConfig` / `[harness.openclaw]`) | Hot-reload takes effect, validation throws on an invalid model spec |
 | 3 | **Wizard extension** | `JARVIS_AGENT_*_API_KEY` entries in `SECRETS`, new settings section in the Desktop-App | The setup wizard populates the Credential Manager, read via `get_secret` works |
-| 4 | **Bridge plugin (mock mode)** | `jarvis/plugins/harness/jarvis_agent.py` with `FakeJarvisAgentProcess` | Contract + unit tests green without a real external `openclaw` process |
+| 4 | **Bridge plugin (mock mode)** | `dodaios/plugins/harness/jarvis_agent.py` with `FakeJarvisAgentProcess` | Contract + unit tests green without a real external `openclaw` process |
 | 5 | **Bridge plugin (live mode)** | real subprocess spawn, Job-Object, stdout capture | E2E test with "Hallo-Welt-Datei" (hello-world file) green |
 | 6 | **Mission-Manager wiring (Wave 4 start)** | Tool renamed `spawn_sub_jarvis.py` → `spawn_openclaw.py`, calls the Mission-Manager instead of SubJarvisManager. Activates the Phase-6 skeleton in the default voice path. (The tool is `spawn_worker` today.) | Voice command "mach mir X" (do X for me) lands at the Mission-Manager → bridge → the external `openclaw` worker, bus events flow |
-| 7 | **Router-Brain extension** | Status/stop-phrase patterns in `jarvis/brain/manager.py`. `_should_force_sub_jarvis` → `_should_force_openclaw` renamed (same patterns); further renamed to `_should_force_spawn` in the later rebrand. | "Status?" → Mission-Manager read, "brich ab" (cancel) → mission cancel. Tests in `tests/unit/brain/test_routing.py` migrated along |
+| 7 | **Router-Brain extension** | Status/stop-phrase patterns in `dodaios/brain/manager.py`. `_should_force_sub_jarvis` → `_should_force_openclaw` renamed (same patterns); further renamed to `_should_force_spawn` in the later rebrand. | "Status?" → Mission-Manager read, "brich ab" (cancel) → mission cancel. Tests in `tests/unit/brain/test_routing.py` migrated along |
 | 8 | **Notification wiring** | `summary_de` from the Kontrollierer → `_on_announcement` | Voice announces the result when the mission is done (provided voice is listening) |
 | 9 | **UI Mission-Control-view extension** | Jarvis-Agent-specific columns (model, cost, logfile link) | The live view shows running Jarvis-Agent missions, the stop button works |
-| 10 | **Sub-Jarvis code deletion (Wave 4 main phase)** | Full list see §11 code-migration table. Module `jarvis/sub_jarvis/` gone, force-spawn methods renamed, tier definitions cleaned up, achievement events renamed, skill authoring redirected to the Mission-Manager. | Grep `sub_jarvis` and `SubJarvis` in `jarvis/` is empty (except historical comments with a migration note). Tests green |
+| 10 | **Sub-Jarvis code deletion (Wave 4 main phase)** | Full list see §11 code-migration table. Module `dodaios/sub_jarvis/` gone, force-spawn methods renamed, tier definitions cleaned up, achievement events renamed, skill authoring redirected to the Mission-Manager. | Grep `sub_jarvis` and `SubJarvis` in `dodaios/` is empty (except historical comments with a migration note). Tests green |
 | 11 | **End-of-day backstop** | the existing `auto-push-eod.ps1` also runs with an active mission | Push happens even when a Jarvis-Agent worktree is dirty (exclude worktrees or warn) |
 
 ---
@@ -440,7 +440,7 @@ This doc replaces **no** ADR. When bridge implementation starts, two new ADRs ar
 - **R-3 MCP side effects outside the worktree** — e.g. filesystem MCP with absolute paths, GitHub-MCP push, Drive-MCP upload. The safety valve is the deliberate MCP selection at the wizard. A UI hint at registration becomes mandatory.
 - **R-4 Async-mode confusion** — the user forgets a mission is still running, closes the app, expects a result. Mitigated by toast + voice announcement on completion + Mission-Control-view persistence.
 - **R-5 The external `openclaw` CLI runs on Windows only via WSL2** — ~~fallback strategy: WSL2 path with path mapping~~ **DROPPED (2026-05-09):** Wave-1 spike SP-1 empirically confirmed that `OpenClaw 2026.5.7` runs natively on Windows Node 24 (`npm i -g openclaw` + `openclaw --version` responds, no WSL2 needed). Risk closed.
-- **R-6 Skill authoring (Phase 7.5) hangs on the SubJarvisManager** — `jarvis/skills/authoring/runner.py` today calls SubJarvisManager directly to generate code for new skills. If Wave 4 deletes the Sub-Jarvis components without migrating the authoring path along, skill authoring breaks. Mitigation: the skill-authoring migration is a mandatory sub-phase of Phase 10 (see §8) — `runner.py` calls the Mission-Manager with task type `"skill_author"`, the Mission-Manager spawns the Jarvis-Agents-Bridge with a constrained tool set (only `file-write` in `~/.jarvis/skills/staging/`). `draft_writer.py` stays unchanged (forces `state=draft` regardless of what Sub-Jarvis produces).
+- **R-6 Skill authoring (Phase 7.5) hangs on the SubJarvisManager** — `dodaios/skills/authoring/runner.py` today calls SubJarvisManager directly to generate code for new skills. If Wave 4 deletes the Sub-Jarvis components without migrating the authoring path along, skill authoring breaks. Mitigation: the skill-authoring migration is a mandatory sub-phase of Phase 10 (see §8) — `runner.py` calls the Mission-Manager with task type `"skill_author"`, the Mission-Manager spawns the Jarvis-Agents-Bridge with a constrained tool set (only `file-write` in `~/.jarvis/skills/staging/`). `draft_writer.py` stays unchanged (forces `state=draft` regardless of what Sub-Jarvis produces).
 - **R-7 `openclaw` workspace persona leak** *(new from the Wave-1 spike, B-9, AP-OC15)* — the external `openclaw` CLI automatically injects ~35.4k chars of system prompt from `~/.openclaw/workspace/` into every `agent --local` run. Risk: persona override (`openclaw`'s SOUL.md/IDENTITY.md overrides the Personal-Jarvis persona mandate), cross-mission state leak (shared default path), voice-readback drift ("I am OpenClaw"). Mitigation see AD-23: workspace isolation per mission via `OPENCLAW_STATE_DIR=<mission_dir>/openclaw_state` plus a minimal mission-workspace profile plus an audit loop via `meta.systemPromptReport.injectedWorkspaceFiles[]` from the JSON output.
 
 ---
@@ -451,25 +451,25 @@ Full list of all code paths that are migrated or deleted in Wave 4 (phases 6-10 
 
 | Path | Action | Wave-4 sub-phase | Note |
 |---|---|---|---|
-| `jarvis/sub_jarvis/` (entire directory) | DELETE | Phase 10 | SubJarvisManager module, all helpers |
-| `jarvis/brain/manager.py` `from_tier_config(tier="sub_jarvis")` | DELETE from the literal type | Phase 10 | Tier becomes router-only |
-| `jarvis/brain/manager.py` `_should_force_sub_jarvis()` | RENAME to `_should_force_openclaw()` | Phase 7 | same patterns, new tool lookup. *(Superseded again: the live method is `_should_force_spawn()`, from the later 2026-06-30 rebrand.)* |
-| `jarvis/brain/manager.py` `_force_spawn_sub_jarvis()` | RENAME to `_force_spawn_openclaw()` | Phase 7 | now calls the `spawn_openclaw` tool. *(Superseded again: the live method is `_force_spawn_worker()`, calling the `spawn_worker` tool.)* |
-| `jarvis/brain/factory.py` tier definitions `"sub_jarvis"` | DELETE | Phase 10 | only `"router"` remains |
-| `jarvis/brain/factory.py` `from jarvis.sub_jarvis.manager import SubJarvisManager` | DELETE | Phase 10 | import + all usages |
-| `jarvis/plugins/tool/spawn_sub_jarvis.py` | RENAME to `spawn_openclaw.py` | Phase 6 | Body completely rewritten — calls the Mission-Manager instead of SubJarvisManager. Spawn args (post-Wave-1): `agent --local --session-id <uuid> --message <task> --model <provider>/<model> --json [--verbose on]` (see AD-1 amendment, AD-22..AD-24, no `--workdir` — `cwd=<worktree>` + `OPENCLAW_STATE_DIR=<mission_dir>/openclaw_state` via the `subprocess.Popen` env). Provider-slug mapping `cfg.brain.primary` → `openclaw` slug from the AD-6 table (`gemini→google`, `claude-api→anthropic`, etc.). *(The live tool file is `jarvis/plugins/tool/spawn_worker.py`; `spawn_openclaw`/`spawn_sub_jarvis` are kept only as recognized legacy strings.)* |
-| `jarvis/plugins/harness/jarvis_agent.py` | CREATE NEW | Phase 4-5 | The bridge plugin itself (see §4.1). Spawn args + pre-boot setup (`config patch` + `mcp add`) + workspace isolation + JSON parser. *(Never actually created under this name — see the §4.1 note; the Mission-Manager's `jarvis/missions/workers/provider_chain.py` drives the external `openclaw` CLI directly instead.)* |
+| `dodaios/sub_jarvis/` (entire directory) | DELETE | Phase 10 | SubJarvisManager module, all helpers |
+| `dodaios/brain/manager.py` `from_tier_config(tier="sub_jarvis")` | DELETE from the literal type | Phase 10 | Tier becomes router-only |
+| `dodaios/brain/manager.py` `_should_force_sub_jarvis()` | RENAME to `_should_force_openclaw()` | Phase 7 | same patterns, new tool lookup. *(Superseded again: the live method is `_should_force_spawn()`, from the later 2026-06-30 rebrand.)* |
+| `dodaios/brain/manager.py` `_force_spawn_sub_jarvis()` | RENAME to `_force_spawn_openclaw()` | Phase 7 | now calls the `spawn_openclaw` tool. *(Superseded again: the live method is `_force_spawn_worker()`, calling the `spawn_worker` tool.)* |
+| `dodaios/brain/factory.py` tier definitions `"sub_jarvis"` | DELETE | Phase 10 | only `"router"` remains |
+| `dodaios/brain/factory.py` `from jarvis.sub_jarvis.manager import SubJarvisManager` | DELETE | Phase 10 | import + all usages |
+| `dodaios/plugins/tool/spawn_sub_jarvis.py` | RENAME to `spawn_openclaw.py` | Phase 6 | Body completely rewritten — calls the Mission-Manager instead of SubJarvisManager. Spawn args (post-Wave-1): `agent --local --session-id <uuid> --message <task> --model <provider>/<model> --json [--verbose on]` (see AD-1 amendment, AD-22..AD-24, no `--workdir` — `cwd=<worktree>` + `OPENCLAW_STATE_DIR=<mission_dir>/openclaw_state` via the `subprocess.Popen` env). Provider-slug mapping `cfg.brain.primary` → `openclaw` slug from the AD-6 table (`gemini→google`, `claude-api→anthropic`, etc.). *(The live tool file is `dodaios/plugins/tool/spawn_worker.py`; `spawn_openclaw`/`spawn_sub_jarvis` are kept only as recognized legacy strings.)* |
+| `dodaios/plugins/harness/jarvis_agent.py` | CREATE NEW | Phase 4-5 | The bridge plugin itself (see §4.1). Spawn args + pre-boot setup (`config patch` + `mcp add`) + workspace isolation + JSON parser. *(Never actually created under this name — see the §4.1 note; the Mission-Manager's `dodaios/missions/workers/provider_chain.py` drives the external `openclaw` CLI directly instead.)* |
 | `pyproject.toml` `[project.entry-points."jarvis.tool"]` | RENAME `spawn-sub-jarvis` → `spawn-openclaw` | Phase 6 | after edit `pip install -e . --no-deps`. *(Superseded again: the live entry point is `spawn-worker`.)* |
-| `jarvis/brain/factory.py` `ROUTER_TOOLS` frozenset | RENAME entry | Phase 6 | `spawn-sub-jarvis` → `spawn-openclaw`. *(Superseded again: the live entry is `spawn-worker`.)* |
-| `jarvis/missions/events.py` `SubJarvisCompleted` event | RENAME to `JarvisAgentTaskCompleted` | Phase 10 | Schema stays, name + subscriber lists migrate. *(The live class is `JarvisAgentTaskCompleted` in `jarvis/core/events.py`.)* |
-| `jarvis/board/achievements.py` SubJarvis references | RENAME | Phase 10 | `SubJarvisCompleted` → `JarvisAgentTaskCompleted` (live: `JarvisAgentTaskCompleted`), IDs `sub_jarvis_summoner` → `openclaw_summoner` (this ID is still the live achievement ID today) |
-| `jarvis/board/evaluator.py` `sub_jarvis_success_total` | RENAME to `openclaw_success_total` | Phase 10 | migrate the persisted SQLite column along or create a new one in parallel. *(`openclaw_success_total` is still the live field/property name today — it was not renamed again in the 2026-06-30 rebrand.)* |
-| `jarvis/board/aggregator.py` event lists | RENAME | Phase 10 | `SubJarvisBackgroundCompleted` → `OpenClawBackgroundCompleted`. *(The live class is `JarvisAgentBackgroundCompleted` in `jarvis/core/events.py`.)* |
-| `jarvis/board/prompts.py` persona string line ~44 | REWRITE | Phase 10 | "Sub-Jarvis-Spawns" → "Jarvis-Agent-Spawns". *(This Wave-1 doc originally said "→ OpenClaw-Spawns"; the live `prompts.py` was cleaned in the 2026-07-18 sweep and no longer carries the retired codename.)* |
-| `jarvis/skills/authoring/runner.py` SubJarvisManager spawn | CONVERT to Mission-Manager spawn | Phase 10 | see R-6 — constrained tool set for the skill-author path |
-| `jarvis/skills/authoring/__init__.py` docstring | REWRITE | Phase 10 | "Sub-Jarvis (Opus 4.7) generates…" → "Jarvis-Agent generates…" |
-| `jarvis/skills/authoring/schema.py` docstring | REWRITE | Phase 10 | analogous |
-| `jarvis/skills/{cli,trigger_matcher,loader,schema}.py` comments | REWRITE | Phase 10 | "Sub-Jarvis-authored" → "Jarvis-Agent-authored" |
+| `dodaios/brain/factory.py` `ROUTER_TOOLS` frozenset | RENAME entry | Phase 6 | `spawn-sub-jarvis` → `spawn-openclaw`. *(Superseded again: the live entry is `spawn-worker`.)* |
+| `dodaios/missions/events.py` `SubJarvisCompleted` event | RENAME to `JarvisAgentTaskCompleted` | Phase 10 | Schema stays, name + subscriber lists migrate. *(The live class is `JarvisAgentTaskCompleted` in `dodaios/core/events.py`.)* |
+| `dodaios/board/achievements.py` SubJarvis references | RENAME | Phase 10 | `SubJarvisCompleted` → `JarvisAgentTaskCompleted` (live: `JarvisAgentTaskCompleted`), IDs `sub_jarvis_summoner` → `openclaw_summoner` (this ID is still the live achievement ID today) |
+| `dodaios/board/evaluator.py` `sub_jarvis_success_total` | RENAME to `openclaw_success_total` | Phase 10 | migrate the persisted SQLite column along or create a new one in parallel. *(`openclaw_success_total` is still the live field/property name today — it was not renamed again in the 2026-06-30 rebrand.)* |
+| `dodaios/board/aggregator.py` event lists | RENAME | Phase 10 | `SubJarvisBackgroundCompleted` → `OpenClawBackgroundCompleted`. *(The live class is `JarvisAgentBackgroundCompleted` in `dodaios/core/events.py`.)* |
+| `dodaios/board/prompts.py` persona string line ~44 | REWRITE | Phase 10 | "Sub-Jarvis-Spawns" → "Jarvis-Agent-Spawns". *(This Wave-1 doc originally said "→ OpenClaw-Spawns"; the live `prompts.py` was cleaned in the 2026-07-18 sweep and no longer carries the retired codename.)* |
+| `dodaios/skills/authoring/runner.py` SubJarvisManager spawn | CONVERT to Mission-Manager spawn | Phase 10 | see R-6 — constrained tool set for the skill-author path |
+| `dodaios/skills/authoring/__init__.py` docstring | REWRITE | Phase 10 | "Sub-Jarvis (Opus 4.7) generates…" → "Jarvis-Agent generates…" |
+| `dodaios/skills/authoring/schema.py` docstring | REWRITE | Phase 10 | analogous |
+| `dodaios/skills/{cli,trigger_matcher,loader,schema}.py` comments | REWRITE | Phase 10 | "Sub-Jarvis-authored" → "Jarvis-Agent-authored" |
 | `tests/unit/brain/test_routing.py` 26 test cases | MIGRATE | Phase 7 | adjust tool name + pattern tests |
 | `tests/unit/test_brain_manager_tier_config.py` | MIGRATE | Phase 10 | remove `"sub_jarvis"` tier tests |
 | `tests/integration/test_*sub_jarvis*` | MIGRATE/RENAME | Phase 10 | rebuilt as an E2E test against the Jarvis-Agents-Bridge |

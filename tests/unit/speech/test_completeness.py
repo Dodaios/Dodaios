@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.completeness import (
+from dodaios.speech.completeness import (
     Completeness,
     CompletenessVerdict,
     classify_completeness,

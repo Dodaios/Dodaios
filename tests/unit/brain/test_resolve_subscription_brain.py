@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.brain import resolver
-from jarvis.core.config import JarvisConfig
+from dodaios.brain import resolver
+from dodaios.core.config import JarvisConfig
 
 
 class _FakeRegistry:
@@ -168,7 +168,7 @@ def test_the_result_is_not_cached_under_the_shared_key(monkeypatch) -> None:
 
 def test_membership_is_spec_driven_not_a_name_list() -> None:
     """Adding a subscription card must extend the chain with no resolver edit."""
-    from jarvis.ui.web import provider_spec
+    from dodaios.ui.web import provider_spec
 
     ids = {
         spec.id
@@ -186,8 +186,8 @@ def test_every_subscription_card_can_answer_the_connection_probe() -> None:
     the probe, and the resolver starts choosing a provider nobody is signed in
     to — which fails at call time, several seconds into a turn.
     """
-    from jarvis.brain.provider_registry import BrainProviderRegistry
-    from jarvis.ui.web import provider_spec
+    from dodaios.brain.provider_registry import BrainProviderRegistry
+    from dodaios.ui.web import provider_spec
 
     registry = BrainProviderRegistry()
     available = set(registry.available())

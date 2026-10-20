@@ -8,8 +8,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.desktop_routes import router
-from jarvis.ui.window_zoom import ZOOM_MAX, ZOOM_MIN, clamp_zoom, set_window_zoom
+from dodaios.ui.web.desktop_routes import router
+from dodaios.ui.window_zoom import ZOOM_MAX, ZOOM_MIN, clamp_zoom, set_window_zoom
 
 
 class GtkWebView:

@@ -654,7 +654,7 @@ def region_features():
             ("ZERO imports between pkgs", "marketplace !-> mcp (grep verified)", "open", "feat.decouple"),
         ]),
         ("CLI catalog + terminal", [
-            ("CLI catalog subsystem", "loader+registry+installer+prober (jarvis/clis/)", "live"),
+            ("CLI catalog subsystem", "loader+registry+installer+prober (dodaios/clis/)", "live"),
             ("cli-tools virtual loader", "expand -> N CliTool (loader.py:21)", "live"),
             ("CliTool (1 per CLI)", "binary-guard + ENV + usage-log (clis/tool.py:33)", "live"),
             ("spawn-cli-worker", "entry-point -> MISSING module (pyproject:184)", "open"),
@@ -757,7 +757,7 @@ def evidence_panel():
     global Y
     begin_room()
     snippets = [
-        ("ROUTER_TOOLS frozenset  (jarvis/brain/factory.py:40)",
+        ("ROUTER_TOOLS frozenset  (dodaios/brain/factory.py:40)",
          'ROUTER_TOOLS = frozenset({\n  "run-shell","screen-snapshot","dispatch-to-harness",\n'
          '  "multi-spawn","spawn-worker","dispatch-with-review",\n'
          '  "awareness-snapshot","awareness-recall","run-skill",\n'

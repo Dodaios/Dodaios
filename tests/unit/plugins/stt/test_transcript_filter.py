@@ -1,4 +1,4 @@
-"""Transcript cleanup filter — ``jarvis.plugins.stt.transcript_filter``.
+"""Transcript cleanup filter — ``dodaios.plugins.stt.transcript_filter``.
 
 The German and Spanish strings in this file are the speech under test: a filter
 that removes German hesitation sounds cannot be tested in English (AGENTS.md §1,
@@ -10,7 +10,7 @@ import unicodedata
 
 import pytest
 
-from jarvis.plugins.stt.transcript_filter import (
+from dodaios.plugins.stt.transcript_filter import (
     PHONETIC_FIXES,
     apply_phonetic_fixes,
     clean_stt_text,
@@ -148,7 +148,7 @@ def test_no_phonetic_source_is_a_real_word_elsewhere() -> None:
     """The admission rule, pinned: a source token that means something in
     another supported language would be replaced inside correct sentences the
     first time a provider reports the wrong language tag — and providers do."""
-    from jarvis.dictation.cleanup import FILLER_WORDS
+    from dodaios.dictation.cleanup import FILLER_WORDS
 
     every_filler = {word for words in FILLER_WORDS.values() for word in words}
     for language, pairs in PHONETIC_FIXES.items():
@@ -205,7 +205,7 @@ def test_cleanup_never_raises_on_a_broken_rule(
         raise RuntimeError("rule exploded")
 
     monkeypatch.setattr(
-        "jarvis.plugins.stt.transcript_filter.collapse_repetitions", _boom
+        "dodaios.plugins.stt.transcript_filter.collapse_repetitions", _boom
     )
     assert clean_stt_text("turn on the light", language="en") == "turn on the light"
 

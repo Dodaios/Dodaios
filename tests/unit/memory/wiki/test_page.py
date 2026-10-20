@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.page``.
+"""Unit tests for ``dodaios.memory.wiki.page``.
 
 Round-trip stability is the central invariant: ``parse(render(parse(t)))``
 must equal ``parse(t)`` for every input ``t``. Several tests verify this
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.page import (
+from dodaios.memory.wiki.page import (
     CANONICAL_SECTIONS,
     DIR_TO_TYPE,
     REQUIRED_KEYS,
@@ -22,7 +22,7 @@ from jarvis.memory.wiki.page import (
     parse_sections,
     render_page,
 )
-from jarvis.memory.wiki.protocols import PageRepository, WikiPage
+from dodaios.memory.wiki.protocols import PageRepository, WikiPage
 
 
 # ──────────────────────────────────────────────────────────────────────

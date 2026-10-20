@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from jarvis.sessions.diagnostics import session_termination_diagnostics
-from jarvis.sessions.formatter import format_session_markdown, format_session_plain
-from jarvis.sessions.models import VoiceEventRow, VoiceSessionRow
+from dodaios.sessions.diagnostics import session_termination_diagnostics
+from dodaios.sessions.formatter import format_session_markdown, format_session_plain
+from dodaios.sessions.models import VoiceEventRow, VoiceSessionRow
 
 
 def _session() -> VoiceSessionRow:

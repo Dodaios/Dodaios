@@ -7,7 +7,7 @@ Date: 2026-05-24
 > The diagnosis below is correct. The fix is now landed: ``ui/orb/bus_bridge.py``
 > no longer runs ``_merge_listening_transcript`` on incoming ``TranscriptionUpdate``
 > events. The pipeline already accumulates probe tails into a complete
-> snapshot (``jarvis/speech/pipeline.py::_merge_partial_transcript`` over
+> snapshot (``dodaios/speech/pipeline.py::_merge_partial_transcript`` over
 > ``_probe_live_text``); the bridge now mirrors that snapshot 1:1, matching
 > the Desktop App's ``TranscriptionView`` (``setTranscription`` in
 > ``useWebSocket.ts:138-140``) byte-for-byte. The four helper functions
@@ -135,7 +135,7 @@ The merge logic can produce the screenshot behavior directly.
 Reproduction with the speech merge function:
 
 ```python
-from jarvis.speech.pipeline import _merge_partial_transcript
+from dodaios.speech.pipeline import _merge_partial_transcript
 
 parts = [
     "Was?",
@@ -281,7 +281,7 @@ In the examined logs no current entry for this specific screenshot was found.
 ### Speech live probe
 
 ```text
-jarvis/speech/pipeline.py::_stt_probe_async
+dodaios/speech/pipeline.py::_stt_probe_async
 ```
 
 Publishes live partials:
@@ -293,7 +293,7 @@ TranscriptionUpdate(source_layer="speech.stt.partial", is_final=False)
 ### Speech merge
 
 ```text
-jarvis/speech/pipeline.py::_merge_partial_transcript
+dodaios/speech/pipeline.py::_merge_partial_transcript
 ```
 
 Merges tail hypotheses append-only when no exact overlap is recognized.
@@ -433,7 +433,7 @@ Implemented on `main` on 2026-05-24.
 
 Two merge points were changed:
 
-1. `jarvis/speech/pipeline.py::_merge_partial_transcript`
+1. `dodaios/speech/pipeline.py::_merge_partial_transcript`
    - normalizes punctuation and small STT variants like `morgens`/`morgen`
      or `ein`/`einen`; <!-- i18n-allow -->
    - recognizes corrected live hypotheses and replaces the old preview text;

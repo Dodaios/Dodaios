@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 
-from jarvis.platform import mouse, probes
+from dodaios.platform import mouse, probes
 from tests.fakes.fake_capabilities import (
     fake_headless_capabilities,
     fake_linux_capabilities,

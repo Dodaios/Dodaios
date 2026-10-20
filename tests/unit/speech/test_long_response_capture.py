@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.protocols import AudioChunk
-from jarvis.sessions.constants import HANGUP_ERROR, HANGUP_HOTKEY, HANGUP_IDLE_TIMEOUT
-from jarvis.speech.pipeline import TurnTakingState, _SessionInputBuffer
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.protocols import AudioChunk
+from dodaios.sessions.constants import HANGUP_ERROR, HANGUP_HOTKEY, HANGUP_IDLE_TIMEOUT
+from dodaios.speech.pipeline import TurnTakingState, _SessionInputBuffer
 from tests.unit.speech.test_idle_spawn_inflight import _make_active_session_pipeline
 from tests.unit.speech.test_turn_taking import FakeSTT, _make_pipeline
 

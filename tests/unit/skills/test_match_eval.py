@@ -1,4 +1,4 @@
-"""Contract tests for jarvis.skills.match_eval.
+"""Contract tests for dodaios.skills.match_eval.
 
 ``evaluate_match`` is the ONE entry point the brain, the Test-Match route and
 the offline eval all call. These tests pin the two properties that make sharing
@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.skills import match_eval
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills import match_eval
+from dodaios.skills.schema import SkillLifecycleState
 
 # ---------------------------------------------------------------------------
 # Fakes shaped for TriggerMatcher (which reads real lifecycle enums)

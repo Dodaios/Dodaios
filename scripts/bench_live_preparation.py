@@ -1,8 +1,8 @@
 """Fresh-process Live preparation benchmark with zero network/audio activity.
 
 Run once per process; repeat interleaved with --baseline-dir for a comparison.
-The baseline directory contains saved jarvis/realtime/factory.py and
-jarvis/plugins/realtime/openai_subscription_live.py from the compared tree.
+The baseline directory contains saved dodaios/realtime/factory.py and
+dodaios/plugins/realtime/openai_subscription_live.py from the compared tree.
 HTTP allocation and Python/SSL imports are real. Provider peers are fake.
 This measures local cold-start work, not provider or microphone latency.
 """
@@ -36,10 +36,10 @@ def load(name: str, root: Path | None):
 
 
 async def measure(baseline: Path | None) -> dict:
-    from jarvis.realtime import factory as installed_factory
+    from dodaios.realtime import factory as installed_factory
 
-    factory = load("jarvis.realtime.factory", baseline) if baseline else installed_factory
-    wire = load("jarvis.plugins.realtime.openai_subscription_live", baseline)
+    factory = load("dodaios.realtime.factory", baseline) if baseline else installed_factory
+    wire = load("dodaios.plugins.realtime.openai_subscription_live", baseline)
     provider_type = wire.OpenAISubscriptionLiveProvider
     # Isolate selected-provider preparation from account and registry discovery.
     factory._explicit_provider_ids = lambda config: [provider_type.name]
@@ -96,7 +96,7 @@ async def measure(baseline: Path | None) -> dict:
         return Socket()
 
     start = time.perf_counter()
-    importlib.import_module("jarvis.live.subscription")
+    importlib.import_module("dodaios.live.subscription")
     imported = time.perf_counter()
     provider = provider_type(credentials=credentials, http_client_factory=client_factory,
                              websocket_connect=connect)

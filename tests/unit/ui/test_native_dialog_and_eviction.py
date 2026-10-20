@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-from jarvis.ui import native_dialog
+from dodaios.ui import native_dialog
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Win32 branch opens a real box")
@@ -113,7 +113,7 @@ def test_a_dismissed_helper_process_is_closed_promptly():
 
 def test_eviction_falls_back_to_the_process_tree_kill(monkeypatch):
     """psutil's kill did not take → the tree kill runs → liveness is re-checked."""
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     alive = {"value": True}
     tree_kills: list[int] = []
@@ -147,7 +147,7 @@ def test_eviction_falls_back_to_the_process_tree_kill(monkeypatch):
 
 
 def test_eviction_reports_honestly_when_nothing_took(monkeypatch):
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     class _Proc:
         def __init__(self, pid):
@@ -175,7 +175,7 @@ def test_a_bound_but_slow_port_is_a_busy_holder_not_a_zombie(monkeypatch):
     """Only a refused connection (nothing bound) may count as dead."""
     import httpx
 
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     monkeypatch.setattr(desktop_app.time, "sleep", lambda s: None)
 

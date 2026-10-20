@@ -13,9 +13,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import recap_engine
-from jarvis.agentic_ide import session as ide
-from jarvis.ui.web import agentic_ide_routes
+from dodaios.agentic_ide import recap_engine
+from dodaios.agentic_ide import session as ide
+from dodaios.ui.web import agentic_ide_routes
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ def test_recaps_describe_every_pane_of_the_open_workspace(client, tmp_path) -> N
 def test_the_route_and_the_state_payload_agree(client, tmp_path) -> None:
     session = _workspace(tmp_path)
     session.terminals[0].status = "live"
-    session.terminals[0].transcript.feed("Reading jarvis/core/config.py\r\n")
+    session.terminals[0].transcript.feed("Reading dodaios/core/config.py\r\n")
 
     polled = client.get("/api/agentic-ide/recaps").json()["terminals"][0]
     state = client.get("/api/agentic-ide/state").json()["session"]["terminals"][0]
@@ -112,7 +112,7 @@ def test_a_thin_recap_says_why_it_is_thin(client, tmp_path) -> None:
     and the payload now says so instead of leaving it a mystery."""
     session = _workspace(tmp_path)
     session.terminals[0].status = "live"
-    session.terminals[0].transcript.feed("Reading jarvis/core/config.py\r\n")
+    session.terminals[0].transcript.feed("Reading dodaios/core/config.py\r\n")
 
     row = client.get("/api/agentic-ide/recaps").json()["terminals"][0]
 

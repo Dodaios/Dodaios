@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jarvis.overlay.surface import (
+from dodaios.overlay.surface import (
     _ORB_STATE_TO_ORB_MODE,
     _VISIBLE_STATES,
     TkColorKeyOverlay,

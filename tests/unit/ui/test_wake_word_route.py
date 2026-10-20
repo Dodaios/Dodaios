@@ -6,8 +6,8 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.config import WakeWordConfig
-from jarvis.ui.web.settings_routes import router
+from dodaios.core.config import WakeWordConfig
+from dodaios.ui.web.settings_routes import router
 
 
 class _FakePipeline:
@@ -108,8 +108,8 @@ def test_get_wake_language_reports_pin_effective_and_options() -> None:
 
 
 def test_put_wake_language_pins_without_touching_ui_or_stt(monkeypatch) -> None:
-    from jarvis.core import config_writer
-    from jarvis.speech import wake_model_fetch
+    from dodaios.core import config_writer
+    from dodaios.speech import wake_model_fetch
 
     persisted: list[str] = []
     monkeypatch.setattr(
@@ -149,7 +149,7 @@ def test_put_wake_language_rejects_unknown_code() -> None:
 
 
 def test_activation_live_applies_without_restart(monkeypatch) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(config_writer, "set_wake_word_enabled", lambda _enabled: None)
     pipe = _FakePipeline()
@@ -164,7 +164,7 @@ def test_activation_live_applies_without_restart(monkeypatch) -> None:
 
 
 def test_activation_without_voice_pipeline_is_persisted_for_next_start(monkeypatch) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     persisted: list[bool] = []
     monkeypatch.setattr(config_writer, "set_wake_word_enabled", persisted.append)
@@ -199,7 +199,7 @@ def test_put_in_memory_update_reflects_in_get() -> None:
 def test_omitted_tuning_fields_default_to_none() -> None:
     # Regression guard: a concrete default (e.g. 0.5) would make every UI save
     # clobber a hand-edited jarvis.toml. Optional fields must default to None.
-    from jarvis.ui.web.settings_routes import WakeWordBody
+    from dodaios.ui.web.settings_routes import WakeWordBody
 
     body = WakeWordBody(phrase="Computer")
     assert body.fuzzy_match_ratio is None
@@ -212,7 +212,7 @@ def test_put_omits_tuning_fields_so_persist_does_not_clobber(monkeypatch) -> Non
     # None for it (set_wake_word then skips writing → preserves the existing
     # toml value). This is the exact bug the reviewer caught. sensitivity is
     # no longer part of the set_wake_word signature at all (removed 2026-07-10).
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     captured: dict = {}
 
@@ -266,7 +266,7 @@ def test_activation_reports_a_failed_persist_instead_of_500(monkeypatch) -> None
     "HTTP 500". Every sibling settings writer reports `persisted: false` and
     answers 200; this one now does too, and names the reason.
     """
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     def _boom(_enabled: bool) -> None:
         raise UnicodeDecodeError("utf-8", b"\xe9", 0, 1, "invalid continuation byte")
@@ -290,7 +290,7 @@ def test_activation_reports_a_failed_persist_instead_of_500(monkeypatch) -> None
 
 
 def test_activation_reports_persisted_on_success(monkeypatch) -> None:
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(config_writer, "set_wake_word_enabled", lambda _enabled: None)
     body = _client().post(

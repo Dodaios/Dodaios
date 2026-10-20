@@ -39,9 +39,9 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from jarvis.core.bus import EventBus  # noqa: E402
-from jarvis.core.config import load_config  # noqa: E402
-from jarvis.core.events import (  # noqa: E402
+from dodaios.core.bus import EventBus  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
+from dodaios.core.events import (  # noqa: E402
     AudioOutFirst,
     LatencyTurnComplete,
     TranscriptionUpdate,
@@ -140,11 +140,11 @@ async def main(runs: int) -> int:
     bus.subscribe(LatencyTurnComplete, _cap_turn)
     bus.subscribe(TranscriptionUpdate, _cap_user)
 
-    from jarvis.brain.factory import build_default_brain
-    from jarvis.plugins.stt import build_stt_from_config
-    from jarvis.plugins.tts import build_tts_from_config
-    from jarvis.speech.pipeline import SpeechPipeline
-    from jarvis.state.supervisor import Supervisor
+    from dodaios.brain.factory import build_default_brain
+    from dodaios.plugins.stt import build_stt_from_config
+    from dodaios.plugins.tts import build_tts_from_config
+    from dodaios.speech.pipeline import SpeechPipeline
+    from dodaios.state.supervisor import Supervisor
 
     tts = build_tts_from_config(cfg.tts)
     stt = build_stt_from_config(cfg.stt)

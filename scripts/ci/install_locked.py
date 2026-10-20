@@ -45,7 +45,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
 from scripts.native_crypto_index import pip_options  # noqa: E402
 
 _PINNED = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==", re.MULTILINE)

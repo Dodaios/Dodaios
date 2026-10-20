@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from typing import get_args
 
-from jarvis.state.conversation_constants import (
+from dodaios.state.conversation_constants import (
     CONVERSATION_KIND_TEXT,
     CONVERSATION_KIND_VOICE,
     CONVERSATION_KINDS,
     ConversationKind,
 )
-from jarvis.ui.web.chats_routes import ConversationSummary
+from dodaios.ui.web.chats_routes import ConversationSummary
 
 
 def test_literal_matches_frozenset() -> None:

@@ -13,10 +13,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.appshot import service as appshot_service
-from jarvis.appshot.store import get_store
-from jarvis.plugins.tool.live_screen import LiveScreenTool
-from jarvis.screen_context.models import (
+from dodaios.appshot import service as appshot_service
+from dodaios.appshot.store import get_store
+from dodaios.plugins.tool.live_screen import LiveScreenTool
+from dodaios.screen_context.models import (
     CaptureTarget,
     IntentVerdict,
     ScreenContext,
@@ -24,7 +24,7 @@ from jarvis.screen_context.models import (
     TargetReason,
     VisualIntent,
 )
-from jarvis.screen_context.service import CaptureOutcome
+from dodaios.screen_context.service import CaptureOutcome
 
 
 def make_context() -> ScreenContext:
@@ -75,8 +75,8 @@ class Config:
 
 @pytest.fixture
 def wired(monkeypatch):
-    import jarvis.plugins.tool.appshot as appshot_tool
-    import jarvis.screen_context.turn as turn
+    import dodaios.plugins.tool.appshot as appshot_tool
+    import dodaios.screen_context.turn as turn
 
     bus = Bus()
     asked: list = []

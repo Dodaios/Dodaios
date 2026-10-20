@@ -6,7 +6,7 @@ AX-tree capture only runs on a macOS leg under a granted Accessibility
 permission (``skip_ci``). This fake gives the flatten + role-normalization +
 permission-degrade logic a deterministic, OS-free AX tree.
 
-``FakeAXElement`` is duck-typed to the seam ``jarvis.vision.ax_tree`` reads:
+``FakeAXElement`` is duck-typed to the seam ``dodaios.vision.ax_tree`` reads:
 it exposes ``copy_attribute_value(attr)`` returning the canned ``AXRole`` /
 ``AXTitle`` / ``AXValue`` / ``AXPosition`` / ``AXSize`` / ``AXEnabled`` /
 ``AXChildren`` values, which ``_ax_copy_attr`` prefers over the real
@@ -92,7 +92,7 @@ def build_fake_ax_traverser(
     root, so the test exercises the *real* flatten + role normalization while
     feeding scripted AX data.
     """
-    from jarvis.vision.ax_tree import _ax_flatten  # local import: prod code under test
+    from dodaios.vision.ax_tree import _ax_flatten  # local import: prod code under test
 
     def _traverse(max_depth: int, _window_title_filter: str | None):
         nodes: list[Any] = []
