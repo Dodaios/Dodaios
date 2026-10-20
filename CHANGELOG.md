@@ -9,6 +9,10 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [4.0.1] — 2026-10-20
+
 4.0.1 is the first published release of 4.0: the 4.0.0 build was held back by a security check on a dependency. Everything listed under 4.0.0 below ships with it, including the move to the Dodaios name for the program, its folders and its stored keys.
 
 ### Fixed
