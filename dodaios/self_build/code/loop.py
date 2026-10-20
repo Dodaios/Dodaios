@@ -18,6 +18,7 @@ plan call and the coding run of a build.
 from __future__ import annotations
 
 import asyncio
+import functools
 import time
 from pathlib import Path
 from typing import Any, Final
@@ -28,7 +29,7 @@ from .. import policy
 from ..ledger import now_ms
 from ..records import BuildRecord, Kind, State
 from . import builder, intake, planner, seat
-from .context import Context
+from .context import Context, has_pull
 from .github import GitHub, GitHubApi
 from .idle import person_idle
 from .runner import RunResult, ThreadRunner
@@ -173,7 +174,7 @@ class CodeLoop:
         if not waiting:
             return "nothing to build"
         record = min(waiting, key=lambda r: r.created_ms)
-        if record.artefact.get("type") == "pull_request":
+        if has_pull(record):
             # The app stopped right after opening the pull request: CI decides now.
             await asyncio.to_thread(
                 ctx.ledger.set_state, record.id, State.PROVING, "pull request opened"
@@ -288,7 +289,7 @@ def install(service: Any, app_state: Any = None) -> CodeLoop:
         seat=_seat,
         idle=person_idle,
         projects=_projects,
-        plan=planner.plan,
+        plan=functools.partial(planner.plan, config=service.config),
         dodaios_root=Path(dodaios.__file__).resolve().parent.parent,
     )
     loop = CodeLoop(ctx)
