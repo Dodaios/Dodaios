@@ -153,7 +153,7 @@ def test_no_spawn_vehicle_is_offered() -> None:
 
 def test_server_name_is_distinct_from_the_tools_surface() -> None:
     """Both surfaces may be connected at once, so their names must not collide."""
-    from dodaios.mcp.jarvis_tools_server import build_server as tools_server
+    from dodaios.mcp.dodaios_tools_server import build_server as tools_server
 
     assert SERVER_NAME == "jarvis-agents"
     assert tools_server().name != SERVER_NAME

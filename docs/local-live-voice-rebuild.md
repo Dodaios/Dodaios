@@ -4,7 +4,7 @@
   and Linux CPU, Mac pending hardware; P1 (engine core) built and measured,
   see section 12. P2 (Jarvis integration) is next.
 - **Date:** 2026-10-01
-- **Decision record:** [ADR-0037](adr/0037-jarvis-owned-local-voice-engine.md)
+- **Decision record:** [ADR-0037](adr/0037-dodaios-owned-local-voice-engine.md)
 - **Supersedes:** the recovery plan in
   [`local-realtime-runtime-deep-dive.md`](local-realtime-runtime-deep-dive.md)
   (2026-08-08) and the backlog in

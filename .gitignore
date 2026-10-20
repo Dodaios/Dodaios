@@ -242,7 +242,7 @@ git-worktree-status.csv
 # Downloads/Open-Source-Privacy-Separation.md for the full plan.
 # ============================================================
 
-# Personal config instance — ship jarvis.toml.example instead. The app already
+# Personal config instance — ship dodaios.toml.example instead. The app already
 # boots with no config file (pure Pydantic defaults, core/config.py). An install
 # keeps a jarvis.toml it has; a new one writes dodaios.toml. The config writer's
 # unique tempfiles sit beside either.

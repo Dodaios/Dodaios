@@ -2,7 +2,7 @@
 
 import pytest
 
-from dodaios.agent_chat.jarvis_harness import Identity, compact_identity, identity_prompt
+from dodaios.agent_chat.dodaios_harness import Identity, compact_identity, identity_prompt
 from dodaios.agent_chat.runner_cli import _with_identity
 from dodaios.core.response_style import (
     CONVERSATIONAL_RESPONSE_STYLE,

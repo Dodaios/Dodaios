@@ -20,7 +20,8 @@ export interface PlateInfo {
 interface Props {
   runtime: StageRuntime;
   plates: readonly PlateInfo[];
-  station: { station: Station; name: string; action: string } | null;
+  /** `key`: the key that works the station from where the commander stands (third person). */
+  station: { station: Station; name: string; action: string; key?: string | null } | null;
   deck: Deck | null;
 }
 
@@ -66,7 +67,7 @@ export function FloatingLabels({ runtime, plates, station, deck }: Props) {
         <div className="verse-plate" ref={stationRef}>
           <div className="verse-station-label">
             <span className="verse-label">{station.name}</span>
-            <b>{station.action}</b>
+            <b>{station.action}{station.key && <kbd className="verse-key">{station.key}</kbd>}</b>
           </div>
         </div>
       )}

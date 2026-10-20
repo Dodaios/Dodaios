@@ -1,7 +1,7 @@
 """The macOS usage-description strings have exactly one source, and both bundles read it.
 
 ``dodaios/core/macos_privacy_strings.py`` holds the single table of
-``NS...UsageDescription`` strings. The downloadable ``.dmg`` app (``jarvis.spec``,
+``NS...UsageDescription`` strings. The downloadable ``.dmg`` app (``dodaios.spec``,
 evaluated by PyInstaller before the package is importable) and the managed
 source-install app (``macos_app_bundle._bundle_plist``) both load THAT FILE BY
 PATH. These tests pin the table's shape and prove that the spec's plist dict, the
@@ -9,7 +9,7 @@ managed bundle's plist and the table agree - including that neither carries a
 private copy - and that ``entitlements.plist`` stays comment-free and
 camera-free.
 
-Everything here runs off macOS: the real ``jarvis.spec`` is executed against
+Everything here runs off macOS: the real ``dodaios.spec`` is executed against
 stand-in PyInstaller names (it needs no Mac to describe its own ``Info.plist``).
 What a real Mac does with these strings is not checked and stays unverified.
 """
@@ -32,7 +32,7 @@ from dodaios.core import macos_privacy_strings as table_module
 from dodaios.core.branding import PRODUCT_NAME
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SPEC_PATH = REPO_ROOT / "jarvis.spec"
+SPEC_PATH = REPO_ROOT / "dodaios.spec"
 TABLE_PATH = REPO_ROOT / "dodaios" / "core" / "macos_privacy_strings.py"
 ENTITLEMENTS_PATH = REPO_ROOT / "packaging" / "macos" / "entitlements.plist"
 
@@ -56,7 +56,7 @@ SENTINEL = "SENTINEL usage string that only the edited table carries."
 
 
 def _load_by_path(path: Path) -> types.ModuleType:
-    """Exactly what ``jarvis.spec`` and ``macos_app_bundle`` do to read the table."""
+    """Exactly what ``dodaios.spec`` and ``macos_app_bundle`` do to read the table."""
     loader_spec = importlib.util.spec_from_file_location("_table_under_test", path)
     assert loader_spec is not None and loader_spec.loader is not None
     module = importlib.util.module_from_spec(loader_spec)
@@ -151,11 +151,11 @@ def test_loading_by_path_and_importing_give_the_same_table() -> None:
     assert Path(table_module.__file__).resolve() == TABLE_PATH.resolve()
 
 
-# --- the .dmg app: jarvis.spec -------------------------------------------------
+# --- the .dmg app: dodaios.spec -------------------------------------------------
 
 
 def _exec_spec(monkeypatch: pytest.MonkeyPatch, root: Path) -> dict:
-    """Run the real ``jarvis.spec`` with stand-in PyInstaller names; return BUNDLE's kwargs."""
+    """Run the real ``dodaios.spec`` with stand-in PyInstaller names; return BUNDLE's kwargs."""
     calls: dict[str, dict] = {}
 
     def recorder(name: str):
@@ -186,12 +186,12 @@ def _exec_spec(monkeypatch: pytest.MonkeyPatch, root: Path) -> dict:
 
     namespace: dict[str, object] = {
         "SPECPATH": str(root),
-        "__file__": str(root / "jarvis.spec"),
+        "__file__": str(root / "dodaios.spec"),
     }
     for builtin in ("Analysis", "PYZ", "EXE", "COLLECT", "BUNDLE"):
         namespace[builtin] = recorder(builtin)
-    source = (root / "jarvis.spec").read_text(encoding="utf-8")
-    exec(compile(source, str(root / "jarvis.spec"), "exec"), namespace)  # noqa: S102
+    source = (root / "dodaios.spec").read_text(encoding="utf-8")
+    exec(compile(source, str(root / "dodaios.spec"), "exec"), namespace)  # noqa: S102
     assert "BUNDLE" in calls, "the spec must build a BUNDLE on darwin"
     return calls["BUNDLE"]
 
@@ -203,7 +203,7 @@ def spec_root(tmp_path: Path) -> Path:
     (root / "dodaios" / "core").mkdir(parents=True)
     (root / "dodaios" / "__init__.py").write_text('__version__ = "9.9.9"\n', encoding="utf-8")
     shutil.copy2(TABLE_PATH, root / "dodaios" / "core" / "macos_privacy_strings.py")
-    shutil.copy2(SPEC_PATH, root / "jarvis.spec")
+    shutil.copy2(SPEC_PATH, root / "dodaios.spec")
     helper_dir = root / "scripts" / "packaging"
     helper_dir.mkdir(parents=True)
     shutil.copy2(

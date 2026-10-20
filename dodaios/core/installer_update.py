@@ -766,10 +766,10 @@ def apply_installer(
 
 # The Inno Setup parameter that tells the installer to start the app again
 # once the files are in place (see the RelaunchRequested check in
-# packaging/windows/PersonalJarvis.iss).
+# packaging/windows/Dodaios.iss).
 WINDOWS_RELAUNCH_PARAM = "/RELAUNCH=1"
 # The Inno Setup parameter naming the process the installer must outlive (see
-# InitializeSetup in packaging/windows/PersonalJarvis.iss).
+# InitializeSetup in packaging/windows/Dodaios.iss).
 WINDOWS_WAIT_PID_PARAM = "/WAITPID"
 # Where the silent installer writes its log. A silent upgrade that fails shows
 # nothing at all, so this file is the only trace of what went wrong.

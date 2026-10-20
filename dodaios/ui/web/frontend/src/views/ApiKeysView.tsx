@@ -13,7 +13,7 @@ import { useProviderFamilies } from "@/lib/providerFamilies";
 import { useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
-import { JarvisApiGroup } from "@/views/settings/JarvisApiGroup";
+import { DodaiosApiGroup } from "@/views/settings/DodaiosApiGroup";
 
 // Agents first: the providers are set up there; live calls reuse the OpenAI login.
 const TABS = ["agents", "voice"] as const;
@@ -133,7 +133,7 @@ export function ApiKeysView() {
           {/* The Control Key unlocks the browser UI and authenticates local agents. */}
           {tab === "agents" && (
             <div className="mt-10">
-              <JarvisApiGroup />
+              <DodaiosApiGroup />
             </div>
           )}
         </div>

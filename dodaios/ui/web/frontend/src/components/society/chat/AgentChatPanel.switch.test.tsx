@@ -16,7 +16,7 @@ import { useEventStore } from "@/store/events";
 import type { AgentChatEvent, AgentChatSession } from "@/lib/agentChatApi";
 import type { ChatAttachment } from "@/lib/agentChatApi";
 import { useHomeStore } from "@/store/home";
-import { JarvisHistoryRail } from "./JarvisHistoryRail";
+import { DodaiosHistoryRail } from "./DodaiosHistoryRail";
 import { useRoutineNavigation } from "./routineNavigation";
 import * as cardData from "../cardData";
 
@@ -233,7 +233,7 @@ it("reads archived calls on the actual voice stage and returns there fresh after
     ] }));
     return new Response(JSON.stringify({ providers: [], sessions: [], mapping: [], events: [] }));
   });
-  const view = render(<><AgentChatPanel agent={jarvis} roster={[jarvis]} /><JarvisHistoryRail /></>);
+  const view = render(<><AgentChatPanel agent={jarvis} roster={[jarvis]} /><DodaiosHistoryRail /></>);
   fireEvent.click(await screen.findByTestId("jarvis-history-voice-row"));
   expect(await screen.findByText("Archived question")).toBeTruthy();
   expect(screen.getByText("Archived answer")).toBeTruthy();

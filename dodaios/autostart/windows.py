@@ -91,7 +91,7 @@ _LEGACY_NAMES = (
 )
 # The branded launcher under every name it has had. A logon task written by an
 # earlier release starts the earlier file, which the install still ships beside
-# the current one (``jarvis.spec``): the same program in the same folder.
+# the current one (``dodaios.spec``): the same program in the same folder.
 _BRANDED_LAUNCHER_NAMES = frozenset(
     name.lower()
     for name in (WINDOWS_BRANDED_LAUNCHER_FILE_NAME, *LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES)
@@ -360,7 +360,7 @@ def build_create_script(link: Path, spec: LaunchSpec, *, icon: str | None = None
 
     WindowStyle 7 = minimized (tray-friendly), 1 = normal/visible.
 
-    ``icon`` is the absolute path to ``jarvis.ico``. When given, the shortcut
+    ``icon`` is the absolute path to ``dodaios.ico``. When given, the shortcut
     carries ``IconLocation`` so the taskbar button is branded with the Jarvis
     icon from the moment the app autostarts — instead of the bare ``pythonw.exe``
     Python logo. Without it (the historical behaviour) an autostart launch on a
@@ -416,7 +416,7 @@ def build_read_script(link: Path) -> str:
 
 
 def _resolve_app_icon() -> str | None:
-    """Absolute ``jarvis.ico`` path for the shortcut, or ``None`` if unresolved.
+    """Absolute ``dodaios.ico`` path for the shortcut, or ``None`` if unresolved.
 
     Lazy import (never at module scope, HN-7): keeps this Windows-only module
     free of a UI import on other OSes and off the boot critical path. Returns the
@@ -499,7 +499,7 @@ def _win32com() -> tuple[object, object] | None:
 
     Lazy (HN-7): this module is imported on every OS, pywin32 exists only on
     Windows, and only in the ``desktop`` extra. The frozen installer build
-    always bundles it (``jarvis.spec`` hidden imports).
+    always bundles it (``dodaios.spec`` hidden imports).
     """
     try:
         import pythoncom  # type: ignore[import-not-found]
