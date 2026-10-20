@@ -29,7 +29,7 @@ _IDE = _ROOT / "dodaios" / "agentic_ide"
 
 #: The chat-only modules. Nothing under ``dodaios/agentic_ide`` may reach these:
 #: they are what hands a session Jarvis' own tools.
-_CHAT_ONLY = ("dodaios.agent_chat.jarvis_harness", "dodaios.agent_chat.runner_cli")
+_CHAT_ONLY = ("dodaios.agent_chat.dodaios_harness", "dodaios.agent_chat.runner_cli")
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -80,12 +80,12 @@ def test_the_chat_child_environment_is_a_copy_never_the_process_environment():
     """The control key must reach the chat's child and nothing else on the box."""
     import os
 
-    from dodaios.agent_chat import jarvis_harness
+    from dodaios.agent_chat import dodaios_harness
 
-    before = os.environ.get(jarvis_harness.KEY_ENV_VAR)
+    before = os.environ.get(dodaios_harness.KEY_ENV_VAR)
     child: dict[str, str] = {}
-    jarvis_harness.apply_env(child)
-    assert os.environ.get(jarvis_harness.KEY_ENV_VAR) == before
+    dodaios_harness.apply_env(child)
+    assert os.environ.get(dodaios_harness.KEY_ENV_VAR) == before
 
 
 def test_the_ide_panes_and_the_chat_do_not_share_a_spawn_function():

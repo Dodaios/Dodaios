@@ -3153,7 +3153,7 @@ def test_research_question_answer_deliverable_routes_inline_not_spawned() -> Non
 # inline, NEVER re-dispatched as a new mission.
 #
 # Live doom-loop 2026-06-16 (missions.db 019ed04e / 019ed051): the user dragged
-# a finished/failed mission card onto the JarvisDock to get a recap. The recap
+# a finished/failed mission card onto the DodaiosDock to get a recap. The recap
 # directive embeds the dropped card's OWN text verbatim, so a title that
 # contains a spawn trigger ("sub-agent") or an action verb ("Write …") leaks
 # that trigger back into the directive -> the router force-spawned a NEW mission

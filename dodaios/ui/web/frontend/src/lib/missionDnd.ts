@@ -2,7 +2,7 @@
  * Dragging a run toward the Jarvis dock — the payload and the drag start.
  *
  * Lived in `views/OutputsView.tsx` until the Outputs section folded into the
- * Artifacts section (2026-08-23). The dock (`components/JarvisDock.tsx`) reads
+ * Artifacts section (2026-08-23). The dock (`components/DodaiosDock.tsx`) reads
  * the same MIME type; both sides import it from here so the two can never
  * drift apart.
  */

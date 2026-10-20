@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dodaios.agent_chat.jarvis_harness import (
+from dodaios.agent_chat.dodaios_harness import (
     ROLLOVER_NOTICE_KIND,
     SOCIETY_ROLLOVER_CHARS,
     society_rollover_due,
