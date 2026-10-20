@@ -3434,6 +3434,43 @@ def _agy_effective_effort(model: str, effort: str) -> str:
     return args[args.index("--effort") + 1] if "--effort" in args else ""
 
 
+#: Codex features a task turn must not reach: only the Dodaios gateway's tools.
+_CODEX_TASK_DISABLED: Final[tuple[str, ...]] = (
+    "shell_tool",
+    "apps",
+    "hooks",
+    "multi_agent",
+    "browser_use",
+    "web_search_request",
+    "goals",
+    "memories",
+    "plugins",
+    "computer_use",
+    "image_generation",
+    "multi_agent_v2",
+)
+
+
+def isolate_task_tools(argv: list[str], runner: str) -> None:
+    """Leave a task turn only the Dodaios gateway's tools (``gateway_only``), in place.
+
+    An identity turn already carries some of codex's flags, and codex refuses
+    a flag given twice, so each goes in once.
+    """
+    if runner == "claude-cli":
+        argv += ["--tools", "", "--strict-mcp-config"]
+        return
+    if runner != "codex-cli":
+        raise CliUnavailable("The selected runner cannot isolate task tools.")
+    for flag in ("--ignore-user-config", "--ignore-rules"):
+        if flag not in argv:
+            argv.append(flag)
+    disabled = {argv[i + 1] for i, arg in enumerate(argv[:-1]) if arg == "--disable"}
+    for feature in _CODEX_TASK_DISABLED:
+        if feature not in disabled:
+            argv += ["--disable", feature]
+
+
 async def _run_cli_once(
     handle: TurnHandle,
     user_text: str,
@@ -3559,27 +3596,7 @@ async def _run_cli_once(
                     plain_chat.attach_images, plan, runner, [Path(p) for p in images]
                 )
             if getattr(handle, "gateway_only", False):
-                if runner == "claude-cli":
-                    plan.argv += ["--tools", "", "--strict-mcp-config"]
-                elif runner == "codex-cli":
-                    plan.argv += ["--ignore-user-config", "--ignore-rules"]
-                    for feature in (
-                        "shell_tool",
-                        "apps",
-                        "hooks",
-                        "multi_agent",
-                        "browser_use",
-                        "web_search_request",
-                        "goals",
-                        "memories",
-                        "plugins",
-                        "computer_use",
-                        "image_generation",
-                        "multi_agent_v2",
-                    ):
-                        plan.argv += ["--disable", feature]
-                else:
-                    raise CliUnavailable("The selected runner cannot isolate task tools.")
+                isolate_task_tools(plan.argv, runner)
     except CliUnavailable as exc:
         _release_plan(plan)
         return _Outcome("error", str(exc), {}, None, None)
