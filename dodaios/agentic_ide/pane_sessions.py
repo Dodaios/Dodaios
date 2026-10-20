@@ -52,6 +52,12 @@ def settings_file() -> Path:
     # installs and cmd on others; a quoted forward-slash path works in both.
     command = f'"{_interpreter().as_posix()}" "{script.as_posix()}"'
     settings = {
+        # The classic renderer, whatever the user's own settings say: with
+        # ``CLAUDE_CODE_NO_FLICKER`` on, Claude Code takes the alternate screen
+        # and keeps the conversation inside its own UI, so the pane's terminal
+        # has no history and its scrollbar no position to show. Settings given
+        # with ``--settings`` outrank the user's, and only these panes get them.
+        "env": {"CLAUDE_CODE_NO_FLICKER": "0"},
         "hooks": {
             "SessionStart": [{"hooks": [{"type": "command", "command": command, "timeout": 10}]}]
         }

@@ -447,14 +447,14 @@ class Builders:
         provider = await asyncio.to_thread(brain.provider_for_runs, self.env.config())
         if not provider:
             raise Waiting("no subscription or local model to run the routine on")
-        from dodaios.tasks.context import turn_timezone
+        from .clock import person_zone_name
 
         schedule = dict(spec.get("schedule") or need.schedule or {})
         schedule.pop("habit", None)
-        zone = turn_timezone()
+        # The zone the UI reported, else this computer's (logged by clock.py).
+        zone = await asyncio.to_thread(person_zone_name)
         if not zone:
-            # Never a server-derived zone (tasks/context.py): wait for the UI's.
-            raise Waiting("the person's time zone is not known yet")
+            raise Waiting("no time zone can be named for the person yet")
         schedule["timezone"] = zone
         spec = {**spec, "schedule": schedule}
         shadow = await self._shadow(record, ROUTINE_SHADOW_SYSTEM, str(spec.get("prompt") or ""))

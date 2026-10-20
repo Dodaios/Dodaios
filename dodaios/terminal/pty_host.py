@@ -498,6 +498,7 @@ def _configure_logging(log_path: Path | None) -> None:
         retention=2,
         encoding="utf-8",
         enqueue=False,
+        diagnose=False,  # never dump frame locals (tokens, keys) into the log
     )
 
 
