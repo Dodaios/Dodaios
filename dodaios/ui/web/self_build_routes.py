@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -126,6 +127,30 @@ class SettingsBody(BaseModel):
     max_open_trials: int | None = None
     max_code_runs_per_day: int | None = None
     max_rejections: int | None = None
+    #: Repositories (``owner/name``) whose loop pull requests merge after green CI.
+    code_land_repos: list[str] | None = None
+
+
+#: ``owner/name`` as GitHub spells it.
+_REPO = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}$")
+
+
+def _clean_repos(values: list[str]) -> list[str]:
+    """Trim, drop empties and duplicates (case-insensitive), refuse anything not ``owner/name``."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        repo = str(raw).strip().removeprefix("https://github.com/").removesuffix(".git").strip("/")
+        if not repo:
+            continue
+        if not _REPO.match(repo):
+            raise HTTPException(status_code=400, detail=f"Not a repository (owner/name): {raw!r}")
+        if repo.lower() not in seen:
+            seen.add(repo.lower())
+            out.append(repo)
+    if len(out) > 50:
+        raise HTTPException(status_code=400, detail="At most 50 repositories.")
+    return out
 
 
 def _config(request: Request) -> Any:
@@ -175,6 +200,8 @@ async def put_settings(request: Request, body: SettingsBody) -> dict[str, Any]:
     from dodaios.core.config import SelfBuildConfig
 
     changes = body.model_dump(exclude_none=True)
+    if "code_land_repos" in changes:
+        changes["code_land_repos"] = _clean_repos(changes["code_land_repos"])
     if not changes:
         raise HTTPException(status_code=400, detail="No settings were provided.")
     cfg = _config(request)

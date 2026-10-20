@@ -3552,7 +3552,12 @@
         "silent_days": "最初的安静天数"
       },
       "save_error": "无法保存：{detail}",
-      "unavailable": "无法加载这些设置。"
+      "unavailable": "无法加载这些设置。",
+      "land_title": "自动合并代码更改",
+      "land_description": "列表中的仓库会收到在 CI 通过后自动合并的拉取请求。其他仓库只会收到由你合并的草稿拉取请求。",
+      "land_warning": "列表中仓库的代码会在你未查看拉取请求的情况下被更改。只添加你信任其测试的仓库。",
+      "land_add": "添加仓库",
+      "land_remove": "移除 {repo}"
     }
   },
   "telephony_view": {

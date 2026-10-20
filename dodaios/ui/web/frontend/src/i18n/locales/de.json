@@ -3552,7 +3552,12 @@
         "silent_days": "Ruhige erste Tage"
       },
       "save_error": "Speichern fehlgeschlagen: {detail}",
-      "unavailable": "Diese Einstellungen konnten nicht geladen werden."
+      "unavailable": "Diese Einstellungen konnten nicht geladen werden.",
+      "land_title": "Code-Änderungen selbst mergen",
+      "land_description": "Repositories in dieser Liste bekommen Pull Requests, die nach grüner CI gemergt werden. Alle anderen bekommen Entwurfs-Pull-Requests, die du mergst.",
+      "land_warning": "Der Code eines gelisteten Repositorys ändert sich, ohne dass du den Pull Request vorher ansiehst. Füge nur Repositorys hinzu, deren Tests du vertraust.",
+      "land_add": "Repository hinzufügen",
+      "land_remove": "{repo} entfernen"
     }
   },
   "telephony_view": {

@@ -209,7 +209,9 @@ detail.
 - **Pause building** is the loop's kill switch. **Stop all agents** engages
   the society kill switch after a confirmation (which pauses building too);
   while it is engaged the page says so and offers Release.
-- **Settings → General → Self-building** edits `[self_build]`.
+- **Settings → General → Self-building** edits `[self_build]`, including the
+  repositories whose loop pull requests merge on green CI (`code_land_repos`),
+  shown with a warning that a listed repository changes without a review.
 - A **"Built by {assistant}"** badge marks skills (Skills list and detail),
   routines (an agent's routines) and agents (the agent card) that a build
   created, and opens that build.

@@ -25,6 +25,7 @@ const SETTINGS = {
   max_open_trials: 5,
   max_code_runs_per_day: 1,
   max_rejections: 2,
+  code_land_repos: ["octo/app"],
 };
 
 function installFetch() {
@@ -83,5 +84,17 @@ describe("SelfBuildGroup", () => {
     fireEvent.change(field, { target: { value: "500" } });
     fireEvent.blur(field);
     await waitFor(() => expect(puts).toEqual([{ max_builds_per_day: 50 }]));
+  });
+
+  it("adds and removes a repository that merges on its own, with a warning in sight", async () => {
+    const puts = installFetch();
+    renderGroup();
+    const row = await screen.findByTestId("self-build-land-repos");
+    expect(row.textContent).toMatch(/without you looking at the pull request/);
+    fireEvent.change(within(row).getByRole("textbox"), { target: { value: "me/tool" } });
+    fireEvent.click(within(row).getByRole("button", { name: "Add repository" }));
+    await waitFor(() => expect(puts.at(-1)).toEqual({ code_land_repos: ["octo/app", "me/tool"] }));
+    fireEvent.click(within(row).getByRole("button", { name: "Remove octo/app" }));
+    await waitFor(() => expect(puts.at(-1)).toEqual({ code_land_repos: ["me/tool"] }));
   });
 });

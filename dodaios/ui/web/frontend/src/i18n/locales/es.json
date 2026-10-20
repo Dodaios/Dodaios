@@ -3552,7 +3552,12 @@
         "silent_days": "Primeros días en silencio"
       },
       "save_error": "No se pudo guardar: {detail}",
-      "unavailable": "No se pudieron cargar estos ajustes."
+      "unavailable": "No se pudieron cargar estos ajustes.",
+      "land_title": "Fusionar cambios de código por su cuenta",
+      "land_description": "Los repositorios de esta lista reciben pull requests que se fusionan cuando la CI está en verde. Los demás reciben pull requests en borrador que fusionas tú.",
+      "land_warning": "El código de un repositorio de la lista cambia sin que mires antes el pull request. Añade solo repositorios en cuyas pruebas confíes.",
+      "land_add": "Añadir repositorio",
+      "land_remove": "Quitar {repo}"
     }
   },
   "telephony_view": {

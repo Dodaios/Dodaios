@@ -7,6 +7,7 @@
  * running loop reads the new values on its next decision, no restart.
  */
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -135,6 +136,11 @@ export function SelfBuildGroup() {
               ))}
             </div>
           </SettingsRow>
+          <LandReposRow
+            repos={payload.settings.code_land_repos ?? []}
+            disabled={save.isPending}
+            onChange={(code_land_repos) => apply({ code_land_repos })}
+          />
         </SettingsCard>
       )}
       {error && <SettingsNote tone="error" className="mt-2">{error}</SettingsNote>}
@@ -190,5 +196,83 @@ function NumberField({
         className="h-8 w-20 shrink-0 rounded-md border border-border-strong bg-input px-2 text-right text-sm tabular-nums text-foreground focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     </label>
+  );
+}
+
+/**
+ * Repositories where a loop pull request merges itself once CI is green. Off
+ * for every repository until it is listed here; everything else stays a draft
+ * the person merges. Merging changes the person's code, so the row says so.
+ */
+function LandReposRow({
+  repos,
+  disabled,
+  onChange,
+}: {
+  repos: string[];
+  disabled: boolean;
+  onChange: (repos: string[]) => void;
+}) {
+  const t = useT();
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const repo = draft.trim();
+    if (!repo) return;
+    if (!repos.some((r) => r.toLowerCase() === repo.toLowerCase())) onChange([...repos, repo]);
+    setDraft("");
+  };
+  return (
+    <SettingsRow
+      id="settings-self-build-land"
+      testId="self-build-land-repos"
+      title={t("settings_view.self_build.land_title")}
+      description={t("settings_view.self_build.land_description")}
+    >
+      <SettingsNote tone="warning">{t("settings_view.self_build.land_warning")}</SettingsNote>
+      {repos.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {repos.map((repo) => (
+            <li
+              key={repo}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 font-mono text-xs text-foreground"
+            >
+              {repo}
+              <button
+                type="button"
+                disabled={disabled}
+                aria-label={fill(t("settings_view.self_build.land_remove"), { repo })}
+                onClick={() => onChange(repos.filter((r) => r !== repo))}
+                className="rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
+              >
+                <X className="h-3 w-3" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          add();
+        }}
+      >
+        <input
+          value={draft}
+          disabled={disabled}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="owner/name"
+          aria-label={t("settings_view.self_build.land_add")}
+          className="h-8 w-56 rounded-md border border-border-strong bg-input px-2 font-mono text-sm text-foreground placeholder:text-foreground-faint focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <button
+          type="submit"
+          disabled={disabled || !draft.trim()}
+          className="h-8 rounded-md border border-border-strong px-3 text-sm text-foreground hover:bg-secondary disabled:opacity-50"
+        >
+          {t("settings_view.self_build.land_add")}
+        </button>
+      </form>
+    </SettingsRow>
   );
 }

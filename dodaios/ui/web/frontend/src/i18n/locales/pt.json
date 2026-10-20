@@ -3552,7 +3552,12 @@
         "silent_days": "Primeiros dias em silêncio"
       },
       "save_error": "Não foi possível guardar: {detail}",
-      "unavailable": "Não foi possível carregar estas definições."
+      "unavailable": "Não foi possível carregar estas definições.",
+      "land_title": "Integrar alterações de código sozinho",
+      "land_description": "Os repositórios desta lista recebem pull requests que são integrados quando a CI fica verde. Os restantes recebem pull requests em rascunho que é o utilizador a integrar.",
+      "land_warning": "O código de um repositório da lista muda sem que veja primeiro o pull request. Adicione apenas repositórios em cujos testes confia.",
+      "land_add": "Adicionar repositório",
+      "land_remove": "Remover {repo}"
     }
   },
   "telephony_view": {

@@ -56,7 +56,13 @@ const BUILDS: Build[] = [
     case: "You summarised the PR list every morning.",
   }),
   build({ id: "k1", state: "kept", title: "Mail humanizer", artefact: { type: "skill", id: "humanizer" } }),
-  build({ id: "u1", kind: "code", state: "undone", title: "Fix the flaky test" }),
+  build({
+    id: "u1",
+    kind: "code",
+    state: "undone",
+    title: "Fix the flaky test",
+    artefact: { type: "code", id: "https://github.com/octo/app/pull/7", repo: "octo/app", number: 7, draft: true, url: "https://github.com/octo/app/pull/7" },
+  }),
 ];
 
 const STATUS: SelfBuildStatus = {
@@ -233,5 +239,23 @@ describe("BuiltByBadge", () => {
     fireEvent.click(badge);
     expect(useEventStore.getState().activeSection).toBe("self-build");
     expect(useSelfBuildFocus.getState().buildId).toBe("k1");
+  });
+});
+
+describe("BuildDetail for code", () => {
+  beforeEach(async () => {
+    setUiLanguage("en");
+    await loadLocaleChunk("self_build");
+  });
+  afterEach(() => cleanup());
+
+  it("names the pull request, not its URL, and links to it", async () => {
+    installFetch();
+    useSelfBuildFocus.getState().request("u1");
+    renderWith(<SelfBuildView />);
+    const detail = await screen.findByTestId("build-detail");
+    expect(within(detail).getByText("octo/app#7")).toBeTruthy();
+    expect(within(detail).getByText("draft pull request")).toBeTruthy();
+    expect(within(detail).getByRole("link", { name: /open/i }).getAttribute("href")).toBe("https://github.com/octo/app/pull/7");
   });
 });
