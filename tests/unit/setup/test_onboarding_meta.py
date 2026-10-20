@@ -1,5 +1,7 @@
 import sysconfig
 
+import pytest
+
 from dodaios.setup import onboarding_meta as m
 
 
@@ -57,12 +59,14 @@ def test_canonical_terms_disclose_project_authentication_service():
     _assert_authentication_disclosure(m.read_terms_text())
 
 
+@pytest.mark.parametrize("distribution", ["dodaios", "personal-jarvis"])
 def test_read_terms_text_uses_installed_document_when_source_is_absent(
     tmp_path,
     monkeypatch,
+    distribution,
 ):
     canonical = m.read_terms_text()
-    installed = tmp_path / "share" / "personal-jarvis" / "docs" / "legal" / "TERMS.md"
+    installed = tmp_path / "share" / distribution / "docs" / "legal" / "TERMS.md"
     installed.parent.mkdir(parents=True)
     installed.write_text(canonical, encoding="utf-8")
     monkeypatch.setattr(m, "_TERMS_PATH", tmp_path / "absent-source" / "TERMS.md")

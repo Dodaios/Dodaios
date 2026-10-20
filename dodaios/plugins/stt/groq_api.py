@@ -17,8 +17,9 @@ Audio I/O contract (compatible with the Jarvis VAD output):
 API key resolution order:
   1. constructor argument
   2. ``GROQ_API_KEY`` env var
-  3. Windows Credential Manager via ``keyring`` (service ``personal-jarvis``,
-     username ``groq_api_key``) — same convention as the rest of Jarvis,
+  3. The OS credential manager via ``keyring`` (service ``dodaios``, then the
+     earlier ``personal-jarvis``; username ``groq_api_key``) — same convention
+     as the rest of the app,
      without importing ``dodaios.*`` (the third-party ``keyring`` package is
      a soft dependency; if it is missing the lookup is silently skipped).
 
@@ -115,7 +116,7 @@ class GroqWhisperAPI:
         self._api_key = (
             api_key
             or os.environ.get("GROQ_API_KEY", "")
-            or _read_keyring_secret(_KEYRING_SERVICE, "groq_api_key")
+            or _read_keyring_secret("groq_api_key")
         )
         self._model = model
         self._last_used_model = ""
@@ -328,13 +329,17 @@ class GroqWhisperAPI:
 # Helpers (module-private)
 # ----------------------------------------------------------------------
 
-#: The OS credential-store service the host saves keys under. A plugin imports
-#: no ``dodaios.*``, so this restates ``dodaios.core.branding.KEYRING_SERVICE_NAME``;
-#: ``tests/unit/core/test_identity_single_source.py`` pins the two together.
-_KEYRING_SERVICE = "personal-jarvis"
+#: The OS credential-store service the host saves keys under, and the services
+#: earlier versions saved them under (read when the current one has nothing).
+#: A plugin imports no ``dodaios.*``, so this restates
+#: ``dodaios.core.branding.KEYRING_SERVICE_NAME`` and
+#: ``LEGACY_KEYRING_SERVICE_NAMES``;
+#: ``tests/unit/core/test_identity_single_source.py`` pins them together.
+_KEYRING_SERVICE = "dodaios"
+_LEGACY_KEYRING_SERVICES = ("personal-jarvis",)
 
 
-def _read_keyring_secret(service: str, username: str) -> str:
+def _read_keyring_secret(username: str) -> str:
     """Best-effort Credential-Manager lookup. Returns ``""`` on any failure."""
     # No dodaios.* import here (plugin purity contract): the host's plugin
     # loader (dodaios.core.registry.load) installs the process-wide keyring
@@ -346,11 +351,25 @@ def _read_keyring_secret(service: str, username: str) -> str:
         import keyring  # type: ignore[import-not-found]
     except ImportError:
         return ""
-    try:
-        val = keyring.get_password(service, username)
-        return val or ""
-    except Exception:  # noqa: BLE001
-        return ""
+    for service in (_KEYRING_SERVICE, *_LEGACY_KEYRING_SERVICES):
+        try:
+            value = _read_one(keyring, service, username)
+        except Exception:  # noqa: BLE001, S112 — a locked or absent vault is "no key"
+            continue
+        if value:
+            return value
+    return ""
+
+
+def _read_one(keyring: Any, service: str, username: str) -> str | None:
+    """One read that never writes: an earlier service is read, never changed."""
+    if service != _KEYRING_SERVICE:
+        # The host's macOS vault wrapper folds an entry it finds into its
+        # vault on a plain read; its read-only twin leaves the old name alone.
+        peek = getattr(keyring.get_keyring(), "peek_password", None)
+        if callable(peek):
+            return peek(service, username)
+    return keyring.get_password(service, username)
 
 
 #: Container extensions these transcription APIs accept. A name outside the

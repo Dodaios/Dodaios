@@ -25,7 +25,6 @@ import sys
 import threading
 import time
 
-from dodaios.core.branding import CONFIG_FILE_NAME
 from dodaios.core.branding import PRODUCT_NAME as APP_DISPLAY_NAME
 from dodaios.core.process_utils import (
     drop_inherited_electron_node_mode,
@@ -315,21 +314,31 @@ def _fast_admin_port() -> int:
     return current_instance().port(_fast_admin_base_port())
 
 
+def _fast_config_path() -> str:
+    """The config file the full config load will read, without importing it.
+
+    ``JARVIS_CONFIG`` wins; otherwise the checkout's ``jarvis.toml`` while it
+    exists, else ``dodaios.toml`` (``dodaios.core.identity_boot``).
+    """
+    override = os.environ.get("JARVIS_CONFIG")
+    if override and override.strip():
+        return override.strip()
+    from dodaios.core.identity_boot import resolve_config_file
+
+    # launcher.py → dodaios/ui/web/ → repo root is three dirs up.
+    repo_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    )
+    return str(resolve_config_file(repo_root))
+
+
 def _fast_admin_base_port() -> int:
     import contextlib
 
     with contextlib.suppress(Exception):  # any failure → packaged default
         import tomllib
 
-        override = os.environ.get("JARVIS_CONFIG")
-        if override:
-            path = override
-        else:
-            # launcher.py → dodaios/ui/web/ → repo root is three dirs up.
-            repo_root = os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            )
-            path = os.path.join(repo_root, CONFIG_FILE_NAME)
+        path = _fast_config_path()
         if os.path.exists(path):
             with open(path, "rb") as fh:
                 data = tomllib.load(fh)
@@ -348,14 +357,7 @@ def _fast_auth_token_env() -> str:
     with contextlib.suppress(Exception):
         import tomllib
 
-        override = os.environ.get("JARVIS_CONFIG")
-        if override:
-            path = override
-        else:
-            repo_root = os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            )
-            path = os.path.join(repo_root, CONFIG_FILE_NAME)
+        path = _fast_config_path()
         if os.path.exists(path):
             with open(path, "rb") as fh:
                 data = tomllib.load(fh)
@@ -374,14 +376,7 @@ def _fast_vite_dev_url(force_dev: bool) -> str | None:
     with contextlib.suppress(Exception):
         import tomllib
 
-        override = os.environ.get("JARVIS_CONFIG")
-        if override:
-            path = override
-        else:
-            repo_root = os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            )
-            path = os.path.join(repo_root, CONFIG_FILE_NAME)
+        path = _fast_config_path()
         if os.path.exists(path):
             with open(path, "rb") as fh:
                 ui = tomllib.load(fh).get("ui", {})
@@ -2258,6 +2253,13 @@ def _main(argv: list[str] | None = None) -> int:
     if _instance_error is not None:
         _report_startup_failure(_instance_error)
         return 2
+    # The data directory's earlier name: the main instance moves it to the
+    # current one now, before anything below creates or opens a file in it
+    # (instance data dir, boot trace, log sink, locks). Every other process
+    # only resolves. Reported once the log sink exists.
+    from dodaios.core.identity_boot import migrate_at_boot
+
+    _identity_report = migrate_at_boot(_raw_argv)
     try:
         from pathlib import Path as _IPath
 
@@ -2330,6 +2332,10 @@ def _main(argv: list[str] | None = None) -> int:
 
         remember_desktop_launch_args(port=args.port, dev=args.dev, no_lock=args.no_lock)
         _install_boot_trace(_raw_argv)
+    if _identity_report is not None:
+        from loguru import logger as _idlog
+
+        _idlog.log(_identity_report.level, "{}", _identity_report.message)
 
     # Refuse a window we cannot build, BEFORE paying for the boot. Everything
     # below this line — config, control key, autostart, backend, voice — takes
@@ -2404,7 +2410,7 @@ def _main(argv: list[str] | None = None) -> int:
     # embedded icon, which no window-icon / class-icon / AUMID / Start-Menu /
     # registry / icon-cache work can override (all verified to have no effect on
     # the button). Under a bare ``pythonw.exe`` that icon is the Python logo. Re-
-    # exec the SAME launcher through ``PersonalJarvis.exe`` — a pythonw copy
+    # exec the SAME launcher through ``DodaiosApp.exe`` — a pythonw copy
     # carrying the mascot icon — so the taskbar shows the Jarvis ghost. Desktop
     # only (headless has no taskbar), once (env-guarded), and fully best-effort:
     # if branding is unavailable it returns None and we boot in-process as before.

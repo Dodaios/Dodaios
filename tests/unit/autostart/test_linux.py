@@ -6,9 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from dodaios.autostart.linux import LinuxAutostart
+from dodaios.autostart.linux import LinuxAutostart, entry_belongs_to_install
 from dodaios.autostart.protocol import LaunchSpec
-from dodaios.core.desktop_entry import escape_value
+from dodaios.core.branding import (
+    LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES,
+    LINUX_DESKTOP_ENTRY_FILE_NAME,
+)
+from dodaios.core.desktop_entry import escape_value, exec_value
 
 
 def _spec(
@@ -28,7 +32,7 @@ def test_install_writes_desktop_entry(monkeypatch, tmp_path: Path) -> None:
     mgr = LinuxAutostart()
     status = mgr.install(_spec())
 
-    entry = tmp_path / "autostart" / "personal-jarvis.desktop"
+    entry = tmp_path / "autostart" / "dodaios.desktop"
     assert entry.exists()
     text = entry.read_text(encoding="utf-8")
     assert "[Desktop Entry]" in text
@@ -45,7 +49,7 @@ def test_install_brands_entry_with_icon_and_wmclass(monkeypatch, tmp_path: Path)
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     LinuxAutostart().install(_spec())
-    text = (tmp_path / "autostart" / "personal-jarvis.desktop").read_text(encoding="utf-8")
+    text = (tmp_path / "autostart" / "dodaios.desktop").read_text(encoding="utf-8")
 
     png = bundled_app_icon_png()
     assert png is not None, "bundled jarvis.png must ship for the Linux Icon= key"
@@ -53,7 +57,7 @@ def test_install_brands_entry_with_icon_and_wmclass(monkeypatch, tmp_path: Path)
     # is the identity for an icon path; on a Windows dev/CI host the bundled
     # path carries backslashes, and NOT escaping them would be the bug.
     assert f"Icon={escape_value(str(png))}" in text
-    assert "StartupWMClass=personal-jarvis" in text
+    assert "StartupWMClass=dodaios" in text
 
 
 def test_status_detects_path_drift(monkeypatch, tmp_path: Path) -> None:
@@ -72,7 +76,7 @@ def test_program_with_spaces_is_quoted(monkeypatch, tmp_path: Path) -> None:
     mgr = LinuxAutostart()
     spec = _spec(program="/opt/My Apps/python3")
     mgr.install(spec)
-    text = (tmp_path / "autostart" / "personal-jarvis.desktop").read_text(encoding="utf-8")
+    text = (tmp_path / "autostart" / "dodaios.desktop").read_text(encoding="utf-8")
     assert 'Exec="/opt/My Apps/python3" -m dodaios.ui.web.launcher' in text
     # And the round-trip still matches.
     assert mgr.status(spec).matches_spec is True
@@ -83,7 +87,7 @@ def test_uninstall_removes_entry(monkeypatch, tmp_path: Path) -> None:
     mgr = LinuxAutostart()
     mgr.install(_spec())
     status = mgr.uninstall()
-    assert not (tmp_path / "autostart" / "personal-jarvis.desktop").exists()
+    assert not (tmp_path / "autostart" / "dodaios.desktop").exists()
     assert status.installed is False
 
 
@@ -98,7 +102,7 @@ def test_status_supported_even_when_absent(monkeypatch, tmp_path: Path) -> None:
 
 
 def _entry_text(tmp_path: Path) -> str:
-    return (tmp_path / "autostart" / "personal-jarvis.desktop").read_text(
+    return (tmp_path / "autostart" / "dodaios.desktop").read_text(
         encoding="utf-8"
     )
 
@@ -168,7 +172,7 @@ def test_status_reports_drift_when_gnome_switched_the_entry_off(
     mgr = LinuxAutostart()
     spec = _spec()
     mgr.install(spec)
-    entry = tmp_path / "autostart" / "personal-jarvis.desktop"
+    entry = tmp_path / "autostart" / "dodaios.desktop"
     entry.write_text(
         _entry_text(tmp_path).replace(
             "X-GNOME-Autostart-enabled=true", "X-GNOME-Autostart-enabled=false"
@@ -188,7 +192,7 @@ def test_status_reports_drift_for_a_hidden_entry(monkeypatch, tmp_path: Path) ->
     mgr = LinuxAutostart()
     spec = _spec()
     mgr.install(spec)
-    entry = tmp_path / "autostart" / "personal-jarvis.desktop"
+    entry = tmp_path / "autostart" / "dodaios.desktop"
     entry.write_text(
         _entry_text(tmp_path).replace("Hidden=false", "Hidden=true"), encoding="utf-8"
     )
@@ -206,7 +210,7 @@ def test_status_ignores_an_exec_from_another_group(monkeypatch, tmp_path: Path) 
     mgr = LinuxAutostart()
     spec = _spec()
     mgr.install(spec)
-    entry = tmp_path / "autostart" / "personal-jarvis.desktop"
+    entry = tmp_path / "autostart" / "dodaios.desktop"
     entry.write_text(
         _entry_text(tmp_path)
         + "\n[Desktop Action new-window]\nExec=/somewhere/else --new\n",
@@ -223,7 +227,7 @@ def test_status_tolerates_spaces_around_the_equals_sign(
     mgr = LinuxAutostart()
     spec = _spec()
     mgr.install(spec)
-    entry = tmp_path / "autostart" / "personal-jarvis.desktop"
+    entry = tmp_path / "autostart" / "dodaios.desktop"
     entry.write_text(
         _entry_text(tmp_path).replace("Path=", "Path = "), encoding="utf-8"
     )
@@ -248,9 +252,9 @@ def test_relative_xdg_config_home_is_ignored(monkeypatch, tmp_path: Path) -> Non
 
     status = LinuxAutostart().install(_spec())
 
-    assert (home / ".config" / "autostart" / "personal-jarvis.desktop").exists()
+    assert (home / ".config" / "autostart" / "dodaios.desktop").exists()
     assert status.entry_path == str(
-        home / ".config" / "autostart" / "personal-jarvis.desktop"
+        home / ".config" / "autostart" / "dodaios.desktop"
     )
 
 
@@ -260,7 +264,7 @@ def test_relative_xdg_config_home_is_ignored(monkeypatch, tmp_path: Path) -> Non
 def test_failed_install_leaves_no_temp_file_behind(monkeypatch, tmp_path: Path) -> None:
     """The successful replace() consumes the temp file — debris means a failure.
 
-    A stray ``personal-jarvis.desktop.tmp`` next to the real entry is confusing
+    A stray ``dodaios.desktop.tmp`` next to the real entry is confusing
     at best; the macOS LaunchAgent writer already cleaned up after itself.
     """
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
@@ -273,7 +277,7 @@ def test_failed_install_leaves_no_temp_file_behind(monkeypatch, tmp_path: Path) 
     with pytest.raises(OSError, match="simulated read-only home"):
         mgr.install(_spec())
 
-    assert not (tmp_path / "autostart" / "personal-jarvis.desktop.tmp").exists()
+    assert not (tmp_path / "autostart" / "dodaios.desktop.tmp").exists()
 
 
 def test_uninstall_reports_honestly_when_the_entry_survives(
@@ -298,17 +302,158 @@ def test_uninstall_reports_honestly_when_the_entry_survives(
     assert status.installed is True
     assert status.matches_spec is False
     assert "could not be removed" in status.detail
-    assert (tmp_path / "autostart" / "personal-jarvis.desktop").exists()
+    assert (tmp_path / "autostart" / "dodaios.desktop").exists()
 
 
 def test_uninstall_cleans_up_leftover_temp_debris(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     mgr = LinuxAutostart()
     mgr.install(_spec())
-    debris = tmp_path / "autostart" / "personal-jarvis.desktop.tmp"
+    debris = tmp_path / "autostart" / "dodaios.desktop.tmp"
     debris.write_text("half written", encoding="utf-8")
 
     status = mgr.uninstall()
 
     assert not debris.exists()
     assert status.installed is False
+
+
+# ---- The entry under its earlier name ---------------------------------------
+
+_LEGACY_NAME = LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES[0]
+
+
+def _write_legacy(tmp_path: Path, spec: LaunchSpec, *, extra: str = "") -> Path:
+    """An entry exactly as an earlier release wrote it, under the earlier name."""
+    entry = tmp_path / "autostart" / _LEGACY_NAME
+    entry.parent.mkdir(parents=True, exist_ok=True)
+    entry.write_text(
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Name=Personal Jarvis\n"
+        f"Exec={exec_value(spec.program, spec.args)}\n"
+        f"Path={escape_value(spec.working_dir)}\n"
+        "StartupWMClass=personal-jarvis\n"
+        "X-GNOME-Autostart-enabled=true\n"
+        f"{extra}",
+        encoding="utf-8",
+    )
+    return entry
+
+
+def test_the_entry_names_follow_the_branding() -> None:
+    assert LINUX_DESKTOP_ENTRY_FILE_NAME == "dodaios.desktop"
+    assert _LEGACY_NAME == "personal-jarvis.desktop"
+
+
+def test_an_earlier_named_entry_that_starts_this_install_counts_as_current(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    legacy = _write_legacy(tmp_path, _spec())
+
+    status = LinuxAutostart().status(_spec())
+
+    # Like a logon task under its earlier name on Windows: the boot reconcile
+    # sees a current entry and leaves the working one alone.
+    assert status.installed is True
+    assert status.matches_spec is True
+    assert status.entry_path == str(legacy)
+    assert not (tmp_path / "autostart" / LINUX_DESKTOP_ENTRY_FILE_NAME).exists()
+
+
+def test_an_earlier_named_entry_with_an_old_command_is_stale_and_replaced(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    old_command = LaunchSpec(
+        program="/usr/bin/python3",
+        args=("-m", "jarvis.ui.web.launcher"),
+        working_dir=_spec().working_dir,
+    )
+    legacy = _write_legacy(tmp_path, old_command)
+    mgr = LinuxAutostart()
+
+    assert mgr.status(_spec()).matches_spec is False
+    status = mgr.install(_spec())
+
+    # One entry starts the app at login, under the current name.
+    assert status.matches_spec is True
+    assert status.entry_path == str(tmp_path / "autostart" / LINUX_DESKTOP_ENTRY_FILE_NAME)
+    assert not legacy.exists()
+
+
+def test_writing_the_entry_removes_the_earlier_one_of_this_install(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    legacy = _write_legacy(tmp_path, _spec())
+
+    LinuxAutostart().install(_spec())
+
+    assert not legacy.exists()
+    text = _entry_text(tmp_path)
+    assert "Name=Dodaios" in text
+    assert "StartupWMClass=dodaios" in text
+
+
+def test_an_earlier_named_entry_of_another_install_is_never_touched(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    other = _write_legacy(
+        tmp_path, _spec(program="/home/u/other/.venv/bin/python", working_dir="/home/u/other")
+    )
+    mgr = LinuxAutostart(install_dir=_spec().working_dir)
+
+    # It is not this install's entry, so it neither counts as ours ...
+    assert mgr.status(_spec()).installed is False
+    # ... nor goes when this install writes or removes its own.
+    mgr.install(_spec())
+    mgr.uninstall()
+    assert other.exists()
+
+
+def test_both_entries_of_one_install_are_not_current(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    mgr = LinuxAutostart()
+    mgr.install(_spec())
+    legacy = _write_legacy(tmp_path, _spec())
+
+    # Two entries start the app twice at login: the reconcile must run install().
+    status = mgr.status(_spec())
+    assert status.matches_spec is False
+    assert "earlier name" in status.detail
+    assert mgr.install(_spec()).matches_spec is True
+    assert not legacy.exists()
+
+
+def test_uninstall_removes_the_earlier_named_entry_of_this_install(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    legacy = _write_legacy(tmp_path, _spec())
+
+    status = LinuxAutostart(install_dir=_spec().working_dir).uninstall()
+
+    assert status.installed is False
+    assert not legacy.exists()
+
+
+def test_an_entry_belongs_to_the_install_its_venv_program_lives_in(tmp_path: Path) -> None:
+    install = tmp_path / "install"
+    python = install / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_bytes(b"")
+    text = f"[Desktop Entry]\nExec={exec_value(str(python), ('-m', 'x'))}\n"
+
+    assert entry_belongs_to_install(text, str(install))
+    # The working folder alone decides as well; the shared system python does not.
+    assert entry_belongs_to_install(
+        f"[Desktop Entry]\nExec=/usr/bin/python3\nPath={escape_value(str(install))}\n",
+        str(install),
+    )
+    assert not entry_belongs_to_install(
+        "[Desktop Entry]\nExec=/usr/bin/python3 -m x\nPath=/elsewhere\n", str(install)
+    )
+    assert not entry_belongs_to_install("", str(install))

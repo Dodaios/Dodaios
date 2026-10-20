@@ -34,20 +34,23 @@ from __future__ import annotations
 import os
 import shutil
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from dodaios.core.branding import (
     CLI_COMMAND_NAMES,
     FISH_CONF_FILE_NAME,
+    LEGACY_DEFAULT_INSTALL_DIR_NAMES,
     SHELL_PROFILE_MARKER,
 )
+from dodaios.core.identity_migration import LegacyState, inspect_legacy
 
 #: Every command the install exposes: ``dodaios`` and ``dodaiosctl``, then the
 #: earlier names of the two (``jarvis``, ``personal-jarvis``, ``jarvisctl``).
-#: There is no ``personaljarvis``: on Windows it would be the same file as the
-#: branded launcher ``PersonalJarvis.exe`` (``dodaios/ui/icon_utils.py``).
+#: There is no ``dodaiosapp`` or ``personaljarvis``: on Windows either would be
+#: the same file as the branded launcher ``DodaiosApp.exe`` or its earlier name
+#: ``PersonalJarvis.exe`` (``dodaios/ui/icon_utils.py``).
 COMMAND_NAMES: tuple[str, ...] = CLI_COMMAND_NAMES
 
 #: First line of the block written into a shell profile. Finding it means the
@@ -84,6 +87,8 @@ class CliPathReport:
     needs_new_terminal: bool = False
     #: Another command of the same name that will win over ours on PATH.
     shadowed_by: dict[str, str] = field(default_factory=dict)
+    #: Bin folders of a retired install folder taken off the Windows Path.
+    path_retired: list[str] = field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #
@@ -105,6 +110,28 @@ def entry_point(root: Path, command: str, *, platform_name: str | None = None) -
     if is_windows(platform_name):
         return root / ".venv" / "Scripts" / f"{command}.exe"
     return root / ".venv" / "bin" / command
+
+
+def retired_install_roots(root: Path, *, home: Path | None = None) -> list[Path]:
+    """Install folders under an earlier name that are no longer an install of their own.
+
+    After the install folder moved to its current name, the earlier path is a
+    link to it (or gone), and whatever that path put on PATH belongs to this
+    install to retire. A real directory under the earlier name is another
+    install, still in use, and is never listed.
+    """
+    home = home or Path.home()
+    here = os.path.normcase(os.path.abspath(root))
+    retired: list[Path] = []
+    for name in LEGACY_DEFAULT_INSTALL_DIR_NAMES:
+        legacy = home / name
+        if os.path.normcase(os.path.abspath(legacy)) == here:
+            # The install still lives under its earlier name.
+            continue
+        state = inspect_legacy(legacy, root)
+        if state in (LegacyState.ABSENT, LegacyState.LINK_TO_CURRENT, LegacyState.DANGLING_LINK):
+            retired.append(legacy)
+    return retired
 
 
 def _path_entries(environ: Mapping[str, str], platform_name: str | None) -> list[str]:
@@ -323,8 +350,14 @@ def install_commands(
     store: UserPathStore | None = None,
     which: Callable[..., str | None] = shutil.which,
     dry_run: bool = False,
+    retired_roots: Iterable[Path] = (),
 ) -> CliPathReport:
-    """Make every :data:`COMMAND_NAMES` entry a terminal command."""
+    """Make every :data:`COMMAND_NAMES` entry a terminal command.
+
+    ``retired_roots`` are earlier locations of this install
+    (:func:`retired_install_roots`): on Windows their bin folders leave the
+    per-user Path before this one joins it.
+    """
     platform_name = platform_name or sys.platform
     home = home or Path.home()
     environ = os.environ if environ is None else environ
@@ -356,6 +389,12 @@ def install_commands(
                 continue
             link = target_dir / command
             if link.is_symlink() and link.resolve() == source.resolve():
+                # Ours already. One that reaches the command through an
+                # earlier folder name (a link left by the folder's move) is
+                # pointed at the folder itself, so it outlives that link.
+                if os.readlink(link) != str(source):
+                    link.unlink()
+                    link.symlink_to(source)
                 report.linked.append(command)
                 continue
             if link.exists() or link.is_symlink():
@@ -371,7 +410,14 @@ def install_commands(
 
     try:
         if windows:
-            if add_to_user_path(target_dir, store or UserPathStore()):
+            store = store or UserPathStore()
+            for retired in retired_roots:
+                old_bin = bin_dir(retired, platform_name=platform_name, home=home)
+                if _same_dir(str(old_bin), str(target_dir), windows=True):
+                    continue
+                if remove_from_user_path(old_bin, store):
+                    report.path_retired.append(str(old_bin))
+            if add_to_user_path(target_dir, store):
                 report.path_updated = "HKCU\\Environment\\Path"
             report.needs_new_terminal = not _on_path(target_dir, environ, platform_name)
         elif not _on_path(target_dir, environ, platform_name):
@@ -402,15 +448,25 @@ def remove_commands(
     platform_name: str | None = None,
     home: Path | None = None,
     store: UserPathStore | None = None,
+    retired_roots: Iterable[Path] = (),
 ) -> list[str]:
-    """Undo :func:`install_commands`. Returns one line per removed item."""
+    """Undo :func:`install_commands`. Returns one line per removed item.
+
+    ``retired_roots`` are earlier locations of this install, whose Windows
+    Path entries go too.
+    """
     platform_name = platform_name or sys.platform
     home = home or Path.home()
     target_dir = bin_dir(root, platform_name=platform_name, home=home)
     removed: list[str] = []
     if is_windows(platform_name):
-        if remove_from_user_path(target_dir, store or UserPathStore()):
-            removed.append(f"{target_dir} removed from your Path")
+        store = store or UserPathStore()
+        for directory in (
+            target_dir,
+            *(bin_dir(retired, platform_name=platform_name) for retired in retired_roots),
+        ):
+            if remove_from_user_path(directory, store):
+                removed.append(f"{directory} removed from your Path")
         # The folder itself lives inside the install folder and goes with it.
         return removed
     for command in COMMAND_NAMES:
@@ -445,4 +501,5 @@ __all__ = [
     "remove_commands",
     "remove_from_user_path",
     "remove_profile_block",
+    "retired_install_roots",
 ]

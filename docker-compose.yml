@@ -1,4 +1,4 @@
-# Personal Jarvis — headless server, the cloud-first / VPS path.
+# Dodaios — headless server, the cloud-first / VPS path.
 #
 #   docker compose up --build      # build the image and start the server
 #   # then open http://localhost:8000
@@ -7,9 +7,12 @@
 # (compose loads it automatically). Nothing is bundled.
 
 services:
+  # The service and the volume keep their earlier names: renaming the service
+  # would orphan a running container, and renaming the volume would start an
+  # existing deployment with no data or settings.
   jarvis:
     build: .
-    image: personal-jarvis:local
+    image: dodaios:local
     # Bind to the host loopback only — the published port is NOT exposed to the
     # LAN. The Control-API key is the security boundary on the container's
     # 0.0.0.0 bind (JARVIS_BIND_HOST in the image).

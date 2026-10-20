@@ -4,11 +4,18 @@
 
 | Artifact | Path | What it is |
 |---|---|---|
-| `PersonalJarvis-Linux-x86_64.AppImage` | `dist/installers/` | One executable file. No Python, no pip, no root. Download, `chmod +x`, run. |
-| `personal-jarvis_<version>_amd64.deb` | `dist/installers/` | The same tree as a normal Debian package: `apt install ./personal-jarvis_*.deb` registers the app in the menu and puts `dodaios` on `PATH`. Built only when `dpkg-deb` is present. |
+| `Dodaios-Linux-x86_64.AppImage` (also published as `PersonalJarvis-Linux-x86_64.AppImage`) | `dist/installers/` | One executable file. No Python, no pip, no root. Download, `chmod +x`, run. |
+| `personal-jarvis_<version>_amd64.deb` | `dist/installers/` | The same tree as a normal Debian package named `dodaios`: `apt install ./personal-jarvis_*.deb` registers the app in the menu and puts `dodaios` on `PATH`. Built only when `dpkg-deb` is present. |
 
 Both are produced from one PyInstaller `onedir` freeze and one AppDir, so a bug
 can only exist in both or in neither.
+
+The two file names above are release asset names: the updater and the release
+pipeline look for them, and they keep their earlier spelling until the release
+assets move (with both names published for a transition). Everything a package
+installs on the machine already uses the current name: the Debian package
+`dodaios`, `/opt/Dodaios`, `dodaios.desktop`, the `dodaios` icon and window
+class.
 
 ## Building
 
@@ -89,22 +96,23 @@ does not apply (see above). It lives in `dodaios/ui/desktop_app.py`
 command-line tool:
 
 ```bash
-chmod +x PersonalJarvis-Linux-x86_64.AppImage
-./PersonalJarvis-Linux-x86_64.AppImage --version
-./PersonalJarvis-Linux-x86_64.AppImage serve       # headless API + browser UI
-./PersonalJarvis-Linux-x86_64.AppImage --doctor
+chmod +x Dodaios-Linux-x86_64.AppImage
+./Dodaios-Linux-x86_64.AppImage --version
+./Dodaios-Linux-x86_64.AppImage serve       # headless API + browser UI
+./Dodaios-Linux-x86_64.AppImage --doctor
 ```
 
 To type `dodaios` instead, link it once:
 
 ```bash
 mkdir -p ~/.local/bin
-ln -sf "$PWD/PersonalJarvis-Linux-x86_64.AppImage" ~/.local/bin/dodaios
+ln -sf "$PWD/Dodaios-Linux-x86_64.AppImage" ~/.local/bin/dodaios
 ```
 
 The Debian package does this for you: it installs `/usr/bin/dodaios` (the
 console entry), `/usr/bin/jarvis` (the same entry under its earlier name) and
-`/usr/bin/personal-jarvis` (the launcher).
+`/usr/bin/personal-jarvis` (the launcher, under the name earlier releases gave
+it), all pointing into `/opt/Dodaios`.
 
 On a host without FUSE - containers, some hardened servers - run the AppImage
 with `--appimage-extract-and-run` (or `APPIMAGE_EXTRACT_AND_RUN=1`). That is
@@ -114,7 +122,7 @@ also how the build machine runs `appimagetool` itself.
 
 * **`.deb`** registers the app the normal way: a `.desktop` entry in
   `/usr/share/applications`, the icon in the hicolor theme, and the
-  commands on `PATH`. `apt remove personal-jarvis` takes all of it away again.
+  commands on `PATH`. `apt remove dodaios` takes all of it away again.
 * **AppImage** carries its `.desktop` entry and icon inside itself, which is
   what AppImageLauncher and `appimaged` read when they offer to "integrate"
   the file. Without one of those tools an AppImage is just a file you run -
@@ -130,10 +138,18 @@ temporary mount that disappears the moment the app exits.
 ## Updates
 
 The in-app updater replaces the running AppImage in place: it downloads the new
-`PersonalJarvis-Linux-x86_64.AppImage` from the GitHub Release, verifies it
+`Dodaios-Linux-x86_64.AppImage` (or, from an older release, `PersonalJarvis-Linux-x86_64.AppImage`) from the GitHub Release, verifies it
 against `installers-SHA256SUMS.txt` from the same release, atomically replaces
 the file `$APPIMAGE` points at, restores the executable bit and relaunches.
 A `.deb` install updates through the package, not through the app.
+
+The package was called `personal-jarvis` up to the rename. The current package
+declares `Replaces`, `Conflicts` and `Provides: personal-jarvis`, so installing
+it over the earlier one (`apt install ./personal-jarvis_<version>_amd64.deb`)
+removes that package and its `/opt/PersonalJarvis` tree in the same step, and
+anything that depends on the earlier name stays satisfied. The in-app updater
+is not involved: it only replaces an AppImage, and the AppImage's asset name has
+not changed.
 
 ## What has actually been tested
 
