@@ -1,7 +1,7 @@
 """Second-pass bulk translation - umlaut-aware string replacements."""
 import os
 
-BASE = "C:/Users/Administrator/Desktop/Personal Jarvis/jarvis/ui/web/frontend/src"
+BASE = "C:/Users/Administrator/Desktop/Personal Jarvis/dodaios/ui/web/frontend/src"
 
 def patch_file(rel_path, replacements):
     fp = os.path.join(BASE, rel_path).replace("\\", "/")

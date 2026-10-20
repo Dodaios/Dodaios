@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import HarnessCompleted, HarnessDispatched, HarnessProgress
-from jarvis.core.protocols import HarnessTask
-from jarvis.harness.manager import HarnessManager
+from dodaios.core.bus import EventBus
+from dodaios.core.events import HarnessCompleted, HarnessDispatched, HarnessProgress
+from dodaios.core.protocols import HarnessTask
+from dodaios.harness.manager import HarnessManager
 from tests.fixtures.harness.fake_harness import FakeHarness
 
 

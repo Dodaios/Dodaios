@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui import desktop_app
+from dodaios.ui import desktop_app
 
 
 @pytest.fixture

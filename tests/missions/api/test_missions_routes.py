@@ -20,7 +20,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.missions.events import (
+from dodaios.missions.events import (
     CriticVerdictReady,
     EventEnvelope,
     MissionApproved,
@@ -28,9 +28,9 @@ from jarvis.missions.events import (
     WorkerSpawned,
     now_ms,
 )
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
-from jarvis.ui.web.missions_routes import router as missions_router
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
+from dodaios.ui.web.missions_routes import router as missions_router
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -767,7 +767,7 @@ class _CorrectionsOnly:
         self._root = root
 
     def _inbox(self, mission_id: str):
-        from jarvis.missions.corrections import CorrectionInbox
+        from dodaios.missions.corrections import CorrectionInbox
 
         return CorrectionInbox(self._root / mission_id[:13])
 

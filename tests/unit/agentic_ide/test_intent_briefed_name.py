@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide.intent import detect_all
+from dodaios.agentic_ide.intent import detect_all
 
 PANES = ["Alex", "Ellis", "Casey", "Dana"]
 

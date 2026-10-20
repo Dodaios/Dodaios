@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jarvis.agentic_ide import library
+from dodaios.agentic_ide import library
 
 
 def test_the_same_folder_is_always_the_same_project(tmp_path: Path) -> None:

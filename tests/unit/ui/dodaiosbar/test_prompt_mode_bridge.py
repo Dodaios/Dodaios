@@ -16,11 +16,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.events import (
+from dodaios.core.events import (
     DictationPromptModeChanged,
     DictationPromptModePauseToggleRequested,
 )
-from jarvis.dictation import prompt_mode
+from dodaios.dictation import prompt_mode
 from ui.orb.bus_bridge import OrbBusBridge
 
 
@@ -84,7 +84,7 @@ def test_seed_reads_the_setting_and_the_pause(monkeypatch: pytest.MonkeyPatch) -
     surface = _Surface()
     bridge = OrbBusBridge(bus=SimpleNamespace(), orb=surface)
     pipeline = SimpleNamespace(_dictation_cfg=SimpleNamespace(prompt_mode=True))
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: pipeline)
 
     bridge._seed_prompt_mode()
     assert surface.calls == [(True, False)]
@@ -99,6 +99,6 @@ def test_seed_without_a_pipeline_leaves_the_surface_alone(
 ) -> None:
     surface = _Surface()
     bridge = OrbBusBridge(bus=SimpleNamespace(), orb=surface)
-    monkeypatch.setattr("jarvis.core.runtime_refs.get_speech_pipeline", lambda: None)
+    monkeypatch.setattr("dodaios.core.runtime_refs.get_speech_pipeline", lambda: None)
     bridge._seed_prompt_mode()
     assert surface.calls == []

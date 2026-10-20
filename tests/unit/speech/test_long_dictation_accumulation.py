@@ -8,7 +8,7 @@ only finalize (transcribe + brain turn) at a natural endpoint
 independent turns and the earlier words are "forgotten" — the user-reported
 symptom ("it forgets the old words and starts over").
 
-Reason vocabulary lives in :mod:`jarvis.audio.vad_reasons` (single source of
+Reason vocabulary lives in :mod:`dodaios.audio.vad_reasons` (single source of
 truth shared by the VAD producer and this consumer).
 """
 from __future__ import annotations
@@ -17,9 +17,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import Transcript
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import Transcript
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 
 class RecordingSTT:
@@ -192,7 +192,7 @@ async def test_runaway_guard_finalizes_even_on_forced_cut(monkeypatch) -> None:
 
     # Shrink the runaway cap so a single small fragment trips it.
     monkeypatch.setattr(
-        "jarvis.speech.pipeline._MAX_CARRY_PCM_BYTES", 2, raising=True
+        "dodaios.speech.pipeline._MAX_CARRY_PCM_BYTES", 2, raising=True
     )
 
     pipe._last_endpoint_reason = "max_utterance"

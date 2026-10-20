@@ -19,12 +19,12 @@ from pathlib import Path
 
 import pytest_asyncio
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.missions.events import now_ms
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.ownership import current_process_identity, owner_is_alive
-from jarvis.missions.recovery import startup_recover
-from jarvis.missions.state_machine import MissionState
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.missions.events import now_ms
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.ownership import current_process_identity, owner_is_alive
+from dodaios.missions.recovery import startup_recover
+from dodaios.missions.state_machine import MissionState
 
 
 @pytest_asyncio.fixture

@@ -27,20 +27,20 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
     MemoryConfig,
     WikiMemoryConfig,
 )
-from jarvis.core.events import VoiceSessionEnded, VoiceTurnCompleted
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.wiki.background_guard import guard
-from jarvis.memory.wiki.extractor import ConversationFactExtractor
-from jarvis.memory.wiki.journal import CandidateJournal
-from jarvis.memory.wiki.voice_bridge import VoiceFactBridge
+from dodaios.core.events import VoiceSessionEnded, VoiceTurnCompleted
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.wiki.background_guard import guard
+from dodaios.memory.wiki.extractor import ConversationFactExtractor
+from dodaios.memory.wiki.journal import CandidateJournal
+from dodaios.memory.wiki.voice_bridge import VoiceFactBridge
 
 FACT_SENTENCE = "Remember that my friend Lena moved to Hamburg last month."
 SHORT_FACT = "Lena lives in Hamburg."

@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.extractor`` — Stage-1 fact extraction.
+"""Unit tests for ``dodaios.memory.wiki.extractor`` — Stage-1 fact extraction.
 
 The extractor is ADD-only: one cheap LLM call per eligible conversation turn,
 0..N atomic candidate facts appended to the journal, never a vault write.
@@ -16,19 +16,19 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
     MemoryConfig,
     WikiMemoryConfig,
 )
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.wiki.extractor import (
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.wiki.extractor import (
     ConversationContextTurn,
     ConversationFactExtractor,
 )
-from jarvis.memory.wiki.journal import CandidateJournal
+from dodaios.memory.wiki.journal import CandidateJournal
 
 
 class FakeBrain:
@@ -308,8 +308,8 @@ async def test_ungrounded_consensus_ends_the_chain_without_a_chain_failure(
     no-op, never a chain failure. Live 2026-07-18: an ordinary no-fact turn
     burned all 8 providers (incl. dead rungs and a 30s timeout) and left a
     sticky red 'Chain failure' banner users read as 'Obsidian not connected'."""
-    from jarvis.memory.wiki import health as health_module
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki import health as health_module
+    from dodaios.memory.wiki.health import WikiHealth
 
     isolated_health = WikiHealth()
     monkeypatch.setattr(health_module, "health", isolated_health)
@@ -900,7 +900,7 @@ _GOLF_TURN = (
 
 
 def _config_with_extractor(**overrides: Any) -> JarvisConfig:
-    from jarvis.core.config import ExtractorConfig
+    from dodaios.core.config import ExtractorConfig
 
     return JarvisConfig(
         brain=BrainConfig(
@@ -991,7 +991,7 @@ async def test_model_claimed_explicit_basis_is_downgraded_to_behavioral(
 async def test_low_salience_world_trivia_is_dropped(
     journal: CandidateJournal,
 ) -> None:
-    from jarvis.memory.wiki.telemetry import telemetry
+    from dodaios.memory.wiki.telemetry import telemetry
 
     turn_id = "trivia"
     blocked_before = telemetry.get("wiki_candidates_blocked_low_salience")

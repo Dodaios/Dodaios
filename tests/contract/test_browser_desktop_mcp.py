@@ -5,15 +5,15 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core.protocols import SupervisorToolRequest, ToolResult
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core.protocols import SupervisorToolRequest, ToolResult
 
 
 async def test_desktop_bootstrap_publishes_the_mcp_endpoint(monkeypatch):
-    from jarvis.agent_chat import jarvis_harness
-    from jarvis.core import runtime_refs
-    from jarvis.core.bus import EventBus
-    from jarvis.ui.web.server import WebServer
+    from dodaios.agent_chat import jarvis_harness
+    from dodaios.core import runtime_refs
+    from dodaios.core.bus import EventBus
+    from dodaios.ui.web.server import WebServer
 
     urls = []
     monkeypatch.setattr(runtime_refs, "set_api_base_url", urls.append)
@@ -85,8 +85,8 @@ async def test_browser_is_scoped_and_runs_through_the_executor():
 
 
 async def test_plan_session_gets_readonly_browser_but_not_coding_control(tmp_path):
-    from jarvis.society.runtime import SocietyRuntime
-    from jarvis.society.surface import browser_tool_for_session, coding_tool_for_session
+    from dodaios.society.runtime import SocietyRuntime
+    from dodaios.society.surface import browser_tool_for_session, coding_tool_for_session
 
     rt = SocietyRuntime(tmp_path, seed_starter_team=False)
     await rt.ensure_started()
@@ -111,10 +111,10 @@ async def test_plan_session_gets_readonly_browser_but_not_coding_control(tmp_pat
 
 @pytest.mark.parametrize("action_name", ["navigate", "input", "click", "upload_file"])
 async def test_readonly_browser_enforces_action_boundary(tmp_path, monkeypatch, action_name):
-    from jarvis.society.browser.bridge import execute_live
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.browser.bridge import execute_live
+    from dodaios.society.runtime import SocietyRuntime
 
-    monkeypatch.setattr("jarvis.core.config.get_jarvis_agent_secret", lambda _: None)
+    monkeypatch.setattr("dodaios.core.config.get_jarvis_agent_secret", lambda _: None)
     rt = SocietyRuntime(tmp_path, seed_starter_team=False)
     await rt.ensure_started()
     applied = []
@@ -155,8 +155,8 @@ async def test_readonly_browser_enforces_action_boundary(tmp_path, monkeypatch, 
 async def test_root_subscription_browser_uses_chat_model_without_changing_roster(
     tmp_path, monkeypatch
 ):
-    from jarvis.society.runtime import SocietyRuntime
-    from jarvis.society.surface import browser_tool_for_session
+    from dodaios.society.runtime import SocietyRuntime
+    from dodaios.society.surface import browser_tool_for_session
 
     rt = SocietyRuntime(tmp_path, seed_starter_team=False)
     await rt.ensure_started()
@@ -174,7 +174,7 @@ async def test_root_subscription_browser_uses_chat_model_without_changing_roster
         seen.append((caller.agent_id, caller.provider, caller.model))
         return ToolResult(True, {}, None)
 
-    monkeypatch.setattr("jarvis.society.browser.bridge.execute_live", execute)
+    monkeypatch.setattr("dodaios.society.browser.bridge.execute_live", execute)
     try:
         original = await rt.roster.get(rt.lead_id)
         browser = await browser_tool_for_session("root-chat")
@@ -195,7 +195,7 @@ async def test_root_subscription_browser_uses_chat_model_without_changing_roster
 def test_jarvis_codex_seat_uses_owned_browser_not_inherited_plugins(
     tmp_path, monkeypatch, session_id, resume
 ):
-    from jarvis.agent_chat import jarvis_harness, runner_cli
+    from dodaios.agent_chat import jarvis_harness, runner_cli
 
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
     monkeypatch.setattr(runner_cli, "_account_env", lambda _: {})
@@ -228,7 +228,7 @@ async def test_failed_browser_mcp_preserves_partial_outcome_and_error_flag(monke
 
     import mcp.types as types
 
-    from jarvis.mcp import jarvis_tools_server as server
+    from dodaios.mcp import jarvis_tools_server as server
 
     tool = SimpleNamespace(
         name="society_browser",
@@ -259,9 +259,9 @@ async def test_failed_browser_mcp_preserves_partial_outcome_and_error_flag(monke
 async def test_cli_browser_retries_keep_the_user_turn_trace(monkeypatch):
     import mcp.types as types
 
-    from jarvis.agent_chat.tool_context import register_turn, unregister_turn
-    from jarvis.core.protocols import ChatTurn, current_chat_turn
-    from jarvis.mcp import jarvis_tools_server as server
+    from dodaios.agent_chat.tool_context import register_turn, unregister_turn
+    from dodaios.core.protocols import ChatTurn, current_chat_turn
+    from dodaios.mcp import jarvis_tools_server as server
 
     seen = []
     tool = SimpleNamespace(

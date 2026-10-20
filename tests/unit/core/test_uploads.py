@@ -1,4 +1,4 @@
-"""``jarvis.core.uploads`` — the one place that decides what an upload may be.
+"""``dodaios.core.uploads`` — the one place that decides what an upload may be.
 
 Every path in an upload comes from the browser, so the interesting cases are
 the hostile ones: a crafted archive entry that walks out of the staging
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import uploads
+from dodaios.core import uploads
 
 
 def _zip_bytes(entries: dict[str, bytes]) -> bytes:

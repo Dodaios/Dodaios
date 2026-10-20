@@ -20,8 +20,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
 
 _REPLY = "Mostly through the Suez Canal."
 
@@ -115,7 +115,7 @@ async def test_planner_exception_still_delivers_the_answer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A raising planner degrades to the safe route; the reply still arrives."""
-    import jarvis.realtime.session as session_module
+    import dodaios.realtime.session as session_module
 
     def _explode(*_args: Any, **_kwargs: Any):
         raise TypeError(

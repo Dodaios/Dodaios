@@ -24,13 +24,13 @@ from typing import get_args
 
 import pytest
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     POLISH_STYLES,
     DictationConfig,
     JarvisConfig,
     STTConfig,
 )
-from jarvis.core.config_writer import DICTATION_SETTING_KEYS
+from dodaios.core.config_writer import DICTATION_SETTING_KEYS
 
 #: Every polish key with the value it must have on a fresh install. Spelled out
 #: rather than read off the model: a test that derives the expectation from the

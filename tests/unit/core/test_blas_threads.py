@@ -1,4 +1,4 @@
-"""The one-thread BLAS pool numpy and scipy get on Windows (jarvis.core.blas_threads)."""
+"""The one-thread BLAS pool numpy and scipy get on Windows (dodaios.core.blas_threads)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import blas_threads
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core import blas_threads
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -112,7 +112,7 @@ def test_install_is_windows_only_and_idempotent(monkeypatch: pytest.MonkeyPatch)
 _PROBE = """
 import ctypes, json, os
 from ctypes import wintypes as w
-import jarvis
+import dodaios
 import numpy
 
 SIZES = ("peak_ws", "ws", "qpp", "qp", "qpnp", "qnp", "pagefile", "peak_pagefile", "private")

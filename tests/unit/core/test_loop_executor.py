@@ -14,7 +14,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from jarvis.core.loop_executor import (
+from dodaios.core.loop_executor import (
     MAX_WORKERS,
     MIN_WORKERS,
     default_worker_count,

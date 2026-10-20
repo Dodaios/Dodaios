@@ -274,5 +274,5 @@ Three ways, in precedence order:
    written here can be reset back to the placeholder — prefer a secret.
 
 After any change, restart Dodaios and reconnect the plugin. The tracked
-`jarvis/marketplace/seed_catalog.json` keeps the placeholders (never commit your
+`dodaios/marketplace/seed_catalog.json` keeps the placeholders (never commit your
 real Client IDs).

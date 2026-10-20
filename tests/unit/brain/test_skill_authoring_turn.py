@@ -8,7 +8,7 @@ instructions were injected, the model burned the tool budget on
 ``jarvisctl --help`` and the user heard the spoken "that did not work".
 
 The fix is a deterministic channel ahead of the trigger channel
-(``jarvis.skills.authoring_request``): an authoring request resolves to the
+(``dodaios.skills.authoring_request``): an authoring request resolves to the
 ``skill-creator`` builtin when it is active, and to NO skill otherwise —
 never to a connector named inside the request. The same channel recognises
 LIFECYCLE requests ("deaktiviere den YouTube-Music-Skill") and lets nobody
@@ -22,12 +22,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.protocols import ToolResult
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.skill_context import SkillContext, set_skill_context
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.protocols import ToolResult
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.skill_context import SkillContext, set_skill_context
 
 LIVE_UTTERANCE = (
     "Ich möchte, dass du mich bitte einen neuen Skill erstellst und zwar morgen "  # i18n-allow: transcript

@@ -36,7 +36,7 @@ states, progress bars and informational status. Green, amber and red are status 
 | Destructive (`--destructive`) | `#DF3A3A` ![](https://img.shields.io/badge/_-DF3A3A?style=flat-square&labelColor=DF3A3A) | `#C52020` ![](https://img.shields.io/badge/_-C52020?style=flat-square&labelColor=C52020) |
 
 These are the exact tokens from the desktop app
-(`jarvis/ui/web/frontend/src/index.css`). `jarvis/ui/theme.py` (`WINDOW_BACKGROUND`),
+(`dodaios/ui/web/frontend/src/index.css`). `dodaios/ui/theme.py` (`WINDOW_BACKGROUND`),
 the boot splash tokens in `frontend/index.html` (`--jbs-*`), the README, and any brand
 asset must stay on the same values so nothing drifts.
 
@@ -134,7 +134,7 @@ Write like a senior engineer who respects the reader's time.
 | Hero banner (live) | `assets/brand/banner.png` |
 | Hero banner (CSS fallback source) | `assets/brand/banner.html` → `banner-css.png` |
 | Banner render script | `assets/brand/render.ps1` |
-| Product Orb | `jarvis/ui/web/frontend/public/hero-orb.png` |
+| Product Orb | `dodaios/ui/web/frontend/public/hero-orb.png` |
 | Logo (vector source) | `assets/brand/dodaios-logo.svg` |
 | Logo (raster master, 1254 px) | `assets/brand/dodaios-logo.png` |
 | App icon (rendered) | `assets/icons/jarvis.ico`, `jarvis-1024.png`, `jarvis.icns` |

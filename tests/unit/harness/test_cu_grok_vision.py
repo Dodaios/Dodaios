@@ -32,11 +32,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import (
+from dodaios.core.protocols import (
     ImageBlock,
     Observation,
 )
-from jarvis.harness.screenshot_only_loop import CULoopError, _call_brain
+from dodaios.harness.screenshot_only_loop import CULoopError, _call_brain
 
 # Reuse the loop-test fakes (FakeBrain shim, ctx builder, host isolation fixture).
 from tests.unit.harness.test_cu_loop_robustness import (  # noqa: E402
@@ -60,7 +60,7 @@ from tests.unit.harness.test_cu_loop_robustness import _isolate_host  # noqa: E4
 
 
 def test_codex_is_blind_on_the_cli_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.plugins.brain.codex import CodexBrain
+    from dodaios.plugins.brain.codex import CodexBrain
 
     monkeypatch.setattr(CodexBrain, "_api_key", lambda self: None)
     brain = CodexBrain(model="gpt-5.5")
@@ -71,7 +71,7 @@ def test_codex_is_blind_on_the_cli_path(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_codex_sees_on_the_api_key_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.plugins.brain.codex import CodexBrain
+    from dodaios.plugins.brain.codex import CodexBrain
 
     monkeypatch.setattr(CodexBrain, "_api_key", lambda self: "sk-test-key")
     brain = CodexBrain(model="gpt-5.5")

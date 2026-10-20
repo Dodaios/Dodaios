@@ -32,7 +32,7 @@ pytestmark = pytest.mark.integration
 def _no_screen_context(monkeypatch: pytest.MonkeyPatch):
     """Keep Screen Context out of this file, deterministically.
 
-    ``RouterBrain.handle`` consults ``jarvis.screen_context`` before the
+    ``RouterBrain.handle`` consults ``dodaios.screen_context`` before the
     permanent-vision path and takes precedence on an explicit look-request,
     which some utterances here are. Left alone, these tests would pass or fail
     depending on whether the host running them has a screen — captured on a dev
@@ -41,12 +41,12 @@ def _no_screen_context(monkeypatch: pytest.MonkeyPatch):
     These cases pin the permanent-vision path itself; Screen Context precedence
     is covered by ``tests/unit/brain/test_router_screen_context.py``.
     """
-    from jarvis.screen_context.turn import TurnScreenContext
+    from dodaios.screen_context.turn import TurnScreenContext
 
     async def _none(*_args: Any, **_kwargs: Any) -> TurnScreenContext:
         return TurnScreenContext(status="none")
 
-    monkeypatch.setattr("jarvis.screen_context.turn.screen_context_for_turn", _none)
+    monkeypatch.setattr("dodaios.screen_context.turn.screen_context_for_turn", _none)
     return None
 
 
@@ -89,7 +89,7 @@ class FakeVisionEngine:
         self.calls = 0
 
     async def observe(self, *, mode: str = "screenshot", **_: Any):
-        from jarvis.core.protocols import Observation
+        from dodaios.core.protocols import Observation
         self.calls += 1
         if self._raise_once and self.calls == 1:
             raise RuntimeError("engine boom")
@@ -114,22 +114,22 @@ class FakeVisionEngine:
 @pytest.mark.asyncio
 async def test_router_handle_includes_image():
     """Full-Stack: VisionContextProvider + RouterBrain → Brain sieht Image."""
-    from jarvis.brain.router import RouterBrain
-    from jarvis.brain.streaming import StreamingAggregate
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import (
+    from dodaios.brain.router import RouterBrain
+    from dodaios.brain.streaming import StreamingAggregate
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import (
         BrainProviderConfig,
         BrainTierConfig,
         JarvisConfig,
     )
-    from jarvis.core.protocols import (
+    from dodaios.core.protocols import (
         BrainDelta,
         BrainRequest,
         ExecutionContext,
         ImageBlock,
         ToolResult,
     )
-    from jarvis.vision.context_provider import VisionContextProvider
+    from dodaios.vision.context_provider import VisionContextProvider
 
     path, data = _make_png_file(size_kb=2)
     try:
@@ -235,13 +235,13 @@ async def test_router_handle_includes_image():
 @pytest.mark.asyncio
 async def test_privacy_pause_drops_image():
     """Provider.pause() → RouterBrain.handle() → images=()."""
-    from jarvis.brain.router import RouterBrain
-    from jarvis.brain.streaming import StreamingAggregate
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import (
+    from dodaios.brain.router import RouterBrain
+    from dodaios.brain.streaming import StreamingAggregate
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import (
         BrainProviderConfig, BrainTierConfig, JarvisConfig,
     )
-    from jarvis.vision.context_provider import VisionContextProvider
+    from dodaios.vision.context_provider import VisionContextProvider
 
     path, _ = _make_png_file(size_kb=1)
     try:
@@ -254,7 +254,7 @@ async def test_privacy_pause_drops_image():
             name = "fake"; context_window = 8192
             supports_tools = True; supports_vision = True
             async def complete(self, req):
-                yield __import__("jarvis.core.protocols", fromlist=["BrainDelta"]).BrainDelta(
+                yield __import__("dodaios.core.protocols", fromlist=["BrainDelta"]).BrainDelta(
                     content="ok")
 
         class _RecordingDispatcher:
@@ -302,7 +302,7 @@ async def test_privacy_pause_drops_image():
 
 def test_idle_state_pauses_provider_loop():
     """Pipeline._maybe_toggle_vision_on_state('IDLE') → provider.pause()."""
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.speech.pipeline import SpeechPipeline
     from types import SimpleNamespace
 
     class _Prov:
@@ -340,7 +340,7 @@ def test_idle_state_pauses_provider_loop():
 @pytest.mark.asyncio
 async def test_provider_recovers_from_engine_error():
     """Engine throws once, next tick succeeds — the loop doesn't die."""
-    from jarvis.vision.context_provider import VisionContextProvider
+    from dodaios.vision.context_provider import VisionContextProvider
 
     path, _ = _make_png_file(size_kb=1)
     try:
@@ -371,8 +371,8 @@ async def test_image_block_size_under_budget():
     passes it through — asserts that the raw data stays under budget
     (the ~33% base64 overhead is measured separately).
     """
-    from jarvis.brain.router import _read_observation_png_b64
-    from jarvis.core.protocols import Observation
+    from dodaios.brain.router import _read_observation_png_b64
+    from dodaios.core.protocols import Observation
 
     path, data = _make_png_file(size_kb=300)
     try:

@@ -13,16 +13,16 @@ from types import SimpleNamespace
 import pytest
 from fastapi import WebSocketDisconnect
 
-import jarvis.browser_voice.route as route_mod
-import jarvis.realtime.offer_broker as offer_broker_mod
-from jarvis.browser_voice.route import browser_voice_ws, realtime_transport_ws
-from jarvis.core.bus import EventBus
-from jarvis.realtime.offer_broker import RealtimeTransportOfferBroker
-from jarvis.realtime.protocol import RealtimeEvent
-from jarvis.realtime.session import RealtimeVoiceSession
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
-from jarvis.ui.web.missions_auth import register_token, revoke_token
+import dodaios.browser_voice.route as route_mod
+import dodaios.realtime.offer_broker as offer_broker_mod
+from dodaios.browser_voice.route import browser_voice_ws, realtime_transport_ws
+from dodaios.core.bus import EventBus
+from dodaios.realtime.offer_broker import RealtimeTransportOfferBroker
+from dodaios.realtime.protocol import RealtimeEvent
+from dodaios.realtime.session import RealtimeVoiceSession
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
+from dodaios.ui.web.missions_auth import register_token, revoke_token
 from tests.fakes.fake_realtime import (
     FakeRealtimeProvider,
     FakeRealtimeToolBridge,
@@ -519,7 +519,7 @@ async def test_route_closes_when_disabled():
 async def test_route_serves_the_classic_bridge_in_pipeline_mode_by_default():
     # Issue #399: a real JarvisConfig in pipeline mode, no [browser_voice]
     # table. The socket must reach the classic session instead of closing.
-    from jarvis.core.config import JarvisConfig
+    from dodaios.core.config import JarvisConfig
 
     class _ReadySession(_RecSession):
         def __init__(self) -> None:

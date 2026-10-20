@@ -3,12 +3,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.settings_routes import router as settings_router
+from dodaios.ui.web.settings_routes import router as settings_router
 
 
 @pytest.fixture
 def client(monkeypatch):
-    import jarvis.speech.wake_model_fetch as wmf
+    import dodaios.speech.wake_model_fetch as wmf
     monkeypatch.setattr(wmf, "ensure_vosk_model", lambda *a, **k: object())
     monkeypatch.setattr(wmf, "vosk_model_present", lambda *a, **k: True)
     app = FastAPI()
@@ -27,7 +27,7 @@ def test_download_model_ok(client):
 
 def test_download_model_failure_is_non_fatal(monkeypatch):
     """A fetch failure must never 500 -- it reports ok=False with a clear message."""
-    import jarvis.speech.wake_model_fetch as wmf
+    import dodaios.speech.wake_model_fetch as wmf
 
     monkeypatch.setattr(wmf, "ensure_vosk_model", lambda *a, **k: None)
     monkeypatch.setattr(wmf, "vosk_model_present", lambda *a, **k: False)

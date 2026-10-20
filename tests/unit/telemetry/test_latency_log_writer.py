@@ -18,8 +18,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from jarvis.core.events import LatencyTurnComplete
-from jarvis.telemetry.latency_log import LatencyLogWriter
+from dodaios.core.events import LatencyTurnComplete
+from dodaios.telemetry.latency_log import LatencyLogWriter
 
 
 def _read_lines(path: Path) -> list[dict]:
@@ -152,13 +152,13 @@ async def test_writer_attach_subscribes_only_to_turn_complete(tmp_path: Path) ->
     """Narrow subscribe — not subscribe_all — so the FlightRecorder path is
     not duplicated and unrelated bus events stay off the JSONL.
     """
-    from jarvis.core.bus import EventBus
+    from dodaios.core.bus import EventBus
 
     bus = EventBus()
     writer = LatencyLogWriter(tmp_path / "narrow.jsonl")
     writer.attach(bus)
     # Publish a non-LatencyTurnComplete event — must not write a row.
-    from jarvis.core.events import AudioOutFirst
+    from dodaios.core.events import AudioOutFirst
 
     await bus.publish(AudioOutFirst())
     await bus.publish(

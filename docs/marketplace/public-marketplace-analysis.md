@@ -18,7 +18,7 @@ The idea under analysis: a community-facing plugin marketplace (in the spirit
 of a hub like LobeHub) where **anyone** can publish a plugin for the Dodaios
 agent and the delegated agentic runs, **without that plugin's files ever
 living in this repository**. This document assesses how the idea fits the
-existing `jarvis/marketplace/` substrate, lays out the candidate distribution
+existing `dodaios/marketplace/` substrate, lays out the candidate distribution
 models with their trade-offs, and lists the decisions that must come from the
 maintainer before any code is written.
 
@@ -30,11 +30,11 @@ The in-process half of a marketplace is **done**. Five building blocks:
 
 | Building block | Where | What it already does |
 |---|---|---|
-| Catalog schema | `jarvis/marketplace/catalog.py` | Typed `PluginSpec` (branding, category, longevity badge, five auth modes as a discriminated union, `mcp_server` launch/transport block, `native_tool` binding) |
-| Catalog loading | `jarvis/marketplace/catalog_data.py` | Package seed (21 plugins) **merged** with a user-owned override at `data/plugin_catalog.json`; purely local entries pass through verbatim; in-memory migrations heal stale overrides |
-| Live runtime | `jarvis/marketplace/plugin_registry.py` | Per-plugin MCP connect with timeout isolation, re-auth flagging, `BrainToolsChanged` bus events, live connect/disconnect without restart (`refresh_plugin()`) |
-| Worker export | `jarvis/marketplace/mcp_bridge.py` | The same connected plugins assembled into a claude-cli `mcpServers` config for delegated heavy-duty runs — agent and runs share one catalog and one token store |
-| Per-turn gate | `jarvis/marketplace/plugin_relevance.py` | Keyword-only relevance filter (name / usage card / auto-derived nouns) so a connected plugin is only offered on turns that signal it |
+| Catalog schema | `dodaios/marketplace/catalog.py` | Typed `PluginSpec` (branding, category, longevity badge, five auth modes as a discriminated union, `mcp_server` launch/transport block, `native_tool` binding) |
+| Catalog loading | `dodaios/marketplace/catalog_data.py` | Package seed (21 plugins) **merged** with a user-owned override at `data/plugin_catalog.json`; purely local entries pass through verbatim; in-memory migrations heal stale overrides |
+| Live runtime | `dodaios/marketplace/plugin_registry.py` | Per-plugin MCP connect with timeout isolation, re-auth flagging, `BrainToolsChanged` bus events, live connect/disconnect without restart (`refresh_plugin()`) |
+| Worker export | `dodaios/marketplace/mcp_bridge.py` | The same connected plugins assembled into a claude-cli `mcpServers` config for delegated heavy-duty runs — agent and runs share one catalog and one token store |
+| Per-turn gate | `dodaios/marketplace/plugin_relevance.py` | Keyword-only relevance filter (name / usage card / auto-derived nouns) so a connected plugin is only offered on turns that signal it |
 
 Two further pieces matter for a public marketplace:
 

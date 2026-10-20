@@ -11,15 +11,15 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.brain import identity
-from jarvis.brain.identity import SOUL_UPDATE_DIRECTIVE, identity_block
-from jarvis.core import config as core_config
-from jarvis.core.protocols import ExecutionContext
-from jarvis.memory.learning import notebook as notebook_module
-from jarvis.memory.learning.notebook import JarvisNotebook
-from jarvis.memory.soul import Soul
-from jarvis.memory.templates import render_soul_md
-from jarvis.plugins.tool.update_soul import UpdateSoulTool
+from dodaios.brain import identity
+from dodaios.brain.identity import SOUL_UPDATE_DIRECTIVE, identity_block
+from dodaios.core import config as core_config
+from dodaios.core.protocols import ExecutionContext
+from dodaios.memory.learning import notebook as notebook_module
+from dodaios.memory.learning.notebook import JarvisNotebook
+from dodaios.memory.soul import Soul
+from dodaios.memory.templates import render_soul_md
+from dodaios.plugins.tool.update_soul import UpdateSoulTool
 
 NOTE = "The assistant keeps its jokes dry."
 
@@ -110,7 +110,7 @@ def test_only_a_model_holding_the_tool_is_told_to_maintain(soul_path: Path) -> N
 
 
 def test_the_live_tool_set_holds_update_soul() -> None:
-    from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
+    from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
 
     manager = SimpleNamespace(_tools={}, _config=SimpleNamespace(computer_use=None))
     gateway = BrainSupervisorToolGateway(manager)

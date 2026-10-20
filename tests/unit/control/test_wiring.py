@@ -6,16 +6,16 @@ from dataclasses import dataclass
 
 import pytest
 
-from jarvis.control import (
+from dodaios.control import (
     CancelScope,
     KillSwitch,
     voice_matches_kill_intent,
     wire_tray_kill_switch,
     wire_voice_kill_switch,
 )
-from jarvis.core.bus import EventBus
-from jarvis.core.events import KillRequested, TranscriptFinal
-from jarvis.core.protocols import Transcript
+from dodaios.core.bus import EventBus
+from dodaios.core.events import KillRequested, TranscriptFinal
+from dodaios.core.protocols import Transcript
 
 # ---------------------------------------------------------------------
 # Voice-Intent-Regex

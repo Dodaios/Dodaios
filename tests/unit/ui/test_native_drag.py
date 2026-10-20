@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.ui import native_drag
+from dodaios.ui import native_drag
 
 
 @pytest.mark.parametrize(

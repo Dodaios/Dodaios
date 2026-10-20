@@ -6,8 +6,8 @@ import time
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     BrainTurnCompleted,
     ListeningStarted,
     ResponseGenerated,
@@ -16,9 +16,9 @@ from jarvis.core.events import (
     VoiceSessionEnded,
     VoiceSessionStarted,
 )
-from jarvis.core.protocols import Transcript
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
+from dodaios.core.protocols import Transcript
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
 
 
 class _SlowStartStore:

@@ -5,18 +5,18 @@ real CLI name. Prevents the map rotting when a catalog entry is renamed
 import json
 from pathlib import Path
 
-from jarvis.clis.capability_provider import PLUGIN_CLI_OVERLAP, equivalent_grants
+from dodaios.clis.capability_provider import PLUGIN_CLI_OVERLAP, equivalent_grants
 
 _ROOT = Path(__file__).resolve().parents[3]
 
 
 def _plugin_ids() -> set[str]:
-    data = json.loads((_ROOT / "jarvis/marketplace/seed_catalog.json").read_text(encoding="utf-8"))
+    data = json.loads((_ROOT / "dodaios/marketplace/seed_catalog.json").read_text(encoding="utf-8"))
     return {p["id"] for p in data.get("plugins", [])}
 
 
 def _cli_names() -> set[str]:
-    data = json.loads((_ROOT / "jarvis/clis/catalog/seed_catalog.json").read_text(encoding="utf-8"))
+    data = json.loads((_ROOT / "dodaios/clis/catalog/seed_catalog.json").read_text(encoding="utf-8"))
     items = data if isinstance(data, list) else data.get("clis", data.get("entries", []))
     return {c["name"] for c in items if isinstance(c, dict)}
 

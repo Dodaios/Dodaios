@@ -10,15 +10,15 @@ The visual contract is `<USER_HOME>\Desktop\b3-wiki-view-mockup.html`. Open it; 
 
 | File | Status | Purpose |
 |---|---|---|
-| `jarvis/ui/web/frontend/src/views/WikiView.tsx` | **NEW** | Top-level tab component, three-column layout, tree on left, page in middle |
-| `jarvis/ui/web/frontend/src/components/wiki/TreeSidebar.tsx` | **NEW** | Folder tree, collapsible, click selects |
-| `jarvis/ui/web/frontend/src/components/wiki/PageRenderer.tsx` | **NEW** | Markdown render with `[[wikilink]]` resolution |
-| `jarvis/ui/web/frontend/src/components/wiki/PageHeader.tsx` | **NEW** | Title + crumb + frontmatter pills + Obsidian-button slot (provided by D) |
-| `jarvis/ui/web/frontend/src/components/wiki/BacklinksPanel.tsx` | **NEW** | Right-column backlinks card |
-| `jarvis/ui/web/frontend/src/lib/wikiApi.ts` | **NEW** | Typed fetchers for Agent A's endpoints (one function per route) |
-| `jarvis/ui/web/frontend/src/components/layout/Sidebar.tsx` | **MODIFY** | Change `labelKey: "nav.memory"` → `labelKey: "nav.wiki"`; icon stays `Notebook` for now |
-| `jarvis/ui/web/frontend/src/components/layout/MainView.tsx` | **MODIFY** | Replace `<MemoryView />` mount with `<WikiView />` |
-| `jarvis/ui/web/frontend/src/views/MemoryView.tsx` | **DELETE** | Legacy view, obsolete |
+| `dodaios/ui/web/frontend/src/views/WikiView.tsx` | **NEW** | Top-level tab component, three-column layout, tree on left, page in middle |
+| `dodaios/ui/web/frontend/src/components/wiki/TreeSidebar.tsx` | **NEW** | Folder tree, collapsible, click selects |
+| `dodaios/ui/web/frontend/src/components/wiki/PageRenderer.tsx` | **NEW** | Markdown render with `[[wikilink]]` resolution |
+| `dodaios/ui/web/frontend/src/components/wiki/PageHeader.tsx` | **NEW** | Title + crumb + frontmatter pills + Obsidian-button slot (provided by D) |
+| `dodaios/ui/web/frontend/src/components/wiki/BacklinksPanel.tsx` | **NEW** | Right-column backlinks card |
+| `dodaios/ui/web/frontend/src/lib/wikiApi.ts` | **NEW** | Typed fetchers for Agent A's endpoints (one function per route) |
+| `dodaios/ui/web/frontend/src/components/layout/Sidebar.tsx` | **MODIFY** | Change `labelKey: "nav.memory"` → `labelKey: "nav.wiki"`; icon stays `Notebook` for now |
+| `dodaios/ui/web/frontend/src/components/layout/MainView.tsx` | **MODIFY** | Replace `<MemoryView />` mount with `<WikiView />` |
+| `dodaios/ui/web/frontend/src/views/MemoryView.tsx` | **DELETE** | Legacy view, obsolete |
 
 No backend changes. No CSS framework changes (existing Tailwind config is fine). No new npm dependencies unless documented under §3.
 
@@ -153,7 +153,7 @@ While `react-query` is pending, render Tailwind skeleton bars (`animate-pulse bg
 
 ### 5.1 Component tests (Vitest + Testing Library)
 
-Add a test file `jarvis/ui/web/frontend/src/views/WikiView.test.tsx`. Run with `npm test`.
+Add a test file `dodaios/ui/web/frontend/src/views/WikiView.test.tsx`. Run with `npm test`.
 
 Minimum 6 cases (mock fetch via MSW or `vi.fn`):
 
@@ -167,7 +167,7 @@ Minimum 6 cases (mock fetch via MSW or `vi.fn`):
 ### 5.2 Build gate
 
 ```powershell
-cd jarvis/ui/web/frontend
+cd dodaios/ui/web/frontend
 npm install               # if package.json changed
 npm run build             # must succeed, no warnings about react-markdown
 npx tsc --noEmit -p .     # zero TypeScript errors

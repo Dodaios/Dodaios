@@ -26,8 +26,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.critic.runner import MAX_CRITIC_LOOPS, CriticRunner
-from jarvis.missions.critic.verdict import (
+from dodaios.missions.critic.runner import MAX_CRITIC_LOOPS, CriticRunner
+from dodaios.missions.critic.verdict import (
     REQUIRED_AXES,
     CriticAxis,
     CriticVerdict,

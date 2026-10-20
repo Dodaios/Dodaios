@@ -8,7 +8,7 @@ gate's spoken aliases and the manager's resolution table must stay in lockstep.
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import PROVIDER_ALIASES
+from dodaios.brain.manager import PROVIDER_ALIASES
 
 
 def test_anthropic_resolves_to_claude_api() -> None:

@@ -58,8 +58,8 @@ def layout(tmp_path: Path) -> Path:
         REPO_ROOT / "packaging" / "macos" / "entitlements.plist",
         root / "packaging" / "macos" / "entitlements.plist",
     )
-    (root / "jarvis" / "ui" / "web" / "dist").mkdir(parents=True)
-    (root / "jarvis" / "ui" / "web" / "dist" / "index.html").write_text("<html></html>")
+    (root / "dodaios" / "ui" / "web" / "dist").mkdir(parents=True)
+    (root / "dodaios" / "ui" / "web" / "dist" / "index.html").write_text("<html></html>")
     (root / "jarvis.toml.example").write_text("# defaults\n", encoding="utf-8")
     (root / "jarvis.toml").write_text("# defaults\n", encoding="utf-8")
     (root / "assets" / "icons").mkdir(parents=True)

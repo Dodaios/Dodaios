@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.computers import identity
-from jarvis.computers.service import ComputerError, ComputerService
+from dodaios.computers import identity
+from dodaios.computers.service import ComputerError, ComputerService
 from tests.fakes.fake_ssh_server import TEST_PASSWORD, FakeSshServer
 
 

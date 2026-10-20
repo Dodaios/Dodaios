@@ -7,7 +7,7 @@ name: Agent runtimes canary
 # request already proves the PINNED versions (ci.yml, agent-runtimes-e2e); this
 # checks what upstream ships next:
 #   * green on every OS -> a pull request raises the pin in
-#     jarvis/agent_runtimes/runtime-versions.json (scripts/ci/agent_runtime_suite.py);
+#     dodaios/agent_runtimes/runtime-versions.json (scripts/ci/agent_runtime_suite.py);
 #   * red on a schedule -> an issue, and the pin stays where it is.
 # See docs/agent-runtimes.md ("CI and release gates").
 on:
@@ -92,7 +92,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git add jarvis/agent_runtimes/runtime-versions.json
+          git add dodaios/agent_runtimes/runtime-versions.json
           git commit -m "chore(agent-runtimes): raise the tested runtime versions" \
             -m "The weekly canary passed both model-gateway protocols on Linux, Windows and macOS: $RUN_URL"
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"

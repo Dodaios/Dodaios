@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from jarvis.core.spoken_names import (
+from dodaios.core.spoken_names import (
     ACT_SCORE,
     ASK_SCORE,
     NameCandidate,
@@ -142,7 +142,7 @@ def test_empty_inputs_decide_none():
 
 
 def test_every_resolution_is_logged(caplog):
-    with caplog.at_level(logging.INFO, logger="jarvis.core.spoken_names"):
+    with caplog.at_level(logging.INFO, logger="dodaios.core.spoken_names"):
         resolve_name("Jarvis Kot", ROSTER, surface="delegate_to_agent")
     line = caplog.records[-1].getMessage()
     assert "[delegate_to_agent]" in line

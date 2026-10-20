@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain.factory import ROUTER_TOOLS
-from jarvis.plugins.tool.wiki_ingest import WikiIngestTool
-from jarvis.plugins.tool.wiki_page_read import WikiPageReadTool
+from dodaios.brain.factory import ROUTER_TOOLS
+from dodaios.plugins.tool.wiki_ingest import WikiIngestTool
+from dodaios.plugins.tool.wiki_page_read import WikiPageReadTool
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

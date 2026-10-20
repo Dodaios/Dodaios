@@ -19,21 +19,21 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 
-from jarvis.marketplace.auth.oauth_pkce_loopback import (
+from dodaios.marketplace.auth.oauth_pkce_loopback import (
     PkceLoopbackConfig,
     PkceLoopbackHandler,
     _PendingPkceFlow,
 )
-from jarvis.marketplace.catalog import OAuthPkceLoopbackAuth
-from jarvis.marketplace.connect_helpers import build_pkce_config
-from jarvis.marketplace.publisher_clients import (
+from dodaios.marketplace.catalog import OAuthPkceLoopbackAuth
+from dodaios.marketplace.connect_helpers import build_pkce_config
+from dodaios.marketplace.publisher_clients import (
     SHIPPED_PUBLIC_CLIENT_IDS,
     SHIPPED_TOKEN_BROKERS,
     broker_family_for_client,
     is_standard_ready,
     resolve_client,
 )
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.token_store import Tokens
 
 GOOGLE_ID = SHIPPED_PUBLIC_CLIENT_IDS["google"]
 SLACK_ID = SHIPPED_PUBLIC_CLIENT_IDS["slack"]
@@ -56,7 +56,7 @@ GOOGLE_PLUGINS = (
 
 def _secrets(monkeypatch: pytest.MonkeyPatch, values: dict[str, str]) -> None:
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, env_fallback=None: values.get(key),
     )
 
@@ -417,7 +417,7 @@ async def test_slack_authorize_uses_broker_callback_while_listening_locally(
         seen.update(kwargs)
         return listener
 
-    monkeypatch.setattr("jarvis.marketplace.auth.oauth_pkce_loopback.make_callback_server", _make)
+    monkeypatch.setattr("dodaios.marketplace.auth.oauth_pkce_loopback.make_callback_server", _make)
     handler = PkceLoopbackHandler(build_pkce_config("slack", _slack_auth()))
 
     session = await handler.start(None)

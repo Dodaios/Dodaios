@@ -33,8 +33,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 CLOSE_STALE_WORKSPACE = 4409
@@ -45,7 +45,7 @@ CLOSE_NOT_READY = 4503
 def _isolated_recents(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.agentic_ide import recents
+    from dodaios.agentic_ide import recents
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)
@@ -56,7 +56,7 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> Registry:
     monkeypatch.setattr(session_mod, "agent_argv", lambda name: (f"/usr/bin/{name}",))
     reg = Registry(pty_manager=FakePtyManager())
     monkeypatch.setattr(session_mod, "get_registry", lambda: reg)
-    from jarvis.ui.web import agentic_ide_routes
+    from dodaios.ui.web import agentic_ide_routes
 
     monkeypatch.setattr(agentic_ide_routes, "get_registry", lambda: reg)
     # The handshake credential is a different question with its own tests; here
@@ -68,7 +68,7 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> Registry:
 
 @pytest.fixture
 def client(registry: Registry) -> Iterator[TestClient]:
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)

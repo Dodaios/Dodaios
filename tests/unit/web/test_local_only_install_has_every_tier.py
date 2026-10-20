@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.web.provider_spec import PROVIDERS, ProviderSpec, provider_billing
+from dodaios.ui.web.provider_spec import PROVIDERS, ProviderSpec, provider_billing
 
 #: Every tier a voice-first install actually traverses. Deliberately a literal
 #: list, not derived from PROVIDERS: deriving it would make a tier that lost
@@ -68,9 +68,9 @@ def _inherits_an_address(spec: ProviderSpec) -> bool:
     second field — but it must genuinely follow that address rather than keep a
     localhost copy that breaks the moment the server moves.
     """
-    from jarvis.brain.ollama_pull import server_root
-    from jarvis.dictation.polish_client import POLISH_FAMILIES
-    from jarvis.plugins.realtime.local_voice import LocalVoiceProvider, _ollama_root
+    from dodaios.brain.ollama_pull import server_root
+    from dodaios.dictation.polish_client import POLISH_FAMILIES
+    from dodaios.plugins.realtime.local_voice import LocalVoiceProvider, _ollama_root
 
     if spec.id == LocalVoiceProvider.name:
         # The local voice engine answers from the Ollama server the brain card
@@ -87,7 +87,7 @@ def test_a_self_hosted_card_says_where_its_server_lives() -> None:
     default port nobody promised. Every keyless card either runs in-process
     (its own on-device runtime), exposes an editable server URL, or follows one
     the user already set on another card."""
-    from jarvis.speech.local_models import get_local_provider
+    from dodaios.speech.local_models import get_local_provider
 
     for spec in PROVIDERS:
         if spec.auth_mode != "none":
@@ -103,8 +103,8 @@ def test_the_dictation_card_follows_the_server_the_user_configured(monkeypatch) 
     """The concrete case behind the rule above: a user who moved their Ollama
     to another box used to keep a second, invisible copy of the address here,
     pinned to localhost, and dictation polish silently talked to nothing."""
-    from jarvis.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
-    from jarvis.dictation.polish_client import POLISH_FAMILIES
+    from dodaios.core.config import BrainConfig, BrainProviderConfig, JarvisConfig
+    from dodaios.dictation.polish_client import POLISH_FAMILIES
 
     family = next(f for f in POLISH_FAMILIES if f.endpoint_provider)
     from tests.fakes.provider_config import install_provider_config
@@ -125,8 +125,8 @@ def test_the_realtime_tier_keeps_a_self_hosted_option() -> None:
     because a self-hosted realtime card must never be an implicit fallback: a
     call routed into an endpoint the user did not choose is worse than the
     honest "no realtime provider available"."""
-    from jarvis.core.registry import load
-    from jarvis.realtime.protocol import RealtimeProvider
+    from dodaios.core.registry import load
+    from dodaios.realtime.protocol import RealtimeProvider
 
     local_cards = _keyless_cards("realtime")
     assert local_cards, "realtime lost its self-hosted card"

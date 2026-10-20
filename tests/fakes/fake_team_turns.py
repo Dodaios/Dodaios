@@ -12,8 +12,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from jarvis.agent_chat.team.port import TurnResult
-from jarvis.agent_chat.team.workspace import Change
+from dodaios.agent_chat.team.port import TurnResult
+from dodaios.agent_chat.team.workspace import Change
 
 AGREE = '```team-verdict\n{"verdict": "agree", "objections": []}\n```'
 APPROVE = '```team-verdict\n{"verdict": "approve", "findings": []}\n```'

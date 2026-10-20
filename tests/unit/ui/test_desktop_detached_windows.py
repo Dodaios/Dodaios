@@ -28,9 +28,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.desktop_app import DETACHABLE_VIEWS, WINDOW_TITLE, DesktopApp
-from jarvis.ui.section_windows import WINDOW_GROUPS, section_window
-from jarvis.ui.web.desktop_routes import router as desktop_router
+from dodaios.ui.desktop_app import DETACHABLE_VIEWS, WINDOW_TITLE, DesktopApp
+from dodaios.ui.section_windows import WINDOW_GROUPS, section_window
+from dodaios.ui.web.desktop_routes import router as desktop_router
 
 
 class _FakeWindow:
@@ -105,15 +105,15 @@ def _app(monkeypatch: pytest.MonkeyPatch | None = None) -> DesktopApp:
     )
     if monkeypatch is not None:
         monkeypatch.setattr(
-            "jarvis.ui.desktop_app._bring_window_to_front_by_title",
+            "dodaios.ui.desktop_app._bring_window_to_front_by_title",
             lambda _title: True,
         )
         monkeypatch.setattr(
-            "jarvis.ui.icon_utils.set_window_icon_by_title",
+            "dodaios.ui.icon_utils.set_window_icon_by_title",
             lambda _title, _icon: True,
         )
         monkeypatch.setattr(
-            "jarvis.ui.icon_utils.project_icon_path", lambda: "icon.ico"
+            "dodaios.ui.icon_utils.project_icon_path", lambda: "icon.ico"
         )
     return app
 
@@ -157,7 +157,7 @@ def test_open_detached_is_idempotent_and_focuses(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "webview", _fake_webview(created))
     focused: list[str] = []
     monkeypatch.setattr(
-        "jarvis.ui.desktop_app._bring_window_to_front_by_title",
+        "dodaios.ui.desktop_app._bring_window_to_front_by_title",
         lambda title: focused.append(title) or True,
     )
 
@@ -178,7 +178,7 @@ def test_open_detached_rejects_unknown_view(monkeypatch) -> None:
 
 
 def test_reopening_a_macos_detached_window_restores_and_shows_it(monkeypatch) -> None:
-    monkeypatch.setattr("jarvis.ui.desktop_app.sys.platform", "darwin")
+    monkeypatch.setattr("dodaios.ui.desktop_app.sys.platform", "darwin")
     app = _app(monkeypatch)
     window = _FakeWindow()
     app._detached_windows["chats"] = window
@@ -191,7 +191,7 @@ def test_reopening_a_macos_detached_window_restores_and_shows_it(monkeypatch) ->
 
 
 def test_macos_detached_restore_failure_is_reported(monkeypatch) -> None:
-    monkeypatch.setattr("jarvis.ui.desktop_app.sys.platform", "darwin")
+    monkeypatch.setattr("dodaios.ui.desktop_app.sys.platform", "darwin")
     app = _app(monkeypatch)
     window = _FakeWindow()
 
@@ -439,8 +439,8 @@ def test_second_launch_reopens_main_while_a_detached_window_keeps_running(
     """The real focus route must recover a closed main without replacing its process."""
     import sys
 
-    from jarvis.ui import desktop_app
-    from jarvis.ui.web import launcher
+    from dodaios.ui import desktop_app
+    from dodaios.ui.web import launcher
 
     app = _app(monkeypatch)
     secondary = _FakeWindow(app._detached_title(view))
@@ -536,7 +536,7 @@ def test_every_window_load_rewires_the_drop_path_bridge(monkeypatch) -> None:
 
     registered: list[Any] = []
     monkeypatch.setattr(
-        "jarvis.ui.native_drop.register_native_drop",
+        "dodaios.ui.native_drop.register_native_drop",
         lambda window: registered.append(window) or True,
     )
     app = _app(monkeypatch)

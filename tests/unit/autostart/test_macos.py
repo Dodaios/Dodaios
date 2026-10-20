@@ -11,9 +11,9 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 
-import jarvis.autostart.macos as macos
-from jarvis.autostart.macos import MacOSAutostart
-from jarvis.autostart.protocol import LaunchSpec
+import dodaios.autostart.macos as macos
+from dodaios.autostart.macos import MacOSAutostart
+from dodaios.autostart.protocol import LaunchSpec
 
 
 def _spec(program: str = "/usr/bin/open", working_dir: str = "/Users/u/jarvis") -> LaunchSpec:
