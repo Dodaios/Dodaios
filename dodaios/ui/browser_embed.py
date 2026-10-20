@@ -527,7 +527,8 @@ class ChromeEmbed:
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
             hwnd, pid = int(record["hwnd"]), int(record["pid"])
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            logger.info("Browser panel window record unreadable, dropped: %s", exc)
             self._forget()
             return None
         api = self._load_api()
