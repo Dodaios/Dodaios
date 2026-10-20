@@ -193,6 +193,7 @@ class JarvisNotebook:
         source: str = "",
         expected: str | None = None,
         enforce_budget: bool = True,
+        seat: dict[str, str] | None = None,
     ) -> Change | None:
         """Write one change; ``None`` when it changed nothing (a duplicate).
 
@@ -203,7 +204,8 @@ class JarvisNotebook:
         that does not grow it is fine); ``enforce_budget=False`` lets an explicit
         remember request and a shrinking merge through.
         Every applied change is appended to a ledger with its old and new text,
-        so nothing the loop replaces or removes is ever unrecoverable.
+        so nothing the loop replaces or removes is ever unrecoverable. ``seat``
+        (seat, runner, billing) names the model call that proposed it.
         """
         from dodaios.memory.write_feedback import announce_write
         from dodaios.society.memory_books import edit_book
@@ -237,7 +239,7 @@ class JarvisNotebook:
                 return None
             after = text if operation != "remove" else ""
             change = Change(target, operation, entry_id, before, after)
-            self._append_ledger(change, evidence=evidence, source=source)
+            self._append_ledger(change, evidence=evidence, source=source, seat=seat)
             return change
         with announce_write(OWNER_ID, self._file_name(target), operation=operation) as receipt:
             for attempt in range(_REPLACE_ATTEMPTS):
@@ -263,7 +265,7 @@ class JarvisNotebook:
         if not result.changed:
             return None
         change = Change(target, operation, entry_id, before, text if operation != "remove" else "")
-        self._append_ledger(change, evidence=evidence, source=source)
+        self._append_ledger(change, evidence=evidence, source=source, seat=seat)
         self.invalidate()
         return change
 
@@ -389,7 +391,33 @@ class JarvisNotebook:
             # Losing the timestamp only means an earlier retry; the notebook is intact.
             log.warning("learning: could not save the loop state", exc_info=True)
 
-    def _append_ledger(self, change: Change, *, evidence: str, source: str) -> None:
+    def note_review(self, *, source: str, outcome: str, changes: int, seat: dict[str, str]) -> None:
+        """Ledger one model call of the loop: where it ran, how it billed, how it ended.
+
+        ``outcome`` is ``answered``, ``failed`` or ``dropped`` (the turns were
+        given up after the last retry). Written for every review and merge call,
+        so the ledger shows which seat and billing mode each one used even when
+        it changed nothing.
+        """
+        self._write_ledger(
+            {
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "source": source,
+                "operation": "review",
+                "outcome": outcome,
+                "changes": int(changes),
+                **seat,
+            }
+        )
+
+    def _append_ledger(
+        self,
+        change: Change,
+        *,
+        evidence: str,
+        source: str,
+        seat: dict[str, str] | None = None,
+    ) -> None:
         from dodaios.memory.learning.guard import contains_secret
 
         record = {
@@ -402,7 +430,11 @@ class JarvisNotebook:
             "after": change.after,
             # A quote that looks like a credential is never written to disk.
             "evidence": "[withheld]" if contains_secret(evidence) else evidence,
+            **(seat or {}),
         }
+        self._write_ledger(record)
+
+    def _write_ledger(self, record: dict[str, Any]) -> None:
         ledger = self.folder / LEDGER_NAME
         try:
             # Reading the notebooks no longer creates their folder, and a soul
