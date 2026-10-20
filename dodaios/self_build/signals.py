@@ -180,34 +180,26 @@ def _cluster(row: tuple[Any, ...]) -> Cluster:
 
 
 def person_zone() -> Any:
-    """The person's own time zone: the one their UI reported.
+    """The person's own time zone: the one their UI reported, else this computer's.
 
-    Routines run on the person's wall clock, so habits are counted on it too;
-    ``None`` when the UI has not reported one.
+    Routines run on the person's wall clock, so habits are counted on it too
+    (:mod:`.clock`); ``None`` only when no zone can be named at all.
     """
-    from dodaios.tasks.context import turn_timezone
+    from .clock import person_zone as zone_of_person
 
-    name = turn_timezone()
-    if name:
-        try:
-            from zoneinfo import ZoneInfo
-
-            return ZoneInfo(name)
-        except (KeyError, ValueError):  # an unknown zone name: this machine's clock
-            return None
-    return None
+    return zone_of_person()
 
 
-#: Minute and weekday of a turn made while the person's zone was unknown.
+#: Minute and weekday of a turn made while no zone could be named.
 UNKNOWN_CLOCK: Final[int] = -1
 
 
 def local_clock(ts_ms: int) -> tuple[int, int, int]:
     """``(day ordinal, minute of day, weekday)`` on the person's wall clock.
 
-    Without a zone the person's UI reported, minute and weekday are
-    :data:`UNKNOWN_CLOCK`: no habit is counted on a server-derived clock
-    (``tasks/context.py``). The day still counts distinct days.
+    Without any zone (none reported and none readable from this computer),
+    minute and weekday are :data:`UNKNOWN_CLOCK` and no habit is counted on
+    them. The day still counts distinct days.
     """
     zone = person_zone()
     if zone is None:
@@ -339,6 +331,23 @@ class SignalStore:
             )
             self._conn.commit()
             return int(cursor.rowcount or 0)
+
+    def fill_clocks(self) -> int:
+        """Give turns stored without a clock one, now that a zone is known."""
+        if person_zone() is None:
+            return 0
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, ts_ms FROM turns WHERE minute = ? LIMIT 5000", (UNKNOWN_CLOCK,)
+            ).fetchall()
+            for turn_id, ts_ms in rows:
+                day, minute, weekday = local_clock(int(ts_ms))
+                self._conn.execute(
+                    "UPDATE turns SET day = ?, minute = ?, weekday = ? WHERE id = ?",
+                    (day, minute, weekday, int(turn_id)),
+                )
+            self._conn.commit()
+        return len(rows)
 
     # ------------------------------------------------------------ clusters
 
