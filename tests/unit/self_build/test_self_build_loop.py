@@ -829,10 +829,12 @@ async def test_the_daily_decide_budget_holds(world: Any, monkeypatch) -> None:
     assert world.brain.decide_calls == 1
 
 
-def test_no_habit_without_the_persons_time_zone(tmp_path: Path, monkeypatch) -> None:
+def test_no_habit_when_no_zone_can_be_named(tmp_path: Path, monkeypatch) -> None:
+    from dodaios.self_build import clock
     from dodaios.tasks import context
 
     monkeypatch.setattr(context, "_reported_ui_timezone", None)
+    monkeypatch.setattr(clock, "system_zone_name", lambda: None)
     miner = Miner(SignalStore(tmp_path / "s.db"))
     needs = []
     for monday in _mondays():
