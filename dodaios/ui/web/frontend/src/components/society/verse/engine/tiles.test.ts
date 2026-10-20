@@ -49,9 +49,9 @@ describe("tile geometry", () => {
   it("finds the tiles a view touches, nearest first, and grows by a ring", () => {
     const t = tileRect(plate, camera, 1, 0);
     const inside = { u0: t.u0 + 1, u1: t.u0 + 2, v0: t.v1 - 2, v1: t.v1 - 1 };
-    expect(tilesInRect(plate, camera, inside)).toEqual([{ col: 1, row: 0 }]);
+    expect(tilesInRect(plate, camera, inside)).toEqual([{ col: 1, row: 0, level: 0 }]);
     const ringed = tilesInRect(plate, camera, inside, 1);
-    expect(ringed[0]).toEqual({ col: 1, row: 0 });
+    expect(ringed[0]).toEqual({ col: 1, row: 0, level: 0 });
     expect(ringed).toHaveLength(6);
     const all = tilesInRect(plate, camera, { u0: -1e3, u1: 1e3, v0: -1e3, v1: 1e3 });
     expect(all).toHaveLength(plate.cols * plate.rows);

@@ -44,15 +44,33 @@ export interface ManifestCamera {
   exposure: number;
 }
 
+/**
+ * A tiled mip level between L0 and the overview: the plate downscaled by
+ * `divisor` and cut into `tile_px` tiles (edge tiles smaller).
+ */
+export interface ManifestPlateMip {
+  /** Density = px_per_m / divisor (2, 4). */
+  divisor: number;
+  /** round(plate_w_px / divisor) and round(plate_h_px / divisor). */
+  w_px: number;
+  h_px: number;
+  cols: number;
+  rows: number;
+  /** Pattern with `{col}` and `{row}`, e.g. "plate/M2_{col}_{row}.avif". */
+  tile_url: string;
+}
+
 export interface ManifestPlate {
   format: "avif";
-  /** L0 tile edge; the last column/row may be smaller. */
+  /** Tile edge of L0 and of every mip; the last column/row may be smaller. */
   tile_px: number;
   cols: number;
   rows: number;
-  /** Pattern with `{col}` and `{row}`, e.g. "plate/L0_{col}_{row}.avif". */
+  /** L0 tiles: a pattern with `{col}` and `{row}`, e.g. "plate/L0_{col}_{row}.avif". */
   tile_url: string;
-  /** Whole plate at 1/4 resolution. */
+  /** Optional mip levels, finest first; absent in older manifests. */
+  mips?: readonly ManifestPlateMip[];
+  /** Whole plate at reduced resolution (1/4 in older decks, 1/8 next to mips). */
   l1_url: string;
   l1_w_px: number;
   l1_h_px: number;
@@ -178,9 +196,14 @@ export function manifestUrl(manifestUrl: string, relative: string): string {
   return base + relative;
 }
 
+/** A tile pattern filled in for (col, row). */
+export function fillTileUrl(pattern: string, col: number, row: number): string {
+  return pattern.replace("{col}", String(col)).replace("{row}", String(row));
+}
+
 /** URL of the L0 tile at (col, row). */
 export function tileUrl(plate: ManifestPlate, col: number, row: number): string {
-  return plate.tile_url.replace("{col}", String(col)).replace("{row}", String(row));
+  return fillTileUrl(plate.tile_url, col, row);
 }
 
 // ------------------------------------------------------------------ validation
@@ -244,6 +267,22 @@ function checkCamera(value: Json): void {
   str(c.look, "camera.look");
 }
 
+function checkMip(value: Json, path: string, tile: number, camera: ManifestCamera): void {
+  const m = obj(value, path);
+  const divisor = int(m.divisor, `${path}.divisor`, 2);
+  const w = int(m.w_px, `${path}.w_px`, 1);
+  const h = int(m.h_px, `${path}.h_px`, 1);
+  // round() on the cook's side; a rounding mode may differ by one pixel, nothing more.
+  if (Math.abs(w - camera.plate_w_px / divisor) > 1 || Math.abs(h - camera.plate_h_px / divisor) > 1) {
+    fail(path, "w_px/h_px are not the plate divided by divisor");
+  }
+  const cols = int(m.cols, `${path}.cols`, 1);
+  const rows = int(m.rows, `${path}.rows`, 1);
+  if (cols !== Math.ceil(w / tile) || rows !== Math.ceil(h / tile)) fail(path, "cols/rows do not cover the level");
+  const pattern = str(m.tile_url, `${path}.tile_url`);
+  if (!pattern.includes("{col}") || !pattern.includes("{row}")) fail(`${path}.tile_url`, "needs {col} and {row}");
+}
+
 function checkPlate(value: Json, camera: ManifestCamera): void {
   const p = obj(value, "plate");
   if (p.format !== "avif") fail("plate.format", 'expected "avif"');
@@ -254,6 +293,9 @@ function checkPlate(value: Json, camera: ManifestCamera): void {
   if (!pattern.includes("{col}") || !pattern.includes("{row}")) fail("plate.tile_url", "needs {col} and {row}");
   if (cols !== Math.ceil(camera.plate_w_px / tile) || rows !== Math.ceil(camera.plate_h_px / tile)) {
     fail("plate", "cols/rows do not cover the plate");
+  }
+  if (p.mips !== undefined) {
+    list(p.mips, "plate.mips").forEach((mip, i) => checkMip(mip, `plate.mips[${i}]`, tile, camera));
   }
   str(p.l1_url, "plate.l1_url");
   int(p.l1_w_px, "plate.l1_w_px", 1);

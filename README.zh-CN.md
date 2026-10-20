@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/dodaios-logo-on-dark.svg" />
+    <img alt="Dodaios" src="assets/brand/dodaios-logo-on-light.svg" width="112" />
+  </picture>
+</p>
+
 <h1 align="center">Dodaios</h1>
 
 <p align="center">
@@ -11,14 +18,6 @@
 </p>
 
 <p align="center">
-  <a href="#安装"><strong>一行命令安装</strong></a> ·
-  <a href="https://github.com/Dodaios/Dodaios/releases/latest">下载桌面版</a><br />
-  <sub>有 Claude 或 ChatGPT 订阅，或者有本地模型，就不需要 API 密钥。</sub>
-</p>
-
-<p align="center"><sub>本项目原名 Personal Jarvis。</sub></p>
-
-<p align="center">
   <a href="https://pypi.org/project/personal-jarvis/"><img alt="PyPI" src="https://img.shields.io/pypi/v/personal-jarvis?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
   <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache_2.0-F7F7F4?labelColor=0A0A0A" /></a>
   <a href="https://github.com/Dodaios/Dodaios/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Dodaios/Dodaios/actions/workflows/ci.yml/badge.svg" /></a>
@@ -26,17 +25,16 @@
 </p>
 
 <p align="center">
-  <a href="https://dodaios.ai">官网</a> ·
+  <a href="#安装"><strong>安装</strong></a> ·
+  <a href="#从一句话到合并的拉取请求">工作流</a> ·
+  <a href="#一个应用包含一切">功能</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md">文档</a> ·
+  <a href="https://dodaios.ai">官网</a> ·
   <a href="https://discord.gg/x7USduHxbc">Discord</a> ·
   <a href="https://x.com/dodaios">X</a>
 </p>
 
-https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
-
-<p align="center"><sub>一段真实、未经剪辑的应用录屏（带声音）：用语音和 Dodaios 交谈、把工作交给智能体，并在编程工作区里跟进它们的进度。</sub></p>
-
-<p align="center">如果 Dodaios 对你有用，<a href="https://github.com/Dodaios/Dodaios/stargazers">在 GitHub 上点个 Star</a> 能帮助更多人发现它。</p>
+<p align="center"><sub>有 Claude 或 ChatGPT 订阅，或者有本地模型，就不需要 API 密钥。本项目原名 Personal Jarvis。</sub></p>
 
 ---
 
@@ -60,33 +58,45 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 **你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
 桌面版安装包和服务器部署见[更多安装方式](#更多安装方式)。
 
-## 功能一览
+## 从一句话到合并的拉取请求
 
-Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电脑上能做的一切汇集到一处：
-多智能体编程工作区、拥有独立记忆的常驻 AI 智能体、带唤醒词的语音助手、桌面与浏览器操控、插件市场，
-以及你已经付费的所有模型——云端模型、本地模型或你现有的订阅。
+1. **和主智能体一起规划。** 用语音或聊天说出你想要什么。主智能体会问清所需信息，再把工作交给合适的智能体或窗格。
+2. **并行构建。** Claude Code、Codex、OpenCode 以及另外六个编程智能体在实时窗格中并排运行；需要的话，每个都在自己的分支和 git worktree 里工作。
+3. **审查每一处改动。** 差异对比、源代码管理和编辑器就在窗格旁边，每一行在合并前你都能看到。
+4. **在 Git 面板里发布。** 分支、拉取请求、CI 检查和合并，都不用切换到浏览器。
+5. **把其余工作交出去。** 内置的或运行在 Hermes 和 OpenClaw 上的助理智能体，负责写发布说明、起草发布帖子，并按计划执行例程。
+6. **全部记住。** 一个本地记忆知识库保存每次对话、每个智能体和每个项目的上下文，下次接着用。
 
-你说出想要什么。Dodaios 会直接回答、在你的电脑上把事情做完，或者交给合适的智能体——每一步你都看得见。
+## 一个应用包含一切
 
-**免费、开源，在你自己的电脑上运行。** 无需注册账号，中间也没有我们的云服务。
-支持 Windows、macOS 和 Linux，另有无界面的服务器模式。
+<table>
+  <tr>
+    <td width="33%"><strong>Agentic IDE</strong><br />所有编程智能体在实时终端窗格中并排运行。</td>
+    <td width="33%"><strong>Git 与拉取请求</strong><br />内置差异对比、分支、PR 和 CI 检查。</td>
+    <td width="33%"><strong>主智能体</strong><br />一个负责规划、分派并汇报结果的助手。</td>
+  </tr>
+  <tr>
+    <td><strong>智能体团队</strong><br />拥有各自对话、工具、日程和记忆的专家。</td>
+    <td><strong>Hermes 与 OpenClaw</strong><br />在你已经在用的开放智能体运行时上运行智能体。</td>
+    <td><strong>语音</strong><br />唤醒词、实时对话、听写和电话通话。</td>
+  </tr>
+  <tr>
+    <td><strong>电脑操控</strong><br />在你的桌面和浏览器中点击、输入和读取屏幕。</td>
+    <td><strong>记忆</strong><br />一个由智能体读取、写入并引用的本地知识库。</td>
+    <td><strong>插件、MCP 与技能</strong><br />40 多个一键集成，也可以接入你自己的。</td>
+  </tr>
+  <tr>
+    <td><strong>任意模型</strong><br />云端模型、本地模型，或你的 Claude 和 ChatGPT 订阅。</td>
+    <td><strong>例程</strong><br />智能体按计划完成重复性工作，无需你开口。</td>
+    <td><strong>产出物（Artifacts）</strong><br />智能体生成的每份报告、页面和文件都集中在一处。</td>
+  </tr>
+</table>
+
+**免费、开源，在你自己的电脑上运行。** 支持 Windows、macOS、Linux，以及无界面的服务器。
+无需注册账号，中间也没有我们的云服务。任何可能改动你系统的操作都会先等待你的批准。
 
 > **界面语言：** 桌面应用提供简体中文界面。可在首次启动的设置窗口中选择“中文”，
 > 也可以随时在“设置 > 语言”中切换。
-
-| | |
-|---|---|
-| **Agentic IDE** | 在实时终端窗格中并排运行 Claude Code、Codex、OpenCode、Kimi Code、GLM、Grok Build、Antigravity、Cursor CLI 和 DeepSeek Harness——你的电脑能承载多少就开多少。还能用语音给它们布置任务。 |
-| **Dodaios 智能体** | 组建一支常驻 AI 智能体团队。每个智能体都有自己的对话、指令、工具、日程和记忆，并能从自己的工作中学习。 |
-| **Dodaios Verse** | 在 3D 世界中实时观看你的智能体：它们走向自己的工位、接手工作，并展示此刻正在做什么。 |
-| **语音** | 唤醒词、自然的实时对话、向任意应用听写输入，以及电话通话。像和真人说话一样随时打断它。 |
-| **电脑操控** | Dodaios 亲自操作你的桌面和浏览器——点击、输入、读取屏幕——而控制权始终在你手里。 |
-| **市场** | 40 多个一键安装的插件、MCP 服务器、技能和命令行工具：GitHub、Google Workspace、Notion、Slack、Linear、Spotify、Home Assistant 等。 |
-| **任意模型** | OpenAI、Anthropic、Gemini、OpenRouter、NVIDIA、Ollama 以及任何本地服务器——或者你的 Claude 和 ChatGPT 订阅。可以按任务自由搭配。 |
-| **记忆** | 一个由 Dodaios 读取、写入并引用的本地知识库，让上下文在不同对话、智能体和日子之间延续。 |
-| **例程** | 按计划执行的重复性工作：晨间简报、收件箱整理、每晚报告。 |
-| **截图（Appshots）** | 按两个键，就能让 Dodaios 看到你正在看的窗口或精确区域。用同样的方式录制短片。 |
-| **宠物** | 桌面上的一个小动画伙伴，会在 Dodaios 聆听、思考和说话时做出反应。 |
 
 ## 成倍放大的 Vibe Coding
 

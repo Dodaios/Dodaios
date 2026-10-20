@@ -86,6 +86,20 @@ export interface NavGrid {
   maxStep: number;
 }
 
+/** One tiled image of the plate: L0 (full density) or a mip (downscaled by its divisor). */
+export interface PlateLevel {
+  /** 1 for L0, else the mip's divisor (2, 4). */
+  divisor: number;
+  /** Size of this level in its own pixels. */
+  width: number;
+  height: number;
+  /** Tile edge in pixels; edge tiles may be smaller. */
+  tileSize: number;
+  cols: number;
+  rows: number;
+  tileUrl: (col: number, row: number) => string;
+}
+
 export interface PlateImages {
   /** L0 size in pixels. */
   width: number;
@@ -97,6 +111,11 @@ export interface PlateImages {
   cols: number;
   rows: number;
   tileUrl: (col: number, row: number) => string;
+  /**
+   * Every tiled level, finest first: L0 (the same numbers as above), then the
+   * mips by growing divisor. Just L0 for a deck cooked without mips.
+   */
+  levels: readonly PlateLevel[];
 }
 
 export interface Deck {

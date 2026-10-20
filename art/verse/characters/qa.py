@@ -15,6 +15,7 @@ from mathutils import Vector
 
 from characters import anim as A
 from characters import common as C
+from characters import paint as PT
 from characters import posing as P
 
 QA_DIR = C.CACHE / "qa"
@@ -117,21 +118,22 @@ def instance(cid, objs, ctx, x, tier=None, cap=True, pose=None):
         for i, m in enumerate(c.data.materials):
             if m is None:
                 continue
+            base = m.name.split("@")[0]
             col = None
-            if tier and m.name in tier:
-                col = tier[m.name]
-            if tier and m.name.startswith("M_RankTile_"):
+            if tier and base in tier:
+                col = tier[base]
+            if tier and base.startswith("M_RankTile_"):
                 col = None
-            if col or (tier and m.name.startswith("M_RankTile_")):
+            if col or (tier and base.startswith("M_RankTile_")):
                 mm = m.copy()
                 bsdf = mm.node_tree.nodes["Principled BSDF"]
                 if col:
-                    bsdf.inputs["Base Color"].default_value = (*_hex(col), 1)
+                    PT.set_factor(mm, (*_hex(col), 1))
                 else:
-                    k = int(m.name[-1])
+                    k = int(base[-1])
                     lit = k <= tier.get("tiles", 0)
                     if lit:
-                        bsdf.inputs["Base Color"].default_value = (*_hex(tier["tile"]), 1)
+                        PT.set_factor(mm, (*_hex(tier["tile"]), 1))
                         bsdf.inputs["Emission Color"].default_value = (*_hex(tier["tile"]), 1)
                         bsdf.inputs["Emission Strength"].default_value = 0.6
                 c.data.materials[i] = mm

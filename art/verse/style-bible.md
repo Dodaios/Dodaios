@@ -525,7 +525,7 @@ original way:
 
   - **One colour per plate, never mixed.** The reference mixes two colours on one plaque; ours never does.
   - Pips are enamel with a satin finish (roughness 0.35). They are **not emissive**: no glow, no backlight.
-- **Readability.** On a top-down character 60–90 px tall, the plate is one or two pixels. It is therefore a close-up and UI asset. In the world, the **uniform colour** carries the tier.
+- **Readability.** In the overview a character is 60–90 px tall and the plate is one or two pixels; the **uniform colour** carries the tier. At the close follow camera (§7.7) the plate is about 12 px wide and its lit pips read.
 - **Access tabs** (replacing the reference's chest cylinders): up to two **flat steel key-tabs**, 45 × 12 × 3 mm, clipped vertically into a slot pocket on the upper left sleeve, not on the chest. Close range only.
 - **Collar pin.** One 12 mm steel hexagon on the right collar point for officers on duty.
 - **Ribbons** (level-system rewards): a single row of 30 × 8 mm ribbon bars directly above the plate, with at most 4. Each is a flat two-tone stripe from the palette, without metallic thread.
@@ -585,6 +585,25 @@ The ship's own mark, for patches, floors and doors, is the **Dodaios hex-bar**:
 - Off-white on dark, or graphite on light.
 
 Never use cog, wheel or spoke shapes as insignia.
+
+### 7.7 Close camera (the commander as a game character)
+
+The follow camera frames a standing figure 200–260 px tall (about 200 px per metre at 60°).
+At that size a pixel is 5 mm, so the crew carry painted detail (one texture atlas per model,
+`art/verse/characters/README.md`), drawn a little bolder than life:
+
+- **Faces.** Skin with warmer cheeks, nose and ears; eye sockets in soft shadow; eyes with
+  sclera, iris and pupil; a dark upper lash line; brows 6–8 mm tall in the hair colour; lips
+  a shade redder than the skin with a dark mouth line; a close-shaven jaw on men.
+- **Hair.** Real volume (10–16 mm on top, tapered over the ears and at the nape), combed back
+  in visible locks; a side parting for men, a centre parting and a bun for women.
+- **Tailoring.** Seams 4–7 mm wide (princess, side, set-in sleeve, centre back, outer leg),
+  welt chest slits, stitched collar, cuffs, belt edges and skirt hem, folds at elbows, waist
+  and over the boots. On the black tiers the detail lives in relief and gloss, not colour.
+- **Armour and drones.** Panel lines, vents and inset panels on every plate; the hex-bar
+  mark (7.6) on the companion's top and back and on the floor courier's deck.
+- **Tintable.** Uniform, trousers, trim, cap and accent stay neutral in the atlas, so the
+  rank tier still sets their colour.
 
 ---
 

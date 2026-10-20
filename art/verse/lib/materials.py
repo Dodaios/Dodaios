@@ -47,7 +47,7 @@ import bpy
 
 VERSE_ROOT = Path(__file__).resolve().parents[1]
 TEXTURE_CACHE = VERSE_ROOT / ".cache" / "textures"
-LIBRARY_VERSION = 10
+LIBRARY_VERSION = 11
 _PREVIEW = os.environ.get("VERSE_MATERIAL_QUALITY", "final").lower() == "preview"
 
 # Real-world size (metres) of each Poly Haven texture, from its metadata.
@@ -954,8 +954,41 @@ def _starfield(g: _Graph) -> None:
 # --------------------------------------------------------------------------
 
 
+def paint_wear(g: _Graph, pos, amount: float = 1.0) -> tuple[Socket, Socket, Socket]:
+    """Wear of floor paint that holds up at full plate density (5 mm pixels).
+
+    Returns ``(keep, scuff, grime)``:
+
+    * ``keep`` is 1 where the paint is intact and 0 where it is worn through,
+      with an edge about one plate pixel wide, so wear reads as chipped and
+      flaked patches with ragged edges. Never use a soft threshold here: a
+      half-transparent paint layer over a dark deck renders as grey clouds.
+    * ``scuff`` (0..1) marks fine scratches and boot scuffs, mostly along X,
+      that darken and roughen the paint without removing it.
+    * ``grime`` (0..1) is a faint broad dirt film for a slight tonal drift.
+
+    Wear clusters: a broad zone noise moves the flake threshold, so some
+    stretches of a line are almost pristine and others are well worn.
+    ``amount`` scales how much paint is worn through (1 = deck traffic).
+    """
+    zone = g.remap(g.noise(pos, 0.35, detail=2, rough=0.5), 0.38, 0.62, smooth=True)
+    flake = g.noise(pos, 6.0, detail=7, rough=0.62, distortion=0.3)
+    threshold = g.lerp(zone, 0.74, 0.74 - 0.13 * amount)
+    keep = g.remap(flake, g.math("SUBTRACT", threshold, 0.006), threshold, 1.0, 0.0)
+    streak_co = g.vmath("MULTIPLY", pos, (1.0, 16.0, 16.0))
+    streak = g.remap(g.noise(streak_co, 5.0, detail=3, rough=0.55), 0.7, 0.74)
+    scan = g.image("blue_metal_plate", "rough", pos)
+    if scan is not None:
+        scratch = g.remap(scan, 0.4, 0.47)
+    else:
+        scratch = g.remap(g.noise(pos, 40.0, detail=6, rough=0.7), 0.7, 0.74)
+    scuff = g.math("MAXIMUM", g.mul(streak, g.mul(zone, 0.8)), g.mul(scratch, 0.7))
+    grime = g.remap(g.noise(pos, 1.2, detail=3, rough=0.5), 0.4, 0.7, smooth=True)
+    return keep, scuff, grime
+
+
 def _worn_paint(g: _Graph, color_a, color_b=None, stripe_m: float = 0.0) -> None:
-    """Floor paint on a decal quad; worn-through patches reveal the deck."""
+    """Floor paint on a decal quad; worn-through chips reveal the deck."""
     pos = g.coord("world", per_instance=False)
     paint = color_a
     if color_b is not None and stripe_m > 0:
@@ -964,12 +997,11 @@ def _worn_paint(g: _Graph, color_a, color_b=None, stripe_m: float = 0.0) -> None
             "GREATER_THAN", g.math("FRACT", g.math("DIVIDE", g.add(x, y), stripe_m)), 0.5
         )
         paint = g.mix_color(stripe, color_a, color_b)
-    wear = g.remap(g.noise(pos, 3.5, detail=8, rough=0.72), 0.42, 0.6, smooth=True)
-    scuff = _scratches(g, pos, contrast=(0.5, 0.8))
-    keep = g.math("SUBTRACT", 1.0, g.math("MAXIMUM", g.mul(wear, 0.9), g.mul(scuff, 0.6)))
+    keep, scuff, grime = paint_wear(g, pos)
+    paint = g.mix_color(g.add(g.mul(scuff, 0.45), g.mul(grime, 0.12)), paint, (0.03, 0.03, 0.03))
     bsdf = g.principled(
         Base_Color=paint,
-        Roughness=g.add(0.45, g.mul(scuff, 0.2)),
+        Roughness=g.add(0.45, g.mul(scuff, 0.2), g.mul(grime, 0.08)),
         Normal=g.bump(g.mul(scuff, -0.3), 0.1, 0.001),
     )
     clear = g.new("ShaderNodeBsdfTransparent")

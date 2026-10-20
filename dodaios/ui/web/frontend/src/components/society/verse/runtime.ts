@@ -31,6 +31,8 @@ export interface FrameStats {
   cpuMs: number;
   tiles: number;
   tilesLoading: number;
+  /** The plate level the view streams: "overview", "M4", "M2" or "L0". */
+  plateLevel: string;
   actors: number;
 }
 
@@ -41,7 +43,7 @@ export class StageRuntime {
   deck: Deck | null = null;
   /** Live poses of every actor on the deck, crew and commander alike, by id. */
   readonly poses = new Map<string, ActorPose>();
-  readonly stats: FrameStats = { drawCalls: 0, triangles: 0, frameMs: 0, cpuMs: 0, tiles: 0, tilesLoading: 0, actors: 0 };
+  readonly stats: FrameStats = { drawCalls: 0, triangles: 0, frameMs: 0, cpuMs: 0, tiles: 0, tilesLoading: 0, plateLevel: "overview", actors: 0 };
   /** Called after each rendered frame (the HUD moves its plates here). */
   readonly afterFrame = new Set<() => void>();
 
