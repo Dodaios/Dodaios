@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 
-import { fetchFileVersion } from "@/components/agentic/editor/editorApi";
+import { fetchFileVersion, openOutsideFile } from "@/components/agentic/editor/editorApi";
 import { openTerminalTarget } from "@/lib/agenticIdeApi";
 import { OPEN_PATH_EVENT } from "@/lib/terminalLinks";
 import { useCodeEditorStore } from "@/store/codeEditor";
@@ -93,7 +93,7 @@ export function parsePrintedPath(workspaceRoot: string, printed: string): Printe
     const windows = /^[a-z]:\//i.test(root);
     const head = windows ? path.slice(0, root.length + 1).toLowerCase() : path.slice(0, root.length + 1);
     const want = windows ? `${root.toLowerCase()}/` : `${root}/`;
-    if (head !== want) return { path: null };
+    if (head !== want) return { path: null, line, column };
     path = path.slice(root.length + 1);
   }
   path = path.replace(/^(\.\/)+/, "").replace(/\/+$/, "");
@@ -103,7 +103,8 @@ export function parsePrintedPath(workspaceRoot: string, printed: string): Printe
 
 /**
  * Open what a terminal path points at: a file in the editor (at its line), a
- * folder in the Folder tab, anything outside the workspace with the system app.
+ * folder in the Folder tab. A file outside the workspace (a note saved to
+ * Downloads) opens in the editor too; anything else goes to the system app.
  */
 export async function openPrintedPath(workspaceId: string, workspaceRoot: string, printed: string): Promise<void> {
   const parsed = parsePrintedPath(workspaceRoot, printed);
@@ -112,7 +113,18 @@ export async function openPrintedPath(workspaceId: string, workspaceRoot: string
       useEventStore.getState().pushToast("error", (error as Error).message),
     );
   if (parsed.path === null) {
-    await external();
+    let path: string;
+    try {
+      path = await openOutsideFile(workspaceId, printed);
+    } catch {
+      await external();
+      return;
+    }
+    useCodeEditorStore.getState().openFile(workspaceId, path, {
+      preview: false,
+      line: parsed.line,
+      column: parsed.column,
+    });
     return;
   }
   let version: string | null;
