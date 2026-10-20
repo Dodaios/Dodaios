@@ -1,7 +1,11 @@
-/** Lazy map surface; the parent keeps the existing Agents workspace mounted. */
+/**
+ * Lazy map surface; the parent keeps the existing Agents workspace mounted.
+ * SocietyView loads this module on demand, so the Verse's WebGL chunk stays
+ * out of the main bundle.
+ */
 import { useLocaleChunk } from "@/i18n";
 import type { PlaceId } from "@/components/society/world/islandLayout";
-import { ShipStage } from "@/components/society/starship/ShipStage";
+import { VerseStage } from "@/components/society/verse/VerseStage";
 
 export interface JarvisAgentsViewProps {
   onSelectAgent?: (agentId: string | null) => void;
@@ -17,7 +21,7 @@ export function JarvisAgentsView({ onSelectAgent, onOpenAgents, onCreateAgent, o
   if (!ready) return null;
   return (
     <div className="h-full min-h-0">
-      <ShipStage active={active} onOpenLedger={onOpenAgents} onSelectAgent={onSelectAgent} onCreateAgent={onCreateAgent} onOpenGroup={onOpenGroup} />
+      <VerseStage active={active} onOpenLedger={onOpenAgents} onSelectAgent={onSelectAgent} onCreateAgent={onCreateAgent} onOpenGroup={onOpenGroup} />
     </div>
   );
 }

@@ -1,18 +1,19 @@
 /**
- * The ship's level state, shared by the HUD, the service record and the
- * promotion layer.
+ * The Verse's level state, shared by the rank card, the service record and
+ * the promotion notice.
  *
  * The first read hydrates it; every `ProgressionAwarded` push applies one
  * award, queues a floating "+XP" over whoever earned it and, on a level-up,
- * a celebration: the promotion ceremony for the captain and the pet, a quiet
- * toast for an android. Level-ups that happened while the ship was closed are
- * told once per subject.
+ * a celebration: the promotion notice for the commander and the companion
+ * drone, a quiet toast for an officer. Level-ups that happened while the
+ * Verse was closed are told once per subject.
  */
 import { create } from "zustand";
 import type { AwardEvent, ProgressionSnapshot, SubjectLevel } from "./progressionApi";
-import { PERSON_SUBJECT } from "./progressionApi";
-import type { RewardId, SubjectKind } from "./levelCatalog";
-import { loadSuitChoice, progressFor, rewardsBetween, saveSuitChoice, type SuitChoice } from "./cosmetics";
+import { PERSON_SUBJECT, rewardsOf } from "./progressionApi";
+import { MAX_LEVEL, type RewardId, type SubjectKind } from "./levelCatalog";
+import { loadUniformChoice, progressFor, rewardsBetween, saveUniformChoice, type UniformChoice } from "./cosmetics";
+import { isPromotion } from "../verse/ranks/ranks";
 
 export interface Celebration {
   id: number;
@@ -24,7 +25,7 @@ export interface Celebration {
   unlocked: RewardId[];
   /** Agent looks the level-up opened (agents only). */
   looks: string[];
-  /** Earned while the ship was closed: told, not staged. */
+  /** Earned while the Verse was closed: told, not staged. */
   away: boolean;
 }
 
@@ -32,28 +33,28 @@ export interface XpPopup { id: number; subjectId: string; xp: number; bornMs: nu
 
 /** How long a floating "+XP" lives, in ms. */
 export const POPUP_MS = 1600;
-/** How long the captain's figure cheers after their own level-up. */
+/** How long the commander's figure salutes after their own promotion. */
 export const CHEER_MS = 2200;
 const MAX_POPUPS = 12;
 const MAX_TOASTS = 4;
 
 /** The service record's pages. */
-export type ServiceTab = "record" | "ranks" | "rewards" | "earn" | "crew";
-export const SERVICE_TABS: readonly ServiceTab[] = ["record", "ranks", "rewards", "earn", "crew"];
+export type ServiceTab = "record" | "ladder" | "rewards" | "earn" | "crew";
+export const SERVICE_TABS: readonly ServiceTab[] = ["record", "ladder", "rewards", "earn", "crew"];
 
 interface ProgressionState {
   snapshot: ProgressionSnapshot | null;
   subjects: Record<string, SubjectLevel>;
   petId: string;
-  /** Captain and pet level-ups waiting for the ceremony, oldest first. */
+  /** Commander and companion level-ups waiting for the notice, oldest first. */
   banners: Celebration[];
-  /** Android level-ups, newest last. */
+  /** Officer level-ups, newest last. */
   toasts: Celebration[];
   popups: XpPopup[];
   cheerUntil: number;
   /** The service record's open page; null = closed. */
   record: ServiceTab | null;
-  suit: SuitChoice;
+  uniform: UniformChoice;
   hydrate: (snapshot: ProgressionSnapshot, away: Celebration[]) => void;
   apply: (award: AwardEvent, nowMs?: number) => void;
   setPetId: (petId: string) => void;
@@ -61,7 +62,7 @@ interface ProgressionState {
   dismissToast: (id: number) => void;
   expire: (nowMs: number) => void;
   openRecord: (tab: ServiceTab | null) => void;
-  chooseSuit: (choice: SuitChoice) => void;
+  chooseUniform: (choice: UniformChoice) => void;
 }
 
 let nextId = 1;
@@ -87,7 +88,7 @@ export const useProgression = create<ProgressionState>((set, get) => ({
   popups: [],
   cheerUntil: 0,
   record: null,
-  suit: loadSuitChoice(),
+  uniform: loadUniformChoice(),
   hydrate: (snapshot, away) => set((s) => {
     // A push can land before the read that was already on its way: never roll a subject back.
     const subjects: Record<string, SubjectLevel> = { ...s.subjects };
@@ -111,7 +112,7 @@ export const useProgression = create<ProgressionState>((set, get) => ({
     if (known && known.xp >= award.totalXp) return s;
     const curve = s.snapshot?.levelXp ?? [];
     const { into, size } = progressFor(curve, award.totalXp, award.level);
-    const atCap = s.snapshot ? award.level >= s.snapshot.maxLevel : false;
+    const atCap = award.level >= (s.snapshot?.maxLevel ?? MAX_LEVEL);
     const subject: SubjectLevel = {
       subjectId: award.subjectId, kind: award.kind, xp: award.totalXp, level: award.level,
       xpIntoLevel: atCap ? 0 : into, xpForNext: atCap ? 0 : size, title: award.title,
@@ -135,7 +136,8 @@ export const useProgression = create<ProgressionState>((set, get) => ({
       snapshot,
       banners: award.kind === "agent" ? s.banners : [...s.banners, party],
       toasts: award.kind === "agent" ? [...s.toasts, party].slice(-MAX_TOASTS) : s.toasts,
-      cheerUntil: award.subjectId === PERSON_SUBJECT ? nowMs + CHEER_MS : s.cheerUntil,
+      // The crew salutes a new rank, not every level on the way to it.
+      cheerUntil: award.subjectId === PERSON_SUBJECT && isPromotion(award.previousLevel, award.level) ? nowMs + CHEER_MS : s.cheerUntil,
     };
   }),
   setPetId: (petId) => set((s) => (s.petId === petId || !petId ? s : { petId })),
@@ -147,9 +149,9 @@ export const useProgression = create<ProgressionState>((set, get) => ({
     if (popups.length !== s.popups.length) set({ popups });
   },
   openRecord: (record) => set({ record }),
-  chooseSuit: (suit) => {
-    saveSuitChoice(suit);
-    set({ suit });
+  chooseUniform: (uniform) => {
+    saveUniformChoice(uniform);
+    set({ uniform });
   },
 }));
 
@@ -162,7 +164,7 @@ export function readSeenSeq(): number | null {
     const value = raw === null ? NaN : Number(raw);
     return Number.isFinite(value) ? value : null;
   } catch (error) {
-    console.debug("Ship level marker unavailable", error);
+    console.debug("Verse level marker unavailable", error);
     return null;
   }
 }
@@ -171,13 +173,13 @@ export function writeSeenSeq(seq: number): void {
   try {
     localStorage.setItem(SEEN_KEY, String(seq));
   } catch (error) {
-    console.debug("Ship level marker not saved", error);
+    console.debug("Verse level marker not saved", error);
   }
 }
 
 /**
- * Level-ups that happened while the ship was closed: the latest one per
- * subject, so a busy android that climbed three levels is told once.
+ * Level-ups that happened while the Verse was closed: the latest one per
+ * subject, so a busy officer that climbed three levels is told once.
  */
 export function awayCelebrations(snapshot: ProgressionSnapshot, seenSeq: number | null): Celebration[] {
   if (seenSeq === null) return [];
@@ -190,7 +192,7 @@ export function awayCelebrations(snapshot: ProgressionSnapshot, seenSeq: number 
     latest.set(row.subjectId, celebrationOf({
       subjectId: row.subjectId, kind: row.kind, level: row.levelAfter, previousLevel: from,
       title: subject?.title ?? "",
-      unlocked: rewardsBetween(snapshot.rewards, row.kind, from, row.levelAfter).map((r) => r.rewardId),
+      unlocked: rewardsBetween(rewardsOf(snapshot), row.kind, from, row.levelAfter).map((r) => r.rewardId),
       unlockedLooks: row.kind === "agent" ? looksBetween(snapshot.looks, from, row.levelAfter) : [],
     }, true));
   }

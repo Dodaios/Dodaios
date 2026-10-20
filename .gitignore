@@ -505,3 +505,10 @@ scripts/figures/cache/
 # Launch-video renders from the /brag skill (thousands of frames).
 brag-output/
 eval-results/
+
+# Dodaios Verse production pipeline: derived data (generated .blend files,
+# downloaded CC0 source textures, render scratch). Cooked output is committed
+# under dodaios/ui/web/frontend/public/verse/ instead.
+art/verse/.cache/
+# Pipeline smoke deck: cooked locally by scripts/verse/cook.py, never shipped.
+dodaios/ui/web/frontend/public/verse/decks/testbed/

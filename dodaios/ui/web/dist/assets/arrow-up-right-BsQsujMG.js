@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/arrow-up-right-Do3pKcEW.js
+import{c as t}from"./index-BdlXEyhF.js";/**
+========
+import{c as t}from"./index-BV2y23U_.js";/**
+>>>>>>>> 5cb676cb2b1350656111cdcdd820f904b447cc42:dodaios/ui/web/dist/assets/arrow-up-right-BsQsujMG.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const o=t("ArrowUpRight",[["path",{d:"M7 7h10v10",key:"1tivn9"}],["path",{d:"M7 17 17 7",key:"1vkiza"}]]);export{o as A};

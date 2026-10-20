@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import mimetypes
 import os
 import time
 from collections.abc import Callable
@@ -68,6 +69,15 @@ WEB_DIR = Path(__file__).resolve().parent
 DIST_DIR = WEB_DIR / "dist"
 INDEX_FILE = DIST_DIR / "index.html"
 ASSETS_DIR = DIST_DIR / "assets"
+
+# The Verse ships pre-rendered plates and 3D models; Windows' MIME registry
+# does not know these types, and a wrong type makes the WebView refuse them.
+for _suffix, _media_type in (
+    (".avif", "image/avif"),
+    (".glb", "model/gltf-binary"),
+    (".hdr", "image/vnd.radiance"),
+):
+    mimetypes.add_type(_media_type, _suffix)
 
 # Max time a single WS push to one browser client may take. A healthy
 # localhost ``send_json`` is sub-50 ms; exceeding this means the client is
@@ -565,6 +575,7 @@ class WebServer:
         from .routine_hooks_routes import router as routine_hooks_router
         from .runtime_gateway_routes import router as runtime_gateway_router
         from .screen_context_routes import router as screen_context_router
+        from .self_build_routes import router as self_build_router
         from .self_mod_routes import router as self_mod_router
         from .server_pairing_routes import router as server_pairing_router
         from .sessions_routes import router as sessions_router
@@ -580,7 +591,6 @@ class WebServer:
         from .starter_plan_routes import router as starter_plan_router
         from .sub_agents_routes import router as sub_agents_router
         from .tasks_routes import router as tasks_router
-        from .self_build_routes import router as self_build_router
         from .team_thread_routes import router as team_thread_router
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router

@@ -1,28 +1,30 @@
 """The Dodaios Verse level system's rulebook: pure tables, no I/O.
 
-The Verse is a starship. Three kinds of subject serve aboard and level up:
+The Verse is the interior of a fleet capital ship. Three kinds of subject
+serve aboard and level up:
 
-* ``person`` — the captain, the person at the keyboard (one subject, id ``person``);
-* ``agent`` — every Jarvis agent on the society roster, an android of the crew
+* ``person`` — the commanding officer, the person at the keyboard (one
+  subject, id ``person``);
+* ``agent`` — every agent on the society roster, an officer of the crew
   (``agent:<agent_id>``);
-* ``pet`` — the person's pet from My Pets, the ship's companion, which IS
-  Jarvis in the Verse (``pet:<pet_id>``; each pet keeps its own level, the
-  active one earns).
+* ``pet`` — the person's pet from My Pets, the commander's companion drone
+  (``pet:<pet_id>``; each pet keeps its own level, the active one earns). The
+  lead agent is drawn as the companion, so the lead's work pays the pet.
 
 XP only ever comes from a rule in :data:`RULES`. A rule names its source, the
 subject kind it pays, a fixed amount, an optional cooldown and an optional
 daily cap. Server rules are read off real bus events (a finished turn, a
 finished task); world rules are small actions aboard the ship that the client
-reports and the server still meters. Nothing here calls a model — the
-system works with any single key and costs no tokens (AP-21).
+reports and the server still meters. Nothing here calls a model, so the
+system works with any single key and costs no tokens.
 
 The level curve is front-loaded the way long-running progression usually is:
 level 2 arrives within the first few actions, level 10 after about a week of
-ordinary use, level 50 after several months. Levels climb a naval rank ladder
-(:data:`RANKS`) from cadet to admiral, and levels open the captain's suits,
-the destinations the helm can set course for, and decorations
+ordinary use, level 50 after several months. Levels climb the fleet's rank
+ladder (:data:`RANKS`) in four tiers, from recruit to fleet admiral, and open
+the commander's uniforms and the ribbons of the service record
 (:data:`REWARDS`). ``docs/agent-society/level-system.md`` is the readable
-version of this file; the parity test pins the frontend's copy of the ids.
+version of this file; parity tests pin the frontend's copies of the ids.
 """
 
 from __future__ import annotations
@@ -41,6 +43,12 @@ MAX_LEVEL: Final[int] = 50
 #: Society roster id of the lead. The lead is drawn as the person's pet, so its
 #: work pays the pet, never an ``agent:jarvis`` subject.
 LEAD_AGENT_ID: Final[str] = "jarvis"
+
+#: The ship's decks, top to bottom: the refs a ``deck_discovered`` or an
+#: ``inspection`` report may name. The frontend's copy is
+#: ``components/society/verse/decks.ts`` (``DECK_IDS``); a parity test holds
+#: them together.
+VERSE_DECKS: Final[tuple[str, ...]] = ("bridge", "ops", "engineering", "hangar")
 
 
 def xp_to_next(level: int) -> int:
@@ -112,27 +120,27 @@ class XpRule:
 
 
 RULES: Final[tuple[XpRule, ...]] = (
-    # The captain: talking to Jarvis, giving the crew work, growing the crew.
+    # The commander: talking to the assistant, giving the crew work, growing the crew.
     XpRule("chat_turn", "person", 5, "server", daily_cap=100),
     XpRule("voice_turn", "person", 5, "server", daily_cap=100),
     XpRule("quest_posted", "person", 15, "server", daily_cap=75),
     XpRule("quest_completed", "person", 20, "server"),
     XpRule("agent_hired", "person", 50, "server"),
     XpRule("mission_completed", "person", 30, "server", daily_cap=150),
-    # The captain, aboard the ship.
+    # The commander, aboard the ship.
     XpRule("daily_visit", "person", 25, "world", once_per_ref=True),
     XpRule("deck_discovered", "person", 20, "world", once_per_ref=True),
-    XpRule("holodeck_round", "person", 8, "world", cooldown_s=45, daily_cap=80),
-    XpRule("holodeck_record", "person", 15, "world", cooldown_s=45, daily_cap=60),
+    XpRule("simulator_round", "person", 8, "world", cooldown_s=45, daily_cap=80),
+    XpRule("simulator_record", "person", 15, "world", cooldown_s=45, daily_cap=60),
     XpRule("team_briefing", "person", 10, "world", cooldown_s=600, daily_cap=40),
-    XpRule("warp_jump", "person", 5, "world", cooldown_s=600, daily_cap=30),
+    XpRule("inspection", "person", 15, "world", once_per_ref=True, daily_cap=30),
     # The crew: finished work is what counts.
     XpRule("task_done", "agent", 40, "server"),
     XpRule("task_blocked", "agent", 8, "server", daily_cap=40),
     XpRule("quest_done", "agent", 60, "server"),
     XpRule("answered_teammate", "agent", 5, "server", daily_cap=50),
-    # The pet is Jarvis: every answer and every hand-off it makes, and the
-    # walks it takes beside the captain.
+    # The companion drone carries the lead's work: every answer and every
+    # hand-off it makes, and the walks it takes at the commander's heel.
     XpRule("jarvis_answered", "pet", 4, "server", daily_cap=120),
     XpRule("delegated", "pet", 10, "server", daily_cap=100),
     XpRule("walk_together", "pet", 3, "world", cooldown_s=20, daily_cap=60),
@@ -143,46 +151,81 @@ RULES_BY_SOURCE: Final[dict[str, XpRule]] = {rule.source: rule for rule in RULES
 #: Sources the client may report through ``POST /api/progression/actions``.
 WORLD_ACTIONS: Final[frozenset[str]] = frozenset(r.source for r in RULES if r.trigger == "world")
 
+#: Sources earlier builds paid that no rule pays any more. Ledger rows that
+#: carry them still read and still count; they are only never paid again.
+RETIRED_SOURCES: Final[frozenset[str]] = frozenset(
+    {
+        # The starship (2026-10): the holodeck became the simulator room, the
+        # helm and its destinations are gone.
+        "holodeck_round",
+        "holodeck_record",
+        "warp_jump",
+        # The office tower.
+        "floor_discovered",
+        "dog_petted",
+        "dog_treat",
+        "arcade_round",
+        "arcade_record",
+        "team_meeting",
+    }
+)
+
 
 # ------------------------------------------------------------------ ranks
 
-RankTier = Literal["enlisted", "warrant", "officer", "flag"]
-RANK_TIERS: Final[tuple[RankTier, ...]] = ("enlisted", "warrant", "officer", "flag")
+RankTier = Literal["deck", "line", "command", "flag"]
+#: Lowest first: enlisted deck ratings, line officers, command, flag officers.
+RANK_TIERS: Final[tuple[RankTier, ...]] = ("deck", "line", "command", "flag")
 
 #: The rank ladder everyone aboard climbs, lowest first: (first level, rank
-#: id, tier). The captain, every android and the pet share it, so a rank means
-#: the same thing on every name plate. The frontend's copy is
-#: ``starship/levels/ranks.ts`` (with the insignia's pips); its names are
-#: ``ship.rank.<id>``.
+#: id, tier). The commander, every officer and the companion drone share it,
+#: so a rank means the same thing on every name plate. The frontend's copy is
+#: ``components/society/verse/ranks/ranks.ts`` (with the rank plate's tile
+#: pattern); its words are ``verse.ranks.rank.<id>``.
 RANKS: Final[tuple[tuple[int, str, RankTier], ...]] = (
-    (1, "cadet", "enlisted"),
-    (3, "crewman", "enlisted"),
-    (5, "specialist", "enlisted"),
-    (7, "petty_officer", "enlisted"),
-    (10, "chief_petty_officer", "enlisted"),
-    (13, "warrant_officer", "warrant"),
-    (16, "ensign", "officer"),
-    (19, "lieutenant_junior_grade", "officer"),
-    (22, "lieutenant", "officer"),
-    (26, "lieutenant_commander", "officer"),
-    (30, "commander", "officer"),
-    (34, "captain", "officer"),
-    (38, "commodore", "flag"),
-    (42, "rear_admiral", "flag"),
-    (46, "vice_admiral", "flag"),
-    (50, "admiral", "flag"),
+    (1, "recruit", "deck"),
+    (3, "deckhand", "deck"),
+    (5, "technician", "deck"),
+    (8, "senior_technician", "deck"),
+    (11, "ensign", "line"),
+    (14, "lieutenant", "line"),
+    (17, "senior_lieutenant", "line"),
+    (21, "commander", "line"),
+    (25, "captain", "line"),
+    (29, "line_captain", "command"),
+    (33, "commodore", "command"),
+    (37, "rear_admiral", "flag"),
+    (41, "vice_admiral", "flag"),
+    (45, "admiral", "flag"),
+    (50, "fleet_admiral", "flag"),
 )
+
+RANK_IDS: Final[tuple[str, ...]] = tuple(rank for _, rank, _ in RANKS)
+
+
+def rank_for(level: int) -> tuple[int, str, RankTier]:
+    """The rank a subject at ``level`` holds."""
+    held = RANKS[0]
+    for entry in RANKS:
+        if level >= entry[0]:
+            held = entry
+    return held
+
+
+def tier_start(tier: RankTier) -> int:
+    """The first level of ``tier`` (the level its lowest rank opens at)."""
+    return min(level for level, _, t in RANKS if t == tier)
 
 
 # ------------------------------------------------------------------ rewards
 
-Slot = Literal["suit", "destination", "decoration"]
-SLOTS: Final[tuple[Slot, ...]] = ("suit", "destination", "decoration")
+Slot = Literal["uniform", "ribbon"]
+SLOTS: Final[tuple[Slot, ...]] = ("uniform", "ribbon")
 
 
 @dataclass(frozen=True, slots=True)
 class Reward:
-    #: ``<slot>_<name>``; a destination's name is the helm's destination id.
+    #: ``<slot>_<name>``; a uniform's name is the rank tier it belongs to.
     reward_id: str
     slot: Slot
     #: The level each subject kind unlocks it at; ``None`` = not for that kind.
@@ -194,42 +237,24 @@ class Reward:
         return {"person": self.person, "agent": self.agent, "pet": self.pet}[kind]
 
 
-#: What a level opens. The captain earns suits for their figure, destinations
-#: for the helm and decorations; androids keep the look their owner gave them
-#: and earn decorations only; the pet wears its rank on its name plate.
+#: What a level opens.
+#:
+#: Uniforms are the commander's: the quartermaster issues the work uniform on
+#: day one and each higher tier's dress the day its first rank is reached; the
+#: commander may wear any issued one. Officers wear their own tier's uniform
+#: automatically, so they earn none. Ribbons are commendations for long,
+#: steady service, worn on the service record by the commander and the crew.
+#: The companion drone wears its rank only.
 REWARDS: Final[tuple[Reward, ...]] = (
-    Reward("suit_field_armor", "suit", person=6, agent=None, pet=None),
-    Reward("suit_command_coat", "suit", person=16, agent=None, pet=None),
-    Reward("suit_dress_whites", "suit", person=26, agent=None, pet=None),
-    Reward("suit_admiral_coat", "suit", person=42, agent=None, pet=None),
-    Reward("destination_gas_giant", "destination", person=5, agent=None, pet=None),
-    Reward("destination_crimson_nebula", "destination", person=10, agent=None, pet=None),
-    Reward("destination_ice_moon", "destination", person=15, agent=None, pet=None),
-    Reward("destination_twin_suns", "destination", person=20, agent=None, pet=None),
-    Reward("destination_event_horizon", "destination", person=25, agent=None, pet=None),
-    Reward("destination_aurora_world", "destination", person=30, agent=None, pet=None),
-    Reward("destination_galactic_core", "destination", person=40, agent=None, pet=None),
-    Reward("decoration_service_ribbon", "decoration", person=8, agent=3, pet=None),
-    Reward("decoration_commendation", "decoration", person=18, agent=16, pet=None),
-    Reward("decoration_star_medal", "decoration", person=36, agent=32, pet=None),
-    Reward("decoration_legion_of_merit", "decoration", person=47, agent=44, pet=None),
+    Reward("uniform_deck", "uniform", person=1, agent=None, pet=None),
+    Reward("uniform_line", "uniform", person=tier_start("line"), agent=None, pet=None),
+    Reward("uniform_command", "uniform", person=tier_start("command"), agent=None, pet=None),
+    Reward("uniform_flag", "uniform", person=tier_start("flag"), agent=None, pet=None),
+    Reward("ribbon_good_conduct", "ribbon", person=6, agent=4, pet=None),
+    Reward("ribbon_meritorious", "ribbon", person=19, agent=16, pet=None),
+    Reward("ribbon_distinguished", "ribbon", person=31, agent=27, pet=None),
+    Reward("ribbon_fleet_cross", "ribbon", person=47, agent=43, pet=None),
 )
-
-#: Where the ship starts; every other destination is a ``destination`` reward.
-HOME_DESTINATION: Final[str] = "home"
-
-#: Every destination the helm knows, home first (a ``warp_jump`` names one).
-DESTINATION_IDS: Final[tuple[str, ...]] = (HOME_DESTINATION,) + tuple(
-    r.reward_id.removeprefix("destination_") for r in REWARDS if r.slot == "destination"
-)
-
-
-def destination_level(destination_id: str) -> int:
-    """The captain's level a destination opens at (home is open from the start)."""
-    for reward in REWARDS:
-        if reward.slot == "destination" and reward.reward_id == f"destination_{destination_id}":
-            return reward.person or 1
-    return 1
 
 
 def unlocked_rewards(kind: SubjectKind, level: int) -> list[Reward]:
@@ -247,9 +272,10 @@ def rewards_between(kind: SubjectKind, before: int, after: int) -> list[Reward]:
 # ------------------------------------------------------------------ agent looks
 
 #: The agent level at which each wearable look unlocks
-#: (``companion/accessories.json`` ids). The maintainer opened every look
-#: from the start (2026-10-05); raise a value to turn a look back into a
-#: level-up reward. A look an agent already wears is never taken away.
+#: (``companion/accessories.json`` ids, the agent card's looks). The
+#: maintainer opened every look from the start (2026-10-05); raise a value to
+#: turn a look back into a level-up reward. A look an agent already wears is
+#: never taken away.
 LOOK_UNLOCKS: Final[dict[str, int]] = {
     "sunglasses": 1,
     "cap": 1,

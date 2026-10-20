@@ -29,7 +29,7 @@ const BLAST_HOT = new Color("#fff1c2");
 const BLAST_COOL = new Color("#ff5a1f");
 /** A click this close (CSS px) to a rock's outline picks it. */
 const PICK_SLOP_PX = 26;
-/** Imperial-green bolts: a white-hot core in a green glow. */
+/** Green bolts: a white-hot core in a green glow. */
 const LASER_GLOW = "#2dff5a";
 const STAR_COUNT = 900;
 const SPACE = "#0b0a14";
