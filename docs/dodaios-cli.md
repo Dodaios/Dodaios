@@ -14,7 +14,7 @@ point it at a running Dodaios and drive it.
 > what `dodaios` and `dodaiosctl` do, so existing scripts keep working; help
 > output repeats whichever name you typed.
 >
-> Full command list: [`jarvis-cli-reference.md`](jarvis-cli-reference.md)
+> Full command list: [`dodaios-cli-reference.md`](dodaios-cli-reference.md)
 > (auto-generated). Design rationale: [`superpowers/specs/2026-06-21-jarvis-cli-design.md`](superpowers/specs/2026-06-21-jarvis-cli-design.md).
 
 ## How it works

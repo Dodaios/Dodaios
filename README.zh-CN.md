@@ -112,7 +112,7 @@ Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电�
 - **它们交回真正的成果。** 文件、报告和计划都会出现在“产出物”中，每一次工具调用都清晰可见。
 - **较长的行动在隔离环境中运行。** 编程行动在独立的 git worktree 中进行，可以拆分成并行的工作者，并在你看到结果前通过审查。
 
-[智能体指南 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/jarvis-agents.md) ·
+[智能体指南 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md) ·
 [智能体如何学习 →](https://github.com/Dodaios/Dodaios/blob/main/docs/agent-society/self-learning.md) ·
 [例程 →](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md)
 
@@ -139,7 +139,7 @@ Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电�
 [插件 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md) ·
 [MCP →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md) ·
 [CLI →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/cli-connections.md) ·
-[Dodaios CLI →](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli.md)
+[Dodaios CLI →](https://github.com/Dodaios/Dodaios/blob/main/docs/dodaios-cli.md)
 
 ## 控制权在你手里
 
@@ -188,7 +188,7 @@ Dodaios 不是又一个聊天窗口。它是一款桌面应用，把 AI 在电�
 
 文档目前为英文。
 
-[快速开始](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/first-run-setup.md) · [应用导览](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/desktop-app-tour.md) · [语音](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) · [听写](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md) · [Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md) · [智能体](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/jarvis-agents.md) · [电脑操控](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md) · [服务商](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/providers-and-api-keys.md) · [本地模型](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/local-ai-providers.md) · [插件](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md) · [MCP](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md) · [记忆](https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md) · [CLI](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli.md) · [服务器](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md) · [架构](https://github.com/Dodaios/Dodaios/blob/main/docs/architecture-overview.md) · [故障排查](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/troubleshooting.md)
+[快速开始](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/first-run-setup.md) · [应用导览](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/desktop-app-tour.md) · [语音](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md) · [听写](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md) · [Agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md) · [智能体](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md) · [电脑操控](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md) · [服务商](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/providers-and-api-keys.md) · [本地模型](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/local-ai-providers.md) · [插件](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md) · [MCP](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md) · [记忆](https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md) · [CLI](https://github.com/Dodaios/Dodaios/blob/main/docs/dodaios-cli.md) · [服务器](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md) · [架构](https://github.com/Dodaios/Dodaios/blob/main/docs/architecture-overview.md) · [故障排查](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/troubleshooting.md)
 
 ## 参与贡献
 
