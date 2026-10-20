@@ -45,6 +45,23 @@ def _notebook() -> Any | None:
     return active()
 
 
+def _agent_skills(agent_id: str) -> list[Any]:
+    """An agent's private skills (active and draft); ``[]`` without a society. Blocking."""
+    from dodaios.society.runtime import current_runtime
+
+    runtime = current_runtime()
+    if runtime is None:
+        return []
+    skills = runtime.skills_for(agent_id)
+    return [*skills.list_active(), *skills.registry.list_drafts()]
+
+
+def _pane_history() -> Path:
+    from dodaios.agentic_ide.prompt_history import store_dir
+
+    return store_dir()
+
+
 def install_in_app(service: Any, app_state: Any, bus: Any) -> SelfBuildLoop:
     """Register the four builders and start observing (idempotent)."""
     existing = current()
@@ -59,8 +76,24 @@ def install_in_app(service: Any, app_state: Any, bus: Any) -> SelfBuildLoop:
         task_store=lambda: getattr(app_state, "task_store", None),
         scheduler=lambda: getattr(app_state, "task_scheduler", None),
         society=_society_accessor(app_state),
+        agent_skills=_agent_skills,
+        pane_history=_pane_history,
     )
     return install(service, env=env, bus=bus)
+
+
+def pane_prompt_recorded(history_id: str) -> None:
+    """The IDE's hook after a prompt the person typed reached a pane; a no-op when off.
+
+    Never raises into the IDE: a failure here only costs one observation.
+    """
+    loop = current()
+    if loop is None:
+        return
+    try:
+        loop.pane_prompt_recorded(history_id)
+    except Exception:  # noqa: BLE001 - observation must never break a prompt
+        log.warning("self_build: pane prompt not observed", exc_info=True)
 
 
 async def chat_turn_completed(session: Any, completion: Any, *, surface: str) -> None:
