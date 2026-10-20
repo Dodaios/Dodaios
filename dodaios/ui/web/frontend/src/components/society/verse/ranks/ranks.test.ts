@@ -21,7 +21,8 @@ const RULES_PY = join(__dirname, "..", "..", "..", "..", "..", "..", "..", "..",
 
 /** `RANKS` as the backend declares it: (level, id, tier). */
 function serverLadder(): [number, string, string][] {
-  const py = readFileSync(RULES_PY, "utf8");
+  // A Windows checkout may hold the file with CRLF line endings.
+  const py = readFileSync(RULES_PY, "utf8").replace(/\r\n/g, "\n");
   const block = /^RANKS: Final\[[^\n]*\] = \(\n([\s\S]*?)\n\)/m.exec(py);
   if (!block) throw new Error("RANKS is no longer a tuple literal in dodaios/progression/rules.py");
   return [...block[1].matchAll(/\((\d+), "([a-z_]+)", "([a-z]+)"\)/g)].map((m) => [Number(m[1]), m[2], m[3]]);
