@@ -116,7 +116,7 @@ related:
 ## Verification                                                      # REQUIRED
 
 <Concrete test confirming the steps succeeded. Verify-before-ship
-mandate from AGENTS.md §0.>
+project mandate>
 
 ```bash
 pytest tests/<file>::<test_name>
@@ -428,7 +428,7 @@ mandates):
 
 | ID | Anti-pattern | Why it's bad |
 |---|---|---|
-| **AP-J-1** | **How-to without a verification section** | Violates the verify-before-ship mandate (AGENTS.md §0). The doc delivers steps but no test. |
+| **AP-J-1** | **How-to without a verification section** | Violates the verify-before-ship mandate. The doc delivers steps but no test. |
 | **AP-J-2** | **Germanized code identifier** ("der Hirn-Verwalter" instead of ``BrainManager``) | Breaks the user preference. Identifiers are standard Python English. |
 | **AP-J-3** | **Voice example without a language tag** ("Jarvis, mach X" — without a hint whether DE or EN) | Bilingual default means both are equivalent — the example must be clearly attributed. |
 | **AP-J-4** | **TODO/FIXME/TBD in the body when ``status: active``** | If it's a stub: ``status: draft`` in the frontmatter — otherwise the status lies. |

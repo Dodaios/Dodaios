@@ -360,7 +360,7 @@ def ensure_project(path: str | Path, *, name: str | None = None) -> Project:
 
 
 #: What the one project-less holder is called on screen. English because every
-#: artifact is (AGENTS.md §1); it is a name, not a translated label.
+#: artifact is; it is a name, not a translated label.
 SCRATCH_NAME = "Sessions"
 
 

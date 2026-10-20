@@ -652,7 +652,7 @@ class WebServer:
         # dodaios/ui/web/update_routes.py; refuses to self-reset a dev checkout.
         app.include_router(update_router)
         # Share-safe cross-device setup report (read-only) — names why THIS
-        # install behaves differently from another device (AGENTS.md §3 triage).
+        # install behaves differently from another device (triage).
         app.include_router(setup_report_router)
         # Starter plans + the one-time "all set" readiness note.
         app.include_router(starter_plan_router)

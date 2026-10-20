@@ -503,7 +503,7 @@ def step_models(*, full_profile: bool, dry_run: bool) -> None:
     # The download step's exit code alone is not proof: a skipped or cache-served
     # model can still leave "done" looking complete. So don't stop at rc — VERIFY
     # what actually landed on disk and print a per-model truth. Read-only +
-    # best-effort: this never bricks the install (AGENTS.md section 3).
+    # best-effort: this never bricks the install.
     # run_noted, not run_quiet: with the HF progress bars silenced inside the
     # prefetch itself, its output is a handful of milestone lines ("downloading
     # wake model … ~40 MB", "speech model 'base': ready") — streaming them as

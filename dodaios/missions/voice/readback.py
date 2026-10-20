@@ -253,7 +253,7 @@ READBACK_TEMPLATES: Final[dict[TemplateKey, dict[Lang, list[str]]]] = {  # i18n-
 # (2026-05-27 hardening finding #7). Keys are the reasons emitted by the
 # orchestrator / recovery sweep; the DE and EN sets must stay in parity.
 # Keyed by language CODE (str), not the render-API ``Lang`` literal: ``es`` is
-# an equal supported product-surface language (AGENTS.md §1) and MUST be able
+# an equal supported product-surface language and MUST be able
 # to carry a phrase here even though the ``MissionReadback`` render methods
 # themselves still default to the de/en ``Lang`` surface (widening that whole
 # API to ``es`` is a separate, larger task). Lookups use ``.get(language, {})``
