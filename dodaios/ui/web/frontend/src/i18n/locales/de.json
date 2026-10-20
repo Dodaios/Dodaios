@@ -5760,7 +5760,10 @@
       "restart_aria": "{pane} neu starten",
       "restart_title": "Ein frisches {agent} in {pane} starten",
       "restart": "Neu starten",
-      "show_in_git": "Änderungen von {pane} in Git anzeigen"
+      "show_in_git": "Änderungen von {pane} in Git anzeigen",
+      "scrollbar": "Terminal scrollen",
+      "scroll_up": "Nach oben scrollen",
+      "scroll_down": "Nach unten scrollen"
     }
   },
   "prompt_writer": {

@@ -45,7 +45,6 @@ _ALLOWED_PATHS: tuple[str, ...] = (
     "CODE_OF_CONDUCT.md",
     "dodaios/skills/builtin/skill-creator/references/*",
     "dodaios/ui/web/frontend/src/components/society/AgentSymbol.tsx",
-    "scripts/readme-video/src/identity/AgentSymbol.tsx",
     "scripts/ci/check_design_references.py",
     "tests/unit/ci/test_check_design_references.py",
     "**/dist/*",

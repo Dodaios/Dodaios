@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -73,3 +74,20 @@ def out(args: Sequence[str], cwd: str | Path) -> str:
     """Trimmed stdout of a git call, ``""`` when it failed."""
     result = git(args, cwd)
     return result.out.strip() if result.ok else ""
+
+
+_GITHUB_URL = re.compile(
+    r"github\.com[:/]+(?P<owner>[A-Za-z0-9-]+)/(?P<name>[A-Za-z0-9._-]+?)(?:\.git)?/?$"
+)
+
+
+def github_repo(url: str) -> str:
+    """``owner/name`` of a GitHub remote URL, ``""`` for anything else."""
+    match = _GITHUB_URL.search(url.strip())
+    return f"{match['owner']}/{match['name']}" if match else ""
+
+
+def origin_repo(folder: str | Path, *, push: bool = False) -> str:
+    """The GitHub repository ``origin`` fetches from (``push``: pushes to)."""
+    args = ["remote", "get-url", *(["--push"] if push else []), "origin"]
+    return github_repo(out(args, folder))

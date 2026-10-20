@@ -270,8 +270,8 @@ async def test_the_translate_prompt_replaces_the_polish_one(model) -> None:
     )
 
     system = model.calls[0]["system"]
-    assert "dictation translator" in system
-    assert "OUTPUT LANGUAGE = INPUT LANGUAGE" not in system
+    assert "You translate the user's dictation" in system
+    assert "You format the user's dictation" not in system
     # The target is named in words, not left as a bare code for the model to
     # decode.
     assert "English" in system
@@ -361,7 +361,7 @@ async def test_no_target_leaves_the_plain_polish_path_untouched(model) -> None:
 
     assert result.status == "applied"
     assert result.text == POLISHED_GERMAN
-    assert "dictation translator" not in model.calls[0]["system"]
+    assert "You translate the user's dictation" not in model.calls[0]["system"]
 
 
 # --------------------------------------------------------------------------

@@ -8,7 +8,7 @@ order: 2
 diataxis: explanation
 status: active
 owner: maintainers
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-19
 phase: "-"
 audience: end-user
 tags: [voice, microphone, wake-word, speech-recognition, text-to-speech, pipeline, realtime, language]
@@ -31,9 +31,12 @@ reason, act, or speak a reply.
 - On macOS, allow **Microphone** access. The Call shortcut also needs
   Input Monitoring access, which macOS asks for when you save a shortcut. Other systems use their own audio
   and shortcut permissions.
-- Open **API Keys & Providers** and review **Voice engine**. Realtime needs one
-  compatible live voice connection. Pipeline needs usable Voice Input, Brain,
-  and Voice Output paths, which can be local, hosted, or mixed.
+- Open **API Keys & Providers > Live calls** and review **Voice engine**.
+  **GPT-Live** is the Realtime engine and needs one ready live voice
+  connection. **Pipeline** needs usable Voice Input, Brain, and Voice Output
+  paths, which can be local, hosted, or mixed; the tab lists all three once
+  Pipeline is selected. **Settings > Voice > Realtime voice** is the same
+  choice as a switch.
 
 On a headless computer, native wake detection, desktop shortcuts, microphone,
 and speaker output are unavailable. A browser can offer **Start Realtime
