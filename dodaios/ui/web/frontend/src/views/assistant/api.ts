@@ -63,7 +63,7 @@ export interface SoulSeat {
   seat?: string;
   /** The provider as the person knows it ("OpenAI Codex"). */
   seat_label?: string;
-  /** "subscription" | "local" | "api key". */
+  /** "subscription" | "local" | "metered". */
   billing?: string;
 }
 

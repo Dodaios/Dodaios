@@ -21,8 +21,8 @@ from dodaios.memory.learning import compact
 from dodaios.memory.learning.loop import JarvisLearningLoop
 from dodaios.memory.learning.notebook import LEDGER_NAME, JarvisNotebook
 from dodaios.memory.learning.review import (
-    BILLING_API_KEY,
     BILLING_LOCAL,
+    BILLING_METERED,
     BILLING_SUBSCRIPTION,
     ModelReviewer,
     SeatChoice,
@@ -100,7 +100,7 @@ async def test_without_a_subscription_the_review_still_runs_on_the_key(registry,
     assert await reviewer("{}") == []
     assert [(b.name, b.kwargs) for b in registry.built] == [("openai", {"model": "gpt-chosen"})]
     assert registry.answered[0].secrets == {"openai": "agent-key-openai"}
-    assert reviewer.last_choice.billing == BILLING_API_KEY
+    assert reviewer.last_choice.billing == BILLING_METERED
 
 
 async def test_a_failing_subscription_hands_the_review_to_the_key(registry, logins):
@@ -109,7 +109,7 @@ async def test_a_failing_subscription_hands_the_review_to_the_key(registry, logi
     reviewer = ModelReviewer(_config(worker="openai", model="gpt-5.5"))
     assert await reviewer("{}") == []
     assert registry.built_names() == ["codex", "openai"]
-    assert reviewer.last_choice.billing == BILLING_API_KEY
+    assert reviewer.last_choice.billing == BILLING_METERED
 
 
 async def test_a_subscription_that_cannot_be_built_hands_the_review_to_the_key(monkeypatch, logins):
@@ -130,7 +130,7 @@ async def test_another_familys_subscription_is_not_picked(registry, logins):
     reviewer = ModelReviewer(_config(worker="gemini", model="g-chosen"))
     await reviewer("{}")
     assert registry.built_names() == ["gemini"]
-    assert reviewer.last_choice.billing == BILLING_API_KEY
+    assert reviewer.last_choice.billing == BILLING_METERED
 
 
 async def test_an_explicit_learning_provider_keeps_winning(registry, logins):
