@@ -168,10 +168,23 @@ def remove_local(
             logger.info("self-build code: kept {}: it has uncommitted changes", worktree)
             return False
         gitcmd.git(["worktree", "remove", *(["--force"] if force else []), worktree], root)
+        _drop_if_empty(Path(worktree).parent)
     gitcmd.git(["worktree", "prune"], root)
     if tip:
         gitcmd.git(["branch", "-D", branch], root)
     return True
+
+
+def _drop_if_empty(folder: Path) -> None:
+    """Remove ``<repo>/.worktrees`` once the loop's worktree was the last one in it."""
+    from dodaios.agentic_ide import git_ops
+
+    if folder.name != git_ops.WORKTREE_DIR:
+        return
+    try:
+        folder.rmdir()  # only succeeds while empty
+    except OSError:  # other worktrees live there, or it is already gone
+        pass
 
 
 def _unsaved(worktree: str) -> list[str]:
@@ -249,13 +262,33 @@ def compose_prompt(
         "the instruction files (CLAUDE.md). A change that does is thrown away.",
         "- Do not push, open pull requests, comment on GitHub, change git remotes or switch "
         "branches; Dodaios checks your work and does that.",
-        "- Run the tests before you finish; they must pass: " + "; ".join(tests) + ".",
+        "- Run the tests before you finish; Dodaios runs exactly these to judge the "
+        "change, so run them the same way: " + "; ".join(tests) + ".",
         "- Commit your work on this branch with a clear message.",
         "- If the issue cannot be done safely, change nothing and say why in one paragraph.",
         "- End with a short summary of what you changed and how you checked it; it becomes "
-        "the pull request description.",
+        "the pull request description, so write it for the repository's reviewers: no paths "
+        "on this computer, no notes about its tools or shell.",
     ]
     return "\n".join(parts)
+
+
+_LOCAL_PATH: Final[re.Pattern[str]] = re.compile(
+    r"(?i)(?<![\w/])(?:[a-z]:[\\/]|/(?:users|home|private|tmp|var/folders)/)[^\s`'\")\]]+"
+)
+_QUOTED_LOCAL_PATH: Final[re.Pattern[str]] = re.compile(
+    r"(?i)`[^`\n]*?(?<![\w/])(?:[a-z]:[\\/]|/(?:users|home|private|tmp|var/folders)/)[^`\n]*`"
+)
+
+
+def scrub(text: str, worktree: str = "") -> str:
+    """The agent's summary without this computer's paths (it goes to GitHub)."""
+    if worktree:
+        for form in {worktree, worktree.replace("\\", "/"), worktree.replace("/", "\\")}:
+            text = text.replace(form + "\\", "").replace(form + "/", "").replace(form, ".")
+    # A quoted path may hold spaces ("C:\Program Files\..."): the whole span goes.
+    text = _QUOTED_LOCAL_PATH.sub("`<local path>`", text)
+    return _LOCAL_PATH.sub("<local path>", text)
 
 
 def pr_body(
@@ -266,8 +299,10 @@ def pr_body(
     changed: list[str],
     build_id: str,
     plan: Plan,
+    worktree: str = "",
 ) -> str:
     text = re.sub(r"(?im)^\s*(closes|fixes|resolves)\s+#\d+\s*$", "", summary).strip()
+    text = scrub(text, worktree)
     lines = [f"Closes #{issue.number}", "", text[:_SUMMARY_CHARS] or "(no summary)", ""]
     lines += ["### Checked", *[f"- {line}" for line in tests_detail.splitlines() if line]]
     shown = ", ".join(f"`{path}`" for path in changed[:15])
@@ -511,7 +546,7 @@ async def _build(
         base=base,
         brief_text=brief.render(),
         plan=plan,
-        tests=[commands.shown(cmd) for cmd in tests],
+        tests=[commands.runnable(cmd) for cmd in tests],
     )
 
     async def remember_session(session_id: str) -> None:
@@ -606,6 +641,7 @@ async def finish(
             changed=changed,
             build_id=record.id,
             plan=plan,
+            worktree=worktree,
         ),
         draft=draft,
     )

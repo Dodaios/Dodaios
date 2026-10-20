@@ -282,6 +282,8 @@ def test_issue_becomes_draft_pull_request_proven_by_ci_and_undoable(world: World
     prompt = world.runner.prompts[0]
     assert "Use type hints in new code." in prompt
     assert "pytest" in prompt and ISSUE_BODY in prompt
+    # The agent is told the exact command the judge runs (the real interpreter).
+    assert sys.executable.replace(chr(92), "/") in prompt.replace(chr(92), "/")
 
     world.github.pulls[100]["checks"] = "SUCCESS"
     world.tick()
@@ -296,6 +298,7 @@ def test_issue_becomes_draft_pull_request_proven_by_ci_and_undoable(world: World
     assert world.github.pulls[100]["state"] == "CLOSED"
     assert branch not in world.remote_branches()
     assert not worktree.exists()
+    assert not worktree.parent.exists()  # no empty .worktrees folder left behind
     assert branch not in git(world.work, "branch", "--list", branch)
 
 

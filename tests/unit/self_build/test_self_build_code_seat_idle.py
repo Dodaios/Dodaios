@@ -294,3 +294,21 @@ def test_viewer_without_read_org_still_knows_the_person(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(github_link, "graphql", with_orgs)
     assert GitHubApi("t").viewer().admin_orgs == frozenset({"org"})
+
+
+# ------------------------------------------------------------------ the pull request text
+
+
+def test_pull_request_text_carries_no_local_paths() -> None:
+    from dodaios.self_build.code.builder import scrub
+
+    worktree = r"C:\Users\me\proj\.worktrees\dodaios-issue-1-x"
+    text = (
+        rf"Edited {worktree}\calc.py and ran (`C:\Program Files\Python311\python.exe -m pytest`)."
+        "\nAlso see /home/me/proj/notes.txt and /Users/me/x.\nKept `tests/test_calc.py`."
+    )
+    out = scrub(text, worktree)
+    assert "Edited calc.py" in out
+    assert "Program Files" not in out and "Python311" not in out
+    assert "/home/me" not in out and "/Users/me" not in out
+    assert "`tests/test_calc.py`" in out  # repository paths stay
