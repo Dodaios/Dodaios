@@ -4,7 +4,7 @@
 The README is the PyPI project page's whole body, and PyPI renders it on its
 OWN domain — it does not resolve paths against the source repository the way
 GitHub does. So `src="assets/brand/banner.png"` is a broken image there and
-`](docs/BUGS.md)` is a dead link, while both look perfect in the repo. That
+`](docs/os-parity.md)` is a dead link, while both look perfect in the repo. That
 asymmetry is why this regresses silently: the person adding the link sees it
 work.
 

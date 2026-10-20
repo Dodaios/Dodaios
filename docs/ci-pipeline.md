@@ -254,7 +254,7 @@ merge queue), and hourly as a safety net:
 2. Conflicts resolve by file class: **generated** files (frontend `dist/`,
    CLI reference docs, lockfiles, timing caches) take main's
    copy and are regenerated; **append-only** files (CHANGELOG, allowlists,
-   `.gitignore`, `docs/BUGS.md`) are union-merged; **everything else** goes
+   `.gitignore`) are union-merged; **everything else** goes
    to the optional AI resolver (`ANTHROPIC_API_KEY` → Claude Code,
    `OPENAI_API_KEY` → Codex CLI, both pinned to exact versions). Its result
    must leave no conflict markers and must still parse, and CI re-runs on it
