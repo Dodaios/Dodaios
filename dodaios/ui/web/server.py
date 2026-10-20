@@ -3937,11 +3937,20 @@ class WebServer:
             else:
                 logger.info("Friends-Stack live: Telegram-Channel disabled (config off)")
 
-    async def _society_routine_result(self, tags: tuple[str, ...], text: str, status: str) -> None:
+    async def _society_routine_result(
+        self,
+        tags: tuple[str, ...],
+        text: str,
+        status: str,
+        *,
+        details: dict[str, str] | None = None,
+    ) -> None:
         """A routine tagged ``agent:<id>`` reports its result into that agent's
         own chat (the ecosystem card promises it). Tasks never import the
         society; this is the one seam. Every failure is logged, never raised
-        into the task."""
+        into the task. ``details`` (a skipped run's ``reason_code``,
+        ``provider`` and ``routine``) ride along on the notice so the chat
+        words the reason in the reader's language."""
         from dodaios.society.routines import agent_id_from_tags
         from dodaios.society.runtime import current_runtime
 
@@ -3970,6 +3979,7 @@ class WebServer:
                     "agent_id": agent.agent_id,
                     "agent_name": agent.name,
                     "source": "routine",
+                    **{key: str(value)[:200] for key, value in (details or {}).items()},
                 },
             )
         except Exception:  # noqa: BLE001 — the task already recorded its result; delivery is best effort
