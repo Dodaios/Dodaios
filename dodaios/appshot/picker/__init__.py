@@ -32,10 +32,11 @@ stdout::
 stdin::
 
     {"cmd": "start", "language": "en", "monitors": [],   # resident: fresh capture
-     "windows": [], "keep_area": false}                 # (keep the released area)
+     "windows": [], "handles": [],                      # (handles: hwnds beside the
+     "keep_area": false}                                # window rects; keep the area)
     {"cmd": "quit"}                                     # release the runtime
     {"cmd": "layout", "monitors": [...],                # mss monitors and the
-     "windows": [[l, t, w, h], ...]}                    # snap targets, top first
+     "windows": [[l, t, w, h], ...], "handles": [...]}  # snap targets, top first
     {"cmd": "cancel"}                                   # e.g. a global Esc
 
 Stdin EOF (the parent died) cancels as well.

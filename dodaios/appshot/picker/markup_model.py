@@ -580,6 +580,71 @@ def clip_to(box: Box, sel: Box) -> Box | None:
     return (x0, y0, x1 - x0, y1 - y0)
 
 
+# --------------------------------------------------------------------------
+# Snapping to the parts of a window
+# --------------------------------------------------------------------------
+
+#: Parts of a window smaller than this (logical px, either side) are no
+#: snap targets: icons and single words would make the pointer jumpy.
+MIN_PART_PX = 16.0
+
+
+def window_parts(window: Box, boxes: list[Box], min_px: float = MIN_PART_PX) -> list[Box]:
+    """A window's parts (panels, lists, fields, buttons), cut to the window.
+
+    Slivers, copies and parts that are the window itself are dropped; what is
+    left is what hovering may lift out of the dim instead of the whole window.
+    """
+    out: list[Box] = []
+    seen: set[tuple[int, int, int, int]] = set()
+    whole = tuple(round(v) for v in window)
+    for box in boxes:
+        clipped = clip_to(box, window)
+        if clipped is None or clipped[2] < min_px or clipped[3] < min_px:
+            continue
+        key = (round(clipped[0]), round(clipped[1]), round(clipped[2]), round(clipped[3]))
+        if key in seen or key == whole:
+            continue
+        seen.add(key)
+        out.append(clipped)
+    return out
+
+
+#: Two nested parts this close on every edge (logical px, or this share of
+#: the larger side) count as one: a wheel step must visibly change the area.
+NEAR_PX = 12.0
+NEAR_SHARE = 0.05
+
+
+def _nearly_same(a: Box, b: Box) -> bool:
+    reach = max(NEAR_PX, NEAR_SHARE * max(a[2], a[3], b[2], b[3]))
+    edges = (
+        (a[0], b[0]),
+        (a[1], b[1]),
+        (a[0] + a[2], b[0] + b[2]),
+        (a[1] + a[3], b[1] + b[3]),
+    )
+    return all(abs(x - y) <= reach for x, y in edges)
+
+
+def snap_candidates(point: Point, window: Box, parts: list[Box]) -> list[Box]:
+    """What a click at ``point`` may take: the parts under it, smallest first,
+    then the whole window. The mouse wheel steps along this list.
+
+    Nested parts that are nearly the same box (a pane and its content area,
+    a field and its frame) collapse into the larger one.
+    """
+    under = [box for box in parts if _inside(point, box, 0.0)]
+    under.sort(key=lambda box: box[2] * box[3])
+    out: list[Box] = []
+    for box in [*under, window]:
+        if out and _nearly_same(out[-1], box):
+            out[-1] = box
+        else:
+            out.append(box)
+    return out
+
+
 def hide_fractions(shapes: list[Shape], sel: Box) -> list[dict[str, object]]:
     """Pixelate/blur patches as fractions of the selection, for the main process."""
     out: list[dict[str, object]] = []
@@ -660,6 +725,7 @@ __all__ = [
     "HANDLES",
     "HIGHLIGHT",
     "LINE",
+    "MIN_PART_PX",
     "MOVE",
     "PALETTE",
     "PEN",
@@ -699,9 +765,11 @@ __all__ = [
     "segment_middle",
     "segment_path",
     "shape_at",
+    "snap_candidates",
     "text_size",
     "toolbar_home",
     "toolbar_origin",
     "toolbar_spot",
     "translated",
+    "window_parts",
 ]

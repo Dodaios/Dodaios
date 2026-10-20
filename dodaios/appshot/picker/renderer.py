@@ -35,6 +35,7 @@ from __future__ import annotations
 import sys
 import threading
 from contextlib import suppress
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QObject, QPointF, QRectF, Qt, Signal, Slot
 from PySide6.QtGui import (
@@ -51,11 +52,14 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QApplication, QWidget
 
 from dodaios.appshot import picker as wire
+
+if TYPE_CHECKING:
+    from dodaios.appshot.picker.elements import ElementScanner
 from dodaios.appshot.region import (
     grab_preview,
     match_monitor,
     selection_fractions,
-    snap_rects_on_screen,
+    snap_targets_on_screen,
 )
 
 #: A light veil before the drag (the picker is armed). While dragging the
@@ -198,8 +202,11 @@ class _SelectWindow(QWidget):
         self._start: QPointF | None = None
         self._end: QPointF | None = None
         self._pointer: QPointF | None = None
-        #: Snap targets in this window's logical coordinates, top-most first.
+        #: Snap targets in this window's logical coordinates, top-most first,
+        #: and the window handle behind each (``0`` = unknown).
         self._snaps: list[QRectF] = []
+        self._snap_handles: list[int] = []
+        self._monitors: list[dict] = []
         self._monitor: dict | None = None
         self._font = number_font()
         self._metrics = QFontMetricsF(self._font)
@@ -222,15 +229,29 @@ class _SelectWindow(QWidget):
     def adopt(self, other: _SelectWindow) -> None:
         """Carry over choices made on ``other`` (the screen the pointer left)."""
 
+    def ask_parts_under_cursor(self) -> None:
+        """Snapping to the parts of a window belongs to the appshot window."""
+
+    def add_parts(self, handle: int, rects: list) -> None:
+        """The parts of window ``handle`` arrived; this window takes whole windows."""
+
     # -- data from the main process ------------------------------------------
-    def set_layout(self, monitors: list[dict], windows: list[list[int]]) -> None:
+    def set_layout(
+        self, monitors: list[dict], windows: list[list[int]], handles: list | None = None
+    ) -> None:
         """Map capture-space window rects onto this screen's logical pixels."""
         info = _screen_info(self.screen_ref)
+        self._monitors = monitors
         self._monitor = match_monitor(info, monitors)
-        rects = snap_rects_on_screen(
+        targets = snap_targets_on_screen(
             info, (self.width(), self.height()), monitors, windows, min_px=_MIN_SNAP_PX
         )
-        self._snaps = [QRectF(*rect) for rect in rects]
+        handles = handles if isinstance(handles, list) else []
+        self._snaps = [QRectF(*rect) for _index, rect in targets]
+        self._snap_handles = [
+            handles[index] if index < len(handles) and isinstance(handles[index], int) else 0
+            for index, _rect in targets
+        ]
         self.update()
 
     # -- input ---------------------------------------------------------------
@@ -462,6 +483,10 @@ class Picker(QObject):
         self.keep_area = False
         self._marking_sent = False
         self._done = False
+        #: Reads the parts of the window under the pointer (Windows); made on
+        #: the first pick, then kept warm with the rest of the runtime.
+        self._parts: ElementScanner | None = None
+        self._parts_asked: set[int] = set()
 
     def start(self) -> None:
         if self._started:
@@ -469,6 +494,9 @@ class Picker(QObject):
         self._started = True
         self._done = False
         self._marking_sent = False
+        self._parts_asked = set()
+        if self._parts is not None:
+            self._parts.reset()
         screens = QGuiApplication.screens()
         # Freeze every screen BEFORE any overlay window exists.
         frozen = {id(s): self._grab(s) for s in screens}
@@ -499,9 +527,35 @@ class Picker(QObject):
     def _grab(screen) -> QPixmap | None:
         return grab_preview(screen)
 
-    def set_layout(self, monitors: list[dict], windows: list[list[int]]) -> None:
+    def set_layout(
+        self, monitors: list[dict], windows: list[list[int]], handles: list | None = None
+    ) -> None:
         for win in self._windows:
-            win.set_layout(monitors, windows)
+            win.set_layout(monitors, windows, handles)
+        if self._focused is not None:
+            # The window under the pointer is the likeliest target: read it now.
+            self._focused.ask_parts_under_cursor()
+
+    def want_parts(self, handle: int) -> None:
+        """The pointer is over window ``handle``: read its parts, once per pick."""
+        if not handle or handle in self._parts_asked or not self._started:
+            return
+        self._parts_asked.add(handle)
+        if self._parts is None:
+            if sys.platform != "win32":
+                return
+            from dodaios.appshot.picker.elements import ElementScanner  # noqa: PLC0415
+
+            self._parts = ElementScanner()
+            self._parts.found.connect(self._parts_found)
+        self._parts.request(handle)
+
+    @Slot(object, object)
+    def _parts_found(self, handle: object, rects: object) -> None:
+        if not self._started or not isinstance(handle, int) or not isinstance(rects, list):
+            return
+        for win in self._windows:
+            win.add_parts(handle, rects)
 
     def focus_on(self, window: _SelectWindow) -> None:
         """The pointer moved onto ``window``: only that screen shows the numbers."""
@@ -571,6 +625,8 @@ class Picker(QObject):
         self._focused = None
         self.marking = None
         self._started = False
+        if self._parts is not None:
+            self._parts.reset()
         if info is None or frac is None:
             _emit({"event": wire.EVENT_SELECTION, "cancelled": True})
         else:
@@ -596,7 +652,9 @@ class Picker(QObject):
             self.language = str(payload.get("language") or "en")
             self.keep_area = payload.get("keep_area") is True
             self.start()
-            self.set_layout(payload.get("monitors", []), payload.get("windows", []))
+            self.set_layout(
+                payload.get("monitors", []), payload.get("windows", []), payload.get("handles")
+            )
         elif cmd == wire.CMD_QUIT:
             self.on_eof()
         elif cmd == wire.CMD_CANCEL and self._started:
@@ -605,12 +663,16 @@ class Picker(QObject):
             monitors = payload.get("monitors")
             windows = payload.get("windows")
             if isinstance(monitors, list) and isinstance(windows, list):
-                self.set_layout([m for m in monitors if isinstance(m, dict)], windows)
+                self.set_layout(
+                    [m for m in monitors if isinstance(m, dict)], windows, payload.get("handles")
+                )
 
     @Slot()
     def on_eof(self) -> None:
         if self._started:
             self.finish(None, None)
+        if self._parts is not None:
+            self._parts.stop()
         self._app.quit()
 
 
