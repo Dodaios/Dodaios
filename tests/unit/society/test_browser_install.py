@@ -2,10 +2,12 @@
 
 import json
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+
 from dodaios.society.browser import install
 
 
@@ -39,11 +41,58 @@ def installer(monkeypatch, tmp_path):
             )
         return ""
 
+    from dodaios.society.browser import bootstrap
+
     monkeypatch.setattr(install, "_run", run)
+    # A host that is not 3.12 builds the runtime through uv; never download it.
+    monkeypatch.setattr(bootstrap, "ensure_uv", lambda _root: "uv")
     monkeypatch.setattr(install, "managed_python_request", lambda *_: "3.12")
     monkeypatch.setattr(install.sys, "frozen", False, raising=False)
     yield tmp_path, root, launches, failure
     install._reset_for_tests()
+
+
+@pytest.mark.parametrize(
+    ("request_", "version", "frozen", "reuse"),
+    [
+        ("3.12", (3, 12), False, True),
+        ("3.12", (3, 11), False, False),
+        ("3.12", (3, 13), False, False),
+        ("3.12", (3, 12), True, False),
+        ("3.13", (3, 13), False, True),
+        ("cpython-3.12-windows-x86_64-none", (3, 12), False, False),
+        ("", (3, 12), False, False),
+    ],
+)
+def test_host_python_is_reused_only_for_the_exact_requested_minor(request_, version, frozen, reuse):
+    assert install.host_matches_managed_python(request_, version, frozen=frozen) is reuse
+
+
+def _host_minor(offset: int = 0) -> str:
+    return f"{sys.version_info[0]}.{sys.version_info[1] + offset}"
+
+
+@pytest.mark.parametrize(("offset", "via_uv"), [(0, False), (1, True), (-1, True)])
+def test_installer_builds_from_host_only_when_its_minor_matches(
+    installer, monkeypatch, offset, via_uv
+):
+    data, _, _, _ = installer
+    request = _host_minor(offset)
+    monkeypatch.setattr(install, "managed_python_request", lambda *_: request)
+    seen = []
+    original = install._run
+
+    def run(cmd, **kwargs):
+        seen.append(cmd)
+        return original(cmd, **kwargs)
+
+    monkeypatch.setattr(install, "_run", run)
+    install.ensure_installed(data)
+    venv = next(cmd for cmd in seen if "venv" in cmd)
+    if via_uv:
+        assert venv[:4] == ["uv", "venv", "--python", request]
+    else:
+        assert venv[:3] == [sys.executable, "-m", "venv"]
 
 
 @pytest.mark.parametrize("stage", ["ensurepip", "pip", "playwright", "--probe"])
