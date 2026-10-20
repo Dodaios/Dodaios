@@ -8,17 +8,23 @@
  * others), settles into the exact pose of its socket (seat, console stand,
  * bunk) with a short blend, then plays its activity. Waiting crew keep turning
  * toward the commander.
+ *
+ * The commander can also be driven directly (third person): while a
+ * direction is held the body walks that way over the floor, sliding along
+ * walls and stopping short of other people, whatever its goal says; let go
+ * and it stands where it is.
  */
 import {
   AnimationMixer, Group, LoopOnce, LoopRepeat, Mesh, MeshBasicMaterial, PlaneGeometry, type AnimationAction, type Texture,
 } from "three";
 import type { Deck, NavGrid, Socket } from "../content/deck";
 import { findPath, floorHeight, nearestWalkable, type Point } from "../nav/pathfind";
+import { driveStep, type FreeAt } from "../nav/drive";
 import type { Activity } from "../life/planner";
 import { RENDER_ORDER, XRAY_LAYER } from "../engine/renderOrder";
 import { disposeInstance, type CharacterInstance } from "./characters";
 import { clipFor, SEATED, type Motion } from "./clips";
-import { avoidance, lerpAngle, PathFollower, sidestep, turnPace, turnToward, wrapAngle, yawTo, type Neighbour } from "./locomotion";
+import { avoidance, BODY_RADIUS, lerpAngle, PathFollower, sidestep, turnPace, turnToward, wrapAngle, yawTo, type Neighbour } from "./locomotion";
 import { RoomLight } from "./roomLight";
 import { hash32 } from "../life/crew";
 
@@ -51,10 +57,19 @@ const FADE_S = 0.3;
 const SETTLE_S = 0.45;
 const REPLAN_FOLLOW_S = 0.4;
 const HEEL_DISTANCE = 1.1;
+/** A driven body turns this fast toward the held direction, rad/s. */
+const DRIVE_TURN_RATE = 9;
+/** Shift: a driven body hurries at this multiple of its pace. */
+const RUN_FACTOR = 1.75;
+/** A driven body walks above this speed and stands below the lower one, with no flicker in between, m/s. */
+const DRIVE_WALK_ABOVE = 0.2;
+const DRIVE_STAND_BELOW = 0.08;
+/** A driven body stops this close to another person, metres between centres. */
+const DRIVE_PERSONAL_SPACE = BODY_RADIUS * 1.7;
 /** Materials whose surfaces make up a body's x-ray silhouette (character contract names). */
 const SILHOUETTE = new Set(["M_Uniform", "M_Skin", "M_Hair", "M_Cap", "M_Shell", "M_Chassis"]);
 
-type Phase = "idle" | "standing_up" | "walking" | "settling" | "settled";
+type Phase = "idle" | "standing_up" | "walking" | "settling" | "settled" | "driven";
 
 /** Seat surface height above the body's root (character contract `seatHeight`). */
 export const SEAT_HEIGHT = 0.46;
@@ -118,6 +133,8 @@ export class Actor {
   private oneShotUntil = 0;
   private routeIndex = 0;
   private lastPlan = 0;
+  private steer: Point | null = null;
+  private steerRun = false;
   private readonly clipNames: ReadonlySet<string>;
   private readonly shadow: Mesh<PlaneGeometry, MeshBasicMaterial>;
 
@@ -165,6 +182,12 @@ export class Actor {
     this.oneShotUntil = this.playOnce("salute");
   }
 
+  /** Direct control: walk toward `direction` (unit length, on the floor) from the next update on; null lets go. */
+  drive(direction: Point | null, run = false): void {
+    this.steer = direction;
+    this.steerRun = run;
+  }
+
   /** Put the body somewhere at once (spawn, or a pose it already holds). */
   place(pose: Pose): void {
     this.x = pose.x;
@@ -204,6 +227,18 @@ export class Actor {
     this.mixer.update(dtS);
     const goal = this.goal;
     this.moving = false;
+    if (this.steer) {
+      this.driven(this.steer, dtS, ctx);
+      this.light.update(ctx.deck, this.x, this.y, this.z, dtS);
+      this.sync();
+      return;
+    }
+    if (this.phase === "driven") {
+      // Let go: stand where the keys left the body until the next order.
+      this.phase = "settled";
+      this.speed = 0;
+      this.play(this.isDrone ? "hover" : "idle");
+    }
     if (goal && this.phase === "standing_up" && ctx.now >= this.oneShotUntil) this.phase = "idle";
     if (goal && this.phase === "idle") this.plan(goal, ctx);
     if (goal?.kind === "follow") this.follow(goal, dtS, ctx);
@@ -272,6 +307,48 @@ export class Actor {
     this.moving = true;
     if (this.action) this.action.timeScale = this.speed / Math.max(0.1, this.instance.walkSpeed);
     if (f.done) this.arrive(this.goal, ctx);
+  }
+
+  /** One frame under direct control: turn toward the held direction and walk it, sliding along walls. */
+  private driven(direction: Point, dtS: number, ctx: ActorContext): void {
+    if (this.phase !== "driven") {
+      // The keys take over from any walk or settle in progress.
+      this.phase = "driven";
+      this.follower = null;
+      this.settle = null;
+      this.oneShotUntil = 0;
+    }
+    const heading = Math.atan2(direction.x, direction.z);
+    this.yaw = turnToward(this.yaw, heading, DRIVE_TURN_RATE, dtS);
+    const pace = this.pace * (this.steerRun ? RUN_FACTOR : 1) * turnPace(this.yaw, heading);
+    const from = { x: this.x, z: this.z };
+    const near = ctx.neighbours(this);
+    // Nobody walks through a person; drones are small enough to pass.
+    const free: FreeAt = (p) => {
+      for (const n of near) {
+        if (n instanceof Actor && n.isDrone) continue;
+        const d = Math.hypot(n.x - p.x, n.z - p.z);
+        if (d < DRIVE_PERSONAL_SPACE && d < Math.hypot(n.x - from.x, n.z - from.z)) return false;
+      }
+      return true;
+    };
+    const to = driveStep(this.grid, from, direction.x * pace * dtS, direction.z * pace * dtS, free);
+    const moved = Math.hypot(to.x - from.x, to.z - from.z);
+    this.x = to.x;
+    this.z = to.z;
+    const ground = floorHeight(this.grid, this.x, this.z);
+    this.y += (ground - this.y) * Math.min(1, dtS * 12);
+    const speed = dtS > 0 ? moved / dtS : 0;
+    this.speed += (speed - this.speed) * Math.min(1, dtS * 14);
+    this.moving = moved > 1e-4;
+    const walking = this.motion === "walk" || this.motion === "drive";
+    if (this.speed > DRIVE_WALK_ABOVE || (walking && this.speed > DRIVE_STAND_BELOW)) {
+      this.play("walk");
+      if (this.action) this.action.timeScale = Math.max(0.3, this.speed / Math.max(0.1, this.instance.walkSpeed));
+    } else {
+      this.play(this.isDrone ? "hover" : "idle");
+      if (this.action) this.action.timeScale = 1;
+    }
   }
 
   private arrive(goal: Goal | null, ctx: ActorContext): void {
