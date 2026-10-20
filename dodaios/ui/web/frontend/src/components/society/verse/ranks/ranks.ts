@@ -152,7 +152,7 @@ export interface PlateTiles {
 /** What the plate of `id` shows: which slots carry a tile and in what colour. */
 export function plateTiles(id: RankId): PlateTiles {
   const rank = rankById(id);
-  const lit = rank.plate.replace("|", "").split("").map((bit) => bit === "1");
+  const lit = rank.plate.split("|").join("").split("").map((bit) => bit === "1");
   return { lit, colour: TIER_STYLE[rank.tier].tile, tier: rank.tier };
 }
 
