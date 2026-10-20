@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/code-xml-CIzWbci1.js
+import{c as e}from"./index-D5A15EM8.js";/**
+========
+import{c as e}from"./index-Dt84VbAo.js";/**
+>>>>>>>> 7e28e7eaa2c876b97d9f30efdf71d55bfe124625:dodaios/ui/web/dist/assets/code-xml-BTTbP0nc.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const o=e("CodeXml",[["path",{d:"m18 16 4-4-4-4",key:"1inbqp"}],["path",{d:"m6 8-4 4 4 4",key:"15zrgr"}],["path",{d:"m14.5 4-5 16",key:"e7oirm"}]]);export{o as C};
