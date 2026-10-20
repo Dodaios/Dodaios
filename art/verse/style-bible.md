@@ -559,9 +559,9 @@ original way:
   - A graphite neck seal.
   - **No** eye lenses, no mouth frown, no cheek tubes, no brow ridge.
 - **Torso:** chest plate with three horizontal raised ribs (6 mm), separate abdomen plate, back plate with a flat pack 0.3 × 0.2 × 0.08 m.
-- **Shoulders:** a single rounded pauldron on the left only, 0.16 m.
+- **Shoulders:** a rounded shoulder bell on each side, 0.15 m, rim slightly flared.
 - **Limbs:** forearm, thigh and shin shells. Graphite gaps at the joints: elbow, knee 40 mm.
-- **Belt:** graphite with four boxy pouches 80 × 60 × 40 mm.
+- **Belt:** graphite utility belt with six small bevelled pouches 50–60 × 46 × 28 mm and an off-white buckle plate.
 - **Unit mark:** a 30 mm coloured band around the left upper arm. Gold for the commander's guard, red for shipboard security, blue for the engineering detail.
 - **Weapon:** an original compact rifle, 0.65 m long, graphite. Keep the silhouette simple, with no recognisable reference weapon.
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 import math
 
 from decks.ops import layout as L
-from decks.ops.arch import PAINT, PAINT_DARK, RECESS, STEEL
+from decks.ops.arch import PAINT, PAINT_DARK, PAINT_MID, RECESS, STEEL
 from decks.ops.geo import Mesh, tag
 
 HZ = L.HERO_Z
@@ -199,7 +199,7 @@ def _bay_slit(m, lights, glass, stars, a, b):
     m.box(a - 0.06, a + 0.06, HZ - 0.4, HZ + 0.1, lo - 0.12, hi + 0.12, STEEL)
     m.box(b - 0.06, b + 0.06, HZ - 0.4, HZ + 0.1, lo - 0.12, hi + 0.12, STEEL)
     m.box(a, b, HZ - 0.36, HZ - 0.3, lo, lo + 0.04, "M_Rubber_Black")
-    glass.quad_v(a + 0.06, b - 0.06, HZ - 0.3, lo, hi, "M_Glass_Viewport")
+    glass.quad_v(a + 0.06, b - 0.06, HZ - 0.3, lo, hi, "M_Ops_Glass_Slit")
     # Star field: a plane square to the camera just behind the glass. The
     # ortho camera has no parallax, so depth does not matter; the hull body
     # behind it is hollowed by `arch.hero_wall_body` (see `cavities`).
@@ -218,30 +218,49 @@ def _bay_slit(m, lights, glass, stars, a, b):
 
 
 def cavities() -> list[tuple[float, float, float, float]]:
-    """Hull-body cut-outs behind the viewport slits: (x0, x1, h0, h1)."""
+    """Hull-body cut-outs behind the viewport slits and the galley hatch:
+    (x0, x1, h0, h1)."""
     out = []
     for x0, x1, kinds in PLANS.values():
         bay = (x1 - x0) / len(kinds)
         for i, k in enumerate(kinds):
             if k == "slit":
                 out.append((x0 + i * bay, x0 + (i + 1) * bay, SLIT[0], SLIT[1]))
+            elif k == "hatch":
+                out.append((x0 + i * bay, x0 + (i + 1) * bay, HATCH[0], HATCH[1]))
     return out
 
 
+HATCH = (1.05, 2.25)
+HATCH_D = 0.55  # shallow enough that the camera sees the lit back wall
+
+
 def _bay_hatch(m, lights, glass, stars, a, b):
-    """Galley pass-through: a lit opening behind the serving counter."""
-    lo, hi = 1.05, 2.25
+    """Galley pass-through: a shallow opening behind the serving counter with
+    a warm back-lit wall and steel shelving in silhouette in front of it (the
+    hull body behind it is cut away by ``cavities``)."""
+    lo, hi = HATCH
+    back = HZ - HATCH_D
     _panel_pair(m, a, b, hi + 0.1, FIELD_TOP)
     m.box(a, b, HZ - 0.06, HZ + 0.02, SKIRT_TOP + 0.06, lo, PAINT_DARK)
-    m.box(a, b, HZ - 0.9, HZ - 0.85, lo, hi, "M_Ops_Light_Hatch")
-    m.box(a, b, HZ - 0.85, HZ + 0.02, lo - 0.04, lo, "M_Trim_BrushedSteel")
-    m.box(a, b, HZ - 0.85, HZ + 0.06, hi, hi + 0.1, STEEL)
-    m.box(a - 0.04, a + 0.04, HZ - 0.85, HZ + 0.06, lo, hi, STEEL)
-    m.box(b - 0.04, b + 0.04, HZ - 0.85, HZ + 0.06, lo, hi, STEEL)
-    # Galley shelving glimpsed through the hatch.
-    for k in range(3):
-        hh = lo + 0.3 + k * 0.3
-        m.box(a + 0.05, b - 0.05, HZ - 0.82, HZ - 0.6, hh, hh + 0.02, "M_Trim_BrushedSteel")
+    m.box(a, b, back - 0.05, back, lo - 0.04, hi + 0.02, PAINT_DARK)
+    m.box(a + 0.04, b - 0.04, back, back + 0.01, lo, hi, "M_Ops_Light_Hatch")
+    m.box(a, b, back, HZ + 0.02, lo - 0.04, lo, PAINT_MID)
+    m.box(a, b, back, HZ + 0.06, hi, hi + 0.1, STEEL)
+    m.box(a - 0.04, a + 0.04, back, HZ + 0.06, lo, hi, STEEL)
+    m.box(b - 0.04, b + 0.04, back, HZ + 0.06, lo, hi, STEEL)
+    # Galley shelving with stacked trays and canisters, dark against the glow.
+    for k, hh in enumerate((1.3, 1.56)):
+        m.box(a + 0.05, b - 0.05, back + 0.01, back + 0.2, hh, hh + 0.02, "M_Trim_BrushedSteel")
+        n = 4 + k
+        for i in range(n):
+            x = a + 0.25 + i * (b - a - 0.5) / (n - 1)
+            if (i + k) % 3 == 2:
+                m.box(x - 0.14, x + 0.14, back + 0.03, back + 0.18, hh + 0.02, hh + 0.09, STEEL)
+            else:
+                m.cyl(x, back + 0.11, 0.07, hh + 0.02, hh + 0.2, "M_Trim_BrushedSteel", 16)
+    for x in (a + 0.3, b - 0.3):
+        m.box(x - 0.015, x + 0.015, back + 0.01, back + 0.2, lo, hi, STEEL)
 
 
 def _valance(m: Mesh, lights: Mesh, x0: float, x1: float) -> None:

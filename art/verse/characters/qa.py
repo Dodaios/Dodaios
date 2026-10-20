@@ -148,7 +148,7 @@ def render(path):
     print(f"[qa] {path}")
 
 
-def contact_sheet(built, ctxs):
+def contact_sheet(built, ctxs, full=True):
     from characters.build import TIERS
 
     C.ensure_dir(QA_DIR)
@@ -193,6 +193,8 @@ def contact_sheet(built, ctxs):
         camera(cx, 0.85, width, 2.0, ppm)
         bpy.context.scene.cycles.samples = 128 if ppm < 200 else 96
         render(QA_DIR / f"contact_{tag}.png")
+    if not full:
+        return
     # walk filmstrip (first built character), 10 frames, 3x
     cid, (ctx, objs) = next(iter(built.items()))
     body = A.Body(ctx.rig)
