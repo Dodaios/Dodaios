@@ -106,7 +106,10 @@
       "tokens": "{count} tokens",
       "history": "Histórico",
       "note": "Nota",
-      "opened": "aberto"
+      "opened": "aberto",
+      "code_branch": "ramo",
+      "code_pr": "pull request",
+      "code_draft": "pull request em rascunho"
     },
     "outcome": {
       "used": "utilizado",

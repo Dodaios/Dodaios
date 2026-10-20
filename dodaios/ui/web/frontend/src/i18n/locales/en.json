@@ -3552,7 +3552,12 @@
         "silent_days": "Quiet first days"
       },
       "save_error": "Could not save: {detail}",
-      "unavailable": "These settings could not be loaded."
+      "unavailable": "These settings could not be loaded.",
+      "land_title": "Merge code changes on their own",
+      "land_description": "Repositories listed here get pull requests that merge once CI is green. Every other repository gets draft pull requests that you merge.",
+      "land_warning": "A listed repository's code changes without you looking at the pull request first. Only add repositories you trust the tests of.",
+      "land_add": "Add repository",
+      "land_remove": "Remove {repo}"
     }
   },
   "telephony_view": {

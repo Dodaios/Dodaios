@@ -106,7 +106,10 @@
       "tokens": "{count} tokens",
       "history": "History",
       "note": "Note",
-      "opened": "opened"
+      "opened": "opened",
+      "code_branch": "branch",
+      "code_pr": "pull request",
+      "code_draft": "draft pull request"
     },
     "outcome": {
       "used": "used",

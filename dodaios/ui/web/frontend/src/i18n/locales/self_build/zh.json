@@ -106,7 +106,10 @@
       "tokens": "{count} 个 token",
       "history": "历史",
       "note": "备注",
-      "opened": "创建于"
+      "opened": "创建于",
+      "code_branch": "分支",
+      "code_pr": "拉取请求",
+      "code_draft": "草稿拉取请求"
     },
     "outcome": {
       "used": "已使用",
