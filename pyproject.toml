@@ -8,7 +8,10 @@ requires = ["setuptools>=83", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "personal-jarvis"
+# Releases also publish this wheel as "personal-jarvis", its earlier name, for a
+# transition (scripts/ci/build_distributions.py). Keep the self-references in
+# the extras below spelled with this name: that script rewrites them together.
+name = "dodaios"
 version = "3.2.0"
 description = "Turn your computer into an AI agent that coordinates apps, tools, models, and other agents"
 requires-python = ">=3.11,<3.15"
@@ -279,7 +282,7 @@ dev = [
     # packages were base dependencies until the cloud-first split; tests still
     # construct them, so the dev/CI environment keeps them via this self-reference
     # while the base install stays lean.
-    "personal-jarvis[desktop,local-voice]",
+    "dodaios[desktop,local-voice]",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-cov>=6.0",
@@ -296,7 +299,7 @@ dev = [
 # native-engine-minimal floor for CI and tiny headless servers; users are pointed
 # at [full].
 full = [
-    "personal-jarvis[desktop,desktop-macos,telephony,channels,local-voice]",
+    "dodaios[desktop,desktop-macos,telephony,channels,local-voice]",
 ]
 # Twilio telephony voice agent (call Jarvis on a phone number). Optional extra
 # per the cloud-first doctrine: the base install must boot without it, and the
@@ -401,7 +404,7 @@ desktop = [
 # into [full] would break the one advertised install path on a stock
 # python:3.11-slim image — exactly what the cloud-first rule forbids. So it
 # lives here: a Linux desktop user who wants a global dictation/call shortcut
-# installs ``personal-jarvis[desktop-linux]`` (needs a C compiler and
+# installs ``dodaios[desktop-linux]`` (needs a C compiler and
 # linux-headers), and everyone else gets the honest, logged no-op instead of a
 # failed install.
 #
@@ -510,8 +513,9 @@ tts-eval = [
 # are the command's earlier names: the same entry point, kept so that scripts,
 # shell history and other tools that call them keep working.
 # Never add a command that spells the branded launcher ignoring case (a
-# `personaljarvis` alias today): Windows paths ignore case, and the venv's
-# Scripts folder already holds `PersonalJarvis.exe`.
+# `dodaiosapp` or `personaljarvis` alias): Windows paths ignore case, and the
+# venv's Scripts folder holds `DodaiosApp.exe` (and `PersonalJarvis.exe` from
+# earlier releases).
 dodaios = "dodaios.__main__:main"
 jarvis = "dodaios.__main__:main"
 personal-jarvis = "dodaios.__main__:main"
@@ -964,8 +968,8 @@ dodaios = [
 ]
 
 [tool.setuptools.data-files]
-"share/personal-jarvis/docs" = ["docs/product/**/*.md"]
-"share/personal-jarvis/docs/legal" = ["docs/legal/TERMS.md"]
+"share/dodaios/docs" = ["docs/product/**/*.md"]
+"share/dodaios/docs/legal" = ["docs/legal/TERMS.md"]
 
 [tool.ruff]
 line-length = 100

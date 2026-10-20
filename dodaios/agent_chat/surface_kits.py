@@ -203,20 +203,24 @@ async def _society_always_allow(session: Any, tool_name: str, args: dict[str, An
 
 
 async def _society_completed(session: Any, completion: ChatCompletion) -> None:
+    from dodaios.self_build.app import chat_turn_completed as self_build_observe
     from dodaios.society.runtime import current_runtime
 
     runtime = current_runtime()
     if runtime is not None:
         await runtime.turn_completed(session, completion)
+    await self_build_observe(session, completion, surface="society")
 
 
 async def _jarvis_completed(session: Any, completion: ChatCompletion) -> None:
-    """Feed Jarvis' own learning loop (lazy); a no-op while it is switched off."""
+    """Feed Jarvis' own learning loop and the self-building loop (lazy, no-ops when off)."""
     from dodaios.memory.learning.loop import current_loop
+    from dodaios.self_build.app import chat_turn_completed as self_build_observe
 
     loop = current_loop()
     if loop is not None:
         await loop.chat_turn_completed(session, completion)
+    await self_build_observe(session, completion, surface="jarvis")
 
 
 def _society_history_start(session: Any) -> int:

@@ -826,7 +826,7 @@ def test_a_cancelled_tool_resumes_instead_of_failing_the_turn(
     assert len(prompts) == 2
     assert "Which accounts are connected?" in prompts[0]
     assert "User cancelled the execution" in prompts[1]
-    assert "keep going" in prompts[1].lower() or "not the end of the task" in prompts[1]
+    assert "does not end the task" in prompts[1]
     assert resumes[1] == "sess-recover"
     assert _kinds(events) == [
         "tool_call",

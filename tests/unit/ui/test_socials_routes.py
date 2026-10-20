@@ -26,6 +26,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from dodaios.core.branding import WINDOWS_USER_DATA_DIR_NAME
+
 DISCORD_URL = "https://discord.gg/x7USduHxbc"
 REPO_URL = "https://github.com/Dodaios/Dodaios"
 PROFILE_URL = "https://github.com/Dodaios"
@@ -230,5 +232,5 @@ def test_changes_persist_across_fresh_app(client: TestClient) -> None:
 
 def test_store_file_is_written_under_data_dir(client: TestClient, tmp_path: Path) -> None:
     client.get("/api/socials")  # triggers seed write
-    store = tmp_path / "Jarvis" / "data" / "socials.json"
+    store = tmp_path / WINDOWS_USER_DATA_DIR_NAME / "data" / "socials.json"
     assert store.is_file()

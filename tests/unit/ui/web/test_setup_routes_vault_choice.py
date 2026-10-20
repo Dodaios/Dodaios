@@ -101,10 +101,27 @@ def test_register_existing_mode_points_vault_root_into_jarvis_subfolder(
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["active_vault_root"] == str(user_vault / "Jarvis")
+    assert body["active_vault_root"] == str(user_vault / "Dodaios")
     assert body["restart_required"] is True
-    assert (user_vault / "Jarvis").is_dir()          # subfolder created
+    assert (user_vault / "Dodaios").is_dir()          # subfolder created
     assert written                                    # config write happened
+
+
+def test_register_existing_mode_reuses_a_folder_an_earlier_registration_made(
+    tmp_path, monkeypatch,
+):
+    """Re-registering a vault keeps the notes in the folder made under the old name."""
+    user_vault = tmp_path / "MyVault"
+    (user_vault / "Jarvis").mkdir(parents=True)
+    app = _app(tmp_path, {"vaults": {"abc123": {"path": str(user_vault)}}})
+    monkeypatch.setattr(setup_routes, "_write_vault_root_config", lambda _values: None)
+    resp = TestClient(app).post(
+        "/api/setup/obsidian/register",
+        json={"mode": "existing", "existing_vault_path": str(user_vault)},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["active_vault_root"] == str(user_vault / "Jarvis")
+    assert not (user_vault / "Dodaios").exists()
 
 
 def test_register_existing_mode_rejects_unknown_path(tmp_path):
@@ -130,7 +147,7 @@ def test_register_existing_mode_rejects_missing_path(tmp_path, monkeypatch):
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "config_missing"
-    assert not (tmp_path / "Jarvis").exists()  # no folder in the server CWD
+    assert not (tmp_path / "Dodaios").exists()  # no folder in the server CWD
     assert not written                          # config was never touched
 
 
@@ -151,9 +168,9 @@ def test_register_existing_mode_dry_run_previews_without_side_effects(
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "added"
-    assert body["active_vault_root"] == str(user_vault / "Jarvis")
+    assert body["active_vault_root"] == str(user_vault / "Dodaios")
     assert body["restart_required"] is True
-    assert not (user_vault / "Jarvis").exists()  # nothing created
+    assert not (user_vault / "Dodaios").exists()  # nothing created
     assert not written                            # nothing persisted
 
 

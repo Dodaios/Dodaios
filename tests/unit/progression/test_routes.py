@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from dodaios.progression.rules import MAX_LEVEL, REWARDS, RULES
+from dodaios.progression.rules import MAX_LEVEL, RANKS, REWARDS, RULES
 from dodaios.progression.service import ProgressionService
 from dodaios.ui.web.progression_routes import router
 
@@ -32,11 +32,14 @@ def test_the_first_read_carries_the_whole_rulebook(client: TestClient):
     assert len(body["level_xp"]) == MAX_LEVEL and body["level_xp"][0] == 0
     assert {r["source"] for r in body["rules"]} == {r.source for r in RULES}
     assert {r["reward_id"] for r in body["rewards"]} == {r.reward_id for r in REWARDS}
-    assert body["titles"]["person"][0] == {"level": 1, "title": "private"}
+    assert body["titles"]["person"][0] == {"level": 1, "title": "cadet"}
+    assert body["ranks"][0] == {"id": "cadet", "level": 1, "tier": "enlisted"}
+    assert [(r["level"], r["id"], r["tier"]) for r in body["ranks"]] == list(RANKS)
+    assert body["looks"] and all(look["agent"] == 1 for look in body["looks"])
 
 
 def test_a_world_action_pays_and_shows_up_in_the_next_read(client: TestClient):
-    action = {"action": "floor_discovered", "ref": "arcade"}
+    action = {"action": "deck_discovered", "ref": "holodeck"}
     paid = client.post("/api/progression/actions", json=action)
     assert paid.status_code == 200
     award = paid.json()["awarded"]
@@ -53,8 +56,10 @@ def test_a_world_action_pays_and_shows_up_in_the_next_read(client: TestClient):
 
 
 def test_server_only_and_unknown_actions_are_refused(client: TestClient):
-    for action in ("chat_turn", "level_up_now"):
+    for action in ("chat_turn", "level_up_now", "arcade_round"):
         assert client.post("/api/progression/actions", json={"action": action}).status_code == 422
+    unknown_deck = {"action": "deck_discovered", "ref": "hall"}
+    assert client.post("/api/progression/actions", json=unknown_deck).status_code == 422
 
 
 def test_without_the_service_the_api_says_unavailable():

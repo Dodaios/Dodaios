@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Personal Jarvis — headless server image (the cloud-first / VPS path).
+# Dodaios — headless server image (the cloud-first / VPS path).
 #
 # Boots the FastAPI + WebSocket backend and serves the prebuilt browser UI, so a
 # user reaches the full Router-Brain experience through any browser without a
@@ -8,15 +8,19 @@
 # are opt-in and useless in a headless container (see AGENTS.md, cloud-first
 # doctrine). Bring your own provider keys via environment variables.
 #
-#   docker build -t personal-jarvis .
+#   docker build -t dodaios .
 #   docker run --rm -p 127.0.0.1:8000:8000 \
 #       -v jarvis-data:/app/data \
 #       -e JARVIS_CONTROL_API_KEY=jctl_change_me \
 #       -e ANTHROPIC_API_KEY=sk-ant-... \
-#       personal-jarvis
+#       dodaios
 #   # then open http://localhost:8000
 #
 # Or use the bundled docker-compose.yml.
+#
+# The volume keeps its earlier name `jarvis-data` and the configuration stays
+# at /app/data/jarvis.toml: a container started from this image reads the data
+# and settings an earlier image left in that volume.
 
 # --- Stage 1: build the React UI ---------------------------------------------
 # The frontend source lives in the repo; build it once here so the runtime image
@@ -75,6 +79,11 @@ RUN useradd --system --uid 1000 --shell /usr/sbin/nologin jarvis \
 USER jarvis
 
 EXPOSE 8000
+
+LABEL org.opencontainers.image.title="Dodaios" \
+      org.opencontainers.image.description="Dodaios headless server: the API and the browser interface" \
+      org.opencontainers.image.source="https://github.com/Dodaios/Dodaios" \
+      org.opencontainers.image.licenses="Apache-2.0"
 
 # JARVIS_BIND_HOST=0.0.0.0 makes the headless listener reachable through the
 # published port (the control key is the security boundary — see compose).

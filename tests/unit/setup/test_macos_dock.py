@@ -138,3 +138,11 @@ def test_unreadable_dock_preferences_change_nothing(
     assert dock.pin_to_dock_once(_BUNDLE) is False
     # Nothing was decided, so the next installer run looks again.
     assert not marker.exists()
+
+
+def test_an_unresolved_tile_is_ours_under_the_current_and_the_earlier_name() -> None:
+    # The bundle was renamed in place; a tile the Dock has not resolved yet
+    # may carry either name in its URL.
+    assert dock.is_our_tile(_tile("file:///Applications/Dodaios.app/", None))
+    assert dock.is_our_tile(_tile("file:///Applications/Personal%20Jarvis.app/", None))
+    assert not dock.is_our_tile(_tile("file:///Applications/Dodaios%20Notes.app/", None))

@@ -1,0 +1,96 @@
+{
+  "ship": {
+    "bridge": {
+      "no_first_officer": "Todavía no hay primer oficial a bordo. Tu asistente ocupará el asiento en cuanto exista.",
+      "room": {
+        "readyroom": "Sala de mando"
+      },
+      "viewscreen": {
+        "destination": "Destino",
+        "warp": "Salto warp"
+      },
+      "screen": {
+        "helm": "Timón",
+        "ops": "Operaciones",
+        "personnel": "Personal",
+        "comms": "Primer oficial",
+        "comms_hint": "Canal abierto",
+        "science": "Ciencia",
+        "navigation": "Navegación",
+        "record": "Hoja de servicio",
+        "course": "Rumbo",
+        "charted": "Cartografiados",
+        "next": "Siguiente",
+        "all_charted": "Todos los destinos cartografiados",
+        "warp": "Warp",
+        "holding": "En posición",
+        "live": "En vivo",
+        "no_crew": "No hay tripulación a bordo",
+        "no_lead": "Sin primer oficial",
+        "more": "+{count} más",
+        "one_sun": "Un sol",
+        "twin_suns": "Dos soles",
+        "rings": "Sistema de anillos",
+        "cities": "Ciudades iluminadas en el lado nocturno",
+        "singularity": "Agujero negro: mantener distancia"
+      },
+      "body": {
+        "terran": "Mundo oceánico",
+        "gas": "Gigante gaseoso",
+        "ice": "Luna helada",
+        "lava": "Mundo fundido",
+        "none": "Espacio abierto",
+        "aurora": "Mundo de auroras"
+      },
+      "helm": {
+        "eyebrow": "Timón",
+        "title": "Fijar un rumbo",
+        "holding": "En posición en {place}",
+        "captain_level": "Nivel de capitán {n}",
+        "opens": "Nivel {n}",
+        "here": "Aquí",
+        "open": "Abierto",
+        "locked": "Bloqueado",
+        "locked_say": "{place} se abre con el nivel de capitán {n}.",
+        "already": "La nave ya está en {place}.",
+        "engaged": "Rumbo fijado a {place}. Adelante.",
+        "warping": "Saltando a {place}…",
+        "hint": "Las flechas eligen, Intro salta, Escape cierra."
+      },
+      "destination": {
+        "home": {
+          "name": "Órbita de origen",
+          "about": "Un mundo azul abajo, con sus ciudades encendidas en el lado nocturno."
+        },
+        "gas_giant": {
+          "name": "Gigante de bandas",
+          "about": "Un gigante gaseoso surcado de tormentas, con un amplio sistema de anillos."
+        },
+        "crimson_nebula": {
+          "name": "Nebulosa carmesí",
+          "about": "En lo hondo de una nube roja y ámbar: ningún planeta, solo el resplandor."
+        },
+        "ice_moon": {
+          "name": "Luna helada",
+          "about": "Una luna congelada bajo un sol brillante y frío."
+        },
+        "twin_suns": {
+          "name": "Soles gemelos",
+          "about": "Un mundo fundido iluminado por dos soles."
+        },
+        "event_horizon": {
+          "name": "Horizonte de sucesos",
+          "about": "En posición al borde de un agujero negro."
+        },
+        "aurora_world": {
+          "name": "Mundo de auroras",
+          "about": "Un mundo verde bajo auroras ondulantes, con sus ciudades despiertas."
+        },
+        "galactic_core": {
+          "name": "Núcleo galáctico",
+          "about": "El corazón denso y brillante de la galaxia."
+        }
+      }
+    }
+  }
+}

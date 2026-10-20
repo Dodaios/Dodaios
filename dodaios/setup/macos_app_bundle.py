@@ -3,7 +3,7 @@
 The bundle's main executable must remain a Mach-O process. A shell launcher
 that ``exec``s an external virtual-environment Python loses its ``NSBundle``
 identity and causes TCC grants to attach to Python or a terminal instead of
-Personal Jarvis. The managed installer therefore compiles the in-repo stub
+the app. The managed installer therefore compiles the in-repo stub
 launcher (``macos_stub_launcher.c``): it embeds the active Python runtime in
 the app process and runs the managed entry script, so it works with framework
 AND non-framework interpreters (for example uv-managed standalone builds)
@@ -44,6 +44,12 @@ from pathlib import Path
 from types import ModuleType
 
 from dodaios.core.branding import (
+    LEGACY_MACOS_APP_DIR_NAMES,
+    MACOS_APP_DIR_NAMES,
+    MACOS_DMG_BUNDLE_ID,
+    MACOS_EXECUTABLE_NAME,
+)
+from dodaios.core.branding import (
     MACOS_APP_DIR_NAME as APP_DIR_NAME,
 )
 from dodaios.core.branding import (
@@ -51,10 +57,6 @@ from dodaios.core.branding import (
 )
 from dodaios.core.branding import (
     MACOS_BUNDLE_ID as BUNDLE_ID,
-)
-from dodaios.core.branding import (
-    MACOS_DMG_BUNDLE_ID,
-    MACOS_EXECUTABLE_NAME,
 )
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 from dodaios.setup.macos_signing_identity import ensure_local_signing_identity
@@ -202,7 +204,7 @@ def _bundle_identifier(candidate: Path) -> str | None:
 def _is_foreign_bundle(candidate: Path) -> bool:
     """Whether ``candidate`` is an app of the same NAME that is not ours.
 
-    The notarized DMG build is also called ``Personal Jarvis.app`` and is
+    The notarized DMG build carries the same name and is
     dragged to ``/Applications`` by hand, under its own bundle id. It is the
     user's app, not this installer's: it must never be taken for the managed
     bundle, replaced by a rebuild, or deleted by an uninstall. Only a readable
@@ -225,10 +227,12 @@ def installed_macos_app_bundle_path() -> Path:
     managed = macos_app_bundle_path()
     if managed.is_dir():
         return managed
+    # A .dmg app the in-app updater has not reached yet keeps its earlier name.
     for root in (SYSTEM_APPLICATIONS_DIR, user_applications_dir()):
-        candidate = root / APP_DIR_NAME
-        if candidate.is_dir() and _bundle_identifier(candidate) == MACOS_DMG_BUNDLE_ID:
-            return candidate
+        for name in MACOS_APP_DIR_NAMES:
+            candidate = root / name
+            if candidate.is_dir() and _bundle_identifier(candidate) == MACOS_DMG_BUNDLE_ID:
+                return candidate
     return managed
 
 
@@ -236,6 +240,49 @@ def macos_app_bundle_path(*, applications_dir: Path | None = None) -> Path:
     """Return the application-bundle path (see ``macos_applications_dir``)."""
     root = applications_dir or macos_applications_dir()
     return root / APP_DIR_NAME
+
+
+def rename_legacy_macos_app_bundles(roots: tuple[Path, ...] | None = None) -> list[Path]:
+    """Give our bundle under an earlier name the current name, once.
+
+    One ``os.rename`` in the folder it lives in: every byte stays, and with
+    them the code signature, so the privacy grants survive it (TCC pins them to
+    the bundle id and the signing requirement, never to a path, BUG-161). No
+    link is left under the earlier name: Launchpad and Spotlight would list the
+    app twice. A process that runs from the bundle keeps running; it still
+    reports the path it started from, which the repair below allows for.
+
+    Only a bundle whose ``Info.plist`` names the managed bundle id is renamed.
+    An unreadable one proves nothing, and the .dmg app (its own id) is renamed
+    by its own updater (``dodaios.core.installer_update``), which swaps the
+    bundle it runs from and must find it where it started. A folder that
+    already holds an app under the current name keeps both untouched. Returns
+    the bundles now under the current name; never raises.
+    """
+    renamed: list[Path] = []
+    for root in roots or (SYSTEM_APPLICATIONS_DIR, user_applications_dir()):
+        target = root / APP_DIR_NAME
+        for legacy_name in LEGACY_MACOS_APP_DIR_NAMES:
+            source = root / legacy_name
+            try:
+                if source.is_symlink() or not source.is_dir():
+                    continue
+                if _bundle_identifier(source) != BUNDLE_ID:
+                    log.info("Keeping %s under its name: it is not this install's app.", source)
+                    continue
+                if target.exists() or target.is_symlink():
+                    log.warning(
+                        "Keeping %s under its earlier name: %s already exists.", source, target
+                    )
+                    continue
+                os.rename(source, target)
+            except OSError as exc:
+                log.warning("Could not rename %s to %s; keeping it: %s", source, target, exc)
+                continue
+            log.info("Renamed the macOS app %s to %s.", source, target)
+            unregister_from_launch_services(source)
+            renamed.append(target)
+    return renamed
 
 
 def _promote_to_system_applications(
@@ -628,7 +675,7 @@ def register_with_launch_services(bundle: Path) -> bool:
 def unregister_from_launch_services(bundle: Path) -> bool:
     """Drop ``bundle`` from the LaunchServices database.
 
-    A deleted or moved app otherwise lingers as a second "Personal Jarvis" in
+    A deleted or moved app otherwise lingers as a second copy of the app in
     "Open With" and as a dead target for ``open -b`` until the next database
     rebuild. Works on a path that no longer exists. Best-effort, never raises.
     """
@@ -1120,37 +1167,50 @@ def _install_native_bundle(
     return bundle
 
 
-def _bundle_version(bundle: Path) -> str | None:
+def _bundle_metadata_is_current(bundle: Path) -> bool:
+    """Whether the bundle's ``Info.plist`` names this version and this app name."""
     try:
         with (bundle / "Contents" / "Info.plist").open("rb") as stream:
-            version = plistlib.load(stream).get("CFBundleShortVersionString")
+            info = plistlib.load(stream)
     except (OSError, ValueError, plistlib.InvalidFileException):
-        # An unreadable plist has no usable version.
-        return None
-    return version if isinstance(version, str) else None
+        # An unreadable plist has no usable metadata.
+        return False
+    return (
+        info.get("CFBundleShortVersionString") == _version()
+        and info.get("CFBundleName") == APP_NAME
+        and info.get("CFBundleDisplayName") == APP_NAME
+    )
 
 
-def _stamp_current_version(staged: Path) -> None:
+def _stamp_current_metadata(staged: Path) -> None:
     info_path = staged / "Contents" / "Info.plist"
     with info_path.open("rb") as stream:
         info = plistlib.load(stream)
     info["CFBundleShortVersionString"] = _version()
     info["CFBundleVersion"] = _version()
+    # The name the menu bar shows; a bundle built under an earlier name still
+    # carries that one after the folder was renamed.
+    info["CFBundleName"] = APP_NAME
+    info["CFBundleDisplayName"] = APP_NAME
     with info_path.open("wb") as stream:
         plistlib.dump(info, stream)
 
 
-def _refresh_bundle_version(bundle: Path, identity: str) -> Path:
-    """Make Finder's "Get Info" show the version that is actually installed.
+def _refresh_bundle_metadata(bundle: Path, identity: str) -> Path:
+    """Make Finder's "Get Info" and the menu bar show what is actually installed.
 
     The bundle is kept across source updates, so its ``Info.plist`` froze at
-    the version that first built it. Under the certificate identity the code
-    requirement does not depend on the bundle's bytes, so the metadata can be
-    brought up to date without costing a single permission. An ad-hoc bundle
-    is never touched here — for it, any new signature is a new TCC identity.
+    the version and the name that first built it. Under the certificate
+    identity the code requirement does not depend on the bundle's bytes, so the
+    metadata can be brought up to date without costing a single permission. An
+    ad-hoc bundle is never touched here — for it, any new signature is a new
+    TCC identity; it keeps the earlier name inside until a rebuild that happens
+    for another reason.
     """
-    refreshed = _resign_bundle_in_place(bundle, identity, prepare=_stamp_current_version)
-    log.info("macOS app bundle metadata updated to version %s: %s", _version(), bundle)
+    refreshed = _resign_bundle_in_place(bundle, identity, prepare=_stamp_current_metadata)
+    log.info(
+        "macOS app bundle metadata updated to %s %s: %s", APP_NAME, _version(), bundle
+    )
     return refreshed
 
 
@@ -1240,10 +1300,12 @@ def _ensure_macos_app_bundle(
     applications_dir: Path | None = None,
     create_signing_identity: bool = False,
 ) -> Path | None:
-    """Ensure ``/Applications/Personal Jarvis.app`` has a stable identity.
+    """Ensure ``/Applications/<APP_DIR_NAME>`` has a stable identity.
 
     ``~/Applications`` is used instead when this account cannot write
-    ``/Applications``; an existing install there is moved over once.
+    ``/Applications``; an existing install there is moved over once, and a
+    bundle under an earlier name is renamed once
+    (``rename_legacy_macos_app_bundles``).
 
     A valid existing bundle is preserved byte-for-byte so normal source
     updates cannot churn its local TCC identity. ``create_signing_identity``
@@ -1258,8 +1320,11 @@ def _ensure_macos_app_bundle(
         if sys.platform != "darwin":
             log.info("App bundle skipped: only macOS uses .app bundles.")
             return None
+        rename_legacy_macos_app_bundles()
         _promote_to_system_applications()
         applications_dir = macos_applications_dir()
+    else:
+        rename_legacy_macos_app_bundles((applications_dir,))
     try:
         install_root = (install_dir or _default_install_dir()).resolve()
         bundle = macos_app_bundle_path(applications_dir=applications_dir)
@@ -1285,7 +1350,8 @@ def _ensure_macos_app_bundle(
         running = _running_managed_bundle(install_root=install_root, diagnostics=diagnostics)
         if running is not None and not running.exists() and bundle.exists():
             # This process still carries the path it launched from, but the
-            # bundle was just moved (``_promote_to_system_applications``).
+            # bundle was just moved or renamed (``_promote_to_system_applications``,
+            # ``rename_legacy_macos_app_bundles``).
             running = bundle
         if running is not None:
             register_with_launch_services(running)
@@ -1311,8 +1377,8 @@ def _ensure_macos_app_bundle(
                     register_with_launch_services(resigned)
                     _record_rebuild(resigned, install_root=install_root, identity=identity)
                     return resigned
-                if identity is not None and _bundle_version(bundle) != _version():
-                    bundle = _refresh_bundle_version(bundle, identity)
+                if identity is not None and not _bundle_metadata_is_current(bundle):
+                    bundle = _refresh_bundle_metadata(bundle, identity)
                 # A healthy bundle is kept byte-for-byte, but LaunchServices may
                 # still not know it — an interrupted earlier run, or a database
                 # rebuilt since. Re-registering is a no-op when it is known, and
@@ -1364,7 +1430,8 @@ def remove_macos_app_bundle(*, applications_dir: Path | None = None) -> bool:
     """Delete the bundle on uninstall and report whether it is gone.
 
     Without an explicit directory both install locations are cleared, so an
-    app the installer moved or the user dragged elsewhere is not left behind.
+    app the installer moved or the user dragged elsewhere is not left behind,
+    under its current name and every earlier one.
     """
     if applications_dir is None:
         if sys.platform != "darwin":
@@ -1374,19 +1441,22 @@ def remove_macos_app_bundle(*, applications_dir: Path | None = None) -> bool:
         roots = [applications_dir]
     removed = True
     for root in roots:
-        bundle = root / APP_DIR_NAME
-        if not bundle.exists() and not bundle.is_symlink():
-            continue
-        if _is_foreign_bundle(bundle):
-            log.info("Keeping %s: it is a separately installed app, not this install's.", bundle)
-            continue
-        try:
-            _remove_path(bundle)
-            unregister_from_launch_services(bundle)
-            log.info("macOS app bundle removed: %s", bundle)
-        except OSError as exc:
-            log.warning("Could not remove %s: %s", bundle, exc)
-            removed = False
+        for name in MACOS_APP_DIR_NAMES:
+            bundle = root / name
+            if not bundle.exists() and not bundle.is_symlink():
+                continue
+            if _is_foreign_bundle(bundle):
+                log.info(
+                    "Keeping %s: it is a separately installed app, not this install's.", bundle
+                )
+                continue
+            try:
+                _remove_path(bundle)
+                unregister_from_launch_services(bundle)
+                log.info("macOS app bundle removed: %s", bundle)
+            except OSError as exc:
+                log.warning("Could not remove %s: %s", bundle, exc)
+                removed = False
     return removed
 
 
@@ -1405,5 +1475,6 @@ __all__ = [
     "macos_launch_services_command",
     "register_with_launch_services",
     "remove_macos_app_bundle",
+    "rename_legacy_macos_app_bundles",
     "unregister_from_launch_services",
 ]

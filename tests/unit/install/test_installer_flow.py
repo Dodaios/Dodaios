@@ -257,7 +257,7 @@ def test_full_profile_failure_stops_desktop_install(monkeypatch) -> None:
 
 def test_macos_launch_enters_through_application_bundle(monkeypatch, tmp_path, capsys) -> None:
     launched: dict[str, object] = {}
-    bundle = tmp_path / "Personal Jarvis.app"
+    bundle = tmp_path / "Dodaios.app"
     monkeypatch.setattr(installer.sys, "platform", "darwin")
     monkeypatch.setattr(
         "dodaios.setup.macos_app_bundle.macos_app_bundle_path", lambda: bundle
@@ -283,7 +283,7 @@ def test_macos_launch_enters_through_application_bundle(monkeypatch, tmp_path, c
     # hit: outro said "Launching…" but nothing opened, with no recovery path).
     out = capsys.readouterr().out
     assert "If it doesn't open, run:" in out
-    assert 'open -a "Personal Jarvis"' in out
+    assert 'open -a "Dodaios"' in out
 
 
 def test_launch_fallback_hint_is_shown_on_every_desktop_os(monkeypatch, capsys) -> None:
@@ -317,7 +317,7 @@ def test_linux_gui_gets_full_profile_and_app_menu_registration(
     assert rc == 0
     assert ".[full]" in out
     assert "repair desktop-shell registration" in out
-    assert 'app menu -> "Personal Jarvis"' in out
+    assert 'app menu -> "Dodaios"' in out
 
 
 def test_update_summary_promises_no_reonboarding(monkeypatch, capsys, tmp_path) -> None:
@@ -366,3 +366,28 @@ def test_a_spotlight_probe_that_cannot_run_never_fails_the_install(
     monkeypatch.setattr(installer.subprocess, "run", _boom)
 
     installer._note_stalled_spotlight()
+
+
+def test_the_macos_step_renames_the_bundle_before_the_desktop_step(monkeypatch, capsys) -> None:
+    """The updater of the release before starts the app from the bundle name the
+    contract states, so the rename runs with or without the desktop profile."""
+    import dodaios.setup.macos_app_bundle as bundle_module
+
+    calls: list[str] = []
+    monkeypatch.setattr(installer.sys, "platform", "darwin")
+    monkeypatch.setattr(
+        bundle_module,
+        "rename_legacy_macos_app_bundles",
+        lambda: calls.append("rename") or [Path("/Applications/Dodaios.app")],
+    )
+
+    installer.step_macos_bundle_name(dry_run=False)
+
+    assert calls == ["rename"]
+    assert "Dodaios.app" in capsys.readouterr().out
+    installer.step_macos_bundle_name(dry_run=True)
+    assert calls == ["rename"]
+    source = Path(installer.__file__).read_text(encoding="utf-8")
+    assert source.index("step_macos_bundle_name(dry_run=args.dry_run)") < source.index(
+        "if not step_desktop_integration(enabled=with_desktop"
+    )

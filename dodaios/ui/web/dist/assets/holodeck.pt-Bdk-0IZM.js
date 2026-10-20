@@ -1,0 +1,1 @@
+const o={holodeck:{room:"Holodeck",program:"Programa do holodeck",loading:"Carregando o programa…",missing:"Este programa não está na biblioteca do holodeck."}},a={ship:o};export{a as default,o as ship};
