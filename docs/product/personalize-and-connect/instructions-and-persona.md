@@ -1,7 +1,7 @@
 ---
 title: "Instructions and Persona"
 slug: instructions-and-persona
-summary: Shape how Jarvis responds without changing providers, memories, or safety rules.
+summary: Shape how your assistant responds without changing providers, memories, or safety rules.
 section: "Personalize and connect"
 section_order: 3
 order: 5
@@ -15,7 +15,7 @@ tags: [instructions, persona, personalization, profile, safety]
 related: [chats, profile-and-contacts, safety-and-approvals]
 ---
 
-You can change how Jarvis speaks and works with you without changing the
+You can change how your assistant speaks and works with you without changing the
 provider or model. Use standing instructions for personal preferences such as
 tone, answer format, and default choices.
 
@@ -33,7 +33,7 @@ reply language, or remove safety checks.
 | **Custom System Prompt** | Replacing the packaged persona with your own broad behavior guide | **Settings > System Prompt** | Runtime identity, tool availability, reply-language controls, approvals, or safety rules |
 | **Character file (`SOUL.md`)** | Who the assistant is: its name, role, tone, limits, and what it has learned about its own character from your feedback | `SOUL.md` in the `workspace` folder of the app's data folder; the assistant keeps the name and its learned notes up to date itself | Facts about you, tools, or safety rules |
 | **Profile** | Structured facts about you, including your name, preferred form of address, and communication preferences | **Profile** | A complete persona or project knowledge |
-| **Wiki and Memory** | Notes, projects, and facts Jarvis may use as relevant context | **Wiki** and memory features | Standing behavior rules or provider selection |
+| **Wiki and Memory** | Notes, projects, and facts Dodaios may use as relevant context | **Wiki** and memory features | Standing behavior rules or provider selection |
 | **Provider and model** | The service and model that produce a response | **API Keys & Providers** | Your locally saved persona, instructions, Profile, or Memory |
 
 The `<assistant name>.md` label follows the name in your wake word. If no name
@@ -41,13 +41,13 @@ is available, the page is named `Assistant.md`.
 
 The same wake-word name is the assistant's own name in every chat and voice
 call. With the wake word "Hey George", the assistant introduces itself as
-George; "Personal Jarvis" is the app's name, not the assistant's. To rename
+George; "Dodaios" is the app's name, not the assistant's. To rename
 the assistant, change the wake word. When you correct how the assistant
 presents itself during a live voice call, for example "be less formal", it
 records that in its character file right away and follows it from the next
 call on.
 
-> [!warning] Jarvis sends the active persona and standing instructions to the
+> [!warning] Dodaios sends the active persona and standing instructions to the
 > model as request context. A remote provider receives that text. Do not save
 > API keys, passwords, private records, or other secrets in either editor.
 
@@ -75,7 +75,7 @@ likely to contain conflicting rules.
 3. Replace the prompts with short, direct preferences. For example, ask for
    plain language, short paragraphs, or a recommendation when several safe
    choices are available.
-4. Select **Save instructions**. The **Active** badge appears, and Jarvis reads
+4. Select **Save instructions**. The **Active** badge appears, and Dodaios reads
    the saved text for the next response without a restart.
 5. Open [Chats](chats) and send a request that makes the preference easy to
    observe.
@@ -87,7 +87,7 @@ badge changes to **Empty**, and the saved instructions file is removed.
 ## Change the Persona
 
 A system prompt is high-level guidance sent to a model before your message.
-The editor exposes Jarvis's editable persona layer. Runtime rules are added
+The editor exposes Dodaios's editable persona layer. Runtime rules are added
 separately and remain in force.
 
 1. Open **Settings** and find **System Prompt**. The editor shows the persona
@@ -121,9 +121,9 @@ project knowledge in Wiki or Memory.
 ## How It Fits Together
 
 1. You send a chat message or start a voice turn.
-2. Jarvis loads either the packaged persona or your custom replacement, then
+2. Dodaios loads either the packaged persona or your custom replacement, then
    adds the current standing instructions.
-3. For normal brain turns, Jarvis can also add Profile details, relevant
+3. For normal brain turns, Dodaios can also add Profile details, relevant
    memory, conversation context, and the tools available for that turn.
 4. The active provider and model receive that context and produce a response.
    Changing providers does not delete the locally saved layers, although a
@@ -185,7 +185,7 @@ it to **Custom**, and **Reset to default** changes it back to **Default**.
 | Another preference is ignored | The rule is vague, conflicts with another layer, or the model interpreted it differently | Keep one observable rule, remove duplicates, and test it in a new chat |
 | Old behavior remains after clearing | The current conversation, Profile, Memory, or persona may still suggest it | Start a new chat and review each layer separately |
 | The System Prompt cannot be saved | The editor is empty or the save request failed | Restore some text, or select **Reset to default** |
-| Jarvis still asks for approval | The action is controlled by safety and permissions | Review [Safety and Approvals](safety-and-approvals); do not add bypass instructions |
+| Dodaios still asks for approval | The action is controlled by safety and permissions | Review [Safety and Approvals](safety-and-approvals); do not add bypass instructions |
 
 If either editor shows an error or fails to load, keep your draft in a temporary
 local note, reopen the view, and follow [Troubleshooting](troubleshooting)
@@ -197,6 +197,6 @@ before saving again.
 - Review [Profile and Contacts](profile-and-contacts) to keep structured facts
   about you and other people in the right place.
 - Use [Wiki and Memory](wiki-and-memory) for project knowledge and facts you
-  want Jarvis to recall when relevant.
+  want Dodaios to recall when relevant.
 - Read [Safety and Approvals](safety-and-approvals) to understand which action
   rules cannot be changed by instructions or a persona.

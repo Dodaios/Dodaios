@@ -20,6 +20,7 @@
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useT } from "@/i18n";
+import { useRunLocale } from "@/components/runs/format";
 import { useCompanionPet } from "../../companion/companionPetStore";
 import type { SocietyAgent } from "../../data";
 import type { ToyLook } from "../../office/toyFigureModel";
@@ -37,6 +38,7 @@ import { RanksTab } from "./RanksTab";
 import { RewardsTab } from "./RewardsTab";
 import { StudioTab } from "./StudioTab";
 import { AgentSymbol } from "../../AgentSymbol";
+import { CompanionMark } from "../../companion/CompanionMark";
 import { accessoryItem } from "../../companion/accessories";
 import { resolveCompanion } from "../../companion/appearance";
 import "./hall.css";
@@ -90,6 +92,7 @@ const TAB_ICON: Record<HallTab, string> = {
 
 function OverviewTab({ who }: { who: HallWho }) {
   const t = useT();
+  const locale = useRunLocale();
   const open = useProgression((s) => s.openPanel);
   const rewards = useProgression((s) => s.snapshot?.rewards ?? NO_REWARDS);
   const rules = useProgression((s) => s.snapshot?.rules ?? NO_RULES);
@@ -116,7 +119,7 @@ function OverviewTab({ who }: { who: HallWho }) {
             <span>
               <strong>{t(`society.level.title.${promoRank}`)}</strong>
               <em>{RANK_INFO[promoRank].grade} · {t("society.level.locked_at").replace("{0}", String(promotion.level))}</em>
-              <span className="hall-promotion-xp">{t("society.hall.xp_needed").replace("{0}", xpToReach(curve, subject?.xp ?? 0, promotion.level).toLocaleString())}</span>
+              <span className="hall-promotion-xp">{t("society.hall.xp_needed").replace("{0}", xpToReach(curve, subject?.xp ?? 0, promotion.level).toLocaleString(locale))}</span>
             </span>
           </button>
         ) : <p className="hall-hint">{t("society.hall.top_title")}</p>}
@@ -213,15 +216,15 @@ function TeamTab({ agents }: { agents: readonly SocietyAgent[] }) {
               return (
               <li key={agent.agentId} data-podium={i < 3 ? i + 1 : undefined}>
                 <span className="hall-rank">{i + 1}</span>
-                <AgentSymbol shape={look.shape} color={look.color} eyes={look.eyes} accessories={look.accessories} size={34} />
+                <CompanionMark appearance={look} size={34} />
                 <LevelChip kind="agent" level={level} />
                 <span className="hall-rank-body">
                   <span><strong>{agent.name}</strong> <em>{t(`society.level.title.${rankOf(subject?.title)}`)}</em></span>
                   <XpBar fraction={levelFraction(subject)} kind="agent" label={t("society.level.agent_xp_label").replace("{0}", agent.name)} />
                   {next && nextItem && (
                     <span className="hall-rank-next">
-                      <AgentSymbol shape={look.shape} color={look.color} eyes={look.eyes} size={22}
-                        accessories={{ ...look.accessories, [nextItem.slot]: next[0] }} />
+                      {!look.pet && <AgentSymbol shape={look.shape} color={look.color} eyes={look.eyes} skin={look.skin} size={22}
+                        accessories={{ ...look.accessories, [nextItem.slot]: next[0] }} />}
                       {t("society.hall.next_look").replace("{0}", t(`society.companion.items.${next[0]}`)).replace("{1}", String(next[1]))}
                     </span>
                   )}

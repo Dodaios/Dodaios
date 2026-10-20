@@ -24,7 +24,7 @@ class WhoAmITool:
     name: str = "whoami"
     risk_tier: str = "safe"
     description: str = (
-        "Returns a summary of what Jarvis knows about the user."
+        "Returns a summary of what Dodaios knows about the user."
     )
     schema: dict[str, Any] = {
         "type": "object",

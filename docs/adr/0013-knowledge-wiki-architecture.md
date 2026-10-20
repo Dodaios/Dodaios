@@ -4,7 +4,7 @@
 
 ## Context
 
-Personal Jarvis already keeps long-term notes via the legacy
+Dodaios already keeps long-term notes via the legacy
 `jarvis/memory/curator/` merger, which writes free-form Markdown into a
 small set of flat files under `data/workspace/`: `USER.md`, `MEMORY.md`,
 `soul.md`, and per-person files under `people/`. The legacy design has
@@ -26,13 +26,13 @@ markdown pages with cross-references, and updates touch 10-15 pages per
 ingest rather than rewriting one file wholesale. Read happens via FTS5
 + structured links, not vector retrieval.
 
-The pattern aligns well with Personal Jarvis because:
+The pattern aligns well with Dodaios because:
 
 - `data/workspace/` is already a markdown vault — the move is from flat
   to structured, not from one storage to another.
 - Obsidian (free for personal use) gives instant visualisation of the
   graph, search, and editing, with no integration work on our side.
-- Markdown + Git is portable and human-readable; if Personal Jarvis ever
+- Markdown + Git is portable and human-readable; if Dodaios ever
   dies, the user keeps every fact in a format every editor can open.
 
 ## Decision
@@ -84,7 +84,7 @@ voice path must never block on them).
   backed up to `data/backups/wiki-migrate-<ts>.tar.gz` before any
   rewrite. The legacy curator keeps running until B4.
 - **Obsidian becomes the recommended viewer.** No code dependency
-  on Obsidian — Personal Jarvis runs the same whether Obsidian is
+  on Obsidian — Dodaios runs the same whether Obsidian is
   installed or not. The desktop app gains its own in-app wiki view
   in B3 using `react-force-graph` + `react-markdown` (both MIT).
 - **Awareness Layer (A0-A5) is unchanged.** The short-term and mid-term
@@ -97,7 +97,7 @@ voice path must never block on them).
 - **Migration risk is bounded.** The legacy files stay on disk and the
   legacy curator keeps writing to them until B4. If B1-B3 prove
   unstable, rolling back is `rm -rf data/workspace/{entities,concepts,projects,sessions}`
-  and restarting Jarvis — no data loss because the legacy files were
+  and restarting Dodaios — no data loss because the legacy files were
   never modified.
 
 ## Alternatives Considered
@@ -110,7 +110,7 @@ voice path must never block on them).
   anti-pattern: "the LLM rediscovers knowledge from scratch on every
   query."
 - **Hosted SaaS memory (mem0, MemGPT cloud, etc.).** Rejected — the
-  user's whole point is that Personal Jarvis is local, private, and
+  user's whole point is that Dodaios is local, private, and
   portable. SaaS lock-in is a non-starter.
 - **Notion/Obsidian Sync as the storage layer.** Rejected for storage,
   accepted for *viewing*. The vault stays as plain markdown files on

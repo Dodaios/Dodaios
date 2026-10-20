@@ -11,12 +11,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { OFFICIAL_REPO_URL } from "@/lib/branding";
 import { isMacClient } from "@/lib/embeddedDesktop";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
 
 /** Where the Markdown sources of the bundled docs live publicly. */
-export const DOCS_REPO_URL = "https://github.com/PersonalJarvis/PersonalJarvis";
+export const DOCS_REPO_URL = OFFICIAL_REPO_URL;
 export const ONLINE_DOCS_URL = `${DOCS_REPO_URL}/tree/main/docs`;
 
 /** Public URL of one guide's source file (``path`` is repo-relative). */

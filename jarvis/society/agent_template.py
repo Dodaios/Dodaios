@@ -99,6 +99,8 @@ _SCOPES: Final[tuple[str, ...]] = ("shared", "own")
 # URL served by the author's own app and never travels.
 _AVATAR_ID_RE: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9_-]{1,40}$")
 _HEX_RE: Final[re.Pattern[str]] = re.compile(r"^#[0-9a-fA-F]{6}$")
+#: ``USER_ID_RE`` in ``jarvis/ui/pets/manifest.py``: a pet drawn on this machine.
+_DRAWN_PET_RE: Final[re.Pattern[str]] = re.compile(r"^u[0-9a-f]{16}$")
 _AVATAR_STRINGS: Final[tuple[str, ...]] = (
     "archetype",
     "base",
@@ -108,7 +110,7 @@ _AVATAR_STRINGS: Final[tuple[str, ...]] = (
     "eyewear",
 )
 _COMPANION_KEYS: Final[frozenset[str]] = frozenset(
-    {"shape", "color", "eyes", "enabled", "sizeM", "followDistanceM"}
+    {"shape", "color", "eyes", "enabled", "sizeM", "followDistanceM", "pet", "creature", "look"}
 )
 
 
@@ -280,6 +282,9 @@ def public_avatar(avatar: Any) -> dict[str, Any]:
     companion = avatar.get("companion")
     if isinstance(companion, dict):
         kept = {k: v for k, v in companion.items() if k in _COMPANION_KEYS}
+        # A pet the person drew lives only on their machine; a built-in one travels.
+        if isinstance(kept.get("pet"), str) and _DRAWN_PET_RE.fullmatch(kept["pet"]):
+            del kept["pet"]
         # The roster validates this namespace strictly; a companion it would
         # refuse is dropped here, so a template never fails to install over
         # the colour of a floating shape.
@@ -337,7 +342,7 @@ def build_draft(agent: AgentRecord, overlay: dict[str, Any] | None = None) -> Sh
     the agent's own fields.
     """
     if str(agent.tier) == "lead":
-        raise TemplateError("Jarvis is the lead every install already has — share a teammate")
+        raise TemplateError("The lead is on every install already — share a teammate")
     overlay = overlay or {}
     findings: list[Finding] = []
 
@@ -450,12 +455,12 @@ def validate_template(template: Any, listing: dict[str, Any] | None = None) -> l
         if key not in TEMPLATE_KEYS:
             errors.append(f"{key} is not a template field")
     if template.get("schema") != TEMPLATE_SCHEMA:
-        errors.append(f"schema must be {TEMPLATE_SCHEMA} (this Jarvis reads version 1)")
+        errors.append(f"schema must be {TEMPLATE_SCHEMA} (this Dodaios reads version 1)")
     name = template.get("name")
     if not isinstance(name, str) or not _AGENT_NAME_RE.fullmatch(name.strip() or "/"):
         errors.append("name must be 1-40 characters without / \\ : @ # < > or quotes")
     elif name.strip().lower() == "jarvis":
-        errors.append("'Jarvis' is the lead every install already has")
+        errors.append("'Jarvis' is reserved for the lead every install already has")
     title = template.get("title", "")
     if not isinstance(title, str) or len(title) > MAX_TITLE_CHARS:
         errors.append(f"title must be at most {MAX_TITLE_CHARS} characters")

@@ -6,6 +6,8 @@ import {
   reduceEvent,
   reduceEvents,
   runningTurn,
+  settleApproval,
+  type ToolBlock,
   type TurnItem,
   type UserItem,
 } from "./reduce";
@@ -38,6 +40,22 @@ describe("agent-chat reduce", () => {
     expect(runningTurn(partial)?.id).toBe("partial");
     const failed = reduceEvent(partial, ev("turn_finished", { turn_id: "partial", status: "error", error: "claude-cli did not finish within 3600 s." }));
     expect(failed.items[0]).toMatchObject({ status: "error", error: "claude-cli did not finish within 3600 s." });
+  });
+
+  it("marks the turns the team engine gave a lead, and none the person typed", () => {
+    const frame = (kind: string) => `[${kind} for team Launch]\nGoal: Launch the page\nGoal id: g1. Managing turns left: 20.`;
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("user_message", { text: frame("team goal"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team update"), typed: "Launch the page: 2 results" }),
+      ev("user_message", { text: frame("team goal check"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team goal resumed"), typed: "Launch the page" }),
+      ev("user_message", { text: frame("team goal reply"), typed: "Germany" }),
+      ev("user_message", { text: "I read [team update for team Launch] somewhere" }),
+    ]);
+    expect(tl.items.map((item) => (item.type === "user" ? item.teamEvent : "?"))).toEqual([
+      undefined, "update", "check", "resumed", undefined, undefined,
+    ]);
+    expect(tl.items[1]).toMatchObject({ type: "user", text: "Launch the page: 2 results" });
   });
 
   it("folds a full turn: user line, deltas into one text block, tool call + result, finish", () => {
@@ -74,6 +92,45 @@ describe("agent-chat reduce", () => {
     expect(tl.pendingApprovals).toHaveLength(0);
     const turn = tl.items[0] as TurnItem;
     expect(turn.blocks[0]).toMatchObject({ kind: "tool", approval: { approvalId: "a1", decision: "deny" } });
+  });
+
+  it("lets the same call asking again replace its older card", () => {
+    // 2026-10-06: an app restart re-asked the call under a new id; the old
+    // card stayed first in line and its buttons answered 404 for ever.
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t9" }),
+      ev("tool_call", { turn_id: "t9", call_id: "c9", name: "Bash", input: { command: "ls" } }),
+      ev("approval_required", { turn_id: "t9", approval_id: "old", call_id: "c9", name: "Bash", input: { command: "ls" }, summary: "ls" }),
+      ev("approval_required", { turn_id: "t9", approval_id: "other", call_id: "c10", name: "Bash", input: {}, summary: "pwd" }),
+      ev("approval_required", { turn_id: "t9", approval_id: "new", call_id: "c9", name: "Bash", input: { command: "ls" }, summary: "ls" }),
+    ]);
+    expect(tl.pendingApprovals.map((a) => a.approvalId)).toEqual(["other", "new"]);
+    const row = (tl.items[0] as TurnItem).blocks.find((b): b is ToolBlock => b.kind === "tool" && b.callId === "c9");
+    expect(row?.approval).toMatchObject({ approvalId: "new", decision: null });
+  });
+
+  it("stops offering approval buttons once the turn ended", () => {
+    const tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t10" }),
+      ev("approval_required", { turn_id: "t10", approval_id: "a10", call_id: "c10", name: "Bash", input: {}, summary: "ls" }),
+      ev("turn_finished", { turn_id: "t10", status: "error", error: "Jarvis restarted while this turn was running." }),
+    ]);
+    expect(tl.pendingApprovals).toHaveLength(0);
+    expect((tl.items[0] as TurnItem).blocks[0]).toMatchObject({ kind: "tool", approval: { approvalId: "a10", decision: "expired" } });
+  });
+
+  it("settles a card the backend answered before its event arrives", () => {
+    let tl = reduceEvents(EMPTY_TIMELINE, [
+      ev("turn_started", { turn_id: "t11" }),
+      ev("approval_required", { turn_id: "t11", approval_id: "a11", call_id: "c11", name: "Bash", input: {}, summary: "ls" }),
+    ]);
+    tl = settleApproval(tl, "a11", "allow");
+    expect(tl.pendingApprovals).toHaveLength(0);
+    expect((tl.items[0] as TurnItem).blocks[0]).toMatchObject({ approval: { approvalId: "a11", decision: "allow" } });
+    // The event that follows changes nothing; an unknown id is a no-op.
+    const after = reduceEvent(tl, ev("approval_resolved", { turn_id: "t11", approval_id: "a11", decision: "allow" }));
+    expect(after.items).toBe(tl.items);
+    expect(settleApproval(after, "nope", "expired")).toBe(after);
   });
 
   it("returns the same object when an event changes nothing", () => {

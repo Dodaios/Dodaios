@@ -148,7 +148,7 @@ you write, so write the brief you would want to receive.
 
 {GOAL_NOT_IMPLEMENTATION_RULE}
 
-The user is SPEAKING to Jarvis about this agent, so their words name the \
+The user is SPEAKING to their assistant about this agent, so their words name the \
 handover as well as the work: "prompt T2 and T3 to ...", "write Alex the prompt \
 for ...", "tell Nova it should ...". THE BRIEF YOU ARE WRITING IS THAT PROMPT. \
 Never make prompt-writing the agent's task - a `## Task` reading "create the \
@@ -381,7 +381,7 @@ def user_block(
             f'<file path="{path}">\n{text}\n</file>' for path, text in skeletons.items()
         )
         parts.append(
-            "FILE OUTLINES AND TASK-RELEVANT LINES (Jarvis looked into these "
+            "FILE OUTLINES AND TASK-RELEVANT LINES (Dodaios looked into these "
             "files; partial - signatures plus the numbered lines that mention "
             "the task. Use them to choose the right Key files, to name real "
             "symbols instead of describing code vaguely, and for ## Context)\n"

@@ -1,7 +1,7 @@
 {
   "$comment": "Bodies modelled by scripts/figures/humanoid_builder.py — first-party geometry and sheets on the CC0 KayKit rig and clips (character-pipeline.md §8.2 route B, §12 decision 1). No mesh of the donor survives the build: it is imported for its 23 deform bones and nine clips, every object it shipped is deleted, and the body is built from boxes. The donor's own sha256 rows stay in SOURCES.md through the kaykit-adventurers source.",
-  "name": "Personal Jarvis humanoids (first-party meshes on the KayKit CC0 rig)",
-  "author": "Personal Jarvis",
+  "name": "Dodaios humanoids (first-party meshes on the KayKit CC0 rig)",
+  "author": "Dodaios",
   "family": "jarvis-biped",
   "license": "first-party",
   "license_url": "",

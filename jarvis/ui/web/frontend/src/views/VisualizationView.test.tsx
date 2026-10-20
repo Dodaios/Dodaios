@@ -2,12 +2,15 @@
  * The Artifacts section — every page and picture a run produced, full-size.
  *
  * Contracts worth pinning:
- * - the section opens on the library: every artifact a card, newest first,
- *   a page labelled by its own <title>; a click opens it on the stage, back
+ * - the section opens on the library: every artifact a tile, newest first,
+ *   a page named by its own <title>; a click opens it on the stage, back
  *   returns, previous / next walk the library,
+ * - a tile can be starred, and the starred ones are what Favorites shows,
+ * - the same cards are a list one toggle away, with the request on each row,
  * - a PAGE is framed from `/page` with `sandbox="allow-scripts"` and no
  *   same-origin (its scripts run, the app stays out of reach); an image goes
- *   through <img>; a PDF through an empty sandbox,
+ *   through <img>; a PDF through a frame without a sandbox, because the
+ *   browser's PDF viewer is a plugin and never loads inside one,
  * - "Code" shows the page's source, "Run" the node graph of the run that made
  *   it — the graph is one tab away, never in front of the page,
  * - a `create_artifact` mission still running shows as a "building…" row and
@@ -193,8 +196,9 @@ describe("VisualizationView", () => {
     // The library card carries the page's title, not the filename.
     const rows = await screen.findAllByTestId("visualization-artifact-row");
     expect(rows).toHaveLength(1);
+    expect(rows[0].getAttribute("aria-label")).toBe("Umsatz-Dashboard");
     expect(rows[0].textContent).toContain("Umsatz-Dashboard");
-    expect(rows[0].textContent).toContain("Umsatz pro Monat 2026 als Balken.");
+    expect(rows[0].textContent).toContain("Page");
     expect(screen.queryByTestId("visualization-frame")).toBeNull();
     fireEvent.click(rows[0]);
 
@@ -291,7 +295,7 @@ describe("VisualizationView", () => {
     await screen.findByTestId("visualization-frame");
   });
 
-  it("frames a PDF in an empty sandbox and draws an image through <img>", async () => {
+  it("frames a PDF without a sandbox and draws an image through <img>", async () => {
     installFetchMock(
       [{ slug: "run-1", utterance: "Export", status: "success" }],
       {
@@ -308,7 +312,8 @@ describe("VisualizationView", () => {
     expect(cards).toHaveLength(2);
     fireEvent.click(cards[0]);
     const frame = await screen.findByTestId("visualization-frame");
-    expect(frame.getAttribute("sandbox")).toBe("");
+    // The browser's PDF viewer is a plugin; a sandboxed frame would stay blank.
+    expect(frame.hasAttribute("sandbox")).toBe(false);
     expect(frame.getAttribute("src")).toContain("deck.pdf");
     // No Code tab for a PDF — there is no source to show.
     expect(screen.queryByTestId("visualization-tab-code")).toBeNull();
@@ -384,6 +389,60 @@ describe("VisualizationView", () => {
     expect(screen.queryByTestId("visualization-frame")).toBeNull();
     expect(screen.queryByTestId("visualization-empty")).toBeNull();
     expect(screen.queryAllByTestId("visualization-artifact-row")).toHaveLength(0);
+  });
+
+  it("stars a tile and shows the starred ones under Favorites", async () => {
+    window.localStorage.removeItem("jarvis.artifacts.favorites");
+    window.localStorage.removeItem("jarvis.artifacts.rail-filter");
+    installFetchMock(
+      [{ slug: "run-1", utterance: "Export", status: "success" }],
+      {
+        "run-1": [
+          file("tasks/t1/artifacts/files/deck.pdf", { mtime: 1_700_000_200 }),
+          file("tasks/t1/artifacts/files/cover.png", { mtime: 1_700_000_100 }),
+        ],
+      },
+    );
+
+    renderView();
+
+    await waitFor(() => expect(screen.getAllByTestId("visualization-artifact-row")).toHaveLength(2));
+    expect(screen.getByTestId("visualization-filter-favorites").textContent).toContain("0");
+    const stars = screen.getAllByTestId("artifact-favorite");
+    expect(stars[1].getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(stars[1]);
+    expect(screen.getAllByTestId("artifact-favorite")[1].getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("visualization-filter-favorites").textContent).toContain("1");
+
+    fireEvent.click(screen.getByTestId("visualization-filter-favorites"));
+    const kept = screen.getAllByTestId("visualization-artifact-row");
+    expect(kept).toHaveLength(1);
+    expect(kept[0].getAttribute("aria-label")).toBe("cover.png");
+
+    // Taking the star away empties the tab, and it says what the tab is for.
+    fireEvent.click(screen.getByTestId("artifact-favorite"));
+    expect(screen.queryAllByTestId("visualization-artifact-row")).toHaveLength(0);
+    expect(screen.getByTestId("visualization-no-matches")).toBeTruthy();
+    window.localStorage.removeItem("jarvis.artifacts.rail-filter");
+  });
+
+  it("draws the same cards as a list, with the request on each row", async () => {
+    window.localStorage.removeItem("jarvis.artifacts.view");
+    installFetchMock([DASH_RUN], { mission_dash: [DASH_FILE] });
+
+    renderView();
+
+    const tiles = await screen.findAllByTestId("visualization-artifact-row");
+    expect(tiles[0].textContent).not.toContain("Umsatz pro Monat 2026 als Balken.");
+    fireEvent.click(screen.getByTestId("visualization-view-list"));
+    const rows = screen.getAllByTestId("visualization-artifact-row");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain("Umsatz-Dashboard");
+    expect(rows[0].textContent).toContain("Umsatz pro Monat 2026 als Balken.");
+    expect(window.localStorage.getItem("jarvis.artifacts.view")).toBe("list");
+    fireEvent.click(rows[0]);
+    await screen.findByTestId("visualization-stage");
+    window.localStorage.removeItem("jarvis.artifacts.view");
   });
 
   it("says so when there are no runs at all", async () => {

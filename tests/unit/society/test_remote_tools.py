@@ -197,7 +197,7 @@ async def test_remote_cli_spawn_mounts_tools_and_reaps_without_caller_wait(
                                          if line.startswith("exec ")))
             config_path = parts[parts.index("--mcp-config") + 1]
             config = json.loads((connection.root / config_path.lstrip("/")).read_text())
-            server = config["mcpServers"]["jarvis"]
+            server = config["mcpServers"]["dodaios"]
             async with httpx.AsyncClient() as client:
                 response = await client.post(server["url"], headers=server["headers"])
             process.stdout.write(response.text + "\n")
@@ -278,10 +278,22 @@ async def test_runner_wiring_and_file_cleanup(connection, runner):
         assert "fixture-owner-key" not in encoded
         if runner == "claude-cli":
             loaded = json.loads((connection.root / config.args[1].lstrip("/")).read_text())
-            assert loaded["mcpServers"]["jarvis"]["type"] == "http"
+            assert list(loaded["mcpServers"]) == ["dodaios"]
+            assert loaded["mcpServers"]["dodaios"]["type"] == "http"
         if runner == "codex-cli":
-            assert "mcp_servers.jarvis.required=true" in config.args
-            assert 'mcp_servers.jarvis.default_tools_approval_mode="approve"' in config.args
+            assert "mcp_servers.dodaios.required=true" in config.args
+            assert 'mcp_servers.dodaios.default_tools_approval_mode="approve"' in config.args
+        if runner == "opencode-cli":
+            mounted = json.loads(config.env["OPENCODE_CONFIG_CONTENT"])
+            assert list(mounted["mcp"]) == ["dodaios"]
+            # A session resumed from a mount under the earlier name still asks
+            # for `jarvis_<tool>`: both rules, or the rename costs it the allow.
+            assert mounted["permission"] == {"dodaios_*": "allow", "jarvis_*": "allow"}
+        if runner == "agy-cli":
+            (mount,) = [p for p in workspace.rglob("mcp_config.json")]
+            assert list(json.loads(mount.read_text())["mcpServers"]) == ["dodaios"]
+        if runner == "grok-cli":
+            assert "[mcp_servers.dodaios]" in content and "[mcp_servers.jarvis]" not in content
         if runner == "cursor-cli":
             assert '"other"' in content
         if runner == "grok-cli":
@@ -292,6 +304,58 @@ async def test_runner_wiring_and_file_cleanup(connection, runner):
         if p.is_file()
     }
     assert remaining == old_files
+
+
+async def _cursor_mount(connection, existing: dict) -> dict:
+    """What a Cursor turn finds in the project file while it runs."""
+    path = connection.root / "workspace/.cursor/mcp.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"mcpServers": existing}))
+    async with contextlib.AsyncExitStack() as stack:
+        await configure(
+            connection,
+            RemoteHost(),
+            stack,
+            runner="cursor-cli",
+            cwd="/workspace",
+            url="http://127.0.0.1:23456/mcp",
+            token="turn-only",  # noqa: S106 — isolated fake SSH server
+        )
+        during = json.loads(path.read_text())["mcpServers"]
+    # Cleanup puts the person's file back exactly as it was.
+    assert json.loads(path.read_text())["mcpServers"] == existing
+    return during
+
+
+async def test_a_mount_left_under_the_earlier_name_is_not_served_twice(connection):
+    """A turn that crashed before cleanup left its mount behind as ``jarvis``."""
+    stale = {
+        "url": "http://127.0.0.1:40111/mcp",
+        "headers": {"Authorization": "Bearer expired-turn-token"},
+    }
+    during = await _cursor_mount(
+        connection, {"other": {"url": "https://example.test"}, "jarvis": stale}
+    )
+
+    assert set(during) == {"other", "dodaios"}
+    assert during["dodaios"]["url"] == "http://127.0.0.1:23456/mcp"
+
+
+@pytest.mark.parametrize(
+    "theirs",
+    [
+        {"url": "https://jarvis.example.test/mcp", "headers": {"Authorization": "Bearer x"}},
+        {"url": "http://127.0.0.1:40111/mcp", "headers": {"X-Api-Key": "x"}},
+        {"url": "http://127.0.0.1:40111/mcp"},
+        {"command": "node", "args": ["jarvis.js"]},
+    ],
+)
+async def test_a_server_the_person_named_jarvis_survives_the_mount(connection, theirs):
+    """Only this app's own loopback mount is removed; the name alone proves nothing."""
+    during = await _cursor_mount(connection, {"jarvis": theirs})
+
+    assert during["jarvis"] == theirs
+    assert "dodaios" in during
 
 
 async def test_cleanup_preserves_concurrent_changes(connection):

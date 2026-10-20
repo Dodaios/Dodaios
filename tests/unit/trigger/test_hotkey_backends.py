@@ -201,6 +201,22 @@ def test_global_backend_delivers_one_ptt_press_release_pair(fake_gh):
     assert edges == ["down", "up"]
 
 
+def test_global_backend_toggle_ends_on_the_first_lifted_key(fake_gh):
+    """A toggle fires again while one key stays held; push-to-talk does not."""
+    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+
+    def handler() -> None:
+        return None
+
+    backend = GlobalHotkeysBackend()
+    backend.register([["f1 + f2", None, handler], ["control + alt + l", handler, handler]])
+    rows = {row[0]: row[1:] for call in fake_gh.register_calls for row in call}
+    backend.unregister()
+
+    assert rows["f1 + f2"] == [None, handler, True]
+    assert rows["control + alt + l"] == [handler, handler, False]
+
+
 def test_global_backend_unregister_removes_by_string(fake_gh):
     """REGRESSION: unregister must pass combo STRINGS, never the rows."""
     from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend

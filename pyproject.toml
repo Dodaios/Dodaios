@@ -9,14 +9,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "personal-jarvis"
-version = "2.9.0"
+version = "3.2.0"
 description = "Turn your computer into an AI agent that coordinates apps, tools, models, and other agents"
 requires-python = ">=3.11,<3.15"
 readme = "README.md"
 # Apache-2.0 from 2.0.0 on. Releases up to 1.6.0 shipped MIT and stay MIT —
 # docs/licensing.md has the reasoning and what is still owed at the release.
 license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
+license-files = [
+    "LICENSE",
+    "NOTICE",
+    "third_party/*/LICENSE",
+    "third_party/*/NOTICE*",
+    "third_party/*/ThirdPartyNotices.txt",
+    "jarvis/ui/web/frontend/src/assets/octicons-LICENSE.txt",
+]
 authors = [{ name = "Ruben Lütke" }]  # i18n-allow: maintainer proper name (umlaut)
 keywords = [
     "voice-assistant",
@@ -257,11 +264,11 @@ dependencies = [
 # These are the sidebar of the PyPI project page — for many visitors the first
 # and only place they meet the project, so every route out of it is listed.
 [project.urls]
-Homepage = "https://github.com/PersonalJarvis/PersonalJarvis"
-Repository = "https://github.com/PersonalJarvis/PersonalJarvis"
-Issues = "https://github.com/PersonalJarvis/PersonalJarvis/issues"
-Documentation = "https://github.com/PersonalJarvis/PersonalJarvis/blob/main/README.md"
-Changelog = "https://github.com/PersonalJarvis/PersonalJarvis/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Dodaios/Dodaios"
+Repository = "https://github.com/Dodaios/Dodaios"
+Issues = "https://github.com/Dodaios/Dodaios/issues"
+Documentation = "https://github.com/Dodaios/Dodaios/blob/main/README.md"
+Changelog = "https://github.com/Dodaios/Dodaios/blob/main/CHANGELOG.md"
 Discord = "https://discord.gg/x7USduHxbc"
 
 [project.optional-dependencies]
@@ -363,9 +370,11 @@ desktop = [
     # so the dep is unsatisfiable there for every CPython. The indicator's
     # probe already degrades to a logged no-op where PySide6 is absent.
     "pyside6-essentials>=6.7; sys_platform != 'linux' or platform_machine != 'aarch64'",
-    # Wayland screen recording uses Qt's user-approved ScreenCast portal.
-    "pyside6-addons>=6.7; sys_platform == 'linux' and platform_machine != 'aarch64'",
+    # Streaming desktop capture; Wayland uses the user-approved ScreenCast portal.
+    "pyside6-addons>=6.7; sys_platform != 'linux' or platform_machine != 'aarch64'",
     "av>=14; sys_platform != 'win32' or platform_machine != 'ARM64'",
+    # Opt-in screen-recording output loopback; never imported during base boot.
+    "SoundCard>=0.4.6; sys_platform == 'win32' or sys_platform == 'linux'",
     # Drag-drop ONTO the floating overlay (bar/mascot): the cross-platform tkdnd
     # Tcl extension, with bundled binaries for Windows / macOS / Linux. Registered
     # onto the live Tk root in place (jarvis/overlay/drop_target.py). All-platform
@@ -497,22 +506,39 @@ tts-eval = [
 ]
 
 [project.scripts]
+# `dodaios` starts the app (and `dodaios update` updates it). The names below it
+# are the command's earlier names: the same entry point, kept so that scripts,
+# shell history and other tools that call them keep working.
+# Never add a command that spells the branded launcher ignoring case (a
+# `personaljarvis` alias today): Windows paths ignore case, and the venv's
+# Scripts folder already holds `PersonalJarvis.exe`.
+dodaios = "jarvis.__main__:main"
 jarvis = "jarvis.__main__:main"
-# Same entry point under the product name, so `personal-jarvis` in a terminal
-# starts (and `personal-jarvis update` updates) the app exactly like `jarvis`.
-# Never add a `personaljarvis` alias: Windows paths ignore case, and the venv's
-# Scripts folder already holds `PersonalJarvis.exe`, the branded launcher.
 personal-jarvis = "jarvis.__main__:main"
 # Phase 8.5 — Review-Pipeline-Run-GC (Plan §6.5).
 jarvis-review-gc = "jarvis.cli.review_gc:main"
 # Phase 8.6 — Review-Pipeline-Eval-Harness (Plan §6.6).
 jarvis-review-eval = "jarvis.cli.review_eval:main"
-# jarvisctl — control CLI for a running Personal Jarvis instance.
+# dodaiosctl — control CLI for a running Dodaios instance. `jarvisctl` and
+# `jctl` are its earlier names and stay.
+dodaiosctl = "jarvis.cli_ctl.__main__:main"
 jarvisctl = "jarvis.cli_ctl.__main__:main"
 jctl = "jarvis.cli_ctl.__main__:main"
 
 # Plugin entry points — all slots are already declared.
 # New plugins are discovered without any core changes.
+#
+# A slot has two names: `dodaios.<slot>` (what a new plugin registers under)
+# and `jarvis.<slot>` (what every plugin published earlier registers under).
+# The app reads both in one scan, for good (jarvis/core/entry_points.py).
+#
+# The first-party plugins below stay in the `jarvis.<slot>` tables on purpose:
+# an install's entry points are frozen into its `*.dist-info` when the
+# environment is built, so an install that updates its source without
+# rebuilding still carries the tables of the version that wrote them, and an
+# older version rolled back onto a newer environment reads `jarvis.<slot>`
+# only. One table that both read keeps every first-party plugin loading
+# exactly once in each case.
 
 [project.entry-points."jarvis.wakeword"]
 openwakeword = "jarvis.plugins.wake.openwakeword_provider:OpenWakeWordProvider"
@@ -552,7 +578,8 @@ vertex-stt = "jarvis.plugins.stt.gemini_api:VertexSTT"
 [project.entry-points."jarvis.tts"]
 # Local, keyless neural speech (Piper VITS voices via sherpa-onnx / ONNX
 # Runtime). The voices are plain ONNX files, deliberately NOT loaded through the
-# GPL-3 piper1-gpl library, so this repo stays free of GPL obligations.
+# piper1-gpl library. Native sherpa builds can still include GPL-licensed
+# phonemization components; redistribution must account for their own terms.
 piper-local = "jarvis.plugins.tts.piper_local:PiperLocalTTS"
 inworld = "jarvis.plugins.tts.inworld_tts:InworldTTS"
 elevenlabs = "jarvis.plugins.tts.elevenlabs_tts:ElevenLabsTTS"
@@ -562,7 +589,7 @@ gemini-flash-tts = "jarvis.plugins.tts.gemini_flash_tts:GeminiFlashTTS"
 # production voice cannot live inside — a Cloud project has no preview cap.
 vertex-tts = "jarvis.plugins.tts.gemini_flash_tts:VertexTTS"
 grok-voice = "jarvis.plugins.tts.grok_voice_tts:GrokVoiceTTS"
-# Phase L.4 — Streaming-TTS mit niedriger TTFB.
+# Phase L.4 — Streaming TTS with low time to first byte.
 cartesia = "jarvis.plugins.tts.cartesia_tts:CartesiaTTS"
 # OpenRouter cloud speech synthesis — reuses the shared openrouter_api_key.
 openrouter-tts = "jarvis.plugins.tts.openrouter_tts:OpenRouterTTS"
@@ -893,6 +920,8 @@ jarvis = [
     # The Hermes / OpenClaw releases setup installs and accepts
     # (agent_runtimes/versions.py); without it setup falls back to latest.
     "agent_runtimes/runtime-versions.json",
+    # Translated system phrases, one file per language (jarvis/i18n/catalog.py).
+    "i18n/locales/*.json",
     # Seed catalogs (CLI tools / skills / marketplace plugins) — named
     # explicitly rather than a repo-wide "**/*.json" glob, which would also
     # sweep in jarvis/ui/web/frontend's SOURCE config (package.json,
@@ -936,6 +965,7 @@ jarvis = [
 
 [tool.setuptools.data-files]
 "share/personal-jarvis/docs" = ["docs/product/**/*.md"]
+"share/personal-jarvis/docs/legal" = ["docs/legal/TERMS.md"]
 
 [tool.ruff]
 line-length = 100
@@ -974,7 +1004,7 @@ markers = [
 # Only cryptography may resolve through the reviewed native wheel index.
 [[tool.uv.index]]
 name = "native-crypto"
-url = "https://personaljarvis.github.io/PersonalJarvis/native-crypto/50.0.2-1/simple/"
+url = "https://dodaios.github.io/Dodaios/native-crypto/50.0.2-1/simple/"
 explicit = true
 
 [tool.uv.sources]

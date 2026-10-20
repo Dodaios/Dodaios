@@ -20,6 +20,16 @@ vi.mock("@react-three/drei", async (original) => ({
   useGLTF: () => ({ scene: model }),
   Html: () => null,
 }));
+// The pet's vinyl gets a studio reflection that is rendered into GPU targets; the renderer double below has
+// none, and where the pet stands on the floor does not depend on it. The reflection is a plain texture here.
+vi.mock("three", async (original) => {
+  const actual = await original<typeof import("three")>();
+  class FlatReflection {
+    fromScene() { return { texture: new actual.Texture() }; }
+    dispose() { /* nothing was allocated */ }
+  }
+  return { ...actual, PMREMGenerator: FlatReflection };
+});
 
 extend(THREE);
 let root: ReconcilerRoot<HTMLCanvasElement> | null = null;
@@ -75,7 +85,11 @@ async function mount(reduced: boolean) {
   const current = createRoot(canvas);
   root = current;
   let state!: RootState;
+  const scene = new THREE.Scene();
+  // Check real geometry and animation without GPU reflection baking.
+  scene.environment = new THREE.Texture();
   current.configure({
+    scene,
     gl: fakeRenderer(canvas) as unknown as NonNullable<Parameters<typeof current.configure>[0]>["gl"],
     frameloop: "never", size: { width: 100, height: 100, top: 0, left: 0 },
     onCreated: (value) => { state = value; },

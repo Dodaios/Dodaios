@@ -42,6 +42,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from jarvis.cli.command_name import main_command
 from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 PROBE_FLAG = "--probe"
@@ -56,11 +57,11 @@ _PROBE_TIMEOUT_S = 300.0
 _SERVICE_HANDBACK_S = 60.0
 
 _ONE_LINER_WINDOWS = (
-    "irm https://raw.githubusercontent.com/PersonalJarvis/PersonalJarvis/main/"
+    "irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/"
     "install/install.ps1 | iex"
 )
 _ONE_LINER_POSIX = (
-    "curl -fsSL https://raw.githubusercontent.com/PersonalJarvis/PersonalJarvis/main/"
+    "curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/"
     "install/install.sh | bash"
 )
 
@@ -158,7 +159,8 @@ def _run_child(args: list[str], timeout: float | None, detached: bool) -> tuple[
                 "so this keeps going - please wait.",
                 flush=True,
             )
-        except subprocess.TimeoutExpired:  # Kill and reap the timed-out probe, then return a failure result.
+        except subprocess.TimeoutExpired:
+            # Kill and reap the timed-out probe, then return a failure result.
             proc.kill()
             proc.communicate()
             return -1, ""
@@ -210,7 +212,7 @@ class _Ticker:
 def _not_updatable_message() -> str:
     one_liner = _ONE_LINER_WINDOWS if sys.platform == "win32" else _ONE_LINER_POSIX
     return (
-        "This copy of Personal Jarvis cannot update itself: it was not installed\n"
+        "This copy of Dodaios cannot update itself: it was not installed\n"
         "with the one-line installer (it is a developer checkout or a pip install).\n"
         "  Developer checkout:  git pull\n"
         "  pip install:         pip install --upgrade personal-jarvis\n"
@@ -240,12 +242,17 @@ def _stop_background_service(pid: int, *, wait: Callable[..., bool] | None = Non
         clear_handover_request()
 
 
-def _read_result(root: Path) -> dict[str, Any]:
+def _result_file_name() -> str:
     from jarvis.ui.relauncher import UPDATE_RESULT_FILENAME
 
+    return UPDATE_RESULT_FILENAME
+
+
+def _read_result(root: Path, file_name: str) -> dict[str, Any]:
     try:
-        payload = json.loads((root / UPDATE_RESULT_FILENAME).read_text(encoding="utf-8"))
-    except (OSError, ValueError):  # An absent or incomplete update receipt represents no available result.
+        payload = json.loads((root / file_name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        # An absent or incomplete update receipt represents no available result.
         return {}
     return payload if isinstance(payload, dict) else {}
 
@@ -269,12 +276,12 @@ def run_update(
 
     if is_frozen():
         print(
-            "This Personal Jarvis came from a downloaded installer. Open the app and\n"
+            "This Dodaios came from a downloaded installer. Open the app and\n"
             "use Settings -> Update; it downloads and installs the new version for you."
         )
         return EXIT_NOT_UPDATABLE
 
-    print("Checking for a newer version of Personal Jarvis...", flush=True)
+    print("Checking for a newer version of Dodaios...", flush=True)
     code, out = run_child([PROBE_FLAG, "status"], _PROBE_TIMEOUT_S, False)
     status = _last_json(out)
     if status is None:
@@ -297,11 +304,11 @@ def run_update(
         return EXIT_FAILED
     latest = status.get("latest") or current
     if not status.get("update_available"):
-        print(f"Personal Jarvis {current} is already the newest version.")
+        print(f"Dodaios {current} is already the newest version.")
         return 0
     print(f"Version {latest} is available (you have {current}).")
     if check_only:
-        print("Run `jarvis update` to install it.")
+        print(f"Run `{main_command()} update` to install it.")
         return 0
 
     pid = running_app_pid()
@@ -310,17 +317,17 @@ def run_update(
         print("Stopping the background service for the update...", flush=True)
         if not stop_service(int(service)):
             print(
-                "The background service did not stop. Open Personal Jarvis, quit it\n"
-                "from the tray icon, then run `jarvis update` again.",
+                "The background service did not stop. Open Dodaios, quit it\n"
+                f"from the tray icon, then run `{main_command()} update` again.",
                 file=sys.stderr,
             )
             return EXIT_APP_RUNNING
         pid = None
     if pid is not None:
         print(
-            "Personal Jarvis is running, and it cannot be updated while it is open.\n"
+            "Dodaios is running, and it cannot be updated while it is open.\n"
             "Either click Update inside the app, or quit it (tray icon -> Quit)\n"
-            "and run `jarvis update` again.",
+            f"and run `{main_command()} update` again.",
             file=sys.stderr,
         )
         return EXIT_APP_RUNNING
@@ -336,19 +343,23 @@ def run_update(
 
     root = Path(str(staged["root"]))
     version = staged.get("version") or latest
+    # Resolved before the install step. Afterwards the checkout holds the new
+    # release, and an import from this process would read THAT release's files
+    # - or fail outright if it moved the package.
+    result_file_name = _result_file_name()
     with _Ticker(
         f"Installing version {version} - this takes a few minutes, keep this window open...",
         enabled=interactive,
     ):
         code, _ = run_child([FINALIZE_FLAG, str(root)], None, True)
-    result = _read_result(root)
+    result = _read_result(root, result_file_name)
     if code == 0 and result.get("ok", True):
-        print(f"Done. Personal Jarvis {version} is installed.")
+        print(f"Done. Dodaios {version} is installed.")
         print("Start it with: jarvis")
         return 0
     if result.get("rolled_back"):
         print(
-            f"Installing version {version} failed, so Personal Jarvis went back to "
+            f"Installing version {version} failed, so Dodaios went back to "
             f"{current}. Your settings and data are unchanged.",
             file=sys.stderr,
         )
@@ -364,8 +375,8 @@ def run_update(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="jarvis update",
-        description="Update Personal Jarvis to the newest published version.",
+        prog=f"{main_command()} update",
+        description="Update Dodaios to the newest published version.",
     )
     parser.add_argument(
         "--check",

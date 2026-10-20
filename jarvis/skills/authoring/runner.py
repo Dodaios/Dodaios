@@ -84,7 +84,7 @@ SpawnCallback = Callable[[str], "asyncio.Future[str] | str"]
 
 
 JARVIS_AGENT_AUTHOR_SYSTEM_PROMPT = """\
-You are Jarvis-Agent-Author (Opus 4.7), a skill-authoring specialist.
+You are the skill author (Opus 4.7), a skill-authoring specialist.
 
 The user wants to create a new skill. You return ONLY a single JSON
 object that exactly matches the `SkillDraft` schema. No surrounding
@@ -166,13 +166,13 @@ class SkillAuthoringRunner:
             except TimeoutError:
                 self._record_audit(
                     error_kind="author_timeout",
-                    message=f"Jarvis-Agent-Author spawn timeout after {self._timeout_seconds}s",
+                    message=f"Dodaios-Agent-Author spawn timeout after {self._timeout_seconds}s",
                     iterations=iteration,
                     intent=intent,
                 )
                 return AuthoringFailure(
                     error_kind="timeout",
-                    message="Jarvis-Agent-Author-Spawn timeout",
+                    message="Dodaios-Agent-Author-Spawn timeout",
                     iterations=iteration,
                 )
 
@@ -322,9 +322,9 @@ class SkillAuthoringRunner:
         try:
             data = json.loads(cleaned)
         except json.JSONDecodeError as exc:
-            raise ValueError(f"Jarvis-Agent-Author response is not valid JSON: {exc}") from exc
+            raise ValueError(f"Dodaios-Agent-Author response is not valid JSON: {exc}") from exc
         if not isinstance(data, dict):
-            raise ValueError("Jarvis-Agent-Author response must be a JSON object")
+            raise ValueError("Dodaios-Agent-Author response must be a JSON object")
         return SkillDraft.model_validate(data)
 
     def _record_audit(

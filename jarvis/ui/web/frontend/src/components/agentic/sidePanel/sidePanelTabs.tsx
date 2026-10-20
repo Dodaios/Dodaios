@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { Bot, Building2, CreditCard, FileDiff, Files, FolderTree, GitBranch, Globe, Search, type LucideIcon } from "lucide-react";
+import { Bot, Building2, CreditCard, FileDiff, Files, FolderTree, GitBranch, Globe, MessageSquare, Search, type LucideIcon } from "lucide-react";
 import type { SidePanelTabId } from "@/store/ideSidePanel";
 import { AgentsOverview } from "./AgentsOverview";
 import { BrowserTab } from "./browser/BrowserTab";
+import { SideChatTab } from "./chat/SideChatTab";
 import { ExplorerPanel } from "./explorer/ExplorerPanel";
 import { GitOverviewTab } from "./git/GitOverviewTab";
 import { OfficeTab } from "./OfficeTab";
@@ -86,6 +87,15 @@ export const SIDE_PANEL_TABS: readonly SidePanelTabDef[] = [
     shortcut: "K",
     icon: Files,
     render: () => <SkillsTab />,
+  },
+  {
+    id: "chat",
+    labelKey: "ide_side_panel.tabs.chat",
+    shortcut: "H",
+    icon: MessageSquare,
+    render: () => <SideChatTab />,
+    // The conversation, its socket and a streaming answer survive a tab switch.
+    keepAlive: true,
   },
   {
     id: "subscriptions",

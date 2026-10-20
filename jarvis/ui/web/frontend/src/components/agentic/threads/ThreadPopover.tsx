@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
  */
 export function ThreadPopover({
   anchor,
+  point,
   open,
   onClose,
   align = "start",
@@ -22,6 +23,8 @@ export function ThreadPopover({
   children,
 }: {
   anchor: RefObject<HTMLElement | null>;
+  /** Open at this viewport position (a right-click) instead of below the anchor. */
+  point?: { x: number; y: number } | null;
   open: boolean;
   onClose: () => void;
   align?: "start" | "end";
@@ -37,8 +40,10 @@ export function ThreadPopover({
 
   const measure = useCallback(() => {
     const host = anchor.current;
-    if (!host) return;
-    const rect = host.getBoundingClientRect();
+    if (!host && !point) return;
+    const rect = point
+      ? { left: point.x, right: point.x, top: point.y, bottom: point.y }
+      : host!.getBoundingClientRect();
     const margin = 8;
     const height = panel.current?.offsetHeight ?? 0;
     const below = window.innerHeight - rect.bottom - margin;
@@ -49,7 +54,7 @@ export function ThreadPopover({
     const room = Math.max(120, wantTop ? above - 4 : below - 4);
     const top = wantTop ? Math.max(margin, rect.top - 4 - Math.min(height, room)) : rect.bottom + 4;
     setPlace({ left: clampedLeft, top, maxHeight: room });
-  }, [anchor, align, side, width]);
+  }, [anchor, point, align, side, width]);
 
   useLayoutEffect(() => {
     if (!open) { setPlace(null); return; }

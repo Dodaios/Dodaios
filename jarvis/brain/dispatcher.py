@@ -13,7 +13,7 @@ that is the responsibility of `BrainManager` (so we can switch between providers
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -50,9 +50,13 @@ class BrainDispatcher:
         reasoning_effort: ReasoningEffort | None = None,
         tool_context: dict[str, Any] | None = None,
         loop_control: LoopControl | None = None,
+        deferred_tools: Iterable[str] = (),
     ) -> None:
         self._brain = brain
         self._tools = tools or {}
+        # Names in ``tools`` that stay callable but are not shown to the
+        # model (jarvis/brain/tool_shortlist.py).
+        self._deferred_tools = frozenset(deferred_tools)
         self._executor = executor
         # Extra keys merged into every tool's ``ExecutionContext.config`` for
         # this dispatcher's turns (e.g. ``{"delivery": "written"}`` for a
@@ -95,10 +99,12 @@ class BrainDispatcher:
             reasoning_effort=self._reasoning_effort,
             tool_context=self._tool_context,
             loop_control=self._loop_control,
+            deferred_tools=self._deferred_tools,
         )
 
     def set_tools(self, tools: dict[str, Tool]) -> None:
         self._tools = dict(tools)
+        self._deferred_tools = frozenset()
 
     def set_system_prompt(self, prompt: str | None) -> None:
         self._system_prompt = prompt
@@ -180,6 +186,7 @@ class BrainDispatcher:
                 reasoning_effort=self._reasoning_effort,
                 tool_context=self._tool_context,
                 loop_control=self._loop_control,
+                deferred_tools=self._deferred_tools,
             )
             return await loop.run(
                 messages,
@@ -244,5 +251,6 @@ class BrainDispatcher:
                 "description": getattr(t, "description", ""),
                 "input_schema": t.schema,
             }
-            for t in self._tools.values()
+            for name, t in self._tools.items()
+            if name not in self._deferred_tools
         ]

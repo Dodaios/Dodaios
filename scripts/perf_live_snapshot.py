@@ -5,13 +5,28 @@ Usage::
     python scripts/perf_live_snapshot.py --seconds 60 --interval 5
     python scripts/perf_live_snapshot.py --pid 1234 --seconds 30 --json out.json
     python scripts/perf_live_snapshot.py --pid 1234 --health-url http://127.0.0.1:47821/api/health
+    python scripts/perf_live_snapshot.py --label idle-10-panes --json idle.json
 
 The process tree is sampled without starting, stopping, or modifying processes.
 CPU percentages use one logical core as 100%; divide by ``logical_cpus`` for
-whole-machine percentage. RSS is resident memory and is not additive across
-shared pages. On Windows, commit is psutil's pagefile (private committed bytes);
-other platforms report it as unavailable. HTTP probes are optional GETs to a
-caller-supplied health URL, not representative chat or voice workflow latency.
+whole-machine percentage. HTTP probes are optional GETs to a caller-supplied
+health URL, not representative chat or voice workflow latency.
+
+Three memory figures are reported per role, because they answer different
+questions and are easy to mistake for one another:
+
+* RSS is resident memory. It includes pages shared with other processes, so it
+  is not additive.
+* private is the memory only this process holds in RAM (psutil's ``uss``). It
+  is additive, and it is the figure a change must lower to free physical
+  memory. It is read for the app's own process tree only.
+* commit is what the process has reserved against RAM plus pagefile (psutil's
+  ``pagefile``, Windows only). A model that sits in VRAM or a thread buffer
+  that was never touched counts here in full while holding almost no RAM.
+
+peak is the highest RSS the process ever reached (Windows only). ``--label``
+names the scenario in the summary and the JSON, so a before and an after run
+of the same scenario can be told apart.
 """
 
 from __future__ import annotations
@@ -71,10 +86,18 @@ def _role(proc: psutil.Process, root_pid: int) -> str:
     return "other-child"
 
 
+def _private_mb(proc: psutil.Process) -> float | None:
+    try:
+        return round(proc.memory_full_info().uss / 1e6, 2)
+    except (psutil.Error, OSError, AttributeError):
+        return None  # Not readable for this process, or not offered here.
+
+
 def _snapshot(proc: psutil.Process, root_pid: int, scope: str) -> dict[str, Any] | None:
     try:
         mem = proc.memory_info()
         cpu = proc.cpu_times()
+        peak = getattr(mem, "peak_wset", None)
         connections: dict[str, int] | None = None
         try:
             connections = {"established": 0, "listen": 0, "other": 0}
@@ -91,9 +114,13 @@ def _snapshot(proc: psutil.Process, root_pid: int, scope: str) -> dict[str, Any]
             "scope": scope,
             "cpu_seconds": cpu.user + cpu.system,
             "rss_mb": round(mem.rss / 1e6, 2),
+            # Walks the working set, so only the app's own tree pays for it.
+            "private_mb": _private_mb(proc) if scope == "jarvis-family" else None,
+            "peak_rss_mb": round(peak / 1e6, 2) if peak is not None else None,
             "commit_mb": round(mem.pagefile / 1e6, 2)
             if sys.platform == "win32" and hasattr(mem, "pagefile")
             else None,
+            "threads": proc.num_threads(),
             "connections": connections,
         }
     except (psutil.Error, OSError):
@@ -135,7 +162,11 @@ def _capture(root: psutil.Process) -> dict[tuple[int, float], dict[str, Any]]:
 
 
 def measure(
-    root_pid: int, seconds: float, interval: float, health_url: str | None
+    root_pid: int,
+    seconds: float,
+    interval: float,
+    health_url: str | None,
+    label: str | None = None,
 ) -> dict[str, Any]:
     root = psutil.Process(root_pid)
     root_identity = _identity(root)
@@ -173,6 +204,7 @@ def measure(
         previous, previous_time = current, now
     return {
         "timestamp_utc": datetime.now(UTC).isoformat(),
+        "label": label,
         "platform": sys.platform,
         "logical_cpus": psutil.cpu_count(logical=True),
         "root_pid": root_pid,
@@ -184,6 +216,22 @@ def measure(
     }
 
 
+def _total(rows: list[dict[str, Any]], key: str) -> float | None:
+    """Sum one figure over ``rows``; ``None`` when any process lacks it."""
+    values = [row.get(key) for row in rows]
+    if not values or any(value is None for value in values):
+        return None
+    return round(sum(values), 2)
+
+
+def _cell(value: float | None, width: int) -> str:
+    return f"{'n/a':>{width}}" if value is None else f"{value:{width}.1f}"
+
+
+def _family(sample: dict[str, Any]) -> list[dict[str, Any]]:
+    return [row for row in sample["processes"] if row["scope"] == "jarvis-family"]
+
+
 def _summary(result: dict[str, Any]) -> str:
     samples = result["samples"]
     roles: dict[str, list[dict[str, Any]]] = {}
@@ -192,15 +240,15 @@ def _summary(result: dict[str, Any]) -> str:
         for row in sample["processes"]:
             grouped.setdefault(f"{row['scope']}/{row['role']}", []).append(row)
         for role, rows in grouped.items():
-            commit = [row["commit_mb"] for row in rows]
             connections = [row["connections"] for row in rows if row["connections"]]
             roles.setdefault(role, []).append(
                 {
                     "cpu_one_core_pct": sum(row["cpu_one_core_pct"] for row in rows),
                     "rss_mb": sum(row["rss_mb"] for row in rows),
-                    "commit_mb": round(sum(commit), 2)
-                    if all(value is not None for value in commit)
-                    else None,
+                    "private_mb": _total(rows, "private_mb"),
+                    "peak_rss_mb": _total(rows, "peak_rss_mb"),
+                    "commit_mb": _total(rows, "commit_mb"),
+                    "threads": _total(rows, "threads"),
                     "connections": {
                         key: sum(conn[key] for conn in connections)
                         for key in ("established", "listen", "other")
@@ -210,13 +258,17 @@ def _summary(result: dict[str, Any]) -> str:
                     "count": len(rows),
                 }
             )
+    label = result.get("label")
     lines = [
         (
             f"backend={result['root_pid']} duration={result['duration_seconds']}s "
-            f"logical_cpus={result['logical_cpus']}"
+            f"logical_cpus={result['logical_cpus']}" + (f" label={label}" if label else "")
         ),
         f"other_backends={result['other_backend_pids']}",
-        "scope/role                        count  CPU%/core avg/max  RSS MB  commit MB  TCP",
+        (
+            "scope/role                        count  CPU%/core avg/max  RSS MB"
+            " private MB  peak MB  commit MB  threads  TCP"
+        ),
     ]
     for role, rows in sorted(roles.items()):
         cpus = [row["cpu_one_core_pct"] for row in rows]
@@ -224,7 +276,19 @@ def _summary(result: dict[str, Any]) -> str:
         conn = latest["connections"]
         lines.append(
             f"{role:<33} {latest['count']:5d} {statistics.mean(cpus):6.2f}/{max(cpus):6.2f}"
-            f" {latest['rss_mb']:7.1f} {str(latest['commit_mb']):>10} {str(conn):>20}"
+            f" {latest['rss_mb']:7.1f} {_cell(latest['private_mb'], 10)}"
+            f" {_cell(latest['peak_rss_mb'], 8)} {_cell(latest['commit_mb'], 10)}"
+            f" {_cell(latest['threads'], 8)} {str(conn):>20}"
+        )
+    family = _family(samples[-1]) if samples else []
+    if family:
+        cpu = statistics.mean(
+            sum(row["cpu_one_core_pct"] for row in _family(sample)) for sample in samples
+        )
+        lines.append(
+            f"app total: {len(family)} processes, CPU {cpu:.2f}% of one core,"
+            f" private {_cell(_total(family, 'private_mb'), 1)} MB,"
+            f" commit {_cell(_total(family, 'commit_mb'), 1)} MB"
         )
     if result["health_probes"]:
         ok = [p["latency_ms"] for p in result["health_probes"] if p.get("status") == 200]
@@ -247,6 +311,7 @@ def main() -> int:
         "--health-url",
         help="optional GET URL for health latency, e.g. http://127.0.0.1:47821/api/health",
     )
+    parser.add_argument("--label", help="name of the measured scenario, e.g. idle-10-panes")
     parser.add_argument("--json", type=Path, help="write raw samples to JSON")
     args = parser.parse_args()
     if args.seconds <= 0 or args.interval <= 0:
@@ -256,7 +321,7 @@ def main() -> int:
         parser.error(f"expected one Jarvis backend; found {backends}. Pass --pid")
     pid = args.pid if args.pid is not None else backends[0]
     try:
-        result = measure(pid, args.seconds, args.interval, args.health_url)
+        result = measure(pid, args.seconds, args.interval, args.health_url, args.label)
     except (psutil.Error, RuntimeError) as exc:
         parser.exit(2, f"sampling failed: {exc}\n")
     print(_summary(result))

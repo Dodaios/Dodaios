@@ -12,7 +12,7 @@ audience: developer
 # ADR-0026 — Native Windows Codex Worker Sandbox
 
 **Status:** Accepted (2026-07-13)
-**Phase:** 6 — Self-Healing Jarvis-Agents Orchestrator
+**Phase:** 6 — Self-Healing Dodaios-Agents Orchestrator
 **Reference:** ADR-0009, ADR-0025, AP-7, AP-10, AP-20, AP-23
 
 ## Context
@@ -34,7 +34,7 @@ strict text formats.
 ## Decision
 
 Mission workers continue to ignore machine-global Codex configuration. On
-native Windows, Jarvis explicitly selects Codex's `unelevated` sandbox while
+native Windows, Dodaios explicitly selects Codex's `unelevated` sandbox while
 retaining `workspace-write` and `approval_policy=never`. The worker sets the
 mission worktree as the primary working directory and does not use full-access
 or sandbox-bypass mode.

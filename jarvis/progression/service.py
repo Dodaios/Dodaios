@@ -40,7 +40,7 @@ from .store import Award, ProgressionStore
 log = logging.getLogger(__name__)
 
 #: The floors of the Verse a ``floor_discovered`` report may name.
-VERSE_FLOORS = frozenset({"agents", "coding", "arcade"})
+VERSE_FLOORS = frozenset({"agents", "coding", "arcade", "hall"})
 
 
 class UnknownAction(ValueError):

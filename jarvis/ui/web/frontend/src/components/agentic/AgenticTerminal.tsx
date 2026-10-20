@@ -59,6 +59,7 @@ import {
   BookOpenText,
   Check,
   FileDiff,
+  FolderGit2,
   GripVertical,
   Loader2,
   Maximize2,
@@ -159,11 +160,13 @@ import { PromptReceipt } from "./PromptReceipt";
 import { PromptHistoryButton } from "./PromptHistoryButton";
 import { PaneConversationDialog } from "./PaneConversationDialog";
 import { PaneChangesDialog } from "./PaneChangesDialog";
+import { useGitSessionStore } from "@/store/gitSession";
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { prefetchPaneChanges } from "./paneChangesApi";
 import { WorkspaceTerminalHeader } from "./WorkspaceTerminalHeader";
 import { usePaneContextMenu } from "./usePaneContextMenu";
 import { SessionGitHubBadge } from "./SessionGitHubBadge";
-import { loadLocaleChunk, useT } from "@/i18n";
+import { fill, loadLocaleChunk, translate, useT } from "@/i18n";
 
 /**
  * How old a delivery may be and still raise its receipt on a fresh connection.
@@ -766,6 +769,7 @@ export function AgenticTerminal({
   const statusRef = useRef<PaneStatus>("connecting");
   // Mirrored into state purely so the header can show/hide the restart button;
   // it transitions a handful of times per pane, never per output chunk.
+  const t = useT();
   const [visibleStatus, setVisibleStatus] = useState<PaneStatus>("connecting");
   /*
    * What the socket said ABOUT that status, in the user's words.
@@ -1145,7 +1149,7 @@ export function AgenticTerminal({
         isMac,
         onUnavailable: () =>
           onAttachErrorRef.current?.(
-            "Could not copy the terminal selection on this machine.",
+            translate("agentic_grid.pane.copy_unavailable"),
           ),
       },
     );
@@ -1163,7 +1167,7 @@ export function AgenticTerminal({
         isMac,
         onUnavailable: () =>
           onAttachErrorRef.current?.(
-            "Could not read the clipboard on this machine.",
+            translate("agentic_grid.pane.paste_unavailable"),
           ),
       },
     );
@@ -2257,10 +2261,10 @@ export function AgenticTerminal({
           report(
             "live",
             reattached
-              ? "still running — picked up where you left it"
+              ? translate("agentic_grid.pane.ready_reattached")
               : resumed
-                ? "continued its previous conversation"
-                : "started a new conversation",
+                ? translate("agentic_grid.pane.ready_resumed")
+                : translate("agentic_grid.pane.ready_fresh"),
           );
           if (
             activeRef.current &&
@@ -2779,7 +2783,7 @@ export function AgenticTerminal({
   const attach = useCallback(
     async (payload: PaneDropPayload) => {
       if (isEmptyPayload(payload)) {
-        onAttachError?.("That drop carried no file this pane could use.");
+        onAttachError?.(translate("agentic_grid.pane.drop_empty"));
         return;
       }
       setAttaching(true);
@@ -2889,6 +2893,14 @@ export function AgenticTerminal({
   // A pane whose agent runs on another computer changes files THERE, which
   // this machine's git cannot read — so only a local pane offers the review.
   const reviewChanges = workspaceId && !computerName ? () => setChangesOpen(true) : undefined;
+  // The Git tab, narrowed to what this pane's agent session changed.
+  const showInGit =
+    workspaceId && !computerName
+      ? () => {
+          useGitSessionStore.getState().show(workspaceId, name);
+          useIdeSidePanelStore.getState().openTab("git");
+        }
+      : undefined;
   const prefetchReview = workspaceId && !computerName
     ? () => {
       void loadLocaleChunk("pane_review");
@@ -2922,6 +2934,7 @@ export function AgenticTerminal({
     onOpenChat,
     onReviewChanges: reviewChanges,
     onReviewChangesPrefetch: prefetchReview,
+    onShowInGit: showInGit,
     onRestart,
     onFork,
     branch,
@@ -3154,7 +3167,7 @@ export function AgenticTerminal({
               style={{ background: chrome.shell, borderColor: chrome.border }}
             >
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Starting {displayName}…</span>
+              <span>{fill(t("agentic_grid.pane.starting"), { agent: displayName })}</span>
             </div>
           </div>
         )}
@@ -3172,13 +3185,14 @@ export function AgenticTerminal({
             {attaching ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                <span>Attaching to {name}…</span>
+                <span>{fill(t("agentic_grid.pane.attaching"), { pane: name })}</span>
               </>
             ) : (
               <>
                 <Paperclip className="h-4 w-4 text-muted-foreground" />
                 <span>
-                  Drop to put it in front of <strong>{name}</strong>
+                  {t("agentic_grid.pane.drop_hint_before")}<strong>{name}</strong>
+                  {t("agentic_grid.pane.drop_hint_after")}
                 </span>
               </>
             )}
@@ -3234,6 +3248,7 @@ function PaneHeader({
   onOpenChat,
   onReviewChanges,
   onReviewChangesPrefetch,
+  onShowInGit,
 }: {
   workspaceId?: string;
   githubStatusEnabled: boolean;
@@ -3271,6 +3286,8 @@ function PaneHeader({
   onReviewChanges?: () => void;
   /** Starts reading the review the moment the pointer reaches its button. */
   onReviewChangesPrefetch?: () => void;
+  /** Opens the Git tab showing only what this pane's agent session changed. */
+  onShowInGit?: () => void;
 }) {
   const t = useT();
   const light = appearance === "light";
@@ -3391,16 +3408,16 @@ function PaneHeader({
   // a maximized pane cannot be dragged, so its sentence never claims it can.
   const tipText = [
     onArrangeStart
-      ? `Drag ${name} by this bar to move it.`
+      ? fill(t("agentic_grid.pane.tip_drag"), { pane: name })
       : "",
     onToggleMaximize
       ? onArrangeStart
         ? maximized
-          ? "Double-click to put it back."
-          : "Double-click to fill the workspace."
+          ? t("agentic_grid.pane.tip_restore")
+          : t("agentic_grid.pane.tip_fill")
         : maximized
-          ? `Double-click to put ${name} back in the grid.`
-          : `Double-click to make ${name} fill the workspace.`
+          ? fill(t("agentic_grid.pane.tip_restore_named"), { pane: name })
+          : fill(t("agentic_grid.pane.tip_fill_named"), { pane: name })
       : "",
   ]
     .filter(Boolean)
@@ -3522,7 +3539,7 @@ function PaneHeader({
       />
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {showArrangeHandle && onArrangeStart && (
-          <button type="button" aria-label={`Move ${name}`} title={`Move ${name}`}
+          <button type="button" aria-label={fill(t("agentic_grid.pane.move"), { pane: name })} title={fill(t("agentic_grid.pane.move"), { pane: name })}
             data-ide-drag-handle="true"
             data-testid={`pane-move-${name}`}
             onPointerDown={(event) => {
@@ -3562,7 +3579,7 @@ function PaneHeader({
               value={draft}
               maxLength={MAX_TERMINAL_NAME}
               disabled={saving}
-              aria-label={`Rename ${name}`}
+              aria-label={fill(t("agentic_grid.pane.rename"), { pane: name })}
               data-testid={`pane-rename-input-${name}`}
               onFocus={(event) => event.currentTarget.select()}
               onChange={(event) => setDraft(event.target.value)}
@@ -3587,7 +3604,7 @@ function PaneHeader({
             <button
               type="submit"
               disabled={saving || !draft.trim()}
-              aria-label={`Save name for ${name}`}
+              aria-label={fill(t("agentic_grid.pane.rename_save"), { pane: name })}
               data-testid={`pane-rename-save-${name}`}
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[color:var(--pane-ink)]",
@@ -3604,7 +3621,7 @@ function PaneHeader({
             <button
               type="button"
               disabled={saving}
-              aria-label={`Cancel renaming ${name}`}
+              aria-label={fill(t("agentic_grid.pane.rename_cancel"), { pane: name })}
               onClick={() => setDraft(null)}
               className={cn(
                 "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
@@ -3666,8 +3683,8 @@ function PaneHeader({
             {onRename && (
               <button
                 type="button"
-                aria-label={`Rename ${name}`}
-                title={`Rename ${name}`}
+                aria-label={fill(t("agentic_grid.pane.rename"), { pane: name })}
+                title={fill(t("agentic_grid.pane.rename"), { pane: name })}
                 data-testid={`pane-rename-${name}`}
                 onClick={() => setDraft(name)}
                 onMouseDown={(event) => event.stopPropagation()}
@@ -3742,7 +3759,7 @@ function PaneHeader({
             // the lift chip, with no rim: the fill already separates it.
             className="min-w-0 max-w-[8rem] truncate rounded-full px-2 py-px font-display text-micro font-medium tracking-wide"
             style={{ color: brand.inkMuted, backgroundColor: brand.chip }}
-            title={`Running on ${accountLabel}`}
+            title={fill(t("agentic_grid.pane.running_on_account"), { account: accountLabel })}
             data-testid={`pane-account-${name}`}
           >
             {accountLabel}
@@ -3796,7 +3813,7 @@ function PaneHeader({
         </PaneAction>
         {onReviewChanges && (
           <PaneAction
-            label={`Review changes by ${name}`}
+            label={fill(t("agentic_grid.pane.review_changes"), { pane: name })}
             testId={`pane-review-changes-${name}`}
             onClick={onReviewChanges}
             onHover={onReviewChangesPrefetch}
@@ -3804,8 +3821,20 @@ function PaneHeader({
             <FileDiff className="h-3.5 w-3.5" aria-hidden="true" />
           </PaneAction>
         )}
+        {onShowInGit && (
+          <PaneAction
+            label={fill(t("agentic_grid.pane.show_in_git"), { pane: name })}
+            testId={`pane-show-in-git-${name}`}
+            onClick={onShowInGit}
+          >
+            <FolderGit2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </PaneAction>
+        )}
         <PaneAction
-          label={maximized ? `Restore ${name}` : `Maximize ${name}`}
+          label={fill(
+            t(maximized ? "agentic_grid.pane.restore" : "agentic_grid.pane.maximize"),
+            { pane: name },
+          )}
           testId={`pane-maximize-${name}`}
           onClick={onToggleMaximize}
         >
@@ -3816,7 +3845,7 @@ function PaneHeader({
           )}
         </PaneAction>
         <PaneAction
-          label={`Open another terminal beside ${name}`}
+          label={fill(t("agentic_grid.pane.split_right"), { pane: name })}
           testId={`pane-split-right-${name}`}
           disabled={splitDisabled}
           expanded={offersChoice ? picking === "right" : undefined}
@@ -3825,7 +3854,7 @@ function PaneHeader({
           <SplitRightIcon className="h-3.5 w-3.5" />
         </PaneAction>
         <PaneAction
-          label={`Split ${name} and open a terminal below it`}
+          label={fill(t("agentic_grid.pane.split_down"), { pane: name })}
           testId={`pane-split-down-${name}`}
           disabled={splitDisabled}
           expanded={offersChoice ? picking === "down" : undefined}
@@ -3834,7 +3863,7 @@ function PaneHeader({
           <SplitBelowIcon className="h-3.5 w-3.5" />
         </PaneAction>
         <PaneAction
-          label={`Close ${name}`}
+          label={fill(t("agentic_grid.close_pane.aria"), { pane: name })}
           testId={`pane-close-${name}`}
           danger
           onClick={onClose}
@@ -3846,9 +3875,18 @@ function PaneHeader({
       {picking && (
         <AgentPickerMenu
           title={
-            picking === "right" ? "Open beside — what?" : "Split below — what?"
+            picking === "right"
+              ? t("agentic_grid.pane.split_right_picker")
+              : t("agentic_grid.pane.split_down_picker")
           }
-          ariaLabel={`What should run ${picking === "right" ? "beside" : "below"} ${name}?`}
+          ariaLabel={fill(
+            t(
+              picking === "right"
+                ? "agentic_grid.pane.split_right_picker_aria"
+                : "agentic_grid.pane.split_down_picker_aria",
+            ),
+            { pane: name },
+          )}
           agents={choices}
           testId={`pane-split-menu-${picking}-${name}`}
           itemTestId={(agent) => `pane-split-${picking}-${name}-${agent}`}
@@ -4103,6 +4141,7 @@ function PaneStatusNotice({
   light: boolean;
   onRestart?: () => void;
 }) {
+  const t = useT();
   if (status !== "exited" && status !== "error") return null;
   const appearance: TerminalAppearance = light ? "light" : "dark";
   const tone = NOTICE_TONE[status === "error" ? "error" : "warning"][appearance];
@@ -4117,10 +4156,10 @@ function PaneStatusNotice({
    */
   const message =
     status === "error"
-      ? detail || `${name} could not be reached.`
+      ? detail || fill(t("agentic_grid.pane.unreachable"), { pane: name })
       : detail
-        ? `${displayName} ${detail}`
-        : `${displayName} is no longer running in ${name}.`;
+        ? fill(t("agentic_grid.pane.exited_detail"), { agent: displayName, detail })
+        : fill(t("agentic_grid.pane.exited"), { agent: displayName, pane: name });
   return (
     <div
       data-testid={`pane-notice-${name}`}
@@ -4154,8 +4193,8 @@ function PaneStatusNotice({
       {onRestart && (
         <button
           type="button"
-          aria-label={`Restart ${name}`}
-          title={`Start a fresh ${displayName} in ${name}`}
+          aria-label={fill(t("agentic_grid.pane.restart_aria"), { pane: name })}
+          title={fill(t("agentic_grid.pane.restart_title"), { agent: displayName, pane: name })}
           data-testid={`pane-restart-${name}`}
           onClick={(e) => {
             e.stopPropagation();
@@ -4175,7 +4214,7 @@ function PaneStatusNotice({
           )}
         >
           <RotateCcw className="h-3 w-3" aria-hidden="true" />
-          Restart
+          {t("agentic_grid.pane.restart")}
         </button>
       )}
     </div>

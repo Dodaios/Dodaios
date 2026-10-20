@@ -27,6 +27,10 @@ Conflicts are resolved by file class, cheapest first:
 
 ``git rerere`` is on throughout, so a resolution recorded once is replayed.
 
+A branch cut before the package directory was moved is not merged across that
+commit at all: it is updated to the commit before it, then the rename script
+is replayed on the branch's own changes (``replay_package_move``).
+
 Usage::
 
     agent_integrate.py update --onto origin/main [--mode merge|rebase]
@@ -39,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import importlib.util
 import json
 import os
 import py_compile
@@ -47,10 +52,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
 FRONTEND = "jarvis/ui/web/frontend"
 
 # (glob, regenerator key). Main's copy is taken, then the key regenerates it.
@@ -75,6 +83,13 @@ UNION: tuple[str, ...] = (
     ".gitignore",
     "docs/BUGS.md",
 )
+# The package directory before and after its rename, and the script whose
+# output IS the commit that renames it. Until main carries the new directory
+# nothing here does anything; afterwards a branch that still has the old one
+# is carried across by ``replay_package_move`` instead of by conflicts.
+OLD_PACKAGE = "jarvis"
+NEW_PACKAGE = "dodaios"
+RENAME_SCRIPT = "scripts/rename/rewrite_package.py"
 AGENT_BRANCH_PREFIXES = ("codex/", "claude/", "agent/", "agents/", "gemini/", "cursor/", "bot/")
 OPT_OUT_LABELS = {"no-auto-merge", "do-not-merge", "wip", "needs-human"}
 OPT_IN_LABEL = "auto-merge"
@@ -307,7 +322,7 @@ def build_prompt(paths: list[str], main_side: str) -> str:
     branch_side = "theirs" if main_side == "ours" else "ours"
     listing = "\n".join(f"- {p}" for p in paths)
     return (
-        "You are resolving git merge conflicts in the Personal Jarvis repository. "
+        "You are resolving git merge conflicts in the Dodaios repository. "
         "The files below contain conflict markers. For each file, edit it in place so "
         "that it keeps the intent of BOTH sides: the main branch "
         f"(git side '{main_side}') is the latest shared state; the feature branch "
@@ -330,6 +345,139 @@ def _in_progress(cwd: Path) -> str | None:
     return None
 
 
+def _in_tree(rev: str, path: str, cwd: Path) -> bool:
+    return git("cat-file", "-e", f"{rev}:{path}", check=False, cwd=cwd).returncode == 0
+
+
+def _move_commit(onto: str, cwd: Path) -> str:
+    """The commit on ``onto``'s first-parent line that added the new directory."""
+    found = git(
+        "log", "-1", "--first-parent", "-m", "--diff-filter=A", "--format=%H", onto,
+        "--", f"{NEW_PACKAGE}/__init__.py",
+        check=False, cwd=cwd,
+    )  # fmt: skip
+    return found.stdout.strip()
+
+
+def carried_package_move(onto: str, cwd: Path = REPO_ROOT) -> str | None:
+    """The move commit when HEAD was carried across the package move by an
+    earlier update: it has the new layout and still holds commits of its own
+    from the old one, below the merge that replayed the move. A rebase would
+    drop that merge and replay those commits onto the new layout, a conflict
+    in every file they touch, so such a branch is updated by merge from then
+    on. ``None`` in every other case - which is every case until main has the
+    new directory."""
+    new_init = f"{NEW_PACKAGE}/__init__.py"
+    if not _in_tree(onto, new_init, cwd) or not _in_tree("HEAD", new_init, cwd):
+        return None
+    own = git("rev-list", "--no-merges", "--topo-order", f"{onto}..HEAD", check=False, cwd=cwd)
+    # Oldest first: a commit from before the move is the first one asked.
+    if all(_in_tree(commit, new_init, cwd) for commit in reversed(own.stdout.split())):
+        return None
+    return _move_commit(onto, cwd) or None
+
+
+def package_move(onto: str, cwd: Path = REPO_ROOT) -> tuple[str, str] | None:
+    """``(last commit before the move, the move commit)`` when ``onto`` has
+    renamed the package directory and HEAD has not; ``None`` in every other
+    case - which is every case until that rename lands on main."""
+    new_init = f"{NEW_PACKAGE}/__init__.py"
+    if not _in_tree(onto, new_init, cwd) or _in_tree("HEAD", new_init, cwd):
+        return None
+    if not _in_tree("HEAD", f"{OLD_PACKAGE}/__init__.py", cwd):
+        return None
+    move = _move_commit(onto, cwd)
+    if not move or not _in_tree(move, RENAME_SCRIPT, cwd):
+        return None  # renamed by hand: nothing to replay, the ordinary update applies
+    parent = git("rev-parse", "--verify", "--quiet", f"{move}^", check=False, cwd=cwd)
+    before = parent.stdout.strip()
+    if not before or _in_tree(before, new_init, cwd):
+        return None
+    return before, move
+
+
+def _git_bytes(
+    *args: str, cwd: Path, stdin: bytes | None = None, env: dict[str, str] | None = None
+) -> bytes:
+    return subprocess.run(  # noqa: S603
+        ["git", *args],  # noqa: S607
+        cwd=cwd,
+        input=stdin,
+        env=env,
+        capture_output=True,
+        check=True,
+        creationflags=_NO_WINDOW,
+    ).stdout
+
+
+def _load_rename_script(move: str, cwd: Path):  # noqa: ANN202
+    """The rename script exactly as the move commit ran it. It is main's code
+    and treats the branch's files as text; it never executes them."""
+    source = _git_bytes("show", f"{move}:{RENAME_SCRIPT}", cwd=cwd)
+    with tempfile.TemporaryDirectory(prefix="package-rename-") as tmp:
+        path = Path(tmp) / "package_rename_at_move.py"
+        path.write_bytes(source)
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        if spec is None or spec.loader is None:
+            raise OSError(f"cannot load {RENAME_SCRIPT} from {move}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module  # dataclasses look their module up by name
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            sys.modules.pop(spec.name, None)
+    return module
+
+
+def replay_package_move(before: str, move: str, cwd: Path = REPO_ROOT) -> str:
+    """Carry HEAD across the package rename; returns the new commit.
+
+    HEAD must contain ``before``. The move commit is the rename script's
+    output on ``before``, so the same script applied to the files THIS branch
+    changed is the branch's side of the merge, and every other file is the
+    move commit's own. That tree is committed as the merge of HEAD with the
+    move commit: no file is merged by hand and none can conflict.
+    """
+    rewriter = _load_rename_script(move, cwd).Rewriter.from_tree(cwd, OLD_PACKAGE, NEW_PACKAGE)
+    listing = _git_bytes("ls-tree", "-r", "-z", "HEAD", cwd=cwd).decode("utf-8", "surrogateescape")
+    entries: dict[str, tuple[str, str]] = {}
+    for record in listing.split("\0"):
+        if record:
+            meta, _, path = record.partition("\t")
+            mode, _kind, sha = meta.split(" ")
+            entries[path] = (mode, sha)
+    changed = _git_bytes("diff", "--name-only", "--no-renames", "-z", before, "HEAD", cwd=cwd)
+    index_info: list[str] = []
+    for path in changed.decode("utf-8", "surrogateescape").split("\0"):
+        if not path:
+            continue
+        target = rewriter.map_path(path)
+        if path not in entries:  # the branch deleted it
+            index_info.append(f"0 {'0' * 40}\t{target}")
+            continue
+        mode, sha = entries[path]
+        if mode in ("100644", "100755"):
+            data = _git_bytes("cat-file", "blob", sha, cwd=cwd)
+            rewritten = rewriter.transform(path, data)
+            if rewritten != data:
+                sha = _git_bytes(
+                    "hash-object", "-w", "--stdin", cwd=cwd, stdin=rewritten
+                ).decode().strip()  # fmt: skip
+        index_info.append(f"{mode} {sha}\t{target}")
+    with tempfile.TemporaryDirectory(prefix="package-rename-") as tmp:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        _git_bytes("read-tree", move, cwd=cwd, env=env)
+        _git_bytes(
+            "update-index", "-z", "--index-info", cwd=cwd, env=env,
+            stdin="".join(f"{line}\0" for line in index_info).encode("utf-8", "surrogateescape"),
+        )  # fmt: skip
+        tree = _git_bytes("write-tree", cwd=cwd, env=env).decode().strip()
+    message = f"Merge the {OLD_PACKAGE} -> {NEW_PACKAGE} package move"
+    commit = git("commit-tree", tree, "-p", "HEAD", "-p", move, "-m", message, cwd=cwd).stdout
+    git("merge", "--ff-only", commit.strip(), cwd=cwd)
+    return commit.strip()
+
+
 def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> dict[str, object]:
     """Update HEAD with ``onto``. Returns a JSON-able report; ``status`` is
     ``up-to-date`` | ``updated`` | ``conflict``."""
@@ -339,6 +487,24 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
     regen: set[str] = set()
     resolved: list[str] = []
     ai: list[str] = []
+    moved = package_move(onto, cwd)
+    carried = ""
+    if moved:
+        before, move = moved
+        # Everything up to the move is an ordinary update between two trees of
+        # the same layout; the move itself is replayed, never merged.
+        first = update(before, mode, resolver_cmd, cwd)
+        if first["status"] == "conflict":
+            return {**first, "onto": before}
+        resolved += first.get("resolved", [])  # type: ignore[arg-type]
+        ai += first.get("ai_resolved", [])  # type: ignore[arg-type]
+        replay_package_move(before, move, cwd)
+        carried = move
+    elif mode == "rebase":
+        carried = carried_package_move(onto, cwd) or ""
+    if carried:
+        report["package_move"] = carried
+        mode = "merge"  # a rebase would drop the merge that carries the move
     if mode == "merge":
         result = git("merge", "--no-edit", "--no-ff", onto, check=False, cwd=cwd)
         if result.returncode != 0:
@@ -347,8 +513,11 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
             ai += res.ai_resolved
             regen |= res.regenerate
             if res.unresolved or conflicted_files(cwd):
+                left = res.unresolved or conflicted_files(cwd)
                 git("merge", "--abort", check=False, cwd=cwd)
-                return {"status": "conflict", "unresolved": res.unresolved or conflicted_files(cwd)}
+                # A replayed move stays: the branch is whole in the new layout.
+                across = {"package_move": carried} if carried else {}
+                return {"status": "conflict", "unresolved": left, **across}
             git("commit", "--no-edit", check=False, cwd=cwd)
     else:
         git("rebase", onto, check=False, cwd=cwd)
@@ -624,23 +793,78 @@ def decide(
     return "wait"
 
 
+def grant_updates(wanted: list[dict[str, object]], max_updates: int) -> set[int]:
+    """Which pull requests get this tick's update slots.
+
+    The slots used to go to the lowest numbers. A pull request the train
+    cannot update (an unresolved conflict, labelled ``needs-rebase``) and one
+    whose own CI is red both ask again on every tick: three of them held all
+    three slots for days while green pull requests that merely conflicted
+    with main waited behind them. First come ``priority``, then the ones the
+    train has not already failed on, then green CI, then the number.
+    """
+
+    def rank(entry: dict[str, object]) -> tuple[bool, bool, bool, int]:
+        labels = {str(label) for label in entry.get("labels") or ()}  # type: ignore[attr-defined]
+        return (
+            "priority" not in labels,
+            "needs-rebase" in labels,
+            entry.get("state") != "success",
+            int(str(entry["number"])),
+        )
+
+    chosen = sorted(wanted, key=rank)[: max(0, max_updates)]
+    return {int(str(entry["number"])) for entry in chosen}
+
+
+# GitHub computes mergeability on demand: the first listing after a push to
+# main answers UNKNOWN for every pull request and only starts the computation.
+SETTLE_ATTEMPTS = 6
+SETTLE_SECONDS = 10.0
+
+
+def open_pull_requests(
+    repo: str,
+    attempts: int = SETTLE_ATTEMPTS,
+    pause: float = SETTLE_SECONDS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[dict]:
+    """Open pull requests against main, asked again while GitHub still computes
+    whether the eligible ones merge.
+
+    The tick a push to main starts is the one that should update the branches
+    that push put in conflict, and it read UNKNOWN for all of them: it waited
+    on every pull request and did nothing.
+    """
+    prs: list[dict] = []
+    for attempt in range(max(1, attempts)):
+        listing = gh_json(
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--base",
+            "main",
+            "--limit",
+            "100",
+            "--json",
+            "id,number,title,headRefName,headRefOid,isDraft,labels,baseRefName,"
+            "isCrossRepository,mergeable",
+        )
+        prs = listing if isinstance(listing, list) else []
+        computing = sum(1 for pr in prs if eligible(pr) and pr.get("mergeable") == "UNKNOWN")
+        if not computing or attempt + 1 >= attempts:
+            break
+        print(f"[train] mergeability of {computing} pull request(s) not computed yet; asking again")
+        sleep(pause)
+    return prs
+
+
 def plan(repo: str, max_updates: int) -> dict[str, object]:
     """Decide what the train does this tick. Reads only; runs no PR code."""
-    prs = gh_json(
-        "pr",
-        "list",
-        "--repo",
-        repo,
-        "--state",
-        "open",
-        "--base",
-        "main",
-        "--limit",
-        "100",
-        "--json",
-        "id,number,title,headRefName,headRefOid,isDraft,labels,baseRefName,"
-        "isCrossRepository,mergeable",
-    )
+    prs = open_pull_requests(repo)
     queued = merge_queue_numbers(repo)
     queue_runs = queue_runs_by_pr(queue_group_runs(repo)) if queued is not None else {}
     git("fetch", "--quiet", "origin", "main")
@@ -651,7 +875,6 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
     )
     print(f"[train] {len(order)} eligible pull request(s); merge queue: {queued is not None}")
     entries: list[dict[str, object]] = []
-    updates = 0
     landing = False
     for pr in order:
         number, branch, sha = pr["number"], pr["headRefName"], pr["headRefOid"]
@@ -668,12 +891,7 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
             queue_failed=queue_rejected(queue_runs.get(number), runs),
         )
         note = f"CI {state}, {mergeable or 'unknown'}"
-        if action == "update":
-            if updates >= max_updates:
-                action, note = "wait", "needs an update, waits for a free slot"
-            else:
-                updates += 1
-        elif action == "merge" and queued is None:
+        if action == "merge" and queued is None:
             if landing:
                 action, note = (
                     "wait",
@@ -689,9 +907,14 @@ def plan(repo: str, max_updates: int) -> dict[str, object]:
                 "action": action,
                 "run_id": run_id,
                 "note": note,
+                "state": state,
                 "labels": sorted(lb["name"] for lb in pr.get("labels", [])),
             }
         )
+    granted = grant_updates([e for e in entries if e["action"] == "update"], max_updates)
+    for entry in entries:
+        if entry["action"] == "update" and entry["number"] not in granted:
+            entry["action"], entry["note"] = "wait", "needs an update, waits for a free slot"
     return {"repo": repo, "main": main_sha, "queue": queued is not None, "entries": entries}
 
 
@@ -736,6 +959,16 @@ def merge_main_into(
     if git("merge-base", "--is-ancestor", main_sha, "HEAD", check=False, cwd=wt).returncode == 0:
         return {"status": "up-to-date"}
     state: dict[str, object] = {"status": "merged", "resolved": [], "ai_resolved": [], "regen": []}
+    moved = package_move(main_sha, wt)
+    if moved:
+        before, move = moved
+        if git("merge-base", "--is-ancestor", before, "HEAD", check=False, cwd=wt).returncode == 0:
+            replay_package_move(before, move, wt)
+        else:
+            # This tick brings the branch to the last commit of the old
+            # layout; the next one replays the move on top of that.
+            main_sha = before
+            state["onto"] = before
     message = f"Merge main into {branch}"
     result = git("merge", "--no-edit", "--no-ff", "-m", message, main_sha, check=False, cwd=wt)
     if result.returncode != 0:
@@ -937,7 +1170,12 @@ def apply_update(
         or git("rev-parse", ref, check=False, cwd=checkout).stdout.strip() != sha
     ):
         return "update bundle missing or unreadable; next tick"
-    if not _bundle_is_safe(sha, entry, data["main"], checkout):
+    # A branch that predates the package move is first brought to the last
+    # commit before it - a commit of main's own history, never one the
+    # integrate job could make up.
+    onto = str(state.get("onto") or data["main"])
+    known = git("merge-base", "--is-ancestor", onto, data["main"], check=False, cwd=checkout)
+    if known.returncode != 0 or not _bundle_is_safe(sha, entry, onto, checkout):
         return "update bundle rejected (not the planned head plus main); next tick"
     push = git("push", "origin", f"{sha}:refs/heads/{branch}", check=False, cwd=checkout)
     if push.returncode != 0:

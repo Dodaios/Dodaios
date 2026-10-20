@@ -9,6 +9,8 @@ or rate-limits the runner. Run explicitly with ``pytest -m integration``.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 import jarvis.brain.hf_gguf as hf
@@ -16,8 +18,15 @@ import jarvis.brain.hf_gguf as hf
 pytestmark = pytest.mark.integration
 
 
+# A 5xx is Hugging Face having a bad minute (a 504 failed a pull request on
+# 2026-10-14), not a change in its API; a 4xx still fails.
+_SERVER_ERROR = re.compile(r"answered 5\d\d\b")
+
+
 def _skip_on_network_error(error: str | None) -> None:
-    if error and ("did not answer" in error or "rate-limiting" in error):
+    if error and (
+        "did not answer" in error or "rate-limiting" in error or _SERVER_ERROR.search(error)
+    ):
         pytest.skip(f"huggingface.co unavailable: {error}")
 
 

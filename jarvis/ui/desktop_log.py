@@ -11,15 +11,15 @@ vanished; the window came up on a later click at 10:09:16, and nothing in
 between was recorded). The launcher installs this sink from its first
 millisecond, and it must stay cheap: loguru + stdlib + the instance resolver.
 
-``desktop_log_path()`` mirrors ``jarvis.core.config.DATA_DIR`` exactly (env
-override, then the instance-named directory beside the checkout) — the two MUST
-agree, because the sink is installed once per process and every later
+``desktop_log_path()`` resolves the same directory as
+``jarvis.core.config.DATA_DIR`` through one shared function (env override, then
+the instance-named directory beside the checkout) — the two MUST agree, because
+the sink is installed once per process and every later
 ``_install_desktop_log_sink(DATA_DIR / ...)`` call is a no-op against it.
 """
 
 from __future__ import annotations
 
-import os
 import queue
 import sys
 import threading
@@ -35,17 +35,14 @@ DESKTOP_LOG_FILE_NAME = "jarvis_desktop.log"
 def desktop_log_path() -> Path:
     """``<data dir>/jarvis_desktop.log`` without importing ``jarvis.core.config``.
 
-    Same resolution as ``jarvis.core.config._resolve_data_dir``: ``JARVIS_DATA_DIR``
-    wins outright, otherwise ``<checkout>/<instance data dir name>``. A parity
-    test pins the two together.
+    The same resolver ``jarvis.core.config.DATA_DIR`` is built from
+    (``jarvis.core.instance.resolve_data_dir``): ``JARVIS_DATA_DIR`` wins
+    outright, otherwise ``<checkout>/<instance data dir name>``.
     """
-    env_dir = os.environ.get("JARVIS_DATA_DIR")
-    if env_dir and env_dir.strip():
-        return Path(env_dir.strip()) / DESKTOP_LOG_FILE_NAME
-    from jarvis.core.instance import current_instance
+    from jarvis.core.instance import resolve_data_dir
 
     project_root = Path(__file__).resolve().parents[2]
-    return project_root / current_instance().data_dir_name / DESKTOP_LOG_FILE_NAME
+    return resolve_data_dir(project_root) / DESKTOP_LOG_FILE_NAME
 
 
 _DESKTOP_LOG_SINK_INSTALLED = False

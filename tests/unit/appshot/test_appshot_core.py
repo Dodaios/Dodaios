@@ -130,6 +130,23 @@ def test_both_alt_fires_once_per_press_and_rearms_on_release(monkeypatch) -> Non
     assert len(fired) == 2
 
 
+def test_both_alt_fires_again_when_one_key_stays_down(monkeypatch) -> None:
+    import jarvis.platform.self_input as self_input
+
+    monkeypatch.setattr(self_input, "synthetic_input_recent", lambda *a, **k: False)
+    keys, clock, fired = Keys(), Clock(), []
+    watcher = BothAltWatcher(lambda: fired.append(1), probe=keys, clock=clock)
+
+    keys.state = (True, True)
+    assert watcher.step()
+    keys.state = (True, False)
+    watcher.step()
+    clock.now += 1.0
+    keys.state = (True, True)
+    assert watcher.step(), "pressing the second key again is a new gesture"
+    assert len(fired) == 2
+
+
 def test_both_alt_ignores_a_bounce_and_synthetic_input(monkeypatch) -> None:
     import jarvis.platform.self_input as self_input
 

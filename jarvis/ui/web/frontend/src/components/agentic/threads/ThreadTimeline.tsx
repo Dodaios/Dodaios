@@ -1,15 +1,18 @@
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, Bot, Brain, Check, ChevronDown, ChevronRight, Copy, Diff, FileText, Hammer, MessageCircleQuestion, ShieldAlert, X } from "lucide-react";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
+import { CredentialCard } from "@/components/agentchat/CredentialCard";
 import { QuestionCard } from "@/components/agentchat/QuestionCard";
-import type { TextBlock, TimelineItem, ToolBlock, TurnBlock, TurnItem, UserItem } from "@/components/agentchat/reduce";
+import { waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type TurnBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { CallMark, StretchMark } from "@/components/agentchat/TraceTimeline";
 import { plural, readableOutput, traceDuration, type Call } from "@/components/agentchat/traceEntries";
-import { fill, useT } from "@/i18n";
+import { fill, useI18nStore, useT } from "@/i18n";
+import { localeForUiLanguage } from "@/components/runs/format";
 import type { ApprovalDecision } from "@/lib/agentChatApi";
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
+import { ChatThought } from "./ChatThought";
 import { buildThreadRows, isFailed, thoughtGist, type ThreadRow, type WorkGroup, type WorkItem } from "./threadWork";
 import { SubagentCard } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
@@ -30,7 +33,7 @@ import { listSubagents } from "./subagents";
  * MIT License, Copyright (c) 2026 T3 Tools Inc. — third_party/t3code/LICENSE.
  */
 
-const PROSE = cn(
+export const PROSE = cn(
   "py-1 prose prose-neutral max-w-none text-base leading-6 text-foreground dark:prose-invert dark:text-foreground [overflow-wrap:anywhere]",
   "[&>div>:first-child]:mt-0 [&>div>:last-child]:mb-0",
   "prose-p:my-2 prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground-strong",
@@ -263,7 +266,7 @@ function ThinkingRow({ grouped = false }: { grouped?: boolean }) {
  * A picture in the agent's words — an image it viewed or made — reads as a
  * small preview in the thread; a click opens it full size.
  */
-const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=image]_img]:max-w-sm [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
+export const THREAD_MEDIA = "[&_[data-kind=image]_img]:max-h-48 [&_[data-kind=image]_img]:max-w-sm [&_[data-kind=image]_img]:border [&_[data-kind=image]_img]:border-border";
 
 function StepRow({ item, running, grouped, onOpenChange }: { item: WorkItem; running: boolean; grouped?: boolean; onOpenChange?: OpenChange }) {
   if (item.kind === "call") return <CallRow call={item.call} stamp={item.startedMs} grouped={grouped} onOpenChange={onOpenChange} />;
@@ -382,7 +385,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 }
 
 function clock(ms: number): string {
-  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString(localeForUiLanguage(useI18nStore.getState().ui), { hour: "2-digit", minute: "2-digit" });
 }
 
 function UserBubble({ item }: { item: UserItem }) {
@@ -404,7 +407,7 @@ function UserBubble({ item }: { item: UserItem }) {
     </div>
     <div className="flex items-center gap-1 pr-1 text-xs text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
       <span className="tabular-nums">{clock(item.tsMs)}</span>
-      {item.text && <CopyButton text={item.text} label="Copy message" />}
+      {item.text && <CopyButton text={item.text} label={t("ide_threads.copy_message")} />}
     </div>
   </div>;
 }
@@ -427,7 +430,7 @@ function changedFiles(turn: TurnItem): { path: string; added: number; removed: n
 }
 
 /** The thread's project folder, so changed files read relative to it. */
-const ThreadFolder = createContext("");
+export const ThreadFolder = createContext("");
 
 function slashes(path: string): string {
   return path.replace(/\\/g, "/");
@@ -545,7 +548,7 @@ export type Decide = (id: string, decision: ApprovalDecision) => void | Promise<
 
 /** A call still waiting for the person: an open question or an undecided approval. */
 function waitsForPerson(block: ToolBlock): boolean {
-  return Boolean(block.question && !block.question.closed) || Boolean(block.approval && block.approval.decision === null);
+  return waitsOnCard(block) || Boolean(block.approval && block.approval.decision === null);
 }
 
 function pendingLabel(block: ToolBlock, t: (key: string) => string): { icon: ReactNode; text: string } | null {
@@ -560,7 +563,7 @@ function pendingLabel(block: ToolBlock, t: (key: string) => string): { icon: Rea
  * An approval answered in the turn itself: the waiting line, what the agent
  * asks for, and the three answers under it.
  */
-function ApprovalPrompt({ block, onDecide }: { block: ToolBlock; onDecide?: Decide }) {
+export function ApprovalPrompt({ block, onDecide }: { block: ToolBlock; onDecide?: Decide }) {
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -630,6 +633,14 @@ export interface ThreadTurnProps {
   extras?: { key: string; node: ReactNode }[];
   /** A quiet note on a finished turn's closing line: tokens, cost. */
   receipt?: ReactNode;
+  /**
+   * How the turn reads. A coding thread counts its work ("Working for 12s",
+   * "Worked for 40s"). A plain chat has a thought and an answer: the thought
+   * streams under a shimmering "Thinking" and folds into "Thought for 3s"
+   * once the answer begins (`ChatThought`), and no duration sits under the
+   * answer.
+   */
+  tone?: "work" | "chat";
 }
 
 /**
@@ -637,14 +648,18 @@ export interface ThreadTurnProps {
  * threads and every agent chat draw their turns with it, so a turn looks and
  * behaves the same wherever it is read — streaming, finished or reloaded.
  */
-export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt }: ThreadTurnProps) {
+export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt, tone = "work" }: ThreadTurnProps) {
   const t = useT();
   const lang = t("trace_report.locale");
   const running = turn.status === "running";
   const inline = prompts === "inline";
   const pictures = useMemo(() => callPictures(turn.blocks), [turn.blocks]);
+  // Keep credential fields mounted while the surrounding work folds at turn end.
+  // The pasted value lives only in the field, so a remount would discard it.
+  const credentials = turn.blocks.filter((block): block is ToolBlock => block.kind === "tool" && Boolean(block.credential));
   const rows = useMemo(
-    () => buildThreadRows(turn.blocks, { t, lang, status: turn.status }).filter((row) => !(row.kind === "text" && pictures.moved.has(row.block.id))),
+    () => buildThreadRows(turn.blocks, { t, lang, status: turn.status }).filter((row) =>
+      !(row.kind === "text" && pictures.moved.has(row.block.id)) && !(row.kind === "pending" && row.block.credential)),
     [turn.blocks, t, lang, turn.status, pictures],
   );
   const answer = answerText(turn);
@@ -672,6 +687,8 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     if (row.kind === "thought") return <ThoughtView key={row.id} text={row.text} />;
     if (row.kind === "text") return <div key={row.id} className={cn(PROSE, THREAD_MEDIA)}><ChatMarkdown text={row.text} /></div>;
     if (row.kind === "agent") return <SubagentCard key={row.id} block={row.block} turn={turn} />;
+    // A secret is pasted where it is asked for, never into a composer.
+    if (row.block.credential) return <CredentialCard key={row.id} credential={row.block.credential} />;
     if (inline) {
       if (row.block.question) return <QuestionCard key={row.id} question={row.block.question} />;
       if (row.block.approval && row.block.approval.decision === null) return <ApprovalPrompt key={row.id} block={row.block} onDecide={onDecide} />;
@@ -680,6 +697,24 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     const pending = pendingLabel(row.block, t);
     return pending ? <WorkRow key={row.id} icon={pending.icon} label={pending.text} live /> : null;
   };
+  if (tone === "chat") {
+    // A plain chat: its thought, its answer, and a quiet closing line.
+    const textRows = rows.filter((row) => row.kind === "text");
+    const ending = turn.status === "cancelled" ? timed("stopped")
+      : turn.status === "error" ? timed("failed")
+        : !answer ? timed("no_answer") : "";
+    return <CallMedia.Provider value={pictures.byCall}><div className="min-w-0 space-y-1.5" data-testid="thread-turn" data-status={turn.status}>
+      <ChatThought turn={turn} answering={textRows.length > 0} />
+      {textRows.map(renderRow)}
+      {!running && <>
+        {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turn.error}</p>}
+        <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground" data-testid="thread-turn-closing">
+          {ending && <span>{ending}</span>}
+          {answer && <CopyButton text={answer} label={t("thread_turn.copy_answer")} />}
+        </div>
+      </>}
+    </div></CallMedia.Provider>;
+  }
   const extraNodes = extraRows.map((extra) => <div key={`extra:${extra.key}`} className="min-w-0">{extra.node}</div>);
   // A running turn's streaming answer is its tail; extra steps go above it.
   const shown = folded ? tail : rows;
@@ -700,6 +735,7 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     </div>}
     {folded && agents.length > 0 && <div className="space-y-1.5 pt-1" data-testid="thread-turn-subagents">{agents.map(renderRow)}</div>}
     {folded && waiting.map(renderRow)}
+    {credentials.map((block) => <CredentialCard key={block.credential!.requestId} credential={block.credential!} />)}
     {shown.slice(0, extraAt).map(renderRow)}
     {!folded && extraNodes}
     {shown.slice(extraAt).map(renderRow)}
@@ -729,9 +765,9 @@ function ErrorLine({ text }: { text: string }) {
 }
 
 /** One item of the conversation, drawn by its kind. */
-function ItemView({ item }: { item: TimelineItem }) {
+function ItemView({ item, tone }: { item: TimelineItem } & Pick<ThreadTurnProps, "tone">) {
   if (item.type === "user") return <UserBubble item={item} />;
-  if (item.type === "turn") return <ThreadTurn turn={item} />;
+  if (item.type === "turn") return <ThreadTurn turn={item} tone={tone} />;
   if (item.type === "error") return <ErrorLine text={item.text} />;
   if (item.type === "notice") {
     return <p className="text-center text-xs text-muted-foreground">{item.agentName ? `${item.agentName}: ` : ""}{item.text}</p>;
@@ -747,13 +783,16 @@ function ItemView({ item }: { item: TimelineItem }) {
  * the bottom and stays put once they scroll up to read; a button brings them
  * back down.
  */
-export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lead }: {
+export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lead, tone }: {
   items: TimelineItem[]; sessionId: string | null; bottomInset: number;
+  /** How every turn's status lines read (see `ThreadTurnProps.tone`). */
+  tone?: ThreadTurnProps["tone"];
   /** The thread's project folder; changed files list relative to it. */
   folder?: string;
   /** What reads above the conversation — an opened sub-agent's header and task. */
   lead?: ReactNode;
 }) {
+  const t = useT();
   const scroller = useRef<HTMLDivElement | null>(null);
   const pinned = useRef(true);
   const [away, setAway] = useState(false);
@@ -792,10 +831,10 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       className="h-full overflow-y-auto scrollbar-jarvis">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
-        {items.map((item) => <ItemView key={item.id} item={item} />)}
+        {items.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
       </div>
     </div>
-    {away && <button type="button" aria-label="Scroll to the newest message"
+    {away && <button type="button" aria-label={t("ide_threads.scroll_newest")}
       onClick={() => { const box = scroller.current; if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" }); }}
       style={{ bottom: bottomInset + 12 }}
       className="absolute left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-popover text-muted-foreground shadow-float hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

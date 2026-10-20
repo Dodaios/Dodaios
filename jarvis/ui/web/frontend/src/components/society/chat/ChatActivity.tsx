@@ -1,11 +1,12 @@
 import { useId, useState, type ReactNode } from "react";
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Clock3, Inbox } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Clock3, Inbox, Users } from "lucide-react";
 import { CodingThreadActivity } from "@/components/agentic/threads/CodingThreadLink";
 import { codingThreadOf } from "@/components/agentic/threads/openCodingThread";
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { useOpenPairConversation } from "@/components/agentchat/PairConversation";
-import type { InternalMessageItem } from "@/components/agentchat/reduce";
+import type { InternalMessageItem, TeamEvent } from "@/components/agentchat/reduce";
 import { useT } from "@/i18n";
+import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { useEventStore } from "@/store/events";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,7 @@ export function DelegationActivity({ sender, task, roster }: {
   const participant = roster.find((agent) => agent.agentId === sender);
   const name = participant
     ? societyDisplayName(participant, assistantName)
-    : sender === "jarvis" ? (assistantName || "Jarvis") : sender;
+    : sender === "jarvis" ? (assistantName || NEUTRAL_ASSISTANT_NAME) : sender;
   return <ChatActivity icon={<Inbox aria-hidden className="h-3.5 w-3.5 shrink-0" />}
     label={<span className="inline-flex max-w-full items-center gap-2">
       <span>{t("society.chat.assignment_from").replace("{0}", "")}</span>
@@ -65,6 +66,27 @@ export function DelegationActivity({ sender, task, roster }: {
     </span>}>
     <ChatMarkdown text={task} />
   </ChatActivity>;
+}
+
+/** What the engine shows for a turn that brings results: "<goal>: 2 results". */
+const TEAM_RESULTS = /^(.*): (\d+) results?$/s;
+
+/**
+ * A turn the team engine gave a team lead: members' results arrived, a report
+ * is due, or a goal the person resumed goes on. Nobody typed it, so it is a
+ * quiet line in the conversation and never a message bubble.
+ */
+export function TeamEventLine({ event, text }: { event: TeamEvent; text: string }) {
+  const t = useT();
+  const results = event === "update" ? TEAM_RESULTS.exec(text) : null;
+  const label = results ? t("society.lead.event_update").replace("{0}", results[2]) : t(`society.lead.event_${event}`).replace("{0}", "");
+  const goal = (results ? results[1] : text).split(/\r?\n/)[0];
+  return <p data-testid="team-event-line" data-event={event}
+    className="mx-auto my-1 flex max-w-[min(100%,36rem)] items-center justify-center gap-2 px-2 py-1 text-xs text-muted-foreground">
+    <Users aria-hidden className="h-3.5 w-3.5 shrink-0" />
+    <span className="shrink-0">{label.trim()}</span>
+    {goal ? <span className="min-w-0 truncate">· {goal}</span> : null}
+  </p>;
 }
 
 export function RoutineActivity({ task, original, onOpen }: { task: string; original: string; onOpen?: () => void }) {
