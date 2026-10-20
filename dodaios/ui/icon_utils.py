@@ -1333,7 +1333,7 @@ def apply_tk_window_icon(root: Any) -> None:
     Two OS-specific paths, because the toolkits read different surfaces:
 
     **Windows** — the taskbar renders the window *class* icon, and the
-    highest-fidelity source is the multi-resolution ``jarvis.ico``:
+    highest-fidelity source is the multi-resolution ``dodaios.ico``:
 
       1. ``ensure_windows_app_identity`` — group this process under the Jarvis
          taskbar button (idempotent across processes).
@@ -1787,21 +1787,21 @@ def load_ico_as_pil_image(ico_path: Path, size: int = 64) -> Any | None:
 
 
 def project_icon_path() -> Path:
-    """Resolve the desktop/taskbar icon (``jarvis.ico``), install-layout agnostic.
+    """Resolve the desktop/taskbar icon (``dodaios.ico``), install-layout agnostic.
 
     Every Win32 icon surface (window class icon, AUMID icon, Start-Menu shortcut,
     taskbar name, tray) resolves the icon through this one function — so if it
     returns a non-existent path, ALL of them silently fall back to the
     ``pythonw.exe`` Python logo. That is exactly the "taskbar shows Python on a
     fresh machine" symptom: the icon historically lived only at
-    ``<repo-root>/assets/icons/jarvis.ico`` (``parents[2]``), which resolves only
+    ``<repo-root>/assets/icons/dodaios.ico`` (``parents[2]``), which resolves only
     for a run *from the project folder*; a real ``pip install`` relocates the
     package to ``site-packages`` where that repo-root ``assets/`` is absent.
 
     Resolution order (first existing wins):
-      1. the **bundled** in-package copy ``dodaios/assets/icons/jarvis.ico`` — ships
+      1. the **bundled** in-package copy ``dodaios/assets/icons/dodaios.ico`` — ships
          with the code via ``package-data``, so it is present on every install;
-      2. the legacy ``<repo-root>/assets/icons/jarvis.ico`` — the dev/editable and
+      2. the legacy ``<repo-root>/assets/icons/dodaios.ico`` — the dev/editable and
          build-tool copy (PyInstaller spec, ``install_shortcuts.py``).
 
     Falls back to the bundled path (even if missing) so callers get a stable,
@@ -1818,7 +1818,7 @@ def project_icon_path() -> Path:
 
     icon_name = _INSTANCE.icon_file_name
     repo_icons = Path(__file__).resolve().parents[2] / "assets" / "icons"
-    for candidate in (repo_icons / icon_name, repo_icons / "jarvis.ico"):
+    for candidate in (repo_icons / icon_name, repo_icons / "dodaios.ico"):
         if candidate.is_file():
             return candidate
 

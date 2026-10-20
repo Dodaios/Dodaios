@@ -35,7 +35,7 @@ import {
   saveJarvisXEdited,
   withVersion,
   type JarvisXItem,
-} from "@/lib/jarvisxApi";
+} from "@/lib/dodaiosxApi";
 import {
   DEFAULT_COLOR,
   DEFAULT_FONT_SIZE,
@@ -84,11 +84,11 @@ import {
   type Shape,
   type TextShape,
   type Tool,
-} from "@/lib/jarvisxEditorModel";
-import { exportPng, measureTextShape, paintDocument, textFont } from "@/lib/jarvisxRender";
+} from "@/lib/dodaiosxEditorModel";
+import { exportPng, measureTextShape, paintDocument, textFont } from "@/lib/dodaiosxRender";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
-import { JarvisXConfirmDialog } from "@/views/dodaiosx/JarvisXConfirmDialog";
+import { DodaiosXConfirmDialog } from "@/views/dodaiosx/DodaiosXConfirmDialog";
 
 /**
  * The Jarvis X annotation editor.
@@ -238,7 +238,7 @@ function extendDraft(shape: Shape, origin: Point, p: Point): Shape {
   }
 }
 
-export interface JarvisXEditorProps {
+export interface DodaiosXEditorProps {
   /** The capture to edit; absent together with `devSrc` opens a local picture read-only. */
   itemId: string | null;
   /** Dev/verification fallback: a same-origin image URL to annotate without an item. */
@@ -251,7 +251,7 @@ export interface JarvisXEditorProps {
   trailing?: ReactNode;
 }
 
-export function JarvisXEditor({ itemId, devSrc, variant, onClose, leading, trailing }: JarvisXEditorProps) {
+export function DodaiosXEditor({ itemId, devSrc, variant, onClose, leading, trailing }: DodaiosXEditorProps) {
   const t = useT();
   const pushToast = useEventStore((s) => s.pushToast);
 
@@ -1100,7 +1100,7 @@ export function JarvisXEditor({ itemId, devSrc, variant, onClose, leading, trail
       )}
 
       {confirm === "discard" && (
-        <JarvisXConfirmDialog
+        <DodaiosXConfirmDialog
           title={t("jarvisx.editor.discard_title")}
           body={t("jarvisx.editor.discard_body")}
           confirmLabel={t("jarvisx.editor.discard_confirm")}
@@ -1112,7 +1112,7 @@ export function JarvisXEditor({ itemId, devSrc, variant, onClose, leading, trail
         />
       )}
       {confirm === "original" && (
-        <JarvisXConfirmDialog
+        <DodaiosXConfirmDialog
           title={t("jarvisx.editor.switch_title")}
           body={t("jarvisx.editor.switch_body")}
           confirmLabel={t("jarvisx.editor.discard_confirm")}
@@ -1124,7 +1124,7 @@ export function JarvisXEditor({ itemId, devSrc, variant, onClose, leading, trail
         />
       )}
       {confirm === "delete" && (
-        <JarvisXConfirmDialog
+        <DodaiosXConfirmDialog
           title={t("jarvisx.delete_title")}
           body={t("jarvisx.delete_body")}
           confirmLabel={t("jarvisx.delete")}

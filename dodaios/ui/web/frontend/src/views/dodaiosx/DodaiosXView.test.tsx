@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useEventStore } from "@/store/events";
-import { JarvisXView } from "@/views/dodaiosx/JarvisXView";
+import { DodaiosXView } from "@/views/dodaiosx/DodaiosXView";
 
 const SETTINGS = {
   enabled: true,
@@ -61,7 +61,7 @@ function json(body: unknown, status = 200): Response {
   return { ok: status < 400, status, json: async () => body } as Response;
 }
 
-describe("JarvisXView", () => {
+describe("DodaiosXView", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let items: typeof ITEMS;
 
@@ -91,7 +91,7 @@ describe("JarvisXView", () => {
   });
 
   it("lists captures newest first with a video duration", async () => {
-    render(<JarvisXView />);
+    render(<DodaiosXView />);
     const cards = await screen.findAllByTestId("jarvisx-item");
     expect(cards).toHaveLength(2);
     expect(cards[0].textContent).toContain("1:23");
@@ -102,7 +102,7 @@ describe("JarvisXView", () => {
   it("deletes only after the in-app confirmation", async () => {
     const confirmSpy = vi.fn();
     vi.stubGlobal("confirm", confirmSpy);
-    render(<JarvisXView />);
+    render(<DodaiosXView />);
     await screen.findAllByTestId("jarvisx-item");
     const deleteButtons = screen.getAllByTestId("jarvisx-item-delete");
     fireEvent.click(deleteButtons[1]);
@@ -114,7 +114,7 @@ describe("JarvisXView", () => {
   });
 
   it("refreshes the library when a capture event arrives", async () => {
-    render(<JarvisXView />);
+    render(<DodaiosXView />);
     await screen.findAllByTestId("jarvisx-item");
     const before = fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/jarvisx/items?")).length;
     act(() => {
@@ -133,7 +133,7 @@ describe("JarvisXView", () => {
   });
 
   it("shows a recording indicator from the websocket event", async () => {
-    render(<JarvisXView />);
+    render(<DodaiosXView />);
     await screen.findAllByTestId("jarvisx-item");
     act(() => {
       useEventStore.getState().pushEvent({
@@ -148,7 +148,7 @@ describe("JarvisXView", () => {
   });
 
   it("hides the seconds field while the thumbnail stays until dismissed", async () => {
-    render(<JarvisXView />);
+    render(<DodaiosXView />);
     fireEvent.click(await screen.findByText("Settings"));
     const persist = await screen.findByTestId("jarvisx-persist");
     expect(screen.getByTestId("jarvisx-dismiss-row")).toBeDefined();
@@ -163,7 +163,7 @@ describe("JarvisXView", () => {
   });
 
   it("saves a clamped dismiss delay", async () => {
-    render(<JarvisXView />);
+    render(<DodaiosXView />);
     fireEvent.click(await screen.findByText("Settings"));
     const input = await screen.findByTestId("jarvisx-dismiss-input");
     fireEvent.change(input, { target: { value: "999" } });
@@ -177,7 +177,7 @@ describe("JarvisXView", () => {
   });
 
   it("shows whether each shortcut is armed", async () => {
-    render(<JarvisXView />);
+    render(<DodaiosXView />);
     fireEvent.click(await screen.findByText("Settings"));
     expect(await screen.findByTestId("jarvisx-hotkey-armed-region")).toBeDefined();
     expect(screen.getByTestId("jarvisx-hotkey-unarmed-window").textContent).toContain("taken by another app");

@@ -57,7 +57,7 @@ APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download/${A
 APPIMAGETOOL_SHA256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
 APPIMAGETOOL_CACHE="${DIST_DIR}/.build-tools/appimagetool-${APPIMAGETOOL_VERSION}-x86_64.AppImage"
 
-ICON_SOURCE="${REPO_ROOT}/assets/icons/jarvis-gigi-256.png"
+ICON_SOURCE="${REPO_ROOT}/assets/icons/dodaios-gigi-256.png"
 # The desktop entry, its icon and the window class share one name
 # (dodaios/core/branding.py: LINUX_DESKTOP_ENTRY_FILE_NAME, LINUX_WM_CLASS).
 DESKTOP_FILE_NAME="dodaios.desktop"

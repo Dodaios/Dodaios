@@ -4,7 +4,7 @@ import { ToastLayer } from "@/components/ToastLayer";
 import { EditContextMenu } from "@/components/EditContextMenu";
 import { useDesktopChrome, WindowControls } from "@/components/layout/WindowControls";
 import { hydrateUiLanguage } from "@/i18n";
-import { JarvisXEditor } from "@/views/dodaiosx/JarvisXEditor";
+import { DodaiosXEditor } from "@/views/dodaiosx/DodaiosXEditor";
 
 /** The view id the backend opens the editor window with. */
 export const JARVISX_EDITOR_VIEW = "jarvisx-editor";
@@ -23,7 +23,7 @@ export function isJarvisXEditorSearch(search: string): boolean {
  * broker for an unknown view id. The window keeps its title strip — the
  * toolbar row doubles as the drag handle — and the toast layer.
  */
-export function JarvisXEditorWindow() {
+export function DodaiosXEditorWindow() {
   const params = new URLSearchParams(window.location.search);
   const itemId = params.get("item");
   // Verification fallback: a same-origin picture opened without a stored item.
@@ -63,7 +63,7 @@ export function JarvisXEditorWindow() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
-      <JarvisXEditor
+      <DodaiosXEditor
         itemId={itemId}
         devSrc={devSrc}
         variant="window"

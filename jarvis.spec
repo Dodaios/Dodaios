@@ -456,7 +456,7 @@ if sys.platform == "win32":
 
 def _icon_path():
     """The platform's icon, or ``None`` when it has not been generated yet."""
-    candidate = ICON_DIR / ("jarvis.icns" if sys.platform == "darwin" else "jarvis.ico")
+    candidate = ICON_DIR / ("dodaios.icns" if sys.platform == "darwin" else "dodaios.ico")
     if candidate.is_file():
         return str(candidate)
     print(f"[jarvis.spec] icon {candidate} is missing - building without one")

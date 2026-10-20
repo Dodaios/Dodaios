@@ -7,7 +7,7 @@ import { useT } from "@/i18n";
  * An in-app confirmation. Never `window.confirm`: a native dialog blocks the
  * desktop WebView's loop and looks foreign in both themes.
  */
-export function JarvisXConfirmDialog({
+export function DodaiosXConfirmDialog({
   title,
   body,
   confirmLabel,

@@ -55,7 +55,7 @@ function isDroppable(dt: DataTransfer | null): boolean {
  * the ghost mascot otherwise. This in-app surface is the cloud-first drop
  * target — it works in any browser, unlike the separate Tk overlay windows.
  */
-export function JarvisDock() {
+export function DodaiosDock() {
   const t = useT();
   const { config } = useOverlayStyle();
   const dragging = useMissionDrag((s) => s.dragging);

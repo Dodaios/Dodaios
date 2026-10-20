@@ -64,7 +64,7 @@ const MOTION: Record<VoiceState, { animate: TargetAndTransition; duration: numbe
   },
 };
 
-export function JarvisOrb({
+export function DodaiosOrb({
   size,
   voiceState,
   className,

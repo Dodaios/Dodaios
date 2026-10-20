@@ -1,5 +1,5 @@
 /**
- * Vitest+RTL tests for JarvisAgentPanel (Phase 9 Wave 4 UI).
+ * Vitest+RTL tests for DodaiosAgentPanel (Phase 9 Wave 4 UI).
  *
  * Covers:
  *  - Empty-state when no mission is selected
@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
-import { JarvisAgentPanel } from "@/components/missions/JarvisAgentPanel";
+import { DodaiosAgentPanel } from "@/components/missions/DodaiosAgentPanel";
 import { useMissionsStore } from "@/components/missions/store";
 import { useEventStore } from "@/store/events";
 import type { JarvisAgentWorkerSnapshot } from "@/types/missions";
@@ -46,9 +46,9 @@ function makeWorker(overrides: Partial<JarvisAgentWorkerSnapshot> = {}): JarvisA
   };
 }
 
-describe("JarvisAgentPanel", () => {
+describe("DodaiosAgentPanel", () => {
   it("shows the empty state when no mission is selected", () => {
-    render(<JarvisAgentPanel />);
+    render(<DodaiosAgentPanel />);
     expect(
       screen.getByText("Select a mission to see Harald-Agent workers."),
     ).toBeDefined();
@@ -59,7 +59,7 @@ describe("JarvisAgentPanel", () => {
       selectedMissionId: "mid-1",
       workerSnapshotsByMission: { "mid-1": [] },
     });
-    render(<JarvisAgentPanel />);
+    render(<DodaiosAgentPanel />);
     expect(
       screen.getByText("No Harald-Agent workers in this mission."),
     ).toBeDefined();
@@ -70,7 +70,7 @@ describe("JarvisAgentPanel", () => {
       selectedMissionId: "mid-1",
       workerSnapshotsByMission: { "mid-1": [makeWorker()] },
     });
-    render(<JarvisAgentPanel />);
+    render(<DodaiosAgentPanel />);
 
     // Model
     const model = screen.getByTestId("jarvis-agent-model");
@@ -110,7 +110,7 @@ describe("JarvisAgentPanel", () => {
         ],
       },
     });
-    render(<JarvisAgentPanel />);
+    render(<DodaiosAgentPanel />);
 
     const badge = screen.getByTestId("jarvis-agent-reattach-badge");
     expect(badge.getAttribute("data-reattach-status")).toBe("killed");
@@ -135,7 +135,7 @@ describe("JarvisAgentPanel", () => {
         ],
       },
     });
-    render(<JarvisAgentPanel />);
+    render(<DodaiosAgentPanel />);
 
     const rows = screen.getAllByTestId("jarvis-agent-worker-row");
     expect(rows).toHaveLength(2);

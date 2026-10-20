@@ -15,7 +15,7 @@ vi.mock("@/hooks/useOverlayStyle", () => ({
 }));
 vi.mock("@/lib/sound", () => ({ playDropConfirm: () => playDropConfirm() }));
 
-import { JarvisDock, MISSION_DND_MIME } from "./JarvisDock";
+import { DodaiosDock, MISSION_DND_MIME } from "./DodaiosDock";
 import { useEventStore } from "@/store/events";
 import { useMissionDrag } from "@/store/missionDrag";
 
@@ -29,7 +29,7 @@ function fakeDataTransfer(json: string) {
   } as unknown as DataTransfer;
 }
 
-describe("JarvisDock", () => {
+describe("DodaiosDock", () => {
   beforeEach(() => {
     send.mockClear();
     playDropConfirm.mockClear();
@@ -42,7 +42,7 @@ describe("JarvisDock", () => {
   afterEach(() => cleanup());
 
   it("sends a mission.inject command on a valid drop", async () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     fireEvent.drop(zone, {
       dataTransfer: fakeDataTransfer(
@@ -58,14 +58,14 @@ describe("JarvisDock", () => {
   });
 
   it("ignores a drop with no mission payload", () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     fireEvent.drop(zone, { dataTransfer: fakeDataTransfer("") });
     expect(send).not.toHaveBeenCalled();
   });
 
   it("plays the soft confirmation sound on a successful drop", async () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     fireEvent.drop(zone, {
       dataTransfer: fakeDataTransfer(JSON.stringify({ slug: "s", utterance: "u" })),
@@ -75,14 +75,14 @@ describe("JarvisDock", () => {
   });
 
   it("does not play the sound for an empty drop", () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     fireEvent.drop(zone, { dataTransfer: fakeDataTransfer("") });
     expect(playDropConfirm).not.toHaveBeenCalled();
   });
 
   it("stays visually hidden in idle and reveals only while a mission drag is in flight", () => {
-    const { rerender } = render(<JarvisDock />);
+    const { rerender } = render(<DodaiosDock />);
     // Idle: present in the DOM (so the drop handler stays wired) but invisible
     // and non-interactive — no permanent icon cluttering the corner.
     const idle = screen.getByTestId("jarvis-dock");
@@ -91,23 +91,23 @@ describe("JarvisDock", () => {
 
     // A mission card lifts → the dock blooms into a visible target.
     useMissionDrag.getState().begin();
-    rerender(<JarvisDock />);
+    rerender(<DodaiosDock />);
     const live = screen.getByTestId("jarvis-dock");
     expect(live.className).toContain("opacity-100");
     expect(live.className).not.toContain("opacity-0");
   });
 
   it("mounts a full-window catch layer only while a mission drag is active", () => {
-    const { rerender } = render(<JarvisDock />);
+    const { rerender } = render(<DodaiosDock />);
     expect(screen.queryByTestId("jarvis-dock-catch")).toBeNull();
     useMissionDrag.getState().begin();
-    rerender(<JarvisDock />);
+    rerender(<DodaiosDock />);
     expect(screen.getByTestId("jarvis-dock-catch")).toBeTruthy();
   });
 
   it("injects when a card is dropped on the catch layer (toss near the dock)", async () => {
     useMissionDrag.getState().begin();
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const catcher = screen.getByTestId("jarvis-dock-catch");
     fireEvent.drop(catcher, {
       dataTransfer: fakeDataTransfer(JSON.stringify({ slug: "s", utterance: "u" })),
@@ -118,7 +118,7 @@ describe("JarvisDock", () => {
 
   it("clears the global drag state after a drop", async () => {
     useMissionDrag.getState().begin();
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     fireEvent.drop(zone, {
       dataTransfer: fakeDataTransfer(JSON.stringify({ slug: "s", utterance: "u" })),

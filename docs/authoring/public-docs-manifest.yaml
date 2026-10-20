@@ -578,7 +578,7 @@ pages:
     diataxis: explanation
     summary: Learn when Dodaios delegates longer work, how missions and workers fit together, and how to follow progress and results.
     authoritative_sources:
-      - dodaios/ui/web/frontend/src/views/JarvisAgentsView.tsx
+      - dodaios/ui/web/frontend/src/views/DodaiosAgentsView.tsx
       - dodaios/ui/web/missions_routes.py
       - dodaios/missions/manager.py
       - dodaios/missions/state_machine.py
@@ -916,7 +916,7 @@ pages:
       - dodaios/core/control_key.py
       - dodaios/ui/web/control_routes.py
       - dodaios/ui/web/surface_security.py
-      - dodaios/ui/web/frontend/src/views/settings/JarvisApiGroup.tsx
+      - dodaios/ui/web/frontend/src/views/settings/DodaiosApiGroup.tsx
       - dodaios/ui/web/frontend/src/components/AuthGate.tsx
     related:
       - credentials-and-secrets

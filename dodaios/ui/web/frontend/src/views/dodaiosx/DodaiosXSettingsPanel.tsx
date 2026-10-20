@@ -16,7 +16,7 @@ import {
   type JarvisXHotkeyAction,
   type JarvisXSettings,
   type JarvisXSettingsPatch,
-} from "@/lib/jarvisxApi";
+} from "@/lib/dodaiosxApi";
 import { useEventStore } from "@/store/events";
 import { KeybindRow } from "@/views/settings/KeybindRow";
 
@@ -77,7 +77,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function JarvisXSettingsPanel({
+export function DodaiosXSettingsPanel({
   settings,
   error,
   onRetry,

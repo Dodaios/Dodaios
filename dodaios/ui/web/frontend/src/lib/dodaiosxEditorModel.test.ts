@@ -33,7 +33,7 @@ import {
   type CounterShape,
   type SegmentShape,
   type Shape,
-} from "@/lib/jarvisxEditorModel";
+} from "@/lib/dodaiosxEditorModel";
 
 const style = { color: "#ff3b30", width: 4, shadow: false };
 

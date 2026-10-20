@@ -23,7 +23,7 @@ import { setJarvisCardMode } from "./AgentChatPanel";
  * speaking, like the front page). Opening either kind closes the other, so
  * the two can never claim the column at once. "+" starts a blank page.
  */
-export function JarvisHistoryRail() {
+export function DodaiosHistoryRail() {
   const t = useT();
   const [startingVoice, setStartingVoice] = useState(false);
   const startingVoiceRef = useRef(false);

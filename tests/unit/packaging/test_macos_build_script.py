@@ -63,7 +63,7 @@ def layout(tmp_path: Path) -> Path:
     (root / "jarvis.toml.example").write_text("# defaults\n", encoding="utf-8")
     (root / "jarvis.toml").write_text("# defaults\n", encoding="utf-8")
     (root / "assets" / "icons").mkdir(parents=True)
-    (root / "assets" / "icons" / "jarvis.icns").write_bytes(b"icns")
+    (root / "assets" / "icons" / "dodaios.icns").write_bytes(b"icns")
     return root
 
 

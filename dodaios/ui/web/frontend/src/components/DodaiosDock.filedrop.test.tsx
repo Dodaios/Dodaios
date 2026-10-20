@@ -15,7 +15,7 @@ vi.mock("@/hooks/useOverlayStyle", () => ({
 }));
 vi.mock("@/lib/sound", () => ({ playDropConfirm: () => playDropConfirm() }));
 
-import { JarvisDock, MISSION_DND_MIME } from "./JarvisDock";
+import { DodaiosDock, MISSION_DND_MIME } from "./DodaiosDock";
 import { useEventStore } from "@/store/events";
 import { useMissionDrag } from "@/store/missionDrag";
 
@@ -42,7 +42,7 @@ function nativeDataTransfer(opts: {
   } as unknown as DataTransfer;
 }
 
-describe("JarvisDock — native OS file/text drop", () => {
+describe("DodaiosDock — native OS file/text drop", () => {
   beforeEach(() => {
     send.mockClear();
     playDropConfirm.mockClear();
@@ -58,7 +58,7 @@ describe("JarvisDock — native OS file/text drop", () => {
   });
 
   it("POSTs a dropped file to /api/chat/drop with files + thread_id", async () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     const file = new File(["hello"], "note.txt", { type: "text/plain" });
     fireEvent.drop(zone, {
@@ -79,7 +79,7 @@ describe("JarvisDock — native OS file/text drop", () => {
   });
 
   it("POSTs dragged text/URL with a text field and no files", async () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     fireEvent.drop(zone, {
       dataTransfer: nativeDataTransfer({
@@ -101,7 +101,7 @@ describe("JarvisDock — native OS file/text drop", () => {
   });
 
   it("plays the confirmation feedback on a successful native drop", async () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     const file = new File(["x"], "a.png", { type: "image/png" });
     fireEvent.drop(zone, {
@@ -111,7 +111,7 @@ describe("JarvisDock — native OS file/text drop", () => {
   });
 
   it("keeps the mission path: a mission-MIME drop sends mission.inject, not fetch", async () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     const dt = {
       getData: (mime: string) =>
@@ -131,7 +131,7 @@ describe("JarvisDock — native OS file/text drop", () => {
   });
 
   it("ignores an empty/garbage native drop (no files, no text)", () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     fireEvent.drop(zone, { dataTransfer: nativeDataTransfer({}) });
     expect(global.fetch).not.toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe("JarvisDock — native OS file/text drop", () => {
   });
 
   it("blooms (becomes visible) during a native file drag, not just a mission drag", () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     expect(zone.className).toContain("opacity-0");
     fireEvent.dragEnter(zone, {
@@ -153,7 +153,7 @@ describe("JarvisDock — native OS file/text drop", () => {
   });
 
   it("accepts a native drop on the full-window catch layer (toss near Jarvis)", async () => {
-    render(<JarvisDock />);
+    render(<DodaiosDock />);
     const zone = screen.getByTestId("jarvis-dock");
     // Arm a native drag so the catch layer mounts.
     fireEvent.dragEnter(zone, {

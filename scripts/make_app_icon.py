@@ -6,7 +6,7 @@ The single source is ``assets/brand/dodaios-logo.svg``: the hooded figure as one
 even-odd path in a ``0 0 256 256`` viewBox. Everything else is generated from
 it — the taskbar/dock tile at every ICO size, the 1024 px master the macOS
 ``.icns`` is built from, the DEV-badged copy, the free-standing white mark for
-dark surfaces, and ``src/components/brand/jarvisLogoPath.ts`` that the
+dark surfaces, and ``src/components/brand/dodaiosLogoPath.ts`` that the
 frontend draws the same figure with. ``tests/test_app_icon.py`` fails when the
 TypeScript copy drifts from the SVG.
 
@@ -31,7 +31,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 LOGO_SVG = ROOT / "assets" / "brand" / "dodaios-logo.svg"
 FRONTEND = ROOT / "dodaios" / "ui" / "web" / "frontend"
-LOGO_TS = FRONTEND / "src" / "components" / "brand" / "jarvisLogoPath.ts"
+LOGO_TS = FRONTEND / "src" / "components" / "brand" / "dodaiosLogoPath.ts"
 VIEWBOX = 256.0
 
 SQUIRCLE_N = 5.0  # superellipse exponent; 5 is the shape platforms settled on
@@ -200,32 +200,32 @@ def main() -> None:
     members = [render_tile(s) for s in sorted(ICO_SIZES, reverse=True)]
     public = FRONTEND / "public"
 
-    write_png(ROOT / "assets" / "icons" / "jarvis-1024.png", render_tile(MASTER))
+    write_png(ROOT / "assets" / "icons" / "dodaios-1024.png", render_tile(MASTER))
     for path in (
-        ROOT / "dodaios" / "assets" / "icons" / "jarvis.png",
-        ROOT / "assets" / "icons" / "jarvis-gigi-256.png",
-        public / "jarvis-gigi-256.png",
-        public / "jarvis-logo.png",
-        FRONTEND / "src" / "assets" / "jarvis-mark.png",
+        ROOT / "dodaios" / "assets" / "icons" / "dodaios.png",
+        ROOT / "assets" / "icons" / "dodaios-gigi-256.png",
+        public / "dodaios-gigi-256.png",
+        public / "dodaios-logo.png",
+        FRONTEND / "src" / "assets" / "dodaios-mark.png",
     ):
         write_png(path, tile_256)
-    write_png(public / "jarvis-mark-256.png", render_mark(256))
+    write_png(public / "dodaios-mark-256.png", render_mark(256))
     for path in (
-        ROOT / "dodaios" / "assets" / "icons" / "jarvis.ico",
-        ROOT / "assets" / "icons" / "jarvis.ico",
-        public / "jarvis.ico",
-        public / "jarvis-gigi.ico",
+        ROOT / "dodaios" / "assets" / "icons" / "dodaios.ico",
+        ROOT / "assets" / "icons" / "dodaios.ico",
+        public / "dodaios.ico",
+        public / "dodaios-gigi.ico",
     ):
         write_ico(path, members)
     # The dev instance (``--instance dev``) shows its own DEV-badged copy on the
     # taskbar and in its shortcut, rendered from the same vector.
     dev_members = [render_dev_tile(s) for s in sorted(ICO_SIZES, reverse=True)]
     dev_png = render_dev_tile(256)
-    write_png(ROOT / "assets" / "icons" / "jarvis-dev.png", dev_png)
-    write_png(ROOT / "dodaios" / "assets" / "icons" / "jarvis-dev.png", dev_png)
+    write_png(ROOT / "assets" / "icons" / "dodaios-dev.png", dev_png)
+    write_png(ROOT / "dodaios" / "assets" / "icons" / "dodaios-dev.png", dev_png)
     for path in (
-        ROOT / "dodaios" / "assets" / "icons" / "jarvis-dev.ico",
-        ROOT / "assets" / "icons" / "jarvis-dev.ico",
+        ROOT / "dodaios" / "assets" / "icons" / "dodaios-dev.ico",
+        ROOT / "assets" / "icons" / "dodaios-dev.ico",
     ):
         write_ico(path, dev_members)
     print(f"wrote the app icon at {MASTER} px, 256 px, {len(ICO_SIZES)} ICO members, and DEV")

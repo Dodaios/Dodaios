@@ -83,7 +83,7 @@ $InstallerDir = Join-Path $RepoRoot "dist\installers"
 $FrontendDir = Join-Path $RepoRoot "dodaios\ui\web\frontend"
 $FrontendDist = Join-Path $RepoRoot "dodaios\ui\web\dist"
 $IssFile = Join-Path $PSScriptRoot "PersonalJarvis.iss"
-$IconFile = Join-Path $RepoRoot "assets\icons\jarvis.ico"
+$IconFile = Join-Path $RepoRoot "assets\icons\dodaios.ico"
 
 if (-not (Test-Path $SpecFile)) { Stop-WithError "jarvis.spec not found at $SpecFile" }
 if (-not (Test-Path $IssFile)) { Stop-WithError "PersonalJarvis.iss not found at $IssFile" }

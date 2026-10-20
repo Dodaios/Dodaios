@@ -41,12 +41,12 @@ import {
   type JarvisXRecordMode,
   type JarvisXRecordStatus,
   type JarvisXSettings,
-} from "@/lib/jarvisxApi";
+} from "@/lib/dodaiosxApi";
 import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
-import { JarvisXConfirmDialog } from "@/views/dodaiosx/JarvisXConfirmDialog";
-import { JarvisXEditor } from "@/views/dodaiosx/JarvisXEditor";
-import { JarvisXSettingsPanel } from "@/views/dodaiosx/JarvisXSettingsPanel";
+import { DodaiosXConfirmDialog } from "@/views/dodaiosx/DodaiosXConfirmDialog";
+import { DodaiosXEditor } from "@/views/dodaiosx/DodaiosXEditor";
+import { DodaiosXSettingsPanel } from "@/views/dodaiosx/DodaiosXSettingsPanel";
 import { uiLocale } from "@/lib/boardInsights";
 
 /**
@@ -74,7 +74,7 @@ function relativeTime(iso: string, t: (key: string) => string, now: number): str
     : date.toLocaleDateString(uiLocale(), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-export function JarvisXView() {
+export function DodaiosXView() {
   const t = useT();
   const [tab, setTab] = useState<Tab>("library");
   const [settings, setSettings] = useState<JarvisXSettings | null>(null);
@@ -114,7 +114,7 @@ export function JarvisXView() {
           {tab === "library" ? (
             <JarvisXLibrary settings={settings} />
           ) : (
-            <JarvisXSettingsPanel
+            <DodaiosXSettingsPanel
               settings={settings}
               error={settingsError}
               onRetry={() => setSettingsAttempt((n) => n + 1)}
@@ -392,7 +392,7 @@ export function JarvisXLibrary({ settings }: { settings: JarvisXSettings | null 
       )}
 
       {confirmDelete && (
-        <JarvisXConfirmDialog
+        <DodaiosXConfirmDialog
           title={t("jarvisx.delete_title")}
           body={t("jarvisx.delete_body")}
           confirmLabel={t("jarvisx.delete")}
@@ -408,7 +408,7 @@ export function JarvisXLibrary({ settings }: { settings: JarvisXSettings | null 
           aria-modal="true"
           aria-label={t("jarvisx.editor.title")}
         >
-          <JarvisXEditor
+          <DodaiosXEditor
             itemId={editing}
             variant="overlay"
             onClose={() => {

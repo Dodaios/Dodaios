@@ -50,7 +50,7 @@ async function copyToClipboard(value: string): Promise<void> {
   await robustCopy(value);
 }
 
-export function JarvisAgentPanel() {
+export function DodaiosAgentPanel() {
   const t = useT();
   const workers = useMissionsStore(
     useShallow((s) => {
