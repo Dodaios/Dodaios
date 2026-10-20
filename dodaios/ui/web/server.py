@@ -1042,6 +1042,7 @@ class WebServer:
                 temperature=bio_cfg.temperature,
                 max_tokens=bio_cfg.max_tokens,
                 timeout_s=BIO_TIMEOUT_S,
+                reply_language=lambda: self.cfg.brain.reply_language,
             )
             # Hook-driven: rewrites the bio on unlocked achievements, never on
             # a timer or at boot.

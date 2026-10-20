@@ -67,17 +67,11 @@ def build_feedback_block(record: IterationRecord) -> str:
         "Issues to fix:",
     ]
     if not verdict.issues:
-        lines.append("- (no issues listed; revise anyway based on summary)")
-    else:
-        for issue in verdict.issues:
-            location = issue.location or "n/a"
-            fix_hint = issue.fix_hint or "(no fix hint provided)"
-            lines.extend(
-                [
-                    f"- [{issue.severity}] {location}: {issue.description}",
-                    f"  Fix-Hint: {fix_hint}",
-                ]
-            )
+        lines.append("- (none listed)")
+    for issue in verdict.issues:
+        lines.append(f"- [{issue.severity}] {issue.location or 'n/a'}: {issue.description}")
+        if issue.fix_hint:
+            lines.append(f"  Fix: {issue.fix_hint}")
     return "\n".join(lines)
 
 
@@ -125,8 +119,7 @@ def build_worker_prompt(
         [
             "",
             f"Write the corrected artifact to {worker_output_path}.",
-            "Output ONLY a brief 1-2 sentence summary on stdout — the full "
-            "artifact lives at the path above.",
+            "Print only a 1-2 sentence summary to stdout.",
         ]
     )
     return "\n".join(parts)
@@ -152,17 +145,14 @@ def build_reviewer_prompt(
         ## Task being evaluated
         <task>
 
-        ## Worker output to review
-        The worker wrote its artifact to: {worker_output_path}
-        Use the Read tool to read it before evaluating.
+        ## Worker output
+        Read the artifact at {worker_output_path}.
 
-        ## Rubric for this task
+        ## Rubric
         {rubric_items}
 
-        ## Required output schema
-        {verdict_schema_inline}
-
-        Now evaluate. Output JSON only.
+        ## Output
+        One JSON object matching the schema in {verdict_schema_path}.
 
     `rubric_items` is optional — None → `_DEFAULT_RUBRICS[state.rubric_id]`.
     """
@@ -177,16 +167,13 @@ def build_reviewer_prompt(
             "",
             state.task,
             "",
-            "## Worker output to review",
-            f"The worker wrote its artifact to: {worker_output_path}",
-            "Use the Read tool to read it before evaluating.",
+            "## Worker output",
+            f"Read the artifact at {worker_output_path}.",
             "",
-            "## Rubric for this task",
+            "## Rubric",
             rubric_block,
             "",
-            "## Required output schema",
-            f"See {verdict_schema_path} (also enforced by --json-schema).",
-            "",
-            "Now evaluate. Output JSON only.",
+            "## Output",
+            f"One JSON object matching the schema in {verdict_schema_path}.",
         ]
     )

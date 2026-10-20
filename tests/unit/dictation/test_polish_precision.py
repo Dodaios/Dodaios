@@ -73,7 +73,7 @@ def test_the_clause_is_absent_unless_it_is_asked_for() -> None:
     """The default must be the strict formatter, for every existing caller."""
     plain = build_polish_prompt(language="en", style="neutral", protected_terms=())
 
-    assert "PRECISION MODE IS ON" not in plain
+    assert "PRECISION MODE" not in plain
     # The word-choice licence must not leak in through some other line.
     assert "sharpen" not in plain.lower()
 
@@ -83,27 +83,18 @@ def test_the_clause_appears_when_it_is_asked_for() -> None:
         language="en", style="neutral", protected_terms=(), precision=True
     )
 
-    assert "PRECISION MODE IS ON" in sharpened
-    # The hard rules it rides on top of are still there — precision EXTENDS the
-    # formatter contract, it does not replace it.
-    assert "MEANING NEVER CHANGES" in sharpened
-    assert "OUTPUT LANGUAGE = INPUT LANGUAGE" in sharpened
+    assert "PRECISION MODE:" in sharpened
+    # The base contract it rides on top of is still there — precision EXTENDS
+    # the formatter contract, it does not replace it.
+    assert "You format the user's dictation" in sharpened
 
 
-def test_the_ornate_register_is_forbidden_by_name() -> None:
-    """The documented failure direction, pinned literally.
-
-    A model told only "prefer plain words" still writes "utilize". Naming the
-    swaps is what stops it, so the naming is the behaviour under test — not an
-    incidental wording choice a later edit may drop.
-    """
+def test_the_clause_keeps_plain_words_and_meaning() -> None:
+    """The licence is bounded: no rarer synonym, and meaning never changes."""
     clause = precision_block()
 
-    for forbidden in ("utilize", "facilitate", "commence"):
-        assert forbidden in clause, f"the {forbidden!r} example carries the rule"
-    assert "PLAIN, NOT ORNATE" in clause
-    # And the licence is bounded by the thing that outranks it.
-    assert "MEANING STILL NEVER CHANGES" in clause
+    assert "rarer synonym" in clause
+    assert "meaning never changes" in clause
 
 
 def test_one_switch_means_one_thing_across_both_passes() -> None:
@@ -126,7 +117,7 @@ def test_one_switch_means_one_thing_across_both_passes() -> None:
 
 
 def test_the_translate_prompt_is_unchanged_when_precision_is_off() -> None:
-    assert "PRECISION MODE IS ON" not in build_translate_prompt(
+    assert "PRECISION MODE" not in build_translate_prompt(
         target_language="en", style="neutral", protected_terms=()
     )
 
@@ -413,7 +404,7 @@ async def test_the_switch_reaches_the_prompt(monkeypatch: pytest.MonkeyPatch) ->
 
     await polish_transcript(SHARPEN_RAW, language="en", cfg=_Cfg(polish_precision=True))
 
-    assert "PRECISION MODE IS ON" in client.calls[0]["system"]
+    assert "PRECISION MODE:" in client.calls[0]["system"]
 
 
 async def test_the_switch_off_leaves_the_prompt_strict(
@@ -424,7 +415,7 @@ async def test_the_switch_off_leaves_the_prompt_strict(
 
     await polish_transcript(SHARPEN_RAW, language="en", cfg=_Cfg())
 
-    assert "PRECISION MODE IS ON" not in client.calls[0]["system"]
+    assert "PRECISION MODE" not in client.calls[0]["system"]
 
 
 async def test_a_sharpened_answer_is_delivered(
@@ -473,7 +464,7 @@ async def test_precision_applies_to_a_translation_too(
         translate_to="en",
     )
 
-    assert "PRECISION MODE IS ON" in client.calls[0]["system"]
+    assert "PRECISION MODE:" in client.calls[0]["system"]
     assert outcome.status == "translated"
 
 

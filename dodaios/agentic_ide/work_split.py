@@ -124,24 +124,12 @@ def _rescue_splitter(tried: Sequence[str]) -> tuple[Any, str]:
 
 
 _SYSTEM_PROMPT = (
-    "You divide one software task across several coding agents working in the "
-    "SAME repository at the same time.\n\n"
-    "Return ONLY a JSON array, one object per agent, with these keys:\n"
-    '  "area"      - two to five words naming the part of the repository this '
-    "agent owns\n"
-    '  "task"      - one paragraph telling THIS agent what to do, restating '
-    "the overall goal so it can work without seeing the others\n"
-    '  "files"     - repo-relative paths from the list you were given, or []\n'
-    '  "done_when" - one sentence describing this agent\'s finished state\n\n'
-    "Rules:\n"
-    "- Exactly as many objects as there are agents. Never fewer.\n"
-    "- The areas must not overlap. Two agents editing the same files is the "
-    "failure this split exists to prevent.\n"
-    "- Slice along real seams of THIS repository, using the directories and "
-    "files you were given. Never invent a path.\n"
-    "- Together the areas must cover the whole goal; a part nobody owns is a "
-    "part nobody does.\n"
-    "- No prose, no code fence, no commentary. The array only."
+    "Split one software task across several coding agents working in the same "
+    "repository at the same time. Return only a JSON array, exactly one object "
+    'per agent: {"area": "<2-5 words, the part of the repository it owns>", '
+    '"task": "<one paragraph that includes the overall goal>", "files": '
+    '[<repo-relative paths from the given list>], "done_when": "<one sentence>"}. '
+    "Areas must not overlap and together must cover the whole goal."
 )
 
 
