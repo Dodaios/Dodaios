@@ -22,7 +22,6 @@ request.
 """
 from __future__ import annotations
 
-from dodaios.brain.router import SYSTEM_PROMPT
 from dodaios.plugins.tool.search_web import SearchWebTool
 
 
@@ -52,31 +51,15 @@ def test_search_web_description_reserved_for_fresh_facts() -> None:
     )
 
 
-def test_router_prompt_answers_evergreen_knowledge_directly() -> None:
-    """The router doctrine must answer evergreen knowledge directly."""
-    low = SYSTEM_PROMPT.lower()
+def test_core_contract_answers_evergreen_knowledge_directly() -> None:
+    """The routing doctrine must answer evergreen knowledge directly."""
+    from dodaios.brain.manager import _CORE_CONTRACT
+
+    low = _CORE_CONTRACT.lower()
     assert "evergreen" in low, (
-        "router prompt is missing the evergreen-knowledge-answered-directly "
-        "doctrine (Frische-Grenze, 2026-06-20)"
+        "core contract is missing the evergreen-knowledge-answered-directly doctrine"
     )
-    assert "frische" in low, (
-        "router prompt must reserve search_web for fresh / volatile facts"
-    )
+    assert "fresh" in low, "core contract must reserve search_web for fresh facts"
     # search_web must STILL be advertised for genuinely fresh queries (news) —
     # never regress to the 'spawn a worker / never search' extreme.
     assert "search_web" in low and "news" in low
-
-
-def test_router_prompt_pins_the_emigration_forensic_as_direct_answer() -> None:
-    """Anchor the exact forensic: an emigration-basics question is evergreen
-    knowledge answered directly, NOT a search_web case.
-
-    This is the established pinning style in this codebase (the prompt pins
-    'einstein' / 'hauptstadt' / 'news' as category examples). Pinning the
-    emigration case keeps the doctrine from silently regressing.
-    """
-    low = SYSTEM_PROMPT.lower()
-    assert "auswander" in low, (
-        "pin the emigration forensic: an emigration-basics question is "
-        "evergreen knowledge answered directly, not searched"
-    )

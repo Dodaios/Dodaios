@@ -107,17 +107,6 @@ def apply(version: str, notes: str, today: str, root: Path = REPO_ROOT) -> None:
     text = init.read_text(encoding="utf-8")
     text = re.sub(r'__version__ = "[^"]+"', f'__version__ = "{version}"', text, count=1)
     init.write_bytes(text.encode("utf-8"))
-    lockfile = root / "uv.lock"
-    if lockfile.exists():
-        text = lockfile.read_text(encoding="utf-8")
-        text, count = re.subn(
-            r'(?m)(^\[\[package\]\]\nname = "personal-jarvis"\nversion = ")[^"]+',
-            lambda match: match.group(1) + version,
-            text,
-        )
-        if count != 1:
-            raise SystemExit("uv.lock must contain one personal-jarvis workspace package")
-        lockfile.write_bytes(text.encode("utf-8"))
     changelog = root / "CHANGELOG.md"
     head, _body, rest = split_unreleased(changelog.read_text(encoding="utf-8"))
     section = f"## [{version}] — {today}\n\n{notes.strip()}\n\n---\n\n"

@@ -66,12 +66,12 @@ def test_read_script_reads_the_icon_back() -> None:
 @pytest.mark.parametrize(
     ("actual", "expected", "matches"),
     [
-        (r"C:\app\jarvis.ico,0", r"C:\app\jarvis.ico", True),
-        (r"c:\APP\jarvis.ico,0", r"C:\app\jarvis.ico", True),  # Windows is case-blind
-        (r"C:\old-worktree\jarvis.ico,0", r"C:\app\jarvis.ico", False),
-        (",0", r"C:\app\jarvis.ico", False),  # empty == inherit pythonw's logo
-        ("", r"C:\app\jarvis.ico", False),
-        (r"C:\anything\jarvis.ico,0", None, True),  # unresolvable → leave it alone
+        (r"C:\app\dodaios.ico,0", r"C:\app\dodaios.ico", True),
+        (r"c:\APP\dodaios.ico,0", r"C:\app\dodaios.ico", True),  # Windows is case-blind
+        (r"C:\old-worktree\dodaios.ico,0", r"C:\app\dodaios.ico", False),
+        (",0", r"C:\app\dodaios.ico", False),  # empty == inherit pythonw's logo
+        ("", r"C:\app\dodaios.ico", False),
+        (r"C:\anything\dodaios.ico,0", None, True),  # unresolvable → leave it alone
     ],
 )
 def test_icon_matches(actual: str, expected: str | None, matches: bool) -> None:
@@ -81,7 +81,7 @@ def test_icon_matches(actual: str, expected: str | None, matches: bool) -> None:
 def test_create_script_embeds_icon_when_given() -> None:
     """The autostart .lnk must carry the Jarvis icon so the taskbar button is
     branded from first paint — not the bare pythonw.exe Python logo."""
-    ico = r"C:\Users\u\Personal Jarvis\dodaios\assets\icons\jarvis.ico"
+    ico = r"C:\Users\u\Personal Jarvis\dodaios\assets\icons\dodaios.ico"
     script = build_create_script(Path(r"C:\startup\Personal Jarvis.lnk"), _spec(), icon=ico)
     assert f"$sc.IconLocation = '{ico},0'" in script
 
@@ -115,11 +115,11 @@ def test_create_script_escapes_apostrophes_in_paths() -> None:
     script = build_create_script(
         Path(r"C:\Users\O'Brien\Startup\Personal Jarvis.lnk"),
         _APOSTROPHE_SPEC,
-        icon=r"C:\Users\O'Brien\jarvis.ico",
+        icon=r"C:\Users\O'Brien\dodaios.ico",
     )
     assert r"$sc.TargetPath = 'C:\Users\O''Brien\.venv\Scripts\pythonw.exe'" in script
     assert r"Ruben''s Jarvis" in script
-    assert r"$sc.IconLocation = 'C:\Users\O''Brien\jarvis.ico,0'" in script
+    assert r"$sc.IconLocation = 'C:\Users\O''Brien\dodaios.ico,0'" in script
     assert _quotes_balanced(script)
 
 

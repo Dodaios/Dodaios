@@ -94,15 +94,12 @@ MAX_HANDLED = 500
 #: CLI has the whole conversation back; this only says why it stopped and that
 #: it should carry on.
 CONTINUE_PROMPT = (
-    "Continue exactly where you stopped. The previous subscription reached its "
-    "usage limit, so this session now runs on another subscription; nothing "
-    "else changed."
+    "Continue where you stopped. The previous subscription hit its usage limit; "
+    "this session now runs on another one."
 )
 
 #: The same, for a pane that waited on its own seat until that seat refilled.
-RESUME_PROMPT = (
-    "Continue exactly where you stopped. The usage limit that interrupted you has reset."
-)
+RESUME_PROMPT = "Continue where you stopped. The usage limit that interrupted you has reset."
 
 
 @dataclass(frozen=True, slots=True)
@@ -364,7 +361,7 @@ def choose_seat(
         if account.id in leaving or _identity(snapshot) in leaving_logins:
             continue
         # A subscription only: an API-key login bills per token, and nothing
-        # the user did not start may spend a key (AGENTS.md §2).
+        # the user did not start may spend a key.
         if not snapshot.connected or snapshot.mode != "subscription":
             continue
         if is_exhausted(account.id):

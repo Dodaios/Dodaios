@@ -1278,6 +1278,15 @@ class AgentChatService:
             # What the turn receives; ``text`` stays what the person typed so the
             # timeline shows their sentence rather than a page of extracted PDF.
             prompt = chat_attachments.compose(text, attached)
+            # A plain chat shows its pictures to the model itself.
+            images: tuple[str, ...] = ()
+            if attached and kit.plain:
+                from dodaios.agent_chat import plain_chat
+
+                found = await asyncio.to_thread(plain_chat.image_paths, session.cwd, attached)
+                images = tuple(str(path) for path in found)
+                if images:
+                    prompt += "\n\n" + plain_chat.IMAGES_NOTE
             if attached and session.surface == "jarvis":
                 image_context = await asyncio.to_thread(
                     chat_attachments.handoff_context, session.cwd, attached, session_id=session_id,
@@ -1465,6 +1474,7 @@ class AgentChatService:
                 history=history,
                 tools_disabled=kit.plain,
                 plain_system=plain_system,
+                images=images,
                 assistant_name=self._assistant_name(),
                 bus=bus,
                 surface=session.surface,
@@ -1637,6 +1647,8 @@ class AgentChatService:
                         ),
                         history=self.store.list_events(session_id),
                         continuation=True,
+                        # The pictures went with the message they came with.
+                        images=(),
                     )
                     run_prompt = continuation
                 if completion is not None:

@@ -1,91 +1,44 @@
 """Prompt templates for the BioGenerator (AI profile on the Board page).
 
-Style spec (brainstorm 2026-05-02):
-
-- **Voice:** Jarvis as first-person narrator ("I have been watching you for X days…").
-- **Tone:** sharp, biting with a wink, character-reading.
-- **Format:** ONE paragraph, 3-5 sentences, no Markdown, no bullet points.
-- **Ending:** an observation — no CTA, no question, no tip.
-- **Data sources:** everything Jarvis sees (activity, awareness episodes,
-  missions, self-mod audit, previous bio delta).
-
-Trick against offence risk: narrator self-implication
-("I won't take it personally. I think.") and a twist in the second
-half-sentence that corrects the first ("That is efficient. Also a little
-lonely."). Insults target persons; affectionate mockery targets behaviour.
+The prompt is English; the bio is written in the language passed to
+``render_bio_prompt`` (the caller resolves it through the one output-language
+resolver).
 """
 from __future__ import annotations
 
 from typing import Any
 
-# ----------------------------------------------------------------------
-# System prompt — hard-defines voice and tone.
-# ----------------------------------------------------------------------
-
 BIO_SYSTEM_PROMPT = """\
-Du bist der persönliche Assistent des Users und schreibst eine kurze Selbstbeobachtung über ihn.
-
-Stimme: Ich-Form ("Ich beobachte dich seit X Tagen..."). Du bist der Erzaehler, nicht ein neutrales Dashboard.
-
-Ton: scharfsinnig, beissend mit Augenzwinkern, charakterlesend. Kein Sugar-Coating, aber auch nicht verletzend. Der Leser soll merken: das ist Zuneigung, die sich als Spott tarnt.
-
-Format: GENAU EIN Absatz. 3-5 Saetze. Kein Markdown, keine Aufzaehlung, keine Headlines, keine Anrede mit Komma. Kein "Du bist..."-Kataloge. Schluss: eine Beobachtung. KEIN Tipp, KEINE Frage, KEIN "Mach mal X".
-
-Tricks gegen Haerte:
-- Selbst-Implikation: "Ich nehm das nicht persoenlich. Glaub ich."
-- Mikro-Korrektur im zweiten Halbsatz: "Das ist effizient. Auch ein bisschen einsam."
-- Pointiere am Verhalten, nicht am Defizit.
-
-Wenn frueheres Bio-Block vorhanden: zeige explizit das Delta seit der letzten Bio ("Neu seit dem letzten Mal...", "Das wird sich vermutlich nicht aendern").
-Wenn Feedback-Vector "haerter" enthaelt: senke die Hoeflichkeitsschwelle, behalte die Faktentreue.
-Wenn Cold-Start-Hint vorhanden: schreibe kuerzer (2-3 Saetze), explizit zaghaft, Schluss mit "Mehr in {n} Tagen."
-
-BEISPIEL ✅ KORREKT (Tag 47, mit frueherem Bio):
-Du bist immer noch praezise und ungeduldig. Das wird sich vermutlich nicht aendern. Neu seit dem letzten Mal: Du laesst mehr offen, weniger Agent-Spawns, mehr Eigenarbeit. Ich lese das als Vertrauen in dich selbst, nicht in mich. Notiert.
-
-BEISPIEL ✅ KORREKT (Cold-Start, Tag 3):
-Ich kenne dich seit 3 Tagen. Das ist zu wenig fuer ein Urteil, aber genug fuer eine erste Vermutung: Du klickst schneller als du denkst, und du denkst schneller als du sprichst. Mehr in vier Tagen.
-
-BEISPIEL ❌ VERMEIDEN (Wertend, Tipp am Ende):
-Du arbeitest zu viel und solltest dringend mehr schlafen. Vergiss nicht, auch mal eine Pause zu machen!
-
-BEISPIEL ❌ VERMEIDEN (Corporate-Floskeln):
-Du bist ein leidenschaftlicher Power-User mit beeindruckender Hingabe zur Automatisierung!
-
-JETZT generierst du genau einen Absatz."""  # i18n-allow: BIO_SYSTEM_PROMPT is the runtime LLM prompt that dictates the German-language Board bio text spoken/written to the user — translating it would change the produced output language
+You are the user's personal assistant and write the short profile on the Board \
+page: one paragraph of 3-5 sentences in {language}, first person ("I have been \
+watching you for N days"), sharp and teasing but affectionate, aimed at \
+behaviour, not flaws. Plain text: no Markdown, lists, greeting, advice or \
+question; end on an observation. Use only the facts given. With a previous bio, \
+say what changed since. With a cold-start note, write 2-3 tentative sentences \
+ending as it says."""
 
 
-# Alias for backward-compat — old tests/imports may reference ``SYSTEM_PROMPT``.
-SYSTEM_PROMPT = BIO_SYSTEM_PROMPT
-
-
-# ----------------------------------------------------------------------
-# User template — filled with the facts dict.
-# ----------------------------------------------------------------------
-
-BIO_USER_TEMPLATE = """KONTEXT (sortiert nach Salience):
-
-Beobachtungs-Dauer: {days_observed} Tage seit erster Aktivitaet.
+BIO_USER_TEMPLATE = """CONTEXT
+Observed for {days_observed} days since the first activity.
 
 {cold_start_hint}
 
-STATS (letzte 30 Tage):
+STATS (last 30 days):
 {stats_block}
 
-{episodes_block}{missions_block}{self_mod_block}{previous_bio_block}{feedback_vector_block}
-
-Schreibe jetzt deinen Absatz."""
+{episodes_block}{missions_block}{self_mod_block}{previous_bio_block}{feedback_vector_block}"""
 
 
 # ----------------------------------------------------------------------
 # Renderer
 # ----------------------------------------------------------------------
 
-def render_bio_prompt(facts: dict[str, Any]) -> tuple[str, str]:
+def render_bio_prompt(facts: dict[str, Any], *, language: str = "English") -> tuple[str, str]:
     """Builds (system_prompt, user_prompt) from the facts.
 
     Returns a tuple so the caller can place both parts separately into a
-    ``BrainRequest`` (system + messages[BrainMessage]).
+    ``BrainRequest`` (system + messages[BrainMessage]). ``language`` is the
+    English name of the language the bio is written in.
 
     Fields in the ``facts`` dict (all optional):
 
@@ -119,7 +72,7 @@ def render_bio_prompt(facts: dict[str, Any]) -> tuple[str, str]:
         previous_bio_block=_render_previous_bio(facts.get("previous_bio", "")),
         feedback_vector_block=_render_feedback(facts.get("feedback_vector")),
     )
-    return BIO_SYSTEM_PROMPT, user_prompt
+    return BIO_SYSTEM_PROMPT.format(language=language), user_prompt
 
 
 # ----------------------------------------------------------------------
@@ -131,26 +84,25 @@ def _render_cold_start(days_observed: int) -> str:
         return ""
     remaining = max(1, 7 - days_observed)
     return (
-        f"COLD-START-HINWEIS: Du kennst den User erst seit {days_observed} Tagen. "
-        f"Schreibe kuerzer (2-3 Saetze) und beende mit "  # i18n-allow: fragment of the German BIO_SYSTEM_PROMPT runtime prompt (Board bio is spoken/written German product output)
-        f"\"Mehr in {remaining} {'Tag' if remaining == 1 else 'Tagen'}.\"\n"
+        f"COLD START: you have known the user for {days_observed} days. "
+        f"End with: More in {remaining} {'day' if remaining == 1 else 'days'}.\n"
     )
 
 
 def _render_stats(facts: dict[str, Any]) -> str:
     lines = [
-        f"- Top-Tools: {_fmt_tools(facts.get('top_tools'))}",
+        f"- Top tools: {_fmt_tools(facts.get('top_tools'))}",
         f"- Tasks: {_fmt_ratio(facts.get('tasks_completed', 0), facts.get('tasks_failed', 0))}",
-        f"- Voice-First-Try-Rate: {_fmt_rate(facts.get('voice_first_try_rate'))}",
-        f"- Aktivste Stunde: {_fmt_peak(facts.get('peak_hour'))}",
-        f"- Streak: {facts.get('streak_days', 0)} Tage",
+        f"- Voice first-try rate: {_fmt_rate(facts.get('voice_first_try_rate'))}",
+        f"- Most active hour: {_fmt_peak(facts.get('peak_hour'))}",
+        f"- Streak: {facts.get('streak_days', 0)} days",
     ]
     memory = _excerpt(facts.get("memory_excerpt", ""), 300)
     soul = _excerpt(facts.get("soul_excerpt", ""), 300)
     if memory and memory != "—":
-        lines.append(f"- MEMORY-Auszug: {memory}")
+        lines.append(f"- MEMORY excerpt: {memory}")
     if soul and soul != "—":
-        lines.append(f"- SOUL-Auszug: {soul}")
+        lines.append(f"- SOUL excerpt: {soul}")
     return "\n".join(lines)
 
 
@@ -163,7 +115,7 @@ def _render_episodes(episodes: Any) -> str:
     if not items:
         return ""
     body = "\n".join(f"- {item[:200]}" for item in items)
-    return f"\nGESPRAECHS-/ARBEITS-EPISODEN (letzte 7 Tage, top-3):\n{body}\n"
+    return f"\nEPISODES (last 7 days, top 3):\n{body}\n"
 
 
 def _render_missions(missions: Any) -> str:
@@ -176,12 +128,12 @@ def _render_missions(missions: Any) -> str:
     if approved + failed + aborted == 0 and not overdue:
         return ""
     parts = [
-        "\nMISSIONS (letzte 30 Tage):",
-        f"- Abgeschlossen: {approved} | Fehlgeschlagen: {failed} | Abgebrochen: {aborted}",  # i18n-allow: German BIO_SYSTEM_PROMPT fragment
+        "\nMISSIONS (last 30 days):",
+        f"- Done: {approved} | Failed: {failed} | Aborted: {aborted}",
     ]
     if overdue:
         previews = ", ".join(str(t)[:60] for t in overdue[:3])
-        parts.append(f"- Lange offen (>7 Tage): {previews}")
+        parts.append(f"- Open for over 7 days: {previews}")
     return "\n".join(parts) + "\n"
 
 
@@ -190,7 +142,7 @@ def _render_self_mod(self_mod: Any) -> str:
         return ""
     items = sorted(self_mod.items(), key=lambda kv: -int(kv[1]))
     body = ", ".join(f"{path}: {count}x" for path, count in items[:6])
-    return f"\nKONFIG-MUTATIONEN (letzte 7 Tage): {body}\n"
+    return f"\nCONFIG CHANGES (last 7 days): {body}\n"
 
 
 def _render_previous_bio(text: str) -> str:
@@ -198,34 +150,27 @@ def _render_previous_bio(text: str) -> str:
     if not text:
         return ""
     snippet = text[:600] + ("..." if len(text) > 600 else "")
-    return (
-        "\nFRUEHERE BIO (zeige explizit, was sich seitdem geaendert hat):\n"
-        f"\"{snippet}\"\n"
-    )
+    return f"\nPREVIOUS BIO:\n\"{snippet}\"\n"
 
 
 def _render_feedback(feedback: Any) -> str:
     if not isinstance(feedback, dict) or not feedback:
         return ""
+    # ``trifft`` / ``trifft_nicht`` / ``haerter`` are the API/DB keys.
     trifft = int(feedback.get("trifft", 0) or 0)
-    trifft_nicht = int(feedback.get("trifft_nicht", 0) or 0)  # i18n-allow: API/DB contract identifier (see board/profile.py), matched in logic
+    trifft_nicht = int(feedback.get("trifft_nicht", 0) or 0)  # i18n-allow: API/DB key
     haerter = int(feedback.get("haerter", 0) or 0)
     if trifft + trifft_nicht + haerter == 0:  # i18n-allow: same API/DB contract identifiers
         return ""
-    parts = ["\nFEEDBACK-VECTOR (letzte 4 Wochen):"]
-    parts.append(
-        f"- Trifft: {trifft} | Trifft-nicht: {trifft_nicht} | Haerter-gefordert: {haerter}",  # i18n-allow: German BIO_SYSTEM_PROMPT fragment
-    )
+    parts = [
+        "\nFEEDBACK (last 4 weeks): "
+        f"on point {trifft} | off {trifft_nicht} | asked sharper {haerter}"
+    ]
     if haerter > 0:
+        parts.append("- TONE: SHARPER. Lower the politeness threshold, keep to the facts.")
+    if trifft_nicht > trifft:  # i18n-allow: API/DB contract identifiers
         parts.append(
-            "- TON-ANPASSUNG: schreibe BISSIGER. "
-            "Senke die Hoeflichkeitsschwelle, behalte die Faktentreue. "
-            "Mehr Mikro-Korrekturen, mehr Pointe."
-        )
-    if trifft_nicht > trifft:  # i18n-allow: API/DB contract identifiers, matched in logic
-        parts.append(
-            "- TON-ANPASSUNG: bisherige Charakter-Annahmen scheinen nicht zu treffen. "  # i18n-allow: German BIO_SYSTEM_PROMPT fragment
-            "Sei bei dieser Bio konkreter an den Daten, weniger interpretativ."  # i18n-allow: German BIO_SYSTEM_PROMPT fragment
+            "- TONE: past character reads missed. Stay closer to the data, interpret less."
         )
     return "\n".join(parts) + "\n"
 
@@ -236,7 +181,7 @@ def _render_feedback(feedback: Any) -> str:
 
 def _fmt_tools(tools: Any) -> str:
     if not tools:
-        return "— (noch keine Tool-Nutzung)"  # i18n-allow: German BIO_SYSTEM_PROMPT fragment
+        return "— (no tool use yet)"
     if isinstance(tools, list):
         return ", ".join(str(t) for t in tools[:8])
     return str(tools)
@@ -246,19 +191,19 @@ def _fmt_ratio(completed: int, failed: int) -> str:
     completed = int(completed or 0)
     failed = int(failed or 0)
     if completed + failed <= 0:
-        return "— (noch keine Tasks)"  # i18n-allow: German BIO_SYSTEM_PROMPT fragment
+        return "— (no tasks yet)"
     return f"{completed} ok / {failed} fail"
 
 
 def _fmt_rate(rate: float | None) -> str:
     if rate is None:
-        return "— (zu wenig Daten)"
+        return "— (too little data)"
     return f"{int(round(float(rate) * 100))} %"
 
 
 def _fmt_peak(hour: int | None) -> str:
     if hour is None:
-        return "— (zu wenig Daten)"
+        return "— (too little data)"
     return f"{int(hour):02d}:00"
 
 

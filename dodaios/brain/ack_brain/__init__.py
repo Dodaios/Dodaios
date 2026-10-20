@@ -3,7 +3,7 @@
 See docs/superpowers/specs/2026-05-11-pre-thinking-ack-flash-brain-design.md
 for the full design. Public surface:
 
-- persona_prompt:    locked PERSONA_PROMPT_DE / PERSONA_PROMPT_EN constants
+- persona_prompt:    PERSONA_PROMPT constant + get_persona_prompt(language)
 - config:            AckBrainConfig pydantic model
 - providers:         four provider adapters + AbstractAckProvider Protocol
 - generator:         AckGenerator (single-shot orchestrator with F10 post-filter)
@@ -19,18 +19,13 @@ from __future__ import annotations
 
 from dodaios.brain.ack_brain.circuit_breaker import CircuitBreaker
 from dodaios.brain.ack_brain.generator import AckGenerator
-from dodaios.brain.ack_brain.persona_prompt import (
-    PERSONA_PROMPT_DE,
-    PERSONA_PROMPT_EN,
-    get_persona_prompt,
-)
+from dodaios.brain.ack_brain.persona_prompt import PERSONA_PROMPT, get_persona_prompt
 from dodaios.brain.ack_brain.spawn_announcement import SpawnAnnouncementComposer
 
 __all__ = [
     "AckGenerator",
     "CircuitBreaker",
-    "PERSONA_PROMPT_DE",
-    "PERSONA_PROMPT_EN",
+    "PERSONA_PROMPT",
     "SpawnAnnouncementComposer",
     "get_persona_prompt",
 ]

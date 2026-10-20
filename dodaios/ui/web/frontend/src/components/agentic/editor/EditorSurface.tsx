@@ -55,6 +55,16 @@ const keepContextMenu = (event: MouseEvent) => event.stopPropagation();
  * In follow mode the edit tab's text continues in further columns beside the
  * long-lived editor, as many as the width fits.
  */
+/**
+ * A list that opens files on a single click (the Folder and Changes tabs)
+ * keeps the keyboard, as in VS Code: Delete, F2 or the arrow keys pressed
+ * next must act on the list, not type into the file it just opened.
+ */
+function keyboardKeptElsewhere(): boolean {
+  const held = document.activeElement;
+  return held instanceof HTMLElement && held.closest("[data-keeps-keyboard]") !== null;
+}
+
 export default function EditorSurface({
   tab,
   rendered,
@@ -150,7 +160,7 @@ export default function EditorSurface({
     }
     if (hasKeyboard.current) {
       reportCursor(editor);
-      editor.focus();
+      if (!keyboardKeptElsewhere()) editor.focus();
     }
   }, [tab.key, tab.fileKey, tab.mode, ready]);
 
@@ -272,7 +282,7 @@ export default function EditorSurface({
       watchers = watchCursor(right);
       if (hasKeyboard.current) {
         reportCursor(right);
-        right.focus();
+        if (!keyboardKeptElsewhere()) right.focus();
       }
     });
     return () => {

@@ -5,7 +5,7 @@ stream into daily stats and personal records. No network calls, no forwarding
 of voice text or tool arguments — the aggregator operates exclusively on
 safe aggregate fields.
 
-See ``docs/jarvis-board/RECON.md`` and ``docs/jarvis-board/ARCHITECTURE.md``
+See ``docs/dodaios-board/RECON.md`` and ``docs/dodaios-board/ARCHITECTURE.md``
 for the design.
 """
 from __future__ import annotations

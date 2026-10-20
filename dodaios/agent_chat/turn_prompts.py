@@ -34,6 +34,9 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from dodaios.agent_chat.questions import (
+    MAX_OPTIONS,
+    MAX_QUESTIONS,
+    MIN_OPTIONS,
     PERSON,
     SKIPPED,
     QuestionAnswer,
@@ -50,22 +53,17 @@ ASK_FENCE: Final[str] = "jarvis-ask"
 
 #: In front of every prompt of a CLI that cannot ask mid-turn.
 ASK_PROTOCOL: Final[str] = (
-    "QUESTIONS FOR THE PERSON: decide everything you reasonably can yourself. "
-    "Only when a decision genuinely belongs to the person (their taste, priorities, "
-    "money, accounts, or an irreversible trade-off you cannot infer), end your reply "
-    f"with exactly one fenced code block whose language is {ASK_FENCE}, containing "
-    'JSON like {"questions": [{"question": "Which database?", "options": '
-    '[{"label": "SQLite", "description": "One file, no server"}, {"label": "Postgres", '
-    '"description": "A server to run"}], "recommendation_reason": "Why the first '
-    'option wins"}]}. Ask 1-4 questions, each with 2-4 options, your recommendation '
-    "first. Then stop and wait: the person answers in a card and their answers arrive "
-    "as the next message. Never ask for permission to do what you were asked.\n\n"
+    "No one can answer you mid-turn. If a decision belongs to the person (taste, priorities, "
+    "money, accounts, an irreversible trade-off), end your reply with one fenced "
+    f"{ASK_FENCE} block: "
+    '{"questions": [{"question": "...", "options": [{"label": "...", "description": "..."}], '
+    f'"recommendation_reason": "..."}}]}} with 1-{MAX_QUESTIONS} questions, '
+    f"{MIN_OPTIONS}-{MAX_OPTIONS} options each, recommended option first. Then stop; "
+    "the answers arrive as your next message.\n\n"
 )
 
 #: What the agent is told when the person approved its plan.
-PLAN_GO_AHEAD: Final[str] = (
-    "The plan is approved. Implement it now, step by step, and report what you changed."
-)
+PLAN_GO_AHEAD: Final[str] = "The plan is approved. Implement it now."
 
 #: The answers to a plan card.
 PLAN_BUILD: Final[str] = "build"
@@ -241,7 +239,6 @@ def answers_prompt(specs: Sequence[QuestionSpec], answers: Sequence[QuestionAnsw
             )
         else:
             lines.append(f"- {spec.question} -> {picked.answer}")
-    lines.append("Continue with these answers.")
     return "\n".join(lines)
 
 

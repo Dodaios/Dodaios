@@ -1600,8 +1600,7 @@ def _login_required_reason_code() -> CodexSubscriptionReasonCode:
 
     On a headless Linux host the interactive browser login is impossible, so
     inviting it would only produce an error toast after the click — the
-    pre-click truth there is ``lifecycle_unavailable`` (visible degradation,
-    AGENTS.md §3). The same holds for a graphical Linux desktop that ships no
+    pre-click truth there is ``lifecycle_unavailable`` (visible degradation). The same holds for a graphical Linux desktop that ships no
     terminal able to host the login for its full lifetime. An EXISTING login
     still reports ready on such hosts.
     """

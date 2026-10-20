@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GitOverviewTab, resetGitOverviewCache } from "./GitOverviewTab";
-import type { GraphPage, ScmFile, ScmStatus } from "./scm/scmApi";
+import type { FollowMain, GraphPage, ScmFile, ScmStatus } from "./scm/scmApi";
 import { useCodeEditorStore } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
@@ -47,11 +47,14 @@ const GRAPH: GraphPage = {
 };
 
 let status: ScmStatus = BASE;
+const FOLLOW: FollowMain = { enabled: false, eligible: true, reason: "", head: "", remote: "", last_check: 0, last_update: 0, last_subject: "", busy: "", restart_pending: false, blocked_by: [] as string[] };
+let follow: FollowMain = FOLLOW;
 const posts: { path: string; body: Record<string, unknown> }[] = [];
 const gets: string[] = [];
 
 beforeEach(() => {
   status = BASE;
+  follow = FOLLOW;
   posts.length = 0;
   gets.length = 0;
   window.localStorage.clear();
@@ -61,6 +64,14 @@ beforeEach(() => {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const json = (body: unknown, code = 200) => new Response(JSON.stringify(body), { status: code, headers: { "Content-Type": "application/json" } });
+      if (url.includes("/scm/follow-main/clear-lock")) {
+        follow = { ...follow, lock_since: 0, lock_stale: false, reason: "" };
+        return json(follow);
+      }
+      if (url.includes("/scm/follow-main")) {
+        if (init?.method === "PUT") follow = { ...follow, ...JSON.parse(String(init.body)) };
+        return json(follow);
+      }
       if (init?.method === "POST") {
         posts.push({ path: url.replace(/^.*\/api\/agentic-ide\/git\//, ""), body: JSON.parse(String(init.body)) });
         return json({ ok: true, commit: "abc1234", message: "feat: before", branch: "x", upstream: "origin/main", result: "merged" });
@@ -84,7 +95,7 @@ beforeEach(() => {
       }
       if (url.includes("/api/agentic-ide/panes")) {
         const pane = (key: string, display_name: string, recap: string) => ({
-          workspace_id: "w1", workspace_name: "App", folder: "/code/app", workspace_active: true, key, history_id: key, name: key,
+          workspace_id: "w1", workspace_name: "App", folder: "/code/app", workspace_active: true, key: key.toLowerCase(), history_id: key, name: key,
           agent: display_name.toLowerCase(), display_name, accepts_prompts: true, status: "live", exit_code: null, activity: "idle",
           activity_since: 0, worked: true, started_at: null, last_output_at: null, last_prompt: "", last_prompt_at: null, recap,
           has_resume: true, readable: true, account: null, account_label: null, archived: false,
@@ -318,10 +329,12 @@ describe("GitOverviewTab — one agent session", () => {
     expect(within(files[0]).queryByTestId("scm-session-stage")).toBeNull();
     fireEvent.click(within(files[1]).getByTestId("scm-session-stage"));
     await vi.waitFor(() => expect(posted("scm/stage")).toEqual([{ workspace_id: "w1", paths: ["app.py"] }]));
+    // A file in the shared folder opens in the editor's diff, against the code before the session.
     fireEvent.click(files[0]);
-    expect(await screen.findByTestId("scm-diff-dialog")).toBeTruthy();
-    await vi.waitFor(() => expect(gets.some((url) => url.includes("/scm/session-file") && url.includes("base=b0b0b0b0b0b0"))).toBe(true));
-    fireEvent.click(screen.getByTestId("scm-diff-close"));
+    const editor = useCodeEditorStore.getState();
+    expect(editor.tabs.map((tab) => [tab.path, tab.mode])).toEqual([["src/widget.ts", "diff"]]);
+    expect(editor.diffBases[editor.tabs[0].fileKey]?.ref).toBe("b0b0b0b0b0b0");
+    expect(screen.queryByTestId("scm-diff-dialog")).toBeNull();
     fireEvent.click(screen.getByTestId("scm-session-clear"));
     expect(await screen.findByText("notes.txt")).toBeTruthy();
     expect(screen.queryByTestId("scm-session")).toBeNull();
@@ -332,6 +345,36 @@ describe("GitOverviewTab — one agent session", () => {
     await screen.findByText("app.py");
     act(() => useGitSessionStore.getState().show("w1", "T2"));
     expect((await screen.findAllByTestId("scm-session-file")).length).toBe(2);
+    // The ask is used up: the tab opened again later starts on every change.
+    expect(useGitSessionStore.getState().request).toBeNull();
+    cleanup();
+    render(<GitOverviewTab />);
+    expect(await screen.findByText("app.py")).toBeTruthy();
+    expect(screen.queryByTestId("scm-session")).toBeNull();
+  });
+});
+
+describe("GitOverviewTab — following main", () => {
+  it("turns following main on from the more menu and shows its state in the title", async () => {
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("scm-title-more"));
+    expect(screen.queryByTestId("scm-follow-status")).toBeNull();
+    fireEvent.click(await screen.findByTestId("scm-menu-follow-main"));
+    await vi.waitFor(() => expect(follow.enabled).toBe(true));
+    expect(await screen.findByTestId("scm-follow-status")).toBeTruthy();
+  });
+});
+
+describe("GitOverviewTab — a stale git lock", () => {
+  it("offers to remove it only after a confirmation", async () => {
+    follow = { ...FOLLOW, enabled: true, reason: "A git lock left by a stopped command blocks the update (.git/index.lock).", lock_since: 1_790_000_000, lock_stale: true };
+    render(<GitOverviewTab />);
+    await screen.findByTestId("scm-follow-status");
+    fireEvent.click(await screen.findByTestId("scm-title-more"));
+    fireEvent.click(await screen.findByTestId("scm-menu-follow-clear-lock"));
+    expect(await screen.findByTestId("scm-choice")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("scm-choice-remove"));
+    await vi.waitFor(() => expect(follow.lock_stale).toBe(false));
   });
 });
 

@@ -3,16 +3,19 @@
 A download leaves FOUR things on a machine, and a plain folder-delete only
 gets the first:
 
-1. **The install folder** (``~/.personal-jarvis``) — code, the Python venv,
-   ``jarvis.toml``, ``data/`` and the ``.setup-complete`` marker.
+1. **The install folder** (``~/.dodaios``, ``~/.personal-jarvis`` before the
+   rename) — code, the Python venv, the config file, ``data/`` and the
+   ``.setup-complete`` marker. A folder that moved to its current name left a
+   link at the earlier path; the link is removed as a link, never followed.
 2. **Desktop-shell registration** (Windows Start menu + Installed Apps, a
    macOS ``.app`` bundle, or a Linux application-menu entry).
 3. **A login-autostart entry** next to it (a Windows logon task / a macOS
    ``LaunchAgent`` / a Linux XDG ``.desktop``) — survives a folder delete and
    then points at nothing.
-4. **API keys in the OS keyring** (service ``personal-jarvis`` — Windows
-   Credential Manager / macOS Keychain / Linux Secret Service) — survive a
-   folder delete, so a fresh install would show them as "already set".
+4. **API keys in the OS keyring** (service ``dodaios``, and ``personal-jarvis``
+   from before the rename — Windows Credential Manager / macOS Keychain / Linux
+   Secret Service) — survive a folder delete, so a fresh install would show
+   them as "already set".
 
 This module removes all four (with an explicit confirmation, a ``--dry-run``
 preview and per-item ``--keep-*`` opt-outs) so "download → test → wipe → re-test"
@@ -48,7 +51,9 @@ from rich.panel import Panel
 from rich.theme import Theme
 
 from dodaios.core import config as cfg
-from dodaios.core.branding import CONFIG_FILE_NAME
+from dodaios.core.branding import DEFAULT_INSTALL_DIR_NAME, LEGACY_DEFAULT_INSTALL_DIR_NAMES
+from dodaios.core.identity_boot import resolve_config_file
+from dodaios.core.identity_migration import LegacyState, inspect_legacy, is_directory_link
 from dodaios.core.process_utils import wait_procs
 from dodaios.setup.wizard import SECRETS
 
@@ -77,10 +82,13 @@ class UninstallPlan:
     autostart_entry: str | None
     keyring_keys: list[str] = field(default_factory=list)
     running_pids: list[int] = field(default_factory=list)
+    #: Links that lead to the install folder from another path (the earlier
+    #: folder name a move left behind). Removed with the folder, as links.
+    install_links: tuple[Path, ...] = ()
 
     @property
     def config_file(self) -> Path:
-        return self.install_dir / CONFIG_FILE_NAME
+        return resolve_config_file(self.install_dir)
 
     @property
     def data_dir(self) -> Path:
@@ -101,6 +109,61 @@ def _looks_like_jarvis_install(path: Path) -> bool:
         return False
 
 
+def _install_links(install_dir: Path, *, home: Path | None = None) -> tuple[Path, ...]:
+    """Every link that leads to ``install_dir`` from a path an install may have used.
+
+    That is each name the install folder has had in the home directory, and the
+    path this program runs from. Only a link that leads to ``install_dir``
+    itself is listed; a real folder or a link elsewhere is somebody else's.
+    """
+    home = home or Path.home()
+    names = (DEFAULT_INSTALL_DIR_NAME, *LEGACY_DEFAULT_INSTALL_DIR_NAMES)
+    candidates = [Path(cfg.PROJECT_ROOT), *(home / name for name in names)]
+    target = os.path.normcase(os.path.abspath(install_dir))
+    seen = {target}
+    links: list[Path] = []
+    for candidate in candidates:
+        key = os.path.normcase(os.path.abspath(candidate))
+        if key in seen:
+            continue
+        seen.add(key)
+        if inspect_legacy(candidate, install_dir) is LegacyState.LINK_TO_CURRENT:
+            links.append(Path(os.path.abspath(candidate)))
+    return tuple(links)
+
+
+def _remove_link(link: Path) -> None:
+    """Remove a directory link itself, never what it leads to. Raises ``OSError``.
+
+    ``unlink`` removes a symlink; a Windows junction or directory symlink is
+    removed by ``rmdir``, which deletes the link and refuses a real folder that
+    still holds anything. Neither call ever descends into the target.
+    """
+    if not is_directory_link(link):
+        raise OSError(f"{link} is not a link")
+    try:
+        os.unlink(link)
+    except OSError:  # A junction refuses unlink; rmdir removes it, and its own error propagates.
+        os.rmdir(link)
+
+
+def _remove_install_links(links: tuple[Path, ...]) -> None:
+    for link in links:
+        try:
+            _remove_link(link)
+            _console.print(f"    [ok]→ removed the link {escape(str(link))}.[/]")
+        except OSError as exc:
+            _console.print(
+                f"    [bad]⚠ could not remove the link {escape(str(link))}: "
+                f"{escape(str(exc))}[/]"
+            )
+
+
+def _credential_services() -> tuple[str, ...]:
+    """The current credential service and every one an earlier version used."""
+    return (cfg.KEYRING_SERVICE, *cfg.LEGACY_KEYRING_SERVICES)
+
+
 def _macos_keychain_item_present(key: str) -> bool | None:
     """Attributes-only macOS Keychain lookup — never decrypts, never prompts.
 
@@ -109,19 +172,23 @@ def _macos_keychain_item_present(key: str) -> bool | None:
     ``security find-generic-password`` WITHOUT ``-w`` returns only the item's
     attributes, which needs no access to the secret — so probing all secret
     slots stays silent. Returns ``None`` when the probe cannot answer (not
-    macOS, or ``security`` unavailable) so the caller falls back."""
+    macOS, or ``security`` unavailable) so the caller falls back. Every
+    credential service counts, the legacy ones included."""
     if sys.platform != "darwin":
         return None
-    try:
-        res = subprocess.run(  # noqa: S603, S607 — fixed argv, no shell
-            ["security", "find-generic-password", "-s", cfg.KEYRING_SERVICE, "-a", key],
-            capture_output=True,
-            timeout=15,
-            check=False,
-        )
-    except Exception:  # noqa: BLE001 — probe unavailable → generic fallback
-        return None
-    return res.returncode == 0
+    for service in _credential_services():
+        try:
+            res = subprocess.run(  # noqa: S603, S607 — fixed argv, no shell
+                ["security", "find-generic-password", "-s", service, "-a", key],
+                capture_output=True,
+                timeout=15,
+                check=False,
+            )
+        except Exception:  # noqa: BLE001 — probe unavailable → generic fallback
+            return None
+        if res.returncode == 0:
+            return True
+    return False
 
 
 def _macos_delete_keychain_items(key: str) -> bool:
@@ -132,23 +199,24 @@ def _macos_delete_keychain_items(key: str) -> bool:
     dozens of per-item Keychain password dialogs. Duplicate service+account
     items can exist across keychains and ``security`` deletes one match per
     call — loop with a small safety cap. Returns True when at least one item
-    was removed."""
+    was removed. Runs under every credential service, the legacy ones too."""
     if sys.platform != "darwin":
         return False
     gone_any = False
-    for _ in range(8):
-        try:
-            res = subprocess.run(  # noqa: S603, S607 — fixed argv, no shell
-                ["security", "delete-generic-password", "-s", cfg.KEYRING_SERVICE, "-a", key],
-                capture_output=True,
-                timeout=15,
-                check=False,
-            )
-        except Exception:  # noqa: BLE001 — best effort; delete_secret still runs
-            break
-        if res.returncode != 0:
-            break
-        gone_any = True
+    for service in _credential_services():
+        for _ in range(8):
+            try:
+                res = subprocess.run(  # noqa: S603, S607 — fixed argv, no shell
+                    ["security", "delete-generic-password", "-s", service, "-a", key],
+                    capture_output=True,
+                    timeout=15,
+                    check=False,
+                )
+            except Exception:  # noqa: BLE001 — best effort; delete_secret still runs
+                break
+            if res.returncode != 0:
+                break
+            gone_any = True
     return gone_any
 
 
@@ -158,9 +226,28 @@ def _file_fallback_copy_present(key: str) -> bool:
     Saved there when the OS store was declined or locked; reading it never
     prompts on any OS."""
     try:
-        return cfg._FileCredStore().get(cfg.KEYRING_SERVICE, key) is not None
+        store = cfg._FileCredStore()
+        return any(store.get(service, key) is not None for service in _credential_services())
     except Exception:  # noqa: BLE001 — unreadable fallback counts as absent
         return False
+
+
+def _uninstall_key_candidates() -> list[str]:
+    """Every credential name worth probing: the wizard's first, then the rest.
+
+    ``dodaios.core.secret_slots`` adds the fixed slots and the names computed
+    at runtime that can be listed (computers, CLIs, plugin tokens, ...).
+    """
+    names = [spec.key for spec in SECRETS]
+    try:
+        from dodaios.core.secret_slots import all_secret_keys
+
+        names.extend(sorted(all_secret_keys()))
+    except Exception as exc:  # noqa: BLE001 — the wizard's slots are still probed
+        _console.print(
+            f"    [muted]→ some saved-key names could not be listed: {escape(str(exc))}[/]"
+        )
+    return list(dict.fromkeys(names))
 
 
 def _keyring_keys_present() -> list[str]:
@@ -180,22 +267,26 @@ def _keyring_keys_present() -> list[str]:
         import keyring
 
         def probe(key: str) -> str | None:
-            return keyring.get_password(cfg.KEYRING_SERVICE, key)
+            for service in _credential_services():
+                value = keyring.get_password(service, key)
+                if value:
+                    return value
+            return None
     except Exception:  # noqa: BLE001 — no keyring module → fall back to the getter
 
         def probe(key: str) -> str | None:
             return cfg.get_secret(key)
 
     present: list[str] = []
-    for spec in SECRETS:
+    for key in _uninstall_key_candidates():
         try:
-            stored = _macos_keychain_item_present(spec.key)
+            stored = _macos_keychain_item_present(key)
             if stored is None:
-                stored = bool(probe(spec.key))
-            else:
-                stored = stored or _file_fallback_copy_present(spec.key)
-            if stored:
-                present.append(spec.key)
+                stored = bool(probe(key))
+            # A copy in the 0600 file store (a declined or locked OS store)
+            # counts on every OS.
+            if stored or _file_fallback_copy_present(key):
+                present.append(key)
         except Exception:  # noqa: BLE001, S112 — a single unreadable slot must not abort
             continue
     return present
@@ -340,6 +431,7 @@ def build_plan() -> UninstallPlan:
         autostart_entry=entry,
         keyring_keys=_keyring_keys_present(),
         running_pids=running,
+        install_links=_install_links(install_dir),
     )
 
 
@@ -362,6 +454,11 @@ def _print_plan(plan: UninstallPlan, *, keep_keys: bool, keep_folder: bool) -> N
             f"[brand]•[/] Delete the install folder:\n    [muted]{escape(str(plan.install_dir))}[/]"
         )
         lines.append("    [muted](code, the Python environment, jarvis.toml, and data folder)[/]")
+        for link in plan.install_links:
+            lines.append(
+                f"[brand]•[/] Remove the link to it (the folder's earlier name):\n"
+                f"    [muted]{escape(str(link))}[/]"
+            )
     if plan.autostart_entry:
         lines.append(
             f"[brand]•[/] Remove the login-autostart entry:\n"
@@ -434,9 +531,9 @@ def _remove_cli_commands(install_dir: Path) -> None:
     delete would leave dead commands behind.
     """
     try:
-        from dodaios.setup.cli_path import remove_commands
+        from dodaios.setup.cli_path import remove_commands, retired_install_roots
 
-        removed = remove_commands(install_dir)
+        removed = remove_commands(install_dir, retired_roots=retired_install_roots(install_dir))
         if removed:
             _console.print("    [ok]→ terminal commands removed.[/]")
     except Exception as exc:  # noqa: BLE001 - never abort the uninstall on this
@@ -454,11 +551,30 @@ def _remove_keys(keys: list[str]) -> int:
         # already gone this path reads nothing on macOS and stays silent.
         if cfg.delete_secret(key) or macos_gone:
             deleted += 1
+    _remove_credential_bookkeeping()
     if deleted:
         _console.print(f"    [ok]→ removed {deleted} saved key(s) from the keychain.[/]")
     elif keys:
         _console.print("    [muted]→ no keychain keys were removed.[/]")
     return deleted
+
+
+def _remove_credential_bookkeeping() -> None:
+    """Remove the entries the app keeps beside the keys themselves.
+
+    The migration marker (``__migrated_from__<legacy>``) under the current
+    service, and on macOS the one vault item per service that holds every key
+    (deleting it also takes keys whose names could not be listed). Deleting
+    never reads a secret, so no Keychain dialog appears.
+    """
+    from dodaios.core.identity_migration import keyring_marker_key
+    from dodaios.core.keychain_bundle import VAULT_ACCOUNT
+
+    for legacy in cfg.LEGACY_KEYRING_SERVICES:
+        marker = keyring_marker_key(legacy)
+        _macos_delete_keychain_items(marker)
+        cfg.delete_secret(marker)
+    _macos_delete_keychain_items(VAULT_ACCOUNT)
 
 
 def _running_inside(path: Path) -> bool:
@@ -519,7 +635,11 @@ def _remove_folder(install_dir: Path) -> bool:
 
     POSIX (and Windows when NOT self-hosted): direct ``rmtree``. Windows +
     self-hosted: schedule a detached deleter and report that it will finish a
-    moment after we exit."""
+    moment after we exit. A link is never followed: given one, only the link
+    goes."""
+    if is_directory_link(install_dir):
+        _remove_install_links((install_dir,))
+        return not os.path.lexists(install_dir)
     if sys.platform == "win32" and _running_inside(install_dir):
         try:
             _spawn_windows_self_deleter(install_dir)
@@ -591,6 +711,8 @@ def run_uninstall(
     if not keep_keys:
         _remove_keys(plan.keyring_keys)
     if not keep_folder:
+        # The links first: once the folder is gone they would dangle.
+        _remove_install_links(plan.install_links)
         _remove_folder(plan.install_dir)
 
     _console.print()
