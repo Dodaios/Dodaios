@@ -111,3 +111,13 @@ async def test_a_reboot_resumes_the_conversation_after_clear(
     argv = " ".join(pool.spawns[0]["argv"])
     assert "--resume after-clear-id" in argv, argv
     assert "launch-id" not in argv
+
+
+def test_settings_file_turns_claudes_fullscreen_renderer_off(tmp_path, monkeypatch):
+    """A pane's terminal must hold the conversation, or its scrollbar has no position."""
+    import json
+
+    monkeypatch.setattr(pane_sessions, "_state_dir", lambda: tmp_path / "state")
+    data = json.loads(pane_sessions.settings_file().read_text(encoding="utf-8"))
+    assert data["env"]["CLAUDE_CODE_NO_FLICKER"] == "0"
+    assert "SessionStart" in data["hooks"]

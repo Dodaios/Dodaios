@@ -14,8 +14,13 @@
  *   negotiate mouse reporting (?1003/?1006). The bar then drives the CLI with
  *   real wheel notches through xterm's own mouse encoder, exactly as the
  *   physical wheel would. No position is shown there, because none is knowable
- *   from outside the CLI: the grip springs back to the middle and acts like a
- *   jog wheel, the arrows and the track halves step and page.
+ *   from outside the CLI: there is no thumb at all, only the arrows and the
+ *   track halves, which step and page. (A centred "jog" grip shipped first and
+ *   was read as "you are in the middle" while the pane sat at its end.)
+ *
+ * The panes start Claude Code and Codex in their classic renderers (see
+ * `pane_sessions.settings_file` and the Codex `launch_args`), so they normally
+ * run in `history` mode; `app` mode remains for other full-screen CLIs.
  *
  * Wheel notches are only ever sent while the CLI reports the mouse. On an
  * alternate screen WITHOUT mouse reporting xterm turns a wheel into arrow keys,
@@ -49,8 +54,6 @@ export type PaneScrollState = {
 export const SCROLLBAR_LINGER_MS = 1800;
 /** Width of the right-edge strip that reveals the bar on hover, in px. */
 const EDGE_REVEAL_PX = 28;
-/** Pointer travel per wheel notch while dragging the grip in app mode. */
-const APP_DRAG_PX_PER_NOTCH = 14;
 /** Auto-repeat of a held arrow or track press. */
 const REPEAT_DELAY_MS = 320;
 const REPEAT_INTERVAL_MS = 60;
@@ -118,8 +121,6 @@ export function PaneScrollbar({ termRef, epoch, regionRef, labels, testId }: Pro
   const [shown, setShown] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
-  /** App-mode grip offset from the centre while dragging, in px. */
-  const [jog, setJog] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const hideTimer = useRef<number | null>(null);
   const repeatTimer = useRef<number | null>(null);
@@ -173,6 +174,15 @@ export function PaneScrollbar({ termRef, epoch, regionRef, labels, testId }: Pro
       for (const sub of subs) sub?.dispose();
     };
   }, [termRef, epoch, refresh]);
+
+  // While the bar is on screen, re-read the position a few times a second. A
+  // wheel scroll on an idle pane writes nothing, and the 2026-08 rail showed
+  // stale positions for exactly that reason.
+  useEffect(() => {
+    if (!shown && !hovered && !dragging) return;
+    const timer = window.setInterval(refresh, 200);
+    return () => window.clearInterval(timer);
+  }, [shown, hovered, dragging, refresh]);
 
   // Scrolling inside the pane, or pointing at its right edge, shows the bar.
   useEffect(() => {
@@ -273,32 +283,21 @@ export function PaneScrollbar({ termRef, epoch, regionRef, labels, testId }: Pro
     event.preventDefault();
     event.stopPropagation();
     const mode = readPaneScrollState(term).mode;
-    if (mode === "none") return;
+    if (mode !== "history") return;
     const target = event.currentTarget;
     target.setPointerCapture?.(event.pointerId);
     const startY = event.clientY;
     const startLine = term.buffer.active.viewportY;
     const { travel } = historyThumb();
     const baseY = Math.max(1, term.buffer.active.baseY);
-    let notchesSent = 0;
     setDragging(true);
 
     const move = (ev: PointerEvent) => {
       const dy = ev.clientY - startY;
       if (readPaneScrollState(term).mode !== mode) return;
-      if (mode === "history") {
-        if (travel <= 0) return;
-        const line = Math.round(startLine + (dy * baseY) / travel);
-        term.scrollToLine(Math.max(0, Math.min(term.buffer.active.baseY, line)));
-      } else {
-        const half = Math.max(0, trackHeight() / 2 - 16);
-        setJog(Math.max(-half, Math.min(half, dy)));
-        const wanted = Math.trunc(dy / APP_DRAG_PX_PER_NOTCH);
-        const delta = wanted - notchesSent;
-        if (delta !== 0) {
-          notchesSent += sendWheelNotches(term, delta < 0 ? -1 : 1, Math.abs(delta)) * Math.sign(delta);
-        }
-      }
+      if (travel <= 0) return;
+      const line = Math.round(startLine + (dy * baseY) / travel);
+      term.scrollToLine(Math.max(0, Math.min(term.buffer.active.baseY, line)));
       reveal();
     };
     const end = () => {
@@ -306,7 +305,6 @@ export function PaneScrollbar({ termRef, epoch, regionRef, labels, testId }: Pro
       target.removeEventListener("pointerup", end);
       target.removeEventListener("pointercancel", end);
       setDragging(false);
-      setJog(0);
       reveal();
     };
     target.addEventListener("pointermove", move);
@@ -384,21 +382,18 @@ export function PaneScrollbar({ termRef, epoch, regionRef, labels, testId }: Pro
         onPointerDown={pressTrack}
         className="relative w-full min-h-0 flex-1 cursor-default"
       >
-        <div
-          data-testid={testId ? `${testId}-thumb` : undefined}
-          onPointerDown={startDrag}
-          className={cn(
-            "absolute left-1/2 w-1.5 -translate-x-1/2 rounded-full",
-            "bg-[hsl(var(--muted-foreground)/0.6)] hover:w-2 hover:bg-[hsl(var(--muted-foreground))]",
-            dragging && "w-2 bg-[hsl(var(--foreground)/0.75)]",
-            state.mode === "app" && !dragging && "transition-[top] duration-150",
-          )}
-          style={
-            thumb
-              ? { top: thumb.top, height: thumb.size }
-              : { top: `calc(50% - 16px + ${jog}px)`, height: 32 }
-          }
-        />
+        {thumb && (
+          <div
+            data-testid={testId ? `${testId}-thumb` : undefined}
+            onPointerDown={startDrag}
+            className={cn(
+              "absolute left-1/2 w-1.5 -translate-x-1/2 rounded-full",
+              "bg-[hsl(var(--muted-foreground)/0.6)] hover:w-2 hover:bg-[hsl(var(--muted-foreground))]",
+              dragging && "w-2 bg-[hsl(var(--foreground)/0.75)]",
+            )}
+            style={{ top: thumb.top, height: thumb.size }}
+          />
+        )}
       </div>
       <button
         type="button"
