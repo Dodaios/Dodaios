@@ -42,8 +42,10 @@ def test_only_the_names_change() -> None:
     renamed = tomllib.loads(bd.renamed_pyproject(PYPROJECT))
     for key in ("version", "dependencies", "scripts", "entry-points", "requires-python"):
         assert renamed["project"][key] == original["project"][key], key
-    for key in ("packages", "package-data", "exclude-package-data"):
+    for key in ("package-data", "exclude-package-data"):
         assert renamed["tool"]["setuptools"][key] == original["tool"]["setuptools"][key], key
+    # The package list lives in setup.py, which both builds share unchanged.
+    assert "packages" not in renamed["tool"]["setuptools"]
     assert renamed["build-system"] == original["build-system"]
 
 
