@@ -39,7 +39,7 @@ TIERS = {
     "deck": {
         "M_Uniform": "#3b3f47",
         "M_Trousers": "#3b3f47",
-        "M_Trim": "#2f3238",
+        "M_Trim": "#5a5f68",
         "M_Cap": "#3b3f47",
         "tile": "#a9adb2",
         "cap": False,
@@ -185,6 +185,7 @@ def main(argv):
     ap.add_argument("--only", default="")
     ap.add_argument("--no-clips", action="store_true")
     ap.add_argument("--qa", action="store_true")
+    ap.add_argument("--qa-contact", action="store_true", help="QA contact sheets only")
     args = ap.parse_args(argv)
     C.reset_scene()
     O.make_materials()
@@ -249,10 +250,10 @@ def main(argv):
             for act, _slot in acts:
                 bpy.data.actions.remove(act)
     write_manifest(out, entries, clip_info, ctxs)
-    if args.qa:
+    if args.qa or args.qa_contact:
         from characters import qa
 
-        qa.contact_sheet(built, ctxs)
+        qa.contact_sheet(built, ctxs, full=not args.qa_contact)
 
 
 def write_manifest(out: Path, entries, clip_info, ctxs):

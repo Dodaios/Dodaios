@@ -42,7 +42,7 @@ MATERIALS = {
     "M_ChestBox": ((0.05, 0.052, 0.056), 0.38, 0.7, {}),
     "M_Glow": ((0.9, 0.55, 0.12), 0.4, 0.0, {"emit": 3.0}),
     "M_Gloves": ((0.016, 0.016, 0.017), 0.48, 0.0, {}),
-    "M_Armor": ((0.80, 0.80, 0.78), 0.28, 0.0, {"coat": 0.6}),
+    "M_Armor": ((0.60, 0.60, 0.58), 0.32, 0.0, {"coat": 0.45}),
     "M_Undersuit": ((0.023, 0.026, 0.030), 0.72, 0.0, {"sheen": 0.1}),
     "M_Trousers": ((0.105, 0.11, 0.092), 0.8, 0.0, {"sheen": 0.1}),
     "M_Mark": ((0.78, 0.78, 0.76), 0.5, 0.0, {}),
@@ -434,34 +434,51 @@ def belt(
     buckle_mat="M_RankPlate",
     n=40,
     name="Belt",
+    pts=None,
 ):
-    torso = slab(
-        ctx,
-        z,
-        0.03,
-        mask=(np.abs(ctx.V[:, 0]) < 0.25)
-        & ~ctx.bone_mask(
-            "Hand_L",
-            "Hand_R",
-            "Fingers_L",
-            "Fingers_R",
-            "ForeArm_L",
-            "ForeArm_R",
-            "Thumb_L",
-            "Thumb_R",
-        ),
-    )
+    """Belt ring around the torso at z. `pts` (N x 3) replaces the naked body as the
+    surface the belt is measured from (e.g. the tailored cloth surface)."""
+    if pts is not None:
+        # narrower than the naked-body slab: the female elbows reach down to the waist
+        torso = pts[(np.abs(pts[:, 2] - z) < 0.03) & (np.abs(pts[:, 0]) < 0.205 * ctx.s)]
+    else:
+        torso = slab(
+            ctx,
+            z,
+            0.03,
+            mask=(np.abs(ctx.V[:, 0]) < 0.25)
+            & ~ctx.bone_mask(
+                "Hand_L",
+                "Hand_R",
+                "Fingers_L",
+                "Fingers_R",
+                "ForeArm_L",
+                "ForeArm_R",
+                "Thumb_L",
+                "Thumb_R",
+            ),
+        )
     c = torso[:, :2].mean(axis=0)
     ang, r = polar_radii(torso, c, n, smooth=3)
+    r_lo = r_hi = r
+    if pts is not None:
+        # Follow the waist-to-hip cone: each edge of the belt takes the cloth radius of
+        # its own half, so it never stands off a narrow waist above flared hips.
+        lo = torso[torso[:, 2] < z + 0.004]
+        hi = torso[torso[:, 2] > z - 0.004]
+        if len(lo) >= 12 and len(hi) >= 12:
+            r_lo = polar_radii(lo, c, n, smooth=3)[1]
+            r_hi = polar_radii(hi, c, n, smooth=3)[1]
+            r = (r_lo + r_hi) / 2
     bm = bmesh.new()
     rings = []
-    for dz, dr in (
-        (-height / 2, out - 0.004),
-        (-height / 2, out + 0.002),
-        (height / 2, out + 0.002),
-        (height / 2, out - 0.004),
+    for dz, dr, rr in (
+        (-height / 2, out - 0.004, r_lo),
+        (-height / 2, out + 0.002, r_lo),
+        (height / 2, out + 0.002, r_hi),
+        (height / 2, out - 0.004, r_hi),
     ):
-        rings.append(ring_points(c, ang, r + dr, z + dz))
+        rings.append(ring_points(c, ang, rr + dr, z + dz))
     tube(bm, rings, mat=0)
     mats = [mat]
     if buckle:
@@ -526,10 +543,15 @@ def skirt(
     flare=0.02,
     mat="M_Uniform",
     hem_mat="M_Trim",
+    cloth=None,
 ):
-    # Hull of the pelvis only (not the spread thighs of the rest pose).
+    # Hull of the pelvis only (not the spread thighs of the rest pose). `cloth` is the
+    # garment surface per naked vertex (tailored), else a flat 8 mm over the body.
     pelvis = ctx.bone_mask("Hips", "Spine")
-    Vg = ctx.V[pelvis] + ctx.N[pelvis] * 0.008
+    if cloth is not None:
+        Vg = cloth[pelvis]
+    else:
+        Vg = ctx.V[pelvis] + ctx.N[pelvis] * 0.008
     mask = (np.abs(Vg[:, 0]) < 0.25) & (Vg[:, 2] > z_hem - 0.05) & (Vg[:, 2] < z_top + 0.03)
     P_ = Vg[mask]
     c = P_[:, :2].mean(axis=0)
@@ -773,7 +795,25 @@ def _limbs(ctx: Ctx):
     return hands, fore, upper_arm, head, thigh
 
 
+def shoulder_pad(ctx: Ctx) -> np.ndarray:
+    """Outward offset that squares the shoulder line (a light tailored pad)."""
+    V, N = ctx.V, ctx.N
+    ax = np.abs(V[:, 0])
+    neck_z = ctx.L["neck"].z
+    k_x = np.clip((ax - 0.06 * ctx.s) / (0.09 * ctx.s), 0.0, 1.0)
+    k_x = k_x * k_x * (3 - 2 * k_x) * (ax < 0.22 * ctx.s)
+    k_n = np.clip((N[:, 2] - 0.3) / 0.45, 0.0, 1.0)
+    k_z = (V[:, 2] > neck_z - 0.10 * ctx.s).astype(float)
+    return 0.007 * ctx.s * k_x * k_n * k_z
+
+
 def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
+    """Tailored tunic and riding breeches.
+
+    The cut is slim: the belly and the hips are taken in under the cloth, the outer
+    shoulder is padded square, and the breeches flare only on the outer thigh (a
+    narrow knee into the boot).
+    """
     V, N = ctx.V, ctx.N
     n = len(V)
     hands, fore, upper_arm, head, thigh = _limbs(ctx)
@@ -782,6 +822,7 @@ def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
     inflate = np.full(n, 0.006)
     smooth = np.full(n, 3.0)
     neck_z = ctx.L["neck"].z
+    pad = shoulder_pad(ctx)
     skin_z = neck_z + 0.026 * ctx.s + 0.012 * np.clip(V[:, 1] / 0.06, -1, 1)
     hl = hairline(ctx, V, female)
     for i in range(n):
@@ -811,28 +852,40 @@ def classify_officer(ctx: Ctx, female: bool, boot_top: float, belt_z: float):
             smooth[i] = 3
             continue
         if fore[i] or upper_arm[i]:
-            inflate[i] = 0.005 + 0.003 * C.smoothstep(0.6, 1.0, t[i]) * fore[i]
+            inflate[i] = 0.0045 + 0.003 * C.smoothstep(0.6, 1.0, t[i]) * fore[i] + pad[i]
             continue
+        lat = max(0.0, N[i, 0] * (1 if V[i, 0] > 0 else -1))
         if thigh[i] or z < ctx.crotch:
-            # breeches: flare on the outer thigh, blouse above the boot
-            lat = max(0.0, N[i, 0] * (1 if V[i, 0] > 0 else -1))
+            # Riding breeches: a slight flare on the outer thigh only, slim front, back
+            # and inside, narrow at the knee, a small blouse over the boot top.
             ft = C.clamp((z - (boot_top + 0.04)) / (ctx.crotch - boot_top - 0.02), 0, 1)
-            fl = 0.045 * math.sin(math.pi * ft**0.8) ** 1.5 * (0.35 + 0.65 * lat)
-            bl = 0.006 * C.smoothstep(boot_top + 0.08, boot_top, z)
+            prof = math.sin(math.pi * ft**0.7) ** 2
+            fl = 0.034 * prof * (0.1 + 0.9 * lat**1.5)
+            take_in = 0.004 * C.smoothstep(0.55, 1.0, ft) * (1.0 - lat)
+            bl = 0.005 * C.smoothstep(boot_top + 0.07, boot_top, z)
             labels[i] = "M_Trousers"
-            inflate[i] = 0.006 + fl * ctx.s + bl
+            inflate[i] = 0.0035 + (fl - take_in) * ctx.s + bl
             smooth[i] = 4
             continue
         # torso
         smooth[i] = 8 if z > belt_z else 6
         front = N[i, 1] < -0.3
+        # Tailoring: take in the belly and the waist, and the hips under the belt.
+        fr = C.clamp((-N[i, 1] - 0.2) / 0.6, 0.0, 1.0)
+        waist = math.exp(-(((z - (belt_z + 0.03 * ctx.s)) / (0.075 * ctx.s)) ** 2))
+        hip = C.smoothstep(belt_z + 0.01, belt_z - 0.05, z) * C.smoothstep(
+            ctx.crotch - 0.04, ctx.crotch + 0.03, z
+        )
+        bk = C.clamp((N[i, 1] - 0.3) / 0.5, 0.0, 1.0)
+        trim = 0.011 * fr * waist + 0.004 * lat * waist + 0.009 * lat * hip + 0.006 * bk * hip
+        base = 0.006 - trim * ctx.s + pad[i]
         # Asymmetric closure: the front flap ends in a straight vertical edge 70 mm to
         # the wearer's right of the centre line (a small step in the cloth).
         edge = flap_edge_x(ctx, z, belt_z, neck_z)
         if front and belt_z - 0.02 < z < neck_z + 0.01 and V[i, 0] > edge:
-            inflate[i] = 0.006 + 0.0025 * C.smoothstep(0.14 * ctx.s, edge, V[i, 0])
+            inflate[i] = base + 0.0025 * C.smoothstep(0.14 * ctx.s, edge, V[i, 0])
         else:
-            inflate[i] = 0.006
+            inflate[i] = base
     return labels, inflate, smooth
 
 
@@ -854,17 +907,22 @@ def flap_seam(ctx: Ctx, garment, belt_z: float, neck_z: float, mat="M_Trim"):
         if hit[0] is not None:
             pts.append((hit[0], hit[1]))
     bm = bmesh.new()
-    row_a, row_b = [], []
+    # Raised bead (half-round piping, 9 mm wide, 2.5 mm high): it catches the ceiling
+    # light, so the flap line reads from the 60 degree game camera even tone-on-tone.
+    prof = [(-1.0, 0.0), (-0.65, 0.65), (0.0, 1.0), (0.65, 0.65), (1.0, 0.0)]
+    rows = []
     for i, (p, nrm) in enumerate(pts):
         nxt = pts[min(i + 1, len(pts) - 1)][0]
         prv = pts[max(i - 1, 0)][0]
         d = (nxt - prv).normalized()
         side = d.cross(nrm).normalized()
-        base = p + nrm * 0.0012
-        row_a.append(bm.verts.new(base - side * 0.0035))
-        row_b.append(bm.verts.new(base + side * 0.0035))
-    for i in range(len(pts) - 1):
-        bm.faces.new((row_a[i], row_b[i], row_b[i + 1], row_a[i + 1]))
+        base = p + nrm * 0.0008
+        rows.append(
+            [bm.verts.new(base + side * (a * 0.0045) + nrm * (h * 0.0025)) for a, h in prof]
+        )
+    for i in range(len(rows) - 1):
+        for j in range(len(prof) - 1):
+            bm.faces.new((rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j]))
     ob = new_obj("Seam", bm, [mat])
     ctx.transfer(ob)
     return ob
@@ -948,16 +1006,20 @@ def build_officer(ctx: Ctx):
     female = ctx.variant == "F"
     s = ctx.s
     boot_top = 0.48 * s
-    belt_z = 0.585 * ctx.H
+    belt_z = (0.597 if female else 0.585) * ctx.H  # natural waist
     neck_z = ctx.L["neck"].z
-    garment = garment_body(
-        ctx, lambda c: classify_officer(c, female, boot_top, belt_z), name="Garment"
-    )
+    cut = classify_officer(ctx, female, boot_top, belt_z)
+    cloth = ctx.V + ctx.N * cut[1][:, None]
+    garment = garment_body(ctx, lambda c: cut, name="Garment")
     decimate(garment, 8200 / C.tri_count(garment))
     parts = [garment]
     parts.append(boots(ctx, boot_top, flare=0.006, inflate=0.006))
-    parts.append(skirt(ctx, garment, belt_z - 0.02, ctx.crotch - 0.01 * s, out=0.003, flare=0.012))
-    parts.append(belt(ctx, belt_z, buckle=True))
+    parts.append(
+        skirt(
+            ctx, garment, belt_z - 0.02, ctx.crotch - 0.01 * s, out=0.003, flare=0.005, cloth=cloth
+        )
+    )
+    parts.append(belt(ctx, belt_z, out=0.013, buckle=True, pts=B.verts_np(garment)))
     parts.append(collar(ctx, neck_z - 0.004, neck_z + 0.040 * s, mat="M_Uniform"))
     parts.append(shoulder_piping(ctx, garment))
     parts.append(flap_seam(ctx, garment, belt_z, neck_z))
