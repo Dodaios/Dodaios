@@ -18,9 +18,9 @@
  *   track halves, which step and page. (A centred "jog" grip shipped first and
  *   was read as "you are in the middle" while the pane sat at its end.)
  *
- * The panes start Claude Code and Codex in their classic renderers (see
- * `pane_sessions.settings_file` and the Codex `launch_args`), so they normally
- * run in `history` mode; `app` mode remains for other full-screen CLIs.
+ * Codex panes start with `--no-alt-screen` (see its `launch_args`) and run in
+ * `history` mode. Claude Code keeps the person's own renderer, so it runs in
+ * `app` mode when their `CLAUDE_CODE_NO_FLICKER` is on.
  *
  * Wheel notches are only ever sent while the CLI reports the mouse. On an
  * alternate screen WITHOUT mouse reporting xterm turns a wheel into arrow keys,

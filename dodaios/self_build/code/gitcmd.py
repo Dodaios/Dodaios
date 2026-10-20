@@ -67,7 +67,14 @@ def run(
 
 
 def git(args: Sequence[str], cwd: str | Path, *, timeout: float = GIT_TIMEOUT_S) -> Result:
-    return run(["git", "-c", "core.quotepath=off", *args], cwd, timeout=timeout)
+    # core.longpaths: a worktree under a deep project folder holds paths past
+    # Windows' 260 characters (a test run's __pycache__); without it git could
+    # not remove the worktree. Other platforms ignore the setting.
+    return run(
+        ["git", "-c", "core.quotepath=off", "-c", "core.longpaths=true", *args],
+        cwd,
+        timeout=timeout,
+    )
 
 
 def out(args: Sequence[str], cwd: str | Path) -> str:
