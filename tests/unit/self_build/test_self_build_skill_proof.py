@@ -358,3 +358,20 @@ def test_cli_tool_names_map_back_to_registered_names() -> None:
 def test_the_daily_budget_covers_the_replays() -> None:
     assert builders.SKILL_REPLAYS <= builders.DAILY_MODEL_CALLS
     assert asyncio.iscoroutinefunction(sandbox.run)
+
+
+def test_a_codex_task_turn_with_identity_gives_each_flag_once() -> None:
+    """Live 2026-10-20: identity + gateway_only passed --ignore-user-config twice; codex refused."""
+    from dodaios.agent_chat.runner_cli import isolate_task_tools
+
+    argv = ["codex", "exec", "--json", "--ignore-user-config", "--ignore-rules"]
+    argv += ["--disable", "browser_use", "--disable", "plugins"]
+    isolate_task_tools(argv, "codex-cli")
+    assert argv.count("--ignore-user-config") == 1 and argv.count("--ignore-rules") == 1
+    features = [argv[i + 1] for i, a in enumerate(argv[:-1]) if a == "--disable"]
+    assert len(features) == len(set(features)) and "shell_tool" in features
+    claude = ["claude", "-p"]
+    isolate_task_tools(claude, "claude-cli")
+    assert claude[-3:] == ["--tools", "", "--strict-mcp-config"]
+    with pytest.raises(Exception, match="cannot isolate"):
+        isolate_task_tools([], "agy-cli")
