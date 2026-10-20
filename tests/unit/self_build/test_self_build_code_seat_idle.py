@@ -332,3 +332,42 @@ def test_leftover_worktree_folder_goes_only_when_it_holds_caches(tmp_path: Path)
     _sweep(kept)
     _drop_if_empty(parent)
     assert (kept / "notes.txt").exists()
+
+
+def test_summary_is_the_agents_closing_message() -> None:
+    from dodaios.self_build.code.runner import final_message
+
+    events = [
+        {"kind": "assistant_text", "payload": {"turn_id": "t0", "text": "old turn"}},
+        {"kind": "assistant_text", "payload": {"turn_id": "t1", "text": "I'll inspect first."}},
+        {"kind": "tool_call", "payload": {"turn_id": "t1", "name": "edit"}},
+        {"kind": "assistant_text", "payload": {"turn_id": "t1", "text": "Added neg() and a test."}},
+        {"kind": "assistant_text", "payload": {"turn_id": "t1", "text": "  "}},
+        {"kind": "turn_finished", "payload": {"turn_id": "t1", "status": "done"}},
+    ]
+    assert final_message(events, "t1") == "Added neg() and a test."
+    assert final_message(events, "t9") == ""
+
+
+def test_sweep_retries_while_a_file_is_still_held(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    from dodaios.self_build.code.builder import _sweep
+
+    left = tmp_path / ".worktrees" / "dodaios-issue-1-x"
+    (left / "__pycache__").mkdir(parents=True)
+    (left / "__pycache__" / "calc.pyc").write_bytes(b"x")
+    real = shutil.rmtree
+    calls: list[int] = []
+
+    def flaky(path: Any, *args: Any, **kwargs: Any) -> None:
+        calls.append(1)
+        if len(calls) == 1:
+            raise PermissionError("in use")
+        real(path, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "rmtree", flaky)
+    _sweep(left, pause_s=0)
+    assert not left.exists() and len(calls) == 2

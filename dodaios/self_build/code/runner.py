@@ -57,6 +57,20 @@ def _default_chat() -> Any:
     return chat_service()
 
 
+def final_message(events: list[dict[str, Any]], turn_id: str) -> str:
+    """The last non-empty assistant message of ``turn_id`` (``""`` without one)."""
+    for event in reversed(events):
+        payload = event.get("payload") or {}
+        if event.get("kind") != "assistant_text":
+            continue
+        if turn_id and str(payload.get("turn_id") or "") != turn_id:
+            continue
+        text = str(payload.get("text") or "").strip()
+        if text:
+            return text
+    return ""
+
+
 class ThreadRunner:
     """:class:`Runner` on the agent-chat service's coding threads."""
 
@@ -164,6 +178,9 @@ class ThreadRunner:
         if not done:
             return None
         status, text, error = last_turn(events)
+        # The pull request gets the agent's closing message, not every progress
+        # note it wrote along the way (Codex narrates each step).
+        text = final_message(events, str((done[-1].get("payload") or {}).get("turn_id") or ""))
         if status not in ("done", "complete", "completed", "ok", "success"):
             return RunResult(False, summary=text, error=error or status, session_id=sid)
         return RunResult(True, summary=text, session_id=sid)
