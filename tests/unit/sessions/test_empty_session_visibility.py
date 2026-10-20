@@ -5,10 +5,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.sessions.store import SessionStore
-from jarvis.state.chat_store import ChatStore
-from jarvis.ui.web import chats_routes, sessions_routes
+from dodaios.core.bus import EventBus
+from dodaios.sessions.store import SessionStore
+from dodaios.state.chat_store import ChatStore
+from dodaios.ui.web import chats_routes, sessions_routes
 
 
 def _finalize_session(

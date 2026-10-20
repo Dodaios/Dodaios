@@ -34,8 +34,8 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from jarvis.audio.player import AudioPlayer
-from jarvis.core.protocols import AudioChunk
+from dodaios.audio.player import AudioPlayer
+from dodaios.core.protocols import AudioChunk
 
 
 async def _one_chunk(pcm: bytes, sample_rate: int = 24_000) -> AsyncIterator[AudioChunk]:
@@ -70,7 +70,7 @@ async def test_device_rate_cache_remembers_working_rate(monkeypatch) -> None:
     # We don't run real PortAudio — instead spy on cache state by calling
     # _open_output_stream against a sounddevice that raises on the first
     # rate and accepts the second, then again to prove cache-hit shortcut.
-    import jarvis.audio.player as player_mod
+    import dodaios.audio.player as player_mod
 
     open_call_log: list[int] = []
 
@@ -137,7 +137,7 @@ def test_write_samples_logs_warning_on_underflow(monkeypatch, caplog) -> None:
     # 100ms of 24kHz silence, mono int16.
     arr = np.zeros(2400, dtype=np.int16)
 
-    with caplog.at_level(logging.WARNING, logger="jarvis.audio.player"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.audio.player"):
         player._write_samples(stream, arr, source_rate=24000, device_rate=24000)
 
     # Audio is written in ~60 ms sub-blocks (so the jarvis-bar equalizer can
@@ -170,7 +170,7 @@ def test_write_samples_silent_when_no_underflow(monkeypatch, caplog) -> None:
             return False  # no underflow
 
     arr = np.zeros(2400, dtype=np.int16)
-    with caplog.at_level(logging.WARNING, logger="jarvis.audio.player"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.audio.player"):
         player._write_samples(HealthyStream(), arr, source_rate=24000, device_rate=24000)
 
     underflow_logs = [r for r in caplog.records if "underflow" in r.getMessage().lower()]
@@ -183,7 +183,7 @@ def test_open_output_stream_uses_explicit_float_latency(monkeypatch) -> None:
     headsets — too small to absorb inter-sentence pipeline gaps.
     """
     player = _make_player_bare()
-    import jarvis.audio.player as player_mod
+    import dodaios.audio.player as player_mod
 
     captured_kwargs: dict = {}
 

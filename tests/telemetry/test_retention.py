@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.telemetry.retention import (
+from dodaios.telemetry.retention import (
     DEFAULT_RETENTION_DAYS,
     DEFAULT_RETENTION_INTERVAL_SECONDS,
     retention_task,
@@ -165,7 +165,7 @@ async def test_task_continues_on_sweep_error(tmp_path: Path, monkeypatch) -> Non
         raise RuntimeError("simulated")
 
     monkeypatch.setattr(
-        "jarvis.telemetry.retention.sweep_old_blobs", crashing_sweep
+        "dodaios.telemetry.retention.sweep_old_blobs", crashing_sweep
     )
 
     task = asyncio.create_task(

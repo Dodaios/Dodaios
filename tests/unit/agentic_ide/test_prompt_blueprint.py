@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.agentic_ide.prompt_blueprint import (
+from dodaios.agentic_ide.prompt_blueprint import (
     MAX_BODY_CHARS,
     TARGET_MAX_CHARS,
     TARGET_MIN_CHARS,
@@ -23,7 +23,7 @@ from jarvis.agentic_ide.prompt_blueprint import (
     system_prompt,
     user_block,
 )
-from jarvis.agentic_ide.task_kind import (
+from dodaios.agentic_ide.task_kind import (
     KIND_IMPLEMENT,
     KIND_INVESTIGATE,
     KIND_NEUTRAL,
@@ -165,14 +165,14 @@ def test_user_block_carries_the_skeletons_and_the_house_rules():
         terminal_name="Alex",
         agent_display="Claude Code",
         profile_lines=["Folder: /repo", "Git repository on branch main"],
-        candidates=["jarvis/rank.py"],
-        skeletons={"jarvis/rank.py": "def fuse(a, b) -> list: ..."},
+        candidates=["dodaios/rank.py"],
+        skeletons={"dodaios/rank.py": "def fuse(a, b) -> list: ..."},
         house_rules="Tests: pytest tests/",
     )
 
     assert "Alex" in block
     assert "Claude Code" in block
-    assert "jarvis/rank.py" in block
+    assert "dodaios/rank.py" in block
     assert "def fuse(a, b) -> list: ..." in block
     assert "pytest tests/" in block
     assert "tell Alex to check the ranking" in block
@@ -203,10 +203,10 @@ def test_user_block_carries_the_workspace_tree_as_the_file_map():
         terminal_name="T4",
         agent_display="Claude Code",
         profile_lines=["Folder: /repo"],
-        candidates=["jarvis/agentic_ide/prompt_history.py"],
+        candidates=["dodaios/agentic_ide/prompt_history.py"],
         skeletons={},
         house_rules="",
-        tree="jarvis/agentic_ide/  prompt_composer.py  file_index.py  session.py",
+        tree="dodaios/agentic_ide/  prompt_composer.py  file_index.py  session.py",
     )
 
     assert "WORKSPACE TREE" in block

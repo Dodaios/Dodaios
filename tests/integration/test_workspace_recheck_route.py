@@ -12,8 +12,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.clis.spec import CliStatus
-from jarvis.workspace import agents as registry
+from dodaios.clis.spec import CliStatus
+from dodaios.workspace import agents as registry
 
 
 class OneProber:
@@ -33,7 +33,7 @@ class OneProber:
 
 @pytest.fixture
 def client():
-    from jarvis.ui.web import workspace_routes
+    from dodaios.ui.web import workspace_routes
 
     app = FastAPI()
     app.include_router(workspace_routes.router)

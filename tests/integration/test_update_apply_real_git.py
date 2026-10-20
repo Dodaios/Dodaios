@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.ui.web.update_routes as u
-from jarvis.core.branding import DEFAULT_OFFICIAL_REPO_SLUG
+import dodaios.ui.web.update_routes as u
+from dodaios.core.branding import DEFAULT_OFFICIAL_REPO_SLUG
 
 pytestmark = pytest.mark.skipif(
     shutil.which("git") is None, reason="git binary required"
@@ -49,8 +49,8 @@ def _make_upstream_and_install(tmp_path: Path) -> tuple[Path, Path, Path]:
     _git(["clone", str(upstream), str(seed)], tmp_path)
     _git(["config", "user.email", "t@example.com"], seed)
     _git(["config", "user.name", "Tester"], seed)
-    (seed / "jarvis").mkdir()
-    init_py = seed / "jarvis" / "__init__.py"
+    (seed / "dodaios").mkdir()
+    init_py = seed / "dodaios" / "__init__.py"
     init_py.write_text('__version__ = "9.9.9"\n', encoding="utf-8")
     (seed / "requirements.txt").write_text("pkg==1\n", encoding="utf-8")
     _git(["add", "-A"], seed)
@@ -82,7 +82,7 @@ def test_real_apply_fetches_and_pins_without_mutating_live_head(
     _upstream, seed, install = _make_upstream_and_install(tmp_path)
 
     # Publish a new upstream commit B (bumped version).
-    (seed / "jarvis" / "__init__.py").write_text('__version__ = "9.9.10"\n', encoding="utf-8")
+    (seed / "dodaios" / "__init__.py").write_text('__version__ = "9.9.10"\n', encoding="utf-8")
     _git(["add", "-A"], seed)
     _git(["commit", "-m", "B"], seed)
     _git(["tag", "v9.9.10"], seed)
@@ -90,7 +90,7 @@ def test_real_apply_fetches_and_pins_without_mutating_live_head(
     _git(["push", "origin", "v9.9.10"], seed)
 
     # Before: the installed checkout is still on A.
-    assert '9.9.9' in (install / "jarvis" / "__init__.py").read_text(encoding="utf-8")
+    assert '9.9.9' in (install / "dodaios" / "__init__.py").read_text(encoding="utf-8")
 
     monkeypatch.setattr(u, "_repo_root", lambda: install)
     monkeypatch.setattr(u, "_running_version", lambda: "9.9.9")
@@ -107,7 +107,7 @@ def test_real_apply_fetches_and_pins_without_mutating_live_head(
     assert result["restart_required"] is True
     assert result["version"] == "9.9.10"
     # The running checkout stays on A until the old process has exited.
-    assert '9.9.9' in (install / "jarvis" / "__init__.py").read_text(encoding="utf-8")
+    assert '9.9.9' in (install / "dodaios" / "__init__.py").read_text(encoding="utf-8")
     pending = (install / u._PENDING_UPDATE_NAME).read_text(encoding="utf-8")
     assert _git_output(["rev-parse", "HEAD"], install) in pending
     assert _git_output(["rev-parse", "FETCH_HEAD^{commit}"], install) in pending

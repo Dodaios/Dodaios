@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.core import config_writer
-from jarvis.core.config import load_config
+from dodaios.core import config_writer
+from dodaios.core.config import load_config
 
 
 def _seed_toml(tmp_path: Path) -> Path:

@@ -10,7 +10,7 @@ monitor via the G8 hook); "all" still captures the whole virtual desktop.
 """
 from __future__ import annotations
 
-from jarvis.vision.screenshot import cu_capture_strategy
+from dodaios.vision.screenshot import cu_capture_strategy
 
 
 def test_primary_policy_captures_foreground_not_pinned():

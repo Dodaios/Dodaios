@@ -2,14 +2,14 @@
 
 On this machine the npm-installed gemini.cmd/gemini shims are stale temp files,
 so shutil.which misses them. The worker must still find the bundle via the
-robust npm-global probe (jarvis.google_cli.resolver._default_npm_bundle) and
+robust npm-global probe (dodaios.google_cli.resolver._default_npm_bundle) and
 drive `node <bundle>` instead of failing on a bare `gemini`.
 """
 from __future__ import annotations
 
 import shutil
 
-from jarvis.missions.workers.gemini_worker import _resolve_gemini_argv_prefix
+from dodaios.missions.workers.gemini_worker import _resolve_gemini_argv_prefix
 
 
 def test_uses_npm_bundle_when_shims_broken(monkeypatch):

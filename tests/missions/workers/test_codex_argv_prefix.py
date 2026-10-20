@@ -24,7 +24,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from jarvis.missions.workers.codex_direct_worker import (
+from dodaios.missions.workers.codex_direct_worker import (
     _build_codex_direct_cmd,
     _resolve_codex_argv_prefix,
 )
@@ -116,7 +116,7 @@ def test_argv_prefix_falls_back_to_binary_when_node_missing(
     monkeypatch.setattr(shutil, "which", fake_which)
     # Force the robust finder to miss too (no node anywhere on this host),
     # otherwise it would discover the real Node.js install via a well-known dir.
-    from jarvis.missions.workers import codex_direct_worker as cdw
+    from dodaios.missions.workers import codex_direct_worker as cdw
     monkeypatch.setattr(cdw, "resolve_node_executable", lambda: None)
 
     prefix = _resolve_codex_argv_prefix()
@@ -143,7 +143,7 @@ def test_argv_prefix_uses_node_from_wellknown_when_path_broken(
         return None
 
     monkeypatch.setattr(shutil, "which", fake_which)
-    from jarvis.missions.workers import codex_direct_worker as cdw
+    from dodaios.missions.workers import codex_direct_worker as cdw
     monkeypatch.setattr(cdw, "resolve_node_executable", lambda: str(wellknown_node))
 
     prefix = _resolve_codex_argv_prefix()

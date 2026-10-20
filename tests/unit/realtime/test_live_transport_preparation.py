@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.plugins.realtime import _live_transport as transport
+from dodaios.plugins.realtime import _live_transport as transport
 from tests.fakes.fake_subscription_live_wire import FakeSubscriptionLiveWire
 
 
@@ -71,7 +71,7 @@ async def test_warmup_has_no_auth_http_or_socket_activity(provider_module, monke
     import httpx
     from websockets.asyncio import client
 
-    module = importlib.import_module("jarvis.plugins.realtime." + provider_module)
+    module = importlib.import_module("dodaios.plugins.realtime." + provider_module)
     provider = (module.OpenAILiveProvider if provider_module == "openai_live"
                 else module.OpenAISubscriptionLiveProvider)
 
@@ -87,14 +87,14 @@ async def test_warmup_has_no_auth_http_or_socket_activity(provider_module, monke
 
 
 @pytest.mark.parametrize("capability,module_name", [
-    ("client_managed_delegation", "jarvis.live.subscription"),
-    ("native_tool_orchestration", "jarvis.live.native"),
-    ("continuous_conversation", "jarvis.live.session"),
+    ("client_managed_delegation", "dodaios.live.subscription"),
+    ("native_tool_orchestration", "dodaios.live.native"),
+    ("continuous_conversation", "dodaios.live.session"),
 ])
 async def test_only_selected_host_adapter_is_imported_in_worker(
     capability, module_name, monkeypatch,
 ):
-    from jarvis.realtime import factory
+    from dodaios.realtime import factory
 
     owner = threading.get_ident()
     imports = []
@@ -118,7 +118,7 @@ async def test_only_selected_host_adapter_is_imported_in_worker(
 
 
 async def test_disabled_voice_does_not_prepare_host_or_transport(monkeypatch):
-    from jarvis.realtime import factory
+    from dodaios.realtime import factory
 
     def forbidden(*args):
         raise AssertionError("Disabled voice was warmed")
@@ -200,7 +200,7 @@ async def test_subscription_prepares_client_during_credentials_and_reports_phase
 
 
 async def test_original_auth_error_survives_parallel_preparation():
-    from jarvis.live.subscription_auth import SubscriptionAuthError
+    from dodaios.live.subscription_auth import SubscriptionAuthError
 
     wire = FakeSubscriptionLiveWire()
     provider = wire.provider()

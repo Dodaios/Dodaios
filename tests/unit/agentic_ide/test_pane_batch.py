@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import (
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import (
     MAX_PANES_PER_REQUEST,
     Registry,
     SessionError,
@@ -36,7 +36,7 @@ def _isolated_recents(
     ``pytest-of-…`` paths), and the voice path that opens "the most recent
     workspace" then starts coding agents in a deleted temp directory.
     """
-    from jarvis.agentic_ide import recents
+    from dodaios.agentic_ide import recents
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)

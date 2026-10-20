@@ -20,8 +20,8 @@ import asyncio
 
 import pytest
 
-from jarvis.platform import self_input
-from jarvis.trigger.hotkey import SELF_INPUT_SUPPRESSED_EVENTS, HotkeyTrigger
+from dodaios.platform import self_input
+from dodaios.trigger.hotkey import SELF_INPUT_SUPPRESSED_EVENTS, HotkeyTrigger
 
 
 @pytest.fixture(autouse=True)
@@ -162,7 +162,7 @@ def test_the_deny_list_only_names_events_that_start_something() -> None:
 def test_the_posix_actuator_marks_its_own_chord() -> None:
     import types
 
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     seen: list[bool] = []
 
@@ -184,7 +184,7 @@ def test_the_posix_actuator_marks_its_own_chord() -> None:
 
 
 def test_the_posix_actuator_marks_its_own_typing() -> None:
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     seen: list[bool] = []
 
@@ -205,7 +205,7 @@ def test_an_unknown_key_never_leaves_the_window_open() -> None:
     outlived it would deafen the shortcuts for no keystroke at all."""
     import types
 
-    from jarvis.cu.actuate.posix import PosixActuator
+    from dodaios.cu.actuate.posix import PosixActuator
 
     actuator = object.__new__(PosixActuator)
     actuator._keyboard = object()

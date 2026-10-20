@@ -31,12 +31,12 @@ from typing import Any
 
 import pytest
 
-import jarvis.core.config as cfg
-import jarvis.plugins.stt as stt_pkg
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.config import ResolvedEndpoint, STTConfig
-from jarvis.core.protocols import Transcript
-from jarvis.speech.pipeline import SpeechPipeline
+import dodaios.core.config as cfg
+import dodaios.plugins.stt as stt_pkg
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.config import ResolvedEndpoint, STTConfig
+from dodaios.core.protocols import Transcript
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _FakeCloudSTT:
@@ -86,7 +86,7 @@ def _cloud_recognizer(monkeypatch: pytest.MonkeyPatch) -> None:
     already applies to the wake word. The privacy floor is the subject of its
     own section at the end, and those cases set the predicate themselves.
     """
-    from jarvis.dictation import polish_client
+    from dodaios.dictation import polish_client
 
     monkeypatch.setattr(polish_client, "stt_runs_on_device", lambda: False)
 
@@ -236,7 +236,7 @@ def test_the_local_engine_is_not_part_of_this_chain(
     It is key-free, so a credential-derived chain would always end on it — but
     it is absent from a base/headless install and slow without a GPU, so it
     belongs at the END of the caller's own ordering
-    (``jarvis.speech.stt_fallback.alternate_provider_names``), not in the middle
+    (``dodaios.speech.stt_fallback.alternate_provider_names``), not in the middle
     of a credential chain.
     """
     monkeypatch.setattr(cfg, "get_secret_any", _keys("groq_api_key", "openai_api_key"))
@@ -286,7 +286,7 @@ def test_every_chain_entry_can_actually_be_built(
 class _HTTPRefusal(RuntimeError):
     """A provider refusal carrying the status the classifier reads.
 
-    ``.status`` is the shape ``jarvis.plugins.stt.errors.STTHTTPError`` exposes,
+    ``.status`` is the shape ``dodaios.plugins.stt.errors.STTHTTPError`` exposes,
     which is the first thing ``_stt_error_status`` looks for — so this behaves
     like a real provider error without importing one provider's client library
     into a test about provider independence.
@@ -587,7 +587,7 @@ def test_pinning_the_configured_provider_is_not_a_fallback(
 @pytest.fixture()
 def _on_device_recognizer(monkeypatch: pytest.MonkeyPatch) -> None:
     """The configured recognizer transcribes on this machine."""
-    from jarvis.dictation import polish_client
+    from dodaios.dictation import polish_client
 
     monkeypatch.setattr(polish_client, "stt_runs_on_device", lambda: True)
 
@@ -636,7 +636,7 @@ def test_an_unanswerable_recognizer_keeps_the_audio(
     Guessing "cloud" uploads the recording of somebody who picked an on-device
     recognizer to prevent exactly that, and nothing on screen would say so.
     """
-    from jarvis.dictation import polish_client
+    from dodaios.dictation import polish_client
 
     def _unreadable() -> bool:
         raise RuntimeError("config unreadable")
@@ -657,7 +657,7 @@ def test_both_lanes_ask_one_predicate(monkeypatch: pytest.MonkeyPatch) -> None:
     voice lane's answer, which is only true while the voice lane delegates to
     it instead of re-deriving the same thing from ``[stt].provider``.
     """
-    from jarvis.dictation import polish_client
+    from dodaios.dictation import polish_client
 
     monkeypatch.setattr(cfg, "get_secret_any", _keys("groq_api_key", "openai_api_key"))
     stt_cfg = STTConfig(provider="groq-api", fallback="auto")
@@ -706,7 +706,7 @@ def test_the_boot_wrap_does_not_arm_a_cloud_ladder_on_an_on_device_install(
     configured provider). Closing the last-resort crossover while leaving this
     one open would have fixed the smaller half.
     """
-    import jarvis.speech.stt_fallback as stt_fallback
+    import dodaios.speech.stt_fallback as stt_fallback
 
     monkeypatch.setattr(cfg, "get_secret_any", _keys("groq_api_key", "openai_api_key"))
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import MessageSent, ResponseGenerated
-from jarvis.memory import MessageRecorder, RecallStore
+from dodaios.core.bus import EventBus
+from dodaios.core.events import MessageSent, ResponseGenerated
+from dodaios.memory import MessageRecorder, RecallStore
 
 
 @pytest_asyncio.fixture

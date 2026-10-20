@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from jarvis.cli_ctl import paths
+from dodaios.cli_ctl import paths
 
 
 def test_config_and_cache_dirs_are_paths_under_jarvisctl(monkeypatch, tmp_path):

@@ -1,7 +1,7 @@
 """Pytest setup for the web-search skill tests.
 
 The skill lives under the repo-level ``src/`` layout rather than the in-tree
-``jarvis/`` package, so this conftest adds ``<repo>/src`` to ``sys.path`` for
+``dodaios/`` package, so this conftest adds ``<repo>/src`` to ``sys.path`` for
 test collection. It is scoped to ``tests/skills/`` so the surrounding suite
 is unaffected.
 """

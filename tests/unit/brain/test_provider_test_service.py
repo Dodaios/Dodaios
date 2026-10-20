@@ -13,9 +13,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.healthcheck import HealthResult
-from jarvis.brain.provider_test import ProviderTestResult, run_provider_test
-from jarvis.ui.web.provider_spec import get_spec
+from dodaios.brain.healthcheck import HealthResult
+from dodaios.brain.provider_test import ProviderTestResult, run_provider_test
+from dodaios.ui.web.provider_spec import get_spec
 
 
 def _cfg() -> SimpleNamespace:
@@ -71,7 +71,7 @@ def test_brain_probe_uses_tier_default_when_no_model_configured() -> None:
     fresh_cfg = SimpleNamespace(brain=SimpleNamespace(providers={}))
     res = _run(run_provider_test(get_spec("gemini"), fresh_cfg, present=True, brain_probe=probe))
     assert res.status == "ok"
-    from jarvis.brain.manager import get_tier_default_model
+    from dodaios.brain.manager import get_tier_default_model
 
     assert seen == [get_tier_default_model("router", "gemini")]
 
@@ -295,7 +295,7 @@ def test_a_dictation_card_is_refused_instead_of_probed_as_a_recognizer() -> None
     verdict under the card's name. The wording probe itself may not live in
     this layer (AP-11), so the honest answer here is a refusal — never a
     fall-through to a provider this card has nothing to do with."""
-    from jarvis.ui.web.provider_spec import dictation_spec_id
+    from dodaios.ui.web.provider_spec import dictation_spec_id
 
     built = False
 

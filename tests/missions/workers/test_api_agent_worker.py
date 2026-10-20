@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.missions.stream_evidence import extract_write_targets
-from jarvis.missions.workers.api_agent_worker import (
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.missions.stream_evidence import extract_write_targets
+from dodaios.missions.workers.api_agent_worker import (
     ApiAgentWorker,
     supports_api_agent_worker,
 )
@@ -36,7 +36,7 @@ class FakeBrain:
 
 def _patch_brain(monkeypatch: pytest.MonkeyPatch, brain: FakeBrain) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.api_agent_worker._build_brain",
+        "dodaios.missions.workers.api_agent_worker._build_brain",
         lambda provider, model: brain,
     )
 
@@ -51,7 +51,7 @@ async def _drain(worker: ApiAgentWorker, **kw):  # noqa: ANN003
 @pytest.fixture(autouse=True)
 def _reset_family_cooldowns() -> None:
     """The per-family cooldown is a process global — reset around every test."""
-    from jarvis.api_family_quota_state import clear_api_family_cooldown
+    from dodaios.api_family_quota_state import clear_api_family_cooldown
 
     for prov in ("openai", "openrouter", "gemini", "claude-api", "grok"):
         clear_api_family_cooldown(prov)
@@ -118,7 +118,7 @@ async def test_worker_writes_file_and_emits_critic_readable_stream(
 async def test_worker_provider_call_uses_scoped_agent_key(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
 
     observed: list[str | None] = []
 
@@ -140,7 +140,7 @@ async def test_worker_provider_call_uses_scoped_agent_key(
         }.get(key),
     )
     monkeypatch.setattr(
-        "jarvis.missions.workers.api_agent_worker._build_brain",
+        "dodaios.missions.workers.api_agent_worker._build_brain",
         lambda provider, model: _CredentialReadingBrain(),
     )
 
@@ -235,10 +235,10 @@ async def test_quota_depleted_error_arms_family_cooldown(
     (429 RESOURCE_EXHAUSTED) and every retry re-picked gemini. A quota/auth
     provider error must arm the per-family cooldown so the factory's family
     walk skips this family on the retry and reaches the next healthy key."""
-    from jarvis.api_family_quota_state import api_family_in_cooldown
+    from dodaios.api_family_quota_state import api_family_in_cooldown
 
     monkeypatch.setattr(
-        "jarvis.missions.workers.api_agent_worker._build_brain",
+        "dodaios.missions.workers.api_agent_worker._build_brain",
         lambda provider, model: _RaisingBrain(
             RuntimeError(
                 "429 Too Many Requests. Your prepayment credits are depleted. "
@@ -247,7 +247,7 @@ async def test_quota_depleted_error_arms_family_cooldown(
         ),
     )
     monkeypatch.setattr(
-        "jarvis.core.config.get_provider_secret", lambda p: "DEAD-GEMINI-KEY"
+        "dodaios.core.config.get_provider_secret", lambda p: "DEAD-GEMINI-KEY"
     )
     worker = ApiAgentWorker("gemini")
 
@@ -257,7 +257,7 @@ async def test_quota_depleted_error_arms_family_cooldown(
     )
 
     assert events[-1].is_error is True
-    from jarvis.claude_auth_state import credential_fingerprint
+    from dodaios.claude_auth_state import credential_fingerprint
 
     assert (
         api_family_in_cooldown(
@@ -273,10 +273,10 @@ async def test_dead_key_401_arms_family_cooldown(
 ) -> None:
     """Mission 019f3d01: a stale claude-api credential 401'd on every retry.
     An auth error is family-unusable just like a quota error — arm the cooldown."""
-    from jarvis.api_family_quota_state import api_family_in_cooldown
+    from dodaios.api_family_quota_state import api_family_in_cooldown
 
     monkeypatch.setattr(
-        "jarvis.missions.workers.api_agent_worker._build_brain",
+        "dodaios.missions.workers.api_agent_worker._build_brain",
         lambda provider, model: _RaisingBrain(
             RuntimeError(
                 "Error code: 401 - {'type': 'error', 'error': {'type': "
@@ -285,7 +285,7 @@ async def test_dead_key_401_arms_family_cooldown(
         ),
     )
     monkeypatch.setattr(
-        "jarvis.core.config.get_provider_secret", lambda p: "STALE-KEY"
+        "dodaios.core.config.get_provider_secret", lambda p: "STALE-KEY"
     )
     worker = ApiAgentWorker("claude-api")
 
@@ -303,10 +303,10 @@ async def test_plain_worker_error_does_not_arm_cooldown(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """A non-quota, non-auth crash must NOT block the family — the key is fine."""
-    from jarvis.api_family_quota_state import api_family_in_cooldown
+    from dodaios.api_family_quota_state import api_family_in_cooldown
 
     monkeypatch.setattr(
-        "jarvis.missions.workers.api_agent_worker._build_brain",
+        "dodaios.missions.workers.api_agent_worker._build_brain",
         lambda provider, model: _RaisingBrain(RuntimeError("kaboom: flaky socket")),
     )
     worker = ApiAgentWorker("openrouter")
@@ -325,7 +325,7 @@ async def test_success_clears_family_cooldown(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """A successful run proves the key works again — the cooldown must clear."""
-    from jarvis.api_family_quota_state import (
+    from dodaios.api_family_quota_state import (
         api_family_in_cooldown,
         mark_api_family_cooldown,
     )

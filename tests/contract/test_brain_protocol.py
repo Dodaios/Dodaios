@@ -14,7 +14,7 @@ import inspect
 
 import pytest
 
-from jarvis.brain.provider_registry import BrainProviderRegistry
+from dodaios.brain.provider_registry import BrainProviderRegistry
 
 BRAIN_PROVIDERS = [
     "claude-api",

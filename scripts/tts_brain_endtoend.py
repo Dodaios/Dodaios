@@ -21,9 +21,9 @@ async def main(user_text: str) -> int:
         except Exception:
             pass
 
-    from jarvis.audio.player import AudioPlayer
-    from jarvis.brain.factory import build_default_brain
-    from jarvis.plugins.tts.gemini_flash_tts import GeminiFlashTTS
+    from dodaios.audio.player import AudioPlayer
+    from dodaios.brain.factory import build_default_brain
+    from dodaios.plugins.tts.gemini_flash_tts import GeminiFlashTTS
 
     print(f"[1] Starting Brain...")
     brain = build_default_brain()

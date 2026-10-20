@@ -1,7 +1,7 @@
 # tests/unit/cli_ctl/test_render.py
 import json
 
-from jarvis.cli_ctl import render
+from dodaios.cli_ctl import render
 
 
 def test_emit_json_mode_prints_raw_json(capsys):

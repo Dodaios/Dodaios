@@ -24,25 +24,25 @@ You also define when periodic runs happen (default: never — only `SESSION_END`
 ## 3. Files you may touch
 
 Create:
-- `jarvis/memory/wiki/scheduler.py`
-- `jarvis/memory/wiki/lock.py`
+- `dodaios/memory/wiki/scheduler.py`
+- `dodaios/memory/wiki/lock.py`
 - `tests/unit/memory/wiki/test_scheduler.py`
 - `tests/unit/memory/wiki/test_lock.py`
 
 Modify:
-- `jarvis/core/config.py` — add `SchedulerConfig` Pydantic model (see §5 below). Wire it into the existing `WikiIntegrationConfig` (Agent A's model — if it doesn't exist yet in your worktree, see §5 for the plausible-assumption fallback).
-- `jarvis/memory/wiki/__init__.py` — export `CuratorScheduler`, `SchedulerConfig`, `SchedulerResult`, `TriggerSource`, `VaultLock`.
+- `dodaios/core/config.py` — add `SchedulerConfig` Pydantic model (see §5 below). Wire it into the existing `WikiIntegrationConfig` (Agent A's model — if it doesn't exist yet in your worktree, see §5 for the plausible-assumption fallback).
+- `dodaios/memory/wiki/__init__.py` — export `CuratorScheduler`, `SchedulerConfig`, `SchedulerResult`, `TriggerSource`, `VaultLock`.
 
 ## 4. Files you must NOT touch (off-limits)
 
-- `jarvis/memory/wiki/curator.py`, `session_rollup.py`, `atomic_writer.py`, `backup.py`, `vault_index.py`, `log_writer.py`, `page.py`, `prompt.py`, `wikilink.py`, `protocols.py`, `cli.py`, `curator_llm.py` — all of B1+B7 is read-only.
-- `jarvis/memory/wiki/integration.py` — Agent A; you do not call into it, you provide a class it imports later in Wave 2.
-- `jarvis/memory/wiki/search.py`, `jarvis/plugins/tool/wiki_recall.py`, `jarvis/brain/wiki_context.py`, `jarvis/brain/manager.py`, `jarvis/brain/factory.py` — Agent B / Agent C.
-- Anything in `jarvis/speech/`, `jarvis/skills/`, `jarvis/missions/`, `jarvis/audio/`, `jarvis/vision/`, `jarvis/ui/`.
+- `dodaios/memory/wiki/curator.py`, `session_rollup.py`, `atomic_writer.py`, `backup.py`, `vault_index.py`, `log_writer.py`, `page.py`, `prompt.py`, `wikilink.py`, `protocols.py`, `cli.py`, `curator_llm.py` — all of B1+B7 is read-only.
+- `dodaios/memory/wiki/integration.py` — Agent A; you do not call into it, you provide a class it imports later in Wave 2.
+- `dodaios/memory/wiki/search.py`, `dodaios/plugins/tool/wiki_recall.py`, `dodaios/brain/wiki_context.py`, `dodaios/brain/manager.py`, `dodaios/brain/factory.py` — Agent B / Agent C.
+- Anything in `dodaios/speech/`, `dodaios/skills/`, `dodaios/missions/`, `dodaios/audio/`, `dodaios/vision/`, `dodaios/ui/`.
 
 ## 5. Configuration model
 
-Add to `jarvis/core/config.py`:
+Add to `dodaios/core/config.py`:
 
 ```python
 class SchedulerConfig(BaseModel):
@@ -70,7 +70,7 @@ lock_stale_after_seconds = 300
 
 Signatures are locked in overview §3.3. Full implementation contract:
 
-### 6.1 `jarvis/memory/wiki/lock.py`
+### 6.1 `dodaios/memory/wiki/lock.py`
 
 ```python
 from __future__ import annotations
@@ -111,7 +111,7 @@ class VaultLock:
     def __exit__(self, exc_type, exc, tb) -> None: ...
 ```
 
-### 6.2 `jarvis/memory/wiki/scheduler.py`
+### 6.2 `dodaios/memory/wiki/scheduler.py`
 
 ```python
 from __future__ import annotations
@@ -124,9 +124,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from jarvis.core.config import SchedulerConfig
-    from jarvis.memory.wiki.curator import WikiCurator
-    from jarvis.memory.wiki.lock import VaultLock
+    from dodaios.core.config import SchedulerConfig
+    from dodaios.memory.wiki.curator import WikiCurator
+    from dodaios.memory.wiki.lock import VaultLock
 
 log = logging.getLogger(__name__)
 
@@ -179,8 +179,8 @@ class CuratorScheduler:
 
 | What | Where | How |
 |------|-------|-----|
-| `WikiCurator` class | `jarvis/memory/wiki/curator.py` | Construct an instance externally (in factory or in Wave-2 wiring); your scheduler only receives it via constructor injection. |
-| `JarvisConfig.brain.primary` | `jarvis/core/config.py` | Not directly — the curator pulls its own brain provider. You stay out of brain config. |
+| `WikiCurator` class | `dodaios/memory/wiki/curator.py` | Construct an instance externally (in factory or in Wave-2 wiring); your scheduler only receives it via constructor injection. |
+| `JarvisConfig.brain.primary` | `dodaios/core/config.py` | Not directly — the curator pulls its own brain provider. You stay out of brain config. |
 
 ## 8. Anti-patterns specific to your scope
 
@@ -217,9 +217,9 @@ fc /n pre-flight.log post-flight.log
 # Expected: no new FAILED lines
 
 # 4. Lock file genuinely cleaned up after a crash
-python -c "from jarvis.memory.wiki.lock import VaultLock; from pathlib import Path; l = VaultLock(Path('data/test.lock'), stale_after_seconds=2); l.acquire(); print('acquired')"
+python -c "from dodaios.memory.wiki.lock import VaultLock; from pathlib import Path; l = VaultLock(Path('data/test.lock'), stale_after_seconds=2); l.acquire(); print('acquired')"
 Start-Sleep -Seconds 3
-python -c "from jarvis.memory.wiki.lock import VaultLock; from pathlib import Path; l = VaultLock(Path('data/test.lock'), stale_after_seconds=2); print('second acquire:', l.acquire()); l.release()"
+python -c "from dodaios.memory.wiki.lock import VaultLock; from pathlib import Path; l = VaultLock(Path('data/test.lock'), stale_after_seconds=2); print('second acquire:', l.acquire()); l.release()"
 Remove-Item data/test.lock -ErrorAction SilentlyContinue
 # Expected: "acquired" then "second acquire: True" (steals stale lock)
 ```

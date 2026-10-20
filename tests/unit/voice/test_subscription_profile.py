@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.protocols import BrainDelta
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
-from jarvis.voice.subscription_profile import (
+from dodaios.core.protocols import BrainDelta
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
+from dodaios.voice.subscription_profile import (
     CODEX_SUBSCRIPTION_VOICE_PROFILE,
     CodexSubscriptionVoiceBrain,
     configured_voice_profile,
@@ -181,7 +181,7 @@ async def test_registered_action_overrides_a_native_conversation_plan(
             yield "Action completed."
 
     monkeypatch.setattr(
-        "jarvis.voice.subscription_profile.plan_turn",
+        "dodaios.voice.subscription_profile.plan_turn",
         lambda *_args, **_kwargs: SimpleNamespace(
             requires_orchestrator=False,
             reasons=frozenset(),

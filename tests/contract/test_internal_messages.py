@@ -9,20 +9,20 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.runner_api import messages_from_events
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.plugins.tool.message_agent import LeadMessageAgentTool
-from jarvis.society.agent_tools import MessageAgentTool
-from jarvis.society.chat_binding import make_deliver_hook
-from jarvis.society.delivery import IncomingMessage, incoming_context
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.runner_api import messages_from_events
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.plugins.tool.message_agent import LeadMessageAgentTool
+from dodaios.society.agent_tools import MessageAgentTool
+from dodaios.society.chat_binding import make_deliver_hook
+from dodaios.society.delivery import IncomingMessage, incoming_context
+from dodaios.society.runtime import SocietyRuntime
 
 
 @pytest.fixture
 async def world(tmp_path, monkeypatch):
-    import jarvis.agent_chat.service as service_module
+    import dodaios.agent_chat.service as service_module
 
     seen = []
 
@@ -185,7 +185,7 @@ async def test_agent_reply_keeps_conversation_and_cannot_forge_sender(world):
     rt, _, _ = world
     rt.set_deliver(None)
     tool = MessageAgentTool(rt, "scout")
-    from jarvis.society.events import MsgType
+    from dodaios.society.events import MsgType
 
     request = await rt.say(
         from_agent="gmail-agent",
@@ -258,8 +258,8 @@ def test_model_history_reads_delivered_internal_messages_once():
 
 def test_delivery_status_parity():
     root = Path(__file__).resolve().parents[2]
-    schema = (root / "jarvis/society/society_schema.sql").read_text(encoding="utf-8")
-    ts = (root / "jarvis/ui/web/frontend/src/lib/agentChatApi.ts").read_text(encoding="utf-8")
+    schema = (root / "dodaios/society/society_schema.sql").read_text(encoding="utf-8")
+    ts = (root / "dodaios/ui/web/frontend/src/lib/agentChatApi.ts").read_text(encoding="utf-8")
     choices = IncomingMessage.model_fields["status"].annotation.__args__
     assert choices == ("queued", "delivered", "failed")
     assert "CHECK (status IN ('queued', 'delivered', 'failed'))" in schema

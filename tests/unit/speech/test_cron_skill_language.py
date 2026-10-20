@@ -14,8 +14,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.events import AnnouncementRequested
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.events import AnnouncementRequested
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _FakeBrain:
@@ -58,7 +58,7 @@ def _pipe(
 
 
 def _skill():
-    from jarvis.skills.schema import SkillLifecycleState
+    from dodaios.skills.schema import SkillLifecycleState
 
     return SimpleNamespace(
         name="morning-briefing", state=SkillLifecycleState.ACTIVE, frontmatter=None
@@ -89,7 +89,7 @@ async def test_cron_skill_english_conversation_prompts_and_announces_english() -
 @pytest.mark.asyncio
 async def test_cron_skill_result_is_held_for_the_next_call() -> None:
     """A scheduled run never speaks into an idle room (mandate 2026-09-28)."""
-    from jarvis.speech.pipeline import _HELD_FOR_CALL_SOURCES, _READBACK_KINDS
+    from dodaios.speech.pipeline import _HELD_FOR_CALL_SOURCES, _READBACK_KINDS
 
     pipe, _brain, bus = _pipe(reply_language="auto", conversation_language="en")
     await pipe._handle_cron_skill(_skill())

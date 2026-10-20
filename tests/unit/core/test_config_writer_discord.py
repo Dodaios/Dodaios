@@ -9,7 +9,7 @@ import tomllib
 
 import pytest
 
-from jarvis.core.config_writer import (
+from dodaios.core.config_writer import (
     add_discord_allowed_user_id,
     set_discord_enabled,
     set_discord_pairing,

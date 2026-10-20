@@ -1,4 +1,4 @@
-"""Tests for jarvis.brain.model_catalog.
+"""Tests for dodaios.brain.model_catalog.
 
 The model catalog backs the per-provider model picker in the API-Keys view.
 Three concerns:
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain.model_catalog import (
+from dodaios.brain.model_catalog import (
     CATALOG_PROVIDERS,
     PROVIDER_CATALOG,
     CatalogResult,
@@ -694,9 +694,9 @@ class TestListModels:
         assert any("haiku" in i for i in ids)
 
     def test_every_catalog_provider_has_a_curated_family(self) -> None:
-        from jarvis.brain.model_catalog import CURATED_MODELS
+        from dodaios.brain.model_catalog import CURATED_MODELS
 
-        from jarvis.brain.app_control import LOCAL_PROVIDERS
+        from dodaios.brain.app_control import LOCAL_PROVIDERS
 
         for provider in CATALOG_PROVIDERS:
             if provider in LOCAL_PROVIDERS:
@@ -798,32 +798,32 @@ class TestModelClassification:
 class TestRealtimeCatalog:
     def test_removed_codex_subscription_catalog_is_gone(self) -> None:
         """codex-subscription-realtime was removed 2026-08-10 with its adapter."""
-        from jarvis.brain.model_catalog import REALTIME_MODELS, REALTIME_VOICES
+        from dodaios.brain.model_catalog import REALTIME_MODELS, REALTIME_VOICES
 
         assert "codex-subscription-realtime" not in REALTIME_MODELS
         assert "codex-subscription-realtime" not in REALTIME_VOICES
 
     def test_openai_realtime_models_lead_with_the_hardcoded_default(self) -> None:
-        from jarvis.brain.model_catalog import REALTIME_MODELS
+        from dodaios.brain.model_catalog import REALTIME_MODELS
 
         ids = [m.id for m in REALTIME_MODELS["openai-realtime"]]
-        # Matches _MODEL in jarvis/plugins/realtime/openai_realtime.py — the
+        # Matches _MODEL in dodaios/plugins/realtime/openai_realtime.py — the
         # safe default must lead the list.
         assert ids[0] == "gpt-realtime"
         assert len(ids) == len(set(ids))  # no duplicates
         assert all(m.label for m in REALTIME_MODELS["openai-realtime"])
 
     def test_gemini_live_models_lead_with_the_hardcoded_default(self) -> None:
-        from jarvis.brain.model_catalog import REALTIME_MODELS
+        from dodaios.brain.model_catalog import REALTIME_MODELS
 
         ids = [m.id for m in REALTIME_MODELS["gemini-live"]]
-        # Matches _MODEL in jarvis/plugins/realtime/gemini_live.py.
+        # Matches _MODEL in dodaios/plugins/realtime/gemini_live.py.
         assert ids[0] == "gemini-3.1-flash-live-preview"
         assert len(ids) == len(set(ids))
 
     def test_vertex_live_models_lead_with_the_hardcoded_default(self) -> None:
-        from jarvis.brain.model_catalog import REALTIME_MODELS
-        from jarvis.plugins.realtime.gemini_live import VertexLiveProvider
+        from dodaios.brain.model_catalog import REALTIME_MODELS
+        from dodaios.plugins.realtime.gemini_live import VertexLiveProvider
 
         ids = [m.id for m in REALTIME_MODELS["vertex-live"]]
         assert ids[0] == VertexLiveProvider.default_model
@@ -831,7 +831,7 @@ class TestRealtimeCatalog:
         assert len(ids) == len(set(ids))
 
     def test_openai_realtime_voices_match_the_ga_voice_set(self) -> None:
-        from jarvis.brain.model_catalog import REALTIME_VOICES
+        from dodaios.brain.model_catalog import REALTIME_VOICES
 
         ids = [v.id for v in REALTIME_VOICES["openai-realtime"]]
         assert ids == [
@@ -848,7 +848,7 @@ class TestRealtimeCatalog:
         ]
 
     def test_gemini_live_voices_match_the_prebuilt_voice_set(self) -> None:
-        from jarvis.brain.model_catalog import REALTIME_VOICES
+        from dodaios.brain.model_catalog import REALTIME_VOICES
 
         ids = {v.id for v in REALTIME_VOICES["gemini-live"]}
         assert len(ids) == 30
@@ -868,8 +868,8 @@ class TestRealtimeCatalog:
     def test_every_realtime_card_has_a_voice_catalog(self) -> None:
         """BUG-155: vertex-live had no catalog, so the picker was empty and
         every surface-TTS progress line fell through to Charon."""
-        from jarvis.brain.model_catalog import REALTIME_MODELS, REALTIME_VOICES
-        from jarvis.ui.web.provider_spec import PROVIDERS
+        from dodaios.brain.model_catalog import REALTIME_MODELS, REALTIME_VOICES
+        from dodaios.ui.web.provider_spec import PROVIDERS
 
         # Live profiles use /api/live/options, whose account-specific catalog
         # is covered by test_live_profile_catalog rather than this legacy picker.

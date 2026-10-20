@@ -10,16 +10,16 @@ import asyncio
 
 import pytest
 
-from jarvis.brain.mock import MockBrain
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.brain.mock import MockBrain
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     Event,
     MessageSent,
     ResponseGenerated,
     SystemStateChanged,
 )
-from jarvis.state.chat_store import ChatStore
-from jarvis.state.supervisor import Supervisor
+from dodaios.state.chat_store import ChatStore
+from dodaios.state.supervisor import Supervisor
 
 
 @pytest.mark.asyncio

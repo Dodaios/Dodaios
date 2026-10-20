@@ -39,10 +39,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.audio import capture
-from jarvis.core.branding import MACOS_DMG_BUNDLE_ID
-from jarvis.platform import probes
-from jarvis.platform.permissions import (
+from dodaios.audio import capture
+from dodaios.core.branding import MACOS_DMG_BUNDLE_ID
+from dodaios.platform import probes
+from dodaios.platform.permissions import (
     ACCEPTED_BUNDLE_IDS,
     APP_NAME,
     AUTOMATION_TARGETS,
@@ -611,9 +611,9 @@ def test_survives_the_hotkey_backend_factory_choice_per_platform(
     """Windows keeps global-hotkeys, macOS the Quartz tap, Linux pynput, Wayland a no-op."""
     import importlib
 
-    import jarvis.platform as platform_package
-    import jarvis.platform.capabilities as capabilities
-    from jarvis.trigger.backends import make_hotkey_backend
+    import dodaios.platform as platform_package
+    import dodaios.platform.capabilities as capabilities
+    from dodaios.trigger.backends import make_hotkey_backend
 
     # Constructing a backend must not ask the OS anything on any platform.
     port, tcc = make_darwin_port() if platform_name == "darwin" else make_non_darwin_port("linux")
@@ -625,7 +625,7 @@ def test_survives_the_hotkey_backend_factory_choice_per_platform(
 
     backend = make_hotkey_backend()
 
-    module = importlib.import_module(f"jarvis.trigger.backends.{backend_module}")
+    module = importlib.import_module(f"dodaios.trigger.backends.{backend_module}")
     assert type(backend) is getattr(module, backend_class)
     if platform_name == "darwin":
         tcc.assert_no_prompts()

@@ -6,14 +6,14 @@ import contextlib
 
 import pytest
 
-from jarvis.core.protocols import CancelToken
+from dodaios.core.protocols import CancelToken
 from tests.fixtures.control.fake_cancel_token import FakeCancelToken
 
 
 def _get_tokens() -> list[CancelToken]:
     tokens: list[CancelToken] = [FakeCancelToken()]
     with contextlib.suppress(Exception):
-        from jarvis.control.cancel import CancelToken as ProdToken  # type: ignore[attr-defined]
+        from dodaios.control.cancel import CancelToken as ProdToken  # type: ignore[attr-defined]
         tokens.append(ProdToken())
     return tokens
 

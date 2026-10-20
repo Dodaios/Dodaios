@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import jarvis.core.config as cfg
-import jarvis.plugins.stt as stt_pkg
-from jarvis.core.config import ResolvedEndpoint
-from jarvis.ui.web.provider_routes import _active_stt, _active_tts
+import dodaios.core.config as cfg
+import dodaios.plugins.stt as stt_pkg
+from dodaios.core.config import ResolvedEndpoint
+from dodaios.ui.web.provider_routes import _active_stt, _active_tts
 
 
 def _request(stt_provider: str, tts_provider: str):

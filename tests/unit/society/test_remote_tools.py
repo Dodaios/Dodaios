@@ -11,12 +11,12 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.agent_chat.remote_mcp import RemoteMcpBridge, RemoteToolsUnavailable, ScopedMcpApp
-from jarvis.agent_chat.remote_mcp_config import SUPPORTED_RUNNERS, TOKEN_ENV, configure
-from jarvis.agent_chat.tool_context import register_turn, unregister_turn
-from jarvis.computers.remote_os import RemoteHost
-from jarvis.computers.ssh import SshTarget, open_session
-from jarvis.core.protocols import ChatTurn, current_chat_turn
+from dodaios.agent_chat.remote_mcp import RemoteMcpBridge, RemoteToolsUnavailable, ScopedMcpApp
+from dodaios.agent_chat.remote_mcp_config import SUPPORTED_RUNNERS, TOKEN_ENV, configure
+from dodaios.agent_chat.tool_context import register_turn, unregister_turn
+from dodaios.computers.remote_os import RemoteHost
+from dodaios.computers.ssh import SshTarget, open_session
+from dodaios.core.protocols import ChatTurn, current_chat_turn
 from tests.fakes.fake_ssh_server import TEST_PASSWORD, FakeSshServer, FakeSshState
 from tests.unit.society.test_cli_routines import world  # noqa: F401 — reusable world fixture
 
@@ -74,7 +74,7 @@ async def echo(scope, receive, send):
 
 @pytest.fixture
 def scoped_app(active_turn, monkeypatch):
-    monkeypatch.setattr("jarvis.core.control_key.get_control_key", lambda: "fixture-owner-key")
+    monkeypatch.setattr("dodaios.core.control_key.get_control_key", lambda: "fixture-owner-key")
     return ScopedMcpApp(active_turn.session_id, active_turn.turn_id, echo)
 
 
@@ -108,7 +108,7 @@ async def test_stale_or_invalid_capability_is_rejected(scoped_app, active_turn, 
     if state == "expired":
         scoped_app.expires = 0
     if state in {"new-turn", "no-turn"}:
-        from jarvis.agent_chat import tool_context
+        from dodaios.agent_chat import tool_context
 
         tool_context._active.pop(active_turn.session_id)
     context = None
@@ -128,8 +128,8 @@ async def test_stale_or_invalid_capability_is_rejected(scoped_app, active_turn, 
 
 
 async def test_real_reverse_ssh_forward_and_cleanup(connection, active_turn, monkeypatch):
-    monkeypatch.setattr("jarvis.core.control_key.get_control_key", lambda: "fixture-owner-key")
-    monkeypatch.setattr("jarvis.ui.web.mcp_server_routes.build_mcp_asgi_app", lambda: echo)
+    monkeypatch.setattr("dodaios.core.control_key.get_control_key", lambda: "fixture-owner-key")
+    monkeypatch.setattr("dodaios.ui.web.mcp_server_routes.build_mcp_asgi_app", lambda: echo)
     bridge = await RemoteMcpBridge.open(connection.conn, active_turn.session_id)
     try:
         async with httpx.AsyncClient() as c:
@@ -165,7 +165,7 @@ async def test_remote_cli_spawn_mounts_tools_and_reaps_without_caller_wait(
     active_turn,
     monkeypatch,
 ):
-    from jarvis.agent_chat import remote_cli
+    from dodaios.agent_chat import remote_cli
 
     @contextlib.asynccontextmanager
     async def session(_computer):
@@ -175,15 +175,15 @@ async def test_remote_cli_spawn_mounts_tools_and_reaps_without_caller_wait(
         return RemoteHost()
 
     monkeypatch.setattr(
-        "jarvis.computers.service.get_service",
+        "dodaios.computers.service.get_service",
         lambda: SimpleNamespace(
             session=session,
             get=lambda _: SimpleNamespace(name="Test computer", facts=None),
         ),
     )
-    monkeypatch.setattr("jarvis.computers.remote_os.remote_host", host)
-    monkeypatch.setattr("jarvis.core.control_key.get_control_key", lambda: "fixture-owner-key")
-    monkeypatch.setattr("jarvis.ui.web.mcp_server_routes.build_mcp_asgi_app", lambda: echo)
+    monkeypatch.setattr("dodaios.computers.remote_os.remote_host", host)
+    monkeypatch.setattr("dodaios.core.control_key.get_control_key", lambda: "fixture-owner-key")
+    monkeypatch.setattr("dodaios.ui.web.mcp_server_routes.build_mcp_asgi_app", lambda: echo)
 
     async def handler(command, process):
         script = await process.stdin.read() if command.endswith(" -s") else command
@@ -381,19 +381,19 @@ async def test_routine_roundtrip_over_ssh_persists_after_reopen(
     monkeypatch,
     tmp_path,
 ):
-    from jarvis.core.bus import EventBus
-    from jarvis.tasks.scheduler import TaskScheduler
-    from jarvis.tasks.store import TaskStore
-    from jarvis.ui.web import mcp_server_routes as routes
+    from dodaios.core.bus import EventBus
+    from dodaios.tasks.scheduler import TaskScheduler
+    from dodaios.tasks.store import TaskStore
+    from dodaios.ui.web import mcp_server_routes as routes
 
     # Real persistence and scheduler; no runner or scheduling loop is started.
     store = TaskStore(tmp_path / "persistent-tasks.db")
     await store.init()
     scheduler = TaskScheduler(store, EventBus())
     world.rt.task_services = lambda: (store, scheduler)
-    monkeypatch.setattr("jarvis.core.control_key.get_control_key", lambda: "fixture-owner-key")
+    monkeypatch.setattr("dodaios.core.control_key.get_control_key", lambda: "fixture-owner-key")
     monkeypatch.setattr(
-        "jarvis.core.control_key.verify_control_key", lambda key: key == "fixture-owner-key"
+        "dodaios.core.control_key.verify_control_key", lambda key: key == "fixture-owner-key"
     )
     surface = routes._Surface("tools", routes._build_tools_server)
     monkeypatch.setattr(routes, "_TOOLS_SURFACE", surface)
@@ -465,8 +465,8 @@ async def test_routine_roundtrip_over_ssh_persists_after_reopen(
 async def test_expired_request_cannot_borrow_next_turn(world, active_turn):  # noqa: F811
     import mcp.types as types
 
-    from jarvis.agent_chat.tool_context import required_turn_id
-    from jarvis.mcp.jarvis_tools_server import CHAT_SESSION_REF
+    from dodaios.agent_chat.tool_context import required_turn_id
+    from dodaios.mcp.jarvis_tools_server import CHAT_SESSION_REF
 
     entered, release = asyncio.Event(), asyncio.Event()
     original = world.gateway.session_catalog

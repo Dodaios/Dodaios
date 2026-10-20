@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.protocols import Transcript
-from jarvis.plugins.stt import _STT_CROSS_FAMILY_ORDER
-from jarvis.speech.stt_fallback import (
+from dodaios.core.protocols import Transcript
+from dodaios.plugins.stt import _STT_CROSS_FAMILY_ORDER
+from dodaios.speech.stt_fallback import (
     RATE_LIMIT_COOLDOWN_S,
     FallbackSTT,
     alternate_provider_names,
@@ -169,7 +169,7 @@ async def test_a_rate_limited_provider_is_skipped_on_the_next_call():
 
 
 async def test_selected_provider_returns_after_its_emergency_cooldown(monkeypatch):
-    import jarvis.speech.stt_fallback as fallback_mod
+    import dodaios.speech.stt_fallback as fallback_mod
 
     now = 0.0
     monkeypatch.setattr(fallback_mod.time, "monotonic", lambda: now)
@@ -259,7 +259,7 @@ def test_a_single_key_install_is_not_wrapped():
         provider = "groq-api"
 
     provider = FakeSTT(text="x")
-    import jarvis.plugins.stt as stt_mod
+    import dodaios.plugins.stt as stt_mod
 
     original = stt_mod.available_stt_provider_names
     stt_mod.available_stt_provider_names = lambda: ["groq-api"]

@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.journal`` — the Stage-1 candidate store.
+"""Unit tests for ``dodaios.memory.wiki.journal`` — the Stage-1 candidate store.
 
 The journal is the durable append-only queue between the cheap conversation
 extractor (Stage 1) and the body-aware consolidator (Stage 2). It must
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.migration_runner import run_migrations_sync
-from jarvis.memory.wiki.journal import CandidateFact, CandidateJournal
+from dodaios.memory.migration_runner import run_migrations_sync
+from dodaios.memory.wiki.journal import CandidateFact, CandidateJournal
 
 
 @pytest.fixture
@@ -200,7 +200,7 @@ def test_standalone_journal_then_numbered_migrations_is_idempotent(
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 0
         schema = (
             Path(__file__).resolve().parents[4]
-            / "jarvis"
+            / "dodaios"
             / "memory"
             / "schema.sql"
         )
@@ -225,7 +225,7 @@ def test_development_column_excerpt_is_copied_without_migration_collision(
 ) -> None:
     """Preserve data written by the short-lived ALTER-column implementation."""
     db = tmp_path / "development-column.db"
-    migrations = Path(__file__).resolve().parents[4] / "jarvis" / "memory" / "migrations"
+    migrations = Path(__file__).resolve().parents[4] / "dodaios" / "memory" / "migrations"
     conn = sqlite3.connect(db)
     try:
         for name in (
@@ -264,7 +264,7 @@ def test_development_column_excerpt_is_copied_without_migration_collision(
     try:
         schema = (
             Path(__file__).resolve().parents[4]
-            / "jarvis"
+            / "dodaios"
             / "memory"
             / "schema.sql"
         )

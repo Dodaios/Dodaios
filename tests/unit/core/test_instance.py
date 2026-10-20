@@ -1,4 +1,4 @@
-"""The *instance* contract (``jarvis.core.instance``): two desktop apps from one
+"""The *instance* contract (``dodaios.core.instance``): two desktop apps from one
 checkout — the default app and a freely restartable ``dev`` app — must never
 collide on data, ports, lock or OS identity, and the dev app must leave the
 ambient duties (wake word, hotkeys, channels, autostart) to the default one.
@@ -10,15 +10,15 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import instance as inst
-from jarvis.core.branding import (
+from dodaios.core import instance as inst
+from dodaios.core.branding import (
     PRODUCT_NAME,
     WINDOWS_APP_USER_MODEL_ID,
     WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
     WINDOWS_MUTEX_NAME,
     WINDOWS_SHORTCUT_FILE_NAME,
 )
-from jarvis.core.instance_data import SEED_FILES, ensure_instance_data_dir
+from dodaios.core.instance_data import SEED_FILES, ensure_instance_data_dir
 
 # ---------------------------------------------------------------------------
 # Name resolution
@@ -131,7 +131,7 @@ def test_environ_pins_or_clears_the_variable() -> None:
 def test_dev_icons_ship_in_both_icon_homes() -> None:
     # Rendered by scripts/make_app_icon.py; the taskbar/tray/dock resolve them.
     root = Path(inst.__file__).resolve().parents[2]
-    for home in (root / "jarvis" / "assets" / "icons", root / "assets" / "icons"):
+    for home in (root / "dodaios" / "assets" / "icons", root / "assets" / "icons"):
         assert (home / inst.DEV_ICON_FILE_NAME).is_file(), home
         assert (home / "jarvis-dev.png").is_file(), home
 

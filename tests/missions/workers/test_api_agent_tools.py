@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.workers import api_agent_tools as aat
-from jarvis.missions.workers.api_agent_tools import (
+from dodaios.missions.workers import api_agent_tools as aat
+from dodaios.missions.workers.api_agent_tools import (
     WORKER_TOOL_SPECS,
     execute_worker_tool,
     execute_worker_tool_async,
@@ -471,7 +471,7 @@ async def test_windows_noop_job_fails_before_target_start(
         "from pathlib import Path\nPath('started.txt').write_text('bad')\n",
         encoding="utf-8",
     )
-    from jarvis.missions.isolation.job_object import AlwaysOpenJobObject
+    from dodaios.missions.isolation.job_object import AlwaysOpenJobObject
 
     monkeypatch.setattr(
         aat,
@@ -526,7 +526,7 @@ async def test_windows_breakaway_retry_is_contained_or_fails_before_target(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The generic worker retry cannot bypass the strict command gate."""
-    from jarvis.missions.workers import process_utils
+    from dodaios.missions.workers import process_utils
 
     marker = tmp_path / "started.txt"
     (tmp_path / "target.py").write_text(

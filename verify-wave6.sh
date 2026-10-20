@@ -9,7 +9,7 @@
 #       `uv pip compile --universal --generate-hashes` from requirements.in —
 #       any unhashed/mismatched entry fails-closed. Per-OS markers mean this
 #       Linux run installs only the Linux wheels, skipping the win32 ones).
-#   4.  python -c 'import jarvis'   (smoke that the package is importable
+#   4.  python -c 'import dodaios'   (smoke that the package is importable
 #       after the hash-pinned install).
 #   5.  pip install pip-audit       (the audit tool itself does NOT need
 #       a hash pin — it's analysis-only, not runtime code).
@@ -105,7 +105,7 @@ fi
 
 # -----------------------------------------------------------------------
 # Step 4: importable smoke (requires the editable install of jarvis itself
-# so `import jarvis` resolves to the source tree under $REPO_ROOT)
+# so `import dodaios` resolves to the source tree under $REPO_ROOT)
 # -----------------------------------------------------------------------
 # `requirements.txt` carries the deps, NOT the project itself. Install
 # the project with --no-deps so the hash-pinned dep set is not disturbed
@@ -116,9 +116,9 @@ if ! python -m pip install -e "$REPO_ROOT" --no-deps >/dev/null; then
     exit 1
 fi
 
-echo "verify-wave6: python -c 'import jarvis'"
-if ! python -c "import jarvis"; then
-    echo "verify-wave6: FAIL — 'import jarvis' raised after hash-pinned install"
+echo "verify-wave6: python -c 'import dodaios'"
+if ! python -c "import dodaios"; then
+    echo "verify-wave6: FAIL — 'import dodaios' raised after hash-pinned install"
     exit 1
 fi
 

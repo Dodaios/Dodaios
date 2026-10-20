@@ -13,10 +13,10 @@ from pathlib import Path
 import psutil
 import pytest
 
-from jarvis.agent_runtimes import base, openclaw
-from jarvis.agent_runtimes.base import HomeFileLock, RuntimeTurn, RuntimeUnavailable
-from jarvis.agent_runtimes.model_map import ModelRoute
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.agent_runtimes import base, openclaw
+from dodaios.agent_runtimes.base import HomeFileLock, RuntimeTurn, RuntimeUnavailable
+from dodaios.agent_runtimes.model_map import ModelRoute
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 _FAKE = Path(__file__).resolve().parents[2] / "fakes" / "fake_openclaw.py"
 _LAUNCHER = [sys.executable, str(_FAKE)]
@@ -206,7 +206,7 @@ def test_jarvis_prefers_its_own_copy_of_openclaw(tmp_path, monkeypatch):
 
 def test_an_install_outside_path_is_found(tmp_path, monkeypatch):
     """OpenClaw's installers use folders a GUI-launched app does not have on PATH."""
-    import jarvis.core.path_augment as path_augment
+    import dodaios.core.path_augment as path_augment
 
     monkeypatch.setattr(base, "runtimes_root", lambda: tmp_path / "rt")
     monkeypatch.setattr(path_augment, "ensure_cli_paths", lambda: [])
@@ -224,7 +224,7 @@ def test_an_install_outside_path_is_found(tmp_path, monkeypatch):
 def test_moving_the_agent_folders_keeps_the_installed_openclaw(monkeypatch, tmp_path):
     """The e2e spikes keep agent state in a temp dir; they must still find the
     private OpenClaw the app installed (CI 2026-10-07: "not installed")."""
-    from jarvis.agent_runtimes import base, openclaw
+    from dodaios.agent_runtimes import base, openclaw
 
     installed = openclaw.cli_prefix()
     monkeypatch.setattr(base, "runtimes_root", lambda: tmp_path / "agent_runtimes")

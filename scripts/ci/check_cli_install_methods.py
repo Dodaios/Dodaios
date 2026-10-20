@@ -24,9 +24,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-CATALOG = REPO / "jarvis" / "clis" / "catalog" / "seed_catalog.json"
+CATALOG = REPO / "dodaios" / "clis" / "catalog" / "seed_catalog.json"
 
-# Mirrors InstallMethods.available_methods() in jarvis/clis/spec.py. Kept as a
+# Mirrors InstallMethods.available_methods() in dodaios/clis/spec.py. Kept as a
 # plain list so the gate runs without importing the app.
 METHOD_FIELDS: tuple[tuple[str, str], ...] = (
     ("winget", "winget_id"),

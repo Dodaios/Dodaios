@@ -16,8 +16,8 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.core.protocols import HarnessResult, HarnessTask
-from jarvis.harness.base import SubprocessHarness
+from dodaios.core.protocols import HarnessResult, HarnessTask
+from dodaios.harness.base import SubprocessHarness
 
 
 class _SlowFakeHarness(SubprocessHarness):

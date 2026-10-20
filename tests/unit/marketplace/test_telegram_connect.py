@@ -10,9 +10,9 @@ import types
 
 import pytest
 
-from jarvis.marketplace import telegram_connect as tc
-from jarvis.marketplace.catalog import PatPasteAuth, PluginSpec
-from jarvis.ui.web import marketplace_routes as mr
+from dodaios.marketplace import telegram_connect as tc
+from dodaios.marketplace.catalog import PatPasteAuth, PluginSpec
+from dodaios.ui.web import marketplace_routes as mr
 
 
 def _fake_request():

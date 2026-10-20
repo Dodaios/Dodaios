@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from jarvis.voice_engine.turn import log_mel, mel_filters, prepare_window
-from jarvis.voice_engine.vad import FRAME_MS, Endpointer
+from dodaios.voice_engine.turn import log_mel, mel_filters, prepare_window
+from dodaios.voice_engine.vad import FRAME_MS, Endpointer
 
 
 def test_window_keeps_the_end_and_pads_the_beginning() -> None:

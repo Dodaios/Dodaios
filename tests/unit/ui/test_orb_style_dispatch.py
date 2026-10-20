@@ -14,7 +14,7 @@ import tkinter as tk
 import pytest
 
 import ui.orb.overlay as overlay_mod
-from jarvis.ui.overlay_styles import ORB_STYLES
+from dodaios.ui.overlay_styles import ORB_STYLES
 from ui.orb.overlay import MascotRenderer, OrbOverlay, _apply_color_key, _coerce_style
 from ui.orb.voice_orb import VoiceOrbRenderer
 

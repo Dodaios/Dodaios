@@ -1,7 +1,7 @@
 """The Run Inspector reads latency/decision/error events out of voice_events.
 Guards that the recorder whitelist carries those kinds and their payload fields."""
-from jarvis.sessions.recorder import _RAW_EVENT_KINDS, _payload_for
-from jarvis.core.events import (
+from dodaios.sessions.recorder import _RAW_EVENT_KINDS, _payload_for
+from dodaios.core.events import (
     IntentClassified, ActionProposed, ActionApproved, ActionDenied,
     ErrorOccurred, LatencySpan,
 )

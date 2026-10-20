@@ -7,7 +7,7 @@ keyed on "which keys exist") hangs off this one hook instead of each route.
 """
 from __future__ import annotations
 
-from jarvis.core import config as cfg_mod
+from dodaios.core import config as cfg_mod
 
 
 def test_a_changed_slot_reaches_every_listener_and_bumps_the_generation() -> None:
@@ -42,8 +42,8 @@ def test_a_failing_listener_never_fails_the_save() -> None:
 
 def test_the_health_record_forgets_what_the_old_key_did() -> None:
     """The web layer's listener maps the slot to every card that reads it."""
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.ui.web import provider_routes  # noqa: F401 — registers the listener
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.ui.web import provider_routes  # noqa: F401 — registers the listener
 
     record = ledger.get_ledger()
     record.record("groq-api", ledger.MODALITY_STT, "bad_key")

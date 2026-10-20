@@ -12,8 +12,8 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from types import SimpleNamespace
 
-from jarvis.core.config import STTConfig, TriggerConfig
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.config import STTConfig, TriggerConfig
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 @dataclass
@@ -75,7 +75,7 @@ def _bare_pipeline(
         pipe._wake_plan = wake_plan
     # No default pattern ships (design 2026-07-07): the gate always runs on
     # the wake plan's matcher — these tests use the "Hey Jarvis" phrase.
-    from jarvis.speech.wake_phrase import compile_wake_matcher
+    from dodaios.speech.wake_phrase import compile_wake_matcher
 
     pipe._wake_matcher = (
         wake_matcher if wake_matcher is not None else compile_wake_matcher("Hey Jarvis")
@@ -173,7 +173,7 @@ async def test_gate_degrades_open_on_empty_transcript_with_real_audio(monkeypatc
     That is not evidence the user stayed silent, so it must DEGRADE OPEN (accept)
     rather than brick the wake while the STT recovers (AP-22). This is distinct
     from empty PCM (nothing captured yet), which still rejects."""
-    import jarvis.speech.wake_verifier as wv
+    import dodaios.speech.wake_verifier as wv
 
     monkeypatch.setattr(wv, "_WAKE_VERIFY_BACKOFF_S", 0.0, raising=False)
     stt = _FakeSTT("")  # STT returned nothing for genuine captured audio
@@ -187,7 +187,7 @@ async def test_gate_degrades_open_when_stt_persistently_fails(monkeypatch) -> No
     """A persistently failing verify STT (every attempt raises) on a strong OWW
     hit must degrade open, not suppress — the wake survives a provider outage and
     recovers in-app with no restart (AP-22). The empty-PCM reject is unchanged."""
-    import jarvis.speech.wake_verifier as wv
+    import dodaios.speech.wake_verifier as wv
 
     monkeypatch.setattr(wv, "_WAKE_VERIFY_BACKOFF_S", 0.0, raising=False)
     stt = _RaisingSTT(RuntimeError("groq 503"))
@@ -217,7 +217,7 @@ async def test_gate_degrades_open_when_stt_persistently_fails(monkeypatch) -> No
 
 
 def _custom_pipeline(stt: object | None) -> SpeechPipeline:
-    from jarvis.speech.wake_phrase import compile_wake_matcher
+    from dodaios.speech.wake_phrase import compile_wake_matcher
 
     return _bare_pipeline(
         require_hey_prefix=True,
@@ -282,7 +282,7 @@ async def test_gate_custom_model_rejects_empty_transcript(monkeypatch) -> None:
     """The "fires out of nowhere" half of the bug: the model fires on breath /
     noise, the verify STT works fine and hears NO speech. For a custom model an
     empty transcript is evidence of a false fire — suppress, do not degrade open."""
-    import jarvis.speech.wake_verifier as wv
+    import dodaios.speech.wake_verifier as wv
 
     monkeypatch.setattr(wv, "_WAKE_VERIFY_BACKOFF_S", 0.0, raising=False)
     stt = _FakeSTT("")
@@ -309,7 +309,7 @@ async def test_gate_custom_model_fails_closed_on_stt_outage(monkeypatch) -> None
     wake opens needs that same STT anyway (it would be a deaf session), and
     hotkey/orb-click remain as in-app activation paths — so this does not brick
     the wake (AP-22 honoured by honest degradation, not by guessing)."""
-    import jarvis.speech.wake_verifier as wv
+    import dodaios.speech.wake_verifier as wv
 
     monkeypatch.setattr(wv, "_WAKE_VERIFY_BACKOFF_S", 0.0, raising=False)
     stt = _RaisingSTT(RuntimeError("groq 503"))
@@ -332,7 +332,7 @@ async def test_gate_custom_model_fails_closed_on_stt_outage(monkeypatch) -> None
 
 
 def test_optimistic_candidate_shown_for_pretrained_when_idle() -> None:
-    from jarvis.speech.pipeline import PipelineState
+    from dodaios.speech.pipeline import PipelineState
 
     pipe = _bare_pipeline(require_hey_prefix=True, utterance_stt=None)
     pipe._state = PipelineState.IDLE
@@ -340,7 +340,7 @@ def test_optimistic_candidate_shown_for_pretrained_when_idle() -> None:
 
 
 def test_optimistic_candidate_hidden_for_custom_model() -> None:
-    from jarvis.speech.pipeline import PipelineState
+    from dodaios.speech.pipeline import PipelineState
 
     pipe = _custom_pipeline(None)
     pipe._state = PipelineState.IDLE
@@ -348,7 +348,7 @@ def test_optimistic_candidate_hidden_for_custom_model() -> None:
 
 
 def test_optimistic_candidate_hidden_when_not_idle() -> None:
-    from jarvis.speech.pipeline import PipelineState
+    from dodaios.speech.pipeline import PipelineState
 
     pipe = _bare_pipeline(require_hey_prefix=True, utterance_stt=None)
     pipe._state = PipelineState.ACTIVE
@@ -357,7 +357,7 @@ def test_optimistic_candidate_hidden_when_not_idle() -> None:
 
 def test_optimistic_candidate_hidden_for_vosk_kws_when_idle() -> None:
     """Vosk stage-one grammar hits are unverified and frequently match speech."""
-    from jarvis.speech.pipeline import PipelineState
+    from dodaios.speech.pipeline import PipelineState
 
     pipe = _bare_pipeline(
         require_hey_prefix=True,

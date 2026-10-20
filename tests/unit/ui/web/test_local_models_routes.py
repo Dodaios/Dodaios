@@ -17,12 +17,12 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.brain import ollama_inventory, ollama_library, ollama_pull, ollama_runtime
-from jarvis.core import config_writer
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig, OllamaModelOptions
-from jarvis.ui.web import local_models_routes
-from jarvis.ui.web.server import WebServer
+from dodaios.brain import ollama_inventory, ollama_library, ollama_pull, ollama_runtime
+from dodaios.core import config_writer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig, OllamaModelOptions
+from dodaios.ui.web import local_models_routes
+from dodaios.ui.web.server import WebServer
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 ROOT = "http://localhost:11434"
@@ -281,7 +281,7 @@ def test_put_role_writes_through_the_config_writer(server, fake, writes) -> None
 
 def test_put_role_drops_the_memoised_overview(server, fake, writes, monkeypatch) -> None:
     """The row the user just changed must not sit on its old pick for 15 s."""
-    from jarvis.brain import ollama_overview, ollama_runtime
+    from dodaios.brain import ollama_overview, ollama_runtime
 
     ollama_overview._reset_for_tests()
     monkeypatch.setattr(
@@ -400,8 +400,8 @@ def test_options_without_a_bakeable_knob_have_no_alias(server, fake, option_writ
 def test_option_save_and_reset_refresh_the_next_agent_budget(server, option_writes, monkeypatch):
     from types import SimpleNamespace
 
-    from jarvis.agent_runtimes import gateway
-    from jarvis.agent_runtimes.model_limits import ModelLimits
+    from dodaios.agent_runtimes import gateway
+    from dodaios.agent_runtimes.model_limits import ModelLimits
 
     refreshed = []
     server.app.state.brain = SimpleNamespace(reactivate_provider=refreshed.append)
@@ -493,7 +493,7 @@ def test_hf_routes_answer_404_with_a_sentence_while_switched_off(server, fake) -
 
 
 def test_hf_switch_persists_and_opens_the_routes(server, fake, monkeypatch) -> None:
-    from jarvis.brain import hf_gguf
+    from dodaios.brain import hf_gguf
 
     flags: list[bool] = []
     pulls: list[str] = []
@@ -648,7 +648,7 @@ def test_autostart_round_trip(server: WebServer, fake, monkeypatch) -> None:
 def test_verify_runs_the_four_steps_and_refreshes_the_badge(
     server: WebServer, fake, monkeypatch, tmp_path
 ) -> None:
-    from jarvis.local_models import health_monitor
+    from dodaios.local_models import health_monitor
 
     async def _probe(_root: str) -> dict:
         return {"ok": True, "version": "0.32.15", "latency_ms": 7, "detail": ""}
@@ -698,7 +698,7 @@ def test_idle_release_round_trip(server: WebServer, fake, monkeypatch) -> None:
 
 
 def test_roles_carry_the_voice_brains_context(server: WebServer, fake, monkeypatch) -> None:
-    from jarvis.brain import ollama_roles
+    from dodaios.brain import ollama_roles
 
     server.app.state.config.brain.providers["local-realtime"] = BrainProviderConfig(
         launch_command=(

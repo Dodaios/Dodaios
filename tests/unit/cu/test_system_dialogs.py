@@ -11,7 +11,7 @@ import os
 
 import pytest
 
-from jarvis.cu import system_dialogs as sd
+from dodaios.cu import system_dialogs as sd
 
 
 def _window(

@@ -1,6 +1,6 @@
 """Live check: a Hermes / OpenClaw agent through Jarvis' model gateway.
 
-Starts the gateway (``jarvis.ui.web.runtime_gateway_routes``) behind the
+Starts the gateway (``dodaios.ui.web.runtime_gateway_routes``) behind the
 real ``SurfaceSecurity`` guard on a free loopback port, builds the agent's
 route exactly as a chat turn does (``model_map.route_for``), and runs two
 turns of a real runtime through Jarvis' own driver against it. The model
@@ -40,11 +40,11 @@ from agent_runtimes_e2e import (  # noqa: E402
     user_path_snapshot,
 )
 
-from jarvis.agent_runtimes import base, driver, gateway  # noqa: E402
-from jarvis.agent_runtimes.base import RuntimeTurn  # noqa: E402
-from jarvis.agent_runtimes.model_map import prepare_route  # noqa: E402
-from jarvis.core import runtime_refs  # noqa: E402
-from jarvis.core.config import load_config  # noqa: E402
+from dodaios.agent_runtimes import base, driver, gateway  # noqa: E402
+from dodaios.agent_runtimes.base import RuntimeTurn  # noqa: E402
+from dodaios.agent_runtimes.model_map import prepare_route  # noqa: E402
+from dodaios.core import runtime_refs  # noqa: E402
+from dodaios.core.config import load_config  # noqa: E402
 
 
 def _free_port() -> int:
@@ -58,8 +58,8 @@ def _serve(port: int):
     import uvicorn
     from fastapi import FastAPI
 
-    from jarvis.ui.web.runtime_gateway_routes import router
-    from jarvis.ui.web.surface_security import SurfaceSecurity
+    from dodaios.ui.web.runtime_gateway_routes import router
+    from dodaios.ui.web.surface_security import SurfaceSecurity
 
     app = FastAPI()
     app.include_router(router)
@@ -176,9 +176,9 @@ async def main(name: str, provider: str, wanted: str) -> int:
     if provider not in {"ollama", "local-openai", "openai-codex"}:
         raise ValueError("This multi-turn smoke supports local models and subscriptions only.")
     replay = wanted == "--replay"
-    from jarvis.agent_chat import runner_api
-    from jarvis.brain.model_catalog import ModelCatalog
-    from jarvis.costs import ledger
+    from dodaios.agent_chat import runner_api
+    from dodaios.brain.model_catalog import ModelCatalog
+    from dodaios.costs import ledger
 
     previous_client = gateway._client
     previous_ready = gateway.subscription_ready
@@ -254,7 +254,7 @@ async def _turns(name, provider, wanted, workspace, port, *, replay):
     runtime_refs.set_api_base_url(f"http://127.0.0.1:{port}")
     model = await _pick_model(wanted) if provider == "openai-codex" else wanted
     if replay:
-        from jarvis.core.config import BrainProviderConfig, JarvisConfig, OllamaModelOptions
+        from dodaios.core.config import BrainProviderConfig, JarvisConfig, OllamaModelOptions
 
         replay_config = JarvisConfig()
         replay_config.brain.providers["ollama"] = BrainProviderConfig(
@@ -263,7 +263,7 @@ async def _turns(name, provider, wanted, workspace, port, *, replay):
 
         # No catalog lookup to a real server on the Chat Completions replay.
         if provider != "openai-codex":
-            from jarvis.agent_runtimes.model_map import route_for
+            from dodaios.agent_runtimes.model_map import route_for
 
             route = route_for(replay_config, provider, model, agent_id="sub-e2e-agent")
         else:

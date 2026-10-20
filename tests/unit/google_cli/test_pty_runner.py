@@ -9,7 +9,7 @@ No real CLI, PTY, or network is touched — the backend is faked.
 """
 from __future__ import annotations
 
-from jarvis.google_cli.pty_runner import (
+from dodaios.google_cli.pty_runner import (
     PtyRunResult,
     extract_cli_answer,
     repair_agy_path,

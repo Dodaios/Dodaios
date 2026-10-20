@@ -9,7 +9,7 @@ dictation past the provider's per-minute limit, so the segment closes got the
 
 from __future__ import annotations
 
-from jarvis.dictation.preview_budget import (
+from dodaios.dictation.preview_budget import (
     PREVIEW_CALLS_PER_MINUTE,
     PreviewBudget,
     preview_budget,
@@ -30,7 +30,7 @@ def test_remaining_reports_what_is_left():
 
 def test_the_window_rolls(monkeypatch):
     """A minute later the calls are free again — it is a window, not a quota."""
-    import jarvis.dictation.preview_budget as mod
+    import dodaios.dictation.preview_budget as mod
 
     now = [1_000.0]
     monkeypatch.setattr(mod.time, "monotonic", lambda: now[0])

@@ -35,8 +35,8 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
@@ -44,24 +44,24 @@ from jarvis.core.config import (
     SchedulerConfig,
     WikiMemoryConfig,
 )
-from jarvis.core.events import ResponseGenerated, TranscriptFinal
-from jarvis.core.protocols import BrainDelta, BrainRequest, Transcript
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.cleanup import dangling_link_targets
-from jarvis.memory.wiki.consolidator import Consolidator
-from jarvis.memory.wiki.curator import WikiCurator
-from jarvis.memory.wiki.curator_llm import WikiCuratorLLM
-from jarvis.memory.wiki.extractor import ConversationFactExtractor
-from jarvis.memory.wiki.journal import CandidateJournal
-from jarvis.memory.wiki.lock import VaultLock
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.profile import ensure_profile_skeleton
-from jarvis.memory.wiki.scheduler import CuratorScheduler, TriggerSource
-from jarvis.memory.wiki.self_doc import refresh_memory_page
-from jarvis.memory.wiki.telemetry import telemetry
-from jarvis.memory.wiki.vault_index import VaultIndex
-from jarvis.memory.wiki.voice_bridge import VoiceFactBridge
+from dodaios.core.events import ResponseGenerated, TranscriptFinal
+from dodaios.core.protocols import BrainDelta, BrainRequest, Transcript
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.cleanup import dangling_link_targets
+from dodaios.memory.wiki.consolidator import Consolidator
+from dodaios.memory.wiki.curator import WikiCurator
+from dodaios.memory.wiki.curator_llm import WikiCuratorLLM
+from dodaios.memory.wiki.extractor import ConversationFactExtractor
+from dodaios.memory.wiki.journal import CandidateJournal
+from dodaios.memory.wiki.lock import VaultLock
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.profile import ensure_profile_skeleton
+from dodaios.memory.wiki.scheduler import CuratorScheduler, TriggerSource
+from dodaios.memory.wiki.self_doc import refresh_memory_page
+from dodaios.memory.wiki.telemetry import telemetry
+from dodaios.memory.wiki.vault_index import VaultIndex
+from dodaios.memory.wiki.voice_bridge import VoiceFactBridge
 
 # ---------------------------------------------------------------------------
 # Scripted two-role brain

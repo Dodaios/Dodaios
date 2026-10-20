@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.marketplace import catalog_data
-from jarvis.marketplace.catalog_data import clear_cache, load_catalog
+from dodaios.marketplace import catalog_data
+from dodaios.marketplace.catalog_data import clear_cache, load_catalog
 
 
 def test_package_seed_exists_and_is_valid() -> None:
@@ -28,7 +28,7 @@ def test_package_seed_exists_and_is_valid() -> None:
 def test_every_seed_category_is_declared_in_the_display_order() -> None:
     """`category` is a free string so a taxonomy change cannot break a user's
     local catalog on upgrade. This is what still catches a typo in the seed."""
-    from jarvis.marketplace.catalog import CATEGORY_ORDER
+    from dodaios.marketplace.catalog import CATEGORY_ORDER
 
     used = {p.category for p in _seed().plugins}
     assert used <= set(CATEGORY_ORDER), (
@@ -41,13 +41,13 @@ def test_acceptance_labels_match_across_python_typescript_and_the_api() -> None:
     hide or misplace the Preview badge."""
     from typing import get_args
 
-    from jarvis.marketplace.catalog import Acceptance, PluginSpec
+    from dodaios.marketplace.catalog import Acceptance, PluginSpec
 
     labels = set(get_args(Acceptance))
     assert labels == {"verified", "preview"}
     assert PluginSpec.model_fields["acceptance"].default == "preview"
     view = (
-        Path(__file__).resolve().parents[3] / "jarvis/ui/web/frontend/src/views/PluginsView.tsx"
+        Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src/views/PluginsView.tsx"
     ).read_text(encoding="utf-8")
     assert 'type Acceptance = "verified" | "preview";' in view
     assert 'acceptance: p.acceptance ?? "preview"' in view
@@ -202,7 +202,7 @@ def test_slack_scope_upgrade_preserves_custom_auth_and_disk(
     assert slack is not None
     assert slack.native_tool == "slack"
     if custom:
-        from jarvis.marketplace.catalog import PluginCatalog
+        from dodaios.marketplace.catalog import PluginCatalog
 
         expected = PluginCatalog.model_validate(json.loads(content)).by_id("slack")
         assert slack.auth == expected.auth
@@ -512,12 +512,12 @@ def test_unlisted_shopify_manifest_keeps_its_pkce_configuration() -> None:
     # The plugin uses Authorization Code + PKCE loopback against the
     # publisher-shared app, with the RFC 8707 resource indicator the MCP
     # server requires.
-    from jarvis.marketplace.catalog import PluginSpec
+    from dodaios.marketplace.catalog import PluginSpec
 
     assert _seed().by_id("shopify") is None
     manifest_path = (
         Path(__file__).resolve().parents[3]
-        / "jarvis/marketplace/drafts/shopify/plugin.json"
+        / "dodaios/marketplace/drafts/shopify/plugin.json"
     )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     spec = PluginSpec.model_validate({

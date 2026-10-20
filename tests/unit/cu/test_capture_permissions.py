@@ -20,18 +20,18 @@ import pytest
 
 pytest.importorskip("PIL", reason="pillow required for capture tests")
 
-import jarvis.cu.capture as capture_mod
-from jarvis.cu.capture import (
+import dodaios.cu.capture as capture_mod
+from dodaios.cu.capture import (
     capture_stable_frame,
     grab_region,
     grab_visual_probe,
     grabber_for,
 )
-from jarvis.cu.geometry import MonitorInfo
-from jarvis.platform import screen_access, window_capture
-from jarvis.platform.permission_service import PermissionService, get_permission_service
-from jarvis.platform.permissions import PermissionId, PermissionState
-from jarvis.platform.screen_access import ScreenCaptureRefused
+from dodaios.cu.geometry import MonitorInfo
+from dodaios.platform import screen_access, window_capture
+from dodaios.platform.permission_service import PermissionService, get_permission_service
+from dodaios.platform.permissions import PermissionId, PermissionState
+from dodaios.platform.screen_access import ScreenCaptureRefused
 from tests.fakes.fake_permission_service import FakePermissionService
 from tests.fakes.fake_screen_pixels import (
     pixels_grabber,

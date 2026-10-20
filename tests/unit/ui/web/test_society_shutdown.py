@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException, Request
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.society.runtime import SocietyRuntime, SocietyRuntimeClosed, current_runtime
-from jarvis.ui.web.society_routes import list_agents
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.society.runtime import SocietyRuntime, SocietyRuntimeClosed, current_runtime
+from dodaios.ui.web.society_routes import list_agents
 from tests.fakes.fake_society_shutdown import society_shutdown_server
 
 
@@ -158,7 +158,7 @@ async def test_roster_poll_during_remaining_server_cleanup_cannot_restart(tmp_pa
 async def test_shutdown_fences_empty_owner_before_lazy_roster_factory(
     tmp_path, monkeypatch, pause_at
 ):
-    from jarvis.ui.web import mars_routes
+    from dodaios.ui.web import mars_routes
 
     server, _cleaned = society_shutdown_server(None)
     paused = asyncio.Event()
@@ -277,7 +277,7 @@ async def test_cancel_initial_connect_releases_real_sqlite_worker(tmp_path, monk
 
 
 async def test_slow_startup_keeps_owner_until_it_can_release_store(tmp_path, monkeypatch):
-    from jarvis.society import runtime as runtime_module
+    from dodaios.society import runtime as runtime_module
 
     runtime = SocietyRuntime(tmp_path)
     seeded = asyncio.Event()
@@ -323,8 +323,8 @@ import asyncio
 import sys
 from pathlib import Path
 from fastapi import Request
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.ui.web.society_routes import list_agents
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.ui.web.society_routes import list_agents
 from tests.fakes.fake_society_shutdown import society_shutdown_server
 
 async def main():

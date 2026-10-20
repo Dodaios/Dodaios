@@ -30,7 +30,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.local_action_gate import (
+from dodaios.brain.local_action_gate import (
     HARNESS_NAME,
     LocalActionMode,
     match_local_action,
@@ -143,7 +143,7 @@ class _RecordingHarnessExecutor:
 
 
 def _make_manager(executor, bus):
-    from jarvis.brain.manager import BrainManager
+    from dodaios.brain.manager import BrainManager
 
     mgr = BrainManager.__new__(BrainManager)
     mgr._config = SimpleNamespace(
@@ -167,13 +167,13 @@ async def test_repro_phrase_actually_dispatches_and_executes_harness(
     actually dispatch and execute the screenshot harness and announce the
     completion — not merely return an acknowledgement.
     """
-    from jarvis.brain.local_action_gate import (
+    from dodaios.brain.local_action_gate import (
         match_local_action as real_match_local_action,
     )
 
     # Use the REAL routing logic, pinned hermetic (no capability-registry singleton).
     monkeypatch.setattr(
-        "jarvis.brain.manager.match_local_action",
+        "dodaios.brain.manager.match_local_action",
         lambda text, **kwargs: real_match_local_action(
             text, _registry=None, **kwargs
         ),
