@@ -1,66 +1,18 @@
-"""Prompt Mode — a dictation comes out as the prompt the user asked for.
+"""Prompt Mode — a dictation comes out as the message the user meant to type.
 
-What it is
-----------
-The user holds the dictation key and says what they want, in their own words —
-half sentences, false starts, several small tasks in one breath. What lands in
-the field is the finished prompt: what they described, worked up into
-something an AI model can act on, in the language they spoke.
+The user holds the dictation key and says what they want to an AI agent they
+are already talking to; what lands in the input field is that message, written
+in their place and in the language they spoke.
 
-The instruction, and why it is short
-------------------------------------
-This module is one instruction and one worked example. That is a deliberate
-correction of v2-v4, which grew into eleven thousand characters of rules — no
-markdown, no headings, plain paragraphs, keep the register, six of these,
-seven of those — and each rule narrowed what the writer was allowed to
-produce. The maintainer's own reference run is the argument (2026-08-27): he
-said "kannst du mir bitte ein Prompt schreiben" to Gemini, with no rules at
-all, and got back a structured, professional prompt with a role, a workflow
-and quality criteria. That is the output this feature is for, and every rule
-that forbade markdown or headings was forbidding exactly it.
+The system prompt is one paragraph: the job, and the conditions under which the
+answer is discarded. Shape is not guarded (a long brief may become a structured
+prompt with headings); fidelity, damage and level are, deterministically and
+fail-open — a rejected answer delivers the transcript to the ordinary passes,
+so the raw words are never lost. Then two deterministic finishes: typographic
+debris in identifiers is normalised and a courtesy sign-off is cut.
 
-So: say what the job is, show a few runs of it, and let the model write. The
-examples carry what a page of rules used to, because a shown run outweighs a
-written rule — measured on this very prompt, where a rule about language lost
-to an example in the other language.
-
-That cuts both ways, and v6 is the proof. v5's single example was the
-maintainer's run about THIS feature — a transcript asking for a prompt that
-improves the auto-prompt mode, answered with a system prompt for a prompt
-writer. A fast model read the example as the job: a one-line "please make
-sure that does not happen again" came back as a role, a section list and the
-task "Erstelle einen klaren, professionellen Prompt" (2026-08-28). So the
-examples now sit on subjects far from prompt writing, come in three sizes,
-and the instruction says out loud who speaks to whom.
-
-What is guarded and what is not
--------------------------------
-Not guarded: shape. A prompt may be markdown, may carry headings, lists,
-sections and a role line — that is what a good prompt looks like, and v3's
-``markdown`` rejection was this feature refusing its own purpose.
-
-Guarded: fidelity, damage and level. The message must not be empty, must not
-stop mid-sentence, must carry every literal the user spoke and every protected
-spelling, must not collapse to a fraction of what was said, must not assign
-prompt writing the user never asked for, and must not copy a worked example.
-All deterministic, all fail-open — a rejection delivers the transcript to the
-ordinary passes, and the raw words are never lost.
-
-Then two deterministic finishes: typographic debris a fast model leaves in
-identifiers is normalised, and a courtesy sign-off is cut, because what the
-user pastes into a model should end on its last piece of substance.
-
-Where it runs
--------------
-On the polish pass's own chain (:mod:`dodaios.dictation.polish_client`), asking
-for the family's stronger fast model — the one the translate pass uses
-(``gemini-3.7-flash`` on Google, ``gpt-oss-120b`` on Groq and Cerebras,
-``gpt-5.4-mini`` on OpenAI). One call, no scratchpad, no second pass: writing
-a prompt is one job, and a model that is good at it does it in one go.
-
-Ships OFF. It changes WHAT the text says, on purpose, and sends the words to a
-cloud model on most installs (the polish pass's on-device rule still applies:
-a local recognizer keeps the chain local).
+Runs on the polish pass's chain (:mod:`dodaios.dictation.polish_client`) on the
+family's stronger fast model, one call. Ships OFF.
 
 Pure orchestration — the imports that cost anything are inside the function
 (AP-26), so ``import dodaios.dictation.prompt_mode`` is free on the boot path.
@@ -85,53 +37,9 @@ from dodaios.dictation.polish_prompt import (
 log = logging.getLogger(__name__)
 
 #: Bumped whenever the wording below changes in a way that could change model
-#: behaviour, for the same reason ``POLISH_PROMPT_VERSION`` exists: a quality
-#: regression must be attributable to a prompt revision, not a provider.
-#:
-#: v2-v4 are one arc and one mistake. v2 replaced v1's markdown skeleton with
-#: plain text in the spoken language; v3 added the shape of a courteous
-#: request and a closing line of thanks; v4 added a written analysis, a draft
-#: and a read-back, to make the writer spend the 5-7 s the maintainer had
-#: asked for. Each revision answered a real defect and each one added rules,
-#: until the instruction was eleven thousand characters that told a capable
-#: model mostly what it was NOT allowed to write.
-#:
-#: v5 throws that away. The maintainer's reference run settled it
-#: (2026-08-27): a dictation handed to Gemini with no instruction beyond
-#: "write me a prompt" came back as a structured professional prompt — role,
-#: workflow, quality criteria, markdown — which is precisely the output v3's
-#: ``markdown`` guard rejected and v3's rules forbade. So the instruction is
-#: one paragraph and one worked example (that same run), the shape guards are
-#: gone, and the analysis/draft/read-back ceremony is gone with them: it made
-#: the pass slower and dearer to enforce a narrowness nobody wanted.
-#:
-#: What survives from v4 is what was never about shape: the fidelity guards
-#: (a literal the user spoke must be in the prompt, the prompt must not
-#: collapse to a fraction of the transcript) and the sign-off trim.
-#:
-#: v6 fixes the one thing v5's example taught wrong. That example was the
-#: maintainer's run ABOUT this feature: its transcript asked for a prompt to
-#: improve the auto-prompt mode, and its answer was a system prompt for a
-#: prompt writer. Handed a fast model, the example became the job. Measured
-#: live 2026-08-28: "Kannst du bitte auch achten, dass es nicht mehr
-#: vorkommt?" came back as "**Rolle / Systemkontext:** ... Erstelle einen
-#: klaren, professionellen Prompt, der das Modell anweist ..." — the example's
-#: section list, and a prompt whose task is "write a prompt". The user had
-#: asked for a one-line follow-up. So v6 says out loud who speaks to whom
-#: (the message speaks for the user, its task is the user's task, never
-#: "write a prompt"), that a message is as large as its brief, and shows
-#: three runs on subjects that have nothing to do with prompt writing. Two
-#: guards back it in code: ``meta_prompt`` and ``echoed_example``.
-#:
-#: v7 decides when NOT to write. Prompt Mode is on for every dictation, and
-#: the maintainer's next complaint (2026-08-28, same afternoon) was a "yes"
-#: to a question the model had asked coming back as a document, and a real
-#: brief coming back with format rules and placeholder variables he never
-#: spoke. So: a transcript of eight words or fewer never reaches the writer
-#: (``is_short_reply``); the instruction names the answer case and forbids
-#: invented format rules, placeholders and templates; and ``inflated``
-#: rejects a short transcript that grew more than fourfold.
-PROMPT_MODE_PROMPT_VERSION: Final[int] = 7
+#: behaviour (history: git log). v8: one paragraph, no worked examples; the
+#: guards' discard conditions are stated as facts.
+PROMPT_MODE_PROMPT_VERSION: Final[int] = 8
 
 #: The status a successful Prompt Mode delivery reports on the history row.
 #: Lives in ``POLISH_STATUSES`` (the shared vocabulary) — restated here as a
@@ -182,133 +90,6 @@ _SIGN_OFF_SENTENCE_RE: Final[re.Pattern[str]] = re.compile(
     re.IGNORECASE,
 )
 
-# The instruction. Short on purpose — see the module docstring and the version
-# note above. The examples are the specification; everything above them is
-# context for reading them. Their subjects are deliberately far from prompt
-# writing (a settings page, a follow-up, a colour): v5's example was a run
-# ABOUT this feature, and a fast model turned the example into the job.
-_INSTRUCTION: Final[str] = """\
-A user is dictating to Dodaios Voice. Whatever they say is turned automatically \
-into the message they will send to an AI model - usually a coding agent they \
-are already talking to. You write that message in the user's place, and it \
-lands in their input field as if they had typed it.
-
-Below is one transcript. Write the message it is asking for.
-
-WHO SPEAKS TO WHOM. The message speaks for the user and addresses the model \
-that will do the work. Its task is the user's task: if the transcript asks for \
-a bug to be fixed, the message asks the model to fix the bug. It never asks \
-the model to write, create, improve or optimise a prompt - that is your job, \
-and it is done when you hand the message over. A message whose task is "write \
-a prompt" is the one wrong answer this job has.
-
-WHAT GOES IN. Take what they said as the brief: their goal, the context and \
-constraints they stated, every separate task they mentioned. Everything comes \
-from the transcript - a file, name, number, quoted string or error message \
-they said goes in exactly as spoken, one they did not say does not exist, and \
-a gap they left is left open rather than guessed at or filled with a \
-placeholder. "Das", "es", "the thing from before": the user is in a \
-conversation the model can see, so the reference stays a reference and is \
-never replaced by an invented noun. No format rules the user did not state \
-(no "answer as markdown", no table with columns they never named), no \
-placeholder variables, no report template: they asked for work, not for a \
-form. Drop the filler sounds, the false starts and the self-corrections; keep \
-the corrected version.
-
-HOW MUCH. The message is as large as its brief. A long dictation with several \
-tasks, constraints and a wanted outcome becomes a structured prompt - a role \
-and system context, the tasks in order, the guardrails, the expected result, \
-with headings, lists, markdown, sections wherever they serve it. A short \
-remark or follow-up ("thanks, please make sure that does not happen again") \
-becomes one or two clear sentences and nothing more: no role, no sections, no \
-criteria the user did not state. Be concrete rather than adjectival: "a \
-markdown table with the columns X, Y, Z", never "make it good".
-
-WHEN IT IS AN ANSWER. The model often asks the user something ("shall I \
-finish this now?", "which of the two?") and the user dictates the reply: \
-"yes", "no, leave it", "okay, go ahead, but skip the tests". That is not a \
-brief and gets no prompt: the message is the answer itself, tidied, in one \
-or two sentences, with every condition the user attached and nothing added. \
-Never a role, never a heading, never a task list for a "yes".
-
-WRITE IT IN THE LANGUAGE THE USER SPOKE. These instructions are in English \
-and that says nothing about your answer: a German transcript gets a German \
-message, a Spanish one a Spanish message, and that includes the headings and \
-the section names, not just the sentences between them. A transcript that \
-mixes languages keeps the mix.
-
-Put the message, and nothing else, between <prompt> and </prompt>. No \
-introduction of your own in front of it, no comment after it, and no closing \
-line of thanks - it ends on its last piece of substance.
-
-Three runs of this job follow, each from a dictated transcript to the message \
-written for it. They show the shape and the size. Their subjects have nothing \
-to do with the transcript you will get, so nothing from them is reused.\
-"""
-
-# The worked examples, as data: the instruction is rendered from them and the
-# ``echoed_example`` guard reads the same strings, so an answer that copies an
-# example instead of writing from the transcript is caught against exactly
-# what the model was shown. Three sizes on purpose - a long brief with a file
-# name, a number and a constraint; a one-line German follow-up; a one-line
-# English aside - because "as large as its brief" is the rule a fast model
-# most reliably learns from seeing rather than reading.
-_EXAMPLES: Final[tuple[tuple[str, str], ...]] = (
-    (
-        "Ähm, hallo, kannst du dir bitte mal die Einstellungsseite anschauen, "
-        "also die Seite Diktat, da ist der Schalter für, ähm, für die Sprache, "
-        "nein, für die Übersetzung, der speichert nicht. Ich schalte den an, "
-        "gehe raus, komme wieder rein und er ist wieder aus. Ich glaube das "
-        "liegt in der settings_view.tsx oder wie die heißt. Und wenn du schon "
-        "dabei bist, die Ladezeit von der Seite ist mit über 3 Sekunden viel "
-        "zu lang, das war früher unter einer Sekunde. Bitte erst analysieren, "
-        "dann fixen, und schreib mir am Ende kurz, was die Ursache war. Und "
-        "bitte keine anderen Dateien anfassen.",
-        "## Rolle\n"
-        "Du bist ein erfahrener Frontend-Entwickler und arbeitest in diesem "
-        "Repository.\n"
-        "\n"
-        "## Aufgabe\n"
-        'Zwei Probleme auf der Einstellungsseite "Diktat", in dieser '
-        "Reihenfolge:\n"
-        "\n"
-        "1. **Der Übersetzungs-Schalter speichert nicht.** Er wird "
-        "eingeschaltet; nach dem Verlassen und erneuten Öffnen der Seite "
-        "steht er wieder auf aus. Vermutete Stelle: `settings_view.tsx` (der "
-        "Dateiname ist aus dem Gedächtnis, bitte prüfen).\n"
-        "2. **Die Seite lädt zu langsam.** Aktuell über 3 Sekunden, früher "
-        "unter einer Sekunde. Finde heraus, was die Zeit kostet, und bring sie "
-        "wieder unter eine Sekunde.\n"
-        "\n"
-        "## Vorgehen\n"
-        "- Erst analysieren und die Ursache benennen, dann fixen.\n"
-        "- Nur die Dateien anfassen, die für diese beiden Punkte nötig sind - "
-        "keine weiteren Änderungen.\n"
-        "\n"
-        "## Ergebnis\n"
-        "Am Ende eine kurze Zusammenfassung: Was war jeweils die Ursache, was "
-        "wurde geändert.",
-    ),
-    (
-        "Okay super, danke dir. Kannst du bitte drauf achten, dass das nicht nochmal passiert?",
-        "Gut, danke. Bitte sorge dafür, dass genau das nicht noch einmal vorkommt.",
-    ),
-    (
-        "um yeah and can you also make the, the error message red, like the "
-        "other ones, and that's it",
-        "Also make that error message red, matching the other error messages. Nothing else.",
-    ),
-)
-
-
-def _render_examples() -> str:
-    return "\n\n".join(
-        f'Transcript: "{transcript}"\nAnswer:\n<prompt>\n{answer}\n</prompt>'
-        for transcript, answer in _EXAMPLES
-    )
-
-
-_SYSTEM_PROMPT: Final[str] = f"{_INSTRUCTION}\n\n{_render_examples()}"
 
 # Typographic debris a fast model writes into identifiers and paths. Measured
 # live 2026-08-27: gpt-oss on the fast chain joined "Jarvis‑Bar" and
@@ -394,6 +175,21 @@ _INFLATION_FACTOR: Final[float] = 4.0
 _INFLATION_FLOOR_WORDS: Final[int] = 60
 
 
+# Rendered from the same constants the ``inflated`` and ``dropped_context``
+# guards enforce, so the prompt and the guard cannot drift apart.
+_SYSTEM_PROMPT: Final[str] = (
+    "The user is dictating to an AI agent they are already talking to, usually a "
+    "coding agent. Write the message they mean, in their place and in the language "
+    "they spoke; it is pasted into that agent's input field as if typed. The agent "
+    'sees the conversation, so a reference like "that" stays a reference. The '
+    "answer is discarded if it drops an identifier, number or quoted string from "
+    "the transcript, asks for a prompt to be written when the user never said "
+    f'"prompt", or grows a transcript under {_MIN_MEASURED_WORDS} words past '
+    f"{_INFLATION_FACTOR:g} times its length. Return the message between <prompt> "
+    "and </prompt>."
+)
+
+
 def is_short_reply(raw: str) -> bool:
     """True when *raw* is too short to want a prompt written for it."""
     return len(_WORD_RE.findall(str(raw or ""))) <= _MAX_REPLY_WORDS
@@ -415,10 +211,8 @@ def looks_inflated(raw: str, prompt: str) -> bool:
 
 # --- Level guards ------------------------------------------------------------
 #
-# The failure v6 answers is not a lost literal but a wrong LEVEL: the writer
-# delivered a prompt whose task is "write a prompt", or reproduced the worked
-# example instead of writing from the transcript. Both are deterministic to
-# spot and both fail open like the rest.
+# A wrong LEVEL: the writer delivered a message whose task is "write a
+# prompt". Deterministic to spot, fails open like the rest.
 
 # A task verb followed, within one clause, by the word "prompt" - in the two
 # languages the writer is most often asked to write. "Erstelle einen klaren,
@@ -439,35 +233,6 @@ _META_PROMPT_RE: Final[re.Pattern[str]] = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-#: A run of this many words copied verbatim from a worked example is an echo,
-#: never a coincidence: the examples' subjects are chosen to be far from
-#: anything the user dictates. Measured in 6-word shingles, three of which is
-#: an 8-word run - long enough that a stock phrase both a user and an example
-#: happen to use ("erst analysieren, dann fixen") stays under it.
-_ECHO_SHINGLE_WORDS: Final[int] = 6
-_ECHO_MIN_SHINGLES: Final[int] = 3
-
-
-def _shingles(text: str) -> set[tuple[str, ...]]:
-    words = [w.casefold() for w in _WORD_RE.findall(str(text or ""))]
-    n = _ECHO_SHINGLE_WORDS
-    return {tuple(words[i : i + n]) for i in range(len(words) - n + 1)}
-
-
-#: Only the long, structured answers are echo material. A one-line example
-#: ("Bitte sorge dafür, dass genau das nicht noch einmal vorkommt.") is a
-#: sentence any honest answer to a similar follow-up might also be, and
-#: rejecting that would punish the writer for learning the size rule.
-_ECHO_MIN_EXAMPLE_WORDS: Final[int] = 30
-_EXAMPLE_SHINGLES: Final[set[tuple[str, ...]]] = set().union(
-    *(
-        _shingles(answer)
-        for _, answer in _EXAMPLES
-        if len(_WORD_RE.findall(answer)) >= _ECHO_MIN_EXAMPLE_WORDS
-    )
-)
-
-
 def asks_for_a_prompt(raw: str, prompt: str) -> bool:
     """True when *prompt* tells its reader to write a prompt the user never asked for.
 
@@ -481,20 +246,6 @@ def asks_for_a_prompt(raw: str, prompt: str) -> bool:
     if "prompt" in str(raw or "").casefold():
         return False
     return bool(_META_PROMPT_RE.search(str(prompt or "")))
-
-
-def echoes_example(raw: str, prompt: str) -> bool:
-    """True when *prompt* reproduces a worked example instead of the transcript.
-
-    Counts the 6-word runs *prompt* shares with the examples' answers and the
-    transcript does not contain itself; three of them (an 8-word verbatim
-    run) is the writer copying what it was shown. Words only, case-folded, so
-    punctuation and markdown play no part.
-    """
-    shared = _shingles(prompt) & _EXAMPLE_SHINGLES
-    if len(shared) < _ECHO_MIN_SHINGLES:
-        return False
-    return len(shared - _shingles(raw)) >= _ECHO_MIN_SHINGLES
 
 
 # --- The switch, and the pause on top of it ---------------------------------
@@ -709,8 +460,6 @@ def prompt_guard_reason(raw: str, prompt: str, *, protected: Sequence[str] = ())
     * ``meta_prompt`` — the message tells its reader to write a prompt, and
       the user never said the word. The writer answered on the wrong level:
       it wrote its own job description instead of the user's message.
-    * ``echoed_example`` — an 8-word run copied from a worked example. The
-      writer reproduced what it was shown instead of what it was given.
     * ``lost_protected_term`` — a spelling the user protected was in the
       transcript and is not in the prompt. The dictionary exists because the
       recognizer gets these wrong; a writer that drops one has undone that.
@@ -731,8 +480,6 @@ def prompt_guard_reason(raw: str, prompt: str, *, protected: Sequence[str] = ())
         return "truncated"
     if asks_for_a_prompt(raw, body):
         return "meta_prompt"
-    if echoes_example(raw, body):
-        return "echoed_example"
     source = (raw or "").casefold()
     target = body.casefold()
     for term in protected or ():
@@ -938,7 +685,6 @@ __all__ = [
     "asks_for_a_prompt",
     "build_prompt_mode_prompt",
     "compose_prompt",
-    "echoes_example",
     "ends_with_sign_off",
     "extract_prompt_block",
     "is_short_reply",

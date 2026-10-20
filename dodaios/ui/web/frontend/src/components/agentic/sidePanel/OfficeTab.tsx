@@ -3,9 +3,9 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 import { translate, useLocaleChunk } from "@/i18n";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 
-// The office is a WebGL scene with its own chunk: nothing of it loads until
+// The ship is a WebGL scene with its own chunk: nothing of it loads until
 // someone opens this tab.
-const OfficeStage = lazy(() => import("@/components/society/office/OfficeStage").then((m) => ({ default: m.OfficeStage })));
+const VerseStage = lazy(() => import("@/components/society/verse/VerseStage").then((m) => ({ default: m.VerseStage })));
 
 /** Keeps a failed scene inside the tab instead of taking the IDE down with it. */
 class OfficeTabBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -39,11 +39,11 @@ class OfficeTabBoundary extends Component<{ children: ReactNode }, { failed: boo
 }
 
 /**
- * The coding floor of the agent office, inside the IDE's side panel.
+ * The ship's engineering deck, inside the IDE's side panel.
  *
- * Every running coding-agent pane walks around here; a click on a monitor
- * focuses that pane in the grid next to it. The office's "open the ledger"
- * action has no ledger in the IDE, so it brings the Agents tab forward.
+ * Every running coding-agent pane is a technician at a terminal here; its
+ * record opens that pane in the grid next to it. The ship's "open the crew
+ * list" action has no list in the IDE, so it brings the Agents tab forward.
  */
 export function OfficeTab() {
   const ready = useLocaleChunk("society");
@@ -53,7 +53,7 @@ export function OfficeTab() {
       <OfficeTabBoundary>
         {ready && (
           <Suspense fallback={<div className="h-full w-full animate-pulse bg-secondary" aria-hidden />}>
-            <OfficeStage initialFloor="coding" compact onOpenLedger={() => openTab("agents")} />
+            <VerseStage initialDeck="engineering" compact onOpenLedger={() => openTab("agents")} />
           </Suspense>
         )}
       </OfficeTabBoundary>

@@ -41,7 +41,7 @@ agent's own seat.
 > in the current tree; a history reconciliation merge removed it. Society
 > agents learn through their `USER.md`/`MEMORY.md` notebooks and the turn
 > review in `dodaios/society/review.py`. Jarvis' own learning is
-> `docs/jarvis-learning.md`.
+> `docs/dodaios-learning.md`.
 >
 > **Seat rule (2026-09-30):** an agent's turn review and skill learning run
 > on exactly that agent's seat — the provider, model and auth mode its chat

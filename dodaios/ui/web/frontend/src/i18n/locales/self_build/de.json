@@ -1,0 +1,139 @@
+{
+  "self_build": {
+    "title": "Für dich gebaut",
+    "subtitle": "Was {name} von sich aus gebaut hat, warum, und wie du es zurücknimmst.",
+    "loading": "Bauten werden geladen…",
+    "status": {
+      "running": "Baut von sich aus",
+      "paused": "Pausiert",
+      "silent": "Macht nur Notizen",
+      "off": "Aus"
+    },
+    "pause": "Bauen pausieren",
+    "resume": "Bauen fortsetzen",
+    "pause_hint": "Hört auf zu bemerken, zu bauen und Proben abzuschließen. Alles bisher Gebaute bleibt, wie es ist.",
+    "settings": "Einstellungen",
+    "stop_all": "Alle Agenten stoppen",
+    "stop_all_hint": "Stoppt sofort jeden laufenden Agenten, jede Mission und Routine und pausiert das Bauen.",
+    "stop_confirm_title": "Jetzt alle Agenten stoppen?",
+    "stop_confirm_body": "Laufende Chats, Missionen und Routinen stoppen sofort, und das Bauen pausiert ebenfalls. Nichts wird gelöscht.",
+    "cancel": "Abbrechen",
+    "notes": {
+      "paused": "Das Bauen ist pausiert. Nichts wird bemerkt, gebaut oder abgeschlossen, bis du fortsetzt.",
+      "silent": "Die ersten Tage sind ruhig: {name} notiert, was du wiederholst, und baut noch nichts.",
+      "off": "Selbstbau ist aus. Nichts wird bemerkt oder gebaut.",
+      "stopped": "Alle Agenten sind gestoppt. Routinen und Missionen bleiben angehalten, bis du sie freigibst.",
+      "release": "Freigeben",
+      "turn_on": "Einstellungen öffnen"
+    },
+    "digest": {
+      "label": "Seit gestern",
+      "built": "{count} gebaut",
+      "proposed": "{count} vorgeschlagen",
+      "kept": "{count} behalten",
+      "archived": "{count} archiviert",
+      "undone": "{count} rückgängig gemacht",
+      "live": "{count} gerade live",
+      "nothing": "Nichts Neues."
+    },
+    "shelf": {
+      "waiting": "Wartet auf dich",
+      "waiting_hint": "Nichts wird gebaut, bevor du Ja sagst.",
+      "trial": "Auf Probe",
+      "trial_hint": "Live und gekennzeichnet. Rückgängig entfernt es vollständig.",
+      "working": "Wird gebaut",
+      "working_hint": "Wird geprüft, bevor es live geht.",
+      "kept": "Behalten",
+      "kept_hint": "Hat sich bewährt. Weiter rückgängig zu machen.",
+      "past": "Archiviert und rückgängig gemacht",
+      "past_hint": "Archivierte Bauten lassen sich wiederherstellen."
+    },
+    "show_past": "{count} anzeigen",
+    "hide_past": "Ausblenden",
+    "kind": {
+      "memory": "Erinnerung",
+      "skill": "Skill",
+      "routine": "Routine",
+      "agent": "Agent",
+      "code": "Code-Änderung"
+    },
+    "state": {
+      "proposed": "Vorgeschlagen",
+      "building": "Wird gebaut",
+      "proving": "Wird geprüft",
+      "trial": "Auf Probe",
+      "kept": "Behalten",
+      "archived": "Archiviert",
+      "undone": "Rückgängig gemacht",
+      "rejected": "Abgelehnt",
+      "failed": "Fehlgeschlagen"
+    },
+    "step": {
+      "proposed": "Bemerkt",
+      "building": "Gebaut",
+      "proving": "Geprüft",
+      "trial": "Probe",
+      "kept": "Behalten"
+    },
+    "seen": "{count}× gesehen",
+    "trial_progress": "Tag {days} von {dayLimit} · {uses} von {useLimit} Nutzungen",
+    "action": {
+      "accept": "Bauen",
+      "reject": "Nicht das",
+      "keep": "Behalten",
+      "restore": "Wiederherstellen",
+      "undo": "Rückgängig"
+    },
+    "no_builder": "{name} kann diese Art noch nicht bauen. Es bleibt ein Vorschlag.",
+    "detail": {
+      "select": "Wähle einen Bau, um zu sehen, warum es ihn gibt, wie er geprüft wurde und was er gekostet hat.",
+      "close": "Schließen",
+      "why": "Warum",
+      "noticed": "Was es bemerkt hat",
+      "noticed_empty": "Keine Belege aufgezeichnet.",
+      "proof": "Wie es geprüft wurde",
+      "proof_passed": "Bestanden",
+      "proof_failed": "Nicht bestanden",
+      "proof_none": "Noch nicht geprüft.",
+      "made": "Was es gebaut hat",
+      "made_none": "Es existiert noch nichts.",
+      "open_link": "Öffnen",
+      "open_thread": "Coding-Thread öffnen",
+      "open_thread_title": "Jeden Schritt des Coding-Agents in der Agentic IDE nachlesen",
+      "use": "Nutzung",
+      "uses": "{count} Nutzungen",
+      "unused": "Noch nicht genutzt.",
+      "cost": "Kosten",
+      "cost_none": "Nichts berechnet",
+      "tokens": "{count} Tokens",
+      "history": "Verlauf",
+      "note": "Notiz",
+      "opened": "eröffnet",
+      "code_branch": "Branch",
+      "code_pr": "Pull Request",
+      "code_draft": "Entwurfs-Pull-Request"
+    },
+    "outcome": {
+      "used": "genutzt",
+      "accepted": "unverändert übernommen",
+      "corrected": "korrigiert",
+      "ignored": "ignoriert"
+    },
+    "empty": {
+      "title": "Noch nichts gebaut",
+      "body": "{name} achtet auf Dinge, die du immer wieder von Hand tust. Wiederholt sich etwas, baut es das Kleinste, das es dir abnimmt, prüft es und lässt es dich ausprobieren, mit Rückgängig per Klick.",
+      "loop": {
+        "notice": "Bemerken",
+        "decide": "Entscheiden",
+        "build": "Bauen",
+        "check": "Prüfen",
+        "trial": "Probe",
+        "keep": "Behalten"
+      }
+    },
+    "error": {
+      "unavailable": "Das Bau-Register läuft nicht. Starte die App neu, um es zu öffnen.",
+      "action": "Das hat nicht geklappt: {detail}"
+    }
+  }
+}

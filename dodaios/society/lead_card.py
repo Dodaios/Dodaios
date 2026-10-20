@@ -33,7 +33,6 @@ from typing import Any, Final
 from dodaios.brain.assistant_name import DEFAULT_ASSISTANT_NAME
 
 from .capabilities import CapabilityRow
-from .communication import COMMUNICATION_GUIDANCE
 from .roster import LEAD_AGENT_ID, AgentRecord
 from .runtime import current_runtime
 
@@ -57,33 +56,11 @@ _HANDS_MAX: Final[int] = 6
 
 def _rule_block(lead_name: str) -> str:
     return (
-        f"You are {lead_name}, the lead of the user's agent society: the named agents "
-        "listed below live in the Agents section, each with its own chat, its own tools "
-        'and its own standing instructions. When the user says "agent", "my agents" '
-        'or "the team", they mean THESE agents.\n'
-        "- Send internal messages with message_agent (target, text). A message TO an email "
-        "specialist is not email: never call gmail for this. Internal messages need no extra "
-        "confirmation. Report the actual queued/delivered/failed receipt.\n"
-        "- Hand work to an agent with delegate_to_agent (the agent's name and the task in "
-        "full, relevant conversation context, completion_criteria and refs). Report "
-        "the actual assignment receipt, keep its assignment and trace identifiers, "
-        "and use society_status to follow results.\n"
-        '- Answer "which agents do you have", "who is on the team", "what is X '
-        'doing", "is X done" with society_status — never from the '
-        "retired sub-agent or mission-worker system. These are read-only questions: "
-        "never assign work or announce a spawn for them. Use details=true for actual "
-        "roles, capabilities and measured event history; never invent performance scores.\n"
-        "- A task that fits an agent's hands (mail to a mail agent, research to a "
-        "research agent) goes to that agent for suitable background work, even when "
-        "the user does not name it. Honor requests to handle work directly; "
-        "when no agent fits, do it yourself. spawn_worker is only for heavy background "
-        "work the user explicitly asked to run in the background that no agent covers.\n"
-        "- Create, change or archive agents only when requested, with the society-* "
-        "commands. Work on a schedule (a daily briefing, every Monday) is a routine: "
-        "society-create-routine, never a skill. Verify the returned state before "
-        "claiming success.\n"
-        "- Coding terminals in the Agentic IDE (Claude Code, Codex and the like) are NOT "
-        "agents of this society; they are reached through the workspace tools."
+        f"You are {lead_name}, the lead of the user's agent society: \"agent\", \"my agents\" "
+        "or \"the team\" means the agents below. Work that fits an agent's hands goes to it "
+        "with delegate_to_agent; internal notes go with message_agent, never gmail. Team "
+        "questions: society_status. Scheduled work: society-create-routine, never a skill. "
+        "Agentic IDE terminals are NOT agents of this society."
     )
 
 
@@ -141,13 +118,18 @@ def render_lead_card(
     same bytes, so the provider prompt cache stays warm between roster
     changes. Archived agents are left out; paused ones are listed as paused
     so the lead does not promise work to an agent that will not take it.
+    ``""`` when there is nothing to lead: no agent, no team, no open terminal.
     """
     team = sorted(
         (a for a in agents if a.agent_id != lead_id and str(a.state) != "archived"),
         key=lambda a: a.name.casefold(),
     )
+    team_lines = _team_lines(teams, {a.agent_id: a for a in team})
+    names = [str(t).strip() for t in terminals if str(t or "").strip()]
+    if not team and not team_lines and not names:
+        return ""
     by_id = {row.id: row for row in catalog if row.connected}
-    parts: list[str] = [CARD_TITLE, _rule_block(lead_name), COMMUNICATION_GUIDANCE]
+    parts: list[str] = [CARD_TITLE, _rule_block(lead_name)]
     if team:
         lines = ["Agents (name — title · tier · state · hands):"]
         for agent in team:
@@ -159,16 +141,8 @@ def render_lead_card(
             line += _brief(agent.description)
             lines.append(line)
         parts.append("\n".join(lines))
-    else:
-        parts.append(
-            "No other agents yet. The user creates them in the Agents section; when a "
-            "task would suit a standing agent, offer to set one up there — never invent "
-            "an agent that is not on this card."
-        )
-    team_lines = _team_lines(teams, {a.agent_id: a for a in team})
     if team_lines:
         parts.append("\n".join(team_lines))
-    names = [str(t).strip() for t in terminals if str(t or "").strip()]
     if names:
         parts.append(
             "Coding terminals open in the Agentic IDE right now (not society agents): "
@@ -200,10 +174,8 @@ def _team_lines(
     if not rows:
         return []
     return [
-        "Teams with their own lead (team — lead · members). A goal for a whole team "
-        "goes to its LEAD with delegate_to_agent: the lead plans it, hands tasks to "
-        "the members, checks the results and reports back when the goal is done. "
-        "Do not split such a goal across the members yourself.",
+        "Teams with their own lead (team — lead · members): a goal for a whole team goes "
+        "to its lead with delegate_to_agent; do not split it yourself.",
         *rows,
     ]
 

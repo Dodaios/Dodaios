@@ -1,9 +1,10 @@
 /**
- * Level-up sounds, synthesised with Web Audio: no files to ship, nothing to
- * load. A rising major arpeggio with a shimmer on top for the person and the
- * pet, a short two-note chime for an agent, a soft tick for "+XP". The
- * listener can switch them off in the progress panel. A browser without Web
- * Audio, or one that refuses to start it, plays nothing.
+ * Promotion sounds, synthesised with Web Audio: no files to ship, nothing to
+ * load. The ship's bell: two pairs of strikes for the commander's or the
+ * companion drone's promotion, one quiet pair for an officer's, a short
+ * console blip for "+XP". The listener can switch them off in the service
+ * record. A browser without Web Audio, or one that refuses to start it,
+ * plays nothing.
  */
 import { create } from "zustand";
 
@@ -42,40 +43,44 @@ function audio(): AudioContext | null {
   }
 }
 
-function tone(ctx: AudioContext, freq: number, start: number, length: number, gain: number, type: OscillatorType = "triangle"): void {
+function tone(ctx: AudioContext, freq: number, start: number, length: number, gain: number, type: OscillatorType = "sine"): void {
   const osc = ctx.createOscillator();
   const amp = ctx.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, start);
   amp.gain.setValueAtTime(0.0001, start);
-  amp.gain.exponentialRampToValueAtTime(gain, start + 0.015);
+  amp.gain.exponentialRampToValueAtTime(gain, start + 0.004);
   amp.gain.exponentialRampToValueAtTime(0.0001, start + length);
   osc.connect(amp).connect(ctx.destination);
   osc.start(start);
   osc.stop(start + length + 0.02);
 }
 
-/** C major up to the octave, then a sparkle on the fifth above. */
-const FANFARE = [523.25, 659.25, 783.99, 1046.5];
+/** Partials of a small bronze bell (ratio to the strike tone, relative gain, decay in s). */
+const BELL: readonly (readonly [number, number, number])[] = [[1, 1, 1.4], [2.02, 0.45, 0.9], [2.76, 0.3, 0.6], [5.4, 0.12, 0.25]];
+const STRIKE_HZ = 932.33;
 
+function strike(ctx: AudioContext, at: number, gain: number): void {
+  for (const [ratio, weight, decay] of BELL) tone(ctx, STRIKE_HZ * ratio, at, decay, gain * weight);
+}
+
+/** The ship's bell: two strikes close together, a pause, two more for a big moment. */
 export function playLevelUp(big: boolean): void {
   const ctx = audio();
   if (!ctx) return;
   const t = ctx.currentTime + 0.02;
-  if (!big) {
-    tone(ctx, 783.99, t, 0.22, 0.06);
-    tone(ctx, 1046.5, t + 0.11, 0.35, 0.06);
-    return;
+  const pairs = big ? [0, 0.62] : [0];
+  const gain = big ? 0.05 : 0.03;
+  for (const pair of pairs) {
+    strike(ctx, t + pair, gain);
+    strike(ctx, t + pair + 0.2, gain);
   }
-  FANFARE.forEach((f, i) => tone(ctx, f, t + i * 0.09, 0.32, 0.08));
-  tone(ctx, 1046.5, t + 0.36, 0.9, 0.07);
-  tone(ctx, 1318.5, t + 0.36, 0.9, 0.05);
-  for (let i = 0; i < 6; i++) tone(ctx, 2093 + i * 220, t + 0.42 + i * 0.05, 0.18, 0.018, "sine");
 }
 
+/** A short, low console blip. */
 export function playXpTick(): void {
   const ctx = audio();
   if (!ctx) return;
   const t = ctx.currentTime + 0.01;
-  tone(ctx, 1567.98, t, 0.09, 0.025, "sine");
+  tone(ctx, 660, t, 0.06, 0.02, "square");
 }

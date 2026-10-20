@@ -8,7 +8,7 @@ owners, separated by HTML-comment markers:
   belongs to the mirror. It is rewritten verbatim on every sync.
 - Everything outside the block (curator-learned facts, manual notes) is
   preserved byte-for-byte — clobbering it would be the classic restore-trap
-  bug class (docs/BUGS.md).
+  bug class.
 
 Privacy rule (spec §Non-Goals): phone numbers, e-mail addresses and street
 addresses are deliberately NOT mirrored. The vault is broadly searched and

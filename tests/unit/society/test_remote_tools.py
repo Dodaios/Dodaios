@@ -466,7 +466,7 @@ async def test_expired_request_cannot_borrow_next_turn(world, active_turn):  # n
     import mcp.types as types
 
     from dodaios.agent_chat.tool_context import required_turn_id
-    from dodaios.mcp.jarvis_tools_server import CHAT_SESSION_REF
+    from dodaios.mcp.dodaios_tools_server import CHAT_SESSION_REF
 
     entered, release = asyncio.Event(), asyncio.Event()
     original = world.gateway.session_catalog
