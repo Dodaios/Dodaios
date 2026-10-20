@@ -23,7 +23,7 @@ import pytest
 from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SCRIPT = _REPO_ROOT / "scripts" / "jarvis-config-drift-guard.ps1"
+_SCRIPT = _REPO_ROOT / "scripts" / "dodaios-config-drift-guard.ps1"
 _SHELL = shutil.which("powershell") or shutil.which("pwsh")
 
 pytestmark = pytest.mark.skipif(

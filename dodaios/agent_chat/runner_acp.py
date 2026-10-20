@@ -145,7 +145,7 @@ async def plan_runtime_turn(
 ) -> Any:
     """The ``CliPlan`` for one turn on ``runner``; raises ``CliUnavailable``."""
     from dodaios import __version__
-    from dodaios.agent_chat import jarvis_harness
+    from dodaios.agent_chat import dodaios_harness
     from dodaios.agent_chat.runner_cli import (
         _PLAN_PREAMBLE,
         CliPlan,
@@ -181,8 +181,8 @@ async def plan_runtime_turn(
         route=route,
         resume=resume,
         auto_approve=session.permission_mode == "bypass",
-        mcp_url=jarvis_harness.endpoint() if tools else None,
-        control_key=jarvis_harness.control_key() if tools else None,
+        mcp_url=dodaios_harness.endpoint() if tools else None,
+        control_key=dodaios_harness.control_key() if tools else None,
         denied_native=_denied_native(agent, plan_mode),
         effort=normalize_effort(session.provider, getattr(session, "effort", "") or ""),
         reasoning=reasoning,

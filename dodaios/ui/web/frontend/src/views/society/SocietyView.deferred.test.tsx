@@ -18,9 +18,9 @@ vi.mock("@/components/society/roster/RosterRail", () => ({ RosterRail: () => nul
 vi.mock("@/components/society/card/AgentCardOverlay", () => ({ AgentCardOverlay: ({ onCreate }: { onCreate: () => void }) => (
   <><input aria-label="Existing chat draft" /><button onClick={onCreate}>Create agent</button></>
 ) }));
-vi.mock("@/views/JarvisAgentsView", () => {
+vi.mock("@/views/DodaiosAgentsView", () => {
   loaded.world += 1;
-  return { JarvisAgentsView: ({ onSelectPlace }: { onSelectPlace: (place: string) => void }) => <>
+  return { DodaiosAgentsView: ({ onSelectPlace }: { onSelectPlace: (place: string) => void }) => <>
     <button onClick={() => onSelectPlace("foundry")}>Open foundry</button>
     <button onClick={() => onSelectPlace("plugins")}>Open docks</button>
   </> };

@@ -98,7 +98,7 @@ def test_account_env_prefers_the_pinned_seat(monkeypatch, tmp_path: Path):
 
 
 async def test_identity_override_replaces_jarvis_layers():
-    from dodaios.agent_chat.jarvis_harness import (
+    from dodaios.agent_chat.dodaios_harness import (
         SOCIETY_PREAMBLE,
         SYSTEM_PREAMBLE,
         identity_prompt,

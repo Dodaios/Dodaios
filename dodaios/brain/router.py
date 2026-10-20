@@ -59,7 +59,7 @@ log = logging.getLogger(__name__)
 # Everything else is enforced or stated elsewhere (do NOT re-add it here):
 #
 # - Voice, tone, address, spoken-input continuity (sound-alike names) and the
-#   prompt-injection rule → dodaios/brain/JARVIS_PERSONA.md.
+#   prompt-injection rule → dodaios/brain/DODAIOS_PERSONA.md.
 # - Honesty, research-versus-action routing (search_web vs cli_*), delegation
 #   and settings self-control → BrainManager._CORE_CONTRACT.
 # - Which agents exist and what "agent" means → the lead card

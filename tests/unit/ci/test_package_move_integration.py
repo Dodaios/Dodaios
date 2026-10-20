@@ -194,6 +194,38 @@ def test_a_branch_from_before_the_move_is_carried_across_without_conflicts(repo,
     assert codemod.main(check) == 0
 
 
+@pytest.mark.parametrize("mode", ["merge", "rebase"])
+def test_a_branch_from_before_the_move_is_carried_after_main_drops_the_old_folder(repo, mode):
+    """Main later moves the compatibility file out of the old folder. Detection
+    asks the BRANCH for the old layout and the move commit for the script, so a
+    branch from before the move is still carried across, and lands without any
+    path under the old name."""
+    move = _move_on_main(repo)
+    (repo / "dodaios" / "_legacy_alias").mkdir(parents=True)
+    _git(repo, "mv", "jarvis/__init__.py", "dodaios/_legacy_alias/__init__.py")
+    _git(repo, "commit", "-q", "-m", "move the compatibility package into dodaios")
+    _feature_work(repo)
+
+    assert agent_integrate.package_move("main", repo) == (
+        _git(repo, "rev-parse", f"{move}^").strip(),
+        move,
+    )
+    report = agent_integrate.update("main", mode, "", repo)
+
+    assert report["status"] == "updated", report
+    assert report["package_move"] == move
+    assert _git(repo, "status", "--porcelain").strip() == ""
+    tree = _tree(repo)
+    assert {name for name in tree if name.startswith("jarvis/")} == set()
+    assert _show(repo, "dodaios/_legacy_alias/__init__.py") == _git(
+        repo, "show", "main:dodaios/_legacy_alias/__init__.py"
+    )
+    assert _show(repo, "dodaios/core/alpha.py") == (
+        "from dodaios.core import beta, gamma\n\nVALUE = 2\n"
+    )
+    assert "dodaios/core/gamma.py" not in tree
+
+
 def test_the_script_of_the_move_commit_is_the_one_that_replays(repo):
     """A branch never needs the script itself, and a later edit to it on main
     cannot change what an old branch is carried across with."""
@@ -433,7 +465,7 @@ def test_every_lane_a_package_change_can_reach_is_reached_under_both_names():
 
 
 def test_a_file_that_is_not_in_the_package_is_not_mistaken_for_it():
-    assert classify_changes.classify(["jarvis.spec"])["macos_desktop"] is True
+    assert classify_changes.classify(["dodaios.spec"])["macos_desktop"] is True
     assert classify_changes.classify(["docs/jarvis/notes.md"])["frontend"] is False
     assert classify_changes.classify(["dodaios.md"]) == classify_changes.classify(["notes.md"])
 

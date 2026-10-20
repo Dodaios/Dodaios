@@ -173,7 +173,7 @@ LEGACY_WINDOWS_AUTOSTART_DESCRIPTIONS = (f"{PERSISTENT_PRODUCT_NAME} (Autostart)
 WINDOWS_SHORTCUT_FILE_NAME = "Dodaios.lnk"
 LEGACY_WINDOWS_SHORTCUT_FILE_NAMES = (f"{PERSISTENT_PRODUCT_NAME}.lnk",)
 # The windowed executable: the branded pythonw copy of a source install and the
-# GUI executable of the frozen build (``jarvis.spec``). Not ``Dodaios.exe``: it
+# GUI executable of the frozen build (``dodaios.spec``). Not ``Dodaios.exe``: it
 # shares a folder with the ``dodaios`` command, and Windows paths ignore case.
 # Earlier names are still found, and the frozen build still ships one, because
 # taskbar pins, scheduled tasks and shortcuts name that file.
@@ -200,15 +200,15 @@ LEGACY_MACOS_APP_DIR_NAMES = tuple(f"{name}.app" for name in LEGACY_MACOS_APP_NA
 # Every name a bundle of ours may carry in an Applications folder, current first.
 MACOS_APP_DIR_NAMES = (MACOS_APP_DIR_NAME, *LEGACY_MACOS_APP_DIR_NAMES)
 # ``Contents/MacOS/<name>``: the same program as the Windows GUI executable
-# (``jarvis.spec`` builds both under one name). A bundle's designated
+# (``dodaios.spec`` builds both under one name). A bundle's designated
 # requirement names its bundle id and certificate, not this file, so the
 # rename keeps every privacy grant.
 MACOS_EXECUTABLE_NAME = "DodaiosApp"
 LEGACY_MACOS_EXECUTABLE_NAMES = (PERSISTENT_COMPACT_NAME,)
 MACOS_BUNDLE_ID = f"com.{PERSISTENT_SLUG}.desktop"
-# The downloadable .dmg (PyInstaller, ``jarvis.spec``) is a second, equally
+# The downloadable .dmg (PyInstaller, ``dodaios.spec``) is a second, equally
 # legitimate installed app: its own bundle id and therefore its own macOS
-# privacy grants. ``jarvis.spec`` cannot import this module, so a parity test
+# privacy grants. ``dodaios.spec`` cannot import this module, so a parity test
 # (``tests/unit/setup/test_macos_dmg_identity.py``) pins its literal to this.
 MACOS_DMG_BUNDLE_ID = f"ai.{PERSISTENT_COMPACT_NAME.lower()}.desktop"
 MACOS_AUTOSTART_LABEL = f"com.{PERSISTENT_SLUG}.autostart"

@@ -34,7 +34,7 @@ from dodaios.core.self_mod.provider_lock import (
     is_provider_lock_path,
 )
 
-FIXTURE = Path(__file__).parent / "fixtures" / "minimal_jarvis.toml"
+FIXTURE = Path(__file__).parent / "fixtures" / "minimal_dodaios.toml"
 
 
 def _isolated_loader(path: Path) -> JarvisConfig:

@@ -129,7 +129,7 @@ docs/phase6-test-report.md
 docs/spike-results-jarvis-agents.md
 docs/voice-acceptance-brief.md
 docs/bug-019-spawn-failure-report.html
-docs/jarvis-board/PHASE_A_DONE.md
+docs/dodaios-board/PHASE_A_DONE.md
 docs/phase5-research.md
 docs/phase5-integration-test-results.md
 

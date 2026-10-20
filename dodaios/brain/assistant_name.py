@@ -20,7 +20,7 @@ from typing import Any
 DEFAULT_ASSISTANT_NAME = "Assistant"
 
 # NOTE: there is no longer a "PERSONA_BASELINE_NAME". The persona files
-# (SOUL.md / JARVIS_PERSONA.md) were made name-neutral on 2026-06-29, so the
+# (SOUL.md / DODAIOS_PERSONA.md) were made name-neutral on 2026-06-29, so the
 # system prompt no longer bakes in "Jarvis" anywhere. ``_build_system_prompt``
 # now emits the identity directive for every resolved name except the neutral
 # ``DEFAULT_ASSISTANT_NAME`` fallback, and there is no "Jarvis" baseline to

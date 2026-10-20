@@ -39,7 +39,7 @@ from dodaios.core.events import SecretConfigured
 
 # The canonical slug is re-exported even though this module no longer uses it
 # directly: the anti-drift parity test pins BOTH names to the single source
-# (test_codex_jarvis_agent_parity.py, BUG-008 class).
+# (test_codex_dodaios_agent_parity.py, BUG-008 class).
 from dodaios.missions.worker_runtime.provider_map import (
     CODEX_SUBAGENT_CANONICAL as _CODEX_SUBAGENT_CANONICAL,  # noqa: F401
 )

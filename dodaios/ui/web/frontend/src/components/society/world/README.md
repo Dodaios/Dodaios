@@ -21,7 +21,7 @@ Binding design: `docs/agent-society/world-masterplan-v2.md` (look, kit, market, 
 | `Walkers.tsx` · `WalkerFigure.tsx` · `walkerRegistry.ts` | Agents on foot: state machine, stand-in figure, minimap pins. |
 | `retirement.ts` · `retirementRoute.ts` · `retireStore.ts` · `RetirementScene.tsx` | Deleting an agent, as a scene: the lead walks up, shoots it, and two bearers carry the body to the mine and tip it in. Curves and route are pure and tested; the scene drives the existing walkers through a mutable pose map and commits the `DELETE` only when the body lands. |
 | `PlaceLabels.tsx` · `WorldHud.tsx` · `Minimap.tsx` · `world.css` | DOM over the canvas in the world's type. |
-| `WorldStage.tsx` | The composition; mounted by `views/JarvisAgentsView.tsx` behind the World / Ledger switch. |
+| `WorldStage.tsx` | The composition; mounted by `views/DodaiosAgentsView.tsx` behind the World / Ledger switch. |
 
 Strings live in the lazy `society` locale chunk (`src/i18n/locales/society/`).
 
