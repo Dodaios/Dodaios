@@ -1,434 +1,367 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GitOverviewTab } from "./GitOverviewTab";
-import type { BranchRow, CiStatus, RepoOverview } from "./gitOverviewApi";
-import { openExternalUrl } from "@/lib/openExternal";
+import { GitOverviewTab, resetGitOverviewCache } from "./GitOverviewTab";
+import type { GraphPage, ScmFile, ScmStatus } from "./scm/scmApi";
+import { useCodeEditorStore } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
+import { useGitSessionStore } from "@/store/gitSession";
+import { useWorkspacePanesStore } from "@/store/workspacePanes";
 
-vi.mock("@/lib/openExternal", () => ({ openExternalUrl: vi.fn(async () => true) }));
+vi.mock("./scm/MonacoDiff", () => ({ default: () => <div data-testid="scm-diff-editor" /> }));
 
-const noCi: CiStatus = { state: "none", url: "", total: 0, passed: 0, failed: 0, running: 0, pending: 0, commit: "", names: [] };
+const file = (path: string, letter: ScmFile["letter"], status: string): ScmFile => ({ path, letter, status, original: "" });
 
-function branch(name: string, extra: Partial<BranchRow> = {}): BranchRow {
-  return {
-    name,
-    current: false,
-    remote_only: false,
-    upstream: `origin/${name}`,
-    ahead: 0,
-    behind: 0,
-    head: "abc123def456",
-    committed_at: 0,
-    worktree: "",
-    on_github: true,
-    merged_into: [],
-    pull_requests: [],
-    ci: noCi,
-    ci_stale: false,
-    ...extra,
-  };
-}
-
-const pr = (number: number, state: "draft" | "open" | "queued" | "merged" | "closed", ci: CiStatus = noCi) => ({
-  number,
-  title: `Change ${number}`,
-  url: `https://github.com/o/r/pull/${number}`,
-  state,
-  base: "main",
-  head: "x",
-  head_oid: "",
-  merged_at: "",
-  updated_at: "",
-  queue_position: state === "queued" ? 2 : null,
-  ci,
-});
-
-const OVERVIEW: RepoOverview = {
+const BASE: ScmStatus = {
   available: true,
   reason: "",
   root: "/code/app",
-  branch: "feature/wip",
+  prefix: "",
+  branch: "main",
+  head: "c2c2c2c2c2c2",
   detached: false,
-  head: "abc123def456",
-  default_branch: "main",
+  unborn: false,
+  upstream: "origin/main",
+  ahead: 0,
+  behind: 0,
+  operation: "",
+  remotes: ["origin"],
+  stashes: 0,
+  merge: [],
+  staged: [file("src/new.ts", "A", "index_added")],
+  changes: [file("app.py", "M", "modified"), file("notes.txt", "U", "untracked"), file("old.txt", "D", "deleted")],
   truncated: false,
-  github: {
-    available: true,
-    reason: "",
-    code: "",
-    repo: "o/r",
-    suggested_repo: "o/r",
-    source: "app",
-    repo_url: "https://github.com/o/r",
-    fetched_at: Date.now() / 1000,
-  },
-  branches: [
-    branch("feature/wip", {
-      current: true,
-      ahead: 2,
-      pull_requests: [pr(7, "open")],
-      ci: { ...noCi, state: "running", url: "https://github.com/o/r/actions/runs/7", total: 3, passed: 1, running: 2, names: ["tests"] },
-    }),
-    branch("main", { ci: { ...noCi, state: "success", total: 4, passed: 4, url: "https://github.com/o/r/actions/runs/1" } }),
-    branch("feature/done", {
-      merged_into: [{ target: "main", via: "pull_request", number: 5, url: "" }],
-      pull_requests: [pr(5, "merged")],
-      ci: { ...noCi, state: "success", total: 2, passed: 2 },
-    }),
-    branch("feature/queued", { pull_requests: [pr(8, "queued")] }),
-    branch("feature/draft", { pull_requests: [pr(9, "draft")] }),
-    branch("feature/dropped", {
-      pull_requests: [pr(4, "closed")],
-      ci: { ...noCi, state: "failure", total: 2, passed: 1, failed: 1, names: ["lint"], url: "https://github.com/o/r/actions/runs/4" },
-    }),
-  ],
-  remote_branches: [branch("only-remote", { remote_only: true, upstream: "" })],
+  head_message: "feat: before",
 };
 
-let answer: unknown = OVERVIEW;
-let status = 200;
-/** Holds overview answers back, like a slow GitHub read. */
-let gate: Promise<void> | null = null;
-const calls: string[] = [];
-const puts: string[] = [];
-const opens: string[] = [];
-const diffs: string[] = [];
-const CONTENTS = {
-  available: true,
-  branch: "feature/wip",
-  base: "origin/main",
+const GRAPH: GraphPage = {
   commits: [
-    { sha: "aaaaaaaaaaaa", subject: "Add the widget", author: "Ada", committed_at: 1_790_000_000, on_github: false },
-    { sha: "bbbbbbbbbbbb", subject: "Start the widget", author: "Ada", committed_at: 1_789_000_000, on_github: true },
+    { id: "c2c2c2c2c2c2", parents: ["c1c1c1c1c1c1"], author: "Ada", email: "ada@example.invalid", date: 1_790_000_000, refs: ["HEAD -> refs/heads/main", "refs/remotes/origin/main"], subject: "feat: second" },
+    { id: "c1c1c1c1c1c1", parents: [], author: "Ada", email: "ada@example.invalid", date: 1_789_000_000, refs: ["tag: refs/tags/v1.0"], subject: "feat: first" },
   ],
-  commits_truncated: false,
-  files: [
-    { path: "src/widget.ts", status: "added", added: 12, removed: 0 },
-    { path: "README.md", status: "modified", added: 2, removed: 1 },
-  ],
-  files_truncated: false,
-  reason: "",
+  more: false,
+  head: "c2c2c2c2c2c2",
+  upstream: "origin/main",
+  incoming: [],
+  outgoing: [],
 };
-const FILE_DIFF = {
-  path: "src/widget.ts",
-  status: "added",
-  binary: false,
-  added: 1,
-  removed: 0,
-  truncated: false,
-  hunks: [{ header: "@@ -0,0 +1 @@", lines: [{ kind: "add", text: "export const widget = 1;", old_no: null, new_no: 1 }] }],
-};
-const REPOS = {
-  connected: true,
-  source: "app",
-  login: "octo",
-  reason: "",
-  repos: [
-    { name: "octo/other", description: "Something else", private: true, fork: false, url: "", pushed_at: "" },
-    { name: "o/r", description: "", private: false, fork: false, url: "", pushed_at: "" },
-  ],
-};
+
+let status: ScmStatus = BASE;
+const posts: { path: string; body: Record<string, unknown> }[] = [];
+const gets: string[] = [];
 
 beforeEach(() => {
-  answer = OVERVIEW;
-  status = 200;
-  gate = null;
-  calls.length = 0;
-  puts.length = 0;
-  opens.length = 0;
-  diffs.length = 0;
+  status = BASE;
+  posts.length = 0;
+  gets.length = 0;
+  window.localStorage.clear();
+  resetGitOverviewCache();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      calls.push(url);
-      const json = (body: unknown, code = 200) =>
-        new Response(JSON.stringify(body), { status: code, headers: { "Content-Type": "application/json" } });
-      if (url.includes("/github/repos")) return json(REPOS);
-      if (url.includes("/branch/contents")) return json(CONTENTS);
-      if (url.includes("/branch/diff")) {
-        diffs.push(url);
-        return json(FILE_DIFF);
+      const json = (body: unknown, code = 200) => new Response(JSON.stringify(body), { status: code, headers: { "Content-Type": "application/json" } });
+      if (init?.method === "POST") {
+        posts.push({ path: url.replace(/^.*\/api\/agentic-ide\/git\//, ""), body: JSON.parse(String(init.body)) });
+        return json({ ok: true, commit: "abc1234", message: "feat: before", branch: "x", upstream: "origin/main", result: "merged" });
       }
-      if (url.includes("/branch/editors")) return json({ file_manager: true, editors: [{ id: "code", label: "VS Code" }] });
-      if (url.includes("/branch/open")) {
-        opens.push(String(init?.body));
-        return json({ opened: true, path: "/code/app" });
+      gets.push(url);
+      if (url.includes("/scm/status")) return json(status);
+      if (url.includes("/scm/graph")) return json(GRAPH);
+      if (url.includes("/scm/commit?")) {
+        return json({
+          id: "c2c2c2c2c2c2",
+          parents: ["c1c1c1c1c1c1"],
+          author: "Ada",
+          email: "",
+          date: 0,
+          committer: "Ada",
+          committer_date: 0,
+          message: "feat: second",
+          files: [{ path: "src/x.ts", letter: "M", original: "" }],
+          stat: "1 file changed, 2 insertions(+)",
+        });
       }
-      if (url.includes("/github/binding")) {
-        puts.push(String(init?.body));
-        answer = OVERVIEW;
-        return json({ ok: true, repo: "o/r" });
+      if (url.includes("/api/agentic-ide/panes")) {
+        const pane = (key: string, display_name: string, recap: string) => ({
+          workspace_id: "w1", workspace_name: "App", folder: "/code/app", workspace_active: true, key, history_id: key, name: key,
+          agent: display_name.toLowerCase(), display_name, accepts_prompts: true, status: "live", exit_code: null, activity: "idle",
+          activity_since: 0, worked: true, started_at: null, last_output_at: null, last_prompt: "", last_prompt_at: null, recap,
+          has_resume: true, readable: true, account: null, account_label: null, archived: false,
+        });
+        return json({ panes: [pane("T1", "Claude Code", "fix the login"), pane("T2", "Codex", "add the widget")], active_id: "w1" });
       }
-      if (gate) await gate;
-      return json(answer, status);
+      if (url.includes("/terminals/T2/changes")) {
+        return json({
+          workspace_id: "w1",
+          available: true,
+          branch: "main",
+          truncated: false,
+          reason: "",
+          base: "b0b0b0b0b0b0",
+          since_ms: Date.now() - 600_000,
+          generated: 2,
+          files: [
+            { path: "src/widget.ts", status: "added", added: 3, removed: 0, is_directory: false, authors: [], committed: true },
+            { path: "app.py", status: "modified", added: 1, removed: 1, is_directory: false, authors: [], committed: false },
+          ],
+        });
+      }
+      if (url.includes("/scm/session-file")) return json({ path: "src/widget.ts", before: null, after: "export const w = 1;\n", binary: false });
+      if (url.includes("/scm/refs")) {
+        return json({
+          current: "main",
+          refs: [
+            { kind: "head", name: "main", commit: "c2c2c2c", date: 0, subject: "feat: second", upstream: "origin/main" },
+            { kind: "head", name: "feature/x", commit: "c1c1c1c", date: 0, subject: "feat: first", upstream: "" },
+            { kind: "tag", name: "v1.0", commit: "c1c1c1c", date: 0, subject: "", upstream: "" },
+          ],
+        });
+      }
+      return json({ detail: "Not Found" }, 404);
     }),
   );
   useEventStore.setState({ activeSection: "agentic-ide" });
   useIdeChatStore.setState({ workspace: { id: "w1", name: "App", path: "/code/app" }, stagedPane: null });
+  useCodeEditorStore.setState({ tabs: [] });
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  vi.mocked(openExternalUrl).mockClear();
 });
 
-const row = (name: string) => screen.getAllByTestId("git-branch-row").find((el) => el.dataset.branch === name)!;
+const fileRow = (path: string, group = "changes") =>
+  screen.getAllByTestId("scm-file").find((element) => element.dataset.path === path && element.dataset.group === group)!;
+const posted = (path: string) => posts.filter((post) => post.path === path).map((post) => post.body);
 
-describe("GitOverviewTab", () => {
-  it("lists the workspace's branches and marks the checked-out one", async () => {
+describe("GitOverviewTab — changes", () => {
+  it("lists staged and unstaged files in their groups with a status letter", async () => {
     render(<GitOverviewTab />);
-    const rows = await screen.findAllByTestId("git-branch-row");
-    expect(rows.map((el) => el.dataset.branch)).toEqual([
-      "feature/wip",
-      "main",
-      "feature/done",
-      "feature/queued",
-      "feature/draft",
-      "feature/dropped",
-      "only-remote",
-    ]);
-    expect(row("feature/wip").dataset.current).toBe("true");
-    expect(row("main").dataset.current).toBeUndefined();
-    expect(screen.getByTestId("git-current-branch").textContent).toBe("feature/wip");
-    expect(calls[0]).toContain("/api/agentic-ide/git/overview?workspace_id=w1");
+    expect(await screen.findByTestId("scm-group-staged")).toBeTruthy();
+    expect(within(screen.getByTestId("scm-group-staged")).getByTestId("scm-group-count").textContent).toBe("1");
+    expect(within(screen.getByTestId("scm-group-changes")).getByTestId("scm-group-count").textContent).toBe("3");
+    expect(fileRow("app.py").dataset.letter).toBe("M");
+    expect(fileRow("notes.txt").dataset.letter).toBe("U");
+    expect(fileRow("src/new.ts", "staged").dataset.letter).toBe("A");
+    expect(within(fileRow("old.txt")).getByText("old.txt").className).toContain("line-through");
+    expect(within(fileRow("app.py")).getByTestId("scm-letter").className).toContain("scm-tone-M");
+    expect(screen.getByTestId("scm-branch").textContent).toBe("main*");
   });
 
-  it("shows each pull request state with GitHub's colour", async () => {
+  it("stages and unstages from a file's row", async () => {
     render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    const state = (name: string) => within(row(name)).getByTestId("git-pr").querySelector("[data-pr-state]");
-    expect(state("feature/wip")?.getAttribute("class")).toContain("text-success");
-    expect(state("feature/done")?.getAttribute("class")).toContain("--gh-merged");
-    expect(state("feature/queued")?.getAttribute("class")).toContain("text-warning");
-    expect(state("feature/draft")?.getAttribute("class")).toContain("text-muted-foreground");
-    expect(state("feature/dropped")?.getAttribute("class")).toContain("text-destructive");
-    expect(state("feature/dropped")?.getAttribute("data-pr-state")).toBe("closed");
+    fireEvent.click(within(await screen.findByText("app.py").then(() => fileRow("app.py"))).getByTestId("scm-stage"));
+    await vi.waitFor(() => expect(posted("scm/stage")).toEqual([{ workspace_id: "w1", paths: ["app.py"] }]));
+    fireEvent.click(within(fileRow("src/new.ts", "staged")).getByTestId("scm-unstage"));
+    await vi.waitFor(() => expect(posted("scm/unstage")).toEqual([{ workspace_id: "w1", paths: ["src/new.ts"] }]));
   });
 
-  it("keeps CI apart from merging: a merged branch still shows its own green check", async () => {
+  it("acts on every selected file at once", async () => {
     render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    const done = row("feature/done");
-    expect(within(done).getByTestId("git-merged-into").dataset.target).toBe("main");
-    expect(within(done).getByTestId("git-ci").querySelector("[data-ci-state]")?.getAttribute("data-ci-state")).toBe("success");
-    expect(within(row("main")).queryByTestId("git-merged-into")).toBeNull();
-    expect(within(row("feature/wip")).getByTestId("git-ci").querySelector("[data-ci-state]")?.getAttribute("data-ci-state")).toBe("running");
-    expect(within(row("feature/dropped")).getByTestId("git-ci").querySelector("[data-ci-state]")?.getAttribute("data-ci-state")).toBe("failure");
-    // No checks at all shows nothing rather than a misleading icon.
-    expect(within(row("feature/queued")).queryByTestId("git-ci")).toBeNull();
+    await screen.findByText("app.py");
+    fireEvent.click(fileRow("app.py"));
+    fireEvent.click(fileRow("notes.txt"), { ctrlKey: true });
+    fireEvent.click(within(fileRow("notes.txt")).getByTestId("scm-stage"));
+    await vi.waitFor(() => expect(posted("scm/stage")).toEqual([{ workspace_id: "w1", paths: ["app.py", "notes.txt"] }]));
   });
 
-  it("opens the pull request and the CI run in the browser", async () => {
+  it("commits the staged files with Ctrl+Enter and empties the box", async () => {
     render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    fireEvent.click(within(row("feature/wip")).getByTestId("git-pr"));
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/pull/7");
-    fireEvent.click(within(row("feature/dropped")).getByTestId("git-ci"));
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/actions/runs/4");
+    const box = (await screen.findByTestId("scm-message")) as HTMLTextAreaElement;
+    expect(box.placeholder).toContain("main");
+    fireEvent.change(box, { target: { value: "feat: widget" } });
+    fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+    await vi.waitFor(() => expect(posted("scm/commit")).toHaveLength(1));
+    expect(posted("scm/commit")[0]).toMatchObject({ message: "feat: widget", amend: false, all_changes: false });
+    await vi.waitFor(() => expect(box.value).toBe(""));
   });
 
-  it("explains every icon in its tooltip", async () => {
+  it("asks before committing every change when nothing is staged", async () => {
+    status = { ...BASE, staged: [] };
     render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    fireEvent.mouseEnter(within(row("feature/dropped")).getByTestId("git-ci").parentElement!);
-    const tip = await screen.findByRole("tooltip");
-    expect(tip.textContent).toContain("CI failed");
-    expect(tip.textContent).toContain("lint");
+    fireEvent.change(await screen.findByTestId("scm-message"), { target: { value: "fix: all" } });
+    fireEvent.click(screen.getByTestId("scm-primary"));
+    fireEvent.click(await screen.findByTestId("scm-choice-yes"));
+    await vi.waitFor(() => expect(posted("scm/commit")[0]).toMatchObject({ message: "fix: all", all_changes: true }));
   });
 
-  it("lists GitHub-only branches, folds them on request, and forces a GitHub read on refresh", async () => {
+  it("asks for a message instead of committing without one", async () => {
     render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    expect(row("only-remote")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("git-remote-toggle"));
-    expect(screen.queryAllByTestId("git-branch-row").some((el) => el.dataset.branch === "only-remote")).toBe(false);
-    fireEvent.click(screen.getByTestId("git-refresh"));
-    await vi.waitFor(() => expect(calls.some((url) => url.includes("refresh=true"))).toBe(true));
+    fireEvent.click(await screen.findByTestId("scm-primary"));
+    expect(await screen.findByTestId("scm-message-error")).toBeTruthy();
+    expect(posts).toEqual([]);
   });
 
-  it("says why when the folder is not a repository", async () => {
-    answer = { ...OVERVIEW, available: false, reason: "This folder is not a git repository.", branches: [], remote_branches: [] };
+  it("commits and pushes from the button's menu", async () => {
     render(<GitOverviewTab />);
-    expect((await screen.findByTestId("git-unavailable")).textContent).toContain("not a git repository");
+    fireEvent.change(await screen.findByTestId("scm-message"), { target: { value: "feat: ship" } });
+    fireEvent.click(screen.getByTestId("scm-primary-more"));
+    fireEvent.click(await screen.findByTestId("scm-menu-commit-push"));
+    await vi.waitFor(() => expect(posted("scm/push")).toHaveLength(1));
+    expect(posted("scm/commit")[0]).toMatchObject({ message: "feat: ship" });
   });
 
-  it("asks once which GitHub repository the folder is, recommending its remote", async () => {
-    answer = { ...OVERVIEW, github: { ...OVERVIEW.github, available: false, code: "needs_repo", repo: "", repo_url: "" } };
+  it("discards a file only after a confirmation", async () => {
     render(<GitOverviewTab />);
-    // The recommendation is clickable at once; the rest of the list follows.
-    await vi.waitFor(() => expect(screen.getAllByTestId("git-repo-choice")).toHaveLength(2));
-    const choices = screen.getAllByTestId("git-repo-choice");
-    expect(choices.map((el) => el.dataset.repo)).toEqual(["o/r", "octo/other"]);
-    expect(choices[0].textContent).toContain("Recommended");
-    expect(screen.getByTestId("git-repo-picker").textContent).toContain("Connect a GitHub repository");
-    fireEvent.click(choices[0]);
-    await vi.waitFor(() => expect(puts).toEqual([JSON.stringify({ workspace_id: "w1", repo: "o/r" })]));
-    expect(await screen.findAllByTestId("git-branch-row")).toHaveLength(7);
-    expect(screen.queryByTestId("git-repo-picker")).toBeNull();
+    await screen.findByText("app.py");
+    fireEvent.click(within(fileRow("app.py")).getByTestId("scm-discard"));
+    expect(await screen.findByTestId("scm-choice")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("scm-choice-cancel"));
+    expect(posted("scm/discard")).toEqual([]);
+    fireEvent.click(within(fileRow("app.py")).getByTestId("scm-discard"));
+    fireEvent.click(await screen.findByTestId("scm-choice-discard"));
+    await vi.waitFor(() => expect(posted("scm/discard")).toEqual([{ workspace_id: "w1", paths: ["app.py"] }]));
   });
 
-  it("leaves the picker at once after a pick, while GitHub is still being read", async () => {
-    answer = { ...OVERVIEW, github: { ...OVERVIEW.github, available: false, code: "needs_repo", repo: "", repo_url: "" } };
+  it("opens a changed file's diff in the editor and an untracked file as it is", async () => {
     render(<GitOverviewTab />);
-    await vi.waitFor(() => expect(screen.getAllByTestId("git-repo-choice")).toHaveLength(2));
-    let release: () => void = () => {};
-    gate = new Promise<void>((resolve) => {
-      release = resolve;
+    await screen.findByText("app.py");
+    fireEvent.click(fileRow("app.py"));
+    expect(useCodeEditorStore.getState().tabs.map((tab) => [tab.path, tab.mode])).toEqual([["app.py", "diff"]]);
+    fireEvent.click(fileRow("notes.txt"));
+    expect(useCodeEditorStore.getState().tabs.map((tab) => [tab.path, tab.mode])).toEqual([["notes.txt", "edit"]]);
+  });
+
+  it("shows folders in tree view", async () => {
+    render(<GitOverviewTab />);
+    await screen.findByText("app.py");
+    expect(screen.queryByTestId("scm-folder")).toBeNull();
+    fireEvent.click(screen.getByTestId("scm-view-mode"));
+    expect((await screen.findByTestId("scm-folder")).textContent).toContain("src");
+  });
+
+  it("turns the button into Sync with the counts when there is nothing to commit", async () => {
+    status = { ...BASE, staged: [], changes: [], ahead: 1, behind: 2 };
+    render(<GitOverviewTab />);
+    const button = await screen.findByTestId("scm-primary");
+    expect(button.dataset.action).toBe("sync");
+    expect(button.textContent).toContain("2↓");
+    expect(button.textContent).toContain("1↑");
+    fireEvent.click(button);
+    fireEvent.click(await screen.findByTestId("scm-choice-ok"));
+    await vi.waitFor(() => expect(posted("scm/sync")).toHaveLength(1));
+  });
+
+  it("offers to publish a branch that has no upstream", async () => {
+    status = { ...BASE, staged: [], changes: [], upstream: "" };
+    render(<GitOverviewTab />);
+    const button = await screen.findByTestId("scm-primary");
+    expect(button.dataset.action).toBe("publish");
+    fireEvent.click(button);
+    await vi.waitFor(() => expect(posted("scm/push")).toEqual([{ workspace_id: "w1", remote: "origin" }]));
+  });
+
+  it("switches branch from the branch name", async () => {
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("scm-branch"));
+    const items = await screen.findAllByTestId("scm-quick-pick-item");
+    expect(items.map((item) => item.textContent)).toEqual(expect.arrayContaining([expect.stringContaining("feature/x"), expect.stringContaining("v1.0")]));
+    fireEvent.click(items.find((item) => item.textContent?.includes("feature/x"))!);
+    await vi.waitFor(() => expect(posted("scm/checkout")).toEqual([{ workspace_id: "w1", ref: "feature/x", detached: false }]));
+  });
+
+  it("stashes with a message from the more menu", async () => {
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("scm-more"));
+    fireEvent.mouseEnter(await screen.findByTestId("scm-menu-stash-menu"));
+    fireEvent.click(await screen.findByTestId("scm-menu-s-stash"));
+    const box = await screen.findByTestId("scm-quick-input-box");
+    fireEvent.change(box, { target: { value: "wip" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await vi.waitFor(() => expect(posted("scm/stash")).toEqual([{ workspace_id: "w1", message: "wip" }]));
+  });
+
+  it("puts the message of an undone commit back into the box", async () => {
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("scm-more"));
+    fireEvent.mouseEnter(await screen.findByTestId("scm-menu-commit-menu"));
+    fireEvent.click(await screen.findByTestId("scm-menu-c-undo"));
+    await vi.waitFor(() => expect((screen.getByTestId("scm-message") as HTMLTextAreaElement).value).toBe("feat: before"));
+    expect(posted("scm/undo-commit")).toHaveLength(1);
+  });
+
+  it("offers to initialize a folder that is no repository", async () => {
+    status = { ...BASE, available: false, reason: "app is not a git repository." };
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("scm-init"));
+    await vi.waitFor(() => expect(posted("prepare")).toEqual([{ folder: "/code/app", mode: "init", branch: "", base: "" }]));
+  });
+});
+
+describe("GitOverviewTab — one agent session", () => {
+  beforeEach(() => useWorkspacePanesStore.setState({ panes: [], loaded: false }));
+
+  it("folds the repository away from its row", async () => {
+    render(<GitOverviewTab />);
+    fireEvent.click(await screen.findByTestId("scm-repo-row"));
+    expect(screen.queryByTestId("scm-message")).toBeNull();
+    expect(screen.queryByTestId("scm-file")).toBeNull();
+    fireEvent.click(screen.getByTestId("scm-repo-row"));
+    expect(await screen.findByTestId("scm-message")).toBeTruthy();
+  });
+
+  it("narrows the list to the files one session wrote, picked from the filter", async () => {
+    render(<GitOverviewTab />);
+    await screen.findByText("app.py");
+    fireEvent.click(screen.getByTestId("scm-session-filter"));
+    await vi.waitFor(() => expect(screen.getAllByTestId("scm-quick-pick-item").length).toBe(3));
+    const items = screen.getAllByTestId("scm-quick-pick-item");
+    expect(items.map((item) => item.textContent)).toEqual([expect.stringContaining("All Changes"), expect.stringContaining("T1 · Claude Code"), expect.stringContaining("T2 · Codex")]);
+    fireEvent.click(items[2]);
+    const files = await screen.findAllByTestId("scm-session-file");
+    expect(files.map((file) => [file.dataset.path, file.dataset.letter])).toEqual([["src/widget.ts", "A"], ["app.py", "M"]]);
+    expect(screen.getByTestId("scm-session-row").textContent).toContain("T2 · Codex");
+    expect(screen.getByTestId("scm-session-count").textContent).toBe("2");
+    expect(screen.queryByTestId("scm-file")).toBeNull();
+    // Only the pending file can be staged; the committed one is history.
+    expect(within(files[0]).queryByTestId("scm-session-stage")).toBeNull();
+    fireEvent.click(within(files[1]).getByTestId("scm-session-stage"));
+    await vi.waitFor(() => expect(posted("scm/stage")).toEqual([{ workspace_id: "w1", paths: ["app.py"] }]));
+    fireEvent.click(files[0]);
+    expect(await screen.findByTestId("scm-diff-dialog")).toBeTruthy();
+    await vi.waitFor(() => expect(gets.some((url) => url.includes("/scm/session-file") && url.includes("base=b0b0b0b0b0b0"))).toBe(true));
+    fireEvent.click(screen.getByTestId("scm-diff-close"));
+    fireEvent.click(screen.getByTestId("scm-session-clear"));
+    expect(await screen.findByText("notes.txt")).toBeTruthy();
+    expect(screen.queryByTestId("scm-session")).toBeNull();
+  });
+
+  it("opens straight on a session when its pane asks", async () => {
+    render(<GitOverviewTab />);
+    await screen.findByText("app.py");
+    act(() => useGitSessionStore.getState().show("w1", "T2"));
+    expect((await screen.findAllByTestId("scm-session-file")).length).toBe(2);
+  });
+});
+
+describe("GitOverviewTab — graph", () => {
+  it("draws the history with branch and tag badges and opens a commit's files", async () => {
+    render(<GitOverviewTab />);
+    const commits = await screen.findAllByTestId("scm-graph-commit");
+    expect(commits.map((element) => element.textContent)).toEqual([expect.stringContaining("feat: second"), expect.stringContaining("feat: first")]);
+    expect(within(commits[0]).getAllByTestId("scm-graph-ref").map((badge) => badge.getAttribute("aria-label"))).toEqual(["main", "origin/main"]);
+    expect(within(commits[1]).getByTestId("scm-graph-ref").dataset.kind).toBe("tag");
+    fireEvent.click(commits[0]);
+    expect((await screen.findByTestId("scm-graph-file")).textContent).toContain("x.ts");
+    fireEvent.click(screen.getByTestId("scm-graph-file"));
+    expect(await screen.findByTestId("scm-diff-dialog")).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("scm-diff-close"));
     });
-    fireEvent.click(screen.getAllByTestId("git-repo-choice")[0]);
-    // The local branches and the choice show before GitHub has answered.
-    expect(await screen.findAllByTestId("git-branch-row")).toHaveLength(7);
-    expect(screen.queryByTestId("git-repo-picker")).toBeNull();
-    const state = screen.getByTestId("git-github-state");
-    expect(state.textContent).toContain("o/r");
-    expect(state.textContent).toContain("Reading pull requests and CI from GitHub");
-    release();
-    await vi.waitFor(() => expect(screen.getByTestId("git-github-state").textContent).toContain("GitHub status from"));
+    expect(screen.queryByTestId("scm-diff-dialog")).toBeNull();
   });
 
-  it("reopens the pick from the repository name to change it", async () => {
+  it("creates a branch at a commit from its menu", async () => {
     render(<GitOverviewTab />);
-    fireEvent.click(await screen.findByTestId("git-bound-repo"));
-    await vi.waitFor(() => expect(screen.getAllByTestId("git-repo-choice")).toHaveLength(2));
-    fireEvent.click(screen.getByLabelText("Keep the current repository"));
-    expect(await screen.findAllByTestId("git-branch-row")).toHaveLength(7);
-  });
-
-  it("offers to connect GitHub and still lists the local branches", async () => {
-    answer = { ...OVERVIEW, github: { ...OVERVIEW.github, available: false, code: "not_connected", repo: "" } };
-    render(<GitOverviewTab />);
-    expect(await screen.findByTestId("git-connect-github")).toBeTruthy();
-    expect(screen.getAllByTestId("git-branch-row")).toHaveLength(7);
-    fireEvent.click(screen.getByText("Connect GitHub"));
-    expect(useEventStore.getState().activeSection).toBe("plugins");
-  });
-
-  it("opens a branch on GitHub from its icon, and leaves unpushed branches inert", async () => {
-    answer = { ...OVERVIEW, branches: [...OVERVIEW.branches, branch("wip/local", { upstream: "", on_github: false })] };
-    render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    fireEvent.click(within(row("feature/done")).getByTestId("git-branch-link"));
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/tree/feature/done");
-    expect(within(row("wip/local")).getByTestId("git-branch-link").tagName).toBe("SPAN");
-  });
-
-  it("marks every branch as local only, local and on GitHub, or GitHub only", async () => {
-    answer = { ...OVERVIEW, branches: [...OVERVIEW.branches, branch("wip/local", { upstream: "", on_github: false })] };
-    render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    const location = (name: string) => within(row(name)).getByTestId("git-location");
-    expect(location("wip/local").dataset.location).toBe("local");
-    expect(location("wip/local").textContent).toBe("local only");
-    expect(location("main").dataset.location).toBe("both");
-    expect(location("main").textContent).toBe("local + GitHub");
-    expect(location("only-remote").dataset.location).toBe("github_only");
-  });
-
-  it("shows when each branch last changed", async () => {
-    const now = Math.floor(Date.now() / 1000);
-    answer = {
-      ...OVERVIEW,
-      branches: [
-        branch("fresh", { committed_at: now - 2 * 3600 }),
-        branch("old", { committed_at: Date.UTC(2024, 2, 3, 12) / 1000 }),
-        branch("undated"),
-      ],
-    };
-    render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    const date = (name: string) => within(row(name)).queryByTestId("git-commit-date")?.textContent;
-    expect(date("fresh")).toBe("2 hr. ago");
-    expect(date("old")).toBe("Mar 3, 2024");
-    expect(date("undated")).toBeUndefined();
-  });
-
-  it("folds a clicked branch open with its local folder and its GitHub page", async () => {
-    answer = { ...OVERVIEW, branches: [...OVERVIEW.branches, branch("wip/local", { upstream: "", on_github: false })] };
-    render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    expect(screen.queryByTestId("git-branch-details")).toBeNull();
-
-    fireEvent.click(within(row("feature/wip")).getByTestId("git-branch-toggle"));
-    const details = within(row("feature/wip")).getByTestId("git-branch-details");
-    await within(details).findByTestId("git-branch-commits");
-    fireEvent.click(await within(details).findByTestId("git-open-folder"));
-    await vi.waitFor(() => expect(opens).toHaveLength(1));
-    expect(JSON.parse(opens[0])).toEqual({ workspace_id: "w1", branch: "feature/wip", target: "folder" });
-    fireEvent.click(within(details).getByTestId("git-open-code"));
-    await vi.waitFor(() => expect(JSON.parse(opens[1]).target).toBe("code"));
-    fireEvent.click(within(details).getByTestId("git-open-github"));
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/tree/feature/wip");
-    fireEvent.click(within(details).getByTestId("git-open-pr"));
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/pull/7");
-
-    // Not checked out anywhere: nothing local to open, the switch command instead; not on GitHub either.
-    fireEvent.click(within(row("wip/local")).getByTestId("git-branch-toggle"));
-    const local = within(row("wip/local")).getByTestId("git-branch-details");
-    await within(local).findByTestId("git-branch-commits");
-    expect(within(local).queryByTestId("git-open-folder")).toBeNull();
-    expect(within(local).getByTestId("git-copy-switch")).toBeTruthy();
-    expect(within(local).queryByTestId("git-open-github")).toBeNull();
-
-    // The branch is readable in place: its commits and files, each file's diff one click away.
-    // A commit only on this computer gets no GitHub link (that page would be a 404).
-    const commit = (sha: string) => within(details).getAllByTestId("git-branch-commit").find((el) => el.dataset.sha === sha)!;
-    expect(within(commit("aaaaaaaaaaaa")).queryByTestId("git-commit-link")).toBeNull();
-    expect(within(commit("aaaaaaaaaaaa")).getByTestId("git-commit-local")).toBeTruthy();
-    fireEvent.click(within(commit("bbbbbbbbbbbb")).getByTestId("git-commit-link"));
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/commit/bbbbbbbbbbbb");
-    expect(within(details).getByTestId("git-branch-commits").textContent).toContain("Add the widget");
-    expect(within(details).getByTestId("git-branch-commits").textContent).toContain("2 commits not in origin/main");
-    const file = within(details).getAllByTestId("git-branch-file").find((el) => el.dataset.path === "src/widget.ts")!;
-    fireEvent.click(within(file).getByRole("button"));
-    expect(await within(file).findByTestId("explorer-diff")).toBeTruthy();
-    expect(within(file).getByTestId("explorer-diff").textContent).toContain("export const widget = 1;");
-    expect(diffs[0]).toContain("path=src%2Fwidget.ts");
-    expect(diffs[0]).toContain("base=main");
-
-    // A second click folds it away again.
-    fireEvent.click(within(row("feature/wip")).getByTestId("git-branch-toggle"));
-    expect(within(row("feature/wip")).queryByTestId("git-branch-details")).toBeNull();
-  });
-
-  it("offers GitHub pages and copies from a branch's menu", async () => {
-    render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    fireEvent.click(within(row("feature/queued")).getByTestId("git-branch-more"));
-    const menu = await screen.findByTestId("git-branch-menu");
-    expect(within(menu).getByTestId("git-menu-pr").textContent).toContain("#8");
-    // A live pull request exists, so there is nothing new to create.
-    expect(within(menu).queryByTestId("git-menu-create-pr")).toBeNull();
-    fireEvent.click(within(menu).getByTestId("git-menu-compare"));
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/compare/main...feature/queued");
-    expect(screen.queryByTestId("git-branch-menu")).toBeNull();
-
-    fireEvent.contextMenu(row("feature/done"));
-    const second = await screen.findByTestId("git-branch-menu");
-    fireEvent.click(within(second).getByTestId("git-menu-create-pr"));
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/o/r/compare/main...feature/done?expand=1");
-  });
-
-  it("narrows the list by search and by filter", async () => {
-    render(<GitOverviewTab />);
-    await screen.findAllByTestId("git-branch-row");
-    fireEvent.click(screen.getByTestId("git-filter-failing"));
-    expect(screen.getAllByTestId("git-branch-row").map((el) => el.dataset.branch)).toEqual(["feature/dropped"]);
-    fireEvent.click(screen.getByTestId("git-filter-all"));
-    fireEvent.change(screen.getByTestId("git-search"), { target: { value: "#9" } });
-    expect(screen.getAllByTestId("git-branch-row").map((el) => el.dataset.branch)).toEqual(["feature/draft"]);
-    fireEvent.change(screen.getByTestId("git-search"), { target: { value: "nothing-like-this" } });
-    expect(screen.getByTestId("git-filter-empty")).toBeTruthy();
-  });
-
-  it("asks for one restart when the running backend does not know the route yet", async () => {
-    answer = { detail: "Not Found" };
-    status = 404;
-    render(<GitOverviewTab />);
-    expect((await screen.findByTestId("git-error")).textContent).toContain("Connect a GitHub repository");
-    fireEvent.click(screen.getByTestId("git-restart"));
-    await vi.waitFor(() => expect(calls).toContain("/api/settings/restart-app"));
+    const [top] = await screen.findAllByTestId("scm-graph-commit");
+    fireEvent.contextMenu(top);
+    fireEvent.click(await screen.findByTestId("scm-menu-create-branch"));
+    const box = await screen.findByTestId("scm-quick-input-box");
+    fireEvent.change(box, { target: { value: "feature/here" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await vi.waitFor(() =>
+      expect(posted("scm/branch/create")).toEqual([{ workspace_id: "w1", name: "feature/here", start: "c2c2c2c2c2c2", switch: true }]),
+    );
   });
 });

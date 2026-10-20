@@ -98,7 +98,7 @@ jobs:
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
           gh pr create --repo "$GITHUB_REPOSITORY" --head "$branch" --base "$DEFAULT_BRANCH" \
             --title "chore(agent-runtimes): raise the tested runtime versions" \
-            --body "The weekly canary drove the latest Hermes / OpenClaw through Jarvis' model gateway on every OS: $RUN_URL. Merging raises the version the app installs (see docs/agent-runtimes.md)."
+            --body "The weekly canary drove the latest Hermes / OpenClaw through Dodaios' model gateway on every OS: $RUN_URL. Merging raises the version the app installs (see docs/agent-runtimes.md)."
 
   report:
     needs: canary
@@ -114,4 +114,4 @@ jobs:
         run: |
           gh issue create --repo "$GITHUB_REPOSITORY" \
             --title "Agent runtimes canary failed" \
-            --body "The weekly canary could not drive the latest Hermes or OpenClaw release through Jarvis' model gateway. The pinned versions stay in place. Run: $RUN_URL (see docs/agent-runtimes.md)."
+            --body "The weekly canary could not drive the latest Hermes or OpenClaw release through Dodaios' model gateway. The pinned versions stay in place. Run: $RUN_URL (see docs/agent-runtimes.md)."

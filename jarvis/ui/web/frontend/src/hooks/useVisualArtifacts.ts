@@ -70,9 +70,9 @@ export interface VisualArtifact {
   /** Last path segment — the fallback label. */
   name: string;
   /**
-   * What the rail calls it: a page's own `<title>` when the listing's preview
-   * carries one, otherwise the filename. The title is what the user asked for
-   * in their words ("Umsatz-Dashboard"), the filename is its slug.
+   * What the library calls it: a page's own `<title>`, else the title its
+   * brief asked for, otherwise the filename. The title is what the user asked
+   * for in their words ("Umsatz-Dashboard"), the filename is its slug.
    */
   title: string;
   kind: VisualKind;
@@ -154,20 +154,32 @@ function decodeEntities(text: string): string {
     .replace(/&amp;/g, "&");
 }
 
+/** The title a `create_artifact` brief leads with (`Artifact: <title>`), or null. */
+function briefTitle(utterance: string | undefined): string | null {
+  const match = /^Artifact:[ \t]*([^\n]+)/.exec((utterance ?? "").trim());
+  return match ? match[1].trim() || null : null;
+}
+
 /** The visuals among a run's files, carrying the run they belong to. */
 export function toVisuals(run: OutputSummary, files: ArtifactSummary[]): VisualArtifact[] {
   const visuals: VisualArtifact[] = [];
+  // A run that built exactly one page was asked for that page by name — the
+  // brief's title is the page's name when the file itself does not say.
+  const pages = files.filter((file) => classifyVisual(file.path) === "page").length;
+  const asked = pages === 1 ? briefTitle(run.utterance) : null;
   for (const file of files) {
     const kind = classifyVisual(file.path);
     if (kind === null) continue;
     const name = file.path.split("/").pop() ?? file.path;
+    const ownTitle =
+      kind === "page" ? file.title?.trim() || pageTitleFromPreview(file.preview) || asked : null;
     visuals.push({
       slug: run.slug,
       utterance: run.utterance,
       status: run.status,
       path: file.path,
       name,
-      title: (kind === "page" ? pageTitleFromPreview(file.preview) : null) ?? name,
+      title: ownTitle ?? name,
       kind,
       size: file.size,
       mtime: file.mtime,

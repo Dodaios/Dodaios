@@ -216,6 +216,22 @@ def test_batches_stay_in_one_directory_and_isolate_slow_files():
     assert sorted(f for batch in batches for f in batch) == sorted(files)
 
 
+def test_a_wedged_batch_is_killed_after_minutes_not_after_the_whole_job():
+    # Twelve ordinary files: five minutes, not twelve five-minute floors.
+    batch = [f"tests/unit/a/test_{i}.py" for i in range(12)]
+    quick = dict.fromkeys(batch, 3.0)
+    assert run_tests_parallel.batch_timeout(batch, quick) == run_tests_parallel.MIN_FILE_TIMEOUT
+    # A batch with real load gets a multiple of its own history ...
+    heavy = dict.fromkeys(batch, 100.0)
+    assert run_tests_parallel.batch_timeout(batch, heavy) == run_tests_parallel.MAX_BATCH_TIMEOUT
+    assert run_tests_parallel.batch_timeout(batch[:2], heavy) == 6 * 200.0
+    # ... and never less than its slowest file would get alone.
+    one_slow = {**quick, batch[0]: 280.0}
+    assert run_tests_parallel.batch_timeout(batch, one_slow) >= run_tests_parallel.file_timeout(
+        batch[0], one_slow
+    )
+
+
 def test_file_timeout_scales_with_history_but_is_bounded():
     assert run_tests_parallel.file_timeout("x", {}) == run_tests_parallel.MIN_FILE_TIMEOUT
     assert (
@@ -252,6 +268,120 @@ def test_runner_reports_failures_and_passes(tmp_path):
     assert code == 1
     assert report["counts"]["passed"] == 1
     assert any(fid.endswith("::test_bad") for fid in report["failed_ids"])
+
+
+class _ScriptedRunner(run_tests_parallel.Runner):
+    """A runner whose pytest processes are scripted: no process is started."""
+
+    script: dict[str, list[str]] = {}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.calls: list[tuple[tuple[str, ...], float]] = []
+        self.left = {file: list(steps) for file, steps in self.script.items()}
+
+    def run(self, files, timeout):
+        self.calls.append((tuple(files), timeout))
+        step = self.left[files[0]].pop(0) if len(files) == 1 else "pass"
+        return run_tests_parallel.RunResult(
+            files=list(files),
+            exit_code=0 if step == "pass" else 1,
+            duration=12.0,
+            timed_out=step == "timeout",
+            failed_ids=[] if step == "pass" else [f"{files[0]}::<{step}>"],
+            file_seconds={file: 7.0 for file in files} if step == "pass" else {},
+            counts={"tests": 1, "passed": int(step == "pass"), "failed": 0, "skipped": 0},
+        )
+
+
+def _scripted(tmp_path, script, durations=None):
+    runner_type = type("_Runner", (_ScriptedRunner,), {"script": script})
+    return runner_type(None, durations or {}, tmp_path)
+
+
+def test_a_file_that_runs_out_of_its_budget_gets_one_longer_attempt(tmp_path):
+    # GitHub issue #574 follow-up: a Windows file without history started on
+    # the 300 s floor, needed more on a loaded runner, and each timeout ejected
+    # a pull request from the merge queue.
+    runner = _scripted(tmp_path, {"t/test_slow.py": ["timeout", "pass"]})
+
+    outcome = runner.run_unit(["t/test_slow.py"])
+
+    floor = run_tests_parallel.MIN_FILE_TIMEOUT
+    assert [timeout for _files, timeout in runner.calls] == [floor, 2 * floor]
+    assert outcome["flaky"] == ["t/test_slow.py"]
+    assert outcome["slow"] == ["t/test_slow.py"]
+    assert [run.ok for run in outcome["runs"]] == [True]
+
+
+def test_a_file_that_hangs_twice_still_fails_as_a_timeout(tmp_path):
+    runner = _scripted(tmp_path, {"t/test_hang.py": ["timeout", "timeout"]})
+
+    outcome = runner.run_unit(["t/test_hang.py"])
+
+    assert len(runner.calls) == 2
+    assert outcome["flaky"] == [] and outcome["slow"] == []
+    (run,) = outcome["runs"]
+    assert run.timed_out and not run.ok
+
+
+def test_a_failed_file_is_retried_on_the_same_budget_and_is_not_slow(tmp_path):
+    runner = _scripted(tmp_path, {"t/test_flaky.py": ["fail", "pass"]})
+
+    outcome = runner.run_unit(["t/test_flaky.py"])
+
+    floor = run_tests_parallel.MIN_FILE_TIMEOUT
+    assert [timeout for _files, timeout in runner.calls] == [floor, floor]
+    assert outcome["flaky"] == ["t/test_flaky.py"] and outcome["slow"] == []
+
+
+def test_the_longer_attempt_never_exceeds_the_file_ceiling():
+    ceiling = run_tests_parallel.MAX_FILE_TIMEOUT
+    assert run_tests_parallel.retry_timeout("x", {"x": 10_000}) == ceiling
+    assert run_tests_parallel.retry_timeout("x", {"x": 250.0}) == ceiling
+    assert run_tests_parallel.retry_timeout("x", {}) < ceiling
+
+
+def test_a_slow_file_enters_the_duration_history_and_the_run_stays_green(
+    tmp_path, monkeypatch
+):
+    repo = run_tests_parallel.REPO_ROOT
+    rel = f"tests/unit/ci/_runner_probe_{tmp_path.name}"
+    probe = repo / rel
+    probe.mkdir()
+    slow, quick = f"{rel}/test_probe_slow.py", f"{rel}/test_probe_quick.py"
+    script = {slow: ["timeout", "pass"], quick: ["pass"]}
+    monkeypatch.setattr(
+        run_tests_parallel, "Runner", type("_Runner", (_ScriptedRunner,), {"script": script})
+    )
+    # One file per batch, as a file with a long history runs.
+    monkeypatch.setattr(run_tests_parallel, "BATCH_MAX_FILES", 1)
+    try:
+        for name in (slow, quick):
+            (repo / name).write_text("def test_ok():\n    assert True\n")
+        code = run_tests_parallel.main(
+            [
+                rel,
+                "--workers",
+                "1",
+                "--durations",
+                str(tmp_path / "none.json"),
+                "--report",
+                str(tmp_path / "r.json"),
+                "--junit-out",
+                str(tmp_path / "r.xml"),
+                "--durations-out",
+                str(tmp_path / "d.json"),
+            ]
+        )
+    finally:
+        shutil.rmtree(probe, ignore_errors=True)
+    report = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
+    timings = json.loads((tmp_path / "d.json").read_text(encoding="utf-8"))
+    assert code == 0
+    assert report["failed_ids"] == [] and report["timeouts"] == []
+    assert report["flaky_files"] == [slow]
+    assert timings == {slow: 8.0, quick: 8.0}
 
 
 def test_memory_probe_reads_this_machine():
@@ -542,6 +672,54 @@ def test_train_updates_only_conflicting_or_stale_red_branches():
     assert decide("MERGEABLE", "failure", False) == "wait"
     assert decide("UNKNOWN", "success", False) == "wait"
     assert decide("UNKNOWN", "approve", False) == "approve"
+
+
+def test_train_gives_its_update_slots_to_the_pull_requests_that_can_land():
+    wanted = [
+        # The oldest ones: an unresolved conflict and a pull request with red CI.
+        {"number": 1, "labels": ["needs-rebase"], "state": "success"},
+        {"number": 2, "labels": [], "state": "failure"},
+        {"number": 3, "labels": ["needs-rebase"], "state": "failure"},
+        # Green pull requests that only conflict with main.
+        {"number": 4, "labels": ["auto-merge"], "state": "success"},
+        {"number": 5, "labels": [], "state": "success"},
+        {"number": 6, "labels": [], "state": "success"},
+    ]
+    assert agent_integrate.grant_updates(wanted, 3) == {4, 5, 6}
+    # A free slot still goes to the red one before the conflict nobody resolved.
+    assert agent_integrate.grant_updates(wanted, 4) == {2, 4, 5, 6}
+    assert agent_integrate.grant_updates(wanted, 6) == {1, 2, 3, 4, 5, 6}
+    # `priority` moves a pull request to the front, whatever its state.
+    urgent = [*wanted, {"number": 9, "labels": ["priority", "needs-rebase"], "state": "failure"}]
+    assert agent_integrate.grant_updates(urgent, 1) == {9}
+    assert agent_integrate.grant_updates(wanted, 0) == set()
+
+
+def test_train_asks_again_while_github_computes_mergeability(monkeypatch):
+    def listing(state: str) -> list[dict]:
+        own = {"baseRefName": "main", "isDraft": False, "labels": [], "mergeable": state}
+        return [
+            {**own, "number": 1, "headRefName": "claude/a"},
+            {**own, "number": 2, "headRefName": "feature/not-on-the-train", "mergeable": "UNKNOWN"},
+        ]
+
+    answers = [listing("UNKNOWN"), listing("UNKNOWN"), listing("CONFLICTING")]
+    asked: list[tuple[str, ...]] = []
+    naps: list[float] = []
+
+    def fake_gh_json(*args: str) -> object:
+        asked.append(args)
+        return answers[min(len(asked), len(answers)) - 1]
+
+    monkeypatch.setattr(agent_integrate, "gh_json", fake_gh_json)
+    prs = agent_integrate.open_pull_requests("example/project", pause=7.0, sleep=naps.append)
+    # An ineligible pull request never keeps the train waiting.
+    assert prs[0]["mergeable"] == "CONFLICTING" and len(asked) == 3 and naps == [7.0, 7.0]
+
+    asked.clear(), naps.clear()
+    answers[:] = [listing("UNKNOWN")]
+    prs = agent_integrate.open_pull_requests("example/project", attempts=3, sleep=naps.append)
+    assert prs[0]["mergeable"] == "UNKNOWN" and len(asked) == 3 and len(naps) == 2
 
 
 def test_train_leaves_a_queued_pull_request_to_the_queue():

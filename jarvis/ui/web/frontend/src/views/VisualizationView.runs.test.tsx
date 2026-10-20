@@ -182,11 +182,10 @@ describe("VisualizationView — runs without an artifact", () => {
     const rows = await screen.findAllByTestId("visualization-run-row");
     expect(rows).toHaveLength(1);
     expect(rows[0].textContent).toContain("Write notes");
-    expect(rows[0].textContent).toContain("Three notes, saved.");
     expect(screen.queryAllByTestId("visualization-artifact-row")).toHaveLength(0);
     // No empty state: the run IS the content.
     expect(screen.queryByTestId("visualization-empty")).toBeNull();
-    // The library shows the run's own answer as its cover; a click opens it.
+    // The library shows the run as a note under its own name; a click opens it.
     fireEvent.click(rows[0]);
     // The stage opens on Preview — the same four tabs every run gets …
     const previewTab = await screen.findByTestId("visualization-tab-preview");

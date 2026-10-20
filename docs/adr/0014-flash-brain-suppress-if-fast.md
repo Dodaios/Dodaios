@@ -21,7 +21,7 @@ t=0.45 s  flash:  "Schaue ich nach."
 t=0.90 s  brain:  "Exampletown."
 ```
 
-The user perception is "Jarvis just said two things in a row" — the
+The user perception is "Dodaios just said two things in a row" — the
 ack stops feeling like a butler-style acknowledgment and starts
 feeling like dead filler. The driver reported it as
 "the little acknowledgment is annoying when the right answer comes immediately".
@@ -106,9 +106,9 @@ have been, but at least audible.
   driver complaint is gone.
 - **~2 s extra latency on slow paths before the ack.** On long
   reasoning turns the user now waits ~2.7 s for the ack instead
-  of ~0.7 s. Still well under the empirical "did Jarvis hear me?"
+  of ~0.7 s. Still well under the empirical "did Dodaios hear me?"
   threshold (~5 s) the driver reports.
-- **Jarvis-Agent delegation skipped on grok / openai / openrouter /
+- **Dodaios-Agent delegation skipped on grok / openai / openrouter /
   ollama primaries.** Until a non-Gemini worker exists, every
   action-utterance is handled inline by the Router-Brain. This
   is slower for genuine multi-step tasks (no parallelism with the

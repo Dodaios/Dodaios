@@ -18,7 +18,7 @@ class LeadMessageAgentTool:
     is_action_tool = True
     schema = MessageAgentTool.schema
     description = (
-        "Send an INTERNAL chat message to one of the user's Jarvis agents by name or id. "
+        "Send an INTERNAL chat message to one of the user's Dodaios agents by name or id. "
         "Use for 'send the Gmail agent a test message': this does NOT send email. "
         "No extra confirmation is needed for internal messages. For assigning work use "
         "delegate_to_agent, including 'tell X to test Y'. For 'ask X about Y', use kind "

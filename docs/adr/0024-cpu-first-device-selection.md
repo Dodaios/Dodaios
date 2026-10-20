@@ -4,7 +4,7 @@
 
 ## Context
 
-Personal Jarvis is cloud-first (CLAUDE.md §3, `docs/SINGLE-SOURCE-OF-TRUTH.md`
+Dodaios is cloud-first (CLAUDE.md §3, `docs/SINGLE-SOURCE-OF-TRUTH.md`
 §2): the baseline user is on a headless `python:3.11-slim` VPS with 1 vCPU, no
 GPU, no CUDA, no audio hardware. The maintainer's RTX-5070-Ti workstation is a
 power-user profile representing <0.1 % of the intended install base. A fresh

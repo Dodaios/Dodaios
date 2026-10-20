@@ -31,9 +31,11 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
-# Kept static for zero-import-cost; parity-tested against
-# jarvis.brain.manager.SUPPORTED_REPLY_LANGUAGES (the authoritative tuple).
-REPLY_LANGUAGES: tuple[str, ...] = ("auto", "de", "en", "es")
+from jarvis.i18n.locales import SUPPORTED_LOCALES
+
+# The central language list (jarvis.i18n.locales, constants only); parity-
+# tested against jarvis.brain.manager.SUPPORTED_REPLY_LANGUAGES.
+REPLY_LANGUAGES: tuple[str, ...] = ("auto", *SUPPORTED_LOCALES)
 
 VOICE_MODES: tuple[str, ...] = ("pipeline", "realtime")
 
@@ -288,6 +290,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("erstelle einen rechercheagenten",),  # i18n-allow: input vocab
                 "en": ("create an agent for researching suppliers",),
                 "es": ("crea un agente para investigar proveedores",),  # i18n-allow: input vocab
+                "pt": ("cria um agente para pesquisar fornecedores",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -310,6 +313,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("ändere Scouts aufgaben",),  # i18n-allow: input vocab
                 "en": ("update Scout's responsibilities",),
                 "es": ("cambia las responsabilidades de Scout",),  # i18n-allow: input vocab
+                "pt": ("muda as responsabilidades do Scout",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -325,6 +329,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("welche werkzeuge können meine agenten nutzen",),  # i18n-allow: input vocab
                 "en": ("which capabilities can my agents use",),
                 "es": ("qué capacidades pueden usar mis agentes",),  # i18n-allow: input vocab
+                "pt": ("que capacidades podem os meus agentes usar",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -342,6 +347,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("welche modelle gibt es für meine agenten",),  # i18n-allow: input vocab
                 "en": ("which models are available for my agents",),
                 "es": ("qué modelos pueden usar mis agentes",),  # i18n-allow: input vocab
+                "pt": ("que modelos podem os meus agentes usar",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -366,6 +372,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("wechsle das modell von Scout",),  # i18n-allow: input vocab
                 "en": ("change Scout's model",),
                 "es": ("cambia el modelo de Scout",),  # i18n-allow: input vocab
+                "pt": ("muda o modelo do Scout",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -385,6 +392,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("lösche den agenten Scout",),  # i18n-allow: input vocab
                 "en": ("delete the agent Scout",),
                 "es": ("elimina el agente Scout",),  # i18n-allow: input vocab
+                "pt": ("apaga o agente Scout",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -402,6 +410,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("welche routinen hat Scout",),  # i18n-allow: input vocab
                 "en": ("which routines does Scout have",),
                 "es": ("qué rutinas tiene Scout",),  # i18n-allow: input vocab
+                "pt": ("que rotinas tem o Scout",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -411,7 +420,11 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "The ONLY way to make an agent do something on a schedule (daily briefing, "
                 "weekly report, every morning at 8). Never use create-skill for this. The "
                 "prompt is the complete task the agent runs each time: sources, steps, "
-                "output. Speak the returned next_run; on timezone_required ask the user."
+                "output. For a routine that watches something, write into the prompt that "
+                "the agent stays quiet while nothing changed and reports only a real change, "
+                "a completion, a failure or something the user must do, unless the user "
+                "asked for regular updates. Speak the returned next_run; on "
+                "timezone_required ask the user."
             ),
             # Not dangerous: the user ordered it, and a routine is paused or
             # deleted in one step (a second spoken yes was a live complaint).
@@ -425,13 +438,14 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 ),
                 "schedule": _routine_schedule_param(),
                 "announce_on_success": _str_param(
-                    "Optional line Jarvis says when a run finishes.", max_length=500,
+                    "Optional line Dodaios says when a run finishes.", max_length=500,
                 ),
             }, "required": ["agent_id", "title", "prompt", "schedule"]},
             voice_aliases={
                 "de": ("gib mir jeden morgen um acht ein briefing",),  # i18n-allow: input vocab
                 "en": ("give me a briefing every morning at eight",),
                 "es": ("dame un resumen cada mañana a las ocho",),  # i18n-allow: input vocab
+                "pt": ("dá-me um resumo todas as manhãs às oito",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -453,6 +467,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("verschieb das briefing auf sieben uhr",),  # i18n-allow: input vocab
                 "en": ("move the briefing to seven",),
                 "es": ("mueve el resumen a las siete",),  # i18n-allow: input vocab
+                "pt": ("passa o resumo para as sete",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -474,6 +489,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("pausiere das morgenbriefing",),  # i18n-allow: input vocab
                 "en": ("pause the morning briefing",),
                 "es": ("pausa el resumen de la mañana",),  # i18n-allow: input vocab
+                "pt": ("pausa o resumo da manhã",),  # i18n-allow: input vocab
             },
         ),
         # ------------------------------------------------------ providers
@@ -493,6 +509,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("wechsle den brain-provider zu claude",),  # i18n-allow: input vocab
                 "en": ("switch the brain provider to claude",),
                 "es": ("cambia el proveedor del cerebro a claude",),  # i18n-allow: input vocab
+                "pt": ("muda o fornecedor do cérebro para claude",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -507,6 +524,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("wechsle die stimme zu elevenlabs",),  # i18n-allow: input vocab
                 "en": ("switch the voice to elevenlabs",),
                 "es": ("cambia la voz a elevenlabs",),  # i18n-allow: input vocab
+                "pt": ("muda a voz para elevenlabs",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -524,6 +542,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("wechsle die spracherkennung zu deepgram",),  # i18n-allow: input vocab
                 "en": ("switch speech recognition to deepgram",),
                 "es": ("cambia el reconocimiento de voz a deepgram",),  # i18n-allow: input vocab
+                "pt": ("muda o reconhecimento de voz para deepgram",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -545,6 +564,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("wechsle das realtime-modell zu gemini",),  # i18n-allow: input vocab
                 "en": ("switch the realtime model to gemini",),
                 "es": ("cambia el modelo en tiempo real a gemini",),  # i18n-allow: input vocab
+                "pt": ("muda o modelo em tempo real para gemini",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -575,6 +595,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("stelle die lokalen sprachmodelle um",),  # i18n-allow: input vocab
                 "en": ("change the local realtime models",),
                 "es": ("cambia los modelos de voz locales",),  # i18n-allow: input vocab
+                "pt": ("muda os modelos de voz locais",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -592,6 +613,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("wechsle den computer-use-provider zu gemini",),  # i18n-allow: input vocab
                 "en": ("switch the computer use provider to gemini",),
                 "es": ("cambia el proveedor de computer use a gemini",),  # i18n-allow: input vocab
+                "pt": ("muda o fornecedor de computer use para gemini",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -609,6 +631,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("wechsle den agent-provider zu openai",),  # i18n-allow: input vocab
                 "en": ("switch the agent provider to openai",),
                 "es": ("cambia el proveedor del agente a openai",),  # i18n-allow: input vocab
+                "pt": ("muda o fornecedor do agente para openai",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -623,6 +646,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("welche provider sind konfiguriert",),  # i18n-allow: input vocab
                 "en": ("which providers are configured",),
                 "es": ("qué proveedores están configurados",),  # i18n-allow: input vocab
+                "pt": ("que fornecedores estão configurados",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -648,6 +672,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("teste den openai-provider",),  # i18n-allow: input vocab
                 "en": ("test the openai provider",),
                 "es": ("prueba el proveedor de openai",),  # i18n-allow: input vocab
+                "pt": ("testa o fornecedor openai",),  # i18n-allow: input vocab
             },
         ),
         # ------------------------------------------------- voice & language
@@ -655,7 +680,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
             id="reply-language-set",
             title="Set reply language",
             description=(
-                "Pin the language Jarvis answers in (auto follows the spoken "
+                "Pin the language Dodaios answers in (auto follows the spoken "
                 "language)."
             ),
             method="PUT",
@@ -678,6 +703,12 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("antworte ab jetzt auf englisch",),  # i18n-allow: input vocab
                 "en": ("answer in german from now on",),
                 "es": ("responde en inglés a partir de ahora",),  # i18n-allow: input vocab
+                "pt": (  # i18n-allow: input vocab
+                    "responde em inglês a partir de agora",  # i18n-allow: input vocab
+                    "responde em português",  # i18n-allow: input vocab
+                    "fala português",  # i18n-allow: input vocab
+                    "fala comigo em português",  # i18n-allow: input vocab
+                ),
             },
         ),
         AppCommand(
@@ -705,6 +736,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("schalte auf den realtime-modus um",),  # i18n-allow: input vocab
                 "en": ("switch to realtime mode",),
                 "es": ("cambia al modo en tiempo real",),  # i18n-allow: input vocab
+                "pt": ("muda para o modo em tempo real",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -719,12 +751,13 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("wie lautet mein wake word",),  # i18n-allow: input vocab
                 "en": ("what is my wake word",),
                 "es": ("cuál es mi palabra de activación",),  # i18n-allow: input vocab
+                "pt": ("qual é a minha palavra de ativação",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
             id="wake-word-set",
             title="Change wake word",
-            description="Set the phrase that wakes Jarvis up.",
+            description="Set the phrase that wakes Dodaios up.",
             method="PUT",
             path="/api/settings/wake-word",
             params={
@@ -741,6 +774,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("ändere mein wake word zu nova",),  # i18n-allow: input vocab
                 "en": ("change my wake word to nova",),
                 "es": ("cambia mi palabra de activación a nova",),  # i18n-allow: input vocab
+                "pt": ("muda a minha palavra de ativação para nova",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -768,6 +802,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("stell die lautstärke auf 50 prozent",),  # i18n-allow: input vocab
                 "en": ("set the voice volume to 50 percent",),
                 "es": ("pon el volumen de la voz al 50 por ciento",),  # i18n-allow: input vocab
+                "pt": ("põe o volume da voz a 50 por cento",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -782,6 +817,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("welche audiogeräte gibt es",),  # i18n-allow: input vocab
                 "en": ("list my audio devices",),
                 "es": ("qué dispositivos de audio hay",),  # i18n-allow: input vocab
+                "pt": ("que dispositivos de áudio há",),  # i18n-allow: input vocab
             },
         ),
         # ------------------------------------------------ knowledge & history
@@ -816,6 +852,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("trag das in mein wiki ein",),  # i18n-allow: input vocab
                 "en": ("store that in my wiki",),
                 "es": ("guarda eso en mi wiki",),  # i18n-allow: input vocab
+                "pt": ("guarda isso na minha wiki",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -841,6 +878,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("lies die letzte transkription",),  # i18n-allow: input vocab
                 "en": ("read the latest transcript",),
                 "es": ("lee la última transcripción",),  # i18n-allow: input vocab
+                "pt": ("lê a última transcrição",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -862,6 +900,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("welche tools mcps und clis sind verbunden",),  # i18n-allow: input vocab
                 "en": ("list the connected tools mcps and clis",),
                 "es": ("lista las herramientas mcps y clis conectadas",),  # i18n-allow: input vocab
+                "pt": ("lista as ferramentas mcps e clis ligadas",),  # i18n-allow: input vocab
             },
         ),
         # ------------------------------------------------------ marketplace
@@ -890,6 +929,10 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "es": (  # i18n-allow: input vocab
                     "qué hay en el mercado",
                     "qué skills puedo instalar",
+                ),
+                "pt": (  # i18n-allow: input vocab
+                    "o que há no mercado",
+                    "que skills posso instalar",
                 ),
             },
         ),
@@ -940,6 +983,10 @@ def _build_registry() -> tuple[AppCommand, ...]:
                     "instala ese skill",
                     "instala ese complemento del mercado",
                 ),
+                "pt": (  # i18n-allow: input vocab
+                    "instala essa skill",
+                    "instala esse plugin do mercado",
+                ),
             },
         ),
         # -------------------------------------------------------- dictation
@@ -971,6 +1018,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("starte das diktat", "diktier-modus an"),  # i18n-allow: input vocab
                 "en": ("start dictation", "turn on dictation mode"),
                 "es": ("inicia el dictado", "activa el modo dictado"),  # i18n-allow: input vocab
+                "pt": ("começa o ditado", "ativa o modo de ditado"),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -984,13 +1032,14 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("stopp das diktat", "diktier-modus aus"),  # i18n-allow: input vocab
                 "en": ("stop dictation", "turn off dictation mode"),
                 "es": ("detén el dictado", "desactiva el modo dictado"),  # i18n-allow: input vocab
+                "pt": ("para o ditado", "desativa o modo de ditado"),  # i18n-allow: input vocab
             },
         ),
         # ----------------------------------------------------------- system
         AppCommand(
             id="app-restart",
-            title="Restart Jarvis",
-            description="Restart the Jarvis desktop app (voice + UI restart too).",
+            title="Restart Dodaios",
+            description="Restart the Dodaios desktop app (voice + UI restart too).",
             method="POST",
             path="/api/settings/restart-app",
             dangerous=True,
@@ -999,21 +1048,36 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("starte jarvis neu",),  # i18n-allow: input vocab
                 "en": ("restart jarvis",),
                 "es": ("reinicia jarvis",),  # i18n-allow: input vocab
+                "pt": ("reinicia o jarvis",),  # i18n-allow: input vocab
             },
         ),
         # ----------------------------------------------- missions & tasks
         AppCommand(
             id="missions-list",
             title="List missions",
-            description="List Jarvis-Agent missions and their status.",
+            description=(
+                "List Dodaios-Agent missions and their status, newest first. Set active "
+                "to see only the ones that have not ended yet."
+            ),
             method="GET",
             path="/api/missions",
+            params={"type": "object", "properties": {
+                "active": {
+                    "type": "boolean",
+                    "description": "Only missions still pending, running or waiting.",
+                },
+                "limit": {
+                    "type": "integer", "minimum": 1, "maximum": 100,
+                    "description": "How many missions to return (default 100).",
+                },
+            }},
             worker_allowed=True,
             ui_section="agents",
             voice_aliases={
                 "de": ("zeig mir die missionen",),  # i18n-allow: input vocab
                 "en": ("show me the missions",),
                 "es": ("muéstrame las misiones",),  # i18n-allow: input vocab
+                "pt": ("mostra-me as missões",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1021,7 +1085,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
             title="Read a mission result",
             description=(
                 "Read the signed summary and actual deliverable contents of one "
-                "completed Jarvis-Agent mission. Use this after listing missions "
+                "completed Dodaios-Agent mission. Use this after listing missions "
                 "when the user asks what a mission found or produced."
             ),
             method="GET",
@@ -1042,12 +1106,13 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("was hat die mission herausgefunden",),  # i18n-allow: input vocab
                 "en": ("what did the mission find",),
                 "es": ("qué encontró la misión",),  # i18n-allow: input vocab
+                "pt": ("o que encontrou a missão",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
             id="mission-cancel",
             title="Cancel a mission",
-            description="Cancel a running Jarvis-Agent mission by id.",
+            description="Cancel a running Dodaios-Agent mission by id.",
             method="POST",
             path="/api/missions/{mission_id}/cancel",
             params={
@@ -1064,6 +1129,38 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("brich die mission ab",),  # i18n-allow: input vocab
                 "en": ("cancel the mission",),
                 "es": ("cancela la misión",),  # i18n-allow: input vocab
+                "pt": ("cancela a missão",),  # i18n-allow: input vocab
+            },
+        ),
+        AppCommand(
+            id="mission-amend",
+            title="Correct a running mission",
+            description=(
+                "Give a mission that is still running the user's correction or changed "
+                "wish, in their words, without restarting it. The running worker cannot "
+                "be interrupted: the next attempt gets the correction. Read applies in the "
+                "result and tell the user that, never that it is already done. A mission "
+                "that has ended refuses; start a new one for the change."
+            ),
+            method="POST",
+            path="/api/missions/{mission_id}/amend",
+            params={
+                "type": "object",
+                "properties": {
+                    "mission_id": _str_param("Mission id to correct.", min_length=1),
+                    "instruction": _str_param(
+                        "The correction, complete in itself.", min_length=1, max_length=4000
+                    ),
+                },
+                "required": ["mission_id", "instruction"],
+            },
+            path_params=("mission_id",),
+            ui_section="agents",
+            voice_aliases={
+                "de": ("sag der mission sie soll es anders machen",),  # i18n-allow: input vocab
+                "en": ("tell the mission to do it differently",),
+                "es": ("dile a la misión que lo haga de otra forma",),  # i18n-allow: input vocab
+                "pt": ("diz à missão para fazer de outra forma",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1078,6 +1175,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("zeig mir meine aufgaben",),  # i18n-allow: input vocab
                 "en": ("show me my tasks",),
                 "es": ("muéstrame mis tareas",),  # i18n-allow: input vocab
+                "pt": ("mostra-me as minhas tarefas",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1100,6 +1198,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("brich die aufgabe ab",),  # i18n-allow: input vocab
                 "en": ("cancel the task",),
                 "es": ("cancela la tarea",),  # i18n-allow: input vocab
+                "pt": ("cancela a tarefa",),  # i18n-allow: input vocab
             },
         ),
         # ------------------------------------------------------------ skills
@@ -1129,6 +1228,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("welche skills habe ich", "zeig mir meine skills"),  # i18n-allow: vocab
                 "en": ("which skills do i have", "show me my skills"),
                 "es": ("qué skills tengo", "muéstrame mis skills"),  # i18n-allow: vocab
+                "pt": ("que skills tenho", "mostra-me as minhas skills"),  # i18n-allow: vocab
             },
         ),
         AppCommand(
@@ -1157,6 +1257,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("aktiviere den skill", "schalte den skill ein"),  # i18n-allow: input vocab
                 "en": ("enable the skill", "switch the skill on"),
                 "es": ("activa el skill",),  # i18n-allow: input vocab
+                "pt": ("ativa a skill",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1184,6 +1285,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("deaktiviere den skill", "schalte den skill aus"),  # i18n-allow: input vocab
                 "en": ("disable the skill", "switch the skill off"),
                 "es": ("desactiva el skill",),  # i18n-allow: input vocab
+                "pt": ("desativa a skill",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1211,6 +1313,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("lösch den skill",),  # i18n-allow: input vocab
                 "en": ("delete the skill",),
                 "es": ("elimina el skill",),  # i18n-allow: input vocab
+                "pt": ("apaga a skill",),  # i18n-allow: input vocab
             },
         ),
         # ------------------------------------------------------- agentic IDE
@@ -1240,6 +1343,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("was läuft in der agentic ide",),  # i18n-allow: input vocab
                 "en": ("what is running in the agentic ide",),
                 "es": ("qué se está ejecutando en el ide agéntico",),  # i18n-allow: input vocab
+                "pt": ("o que está a correr no ide agêntico",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1279,6 +1383,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("was macht mika",),  # i18n-allow: input vocab
                 "en": ("what is mika doing",),
                 "es": ("qué está haciendo mika",),  # i18n-allow: input vocab
+                "pt": ("o que está a mika a fazer",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1351,6 +1456,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("sag mika sie soll die tests laufen lassen",),  # i18n-allow: input vocab
                 "en": ("tell mika to run the tests",),
                 "es": ("dile a mika que ejecute las pruebas",),  # i18n-allow: input vocab
+                "pt": ("diz à mika para correr os testes",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1451,6 +1557,9 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 ),
                 "en": ("open a terminal and have it fix the tests",),
                 "es": ("abre una terminal y que arregle las pruebas",),  # i18n-allow: input vocab
+                "pt": (  # i18n-allow: input vocab
+                    "abre um terminal e põe-no a corrigir os testes",  # i18n-allow: input vocab
+                ),
             },
         ),
         AppCommand(
@@ -1502,6 +1611,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("spawne fünf neue terminals",),  # i18n-allow: input vocab
                 "en": ("spawn five new claude code terminals",),
                 "es": ("abre dos terminales de codex",),  # i18n-allow: input vocab
+                "pt": ("abre dois terminais de codex",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1537,6 +1647,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("benenne t1 in frontend um",),  # i18n-allow: input vocab
                 "en": ("rename t1 to frontend",),
                 "es": ("renombra t1 a frontend",),  # i18n-allow: input vocab
+                "pt": ("muda o nome do t1 para frontend",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1579,6 +1690,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("tausche mika und nova",),  # i18n-allow: input vocab
                 "en": ("swap mika and nova",),
                 "es": ("intercambia mika y nova",),  # i18n-allow: input vocab
+                "pt": ("troca a mika e a nova",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1609,6 +1721,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("schließe alle codex terminals",),  # i18n-allow: input vocab
                 "en": ("close all codex terminals",),
                 "es": ("cierra todas las terminales de codex",),  # i18n-allow: input vocab
+                "pt": ("fecha todos os terminais de codex",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1636,6 +1749,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("geh in den coding modus",),  # i18n-allow: input vocab
                 "en": ("switch into coding mode",),
                 "es": ("entra en el modo de programación",),  # i18n-allow: input vocab
+                "pt": ("entra no modo de programação",),  # i18n-allow: input vocab
             },
         ),
         AppCommand(
@@ -1661,6 +1775,7 @@ def _build_registry() -> tuple[AppCommand, ...]:
                 "de": ("stell meine terminals wieder her",),  # i18n-allow: input vocab
                 "en": ("resume all my coding sessions",),
                 "es": ("restaura mis terminales",),  # i18n-allow: input vocab
+                "pt": ("retoma os meus terminais",),  # i18n-allow: input vocab
             },
         ),
     )

@@ -18,7 +18,8 @@ import {
 import { RoundedBoxGeometry } from "three-stdlib";
 import { cachedCanvasTexture } from "./canvasMaterials";
 import {
-  dressDesk, dressOfficeDesk, kitPlacements, oakPlanterPlacements, officeKitPlacements, planterPlacements, type DressingPart, type Placement,
+  dressDesk, dressOfficeDesk, kitPlacements, leadMarkPlacements, oakPlanterPlacements, officeKitPlacements, planterPlacements,
+  type DressingPart, type Placement,
 } from "./deskKit";
 import { GEO, MAT, matte } from "./OfficeFurniture";
 import { benchPlanters, type Department, type DeskSlot, type OfficeVariant } from "./officeLayout";
@@ -157,34 +158,38 @@ const blackMetal = matte("#23262c", { roughness: 0.55, metalness: 0.3 });
 const brass = matte("#b8914f", { roughness: 0.32, metalness: 0.75 });
 const graphite = matte("#2a2c31", { roughness: 0.4, metalness: 0.3 });
 
+/**
+ * `cast`: only what is large enough for its shadow to show at the floor's scale (lamp shades, planters and their
+ * foliage). Every casting part is drawn a second time into the shadow map; a cup's shadow is not worth that.
+ */
 interface PartSpec { geometry: BufferGeometry; material: Material; tinted: boolean; cast: boolean }
 
 const PARTS: Record<DressingPart, PartSpec> = {
-  mat: { geometry: new RoundedBoxGeometry(0.82, 0.004, 0.34, 2, 0.002), material: tintedMatte, tinted: true, cast: false },
-  standPlate: { geometry: GEO.box, material: aluminium, tinted: false, cast: true },
+  mat: { geometry: new RoundedBoxGeometry(0.82, 0.004, 0.34, 1, 0.002), material: tintedMatte, tinted: true, cast: false },
+  standPlate: { geometry: GEO.box, material: aluminium, tinted: false, cast: false },
   standLeg: { geometry: GEO.box, material: aluminium, tinted: false, cast: false },
-  laptopBase: { geometry: new RoundedBoxGeometry(0.3, 0.012, 0.21, 2, 0.005), material: aluminium, tinted: false, cast: true },
-  laptopLid: { geometry: new RoundedBoxGeometry(0.3, 0.2, 0.007, 2, 0.003), material: aluminium, tinted: false, cast: true },
+  laptopBase: { geometry: new RoundedBoxGeometry(0.3, 0.012, 0.21, 1, 0.005), material: aluminium, tinted: false, cast: false },
+  laptopLid: { geometry: new RoundedBoxGeometry(0.3, 0.2, 0.007, 1, 0.003), material: aluminium, tinted: false, cast: false },
   laptopScreen: { geometry: new PlaneGeometry(0.28, 0.18), material: laptopScreen, tinted: false, cast: false },
-  lampBase: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: true },
-  lampArm: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: true },
+  lampBase: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: false },
+  lampArm: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: false },
   lampShade: { geometry: new CylinderGeometry(0.45, 1, 1, 16), material: tintedGloss, tinted: true, cast: true },
   lampBulb: {
     geometry: GEO.cyl, tinted: false, cast: false,
     material: new MeshStandardMaterial({ color: "#fff2d6", emissive: "#ffd89a", emissiveIntensity: 1.6, toneMapped: false }),
   },
-  pot: { geometry: GEO.potCyl, material: tintedGloss, tinted: true, cast: true },
+  pot: { geometry: GEO.potCyl, material: tintedGloss, tinted: true, cast: false },
   soil: { geometry: GEO.cyl, material: MAT.soil, tinted: false, cast: false },
-  succulent: { geometry: new IcosahedronGeometry(1, 0), material: tintedLeaf, tinted: true, cast: true },
-  book: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: true },
-  bottle: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: true },
+  succulent: { geometry: new IcosahedronGeometry(1, 0), material: tintedLeaf, tinted: true, cast: false },
+  book: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: false },
+  bottle: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: false },
   bottleCap: { geometry: GEO.cyl, material: blackMetal, tinted: false, cast: false },
-  notebook: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: true },
+  notebook: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: false },
   notebookBand: { geometry: GEO.box, material: blackMetal, tinted: false, cast: false },
   pen: { geometry: GEO.cyl, material: blackMetal, tinted: false, cast: false },
   hook: { geometry: GEO.box, material: blackMetal, tinted: false, cast: false },
-  headband: { geometry: new TorusGeometry(0.08, 0.01, 8, 24, Math.PI), material: tintedMatte, tinted: true, cast: true },
-  earCup: { geometry: GEO.cyl, material: tintedMatte, tinted: true, cast: true },
+  headband: { geometry: new TorusGeometry(0.08, 0.01, 8, 24, Math.PI), material: tintedMatte, tinted: true, cast: false },
+  earCup: { geometry: GEO.cyl, material: tintedMatte, tinted: true, cast: false },
   note: { geometry: new PlaneGeometry(0.065, 0.065), material: tintedMatte, tinted: true, cast: false },
   tray: { geometry: GEO.box, material: blackMetal, tinted: false, cast: false },
   snake: { geometry: new CylinderGeometry(1, 1, 1, 10), material: blackMetal, tinted: false, cast: false },
@@ -194,32 +199,33 @@ const PARTS: Record<DressingPart, PartSpec> = {
   planterRail: { geometry: GEO.box, material: MAT.wood, tinted: false, cast: false },
   planterSoil: { geometry: GEO.box, material: MAT.soil, tinted: false, cast: false },
   foliage: { geometry: GEO.blob, material: tintedLeaf, tinted: true, cast: true },
-  blade: { geometry: new CylinderGeometry(0.15, 1, 1, 4), material: tintedLeaf, tinted: true, cast: true },
-  letterTray: { geometry: GEO.box, material: tintedGloss, tinted: true, cast: true },
+  blade: { geometry: new CylinderGeometry(0.15, 1, 1, 4), material: tintedLeaf, tinted: true, cast: false },
+  letterTray: { geometry: GEO.box, material: tintedGloss, tinted: true, cast: false },
   trayPost: { geometry: GEO.cyl, material: brass, tinted: false, cast: false },
-  paper: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: true },
+  paper: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: false },
   page: { geometry: new PlaneGeometry(1, 1), material: faceMaterial("desk:page", 64, 88, drawPage, "#fbfaf6"), tinted: false, cast: false },
-  folder: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: true },
-  tabletBody: { geometry: new RoundedBoxGeometry(0.24, 0.17, 0.008, 2, 0.004), material: graphite, tinted: false, cast: true },
+  folder: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: false },
+  tabletBody: { geometry: new RoundedBoxGeometry(0.24, 0.17, 0.008, 1, 0.004), material: graphite, tinted: false, cast: false },
   tabletScreen: {
     geometry: new PlaneGeometry(0.224, 0.154), material: faceMaterial("desk:calendar", 128, 88, drawCalendar, "#e9e5dc", 0.45), tinted: false, cast: false,
   },
-  tabletStand: { geometry: GEO.box, material: brass, tinted: false, cast: true },
-  phoneBody: { geometry: new RoundedBoxGeometry(0.072, 0.15, 0.008, 2, 0.004), material: graphite, tinted: false, cast: true },
+  tabletStand: { geometry: GEO.box, material: brass, tinted: false, cast: false },
+  phoneBody: { geometry: new RoundedBoxGeometry(0.072, 0.15, 0.008, 1, 0.004), material: graphite, tinted: false, cast: false },
   phoneScreen: {
     geometry: new PlaneGeometry(0.064, 0.138), material: faceMaterial("desk:messages", 64, 128, drawMessages, "#1b1d22", 0.5), tinted: false, cast: false,
   },
-  dock: { geometry: GEO.box, material: aluminium, tinted: false, cast: true },
-  penCup: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: true },
+  dock: { geometry: GEO.box, material: aluminium, tinted: false, cast: false },
+  penCup: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: false },
   pencil: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: false },
-  frame: { geometry: GEO.box, material: tintedGloss, tinted: true, cast: true },
+  frame: { geometry: GEO.box, material: tintedGloss, tinted: true, cast: false },
   photo: { geometry: new PlaneGeometry(1, 1), material: faceMaterial("desk:photo", 64, 84, drawPhoto, "#c9b99c"), tinted: true, cast: false },
-  cup: { geometry: new CylinderGeometry(1, 0.78, 1, 16), material: tintedMatte, tinted: true, cast: true },
+  cup: { geometry: new CylinderGeometry(1, 0.78, 1, 16), material: tintedMatte, tinted: true, cast: false },
   cupLid: { geometry: GEO.cyl, material: tintedGloss, tinted: true, cast: false },
   cupSleeve: { geometry: new CylinderGeometry(1, 0.9, 1, 16), material: matte("#b98b5e", { roughness: 0.9 }), tinted: false, cast: false },
   oakPlanter: { geometry: GEO.box, material: matte("#d8bd91", { roughness: 0.7 }), tinted: false, cast: true },
-  oakSlat: { geometry: GEO.box, material: matte("#caa574", { roughness: 0.65 }), tinted: false, cast: true },
+  oakSlat: { geometry: GEO.box, material: matte("#caa574", { roughness: 0.65 }), tinted: false, cast: false },
   brassTrim: { geometry: GEO.box, material: brass, tinted: false, cast: false },
+  felt: { geometry: GEO.box, material: tintedMatte, tinted: true, cast: false },
 };
 const PART_KEYS = Object.keys(PARTS) as DressingPart[];
 
@@ -230,7 +236,8 @@ const quat = new Quaternion();
 const pos = new Vector3();
 const scl = new Vector3();
 
-function localMatrix(part: Placement): Matrix4 {
+/** A placement's own transform: where it stands in its space (a desk's, or the world's), turned and sized. */
+export function placementMatrix(part: Placement): Matrix4 {
   const [rx, ry, rz] = part.r ?? [0, 0, 0];
   euler.set(rx, ry, rz, "YXZ");
   return new Matrix4().compose(pos.set(...part.p), quat.setFromEuler(euler), scl.set(...(part.s ?? [1, 1, 1])));
@@ -240,13 +247,17 @@ function localMatrix(part: Placement): Matrix4 {
  * Every instance of every part on the floor: desk kits (desk space → world) and planters (already world space).
  * The coding floor carries the developer's kit and walnut planters, the agents floor the office kit and oak planters.
  */
+const NO_SIGNS: ReadonlyMap<string, string> = new Map();
+
 export function buildDressing(
   desks: readonly DeskSlot[], departments: readonly Department[], floor: OfficeVariant = "coding",
+  /** Desk id -> the team's colour, for the desks a team lead sits at: each is marked as the lead's place. */
+  leadSigns: ReadonlyMap<string, string> = NO_SIGNS,
 ): Map<DressingPart, Batch> {
   const batches = new Map<DressingPart, Batch>(PART_KEYS.map((k) => [k, { matrices: [], colours: [] }]));
   const add = (part: Placement, world?: Matrix4) => {
     const batch = batches.get(part.part)!;
-    const local = localMatrix(part);
+    const local = placementMatrix(part);
     batch.matrices.push(world ? world.clone().multiply(local) : local);
     batch.colours.push(new Color(part.c ?? "#ffffff"));
   };
@@ -254,8 +265,12 @@ export function buildDressing(
     const turn = desk.facing === "north" ? 0 : Math.PI;
     const world = new Matrix4().makeRotationY(turn).setPosition(desk.x, 0, desk.z);
     const occupied = desk.agentId !== null;
-    const kit = floor === "coding" ? kitPlacements(dressDesk(desk.id, occupied)) : officeKitPlacements(dressOfficeDesk(desk.id, occupied));
+    const lead = leadSigns.get(desk.id);
+    // The lead's name stand takes the front right corner, where a phone would lie.
+    const kit = floor === "coding" ? kitPlacements(dressDesk(desk.id, occupied))
+      : officeKitPlacements({ ...dressOfficeDesk(desk.id, occupied), ...(lead === undefined ? {} : { phone: false }) });
     for (const part of kit) add(part, world);
+    if (lead !== undefined) for (const part of leadMarkPlacements(lead)) add(part, world);
   }
   const planter = floor === "coding" ? planterPlacements : oakPlanterPlacements;
   for (const dept of departments) {
@@ -282,10 +297,12 @@ function PartInstances({ spec, batch }: { spec: PartSpec; batch: Batch }) {
 }
 
 /** The dressing of every bench desk on the floor and the planters of every department's benches. */
-export function DeskDressing({ desks, departments, floor = "coding" }: {
+export function DeskDressing({ desks, departments, floor = "coding", leadSigns = NO_SIGNS }: {
   desks: readonly DeskSlot[]; departments: readonly Department[]; floor?: OfficeVariant;
+  /** Desk id -> the team's colour, for the desks a team lead sits at. */
+  leadSigns?: ReadonlyMap<string, string>;
 }) {
-  const batches = useMemo(() => buildDressing(desks, departments, floor), [desks, departments, floor]);
+  const batches = useMemo(() => buildDressing(desks, departments, floor, leadSigns), [desks, departments, floor, leadSigns]);
   return (
     <group>
       {PART_KEYS.map((key) => {

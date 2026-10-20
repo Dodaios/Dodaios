@@ -6,6 +6,7 @@
  * or a worktree). A failed git call rejects with a {@link GitApiError} whose
  * `code` tells the UI which follow-up it can offer (`dirty` → "remove anyway?").
  */
+import { fill, translate } from "@/i18n";
 
 export type GitPrepareMode =
   | "current"
@@ -101,7 +102,7 @@ const BASE = "/api/agentic-ide/git";
 async function failure(res: Response): Promise<GitApiError> {
   // A backend that predates these routes: new code ships as a frontend bundle
   // that reloads on its own, while Python routes load at the next app start.
-  if (res.status === 404) return new GitApiError("Git options load after the next app restart.", "unavailable");
+  if (res.status === 404) return new GitApiError(translate("shell_errors.git_after_restart"), "unavailable");
   try {
     const body = (await res.json()) as { detail?: unknown };
     const detail = body.detail;
@@ -113,7 +114,7 @@ async function failure(res: Response): Promise<GitApiError> {
   } catch {
     // Not JSON (a proxy error page): the status line is all there is to say.
   }
-  return new GitApiError(`Git request failed (${res.status})`, "failed");
+  return new GitApiError(fill(translate("shell_errors.git_request_failed"), { status: res.status }), "failed");
 }
 
 async function post<T>(path: string, body: object): Promise<T> {
@@ -142,6 +143,49 @@ export function commitAll(folder: string, message: string): Promise<{ commit: st
 
 export function pushBranch(folder: string): Promise<{ upstream: string }> {
   return post("/push", { folder });
+}
+
+// The Git tab's actions name the open workspace, never a path: the backend
+// takes the folder from the workspace, so they cannot act anywhere else.
+
+/** Push the workspace's current branch, or `branch` without checking it out. */
+export function pushWorkspaceBranch(workspaceId: string, branch = ""): Promise<{ upstream: string }> {
+  return post("/branch/push", { workspace_id: workspaceId, branch });
+}
+
+/** Fast-forward the current branch; `rebase` replays local commits onto the remote ones. */
+export function pullBranch(workspaceId: string, rebase = false): Promise<{ message: string }> {
+  return post("/pull", { workspace_id: workspaceId, rebase });
+}
+
+export function switchBranch(workspaceId: string, branch: string): Promise<{ branch: string; message: string }> {
+  return post("/switch", { workspace_id: workspaceId, branch });
+}
+
+/** Fast-forward `branch` to its upstream without switching to it. */
+export function updateBranch(workspaceId: string, branch: string): Promise<{ message: string }> {
+  return post("/branch/update", { workspace_id: workspaceId, branch });
+}
+
+/** Delete a local branch; rejects with code `unmerged` until `force` when its commits exist nowhere else. */
+export function deleteBranch(
+  workspaceId: string,
+  branch: string,
+  options: { force?: boolean; remote?: boolean; withWorktree?: boolean } = {},
+): Promise<{ message: string }> {
+  return post("/branch/delete", {
+    workspace_id: workspaceId, branch, force: options.force ?? false, remote: options.remote ?? false, with_worktree: options.withWorktree ?? false,
+  });
+}
+
+/** Open a pull request for the workspace's current branch, or for `branch`. */
+export function openBranchPullRequest(
+  workspaceId: string,
+  options: { title?: string; draft?: boolean; branch?: string } = {},
+): Promise<{ url: string }> {
+  return post("/branch/pull-request", {
+    workspace_id: workspaceId, branch: options.branch ?? "", title: options.title ?? "", draft: options.draft ?? false,
+  });
 }
 
 export function fetchRemotes(folder: string): Promise<{ ok: boolean }> {

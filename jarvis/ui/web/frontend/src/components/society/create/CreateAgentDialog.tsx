@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState, Suspense, lazy } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandedSelect } from "@/components/ui/select";
@@ -19,6 +19,7 @@ import { useT } from "@/i18n";
 import type { AgentRuntime } from "@/lib/societyApi";
 import { AgentNameTaken, RuntimeProviderUnsupported, useCreateSocietyAgent } from "../data";
 import { defaultCompanion, type CompanionAppearance } from "../companion/appearance";
+import { randomCreature } from "../companion/creature";
 import { RuntimeChoice, useAgentRuntimes } from "../card/RuntimePicker";
 import { SandboxChoice } from "../card/AgentSandboxSection";
 import { modelSeats, runtimeSeats } from "../chat/modelChoices";
@@ -27,6 +28,7 @@ import { accountChoice, accountHint } from "./brainPicker";
 import { useCreateAgentDialog } from "./createAgentStore";
 import { AccessChoice } from "./AccessChoice";
 import { accessModels, defaultModel, pickableOption, providerChoices, type AccessBlocked, type AccessOption } from "./seatChoice";
+import { useModelAccess, type ModelAccess } from "@/lib/modelAccess";
 
 const CompanionEditor = lazy(() =>
   import("../companion/CompanionEditor").then((m) => ({ default: m.CompanionEditor })),
@@ -39,8 +41,9 @@ function list(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+/** A new agent starts as a pixel creature; the shape underneath is there for a change of mind. */
 function randomCompanion(): CompanionAppearance {
-  return defaultCompanion(`${Date.now()}:${Math.random()}`);
+  return { ...defaultCompanion(`${Date.now()}:${Math.random()}`), creature: randomCreature() };
 }
 
 export function CreateAgentDialogHost() {
@@ -54,17 +57,21 @@ function CreateAgentDialog() {
   const { finish, cancel } = useCreateAgentDialog.getState();
   const createAgent = useCreateSocietyAgent();
   const runtimes = useAgentRuntimes();
-  const menu = useModelMenuData();
   const [name, setName] = useState("");
   const [runtime, setRuntime] = useState<AgentRuntime>("jarvis");
   const [executionEnvironment, setExecutionEnvironment] = useState<"local" | "sandbox">("local");
   const [providerId, setProviderId] = useState("");
-  const [kind, setKind] = useState("");
+  const [access, rememberAccess] = useModelAccess();
   const [model, setModel] = useState("");
   const [account, setAccount] = useState("");
+  const [accountProvider, setAccountProvider] = useState("");
   const [companion, setCompanion] = useState<CompanionAppearance>(randomCompanion);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A stored catalog may be a startup fallback. Revalidate on this user gesture,
+  // and scope subscription models to the login that will actually run the agent.
+  const menu = useModelMenuData(null, undefined,
+    account && accountProvider ? { [accountProvider]: account } : {}, { refreshOnMount: true });
 
   const external = runtime !== "jarvis";
   const defaultModelLabel = t("agent_chat.model_default");
@@ -87,12 +94,12 @@ function CreateAgentDialog() {
   const chosen = choices.find((choice) => choice.id === providerId)
     ?? choices.find((choice) => pickableOption(choice)) ?? choices[0] ?? null;
   // A refused access is listed with its reason but never picked.
-  const option: AccessOption | null = pickableOption(chosen, kind);
+  const option: AccessOption | null = pickableOption(chosen, chosen ? access[chosen.id] : undefined);
   const models = accessModels(option);
   const accounts = accountChoice(option?.seat ?? null);
   const modelValue = models.some((entry) => entry.id === model) ? model : defaultModel(option);
-  const accountValue = accounts.some((entry) => entry.id === account) ? account : "";
-  const seatKey = `${chosen?.id ?? ""}|${option?.kind ?? ""}`;
+  const accountValue = option?.seat.provider.id === accountProvider && accounts.some((entry) => entry.id === account) ? account : "";
+  const seatKey = `${chosen?.id ?? ""}|${option?.kind ?? ""}|${accountValue}`;
   useEffect(() => {
     // Another provider or access: its own default model, not the last one's id.
     setModel("");
@@ -102,7 +109,10 @@ function CreateAgentDialog() {
   // first turn waits for the setup (agent_runtimes.manager). A Jarvis agent
   // with nothing connected yet still starts: it takes the last chat seat.
   const needsProvider = external && !option;
-  const canCreate = !saving && !needsProvider;
+  const accountBlocked = Boolean(account && accountProvider === option?.seat.provider.id
+    && (accountValue !== account || menu.loading || menu.failed));
+  const selectedModelsFailed = Boolean(option && menu.modelErrors?.includes(option.seat.provider.id));
+  const canCreate = !saving && !needsProvider && !accountBlocked && !selectedModelsFailed && (!option || models.length > 0);
 
   async function submit() {
     if (!canCreate) return;
@@ -170,7 +180,7 @@ function CreateAgentDialog() {
 
               <div className="flex flex-col gap-1.5 text-sm">
                 <span className="font-medium">{t("society.create_agent.type_label")}</span>
-                <RuntimeChoice value={runtime} onChange={setRuntime} disabled={saving} />
+                <RuntimeChoice value={runtime} onChange={(next) => { setRuntime(next); setAccount(""); }} disabled={saving} />
                 <p className="text-xs text-muted-foreground">{t("society.create_agent.type_fixed")}</p>
               </div>
 
@@ -179,7 +189,7 @@ function CreateAgentDialog() {
                 {chosen ? (
                   <BrandedSelect
                     value={chosen.id}
-                    onValueChange={(next) => { setProviderId(next); setKind(""); setAccount(""); }}
+                    onValueChange={(next) => { setProviderId(next); setAccount(""); }}
                     ariaLabel={t("society.create_agent.provider_label")}
                     disabled={saving}
                     testId="create-agent-provider"
@@ -207,7 +217,7 @@ function CreateAgentDialog() {
                   value={option?.kind ?? ""}
                   hint={option ? t(option.extraUsage ? "society.create_agent.access_extra_usage" : `society.create_agent.access_hint_${option.kind}`) : ""}
                   disabled={saving}
-                  onChange={(next) => { setKind(next); setAccount(""); }}
+                  onChange={(next) => { rememberAccess(chosen.id, next as ModelAccess); setAccount(""); }}
                 />
               ) : null}
 
@@ -217,7 +227,7 @@ function CreateAgentDialog() {
                   <span className="font-medium">{t("society.create_agent.account_label")}</span>
                   <BrandedSelect
                     value={accountValue}
-                    onValueChange={setAccount}
+                    onValueChange={(next) => { setAccountProvider(option.seat.provider.id); setAccount(next); setModel(""); }}
                     ariaLabel={t("society.create_agent.account_label")}
                     disabled={saving}
                     testId="create-agent-account"
@@ -231,20 +241,30 @@ function CreateAgentDialog() {
 
               {chosen && option ? (
                 <div className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-medium">{t("society.create_agent.model_label")}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{t("society.create_agent.model_label")}</span>
+                    <button type="button" disabled={saving || menu.refreshing} onClick={() => void Promise.all([menu.refresh(), runtimes.refetch()])}
+                      aria-label={t("society.chat.model_refresh")} title={t("society.chat.model_refresh")}
+                      className="rounded p-1 text-muted-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                      {menu.refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
+                    </button>
+                  </div>
                   <BrandedSelect
                     value={modelValue}
                     onValueChange={setModel}
                     ariaLabel={t("society.create_agent.model_label")}
-                    disabled={saving}
+                    placeholder={t("agent_chat.no_models")}
+                    disabled={saving || accountBlocked || models.length === 0}
                     testId="create-agent-model"
                     searchPlaceholder={models.length >= SEARCH_FROM ? t("society.create_agent.model_search") : undefined}
-                    options={(models.length ? models : [{ id: "", label: defaultModelLabel }]).map((entry) => ({
+                    options={models.map((entry) => ({
                       value: entry.id,
                       label: entry.label || entry.id || defaultModelLabel,
                     }))}
                   />
                   <p className="text-xs text-muted-foreground">{t("society.create_agent.model_hint")}</p>
+                  {menu.refreshing ? <p role="status" className="text-xs text-muted-foreground">{t("society.chat.models_loading")}</p> : null}
+                  {menu.refreshFailed || selectedModelsFailed ? <p role="alert" className="text-xs text-destructive">{t("society.chat.model_load_failed")}</p> : null}
                 </div>
               ) : null}
 

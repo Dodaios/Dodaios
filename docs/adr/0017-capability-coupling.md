@@ -4,7 +4,7 @@
 
 ## Context
 
-Personal Jarvis can — and routinely does — confirm actions it is not capable of
+Dodaios can — and routinely does — confirm actions it is not capable of
 performing. Classic example from production: a user says "Send an email to
 Sam" and the Ack-Brain replies "wird erledigt" while no email capability <!-- i18n-allow -->
 exists anywhere in the running process. The TTS happily reads the phantom
@@ -13,14 +13,14 @@ success; the mail is never sent; the user is deceived.
 This is not a hallucination of the LLM in isolation — it is a *structural
 coupling failure*. The brain layer and the critic layer both run against a model
 of the world that is independent of the actual executable surface. There is no
-authoritative list of what the running Jarvis instance can do, so nothing can
+authoritative list of what the running Dodaios instance can do, so nothing can
 enforce the gap between "what the LLM says it will do" and "what a registered
 tool can actually execute".
 
 Three existing architectural decisions make the problem worse:
 
 **AD-9 (jarvis-agents-bridge.md):** The Critic currently ratifies empty diffs for
-non-file tasks. A Jarvis-Agent mission can complete with no file changes, no
+non-file tasks. A Dodaios-Agent mission can complete with no file changes, no
 tool-call evidence, and a positive `success=True` from the Critic if the worker
 text *says* the task is done. For `requires_evidence=True` capabilities this is
 a silent lie.
@@ -38,7 +38,7 @@ a result. This is exactly the hallucination class this ADR addresses.
 The pre-existing anti-drift pattern (`docs/anti-drift-three-layer.md`) already
 solves *string-enum drift* by treating a vocabulary as a versioned contract.
 This ADR applies the same philosophy one layer higher: the *capability
-vocabulary* — what Jarvis can do — must be a versioned, registered contract, and
+vocabulary* — what Dodaios can do — must be a versioned, registered contract, and
 every layer that references that vocabulary (brain, gate, critic) must read from
 the same source of truth.
 
@@ -97,7 +97,7 @@ called. This is intentionally AP-11 compliant — no LLM, regex-only.
 **(b) `jarvis/brain/manager.py`** — sibling check `_capability_resolves(text)`
 alongside the existing `_should_force_spawn` heuristic. If
 `has_action_intent AND NOT _capability_resolves AND NOT _is_smalltalk`:
-skip brain dispatch and Jarvis-Agent spawn; emit the deterministic UNSUPPORTED
+skip brain dispatch and Dodaios-Agent spawn; emit the deterministic UNSUPPORTED
 response via the same TTS path as a short reply.
 
 Deterministic response phrasing (no LLM, constant strings):
@@ -132,7 +132,7 @@ is `success=False` with `reason="capability_not_executed"`. `summary_de` is
 derived from tool-call evidence via `summarise_from_tool_calls(calls)` in
 `jarvis/missions/critic/summary.py`, not from the worker's text claim.
 
-For Jarvis-Agent missions in the current Welle-2 mock state (no tool-call telemetry
+For Dodaios-Agent missions in the current Welle-2 mock state (no tool-call telemetry
 streaming), the Critic **defaults to `success=False`** for
 `requires_evidence=True` capabilities. This conservative default is intentional
 and will be relaxed in Welle 3 when proper tool-call telemetry lands.
@@ -180,7 +180,7 @@ contributor guide.
   (Section 4) is designed to make this cost negligible when the adapter already
   exists.
 - The Critic will conservatively fail `requires_evidence=True` missions that use
-  the Welle-2 mock Jarvis-Agents path (no tool-call telemetry). This is the correct
+  the Welle-2 mock Dodaios-Agents path (no tool-call telemetry). This is the correct
   default — accepting unverifiable success claims is the bug this ADR fixes.
   Welle-3 tool-call telemetry resolves this at the Critic layer; the gate and
   prompt layers are unaffected.
@@ -213,7 +213,7 @@ When an action-intent has no matching capability, present the user with an
 approval prompt asking them to confirm before attempting. Rejected because this
 is the anti-confirmation-fatigue contract violation documented in the memory
 entry `feedback_no_nagging.md` and the global ADR-0011 alternative analysis.
-The correct UX is a clear "I cannot do that yet" with a path to teach Jarvis,
+The correct UX is a clear "I cannot do that yet" with a path to teach Dodaios,
 not a confirmation loop for phantom capability.
 
 ## Cross-References
@@ -236,5 +236,5 @@ not a confirmation loop for phantom capability.
   - `tests/integration/test_capability_coupling_e2e.py` (this ADR — Agent E)
 - Bug register: `docs/BUGS.md` — BUG-028 Capability Hallucination
 - Sibling pattern: `docs/anti-drift-three-layer.md`
-- Jarvis-Agents bridge: `docs/jarvis-agents-bridge.md` AD-9 (Critic + risk-tier)
-- Welle-3 telemetry: Jarvis-Agents bridge contract AP-OC7
+- Dodaios-Agents bridge: `docs/jarvis-agents-bridge.md` AD-9 (Critic + risk-tier)
+- Welle-3 telemetry: Dodaios-Agents bridge contract AP-OC7

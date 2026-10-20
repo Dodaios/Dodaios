@@ -793,7 +793,7 @@ def _import_skill_folder(path_str: str, reg: Any) -> tuple[str, list[str]]:
         if folder == base or folder.is_relative_to(base):
             raise HTTPException(
                 status_code=400,
-                detail="This folder is already inside the Jarvis skills directory.",
+                detail="This folder is already inside the Dodaios skills directory.",
             )
     except OSError:  # base dir unresolvable — skip this convenience check, not fatal
         pass
@@ -854,9 +854,9 @@ async def import_skill_from_path(
 ) -> dict[str, Any]:
     """Imports a skill folder from a local path into the user skills dir.
 
-    This is the bridge for skills the user authored OUTSIDE the Jarvis skill
+    This is the bridge for skills the user authored OUTSIDE the Dodaios skill
     root — most commonly a coding agent's skill folder (Claude Code / Codex
-    style ``.claude/skills/<name>/``), which Jarvis never scans. Live
+    style ``.claude/skills/<name>/``), which Dodaios never scans. Live
     forensic 2026-08-12: every skill the maintainer "built" lived there, so
     the brain literally could not know them.
 
@@ -1899,7 +1899,7 @@ async def install_from_catalog(
             status_code=422,
             detail=(
                 f"Downloaded to {target_path}, but it is not a usable skill: "
-                f"Jarvis found no skill named '{body.name}' in it (the "
+                f"Dodaios found no skill named '{body.name}' in it (the "
                 "frontmatter is missing or unreadable). Delete that folder or "
                 "fix the file."
             ),

@@ -34,6 +34,19 @@ describe("compact workspace terminal header", () => {
     expect(screen.queryByRole("button", { name: "Review changes by Dana" })).toBeNull();
   });
 
+  it("opens the Git tab for this session from a button and a menu entry", () => {
+    const show = vi.fn();
+    const { unmount } = render(<WorkspaceTerminalHeader {...BASE} onShowInGit={show} />);
+    fireEvent.click(screen.getByRole("button", { name: "Show Dana's changes in Git" }));
+    expect(show).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Dana" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Show changes in Git" }));
+    expect(show).toHaveBeenCalledTimes(2);
+    unmount();
+    render(<WorkspaceTerminalHeader {...BASE} />);
+    expect(screen.queryByRole("button", { name: "Show Dana's changes in Git" })).toBeNull();
+  });
+
   it("reads the review ahead when the pointer reaches its button, and after a dwell on the bar", () => {
     vi.useFakeTimers();
     try {

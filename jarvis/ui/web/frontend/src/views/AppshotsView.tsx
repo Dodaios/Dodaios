@@ -28,6 +28,7 @@ import { AppshotLibrary } from "@/views/AppshotLibrary";
 import { AppshotShortcutField } from "@/views/AppshotShortcutField";
 import { useAppshotEditor } from "@/store/appshotEditor";
 import { useEventStore } from "@/store/events";
+import { useRunLocale } from "@/components/runs/format";
 
 /**
  * Appshots — show the assistant the window you are working in.
@@ -166,7 +167,8 @@ function LatestPreview({
   onEdit: () => void;
 }) {
   const t = useT();
-  const time = new Date(shot.taken_at * 1000).toLocaleTimeString([], {
+  const runLocale = useRunLocale();
+  const time = new Date(shot.taken_at * 1000).toLocaleTimeString(runLocale, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -220,15 +222,17 @@ export function AppshotsView() {
   const [saving, setSaving] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [picking, setPicking] = useState(false);
+  const [savedRecording, setSavedRecording] = useState("");
   const openEditor = useAppshotEditor((s) => s.open);
   // Bumped by AppshotEditorHost when an edit replaced the held picture.
   const revision = useAppshotEditor((s) => s.revision);
   // While a shortcut field records (or refuses a gesture), its row says so
   // in place of the description.
-  const [fieldStatus, setFieldStatus] = useState<{ window: string | null; region: string | null }>({
-    window: null,
-    region: null,
-  });
+  const [fieldStatus, setFieldStatus] = useState<{
+    window: string | null;
+    region: string | null;
+    recording: string | null;
+  }>({ window: null, region: null, recording: null });
   const windowStatus = useCallback(
     (text: string | null) =>
       setFieldStatus((s) => (s.window === text ? s : { ...s, window: text })),
@@ -237,6 +241,11 @@ export function AppshotsView() {
   const regionStatus = useCallback(
     (text: string | null) =>
       setFieldStatus((s) => (s.region === text ? s : { ...s, region: text })),
+    [],
+  );
+  const recordingStatus = useCallback(
+    (text: string | null) =>
+      setFieldStatus((s) => (s.recording === text ? s : { ...s, recording: text })),
     [],
   );
   const countdownTimer = useRef<number | null>(null);
@@ -415,6 +424,22 @@ export function AppshotsView() {
     );
   })();
 
+  // Screen recording sits beside the two picture shortcuts, not below the
+  // library: it is the shortcut people look for first when they want a video.
+  const recordingSupported = typeof settings?.recording_hotkey === "string";
+
+  const recordingShortcutHint = (() => {
+    if (!settings || !recordingSupported) return "";
+    if (!settings.recording_hotkey) return t("appshots.recording_shortcut_hint_off");
+    const detail = settings.recording_shortcut?.detail;
+    if (settings.enabled && !settings.recording_shortcut?.armed && detail) {
+      return t("appshots.shortcut_unavailable").replace("{0}", detail);
+    }
+    return t("appshots.recording_shortcut_hint")
+      .split("{0}")
+      .join(formatAppshotHotkey(settings.recording_hotkey, IS_MAC));
+  })();
+
   const targetHint =
     settings?.target === "message"
       ? t("appshots.target_message_hint")
@@ -495,6 +520,24 @@ export function AppshotsView() {
                         className="w-44"
                         onSave={(regionHotkey) => save({ region_hotkey: regionHotkey })}
                         onStatus={regionStatus}
+                      />
+                    }
+                  />
+                )}
+                {recordingSupported && (
+                  <Row
+                    label={t("appshots.recording_shortcut_label")}
+                    hint={fieldStatus.recording ?? recordingShortcutHint}
+                    control={
+                      <AppshotShortcutField
+                        value={settings.recording_hotkey ?? ""}
+                        isMac={IS_MAC}
+                        disabled={disabled || saving}
+                        testId="appshots-recording-hotkey"
+                        label={t("appshots.recording_shortcut_label")}
+                        className="w-44"
+                        onSave={(recordingHotkey) => save({ recording_hotkey: recordingHotkey })}
+                        onStatus={recordingStatus}
                       />
                     }
                   />
@@ -678,12 +721,13 @@ export function AppshotsView() {
 
         <AppshotLibrary
           enabled={settings?.library}
-          refreshKey={`${lastAppshotEvent}:${revision}`}
+          refreshKey={`${lastAppshotEvent}:${revision}:${savedRecording}`}
         />
 
         {settings && typeof settings.recording_hotkey === "string" && (
           <AppshotRecordingPanel settings={settings} saving={saving}
-            onShortcut={(recording_hotkey) => save({ recording_hotkey })} />
+            onSettings={save}
+            onSaved={setSavedRecording} />
         )}
         <p className="mt-5 text-sm text-muted-foreground">{t("appshots.voice_hint")}</p>
       </div>

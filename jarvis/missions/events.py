@@ -14,7 +14,23 @@ from typing import Annotated, Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from jarvis.i18n.locales import SUPPORTED_LOCALES
+
 from .ids import uuid7_str
+
+# Language a mission is dispatched in and read back in: every supported reply
+# language (``SUPPORTED_REPLY_LANGUAGES`` in jarvis/brain/manager.py minus
+# "auto"), mirrored in frontend/src/types/missions.ts. Parity is guarded by
+# tests/missions/test_mission_language_pt.py and test_mission_approved_parity.py.
+MissionLanguage = Literal["de", "en", "es", "pt"]
+MISSION_LANGUAGES: Final[tuple[str, ...]] = SUPPORTED_LOCALES
+
+
+def coerce_mission_language(value: object, default: str = "en") -> str:
+    """Return *value* when it is a mission language, else *default*."""
+    code = str(value or "").strip().lower()
+    return code if code in MISSION_LANGUAGES else default
+
 
 # --- Base ---
 
@@ -31,7 +47,7 @@ class MissionDispatched(_PayloadBase):
     prompt: str
     parent_mission_id: str | None = None
     priority: int = 0
-    language: Literal["de", "en"] = "de"
+    language: MissionLanguage = "de"
 
 
 class MissionPlanReady(_PayloadBase):
@@ -139,6 +155,10 @@ class MissionApproved(_PayloadBase):
     wall_ms: int
     summary_de: str
     summary_en: str
+    # Summary in the mission's dispatch language when that is neither de nor
+    # en (es/pt); empty otherwise. Mirrored in frontend/src/types/missions.ts
+    # (MissionApproved), which picks it for es/pt missions.
+    summary_local: str = ""
 
 
 class MissionFailed(_PayloadBase):

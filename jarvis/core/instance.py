@@ -45,15 +45,18 @@ from jarvis.core.branding import (
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     LINUX_WM_CLASS,
     MACOS_BUNDLE_ID,
-    PRODUCT_COMPACT_NAME,
+    PERSISTENT_COMPACT_NAME,
+    PERSISTENT_PRODUCT_NAME,
+    PERSISTENT_SLUG,
     PRODUCT_NAME,
-    PRODUCT_SLUG,
     WINDOWS_APP_USER_MODEL_ID,
     WINDOWS_BRANDED_LAUNCHER_FILE_NAME,
     WINDOWS_MUTEX_NAME,
     WINDOWS_SHORTCUT_FILE_NAME,
 )
 
+#: Environment variable that relocates the runtime data directory.
+DATA_DIR_ENV_VAR = "JARVIS_DATA_DIR"
 #: Environment variable naming the instance. Absent / blank = the default app.
 INSTANCE_ENV_VAR = "JARVIS_INSTANCE"
 DEFAULT_INSTANCE_NAME = "default"
@@ -63,7 +66,7 @@ DEV_PORT_OFFSET = 100
 #: Icon file (in ``assets/icons``) each instance shows on taskbar, dock and tray.
 DEFAULT_ICON_FILE_NAME = "jarvis.ico"
 DEV_ICON_FILE_NAME = "jarvis-dev.ico"
-#: Short label appended to the product name ("Personal Jarvis Dev").
+#: Short label appended to the product name ("Dodaios Dev").
 DEV_LABEL = "Dev"
 
 KNOWN_INSTANCE_NAMES = (DEFAULT_INSTANCE_NAME, DEV_INSTANCE_NAME)
@@ -131,16 +134,31 @@ class InstanceIdentity:
 
     @property
     def display_name(self) -> str:
-        """Window title / taskbar name: ``"Personal Jarvis"`` or ``"… Dev"``."""
+        """Window title / taskbar name: ``"Dodaios"`` or ``"… Dev"``. Display text only."""
         return PRODUCT_NAME if self.is_default else f"{PRODUCT_NAME} {self.label}"
 
     @property
+    def persistent_name(self) -> str:
+        """The name this instance's OS artifacts are registered under.
+
+        A compatibility contract (``jarvis.core.branding``): it names files such
+        as the Start-Menu shortcut and never follows ``display_name``.
+        """
+        if self.is_default:
+            return PERSISTENT_PRODUCT_NAME
+        return f"{PERSISTENT_PRODUCT_NAME} {self.label}"
+
+    @property
     def compact_name(self) -> str:
-        return PRODUCT_COMPACT_NAME if self.is_default else f"{PRODUCT_COMPACT_NAME}{self.label}"
+        """Persistent: names the branded launcher executable."""
+        if self.is_default:
+            return PERSISTENT_COMPACT_NAME
+        return f"{PERSISTENT_COMPACT_NAME}{self.label}"
 
     @property
     def slug(self) -> str:
-        return PRODUCT_SLUG if self.is_default else f"{PRODUCT_SLUG}-{self.name}"
+        """Persistent: names the Linux desktop entry and window class."""
+        return PERSISTENT_SLUG if self.is_default else f"{PERSISTENT_SLUG}-{self.name}"
 
     # ---- storage / network ----------------------------------------------
     @property
@@ -179,7 +197,7 @@ class InstanceIdentity:
 
     @property
     def windows_shortcut_file_name(self) -> str:
-        return WINDOWS_SHORTCUT_FILE_NAME if self.is_default else f"{self.display_name}.lnk"
+        return WINDOWS_SHORTCUT_FILE_NAME if self.is_default else f"{self.persistent_name}.lnk"
 
     @property
     def windows_branded_launcher_file_name(self) -> str:
@@ -251,7 +269,22 @@ def instance_data_dir(project_root: Path, identity: InstanceIdentity | None = No
     return project_root / (identity or current_instance()).data_dir_name
 
 
+def resolve_data_dir(project_root: Path) -> Path:
+    """The runtime data directory of this process: the one implementation.
+
+    ``JARVIS_DATA_DIR`` (headless hosts, read-only installs, the frozen build's
+    runtime hook) wins outright. Otherwise the directory sits next to the
+    checkout and is named by the instance. ``jarvis.core.config.DATA_DIR`` and
+    the early desktop log both resolve through here, so they cannot disagree.
+    """
+    env_dir = os.environ.get(DATA_DIR_ENV_VAR)
+    if env_dir and env_dir.strip():
+        return Path(env_dir.strip())
+    return instance_data_dir(project_root)
+
+
 __all__ = [
+    "DATA_DIR_ENV_VAR",
     "DEFAULT_ICON_FILE_NAME",
     "DEFAULT_INSTANCE_NAME",
     "DEV_ICON_FILE_NAME",
@@ -265,6 +298,7 @@ __all__ = [
     "current_instance",
     "instance_data_dir",
     "normalize_instance_name",
+    "resolve_data_dir",
     "resolve_instance",
     "select_instance",
 ]

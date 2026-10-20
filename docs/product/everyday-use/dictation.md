@@ -15,13 +15,12 @@ tags: [dictation, speech-recognition, microphone, shortcuts, privacy, accessibil
 related: [voice-conversations, speech-dictionary, providers-and-api-keys, privacy-and-local-data]
 ---
 
-Dictation turns speech into text at the cursor in desktop apps and Personal
-Jarvis. It does not ask the assistant to answer. If insertion is blocked, your
+Dictation turns speech into text at the cursor in desktop apps and Dodaios. It does not ask the assistant to answer. If insertion is blocked, your
 transcript stays on the clipboard and in **Recent dictations**.
 
 ## Before You Start
 
-- Keep the Personal Jarvis desktop app running and allow microphone access.
+- Keep the Dodaios desktop app running and allow microphone access.
 - In your assistant-named **Voice** section, choose **API Keys** and select a
   ready **Voice input** provider.
 - Place the cursor in an editable field. Password and protected fields may
@@ -33,7 +32,7 @@ transcript stays on the clipboard and in **Recent dictations**.
    cursor at the insertion point.
 2. Hold **Push to talk** and speak. Release it when finished. The floating bar
    shows the recording and transcription state.
-3. Wait while Jarvis applies dictionary corrections, safe cleanup, and any
+3. Wait while Dodaios applies dictionary corrections, safe cleanup, and any
    wording or translation setting you enabled.
 4. Check the result at the cursor. If a notice says the text was copied to the
    clipboard, paste it manually into the same field.
@@ -61,14 +60,14 @@ for manual pasting.
 
 ## Understand Where the Text Goes
 
-Inside Personal Jarvis, text goes to the focused or last-used editable field,
+Inside Dodaios, text goes to the focused or last-used editable field,
 including a coding terminal. With no target, it remains in history.
 
-For another app, Jarvis places the transcript on the clipboard, sends the
+For another app, Dodaios places the transcript on the clipboard, sends the
 normal paste shortcut, then restores the previous plain-text value. Non-text
 clipboard content may not be restorable.
 
-If the system refuses automatic typing, Jarvis leaves the transcript on the
+If the system refuses automatic typing, Dodaios leaves the transcript on the
 clipboard. History reports **Copied to clipboard** or **Could not insert**.
 
 ## Review and Recover Dictations
@@ -95,7 +94,7 @@ assistant reply languages are separate.
 **Clean up my wording** uses a text model for punctuation, capitalization,
 sentence breaks, and self-corrections. The original stays in history. **Test**
 uses a fixed sample and saves nothing. If the model fails or changes too much,
-Jarvis uses the version from before that pass.
+Dodaios uses the version from before that pass.
 
 **Always write in one language** translates and cleans up in one request.
 Translation starts off. It runs at the provider you picked, on that provider's
@@ -129,7 +128,7 @@ irreversibly removes history, recovery audio, lifetime statistics, and streak.
 
 | System | What can prevent automatic use | What happens instead |
 |---|---|---|
-| Windows | The target app runs as administrator while Jarvis does not | Text remains on the clipboard |
+| Windows | The target app runs as administrator while Dodaios does not | Text remains on the clipboard |
 | macOS | Secure Input, a password field, or missing Accessibility/Input Monitoring access | Text remains on the clipboard; shortcuts may be unavailable |
 | Linux X11 | The optional desktop hotkey support is not installed | Use the Dictation button; insertion can still work |
 | Linux Wayland | Global shortcuts and cross-app synthetic typing are blocked by design | Use the button and paste from the clipboard |
@@ -141,7 +140,7 @@ irreversibly removes history, recovery audio, lifetime statistics, and streak.
 2. The selected Voice input provider turns the audio into a raw transcript.
 3. The Speech Dictionary and safe cleanup repair known terms and formatting.
 4. Optional wording or translation produces the delivered version.
-5. Jarvis inserts that version or preserves it on the clipboard.
+5. Dodaios inserts that version or preserves it on the clipboard.
 6. Local history records both versions, the outcome, and recovery audio only
    after an incomplete result.
 

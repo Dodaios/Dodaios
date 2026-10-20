@@ -69,6 +69,21 @@ describe("RosterRail status", () => {
     fireEvent.click(screen.getByTestId("society-group-team"));
     expect(openGroup).toHaveBeenCalledWith("team");
   });
+  it("lists nobody on their own until the teams have answered", () => {
+    const agents = [agent({ agentId: "scout", name: "Scout" }), agent({ agentId: "writer", name: "Writer" }), agent({ agentId: "solo", name: "Solo" })];
+    const view = render(<RosterRail {...baseProps} activeAgentId={null} agents={agents} teamsPending />);
+    // Not one frame shows a team member as a loose agent.
+    expect(screen.queryByText("Scout")).toBeNull();
+    expect(screen.queryByText("Solo")).toBeNull();
+    expect(screen.getByText("society.roster.loading")).toBeTruthy();
+
+    view.rerender(<RosterRail {...baseProps} activeAgentId={null} agents={agents} onOpenGroup={() => undefined}
+      groups={[{ group_id: "team", name: "Launch team", members: ["scout", "writer"], created_ms: 1, updated_ms: 1 }]} />);
+    expect(screen.getByTestId("society-group-team")).toBeTruthy();
+    expect(screen.queryByText("Scout")).toBeNull();
+    expect(screen.getByText("Solo")).toBeTruthy();
+    expect(screen.queryByText("society.roster.loading")).toBeNull();
+  });
   it("opens team actions on right-click and only ungroups after confirmation", async () => {
     const request = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
     vi.stubGlobal("fetch", request);

@@ -20,7 +20,7 @@ vi.mock("@tanstack/react-query", async (importOriginal) => ({
 }));
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useLocaleChunk: () => true }));
 vi.mock("@/components/society/chat/useModelMenuData", () => ({ useModelMenuData: () => undefined }));
-vi.mock("@/lib/societyChatGroups", () => ({ useSocietyChatGroups: () => ({ data: groupsState.groups }) }));
+vi.mock("@/lib/societyChatGroups", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/societyChatGroups")>()), useSocietyChatGroups: () => ({ data: groupsState.groups, isSuccess: true, isError: false, failureCount: 0 }) }));
 vi.mock("@/components/society/chat/ChatGroupPanel", () => ({ ChatGroupPanel: ({ group, onOpenAgent }: any) => <div data-testid="group-workspace">{group.name}<button onClick={() => onOpenAgent("specialist")}>Open member</button></div> }));
 vi.mock("@/components/society/data", () => ({ useQuickCreateAgent: () => quick.create, useSocietyRoster: () => ({ data: { sample: false, agents: [
   { agentId: "lead", name: "Lead", tier: "lead", state: "idle" },

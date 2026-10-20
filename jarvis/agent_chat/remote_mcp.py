@@ -54,7 +54,7 @@ class ScopedMcpApp:
             await send(
                 {
                     "type": "http.response.body",
-                    "body": b'{"error":"Jarvis tool connection unavailable."}',
+                    "body": b'{"error":"Dodaios tool connection unavailable."}',
                 }
             )
 
@@ -124,7 +124,7 @@ class RemoteMcpBridge:
             turn = current_chat_turn.get()
             if turn is None:
                 raise RemoteToolsUnavailable(
-                    "The Jarvis tool connection needs an active chat turn. Retry this message."
+                    "The Dodaios tool connection needs an active chat turn. Retry this message."
                 )
         bridge = cls(ScopedMcpApp(session_id, turn.turn_id, build_mcp_asgi_app()))
 
@@ -158,7 +158,7 @@ class RemoteMcpBridge:
                     if bridge._task.done():
                         await bridge._task
                         raise RemoteToolsUnavailable(
-                            "Jarvis could not start the remote tool connection."
+                            "Dodaios could not start the remote tool connection."
                         )
                     await asyncio.sleep(0.01)
             bridge._forward = await asyncio.wait_for(
@@ -172,7 +172,7 @@ class RemoteMcpBridge:
             if isinstance(exc, asyncio.CancelledError):
                 raise
             raise RemoteToolsUnavailable(
-                "The computer could not connect to Jarvis tools over SSH. "
+                "The computer could not connect to Dodaios tools over SSH. "
                 "Allow TCP forwarding in its SSH server settings, then retry."
             ) from exc
 

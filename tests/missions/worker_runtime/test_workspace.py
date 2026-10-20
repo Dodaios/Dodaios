@@ -100,11 +100,11 @@ def test_prepare_workspace_files_contain_mission_id(tmp_path: Path) -> None:
 
 
 def test_prepare_workspace_files_carry_managed_marker(tmp_path: Path) -> None:
-    """Header marker lets later tools recognize whether a file is Personal-Jarvis-managed."""
+    """Header marker lets later tools recognize whether a file is Dodaios-managed."""
     workspace = prepare_workspace(tmp_path, mission_id="m-001")
     for name in EXPECTED_WORKSPACE_FILES:
         text = (workspace / name).read_text(encoding="utf-8")
-        assert "managed by Personal Jarvis" in text, f"{name} missing managed marker"
+        assert "managed by Dodaios" in text, f"{name} missing managed marker"
 
 
 def test_prepare_workspace_creates_parents(tmp_path: Path) -> None:

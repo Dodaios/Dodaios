@@ -231,7 +231,7 @@ def resolve_target(
                 code=DegradationCode.NO_CURSOR,
                 message=(
                     "The mouse position could not be read on this system, so "
-                    "the screen showing the Jarvis bar was used instead."
+                    "the screen showing the Dodaios bar was used instead."
                 ),
             )
         )
@@ -247,7 +247,7 @@ def resolve_target(
                 Degradation(
                     code=DegradationCode.NO_BAR_POSITION,
                     message=(
-                        "Neither the mouse position nor the Jarvis bar position "
+                        "Neither the mouse position nor the Dodaios bar position "
                         "was available, so the main screen was used."
                     ),
                 )

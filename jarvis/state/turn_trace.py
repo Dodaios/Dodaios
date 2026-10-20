@@ -68,7 +68,10 @@ _PAYLOAD_KEYS: dict[str, tuple[str, ...]] = {
     "BrainTurnCompleted": ("provider", "model", "finish_reason", "tokens_in", "tokens_out"),
     "ToolCallStarted": ("tool_name", "args_preview"),
     "ToolCallCompleted": ("success", "duration_ms", "output_preview", "error"),
-    "ActionProposed": ("tool_name", "args", "risk_tier", "rationale"),
+    "ActionProposed": (
+        "tool_name", "args", "risk_tier", "rationale",
+        "effect", "target_origin", "origin_source",
+    ),
     "ActionExecuted": ("tool_name", "success", "duration_ms", "error", "output_preview"),
     "ActionDenied": ("tool_name", "reason"),
     "ObservationCaptured": ("window_title",),

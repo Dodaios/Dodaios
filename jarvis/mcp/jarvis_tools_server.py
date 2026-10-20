@@ -230,7 +230,7 @@ def build_server() -> Any:
 
         gateway = _gateway()
         if gateway is None:
-            return failed("Jarvis is still starting up.")
+            return failed("Dodaios is still starting up.")
         if name in _WITHHELD:
             return failed(
                 f"{name} is not available from the chat — you ARE the worker. Do the work yourself."

@@ -15,6 +15,10 @@ to ``os.environ["PATH"]``. Existing entries keep priority — only *missing*
 dirs are appended, so a user-managed PATH always wins and the call is
 idempotent. Pure ``stat()`` probes, no subprocess: boot-budget-safe (AP-26).
 
+The PATH it writes stays inside what the platform can spawn with: see
+``_WINDOWS_PATH_BUDGET``. A PATH that arrives too long is shortened the same
+way, so an app started from such an environment can still launch programs.
+
 Cross-platform per CLOUD.md Rule #1: the candidate list covers macOS
 (Intel + Apple Silicon Homebrew), Linux (incl. headless), and Windows; a dir
 that does not exist on this host is simply skipped.
@@ -30,6 +34,21 @@ from collections.abc import Callable
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+
+# Windows builds one search path per ``CreateProcess`` from the application
+# directory, the system directories and the CALLER's ``PATH``, in a string that
+# holds 32,767 characters. Past that EVERY spawn of the process fails with
+# ``WinError 8`` ("not enough memory resources"), whatever is being started and
+# whatever environment the child is given; a child handed such a PATH dies
+# during its own start-up instead. The budget leaves room for a long
+# application directory and for the folder a caller adds to one child's PATH.
+# (BUG-233)
+_WINDOWS_PATH_BUDGET = 31_000
+
+# The last over-budget request that changed nothing. Callers ask on every
+# status probe, and re-probing several hundred folders each time to reach the
+# same answer would cost more than the lookup it serves.
+_settled_overflow: tuple[str, tuple[str, ...]] | None = None
 
 
 def _posix_candidates() -> list[str]:
@@ -154,6 +173,91 @@ def candidate_dirs() -> list[str]:
     return [*base, *_registered_agent_dirs()]
 
 
+def _path_budget() -> int | None:
+    """The longest ``PATH`` this platform can spawn with; ``None`` if unbounded."""
+    return _WINDOWS_PATH_BUDGET if sys.platform == "win32" else None
+
+
+def _entry_key(entry: str) -> str:
+    return os.path.normcase(os.path.normpath(entry))
+
+
+def _joined_length(entries: list[str]) -> int:
+    return sum(len(entry) for entry in entries) + max(len(entries) - 1, 0)
+
+
+def fit_path_entries(entries: list[str], budget: int) -> list[str]:
+    """Shorten ``entries`` until their joined ``PATH`` fits ``budget``.
+
+    Gives up the cheapest thing first: empty and repeated entries, then folders
+    that do not exist, and only then real folders from the end, where the
+    lowest-priority ones sit. A list that already fits comes back unchanged, so
+    a healthy PATH is never rewritten.
+    """
+    if _joined_length(entries) <= budget:
+        return entries
+    seen: set[str] = set()
+    unique: list[str] = []
+    for entry in entries:
+        key = _entry_key(entry) if entry else ""
+        if not entry or key in seen:
+            continue
+        seen.add(key)
+        unique.append(entry)
+    if _joined_length(unique) <= budget:
+        return unique
+    existing: list[str] = []
+    for entry in unique:
+        try:
+            if os.path.isdir(entry):
+                existing.append(entry)
+        except OSError:  # an unreadable entry cannot be searched either
+            continue
+    while existing and _joined_length(existing) > budget:
+        existing.pop()
+    return existing
+
+
+def _store_path(current: str, added: list[str]) -> list[str]:
+    """Write ``current`` plus ``added`` to ``PATH``; return what of ``added`` got in.
+
+    Inside the platform's budget this is a plain append. Past it the PATH is
+    shortened with :func:`fit_path_entries` first, which is also how a PATH
+    that was already too long when the app started gets repaired.
+    """
+    global _settled_overflow
+
+    entries = current.split(os.pathsep) if current else []
+    budget = _path_budget()
+    if budget is None or _joined_length(entries + added) <= budget:
+        if added:
+            os.environ["PATH"] = os.pathsep.join([current, *added] if current else added)
+        return added
+    request = (current, tuple(added))
+    if request == _settled_overflow:
+        return []
+    fitted = fit_path_entries(entries + added, budget)
+    kept_keys = {_entry_key(entry) for entry in fitted}
+    kept = [entry for entry in added if _entry_key(entry) in kept_keys]
+    value = os.pathsep.join(fitted)
+    if value == current:
+        _settled_overflow = request
+    else:
+        os.environ["PATH"] = value
+    log.warning(
+        "PATH is %d characters long, over the %d-character budget that keeps "
+        "Windows able to start programs: kept %d of %d entries (repeated and "
+        "missing folders go first), %d of %d CLI install dir(s) added",
+        len(current),
+        budget,
+        len(fitted),
+        len(entries) + len(added),
+        len(kept),
+        len(added),
+    )
+    return kept
+
+
 def ensure_cli_paths() -> list[str]:
     """Append missing well-known CLI dirs to ``PATH``; return what was added.
 
@@ -178,9 +282,8 @@ def ensure_cli_paths() -> list[str]:
             continue
         seen.add(key)
         added.append(cand)
+    added = _store_path(current, added)
     if added:
-        joined = os.pathsep.join(added)
-        os.environ["PATH"] = f"{current}{os.pathsep}{joined}" if current else joined
         log.info("PATH augmented with %d CLI install dir(s): %s", len(added), added)
     return added
 
@@ -237,9 +340,8 @@ def refresh_from_persistent_path(
                 continue
             seen.add(key)
             added.append(entry)
+    added = _store_path(current, added)
     if added:
-        joined = os.pathsep.join(added)
-        os.environ["PATH"] = f"{current}{os.pathsep}{joined}" if current else joined
         log.info("PATH refreshed with %d folder(s) from the persistent PATH", len(added))
     return added
 
@@ -264,6 +366,7 @@ def resolve_node_executable() -> str | None:
 __all__ = [
     "candidate_dirs",
     "ensure_cli_paths",
+    "fit_path_entries",
     "refresh_from_persistent_path",
     "resolve_node_executable",
 ]

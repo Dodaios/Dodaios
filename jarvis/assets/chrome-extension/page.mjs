@@ -78,7 +78,7 @@ export function inspectPage(mode, input = {}) {
     if (!pointer) {
       pointer = document.createElement("div");
       pointer.id = "jarvis-browser-pointer";
-      pointer.textContent = "↖ Jarvis";
+      pointer.textContent = "↖ Dodaios";
       pointer.style.cssText = "position:fixed;z-index:2147483647;pointer-events:none;color-scheme:light dark;background:Highlight;color:HighlightText;border:2px solid Canvas;border-radius:5px;padding:3px;font:12px sans-serif;";
       document.documentElement.append(pointer);
     }

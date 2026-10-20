@@ -1169,6 +1169,34 @@ async def test_list_artifacts_lists_nested_deliverables(app: FastAPI, tmp_path: 
 
 
 @pytest.mark.asyncio
+async def test_list_artifacts_names_a_page_by_its_title(app: FastAPI, tmp_path: Path) -> None:
+    """An HTML deliverable carries its own ``<title>`` in the listing, however
+    large the page is — the text preview stops at small files, and a real
+    report is not one."""
+    d = _make_mission_dir(tmp_path, "019e3288abcd")
+    files = d / "tasks" / "019e0000" / "artifacts" / "files"
+    padding = "<p>" + "x" * 40_000 + "</p>"
+    _seed(
+        files / "report.html",
+        "<!doctype html><html><head><title>\n  Sales &amp; Returns\n  2026 </title></head>"
+        f"<body>{padding}</body></html>",
+    )
+    _seed(files / "untitled.html", "<html><body>no title here</body></html>")
+    _seed(files / "blank.html", "<html><head><title>   </title></head></html>")
+    _seed(files / "notes.md", "<title>Not a page</title>")
+    with TestClient(app) as client:
+        r = client.get(f"/api/outputs/{d.name}/artifacts")
+    assert r.status_code == 200
+    by_name = {f["path"].rsplit("/", 1)[-1]: f for f in r.json()["files"]}
+    assert by_name["report.html"]["title"] == "Sales & Returns 2026"
+    # Too large for a preview, and still named.
+    assert by_name["report.html"]["preview"] is None
+    assert by_name["untitled.html"]["title"] is None
+    assert by_name["blank.html"]["title"] is None
+    assert by_name["notes.md"]["title"] is None
+
+
+@pytest.mark.asyncio
 async def test_raw_serves_deliverable(app: FastAPI, tmp_path: Path) -> None:
     """The raw-file endpoint returns the contents of a genuine deliverable."""
     d = _make_mission_dir(tmp_path, "019e3288abcd")
