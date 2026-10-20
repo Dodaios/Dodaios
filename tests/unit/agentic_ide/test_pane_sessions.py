@@ -113,11 +113,11 @@ async def test_a_reboot_resumes_the_conversation_after_clear(
     assert "launch-id" not in argv
 
 
-def test_settings_file_turns_claudes_fullscreen_renderer_off(tmp_path, monkeypatch):
-    """A pane's terminal must hold the conversation, or its scrollbar has no position."""
+def test_settings_file_keeps_the_users_renderer(tmp_path, monkeypatch):
+    """A pane must not override the person's own Claude Code renderer choice."""
     import json
 
     monkeypatch.setattr(pane_sessions, "_state_dir", lambda: tmp_path / "state")
     data = json.loads(pane_sessions.settings_file().read_text(encoding="utf-8"))
-    assert data["env"]["CLAUDE_CODE_NO_FLICKER"] == "0"
+    assert "CLAUDE_CODE_NO_FLICKER" not in data.get("env", {})
     assert "SessionStart" in data["hooks"]
