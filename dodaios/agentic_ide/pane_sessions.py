@@ -52,12 +52,10 @@ def settings_file() -> Path:
     # installs and cmd on others; a quoted forward-slash path works in both.
     command = f'"{_interpreter().as_posix()}" "{script.as_posix()}"'
     settings = {
-        # The classic renderer, whatever the user's own settings say: with
-        # ``CLAUDE_CODE_NO_FLICKER`` on, Claude Code takes the alternate screen
-        # and keeps the conversation inside its own UI, so the pane's terminal
-        # has no history and its scrollbar no position to show. Settings given
-        # with ``--settings`` outrank the user's, and only these panes get them.
-        "env": {"CLAUDE_CODE_NO_FLICKER": "0"},
+        # No renderer override: a pane runs Claude Code the way the person set
+        # it up. Forcing the classic renderer (for an exact scrollbar) made new
+        # panes look cramped next to full-screen ones (reported 2026-10-20);
+        # on the full-screen renderer the scrollbar falls back to app mode.
         "hooks": {
             "SessionStart": [{"hooks": [{"type": "command", "command": command, "timeout": 10}]}]
         }

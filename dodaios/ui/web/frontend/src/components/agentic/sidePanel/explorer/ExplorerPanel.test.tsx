@@ -36,6 +36,7 @@ const TOKEN = "0123456789abcdef01234567";
 
 function respond(url: string, body: string): unknown {
   if (url.includes("/changes")) return CHANGES;
+  if (url.endsWith("/outside-files")) return { path: JSON.parse(body).path.replace(/:\d+$/, "").replace(/\\/g, "/") };
   if (url.includes("/text-file/version")) return { version: url.includes("src") ? null : "v1" };
   if (url.endsWith("/entries/move")) return { path: JSON.parse(body).destination };
   if (url.endsWith("/entries/copy")) return { path: JSON.parse(body).destination.replace(/(\.\w+)$/, " copy$1") };
@@ -445,6 +446,17 @@ describe("terminal path clicks", () => {
     act(() => activateTerminalLink(new MouseEvent("click", { button: 0, ctrlKey: true }), "src/", { workspaceId: "w1" }));
     await waitFor(() => expect(useIdeSidePanelStore.getState()).toMatchObject({ open: true, active: "files" }));
     expect(useCodeEditorStore.getState().tabs).toEqual([]);
+  });
+
+  it("open a file outside the workspace in the editor", async () => {
+    renderHook(() => useExplorerPathRouting());
+    act(() =>
+      activateTerminalLink(new MouseEvent("click", { button: 0, ctrlKey: true }), "C:\\Users\\me\\Downloads\\TODO.md:3", { workspaceId: "w1" }),
+    );
+    await waitFor(() => expect(useCodeEditorStore.getState().tabs.map((tab) => tab.path)).toEqual(["C:/Users/me/Downloads/TODO.md"]));
+    const grant = calls.find((call) => call.url.includes("/outside-files"));
+    expect(grant?.body).toContain("Downloads");
+    expect(calls.some((call) => call.url.includes("terminal-target"))).toBe(false);
   });
 
   it("fall back to the OS for another workspace's pane", () => {

@@ -210,7 +210,10 @@ class CodeLoop:
         chosen, why = await ctx.seat()
         if chosen is None:
             return f"waiting: {why}"
-        self._start(record, builder.build(ctx, record, provider=chosen.provider))
+        self._start(
+            record,
+            builder.build(ctx, record, provider=chosen.provider, drop_env=chosen.drop_env),
+        )
         return f"building {record.signature} on {chosen.label}"
 
     async def _resume(self, record: BuildRecord) -> str:
