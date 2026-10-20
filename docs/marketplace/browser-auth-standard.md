@@ -32,7 +32,7 @@ Pick the officially supported flow for the provider:
   no static client at all). Preferred wherever the provider offers it.
 - `publisher_pkce` — Authorization Code + PKCE loopback against the
   publisher-provisioned shared client (`publisher_<family>_oauth_*`
-  secrets, see `jarvis/marketplace/publisher_clients.py`).
+  secrets, see `dodaios/marketplace/publisher_clients.py`).
 - `device` — official provider device flow. At most the intended
   short-lived confirmation code, never a self-made API token.
 - `hosted` — server-side OAuth via the hosted callback (only where the
@@ -91,10 +91,10 @@ reliably automated.
 
 Enforced by:
 
-- `jarvis/marketplace/catalog.py` — discriminated browser, device and
+- `dodaios/marketplace/catalog.py` — discriminated browser, device and
   instance-address authorization configuration;
-- `jarvis/marketplace/publisher_clients.py` — shared resolution;
-- `jarvis/marketplace/connection_verification.py` — bounded resource checks
+- `dodaios/marketplace/publisher_clients.py` — shared resolution;
+- `dodaios/marketplace/connection_verification.py` — bounded resource checks
   before publishing a successful OAuth connection; unknown hooks fail closed;
 - `tests/contract/test_plugin_auth_standard.py` — mandatory contract tests;
 - `scripts/ci/check_plugin_auth_contract.py` — blocking configuration and

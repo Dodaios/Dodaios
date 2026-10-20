@@ -20,8 +20,8 @@ autostart still works (just possibly delayed) — covered by ``test_windows_scri
 
 from __future__ import annotations
 
-from jarvis.autostart.protocol import LaunchSpec
-from jarvis.autostart.windows import (
+from dodaios.autostart.protocol import LaunchSpec
+from dodaios.autostart.windows import (
     TASK_NAME,
     WindowsAutostart,
     _TaskInfo,
@@ -33,12 +33,12 @@ from jarvis.autostart.windows import (
 
 _SPEC = LaunchSpec(
     program=r"C:\Python\pythonw.exe",
-    args=("-m", "jarvis.ui.web.launcher"),
+    args=("-m", "dodaios.ui.web.launcher"),
     working_dir=r"C:\Users\u\Personal Jarvis",
 )
 _MATCHING_INFO = _TaskInfo(
     execute=_SPEC.program,
-    arguments="-m jarvis.ui.web.launcher",
+    arguments="-m dodaios.ui.web.launcher",
     working_dir=_SPEC.working_dir,
 )
 
@@ -53,7 +53,7 @@ def test_register_script_has_action_trigger_principal() -> None:
     assert "Register-ScheduledTask" in script
     assert "New-ScheduledTaskAction" in script
     assert r"-Execute 'C:\Python\pythonw.exe'" in script
-    assert "-m jarvis.ui.web.launcher" in script
+    assert "-m dodaios.ui.web.launcher" in script
     assert r"C:\Users\u\Personal Jarvis" in script
     assert "AtLogOn" in script
     assert TASK_NAME in script
@@ -99,7 +99,7 @@ def test_register_script_escapes_apostrophes_in_paths() -> None:
     # then all fail and autostart silently never works on that machine.
     spec = LaunchSpec(
         program=r"C:\Users\O'Brien\.venv\Scripts\pythonw.exe",
-        args=("-m", "jarvis.ui.web.launcher"),
+        args=("-m", "dodaios.ui.web.launcher"),
         working_dir=r"C:\Users\O'Brien\Ruben's Jarvis",
     )
     script = build_register_task_script(TASK_NAME, spec, user_id=r"DOM\O'Brien")
@@ -124,7 +124,7 @@ def test_parse_task_query_roundtrips_register_fields() -> None:
     out = parse_task_query(build_fake_query_output())
     assert out is not None
     assert out.execute == r"C:\Python\pythonw.exe"
-    assert out.arguments == "-m jarvis.ui.web.launcher"
+    assert out.arguments == "-m dodaios.ui.web.launcher"
     assert out.working_dir == r"C:\Users\u\Personal Jarvis"
     assert out.enabled is True
 
@@ -169,13 +169,13 @@ def test_parse_task_query_treats_a_missing_state_as_enabled() -> None:
 def build_fake_query_output(
     *,
     execute: str = r"C:\Python\pythonw.exe",
-    arguments: str = "-m jarvis.ui.web.launcher",
+    arguments: str = "-m dodaios.ui.web.launcher",
     working_dir: str = r"C:\Users\u\Personal Jarvis",
     state: str | None = "Ready",
 ) -> str:
     import base64
 
-    from jarvis.autostart.windows import _QUERY_SENTINEL
+    from dodaios.autostart.windows import _QUERY_SENTINEL
 
     fields = [execute, arguments, working_dir]
     if state is not None:
@@ -251,7 +251,7 @@ def test_status_reports_scheduled_task_when_present_and_matching() -> None:
 def test_status_reports_drift_when_task_points_elsewhere() -> None:
     other = _TaskInfo(
         execute=r"C:\Old\pythonw.exe",
-        arguments="-m jarvis.ui.web.launcher",
+        arguments="-m dodaios.ui.web.launcher",
         working_dir=r"C:\Old",
     )
     mgr, _ = _mk(task_info=other)
@@ -307,7 +307,7 @@ def test_install_noninteractive_keeps_fallback_when_task_is_stale() -> None:
     # fallback so autostart still works until the user re-enables instant start.
     stale = _TaskInfo(
         execute=r"C:\Old\pythonw.exe",
-        arguments="-m jarvis.ui.web.launcher",
+        arguments="-m dodaios.ui.web.launcher",
         working_dir=r"C:\Old",
     )
     mgr, calls = _mk(task_info=stale)
@@ -387,7 +387,7 @@ def test_a_leftover_shortcut_beside_a_matching_task_is_not_current() -> None:
 
 
 def test_reconcile_removes_a_leftover_shortcut_beside_a_matching_task(monkeypatch) -> None:
-    import jarvis.autostart as autostart
+    import dodaios.autostart as autostart
 
     from .conftest import make_caps, make_cfg
 
@@ -407,7 +407,7 @@ def test_truncated_shortcut_readback_is_drift_not_a_match(monkeypatch) -> None:
     import subprocess
     from pathlib import Path
 
-    from jarvis.autostart import windows as win_mod
+    from dodaios.autostart import windows as win_mod
 
     bare = LaunchSpec(program=r"C:\Python\pythonw.exe", args=(), working_dir="")
     encoded = base64.b64encode(bare.program.encode("utf-8")).decode("ascii")
@@ -434,7 +434,7 @@ def test_truncated_shortcut_readback_is_drift_not_a_match(monkeypatch) -> None:
 
 _DISABLED_INFO = _TaskInfo(
     execute=_SPEC.program,
-    arguments="-m jarvis.ui.web.launcher",
+    arguments="-m dodaios.ui.web.launcher",
     working_dir=_SPEC.working_dir,
     enabled=False,
 )
@@ -481,7 +481,7 @@ def test_elevated_launcher_quotes_a_temp_path_with_spaces(monkeypatch) -> None:
     import os
     import subprocess
 
-    from jarvis.autostart import windows as win_mod
+    from dodaios.autostart import windows as win_mod
 
     spaced = r"C:\Users\John Doe\AppData\Local\Temp\tmp_autostart.ps1"
     fd = os.open(os.devnull, os.O_WRONLY)
@@ -511,7 +511,7 @@ def test_elevated_launcher_fails_safe_on_a_null_exit_code(monkeypatch) -> None:
     import os
     import subprocess
 
-    from jarvis.autostart import windows as win_mod
+    from dodaios.autostart import windows as win_mod
 
     fd = os.open(os.devnull, os.O_WRONLY)
     monkeypatch.setattr(win_mod.tempfile, "mkstemp", lambda suffix="": (fd, "x.ps1"))
@@ -543,7 +543,7 @@ def _no_powershell(script: str):
 
 
 def test_boot_reconcile_writes_the_shortcut_without_powershell(monkeypatch, tmp_path) -> None:
-    from jarvis.autostart import windows as win_mod
+    from dodaios.autostart import windows as win_mod
 
     written: list[tuple[object, LaunchSpec, object]] = []
     monkeypatch.setattr(win_mod, "_run_powershell", _no_powershell)
@@ -563,7 +563,7 @@ def test_boot_reconcile_writes_the_shortcut_without_powershell(monkeypatch, tmp_
 def test_shortcut_falls_back_to_powershell_only_when_in_process_is_impossible(
     monkeypatch, tmp_path
 ) -> None:
-    from jarvis.autostart import windows as win_mod
+    from dodaios.autostart import windows as win_mod
 
     scripts: list[str] = []
     monkeypatch.setattr(win_mod, "_run_powershell", lambda script: scripts.append(script))
@@ -576,7 +576,7 @@ def test_shortcut_falls_back_to_powershell_only_when_in_process_is_impossible(
 
 
 def test_task_probe_uses_com_and_skips_powershell(monkeypatch) -> None:
-    from jarvis.autostart import windows as win_mod
+    from dodaios.autostart import windows as win_mod
 
     monkeypatch.setattr(win_mod, "_run_powershell", _no_powershell)
     monkeypatch.setattr(win_mod, "_query_task_in_process", lambda name: _MATCHING_INFO)
@@ -584,7 +584,7 @@ def test_task_probe_uses_com_and_skips_powershell(monkeypatch) -> None:
 
 
 def test_task_probe_com_failure_reads_as_absent_not_powershell(monkeypatch) -> None:
-    from jarvis.autostart import windows as win_mod
+    from dodaios.autostart import windows as win_mod
 
     def boom(name: str):
         raise OSError("Task Scheduler unavailable")
@@ -597,7 +597,7 @@ def test_task_probe_com_failure_reads_as_absent_not_powershell(monkeypatch) -> N
 def test_task_probe_without_pywin32_falls_back_to_powershell(monkeypatch) -> None:
     import subprocess
 
-    from jarvis.autostart import windows as win_mod
+    from dodaios.autostart import windows as win_mod
 
     monkeypatch.setattr(win_mod, "_win32com", lambda: None)
     monkeypatch.setattr(

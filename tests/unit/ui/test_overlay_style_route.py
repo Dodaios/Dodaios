@@ -7,8 +7,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.overlay_styles import OVERLAY_STYLES
-from jarvis.ui.web.settings_routes import router
+from dodaios.ui.overlay_styles import OVERLAY_STYLES
+from dodaios.ui.web.settings_routes import router
 
 
 def _client(*, orb_style="mascot", desktop=None):
@@ -42,7 +42,7 @@ def test_put_rejects_unknown_style():
 def test_put_normalizes_legacy_and_cased_values(monkeypatch, sent, stored):
     # An old frontend bundle (or an old jarvis.toml round-trip) must not get a
     # 400 for a value that still has a meaning today.
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_overlay_style", lambda style, **k: None)
     r = _client().put("/api/settings/overlay-style", json={"style": sent})
@@ -52,7 +52,7 @@ def test_put_normalizes_legacy_and_cased_values(monkeypatch, sent, stored):
 
 def test_put_persists_and_live_applies(monkeypatch):
     persisted = {}
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_overlay_style", lambda style, **k: persisted.setdefault("v", style))
 
@@ -77,7 +77,7 @@ def test_put_persists_and_live_applies(monkeypatch):
 
 
 def test_put_without_desktop_app_persists_but_needs_restart(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_overlay_style", lambda style, **k: None)
     r = _client(orb_style="mascot").put(  # no desktop_app on app.state
@@ -94,8 +94,8 @@ def test_put_in_a_dev_instance_is_refused_and_touches_nothing(monkeypatch):
     # silently change what the default app shows on its next restart — the
     # 2026-08-23 "my bar is gone" case — so the dev instance answers 409, persists
     # nothing and never reaches the live swap.
-    import jarvis.core.config_writer as cw
-    from jarvis.core.instance import INSTANCE_ENV_VAR
+    import dodaios.core.config_writer as cw
+    from dodaios.core.instance import INSTANCE_ENV_VAR
 
     monkeypatch.setenv(INSTANCE_ENV_VAR, "dev")
     persisted = {}
@@ -115,7 +115,7 @@ def test_put_in_a_dev_instance_is_refused_and_touches_nothing(monkeypatch):
 
 
 def test_get_in_a_dev_instance_still_reads_the_shared_style(monkeypatch):
-    from jarvis.core.instance import INSTANCE_ENV_VAR
+    from dodaios.core.instance import INSTANCE_ENV_VAR
 
     monkeypatch.setenv(INSTANCE_ENV_VAR, "dev")
     r = _client(orb_style="jarvis_bar").get("/api/settings/overlay-style")

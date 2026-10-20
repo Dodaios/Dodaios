@@ -1,0 +1,1484 @@
+"""Google Gemini Brain with native and portable HTTP transports.
+
+Gemini has its own functionCall format. We normalize to
+`BrainDelta.tool_call = {id, name, input}`.
+
+The native ``google-genai`` SDK remains the preferred transport because it
+supports Gemini-specific features such as context caching. When that SDK or
+one of its native/authentication dependencies cannot import, the provider
+uses Google's official OpenAI-compatible HTTPS endpoint. The fallback keeps
+core text, vision, streaming, and function-calling available on platforms
+where the Google SDK dependency graph has no installable wheel.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+import os
+import re
+import time
+from collections.abc import AsyncIterator
+from functools import lru_cache
+from typing import Any
+from uuid import uuid4
+
+from dodaios.core import config as cfg
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
+
+from . import _agent_profile
+from ._openai_base import CLIENT_TIMEOUT, stream_complete
+
+log = logging.getLogger(__name__)
+
+# Emergency anchor when no model is configured anywhere. MUST be an id the
+# public Generative Language API actually serves: the stable alias
+# "gemini-3-flash" is NOT listed (404 NOT_FOUND on generateContent) — only the
+# -preview id exists. Keep in sync with TIER_DEFAULTS_BY_PROVIDER["router"]
+# ["gemini"] (dodaios/brain/manager.py); a parity test guards this.
+DEFAULT_MODEL = "gemini-3-flash-preview"
+OPENAI_COMPAT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
+_TRANSPORT_NATIVE = "native"
+_TRANSPORT_OPENAI_COMPAT = "openai-compatible"
+
+# Gemini 3 requires a thought signature when an application reconstructs an
+# assistant function-call step. Jarvis deliberately normalizes provider output
+# into BrainDelta/BrainMessage instead of retaining the raw response object, so
+# Google's documented validator sentinel is the honest compatibility value.
+_SKIP_SIGNATURE = "skip_thought_signature_validator"
+_TOOL_HISTORY_EXTRA_CONTENT = {
+    "google": {"thought_signature": _SKIP_SIGNATURE},
+}
+
+# Latency-Sprint-2: ENV switch for the context cache. BrainManager sets this
+# when ``[performance].gemini_context_cache = true``. The cache holds the
+# system prompt + tools; vision frames stay non-cached (they vary per turn).
+_ENV_CONTEXT_CACHE = "JARVIS_GEMINI_CONTEXT_CACHE"
+# How many distinct (system, tools) cache variants one brain instance keeps.
+# The voice manager produces a small recurring set per session (full tool set,
+# screen-tool-gated set, tools-stripped deadline round) — 4 covers them all.
+_MAX_CACHE_SLOTS = 4
+# Minimum cache size: Gemini caches have a token floor (>= ~4096 tokens
+# depending on the model). For smaller prefixes the API either rejects it or
+# the cache isn't worth it — then we skip it and fall back to the direct path.
+_MIN_CACHE_TOKENS = 4096
+# How long a failed cache create blocks the next attempt on this instance.
+# Every failure seen live is durable for far longer than one call — a free-tier
+# key has NO cache storage at all (429 "...FreeTier limit=0"), a Vertex route
+# without Application Default Credentials cannot create one either — yet the
+# attempt was repeated on EVERY brain call and cost ~0.7 s of round trip each
+# time before the direct path even started (2026-08-22 18:40: four attempts in
+# one delegated voice turn, all identical 429s). The direct path is fully
+# functional without the cache, so backing off only trades token cost for
+# latency the caller feels.
+_CACHE_CREATE_RETRY_AFTER_S = 600.0
+
+# Runtime capability memory shared by every short-lived GeminiBrain instance.
+# Curator calls deliberately instantiate a fresh brain per item, so
+# an instance-only rejection cache made every item repeat the same doomed 400
+# probe before succeeding. The process lifetime is the right scope: model
+# capabilities are stable across calls, while a restart naturally re-probes
+# after an SDK or remote-model change. Keys include the budget so rejecting
+# the router's zero budget never disables a positive budget in another tier.
+_REJECTED_THINKING_BUDGETS: set[tuple[str, int]] = set()
+# Models that rejected ``thinking_level`` (Gemini 2.5 and earlier: the
+# parameter is Gemini-3-only). Next call on the same model skips the level
+# and uses ``thinking_budget`` instead — one doomed 400 per process, not
+# per turn (AP-21: capability memory, never a model-name pin).
+_REJECTED_THINKING_LEVELS: set[str] = set()
+
+# Gemini 3 discrete levels. ``none`` maps to LOW, not MINIMAL: gemini-3.7-flash
+# 400s on MINIMAL (docs 2026-08-17) and its default is MEDIUM — which is the
+# 10-30 s wait the composer is trying to kill. LOW is the lowest 3.7 accepts.
+_EFFORT_TO_THINKING_LEVEL: dict[str, str] = {
+    "none": "LOW",
+    "low": "LOW",
+    "medium": "MEDIUM",
+    "high": "HIGH",
+}
+
+
+def _is_stale_context_cache_error(exc: Exception) -> bool:
+    """True if *exc* is Gemini's stale-context-cache failure (BUG-019).
+
+    When a server-side cache (``ttl="3600s"``) is evicted before the local
+    ``_cached_content_name`` is cleared, the next request carries a dead id
+    and Gemini answers ``403 ... "CachedContent not found (or permission
+    denied)"``. We match on the message text because the concrete exception
+    class differs across ``google-genai`` versions (``ClientError`` /
+    ``APIError`` / a wrapped ``Exception``).
+
+    Narrow on purpose: a generic 403 (account/quota) must NOT match, so we
+    require a cache marker in the message. The caller additionally gates on
+    ``cache_name`` being set, so this only fires when we actually sent one.
+    """
+    msg = str(exc).lower()
+    if "cachedcontent not found" in msg:
+        return True
+    if "cached_content" in msg and "not found" in msg:
+        return True
+    if (
+        "403" in msg or "permission_denied" in msg or "permission denied" in msg
+    ) and "cache" in msg:
+        return True
+    return False
+
+
+def _thinking_config_for(
+    *,
+    model: str,
+    ctor_budget: int | None,
+    effort: str | None,
+    rejected_budgets: set[int],
+) -> tuple[Any | None, str]:
+    """The ThinkingConfig for this call, and whether it is a ``level`` or ``budget``.
+
+    Gemini 3 wants ``thinking_level``; Gemini 2.5 wants ``thinking_budget``.
+    Sending both 400s on Gemini 3. Sending ``thinking_budget=0`` on
+    gemini-3.7-flash either 400s or is ignored, after which the model
+    thinks at its default MEDIUM — the 10-30 s composer wait. ``none``
+    and an explicit constructor budget of 0 therefore prefer LOW. A model
+    that already rejected the level (remembered in ``_REJECTED_THINKING_LEVELS``)
+    falls through to the budget. Never raises: an old SDK without the
+    field degrades to the budget path.
+    """
+    from google.genai import types as _genai_types
+
+    def _budget_cfg(value: int) -> Any | None:
+        if value in rejected_budgets or (model, value) in _REJECTED_THINKING_BUDGETS:
+            return None
+        try:
+            return _genai_types.ThinkingConfig(thinking_budget=value)
+        except (TypeError, AttributeError, ValueError):
+            # An installed SDK that does not know this field is a capability
+            # answer, not a fault: None means "no thinking config", and the
+            # request goes out without one (AP-21).
+            return None
+
+    # A positive or dynamic constructor budget is an explicit cap — keep
+    # the 2.5-style field. Zero means "off", which Gemini 3 does not have.
+    if ctor_budget is not None and ctor_budget != 0:
+        cfg = _budget_cfg(ctor_budget)
+        return (cfg, "budget") if cfg is not None else (None, "")
+
+    wants_off = ctor_budget == 0 or effort == "none"
+    level = _EFFORT_TO_THINKING_LEVEL.get(effort or "")
+    if level is None and wants_off:
+        level = "LOW"
+
+    if level and model not in _REJECTED_THINKING_LEVELS:
+        try:
+            return _genai_types.ThinkingConfig(thinking_level=level), "level"
+        except (TypeError, AttributeError, ValueError):
+            # Same capability probe as above, one field newer. Falling through
+            # tries the older budget shape, which is the point of the ladder.
+            pass
+
+    if wants_off:
+        cfg = _budget_cfg(0)
+        return (cfg, "budget") if cfg is not None else (None, "")
+    return None, ""
+
+
+def _is_thinking_config_rejected_error(exc: Exception) -> bool:
+    """True when the API rejected the ``thinking_config`` BY NAME — definitive.
+
+    Thinking-mandatory models answer 400 when asked to disable thinking
+    (``thinking_budget=0``) with a message that names it: "Budget 0 is invalid.
+    This model only works in thinking mode." (thinking-mandatory Pro class,
+    2026-07-16). Because the message points straight at the budget, the caller
+    may retire it immediately — no further evidence needed.
+
+    The bare, parameterless "Request contains an invalid argument." 400 — no
+    "thinking"/"budget" token at all (live forensic 2026-07-23:
+    ``gemini-3.6-flash`` 400'd every Computer-Use step this way) — is
+    deliberately NOT matched here. It is ambiguous: it could equally be a
+    dead-cache or an unrelated rejection. That shape is caught by
+    ``_is_generic_invalid_argument_error`` and STILL recovered, but blame is
+    assigned by the retry itself — dropping the field and having the request
+    accepted is the proof. Keeping the two apart is what lets an unrelated 400
+    (or a two-variable cache+budget retry) blame nothing permanently.
+
+    The concrete exception class differs across ``google-genai`` versions, so
+    we match on the message. A capability probe, never a model-name pin (AP-21).
+    """
+    msg = str(exc).lower()
+    if "thinking" not in msg:
+        return False
+    return "budget" in msg or "invalid" in msg or "thinking mode" in msg
+
+
+def _is_generic_invalid_argument_error(exc: Exception) -> bool:
+    """True for Gemini's parameterless 400 INVALID_ARGUMENT rejection.
+
+    Some models reject ``thinking_config.thinking_budget=0`` with the bare
+    "Request contains an invalid argument." — no field name, no "thinking"
+    token — so the targeted predicate above never matches (live 2026-07-21:
+    ``gemini-3.6-flash`` answered every delegated realtime turn this way and
+    the whole tier died unrecovered). The message names nothing, so blame is
+    assigned by the retry itself: dropping ``thinking_config`` and having the
+    request accepted is the capability probe (AP-21).
+    """
+    msg = str(exc).lower()
+    if "400" not in msg:
+        return False
+    return "invalid_argument" in msg or "invalid argument" in msg
+
+
+def _to_gemini_contents(
+    messages: tuple[BrainMessage, ...],
+    tool_name_map: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """BrainMessages → Gemini contents array. Role mapping: assistant→model.
+
+    Multimodal: `BrainMessage.images` are appended as `inline_data` parts
+    (`{"inline_data": {"mime_type": ..., "data": ...}}`) — only for user
+    messages, since Gemini doesn't accept model-role images as input.
+
+    Tool history rides NATIVELY (2026-07-17): an assistant ``tool_use`` part
+    becomes a ``functionCall`` part and a tool result a clean
+    ``functionResponse`` — never JSON-dumped prose. The old text fallback fed
+    the model its OWN prior calls as JSON text, so from round 2 of a tool
+    loop it mimicked that format and "called" tools in plain text (the leak
+    the ``extract_leaked_tool_calls`` recovery has to repair — observed on
+    every delegated research turn). ``tool_name_map`` (original → wire name)
+    keeps history names consistent with the sanitized declarations.
+
+    A call without its own thought signature (the 2nd..nth call of a
+    parallel step, which Gemini never signs, or any call after the signature
+    was lost) still replays as a ``functionCall``; the step's first call then
+    carries Google's documented validator sentinel. The results of one
+    parallel step go back in ONE content, one ``functionResponse`` per call,
+    and a result without a tool name takes the name of its call.
+    """
+    name_map = tool_name_map or {}
+    call_names = {
+        str(part.get("id")): str(part.get("name") or "")
+        for m in messages
+        if m.role == "assistant" and isinstance(m.content, list)
+        for part in m.content
+        if isinstance(part, dict) and part.get("type") == "tool_use" and part.get("id")
+    }
+    contents: list[dict[str, Any]] = []
+    for m in messages:
+        if m.role == "system":
+            continue  # system goes via system_instruction
+        role = "user" if m.role in ("user", "tool") else "model"
+        if m.role == "tool":
+            # FunctionResponse. The tool loop wraps results in an
+            # Anthropic-style envelope list — unwrap to the payload text so
+            # the model sees the result, not a serialized wrapper.
+            payload = m.content
+            result_text: str
+            if isinstance(payload, list):
+                inner = [
+                    str(part.get("content", ""))
+                    for part in payload
+                    if isinstance(part, dict) and part.get("type") == "tool_result"
+                ]
+                result_text = "\n".join(t for t in inner if t) or json.dumps(payload, default=str)
+            else:
+                result_text = str(payload)
+            tool_name = m.name or call_names.get(m.tool_call_id or "", "")
+            response = {
+                "functionResponse": {
+                    "name": name_map.get(tool_name, tool_name),
+                    "response": {"result": result_text},
+                }
+            }
+            previous = contents[-1] if contents else None
+            if (
+                previous is not None
+                and previous["role"] == "user"
+                and previous["parts"]
+                and all("functionResponse" in part for part in previous["parts"])
+            ):
+                # The next result of the same parallel step.
+                previous["parts"].append(response)
+            else:
+                contents.append({"role": "user", "parts": [response]})
+            continue
+
+        # `getattr` for backwards-compat (Protocol pre-Wave-1-B1 had no images).
+        images = getattr(m, "images", ()) or ()
+        parts: list[dict[str, Any]] = []
+        if isinstance(m.content, str):
+            if m.content:
+                parts.append({"text": m.content})
+        else:
+            for part in m.content:
+                if not isinstance(part, dict):
+                    parts.append({"text": str(part)})
+                elif part.get("type") == "text":
+                    if part.get("text"):
+                        parts.append({"text": str(part["text"])})
+                elif part.get("type") == "tool_use" and role == "model":
+                    # Gemini 3 thinking models 400 on a replayed step whose
+                    # first functionCall lacks its thought_signature. The
+                    # stream loop captures it (base64) on every signed call;
+                    # where it is missing, the sentinel stands in.
+                    call_name = str(part.get("name", ""))
+                    call_args = part.get("input")
+                    call: dict[str, Any] = {
+                        "functionCall": {
+                            "name": name_map.get(call_name, call_name),
+                            "args": call_args if isinstance(call_args, dict) else {},
+                        }
+                    }
+                    signature = part.get("thought_signature")
+                    if isinstance(signature, str) and signature:
+                        call["thought_signature"] = signature
+                    elif not any("functionCall" in earlier for earlier in parts):
+                        call["thought_signature"] = _SKIP_SIGNATURE
+                    parts.append(call)
+                else:
+                    # Unknown block type: keep the previous lossless behavior.
+                    parts.append({"text": json.dumps(part, default=str)})
+        if m.role == "user" and images:
+            for img in images:
+                parts.append(
+                    {
+                        "inline_data": {
+                            "mime_type": img.mime,
+                            "data": img.data_b64,
+                        }
+                    }
+                )
+        if not parts:
+            # Defensive: a Gemini content must not be empty.
+            parts.append({"text": ""})
+        contents.append({"role": role, "parts": parts})
+    return contents
+
+
+# OpenAI-specific JSON-schema fields that Gemini's `Tool.functionDeclarations`
+# Pydantic validator does NOT accept. Phase 7.3 self-mod tools set
+# `strict=True` + `input_examples=[...]` at the schema root. Without this
+# cleanup, Gemini rejects the request with GenerateContentConfig validation errors
+# (Bug #API-1, 2026-04-29).
+_GEMINI_FORBIDDEN_SCHEMA_KEYS: frozenset[str] = frozenset(
+    {
+        "strict",  # OpenAI strict-mode flag
+        "input_examples",  # Phase 7.3 SelfMod input_examples
+        "additionalProperties",  # OpenAI 2024-08 strict-mode marker
+        "additional_properties",  # google-genai may receive pydantic's snake_case form
+        "$schema",  # JSON-Schema meta
+        "$id",
+        # JSON-schema keywords the google-genai Schema model (extra="forbid")
+        # rejects. The Schema model accepts only its documented subset — verified
+        # 2026-06-01 against google-genai 1.67 (types.Schema.model_fields). The
+        # ``exclusive*`` bounds below are first CONVERTED to ``minimum``/``maximum``
+        # in ``_sanitize_for_gemini`` (constraint-preserving) and only then dropped
+        # here; the rest are simply not part of Gemini's schema dialect.
+        "exclusiveMinimum",  # Pydantic Field(gt=N) — converted to ``minimum``
+        "exclusiveMaximum",  # Pydantic Field(lt=N) — converted to ``maximum``
+        "exclusive_minimum",  # snake_case variant
+        "exclusive_maximum",  # snake_case variant
+        "$defs",  # Pydantic emits these for nested models / refs
+        "definitions",  # draft-07 definitions block
+        "examples",  # plural — Gemini only accepts singular ``example``
+        "const",  # not in Gemini's subset
+        # JSON-schema object-key constraints Gemini's Schema model (extra="forbid")
+        # rejects. A connected MCP/plugin tool can ship these on a free-form object
+        # parameter; left in, ONE such tool schema fails the WHOLE GenerateContent
+        # request with a Pydantic "extra_forbidden" validation error, so the primary
+        # brain (Gemini) dies and the turn falls through the whole provider chain
+        # (live forensic 2026-07-23: functionDeclarations[105].parameters.properties.
+        # anchor.propertyNames → 5 validation errors → gemini down → claude 401 →
+        # openrouter 400 → openai 429 → anti-silence fallback). Dropping the
+        # constraint keeps the tool callable; only the key-name restriction is lost.
+        "propertyNames",  # restricts allowed property names — not in Gemini's subset
+        "patternProperties",  # per-pattern property schemas — not in Gemini's subset
+        "unevaluatedProperties",
+        "minProperties",  # object size bounds — not in Gemini's subset
+        "maxProperties",
+        "dependentRequired",
+        "dependentSchemas",
+    }
+)
+
+
+def _convert_exclusive_bounds(schema: dict[str, Any]) -> dict[str, Any]:
+    """Convert JSON-schema ``exclusive{Minimum,Maximum}`` to ``{minimum,maximum}``.
+
+    Pydantic ``Field(gt=N)`` / ``Field(lt=N)`` emit ``exclusiveMinimum`` /
+    ``exclusiveMaximum`` (draft 2020-12 numeric form). Gemini's Schema model
+    only knows the inclusive ``minimum`` / ``maximum``, so we down-convert —
+    a pragmatic, well-known fix that keeps the bound essentially in place
+    (``> 0`` becomes ``>= 0``) rather than silently dropping the constraint.
+
+    Rules:
+      * numeric ``exclusiveMinimum`` → ``minimum`` (only if no explicit
+        ``minimum`` already present — an inclusive bound must never be
+        weakened by the conversion);
+      * numeric ``exclusiveMaximum`` → ``maximum`` (same guard);
+      * boolean ``exclusive*`` (draft-04 flag form) carries no numeric value,
+        so it is left in the dict and dropped later by the forbidden-key pass.
+
+    The originating ``exclusive*`` key itself stays in the returned dict; it is
+    removed by ``_sanitize_for_gemini`` (it lives in
+    ``_GEMINI_FORBIDDEN_SCHEMA_KEYS``). Mutates a shallow copy, not the input.
+    """
+    out = dict(schema)
+    excl_min = out.get("exclusiveMinimum", out.get("exclusive_minimum"))
+    if isinstance(excl_min, (int, float)) and not isinstance(excl_min, bool):
+        out.setdefault("minimum", excl_min)
+    excl_max = out.get("exclusiveMaximum", out.get("exclusive_maximum"))
+    if isinstance(excl_max, (int, float)) and not isinstance(excl_max, bool):
+        out.setdefault("maximum", excl_max)
+    return out
+
+
+# The documented Gemini schema subset, used when the installed google-genai
+# cannot be introspected. Field names AND their JSON aliases, because a tool
+# schema arrives in either spelling.
+_GEMINI_SCHEMA_KEYS_FALLBACK: frozenset[str] = frozenset(
+    {
+        "additionalProperties",
+        "additional_properties",
+        "anyOf",
+        "any_of",
+        "default",
+        "defs",
+        "description",
+        "enum",
+        "example",
+        "format",
+        "items",
+        "maxItems",
+        "max_items",
+        "maxLength",
+        "max_length",
+        "maxProperties",
+        "max_properties",
+        "maximum",
+        "minItems",
+        "min_items",
+        "minLength",
+        "min_length",
+        "minProperties",
+        "min_properties",
+        "minimum",
+        "nullable",
+        "pattern",
+        "properties",
+        "propertyOrdering",
+        "property_ordering",
+        "ref",
+        "required",
+        "title",
+        "type",
+    }
+)
+
+
+@lru_cache(maxsize=1)
+def _gemini_schema_keys() -> frozenset[str]:
+    """Every key google-genai's ``types.Schema`` accepts, names and aliases.
+
+    Read off the installed library rather than spelled out here, because that
+    model IS the validator that rejects the request (``extra="forbid"``): its
+    own field set is the only honest answer, and a library version that gains
+    a keyword gains it here in the same step. A library that cannot be
+    introspected falls back to the documented subset above — never to "allow
+    everything", which is the failure this exists to prevent.
+    """
+    try:
+        from google.genai import types
+
+        fields = types.Schema.model_fields
+        keys = set(fields)
+        keys.update(f.alias for f in fields.values() if f.alias)
+        if keys:
+            return frozenset(keys)
+    except Exception as exc:  # noqa: BLE001 — the fallback list is the answer
+        log.debug("gemini: schema field set not introspectable (%s) — using the fallback", exc)
+    return _GEMINI_SCHEMA_KEYS_FALLBACK
+
+
+#: Keys whose value is one nested schema.
+_GEMINI_SCHEMA_VALUED: frozenset[str] = frozenset({"items"})
+#: Keys whose value maps FREE names to schemas. Their keys are property names
+#: chosen by whoever wrote the tool ("owner", "repo") and must never be judged
+#: against the allow-list — only their values are schemas.
+_GEMINI_SCHEMA_MAP_VALUED: frozenset[str] = frozenset({"properties", "defs"})
+#: Keys whose value is a list of schemas.
+_GEMINI_SCHEMA_LIST_VALUED: frozenset[str] = frozenset({"anyOf", "any_of"})
+
+
+def _sanitize_for_gemini(schema: dict[str, Any]) -> dict[str, Any]:
+    """Reduce a JSON schema to the subset google-genai's Schema model accepts.
+
+    Gemini validates ``Tool.functionDeclarations.parameters`` through Pydantic
+    with ``extra="forbid"``: ONE unknown key anywhere in ONE tool's schema
+    fails the WHOLE GenerateContent request, so the brain dies and the turn
+    falls through the entire provider chain. This has now happened four times
+    with a different key each time — OpenAI's ``strict``, Pydantic's ``$defs``,
+    an MCP tool's ``propertyNames``, and the GitHub MCP server's
+    ``x-mcp-header`` (live 2026-08-26: 81 validation errors, gemini down,
+    the front page's chat answered "I can't reach my provider").
+
+    So this keeps an ALLOW-list, not a block-list: a key the library does not
+    know is dropped whatever it is called. A block-list can never be complete
+    — any connected MCP server may ship any extension key it likes — and
+    every one of those four outages was a block-list that was.
+
+    The walk is schema-aware, which the allow-list makes mandatory: under
+    ``properties`` the keys are property NAMES a tool author chose, and
+    judging those against the allow-list would delete the parameters
+    themselves. Values that are data rather than schemas (``example``,
+    ``default``, ``enum``) are passed through untouched.
+
+    Exclusive numeric bounds (``exclusiveMinimum``/``exclusiveMaximum`` from
+    Pydantic ``Field(gt=...)``/``Field(lt=...)``) are first converted to the
+    inclusive ``minimum``/``maximum`` Gemini accepts, then dropped.
+    ``_GEMINI_FORBIDDEN_SCHEMA_KEYS`` still runs in front of the allow-list,
+    for the keys the model accepts but the API does not.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    schema = _convert_exclusive_bounds(schema)
+    allowed = _gemini_schema_keys()
+    out: dict[str, Any] = {}
+    for k, v in schema.items():
+        if k in _GEMINI_FORBIDDEN_SCHEMA_KEYS or k not in allowed:
+            continue
+        if k in _GEMINI_SCHEMA_MAP_VALUED and isinstance(v, dict):
+            out[k] = {name: _sanitize_for_gemini(sub) for name, sub in v.items()}
+        elif k in _GEMINI_SCHEMA_LIST_VALUED and isinstance(v, list):
+            out[k] = [_sanitize_for_gemini(sub) if isinstance(sub, dict) else sub for sub in v]
+        elif k in _GEMINI_SCHEMA_VALUED and isinstance(v, dict):
+            out[k] = _sanitize_for_gemini(v)
+        elif k == "type":
+            # JSON Schema allows ``type: ["string", "number"]``. Gemini's
+            # Schema.type is a single enum. A Linear MCP tool shipped a union
+            # on ``issue_fields.items.properties.value.type``; left as a list
+            # it 400s the WHOLE GenerateContentConfig, so Vertex/Gemini die
+            # and a screenshot turn walks five other providers (live
+            # 2026-08-31 17:06, 20 s to grok-4.6). Flatten to one type.
+            out[k] = _gemini_single_type(v)
+        else:
+            out[k] = v
+    if out.get("type") == "array" and not _gemini_schema_is_typed(out.get("items")):
+        out["items"] = _gemini_array_items(schema)
+    return out
+
+
+def _gemini_schema_is_typed(schema: Any) -> bool:
+    return isinstance(schema, dict) and bool(
+        schema.get("type") or schema.get("anyOf") or schema.get("any_of")
+    )
+
+
+def _gemini_array_items(schema: dict[str, Any]) -> dict[str, Any]:
+    """Element schema for an array Gemini would reject as untyped.
+
+    Gemini requires every array to carry a typed ``items``. A tuple
+    (``tuple[float, float, float]`` → ``prefixItems``, no ``items``) or a bare
+    ``items: {}`` fails the WHOLE request with "items: missing field" (live
+    2026-09-29 08:00: a connected server's ``transform.scale`` took Gemini out
+    of the chain). The first tuple slot is the best honest guess; otherwise a
+    string, the one type every value can be written as.
+    """
+    for key in ("prefixItems", "prefix_items"):
+        slots = schema.get(key)
+        if isinstance(slots, list) and slots and isinstance(slots[0], dict):
+            first = _sanitize_for_gemini(slots[0])
+            if _gemini_schema_is_typed(first):
+                return first
+    items = schema.get("items")
+    base = _sanitize_for_gemini(items) if isinstance(items, dict) else {}
+    return {**base, "type": "string"}
+
+
+_GEMINI_TYPE_NAMES: tuple[str, ...] = (
+    "string",
+    "number",
+    "integer",
+    "boolean",
+    "array",
+    "object",
+    "null",
+)
+
+
+def _gemini_single_type(value: Any) -> Any:
+    """Collapse a JSON-Schema union ``type`` list to one Gemini enum value."""
+    if not isinstance(value, list):
+        return value
+    names = [str(item).strip().lower() for item in value if item is not None]
+    if not names:
+        return "string"
+    if "null" in names:
+        names = [n for n in names if n != "null"] or ["string"]
+    for preferred in _GEMINI_TYPE_NAMES:
+        if preferred in names:
+            return preferred
+    return names[0]
+
+
+# Gemini function-name rule (live forensic 2026-06-01, data/jarvis_desktop.log
+# 23:34:57): names must match ^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$. Connected
+# MCP/marketplace plugin tools (the "plugin-tools" virtual loader) carry names
+# that violate this — spaces, slashes, leading digits, over-length. Left raw,
+# Gemini rejects the WHOLE request (400 INVALID_ARGUMENT on every offending
+# function_declaration[i]); the active provider then fails over into the dead
+# fallback chain (claude-api 401 / grok 403) and the chain-error diagnostic is
+# spoken aloud. We coerce names to the rule and keep a reverse map so an
+# inbound function_call still resolves to the original tool — the executor
+# only knows the original name.
+_GEMINI_NAME_FORBIDDEN_RE = re.compile(r"[^A-Za-z0-9_.:-]")
+# 1 leading char + up to 127 trailing = 128 total (Gemini rule {0,127}).
+_GEMINI_NAME_MAXLEN = 128
+
+
+def _sanitize_gemini_function_name(name: str, taken: set[str]) -> str:
+    """Coerce ``name`` to the Gemini function-name rule, unique vs ``taken``.
+
+    Deterministic and identity-preserving for already-valid names (so the
+    common case — the router tools — round-trips for free). Collisions get a
+    short numeric suffix so the original→sanitized map stays bijective; tool-
+    call resolution depends on that round-trip.
+    """
+    cleaned = _GEMINI_NAME_FORBIDDEN_RE.sub("_", name or "")
+    if not cleaned or not (cleaned[0].isalpha() or cleaned[0] == "_"):
+        cleaned = "_" + cleaned
+    if len(cleaned) > _GEMINI_NAME_MAXLEN:
+        cleaned = cleaned[:_GEMINI_NAME_MAXLEN]
+    if cleaned not in taken:
+        return cleaned
+    base = cleaned
+    i = 1
+    while cleaned in taken:
+        suffix = f"_{i}"
+        cleaned = base[: _GEMINI_NAME_MAXLEN - len(suffix)] + suffix
+        i += 1
+    return cleaned
+
+
+def _gemini_tool_name_map(tools: tuple[dict[str, Any], ...]) -> dict[str, str]:
+    """Deterministic original→Gemini-safe tool-name map.
+
+    Single source of truth for both ``_tools_gemini_format`` (outbound
+    declarations) and ``complete()`` (inbound function_call back-translation).
+    Idempotent: re-running on the same tuple yields the same mapping, so the
+    forward build and the reverse build always agree.
+    """
+    taken: set[str] = set()
+    mapping: dict[str, str] = {}
+    for t in tools or ():
+        original = t.get("name", "")
+        safe = _sanitize_gemini_function_name(original, taken)
+        taken.add(safe)
+        mapping[original] = safe
+    return mapping
+
+
+def _build_gemini_tool_declarations(
+    tools: tuple[dict[str, Any], ...],
+) -> tuple[list[dict[str, Any]] | None, dict[str, str]]:
+    """Build Gemini ``functionDeclarations`` AND the original→safe name map in
+    a single pass.
+
+    Returning both from one call is the single source of truth: the outbound
+    declarations (sanitized names) and the inbound function_call back-
+    translation in ``complete()`` (reverse of this map) can never disagree, and
+    the per-turn tool list is iterated only once.
+    """
+    if not tools:
+        return None, {}
+    name_map = _gemini_tool_name_map(tools)
+    declarations = []
+    for t in tools:
+        raw_schema = t.get("input_schema") or t.get("parameters") or t.get("schema") or {}
+        schema = _sanitize_for_gemini(raw_schema) if raw_schema else {}
+        original = t.get("name", "")
+        declarations.append(
+            {
+                "name": name_map.get(original, original),
+                "description": t.get("description", ""),
+                "parameters": schema if schema else {"type": "object", "properties": {}},
+            }
+        )
+    return [{"functionDeclarations": declarations}], name_map
+
+
+def _tools_gemini_format(tools: tuple[dict[str, Any], ...]) -> list[dict[str, Any]] | None:
+    """Backward-compatible wrapper — declarations payload only (no name map)."""
+    payload, _ = _build_gemini_tool_declarations(tools)
+    return payload
+
+
+def _openai_compat_base_url(resolved_base_url: str | None) -> str:
+    """Return the compatibility URL matching a resolved native endpoint.
+
+    ``resolve_provider_endpoint`` returns the native Gemini root. Google's
+    compatibility API lives below ``/openai/``; the team proxy mirrors the
+    same path shape. An explicitly compatible URL is left unchanged.
+    """
+    if not resolved_base_url:
+        return OPENAI_COMPAT_BASE_URL
+
+    base = resolved_base_url.rstrip("/")
+    if base.endswith("/openai"):
+        return f"{base}/"
+    if base == "https://generativelanguage.googleapis.com":
+        return OPENAI_COMPAT_BASE_URL
+    return f"{base}/openai/"
+
+
+def _create_native_client(endpoint: Any, *, pinned_route: str | None = None) -> Any:
+    """Create the preferred google-genai client at the import boundary.
+
+    Routing: an explicitly resolved ``base_url`` (team proxy / override)
+    speaks the AI Studio wire format, so it pins the AI Studio route; a bare
+    key is routed by ``dodaios.core.google_genai`` (AI Studio vs Vertex AI
+    express mode, decided once per process).
+
+    ``pinned_route`` short-circuits both: the dedicated Vertex brain KNOWS its
+    endpoint because the user chose it, so it neither probes nor lets a base
+    URL rewrite the decision — and it reaches the Google Cloud project path,
+    where there may be no key to route in the first place.
+    """
+    if pinned_route == "vertex":
+        from dodaios.core.google_genai import build_vertex_client
+
+        return build_vertex_client(endpoint.credential or "")
+
+    from dodaios.core.google_genai import build_genai_client
+
+    http_options: Any = None
+    route: Any = None
+    if endpoint.base_url:
+        from google.genai import types as genai_types
+
+        http_options = genai_types.HttpOptions(base_url=endpoint.base_url)
+        route = "aistudio"
+    return build_genai_client(endpoint.credential, http_options=http_options, route=route)
+
+
+def _reject_compat_fallback_for_vertex(
+    endpoint: Any, cause: BaseException, *, pinned_route: str | None = None
+) -> None:
+    """Fail loudly when the OpenAI-compat fallback cannot serve this key.
+
+    The compatibility transport only speaks AI Studio's endpoint. A key that
+    routes through Vertex AI express mode would hit it with a foreign
+    credential and die on every call with a bare auth error — an honest
+    RuntimeError naming the real conflict beats that silent dead end (§3). For
+    the dedicated Vertex brain the conflict is certain rather than probed: its
+    route is pinned, so there is nothing to ask.
+    """
+    if pinned_route == "vertex":
+        raise RuntimeError(
+            "The Vertex AI brain requires the google-genai SDK; the "
+            "OpenAI-compatible fallback only reaches Google AI Studio. "
+            "Install google-genai (pip install google-genai), or switch the "
+            "brain to Google Gemini and use an AI Studio key."
+        ) from cause
+    if endpoint.base_url:
+        return
+    from dodaios.core.google_genai import resolve_google_key_route
+
+    if resolve_google_key_route(endpoint.credential) == "vertex":
+        raise RuntimeError(
+            "This Google API key routes through Vertex AI express mode, "
+            "which requires the google-genai SDK; the OpenAI-compatible "
+            "fallback only reaches AI Studio. Install google-genai (pip "
+            "install google-genai) or switch to a Google AI Studio key."
+        ) from cause
+
+
+def _create_openai_compat_client(endpoint: Any) -> Any:
+    """Create the portable client for Gemini's official compatibility API."""
+    from openai import AsyncOpenAI
+
+    return AsyncOpenAI(
+        api_key=endpoint.credential,
+        base_url=_openai_compat_base_url(endpoint.base_url),
+        timeout=CLIENT_TIMEOUT,
+    )
+
+
+def _is_native_dependency_import_error(exc: BaseException) -> bool:
+    """Whether an exception chain reports an unavailable native SDK module."""
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, ImportError):
+            missing = str(getattr(current, "name", "") or "").lower()
+            message = str(current).lower()
+            if (
+                not missing
+                or missing == "google"
+                or missing.startswith(("google.", "cryptography", "grpc"))
+                or any(
+                    marker in message
+                    for marker in ("google.genai", "google.auth", "cryptography", "grpc")
+                )
+            ):
+                return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
+def _openai_compat_request(req: BrainRequest) -> BrainRequest:
+    """Copy a request with schemas accepted by Gemini's compatibility API."""
+    sanitized_tools: list[dict[str, Any]] = []
+    for tool in req.tools:
+        copied = dict(tool)
+        raw_schema = tool.get("input_schema") or tool.get("parameters") or tool.get("schema") or {}
+        copied["input_schema"] = (
+            _sanitize_for_gemini(raw_schema) if raw_schema else {"type": "object", "properties": {}}
+        )
+        sanitized_tools.append(copied)
+    return BrainRequest(
+        messages=req.messages,
+        tools=tuple(sanitized_tools),
+        system=req.system,
+        temperature=req.temperature,
+        max_tokens=req.max_tokens,
+        stream=req.stream,
+    )
+
+
+class GeminiBrain:
+    name: str = "gemini"
+    context_window: int = 1_048_576
+    supports_tools: bool = True
+    supports_vision: bool = True
+    #: Credential/endpoint identity used for ``resolve_provider_endpoint`` and
+    #: for the pinned-route decision. Split from ``name`` so a sibling class can
+    #: serve the SAME models off a different account without duplicating a line
+    #: of the request/tool/cache machinery below.
+    provider_id: str = "gemini"
+    #: ``None`` = let the key decide (probe once, cache). A concrete route means
+    #: the user picked the endpoint and nothing may override it.
+    pinned_route: str | None = None
+    #: What the user has to fix when no credential resolves. Kept next to the
+    #: identity so the sibling class says "Vertex" instead of "Gemini".
+    missing_credential_hint: str = (
+        "No Gemini API key found. Set GEMINI_API_KEY or "
+        "GOOGLE_AIStudio_API_KEY in .env / Credential Manager."
+    )
+
+    def __init__(
+        self,
+        model: str | None = None,
+        *,
+        thinking_budget: int | None = None,
+    ) -> None:
+        self._model = model or DEFAULT_MODEL
+        self._client: Any = None
+        self._transport = _TRANSPORT_NATIVE
+        # Latency-Sprint-1: thinking budget controls how much "extended
+        # thinking" Gemini 3.x does. ``None`` = SDK default (auto, higher
+        # latency). ``0`` = off, ``-1`` = dynamic, ``>0`` = fixed cap.
+        self._thinking_budget = thinking_budget
+        # 2026-07-21: some models reject ``thinking_config`` with a
+        # parameterless 400 ("Request contains an invalid argument."). Once
+        # a retry without the field proves that blame, remember the REJECTED
+        # BUDGET VALUE so later turns skip the doomed extra round trip.
+        # Scoped per budget, not a whole-instance kill switch: brain
+        # instances are cached per (provider, model) and shared across
+        # tiers, so a rejection of the router's forced ``budget=0`` must
+        # not disable a different tier's positive budget on the same
+        # instance.
+        self._rejected_thinking_budgets: set[int] = set()
+        # Latency-Sprint-2: context-cache name (lazily created on the first
+        # call with system+tools). Key: (system_hash, tools_hash) → cache_name.
+        # ``_cached_content_name``/``_cache_signature`` hold the most recently
+        # used slot (BUG-019 recovery pokes exactly these two attributes).
+        self._cached_content_name: str | None = None
+        self._cache_signature: tuple[str, str] | None = None
+        # 2026-07-17: a single slot re-created the (expensive, ~1.5 s) server
+        # cache on EVERY delegated voice turn, because the manager legitimately
+        # varies the tool set per utterance (screen-tool gating) and the
+        # deadline-forced final round strips tools entirely — two or three
+        # recurring (system, tools) variants kept evicting each other. A small
+        # multi-slot map lets each recurring variant keep its own server-side
+        # cache; insertion-ordered, oldest evicted beyond the cap.
+        self._cache_slots: dict[tuple[str, str], str] = {}
+        # Monotonic deadline before which no cache create is attempted again
+        # (see _CACHE_CREATE_RETRY_AFTER_S).
+        self._cache_create_blocked_until = 0.0
+
+    def _resolve_endpoint(self) -> Any:
+        """Endpoint + credential for this brain's own provider identity."""
+        return cfg.resolve_provider_endpoint(self.provider_id)
+
+    def _credential_is_sufficient(self, endpoint: Any) -> bool:
+        """Whether this brain can authenticate with what the endpoint carries.
+
+        A key is the answer for every route but one: the Vertex Cloud project
+        path signs with Application Default Credentials and legitimately has no
+        key at all, so the sibling class widens this instead of inheriting a
+        refusal that would reject its documented production setup.
+        """
+        return bool(endpoint.credential)
+
+    def _ensure_client(self) -> Any:
+        if self._client is None:
+            ep = self._resolve_endpoint()
+            if not self._credential_is_sufficient(ep):
+                raise RuntimeError(self.missing_credential_hint)
+            try:
+                self._client = _create_native_client(ep, pinned_route=self.pinned_route)
+                self._transport = _TRANSPORT_NATIVE
+            except (ImportError, AttributeError) as exc:
+                # A platform can have the OpenAI SDK and a valid Gemini key
+                # while google-genai's auth/native dependency graph is not
+                # installable. Keep Gemini itself usable through Google's
+                # documented HTTPS compatibility API. Log only the exception
+                # class: dependency messages can contain local paths, and the
+                # credential must never enter logs.
+                _reject_compat_fallback_for_vertex(ep, exc, pinned_route=self.pinned_route)
+                log.info(
+                    "Gemini native SDK unavailable (%s); using the OpenAI-compatible transport",
+                    type(exc).__name__,
+                )
+                self._client = _create_openai_compat_client(ep)
+                self._transport = _TRANSPORT_OPENAI_COMPAT
+        return self._client
+
+    async def _ensure_cache(
+        self,
+        system_text: str,
+        tools_payload: list[dict[str, Any]] | None,
+    ) -> str | None:
+        """Latency-Sprint-2: lazy init of the context cache.
+
+        Creates a Gemini cache (system+tools) on the first call and returns
+        the cache name — subsequent calls can reference it via
+        ``cached_content``. On too-small a prefix or an API error, returns
+        ``None``, and the caller falls back to the direct path (brain stays
+        functional).
+        """
+        # Cache signature: hash + cache, so a tool reload re-triggers the
+        # lazy init. Hash on the serialized content — cheap and sufficient
+        # for an identity check.
+        sig = (
+            str(hash(system_text)),
+            str(hash(json.dumps(tools_payload, sort_keys=True, default=str)))
+            if tools_payload
+            else "",
+        )
+        if self._cache_signature == sig and self._cached_content_name:
+            return self._cached_content_name
+        slot_hit = self._cache_slots.get(sig)
+        if slot_hit:
+            # A recurring (system, tools) variant — reuse its server cache and
+            # promote it to the most-recently-used marker pair.
+            self._cached_content_name = slot_hit
+            self._cache_signature = sig
+            return slot_hit
+
+        # Estimate the minimum size (heuristic: 1 token ~ 4 chars).
+        approx_tokens = (len(system_text) + len(json.dumps(tools_payload or []))) // 4
+        if approx_tokens < _MIN_CACHE_TOKENS:
+            log.debug(
+                "Gemini cache skipped (prefix ~%d tokens < %d minimum size)",
+                approx_tokens,
+                _MIN_CACHE_TOKENS,
+            )
+            return None
+        remaining = self._cache_create_blocked_until - time.monotonic()
+        if remaining > 0:
+            log.debug(
+                "Gemini cache create skipped: the last attempt failed, retrying "
+                "in %.0fs — direct path",
+                remaining,
+            )
+            return None
+
+        try:
+            from google.genai import types as _genai_types
+
+            cache = await self._client.aio.caches.create(
+                model=self._model,
+                config=_genai_types.CreateCachedContentConfig(
+                    system_instruction=system_text or None,
+                    tools=tools_payload or None,
+                    ttl="3600s",
+                ),
+            )
+            self._cached_content_name = getattr(cache, "name", None)
+            self._cache_signature = sig
+            if self._cached_content_name:
+                self._cache_slots[sig] = self._cached_content_name
+                while len(self._cache_slots) > _MAX_CACHE_SLOTS:
+                    self._cache_slots.pop(next(iter(self._cache_slots)))
+            log.info(
+                "Gemini context cache created: %s (tokens ~%d)",
+                self._cached_content_name,
+                approx_tokens,
+            )
+            return self._cached_content_name
+        except Exception as exc:  # noqa: BLE001
+            self._cache_create_blocked_until = time.monotonic() + _CACHE_CREATE_RETRY_AFTER_S
+            log.warning(
+                "Gemini cache create failed, falling back to direct for the next %.0fs: %s",
+                _CACHE_CREATE_RETRY_AFTER_S,
+                exc,
+            )
+            return None
+
+    def invalidate_cache(self) -> None:
+        """Forget cache identity, for example after a tool reload.
+
+        ⚠ BUG-019 (2026-05-11) — this method is defined but NEVER called
+        automatically. The only production trigger that should invalidate
+        the cache is the server-side TTL expiry (CachedContent is created
+        with ``ttl="3600s"`` in ``_ensure_cache``), which Gemini signals by
+        returning 403 "CachedContent not found (or permission denied)" on
+        the next ``generate_content_stream`` call. That 403 is caught by
+        ``BrainManager`` at ``manager.py:1440`` as a generic provider
+        failure — it does NOT clear the provider's local cache reference,
+        so the next voice turn re-uses the dead cache name and re-fails
+        with the same 403. See the long comment around the
+        ``generate_content_stream`` call below for the full failure
+        timeline and the suggested fix path.
+        """
+        self._cached_content_name = None
+        self._cache_signature = None
+        # A stale-cache 403 usually means the server evicted by TTL — sibling
+        # slots created around the same time are just as dead. Dropping them
+        # all trades a few lazy re-creations for never re-sending a dead id.
+        self._cache_slots.clear()
+
+    async def complete(self, req: BrainRequest) -> AsyncIterator[BrainDelta]:
+        # First use builds the client: google-genai import + (for an AQ. key)
+        # the one-time routing probe — neither belongs on the event loop.
+        client = await asyncio.to_thread(self._ensure_client)
+        if self._transport == _TRANSPORT_OPENAI_COMPAT:
+            async for delta in stream_complete(
+                client,
+                self._model,
+                _openai_compat_request(req),
+                supports_vision=self.supports_vision,
+                assistant_tool_call_extra_content=_TOOL_HISTORY_EXTRA_CONTENT,
+            ):
+                yield delta
+            return
+
+        system_parts: list[str] = [
+            m.content for m in req.messages if m.role == "system" and isinstance(m.content, str)
+        ]
+        if req.system:
+            system_parts.append(req.system)
+
+        config_dict: dict[str, Any] = {"max_output_tokens": req.max_tokens}
+        if _agent_profile.sends_temperature():
+            # An agent that chose no temperature gets the model's default
+            # (Gemini 3 is tuned for 1.0 and may loop below it).
+            config_dict["temperature"] = req.temperature
+        system_text = "\n\n".join(system_parts) if system_parts else ""
+        # One pass builds both the outbound declarations and the name map.
+        tools_payload, _tool_name_map = _build_gemini_tool_declarations(req.tools)
+        # Contents AFTER the name map exists: prior tool calls/results in the
+        # history must carry the same sanitized names as the declarations.
+        contents = _to_gemini_contents(req.messages, _tool_name_map)
+        # Inbound resolution: Gemini calls back the SANITIZED name; the tool
+        # executor only knows the original. Invert the forward map (empty when
+        # there are no tools). See _build_gemini_tool_declarations.
+        tool_name_reverse = {safe: original for original, safe in _tool_name_map.items()}
+
+        # Latency-Sprint-2: if caching is enabled, try to put system+tools
+        # into a cache entry. On success, set ``cached_content`` instead of
+        # ``system_instruction``+``tools`` (Gemini doesn't allow both at
+        # once). On skip/fail: direct path.
+        cache_name: str | None = None
+        if os.environ.get(_ENV_CONTEXT_CACHE) == "1":
+            cache_name = await self._ensure_cache(system_text, tools_payload)
+
+        if cache_name:
+            config_dict["cached_content"] = cache_name
+            # System instruction + tools now live in the cache — do NOT send
+            # them again, or Gemini rejects the request.
+        else:
+            if system_text:
+                config_dict["system_instruction"] = system_text
+            if tools_payload:
+                config_dict["tools"] = tools_payload
+
+        # Jarvis runs its OWN tool-use loop, so Gemini's Automatic Function
+        # Calling (AFC) must be OFF. With AFC on (the SDK default) Gemini makes
+        # its own tool round-trips and, finding no executable Python callable for
+        # a declaration-only tool, leaks the function_call as response TEXT.
+        # Forensic 2026-06-27: a voice "switch the worker from antigravity to
+        # codex" hit AFC ("AFC is enabled with max remote calls: 10"), the call
+        # leaked, the recovery path ran the WRONG tool, and the turn stalled
+        # 108 s into the brain-timeout fallback. ``disable=True`` makes Gemini
+        # return a clean structured function_call the stream loop consumes — fast
+        # and exact. Best-effort: an SDK too old to know the field must not kill
+        # the call (it just keeps the slower legacy behavior).
+        try:
+            from google.genai import types as _genai_types
+
+            config_dict["automatic_function_calling"] = _genai_types.AutomaticFunctionCallingConfig(
+                disable=True
+            )
+        except Exception:  # noqa: BLE001 — never break the brain call over an SDK shape change
+            log.debug("could not disable Gemini automatic_function_calling", exc_info=True)
+
+        # Latency-Sprint-1: thinking. Gemini 3 wants ``thinking_level``;
+        # Gemini 2.5 wants ``thinking_budget``. ``none`` / budget 0 prefer
+        # LOW — gemini-3.7-flash's default is MEDIUM, and budget=0 is not a
+        # Gemini-3 off switch (it 400s or is ignored, then the model thinks
+        # at MEDIUM for 10-30 s). See ``_thinking_config_for``.
+        thinking_kind = ""
+        try:
+            thinking_cfg, thinking_kind = _thinking_config_for(
+                model=self._model,
+                ctor_budget=self._thinking_budget,
+                effort=getattr(req, "reasoning_effort", None),
+                rejected_budgets=self._rejected_thinking_budgets,
+            )
+        except Exception:  # noqa: BLE001 — old SDK / unexpected shape
+            thinking_cfg, thinking_kind = None, ""
+        if thinking_cfg is not None:
+            config_dict["thinking_config"] = thinking_cfg
+
+        # ╔══════════════════════════════════════════════════════════════╗
+        # ║  BUG-019 ROOT CAUSE — STALE GEMINI CONTEXT-CACHE REFERENCE   ║
+        # ╠══════════════════════════════════════════════════════════════╣
+        # ║                                                              ║
+        # ║ Symptom (Voice-Session 2026-05-11 starting at 17:22):        ║
+        # ║   User hears nothing after speaking. Pipeline state goes     ║
+        # ║   LISTENING → THINKING → silently back to LISTENING; TTS is  ║
+        # ║   never invoked. The orb spins, the user waits, no answer.  ║
+        # ║                                                              ║
+        # ║ Log trace per failing turn (data/jarvis_desktop.log):        ║
+        # ║   T+0.0   → Brain ...                                        ║
+        # ║   T+0.7   Brain gemini(gemini-3-flash-preview) failed        ║
+        # ║           403 Forbidden. "CachedContent not found            ║
+        # ║           (or permission denied)"                            ║
+        # ║   T+40.0  Brain-Stream timed out after 40.0s — back to       ║
+        # ║           LISTENING                                          ║
+        # ║                                                              ║
+        # ║ Root cause:                                                  ║
+        # ║   * ``_ensure_cache`` creates a server-side Gemini cache     ║
+        # ║     with ``ttl="3600s"`` and stores its name in              ║
+        # ║     ``self._cached_content_name``.                           ║
+        # ║   * After 1 h (or sooner, if Google's infra evicts it for    ║
+        # ║     other reasons), Gemini deletes the cache server-side.    ║
+        # ║   * Local Python state STILL holds the dead cache name.      ║
+        # ║   * The next ``generate_content_stream`` call below sends    ║
+        # ║     ``config_dict["cached_content"] = <dead_name>`` and      ║
+        # ║     Gemini answers 403.                                      ║
+        # ║   * That exception propagates up to ``BrainManager._call_    ║
+        # ║     provider_chain`` (manager.py:1440), which logs the       ║
+        # ║     provider as failed, appends to ``provider_errors`` and   ║
+        # ║     continues to the next provider in the fallback chain —  ║
+        # ║     but it does NOT touch the failing provider's state.     ║
+        # ║   * Therefore ``self._cached_content_name`` remains the      ║
+        # ║     same dead string FOREVER, until Jarvis restarts.         ║
+        # ║   * Each subsequent voice turn repeats the same 403; the     ║
+        # ║     fallback chain spends ~40 s rotating through Anthropic,  ║
+        # ║     OpenRouter, OpenAI, etc., usually never producing text   ║
+        # ║     in time. The pipeline's hard cap (``brain_timeout_s =    ║
+        # ║     40.0`` in ``speech/pipeline.py``) trips and returns to   ║
+        # ║     LISTENING with an empty response — which then hits the   ║
+        # ║     "filler/ack response suppressed" branch in               ║
+        # ║     ``_handle_utterance`` and silently `return True`s        ║
+        # ║     without calling ``_speak``.                              ║
+        # ║   * That is the silent THINKING → LISTENING transition the   ║
+        # ║     user observes.                                           ║
+        # ║                                                              ║
+        # ║ Why ``invalidate_cache()`` doesn't help:                     ║
+        # ║   The method exists (see above) but has no automatic         ║
+        # ║   trigger. It is only called by ``scripts/voice_e2e_probe``  ║
+        # ║   and by unit tests. The production code path never reaches  ║
+        # ║   it after a 403.                                            ║
+        # ║                                                              ║
+        # ║ Right fix (for the upcoming PR — do not implement here yet,  ║
+        # ║ this commit is annotation-only at the user's request):       ║
+        # ║                                                              ║
+        # ║   Wrap this ``generate_content_stream`` call in a try/except ║
+        # ║   that recognises the cache-not-found error class. When it   ║
+        # ║   fires, call ``self.invalidate_cache()`` and retry ONCE     ║
+        # ║   without the ``cached_content`` field (re-add ``system_     ║
+        # ║   instruction`` and ``tools`` to ``config_dict`` for the     ║
+        # ║   retry). Pseudocode:                                        ║
+        # ║                                                              ║
+        # ║       try:                                                   ║
+        # ║           stream = await client.aio.models.generate_         ║
+        # ║               content_stream(...)                            ║
+        # ║       except <PermissionDenied / 403 with                    ║
+        # ║                "CachedContent not found">:                   ║
+        # ║           self.invalidate_cache()                            ║
+        # ║           config_dict.pop("cached_content", None)            ║
+        # ║           if system_text:                                    ║
+        # ║               config_dict["system_instruction"] = system_text║
+        # ║           if tools_payload:                                  ║
+        # ║               config_dict["tools"] = tools_payload           ║
+        # ║           stream = await client.aio.models.generate_         ║
+        # ║               content_stream(...)  # retry without cache     ║
+        # ║                                                              ║
+        # ║   This costs one extra round trip in the rare case the      ║
+        # ║   cache expired, and the very next turn will lazily re-     ║
+        # ║   create a fresh cache via ``_ensure_cache``. The current    ║
+        # ║   broken state (stale name forever) is avoided.              ║
+        # ║                                                              ║
+        # ║ Alternative considered: clear the cache on the BrainManager  ║
+        # ║ side by giving the manager a ``provider.invalidate_cache()`` ║
+        # ║ hook to call after specific error kinds. Rejected because    ║
+        # ║ it leaks Gemini-specific semantics into the cross-provider   ║
+        # ║ orchestration layer. The cache lives in this file; the      ║
+        # ║ recovery should live here too.                               ║
+        # ╚══════════════════════════════════════════════════════════════╝
+        # BUG-019 recovery: a server-side context cache can be evicted (TTL
+        # expiry / Gemini infra) while our local ``_cached_content_name``
+        # still points at it. The next request then carries a dead id and
+        # Gemini answers 403 "CachedContent not found". Previously that
+        # propagated, the BrainManager swapped providers, and the poisoned
+        # cache name survived forever → every later voice turn 40s-timed-out
+        # into silence "until restart". We now catch that ONE error, drop the
+        # dead cache, and retry once with system_instruction + tools inline.
+        # The cache-not-found error fires before any token is generated, so
+        # the from-scratch retry yields no duplicate chunks.
+        attempt = 0
+        yielded_delta = False
+        # The budget value stripped by a parameterless-400 retry; promoted
+        # into ``_rejected_thinking_budgets`` only once the retried request
+        # is accepted (that acceptance IS the blame proof). The probe
+        # assumes Gemini request validation is deterministic for a fixed
+        # payload — a flaky 400 that clears on the retry for unrelated
+        # reasons would mis-blame, but validation errors are not transient.
+        pending_rejected_budget: int | None = None
+        while True:
+            attempt += 1
+            try:
+                stream = await client.aio.models.generate_content_stream(
+                    model=self._model,
+                    contents=contents,
+                    config=config_dict,
+                )
+                final_usage: dict[str, int] | None = None
+                async for chunk in stream:
+                    # Text
+                    text = getattr(chunk, "text", None)
+                    if text:
+                        yielded_delta = True
+                        yield BrainDelta(content=text)
+
+                    # Function-Calls
+                    candidates = getattr(chunk, "candidates", None) or []
+                    for cand in candidates:
+                        content_obj = getattr(cand, "content", None)
+                        if content_obj is None:
+                            continue
+                        parts = getattr(content_obj, "parts", None) or []
+                        for part in parts:
+                            fc = getattr(part, "function_call", None)
+                            if fc is None:
+                                continue
+                            name = getattr(fc, "name", "")
+                            args = getattr(fc, "args", {}) or {}
+                            if hasattr(args, "items"):
+                                args = dict(args)
+                            yielded_delta = True
+                            call: dict[str, Any] = {
+                                "id": f"gemini_{uuid4().hex[:8]}",
+                                "name": tool_name_reverse.get(name, name),
+                                "input": args,
+                            }
+                            # Gemini 3 thinking models stamp each functionCall
+                            # part with a thought_signature and REQUIRE it back
+                            # verbatim when the call is replayed in history
+                            # (400 INVALID_ARGUMENT otherwise). Carry it on the
+                            # provider-neutral call dict; other providers'
+                            # converters simply never read the key.
+                            signature = getattr(part, "thought_signature", None)
+                            if signature:
+                                call["thought_signature"] = (
+                                    base64.b64encode(signature).decode("ascii")
+                                    if isinstance(signature, (bytes, bytearray))
+                                    else str(signature)
+                                )
+                            yield BrainDelta(tool_call=call)
+                        finish = getattr(cand, "finish_reason", None)
+                        if finish:
+                            yielded_delta = True
+                            yield BrainDelta(finish_reason=str(finish))
+
+                    usage = getattr(chunk, "usage_metadata", None)
+                    if usage is not None:
+                        yielded_delta = True
+                        # Gemini reports cumulative snapshots, not per-chunk
+                        # deltas. Emitting every snapshot makes the shared
+                        # aggregator sum the same prompt repeatedly. Retain the
+                        # latest snapshot and emit it once after the stream.
+                        prompt_tokens = int(getattr(usage, "prompt_token_count", 0) or 0)
+                        cache_hit_tokens = int(getattr(usage, "cached_content_token_count", 0) or 0)
+                        candidate_tokens = int(getattr(usage, "candidates_token_count", 0) or 0)
+                        thought_tokens = int(getattr(usage, "thoughts_token_count", 0) or 0)
+                        tool_result_tokens = int(
+                            getattr(usage, "tool_use_prompt_token_count", 0) or 0
+                        )
+                        final_usage = {
+                            # The canonical cost contract stores non-cached
+                            # input separately from discounted cache hits.
+                            "input_tokens": max(
+                                prompt_tokens - cache_hit_tokens,
+                                0,
+                            )
+                            + tool_result_tokens,
+                            "output_tokens": candidate_tokens + thought_tokens,
+                            "cache_hit_tokens": cache_hit_tokens,
+                        }
+                if final_usage is not None:
+                    yield BrainDelta(usage=final_usage)
+                if pending_rejected_budget is not None:
+                    # The retry without ``thinking_config`` was accepted, so
+                    # the parameterless 400 is attributed to it. Later turns
+                    # on this instance skip that budget (and the extra 400)
+                    # entirely.
+                    self._rejected_thinking_budgets.add(pending_rejected_budget)
+                    _REJECTED_THINKING_BUDGETS.add((self._model, pending_rejected_budget))
+                    log.info(
+                        "Gemini model %s rejects thinking_budget=%d — omitting it from now on",
+                        self._model,
+                        pending_rejected_budget,
+                    )
+                return
+            except Exception as exc:  # noqa: BLE001 — BUG-019 stale-cache recovery
+                if attempt == 1 and cache_name and _is_stale_context_cache_error(exc):
+                    log.warning(
+                        "Gemini stale context-cache (BUG-019) — invalidating "
+                        "and retrying once without cache: %s",
+                        exc,
+                    )
+                    self.invalidate_cache()
+                    config_dict.pop("cached_content", None)
+                    if system_text:
+                        config_dict["system_instruction"] = system_text
+                    if tools_payload:
+                        config_dict["tools"] = tools_payload
+                    continue
+                thinking_config_blamed = _is_thinking_config_rejected_error(exc)
+                if (
+                    not yielded_delta
+                    and "thinking_config" in config_dict
+                    and (thinking_config_blamed or _is_generic_invalid_argument_error(exc))
+                ):
+                    # Some models REQUIRE thinking mode and 400 on budget=0
+                    # ("Budget 0 is invalid. This model only works in thinking
+                    # mode."); others answer the bare "Request contains an
+                    # invalid argument." (live 2026-07-21: gemini-3.6-flash —
+                    # it bricked every delegated realtime fallback turn).
+                    # Capability recovery, not a model-name pin (AP-21): drop
+                    # the config and retry once. Safe: the rejection fires
+                    # before any token is generated. If something else caused
+                    # the parameterless 400, the retry fails the same way and
+                    # the error still propagates — one extra round trip, no
+                    # behavior change.
+                    log.info(
+                        "Gemini model %s rejected thinking_config — retrying once without it: %s",
+                        self._model,
+                        exc,
+                    )
+                    rejected_budget = getattr(
+                        config_dict.get("thinking_config"),
+                        "thinking_budget",
+                        None,
+                    )
+                    cache_on_wire = bool(cache_name and "cached_content" in config_dict)
+                    if thinking_kind == "level" and not (
+                        not thinking_config_blamed and cache_on_wire
+                    ):
+                        # Gemini 2.5 400s on thinking_level. Fall through to
+                        # the budget path instead of dropping the knob —
+                        # dropping it on 3.7-flash is how MEDIUM thinking
+                        # comes back and the composer waits 10-30 s. Skip
+                        # this hop when a cache reference is also on the
+                        # wire: a generic 400 then has two suspects and
+                        # the two-variable retry must not blame either.
+                        _REJECTED_THINKING_LEVELS.add(self._model)
+                        from google.genai import types as _retry_types
+
+                        fallback = None
+                        if (
+                            0 not in self._rejected_thinking_budgets
+                            and (self._model, 0) not in _REJECTED_THINKING_BUDGETS
+                        ):
+                            try:
+                                fallback = _retry_types.ThinkingConfig(thinking_budget=0)
+                            except (TypeError, AttributeError, ValueError):
+                                # Last rung of the same ladder, on the retry
+                                # path: no usable config means the request is
+                                # sent without one rather than failing here.
+                                fallback = None
+                        if fallback is not None:
+                            config_dict["thinking_config"] = fallback
+                            thinking_kind = "budget"
+                            continue
+                    config_dict.pop("thinking_config", None)
+                    thinking_kind = ""
+                    # A generic 400 while a context-cache reference is on the
+                    # wire could ALSO be a differently-worded dead-cache
+                    # rejection this branch would otherwise consume — and the
+                    # ``attempt == 1`` gate above would then keep the poisoned
+                    # cache name forever (BUG-019's exact symptom). Clear it
+                    # alongside, and skip blame promotion: with two variables
+                    # changed the retry proves nothing about the budget.
+                    dropped_cache = False
+                    if (
+                        not thinking_config_blamed
+                        and cache_name
+                        and "cached_content" in config_dict
+                    ):
+                        self.invalidate_cache()
+                        config_dict.pop("cached_content", None)
+                        if system_text:
+                            config_dict["system_instruction"] = system_text
+                        if tools_payload:
+                            config_dict["tools"] = tools_payload
+                        dropped_cache = True
+                    if isinstance(rejected_budget, int):
+                        if thinking_config_blamed:
+                            # The message names the thinking config — no
+                            # further evidence needed.
+                            self._rejected_thinking_budgets.add(rejected_budget)
+                            _REJECTED_THINKING_BUDGETS.add((self._model, rejected_budget))
+                        elif not dropped_cache:
+                            pending_rejected_budget = rejected_budget
+                    continue
+                if (
+                    not yielded_delta
+                    and self._transport == _TRANSPORT_NATIVE
+                    and _is_native_dependency_import_error(exc)
+                ):
+                    # Some google-genai releases import auth/native modules
+                    # only when the first stream starts. Recover only before
+                    # any delta was emitted, so a retry can never duplicate
+                    # text or execute a tool twice.
+                    ep = self._resolve_endpoint()
+                    if not self._credential_is_sufficient(ep):
+                        raise
+                    _reject_compat_fallback_for_vertex(ep, exc, pinned_route=self.pinned_route)
+                    log.info(
+                        "Gemini native stream dependency unavailable (%s); "
+                        "using the OpenAI-compatible transport",
+                        type(exc).__name__,
+                    )
+                    self._client = _create_openai_compat_client(ep)
+                    self._transport = _TRANSPORT_OPENAI_COMPAT
+                    async for delta in stream_complete(
+                        self._client,
+                        self._model,
+                        _openai_compat_request(req),
+                        supports_vision=self.supports_vision,
+                        assistant_tool_call_extra_content=_TOOL_HISTORY_EXTRA_CONTENT,
+                    ):
+                        yield delta
+                    return
+                raise
+
+    def estimate_cost(self, req: BrainRequest) -> float:
+        in_tokens = sum(len(str(m.content)) for m in req.messages) // 4
+        return (in_tokens * 1.25 + req.max_tokens * 5) / 1_000_000

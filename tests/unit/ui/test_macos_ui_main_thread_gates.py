@@ -31,7 +31,7 @@ class _ThreadSpawnRecorder:
 
 
 def test_jarvisbar_start_in_thread_is_noop_on_macos(monkeypatch, caplog) -> None:
-    from jarvis.ui.dodaiosbar import overlay as bar_mod
+    from dodaios.ui.dodaiosbar import overlay as bar_mod
 
     monkeypatch.setattr("sys.platform", "darwin")
     recorder = _ThreadSpawnRecorder()
@@ -73,8 +73,8 @@ def test_desktop_build_overlay_surface_on_macos(monkeypatch) -> None:
     # CHILD's main thread — legal on Aqua-Tk): the bar via
     # SubprocessBarOverlay, the mascot via SubprocessMascotOverlay. Neither
     # path may create an in-process Tk root.
-    from jarvis.ui.desktop_app import DesktopApp
-    from jarvis.ui.dodaiosbar.subprocess_overlay import (
+    from dodaios.ui.desktop_app import DesktopApp
+    from dodaios.ui.dodaiosbar.subprocess_overlay import (
         SubprocessBarOverlay,
         SubprocessMascotOverlay,
     )
@@ -115,9 +115,9 @@ def test_desktop_build_overlay_surface_macos_bar_falls_back_to_null(
 ) -> None:
     # Fail-safe: a broken host spawn must never block the boot (BUG-057
     # class) — the bar degrades to the no-op surface instead.
-    from jarvis.ui.desktop_app import DesktopApp
-    from jarvis.ui.dodaiosbar.null_overlay import NullOverlay
-    from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessBarOverlay
+    from dodaios.ui.desktop_app import DesktopApp
+    from dodaios.ui.dodaiosbar.null_overlay import NullOverlay
+    from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessBarOverlay
 
     monkeypatch.setattr("sys.platform", "darwin")
 
@@ -142,9 +142,9 @@ def test_desktop_build_overlay_surface_macos_mascot_falls_back_to_null(
 ) -> None:
     # Fail-safe: a broken mascot host spawn must never block the boot
     # (BUG-057 class) — the mascot degrades to the no-op surface instead.
-    from jarvis.ui.desktop_app import DesktopApp
-    from jarvis.ui.dodaiosbar.null_overlay import NullOverlay
-    from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
+    from dodaios.ui.desktop_app import DesktopApp
+    from dodaios.ui.dodaiosbar.null_overlay import NullOverlay
+    from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 
     monkeypatch.setattr("sys.platform", "darwin")
 
@@ -169,7 +169,7 @@ def test_desktop_build_overlay_surface_windows_mascot_stays_in_process(
 ) -> None:
     # AD-7 guard: off macOS the mascot keeps its in-process OrbOverlay — the
     # darwin subprocess host must not leak onto other platforms.
-    from jarvis.ui.desktop_app import DesktopApp
+    from dodaios.ui.desktop_app import DesktopApp
     from ui.orb.overlay import OrbOverlay
 
     monkeypatch.setattr("sys.platform", "win32")
@@ -198,8 +198,8 @@ def test_overlay_factory_selects_tray_floor_on_macos() -> None:
     # surface on darwin would abort the process natively. The tray floor is
     # the designed degrade (AD-11) — and the tray itself no-ops on darwin
     # (BUG-056), so macOS gets no crash and no stray window.
-    from jarvis.overlay.surface import make_overlay_surface
-    from jarvis.overlay.tray_surface import TrayOnlySurface
+    from dodaios.overlay.surface import make_overlay_surface
+    from dodaios.overlay.tray_surface import TrayOnlySurface
     from tests.fakes.fake_capabilities import fake_macos_capabilities
 
     surface = make_overlay_surface(capabilities=fake_macos_capabilities())
@@ -208,7 +208,7 @@ def test_overlay_factory_selects_tray_floor_on_macos() -> None:
 
 def test_thread_spawners_still_run_on_windows(monkeypatch) -> None:
     # AD-7 guard: the darwin gates must not leak onto other platforms.
-    from jarvis.ui.dodaiosbar import overlay as bar_mod
+    from dodaios.ui.dodaiosbar import overlay as bar_mod
 
     monkeypatch.setattr("sys.platform", "win32")
     spawned: list[str] = []

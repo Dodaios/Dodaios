@@ -1,10 +1,10 @@
-"""Unit tests for the shared hang-up intent module (jarvis/speech/hangup.py)."""
+"""Unit tests for the shared hang-up intent module (dodaios/speech/hangup.py)."""
 
 from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.hangup import (
+from dodaios.speech.hangup import (
     END_CALL_SIGNAL,
     HANGUP_RE,
     HangupConfirmation,

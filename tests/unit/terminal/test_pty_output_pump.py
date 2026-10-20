@@ -1,6 +1,6 @@
 """The PTY output pump — what keeps a busy pane from starving a typist.
 
-The contract these pin down (see ``jarvis/terminal/pty_manager.py``):
+The contract these pin down (see ``dodaios/terminal/pty_manager.py``):
 
 * the FIRST chunk is forwarded immediately — coalescing must not buy
   throughput with latency the user feels on every keystroke,
@@ -22,8 +22,8 @@ from collections import deque
 
 import pytest
 
-import jarvis.terminal.pty_manager as pty_mod
-from jarvis.terminal.pty_manager import MAX_PENDING_CHARS, PtyManager
+import dodaios.terminal.pty_manager as pty_mod
+from dodaios.terminal.pty_manager import MAX_PENDING_CHARS, PtyManager
 
 
 class ScriptedHandle:

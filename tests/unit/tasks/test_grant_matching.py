@@ -4,7 +4,7 @@ A routine grants ``github`` while the live tools are ``github/list_issues``,
 ``github/create_issue``, … Exact matching in ``BrainManager._select_task_tools``
 left such a task running with ZERO tools (it then "could not access GitHub"
 at 09:00). The brain's allowlist and the unattended-approval bridge must
-apply one and the same rule: :func:`jarvis.tasks.grants.grant_matches`.
+apply one and the same rule: :func:`dodaios.tasks.grants.grant_matches`.
 """
 
 from __future__ import annotations
@@ -12,12 +12,12 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import ActionApprovalRequired, ActionApproved
-from jarvis.core.protocols import ToolResult
-from jarvis.tasks.approval_bridge import TaskAutoApprover
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import ActionApprovalRequired, ActionApproved
+from dodaios.core.protocols import ToolResult
+from dodaios.tasks.approval_bridge import TaskAutoApprover
 
 
 class _FakeTool:

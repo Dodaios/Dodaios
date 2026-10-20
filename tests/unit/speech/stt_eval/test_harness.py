@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.speech.stt_eval.corpus import STTEvalItem, load_corpus
-from jarvis.speech.stt_eval.harness import Recognition, evaluate_contender
+from dodaios.speech.stt_eval.corpus import STTEvalItem, load_corpus
+from dodaios.speech.stt_eval.harness import Recognition, evaluate_contender
 
 
 def _wav(path: Path, seconds: float = 1.0) -> None:
@@ -213,7 +213,7 @@ async def test_empty_corpus_fails_before_any_recognizer_call() -> None:
 def test_cli_writes_versioned_metrics_without_private_transcripts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from jarvis.speech.stt_eval import __main__ as cli
+    from dodaios.speech.stt_eval import __main__ as cli
 
     audio = tmp_path / "private.wav"
     _wav(audio)

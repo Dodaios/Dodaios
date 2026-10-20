@@ -16,13 +16,13 @@ honesty backstop then VOIDED the good answer with a canned failure phrase
   capability ("…deine Cloud-Abrechnung…") instead of the generic "the tool",
   which also carries the info forward in history for a follow-up "which tool?".
 """
-from jarvis.brain.evidence_gate import check_evidence_domain
-from jarvis.brain.manager import (
+from dodaios.brain.evidence_gate import check_evidence_domain
+from dodaios.brain.manager import (
     _conversational_turn_suppresses_read_mandate,
     _evidence_unfulfilled_answer,
 )
-from jarvis.core.capabilities import CapabilityRegistry
-from jarvis.core.config import EvidenceDomainsConfig
+from dodaios.core.capabilities import CapabilityRegistry
+from dodaios.core.config import EvidenceDomainsConfig
 
 _RECOMBINED_BORA = (
     "Was geht ab? Was ist morgen für ein Tag? Guten Tag, ich habe noch eine "  # i18n-allow

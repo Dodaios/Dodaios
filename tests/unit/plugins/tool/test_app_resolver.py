@@ -6,10 +6,10 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.plugins.tool.app_resolver as app_resolver
-from jarvis.core.protocols import ExecutionContext
-from jarvis.plugins.tool.open_app import OpenAppTool
-from jarvis.plugins.tool.app_resolver import LaunchTarget, resolve_app_launch_target
+import dodaios.plugins.tool.app_resolver as app_resolver
+from dodaios.core.protocols import ExecutionContext
+from dodaios.plugins.tool.open_app import OpenAppTool
+from dodaios.plugins.tool.app_resolver import LaunchTarget, resolve_app_launch_target
 
 
 def _ctx() -> ExecutionContext:
@@ -54,7 +54,7 @@ def test_microsoft_store_resolves_to_uwp_protocol(
 def test_microsoft_store_is_in_the_windows_app_whitelist() -> None:
     """The plausibility gate must accept 'Microsoft Store' (else open_app rejects
     it before the resolver ever runs)."""
-    from jarvis.plugins.tool.open_app import _KNOWN_APPS_WIN
+    from dodaios.plugins.tool.open_app import _KNOWN_APPS_WIN
 
     assert "microsoft store" in _KNOWN_APPS_WIN
     assert "store" in _KNOWN_APPS_WIN
@@ -206,7 +206,7 @@ async def test_open_app_launches_discord_via_start_menu_shortcut(
     # already-running short-circuit must not fire if Discord happens to be open
     # on the host (the hardened raise now succeeds where the old focus failed).
     monkeypatch.setattr(
-        "jarvis.plugins.tool.open_app.window_state.is_app_running", lambda n: None
+        "dodaios.plugins.tool.open_app.window_state.is_app_running", lambda n: None
     )
 
     result = await OpenAppTool().execute({"app_name": "discord"}, _ctx())
@@ -226,7 +226,7 @@ async def test_open_app_uses_resolved_startfile_target_before_launch(
     # on the host): the already-running short-circuit now succeeds via the
     # hardened raise, which would otherwise skip the launch this test asserts.
     monkeypatch.setattr(
-        "jarvis.plugins.tool.open_app.window_state.is_app_running", lambda n: None
+        "dodaios.plugins.tool.open_app.window_state.is_app_running", lambda n: None
     )
 
     result = await OpenAppTool().execute({"app_name": "spotify"}, _ctx())
@@ -256,7 +256,7 @@ async def test_open_app_rejects_hallucinated_name_before_resolution_or_launch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.plugins.tool.open_app.resolve_app_launch_target",
+        "dodaios.plugins.tool.open_app.resolve_app_launch_target",
         lambda name: pytest.fail("resolver must not run for implausible app names"),
     )
     monkeypatch.setattr(
@@ -280,21 +280,21 @@ async def test_open_app_rejects_hallucinated_name_before_resolution_or_launch(
 # ---------------------------------------------------------------------------
 
 def test_launch_services_probe_is_none_off_darwin(monkeypatch):
-    from jarvis.plugins.tool import app_resolver as ar
+    from dodaios.plugins.tool import app_resolver as ar
 
     monkeypatch.setattr(ar, "detect_platform", lambda: "win32")
     assert ar.launch_services_can_open({"google chrome"}) is None
 
 
 def test_desktop_entry_probe_is_none_off_linux(monkeypatch):
-    from jarvis.plugins.tool import app_resolver as ar
+    from dodaios.plugins.tool import app_resolver as ar
 
     monkeypatch.setattr(ar, "detect_platform", lambda: "darwin")
     assert ar.desktop_entry_exists({"chrome"}) is None
 
 
 def test_desktop_entry_probe_matches_stem_and_vendor_tokens(monkeypatch, tmp_path):
-    from jarvis.plugins.tool import app_resolver as ar
+    from dodaios.plugins.tool import app_resolver as ar
 
     (tmp_path / "google-chrome.desktop").write_text("[Desktop Entry]")
     (tmp_path / "org.mozilla.firefox.desktop").write_text("[Desktop Entry]")

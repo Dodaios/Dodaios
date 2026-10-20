@@ -5,18 +5,18 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.events import EventEnvelope, MissionDispatched, now_ms
-from jarvis.missions.ids import uuid7_str
+from dodaios.missions.events import EventEnvelope, MissionDispatched, now_ms
+from dodaios.missions.ids import uuid7_str
 
 
 @pytest.fixture(autouse=True)
 def _no_live_subscription_login(monkeypatch: pytest.MonkeyPatch) -> None:
     """Never read the developer's real ``claude`` / codex login to decide
-    whether this is a subscription install (jarvis/missions/capacity.py): a
+    whether this is a subscription install (dodaios/missions/capacity.py): a
     signed-in machine would flip every mission test into the pinned path.
     Tests that need a subscription install set the sticky marker or patch
     ``install_is_pinned`` explicitly."""
-    from jarvis.missions import init as mission_init
+    from dodaios.missions import init as mission_init
 
     monkeypatch.setattr(mission_init, "_positive_subscription_login", lambda: False)
 

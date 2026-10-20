@@ -9,7 +9,7 @@ DELEGATE way that points at the team card and the two society tools.
 
 from __future__ import annotations
 
-from jarvis.brain.router import SYSTEM_PROMPT
+from dodaios.brain.router import SYSTEM_PROMPT
 
 
 def test_delegate_is_a_way_of_its_own() -> None:

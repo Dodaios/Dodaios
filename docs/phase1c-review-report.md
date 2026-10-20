@@ -25,7 +25,7 @@ The 5 Phase-1c deps per plan §17.4 are not in the dependency files: `python-fro
 **Fix**: Add all 5 to `pyproject.toml` `[project].dependencies` + `requirements.txt`.
 
 ### BLOCKER 2 — SkillRunner instantiated incorrectly in cli.py
-**Affected**: `jarvis/skills/cli.py:168`
+**Affected**: `dodaios/skills/cli.py:168`
 
 ```python
 runner = SkillRunner(bus=bus)  # type: ignore[call-arg]

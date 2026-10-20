@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.factory import _register_runtime_manager
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.core import runtime_refs
-from jarvis.core.protocols import ToolResult
+from dodaios.brain.factory import _register_runtime_manager
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.core import runtime_refs
+from dodaios.core.protocols import ToolResult
 
 
 class _Tool:
@@ -73,7 +73,7 @@ def test_catalog_carries_the_per_args_impact_hook() -> None:
     hook survives the trip through the live catalog, which is where the
     2026-08-20 15:35 refusal happened.
     """
-    from jarvis.plugins.tool.run_shell import RunShellTool
+    from dodaios.plugins.tool.run_shell import RunShellTool
 
     gateway = BrainSupervisorToolGateway(
         SimpleNamespace(_tools={"run_shell": RunShellTool()}, _tool_executor=None)

@@ -4,8 +4,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.protocols import ExecutionContext, Observation, UIANode
-from jarvis.plugins.tool.wait_for_element import WaitForElementTool
+from dodaios.core.protocols import ExecutionContext, Observation, UIANode
+from dodaios.plugins.tool.wait_for_element import WaitForElementTool
 
 
 def _ctx() -> ExecutionContext:

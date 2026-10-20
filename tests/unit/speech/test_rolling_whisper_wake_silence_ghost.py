@@ -32,9 +32,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech.rolling_whisper_wake import RollingWhisperWake
-from jarvis.speech.wake_phrase import compile_wake_matcher
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech.rolling_whisper_wake import RollingWhisperWake
+from dodaios.speech.wake_phrase import compile_wake_matcher
 
 
 def _chunk(value: int, n: int = 1600) -> AudioChunk:

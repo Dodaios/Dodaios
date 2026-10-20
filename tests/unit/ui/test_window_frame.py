@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from jarvis.ui.window_frame import (
+from dodaios.ui.window_frame import (
     caption_hit,
     install_resize_frame,
     maximized_bounds,

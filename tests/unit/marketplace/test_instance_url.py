@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.marketplace.instance_url import InstanceUrlError, normalize_instance_url
+from dodaios.marketplace.instance_url import InstanceUrlError, normalize_instance_url
 
 
 @pytest.mark.parametrize(

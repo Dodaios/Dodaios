@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.pets.status_line import (
+from dodaios.ui.pets.status_line import (
     DETAIL_MAX_CHARS,
     ELLIPSIS,
     MAX_INPUT_CHARS,

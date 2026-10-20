@@ -21,8 +21,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.plugins.tts import build_tts_from_config
-from jarvis.plugins.tts.gemini_flash_tts import GeminiFlashTTS
+from dodaios.plugins.tts import build_tts_from_config
+from dodaios.plugins.tts.gemini_flash_tts import GeminiFlashTTS
 
 # --- _build_config carries the determinism knobs ----------------------------
 

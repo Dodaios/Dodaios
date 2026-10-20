@@ -10,9 +10,9 @@ from types import SimpleNamespace
 import httpx
 from fastapi import FastAPI
 
-from jarvis.core.bus import EventBus
-from jarvis.state.chat_store import ChatStore
-from jarvis.ui.web.chats_routes import router as chats_router
+from dodaios.core.bus import EventBus
+from dodaios.state.chat_store import ChatStore
+from dodaios.ui.web.chats_routes import router as chats_router
 
 
 class _FakeBrain:

@@ -22,17 +22,17 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.brain.spawn_gate import (
+from dodaios.brain.manager import BrainManager
+from dodaios.brain.spawn_gate import (
     OFFER_WINDOW,
     active_force_spawn_mode,
     effort_route_enabled,
     effort_warrants_delegation,
     llm_spawn_allowed,
 )
-from jarvis.core import runtime_refs
-from jarvis.core.bus import EventBus
-from jarvis.core.config import (
+from dodaios.core import runtime_refs
+from dodaios.core.bus import EventBus
+from dodaios.core.config import (
     DEFAULT_FORCE_SPAWN_MODE,
     FORCE_SPAWN_MODE_BALANCED,
     FORCE_SPAWN_MODE_PERMISSIVE,

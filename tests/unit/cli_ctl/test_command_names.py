@@ -12,10 +12,10 @@ import sys
 
 import pytest
 
-import jarvis.__main__ as entry
-from jarvis import __version__
-from jarvis.cli_ctl.__main__ import app, build_root_command
-from jarvis.core.branding import CONTROL_CLI_COMMAND_NAME
+import dodaios.__main__ as entry
+from dodaios import __version__
+from dodaios.cli_ctl.__main__ import app, build_root_command
+from dodaios.core.branding import CONTROL_CLI_COMMAND_NAME
 
 _NAMES = ["dodaiosctl", "jarvisctl", "jctl", "dodaios", "jarvis"]
 _STYLE = re.compile(r"\x1b\[[0-9;]*m")

@@ -12,14 +12,14 @@ from uuid import uuid4
 import jsonschema
 import pytest
 
-from jarvis.agentic_ide import git_ops, library, resume_store
-from jarvis.agentic_ide.folders import probe_project
-from jarvis.agentic_ide.orchestration import WorkspaceOrchestrator
-from jarvis.agentic_ide.session import Registry, Session, Terminal
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.brain.workspace_git_tool import WorkspaceGitTool
-from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-from jarvis.live.state import LiveLedger
+from dodaios.agentic_ide import git_ops, library, resume_store
+from dodaios.agentic_ide.folders import probe_project
+from dodaios.agentic_ide.orchestration import WorkspaceOrchestrator
+from dodaios.agentic_ide.session import Registry, Session, Terminal
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.brain.workspace_git_tool import WorkspaceGitTool
+from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+from dodaios.live.state import LiveLedger
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
@@ -196,8 +196,8 @@ def test_voice_gets_the_git_tool_next_to_the_workspace_tool(rig):
 
 
 async def test_pull_requests_lists_the_branch_ones_first_with_their_checks(rig, monkeypatch):
-    from jarvis.agentic_ide import git_overview
-    from jarvis.agentic_ide.git_overview import (
+    from dodaios.agentic_ide import git_overview
+    from dodaios.agentic_ide.git_overview import (
         BranchRow,
         CiStatus,
         GitHubState,
@@ -238,8 +238,8 @@ async def test_pull_requests_lists_the_branch_ones_first_with_their_checks(rig, 
 
 
 async def test_pull_requests_says_when_github_is_not_connected(rig, monkeypatch):
-    from jarvis.agentic_ide import git_overview
-    from jarvis.agentic_ide.git_overview import GitHubState, RepoOverview
+    from dodaios.agentic_ide import git_overview
+    from dodaios.agentic_ide.git_overview import GitHubState, RepoOverview
 
     seen = RepoOverview(
         available=True, branch="main",
@@ -270,7 +270,7 @@ async def test_archiving_names_ignored_files_and_needs_the_users_word_to_drop_th
 
 
 async def test_opening_a_pull_request_refreshes_what_github_is_known_to_hold(rig, monkeypatch):
-    from jarvis.agentic_ide import git_overview, github_pulls
+    from dodaios.agentic_ide import git_overview, github_pulls
 
     cleared = []
     monkeypatch.setattr(github_pulls, "open_for_branch", lambda folder, **kw: "https://x/pr/1")

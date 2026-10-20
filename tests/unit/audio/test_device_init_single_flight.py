@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import threading
 
-from jarvis.audio import device_init
+from dodaios.audio import device_init
 
 
 class _ReentrancySD:

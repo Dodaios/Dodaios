@@ -27,9 +27,9 @@ import time
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import WakeCandidateDetected
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
+from dodaios.core.bus import EventBus
+from dodaios.core.events import WakeCandidateDetected
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
 
 
 class _StubSTT:
@@ -230,7 +230,7 @@ async def test_the_state_loop_names_the_dictation_instead_of_guessing(
 
     loop_task = asyncio.create_task(pipe._state_loop())
     try:
-        with caplog.at_level("INFO", logger="jarvis.speech.pipeline"):
+        with caplog.at_level("INFO", logger="dodaios.speech.pipeline"):
             pipe._call_event.set()
             await asyncio.wait_for(aborted.wait(), timeout=1.0)
         messages = [r.getMessage() for r in caplog.records]

@@ -8,16 +8,16 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from jarvis.core.review.audit import ReviewAudit
-from jarvis.core.review.checks import (
+from dodaios.core.review.audit import ReviewAudit
+from dodaios.core.review.checks import (
     PostCheckRunner,
     PreCheckRunner,
     output_not_empty,
     task_not_empty,
 )
-from jarvis.core.review.pipeline import ReviewPipeline
-from jarvis.core.review.state import PipelineOutcome, RunState
-from jarvis.core.review.verdict import ReviewStatus, ReviewVerdict
+from dodaios.core.review.pipeline import ReviewPipeline
+from dodaios.core.review.state import PipelineOutcome, RunState
+from dodaios.core.review.verdict import ReviewStatus, ReviewVerdict
 
 
 def _pass_verdict(*, score: float = 1.0) -> ReviewVerdict:

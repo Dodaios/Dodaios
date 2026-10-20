@@ -24,16 +24,16 @@ import datetime
 import httpx
 import pytest
 
-from jarvis.brain.ack_brain.config import AckBrainConfig
-from jarvis.brain.ollama_library import parse_tags_html
-from jarvis.brain.ollama_pull import (
+from dodaios.brain.ack_brain.config import AckBrainConfig
+from dodaios.brain.ollama_library import parse_tags_html
+from dodaios.brain.ollama_pull import (
     CURATED_MAX_AGE_DAYS,
     CURATED_REVIEWED_ON,
     RECOMMENDED_MODELS,
     ROLE_ORDER,
 )
-from jarvis.dictation.polish_client import POLISH_FAMILIES
-from jarvis.realtime.local_server import brain_link, tiers
+from dodaios.dictation.polish_client import POLISH_FAMILIES
+from dodaios.realtime.local_server import brain_link, tiers
 
 pytestmark = pytest.mark.integration
 

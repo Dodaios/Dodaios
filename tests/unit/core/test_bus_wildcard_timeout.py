@@ -14,9 +14,9 @@ import asyncio
 
 import pytest
 
-from jarvis.core import bus as bus_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.events import Event
+from dodaios.core import bus as bus_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.events import Event
 
 
 @pytest.mark.asyncio

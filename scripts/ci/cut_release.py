@@ -7,7 +7,7 @@ dispatch — a release never happens by itself) and runnable locally::
     python scripts/ci/cut_release.py --bump patch      # 2.3.2 -> 2.3.3
     python scripts/ci/cut_release.py --version 2.4.0
 
-The package version in ``pyproject.toml`` and ``jarvis/__init__.py`` stays
+The package version in ``pyproject.toml`` and ``dodaios/__init__.py`` stays
 synchronized with the workspace entry in ``uv.lock``. The CHANGELOG takes the ``[Unreleased]``
 notes when there are any; otherwise it is built from the Conventional Commit
 subjects since the previous tag (feat -> Added, fix -> Fixed, perf/refactor ->
@@ -103,7 +103,7 @@ def apply(version: str, notes: str, today: str, root: Path = REPO_ROOT) -> None:
             raise ValueError("uv.lock must contain exactly one editable project version")
     text = re.sub(r'(?m)^version = "[^"]+"', f'version = "{version}"', text, count=1)
     pyproject.write_bytes(text.encode("utf-8"))
-    init = root / "jarvis" / "__init__.py"
+    init = root / "dodaios" / "__init__.py"
     text = init.read_text(encoding="utf-8")
     text = re.sub(r'__version__ = "[^"]+"', f'__version__ = "{version}"', text, count=1)
     init.write_bytes(text.encode("utf-8"))

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.config import DictationConfig
+from dodaios.core.config import DictationConfig
 
 
 class TestRecordingCeiling:
@@ -47,7 +47,7 @@ class TestRecordingCeiling:
         The old code read the value as ``max_seconds or 300.0``, which turned
         the off switch into the very ceiling it was meant to remove (AP-31).
         """
-        from jarvis.speech import pipeline
+        from dodaios.speech import pipeline
 
         assert (0.0 or None) is None
         # And the fallback used for a MISSING setting is the generous one,
@@ -61,7 +61,7 @@ class TestRecordingCeiling:
         answers during a very long dictation is recoverable in a second, while
         one that never unblocks needs an app restart.
         """
-        from jarvis.speech import pipeline
+        from dodaios.speech import pipeline
 
         assert pipeline._DICTATION_UNBOUNDED_WAKE_BLOCK_S > 0
         assert pipeline._DICTATION_UNBOUNDED_WAKE_BLOCK_S < float("inf")
@@ -82,7 +82,7 @@ class TestPolishInputCeiling:
         jarvis.toml that predates these keys. A fallback of 4000 there would
         quietly restore the ceiling for exactly those older installs.
         """
-        from jarvis.dictation import polish
+        from dodaios.dictation import polish
 
         assert polish._DEFAULT_MAX_INPUT_CHARS == DictationConfig().polish_max_input_chars
 
@@ -91,7 +91,7 @@ class TestPolishInputCeiling:
         self, length: int
     ) -> None:
         """No length may resolve to ``skipped_long`` under the default config."""
-        from jarvis.dictation.polish import polish_transcript
+        from dodaios.dictation.polish import polish_transcript
 
         outcome = await polish_transcript(
             "word " * (length // 5),

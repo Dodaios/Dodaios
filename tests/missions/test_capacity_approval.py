@@ -18,9 +18,9 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.missions import init as mi
-from jarvis.missions.capacity import (
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.missions import init as mi
+from dodaios.missions.capacity import (
     PAID_MISSION_CAP_USD,
     CapacityDecisionRejected,
     DailyPaidLedger,
@@ -32,17 +32,17 @@ from jarvis.missions.capacity import (
     estimate_paid_cost_usd,
     read_checkpoint,
 )
-from jarvis.missions.events import (
+from dodaios.missions.events import (
     MissionCancelled,
     MissionCapacityDecision,
     MissionPaidUsage,
     MissionWaitingCapacity,
 )
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.ui.web.missions_routes import router
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.ui.web.missions_routes import router
 from tests.fakes.fake_mission_runtime import (
     FakeMissionWorker,
     FakePaidOption,
@@ -306,7 +306,7 @@ async def test_decisions_need_a_parked_mission(manager: MissionManager, tmp_path
 def _keys(monkeypatch: pytest.MonkeyPatch, viable: set[str], models: dict[str, str]) -> None:
     monkeypatch.setattr(mi, "_api_key_family_viable", lambda p: p in viable)
     monkeypatch.setattr(
-        "jarvis.missions.workers.api_agent_worker._resolve_worker_model",
+        "dodaios.missions.workers.api_agent_worker._resolve_worker_model",
         lambda provider, _explicit: models.get(provider, ""),
     )
 
@@ -382,7 +382,7 @@ class _UsageBrain:
         self.calls = 0
 
     async def complete(self, req: BrainRequest) -> AsyncIterator[BrainDelta]:
-        from jarvis.missions.workers.api_agent_worker import _MAX_TOKENS, _request_bytes
+        from dodaios.missions.workers.api_agent_worker import _MAX_TOKENS, _request_bytes
 
         self.calls += 1
         yield BrainDelta(
@@ -404,7 +404,7 @@ async def test_api_worker_stops_at_the_cost_cap(
 ) -> None:
     brain = _UsageBrain()
     monkeypatch.setattr(
-        "jarvis.missions.workers.api_agent_worker._build_brain", lambda _p, _m: brain
+        "dodaios.missions.workers.api_agent_worker._build_brain", lambda _p, _m: brain
     )
     # The approval grants $2 on top of what the mission already paid ($1).
     gate = _manual_gate(tmp_path, spent=1.0)
@@ -444,7 +444,7 @@ async def test_api_worker_counts_a_usage_less_call_as_its_reservation(
 
     brain = _SilentBrain()
     monkeypatch.setattr(
-        "jarvis.missions.workers.api_agent_worker._build_brain", lambda _p, _m: brain
+        "dodaios.missions.workers.api_agent_worker._build_brain", lambda _p, _m: brain
     )
     gate = _manual_gate(tmp_path)
     worker = ApiAgentWorker("claude-api", pinned_model="claude-sonnet-4-6", paid_gate=gate)

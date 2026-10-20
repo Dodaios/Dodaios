@@ -12,9 +12,9 @@ from uuid import uuid4
 
 # Preload config before self_mod to satisfy the pre-existing import order
 # (writer→config→brain→voice→echo_confirmation cycles back onto self_mod).
-import jarvis.core.config  # noqa: F401, E402  isort:skip
-from jarvis.core.self_mod import PendingMutation  # noqa: E402
-from jarvis.voice.config_readback import config_readback  # noqa: E402
+import dodaios.core.config  # noqa: F401, E402  isort:skip
+from dodaios.core.self_mod import PendingMutation  # noqa: E402
+from dodaios.voice.config_readback import config_readback  # noqa: E402
 
 
 def _applied_dump(

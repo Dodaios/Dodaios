@@ -25,9 +25,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain.wiki_context import WikiContextInjector
-from jarvis.memory.wiki.fts_index import ensure_schema, index_vault
-from jarvis.memory.wiki.search import VaultSearch
+from dodaios.brain.wiki_context import WikiContextInjector
+from dodaios.memory.wiki.fts_index import ensure_schema, index_vault
+from dodaios.memory.wiki.search import VaultSearch
 
 BASE_PROMPT = "You are Personal Jarvis."
 
@@ -135,7 +135,7 @@ def test_prefix_matching_reaches_into_compounds(tmp_path: Path) -> None:
 
 def test_prefix_matching_does_not_fire_on_tiny_tokens(tmp_path: Path) -> None:
     """A two- or three-letter prefix would match half the vault for nothing."""
-    from jarvis.memory.wiki.search import _build_match_expr
+    from dodaios.memory.wiki.search import _build_match_expr
 
     assert "*" not in _build_match_expr(["ab"])
     assert _build_match_expr(["drogen"]) == '"drogen" OR "drogen"*'
@@ -143,7 +143,7 @@ def test_prefix_matching_does_not_fire_on_tiny_tokens(tmp_path: Path) -> None:
 
 def test_exact_token_is_still_searched_alongside_the_prefix(tmp_path: Path) -> None:
     """The prefix is OR-ed IN ADDITION, so exact matches keep their rank."""
-    from jarvis.memory.wiki.search import _build_match_expr
+    from dodaios.memory.wiki.search import _build_match_expr
 
     expr = _build_match_expr(["dinner", "viktoria"])
     assert '"dinner"' in expr and '"dinner"*' in expr

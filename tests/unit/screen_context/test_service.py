@@ -20,20 +20,20 @@ import threading
 
 import pytest
 
-from jarvis.screen_context import service as _service_module
-from jarvis.screen_context.models import (
+from dodaios.screen_context import service as _service_module
+from dodaios.screen_context.models import (
     DegradationCode,
     RedactionRule,
     TargetKind,
     TargetReason,
     WindowFacts,
 )
-from jarvis.screen_context.ports import (
+from dodaios.screen_context.ports import (
     CapturePermissionIssue,
     CaptureUnavailable,
     WindowSnapshot,
 )
-from jarvis.screen_context.service import (
+from dodaios.screen_context.service import (
     ScreenContextService,
     ScreenContextSettings,
     _encode,
@@ -562,7 +562,7 @@ async def test_sensitive_text_is_scrubbed_from_the_context() -> None:
 async def test_ocr_sensitive_line_is_burned_out_of_delivered_pixels(monkeypatch) -> None:
     from PIL import Image
 
-    from jarvis.screen_context import uitext
+    from dodaios.screen_context import uitext
 
     monkeypatch.setattr(
         uitext,
@@ -632,7 +632,7 @@ async def test_absent_accessibility_layer_is_reported_not_faked() -> None:
 
 
 async def test_accessibility_timeout_degrades_to_image_only(monkeypatch) -> None:
-    from jarvis.screen_context import service as service_module
+    from dodaios.screen_context import service as service_module
 
     class HangingTextReader:
         name = "hanging-text"
@@ -904,7 +904,7 @@ async def test_the_deck_mirror_is_filled_before_the_receipt_goes_out() -> None:
     AFTER the receipt let the front page ask for a frame that was not there
     yet — or get the previous capture under the new receipt's number.
     """
-    from jarvis.screen_context.last_frame import LastFrameMirror
+    from dodaios.screen_context.last_frame import LastFrameMirror
 
     mirror = LastFrameMirror(ttl_s=120)
     seen_at_receipt: list[int | None] = []
@@ -996,8 +996,8 @@ async def test_failed_capture_always_dismisses_the_indicator() -> None:
 async def test_event_publish_without_indicator_ack_is_not_claimed_as_visible(
     monkeypatch,
 ) -> None:
-    from jarvis.core.bus import EventBus
-    from jarvis.screen_context import service as service_module
+    from dodaios.core.bus import EventBus
+    from dodaios.screen_context import service as service_module
 
     monkeypatch.setattr(service_module, "_ANNOUNCE_TIMEOUT_S", 0.01)
     service = make_service(bus=EventBus())
@@ -1053,7 +1053,7 @@ def test_settings_from_a_config_without_the_block_are_defaults() -> None:
 
 
 def test_settings_are_read_from_the_config_block() -> None:
-    from jarvis.core.config import JarvisConfig
+    from dodaios.core.config import JarvisConfig
 
     cfg = JarvisConfig()
     cfg.screen_context.denylist = ["1password"]
@@ -1069,7 +1069,7 @@ def test_settings_are_read_from_the_config_block() -> None:
 
 def test_describe_names_what_was_captured() -> None:
     """The receipt is what the user is told; it must be concrete."""
-    from jarvis.screen_context.models import CaptureTarget, ScreenContext
+    from dodaios.screen_context.models import CaptureTarget, ScreenContext
 
     context = ScreenContext(
         image=b"x",
@@ -1203,8 +1203,8 @@ def _sdr_monitors(monkeypatch: pytest.MonkeyPatch) -> None:
     """No HDR duplication and no ICC lookup on the test host's real monitors."""
     from types import SimpleNamespace
 
-    import jarvis.platform.display_color as display_color
-    import jarvis.platform.hdr_grab as hdr_grab
+    import dodaios.platform.display_color as display_color
+    import dodaios.platform.hdr_grab as hdr_grab
 
     monkeypatch.setattr(hdr_grab, "grab_extended", lambda _bbox: None)
     monkeypatch.setattr(

@@ -6,7 +6,7 @@ old positional / kwarg-based signature that broke production from
 2026-05-13 onward (``GeminiBrain.complete() got an unexpected keyword
 argument 'max_tokens'`` — see BUGS.md B8).
 
-The fake matches the production contract from ``jarvis/core/protocols.py``:
+The fake matches the production contract from ``dodaios/core/protocols.py``:
 
 * ``complete`` is an ``async def`` generator yielding ``BrainDelta`` objects.
 * The worker is required to pass exactly one positional ``BrainRequest``,
@@ -46,14 +46,14 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import load_config
-from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
-from jarvis.memory.recall import RecallStore
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.session_rollup import SessionRollupWorker
+from dodaios.core.bus import EventBus
+from dodaios.core.config import load_config
+from dodaios.core.protocols import BrainDelta, BrainMessage, BrainRequest
+from dodaios.memory.recall import RecallStore
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.session_rollup import SessionRollupWorker
 
 
 NS_PER_MIN = 60 * 1_000_000_000
@@ -300,7 +300,7 @@ async def test_outer_timeout_maps_to_llm_failure(stack, monkeypatch):
         raise asyncio.TimeoutError("synthetic timeout")
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.session_rollup.asyncio.wait_for", _instant_timeout
+        "dodaios.memory.wiki.session_rollup.asyncio.wait_for", _instant_timeout
     )
 
     result = await worker.flush_session()

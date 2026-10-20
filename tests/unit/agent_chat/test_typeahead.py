@@ -17,11 +17,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat import typeahead
-from jarvis.agent_chat.runner_brain import explicit_skill
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.ui.web.agent_chat_routes import router
+from dodaios.agent_chat import typeahead
+from dodaios.agent_chat.runner_brain import explicit_skill
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.ui.web.agent_chat_routes import router
 
 
 def _skill(root: Path, name: str, description: str) -> None:
@@ -294,7 +294,7 @@ def test_jarvis_surface_lists_the_registry_by_slug(tmp_path: Path, monkeypatch: 
     class _Ctx:
         registry = _Registry()
 
-    import jarvis.skills.skill_context as skill_context
+    import dodaios.skills.skill_context as skill_context
 
     monkeypatch.setattr(skill_context, "try_get_skill_context", lambda: _Ctx())
     rows = typeahead.suggest(runner="brain", cwd=None, trigger="/")["items"]
@@ -341,7 +341,7 @@ def _app(tmp_path: Path) -> FastAPI:
 def test_typeahead_route_resolves_the_seat_and_reads_the_folder(
     tmp_path: Path, account: Path, folder: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    import jarvis.ui.web.agent_chat_routes as routes
+    import dodaios.ui.web.agent_chat_routes as routes
 
     seen: list[tuple[str, str]] = []
 
@@ -379,7 +379,7 @@ def test_a_society_session_lists_teammates_and_connected_capabilities(tmp_path, 
     the list is teammates plus connected capabilities — never the folder."""
     from types import SimpleNamespace
 
-    from jarvis.agent_chat import typeahead as ta
+    from dodaios.agent_chat import typeahead as ta
 
     assert ta.triggers_for("brain") == ("/",)
     assert ta.triggers_for("brain", "society") == ("/", "@")
@@ -420,7 +420,7 @@ def test_the_jarvis_chat_mentions_agents_never_its_scratch_folder(tmp_path, monk
     workspace folder is scratch space, so its files never show up there."""
     from types import SimpleNamespace
 
-    from jarvis.agent_chat import typeahead as ta
+    from dodaios.agent_chat import typeahead as ta
 
     assert ta.triggers_for("brain", "jarvis") == ("/", "@")
     assert ta.triggers_for("codex-cli", "jarvis") == ("@", "$")
@@ -440,7 +440,7 @@ def test_the_jarvis_chat_mentions_agents_never_its_scratch_folder(tmp_path, monk
 
 
 def test_a_society_lookup_without_a_runtime_is_empty_not_an_error(tmp_path, monkeypatch):
-    from jarvis.agent_chat import typeahead as ta
+    from dodaios.agent_chat import typeahead as ta
 
     monkeypatch.setattr(ta, "_society_runtime", lambda: None)
     got = ta.suggest(runner="brain", cwd=tmp_path, trigger="@", surface="society", agent_id="x")

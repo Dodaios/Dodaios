@@ -23,7 +23,7 @@ Mandate requirement: "Every Computer-Use step (screenshot hash, proposed action,
 **JSONL, daily-rotated**, `data/flight_recorder/YYYY-MM-DD.jsonl`.
 
 ### Recorder
-`jarvis/telemetry/recorder.py` — wildcard subscriber on `EventBus`. One event → one line. Append-only, `fsync` every 1s (not per line, to avoid I/O backpressure). File rotation at 00:00 local time. Maximum file size: 500 MB (then suffix `-2.jsonl`, …).
+`dodaios/telemetry/recorder.py` — wildcard subscriber on `EventBus`. One event → one line. Append-only, `fsync` every 1s (not per line, to avoid I/O backpressure). File rotation at 00:00 local time. Maximum file size: 500 MB (then suffix `-2.jsonl`, …).
 
 ### Line format
 ```json
@@ -42,7 +42,7 @@ Mandate requirement: "Every Computer-Use step (screenshot hash, proposed action,
 - Binary-size limit: if `payload` size > 64 KB, the affected sub-key is replaced by a path: `"screenshot_png": {"__file__": "data/flight_recorder/blobs/018f-step3.png"}` — binary data lands in the `blobs/` folder, not inline in the JSONL (readability + parsability).
 
 ### Replay CLI
-`python -m jarvis.telemetry.replay <trace_id>` reads all JSONLs in the `data/flight_recorder/` folder (today's + earlier ones, as needed), filters by `trace_id`, and renders a chronological timeline:
+`python -m dodaios.telemetry.replay <trace_id>` reads all JSONLs in the `data/flight_recorder/` folder (today's + earlier ones, as needed), filters by `trace_id`, and renders a chronological timeline:
 
 ```
 [0.000s] HarnessDispatched  computer-use  prompt="Open Notepad..."

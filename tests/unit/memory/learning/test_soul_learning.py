@@ -14,12 +14,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.memory.learning import notebook as notebook_module
-from jarvis.memory.learning.loop import JarvisLearningLoop
-from jarvis.memory.learning.notebook import JarvisNotebook
-from jarvis.memory.learning.review import Turn, validate
-from jarvis.memory.soul import Soul
-from jarvis.memory.templates import render_soul_md
+from dodaios.memory.learning import notebook as notebook_module
+from dodaios.memory.learning.loop import JarvisLearningLoop
+from dodaios.memory.learning.notebook import JarvisNotebook
+from dodaios.memory.learning.review import Turn, validate
+from dodaios.memory.soul import Soul
+from dodaios.memory.templates import render_soul_md
 
 NOTE = "The assistant introduces itself by its own name, never as the app."
 
@@ -118,7 +118,7 @@ def test_soul_changes_land_in_soul_md_and_the_ledger(book: JarvisNotebook, soul_
 
 def test_the_learned_snapshot_leaves_soul_to_the_identity_block(book: JarvisNotebook) -> None:
     book.apply(target="soul", operation="add", text=NOTE)
-    assert book.snapshot() == ""  # SOUL.md reaches prompts through jarvis.brain.identity
+    assert book.snapshot() == ""  # SOUL.md reaches prompts through dodaios.brain.identity
 
 
 def test_warming_writes_the_live_name_into_soul_md(book: JarvisNotebook, soul_path: Path) -> None:

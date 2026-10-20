@@ -15,9 +15,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.board.aggregator import BoardAggregator
-from jarvis.board.store import BoardStore
-from jarvis.ui.web.board_routes import router as board_router
+from dodaios.board.aggregator import BoardAggregator
+from dodaios.board.store import BoardStore
+from dodaios.ui.web.board_routes import router as board_router
 
 
 def _ns(moment: datetime) -> int:

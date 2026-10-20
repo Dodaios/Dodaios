@@ -20,13 +20,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.clis.shared as shared
-from jarvis.clis.registry import CliToolRegistry
-from jarvis.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
-from jarvis.clis.usage_log import UsageLog
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import ExecutionContext, ToolResult
-from jarvis.ui.web.cli_routes import router as cli_router
+import dodaios.clis.shared as shared
+from dodaios.clis.registry import CliToolRegistry
+from dodaios.clis.spec import AuthConfig, CliSpec, CliStatus, InstallMethods, RiskConfig
+from dodaios.clis.usage_log import UsageLog
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import ExecutionContext, ToolResult
+from dodaios.ui.web.cli_routes import router as cli_router
 
 # ----------------------------------------------------------------------
 # Fakes
@@ -92,7 +92,7 @@ def _reset_shared_registry():
 
 
 def test_cli_tools_in_router_tools() -> None:
-    from jarvis.brain.factory import ROUTER_TOOLS
+    from dodaios.brain.factory import ROUTER_TOOLS
 
     assert "cli-tools" in ROUTER_TOOLS
     assert isinstance(ROUTER_TOOLS, frozenset)
@@ -130,13 +130,13 @@ async def test_loader_entry_point_expands_shared_registry(tmp_path: Path) -> Non
 async def test_load_tools_for_tier_includes_cli_tool(tmp_path: Path) -> None:
     """``_load_tools_for_tier('router')`` must include the expanded ``cli_demo``
     tool when a shared registry with a usable CLI is published."""
-    from jarvis.brain.factory import _load_tools_for_tier
+    from dodaios.brain.factory import _load_tools_for_tier
 
     reg = _fake_registry(tmp_path)
     await reg.bootstrap()
     shared.set_active_registry(reg)
 
-    from jarvis.core.config import JarvisConfig
+    from dodaios.core.config import JarvisConfig
 
     tools = _load_tools_for_tier(
         "router",
@@ -160,9 +160,9 @@ async def test_load_tools_for_tier_includes_cli_tool(tmp_path: Path) -> None:
 async def test_live_reload_reexpands_on_brain_tools_changed(tmp_path: Path) -> None:
     """Connecting a CLI publishes BrainToolsChanged; the live BrainManager's
     refresh_tools() re-runs the factory and picks up the new cli_<name> tool."""
-    from jarvis.brain.manager import BrainManager
-    from jarvis.core.config import JarvisConfig
-    from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+    from dodaios.brain.manager import BrainManager
+    from dodaios.core.config import JarvisConfig
+    from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
     bus = EventBus()
 
@@ -264,8 +264,8 @@ def _app_with_brain(brain: Any, registry: Any) -> FastAPI:
 
 
 def test_test_run_reports_tool_command_and_output(tmp_path: Path) -> None:
-    from jarvis.core.config import JarvisConfig
-    from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+    from dodaios.core.config import JarvisConfig
+    from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
     bus = EventBus()
     evaluator = RiskTierEvaluator(JarvisConfig().safety)
@@ -296,8 +296,8 @@ def test_test_run_reports_tool_command_and_output(tmp_path: Path) -> None:
 
 
 def test_test_run_cli_hint_is_appended(tmp_path: Path) -> None:
-    from jarvis.core.config import JarvisConfig
-    from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+    from dodaios.core.config import JarvisConfig
+    from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
     bus = EventBus()
     executor = ToolExecutor(bus, RiskTierEvaluator(JarvisConfig().safety), ApprovalWorkflow(bus))
@@ -312,8 +312,8 @@ def test_test_run_cli_hint_is_appended(tmp_path: Path) -> None:
 
 
 def test_test_run_nonzero_exit_marks_not_ok(tmp_path: Path) -> None:
-    from jarvis.core.config import JarvisConfig
-    from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+    from dodaios.core.config import JarvisConfig
+    from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
     bus = EventBus()
     executor = ToolExecutor(bus, RiskTierEvaluator(JarvisConfig().safety), ApprovalWorkflow(bus))
@@ -352,8 +352,8 @@ def test_test_run_no_cli_tool_called_is_flagged(tmp_path: Path) -> None:
 
 
 def test_test_run_empty_instruction_is_422(tmp_path: Path) -> None:
-    from jarvis.core.config import JarvisConfig
-    from jarvis.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
+    from dodaios.core.config import JarvisConfig
+    from dodaios.safety import ApprovalWorkflow, RiskTierEvaluator, ToolExecutor
 
     bus = EventBus()
     executor = ToolExecutor(bus, RiskTierEvaluator(JarvisConfig().safety), ApprovalWorkflow(bus))

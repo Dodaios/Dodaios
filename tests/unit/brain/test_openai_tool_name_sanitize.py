@@ -4,7 +4,7 @@ Live forensic 2026-06-29: a real voice question failed with HTTP 400
 ``tools.19.custom.name: String should match pattern '^[a-zA-Z0-9_-]{1,128}$'``
 on the OpenRouter→Anthropic primary, then cascaded through the dead Gemini + a
 bad Claude key and surfaced as "I can't reach my language model." Root cause: MCP
-tools are namespaced ``"<server>/<tool>"`` (jarvis/mcp/adapter.py:70), and the
+tools are namespaced ``"<server>/<tool>"`` (dodaios/mcp/adapter.py:70), and the
 slash is rejected by Anthropic AND OpenAI. Gemini has its own sanitizer; the
 OpenAI-base path (used by OpenRouter + OpenAI) sent the raw name. A tool turn that
 includes any MCP tool therefore bricked every Anthropic/OpenAI-family model.
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 
-from jarvis.plugins.brain._openai_base import _tools_openai_format
+from dodaios.plugins.brain._openai_base import _tools_openai_format
 
 # The strictest of the two families (OpenAI's 64-char cap; Anthropic's is 128).
 _VALID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")

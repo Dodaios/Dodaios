@@ -5,14 +5,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     CUControlEnded,
     CUControlStarted,
     ScreenCaptureAnnounced,
 )
-from jarvis.cu.indicator import controller as controller_mod
-from jarvis.cu.indicator.controller import (
+from dodaios.cu.indicator import controller as controller_mod
+from dodaios.cu.indicator.controller import (
     _ESC_HINTS,
     CUIndicatorController,
     wire_cu_indicator,
@@ -121,7 +121,7 @@ async def test_escape_cancels_missions_without_suppression(
         seen["suppress_new"] = suppress_new
         return True
 
-    import jarvis.harness.computer_use_context as cu_ctx
+    import dodaios.harness.computer_use_context as cu_ctx
 
     monkeypatch.setattr(cu_ctx, "cancel_active_cu", fake_cancel)
     CUIndicatorController._cancel_all_missions()
@@ -145,7 +145,7 @@ def test_esc_binding_matches_each_backend_vocabulary(
 def test_hint_table_covers_every_supported_locale() -> None:
     """Repo language rule: a phrase table carries ALL supported locales and
     resolves through the one resolver."""
-    from jarvis.core.turn_language import resolve_output_language
+    from dodaios.core.turn_language import resolve_output_language
 
     supported = {
         resolve_output_language(pin, "", "", default="en")
@@ -206,7 +206,7 @@ async def test_screen_capture_waits_for_real_show_ack_and_hides_afterward(
 ) -> None:
     from uuid import uuid4
 
-    from jarvis.screen_context.indicator import (
+    from dodaios.screen_context.indicator import (
         ScreenCaptureIndicatorDismissed,
         prepare,
     )
