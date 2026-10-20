@@ -19,6 +19,10 @@ export interface PointerCallbacks {
   leave: () => void;
   /** A drag or zoom began: hover labels hide while the camera moves. */
   moved: () => void;
+  /** A drag began (the person looks around, as opposed to zooming). */
+  dragged?: () => void;
+  /** Where the wheel zooms around instead of the cursor (third person: the commander), or null for the cursor. */
+  zoomAnchor?: () => { x: number; y: number } | null;
 }
 
 interface Press { id: number; x: number; y: number; startX: number; startY: number; t: number }
@@ -68,6 +72,7 @@ export function attachPointerInput(el: HTMLElement, view: ViewController, cb: Po
     if (!dragging && Math.hypot(p.x - press.startX, p.y - press.startY) > TAP_SLOP_PX) {
       dragging = true;
       cb.moved();
+      cb.dragged?.();
     }
     if (dragging) {
       view.drag(dx, dy);
@@ -95,7 +100,7 @@ export function attachPointerInput(el: HTMLElement, view: ViewController, cb: Po
 
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
-    const p = local(e);
+    const p = cb.zoomAnchor?.() ?? local(e);
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
     const k = e.ctrlKey ? PINCH_WHEEL_ZOOM : WHEEL_ZOOM;
     view.zoomAt(p.x, p.y, Math.exp(-e.deltaY * unit * k));

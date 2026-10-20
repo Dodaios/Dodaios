@@ -6,7 +6,9 @@
  * each actor material carries its own nine SH coefficients and the shader uses
  * them in place of the environment's diffuse term, so a crew member walking
  * from the cold bridge into the warm mess picks up the mess's light. The
- * coefficients ease over half a second when the actor changes room.
+ * coefficients ease over half a second when the actor changes room. The same
+ * room light also grazes the body's edges as a soft rim, so dark uniforms
+ * keep their silhouette against dark decks at the close camera.
  */
 import { Vector3, type Material, type MeshStandardMaterial } from "three";
 import type { Deck, LightProbe } from "../content/deck";
@@ -14,6 +16,8 @@ import type { Deck, LightProbe } from "../content/deck";
 const PATCH_KEY = "verse-room-probe";
 
 const ROOM_IRRADIANCE = "shGetIrradianceAt( inverseTransformDirection( geometryNormal, viewMatrix ), verseRoomSH )";
+/** How much of the room's light grazes a body's edges as rim light (GLSL float literal). */
+const ROOM_RIM_GAIN = "0.16";
 
 /**
  * The standard material's fragment template with the room probe as its
@@ -35,6 +39,18 @@ export function patchRoomLight(fragmentShader: string): string {
         "#elif defined( RE_IndirectDiffuse )",
         `irradiance += ${ROOM_IRRADIANCE};`,
         "#endif",
+      ].join("\n"),
+    )
+    .replace(
+      "#include <lights_fragment_end>",
+      [
+        "#include <lights_fragment_end>",
+        // Rim: the room's own light grazing the body's edges, so a dark uniform keeps its silhouette on a dark deck
+        // at the close third-person camera (a game's character rim, kept low enough to stay photographic).
+        "{",
+        "  float verseRim = pow( 1.0 - saturate( dot( geometryNormal, geometryViewDir ) ), 4.0 );",
+        `  reflectedLight.indirectSpecular += verseRim * ( ${ROOM_RIM_GAIN} * ${ROOM_IRRADIANCE} + vec3( 0.006, 0.0065, 0.008 ) );`,
+        "}",
       ].join("\n"),
     );
 }

@@ -63,7 +63,14 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.ci import merge_freeze  # noqa: E402
 
-Runner = Callable[[list[str], "Path | None"], subprocess.CompletedProcess]
+#: ``run(cmd, cwd)`` or ``run(cmd, cwd, timeout=seconds)``.
+Runner = Callable[..., subprocess.CompletedProcess]
+#: Commands that only read (or call GitHub) are given up on after this long.
+READ_TIMEOUT_S = 120.0
+#: A git command that writes a work tree is never killed on a short timer: killed
+#: mid-write, it leaves ``index.lock`` behind and a checkout half way to the new
+#: commit, which then blocks every later update until someone cleans up by hand.
+GIT_WRITE_TIMEOUT_S = 30 * 60.0
 
 MAY_STOP = ("DONE", "NONE", "HOLD", "STUCK")
 MUST_CONTINUE = ("WAIT", "FIX")
@@ -111,7 +118,9 @@ class GateError(Exception):
 # --------------------------------------------------------------------------
 
 
-def default_runner(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+def default_runner(
+    cmd: list[str], cwd: Path | None = None, *, timeout: float = READ_TIMEOUT_S
+) -> subprocess.CompletedProcess:
     try:
         return subprocess.run(  # noqa: S603
             cmd,
@@ -121,7 +130,7 @@ def default_runner(cmd: list[str], cwd: Path | None = None) -> subprocess.Comple
             encoding="utf-8",
             errors="replace",
             check=False,
-            timeout=120,
+            timeout=timeout,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return subprocess.CompletedProcess(cmd, 127, "", str(exc))
@@ -137,8 +146,12 @@ class Ctx:
     common_dir: Path | None = None
     _freeze: tuple[float, object] | None = None
 
-    def git(self, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
-        return self.run(["git", *args], cwd or self.cwd)
+    def git(
+        self, *args: str, cwd: Path | None = None, timeout: float | None = None
+    ) -> subprocess.CompletedProcess:
+        if timeout is None:
+            return self.run(["git", *args], cwd or self.cwd)
+        return self.run(["git", *args], cwd or self.cwd, timeout=timeout)
 
     def git_out(self, *args: str, cwd: Path | None = None) -> str | None:
         proc = self.git(*args, cwd=cwd)
@@ -446,6 +459,21 @@ def main_ci_state(ctx: Ctx, sha: str) -> tuple[str, str]:
     return "success", ""
 
 
+def index_lock(checkout: Path) -> Path | None:
+    """The ``index.lock`` of the work tree at ``checkout`` (a main or a linked worktree)."""
+    dot_git = checkout / ".git"
+    if dot_git.is_dir():
+        return dot_git / "index.lock"
+    try:
+        text = dot_git.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not text.startswith("gitdir:"):
+        return None
+    git_dir = Path(text[len("gitdir:") :].strip())
+    return (git_dir if git_dir.is_absolute() else checkout / git_dir) / "index.lock"
+
+
 def sync_local_main(ctx: Ctx, sha: str) -> tuple[bool, str]:
     """D5: make the local main contain ``sha``. Never stashes, never resets."""
     base = ctx.base
@@ -462,7 +490,22 @@ def sync_local_main(ctx: Ctx, sha: str) -> tuple[bool, str]:
     if checkout is None:
         ctx.git("fetch", "--quiet", "origin", f"{base}:{base}")
     else:
-        ctx.git("merge", "--ff-only", "--quiet", f"origin/{base}", cwd=checkout)
+        lock = index_lock(checkout)
+        if lock is not None and lock.exists():
+            # Another git command (the app following main, a person's pull) is
+            # writing that checkout, or one was killed: either way, not ours to touch.
+            return False, (
+                f"the local {base} at {checkout} is being updated by another git command; "
+                f"left as it is"
+            )
+        ctx.git(
+            "merge",
+            "--ff-only",
+            "--quiet",
+            f"origin/{base}",
+            cwd=checkout,
+            timeout=GIT_WRITE_TIMEOUT_S,
+        )
     if is_ancestor(ctx, sha, f"refs/heads/{base}"):
         return True, f"fast-forwarded the local {base}"
     where = f" at {checkout}" if checkout else ""

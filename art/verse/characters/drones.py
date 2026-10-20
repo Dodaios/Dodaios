@@ -21,6 +21,8 @@ from mathutils import Matrix, Quaternion, Vector
 from mathutils.bvhtree import BVHTree
 
 from characters import common as C
+from characters import looks_gear as LG
+from characters import paint as PT
 
 TAU = 2.0 * math.pi
 
@@ -33,7 +35,8 @@ MATERIALS = {
     "M_Ring": ((0.20, 0.21, 0.22), 0.9, 0.34, 0.0, 0.0),
     "M_Trim": ((0.018, 0.019, 0.021), 0.3, 0.55, 0.0, 0.0),
     "M_Glow": ((0.35, 0.75, 1.0), 0.0, 0.4, 0.0, 6.0),
-    "M_Chassis": ((0.05, 0.052, 0.056), 0.6, 0.45, 0.15, 0.0),
+    # twice the paint colour: the atlas halves it and lifts the hex-bar mark above it
+    "M_Chassis": ((0.10, 0.104, 0.112), 0.6, 0.45, 0.15, 0.0),
 }
 
 
@@ -913,19 +916,28 @@ def _export(rig_ob, mesh_ob, path: Path):
         export_vertex_color="ACTIVE",
         export_cameras=False,
         export_lights=False,
+        export_image_format="WEBP",
+        export_image_quality=90,
         export_extras=False,
         export_frame_range=False,
         export_anim_slide_to_zero=True,
     )
 
 
-def _build_one(name, parts, rig_ob, clips, out_dir: Path) -> dict:
+# Atlas size of the drones (they are small: ~600 texels per metre at 512 px).
+ATLAS = 512
+
+
+def _build_one(name, parts, rig_ob, clips, out_dir: Path, painter=None) -> dict:
     mesh_ob = assemble(f"{name}_Mesh", parts, rig_ob)
     bake_ao(mesh_ob)
+    if painter is not None:
+        PT.texture(name, [mesh_ob], painter, res=ATLAS, debug_dir=C.CACHE / "atlas")
     actions = [_write_action(rig_ob, cn, fr) for cn, (fr, _loop, _t) in clips.items()]
     _stash(rig_ob, actions)
     path = out_dir / f"{name}.glb"
-    _export(rig_ob, mesh_ob, path)
+    with PT.export_names(name):
+        _export(rig_ob, mesh_ob, path)
     rig_ob.animation_data_clear()
     for act, _slot in actions:
         bpy.data.actions.remove(act)
@@ -934,7 +946,7 @@ def _build_one(name, parts, rig_ob, clips, out_dir: Path) -> dict:
         "id": name,
         "url": f"verse/characters/{name}.glb",
         "kind": "drone",
-        "materials": [m.name for m in mesh_ob.data.materials],
+        "materials": [m.name.split("@")[0] for m in mesh_ob.data.materials],
         "clips": {
             cn: {"loop": loop, "seconds": round(t, 3)} for cn, (_fr, loop, t) in clips.items()
         },
@@ -948,12 +960,21 @@ def _build_one(name, parts, rig_ob, clips, out_dir: Path) -> dict:
 def build_drones(out_dir: Path) -> dict:
     out: dict = {}
     rig = companion_rig()
-    entry = _build_one("SK_Drone_Companion", companion_parts(), rig, companion_clips(rig), out_dir)
+    entry = _build_one(
+        "SK_Drone_Companion",
+        companion_parts(),
+        rig,
+        companion_clips(rig),
+        out_dir,
+        LG.companion((0.0, 0.0, COMP_HOVER), COMP_RADII),
+    )
     entry["hoverHeight"] = COMP_HOVER
     entry["bodyDiameter"] = round(2 * COMP_RADII[0], 3)
     out[entry["id"]] = entry
     rig = utility_rig()
-    entry = _build_one("SK_Drone_Utility", utility_parts(), rig, utility_clips(rig), out_dir)
+    entry = _build_one(
+        "SK_Drone_Utility", utility_parts(), rig, utility_clips(rig), out_dir, LG.utility()
+    )
     entry["driveSpeed"] = 1.2
     entry["length"] = UT_L
     out[entry["id"]] = entry

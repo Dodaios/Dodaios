@@ -354,6 +354,13 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       hover: (x, y) => handlers.current.hover(x, y),
       leave: () => setHover(null),
       moved: () => setHover(null),
+      dragged: () => { runtime.control.looking = true; },
+      // Third person zooms around the commander, so the wheel never loses them off screen.
+      zoomAnchor: () => {
+        if (runtime.control.mode !== "follow" || runtime.control.looking) return null;
+        const pose = runtime.poses.get(COMMANDER_ID);
+        return pose ? runtime.toScreen(pose.x, pose.y + pose.height * 0.5, pose.z) : null;
+      },
     });
   }, [runtime, webgl, generation]);
 

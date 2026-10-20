@@ -19,8 +19,55 @@ const { GLTFLoader } = await import(
   pathToFileURL(join(front, "node_modules/three/examples/jsm/loaders/GLTFLoader.js"))
 );
 
+// Node has no image decoder for GLTFLoader: the atlases are checked from the glb JSON
+// (`textures` below) and stripped before three.js parses the file.
+const TEX_KEYS = ["baseColorTexture", "metallicRoughnessTexture"];
+function glbJson(buf) {
+  const len = buf.readUInt32LE(12);
+  return { json: JSON.parse(buf.subarray(20, 20 + len).toString("utf8")), end: 20 + len };
+}
+function stripTextures(buf) {
+  const { json, end } = glbJson(buf);
+  for (const m of json.materials ?? []) {
+    for (const k of TEX_KEYS) if (m.pbrMetallicRoughness) delete m.pbrMetallicRoughness[k];
+    delete m.normalTexture;
+    delete m.occlusionTexture;
+    delete m.emissiveTexture;
+  }
+  delete json.textures;
+  delete json.images;
+  delete json.samplers;
+  json.extensionsRequired = (json.extensionsRequired ?? []).filter((e) => e !== "EXT_texture_webp");
+  let text = Buffer.from(JSON.stringify(json), "utf8");
+  const pad = (4 - (text.length % 4)) % 4;
+  text = Buffer.concat([text, Buffer.alloc(pad, 0x20)]);
+  const rest = buf.subarray(end);
+  const head = Buffer.alloc(20);
+  head.writeUInt32LE(0x46546c67, 0);
+  head.writeUInt32LE(2, 4);
+  head.writeUInt32LE(20 + text.length + rest.length, 8);
+  head.writeUInt32LE(text.length, 12);
+  head.writeUInt32LE(0x4e4f534a, 16);
+  return Buffer.concat([head, text, rest]);
+}
+/** Atlas facts from the glb JSON: images, and textured materials whose primitives lack UVs. */
+function textures(file) {
+  const { json } = glbJson(readFileSync(join(out, file)));
+  const textured = new Set(
+    (json.materials ?? [])
+      .map((m, i) => (m.pbrMetallicRoughness?.baseColorTexture || m.normalTexture ? i : -1))
+      .filter((i) => i >= 0),
+  );
+  const noUv = [];
+  for (const mesh of json.meshes ?? []) {
+    for (const p of mesh.primitives) {
+      if (textured.has(p.material) && !("TEXCOORD_0" in p.attributes)) noUv.push(mesh.name);
+    }
+  }
+  return { images: (json.images ?? []).map((i) => i.name), textured: textured.size, noUv };
+}
 function load(file) {
-  const buf = readFileSync(join(out, file));
+  const buf = stripTextures(readFileSync(join(out, file)));
   const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
   return new Promise((ok, fail) => new GLTFLoader().parse(ab, "", ok, fail));
 }
@@ -40,7 +87,15 @@ for (const [variant, sk] of Object.entries(manifest.skeletons)) {
 }
 
 for (const m of manifest.models) {
-  if (!m.skeleton) continue; // drones carry their own rig and clips
+  if (!m.skeleton) {
+    // drones carry their own rig and clips; check that they load and carry their atlas
+    const g = await load(`${m.id}.glb`);
+    const tex = textures(`${m.id}.glb`);
+    console.log(`${m.id}: ${g.animations.length} clips, atlas ${tex.images.join(", ")}`);
+    if (tex.images.length < 3) fail(`${m.id} lacks its atlas`);
+    if (tex.noUv.length) fail(`${m.id}: textured primitives without UVs`);
+    continue;
+  }
   const g = await load(`${m.id}.glb`);
   const root = g.scene;
   root.updateMatrixWorld(true);
@@ -82,6 +137,10 @@ for (const m of manifest.models) {
       `min y ${box.min.y.toFixed(3)}, face dz ${face?.toFixed(3)}`,
   );
   console.log(`  materials: ${[...mats].join(", ")}`);
+  const tex = textures(`${m.id}.glb`);
+  console.log(`  atlas: ${tex.images.join(", ")} (${tex.textured} textured materials)`);
+  if (tex.images.length < 3) fail(`${m.id} lacks its atlas (base colour, normal, roughness)`);
+  if (tex.noUv.length) fail(`${m.id}: textured primitives without UVs in ${tex.noUv.join(", ")}`);
   if (tris > 15000) fail(`${m.id} has ${tris} triangles (> 15000)`);
   if (!(face > 0)) fail(`${m.id} does not face +Z`);
   if (Math.abs(box.min.y) > 0.03) fail(`${m.id} feet not on the floor (min y ${box.min.y})`);
