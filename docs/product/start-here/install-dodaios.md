@@ -65,8 +65,9 @@ manual installs do not show the in-app update button.
    irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
    ```
 
-3. Approve any offer to add Python or Git. The installer checks again and
-   continues in the same run.
+3. Nothing to approve: if Python or Git is missing, the installer downloads
+   a private copy for Dodaios into `%LOCALAPPDATA%\Dodaios\tools`, without
+   administrator rights. It offers WinGet only if that download fails.
 4. Keep PowerShell open until the installer reports that the app is ready.
    The app opens and becomes available through Windows Search.
 
@@ -83,8 +84,9 @@ manual installs do not show the in-app update button.
    curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash -s -- --headless
    ```
 
-3. Confirm the installation and review any prerequisite or Linux desktop-
-   package prompt.
+3. Confirm the installation. A missing Python is downloaded as a private
+   copy without a prompt; a missing Git or Linux desktop package is offered
+   through your package manager.
 4. Wait for all six phases. Desktop installs open from Spotlight or the Linux
    application menu. Headless installs print a local browser address.
 
@@ -164,8 +166,10 @@ For other installation types:
 
 ## How It Fits Together
 
-1. **The installer checks the host.** It finds Python and Git, detects a Linux
-   display, and asks before adding missing tools.
+1. **The installer checks the host.** It uses the Python and Git already
+   installed and fetches a private copy of whichever is missing (on macOS and
+   Linux, Git comes from the package manager after asking). It also detects a
+   Linux display.
 2. **The profile prepares the right surface.** Full adds desktop and supported
    local components; headless keeps the smaller server. Incompatible native
    parts are skipped while the rest remains available.

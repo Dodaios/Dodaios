@@ -219,7 +219,8 @@ def _not_updatable_message() -> str:
         "This copy of Dodaios cannot update itself: it was not installed\n"
         "with the one-line installer (it is a developer checkout or a pip install).\n"
         "  Developer checkout:  git pull\n"
-        "  pip install:         pip install --upgrade personal-jarvis\n"
+        "  pip install:         pip install --upgrade dodaios\n"
+        "  uv tool install:     uv tool upgrade dodaios\n"
         f"  Or install the managed version:  {one_liner}"
     )
 
