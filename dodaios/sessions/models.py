@@ -46,7 +46,7 @@ KNOWN_HANGUP_REASONS: frozenset[str] = frozenset(
 )
 """Known ``VoiceSessionEnded.hangup_reason`` values. Extend when the
 speech pipeline introduces a new value — tests catch drift, not
-Pydantic. See ADR-0009 / BUGS.md BUG-008 for history."""
+Pydantic. See ADR-0009 for history."""
 
 HangupReason: TypeAlias = str
 """Corresponds to ``VoiceSessionEnded.hangup_reason`` (events.py).

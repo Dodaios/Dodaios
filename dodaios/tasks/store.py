@@ -23,7 +23,7 @@ from typing import Any
 
 import aiosqlite
 
-from .hook_inbox import COUNTER_TRIGGER, HookInbox
+from .hook_inbox import COUNTER_TRIGGER, HookInbox, migrate_status_check
 from .hook_inbox import SCHEMA as HOOK_SCHEMA
 from .schema import TERMINAL_STATES, TRIGGER_TYPES, TaskSpec, TaskState
 
@@ -104,6 +104,9 @@ class TaskStore:
                 "ALTER TABLE task_hook_deliveries ADD COLUMN lineage_json TEXT NOT NULL "
                 "DEFAULT '[]'"
             )
+        if await migrate_status_check(self._conn):
+            # The index and the counter trigger went with the old table.
+            await self._conn.executescript(HOOK_SCHEMA + COUNTER_TRIGGER)
         self._hooks = HookInbox(self._conn)
         from .source_store import SCHEMA as SOURCE_SCHEMA
         from .source_store import SourceStore
@@ -165,6 +168,21 @@ class TaskStore:
         if "'paused'" in table_sql:
             return  # fresh schema or already migrated
         await self._rebuild_tasks_table()
+
+    async def last_log_event(self, task_id: str) -> str:
+        """The ``event`` of the task's newest log step (``""`` without one).
+
+        The scheduler reads it after a hook run to tell a skipped run (its
+        last step is ``skipped``) from a failed one.
+        """
+        cursor = await self._require_conn().execute(
+            "SELECT json_extract(payload_json, '$.event') FROM task_steps "
+            "WHERE task_id=? AND kind='log' ORDER BY seq DESC LIMIT 1",
+            (task_id,),
+        )
+        row = await cursor.fetchone()
+        await cursor.close()
+        return str(row[0] or "") if row else ""
 
     async def event_firings(self, task_id: str) -> int:
         """Persisted event deliveries survive a scheduler restart or pause."""

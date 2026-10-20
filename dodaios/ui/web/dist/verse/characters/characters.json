@@ -1,0 +1,394 @@
+{
+  "version": 1,
+  "units": "metres, three.js axes (Y up), characters face +Z, origin on the floor",
+  "fps": 30,
+  "seatHeight": 0.46,
+  "deskHeight": 0.74,
+  "standDeskHeight": 1.02,
+  "conventions": {
+    "standing": "feet on the floor around the origin",
+    "seat": "A_Sit_*: buttocks on a seat surface seatHeight above the root; seat centre 0.06 m in front of the root; keyboard deskHeight high, 0.40 m in front of the root",
+    "standDesk": "A_Stand_Type: hands on a surface standDeskHeight high, 0.36 m in front of the root",
+    "bunk": "A_Sleep: root on the mattress top surface; lying on the back, head towards -Z, feet towards +Z",
+    "walk": "A_Walk is in place; move the root at the skeleton's walkSpeed (m/s)",
+    "tinting": "clone materials per character, set color by material name; M_RankTile_n: set emissive colour (and emissiveIntensity) to light a tile; mesh 'Cap' is the toggleable cap"
+  },
+  "clips": {
+    "A_Idle": {
+      "loop": true,
+      "seconds": 6.0
+    },
+    "A_Walk": {
+      "loop": true,
+      "seconds": 1.0
+    },
+    "A_Sit_Idle": {
+      "loop": true,
+      "seconds": 6.0
+    },
+    "A_Sit_Type": {
+      "loop": true,
+      "seconds": 4.0
+    },
+    "A_Stand_Type": {
+      "loop": true,
+      "seconds": 4.0
+    },
+    "A_Talk": {
+      "loop": true,
+      "seconds": 4.0
+    },
+    "A_Listen": {
+      "loop": true,
+      "seconds": 6.0
+    },
+    "A_Salute": {
+      "loop": false,
+      "seconds": 2.4
+    },
+    "A_Wave": {
+      "loop": true,
+      "seconds": 2.0
+    },
+    "A_Attention": {
+      "loop": true,
+      "seconds": 4.0
+    },
+    "A_Sit_Down": {
+      "loop": false,
+      "seconds": 1.5
+    },
+    "A_Stand_Up": {
+      "loop": false,
+      "seconds": 1.2667
+    },
+    "A_Sleep": {
+      "loop": true,
+      "seconds": 6.0
+    }
+  },
+  "skeletons": {
+    "M": {
+      "height": 1.78,
+      "clips": "verse/characters/A_Human_M.glb",
+      "walkSpeed": 1.4,
+      "bones": [
+        "Hips",
+        "Spine",
+        "Chest",
+        "Neck",
+        "Head",
+        "Shoulder_L",
+        "UpperArm_L",
+        "ForeArm_L",
+        "Hand_L",
+        "Fingers_L",
+        "Thumb_L",
+        "Shoulder_R",
+        "UpperArm_R",
+        "ForeArm_R",
+        "Hand_R",
+        "Fingers_R",
+        "Thumb_R",
+        "UpperLeg_L",
+        "LowerLeg_L",
+        "Foot_L",
+        "Toe_L",
+        "UpperLeg_R",
+        "LowerLeg_R",
+        "Foot_R",
+        "Toe_R"
+      ]
+    },
+    "F": {
+      "height": 1.68,
+      "clips": "verse/characters/A_Human_F.glb",
+      "walkSpeed": 1.3492,
+      "bones": [
+        "Hips",
+        "Spine",
+        "Chest",
+        "Neck",
+        "Head",
+        "Shoulder_L",
+        "UpperArm_L",
+        "ForeArm_L",
+        "Hand_L",
+        "Fingers_L",
+        "Thumb_L",
+        "Shoulder_R",
+        "UpperArm_R",
+        "ForeArm_R",
+        "Hand_R",
+        "Fingers_R",
+        "Thumb_R",
+        "UpperLeg_L",
+        "LowerLeg_L",
+        "Foot_L",
+        "Toe_L",
+        "UpperLeg_R",
+        "LowerLeg_R",
+        "Foot_R",
+        "Toe_R"
+      ]
+    }
+  },
+  "tiers": {
+    "deck": {
+      "M_Uniform": "#3b3f47",
+      "M_Trousers": "#3b3f47",
+      "M_Trim": "#5a5f68",
+      "M_Cap": "#3b3f47",
+      "tile": "#a9adb2",
+      "cap": false
+    },
+    "line": {
+      "M_Uniform": "#5e6253",
+      "M_Trousers": "#5e6253",
+      "M_Trim": "#50544a",
+      "M_Cap": "#5e6253",
+      "tile": "#4d86d9",
+      "cap": true
+    },
+    "command": {
+      "M_Uniform": "#17181a",
+      "M_Trousers": "#17181a",
+      "M_Trim": "#0f1012",
+      "M_Cap": "#17181a",
+      "tile": "#e3242b",
+      "cap": true
+    },
+    "flag": {
+      "M_Uniform": "#e4e1d8",
+      "M_Trousers": "#17181a",
+      "M_Trim": "#d6d3c9",
+      "M_Cap": "#e4e1d8",
+      "tile": "#c8a24a",
+      "cap": true
+    }
+  },
+  "tileUnlit": "#2a2d31",
+  "models": [
+    {
+      "id": "SK_Drone_Companion",
+      "url": "verse/characters/SK_Drone_Companion.glb",
+      "kind": "companion",
+      "materials": [
+        "M_Trim",
+        "M_Shell",
+        "M_Glow",
+        "M_Ring",
+        "M_Lens"
+      ],
+      "clips": {
+        "A_Hover": {
+          "loop": true,
+          "seconds": 4.0
+        },
+        "A_Follow": {
+          "loop": true,
+          "seconds": 2.0
+        },
+        "A_Scan": {
+          "loop": true,
+          "seconds": 4.0
+        },
+        "A_Happy": {
+          "loop": false,
+          "seconds": 1.5
+        }
+      },
+      "bones": [
+        "Root",
+        "Body",
+        "Ring",
+        "Eye"
+      ],
+      "height": 1.05,
+      "triangles": 3952,
+      "bytes": 366304,
+      "hoverHeight": 0.85,
+      "bodyDiameter": 0.296
+    },
+    {
+      "id": "SK_Drone_Utility",
+      "url": "verse/characters/SK_Drone_Utility.glb",
+      "kind": "drone",
+      "materials": [
+        "M_Trim",
+        "M_Chassis",
+        "M_Ring",
+        "M_Glow"
+      ],
+      "clips": {
+        "A_Drive": {
+          "loop": true,
+          "seconds": 1.0
+        },
+        "A_Idle": {
+          "loop": true,
+          "seconds": 4.0
+        }
+      },
+      "bones": [
+        "Root",
+        "Body",
+        "Head"
+      ],
+      "height": 0.252,
+      "triangles": 1960,
+      "bytes": 231256,
+      "driveSpeed": 1.2,
+      "length": 0.5
+    },
+    {
+      "id": "SK_Officer_F",
+      "kind": "officer",
+      "url": "verse/characters/SK_Officer_F.glb",
+      "skeleton": "F",
+      "clips": "verse/characters/A_Human_F.glb",
+      "meshes": [
+        "Body",
+        "Cap",
+        "RankPlate"
+      ],
+      "materials": [
+        "M_Hair",
+        "M_Skin",
+        "M_Trim",
+        "M_Trousers",
+        "M_Uniform",
+        "M_Boots",
+        "M_Belt",
+        "M_RankPlate",
+        "M_Accent",
+        "M_Eye",
+        "M_Cap",
+        "M_RankTile_1",
+        "M_RankTile_2",
+        "M_RankTile_3",
+        "M_RankTile_4",
+        "M_RankTile_5",
+        "M_RankTile_6"
+      ],
+      "height": 1.68,
+      "triangles": 12876,
+      "bytes": 1020408,
+      "defaults": {},
+      "rankPlate": {
+        "bone": "Chest",
+        "position": [
+          0.0878,
+          1.281,
+          0.095
+        ],
+        "normal": [
+          0.2481,
+          0.2171,
+          0.9441
+        ]
+      }
+    },
+    {
+      "id": "SK_Officer_M",
+      "kind": "officer",
+      "url": "verse/characters/SK_Officer_M.glb",
+      "skeleton": "M",
+      "clips": "verse/characters/A_Human_M.glb",
+      "meshes": [
+        "Body",
+        "Cap",
+        "RankPlate"
+      ],
+      "materials": [
+        "M_Hair",
+        "M_Skin",
+        "M_Trim",
+        "M_Trousers",
+        "M_Uniform",
+        "M_Boots",
+        "M_Belt",
+        "M_RankPlate",
+        "M_Accent",
+        "M_Eye",
+        "M_Cap",
+        "M_RankTile_1",
+        "M_RankTile_2",
+        "M_RankTile_3",
+        "M_RankTile_4",
+        "M_RankTile_5",
+        "M_RankTile_6"
+      ],
+      "height": 1.78,
+      "triangles": 12712,
+      "bytes": 1001888,
+      "defaults": {},
+      "rankPlate": {
+        "bone": "Chest",
+        "position": [
+          0.0922,
+          1.3569,
+          0.1173
+        ],
+        "normal": [
+          0.0593,
+          0.1274,
+          0.9901
+        ]
+      }
+    },
+    {
+      "id": "SK_Technician",
+      "kind": "technician",
+      "url": "verse/characters/SK_Technician.glb",
+      "skeleton": "M",
+      "clips": "verse/characters/A_Human_M.glb",
+      "meshes": [
+        "Body"
+      ],
+      "materials": [
+        "M_Gloves",
+        "M_Skin",
+        "M_Uniform",
+        "M_Boots",
+        "M_Belt",
+        "M_ChestBox",
+        "M_Trim",
+        "M_Eye",
+        "M_Glow",
+        "M_Helmet",
+        "M_Visor",
+        "M_Mark"
+      ],
+      "height": 1.78,
+      "triangles": 11606,
+      "bytes": 837692,
+      "defaults": {
+        "M_Uniform": "#1f2124",
+        "M_Trim": "#34373c"
+      }
+    },
+    {
+      "id": "SK_Trooper",
+      "kind": "trooper",
+      "url": "verse/characters/SK_Trooper.glb",
+      "skeleton": "M",
+      "clips": "verse/characters/A_Human_M.glb",
+      "meshes": [
+        "Body"
+      ],
+      "materials": [
+        "M_Gloves",
+        "M_Undersuit",
+        "M_Armor",
+        "M_Accent",
+        "M_Belt",
+        "M_Visor"
+      ],
+      "height": 1.78,
+      "triangles": 13950,
+      "bytes": 1156288,
+      "defaults": {}
+    }
+  ]
+}

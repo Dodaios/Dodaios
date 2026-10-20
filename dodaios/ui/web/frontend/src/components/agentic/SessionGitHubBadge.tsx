@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { fill, useT } from "@/i18n";
-import { openExternalUrl } from "@/lib/openExternal";
+import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ideBrowserLinks";
 import { GitHubIcon, type GitHubIconName } from "./GitHubIcon";
 import { PANE_BRAND, PANE_CHROME, themeFor, type TerminalAppearance } from "./terminalThemes";
 import { FRESH_MS, useSessionGitHubPane, type SessionGitHubStatus } from "./useSessionGitHub";
@@ -171,8 +171,8 @@ function BranchList({ rows, appearance, pending }: {
           event.preventDefault();
           event.stopPropagation();
           setPosition(null);
-          // WebView2 drops target=_blank: use the desktop's real-browser bridge.
-          void openExternalUrl(url);
+          // WebView2 drops target=_blank: open it in the IDE's Browser tab.
+          void openLinkInIdeBrowser(url);
         }}>{line}</a>;
     })}
   </div>, document.body);
@@ -236,8 +236,8 @@ export function GitHubStatusBadge({ status, appearance, pending = false }: {
     onClick={(event) => {
       event.preventDefault();
       event.stopPropagation();
-      // WebView2 drops target=_blank: use the desktop's real-browser bridge.
-      void openExternalUrl(url);
+      // WebView2 drops target=_blank: open it in the IDE's Browser tab.
+      void openLinkInIdeBrowser(url);
     }}>
     <Glyph icon={shown.icon} pending={pending} appearance={appearance} />
   </a>;

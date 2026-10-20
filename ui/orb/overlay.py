@@ -381,7 +381,7 @@ TAU = math.tau
 
 # Default path for the SWG/Gigi mascot. Looked up by MascotRenderer when no
 # explicit path is passed in. Resolved relative to the project root.
-DEFAULT_MASCOT_REL = "assets/icons/jarvis-gigi-256.png"
+DEFAULT_MASCOT_REL = "assets/icons/dodaios-gigi-256.png"
 
 
 def _transcript_visible_line_count(text_height: int, line_height: int) -> int:
@@ -636,7 +636,7 @@ class MascotRenderer:
         self._mouth_anim_until_t: float = -1.0
 
     # Hard-coded arm bounding boxes (measured on the 108x108 render of
-    # jarvis-gigi-256.png, 2026-04-25). Heuristic detection was unreliable
+    # dodaios-gigi-256.png, 2026-04-25). Heuristic detection was unreliable
     # because the body outline also contains yellow pixels (clusters overlap).
     # These bboxes capture ONLY the actual stub — a clean separation.
     # If the asset changes: re-measure manually and update these here.
@@ -4776,7 +4776,7 @@ def main() -> int:
         type=str,
         default=None,
         help=(
-            "Optional: explicit path to a mascot PNG (otherwise assets/icons/jarvis-gigi-256.png)."
+            "Optional: explicit path to a mascot PNG (otherwise assets/icons/dodaios-gigi-256.png)."
         ),
     )
     parser.add_argument(

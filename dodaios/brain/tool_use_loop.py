@@ -518,6 +518,12 @@ def _is_action_tool(tool: Any) -> bool:
     return bool(getattr(tool, "is_action_tool", False))
 
 
+# Handing work to one of the user's own agents is never a query against a
+# connected system: a research agent asked to research is the intended route,
+# so the research guard below must not turn the hand-off into a denial.
+_AGENT_HANDOFF_TOOLS = frozenset({"delegate_to_agent", "message_agent", "ask_agent"})
+
+
 def _should_block_action_as_research(
     tool: Any,
     tool_name: str,
@@ -546,6 +552,8 @@ def _should_block_action_as_research(
     user's own is an action on their own resources, not literature research.
     """
     if tool is None or not _is_action_tool(tool):
+        return False
+    if tool_name in _AGENT_HANDOFF_TOOLS:
         return False
     if tool_name and tool_name == evidence_required_tool:
         return False

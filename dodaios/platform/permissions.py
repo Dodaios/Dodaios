@@ -23,13 +23,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 from dodaios.core.branding import (
+    MACOS_APP_DIR_NAMES,
+    MACOS_DMG_BUNDLE_ID,
+)
+from dodaios.core.branding import (
     MACOS_APP_NAME as APP_NAME,
 )
 from dodaios.core.branding import (
     MACOS_BUNDLE_ID as EXPECTED_BUNDLE_ID,
-)
-from dodaios.core.branding import (
-    MACOS_DMG_BUNDLE_ID,
 )
 
 from . import PlatformName, detect_platform
@@ -615,9 +616,11 @@ class SystemPermissionPort:
         if launched_as_bundle and bundle_path:
             try:
                 resolved = Path(bundle_path).resolve()
+                # The bundle's earlier name counts until the rename reached it.
                 canonical_path = any(
-                    resolved == (root / f"{APP_NAME}.app").resolve()
+                    resolved == (root / name).resolve()
                     for root in _canonical_app_roots()
+                    for name in MACOS_APP_DIR_NAMES
                 )
             except (OSError, ValueError):
                 # A path that will not resolve is not the canonical bundle

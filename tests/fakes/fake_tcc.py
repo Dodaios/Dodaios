@@ -33,7 +33,7 @@ Fidelity ledger. Each simulated behaviour carries one of two labels, here and
 in the code. Nobody can run macOS in this sandbox, so nothing below is
 "verified on a real Mac"; a behaviour marked ``documented`` is stated by Apple,
 one marked ``unverified`` is community-observed or inferred from this repo's
-own bug history (docs/BUGS.md) and must not be quoted as fact.
+own bug history and must not be quoted as fact.
 
 * Microphone: tri-state status, prompt only while ``not_determined``, the
   completion handler reports the current answer when already decided; missing

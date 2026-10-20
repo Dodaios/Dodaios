@@ -28,7 +28,7 @@ import { useT } from "@/i18n";
  * layer's block). Trust through visibility — the UI half of the shell
  * explain layer.
  *
- * Sits above the JarvisDock (bottom-right); toasts keep the top-right.
+ * Sits above the DodaiosDock (bottom-right); toasts keep the top-right.
  */
 
 const MAX_VISIBLE = 4;

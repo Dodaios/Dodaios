@@ -52,6 +52,10 @@ def settings_file() -> Path:
     # installs and cmd on others; a quoted forward-slash path works in both.
     command = f'"{_interpreter().as_posix()}" "{script.as_posix()}"'
     settings = {
+        # No renderer override: a pane runs Claude Code the way the person set
+        # it up. Forcing the classic renderer (for an exact scrollbar) made new
+        # panes look cramped next to full-screen ones (reported 2026-10-20);
+        # on the full-screen renderer the scrollbar falls back to app mode.
         "hooks": {
             "SessionStart": [{"hooks": [{"type": "command", "command": command, "timeout": 10}]}]
         }

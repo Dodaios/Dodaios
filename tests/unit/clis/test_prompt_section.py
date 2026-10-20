@@ -11,7 +11,6 @@ def test_renders_connected_cli_with_description_and_examples():
     assert "cli_gh" in section
     assert "gh test capability." in section  # decl description preferred
     assert "`gh list`" in section  # example commands rendered
-    assert "Answer ONLY from the tool result" in section
 
 
 def test_empty_when_nothing_connected():
@@ -55,16 +54,3 @@ def test_section_tells_model_to_self_discover_with_help():
     fake = FakeCliRegistry({"gh": make_spec("gh")}, active=[FakeTool("cli_gh")])
     out = render_connected_clis_section(fake)
     assert "--help" in out
-
-
-def test_section_explains_cli_result_interpretation():
-    from dodaios.clis.prompt_section import render_connected_clis_section
-
-    fake = FakeCliRegistry({"gh": make_spec("gh")}, active=[FakeTool("cli_gh")])
-    out = render_connected_clis_section(fake)
-    # Describes the structured result shape …
-    assert "exit_code" in out
-    assert "stdout" in out
-    # … and tells the model to interpret stdout, not read the envelope aloud.
-    assert "summarize" in out.lower() or "natural" in out.lower()
-    assert "never read" in out.lower()

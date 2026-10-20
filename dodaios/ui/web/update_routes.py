@@ -11,7 +11,8 @@ updates itself differently:
   ``dodaios.core.frozen.is_frozen()`` is the ONLY probe that selects this path,
   so a dev tree and a managed checkout are structurally unaffected by it.
 * **managed** — the one-line installer's git checkout under
-  ``~/.personal-jarvis``. Updates are a ``git fetch`` of the published tag plus
+  ``~/.dodaios`` (``~/.personal-jarvis`` before the rename). Updates are a
+  ``git fetch`` of the published tag plus
   a reinstall; everything below describes that path.
 
 Anything else (a maintainer checkout, a fork, a plain ``pip install``) is
@@ -21,7 +22,7 @@ Anything else (a maintainer checkout, a fork, a plain ``pip install``) is
 The managed path
 ----------------
 An end user installs Dodaios with the one-line installer, which clones
-the public flagship repo into ``~/.personal-jarvis`` and runs the app from that
+the public flagship repo into ``~/.dodaios`` and runs the app from that
 checkout. This module lets the running desktop app offer a one-click "Update
 Now" button so the user never has to re-run the installer from a terminal:
 
@@ -40,8 +41,9 @@ Safety-critical guard (the single most important thing here):
 end user's managed checkout but catastrophic in a maintainer's dev tree or any
 manual clone. So the updater is active **only** on a *managed install*, proven
 by BOTH:
-  1. a marker file (``.jarvis-managed-install``) that the installer writes into
-     the checkout root, and
+  1. a marker file (``.dodaios-managed-install``, or ``.jarvis-managed-install``
+     from before the rename) that the installer writes into the checkout root,
+     and
   2. the checkout's ``origin`` remote resolving to the official public repo.
 If either check fails, ``status`` reports ``managed: false`` (the button never
 renders) and ``apply`` refuses with HTTP 403. This makes the dev tree and any
@@ -76,6 +78,7 @@ from dodaios.core.branding import (
     DEFAULT_OFFICIAL_REPO_SLUG,
     LEGACY_OFFICIAL_REPO_SLUGS,
     MANAGED_INSTALL_MARKER,
+    MANAGED_INSTALL_MARKERS,
     OFFICIAL_RELEASES_LATEST_API_URL,
     OFFICIAL_REPO_GIT_URL,
     OFFICIAL_REPO_SLUG,
@@ -118,6 +121,9 @@ _RELEASES_LATEST_API = OFFICIAL_RELEASES_LATEST_API_URL
 # Written by install/installer.py into the checkout root. Its presence is one
 # half of "this copy is safe to self-update".
 _MARKER_NAME = MANAGED_INSTALL_MARKER
+# Every name the marker has had; an install made before the rename and updated
+# in-app since carries only the earlier one.
+_MARKER_NAMES = MANAGED_INSTALL_MARKERS
 _PENDING_UPDATE_NAME = ".jarvis-update-pending.json"
 _UPDATE_RESULT_NAME = ".jarvis-update-result.json"
 
@@ -466,6 +472,15 @@ async def _retarget_legacy_origin(root: Path) -> None:
         )
 
 
+def _marker_path(root: Path) -> Path | None:
+    """The installer's marker in ``root`` under any of its names, current name first."""
+    for name in _MARKER_NAMES:
+        candidate = root / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
 async def _resolve_managed_repo() -> Path | None:
     """Return the checkout root IFF this is a managed, self-updatable install.
 
@@ -473,7 +488,7 @@ async def _resolve_managed_repo() -> Path | None:
     official public repo. Any doubt returns ``None`` (fail-closed).
     """
     root = _repo_root()
-    if root is None or not (root / _MARKER_NAME).exists():
+    if root is None or _marker_path(root) is None:
         return None
     if not (root / ".git").exists():
         return None
@@ -558,8 +573,9 @@ def _managed_install_profile(root: Path) -> InstallProfile:
     profile while a display-less Linux host keeps the torch-free base floor.
     """
 
+    marker = _marker_path(root) or root / _MARKER_NAME
     try:
-        payload = json.loads((root / _MARKER_NAME).read_text(encoding="utf-8"))
+        payload = json.loads(marker.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, TypeError):
         # A source checkout has no install marker; the defaults below apply.
         payload = {}

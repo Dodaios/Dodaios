@@ -3,8 +3,8 @@
     Registriert den Personal-Jarvis-Config-Drift-Guard Task im Windows Task Scheduler.
 
 .DESCRIPTION
-    Legt einen Task an, der scripts/jarvis-config-drift-guard.ps1 alle 5 Minuten
-    unter dem aktuellen User ausfuehrt. Default-Trigger: AtLogOn + Once mit
+    Creates a task that runs scripts/dodaios-config-drift-guard.ps1 every 5 minutes
+    as the current user. Default-Trigger: AtLogOn + Once mit
     Repetition alle 5 Min, unbegrenzte Dauer.
 
     User-Auth wird beibehalten, weil der Task NICHT als SYSTEM laeuft — wir
@@ -32,7 +32,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $taskName    = "Personal-Jarvis-Config-Drift-Guard"
-$scriptPath  = Join-Path $RepoRoot "scripts\jarvis-config-drift-guard.ps1"
+$scriptPath  = Join-Path $RepoRoot "scripts\dodaios-config-drift-guard.ps1"
 
 if (-not (Test-Path $scriptPath)) {
     Write-Host "FEHLER: $scriptPath nicht gefunden."

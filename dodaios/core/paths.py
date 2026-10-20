@@ -1,9 +1,12 @@
 """Central app directory convention.
 
 Dodaios writes user data (skills, memory, logs, session file) to a
-single canonical location — analogous to Claude Code's ``~/.claude/``. On Windows
-this is ``%LOCALAPPDATA%\\Jarvis``; when the ENV variable is absent (portable
-scripts, tests) we fall back to ``~/.jarvis/``.
+single canonical location. On Windows this is ``%LOCALAPPDATA%\\Dodaios``; when
+the ENV variable is absent (portable scripts, tests) it is ``~/.dodaios-data``.
+An installation from before the rename keeps its directory under the earlier
+name (``Jarvis`` / ``.jarvis``) for as long as that is a real directory; the
+primary instance moves it at boot and leaves a link behind
+(``dodaios.core.identity_boot``).
 
 This module replaces the scattered ``Path.home() / ".jarvis"`` literals and the
 local ``_app_data_dir()`` in ``dodaios.ui.shell.single_instance``. All consumers
@@ -12,32 +15,33 @@ go through the getters defined here.
 
 from __future__ import annotations
 
-import os
 import sys
 import sysconfig
 from pathlib import Path
 
 from dodaios.core.branding import (
     DESKTOP_OUTPUT_MIRROR_DIR_NAME,
-    DISTRIBUTION_NAME,
-    FALLBACK_USER_DATA_DIR_NAME,
-    WINDOWS_USER_DATA_DIR_NAME,
+    DISTRIBUTION_NAMES,
+    LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES,
 )
+from dodaios.core.identity_boot import resolve_named_dir, resolve_pair, user_data_dir_pair
 
 
 def user_data_dir() -> Path:
     """App data directory in the user context.
 
-    - Windows: ``%LOCALAPPDATA%\\Jarvis`` (standard convention for local app data).
-    - Fallback: ``~/.jarvis`` — relevant when ``LOCALAPPDATA`` is not set
+    - Windows: ``%LOCALAPPDATA%\\Dodaios`` (standard convention for local app data).
+    - Fallback: ``~/.dodaios-data`` — relevant when ``LOCALAPPDATA`` is not set
       (e.g. in some CI environments, Unix dev setups, test runs).
+
+    A real directory under the earlier name (``Jarvis`` / ``.jarvis``) wins
+    while it exists: that is an installation whose data has not been moved
+    yet. Resolved with a few ``stat`` calls and cached per process
+    (``dodaios.core.identity_boot.resolve_pair``).
 
     Does NOT create the directory — use ``ensure_user_dirs()`` for that.
     """
-    base = os.environ.get("LOCALAPPDATA")
-    if base:
-        return Path(base) / WINDOWS_USER_DATA_DIR_NAME
-    return Path.home() / FALLBACK_USER_DATA_DIR_NAME
+    return resolve_pair(user_data_dir_pair())
 
 
 def user_skills_dir() -> Path:
@@ -158,14 +162,17 @@ def default_doc_roots() -> list[Path]:
     except (KeyError, TypeError, ValueError):
         pass
 
+    # A wheel under the earlier distribution name installs under that
+    # ``share/<name>``; the current name wins where both exist.
     seen_prefixes: set[Path] = set()
     for prefix in data_prefixes:
         if prefix in seen_prefixes:
             continue
         seen_prefixes.add(prefix)
-        installed_docs = prefix / "share" / DISTRIBUTION_NAME / "docs"
-        if installed_docs.exists():
-            return [installed_docs]
+        for distribution in DISTRIBUTION_NAMES:
+            installed_docs = prefix / "share" / distribution / "docs"
+            if installed_docs.exists():
+                return [installed_docs]
 
     # Fail closed if the packaged reader library is missing. Falling back to
     # the engineering archive could expose plans, audits, or local diagnostics.
@@ -190,8 +197,16 @@ def user_outputs_dir() -> Path:
 
 
 def desktop_mirror_dir() -> Path:
-    """Desktop junction root for direct access to sub-agent outputs."""
-    return Path.home() / "Desktop" / DESKTOP_OUTPUT_MIRROR_DIR_NAME
+    """Desktop junction root for direct access to sub-agent outputs.
+
+    ``~/Desktop/Dodaios-Output``, or the folder under its earlier name while
+    that one exists: a folder on the Desktop is never renamed under the user.
+    """
+    return resolve_named_dir(
+        Path.home() / "Desktop",
+        DESKTOP_OUTPUT_MIRROR_DIR_NAME,
+        LEGACY_DESKTOP_OUTPUT_MIRROR_DIR_NAMES,
+    )
 
 
 def ensure_session_output_dir(slug: str) -> tuple[Path, Path]:
@@ -202,7 +217,7 @@ def ensure_session_output_dir(slug: str) -> tuple[Path, Path]:
         ``canonical`` for one-click Desktop access. On macOS/Linux (including a
         headless server with no Desktop) the junction is skipped and ``mirror``
         equals ``canonical``, so callers always receive a usable path and no
-        stray ``~/Desktop/Jarvis-Output`` folder is created.
+        stray ``~/Desktop/Dodaios-Output`` folder is created.
     """
     import subprocess
 
@@ -213,7 +228,7 @@ def ensure_session_output_dir(slug: str) -> tuple[Path, Path]:
 
     # The Desktop mirror is a Windows directory junction (``mklink /J``) — a
     # convenience, never a core path. Skip it entirely off Windows so a headless
-    # VPS or a Mac never grows an empty ``~/Desktop/Jarvis-Output`` directory.
+    # VPS or a Mac never grows an empty ``~/Desktop/Dodaios-Output`` directory.
     if sys.platform != "win32":
         return canonical, canonical
 

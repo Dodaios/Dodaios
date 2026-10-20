@@ -400,6 +400,36 @@ def _decide(registry: Any, text: str, lang: str = "auto") -> tuple[Any, str]:
     return decision, ladder.vetoed_by
 
 
+@dataclass(frozen=True, slots=True)
+class Route:
+    """Where one utterance goes through the production ladder."""
+
+    winner: str
+    band: str
+    fired: bool
+    vetoed_by: str
+
+
+def route(registry: Any, text: str, lang: str = "auto") -> Route:
+    """Route one utterance exactly as a live turn would (matcher plus guards).
+
+    The self-build judge replays the person's past requests through this
+    before a skill it built may go live (docs/adr/0043).
+    """
+    decision, veto = _decide(registry, text, lang)
+    return Route(
+        winner=decision.top.skill_name if decision.top else "",
+        band=BAND_NONE if veto else decision.band,
+        fired=bool(decision.fired and not veto),
+        vetoed_by=veto,
+    )
+
+
+def static_registry(skills: list[Any]) -> Any:
+    """A matcher-ready registry over a fixed skill list (no disk, no watcher)."""
+    return _StaticRegistry(skills)
+
+
 def run_eval(golden: GoldenSet | None = None, registry: Any | None = None) -> Report:
     """Score the golden set against the live deterministic matcher."""
     golden = golden or load_golden()

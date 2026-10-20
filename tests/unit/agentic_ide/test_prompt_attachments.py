@@ -76,7 +76,7 @@ class TestWriterBlock:
         assert "submit button overflows" in text
         # The rules are what stop the writer from producing "the screenshot the
         # user dropped" and calling it a brief.
-        assert "VERBATIM" in text
+        assert "verbatim" in text
 
     def test_the_attachment_rules_stay_out_of_a_prompt_with_no_attachment(self) -> None:
         text = blueprint.user_block(

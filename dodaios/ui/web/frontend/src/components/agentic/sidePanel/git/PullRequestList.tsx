@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
-import { openExternalUrl } from "@/lib/openExternal";
+import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ideBrowserLinks";
 import { cn } from "@/lib/utils";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import { agoLabel, CiBadge, PR_ICON, PR_TONE, prStateLabel } from "./gitBadges";
@@ -34,7 +34,7 @@ function PullRequestRow({ pr, defaultBranch }: { pr: PullRequest; defaultBranch:
       <button
         type="button"
         data-testid="git-pr-open"
-        onClick={() => void openExternalUrl(pr.url)}
+        onClick={() => void openLinkInIdeBrowser(pr.url)}
         className="flex min-w-0 flex-1 items-start gap-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <QuickTooltip content={prStateLabel(t, pr)} side="bottom" className="mt-0.5 inline-flex shrink-0">

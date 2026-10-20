@@ -473,7 +473,7 @@ _REALTIME_UNAVAILABLE_PHRASE: dict[str, str] = i18n_catalog.table("speech.realti
 # Honest, cause-aware messaging (live complaint 2026-06-30). The old single
 # phrase ("Sorry, I couldn't finish the answer in time.") explained NOTHING:
 # a slow MCP/plugin tool hung ~35 s, the turn timed out, and Jarvis apologised
-# for "taking too long" with no reason. Honesty over guessing (AGENTS.md §1.4):
+# for "taking too long" with no reason. Honesty over guessing:
 #   • TOOL-STALL — the turn was beheaded mid-tool-loop (no first audio frame,
 #     i.e. the assistant was blocked waiting on a tool/stage that never
 #     returned) OR a desktop (computer_use) tool was demonstrably active when
@@ -485,7 +485,7 @@ _REALTIME_UNAVAILABLE_PHRASE: dict[str, str] = i18n_catalog.table("speech.realti
 # Both are short, TTS-clean (``_speak`` does not scrub — no em-dash, two short
 # sentences), and carry all supported locales (de/en/es/pt). String-only: NO LLM
 # call in this timeout/scrub path (AP-11). Resolved through the ONE output-
-# language decision via ``_resolve_timeout_phrase`` below (AGENTS.md §1 — no
+# language decision via ``_resolve_timeout_phrase`` below (— no
 # per-layer language re-derivation).
 _TIMEOUT_TOOL_STALL_PHRASE: dict[str, str] = i18n_catalog.table("speech.timeout_tool_stall")
 
@@ -564,7 +564,7 @@ def _resolve_timeout_phrase(site: str, lang: str, *, tool_active: bool) -> str:
     """Pick the honest, cause-aware timeout phrase for ``site``.
 
     Resolves language through the ONE shared decision (``_phrase_lang``) — never
-    a per-layer re-derivation (AGENTS.md §1). String-only, no LLM call (AP-11).
+    a per-layer re-derivation. String-only, no LLM call (AP-11).
     Names a tool cause when the turn was beheaded mid-tool-loop (no first frame)
     or a desktop tool was active; otherwise honestly admits no answer was found.
     """
@@ -1129,7 +1129,7 @@ def resolve_dictation_language(*, pinned: str, reported: str, text: str) -> str:
     text while the setting said the cleanup was on.
 
     Everything resolves through the canonical resolver's helpers — no layer
-    invents its own detection (AGENTS.md §1).
+    invents its own detection.
     """
     pin = str(pinned or "").strip().lower()
     if pin not in ("", "auto"):
@@ -1140,7 +1140,7 @@ def resolve_dictation_language(*, pinned: str, reported: str, text: str) -> str:
 
         # Points 2 and 3 above live in the canonical resolver, which the voice
         # lane's transcript filter reads too — one decision, not two copies
-        # that drift the first time either is touched (AGENTS.md §1).
+        # that drift the first time either is touched.
         code = resolve_transcript_language(tag, text)
         if code != "unknown":
             if code != normalize_language_tag(tag):
@@ -11373,7 +11373,7 @@ class SpeechPipeline:
         **Every refusal is announced**, not just logged: each one publishes a
         ``DictationRefused`` carrying a stable reason token and a finished
         English sentence. Before that, a refused shortcut produced a
-        ``log.info`` in a file the desktop app cannot display (AGENTS.md §9), so
+        ``log.info`` in a file the desktop app cannot display, so
         the key simply did nothing and the user had no way to learn why. The
         boolean return is unchanged, so every existing caller (hotkey edge, WS
         handler, REST route) keeps working; ``True`` from the handover path
@@ -17199,7 +17199,7 @@ class SpeechPipeline:
                 return
             cleaned = scrubbed.cleaned.strip()
             if not cleaned:
-                # Never swallow output silently (AGENTS.md §7): the answer
+                # Never swallow output silently: the answer
                 # loses a clause here, so the drop has to be visible.
                 dropped_sentences.append(sentence)
                 log.warning(

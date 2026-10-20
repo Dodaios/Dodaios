@@ -10,6 +10,7 @@ import { WebhookConnection } from "./WebhookConnection";
 import { TriggerBuilder } from "./TriggerBuilder";
 import { SourceControls } from "./SourceControls";
 import { AgentRoutineDetail } from "./AgentRoutineDetail";
+import { BuiltByBadge } from "@/components/selfBuild/BuiltByBadge";
 
 export interface AgentRoutinesListProps { agentId: string; sampleRoutines?: AgentRoutine[]; variant?: "rail" | "sheet"; className?: string; onDetailOpenChange?: (open: boolean) => void; }
 export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", className, onDetailOpenChange }: AgentRoutinesListProps) {
@@ -54,6 +55,7 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
         const active = ["scheduled", "active", "enabled", ""].includes(routine.state);
         const trigger = routine.trigger as { type?: string; source?: { kind: string } } | null;
         return <li key={routine.id} className="rounded-md">
+          <div className="flex items-start gap-1">
           <button type="button" aria-label={displayRoutineTitle(routine.title)} className="flex w-full cursor-pointer select-none items-start gap-2 rounded-md px-0.5 py-1.5 text-left hover:bg-secondary/60 focus-visible:outline focus-visible:outline-ring" onClick={() => setSelected(routine.id)}>
           <Clock size={16} aria-hidden className={cn("mt-0.5 shrink-0", active ? "text-success" : "text-muted-foreground")} />
           <span className="min-w-0 flex-1">
@@ -62,6 +64,9 @@ export function AgentRoutinesList({ agentId, sampleRoutines, variant = "rail", c
             {routine.dueMs && active ? <span className="block text-[11px] text-muted-foreground">{t("society.card.next_run")}: {new Date(routine.dueMs).toLocaleString(locale, { timeZoneName: "short" })}</span> : null}
           </span>
           </button>
+          {/* Outside the row button: the badge is a link of its own. */}
+          <BuiltByBadge compact type="routine" id={routine.id} className="mt-1.5" />
+          </div>
           {trigger?.type === "webhook" && <div className="pl-6"><WebhookConnection key={routine.id} taskId={routine.id} /></div>}
           {trigger?.type === "source" && trigger.source && <div className="pl-6"><SourceControls key={routine.id} taskId={routine.id} source={trigger.source} /></div>}
         </li>;

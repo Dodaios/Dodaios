@@ -55,7 +55,7 @@ _STATE_COLORS: dict[JarvisState, tuple[int, int, int]] = {
 def _make_icon(state: JarvisState, size: int = 64) -> Any:
     """Returns a PIL image for the tray.
 
-    IDLE uses ``assets/icons/jarvis.ico`` (user branding); active states
+    IDLE uses ``assets/icons/dodaios.ico`` (user branding); active states
     get a colored circle — so the state feedback is preserved while the
     user still sees the real Jarvis logo by default.
     """

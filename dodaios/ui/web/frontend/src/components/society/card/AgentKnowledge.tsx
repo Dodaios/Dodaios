@@ -6,12 +6,19 @@ import { useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 import { MemoryMarkdown } from "../chat/MemoryDocument";
+import { reviewWaitReason } from "@/lib/skipReasons";
 
 export interface AgentKnowledge {
   files: { path: string; name: string; kind: "memory" | "skills"; updated_ms: number; size: number }[];
   learned_instructions: string[];
   reviews: { pending: number; done: number };
-  last_review: { state: "reviewing" | "pending" | "done"; updated_ms: number } | null;
+  /** The agent's newest review attempt (`review:last:<agent>`). A review that got
+   * no answer carries why (`reason_code`, the seat's `provider`, the server's
+   * English `reason`); `dropped` = given up after `attempts` bounded tries. */
+  last_review: {
+    state: "reviewing" | "pending" | "done" | "dropped"; updated_ms: number;
+    reason_code?: string; reason?: string; provider?: string; attempts?: number;
+  } | null;
   legacy?: boolean;
 }
 
@@ -54,8 +61,14 @@ export function LearnedInstructions({ agentId, sample }: { agentId: string; samp
   const query = useAgentKnowledge(agentId, sample);
   if (sample) return null;
   const data = query.data;
-  const status = data?.last_review?.state === "reviewing" ? "reviewing"
-    : data?.reviews.pending ? "pending" : data?.reviews.done ? "done" : "waiting";
+  const last = data?.last_review;
+  const dropped = last?.state === "dropped";
+  const status = last?.state === "reviewing" ? "reviewing"
+    : data?.reviews.pending ? "pending" : dropped ? "dropped" : data?.reviews.done ? "done" : "waiting";
+  const statusText = status === "dropped"
+    ? t("society.profile_card.review_dropped").replace("{0}", String(last?.attempts ?? ""))
+    : `${t(`society.profile_card.review_${status}`)}${data?.reviews.pending ? ` (${data.reviews.pending})` : ""}`;
+  const reason = last && (last.state === "pending" || dropped) ? reviewWaitReason(t, last.reason_code, last.provider, last.reason ?? "") : "";
   return <section className="mt-5 rounded-xl border border-border p-4" aria-label={t("society.profile_card.learned_instructions")}>
     <div className="flex items-center justify-between gap-2">
       <h3 className="text-sm font-medium">{t("society.profile_card.learned_instructions")}</h3>
@@ -68,7 +81,8 @@ export function LearnedInstructions({ agentId, sample }: { agentId: string; samp
       : <>
         {data?.learned_instructions.length ? <ul className="list-disc space-y-2 pl-4 text-sm">{data.learned_instructions.map((rule) => <li key={rule}>{rule}</li>)}</ul>
           : <p className="text-sm text-muted-foreground">{t("society.profile_card.no_instructions")}</p>}
-        <p className="mt-3 text-xs text-muted-foreground" role="status">{t(`society.profile_card.review_${status}`)}{data?.reviews.pending ? ` (${data.reviews.pending})` : ""}</p>
+        <p className="mt-3 text-xs text-muted-foreground" role="status">{statusText}</p>
+        {reason && <p className="mt-1 text-xs leading-relaxed text-muted-foreground" data-testid="review-wait-reason">{reason}</p>}
         {data?.last_review && <p className="mt-1 text-xs text-muted-foreground">{t("society.profile_card.last_review")}: {new Date(data.last_review.updated_ms).toLocaleString(locale)}</p>}
       </>}
   </section>;

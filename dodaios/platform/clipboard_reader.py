@@ -14,7 +14,7 @@ import sys
 import threading
 from pathlib import Path
 
-from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS, no_feedback_startupinfo
 
 log = logging.getLogger(__name__)
 READ_TIMEOUT_S = 1.0
@@ -46,6 +46,7 @@ def read_with_deadline() -> str | None:
             timeout=READ_TIMEOUT_S,
             check=False,
             creationflags=NO_WINDOW_CREATIONFLAGS,
+            startupinfo=no_feedback_startupinfo(),
             # A desktop shortcut may start in another directory. Source installs
             # must import the same checkout as their parent (also in tests).
             cwd=None if getattr(sys, "frozen", False) else str(Path(__file__).resolve().parents[2]),

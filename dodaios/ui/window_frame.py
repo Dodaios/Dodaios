@@ -37,6 +37,7 @@ __all__ = [
     "install_resize_frame",
     "maximized_bounds",
     "native_hwnd",
+    "set_zorder_anchor",
     "window_is_maximized",
 ]
 
@@ -51,6 +52,9 @@ _HTBOTTOMLEFT = 16
 _HTBOTTOMRIGHT = 17
 
 _WM_GETMINMAXINFO = 0x0024
+_WM_WINDOWPOSCHANGING = 0x0046
+_SWP_NOZORDER = 0x0004
+_HWND_TOP = 0
 _WM_NCCALCSIZE = 0x0083
 _WM_NCHITTEST = 0x0084
 
@@ -82,6 +86,23 @@ _install_lock = threading.Lock()
 _api_lock = threading.Lock()
 _api: _Win32 | None = None
 _pinned: dict[int, _PinnedSubclass] = {}
+
+#: Answers, for a window of the app, the native window that must stay directly
+#: above it (the IDE browser panel's own browser window), or None.
+ZOrderAnchor = Callable[[int], "int | None"]
+_zorder_anchor: ZOrderAnchor | None = None
+
+
+def set_zorder_anchor(anchor: ZOrderAnchor | None) -> None:
+    """Register who keeps a window above the app window (one per process).
+
+    When the app window is brought to the front, Windows normally puts it on top
+    of everything, then the browser panel's window has to be raised again: a
+    visible flicker. With an anchor the app window goes directly under that
+    window instead, in the same step.
+    """
+    global _zorder_anchor
+    _zorder_anchor = anchor
 
 
 @dataclass(slots=True)
@@ -468,6 +489,11 @@ def _make_proc(api: _Win32, previous: int, is_fullscreen: FullscreenProbe | None
     user32 = api.user32
 
     def proc(hwnd, msg, wparam, lparam):
+        if msg == _WM_WINDOWPOSCHANGING and _zorder_anchor is not None:
+            try:
+                _stay_under_anchor(api, hwnd, lparam)
+            except Exception:  # noqa: BLE001 - a window procedure must not raise into Win32
+                _log_exception("WM_WINDOWPOSCHANGING z-order anchor failed")
         if msg == _WM_GETMINMAXINFO:
             # The previous procedure (WinForms, then DefWindowProc) fills the
             # structure first; only the maximized rectangle is replaced.
@@ -495,6 +521,25 @@ def _make_proc(api: _Win32, previous: int, is_fullscreen: FullscreenProbe | None
             return 0
 
     return proc
+
+
+def _stay_under_anchor(api: _Win32, hwnd: object, lparam: object) -> None:
+    """Turn "to the top" into "directly under the anchor window" in a WINDOWPOS."""
+    anchor = _zorder_anchor
+    address = _pointer_bits(lparam)
+    if anchor is None or hwnd is None or address == 0:
+        return
+    target = anchor(_as_int(hwnd))
+    if not target:
+        return
+    # WINDOWPOS: HWND hwnd, HWND hwndInsertAfter, int x, y, cx, cy, UINT flags.
+    handles = (api.ctypes.c_void_p * 2).from_address(address)
+    pointer = api.ctypes.sizeof(api.ctypes.c_void_p)
+    flags = api.ctypes.c_uint.from_address(address + 2 * pointer + 16)
+    if flags.value & _SWP_NOZORDER:
+        return
+    if (handles[1] or 0) == _HWND_TOP:
+        handles[1] = target
 
 
 def _probe_fullscreen(is_fullscreen: FullscreenProbe | None) -> bool:
