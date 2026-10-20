@@ -133,121 +133,37 @@ def _candidate_salience(item: dict[str, Any]) -> int:
     return max(1, min(5, salience))
 
 
-_SYSTEM_PROMPT = """\
-You extract durable personal-memory facts from one FOCUS USER TURN. Earlier
-turns and assistant replies are context for resolving references only.
-
-Return ONLY a JSON array. Each element: {"fact": "<one self-contained
-sentence>", "kind": "<identity|preference|activity|person|project|decision|
-event|asset|place|organization|relationship|other>", "subjects":
-["<lowercase-kebab-slug>", ...], "evidence_turn_id": "<focus turn id>",
-"basis": "<explicit|behavioral>", "salience": <integer 1-5>}.
-
-Rules:
-- A fact must still be useful weeks later: identity, preferences, recurring
-  activities and habits, people, relationships, owned assets or vehicles,
-  places, organizations, projects, decisions, plans, and biographical events.
-  Rephrase it so it stands alone.
-- Explicit ownership or naming is durable even when phrased briefly, for
-  example "I own the yacht" or "My yacht is named Aurora".
-- "basis" grades the evidence. "explicit": the user directly asserted the
-  fact ("I own a yacht.", "Golf is my favourite sport."). "behavioral": the
-  user described first-person lived experience — doing, practicing, or
-  enjoying something — without naming it as a preference or habit. "I love
-  being out on golf courses with my buddies, playing this sport actively"
-  grounds {"fact": "The user plays golf actively with friends and enjoys
-  it", "kind": "activity", "basis": "behavioral"}. Habitual markers ("every
-  Saturday", "again", "as usual") in a first-person report count as
-  behavioral grounding. Never label a lived-experience inference "explicit".
-- "salience" scores how central the fact is to the USER's own life:
-  5 = core identity, close people, health. 4 = possessions, recurring habits
-  and activities, active projects. 3 = peripheral personal facts. 2 = world
-  knowledge loosely tied to the user. 1 = trivia. Score user-centrality,
-  never interestingness.
-- A topic mention, one-off question, or request for information grounds
-  NOTHING — no basis rescues it. "What are the benefits of Vitamin D?"
-  yields []; do not infer a supplement interest or plan.
-  "Tell me about Monaco." yields []; do not infer interest in Monaco,
-  travel plans, attendance, residence, or preference. Never manufacture a
-  personal connection from curiosity.
-- If a question also contains a self-disclosure, extract only the disclosed
-  fact and never invent a reason for the question.
-- Quality bar: you feed a curated map of the user's life, not a transcript
-  archive. For facts the user explicitly asserted about themselves, their
-  people, possessions, health, habits, and projects, forgetting is the worse
-  failure. For everything else, writing junk is the worse failure — when in
-  doubt about a fact with no strong personal anchor, return [].
-- Return [] for smalltalk, pure questions, commands without durable content,
-  fleeting bodily/status chatter, or turns that only concern the immediate
-  task. "I need the bathroom" is not durable memory.
-- Extract facts asserted or confirmed by the USER in the focus turn only.
-  Never turn an assistant statement, guess, suggestion, or question into a
-  fact. Earlier turns may resolve a pronoun, but are not new evidence here.
-- Every element must use the exact focus turn id as evidence_turn_id.
-- "subjects" names who/what the fact is about (e.g. ["person-name"],
-  ["personal-jarvis"]). The caller supplies the speaker's exact user slug.
-  For a first-person fact about a named place, person, organization, project,
-  asset, vehicle, or recurring activity, include BOTH the exact user slug and
-  the named topic slug. Example: "I live in San Francisco" uses kind "place"
-  and subjects ["<user-slug>", "san-francisco"].
-- Never include credentials, API keys, passwords, or tokens in a fact.
-- No prose outside the JSON array.
+# Shared by the turn extractor and the session sweep; the parser reads every
+# field and ``_KNOWN_KINDS`` the kind list.
+_FACT_CONTRACT = """\
+Return only a JSON array, [] when nothing lasting about the user's life is \
+asserted (questions, topic mentions, commands, small talk, momentary states):
+[{"fact": "<one self-contained sentence>", "kind": "identity|preference|activity|\
+person|project|decision|event|asset|place|organization|relationship|other", \
+"subjects": ["<kebab-slug>", ...], "evidence_turn_id": "<user turn id>", \
+"basis": "explicit|behavioral", "salience": <1-5>}]
+- basis: explicit = the user asserted it; behavioral = drawn from a first-person \
+account of doing or enjoying something.
+- salience = centrality to the user's own life (5 identity, close people, health; \
+4 possessions, habits, projects; 1 trivia).
+- subjects: a first-person fact about a named place, person, organization, \
+project, asset, vehicle or activity lists the user slug and the topic slug; a \
+place fact without both is dropped.
+- No credentials, keys or tokens.
 """
 
-_SESSION_SYSTEM_PROMPT = """\
-You perform a completeness sweep over one finished realtime conversation.
-Extract durable personal-memory facts that individual-turn review may have
-missed because the meaning emerged across several turns.
+# The opening words route fakes in tests/integration (``startswith("You extract")``).
+_SYSTEM_PROMPT = (
+    "You extract durable personal-memory facts from the FOCUS USER TURN. Earlier "
+    "turns and assistant replies only resolve references and are never evidence; "
+    "evidence_turn_id is the focus turn id.\n\n" + _FACT_CONTRACT
+)
 
-Return ONLY a JSON array. Each element: {"fact": "<one self-contained
-sentence>", "kind": "<identity|preference|activity|person|project|decision|
-event|asset|place|organization|relationship|other>", "subjects":
-["<lowercase-kebab-slug>", ...], "evidence_turn_id": "<exact user turn id>",
-"basis": "<explicit|behavioral>", "salience": <integer 1-5>}.
-
-Rules:
-- Use only statements asserted or explicitly confirmed by the USER as facts.
-  Assistant replies are context only and can never be evidence.
-- Every fact must cite the exact user turn that supports it. If no user turn
-  supports a claim, omit it.
-- Preserve durable identity, people, relationships, ownership and names of
-  assets or vehicles, places, organizations, projects, preferences, recurring
-  activities, decisions, plans, and biographical events that remain useful
-  weeks later.
-- "basis" grades the evidence. "explicit": the user directly asserted the
-  fact. "behavioral": the user described first-person lived experience —
-  doing, practicing, or enjoying something — without naming it as a
-  preference or habit; habitual markers ("every Saturday", "again", "as
-  usual") in a first-person report count as behavioral grounding. Never
-  label a lived-experience inference "explicit".
-- "salience" scores how central the fact is to the USER's own life:
-  5 = core identity, close people, health. 4 = possessions, recurring habits
-  and activities, active projects. 3 = peripheral personal facts. 2 = world
-  knowledge loosely tied to the user. 1 = trivia. Score user-centrality,
-  never interestingness.
-- A topic mention, one-off question, or request for information grounds
-  NOTHING — no basis rescues it. "What are the benefits of Vitamin D?"
-  yields []; do not infer a supplement interest or plan.
-  "Tell me about Monaco." yields []; do not infer interest in Monaco,
-  travel plans, attendance, residence, or preference.
-- If a question also contains a self-disclosure, extract only the disclosed
-  fact and never invent a reason for the question.
-- Quality bar: you feed a curated map of the user's life, not a transcript
-  archive. For facts the user explicitly asserted about themselves, their
-  people, possessions, health, habits, and projects, forgetting is the worse
-  failure. For everything else, writing junk is the worse failure — when in
-  doubt about a fact with no strong personal anchor, omit it.
-- Resolve pronouns and follow-up clarifications across turns. Prefer one
-  complete fact over several fragments.
-- For a first-person fact about a named place, person, organization, project,
-  asset, vehicle, or recurring activity, include BOTH the exact user slug and
-  the named topic slug. A residence in San Francisco uses kind "place" and
-  subject "san-francisco" alongside the exact user slug.
-- Return [] for greetings, questions, commands without durable content,
-  transient bodily/status chatter, weather talk, and immediate-task details.
-- Never include credentials, API keys, passwords, or tokens.
-- No prose outside the JSON array.
-"""
+_SESSION_SYSTEM_PROMPT = (
+    "You sweep one finished conversation for durable personal-memory facts that "
+    "only emerge across several turns. Only user turns are evidence; each fact "
+    "cites the exact user turn that supports it.\n\n" + _FACT_CONTRACT
+)
 
 
 @dataclass(frozen=True, slots=True)

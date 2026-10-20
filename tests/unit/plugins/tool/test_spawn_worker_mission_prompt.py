@@ -71,13 +71,13 @@ def test_context_hints_are_included() -> None:
 
 def test_no_action_falls_back_to_raw_utterance() -> None:
     """Force-spawn path passes action='' — there is no interpretation, so the
-    mission prompt carries the raw utterance verbatim (no Aufgabe/action
-    enrichment), led by the standing quality directive."""
+    mission prompt carries the raw utterance verbatim (no Task/action
+    enrichment)."""
     prompt = _build_mission_prompt(
         utterance="lies die Datei x und fasse sie zusammen", action=""
     )
     assert "lies die Datei x und fasse sie zusammen" in prompt
-    assert "Aufgabe:" not in prompt  # no interpretation enrichment
+    assert "Task:" not in prompt  # no interpretation enrichment
 
 
 def test_no_action_keeps_bounded_recent_context_for_references() -> None:
@@ -112,13 +112,13 @@ def test_empty_no_action_stays_empty_even_when_context_exists() -> None:
 def test_generic_default_action_is_not_treated_as_interpretation() -> None:
     """The generic ACK filler ('einer komplexen Aufgabe nachgeht') is NOT a
     real interpretation — it must not become the worker's task; fall back to
-    the verbatim utterance (still led by the quality directive)."""
+    the verbatim utterance."""
     prompt = _build_mission_prompt(
         utterance="mach das für mich",
         action="einer komplexen Aufgabe nachgeht",
     )
     assert "mach das für mich" in prompt
-    assert "Aufgabe:" not in prompt
+    assert "Task:" not in prompt
     assert "komplexen Aufgabe nachgeht" not in prompt
 
 
@@ -126,33 +126,24 @@ def test_empty_everything_returns_empty() -> None:
     assert _build_mission_prompt(utterance="", action="") == ""
 
 
-def test_mission_prompt_carries_quality_directive() -> None:
-    """Live incident 2026-05-31 (mission 019e7e04): the router's brief told the
-    worker to build a 'Grundgerüst', the worker (Opus) obeyed and shipped a
-    12-line stub, and the mission passed. Every dispatched mission prompt must
-    lead with a standing quality directive so a lazy/minimal brief cannot
-    downgrade the deliverable to a stub."""
-    prompt = _build_mission_prompt(
-        utterance="bau mir eine schöne Landingpage",
-        action="eine Landingpage baut",
-    )
-    low = prompt.lower()
-    assert "production-quality" in low or "complete" in low
-    assert "skeleton" in low or "stub" in low or "placeholder" in low
-    assert "failure" in low, "a stub must be named as a failure"
-    # The actual task still survives.
-    assert "Landingpage" in prompt
+def test_mission_prompt_no_longer_carries_the_quality_directive() -> None:
+    """The worker contract lives in ``worker_prompt.WORKER_CONTRACT``; the
+    mission prompt is only the task, in English labels."""
+    from dodaios.missions.kontrollierer.worker_prompt import WORKER_CONTRACT
 
-
-def test_quality_directive_present_on_forcespawn_path() -> None:
-    """Force-spawn (action='') passes the raw utterance — it too must carry the
-    quality directive, not just the enriched-action path."""
-    prompt = _build_mission_prompt(
-        utterance="lies die Datei x und fasse sie zusammen", action=""
+    for action in ("eine Landingpage baut", ""):
+        prompt = _build_mission_prompt(
+            utterance="bau mir eine schöne Landingpage", action=action,
+        )
+        assert "production-quality" not in prompt.lower()
+        assert "Landingpage" in prompt
+    enriched = _build_mission_prompt(
+        utterance="bau mir eine schöne Landingpage", action="eine Landingpage baut",
     )
-    low = prompt.lower()
-    assert "skeleton" in low or "stub" in low or "placeholder" in low
-    assert "lies die Datei x und fasse sie zusammen" in prompt
+    assert enriched.startswith("Task: eine Landingpage baut.")
+    assert "User's words (verbatim):" in enriched
+    # The honest-impossibility escape moved into the contract.
+    assert "say so and stop" in WORKER_CONTRACT
 
 
 @pytest.mark.asyncio
@@ -200,8 +191,6 @@ def test_forcespawn_strips_spawn_meta_from_worker_task() -> None:
     assert "create and spawn" not in low
     # the actual research task survives verbatim
     assert "move to the USA" in prompt
-    # the standing quality directive is still present
-    assert "production-quality" in low
 
 
 def test_forcespawn_german_spawn_meta_stripped() -> None:
@@ -248,11 +237,9 @@ def test_forcespawn_topic_request_does_not_leave_an_orphaned_article() -> None:
 def test_forcespawn_pure_meta_phrase_falls_back_to_raw() -> None:
     """If stripping leaves nothing real (the utterance was ONLY the routing
     wrapper), the worker must never get an empty task — fall back to the raw
-    utterance so it still has something, and keep the quality directive."""
+    utterance so it still has something."""
     prompt = _build_mission_prompt(utterance="spawn a sub-agent", action="")
-    body = prompt.split("\n\n", 1)[-1].strip()
-    assert body  # never empty
-    assert "production-quality" in prompt.lower()
+    assert prompt.strip() == "spawn a sub-agent"
 
 
 def test_forcespawn_genuine_deliverable_survives() -> None:
@@ -275,42 +262,4 @@ def test_forcespawn_no_meta_utterance_unchanged() -> None:
         utterance="lies die Datei x und fasse sie zusammen", action=""
     )
     assert "lies die Datei x und fasse sie zusammen" in prompt
-    assert "Aufgabe:" not in prompt
-
-
-def test_quality_directive_has_honest_impossibility_escape() -> None:
-    """Latency (2026-06-14): the standing quality directive must let the worker
-    exit fast on a task it genuinely cannot do, instead of spiralling under the
-    'never downgrade / build the finished artefact' floor (live mission 019ec708:
-    'book a trip' ran 535s producing nothing). The floor governs the QUALITY of a
-    doable task, never a mandate to fake an undoable one."""
-    prompt = _build_mission_prompt(
-        utterance="book me a trip from London to Taiwan",
-        action="",
-    )
-    low = prompt.lower()
-    assert "cannot be completed with the tools available" in low, prompt
-    assert "do not simulate" in low or "do not simulate," in low or "not simulate" in low
-    # The anti-stub floor must still be present (regression guard).
-    assert "production-quality" in low
-
-
-def test_quality_directive_respects_explicit_form_constraint() -> None:
-    """Live incident 2026-06-22 (mission 019ef052): the user asked for a SINGLE
-    HTML file, the worker shipped four (index.html + app.js + styles.css +
-    assets/), and the mission passed. The 'never downgrade to a minimal version /
-    skeleton is a floor not a ceiling' clause read a single self-contained file
-    as a forbidden minimal version. The directive must carve out an explicit
-    user constraint on the SHAPE/SCOPE of the deliverable: honoring it is part of
-    satisfying the request, never a downgrade."""
-    prompt = _build_mission_prompt(
-        utterance="mach mir bitte eine einzige, in sich geschlossene HTML-Datei",
-        action="",
-    )
-    low = prompt.lower()
-    # The new carve-out names an explicit user constraint on form/scope.
-    assert "constraint" in low, "the quality floor must defer to an explicit user constraint"
-    # Regression: the anti-stub quality floor and impossibility escape survive.
-    assert "production-quality" in low
-    assert "skeleton" in low or "stub" in low or "placeholder" in low
-    assert "cannot be completed with the tools available" in low
+    assert "Task:" not in prompt

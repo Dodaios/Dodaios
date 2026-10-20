@@ -21,7 +21,6 @@ from .runner import (
     DEFAULT_TIMEOUT_SECONDS,
     MAX_CRITIC_LOOPS,
     CriticRunner,
-    build_critic_cmd,
 )
 from .verdict import (
     CRITIC_JSON_SCHEMA,
@@ -56,7 +55,6 @@ __all__ = [
     "Reflection",
     "ReflectionMemory",
     "aggregate_axes_status",
-    "build_critic_cmd",
     "choose_critic_model",
     "is_approval_valid",
     "reflections_path_for_mission",
