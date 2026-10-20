@@ -7,9 +7,9 @@ provider-agnostic scaffolding the live worker + critic still depend on:
 
 - `provider_map` — Dodaios provider-slug + ENV-var mapping. Pure data
   module, no IO. Consumed by the critic + setup wizard.
-- `workspace`   — Mission-isolated workspace profile + ``materialize_worker_contract``
-  (AGENTS.md materialisation). Pure file IO. Consumed by the Kontrollierer
-  orchestrator for every mission worktree.
+- `workspace`   — ``materialize_worker_contract`` (the managed AGENTS.md
+  marker file). Consumed by the Kontrollierer orchestrator for every
+  mission worktree.
 
 Both modules still carry a handful of legacy ``openclaw`` literals (the
 external worker binary's on-disk paths and a read-time backcompat provider

@@ -335,6 +335,7 @@ async def test_weekly_request_becomes_one_proven_routine_on_trial(world: Any) ->
     # with no plugin grants and no spoken announcement.
     assert len(world.scheduler.specs) == 1
     spec = world.scheduler.specs[record.artefact["task_id"]]
+    assert record.artefact["id"] == record.artefact["task_id"]
     assert "self-built" in spec.tags and "agent:jarvis" in spec.tags
     assert spec.action.provider == "sub-seat"
     assert spec.action.plugin_grants == ()
@@ -436,6 +437,7 @@ async def test_repeated_request_becomes_one_proven_live_skill(world: Any) -> Non
     assert record.state == State.TRIAL, record.note
     assert "replay caught 3 of 3" in record.proof["detail"]
     skill = world.registry.get(record.artefact["name"])
+    assert record.artefact["id"] == skill.name
     # ADR-0043: proven by the replay, so live (active) instead of a draft.
     assert skill.state.value == "active"
     assert "self-built" in skill.frontmatter.tags
@@ -534,6 +536,7 @@ async def test_repeated_correction_becomes_a_memory_entry(world: Any) -> None:
     (opened,) = await world.loop.run_queue()
     record = await _settle(world, opened.id)
     assert record.kind == Kind.MEMORY and record.state == State.TRIAL, record.note
+    assert record.artefact["id"] == "society/jarvis/MEMORY.md"
     texts = [e.text for e in world.notebook.entries()["memory"]]
     assert "The user's office is the Berlin office, not Munich." in texts
     await world.service.undo_build(record.id)
@@ -582,6 +585,7 @@ async def test_a_domain_of_needs_proposes_an_agent_and_builds_it_on_accept(world
     record = await _settle(world, accepted.id)
     assert record.state == State.TRIAL, record.note
     octo = await world.roster.get(record.artefact["agent_id"])
+    assert record.artefact["id"] == octo.agent_id
     assert octo.name == "Octo" and octo.provider == "sub-seat"
     assert octo.focus == ["mcp:github/list_runs", "mcp:github/list_issues"]
     # Talking to it counts.

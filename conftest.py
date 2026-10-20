@@ -18,7 +18,7 @@ if str(_REPO_ROOT) not in sys.path:
 # ---------------------------------------------------------------------------
 # Anti-hang guard: zombie gRPC threads blocking interpreter exit
 # ---------------------------------------------------------------------------
-# Root cause (measured 2026-06-11, scripts/diag_threads2.py): a test that makes
+# Root cause (measured 2026-06-11): a test that makes
 # a real Gemini / Vertex call leaves NON-DAEMON gRPC threads alive (``asyncio_0``,
 # ``Thread-N (_connection_worker_thread)``). gRPC never marks them daemon and the
 # google-genai client is never closed, so after the last test pytest blocks in
@@ -49,7 +49,7 @@ def pytest_unconfigure(config):  # noqa: ANN001, D401
     names = ", ".join(sorted({t.name for t in leaked})[:6])
     sys.stderr.write(
         f"\n[conftest] hard-exit: {len(leaked)} non-daemon thread(s) would block "
-        f"shutdown ({names}). See scripts/diag_threads2.py.\n"
+        f"shutdown ({names}).\n"
     )
     sys.stdout.flush()
     sys.stderr.flush()

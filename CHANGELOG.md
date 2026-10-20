@@ -9,6 +9,10 @@ versioning per [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+---
+
+## [4.0.0] — 2026-10-20
+
 ### Dodaios all the way down
 
 Personal Jarvis became Dodaios in 3.2.0 on the outside. 4.0.0 finishes the job on the inside: the program, its folders and its stored keys now carry the Dodaios name too. Nothing is lost on the way, and nothing needs to be done by hand.

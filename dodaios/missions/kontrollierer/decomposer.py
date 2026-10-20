@@ -311,34 +311,17 @@ class MissionDecomposer:
     def _build_decomposition_prompt(mission_prompt: str) -> str:
         """Decomposer prompt for the LLM."""
         return (
-            "You are a senior project manager. The user has issued the following "
-            "mission for an autonomous engineering agent. Decompose it into "
-            f"between 1 and {MAX_STEPS} parallel tasks if and only if the work "
-            "naturally splits into independent files or subsystems. Otherwise, "
-            "return a single step.\n\n"
-            f"User mission:\n<<<{mission_prompt}>>>\n\n"
-            "Output ONLY a JSON object matching this schema:\n"
-            "{\n"
-            '  "steps": [\n'
-            '    { "slug": "kebab-case-short", '
-            '"prompt": "<full instructions for one worker>", '
-            '"worker_cli": "claude" | "codex", '
-            '"model": "sonnet" | "opus" | "haiku", '
-            '"allowed_tools": "Read,Edit,Write,Bash,Grep,Glob", '
-            '"needs_repo": true | false }\n'
-            "  ],\n"
-            '  "n_workers": <int 1..5>,\n'
-            '  "expected_output": "<one-sentence description of the deliverable>"\n'
-            "}\n\n"
-            "Rules:\n"
-            "- DO NOT split if tasks share files (race conditions).\n"
-            "- DO NOT include task_id (auto-generated).\n"
-            "- Set needs_repo=true only when the step must read or modify the "
-            "Dodaios source checkout.\n"
-            "- Set needs_repo=false for research, connected-service actions, "
-            "and standalone artifacts that do not use Dodaios source.\n"
-            "- Default worker_cli is 'claude'; only use 'codex' for OpenAI-specific work.\n"
-            "- Default model is 'sonnet'; use 'opus' only for reasoning-heavy steps."
+            f"Split this mission into 1 to {MAX_STEPS} parallel worker steps only if "
+            "it divides into parts that touch disjoint files; otherwise return one "
+            "step. Each step prompt must stand alone.\n\n"
+            f"Mission:\n<<<{mission_prompt}>>>\n\n"
+            "Reply with only this JSON:\n"
+            '{"steps": [{"slug": "kebab-case", "prompt": "<complete instructions>", '
+            '"needs_repo": true | false}], '
+            f'"n_workers": <1..{MAX_STEPS}>, '
+            '"expected_output": "<one sentence>"}\n'
+            "needs_repo is true only when the step reads or changes the Dodaios "
+            "source checkout."
         )
 
     def _parse_plan(self, raw: str, mission_prompt: str) -> MissionPlan | None:

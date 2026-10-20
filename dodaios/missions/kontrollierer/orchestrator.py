@@ -178,10 +178,8 @@ _CRITIC_TIME_RESERVE_S: float = 240.0
 
 # Leads the first worker prompt of a step resumed from a capacity checkpoint.
 _RESUME_NOTE: Final[str] = (
-    "RESUMED TASK: this workspace already contains the partial work of an "
-    "earlier attempt at this task, which stopped when the provider ran out of "
-    "capacity. Inspect it and continue from it; do not start over or redo "
-    "finished parts."
+    "RESUMED TASK: this worktree holds partial work from an earlier attempt "
+    "that stopped on a provider limit. Continue from it."
 )
 
 
@@ -525,10 +523,8 @@ def _format_external_write_block(path: Path, raw_bytes: bytes) -> str:
     header = (
         f"diff --external-target b/{p}\n"
         f"# verified-external-write: {p}\n"
-        f"# ground-truth: file exists on disk ({n} bytes); a non-errored "
-        f"Write/Edit tool_use targeting this exact path is present in this "
-        f"iteration's worker stream. This is on-disk-verified output, NOT a "
-        f"log claim — treat it as real delivered content.\n"
+        f"# ground-truth: file on disk ({n} bytes), written by a non-errored "
+        "Write/Edit call.\n"
     )
     try:
         text = raw_bytes.decode("utf-8")
@@ -569,12 +565,8 @@ def _format_command_evidence_block(commands: list[tuple[str, str]]) -> str:
     header = (
         "diff --command-evidence b/<git-github-operations>\n"
         "# verified-command-execution\n"
-        "# ground-truth: the following state-changing git/GitHub commands ran "
-        "with a NON-ERRORED result this iteration. The output below was written "
-        "by the real subprocess (git/gh), NOT asserted by the worker — treat it "
-        "as on-execution-verified evidence. A 'commit and push' / 'open a PR' "
-        "task legitimately leaves an empty worktree diff; this block IS the "
-        "deliverable, so do not veto under the empty-diff rule.\n"
+        "# ground-truth: real output of non-errored git/gh commands; an empty "
+        "output line means success.\n"
     )
     lines: list[str] = []
     for command, output in commands:
@@ -601,14 +593,8 @@ def _format_desktop_action_evidence_block(actions: list[tuple[str, str]]) -> str
     header = (
         "diff --desktop-action-evidence b/<desktop-launch-operations>\n"
         "# verified-desktop-launch\n"
-        "# ground-truth: the following desktop/process-launch commands ran "
-        "with a NON-ERRORED result this iteration. A task like 'open Explorer' "
-        "/ 'launch Chrome' / 'start the calculator' leaves NO worktree file "
-        "change — the deliverable is a running process, not a file. The output "
-        "below was captured from a real, non-errored Bash/shell tool_use; "
-        "'(command succeeded; no output captured)' means the spawn was silent "
-        "(detached process) — treat that as a successful launch, not as missing "
-        "evidence. Do NOT veto this diff under the empty-diff rule.\n"
+        "# ground-truth: real output of non-errored launch commands; an empty "
+        "output line means success.\n"
     )
     lines: list[str] = []
     for command, output in actions:

@@ -53,6 +53,11 @@ _ALLOWLIST: dict[str, str] = {
     # there can therefore never register, so the finding is a blind spot rather
     # than a dead switch.
     "primary_slot": "read by secret_family_save_plan() inside config.py, which this gate excludes",
+    # Known dead: only one-off debug scripts printed these, and those scripts
+    # were removed. Dropping the fields changes the config schema, so that is
+    # its own change; listed here so the cleanup does not hide behind it.
+    "frame_ms": "dead; AudioConfig field awaiting removal from the schema",
+    "routing_model": "dead; BrainConfig field awaiting removal from the schema",
 }
 
 #: Directories whose Python counts as a "reader" of a config field.

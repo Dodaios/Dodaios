@@ -28,7 +28,7 @@ from dodaios.missions.kontrollierer.orchestrator import (
     Kontrollierer,
     TaskOutcome,
 )
-from dodaios.missions.kontrollierer.worker_prompt import ARTIFACT_LANGUAGE_DIRECTIVE
+from dodaios.missions.kontrollierer.worker_prompt import WORKER_CONTRACT
 from dodaios.missions.manager import MissionManager
 from dodaios.missions.state_machine import MissionState
 from dodaios.missions.workers.base import SpawnedWorker
@@ -1609,15 +1609,11 @@ async def test_desktop_launch_evidence_reaches_critic_as_nonempty_diff(
 
 
 @pytest.mark.asyncio
-async def test_worker_prompt_carries_artifact_language_directive(
+async def test_worker_prompt_carries_the_worker_contract(
     manager: MissionManager, tmp_path: Path
 ) -> None:
-    """Every dispatched worker prompt leads with the English-artifact directive.
-
-    Root-cause guard (2026-06-22): a German mission used to hand the worker a
-    purely German prompt, so the worker wrote German code. The orchestrator must
-    prepend ARTIFACT_LANGUAGE_DIRECTIVE to the worker prompt for EVERY step,
-    while keeping the step instruction intact (the directive is additive)."""
+    """Every dispatched worker prompt leads with the worker contract, and the
+    step instruction stays intact (the contract is prepended, not a replacement)."""
     worker = FakeWorker()
     critic = FakeCriticRunner(_make_approve_verdict())
     plan = MissionPlan(
@@ -1637,6 +1633,5 @@ async def test_worker_prompt_carries_artifact_language_directive(
 
     assert worker.spawn_calls, "worker was never spawned"
     prompt = worker.spawn_calls[0]["prompt"]
-    assert ARTIFACT_LANGUAGE_DIRECTIVE in prompt
-    # The step instruction survives — the directive is prepended, not a replacement.
+    assert WORKER_CONTRACT in prompt
     assert "test.html" in prompt
