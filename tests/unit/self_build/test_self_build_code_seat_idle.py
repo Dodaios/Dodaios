@@ -371,3 +371,30 @@ def test_sweep_retries_while_a_file_is_still_held(
     monkeypatch.setattr(shutil, "rmtree", flaky)
     _sweep(left, pause_s=0)
     assert not left.exists() and len(calls) == 2
+
+
+def test_git_calls_survive_deep_windows_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Live: a worktree 213 characters deep made ``git diff base..HEAD`` fail with
+    "Filename too long" (git also stats the range as a path) and left the worktree
+    behind on removal. Every loop git call allows long paths, and the range is
+    marked as a revision with ``--``."""
+    from dodaios.self_build.code import builder, gitcmd
+
+    seen: list[list[str]] = []
+
+    def run(argv: list[str], cwd: Any, *, timeout: float = 0, env: Any = None) -> Any:
+        seen.append(list(argv))
+        if argv[-1] == "--abbrev-ref" or "--abbrev-ref" in argv:
+            return gitcmd.Result(0, "dodaios/issue-1-x\n", "")
+        if "--quiet" in argv:
+            return gitcmd.Result(0, "", "")
+        return gitcmd.Result(0, "calc.py\n", "")
+
+    monkeypatch.setattr(gitcmd, "run", run)
+    assert builder.collect("/w", "dodaios/issue-1-x", "abc", "fix: x") == ["calc.py"]
+    assert all(
+        argv[:5] == ["git", "-c", "core.quotepath=off", "-c", "core.longpaths=true"]
+        for argv in seen
+    )
+    diff = next(argv for argv in seen if "--name-only" in argv)
+    assert diff[-2:] == ["abc..HEAD", "--"]

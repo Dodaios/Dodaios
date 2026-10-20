@@ -123,7 +123,9 @@ def collect(worktree: str, branch: str, base_sha: str, message: str) -> list[str
         done = gitcmd.git(["commit", "-m", message], root)
         if not done.ok:
             raise BuildError(f"the change could not be committed: {done.tail(300)}")
-    listing = gitcmd.git(["diff", "--name-only", f"{base_sha}..HEAD"], root)
+    # "--": git would otherwise also stat the range as a path, which fails on
+    # Windows once the worktree path is deep ("Filename too long").
+    listing = gitcmd.git(["diff", "--name-only", f"{base_sha}..HEAD", "--"], root)
     if not listing.ok:
         raise BuildError("the change could not be read")
     return [line.strip() for line in listing.out.splitlines() if line.strip()]
@@ -174,7 +176,7 @@ def remove_local(
             logger.info("self-build code: git left {}: {}", worktree, removed.tail(200))
     gitcmd.git(["worktree", "prune"], root)
     if worktree and not _registered(root, worktree):
-        # Windows: a file the run's processes still held keeps the folder for a moment.
+        # What git could not delete (Windows: a long path or a held file).
         _sweep(Path(worktree))
         _drop_if_empty(Path(worktree).parent)
     if tip:
@@ -198,9 +200,9 @@ def _sweep(worktree: Path, *, attempts: int = 5, pause_s: float = 1.0) -> None:
     """Delete what is left of the loop's worktree once git forgot it: caches only.
 
     Live on Windows the folder stayed behind with the test run's
-    ``__pycache__`` when a process of the finished run still held a file as
-    git removed it. Only a folder that holds nothing but such caches is
-    deleted; a short retry covers the moment the handle is released.
+    ``__pycache__`` when git could not delete a path past the length limit or
+    a file a finished process still held. Only a folder that holds nothing but
+    such caches is deleted; a short retry covers a handle being released.
     """
     import shutil
     import time
