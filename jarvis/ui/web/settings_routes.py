@@ -537,7 +537,7 @@ def put_team_proxy(body: TeamProxyBody, request: Request) -> dict[str, object]:
 # over /ws). Key-free same-origin route, like reply-language.
 # ----------------------------------------------------------------------
 
-_UI_LANGUAGES: tuple[str, ...] = ("en", "de", "es", "zh")
+_UI_LANGUAGES: tuple[str, ...] = ("en", "de", "es", "pt", "zh")
 
 
 class UiLanguageBody(BaseModel):
@@ -1014,7 +1014,7 @@ def _live_apply_wake_plan(request: Request, *, log_tag: str) -> bool:
 # [trigger.wake_word] language and resolved by resolve_wake_language.
 # ----------------------------------------------------------------------
 
-_WAKE_LANGUAGES: tuple[str, ...] = ("auto", "de", "en", "es")
+_WAKE_LANGUAGES: tuple[str, ...] = ("auto", "de", "en", "es", "pt")
 
 
 class WakeLanguageBody(BaseModel):
@@ -1151,6 +1151,30 @@ def _local_microphone_capture_ready(request: Request) -> bool:
 
 
 # state -> the reason vocabulary of the permission layer (PERMISSION_NEEDED_REASONS)
+#: Stable codes the wake-word routes return next to their English sentences.
+#: The desktop UI translates each one (``settings_view.wake_word.msg.<code>`` /
+#: ``settings_view.wake_word.hint.<code>``); the parity test
+#: ``tests/unit/ui/test_backend_message_codes.py`` keeps both sides in step.
+WAKE_MESSAGE_CODES: tuple[str, ...] = (
+    "no_phrase",
+    "not_in_vocab",
+    "no_microphone",
+    "mic_quiet",
+    "ready",
+    "activation_not_persisted",
+    "model_ready",
+    "model_download_failed",
+)
+WAKE_HINT_CODES: tuple[str, ...] = (
+    "type_phrase",
+    "download_or_hotkey",
+    "pick_real_word",
+    "connect_mic",
+    "speak_louder",
+    "allow_mic_dialog",
+    "allow_mic_settings",
+)
+
 _MIC_STATE_REASON = {
     "denied": "denied",
     "restricted": "restricted",
@@ -1183,19 +1207,25 @@ def _microphone_block_fields(
     if not message:
         message = user_detail_for(PermissionId.MICROPHONE, reason)
     if reason in ("restricted", "unavailable"):
-        hint = ""
+        hint, hint_code = "", ""
     elif reason == "not_determined":
         # An app that has never asked is not listed in that pane yet: the test
         # button is what makes macOS show its dialog, so point there first.
         hint = "Press the test button and choose Allow in the macOS dialog."
+        hint_code = "allow_mic_dialog"
     else:
         hint = f"Allow Microphone access in {path}, then retry."
+        hint_code = "allow_mic_settings"
     return {
         "permission_required": True,
         "permission": "microphone",
         "can_open_settings": can_open,
         "message": message,
         "hint": hint,
+        # Translatable hint (``WAKE_HINT_CODES``); ``path`` fills the settings
+        # pane name. ``message`` is the permission layer's own sentence.
+        "hint_code": hint_code,
+        "message_params": {"path": str(path)},
     }
 
 
@@ -1550,6 +1580,10 @@ async def put_wake_word(body: WakeWordBody, request: Request) -> dict[str, objec
         # for it, so the UI should say so instead of leaving the user guessing.
         "phrase_in_vocab": phrase_in_vocab,
         "message": plan.message,
+        # Stable code + fill-in values for ``message`` so the UI can show it in
+        # the user's language (``WAKE_PLAN_MESSAGE_CODES``); ``message`` stays.
+        "message_code": plan.message_code,
+        "message_params": dict(plan.message_params),
         "persisted": persisted,
         # When live-applied, the running pipeline already swapped the detector;
         # no restart needed. Otherwise it takes effect on the next voice start.
@@ -1591,7 +1625,7 @@ def _ask_microphone_for_wake_switch(request: Request, *, enabled: bool) -> dict[
 
 @router.post("/wake-word/activation")
 def set_wake_activation(body: WakeActivationBody, request: Request) -> dict[str, object]:
-    """Turn the always-on wake word ON/OFF — the "how do you activate Jarvis"
+    """Turn the always-on wake word ON/OFF — the "how do you activate the assistant"
     master switch (product rule 2026-07-04).
 
     ``True`` = always-on wake word, which REQUIRES a local model matching the
@@ -1662,6 +1696,7 @@ def set_wake_activation(body: WakeActivationBody, request: Request) -> dict[str,
             if persisted
             else f"The setting could not be saved to jarvis.toml. {LOG_HINT}"
         ),
+        "message_code": "" if persisted else "activation_not_persisted",
         "permission": permission,
     }
 
@@ -1689,6 +1724,7 @@ async def download_wake_model(request: Request) -> dict[str, object]:
             else "Could not download the wake model right now; it will retry "
                  "automatically. The wake word uses the fallback path until then."
         ),
+        "message_code": "model_ready" if present else "model_download_failed",
     }
 
 
@@ -1781,23 +1817,36 @@ async def wake_word_self_test(request: Request) -> dict[str, object]:
 
     # Human-readable verdict + the single most useful next step.
     ok = bool(plan.wake_available) and phrase_in_vocab is not False and mic_ok
+    # ``message_code`` / ``hint_code`` (+ ``message_params``) are the stable
+    # keys the desktop UI translates (``WAKE_SELF_TEST_CODES``); the English
+    # ``message`` / ``hint`` stay for the CLI and API callers.
+    message_params: dict[str, str] = {
+        "phrase": phrase, "engine": str(plan.engine), "language": str(language)
+    }
     if not phrase:
         message, hint = "No wake word set.", "Type a wake phrase first."
+        message_code, hint_code = "no_phrase", "type_phrase"
     elif not plan.wake_available:
         message, hint = plan.message, "Download the local model or use the hotkey."
+        message_code, hint_code = plan.message_code, "download_or_hotkey"
+        message_params = {**message_params, **dict(plan.message_params)}
     elif phrase_in_vocab is False:
         message = f"'{phrase}' is not in the {language} model's vocabulary."
         hint = "Pick a real word of your language, or use a different phrase."
+        message_code, hint_code = "not_in_vocab", "pick_real_word"
     elif no_device:
         message, hint = "No microphone detected.", "Connect/enable a mic."
+        message_code, hint_code = "no_microphone", "connect_mic"
     elif not mic_ok:
         message, hint = "Mic signal is very quiet.", "Speak louder or raise input gain."
+        message_code, hint_code = "mic_quiet", "speak_louder"
     else:
         message = (
             f"Ready: '{phrase}' on engine '{plan.engine}' "
             f"(language '{language}'). Say it to wake."
         )
         hint = ""
+        message_code, hint_code = "ready", ""
 
     return {
         "ok": ok,
@@ -1813,6 +1862,9 @@ async def wake_word_self_test(request: Request) -> dict[str, object]:
         "permission_required": False,
         "message": message,
         "hint": hint,
+        "message_code": message_code,
+        "message_params": message_params,
+        "hint_code": hint_code,
     }
 
 
@@ -1925,7 +1977,7 @@ class KeybindBody(BaseModel):
 def get_keybinds(request: Request) -> dict[str, object]:
     from jarvis.core.config import TriggerConfig
     from jarvis.core.config_writer import KEYBIND_TOML_KEY
-    from jarvis.trigger.hotkey import mouse_hotkeys_available
+    from jarvis.trigger.hotkey import mouse_hotkeys_available, mouse_hotkeys_reason_code
 
     cfg = _config(request)
     trig = getattr(cfg, "trigger", None) if cfg is not None else None
@@ -1952,7 +2004,13 @@ def get_keybinds(request: Request) -> dict[str, object]:
             action: str(getattr(d, field, "")) for action, field in KEYBIND_TOML_KEY.items()
         },
         "suggestions": _available_suggestions(current),
-        "mouse_buttons": {"supported": mouse_ok, "reason": mouse_reason},
+        "mouse_buttons": {
+            "supported": mouse_ok,
+            "reason": mouse_reason,
+            # Stable code for ``reason`` (``MOUSE_HOTKEY_REASONS``) so the UI
+            # shows it in the user's language; ``reason`` stays English.
+            "reason_code": mouse_hotkeys_reason_code(mouse_reason),
+        },
         "restart_required": restart_required,
     }
 
@@ -2335,6 +2393,16 @@ async def put_autostart(body: AutostartBody, request: Request) -> dict[str, obje
 class BackgroundBody(BaseModel):
     keep_agents_running: bool | None = Field(default=None)
     background_only_at_login: bool | None = Field(default=None)
+    persistent_server: bool | None = None
+    server_url: str | None = Field(default=None, max_length=2048)
+
+    @model_validator(mode="after")
+    def check_server(self) -> BackgroundBody:
+        if self.server_url and self.server_url.strip():
+            from jarvis.core.server_endpoint import server_endpoint
+
+            self.server_url = server_endpoint(self.server_url)
+        return self
 
 
 def _background_payload(request: Request) -> dict[str, object]:
@@ -2345,15 +2413,23 @@ def _background_payload(request: Request) -> dict[str, object]:
 
     cfg = _config(request)
     autostart_cfg = getattr(cfg, "autostart", None)
+    background_cfg = getattr(cfg, "background", None)
     work = work_from_state(request.app.state)
     return {
         "keep_agents_running": keep_running_enabled(cfg),
+        "persistent_server": bool(getattr(background_cfg, "persistent_server", False)),
+        "server_url": str(getattr(background_cfg, "server_url", "") or ""),
+        "running_as_server": bool(getattr(request.app.state, "agent_server_mode", False)),
         "background_only_at_login": bool(getattr(autostart_cfg, "background_only", False)),
         "autostart_enabled": bool(getattr(autostart_cfg, "enabled", True)),
         # This process IS the windowless service (a browser on its port).
-        "running_as_service": SERVICE_FLAG in _sys.argv,
+        "running_as_service": SERVICE_FLAG in _sys.argv or bool(
+            getattr(request.app.state, "agent_server_mode", False)
+        ),
         # Only the default app hands off; a dev instance stops with its window.
-        "supported": current_instance().owns_ambient_duties,
+        "supported": current_instance().owns_ambient_duties or bool(
+            getattr(request.app.state, "agent_server_mode", False)
+        ),
         "work": {
             "routines": work.routines,
             "running": work.running,
@@ -2372,6 +2448,22 @@ async def put_background(body: BackgroundBody, request: Request) -> dict[str, ob
     from jarvis.core import config_writer
 
     cfg = _config(request)
+    if body.persistent_server is not None or body.server_url is not None:
+        section = getattr(cfg, "background", None)
+        persistent = (
+            body.persistent_server if body.persistent_server is not None
+            else bool(getattr(section, "persistent_server", False))
+        )
+        origin = (
+            body.server_url if body.server_url is not None
+            else str(getattr(section, "server_url", "") or "")
+        )
+        await asyncio.to_thread(
+            config_writer.set_agent_server, persistent=persistent, server_url=origin,
+        )
+        if section is not None:
+            section.persistent_server = persistent
+            section.server_url = origin
     if body.keep_agents_running is not None:
         value = bool(body.keep_agents_running)
         config_writer.set_background_keep_running(value)
@@ -2390,6 +2482,10 @@ async def put_background(body: BackgroundBody, request: Request) -> dict[str, ob
                 autostart_cfg.background_only = value  # type: ignore[attr-defined]
             except Exception as exc:  # noqa: BLE001 — same as above
                 log.debug("in-memory autostart.background_only update skipped: %s", exc)
+    if (
+        body.background_only_at_login is not None or body.persistent_server is not None
+        or body.server_url is not None
+    ):
         enabled, _caps, manager, spec = _autostart_components(request)
         if enabled:
             # The login entry carries the mode in its command line; refresh it
@@ -2451,7 +2547,7 @@ async def put_overlay_style(body: OverlayStyleBody, request: Request) -> dict[st
             detail=(
                 f"The on-screen overlay belongs to the default app; the {instance.label} "
                 "instance draws none and does not change the shared setting. Switch the "
-                "style in the regular Personal Jarvis app."
+                "style in the regular Dodaios app."
             ),
         )
 
@@ -2875,7 +2971,8 @@ async def open_external(body: OpenExternalBody) -> dict[str, object]:
     from jarvis.platform.open_path import open_url
 
     opened = await asyncio.to_thread(open_url, body.url)
-    log.info("open-external: opened=%s url=%s", opened, body.url)
+    # Pairing and OAuth URLs may carry one-time credentials in their fragments.
+    log.info("open-external: opened=%s host=%s", opened, parsed.hostname)
     return {"opened": bool(opened)}
 
 

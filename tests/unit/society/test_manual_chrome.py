@@ -83,7 +83,7 @@ def test_ordinary_chrome_profile_is_never_opened(installed):
     profile, _ = installed
     chrome.os.environ["LOCALAPPDATA"] = str(profile)
     ordinary = profile / "Google" / "Chrome" / "User Data"
-    with pytest.raises(RuntimeError, match="Jarvis-owned"):
+    with pytest.raises(RuntimeError, match="Dodaios-owned"):
         chrome.select_chrome_executable(ordinary)
 
 
@@ -159,7 +159,8 @@ async def test_plain_login_uses_owned_profile_and_no_automation_transport(login)
     assert args == [
         instance.executable, f"--user-data-dir={instance.profile.resolve()}", "--new-window",
         "--no-first-run", "--disable-background-mode",
-        "--disable-backgrounding-occluded-windows", "chrome://newtab/",
+        "--disable-backgrounding-occluded-windows", "--disable-extensions",
+        "--hide-crash-restore-bubble", "chrome://newtab/",
     ]
     assert options["creationflags"] == 0x08000000
     assert options["stdin"] == options["stdout"] == options["stderr"] == subprocess.DEVNULL

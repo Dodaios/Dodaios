@@ -9,6 +9,7 @@ import { ScrollToEndButton } from "@/components/ui/scroll-to-end-button";
 import { scrollViewportOf, useStickToBottom } from "@/hooks/useStickToBottom";
 import { AgentComposer } from "@/components/agentchat/AgentComposer";
 import { AgentTimeline } from "@/components/agentchat/AgentTimeline";
+import { BinaryCursorField } from "@/components/home/BinaryCursorField";
 import { Greeting } from "@/components/home/Greeting";
 import { VoiceThreadStage } from "@/components/home/VoiceThreadStage";
 import type { ApprovalDecision } from "@/lib/agentChatApi";
@@ -204,17 +205,21 @@ function ChatStageContent() {
   // chat is coding sessions and never shows a spoken thread.
   if (surface === "jarvis" && voiceThreadId && !activeSessionId) return <VoiceThreadStage />;
 
-  // The front page opens the way the Codex app does: the greeting alone in
+  // The front page opens with the greeting alone in
   // the middle of the page, the composer already where it will stay — at the
   // bottom — so the first send moves nothing.
   if (!hasContent && isJarvis) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true">
-        <div className="flex w-full flex-1 flex-col items-center justify-center px-6 pb-8">
+      <div className="relative flex min-h-0 flex-1 flex-col items-center" data-testid="chat-stage" data-empty="true">
+        <BinaryCursorField />
+        <div className="relative flex w-full flex-1 flex-col items-center justify-center px-6 pb-8">
           <Greeting />
         </div>
         <div className="relative w-full max-w-[720px] px-6 pb-5 pt-2">
-          <AgentComposer autoFocus />
+          {/* The digits make way while the pointer is on the composer. */}
+          <div data-binary-field-off>
+            <AgentComposer autoFocus />
+          </div>
         </div>
       </div>
     );

@@ -33,6 +33,7 @@ from filelock import FileLock, Timeout
 from jarvis.core.config import DATA_DIR, JarvisConfig, load_config
 from jarvis.core.instance import current_instance
 from jarvis.core.process_utils import drop_inherited_electron_node_mode, ensure_standard_streams
+from jarvis.ui.section_windows import SECTION_WINDOW_TITLES, WINDOW_GROUPS, section_window
 
 if TYPE_CHECKING:
     from jarvis.ui.desktop_background import BackgroundStatus
@@ -40,7 +41,7 @@ if TYPE_CHECKING:
 
 # The main window's title doubles as its focus handle
 # (``_bring_window_to_front_by_title``) and follows the *instance*: the dev app
-# is "Personal Jarvis Dev", so neither instance ever raises the other's window.
+# is "Dodaios Dev", so neither instance ever raises the other's window.
 WINDOW_TITLE = current_instance().display_name
 
 # True while the WebView shows the app's own document — booted or still
@@ -98,9 +99,8 @@ TEXT_SELECTABLE: dict[str, Any] = {"text_select": True}
 # names, NOT the wake-word brand — the product/window title is a compatibility
 # contract (see ``jarvis/core/branding.py``), only agent names are dynamic.
 DETACHABLE_VIEWS: dict[str, str] = {
-    "agentic-ide": "Agents",
-    "agentic-ide-classic": "Agents",
-    "chat-workspace": "Agents",
+    **SECTION_WINDOW_TITLES,
+    **{tab: SECTION_WINDOW_TITLES[owner] for owner, tabs in WINDOW_GROUPS.items() for tab in tabs},
     "chats": "Voice",
     # The Voice hub family (one VoiceHubView with internal tabs). Each id keeps
     # its own label so two detached voice windows can never share a title —
@@ -122,7 +122,7 @@ DETACHABLE_VIEWS: dict[str, str] = {
     # opens from a capture's thumbnail card or the library, always on one
     # item (``&item=<id>``), and ONE editor window is reused — opening another
     # capture navigates it instead of stacking windows (open_jarvisx_editor).
-    "jarvisx-editor": "Jarvis X Editor",
+    "jarvisx-editor": "Dodaios X Editor",
 }
 META_FILE_PATH = DATA_DIR / ".jarvis-running"
 #: Timeout for the initial lock acquire, in seconds. 0 = non-blocking,
@@ -446,7 +446,7 @@ def _write_meta(port: int, pid: int, *, meta_path: Path | None = None) -> None:
         try:
             from loguru import logger
 
-            logger.warning("Could not write Jarvis meta sidecar: {}", exc)
+            logger.warning("Could not write Dodaios meta sidecar: {}", exc)
         except Exception:  # noqa: S110
             # The logger itself failed (very early boot); the outer handler
             # above already carries the real report.
@@ -637,11 +637,18 @@ def _pid_listening_on_port_netstat(port: int) -> int | None:
 
 
 def _focus_response_means_window_raised(response: Any) -> bool:
-    """True only when the running instance actually raised a window.
+    """True only when the running instance has a window on screen for the user.
 
     HTTP 200 is not enough: a headless holder answers 200 with
     ``focused=False`` (and used to answer ``ok=True``), which made the
     desktop launch exit as if it had brought a window forward.
+
+    A window that is shown but that Windows' foreground lock kept from being
+    activated still counts: the instance is healthy and its window is there.
+    Reading that refusal as "no window" asked the user to kill a working app
+    on almost every second launch (2026-10-06). Holders since then say
+    ``shown``; older ones only answered ``reason="foreground_lock"``, which
+    they sent after their GUI thread had already shown the window.
     """
     if not (200 <= int(getattr(response, "status_code", 0)) < 300):
         return False
@@ -650,6 +657,10 @@ def _focus_response_means_window_raised(response: Any) -> bool:
     except Exception:  # noqa: BLE001 — a 2xx with no JSON still counts
         return True
     if not isinstance(payload, dict):
+        return True
+    if payload.get("shown") is True:
+        return True
+    if payload.get("reason") == "foreground_lock":
         return True
     if "focused" in payload:
         return bool(payload.get("focused"))
@@ -731,6 +742,15 @@ def focus_existing_instance_robust() -> bool:
     except Exception:  # noqa: BLE001
         httpx = None  # type: ignore[assignment]
 
+    # The running instance is a background process to Windows: it may raise
+    # its own window only with the foreground right this launch got from the
+    # user's click. Hand it on before asking.
+    from loguru import logger
+
+    from jarvis.ui.foreground_grant import allow_foreground
+
+    allow_foreground(meta.get("pid") if isinstance(meta, dict) else None)
+
     if httpx is not None:
         for port in ports:
             try:
@@ -742,6 +762,12 @@ def focus_existing_instance_robust() -> bool:
             except Exception:  # noqa: BLE001, S112
                 # This port is not the running instance; try the next candidate.
                 continue
+            logger.info(
+                "focus request to the running instance on port {}: HTTP {} {}",
+                port,
+                getattr(r, "status_code", "?"),
+                _focus_response_summary(r),
+            )
             if _focus_response_means_window_raised(r):
                 _bring_window_to_front_by_title(WINDOW_TITLE)
                 return True
@@ -751,6 +777,18 @@ def focus_existing_instance_robust() -> bool:
                 return False
 
     return _bring_window_to_front_by_title(WINDOW_TITLE) or focused
+
+
+def _focus_response_summary(response: Any) -> str:
+    """The reply's ``focused``/``shown``/``reason`` fields, for the launch log."""
+    try:
+        payload = response.json()
+    except Exception:  # noqa: BLE001 — a reply without JSON has nothing to show
+        return "(no JSON body)"
+    if not isinstance(payload, dict):
+        return "(no JSON object)"
+    keys = ("ok", "focused", "shown", "reason")
+    return " ".join(f"{k}={payload[k]}" for k in keys if k in payload) or "(empty)"
 
 
 def _focus_response_reason(response: Any) -> str:
@@ -1145,6 +1183,47 @@ def _bring_window_to_front_by_title(title: str) -> bool:
         # Win32-only path; on any non-Windows host, or when the window has
         # already gone, False is the honest answer and the caller has its own
         # fallback. Returning False here is the report.
+        return False
+
+
+def _flash_taskbar_button(title: str) -> bool:
+    """Flash the taskbar button of the window titled ``title`` (Windows).
+
+    What Windows itself does when it refuses a background activation: the
+    button flashes until the user brings the window forward. Returns whether
+    a window was found to flash; other platforms have no such lock.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class _FlashInfo(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.UINT),
+                ("hwnd", wintypes.HWND),
+                ("dwFlags", wintypes.DWORD),
+                ("uCount", wintypes.UINT),
+                ("dwTimeout", wintypes.DWORD),
+            ]
+
+        # Private WinDLL instance, same reason as _bring_window_to_front_by_title.
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.FindWindowW.restype = wintypes.HWND
+        user32.FlashWindowEx.argtypes = [ctypes.POINTER(_FlashInfo)]
+        user32.FlashWindowEx.restype = wintypes.BOOL
+        hwnd = user32.FindWindowW(None, title)
+        if not hwnd:
+            return False
+        flashw_tray, flashw_timernofg = 0x2, 0xC
+        info = _FlashInfo(ctypes.sizeof(_FlashInfo), hwnd, flashw_tray | flashw_timernofg, 0, 0)
+        user32.FlashWindowEx(ctypes.byref(info))
+        return True
+    except Exception as exc:  # noqa: BLE001 - a hint for the user, never a failure
+        from loguru import logger
+
+        logger.debug("could not flash the taskbar button of {!r}: {}", title, exc)
         return False
 
 
@@ -1560,24 +1639,24 @@ def acquire_single_instance_lock(
                     port = int(probe_port)
             elif probe(int(probe_port)):
                 raise SingleInstanceError(
-                    f"Jarvis is already running (port={int(probe_port)} answering, pid unknown)."
+                    f"Dodaios is already running (port={int(probe_port)} answering, pid unknown)."
                 )
     if pid is not None and _pid_alive(pid):
         # Closing removes the window and port before the process releases its
         # lock. Let the launcher await that deliberate handover, not evict a
         # process still flushing its state because its health endpoint closed.
         if _quitting_grace_remaining(meta, pid) > 0:
-            raise SingleInstanceError(f"Jarvis is already running (pid={pid}).")
+            raise SingleInstanceError(f"Dodaios is already running (pid={pid}).")
         # Holder is alive. Is it actually FUNCTIONAL (serving its port)? A
         # healthy instance, the own pid, or a holder with no recorded port is
         # respected; only a live-but-non-serving lock-zombie is evicted.
         if pid == os.getpid() or port is None or probe(port):
-            raise SingleInstanceError(f"Jarvis is already running (pid={pid}).")
+            raise SingleInstanceError(f"Dodaios is already running (pid={pid}).")
         with suppress(Exception):
             from loguru import logger
 
             logger.warning(
-                "Jarvis lock held by a LIVE but non-responding instance "
+                "Dodaios lock held by a LIVE but non-responding instance "
                 "(pid={}, port={} not responding) — terminating the lock "
                 "zombie so this start can proceed.",
                 pid,
@@ -1585,7 +1664,7 @@ def acquire_single_instance_lock(
             )
         if not killer(pid):
             raise SingleInstanceError(
-                f"Jarvis lock held by a non-responding instance (pid={pid}); "
+                f"Dodaios lock held by a non-responding instance (pid={pid}); "
                 "could not terminate it."
             )
         # fall through to the stale-reclaim path below (sidecar + retry acquire)
@@ -1608,7 +1687,7 @@ def acquire_single_instance_lock(
             last_exc = exc
             if time.monotonic() >= deadline:
                 raise SingleInstanceError(
-                    "Jarvis lock is held but the holder is not responding."
+                    "Dodaios lock is held but the holder is not responding."
                 ) from last_exc
             time.sleep(0.3)
 
@@ -1637,11 +1716,13 @@ _CONDUCTOR_NEWS_PHRASES: dict[str, dict[str, str]] = {
         "de": "Der geplante Job {name} schlägt gerade fehl.",  # i18n-allow
         "en": "The scheduled job {name} has started failing.",
         "es": "El trabajo programado {name} está fallando.",
+        "pt": "A tarefa agendada {name} começou a falhar.",  # i18n-allow
     },
     "recovered": {
         "de": "Der geplante Job {name} läuft wieder.",  # i18n-allow
         "en": "The scheduled job {name} is working again.",
         "es": "El trabajo programado {name} vuelve a funcionar.",
+        "pt": "A tarefa agendada {name} voltou a funcionar.",  # i18n-allow
     },
 }
 
@@ -1879,6 +1960,7 @@ class DesktopApp:
         # pywebview event hooks, the tray bridge) — never from the asyncio
         # loop, and never from the GUI MainThread.
         self._detached_windows: dict[str, Any] = {}
+        self._detached_open_lock = threading.Lock()
         self._shutdown_done = False
         self._tray: Any = None
         self._user_requested_quit = False
@@ -3641,15 +3723,17 @@ class DesktopApp:
             if jcur is not None:
                 set_jarvis_system_cursor(jcur)
                 self._jarvis_cursor = jcur
-                logger.info("Jarvis system cursor armed (swap on Computer-Use mission).")
+                logger.info("Dodaios system cursor armed (swap on Computer-Use mission).")
         except ModuleNotFoundError as exc:
             if exc.name == "overlay":
-                logger.debug("Jarvis system cursor skipped: optional overlay package not installed")
+                logger.debug(
+                    "Dodaios system cursor skipped: optional overlay package not installed"
+                )
             else:
-                logger.opt(exception=exc).warning("Jarvis system cursor not startable")
+                logger.opt(exception=exc).warning("Dodaios system cursor not startable")
             self._jarvis_cursor = None
         except Exception as exc:  # noqa: BLE001
-            logger.opt(exception=exc).warning("Jarvis system cursor not startable")
+            logger.opt(exception=exc).warning("Dodaios system cursor not startable")
             self._jarvis_cursor = None
 
         # 2. Tk halo / click-pulse overlay — opt-in (BUG-030 default off).
@@ -3689,7 +3773,7 @@ class DesktopApp:
             # second macOS first-boot crash (BUG-057; the first was the
             # BUG-056 tray). Both surfaces therefore live in their own
             # companion process whose MAIN thread owns the Tk mainloop
-            # (jarvis.ui.jarvisbar.host), remote-driven over stdio; the init
+            # (jarvis.ui.dodaiosbar.host), remote-driven over stdio; the init
             # line's "surface" key selects bar vs. mascot.
             if style != "none":
                 hosted = self._build_hosted_surface(
@@ -3697,15 +3781,15 @@ class DesktopApp:
                 )
                 if hosted is not None:
                     return hosted
-            from jarvis.ui.jarvisbar import NullOverlay
+            from jarvis.ui.dodaiosbar import NullOverlay
 
             return NullOverlay()
         if style == "none":
-            from jarvis.ui.jarvisbar import NullOverlay
+            from jarvis.ui.dodaiosbar import NullOverlay
 
             return NullOverlay()
         if style == "jarvis_bar":
-            from jarvis.ui.jarvisbar import JarvisBarOverlay
+            from jarvis.ui.dodaiosbar import JarvisBarOverlay
 
             # The startup gate is stronger than merely starting withdrawn: early
             # state/wake events cannot reveal the bar while voice is warming.
@@ -3732,7 +3816,7 @@ class DesktopApp:
     def _build_hosted_surface(self, style: str, *, gate_until_voice_ready: bool = False):
         """Start the bar or the orb window in its own companion process.
 
-        ``jarvis.ui.jarvisbar.host`` owns the Tk (or Qt) root on its own MAIN
+        ``jarvis.ui.dodaiosbar.host`` owns the Tk (or Qt) root on its own MAIN
         thread, so nothing in this process ever creates or destroys a root.
         That makes it the macOS boot surface (BUG-057) and, on every OS, the
         surface a live style switch builds: a second in-process root aborts
@@ -3746,7 +3830,7 @@ class DesktopApp:
 
         try:
             if style == BAR_STYLE:
-                from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessBarOverlay
+                from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessBarOverlay
 
                 surface = SubprocessBarOverlay(
                     persistent=self.cfg.ui.bar_persistent,
@@ -3756,7 +3840,7 @@ class DesktopApp:
                     follow_cursor_monitor=getattr(self.cfg.ui, "bar_follow_cursor_monitor", True),
                 )
             elif style in ORB_STYLES:
-                from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessMascotOverlay
+                from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 
                 surface = SubprocessMascotOverlay(
                     mascot_path=self.cfg.ui.orb_mascot_path or None,
@@ -3774,7 +3858,7 @@ class DesktopApp:
         if getattr(surface, "_proc", None) is None:
             logger.warning("Overlay host for style={} did not start.", style)
             return None
-        logger.info("Overlay hosted out-of-process (jarvis.ui.jarvisbar.host, style={}).", style)
+        logger.info("Overlay hosted out-of-process (jarvis.ui.dodaiosbar.host, style={}).", style)
         return surface
 
     def _pet_surface_kwargs(self) -> dict[str, object]:
@@ -3925,7 +4009,7 @@ class DesktopApp:
         """
         from loguru import logger
 
-        from jarvis.ui.jarvisbar import renderer
+        from jarvis.ui.dodaiosbar import renderer
 
         scale = renderer.clamp_user_size(scale)
         try:
@@ -4047,7 +4131,7 @@ class DesktopApp:
             if style == HIDDEN_STYLE:
                 new = cache.get(HIDDEN_STYLE)
                 if new is None:
-                    from jarvis.ui.jarvisbar import NullOverlay  # no Tk root
+                    from jarvis.ui.dodaiosbar import NullOverlay  # no Tk root
 
                     new = NullOverlay()
                     cache[HIDDEN_STYLE] = new
@@ -4108,7 +4192,7 @@ class DesktopApp:
         """
         from loguru import logger
 
-        from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessBarOverlay
+        from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessBarOverlay
 
         try:
             if isinstance(surface, SubprocessBarOverlay):
@@ -4579,7 +4663,7 @@ class DesktopApp:
             # complex dependencies (dispatch-to-harness, spawn-worker) are
             # skipped; those are Jarvis-Agent specialties anyway, not meant for
             # skill bodies. ``remember`` and friends all fit this schema.
-            from importlib.metadata import entry_points as _eps
+            from jarvis.core.entry_points import entry_points as _eps
 
             skill_tool_registry: dict[str, Any] = {}
             for _ep in _eps(group="jarvis.tool"):
@@ -5249,7 +5333,12 @@ class DesktopApp:
             # being destroyed and then exit as if it had succeeded (2026-09-30).
             return {"ok": False, "focused": False, "reason": "quitting"}
         if self._window is None:
-            if getattr(getattr(self, "_background", None), "keeper", None) is not None:
+            # A detached view also keeps the GUI loop alive after main closes.
+            # A second launch must reopen main just like the tray's Open action,
+            # instead of reporting this healthy process as a windowless hang.
+            if getattr(self, "_detached_windows", None) or getattr(
+                getattr(self, "_background", None), "keeper", None
+            ) is not None:
                 self._ensure_main_window()
             if self._window is None:
                 return {"ok": False, "reason": "no_window"}
@@ -5264,7 +5353,14 @@ class DesktopApp:
         self._restore_overlay_for_visible_window()
         if focused:
             return {"ok": True, "focused": True}
-        return {"ok": False, "focused": False, "reason": "foreground_lock"}
+        # Windows refused the activation (the foreground lock), yet the window
+        # is on screen: a healthy instance, not a stuck one. Say so, and flash
+        # its taskbar button so the user finds it. A window that is still
+        # minimized or missing is not "shown".
+        shown = not window_needs_restore(WINDOW_TITLE)
+        if shown:
+            _flash_taskbar_button(WINDOW_TITLE)
+        return {"ok": shown, "focused": False, "shown": shown, "reason": "foreground_lock"}
 
     # ---- Detached solo windows ----------------------------------------------
 
@@ -5302,15 +5398,13 @@ class DesktopApp:
     def window_command(self, action: str, view: str | None) -> dict[str, Any]:
         """Minimize, maximize or close one live window. Worker-thread safe.
 
-        A detached view targets that window. Anything else targets the main
+        A detached view targets only that window. An omitted view targets the main
         window. Maximize toggles, using the real zoomed state on Windows when
         the frame hook can read it.
         """
         from jarvis.ui.window_command import run_window_command
 
-        window = self._detached_windows.get(view) if view else None
-        if window is None:
-            window = self._window
+        window = self._detached_windows.get(section_window(view)) if view else self._window
         maximized: bool | None = None
         if sys.platform == "win32" and window is not None:
             try:
@@ -5328,14 +5422,12 @@ class DesktopApp:
     def set_window_zoom(self, factor: float, view: str | None) -> dict[str, Any]:
         """Zoom one live window's page. Worker-thread safe.
 
-        A detached view targets that window. Anything else targets the main
+        A detached view targets only that window. An omitted view targets the main
         window. See ``jarvis.ui.window_zoom`` for the per-engine details.
         """
         from jarvis.ui.window_zoom import set_window_zoom
 
-        window = self._detached_windows.get(view) if view else None
-        if window is None:
-            window = self._window
+        window = self._detached_windows.get(section_window(view)) if view else self._window
         return set_window_zoom(window, factor)
 
     def _arm_window_frame(self, window: Any) -> None:
@@ -5410,8 +5502,19 @@ class DesktopApp:
         honest degrade on hosts whose webview backend cannot create runtime
         windows.
         """
+        # Serialize check/create/register: two tabs must not open duplicate owners.
+        lock = getattr(self, "_detached_open_lock", None)
+        if lock is None:  # Lightweight test/legacy hosts that bypass __init__.
+            lock = self._detached_open_lock = threading.Lock()
+        with lock:
+            return self._open_detached_window(view, query)
+
+    def _open_detached_window(self, view: str, query: str) -> dict[str, Any]:
+        requested = view
+        view = section_window(view)
         suffix = f"&{query}" if query else ""
-        fallback = f"/?view={view}&solo=1{suffix}"
+        identity = f"&window={view}" if requested != view else ""
+        fallback = f"/?view={requested}&solo=1{identity}{suffix}"
         if view not in DETACHABLE_VIEWS:
             return {"ok": False, "reason": "unknown_view"}
         existing = self._detached_windows.get(view)
@@ -5592,6 +5695,7 @@ class DesktopApp:
         window's ``closed`` hook, so this path and the user's own X on the
         window behave identically.
         """
+        view = section_window(view)
         window = self._detached_windows.get(view)
         if window is None:
             return {"ok": False, "reason": "not_detached"}
@@ -6447,7 +6551,7 @@ class DesktopApp:
         )
         message = (
             "\n"
-            "Personal Jarvis could not open a native desktop window.\n"
+            "Dodaios could not open a native desktop window.\n"
             f"Reason: {exc}\n"
             "\n"
             "The backend is running and already serving the full UI. To use it:\n"
@@ -7104,7 +7208,7 @@ class DesktopApp:
                 from loguru import logger as _logger
 
                 _logger.opt(exception=exc).warning(
-                    "Jarvis system-cursor shutdown raised; cursor may stay swapped."
+                    "Dodaios system-cursor shutdown raised; cursor may stay swapped."
                 )
             try:
                 from jarvis.overlay.system_cursor import set_jarvis_system_cursor

@@ -9,10 +9,11 @@ it genuinely cannot run, but it FAILS CLOSED on every positive finding.
 It enforces exactly three things on an ordinary push:
 
   (A) Public-repo guard. A direct push to the PUBLIC distribution repo
-      (PersonalJarvis/PersonalJarvis) is hard-blocked. The only sanctioned path
-      to public is the depersonalized public-release snapshot, which scrubs the
-      tree first. Detected by remote name == "public" OR a remote URL
-      containing (case-insensitive) "personaljarvis/personaljarvis".
+      (Dodaios/Dodaios, formerly PersonalJarvis/PersonalJarvis) is hard-blocked.
+      The only sanctioned path to public is the depersonalized public-release
+      snapshot, which scrubs the tree first. Detected by remote name == "public"
+      OR a remote URL containing (case-insensitive) "dodaios/dodaios" or the
+      previous "personaljarvis/personaljarvis" slug.
 
   (B) Private-identity guard. No commit being pushed may carry a private
       maintainer email (author OR committer). Only the GitHub noreply form is
@@ -75,12 +76,14 @@ def target_is_public(remote_name: str, remote_url: str) -> bool:
     """True iff the push target is the PUBLIC distribution repo.
 
     Matched by remote name == "public" OR the remote URL containing (case-
-    insensitive) "personaljarvis/personaljarvis". Hyphenated or otherwise
-    non-flagship repo slugs deliberately do NOT match.
+    insensitive) "dodaios/dodaios" or the previous slug
+    "personaljarvis/personaljarvis". Hyphenated or otherwise non-flagship repo
+    slugs deliberately do NOT match.
     """
     if remote_name == "public":
         return True
-    return "personaljarvis/personaljarvis" in (remote_url or "").lower()
+    url = (remote_url or "").lower()
+    return "dodaios/dodaios" in url or "personaljarvis/personaljarvis" in url
 
 
 def offenders_from_log(log_text: str, private_emails: set[str]) -> list[dict]:
@@ -116,6 +119,15 @@ def offenders_from_log(log_text: str, private_emails: set[str]) -> list[dict]:
 def forbidden_file(name: str, forbidden: set[str]) -> bool:
     """True iff the basename is a forbidden secret file (e.g. .env, jarvis.toml)."""
     return name in forbidden
+
+
+#: Earlier import names of the package. A catalog manifest starts a bundled
+#: server by module name and keeps the name it was published with, so each of
+#: these stays an accepted spelling next to the name of the directory the
+#: manifests live in. This hook is standard library only, so the tuple restates
+#: ``LEGACY_PACKAGE_NAMES`` of the package's branding module;
+#: tests/unit/ci/test_public_mcp_privacy.py pins the two together.
+LEGACY_PACKAGE_NAMES = ("jarvis",)
 
 
 def is_public_catalog_mcp(rel: str, text: str) -> bool:
@@ -172,10 +184,16 @@ def is_public_catalog_mcp(rel: str, text: str) -> bool:
             return False
         if server["type"] != "stdio" or server["command"] != "python":
             return False
-        expected = ["-m", "jarvis.plugins.tool.connected_server", plugin_id.replace("-", "_")]
-        return server["args"] == expected or (
-            plugin_id == "amd-gpu" and server["args"] == ["-m", "jarvis.marketplace.amd_mcp"]
-        )
+        # The package the manifest belongs to is the directory it sits in.
+        packages = (rel.partition("/")[0], *LEGACY_PACKAGE_NAMES)
+        connector = plugin_id.replace("-", "_")
+        if server["args"] in [
+            ["-m", f"{package}.plugins.tool.connected_server", connector] for package in packages
+        ]:
+            return True
+        return plugin_id == "amd-gpu" and server["args"] in [
+            ["-m", f"{package}.marketplace.amd_mcp"] for package in packages
+        ]
     except (ValueError, TypeError, RecursionError):
         # Malformed or ambiguous JSON/URLs remain forbidden, without echoing content.
         return False

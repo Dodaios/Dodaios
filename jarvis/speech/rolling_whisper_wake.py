@@ -285,7 +285,7 @@ class RollingWhisperWake:
         # During silence/quiet noise the gain is capped (max_gain_db).
         target_peak_dbfs: float = -3.0,
         max_gain_db: float = 40.0,
-        language: str = "de",
+        language: str = "de",  # input language, not output
         # faster-whisper's exp(avg_logprob) score is harsh on 1-2 word wake
         # chunks: live, cleanly-heard custom-name wakes land at ~0.28-0.52 (real
         # samples 2026-06-23: "Ruben." 0.318, "Hey Ruhm" 0.365, "Hey Ruben" 0.52).

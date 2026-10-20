@@ -406,7 +406,7 @@ def start_server() -> tuple[bool, str]:
         time.sleep(_START_POLL_S)
     return False, (
         f"Ollama did not come up within {_START_WAIT_S:.0f} seconds — "
-        "see ollama_server.log in the Jarvis data folder."
+        "see ollama_server.log in the Dodaios data folder."
     )
 
 
@@ -416,7 +416,7 @@ _STOP_WAIT_S = 8.0
 _PROBE_TIMEOUT_S = 3.0
 
 _NOT_OURS = (
-    "This Ollama was not started by Jarvis, so Jarvis will not stop it — "
+    "This Ollama was not started by Dodaios, so Dodaios will not stop it — "
     "stop it where you started it (the Ollama tray app, your terminal, or "
     "the system service)."
 )
@@ -450,16 +450,16 @@ def stop_server() -> tuple[bool, str]:
     except psutil.NoSuchProcess:
         _forget_pid()
         return False, (
-            f"The Ollama that Jarvis started (pid {pid}) is no longer running. "
+            f"The Ollama that Dodaios started (pid {pid}) is no longer running. "
             "If a server is still answering, it was started elsewhere."
         )
     except psutil.Error as exc:
-        return False, f"Could not inspect the Ollama process Jarvis started ({exc})."
+        return False, f"Could not inspect the Ollama process Dodaios started ({exc})."
     if not _process_is_ollama(proc):
         # The pid was recycled by the OS for an unrelated program.
         _forget_pid()
         return False, (
-            f"Pid {pid} no longer belongs to Ollama; the server Jarvis started "
+            f"Pid {pid} no longer belongs to Ollama; the server Dodaios started "
             "is gone. If a server is still answering, it was started elsewhere."
         )
     try:

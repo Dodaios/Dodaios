@@ -84,7 +84,14 @@ function tokenHex(name: string, fallback: string): string {
   return `#${[red, green, blue, Math.round(alpha * 255)].map((part) => part.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/** Re-read the app's colour tokens into the editor theme (light or dark). */
+let appliedTheme = "";
+
+/**
+ * Re-read the app's colour tokens into the editor theme (light or dark).
+ *
+ * Every editor on screen asks for this when the app's theme changes, and a
+ * theme change repaints all of them, so only the first call per change acts.
+ */
 export function applyTheme(dark: boolean): void {
   const background = tokenHex("--background", dark ? "#171717" : "#ffffff");
   const foreground = tokenHex("--foreground", dark ? "#e5e5e5" : "#171717");
@@ -92,6 +99,12 @@ export function applyTheme(dark: boolean): void {
   const border = tokenHex("--border", dark ? "#2e2e2e" : "#e5e5e5");
   const lift = tokenHex("--secondary", dark ? "#262626" : "#f5f5f5");
   const popover = tokenHex("--popover", background);
+  // The same thumb colours as the app's own scrollbars (index.css), so the
+  // editor's bars and the diff overview's viewport box read as one family.
+  const thumb = tokenHex("--border-strong", dark ? "#404040" : "#bdbdbd");
+  const signature = [dark, background, foreground, muted, border, lift, popover, thumb].join("|");
+  if (signature === appliedTheme) return;
+  appliedTheme = signature;
   monaco.editor.defineTheme("jarvis", {
     base: dark ? "vs-dark" : "vs",
     inherit: true,
@@ -116,6 +129,9 @@ export function applyTheme(dark: boolean): void {
       "input.border": border,
       "focusBorder": border,
       "scrollbar.shadow": "#00000000",
+      "scrollbarSlider.background": thumb.slice(0, 7),
+      "scrollbarSlider.hoverBackground": `${muted.slice(0, 7)}aa`,
+      "scrollbarSlider.activeBackground": `${muted.slice(0, 7)}dd`,
       "diffEditor.border": border,
     },
   });
@@ -132,6 +148,8 @@ export const EDITOR_OPTIONS: monaco.editor.IEditorOptions & monaco.editor.IGloba
   bracketPairColorization: { enabled: true },
   guides: { bracketPairs: "active", indentation: true },
   smoothScrolling: true,
+  // Thin bars like the rest of the app instead of Monaco's 14 px gutters.
+  scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10, useShadows: false },
   cursorSmoothCaretAnimation: "on",
   renderWhitespace: "selection",
   scrollBeyondLastLine: false,

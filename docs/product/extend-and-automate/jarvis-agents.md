@@ -1,7 +1,7 @@
 ---
-title: "Jarvis-Agents"
+title: "Dodaios-Agents"
 slug: jarvis-agents
-summary: "Learn when Jarvis delegates longer work, how missions and workers fit together, and how to follow progress and results."
+summary: "Learn when Dodaios delegates longer work, how missions and workers fit together, and how to follow progress and results."
 section: "Extend and automate"
 section_order: 5
 order: 1
@@ -15,7 +15,7 @@ tags: [jarvis-agents, missions, workers, outputs, safety, automation]
 related: [tasks-and-reminders, outputs-and-files, skills, safety-and-approvals]
 ---
 
-Jarvis-Agents is the internal name for the background mission system. In the
+Dodaios-Agents is the internal name for the background mission system. In the
 app, the visible name follows your assistant name. For example, an assistant
 named Nova shows **Nova-Agents** in the sidebar and **Nova-Agent** on each row.
 If no assistant name is available, the app uses **Assistant-Agents**.
@@ -37,7 +37,7 @@ conversation.
   started with.
 - Install Git. Source-code work also needs a usable source checkout. A
   standalone report or file can run in a new, empty Git workspace, so it does
-  not require a Personal Jarvis source checkout.
+  not require a Dodaios source checkout.
 - Connect an external service before requesting work that needs it. A
   connection does not give every mission unrestricted access to that service.
 
@@ -47,7 +47,7 @@ conversation.
    will judge it. For example: "Start a background agent and create a Markdown
    report with three options, sources, and a recommendation."
 
-2. **Wait for the handoff message.** Jarvis confirms that the named agent has
+2. **Wait for the handoff message.** Dodaios confirms that the named agent has
    taken the task. The mission then runs separately, so you can continue the
    main conversation.
 
@@ -82,7 +82,7 @@ conversation.
 
 ## What Happens During the Work
 
-| Stage | What Jarvis does | What you can observe |
+| Stage | What Dodaios does | What you can observe |
 |---|---|---|
 | **Handoff** | Saves the request as a mission and releases the conversation | A handoff message and an **ACTIVE** row |
 | **Plan** | Splits the request into one to five bounded steps | The mission stays active |
@@ -100,10 +100,10 @@ Each step gets at most three worker and reviewer iterations. A review that
 still does not approve the result at that point fails the mission. Genuine
 partial files are retained and may appear as **needs review** in Outputs.
 Timeouts also fail honestly. If a timed-out worker left useful files, the
-reviewer can still assess them; without useful output, Jarvis can retry within
+reviewer can still assess them; without useful output, Dodaios can retry within
 the remaining iterations.
 
-The selected worker provider is the first choice. Before a new attempt, Jarvis
+The selected worker provider is the first choice. Before a new attempt, Dodaios
 checks whether that provider is usable and can cross to another configured
 provider family after authentication, quota, or availability failures. The
 reviewer also needs a reachable compatible provider. If no suitable worker or
@@ -117,7 +117,7 @@ earlier. Treat the displayed limit as a cap, not a promised runtime.
 
 An agent receives a short-lived, mission-specific capability grant. Eligible
 read-only Wiki tools, selected app commands, and tools from connected services
-can be offered through the main Jarvis process. Tool objects and credentials
+can be offered through the main Dodaios process. Tool objects and credentials
 stay with that supervisor. They are not copied into the worker prompt or shown
 on the operations board.
 
@@ -136,7 +136,7 @@ read credentials, or change protected configuration through the worker grant.
 ## How It Fits Together
 
 1. **Chats or voice starts the mission.** You must explicitly ask for a
-   background agent. Jarvis saves the request and returns the handoff message.
+   background agent. Dodaios saves the request and returns the handoff message.
 2. **A skill can provide repeatable instructions.** A skill configured for
    mission execution can start the same isolated and reviewed workflow. Read
    [Skills](skills) before enabling generated or mission-based skills.
@@ -170,7 +170,7 @@ preview. A spoken completion message is useful, but it is not the file record.
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| Jarvis answers directly and no mission appears | The request did not explicitly ask for an agent | Ask for a background agent and name a concrete deliverable |
+| Dodaios answers directly and no mission appears | The request did not explicitly ask for an agent | Ask for a background agent and name a concrete deliverable |
 | The board reports that no provider is reachable | The selected login or key is missing, expired, out of quota, or unavailable, and no fallback family is usable | Open **API Keys**, reconnect the selected provider or activate another family, then try a small mission |
 | The board is empty after a completed run | Terminal rows leave the live board after about 60 seconds | Open **Outputs** for the retained card and files |
 | A mission stays **ACTIVE** for a long time | It can be queued, working, under review, correcting a draft, or waiting on a provider | Check the provider banner and Outputs card; hold **Abort** if you no longer want the run |

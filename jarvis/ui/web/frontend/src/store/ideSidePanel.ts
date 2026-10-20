@@ -10,18 +10,20 @@ import { create } from "zustand";
  */
 
 /** Every function the panel can show. A new one is a new id plus a registry entry. */
-export type SidePanelTabId = "agents" | "changes" | "files" | "search" | "git" | "skills" | "subscriptions" | "office" | `terminal:${string}`;
+export type SidePanelTabId = "browser" | "agents" | "changes" | "files" | "search" | "git" | "skills" | "chat" | "subscriptions" | "office" | `terminal:${string}`;
 
 export interface SidePanelTerminal {
   id: `terminal:${string}`;
   workspaceId: string;
   workspaceName: string;
   number: number;
+  /** Absolute folder the shell starts in; omitted = the workspace's own folder. */
+  folder?: string;
 }
 
 export const MAX_TERMINAL_TABS = 16;
 
-export const SIDE_PANEL_TAB_IDS: readonly SidePanelTabId[] = ["agents", "changes", "files", "search", "git", "skills", "subscriptions", "office"];
+export const SIDE_PANEL_TAB_IDS: readonly SidePanelTabId[] = ["browser", "agents", "changes", "files", "search", "git", "skills", "chat", "subscriptions", "office"];
 
 /**
  * DOM id of the panel host, for the toggle's `aria-controls`.
@@ -33,11 +35,14 @@ export const SIDE_PANEL_TAB_IDS: readonly SidePanelTabId[] = ["agents", "changes
 export const SIDE_PANEL_ID = "ide-side-panel";
 
 const OPEN_KEY = "jarvis.agenticIde.sidePanelOpen";
-// v4: the panel starts with Agents alone and the other tabs are added from
-// its "+" menu (maintainer, 2026-09-28); older lists opened every tab.
-const TABS_KEY = "jarvis.agenticIde.sidePanelTabs.v4";
+// v5: the panel starts empty and offers the "Open a surface" launcher; the
+// reader picks what to open (maintainer, 2026-10-07). Older lists reopened
+// every tab they had ever added.
+const TABS_KEY = "jarvis.agenticIde.sidePanelTabs.v5";
 
-const DEFAULT_TABS: SidePanelTabId[] = ["agents"];
+const DEFAULT_TABS: SidePanelTabId[] = [];
+/** Stand-in for `active` while no tab is open; the panel then shows the launcher. */
+const NO_TAB: SidePanelTabId = "agents";
 
 const isTabId = (value: unknown): value is SidePanelTabId =>
   typeof value === "string" && (SIDE_PANEL_TAB_IDS as readonly string[]).includes(value);
@@ -57,10 +62,10 @@ function storedTabs(): { tabs: SidePanelTabId[]; active: SidePanelTabId } {
       active?: unknown;
     } | null;
     const tabs = Array.isArray(raw?.tabs) ? [...new Set(raw.tabs.filter(isTabId))] : [];
-    if (tabs.length === 0) return { tabs: DEFAULT_TABS, active: DEFAULT_TABS[0] };
+    if (tabs.length === 0) return { tabs: DEFAULT_TABS, active: NO_TAB };
     return { tabs, active: isTabId(raw?.active) && tabs.includes(raw.active) ? raw.active : tabs[0] };
   } catch {
-    return { tabs: DEFAULT_TABS, active: DEFAULT_TABS[0] };
+    return { tabs: DEFAULT_TABS, active: NO_TAB };
   }
 }
 
@@ -70,7 +75,7 @@ function persist(open: boolean, tabs: SidePanelTabId[], active: SidePanelTabId):
     // Shell processes belong to this window. A reload must not silently start
     // replacements for commands that were running before the window closed.
     const saved = tabs.filter(isTabId);
-    localStorage.setItem(TABS_KEY, JSON.stringify({ tabs: saved, active: isTabId(active) ? active : saved[0] }));
+    localStorage.setItem(TABS_KEY, JSON.stringify({ tabs: saved, active: isTabId(active) ? active : saved[0] ?? NO_TAB }));
   } catch {
     /* a convenience only: the panel still works for this session */
   }
@@ -90,12 +95,13 @@ interface IdeSidePanelState {
   tabs: SidePanelTabId[];
   active: SidePanelTabId;
   terminals: SidePanelTerminal[];
-  addTerminalTab: (workspaceId: string, workspaceName: string) => void;
+  /** `folder` starts the shell in that folder of the workspace instead of its root. */
+  addTerminalTab: (workspaceId: string, workspaceName: string, folder?: string) => void;
   setOpen: (open: boolean) => void;
   /** Open a tab (or bring it forward when it is already open). */
   openTab: (id: SidePanelTabId) => void;
   select: (id: SidePanelTabId) => void;
-  /** Closing the last tab collapses the panel; reopening starts fresh. */
+  /** Closing the last tab leaves the panel open on the "Open a surface" launcher. */
   closeTab: (id: SidePanelTabId) => void;
   spotlight: PaneSpotlight | null;
   setSpotlight: (spotlight: PaneSpotlight | null) => void;
@@ -128,14 +134,14 @@ export const useIdeSidePanelStore = create<IdeSidePanelState>((set, get) => {
     tabs: initialTabs.tabs,
     active: initialTabs.active,
     terminals: [],
-    addTerminalTab: (workspaceId, workspaceName) => {
+    addTerminalTab: (workspaceId, workspaceName, folder) => {
       if (!workspaceId) return;
       const { terminals, tabs } = get();
       const siblings = terminals.filter((terminal) => terminal.workspaceId === workspaceId);
       if (siblings.length >= MAX_TERMINAL_TABS) return;
       const id = `terminal:${crypto.randomUUID()}` as const;
       const number = Math.max(0, ...siblings.map((terminal) => terminal.number)) + 1;
-      set({ terminals: [...terminals, { id, workspaceId, workspaceName, number }] });
+      set({ terminals: [...terminals, { id, workspaceId, workspaceName, number, ...(folder ? { folder } : {}) }] });
       commit({ open: true, tabs: [...tabs, id], active: id });
     },
     spotlight: null,
@@ -162,8 +168,8 @@ export const useIdeSidePanelStore = create<IdeSidePanelState>((set, get) => {
       const rest = tabs.filter((tab) => tab !== id);
       set({ terminals: get().terminals.filter((terminal) => terminal.id !== id) });
       if (rest.length === 0) {
-        set({ spotlight: null, maximized: false, inUse: false });
-        commit({ open: false, tabs: DEFAULT_TABS, active: DEFAULT_TABS[0] });
+        set({ spotlight: null, maximized: false });
+        commit({ tabs: DEFAULT_TABS, active: NO_TAB });
         return;
       }
       commit({ tabs: rest, active: active === id ? rest[Math.max(0, index - 1)] : active });

@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import inspect
 import json
+import random
 import re
 import threading
 import time
@@ -21,11 +22,14 @@ from uuid import UUID, uuid4
 from jarvis.core.protocols import CodingSessionGateway
 from jarvis.live.state import LiveLedger
 
+from .awareness import snapshot
 from .session import (
     MAX_PANES_PER_REQUEST,
+    AgentBusyError,
     Registry,
     SessionError,
     accepts_prompts,
+    steers_mid_turn,
     terminals_added_event,
 )
 from .workspace_catalog import project_graph
@@ -53,8 +57,32 @@ _TARGET_KEYS = ("project_id", "workspace_id", "terminal_id")
 # A send of the same prompt to the same pane counts as a retry only this soon;
 # a later "continue" or "/compact" is a new instruction and must be typed.
 _RETRY_WINDOW_S = 120
-_PANE_ACTIONS = frozenset({"observe", "respond", "keys", "interrupt", "close"})
+_PANE_ACTIONS = frozenset(
+    {"observe", "respond", "keys", "interrupt", "restart", "close", "fork"}
+)
+# A pane whose agent process is gone (exited, or could not start). A send there
+# types nothing; restart brings the same pane back on its own conversation.
+_STOPPED = frozenset({"exited", "error"})
 _WORKSPACE_ACTIONS = frozenset({"open_workspace", "restore", "show"})
+# How much of an agent's last prompt the status board repeats.
+_STATUS_JOB_CHARS = 200
+# How many times one request may be re-attempted after receipts proving that
+# nothing was typed (the pane was busy, closed, or not a coding pane).
+_REFUSED_ATTEMPTS = 20
+_PRE_WRITE_REFUSALS = frozenset({"not_accepted", "stale_target", "unavailable", "expired"})
+# What a send does with a pane that is in a turn. Only "refuse" is automatic;
+# the others carry the user's own correction to the running work.
+_WHILE_BUSY = ("refuse", "steer", "interrupt", "queue")
+# State selectors are not pane names. An exact custom name still wins.
+_FREE_REFS = frozenset({
+    "idle", "free", "available", "empty", "unused", "free session", "idle session",
+    "freie session", "freie coding session", "frei", "leer", "unbenutzt",  # i18n-allow
+})
+_EMPTY_REFS = frozenset({"empty", "unused", "leer", "unbenutzt"})  # i18n-allow
+# A queued message waits this long for the turn to end, re-checking the pane
+# every few seconds (jittered: several queues never poll in lockstep).
+_QUEUE_TTL_S = 30 * 60
+_QUEUE_POLL_S = 3.0
 # The keys a person presses in a pane besides typing: menus, dialogs, the
 # permission-mode cycle (Shift+Tab) and Stop (Escape). Nothing else is sendable.
 _KEY_SEQUENCES = {
@@ -194,9 +222,37 @@ def _is_request_id(value: str) -> bool:
     return True
 
 
+def _never_delivered(receipt: dict) -> bool:
+    """Does this send receipt prove that nothing reached the pane?
+
+    Only the pre-write refusals qualify (the session adapter raises
+    ``SessionError`` before typing anything). An unconfirmed write, a ledger
+    collision or an accepted send is never retried.
+    """
+    return (
+        receipt.get("status") in _PRE_WRITE_REFUSALS
+        and not receipt.get("input_written")
+        and not receipt.get("submitted")
+    )
+
+
 def _assignment(args: dict) -> str:
     """The brief AND its chosen images identify a retry."""
     return json.dumps([str(args.get("prompt") or "").strip(), args.get("image_refs", [])])
+
+
+def _git_brief(folder: str) -> dict[str, Any] | None:
+    """A workspace folder's git state for the status board; None when there is none."""
+    from . import git_ops
+
+    try:
+        return git_ops.brief(folder)
+    except (git_ops.GitError, OSError) as exc:
+        from loguru import logger
+
+        # The board still answers for the agents; only this folder's git row is missing.
+        logger.debug("Workspace status: no git state for {}: {}", folder, exc)
+        return None
 
 
 class WorkspaceOrchestrator:
@@ -225,17 +281,29 @@ class WorkspaceOrchestrator:
             self._ledger_compatible = False
         # request_id -> (target IDs, issued at, prompt sent under it or "")
         self._issued: dict[str, tuple[dict[str, str], float, str]] = {}
+        # request_ids minted for a pane the caller NAMED (call-sign, custom
+        # name or ID), never for a first-idle pick or a CLI-kind match.
+        self._named: set[str] = set()
         self._issued_lock = threading.Lock()
+        # receipt_id -> the task holding a queued message until its pane is
+        # free. A "queued" receipt with no task here was left by an earlier
+        # run of the app and was never typed.
+        self._queued: dict[str, asyncio.Task] = {}
+        # receipt_id -> its pane, in the order the messages were queued.
+        self._queued_for: dict[str, str] = {}
         # Announces new panes to the open UI; set by the runtime that owns a bus.
         self.publish: Callable[[Any], Awaitable[Any]] | None = None
 
     def graph(self) -> dict[str, Any]:
         from jarvis.workspace.agents import pty_available
 
+        from .fanout import in_flight_briefs
+
         graph = project_graph(self.registry)
         for project in graph["projects"]:
             for workspace in project["workspaces"]:
                 owner = self.registry.get(workspace["id"])
+                writing = dict(in_flight_briefs(owner)) if owner else {}
                 workspace["agents"] = (
                     [
                         {
@@ -243,8 +311,13 @@ class WorkspaceOrchestrator:
                             "name": term.name,
                             "agent": term.agent,
                             "status": term.status,
-                            "activity": term.reading().activity,
+                            **snapshot(term),
+                            **({"availability": "busy", "brief_writing": True}
+                               if term.name in writing else {}),
                             "accepts_tasks": accepts_prompts(term.agent) and not term.archived,
+                            "restartable": accepts_prompts(term.agent)
+                            and not term.archived
+                            and term.status in _STOPPED,
                         }
                         for term in owner.terminals
                     ]
@@ -260,19 +333,204 @@ class WorkspaceOrchestrator:
             ),
         }
 
+    def _scoped(self, args: dict[str, Any]) -> dict[str, Any]:
+        """The graph narrowed to the workspace or project a request names.
+
+        A reference that matches nothing comes back as the reply saying so,
+        which carries no ``projects``.
+        """
+        graph = self.graph()
+        if args.get("workspace") or args.get("workspace_id"):
+            picked = self._workspace(args, graph, "")
+            if isinstance(picked, dict):
+                return picked
+            project, workspace = picked
+            return {**graph, "projects": [{**project, "workspaces": [workspace]}]}
+        if args.get("project") or args.get("project_id"):
+            reference = str(args.get("project_id") or args["project"])
+            projects = (
+                [p for p in graph["projects"] if p["id"] == reference]
+                if args.get("project_id") else _best(
+                    reference, graph["projects"], lambda p: ((p["id"], p["path"]), (p["name"],))
+                )
+            )
+            if not projects:
+                return self._choice("project", [], graph, unmatched=reference)
+            return {**graph, "projects": projects}
+        return graph
+
+    async def status(self, args: dict[str, Any]) -> dict[str, Any]:
+        """One compact row per open coding agent, with each workspace's git state.
+
+        The answer to "what is running, what is done, who needs me": no
+        transcript is read, so it stays cheap across every workspace.
+        """
+        graph = await asyncio.to_thread(self._scoped, args)
+        if "projects" not in graph:
+            return graph
+        now = time.time()
+        counts: dict[str, int] = {}
+        needs_you: list[str] = []
+        rows: list[dict[str, Any]] = []
+        closed = 0
+        for project in graph["projects"]:
+            for workspace in project["workspaces"]:
+                owner = self.registry.get(workspace["id"])
+                if owner is None:
+                    closed += 1
+                    continue
+                watched = {
+                    "pane:" + term.history_id
+                    for term in owner.terminals
+                    if getattr(getattr(term, "delegation_result", None), "watched", False)
+                }
+                agents = []
+                for agent in workspace["agents"]:
+                    state = agent["availability"]
+                    counts[state] = counts.get(state, 0) + 1
+                    if state in {"needs_input", "needs_attention"}:
+                        needs_you.append(f"{agent['name']} ({workspace['name']})")
+                    since = float(agent.get("activity_since") or 0)
+                    agents.append({
+                        "terminal_id": agent["id"],
+                        "name": agent["name"],
+                        "cli": agent["agent"],
+                        "state": state,
+                        **({"for_seconds": round(max(0.0, now - since))} if since else {}),
+                        **({"title": agent["title"]} if agent.get("title") else {}),
+                        **({"job": " ".join(agent["last_prompt"].split())[:_STATUS_JOB_CHARS]}
+                           if agent.get("last_prompt") else {}),
+                        **({"watched": True} if agent["id"] in watched else {}),
+                    })
+                rows.append({
+                    "project_id": project["id"],
+                    "project": project["name"],
+                    "workspace_id": workspace["id"],
+                    "workspace": workspace["name"],
+                    "folder": workspace["folder"],
+                    "visible": bool(workspace.get("active")),
+                    "agents": agents,
+                })
+        states = await asyncio.gather(
+            *(asyncio.to_thread(_git_brief, row["folder"]) for row in rows)
+        )
+        for row, git in zip(rows, states, strict=True):
+            row.pop("folder")
+            if git is not None:
+                row["git"] = git
+        return {
+            "status": "ok",
+            "counts": counts,
+            "needs_you": needs_you,
+            "workspaces": rows,
+            **({"closed_workspaces": closed} if closed else {}),
+            "note": (
+                "busy = in a turn; needs_input = showing a question; idle = its conversation "
+                "is waiting; empty = unused; needs_attention = stopped, failed or exited. "
+                "A finished turn says nothing about whether the work is correct. observe one "
+                "agent for what it wrote; git counts uncommitted files per workspace folder."
+            ),
+        }
+
+    async def watch(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Report back when the named agent ends the job it is working on now.
+
+        For work the user started by hand: a brief sent through this
+        orchestrator is already followed without asking.
+        """
+        from jarvis.core.delegation import current_delegation_origin
+
+        from . import followthrough
+
+        named = any(str(args.get(key) or "").strip() for key in ("terminal_id", "agent"))
+        picked = await self._pane(args) if named else self._the_one_busy_pane()
+        if isinstance(picked, dict):
+            return picked
+        _owner, term, target = picked
+        state = snapshot(term)["availability"]
+        reply = {"target": target, "agent": term.name, "state": state}
+        tracked = getattr(term, "delegation_result", None)
+        if tracked is not None and followthrough.current(term, tracked):
+            return {
+                **reply, "status": "watching", "already": True,
+                "reason": "Its result is already on its way to this conversation when it stops.",
+            }
+        if state != "busy":
+            return {
+                **reply, "status": "not_running",
+                "reason": "That agent is not in a turn, so there is nothing to wait for. "
+                          "Its state is above; observe it for what it wrote.",
+            }
+        origin = current_delegation_origin.get() or {}
+        if origin.get("reply_surface") not in {"voice", "chat"}:
+            return {
+                **reply, "status": "unavailable",
+                "reason": "No conversation to report back to; nothing is watched.",
+            }
+        if not followthrough.can_report(term):
+            return {
+                **reply, "status": "unavailable",
+                "reason": "This agent's CLI keeps no local record its completion can be read "
+                          "from, so its end cannot be reported. Nothing is watched; use status "
+                          "to look again.",
+            }
+        armed = await followthrough.watch(term, origin)
+        if snapshot(term)["availability"] != "busy":
+            # It finished while the watch was being set up: that end is already
+            # in the watch's starting point and would never be reported.
+            if getattr(term, "delegation_result", None) is armed:
+                term.delegation_result = None
+            return {
+                **reply, "state": snapshot(term)["availability"], "status": "not_running",
+                "reason": "That agent just finished, so there is nothing to wait for. "
+                          "Its state is above; observe it for what it wrote.",
+            }
+        return {
+            **reply, "status": "watching",
+            "reason": "Its result is handed to this conversation when it stops or asks. Tell "
+                      "the user it is being watched, never that it is done, and do not poll. A "
+                      "new prompt typed into that agent ends the watch.",
+        }
+
+    def inspect(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Read current task and transcript evidence only for the requested scope."""
+        graph = self._scoped(args)
+        if "projects" not in graph:
+            return graph
+        for project in graph["projects"]:
+            for workspace in project["workspaces"]:
+                owner = self.registry.get(workspace["id"])
+                if owner:
+                    terms = {"pane:" + t.history_id: t for t in owner.terminals}
+                    for agent in workspace["agents"]:
+                        term = terms.get(agent["id"])
+                        if term is not None:
+                            agent.update(snapshot(term, context=True))
+                            if agent.get("brief_writing"):
+                                agent["availability"] = "busy"
+        graph["note"] += (
+            " Empty means no known assignment; idle means an existing conversation is "
+            "waiting. Resolve free/idle to prefer an empty session. Unknown, interrupted "
+            "or failed sessions are not automatically available."
+        )
+        return graph
+
     def _workspace(
         self, args: dict[str, Any], graph: dict[str, Any], agent_ref: str
     ) -> tuple[dict[str, Any], dict[str, Any]] | dict[str, Any]:
         """The one open (project, workspace) a request names, or the reply saying why not."""
         projects = graph["projects"]
-        project_ref = str(args.get("project") or "")
-        workspace_ref = str(args.get("workspace") or "")
+        project_ref = str(args.get("project_id") or args.get("project") or "")
+        workspace_ref = str(args.get("workspace_id") or args.get("workspace") or "")
         project_found = False
         if project_ref:
-            matched = _best(project_ref, projects, lambda p: ((p["id"], p["path"]), (p["name"],)))
+            matched = (
+                [p for p in projects if p["id"] == project_ref] if args.get("project_id")
+                else _best(project_ref, projects, lambda p: ((p["id"], p["path"]), (p["name"],)))
+            )
             if len(matched) > 1:
                 return self._choice("project", matched, graph)
-            if not matched and not (workspace_ref or agent_ref):
+            if not matched and (args.get("project_id") or not (workspace_ref or agent_ref)):
                 return self._choice("project", [], graph, unmatched=project_ref)
             # A misheard project name ("Jarvis-Works") must not hide a
             # workspace or agent reference that does identify the target.
@@ -280,12 +538,15 @@ class WorkspaceOrchestrator:
                 projects, project_found = matched, True
         candidates = [(p, w) for p in projects for w in p["workspaces"]]
         if workspace_ref:
-            matched = _best(
-                workspace_ref, candidates, lambda pw: ((pw[1]["id"],), (pw[1]["name"],))
+            matched = (
+                [pw for pw in candidates if pw[1]["id"] == workspace_ref]
+                if args.get("workspace_id") else _best(
+                    workspace_ref, candidates, lambda pw: ((pw[1]["id"],), (pw[1]["name"],))
+                )
             )
             # People often call a project "the Personal Jarvis workspace".
             # Interpret that only when it identifies exactly one project.
-            if not matched:
+            if not matched and not args.get("workspace_id"):
                 owners = _best(workspace_ref, projects, lambda p: ((p["id"],), (p["name"],)))
                 if len(owners) == 1:
                     matched = [(p, w) for p, w in candidates if p["id"] == owners[0]["id"]]
@@ -322,16 +583,24 @@ class WorkspaceOrchestrator:
         return project, workspace
 
     def resolve(self, args: dict[str, Any], graph: dict[str, Any]) -> dict[str, Any]:
-        agent_ref = str(args.get("agent") or "")
-        picked = self._workspace(args, graph, agent_ref)
+        agent_ref = str(args.get("terminal_id") or args.get("agent") or "")
+        selector = agent_ref.strip().casefold() in _FREE_REFS and not args.get("terminal_id")
+        picked = self._workspace(args, graph, "" if selector else agent_ref)
         if isinstance(picked, dict):
             return picked
         project, workspace = picked
         agents = [a for a in workspace["agents"] if a["accepts_tasks"]]
+        named = []
         if agent_ref:
-            named = _best(agent_ref, agents, lambda a: ((a["id"],), (a["name"],)))
+            named = (
+                [a for a in agents if a["id"] == agent_ref] if args.get("terminal_id")
+                else [a for a in agents if _matches(agent_ref, a["name"])] if selector
+                else _best(agent_ref, agents, lambda a: ((a["id"],), (a["name"],)))
+            )
+        automatic = not agent_ref or (selector and not named)
+        if not automatic:
             by_cli = [a for a in agents if _matches(agent_ref, a["agent"])]
-            if not named and not by_cli:
+            if not named and not by_cli and not args.get("terminal_id"):
                 named, certain = _spoken_pane(agent_ref, agents)
                 if named and not certain:
                     # Close but not certain: a question, never a guess.
@@ -340,17 +609,13 @@ class WorkspaceOrchestrator:
             if len(agents) != 1:
                 return self._choice("agent", agents, graph, unmatched=agent_ref)
         else:
-            # A task need not require manually selecting a tile. Stable grid
-            # order is the tie-breaker among idle sessions; never interrupt one.
-            agents = [
-                a
-                for a in agents
-                if a["status"] == "pending"
-                or (
-                    a["status"] == "live" and a["activity"] not in {"working", "asking", "starting"}
-                )
-            ]
-            agents = agents[:1]
+            # A fresh pane wins over completed conversations, regardless of
+            # grid order. Silence, failure and interruption do not prove free.
+            allowed = (
+                {"empty"} if agent_ref.strip().casefold() in _EMPTY_REFS else {"empty", "idle"}
+            )
+            agents = [a for a in agents if a.get("availability") in allowed]
+            agents = sorted(agents, key=lambda a: a["availability"] != "empty")[:1]
         if not agents:
             return {
                 "status": "unavailable",
@@ -369,7 +634,7 @@ class WorkspaceOrchestrator:
             "workspace_id": workspace["id"],
             "terminal_id": agent["id"],
         }
-        request_id = self._issue(target)
+        request_id = self._issue(target, named=bool(named))
         return {
             "status": "resolved",
             "request_id": request_id,
@@ -379,17 +644,24 @@ class WorkspaceOrchestrator:
                 "workspace": workspace["name"],
                 "agent": agent["name"],
             },
-            "selection": "explicit_agent" if agent_ref else "first_idle_agent",
+            "selection": (
+                "explicit_agent" if not automatic else
+                "empty_session" if agent["availability"] == "empty" else "first_idle_agent"
+            ),
+            "session": agent,
         }
 
-    def _issue(self, target: dict[str, str]) -> str:
+    def _issue(self, target: dict[str, str], *, named: bool = False) -> str:
         """Mint a request_id for ``target`` and remember it for id repair."""
         request_id = uuid4().hex
         with self._issued_lock:
             now = time.monotonic()
             for stale in [k for k, (_, at, _) in self._issued.items() if now - at > _RESOLVE_TTL_S]:
                 del self._issued[stale]
+                self._named.discard(stale)
             self._issued[request_id] = (target, now, "")
+            if named:
+                self._named.add(request_id)
         return request_id
 
     async def create(self, args: dict[str, Any], *, trace_id: str = "") -> dict[str, Any]:
@@ -575,6 +847,39 @@ class WorkspaceOrchestrator:
 
             logger.warning("Workspace change was not announced to the UI: {}", exc)
 
+    def _the_one_busy_pane(self) -> tuple[Any, Any, dict[str, str]] | dict:
+        """The agent "the coding agent" means when no name is given: the one in a turn.
+
+        With several agents working the request stays ambiguous and their
+        call-signs are offered; with none there is nothing to wait for.
+        """
+        busy = [
+            (session, term)
+            for session in self.registry.sessions
+            for term in session.terminals
+            if snapshot(term)["availability"] == "busy"
+        ]
+        if len(busy) != 1:
+            return {
+                "status": "needs_clarification",
+                "kind": "agent",
+                "reason": (
+                    "Name the coding agent (its call-sign) or pass terminal_id."
+                    if not busy
+                    else "Several agents are working; name the one to watch."
+                ),
+                "working": [term.name for _session, term in busy],
+            }
+        from . import library
+
+        session, term = busy[0]
+        target = {
+            "project_id": session.project_id or library.project_id_for(session.folder),
+            "workspace_id": session.id,
+            "terminal_id": "pane:" + term.history_id,
+        }
+        return session, term, target
+
     async def _pane(self, args: dict[str, Any]) -> tuple[Any, Any, dict[str, str]] | dict:
         """The one open pane a request names, by IDs from resolve or by call-sign."""
         if str(args.get("terminal_id") or "").strip():
@@ -606,7 +911,8 @@ class WorkspaceOrchestrator:
         observe reads the screen and the newest recorded events; respond answers
         the question or permission prompt the agent is showing; keys presses
         keys (menus, Shift+Tab, Escape); interrupt stops the current turn
-        (Escape, the pane's Stop button); close stops and removes the pane.
+        (Escape, the pane's Stop button); restart starts a stopped or failed
+        pane's agent again on its own conversation; close stops and removes it.
         """
         action = str(args.get("action"))
         picked = await self._pane(args)
@@ -616,7 +922,9 @@ class WorkspaceOrchestrator:
         pane = {"workspace_id": owner.id, "terminal_id": target["terminal_id"]}
         try:
             if action == "observe":
-                seen = await self.sessions.run({"action": "observe", **pane})
+                seen = await self.sessions.run({
+                    "action": "observe", **pane, "limit": args.get("limit", 30),
+                })
                 return {"status": "observed", "target": target, **seen}
             if action == "respond":
                 answer = str(args.get("prompt") or "").strip()
@@ -652,6 +960,37 @@ class WorkspaceOrchestrator:
                     ):
                         raise SessionError(f"{term.name} is not running.")
                 return {"status": "pressed", "target": target, "keys": keys, "agent": term.name}
+            if action == "restart":
+                return await self._restart(owner, term, target)
+            if action == "fork":
+                in_worktree = args.get("worktree") is True
+                copy = await self.registry.fork_terminal(
+                    term.name,
+                    workspace_id=owner.id,
+                    worktree=in_worktree,
+                    name=str(args.get("name") or "").strip() or None,
+                )
+                await self._announce(
+                    lambda: terminals_added_event(
+                        owner, [copy], source_layer="agentic_ide.orchestration"
+                    )
+                )
+                return {
+                    "status": "forked",
+                    "target": target,
+                    "agent": term.name,
+                    "copy": {
+                        "terminal_id": "pane:" + copy.history_id,
+                        "name": copy.name,
+                        **({"folder": copy.folder, "branch": copy.branch} if in_worktree else {}),
+                    },
+                    "reason": (
+                        "The copy continues the same conversation"
+                        + (" in its own worktree and branch" if in_worktree else "")
+                        + ". The original is untouched. Send the copy its next task by its "
+                        "terminal_id."
+                    ),
+                }
             if action == "close":
                 from .fleet_actions import terminals_closed_event
 
@@ -673,6 +1012,42 @@ class WorkspaceOrchestrator:
         except SessionError as exc:  # the refusal is returned to the caller with its reason
             return {"status": "not_accepted", "target": target, "reason": str(exc)}
         raise ValueError("Unknown pane action.")
+
+    async def _restart(self, owner: Any, term: Any, target: dict[str, str]) -> dict[str, Any]:
+        """Bring a stopped pane back under the same IDs, and say what happened.
+
+        Idempotent by state: a running agent is left alone and the receipt
+        says so, so a retried or duplicated restart never starts a second
+        process or cuts a turn short. Nothing is typed; the task follows as an
+        ordinary send, and a send refused earlier as stopped is retried with
+        its own request_id.
+        """
+        before = term.status
+        term, started = await self.registry.restart_terminal(
+            target["terminal_id"], owner.id
+        )
+        receipt: dict[str, Any] = {
+            "target": target,
+            "agent": term.name,
+            "cli": term.agent,
+            "previous_status": before,
+            "process_status": term.status,
+            "input_written": False,
+        }
+        if not started:
+            return {
+                **receipt,
+                "status": "already_running",
+                "reason": "The agent is running; nothing was restarted. A failed last turn "
+                          "does not stop it: send the task to the same terminal_id.",
+            }
+        return {
+            **receipt,
+            "status": "restarted",
+            "conversation": "continued" if term.resumed else "fresh",
+            "next": "Send the task to the same terminal_id. A send refused earlier because "
+                    "the agent was stopped is retried with the same request_id and prompt.",
+        }
 
     async def workspace_action(self, args: dict[str, Any], *, trace_id: str = "") -> dict:
         """Open a new workspace, restore a closed one, or bring one on screen."""
@@ -725,10 +1100,34 @@ class WorkspaceOrchestrator:
                 "workspace": session.name,
                 "agents": [t.name for t in session.terminals],
             }
-        # open_workspace: a folder by path, or a known project by name.
+        scope = str(args.get("_dispatch_scope") or "")
+        if not scope:
+            return await self._open_workspace(args, graph, trace_id=trace_id, creation_id="")
+        # One request scope opens at most one workspace: a retry, or a second
+        # call in the same turn, reads the receipt instead of opening another.
+        arguments = {k: v for k, v in args.items() if not k.startswith("_") and k != "request_id"}
+        if args.get("image_refs"):
+            arguments["image_scope"] = args.get("_image_scope", "")
+        previous = await asyncio.to_thread(
+            self.ledger.claim, "workspace-create", scope, "open_workspace", arguments, 0,
+        )
+        if previous is not None:
+            return previous
+        result = await self._open_workspace(args, graph, trace_id=trace_id, creation_id=scope)
+        result["request_id"] = scope
+        await asyncio.to_thread(self.ledger.finish, "workspace-create", scope, result)
+        return result
+
+    async def _open_workspace(
+        self, args: dict[str, Any], graph: dict[str, Any], *, trace_id: str, creation_id: str,
+    ) -> dict[str, Any]:
+        """Open a folder by path, or a known project by name or ID, as a NEW workspace."""
+        from .session import workspace_changed_event
+
         folder = str(args.get("folder") or "").strip()
-        project_id: str | None = None
-        project_ref = str(args.get("project") or "").strip()
+        # An explicit project_id with a folder is checked by registry.start.
+        project_id: str | None = str(args.get("project_id") or "").strip() or None
+        project_ref = str(args.get("project_id") or args.get("project") or "").strip()
         if not folder and project_ref:
             owners = _best(
                 project_ref, graph["projects"], lambda p: ((p["id"], p["path"]), (p["name"],))
@@ -770,6 +1169,15 @@ class WorkspaceOrchestrator:
                 session, "opened", source_layer="agentic_ide.orchestration"
             )
         )
+        targets = [
+            {
+                "project_id": session.project_id,
+                "workspace_id": session.id,
+                "terminal_id": "pane:" + t.history_id,
+            }
+            for t in session.terminals
+        ]
+        delivery_ids = [self._issue(target) for target in targets]
         result: dict[str, Any] = {
             "status": "opened",
             "project_id": session.project_id,
@@ -777,23 +1185,29 @@ class WorkspaceOrchestrator:
             "workspace": session.name,
             "folder": session.folder,
             "agents": [
-                {"terminal_id": "pane:" + t.history_id, "name": t.name, "cli": t.agent}
-                for t in session.terminals
+                {"terminal_id": target["terminal_id"], "name": t.name, "cli": t.agent,
+                 "request_id": request_id}
+                for target, t, request_id in zip(
+                    targets, session.terminals, delivery_ids, strict=True
+                )
             ],
         }
+        if creation_id:
+            # Persist identity before the brief, as create does: a cancelled or
+            # late result must never become permission to open another workspace.
+            await asyncio.to_thread(
+                self.ledger.finish, "workspace-create", creation_id,
+                {**result, "status": "uncertain", "success": False, "request_id": creation_id,
+                 "reason": "The new workspace exists; startup/delivery is pending. Observe "
+                           "only these IDs. Do not reopen, reassign or send correction prompts."},
+            )
         prompt = str(args.get("prompt") or "").strip()
         if prompt:
             result["deliveries"] = await self._brief(
-                [
-                    {
-                        "project_id": session.project_id,
-                        "workspace_id": session.id,
-                        "terminal_id": "pane:" + t.history_id,
-                    }
-                    for t in session.terminals
-                ],
+                targets,
                 prompt,
                 trace_id,
+                request_ids=delivery_ids,
                 image_refs=args.get("image_refs", []),
                 image_scope=args.get("_image_scope", ""),
             )
@@ -835,7 +1249,7 @@ class WorkspaceOrchestrator:
 
     async def _brief(
         self, targets: list[dict[str, str]], prompt: str, trace_id: str,
-        *, image_refs: list[str] | None = None, image_scope: str = "",
+        *, request_ids: list[str], image_refs: list[str] | None = None, image_scope: str = "",
     ) -> list[dict[str, Any]]:
         return list(
             await asyncio.gather(
@@ -844,14 +1258,14 @@ class WorkspaceOrchestrator:
                         {
                             "action": "send",
                             **target,
-                            "request_id": self._issue(target),
+                            "request_id": request_id,
                             "prompt": prompt,
                             "image_refs": image_refs or [],
                             "_image_scope": image_scope,
                         },
                         trace_id=trace_id,
                     )
-                    for target in targets
+                    for target, request_id in zip(targets, request_ids, strict=True)
                 )
             )
         )
@@ -964,12 +1378,74 @@ class WorkspaceOrchestrator:
                 target, _, _ = self._issued[request_id]
                 self._issued[request_id] = (target, time.monotonic(), prompt)
 
+    async def _gate_existing(
+        self, action: str, args: dict[str, Any], creation: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        """Existing-pane work inside a request that asks for NEW panes.
+
+        Returns the final reply, or ``None`` when the call may proceed. Only a
+        pane the caller NAMED qualifies — its call-sign, custom name or ID via
+        resolve. A first-idle pick, a CLI-kind match ("the Claude Code agent")
+        or a bare terminal_id is how a new task used to land on an old pane, so
+        those stay refused, as do restore/show and this request's own brief.
+        """
+        refusal: dict[str, Any] = {
+            "status": "new_agent_required", "success": False,
+            "reason": "This request asks for NEW panes: use create (or open_workspace for a "
+                      "new workspace). An existing agent is addressed only by its name "
+                      "(resolve with agent=<its call-sign or name>); never an idle pick, a CLI "
+                      "kind, this request's new task, or a correction to other agents.",
+            "creation": creation,
+        }
+        agent_ref = str(args.get("agent") or "").strip()
+        if action == "resolve":
+            graph = await asyncio.to_thread(self.graph)
+            if agent_ref:
+                resolved = self.resolve(args, graph)
+                if resolved.get("status") != "resolved" or resolved["request_id"] in self._named:
+                    return resolved
+                with self._issued_lock:
+                    self._issued.pop(resolved["request_id"], None)
+            # The IDs a following create needs, without minting a pane target.
+            picked = self._workspace(args, graph, "")
+            if isinstance(picked, tuple):
+                project, workspace = picked
+                refusal |= {
+                    "project_id": project["id"], "project": project["name"],
+                    "workspace_id": workspace["id"], "workspace": workspace["name"],
+                }
+            return refusal
+        if action not in {"send", *_PANE_ACTIONS}:
+            return refusal
+        if action != "send" and agent_ref and not str(args.get("terminal_id") or "").strip():
+            resolved = self.resolve(args, await asyncio.to_thread(self.graph))
+            if resolved.get("status") != "resolved":
+                return resolved
+            return None if resolved["request_id"] in self._named else refusal
+        _, match = self._reconcile(args, action)
+        if match not in self._named:
+            return refusal
+        if action == "send":
+            assignment = _assignment(args)
+            with self._issued_lock:
+                briefs = {
+                    self._issued[a["request_id"]][2]
+                    for a in (creation or {}).get("agents", [])
+                    if a.get("request_id") in self._issued
+                }
+            if assignment in briefs:
+                # The new panes' brief must not also reach an old pane.
+                return {**refusal, "status": "delivery_already_owned",
+                        "reason": "This task already went to the panes this request created. "
+                                  "Observe those IDs; do not hand it to another agent."}
+        return None
+
     async def run(self, args: dict[str, Any], *, trace_id: str = "") -> dict[str, Any]:
         if not self._ledger_compatible:
             return {
                 "status": "restart_required", "success": False, "executed": False,
                 "reason": "Workspace control and its receipt store are from different app "
-                          "versions. Restart Personal Jarvis before retrying. This request "
+                          "versions. Restart Dodaios before retrying. This request "
                           "created no workspace or agent and sent no prompt. Do not retry, "
                           "reassign, or use another delivery tool before restarting.",
             }
@@ -983,21 +1459,23 @@ class WorkspaceOrchestrator:
             await asyncio.to_thread(self.ledger.operation, "workspace-create", dispatch_scope)
             if dispatch_scope else None
         )
-        if (args.get("_requires_new") or creation) and action not in {
-            "inspect", "create", "context", "observe",
+        # open_workspace always starts a NEW workspace with NEW panes, so it is
+        # a creation like create (live 2026-10-07: a new-agent workspace request
+        # was refused as pane reuse and nothing opened).
+        created = {a["terminal_id"] for a in (creation or {}).get("agents", [])}
+        to_created = action == "send" and str(args.get("terminal_id") or "") in created
+        if (args.get("_requires_new") or creation) and not to_created and action not in {
+            "inspect", "create", "open_workspace", "context", "observe", "status", "watch",
+            "git",
         }:
-            allowed = {
-                a["terminal_id"] for a in (creation or {}).get("agents", [])
-            }
-            # A NEW request cannot borrow an idle pane or repair existing tasks.
-            # Only an exact ID from this request's creation may be addressed.
-            if action != "send" or str(args.get("terminal_id") or "") not in allowed:
-                return {
-                    "status": "new_agent_required", "success": False,
-                    "reason": "This request requires NEW panes. Use create; do not resolve, "
-                              "reuse or send correction prompts to existing agents.",
-                    "creation": creation,
-                }
+            # A NEW request cannot borrow an idle pane for its new task, but it
+            # may also carry independent work for an agent the user NAMED
+            # (live 2026-10-07: "first update the PR #430 session, then start a
+            # new bug-fix session" refused the update as pane reuse).
+            gated = await self._gate_existing(action, args, creation)
+            if gated is not None:
+                return gated
+        if creation and to_created:
             # create(prompt=...) already owns delivery, including uncertainty.
             if creation and (creation.get("deliveries") or creation.get("status") == "uncertain"):
                 return {
@@ -1018,22 +1496,43 @@ class WorkspaceOrchestrator:
         if action in {"create", "open_workspace"}:
             get_store().resolve(image_scope, refs)
         if action in {"inspect", "resolve"}:
-            graph = await asyncio.to_thread(self.graph)
-            return graph if action == "inspect" else self.resolve(args, graph)
+            from . import task_state
+
+            await task_state.refresh(self.registry)
+            graph = await asyncio.to_thread(self.inspect, args)
+            if action == "inspect" or "projects" not in graph:
+                return graph
+            return self.resolve(args, graph)
         if action == "create":
             return await self.create(args, trace_id=trace_id)
+        if action == "git":
+            from . import workspace_git
+
+            return await workspace_git.run(self, args)
+        if action in {"status", "watch"}:
+            from . import task_state
+
+            await task_state.refresh(self.registry)
+            return await (self.status(args) if action == "status" else self.watch(args))
         if action in _PANE_ACTIONS:
             return await self.pane_action(args)
         if action in _WORKSPACE_ACTIONS:
             return await self.workspace_action(args, trace_id=trace_id)
         if action not in {"send", "context"}:
             raise ValueError("Unknown workspace orchestration action.")
+        while_busy = str(args.get("while_busy") or "refuse").strip().casefold()
+        if while_busy not in _WHILE_BUSY:
+            raise ValueError(f"while_busy must be one of {', '.join(_WHILE_BUSY)}.")
+        if while_busy != "refuse" and action != "send":
+            raise ValueError("while_busy belongs to send only.")
         target, request_id = self._reconcile(args, action)
         project_id, workspace_id, terminal_id = (target[key] for key in _TARGET_KEYS)
         if not project_id or not workspace_id or not terminal_id.startswith("pane:"):
             raise ValueError(
                 "Resolve a target first; project_id, workspace_id and terminal_id are required."
             )
+        prompt = ""
+        receipt_id = request_id
         if action == "send":
             prompt = str(args.get("prompt") or "").strip()
             if not prompt:
@@ -1045,89 +1544,298 @@ class WorkspaceOrchestrator:
                 seed = f"{terminal_id}\n{prompt}\n{refs}\n{int(time.time() // _RETRY_WINDOW_S)}"
                 request_id = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
             self._mark_sent(request_id, _assignment(args))
-            previous = await asyncio.to_thread(
-                self.ledger.claim,
-                "workspace-orchestration",
-                request_id,
-                "send",
-                {**target, "prompt": prompt, "image_refs": refs,
-                 **({"image_scope": image_scope} if refs else {})},
-                0,
-                deduplicate_unconfirmed=True,
-            )
+            # The assignment, never the delivery mode: resending a refused
+            # request with while_busy is the same instruction, not a new one.
+            claimed = {**target, "prompt": prompt, "image_refs": refs,
+                       **({"image_scope": image_scope} if refs else {})}
+            # A receipt proving nothing was typed (busy, closed, not a coding
+            # pane) does not spend the request: retrying the same assignment
+            # takes the next attempt slot. Anything else, including an
+            # unconfirmed write, stays the answer (live 2026-10-07: an approved
+            # brief refused as "busy" could never be retried once idle).
+            for attempt in range(_REFUSED_ATTEMPTS):
+                receipt_id = request_id if not attempt else f"{request_id}~{attempt}"
+                previous = await asyncio.to_thread(
+                    self.ledger.claim, "workspace-orchestration", receipt_id, "send",
+                    claimed, 0, deduplicate_unconfirmed=True,
+                )
+                if (
+                    previous is not None
+                    and previous.get("status") == "queued"
+                    and receipt_id not in self._queued
+                ):
+                    # Queued by an earlier run of the app, which stopped before
+                    # the turn ended: nothing was typed, so the slot is free.
+                    previous = {
+                        **previous, "status": "expired", "success": False,
+                        "input_written": False,
+                        "reason": "The app stopped before the queued message was delivered; "
+                                  "nothing was typed.",
+                    }
+                    await asyncio.to_thread(
+                        self.ledger.finish, "workspace-orchestration", receipt_id, previous
+                    )
+                if previous is None or not _never_delivered(previous):
+                    break
             if previous is not None:
                 return {"target": target, "request_id": request_id, **previous}
+        delivery = {
+            "action": action, "target": target, "prompt": prompt, "refs": refs,
+            "image_scope": image_scope, "trace_id": trace_id, "request_id": request_id,
+            "limit": args.get("limit", 30),
+            "cursor": args.get("cursor"),
+        }
+        result = await self._deliver(
+            delivery, when_busy="refuse" if while_busy == "queue" else while_busy,
+        )
+        armed: asyncio.Event | None = None
+        if action == "send" and result.get("busy") and (
+            while_busy == "queue" or result.get("interrupted")
+        ):
+            # Stop was pressed, or the user asked to wait: the message is held
+            # until the turn ends, under this same receipt.
+            result, armed = self._queue(
+                receipt_id, delivery, interrupted=bool(result.get("interrupted")),
+            )
+        try:
+            if action == "send":
+                result["request_id"] = request_id
+                await asyncio.to_thread(
+                    self.ledger.finish, "workspace-orchestration", receipt_id, result
+                )
+        finally:
+            if armed is not None:
+                # Only now may the queue type it: its outcome must replace the
+                # "queued" receipt, never be overwritten by it.
+                armed.set()
+        return result
+
+    async def _deliver(self, delivery: dict[str, Any], *, when_busy: str) -> dict[str, Any]:
+        """One attempt at a send or context read on the resolved pane."""
+        action, target = delivery["action"], delivery["target"]
+        workspace_id, terminal_id = target["workspace_id"], target["terminal_id"]
         owner = self.registry.get(workspace_id)
         found = self.registry.find_terminal(terminal_id, workspace_id) if owner else None
-        result: dict[str, Any]
-        if owner is None or owner.project_id != project_id or found is None or found[1].archived:
-            result = {
+        if (
+            owner is None
+            or owner.project_id != target["project_id"]
+            or found is None
+            or found[1].archived
+        ):
+            return {
                 "status": "stale_target",
                 "target": target,
                 "reason": "The resolved coding session is no longer in that project/workspace.",
             }
-        elif not accepts_prompts(found[1].agent):
-            result = {
+        if not accepts_prompts(found[1].agent):
+            return {
                 "status": "unavailable",
                 "target": target,
                 "reason": "This session does not accept coding tasks.",
             }
-        else:
-            # The low-level gateway enforces idle/asking state and refuses exited
-            # agents. It never falls through to a shell or a different pane.
+        if action == "send" and found[1].status in _STOPPED:
+            # Pre-write, so the same request_id is retried after a restart.
+            return {
+                "status": "not_accepted",
+                "target": target,
+                "reason": f"{found[1].name} is not running ({found[1].status}); nothing "
+                          "was sent.",
+                "completed": False,
+                "input_written": False,
+                "stopped": True,
+                "restartable": True,
+                "next": "To deliver it to this agent, call restart with this terminal_id (it "
+                        "continues the agent's own conversation and stops nothing), then "
+                        "resend this request with the same request_id and prompt.",
+            }
+        # The low-level gateway enforces idle/asking state and refuses exited
+        # agents. It never falls through to a shell or a different pane.
+        try:
+            reply = await self.sessions.run(
+                {
+                    "action": action,
+                    "workspace_id": workspace_id,
+                    "terminal_id": terminal_id,
+                    **(
+                        {"prompt": delivery["prompt"], "image_refs": delivery["refs"],
+                         "_image_scope": delivery["image_scope"], "when_busy": when_busy}
+                        if action == "send"
+                        else {"limit": delivery["limit"], "cursor": delivery.get("cursor")}
+                    ),
+                }
+            )
+            return {
+                **reply,
+                "status": reply.get("delivery", reply.get("status", "observed")),
+                "target": target,
+                "trace_id": delivery["trace_id"],
+                "request_id": delivery["request_id"],
+            }
+        except AgentBusyError as exc:
+            # Pre-write, like every SessionError, and the one refusal the
+            # caller can answer with another delivery the USER chose.
+            can_steer = steers_mid_turn(found[1].agent)
+            return {
+                "status": "not_accepted",
+                "target": target,
+                "reason": str(exc),
+                "completed": False,
+                "input_written": False,
+                "busy": True,
+                **({"interrupted": True} if exc.interrupted else {}),
+                "while_busy_options": {"steer": can_steer, "interrupt": True, "queue": True},
+                "next": (
+                    "The agent is in a turn. Only when the USER is correcting or redirecting "
+                    "this running work, resend this request with "
+                    + ("while_busy='steer' (reaches the running turn; nothing stops) or "
+                       if can_steer else "")
+                    + "while_busy='interrupt' (stops the turn, keeps the session, then "
+                    "delivers). while_busy='queue' delivers it when the turn ends. A new or "
+                    "unrelated task waits, goes to another agent, or is the user's call."
+                ),
+            }
+        except SessionError as exc:
+            # The coding-session adapter documents SessionError as a
+            # pre-write refusal; post-write uncertainty is a receipt.
+            return {
+                "status": "not_accepted",
+                "target": target,
+                "reason": str(exc),
+                "completed": False,
+            }
+        except Exception as exc:
+            # Preserve uncertainty: an adapter can fail after the write.
+            # The durable claim remains, preventing an automatic replay.
+            from loguru import logger
+
+            logger.warning("Workspace action {} failed: {}", action, type(exc).__name__)
+            if action != "send":
+                raise
+            return {
+                "status": "uncertain",
+                "target": target,
+                "request_id": delivery["request_id"],
+                "reason": (
+                    "Delivery could not be confirmed. Inspect the session; "
+                    "do not resend automatically."
+                ),
+            }
+
+    def _queue(
+        self, receipt_id: str, delivery: dict[str, Any], *, interrupted: bool,
+    ) -> tuple[dict[str, Any], asyncio.Event]:
+        """Hold a message until its pane ends the turn, then type it there.
+
+        Registered before the caller files the "queued" receipt, so a retry in
+        between never takes it for one an earlier run of the app left behind.
+        The returned event releases the queue once that receipt is filed.
+        """
+        armed = asyncio.Event()
+        self._queued_for[receipt_id] = delivery["target"]["terminal_id"]
+        self._queued[receipt_id] = asyncio.create_task(
+            self._drain(receipt_id, delivery, time.monotonic() + _QUEUE_TTL_S, armed),
+            name=f"workspace-queue:{receipt_id}",
+        )
+        return {
+            "status": "queued",
+            "target": delivery["target"],
+            "input_written": False,
+            "completed": False,
+            **({"interrupted": True} if interrupted else {}),
+            "reason": (
+                ("Stop was pressed but the turn had not ended yet. " if interrupted else "")
+                + "The app holds the message and types it at the agent's prompt as soon as "
+                f"its turn ends (for up to {_QUEUE_TTL_S // 60} minutes). This request_id "
+                "then reads the delivery result. Do not resend; an app restart before "
+                "delivery drops it unsent (reported as expired)."
+            ),
+        }, armed
+
+    async def _drain(
+        self, receipt_id: str, delivery: dict[str, Any], deadline: float, armed: asyncio.Event,
+    ) -> None:
+        """Deliver one queued message once its pane is free, then file the receipt.
+
+        Messages queued for one pane go out in the order they were queued: only
+        the oldest one still waiting may type. A cancel that lands while an
+        attempt is typing files ``uncertain``, never "nothing was typed".
+        """
+        target = delivery["target"]
+        result: dict[str, Any] | None = None
+        delivering = False
+        problem = ""
+        try:
+            await armed.wait()
+            while time.monotonic() < deadline:
+                await asyncio.sleep(_QUEUE_POLL_S + random.uniform(0.0, 1.0))  # noqa: S311
+                if self._queued_ahead(receipt_id, target["terminal_id"]):
+                    continue
+                try:
+                    found = self.registry.find_terminal(
+                        target["terminal_id"], target["workspace_id"]
+                    )
+                    # A cheap fresh check first: an attempt resolves and copies
+                    # images, which is wasted on a pane that is still working.
+                    if found is not None and await self.registry.turn_in_progress(found[1]):
+                        continue
+                except Exception as exc:  # noqa: BLE001 - a failed look is retried, never fatal
+                    from loguru import logger
+
+                    problem = f"{type(exc).__name__}: {exc}"
+                    logger.warning("Queued delivery could not read its pane: {}", problem)
+                    continue
+                delivering = True
+                outcome = await self._deliver(delivery, when_busy="refuse")
+                delivering = False
+                if outcome.get("busy"):
+                    continue  # Someone else's prompt got there first.
+                result = outcome
+                break
+        except asyncio.CancelledError:
+            result = (
+                {
+                    "status": "uncertain", "success": False, "target": target,
+                    "reason": "The app stopped while the queued message was being typed. "
+                              "Inspect the session; do not resend automatically.",
+                }
+                if delivering
+                else {
+                    "status": "expired", "success": False, "target": target,
+                    "input_written": False,
+                    "reason": "The app stopped before the queued message was delivered; "
+                              "nothing was typed.",
+                }
+            )
+            raise
+        finally:
+            if result is None:
+                result = {
+                    "status": "expired", "success": False, "target": target,
+                    "input_written": False,
+                    "reason": f"The turn did not end within {_QUEUE_TTL_S // 60} minutes; "
+                              "the queued message was not typed."
+                              + (f" Last error reading the pane: {problem}" if problem else ""),
+                }
+            result = {**result, "request_id": delivery["request_id"], "queued": True}
             try:
-                delivery = await self.sessions.run(
-                    {
-                        "action": action,
-                        "workspace_id": workspace_id,
-                        "terminal_id": terminal_id,
-                        **(
-                            {"prompt": prompt, "image_refs": refs, "_image_scope": image_scope}
-                            if action == "send"
-                            else {"limit": args.get("limit", 30)}
-                        ),
-                    }
-                )
-                result = {
-                    **delivery,
-                    "status": delivery.get("delivery", delivery.get("status", "observed")),
-                    "target": target,
-                    "trace_id": trace_id,
-                    "request_id": request_id,
-                }
-            except SessionError as exc:
-                # The coding-session adapter documents SessionError as a
-                # pre-write refusal; post-write uncertainty is a receipt.
-                result = {
-                    "status": "not_accepted",
-                    "target": target,
-                    "reason": str(exc),
-                    "completed": False,
-                }
-            except Exception as exc:
-                # Preserve uncertainty: an adapter can fail after the write.
-                # The durable claim remains, preventing an automatic replay.
+                # Synchronous on purpose: this also runs while the loop is
+                # cancelling the task, where no thread hop can be awaited.
+                self.ledger.finish("workspace-orchestration", receipt_id, result)
+            except Exception as exc:  # noqa: BLE001 - a lost receipt is logged, never raised
                 from loguru import logger
 
-                logger.warning("Workspace action {} failed: {}", action, type(exc).__name__)
-                if action == "send":
-                    result = {
-                        "status": "uncertain",
-                        "target": target,
-                        "request_id": request_id,
-                        "reason": (
-                            "Delivery could not be confirmed. Inspect the session; "
-                            "do not resend automatically."
-                        ),
-                    }
-                else:
-                    raise
-        if action == "send":
-            result["request_id"] = request_id
-            await asyncio.to_thread(
-                self.ledger.finish, "workspace-orchestration", request_id, result
-            )
-        return result
+                logger.warning("Queued delivery receipt was not saved: {}", exc)
+            self._queued.pop(receipt_id, None)
+            self._queued_for.pop(receipt_id, None)
+
+    def _queued_ahead(self, receipt_id: str, terminal_id: str) -> bool:
+        """Is an older message still waiting for the same pane?"""
+        for queued, pane in self._queued_for.items():
+            if queued == receipt_id:
+                return False
+            if pane == terminal_id:
+                return True
+        return False
 
 
 _orchestrators: dict[int, WorkspaceOrchestrator] = {}

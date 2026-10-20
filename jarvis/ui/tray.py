@@ -22,12 +22,13 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from jarvis.core.branding import PRODUCT_NAME
 from jarvis.core.instance import current_instance
 from jarvis.platform.probes import display_present
 
-# Tooltip prefix: "Jarvis" for the default app, "Jarvis Dev" for the dev
+# Tooltip prefix: the product name for the default app, "… Dev" for the dev
 # instance — the tray icon already carries the DEV badge, the hover text says it.
-_TRAY_NAME = " ".join(p for p in ("Jarvis", current_instance().label) if p)
+_TRAY_NAME = " ".join(p for p in (PRODUCT_NAME, current_instance().label) if p)
 
 log = logging.getLogger("jarvis.ui.tray")
 

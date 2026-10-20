@@ -33,6 +33,7 @@ import { useEventStore } from "@/store/events";
 import type { SocietyChatGroup } from "@/lib/societyChatGroups";
 
 import { AgentSwatch } from "../AgentSwatch";
+import { RuntimeBadge } from "../RuntimeBadge";
 import type { AgentRunState, SocietyAgent } from "../data";
 import { AgentRosterActions } from "./AgentRosterActions";
 import { GroupRosterActions } from "./GroupRosterActions";
@@ -87,6 +88,8 @@ export interface RosterRailProps {
   onGroupAgents?: (sourceId: string, targetId: string) => void;
   onAddAgentToGroup?: (agentId: string, groupId: string) => void;
   loading: boolean;
+  /** True until the teams have answered: who stands alone in the list is not known before. */
+  teamsPending?: boolean;
   /** True while rows come from the sample roster rather than society.db. */
   sample: boolean;
   activeAgentId: string | null;
@@ -110,6 +113,7 @@ export function RosterRail({
   onGroupAgents,
   onAddAgentToGroup,
   loading,
+  teamsPending = false,
   sample,
   activeAgentId,
   onOpen,
@@ -182,7 +186,9 @@ export function RosterRail({
     // Orchestrators, then specialists; stable within a tier. The lead lives
     // in its own centered hero above and never repeats in the list.
     const rank = { lead: 0, orchestrator: 1, specialist: 2 } as const;
-    const rest = filtered
+    // Until the teams have answered, a member would be listed on its own and
+    // jump into its team a moment later; the list waits for the answer instead.
+    const rest = teamsPending ? [] : filtered
       .filter((a) => a.agentId !== lead?.agentId && !groupedIds.has(a.agentId));
     // A drag persists the full visible order, so from then on the person's
     // own arrangement wins over the tier grouping. Agents the list never saw
@@ -201,7 +207,7 @@ export function RosterRail({
       return rank[a.tier] - rank[b.tier];
     });
     return { leadVisible: masterVisible, rows: rest };
-  }, [agents, assistantName, groupedIds, hiddenIds, lead, orderIds, query, showHidden]);
+  }, [agents, assistantName, groupedIds, hiddenIds, lead, orderIds, query, showHidden, teamsPending]);
 
   // While searching, the list is a filtered excerpt — dragging there would
   // file agents by where they happen to sit in the excerpt, so rows stay put.
@@ -591,16 +597,18 @@ export function RosterRail({
               <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-foreground">{group.name}</span>
                 <span className="block truncate text-xs text-muted-foreground">{groupHover?.kind === "group" && groupHover.id === group.group_id
                   ? t(groupReady ? "society.groups.release_to_group" : "society.groups.hold_to_group")
-                  : group.members.map(memberName).join(", ")}</span>
+                  : group.lead_agent_id
+                    ? `${t("society.lead.rail").replace("{0}", memberName(group.lead_agent_id))} · ${group.members.filter((id) => id !== group.lead_agent_id).map(memberName).join(", ")}`
+                    : group.members.map(memberName).join(", ")}</span>
               </span>
             </button>
           </li>)}
         </ul>}
         <ul ref={listRef} className="flex flex-col gap-0.5 px-2 pb-3">
-          {loading && !leadVisible && rows.length === 0 ? (
+          {(teamsPending || (loading && !leadVisible)) && rows.length === 0 ? (
             <li className="px-2 py-3 text-xs text-muted-foreground">{t("society.roster.loading")}</li>
           ) : null}
-          {!loading && !leadVisible && rows.length === 0 && visibleGroups.length === 0 ? (
+          {!loading && !teamsPending && !leadVisible && rows.length === 0 && visibleGroups.length === 0 ? (
             <li className="px-2 py-3 text-xs text-muted-foreground">{t("society.roster.empty")}</li>
           ) : null}
           {rows.map((agent) => {
@@ -630,7 +638,10 @@ export function RosterRail({
                 )}
               >
                 <button type="button" onClick={() => openProfile(agent.agentId)} aria-label={t("society.profile_card.open").replace("{0}", agent.name)} className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <AgentSwatch agent={agent} size={48} />
+                  <span className="relative flex">
+                    <AgentSwatch agent={agent} size={48} />
+                    {agent.tier !== "lead" ? <RuntimeBadge runtime={agent.runtime} className="absolute bottom-0.5 right-0.5" /> : null}
+                  </span>
                 </button>
                 <button type="button" onClick={() => openAgent(agent.agentId)} aria-current={agent.agentId === activeAgentId ? "true" : undefined} className="flex min-w-0 flex-1 select-none items-center gap-2.5 rounded-md py-2 pl-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="min-w-0 flex-1">

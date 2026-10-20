@@ -60,7 +60,7 @@ def _default_storage_dir() -> Path:
 def _default_title() -> str:
     """The window's title: the service first, then who drives it.
 
-    "Personal Jarvis — Music" next to the interpreter's Python logo read as an
+    "Dodaios — Music" next to the interpreter's Python logo read as an
     anonymous pipe (maintainer, 2026-08-22); the title now names the service
     the window actually shows.
     """

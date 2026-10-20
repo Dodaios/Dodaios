@@ -23,13 +23,13 @@ from jarvis.missions.kontrollierer.deliverable import (
 
 def test_no_tasks_dir_returns_empty(tmp_path: Path) -> None:
     """No ``tasks/`` subdir → empty string, caller falls back to generic."""
-    assert build_deliverable_summary(tmp_path) == ""
+    assert build_deliverable_summary(tmp_path, language="de") == ""
 
 
 def test_tasks_dir_without_artifacts_returns_empty(tmp_path: Path) -> None:
     """Tasks exist but produced no files (Edit-only on tracked files) → empty."""
     (tmp_path / "tasks" / "019e63c5-5855").mkdir(parents=True)
-    assert build_deliverable_summary(tmp_path) == ""
+    assert build_deliverable_summary(tmp_path, language="de") == ""
 
 
 def test_single_file_is_named(tmp_path: Path) -> None:
@@ -37,7 +37,7 @@ def test_single_file_is_named(tmp_path: Path) -> None:
     files = tmp_path / "tasks" / "019e63c5-5855" / "artifacts" / "files"
     files.mkdir(parents=True)
     (files / "landing.html").write_text("<html/>", encoding="utf-8")
-    s = build_deliverable_summary(tmp_path)
+    s = build_deliverable_summary(tmp_path, language="de")
     assert "landing.html" in s, f"filename must appear in summary, got {s!r}"
     assert "Artefakt" in s  # i18n-allow: asserts the German TTS readback text
     assert "Artefakt" in s  # i18n-allow: asserts the German TTS readback text
@@ -49,7 +49,7 @@ def test_two_files_are_named(tmp_path: Path) -> None:
     files.mkdir(parents=True)
     (files / "landing.html").write_text("<html/>", encoding="utf-8")
     (files / "notes.md").write_text("notes", encoding="utf-8")
-    s = build_deliverable_summary(tmp_path)
+    s = build_deliverable_summary(tmp_path, language="de")
     assert "landing.html" in s and "notes.md" in s
     assert "2 Dateien" in s
 
@@ -60,7 +60,7 @@ def test_many_files_collapses_to_count(tmp_path: Path) -> None:
     files.mkdir(parents=True)
     for i in range(5):
         (files / f"f{i}.txt").write_text(str(i), encoding="utf-8")
-    s = build_deliverable_summary(tmp_path)
+    s = build_deliverable_summary(tmp_path, language="de")
     assert "5 Dateien" in s
     # Individual filenames must NOT all be in the spoken text
     spoken_filenames = sum(1 for i in range(5) if f"f{i}.txt" in s)
@@ -75,7 +75,7 @@ def test_multi_task_files_are_aggregated(tmp_path: Path) -> None:
         files = tmp_path / "tasks" / task_id / "artifacts" / "files"
         files.mkdir(parents=True)
         (files / f"{task_id}.html").write_text("<html/>", encoding="utf-8")
-    s = build_deliverable_summary(tmp_path)
+    s = build_deliverable_summary(tmp_path, language="de")
     assert "2 Dateien" in s
     assert "task1.html" in s and "task2.html" in s
 
@@ -85,7 +85,7 @@ def test_nested_files_are_counted(tmp_path: Path) -> None:
     nested = tmp_path / "tasks" / "task1" / "artifacts" / "files" / "subdir"
     nested.mkdir(parents=True)
     (nested / "inner.txt").write_text("inner", encoding="utf-8")
-    s = build_deliverable_summary(tmp_path)
+    s = build_deliverable_summary(tmp_path, language="de")
     assert "inner.txt" in s
 
 
@@ -95,7 +95,7 @@ def test_only_basename_in_summary_no_path_separators(tmp_path: Path) -> None:
     nested = tmp_path / "tasks" / "task1" / "artifacts" / "files" / "deep" / "nest"
     nested.mkdir(parents=True)
     (nested / "report.md").write_text("x", encoding="utf-8")
-    s = build_deliverable_summary(tmp_path)
+    s = build_deliverable_summary(tmp_path, language="de")
     assert "report.md" in s
     assert "/" not in s and "\\" not in s, (
         f"path separators must not leak into the spoken summary: {s!r}"
@@ -105,7 +105,7 @@ def test_only_basename_in_summary_no_path_separators(tmp_path: Path) -> None:
 def test_missing_mission_dir_returns_empty(tmp_path: Path) -> None:
     """Defensive: a non-existent mission dir must not crash the readback path."""
     bogus = tmp_path / "does-not-exist"
-    assert build_deliverable_summary(bogus) == ""
+    assert build_deliverable_summary(bogus, language="de") == ""
 
 
 # --- Dispatch-language localisation -----------------------------------------
@@ -143,12 +143,12 @@ def test_two_files_summary_in_english(tmp_path: Path) -> None:
     assert "Dateien" not in s, f"English summary leaked German plural: {s!r}"
 
 
-def test_deliverable_summary_defaults_to_german(tmp_path: Path) -> None:
-    """No language arg keeps the historical German output (back-compat)."""
+def test_deliverable_summary_defaults_to_english(tmp_path: Path) -> None:
+    """No language arg reads English, the fallback of every system phrase."""
     files = tmp_path / "tasks" / "019e63c5-5855" / "artifacts" / "files"
     files.mkdir(parents=True)
     (files / "landing.html").write_text("<html/>", encoding="utf-8")
-    assert "Artefakt" in build_deliverable_summary(tmp_path)  # i18n-allow: DE readback
+    assert "artifact" in build_deliverable_summary(tmp_path)
 
 
 def test_delivered_summary_in_english(tmp_path: Path) -> None:
@@ -167,16 +167,15 @@ def test_delivered_summary_in_english(tmp_path: Path) -> None:
     )
 
 
-def test_delivered_summary_defaults_to_german(tmp_path: Path) -> None:
-    """No language arg keeps the German output (back-compat) — as an artifact,
-    never as a folder."""
+def test_delivered_summary_defaults_to_english(tmp_path: Path) -> None:
+    """No language arg reads English — as an artifact, never as a folder."""
     folder = tmp_path / "Jarvis-Outputs"
     folder.mkdir()
     f = folder / "report.md"
     f.write_text("x", encoding="utf-8")
     s = build_delivered_summary([f])
-    assert "Artefakt" in s  # i18n-allow: asserts the German TTS readback text
-    assert "Ordner" not in s and "Jarvis-Outputs" not in s  # i18n-allow: asserts absence
+    assert "artifact" in s
+    assert "folder" not in s and "Jarvis-Outputs" not in s
 
 
 # --- End-of-chain seam ------------------------------------------------------

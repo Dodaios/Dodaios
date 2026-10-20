@@ -7,7 +7,10 @@ import logging
 from typing import Any
 from uuid import uuid4
 
+from jarvis.core.protocols import RoutineDeferred
+
 from .chat_binding import SURFACE, _workspace, pair_for
+from .display_name import display_name
 from .routines import agent_id_from_tags, routine_seat
 
 log = logging.getLogger(__name__)
@@ -34,7 +37,7 @@ async def guard_owned_routine(runtime: Any, tags: tuple[str, ...]) -> Any:
     return agent
 
 
-def _billed_via_api(provider: str) -> bool:
+def _billed_via_api(provider: str, account_id: str = "") -> bool:
     """Whether ``provider`` answers through an API key on the society surface.
 
     CLI seats (subscriptions) and keyless local providers never touch an API
@@ -49,7 +52,9 @@ def _billed_via_api(provider: str) -> bool:
     row = provider_row(provider)
     if row is not None and bool(getattr(row, "keyless", False)):
         return False
-    return resolve_runner(provider, surface=SURFACE) in ("brain", "api", "unknown")
+    return resolve_runner(provider, surface=SURFACE, account_id=account_id) in (
+        "brain", "api", "unknown",
+    )
 
 
 async def _subscription_seat(cfg: Any) -> tuple[str, str, str] | None:
@@ -126,6 +131,34 @@ async def _seat_for_run(runtime: Any, agent: Any, task_id: str) -> tuple[str, st
     return provider, model, effort, account_id
 
 
+def _run_runtime(agent: Any, provider: str) -> str:
+    """Which runtime a routine run uses.
+
+    The run keeps its owner's Hermes / OpenClaw runtime on the owner's own
+    model — the seat the person chose for that agent. A run pinned to another
+    seat keeps the runtime only when that seat is an API key or local server:
+    a subscription seat (Claude Code's dual row included) runs on Jarvis' own
+    runtime, so a scheduled run never quietly moves onto an API key.
+    """
+    runtime = str(getattr(agent, "runtime", "") or "jarvis")
+    if runtime == "jarvis":
+        return ""
+    from jarvis.agent_chat.service import resolve_runner
+    from jarvis.agent_runtimes.model_map import supports
+
+    if not supports(provider):
+        return ""
+    if provider == str(getattr(agent, "provider", "") or ""):
+        return runtime
+    return "" if resolve_runner(provider, surface=SURFACE).endswith("-cli") else runtime
+
+
+def _left_runtime(agent: Any, run_runtime: str) -> str:
+    """The owner's Hermes / OpenClaw runtime this run does NOT use, or ""."""
+    owner = str(getattr(agent, "runtime", "") or "jarvis")
+    return owner if owner != "jarvis" and not run_runtime else ""
+
+
 async def run_owned_routine(
     runtime: Any,
     task_id: str,
@@ -143,6 +176,27 @@ async def run_owned_routine(
 
     cfg = runtime.config()
     provider, model, effort, account_id = await _seat_for_run(runtime, agent, task_id)
+    autonomous = "autonomous" in tags
+    if autonomous and _billed_via_api(provider, account_id):
+        raise RoutineDeferred(
+            "Background work is waiting for a subscription or local model on its owner's seat"
+        )
+    permission_mode = "bypass"
+    if autonomous:
+        from .autonomous_routines import ORIGIN_PERMISSION_TAG, ORIGIN_SESSION_TAG
+
+        origin_id = next((t[len(ORIGIN_SESSION_TAG):] for t in tags
+                          if t.startswith(ORIGIN_SESSION_TAG)), "")
+        origin = service.store.get_session(origin_id)
+        saved_mode = next((t[len(ORIGIN_PERMISSION_TAG):] for t in tags
+                           if t.startswith(ORIGIN_PERMISSION_TAG)), "ask")
+        if origin is None or origin.permission_mode in {"plan", "read-only"}:
+            raise RoutineDeferred("Background work is waiting for its originating chat permissions")
+        # Society chats share ask / accept-edits / bypass. Unknown modes are
+        # conservative; later permission expansion never widens the saved grant.
+        order = {"ask": 0, "accept-edits": 1, "bypass": 2}
+        permission_mode = min((saved_mode, origin.permission_mode), key=lambda m: order.get(m, -1))
+    run_runtime = _run_runtime(agent, provider)
     session = service.store.create_session(
         session_id=f"{agent.session_id}{ROUTINE_SESSION_MARKER}{task_id}:{uuid4().hex}",
         surface=SURFACE,
@@ -151,8 +205,9 @@ async def run_owned_routine(
         effort=effort or default_effort(provider),
         account_id=account_id,
         cwd=_workspace(cfg, agent),
-        permission_mode="bypass",
+        permission_mode=permission_mode,
         title=f"{agent.name} · Routine {task_id}",
+        runtime=run_runtime,
     )
     # Persist the link before starting work, including runs that fail or are cancelled.
     task_store, _ = runtime.task_services()
@@ -160,6 +215,28 @@ async def run_owned_routine(
         await task_store.append_step(
             task_id, "log", {"event": "routine_chat", "session_id": session.session_id}
         )
+    left = _left_runtime(agent, run_runtime)
+    if left:
+        # A run pinned to a seat its owner's runtime cannot drive runs on
+        # Jarvis' own loop; the run log and its chat say so instead of silently.
+        note = (
+            f"This run uses Dodaios' own runtime, not {left}: its model "
+            f"({provider}) is a seat {left} cannot drive."
+        )
+        if task_store is not None:
+            await task_store.append_step(
+                task_id,
+                "log",
+                {"event": "routine_runtime_fallback", "runtime": left, "provider": provider,
+                 "text": note},
+            )
+        try:
+            await service.post_notice(
+                session.session_id,
+                {"kind": "routine_runtime_fallback", "runtime": left, "text": note},
+            )
+        except Exception:  # noqa: BLE001 — the run log above already holds the note
+            log.warning("society: runtime note not posted for %s", task_id, exc_info=True)
     # Legacy tasks contain an identity snapshot. The live briefing owns identity now.
     _, separator, original = prompt.partition("\nRoutine:\n")
     task = original if separator else prompt
@@ -174,7 +251,7 @@ async def run_owned_routine(
                 "task_id": task_id,
                 "session_id": session.session_id,
                 "agent_id": agent.agent_id,
-                "agent_name": agent.name,
+                "agent_name": display_name(agent),
                 "text": title[:200],
             },
         )
@@ -182,13 +259,14 @@ async def run_owned_routine(
         log.warning("society: routine card not posted for %s", agent.agent_id, exc_info=True)
     task = (
         f"Scheduled routine {task_id}. Follow your CURRENT standing instructions.\n"
-        "This execution has its own background chat with bypass permissions.\n"
+        "This execution has its own background chat and must honor its permission limits.\n"
         "Use your memory and conversation archive for prior results. For information watches, "
         "check sources and dates, remember last-seen items, "
         "and report only meaningful new findings.\n\n" + task
     )
     queue = service.subscribe(session.session_id)
     answer = ""
+    read_failures = 0
     try:
         turn_id = await service.send(session.session_id, task, direct_user=False, routine_run=True)
         while True:
@@ -196,8 +274,32 @@ async def run_owned_routine(
                 raise asyncio.CancelledError
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=0.25)
-            except TimeoutError:  # An empty poll window simply waits for the next event.
-                continue
+            except TimeoutError:
+                # A subscriber queue is a projection; the durable terminal
+                # remains authoritative after a dropped notification.
+                reader = getattr(service.store, "turn_terminal", None)
+                if reader is None:
+                    continue
+                try:
+                    event = reader(session.session_id, turn_id)
+                    if event is None:
+                        read_failures = 0
+                        continue
+                    texts = [
+                        str(e["payload"].get("text") or "")
+                        for e in service.store.list_events(session.session_id)
+                        if e["kind"] == "assistant_text"
+                        and e["payload"].get("turn_id") == turn_id
+                    ]
+                    answer = "\n\n".join(texts) or answer
+                    read_failures = 0
+                except Exception:
+                    log.warning("routine: durable completion read failed", exc_info=True)
+                    read_failures += 1
+                    if read_failures < 3:
+                        continue
+                    await service.cancel(session.session_id)
+                    raise RuntimeError("The routine completion store is unavailable") from None
             payload = event.get("payload") or {}
             if payload.get("turn_id") not in (None, turn_id):
                 continue
@@ -208,6 +310,8 @@ async def run_owned_routine(
                     raise asyncio.CancelledError
                 if payload.get("status") not in {"done", "ok", "completed"}:
                     raise RuntimeError(str(payload.get("error") or "The routine failed"))
+                if autonomous:
+                    await _report_autonomous_result(runtime, agent, tags, task_id, answer)
                 return answer
     except asyncio.CancelledError:
         await service.cancel(session.session_id)
@@ -217,3 +321,28 @@ async def run_owned_routine(
         raise RuntimeError(f"The routine chat failed: {exc}") from exc
     finally:
         service.unsubscribe(session.session_id, queue)
+
+
+async def _report_autonomous_result(
+    runtime: Any, agent: Any, tags: tuple[str, ...], task_id: str, answer: str,
+) -> None:
+    """Deliver the result to the originating chat without another model turn."""
+    from .autonomous_routines import ORIGIN_SESSION_TAG
+    from .surface import agent_id_of
+
+    origin = next((tag[len(ORIGIN_SESSION_TAG):] for tag in tags
+                   if tag.startswith(ORIGIN_SESSION_TAG)), agent.session_id)
+    payload = {
+        "kind": "society_result", "status": "done", "text": answer,
+        "agent_id": agent.agent_id, "agent_name": display_name(agent),
+        "source": "routine", "task_id": task_id,
+    }
+    try:
+        service = runtime.chat_service()
+        if agent_id_of(origin) == agent.agent_id and service.store.get_session(origin):
+            await service.post_notice(origin, payload)
+        else:
+            await runtime.post_chat_notice(agent, payload)
+    except Exception:
+        # The task runner persists the answer independently of this projection.
+        log.warning("routine: result delivery failed for %s", task_id, exc_info=True)

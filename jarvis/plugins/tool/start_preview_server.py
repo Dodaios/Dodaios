@@ -14,7 +14,7 @@ from jarvis.core.protocols import ExecutionContext, ToolResult
 class StartPreviewServerTool:
     name = "start_preview_server"
     description = (
-        "Registers a running localhost dev server in the Jarvis UI "
+        "Registers a running localhost dev server in the Dodaios UI "
         "(Previews sidebar view). Call AFTER the server is running."
     )
     risk_tier = "safe"

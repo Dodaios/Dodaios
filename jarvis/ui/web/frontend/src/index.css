@@ -428,6 +428,13 @@ label,
   font-weight: var(--shiki-dark-font-weight) !important;
   text-decoration: var(--shiki-dark-text-decoration) !important;
 }
+/* Inside the app's code block the frame is the background. The dark theme's
+   own ground (github-dark's near-black) would otherwise paint a second, darker
+   box behind every line inside the card. */
+.dark .code-block-body .shiki,
+.dark .code-block-body .shiki span {
+  background-color: transparent !important;
+}
 
 /* xterm.js viewport scrollbar — PLAIN (non-@layer) CSS on purpose. Tailwind
    tree-shakes `@layer utilities` by class usage, and `.xterm-viewport` is
@@ -578,6 +585,10 @@ label,
        Memory = the wiki) carry their own gradient pair. */
     --chat-bubble-out: 212 92% 45%;
     --chat-bubble-out-foreground: 0 0% 100%;
+    /* An agent chat's incoming bubble: a neutral grey lift that sits
+       beside any agent colour the outgoing bubble wears. */
+    --chat-bubble-in: 0 0% 93%; /* #EDEDED */
+    --chat-bubble-in-foreground: 0 0% 9%;
     --soul-from: 347 83% 52%;
     --soul-to: 14 92% 56%;
     --memory-from: 224 86% 52%;
@@ -606,6 +617,9 @@ label,
        carried by weight and by --foreground-strong instead. 14.3:1 on paper. */
     --primary: 0 0% 9%;
     --primary-foreground: 0 0% 100%;
+    /* The chat Send control keeps its white fill in both appearances. */
+    --chat-send-background: 0 0% 100%;
+    --chat-send-foreground: 0 0% 9%;
     --accent: 212 92% 45%; /* #096CDC — the SIGNAL: links, focus, active, selected, info */
     --accent-foreground: 0 0% 100%;
     --ring: 212 92% 45%;
@@ -777,6 +791,8 @@ label,
     --user-bubble-foreground: 0 0% 98%;
     --chat-bubble-out: 212 100% 56%;
     --chat-bubble-out-foreground: 0 0% 100%;
+    --chat-bubble-in: 0 0% 15%; /* #262626 — see :root */
+    --chat-bubble-in-foreground: 0 0% 95%;
     --soul-from: 347 86% 56%;
     --soul-to: 14 94% 58%;
     --memory-from: 226 92% 60%;
@@ -949,6 +965,53 @@ body {
   --tw-prose-invert-links: hsl(var(--accent));
 }
 
+/* A docs guide reads from theme tokens only, so the same class list serves
+   light and dark; the plugin's inverted palette is pointed at the same
+   values. Body copy sits one step below heading ink. */
+.docs-prose {
+  --tw-prose-body: hsl(var(--foreground-secondary));
+  --tw-prose-headings: hsl(var(--foreground-strong));
+  --tw-prose-lead: hsl(var(--muted-foreground));
+  --tw-prose-bold: hsl(var(--foreground-strong));
+  --tw-prose-counters: hsl(var(--muted-foreground));
+  --tw-prose-bullets: hsl(var(--foreground-faint));
+  --tw-prose-hr: hsl(var(--border));
+  --tw-prose-quotes: hsl(var(--foreground-secondary));
+  --tw-prose-quote-borders: hsl(var(--border-strong));
+  --tw-prose-code: hsl(var(--foreground-strong));
+  --tw-prose-th-borders: hsl(var(--border));
+  --tw-prose-td-borders: hsl(var(--border));
+  --tw-prose-invert-body: hsl(var(--foreground-secondary));
+  --tw-prose-invert-headings: hsl(var(--foreground-strong));
+  --tw-prose-invert-bold: hsl(var(--foreground-strong));
+  --tw-prose-invert-bullets: hsl(var(--foreground-faint));
+  --tw-prose-invert-hr: hsl(var(--border));
+  --tw-prose-invert-code: hsl(var(--foreground-strong));
+  font-size: 16px;
+  line-height: 28px;
+  letter-spacing: 0;
+}
+
+/* Headings are wrapped in their own anchor (rehype-autolink-headings). The
+   anchor keeps heading ink and reveals a quiet "#" on hover, so a section
+   link can be copied without turning every heading into link colour. */
+.docs-prose :is(h2, h3, h4) > a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+.docs-prose :is(h2, h3, h4) > a::after {
+  content: "#";
+  margin-left: 0.4em;
+  color: hsl(var(--foreground-faint));
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.docs-prose :is(h2, h3, h4):hover > a::after,
+.docs-prose :is(h2, h3, h4) > a:focus-visible::after {
+  opacity: 1;
+}
+
 /* Selecting text answers in the theme's own material, not the engine's
    default blue — the one saturated slab a black-and-white product used to
    show every time someone dragged across a sentence. */
@@ -1016,6 +1079,23 @@ body {
   }
   .jarvis-chat-out a {
     color: inherit;
+  }
+
+  /* An agent chat's bubbles: the agent's own reply in neutral grey; the
+     person's bubble is tinted inline with the agent's colour (bubbleTint). */
+  .jarvis-chat-in {
+    background: hsl(var(--chat-bubble-in));
+    color: hsl(var(--chat-bubble-in-foreground));
+  }
+  .jarvis-chat-tinted a {
+    color: inherit;
+  }
+  /* A capability chip in a tinted bubble takes the bubble's ink: a brand
+     hue on an arbitrary agent colour cannot promise contrast. */
+  .jarvis-chat-tinted .tool-identity,
+  .dark .jarvis-chat-tinted .tool-identity {
+    --tool-ink: currentColor;
+    --tool-wash: color-mix(in srgb, currentColor 16%, transparent);
   }
 
   /* The assistant card's vivid tiles: a gradient pair plus a soft light
@@ -1430,12 +1510,6 @@ body {
     display: block;
     animation: gigi-breath 3.8s ease-in-out infinite;
     transform-origin: 50% 50%;
-  }
-
-  /* White outline does the lighting. A small lift keeps the black body a
-     figure on charcoal instead of a hole. */
-  .dark .gigi-body {
-    filter: brightness(1.15);
   }
 
   .gigi-compact .gigi-root,
@@ -2886,5 +2960,77 @@ body {
   .diff-line-del {
     background-color: hsl(var(--diff-del-bg) / 0.2);
     color: hsl(var(--diff-del));
+  }
+}
+
+/* Team thread board (components/agentic/threads/team): a cell whose member is
+   working right now carries a signal line that travels along its top edge, and
+   the step being worked on breathes. The app's reduced-motion floor stills all
+   of it; the line stays visible. */
+@layer components {
+  .team-live {
+    position: relative;
+  }
+  .team-live::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, hsl(var(--accent)) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: team-live-sweep 1.8s linear infinite;
+  }
+  .team-live-line {
+    animation: team-live-in 0.24s ease-out;
+  }
+  .team-pulse {
+    animation: team-pulse 1.4s ease-in-out infinite;
+  }
+  .team-step-now {
+    animation: team-step-now 1.8s ease-in-out infinite;
+  }
+  @keyframes team-live-sweep {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+  @keyframes team-live-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes team-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  @keyframes team-step-now {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.45); }
+    50% { box-shadow: 0 0 0 4px hsl(var(--accent) / 0); }
+  }
+  /* A canvas line a member is working on right now flows towards it. */
+  .team-flow {
+    stroke-dasharray: 6 5;
+    animation: team-flow 0.9s linear infinite;
+  }
+  @keyframes team-flow {
+    to { stroke-dashoffset: -11; }
+  }
+  /* The team room's canvas wears the app's theme: its ground, dots and controls. */
+  .team-canvas .react-flow {
+    --xy-background-color: transparent;
+    --xy-background-pattern-dots-color-default: hsl(var(--border-strong) / 0.6);
+    --xy-edge-label-background-color: hsl(var(--card));
+    --xy-controls-button-background-color: hsl(var(--card));
+    --xy-controls-button-background-color-hover: hsl(var(--secondary));
+    --xy-controls-button-color: hsl(var(--muted-foreground));
+    --xy-controls-button-color-hover: hsl(var(--foreground));
+    --xy-controls-button-border-color: hsl(var(--border));
+    --xy-controls-box-shadow: none;
+  }
+  .team-canvas .react-flow__controls {
+    border: 1px solid hsl(var(--border));
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .team-canvas .react-flow__node {
+    cursor: default;
   }
 }

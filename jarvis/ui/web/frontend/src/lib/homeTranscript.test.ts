@@ -293,3 +293,39 @@ describe("transcriptFromMessages with stored traces", () => {
     }
   });
 });
+
+describe("homeTranscript reducer — content shown on screen", () => {
+  const table = "| file | lines |\n|---|---|\n| app.py | 12 |";
+
+  it("adds a card line with its heading and never melts speech into it", () => {
+    const lines = run([
+      ["TranscriptFinal", { transcript: { text: "which files changed" } }, 1000],
+      ["VoiceContentShown", { session_id: "c1", title: " Changed  files ", markdown: `\n${table}\n` }, 2000],
+      ["SpeechSpoken", { text: "Two files changed, the list is on screen." }, 2500],
+    ]);
+    expect(lines).toHaveLength(3);
+    const card = lines[1];
+    expect(card.who).toBe("assistant");
+    if (card.who === "steps") throw new Error("a card is a text line");
+    expect(card.kind).toBe("shown");
+    expect(card.text).toBe("Changed files");
+    expect(card.markdown).toBe(table);
+    expect(lines[2]).toMatchObject({ who: "assistant", text: "Two files changed, the list is on screen." });
+  });
+
+  it("shows the same card once when the event is delivered twice", () => {
+    const once = run([["VoiceContentShown", { markdown: table }, 1000]]);
+    const twice = reduceTranscript(once, "VoiceContentShown", { markdown: table }, 1500);
+    expect(twice).toBe(once);
+    const later = reduceTranscript(once, "VoiceContentShown", { markdown: table }, 60_000);
+    expect(later).toHaveLength(2);
+  });
+
+  it("ignores a card without content and keeps a heading from blocking spoken words", () => {
+    const start = run([["VoiceContentShown", { title: "Summary", markdown: table }, 1000]]);
+    expect(reduceTranscript(start, "VoiceContentShown", { title: "x", markdown: "  " }, 1100)).toBe(start);
+    // Saying the heading out loud right after is still a line of its own.
+    const spoken = reduceTranscript(start, "SpeechSpoken", { text: "Summary" }, 1200);
+    expect(spoken).toHaveLength(2);
+  });
+});

@@ -57,6 +57,9 @@ export type AgentApprovalMode = (typeof AGENT_APPROVAL_MODES)[number];
 
 export const BROWSER_MODES = ["own", "attach"] as const;
 export type BrowserMode = (typeof BROWSER_MODES)[number];
+/** The agent loop that runs an agent's turns (docs/agent-runtimes.md). */
+export const AGENT_RUNTIMES = ["jarvis", "hermes", "openclaw"] as const;
+export type AgentRuntime = (typeof AGENT_RUNTIMES)[number];
 
 export const GRANT_MODES = ["all", "allowlist"] as const;
 export type GrantMode = (typeof GRANT_MODES)[number];
@@ -76,6 +79,18 @@ export type ApprovalState = (typeof APPROVAL_STATES)[number];
 export const QUEST_STATES = ["open", "assigned", "running", "done", "failed", "cancelled"] as const;
 export type QuestState = (typeof QUEST_STATES)[number];
 
+/** A goal the person gave a team; its lead plans, assigns and reports. */
+export const TEAM_GOAL_STATES = [
+  "queued", "running", "needs_input", "paused", "done", "failed", "cancelled",
+] as const;
+export type TeamGoalState = (typeof TEAM_GOAL_STATES)[number];
+
+/** One task a team lead handed to a member. */
+export const TEAM_TASK_STATES = [
+  "waiting", "assigned", "running", "done", "blocked", "cancelled",
+] as const;
+export type TeamTaskState = (typeof TEAM_TASK_STATES)[number];
+
 /** One row of the board, as GET /api/society/events returns it. */
 export interface SocietyEnvelope {
   seq: number;
@@ -90,7 +105,7 @@ export interface SocietyEnvelope {
   payload: Record<string, unknown>;
 }
 
-/** Approval rules — Grok-style, require wins (agent-definition §3.4). */
+/** Approval rules — plain-language, require wins (agent-definition §3.4). */
 export interface ApprovalRules {
   require_approval: string[];
   always_allow: string[];
@@ -167,6 +182,8 @@ export interface SocietyAgentRow {
   browser_allowed_domains: string[];
   /** Where the agent runs: null = this computer, else a connected computer id. */
   computer_id: string | null;
+  /** The agent loop that runs its turns: Jarvis, Hermes or OpenClaw. */
+  runtime: AgentRuntime;
   session_id: string;
   created_ms: number;
   updated_ms: number;

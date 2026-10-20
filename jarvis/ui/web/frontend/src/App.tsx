@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 
-import { isSectionId, useEventStore } from "@/store/events";
+import { isSectionId, useEventStore, type SectionId } from "@/store/events";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useBrainStatus } from "@/hooks/useBrainStatus";
 import { useVoiceStatus } from "@/hooks/useVoiceStatus";
@@ -9,6 +9,7 @@ import { useAssistantNameSeed } from "@/hooks/useAssistantNameSeed";
 import { useCodingMode } from "@/hooks/useCodingMode";
 import { useFileDropGuard } from "@/hooks/useFileDropGuard";
 import { useSectionUrlMemory } from "@/hooks/useSectionUrlMemory";
+import { useSocietyWarmup } from "@/hooks/useSocietyWarmup";
 import {
   Sidebar,
   SIDEBAR_DEFAULT_WIDTH,
@@ -26,6 +27,7 @@ import { CommandActivityLayer } from "@/components/CommandActivityLayer";
 import { AppshotEditorHost } from "@/components/appshot/AppshotEditorHost";
 import { EditContextMenu } from "@/components/EditContextMenu";
 import { useMacWindowCloseFallback } from "@/lib/macWindowClose";
+import { useT } from "@/i18n";
 /*
   Lazy on purpose. The overlay pulls in the dialog primitives, the keyboard
   layout table and the keybind hook — none of which anything needs before
@@ -42,6 +44,9 @@ import { appChord } from "@/store/appChordSettings";
   Lazy for the same reason: the switcher carries every locale for its
   cross-language search, and nobody needs it before the first Ctrl+Space.
 */
+const CreateAgentDialog = lazy(() =>
+  import("@/components/society/create/CreateAgentDialog").then((m) => ({ default: m.CreateAgentDialogHost })),
+);
 const QuickSwitcher = lazy(() =>
   import("@/components/QuickSwitcher").then((m) => ({ default: m.QuickSwitcher })),
 );
@@ -50,6 +55,7 @@ import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { useAppZoom } from "@/hooks/useAppZoom";
 import { ZoomIndicator } from "@/components/ZoomIndicator";
 import { useQuickSwitcher } from "@/store/quickSwitcher";
+import { useCreateAgentDialog } from "@/components/society/create/createAgentStore";
 import { JarvisDock } from "@/components/JarvisDock";
 import { CliConnectPoller } from "@/components/CliConnectPoller";
 import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
@@ -60,6 +66,9 @@ import { cn } from "@/lib/utils";
 
 /** Where the collapsed/expanded choice for the nav sidebar is remembered. */
 const NAV_COLLAPSED_KEY = "jarvis.sidebar.collapsed.v1";
+
+/** Sections that fill the whole window instead of sitting beside the nav. */
+const FULLSCREEN_SECTIONS: readonly SectionId[] = ["agents", "docs", "memory"];
 
 /**
  * The surface the active section is drawn on.
@@ -100,6 +109,7 @@ export function SectionStage({
 }
 
 export default function App() {
+  const t = useT();
   /*
     `?` opens the shortcut overlay. Registered here rather than per view so it
     works everywhere, and guarded by shouldOpenShortcutOverlay so it never eats
@@ -120,7 +130,7 @@ export default function App() {
   /*
     The quick switcher's chord (Ctrl+Space; ⌥+Space on a Mac — both can be
     changed or switched off under Settings → Keyboard shortcuts) opens the
-    Spotlight-style "type a section, press Enter" launcher. Listened for in the
+    "type a section, press Enter" launcher. Listened for in the
     CAPTURE phase so it also works while a terminal pane has focus: xterm
     handles keys on its own textarea and would otherwise send the chord to the
     agent. Pressing it again closes the switcher, the way Spotlight's own
@@ -128,6 +138,7 @@ export default function App() {
     reach the recorder instead, so a recording session is skipped.
   */
   const switcherOpen = useQuickSwitcher((s) => s.open);
+  const createAgentOpen = useCreateAgentDialog((s) => s.open);
   const switcherEnabled = useQuickSwitchSettings((s) => s.enabled);
   const switcherCombo = useQuickSwitchSettings((s) => s.combo);
   useEffect(() => {
@@ -176,6 +187,8 @@ export default function App() {
    * reload carries over. See hooks/useSectionUrlMemory.
    */
   useSectionUrlMemory();
+  // The Agents section opens with its roster and teams already loaded.
+  useSocietyWarmup();
 
   /*
    * Remember which field the user is typing in, app-wide.
@@ -273,9 +286,10 @@ export default function App() {
   );
 
   const activeSection = useEventStore((s) => s.activeSection);
-  // Agents fills the window. The caption's back button leaves it, so the
-  // sidebar toggle that used to reveal this column is not needed.
-  const agentsFullscreen = activeSection === "agents";
+  // Agents, Docs and the Wiki fill the window: each brings its own navigation column,
+  // and the caption's home/back buttons leave it, so the app sidebar and the
+  // toggle that used to reveal it are not needed there.
+  const sectionFullscreen = FULLSCREEN_SECTIONS.includes(activeSection);
   const solo = useEventStore((s) => s.solo);
   const detachedViews = useEventStore((s) => s.detachedViews);
 
@@ -343,7 +357,7 @@ export default function App() {
       {brokerMounted && <SubscriptionRealtimeTransportBroker />}
       <BrowserRealtimeControl controlOnly />
 
-      {!agentsFullscreen && (
+      {!sectionFullscreen && (
         <>
           <Sidebar
             width={sidebar.size}
@@ -357,7 +371,7 @@ export default function App() {
             onDoubleClick={sidebar.reset}
             onNudge={sidebar.nudge}
             active={sidebar.isResizing}
-            title="Drag to resize the sidebar — double-click to reset"
+            title={t("sidebar.resize_hint")}
           />
         </>
       )}
@@ -381,7 +395,7 @@ export default function App() {
         {/* Gray, like the sidebar. The content panel below rounds its
             top-left corner so this gray shows in the curve. */}
         <div className="h-8 shrink-0" data-testid="caption-rule" />
-        <div className={activeSection === "agents" ? "flex min-h-0 min-w-0 flex-1 flex-col" : "jarvis-sheet flex min-h-0 min-w-0 flex-1 flex-col"}>
+        <div className={sectionFullscreen ? "flex min-h-0 min-w-0 flex-1 flex-col" : "jarvis-sheet flex min-h-0 min-w-0 flex-1 flex-col"}>
         {/* Outside input software (dictation, text expanders, auto-type) cannot
             reach an elevated window: an OS-level gate the user must be told
             about, since nothing else reports it. */}
@@ -420,6 +434,12 @@ export default function App() {
             onOpenChange={(next) => (next ? useQuickSwitcher.getState().show() : useQuickSwitcher.getState().hide())}
             initialQuery={useQuickSwitcher.getState().initialQuery}
           />
+        </Suspense>
+      )}
+      {/* Every plus in the agent society opens this; the chunk loads on first use. */}
+      {createAgentOpen && (
+        <Suspense fallback={null}>
+          <CreateAgentDialog />
         </Suspense>
       )}
       {/* Names the level after Ctrl + Plus / Minus, like Chrome's zoom bubble. */}

@@ -26,7 +26,7 @@ def workflows() -> dict[str, dict]:
 class FakePublishedRelease:
     """In-memory published release; any write command fails the test."""
 
-    def __init__(self, *, attested=0, attestation_ok=True, draft=False):
+    def __init__(self, *, attested=0, attestation_ok=True, draft=False, outages=0):
         self.payloads = {
             "PersonalJarvis-Linux-x86_64.AppImage": b"appimage",
             "personal-jarvis_1.2.3_amd64.deb": b"deb",
@@ -39,6 +39,8 @@ class FakePublishedRelease:
         self.attested = attested
         self.attestation_ok = attestation_ok
         self.draft = draft
+        #: Attestation lookups answered with a server error before a real answer.
+        self.outages = outages
         self.commands = []
 
     def command(self, args, **kwargs):
@@ -52,6 +54,11 @@ class FakePublishedRelease:
                 (folder / name).write_bytes(self.payloads[name])
             return subprocess.CompletedProcess(args, 0, "", "")
         if args[:2] == ["gh", "api"] and "/attestations/sha256:" in args[2]:
+            if self.outages:
+                self.outages -= 1
+                return subprocess.CompletedProcess(
+                    args, 1, "", "gh: trust-metadata-api service unavailable (HTTP 503)"
+                )
             if not self.attested:
                 return subprocess.CompletedProcess(args, 1, "", "gh: Not Found (HTTP 404)")
             return subprocess.CompletedProcess(args, 0, f"{self.attested}\n", "")
@@ -115,6 +122,34 @@ def test_older_unattested_builds_pass_unless_provenance_is_required(monkeypatch,
     assert errors == []
 
 
+def test_a_brief_attestation_service_outage_is_retried(monkeypatch, tmp_path):
+    monkeypatch.setattr(release_assets, "ATTESTATION_RETRY_DELAYS", (0, 0))
+    fake = FakePublishedRelease(attested=1, outages=2)
+    fake.install(monkeypatch)
+    errors = release_assets.platform_errors(
+        REPO, TAG, "windows", tmp_path, require_attestation=True
+    )
+    assert errors == []
+    assert any(c[:3] == ["gh", "attestation", "verify"] for c in fake.commands)
+
+
+@pytest.mark.parametrize("require,failing", [(False, False), (True, True)])
+def test_a_lasting_attestation_outage_fails_only_required_provenance(
+    monkeypatch, tmp_path, require, failing
+):
+    monkeypatch.setattr(release_assets, "ATTESTATION_RETRY_DELAYS", (0, 0))
+    fake = FakePublishedRelease(attested=1, outages=99)
+    fake.install(monkeypatch)
+    errors = release_assets.platform_errors(
+        REPO, TAG, "windows", tmp_path, require_attestation=require
+    )
+    lookups = [c for c in fake.commands if c[:2] == ["gh", "api"]]
+    assert len(lookups) == 3
+    assert bool(errors) is failing
+    if failing:
+        assert errors == ["build provenance attestation unavailable: PersonalJarvis-Setup-x64.exe"]
+
+
 def test_smoke_refuses_a_draft_without_touching_it(monkeypatch):
     fake = FakePublishedRelease(draft=True)
     fake.install(monkeypatch)
@@ -166,6 +201,19 @@ def test_native_installers_are_attested_on_tags_before_upload():
     assert steps[attest]["if"] == "github.ref_type == 'tag'"
     assert steps[attest]["with"]["subject-checksums"] == "installers/installers-SHA256SUMS.txt"
     assert attest < upload
+
+
+def test_rename_gap_still_verifies_the_released_wrapper():
+    """v3.1.1 was signed by the renamed repository while its published
+    verifier still names the previous owner. The smoke retargets that one
+    unsigned pin and still executes the released script."""
+    step = workflows()["release-wrapper-smoke.yml"]["jobs"]["verify"]["steps"][0]["run"]
+    assert 'bash "$verifier"' in step
+    assert 'readonly DEFAULT_OFFICIAL_REPO_SLUG=' in step
+    assert "PersonalJarvis/PersonalJarvis" in step
+    assert "Dodaios/Dodaios" in step
+    assert "JARVIS_OFFICIAL_REPO_SLUG" in step
+    assert "released layout regexp is not the pre-rename pin" in step
 
 
 def test_release_smoke_is_read_only_and_follows_every_cut():

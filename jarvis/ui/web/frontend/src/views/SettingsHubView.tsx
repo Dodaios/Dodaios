@@ -1,4 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { SectionWindowButton } from "@/components/layout/SectionWindowButton";
 import { isTourEvent } from "@/components/onboarding/tourEvents";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ComponentType, type LazyExoticComponent } from "react";
 import { Loader2, Search, X } from "lucide-react";
@@ -25,7 +26,7 @@ import { cn } from "@/lib/utils";
  *
  *   General: General, Keyboard shortcuts, Appshots, My Pets, Profile,
  *            {name} (the assistant), Socials
- *   System: Computers, API Keys, Jarvis actions
+ *   System: Computers, API Keys
  *   Activity: Spend, Feedback
  *
  * Same merged-section pattern as VoiceHubView / ClisHubView: the active
@@ -69,9 +70,6 @@ const TelephonySetupTab = lazy(() =>
 const ComputersTab = lazy(() =>
   import("@/views/ComputersView").then((m) => ({ default: m.ComputersView })),
 );
-const JarvisActionsTab = lazy(() =>
-  import("@/views/JarvisActionsView").then((m) => ({ default: m.JarvisActionsView })),
-);
 const AppshotsTab = lazy(() =>
   import("@/views/AppshotsView").then((m) => ({ default: m.AppshotsView })),
 );
@@ -101,7 +99,6 @@ type HubNavId =
   | "socials"
   | "apikeys"
   | "computers"
-  | "jarvis-actions"
   | "costs"
   | "feedback";
 
@@ -120,7 +117,7 @@ const HUB_NAV_GROUPS: readonly { labelKey: string; ids: readonly HubNavId[] }[] 
   },
   {
     labelKey: "settings_hub.group_system",
-    ids: ["computers", "apikeys", "jarvis-actions"],
+    ids: ["computers", "apikeys"],
   },
   {
     labelKey: "settings_hub.group_activity",
@@ -139,7 +136,6 @@ const TAB_CONTENT: Record<HubNavId | "telephony-setup", LazyExoticComponent<Comp
   appshots: AppshotsTab,
   shortcuts: ShortcutsTab,
   pets: PetsTab,
-  "jarvis-actions": JarvisActionsTab,
   costs: CostsTab,
   feedback: FeedbackTab,
 };
@@ -170,8 +166,6 @@ function resolveHubTab(active: string): { content: HubNavId | "telephony-setup";
       return { content: "shortcuts", highlight: "shortcuts" };
     case "pets":
       return { content: "pets", highlight: "pets" };
-    case "jarvis-actions":
-      return { content: "jarvis-actions", highlight: "jarvis-actions" };
     case "costs":
       return { content: "costs", highlight: "costs" };
     case "feedback":
@@ -216,6 +210,7 @@ export function SettingsHubView() {
   const t = useT();
   const language = useUiLanguage();
   const active = useEventStore((s) => s.activeSection);
+  const solo = useEventStore((s) => s.solo);
   const setActive = useEventStore((s) => s.setActiveSection);
   const [query, setQuery] = useState("");
   const [searchTarget, setSearchTarget] = useState<string | null>(null);
@@ -309,9 +304,12 @@ export function SettingsHubView() {
         <div className="px-3 pb-1 pt-3">
           {/* No way-out row of its own: the caption's back arrow and Escape
               leave the page, so the heading opens the nav. */}
-          <p className="px-2.5 pb-3 pt-1 font-display text-lg font-semibold text-foreground-strong">
-            {t("nav.settings")}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-1 pb-3">
+            <p className="px-2.5 pt-1 font-display text-lg font-semibold text-foreground-strong">
+              {t("nav.settings")}
+            </p>
+            {!solo && <SectionWindowButton />}
+          </div>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <input type="text" role="searchbox" data-testid="settings-hub-search" value={query} onChange={(event) => setQuery(event.target.value)}

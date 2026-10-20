@@ -3,10 +3,11 @@ import { render } from "@testing-library/react";
 import en from "@/i18n/locales/society/en.json";
 import de from "@/i18n/locales/society/de.json";
 import es from "@/i18n/locales/society/es.json";
+import pt from "@/i18n/locales/society/pt.json";
 import { AgentSymbol } from "../AgentSymbol";
 import {
   ACCESSORY_CATALOG, ACCESSORY_IDS_BY_SLOT, ACCESSORY_ITEMS, ACCESSORY_SLOTS, OFFERED_SLOTS, randomAccessories, resolveFill,
-  symbolViewBox, wornAccessories,
+  slotDepthM, symbolViewBox, wornAccessories,
 } from "./accessories";
 import { COMPANION_SHAPES, companionSchema, resolveCompanion } from "./appearance";
 
@@ -14,7 +15,7 @@ type Labels = { society: { companion: { items: Record<string, string>; slots: Re
 
 describe("agent symbol accessories", () => {
   it("labels every item and slot in every society locale", () => {
-    for (const locale of [en, de, es] as unknown as Labels[]) {
+    for (const locale of [en, de, es, pt] as unknown as Labels[]) {
       const { items, slots } = locale.society.companion;
       expect(Object.keys(items).sort()).toEqual(ACCESSORY_ITEMS.map(item => item.id).sort());
       expect(Object.keys(slots).sort()).toEqual([...ACCESSORY_SLOTS].sort());
@@ -91,3 +92,15 @@ describe("agent symbol accessories", () => {
     }
   });
 });
+
+describe("accessory depth on the volumetric bodies", () => {
+  it.each(COMPANION_SHAPES)("rests every %s slot on the measured body surface", shape => {
+    const depth = ACCESSORY_CATALOG.shapes[shape].depth!;
+    for (const slot of ACCESSORY_SLOTS) expect(slotDepthM(shape, slot)).toBe(depth[slot]);
+    // Worn items sit on the front of a solid at least a third of a metre deep.
+    expect(depth.face!).toBeGreaterThan(0.2);
+    expect(depth.back!).toBeLessThan(-0.2);
+    expect(depth.head).toBe(0);
+  });
+});
+

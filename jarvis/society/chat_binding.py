@@ -27,6 +27,7 @@ from typing import Any, Final
 
 from .communication import response_instruction
 from .delivery import DeliveryBusy, IncomingMessage, incoming_context
+from .display_name import display_name
 from .events import MsgType, SocietyEnvelope
 from .roster import (
     LEAD_AGENT_ID,
@@ -87,6 +88,12 @@ def _workspace(cfg: Any, agent: AgentRecord) -> str:
     return str(folder)
 
 
+def _session_runtime(agent: AgentRecord) -> str:
+    """The chat session's ``runtime`` column: empty for Jarvis' own runtime."""
+    runtime = str(getattr(agent, "runtime", "") or "jarvis")
+    return "" if runtime == "jarvis" else runtime
+
+
 def ensure_session(
     svc: Any,
     cfg: Any,
@@ -104,10 +111,11 @@ def ensure_session(
         society_mode_supported,
         stance_of,
     )
-    from jarvis.agent_chat.service import resolve_runner
+    from jarvis.agent_chat.service import resolve_runner, session_runner
 
     provider, model, effort = pair_for(cfg, agent)
-    runner = resolve_runner(provider, surface=SURFACE)
+    runtime = _session_runtime(agent)
+    runner = resolve_runner(provider, surface=SURFACE, runtime=runtime, account_id=agent.account_id)
     legacy_mode = ""
     if agent.approval_mode is None:
         legacy_mode = normalize_permission(
@@ -144,6 +152,7 @@ def ensure_session(
             session_id=session_id,
             surface=SURFACE,
             account_id=agent.account_id,
+            runtime=runtime,
         )
     if getattr(svc, "is_running", lambda _sid: False)(session_id):
         # An active CLI turn still owns its provider-specific vendor session.
@@ -152,7 +161,12 @@ def ensure_session(
     if existing.provider != provider or existing.model != model:
         svc.store.reseat_session(session_id, provider=provider, model=model)
         existing = svc.store.get_session(session_id)
-    ladder = ladder_key(SURFACE, resolve_runner(provider, surface=SURFACE))
+    if getattr(existing, "runtime", "") != runtime:
+        # The vendor session belongs to the runtime the chat is leaving; the
+        # next turn opens a fresh one from the briefing and recent transcript.
+        svc.store.update_session(session_id, runtime=runtime, vendor_session="")
+        existing = svc.store.get_session(session_id)
+    ladder = ladder_key(SURFACE, runner)
     if agent.approval_mode is None:
         # Legacy roster rows encoded their chat stance in permission_ceiling.
         mode = legacy_mode
@@ -183,6 +197,11 @@ def ensure_session(
     updates: dict[str, str] = {}
     if getattr(existing, "account_id", "") != agent.account_id:
         updates["account_id"] = agent.account_id
+        if session_runner(existing) != runner:
+            # Another way of paying moved the chat to another runner (Claude:
+            # subscription CLI <-> API key), which cannot resume the old one's
+            # vendor conversation; the next turn opens a fresh one.
+            updates["vendor_session"] = ""
     if effort and existing.effort != effort:
         updates["effort"] = effort
     if existing.permission_mode != mode:
@@ -294,8 +313,13 @@ def frame_incoming(env: SocietyEnvelope, sender_name: str) -> str:
 ASSIGNMENT_HEADER = "[assignment from "
 
 
-def frame_assignment(env: SocietyEnvelope) -> str:
-    """An ASSIGN as the receiving agent's chat turn — with the handoff ask."""
+def frame_assignment(env: SocietyEnvelope, sender_name: str = "") -> str:
+    """An ASSIGN as the receiving agent's chat turn — with the handoff ask.
+
+    The header carries the sender's id (the chat reads it back to draw the
+    delegation card); the name the agent should use for the sender follows the
+    ids at the end.
+    """
     sender = env.from_agent if env.from_agent != "user" else "the user"
     task = env.text or str(env.payload.get("task") or "")
     lines = [f"{ASSIGNMENT_HEADER}{sender}]", task.strip()]
@@ -306,7 +330,11 @@ def frame_assignment(env: SocietyEnvelope) -> str:
         "When you are done, end with a handoff: what is done, where the output is, "
         "what evidence you used, what remains open, who should own the next step."
     )
-    lines.append(f"Message id: {env.event_id}; sender id: {env.from_agent}")
+    named = sender_name if sender_name not in ("", env.from_agent) else ""
+    lines.append(
+        f"Message id: {env.event_id}; sender id: {env.from_agent}"
+        + (f"; sender name: {named}" if named else "")
+    )
     lines.append(response_instruction(env))
     return "\n".join(lines)
 
@@ -331,7 +359,9 @@ def make_deliver_hook(
 
             runtime = current_runtime()
             record = await runtime.roster.get(env.from_agent) if runtime is not None else None
-            sender = record.name if record is not None else env.from_agent
+            sender = (
+                display_name(record, get_cfg()) if record is not None else env.from_agent
+            )
         incoming = IncomingMessage(
             message_id=env.event_id,
             sender_id=env.from_agent,
@@ -350,7 +380,7 @@ def make_deliver_hook(
         if target.agent_id == LEAD_AGENT_ID:
             sessions = svc.store.list_sessions(limit=1, surface="jarvis")
             if not sessions:
-                raise DeliveryBusy("Jarvis chat is not open yet")
+                raise DeliveryBusy("Dodaios chat is not open yet")
             session = sessions[0]
         else:
             # Everyone reaches a created agent in its one chat; the incoming
@@ -370,7 +400,9 @@ def make_deliver_hook(
         if receipt is not None and receipt["status"] == "delivered":
             return
         if svc.is_running(session.session_id) or agent_busy(svc, target):
-            raise DeliveryBusy(f"target busy: {target.name} is running a turn")
+            raise DeliveryBusy(
+                f"target busy: {display_name(target, get_cfg())} is running a turn"
+            )
         token = incoming_context.set(incoming)
         try:
             from jarvis.agent_chat.service import SessionBusy

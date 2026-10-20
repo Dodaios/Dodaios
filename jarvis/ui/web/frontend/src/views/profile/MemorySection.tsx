@@ -2,10 +2,11 @@
  * Memory and privacy — where the rest of what the assistant knows lives, and
  * what it will never keep.
  *
- * Four rows, each pointing at a real source:
+ * Five rows, each pointing at a real source:
  *   - your standing rules ({name}.md), edited in their own section;
  *   - the wiki's long-form page about you, when the vault has one (the slug
  *     comes from your name, so a nameless profile asks for nothing);
+ *   - the switch for searching the wiki by meaning (`SemanticSearchRow`);
  *   - the profile file itself, USER.md, which opens in place;
  *   - the `## Do Not Record` categories, quoted from that file rather than
  *     restated in code, so the page can never promise more than the file says.
@@ -16,9 +17,11 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useAgentInstructions } from "@/hooks/useAgentInstructions";
-import { useT } from "@/i18n";
+import { useI18nStore, useT } from "@/i18n";
+import { localeForUiLanguage } from "@/components/runs/format";
 import { useEventStore } from "@/store/events";
 import { ProfileGroup, SettingRow } from "@/views/profile/ProfileGroup";
+import { SemanticSearchRow } from "@/views/profile/SemanticSearchRow";
 import { parseDoNotRecord, shortenCategory } from "@/views/profile/provenance";
 
 interface WikiPage {
@@ -123,7 +126,7 @@ export function MemorySection({
       : t("profile_view.wiki_needs_name");
 
   const fileDate = fileUpdatedMs
-    ? new Date(fileUpdatedMs).toLocaleDateString(undefined, {
+    ? new Date(fileUpdatedMs).toLocaleDateString(localeForUiLanguage(useI18nStore.getState().ui), {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -177,6 +180,8 @@ export function MemorySection({
           ) : undefined
         }
       />
+
+      <SemanticSearchRow />
 
       <SettingRow
         testId="source-row"

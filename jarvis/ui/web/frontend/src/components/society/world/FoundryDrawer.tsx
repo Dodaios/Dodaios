@@ -12,15 +12,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Factory, Plus, X } from "lucide-react";
 
 import { fill, useT, useUiLanguage } from "@/i18n";
+import { localeForUiLanguage } from "@/components/runs/format";
 import { AgentSwatch } from "../AgentSwatch";
 import { useQuickCreateAgent, useSocietyRoster, type SocietyAgent } from "../data";
+import { isCreateCancelled } from "../create/createAgentStore";
 
 /** How many of the newest agents the drawer lists. */
 const RECENT_LIMIT = 6;
 
 function useRelativeTime(): (ms: number) => string {
   const language = useUiLanguage();
-  const rtf = useMemo(() => new Intl.RelativeTimeFormat(language, { numeric: "auto" }), [language]);
+  const rtf = useMemo(() => new Intl.RelativeTimeFormat(localeForUiLanguage(language), { numeric: "auto" }), [language]);
   return useCallback(
     (ms: number) => {
       const seconds = Math.round((ms - Date.now()) / 1000);
@@ -74,7 +76,9 @@ export function FoundryDrawer({
         if (onSelectAgent) onSelectAgent(agent.agentId);
         else onClose();
       })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => {
+        if (!isCreateCancelled(err)) setError(err instanceof Error ? err.message : String(err));
+      })
       .finally(() => setCreating(false));
   }, [creating, quickCreate, onSelectAgent, onClose]);
 

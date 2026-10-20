@@ -22,12 +22,13 @@ import inspect
 import logging
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import AsyncExitStack
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 from uuid import uuid4
 
-from jarvis.core.protocols import CodingSessionGateway
+from jarvis.missions.events import MISSION_LANGUAGES
 
 from .approvals import Approvals
 from .bridge import MissionBridge
@@ -37,6 +38,7 @@ from .checkpoints import CheckpointEngine
 from .communication import reply_policy, should_report
 from .conversation import ConversationArchive
 from .delivery import IncomingMessage, incoming_context
+from .display_name import display_name, lead_display_name
 from .events import MsgType, QuestState, RoomState, SocietyEnvelope, Tier, now_ms
 from .focus import derive_approval_rules, derive_focus
 from .learning import AgentSkills, LearningPass, TurnDigest, default_creator_factory
@@ -65,6 +67,17 @@ class _UsablePlugins:
     read_at: float
 
 
+#: Set by a caller that waits for the reply to the message it is about to send
+#: and says that reply itself (``jarvis.plugins.tool.ask_agent``).
+#: The value is an empty list that receives the id of the ONE question it
+#: marks; a task that inherits the context finds the list already used.
+#: How many answers said inside a call are remembered until their delivery runs.
+_ANSWERED_INLINE_MAX: Final[int] = 256
+reply_awaited_inline: ContextVar[list[str] | None] = ContextVar(
+    "reply_awaited_inline", default=None
+)
+
+
 class SocietyRuntimeClosed(RuntimeError):
     """This runtime owner has entered terminal shutdown."""
 
@@ -81,6 +94,9 @@ _LEAD_INCOMING_TYPES: Final[frozenset[MsgType]] = frozenset(
     {MsgType.SAY, MsgType.QUERY, MsgType.ANSWER, MsgType.PROPOSE}
 )
 _WATCH_EVENT_POLL_SECONDS: Final[float] = 2.0
+#: The drill switch: a file in the data dir that injects a named fault.
+_DRILL_FILE: Final[str] = "society_drill.json"
+_DRILL_MAX_S: Final[float] = 30.0
 
 _current: SocietyRuntime | None = None
 
@@ -95,11 +111,12 @@ def set_current_runtime(runtime: SocietyRuntime | None) -> None:
     _current = runtime
 
 
-def _agent_frame(agent: AgentRecord, task: str) -> str:
+def _agent_frame(agent: AgentRecord, task: str, config: Any = None) -> str:
     """The mission prompt that carries the agent's identity to a worker."""
+    name = display_name(agent, config)
     lines = [
-        f"You are {agent.name}" + (f", {agent.title}" if agent.title else "") + ",",
-        f"a {agent.tier} agent in the user's agent society led by Jarvis.",
+        f"You are {name}" + (f", {agent.title}" if agent.title else "") + ",",
+        f"a {agent.tier} agent in the user's agent society led by {lead_display_name(config)}.",
     ]
     if agent.description.strip():
         lines += ["", "Standing instructions:", agent.description.strip()]
@@ -134,12 +151,10 @@ class SocietyRuntime:
     ) -> None:
         self._data_dir = Path(data_dir)
         self._plugin_state = plugin_state
-        self.coding_request_lock = asyncio.Lock()
-        self._coding_sessions: CodingSessionGateway | None = None
         self._usable_cache: _UsablePlugins | None = None
-        from .coding_supervision import CodingSupervision
+        from .coding_threads import CodingThreads
 
-        self.coding_supervision = CodingSupervision(self, app_bus)
+        self.coding_threads = CodingThreads(self)
         self._get_manager = mission_manager or (lambda: None)
         self._get_mission_bus = mission_bus or (lambda: None)
         self._get_budget = budget_tracker or (lambda: None)
@@ -181,8 +196,19 @@ class SocietyRuntime:
             self._data_dir / "society-conversations.db", defer_open=True
         )
         self._review_lock = asyncio.Lock()
+        #: Requests whose reply a caller is waiting for and will speak itself;
+        #: their answer is not announced a second time (``reply_awaited_inline``).
+        self._awaited_inline: set[str] = set()
+        #: Requests whose answer a caller already received and said. The runtime
+        #: may deliver that answer only after the caller stopped waiting; this
+        #: keeps that late delivery quiet (in insertion order, bounded).
+        self._answered_inline: dict[str, None] = {}
         #: The Quest Board: the person's jobs, routed to one taker, read back off the board.
         self.quests = Quests(self)
+        from .team_lead import TeamLeads
+
+        #: Team leads: a member that manages its team toward the person's goals.
+        self.team_leads = TeamLeads(self, publish=event_publish)
         #: Speech on the board, projected onto the island: two agents talking
         #: turn to each other, two agents apart call across the map.
         self.world_feed = WorldFeed(self, publish=event_publish)
@@ -197,6 +223,9 @@ class SocietyRuntime:
         )
         self._start_lock = asyncio.Lock()
         self._delivery_task: asyncio.Task[None] | None = None
+        # Runs for the whole session, so it is not one of ``_watchers``
+        # (finite background work that callers may wait for).
+        self._runtime_updates_task: asyncio.Task[None] | None = None
         self._delivery_unsubscribe: Callable[[], None] | None = None
         self._lead_incoming_unsubscribe: Callable[[], None] | None = None
         self._started = False
@@ -282,15 +311,29 @@ class SocietyRuntime:
         # synchronous reader on the brain's prompt build — sees the team from
         # the first turn, not from the first REST listing.
         await self.roster.refresh()
+        # After the roster: the lead prompts read names off its snapshot.
+        await self.team_leads.start()
         self._require_open_owner()
         self._started = True
         self._delivery_task = asyncio.create_task(self._deliver_pending())
         set_current_runtime(self)
-        await self.coding_supervision.start()
+        await self.coding_threads.start()
         self._require_open_owner()
         self.background(self.recover_reviews())
+        self._runtime_updates_task = asyncio.create_task(self._keep_agent_runtimes_current())
         log.info("society runtime started (%s)", self.store.path)
         return self
+
+    async def _keep_agent_runtimes_current(self) -> None:
+        """Daily Hermes / OpenClaw updates for the runtimes agents use
+        (``agent_runtimes.manager.keep_current``; first round after 10 min)."""
+        from jarvis.agent_runtimes import manager
+
+        async def in_use() -> set[str]:
+            agents = await self.roster.list()
+            return {str(agent.runtime) for agent in agents} - {"", "jarvis"}
+
+        await manager.keep_current(in_use)
 
     async def _delivery_failed(self, env: SocietyEnvelope) -> None:
         """Project a terminal scheduler veto onto an already-visible chat receipt."""
@@ -372,8 +415,13 @@ class SocietyRuntime:
     ) -> None:
         from jarvis.core.delegation import result_announcement
 
+        # Read before the first await: the asker may stop waiting meanwhile.
+        said_inline = request.event_id in self._awaited_inline or (
+            self._answered_inline.pop(request.event_id, False) is None
+        )
         event = result_announcement(
-            source="society.lead", request_id=request.event_id, name=target.name,
+            source="society.lead", request_id=request.event_id,
+            name=self.display_name(target),
             request=request.text, status=status, report=summary,
             language=str(request.payload.get("lang") or ""),
         )
@@ -389,13 +437,18 @@ class SocietyRuntime:
                 session = svc.store.get_session(session_id) if session_id else None
                 if session is not None and session.surface == "jarvis":
                     await post(session_id, {
-                        "kind": kind, "agent_id": target.agent_id, "agent_name": target.name,
+                        "kind": kind, "agent_id": target.agent_id,
+                        "agent_name": self.display_name(target),
                         "msg_type": message_type, "status": status, "text": summary[:1000],
                         "session_id": target.session_id, "trace_id": request.trace_id,
                         "assignment_id": request.event_id, "report": event.report,
                     })
             except Exception:  # A chat failure must not suppress the voice result.
                 log.warning("society: result notice delivery failed", exc_info=True)
+        if said_inline or request.event_id in self._awaited_inline:
+            # The asker is waiting on this very answer, or already has it, and
+            # says it itself; the chat notice above keeps the durable copy.
+            return
         surface = request.payload.get("reply_surface")
         if surface == "voice" or (surface is None and request.trace_id.startswith("voice:")):
             if self._publish_event is not None:
@@ -405,6 +458,19 @@ class SocietyRuntime:
                         await value
                 except Exception:  # The durable board and chat still retain the report.
                     log.warning("society: result announcement failed", exc_info=True)
+
+    def stop_awaiting_inline(self, request_id: str, *, answered: bool = False) -> None:
+        """The caller stopped waiting.
+
+        ``answered``: it has the answer and said it, so that answer's delivery
+        stays quiet even when it runs later. Otherwise a later reply is
+        announced as usual.
+        """
+        self._awaited_inline.discard(request_id)
+        if answered:
+            self._answered_inline[request_id] = None
+            while len(self._answered_inline) > _ANSWERED_INLINE_MAX:
+                self._answered_inline.pop(next(iter(self._answered_inline)))
 
     async def _deliver_pending(self) -> None:
         """Recover committed messages and retry busy chats without opening sockets."""
@@ -427,6 +493,10 @@ class SocietyRuntime:
         """The live app config the chat binding reads provider defaults from."""
         return self._get_cfg()
 
+    def display_name(self, agent: AgentRecord) -> str:
+        """The name to show, speak or send for ``agent`` (``display_name`` module)."""
+        return display_name(agent, self._get_cfg())
+
     async def close(self) -> None:
         # HTTP serving continues during independent server cleanup. Fence this
         # owner synchronously so a late roster/context request cannot reopen it.
@@ -447,6 +517,7 @@ class SocietyRuntime:
             cleanup.push_async_callback(asyncio.to_thread, self.conversations.close)
             for release in (
                 self.world_feed.detach,
+                self.team_leads.detach,
                 self.quests.detach,
                 self.checkpoints.detach,
                 self.bridge.detach,
@@ -460,10 +531,19 @@ class SocietyRuntime:
                 if unsubscribe is not None:
                     cleanup.callback(unsubscribe)
                     setattr(self, attribute, None)
-            cleanup.push_async_callback(self.coding_supervision.close)
+            cleanup.push_async_callback(self.coding_threads.close)
+            # Hermes / OpenClaw agents: their Gateways must not outlive the app.
+            from jarvis.agent_runtimes import stop_all as stop_agent_runtimes
+
+            cleanup.push_async_callback(stop_agent_runtimes)
 
             tasks: set[asyncio.Task[Any]] = set(self._watchers)
-            for task in (self._starting_task, self._context_start_task, self._delivery_task):
+            for task in (
+                self._starting_task,
+                self._context_start_task,
+                self._delivery_task,
+                self._runtime_updates_task,
+            ):
                 if task is not None:
                     tasks.add(task)
             for task in tasks:
@@ -481,6 +561,8 @@ class SocietyRuntime:
                     self._context_start_task = None
                 if self._delivery_task is not None and self._delivery_task.done():
                     self._delivery_task = None
+                if self._runtime_updates_task is not None and self._runtime_updates_task.done():
+                    self._runtime_updates_task = None
                 self._watchers.difference_update(task for task in tasks if task.done())
 
     def skills_for(self, agent_id: str) -> AgentSkills:
@@ -498,11 +580,30 @@ class SocietyRuntime:
         await asyncio.to_thread(self.conversations.ingest, session.session_id, events)
         await self._complete_message_reply(session, completion, events)
         terminal = [e for e in events if e.get("kind") == "turn_finished"]
-        if not terminal or terminal[-1].get("payload", {}).get("status") not in {
+        finished = bool(terminal) and terminal[-1].get("payload", {}).get("status") in {
             "done",
             "ok",
             "completed",
-        }:
+        }
+        if completion.turn.direct_user:
+            from .surface import agent_id_of
+
+            owner = agent_id_of(session.session_id)
+            if owner and self.team_leads.group_led_by(owner) is not None:
+                # The person's own turn in a team lead's chat: a goal the lead
+                # acted on in it is followed up like a managing turn.
+                final = next(
+                    (
+                        str(e.get("payload", {}).get("text") or "")
+                        for e in reversed(events)
+                        if e.get("kind") == "assistant_text"
+                    ),
+                    "",
+                )
+                self.background(
+                    self.team_leads.person_turn_ended(owner, ok=finished, final=final)
+                )
+        if not finished:
             return
         names = {
             str(e.get("payload", {}).get("name") or "")
@@ -524,6 +625,10 @@ class SocietyRuntime:
             # A meeting contribution is a read-only reply in a shared round,
             # often a silent pass; reviewing each one would add a model call
             # per member to every message the person sends.
+            return
+        if self.team_leads.is_managing(session.session_id):
+            # A lead's managing turn hands out and checks work; a review after
+            # each one would add a model call to every step of every goal.
             return
         window_key = ""
         if completion.turn.direct_user:
@@ -673,7 +778,7 @@ class SocietyRuntime:
             try:
                 seen = svc.store.list_sessions(limit=1, surface="jarvis")
             except Exception:  # noqa: BLE001 — falls back to the society session below
-                log.warning("society: could not read the Jarvis chat sessions", exc_info=True)
+                log.warning("society: could not read the Dodaios chat sessions", exc_info=True)
                 seen = []
             if seen:
                 session_id = seen[0].session_id
@@ -708,22 +813,13 @@ class SocietyRuntime:
 
     # ------------------------------------------------------------ catalog
 
-    def coding_sessions(self) -> CodingSessionGateway:
-        """Lazy composition root for the scoped IDE protocol."""
-        if self._coding_sessions is None:
-            from jarvis.agentic_ide.control import CodingSessionControl
-            from jarvis.agentic_ide.session import get_registry
-
-            self._coding_sessions = CodingSessionControl(get_registry())
-        return self._coding_sessions
-
     def catalog(self) -> list[CapabilityRow]:
         from .browser.tool import BrowserTool
-        from .coding_tool import CodingSessionTool
+        from .coding_threads import CodingThreadTool
 
         tools = dict(self._get_tools() or {})
         tools[BrowserTool.name] = BrowserTool(self, "", self.browser)
-        tools[CodingSessionTool.name] = CodingSessionTool(self, "")
+        tools[CodingThreadTool.name] = CodingThreadTool(self, "")
         try:
             skills = list(self._get_skills() or [])
         except Exception:  # noqa: BLE001 — a broken skill registry costs the skill rows only
@@ -789,7 +885,35 @@ class SocietyRuntime:
             if reply_policy(env) != "always":
                 raise RuntimeError("this reply policy requires an available agent chat service")
             return await self._dispatch_mission(target, env)
+        from .team_lead import TRACE_PREFIX as TEAM_TRACE_PREFIX
+
+        if (
+            self.team_leads.group_led_by(target.agent_id) is not None
+            and not env.trace_id.startswith(TEAM_TRACE_PREFIX)
+        ):
+            # Work handed to a team lead is a goal for its team: the lead
+            # plans, assigns and answers this assignment with its report.
+            return await self.team_leads.accept_assignment(target, env)
         return await self._dispatch_chat(target, env)
+
+    def _drill_seconds(self, key: str) -> float:
+        """A fault the person switched on for a drill, in seconds; ``0`` = off.
+
+        Read from ``<data dir>/society_drill.json`` on every use, so a drill
+        starts and ends without a restart and is off whenever the file is
+        absent. Capped: a drill delays one start, it never hangs the society.
+        """
+        path = self._data_dir / _DRILL_FILE
+        if not path.is_file():
+            return 0.0
+        try:
+            import json
+
+            value = float(json.loads(path.read_text(encoding="utf-8")).get(key) or 0)
+        except (OSError, ValueError, TypeError, AttributeError):
+            log.warning("society drill: %s is unreadable; no fault is injected", path)
+            return 0.0
+        return max(0.0, min(value, _DRILL_MAX_S))
 
     async def _dispatch_chat(self, target: AgentRecord, env: SocietyEnvelope) -> str:
         svc = self._get_chat()
@@ -799,26 +923,28 @@ class SocietyRuntime:
 
         # Work Jarvis or a teammate hands out runs in the agent's one chat; the
         # chat shows the framed assignment as a delegation card from its sender.
+        sender = await self.roster.get(env.from_agent)
+        sender_name = self.display_name(sender) if sender is not None else env.from_agent
         session = ensure_session(svc, self._get_cfg(), target)
         if svc.is_running(session.session_id):
-            raise RuntimeError(f"target busy: {target.name} is running a turn")
+            raise RuntimeError(f"target busy: {self.display_name(target)} is running a turn")
         queue = svc.subscribe(session.session_id)
         # Both API and CLI turns inherit the same trusted request provenance.
         token = incoming_context.set(
             IncomingMessage(
                 message_id=env.event_id,
                 sender_id=env.from_agent,
-                sender_name=env.from_agent,
+                sender_name=sender_name,
                 sender_kind="jarvis" if env.from_agent == LEAD_AGENT_ID else "agent",
                 text=env.text,
-                prompt=frame_assignment(env),
+                prompt=frame_assignment(env, sender_name),
                 trace_id=env.trace_id,
             )
         )
         try:
             turn_id = await svc.send(
                 session.session_id,
-                frame_assignment(env),
+                frame_assignment(env, sender_name),
                 **({"read_only": True} if env.payload.get("read_only") is True else {}),
                 **(
                     {"direct_user": False}
@@ -831,6 +957,17 @@ class SocietyRuntime:
             raise
         finally:
             incoming_context.reset(token)
+        hold = self._drill_seconds("slow_start_s")
+        if hold:
+            # A drill the person switched on (docs/agent-society/team-leads.md):
+            # the turn is running, and this start now takes long enough for the
+            # board to give up on it, exactly as a slow start does.
+            log.warning("society drill: holding the start of %s for %.0f s", target.name, hold)
+            try:
+                await asyncio.sleep(hold)
+            except asyncio.CancelledError:
+                svc.unsubscribe(session.session_id, queue)
+                raise
         run_id = f"turn:{turn_id}"
         watcher = asyncio.create_task(
             self._watch_turn(svc, session.session_id, queue, turn_id, run_id, target, env)
@@ -1072,10 +1209,10 @@ class SocietyRuntime:
         task = env.text or str(env.payload.get("task", "")) or "(no task text)"
         language = env.payload.get("lang")
         kwargs: dict[str, Any] = {
-            "prompt": _agent_frame(target, task),
+            "prompt": _agent_frame(target, task, self._get_cfg()),
             "source_actor": "hauptjarvis",
         }
-        if language in ("de", "en"):
+        if language in MISSION_LANGUAGES:
             kwargs["language"] = language
         mission_id = await manager.dispatch(**kwargs)
         self._owners[str(mission_id)] = target.agent_id
@@ -1122,6 +1259,7 @@ class SocietyRuntime:
     async def engage_kill_switch(self) -> dict[str, Any]:
         await self.store.set_kill_switch(True)
         halted = await self.scheduler.halt_all()
+        goals_paused = await self.team_leads.halt()
         await self._cancel_active_society_chats()
         await self.browser.close()
         settled = 0
@@ -1142,6 +1280,7 @@ class SocietyRuntime:
             "runs_halted": halted,
             "rooms_settled": settled,
             "missions_cancelled": killed,
+            "team_goals_paused": goals_paused,
         }
 
     async def release_kill_switch(self) -> dict[str, Any]:
@@ -1186,16 +1325,30 @@ class SocietyRuntime:
         turn = current_chat_turn.get()
         if turn is not None and turn.direct_user:
             body["reply_session_id"] = turn.session_id
-        envelope = await self.store.append_and_publish(
-            SocietyEnvelope(
-                msg_type=msg_type,
-                from_agent=from_agent,
-                to_agent=to_agent,
-                trace_id=trace_id or f"chat:{uuid4().hex}",
-                payload=body,
-                parent_event_id=parent_event_id,
-            )
+        outgoing = SocietyEnvelope(
+            msg_type=msg_type,
+            from_agent=from_agent,
+            to_agent=to_agent,
+            trace_id=trace_id or f"chat:{uuid4().hex}",
+            payload=body,
+            parent_event_id=parent_event_id,
         )
+        marked = reply_awaited_inline.get()
+        if (
+            marked is not None
+            and not marked
+            and from_agent == self.lead_id
+            and msg_type is MsgType.QUERY
+        ):
+            # Marked before it is stored: no reply can arrive ahead of the mark.
+            marked.append(outgoing.event_id)
+            self._awaited_inline.add(outgoing.event_id)
+        try:
+            envelope = await self.store.append_and_publish(outgoing)
+        except BaseException:
+            # Never sent: nothing may stay marked for a reply that cannot come.
+            self._awaited_inline.discard(outgoing.event_id)
+            raise
         from .delegation_wait import track_request
 
         await track_request(self, envelope)

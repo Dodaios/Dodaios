@@ -367,7 +367,7 @@ def render_source_data(data: SourceData) -> str:
     )
     lines: list[str] = [
         "## Source data — the only facts about the user's own data",
-        f"Jarvis read the user's connected accounts {when}. The page shows THESE "
+        f"Dodaios read the user's connected accounts {when}. The page shows THESE "
         "items and nothing else for the sections they cover. A section marked "
         "'nothing there' or 'UNAVAILABLE' stays empty on the page and shows its "
         "note in one plain sentence — never a made-up item in its place.",

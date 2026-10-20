@@ -22,6 +22,7 @@ from jarvis.missions.ids import uuid7_str
 
 __all__ = [
     "AgentApprovalMode",
+    "AgentRuntime",
     "AgentState",
     "ApprovalState",
     "BrowserMode",
@@ -35,6 +36,8 @@ __all__ = [
     "RoomState",
     "RunState",
     "SocietyEnvelope",
+    "TeamGoalState",
+    "TeamTaskState",
     "Tier",
     "now_ms",
 ]
@@ -128,6 +131,19 @@ class AgentApprovalMode(StrEnum):
     ALWAYS_ASK = "always_ask"
 
 
+class AgentRuntime(StrEnum):
+    """The agent loop that executes an agent's turns (``docs/agent-runtimes.md``).
+
+    ``jarvis`` = Jarvis' own brain or the CLI seat the model picks; ``hermes``
+    and ``openclaw`` = those external agents, driven over ACP with the same
+    briefing, memory and Jarvis tools.
+    """
+
+    JARVIS = "jarvis"
+    HERMES = "hermes"
+    OPENCLAW = "openclaw"
+
+
 class BrowserMode(StrEnum):
     """``own`` = the agent's persistent Chromium profile; ``attach`` = the
     person's running Chrome over CDP."""
@@ -173,6 +189,42 @@ class QuestState(StrEnum):
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class TeamGoalState(StrEnum):
+    """A goal the person gave a team; its lead plans, assigns and reports.
+
+    ``queued`` = waits behind the team's current goal; ``running`` = the lead
+    or a member is working on it; ``needs_input`` = the lead asked the person
+    something only they can decide; ``paused`` = stopped without an answer
+    (society halted, app restart, turn budget) until the person resumes it;
+    the three terminal states never change again.
+    """
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    NEEDS_INPUT = "needs_input"
+    PAUSED = "paused"
+    DONE = "done"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class TeamTaskState(StrEnum):
+    """One task a team lead handed to a member, read off the board.
+
+    ``waiting`` = the member was busy and the assignment knocks again;
+    ``assigned`` = the ASSIGN is on the board; ``running`` = the member
+    CLAIMed it; ``done`` / ``blocked`` come from its RESULT (or a final
+    refusal); ``cancelled`` = the goal was stopped first.
+    """
+
+    WAITING = "waiting"
+    ASSIGNED = "assigned"
+    RUNNING = "running"
+    DONE = "done"
+    BLOCKED = "blocked"
     CANCELLED = "cancelled"
 
 

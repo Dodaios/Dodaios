@@ -8,7 +8,7 @@
  * cannot find it.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PluginsView } from "@/views/PluginsView";
@@ -72,7 +72,7 @@ afterEach(() => {
 });
 
 describe("an installed community plugin is findable", () => {
-  it("counts in the Installed tab even before it is connected", async () => {
+  it("is listed under what the owner added, and as installed, before it is connected", async () => {
     mockCatalog([SEED_PLUGIN, INSTALLED_COMMUNITY_PLUGIN]);
     render(
       <QueryClientProvider client={client()}>
@@ -81,18 +81,22 @@ describe("an installed community plugin is findable", () => {
     );
 
     // The shipped catalog is always "available", so a community plugin that
-    // only showed up in the full list was indistinguishable from the ones the
-    // app came with — Installed is where somebody looks for what they added.
-    const installedTab = await screen.findByRole("tab", { name: /^Installed\b/i });
-    await waitFor(() => {
-      expect(installedTab.textContent).toContain("1");
-    });
+    // only showed up among it was indistinguishable from the ones the app came
+    // with — its own scope is where somebody looks for what they added.
+    await screen.findByText("GitHub");
+    expect(screen.queryByText("TodoFox")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Yours" }));
+    const community = await screen.findByRole("region", { name: "From the community" });
+    expect(within(community).getByText("TodoFox")).toBeDefined();
+    // The seed plugin is NOT the owner's and must not have followed it in.
+    expect(screen.queryByText("GitHub")).toBeNull();
 
-    fireEvent.click(installedTab);
+    // Installed, connected or not: the installed list carries it too.
+    fireEvent.click(screen.getByRole("button", { name: "Manage installed plugins" }));
     await waitFor(() => {
-      expect(screen.getByText("TodoFox")).toBeDefined();
+      expect(screen.getByText("Not connected")).toBeDefined();
     });
-    // The seed plugin is NOT installed and must not have followed it in.
+    expect(screen.getByText("TodoFox")).toBeDefined();
     expect(screen.queryByText("GitHub")).toBeNull();
   });
 
@@ -104,6 +108,7 @@ describe("an installed community plugin is findable", () => {
       </QueryClientProvider>,
     );
 
+    fireEvent.click(await screen.findByRole("tab", { name: "Yours" }));
     await waitFor(() => {
       expect(screen.getByText("TodoFox")).toBeDefined();
     });

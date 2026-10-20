@@ -58,6 +58,28 @@ worker tools and does not grant Society agents any new capability.
    exact session.
 4. `context` reads recorded results from the addressed session. A delivery
    receipt never asserts that the coding task has completed.
+5. `status` answers "what is running, what finished, who needs me" in one call:
+   one compact row per open coding session across every workspace (state, how
+   long, its job) plus each workspace folder's git state (branch, ahead/behind,
+   uncommitted files, linked worktree). It reads no transcript.
+6. `watch` reports back to the conversation when a session the user started by
+   hand ends its current job. It needs a CLI that keeps a local record, ends
+   when a new prompt is typed into that session, and reports a finished turn,
+   never verified work. A task sent through `send` is followed without it.
+
+`fork` opens a copy of a session that continues the same conversation beside the
+original, and with `worktree` in a new git worktree and branch, so two agents can
+work on one task without touching each other's files.
+
+The repository of a workspace has its own voice tool, `workspace-git`. Like the
+actions above it names a workspace, never a path. It reads the branch, sync state
+and changed files (`state`), the checkouts and archived worktrees (`worktrees`)
+and the pull requests with their checks (`pull_requests`); it creates a worktree,
+commits, pushes and opens a pull request. `worktree_archive` removes a checkout
+only after saving its uncommitted work into a snapshot ref
+(`refs/dodaios/archived-worktrees/…`), and `worktree_restore` brings it back at
+its old path with those files uncommitted again. Ignored files are not part of a
+snapshot.
 
 For example, a request to fix an installer in a named project can address a
 background workspace while the user continues viewing another project. The
@@ -70,6 +92,51 @@ Cancellation or interruption after a possible write leaves an uncertain claim;
 neither voice reconnection nor a new tool-call ID replays that request. Receipts
 include the immutable target and execution trace. Requests to a closed, moved,
 archived or non-coding session fail without falling back to another terminal.
+
+### Agents that are in a turn
+
+A plain `send` never reaches into running work: a session in a turn returns
+`not_accepted` with `busy: true`, types nothing, and lists how the message could
+still get there. Only a correction the user directs at that running work uses
+`while_busy`:
+
+- `steer` types it into the running turn. Only for a CLI whose own mid-turn
+  input reaches that turn (`WorkspaceAgent.steers_mid_turn`: Claude Code, GLM,
+  Codex). Nothing is stopped. Other CLIs refuse it before typing.
+- `interrupt` presses Stop once (Escape), waits up to 15 s for the turn to end,
+  then types the correction at the prompt. The process, conversation and files
+  stay. A turn that has not ended by then is handed to the queue.
+- `queue` holds the message in the app and types it once the turn ends, for up
+  to 30 minutes. Its receipt reads `queued` until then and becomes the delivery
+  result. An app restart before delivery leaves nothing typed; the receipt then
+  reads `expired`.
+
+None of them types into an open question or permission prompt; that is
+`respond`. A busy refusal, an expired queue or any other receipt that proves
+nothing was typed may be retried with the same `request_id` and prompt (also
+with a different `while_busy`); an accepted, queued or uncertain receipt is
+returned instead of a second delivery. Claude Code records a mid-turn message as
+a human `queued_command`; `context` shows it as a user message.
+
+### Failed turns and stopped agents
+
+A turn that ended in an error (Codex records `task_complete` with an `error`)
+shows the pane as `failed`, but its CLI is back at its prompt: a `send` delivers
+the next task as usual.
+
+An agent whose process is gone (`exited`, or `error` when it could not start)
+takes nothing. A `send` returns `not_accepted` with `stopped: true` and
+`restartable: true` and types nothing. `restart` (by call-sign or the resolved
+IDs) starts that same pane again: same `terminal_id`, account and launch picks,
+continuing its own conversation through the CLI's resume where one exists
+(`conversation: continued`), fresh otherwise. Its receipt reads `restarted`;
+nothing is typed. A pane whose agent is running is left alone and the receipt
+reads `already_running`, so a repeated or concurrent restart starts at most one
+process and never cuts a turn short. The refused send is then retried with the
+same `request_id` and prompt: its refusal proved nothing was typed, so the retry
+delivers once, and the accepted receipt answers every later retry. A restart is
+a logged `monitor` action like `interrupt` and `close`. Nothing restarts an agent
+on its own: a send never does it implicitly.
 
 ## Boundaries and verification
 

@@ -130,7 +130,7 @@ class LinuxBestEffortOverlay:
         except Exception:  # noqa: BLE001 — AD-6: never crash boot.
             log.exception(
                 "LinuxBestEffortOverlay: start failed; no orb presence this "
-                "session (the rest of Jarvis is unaffected)."
+                "session (the rest of Dodaios is unaffected)."
             )
 
     def stop(self) -> None:

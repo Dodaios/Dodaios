@@ -1195,7 +1195,7 @@ A user on a **fresh test machine** saw the blue/yellow Python logo again. The
 main pywebview window was healthy (verified live: its class icon is the mascot),
 and so was the OLD orb (`ui/orb/overlay.py`, which still carried
 `_apply_jarvis_icon_to_tk_root`). The culprit was the **JarvisBar**
-(`jarvis/ui/jarvisbar/overlay.py`) — the newer Tk surface that is now the
+(`jarvis/ui/dodaiosbar/overlay.py`) — the newer Tk surface that is now the
 **DEFAULT** `orb_style` (`jarvis_bar`). It created its `tk.Tk()` root with **no
 icon work at all**, so it inherited the process icon (`pythonw.exe` → Python
 logo). Enumerating the live process confirmed it: two top-level windows under one
@@ -2530,7 +2530,7 @@ per-style-root approach.
 **Update 2026-10-06:** waiting for a restart left the old surface on screen
 (the pet stayed beside a freshly picked bar until the app restarted). A style
 the app has not built yet now starts in its own host process
-(`DesktopApp._build_hosted_surface`, the `jarvis.ui.jarvisbar.host` used on
+(`DesktopApp._build_hosted_surface`, the `jarvis.ui.dodaiosbar.host` used on
 macOS since BUG-057), so the switch applies live on every OS without a second
 in-process root; the surface being left is hidden (in-process) or stopped
 (hosted) at once. `restart_required` remains only for a host that fails to
@@ -4197,7 +4197,7 @@ windows-still-spawns test),
 
 **Follow-up (implemented 2026-07-17).** The bar/orb got the own-process
 host: the mascot/orb now renders inside the jarvisbar subprocess host as
-``SubprocessMascotOverlay`` (``jarvis/ui/jarvisbar/subprocess_overlay.py``),
+``SubprocessMascotOverlay`` (``jarvis/ui/dodaiosbar/subprocess_overlay.py``),
 so its Tk root lives on the subprocess's own main thread and never touches a
 worker thread in the backend process; ``OrbOverlay`` additionally gained
 macOS Aqua-Tk alpha transparency (a ``-transparent`` root instead of the
@@ -5399,7 +5399,7 @@ Silent break: no TclError, so the key-color fallback never fired.
 native backing itself via pyobjc (`NSWindow.setOpaque_(False)` +
 `clearColor` background + no shadow) — the Tk-version-independent
 equivalent of what Tk 8.6 did internally. Applied in the bar
-(`jarvis/ui/jarvisbar/overlay.py::_apply_macos_clear_backing`), the orb
+(`jarvis/ui/dodaiosbar/overlay.py::_apply_macos_clear_backing`), the orb
 main window, and the comment bubble (`ui/orb/overlay.py::
 apply_macos_clear_backing`); darwin-only, best-effort, the grey box is the
 degrade. Safe post-BUG-074 (Tk owns NSApp before any window exists in the
@@ -8257,7 +8257,7 @@ mis-triaged (as a screen-capture artifact, on the strength of an isolated probe
 whose window was never stalled).
 
 **Fix.** `disable_windows_app_ghosting()` in `jarvis/core/process_utils.py`,
-called from both colour-key surfaces: the bar (`jarvis/ui/jarvisbar/overlay.py`)
+called from both colour-key surfaces: the bar (`jarvis/ui/dodaiosbar/overlay.py`)
 and the mascot (`ui/orb/overlay.py`). `DisableProcessWindowsGhosting` is
 process-wide and irreversible, which is the right trade — a frameless
 click-through overlay gains nothing from a ghost (no title bar to grey out, no
@@ -8293,7 +8293,7 @@ emits, suspect a substituted window before suspecting the renderer.
 
 **Symptom (maintainer field report).** Two bars on screen at once, slightly
 offset and of different sizes. The second one belonged to no Jarvis instance:
-`python -m jarvis.ui.jarvisbar.host`, parented to
+`python -m jarvis.ui.dodaiosbar.host`, parented to
 `pytest tests/unit -q --timeout=180`, still visible long after that test had
 moved on. Different geometry from the app's own bar (72x30 vs 93x39) because it
 booted from a different scale — the tell that it was a foreign process, not a
@@ -8322,7 +8322,7 @@ overlay has been released. "Nobody holds this overlay" now means "there is no
 bar to restore, so do not spawn a host". The live path is unchanged: the
 desktop app holds its surface, so real respawns still fire.
 
-**Guards.** `tests/unit/ui/jarvisbar/test_subprocess_overlay.py` — a released
+**Guards.** `tests/unit/ui/dodaiosbar/test_subprocess_overlay.py` — a released
 surface abandons its pending respawn, a live one still respawns, and (the real
 regression) a proxy with a respawn pending is still garbage-collectable once
 dropped. Verified sharp: with the previous bound-method target that last
@@ -13710,7 +13710,7 @@ Tests: `tests/unit/dictation/test_dictate_keybind.py` (press-while-running
 stops, sources, a raising handler does not end the loop),
 `tests/unit/speech/test_dictation_hold_watchdog.py`,
 `tests/unit/speech/test_dictation_mic_handoff.py` (bounded release wait),
-`tests/unit/ui/jarvisbar/test_interaction.py` / `test_host_protocol.py` /
+`tests/unit/ui/dodaiosbar/test_interaction.py` / `test_host_protocol.py` /
 `test_subprocess_overlay.py` (the X), `tests/unit/trigger/test_hotkey_key_state.py`
 and `tests/contract/test_hotkey_backend_protocol.py` (the capability on every
 backend). OS parity: `docs/os-parity.md` P-39.
@@ -14322,7 +14322,7 @@ after the posting stopped the loop kept ticking on its own (40 callback samples
 in the next 3 s, 41 in a sample minutes later). One message was the whole cure.
 
 Not the cause, checked on the way: today's Ink & Paper commits touched no
-Python under `jarvis/ui/jarvisbar/` (last change 2026-08-27); no second bar
+Python under `jarvis/ui/dodaiosbar/` (last change 2026-08-27); no second bar
 window existed (a sibling session's `pytest` run had booted a full desktop app
 with a real bar at 15:36, but its window was gone); `.venv` imports the repo
 tree; the working-tree edits to `audio/capture.py` / `speech/pipeline.py` do
@@ -14346,7 +14346,7 @@ not touch the level feed; the network was up (Groq answered every dictation).
   a wake reveal after a sleep is drawn on the next tick instead of waiting for
   the poll.
 
-Tests: `tests/unit/ui/jarvisbar/test_loop_waker.py` (kick on a stale
+Tests: `tests/unit/ui/dodaiosbar/test_loop_waker.py` (kick on a stale
 heartbeat, none on a fresh one, hold-off before the first frame, one wake per
 window, sleep counter reset on recovery, nothing after `stop()`, `show()` wakes
 at once, the helper and the waker thread are no-ops off Windows, a dead thread
@@ -15934,6 +15934,52 @@ permission need. The rows to close these are in `docs/macos-permissions.md` sect
 (each carries a "superseded" note), ADR-0038, `docs/os-parity.md`,
 `docs/product/privacy-safety-and-support/permissions.md`.
 
+## BUG-226: an agent's answer never came back during a browser voice call — the user had to ask for it (HIGH, FIXED 2026-10-02)
+
+**Symptom.** In a GPT-Live call Jarvis sent Jarvis-Scout a research task and
+said "I'll tell you when it's done". Scout finished five minutes later; Jarvis
+stayed silent for the rest of the call until the user asked "is Scout back?".
+In the same call a mission's "Almost there" line came out in a second, classic
+TTS voice on top of the live call. Scout's finished research was also filed as
+"blocked".
+
+**Cause.** Three gaps:
+
+1. A browser or native live call (`jarvis/live/session.py`) runs beside the
+   speech pipeline. The pipeline never got its handle (`_active_realtime_handle`
+   stays `None`), and `_voice_engine_transitioning` stayed `True` for the whole
+   call, because only the desktop realtime path clears it on `audio_ready`. So
+   `_agent_reply_needs_session()` was true for the entire call: every
+   `society.lead` / `agentic_ide.readback` result waited in the delegation inbox
+   until the call ended, and `_realtime_session_owns_voice()` was false, so
+   other readbacks fell through to classic TTS.
+2. Even with a handle, the pipeline offers owed replies only on its own
+   `LISTENING` transitions and settles them on the desktop `turn_complete`. A
+   live call has neither, so a delivered reply would have stayed "in flight"
+   and blocked every later one.
+3. `agent_chat/media.py` emits a `kind: error` event when a mentioned picture
+   cannot be displayed; `society/runtime.py::_watch_turn` treated any error
+   event as a failed turn.
+
+**Fix.** (1) The pipeline treats an active `jarvis.live` call as the realtime
+voice owner (`_live_call`, `_realtime_voice_handle`, `_agent_reply_floor_open`).
+(2) The live session reports conversational pauses (`ready_for_report`,
+`_notify_pause` → `SpeechPipeline.live_call_paused`) — on every indicator
+change, when the user falls silent, when a tool task finishes and when audio
+first flows — and tracks a handed-over report (sent → started → done/failed,
+20 s start timeout). The pipeline settles its in-flight reply on that outcome,
+offers an unvoiced one again (at most `_LIVE_REPLY_MAX_ATTEMPTS`, then the next
+call), and keeps a reply that was still on its way at hang-up for the next call
+(`live_call_ended`). Several results finishing together are still one grouped
+report; results arriving while one is spoken follow at the next pause.
+(3) Display errors carry `display_only`, picture rows carry `media_only`; the
+society turn watcher and the agent MCP tool ignore both for the turn's status
+and final text.
+Guards: `tests/unit/speech/test_live_call_agent_replies.py`,
+`tests/unit/live/test_report_delivery.py`,
+`tests/unit/society/test_chat_binding.py::test_a_picture_that_could_not_be_shown_does_not_block_finished_work`,
+`tests/unit/agent_chat/test_media.py::test_display_errors_are_marked_so_they_never_fail_the_turn`.
+
 ## BUG-227: "send Jarvis Scout a message" found no agent when speech misheard the name (HIGH, FIXED 2026-10-02)
 
 **Symptom.** On a voice call the user asked Jarvis to message their agent
@@ -16027,7 +16073,7 @@ child window, and the real outer window kept affinity 0 (measured on the live
 child and additionally re-applies `WDA_EXCLUDEFROMCAPTURE` on every `<Map>` of
 the toplevel (bound with `add="+"`, child-widget maps ignored). Checked with a
 real Tk root and Toplevel: 0x11 after the first map and after withdraw/show.
-Side effect: the overlays also vanish from other capture tools (ShareX, OBS),
+Side effect: the overlays also vanish from other capture and streaming tools,
 which is the documented intent of the module. Guard:
 `tests/unit/platform/test_capture_exclusion.py`.
 
@@ -16085,3 +16131,34 @@ does (`tests/unit/speech/conftest.py`), so a developer's real key no longer
 flips desktop-path tests. Guards: `tests/unit/realtime/test_factory.py`,
 `tests/unit/web/test_voice_mode_route.py`,
 `tests/unit/speech/test_realtime_mode.py`.
+
+## BUG-233: every program start from the app failed with WinError 8 once its PATH grew too long (HIGH, FIXED 2026-10-13)
+
+**Symptom.** On Windows an agent chat answered `Could not start codex-cli:
+[WinError 8] Not enough memory resources are available to process this
+command`, the Codex brain logged `CodexBrain CLI: spawn failed` with the same
+error, and the install test on the provider card said the Codex install looks
+broken. The same `codex` ran fine from a terminal, with the npm launcher and
+with the native binary alike (GitHub issue #574). Nothing was short of memory.
+
+**Cause.** For each `CreateProcess` Windows builds one search path from the
+application directory, the system directories and the calling process's
+`PATH`, in a string that holds 32,767 characters. When that overflows, every
+spawn of the process fails with `ERROR_NOT_ENOUGH_MEMORY`, whatever is started
+and whatever environment the child is given; a child that is handed such a
+PATH exits with `STATUS_NO_MEMORY` during its own start-up. Measured on
+Windows 11: with a 26-character application directory the last working PATH is
+32,688 characters and the first failing one 32,689. `ensure_cli_paths` and
+`refresh_from_persistent_path` appended CLI install folders to the app's own
+PATH with no upper bound, and neither looked at the length they inherited.
+
+**Fix.** `jarvis/core/path_augment.py` writes PATH through one bounded writer
+(`_store_path`, budget `_WINDOWS_PATH_BUDGET` = 31,000 characters, Windows
+only). Past the budget `fit_path_entries` gives up empty and repeated entries
+first, then folders that do not exist, then real folders from the end, and a
+CLI folder that still does not fit is left out with a warning. A PATH that is
+already too long when the app starts is repaired by the same call at boot. The
+Codex install test now reports the system's own refusal instead of a broken
+install (`codex_auth.version_spawn_error`). Guards:
+`tests/unit/core/test_path_augment.py` (including a real spawn past the limit
+on Windows), `tests/unit/test_agent_cli_probe.py`.

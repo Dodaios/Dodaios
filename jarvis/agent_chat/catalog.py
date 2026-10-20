@@ -75,6 +75,10 @@ Runner = Literal[
     "glm-cli",
     "dsh-cli",
     "cursor-cli",
+    # Society agent runtimes (``service.EXTERNAL_RUNTIME_RUNNERS``): picked by
+    # the agent's runtime, never by a provider row.
+    "hermes-cli",
+    "openclaw-cli",
 ]
 
 
@@ -408,7 +412,20 @@ def rows_for(surface: str) -> tuple[ProviderRow, ...]:
     """
     from jarvis.agent_chat.surface_kits import kit_for
 
-    if kit_for(surface).cli_seats:
+    kit = kit_for(surface)
+    if kit.plain:
+        # A plain chat seats whatever can answer with no tool: every provider
+        # an API key drives, and the CLIs that have a tool-free mode.
+        from jarvis.agent_chat.native_control import TOOL_FREE_RUNNERS
+        from jarvis.agent_chat.runner_api import supports_api_runner
+
+        return tuple(
+            row
+            for row in PROVIDER_ROWS
+            if supports_api_runner(row.id)
+            or (row.runner in TOOL_FREE_RUNNERS and _ide_has(row.agent))
+        )
+    if kit.cli_seats:
         return tuple(row for row in PROVIDER_ROWS if not row.agent or _ide_has(row.agent))
     from jarvis.agent_chat.runner_api import supports_api_runner
 
@@ -439,6 +456,19 @@ def offers(surface: str, provider_id: str) -> bool:
     """Whether ``provider_id`` is one of ``surface``'s rows."""
     pid = (provider_id or "").strip().lower()
     return any(row.id == pid for row in rows_for(surface))
+
+
+#: Reserved ``account_id`` values on a dual row (``claude-api``: one id for a
+#: subscription login AND an API key). They pin one agent's seat to one way of
+#: paying, chosen in the "New agent" dialog; ``""`` keeps the automatic choice
+#: (the API Keys page's setting, then whichever credential is there).
+#: ``API_KEY_ACCOUNT`` runs on the provider's saved API key.
+API_KEY_ACCOUNT: Final[str] = "api-key"
+#: ``SUBSCRIPTION_ACCOUNT`` runs on the subscription login even when an API key
+#: is saved too (Hermes / OpenClaw: Claude Code's login, billed as extra usage).
+SUBSCRIPTION_ACCOUNT: Final[str] = "subscription"
+#: Both reserved values: never the id of a real login.
+ACCESS_ACCOUNTS: Final[frozenset[str]] = frozenset({API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT})
 
 
 #: A CLI-only row and the API row of the same brand. A chat that was seated

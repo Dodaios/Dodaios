@@ -98,6 +98,29 @@ async def test_a_local_file_uri_is_unwrapped_before_opening(
     assert opened == [target.resolve()]
 
 
+async def test_reveal_selects_the_path_in_the_file_manager_instead_of_opening_it(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = workspace / "notes.md"
+    target.write_text("notes\n", encoding="utf-8")
+    opened = _record_opens(monkeypatch)
+    revealed: list[Path] = []
+    monkeypatch.setattr(
+        open_path,
+        "reveal_in_folder",
+        lambda path: revealed.append(path) or True,
+    )
+
+    result = await routes.reveal_terminal_target(
+        _request(),
+        routes.OpenTerminalTargetRequest(workspace_id="workspace-1", target="notes.md"),
+    )
+
+    assert result["opened"] is True
+    assert revealed == [target.resolve()]
+    assert opened == []
+
+
 @pytest.mark.parametrize("printed", ["../outside.txt", "https://example.com/file"])
 async def test_terminal_output_cannot_open_outside_the_workspace(
     workspace: Path,

@@ -40,9 +40,9 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-_UNAUTHORIZED_BODY = b'{"error":"Invalid or missing Jarvis Control API key."}'
+_UNAUTHORIZED_BODY = b'{"error":"Invalid or missing Dodaios Control API key."}'
 _NOT_A_SURFACE_BODY = (
-    b'{"error":"No Jarvis MCP surface at this path. '
+    b'{"error":"No Dodaios MCP surface at this path. '
     b'Use /api/control/mcp or /api/control/mcp/agents."}'
 )
 
@@ -283,7 +283,7 @@ def build_mcp_asgi_app() -> Any:
             return
         manager = await surface.manager()
         if manager is None:
-            await _reject(send, 503, b'{"error":"Jarvis MCP server is not available."}')
+            await _reject(send, 503, b'{"error":"Dodaios MCP server is not available."}')
             return
         if surface is _AGENTS_SURFACE:
             # A remote client is not one of Jarvis' own spawned sessions, so

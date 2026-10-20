@@ -60,6 +60,7 @@ PORTABLE_FIELDS: Final[tuple[str, ...]] = (
     "browser_mode",
     "browser_allowed_domains",
     "avatar",
+    "runtime",
 )
 
 #: Fields that must NEVER appear in a bundle, each for a stated reason. Checked
@@ -126,11 +127,11 @@ def _validate(bundle: Any) -> list[dict[str, Any]]:
     if not isinstance(bundle, dict):
         raise BundleError("a bundle is a JSON object with 'kind', 'version' and 'agents'")
     if bundle.get("kind") != "jarvis.agent-ecosystem":
-        raise BundleError(f"this is not a Jarvis ecosystem bundle (kind={bundle.get('kind')!r})")
+        raise BundleError(f"this is not a Dodaios ecosystem bundle (kind={bundle.get('kind')!r})")
     version = bundle.get("version")
     if version != BUNDLE_VERSION:
         raise BundleError(
-            f"bundle version {version} cannot be read by this Jarvis "
+            f"bundle version {version} cannot be read by this Dodaios "
             f"(it understands version {BUNDLE_VERSION})"
         )
     agents = bundle.get("agents")

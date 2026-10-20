@@ -247,6 +247,11 @@ class WebServer:
         # unchanged. See docs/superpowers/specs/2026-05-11-pre-thinking-ack-
         # flash-brain-design.md §4.
         self.bus.subscribe(AnnouncementRequested, self._forward_preamble_to_chat)
+        # An owed result reaches a live call through the speech pipeline; an
+        # install without one (headless, browser voice only) hands it over here.
+        from jarvis.live.announcements import deliver_to_live_call
+
+        self.bus.subscribe(AnnouncementRequested, deliver_to_live_call)
         from jarvis.core import runtime_refs
         from jarvis.missions.tool_approvals import (
             MissionToolApprovalCoordinator,
@@ -319,7 +324,7 @@ class WebServer:
 
     def _build_app(self) -> FastAPI:
         app = FastAPI(
-            title="Personal Jarvis — Admin/UI API",
+            title="Dodaios — Admin/UI API",
             version=__version__,
             # Swagger UI on ``/api/_swagger`` — the semantic ``/api/docs``
             # path belongs to the doc-browser router (see docs_routes.py).
@@ -477,12 +482,13 @@ class WebServer:
         from .agent_accounts_routes import router as agent_accounts_router
         from .agent_chat_routes import router as agent_chat_router
         from .agent_mcp_routes import router as agent_mcp_router
+        from .agent_runtime_routes import router as agent_runtime_router
         from .agentic_ide_git_routes import router as agentic_ide_git_router
+        from .agentic_ide_scm_routes import router as agentic_ide_scm_router
         from .agentic_ide_routes import router as agentic_ide_router
         from .antigravity_routes import router as antigravity_router
         from .app_actions_routes import router as app_actions_router
         from .appshot_routes import router as appshot_router
-        from .jarvisx_routes import router as jarvisx_router
         from .board_routes import (
             board_router as board_meta_router,
         )
@@ -498,9 +504,11 @@ class WebServer:
         from .commands_routes import router as commands_router
         from .computer_use_routes import router as computer_use_router
         from .computers_routes import router as computers_router
+        from .server_pairing_routes import router as server_pairing_router
         from .contacts_routes import router as contacts_router
         from .control_routes import router as control_router
         from .costs_routes import router as costs_router
+        from .custom_api_routes import router as custom_api_router
         from .deck_routes import router as deck_router
         from .desktop_routes import router as desktop_router
         from .diagnostics_routes import router as diagnostics_router
@@ -515,6 +523,7 @@ class WebServer:
         from .frontier_routes import router as frontier_router
         from .grok_build_routes import router as grok_build_router
         from .ide_skills_routes import router as ide_skills_router
+        from .jarvisx_routes import router as jarvisx_router
         from .live_routes import router as live_router
         from .local_models_assistant_routes import (
             router as local_models_assistant_router,
@@ -524,6 +533,7 @@ class WebServer:
         from .marketplace_publish_routes import router as marketplace_publish_router
         from .marketplace_routes import router as marketplace_router
         from .mcp_routes import router as mcp_router
+        from .memory_vault_routes import router as memory_vault_router
         from .mission_billing_routes import router as mission_billing_router
         from .missions_auth import router as missions_auth_router
         from .missions_pty_routes import router as missions_pty_router
@@ -543,6 +553,7 @@ class WebServer:
         from .provider_routes import router as provider_router
         from .review_routes import router as review_router
         from .routine_hooks_routes import router as routine_hooks_router
+        from .runtime_gateway_routes import router as runtime_gateway_router
         from .screen_context_routes import router as screen_context_router
         from .self_mod_routes import router as self_mod_router
         from .sessions_routes import router as sessions_router
@@ -558,6 +569,7 @@ class WebServer:
         from .starter_plan_routes import router as starter_plan_router
         from .sub_agents_routes import router as sub_agents_router
         from .tasks_routes import router as tasks_router
+        from .team_thread_routes import router as team_thread_router
         from .telephony_routes import router as telephony_router
         from .tool_model_routes import router as tool_model_router
         from .tools_routes import router as tools_router
@@ -649,6 +661,7 @@ class WebServer:
         app.include_router(commands_router)
         app.include_router(friends_router)
         app.include_router(marketplace_router)
+        app.include_router(custom_api_router)
         app.include_router(marketplace_publish_router)
         app.state.friend_registry = None
         app.state.channel_manager = None
@@ -685,7 +698,10 @@ class WebServer:
         # workspace above; adds the folder picker, call-signs, transcripts, and
         # the focused coding mode.
         # Before the IDE router, so its /{…} paths never shadow /git/….
+        app.include_router(agentic_ide_scm_router)
         app.include_router(agentic_ide_git_router)
+        app.state.team_threads = None
+        app.include_router(team_thread_router)
         # The Skills tab's library of saved Markdown prompts (/api/agentic-ide/skills/*).
         app.include_router(ide_skills_router)
         app.include_router(agentic_ide_router)
@@ -703,6 +719,7 @@ class WebServer:
         # Contacts section — user-curated address book (pure file store, no Brain dep).
         app.include_router(contacts_router)
         # Settings -> Computers: the user's own servers and local VMs over SSH.
+        app.include_router(server_pairing_router)
         app.include_router(computers_router)
         # Desktop pets — the `pet` overlay style's pets, look and visibility.
         app.include_router(pets_router)
@@ -752,6 +769,9 @@ class WebServer:
         app.state.agent_chat = None
         app.state.agent_chat_factory = self._build_agent_chat_service
         app.include_router(agent_chat_router)
+        from .agent_server_routes import router as agent_server_router
+
+        app.include_router(agent_server_router)
         # Agent society (jarvis/society) — the roster, the typed board, the
         # scheduler and the mission bridge. Built on the first /api/society
         # call from the factory (store = data/society.db); nothing opens on
@@ -764,6 +784,8 @@ class WebServer:
 
         set_society_factory(self._build_society_runtime)
         app.include_router(society_router)
+        app.include_router(agent_runtime_router)
+        app.include_router(runtime_gateway_router)
         from .mars_routes import router as mars_router
 
         app.include_router(mars_router)
@@ -809,6 +831,8 @@ class WebServer:
         app.include_router(onboarding_router)
         # Phase B3 — Wiki view (read-only REST API over the Obsidian vault).
         app.include_router(wiki_router)
+        # Path-addressed Memory section API (index, reader, map, edits).
+        app.include_router(memory_vault_router)
         # Phase B3 — Desktop wiki view live-reload WS endpoint.
         # Forwards WikiPageChanged events from the shared EventBus to
         # subscribed UI clients. WikiWatcher is started in start().
@@ -3422,8 +3446,23 @@ class WebServer:
         from jarvis.memory.wiki.db_path import resolve_wiki_db_path
         from jarvis.memory.wiki.fts_index import rebuild_index
 
+        def _resume_semantic_search() -> None:
+            # Semantic search, when the user switched it on: its own thread
+            # loads the model and encodes only the pages that changed. Called
+            # on every way out of this function, so the switch always learns
+            # an honest state, also when there is no vault to search.
+            try:
+                from jarvis.memory.wiki import semantic_setup
+
+                semantic_setup.resume(self.cfg)
+            except Exception:  # noqa: BLE001 - the word search stands on its own
+                logger.opt(exception=True).warning(
+                    "wiki_boot_index: semantic search could not be resumed"
+                )
+
         wiki_cfg = self.cfg.wiki_integration
         if not wiki_cfg.enabled:
+            _resume_semantic_search()
             return
 
         from jarvis.memory.wiki.vault_root import resolve_vault_root
@@ -3431,6 +3470,7 @@ class WebServer:
         vault_root = resolve_vault_root(wiki_cfg.vault_root).path
         if not vault_root.is_dir():
             logger.info("wiki_boot_index: vault missing — skipping ({})", vault_root)
+            _resume_semantic_search()
             return
 
         db_path = resolve_wiki_db_path(self.cfg.memory.data_dir)
@@ -3458,6 +3498,8 @@ class WebServer:
                     logger.debug("wiki index health recording failed", exc_info=True)
             finally:
                 conn.close()
+            # Behind the word index, so it never competes with start-up (AP-26).
+            _resume_semantic_search()
 
         if background:
             thread = threading.Thread(
@@ -3939,7 +3981,7 @@ class WebServer:
         """Build the agent-chat service on first use (see agent_chat_routes)."""
         from jarvis.agent_chat.service import AgentChatService
         from jarvis.agent_chat.store import AgentChatStore
-        from jarvis.brain.assistant_name import resolve_assistant_name
+        from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
 
         data_dir = Path(getattr(getattr(self.cfg, "memory", None), "data_dir", None) or "data")
         store = AgentChatStore(data_dir / "agent_chat.db")
@@ -3948,7 +3990,7 @@ class WebServer:
             try:
                 return resolve_assistant_name(self.cfg)
             except Exception:  # noqa: BLE001 — the name is cosmetic
-                return "Jarvis"
+                return DEFAULT_ASSISTANT_NAME
 
         from jarvis.core.events import DelegationResultReady
 
@@ -4001,6 +4043,18 @@ class WebServer:
 
     async def stop(self) -> None:
         from jarvis.core import runtime_refs
+
+        appshot_task = getattr(self, "_appshot_shortcut_task", None)
+        if appshot_task is not None:
+            appshot_task.cancel()
+            await asyncio.gather(appshot_task, return_exceptions=True)
+            self._appshot_shortcut_task = None
+        try:
+            from jarvis.appshot.hotkey import stop_appshot_shortcut
+
+            await stop_appshot_shortcut()
+        except Exception:
+            logger.opt(exception=True).warning("Appshot helpers failed to stop")
 
         if runtime_refs.get_web_app() is self.app:
             runtime_refs.set_web_app(None)
@@ -4055,6 +4109,15 @@ class WebServer:
             await stop_learning()
         except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
             logger.opt(exception=exc).debug("Jarvis learning loop stop failed")
+
+        team_threads = getattr(self.app.state, "team_threads", None)
+        if team_threads is not None:
+            # Before the chat turns end: a coordinator that sees its members'
+            # turns cancelled under it would read that as members failing.
+            try:
+                await team_threads.close()
+            except Exception as exc:  # noqa: BLE001 -- finish independent cleanup below
+                logger.opt(exception=exc).debug("team threads close failed")
 
         agent_chat = getattr(self.app.state, "agent_chat", None)
         if agent_chat is not None:

@@ -46,7 +46,7 @@ from jarvis.core.events import (
     TaskStarted,
     TaskStepRecorded,
 )
-from jarvis.core.protocols import RoutineDeferred
+from jarvis.core.protocols import CapacityDeferred, RoutineDeferred
 
 if TYPE_CHECKING:
     from jarvis.control.cancel import CancelToken
@@ -206,6 +206,19 @@ class TaskRunner:
             )
             return
         except Exception as exc:  # noqa: BLE001
+            if isinstance(exc, RoutineDeferred) and "autonomous" in spec.tags:
+                # No provider turn or effect started. Keep the work visible
+                # and resumable without falling back to a paid provider.
+                await self._store.update_state(task_id, "paused", error=str(exc))
+                await self._store.append_step(
+                    task_id, "log", {"event": "waiting", "reason": str(exc)}
+                )
+                if self._result_sink is not None:
+                    try:
+                        await self._result_sink(spec.tags, str(exc), "waiting")
+                    except Exception:
+                        log.warning("task %s: waiting notice failed", task_id, exc_info=True)
+                return
             if isinstance(exc, RoutineDeferred) and ctx.get("hook_delivery_id"):
                 await self._store.update_state(task_id, "scheduled")
                 await self._store.append_step(
@@ -214,6 +227,16 @@ class TaskRunner:
                 raise
             duration_ms = int((time.perf_counter() - start) * 1000)
             error_msg = readable_error(exc)
+            if isinstance(exc, CapacityDeferred):
+                # Nothing this unattended run may bill was usable: the run is
+                # skipped (no key was used); a recurring task tries again next time.
+                error_msg = str(exc)
+                await self._store.append_step(
+                    task_id,
+                    "log",
+                    {"event": "skipped", "reason": "waiting_capacity", "message": error_msg},
+                )
+                log.warning("Task %s skipped: %s", task_id, error_msg)
             # A recurring automation survives a failed run: it goes back to
             # `scheduled` with the reason in `last_error`, and fires again at
             # its next occurrence. Only one-shot tasks end in `failed`
@@ -511,10 +534,12 @@ class TaskRunner:
         # scrub_for_voice before TTS synthesizes it. Defense-in-depth: workflow
         # definitions could have brain-generated text as a speak action without
         # the skill author explicitly calling the filter.
-        # Language: action has an optional .language; otherwise default "de".
+        # Language: the action's optional .language; otherwise the ambient
+        # answer language (reply-language pin, then the default locale).
         from jarvis.brain.output_filter import scrub_for_voice
+        from jarvis.voice.action_phrases import resolve_ambient_language
 
-        speak_lang = getattr(action, "language", None) or "de"
+        speak_lang = getattr(action, "language", None) or resolve_ambient_language()
         scrubbed = scrub_for_voice(text, language=speak_lang)
         if scrubbed.actions:
             log.info(
@@ -690,7 +715,7 @@ class TaskRunner:
                         prefer_api=owned_failed is not None,
                     )
                 except Exception as exc:
-                    if owned_failed is not None:
+                    if owned_failed is not None and not isinstance(exc, CapacityDeferred):
                         raise RuntimeError(
                             f"{readable_error(exc)} "
                             f"(agent seat had already failed: {readable_error(owned_failed)})"
