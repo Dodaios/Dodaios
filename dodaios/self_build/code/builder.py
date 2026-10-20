@@ -70,6 +70,10 @@ class Stopped(BuildError):
         self.requeue = requeue
 
 
+class Obsolete(BuildError):
+    """The issue no longer qualifies; nothing was built and nothing is learned."""
+
+
 # ------------------------------------------------------------------ git steps
 
 
@@ -290,6 +294,57 @@ def target(ctx: Context, record: BuildRecord) -> tuple[str, Issue, dict[str, Any
     return repo, Issue.from_json(data), data
 
 
+async def recheck(ctx: Context, repo: str, issue: Issue, data: dict[str, Any]) -> Issue:
+    """The issue as it stands right before the build, or :class:`Obsolete`.
+
+    A proposal can wait days for the person's accept or for idle time; by then
+    the issue may be closed, taken by someone else, relabelled, or the
+    repository may have changed hands. Any of these ends the case before any
+    work. GitHub not answering only puts the case back in the queue.
+    """
+    from dataclasses import replace
+
+    from dodaios.agentic_ide.github_link import GitHubError
+
+    from .intake import repo_of, viewer
+    from .triage import triage
+
+    api = ctx.github()
+    if api is None:
+        raise Stopped("stopped: GitHub is not connected", requeue=True)
+    try:
+        who = await viewer(ctx)
+        fresh = await asyncio.to_thread(api.issue, repo, issue.number)
+    except GitHubError as exc:  # re-raised: the case waits for the next pass
+        raise Stopped(f"stopped: GitHub could not be asked ({exc})", requeue=True) from exc
+    if who is None:
+        raise Stopped("stopped: the GitHub account is unknown", requeue=True)
+    folder = str(data["folder"])
+    origin = await asyncio.to_thread(repo_of, folder)
+    if not who.owns(repo) or origin.lower() != repo.lower():
+        raise Obsolete("not built: the repository is no longer the person's own")
+    if fresh is None or fresh.state.upper() != "OPEN":
+        raise Obsolete(f"not built: issue #{issue.number} is closed")
+    others = [login for login in fresh.assigned_to if login.lower() != who.login.lower()]
+    if others or (fresh.assignees and not fresh.assigned_to):
+        raise Obsolete(f"not built: issue #{issue.number} is assigned to someone else")
+    profile = await asyncio.to_thread(ctx.store.profile, repo)
+    # Assigned to the person themselves is fine; the test command is checked next.
+    verdict = triage(replace(fresh, assignees=0), login=who.login, profile=profile, has_tests=True)
+    if not verdict.fit:
+        raise Obsolete(f"not built: issue #{issue.number} no longer fits ({verdict.reason})")
+    await asyncio.to_thread(
+        ctx.store.put_issue,
+        repo,
+        fresh.number,
+        updated_at=fresh.updated_at,
+        verdict="fit",
+        reason=f"{verdict.signal}; rechecked",
+        issue={**data, **fresh.to_json()},
+    )
+    return fresh
+
+
 def checkpoint(ctx: Context, record: BuildRecord) -> None:
     """Raise :class:`Stopped` once the build was undone or the loop paused."""
     if record.id in ctx.stopping or not ctx.still(record, State.BUILDING):
@@ -322,6 +377,11 @@ async def _fail(ctx: Context, record: BuildRecord, error: BuildError, *, repo: s
             await cleanup(ctx, current, close_pull=True, force=True)
         except Exception:  # noqa: BLE001 - logged; what is left is listed in the record
             logger.opt(exception=True).warning("self-build code: cleanup of {} failed", record.id)
+    if isinstance(error, Obsolete):
+        logger.info("self-build code: {} not built: {}", record.signature, lesson)
+        if ctx.still(record, State.BUILDING):
+            await asyncio.to_thread(ctx.ledger.set_state, record.id, State.FAILED, lesson)
+        return
     if isinstance(error, Stopped):
         if error.requeue and ctx.still(record, State.BUILDING):
             await asyncio.to_thread(ctx.ledger.attach_artefact, record.id, {}, {})
@@ -396,6 +456,7 @@ async def _build(
     provider: str,
 ) -> None:
     folder = str(data["folder"])
+    issue = await recheck(ctx, repo, issue, data)
     brief, _ = await asyncio.to_thread(brief_mod.refresh, ctx.store, folder, repo=repo)
     tests = brief.test_commands
     if not tests:

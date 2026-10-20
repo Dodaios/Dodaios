@@ -46,6 +46,8 @@ class Issue:
     comments: int = 0
     state: str = "OPEN"
     updated_at: str = ""
+    #: Logins of the assignees, where the query read them (:meth:`GitHubApi.issue`).
+    assigned_to: tuple[str, ...] = ()
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -59,6 +61,7 @@ class Issue:
             "comments": self.comments,
             "state": self.state,
             "updated_at": self.updated_at,
+            "assigned_to": list(self.assigned_to),
         }
 
     @classmethod
@@ -74,6 +77,7 @@ class Issue:
             comments=int(data.get("comments") or 0),
             state=str(data.get("state") or "OPEN"),
             updated_at=str(data.get("updated_at") or ""),
+            assigned_to=tuple(str(x) for x in data.get("assigned_to") or ()),
         )
 
 
@@ -128,6 +132,7 @@ class GitHub(Protocol):
         self, repo: str, *, head: str, base: str, title: str, body: str, draft: bool
     ) -> CreatedPull: ...
     def pull(self, repo: str, number: int) -> PullState: ...
+    def issue(self, repo: str, number: int) -> Issue | None: ...
     def close_pull(self, pull_id: str) -> None: ...
     def merge_pull(self, pull_id: str, *, head_oid: str) -> None: ...
 
@@ -182,6 +187,20 @@ query($owner: String!, $name: String!, $number: Int!) {
 }
 """
 
+_ISSUE = """
+query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    issue(number: $number) {
+      number title body url updatedAt state
+      author { login }
+      assignees(first: 10) { totalCount nodes { login } }
+      labels(first: 20) { nodes { name } }
+      comments { totalCount }
+    }
+  }
+}
+"""
+
 _REPOSITORY_ID = """
 query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { id } }
 """
@@ -214,6 +233,31 @@ def _split(repo: str) -> tuple[str, str]:
     if not owner or not name:
         raise GitHubError("A repository is written as owner/name.", code="needs_repo")
     return owner, name
+
+
+def _issue_from(node: dict[str, Any]) -> Issue:
+    assignees = node.get("assignees") or {}
+    return Issue(
+        number=int(node.get("number") or 0),
+        title=str(node.get("title") or ""),
+        body=str(node.get("body") or "")[:8_000],
+        url=str(node.get("url") or ""),
+        author=str((node.get("author") or {}).get("login") or ""),
+        labels=tuple(
+            str(label.get("name") or "")
+            for label in (node.get("labels") or {}).get("nodes") or []
+            if isinstance(label, dict)
+        ),
+        assignees=int(assignees.get("totalCount") or 0),
+        comments=int((node.get("comments") or {}).get("totalCount") or 0),
+        state=str(node.get("state") or "OPEN"),
+        updated_at=str(node.get("updatedAt") or ""),
+        assigned_to=tuple(
+            str(person.get("login") or "")
+            for person in assignees.get("nodes") or []
+            if isinstance(person, dict) and person.get("login")
+        ),
+    )
 
 
 def _first_error(payload: dict[str, Any]) -> str:
@@ -251,28 +295,11 @@ class GitHubApi:
         data = (self._q(_SNAPSHOT, {"owner": owner, "name": name}).get("data") or {}).get(
             "repository"
         ) or {}
-        issues = []
-        for node in (data.get("issues") or {}).get("nodes") or []:
-            if not isinstance(node, dict):
-                continue
-            issues.append(
-                Issue(
-                    number=int(node.get("number") or 0),
-                    title=str(node.get("title") or ""),
-                    body=str(node.get("body") or "")[:8_000],
-                    url=str(node.get("url") or ""),
-                    author=str((node.get("author") or {}).get("login") or ""),
-                    labels=tuple(
-                        str(label.get("name") or "")
-                        for label in (node.get("labels") or {}).get("nodes") or []
-                        if isinstance(label, dict)
-                    ),
-                    assignees=int((node.get("assignees") or {}).get("totalCount") or 0),
-                    comments=int((node.get("comments") or {}).get("totalCount") or 0),
-                    state=str(node.get("state") or "OPEN"),
-                    updated_at=str(node.get("updatedAt") or ""),
-                )
-            )
+        issues = [
+            _issue_from(node)
+            for node in (data.get("issues") or {}).get("nodes") or []
+            if isinstance(node, dict)
+        ]
         pulls = [
             PullRef(
                 number=int(node.get("number") or 0),
@@ -354,6 +381,14 @@ class GitHubApi:
             commits=int(commits.get("totalCount") or 0),
             failing=tuple(failing[:10]),
         )
+
+    def issue(self, repo: str, number: int) -> Issue | None:
+        """One issue as it stands now; None when GitHub does not know it."""
+        owner, name = _split(repo)
+        variables = {"owner": owner, "name": name, "number": int(number)}
+        repository = (self._q(_ISSUE, variables).get("data") or {}).get("repository") or {}
+        node = repository.get("issue")
+        return _issue_from(node) if isinstance(node, dict) else None
 
     def close_pull(self, pull_id: str) -> None:
         payload = self._q(_CLOSE, {"id": pull_id})
