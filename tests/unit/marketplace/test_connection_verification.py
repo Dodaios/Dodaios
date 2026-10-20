@@ -1,4 +1,4 @@
-"""Resource verification rejects unusable grants without saving credentials."""
+"""Resource verification classifies failures; it never saves credentials."""
 
 import asyncio
 
@@ -217,3 +217,119 @@ def test_both_mcp_bridges_carry_figma_auth_mode(oauth):
     catalog = PluginCatalog(version=1, schema_version="1", plugins=[spec])
     entry = assemble_claude_mcp_servers(catalog, Store())["figma"]
     assert entry["env"]["JARVIS_CONNECTOR_AUTH_TYPE"] == expected
+
+
+def _fake_http(monkeypatch, status, payload):
+    original = httpx.AsyncClient
+    monkeypatch.setattr(
+        verification.httpx,
+        "AsyncClient",
+        lambda **kwargs: original(
+            **kwargs,
+            transport=httpx.MockTransport(lambda request: httpx.Response(status, json=payload)),
+        ),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,reason,rejected",
+    [
+        (401, "unauthorized", True),
+        (403, "forbidden", False),
+        (429, "rate_limited", False),
+        (503, "unavailable", False),
+    ],
+)
+async def test_native_failure_is_classified_auth_vs_capability(
+    monkeypatch, status, reason, rejected
+):
+    """Only a refused credential rejects the grant; the rest is degraded capability."""
+    _fake_http(monkeypatch, status, {"error": "private-provider-token"})
+    with pytest.raises(verification.ConnectionVerificationError) as caught:
+        await verification.verify_connection(plugin("google_drive"), Tokens(access="t"))
+    assert caught.value.reason == reason
+    assert caught.value.rejected is rejected
+    assert "private-provider-token" not in str(caught.value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error,rejected", [("invalid_auth", True), ("token_revoked", True), ("ratelimited", False)]
+)
+async def test_slack_rejection_codes_are_auth_failures(monkeypatch, error, rejected):
+    _fake_http(monkeypatch, 200, {"ok": False, "error": error})
+    with pytest.raises(verification.ConnectionVerificationError) as caught:
+        await verification.verify_connection(plugin("slack"), Tokens(access="t"))
+    assert caught.value.rejected is rejected
+    assert error not in str(caught.value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,rejected", [(401, True), (403, False)])
+async def test_rest_probe_status_is_classified(monkeypatch, status, rejected):
+    from dodaios.plugins.tool import connected_server
+
+    original = connected_server.ConnectedRestClient
+    monkeypatch.setattr(
+        connected_server,
+        "ConnectedRestClient",
+        lambda *a, **k: original(
+            *a,
+            **k,
+            transport=httpx.MockTransport(lambda request: httpx.Response(status, json={})),
+        ),
+    )
+    with pytest.raises(verification.ConnectionVerificationError) as caught:
+        await verification.verify_connection(plugin("outlook"), Tokens(access="t"))
+    assert caught.value.rejected is rejected
+
+
+class _GroupedStatusMcp(FakeMcp):
+    """An MCP transport that fails inside a task group, as AnyIO reports it."""
+
+    def __init__(self, status):
+        super().__init__()
+        self.status = status
+
+    async def start(self):
+        request = httpx.Request("POST", "https://mcp.example/mcp")
+        error = httpx.HTTPStatusError(
+            "private-provider-token",
+            request=request,
+            response=httpx.Response(self.status, request=request),
+        )
+        raise ExceptionGroup("transport", [error])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,rejected", [(401, True), (500, False)])
+async def test_mcp_status_inside_an_exception_group_is_classified(monkeypatch, status, rejected):
+    from dodaios.marketplace import plugin_registry
+
+    client = _GroupedStatusMcp(status)
+    monkeypatch.setattr(plugin_registry, "_default_client_factory", lambda *a, **k: client)
+    with pytest.raises(verification.ConnectionVerificationError) as caught:
+        await verification.verify_connection(plugin("notion"), Tokens(access="t"))
+    assert caught.value.rejected is rejected
+    assert "private-provider-token" not in str(caught.value)
+    assert client.stopped
+
+
+@pytest.mark.asyncio
+async def test_missing_or_flagged_token_is_an_auth_failure():
+    with pytest.raises(verification.ConnectionVerificationError) as caught:
+        await verification.verify_connection(plugin("gmail"), Tokens(access="t", needs_reauth=True))
+    assert caught.value.rejected
+
+
+@pytest.mark.asyncio
+async def test_unusable_tool_list_is_a_capability_failure(monkeypatch):
+    from dodaios.marketplace import plugin_registry
+
+    monkeypatch.setattr(
+        plugin_registry, "_default_client_factory", lambda *a, **k: FakeMcp(tools=[])
+    )
+    with pytest.raises(verification.ConnectionVerificationError) as caught:
+        await verification.verify_connection(plugin("notion"), Tokens(access="t"))
+    assert caught.value.rejected is False
