@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.jarvisbar.modes import MODES
+from jarvis.ui.dodaiosbar.modes import MODES
 from jarvis.ui.pets.state_machine import MODE_STATES, PetStateMachine
 from jarvis.ui.pets.states import (
     ACTION_HOLD_SECONDS,

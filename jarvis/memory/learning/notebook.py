@@ -410,6 +410,9 @@ class JarvisNotebook:
         }
         ledger = self.folder / LEDGER_NAME
         try:
+            # Reading the notebooks no longer creates their folder, and a soul
+            # change lands in SOUL.md elsewhere, so the ledger makes its own.
+            self.folder.mkdir(parents=True, exist_ok=True)
             if ledger.is_file() and ledger.stat().st_size > _LEDGER_MAX_BYTES:
                 os.replace(ledger, ledger.with_name(LEDGER_NAME + ".1"))
             with ledger.open("a", encoding="utf-8", newline="\n") as handle:
@@ -589,7 +592,7 @@ def remember_explicitly(
     """
     notebook = _active
     if notebook is None:
-        raise LookupError("Jarvis' notebook is not running")
+        raise LookupError("the assistant's notebook is not running")
     return notebook.keep_explicit(content, evidence=evidence, source=source, via_tool=True)
 
 

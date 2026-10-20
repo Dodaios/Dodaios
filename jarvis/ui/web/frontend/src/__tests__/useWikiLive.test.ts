@@ -103,6 +103,7 @@ describe("useWikiLive", () => {
       ["wiki", "search"],
       ["wiki", "page"],
       ["wiki", "backlinks"],
+      ["wiki", "memory"],
     ]);
   });
 
@@ -139,6 +140,7 @@ describe("useWikiLive", () => {
       ["wiki", "search"],
       ["wiki", "page"],
       ["wiki", "backlinks"],
+      ["wiki", "memory"],
     ]);
     expect(result.current.lastEventAt).not.toBeNull();
   });

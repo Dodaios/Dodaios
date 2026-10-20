@@ -466,7 +466,7 @@ describe("ComputersView", () => {
     fireEvent.click(await screen.findByTestId("computers-add-first"));
     fireEvent.click(await screen.findByRole("radio", { name: "Server address" }));
     expect(calls.some((call) => call.method === "POST")).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Allow another computer to connect to this Jarvis" }));
+    fireEvent.click(screen.getByRole("button", { name: "Allow another computer to connect to this Dodaios" }));
     expect(await screen.findByText("Laptop")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Generate pairing code" }));
     expect(await screen.findByText("ExampleCode")).toBeTruthy();

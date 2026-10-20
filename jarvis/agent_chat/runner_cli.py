@@ -1434,7 +1434,7 @@ def _with_identity(
             # the large identity/history block on every turn.
             return (
                 "<jarvis_turn_context>\n"
-                "You are a Society agent in the running Personal Jarvis app. "
+                "You are a Society agent in the running Dodaios app. "
                 "Your current tools are available through the jarvis MCP server. "
                 "For recurring-work requests, inspect society_routines, then call "
                 "society_propose_change with kind=routine, mode=apply and an exact "
@@ -3463,18 +3463,22 @@ async def _run_cli_once(
     # A society agent placed on another computer runs its CLI there over SSH.
     placement = await placement_for_session(session)
     remote_token = _REMOTE_PLANNING.set(placement is not None)
-    planned_prompt = user_text
+    from jarvis.agent_chat import plain_chat
+
+    # A plain chat's instructions open every conversation the CLI starts,
+    # the one a lost resume falls back to included.
+    planned_prompt = plain_chat.cli_prompt(handle, user_text, resume)
     # Set once planning succeeded; an external runtime's plan holds a turn slot.
     plan: CliPlan | None = None
     if placement is not None and not getattr(handle, "tools_disabled", False):
         # Also refresh resumed conversations which remember the old missing bridge.
         planned_prompt = (
             "<jarvis_remote_context>\n"
-            "You run on the connected computer. Jarvis MCP tools are connected for this turn "
+            "You run on the connected computer. Dodaios MCP tools are connected for this turn "
             "under your own identity and permissions, including persistent routines, memory "
-            "and the visible Jarvis browser on the main computer. Inspect the real tools; "
+            "and the visible Dodaios browser on the main computer. Inspect the real tools; "
             "earlier messages saying they were unavailable are outdated. Native file tools "
-            "and society_shell run on the connected computer; Jarvis file tools access "
+            "and society_shell run on the connected computer; Dodaios file tools access "
             "your workspace on the main computer.\n</jarvis_remote_context>\n\n" + user_text
         )
 
@@ -3539,7 +3543,9 @@ async def _run_cli_once(
                     cwd=cwd,
                     model=session.model,
                     effort=effort,
-                    permission_mode=session.permission_mode,
+                    permission_mode=plain_chat.permission_mode(
+                        handle, runner, session.permission_mode
+                    ),
                     resume=resume,
                     identity=identity,
                 )
@@ -3547,7 +3553,10 @@ async def _run_cli_once(
             if getattr(handle, "tools_disabled", False):
                 from .native_control import disable_cli_tools
 
-                disable_cli_tools(plan, runner)
+                # A plain chat is a conversation: its next turn resumes this one.
+                disable_cli_tools(
+                    plan, runner, keep_session=bool(getattr(handle, "plain_system", ""))
+                )
             if getattr(handle, "gateway_only", False):
                 if runner == "claude-cli":
                     plan.argv += ["--tools", "", "--strict-mcp-config"]

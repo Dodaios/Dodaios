@@ -229,6 +229,40 @@ WITHHELD: Final[dict[str, str]] = {
     "POST /api/society/chat-groups/{group_id}/meeting/stop": (
         "stops the owner's meeting round, which only the app can start"
     ),
+    "GET /api/society/chat-groups/{group_id}/team": (
+        "the team board (lead, mission, goals, tasks) is the owner's view of a "
+        "group in the app; a remote client reads each agent's own chat"
+    ),
+    "PUT /api/society/chat-groups/{group_id}/lead": (
+        "naming a team's lead changes an agent's tier and is the owner's "
+        "decision in the app"
+    ),
+    "POST /api/society/chat-groups/{group_id}/lead": (
+        "creates a new agent as the team's lead; staffing a team is the "
+        "owner's decision in the app"
+    ),
+    "PUT /api/society/chat-groups/{group_id}/mission": (
+        "the team's standing mission is the owner's own instruction, set in the app"
+    ),
+    "PUT /api/society/chat-groups/{group_id}/checkin": (
+        "switches on recurring unprompted turns on the lead's seat; only the "
+        "owner starts work that bills by itself"
+    ),
+    "POST /api/society/chat-groups/{group_id}/goals": (
+        "a remote client gives a team a goal by assigning work to its lead "
+        "(agent_assign), which becomes the team's goal"
+    ),
+    "POST /api/society/chat-groups/{group_id}/goals/{goal_id}/message": (
+        "answering the lead's question on a goal is the owner's reply on the "
+        "team board in the app"
+    ),
+    "POST /api/society/chat-groups/{group_id}/goals/{goal_id}/resume": (
+        "continuing a paused goal restarts paid turns and is the owner's "
+        "decision on the team board"
+    ),
+    "POST /api/society/chat-groups/{group_id}/goals/{goal_id}/cancel": (
+        "stopping a team's goal is the owner's decision on the team board in the app"
+    ),
 }
 
 

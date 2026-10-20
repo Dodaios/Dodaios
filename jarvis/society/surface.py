@@ -43,11 +43,18 @@ from .agent_tools import (
     WikiNoteTool,
 )
 from .ask_tool import ASK_USER_TOOL_NAME, AskUserTool
-from .capabilities import CapabilityKind, CapabilityRow, capability_id_for_tool, select_tools
+from .capabilities import (
+    CapabilityKind,
+    CapabilityRow,
+    capability_id_for_tool,
+    select_tools,
+    tool_name_for_capability,
+)
 from .coding_threads import CodingThreadTool
 from .communication import COMMUNICATION_GUIDANCE
 from .conversation_tool import ConversationRecallTool, RoutineInvokeTool, RoutineListTool
 from .credential_tool import CREDENTIAL_TOOL_NAME, RequestCredentialTool
+from .display_name import LIVE, display_name, lead_display_name
 from .learning import RunLearnedSkillTool
 from .memory import resolve_society_vault
 from .roster import (
@@ -60,6 +67,7 @@ from .roster import (
 from .routine_runner import is_routine_session
 from .runtime import current_runtime
 from .share_tool import ShareTemplateTool
+from .team_tools import team_lead_tools
 
 log = logging.getLogger(__name__)
 
@@ -95,10 +103,11 @@ _SOCIETY_DENIED: Final[frozenset[str]] = frozenset(
     }
 )
 
+#: ``{lead}`` is the name the lead is shown under (``display_name``), filled per briefing.
 _ECOSYSTEM_CARD: Final[str] = """\
-## The Jarvis ecosystem you work in
-- Jarvis is the voice-steered lead of this society; the user talks to Jarvis by voice and to \
-you by typed chat. Only Jarvis and orchestrators assign work; a scheduler (not a model) turns \
+## The Dodaios ecosystem you work in
+- {lead} is the voice-steered lead of this society; the user talks to {lead} by voice and to \
+you by typed chat. Only {lead} and orchestrators assign work; a scheduler (not a model) turns \
 an assignment into a run under the assignee's identity. You never spawn society agents or
 mission workers.
 - Coding: with coding-session you hand coding work to a coding agent (Claude Code, Codex, …) as
@@ -214,7 +223,7 @@ Reuse the agreed task when the user confirms it briefly. After applying, call
 society_routines to verify the saved task and report its actual state and next run.
 If a prerequisite prevents execution, report that specific blocker; never claim the
 routine is active merely because you wrote its operating instructions or a memory note.
-- Approvals: actions above your permission ceiling queue for the user (chat card, Jarvis bar, \
+- Approvals: actions above your permission ceiling queue for the user (chat card, Dodaios bar, \
 voice). A queued action is not refused — say what you are waiting for and continue with what \
 you can. Secrets are never typed into a chat; credentials come from the keyring.
 - Language: answer in the language of the message you received.
@@ -428,6 +437,8 @@ def society_tools(cfg: Any, brain: Any, session: Any) -> dict[str, Tool]:
             ),
         }
     )
+    # A team's lead plans, assigns and reports with three more tools.
+    tools.update(cast(dict[str, Tool], team_lead_tools(rt, agent_id)))
     session_id = str(getattr(session, "session_id", "") or "")
     # A routine runs unattended: it never gets a way to ask the user.
     if not is_routine_session(session_id):
@@ -675,8 +686,8 @@ async def remember_always_allow(session: Any, tool_name: str, args: dict[str, An
                 "kind": "always_allow",
                 "pattern": pattern,
                 "agent_id": agent.agent_id,
-                "agent_name": agent.name,
-                "text": f"{agent.name} may now run {pattern} without asking.",
+                "agent_name": display_name(agent),
+                "text": f"{display_name(agent)} may now run {pattern} without asking.",
             },
         )
     except Exception:  # noqa: BLE001 — the rule is saved; the notice is a projection
@@ -833,6 +844,31 @@ def society_tool_filter(session: Any) -> Callable[[dict[str, Tool]], dict[str, T
     return _apply
 
 
+def society_direct_tools(session: Any) -> frozenset[str] | None:
+    """The tools an agent's focus names, or ``None`` when it has none.
+
+    An agent may use everything it is granted, but it is SHOWN its own tools
+    and the ones its role points at; the rest stays callable behind
+    ``find_tools`` (``jarvis/brain/tool_shortlist.py``). An agent without a
+    focus, or one whose row is not cached yet, is shown everything as before.
+    """
+    rt = current_runtime()
+    agent_id = agent_id_of(getattr(session, "session_id", "") or "")
+    if rt is None or agent_id is None:
+        return None
+    agent = rt.cached_agent(agent_id)
+    if agent is None or not agent.focus:
+        return None
+    from jarvis.clis.capability_provider import equivalent_grants
+
+    names = {
+        name
+        for cap_id in equivalent_grants(agent.focus)
+        if (name := tool_name_for_capability(cap_id))
+    }
+    return frozenset(names) if names else None
+
+
 def requires_explicit_approval(session_id: str, tool_name: str, args: dict[str, Any]) -> bool:
     """Keep an agent's explicit ask rules effective even in Bypass mode."""
     from .approvals import matches
@@ -889,8 +925,13 @@ async def society_system_extra(cfg: Any, brain: Any, session: Any) -> str:
             "\nThis is an unattended routine run: society_request_credential is not available. "
             "If a credential is missing, report which one in your result."
         )
+    team = rt.team_leads.briefing(agent.agent_id)
+    if team:
+        context += "\n\n" + team
     return (
-        build_briefing(agent, catalog, roster, browser=browser, learned=learned, memory=memory)
+        build_briefing(
+            agent, catalog, roster, browser=browser, learned=learned, memory=memory, config=cfg
+        )
         + context
     )
 
@@ -979,12 +1020,15 @@ def build_briefing(
     browser: dict[str, Any] | None = None,
     learned: list[dict[str, str]] | None = None,
     memory: str | None = None,
+    config: Any = LIVE,
 ) -> str:
     """The per-agent system-prompt addendum (agent-definition §3.3).
 
-    Pure and deterministic: same roster row + same catalog + same roster →
-    the same bytes, so the provider prompt cache stays warm across turns.
+    Pure and deterministic: same roster row + same catalog + same roster +
+    same wake phrase → the same bytes, so the provider prompt cache stays warm
+    across turns.
     """
+    lead = lead_display_name(config)
     by_id = {row.id: row for row in catalog if row.connected}
     granted = set(agent.grants)
     denied = set(agent.denies)
@@ -997,16 +1041,16 @@ def build_briefing(
         return True
 
     parts: list[str] = []
-    head = f"## You are {agent.name}"
+    head = f"## You are {display_name(agent, config)}"
     if agent.title:
         head += f" — {agent.title}"
     parts.append(head)
     parts.append(
         f"Tier: {agent.tier}. Permission ceiling: {agent.permission_ceiling}. "
         + (
-            "You may assign work to teammates through Jarvis' scheduler."
+            f"You may assign work to teammates through {lead}'s scheduler."
             if agent.may_assign
-            else "You do not assign work; ask Jarvis or an orchestrator."
+            else f"You do not assign work; ask {lead} or an orchestrator."
         )
     )
     # API and CLI seats both consume this briefing. Put reply guidance and the
@@ -1060,14 +1104,14 @@ def build_briefing(
                 line += f" (use when: {item['when_to_use']})"
             lines.append(line)
         parts.append("\n".join(lines))
-    parts.append(_ECOSYSTEM_CARD)
+    parts.append(_ECOSYSTEM_CARD.replace("{lead}", lead))
     parts.append(COMMUNICATION_GUIDANCE)
 
     mates = [a for a in roster if a.agent_id != agent.agent_id and str(a.state) == "active"]
     if mates:
         lines = ["## Teammates"]
         for mate in mates:
-            line = f"- {mate.name}"
+            line = f"- {display_name(mate, config)}"
             if mate.title:
                 line += f" — {mate.title}"
             line += f" ({mate.tier})"
@@ -1089,7 +1133,7 @@ def _browser_line(browser: dict[str, Any] | None) -> str:
         return (
             "## Your browser\nsociety_browser uses your assigned Chrome profile. "
             "Website authentication must be checked on the actual page. "
-            "If disconnected, ask the user to connect that profile in the Jarvis extension. "
+            "If disconnected, ask the user to connect that profile in the Dodaios extension. "
             "Never switch to another browser or account. One task per call, capped steps."
         )
     logged = "website authentication unverified; ask for manual login when a site requires it"

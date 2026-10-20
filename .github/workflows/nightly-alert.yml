@@ -1,0 +1,161 @@
+# Nightly alert: a red run that blocks no pull request opens (or updates) ONE issue.
+#
+# Several legs run only in the nightly and release runs: the real Hermes
+# install on Windows, the real runtimes and the real browser on macOS, Intel
+# macOS, the ARM runners, the macOS test shards (scripts/ci/plan_run.py). A
+# failure there blocks no pull request, so it has to reach someone. This
+# keeps one issue, "Nightly CI is red", with the failed jobs of the latest red
+# nightly, and closes it after the next green one.
+#
+# The macOS sweep of main (macos-main-sweep.yml) is the same case, hours
+# earlier: the whole suite on macOS after the merge, outside `CI gate`. It
+# gets an issue of its own, "macOS tests are red on main", with the range of
+# commits between the last green sweep and the first red one.
+#
+# A separate workflow for the same reason as flaky-tests.yml: `issues: write`
+# never reaches a pull-request run. Nothing is checked out; the run's job list
+# is read as data only.
+name: Nightly alert
+
+on:
+  workflow_run:
+    workflows: [CI, macOS main sweep]
+    types: [completed]
+    branches: [main]
+  # A check by hand against a past run. It reports what it would do and
+  # writes nothing unless `dry_run` is switched off.
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "A finished nightly (scheduled) CI run or a finished macOS sweep on main"
+        required: true
+        type: string
+      dry_run:
+        description: "Report only; do not open, edit or close the issue."
+        type: boolean
+        default: true
+
+permissions: {}
+
+# Issue updates are read-modify-write; never let two run at once.
+concurrency:
+  group: nightly-alert
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    name: track a red nightly or macOS sweep
+    # A fork pull request can be named `main` too: the repository and event
+    # checks, not the branch filter alone, keep its runs out.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == 'main' &&
+       contains(fromJSON('["success","failure"]'), github.event.workflow_run.conclusion) &&
+       (github.event.workflow_run.event == 'schedule' ||
+        github.event.workflow_run.name == 'macOS main sweep'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      issues: write
+    steps:
+      - name: Open, update or close the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          # The event and a run id typed by hand are vetted the same way: only
+          # a finished nightly CI run or a finished macOS sweep of this
+          # repository's main may feed an issue.
+          case "$RUN_ID" in (''|*[!0-9]*) echo "::error::not a run id: $RUN_ID"; exit 1 ;; esac
+          vetted="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq \
+            '(.path | split("@")[0]) as $path
+             | select(.head_repository.full_name == env.GITHUB_REPOSITORY and .head_branch == "main" and .status == "completed")
+             | select(($path == ".github/workflows/ci.yml" and .event == "schedule")
+                 or ($path == ".github/workflows/macos-main-sweep.yml" and (.event == "push" or .event == "workflow_dispatch")))
+             | "\($path) \(.conclusion) \(.html_url)"')"
+          [ -n "$vetted" ] || { echo "::error::run $RUN_ID is neither a finished nightly CI run nor a finished macOS sweep on main"; exit 1; }
+          read -r path conclusion run_url <<< "$vetted"
+          if [ "$path" = ".github/workflows/ci.yml" ]; then
+            label=nightly-ci; title="Nightly CI is red"; what="nightly CI run"
+            about="The nightly CI run on main is red"
+          else
+            label=macos-main; title="macOS tests are red on main"; what="macOS sweep"
+            about="The whole suite on macOS is red on main"
+          fi
+          case "$conclusion" in
+            (success|failure) ;;
+            (*) echo "The $what ended as '$conclusion': nothing to record." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+          esac
+          write() { if [ "$DRY_RUN" = "true" ]; then echo "dry run, not executed: gh $*"; else gh "$@"; fi; }
+          # The label lists issues without the search index, which lags behind
+          # a freshly created issue and would invite a duplicate.
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" --label "$label" --state open \
+            --limit 1 --json number --jq '.[0].number // empty')"
+          if [ "$conclusion" = "success" ]; then
+            if [ -n "$number" ]; then
+              write issue close "$number" --repo "$GITHUB_REPOSITORY" \
+                --comment "The $what is green again: $run_url"
+              echo "Closed issue #$number" | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "The $what is green and no issue is open." | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
+          {
+            echo "The $what on main failed: $run_url"
+            echo
+            echo "Failed jobs:"
+            echo
+            jobs_url="repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100&filter=latest"
+            failed="$(gh api "$jobs_url" --paginate --jq '.jobs[]
+              | select(.name != "CI gate" and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out"))
+              | "- [\(.name)](\(.html_url)) (\(.conclusion))"')"
+            if [ -n "$failed" ]; then
+              echo "$failed"
+            else
+              # Every job passed and the gate still refused the run (a job it
+              # requires skipped or missing): name what the gate named.
+              gate="$(gh api "$jobs_url" --paginate --jq '.jobs[] | select(.name == "CI gate") | "\(.id) \(.html_url)"' | head -n 1)"
+              reason="$(gh api "repos/$GITHUB_REPOSITORY/actions/jobs/${gate%% *}/logs" 2>/dev/null \
+                | grep -o 'CI gate failed: .*' | head -n 1 || true)"
+              echo "- [CI gate](${gate#* }): no job failed, the gate refused the run (${reason:-see its summary})."
+            fi
+            echo
+            if [ "$label" = "macos-main" ]; then
+              # Sweeps run one after another, newest first in the list: the
+              # red run right after the newest green one is where it broke.
+              range="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/macos-main-sweep.yml/runs?branch=main&status=completed&per_page=50" --jq \
+                '[.workflow_runs[] | select(.conclusion == "success" or .conclusion == "failure")] as $runs
+                 | ($runs | map(.conclusion) | index("success")) as $green
+                 | if $green == null or $green == 0 then empty
+                   else "\($runs[$green].head_sha) \($runs[$green - 1].head_sha)" end' || true)"
+              if [ -n "$range" ]; then
+                echo "The last green sweep ran on \`${range%% *}\`, the first red one on \`${range#* }\`."
+                echo "The change that broke macOS is in"
+                echo "https://github.com/$GITHUB_REPOSITORY/compare/${range%% *}...${range#* }"
+                echo
+              fi
+              echo "The merge queue runs on macOS only the tests a change can reach, so no pull"
+              echo "request was blocked by these. The failed test ids are in the job's ratchet step."
+              echo "Reproduce on a branch with"
+            else
+              echo "Some of these legs run only at night and on release tags, so no pull request"
+              echo "was blocked by them. Reproduce on a branch with"
+            fi
+            echo '`gh workflow run ci.yml --ref <branch> -f full=false -f include_macos=true`.'
+          } > "$RUNNER_TEMP/issue.md"
+          tee -a "$GITHUB_STEP_SUMMARY" < "$RUNNER_TEMP/issue.md"
+          if [ -n "$number" ]; then
+            write issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/issue.md"
+            echo "Updated issue #$number" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            write label create "$label" --repo "$GITHUB_REPOSITORY" --force \
+              --color B60205 --description "$about"
+            url="$(write issue create --repo "$GITHUB_REPOSITORY" --title "$title" \
+              --label "$label" --body-file "$RUNNER_TEMP/issue.md")"
+            echo "Created $url" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

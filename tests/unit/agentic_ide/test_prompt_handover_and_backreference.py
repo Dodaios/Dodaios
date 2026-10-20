@@ -193,7 +193,7 @@ def test_render_labels_who_said_what():
 
     assert out.splitlines() == [
         "The user: how do we sharpen it?",
-        "Jarvis: Four levers.",
+        "The assistant: Four levers.",
     ]
 
 

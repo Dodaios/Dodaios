@@ -36,7 +36,7 @@ const C = {
   linen: "#e8dfcf",
   sage: "#8d9f86",
   velvet: "#7e9378",
-  brass: "#c9a25a",
+  brass: "#b08d5c",
   led: "#ffe2bd",
   bulb: "#fff0d2",
 } as const;

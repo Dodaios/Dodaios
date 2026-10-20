@@ -2,7 +2,7 @@
 
 A self-contained feature that opens N coding-agent terminals (Claude Code or
 Codex) **inside the Jarvis desktop app** as an xterm grid — each running in the
-Personal Jarvis project folder so the user can have those agents extend and
+Dodaios project folder so the user can have those agents extend and
 personalize Jarvis itself.
 
 Design notes:

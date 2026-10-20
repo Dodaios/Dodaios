@@ -952,7 +952,7 @@ async def _run_headless(args) -> int:
     # Show the actual bind host (JARVIS_BIND_HOST may be 0.0.0.0 on a VPS);
     # bracket IPv6 literals so the printed URL stays valid.
     _url_host = f"[{_host}]" if ":" in _host else _host
-    print(f"Jarvis backend is running at http://{_url_host}:{cfg.ui.admin_api_port}")
+    print(f"Dodaios backend is running at http://{_url_host}:{cfg.ui.admin_api_port}")
     print("Ctrl+C to quit.")
 
     try:

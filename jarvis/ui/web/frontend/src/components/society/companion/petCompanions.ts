@@ -3,7 +3,7 @@
  * chosen in Settings -> My Pets (`docs/pets.md`), Gigi when none is chosen.
  *
  * Built-in pets have an authored Blender model
- * (`art/studies/jarvis-pet-companions`, `scripts/art/build_pet_companions.py`)
+ * (`art/studies/dodaios-pet-companions`, `scripts/art/build_pet_companions.py`)
  * and a way of moving that fits them: the dragon and Gigi fly, the cat walks,
  * the snail crawls. A pet the person drew themselves has only its sprite
  * sheet, so it becomes a voxel figure extruded from its idle frames and
@@ -35,7 +35,7 @@ type BuiltinSpec = Omit<CompanionPet, "id" | "sheetUrl" | "frameSize" | "idle">;
 
 export const GIGI_COMPANION: CompanionPet = { id: "gigi", kind: "gigi", gait: "fly", heightM: 0.5, modelHeightM: 0.4, strideM: 1 };
 
-/** Model heights match `art/studies/jarvis-pet-companions/source/build-report.json`. */
+/** Model heights match `art/studies/dodaios-pet-companions/source/build-report.json`. */
 export const BUILTIN_COMPANIONS: Readonly<Record<string, BuiltinSpec>> = {
   ember: { kind: "model", gait: "fly", heightM: 0.5, modelHeightM: 0.534, strideM: 1 },
   miso: { kind: "model", gait: "walk", heightM: 0.44, modelHeightM: 0.519, strideM: 0.42 },

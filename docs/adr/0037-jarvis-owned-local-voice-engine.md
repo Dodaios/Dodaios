@@ -1,4 +1,4 @@
-# ADR-0037 — A Jarvis-owned local voice engine replaces the managed speech-to-speech server
+# ADR-0037 — A Dodaios-owned local voice engine replaces the managed speech-to-speech server
 
 **Status:** Accepted (2026-10-01)
 **Date:** 2026-10-01
@@ -7,7 +7,7 @@
 ## Context
 
 The `local-realtime` provider runs a patched Hugging Face
-`speech-to-speech==0.2.12` server behind 5,770 lines of Jarvis supervision code.
+`speech-to-speech==0.2.12` server behind 5,770 lines of Dodaios supervision code.
 Between 2026-08-07 and 2026-09-26, 93 of 174 server generations never became
 ready, cold boots took 68–418 s, first audio per user turn had a p50 of 4.6 s,
 and the server served one call at a time without listening while it spoke. No
@@ -20,9 +20,9 @@ rebuild plan.
 
 ## Decision
 
-1. Local live voice is served by a Jarvis-owned cascade engine running as one
+1. Local live voice is served by a Dodaios-owned cascade engine running as one
    child process per app instance, in its own uv-managed CPython 3.12
-   environment, connected to Jarvis over stdin/stdout with a versioned framed
+   environment, connected to Dodaios over stdin/stdout with a versioned framed
    protocol. The worker exits when its stdin closes; it binds no port.
 2. A thin provider adapter implements `RealtimeProvider` and `RealtimeSession`
    with `native_tool_orchestration=True` and `browser_audio=True`, so
@@ -51,7 +51,7 @@ rebuild plan.
 - No pidfiles, leases, port conflicts or orphaned servers: the process tree
   dies with the app. An app restart reloads only the speech models; the LLM
   stays resident in Ollama.
-- Jarvis maintains about 2,000–2,500 lines of real-time loop code instead of
+- Dodaios maintains about 2,000–2,500 lines of real-time loop code instead of
   adapting to a third-party server; roughly 8,400 lines of product code and
   5,600 lines of tests are removed.
 - German tool-call quality of small local models is the largest open risk; the

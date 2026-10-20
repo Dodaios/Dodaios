@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import logging
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -134,6 +135,14 @@ def _recently_updated(vault_root: Path, *, limit: int) -> list[str]:
     return [rel for _, rel in candidates[:limit]]
 
 
+_TIMESTAMP_LINE = re.compile(r"^(?:updated: .*|- Last refreshed: .*)$", re.MULTILINE)
+
+
+def _without_timestamps(text: str) -> str:
+    """The page with its refresh clock removed, for an is-anything-new check."""
+    return _TIMESTAMP_LINE.sub("", text.replace("\r\n", "\n")).strip()
+
+
 async def refresh_memory_page(
     *,
     curator: WikiCurator,
@@ -163,7 +172,19 @@ async def refresh_memory_page(
             backlog_count=backlog,
             telemetry_snapshot=telemetry.snapshot(),
         )
-        exists = (vault_root / PAGE_NAME).is_file()
+        page_path = vault_root / PAGE_NAME
+        exists = page_path.is_file()
+        if exists:
+            try:
+                current = await asyncio.to_thread(page_path.read_text, encoding="utf-8")
+            except OSError as exc:
+                log.debug("self_doc: could not read the current page: %s", exc)
+                current = ""
+            if _without_timestamps(current) == _without_timestamps(body):
+                # Only the clock moved. Rewriting would add a log.md entry
+                # per boot and per consolidator run: 1,833 of 2,100 entries
+                # were exactly that, and the activity feed drowned in them.
+                return False
         update = PageUpdate(
             target_path=Path(PAGE_NAME),
             operation="update" if exists else "create",

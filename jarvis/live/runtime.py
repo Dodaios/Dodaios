@@ -117,6 +117,24 @@ async def on_session_loop(session: Any, operation: Any, **kwargs: Any) -> Any:
     return await asyncio.wrap_future(future)
 
 
+async def show_content(session_id: str, *, title: str, markdown: str) -> bool:
+    """Show content in the live call ``session_id``; False when it is not running."""
+    session = _active.get(session_id)
+    show = getattr(session, "show_content", None)
+    if session is None or show is None:
+        return False
+    try:
+        await on_session_loop(session, show, title=title, markdown=markdown)
+    except RuntimeError as exc:
+        # The call ended between the lookup and the delivery. The caller shows
+        # the content without a call record instead.
+        import logging
+
+        logging.getLogger(__name__).info("Live call %s could not show content: %s", session_id, exc)
+        return False
+    return True
+
+
 def owns_microphone(*, except_session_id: str | None = None) -> bool:
     """A pending or active browser call must not be replaced by a wake start."""
     return any(sid != except_session_id for sid in (*_opening, *_active))

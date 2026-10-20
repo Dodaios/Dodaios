@@ -26,7 +26,7 @@ from .surface_security import COOKIE_NAME, open_access_granted
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _UNAUTHORIZED = {
     "status_code": status.HTTP_401_UNAUTHORIZED,
-    "detail": "Invalid or missing Jarvis Control API key.",
+    "detail": "Invalid or missing Dodaios Control API key.",
     "headers": {"WWW-Authenticate": "Bearer"},
 }
 
@@ -76,7 +76,7 @@ def assert_bind_safe(host: str, key: str | None) -> None:
     """
     if host and host not in _LOOPBACK_HOSTS and not key:
         raise RuntimeError(
-            "Refusing to bind the Jarvis Control API to a non-loopback address "
+            "Refusing to bind the Dodaios Control API to a non-loopback address "
             f"({host!r}) without a control key. The API key is the security "
             "boundary on a VPS — generate one first (control_key.ensure_control_key)."
         )

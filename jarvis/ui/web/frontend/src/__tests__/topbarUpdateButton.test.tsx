@@ -519,7 +519,7 @@ describe("TopBar update button", () => {
             update_available: true,
             notes: null,
             published_at: null,
-            release_url: "https://github.com/PersonalJarvis/PersonalJarvis/releases/tag/v1.6.0",
+            release_url: "https://github.com/Dodaios/Dodaios/releases/tag/v1.6.0",
             blocked_code: "app_translocated",
             blocked_reason: "macOS is running Personal Jarvis from a temporary copy.",
           }),

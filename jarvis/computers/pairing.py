@@ -146,7 +146,7 @@ class ServerPairing:
 
     def identity(self) -> ServerIdentity:
         return ServerIdentity(
-            protocol=PROTOCOL, name=platform.node()[:120] or "Jarvis", platform=platform.system()
+            protocol=PROTOCOL, name=platform.node()[:120] or "Dodaios", platform=platform.system()
         )
 
     def issue_code(self) -> dict[str, Any]:
@@ -171,7 +171,7 @@ class ServerPairing:
             state.grants.append(
                 PairingGrant(
                     id="g_" + secrets.token_hex(8),
-                    name=name.strip() or "Jarvis client",
+                    name=name.strip() or "Dodaios client",
                     digest=_digest(credential),
                     created_at=time.time(),
                 )
@@ -260,7 +260,9 @@ class ServerPairing:
             return result
         except (httpx.HTTPError, ValueError) as exc:
             # Never echo response bodies or submitted credentials into user errors or logs.
-            raise PairingError("Could not reach a compatible Jarvis server securely.", 502) from exc
+            raise PairingError(
+                "Could not reach a compatible Dodaios server securely.", 502
+            ) from exc
 
     async def add(self, host: str, code: str) -> PairedServer:
         url = normalize_server(host)

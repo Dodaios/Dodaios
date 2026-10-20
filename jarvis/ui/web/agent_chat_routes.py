@@ -83,17 +83,19 @@ log = logging.getLogger(__name__)
 
 #: The Pydantic twin of ``jarvis.agent_chat.store.SURFACES`` (AP-4; the parity
 #: test in tests/unit/agent_chat/test_agent_chat_surface_parity.py pins it).
-SurfaceName = Literal["jarvis", "agent", "local-models", "society"]
+SurfaceName = Literal["jarvis", "agent", "local-models", "society", "side"]
 
 #: The same names, as data — a multipart form field cannot be typed by a
 #: ``Literal`` without turning an unknown surface into a 422 on a file the
 #: person just dropped.
-SURFACE_NAMES: frozenset[str] = frozenset({"jarvis", "agent", "local-models", "society"})
+SURFACE_NAMES: frozenset[str] = frozenset(
+    {"jarvis", "agent", "local-models", "society", "side"}
+)
 
 #: Surfaces that never appear in an unfiltered session list: an agent's
-#: canonical chat belongs to its model card, not to the IDE's or the front
-#: page's history.
-HIDDEN_SURFACES: frozenset[str] = frozenset({"society"})
+#: canonical chat belongs to its model card, and the IDE's side chat to its
+#: side panel, not to the IDE's threads or the front page's history.
+HIDDEN_SURFACES: frozenset[str] = frozenset({"society", "side"})
 
 router = APIRouter(prefix="/api/agent-chat", tags=["agent-chat"])
 
@@ -105,13 +107,13 @@ class ChatSelectionBody(BaseModel):
     account_id: str = ""
 
 
-@router.put("/selection", summary="Remember the model for new Jarvis chats and agents")
+@router.put("/selection", summary="Remember the model for new Dodaios chats and agents")
 def save_chat_selection(body: ChatSelectionBody, request: Request) -> dict[str, str]:
     from jarvis.agent_chat.store import ChatSelection
 
     provider = body.provider.strip().lower()
     if not offers("jarvis", provider):
-        raise HTTPException(400, "This provider is not offered on the Jarvis chat")
+        raise HTTPException(400, "This provider is not offered on the Dodaios chat")
     if body.account_id:
         from jarvis import agent_accounts
         from jarvis.agent_chat.catalog import provider_row
@@ -165,12 +167,12 @@ def _archived_voice_history(request: Request, voice_session_id: str) -> Any:
     return history
 
 
-@router.get("/voice-chat", summary="The Jarvis chat voice calls continue")
+@router.get("/voice-chat", summary="The Dodaios chat voice calls continue")
 def get_voice_chat(request: Request) -> VoiceChatResponse:
     return _voice_chat_answer(_service(request))
 
 
-@router.put("/voice-chat", summary="Continue voice calls in this Jarvis chat")
+@router.put("/voice-chat", summary="Continue voice calls in this Dodaios chat")
 def put_voice_chat(body: VoiceChatBody, request: Request) -> VoiceChatResponse:
     """Bind the chat the front page shows: calls file into it and start with its history."""
     svc = _service(request)
@@ -407,6 +409,16 @@ async def _live_cli_models() -> dict[str, list[dict[str, Any]]]:
     return await live_models()
 
 
+def _folder_for(surface: str, raw: str | None) -> str | None:
+    """The folder a ``surface`` session may be given; ``None`` = its default.
+
+    A plain chat touches no folder, so whatever a client still remembers (a
+    workspace that has since been deleted, say) is ignored rather than allowed
+    to refuse the chat.
+    """
+    return None if kit_for(surface).plain else _validate_cwd(raw)
+
+
 def _validate_cwd(raw: str | None) -> str | None:
     if raw is None:
         return None
@@ -458,7 +470,7 @@ async def get_catalog(
 
         if agent_accounts.resolve(account_id) is None:
             raise HTTPException(status_code=400, detail="Unknown subscription account")
-    folder = _validate_cwd(cwd)
+    folder = _folder_for(surface, cwd)
     with cli_catalog_scope(
         account_id=account_id,
         cwd=Path(folder) if folder else None,
@@ -492,6 +504,7 @@ def _catalog_rows(
     # own: other surfaces keep every seat.
     prefs = agent_provider_prefs.load()
     agents = surface == agent_provider_prefs.AGENT_SURFACE
+    plain = kit_for(surface).plain
     rows: list[dict[str, Any]] = []
     for row in rows_for(surface):
         d = row.to_dict()
@@ -521,7 +534,8 @@ def _catalog_rows(
         # Which characters open the composer's typeahead on this seat —
         # decided here, from the runner, so the box never offers a "/" list
         # to a seat that would read it as plain text.
-        d["typeahead"] = list(typeahead.triggers_for(runner, surface))
+        # A plain chat has nothing to complete against: no commands, no files.
+        d["typeahead"] = [] if plain else list(typeahead.triggers_for(runner, surface))
         if agents:
             d["enabled"] = prefs.enabled(row.id)
         d["hidden_models"] = list(prefs.hidden(row.id))
@@ -542,7 +556,7 @@ async def get_composer_tools(
     cwd: str | None = None,
     stance: str = "ask",
 ) -> dict[str, Any]:
-    """Discover tools for the Jarvis chat without executing any capability."""
+    """Discover tools for the Dodaios chat without executing any capability."""
     from jarvis.agent_chat.tool_catalog import discover
 
     svc = (await _async_service(request))
@@ -865,6 +879,7 @@ def list_sessions(
 ) -> dict[str, Any]:
     svc = _service(request)
     out = []
+    teams = _team_sessions(request) if surface in (None, "agent") else {}
     for s in svc.store.list_sessions(limit=limit, surface=surface):
         if surface is None and s.surface in HIDDEN_SURFACES:
             continue
@@ -873,9 +888,22 @@ def list_sessions(
         if s.surface == "agent":
             d["pending_approvals"] = svc.pending_approvals(s.session_id)
             d["cli_title"] = _cli_title(svc, s)
+            # A member of a team thread is listed under its team, not as a thread.
+            d["team_id"] = teams.get(s.session_id, "")
         out.append(d)
     _title_chats(request, svc, out)
     return {"sessions": out}
+
+
+def _team_sessions(request: Request) -> dict[str, str]:
+    """Which sessions belong to a team thread (``session_id -> team_id``)."""
+    from .team_thread_routes import team_sessions
+
+    try:
+        return team_sessions(request.app.state)
+    except Exception:  # noqa: BLE001 - the thread list must not fail with the team store
+        log.warning("team threads unavailable; listing their members as threads", exc_info=True)
+        return {}
 
 
 def _cli_title(svc: Any, session: Any) -> str:
@@ -951,7 +979,7 @@ def _title_chats(request: Request, svc: Any, rows: list[dict[str, Any]]) -> None
     try:
         titles = chat_titles.titler_for_state(request.app.state).titles_for(requests)
     except Exception:  # noqa: BLE001 - the stored title is a fine answer; logged
-        log.warning("Jarvis chat titles unavailable, keeping the stored ones", exc_info=True)
+        log.warning("Dodaios chat titles unavailable, keeping the stored ones", exc_info=True)
         return
     for row in rows:
         key = (chat_titles.KIND_TYPED, str(row["session_id"]))
@@ -981,7 +1009,7 @@ def create_session(body: CreateSessionBody, request: Request) -> dict[str, Any]:
                 + ", ".join(m.id for m in permission_modes(ladder))
             ),
         )
-    cwd = _validate_cwd(body.cwd)
+    cwd = _folder_for(body.surface, body.cwd)
     try:
         session = svc.create_session(
             provider=body.provider,
@@ -1091,7 +1119,7 @@ async def patch_session(
         fields["effort"] = normalize_effort(provider, body.effort)
     current = svc.store.get_session(session_id)
     assert current is not None
-    if body.cwd is not None:
+    if body.cwd is not None and not kit_for(current.surface).plain:
         fields["cwd"] = _validate_cwd(body.cwd) or svc.default_cwd(current.surface)
     runner = resolve_runner(
         fields.get("provider") or current.provider,
@@ -1171,6 +1199,8 @@ async def delete_session(session_id: str, request: Request) -> dict[str, Any]:
     if svc.store.get_session(session_id) is None:
         raise HTTPException(status_code=404, detail="session not found")
     await svc.controls.pause(session_id, "Session deleted")
+    # No request of a deleted chat may come back as a turn.
+    svc.parked_work.stop(session_id)
     await svc.controls._clear_saved_native(session_id)
     await svc.discard_credential_requests(session_id)
     if not svc.store.delete_session(session_id):
@@ -1233,6 +1263,11 @@ async def cancel_turn(session_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="session not found")
     session = svc.store.get_session(session_id)
     cancelled = svc.is_running(session_id)
+    if not cancelled and svc.parked_work.stop(session_id):
+        # Nothing is answering, so the stop means the requests still waiting
+        # for their agents: their results no longer continue here. The agents'
+        # own work is not touched. During a turn, stop ends that turn only.
+        cancelled = True
     # Who ended a turn is otherwise invisible: name the control that asked.
     headers = request.headers
     log.info(

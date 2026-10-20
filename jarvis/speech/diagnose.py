@@ -273,7 +273,7 @@ async def step_wake_live(duration_s: float = 20.0) -> None:
 
 async def step_whisper(duration_s: float = 4.0) -> None:
     _print_header(4, f"Whisper transcription test ({int(duration_s)} seconds)")
-    print("Say a short sentence. Jarvis transcribes it and shows what it understood.")
+    print("Say a short sentence. Dodaios transcribes it and shows what it understood.")
     print()
     from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
     stt = FasterWhisperProvider()
@@ -303,12 +303,12 @@ async def step_chime() -> None:
 
 async def step_tts() -> None:
     _print_header(6, "TTS round-trip (Gemini 3.1 Flash)")
-    print("Jarvis is now saying a test sentence …")
+    print("Dodaios is now saying a test sentence …")
     from jarvis.plugins.tts.gemini_flash_tts import GeminiFlashTTS
     tts = GeminiFlashTTS(default_voice="Algieba", language_code="de-DE")
     tts._ensure_client()
     player = AudioPlayer()
-    text = "Hallo, ich bin Jarvis. Diagnose abgeschlossen. Du kannst mich jetzt nutzen."  # i18n-allow
+    text = "Hallo, ich bin dein Assistent. Diagnose abgeschlossen. Du kannst mich jetzt nutzen."  # i18n-allow
     async for chunk in tts.synthesize(text):
         await player.play_pcm(chunk.pcm, sample_rate=chunk.sample_rate)
     print("  ✓ TTS output done.")

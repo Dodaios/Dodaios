@@ -1553,7 +1553,7 @@ async def test_idle_session_renders_external_update_as_realtime_spoken_track():
     assert not any(isinstance(event, ResponseGenerated) for event in bus.events)
     assert not any(isinstance(event, VoiceTurnCompleted) for event in bus.events)
     history = "\n".join(str(message.content) for message in sess._delegate_history)
-    assert "Trusted Jarvis-Agent mission result" in history
+    assert "Trusted Dodaios-Agent mission result" in history
     assert "artifact: report.md" in history
 
 
@@ -2410,7 +2410,7 @@ async def test_instructions_carry_tool_role_when_bridge_active():
 
     instructions = provider.opened_with.instructions
     assert "call the matching function" in instructions
-    assert "Jarvis-Agent spawn" in instructions
+    assert "Dodaios-Agent spawn" in instructions
 
 
 @pytest.mark.asyncio
@@ -2599,9 +2599,13 @@ async def test_local_public_fact_uses_exactly_one_supervisor_search(
         def __init__(self):
             super().__init__()
             self.run_task_calls = []
+            self.started_by_user = []
 
         async def run_task(self, **kwargs):
+            from jarvis.core.protocols import current_started_by_user
+
             self.run_task_calls.append(kwargs)
+            self.started_by_user.append(current_started_by_user.get())
             return "Ada Lovelace was born in 1815 according to the source."
 
     class _GroundedResultSession(FakeSession):
@@ -2643,6 +2647,9 @@ async def test_local_public_fact_uses_exactly_one_supervisor_search(
     }
     assert len(brain.run_task_calls) == 1
     assert brain.run_task_calls[0]["allowed_tools"] == ()
+    # A question asked in a live call is the person's own turn, not unattended
+    # work: it must not be held to the background billing policy.
+    assert brain.started_by_user == [True]
     assert brain.calls == []
     # Exactly ONE result is spoken. An instant-ack line ("Quick online
     # search, one moment.") may land before it on a slow runner — that is the
@@ -3191,7 +3198,7 @@ async def test_generative_voice_provider_mute_still_falls_back_to_surface_tts():
     elapsed = asyncio.get_event_loop().time() - start
     assert elapsed >= 2.0, "surface TTS claimed the reply before the wait window"
     spoken = [m for m in jsons if m.get("type") == "error_spoken"]
-    assert [m["text"] for m in spoken] == [scrub_for_voice(reply).cleaned]
+    assert [m["text"] for m in spoken] == [scrub_for_voice(reply, language="de").cleaned]
     assert binaries == []
     provider.session.release.set()
     await sess.end(reason="test")
@@ -9138,7 +9145,7 @@ async def test_the_handshake_notice_follows_the_pinned_reply_language():
     English (or German) that the call is ending.
     """
     seen = {}
-    for pin in ("de", "en", "es"):
+    for pin in ("de", "en", "es", "pt"):
         jsons = []
         sess = _no_metered_fallback_session(
             _UnreachableProvider(
@@ -9156,7 +9163,7 @@ async def test_the_handshake_notice_follows_the_pinned_reply_language():
         seen[pin] = notice["text"]
         await sess.end(reason="test")
 
-    assert len(set(seen.values())) == 3, (
+    assert len(set(seen.values())) == 4, (
         f"each supported locale needs its own wording, got {seen}"
     )
 

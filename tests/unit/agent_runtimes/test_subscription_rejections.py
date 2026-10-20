@@ -63,7 +63,11 @@ def test_rejection_preserves_status_and_safe_reason(
     assert hint in error["message"]
     assert "private-provider-body" not in response.text
     assert "private-code-must-not-leak" not in response.text
-    assert len(requests) == 1
+    # The refused request is never replayed. An unexplained 400 may ask the
+    # account's model catalog once, which runs no inference.
+    paths = [request.url.path for request in requests]
+    assert paths.count("/backend-api/codex/responses") == 1
+    assert len(paths) - 1 == (1 if (status, code) == (400, "private-code-must-not-leak") else 0)
 
 
 @pytest.mark.parametrize("body", [b"not JSON", b"x" * 70_000], ids=["invalid", "oversized"])

@@ -127,14 +127,16 @@ export async function fetchProgression(afterSeq = 0): Promise<ProgressionSnapsho
   return parseSnapshot((await res.json()) as Raw);
 }
 
-/** Report a world action; the server decides whether it pays. Never throws. */
+/** Report a world action; the server decides whether it pays. Never throws; a report the server refuses is logged. */
 export async function reportWorldAction(action: WorldAction, ref = ""): Promise<void> {
   try {
-    await fetch("/api/progression/actions", {
+    const res = await fetch("/api/progression/actions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, ref }),
     });
+    // A refusal means this client and the server disagree about an action or a floor: say so, play on.
+    if (!res.ok) console.warn("Level action refused", action, ref, res.status);
   } catch (error) {
     // XP is a garnish: an unreachable backend never disturbs the Verse.
     console.debug("Level action not reported", action, error);

@@ -25,7 +25,8 @@ import {
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useT, useUiLanguage } from "@/i18n";
+import { useT } from "@/i18n";
+import { useRunLocale } from "@/components/runs/format";
 import { useThemeValue } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 import { endMissionDrag, startMissionDrag } from "@/lib/missionDnd";
@@ -882,7 +883,7 @@ function WallTile({
   handlers: CardHandlers;
 }) {
   const t = useT();
-  const language = useUiLanguage();
+  const language = useRunLocale();
   const title = rowTitle(row);
   const status = rowStatus(row);
   const { dragProps, onContextMenu, onKeyDown, onMore } = useCardInteractions(row, handlers);
@@ -1036,7 +1037,7 @@ function ListRow({
   handlers: CardHandlers;
 }) {
   const t = useT();
-  const language = useUiLanguage();
+  const language = useRunLocale();
   const title = rowTitle(row);
   const request = rowRequest(row);
   const status = rowStatus(row);

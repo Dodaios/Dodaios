@@ -43,7 +43,7 @@ def usage_note(env: str) -> str:
         f"The value is set as the environment variable {env} in every command you run with "
         f"society_shell (only there, not in any other shell). Reference it by name inside the "
         f"command (bash: ${env}, PowerShell: $env:{env}). Never print, echo, log, commit or "
-        "write the value anywhere, and never ask the user to paste it into the chat; Jarvis "
+        "write the value anywhere, and never ask the user to paste it into the chat; Dodaios "
         "masks it in command output."
     )
 

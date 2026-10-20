@@ -7,13 +7,29 @@ import { CanvasTexture, MeshStandardMaterial, SRGBColorSpace, type Texture } fro
 const textureCache = new Map<string, Texture | null>();
 
 /**
- * A canvas-drawn texture, drawn once per key and cached. Returns null where no
- * 2D canvas exists (SSR, tests without canvas); callers fall back to a colour.
+ * A canvas-drawn texture, drawn once per key and cached for the session. Only
+ * for keys from a fixed set (a kind, a palette entry, a locale's own text): a
+ * key made from something the user names would grow the cache without end,
+ * and belongs to `ownedCanvasTexture`. Returns null where no 2D canvas exists
+ * (SSR, tests without canvas); callers fall back to a colour.
  */
 export function cachedCanvasTexture(
   key: string, width: number, height: number, draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void,
 ): Texture | null {
   if (textureCache.has(key)) return textureCache.get(key) ?? null;
+  const texture = ownedCanvasTexture(width, height, draw);
+  textureCache.set(key, texture);
+  return texture;
+}
+
+/**
+ * A canvas-drawn texture that belongs to its caller, who disposes it when the
+ * thing it is drawn for goes: for text the user chose (a team's name).
+ * Returns null where no 2D canvas exists.
+ */
+export function ownedCanvasTexture(
+  width: number, height: number, draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void,
+): Texture | null {
   const canvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
   let ctx: CanvasRenderingContext2D | null = null;
   try {
@@ -32,7 +48,6 @@ export function cachedCanvasTexture(
     made.anisotropy = 4;
     texture = made;
   }
-  textureCache.set(key, texture);
   return texture;
 }
 

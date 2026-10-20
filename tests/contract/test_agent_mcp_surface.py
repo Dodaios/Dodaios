@@ -223,7 +223,7 @@ async def test_unknown_agent_names_the_known_ones(ecosystem: Any) -> None:
     answer = await agent_tools.call("agent_message", {"agent": "Nobody", "text": "hi"})
     assert "Nobody" in answer
     assert "no agent by that id or name" in answer
-    assert "Jarvis" in answer, "the refusal must list who DOES exist"
+    assert "On this box: Assistant." in answer, "the refusal must list who DOES exist"
 
 
 @pytest.mark.asyncio

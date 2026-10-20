@@ -111,7 +111,7 @@ def test_a_second_process_never_runs_the_same_agents_gateway(home):
     holder = HomeFileLock(home / "gateway.lock")
     assert holder.try_acquire()
     try:
-        with pytest.raises(RuntimeUnavailable, match="Another Jarvis process"):
+        with pytest.raises(RuntimeUnavailable, match="Another Dodaios process"):
             asyncio.run(_start(openclaw.OpenClawRuntime(), home, openclaw._free_port(), _env()))
     finally:
         holder.release()

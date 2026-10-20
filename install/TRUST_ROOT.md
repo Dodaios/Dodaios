@@ -1,4 +1,4 @@
-# Trust roots and rotation procedure — Personal Jarvis Wave 1 + Wave 2 foundation
+# Trust roots and rotation procedure — Dodaios Wave 1 + Wave 2 foundation
 
 > **Audience:** a security-aware reader who wants to know, *exactly*, whose
 > word they're taking when they run the verifying one-liner. No marketing

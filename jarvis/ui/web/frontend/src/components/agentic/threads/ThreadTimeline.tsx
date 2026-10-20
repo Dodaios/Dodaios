@@ -7,10 +7,12 @@ import { waitsOnCard, type TextBlock, type TimelineItem, type ToolBlock, type Tu
 import { toolDiff, type DiffFile } from "@/components/agentchat/toolDiff";
 import { CallMark, StretchMark } from "@/components/agentchat/TraceTimeline";
 import { plural, readableOutput, traceDuration, type Call } from "@/components/agentchat/traceEntries";
-import { fill, useT } from "@/i18n";
+import { fill, useI18nStore, useT } from "@/i18n";
+import { localeForUiLanguage } from "@/components/runs/format";
 import type { ApprovalDecision } from "@/lib/agentChatApi";
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
+import { ChatThought } from "./ChatThought";
 import { buildThreadRows, isFailed, thoughtGist, type ThreadRow, type WorkGroup, type WorkItem } from "./threadWork";
 import { SubagentCard } from "./ThreadSubagents";
 import { listSubagents } from "./subagents";
@@ -383,7 +385,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 }
 
 function clock(ms: number): string {
-  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString(localeForUiLanguage(useI18nStore.getState().ui), { hour: "2-digit", minute: "2-digit" });
 }
 
 function UserBubble({ item }: { item: UserItem }) {
@@ -405,7 +407,7 @@ function UserBubble({ item }: { item: UserItem }) {
     </div>
     <div className="flex items-center gap-1 pr-1 text-xs text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
       <span className="tabular-nums">{clock(item.tsMs)}</span>
-      {item.text && <CopyButton text={item.text} label="Copy message" />}
+      {item.text && <CopyButton text={item.text} label={t("ide_threads.copy_message")} />}
     </div>
   </div>;
 }
@@ -428,7 +430,7 @@ function changedFiles(turn: TurnItem): { path: string; added: number; removed: n
 }
 
 /** The thread's project folder, so changed files read relative to it. */
-const ThreadFolder = createContext("");
+export const ThreadFolder = createContext("");
 
 function slashes(path: string): string {
   return path.replace(/\\/g, "/");
@@ -631,6 +633,14 @@ export interface ThreadTurnProps {
   extras?: { key: string; node: ReactNode }[];
   /** A quiet note on a finished turn's closing line: tokens, cost. */
   receipt?: ReactNode;
+  /**
+   * How the turn reads. A coding thread counts its work ("Working for 12s",
+   * "Worked for 40s"). A plain chat has a thought and an answer: the thought
+   * streams under a shimmering "Thinking" and folds into "Thought for 3s"
+   * once the answer begins (`ChatThought`), and no duration sits under the
+   * answer.
+   */
+  tone?: "work" | "chat";
 }
 
 /**
@@ -638,7 +648,7 @@ export interface ThreadTurnProps {
  * threads and every agent chat draw their turns with it, so a turn looks and
  * behaves the same wherever it is read — streaming, finished or reloaded.
  */
-export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt }: ThreadTurnProps) {
+export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer", onDecide, extras, receipt, tone = "work" }: ThreadTurnProps) {
   const t = useT();
   const lang = t("trace_report.locale");
   const running = turn.status === "running";
@@ -687,6 +697,24 @@ export const ThreadTurn = memo(function ThreadTurn({ turn, prompts = "composer",
     const pending = pendingLabel(row.block, t);
     return pending ? <WorkRow key={row.id} icon={pending.icon} label={pending.text} live /> : null;
   };
+  if (tone === "chat") {
+    // A plain chat: its thought, its answer, and a quiet closing line.
+    const textRows = rows.filter((row) => row.kind === "text");
+    const ending = turn.status === "cancelled" ? timed("stopped")
+      : turn.status === "error" ? timed("failed")
+        : !answer ? timed("no_answer") : "";
+    return <CallMedia.Provider value={pictures.byCall}><div className="min-w-0 space-y-1.5" data-testid="thread-turn" data-status={turn.status}>
+      <ChatThought turn={turn} answering={textRows.length > 0} />
+      {textRows.map(renderRow)}
+      {!running && <>
+        {turn.status === "error" && turn.error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{turn.error}</p>}
+        <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground" data-testid="thread-turn-closing">
+          {ending && <span>{ending}</span>}
+          {answer && <CopyButton text={answer} label={t("thread_turn.copy_answer")} />}
+        </div>
+      </>}
+    </div></CallMedia.Provider>;
+  }
   const extraNodes = extraRows.map((extra) => <div key={`extra:${extra.key}`} className="min-w-0">{extra.node}</div>);
   // A running turn's streaming answer is its tail; extra steps go above it.
   const shown = folded ? tail : rows;
@@ -737,9 +765,9 @@ function ErrorLine({ text }: { text: string }) {
 }
 
 /** One item of the conversation, drawn by its kind. */
-function ItemView({ item }: { item: TimelineItem }) {
+function ItemView({ item, tone }: { item: TimelineItem } & Pick<ThreadTurnProps, "tone">) {
   if (item.type === "user") return <UserBubble item={item} />;
-  if (item.type === "turn") return <ThreadTurn turn={item} />;
+  if (item.type === "turn") return <ThreadTurn turn={item} tone={tone} />;
   if (item.type === "error") return <ErrorLine text={item.text} />;
   if (item.type === "notice") {
     return <p className="text-center text-xs text-muted-foreground">{item.agentName ? `${item.agentName}: ` : ""}{item.text}</p>;
@@ -755,13 +783,16 @@ function ItemView({ item }: { item: TimelineItem }) {
  * the bottom and stays put once they scroll up to read; a button brings them
  * back down.
  */
-export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lead }: {
+export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lead, tone }: {
   items: TimelineItem[]; sessionId: string | null; bottomInset: number;
+  /** How every turn's status lines read (see `ThreadTurnProps.tone`). */
+  tone?: ThreadTurnProps["tone"];
   /** The thread's project folder; changed files list relative to it. */
   folder?: string;
   /** What reads above the conversation — an opened sub-agent's header and task. */
   lead?: ReactNode;
 }) {
+  const t = useT();
   const scroller = useRef<HTMLDivElement | null>(null);
   const pinned = useRef(true);
   const [away, setAway] = useState(false);
@@ -800,10 +831,10 @@ export function ThreadTimeline({ items, sessionId, bottomInset, folder = "", lea
       className="h-full overflow-y-auto scrollbar-jarvis">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-5 pt-6" style={{ paddingBottom: bottomInset + 24 }}>
         {lead}
-        {items.map((item) => <ItemView key={item.id} item={item} />)}
+        {items.map((item) => <ItemView key={item.id} item={item} tone={tone} />)}
       </div>
     </div>
-    {away && <button type="button" aria-label="Scroll to the newest message"
+    {away && <button type="button" aria-label={t("ide_threads.scroll_newest")}
       onClick={() => { const box = scroller.current; if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" }); }}
       style={{ bottom: bottomInset + 12 }}
       className="absolute left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-border bg-popover text-muted-foreground shadow-float hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

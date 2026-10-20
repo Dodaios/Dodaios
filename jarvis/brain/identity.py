@@ -1,12 +1,12 @@
 """Who the assistant is, said the same way on every surface.
 
-A live call answered "I'm Personal Jarvis" although the user's assistant is
+A live call answered with the product name although the user's assistant is
 called George (2026-10-02): the typed brain stated the wake-word name, but
 the realtime and GPT-Live instructions hardcoded the product name and never
 read SOUL.md. This module is the one place the identity block is built:
 
 * the **name directive** — the name comes from the wake word
-  (``assistant_name.resolve_assistant_name``) and "Personal Jarvis" is
+  (``assistant_name.resolve_assistant_name``) and the product name is
   stated as the app's name, never the assistant's;
 * the **character** — ``data/workspace/SOUL.md`` rendered by
   :class:`jarvis.memory.soul.Soul`, including what the learning loop wrote
@@ -26,10 +26,15 @@ from pathlib import Path
 from typing import Any, Final
 
 from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME, resolve_assistant_name
+from jarvis.core.branding import PRODUCT_NAME
 
 log = logging.getLogger(__name__)
 
-PRODUCT_NAME: Final[str] = "Personal Jarvis"
+#: The product's earlier names. Existing installations still carry them in
+#: SOUL.md, memories and chat history, and "jarvis" survives in tool, command
+#: and file names, so a model is told they mean the app and are not its name.
+_FORMER_PRODUCT_NAME: Final[str] = "Personal Jarvis"
+_FORMER_SHORT_NAME: Final[str] = "Jarvis"
 #: Tells a model that holds the ``update_soul`` tool to keep SOUL.md current.
 SOUL_UPDATE_DIRECTIVE: Final[str] = (
     "Keep your character file current yourself: when the user tells you how you should be "
@@ -48,20 +53,33 @@ _cache: dict[tuple[str, bool], tuple[float, float, str]] = {}
 def name_directive(name: str) -> str:
     """The identity sentence every surface puts first."""
     name = " ".join((name or "").split())
+    app = f"{PRODUCT_NAME} (formerly {_FORMER_PRODUCT_NAME})"
     if not name or name == DEFAULT_ASSISTANT_NAME:
         return (
-            f"You are the user's personal assistant inside the {PRODUCT_NAME} app. You have "
+            f"You are the user's personal assistant inside the {app} app. You have "
             "no personal name yet (the user gives you one by choosing a wake word), so "
             f"introduce yourself as their assistant in {PRODUCT_NAME}, never as a model or "
             "provider."
         )
-    others = "" if name.casefold() == "jarvis" else ", as Jarvis"
+    key = name.casefold()
+    if key == PRODUCT_NAME.casefold():
+        # The user named the assistant after the app: there is nothing to tell apart.
+        app_line = f"The app you run inside is called {app} as well."
+        example = f"I'm {name}, your assistant"
+    else:
+        app_line = f"{app} is the name of the app you run inside, not your name."
+        example = f"I'm {name}, your assistant in {PRODUCT_NAME}"
+    # A name the user chose for the assistant is never forbidden to it.
+    never = ", ".join(
+        f"as {other}"
+        for other in (PRODUCT_NAME, _FORMER_PRODUCT_NAME, _FORMER_SHORT_NAME)
+        if other.casefold() != key
+    )
     return (
         f"YOUR NAME IS {name.upper()}. You are {name}, the user's personal assistant. "
-        f"{PRODUCT_NAME} is the name of the app you run inside, not your name. When asked "
-        f"who or what you are, answer as {name} (for example: \"I'm {name}, your assistant "
-        f"in {PRODUCT_NAME}\") and sign as {name}; never introduce yourself as "
-        f"{PRODUCT_NAME}{others} or by a model or provider name."
+        f"{app_line} When asked who or what you are, answer as {name} (for example: "
+        f"\"{example}\") and sign as {name}; never introduce yourself {never} or by a "
+        "model or provider name."
     )
 
 

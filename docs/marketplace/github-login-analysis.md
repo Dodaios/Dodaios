@@ -5,7 +5,7 @@
 **Depends on:** [community-registry.md](community-registry.md) (shipped registry),
 [public-marketplace-analysis.md](public-marketplace-analysis.md) (D1–D9 decisions)
 
-The goal under analysis: **a "Sign in with GitHub" gate on the Jarvis
+The goal under analysis: **a "Sign in with GitHub" gate on the Dodaios
 marketplace — GitHub is the only identity provider, and only a signed-in
 account can upload a skill or a plugin.** No email/password, no second
 account system.
@@ -259,7 +259,7 @@ stalls if it is wrong.
 
 The desktop app should not use the website's login. It has a better one
 already written: `oauth_device.py`. With device flow enabled on the same
-GitHub App, publishing from inside Jarvis is: show the user code → user
+GitHub App, publishing from inside Dodaios is: show the user code → user
 approves in a browser → the app holds a user token in the existing keyring
 `TokenStore` → the app POSTs the submission plus that token to the same
 `/api/marketplace/submit` endpoint, which verifies the token belongs to our

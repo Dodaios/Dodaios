@@ -14,10 +14,8 @@ describe("coding floor ambience", () => {
     const layout = buildOfficeLayout(Array.from({ length: count }, (_, i) => agent(`a${i}`, `P${i % 5}`)), { variant: "coding" });
     const items = codingAmbience(layout);
 
-    it(`stands in the window strip, clear of every department and room (${count} agents)`, () => {
-      expect(items.some((i) => i.kind === "tree")).toBe(true);
-      expect(items.some((i) => i.kind === "library")).toBe(true);
-      expect(items.some((i) => i.kind === "trough")).toBe(true);
+    it(`stands clear of every neighbourhood and room (${count} agents)`, () => {
+      for (const kind of ["tree", "booth", "trough", "grove"] as const) expect(items.some((i) => i.kind === kind), kind).toBe(true);
       for (const item of items) {
         for (const area of [...layout.departments, ...layout.rooms]) expect(overlaps(item, area), item.id).toBe(false);
         expect(item.minX, item.id).toBeGreaterThan(layout.bounds.minX + 0.2);
@@ -34,6 +32,26 @@ describe("coding floor ambience", () => {
       }
     });
   }
+
+  it("plants a grove on the concourse in every row, clear of the town square round the spawn terminal", () => {
+    const layout = buildOfficeLayout(Array.from({ length: 30 }, (_, i) => agent(`a${i}`, `P${i % 6}`)), { variant: "coding" });
+    const groves = codingAmbience(layout).filter((i) => i.kind === "grove");
+    const rows = new Set(layout.departments.map((d) => d.minZ));
+    expect(groves).toHaveLength(rows.size);
+    const terminal = layout.furniture.find((f) => f.kind === "spawnTerminal")!;
+    for (const grove of groves) {
+      const cx = (grove.minX + grove.maxX) / 2, cz = (grove.minZ + grove.maxZ) / 2;
+      expect(Math.hypot(cx - terminal.x, cz - terminal.z), grove.id).toBeGreaterThan(4);
+    }
+  });
+
+  it("gives every phone booth the colour of the neighbourhood beside it", () => {
+    const layout = buildOfficeLayout(Array.from({ length: 30 }, (_, i) => agent(`a${i}`, `P${i % 6}`)), { variant: "coding" });
+    for (const booth of codingAmbience(layout).filter((i) => i.kind === "booth")) {
+      const index = Number(booth.id.split("-")[1]);
+      expect(booth.tint, booth.id).toBe(layout.departments[index].tint);
+    }
+  });
 
   it("adds nothing to the agents office and keeps ids unique", () => {
     const agents = buildOfficeLayout([]);

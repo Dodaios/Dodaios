@@ -11,7 +11,8 @@ import { TurnTrace, type Decide, type TraceLook } from "./WorkTrace";
 import type { TimelineItem, TurnItem, TextBlock } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
-import { useT } from "@/i18n";
+import { useI18nStore, useT } from "@/i18n";
+import { localeForUiLanguage } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 
 /** Shared transcript shell; the work trace owns all execution presentation. */
@@ -93,6 +94,20 @@ export function AgentTimeline({
     }
     if (item.type === "user") {
       if (item.origin === "control") return <div key={item.id} data-message-id={item.id} className="text-xs text-muted-foreground">{t("slash.control_turn")}{item.attachments.map((file) => <span key={file.name} className="ml-2">{file.name}</span>)}</div>;
+      if (item.origin === "background") {
+        // An earlier request coming back after other messages: the line
+        // names it, so the answer below is read as that request's result.
+        return (
+          <div
+            key={item.id}
+            data-message-id={item.id}
+            data-testid="background-result"
+            className="mx-auto max-w-[85%] text-center text-xs text-muted-foreground"
+          >
+            {t("society.chat.background_result")} · {item.text}
+          </div>
+        );
+      }
       return (
         <div
           key={item.id}
@@ -187,6 +202,31 @@ export function AgentTimeline({
     }
     if (item.type === "notice") {
       if (item.kind === "native_goal_verdict") return <p key={item.id} className="text-xs text-muted-foreground">{t("slash.verifying")}</p>;
+      if (item.kind === "message_queued") {
+        // A message typed while a turn is still answering: it starts next.
+        return (
+          <p key={item.id} data-message-id={item.id} data-testid="message-queued"
+            className="flex justify-end py-1 text-xs text-muted-foreground">
+            {t("society.chat.message_waiting")} · {item.text}
+          </p>
+        );
+      }
+      if (item.kind === "message_dequeued") {
+        return (
+          <p key={item.id} data-message-id={item.id} role="alert"
+            className="flex justify-end py-1 text-xs text-destructive">
+            {t("society.chat.message_not_sent").replace("{0}", item.text)}
+          </p>
+        );
+      }
+      if (item.kind === "background_result_lost") {
+        return (
+          <p key={item.id} data-message-id={item.id} role="alert"
+            className="mx-auto max-w-[85%] py-1 text-center text-xs text-destructive">
+            {t("society.chat.background_result_lost").replace("{0}", item.text)}
+          </p>
+        );
+      }
       if (item.kind === "coding_thread") {
         const started = t("society.chat.coding_thread_started").replace("{0}", String(item.data.agent ?? ""));
         return <CodingThreadActivity key={item.id} label={`${started} · ${String(item.data.title ?? "")}`}
@@ -255,9 +295,10 @@ export function timeStamps(items: TimelineItem[], now: Date = new Date()): Map<s
 }
 
 function stampLabel(at: Date, now: Date): string {
-  const time = at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const locale = localeForUiLanguage(useI18nStore.getState().ui);
+  const time = at.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
   if (at.toDateString() === now.toDateString()) return time;
-  const date = at.toLocaleDateString(undefined, {
+  const date = at.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
@@ -287,6 +328,11 @@ const Turn = memo(function Turn({ turn, assistantName, providerLabel, onDecide, 
       </div>
     )}
     <TurnTrace turn={turn} look={traceLook} companion={traceCompanion} face={traceFace} extras={extras} onDecide={onDecide} renderText={(text, id) => <Prose block={{ kind: "text", text, id }} />} />
+    {turn.background && turn.background.length > 0 ? (
+      <p className="text-xs text-muted-foreground" data-testid="turn-background">
+        {t("society.chat.background_running").replace("{0}", turn.background.join(", "))}
+      </p>
+    ) : null}
   </div>;
 });
 

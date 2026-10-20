@@ -22,6 +22,7 @@ import { player } from "./officeStore";
 import { plateScale } from "./OfficeAgents";
 import { useGigiErrands } from "./gigiErrands";
 import { memoryLine, type MemoryLabels, type MemoryLine } from "./memoryBubble";
+import { isSpeaking, lastSpokeBy, teamBubble, teamBubbleLive, useTeamwork } from "./teamwork";
 import {
   ambientBubble, bubbleText, conversationBubble, itemsFor, PLAYER_LINE_MS, REPLY_LINGER_MS, talkStoreFor, useOfficeTalk,
   type Bubble, type BubbleLabels,
@@ -29,6 +30,8 @@ import {
 
 /** Ambient bubbles only show within this camera distance (metres). */
 const AMBIENT_RANGE_M = 20;
+/** What a team says and hands over is the floor's real news: readable from a little further away. */
+const TEAM_RANGE_M = 34;
 
 export function useBubbleLabels(): BubbleLabels {
   const t = useT();
@@ -88,6 +91,25 @@ function useErrandBubble(agent: SocietyAgent): Bubble | null {
     return { kind: "speech", text: t("society.office.errand_ack"), live: false, atMs: 0 };
   }
   return null;
+}
+
+/**
+ * Real teamwork over an agent's head: the line it just said in its team's
+ * round, a thought while it is the round's speaker, and the message it sent
+ * (or is walking over to) a colleague. See teamwork.ts.
+ */
+function useTeamBubble(agent: SocietyAgent): Bubble | null {
+  const t = useT();
+  const spoke = useTeamwork((s) => lastSpokeBy(s.rounds, agent.agentId));
+  const speaking = useTeamwork((s) => isSpeaking(s.rounds, agent.agentId));
+  const handoff = useTeamwork((s) => s.handoffs.find((h) => h.from === agent.agentId) ?? null);
+  // The clock runs only while a line or a message is still on its way out; a line said long ago needs none.
+  const now = useClock(teamBubbleLive(spoke, handoff, Date.now()));
+  if (!spoke && !speaking && !handoff) return null;
+  return teamBubble({
+    spoke, speaking, handoff, now: Math.max(now, spoke?.atMs ?? 0, handoff?.atMs ?? 0), short: bubbleText,
+    labels: { thinking: t("society.office.bubble_thinking"), to: t("society.office.handoff_to") },
+  });
 }
 
 /** Re-renders once a second while `active`, so a settled bubble can expire. */
@@ -153,8 +175,10 @@ function MemoryRow({ line }: { line: MemoryLine }) {
  * The agent's bubble: its live conversation when the person talks to it,
  * otherwise what it is busy with (from the desk-monitor tail).
  */
-export function AgentBubble({ agent, lines, selected, height, onSelect }: {
+export function AgentBubble({ agent, lines, selected, height, onSelect, listening = false }: {
   agent: SocietyAgent; lines: readonly ChatLine[] | undefined; selected: boolean; height: number; onSelect: (id: string) => void;
+  /** The agent stands at its team's board in a running round: there only the member who has the word carries a bubble. */
+  listening?: boolean;
 }) {
   const labels = useBubbleLabels();
   const talking = useOfficeTalk((s) => s.agentId === agent.agentId);
@@ -169,12 +193,16 @@ export function AgentBubble({ agent, lines, selected, height, onSelect }: {
   const now = useClock(lingering);
   const open = () => onSelect(agent.agentId);
   const errand = useErrandBubble(agent);
+  const team = useTeamBubble(agent);
   const memory = useMemoryLine(agent);
   if (errand) return <BubbleView bubble={errand} height={height} onClick={open} memory={memory} />;
   if (talk && (talk.live || selected || now - talk.atMs < REPLY_LINGER_MS)) {
     return <BubbleView bubble={talk} height={height} onClick={open} memory={memory} />;
   }
-  const ambient = ambientBubble(agent.state, lines, labels);
+  if (team) return <BubbleView bubble={team} height={height} range={memory ? Infinity : TEAM_RANGE_M} onClick={open} memory={memory} />;
+  // A listener at the board says nothing: its own work bubble would read as a second voice in the round.
+  if (listening && !memory) return null;
+  const ambient = listening ? null : ambientBubble(agent.state, lines, labels);
   if (ambient) return <BubbleView bubble={ambient} height={height} range={memory ? Infinity : AMBIENT_RANGE_M} onClick={open} memory={memory} />;
   // Nothing else to say: the memory receipt alone fills the thought cloud.
   return memory

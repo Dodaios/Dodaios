@@ -84,6 +84,14 @@ _RETIRED_SHIPPED_HASHES: dict[str, frozenset[str]] = {
         "d0c22152edb314afe12aaa9a5879affad9b8244cd295dc00d612cb7138caf928",
         "fdec29775663499c0e771d4e6325ffd73d9d283e9633e0e914654e6a56b9bd29",
     }),
+    # Renamed to ``dodaios-doc-author`` (2026-10-13). The old copy is retired
+    # so an install does not carry the same skill under two names.
+    "jarvis-doc-author": frozenset({
+        "50e5dc536272f406c5c0d0082ac42113279862498f5c401c19cf4d5f2f4894bc",
+        "5f294861b4dbc553c213780e8e55d10e417eabc2131441ce64246c15323e18f7",
+        "a58cf7604899e2f558830ffdc7d1088da524b311f5e755ccde6090788b09cdb5",
+        "ab4c8e5606584bbeab639477b805a0aa3cef2cf7750c43e7098da4a5f02e705a",
+    }),
 }
 
 

@@ -262,7 +262,7 @@ _JARVIS: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "ask",
         "Ask before acting",
-        "Reads run freely; edits, shell commands and Jarvis' consequential actions "
+        "Reads run freely; edits, shell commands and Dodaios' consequential actions "
         "show an approval card here in the chat before they run.",
     ),
     PermissionMode(
@@ -287,7 +287,7 @@ _SOCIETY: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "bypass",
         "Bypass permissions",
-        "Run Jarvis tools without prompts. Jarvis blocks, denied capabilities and "
+        "Run Dodaios tools without prompts. Dodaios blocks, denied capabilities and "
         "credential boundaries still apply; vendor-native CLI tools use that runner's controls.",
     ),
     PermissionMode(
@@ -298,7 +298,7 @@ _SOCIETY: Final[tuple[PermissionMode, ...]] = (
     PermissionMode(
         "always_ask",
         "Always ask",
-        "Show a decision in this chat before every Jarvis tool call, including reads.",
+        "Show a decision in this chat before every Dodaios tool call, including reads.",
     ),
 )
 

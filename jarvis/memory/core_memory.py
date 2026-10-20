@@ -13,12 +13,17 @@ from typing import Any
 
 CORE_MEMORY_FILENAME = "core_memory.json"
 
+# The persona name earlier versions wrote into every new core memory. It is
+# skipped when rendering, so those files stop naming the assistant by it.
+_LEGACY_DEFAULT_PERSONA_NAME = "Jarvis"
+
 
 def default_core_memory() -> dict[str, Any]:
     """Minimal defaults for the first run. Overridden by the user via wizard/runtime."""
     return {
+        # No "name": the assistant's name is the user's wake word, which the
+        # identity card renders; a stored name here would contradict it.
         "persona": {
-            "name": "Jarvis",
             "role": "Voice-gesteuerter Meta-Orchestrator",
             "style": "hilfsbereit, präzise, auf Deutsch",  # i18n-allow
         },
@@ -131,6 +136,8 @@ class CoreMemory:
             lines.append("")
             lines.append("### Persona")
             for k, v in persona.items():
+                if k == "name" and v == _LEGACY_DEFAULT_PERSONA_NAME:
+                    continue
                 lines.append(f"- **{k}**: {v}")
 
         if facts:
