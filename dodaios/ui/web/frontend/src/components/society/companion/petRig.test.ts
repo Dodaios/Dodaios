@@ -39,6 +39,21 @@ describe("pet rig", () => {
     expect(pose.get("miso_Leg_FL")!.rx).toBeCloseTo(-pose.get("miso_Leg_FR")!.rx);
   });
 
+  it("walks the hooded figure upright: its two legs swing against each other and rest when it stands", () => {
+    const dodaios = spec("dodaios");
+    const state = createRigState();
+    let maxSwing = 0;
+    for (let i = 0; i < 120; i++) {
+      stepRig(state, dodaios, { dt: DT, speed: 1, mood: "idle", reduced: false });
+      const pose = rigPose(dodaios, state, "idle");
+      expect(pose.get("dodaios_Leg_L")!.rx).toBeCloseTo(-pose.get("dodaios_Leg_R")!.rx);
+      maxSwing = Math.max(maxSwing, Math.abs(pose.get("dodaios_Leg_L")!.rx));
+    }
+    expect(maxSwing).toBeGreaterThan(0.3);
+    for (let i = 0; i < 240; i++) stepRig(state, dodaios, { dt: DT, speed: 0, mood: "idle", reduced: false });
+    expect(Math.abs(rigPose(dodaios, state, "idle").get("dodaios_Leg_L")!.rx)).toBeLessThan(0.05);
+  });
+
   it("beats the dragon's wings in mirror image", () => {
     const ember = spec("ember");
     const state = createRigState();

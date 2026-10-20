@@ -28,7 +28,7 @@ class Driver:
     def __init__(self, ready: bool) -> None:
         self.ready = ready
 
-    def detect(self, *, refresh: bool = False) -> RuntimeStatus:
+    def detect(self, *, refresh: bool = False, fast: bool = False) -> RuntimeStatus:
         return RuntimeStatus("hermes", "Hermes", installed=self.ready, ready=self.ready)
 
 

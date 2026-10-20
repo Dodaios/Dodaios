@@ -140,6 +140,10 @@ def _windows_candidates() -> list[str]:
     dirs.append(str(home / ".grok" / "bin"))
     if local:
         dirs.append(os.path.join(local, "grok", "bin"))
+        # The one-line installer (install/install.ps1) puts a private MinGit
+        # here on a machine without Git. The in-app updater and the Git panel
+        # need it, and it is never on any PATH. Last, so a user's own Git wins.
+        dirs.append(os.path.join(local, "Dodaios", "tools", "git", "cmd"))
     return dirs
 
 

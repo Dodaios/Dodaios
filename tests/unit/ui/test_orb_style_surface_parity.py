@@ -16,6 +16,9 @@ import pytest
 
 from ui.orb import overlay
 
+# The still-picture mascot; without a configured image the mascot is a pet.
+pytestmark = pytest.mark.usefixtures("still_picture_mascot")
+
 # --- no bubble at all on the sphere -----------------------------------------
 
 

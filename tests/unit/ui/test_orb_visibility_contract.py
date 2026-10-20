@@ -45,6 +45,9 @@ from ui.orb.drag_persistence import (
     resolve_placement,
 )
 
+# The still-picture mascot; without a configured image the mascot is a pet.
+pytestmark = pytest.mark.usefixtures("still_picture_mascot")
+
 
 # ---------------------------------------------------------------------------
 # Helpers
