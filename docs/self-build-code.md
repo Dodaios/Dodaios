@@ -106,8 +106,8 @@ the queue; an undo stops it the same way and removes what it made.
 4. The judge (`judge.py`), which the agent cannot edit: nothing protected was
    changed, and the test commands the brief read before the run pass.
 5. Push the branch (only when `origin` fetches from and pushes to that very
-   repository) and open a pull request that says `Closes #<n>`, with the agent's summary and what was
-   checked. Draft by default.
+   repository) and open a pull request that says `Closes #<n>`, with the agent's closing
+   summary (paths on this computer removed) and what was checked. Draft by default.
 
 Nothing else leaves the machine: no issue comments, labels or reviews, and no
 push to a repository the person does not own.
