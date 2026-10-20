@@ -6,7 +6,7 @@
 # twin, so no module is imported twice and no state exists twice.
 #
 # The file lives inside the ``dodaios`` directory so the repository has no
-# ``jarvis`` folder, but it is never imported as ``dodaios._legacy_jarvis``:
+# ``jarvis`` folder, but it is never imported as ``dodaios._legacy_alias``:
 # setup.py publishes this directory as the top-level ``jarvis`` package of every
 # wheel, sdist and editable install.
 
