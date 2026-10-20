@@ -81,13 +81,19 @@ export function isOutsidePath(path: string): boolean {
 }
 
 /**
- * Let the editor open a file Ctrl+clicked in a terminal, even outside the
- * workspace. Answers the path the editor names it by: relative for a
- * workspace file, absolute for one outside it.
+ * Let the editor open a path Ctrl+clicked in a terminal, even a file outside
+ * the workspace. Answers the path the editor names it by (relative inside
+ * the workspace, absolute outside) and whether it is a file or a folder.
  */
-export async function openOutsideFile(workspaceId: string, printed: string): Promise<string> {
-  const answer = await send<{ path: string }>(`${base(workspaceId)}/outside-files`, json("POST", { path: printed }));
-  return answer.path;
+export async function openOutsideFile(
+  workspaceId: string,
+  printed: string,
+): Promise<{ path: string; kind: "file" | "directory" }> {
+  const answer = await send<{ path: string; kind?: "file" | "directory" }>(
+    `${base(workspaceId)}/outside-files`,
+    json("POST", { path: printed }),
+  );
+  return { path: answer.path, kind: answer.kind ?? "file" };
 }
 
 /** `encoding` forces how the bytes are read ("Reopen with encoding"). */
