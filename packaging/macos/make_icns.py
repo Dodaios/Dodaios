@@ -1,4 +1,4 @@
-"""Generate ``assets/icons/jarvis.icns`` — the macOS app-bundle icon.
+"""Generate ``assets/icons/dodaios.icns`` — the macOS app-bundle icon.
 
 macOS is the only platform that cannot read the ``.ico``/``.png`` pair the rest
 of the project ships: ``CFBundleIconFile`` resolves to an ``.icns`` container,
@@ -12,7 +12,7 @@ Run it from anywhere; it resolves the repository from this file's location:
     python packaging/macos/make_icns.py --check    # verify only, write nothing
 
 Honest limitation, deliberately not hidden: the largest mascot master in the
-repository is 256x256 (``assets/icons/jarvis-gigi-256.png``). Apple's icon set
+repository is 256x256 (``assets/icons/dodaios-gigi-256.png``). Apple's icon set
 goes to 1024x1024, so the 512 and 1024 members are upscaled with Lanczos
 resampling and are correspondingly soft on a Retina display at large sizes.
 Drop a 1024x1024 master next to the 256 one and rerun this script to fix that
@@ -33,14 +33,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ICONS_DIR = REPO_ROOT / "assets" / "icons"
-TARGET = ICONS_DIR / "jarvis.icns"
+TARGET = ICONS_DIR / "dodaios.icns"
 
 #: Source masters, best first. The first one that exists wins.
 SOURCE_CANDIDATES: tuple[str, ...] = (
-    "jarvis-1024.png",
+    "dodaios-1024.png",
     "jarvis-512.png",
-    "jarvis-gigi-256.png",
-    "jarvis.png",
+    "dodaios-gigi-256.png",
+    "dodaios.png",
 )
 
 #: The distinct pixel sizes an ``.icns`` written by Pillow contains.

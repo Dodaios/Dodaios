@@ -42,6 +42,32 @@ def test_managed_marker_persists_install_profile(
     assert payload["desktop"] is with_desktop
 
 
+def test_managed_marker_is_written_under_every_name(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # An updater from before the rename knows only the earlier name.
+    monkeypatch.setattr(installer, "repo_root", lambda: tmp_path)
+    installer.write_managed_marker(with_desktop=True)
+
+    names = (".dodaios-managed-install", ".jarvis-managed-install")
+    payloads = [json.loads((tmp_path / name).read_text(encoding="utf-8")) for name in names]
+    assert payloads[0] == payloads[1]
+    assert payloads[0]["install_path"] == str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "present", [(), (".dodaios-managed-install",), (".jarvis-managed-install",)]
+)
+def test_an_update_run_is_recognised_by_either_marker(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, present: tuple[str, ...]
+) -> None:
+    monkeypatch.setattr(installer, "repo_root", lambda: tmp_path)
+    for name in present:
+        (tmp_path / name).write_text("{}", encoding="utf-8")
+
+    assert installer.is_update_run() is bool(present)
+
+
 def test_desktop_dependency_plan_is_complete_and_verified(capsys) -> None:
     installer.step_pip_install(
         with_desktop=True,
@@ -222,4 +248,4 @@ def test_macos_launch_survives_missing_editable_import(
     installer.step_launch(headless=False, dry_run=True)
 
     out = capsys.readouterr().out
-    assert "/usr/bin/open -a Personal Jarvis" in out
+    assert "/usr/bin/open -a Dodaios" in out

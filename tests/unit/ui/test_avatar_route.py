@@ -26,6 +26,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from dodaios.core.branding import WINDOWS_USER_DATA_DIR_NAME
 from dodaios.ui.web.profile_routes import router
 
 
@@ -84,7 +85,7 @@ def test_post_replaces_previous_avatar(client: TestClient, tmp_path: Path) -> No
     client.post("/api/profile/avatar", files={"file": ("b.jpg", _jpeg_bytes(), "image/jpeg")})
 
     # Exactly one avatar file survives — no orphaned .png next to the new .jpg.
-    avatar_dir = tmp_path / "Jarvis" / "data"
+    avatar_dir = tmp_path / WINDOWS_USER_DATA_DIR_NAME / "data"
     survivors = sorted(p.name for p in avatar_dir.glob("profile_avatar.*"))
     assert survivors == ["profile_avatar.jpg"]
 

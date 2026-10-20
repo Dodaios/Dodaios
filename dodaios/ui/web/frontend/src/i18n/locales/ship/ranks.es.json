@@ -1,0 +1,180 @@
+{
+  "verse": {
+    "ranks": {
+      "rank": {
+        "recruit": "Recluta",
+        "deckhand": "Marinero de cubierta",
+        "technician": "Técnico",
+        "senior_technician": "Técnico superior",
+        "ensign": "Alférez",
+        "lieutenant": "Teniente",
+        "senior_lieutenant": "Teniente primero",
+        "commander": "Comandante",
+        "captain": "Capitán",
+        "line_captain": "Capitán de línea",
+        "commodore": "Comodoro",
+        "rear_admiral": "Contraalmirante",
+        "vice_admiral": "Vicealmirante",
+        "admiral": "Almirante",
+        "fleet_admiral": "Almirante de flota"
+      },
+      "tier": {
+        "deck": "Marinería",
+        "line": "Oficiales de línea",
+        "command": "Mando",
+        "flag": "Oficiales de bandera"
+      },
+      "uniform": {
+        "deck": "Uniforme de faena",
+        "line": "Guerrera de línea",
+        "command": "Guerrera de mando",
+        "flag": "Blanco de bandera"
+      },
+      "uniform_note": {
+        "deck": "Uniforme de faena gris carbón, entregado tu primer día a bordo.",
+        "line": "Guerrera gris oliva y gorra de oficial con despacho.",
+        "command": "Guerrera negra y gorra de quienes mandan una nave.",
+        "flag": "Guerrera blanca y gorra de oficial de bandera."
+      },
+      "ribbon": {
+        "ribbon_good_conduct": "Cinta de buena conducta",
+        "ribbon_meritorious": "Cinta al servicio meritorio",
+        "ribbon_distinguished": "Cinta al servicio distinguido",
+        "ribbon_fleet_cross": "Cruz de la flota"
+      },
+      "ribbon_note": {
+        "ribbon_good_conduct": "Servicio constante durante las primeras semanas a bordo.",
+        "ribbon_meritorious": "Meses de trabajo fiable para la flota.",
+        "ribbon_distinguished": "Un largo servicio con un historial que lo respalda.",
+        "ribbon_fleet_cross": "La mayor distinción de la flota, por toda una carrera a bordo."
+      },
+      "duty": {
+        "working": "De servicio",
+        "waiting": "Te espera",
+        "idle": "Franco de servicio",
+        "paused": "Retirado",
+        "error": "Avería"
+      },
+      "kind": {
+        "person": "Comandante",
+        "agent": "Oficial",
+        "pet": "Dron de compañía"
+      },
+      "source": {
+        "chat_turn": "Chat con el asistente",
+        "voice_turn": "Conversación por voz",
+        "quest_posted": "Misión publicada",
+        "quest_completed": "Misión cumplida",
+        "agent_hired": "Oficial alistado",
+        "mission_completed": "Misión aprobada",
+        "daily_visit": "Presentado a bordo",
+        "deck_discovered": "Cubierta visitada",
+        "simulator_round": "Ronda en el simulador",
+        "simulator_record": "Récord en el simulador",
+        "team_briefing": "Reunión de equipo",
+        "inspection": "Inspección de cubierta",
+        "task_done": "Tarea hecha",
+        "task_blocked": "Tarea notificada como bloqueada",
+        "quest_done": "Misión completada",
+        "answered_teammate": "Respondió a un compañero",
+        "jarvis_answered": "Te respondió",
+        "delegated": "Pasó trabajo a la tripulación",
+        "walk_together": "Paseo a tu lado",
+        "retired": "Servicio anterior"
+      },
+      "rule": {
+        "chat_turn": "Termina un turno de chat con el asistente.",
+        "voice_turn": "Termina un turno de voz con el asistente.",
+        "quest_posted": "Publica una misión para la tripulación.",
+        "quest_completed": "Se cumple una misión que publicaste.",
+        "agent_hired": "Alista a un oficial nuevo (una vez por oficial).",
+        "mission_completed": "Aprueba una misión terminada.",
+        "daily_visit": "Preséntate a bordo del Verse, una vez al día.",
+        "deck_discovered": "Visita una cubierta por primera vez.",
+        "simulator_round": "Juega una ronda puntuada en la sala del simulador.",
+        "simulator_record": "Marca un nuevo récord en la sala del simulador.",
+        "team_briefing": "Celebra una reunión de equipo en la sala de reuniones.",
+        "inspection": "Recorre todas las salas de una cubierta, una vez por cubierta al día.",
+        "task_done": "Termina una tarea.",
+        "task_blocked": "Notifica una tarea como bloqueada, con el motivo.",
+        "quest_done": "Completa una misión.",
+        "answered_teammate": "Responde la pregunta de un compañero.",
+        "jarvis_answered": "Te responde, por chat o por voz.",
+        "delegated": "Pasa una tarea a un oficial.",
+        "walk_together": "Camina contigo por la nave."
+      },
+      "limit": {
+        "per_day": "hasta {xp} al día",
+        "cooldown": "como mucho cada {time}"
+      },
+      "card": {
+        "level": "Nivel",
+        "xp": "XP",
+        "next": "Siguiente",
+        "top": "Cima del escalafón",
+        "to_go": "{xp} XP para {rank}",
+        "open": "Abrir la hoja de servicio"
+      },
+      "record": {
+        "title": "Hoja de servicio",
+        "close": "Cerrar",
+        "tabs": {
+          "record": "Hoja",
+          "ladder": "Escalafón",
+          "rewards": "Intendencia",
+          "earn": "Cómo ganar",
+          "crew": "Tripulación"
+        },
+        "rank": "Rango",
+        "level": "Nivel",
+        "total_xp": "XP total",
+        "this_level": "Este nivel",
+        "next_rank": "Siguiente rango",
+        "top_rank": "Tienes el rango más alto de la flota.",
+        "log": "Bitácora",
+        "log_empty": "Aún no hay entradas. Habla con el asistente o da trabajo a la tripulación.",
+        "ribbons": "Cintas",
+        "no_ribbons": "Aún ninguna",
+        "held": "Alcanzado",
+        "current": "Actual",
+        "from_level": "Nivel {level}",
+        "xp_ahead": "{xp} XP",
+        "uniforms": "Uniformes",
+        "uniforms_hint": "La intendencia entrega el uniforme de cada escala al alcanzar su primer rango. Viste cualquiera que te hayan entregado.",
+        "auto": "El más alto entregado",
+        "auto_hint": "Cambia con tu próxima escala",
+        "issued": "Entregado",
+        "opens_at": "Desde el nivel {level}",
+        "wearing": "Lo llevas",
+        "ribbons_hint": "Distinciones por un servicio largo y constante. Los oficiales también las ganan.",
+        "for_you": "Tú: nivel {level}",
+        "for_crew": "Oficiales: nivel {level}",
+        "earn_person": "Tú, el comandante",
+        "earn_agent": "Los oficiales",
+        "earn_pet": "Tu dron de compañía",
+        "earn_hint": "Cada recompensa se comprueba con la bitácora de la nave: lo mismo nunca paga dos veces.",
+        "crew_empty": "Aún no hay oficiales a bordo.",
+        "companion": "Dron de compañía",
+        "sound": "Campana de a bordo en los ascensos"
+      },
+      "promo": {
+        "eyebrow": "Ascenso",
+        "eyebrow_drone": "Ascenso del dron de compañía",
+        "level_up": "Nivel {level}",
+        "salute": {
+          "deck": "Hoy la marinería se cuadra un poco más.",
+          "line": "El despacho es tuyo. La tripulación te saluda.",
+          "command": "La nave responde ahora ante ti.",
+          "flag": "La flota toma su rumbo de ti."
+        },
+        "salute_drone": "Tu dron de compañía registra el ascenso y sigue pegado a tus talones.",
+        "issued": "Entregado: {what}",
+        "acknowledge": "Entendido",
+        "away": "Mientras no estabas",
+        "toast_promoted": "{who} asciende a {rank}",
+        "toast_level": "{who} alcanzó el nivel {level}",
+        "you": "Tú"
+      }
+    }
+  }
+}

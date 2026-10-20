@@ -62,7 +62,7 @@ class TestLooksGerman:
 # --------------------------------------------------------------------------- #
 class TestAllowlist:
     patterns = [
-        "dodaios/brain/JARVIS_PERSONA.md",
+        "dodaios/brain/DODAIOS_PERSONA.md",
         "scripts/bulk_translate*.py",
         "*/i18n/*",
         "wiki/obsidian-vault/*",
@@ -70,7 +70,7 @@ class TestAllowlist:
     ]
 
     def test_exact_match(self):
-        assert gate.is_allowlisted("dodaios/brain/JARVIS_PERSONA.md", self.patterns)
+        assert gate.is_allowlisted("dodaios/brain/DODAIOS_PERSONA.md", self.patterns)
 
     def test_glob_prefix(self):
         assert gate.is_allowlisted("scripts/bulk_translate_2.py", self.patterns)
@@ -84,7 +84,7 @@ class TestAllowlist:
         )
 
     def test_backslash_normalised(self):
-        assert gate.is_allowlisted("dodaios\\brain\\JARVIS_PERSONA.md", self.patterns)
+        assert gate.is_allowlisted("dodaios\\brain\\DODAIOS_PERSONA.md", self.patterns)
 
     def test_non_allowlisted(self):
         assert not gate.is_allowlisted("dodaios/brain/manager.py", self.patterns)
@@ -152,8 +152,8 @@ class TestFindViolations:
         assert violations[0][1] == 11
 
     def test_allowlisted_path_is_exempt(self):
-        added = [("dodaios/brain/JARVIS_PERSONA.md", 5, "Du bist ein Butler und hilfst")]
-        assert gate.find_violations(added, ["dodaios/brain/JARVIS_PERSONA.md"]) == []
+        added = [("dodaios/brain/DODAIOS_PERSONA.md", 5, "Du bist ein Butler und hilfst")]
+        assert gate.find_violations(added, ["dodaios/brain/DODAIOS_PERSONA.md"]) == []
 
     def test_inline_escape_is_exempt(self):
         added = [("dodaios/x.py", 5, 'TEST = "Datei nicht gefunden"  # i18n-allow')]

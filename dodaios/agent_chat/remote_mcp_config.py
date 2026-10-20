@@ -207,7 +207,7 @@ async def configure(
             ),
         )
     elif runner == "grok-cli":
-        from .jarvis_harness import _grok_jarvis_block, _merge_grok_jarvis_block
+        from .dodaios_harness import _grok_jarvis_block, _merge_grok_jarvis_block
 
         path = f"{cwd}/.grok/config.toml"
         old = await files.read(path)

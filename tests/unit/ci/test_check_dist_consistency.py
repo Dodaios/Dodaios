@@ -92,3 +92,17 @@ def test_staged_mode_blocks_added_orphans_and_prune_untracks_them(
     assert A + "Lazy-EEEEEEEE.js" not in staged
     assert (tmp_path / A / "Lazy-EEEEEEEE.js").is_file()  # disk untouched
     assert gate.main(["--staged"]) == 0
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
+def test_the_bundle_is_checked_out_byte_for_byte_without_eol_conversion() -> None:
+    """With core.autocrlf=true a converted checkout makes every rebuild look modified."""
+    repo = Path(__file__).resolve().parents[3]
+    result = subprocess.run(
+        ["git", "check-attr", "text", "--", "dodaios/ui/web/dist/index.html"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == "dodaios/ui/web/dist/index.html: text: unset"

@@ -1,6 +1,6 @@
 """A fresh install ships no [brain.router] block — the brain must still build.
 
-Regression (AP-23 "works on my machine"): ``jarvis.toml.example`` has a [brain]
+Regression (AP-23 "works on my machine"): ``dodaios.toml.example`` has a [brain]
 table but NO [brain.router] sub-table, and neither the wizard, the installer,
 nor onboarding writes one. ``BrainManager.from_tier_config`` used to RAISE
 ``BrainConfigError`` when ``config.brain.router`` was ``None``. On the desktop

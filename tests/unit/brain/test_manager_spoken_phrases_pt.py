@@ -69,7 +69,7 @@ def test_spoken_reply_language_pin_and_detection() -> None:
 def test_spoken_reply_language_agrees_with_the_turn_resolver(
     pin: str, conversation: str, text: str
 ) -> None:
-    """Canned phrases and the router resolve ONE language per turn (AGENTS.md)."""
+    """Canned phrases and the router resolve ONE language per turn."""
     from dodaios.core.turn_language import DEFAULT_LOCALE, resolve_output_language
 
     m = _manager(pin)

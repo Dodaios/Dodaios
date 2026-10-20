@@ -1,4 +1,4 @@
-import type { SubAgentNode } from "@/store/jarvisAgents";
+import type { SubAgentNode } from "@/store/dodaiosAgents";
 
 /** i18n keys for the closed MissionErrorClass vocabulary (parity-tested
  * against dodaios/missions/events.py MISSION_ERROR_CLASSES). Legacy/unknown

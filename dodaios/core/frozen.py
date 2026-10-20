@@ -8,7 +8,8 @@ Three install kinds exist, and each one ships a different update path:
   Updates arrive as a new installer asset from the GitHub Release, never
   through git.
 * ``managed`` — the one-line installer's git checkout under
-  ``~/.personal-jarvis`` (marker file + official origin; the probe lives in
+  ``~/.dodaios``, or ``~/.personal-jarvis`` for an install not moved yet
+  (marker file + official origin; the probe lives in
   ``dodaios/ui/web/update_routes.py``). Updates are ``git fetch`` + reinstall.
 * ``dev``     — anything else: a maintainer checkout, a fork, a plain
   ``pip install``. Never self-updates.
@@ -46,7 +47,7 @@ def resources_root() -> Path | None:
     """Root of the bundled data files (``sys._MEIPASS``); ``None`` when not frozen.
 
     In the ``onedir`` layout this is ``<bundle_root>/_internal``; the
-    package-relative ``datas`` from ``jarvis.spec`` resolve beneath it.
+    package-relative ``datas`` from ``dodaios.spec`` resolve beneath it.
     """
     if not is_frozen():
         return None

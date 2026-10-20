@@ -28,8 +28,10 @@ class FakePublishedRelease:
 
     def __init__(self, *, attested=0, attestation_ok=True, draft=False, outages=0):
         self.payloads = {
+            "Dodaios-Linux-x86_64.AppImage": b"appimage",
             "PersonalJarvis-Linux-x86_64.AppImage": b"appimage",
             "personal-jarvis_1.2.3_amd64.deb": b"deb",
+            "Dodaios-Setup-x64.exe": b"exe",
             "PersonalJarvis-Setup-x64.exe": b"exe",
         }
         self.manifest = "".join(
@@ -86,9 +88,24 @@ def test_linux_smoke_checks_appimage_and_deb_against_provenance(monkeypatch, tmp
     assert errors == []
     verified = [c[3] for c in fake.commands if c[:3] == ["gh", "attestation", "verify"]]
     assert sorted(Path(p).name for p in verified) == [
+        "Dodaios-Linux-x86_64.AppImage",
         "PersonalJarvis-Linux-x86_64.AppImage",
         "personal-jarvis_1.2.3_amd64.deb",
     ]
+
+
+def test_a_renamed_debian_package_is_checked_too(monkeypatch, tmp_path):
+    fake = FakePublishedRelease(attested=1)
+    fake.payloads["dodaios_1.2.3_amd64.deb"] = fake.payloads.pop("personal-jarvis_1.2.3_amd64.deb")
+    fake.manifest = "".join(
+        f"{hashlib.sha256(data).hexdigest()}  {name}\n"
+        for name, data in sorted(fake.payloads.items())
+    )
+    fake.install(monkeypatch)
+    errors = release_assets.platform_errors(REPO, TAG, "linux", tmp_path, require_attestation=True)
+    assert errors == []
+    verified = {Path(c[3]).name for c in fake.commands if c[:3] == ["gh", "attestation", "verify"]}
+    assert "dodaios_1.2.3_amd64.deb" in verified
 
 
 @pytest.mark.parametrize(
@@ -144,10 +161,14 @@ def test_a_lasting_attestation_outage_fails_only_required_provenance(
         REPO, TAG, "windows", tmp_path, require_attestation=require
     )
     lookups = [c for c in fake.commands if c[:2] == ["gh", "api"]]
-    assert len(lookups) == 3
+    # Three tries for each of the two names the setup is published under.
+    assert len(lookups) == 6
     assert bool(errors) is failing
     if failing:
-        assert errors == ["build provenance attestation unavailable: PersonalJarvis-Setup-x64.exe"]
+        assert errors == [
+            "build provenance attestation unavailable: Dodaios-Setup-x64.exe",
+            "build provenance attestation unavailable: PersonalJarvis-Setup-x64.exe",
+        ]
 
 
 def test_smoke_refuses_a_draft_without_touching_it(monkeypatch):
@@ -161,7 +182,8 @@ def test_source_archive_digest_is_part_of_the_published_check(monkeypatch):
     digest = "b" * 64
     assets = [
         {"name": name, "size": 1, "state": "uploaded", "digest": f"sha256:{digest}"}
-        for name in release_assets.REQUIRED_ASSETS | {"personal-jarvis-src.tar.gz"}
+        for name in release_assets.REQUIRED_ASSETS
+        | {"dodaios-src.tar.gz", "personal-jarvis-src.tar.gz"}
     ]
     manifests = {
         "installers-SHA256SUMS.txt": "".join(
@@ -170,7 +192,9 @@ def test_source_archive_digest_is_part_of_the_published_check(monkeypatch):
         "checksums.txt": "".join(
             f"{digest}  {n}\n" for n in sorted(release_assets.SIGNED - {"payload-commit.txt"})
         ),
-        "source-SHA256SUMS.txt": f"{'c' * 64}  personal-jarvis-src.tar.gz\n",
+        "source-SHA256SUMS.txt": (
+            f"{'c' * 64}  dodaios-src.tar.gz\n{'c' * 64}  personal-jarvis-src.tar.gz\n"
+        ),
     }
 
     def command(args, **kwargs):
@@ -185,10 +209,25 @@ def test_source_archive_digest_is_part_of_the_published_check(monkeypatch):
         release_assets, "release_info", lambda *a: {"databaseId": 1, "tagName": TAG}
     )
     assert release_assets.published_errors(REPO, TAG) == [
-        "release asset checksum mismatch: personal-jarvis-src.tar.gz"
+        "release asset checksum mismatch: dodaios-src.tar.gz",
+        "release asset checksum mismatch: personal-jarvis-src.tar.gz",
     ]
     manifests["source-SHA256SUMS.txt"] = f"{digest}  personal-jarvis-src.tar.gz\n"
+    assert release_assets.published_errors(REPO, TAG) == [
+        "incomplete manifest: source-SHA256SUMS.txt lacks dodaios-src.tar.gz"
+    ]
+    manifests["source-SHA256SUMS.txt"] = (
+        f"{digest}  dodaios-src.tar.gz\n{digest}  personal-jarvis-src.tar.gz\n"
+    )
     assert release_assets.published_errors(REPO, TAG) == []
+
+
+def test_both_names_of_an_installer_must_carry_the_same_bytes():
+    current, earlier = release_assets.INSTALLER_NAME_PAIRS[0]
+    assert release_assets.alias_errors({current: "a" * 64, earlier: "a" * 64}) == []
+    assert release_assets.alias_errors({current: "a" * 64, earlier: "b" * 64}) == [
+        f"installer names differ in content: {current} and {earlier}"
+    ]
 
 
 def test_native_installers_are_attested_on_tags_before_upload():

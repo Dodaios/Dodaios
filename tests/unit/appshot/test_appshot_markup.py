@@ -125,6 +125,26 @@ def test_the_toolbar_docks_below_then_above_then_inside_and_stays_on_screen() ->
     assert x == 1920 - 800 - 10
 
 
+def test_the_toolbar_waits_at_the_top_and_steps_aside_for_a_kept_area() -> None:
+    screen = (1920.0, 1080.0)
+    bar = (800.0, 40.0)
+    assert mm.toolbar_home(bar, screen) == (560.0, 12.0)
+    assert mm.toolbar_home((2000.0, 40.0), screen)[0] == 12.0, "too wide: from the left edge"
+    assert mm.toolbar_spot(None, bar, screen) == (560.0, 12.0)
+    # An area clear of the top keeps the toolbar where it was ...
+    assert mm.toolbar_spot((100, 300, 400, 300), bar, screen) == (560.0, 12.0)
+    # ... one under it moves the toolbar out of the way.
+    assert mm.toolbar_spot((500, 0, 900, 400), bar, screen) == (550.0, 410.0)
+
+
+def test_tab_swaps_the_area_and_the_last_drawing_tool() -> None:
+    assert mm.other_tool(mm.AREA, mm.PEN) == mm.PEN
+    assert mm.other_tool(mm.PEN, mm.PEN) == mm.AREA
+    assert mm.other_tool(mm.TEXT, mm.PEN) == mm.AREA
+    # The area tool takes hold of markings like a drawing tool does.
+    assert mm.grab_scope(mm.AREA) == "shapes"
+
+
 def test_hide_patches_leave_as_fractions_of_the_area_clipped_to_it() -> None:
     sel = (100.0, 100.0, 200.0, 100.0)
     shapes = [
@@ -206,7 +226,7 @@ def test_the_picker_offers_the_full_editors_tools_keys_and_presets() -> None:
         Path(__file__).resolve().parents[3] / "dodaios/ui/web/frontend/src/lib/appshotEditorModel.ts"
     ).read_text(encoding="utf-8")
     keys = dict(re.findall(r'\{ tool: "(\w+)", key: "(\w)" \}', model))
-    keys.pop("crop")  # the picker's area handles are its crop
+    keys[mm.AREA] = keys.pop("crop")  # the picker's area is its crop, on the same key
     assert {tool: key.upper() for tool, key in keys.items()} == mm.TOOL_KEYS
     presets = re.findall(r'\{ id: "(\w+)", stops: \[([^\]]+)\] \}', model)
     parsed = tuple((pid, tuple(re.findall(r'"(#[0-9a-f]{6})"', stops))) for pid, stops in presets)
@@ -286,6 +306,21 @@ def test_the_marking_event_reaches_the_reader_before_the_selection() -> None:
     seen: list[str] = []
     payload = region._read_result(Proc(), lambda: seen.append("marking"))  # type: ignore[arg-type]
     assert seen == ["marking"]
+    assert payload == {"event": "selection", "cancelled": True}
+
+
+def test_a_flipped_switch_reaches_the_reader() -> None:
+    lines = [
+        encode({"event": "option", "keep_area": True}),
+        encode({"event": "selection", "cancelled": True}),
+    ]
+
+    class Proc:
+        stdout = iter(lines)
+
+    seen: list[dict] = []
+    payload = region._read_result(Proc(), None, None, seen.append)  # type: ignore[arg-type]
+    assert seen == [{"event": "option", "keep_area": True}]
     assert payload == {"event": "selection", "cancelled": True}
 
 

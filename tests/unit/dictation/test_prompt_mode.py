@@ -43,7 +43,6 @@ from dodaios.dictation.prompt_mode import (
     asks_for_a_prompt,
     build_prompt_mode_prompt,
     compose_prompt,
-    echoes_example,
     ends_with_sign_off,
     extract_prompt_block,
     is_short_reply,
@@ -132,52 +131,33 @@ def _install(monkeypatch: pytest.MonkeyPatch, chain: FakeChain) -> FakeChain:
 
 
 # --------------------------------------------------------------------------- #
-# The instruction: short, permissive, and taught by its example
+# The instruction: one paragraph, the job and the guards' discard conditions
 # --------------------------------------------------------------------------- #
 
 
 def test_the_instruction_stays_short() -> None:
-    """v4's was 13 207 characters of mostly prohibitions and produced worse
-    prompts than a plain "write me a prompt" did. A number is a blunt guard,
-    but it is the one that catches the failure this revision undid: the
-    instruction growing a rule per defect until it fences the writer in."""
-    assert len(prompt_mode._SYSTEM_PROMPT) < 6_000
+    """A rule per defect is how the instruction grew to 13 000 characters
+    before; the bound keeps it from growing back."""
+    assert len(prompt_mode._SYSTEM_PROMPT) < 1_000
 
 
 def test_the_instruction_says_what_the_job_is() -> None:
     system = build_prompt_mode_prompt()
-    assert "turned automatically into the message they will send" in system
-    assert "Write the message it is asking for" in system
+    assert "Write the message they mean" in system
 
 
-def test_the_instruction_says_who_speaks_to_whom() -> None:
-    """The v6 defect in one sentence: the writer delivered its own job
-    description ("Erstelle einen ... Prompt") instead of the user's message.
-    The instruction now names the level out loud, and names the one wrong
-    answer."""
+def test_the_instruction_names_the_wrong_level() -> None:
     system = build_prompt_mode_prompt()
-    assert "The message speaks for the user" in system
-    assert "Its task is the user's task" in system
-    assert "It never asks the model to write, create, improve or optimise a prompt" in system
-    assert 'A message whose task is "write a prompt" is the one wrong answer' in system
+    assert 'never said "prompt"' in system
 
 
-def test_the_instruction_sizes_the_message_to_its_brief() -> None:
-    """A one-line follow-up came back as a role and a section list. The rule
-    is written AND shown (the short examples below)."""
+def test_the_prompt_states_the_guard_contracts() -> None:
     system = build_prompt_mode_prompt()
-    assert "The message is as large as its brief" in system
-    assert "becomes one or two clear sentences and nothing more" in system
-    assert "no role, no sections, no criteria the user did not state" in system
-
-
-def test_a_reference_the_user_made_is_kept_not_replaced() -> None:
-    """The live output replaced "es" with a placeholder [UNERWÜNSCHTES_ELEMENT]
-    the user never spoke. The model the user is talking to can see the
-    conversation; the reference is the right thing to hand over."""
-    system = build_prompt_mode_prompt()
-    assert "filled with a placeholder" in system
-    assert "the reference stays a reference" in system
+    assert "stays a reference" in system
+    assert "in the language they spoke" in system
+    assert f"under {prompt_mode._MIN_MEASURED_WORDS} words" in system
+    assert f"{prompt_mode._INFLATION_FACTOR:g} times its length" in system
+    assert "<prompt>" in system
 
 
 def test_nothing_in_the_instruction_forbids_the_shape_of_a_good_prompt() -> None:
@@ -194,86 +174,17 @@ def test_nothing_in_the_instruction_forbids_the_shape_of_a_good_prompt() -> None
         "Everyday words",
     ):
         assert banned not in system, banned
-    # ...and it says the opposite out loud.
-    assert "headings, lists, markdown, sections" in system
 
 
-def test_the_instruction_keeps_what_was_never_about_shape() -> None:
-    """Fidelity to the transcript and no closing line: the two things the
-    maintainer actually asked for."""
+def test_the_instruction_carries_no_worked_example() -> None:
+    """A fast model copied the shown example as the job; there is none left."""
     system = build_prompt_mode_prompt()
-    assert "goes in exactly as spoken" in system
-    assert "does not exist" in system
-    assert "left open rather than guessed at" in system
-    assert "no closing line of thanks" in system
+    assert "Transcript:" not in system
+    assert system.count("<prompt>") == 1
 
 
-def test_the_language_rule_is_loud_because_the_example_is_german() -> None:
-    """Measured live 2026-08-27: a quiet "write it in the language of the
-    transcript" lost to an English instruction and produced an English prompt
-    for a German dictation, twice."""
-    system = build_prompt_mode_prompt()
-    assert "WRITE IT IN THE LANGUAGE THE USER SPOKE" in system
-    assert "These instructions are in English and that says nothing" in system
-    assert "includes the headings and the section names" in system
-
-
-def test_three_worked_examples_in_three_sizes() -> None:
-    """Shown whole, transcript and message each. A long brief becomes a
-    structured markdown prompt (the shape v3 would have thrown away); a
-    German one-liner and an English one-liner stay one-liners."""
-    system = build_prompt_mode_prompt()
-    assert system.count("Transcript: ") == 3
-    assert system.count("Answer:\n<prompt>\n") == 3 and system.count("\n</prompt>") == 3
-    long_answer, short_de, short_en = (answer for _, answer in prompt_mode._EXAMPLES)
-    assert "## Rolle" in long_answer and "## Aufgabe" in long_answer
-    assert "`settings_view.tsx`" in long_answer
-    assert len(short_de.splitlines()) == 1 and "##" not in short_de
-    assert len(short_en.splitlines()) == 1 and "##" not in short_en
-
-
-def test_no_worked_example_is_about_prompt_writing() -> None:
-    """v5's example was the maintainer's run ABOUT this feature — a transcript
-    asking for a prompt to improve the auto-prompt mode, answered with a
-    system prompt for a prompt writer. A fast model turned the example into
-    the job. The subjects now stay far from it, and stay there."""
-    for transcript, answer in prompt_mode._EXAMPLES:
-        assert "prompt" not in transcript.casefold(), transcript
-        assert "prompt" not in answer.casefold(), answer
-    system = build_prompt_mode_prompt()
-    assert "Prompt-Engineering-Core" not in system
-    assert "**Rolle / Systemkontext:**" not in system
-
-
-def test_every_example_answer_clears_the_fidelity_guards_for_its_transcript() -> None:
-    """An example that the guards themselves would reject teaches the model
-    to write what gets thrown away."""
-    for transcript, answer in prompt_mode._EXAMPLES:
-        assert lost_literals(transcript, answer) == []
-        assert not looks_thinned(transcript, answer)
-        assert not asks_for_a_prompt(transcript, answer)
-
-
-def test_the_prompt_version_names_the_v7_revision() -> None:
-    assert prompt_mode.PROMPT_MODE_PROMPT_VERSION == 7
-
-
-def test_the_instruction_names_the_answer_case() -> None:
-    """A "yes" to a question the model asked is not a brief. Measured
-    2026-08-28: it came back as a role, sections and a task list."""
-    system = build_prompt_mode_prompt()
-    assert "WHEN IT IS AN ANSWER" in system
-    assert "the message is the answer itself, tidied" in system
-    assert 'never a task list for a "yes"' in system
-
-
-def test_the_instruction_forbids_invented_format_rules_and_placeholders() -> None:
-    """The live output carried "Formatierungs- & Strukturvorgaben" and an
-    "Input-Variablen / Platzhalter" section with {frontend_config}-style
-    variables the user never spoke - a form, where work was asked for."""
-    system = build_prompt_mode_prompt()
-    assert "No format rules the user did not state" in system
-    assert "no placeholder variables, no report template" in system
+def test_the_prompt_version_names_the_v8_revision() -> None:
+    assert prompt_mode.PROMPT_MODE_PROMPT_VERSION == 8
 
 
 # --------------------------------------------------------------------------- #
@@ -464,50 +375,6 @@ def test_an_honest_message_never_trips_the_meta_guard() -> None:
     assert not asks_for_a_prompt(
         FOLLOW_UP, "Gut, danke. Bitte sorge dafür, dass genau das nicht noch einmal vorkommt."
     )
-
-
-def test_a_copy_of_the_structured_example_is_an_echo() -> None:
-    """What the model was shown, handed back for an unrelated transcript."""
-    _, example_answer = prompt_mode._EXAMPLES[0]
-    assert echoes_example(FOLLOW_UP, example_answer)
-    assert prompt_guard_reason(FOLLOW_UP, example_answer) == "echoed_example"
-
-
-def test_an_echo_is_also_a_partial_copy() -> None:
-    """One section lifted whole is enough; the rest may be original."""
-    _, example_answer = prompt_mode._EXAMPLES[0]
-    lifted = example_answer.split("## Vorgehen")[1].split("## Ergebnis")[0]
-    assert len(lifted.split()) >= 8
-    assert echoes_example(FOLLOW_UP, "Bitte behebe das Problem.\n\n## Vorgehen" + lifted)
-
-
-def test_a_stock_phrase_shared_with_an_example_is_not_an_echo() -> None:
-    """A phrase any user says and any example may contain ("am Ende eine
-    kurze Zusammenfassung, was ...") is a six-word overlap here. Under eight
-    words in a row is not a copy."""
-    spoken = "bitte erst analysieren dann fixen und am ende kurz sagen was die ursache war"
-    written = (
-        "Erst analysieren, dann fixen. "
-        "Am Ende eine kurze Zusammenfassung, was die Ursache war."
-    )
-    assert not echoes_example(spoken, written)
-    assert prompt_guard_reason(spoken, written) == ""
-
-
-def test_the_short_examples_are_never_echo_material() -> None:
-    """A one-line example is a sentence an honest answer to a similar
-    follow-up might also be. Rejecting it would punish the writer for
-    learning the size rule, so only the long answers are measured."""
-    for _, answer in prompt_mode._EXAMPLES[1:]:
-        assert not echoes_example("something else entirely", answer)
-
-
-def test_a_message_that_quotes_the_user_is_not_an_echo() -> None:
-    """Words the transcript itself carries are the user's, not the example's."""
-    transcript, example_answer = prompt_mode._EXAMPLES[0]
-    assert not echoes_example(transcript, transcript)
-    # ...and the example is only an echo against a transcript that is not its own.
-    assert echoes_example("etwas ganz anderes", example_answer)
 
 
 #: The same brief in five shapes. Only the formatting differs — each carries

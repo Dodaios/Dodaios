@@ -72,6 +72,30 @@ function json(method: string, body: unknown): RequestInit {
   return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
 
+/**
+ * Is this editor path a file outside the workspace? Those are named by their
+ * absolute path (`C:/Users/me/Downloads/notes.md`); workspace files never are.
+ */
+export function isOutsidePath(path: string): boolean {
+  return /^(?:[a-z]:[\\/]|\/)/i.test(path);
+}
+
+/**
+ * Let the editor open a path Ctrl+clicked in a terminal, even a file outside
+ * the workspace. Answers the path the editor names it by (relative inside
+ * the workspace, absolute outside) and whether it is a file or a folder.
+ */
+export async function openOutsideFile(
+  workspaceId: string,
+  printed: string,
+): Promise<{ path: string; kind: "file" | "directory" }> {
+  const answer = await send<{ path: string; kind?: "file" | "directory" }>(
+    `${base(workspaceId)}/outside-files`,
+    json("POST", { path: printed }),
+  );
+  return { path: answer.path, kind: answer.kind ?? "file" };
+}
+
 /** `encoding` forces how the bytes are read ("Reopen with encoding"). */
 export function loadTextFile(workspaceId: string, path: string, encoding?: string): Promise<TextFile> {
   const params = new URLSearchParams({ path });
@@ -143,8 +167,14 @@ export function moveEntry(workspaceId: string, source: string, destination: stri
   return send(`${base(workspaceId)}/entries/move`, json("POST", { source, destination }));
 }
 
+export interface DeleteResult {
+  trashed: boolean;
+  /** Undo puts the entry back with this; null when it was too large to keep. */
+  undo_token: string | null;
+}
+
 /** Move to the system trash, or delete for good when `permanent` is set. */
-export async function deleteEntry(workspaceId: string, path: string, permanent = false): Promise<{ trashed: boolean }> {
+export async function deleteEntry(workspaceId: string, path: string, permanent = false): Promise<DeleteResult> {
   const res = await fetch(`${base(workspaceId)}/entries/delete`, json("POST", { path, permanent }));
   if (res.status === 409) {
     const { message, detail } = await failure(res);
@@ -152,7 +182,13 @@ export async function deleteEntry(workspaceId: string, path: string, permanent =
     throw new Error(message);
   }
   if (!res.ok) throw new Error((await failure(res)).message);
-  return (await res.json()) as { trashed: boolean };
+  const answer = (await res.json()) as Partial<DeleteResult>;
+  return { trashed: Boolean(answer.trashed), undo_token: answer.undo_token ?? null };
+}
+
+/** Undo a delete: put the entry kept under `token` back where it was. */
+export function restoreEntry(workspaceId: string, token: string): Promise<{ path: string }> {
+  return send(`${base(workspaceId)}/entries/restore`, json("POST", { token }));
 }
 
 export interface EditorTabRecord {

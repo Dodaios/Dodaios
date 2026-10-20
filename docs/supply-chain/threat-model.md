@@ -993,7 +993,7 @@ over a failure.
   (`python3-xlib`, `uvloop`'s Linux wheel, etc.). Windows desktop
   installs that pass through `installer.py --with-desktop` will hit a
   failed `pip install --require-hashes` on those transitive deps. The
-  cloud-first VPS path is the binding doctrine (AGENTS.md §"Cloud-First
+  cloud-first VPS path is the binding doctrine (
   Philosophy"); Windows desktop is a power-user extra. Wave 6.1 will
   ship a separate `requirements-windows.txt` generated under Windows
   containerization.

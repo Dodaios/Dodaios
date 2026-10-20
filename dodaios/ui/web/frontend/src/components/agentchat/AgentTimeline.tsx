@@ -12,6 +12,7 @@ import type { TimelineItem, TurnItem, TextBlock } from "./reduce";
 import { TraceMessageLine } from "./TraceTimeline";
 import { attachTurnMessages, type TraceMessage } from "./turnMessages";
 import { useI18nStore, useT } from "@/i18n";
+import { societyResultHeadline, societyResultText } from "@/lib/skipReasons";
 import { localeForUiLanguage } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 
@@ -237,10 +238,7 @@ export function AgentTimeline({
       // centred like a stamp — it is not Jarvis speaking.
       const headline =
         item.kind === "society_result"
-          ? t(item.status === "done" ? "society.chat.result_done" : "society.chat.result_blocked").replace(
-              "{0}",
-              item.agentName || t("society.chat.result_agent"),
-            )
+          ? societyResultHeadline(t, item)
           : item.agentName;
       return (
         <div
@@ -249,7 +247,7 @@ export function AgentTimeline({
           className="mx-auto flex max-w-[85%] flex-col gap-0.5 rounded-lg bg-card px-4 py-3 text-body"
         >
           {headline ? <span className="font-medium text-foreground">{headline}</span> : null}
-          {item.text ? <ChatMarkdown text={item.text} className="text-muted-foreground" /> : null}
+          {item.text ? <ChatMarkdown text={item.kind === "society_result" ? societyResultText(t, item) : item.text} className="text-muted-foreground" /> : null}
         </div>
       );
     }

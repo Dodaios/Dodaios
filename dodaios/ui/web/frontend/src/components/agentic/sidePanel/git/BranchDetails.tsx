@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
-import { openExternalUrl } from "@/lib/openExternal";
+import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ideBrowserLinks";
 import { cn } from "@/lib/utils";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import { useEventStore } from "@/store/events";
@@ -286,17 +286,17 @@ export function BranchDetails({
         {canOpen && (
           <DetailButton icon={FolderOpen} label={t("ide_side_panel.git.details.open_folder")} testId="git-open-folder" onClick={() => openLocal("folder")} />
         )}
-        {url && <DetailButton icon={Globe} label={t("ide_side_panel.git.details.open_github")} testId="git-open-github" onClick={() => void openExternalUrl(url)} />}
+        {url && <DetailButton icon={Globe} label={t("ide_side_panel.git.details.open_github")} testId="git-open-github" onClick={() => void openLinkInIdeBrowser(url)} />}
         {pr && (
           <DetailButton
             icon={PR_ICON[pr.state]}
             label={fill(t("ide_side_panel.git.menu.open_pr"), { number: pr.number })}
             testId="git-open-pr"
-            onClick={() => void openExternalUrl(pr.url)}
+            onClick={() => void openLinkInIdeBrowser(pr.url)}
           />
         )}
         {row.ci.url && (
-          <DetailButton icon={CirclePlay} label={t("ide_side_panel.git.menu.open_ci")} testId="git-open-ci" onClick={() => void openExternalUrl(row.ci.url)} />
+          <DetailButton icon={CirclePlay} label={t("ide_side_panel.git.menu.open_ci")} testId="git-open-ci" onClick={() => void openLinkInIdeBrowser(row.ci.url)} />
         )}
         {!row.remote_only && !row.current && !isDefault && (
           <DetailButton
@@ -356,7 +356,7 @@ export function BranchDetails({
                       <button
                         type="button"
                         data-testid="git-commit-link"
-                        onClick={() => void openExternalUrl(`${repoUrl}/commit/${encodeURIComponent(commit.sha)}`)}
+                        onClick={() => void openLinkInIdeBrowser(`${repoUrl}/commit/${encodeURIComponent(commit.sha)}`)}
                         className="shrink-0 font-mono text-[10.5px] text-info hover:underline"
                       >
                         {commit.sha.slice(0, 7)}
