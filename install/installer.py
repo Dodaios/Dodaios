@@ -56,8 +56,10 @@ if str(_SOURCE_ROOT) not in sys.path:
 from dodaios.core.branding import (  # noqa: E402 - bootstrap source path above
     CLI_COMMAND_NAME,
     LAUNCHER_ENTRY_NAME,
+    LEGACY_DISTRIBUTION_NAMES,
+    LINUX_APP_NAME,
     MACOS_APP_NAME,
-    MANAGED_INSTALL_MARKER,
+    MANAGED_INSTALL_MARKERS,
     OFFICIAL_REPO_SLUG,
     PRODUCT_NAME,
 )
@@ -272,8 +274,11 @@ def write_managed_marker(*, with_desktop: bool) -> None:
     a manual clone never gets this marker, so neither can be self-reset — this is
     the load-bearing safety guard for the whole updater. Best-effort: a marker
     failure must never fail the install (it only disables in-app updates).
+
+    The marker is written under its current name and under every earlier one,
+    so an updater from before the rename (a running app that has not restarted
+    yet, or a downgrade) still recognises the checkout.
     """
-    marker = repo_root() / MANAGED_INSTALL_MARKER
     payload = {
         "managed": True,
         "install_path": str(repo_root()),
@@ -281,11 +286,18 @@ def write_managed_marker(*, with_desktop: bool) -> None:
         "profile": "full" if with_desktop else "headless",
         "desktop": with_desktop,
     }
-    try:
-        marker.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    text = json.dumps(payload, indent=2) + "\n"
+    written = 0
+    for name in MANAGED_INSTALL_MARKERS:
+        try:
+            (repo_root() / name).write_text(text, encoding="utf-8")
+            written += 1
+        except OSError as exc:
+            note(f"could not write update marker {name} ({exc})")
+    if written:
         ok("registered as a managed install (in-app updates enabled)")
-    except OSError as exc:
-        note(f"could not write update marker ({exc}); in-app updates stay disabled")
+    else:
+        note("in-app updates stay disabled")
 
 
 def _make_tree_owner_writable(root: Path) -> None:
@@ -363,6 +375,34 @@ def repair_distribution_metadata(
     return True
 
 
+def _venv_site_packages() -> list[Path]:
+    venv = repo_root() / ".venv"
+    if sys.platform == "win32":
+        return [venv / "Lib" / "site-packages"]
+    return sorted((venv / "lib").glob("python*/site-packages"))
+
+
+def installed_legacy_distributions() -> tuple[str, ...]:
+    """Earlier distribution names this checkout's environment still has installed.
+
+    Read from the metadata on disk, without starting pip: an install made
+    before the rename registered the checkout as ``personal-jarvis``.
+    """
+    found: list[str] = []
+    for name in LEGACY_DISTRIBUTION_NAMES:
+        stem = name.replace("-", "_")
+        patterns = (f"{stem}-*.dist-info", f"{stem}.egg-link", f"{name}.egg-link")
+        for site in _venv_site_packages():
+            try:
+                hit = any(any(site.glob(pattern)) for pattern in patterns)
+            except OSError:
+                hit = False
+            if hit:
+                found.append(name)
+                break
+    return tuple(found)
+
+
 def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: bool) -> None:
     from scripts.native_crypto_index import pip_options
 
@@ -390,7 +430,18 @@ def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: boo
         runtime_step = ("runtime dependencies (cloud-first base)",
                         pip + ["install", *pip_options(), "-e", "."])
 
-    plans: list[tuple[str, list[str]]] = [
+    plans: list[tuple[str, list[str]]] = []
+    # The checkout used to be installed under the distribution's earlier name.
+    # Both names own the same files, and uninstalling the earlier one AFTER the
+    # current one is installed would delete files the current one needs, so it
+    # goes first. Only the environment's record of it goes: the checkout stays.
+    legacy = installed_legacy_distributions()
+    if legacy:
+        plans.append((
+            f"retire the earlier package name ({', '.join(legacy)})",
+            pip + ["uninstall", "-y", *legacy],
+        ))
+    plans += [
         ("editable install (entry-points)", pip + ["install", "-e", ".", "--no-deps"]),
         runtime_step,
     ]
@@ -428,8 +479,12 @@ def step_pip_install(*, with_desktop: bool, with_voice_local: bool, dry_run: boo
 
 
 def is_update_run() -> bool:
-    """True when this checkout was already installer-managed (re-run = update)."""
-    return (repo_root() / MANAGED_INSTALL_MARKER).exists()
+    """True when this checkout was already installer-managed (re-run = update).
+
+    A marker under any of its names counts: an install made before the rename
+    carries only the earlier one.
+    """
+    return any((repo_root() / name).exists() for name in MANAGED_INSTALL_MARKERS)
 
 
 def step_models(*, full_profile: bool, dry_run: bool) -> None:
@@ -593,8 +648,33 @@ def _note_stalled_spotlight() -> None:
     if (result.stdout or "").strip().splitlines()[-1:] != ["False"]:
         return
     note("Spotlight on this Mac is not indexing new apps, so search will not find")
-    note(f"{LAUNCHER_ENTRY_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
+    note(f"{MACOS_APP_NAME} yet (Finder › Applications, Launchpad and the Dock do).")
     note("To repair the macOS search index, run:  sudo mdutil -E /")
+
+
+def step_macos_bundle_name(*, dry_run: bool) -> None:
+    """Give the macOS app bundle its current name, before anything looks for it.
+
+    The updater of the release before this one starts the app again from the
+    bundle name ``install/update-contract.json`` states, so the bundle must
+    carry that name once this installer is done, with or without the desktop
+    profile. One rename in place, only for this install's own bundle; the
+    privacy grants stay with it (``rename_legacy_macos_app_bundles``).
+    """
+    if sys.platform != "darwin":
+        return
+    if dry_run:
+        console.print("[muted]│    (dry-run) rename the macOS app to its current name[/]")
+        return
+    try:
+        from dodaios.setup.macos_app_bundle import rename_legacy_macos_app_bundles
+
+        renamed = rename_legacy_macos_app_bundles()
+    except Exception as exc:  # noqa: BLE001 - the desktop step repairs it again
+        note(f"could not rename the macOS app: {rich_escape(str(exc))}")
+        return
+    for bundle in renamed:
+        ok(f"macOS app renamed to {bundle.name} (its permissions stay)")
 
 
 def step_desktop_integration(*, enabled: bool, dry_run: bool) -> bool:
@@ -838,10 +918,15 @@ def step_cli_links(*, dry_run: bool) -> None:
     ``dodaios/setup/cli_path.py``. Never fatal: the app itself works without
     the terminal commands, so a failure here is reported and the install goes on.
     """
-    from dodaios.setup.cli_path import install_commands
+    from dodaios.setup.cli_path import install_commands, retired_install_roots
 
     try:
-        report = install_commands(repo_root(), dry_run=dry_run)
+        # An install moved from its earlier folder name takes that folder's
+        # commands off the Windows Path and puts its own on; elsewhere the
+        # links are pointed at the new folder.
+        report = install_commands(
+            repo_root(), dry_run=dry_run, retired_roots=retired_install_roots(repo_root())
+        )
     except Exception as exc:  # noqa: BLE001 - terminal commands are optional
         note(f"Could not set up the terminal commands: {rich_escape(str(exc))}")
         return
@@ -862,6 +947,8 @@ def step_cli_links(*, dry_run: bool) -> None:
         note(f"Another {rich_escape(command)} comes first on your PATH: {rich_escape(other)}")
     if report.linked:
         note(f"Terminal commands ready: {', '.join(report.linked)}")
+    for retired in report.path_retired:
+        note(f"Took the earlier folder {rich_escape(retired)} off your PATH.")
     if report.path_updated:
         note(f"Added {target} to your PATH ({rich_escape(report.path_updated)}).")
     if report.needs_new_terminal:
@@ -882,11 +969,11 @@ def step_summary(*, no_launch: bool, update: bool, headless: bool) -> None:
         rows.append(("Start again", f'Windows search -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
     elif sys.platform == "darwin":
         rows.append(
-            ("Start again", f'Launchpad or Spotlight → "{LAUNCHER_ENTRY_NAME}"', "brand")
+            ("Start again", f'Launchpad or Spotlight → "{MACOS_APP_NAME}"', "brand")
         )
         rows.append(("Permissions", "macOS asks on first launch - approve each prompt", "muted"))
     elif sys.platform.startswith("linux") and not (headless or is_headless_linux()):
-        rows.append(("Start again", f'app menu -> "{LAUNCHER_ENTRY_NAME}"', "brand"))
+        rows.append(("Start again", f'app menu -> "{LINUX_APP_NAME}"', "brand"))
     else:
         rows.append(("Start again", ".venv/bin/python -m dodaios.ui.web.launcher", "brand"))
         rows.append(("", "(in the install folder)", "muted"))
@@ -1007,6 +1094,7 @@ def main(argv: list[str] | None = None) -> int:
     phase("6/6", "Finish & launch")
     step_cli_links(dry_run=args.dry_run)
     step_worker_cli(dry_run=args.dry_run)
+    step_macos_bundle_name(dry_run=args.dry_run)
     if not step_desktop_integration(enabled=with_desktop, dry_run=args.dry_run):
         sys.exit(4)
     if not step_ui_bundle_check() and not args.dry_run:

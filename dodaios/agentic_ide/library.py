@@ -251,7 +251,12 @@ def project_id_for(path: str | Path) -> str:
         # letter) still deserves a stable id, and the unresolved spelling is a
         # perfectly good one. Nothing is lost, so there is nothing to report.
         resolved = Path(str(path))
-    key = os.path.normcase(str(resolved))
+    # A folder inside the per-user data directory (the scratch project, the
+    # chat workspace) is hashed under the directory's earliest name, so an id
+    # stored before the directory moved still matches one computed after it.
+    from dodaios.core.identity_boot import stable_data_dir_spelling
+
+    key = os.path.normcase(str(stable_data_dir_spelling(resolved)))
     # Not a security boundary: this is a short, stable name for a local folder
     # path, and nothing downstream trusts it or checks it. `usedforsecurity`
     # says so to the reader and to the linter alike.

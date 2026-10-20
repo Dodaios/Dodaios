@@ -25,12 +25,19 @@ PUBLISHER_JOBS = {
     "desktop-installers.yml": "Checksums and GitHub Release",
     "sign-installer.yml": "release",
 }
-INSTALLERS = {
-    "PersonalJarvis-Setup-x64.exe",
-    "PersonalJarvis-macOS-arm64.dmg",
-    "PersonalJarvis-macOS-x64.dmg",
-    "PersonalJarvis-Linux-x86_64.AppImage",
-}
+#: Every native installer as ``(current name, earlier name)``. A release
+#: publishes BOTH files with identical bytes: the build names its output with
+#: the current prefix, and installs frozen before the rename only look for the
+#: earlier one. The Windows setup is the exception on the build side: its
+#: signing configuration pins the earlier name, so the current name is the
+#: copy, made after signing (``installer_aliases.py``).
+INSTALLER_NAME_PAIRS = (
+    ("Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe"),
+    ("Dodaios-macOS-arm64.dmg", "PersonalJarvis-macOS-arm64.dmg"),
+    ("Dodaios-macOS-x64.dmg", "PersonalJarvis-macOS-x64.dmg"),
+    ("Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"),
+)
+INSTALLERS = {name for pair in INSTALLER_NAME_PAIRS for name in pair}
 SIGNED = {
     "install.sh",
     "install.ps1",
@@ -61,11 +68,24 @@ REQUIRED_ASSETS = (
 DESKTOP_ASSETS = INSTALLERS | {"installers-SHA256SUMS.txt"}
 SIGNING_ASSETS = REQUIRED_ASSETS - DESKTOP_ASSETS
 PLATFORM_INSTALLERS = {
-    "linux": {"PersonalJarvis-Linux-x86_64.AppImage"},
-    "windows": {"PersonalJarvis-Setup-x64.exe"},
-    "macos": {"PersonalJarvis-macOS-arm64.dmg", "PersonalJarvis-macOS-x64.dmg"},
+    "linux": {"Dodaios-Linux-x86_64.AppImage", "PersonalJarvis-Linux-x86_64.AppImage"},
+    "windows": {"Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe"},
+    "macos": {
+        "Dodaios-macOS-arm64.dmg",
+        "Dodaios-macOS-x64.dmg",
+        "PersonalJarvis-macOS-arm64.dmg",
+        "PersonalJarvis-macOS-x64.dmg",
+    },
 }
-DEB_PATTERN = re.compile(r"personal-jarvis_[0-9.]+_amd64\.deb")
+# The optional Debian package is named after its package: the earlier name
+# until the package itself is renamed, the current one after.
+DEB_PATTERN = re.compile(r"(?:dodaios|personal-jarvis)_[0-9.]+_amd64\.deb")
+#: The source archive under its current name and the name earlier installers
+#: fall back to; both are published.
+SOURCE_ARCHIVES = (
+    ("dodaios-src.tar.gz", "dodaios/"),
+    ("personal-jarvis-src.tar.gz", "personal-jarvis/"),
+)
 DESKTOP_WORKFLOW = ".github/workflows/desktop-installers.yml"
 
 
@@ -119,9 +139,7 @@ def staged_assets(directory: Path, profile: str) -> dict[str, Path]:
     required = DESKTOP_ASSETS if profile == "desktop" else SIGNING_ASSETS
     files = {}
     for path in directory.rglob("*"):
-        optional_deb = profile == "desktop" and re.fullmatch(
-            r"personal-jarvis_[0-9.]+_amd64\.deb", path.name
-        )
+        optional_deb = profile == "desktop" and DEB_PATTERN.fullmatch(path.name)
         if path.name not in required and not optional_deb:
             continue
         if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
@@ -288,7 +306,18 @@ def asset_errors(assets: list[dict], manifests: dict[str, str]) -> list[str]:
                 errors.append(f"release asset checksum mismatch: {name}")
         if required - digests.keys():
             errors.append(f"incomplete manifest: {manifest}")
+        if manifest == "installers-SHA256SUMS.txt":
+            errors.extend(alias_errors(digests))
     return errors
+
+
+def alias_errors(digests: dict[str, str]) -> list[str]:
+    """Both names of one installer must carry the same bytes."""
+    return [
+        f"installer names differ in content: {current} and {earlier}"
+        for current, earlier in INSTALLER_NAME_PAIRS
+        if current in digests and earlier in digests and digests[current] != digests[earlier]
+    ]
 
 
 def finalize(repo: str, tag: str, sha: str, wait_minutes: int) -> int:
@@ -338,22 +367,28 @@ def finalize(repo: str, tag: str, sha: str, wait_minutes: int) -> int:
             errors.append("signed payload commit does not match the release commit")
         if errors:
             raise ValueError("; ".join(errors))
-        archive = folder / "personal-jarvis-src.tar.gz"
-        run_command(
-            [
-                "git",
-                "archive",
-                "--format=tar.gz",
-                "--prefix=personal-jarvis/",
-                "-o",
-                str(archive),
-                f"refs/tags/{tag}",
-            ]
-        )
+        archives = []
+        for name, prefix in SOURCE_ARCHIVES:
+            archive = folder / name
+            run_command(
+                [
+                    "git",
+                    "archive",
+                    "--format=tar.gz",
+                    f"--prefix={prefix}",
+                    "-o",
+                    str(archive),
+                    f"refs/tags/{tag}",
+                ]
+            )
+            archives.append(archive)
         checksum = folder / "source-SHA256SUMS.txt"
-        with archive.open("rb") as stream:
-            digest = hashlib.file_digest(stream, "sha256").hexdigest()
-        checksum.write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+        lines = []
+        for archive in archives:
+            with archive.open("rb") as stream:
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+            lines.append(f"{digest}  {archive.name}\n")
+        checksum.write_text("".join(lines), encoding="utf-8")
         changelog = run_command(["git", "show", f"refs/tags/{tag}:CHANGELOG.md"]).stdout
         from scripts.ci.cut_release import section_notes
 
@@ -367,14 +402,14 @@ def finalize(repo: str, tag: str, sha: str, wait_minutes: int) -> int:
                 tag,
                 "--repo",
                 repo,
-                str(archive),
+                *(str(archive) for archive in archives),
                 str(checksum),
                 "--clobber",
             ]
         )
         uploaded = api_pages(f"repos/{repo}/releases/{info['databaseId']}/assets?per_page=100", "")
         uploaded_by_name = {asset["name"]: asset for asset in uploaded}
-        for file in (archive, checksum):
+        for file in (*archives, checksum):
             with file.open("rb") as stream:
                 expected = "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest()
             if uploaded_by_name.get(file.name, {}).get("digest") != expected:
@@ -424,11 +459,11 @@ def published_errors(repo: str, tag: str) -> list[str]:
     by_name = {asset["name"]: asset for asset in assets}
     source, problems = parse_manifest(manifests["source-SHA256SUMS.txt"])
     errors.extend(f"{problem} in source-SHA256SUMS.txt" for problem in problems)
-    archive = "personal-jarvis-src.tar.gz"
-    if archive not in source:
-        errors.append("incomplete manifest: source-SHA256SUMS.txt")
-    elif by_name.get(archive, {}).get("digest") != f"sha256:{source[archive]}":
-        errors.append(f"release asset checksum mismatch: {archive}")
+    for archive, _prefix in SOURCE_ARCHIVES:
+        if archive not in source:
+            errors.append(f"incomplete manifest: source-SHA256SUMS.txt lacks {archive}")
+        elif by_name.get(archive, {}).get("digest") != f"sha256:{source[archive]}":
+            errors.append(f"release asset checksum mismatch: {archive}")
     return errors
 
 

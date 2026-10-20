@@ -12,6 +12,9 @@ from dodaios.core.branding import (
     DEFAULT_INSTALL_DIR_NAME,
     DEFAULT_OFFICIAL_REPO_SLUG,
     KEYRING_SERVICE_NAME,
+    LEGACY_CONFIG_FILE_NAMES,
+    LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES,
+    LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     MACOS_APP_DIR_NAME,
     MACOS_AUTOSTART_LABEL,
@@ -77,11 +80,18 @@ def test_verifier_identity_regexes_are_derived_from_resolved_slug() -> None:
         ("install/install.sh", "CONFIG_FILE_NAME", '"', CONFIG_FILE_NAME),
         (
             "install/install.sh",
+            "LEGACY_CONFIG_FILE_NAME",
+            '"',
+            LEGACY_CONFIG_FILE_NAMES[0],
+        ),
+        (
+            "install/install.sh",
             "MACOS_AUTOSTART_LABEL",
             '"',
             MACOS_AUTOSTART_LABEL,
         ),
         ("install/install.ps1", "$ConfigFileName", "'", CONFIG_FILE_NAME),
+        ("install/install.ps1", "$LegacyConfigFileName", "'", LEGACY_CONFIG_FILE_NAMES[0]),
         (
             "install/uninstall.sh",
             "DEFAULT_INSTALL_DIR_NAME",
@@ -144,3 +154,15 @@ def test_standalone_identity_projection_matches_canonical_value(
     assignment = f"{variable} = {quote}{expected}{quote}"
     compact_assignment = f"{variable}={quote}{expected}{quote}"
     assert assignment in source or compact_assignment in source
+
+
+def test_the_windows_uninstaller_names_every_earlier_shortcut() -> None:
+    source = (_ROOT / "install/uninstall.ps1").read_text(encoding="utf-8")
+    quoted = ", ".join(f"'{name}'" for name in LEGACY_WINDOWS_SHORTCUT_FILE_NAMES)
+    assert f"$LegacyWindowsShortcutFileNames = @({quoted})" in source
+
+
+def test_the_shell_uninstaller_names_every_earlier_linux_entry() -> None:
+    source = (_ROOT / "install/uninstall.sh").read_text(encoding="utf-8")
+    names = " ".join(LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES)
+    assert f'LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES="{names}"' in source

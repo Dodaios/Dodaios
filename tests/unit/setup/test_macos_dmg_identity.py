@@ -96,3 +96,26 @@ def test_without_any_install_the_managed_location_is_reported(roots) -> None:
     assert path.name == APP_DIR_NAME
     assert path.parent in {system, user}
     assert not path.exists()
+
+
+def test_the_image_carries_the_app_under_its_current_name_and_its_old_id() -> None:
+    """The .dmg app took the current bundle name; its bundle id did not move,
+    so every privacy grant of an installed copy still names it."""
+    from dodaios.core.branding import MACOS_APP_DIR_NAME, MACOS_APP_NAME
+
+    spec = PYINSTALLER_SPEC.read_text(encoding="utf-8")
+    assert re.search(r'^MACOS_APP_NAME\s*=\s*"([^"]+)"', spec, re.MULTILINE).group(1) == (
+        MACOS_APP_DIR_NAME
+    )
+    assert f'"CFBundleName": "{MACOS_APP_NAME}"' in spec
+    assert f'"CFBundleDisplayName": "{MACOS_APP_NAME}"' in spec
+    assert MACOS_DMG_BUNDLE_ID == "ai.personaljarvis.desktop"
+    build = (REPO_ROOT / "packaging" / "macos" / "build.sh").read_text(encoding="utf-8")
+    assert f'\nAPP_NAME="{MACOS_APP_NAME}"\n' in build
+    # The mounted volume shows the same name as the app inside it.
+    assert f'\nVOLUME_NAME="{MACOS_APP_NAME}"\n' in build
+    workflow = (REPO_ROOT / ".github" / "workflows" / "desktop-installers.yml").read_text(
+        encoding="utf-8"
+    )
+    assert f'--app "dist/{MACOS_APP_DIR_NAME}"' in workflow
+    assert f'"$mount_point/{MACOS_APP_DIR_NAME}/Contents/MacOS/' in workflow

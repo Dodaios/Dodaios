@@ -56,7 +56,7 @@ def test_app_info_of_the_installed_app(make_service) -> None:
         platform="darwin",
         app_name=APP_NAME,
         bundle_id="com.personal-jarvis.desktop",
-        bundle_path="/Applications/Personal Jarvis.app",
+        bundle_path="/Applications/Dodaios.app",
         launched_as_bundle=True,
         stable=True,
         outside_installed_app=False,
@@ -70,6 +70,16 @@ def test_app_info_of_the_dmg_app_is_an_installed_app_too(make_service) -> None:
     info = service.app_info()
 
     assert info.bundle_id == DMG_BUNDLE_ID and info.stable and not info.outside_installed_app
+
+
+def test_app_info_of_a_bundle_the_rename_has_not_reached_yet(make_service) -> None:
+    # Until the one-time rename runs, the app may still start from its earlier
+    # bundle name; it is the installed app all the same.
+    service, _tcc = make_service(bundle_path="/Applications/Personal Jarvis.app")
+
+    info = service.app_info()
+
+    assert info.stable and not info.outside_installed_app
 
 
 def test_app_info_outside_the_installed_app(make_service) -> None:
@@ -254,3 +264,13 @@ def test_without_note_reset_the_open_episode_would_not_ask_again(make_service) -
 
     assert second.asked is False
     assert len(tcc.requests("microphone")) == 1
+
+
+def test_app_info_of_the_app_under_its_earlier_bundle_name(make_service) -> None:
+    # Until the one rename in place reaches it, the bundle keeps the name it
+    # was installed under; it is still the installed app.
+    service, _tcc = make_service(bundle_path="/Applications/Personal Jarvis.app")
+
+    info = service.app_info()
+
+    assert info.stable and not info.outside_installed_app

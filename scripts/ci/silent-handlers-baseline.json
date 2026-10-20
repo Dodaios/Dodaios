@@ -362,7 +362,7 @@
     "dodaios/ui/relauncher.py": 11,
     "dodaios/ui/shell/runtime_check.py": 3,
     "dodaios/ui/shell/shell.py": 1,
-    "dodaios/ui/shell/single_instance.py": 9,
+    "dodaios/ui/shell/single_instance.py": 7,
     "dodaios/ui/tray.py": 3,
     "dodaios/ui/web/agent_chat_routes.py": 3,
     "dodaios/ui/web/agentic_ide_routes.py": 4,

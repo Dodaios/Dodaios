@@ -521,6 +521,10 @@
     },
     "case": {
       "counted": "Pedido {count} veces en {days} días distintos."
+    },
+    "code": {
+      "title": "Resolver el issue #{number} en {repo}: {title}",
+      "case": "El issue #{number} de {repo} parece adecuado para un agente sin supervisión ({signal}). Un agente de programación trabajaría en él con tu suscripción mientras no estás, en su propio worktree y rama, y ejecutaría las pruebas ({tests}). El resultado es un pull request que cierra el issue, como borrador salvo que permitas que este repositorio se fusione solo. {url}"
     }
   }
 }
