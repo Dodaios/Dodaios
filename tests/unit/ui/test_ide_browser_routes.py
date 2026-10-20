@@ -33,6 +33,10 @@ class FakeEmbed:
         self.calls.append(("place", (owner, host, rect, dpr, visible)))
         return {**self.status(), "ok": True}
 
+    def open_tab(self, url: str) -> dict[str, Any]:
+        self.calls.append(("open_tab", url))
+        return {**self.status(), "ok": True, "state": "embedded"}
+
     def release(self, *, close: bool, focus: bool = False) -> dict[str, Any]:
         self.calls.append(("release", (close, focus)))
         return {**self.status(), "ok": True}
@@ -165,3 +169,29 @@ def test_embed_refuses_to_launch_after_shutdown(monkeypatch: pytest.MonkeyPatch)
     embed.shutdown()
     assert embed.launch("chrome", "Default", None, 1)["reason"] == "shutting_down"
     assert embed._thread is None
+
+
+def test_open_hands_the_link_to_the_embed(monkeypatch: pytest.MonkeyPatch) -> None:
+    embed = FakeEmbed()
+    client = _client(_desktop(), embed, monkeypatch)
+    url = "https://github.com/o/r/tree/main"
+    body = client.post("/api/ide-browser/open", json={"url": url}).json()
+    assert body["ok"] is True
+    assert embed.calls == [("open_tab", url)]
+
+
+def test_open_off_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _client(_desktop(), FakeEmbed(supported=False), monkeypatch)
+    body = client.post("/api/ide-browser/open", json={"url": "https://example.com"}).json()
+    assert body["ok"] is False
+
+
+def test_embed_open_tab_refuses_without_a_shown_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    embed = browser_embed.ChromeEmbed()
+    monkeypatch.setattr(embed, "supported", lambda: True)
+    started: list[Any] = []
+    monkeypatch.setattr(embed, "_start_browser", lambda *a, **k: started.append(a) or True)
+    assert embed.open_tab("javascript:alert(1)")["reason"] == "bad_url"
+    assert embed.open_tab("https://example.com")["reason"] == "not_embedded"
+    assert embed.status()["state"] == "idle"
+    assert started == []
