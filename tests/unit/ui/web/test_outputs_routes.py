@@ -1222,6 +1222,11 @@ async def test_raw_404s_for_scaffolding(app: FastAPI, tmp_path: Path) -> None:
 # --- /download route (Task 3) -------------------------------------------------
 
 
+_XHTML_WITH_SCRIPT = (
+    '<html xmlns="http://www.w3.org/1999/xhtml"><body><script>bad()</script></body></html>'
+)
+
+
 def _make_deliverable(root: Path, mission_id: str, name: str, content: str) -> str:
     """Create tasks/<tid>/artifacts/files/<name> under mission_<id>; return rel path."""
     files_dir = (
@@ -1250,10 +1255,17 @@ def test_download_sets_attachment_disposition(app):
     ("filename", "content"),
     [
         ("page.html", "<p>x</p>"),
+        ("page.htm", "<p>x</p>"),
         ("image.svg", "<svg><script>bad()</script></svg>"),
+        ("page.xhtml", _XHTML_WITH_SCRIPT),
+        ("page.xht", _XHTML_WITH_SCRIPT),
+        ("page.xml", _XHTML_WITH_SCRIPT),
+        ("notes.txt", "<script>bad()</script>"),
+        ("blob.unknownext", "<script>bad()</script>"),
     ],
 )
 def test_download_inline_active_document_has_csp(app, filename, content):
+    """Every inline rendering gets the sandboxing CSP, whatever its type."""
     root = Path(app.state.outputs_root)
     slug = "mission_019ed2dfd0fab"
     rel = _make_deliverable(root, "019ed2dfd0fab1234", filename, content)
@@ -1261,7 +1273,39 @@ def test_download_inline_active_document_has_csp(app, filename, content):
     r = client.get(f"/api/outputs/{slug}/files/{rel}/download?disposition=inline")
     assert r.status_code == 200
     assert r.headers["content-disposition"].startswith("inline")
-    assert "default-src 'none'" in r.headers["content-security-policy"]
+    assert r.headers["x-content-type-options"] == "nosniff"
+    csp = r.headers["content-security-policy"]
+    assert "default-src 'none'" in csp
+    assert "sandbox" in csp
+    assert "script-src" not in csp
+
+
+def test_download_inline_pdf_skips_the_sandbox_its_viewer_cannot_load_in(app):
+    """The PDF viewer is a plugin and never loads in a sandboxed document."""
+    root = Path(app.state.outputs_root)
+    slug = "mission_019ed2dfd0fab"
+    rel = _make_deliverable(root, "019ed2dfd0fab1234", "report.pdf", "%PDF-1.4")
+    client = TestClient(app)
+    r = client.get(f"/api/outputs/{slug}/files/{rel}/download?disposition=inline")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert "content-security-policy" not in r.headers
+
+
+@pytest.mark.parametrize("filename", ["page.html", "page.xhtml", "page.xml", "image.svg"])
+def test_download_attachment_keeps_its_headers(app, filename):
+    """A saved file never renders, so the attachment path stays as it was."""
+    root = Path(app.state.outputs_root)
+    slug = "mission_019ed2dfd0fab"
+    rel = _make_deliverable(root, "019ed2dfd0fab1234", filename, _XHTML_WITH_SCRIPT)
+    client = TestClient(app)
+    r = client.get(f"/api/outputs/{slug}/files/{rel}/download")
+    assert r.status_code == 200
+    assert r.headers["content-disposition"].startswith("attachment")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert "content-security-policy" not in r.headers
+    assert r.text == _XHTML_WITH_SCRIPT
 
 
 def test_download_blocks_non_deliverable(app):
