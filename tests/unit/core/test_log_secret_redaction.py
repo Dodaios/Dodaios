@@ -58,4 +58,4 @@ def test_github_api_never_shows_its_token(monkeypatch) -> None:
     assert "ghp_realtoken" not in repr(vars(api) if hasattr(api, "__dict__") else api._token)
     assert "ghp_realtoken" not in str(api._token)
     api.viewer()
-    assert seen == ["ghp_realtoken"]
+    assert seen and set(seen) == {"ghp_realtoken"}  # the login and the organisations query
