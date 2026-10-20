@@ -102,6 +102,10 @@ your system waits for your approval.
 
 ## Run every coding agent at once
 
+https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
+
+<p align="center"><sub>A real recording of the Agentic IDE: three agents at work, your own Chrome in the side panel, files, Git diff and a second workspace.</sub></p>
+
 The Agentic IDE turns one screen into a room full of coding agents. You open a
 project, split the screen into panes, and give each pane its own coding agent.
 Every pane gets a short call sign such as T1 or T2, so you can steer them
