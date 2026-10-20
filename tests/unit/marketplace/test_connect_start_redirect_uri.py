@@ -21,7 +21,7 @@ from dodaios.marketplace.auth.oauth_pkce_loopback import (
     PkceLoopbackConfig,
     PkceLoopbackHandler,
 )
-from dodaios.marketplace.token_store import Tokens
+from dodaios.marketplace.token_store import InMemoryBackend, Tokens, TokenStore
 from dodaios.ui.web import marketplace_routes as mr
 
 
@@ -112,7 +112,8 @@ async def test_connect_start_response_carries_redirect_uri(monkeypatch) -> None:
 
     monkeypatch.setattr(mr.asyncio, "create_task", _capturing)
     monkeypatch.setattr(mr, "verify_connection", _verified)
-    monkeypatch.setattr(mr.TokenStore, "save", lambda self, plugin_id, tokens: None)
+    backend = InMemoryBackend()
+    monkeypatch.setattr(mr, "TokenStore", lambda: TokenStore(backend=backend))
     monkeypatch.setattr(mr, "_refresh_plugin_in_live_registry", lambda plugin_id: None)
     spec = _pkce_spec("real-client-id.apps.example")
     monkeypatch.setattr(mr, "load_catalog", lambda: _Catalog([spec]))
