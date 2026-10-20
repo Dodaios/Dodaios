@@ -43,7 +43,24 @@
         "tile_px": { "type": "integer", "minimum": 256 },
         "cols": { "type": "integer", "minimum": 1 },
         "rows": { "type": "integer", "minimum": 1 },
-        "tile_url": { "type": "string", "pattern": "\\{col\\}.*\\{row\\}" },
+        "tile_url": { "type": "string", "pattern": "\\{col\\}.*\\{row\\}", "description": "L0 tiles (full density, px_per_m)." },
+        "mips": {
+          "description": "Optional tiled mip levels between L0 and L1, finest first: the plate downscaled by `divisor` and cut into tile_px tiles (edge tiles smaller). Absent in older manifests.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["divisor", "w_px", "h_px", "cols", "rows", "tile_url"],
+            "properties": {
+              "divisor": { "type": "integer", "minimum": 2, "description": "Density = px_per_m / divisor." },
+              "w_px": { "type": "integer", "minimum": 1, "description": "round(plate_w_px / divisor)." },
+              "h_px": { "type": "integer", "minimum": 1, "description": "round(plate_h_px / divisor)." },
+              "cols": { "type": "integer", "minimum": 1 },
+              "rows": { "type": "integer", "minimum": 1 },
+              "tile_url": { "type": "string", "pattern": "\\{col\\}.*\\{row\\}" }
+            }
+          }
+        },
         "l1_url": { "type": "string" },
         "l1_w_px": { "type": "integer", "minimum": 1 },
         "l1_h_px": { "type": "integer", "minimum": 1 }

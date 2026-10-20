@@ -76,6 +76,7 @@ export function StageRenderer({ runtime, deck, plate, debug }: Props) {
     s.frameMs = s.frameMs * 0.9 + dt * 1000 * 0.1;
     s.tiles = plate.resident;
     s.tilesLoading = plate.inFlight;
+    s.plateLevel = plate.levelName;
     for (const fn of runtime.afterFrame) fn();
   }, 1);
 

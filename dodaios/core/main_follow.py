@@ -12,6 +12,14 @@ that nudge, for a person who opted in (``[agentic_ide] follow_main``):
   incoming commits would overwrite, is left alone and the reason reported.
 * The built frontend bundle (``dodaios/ui/web/dist``) is this follower's to
   rebuild, so local copies of it never block the fast-forward.
+* A git command that writes the checkout (``merge``, ``checkout``, ``clean``) is
+  never killed on a short timer: killed mid-write it leaves ``.git/index.lock``
+  behind and a work tree half way to the new commit. When that happens anyway
+  (a crash, a power cut, another tool's timeout), the follower recovers by
+  itself: a lock older than :data:`STALE_LOCK_S` that no running git process
+  can hold is removed, and files a killed fast-forward already brought to
+  ``origin/main``'s content are put back so the fast-forward can run again. A
+  file with any other content is a person's edit and is never touched.
 * A change under the frontend source rebuilds the bundle; open windows reload
   themselves once the new bundle is on disk (``lib/bundleWatch.ts``).
 * A change to the Python code needs a restart. It happens when nothing would be
@@ -32,7 +40,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -45,7 +53,13 @@ from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 INTERVAL_S = 60.0
 #: The first look waits this long, so it never competes with the app's boot.
 FIRST_DELAY_S = 45.0
+#: Reads and fetches: one given up on leaves nothing half written.
 _GIT_TIMEOUT_S = 120.0
+#: Commands that write the work tree and the index. On Windows a fast-forward that
+#: rewrites thousands of bundle files (a virus scanner looking at each) can take
+#: minutes; killed, it leaves a stale index.lock and a half-updated checkout, so it
+#: gets all the time it needs.
+GIT_WRITE_TIMEOUT_S = 30 * 60.0
 _BUILD_TIMEOUT_S = 20 * 60.0
 _INSTALL_TIMEOUT_S = 15 * 60.0
 
@@ -89,29 +103,66 @@ class FollowStatus:
 
 
 def _run(
-    args: list[str], cwd: Path, *, timeout: float = _GIT_TIMEOUT_S
+    args: list[str],
+    cwd: Path,
+    *,
+    timeout: float = _GIT_TIMEOUT_S,
+    read_only: bool = False,
+    stdin: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """Run ``args``; a timeout or a program that cannot start comes back as a failure."""
     env = dict(os.environ)
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GCM_INTERACTIVE"] = "never"
-    return subprocess.run(
-        args,
-        cwd=str(cwd),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=timeout,
-        check=False,
-        env=env,
-        creationflags=NO_WINDOW_CREATIONFLAGS,
-    )
+    if read_only:
+        # A read never takes the index lock (``git status`` would refresh the index
+        # under it), so a read that is given up on can never leave one behind.
+        env["GIT_OPTIONAL_LOCKS"] = "0"
+    try:
+        return subprocess.run(
+            args,
+            cwd=str(cwd),
+            input=stdin,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            check=False,
+            env=env,
+            creationflags=NO_WINDOW_CREATIONFLAGS,
+        )
+    except subprocess.TimeoutExpired:
+        logger.warning("Follow main: {} did not finish within {:.0f} s.", args[:4], timeout)
+        return subprocess.CompletedProcess(args, 124, "", f"timed out after {timeout:.0f} s")
+    except OSError as exc:
+        logger.warning("Follow main: {} could not run: {}", args[:4], exc)
+        return subprocess.CompletedProcess(args, 127, "", str(exc))
 
 
 def _git(
-    args: list[str], root: Path, *, timeout: float = _GIT_TIMEOUT_S
+    args: list[str], root: Path, *, stdin: str | None = None
 ) -> subprocess.CompletedProcess[str]:
-    return _run(["git", "-c", "core.quotePath=false", *args], root, timeout=timeout)
+    """A git command that only reads (or fetches): short timeout, no optional locks."""
+    return _run(
+        ["git", "-c", "core.quotePath=false", *args],
+        root,
+        timeout=_GIT_TIMEOUT_S,
+        read_only=True,
+        stdin=stdin,
+    )
+
+
+def _git_write(
+    args: list[str], root: Path, *, stdin: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    """A git command that writes the work tree or the index: never killed on a short timer."""
+    return _run(
+        ["git", "-c", "core.quotePath=false", *args],
+        root,
+        timeout=GIT_WRITE_TIMEOUT_S,
+        stdin=stdin,
+    )
 
 
 def _last_line(result: subprocess.CompletedProcess[str]) -> str:
@@ -121,20 +172,103 @@ def _last_line(result: subprocess.CompletedProcess[str]) -> str:
     return lines[-1] if lines else f"exit code {result.returncode}"
 
 
+def _blocking(result: subprocess.CompletedProcess[str]) -> tuple[list[str], list[str]]:
+    """(tracked files with local changes, untracked files) that a refused merge names."""
+    tracked: list[str] = []
+    untracked: list[str] = []
+    into: list[str] | None = None
+    for line in (result.stderr or "").splitlines():
+        if "untracked working tree files" in line:
+            into = untracked
+            continue
+        if "would be overwritten" in line:
+            into = tracked
+            continue
+        if into is not None:
+            if line.startswith(("\t", "    ")) and line.strip():
+                into.append(line.strip())
+            elif line.strip():
+                into = None
+    return tracked, untracked
+
+
 def _overwritten(result: subprocess.CompletedProcess[str]) -> list[str]:
     """The files git names when local edits would be overwritten by a merge."""
-    files: list[str] = []
-    collecting = False
-    for line in (result.stderr or "").splitlines():
-        if "would be overwritten" in line or "untracked working tree files" in line:
-            collecting = True
-            continue
-        if collecting:
-            if line.startswith(("\t", "    ")) and line.strip():
-                files.append(line.strip())
-            elif line.strip():
-                collecting = False
-    return files
+    tracked, untracked = _blocking(result)
+    return tracked + untracked
+
+
+@dataclass(frozen=True, slots=True)
+class GitProcess:
+    """A running process whose name starts with ``git``; ``None`` = could not be read."""
+
+    name: str
+    cwd: str | None
+    cmdline: list[str] | None
+
+
+def list_git_processes() -> list[GitProcess] | None:
+    """Every running git process, or ``None`` when that cannot be found out."""
+    try:
+        import psutil
+    except ImportError:  # no psutil: cannot tell, keep the lock
+        return None
+    found: list[GitProcess] = []
+    try:
+        for proc in psutil.process_iter(["name"]):
+            name = str(proc.info.get("name") or "")
+            if not name.lower().startswith("git"):
+                continue
+            cwd: str | None = None
+            cmdline: list[str] | None = None
+            try:
+                cwd = proc.cwd()
+            except psutil.NoSuchProcess:  # ended meanwhile: holds nothing
+                continue
+            except (psutil.Error, OSError):  # unreadable cwd: cmdline still checked
+                pass
+            try:
+                cmdline = list(proc.cmdline())
+            except psutil.NoSuchProcess:  # ended meanwhile: holds nothing
+                continue
+            except (psutil.Error, OSError):  # unreadable cmdline: matched by cwd
+                pass
+            found.append(GitProcess(name, cwd, cmdline))
+    except (psutil.Error, OSError):  # unreadable table: keep the lock
+        return None
+    return found
+
+
+def _inside(path: str, root: Path) -> bool:
+    try:
+        resolved = os.path.normcase(os.path.abspath(path))
+        top = os.path.normcase(os.path.abspath(root))
+    except (OSError, ValueError):  # unresolvable: not inside
+        return False
+    return resolved == top or resolved.startswith(top.rstrip("\\/") + os.sep)
+
+
+def git_works_in(root: Path, processes: Iterable[GitProcess] | None) -> bool | None:
+    """Is a git process working in ``root``? ``None`` when that cannot be told.
+
+    A process counts when its working folder is inside ``root`` or its command line
+    names ``-C <a folder inside root>``. One whose working folder cannot be read
+    might be working here, so it makes the answer unknown unless another process
+    already answers yes.
+    """
+    if processes is None:
+        return None
+    unknown = False
+    for proc in processes:
+        args = proc.cmdline or []
+        for flag, value in zip(args, args[1:], strict=False):
+            if flag == "-C" and _inside(os.path.join(proc.cwd or "", value), root):
+                return True
+        if proc.cwd is None:
+            unknown = True
+        elif _inside(proc.cwd, root):
+            return True
+    return None if unknown else False
 
 
 def package_root() -> Path:
@@ -154,8 +288,10 @@ class MainFollower:
         restart: Callable[[], bool],
         npm: str | None = None,
         python: str | None = None,
+        processes: Callable[[], Iterable[GitProcess] | None] = list_git_processes,
     ) -> None:
         self.root = root
+        self._processes = processes
         self._enabled = enabled
         self._idle = idle
         self._restart = restart
@@ -265,7 +401,11 @@ class MainFollower:
         return Path(git_dir) / "index.lock" if git_dir else None
 
     def _locked(self, status: FollowStatus) -> bool:
-        """Is the checkout's index locked? Says so, with its age, instead of failing later."""
+        """Is the checkout's index locked? Says so, with its age, instead of failing later.
+
+        A lock older than :data:`STALE_LOCK_S` that no running git process can be
+        holding was left by a killed command; it is removed here, without a click.
+        """
         lock = self._index_lock()
         if lock is None or not lock.exists():
             status.lock_since = 0.0
@@ -277,6 +417,23 @@ class MainFollower:
             return False
         status.lock_since = since
         status.lock_stale = time.time() - since > STALE_LOCK_S
+        if status.lock_stale and git_works_in(self.root, self._processes()) is False:
+            try:
+                lock.unlink()
+            except FileNotFoundError:  # gone already: someone else removed it, which is the goal
+                pass
+            except OSError as exc:
+                logger.warning("Follow main: the stale git lock could not be removed: {}", exc)
+            else:
+                logger.info(
+                    "Follow main: removed a stale git lock ({:.0f} min old; no git process "
+                    "works in this checkout).",
+                    (time.time() - since) / 60,
+                )
+            if not lock.exists():
+                status.lock_since = 0.0
+                status.lock_stale = False
+                return False
         self._note(
             "A git lock left by a stopped command blocks the update (.git/index.lock)."
             if status.lock_stale
@@ -315,9 +472,11 @@ class MainFollower:
         try:
             if any(path.startswith(f"{DIST}/") for path in changed):
                 # The bundle is rebuilt below; a local copy of it must not block the update.
-                _git(["checkout", "--", DIST], self.root)
-                _git(["clean", "-fdq", "--", DIST], self.root)
-            merged = _git(["merge", "--ff-only", "--quiet", "origin/main"], self.root)
+                _git_write(["checkout", "--", DIST], self.root)
+                _git_write(["clean", "-fdq", "--", DIST], self.root)
+            merged = _git_write(["merge", "--ff-only", "--quiet", "origin/main"], self.root)
+            if merged.returncode != 0 and self._recover_interrupted(merged):
+                merged = _git_write(["merge", "--ff-only", "--quiet", "origin/main"], self.root)
             if merged.returncode != 0:
                 status.blocked_by = _overwritten(merged)
                 shown = ", ".join(status.blocked_by[:5]) or _last_line(merged)
@@ -344,6 +503,73 @@ class MainFollower:
             self._note("")
         finally:
             status.busy = ""
+
+    def _recover_interrupted(self, merged: subprocess.CompletedProcess[str]) -> bool:
+        """Put back what a killed fast-forward left half done. True = merge again.
+
+        A fast-forward killed mid-write leaves files at the new commit's content
+        while ``HEAD`` and the index are still at the old one: they look like local
+        edits, new files look untracked, and every later fast-forward is refused. A
+        listed file whose content equals its ``origin/main`` blob is such a leftover
+        and loses nothing when it is put back: the merge writes that content again.
+        If any listed file holds anything else, it is a person's edit and nothing at
+        all is touched.
+        """
+        tracked, untracked = _blocking(merged)
+        listed = tracked + untracked
+        if not listed or not self._all_at_remote(listed):
+            return False
+        if tracked:
+            restored = _git_write(
+                [
+                    "--literal-pathspecs",
+                    "checkout",
+                    "--pathspec-from-file=-",
+                    "--pathspec-file-nul",
+                    "HEAD",
+                ],
+                self.root,
+                stdin="\0".join(tracked) + "\0",
+            )
+            if restored.returncode != 0:
+                logger.warning(
+                    "Follow main: putting back an interrupted update failed: {}",
+                    _last_line(restored),
+                )
+                return False
+        for rel in untracked:
+            try:
+                (self.root / rel).unlink()
+            except FileNotFoundError:  # gone already: nothing left to remove
+                pass
+            except OSError as exc:
+                logger.warning("Follow main: could not remove the leftover {}: {}", rel, exc)
+                return False
+        logger.info(
+            "Follow main: {} file(s) an interrupted update had already brought to "
+            "origin/main were put back; updating again.",
+            len(listed),
+        )
+        return True
+
+    def _all_at_remote(self, paths: list[str]) -> bool:
+        """Does every one of ``paths`` hold exactly its content at ``origin/main``?"""
+        local = _git(["hash-object", "--stdin-paths"], self.root, stdin="\n".join(paths) + "\n")
+        remote = _git(
+            ["cat-file", "--batch-check=%(objectname) %(objecttype)"],
+            self.root,
+            stdin="".join(f"origin/main:{path}\n" for path in paths),
+        )
+        if local.returncode != 0 or remote.returncode != 0:
+            return False
+        hashes = local.stdout.split()
+        blobs = [line.split() for line in remote.stdout.splitlines()]
+        if len(hashes) != len(paths) or len(blobs) != len(paths):
+            return False
+        return all(
+            len(blob) == 2 and blob[1] == "blob" and blob[0] == sha
+            for sha, blob in zip(hashes, blobs, strict=True)
+        )
 
     def _build(self, *, npm_install: bool) -> bool:
         npm = self._npm or shutil.which("npm")

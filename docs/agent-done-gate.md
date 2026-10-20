@@ -13,7 +13,7 @@ sent back to work with one imperative next step.
 | D2 | every local commit of the branch is on the remote |
 | D3 | the branch's pull request is merged into `main` |
 | D4 | the `main_workflows` are green on `main` for the merge commit (or for a later `main` commit that contains it) |
-| D5 | the local `main` checkout contains the merge commit; the gate fast-forwards it, and a checkout with local edits is left alone and noted |
+| D5 | the local `main` checkout contains the merge commit; the gate fast-forwards it (never killed on a short timer), and a checkout with local edits, or with an `index.lock` (another git command is writing it), is left alone and noted |
 
 ## Verdicts
 

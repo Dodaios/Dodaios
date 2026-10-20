@@ -4,7 +4,7 @@
  * bunks, viewport stands, a lift and a patrol route. Shaped like a cooked deck
  * so the code under test never knows.
  */
-import type { Deck, NavGrid, Socket, SocketKind } from "../content/deck";
+import type { Deck, NavGrid, PlateImages, PlateLevel, Socket, SocketKind } from "../content/deck";
 
 export const SYNTH_W = 48;
 export const SYNTH_D = 24;
@@ -42,6 +42,33 @@ function socket(kind: SocketKind, id: string, x: number, z: number, extra: Parti
   };
 }
 
+/**
+ * The synthetic hall's plate at `pxPerMetre`: an older deck (overview at 1/4,
+ * L0 only) or, with `mips`, the close-up layout (M2 and M4 tile levels, the
+ * overview at 1/8). Tiles are 2048 px.
+ */
+export function syntheticPlate(pxPerMetre: number, mips: boolean): PlateImages {
+  const tileSize = 2048;
+  const width = Math.round(SYNTH_W * pxPerMetre);
+  const height = Math.round(24.8 * pxPerMetre);
+  const level = (divisor: number, prefix: string): PlateLevel => {
+    const w = Math.round(width / divisor);
+    const h = Math.round(height / divisor);
+    return {
+      divisor, width: w, height: h, tileSize, cols: Math.ceil(w / tileSize), rows: Math.ceil(h / tileSize),
+      tileUrl: (c, r) => `/synthetic/${prefix}_${c}_${r}.avif`,
+    };
+  };
+  const l0 = level(1, "L0");
+  const overviewDivisor = mips ? 8 : 4;
+  return {
+    width, height,
+    overview: { url: "/synthetic/L1.avif", width: Math.round(width / overviewDivisor), height: Math.round(height / overviewDivisor) },
+    tileSize, cols: l0.cols, rows: l0.rows, tileUrl: l0.tileUrl,
+    levels: mips ? [l0, level(2, "M2"), level(4, "M4")] : [l0],
+  };
+}
+
 export function syntheticDeck(): Deck {
   const sockets: Socket[] = [];
   for (let i = 0; i < 6; i++) {
@@ -70,11 +97,7 @@ export function syntheticDeck(): Deck {
     contentId: "synthetic",
     name: "Synthetic",
     camera: { center: [0, 0, 0], pitchDeg: 60, frameW: SYNTH_W, frameH: 24.8, pxPerMetre: 96 },
-    plate: {
-      width: SYNTH_W * 96, height: Math.round(24.8 * 96),
-      overview: { url: "/synthetic/L1.avif", width: (SYNTH_W * 96) / 4, height: Math.round((24.8 * 96) / 4) },
-      tileSize: 2048, cols: 3, rows: 2, tileUrl: (c, r) => `/synthetic/L0_${c}_${r}.avif`,
-    },
+    plate: syntheticPlate(96, false),
     occludersUrl: null,
     envUrl: null,
     exposure: 0,
