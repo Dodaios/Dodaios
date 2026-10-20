@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
+import sys
+import time
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 import pytest
 
 from dodaios.core import main_follow
-from dodaios.core.main_follow import DIST, MainFollower
+from dodaios.core.main_follow import DIST, GitProcess, MainFollower, git_works_in
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
@@ -21,6 +25,8 @@ def _identity(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("GIT_COMMITTER_NAME", "Test")
     monkeypatch.setenv("GIT_COMMITTER_EMAIL", "test@example.invalid")
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    # Long temp folders on Windows overflow MAX_PATH inside a bare repo's objects.
+    (tmp_path / "gitconfig").write_text("[core]\n\tlongpaths = true\n", encoding="utf-8")
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(tmp_path / "gitconfig"))
 
 
@@ -68,9 +74,21 @@ class Recorder:
         self.restarts = 0
         self.builds: list[bool] = []
 
-    def follower(self, root: Path, *, enabled: bool = True) -> MainFollower:
+    def follower(
+        self,
+        root: Path,
+        *,
+        enabled: bool = True,
+        processes: Callable[[], Iterable[GitProcess] | None] = lambda: None,
+    ) -> MainFollower:
+        # By default the running processes cannot be told, so no lock is ever
+        # removed on its own; the tests about that pass a lister of their own.
         follower = MainFollower(
-            root, enabled=lambda: enabled, idle=lambda: self.idle, restart=self._restart
+            root,
+            enabled=lambda: enabled,
+            idle=lambda: self.idle,
+            restart=self._restart,
+            processes=processes,
         )
 
         def build(*, npm_install: bool) -> bool:
@@ -205,9 +223,6 @@ def test_python_outside_the_app_needs_no_restart(setup: tuple[Path, Path]) -> No
 def test_a_git_lock_waits_and_only_an_old_one_is_offered_for_removal(
     setup: tuple[Path, Path],
 ) -> None:
-    import os
-    import time
-
     app, other = setup
     _land(other, {"jarvis_extra.txt": "x\n"}, "chore: extra")
     lock = app / ".git" / "index.lock"
@@ -229,3 +244,163 @@ def test_a_git_lock_waits_and_only_an_old_one_is_offered_for_removal(
     status = follower.tick()
     assert (app / "jarvis_extra.txt").exists()
     assert status.lock_since == 0 and status.reason == ""
+
+
+# ------------------------------------------------------------------ killed git commands
+
+
+def _age(path: Path) -> None:
+    old = time.time() - main_follow.STALE_LOCK_S - 60
+    os.utime(path, (old, old))
+
+
+def test_writing_git_commands_get_the_long_timeout_and_reads_take_no_lock(
+    setup: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app, other = setup
+    _write(app, f"{DIST}/index.html", "<html>local build</html>\n")
+    _land(other, {f"{DIST}/index.html": "<html>v2</html>\n"}, "build(ui): bundle")
+    calls: list[tuple[list[str], float, bool]] = []
+    real_run = main_follow._run
+
+    def recording(args: list[str], cwd: Path, **kwargs: object) -> subprocess.CompletedProcess:
+        timeout = kwargs.get("timeout", main_follow._GIT_TIMEOUT_S)
+        calls.append((args, float(timeout), bool(kwargs.get("read_only", False))))  # type: ignore[arg-type]
+        return real_run(args, cwd, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(main_follow, "_run", recording)
+    status = Recorder().follower(app).tick()
+    assert status.reason == "" and status.head == status.remote
+
+    def verb(args: list[str]) -> str:
+        return args[3] if args[:3] == ["git", "-c", "core.quotePath=false"] else args[0]
+
+    writes = {verb(args) for args, _, read_only in calls if not read_only}
+    assert writes == {"checkout", "clean", "merge"}
+    for args, timeout, read_only in calls:
+        if verb(args) in writes:
+            assert timeout == main_follow.GIT_WRITE_TIMEOUT_S >= 30 * 60, args
+            assert not read_only
+        else:
+            assert read_only and timeout <= 120, args
+
+
+def test_a_timeout_or_a_missing_program_is_a_failed_result_not_an_exception(
+    tmp_path: Path,
+) -> None:
+    slow = main_follow._run(
+        [sys.executable, "-c", "import time; time.sleep(30)"], tmp_path, timeout=0.5
+    )
+    assert slow.returncode != 0 and "timed out" in slow.stderr
+    missing = main_follow._run(["dodaios-no-such-program-xyz"], tmp_path)
+    assert missing.returncode != 0
+
+
+def test_which_git_processes_count_as_working_in_the_checkout(tmp_path: Path) -> None:
+    root = tmp_path / "app"
+    elsewhere = str(tmp_path / "other")
+    assert git_works_in(root, []) is False
+    assert git_works_in(root, [GitProcess("git.exe", elsewhere, ["git", "status"])]) is False
+    assert git_works_in(root, [GitProcess("git.exe", str(root / "sub"), ["git"])]) is True
+    assert git_works_in(root, [GitProcess("git", elsewhere, ["git", "-C", str(root)])]) is True
+    # Nothing can be read about it: it might be working here.
+    assert git_works_in(root, [GitProcess("git.exe", None, None)]) is None
+    assert git_works_in(root, [GitProcess("git.exe", None, ["git", "status"])]) is None
+    assert git_works_in(root, None) is None
+    # One that is known to work here answers, whatever else is unreadable.
+    both = [GitProcess("git.exe", None, None), GitProcess("git.exe", str(root), ["git"])]
+    assert git_works_in(root, both) is True
+
+
+def test_a_stale_lock_no_git_process_holds_is_removed_by_itself(
+    setup: tuple[Path, Path],
+) -> None:
+    app, other = setup
+    _land(other, {"jarvis_extra.txt": "x\n"}, "chore: extra")
+    lock = app / ".git" / "index.lock"
+    lock.write_bytes(b"")
+    _age(lock)
+    status = Recorder().follower(app, processes=lambda: []).tick()
+    assert not lock.exists() and (app / "jarvis_extra.txt").exists()
+    assert status.lock_since == 0 and not status.lock_stale and status.reason == ""
+
+
+def test_a_young_lock_is_never_removed_even_with_no_git_running(
+    setup: tuple[Path, Path],
+) -> None:
+    app, other = setup
+    _land(other, {"jarvis_extra.txt": "x\n"}, "chore: extra")
+    lock = app / ".git" / "index.lock"
+    lock.write_bytes(b"")
+    status = Recorder().follower(app, processes=lambda: []).tick()
+    assert lock.exists() and not (app / "jarvis_extra.txt").exists()
+    assert "Another git command" in status.reason
+
+
+@pytest.mark.parametrize(
+    "seen",
+    [
+        pytest.param(lambda root: [GitProcess("git.exe", str(root), ["git", "merge"])], id="cwd"),
+        pytest.param(
+            lambda root: [GitProcess("git.exe", str(root.parent), ["git", "-C", str(root)])],
+            id="dash-C",
+        ),
+        pytest.param(lambda root: [GitProcess("git.exe", None, None)], id="unreadable"),
+        pytest.param(lambda root: None, id="cannot-list"),
+    ],
+)
+def test_a_stale_lock_stays_while_a_git_process_may_work_in_the_checkout(
+    setup: tuple[Path, Path], seen: Callable[[Path], list[GitProcess] | None]
+) -> None:
+    app, other = setup
+    _land(other, {"jarvis_extra.txt": "x\n"}, "chore: extra")
+    lock = app / ".git" / "index.lock"
+    lock.write_bytes(b"")
+    _age(lock)
+    status = Recorder().follower(app, processes=lambda: seen(app)).tick()
+    assert lock.exists() and not (app / "jarvis_extra.txt").exists()
+    assert status.lock_stale and "stopped command" in status.reason
+
+
+def _interrupted(app: Path, other: Path, readme: str) -> None:
+    """origin/main moves on; a killed fast-forward already wrote some of its files."""
+    _land(
+        other,
+        {
+            "README.md": "new readme\n",
+            "dodaios/core/new.py": "N = 1\n",
+            "dodaios/core/a.py": "A = 2\n",
+        },
+        "feat: three files",
+    )
+    _write(app, "README.md", readme)
+    _write(app, "dodaios/core/new.py", "N = 1\n")
+    lock = app / ".git" / "index.lock"
+    lock.write_bytes(b"")
+    _age(lock)
+
+
+def test_an_interrupted_fast_forward_is_finished_when_its_leftovers_match_origin(
+    setup: tuple[Path, Path],
+) -> None:
+    app, other = setup
+    _interrupted(app, other, readme="new readme\n")
+    status = Recorder().follower(app, processes=lambda: []).tick()
+    assert _git(app, "rev-parse", "HEAD") == _git(app, "rev-parse", "origin/main")
+    assert status.reason == "" and status.blocked_by == []
+    assert (app / "dodaios/core/a.py").read_text(encoding="utf-8") == "A = 2\n"
+    assert _git(app, "status", "--porcelain") == ""
+
+
+def test_an_interrupted_fast_forward_with_one_real_edit_is_left_alone(
+    setup: tuple[Path, Path],
+) -> None:
+    app, other = setup
+    _interrupted(app, other, readme="my own notes\n")
+    head = _git(app, "rev-parse", "HEAD")
+    status = Recorder().follower(app, processes=lambda: []).tick()
+    assert _git(app, "rev-parse", "HEAD") == head
+    assert sorted(status.blocked_by) == ["README.md", "dodaios/core/new.py"]
+    assert (app / "README.md").read_text(encoding="utf-8") == "my own notes\n"
+    assert (app / "dodaios/core/new.py").read_text(encoding="utf-8") == "N = 1\n"
+    assert (app / "dodaios/core/a.py").read_text(encoding="utf-8") == "A = 1\n"

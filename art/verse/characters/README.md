@@ -14,11 +14,23 @@ python scripts/verse/blender.py run --no-lock art/verse/characters/build.py     
 python scripts/verse/blender.py run --no-lock art/verse/characters/build_drones.py # drones
 python scripts/verse/blender.py run art/verse/characters/build.py --qa             # + Cycles QA
 python scripts/verse/blender.py run art/verse/characters/build.py --qa-contact     # contact sheets only
+python scripts/verse/blender.py run --no-lock --device cpu art/verse/characters/lookdev.py  # look-dev
 node art/verse/characters/check_glb.mjs                                          # three.js check
 ```
 
 `build.py --only SK_Officer_M,SK_Trooper` rebuilds a subset; `--no-clips` skips the
-animation export. Builds are deterministic (no random numbers, fixed iteration order).
+animation export (the clip files only change when the skeleton or `anim.py` does).
+Builds are deterministic (no random numbers, fixed iteration order). Run
+`build_drones.py` before `build.py`: `build.py` merges the drone entries into
+`characters.json`.
+
+| Module | Job |
+|---|---|
+| `body.py`, `outfits.py`, `crew.py`, `drones.py` | geometry, skinning, vertex AO |
+| `paint.py` | UV atlas, rasteriser, normal bake from the full-resolution garment, images, material wiring |
+| `looks.py`, `looks_gear.py` | what the atlases show (faces, hair, tailoring, armour, drones) |
+| `anim.py`, `posing.py` | clips |
+| `qa.py`, `lookdev.py`, `check_glb.mjs` | checks and look-development renders |
 
 Human base body: Blender Studio "Human Base Meshes" v1.4.1 (CC0, see
 `art/verse/LICENSES.md`), realistic male and female bodies at their base level only.
@@ -47,8 +59,8 @@ character with that skeleton (`skeleton` in the manifest: `M` or `F`).
 - Every character faces **+Z** in three.js (Blender -Y).
 - Rest pose: A-pose (arms ~40 degrees down), as in the base mesh.
 - Skinning: at most 4 influences per vertex, normalised.
-- Vertex colour `COLOR_0` holds baked ambient occlusion (and darkened eyes). three.js
-  multiplies it with the material colour, so runtime tints keep the shading.
+- Vertex colour `COLOR_0` holds baked ambient occlusion. three.js multiplies it with the
+  material colour, so runtime tints keep the shading.
 
 ## Skeleton (25 bones, both variants)
 
@@ -113,6 +125,7 @@ per tier are in `characters.json` (`tiers`, sRGB hex; `THREE.Color.set()` conver
 | `M_Accent` | shoulder-seam and collar piping | the agent's personal accent colour |
 | `M_Cap` | cap (mesh `Cap`) | tier colour |
 | `M_Skin`, `M_Hair` | face, hands / hair | per person |
+| `M_Eye` | eyeballs (sclera, iris, pupil in the atlas) | leave |
 | `M_Boots`, `M_Belt` | knee boots / belt | black leather |
 | `M_RankPlate` | steel plate, buckle, cap badge | steel |
 | `M_RankTile_1..6` | six pips on the plate | unlit `tileUnlit`; lit: tier tile colour (optionally `emissive`) |
@@ -141,19 +154,49 @@ const mixer = new THREE.AnimationMixer(actor);
 mixer.clipAction(THREE.AnimationClip.findByName(clips, "A_Idle")).play();
 ```
 
+## Atlases (close camera)
+
+The follow camera shows a character about 200–260 px tall (~200 px per metre, 60° from
+above), so every model carries one UV atlas shared by all its meshes, painted in 3D by
+`paint.py` from `looks.py` / `looks_gear.py` (nothing hand-painted, deterministic):
+
+| Image | Content |
+|---|---|
+| `T_<model>_BaseColor` | a **multiplier** on the material colour: neutral grey on tinted slots (uniform, trousers, trim, cap, accent), so `color.set()` by tier still decides the colour; skin features, eyes, hair locks, brows, lips relative to the skin/hair colour |
+| `T_<model>_Normal` | tangent space (OpenGL, no tangents in the file: three.js derives the frame from screen derivatives); the undecimated garment surface baked onto the game mesh plus seams, welts, folds, stitching, panel lines, strands |
+| `T_<model>_ORM` | glTF metallicRoughness: G = absolute roughness (factor 1), B = 1 (metallic stays the material's factor) |
+
+Humans use 1024 × 1024, drones 512 × 512, all WebP inside the glb (`EXT_texture_webp`,
+required; three.js r185 decodes it). Texel density is about 380 texels/m on cloth and
+850 on the face and hair, i.e. two texels per screen pixel at the game camera. Details
+are drawn a little bolder than life (seams 4–7 mm, brows 6–8 mm), since 1 px ≈ 5 mm.
+`M_RankTile_*`, `M_Glow` and `M_Lens` stay flat colour. Material copies keep the
+textures shared, so cloning per actor costs no texture memory.
+
+The sheen of cloth slots is exported as `sheenColorFactor` ≈ 0.08 (the glTF exporter
+writes the Blender sheen *tint*, not the weight; a white tint washed every uniform out).
+
 ## Budgets
 
-≤ 15 000 triangles and ≤ 2 MB per character, no textures. See `characters.json` for
-the measured values.
+≤ 15 000 triangles and ≤ 2 MB per glb (atlas included: humans ≈ 0.8–1.2 MB, drones
+≈ 0.2–0.4 MB). See `characters.json` for the measured values.
 
-Draw calls: one per material primitive. An officer is 18 primitives (body 9, cap 2,
-rank plate 7), the technician 11, the trooper 6. For large crowds the runtime may merge
+Draw calls: one per material primitive. An officer is 19 primitives (body 10, cap 2,
+rank plate 7), the technician 12, the trooper 6. For large crowds the runtime may merge
 the six `M_RankTile_n` primitives into one material driven by a per-tile colour array.
 
 ## QA
+
+`lookdev.py` imports the shipped glb files, dresses them as `look.ts` does and renders
+with Cycles through the game camera: the lineup at 200 px/m (front and back), a close
+set at 400 px/m, upper bodies at 800 px/m (`--only front,back,close,detail,detailback,gear`,
+`--dir` to render another set of files, e.g. a previous build).
 
 `build.py --qa` renders, with Cycles at the game camera (orthographic, 60 degrees below
 the horizon), on a glossy black deck under overhead panels:
 `art/verse/.cache/characters/qa/contact_1x.png` (96 px/m), `contact_3x.png` (288 px/m)
 and `walk_filmstrip.png`. `check_glb.mjs` loads every file with three.js and checks bones,
-clip bindings, triangle counts, facing, floor contact, sitting height and walk foot slide.
+clip bindings, triangle counts, facing, floor contact, sitting height, walk foot slide and
+that every model carries its three atlas images with UVs on every textured primitive
+(Node cannot decode images, so the atlases are stripped before three.js parses a file).
+The atlases are also written as PNG to `art/verse/.cache/characters/atlas/`.

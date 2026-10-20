@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PlateCamera } from "./plateMath";
-import { ViewController } from "./viewController";
+import { OVERVIEW_MAGNIFY_LIMIT } from "./tiles";
+import { followScaleFor, FOLLOW_MIN_PX_M, ViewController } from "./viewController";
 import {
   clampView, damp, density, panBy, plateToScreen, scaleLimits, screenToPlate, settled, viewRect, zoomAt, MAX_DENSITY,
   type View, type Viewport,
@@ -168,5 +169,105 @@ describe("first framing", () => {
     const zoomed = v.current.scale;
     v.resize({ ...wide, width: 1500 });
     expect(v.current.scale).toBeCloseTo(zoomed, 6);
+  });
+});
+
+describe("close third-person camera", () => {
+  // A bridge-sized deck rendered for the close camera (192 px/m), and the same deck as an older 96 px/m cook.
+  const close: PlateCamera = { center: [0, 0, 0], pitchDeg: 60, frameW: 73, frameH: 42.1666, pxPerMetre: 192 };
+  const older: PlateCamera = { ...close, pxPerMetre: 96 };
+  const window2560: Viewport = { width: 2560, height: 1392, dpr: 1 };
+  const sidePanel: Viewport = { width: 600, height: 900, dpr: 1 };
+
+  it("frames the commander like a game character on a large window: about 205 px per metre", () => {
+    const s = followScaleFor(close, window2560);
+    expect(s).toBeCloseTo(2560 / 12.5, 6);
+    // A standing 1.8 m figure spans about 1.1 m on screen at 60° pitch.
+    expect(1.1 * s).toBeGreaterThanOrEqual(200);
+    expect(1.1 * s).toBeLessThanOrEqual(260);
+  });
+
+  it("stays sensible in small and odd panels", () => {
+    expect(followScaleFor(close, sidePanel)).toBeCloseTo(72, 6);
+    // A wide, low strip still shows 5 m of floor top to bottom.
+    expect(followScaleFor(close, { width: 2560, height: 400, dpr: 1 })).toBeCloseTo(80, 6);
+    expect(followScaleFor(close, { width: 300, height: 200, dpr: 1 })).toBe(FOLLOW_MIN_PX_M);
+  });
+
+  it("never follows closer than the plate is sharp: an older deck and a HiDPI screen clamp", () => {
+    expect(followScaleFor(older, window2560)).toBeCloseTo(OVERVIEW_MAGNIFY_LIMIT * 96, 6);
+    expect(followScaleFor(close, { width: 1440, height: 900, dpr: 2 })).toBeCloseTo((OVERVIEW_MAGNIFY_LIMIT * 192) / 2, 6);
+    for (const c of [close, older]) {
+      for (const vp of [window2560, sidePanel, { width: 3840, height: 2160, dpr: 1.5 }, { width: 800, height: 600, dpr: 3 }]) {
+        const s = followScaleFor(c, vp);
+        const { min, max } = scaleLimits(c, vp);
+        expect(s).toBeGreaterThanOrEqual(min);
+        expect(s).toBeLessThanOrEqual(max);
+        if (s > min) expect(density(c, vp, { cu: 0, cv: 0, scale: s })).toBeLessThanOrEqual(OVERVIEW_MAGNIFY_LIMIT + 1e-9);
+      }
+    }
+  });
+
+  function walking(reduced = false) {
+    const v = new ViewController();
+    v.reduced = reduced;
+    v.setPlate(close, { u: 0, v: 0 });
+    v.resize(window2560);
+    v.reframeOn(0, 0);
+    expect(v.target.scale).toBeCloseTo(followScaleFor(close, window2560), 6);
+    return v;
+  }
+
+  it("leads a walking commander a little, smoothly, and eases back onto them when they stop", () => {
+    const v = walking();
+    let u = 0;
+    let lastLead = 0;
+    // Uneven frames at a steady 1.4 m/s to the right: the lead only grows, it never jitters.
+    for (let i = 0; i < 240; i++) {
+      const dt = i % 2 ? 1 / 120 : 1 / 40;
+      u += 1.4 * dt;
+      v.follow(u, 0, dt);
+      v.step(dt);
+      const lead = v.target.cu - u;
+      expect(lead).toBeGreaterThanOrEqual(lastLead - 1e-12);
+      lastLead = lead;
+    }
+    const halfW = window2560.width / (2 * v.target.scale);
+    expect(lastLead).toBeGreaterThan(0.4);
+    expect(lastLead).toBeLessThanOrEqual(0.22 * halfW + 1e-9);
+    expect(v.target.cv).toBeCloseTo(0, 9);
+    expect(v.leading).toBe(true);
+    // Stopped: the camera settles back on them.
+    for (let i = 0; i < 400 && v.leading; i++) { v.follow(u, 0, 1 / 60); v.step(1 / 60); }
+    expect(v.leading).toBe(false);
+    for (let i = 0; i < 200; i++) v.step(1 / 60);
+    expect(v.current.cu).toBeCloseTo(u, 1);
+  });
+
+  it("does not lead on a teleport, a sit-down jump, after a drag, or with reduced motion", () => {
+    const v = walking();
+    v.follow(10, 0, 1 / 60);
+    expect(v.leading).toBe(false);
+    v.follow(10, 0.3, 1 / 60);
+    expect(v.leading).toBe(false);
+    for (let i = 1; i <= 60; i++) v.follow(10 + i * 0.03, 0.3, 1 / 60);
+    expect(v.leading).toBe(true);
+    v.drag(40, 0);
+    expect(v.leading).toBe(false);
+    const still = walking(true);
+    for (let i = 1; i <= 60; i++) still.follow(i * 0.03, 0, 1 / 60);
+    expect(still.leading).toBe(false);
+    expect(still.target.cu).toBeCloseTo(1.8, 9);
+  });
+
+  it("toggles to the bird's-eye view and back to the close follow", () => {
+    const v = walking();
+    v.overview();
+    for (let i = 0; i < 200; i++) v.step(0.05);
+    expect(v.current.scale).toBeCloseTo(scaleLimits(close, window2560).min, 6);
+    v.reframeOn(3, 2);
+    for (let i = 0; i < 200; i++) v.step(0.05);
+    expect(v.current.scale).toBeCloseTo(followScaleFor(close, window2560), 6);
+    expect(v.current.cu).toBeCloseTo(3, 6);
   });
 });

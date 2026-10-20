@@ -7,9 +7,12 @@
  * half-built scene.
  */
 import type { DeckId } from "../decks";
-import { STATION_KINDS, type Deck, type NavGrid, type Socket, type Station, type StationKind } from "./deck";
+import { STATION_KINDS, type Deck, type NavGrid, type PlateImages, type PlateLevel, type Socket, type Station, type StationKind } from "./deck";
 import { fetchImageBitmap } from "../engine/imageFetch";
-import { manifestUrl as resolveUrl, parseDeckManifest, tileUrl, type DeckManifest, type ManifestNav, type ManifestSocket } from "./manifest";
+import {
+  fillTileUrl, manifestUrl as resolveUrl, parseDeckManifest,
+  type DeckManifest, type ManifestCamera, type ManifestNav, type ManifestPlate, type ManifestSocket,
+} from "./manifest";
 
 export class DeckLoadError extends Error {
   constructor(message: string) {
@@ -50,6 +53,36 @@ function socketOf(raw: ManifestSocket): Socket {
   };
 }
 
+/**
+ * The plate's images: L0, the optional mips by growing divisor (only those
+ * finer than the overview, which covers everything coarser), the overview.
+ * Pure apart from URL resolution.
+ */
+export function plateImages(camera: ManifestCamera, plate: ManifestPlate, url: (relative: string) => string): PlateImages {
+  const tileSize = plate.tile_px;
+  const l0: PlateLevel = {
+    divisor: 1, width: camera.plate_w_px, height: camera.plate_h_px, tileSize, cols: plate.cols, rows: plate.rows,
+    tileUrl: (col, row) => url(fillTileUrl(plate.tile_url, col, row)),
+  };
+  const mips: PlateLevel[] = (plate.mips ?? [])
+    .filter((mip) => mip.w_px > plate.l1_w_px)
+    .map((mip) => ({
+      divisor: mip.divisor, width: mip.w_px, height: mip.h_px, tileSize, cols: mip.cols, rows: mip.rows,
+      tileUrl: (col: number, row: number) => url(fillTileUrl(mip.tile_url, col, row)),
+    }))
+    .sort((a, b) => a.divisor - b.divisor);
+  return {
+    width: l0.width,
+    height: l0.height,
+    overview: { url: url(plate.l1_url), width: plate.l1_w_px, height: plate.l1_h_px },
+    tileSize,
+    cols: l0.cols,
+    rows: l0.rows,
+    tileUrl: l0.tileUrl,
+    levels: [l0, ...mips],
+  };
+}
+
 /** Validate a manifest and turn it into a deck (nav still to decode). Pure apart from URL resolution. */
 export function deckFromManifest(json: unknown, at: string, deckId: DeckId, contentId: string): Omit<Deck, "nav"> & { navUrl: string; navMeta: ManifestNav } {
   let m: DeckManifest;
@@ -77,15 +110,7 @@ export function deckFromManifest(json: unknown, at: string, deckId: DeckId, cont
       frameH: m.camera.frame_h_m,
       pxPerMetre: m.camera.px_per_m,
     },
-    plate: {
-      width: m.camera.plate_w_px,
-      height: m.camera.plate_h_px,
-      overview: { url: url(m.plate.l1_url), width: m.plate.l1_w_px, height: m.plate.l1_h_px },
-      tileSize: m.plate.tile_px,
-      cols: m.plate.cols,
-      rows: m.plate.rows,
-      tileUrl: (col, row) => url(tileUrl(m.plate, col, row)),
-    },
+    plate: plateImages(m.camera, m.plate, url),
     occludersUrl: url(m.occluders.url),
     envUrl: url(m.env.url),
     exposure: m.camera.exposure,

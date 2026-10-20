@@ -541,13 +541,9 @@ def _hangar_deck(g) -> None:
     white, yellow, red = _mask(g, "paint", uv)
     dirt, oil, polish = _mask(g, "grime", uv)
 
-    # Ragged, crisp paint edges and worn-through patches.
+    # Ragged, crisp paint edges and worn-through chips (crisp at 192 px/m).
     jitter = g.mul(g.math("SUBTRACT", g.noise(pos, 30.0, detail=4, rough=0.7), 0.5), 0.5)
-    wear = g.remap(g.noise(pos, 1.9, detail=8, rough=0.74), 0.5, 0.66, smooth=True)
-    scuff = materials._scratches(g, pos, contrast=(0.5, 0.8))
-    keep = g.math(
-        "SUBTRACT", 1.0, g.math("MAXIMUM", g.mul(wear, 0.85), g.mul(scuff, 0.6)), clamp=True
-    )
+    keep, scuff, _ = materials.paint_wear(g, pos)
 
     def crisp(mask):
         return g.mul(g.remap(g.add(mask, jitter), 0.4, 0.6, smooth=True), g.mul(keep, mask))

@@ -34,7 +34,7 @@ art/verse/
   decks/<id>/ build.py (+ helpers)      characters/  character builders
   schema/     deck.schema.json
   .cache/     blend/ cook/ textures/ logs/ mcp/ notes/ gpu.lock   (git-ignored)
-scripts/verse/  blender.py cook.py package.py validate.py mcp_bridge.py textures.py avif_test.py
+scripts/verse/  blender.py cook.py package.py validate.py closeup.py mcp_bridge.py textures.py avif_test.py
 tests/verse/  test_verse_content.py
 dodaios/ui/web/frontend/public/verse/decks/<id>/   cooked deck (committed)
 dodaios/ui/web/frontend/src/components/society/verse/content/manifest.ts
@@ -145,7 +145,21 @@ python scripts/verse/cook.py deck <id> [--quality preview|final] [--keep-blend] 
 | Quality | Density | Samples (adaptive) | Use |
 |---|---|---|---|
 | preview | 48 px/m | 96, threshold 0.03 | iteration |
-| final | 96 px/m | 384, threshold 0.01 | committed content |
+| final | 192 px/m | 192, threshold 0.02 | committed content |
+
+The final density is set by the runtime's close third-person camera: it shows
+the plate at up to ~200 CSS px per metre (a 1.8 m figure ~220 px tall on a
+1392 px high window), so L0 is drawn about 1:1 there; the tile pyramid below
+serves the wider views. A plate pixel is 5 mm, which is why the floor paint
+wear (`materials.paint_wear`) uses a crisp edge: a soft threshold leaves
+half-transparent paint that reads as grey clouds at full zoom.
+
+Close-ups before a long cook: `python scripts/verse/closeup.py <id> <out_dir>
+--socket spawn/commander --socket station/<id> [--three x,y,z] [--px x,y]
+[--size 1600x900] [--samples N --threshold T]` builds the deck and renders just
+those windows exactly as the cook would (same density, settings, denoiser,
+glow, AgX and dither) to `<out_dir>/<name>.png`, in ~15–20 s per 1600 × 900
+window.
 
 Render settings: Cycles on OptiX (CUDA, then CPU fallback), OptiX denoiser
 with albedo + normal, fixed seed 0, 12 bounces (glossy 6, diffuse 4), indirect
@@ -174,8 +188,10 @@ Outputs per deck:
 | File | Content |
 |---|---|
 | `manifest.json` | schema `verse.deck/1` (`art/verse/schema/deck.schema.json`) |
-| `plate/L0_{col}_{row}.avif` | full density, 2048 px tiles (edge tiles smaller) |
-| `plate/L1.avif` | whole plate at 1/4 |
+| `plate/L0_{col}_{row}.avif` | full density (`px_per_m`), 2048 px tiles (edge tiles smaller) |
+| `plate/M2_{col}_{row}.avif` | mip level: the plate downscaled by 2 (Lanczos on the 8-bit plate), cut into 2048 px tiles |
+| `plate/M4_{col}_{row}.avif` | mip level: downscaled by 4, 2048 px tiles |
+| `plate/L1.avif` | whole plate at 1/8 (~24 px/m at the final density), one image |
 | `nav.png` | 8-bit grey, 0.2 m cells, row 0 = far (−Z) edge; 0 = blocked, else floor y = (v − 128) · 0.025 m; already eroded by the 0.25 m body clearance |
 | `occluders.glb` | all `UCX_*` merged into one mesh, positions only, +Y up |
 | `env.hdr` | 512 × 256 Radiance equirect at the main room, 1.4 m (three.js layout: centre column +X, then +Z) |
@@ -195,8 +211,35 @@ Light probes: one per room at `probe_at` or the room centre, 1.4 m above its flo
 panorama projected to 9 RGB radiance coefficients in three.js
 `SphericalHarmonics3` order (`lightProbe.sh.fromArray(sh.flat())`).
 
+Plate pyramid (manifest `plate`, schema `verse.deck/1`, backwards
+compatible): `tile_px`, `cols`, `rows`, `tile_url` describe L0;
+`mips` lists the tiled levels finest first, each `{divisor, w_px, h_px, cols,
+rows, tile_url}` with `w_px = round(plate_w_px / divisor)`,
+`cols = ceil(w_px / tile_px)`; `l1_url`, `l1_w_px`, `l1_h_px` describe the
+overview (`round(plate_w_px / 8)`). Manifests cooked before the pyramid have
+no `mips` and an L1 at 1/4; the runtime still reads them, the validator asks
+for a recook. The engine picks the level to stream per zoom
+(`engine/tileStreamer.ts`).
+
+Measured final cooks (192 px/m, 192 samples, RTX 5070 Ti shared with the
+desktop; plate = L0 + M2 + M4 + L1 on disk):
+
+| Deck | Plate px | Regions | Plate render | Whole cook | Plate |
+|---|---|---|---|---|---|
+| bridge | 14016 × 8096 | 12 | 11 min | 13 min | 2.7 MB |
+| ops | 18624 × 10688 | 15 | 26 min | 30 min | 3.7 MB |
+| engineering | 16320 × 10432 | 15 | 20 min | 23 min | 3.6 MB |
+| hangar | 19392 × 12240 | 20 | 27 min | 30 min | 3.5 MB |
+
+L0 is ~60 % of a plate, M2 ~25 %, M4 ~10 %, L1 ~4 %; packaging (stitch,
+plate.png, 80+ AVIF tiles) takes 1.5–3 min. Sample count was chosen against a
+1024-sample, threshold 0.004 reference of the same windows: 160–256 samples
+are within 48–51 dB PSNR and visually identical at 1:1 (the streaks in floor
+reflections are the coat's wipe marks, not noise).
+
 AVIF: quality 72, speed 4, 4:4:4 (indicator lights stay crisp; 4:2:0 saves
-only ~1 %). Measure on a real plate with
+only ~1 %); at 192 px/m a busy bridge L0 tile keeps 48.9 dB luma PSNR.
+Measure on a real plate with
 `python scripts/verse/avif_test.py art/verse/.cache/cook/<id>/final/plate.png`
 and keep luma PSNR ≥ 44 dB.
 
@@ -204,7 +247,8 @@ Reproducibility: fixed seeds and settings. Two final cooks of the testbed gave
 identical manifests apart from `stats` and probe coefficients in the fifth
 decimal, and plates within 1/255 on 0.5 % of the pixels (GPU float order), so
 compare plates with a tolerance, never byte for byte. Measured on the testbed
-(26 × 17.7 m frame, 2592 × 1696 px, RTX 5070 Ti): final plate render 31–35 s
+at the former 96 px/m final density (26 × 17.7 m frame, 2592 × 1696 px,
+RTX 5070 Ti): final plate render 31–35 s
 (longer while the GPU is shared), whole cook ~40 s, 0.43 MB on disk; preview
 4–10 s. A 100 × 62 m frame at 64 samples renders in ~33 s.
 
@@ -227,10 +271,10 @@ No other file changes: the engine discovers decks by id and manifest.
 
 | Gate | Limit | Checked by |
 |---|---|---|
-| Whole `public/verse` | ≤ 30 MB | validator, pytest |
-| Plate per deck (L0 + L1) | ≤ 6 MB | validator |
+| Whole `public/verse` | ≤ 90 MB | validator, pytest |
+| Plate per deck (L0 + M2 + M4 + L1) | ≤ 16 MB | validator |
 | Character `.glb` | ≤ 2 MB each, `SK_`/`SM_`/`A_`/`T_` prefix | validator |
-| Manifest | JSON Schema, ids match folders, tile count and sizes, nav size, occluders without materials and named `UCX_*`, env is Radiance HDR | validator |
+| Manifest | JSON Schema, ids match folders, tile count and sizes of every level (mips per the contract, no stray files), nav size, occluders without materials and named `UCX_*`, env is Radiance HDR | validator |
 | References | sockets → rooms and stations, stations → sockets, probes → rooms, unique ids | cook + validator |
 | Framing | every socket and screen corner inside the plate | cook + validator + pytest |
 | Visual | Plate checked against the contact sheet; app checked in Chrome | QA |

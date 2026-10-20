@@ -80,7 +80,7 @@ export function Toolbar({ t, mode, onToggleView, onLift, onCommander, onHelp }: 
   );
 }
 
-/** Development readout: frame time, draw calls, triangles, tiles, actors. */
+/** Development readout: frame time, draw calls, triangles, tiles and the plate level streamed, actors. */
 export function StatsReadout({ runtime }: { runtime: StageRuntime }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -90,7 +90,7 @@ export function StatsReadout({ runtime }: { runtime: StageRuntime }) {
       if (now - last < 500 || !ref.current) return;
       last = now;
       const s = runtime.stats;
-      ref.current.textContent = `${s.frameMs.toFixed(1)} ms (${s.cpuMs.toFixed(1)} cpu)  ${s.drawCalls} calls  ${(s.triangles / 1000).toFixed(1)}k tris\n${s.tiles} tiles (${s.tilesLoading} loading)  ${s.actors} actors`;
+      ref.current.textContent = `${s.frameMs.toFixed(1)} ms (${s.cpuMs.toFixed(1)} cpu)  ${s.drawCalls} calls  ${(s.triangles / 1000).toFixed(1)}k tris\n${s.tiles} tiles ${s.plateLevel} (${s.tilesLoading} loading)  ${s.actors} actors`;
     };
     runtime.afterFrame.add(show);
     return () => { runtime.afterFrame.delete(show); };

@@ -83,6 +83,8 @@ WATCH_INTERVAL_MS = 200
 CALL_TIMEOUT_S = 5.0
 #: How long a visible placement holds without the page confirming it.
 LEASE_S = 3.0
+#: How long a closed window gets to go away before it is shown again.
+CLOSE_GRACE_S = 2.0
 #: Where the window in use is remembered, so a restarted app takes it back.
 STATE_FILE_NAME = "ide_browser_window.json"
 
@@ -117,6 +119,7 @@ SWP_ASYNCWINDOWPOS = 0x4000
 SW_HIDE = 0
 SW_SHOWNORMAL = 1
 SW_SHOW = 5
+SW_SHOWNA = 8
 SW_RESTORE = 9
 GW_HWNDNEXT = 2
 GW_HWNDPREV = 3
@@ -1102,10 +1105,25 @@ class ChromeEmbed:
         logger.info("Browser panel gave its window back (%s)", "closed" if close else "kept open")
         if close:
             user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+            if not self._closed_within(hwnd, CLOSE_GRACE_S):
+                # The page refused to close (a "Leave site?" prompt). A hidden
+                # window would stay hidden for good, and the browser keeps
+                # sending new windows into it: show it, prompt included.
+                logger.info("Browser panel window did not close; shown again")
+                user32.ShowWindow(hwnd, SW_SHOWNA)
         else:
             user32.ShowWindow(hwnd, SW_SHOW)
             if focus:
                 user32.SetForegroundWindow(hwnd)
+
+    def _closed_within(self, hwnd: int, seconds: float) -> bool:
+        user32 = self._load_api().user32
+        deadline = time.monotonic() + seconds
+        while user32.IsWindow(hwnd):
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.05)
+        return True
 
 
 _embed: ChromeEmbed | None = None

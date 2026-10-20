@@ -26,6 +26,8 @@ export class CommanderControl {
   run = false;
   /** The camera should frame the commander at the third-person zoom as soon as they stand on the deck. */
   reframe = true;
+  /** The person dragged the view to look around: the camera leaves the commander until they walk again. */
+  looking = false;
   private keys = new Set<PanKey>();
 
   setKey(key: PanKey, down: boolean, run = false): void {
