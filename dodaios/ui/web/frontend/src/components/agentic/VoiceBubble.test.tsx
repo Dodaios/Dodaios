@@ -355,7 +355,7 @@ describe("voice bubble", () => {
     await waitFor(() =>
       expect(pushToast).toHaveBeenCalledWith(
         "warning",
-        expect.stringContaining("Could not start"),
+        expect.stringContaining("could not be started"),
       ),
     );
   });
