@@ -1619,7 +1619,7 @@ async def bootstrap_missions(
         # The legacy ``"subjarvis"`` kind (the legacy ``openclaw-claude`` alias /
         # unknown provider / unset default) routed to the Jarvis-Agent
         # subprocess worker, which was removed (it caused the ~92%
-        # nested-claude hang; see docs/BUGS.md).
+        # nested-claude hang).
         # Open-source AP-22/AP-23: try the user's ACTUAL provider family before
         # the Claude last resort, so an openrouter/gemini/openai-only downloader
         # is not dead-ended on the absent `claude` binary. A subscription

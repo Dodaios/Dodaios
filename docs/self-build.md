@@ -162,6 +162,60 @@ At `full` a used trial is kept on its own too.
 `POST /{id}/accept`, `POST /{id}/keep`, `POST /{id}/undo`. Every change
 publishes `SelfBuildChanged` on the app bus, and the WebSocket forwards it.
 
+`GET /settings` and `PUT /settings` read and change `[self_build]`. The PUT is
+validated against `SelfBuildConfig`, written to `jarvis.toml` through
+`config_writer.set_self_build_settings` and applied at once: the loop reads
+the config through a getter. `GET /provenance?type=skill` lists the artefacts
+builds created, keyed `"<type>:<id>"`, for the "built by Dodaios" badge.
+
+The settings, the pause and accepting or keeping a build are excluded from the
+brain's app actions, and `self_build.*` is on the self-mod deny list: only the
+person decides how far the loop goes (rule 3). Reading the ledger and undoing
+a build stay reachable, so "what did you build?" works when asked.
+
+The society kill switch (`POST /api/society/kill-switch`) also pauses the
+loop. Releasing it does not resume the loop; the person resumes it in "Built
+for you".
+
+### Artefact ids
+
+The badge joins on the artefact a builder records with `attach_artefact`. Use
+these ids so the badge finds its build:
+
+| `type` | `id` |
+|---|---|
+| `skill` | the skill's `name` as `/api/skills` lists it |
+| `routine` | the routine's task id (`/api/society/agents/{id}/routines`) |
+| `agent` | the society `agent_id` |
+| `memory` | the wiki or memory path |
+| `code` | the pull request URL |
+
+Extra keys (`label`, `url`, `repo`) are allowed and shown in the build's
+detail.
+
+## In the app
+
+- **Built for you** (sidebar, under Agents; section id `self-build`) lists
+  every build on the shelf of what it asks of the person: waiting for a yes,
+  on trial, being built, kept, archived and undone. A row shows the build's
+  one sentence, its kind, how often the need was seen and a small lifecycle
+  rail; proposals and trials carry their actions inline. A build opens into
+  its case file: why, what it noticed, how it was checked, what it made, use,
+  cost and every state change. Undo is one click with no confirmation.
+- The **digest** is one line at the top: what was built, proposed, kept,
+  archived or undone in the last 24 hours, and how much is live. The nav row
+  shows how many proposals wait. Nothing is announced: no toast, no sound, no
+  voice.
+- **Pause building** is the loop's kill switch. **Stop all agents** engages
+  the society kill switch after a confirmation (which pauses building too);
+  while it is engaged the page says so and offers Release.
+- **Settings → General → Self-building** edits `[self_build]`.
+- A **"Built by {assistant}"** badge marks skills (Skills list and detail),
+  routines (an agent's routines) and agents (the agent card) that a build
+  created, and opens that build.
+- Live: the WebSocket forwards `SelfBuildChanged` and the page re-reads the
+  ledger.
+
 ## Rules enforced in code
 
 1. Background work for the loop never bills a per-token key. It runs on

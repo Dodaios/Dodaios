@@ -191,7 +191,7 @@ COST_READER_FOR_HARNESS: dict[str, str] = {
     # GLM runs the Claude Code binary against z.ai with the same config
     # directory, so its sessions land in ~/.claude and are read — and priced —
     # as Claude Code. Attributing them to z.ai needs a config dir of their own
-    # at spawn (docs/BUGS.md BUG-178, still open).
+    # at spawn (BUG-178, still open).
     "glm": AGENT_CLAUDE,
 }
 HARNESSES_WITHOUT_LOCAL_TRANSCRIPT: dict[str, str] = {

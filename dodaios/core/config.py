@@ -2026,7 +2026,7 @@ class JarvisAgentHarnessConfig(BaseModel):
     ⚠️ INERT TODAY (2026-06-28): Jarvis-Agent is NOT a registered harness —
     there is no ``jarvis_agent`` (formerly ``openclaw``) entry-point in
     pyproject.toml (Welle-4 removed the subprocess
-    worker, ~92% hang; see docs/BUGS.md). This block is a Wave-2 schema stub:
+    worker, ~92% hang). This block is a Wave-2 schema stub:
     setting ``enabled = true`` has NO effect — the harness cannot be dispatched
     and "start a subagent" routes to ``spawn_worker`` regardless. The boot path
     logs a warning when ``enabled`` is true but the harness is unregistered

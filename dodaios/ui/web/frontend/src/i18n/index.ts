@@ -123,7 +123,8 @@ export type LocaleChunk =
   | "providers"
   | "pane_review"
   | "memory"
-  | "ship";
+  | "ship"
+  | "self_build";
 
 const SHIP_LOCALES = import.meta.glob("./locales/ship/*.json");
 
@@ -221,6 +222,14 @@ const CHUNK_LOADERS: Record<LocaleChunk, Record<UiLanguage, () => Promise<unknow
     es: () => import("./locales/memory/es.json"),
     zh: () => import("./locales/memory/zh.json"),
     pt: () => import("./locales/memory/pt.json"),
+  },
+  // "Built for you": what the self-building loop made, opened from its nav row.
+  self_build: {
+    en: () => import("./locales/self_build/en.json"),
+    de: () => import("./locales/self_build/de.json"),
+    es: () => import("./locales/self_build/es.json"),
+    zh: () => import("./locales/self_build/zh.json"),
+    pt: () => import("./locales/self_build/pt.json"),
   },
 };
 

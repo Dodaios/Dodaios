@@ -211,7 +211,7 @@ Desktop.ini
 # ...except the security-github skill: RETIRED 2026-08-05. It orchestrated the
 # depersonalized public-release push — a staging build, a parallel clone, a
 # frontend build, and a sub-agent that read every tracked file hunting for
-# personal data, on every push. A push is `git push` now (AGENTS.md §2). The
+# personal data, on every push. A push is `git push` now. The
 # ignore rules stay as a tombstone so a stray local copy can never be
 # versioned; do not re-add the skill without the maintainer's say-so.
 .claude/skills/security-github/
@@ -450,7 +450,7 @@ docs/reports/*marketing-readiness*
 # The file that defines what must never be public was itself the most complete
 # public inventory of that data. distribution-denylist.txt has withheld
 # `scripts/ci/privacy_gate/**` since the build-a-snapshot era, but that era ended
-# when releasing became a plain `git push` (AGENTS.md §2), so nothing filtered
+# when releasing became a plain `git push`, so nothing filtered
 # them any more and they stayed live on the public default branch.
 #
 # They remain on disk: the local pre-push docs scan and strip_and_scan.py still

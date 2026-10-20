@@ -46,6 +46,8 @@ class FakeGitHub:
     pulls: dict[int, dict[str, Any]] = field(default_factory=dict)
     calls: list[str] = field(default_factory=list)
     open_refs: tuple[PullRef, ...] = ()
+    #: What :meth:`issue` answers now, when it differs from the poll.
+    fresh: dict[int, Any] = field(default_factory=dict)
 
     def viewer(self) -> Viewer:
         self.calls.append("viewer")
@@ -96,6 +98,15 @@ class FakeGitHub:
     def close_pull(self, pull_id: str) -> None:
         self.calls.append(f"close {pull_id}")
         self.pulls[int(pull_id.split("_")[1])]["state"] = "CLOSED"
+
+    def issue(self, repo: str, number: int) -> Issue | None:
+        self.calls.append(f"issue {repo}#{number}")
+        if number in self.fresh:
+            found = self.fresh[number]
+            if isinstance(found, Exception):
+                raise found
+            return found
+        return next((i for i in self.issues.get(repo, []) if i.number == number), None)
 
     def merge_pull(self, pull_id: str, *, head_oid: str) -> None:
         self.calls.append(f"merge {pull_id}")
@@ -795,3 +806,75 @@ def test_no_seat_means_no_plan_call(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(brain, "ask", refuse)
     plan = asyncio.run(planner.plan("b1", make_issue(), "brief", config=lambda: None))
     assert plan == Plan()
+
+
+# ------------------------------------------------------------------ re-check before the build
+
+
+@pytest.mark.parametrize(
+    ("now", "note"),
+    [
+        (None, "is closed"),
+        ("closed", "is closed"),
+        ("someone", "assigned to someone else"),
+        ("unlabelled", "no longer fits"),
+        ("risky", "no longer fits"),
+    ],
+)
+def test_an_issue_that_changed_before_the_build_is_not_built(
+    world: World, now: str | None, note: str
+) -> None:
+    world.cfg.self_build = SelfBuildConfig(silent_days=0, code="suggest")
+    world.tick()
+    [record] = world.records()
+    assert record.state == State.PROPOSED
+    world.github.fresh[1] = {
+        None: None,
+        "closed": make_issue(state="CLOSED"),
+        "someone": make_issue(assignees=1, assigned_to=("someone",)),
+        "unlabelled": make_issue(labels=()),
+        "risky": make_issue(body="Rotate the deploy credentials on the production servers."),
+    }[now]
+    asyncio.run(world.service.accept(record.id))
+    world.tick()
+    record = world.service.ledger.get(record.id)
+    assert record.state == State.FAILED
+    assert record.note.startswith("not built: ") and note in record.note
+    assert world.runner.prompts == [] and world.github.pulls == {}
+    assert world.remote_branches() == ["main"]
+    assert not (world.work / ".worktrees").exists()
+    assert world.loop.ctx.store.profile("me/proj")["lessons"] == []  # not a lesson
+
+
+def test_an_issue_the_person_took_on_themselves_is_still_built(world: World) -> None:
+    world.github.fresh[1] = make_issue(assignees=1, assigned_to=("Me",))
+    world.tick()
+    [record] = world.records()
+    assert record.state == State.PROVING
+    assert "issue me/proj#1" in world.github.calls
+
+
+def test_a_repository_no_longer_owned_is_not_built(world: World) -> None:
+    world.cfg.self_build = SelfBuildConfig(silent_days=0, code="suggest")
+    world.tick()
+    [record] = world.records()
+    asyncio.run(world.service.accept(record.id))
+    world.github.login = "someone-else"
+    world.loop.ctx._viewer = None
+    world.tick()
+    record = world.service.ledger.get(record.id)
+    assert record.state == State.FAILED and "no longer the person's own" in record.note
+    assert world.runner.prompts == []
+
+
+def test_github_not_answering_the_recheck_keeps_the_case_waiting(world: World) -> None:
+    from dodaios.agentic_ide.github_link import GitHubError
+
+    world.github.fresh[1] = GitHubError("GitHub could not be reached.", code="unreachable")
+    world.tick()
+    [record] = world.records()
+    assert record.state == State.BUILDING and record.artefact == {}
+    assert world.runner.prompts == []
+    del world.github.fresh[1]
+    world.tick()
+    assert world.service.ledger.get(record.id).state == State.PROVING

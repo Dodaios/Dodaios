@@ -2104,7 +2104,8 @@ _DEPTH_CONFIRM: dict[str, dict[str, str]] = i18n_catalog.nested_table("brain.dep
 # cached system prefix stays byte-stable.
 _CORE_CONTRACT = (
     "Never claim an action or result unless a tool call in this turn returned it; "
-    "otherwise say it has not happened.\n"
+    "otherwise say it has not happened. A denied or failed call returned nothing: "
+    "never supply its answer yourself; say what was blocked and why.\n"
     "Research and fresh facts (news, prices, weather): search_web, never cli_*; cli_* "
     "and plugin tools act on the user's own accounts; evergreen knowledge needs no tool. "
     "Work for one of your agents: delegate_to_agent; spawn_worker only for heavy "
@@ -3887,7 +3888,7 @@ class BrainManager:
         if persona_block:
             parts.append(persona_block)
 
-        # User's own standing-instructions file (AGENTS.md / CLAUDE.md equivalent),
+        # User's own standing-instructions file (CLAUDE.md equivalent),
         # named after the assistant (e.g. Assistant.md). Distinct from the persona: the
         # user writes personal preferences here, and the block is framed so they
         # refine behaviour but never override safety/confirmations. Read fresh each
@@ -12037,7 +12038,7 @@ class BrainManager:
             return agg.text
 
         # ONE output-language resolution for every honesty phrase this turn
-        # (AGENTS.md §1: one resolver decides the turn for ALL layers). The two
+        # (one resolver decides the turn for ALL layers). The two
         # guards below used to resolve separately with DIFFERENT defaults
         # ("de" here, DEFAULT_LOCALE there), so an undetectable turn could speak
         # a German evidence fallback followed by an English honesty phrase in the

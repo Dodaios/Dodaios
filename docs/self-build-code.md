@@ -72,6 +72,10 @@ up to three days; a case that never got to run may be offered again later. The
 kill switch stops a running build at its next step and puts the case back in
 the queue; an undo stops it the same way and removes what it made.
 
+0. The issue is read again from GitHub. Closed, assigned to someone other than
+   the person, no longer passing triage, or a repository that is no longer the
+   person's own: the case fails with a `not built: ...` note and nothing is
+   done. GitHub not answering only puts the case back in the queue.
 1. A fresh worktree and a new branch `dodaios/issue-<n>-<slug>` from the
    repository's default branch as GitHub reports it, fetched from `origin`,
    inside the repository (`<repo>/.worktrees/`). A branch of that name that

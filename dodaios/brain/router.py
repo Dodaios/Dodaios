@@ -146,7 +146,7 @@ class RouterBrain:
     # ------------------------------------------------------------------
 
     def _output_locale(self, utterance: str) -> str:
-        """The turn's output language, via the ONE resolver (AGENTS.md §1.3).
+        """The turn's output language, via the ONE resolver.
 
         Anything Jarvis says to the user (clarifying questions, the tool ack,
         the completion marker) resolves through ``resolve_output_language``,

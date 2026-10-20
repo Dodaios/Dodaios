@@ -1623,7 +1623,7 @@ class CriticRunner:
         # Any other provider (grok / gemini / openrouter / unset) falls back to
         # the direct claude critic. The Jarvis-Agent worker subprocess critic path was
         # removed alongside the Jarvis-Agent worker — it shared the ~92% nested-
-        # claude hang failure mode (see docs/BUGS.md). The direct claude CLI
+        # claude hang failure mode. The direct claude CLI
         # path is the proven critic surface.
         #
         # Use the claude critic model from `choose_critic_model` (`model`) here —
