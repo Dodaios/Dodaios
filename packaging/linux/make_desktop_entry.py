@@ -36,7 +36,6 @@ from dodaios import __version__  # noqa: E402  - needs REPO_ROOT on sys.path fir
 from dodaios.core.branding import (  # noqa: E402
     LINUX_APP_NAME,
     LINUX_WM_CLASS,
-    PRODUCT_SLUG,
 )
 from dodaios.core.desktop_entry import escape_value, exec_value  # noqa: E402
 
@@ -47,13 +46,20 @@ COMMENT = "Turn your computer into an AI agent"
 #: registers; changing it would move the app in the menu between install kinds.
 CATEGORIES = "Utility;"
 
-#: The app search matches Name, and only some shells also match Comment. The
-#: product name is two words, so somebody typing the half they remember needs
+#: The app search matches Name, and only some shells also match Comment.
+#: Somebody typing the name they remember from earlier releases ("jarvis") needs
 #: these keywords to find it at all.
 KEYWORDS = "jarvis;assistant;voice;agent;automation;"
 
 
-def render(exec_name: str = "Jarvis", icon_name: str = PRODUCT_SLUG) -> str:
+#: The icon's theme name: the AppImage and the Debian package install the PNG
+#: as ``<ICON_NAME>.png`` (``packaging/linux/build.sh``, ``ICON_FILE_NAME``).
+#: It follows the window class, so the entry, its icon and the window share
+#: one name.
+ICON_NAME = LINUX_WM_CLASS
+
+
+def render(exec_name: str = "Jarvis", icon_name: str = ICON_NAME) -> str:
     """Return the full Desktop Entry text for the AppImage."""
 
     return (
@@ -89,8 +95,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--icon",
         dest="icon_name",
-        default=PRODUCT_SLUG,
-        help=f"Icon name without extension (default: {PRODUCT_SLUG})",
+        default=ICON_NAME,
+        help=f"Icon name without extension (default: {ICON_NAME})",
     )
     args = parser.parse_args(argv)
 

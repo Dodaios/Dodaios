@@ -1,0 +1,135 @@
+{
+  "verse": {
+    "stage": {
+      "title": "Dodaios Verse",
+      "loading": "Loading deck",
+      "unavailable": "The ship needs WebGL, which this window cannot start right now.",
+      "deck_missing": "This deck has not been built yet.",
+      "help": "Third person: WASD or the arrow keys walk the commander, Shift hurries, E works the station within reach. V switches to the bird's-eye view and back. Drag to look around, scroll to zoom. Click the deck to walk there, click a crew member for their record."
+    },
+    "deck": {
+      "label": "Deck {n}",
+      "bridge": "Command Bridge",
+      "bridge_about": "Officers at their consoles, the briefing room",
+      "ops": "Operations Deck",
+      "ops_about": "Mess hall, crew quarters, records hall, simulators",
+      "engineering": "Reactor Engineering",
+      "engineering_about": "Technicians at the terminals: your coding agents",
+      "hangar": "Main Hangar",
+      "hangar_about": "New crew arrive here by shuttle"
+    },
+    "state": {
+      "working": "On duty",
+      "waiting": "Needs you",
+      "idle": "Off duty",
+      "paused": "Stood down",
+      "error": "Fault"
+    },
+    "crew": {
+      "aboard": "{count} aboard",
+      "working": "{count} on duty",
+      "waiting": "{count} need you"
+    },
+    "station": {
+      "agents_list": {
+        "name": "Command station",
+        "action": "Open the crew list"
+      },
+      "team": {
+        "name": "Briefing table",
+        "action": "Open the team"
+      },
+      "service_record": {
+        "name": "Records hall",
+        "action": "Open your service record"
+      },
+      "mess_call": {
+        "name": "Mess hall",
+        "action": "Call the off-duty crew to the mess"
+      },
+      "games": {
+        "name": "Simulator room",
+        "action": "Start a simulation"
+      },
+      "quartermaster": {
+        "name": "Quartermaster",
+        "action": "Choose your uniform"
+      },
+      "coding_launcher": {
+        "name": "Master systems console",
+        "action": "Start coding agents"
+      },
+      "create_agent": {
+        "name": "Arrivals desk",
+        "action": "Bring a new officer aboard"
+      },
+      "lift": {
+        "name": "Turbolift",
+        "action": "Ride to another deck"
+      }
+    },
+    "card": {
+      "status": "Status",
+      "rank": "Rank",
+      "post": "Post",
+      "open": "Open chat",
+      "open_pane": "Open terminal",
+      "show": "Show",
+      "walk": "Walk there",
+      "close": "Close"
+    },
+    "post": {
+      "console": "Bridge console",
+      "terminal": "Engineering terminal",
+      "briefing": "Briefing room",
+      "mess": "Mess hall",
+      "corridor": "Main corridor",
+      "viewport": "Forward viewports",
+      "bunk": "Crew quarters",
+      "workshop": "Engineering",
+      "elsewhere": "Elsewhere aboard"
+    },
+    "tools": {
+      "overview": "Bird's-eye",
+      "lift": "Turbolift",
+      "commander": "Commander",
+      "help": "Help"
+    },
+    "lift": {
+      "title": "Turbolift",
+      "here": "This deck"
+    },
+    "notice": {
+      "mess_called": "{count} off-duty crew called to the mess.",
+      "mess_nobody": "Nobody is off duty right now.",
+      "mess_ended": "The crew goes back to their routine.",
+      "no_team": "No team meets at this table yet. Create one in the crew list.",
+      "view_overview": "Bird's-eye view: WASD pans the map. V takes you back to the commander.",
+      "view_follow": "Third person: WASD walks the commander, E works the station within reach. V switches to the bird's-eye view."
+    },
+    "screen": {
+      "standby": "STANDBY",
+      "vacant": "VACANT",
+      "fault": "FAULT",
+      "waiting": "AWAITING ORDERS"
+    },
+    "launcher": {
+      "title": "Master systems console",
+      "workspace": "Workspace",
+      "cli": "Agent",
+      "count": "How many",
+      "task": "First task (optional)",
+      "start": "Start",
+      "starting": "Starting {count}…",
+      "started": "{count} started.",
+      "failed": "Could not start: {reason}",
+      "none": "No coding agent is installed.",
+      "no_workspace": "Open a workspace in the IDE first.",
+      "open_ide": "Open the IDE"
+    },
+    "games": {
+      "title": "Simulator room",
+      "loading": "Loading the simulation…"
+    }
+  }
+}

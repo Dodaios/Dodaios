@@ -95,12 +95,12 @@ async def test_hybrid_declares_catalog_minus_cu_plus_jarvis_action(
     assert not (set(names) & CU_VEHICLE_TOOL_NAMES), names
     # jarvis_action is the narrowed hybrid declaration, not the delegate one.
     action = next(d for d in provider.opened_with.tools if d["name"] == "jarvis_action")
-    assert "call your own matching function directly" in action["description"]
-    assert "operating the user's computer on screen" in action["description"]
+    assert "only for the screen" in action["description"]
+    assert "no function for" in action["description"]
     # The role directive is the hybrid one: functions for the user's world.
     instructions = provider.opened_with.instructions
-    assert "is reached with YOUR OWN functions" in instructions
-    assert "jarvis_action is reserved for operating the computer on screen" in instructions
+    assert "Your functions reach the user's own world" in instructions
+    assert "jarvis_action is only for the screen" in instructions
     # Compact rendering: the 40x description is cut, the schema survives.
     calendar = next(d for d in provider.opened_with.tools if d["name"] == "google_calendar")
     assert len(calendar["description"]) <= COMPACT_DESCRIPTION_CHARS + 1
@@ -186,7 +186,7 @@ async def test_hybrid_leaves_planner_action_turns_to_the_live_model(
     joined = "\n".join(
         str(update["instructions"] or "") for update in provider.session.session_updates
     )
-    assert "call it NOW, in this response" in joined
+    assert "call the matching function now" in joined
     await sess.end(reason="test")
 
 

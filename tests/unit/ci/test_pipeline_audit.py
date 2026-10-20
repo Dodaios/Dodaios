@@ -1036,7 +1036,7 @@ class FakeRelease:
         elif args[:2] == ["git", "show"]:
             output = "## [1.2.3]\n\nRelease notes.\n"
         elif args[:3] == ["gh", "release", "upload"]:
-            for file in map(Path, args[6:8]):
+            for file in map(Path, args[6 : args.index("--clobber")]):
                 digest = hashlib.sha256(file.read_bytes()).hexdigest()
                 self.assets.append({"name": file.name, "digest": f"sha256:{digest}"})
             if self.corrupt_source:
@@ -1070,6 +1070,14 @@ def test_finalization_uploads_and_verifies_source_before_publication(monkeypatch
     assert release_assets.finalize(REPO, TAG, SHA, 0) == 0
     assert fake.commands[-1][:3] == ["gh", "release", "edit"]
     assert sum(command[:3] == ["gh", "release", "upload"] for command in fake.commands) == 1
+    # The source archive under its current name and the one older installers know.
+    prefixes = [c[3] for c in fake.commands if c[:2] == ["git", "archive"]]
+    assert prefixes == ["--prefix=dodaios/", "--prefix=personal-jarvis/"]
+    assert {asset["name"] for asset in fake.assets} >= {
+        "dodaios-src.tar.gz",
+        "personal-jarvis-src.tar.gz",
+        "source-SHA256SUMS.txt",
+    }
 
 
 @pytest.mark.parametrize("defect", ["corrupt_source", "wrong_payload"])

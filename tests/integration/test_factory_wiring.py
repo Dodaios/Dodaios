@@ -45,7 +45,7 @@ def test_router_system_prompt_is_injected() -> None:
     os.environ.pop("JARVIS_BRAIN", None)
     brain = build_default_brain(tier="router")
     extra = getattr(brain, "_system_prompt_extra", "")
-    assert any(kw in extra for kw in ("Router", "Delegator", "spawn_worker", "SPAWN")), (
+    assert "ROUTER CONTRACT" in extra, (
         f"Router system prompt not injected. _system_prompt_extra[:200]: {extra[:200]!r}"
     )
 

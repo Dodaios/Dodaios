@@ -200,7 +200,7 @@ class KillSwitch:
         """Re-publish a `KillRequested` event onto another bus.
 
         Useful when `DesktopApp._run_backend` starts a second bus
-        (Brain-Factory bus, see AGENTS.md) and the KillSwitch is subscribed
+        (Brain-Factory bus) and the KillSwitch is subscribed
         only on the UI bus. Call once at startup:
 
             async def _forward(ev):

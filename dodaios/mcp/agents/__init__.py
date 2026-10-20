@@ -1,6 +1,6 @@
 """The Agent MCP surface: Jarvis' agent ecosystem, offered outwards over MCP.
 
-``dodaios.mcp.jarvis_tools_server`` offers Jarvis' *hands* — the supervisor tool
+``dodaios.mcp.dodaios_tools_server`` offers Jarvis' *hands* — the supervisor tool
 catalog a spawned session reaches back through. This package offers the
 *ecosystem*: the society roster, the board every agent speaks on, rooms,
 assignments, approvals and the connected capability catalog.

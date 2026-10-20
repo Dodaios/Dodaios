@@ -8,7 +8,7 @@ of the merged voice section, and a ``nav.*`` string in every locale.
 
 TypeScript catches almost none of that. ``as const satisfies readonly
 SectionId[]`` only rejects an array entry that is missing from the union —
-never a union member missing from the array (docs/BUGS.md, the recurring
+never a union member missing from the array (the recurring
 enum-drift class). A tab id that never reaches ``MainView`` renders a blank
 pane. An id missing from ``matchIds`` un-highlights the sidebar row while the
 user is standing on it. A missing locale key prints "nav.voice_language" at
@@ -232,7 +232,7 @@ def test_every_voice_section_id_has_a_nav_key_in_every_locale() -> None:
 
 
 def test_the_merged_sidebar_row_carries_the_brand_token_not_a_name() -> None:
-    """AGENTS.md §4 — the user-visible brand is derived from the wake word.
+    """the user-visible brand is derived from the wake word.
 
     ``nav.voice`` is the one label of this section that reaches the sidebar, so
     a hardcoded product name here would show up for every user regardless of

@@ -32,7 +32,7 @@ macOS runner result is never presented as fact. Rule name in code comments and c
 
 ## 2. Root-cause analysis from git history
 
-Method: `git log -p`, `git show`, `git blame`, the bug register (`docs/BUGS.md`), the
+Method: `git log -p`, `git show`, `git blame`, the
 cross-platform plan set (`docs/plans/cross-platform-mac-linux/`), ADRs and `docs/os-parity.md`.
 Dates are commit dates. Author names are left out on purpose: git alone cannot say which
 sentence is human intent, so rationales are quoted from the artefact and not attributed.
@@ -255,7 +255,7 @@ command `jarvis permissions reset` (4.16).
 
 AP-35 is the rule name used in code comments and commit messages. It is recorded in the
 `AGENTS.md` register (section 3), in `docs/adr/0038-macos-permissions-ask-when-needed.md` (the
-same nine principles) and as the prevention rule of BUG-225 in `docs/BUGS.md`; this table is the
+same nine principles) and as the prevention rule of BUG-225; this table is the
 detailed statement.
 
 | # | Principle |
@@ -680,7 +680,7 @@ reset gate and the outside-app logic.
 ### 4.12 Packaging
 
 - **One usage-string table:** `dodaios/core/macos_privacy_strings.py`, stdlib-only, loaded by path
-  from `jarvis.spec` and from the managed bundle's `Info.plist` writer, so the two apps cannot
+  from `dodaios.spec` and from the managed bundle's `Info.plist` writer, so the two apps cannot
   drift. Keys: microphone, screen capture (parity, effect unverified), Apple events, Desktop,
   Documents, Downloads, removable volumes, network volumes, local network. A parity test and the
   frozen-app probe assert it on the built bundle. The wording is short and calm: the Apple Events
@@ -694,7 +694,7 @@ reset gate and the outside-app logic.
   `en.lproj`). The `.dmg` app gets the files from `packaging/macos/add_localizations.py`, which
   `packaging/macos/build.sh` runs on the finished `.app` BEFORE it signs it (the files are part of
   the code seal, so one added later would break the signature and the notarization); the
-  languages are declared by `jarvis.spec`. The managed bundle writes the same files when it lays
+  languages are declared by `dodaios.spec`. The managed bundle writes the same files when it lays
   out the bundle (`dodaios/setup/macos_app_bundle.py`). `scripts/ci/check_frozen_macos_app.py` asserts
   the two plist keys and that each `.strings` file equals the table. The bundle format version is
   **not** bumped (a bump would rebuild every installed bundle, and an ad-hoc rebuild is a new

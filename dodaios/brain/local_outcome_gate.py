@@ -165,33 +165,17 @@ _DURATION_RE = re.compile(
 # Per-turn directive injected into the system prompt when the mandate fires
 # (English — LLM-facing, mirrors CONTACT_WRITE_DIRECTIVE / the read gate).
 RUN_SHELL_OUTCOME_DIRECTIVE = (
-    "MANDATORY THIS TURN: the user asks for a local file/folder/system action "
-    "on THIS computer (create/delete/rename/move/copy/list/read/open or "
-    "similar). You MUST accomplish it NOW by calling the `run_shell` tool "
-    "with a fitting command — write the command for the shell named in the "
-    "tool description and quote paths that contain spaces. The user never "
-    "needs to say 'terminal' or dictate a command; translating the outcome "
-    "into a command is YOUR job. NEVER claim you lack a tool for this — "
-    "`run_shell` IS the tool, and clicking through the GUI via computer_use "
-    "is the wrong vehicle unless the user explicitly asked for the screen. "
-    "Afterwards report what the tool result actually says: confirm on "
-    "success, state the concrete error on failure. Only for an irreversible "
-    "bulk delete/overwrite whose target is ambiguous, ask ONE short "
-    "clarifying question instead of guessing."
+    "MANDATORY THIS TURN: do this local file, folder or system action now with "
+    "`run_shell` (shell named in its description; quote paths with spaces), not "
+    "computer_use. NEVER claim you lack a tool. Ask first only for an ambiguous "
+    "irreversible bulk delete or overwrite."
 )
 
 RUN_SHELL_TIMER_DIRECTIVE = (
-    "MANDATORY THIS TURN: the user asks for a local timer/alarm/countdown on "
-    "THIS computer. You MUST arrange it NOW by calling the `run_shell` tool. "
-    "CRITICAL: the tool call itself times out after ~30 seconds, so NEVER "
-    "block with a plain sleep — start a DETACHED background process that "
-    "waits and then notifies audibly/visibly (Windows: Start-Process "
-    "powershell -WindowStyle Hidden with a Start-Sleep + beep/toast/msg "
-    "script, or schtasks for clock times; POSIX: nohup sh -c 'sleep …; "
-    "notify-send/afplay …' & ). To cancel a timer, find and kill that "
-    "process honestly. NEVER claim you lack a timer tool — run_shell IS the "
-    "tool. Confirm from the tool result only: the spawn must have succeeded; "
-    "on failure say exactly what failed."
+    "MANDATORY THIS TURN: set the timer with `run_shell`. A call times out after about "
+    "30 seconds, so start a DETACHED process that waits, then notifies (Windows: "
+    "Start-Process powershell -WindowStyle Hidden, or schtasks for a clock time; POSIX: "
+    "nohup sh -c '...' &)."
 )
 
 

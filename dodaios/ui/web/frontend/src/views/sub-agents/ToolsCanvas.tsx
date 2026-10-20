@@ -26,7 +26,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useT } from "@/i18n";
-import type { SubAgentNode, ToolCallEntry } from "@/store/jarvisAgents";
+import type { SubAgentNode, ToolCallEntry } from "@/store/dodaiosAgents";
 
 import { getToolAppearance, type ToolAppearance } from "./tool-icons";
 

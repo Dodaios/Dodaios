@@ -156,10 +156,10 @@ def test_migration_write_failure_is_logged_noop(
 
 def test_checked_in_example_config_has_no_split_brain() -> None:
     """The shipped example config must never reintroduce both tables."""
-    example = _REPO_ROOT / "jarvis.toml.example"
+    example = _REPO_ROOT / "dodaios.toml.example"
     data = tomllib.loads(example.read_text(encoding="utf-8"))
     brain = data.get("brain", {})
     assert not ("worker" in brain and "sub_jarvis" in brain), (
-        "jarvis.toml.example carries BOTH [brain.worker] and [brain.sub_jarvis] — "
+        "dodaios.toml.example carries BOTH [brain.worker] and [brain.sub_jarvis] — "
         "keep only the canonical [brain.worker] table"
     )

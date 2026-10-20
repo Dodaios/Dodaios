@@ -1,0 +1,10 @@
+{
+  "base": "main",
+  "required_checks": ["CI gate"],
+  "main_workflows": [".github/workflows/ci.yml"],
+  "ignore_dirty": ["dodaios/ui/web/dist/*", "jarvis/ui/web/dist/*", "wiki/obsidian-vault/*"],
+  "wait_budget_hours": 3.0,
+  "fix_budget_blocks": 8,
+  "hook_wait_seconds": 480,
+  "poll_seconds": 90
+}

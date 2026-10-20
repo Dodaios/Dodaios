@@ -18,6 +18,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any, Literal
 
+from dodaios.i18n import catalog as i18n_catalog
+
 if TYPE_CHECKING:
     from dodaios.core.self_mod import PendingMutation
 from dodaios.core.self_mod.errors import (
@@ -306,12 +308,9 @@ def _voice_label(description: str) -> str:
 
 # Spoken words for primitive values, per supported reply language. An
 # unknown language code speaks English (AP-21), never German.
-_VALUE_WORDS: dict[str, dict[str, str]] = {
-    "de": {"on": "an", "off": "aus", "empty": "leer"},  # i18n-allow
-    "en": {"on": "on", "off": "off", "empty": "empty"},
-    "es": {"on": "activado", "off": "desactivado", "empty": "vacío"},  # i18n-allow
-    "pt": {"on": "ligado", "off": "desligado", "empty": "vazio"},  # i18n-allow
-}
+_VALUE_WORDS: dict[str, dict[str, str]] = i18n_catalog.locale_maps(
+    "voice.echo_confirmation.value_words"
+)
 
 
 def _lang_key(language: str, table: dict[str, Any]) -> str:
@@ -339,18 +338,10 @@ def _format_value_for_speech(value: Any, language: str = "en") -> str:
 # ----------------------------------------------------------------------
 
 
-_ECHO_TEMPLATES: dict[str, str] = {
-    "de": "Verstanden — {label} wechselt von {old} zu {new}. Bestätigen?",  # i18n-allow
-    "en": "Got it — {label} switches from {old} to {new}. Confirm?",
-    "es": "Entendido — {label} cambia de {old} a {new}. ¿Confirmas?",  # i18n-allow
-    "pt": "Entendido — {label} muda de {old} para {new}. Confirmas?",  # i18n-allow
-}
-_ECHO_TEMPLATES_SENSITIVE: dict[str, str] = {
-    "de": "Verstanden — {label} auf einen neuen Wert. Bestätigen?",  # i18n-allow
-    "en": "Got it — {label} to a new value. Confirm?",
-    "es": "Entendido — {label} a un valor nuevo. ¿Confirmas?",  # i18n-allow
-    "pt": "Entendido — {label} para um valor novo. Confirmas?",  # i18n-allow
-}
+_ECHO_TEMPLATES: dict[str, str] = i18n_catalog.table("voice.echo_confirmation.echo_templates")
+_ECHO_TEMPLATES_SENSITIVE: dict[str, str] = i18n_catalog.table(
+    "voice.echo_confirmation.echo_templates_sensitive"
+)
 
 
 def format_confirmation(
@@ -389,97 +380,14 @@ OutcomeKind = Literal[
 ]
 
 # Generic stand-ins for sensitive values / errors (no plaintext leak).
-_OUTCOME_WORDS: dict[str, dict[str, str]] = {
-    "de": {
-        "new_value": "der neue Wert",  # i18n-allow
-        "old_value": "der vorherige Wert",  # i18n-allow
-        "validation_failed": "Validierung schlug fehl",  # i18n-allow
-        "unknown_error": "unbekannter Fehler",  # i18n-allow
-    },
-    "en": {
-        "new_value": "the new value",
-        "old_value": "the previous value",
-        "validation_failed": "validation failed",
-        "unknown_error": "unknown error",
-    },
-    "es": {
-        "new_value": "el valor nuevo",  # i18n-allow
-        "old_value": "el valor anterior",  # i18n-allow
-        "validation_failed": "la validación falló",  # i18n-allow
-        "unknown_error": "error desconocido",  # i18n-allow
-    },
-    "pt": {
-        "new_value": "o valor novo",  # i18n-allow
-        "old_value": "o valor anterior",  # i18n-allow
-        "validation_failed": "a validação falhou",  # i18n-allow
-        "unknown_error": "erro desconhecido",  # i18n-allow
-    },
-}
+_OUTCOME_WORDS: dict[str, dict[str, str]] = i18n_catalog.locale_maps(
+    "voice.echo_confirmation.outcome_words"
+)
 
 # Outcome sentences; placeholders {label}, {new}, {old}, {err}.
-_OUTCOME_TEMPLATES: dict[str, dict[str, str]] = {
-    "de": {
-        "safe_applied": "Geht klar — {label} jetzt {new}.",  # i18n-allow
-        "applied": "Erledigt — {label} ist jetzt {new}.",  # i18n-allow
-        "applied_restart": (
-            "Erledigt — {label} ist jetzt {new}. "  # i18n-allow
-            "Bitte einmal Dodaios neustarten, damit's wirkt."  # i18n-allow
-        ),
-        "validate_failed": "Geht nicht — {err}. Setting bleibt {old}.",  # i18n-allow
-        "rollback": (
-            "Konnte nicht gespeichert werden, hab den vorherigen "  # i18n-allow
-            "Zustand wiederhergestellt. {err}"  # i18n-allow
-        ),
-        "vetoed": "Okay, lass ich.",  # i18n-allow
-        "timeout": (
-            "Hab keine Antwort gehört, brech ich ab. Setting bleibt {old}."  # i18n-allow
-        ),
-    },
-    "en": {
-        "safe_applied": "Got it — {label} is now {new}.",
-        "applied": "Done — {label} is now {new}.",
-        "applied_restart": (
-            "Done — {label} is now {new}. "
-            "Please restart Dodaios for the change to take effect."
-        ),
-        "validate_failed": "Can't do that — {err}. Setting stays {old}.",
-        "rollback": "Couldn't save it, reverted to the previous state. {err}",
-        "vetoed": "Okay, leaving it.",
-        "timeout": "No answer heard, aborting. Setting stays {old}.",
-    },
-    "es": {
-        "safe_applied": "Hecho — {label} ahora es {new}.",  # i18n-allow
-        "applied": "Listo — {label} ahora es {new}.",  # i18n-allow
-        "applied_restart": (
-            "Listo — {label} ahora es {new}. "  # i18n-allow
-            "Reinicia Dodaios para que el cambio surta efecto."  # i18n-allow
-        ),
-        "validate_failed": "No se puede — {err}. El ajuste sigue en {old}.",  # i18n-allow
-        "rollback": (
-            "No se pudo guardar, he restaurado el estado anterior. {err}"  # i18n-allow
-        ),
-        "vetoed": "Vale, lo dejo.",  # i18n-allow
-        "timeout": (
-            "No he oído respuesta, lo cancelo. El ajuste sigue en {old}."  # i18n-allow
-        ),
-    },
-    "pt": {
-        "safe_applied": "Feito — {label} agora é {new}.",  # i18n-allow
-        "applied": "Pronto — {label} agora é {new}.",  # i18n-allow
-        "applied_restart": (
-            "Pronto — {label} agora é {new}. "  # i18n-allow
-            "Reinicia o Dodaios para a alteração ter efeito."  # i18n-allow
-        ),
-        "validate_failed": "Não dá — {err}. A definição fica em {old}.",  # i18n-allow
-        "rollback": (
-            "Não consegui guardar, repus o estado anterior. {err}"  # i18n-allow
-        ),
-        "vetoed": "Está bem, deixo estar.",  # i18n-allow
-        "timeout": (
-            "Não ouvi resposta, vou cancelar. A definição fica em {old}."  # i18n-allow
-        ),
-    },
-}
+_OUTCOME_TEMPLATES: dict[str, dict[str, str]] = i18n_catalog.locale_maps(
+    "voice.echo_confirmation.outcome_templates"
+)
 
 
 def format_outcome(

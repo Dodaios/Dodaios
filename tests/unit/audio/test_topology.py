@@ -114,6 +114,49 @@ async def test_a_device_loss_signal_probes_without_waiting_for_the_poll() -> Non
 
 
 @pytest.mark.asyncio
+async def test_back_to_back_probe_requests_are_throttled() -> None:
+    """A mic that keeps stalling fires a probe request every few hundred ms.
+    Each probe is a process start (in the desktop build, the whole app exe),
+    so requests inside the gap must wait instead of spawning (issue #714)."""
+    gap = 1.0
+    probes: list[float] = []
+
+    async def wait_for_probes(count: int, deadline_s: float) -> None:
+        end = time.monotonic() + deadline_s
+        # The probe appends from a worker thread, so poll instead of an Event.
+        while len(probes) < count and time.monotonic() < end:  # noqa: ASYNC110
+            await asyncio.sleep(0.01)
+
+    task = asyncio.create_task(
+        topology.watch_topology(
+            player=None,
+            poll_s=60.0,
+            min_gap_s=gap,
+            probe=lambda: probes.append(time.monotonic()) or "sig",
+            refresh=lambda: True,
+        )
+    )
+    try:
+        await asyncio.sleep(0.02)
+        topology.request_topology_probe()
+        await wait_for_probes(1, deadline_s=2.0)
+        assert len(probes) == 1, "the first request after a quiet spell runs at once"
+
+        for _ in range(5):
+            topology.request_topology_probe()
+            await asyncio.sleep(0.02)
+        assert len(probes) == 1, "requests inside the gap must not probe again yet"
+
+        await wait_for_probes(2, deadline_s=gap + 3.0)
+        assert len(probes) == 2, "the held request runs once the gap has passed"
+        assert probes[1] - probes[0] >= gap * 0.95
+    finally:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+
+@pytest.mark.asyncio
 async def test_request_probe_is_a_noop_with_no_watcher_running() -> None:
     """Called from capture's error paths, which run in tests and headless
     installs where no watcher exists. It must never raise there."""

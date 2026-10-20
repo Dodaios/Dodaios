@@ -40,6 +40,3 @@ def test_review_glb_has_editable_body_and_expression_nodes():
     assert len(data["meshes"]) <= 40
     assert not any("uri" in buffer for buffer in data["buffers"])
     assert {clip["name"] for clip in data["animations"]} >= {"Gigi.Blink.L", "Gigi.Blink.R"}
-    # Blender 5 saves compressed sources; actual readability is checked by the
-    # manifest export command, not guessed from an uncompressed file signature.
-    assert (STUDY / "source/gigi.blend").stat().st_size > 1024

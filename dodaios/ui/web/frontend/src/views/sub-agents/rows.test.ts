@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { selectTaskRows } from "./rows";
-import type { SubAgentNode } from "@/store/jarvisAgents";
+import type { SubAgentNode } from "@/store/dodaiosAgents";
 
 function node(
   partial: Partial<SubAgentNode> & { trace_id: string },

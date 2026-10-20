@@ -76,6 +76,16 @@ def refusal(text: str) -> str | None:
     return None
 
 
+def instruction_like(text: str) -> bool:
+    """True when ``text`` tries to steer a model ("ignore previous instructions").
+
+    Shared with the self-build judge, which screens longer texts (a routine
+    prompt, an agent's standing instructions) that are orders by design.
+    """
+    clean = unicodedata.normalize("NFKC", text or "")
+    return any(pattern.search(clean) for pattern in _INJECTION)
+
+
 def contains_secret(text: str) -> bool:
     """The wiki's secret detector; refuses everything when it is missing."""
     try:

@@ -2,8 +2,8 @@
 
 ## What does it do?
 
-This script is a **crash-backup**, not the normal Git workflow. Coding-agent
-sessions follow `AGENTS.md`: the harness owns ordinary commits, branches, pushes,
+This script is a **crash-backup**, not the normal Git workflow. In coding-agent
+sessions the harness owns ordinary commits, branches, pushes,
 and pull requests. This script only mirrors remaining local branches to GitHub
 every evening and sets a **backup tag** (`safety/eod-<branchname>-<timestamp>`)
 first, so a session that died between commit and push still lands, and even
@@ -120,7 +120,7 @@ If you still have uncommitted changes, **the script aborts** (log entry `SKIP: W
 
 ## Clarification: who pushes, and when
 
-Normal development Git is owned by the coding-agent harness (`AGENTS.md` §4).
+Normal development Git is owned by the coding-agent harness.
 This script does not define that workflow and does not require a push after
 every commit. Never `--force`, never `--no-verify`.
 

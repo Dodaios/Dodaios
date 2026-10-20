@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Daemon-Loop fuer den Jarvis-Config-Drift-Guard. Laeuft permanent im
-    Hintergrund und triggert alle 5 Min das jarvis-config-drift-guard.ps1.
+    Daemon loop for the Dodaios config drift guard. Runs permanently in the
+    background and triggers dodaios-config-drift-guard.ps1 every 5 minutes.
 
 .DESCRIPTION
     Hintergrund: Windows-Task-Scheduler und PowerShell-ScheduledJob brauchen
@@ -35,7 +35,7 @@ param(
 
 $ErrorActionPreference = "Continue"  # Daemon darf nicht crashen wenn ein Lauf failt
 
-$guardScript = Join-Path $RepoRoot "scripts\jarvis-config-drift-guard.ps1"
+$guardScript = Join-Path $RepoRoot "scripts\dodaios-config-drift-guard.ps1"
 $logFile     = Join-Path $RepoRoot "logs\config-drift-guard.log"
 $lockFile    = Join-Path $RepoRoot "logs\drift-guard-daemon.lock"
 
