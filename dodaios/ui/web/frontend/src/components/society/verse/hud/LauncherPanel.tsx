@@ -14,9 +14,11 @@ import {
 } from "@/lib/agenticIdeApi";
 import { useWorkspacePanesStore } from "@/store/workspacePanes";
 import { fill } from "@/i18n";
+import { BrandedSelect } from "@/components/ui/select";
 import { VerseDialog } from "./VerseDialog";
 
 const MAX_LAUNCH = 4;
+const COUNT_OPTIONS = Array.from({ length: MAX_LAUNCH }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
 const START_TIMEOUT_MS = 30_000;
 const START_POLL_MS = 600;
 
@@ -79,7 +81,7 @@ export function LauncherPanel({ t, onClose, onOpenIde, say }: Props) {
   const busy = useBatchRunning();
   const alive = useRef(true);
   const mine = useRef<Batch | null>(null);
-  const first = useRef<HTMLSelectElement>(null);
+  const first = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     alive.current = true;
@@ -93,7 +95,7 @@ export function LauncherPanel({ t, onClose, onOpenIde, say }: Props) {
     }, (error: unknown) => { if (alive.current) setLine(fill(t("verse.launcher.failed"), { reason: message(error) })); });
     return () => { alive.current = false; };
   }, [t]);
-  useEffect(() => { first.current?.focus(); }, [workspaces]);
+  useEffect(() => { first.current?.querySelector<HTMLElement>("button")?.focus(); }, [workspaces]);
   // Closing the panel stops the batch it started.
   useEffect(() => () => { if (mine.current) mine.current.cancelled = true; }, []);
 
@@ -136,25 +138,39 @@ export function LauncherPanel({ t, onClose, onOpenIde, say }: Props) {
           <p className="verse-form-note">{noWorkspace ? t("verse.launcher.no_workspace") : t("verse.launcher.none")}</p>
         ) : (
           <>
-            <label className="verse-field">
+            <div className="verse-field" ref={first}>
               <span className="verse-label">{t("verse.launcher.workspace")}</span>
-              <select ref={first} className="verse-input" value={workspaceId} onChange={(e) => setWorkspaceId(e.target.value)} disabled={!workspaces}>
-                {(workspaces ?? []).map((w) => <option key={w.id} value={w.id}>{w.name || w.id}</option>)}
-              </select>
-            </label>
+              <BrandedSelect
+                className="verse-input"
+                ariaLabel={t("verse.launcher.workspace")}
+                value={workspaceId}
+                onValueChange={setWorkspaceId}
+                disabled={!workspaces}
+                options={(workspaces ?? []).map((w) => ({ value: w.id, label: w.name || w.id }))}
+              />
+            </div>
             <div className="verse-field-row">
-              <label className="verse-field">
+              <div className="verse-field">
                 <span className="verse-label">{t("verse.launcher.cli")}</span>
-                <select className="verse-input" value={cli} onChange={(e) => setCli(e.target.value)} disabled={!clis}>
-                  {(clis ?? []).map((c) => <option key={c.name} value={c.name}>{c.display_name || c.name}</option>)}
-                </select>
-              </label>
-              <label className="verse-field verse-field-narrow">
+                <BrandedSelect
+                  className="verse-input"
+                  ariaLabel={t("verse.launcher.cli")}
+                  value={cli}
+                  onValueChange={setCli}
+                  disabled={!clis}
+                  options={(clis ?? []).map((c) => ({ value: c.name, label: c.display_name || c.name }))}
+                />
+              </div>
+              <div className="verse-field verse-field-narrow">
                 <span className="verse-label">{t("verse.launcher.count")}</span>
-                <select className="verse-input verse-num" value={count} onChange={(e) => setCount(Number(e.target.value))}>
-                  {Array.from({ length: MAX_LAUNCH }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
-                </select>
-              </label>
+                <BrandedSelect
+                  className="verse-input verse-num"
+                  ariaLabel={t("verse.launcher.count")}
+                  value={String(count)}
+                  onValueChange={(value) => setCount(Number(value))}
+                  options={COUNT_OPTIONS}
+                />
+              </div>
             </div>
             <label className="verse-field">
               <span className="verse-label">{t("verse.launcher.task")}</span>

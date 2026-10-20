@@ -3,7 +3,7 @@
  * closes the dialog and nothing behind it, focus goes back to the opener,
  * and the launcher runs one batch at a time and stops it when it closes.
  */
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -17,6 +17,16 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/agenticIdeApi", () => api);
 vi.mock("@/store/workspacePanes", () => ({ useWorkspacePanesStore: { getState: () => ({ load: async () => undefined }) } }));
+// A plain stand-in for the themed picker, so a test can pick an option by its words.
+vi.mock("@/components/ui/select", () => ({
+  BrandedSelect: ({ options, onValueChange, ariaLabel }: {
+    options: { value: string; label: string }[]; onValueChange: (value: string) => void; ariaLabel: string;
+  }) => (
+    <div role="group" aria-label={ariaLabel}>
+      {options.map((option) => <button key={option.value} type="button" onClick={() => onValueChange(option.value)}>{option.label}</button>)}
+    </div>
+  ),
+}));
 
 import { LauncherPanel } from "./LauncherPanel";
 import { LiftPanel } from "./LiftPanel";
@@ -73,7 +83,7 @@ describe("LauncherPanel", () => {
     const onClose = vi.fn();
     const first = render(<LauncherPanel t={t} say={say} onClose={onClose} onOpenIde={vi.fn()} />);
     await settle();
-    fireEvent.change(first.container.querySelector("select.verse-num")!, { target: { value: "3" } });
+    fireEvent.click(within(screen.getByRole("group", { name: "verse.launcher.count" })).getByText("3"));
     fireEvent.click(screen.getByText("verse.launcher.start"));
     expect(api.openTerminal).toHaveBeenCalledTimes(1);
 
