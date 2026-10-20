@@ -133,19 +133,21 @@ def test_open_detached_creates_titled_solo_window(monkeypatch, platform, view) -
 
     result = app.open_detached_window(view)
 
-    assert result == {"ok": True, "already_open": False, "view": view}
+    # A tab of a section family opens its owner's shared window.
+    owner = section_window(view)
+    assert result == {"ok": True, "already_open": False, "view": owner}
     assert len(created) == 1
     window = created[0]
     assert window.frameless is (platform != "darwin")
     assert window.resizable is True
     # Distinct title: FindWindowW-exact focus and the icon setter key on it.
-    assert window.title == app._detached_title(view)
+    assert window.title == app._detached_title(owner)
     assert window.title != WINDOW_TITLE
     assert f"?view={view}&solo=1" in window.url
-    assert app._detached_windows == {view: window}
+    assert app._detached_windows == {owner: window}
     assert len(window.events.loaded) == 1  # injection hook
     assert len(window.events.closed) == 1  # deregistration hook
-    assert app.published == [(view, True)]
+    assert app.published == [(owner, True)]
 
 
 def test_open_detached_is_idempotent_and_focuses(monkeypatch) -> None:
