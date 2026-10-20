@@ -438,7 +438,7 @@ def test_windows_handover_never_relies_on_restart_manager_relaunch(tmp_path: Pat
 
 def test_windows_installer_script_honours_the_relaunch_param() -> None:
     """The flag the app passes must be the one the installer's [Run] reads."""
-    iss = Path(__file__).resolve().parents[3] / "packaging" / "windows" / "PersonalJarvis.iss"
+    iss = Path(__file__).resolve().parents[3] / "packaging" / "windows" / "Dodaios.iss"
     text = iss.read_text(encoding="utf-8")
     name = WINDOWS_RELAUNCH_PARAM.lstrip("/").split("=", 1)[0]
     assert f"{{param:{name}|0}}" in text
@@ -1121,7 +1121,7 @@ def test_windows_handover_reports_an_installer_that_cannot_start(tmp_path: Path)
 
 
 def _iss_text() -> str:
-    iss = Path(__file__).resolve().parents[3] / "packaging" / "windows" / "PersonalJarvis.iss"
+    iss = Path(__file__).resolve().parents[3] / "packaging" / "windows" / "Dodaios.iss"
     return iss.read_text(encoding="utf-8")
 
 

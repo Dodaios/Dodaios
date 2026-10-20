@@ -14,7 +14,7 @@
 #
 # The disk image contains "Dodaios.app" next to a symlink to
 # /Applications, which is the drag-to-install layout every Mac user already
-# knows. The app is a PyInstaller BUNDLE built from jarvis.spec.
+# knows. The app is a PyInstaller BUNDLE built from dodaios.spec.
 #
 # Signing and notarization are driven entirely by the environment, so the same
 # script runs unchanged on a maintainer's Mac and on a GitHub runner:
@@ -230,7 +230,7 @@ if building; then
     || die "PyInstaller is not installed for ${PYTHON} (pip install pyinstaller)"
 fi
 
-# jarvis.spec bundles ./jarvis.toml unconditionally, and that file is
+# dodaios.spec bundles ./jarvis.toml unconditionally, and that file is
 # .gitignore'd - a fresh clone (every CI runner) does not have one and
 # PyInstaller aborts before it starts. Seed the shipped default so the build
 # works from a clean checkout. On a machine that already has a live config the
@@ -238,11 +238,11 @@ fi
 # answer for the maintainer, so it says so instead of quietly shipping it.
 if [ ! -f "${REPO_ROOT}/jarvis.toml" ]; then
   [ -f "${REPO_ROOT}/jarvis.toml.example" ] \
-    || die "neither jarvis.toml nor jarvis.toml.example exists; jarvis.spec cannot bundle a default configuration"
+    || die "neither jarvis.toml nor jarvis.toml.example exists; dodaios.spec cannot bundle a default configuration"
   log "seeding jarvis.toml from jarvis.toml.example (clean checkout)"
   run cp "${REPO_ROOT}/jarvis.toml.example" "${REPO_ROOT}/jarvis.toml"
 elif ! cmp -s "${REPO_ROOT}/jarvis.toml" "${REPO_ROOT}/jarvis.toml.example"; then
-  log "WARNING: jarvis.spec bundles this machine's jarvis.toml into the app, and it differs from jarvis.toml.example. Check it carries nothing personal before publishing the build."
+  log "WARNING: dodaios.spec bundles this machine's jarvis.toml into the app, and it differs from jarvis.toml.example. Check it carries nothing personal before publishing the build."
 fi
 
 if [ -f "${ICNS}" ] || [ "${DRY_RUN}" = "1" ]; then
@@ -258,12 +258,12 @@ run "${PYTHON}" "${REPO_ROOT}/scripts/prepare_browser_wheelhouse.py"
 log "running PyInstaller"
 (
   cd "${REPO_ROOT}"
-  run "${PYTHON}" -m PyInstaller jarvis.spec --noconfirm --clean
+  run "${PYTHON}" -m PyInstaller dodaios.spec --noconfirm --clean
 )
 
 if building; then
-  [ -d "${APP_BUNDLE}" ] || die "PyInstaller did not produce '${APP_BUNDLE}'. jarvis.spec must contain a darwin BUNDLE(...) block that names the app '${APP_NAME}'."
-  # The console command and its earlier name; jarvis.spec builds both.
+  [ -d "${APP_BUNDLE}" ] || die "PyInstaller did not produce '${APP_BUNDLE}'. dodaios.spec must contain a darwin BUNDLE(...) block that names the app '${APP_NAME}'."
+  # The console command and its earlier name; dodaios.spec builds both.
   for cli_name in dodaios jarvis; do
     [ -x "${APP_BUNDLE}/Contents/MacOS/${cli_name}" ] \
       || die "'${APP_BUNDLE}/Contents/MacOS/${cli_name}' is missing. The bundle must ship the console CLI entry so '${cli_name} serve' works from a native install."
@@ -288,7 +288,7 @@ fi
 log "app bundle: ${APP_BUNDLE}"
 
 # German and Spanish permission-dialog text. The languages are declared in the
-# plist by jarvis.spec; the <lang>.lproj/InfoPlist.strings files are written here
+# plist by dodaios.spec; the <lang>.lproj/InfoPlist.strings files are written here
 # from the same table, BEFORE signing: they are part of the code seal, so a file
 # added after codesign would break the signature (and the notarization).
 run "${PYTHON}" "${SCRIPT_DIR}/add_localizations.py" --app "${APP_BUNDLE}"

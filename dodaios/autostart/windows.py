@@ -91,7 +91,7 @@ _LEGACY_NAMES = (
 )
 # The branded launcher under every name it has had. A logon task written by an
 # earlier release starts the earlier file, which the install still ships beside
-# the current one (``jarvis.spec``): the same program in the same folder.
+# the current one (``dodaios.spec``): the same program in the same folder.
 _BRANDED_LAUNCHER_NAMES = frozenset(
     name.lower()
     for name in (WINDOWS_BRANDED_LAUNCHER_FILE_NAME, *LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES)
@@ -499,7 +499,7 @@ def _win32com() -> tuple[object, object] | None:
 
     Lazy (HN-7): this module is imported on every OS, pywin32 exists only on
     Windows, and only in the ``desktop`` extra. The frozen installer build
-    always bundles it (``jarvis.spec`` hidden imports).
+    always bundles it (``dodaios.spec`` hidden imports).
     """
     try:
         import pythoncom  # type: ignore[import-not-found]
