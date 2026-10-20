@@ -33,7 +33,7 @@ def test_resident_finish_releases_every_screen_without_quitting(monkeypatch):
             processEvents=lambda: calls.append("flush"), quit=lambda: calls.append("quit")
         ),
         _windows=[window], _done=False, _resident=True, _started=True,
-        _focused=window, marking=window,
+        _focused=window, marking=window, _parts=None,
     )
     monkeypatch.setattr(renderer, "_emit", lambda payload: calls.append(payload))
     renderer.Picker.finish(owner, None, None)
