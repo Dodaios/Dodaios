@@ -1,0 +1,546 @@
+"""Standalone Jarvis Bar host process — main-thread Tk hosting (BUG-057 fix).
+
+Aqua-Tk (like AppKit) is main-thread-only on macOS: a Tk root created on any
+worker thread aborts the WHOLE process with a native, uncatchable assertion
+(BUG-057, same class as the BUG-056 tray). The desktop app cannot host the
+bar in-process there — its main thread belongs to pywebview/Cocoa. This
+module is the documented fix ("hosted in its own process"): a minimal
+companion process whose MAIN thread runs the bar's Tk mainloop, remote-driven
+by the parent app over a line-oriented JSON protocol.
+
+Protocol (UTF-8, one JSON object per line):
+
+- parent → child (stdin): the first line is the init object
+  ``{"op": "init", "persistent": ..., "accent": ..., "startup_gated": ...}``
+  (optional ``opacity``); every further line is a surface command mirroring
+  the ``OrbBusBridge`` surface API (``show``, ``hide``, ``set_level``, ...).
+  An optional ``"surface"`` key selects what the host renders:
+  ``"jarvis_bar"`` (default) or ``"mascot"`` (the OrbOverlay window, whose look
+  comes from the optional ``"style"`` key — ``"mascot"``, ``"voice_orb"`` or
+  ``"pet"`` — plus optional ``"mascot_path"``, ``"pet_id"``, ``"pet_scale"`` and
+  ``"pet_bubble"`` and ``"pet_strip_always"`` passthroughs).
+  stdin EOF means the parent died or shut down → the host stops the bar and
+  exits, so no ownerless bar can linger on the user's desktop.
+- child → parent (stdout): events — ``{"event": "ready"}`` once the surface
+  is initialized, plus user interactions (``talk``, ``hangup``,
+  ``mute_toggle``, ``feedback``, ``show_window``, ``drop``, and the pet's
+  ``compose`` and ``notify_toggle``). Logging goes to stderr so stdout stays pure protocol.
+
+``drop`` is the one round trip: the child forwards a file/text dropped on the
+hosted surface, the parent runs the intake (the brain lives there), and the
+verdict comes back down as the ``drop_result`` command so the surface can
+confirm it visually.
+
+The host works on every OS (the parent simply only uses it where in-process
+hosting is impossible). ``JARVIS_BAR_HOST_FAKE=1`` swaps the Tk bar for an
+echo double so the full cross-process pipeline is testable without a display.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import json
+import logging
+import os
+import sys
+import threading
+from collections.abc import Callable
+from typing import Any, TextIO
+
+log = logging.getLogger("dodaios.ui.dodaiosbar.host")
+
+READY_TIMEOUT_S = 30.0
+# After stdin EOF the Tk mainloop should unwind via bar.stop(); if Tk wedges,
+# this backstop hard-exits so the orphaned host can never outlive its parent.
+HARD_EXIT_GRACE_S = 5.0
+
+
+def emit(event: str, **payload: Any) -> None:
+    """Write one child→parent event line to stdout (thread-safe)."""
+    line = json.dumps({"event": event, **payload}, ensure_ascii=False)
+    with _STDOUT_LOCK:
+        try:
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
+        except Exception:  # noqa: BLE001 — parent gone; reader loop sees EOF too
+            log.debug("bar-host event write failed", exc_info=True)
+
+
+_STDOUT_LOCK = threading.Lock()
+
+
+def _call(surface: Any, name: str, *args: Any, **kwargs: Any) -> None:
+    """Invoke ``surface.<name>(...)`` if present; a missing method is a no-op.
+
+    The host now fronts more than one surface class (JarvisBarOverlay has
+    every op; the mascot OrbOverlay lacks a few bar-only ones), so an op the
+    current surface does not implement degrades to a debug-logged no-op.
+    """
+    method = getattr(surface, name, None)
+    if method is None:
+        log.debug("bar-host: surface has no %r — op ignored", name)
+        return
+    method(*args, **kwargs)
+
+
+def dispatch(surface: Any, msg: dict[str, Any]) -> bool:
+    """Apply one parent command to the surface. Returns ``False`` for ``stop``.
+
+    Every method called here is documented thread-safe on the surface
+    (enqueue onto the Tk UI queue or an atomic write), so the stdin reader
+    thread may call them directly.
+    """
+    op = msg.get("op")
+    if op == "stop":
+        return False
+    if op == "show":
+        # The mode string is forwarded VERBATIM — this protocol carries no mode
+        # list of its own, so a new coarse mode reaches the hosted surface with
+        # no change here. The surface re-validates against the one canonical
+        # tuple (``dodaios.ui.dodaiosbar.modes.MODES``).
+        _call(surface, "show", str(msg.get("mode", "listen")))
+    elif op == "hide":
+        _call(surface, "hide")
+    elif op == "set_level":
+        _call(surface, "set_level", float(msg.get("level", 0.0)))
+    elif op == "set_muted":
+        _call(surface, "set_muted", bool(msg.get("muted", False)))
+    elif op == "set_prompt_mode":
+        _call(
+            surface,
+            "set_prompt_mode",
+            bool(msg.get("enabled", False)),
+            bool(msg.get("paused", False)),
+        )
+    elif op == "set_size_scale":
+        _call(surface, "set_size_scale", float(msg.get("scale", 1.0)))
+    elif op == "set_follow_cursor":
+        _call(surface, "set_follow_cursor", bool(msg.get("enabled", True)))
+    elif op == "set_persistent":
+        # Live flag flip — the same plain attribute write the in-process
+        # set_bar_persistent path performs (no Tk marshal needed).
+        surface._persistent = bool(msg.get("enabled", True))  # noqa: SLF001
+    elif op == "release_startup_gate":
+        _call(surface, "release_startup_gate")
+    elif op == "reassert_z_order":
+        _call(surface, "reassert_z_order")
+    elif op == "play_animation":
+        _call(
+            surface,
+            "play_animation",
+            str(msg.get("name", "")),
+            **dict(msg.get("params") or {}),
+        )
+    elif op == "stop_animation":
+        _call(surface, "stop_animation", str(msg.get("name", "")))
+    elif op == "show_listening_transcript":
+        _call(
+            surface,
+            "show_listening_transcript",
+            str(msg.get("text", "")),
+            int(msg.get("duration_ms", 30000)),
+        )
+    elif op == "hide_comment":
+        _call(surface, "hide_comment")
+    elif op == "set_style":
+        # Live re-style of the orb window (mascot <-> voice orb). The bar has
+        # no styles, so there the op degrades to the no-op _call() logs.
+        _call(surface, "set_style", str(msg.get("style", "mascot")))
+    elif op == "start_mouth_animation":
+        _call(surface, "start_mouth_animation", int(msg.get("duration_ms", 60000)))
+    elif op == "stop_mouth_animation":
+        _call(surface, "stop_mouth_animation")
+    elif op == "drop_result":
+        # The return leg of a drop this host forwarded: the parent ran the
+        # intake and says whether the content became context, so the surface
+        # can confirm it visually.
+        _call(surface, "notify_drop_result", bool(msg.get("accepted", False)))
+    elif op == "reset_position":
+        # The double-click reset seam.
+        _call(surface, "_on_reset_double_click")
+    # The desktop pet's surface methods (docs/pets.md); the bar has none of
+    # them, so there each degrades to the no-op _call() logs.
+    elif op == "set_pet":
+        _call(surface, "set_pet", str(msg.get("pet_id") or ""))
+    elif op == "set_pet_look":
+        scale = msg.get("scale")
+        bubble = msg.get("bubble")
+        strip = msg.get("strip_always")
+        _call(
+            surface,
+            "set_pet_look",
+            None if scale is None else float(scale),
+            None if bubble is None else bool(bubble),
+            None if strip is None else bool(strip),
+        )
+    elif op == "set_pet_outcome":
+        _call(surface, "set_pet_outcome", str(msg.get("kind", "")))
+    elif op == "set_pet_action":
+        kind = msg.get("kind")
+        _call(surface, "set_pet_action", None if kind is None else str(kind))
+    elif op == "set_pet_busy":
+        _call(surface, "set_pet_busy", bool(msg.get("busy", False)))
+    elif op == "show_status":
+        # "header"/"line" are the keys an older parent still sends.
+        title = msg.get("title", msg.get("header", ""))
+        detail = msg.get("detail", msg.get("line", ""))
+        _call(surface, "show_status", str(title or ""), str(detail or ""))
+    elif op == "clear_status":
+        linger = msg.get("linger_s")
+        _call(surface, "clear_status", 1.5 if linger is None else float(linger))
+    elif op == "set_speaker_muted":
+        _call(surface, "set_speaker_muted", bool(msg.get("muted", False)))
+    elif op == "set_visible":
+        _call(surface, "set_visible", bool(msg.get("visible", True)))
+    elif op == "toggle_visible":
+        _call(surface, "toggle_visible")
+    elif op == "push_notice":
+        _call(
+            surface,
+            "push_notice",
+            str(msg.get("kind") or "info"),
+            str(msg.get("title") or ""),
+            str(msg.get("detail") or ""),
+        )
+    elif op == "set_notifications_enabled":
+        _call(surface, "set_notifications_enabled", bool(msg.get("enabled", True)))
+    else:
+        log.warning("bar-host: unknown op %r", op)
+    return True
+
+
+def reader_loop(
+    surface: Any,
+    stream: TextIO,
+    *,
+    hard_exit: Callable[[int], Any] | None = None,
+) -> None:
+    """Drain parent commands until EOF or ``stop``, then stop the surface.
+
+    ``hard_exit`` (production: ``os._exit``) is the anti-linger backstop for
+    a Tk mainloop that refuses to unwind; injectable so tests never arm it.
+    """
+    try:
+        for raw in stream:
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                log.warning("bar-host: dropping non-JSON line: %.120r", line)
+                continue
+            try:
+                if not dispatch(surface, msg):
+                    break
+            except Exception:  # noqa: BLE001 — one bad command must not kill the bar
+                log.exception("bar-host command failed: %r", msg.get("op"))
+    finally:
+        # EOF = the parent died or closed us deliberately; either way the
+        # surface has no owner anymore. Arm the anti-linger backstop BEFORE
+        # stopping the surface: stop() lets the main thread's mainloop return
+        # immediately, and starting a thread while the interpreter is already
+        # shutting down is a fatal error (0xC0000409 on Windows).
+        if hard_exit is not None:
+            killer = threading.Timer(HARD_EXIT_GRACE_S, hard_exit, args=(0,))
+            killer.daemon = True
+            killer.start()
+        # stop() marshals destroy onto the Tk thread.
+        try:
+            surface.stop()
+        except Exception:  # noqa: BLE001
+            log.debug("bar-host stop failed", exc_info=True)
+
+
+class _EchoBar:
+    """No-Tk protocol double (``JARVIS_BAR_HOST_FAKE=1``).
+
+    Satisfies the lifecycle contract (``_started`` + a blocking ``start()``)
+    and echoes every surface call back as an ``op`` event, so tests exercise
+    the real pipes, threads, EOF and shutdown paths without a display.
+    """
+
+    def __init__(self, **_: Any) -> None:
+        self._persistent = True
+        self._started = threading.Event()
+        self._stop_evt = threading.Event()
+
+    def start(self) -> None:
+        self._started.set()
+        self._stop_evt.wait()
+
+    def stop(self) -> None:
+        self._stop_evt.set()
+
+    def set_on_mute_toggle(self, cb: Any) -> None: ...
+    def set_on_prompt_mode_toggle(self, cb: Any) -> None: ...
+    def set_on_voice_action(self, cb: Any) -> None: ...
+    def set_on_talk(self, cb: Any) -> None: ...
+    def set_on_hangup(self, cb: Any) -> None: ...
+    def set_on_dictation_stop(self, cb: Any) -> None: ...
+    def set_feedback_publisher(self, cb: Any) -> None: ...
+    def set_on_show_window(self, cb: Any) -> None: ...
+    def set_on_visibility_changed(self, cb: Any) -> None: ...
+    def set_on_speaker_toggle(self, cb: Any) -> None: ...
+    def set_on_compose(self, cb: Any) -> None: ...
+    def set_on_notifications_toggle(self, cb: Any) -> None: ...
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("__"):
+            raise AttributeError(name)
+
+        def _echo(*args: Any, **kwargs: Any) -> None:
+            emit("op", op=name, args=list(args), kwargs=kwargs)
+
+        return _echo
+
+
+# Keeps the bootstrap Tk interpreter alive for the host's lifetime — Tk aqua
+# teardown is fragile, and NSApp must stay Tk's own TKApplication.
+_TK_BOOTSTRAP_ROOT: Any = None
+
+
+def _hide_dock_icon() -> None:
+    """Best-effort: run as a Dock-less accessory app (macOS only).
+
+    Without this the bar host would add a second python rocket to the Dock.
+    pyobjc may be absent — purely cosmetic, never blocks the bar.
+
+    ORDER IS LOAD-BEARING (BUG-074): Tk MUST initialize before any pyobjc
+    ``NSApplication.sharedApplication()`` call in this process. Tk 9's aqua
+    backend calls selectors that only exist on Tk's own ``TKApplication``
+    subclass; if a plain ``NSApplication`` already owns ``NSApp`` (because
+    pyobjc created it first), ``Tk()`` aborts natively with
+    ``-[NSApplication macOSVersion]: unrecognized selector`` — the bar host
+    dies before it can signal ready. uv's python-build-standalone CPython
+    bundles Tk 9, so this is the default fresh-install constellation on
+    macOS. A withdrawn bootstrap root created here makes Tk the one that
+    instantiates ``NSApp``; the later overlay root joins the same process
+    safely.
+    """
+    global _TK_BOOTSTRAP_ROOT
+    try:
+        import tkinter  # noqa: PLC0415
+
+        _TK_BOOTSTRAP_ROOT = tkinter.Tk()
+        _TK_BOOTSTRAP_ROOT.withdraw()
+    except Exception:  # noqa: BLE001 — headless/no-Tk hosts degrade downstream
+        log.debug("Tk bootstrap root failed (no display?)", exc_info=True)
+    try:
+        from AppKit import NSApplication  # type: ignore[import-not-found]
+
+        # 1 = NSApplicationActivationPolicyAccessory: windows allowed, no
+        # Dock icon, no menu bar takeover — exactly a floating overlay.
+        NSApplication.sharedApplication().setActivationPolicy_(1)
+    except Exception:  # noqa: BLE001
+        log.debug("Dock-icon hide skipped (pyobjc unavailable?)", exc_info=True)
+
+
+def _import_orb_overlay() -> Any:
+    """Import the mascot ``OrbOverlay`` — wheel-robust.
+
+    The top-level ``ui`` package ships with the source tree but not the
+    wheel; when ``import ui`` fails, retry with the ``jarvis`` package's
+    parent directory (the source checkout root) on ``sys.path``. A final
+    failure exits the host non-zero with an honest stderr line so the
+    parent can degrade.
+    """
+    try:
+        import ui  # noqa: F401
+    except ImportError:
+        try:
+            from pathlib import Path
+
+            import dodaios
+
+            root = str(Path(dodaios.__file__).resolve().parent.parent)
+            if root not in sys.path:
+                sys.path.insert(0, root)
+        except Exception:  # noqa: BLE001 — the import below reports the failure
+            log.debug("mascot-host: sys.path fallback failed", exc_info=True)
+    try:
+        from ui.orb.overlay import OrbOverlay
+    except Exception as exc:  # noqa: BLE001
+        log.error(
+            "mascot-host: cannot import OrbOverlay (%s) — exiting so the parent can degrade",
+            exc,
+        )
+        raise SystemExit(3) from exc
+    return OrbOverlay
+
+
+def _build_surface(cfg: dict[str, Any]) -> Any:
+    if os.environ.get("JARVIS_BAR_HOST_FAKE") == "1":
+        return _EchoBar()
+    surface_name = str(cfg.get("surface", "jarvis_bar"))
+    if surface_name == "mascot":
+        if sys.platform == "darwin":
+            # The mascot still uses Aqua-Tk, whose TKApplication bootstrap
+            # must precede AppKit (BUG-074). The Qt bar below deliberately
+            # skips this: QApplication must own its own Cocoa lifecycle.
+            _hide_dock_icon()
+        orb_overlay_cls = _import_orb_overlay()
+        pet_scale = cfg.get("pet_scale")
+        return orb_overlay_cls(
+            sticky=False,
+            mic_reactive=False,
+            # The look inside the orb window (mascot / voice_orb / pet).
+            # Forwarded verbatim; OrbOverlay owns the one list of known styles
+            # and falls back to the mascot for anything it does not recognise.
+            style=str(cfg.get("style") or "mascot"),
+            mascot_path=cfg.get("mascot_path") or None,
+            pet_id=cfg.get("pet_id") or None,
+            pet_scale=1.0 if pet_scale is None else float(pet_scale),
+            pet_bubble=bool(cfg.get("pet_bubble", True)),
+            pet_strip_always=bool(cfg.get("pet_strip_always", False)),
+        )
+    kwargs = {
+        key: cfg[key]
+        for key in (
+            "persistent",
+            "accent",
+            "opacity",
+            "startup_gated",
+            "size_scale",
+            "follow_cursor_monitor",
+        )
+        if key in cfg
+    }
+    if sys.platform == "darwin":
+        # Aqua-Tk 9 composites RGBA Canvas images with SourceOver semantics:
+        # transparent pixels neither clear its black backing nor erase the
+        # previous animation frame. Use Qt's real translucent backing and
+        # full-frame CompositionMode_Source replacement on macOS only.
+        # Windows/Linux retain their proven Tk color-key implementation.
+        from dodaios.ui.dodaiosbar.qt_overlay import QtJarvisBarOverlay
+
+        return QtJarvisBarOverlay(**kwargs)
+
+    from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
+
+    return JarvisBarOverlay(**kwargs)
+
+
+def _wire_surface_events(surface: Any) -> None:
+    """Forward child-owned UI actions to the parent over stdout.
+
+    Talk and hang-up cannot use ``runtime_refs`` in this process: the live
+    SpeechPipeline is registered in the parent desktop process. ``_call``
+    keeps mascot and protocol-double surfaces that lack a bar-only setter
+    compatible with the shared host.
+    """
+
+    def _emit_voice_action(action: str) -> None:
+        normalized = str(action).strip().lower()
+        if normalized in {"talk", "hangup", "dictation_stop"}:
+            emit(normalized)
+        else:
+            log.warning("bar-host: dropping unknown voice action %r", action)
+
+    # Qt exposes the compact action callback; Tk keeps the explicit
+    # setters. Wiring both is safe because each surface invokes only the
+    # callback contract it implements.
+    _call(surface, "set_on_voice_action", _emit_voice_action)
+    _call(surface, "set_on_talk", lambda: emit("talk"))
+    _call(surface, "set_on_hangup", lambda: emit("hangup"))
+    # The close-X while DICTATING: the recording is ended in the parent, where
+    # the pipeline lives (BUG-191 — this X used to resolve to nothing).
+    _call(surface, "set_on_dictation_stop", lambda: emit("dictation_stop"))
+    _call(surface, "set_on_mute_toggle", lambda: emit("mute_toggle"))
+    # The idle pill's sparkle: the switch lives in the parent's dictation
+    # config, so the click travels there like the mute toggle does.
+    _call(surface, "set_on_prompt_mode_toggle", lambda: emit("prompt_mode_toggle"))
+    # The orb's control row adds one action the bar never had: muting the
+    # ASSISTANT's voice. Like talk/hang-up it needs the parent, because the
+    # SpeechPipeline whose TTS volume it changes lives there.
+    _call(surface, "set_on_speaker_toggle", lambda: emit("speaker_toggle"))
+    _call(
+        surface,
+        "set_feedback_publisher",
+        lambda kind, payload: emit("feedback", kind=kind, payload=payload),
+    )
+    _call(surface, "set_on_show_window", lambda: emit("show_window"))
+    _call(
+        surface,
+        "set_on_visibility_changed",
+        lambda visible: emit("visibility_changed", visible=bool(visible)),
+    )
+    # The pet's pen: raising the window (and the new chat) happens in the
+    # parent, where the bus and the window live.
+    _call(surface, "set_on_compose", lambda: emit("compose"))
+    # The pet's bell lives in this process; the parent only mirrors its state
+    # so a respawned host comes back with the bell as the user left it.
+    _call(
+        surface,
+        "set_on_notifications_toggle",
+        lambda enabled: emit("notify_toggle", enabled=bool(enabled)),
+    )
+    _wire_drop_forwarding()
+
+
+def _wire_drop_forwarding() -> None:
+    """Forward drops onto the hosted surface to the parent process.
+
+    Both hosted surfaces (the Qt bar, the mascot) deliver a drop by calling
+    ``drop_bridge.dispatch_drop`` — but the real handler is registered in the
+    PARENT, where the brain lives. Without this the child's bridge has no
+    handler at all, so on macOS a file dropped on the bar was accepted by the
+    window, reported "copy" to the OS, and then silently discarded: the drop
+    never reached the conversation. Installing the child-side handler makes the
+    forward explicit; ``SubprocessBarOverlay`` re-dispatches it parent-side and
+    sends the verdict back as a ``drop_result`` command.
+    """
+    try:
+        from dodaios.overlay.drop_bridge import set_drop_handler
+
+        set_drop_handler(lambda paths, text: emit("drop", paths=list(paths), text=str(text)))
+    except Exception:  # noqa: BLE001 — drop is optional; never block the host
+        log.debug("bar-host drop forwarding unavailable", exc_info=True)
+
+
+def main() -> int:
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=logging.INFO,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+    # UTF-8 pipes on every OS (Windows would otherwise default to cp1252).
+    for stream in (sys.stdin, sys.stdout):
+        with contextlib.suppress(Exception):
+            stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+
+    init_raw = sys.stdin.readline()
+    try:
+        cfg = json.loads(init_raw)
+        if cfg.get("op") != "init":
+            raise ValueError(f"expected init, got {cfg.get('op')!r}")
+    except ValueError:
+        log.error("bar-host: invalid init line %.200r — exiting", init_raw)
+        return 2
+
+    surface = _build_surface(cfg)
+    _wire_surface_events(surface)
+
+    def _announce_ready() -> None:
+        if surface._started.wait(timeout=READY_TIMEOUT_S):  # noqa: SLF001
+            emit("ready")
+        else:
+            log.error("bar-host: surface did not initialize within %ss", READY_TIMEOUT_S)
+
+    threading.Thread(target=_announce_ready, name="barhost-ready", daemon=True).start()
+    threading.Thread(
+        target=reader_loop,
+        args=(surface, sys.stdin),
+        kwargs={"hard_exit": os._exit},
+        name="barhost-stdin",
+        daemon=True,
+    ).start()
+
+    # THE point of this process: the platform GUI loop runs on the MAIN thread
+    # (Qt for the macOS bar, Aqua-Tk for the macOS mascot).
+    surface.start()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,4 +1,4 @@
-"""Tests for jarvis.missions.worker_runtime.provider_map.
+"""Tests for dodaios.missions.worker_runtime.provider_map.
 
 Source of truth: docs/jarvis-agents-bridge.md AD-6 Amendment table.
 When the table changes, update BOTH — the doc is authoritative.
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions.worker_runtime.provider_map import (
+from dodaios.missions.worker_runtime.provider_map import (
     JARVIS_TO_WORKER_SLUG,
     MAPPINGS,
     WORKER_SLUG_TO_JARVIS,
@@ -227,7 +227,7 @@ def test_antigravity_subagent_slugs_ssot() -> None:
     """The Antigravity subagent slug set is the SSoT mirror of CODEX_SUBAGENT_SLUGS:
     it routes to the dedicated OAuth-CLI worker, NOT through MAPPINGS (no worker
     slug in the provider map)."""
-    from jarvis.missions.worker_runtime.provider_map import (
+    from dodaios.missions.worker_runtime.provider_map import (
         ANTIGRAVITY_SUBAGENT_CANONICAL,
         ANTIGRAVITY_SUBAGENT_SLUGS,
     )
@@ -237,7 +237,7 @@ def test_antigravity_subagent_slugs_ssot() -> None:
 
 
 def test_grok_build_subagent_slugs_are_the_ssot() -> None:
-    from jarvis.missions.worker_runtime.provider_map import (
+    from dodaios.missions.worker_runtime.provider_map import (
         GROK_BUILD_SUBAGENT_CANONICAL,
         GROK_BUILD_SUBAGENT_SLUGS,
     )
@@ -255,7 +255,7 @@ def test_codex_subagent_slugs_accept_bare_codex_alias() -> None:
     accept it. Forensic 2026-06-27: "set the subagent to codex" answered "codex
     is not a valid provider" because only "openai-codex"/"chatgpt" were accepted.
     "openai-codex" stays the canonical persisted value."""
-    from jarvis.missions.worker_runtime.provider_map import (
+    from dodaios.missions.worker_runtime.provider_map import (
         CODEX_SUBAGENT_CANONICAL,
         CODEX_SUBAGENT_SLUGS,
     )

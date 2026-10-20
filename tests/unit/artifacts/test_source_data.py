@@ -16,8 +16,8 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.artifacts import source_data as sd
-from jarvis.core.protocols import ToolResult
+from dodaios.artifacts import source_data as sd
+from dodaios.core.protocols import ToolResult
 
 # -- planning -------------------------------------------------------------------
 

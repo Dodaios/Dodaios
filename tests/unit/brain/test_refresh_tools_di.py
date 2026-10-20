@@ -8,7 +8,7 @@ connected. The fix mirrors the boot DI on refresh.
 """
 from types import SimpleNamespace
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 def _bare_for_refresh(**di):
@@ -26,8 +26,8 @@ def _bare_for_refresh(**di):
 
 
 def test_refresh_tools_preserves_managers(monkeypatch):
-    import jarvis.brain.factory as factory
-    import jarvis.harness.manager as harness_mod
+    import dodaios.brain.factory as factory
+    import dodaios.harness.manager as harness_mod
 
     captured: dict = {}
 

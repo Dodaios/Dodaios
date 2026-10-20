@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import re
 
-from jarvis.brain.factory import ROUTER_TOOLS
-from jarvis.brain.router import SYSTEM_PROMPT
+from dodaios.brain.factory import ROUTER_TOOLS
+from dodaios.brain.router import SYSTEM_PROMPT
 
 # Direct-action tools that must stay OUT of the router (delegated, not dispatched).
 _PHANTOM_DIRECT_TOOLS = ("open_app", "remember")

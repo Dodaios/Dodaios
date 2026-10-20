@@ -17,13 +17,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.audio.ducking import macos
-from jarvis.audio.ducking.controller import AudioDuckController
-from jarvis.audio.ducking.macos import MacOSScriptDucker
-from jarvis.audio.ducking.windows import WindowsPycawDucker
-from jarvis.platform import permission_service as service_module
-from jarvis.platform.permission_service import get_permission_service
-from jarvis.platform.permissions import AUTOMATION_TARGETS, PermissionId
+from dodaios.audio.ducking import macos
+from dodaios.audio.ducking.controller import AudioDuckController
+from dodaios.audio.ducking.macos import MacOSScriptDucker
+from dodaios.audio.ducking.windows import WindowsPycawDucker
+from dodaios.platform import permission_service as service_module
+from dodaios.platform.permission_service import get_permission_service
+from dodaios.platform.permissions import AUTOMATION_TARGETS, PermissionId
 from tests.fakes.fake_permission_service import FakePermissionService
 from tests.fakes.fake_tcc import (
     AE_EVENT_NOT_PERMITTED,
@@ -578,7 +578,7 @@ async def test_the_controller_lock_is_free_while_the_dialog_is_open(monkeypatch)
 async def test_boot_with_ducking_enabled_and_players_open_asks_and_reads_nothing(monkeypatch):
     """Config ``enabled = true`` is not a gesture: building and attaching the controller
     performs no OS dialog, no request, no probe, and opens no episode."""
-    from jarvis.audio.ducking import factory
+    from dodaios.audio.ducking import factory
 
     tcc = FakeTCC(installed_players=[_MUSIC, _SPOTIFY], running_players=[_MUSIC, _SPOTIFY])
     install_port(monkeypatch, tcc.port("darwin"))

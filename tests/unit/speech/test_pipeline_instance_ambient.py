@@ -1,4 +1,4 @@
-"""A non-default instance of the app (``jarvis.core.instance``) never arms the
+"""A non-default instance of the app (``dodaios.core.instance``) never arms the
 global hotkeys or the wake word — the microphone and the key combos belong to
 the default app. Both arming sites (boot + live keybind change) go through
 ``_build_hotkey_bindings``; wake activation goes through ``set_wake_activation``.
@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.core.instance import INSTANCE_ENV_VAR
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.instance import INSTANCE_ENV_VAR
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 def _pipeline() -> SpeechPipeline:

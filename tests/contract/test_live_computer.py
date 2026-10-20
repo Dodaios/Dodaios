@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.protocols import SupervisorToolDescriptor, ToolResult
-from jarvis.cu.direct import TOOL_DESCRIPTION, tool_schema
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
+from dodaios.core.protocols import SupervisorToolDescriptor, ToolResult
+from dodaios.cu.direct import TOOL_DESCRIPTION, tool_schema
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
 from tests.fakes.fake_subscription_session import AppshotSubscriptionGateway
 
 
@@ -62,7 +62,7 @@ def test_appshot_is_declared_once_even_when_other_tools_are_deferred(ledger, def
     ]
     assert "take_appshot" not in runtime._names.values()
 
-    from jarvis.live.native import _fit_declarations
+    from dodaios.live.native import _fit_declarations
 
     # Native providers with a small declaration budget retain the same capture path.
     assert "take_appshot" in {d["name"] for d in _fit_declarations(declared, 1)}
@@ -81,8 +81,8 @@ async def test_a_direct_computer_call_runs_and_returns_its_screenshot(ledger):
 
 
 def test_voice_catalog_drops_the_second_model_vehicles(monkeypatch):
-    from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-    from jarvis.harness import computer_use_context
+    from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+    from dodaios.harness import computer_use_context
 
     def tool(name):
         return SimpleNamespace(
@@ -111,7 +111,7 @@ def test_voice_catalog_drops_the_second_model_vehicles(monkeypatch):
 
 
 def test_backend_instructions_hand_the_screen_to_the_thinking_model():
-    from jarvis.live.config import LiveConfig
+    from dodaios.live.config import LiveConfig
 
     config = LiveConfig(configured=True, backend_model="thinking-model")
     computer = [{"type": "function", "name": "computer", "parameters": tool_schema()}]
@@ -126,7 +126,7 @@ def test_backend_instructions_hand_the_screen_to_the_thinking_model():
 def test_instructions_never_name_a_computer_tool_that_is_switched_off():
     """With Computer Use off the voice catalog has no computer tool; its rules
     would send the model to a tool it cannot call."""
-    from jarvis.live.config import LiveConfig
+    from dodaios.live.config import LiveConfig
 
     config = LiveConfig(configured=True, backend_model="thinking-model")
     instructions = config.session_config(language="en", tools=[])["delegation"]["responses"][
@@ -139,7 +139,7 @@ def test_instructions_never_name_a_computer_tool_that_is_switched_off():
 
 @pytest.mark.parametrize("auth_mode", ["api_key", "chatgpt_subscription"])
 def test_new_capture_requires_fresh_appshot_evidence_in_both_live_modes(auth_mode):
-    from jarvis.live.config import LiveConfig
+    from dodaios.live.config import LiveConfig
 
     config = LiveConfig(
         configured=True, auth_mode=auth_mode, backend_model="api-model",

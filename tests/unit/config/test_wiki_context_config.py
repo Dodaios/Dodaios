@@ -34,7 +34,7 @@ def test_wiki_subtable_preserves_unknown_key(class_name: str, base_kwargs: dict)
     this test actually distinguish ``allow`` from the pydantic default
     ``ignore`` — the latter accepts the key without error but discards it.
     """
-    import jarvis.core.config as cfgmod
+    import dodaios.core.config as cfgmod
 
     model_cls = getattr(cfgmod, class_name)
     instance = model_cls.model_validate({**base_kwargs, "future_unknown_key": 7})
@@ -46,7 +46,7 @@ def test_wiki_subtable_preserves_unknown_key(class_name: str, base_kwargs: dict)
 
 
 def test_retired_voice_bridge_settings_remain_readable_without_an_active_field() -> None:
-    from jarvis.core.config import WikiMemoryConfig
+    from dodaios.core.config import WikiMemoryConfig
 
     legacy = {"aggressive_mode": True, "future_unknown_key": 7}
     config = WikiMemoryConfig.model_validate({"voice_bridge": legacy})

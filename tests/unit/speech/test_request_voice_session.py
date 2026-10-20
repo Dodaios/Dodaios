@@ -13,9 +13,9 @@ import time
 
 import pytest
 
-from jarvis.platform.permission_service import PermissionOutcome
-from jarvis.platform.permissions import PermissionId
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
+from dodaios.platform.permission_service import PermissionOutcome
+from dodaios.platform.permissions import PermissionId
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline, TurnTakingState
 from tests.fakes.fake_permission_service import FakePermissionService
 
 pytestmark = pytest.mark.usefixtures("granted_microphone")

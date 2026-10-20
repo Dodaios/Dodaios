@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 _SHA = "1" * 40
 _FAKES = r"""

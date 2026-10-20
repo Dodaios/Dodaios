@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_runtimes import model_map, provider_errors
-from jarvis.core import config
+from dodaios.agent_runtimes import model_map, provider_errors
+from dodaios.core import config
 
 
 @pytest.fixture

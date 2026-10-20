@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.documents.document_text import (
+from dodaios.documents.document_text import (
     DOCUMENT_EXTENSIONS,
     extract_document_text,
     is_document,
@@ -224,7 +224,7 @@ class TestPdf:
     def test_an_oversized_document_is_skipped(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        from jarvis.documents import document_text
+        from dodaios.documents import document_text
 
         monkeypatch.setattr(document_text, "MAX_DOCUMENT_BYTES", 16)
         path = _make_pdf(tmp_path / "big.pdf", ["Quarterly ledger reconciliation"])

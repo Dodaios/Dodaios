@@ -13,7 +13,7 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.commands.registry import (
+from dodaios.commands.registry import (
     REPLY_LANGUAGES,
     get_command,
     get_registry,
@@ -25,9 +25,9 @@ _PLACEHOLDER = re.compile(r"\{([^}]+)\}")
 
 
 def _openapi_paths() -> dict:
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import JarvisConfig
-    from jarvis.ui.web.server import WebServer
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import JarvisConfig
+    from dodaios.ui.web.server import WebServer
 
     cfg = JarvisConfig()
     cfg.ui.dev_mode = True
@@ -57,7 +57,7 @@ def test_every_command_endpoint_exists_in_openapi() -> None:
 
 
 def test_every_ui_section_is_a_real_sidebar_section() -> None:
-    from jarvis.plugins.tool.navigate import KNOWN
+    from dodaios.plugins.tool.navigate import KNOWN
 
     for cmd in get_registry():
         assert cmd.ui_section in KNOWN, (
@@ -87,7 +87,7 @@ def test_params_schemas_are_wellformed_objects() -> None:
 def test_danger_flags_at_least_as_strict_as_cli_heuristic() -> None:
     """The CLI's method+path heuristic is the floor: anything IT calls
     destructive must be dangerous here too (the registry may be stricter)."""
-    from jarvis.cli_ctl import safety
+    from dodaios.cli_ctl import safety
 
     for cmd in get_registry():
         if safety.is_dangerous(cmd.method, cmd.path):
@@ -121,7 +121,7 @@ def test_worker_commands_are_explicitly_non_dangerous_and_non_configuring() -> N
 
 
 def test_reply_languages_match_brain_source_of_truth() -> None:
-    from jarvis.brain.manager import SUPPORTED_REPLY_LANGUAGES
+    from dodaios.brain.manager import SUPPORTED_REPLY_LANGUAGES
 
     assert REPLY_LANGUAGES == SUPPORTED_REPLY_LANGUAGES
 
@@ -157,12 +157,12 @@ def test_spawn_agent_enum_follows_the_agent_registry() -> None:
     """A newly registered coding CLI must be spawnable by voice the same day.
 
     The enum used to be the literal ``["claude", "codex"]`` in two schemas, so
-    an agent added to ``jarvis.workspace.agents`` opened from the UI, resumed
+    an agent added to ``dodaios.workspace.agents`` opened from the UI, resumed
     and accepted prompts while being absent from the one surface meant to drive
     it. Registering one now invalidates the cached catalog.
     """
-    from jarvis.commands.registry import get_registry as catalog
-    from jarvis.workspace import agents as workspace_agents
+    from dodaios.commands.registry import get_registry as catalog
+    from dodaios.workspace import agents as workspace_agents
 
     def spawn_enum() -> list[str]:
         cmd = get_command("agentic-ide-spawn-terminals")
@@ -189,9 +189,9 @@ def test_spawn_agent_enum_follows_the_agent_registry() -> None:
 
 
 def test_registry_served_over_rest() -> None:
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import JarvisConfig
-    from jarvis.ui.web.server import WebServer
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import JarvisConfig
+    from dodaios.ui.web.server import WebServer
 
     cfg = JarvisConfig()
     cfg.ui.dev_mode = True
@@ -246,7 +246,7 @@ def test_voice_aliases_are_unique_per_locale(locale) -> None:
 
 def test_voice_alias_locales_cover_reply_languages() -> None:
     """Every concrete reply language has voice aliases on every command."""
-    from jarvis.commands.registry import REPLY_LANGUAGES
+    from dodaios.commands.registry import REPLY_LANGUAGES
 
     concrete = {lang for lang in REPLY_LANGUAGES if lang != "auto"}
     for cmd in get_registry():

@@ -13,11 +13,11 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.society.mars.models import CommandState, DispatchRejected
-from jarvis.society.mars.service import MarsStationService
-from jarvis.society.mars.store import MarsStore
-from jarvis.ui.web.mars_routes import _reconcile_loop, router
-from jarvis.ui.web.surface_security import SurfaceSecurity
+from dodaios.society.mars.models import CommandState, DispatchRejected
+from dodaios.society.mars.service import MarsStationService
+from dodaios.society.mars.store import MarsStore
+from dodaios.ui.web.mars_routes import _reconcile_loop, router
+from dodaios.ui.web.surface_security import SurfaceSecurity
 
 pytestmark = pytest.mark.no_auto_web_auth
 

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.speech.rolling_whisper_wake import RollingWhisperWake
-from jarvis.speech.wake_phrase import compile_wake_matcher
-from jarvis.speech.wake_verifier import (
+from dodaios.speech.rolling_whisper_wake import RollingWhisperWake
+from dodaios.speech.wake_phrase import compile_wake_matcher
+from dodaios.speech.wake_verifier import (
     transcript_has_hey_prefix,
     verify_wake_with_stt,
 )
@@ -89,7 +89,7 @@ import asyncio  # noqa: E402
 
 import numpy as np  # noqa: E402
 
-from jarvis.core.protocols import AudioChunk  # noqa: E402
+from dodaios.core.protocols import AudioChunk  # noqa: E402
 
 
 class _ScriptedSTT:

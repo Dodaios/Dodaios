@@ -8,14 +8,14 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.agentic_ide.dispatch_intent import dispatch_context
-from jarvis.agentic_ide.orchestration import WorkspaceOrchestrator
-from jarvis.agentic_ide.session import SessionError
-from jarvis.brain.tool_gateway import BrainSupervisorToolGateway
-from jarvis.brain.workspace_tool import WorkspaceOrchestrationTool
-from jarvis.core.protocols import ExecutionContext
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
+from dodaios.agentic_ide.dispatch_intent import dispatch_context
+from dodaios.agentic_ide.orchestration import WorkspaceOrchestrator
+from dodaios.agentic_ide.session import SessionError
+from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
+from dodaios.brain.workspace_tool import WorkspaceOrchestrationTool
+from dodaios.core.protocols import ExecutionContext
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
 from tests.contract import test_workspace_orchestration as support
 
 rig = support.rig

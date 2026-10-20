@@ -9,12 +9,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.board.evaluator import AchievementEvaluator
-from jarvis.board.profile import BioGenerator, BioStore, make_resolver_from_brain
-from jarvis.board.store import BoardStore
-from jarvis.core.events import ActionExecuted
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.ui.web.board_routes import board_router
+from dodaios.board.evaluator import AchievementEvaluator
+from dodaios.board.profile import BioGenerator, BioStore, make_resolver_from_brain
+from dodaios.board.store import BoardStore
+from dodaios.core.events import ActionExecuted
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.ui.web.board_routes import board_router
 
 
 class _FakeBrain:

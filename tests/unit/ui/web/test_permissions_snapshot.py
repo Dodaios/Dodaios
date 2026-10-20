@@ -30,13 +30,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.core.events import PERMISSION_FEATURES, PermissionResolved
-from jarvis.platform import permission_service as service_module
-from jarvis.platform.permission_service import Episode, PermissionService, get_permission_service
-from jarvis.platform.permissions import PermissionId, SystemPermissionPort
-from jarvis.ui.web import permissions_routes as routes
-from jarvis.ui.web.control_auth import require_control_key_or_session
-from jarvis.ui.web.permissions_routes import (
+from dodaios.core.events import PERMISSION_FEATURES, PermissionResolved
+from dodaios.platform import permission_service as service_module
+from dodaios.platform.permission_service import Episode, PermissionService, get_permission_service
+from dodaios.platform.permissions import PermissionId, SystemPermissionPort
+from dodaios.ui.web import permissions_routes as routes
+from dodaios.ui.web.control_auth import require_control_key_or_session
+from dodaios.ui.web.permissions_routes import (
     AppIdentityBlock,
     NeededEpisode,
     PermissionRow,

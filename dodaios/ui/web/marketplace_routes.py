@@ -1,0 +1,2080 @@
+"""REST API for the Plugin Marketplace.
+
+Endpoints:
+    GET    /api/marketplace/plugins                       — catalog + status
+    POST   /api/marketplace/plugins/{id}/connect/pat       — paste-token (Vercel, Supabase fallback)
+    POST   /api/marketplace/plugins/{id}/connect/start     — kick off OAuth redirect flow
+    GET    /api/marketplace/plugins/{id}/connect/poll/{flow_id} — poll until completion
+    DELETE /api/marketplace/plugins/{id}                   — disconnect
+    GET    /api/marketplace/community                      — community index browse
+    GET    /api/marketplace/community/{id}/contents        — read an entry before installing
+    POST   /api/marketplace/community/refresh              — force index re-fetch
+    POST   /api/marketplace/community/install/{id}         — install by name (any kind)
+    POST   /api/marketplace/community/plugins/{id}/install — one-click install
+    DELETE /api/marketplace/community/plugins/{id}         — uninstall + revoke
+    POST   /api/marketplace/plugins/upload/inspect         — read a dropped manifest
+    POST   /api/marketplace/plugins/upload                 — install a dropped manifest
+    POST   /api/marketplace/connectors                     — add a remote MCP server by URL
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import httpx
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, Field
+
+from dodaios.core.events import MarketplaceItemInstalled
+from dodaios.core.http_guard import https_only_async
+from dodaios.core.process_utils import resolve_executable
+from dodaios.core.uploads import UploadRejected, stage_upload
+from dodaios.marketplace.auth import (
+    ERROR_UNKNOWN,
+    DcrConfig,
+    DeviceFlowConfig,
+    DeviceFlowHandler,
+    FlowResult,
+    HostedMcpDcrHandler,
+    PkceLoopbackHandler,
+    get_registry,
+    sanitize_provider_error,
+)
+from dodaios.marketplace.bundled_servers import runs_amd_server, runs_connected_server
+from dodaios.marketplace.catalog import (
+    CATEGORY_ORDER,
+    HostedMcpOAuthDcrAuth,
+    HostedMcpOpenAuth,
+    InstanceBrowserAuth,
+    OAuthDeviceFlowAuth,
+    OAuthPkceLoopbackAuth,
+    PatPasteAuth,
+)
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.channel_runtime import apply_channel_live
+from dodaios.marketplace.connection_verification import (
+    ConnectionVerificationError,
+    verify_connection,
+)
+from dodaios.marketplace.discord_connect import (
+    on_discord_connected,
+    on_discord_disconnected,
+)
+from dodaios.marketplace.instance_url import InstanceUrlError, normalize_instance_url
+from dodaios.marketplace.revoke import revoke_unless_shared
+from dodaios.marketplace.telegram_connect import (
+    on_telegram_connected,
+    on_telegram_disconnected,
+)
+from dodaios.marketplace.token_store import Tokens, TokenStore
+from dodaios.ui.web.upload_intake import (
+    read_upload_entries,
+    upload_http_error,
+    upload_limits,
+)
+
+# Marketplace plugin ids whose "connect" enables an in-repo bidirectional chat
+# channel (token + config), not just a stored token. Kept in sync with the
+# channel adapters under dodaios/channels/.
+_CHANNEL_PLUGIN_IDS = ("telegram", "discord")
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/marketplace", tags=["marketplace"])
+
+
+def _refresh_plugin_in_live_registry(plugin_id: str) -> None:
+    """Best-effort: re-expand the live brain after a connect/disconnect.
+
+    No-op when no shared registry is published (headless without web boot).
+    """
+    try:
+        # The music tools remember which connectors are connected for a few
+        # seconds; a connect/disconnect must be seen at once, not after the TTL.
+        from dodaios.core.music_service import forget_connected_music_services
+
+        forget_connected_music_services()
+    except Exception:  # noqa: BLE001 — a cache miss is the worst case here
+        log.debug("music connection cache reset skipped", exc_info=True)
+    try:
+        from dodaios.marketplace.plugin_shared import get_active_plugin_registry
+
+        reg = get_active_plugin_registry()
+        if reg is not None:
+            asyncio.create_task(reg.refresh_plugin(plugin_id), name=f"plugin-refresh:{plugin_id}")
+    except Exception:  # noqa: BLE001
+        # A failed re-expand after the user just connected a plugin is a
+        # recoverable workflow failure, not a hot-path event — log at WARNING
+        # so it surfaces without a debug flag.
+        log.warning("live plugin refresh failed for %s", plugin_id, exc_info=True)
+
+
+def _live_plugin_registry() -> Any:
+    """The active ``PluginToolRegistry``, or ``None`` if unreachable.
+
+    Same lookup as ``_refresh_plugin_in_live_registry`` — returns ``None`` on
+    any failure (early boot, headless) so callers can fail open.
+    """
+    try:
+        from dodaios.marketplace.plugin_shared import get_active_plugin_registry
+
+        return get_active_plugin_registry()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# ----------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class _PluginStatusMeta:
+    """Everything the plugins view needs about one grant, from ONE token load."""
+
+    status: str
+    expires_at: str | None = None
+    last_refreshed: str | None = None
+    # Why the connection is flagged, and since when. Both stay ``None`` on a
+    # healthy grant and on one flagged before these fields existed — the view
+    # then says "unknown" rather than inventing a cause.
+    reauth_reason: str | None = None
+    reauth_at: str | None = None
+    # When the provider itself ends the refresh grant (Google: an OAuth app in
+    # Testing status). ``None`` when the provider stated no fixed lifetime.
+    refresh_expires_at: str | None = None
+
+
+def _plugin_status_meta(plugin_id: str, store: TokenStore) -> _PluginStatusMeta:
+    """Return the plugin's stored auth state from ONE token load.
+
+    ``expires_at`` / ``last_refreshed`` are surfaced so the UI can show an honest
+    "auto-refreshing / expiring soon" hint without re-deriving it. Both are
+    ``None`` for a token that carries no expiry (e.g. a PAT) or was never
+    refreshed — never a fabricated timestamp.
+
+    ``reauth_reason`` is one of the ``REAUTH_*`` codes and is the ONLY failure
+    detail that leaves this layer: a provider's raw error body can echo a token
+    back, so it is never stored and never served.
+    """
+    try:
+        tokens = store.load(plugin_id)
+    except RuntimeError:
+        return _PluginStatusMeta("error")
+    if tokens is None:
+        return _PluginStatusMeta("not_connected")
+    return _PluginStatusMeta(
+        status="needs_reauth" if tokens.needs_reauth else "connected",
+        expires_at=tokens.expires_at.isoformat() if tokens.expires_at else None,
+        last_refreshed=tokens.extra.get("last_refreshed") or None,
+        reauth_reason=tokens.reauth_reason if tokens.needs_reauth else None,
+        reauth_at=(
+            tokens.reauth_at.isoformat() if tokens.needs_reauth and tokens.reauth_at else None
+        ),
+        refresh_expires_at=tokens.extra.get("refresh_expires_at") or None,
+    )
+
+
+def _plugin_status(plugin_id: str, store: TokenStore) -> str:
+    return _plugin_status_meta(plugin_id, store).status
+
+
+def _build_dcr_handler(plugin_id: str, auth: HostedMcpOAuthDcrAuth) -> HostedMcpDcrHandler:
+    return HostedMcpDcrHandler(
+        DcrConfig(
+            plugin_id=plugin_id,
+            discovery_url=auth.discovery_url,
+        )
+    )
+
+
+def pat_prefix_ok(auth: PatPasteAuth, token: str) -> bool:
+    """True when a pasted token matches the catalog's accepted prefixes.
+
+    The primary ``token_prefix`` plus any ``token_prefixes`` extras (e.g.
+    GitHub classic ``ghp_`` + fine-grained ``github_pat_``). An entry with
+    no prefix configured accepts anything — validation then happens against
+    the provider endpoint.
+    """
+    accepted = [auth.token_prefix, *getattr(auth, "token_prefixes", [])]
+    accepted = [p for p in accepted if p]
+    if not accepted:
+        return True
+    return token.startswith(tuple(accepted))
+
+
+def _pat_block(spec: Any) -> PatPasteAuth | None:
+    """The PAT block a paste connects with: primary first, expert fallback.
+
+    Dual-mode plugins (browser primary + ``fallback_auth``) keep their
+    previously working token path reachable through this endpoint while the
+    publisher client is still pending.
+    """
+    auth = getattr(spec, "auth", None)
+    if isinstance(auth, PatPasteAuth):
+        return auth
+    fallback = getattr(spec, "fallback_auth", None)
+    return fallback if isinstance(fallback, PatPasteAuth) else None
+
+
+def _auth_standard_payload(spec: Any) -> dict[str, Any] | None:
+    """Additive browser-standard state for PKCE/device plugins.
+
+    ``{"ready": bool, "source": publisher|own|catalog|missing,
+    "fallback": bool}`` — the dialog needs WHERE the client comes from and
+    whether a token fallback exists. ``None`` for modes without a browser
+    flow. Client ids/secrets never leave the backend.
+    """
+    from dodaios.marketplace.catalog import OAuthDeviceFlowAuth
+
+    auth = getattr(spec, "auth", None)
+    if not isinstance(auth, (OAuthPkceLoopbackAuth, OAuthDeviceFlowAuth)):
+        return None
+    try:
+        from dodaios.marketplace.publisher_clients import resolve_publisher_client
+
+        _, _, source = resolve_publisher_client(
+            spec.id, auth.client_id, getattr(auth, "client_secret", None)
+        )
+    except Exception:  # noqa: BLE001 — status must never break listing
+        source = "missing"
+    return {
+        "ready": source in ("publisher", "catalog", "own"),
+        "source": source,
+        "fallback": isinstance(getattr(spec, "fallback_auth", None), PatPasteAuth),
+    }
+
+
+def _make_validator(transport: httpx.AsyncBaseTransport | None = None):
+    """Build a token validator that branches on the catalog's ``auth_scheme``.
+
+    Returns an async callable ``(auth, token) -> (ok: bool, status: int)``.
+    ``transport`` is injectable so unit tests can stub the HTTP layer.
+    Raises ``httpx.HTTPError`` to the caller when the endpoint is unreachable.
+    """
+
+    async def _validate(
+        auth: PatPasteAuth, token: str, instance_url: str | None = None
+    ) -> tuple[bool, int]:
+        scheme = getattr(auth, "auth_scheme", "bearer")
+        headers = {"User-Agent": "Personal-Jarvis/1.0"}
+        if scheme == "telegram_path":
+            # Telegram puts the token in the URL path, no auth header.
+            url = auth.validation_endpoint.replace("{token}", token)
+        elif scheme == "bot":
+            url = auth.validation_endpoint
+            headers["Authorization"] = f"Bot {token}"
+        elif scheme == "figma":
+            url = auth.validation_endpoint
+            headers["X-Figma-Token"] = token
+        else:  # bearer
+            url = auth.validation_endpoint
+            headers["Authorization"] = f"Bearer {token}"
+        if auth.instance_url is not None and instance_url:
+            # Self-hosted: the catalog cannot know the address, so validation
+            # goes to the user's own server instead of a fixed endpoint.
+            url = normalize_instance_url(instance_url) + auth.instance_url.validation_path
+        async with httpx.AsyncClient(timeout=10.0, transport=transport) as client:
+            resp = await client.get(url, headers=headers)
+        if resp.status_code != 200:
+            return False, resp.status_code
+        if scheme == "telegram_path":
+            # Telegram returns 200 with {"ok": false} for soft errors.
+            try:
+                return bool(resp.json().get("ok")), 200
+            except ValueError:
+                return False, 200
+        return True, 200
+
+    return _validate
+
+
+_validate_token = _make_validator()
+
+
+async def _validate_connector_token(spec: Any, pat: PatPasteAuth, token: str) -> tuple[bool, int]:
+    """Prove a custom connector's token with an MCP handshake.
+
+    The server behind a custom connector has no REST "who am I" route to ask,
+    so the token rides in the entry's own header on an ``initialize`` — the
+    exact request the tool registry sends next. Unreachable or non-MCP
+    answers surface as a 502 with the probe's sentence, not as "rejected".
+    """
+    from dodaios.marketplace.custom_connector import (
+        ConnectorError,
+        connector_auth_headers,
+        probe_connector,
+    )
+
+    try:
+        probe = await probe_connector(
+            pat.validation_endpoint, headers=connector_auth_headers(spec, token)
+        )
+    except ConnectorError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return probe.auth == "none", probe.status
+
+
+# ----------------------------------------------------------------------
+# Read endpoints
+# ----------------------------------------------------------------------
+
+
+def _mcp_live(
+    mcp: dict[str, Any], *, plugin_id: str = "", status: str = ""
+) -> tuple[bool, str | None]:
+    """``(is_live, runtime_missing)`` for an MCP plugin's transport.
+
+    M2 (honest status): a stdio plugin (GitHub=docker, Supabase=npx) is only LIVE if
+    its launcher binary is on PATH — else connecting saves the token but the tools
+    never appear, so a green "Connected · Live" badge is a lie. ``runtime_missing``
+    is the absent launcher name for an honest UI hint.
+
+    Bug 14: an http plugin's connect-time ``list_tools()`` can 401 and be
+    swallowed, leaving status "connected" with ZERO live tools — a green
+    "Connected · Live" badge over a dead session. When a BOOTSTRAPPED live
+    registry is reachable AND the plugin is "connected" AND it reports zero
+    tools, the session is dead (expired token, 401 at list_tools) and the badge
+    goes honest. No registry reachable (headless), or a registry that is
+    published but still bootstrapping in the background (the boot window where
+    every count reads 0 although nothing is dead) -> fail open, exactly
+    today's behaviour.
+    """
+    transport = str(mcp.get("transport", "")).lower()
+    if transport in ("http", "sse"):
+        if status == "connected":
+            reg = _live_plugin_registry()  # the same accessor refresh uses
+            if reg is not None and reg.is_bootstrapped() and reg.live_tool_count(plugin_id) == 0:
+                hint = reg.last_connect_error(plugin_id) or "no tools loaded — reconnect"
+                return False, hint
+        return True, None
+    if transport == "stdio":
+        install = mcp.get("install") or []
+        if status == "connected":
+            reg = _live_plugin_registry()
+            if reg is not None and reg.is_bootstrapped() and reg.live_tool_count(plugin_id) == 0:
+                return False, reg.last_connect_error(plugin_id) or "No tools loaded; reconnect"
+        if install[:1] == ["python"] and runs_connected_server(install):
+            return True, None  # Bundled in-process bridge needs no PATH launcher.
+        if install[:1] == ["python"] and runs_amd_server(install):
+            import shutil
+
+            available = shutil.which("amd-smi") is not None
+            return available, None if available else "AMD SMI is unavailable on this host"
+        launcher = str(install[0]) if install else ""
+        if launcher:
+            resolved = resolve_executable(launcher)
+            if resolved != launcher or Path(resolved).is_file():
+                return True, None
+        return False, (launcher or None)
+    return False, None
+
+
+@router.get("/plugins")
+async def list_plugins(response: Response) -> dict[str, Any]:
+    # Never let an embedded webview (pywebview/WebView2) serve a stale cached
+    # plugin list: WebView2 heuristically caches this GET, so after a catalog
+    # change the desktop window kept showing the old/empty list while a fresh
+    # browser tab showed the new one. no-store forces every fetch to hit the
+    # server. (Bug: "plugins disappear / don't show in the desktop app".)
+    response.headers["Cache-Control"] = "no-store"
+    catalog = load_catalog()
+    store = TokenStore()
+    enriched: list[dict[str, Any]] = []
+    connected = 0
+    for spec in catalog.plugins:
+        item = spec.model_dump(mode="json")
+        meta = _plugin_status_meta(spec.id, store)
+        status = meta.status
+        item["status"] = status
+        item["expires_at"] = meta.expires_at
+        item["last_refreshed"] = meta.last_refreshed
+        item["reauth_reason"] = meta.reauth_reason
+        item["reauth_at"] = meta.reauth_at
+        item["refresh_expires_at"] = meta.refresh_expires_at
+        item["unavailable_reason"] = None
+        item["unavailable_reason_code"] = ""
+        if spec.id == "amd_gpu" and spec.auth.mode == "local":
+            from dodaios.marketplace.amd_mcp import (
+                amd_unavailable_reason,
+                amd_unavailable_reason_code,
+            )
+
+            item["unavailable_reason"] = amd_unavailable_reason()
+            # Stable code so the UI shows the reason in the user's language.
+            item["unavailable_reason_code"] = amd_unavailable_reason_code(
+                item["unavailable_reason"]
+            )
+        if isinstance(spec.auth, OAuthPkceLoopbackAuth):
+            from dodaios.marketplace.connect_helpers import (
+                is_placeholder_client_id,
+                resolve_pkce_client,
+            )
+
+            effective_client_id, _ = resolve_pkce_client(
+                spec.id, spec.auth.client_id, spec.auth.client_secret
+            )
+            # Configuration state is safe to expose; the client id and secret
+            # themselves never leave the backend. The dialog uses this to stop
+            # placeholder-only installs before they launch a doomed OAuth tab.
+            item["oauth_client_configured"] = not is_placeholder_client_id(effective_client_id)
+        # Browser-auth standard state: WHERE the client comes from, so the
+        # dialog can tell "publisher-provided, one click" apart from
+        # "expert override active" and "provisioning pending", plus whether
+        # a token fallback exists. Additive — older frontends keep reading
+        # `oauth_client_configured`.
+        standard = _auth_standard_payload(spec)
+        if standard is not None:
+            item["auth_standard"] = standard
+            if isinstance(spec.auth, OAuthDeviceFlowAuth):
+                item["oauth_client_configured"] = standard["ready"]
+        if isinstance(getattr(spec, "fallback_auth", None), PatPasteAuth):
+            item["fallback_auth"] = spec.fallback_auth.model_dump(mode="json")
+        mcp = spec.mcp_server or {}
+        mcp_live, runtime_missing = _mcp_live(mcp, plugin_id=spec.id, status=status)
+        if runtime_missing:
+            item["runtime_missing"] = runtime_missing
+        native_live = False
+        if spec.native_tool:
+            try:
+                from dodaios.brain.factory import ROUTER_TOOLS
+
+                native_live = spec.native_tool in ROUTER_TOOLS
+            except Exception:  # noqa: BLE001
+                native_live = False
+        item["live_callable"] = mcp_live or native_live
+        if status == "connected":
+            connected += 1
+        enriched.append(item)
+    return {
+        "version": catalog.version,
+        "schema_version": catalog.schema_version,
+        # Section order for the store. Served rather than hardcoded in the UI so
+        # a new category is a backend-only change; the frontend appends any
+        # category it receives that is not listed here instead of dropping (or
+        # crashing on) it.
+        "category_order": list(CATEGORY_ORDER),
+        "plugins": enriched,
+        "total": len(enriched),
+        "connected": connected,
+    }
+
+
+# ----------------------------------------------------------------------
+# PAT-paste connect (Vercel, Supabase fallback)
+# ----------------------------------------------------------------------
+
+
+class PatConnectBody(BaseModel):
+    token: str = Field(min_length=1, max_length=2048)
+    # Base address of the user's own server, for self-hosted plugins whose
+    # catalog entry declares an `instance_url`. Not a secret.
+    instance_url: str | None = Field(default=None, max_length=512)
+    # Owner lock for channel plugins (telegram/discord): the numeric user id the
+    # bot will obey. When given, it is added to the allowlist and
+    # trust-on-first-contact is turned off. Not a secret — lives in jarvis.toml.
+    allowed_user_id: int | None = Field(default=None, ge=0)
+
+
+@router.post("/plugins/{plugin_id}/connect/pat")
+async def connect_pat(plugin_id: str, body: PatConnectBody, request: Request) -> dict[str, Any]:
+    catalog = load_catalog()
+    spec = catalog.by_id(plugin_id)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"plugin {plugin_id!r} not in catalog")
+
+    pat = _pat_block(spec)
+    if pat is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"plugin {plugin_id!r} uses auth mode {spec.auth.mode!r}, "
+                "not 'pat_paste' — use the matching connect endpoint instead"
+            ),
+        )
+
+    token = body.token.strip()
+    if not pat_prefix_ok(pat, token):
+        accepted = [pat.token_prefix, *getattr(pat, "token_prefixes", [])]
+        # Prefixes already ending in "_" (e.g. "github_pat_") display as-is;
+        # bare ones (e.g. "ghp") display with the trailing underscore the
+        # provider format uses.
+        expected = " or ".join(f"'{p}'" if p.endswith("_") else f"'{p}_'" for p in accepted if p)
+        raise HTTPException(
+            status_code=400,
+            detail=f"token must start with {expected} (got first 4 chars: {token[:4]!r})",
+        )
+
+    # Self-hosted services (Home Assistant, Jellyfin, ...) live at the user's
+    # own address, which the catalog cannot know.
+    instance_url: str | None = None
+    if pat.instance_url is not None:
+        if not (body.instance_url or "").strip():
+            raise HTTPException(
+                status_code=400,
+                detail=f"{spec.display_name} needs the address of your own server",
+            )
+        try:
+            instance_url = normalize_instance_url(body.instance_url or "")
+        except InstanceUrlError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    target = (
+        instance_url + pat.instance_url.validation_path
+        if instance_url and pat.instance_url
+        else pat.validation_endpoint
+    )
+    try:
+        # Only widen the call for self-hosted plugins. Every other caller (and
+        # every injected test double) keeps the two-argument shape it has had
+        # since the flow was written.
+        if pat.validation_method == "mcp_initialize":
+            ok, status = await _validate_connector_token(spec, pat, token)
+        elif instance_url:
+            ok, status = await _validate_token(pat, token, instance_url)
+        else:
+            ok, status = await _validate_token(pat, token)
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"could not reach {target}: {type(exc).__name__}",
+        ) from exc
+
+    if not ok:
+        raise HTTPException(
+            status_code=401,
+            detail=f"{spec.display_name} rejected the token (HTTP {status})",
+        )
+
+    store = TokenStore()
+    # The address rides in `extra` beside the token: it is per-connection state,
+    # it must survive a restart exactly like the credential, and a tool that has
+    # the token but not the address can do nothing with it.
+    extra = {"instance_url": instance_url} if instance_url else {}
+    store.save(plugin_id, Tokens(access=token, extra=extra))
+    if plugin_id in _CHANNEL_PLUGIN_IDS:
+        # A channel "connect" enables the in-repo bidirectional channel. Do not
+        # report a successful Marketplace connect if the canonical channel
+        # secret/config could not be written; otherwise the UI says "connected"
+        # while the bot cannot start.
+        try:
+            if plugin_id == "telegram":
+                on_telegram_connected(token, body.allowed_user_id)
+            else:
+                on_discord_connected(token, body.allowed_user_id)
+        except Exception as exc:  # noqa: BLE001
+            try:
+                store.delete(plugin_id)
+            except Exception as cleanup_exc:  # noqa: BLE001
+                log.debug(
+                    "%s token cleanup after failed enable failed: %s",
+                    plugin_id,
+                    cleanup_exc,
+                )
+            log.warning("%s channel enable failed: %s", plugin_id, exc)
+            raise HTTPException(
+                status_code=500,
+                detail=f"{plugin_id}-channel-enable-failed: {type(exc).__name__}",
+            ) from exc
+    _refresh_plugin_in_live_registry(plugin_id)
+    live_applied = False
+    if plugin_id in _CHANNEL_PLUGIN_IDS:
+        live_applied = await apply_channel_live(request.app.state, plugin_id)
+    result: dict[str, Any] = {
+        "ok": True,
+        "plugin_id": plugin_id,
+        "status": "connected",
+        "live_applied": live_applied,
+    }
+    if plugin_id in _CHANNEL_PLUGIN_IDS and not live_applied:
+        # M8 (honest status): the token saved but the channel did NOT start live —
+        # commonly the optional extra is missing (e.g. discord.py for Discord) or an
+        # app restart is needed. Surface it so the UI never implies a working message
+        # path with a green "Live" badge.
+        result["live_note"] = (
+            "Saved, but the channel did not start live. It may need its optional "
+            "extra (pip install '.[channels]' for Discord) or an app restart."
+        )
+    return result
+
+
+# ----------------------------------------------------------------------
+# Discord helpers: verified identity + bot invite (browser-first channel)
+# ----------------------------------------------------------------------
+
+
+@router.get("/plugins/discord/identity")
+async def discord_identity() -> dict[str, Any]:
+    """Verified Discord user id for the linked browser grant.
+
+    The token-paste dialog asks for the numeric user id to lock the bot;
+    this endpoint fills it from the confirmed OAuth login instead of making
+    the user dig through Developer Mode. Returns 404 when no browser grant
+    is stored. A stored *bot* token (token-fallback path) is rejected here
+    by design — ``Bot`` and ``Bearer`` credentials are not interchangeable.
+    """
+    from dodaios.marketplace.oauth_discord import DiscordApiError, fetch_current_user
+
+    try:
+        tokens = TokenStore().load("discord")
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=500, detail="the stored Discord credential is unreadable"
+        ) from exc
+    if tokens is None or not tokens.access or tokens.needs_reauth:
+        raise HTTPException(
+            status_code=404,
+            detail="Discord browser login is not connected yet — "
+            "connect Discord in the browser first.",
+        )
+    try:
+        identity = await fetch_current_user(tokens.access)
+    except DiscordApiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {
+        "ok": True,
+        "plugin_id": "discord",
+        "user_id": identity.user_id,
+        "username": identity.username,
+        "global_name": identity.global_name,
+    }
+
+
+@router.get("/plugins/discord/invite")
+async def discord_invite() -> dict[str, Any]:
+    """Ready-to-open bot-install URL for the effective Discord client.
+
+    Opens the official guild picker in the browser (bot authorization flow,
+    least-privilege bitfield). Reports 409 while no real OAuth client is
+    provisioned — a publisher/operator task, never end-user setup.
+    """
+    from dodaios.marketplace.connect_helpers import is_placeholder_client_id
+    from dodaios.marketplace.oauth_discord import MINIMAL_BOT_PERMISSIONS, build_bot_invite_url
+    from dodaios.marketplace.publisher_clients import resolve_publisher_client
+
+    catalog = load_catalog()
+    spec = catalog.by_id("discord")
+    client_id = ""
+    if spec is not None and isinstance(spec.auth, OAuthPkceLoopbackAuth):
+        client_id, _, _ = resolve_publisher_client(
+            "discord", spec.auth.client_id, spec.auth.client_secret
+        )
+    if is_placeholder_client_id(client_id):
+        raise HTTPException(
+            status_code=409,
+            detail="Discord browser sign-in is not provisioned yet: no "
+            "publisher-shared OAuth client is installed and the catalog "
+            "carries only a placeholder client_id. Meanwhile connect with "
+            "a bot token via the dialog's token fallback.",
+        )
+    return {
+        "ok": True,
+        "plugin_id": "discord",
+        "invite_url": build_bot_invite_url(client_id),
+        "permissions": MINIMAL_BOT_PERMISSIONS,
+    }
+
+
+# ----------------------------------------------------------------------
+# OAuth redirect connect (Notion, Supabase main path)
+# ----------------------------------------------------------------------
+
+
+class BrowserConnectBody(BaseModel):
+    instance_url: str | None = None
+
+
+@router.post("/plugins/{plugin_id}/connect/start")
+async def connect_start(
+    plugin_id: str,
+    background: BackgroundTasks,
+    body: BrowserConnectBody | None = None,
+) -> dict[str, Any]:
+    """Kick off an OAuth-redirect flow. Returns a session the UI renders.
+
+    The handler runs `await_completion()` in a background task — the UI
+    long-polls `/connect/poll/{flow_id}` until tokens are ready.
+    """
+    catalog = load_catalog()
+    spec = catalog.by_id(plugin_id)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"plugin {plugin_id!r} not in catalog")
+
+    if isinstance(spec.auth, InstanceBrowserAuth):
+        from dodaios.marketplace.auth.home_assistant import HomeAssistantHandler
+
+        if not isinstance(body, BrowserConnectBody) or not body.instance_url:
+            raise HTTPException(status_code=400, detail="Enter your Home Assistant address.")
+        try:
+            handler = HomeAssistantHandler(body.instance_url)
+        except InstanceUrlError:
+            raise HTTPException(
+                status_code=400, detail="Enter a valid Home Assistant address."
+            ) from None
+    elif isinstance(spec.auth, HostedMcpOAuthDcrAuth):
+        handler = _build_dcr_handler(plugin_id, spec.auth)
+    elif spec.auth.mode == "local":
+        if plugin_id != "amd_gpu" or spec.source != "seed":
+            raise HTTPException(status_code=400, detail="Unknown local connector")
+        from dodaios.marketplace.amd_mcp import read_amd_status
+
+        try:
+            await asyncio.to_thread(read_amd_status)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        TokenStore().save(plugin_id, Tokens(access="local-enabled"))
+        _refresh_plugin_in_live_registry(plugin_id)
+        return {"kind": "local", "plugin_id": plugin_id, "state": "connected"}
+    elif isinstance(spec.auth, HostedMcpOpenAuth):
+        # No sign-in to run: one answered handshake is the whole connect, so
+        # "Connected" is never shown for a server that is down or now wants
+        # credentials it did not want when it was added.
+        from dodaios.marketplace.custom_connector import ConnectorError, probe_connector
+
+        try:
+            probe = await probe_connector(spec.auth.mcp_url)
+        except ConnectorError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        if probe.auth != "none":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{spec.display_name} now asks for sign-in. Remove it and add it "
+                    "again so the new sign-in is detected."
+                ),
+            )
+        TokenStore().save(plugin_id, Tokens(access="open"))
+        _refresh_plugin_in_live_registry(plugin_id)
+        return {"kind": "local", "plugin_id": plugin_id, "state": "connected"}
+    elif isinstance(spec.auth, OAuthDeviceFlowAuth):
+        from dodaios.marketplace.connect_helpers import is_placeholder_client_id
+        from dodaios.marketplace.publisher_clients import resolve_publisher_client
+
+        device_client_id, _, _ = resolve_publisher_client(plugin_id, spec.auth.client_id, None)
+        if is_placeholder_client_id(device_client_id):
+            detail = (
+                f"oauth client not configured for plugin {plugin_id!r}: no "
+                "publisher-provisioned shared client is installed yet and "
+                "the shipped catalog carries only a placeholder client_id. "
+                "This is a provisioning task for the project, not setup "
+                "work for you — see the plugin's audit entry."
+            )
+            if isinstance(getattr(spec, "fallback_auth", None), PatPasteAuth):
+                detail += (
+                    " Meanwhile you can connect with a provider-issued token "
+                    "via the dialog's token fallback."
+                )
+            raise HTTPException(status_code=409, detail=detail)
+        handler = DeviceFlowHandler(
+            DeviceFlowConfig(
+                plugin_id=plugin_id,
+                device_url=spec.auth.device_url,
+                verify_url=spec.auth.verify_url,
+                token_url=spec.auth.token_url,
+                client_id=device_client_id,
+                scopes=list(spec.auth.scopes),
+            )
+        )
+    elif isinstance(spec.auth, OAuthPkceLoopbackAuth):
+        # Resolve the effective client from secrets so a reconnect uses the
+        # operator's real Google client, not the catalog placeholder (the same
+        # resolution the refresh scheduler uses — connect/refresh stay in sync).
+        # The shared builder also routes a shipped client's token exchange
+        # through its broker when the provider demands a secret.
+        from dodaios.marketplace.connect_helpers import (
+            build_pkce_config,
+            is_placeholder_client_id,
+        )
+
+        pkce_config = build_pkce_config(plugin_id, spec.auth)
+        if is_placeholder_client_id(pkce_config.client_id):
+            detail = (
+                f"oauth client not configured for plugin {plugin_id!r}: no "
+                "publisher-provisioned shared client is installed yet and "
+                "the shipped catalog carries only a placeholder client_id. "
+                "This is a provisioning task for the project, not setup "
+                "work for you — see the plugin's audit entry. Experts can "
+                "still use the dialog's 'Use your own OAuth client' "
+                "section with a self-registered app, then retry."
+            )
+            if isinstance(getattr(spec, "fallback_auth", None), PatPasteAuth):
+                detail += (
+                    " Meanwhile you can connect with a provider-issued token "
+                    "via the dialog's token fallback."
+                )
+            raise HTTPException(status_code=409, detail=detail)
+        handler = PkceLoopbackHandler(pkce_config)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"plugin {plugin_id!r} uses auth mode {spec.auth.mode!r} "
+                "which is not yet wired to /connect/start. Supported: "
+                "hosted_mcp_oauth_dcr, hosted_mcp_open, oauth_device_flow, "
+                "oauth_pkce_loopback."
+            ),
+        )
+
+    try:
+        session = await handler.start(spec)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("plugin %s connect/start failed (%s)", plugin_id, type(exc).__name__)
+        raise HTTPException(
+            status_code=502,
+            detail=sanitize_provider_error(str(exc)),
+        ) from exc
+
+    registry = get_registry()
+    registry.put(handler, session)
+
+    # Drive the await-completion in a background task; the result is
+    # parked on the registry slot for the poll endpoint to read.
+    async def _drive() -> None:
+        slot = registry.get(session.flow_id)
+        if slot is None:
+            return
+        async with slot.completion_lock:
+            try:
+                result = await handler.await_completion(session)
+            except asyncio.CancelledError:
+                # The dialog was cancelled (DELETE /connect/{flow_id} drops
+                # the slot and stops the listener): nothing left to report.
+                # Without this the task dies with an unretrieved exception
+                # while the poll endpoint keeps answering "pending".
+                return
+            except Exception as exc:  # noqa: BLE001
+                log.warning("plugin %s connect/await failed (%s)", plugin_id, type(exc).__name__)
+                if registry.get(session.flow_id) is slot:
+                    slot.result = FlowResult(
+                        tokens=None,
+                        error=sanitize_provider_error(str(exc)),
+                        error_code=ERROR_UNKNOWN,
+                    )
+                return
+            # Closing the browser-login dialog is a real cancellation, not
+            # merely a UI hide. Never let a late provider callback replace the
+            # existing grant (especially a needs_reauth grant) after the user
+            # cancelled the reconnect.
+            if registry.get(session.flow_id) is not slot:
+                log.info("plugin %s connect flow cancelled", plugin_id)
+                return
+            if result.tokens is not None:
+                try:
+                    await verify_connection(spec, result.tokens)
+                except ConnectionVerificationError as exc:
+                    log.info("plugin %s resource verification failed", plugin_id)
+                    if registry.get(session.flow_id) is slot:
+                        slot.result = FlowResult(
+                            tokens=None, error=str(exc), error_code="provider_unreachable"
+                        )
+                    return
+                if registry.get(session.flow_id) is not slot:
+                    return
+                # Persist BEFORE publishing the result: connect_poll reads
+                # `slot.result` to decide "connected" vs "pending", so setting
+                # it before the save actually lands let a poll (or a crash
+                # right after) report success for a token that was never
+                # written to the store.
+                try:
+                    TokenStore().save(plugin_id, result.tokens)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("plugin %s token save failed (%s)", plugin_id, type(exc).__name__)
+                    slot.result = FlowResult(
+                        tokens=None,
+                        error="The connection could not be saved. Try again.",
+                        error_code=ERROR_UNKNOWN,
+                    )
+                    return
+                _refresh_plugin_in_live_registry(plugin_id)
+                log.info("plugin %s connected via DCR", plugin_id)
+            slot.result = result
+
+    asyncio.create_task(_drive(), name=f"oauth-drive:{plugin_id}:{session.flow_id}")
+
+    return {
+        "ok": True,
+        "flow_id": session.flow_id,
+        "plugin_id": session.plugin_id,
+        "kind": session.kind,
+        "open_url": session.open_url,
+        # The exact address the provider must call back with ?code=&state=.
+        # The UI shows it while waiting so a provider page that never calls
+        # back (unregistered redirect URI, missing approval) is diagnosable
+        # instead of an endless spinner.
+        "redirect_uri": session.redirect_uri,
+        "user_code": session.user_code,
+        "verification_uri": session.verification_uri,
+        "verification_uri_complete": session.verification_uri_complete,
+        "expires_at_ms": session.expires_at_ms,
+        "interval": session.interval,
+    }
+
+
+@router.delete("/plugins/{plugin_id}/connect/{flow_id}")
+async def cancel_connect(plugin_id: str, flow_id: str) -> dict[str, str]:
+    """Cancel a pending OAuth flow without touching the stored grant."""
+    registry = get_registry()
+    slot = registry.get(flow_id)
+    if slot is not None and slot.session.plugin_id != plugin_id:
+        raise HTTPException(status_code=404, detail="unknown flow_id for plugin")
+    registry.drop(flow_id)
+    if slot is not None:
+        # Invalidate before awaiting cleanup: a late completion must not save
+        # tokens while the callback listener is still shutting down.
+        cancel = getattr(slot.handler, "cancel", None)
+        if callable(cancel):
+            try:
+                result = cancel(slot.session)
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception:  # noqa: BLE001 — cancel stays best-effort
+                log.debug("cancel handler cleanup failed for %s", plugin_id)
+    return {"state": "cancelled", "flow_id": flow_id, "plugin_id": plugin_id}
+
+
+@router.get("/plugins/{plugin_id}/connect/poll/{flow_id}")
+async def connect_poll(plugin_id: str, flow_id: str) -> dict[str, Any]:
+    """Returns `{state: "pending"|"connected"|"error", ...}`."""
+    registry = get_registry()
+    slot = registry.get(flow_id)
+    if slot is None:
+        raise HTTPException(status_code=404, detail="unknown flow_id (or expired)")
+    if slot.session.plugin_id != plugin_id:
+        raise HTTPException(status_code=404, detail="unknown flow_id for plugin")
+
+    if slot.result is None:
+        return {"state": "pending", "flow_id": flow_id}
+
+    if slot.result.error or slot.result.tokens is None:
+        registry.drop(flow_id)
+        return {
+            "state": "error",
+            "flow_id": flow_id,
+            "error": slot.result.error or "unknown",
+            "error_code": slot.result.error_code or "unknown",
+        }
+
+    registry.drop(flow_id)
+    return {"state": "connected", "flow_id": flow_id, "plugin_id": plugin_id}
+
+
+# ----------------------------------------------------------------------
+# Hosted OAuth callback (headless / VPS — public redirect target)
+# ----------------------------------------------------------------------
+
+
+@router.get("/oauth/callback", response_model=None)
+async def oauth_callback(code: str = "", state: str = "", error: str = "") -> HTMLResponse:
+    """Public redirect target for hosted-mode OAuth flows.
+
+    The provider redirects the user's browser here with ``?code=&state=``. We
+    hand the captured pair to the waiting flow — matched by ``state``, which is
+    the CSRF check — and render a close-this-tab page. Active only when
+    ``[marketplace].public_callback_base_url`` is set; desktop installs use the
+    loopback callback server instead.
+    """
+    from dodaios.marketplace.hosted_callback import (
+        ERROR_HTML,
+        SUCCESS_HTML,
+        deliver_callback,
+    )
+    from dodaios.marketplace.oauth_callback_server import provider_callback_error
+
+    delivered = deliver_callback(code=code, state=state, error=error or None)
+    if not delivered:
+        return HTMLResponse(
+            ERROR_HTML.format(reason="Unknown or expired authorization state."),
+            status_code=400,
+        )
+    if error:
+        return HTMLResponse(
+            ERROR_HTML.format(reason=provider_callback_error(error)), status_code=400
+        )
+    if not code:
+        return HTMLResponse(
+            ERROR_HTML.format(reason="Missing authorization code."),
+            status_code=400,
+        )
+    return HTMLResponse(SUCCESS_HTML)
+
+
+# ----------------------------------------------------------------------
+# Disconnect
+# ----------------------------------------------------------------------
+
+
+@router.delete("/plugins/{plugin_id}")
+async def disconnect(plugin_id: str, request: Request) -> dict[str, Any]:
+    catalog = load_catalog()
+    spec = catalog.by_id(plugin_id)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"plugin {plugin_id!r} not in catalog")
+
+    # Tell the provider to drop the grant BEFORE the local token is gone —
+    # afterwards there is nothing left to revoke with. Deleting the local
+    # credential is what the user asked for and must always happen, so a
+    # provider that is unreachable or does not implement revocation only
+    # changes what we report, never whether the disconnect succeeds.
+    store = TokenStore()
+    revocation = "unsupported"
+    try:
+        tokens = store.load(plugin_id)
+        if tokens is not None:
+            revocation = await revoke_unless_shared(spec, tokens, store)
+    except Exception as exc:  # noqa: BLE001 - never block the disconnect
+        log.info("plugin %s revocation skipped: %s", plugin_id, exc)
+        revocation = "failed"
+
+    store.delete(plugin_id)
+    _refresh_plugin_in_live_registry(plugin_id)
+    if plugin_id == "telegram":
+        try:
+            on_telegram_disconnected()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("telegram channel disable failed: %s", exc)
+    elif plugin_id == "discord":
+        try:
+            on_discord_disconnected()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("discord channel disable failed: %s", exc)
+    live_applied = False
+    if plugin_id in _CHANNEL_PLUGIN_IDS:
+        live_applied = await apply_channel_live(request.app.state, plugin_id)
+    return {
+        "ok": True,
+        "plugin_id": plugin_id,
+        "status": "not_connected",
+        "live_applied": live_applied,
+        # "revoked" | "unsupported" | "failed" | "shared" — so the UI can say
+        # honestly whether the user still has to remove the app at the
+        # provider. "shared": other connected plugins still use the same
+        # project-wide grant (Google), so it stays until the last one goes.
+        "revocation": revocation,
+    }
+
+
+# ----------------------------------------------------------------------
+# Community marketplace (registry index browse / install / uninstall)
+# ----------------------------------------------------------------------
+
+
+def _community_payload(
+    index: Any, status: str, installed_agents: frozenset[str] = frozenset()
+) -> dict[str, Any]:
+    """Convert a fetched index into the wire shape the Plugins view renders.
+
+    Every plugin entry is run through the SAME converter the install path
+    uses, so "shown as installable" and "actually installs" cannot drift: an
+    entry the loader rejects renders as an explicit incompatible card instead
+    of failing later at install time. Skills carry their install state from
+    the user skills directory.
+    """
+    from dodaios.core.paths import user_skills_dir
+    from dodaios.marketplace.agent_plugins_loader import (
+        AgentPluginError,
+        convert_manifest,
+    )
+
+    catalog = load_catalog()
+    installed_specs = {spec.id: spec for spec in catalog.plugins}
+
+    plugins: list[dict[str, Any]] = []
+    skills: list[dict[str, Any]] = []
+    agents: list[dict[str, Any]] = []
+    if index is not None:
+        for entry in index.plugins:
+            base = {
+                "name": entry.name,
+                "publisher": entry.publisher,
+                "version": entry.version,
+                "published_at": entry.published_at,
+                "source_url": entry.source_url,
+            }
+            try:
+                spec = convert_manifest(
+                    entry.plugin_json,
+                    entry.mcp_json,
+                    publisher=entry.publisher,
+                    version=entry.version,
+                    source_url=entry.source_url,
+                )
+                if spec.id != entry.name:
+                    raise AgentPluginError(
+                        f"index name {entry.name!r} does not match manifest name {spec.id!r}"
+                    )
+            except AgentPluginError as exc:
+                # Surfaced to the UI as an invalid entry carrying the reason.
+                plugins.append({**base, "valid": False, "error": str(exc)})
+                continue
+            item = spec.model_dump(mode="json")
+            item.update(base)
+            item["valid"] = True
+            existing = installed_specs.get(spec.id)
+            item["installed"] = existing is not None and existing.source == "community"
+            item["installed_version"] = existing.version if existing is not None else None
+            # A community name colliding with a shipped plugin is never
+            # installable — surfaced so the UI explains WHY the button is off.
+            item["seed_conflict"] = existing is not None and existing.source != "community"
+            item["has_usage_card"] = bool(entry.usage_card)
+            plugins.append(item)
+
+        skills_root = user_skills_dir()
+        for skill in index.skills:
+            skills.append(
+                {
+                    "name": skill.name,
+                    "title": skill.title or skill.name,
+                    "description": skill.description,
+                    "publisher": skill.publisher,
+                    "version": skill.version,
+                    "published_at": skill.published_at,
+                    "categories": list(skill.categories),
+                    "source_url": skill.source_url,
+                    "raw_url": skill.raw_url,
+                    # Which frontmatter the file carries, and where else it
+                    # runs. A missing flavor stays missing on the wire: the
+                    # view treats absent and "jarvis" alike, and inventing a
+                    # value here would claim the registry said something.
+                    "flavor": skill.flavor,
+                    "compatible_agents": list(skill.compatible_agents),
+                    "installed": (skills_root / skill.name / "SKILL.md").exists(),
+                }
+            )
+
+        from dodaios.society.agent_template import validate_template
+
+        for agent_entry in index.agents:
+            template = agent_entry.agent
+            problems = validate_template(template)
+            name = str(template.get("name") or "") if isinstance(template, dict) else ""
+            agents.append(
+                {
+                    "name": agent_entry.name,
+                    "title": agent_entry.title or agent_entry.name,
+                    "description": agent_entry.description,
+                    "publisher": agent_entry.publisher,
+                    "version": agent_entry.version,
+                    "published_at": agent_entry.published_at,
+                    "categories": list(agent_entry.categories),
+                    "source_url": agent_entry.source_url,
+                    "agent": template,
+                    # Same rule the install applies, so a card never offers a
+                    # button the install would refuse.
+                    "valid": not problems,
+                    "error": problems[0] if problems else None,
+                    "installed": name.strip().lower() in installed_agents,
+                }
+            )
+
+    return {
+        "status": status,
+        "revision": getattr(index, "revision", None),
+        "generated_at": getattr(index, "generated_at", None),
+        "plugins": plugins,
+        "skills": skills,
+        "agents": agents,
+    }
+
+
+def _installed_agent_names(request: Request) -> frozenset[str]:
+    """Names on this install's roster, from the runtime's in-memory snapshot.
+
+    No IO and no runtime start: browsing the store must not boot the society.
+    Before the society first ran, nothing is marked installed — the honest
+    answer the moment it cannot know.
+    """
+    runtime = getattr(request.app.state, "society", None)
+    roster = getattr(runtime, "roster", None)
+    if roster is None:
+        return frozenset()
+    return frozenset(agent.name.strip().lower() for agent in roster.snapshot())
+
+
+@router.get("/community", openapi_extra={"x-jarvis-readonly": True})
+async def community_browse(request: Request, response: Response) -> dict[str, Any]:
+    """The community index (TTL-cached fetch), enriched with install state."""
+    from dodaios.marketplace import community_source
+
+    response.headers["Cache-Control"] = "no-store"
+    index, status = await community_source.get_index()
+    return _community_payload(index, status, _installed_agent_names(request))
+
+
+@router.post("/community/refresh")
+async def community_refresh(request: Request, response: Response) -> dict[str, Any]:
+    """Force a re-fetch of the community index, bypassing the TTL."""
+    from dodaios.marketplace import community_source
+
+    response.headers["Cache-Control"] = "no-store"
+    index, status = await community_source.get_index(force=True)
+    return _community_payload(index, status, _installed_agent_names(request))
+
+
+# ----------------------------------------------------------------------
+# Reading an entry BEFORE installing it
+#
+# "Nobody reviewed this" is only an honest warning if the reader can act on
+# it, and nobody can act on a one-line description plus a URL. So the whole
+# published package is served as text: the instructions a skill would hand the
+# assistant, the manifest that says where a plugin would send the token.
+# Reading runs the same fetch the install would run, minus writing anything to
+# disk.
+# ----------------------------------------------------------------------
+
+# A SKILL.md is prose. The ceiling exists so a hostile entry cannot stream
+# megabytes into the desktop app, not because real files come close to it.
+_MAX_CONTENT_BYTES = 256 * 1024
+# The same quarter hour the index itself caches for: reopening a card is free.
+_CONTENT_TTL_SECONDS = 900.0
+_content_cache: dict[str, tuple[float, str, bool]] = {}
+
+
+async def _download_text(raw_url: str, *, transport: Any = None) -> tuple[str, bool]:
+    """Fetch one published text file over https. Returns ``(text, truncated)``.
+
+    Oversize is cut, not refused: half a hostile file is still readable
+    evidence, while refusing outright would leave the reader with nothing. The
+    redirect chain is re-checked: the index validator only ever saw the URL it
+    was given, and a 302 to plain http would put the server back on an SSRF
+    path.
+    """
+    hit = _content_cache.get(raw_url)
+    if hit is not None and (time.time() - hit[0]) < _CONTENT_TTL_SECONDS:
+        return hit[1], hit[2]
+
+    chunks: list[bytes] = []
+    total = 0
+    truncated = False
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=httpx.Timeout(connect=5.0, read=20.0, write=20.0, pool=20.0),
+        transport=transport,
+        **https_only_async(),
+    ) as client:
+        try:
+            async with client.stream("GET", raw_url) as resp:
+                if resp.url.scheme != "https":
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"refusing a non-https redirect to {resp.url}",
+                    )
+                resp.raise_for_status()
+                async for chunk in resp.aiter_bytes():
+                    if total + len(chunk) > _MAX_CONTENT_BYTES:
+                        chunks.append(chunk[: _MAX_CONTENT_BYTES - total])
+                        truncated = True
+                        break
+                    total += len(chunk)
+                    chunks.append(chunk)
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=502, detail=f"download from {raw_url} failed: {exc}"
+            ) from exc
+
+    # errors="replace": one broken byte must not hide the whole file, which is
+    # the only thing this route exists to show.
+    text = b"".join(chunks).decode("utf-8", errors="replace")
+    _content_cache[raw_url] = (time.time(), text, truncated)
+    return text, truncated
+
+
+def _text_file(path: str, text: str, *, truncated: bool = False) -> dict[str, Any]:
+    """One readable file in the wire shape the view renders."""
+    return {
+        "path": path,
+        "size": len(text.encode("utf-8")),
+        "text": text,
+        "truncated": truncated,
+    }
+
+
+def _plugin_manifest_files(entry: Any) -> list[dict[str, Any]]:
+    """A plugin's manifests, pretty-printed.
+
+    They travel inside the index itself, so this needs no network at all — and
+    they are the two files that decide what a plugin may do: ``plugin.json``
+    names it, ``mcp.json`` says which server or command it talks to.
+    """
+    files = [_text_file("plugin.json", json.dumps(entry.plugin_json, indent=2, ensure_ascii=False))]
+    if entry.mcp_json:
+        files.append(
+            _text_file("mcp.json", json.dumps(entry.mcp_json, indent=2, ensure_ascii=False))
+        )
+    return files
+
+
+def _mask_env_literals(block: dict[str, Any]) -> dict[str, Any]:
+    """A copy of an MCP server block with literal ``env`` values hidden.
+
+    ``$NAME`` references are resolved from the credential store and safe to
+    show; anything else in ``env`` may be a pasted token and is not.
+    """
+    out = dict(block)
+    env = out.get("env")
+    if isinstance(env, dict):
+        out["env"] = {
+            k: (v if isinstance(v, str) and v.startswith("$") else "••••••") for k, v in env.items()
+        }
+    return out
+
+
+@router.get("/plugins/{plugin_id}/files", openapi_extra={"x-jarvis-readonly": True})
+async def plugin_files(plugin_id: str, response: Response) -> dict[str, Any]:
+    """What a plugin is made of, as readable files — the detail page's file card.
+
+    A plugin is a catalog entry, not a folder on disk, so the "files" are the
+    pieces that decide what it may do, written out the way a plugin folder
+    would hold them: ``plugin.json`` (the spec without secrets — the schema
+    already excludes client secrets), ``mcp.json`` when it talks to an MCP
+    server (literal env values masked), and ``USAGE.md`` — the usage card the
+    brain reads when it calls the plugin. For a community plugin the
+    published manifests follow under ``source/``. Nothing is written.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    spec = load_catalog().by_id(plugin_id)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"Plugin '{plugin_id}' not found")
+
+    dump = spec.model_dump(mode="json", exclude_none=True)
+    mcp_block = dump.pop("mcp_server", None)
+    files = [_text_file("plugin.json", json.dumps(dump, indent=2, ensure_ascii=False))]
+    if isinstance(mcp_block, dict):
+        files.append(
+            _text_file(
+                "mcp.json",
+                json.dumps(
+                    {"mcpServers": {spec.id: _mask_env_literals(mcp_block)}},
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+            )
+        )
+
+    from dodaios.marketplace.usage_cards.loader import _resolve_card_path
+
+    card = _resolve_card_path(spec.id)
+    if card is not None:
+        try:
+            files.append(_text_file("USAGE.md", card.read_text(encoding="utf-8")))
+        except OSError as exc:
+            log.warning("usage card for %s unreadable: %s", spec.id, exc)
+
+    if spec.source == "community":
+        from dodaios.marketplace import community_source
+
+        try:
+            index, _ = await community_source.get_index()
+        except Exception as exc:  # noqa: BLE001 — the card must still open
+            log.warning("community index unavailable for %s files: %s", spec.id, exc)
+            index = None
+        entry = (
+            next((e for e in index.plugins if e.name == spec.id), None)
+            if index is not None
+            else None
+        )
+        if entry is not None:
+            for f in _plugin_manifest_files(entry):
+                files.append({**f, "path": f"source/{f['path']}"})
+
+    return {
+        "id": spec.id,
+        "source": spec.source,
+        "files": files,
+    }
+
+
+@router.get("/community/{item_id}/contents", openapi_extra={"x-jarvis-readonly": True})
+async def community_contents(item_id: str, response: Response) -> dict[str, Any]:
+    """What one published entry actually contains — a skill or a plugin.
+
+    Reading is never installing: nothing is written, no registry is touched.
+    A download that fails degrades to an ``error`` string on an otherwise
+    complete answer rather than an exception, so one unreachable file leaves
+    the card usable instead of blanking the panel.
+    """
+    from dodaios.marketplace import community_source
+
+    response.headers["Cache-Control"] = "no-store"
+    index, _ = await community_source.get_index()
+    plugin = skill = None
+    if index is not None:
+        plugin = next((e for e in index.plugins if e.name == item_id), None)
+        skill = next((s for s in index.skills if s.name == item_id), None)
+    entry = plugin or skill
+    if entry is None:
+        raise _install_by_name_404(item_id, index)
+
+    kind = "plugin" if plugin is not None else "skill"
+    out: dict[str, Any] = {
+        "kind": kind,
+        "name": entry.name,
+        "title": getattr(entry, "title", None) or entry.name,
+        "publisher": entry.publisher,
+        "version": entry.version,
+        "source_url": entry.source_url,
+        "root": f"{kind}s/{entry.name}",
+        "files": [],
+        "error": None,
+    }
+
+    if plugin is not None:
+        out["files"] = _plugin_manifest_files(plugin)
+        return out
+
+    if not skill.raw_url:
+        out["error"] = "This skill publishes no direct download — open its source to read it."
+        return out
+    try:
+        text, truncated = await _download_text(skill.raw_url)
+    except HTTPException as exc:
+        # Honest degradation: say the text could not be fetched, rather than
+        # show an empty panel that reads like an empty skill.
+        log.warning("community contents: %s unreadable (%s)", item_id, exc.detail)
+        out["error"] = f"The file could not be downloaded: {exc.detail}"
+        return out
+    out["files"] = [_text_file("SKILL.md", text, truncated=truncated)]
+    return out
+
+
+async def _install_community_plugin(plugin_id: str) -> dict[str, Any]:
+    """Install one community plugin; return its catalog item.
+
+    Shared by the id-specific route and the by-name installer below, so both
+    enforce the SAME preconditions (index membership, seed-id collision,
+    manifest validity) instead of drifting into two install semantics.
+    """
+    from dodaios.marketplace import community_source
+    from dodaios.marketplace.agent_plugins_loader import (
+        AgentPluginError,
+        convert_manifest,
+    )
+    from dodaios.marketplace.community_install import (
+        install_plugin_spec,
+        seed_plugin_ids,
+    )
+    from dodaios.marketplace.usage_cards.loader import save_usage_card
+
+    index, _ = await community_source.get_index()
+    entry = None
+    if index is not None:
+        entry = next((e for e in index.plugins if e.name == plugin_id), None)
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"plugin {plugin_id!r} is not in the community index",
+        )
+    if plugin_id in seed_plugin_ids():
+        raise HTTPException(
+            status_code=409,
+            detail=f"{plugin_id!r} is a built-in plugin id and cannot be "
+            "installed from the community index",
+        )
+    existing = load_catalog().by_id(plugin_id)
+    if existing is not None and existing.source != "community":
+        raise HTTPException(
+            status_code=409,
+            detail=f"{plugin_id!r} already exists in the local catalog",
+        )
+    try:
+        spec = convert_manifest(
+            entry.plugin_json,
+            entry.mcp_json,
+            publisher=entry.publisher,
+            version=entry.version,
+            source_url=entry.source_url,
+        )
+        if spec.id != plugin_id:
+            raise AgentPluginError(
+                f"index name {plugin_id!r} does not match manifest name {spec.id!r}"
+            )
+    except AgentPluginError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        install_plugin_spec(spec)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    if entry.usage_card:
+        try:
+            save_usage_card(spec.id, entry.usage_card)
+        except (ValueError, OSError) as exc:
+            # Keywords are a quality upgrade, not a prerequisite — the
+            # relevance gate still matches on the plugin's own name/tools.
+            log.warning("usage card for %s not saved: %s", spec.id, exc)
+    _refresh_plugin_in_live_registry(spec.id)
+    item = spec.model_dump(mode="json")
+    item["status"] = "not_connected"
+    return item
+
+
+@router.post("/community/plugins/{plugin_id}/install")
+async def community_install(plugin_id: str, request: Request) -> dict[str, Any]:
+    """One-click install: convert the manifest, persist the catalog entry and
+    usage card, refresh the live registry. The plugin then behaves exactly
+    like a seed plugin (connect flows, relevance gate, worker bridge)."""
+    item = await _install_community_plugin(plugin_id)
+    # The window that pressed the button refreshes itself, but it is not
+    # necessarily the only one open.
+    await _announce_install(
+        request,
+        {
+            "kind": "plugin",
+            "id": item.get("id", plugin_id),
+            "title": item.get("display_name") or plugin_id,
+            "ready": False,
+        },
+    )
+    return {"ok": True, "plugin": item}
+
+
+# States a freshly parsed skill can carry that mean "Jarvis will actually use
+# this" — the registry treats VALIDATED and ACTIVE alike (see
+# dodaios/skills/registry.py::active_skills). DRAFT means the file parsed but
+# failed validation, i.e. installed yet dead.
+_SKILL_READY_STATES = frozenset({"active", "validated"})
+
+
+async def _install_community_skill(entry: Any, request: Request) -> dict[str, Any]:
+    """Download + register one community skill; return the by-name result shape.
+
+    Delegates to the existing catalog-install route function so there is
+    exactly ONE skill install path (download guards, name-slug check, registry
+    hot-swap) rather than a second copy that can drift.
+    """
+    from dodaios.core.paths import user_skills_dir
+    from dodaios.skills.origin import SkillOrigin, write_origin
+    from dodaios.ui.web.skills_routes import SkillInstallBody, install_from_catalog
+
+    body = SkillInstallBody(
+        name=entry.name,
+        raw_url=entry.raw_url,
+        source_url=entry.source_url or "",
+        title=entry.title or entry.name,
+    )
+    result = await install_from_catalog(body, request)
+    # Receipt AFTER the install: a downloaded SKILL.md carries nothing that
+    # says where it came from, and the Skills view has to be able to show it.
+    write_origin(
+        user_skills_dir() / entry.name,
+        SkillOrigin(
+            source_id=entry.name,
+            publisher=entry.publisher,
+            version=entry.version,
+            source_url=entry.source_url,
+            installed_at=datetime.now(UTC).isoformat(timespec="seconds"),
+        ),
+    )
+    summary = result.get("skill") or {}
+    state = str(summary.get("state") or "draft")
+    return {
+        "ok": True,
+        "kind": "skill",
+        "id": entry.name,
+        "title": entry.title or entry.name,
+        "publisher": entry.publisher,
+        "version": entry.version,
+        "source_url": entry.source_url,
+        "location": result.get("path") or "",
+        "state": state,
+        # A skill needs no credentials and no connect step: once the file
+        # parses and validates, asking for it is enough.
+        "ready": state in _SKILL_READY_STATES,
+        "problem": summary.get("error") or result.get("reload_warning"),
+        "next_action": "none" if state in _SKILL_READY_STATES else "repair",
+    }
+
+
+async def _announce_install(request: Request, result: dict[str, Any]) -> None:
+    """Say on the bus that an entry landed, so open windows can catch up.
+
+    An install can start from four places and only one of them — the store
+    card in the desktop app — has a view that refreshes itself afterwards.
+    A terminal, a spoken sentence and the storefront button all left the open
+    window showing a library the file was already in. The bus reaches every
+    surface at once, so the announcement happens here rather than in each
+    caller.
+
+    Never blocks the install: the entry is already on disk by the time this
+    runs, and a window that missed the news is one navigation away from the
+    truth. Same async/sync publish convention as ``mcp_routes``.
+    """
+    bus = getattr(request.app.state, "bus", None)
+    if bus is None:
+        return  # headless / early boot: nothing is listening anyway
+    event = MarketplaceItemInstalled(
+        source_layer="ui.web.marketplace",
+        kind=str(result.get("kind") or ""),
+        item_id=str(result.get("id") or ""),
+        title=str(result.get("title") or ""),
+        ready=bool(result.get("ready")),
+    )
+    try:
+        if asyncio.iscoroutinefunction(bus.publish):
+            await bus.publish(event)
+        else:
+            bus.publish(event)
+    except Exception as exc:  # noqa: BLE001 - a missed refresh is not a failed install
+        log.debug("MarketplaceItemInstalled publish failed: %s", exc)
+
+
+async def _install_community_agent(entry: Any, request: Request) -> dict[str, Any]:
+    """A published agent template becomes a NEW teammate on this install.
+
+    The template's own rules decide (``dodaios.society.agent_template``); the
+    agent runs on this person's model, never the publisher's, and asks before
+    it acts where its runner can.
+    """
+    from .society_routes import install_template
+
+    installed = await install_template(entry.agent, request)
+    agent = installed["agent"]
+    return {
+        "ok": True,
+        "kind": "agent",
+        "id": agent.get("agent_id", entry.name),
+        "title": agent.get("name") or entry.title or entry.name,
+        "publisher": entry.publisher,
+        "version": entry.version,
+        "source_url": entry.source_url,
+        "location": "",
+        "state": "installed",
+        "ready": True,
+        "problem": None,
+        "next_action": "open",
+        "renamed_from": installed.get("renamed_from"),
+        "agent": agent,
+    }
+
+
+def _install_by_name_404(item_id: str, index: Any) -> HTTPException:
+    """404 that names the closest existing entry instead of a dead end."""
+    import difflib
+
+    names: list[str] = []
+    if index is not None:
+        names = (
+            [e.name for e in index.plugins]
+            + [s.name for s in index.skills]
+            + [a.name for a in index.agents]
+        )
+    close = difflib.get_close_matches(item_id, names, n=1, cutoff=0.6)
+    hint = f" Closest match: {close[0]!r}." if close else ""
+    return HTTPException(
+        status_code=404,
+        detail=(f"Nothing named {item_id!r} is published in the community marketplace.{hint}"),
+    )
+
+
+@router.post("/community/install/{item_id}")
+async def community_install_by_name(item_id: str, request: Request) -> dict[str, Any]:
+    """Install a marketplace entry by name — skill, plugin or agent, one call.
+
+    The one-liner a downloader copies off a marketplace page
+    (``jarvis marketplace install <name>``) never says which of the two an
+    entry is, so the KIND is resolved here and both answer in one shape:
+    what landed, where it landed, whether it is usable right now, and what is
+    still missing. Every surface (CLI, desktop, an agent driving the API) can
+    therefore report an honest status instead of a bare 200.
+    """
+    from dodaios.marketplace import community_source
+
+    index, _ = await community_source.get_index()
+    plugin_entry = skill_entry = agent_entry = None
+    if index is not None:
+        plugin_entry = next((e for e in index.plugins if e.name == item_id), None)
+        skill_entry = next((s for s in index.skills if s.name == item_id), None)
+        agent_entry = next((a for a in index.agents if a.name == item_id), None)
+    if plugin_entry is None and skill_entry is None and agent_entry is None:
+        raise _install_by_name_404(item_id, index)
+
+    if agent_entry is not None:
+        result = await _install_community_agent(agent_entry, request)
+    elif skill_entry is not None:
+        result = await _install_community_skill(skill_entry, request)
+    else:
+        item = await _install_community_plugin(item_id)
+        result = {
+            "ok": True,
+            "kind": "plugin",
+            "id": item.get("id", item_id),
+            "title": item.get("display_name") or item_id,
+            "publisher": item.get("publisher"),
+            "version": item.get("version"),
+            "source_url": item.get("source_url"),
+            "location": "",
+            "state": "not_connected",
+            # A plugin talks to somebody else's service: installed is not the
+            # same as usable, and saying otherwise is the exact confusion this
+            # route exists to kill.
+            "ready": False,
+            "problem": None,
+            "next_action": "connect",
+            "plugin": item,
+        }
+
+    # One announcement for both kinds, from the one place that knows the
+    # install finished — a per-branch publish would be two chances to forget.
+    await _announce_install(request, result)
+    return result
+
+
+@router.delete("/community/plugins/{plugin_id}")
+async def community_uninstall(plugin_id: str) -> dict[str, Any]:
+    """Remove an installed community plugin: revoke + drop stored tokens,
+    remove the catalog entry and its usage card, refresh the live registry.
+
+    A plugin the owner added here (an upload or a custom connector) lives in
+    the same override catalog and leaves the same way."""
+    from dodaios.marketplace.community_install import remove_community_plugin
+    from dodaios.marketplace.usage_cards.loader import delete_usage_card
+
+    spec = load_catalog().by_id(plugin_id)
+    if spec is None:
+        raise HTTPException(status_code=404, detail=f"plugin {plugin_id!r} not in catalog")
+    if spec.source not in ("community", LOCAL_PLUGIN_SOURCE):
+        raise HTTPException(
+            status_code=409,
+            detail=f"{plugin_id!r} is a built-in plugin — disconnect it instead of uninstalling",
+        )
+
+    # ALL local state changes happen before the first await: the provider
+    # revocation below can take seconds, and an install of the same id that
+    # completes inside that window must not be wiped when this handler
+    # resumes. The loaded tokens object stays in memory, so revoking after
+    # the local delete loses nothing.
+    store = TokenStore()
+    tokens: Tokens | None = None
+    try:
+        tokens = store.load(plugin_id)
+    except Exception as exc:  # noqa: BLE001 - never block the uninstall
+        log.info("plugin %s token load for revocation skipped: %s", plugin_id, exc)
+    store.delete(plugin_id)
+    try:
+        removed = remove_community_plugin(plugin_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    delete_usage_card(plugin_id)
+    _refresh_plugin_in_live_registry(plugin_id)
+
+    revocation = "unsupported"
+    if tokens is not None:
+        try:
+            revocation = await revoke_unless_shared(spec, tokens, store)
+        except Exception as exc:  # noqa: BLE001 - never block the uninstall
+            log.info("plugin %s revocation skipped: %s", plugin_id, exc)
+            revocation = "failed"
+    return {"ok": True, "removed": removed, "revocation": revocation}
+
+
+# ----------------------------------------------------------------------
+# Upload — a plugin manifest dropped onto the UI
+# ----------------------------------------------------------------------
+
+#: What ``source`` a self-uploaded plugin carries. Deliberately not
+#: "community": it never passed through the registry, so claiming that origin
+#: would put a badge on the card naming a review nobody did.
+LOCAL_PLUGIN_SOURCE = "local"
+
+_MANIFEST_NAMES = {"plugin.json": "plugin", "mcp.json": "mcp"}
+
+
+def _locate_plugin_manifests(staged_root: Path) -> dict[str, Path]:
+    """Finds ``plugin.json`` (and its optional ``mcp.json``) in a staged upload.
+
+    A plugin here is a manifest, not a code package, so the upload may be a
+    bare pair of files, a folder holding them, or a repository ZIP with them a
+    few levels down. A single ``plugin.json`` anywhere names the plugin; more
+    than one means the upload holds a catalog, which is refused with the paths
+    listed rather than guessed at.
+    """
+    found: dict[str, list[Path]] = {"plugin": [], "mcp": []}
+    for path in sorted(staged_root.rglob("*")):
+        if not path.is_file():
+            continue
+        kind = _MANIFEST_NAMES.get(path.name.lower())
+        if kind:
+            found[kind].append(path)
+
+    if not found["plugin"]:
+        raise HTTPException(status_code=400, detail="No plugin.json found in the upload.")
+    if len(found["plugin"]) > 1:
+        listed = ", ".join(
+            str(path.relative_to(staged_root)).replace("\\", "/") for path in found["plugin"][:5]
+        )
+        suffix = ", ..." if len(found["plugin"]) > 5 else ""
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"The upload holds {len(found['plugin'])} plugins "
+                f"({listed}{suffix}). Upload one plugin at a time."
+            ),
+        )
+
+    manifest = found["plugin"][0]
+    out = {"plugin": manifest}
+    # Only an mcp.json sitting BESIDE the manifest belongs to it. One from a
+    # different folder would silently graft another plugin's server onto this
+    # one — the kind of mix-up that shows up much later as a wrong tool call.
+    sibling = manifest.parent / "mcp.json"
+    for candidate in found["mcp"]:
+        if candidate == sibling:
+            out["mcp"] = candidate
+            break
+    return out
+
+
+def _read_manifest(path: Path) -> dict[str, Any]:
+    try:
+        parsed = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400, detail=f"{path.name} could not be read: {exc}"
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=400, detail=f"{path.name} must be a JSON object.")
+    return parsed
+
+
+def _describe_staged_plugin(staged_root: Path) -> dict[str, Any]:
+    """What this upload would install — validated, but nothing written.
+
+    Returns collision problems instead of raising, so the dialog can show
+    every blocker at once. A manifest that does not convert at all is a
+    different matter: there is nothing left to describe, so it comes back as
+    the single problem it is.
+    """
+    from dodaios.marketplace.agent_plugins_loader import AgentPluginError, convert_manifest
+    from dodaios.marketplace.community_install import seed_plugin_ids
+
+    manifests = _locate_plugin_manifests(staged_root)
+    plugin_json = _read_manifest(manifests["plugin"])
+    mcp_json = _read_manifest(manifests["mcp"]) if "mcp" in manifests else None
+
+    try:
+        # publisher/version/source_url stay unset on purpose. On the community
+        # path they come from the registry index so a manifest cannot claim
+        # someone else's identity; a local upload has no such witness, and
+        # letting the file name its own publisher would invent exactly the
+        # authority that check exists to deny.
+        spec = convert_manifest(plugin_json, mcp_json)
+    except AgentPluginError as exc:
+        # The dialog shows this as the single blocking problem — see docstring.
+        return {
+            "plugin": None,
+            "problems": [str(exc)],
+            "has_mcp": mcp_json is not None,
+            "ready": False,
+        }
+
+    problems: list[str] = []
+    if spec.id in seed_plugin_ids():
+        problems.append(f"'{spec.id}' is a built-in plugin id and cannot be uploaded.")
+    else:
+        existing = load_catalog().by_id(spec.id)
+        if existing is not None and existing.source not in (
+            "community",
+            LOCAL_PLUGIN_SOURCE,
+        ):
+            problems.append(f"'{spec.id}' already exists in the local catalog.")
+
+    return {
+        "plugin": {
+            "id": spec.id,
+            "display_name": spec.display_name,
+            "description": spec.description,
+            "category": spec.category,
+            "auth_mode": spec.auth.mode,
+            "longevity": spec.longevity,
+        },
+        "problems": problems,
+        "has_mcp": mcp_json is not None,
+        "ready": not problems,
+    }
+
+
+@router.post("/plugins/upload/inspect", openapi_extra={"x-jarvis-readonly": True})
+async def inspect_plugin_upload(
+    files: list[UploadFile] = File(...),  # noqa: B008 — FastAPI dependency default
+    paths: str | None = Form(default=None),  # noqa: B008 — same
+) -> dict[str, Any]:
+    """Reports what a dropped plugin manifest holds, without installing it."""
+    import tempfile
+
+    entries = await read_upload_entries(files, paths)
+
+    def _work() -> dict[str, Any]:
+        with tempfile.TemporaryDirectory(prefix="jarvis-plugin-inspect-") as tmp:
+            try:
+                staged = stage_upload(entries, Path(tmp) / "plugin")
+            except UploadRejected as exc:
+                raise upload_http_error(exc) from exc
+            described = _describe_staged_plugin(staged.root)
+            described["files"] = list(staged.files)
+            described["ignored"] = list(staged.ignored)
+            described["stripped_root"] = staged.stripped_root
+            described["total_bytes"] = staged.total_bytes
+            described["limits"] = upload_limits()
+            return described
+
+    return await asyncio.to_thread(_work)
+
+
+@router.post("/plugins/upload")
+async def upload_plugin(
+    files: list[UploadFile] = File(...),  # noqa: B008 — FastAPI dependency default
+    paths: str | None = Form(default=None),  # noqa: B008 — same
+) -> dict[str, Any]:
+    """Installs a plugin manifest dropped onto the UI.
+
+    The entry lands in the same override catalog a community install writes
+    to, so afterwards it behaves like any other plugin — connect flows,
+    relevance gate, worker bridge. What differs is its ``source``, which stays
+    honest about where it came from: this machine, reviewed by nobody.
+    """
+    import tempfile
+
+    from dodaios.marketplace.agent_plugins_loader import AgentPluginError, convert_manifest
+    from dodaios.marketplace.community_install import install_plugin_spec
+
+    entries = await read_upload_entries(files, paths)
+
+    def _work() -> dict[str, Any]:
+        with tempfile.TemporaryDirectory(prefix="jarvis-plugin-upload-") as tmp:
+            try:
+                staged = stage_upload(entries, Path(tmp) / "plugin")
+            except UploadRejected as exc:
+                raise upload_http_error(exc) from exc
+
+            described = _describe_staged_plugin(staged.root)
+            if not described["ready"]:
+                # A collision is a 409; a manifest that never converted is a
+                # 400 — the client can tell "yours is fine but taken" from
+                # "yours does not parse" without reading the sentence.
+                raise HTTPException(
+                    status_code=409 if described["plugin"] else 400,
+                    detail=described["problems"][0],
+                )
+
+            manifests = _locate_plugin_manifests(staged.root)
+            plugin_json = _read_manifest(manifests["plugin"])
+            mcp_json = _read_manifest(manifests["mcp"]) if "mcp" in manifests else None
+            try:
+                spec = convert_manifest(plugin_json, mcp_json)
+            except AgentPluginError as exc:  # already validated — belt and braces
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+            spec = spec.model_copy(update={"source": LOCAL_PLUGIN_SOURCE})
+            try:
+                install_plugin_spec(spec)
+            except RuntimeError as exc:
+                raise HTTPException(status_code=500, detail=str(exc)) from exc
+            return {"spec": spec, "upload": staged.to_json()}
+
+    result = await asyncio.to_thread(_work)
+    spec = result["spec"]
+    _refresh_plugin_in_live_registry(spec.id)
+    item = spec.model_dump(mode="json")
+    item["status"] = "not_connected"
+    return {"ok": True, "plugin": item, "upload": result["upload"]}
+
+
+# ----------------------------------------------------------------------
+# Custom connector — a remote MCP server added by name and address
+# ----------------------------------------------------------------------
+
+
+class CustomConnectorBody(BaseModel):
+    name: str = Field(default="", max_length=80)
+    url: str = Field(min_length=1, max_length=2048)
+    # "auto" asks the server; the others are the owner's override from the
+    # dialog's advanced settings, still checked against what the server says.
+    auth: str = Field(default="auto", pattern="^(auto|oauth|token|none)$")
+    # The header an access token travels in; Authorization (Bearer) if unset.
+    header_name: str | None = Field(default=None, max_length=64)
+
+
+@router.post("/connectors")
+async def add_custom_connector(body: CustomConnectorBody) -> dict[str, Any]:
+    """Adds a remote MCP server as a plugin, after asking it how to sign in.
+
+    One call instead of inspect-then-install: the probe is the inspection,
+    and a connector the server would refuse is never written. The response
+    carries the catalog item, so the dialog can start the matching connect
+    flow (browser sign-in, token dialog, or a plain enable) at once.
+    """
+    from dodaios.marketplace.community_install import install_plugin_spec
+    from dodaios.marketplace.custom_connector import (
+        ConnectorError,
+        build_connector_spec,
+        connector_id,
+        connector_url,
+        display_name_for,
+        normalize_connector_url,
+        normalize_header_name,
+        probe_connector,
+        resolve_auth,
+    )
+
+    try:
+        url = normalize_connector_url(body.url)
+        header_name = normalize_header_name(body.header_name)
+    except ConnectorError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    catalog = load_catalog()
+    for existing in catalog.plugins:
+        if connector_url(existing) == url:
+            raise HTTPException(
+                status_code=409,
+                detail=f"This server is already added as {existing.display_name}.",
+            )
+
+    try:
+        probe = await probe_connector(url)
+        auth = resolve_auth(body.auth, probe)  # type: ignore[arg-type]  # pattern-checked
+    except ConnectorError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    display_name = display_name_for(body.name, url, probe)
+    plugin_id = connector_id(display_name, url, (p.id for p in catalog.plugins))
+    spec = build_connector_spec(
+        plugin_id=plugin_id,
+        display_name=display_name,
+        url=url,
+        auth=auth,
+        probe=probe,
+        header_name=header_name,
+    )
+    try:
+        await asyncio.to_thread(install_plugin_spec, spec)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    _refresh_plugin_in_live_registry(spec.id)
+    item = spec.model_dump(mode="json")
+    item["status"] = "not_connected"
+    return {
+        "ok": True,
+        "plugin": item,
+        "detected": {
+            "auth": auth,
+            "transport": probe.transport,
+            "server_name": probe.server_name,
+        },
+    }

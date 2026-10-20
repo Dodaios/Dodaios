@@ -42,7 +42,7 @@ Architecture principles (non-negotiable, plan §1):
 ## Position relative to existing plans
 
 - **`JARVIS_REFACTOR_PLAN.md` (routing bug)**: hard-sequential — routing must be completed before A2, otherwise every episode trigger accidentally spawns a Dodaios-Agent instead of a Haiku condenser call. A0 itself does not touch any routing code.
-- **`PLAN_B_CURATOR.md`**: Awareness L2 *feeds* the Curator. From Phase A2 onward, `EpisodeRecorded` is optionally routed to a second Curator subscriber (wiring in `jarvis/brain/factory.py`). Additive, no conflict.
+- **`PLAN_B_CURATOR.md`**: Awareness L2 *feeds* the Curator. From Phase A2 onward, `EpisodeRecorded` is optionally routed to a second Curator subscriber (wiring in `dodaios/brain/factory.py`). Additive, no conflict.
 - **Phase 5 Dodaios-Agent**: Awareness is router-tier-only for the state read. Dodaios-Agent gets `awareness-recall` (Phase A3). `AwarenessManager` is NOT passed to Dodaios-Agent spawns (Sub is stateless).
 - **Phase 6 tool roster (Browser-Use, Computer-Use)**: Computer-Use actions trigger frame updates → Awareness sees these as "self-induced activity". The probe layer (A5) must distinguish between user and bot activity via `frame.source = "user" | "bot"`.
 
@@ -106,9 +106,9 @@ A2 has landed. Concrete implementation:
 A5-Lite has landed. Plan §9 has 4 probes (Git/FileSystem/MCP/LSP) and is explicitly marked as "optional, can be deferred to Phase 6". We implement only the two simple ones — MCP+LSP follow as a separate phase.
 
 **Slices (parallel via agent team):**
-1. **GitProbe** (`jarvis/awareness/probes/git.py`): `.git/HEAD` direct-read as PRIMARY (50ms timeout) + `asyncio.create_subprocess_exec("git", "rev-parse", "--abbrev-ref", "HEAD")` as FALLBACK (150ms timeout). Worktree repos are resolved correctly via `gitdir:` parsing. Detached HEAD returns an 8-char SHA prefix. NO sync subprocess — all asyncio. 9 tests green.
+1. **GitProbe** (`dodaios/awareness/probes/git.py`): `.git/HEAD` direct-read as PRIMARY (50ms timeout) + `asyncio.create_subprocess_exec("git", "rev-parse", "--abbrev-ref", "HEAD")` as FALLBACK (150ms timeout). Worktree repos are resolved correctly via `gitdir:` parsing. Detached HEAD returns an 8-char SHA prefix. NO sync subprocess — all asyncio. 9 tests green.
 
-2. **FileSystemProbe** (`jarvis/awareness/probes/filesystem.py`): watchdog observer scoped to project roots (`recursive=True` but only for the root, NEVER for the system root). Cap `_MAX_WATCHED_ROOTS=10`. Debounce 200ms against editor atomic-save bursts. Blacklist (`.git`, `__pycache__`, `node_modules`, `.venv`, …) against build-tool noise. Bus publish via `loop.call_soon_threadsafe` (NEVER directly in the watchdog thread). New bus event `FileSaved(path, process_name, repo_root)`. 9 tests green.
+2. **FileSystemProbe** (`dodaios/awareness/probes/filesystem.py`): watchdog observer scoped to project roots (`recursive=True` but only for the root, NEVER for the system root). Cap `_MAX_WATCHED_ROOTS=10`. Debounce 200ms against editor atomic-save bursts. Blacklist (`.git`, `__pycache__`, `node_modules`, `.venv`, …) against build-tool noise. Bus publish via `loop.call_soon_threadsafe` (NEVER directly in the watchdog thread). New bus event `FileSaved(path, process_name, repo_root)`. 9 tests green.
 
 **Lead synthesis:**
 - `probes/base.py`: Probe protocol (`runtime_checkable`)
@@ -245,7 +245,7 @@ created). Cap = 5 slots (plan §8).
 
 **Architecture**
 
-- ``jarvis/awareness/context.py`` — ``Context`` frozen dataclass +
+- ``dodaios/awareness/context.py`` — ``Context`` frozen dataclass +
   ``resolve_context(frame) -> Context`` heuristic:
   1. IDE_SET (code.exe / cursor.exe / windsurf.exe / …) → ``project_root``
      via ``psutil.Process.cwd()`` (lazy import, fail-silent).
@@ -254,17 +254,17 @@ created). Cap = 5 slots (plan §8).
   3. TERMINAL_SET (WindowsTerminal.exe / pwsh.exe / …) → cwd via psutil.
   4. Fallback → ``process_name`` as the identity key (always valid).
   ``task_label`` = the first 5 words of the window title.
-- ``jarvis/awareness/working_set.py`` — ``WorkingSet`` LRU cache with
+- ``dodaios/awareness/working_set.py`` — ``WorkingSet`` LRU cache with
   ``OrderedDict`` backing. ``observe(ctx)`` does insert or promote;
   ``set_episode(root, id)`` links a persisted episode ID with
   the slot without an LRU promote. ``render_for_prompt()`` renders a
   multi-context block for system-prompt injection (empty with <= 1 slot).
-- ``jarvis/awareness/manager.py`` — ``AwarenessManager`` holds one
+- ``dodaios/awareness/manager.py`` — ``AwarenessManager`` holds one
   ``WorkingSet`` per instance, additionally subscribes in ``start()`` to
   ``FrameUpdated`` (→ ``observe``) and ``EpisodeRecorded`` (→
   ``set_episode``). On app-switch a ``ContextSwitched`` event is
   published (UI/flight recorder).
-- ``jarvis/awareness/state.py`` — ``AwarenessState.working_set`` is now
+- ``dodaios/awareness/state.py`` — ``AwarenessState.working_set`` is now
   ``WorkingSet | None`` (previously ``list[Any]``); ``snapshot_for_prompt``
   calls ``working_set.render_for_prompt()`` between the idle status and
   the last-episode line.
@@ -306,4 +306,4 @@ created). Cap = 5 slots (plan §8).
 
 - **Plan:** `JARVIS_AWARENESS_PLAN.md` §1-§16 (binding spec)
 - **A1 Win32 lifecycle:** ADR-0010 (`WindowFocusWatcher` with MsgWaitForMultipleObjects instead of PumpMessages)
-- **Pattern models:** `jarvis/safety/risk_tier.py` (pattern merge), `jarvis/vision/screenshot.py` (lazy Win32 imports), `jarvis/core/events.py` (frozen events with trace_id), `jarvis/memory/curator/__init__.py` (separate brain instance via BrainProviderRegistry — A2 condenser model)
+- **Pattern models:** `dodaios/safety/risk_tier.py` (pattern merge), `dodaios/vision/screenshot.py` (lazy Win32 imports), `dodaios/core/events.py` (frozen events with trace_id), `dodaios/memory/curator/__init__.py` (separate brain instance via BrainProviderRegistry — A2 condenser model)

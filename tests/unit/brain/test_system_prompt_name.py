@@ -12,8 +12,8 @@ the identity directive is now emitted for EVERY resolved name except the neutral
 """
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
-from jarvis.core.config import load_config
+from dodaios.brain.manager import BrainManager
+from dodaios.core.config import load_config
 
 
 def _manager_with_name(*, wake_phrase: str = "Hey Jarvis") -> BrainManager:

@@ -15,13 +15,13 @@ from uuid import UUID
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainPlausibilityConfig, SafetyConfig
-from jarvis.core.protocols import ExecutionContext, ToolResult, Transcript
-from jarvis.safety.approval import ApprovalWorkflow
-from jarvis.safety.approval_surface import INTERACTIVE
-from jarvis.safety.risk_tier import RiskTierEvaluator
-from jarvis.safety.tool_executor import ToolExecutor
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainPlausibilityConfig, SafetyConfig
+from dodaios.core.protocols import ExecutionContext, ToolResult, Transcript
+from dodaios.safety.approval import ApprovalWorkflow
+from dodaios.safety.approval_surface import INTERACTIVE
+from dodaios.safety.risk_tier import RiskTierEvaluator
+from dodaios.safety.tool_executor import ToolExecutor
 
 #: These tests measure WHETHER a confirmation was requested, by counting
 #: ``ApprovalWorkflow.wait()`` calls. That only counts anything on a surface
@@ -131,7 +131,7 @@ async def test_whitelist_downgrade_skips_plausibility() -> None:
     Mandate: "Whitelist-downgraded tools keep running without a plausibility
     check (otherwise the whitelist would be pointless)."
     """
-    from jarvis.core.config import SafetyWhitelistConfig
+    from dodaios.core.config import SafetyWhitelistConfig
 
     # The whitelist pattern must match against ``"<tool_name> <serialized_args>"``
     # — with empty ``args`` the evaluator strips the trailing

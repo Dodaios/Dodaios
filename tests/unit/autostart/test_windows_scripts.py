@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.autostart.protocol import LaunchSpec
-from jarvis.autostart.windows import (
+from dodaios.autostart.protocol import LaunchSpec
+from dodaios.autostart.windows import (
     _icon_matches,
     build_create_script,
     build_read_script,
@@ -21,7 +21,7 @@ from jarvis.autostart.windows import (
 def _spec(minimized: bool = True) -> LaunchSpec:
     return LaunchSpec(
         program=r"C:\Python\pythonw.exe",
-        args=("-m", "jarvis.ui.web.launcher"),
+        args=("-m", "dodaios.ui.web.launcher"),
         working_dir=r"C:\Users\u\Personal Jarvis",
         minimized=minimized,
     )
@@ -30,7 +30,7 @@ def _spec(minimized: bool = True) -> LaunchSpec:
 def test_create_script_sets_target_args_workdir() -> None:
     script = build_create_script(Path(r"C:\startup\Personal Jarvis.lnk"), _spec())
     assert r"$sc.TargetPath = 'C:\Python\pythonw.exe'" in script
-    assert "$sc.Arguments = '-m jarvis.ui.web.launcher'" in script
+    assert "$sc.Arguments = '-m dodaios.ui.web.launcher'" in script
     assert r"$sc.WorkingDirectory = 'C:\Users\u\Personal Jarvis'" in script
     assert "$sc.Save()" in script
 
@@ -81,7 +81,7 @@ def test_icon_matches(actual: str, expected: str | None, matches: bool) -> None:
 def test_create_script_embeds_icon_when_given() -> None:
     """The autostart .lnk must carry the Jarvis icon so the taskbar button is
     branded from first paint — not the bare pythonw.exe Python logo."""
-    ico = r"C:\Users\u\Personal Jarvis\jarvis\assets\icons\jarvis.ico"
+    ico = r"C:\Users\u\Personal Jarvis\dodaios\assets\icons\jarvis.ico"
     script = build_create_script(Path(r"C:\startup\Personal Jarvis.lnk"), _spec(), icon=ico)
     assert f"$sc.IconLocation = '{ico},0'" in script
 
@@ -98,7 +98,7 @@ def test_create_script_omits_icon_line_without_icon() -> None:
 
 _APOSTROPHE_SPEC = LaunchSpec(
     program=r"C:\Users\O'Brien\.venv\Scripts\pythonw.exe",
-    args=("-m", "jarvis.ui.web.launcher"),
+    args=("-m", "dodaios.ui.web.launcher"),
     working_dir=r"C:\Users\O'Brien\Ruben's Jarvis",
 )
 

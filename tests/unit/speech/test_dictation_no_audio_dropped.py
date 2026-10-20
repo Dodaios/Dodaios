@@ -28,10 +28,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.core.bus import EventBus
-from jarvis.core.config import DictationConfig
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.core.bus import EventBus
+from dodaios.core.config import DictationConfig
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
 
 pytestmark = pytest.mark.usefixtures("granted_microphone")
 
@@ -379,7 +379,7 @@ def test_a_placeable_language_leaves_as_a_code(
     knows only de/en/es, and relabelling a French dictation as one of those
     would run the wrong language's rules over it.
     """
-    from jarvis.speech.pipeline import resolve_dictation_language
+    from dodaios.speech.pipeline import resolve_dictation_language
 
     assert (
         resolve_dictation_language(pinned="auto", reported=reported, text=text)
@@ -395,7 +395,7 @@ def test_the_rare_token_guard_survives_a_provider_spelling() -> None:
     cannot silently disarm it. A guard whose failure mode looks exactly like
     passing has to defend itself.
     """
-    from jarvis.dictation.polish_guards import drift_reason
+    from dodaios.dictation.polish_guards import drift_reason
 
     raw = "kannst du es bitte mein download video abspeichern"  # i18n-allow: under test
     rewritten = "Kannst du es bitte herunterladen?"  # i18n-allow: under test

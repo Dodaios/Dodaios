@@ -28,12 +28,12 @@ fi
 
 case "${1:-}" in
     --debug)
-        JARVIS_DEBUG=1 exec "$PY" -m jarvis.ui.web.launcher --instance dev
+        JARVIS_DEBUG=1 exec "$PY" -m dodaios.ui.web.launcher --instance dev
         ;;
     --headless)
-        exec "$PY" -m jarvis.ui.web.launcher --instance dev --headless
+        exec "$PY" -m dodaios.ui.web.launcher --instance dev --headless
         ;;
     *)
-        exec "$PY" -m jarvis.ui.web.launcher --instance dev
+        exec "$PY" -m dodaios.ui.web.launcher --instance dev
         ;;
 esac

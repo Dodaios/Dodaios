@@ -4,12 +4,12 @@
 was built — the "our state" column is the starting point, not today's state.
 
 > **Dictation mode shipped the same day.** The rows below marked *partial* or
-> *missing* were the work list; they are now implemented (`jarvis/dictation/`,
+> *missing* were the work list; they are now implemented (`dodaios/dictation/`,
 > the `dictate` keybind, `/api/dictation/*`, the Dictation view, the bar's
 > `dictate` mode). This document is kept as-is because it is the evidence the
 > design rests on — what the established tools actually do, and where our own
 > gaps were. For what was built and why, read the module docstrings under
-> `jarvis/dictation/`.
+> `dodaios/dictation/`.
 
 A "dictation mode" (hold a key, speak, release, the text lands in whatever text
 field currently has focus) is not a new subsystem for Personal Jarvis. It is a
@@ -86,17 +86,17 @@ with the location · **missing** = must be built, with the anchor point.
 
 | Feature | Reference tools | Our state | Evidence / anchor |
 |---|---|---|---|
-| Global shortcut delivering **both** key edges | all | **have** | `jarvis/trigger/hotkey.py::HotkeyTrigger.__init__(push_to_talk=…)` emits `<name>_press` / `<name>_release`; `_build_bindings` wires both handlers |
-| Push-to-hold mode | Handy, FnKey, Ghost Pepper, both commercial | **partial** | The recording side is complete (`jarvis/speech/pipeline.py::_ptt_session`, `_on_ptt_press`, `_on_ptt_release`) but **no binding is ever armed**: `jarvis/core/config.py::TriggerConfig.resolve_hotkeys` returns an empty PTT slot and `TriggerConfig.push_to_talk` is documented as "deprecated compatibility field … intentionally ignored" |
+| Global shortcut delivering **both** key edges | all | **have** | `dodaios/trigger/hotkey.py::HotkeyTrigger.__init__(push_to_talk=…)` emits `<name>_press` / `<name>_release`; `_build_bindings` wires both handlers |
+| Push-to-hold mode | Handy, FnKey, Ghost Pepper, both commercial | **partial** | The recording side is complete (`dodaios/speech/pipeline.py::_ptt_session`, `_on_ptt_press`, `_on_ptt_release`) but **no binding is ever armed**: `dodaios/core/config.py::TriggerConfig.resolve_hotkeys` returns an empty PTT slot and `TriggerConfig.push_to_talk` is documented as "deprecated compatibility field … intentionally ignored" |
 | Toggle mode | Handy, OpenWhispr | **have** (as the voice call key) | `pipeline._hotkey_loop` handles the non-PTT `call` event on the release edge only |
-| Windows global shortcut | all | **have** | `jarvis/trigger/backends/global_hotkeys.py::GlobalHotkeysBackend` — the `global-hotkeys` package, polling-based; a module-level refcount runs exactly one checker thread |
-| macOS global shortcut | all | **have** | `jarvis/trigger/backends/quartz.py::QuartzHotkeyBackend` — listen-only `CGEventTap` on its own CFRunLoop thread, chord matching by physical keycode (deliberately TSM-free, BUG-077) |
-| Linux X11 global shortcut | Handy, whisper-writer, nerd-dictation | **partial — backend present, dependency absent** | `jarvis/trigger/backends/pynput.py::PynputBackend` is complete, but `pynput` is declared only for `sys_platform == 'darwin'` in `pyproject.toml`. `jarvis/platform/probes.py::has_hotkey` therefore returns `False` on Linux and `make_hotkey_backend()` selects `NoopBackend`. **Linux has no working global hotkey today, X11 included.** |
-| Wayland global shortcut | Handy (via DE config), VoxType | **missing by design** | `jarvis/trigger/backends/noop.py::NoopBackend` — logged once, never raises. See §5 for what the portal route would cost |
-| Change the shortcut without restarting | Handy, OpenWhispr, both commercial | **have** | `HotkeyTrigger.rearm` + `pipeline._hotkey_reload_loop` + `PUT /api/settings/keybinds` (`jarvis/ui/web/settings_routes.py::put_keybind`) |
-| Shortcut validation / conflict refusal | Handy (partial) | **have, but Windows-biased** | `jarvis/trigger/hotkey.py::validate_hotkey` rejects modifier-only combos, bare letters, Windows-key combos, Alt+F4 and Ctrl+C, and `put_keybind` additionally rejects any subset/superset overlap between actions. But `cmd` is missing from `_MODIFIER_TOKENS`, so the macOS-critical combos pass: calling the function directly on 2026-07-28 returns ACCEPT for `cmd+c`, `cmd+q`, `cmd+w` and `cmd+space`. `f12` is also accepted despite being permanently reserved for the debugger |
-| A **separate** dictation shortcut (distinct from the voice-call key) | all | **missing** | Anchor: `jarvis/core/config.py::TriggerConfig` (new field), `jarvis/core/config_writer.py::KEYBIND_ACTIONS` / `KEYBIND_TOML_KEY`, the `hotkey_bindings` dict in `pipeline.run`, and the dispatch in `pipeline._hotkey_loop` |
-| Trigger from the on-screen bar instead of a key | commercial A/B, VoiceInk | **partial — dead code** | `pipeline.request_ptt_toggle` exists and its docstring claims it is "the jarvis-bar's square button", but a repository-wide search finds **no caller**. `jarvis/ui/dodaiosbar/interaction.py::resolve_click` returns only `hangup` / `mute` / `talk` / `none` |
+| Windows global shortcut | all | **have** | `dodaios/trigger/backends/global_hotkeys.py::GlobalHotkeysBackend` — the `global-hotkeys` package, polling-based; a module-level refcount runs exactly one checker thread |
+| macOS global shortcut | all | **have** | `dodaios/trigger/backends/quartz.py::QuartzHotkeyBackend` — listen-only `CGEventTap` on its own CFRunLoop thread, chord matching by physical keycode (deliberately TSM-free, BUG-077) |
+| Linux X11 global shortcut | Handy, whisper-writer, nerd-dictation | **partial — backend present, dependency absent** | `dodaios/trigger/backends/pynput.py::PynputBackend` is complete, but `pynput` is declared only for `sys_platform == 'darwin'` in `pyproject.toml`. `dodaios/platform/probes.py::has_hotkey` therefore returns `False` on Linux and `make_hotkey_backend()` selects `NoopBackend`. **Linux has no working global hotkey today, X11 included.** |
+| Wayland global shortcut | Handy (via DE config), VoxType | **missing by design** | `dodaios/trigger/backends/noop.py::NoopBackend` — logged once, never raises. See §5 for what the portal route would cost |
+| Change the shortcut without restarting | Handy, OpenWhispr, both commercial | **have** | `HotkeyTrigger.rearm` + `pipeline._hotkey_reload_loop` + `PUT /api/settings/keybinds` (`dodaios/ui/web/settings_routes.py::put_keybind`) |
+| Shortcut validation / conflict refusal | Handy (partial) | **have, but Windows-biased** | `dodaios/trigger/hotkey.py::validate_hotkey` rejects modifier-only combos, bare letters, Windows-key combos, Alt+F4 and Ctrl+C, and `put_keybind` additionally rejects any subset/superset overlap between actions. But `cmd` is missing from `_MODIFIER_TOKENS`, so the macOS-critical combos pass: calling the function directly on 2026-07-28 returns ACCEPT for `cmd+c`, `cmd+q`, `cmd+w` and `cmd+space`. `f12` is also accepted despite being permanently reserved for the debugger |
+| A **separate** dictation shortcut (distinct from the voice-call key) | all | **missing** | Anchor: `dodaios/core/config.py::TriggerConfig` (new field), `dodaios/core/config_writer.py::KEYBIND_ACTIONS` / `KEYBIND_TOML_KEY`, the `hotkey_bindings` dict in `pipeline.run`, and the dispatch in `pipeline._hotkey_loop` |
+| Trigger from the on-screen bar instead of a key | commercial A/B, VoiceInk | **partial — dead code** | `pipeline.request_ptt_toggle` exists and its docstring claims it is "the jarvis-bar's square button", but a repository-wide search finds **no caller**. `dodaios/ui/dodaiosbar/interaction.py::resolve_click` returns only `hangup` / `mute` / `talk` / `none` |
 
 ### 3.2 Capture
 
@@ -105,17 +105,17 @@ with the location · **missing** = must be built, with the anchor point.
 | Record raw microphone audio with no silence endpoint | all | **have** | `pipeline._ptt_session` drains `MicrophoneCapture` into a buffer, bypassing the VAD entirely — the key is the endpoint |
 | Transcribe-only session that never reaches the brain | all | **have** | `pipeline._dictation_session` + `start_dictation` / `stop_dictation`; publishes `DictationTranscript(text, is_final)` and nothing else |
 | Capability probe before offering the feature | Handy, VoiceInk | **have** | `pipeline.dictation_available()` — STT present, input device not `"none"`, capture permission granted |
-| Voice-activity filtering of silence | Handy (Silero VAD) | **have** (different placement) | `jarvis/audio/vad.py` — used by the voice path; the dictation path deliberately bypasses it |
+| Voice-activity filtering of silence | Handy (Silero VAD) | **have** (different placement) | `dodaios/audio/vad.py` — used by the voice path; the dictation path deliberately bypasses it |
 | Maximum-hold safety cap | Handy | **have** | `pipeline._ptt_max_hold_s = 60.0`; the dictation lane has `_dictation_max_s` |
 | Minimum-hold guard (accidental tap) | none of them (Handy explicitly has none) | **have** | `_ptt_session` discards anything shorter than 300 ms of audio |
-| Live partial transcript while speaking | Handy, commercial A/B | **partial — and quadratic** | `pipeline._dictation_session._probe` and `pipeline._ptt_live_transcribe` re-transcribe the **entire growing buffer** every `_ptt_partial_interval_s` (1.2 s). Correct for a short chat utterance, unusable for a two-minute dictation. Anchor for the fix: the same two functions, plus `jarvis/audio/vad.py` for segment boundaries |
+| Live partial transcript while speaking | Handy, commercial A/B | **partial — and quadratic** | `pipeline._dictation_session._probe` and `pipeline._ptt_live_transcribe` re-transcribe the **entire growing buffer** every `_ptt_partial_interval_s` (1.2 s). Correct for a short chat utterance, unusable for a two-minute dictation. Anchor for the fix: the same two functions, plus `dodaios/audio/vad.py` for segment boundaries |
 
 ### 3.3 Recognition
 
 | Feature | Reference tools | Our state | Evidence / anchor |
 |---|---|---|---|
-| Local, offline recognition | Handy, VoiceInk, OpenWhispr | **have** | `jarvis/plugins/stt/fwhisper.py::FasterWhisperProvider` |
-| Cloud recognition with the user's own key | OpenWhispr (BYOK) | **have, and broader** | `jarvis/plugins/stt/{groq_api,openai_api,gemini_api,openrouter_stt}.py`, all key-aware through `jarvis.core.config.get_secret` |
+| Local, offline recognition | Handy, VoiceInk, OpenWhispr | **have** | `dodaios/plugins/stt/fwhisper.py::FasterWhisperProvider` |
+| Cloud recognition with the user's own key | OpenWhispr (BYOK) | **have, and broader** | `dodaios/plugins/stt/{groq_api,openai_api,gemini_api,openrouter_stt}.py`, all key-aware through `dodaios.core.config.get_secret` |
 | Automatic language detection | Handy (Parakeet V3) | **have** | `STTConfig.language = "auto"` is the shipped default |
 | Streaming recognition (partials from the provider) | FnKey; commercial A/B | **missing across the board** | All five providers declare `supports_streaming = False`; Groq's `stream_transcribe` deliberately yields one final result. Any "live" text we show is our own re-transcription, not a provider stream |
 | Switch model per situation | VoiceInk, superset in commercial B | **partial** | Provider/model are global config (`[stt]`), not per-dictation-mode |
@@ -124,37 +124,37 @@ with the location · **missing** = must be built, with the anchor point.
 
 | Feature | Reference tools | Our state | Evidence / anchor |
 |---|---|---|---|
-| Custom vocabulary / dictionary | OpenWhispr, VoiceInk, Voquill, both commercial | **have** | `jarvis/speech/stt_dictionary.py::DictionaryStore` + `TranscriptCorrector` + `DictionaryCorrectingSTT`, wired around `_utterance_stt` in the `SpeechPipeline` constructor — so the dictation lane inherits it automatically. REST: `/api/dictionary`. UI: `DictionaryView.tsx` |
+| Custom vocabulary / dictionary | OpenWhispr, VoiceInk, Voquill, both commercial | **have** | `dodaios/speech/stt_dictionary.py::DictionaryStore` + `TranscriptCorrector` + `DictionaryCorrectingSTT`, wired around `_utterance_stt` in the `SpeechPipeline` constructor — so the dictation lane inherits it automatically. REST: `/api/dictionary`. UI: `DictionaryView.tsx` |
 | Decoder bias from the dictionary | (Groq-style prompts) | **partial by necessity** | `build_stt_from_config` merges dictionary words into the cloud `prompt`; local faster-whisper must never receive an utterance prompt (hallucination). This is why post-STT correction, not bias, is the provider-agnostic mechanism |
-| Filler-word removal | Ghost Pepper, Voquill, VOXD, both commercial | **missing** | Nearest existing pattern to copy the *shape* from: `jarvis/brain/output_filter.py::scrub_for_voice` — regex only, no model call (AP-11) |
+| Filler-word removal | Ghost Pepper, Voquill, VOXD, both commercial | **missing** | Nearest existing pattern to copy the *shape* from: `dodaios/brain/output_filter.py::scrub_for_voice` — regex only, no model call (AP-11) |
 | Punctuation / list formatting | commercial A/B | **missing** | Same anchor as above |
-| Optional LLM cleanup pass | Handy (`llm_client.rs`), OpenWhispr, VoiceInk, both commercial | **missing, but every building block exists** | `jarvis/brain/factory.py` already resolves a key-aware provider chain; the ack-brain (`build_ack_brain`) is the precedent for a small fast side-model |
-| Per-app formatting rules / modes | VoiceInk (Power Mode), Amical, commercial B (up to nine modes) | **missing** | Window context is available: `jarvis/awareness/watchers/window.py` |
+| Optional LLM cleanup pass | Handy (`llm_client.rs`), OpenWhispr, VoiceInk, both commercial | **missing, but every building block exists** | `dodaios/brain/factory.py` already resolves a key-aware provider chain; the ack-brain (`build_ack_brain`) is the precedent for a small fast side-model |
+| Per-app formatting rules / modes | VoiceInk (Power Mode), Amical, commercial B (up to nine modes) | **missing** | Window context is available: `dodaios/awareness/watchers/window.py` |
 | Send the dictation to an AI agent instead of a text field | OpenWhispr (second hotkey) | **have via a different door** | That is what the existing voice path does; a dictation-to-agent hotkey would be a third keybind action reusing `pipeline._handle_utterance` |
 
 ### 3.5 Insertion — the part that actually decides whether this feature works
 
 | Feature | Reference tools | Our state | Evidence / anchor |
 |---|---|---|---|
-| Write text to the system clipboard | all | **have** | `jarvis/platform/clipboard.py::write_text` — Win32 `SetClipboardData` with retry, `pbcopy`, `wl-copy`/`xclip`/`xsel` |
+| Write text to the system clipboard | all | **have** | `dodaios/platform/clipboard.py::write_text` — Win32 `SetClipboardData` with retry, `pbcopy`, `wl-copy`/`xclip`/`xsel` |
 | Read the clipboard back | Handy (to restore it) | **have, text only** | `clipboard.py::read_text` — returns `None` for "unreachable" vs `""` for "genuinely empty", which is exactly the distinction a restore needs |
-| **Save and restore the previous clipboard** | Handy (text first, image only if no text) | **missing** | Anchor: new `jarvis/dictation/insert.py`, built on the two functions above. Known limitation to document honestly: our clipboard layer is text-only, so a previously copied image cannot be restored |
-| Send the paste shortcut | Handy (Enigo) | **have** | `jarvis/cu/actuate/base.py::get_actuator()` → `Actuator.key_combo`; Windows path is native `SendInput` (`jarvis/cu/actuate/windows.py::WindowsActuator.key_combo`) |
-| Terminal-safe paste variant | Handy (Shift+Insert, "more universal for terminal applications") | **missing** | Same anchor; the key vocabulary already contains `insert` (`jarvis/cu/actuate/base.py::_NAMED_KEYS`) |
+| **Save and restore the previous clipboard** | Handy (text first, image only if no text) | **missing** | Anchor: new `dodaios/dictation/insert.py`, built on the two functions above. Known limitation to document honestly: our clipboard layer is text-only, so a previously copied image cannot be restored |
+| Send the paste shortcut | Handy (Enigo) | **have** | `dodaios/cu/actuate/base.py::get_actuator()` → `Actuator.key_combo`; Windows path is native `SendInput` (`dodaios/cu/actuate/windows.py::WindowsActuator.key_combo`) |
+| Terminal-safe paste variant | Handy (Shift+Insert, "more universal for terminal applications") | **missing** | Same anchor; the key vocabulary already contains `insert` (`dodaios/cu/actuate/base.py::_NAMED_KEYS`) |
 | Type text directly as a fallback | Handy, nerd-dictation | **have** | `WindowsActuator.type_text` uses `KEYEVENTF_UNICODE` and correctly splits astral-plane characters into UTF-16 surrogate pairs; POSIX goes through pynput/pyautogui |
-| Detect that insertion *cannot* work before trying | none of the references do this | **partial, wrong direction** | `jarvis/platform/input_isolation.py::describe_input_isolation` answers "can other apps type into **our** window" (Windows UIPI / POSIX root). The inverse probe — can *we* type into the **foreground** window — does not exist yet. The Win32 recipe is the same three calls (`GetForegroundWindow` → `GetWindowThreadProcessId` → `GetTokenInformation(TokenElevation)`) |
+| Detect that insertion *cannot* work before trying | none of the references do this | **partial, wrong direction** | `dodaios/platform/input_isolation.py::describe_input_isolation` answers "can other apps type into **our** window" (Windows UIPI / POSIX root). The inverse probe — can *we* type into the **foreground** window — does not exist yet. The Win32 recipe is the same three calls (`GetForegroundWindow` → `GetWindowThreadProcessId` → `GetTokenInformation(TokenElevation)`) |
 | Verify the text actually landed | none | **missing** | Deliberate recommendation in the plan: do **not** try to verify; instead guarantee the clipboard fallback and report honestly |
-| Route the text to our own window vs. a foreign app | VoiceInk, commercial A/B | **missing** | Anchor: new module; the foreground-window read already exists in `jarvis/awareness/watchers/window.py` |
+| Route the text to our own window vs. a foreign app | VoiceInk, commercial A/B | **missing** | Anchor: new module; the foreground-window read already exists in `dodaios/awareness/watchers/window.py` |
 
 ### 3.6 Feedback and UI
 
 | Feature | Reference tools | Our state | Evidence / anchor |
 |---|---|---|---|
-| On-screen indicator while recording | all | **have** | Jarvis Bar: `ui/orb/bus_bridge.py::OrbBridge._on_state` maps `SystemStateChanged` to the coarse modes `idle` / `listen` / `think` / `speak`; `jarvis/ui/dodaiosbar/renderer.py::visual_mode` derives the look |
-| Live level meter | Handy, commercial A/B | **have** | `jarvis/audio/mic_level.py`; both the PTT drain and the session input stream feed it |
+| On-screen indicator while recording | all | **have** | Jarvis Bar: `ui/orb/bus_bridge.py::OrbBridge._on_state` maps `SystemStateChanged` to the coarse modes `idle` / `listen` / `think` / `speak`; `dodaios/ui/dodaiosbar/renderer.py::visual_mode` derives the look |
+| Live level meter | Handy, commercial A/B | **have** | `dodaios/audio/mic_level.py`; both the PTT drain and the session input stream feed it |
 | Live transcript strip on the indicator | commercial A | **partial — plumbing exists, not connected** | `show_listening_transcript(text, duration_ms)` is implemented on all four overlay surfaces (`overlay.py`, `qt_overlay.py`, `subprocess_overlay.py`, `null_overlay.py`) and is fed today from `TranscriptionUpdate`. `DictationTranscript` is **not subscribed** anywhere in `ui/orb/bus_bridge.py` |
 | A dictation state distinct from the voice states | all | **missing** | Anchor: a new subscriber in `OrbBridge.attach` plus one new branch in `renderer.visual_mode`; the four existing branches stay untouched |
-| Dictation history | VoiceInk, OpenWhispr, commercial A/B | **missing** | Anchor: new `jarvis/ui/web/dictation_routes.py` + a `DictationView.tsx`; the section-registration pattern to copy is `DictionaryView.tsx` + `SECTION_IDS` in `src/store/events.ts` + `Sidebar.tsx` + `nav.*` i18n keys in `en/de/es.json` |
+| Dictation history | VoiceInk, OpenWhispr, commercial A/B | **missing** | Anchor: new `dodaios/ui/web/dictation_routes.py` + a `DictationView.tsx`; the section-registration pattern to copy is `DictionaryView.tsx` + `SECTION_IDS` in `src/store/events.ts` + `Sidebar.tsx` + `nav.*` i18n keys in `en/de/es.json` |
 | Settings surface | all | **partial** | Keybinds have one (`settings_routes.py`), dictation has none |
 | Works when the app window is hidden | all | **have** | `pipeline._activation_allowed()` checks only mute + capture permission — it does **not** require a visible window, despite the misleading log line "PTT press ignored: Desktop-App not visible." in `_on_ptt_press` |
 
@@ -162,9 +162,9 @@ with the location · **missing** = must be built, with the anchor point.
 
 | Feature | Our state | Evidence / anchor |
 |---|---|---|
-| Every action reachable over REST → automatic CLI command | **partial — a real gap** | Dictation today is a WebSocket command only: `jarvis/ui/web/server.py::_handle_dictation`, schema in `jarvis/ui/web/schema.py`, consumed by `useWebSocket.ts`. There is no `*_routes.py`, so `jarvis api …` cannot start or stop dictation. Under CLAUDE.md §5 ("CLI-first feature contract") a UI-only feature is not done |
-| Voice-command reachability | **missing** | `jarvis/commands/registry.py` has no dictation entry |
-| Brand name never hardcoded | **have** | `jarvis/brain/assistant_name.py::agent_brand`; the frontend counterpart is `src/lib/agentBrand.ts`. Any dictation UI string must go through them |
+| Every action reachable over REST → automatic CLI command | **partial — a real gap** | Dictation today is a WebSocket command only: `dodaios/ui/web/server.py::_handle_dictation`, schema in `dodaios/ui/web/schema.py`, consumed by `useWebSocket.ts`. There is no `*_routes.py`, so `jarvis api …` cannot start or stop dictation. Under CLAUDE.md §5 ("CLI-first feature contract") a UI-only feature is not done |
+| Voice-command reachability | **missing** | `dodaios/commands/registry.py` has no dictation entry |
+| Brand name never hardcoded | **have** | `dodaios/brain/assistant_name.py::agent_brand`; the frontend counterpart is `src/lib/agentBrand.ts`. Any dictation UI string must go through them |
 
 ---
 

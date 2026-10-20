@@ -20,15 +20,15 @@ from unittest.mock import MagicMock
 import pytest
 import pytest_asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import load_config
-from jarvis.core.events import IdleEntered
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.recall import RecallStore
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.session_rollup import SessionRollupWorker
+from dodaios.core.bus import EventBus
+from dodaios.core.config import load_config
+from dodaios.core.events import IdleEntered
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.recall import RecallStore
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.session_rollup import SessionRollupWorker
 
 NS_PER_MIN = 60 * 1_000_000_000
 

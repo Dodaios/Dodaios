@@ -20,9 +20,9 @@ from collections.abc import AsyncIterator
 import numpy as np
 import pytest
 
-from jarvis.audio.vad import VAD_FRAME_SAMPLES, SileroEndpointer
-from jarvis.audio.vad_reasons import VAD_REASON_FALSE_START
-from jarvis.core.protocols import AudioChunk
+from dodaios.audio.vad import VAD_FRAME_SAMPLES, SileroEndpointer
+from dodaios.audio.vad_reasons import VAD_REASON_FALSE_START
+from dodaios.core.protocols import AudioChunk
 
 _FRAME_BYTES = VAD_FRAME_SAMPLES * 2  # int16 mono
 

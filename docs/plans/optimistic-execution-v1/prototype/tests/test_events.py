@@ -2,7 +2,7 @@
 
 These events are the ONLY hard dependency shared across the three parallel
 sub-agent modules (bus/router, tools/worker, oops). Mirrors the design of the
-production `jarvis/core/events.py`: frozen dataclasses carrying `trace_id`
+production `dodaios/core/events.py`: frozen dataclasses carrying `trace_id`
 (correlation) + `timestamp_ns` (latency spans).
 """
 from __future__ import annotations

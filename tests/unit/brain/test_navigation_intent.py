@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.navigation_intent import match_navigation_intent
+from dodaios.brain.navigation_intent import match_navigation_intent
 
 
 @pytest.mark.parametrize(

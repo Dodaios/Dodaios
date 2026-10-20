@@ -15,7 +15,7 @@ import anyio.to_thread
 import pytest
 from anyio._backends._asyncio import WorkerThread
 
-from jarvis.core.loop_executor import (
+from dodaios.core.loop_executor import (
     ANYIO_KEEP_ALIVE_S,
     keep_anyio_workers_alive,
     warm_anyio_worker_pool,

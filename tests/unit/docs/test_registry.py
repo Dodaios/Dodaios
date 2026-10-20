@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.docs.registry import DocRegistry
-from jarvis.docs.schema import DocDiataxis, DocStatus
+from dodaios.docs.registry import DocRegistry
+from dodaios.docs.schema import DocDiataxis, DocStatus
 
 CONCEPT_MD = """---
 title: "Concept: Router"
@@ -206,7 +206,7 @@ async def test_ensure_loaded_deduplicates_concurrent_first_requests(
     doc_root: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.docs.registry as registry_module
+    import dodaios.docs.registry as registry_module
 
     calls = 0
     real_discover = registry_module.discover_docs

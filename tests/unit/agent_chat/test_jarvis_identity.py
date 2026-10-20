@@ -13,12 +13,12 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import jarvis_harness, runner_cli
-from jarvis.agent_chat.events import make_event
-from jarvis.core import runtime_refs
-from jarvis.core.response_style import KEEP_GOING_ON_TOOL_FAILURE
-from jarvis.mcp import jarvis_tools_server as server
-from jarvis.ui.web import mcp_server_routes
+from dodaios.agent_chat import jarvis_harness, runner_cli
+from dodaios.agent_chat.events import make_event
+from dodaios.core import runtime_refs
+from dodaios.core.response_style import KEEP_GOING_ON_TOOL_FAILURE
+from dodaios.mcp import jarvis_tools_server as server
+from dodaios.ui.web import mcp_server_routes
 
 
 class _Brain:

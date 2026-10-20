@@ -5,7 +5,7 @@ import path from "node:path";
 import fs from "node:fs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const frontend = path.join(root, "jarvis/ui/web/frontend");
+const frontend = path.join(root, "dodaios/ui/web/frontend");
 const require = createRequire(path.join(frontend, "package.json"));
 const { build } = require("esbuild");
 const result = await build({

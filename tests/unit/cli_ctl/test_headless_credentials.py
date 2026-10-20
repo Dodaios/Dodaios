@@ -10,16 +10,16 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import config
-from jarvis.core.control_key import KEYRING_SLOT
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core import config
+from dodaios.core.control_key import KEYRING_SLOT
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 _CHILD = """
 import sys
 import httpx
 import keyring
 from keyring.backends import fail
-from jarvis.cli_ctl.client import JarvisClient
+from dodaios.cli_ctl.client import JarvisClient
 
 keyring.set_keyring(fail.Keyring())
 original_init = JarvisClient.__init__
@@ -36,10 +36,10 @@ JarvisClient.__init__ = initialize
 entrypoint, *arguments = sys.argv[1:]
 sys.argv = [entrypoint, '--json', *arguments]
 if entrypoint == 'jarvis':
-    from jarvis.__main__ import main
+    from dodaios.__main__ import main
     raise SystemExit(main())
 else:
-    from jarvis.cli_ctl.__main__ import main
+    from dodaios.cli_ctl.__main__ import main
     main()
 """
 

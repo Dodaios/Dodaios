@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.marketplace.agent_plugins_loader import (
+from dodaios.marketplace.agent_plugins_loader import (
     EXTENSION_NAMESPACE,
     AgentPluginError,
     convert_manifest,

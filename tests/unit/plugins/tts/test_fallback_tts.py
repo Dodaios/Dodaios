@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.plugins.tts import build_tts_from_config
-from jarvis.plugins.tts.fallback_tts import FallbackTTS
-from jarvis.plugins.tts.gemini_flash_tts import GeminiFlashTTS
-from jarvis.plugins.tts.grok_voice_tts import GrokVoiceTTS
+from dodaios.plugins.tts import build_tts_from_config
+from dodaios.plugins.tts.fallback_tts import FallbackTTS
+from dodaios.plugins.tts.gemini_flash_tts import GeminiFlashTTS
+from dodaios.plugins.tts.grok_voice_tts import GrokVoiceTTS
 
 
 # --- Fakes ------------------------------------------------------------------
@@ -182,7 +182,7 @@ def test_factory_does_not_wrap_when_fallback_equals_primary():
 
 
 def test_factory_degrades_to_primary_when_fallback_unbuildable(monkeypatch):
-    import jarvis.plugins.tts as factory
+    import dodaios.plugins.tts as factory
     orig = factory._build_provider
 
     def _boom(cfg, provider):

@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from jarvis.brain.provider_test import NOT_CONFIGURED, run_provider_test
+from dodaios.brain.provider_test import NOT_CONFIGURED, run_provider_test
 
 
 def test_local_stt_import_error_reports_not_installed():

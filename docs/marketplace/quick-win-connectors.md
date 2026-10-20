@@ -8,16 +8,16 @@ edits a file.
 
 Each one ships as a **draft**, not as a catalog entry. A new built-in plugin
 needs a completed browser journey before it may enter
-`jarvis/marketplace/seed_catalog.json`
+`dodaios/marketplace/seed_catalog.json`
 (`scripts/ci/check_plugin_auth_contract.py`), and that journey needs a real
 account at the provider. Until then the files live here:
 
 | What | Where |
 |---|---|
-| Catalog entry (Agent Plugins manifest) | `jarvis/marketplace/drafts/<id>/plugin.json` |
-| MCP server template | `jarvis/marketplace/drafts/<id>/mcp.template.json` |
-| Usage card | `jarvis/marketplace/drafts/<id>/usage_card.md` |
-| Paired skill | `jarvis/skills/drafts/plugin-<id>/SKILL.md` |
+| Catalog entry (Agent Plugins manifest) | `dodaios/marketplace/drafts/<id>/plugin.json` |
+| MCP server template | `dodaios/marketplace/drafts/<id>/mcp.template.json` |
+| Usage card | `dodaios/marketplace/drafts/<id>/usage_card.md` |
+| Paired skill | `dodaios/skills/drafts/plugin-<id>/SKILL.md` |
 | Pending journey record | [`quick-win-pending-e2e.json`](quick-win-pending-e2e.json) |
 
 `tests/unit/marketplace/test_quick_win_drafts.py` keeps every draft valid,
@@ -102,9 +102,9 @@ Do this per service, once someone with an account there can approve consent:
 
 1. Copy the manifest's extension block (plus `id` and `description`) into
    `seed_catalog.json`; move `plugin.json` and `mcp.template.json` (renamed to
-   `mcp.json`) to `jarvis/marketplace/plugins/<id>/`, the usage card to
-   `jarvis/marketplace/usage_cards/<id>.md`, and the skill to
-   `jarvis/skills/builtin/`. Register the skill in `_PLUGIN_PAIRED_SKILLS`.
+   `mcp.json`) to `dodaios/marketplace/plugins/<id>/`, the usage card to
+   `dodaios/marketplace/usage_cards/<id>.md`, and the skill to
+   `dodaios/skills/builtin/`. Register the skill in `_PLUGIN_PAIRED_SKILLS`.
 2. Add the brand mark (`<id>.svg`) with its `LOGOS.md` row, a routing entry in
    `tests/fixtures/skill_routing/golden.yaml`, the reviewed endpoint in
    `scripts/ci/privacy_pre_push.py`, and a row in

@@ -32,7 +32,7 @@ The device may simply run older code.
   `git status --short` (uncommitted work — exists on the dev box ONLY).
 - **Delivery pipeline facts:** a fresh install clones public `main`
   (`install/install.sh` / `install.ps1`, `JARVIS_INSTALL_REF` defaults to
-  `main`); the in-app updater (`jarvis/ui/web/update_routes.py`) moves a
+  `main`); the in-app updater (`dodaios/ui/web/update_routes.py`) moves a
   managed install only between **published GitHub Releases** — pushing a tag
   without publishing a Release updates nobody.
 
@@ -62,7 +62,7 @@ user this reads as "the feature is broken on this device".
   `degradations` names every tier that quietly fell back or lacks a key.
 - Manual cross-check: Settings → Providers on both devices; mode (realtime
   vs. classic pipeline), wake word set, skills activated;
-  `python -m jarvis --check` on both, and diff the output.
+  `python -m dodaios --check` on both, and diff the output.
 
 If the setups differ, align them (in-app — §3 requires every credential path
 to be recoverable in-app) and re-test **before** filing a bug.
@@ -98,4 +98,4 @@ What it enforces (and why each item exists):
    `releases/latest`, so a tag alone updates nobody.
 4. **Dist freshness** — the frontend `dist/` bundle must be at least as new
    as the frontend sources (a stale bundle ships invisible-old UI).
-5. **Version parity** — `jarvis/__init__.py` and `pyproject.toml` agree.
+5. **Version parity** — `dodaios/__init__.py` and `pyproject.toml` agree.

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.pointer.intent import is_pointing_intent
+from dodaios.pointer.intent import is_pointing_intent
 
 _FIRE = [
     "Was siehst du hier?",

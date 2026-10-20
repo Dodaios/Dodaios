@@ -1,5 +1,5 @@
 # === F-FRIENDS [F3] · feature/friends-section · ruben-2026-05-01 ===
-"""Unit tests for :class:`jarvis.friends.messages.DirectMessageStore`."""
+"""Unit tests for :class:`dodaios.friends.messages.DirectMessageStore`."""
 from __future__ import annotations
 
 from uuid import uuid4
@@ -7,9 +7,9 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from jarvis.friends.messages import DirectMessage, DirectMessageStore
-from jarvis.friends.models import Friend
-from jarvis.friends.registry import FriendRegistry
+from dodaios.friends.messages import DirectMessage, DirectMessageStore
+from dodaios.friends.models import Friend
+from dodaios.friends.registry import FriendRegistry
 
 
 @pytest_asyncio.fixture

@@ -13,8 +13,8 @@ from __future__ import annotations
 import os
 import time
 
-from jarvis.missions.isolation import worktree as wt
-from jarvis.missions.isolation.worktree import WorktreeManager
+from dodaios.missions.isolation import worktree as wt
+from dodaios.missions.isolation.worktree import WorktreeManager
 
 
 def test_sweep_skips_cleanly_when_git_is_absent(tmp_path, monkeypatch) -> None:

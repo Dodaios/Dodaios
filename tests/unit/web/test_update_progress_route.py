@@ -16,9 +16,9 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from jarvis.core.installer_update import InstallerAsset, download_and_verify
-from jarvis.ui.web import update_routes
-from jarvis.ui.web.update_routes import (
+from dodaios.core.installer_update import InstallerAsset, download_and_verify
+from dodaios.ui.web import update_routes
+from dodaios.ui.web.update_routes import (
     INSTALL_KIND_FROZEN,
     PHASE_DOWNLOADING,
     PHASE_FAILED,

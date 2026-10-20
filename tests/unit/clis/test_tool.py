@@ -14,17 +14,17 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.clis.auth import CliAuthManager
-from jarvis.clis.spec import AuthConfig, CliSpec, InstallMethods, RiskConfig
-from jarvis.clis.tool import (
+from dodaios.clis.auth import CliAuthManager
+from dodaios.clis.spec import AuthConfig, CliSpec, InstallMethods, RiskConfig
+from dodaios.clis.tool import (
     MAX_HELP_STDOUT_CHARS,
     MAX_STDERR_CHARS,
     MAX_STDOUT_CHARS,
     CliTool,
     _noninteractive_env_for,
 )
-from jarvis.clis.usage_log import UsageLog
-from jarvis.core.protocols import ExecutionContext
+from dodaios.clis.usage_log import UsageLog
+from dodaios.core.protocols import ExecutionContext
 
 
 def _python_spec() -> CliSpec:
@@ -193,7 +193,7 @@ async def test_execute_injects_noninteractive_env(
 ) -> None:
     # Configure the policy table so the test binary gets a probe var, then
     # prove execute() actually merges _noninteractive_env_for() into the child.
-    import jarvis.clis.tool as tool_mod
+    import dodaios.clis.tool as tool_mod
 
     binary = Path(sys.executable).name
     monkeypatch.setitem(
@@ -257,7 +257,7 @@ def test_jarvisctl_tool_description_carries_the_command_index(tmp_path: Path) ->
     request lands on `jarvisctl skills enable X` directly instead of costing
     three `--help` rounds (voice session 2026-08-18 17:51). Every other CLI
     keeps its catalog description + examples only."""
-    from jarvis.clis.catalog import load_catalog
+    from dodaios.clis.catalog import load_catalog
 
     spec = load_catalog()["jarvisctl"]
     tool = CliTool(spec, auth=CliAuthManager(), usage_log=UsageLog(db_path=tmp_path / "u.db"))

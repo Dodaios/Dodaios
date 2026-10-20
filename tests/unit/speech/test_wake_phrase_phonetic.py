@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.speech.wake_phrase import compile_wake_matcher
+from dodaios.speech.wake_phrase import compile_wake_matcher
 
 
 @pytest.mark.parametrize(

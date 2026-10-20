@@ -27,8 +27,8 @@ from __future__ import annotations
 
 import json
 
-from jarvis.core.protocols import BrainMessage
-from jarvis.plugins.brain.gemini import _to_gemini_contents
+from dodaios.core.protocols import BrainMessage
+from dodaios.plugins.brain.gemini import _to_gemini_contents
 
 _NAME_MAP = {"github/search": "github_search"}
 

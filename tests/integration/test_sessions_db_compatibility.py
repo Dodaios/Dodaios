@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.sessions.constants import HANGUP_REASONS
+from dodaios.sessions.constants import HANGUP_REASONS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB = REPO_ROOT / "data" / "sessions.db"
@@ -59,7 +59,7 @@ def test_db_hangup_reasons_are_a_subset_of_constants() -> None:
     unknown = observed - set(HANGUP_REASONS)
     assert not unknown, (
         f"Found hangup_reason values in {db} that are NOT registered in "
-        f"jarvis/sessions/constants.HANGUP_REASONS: {sorted(unknown)!r}. "
+        f"dodaios/sessions/constants.HANGUP_REASONS: {sorted(unknown)!r}. "
         "Either add them to the constants tuple (and update the Pydantic "
         "Literal + TS union + TSX switch + SQL comment via the parity "
         "test), or sanitize the rows. Leaving them is BUG-008 in waiting."

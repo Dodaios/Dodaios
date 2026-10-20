@@ -13,11 +13,11 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.audio import mic_level
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.core.events import ErrorOccurred, SystemStarted
-from jarvis.ui.web.server import WebServer
+from dodaios.audio import mic_level
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.core.events import ErrorOccurred, SystemStarted
+from dodaios.ui.web.server import WebServer
 
 
 @pytest.fixture

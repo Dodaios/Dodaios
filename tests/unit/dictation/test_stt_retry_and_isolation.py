@@ -34,9 +34,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import DictationConfig, STTConfig
-from jarvis.core.events import DictationCompleted
-from jarvis.speech.pipeline import (
+from dodaios.core.config import DictationConfig, STTConfig
+from dodaios.core.events import DictationCompleted
+from dodaios.speech.pipeline import (
     SpeechPipeline,
     _dictation_retry_worthwhile,
     _stt_error_status,
@@ -209,7 +209,7 @@ class _HTTPish(RuntimeError):
 
 def test_the_status_is_read_off_the_typed_error_first() -> None:
     """``STTHTTPError.status`` is the intended contract; the legacy shape stays."""
-    from jarvis.plugins.stt.errors import STTHTTPError
+    from dodaios.plugins.stt.errors import STTHTTPError
 
     assert _stt_error_status(STTHTTPError("nope", status=429)) == 429
     assert _stt_error_status(_HTTPish(503)) == 503
@@ -227,7 +227,7 @@ def test_a_google_style_code_attribute_is_understood_too() -> None:
 
 
 def test_a_rate_limit_is_retried_and_a_dead_key_is_not() -> None:
-    from jarvis.plugins.stt.errors import STTHTTPError
+    from dodaios.plugins.stt.errors import STTHTTPError
 
     assert _dictation_retry_worthwhile(STTHTTPError("limit", status=429)) is True
     assert _dictation_retry_worthwhile(STTHTTPError("gateway", status=503)) is True
@@ -252,7 +252,7 @@ def test_our_own_ceiling_is_not_retried() -> None:
 def test_the_servers_own_retry_after_beats_our_backoff() -> None:
     """Both RFC 9110 forms, because a gateway in front of a provider sends the
     date form and only the delta form was ever understood here."""
-    from jarvis.plugins.stt.errors import STTHTTPError
+    from dodaios.plugins.stt.errors import STTHTTPError
 
     slow = STTHTTPError("limit", status=429, retry_after=1.5)
     # Attempt 0's own backoff would be 0.4 s; the server asked for more.
@@ -275,7 +275,7 @@ def test_the_servers_own_retry_after_beats_our_backoff() -> None:
 async def test_a_dead_key_is_asked_exactly_once() -> None:
     """The whole point of F2: a 401 answered three times is 1.8 s of the user
     waiting to learn what the first answer already said."""
-    from jarvis.plugins.stt.errors import STTHTTPError
+    from dodaios.plugins.stt.errors import STTHTTPError
 
     stt = _ScriptedSTT([STTHTTPError("invalid key", status=401)])
     pipe, events = _session_pipeline(stt)
@@ -293,7 +293,7 @@ async def test_a_rate_limit_is_retried_until_it_clears(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A 429 is the case the ladder exists for, and the second attempt wins."""
-    from jarvis.plugins.stt.errors import STTHTTPError
+    from dodaios.plugins.stt.errors import STTHTTPError
 
     slept: list[float] = []
 
@@ -318,7 +318,7 @@ async def test_the_wait_between_attempts_honours_the_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Re-firing 0.6 s into a window the server said is longer only extends it."""
-    from jarvis.plugins.stt.errors import STTHTTPError
+    from dodaios.plugins.stt.errors import STTHTTPError
 
     slept: list[float] = []
 
@@ -347,7 +347,7 @@ async def test_a_provider_that_never_answers_ends_the_dictation(
     the multiplier rather than by pretending a wall clock passed — the number
     under test is the one production computes.
     """
-    import jarvis.speech.pipeline as pipeline_module
+    import dodaios.speech.pipeline as pipeline_module
 
     monkeypatch.setattr(
         pipeline_module, "_DICTATION_TRANSCRIBE_TIMEOUT_PER_AUDIO_S", 0.1
@@ -382,7 +382,7 @@ def test_the_dictation_provider_is_built_without_the_voice_bias_prompt(
 ) -> None:
     """``[stt].bias_prompt`` is documented as a silence-hallucination amplifier
     and withheld from the local engine — and handed to dictation anyway."""
-    import jarvis.plugins.stt as stt_plugins
+    import dodaios.plugins.stt as stt_plugins
 
     seen: list[Any] = []
 
@@ -411,7 +411,7 @@ def test_the_dictation_provider_is_built_without_the_voice_bias_prompt(
 def test_the_dictation_provider_is_built_once_and_cached(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.plugins.stt as stt_plugins
+    import dodaios.plugins.stt as stt_plugins
 
     builds: list[Any] = []
     monkeypatch.setattr(
@@ -440,9 +440,9 @@ def test_the_dictation_provider_arms_the_cross_family_chain(
     """AP-22: a depleted key must not end the dictation while another keyed
     family sits unused — and the alternates come from the resolver that
     guarantees one entry per CREDENTIAL family."""
-    import jarvis.plugins.stt as stt_plugins
-    import jarvis.speech.pipeline as pipeline_mod
-    import jarvis.speech.stt_dictionary as dictionary
+    import dodaios.plugins.stt as stt_plugins
+    import dodaios.speech.pipeline as pipeline_mod
+    import dodaios.speech.stt_dictionary as dictionary
 
     monkeypatch.setattr(
         stt_plugins, "build_stt_from_config", lambda cfg, **_k: SimpleNamespace()
@@ -458,7 +458,7 @@ def test_the_dictation_provider_arms_the_cross_family_chain(
     monkeypatch.setattr(dictionary, "wrap_stt_with_dictionary", lambda provider: provider)
     # The on-device final pass would take the front of the chain on a host
     # with the local runtime; this test is about the CLOUD chain behind it.
-    import jarvis.dictation.local_preview as preview_mod
+    import dodaios.dictation.local_preview as preview_mod
 
     monkeypatch.setattr(preview_mod, "faster_whisper_available", lambda: False)
     pipe = _pipeline_with_config(provider="groq-api")
@@ -473,7 +473,7 @@ def test_an_unbuildable_dictation_provider_falls_back_to_the_voice_one(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A dictation with the wrong prompt beats a dictation with no provider."""
-    import jarvis.plugins.stt as stt_plugins
+    import dodaios.plugins.stt as stt_plugins
 
     def _boom(cfg: Any, **_kwargs: Any) -> Any:
         raise RuntimeError("no entry-point")
@@ -489,7 +489,7 @@ def test_protected_terms_carry_the_words_the_user_chose(
 ) -> None:
     """The polish guard's input: the STT dictionary plus the wake word, and no
     duplicates — a repeated term is a wasted slot in a bounded prompt."""
-    import jarvis.speech.stt_dictionary as dictionary
+    import dodaios.speech.stt_dictionary as dictionary
 
     monkeypatch.setattr(dictionary, "dictionary_bias_words", lambda: ["Vokando", "Adex"])
     pipe = SpeechPipeline.__new__(SpeechPipeline)
@@ -506,7 +506,7 @@ def test_protected_terms_survive_an_unreadable_dictionary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A guard input, never a gate: this may not be a way to lose a dictation."""
-    import jarvis.speech.stt_dictionary as dictionary
+    import dodaios.speech.stt_dictionary as dictionary
 
     def _boom() -> list[str]:
         raise RuntimeError("store is locked")

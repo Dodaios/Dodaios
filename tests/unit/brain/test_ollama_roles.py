@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain import ollama_inventory, ollama_pull, ollama_roles
-from jarvis.core import config_writer
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.brain import ollama_inventory, ollama_pull, ollama_roles
+from dodaios.core import config_writer
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 
 ROOT = "http://localhost:11434"
@@ -383,7 +383,7 @@ def test_roles_using_is_latest_tolerant() -> None:
 
 @pytest.mark.asyncio
 async def test_voice_context_reports_where_the_size_came_from(monkeypatch) -> None:
-    from jarvis.realtime.local_server import supervisor
+    from dodaios.realtime.local_server import supervisor
 
     monkeypatch.setattr(supervisor, "_voice_context_override", lambda model: None)
     monkeypatch.setattr(

@@ -30,8 +30,8 @@ os.environ["ANTHROPIC_OAUTH_TOKEN"] = TOKEN
 os.environ["ANTHROPIC_API_KEY"] = TOKEN
 
 # ---------- 2. Mission stack ----------
-from jarvis.missions.init import bootstrap_missions, shutdown_missions  # noqa: E402
-from jarvis.missions.state_machine import MissionState  # noqa: E402
+from dodaios.missions.init import bootstrap_missions, shutdown_missions  # noqa: E402
+from dodaios.missions.state_machine import MissionState  # noqa: E402
 
 LOG = REPO / "logs" / "final_validate_2.json"
 LOG.parent.mkdir(parents=True, exist_ok=True)

@@ -21,8 +21,8 @@ from test_profile import (  # type: ignore[import-not-found]
     _power_user_db,
 )
 
-from jarvis.board.profile import BioGenerator, BioStore, make_resolver_from_brain
-from jarvis.board.store import BoardStore
+from dodaios.board.profile import BioGenerator, BioStore, make_resolver_from_brain
+from dodaios.board.store import BoardStore
 
 
 async def _run_sample(tmp: Path, brain_text: str, db_factory, *, memory: str, soul: str) -> None:

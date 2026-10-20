@@ -14,8 +14,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from jarvis.dictation.history import DictationHistory, _prune
-from jarvis.dictation.segment import quietest_cut
+from dodaios.dictation.history import DictationHistory, _prune
+from dodaios.dictation.segment import quietest_cut
 
 SR = 16_000
 BPS = SR * 2  # 16 kHz mono int16
@@ -289,7 +289,7 @@ def test_public_dict_never_leaks_the_audio_path(history: DictationHistory) -> No
 def test_public_dict_reports_audio_that_is_actually_on_disk(
     history: DictationHistory, tmp_path: Path
 ) -> None:
-    from jarvis.dictation.audio import save_dictation_audio
+    from dodaios.dictation.audio import save_dictation_audio
 
     entry = history.add(raw_text="", text="", outcome="failed")
     assert entry is not None
@@ -343,7 +343,7 @@ def test_public_dict_exposes_only_safe_quality_telemetry(
 def test_delete_also_removes_the_audio_sidecar(
     history: DictationHistory, tmp_path: Path
 ) -> None:
-    from jarvis.dictation.audio import save_dictation_audio
+    from dodaios.dictation.audio import save_dictation_audio
 
     entry = history.add(raw_text="", text="", outcome="failed")
     assert entry is not None
@@ -357,7 +357,7 @@ def test_delete_also_removes_the_audio_sidecar(
 def test_clear_purges_history_audio_and_statistics(
     history: DictationHistory, tmp_path: Path
 ) -> None:
-    from jarvis.dictation.audio import save_dictation_audio
+    from dodaios.dictation.audio import save_dictation_audio
 
     history.add(raw_text="a b c", text="a b c")
     failed = history.add(raw_text="", text="", outcome="failed")
@@ -412,7 +412,7 @@ def test_a_failed_dictation_does_not_move_the_words_per_minute(
 
 
 def _entry(days_old: float, text: str = "x"):
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.history import DictationEntry
 
     created = datetime.now(UTC) - timedelta(days=days_old)
     return DictationEntry(
@@ -435,7 +435,7 @@ def test_retention_zero_keeps_everything_up_to_the_cap() -> None:
 
 
 def test_unparseable_timestamp_is_kept_not_silently_discarded() -> None:
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.history import DictationEntry
 
     broken = DictationEntry(id="b", created_at="not-a-date", raw_text="b", text="b")
     kept = _prune([broken], max_entries=100, retention_days=30)
@@ -453,8 +453,8 @@ def test_zero_cap_keeps_nothing() -> None:
 
 def _recoverable(tmp_path: Path, name: str, *, discarded: bool = False):
     """An entry that ended badly and whose audio is really on disk."""
-    from jarvis.dictation.audio import save_dictation_audio
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.audio import save_dictation_audio
+    from dodaios.dictation.history import DictationEntry
 
     path = save_dictation_audio(name, b"\x00\x01" * 800, directory=tmp_path)
     assert path is not None
@@ -488,7 +488,7 @@ def test_a_discarded_entry_with_audio_survives_the_cap_too(tmp_path: Path) -> No
 
 def test_the_exemption_needs_the_audio_to_actually_exist(tmp_path: Path) -> None:
     """A stored path whose file is gone is not a pending recovery."""
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.history import DictationEntry
 
     ghost = DictationEntry(
         id="ghost",
@@ -504,8 +504,8 @@ def test_the_exemption_needs_the_audio_to_actually_exist(tmp_path: Path) -> None
 
 def test_a_successful_entry_with_audio_is_not_exempt(tmp_path: Path) -> None:
     """Only outcomes the user lost something to hold a Restore open."""
-    from jarvis.dictation.audio import save_dictation_audio
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.audio import save_dictation_audio
+    from dodaios.dictation.history import DictationEntry
 
     path = save_dictation_audio("ok", b"\x00\x01" * 800, directory=tmp_path)
     assert path is not None
@@ -532,8 +532,8 @@ def test_the_retention_window_does_not_orphan_a_recoverable_recording(
     the WAV would still be on disk with nothing left pointing at it: audio the
     user can neither restore from nor find.
     """
-    from jarvis.dictation.audio import save_dictation_audio
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.audio import save_dictation_audio
+    from dodaios.dictation.history import DictationEntry
 
     path = save_dictation_audio("old", b"\x00\x01" * 800, directory=tmp_path)
     assert path is not None
@@ -554,8 +554,8 @@ def test_the_row_ages_out_once_the_audio_window_has_taken_the_file(
     tmp_path: Path,
 ) -> None:
     """The exemption ends with the recording, which is what bounds it."""
-    from jarvis.dictation.audio import prune_audio, save_dictation_audio
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.audio import prune_audio, save_dictation_audio
+    from dodaios.dictation.history import DictationEntry
 
     path = save_dictation_audio("old", b"\x00\x01" * 800, directory=tmp_path)
     assert path is not None
@@ -574,7 +574,7 @@ def test_the_row_ages_out_once_the_audio_window_has_taken_the_file(
 
 def test_an_expired_entry_without_audio_still_ages_out(tmp_path: Path) -> None:
     """The exemption is about a stranded recording, not about failing at all."""
-    from jarvis.dictation.history import DictationEntry
+    from dodaios.dictation.history import DictationEntry
 
     stale = DictationEntry(
         id="old",
@@ -590,7 +590,7 @@ def test_add_keeps_a_recoverable_row_a_short_history_window_would_drop(
     tmp_path: Path,
 ) -> None:
     """The same configuration, driven through the real write path."""
-    from jarvis.dictation.audio import save_dictation_audio
+    from dodaios.dictation.audio import save_dictation_audio
 
     store = DictationHistory(tmp_path / "dictation_history.json")
     entry = store.add(raw_text="", text="", outcome="failed", retention_days=1)

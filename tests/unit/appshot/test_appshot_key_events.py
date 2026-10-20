@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from jarvis.appshot.hotkey import AppshotShortcut
-from jarvis.appshot.key_events import AppshotKeyEvents
+from dodaios.appshot.hotkey import AppshotShortcut
+from dodaios.appshot.key_events import AppshotKeyEvents
 
 
 def test_a_press_and_release_without_a_poll_interval_fires_once():
@@ -23,7 +23,7 @@ def test_a_press_and_release_without_a_poll_interval_fires_once():
 def test_control_characters_and_release_order_keep_the_same_letter(monkeypatch):
     # The test presses keys the real keyboard does not hold. Trusting the OS
     # here would drop the simulated Ctrl before Z arrives.
-    monkeypatch.setattr("jarvis.appshot.key_events.key_is_down", lambda *_args: None)
+    monkeypatch.setattr("dodaios.appshot.key_events.key_is_down", lambda *_args: None)
     events = []
     listener = AppshotKeyEvents()
     listener.register([["control + z", None, lambda: events.append("recording")]])
@@ -37,7 +37,7 @@ def test_control_characters_and_release_order_keep_the_same_letter(monkeypatch):
 
 
 def test_a_shorter_chord_does_not_fire_with_the_longer_one(monkeypatch):
-    monkeypatch.setattr("jarvis.appshot.key_events.key_is_down", lambda *_args: None)
+    monkeypatch.setattr("dodaios.appshot.key_events.key_is_down", lambda *_args: None)
     events = []
     listener = AppshotKeyEvents()
     listener.register([
@@ -61,7 +61,7 @@ B = SimpleNamespace(vk=0x42, char="b")
 
 
 def _area_and_recording(monkeypatch):
-    monkeypatch.setattr("jarvis.appshot.key_events.key_is_down", lambda *_args: None)
+    monkeypatch.setattr("dodaios.appshot.key_events.key_is_down", lambda *_args: None)
     events = []
     listener = AppshotKeyEvents()
     listener.register([
@@ -93,7 +93,7 @@ def test_the_letter_may_go_down_before_the_modifier(monkeypatch):
 
 
 def test_a_shorter_chord_does_not_start_when_the_longer_one_loses_a_key(monkeypatch):
-    monkeypatch.setattr("jarvis.appshot.key_events.key_is_down", lambda *_args: None)
+    monkeypatch.setattr("dodaios.appshot.key_events.key_is_down", lambda *_args: None)
     events = []
     listener = AppshotKeyEvents()
     listener.register([
@@ -114,7 +114,7 @@ def test_a_key_whose_release_was_lost_still_starts_the_chord_again(monkeypatch):
     down = {"x": True}
     listener, events = _area_and_recording(monkeypatch)
     monkeypatch.setattr(
-        "jarvis.appshot.key_events.key_is_down", lambda name, _vk=None: down.get(name),
+        "dodaios.appshot.key_events.key_is_down", lambda name, _vk=None: down.get(name),
     )
     listener._on_press_key(X)  # Its release never arrives.
     down["x"] = False
@@ -132,7 +132,7 @@ def test_a_stuck_modifier_does_not_turn_the_next_letter_into_the_chord(monkeypat
     # The OS says every leftover key is up. Z itself is the key this event
     # is about, so the sweep must leave it for the press and release edges.
     monkeypatch.setattr(
-        "jarvis.appshot.key_events.key_is_down",
+        "dodaios.appshot.key_events.key_is_down",
         lambda name, _vk=None: False if name != "z" else None,
     )
     events = []
@@ -153,7 +153,7 @@ def test_numpad_keys_keep_the_shared_binding_vocabulary():
 
 
 async def test_cancellation_stops_and_unregisters_the_event_listener(monkeypatch):
-    from jarvis.appshot import key_events
+    from dodaios.appshot import key_events
 
     calls = []
     started = asyncio.Event()
@@ -211,7 +211,7 @@ async def test_a_press_during_a_recording_toggle_runs_once_it_finishes():
 
 
 async def test_missing_listener_is_reported_as_unarmed(monkeypatch):
-    from jarvis.appshot import key_events
+    from dodaios.appshot import key_events
 
     class Listener:
         ready = False

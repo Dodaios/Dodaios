@@ -9,7 +9,7 @@ capture teardown.
 Every one of those seconds froze the SINGLE asyncio loop this process has —
 which also serves the desktop window over HTTP. The socket kept accepting and
 nothing was answered, so a window opening in that gap received no bytes and no
-error, and stayed blank with no explanation (jarvis/ui/window_watchdog.py now
+error, and stayed blank with no explanation (dodaios/ui/window_watchdog.py now
 catches the symptom; this is the cause).
 
 So the dead stream is shut down in a worker thread. The coroutine waits a short
@@ -25,7 +25,7 @@ import time
 
 import pytest
 
-from jarvis.audio.capture import MicrophoneCapture
+from dodaios.audio.capture import MicrophoneCapture
 
 
 class _WedgedStream:

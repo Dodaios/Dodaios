@@ -83,7 +83,7 @@ downstream measurement is otherwise taken against a moving target.
 
 ### W-1 — Cache the provider's capability rejection (−8 s on 28 % of turns)
 
-`jarvis/plugins/brain/gemini.py:972-987` recovers correctly from a model that
+`dodaios/plugins/brain/gemini.py:972-987` recovers correctly from a model that
 rejects `thinking_config` — it drops the field and retries once, gated on a
 capability probe rather than a model name (AP-21-clean). It simply never
 remembers the answer: the next request sends the field again. 154 rejections are
@@ -101,15 +101,15 @@ main path.
 
 ### W-2 — Prewarm the realtime session (−1.5 s of deaf window after every wake)
 
-Grepping `prewarm|pre-warm|warm_session` across `jarvis/realtime/` and
+Grepping `prewarm|pre-warm|warm_session` across `dodaios/realtime/` and
 `pipeline.py` returns only the *wake model* prewarm (`pipeline.py:4314-4334`).
 The realtime transport is opened **cold, per session, after the wake fires**:
 p50 1 528 ms, p90 2 255 ms, max 3 061 ms. During it the user is already talking.
 
 This is the single largest measured term and it received zero findings from the
 mappers — all six optimised inside the detector. Relevant code:
-`_active_realtime_session` (`pipeline.py:6167`), `jarvis/realtime/session.py`,
-`build_realtime_session` (`jarvis/realtime/factory.py:138`).
+`_active_realtime_session` (`pipeline.py:6167`), `dodaios/realtime/session.py`,
+`build_realtime_session` (`dodaios/realtime/factory.py:138`).
 
 Two independent halves, shippable separately:
 

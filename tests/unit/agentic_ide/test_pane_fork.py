@@ -14,9 +14,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import agent_sessions, fork, resume_store
-from jarvis.agentic_ide import session as ide
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide import agent_sessions, fork, resume_store
+from dodaios.agentic_ide import session as ide
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
