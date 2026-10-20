@@ -952,10 +952,8 @@ async def test_deliver_hook_frames_and_sends(world):
             "society:scout",
             "[query from Archivist]\nWhere is the VPS note?\nRefs: wiki:society/archivist/vps.md\n"
             f"Message id: {env.event_id}; sender id: archivist\n"
-            "Reply to the sender using society_message_agent with kind 'answer'. "
-            "Include the actual findings or decision; use reply_status=blocked if you "
-            "cannot answer. This is internal communication; do not use an external "
-            "messaging connector. No preliminary acknowledgement is needed.",
+            "Reply expectation: always. Answer with society_message_agent kind 'answer' "
+            "(reply_status=blocked if you cannot).",
         )
     ]
     assert svc.store.get_session("society:scout:with:archivist") is None

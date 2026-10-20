@@ -11,6 +11,7 @@ from __future__ import annotations
 from dodaios.core.desktop_entry import (
     escape_value,
     exec_argument,
+    exec_program,
     exec_value,
     read_field,
     reads_as_false,
@@ -172,3 +173,24 @@ def test_boolean_readers_are_case_and_space_tolerant() -> None:
     assert reads_as_true("TRUE") is True
     assert reads_as_false("true") is False
     assert reads_as_true("0") is False
+
+
+# ---- Reading the program back -------------------------------------------------
+
+
+def test_exec_program_reads_back_every_program_exec_value_writes() -> None:
+    for program in (
+        "/usr/bin/python3",
+        "/opt/My Apps/python3",
+        "/home/u/100% sure/python",
+        '/home/u/a "quoted" dir/python',
+        "/home/u/back" + chr(92) + "slash/python",
+        "/home/u/$HOME`x`/python",
+    ):
+        assert exec_program(exec_value(program, ("-m", "dodaios.ui.web.launcher"))) == program
+
+
+def test_exec_program_of_a_missing_or_empty_value_is_empty() -> None:
+    assert exec_program(None) == ""
+    assert exec_program("") == ""
+    assert exec_program("   ") == ""

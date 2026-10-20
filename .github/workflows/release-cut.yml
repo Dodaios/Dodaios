@@ -13,7 +13,8 @@
 #      installers, signed installer) run on it. Each of them starts with
 #      release-gate.yml, which waits for CI on the release commit.
 #   5. publishes the GitHub Release with the notes and the resumable
-#      personal-jarvis-src.tar.gz asset the install scripts fall back to. The
+#      dodaios-src.tar.gz and personal-jarvis-src.tar.gz assets the install
+#      scripts fall back to (current name first). The
 #      in-app updater follows releases/latest, so this is the step that reaches
 #      users.
 #   6. runs release-smoke.yml against the published release (read-only).

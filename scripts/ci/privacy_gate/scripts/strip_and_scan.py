@@ -697,7 +697,8 @@ def cmd_set_version(args: argparse.Namespace) -> int:
         # portable-install-matrix gate went red on the release commit).
         tree / "uv.lock": (
             re.compile(
-                r'(\[\[package\]\]\nname = "personal-jarvis"\nversion = ")[^"]*(")'
+                # The project under its current or its earlier distribution name.
+                r'(\[\[package\]\]\nname = "(?:dodaios|personal-jarvis)"\nversion = ")[^"]*(")'
             ),
             rf'\g<1>{version}\g<2>',
         ),

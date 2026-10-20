@@ -1,0 +1,173 @@
+{
+  "ship": {
+    "levels": {
+      "record": "Service record",
+      "open_record": "Open your service record",
+      "close": "Close",
+      "unavailable": "The service record is out of reach right now. It fills in as soon as the ship can read the level system.",
+      "tabs": {
+        "label": "Service record pages",
+        "record": "Record",
+        "ranks": "Ranks",
+        "rewards": "Rewards",
+        "earn": "How to earn",
+        "crew": "Crew"
+      },
+      "who": {
+        "captain": "Captain",
+        "companion": "Companion",
+        "crew": "Crew"
+      },
+      "level": "Level {n}",
+      "xp": "{n} XP",
+      "xp_progress": "{have} of {need} XP",
+      "xp_missing": "{n} XP to level {level}",
+      "at_cap": "Highest level reached",
+      "next_promotion": "Next promotion",
+      "next_promotion_line": "{rank} at level {level}",
+      "top_rank": "You hold the highest rank aboard.",
+      "next_reward": "Opens next",
+      "next_reward_line": "{reward} at level {level}",
+      "all_open": "Every reward is open.",
+      "log": "Ship's log",
+      "log_empty": "Nothing logged yet. Talk to {name} or give the crew work, and it is written here.",
+      "log_promoted": "Promoted to {rank}",
+      "log_level": "Reached level {n}",
+      "log_warp": "Jumped to {place}",
+      "log_deck": "First visit to the {deck}",
+      "yesterday": "Yesterday",
+      "sound": "Promotion sound",
+      "tier": {
+        "enlisted": "Enlisted",
+        "warrant": "Warrant",
+        "officer": "Officers",
+        "flag": "Flag officers"
+      },
+      "tier_about": {
+        "enlisted": "Silver chevrons. Everyone starts here.",
+        "warrant": "One gold pip: the bridge between crew and command.",
+        "officer": "Gold pips, from ensign to captain.",
+        "flag": "A gold bar and stars. Commands a fleet."
+      },
+      "rank_current": "Your rank",
+      "rank_held": "Held",
+      "to_go": "{n} XP to go",
+      "rewards": {
+        "suit": "Suits",
+        "suit_about": "What you wear aboard. The finest one open is worn unless you choose another.",
+        "destination": "Destinations",
+        "destination_about": "Where the helm can set course. Each one opens with your level.",
+        "decoration": "Decorations",
+        "decoration_about": "Worn on the chest. The crew earns them too."
+      },
+      "suit_choice": "Suit to wear",
+      "auto": "Automatic",
+      "auto_about": "The finest suit you have",
+      "own": "Own clothes",
+      "own_about": "No uniform",
+      "wearing": "Wearing",
+      "open_state": "Open",
+      "opens_at": "Opens at level {n}",
+      "current_course": "Current course",
+      "home": "Home Orbit",
+      "earn": {
+        "lead": "XP only comes from real things: work done, words exchanged, time aboard. Every limit is kept by the ship itself.",
+        "captain": "You, the captain",
+        "pet": "Your companion",
+        "agent": "Every android of the crew",
+        "per_day": "up to {n} XP a day",
+        "every": "at most every {t}",
+        "once_day": "once a day",
+        "once_deck": "once per deck",
+        "seconds": "{n} s",
+        "minutes": "{n} min"
+      },
+      "crew": {
+        "empty": "No androids aboard yet. Hire one at the transporter.",
+        "about": "Androids climb the same ladder as you, by finishing work."
+      },
+      "promotion": {
+        "promoted": "Promotion",
+        "level_up": "Level up",
+        "away": "While you were away",
+        "now_open": "Now open",
+        "continue": "Continue",
+        "agent_promoted": "{agent} was promoted to {rank}",
+        "agent_level": "{agent} reached level {n}"
+      },
+      "rule": {
+        "chat_turn": "Talk with {name} in the chat",
+        "voice_turn": "Talk with {name} by voice",
+        "quest_posted": "Post a quest for the crew",
+        "quest_completed": "A quest you posted is completed",
+        "agent_hired": "Hire a new android",
+        "mission_completed": "A mission you started is approved",
+        "daily_visit": "Come aboard",
+        "deck_discovered": "Visit a deck for the first time",
+        "holodeck_round": "Finish a scored round on the holodeck",
+        "holodeck_record": "Set a new best on the holodeck",
+        "team_briefing": "Call a division to a briefing",
+        "warp_jump": "Set course and jump to a destination",
+        "task_done": "Finish a task",
+        "task_blocked": "Report a task as blocked, with the reason",
+        "quest_done": "Complete a quest",
+        "answered_teammate": "Answer a crewmate's question",
+        "jarvis_answered": "Every answer {name} gives you",
+        "delegated": "Hand a task to an android",
+        "walk_together": "Walk the decks beside you"
+      },
+      "source": {
+        "chat_turn": "Talked with {name}",
+        "voice_turn": "Spoke with {name}",
+        "quest_posted": "Posted a quest",
+        "quest_completed": "A quest was completed",
+        "agent_hired": "Hired an android",
+        "mission_completed": "A mission was approved",
+        "daily_visit": "Came aboard",
+        "deck_discovered": "Visited a new deck",
+        "holodeck_round": "Played a round on the holodeck",
+        "holodeck_record": "Set a holodeck record",
+        "team_briefing": "Held a briefing",
+        "warp_jump": "Made a warp jump",
+        "task_done": "Finished a task",
+        "task_blocked": "Reported a blocked task",
+        "quest_done": "Completed a quest",
+        "answered_teammate": "Answered a crewmate",
+        "jarvis_answered": "Answered you",
+        "delegated": "Handed over a task",
+        "walk_together": "Walked with you"
+      },
+      "legacy_source": {
+        "floor_discovered": "Explored a floor of the old office",
+        "dog_petted": "Petted the office dog",
+        "dog_treat": "Gave the office dog a treat",
+        "arcade_round": "Played a round in the arcade",
+        "arcade_record": "Set an arcade record",
+        "team_meeting": "Held a team meeting",
+        "other": "Earned XP"
+      },
+      "slot": {
+        "suit": "Suit",
+        "destination": "Destination",
+        "decoration": "Decoration"
+      },
+      "reward": {
+        "suit_field_armor": "Field Armour",
+        "suit_command_coat": "Command Coat",
+        "suit_dress_whites": "Dress Whites",
+        "suit_admiral_coat": "Admiral's Coat",
+        "destination_gas_giant": "Banded Giant",
+        "destination_crimson_nebula": "Crimson Nebula",
+        "destination_ice_moon": "Ice Moon",
+        "destination_twin_suns": "Twin Suns",
+        "destination_event_horizon": "Event Horizon",
+        "destination_aurora_world": "Aurora World",
+        "destination_galactic_core": "Galactic Core",
+        "decoration_service_ribbon": "Service Ribbon",
+        "decoration_commendation": "Commendation",
+        "decoration_star_medal": "Star Medal",
+        "decoration_legion_of_merit": "Legion of Merit"
+      }
+    }
+  }
+}

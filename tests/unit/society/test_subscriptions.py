@@ -98,7 +98,11 @@ def test_account_env_prefers_the_pinned_seat(monkeypatch, tmp_path: Path):
 
 
 async def test_identity_override_replaces_jarvis_layers():
-    from dodaios.agent_chat.jarvis_harness import SYSTEM_PREAMBLE, identity_prompt
+    from dodaios.agent_chat.jarvis_harness import (
+        SOCIETY_PREAMBLE,
+        SYSTEM_PREAMBLE,
+        identity_prompt,
+    )
 
     text = await identity_prompt(
         user_text="hi",
@@ -107,8 +111,11 @@ async def test_identity_override_replaces_jarvis_layers():
         prompt_override="## You are Scout — Research scout",
     )
     assert text.startswith("## You are Scout")
-    assert SYSTEM_PREAMBLE in text
-    assert "Jarvis" not in text.split(SYSTEM_PREAMBLE)[0] or "Scout" in text
+    # An agent's seat closes with the society preamble, never the assistant's
+    # "same assistant they talk to by voice" identity.
+    assert text.endswith(SOCIETY_PREAMBLE)
+    assert SYSTEM_PREAMBLE not in text
+    assert "Jarvis" not in text.split(SOCIETY_PREAMBLE)[0] or "Scout" in text
 
 
 class FakeService:

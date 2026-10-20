@@ -42,6 +42,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from dodaios.core.branding import (
+    LAUNCHER_ENTRY_NAME,
+    LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES,
+    LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES,
+    LEGACY_WINDOWS_MUTEX_NAMES,
+    LEGACY_WINDOWS_SHORTCUT_FILE_NAMES,
+    LINUX_APP_NAME,
     LINUX_DESKTOP_ENTRY_FILE_NAME,
     LINUX_WM_CLASS,
     MACOS_BUNDLE_ID,
@@ -141,8 +147,10 @@ class InstanceIdentity:
     def persistent_name(self) -> str:
         """The name this instance's OS artifacts are registered under.
 
-        A compatibility contract (``dodaios.core.branding``): it names files such
-        as the Start-Menu shortcut and never follows ``display_name``.
+        A compatibility contract (``dodaios.core.branding``) that never follows
+        ``display_name``. The Windows and Linux names moved on with their own
+        migrations (``windows_launcher_entry_name``, ``linux_app_name`` and the
+        file names beside them); this is the name those earlier releases used.
         """
         if self.is_default:
             return PERSISTENT_PRODUCT_NAME
@@ -150,14 +158,18 @@ class InstanceIdentity:
 
     @property
     def compact_name(self) -> str:
-        """Persistent: names the branded launcher executable."""
+        """Persistent: the instance's name without spaces (``PersonalJarvisDev``)."""
         if self.is_default:
             return PERSISTENT_COMPACT_NAME
         return f"{PERSISTENT_COMPACT_NAME}{self.label}"
 
     @property
     def slug(self) -> str:
-        """Persistent: names the Linux desktop entry and window class."""
+        """Persistent: the hyphenated earlier name (``personal-jarvis-dev``).
+
+        Earlier releases named the Linux desktop entry and window class after
+        it; ``legacy_linux_desktop_entry_file_names`` still finds those entries.
+        """
         return PERSISTENT_SLUG if self.is_default else f"{PERSISTENT_SLUG}-{self.name}"
 
     # ---- storage / network ----------------------------------------------
@@ -192,28 +204,86 @@ class InstanceIdentity:
         return f"{WINDOWS_APP_USER_MODEL_ID}.{self.label}"
 
     @property
+    def windows_launcher_entry_name(self) -> str:
+        """The name Windows lists this instance under (shortcut, toast identity)."""
+        if self.is_default:
+            return LAUNCHER_ENTRY_NAME
+        return f"{LAUNCHER_ENTRY_NAME} {self.label}"
+
+    # Each Windows name below has a ``legacy_*`` twin: the names an earlier
+    # release registered the same instance under, derived the same way from the
+    # branding's ``LEGACY_*`` values. Code that only has to FIND an artifact
+    # (a running primary, a launcher to restart through, an old shortcut to
+    # retire) looks at both; code that CREATES one uses the current name.
+    @property
     def windows_mutex_name(self) -> str:
-        return WINDOWS_MUTEX_NAME if self.is_default else f"{WINDOWS_MUTEX_NAME}_{self.name}"
+        return self._mutex_name(WINDOWS_MUTEX_NAME)
+
+    @property
+    def legacy_windows_mutex_names(self) -> tuple[str, ...]:
+        return tuple(self._mutex_name(base) for base in LEGACY_WINDOWS_MUTEX_NAMES)
 
     @property
     def windows_shortcut_file_name(self) -> str:
-        return WINDOWS_SHORTCUT_FILE_NAME if self.is_default else f"{self.persistent_name}.lnk"
+        return self._shortcut_file_name(WINDOWS_SHORTCUT_FILE_NAME)
+
+    @property
+    def legacy_windows_shortcut_file_names(self) -> tuple[str, ...]:
+        return tuple(self._shortcut_file_name(base) for base in LEGACY_WINDOWS_SHORTCUT_FILE_NAMES)
 
     @property
     def windows_branded_launcher_file_name(self) -> str:
-        return (
-            WINDOWS_BRANDED_LAUNCHER_FILE_NAME
-            if self.is_default
-            else f"{self.compact_name}.exe"
+        return self._launcher_file_name(WINDOWS_BRANDED_LAUNCHER_FILE_NAME)
+
+    @property
+    def legacy_windows_branded_launcher_file_names(self) -> tuple[str, ...]:
+        return tuple(
+            self._launcher_file_name(base) for base in LEGACY_WINDOWS_BRANDED_LAUNCHER_FILE_NAMES
         )
+
+    def _mutex_name(self, base: str) -> str:
+        return base if self.is_default else f"{base}_{self.name}"
+
+    def _shortcut_file_name(self, base: str) -> str:
+        if self.is_default:
+            return base
+        stem = base.removesuffix(".lnk")
+        return f"{stem} {self.label}.lnk"
+
+    def _launcher_file_name(self, base: str) -> str:
+        if self.is_default:
+            return base
+        stem = base.removesuffix(".exe")
+        return f"{stem}{self.label}.exe"
+
+    # The Linux names move together: the desktop binds a running window to the
+    # entry whose ``StartupWMClass`` is the window's class, so an entry file,
+    # its ``Name`` and the class pinned at runtime always come from one
+    # generation of the branding values.
+    @property
+    def linux_app_name(self) -> str:
+        """The name the Linux app menu lists this instance under."""
+        return LINUX_APP_NAME if self.is_default else f"{LINUX_APP_NAME} {self.label}"
 
     @property
     def linux_wm_class(self) -> str:
-        return LINUX_WM_CLASS if self.is_default else self.slug
+        return LINUX_WM_CLASS if self.is_default else f"{LINUX_WM_CLASS}-{self.name}"
 
     @property
     def linux_desktop_entry_file_name(self) -> str:
-        return LINUX_DESKTOP_ENTRY_FILE_NAME if self.is_default else f"{self.slug}.desktop"
+        return self._linux_entry_file_name(LINUX_DESKTOP_ENTRY_FILE_NAME)
+
+    @property
+    def legacy_linux_desktop_entry_file_names(self) -> tuple[str, ...]:
+        return tuple(
+            self._linux_entry_file_name(base) for base in LEGACY_LINUX_DESKTOP_ENTRY_FILE_NAMES
+        )
+
+    def _linux_entry_file_name(self, base: str) -> str:
+        if self.is_default:
+            return base
+        stem = base.removesuffix(".desktop")
+        return f"{stem}-{self.name}.desktop"
 
     @property
     def macos_bundle_id(self) -> str:

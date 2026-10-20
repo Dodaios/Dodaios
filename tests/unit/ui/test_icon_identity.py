@@ -24,7 +24,9 @@ import pytest
 from dodaios.ui.icon_utils import (
     APP_DISPLAY_NAME,
     APP_USER_MODEL_ID,
+    LEGACY_START_MENU_SHORTCUT_NAMES,
     START_MENU_SHORTCUT_NAME,
+    WINDOWS_APP_DISPLAY_NAME,
     ensure_start_menu_shortcut,
     project_icon_path,
     register_windows_app_user_model_id,
@@ -162,8 +164,9 @@ def test_bundled_app_icon_png_exists_for_linux() -> None:
     assert png.as_posix().endswith("dodaios/assets/icons/jarvis.png")
 
 
-def test_app_display_name_is_personal_jarvis() -> None:
-    assert APP_DISPLAY_NAME == "Personal Jarvis"
+def test_the_linux_shell_name_is_dodaios_and_the_aumid_stays() -> None:
+    # The name the Linux app menu lists moved with the entry and its class.
+    assert APP_DISPLAY_NAME == "Dodaios"
     # The grouping key itself stays the stable PascalCase AUMID.
     assert APP_USER_MODEL_ID == "PersonalJarvis.PersonalJarvis"
 
@@ -235,9 +238,13 @@ def test_register_aumid_is_idempotent() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_start_menu_shortcut_name_is_personal_jarvis() -> None:
+def test_start_menu_shortcut_name_is_dodaios() -> None:
     # The .lnk *file name* (sans suffix) is what the taskbar shows as the name.
-    assert START_MENU_SHORTCUT_NAME == "Personal Jarvis.lnk"
+    assert START_MENU_SHORTCUT_NAME == "Dodaios.lnk"
+    # The entry an earlier release wrote is found again to be retired.
+    assert LEGACY_START_MENU_SHORTCUT_NAMES == ("Personal Jarvis.lnk",)
+    # Toasts, the relaunch name and the shortcut description say the same.
+    assert WINDOWS_APP_DISPLAY_NAME == "Dodaios"
 
 
 def test_ensure_start_menu_shortcut_noop_off_windows() -> None:

@@ -171,3 +171,26 @@ def test_an_unreadable_login_item_does_not_fail_the_move(monkeypatch, tmp_path: 
     (tmp_path / "com.personal-jarvis.autostart.plist").write_bytes(b"not a plist")
 
     assert macos.retarget_launch_agent(_bundle(_NEW_APP)) is False
+
+
+def test_a_renamed_app_takes_its_login_item_along_under_the_same_label(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """The bundle's name moved, the LaunchAgent's label did not: the entry
+    written for the earlier name is rewritten in place, file name and all."""
+    from dodaios.core.branding import MACOS_APP_DIR_NAME, MACOS_AUTOSTART_LABEL
+
+    monkeypatch.setattr(macos, "_agents_dir", lambda: tmp_path)
+    MacOSAutostart().install(_spec())
+    renamed = f"/Users/u/Applications/{MACOS_APP_DIR_NAME}"
+
+    assert macos.retarget_launch_agent(_bundle(renamed)) is True
+
+    assert [p.name for p in tmp_path.iterdir()] == [f"{MACOS_AUTOSTART_LABEL}.plist"]
+    assert MACOS_AUTOSTART_LABEL == "com.personal-jarvis.autostart"
+    with (tmp_path / f"{MACOS_AUTOSTART_LABEL}.plist").open("rb") as fh:
+        data = plistlib.load(fh)
+    assert data["Label"] == MACOS_AUTOSTART_LABEL
+    assert data["ProgramArguments"] == ["/usr/bin/open", "-W", "-a", renamed]
+    # And back, for a rollback to a revision that knows only the earlier name.
+    assert macos.retarget_launch_agent(_bundle(_OLD_APP)) is True
