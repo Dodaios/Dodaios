@@ -20,6 +20,10 @@ treated as a key-only install again.
 An install that never connected a subscription is unaffected: its keys stay
 usable for background work, so a single-key download keeps a working product.
 
+One exception (maintainer decision 2026-10-20): the assistant's own learning
+loop may bill a key. It prefers the default provider's subscription and is
+never blocked (``memory.learning.review.seat_choices``).
+
 Provider membership comes from the provider cards' billing mode, never a name
 list (AP-21), so a new subscription CLI or local runtime joins by shipping a
 card.

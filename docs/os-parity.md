@@ -27,6 +27,22 @@ per-variable limit, so the PATH is never shortened there; the budget logic runs
 on every OS in the unit tests, and the real spawn past the limit was verified on
 Windows 11 only.
 
+## Desktop pet context menu (2026-10-08, T2)
+
+The pet's figure and control strip share a branded right-click popup on desktop
+hosts: open the app, reset the position, or hide the pet. Opening or dismissing
+the menu does not hide the figure. Labels follow the current interface language
+and the hide entry shows the configured shortcut. The existing global Pet
+visibility shortcut restores it; its existing
+Wayland limitation is unchanged. The macOS companion host reports local
+dismissal to its parent so settings and host recovery retain the user's choice.
+The popup uses the existing native RGBA surface and shared app theme tokens,
+with bundled Inter and JetBrains Mono fonts (system-font fallback when needed).
+Tests cover menu choices, mouse/keyboard cancellation, focus and grab cleanup,
+monitor-edge placement, translated labels, the event-bus shortcut and companion
+protocol. Both themes were inspected from the actual popup renderer. Native
+pointer input and macOS/Linux desktop behavior remain unverified.
+
 ## Local voice and audio topology refresh (issue #464, T2)
 
 Local final transcription uses its configured model independently of the wake
@@ -54,6 +70,29 @@ files are restricted to the container and its identity-specific volume.
 Real container file/test/export, isolation, timeout and cancellation checks were
 run on Windows with Docker's Linux engine. Policy/schema checks are portable.
 Native macOS and Linux host execution has not been verified.
+
+## Section windows (2026-10-08, T2)
+
+The section-window action opens Agents, Agentic IDE, Settings, Plugins, CLIs,
+Docs, Wiki, Board, Sessions, Marketplace and Visualization in separate windows.
+Settings (including Profile) shares one window across all its tabs; the IDE,
+Plugins and CLIs also share a window within their respective tab families.
+Voice stays in the main window's navigation. Returning a detached view first
+restores the main window. A missing detached owner never targets main for a
+close or zoom command.
+
+Windows and Linux use the existing resizable frameless desktop window path;
+macOS retains its native frame. Browser-only clients open named tabs without
+controlling the desktop application's windows. The IDE window action requires
+the native shell so a second browser tab cannot compete for terminal streams.
+Automated tests cover section
+ownership, family reuse, failure handling and the three platform frame options.
+Real Windows WebView2 checks opened Settings, Agents and Agentic IDE windows
+simultaneously against a local test page, reused the Settings window for an API
+Keys request, maximized/restored it and closed it while preserving main. Chrome
+checks covered the Settings browser tab, internal tab navigation, returning to
+the full app, and light/dark appearance at a narrow width.
+Physical macOS and Linux window behavior remains unverified.
 
 ## Screenshots paste anywhere (2026-10-05, T2)
 
