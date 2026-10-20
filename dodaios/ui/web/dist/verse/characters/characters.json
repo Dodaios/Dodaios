@@ -206,7 +206,7 @@
       ],
       "height": 1.05,
       "triangles": 3952,
-      "bytes": 257720,
+      "bytes": 366304,
       "hoverHeight": 0.85,
       "bodyDiameter": 0.296
     },
@@ -237,7 +237,7 @@
       ],
       "height": 0.252,
       "triangles": 1960,
-      "bytes": 142588,
+      "bytes": 231256,
       "driveSpeed": 1.2,
       "length": 0.5
     },
@@ -262,6 +262,7 @@
         "M_Belt",
         "M_RankPlate",
         "M_Accent",
+        "M_Eye",
         "M_Cap",
         "M_RankTile_1",
         "M_RankTile_2",
@@ -271,20 +272,20 @@
         "M_RankTile_6"
       ],
       "height": 1.68,
-      "triangles": 12300,
-      "bytes": 569036,
+      "triangles": 12876,
+      "bytes": 1020408,
       "defaults": {},
       "rankPlate": {
         "bone": "Chest",
         "position": [
-          0.088,
-          1.2811,
-          0.0949
+          0.0878,
+          1.281,
+          0.095
         ],
         "normal": [
-          0.2937,
-          0.2269,
-          0.9286
+          0.2481,
+          0.2171,
+          0.9441
         ]
       }
     },
@@ -309,6 +310,7 @@
         "M_Belt",
         "M_RankPlate",
         "M_Accent",
+        "M_Eye",
         "M_Cap",
         "M_RankTile_1",
         "M_RankTile_2",
@@ -318,8 +320,8 @@
         "M_RankTile_6"
       ],
       "height": 1.78,
-      "triangles": 12132,
-      "bytes": 565380,
+      "triangles": 12712,
+      "bytes": 1001888,
       "defaults": {},
       "rankPlate": {
         "bone": "Chest",
@@ -352,17 +354,18 @@
         "M_Belt",
         "M_ChestBox",
         "M_Trim",
+        "M_Eye",
         "M_Glow",
         "M_Helmet",
         "M_Visor",
         "M_Mark"
       ],
       "height": 1.78,
-      "triangles": 11358,
-      "bytes": 506336,
+      "triangles": 11606,
+      "bytes": 837692,
       "defaults": {
-        "M_Uniform": "#17181a",
-        "M_Trim": "#2a2d31"
+        "M_Uniform": "#1f2124",
+        "M_Trim": "#34373c"
       }
     },
     {
@@ -383,8 +386,8 @@
         "M_Visor"
       ],
       "height": 1.78,
-      "triangles": 13894,
-      "bytes": 659452,
+      "triangles": 13950,
+      "bytes": 1156288,
       "defaults": {}
     }
   ]
