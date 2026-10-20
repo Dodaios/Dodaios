@@ -6467,6 +6467,19 @@
     "mode_pipeline": "voz de entrada e saída"
   },
   "society": {
+    "sandbox": {
+      "environment": "Ambiente de execução",
+      "local": "Este computador",
+      "code": "Sandbox de código",
+      "scope": "Dodaios com API ou modelo local. O código Python e os ficheiros ficam num contentor Linux. Rede, ambiente de trabalho, plugins e ficheiros do computador não estão disponíveis.",
+      "storage": "Os ficheiros ficam na sandbox. As transferências estão limitadas a 1 MB; os comandos param com o botão Parar do chat.",
+      "checking": "A verificar a sandbox…",
+      "prepare": "Transferir o runtime",
+      "refresh": "Atualizar ficheiros",
+      "root": "Área de trabalho",
+      "loading": "A carregar ficheiros…",
+      "empty": "Ainda não há ficheiros."
+    },
     "lead": {
       "tab": "Líder",
       "loading": "A carregar a equipa…",

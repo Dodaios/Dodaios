@@ -346,6 +346,11 @@ async def test_followup_finishes_before_the_token_is_saved(
             "turn_id": handle.turn_id, "status": "done",
         }))
 
+    async def local(_session_id):
+        return "local"
+
+    # A society turn reads the agent's execution environment before any runner starts.
+    monkeypatch.setattr(service_module, "society_execution_environment", local)
     monkeypatch.setattr(svc, "bind_society_session", bind)
     monkeypatch.setattr(service_module, "resolve_runner", lambda *a, **k: "api")
     monkeypatch.setattr(service_module, "supports_api_runner", lambda _provider: True)
@@ -386,7 +391,7 @@ def test_the_tool_is_offered_outside_routines(monkeypatch: pytest.MonkeyPatch) -
     from dodaios.society import surface
 
     browser = SimpleNamespace(is_installed=lambda: False, live=SimpleNamespace(model_resolver=None))
-    rt = SimpleNamespace(browser=browser, chat_service=lambda: None)
+    rt = SimpleNamespace(browser=browser, chat_service=lambda: None, cached_agent=lambda _: None)
     monkeypatch.setattr(surface, "current_runtime", lambda: rt)
     canonical = SimpleNamespace(session_id="society:ada", cwd="", permission_mode="")
     routine = SimpleNamespace(

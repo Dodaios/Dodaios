@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { useEventStore } from "@/store/events";
 
 import { AgentRoutinesList } from "./AgentRoutinesList";
+import { AgentSandboxSection } from "./AgentSandboxSection";
 import { RetireButton } from "./RetireButton";
 import { CapabilityChip } from "../CapabilityChip";
 import { useAgentActivity, useAgentSkills, type AgentActivity } from "../cardData";
@@ -371,7 +372,8 @@ export function AgentSpecSheet({ agent, onOpenChat, onRetired }: AgentSpecSheetP
             </section>
           ) : null}
 
-          {agent.tier !== "lead" && <RunsOnSection agent={agent} />}
+          {agent.tier !== "lead" && <AgentSandboxSection agent={agent} />}
+          {agent.tier !== "lead" && agent.executionEnvironment !== "sandbox" && <RunsOnSection agent={agent} />}
 
           <LimitsSection
             agent={agent}

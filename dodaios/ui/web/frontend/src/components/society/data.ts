@@ -140,6 +140,7 @@ export interface SocietyAgent {
   accountId?: string;
   /** Where the agent runs: null/absent = this computer, else a connected computer id. */
   computerId?: string | null;
+  executionEnvironment?: "local" | "sandbox";
   /** The agent loop that runs its turns (docs/agent-runtimes.md); absent = Jarvis. */
   runtime?: AgentRuntime;
   /** The character: archetype, base, parts, palette. null = the palette tile. */
@@ -261,6 +262,7 @@ export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
     model: row.model,
     accountId: row.account_id,
     computerId: row.computer_id ?? null,
+    executionEnvironment: row.execution_environment ?? "local",
     runtime: row.runtime ?? "jarvis",
     effort: row.effort,
     figure,
@@ -453,6 +455,7 @@ export function useQuickCreateAgent() {
 
 /** What the create dialog sends; every field may be left out. */
 export interface NewAgentChoice {
+  executionEnvironment?: "local" | "sandbox";
   /** Empty = a placeholder name; the agent proposes its own in its first chat. */
   name?: string;
   /** Fixed for the agent's life (docs/agent-runtimes.md). */
@@ -477,6 +480,7 @@ export function useCreateSocietyAgent() {
   const client = useQueryClient();
   return useCallback(async (choice: NewAgentChoice = {}): Promise<SocietyAgent> => {
     const body: Record<string, unknown> = { tier: "specialist" };
+    if (choice.executionEnvironment) body.execution_environment = choice.executionEnvironment;
     if (choice.name?.trim()) body.name = choice.name.trim();
     if (choice.runtime && choice.runtime !== "jarvis") body.runtime = choice.runtime;
     if (choice.provider) {
