@@ -1,32 +1,14 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AppWindow, ExternalLink, Globe, RotateCw } from "lucide-react";
 import { useT } from "@/i18n";
 import { hasEmbeddedDesktopBridge } from "@/lib/embeddedDesktop";
 import { openExternalUrl } from "@/lib/openExternal";
 import { normalizeBrowserAddress } from "./browserAddress";
+import { persistBuiltin, storedBuiltin, useIdeBrowserLinkStore } from "./ideBrowserLinks";
 import { NativeBrowserPanel } from "./NativeBrowserPanel";
 import { useNativeBrowserStatus } from "./nativeBrowserApi";
 
 const URL_KEY = "jarvis.agenticIde.browserUrl.v1";
-const BUILTIN_KEY = "jarvis.agenticIde.browserBuiltin.v1";
-
-function storedBuiltin(): boolean {
-  try {
-    return localStorage.getItem(BUILTIN_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function persistBuiltin(value: boolean): void {
-  try {
-    if (value) localStorage.setItem(BUILTIN_KEY, "1");
-    else localStorage.removeItem(BUILTIN_KEY);
-  } catch {
-    /* a convenience only */
-  }
-}
-
 function storedUrl(): string {
   try {
     return localStorage.getItem(URL_KEY) ?? "";
@@ -95,6 +77,15 @@ function FrameBrowser({ onUseNative }: { onUseNative?: () => void }) {
   // Bumped by reload: a new key remounts the frame, which works cross-origin.
   const [generation, setGeneration] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  // A link clicked elsewhere in the IDE: most sites refuse to be framed, so
+  // the built-in view hands it to the user's browser.
+  const pending = useIdeBrowserLinkStore((state) => state.pending);
+  const take = useIdeBrowserLinkStore((state) => state.take);
+  useEffect(() => {
+    if (!pending) return;
+    take(pending.id);
+    void openExternalUrl(pending.url);
+  }, [pending, take]);
 
   const go = (event: FormEvent) => {
     event.preventDefault();

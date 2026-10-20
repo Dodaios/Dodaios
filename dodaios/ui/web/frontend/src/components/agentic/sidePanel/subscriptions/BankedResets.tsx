@@ -4,7 +4,7 @@ import { fill, useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import type { AccountUsage } from "@/lib/agentAccountsApi";
 import { consumeAccountReset, fetchAccountResets, ResetRequestError, type AccountResets, type ResetAttempt, type ResetCredit } from "@/lib/agentResetsApi";
-import { openExternalUrl } from "@/lib/openExternal";
+import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ideBrowserLinks";
 
 const BASE = "ide_side_panel.subscriptions.bank";
 const BUTTON = "rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
@@ -144,7 +144,7 @@ export function BankedResets({ accountId, accountName, revision, onUsage }: {
       {outcome && <p role="status" className="text-foreground">{t(`${BASE}.${outcome}`)}</p>}
       {snapshot?.manage_url && <div className="space-y-1">
         <button type="button" className={BUTTON} onClick={async () => {
-          if (!await openExternalUrl(snapshot.manage_url!)) setError("open_failed");
+          if (!await openLinkInIdeBrowser(snapshot.manage_url!)) setError("open_failed");
         }}><ExternalLink className="mr-1 inline h-3 w-3" />{t(`${BASE}.manage`)}</button>
         <p className="text-muted-foreground">{fill(t(`${BASE}.browser_account`), { account: accountName })}</p>
       </div>}
