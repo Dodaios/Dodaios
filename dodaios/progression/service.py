@@ -1,14 +1,14 @@
 """Turns real app events into XP and announces every award on the bus.
 
 The service listens to the core ``EventBus`` for the handful of events that
-mean "something was achieved" (a finished Jarvis turn, a finished agent task,
-a completed quest) and maps each to one or two rules of
+mean "something was achieved" (a finished assistant turn, a finished agent
+task, a completed quest) and maps each to one or two rules of
 :mod:`dodaios.progression.rules`. The ship reports its own small world
-actions (a deck discovered, a holodeck round, a warp jump) through
+actions (a deck discovered, a simulator round, a deck inspected) through
 :meth:`ProgressionService.report_action`. Those are the client's word: the
 server applies every cooldown and daily cap and checks every reference (a
-known deck, a destination the captain's rank has opened), so a client can at
-most collect the few capped XP a day that playing would have paid.
+known deck), so a client can at most collect the few capped XP a day that
+playing would have paid.
 
 Every handler is an observer: a failure is logged and swallowed, never
 raised into the bus (AP-18), and the database is opened on the first award,
@@ -26,14 +26,12 @@ from pathlib import Path
 from typing import Any
 
 from .rules import (
-    DESTINATION_IDS,
     LEAD_AGENT_ID,
     PERSON_ID,
     RULES_BY_SOURCE,
+    VERSE_DECKS,
     WORLD_ACTIONS,
     agent_subject,
-    destination_level,
-    level_for_xp,
     looks_between,
     pet_subject,
     progress_for_xp,
@@ -45,8 +43,7 @@ from .store import Award, ProgressionStore
 
 log = logging.getLogger(__name__)
 
-#: The decks of the ship a ``deck_discovered`` report may name.
-VERSE_DECKS = frozenset({"bridge", "ops", "engineering", "holodeck", "honors"})
+__all__ = ["VERSE_DECKS", "ProgressionService", "UnknownAction"]
 
 
 class UnknownAction(ValueError):
@@ -181,31 +178,25 @@ class ProgressionService:
         if action not in WORLD_ACTIONS:
             raise UnknownAction(action)
         rule = RULES_BY_SOURCE[action]
+        today = datetime.fromtimestamp(self._clock() / 1000).astimezone().date().isoformat()
         if action == "daily_visit":
             # The server's own calendar day, whatever the client sent.
-            ref = datetime.now().astimezone().date().isoformat()
+            ref = today
         elif action == "deck_discovered":
             if ref not in VERSE_DECKS:
                 raise UnknownAction(f"deck_discovered:{ref}")
-        elif action == "warp_jump":
-            if ref not in DESTINATION_IDS:
-                raise UnknownAction(f"warp_jump:{ref}")
-            # Only a destination the captain's rank has opened can be reached.
-            if await asyncio.to_thread(self._person_level) < destination_level(ref):
-                raise UnknownAction(f"warp_jump:{ref}:locked")
-            # Jumps repeat (the cooldown and cap meter them); the ledger keeps
-            # where each one went, made unique so it never reads as a replay.
-            ref = f"{ref}@{self._clock()}"
+        elif action == "inspection":
+            if ref not in VERSE_DECKS:
+                raise UnknownAction(f"inspection:{ref}")
+            # Each deck's inspection pays once per day.
+            ref = f"{ref}:{today}"
+        elif action == "team_briefing":
+            # Which team gathered is kept for the log; the cooldown and the cap meter it.
+            ref = f"{ref[:40]}@{self._clock()}" if ref else ""
         else:
             ref = ""
         subject = PERSON_ID if rule.kind == "person" else pet_subject(self.current_pet())
         return await self.award(subject, action, ref=ref)
-
-    def _person_level(self) -> int:
-        for row in self.store.subjects():
-            if row.get("subject_id") == PERSON_ID:
-                return level_for_xp(int(row.get("xp", 0)))
-        return 1
 
     async def note_agent_hired(self, agent_id: str) -> None:
         if agent_id and agent_id != LEAD_AGENT_ID:

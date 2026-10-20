@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from dodaios.progression.rules import MAX_LEVEL, RANKS, REWARDS, RULES
+from dodaios.progression.rules import MAX_LEVEL, RANKS, REWARDS, RULES, VERSE_DECKS
 from dodaios.progression.service import ProgressionService
 from dodaios.ui.web.progression_routes import router
 
@@ -32,14 +32,21 @@ def test_the_first_read_carries_the_whole_rulebook(client: TestClient):
     assert len(body["level_xp"]) == MAX_LEVEL and body["level_xp"][0] == 0
     assert {r["source"] for r in body["rules"]} == {r.source for r in RULES}
     assert {r["reward_id"] for r in body["rewards"]} == {r.reward_id for r in REWARDS}
-    assert body["titles"]["person"][0] == {"level": 1, "title": "cadet"}
-    assert body["ranks"][0] == {"id": "cadet", "level": 1, "tier": "enlisted"}
+    assert body["titles"]["person"][0] == {"level": 1, "title": "recruit"}
+    assert body["ranks"][0] == {"id": "recruit", "level": 1, "tier": "deck"}
+    assert body["ranks"][-1] == {"id": "fleet_admiral", "level": 50, "tier": "flag"}
     assert [(r["level"], r["id"], r["tier"]) for r in body["ranks"]] == list(RANKS)
+    assert body["decks"] == list(VERSE_DECKS)
+    uniform = next(r for r in body["rewards"] if r["reward_id"] == "uniform_line")
+    assert uniform == {
+        "reward_id": "uniform_line", "slot": "uniform",
+        "levels": {"person": 11, "agent": None, "pet": None},
+    }
     assert body["looks"] and all(look["agent"] == 1 for look in body["looks"])
 
 
 def test_a_world_action_pays_and_shows_up_in_the_next_read(client: TestClient):
-    action = {"action": "deck_discovered", "ref": "holodeck"}
+    action = {"action": "deck_discovered", "ref": "hangar"}
     paid = client.post("/api/progression/actions", json=action)
     assert paid.status_code == 200
     award = paid.json()["awarded"]
@@ -56,7 +63,7 @@ def test_a_world_action_pays_and_shows_up_in_the_next_read(client: TestClient):
 
 
 def test_server_only_and_unknown_actions_are_refused(client: TestClient):
-    for action in ("chat_turn", "level_up_now", "arcade_round"):
+    for action in ("chat_turn", "level_up_now", "arcade_round", "holodeck_round", "warp_jump"):
         assert client.post("/api/progression/actions", json={"action": action}).status_code == 422
     unknown_deck = {"action": "deck_discovered", "ref": "hall"}
     assert client.post("/api/progression/actions", json=unknown_deck).status_code == 422
