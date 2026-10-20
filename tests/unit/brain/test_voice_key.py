@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain import voice_key
-from jarvis.brain.voice_key import bills_voice_key, voice_key_slots, without_voice_key
+from dodaios.brain import voice_key
+from dodaios.brain.voice_key import bills_voice_key, voice_key_slots, without_voice_key
 
 
 def _cfg(mode: str, realtime_provider: str) -> SimpleNamespace:

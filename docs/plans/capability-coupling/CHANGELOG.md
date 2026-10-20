@@ -7,15 +7,15 @@ Agent A done: CapabilityRegistry API frozen at 3dcdbf8e4.
 Agent B done.
 
 Agent C done.
-- `jarvis/brain/manager.py`: replaced hardcoded `NUTZE: search_web` block with
+- `dodaios/brain/manager.py`: replaced hardcoded `NUTZE: search_web` block with
   dynamic `registry.render_for_prompt(lang)` call; graceful fallback to
-  hardcoded block when `jarvis.core.capabilities` not yet deployed.  Both paths
+  hardcoded block when `dodaios.core.capabilities` not yet deployed.  Both paths
   now append the bilingual "do not invent tools" hard rule.
-- `jarvis/brain/manager.py`: added `_check_unsupported_intent()` sibling check
+- `dodaios/brain/manager.py`: added `_check_unsupported_intent()` sibling check
   before `_should_force_spawn`; emits deterministic DE/EN refusal when
   `has_action_intent=True and resolve_intent=None and not smalltalk`.
   No LLM call (AP-11 compliant).
-- `jarvis/brain/ack_brain/persona_prompt.py`: extended forbidden-vocabulary list
+- `dodaios/brain/ack_brain/persona_prompt.py`: extended forbidden-vocabulary list
   with action-promise patterns (DE: "mache ich", "wird erledigt", "ist  <!-- i18n-allow -->
   gesendet", "ist eingetragen", "kümmere mich"; EN: "I'll do that", "will be  <!-- i18n-allow -->
   sent", "will be scheduled", "consider it done").  Added explicit positive rule:
@@ -50,7 +50,7 @@ Agent E done.
   cause (3 decoupled layers), defenses (5 layers), regression test reference.
 
 Agent D done.
-- `jarvis/missions/critic/runner.py`: added `CapabilityHonestyCheck` dataclass,
+- `dodaios/missions/critic/runner.py`: added `CapabilityHonestyCheck` dataclass,
   `_extract_tool_call_evidence()` (parses Jarvis-Agents stream.jsonl ``tool_use``
   frames + ``[TOOL_USE]`` CLI markers + ``dispatch-result`` events),
   `_resolve_capability_requires_evidence()` (uses `CapabilityRegistry` when
@@ -58,13 +58,13 @@ Agent D done.
   `enforce_capability_honesty()` (overrides approve → revise when
   `requires_evidence=True` capability + no tool-call evidence). Wired into
   `CriticRunner.run()` as a post-LLM gate.
-- `jarvis/missions/critic/summary.py`: new module with
+- `dodaios/missions/critic/summary.py`: new module with
   `summarise_from_tool_calls(calls) -> str` — deterministic German one-liner
   from real tool-call evidence; no LLM (AP-11 compliant).
-- `jarvis/missions/critic/prompts.py`: tightened CRITIC_SYSTEM_PROMPT with
+- `dodaios/missions/critic/prompts.py`: tightened CRITIC_SYSTEM_PROMPT with
   CAPABILITY-HONESTY RULE section — worker text claims are hearsay, only
   ``tool_use`` records count as evidence.
-- `jarvis/missions/voice/readback.py`: `render_approved` now accepts optional
+- `dodaios/missions/voice/readback.py`: `render_approved` now accepts optional
   ``honesty_check: CapabilityHonestyCheck`` — renders failure readback when
   `honesty_overridden=True` (last-resort TTS guard).
 - `tests/missions/critic/test_runner_dryrun.py`: 12 new test cases covering

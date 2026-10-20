@@ -11,8 +11,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from jarvis.agentic_ide import file_editing
-from jarvis.agentic_ide.file_editing import (
+from dodaios.agentic_ide import file_editing
+from dodaios.agentic_ide.file_editing import (
     EditConflict,
     EditError,
     TrashUnavailable,
@@ -24,7 +24,7 @@ from jarvis.agentic_ide.file_editing import (
     rename_entry,
     write_text_file,
 )
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.ui.web import agentic_ide_routes as routes
 
 
 def test_read_keeps_indentation_crlf_and_bom(tmp_path: Path) -> None:

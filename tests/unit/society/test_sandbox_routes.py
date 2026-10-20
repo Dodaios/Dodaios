@@ -7,8 +7,8 @@ from types import SimpleNamespace
 import httpx
 from fastapi import FastAPI
 
-from jarvis.society import sandbox
-from jarvis.ui.web.society_routes import router
+from dodaios.society import sandbox
+from dodaios.ui.web.society_routes import router
 
 pytest_plugins = ["tests.unit.society.test_surface"]
 
@@ -73,12 +73,12 @@ async def test_existing_database_migrates_without_changing_agents(tmp_path):
     import sqlite3
     from pathlib import Path
 
-    from jarvis.society.roster import Roster
-    from jarvis.society.store import SocietyStore
+    from dodaios.society.roster import Roster
+    from dodaios.society.store import SocietyStore
 
     database = tmp_path / "old.db"
     source = await asyncio.to_thread(
-        Path("jarvis/society/society_schema.sql").read_text, encoding="utf-8",
+        Path("dodaios/society/society_schema.sql").read_text, encoding="utf-8",
     )
     source = source.replace(
         "    execution_environment TEXT NOT NULL DEFAULT 'local'\n"

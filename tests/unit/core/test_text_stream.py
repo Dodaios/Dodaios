@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AssistantTextDelta
-from jarvis.core.text_stream import TextDeltaPublisher
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AssistantTextDelta
+from dodaios.core.text_stream import TextDeltaPublisher
 
 
 async def _collect(bus: EventBus) -> list[AssistantTextDelta]:

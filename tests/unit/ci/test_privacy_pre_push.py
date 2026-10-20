@@ -179,7 +179,7 @@ class TestForbiddenFile:
 
 class TestPublicCatalogMcp:
     def test_shopify_catalog_manifest_is_credential_free(self):
-        path = "jarvis/marketplace/plugins/shopify/mcp.json"
+        path = "dodaios/marketplace/plugins/shopify/mcp.json"
         manifest = (
             '{"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",'
             '"mcpServers":{"shopify":{"type":"streamable-http",'
@@ -188,7 +188,7 @@ class TestPublicCatalogMcp:
         assert gate.is_public_catalog_mcp(path, manifest)
 
     def test_shopify_manifest_with_query_is_rejected(self):
-        path = "jarvis/marketplace/plugins/shopify/mcp.json"
+        path = "dodaios/marketplace/plugins/shopify/mcp.json"
         manifest = (
             '{"$schema":"https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",'
             '"mcpServers":{"shopify":{"type":"streamable-http",'

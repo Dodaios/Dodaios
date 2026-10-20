@@ -22,12 +22,12 @@ honest reason **`attempts_timed_out`** → voice says **"Das Zeitlimit wurde
 überschritten."** instead of the false, alarming **"Der Worker ist
 abgebrochen."** Implemented test-first; see **§8.A-IMPLEMENTED**.
 
-- `jarvis/missions/kontrollierer/orchestrator.py` — new `TaskOutcome.TIMED_OUT`
+- `dodaios/missions/kontrollierer/orchestrator.py` — new `TaskOutcome.TIMED_OUT`
   (mirrors the `SETUP_FAILED` precedent); the terminal worker-error branch
   returns it when `is_timeout`; a new aggregation branch maps it to
   `attempts_timed_out` (ranked below the more-specific reasons, above the
   generic `task_error` fallback).
-- `jarvis/missions/voice/readback.py` — `FAILURE_REASON_PHRASES` gains
+- `dodaios/missions/voice/readback.py` — `FAILURE_REASON_PHRASES` gains
   `attempts_timed_out` in de + en (parity-pinned).
 - Tests: `tests/missions/kontrollierer/test_loop.py`,
   `tests/missions/test_voice_readback.py`, `tests/missions/test_voice_announcer.py`.
@@ -73,8 +73,8 @@ barge-in), in German, synthesized by Gemini Flash TTS and actually played
 
 The German string has **exactly one source** in the codebase:
 
-- `jarvis/missions/voice/readback.py:181` — `FAILURE_REASON_PHRASES["de"]["task_error"] = "Der Worker ist abgebrochen."`
-- The `"Die Mission ist fehlgeschlagen. …"` wrapper is `jarvis/missions/voice/announcer.py:202`.
+- `dodaios/missions/voice/readback.py:181` — `FAILURE_REASON_PHRASES["de"]["task_error"] = "Der Worker ist abgebrochen."`
+- The `"Die Mission ist fehlgeschlagen. …"` wrapper is `dodaios/missions/voice/announcer.py:202`.
 
 So the phrase is a deterministic function of **one failure reason code:
 `task_error`**, emitted on a **voice-triggered** (`source_actor == "hauptjarvis"`)
@@ -208,7 +208,7 @@ the announcement references a "Worker" the user never knowingly created.
 **This is why the user says "I never spawned a Jarvis-Agent."** They are right at
 the level of intent; the system spawned one on their behalf and never made that
 legible.
-**Files:** `manager.py:1736-1845, 2085-2086, 2494`, `jarvis/.../spawn_worker.py:479,549-565`.
+**Files:** `manager.py:1736-1845, 2085-2086, 2494`, `dodaios/.../spawn_worker.py:479,549-565`.
 
 ### Layer D — Computer-Use has no verifiable-evidence channel (the *enabler*)
 "Open Explorer" produces **nothing to git-diff**. The worker (correctly) opened
@@ -219,7 +219,7 @@ completed in 30 s instead of failing after 18 min. This is the same family as
 the 2026-06-07 memory entry *"Computer-Use 'das dauert zu lange' = Voice-Stall-
 Guard köpft arbeitenden CU-Loop bei 30 s"* — Computer-Use work is opaque to the
 diff/stall machinery that assumes file output.
-**Files:** Critic GROUND-TRUTH rule in `jarvis/missions/critic/*`,
+**Files:** Critic GROUND-TRUTH rule in `dodaios/missions/critic/*`,
 `orchestrator.py:811-834` (diff capture + augmentation), Computer-Use harness.
 
 ---
@@ -366,14 +366,14 @@ Only the wall-clock-timeout path was relabelled.
 ---
 
 ## 11. Appendix — primary sources
-- Phrase origin: `jarvis/missions/voice/readback.py:177-202`
-- Voice paths: `jarvis/missions/voice/announcer.py:115-232`,
-  `jarvis/missions/voice/listener.py:78-185`
-- Collapse point: `jarvis/missions/kontrollierer/orchestrator.py:858-924`
-- Aggregation: `jarvis/missions/kontrollierer/orchestrator.py:587-628`
-- Recovery (ruled out): `jarvis/missions/recovery.py:166-171`
-- Force-spawn: `jarvis/brain/manager.py` (`_should_force_spawn`)
-- Bootstrap wiring: `jarvis/missions/init.py` (listener/announcer mode resolve)
+- Phrase origin: `dodaios/missions/voice/readback.py:177-202`
+- Voice paths: `dodaios/missions/voice/announcer.py:115-232`,
+  `dodaios/missions/voice/listener.py:78-185`
+- Collapse point: `dodaios/missions/kontrollierer/orchestrator.py:858-924`
+- Aggregation: `dodaios/missions/kontrollierer/orchestrator.py:587-628`
+- Recovery (ruled out): `dodaios/missions/recovery.py:166-171`
+- Force-spawn: `dodaios/brain/manager.py` (`_should_force_spawn`)
+- Bootstrap wiring: `dodaios/missions/init.py` (listener/announcer mode resolve)
 - Runtime evidence: `data/missions.db` (mission `019f101f…`, event seqs
   3734/3738/3745/3752/3753/3754/3755), `data/jarvis_desktop.log` (lines
   ~30476–31220, 2026-06-07 13:31:26 → 13:49:54)

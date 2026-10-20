@@ -12,7 +12,7 @@ cover the spec's §8 "Provider swap" cases:
 3. ``cfg.ack_brain.enabled = false`` → zero
    ``AnnouncementRequested(kind="preamble")`` events leave the bus.
 
-The tests reuse :func:`jarvis.brain.factory.build_ack_brain` because
+The tests reuse :func:`dodaios.brain.factory.build_ack_brain` because
 that is the surface a config change actually goes through (the
 launcher reads the new config and asks the factory for a fresh
 AckGenerator).
@@ -26,8 +26,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.factory import build_ack_brain
-from jarvis.core.events import AnnouncementRequested
+from dodaios.brain.factory import build_ack_brain
+from dodaios.core.events import AnnouncementRequested
 from tests.unit.brain.test_ack_brain.conftest import (
     FakeAckProvider,
     build_ack_generator_with_fake,
@@ -114,9 +114,9 @@ async def test_missing_api_key_increments_provider_error_counter(
     ``ack_provider_error_total`` — verified below by also testing the
     raising-fake path which is the canonical F2 entry.
     """
-    from jarvis.brain.ack_brain.config import GeminiAckProviderConfig
-    from jarvis.brain.ack_brain.providers.gemini import GeminiFlashAck
-    from jarvis.core import config as cfg_module
+    from dodaios.brain.ack_brain.config import GeminiAckProviderConfig
+    from dodaios.brain.ack_brain.providers.gemini import GeminiFlashAck
+    from dodaios.core import config as cfg_module
 
     # Simulate "no API key in keyring / no env var".
     monkeypatch.setattr(
@@ -141,7 +141,7 @@ async def test_missing_api_key_increments_provider_error_counter(
     # generator increments ack_provider_error_total.
     raising_fake = FakeAckProvider(raises=RuntimeError("auth failed"))
     ack = build_ack_generator_with_fake(raising_fake)
-    with caplog.at_level(logging.INFO, logger="jarvis.brain.ack_brain.generator"):
+    with caplog.at_level(logging.INFO, logger="dodaios.brain.ack_brain.generator"):
         result2 = await ack.run("Hallo", language="de")
     assert result2 is None
     matched = [
@@ -173,7 +173,7 @@ async def test_disabled_ack_brain_publishes_no_preamble_events() -> None:
     """Even if a caller does invoke _spawn_flash_brain_ack while
     ``self._ack_brain is None`` (defensive path), zero preamble events
     must end up on the bus."""
-    from jarvis.speech.pipeline import SpeechPipeline
+    from dodaios.speech.pipeline import SpeechPipeline
 
     bus_events: list[Any] = []
 

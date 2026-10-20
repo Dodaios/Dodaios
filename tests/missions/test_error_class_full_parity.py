@@ -10,11 +10,11 @@ from typing import get_args
 
 import pytest
 
-from jarvis.missions.events import MISSION_ERROR_CLASSES
-from jarvis.missions.voice.readback import FAILURE_REASON_PHRASES, Lang
+from dodaios.missions.events import MISSION_ERROR_CLASSES
+from dodaios.missions.voice.readback import FAILURE_REASON_PHRASES, Lang
 
 _REPO = Path(__file__).resolve().parents[2]
-_LOCALES = _REPO / "jarvis" / "ui" / "web" / "frontend" / "src" / "i18n" / "locales"
+_LOCALES = _REPO / "dodaios" / "ui" / "web" / "frontend" / "src" / "i18n" / "locales"
 
 # The voice readback surface is scoped to the render API's ``Lang`` literal
 # (de/en) — NOT every key that happens to exist in FAILURE_REASON_PHRASES.

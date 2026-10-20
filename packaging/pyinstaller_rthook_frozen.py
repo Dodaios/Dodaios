@@ -2,7 +2,7 @@
 
 Why this exists
 ---------------
-``jarvis.core.config`` derives ``PROJECT_ROOT`` from ``jarvis/core/config.py``'s
+``dodaios.core.config`` derives ``PROJECT_ROOT`` from ``dodaios/core/config.py``'s
 own location. Inside a PyInstaller ``onedir`` bundle that resolves to the
 bundled-resources root (``sys._MEIPASS`` = ``<install dir>/_internal``), so
 without this hook a natively installed app would keep its ``jarvis.toml`` and
@@ -16,7 +16,7 @@ break there:
 
 A runtime hook runs before the frozen entry script imports anything from
 ``jarvis``, which is the only moment where the import-time path constants in
-``jarvis.core.config`` can still be steered. It points the two documented
+``dodaios.core.config`` can still be steered. It points the two documented
 override variables at the per-user application directory and seeds a first-run
 ``jarvis.toml`` from the copy inside the bundle.
 
@@ -24,13 +24,13 @@ An explicitly exported ``JARVIS_CONFIG`` / ``JARVIS_DATA_DIR`` always wins, so a
 maintainer can still run a frozen build against a scratch directory. So does
 ``DODAIOS_CONFIG`` / ``DODAIOS_DATA_DIR``: a variable written under the
 ``DODAIOS_`` prefix is moved to its ``JARVIS_`` name first, by the hook's own
-copy of ``jarvis.core.env_prefix._adopt`` (``tests/unit/core/test_env_prefix.py``
+copy of ``dodaios.core.env_prefix._adopt`` (``tests/unit/core/test_env_prefix.py``
 holds the copy identical).
 
 Standard library only, and no ``jarvis`` import: a failure in a runtime hook
 kills a windowed process before any logging exists. ``tests/unit/packaging/
 test_frozen_runtime_hook.py`` pins the directory convention below to
-``jarvis.core.paths.user_data_dir`` so the duplication cannot drift.
+``dodaios.core.paths.user_data_dir`` so the duplication cannot drift.
 """
 
 from __future__ import annotations
@@ -40,11 +40,11 @@ import shutil
 import sys
 from pathlib import Path
 
-# Mirrors jarvis.core.branding.WINDOWS_USER_DATA_DIR_NAME / FALLBACK_USER_DATA_DIR_NAME.
+# Mirrors dodaios.core.branding.WINDOWS_USER_DATA_DIR_NAME / FALLBACK_USER_DATA_DIR_NAME.
 _WINDOWS_USER_DATA_DIR_NAME = "Jarvis"
 _FALLBACK_USER_DATA_DIR_NAME = ".jarvis"
 _CONFIG_FILE_NAME = "jarvis.toml"
-# Mirrors jarvis.core.env_prefix: the prefixes and the adoption itself.
+# Mirrors dodaios.core.env_prefix: the prefixes and the adoption itself.
 _PREFIXES = (("DODAIOS_", "JARVIS_"), ("DODAIOSCTL_", "JARVISCTL_"))
 
 
@@ -121,7 +121,7 @@ def _apply() -> None:
                     shutil.copyfile(bundled, config_path)
             except OSError as exc:
                 # Not silence: say it on stderr (a console CLI run shows it) and
-                # continue. jarvis.core.config_writer creates the file on first
+                # continue. dodaios.core.config_writer creates the file on first
                 # write anyway, so an unseeded config still boots on defaults.
                 # A windowed bundle has no stderr yet — ensure_standard_streams()
                 # runs later — so writing to it must never become the crash.

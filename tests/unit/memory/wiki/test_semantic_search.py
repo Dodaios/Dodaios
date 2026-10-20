@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki import semantic_search
-from jarvis.memory.wiki.search import SearchHit
-from jarvis.memory.wiki.semantic_search import SemanticVaultSearch, with_semantic_hits
+from dodaios.memory.wiki import semantic_search
+from dodaios.memory.wiki.search import SearchHit
+from dodaios.memory.wiki.semantic_search import SemanticVaultSearch, with_semantic_hits
 from tests.fakes.fake_semantic_encoder import FakeSemanticEncoder
 
 
@@ -149,7 +149,7 @@ def test_a_sync_that_is_told_to_stop_ends_at_the_next_page(
 def test_a_page_update_patches_memory_without_reloading_the_vault(
     search: SemanticVaultSearch, vault: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from jarvis.memory.wiki import semantic_index
+    from dodaios.memory.wiki import semantic_index
 
     reads: list[str | None] = []
     real = semantic_index.load_passages

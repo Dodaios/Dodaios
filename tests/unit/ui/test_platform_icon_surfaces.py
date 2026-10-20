@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui import icon_utils
+from dodaios.ui import icon_utils
 
 
 def test_linux_desktop_entry_binds_icon_to_the_pinned_wm_class(tmp_path: Path) -> None:
@@ -35,7 +35,7 @@ def test_linux_desktop_entry_binds_icon_to_the_pinned_wm_class(tmp_path: Path) -
     text = entry.read_text(encoding="utf-8")
     assert f"StartupWMClass={icon_utils.LINUX_WM_CLASS}" in text
     assert f"Name={icon_utils.APP_DISPLAY_NAME}" in text
-    assert "-m jarvis.ui.web.launcher" in text
+    assert "-m dodaios.ui.web.launcher" in text
     assert "Terminal=false" in text
     # The autostart-only keys must NOT leak into the menu entry.
     assert "X-GNOME-Autostart" not in text
@@ -78,7 +78,7 @@ def test_desktop_app_wires_all_three_platform_surfaces() -> None:
     silently regresses to the interpreter icon."""
     import inspect
 
-    import jarvis.ui.desktop_app as desktop_app
+    import dodaios.ui.desktop_app as desktop_app
 
     src = inspect.getsource(desktop_app)
     for hook in (
@@ -97,7 +97,7 @@ def test_desktop_app_wires_all_three_platform_surfaces() -> None:
 
 
 def test_native_window_icon_is_the_bundled_png_off_windows(monkeypatch: pytest.MonkeyPatch) -> None:
-    import jarvis.ui.desktop_app as desktop_app
+    import dodaios.ui.desktop_app as desktop_app
 
     monkeypatch.setattr(sys, "platform", "linux")
     icon = desktop_app.DesktopApp._native_window_icon()
@@ -110,7 +110,7 @@ def test_native_window_icon_is_the_bundled_png_off_windows(monkeypatch: pytest.M
 def test_native_window_icon_is_none_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
     """WinForms would build ``System.Drawing.Icon`` from the PNG and throw; the
     Win32 ``WM_SETICON`` poll owns that surface."""
-    import jarvis.ui.desktop_app as desktop_app
+    import dodaios.ui.desktop_app as desktop_app
 
     monkeypatch.setattr(sys, "platform", "win32")
     assert desktop_app.DesktopApp._native_window_icon() is None
@@ -119,7 +119,7 @@ def test_native_window_icon_is_none_on_windows(monkeypatch: pytest.MonkeyPatch) 
 def test_desktop_app_hands_the_icon_to_webview_start() -> None:
     import inspect
 
-    import jarvis.ui.desktop_app as desktop_app
+    import dodaios.ui.desktop_app as desktop_app
 
     src = inspect.getsource(desktop_app.DesktopApp.run_window_only)
     assert "icon=self._native_window_icon()" in src

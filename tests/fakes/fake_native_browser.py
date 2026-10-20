@@ -251,7 +251,7 @@ class NativeDesktop:
         import ctypes  # noqa: PLC0415
         from ctypes import wintypes  # noqa: PLC0415
 
-        from jarvis.society.browser.native_window import NativeWindow
+        from dodaios.society.browser.native_window import NativeWindow
 
         native = NativeWindow.__new__(NativeWindow)
         native._parked = False

@@ -20,7 +20,7 @@ longer blind:
   those instead of starting the whole set again.
 
 The audio itself is unchanged: 16 kHz mono int16, exactly what
-``jarvis/plugins/wake/openwakeword_provider.py`` consumes. Nothing here filters,
+``dodaios/plugins/wake/openwakeword_provider.py`` consumes. Nothing here filters,
 normalizes or gates the recording — the meter only observes.
 
 Works alongside the running app (Windows WASAPI shared mode). Cross-platform via
@@ -41,7 +41,7 @@ import numpy as np
 # The repo root, so this runs from anywhere without an editable install.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from jarvis.audio.wake_sample_quality import (  # noqa: E402
+from dodaios.audio.wake_sample_quality import (  # noqa: E402
     FrameLevel,
     SampleQuality,
     frame_level,

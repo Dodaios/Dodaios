@@ -7,7 +7,7 @@ overflow tests guard the honesty rule: a collapsed file must read as
 """
 from __future__ import annotations
 
-from jarvis.ui.web.mission_graph import (
+from dodaios.ui.web.mission_graph import (
     BRAND,
     MAX_FILES_PER_STEP,
     build_mission_graph,

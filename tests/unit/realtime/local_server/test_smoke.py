@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.realtime.local_server import smoke
+from dodaios.realtime.local_server import smoke
 
 
 class _Session:
@@ -51,7 +51,7 @@ async def test_roundtrip_requires_audio_transcript_and_turn_boundary(monkeypatch
             return session
 
     monkeypatch.setattr(
-        "jarvis.plugins.realtime.openai_realtime.LocalRealtimeProvider",
+        "dodaios.plugins.realtime.openai_realtime.LocalRealtimeProvider",
         _Provider,
     )
 
@@ -79,7 +79,7 @@ async def test_roundtrip_rejects_the_text_only_failure_mode(monkeypatch) -> None
             return session
 
     monkeypatch.setattr(
-        "jarvis.plugins.realtime.openai_realtime.LocalRealtimeProvider",
+        "dodaios.plugins.realtime.openai_realtime.LocalRealtimeProvider",
         _Provider,
     )
 

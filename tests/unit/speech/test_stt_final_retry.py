@@ -22,9 +22,9 @@ import asyncio
 
 import pytest
 
-from jarvis.core.protocols import Transcript
-from jarvis.speech import pipeline as pipeline_mod
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.protocols import Transcript
+from dodaios.speech import pipeline as pipeline_mod
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _FakeResponse:

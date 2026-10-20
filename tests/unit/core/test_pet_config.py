@@ -12,19 +12,19 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.appshot.hotkey import BOTH_ALT, normalize_hotkey
-from jarvis.control.wiring import DEFAULT_KILL_HOTKEY
-from jarvis.core import config_writer
-from jarvis.core.config import (
+from dodaios.appshot.hotkey import BOTH_ALT, normalize_hotkey
+from dodaios.control.wiring import DEFAULT_KILL_HOTKEY
+from dodaios.core import config_writer
+from dodaios.core.config import (
     AppshotConfig,
     TriggerConfig,
     UIConfig,
     clamp_pet_scale,
     normalize_pet_id,
 )
-from jarvis.trigger.hotkey import combos_collide, normalized_combo_tokens, validate_hotkey
-from jarvis.ui.pets.manifest import BUILTIN_ID_RE, USER_ID_RE
-from jarvis.ui.pets.states import DEFAULT_PET_ID, NO_PET_ID
+from dodaios.trigger.hotkey import combos_collide, normalized_combo_tokens, validate_hotkey
+from dodaios.ui.pets.manifest import BUILTIN_ID_RE, USER_ID_RE
+from dodaios.ui.pets.states import DEFAULT_PET_ID, NO_PET_ID
 
 #: The Jarvis X keys (one per pane) — not configurable here, but a pet
 #: shortcut that fired inside one of them would be a collision all the same.

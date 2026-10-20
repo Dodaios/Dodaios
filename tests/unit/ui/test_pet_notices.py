@@ -16,17 +16,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.core import runtime_refs
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.core import runtime_refs
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     DelegationResultReady,
     JarvisAgentBackgroundCompleted,
     JarvisChatTurnFinished,
     MissionCompleted,
 )
-from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
-from jarvis.ui.pets import notices
+from dodaios.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
+from dodaios.ui.pets import notices
 from ui.orb import controls, pet_cards, thought_bubble
 from ui.orb import notice_stack as ns
 from ui.orb.bus_bridge import OrbBusBridge
@@ -400,7 +400,7 @@ async def test_the_chat_service_announces_finished_jarvis_turns() -> None:
 
 
 def test_the_proxy_and_host_carry_cards_and_keep_the_bell_across_a_respawn() -> None:
-    from jarvis.ui.dodaiosbar import host
+    from dodaios.ui.dodaiosbar import host
 
     proxy = SubprocessMascotOverlay(style="pet")
     sent: list[dict] = []

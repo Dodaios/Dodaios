@@ -21,9 +21,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.ack_brain import CircuitBreaker
-from jarvis.brain.ack_brain.config import AckBrainConfig
-from jarvis.voice.contextual_readback import ReadbackComposer, render_readback
+from dodaios.brain.ack_brain import CircuitBreaker
+from dodaios.brain.ack_brain.config import AckBrainConfig
+from dodaios.voice.contextual_readback import ReadbackComposer, render_readback
 
 CANNED = "CANNED FALLBACK LINE"
 

@@ -38,7 +38,7 @@ see:
   They come from the `desktop-macos` extra, so install it on the build machine:
   `python3 -m pip install -e ".[desktop,desktop-macos]"` (`.[full]` includes it).
 * Every usage-description string in
-  `jarvis/core/macos_privacy_strings.py` must be in `Info.plist` with exactly
+  `dodaios/core/macos_privacy_strings.py` must be in `Info.plist` with exactly
   that text, and the keys that table lists as removed (camera, speech
   recognition, system administration) must not be.
 * On a **signed** build, `codesign -d --entitlements :-` must report every
@@ -55,9 +55,9 @@ inside.
 ### The usage strings have one source
 
 The `NS...UsageDescription` strings macOS shows in its permission dialogs live
-in exactly one file, `jarvis/core/macos_privacy_strings.py` (standard library
+in exactly one file, `dodaios/core/macos_privacy_strings.py` (standard library
 only). `jarvis.spec` (this `.dmg` app) and
-`jarvis/setup/macos_app_bundle.py` (the managed source-install app) both load that
+`dodaios/setup/macos_app_bundle.py` (the managed source-install app) both load that
 file **by path**: the spec runs before the `jarvis` package is importable, so
 neither can use an ordinary import, and neither keeps a copy.
 `tests/unit/packaging/test_macos_privacy_strings.py` runs the real spec against
@@ -222,7 +222,7 @@ permission code, and each keeps its own grants.
 Each protected API needs *both* halves on a hardened (Developer ID) build: an
 entitlement in `packaging/macos/entitlements.plist` and a usage-description
 string in the bundle's `Info.plist` (the table in
-`jarvis/core/macos_privacy_strings.py`). Missing entitlement: the app is
+`dodaios/core/macos_privacy_strings.py`). Missing entitlement: the app is
 refused before the prompt appears. Missing usage string: macOS ends the process
 (microphone) or, as third parties report for other services, silently refuses
 without a prompt; the exact failure mode is unverified, which is why
@@ -252,7 +252,7 @@ before the prompt appears.
 | Entitlement | Why |
 |---|---|
 | `com.apple.security.device.audio-input` | Microphone. The whole voice pipeline (wake word, dictation, calls) reads the default input device through PortAudio. Without it a hardened build fails every capture attempt instead of showing the microphone prompt. |
-| `com.apple.security.automation.apple-events` | Apple events. Jarvis drives other applications through AppleScript for the media-session and window-control paths (`jarvis/platform/media_session.py`, `music_player.py`). Sending an Apple event to another process from a hardened app requires this entitlement plus `NSAppleEventsUsageDescription`. |
+| `com.apple.security.automation.apple-events` | Apple events. Jarvis drives other applications through AppleScript for the media-session and window-control paths (`dodaios/platform/media_session.py`, `music_player.py`). Sending an Apple event to another process from a hardened app requires this entitlement plus `NSAppleEventsUsageDescription`. |
 | `com.apple.security.cs.allow-unsigned-executable-memory` | Unsigned executable memory. Expected to be needed by a CPython application: ctypes/libffi build closure trampolines in memory they mark executable (sounddevice's PortAudio binding, vosk's libvosk binding, and several numeric wheels all go through ctypes), and the Hardened Runtime is documented to refuse such allocations without it. Whether this app really needs it has not been observed on a hardened build. It is the narrowest of the "allow ... memory" entitlements; `allow-jit` and its broader siblings are deliberately **not** requested. |
 | `com.apple.security.cs.disable-library-validation` | Library validation. A PyInstaller bundle `dlopen()`s dozens of third-party `.so`/`.dylib` files out of `Contents/Frameworks` and `Contents/Resources` at runtime (onnxruntime, PortAudio, libvosk, PyAV's FFmpeg libraries). Library validation demands every loaded library be signed by the same team ID as the main binary; the re-sign pass in `build.sh` does re-sign them, but any library loaded from a path the pass did not walk, or a plugin the user installs later into the same process, is then refused with an opaque "code signature invalid". This is the one entitlement that could be dropped later: it needs a build where every loadable object is provably signed by us, which the plugin system's "install a wheel at runtime" design currently rules out. |
 

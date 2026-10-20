@@ -27,7 +27,7 @@ a minute and come back denied. Before the observed-refusal split (W3,
 failed the whole iteration.
 
 Scheduled tasks solved the same problem earlier with
-`jarvis.tasks.approval_bridge.TaskAutoApprover` ("Option B"): a bridge that
+`dodaios.tasks.approval_bridge.TaskAutoApprover` ("Option B"): a bridge that
 listens for `ActionApprovalRequired` and ANSWERS the gate by publishing
 `ActionApproved` for pre-authorized tools on the task's own trace — never
 bypassing the executor. `ToolExecutor` deliberately arms the approval ticket
@@ -35,7 +35,7 @@ BEFORE publishing the event so such a synchronous bus answer is never lost.
 
 ## Decision
 
-A `MissionToolAutoApprover` (`jarvis/missions/tool_approvals.py`) answers the
+A `MissionToolAutoApprover` (`dodaios/missions/tool_approvals.py`) answers the
 approval gate for tools pre-authorized to one mission:
 
 1. **Armed by the broker, exactly for the lifetime of a grant.**

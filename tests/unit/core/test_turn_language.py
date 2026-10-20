@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.turn_language import (
+from dodaios.core.turn_language import (
     DEFAULT_LOCALE,
     detect_language_request,
     detect_text_language,
@@ -540,7 +540,7 @@ def test_detect_portuguese_without_stealing_other_languages(
 
 
 def test_portuguese_and_spanish_token_sets_are_disjoint() -> None:
-    from jarvis.core import turn_language
+    from dodaios.core import turn_language
 
     sets = dict(turn_language._SETS)
     codes = sorted(sets)

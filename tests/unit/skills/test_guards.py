@@ -1,8 +1,8 @@
-"""Characterization + contract tests for jarvis.skills.guards.
+"""Characterization + contract tests for dodaios.skills.guards.
 
 ``guards.py`` is a MOVE, not a redesign: the definitional-question guard, the
 block-tier check and the lifecycle filter used to live inline in
-``jarvis/brain/manager.py`` and ``jarvis/skills/trigger_matcher.py``. The first
+``dodaios/brain/manager.py`` and ``dodaios/skills/trigger_matcher.py``. The first
 test below proves the move preserved behaviour by running both implementations
 over the same corpus and comparing verdicts — including the live forensic
 utterances the original guards were written for.
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.skills import guards
+from dodaios.skills import guards
 
 # ---------------------------------------------------------------------------
 # Fakes (mirroring tests/unit/skills/test_local_search.py)
@@ -102,7 +102,7 @@ def test_definitional_guard_matches_the_manager_implementation(
     This is the whole justification for calling Phase 0 a no-behaviour-change
     refactor. If it ever fails, the extraction changed routing.
     """
-    from jarvis.brain.manager import _is_definitional_question_about as original
+    from dodaios.brain.manager import _is_definitional_question_about as original
 
     assert guards.is_definitional_question_about(utterance, token) == original(
         utterance, token
@@ -189,7 +189,7 @@ def test_missing_frontmatter_is_vetoed_separately_from_block_tier() -> None:
 
 def test_block_tier_verdict_matches_the_manager_implementation() -> None:
     """Old ``_skill_is_blocked`` == (frontmatter_veto or block_tier_veto)."""
-    from jarvis.brain.manager import BrainManager
+    from dodaios.brain.manager import BrainManager
 
     for skill in (
         _FakeSkill(tier="block"),
@@ -233,14 +233,14 @@ def test_guards_module_has_no_jarvis_imports() -> None:
     """A reverse import would close the cycle between the brain and the skills package."""
     from pathlib import Path
 
-    import jarvis.skills.guards as module
+    import dodaios.skills.guards as module
 
     source = Path(module.__file__).read_text(encoding="utf-8")
     code = "\n".join(
         line for line in source.splitlines() if not line.strip().startswith(("#", "*"))
     )
-    assert "import jarvis" not in code
-    assert "from jarvis" not in code
+    assert "import dodaios" not in code
+    assert "from dodaios" not in code
 
 
 # ---------------------------------------------------------------------------

@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import pytest
 
-import jarvis.missions.workers.api_agent_worker as api_worker_mod
-import jarvis.missions.workers.google_cli_worker as mod
-from jarvis.google_cli.pty_runner import PtyRunResult
-from jarvis.google_cli.resolver import GoogleCli
-from jarvis.missions.workers.google_cli_worker import (
+import dodaios.missions.workers.api_agent_worker as api_worker_mod
+import dodaios.missions.workers.google_cli_worker as mod
+from dodaios.google_cli.pty_runner import PtyRunResult
+from dodaios.google_cli.resolver import GoogleCli
+from dodaios.missions.workers.google_cli_worker import (
     GoogleCliWorker,
     _build_agy_worker_argv,
     _build_agy_worker_env,

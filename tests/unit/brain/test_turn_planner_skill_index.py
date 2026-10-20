@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.turn_planner import TurnPath, TurnReason, plan_turn
-from jarvis.skills.relevance import RelevanceRanking, ScoredSkill, build_index
+from dodaios.brain.turn_planner import TurnPath, TurnReason, plan_turn
+from dodaios.skills.relevance import RelevanceRanking, ScoredSkill, build_index
 
 # Speech input under test.
 #: MEASURED to reach the FIRE band against the seven-skill fixture below.
@@ -180,14 +180,14 @@ def test_a_broken_index_degrades_to_the_static_vocabulary() -> None:
 def test_the_planner_module_imports_nothing_from_jarvis_skills() -> None:
     """The purity promise, checked structurally.
 
-    ``jarvis/skills/__init__.py`` is a heavy eager package init (registry,
+    ``dodaios/skills/__init__.py`` is a heavy eager package init (registry,
     runner, watchdog, pydantic). A module-scope import here would drag all of it
     into every early import of the planner (AP-26) — which is exactly why the
     index is passed in as data.
     """
     from pathlib import Path
 
-    import jarvis.brain.turn_planner as module
+    import dodaios.brain.turn_planner as module
 
     source = Path(module.__file__).read_text(encoding="utf-8")
     code = "\n".join(
@@ -195,8 +195,8 @@ def test_the_planner_module_imports_nothing_from_jarvis_skills() -> None:
         for line in source.splitlines()
         if not line.lstrip().startswith("#")
     )
-    assert "from jarvis.skills" not in code
-    assert "import jarvis.skills" not in code
+    assert "from dodaios.skills" not in code
+    assert "import dodaios.skills" not in code
 
 
 @pytest.mark.parametrize("text", ["", "   "])

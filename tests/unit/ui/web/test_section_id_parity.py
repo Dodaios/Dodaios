@@ -30,7 +30,7 @@ import re
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_FRONTEND = _REPO_ROOT / "jarvis" / "ui" / "web" / "frontend" / "src"
+_FRONTEND = _REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "src"
 _EVENTS_TS = _FRONTEND / "store" / "events.ts"
 _MAIN_VIEW_TSX = _FRONTEND / "components" / "layout" / "MainView.tsx"
 # The nav rows moved out of Sidebar.tsx into navGroups.ts (the mission deck

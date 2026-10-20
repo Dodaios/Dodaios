@@ -16,9 +16,9 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from jarvis.core import runtime_refs
-from jarvis.mcp.agents import tools as agent_tools
-from jarvis.mcp.agents.portable import (
+from dodaios.core import runtime_refs
+from dodaios.mcp.agents import tools as agent_tools
+from dodaios.mcp.agents.portable import (
     BUNDLE_VERSION,
     NEVER_EXPORTED,
     PORTABLE_FIELDS,
@@ -26,7 +26,7 @@ from jarvis.mcp.agents.portable import (
     export_bundle,
     import_bundle,
 )
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.society.runtime import SocietyRuntime
 
 
 @pytest.fixture

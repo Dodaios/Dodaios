@@ -36,15 +36,15 @@ case "${1:-}" in
     --debug)
         # --debug is launcher-local: visible console + verbose logging.
         # Forwarding it to the launcher would trip argparse (see run.bat).
-        JARVIS_DEBUG=1 exec "$PY" -m jarvis.ui.web.launcher
+        JARVIS_DEBUG=1 exec "$PY" -m dodaios.ui.web.launcher
         ;;
     --headless)
-        exec "$PY" -m jarvis.ui.web.launcher --headless
+        exec "$PY" -m dodaios.ui.web.launcher --headless
         ;;
     --dev)
-        JARVIS_DEV=1 exec "$PY" -m jarvis.ui.web.launcher --dev
+        JARVIS_DEV=1 exec "$PY" -m dodaios.ui.web.launcher --dev
         ;;
     *)
-        exec "$PY" -m jarvis.ui.web.launcher
+        exec "$PY" -m dodaios.ui.web.launcher
         ;;
 esac

@@ -22,9 +22,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.ack_generator import _GMAIL_READ_ACK
-from jarvis.brain.manager import BrainManager
-from jarvis.core.events import AnnouncementRequested
+from dodaios.brain.ack_generator import _GMAIL_READ_ACK
+from dodaios.brain.manager import BrainManager
+from dodaios.core.events import AnnouncementRequested
 
 
 class _RecordingBus:

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.core.events import AppshotEditRequested, ShowWindowRequested
-from jarvis.cu.indicator import protocol
-from jarvis.cu.indicator.controller import CUIndicatorController
+from dodaios.core.events import AppshotEditRequested, ShowWindowRequested
+from dodaios.cu.indicator import protocol
+from dodaios.cu.indicator.controller import CUIndicatorController
 
 
 class _Bus:
@@ -63,7 +63,7 @@ async def test_idle_quit_waits_while_the_card_is_open(monkeypatch) -> None:
 
 
 async def test_clicking_the_card_opens_the_editor_on_the_last_appshot(monkeypatch) -> None:
-    from jarvis.appshot.store import Appshot, get_store
+    from dodaios.appshot.store import Appshot, get_store
 
     store = get_store()
     store.clear()
@@ -107,9 +107,9 @@ async def test_the_drag_picture_waits_for_its_card_and_a_new_shutter_drops_it() 
 
 
 async def test_a_picture_that_may_not_be_kept_is_never_handed_to_the_card(monkeypatch) -> None:
-    import jarvis.appshot.effect as effect
-    from jarvis.appshot import service
-    from jarvis.appshot.store import Appshot
+    import dodaios.appshot.effect as effect
+    from dodaios.appshot import service
+    from dodaios.appshot.store import Appshot
 
     sent: list[bytes] = []
 
@@ -134,7 +134,7 @@ async def test_a_picture_that_may_not_be_kept_is_never_handed_to_the_card(monkey
 
 
 def test_the_card_hint_follows_the_app_language() -> None:
-    from jarvis.appshot.effect import _CARD_HINTS, card_hint
+    from dodaios.appshot.effect import _CARD_HINTS, card_hint
 
     class Cfg:
         class ui:  # noqa: N801

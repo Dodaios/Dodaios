@@ -6,7 +6,7 @@ disk. They pin the behaviours the old slug-addressed routes got wrong.
 
 from __future__ import annotations
 
-from jarvis.memory.wiki.vault_model import (
+from dodaios.memory.wiki.vault_model import (
     AgentInfo,
     SourcePage,
     build_model,

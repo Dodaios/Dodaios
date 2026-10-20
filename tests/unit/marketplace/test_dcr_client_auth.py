@@ -7,10 +7,10 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from jarvis.marketplace.auth import oauth_dcr
-from jarvis.marketplace.catalog import PluginSpec
-from jarvis.marketplace.revoke import revoke_tokens
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace.auth import oauth_dcr
+from dodaios.marketplace.catalog import PluginSpec
+from dodaios.marketplace.revoke import revoke_tokens
+from dodaios.marketplace.token_store import Tokens
 
 
 class Callback:

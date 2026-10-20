@@ -26,10 +26,10 @@ import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.brain.tools import build_self_mod_tools
-from jarvis.core.config import JarvisConfig, SecurityConfig
-from jarvis.core.protocols import ExecutionContext
-from jarvis.core.self_mod import (
+from dodaios.brain.tools import build_self_mod_tools
+from dodaios.core.config import JarvisConfig, SecurityConfig
+from dodaios.core.protocols import ExecutionContext
+from dodaios.core.self_mod import (
     AtomicConfigWriter,
     AuditActor,
     AuditSource,
@@ -38,16 +38,16 @@ from jarvis.core.self_mod import (
     PendingMutationStore,
     SelfModAudit,
 )
-from jarvis.skills.authoring import (
+from dodaios.skills.authoring import (
     AuthoringSuccess,
     SkillAuthoringRunner,
     write_draft,
 )
-from jarvis.skills.authoring.schema import SkillDraft
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.schema import SkillLifecycleState
-from jarvis.ui.web.self_mod_routes import router as self_mod_router
-from jarvis.voice import (
+from dodaios.skills.authoring.schema import SkillDraft
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.schema import SkillLifecycleState
+from dodaios.ui.web.self_mod_routes import router as self_mod_router
+from dodaios.voice import (
     FlowState,
     SelfModFlowController,
 )
@@ -311,7 +311,7 @@ class TestT4ValidateFailRollback:
             audit=audit,
             config_loader=crashing_loader,
         )
-        from jarvis.core.self_mod.errors import ReloadError
+        from dodaios.core.self_mod.errors import ReloadError
 
         request = MutationRequest(
             path="tts.provider",
@@ -615,7 +615,7 @@ def api_app(
     app.state.self_mod_audit = audit
     app.state.self_mod_writer = writer
     # Admin password "secret", stored as a salted scrypt hash.
-    from jarvis.core.admin_password import hash_admin_password
+    from dodaios.core.admin_password import hash_admin_password
 
     expected_hash = hash_admin_password("secret")
     app.state.config = type(
@@ -682,7 +682,7 @@ class TestRestApi:
         audit: SelfModAudit,
     ) -> None:
         # Manually write a sensitive-path audit entry
-        from jarvis.core.self_mod.schema import AuditEvent
+        from dodaios.core.self_mod.schema import AuditEvent
 
         audit.record(
             AuditEvent(

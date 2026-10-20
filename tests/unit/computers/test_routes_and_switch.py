@@ -12,10 +12,10 @@ import socket
 
 import pytest
 
-from jarvis.computers import identity
-from jarvis.computers.models import PRIMARY_ROUTE_ID, Computer
-from jarvis.computers.service import ComputerError, ComputerService
-from jarvis.computers.store import ComputerStore
+from dodaios.computers import identity
+from dodaios.computers.models import PRIMARY_ROUTE_ID, Computer
+from dodaios.computers.service import ComputerError, ComputerService
+from dodaios.computers.store import ComputerStore
 from tests.fakes.fake_ssh_server import FakeSshServer
 
 
@@ -317,8 +317,8 @@ async def test_keep_working_never_moves_panes_to_a_switched_off_computer(
 ) -> None:
     from types import SimpleNamespace
 
-    from jarvis.agentic_ide import offload_on_quit
-    from jarvis.computers import store as store_module
+    from dodaios.agentic_ide import offload_on_quit
+    from dodaios.computers import store as store_module
 
     path = tmp_path / "computers.json"
     monkeypatch.setattr(store_module, "default_path", lambda: path)

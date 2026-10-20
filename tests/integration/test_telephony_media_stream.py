@@ -23,10 +23,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.telephony.audio import TWILIO_SAMPLE_RATE, pcm16_to_ulaw
-from jarvis.telephony.session import TelephonyCallSession
-from jarvis.telephony.status import TelephonyManager
-from jarvis.ui.web.telephony_routes import router as telephony_router
+from dodaios.telephony.audio import TWILIO_SAMPLE_RATE, pcm16_to_ulaw
+from dodaios.telephony.session import TelephonyCallSession
+from dodaios.telephony.status import TelephonyManager
+from dodaios.ui.web.telephony_routes import router as telephony_router
 from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
 
 

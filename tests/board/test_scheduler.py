@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.board.profile import BioGenerator, BioStore, make_resolver_from_brain
-from jarvis.board.scheduler import BioScheduler
-from jarvis.board.store import BoardStore
-from jarvis.brain.background_policy import BackgroundDeferred
-from jarvis.core.bus import EventBus
-from jarvis.core.events import AchievementUnlocked
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.board.profile import BioGenerator, BioStore, make_resolver_from_brain
+from dodaios.board.scheduler import BioScheduler
+from dodaios.board.store import BoardStore
+from dodaios.brain.background_policy import BackgroundDeferred
+from dodaios.core.bus import EventBus
+from dodaios.core.events import AchievementUnlocked
+from dodaios.core.protocols import BrainDelta, BrainRequest
 
 
 class _FakeBrain:
@@ -101,7 +101,7 @@ async def test_start_generates_nothing_without_a_hook(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_unrelated_events_are_not_hooks(tmp_path: Path) -> None:
-    from jarvis.core.events import BioFeedbackRecorded
+    from dodaios.core.events import BioFeedbackRecorded
 
     bus = EventBus()
     sched, _gen, _bio_store, brain = _make(tmp_path, bus=bus, debounce_s=0.0)
@@ -121,7 +121,7 @@ async def test_hook_inside_spacing_waits_for_the_window(
 ) -> None:
     from datetime import datetime, timedelta
 
-    import jarvis.board.scheduler as scheduler_module
+    import dodaios.board.scheduler as scheduler_module
 
     sched, _gen, bio_store, brain = _make(tmp_path, min_spacing_s=3600)
     bio_store.insert("earlier bio", triggered_by="manual")

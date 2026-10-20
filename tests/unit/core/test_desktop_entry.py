@@ -8,7 +8,7 @@ reports it as installed and current.
 
 from __future__ import annotations
 
-from jarvis.core.desktop_entry import (
+from dodaios.core.desktop_entry import (
     escape_value,
     exec_argument,
     exec_value,
@@ -57,7 +57,7 @@ def test_unescape_decodes_the_space_escape_and_keeps_unknown_ones() -> None:
 def test_exec_argument_leaves_a_plain_token_alone() -> None:
     assert exec_argument("/usr/bin/python3") == "/usr/bin/python3"
     assert exec_argument("-m") == "-m"
-    assert exec_argument("jarvis.ui.web.launcher") == "jarvis.ui.web.launcher"
+    assert exec_argument("dodaios.ui.web.launcher") == "dodaios.ui.web.launcher"
 
 
 def test_exec_argument_quotes_reserved_characters() -> None:
@@ -90,8 +90,8 @@ def test_exec_value_needs_four_backslashes_for_a_literal_one() -> None:
 
 
 def test_exec_value_renders_program_plus_args() -> None:
-    assert exec_value("/usr/bin/python3", ("-m", "jarvis.ui.web.launcher")) == (
-        "/usr/bin/python3 -m jarvis.ui.web.launcher"
+    assert exec_value("/usr/bin/python3", ("-m", "dodaios.ui.web.launcher")) == (
+        "/usr/bin/python3 -m dodaios.ui.web.launcher"
     )
 
 
@@ -107,7 +107,7 @@ _ENTRY = """\
 [Desktop Entry]
 Type=Application
 Name=Personal Jarvis
-Exec=/usr/bin/python3 -m jarvis.ui.web.launcher
+Exec=/usr/bin/python3 -m dodaios.ui.web.launcher
 Path = /home/u/Personal Jarvis
 Name[de]=Persoenlicher Jarvis
 Hidden=false
@@ -119,7 +119,7 @@ Exec=/somewhere/else --new-window
 
 def test_read_field_reads_the_desktop_entry_group() -> None:
     assert read_field(_ENTRY, "Type") == "Application"
-    assert read_field(_ENTRY, "Exec") == "/usr/bin/python3 -m jarvis.ui.web.launcher"
+    assert read_field(_ENTRY, "Exec") == "/usr/bin/python3 -m dodaios.ui.web.launcher"
 
 
 def test_read_field_ignores_other_groups() -> None:

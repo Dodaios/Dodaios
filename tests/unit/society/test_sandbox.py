@@ -6,10 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.capabilities import capability_id_for_tool, tool_name_for_capability
-from jarvis.society.roster import RosterError
-from jarvis.society.sandbox import Sandbox, SandboxTool, for_agent
-from jarvis.society.surface import society_system_extra, society_tool_filter, society_tools
+from dodaios.society.capabilities import capability_id_for_tool, tool_name_for_capability
+from dodaios.society.roster import RosterError
+from dodaios.society.sandbox import Sandbox, SandboxTool, for_agent
+from dodaios.society.surface import society_system_extra, society_tool_filter, society_tools
 from tests.unit.society.test_surface import _live_chat, _tool
 
 pytest_plugins = ["tests.unit.society.test_surface"]
@@ -18,8 +18,8 @@ pytest_plugins = ["tests.unit.society.test_surface"]
 def test_pydantic_execution_environment_parity():
     from typing import get_args
 
-    from jarvis.society.events import ExecutionEnvironment
-    from jarvis.ui.web.society_routes import CreateAgentBody, PatchAgentBody
+    from dodaios.society.events import ExecutionEnvironment
+    from dodaios.ui.web.society_routes import CreateAgentBody, PatchAgentBody
 
     assert CreateAgentBody.model_fields["execution_environment"].annotation is ExecutionEnvironment
     assert ExecutionEnvironment in get_args(
@@ -63,7 +63,7 @@ async def test_only_bound_sandbox_tool_and_question_survive(rt, tmp_path):
     _live_chat(rt, session)
     briefing = await society_system_extra(None, None, session)
     assert "No host tools" in briefing
-    from jarvis.society.surface import browser_tool_for_session, coding_tool_for_session
+    from dodaios.society.surface import browser_tool_for_session, coding_tool_for_session
 
     assert await browser_tool_for_session(session.session_id) is None
     assert await coding_tool_for_session(session.session_id) is None
@@ -140,7 +140,7 @@ def test_launch_has_no_host_mount_or_network(tmp_path):
 
 
 async def test_tool_unavailable_never_uses_host(rt, tmp_path, monkeypatch):
-    from jarvis.society import sandbox
+    from dodaios.society import sandbox
 
     agent, _ = await rt.roster.create(
         name="Offline", provider="openai", execution_environment="sandbox"

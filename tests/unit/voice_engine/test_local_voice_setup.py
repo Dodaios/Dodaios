@@ -9,10 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core.config import JarvisConfig, VoiceEngineConfig
-from jarvis.plugins.realtime.local_voice import LocalVoiceProvider
-from jarvis.realtime import local_voice_setup as setup
-from jarvis.voice_engine.paths import read_setup_state, venv_python
+from dodaios.core.config import JarvisConfig, VoiceEngineConfig
+from dodaios.plugins.realtime.local_voice import LocalVoiceProvider
+from dodaios.realtime import local_voice_setup as setup
+from dodaios.voice_engine.paths import read_setup_state, venv_python
 from tests.fakes.fake_voice_engine_setup import FakeSetupWorld
 
 PACKAGE = Path(setup.__file__).resolve().parent.parent / "voice_engine"
@@ -52,8 +52,8 @@ def test_setup_builds_the_environment_and_records_the_choice(_isolated_home: Pat
     assert world.envs[2]["HF_HOME"] == str(_isolated_home / "hf")
     assert world.fetched[:3] == ["silero-vad-v6", "smart-turn-v3.2", "parakeet-tdt-0.6b-v3-int8"]
     assert {"piper-de-thorsten-medium", "piper-en-ryan-medium"} <= set(world.fetched)
-    assert (_isolated_home / "app" / "jarvis" / "voice_engine" / "worker.py").is_file()
-    assert (_isolated_home / "app" / "jarvis" / "__init__.py").read_text(encoding="utf-8") == ""
+    assert (_isolated_home / "app" / "dodaios" / "voice_engine" / "worker.py").is_file()
+    assert (_isolated_home / "app" / "dodaios" / "__init__.py").read_text(encoding="utf-8") == ""
     assert world.pulled == []  # installed first: nothing to download
     state = read_setup_state(_isolated_home)
     assert state["llm_model"] == "qwen3.5:4b" and state["tts"] == "pocket"

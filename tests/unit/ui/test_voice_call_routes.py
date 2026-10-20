@@ -12,8 +12,8 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web import voice_call_routes
-from jarvis.ui.web.voice_call_routes import router
+from dodaios.ui.web import voice_call_routes
+from dodaios.ui.web.voice_call_routes import router
 
 
 class _Pipeline:
@@ -54,7 +54,7 @@ def _client(monkeypatch, pipeline, *, config=None, desktop_shell=False) -> TestC
 
 
 def _cfg(mode: str = "pipeline", **browser_voice):
-    from jarvis.core.config import JarvisConfig
+    from dodaios.core.config import JarvisConfig
 
     return JarvisConfig.model_validate(
         {"voice": {"mode": mode}, "browser_voice": browser_voice}

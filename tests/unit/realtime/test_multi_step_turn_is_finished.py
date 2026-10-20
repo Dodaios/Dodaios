@@ -32,11 +32,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.realtime.session import (
+from dodaios.realtime.session import (
     RealtimeVoiceSession,
     _direct_tool_result_retry_prompt,
 )
-from jarvis.voice.action_phrases import action_phrase
+from dodaios.voice.action_phrases import action_phrase
 
 CALENDAR_REASON = "Google Calendar is not connected — connect it in the Plugins view."
 SPAWN_BLOCK_TEXT = (

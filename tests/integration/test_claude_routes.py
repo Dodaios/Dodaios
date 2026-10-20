@@ -5,9 +5,9 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.claude_auth import ClaudeAuthStatus
-from jarvis.core.interactive_terminal import InteractiveTerminalUnavailable
-from jarvis.ui.web import claude_routes
+from dodaios.claude_auth import ClaudeAuthStatus
+from dodaios.core.interactive_terminal import InteractiveTerminalUnavailable
+from dodaios.ui.web import claude_routes
 
 
 def _client(monkeypatch, *, status: ClaudeAuthStatus, login_raises=None):

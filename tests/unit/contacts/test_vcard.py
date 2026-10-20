@@ -1,4 +1,4 @@
-"""Tests for the vCard import/export module (jarvis/contacts/vcard.py).
+"""Tests for the vCard import/export module (dodaios/contacts/vcard.py).
 
 Pins the contract the REST import/export endpoints rely on:
 - export → parse round-trips every field the contact model carries,
@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.contacts.store import ContactStore
-from jarvis.contacts.vcard import (
+from dodaios.contacts.store import ContactStore
+from dodaios.contacts.vcard import (
     _escape,
     _unescape,
     contact_to_vcard,
@@ -196,7 +196,7 @@ def test_skipped_record_keeps_personal_data_out_of_the_log(
     store: ContactStore, caplog: pytest.LogCaptureFixture
 ) -> None:
     records = [{"name": "Private Person", "birthday": "1990-99-99"}]
-    with caplog.at_level("WARNING", logger="jarvis.contacts.vcard"):
+    with caplog.at_level("WARNING", logger="dodaios.contacts.vcard"):
         stats = import_records(store, records)
     assert stats["skipped"] == 1
     # The caller still learns which card failed and why ...

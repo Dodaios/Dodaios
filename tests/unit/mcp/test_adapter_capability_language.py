@@ -22,8 +22,8 @@ tool directly), matching the English behaviour.
 """
 from __future__ import annotations
 
-from jarvis.core.capabilities import Capability, CapabilityRegistry
-from jarvis.mcp.adapter import _objects_from_tool_name, _verbs_from_description
+from dodaios.core.capabilities import Capability, CapabilityRegistry
+from dodaios.mcp.adapter import _objects_from_tool_name, _verbs_from_description
 
 # The exact final transcript of the live turn (trace c82aa1a6, 09:05:24).
 _LIVE_GERMAN_TRANSCRIPT = (

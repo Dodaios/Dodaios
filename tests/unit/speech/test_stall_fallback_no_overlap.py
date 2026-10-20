@@ -12,7 +12,7 @@ AD-OE6 zero-silent-drop still requires a spoken signal).
 """
 from __future__ import annotations
 
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 def _bare() -> SpeechPipeline:

@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.society.review import _ask
+from dodaios.society.review import _ask
 from tests.fakes.fake_seat_registry import RecordingRegistry
 
 ALL = ["openai", "gemini", "claude-api", "claude-cli", "codex", "antigravity", "vertex"]
@@ -25,7 +25,7 @@ ALL = ["openai", "gemini", "claude-api", "claude-cli", "codex", "antigravity", "
 
 @pytest.fixture
 def registry(monkeypatch) -> RecordingRegistry:
-    from jarvis.brain import resolver
+    from dodaios.brain import resolver
 
     reg = RecordingRegistry(ALL)
     monkeypatch.setattr(resolver, "_get_registry", lambda: reg)
@@ -35,8 +35,8 @@ def registry(monkeypatch) -> RecordingRegistry:
 @pytest.fixture(autouse=True)
 def agent_keys(monkeypatch):
     """The Agents-tab key of each family, and a trap for the old fallbacks."""
-    from jarvis.brain import resolver
-    from jarvis.core import config, runtime_refs
+    from dodaios.brain import resolver
+    from dodaios.core import config, runtime_refs
 
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: f"agent-key-{provider}")
     monkeypatch.setattr(runtime_refs, "get_brain_manager", lambda: None)
@@ -89,7 +89,7 @@ async def test_review_on_a_subscription_seat_uses_that_cli_in_structured_mode(re
 async def test_the_claude_row_reviews_where_its_chat_runs(
     registry, monkeypatch, cli_installed, expected
 ):
-    from jarvis.agent_chat import service
+    from dodaios.agent_chat import service
 
     monkeypatch.setattr(service, "_claude_cli_installed", lambda: cli_installed)
     await _ask(_runtime(), _agent("claude-api", "claude-sonnet-5-5"), "Evidence")
@@ -115,7 +115,7 @@ async def test_an_agent_on_a_cli_without_a_background_brain_asks_nothing(registr
 
 
 async def test_an_unset_agent_follows_the_agents_tier_it_chats_on(registry, monkeypatch):
-    from jarvis.local_models import assistant_session
+    from dodaios.local_models import assistant_session
 
     tier = SimpleNamespace(provider="vertex", model="tier-model", ready=True, reason="")
     monkeypatch.setattr(assistant_session, "agents_tier", lambda cfg: tier)
@@ -124,7 +124,7 @@ async def test_an_unset_agent_follows_the_agents_tier_it_chats_on(registry, monk
 
 
 async def test_a_seat_without_a_model_uses_the_chats_router_tier_model(registry):
-    from jarvis.brain.manager import get_tier_default_model
+    from dodaios.brain.manager import get_tier_default_model
 
     cfg = SimpleNamespace(brain=SimpleNamespace(providers={}))
     await _ask(_runtime(cfg), _agent("gemini"), "Evidence")
@@ -137,7 +137,7 @@ async def test_a_seat_without_a_model_uses_the_chats_router_tier_model(registry)
 
 @pytest.fixture
 async def rt(tmp_path):
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.runtime import SocietyRuntime
 
     cfg = SimpleNamespace(wiki=SimpleNamespace(vault_root=str(tmp_path / "vault")))
     runtime = SocietyRuntime(tmp_path, cfg=lambda: cfg, seed_starter_team=False)
@@ -171,7 +171,7 @@ async def _settle(rt) -> None:
 async def test_a_seat_that_keeps_failing_drops_the_review_after_bounded_retries(
     rt, monkeypatch, caplog
 ):
-    from jarvis.society import review_queue
+    from dodaios.society import review_queue
 
     attempts = []
 
@@ -182,7 +182,7 @@ async def test_a_seat_that_keeps_failing_drops_the_review_after_bounded_retries(
     rt.turn_reviewer = seat_down
     monkeypatch.setattr(review_queue.random, "uniform", lambda *args: 0)
     _queue(rt)
-    with caplog.at_level(logging.WARNING, logger="jarvis.society.review_queue"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.society.review_queue"):
         await rt.recover_reviews()
         await _settle(rt)
     assert len(attempts) == review_queue.MAX_ATTEMPTS
@@ -194,7 +194,7 @@ async def test_a_seat_that_keeps_failing_drops_the_review_after_bounded_retries(
 
 
 async def test_a_burst_of_turns_calls_the_seat_only_for_due_reviews(rt, monkeypatch):
-    from jarvis.society import review_queue
+    from dodaios.society import review_queue
 
     calls = []
 
@@ -214,7 +214,7 @@ async def test_a_burst_of_turns_calls_the_seat_only_for_due_reviews(rt, monkeypa
 
 
 async def test_concurrent_drain_requests_are_coalesced(rt, monkeypatch):
-    from jarvis.society import review_queue
+    from dodaios.society import review_queue
 
     started = asyncio.Event()
     release = asyncio.Event()
@@ -243,8 +243,8 @@ async def test_concurrent_drain_requests_are_coalesced(rt, monkeypatch):
 
 
 async def test_the_attempt_budget_survives_a_restart(tmp_path, monkeypatch):
-    from jarvis.society import review_queue
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society import review_queue
+    from dodaios.society.runtime import SocietyRuntime
 
     cfg = SimpleNamespace(wiki=SimpleNamespace(vault_root=str(tmp_path / "vault")))
     # A previous run: the agent exists and three attempts are already spent.
@@ -288,7 +288,7 @@ async def test_the_attempt_budget_survives_a_restart(tmp_path, monkeypatch):
 def test_an_old_archive_gains_the_retry_columns(tmp_path):
     import sqlite3
 
-    from jarvis.society.conversation import ConversationArchive
+    from dodaios.society.conversation import ConversationArchive
 
     path = tmp_path / "society-conversations.db"
     with sqlite3.connect(path) as db:
@@ -335,7 +335,7 @@ SKILL_DRAFT = json.dumps(
 
 class _Skills:
     def __init__(self, root) -> None:
-        from jarvis.skills.registry import SkillRegistry
+        from dodaios.skills.registry import SkillRegistry
 
         self.root = root
         root.mkdir(parents=True, exist_ok=True)
@@ -344,10 +344,10 @@ class _Skills:
 
 
 async def test_skill_learning_authors_on_the_agents_seat_only(registry, monkeypatch, tmp_path):
-    from jarvis.agent_chat import runner_brain
-    from jarvis.core.model_selection import ModelSelection, use_operation_model
-    from jarvis.skills.creator_service import SkillCreatorInput
-    from jarvis.society.learning import default_creator_factory
+    from dodaios.agent_chat import runner_brain
+    from dodaios.core.model_selection import ModelSelection, use_operation_model
+    from dodaios.skills.creator_service import SkillCreatorInput
+    from dodaios.society.learning import default_creator_factory
 
     def jarvis_brain(*args, **kwargs):
         raise AssertionError("society skill learning asked Jarvis' own provider")
@@ -373,10 +373,10 @@ async def test_skill_learning_authors_on_the_agents_seat_only(registry, monkeypa
 
 
 async def test_a_failing_skill_seat_asks_no_other_provider(registry, monkeypatch, tmp_path):
-    from jarvis.agent_chat import runner_brain
-    from jarvis.brain import resolver as brain_resolver
-    from jarvis.skills.creator_service import SkillCreatorInput
-    from jarvis.society.learning import default_creator_factory
+    from dodaios.agent_chat import runner_brain
+    from dodaios.brain import resolver as brain_resolver
+    from dodaios.skills.creator_service import SkillCreatorInput
+    from dodaios.society.learning import default_creator_factory
 
     def ladder(*args, **kwargs):
         raise AssertionError("society skill learning climbed the resolver ladder")
@@ -394,8 +394,8 @@ async def test_a_failing_skill_seat_asks_no_other_provider(registry, monkeypatch
 
 
 async def test_the_learning_pass_awaits_the_seat_factory(tmp_path):
-    from jarvis.society.learning import LearningPass, TurnDigest
-    from jarvis.society.runtime import SocietyRuntime
+    from dodaios.society.learning import LearningPass, TurnDigest
+    from dodaios.society.runtime import SocietyRuntime
 
     runtime = SocietyRuntime(tmp_path, cfg=lambda: None, seed_starter_team=False)
     await runtime.ensure_started()

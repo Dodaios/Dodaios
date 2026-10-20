@@ -14,7 +14,7 @@ The build side of [`docs/agent-society/character-pipeline.md`](../../docs/agent-
 blender -b --python scripts/figures/build_figures.py -- --target biped-medium
 ```
 
-  Output lands in `jarvis/ui/web/frontend/src/assets/society/figures/`; every produced file is
+  Output lands in `dodaios/ui/web/frontend/src/assets/society/figures/`; every produced file is
   validated by the gate before the script exits 0.
 - `cache/` — fetched sources and generated sheets; gitignored.
 

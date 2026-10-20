@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.hardware import detection
+from dodaios.hardware import detection
 
 
 @pytest.fixture(autouse=True)
@@ -232,10 +232,10 @@ def test_the_voice_stack_refuses_a_card_it_has_no_backend_for(
     letting one through would clear the memory floor and then launch with a
     torch device that does not exist on the box — worse than the honest
     "no supported accelerator" refusal it gives today (os-parity P-28)."""
-    from jarvis.realtime.local_server import preflight
+    from dodaios.realtime.local_server import preflight
 
     monkeypatch.setattr(
-        "jarvis.hardware.detection.usable_accelerator_gb", lambda: (16.0, "windows-registry")
+        "dodaios.hardware.detection.usable_accelerator_gb", lambda: (16.0, "windows-registry")
     )
     assert preflight._usable_accelerator_gb() == (0.0, "none")
 
@@ -244,7 +244,7 @@ def test_the_voice_stack_refuses_a_card_it_has_no_backend_for(
 def test_the_voice_stack_still_takes_the_two_sources_it_can_drive(
     monkeypatch: pytest.MonkeyPatch, source: str, gb: float
 ) -> None:
-    from jarvis.realtime.local_server import preflight
+    from dodaios.realtime.local_server import preflight
 
-    monkeypatch.setattr("jarvis.hardware.detection.usable_accelerator_gb", lambda: (gb, source))
+    monkeypatch.setattr("dodaios.hardware.detection.usable_accelerator_gb", lambda: (gb, source))
     assert preflight._usable_accelerator_gb() == (gb, source)

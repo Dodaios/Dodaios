@@ -28,10 +28,10 @@ install/uninstall.ps1        text eol=lf
 # on Windows. `verify-wave6.sh` is the goal-terminal proof script.
 requirements.txt             text eol=lf
 requirements.in              text eol=lf
-jarvis/assets/browser/requirements.lock text eol=lf
-jarvis/assets/browser/requirements.in text eol=lf
-jarvis/assets/browser/bootstrap.lock text eol=lf
-jarvis/assets/browser/bootstrap.in text eol=lf
+dodaios/assets/browser/requirements.lock text eol=lf
+dodaios/assets/browser/requirements.in text eol=lf
+dodaios/assets/browser/bootstrap.lock text eol=lf
+dodaios/assets/browser/bootstrap.in text eol=lf
 verify-wave6.sh              text eol=lf
 
 # Git hooks run through a POSIX shell and must never be checked out as CRLF.
@@ -53,7 +53,7 @@ install/keys/*.pub           text eol=lf
 install/tuf/*.json           text eol=lf
 
 # Vendored upstream patches are applied byte-exactly under a SHA-256 gate
-# (jarvis/realtime/local_server/patching.py): a CRLF checkout would change
+# (dodaios/realtime/local_server/patching.py): a CRLF checkout would change
 # every inserted line and fail the result hash. Pin them to LF everywhere.
 *.patch                      text eol=lf
 
@@ -63,4 +63,4 @@ install/tuf/*.json           text eol=lf
 # Marking it generated keeps it out of pull-request diffs and out of GitHub's
 # language statistics. Contributors never commit it; the maintainer rebuilds
 # the bundle from HEAD's sources (see CONTRIBUTING.md, "Opening your PR").
-jarvis/ui/web/dist/**        linguist-generated=true
+dodaios/ui/web/dist/**        linguist-generated=true

@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.config import load_config
-from jarvis.core.instance import InstanceIdentity
-from jarvis.ui.desktop_app import boot_overlay_style
-from jarvis.ui.overlay_styles import OVERLAY_STYLES
+from dodaios.core.config import load_config
+from dodaios.core.instance import InstanceIdentity
+from dodaios.ui.desktop_app import boot_overlay_style
+from dodaios.ui.overlay_styles import OVERLAY_STYLES
 from scripts.measure_boot import _bench_env
 
 

@@ -23,9 +23,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.kontrollierer import orchestrator as orch_mod
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.kontrollierer import orchestrator as orch_mod
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
 from tests.missions.kontrollierer.test_loop import (
     FakeCriticRunner,
     FakeWorker,

@@ -6,7 +6,7 @@ This prevents a constraint self-bypass via tool choice.
 """
 from __future__ import annotations
 
-from jarvis.core.self_mod.registry import SelfModRegistry
+from dodaios.core.self_mod.registry import SelfModRegistry
 
 
 def test_review_max_iterations_not_in_allowlist() -> None:

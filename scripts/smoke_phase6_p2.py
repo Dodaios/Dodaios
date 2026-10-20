@@ -32,7 +32,7 @@ from pathlib import Path
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
 
-# Repo root in sys.path so `from jarvis.missions...` works
+# Repo root in sys.path so `from dodaios.missions...` works
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 OK = "[OK]"
@@ -78,12 +78,12 @@ async def smoke() -> int:
     print(f"{OK} psutil {psutil.__version__} imported")
 
     # --- Section 3: create repo root + worktree ---
-    from jarvis.missions.isolation import (  # noqa: PLC0415
+    from dodaios.missions.isolation import (  # noqa: PLC0415
         WindowsJobObject,
         WorktreeManager,
         build_worker_env,
     )
-    from jarvis.missions.workers.claude_direct_worker import (  # noqa: PLC0415
+    from dodaios.missions.workers.claude_direct_worker import (  # noqa: PLC0415
         ClaudeDirectWorker,
     )
 

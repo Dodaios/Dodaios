@@ -1,6 +1,6 @@
 """An in-process Ollama server for tests: the native API over ``httpx.MockTransport``.
 
-Models the surface :mod:`jarvis.brain.ollama_inventory` talks to — ``/api/tags``,
+Models the surface :mod:`dodaios.brain.ollama_inventory` talks to — ``/api/tags``,
 ``/api/show``, ``/api/ps``, ``/api/generate`` (unload ping), ``/api/embed``, ``/api/delete`` —
 with real state: deleting a model removes it from the next ``/api/tags``, an
 unload ping removes it from ``/api/ps``, and every call is recorded so a test

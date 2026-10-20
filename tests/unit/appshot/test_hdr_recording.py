@@ -7,7 +7,7 @@ import sys
 import numpy as np
 import pytest
 
-from jarvis.appshot import hdr_recording
+from dodaios.appshot import hdr_recording
 
 
 def _planes(width: int = 8, height: int = 4) -> tuple[np.ndarray, np.ndarray]:

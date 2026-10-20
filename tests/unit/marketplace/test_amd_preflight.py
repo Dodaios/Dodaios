@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.marketplace import amd_mcp
+from dodaios.marketplace import amd_mcp
 
 
 @pytest.mark.parametrize("platform", ["win32", "darwin"])

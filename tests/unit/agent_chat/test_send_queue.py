@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import send_queue
-from jarvis.agent_chat.send_queue import MAX_QUEUED, QueueFull, send_or_queue
-from jarvis.agent_chat.service import SessionBusy
+from dodaios.agent_chat import send_queue
+from dodaios.agent_chat.send_queue import MAX_QUEUED, QueueFull, send_or_queue
+from dodaios.agent_chat.service import SessionBusy
 
 
 class BusyChat:
@@ -227,7 +227,7 @@ async def test_followups_do_not_overtake_a_first_send_during_async_setup():
 
 
 async def test_queued_messages_keep_attachments_and_their_own_timezone():
-    from jarvis.tasks.context import client_timezone
+    from dodaios.tasks.context import client_timezone
 
     delivered = []
 

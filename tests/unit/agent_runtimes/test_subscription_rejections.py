@@ -9,11 +9,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_runtimes import gateway
-from jarvis.core.http_pool import HttpClientPool
-from jarvis.live.subscription_auth import SubscriptionCredentials
-from jarvis.live.subscription_reasoning import SubscriptionReasoning
-from jarvis.ui.web.runtime_gateway_routes import router
+from dodaios.agent_runtimes import gateway
+from dodaios.core.http_pool import HttpClientPool
+from dodaios.live.subscription_auth import SubscriptionCredentials
+from dodaios.live.subscription_reasoning import SubscriptionReasoning
+from dodaios.ui.web.runtime_gateway_routes import router
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -72,7 +72,7 @@ def test_rejection_preserves_status_and_safe_reason(
 
 @pytest.mark.parametrize("body", [b"not JSON", b"x" * 70_000], ids=["invalid", "oversized"])
 async def test_invalid_error_bodies_still_report_rejection_without_leaking(body):
-    from jarvis.live.subscription_reasoning import SubscriptionReasoningError
+    from dodaios.live.subscription_reasoning import SubscriptionReasoningError
 
     async def credentials(**kwargs):
         return SubscriptionCredentials("fixture-token", "fixture-account")
@@ -95,7 +95,7 @@ async def test_invalid_error_bodies_still_report_rejection_without_leaking(body)
 
 
 async def test_rejection_after_stream_start_stays_an_sse_failure(monkeypatch):
-    from jarvis.live.subscription_reasoning import SubscriptionReasoningError
+    from dodaios.live.subscription_reasoning import SubscriptionReasoningError
 
     class FailingStream:
         async def stream(self, **kwargs):
@@ -113,7 +113,7 @@ async def test_rejection_after_stream_start_stays_an_sse_failure(monkeypatch):
 
 
 async def test_broken_error_body_keeps_the_received_http_status():
-    from jarvis.live.subscription_reasoning import SubscriptionReasoningError
+    from dodaios.live.subscription_reasoning import SubscriptionReasoningError
 
     class BrokenBody(httpx.AsyncByteStream):
         async def __aiter__(self):

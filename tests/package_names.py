@@ -8,8 +8,8 @@ spelling one out, so a guard keeps guarding when the package directory moves.
 
 from __future__ import annotations
 
-import jarvis as _package
-from jarvis.core.branding import LEGACY_PACKAGE_NAMES
+import dodaios as _package
+from dodaios.core.branding import LEGACY_PACKAGE_NAMES
 
 __all__ = ["PACKAGE_NAME", "PACKAGE_NAMES", "is_package_module"]
 

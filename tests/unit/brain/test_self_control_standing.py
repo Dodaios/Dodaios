@@ -8,11 +8,11 @@ without keyword whack-a-mole; these tests pin it.
 """  # i18n-allow: quoted German utterance under test
 from __future__ import annotations
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _SELF_CONTROL_STANDING,
     BrainManager,
 )
-from jarvis.core.config import load_config
+from dodaios.core.config import load_config
 
 
 def _manager() -> BrainManager:
@@ -55,7 +55,7 @@ def test_standing_line_names_the_structured_path_and_forbids_claiming() -> None:
 
 
 def test_keyworded_directive_still_stacks_on_top() -> None:
-    from jarvis.brain.manager import _SELF_CONTROL_DIRECTIVE
+    from dodaios.brain.manager import _SELF_CONTROL_DIRECTIVE
 
     m = _manager()
     m._self_control_directive = _SELF_CONTROL_DIRECTIVE

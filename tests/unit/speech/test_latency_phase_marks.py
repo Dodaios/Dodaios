@@ -2,7 +2,7 @@
 ``LatencyTurnComplete`` flush event.
 
 Status quo being fixed (latency deep-dive 2026-06-10): ``LatencyTracker``
-exists and the JSONL writer (``jarvis/telemetry/latency_log.py``) is attached
+exists and the JSONL writer (``dodaios/telemetry/latency_log.py``) is attached
 at boot, but
 
   * the streaming hot path only marks ``BRAIN_FIRST_TOKEN`` — the report
@@ -28,11 +28,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import LatencyPhase, LatencyTurnComplete
-from jarvis.core.protocols import AudioChunk, Transcript
-from jarvis.speech.pipeline import SpeechPipeline
-from jarvis.telemetry.latency import LatencyTracker
+from dodaios.core.bus import EventBus
+from dodaios.core.events import LatencyPhase, LatencyTurnComplete
+from dodaios.core.protocols import AudioChunk, Transcript
+from dodaios.speech.pipeline import SpeechPipeline
+from dodaios.telemetry.latency import LatencyTracker
 
 
 @dataclass

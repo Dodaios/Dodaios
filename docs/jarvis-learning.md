@@ -1,7 +1,7 @@
 # Jarvis' self-learning loop
 
-Tier: **T2 memory surface**. Code: `jarvis/memory/learning/`. Config:
-`[memory.learning]` (`JarvisLearningConfig` in `jarvis/core/config.py`).
+Tier: **T2 memory surface**. Code: `dodaios/memory/learning/`. Config:
+`[memory.learning]` (`JarvisLearningConfig` in `dodaios/core/config.py`).
 
 Jarvis learns from its own conversations with the user, spoken and typed, and
 carries what it learned into every later conversation: who the user is, what
@@ -24,7 +24,7 @@ Jarvis itself, tuned for a voice assistant.
    marked. A conversation with no marked turn never reaches a model.
 3. **Explicit requests (immediate, always MEMORY.md).** The conversation
    model saves "remember X" / "merk dir X" itself, while the conversation
-   runs, through the `remember` tool (`jarvis/plugins/tool/remember.py`):
+   runs, through the `remember` tool (`dodaios/plugins/tool/remember.py`):
    one self-contained sentence, dated, into `society/jarvis/MEMORY.md` with
    `origin: user` and importance 10. On GPT-Live the tool sits in the voice
    tool set (`BrainSupervisorToolGateway._voice_tools`; the router stays a
@@ -72,7 +72,7 @@ Jarvis itself, tuned for a voice assistant.
 
    Entries are written in the language the user spoke, so the quote and the
    entry share their words.
-6. **Write.** Changes go through `jarvis.society.memory_books`, the same
+6. **Write.** Changes go through `dodaios.society.memory_books`, the same
    locked, journaled layer the agents use, into the lead identity's notebooks:
 
    | File (in the vault) | Holds |
@@ -103,7 +103,7 @@ Typed chat turns contribute only what the person typed, never attachments.
 ## SOUL.md: the assistant's own character
 
 The third target, `soul`, is the assistant itself. It lives in
-`data/workspace/SOUL.md` (`jarvis/memory/soul.py`), not in the vault:
+`data/workspace/SOUL.md` (`dodaios/memory/soul.py`), not in the vault:
 
 | Part of SOUL.md | Maintained by |
 | --- | --- |
@@ -112,7 +112,7 @@ The third target, `soul`, is the assistant itself. It lives in
 | role, vibe, `## Tone rules`, `## Limits` | the user, by hand; nothing rewrites them |
 
 The writer is the model that already heard the correction, not the review.
-`update_soul` (`jarvis/plugins/tool/update_soul.py`) sits in the live voice
+`update_soul` (`dodaios/plugins/tool/update_soul.py`) sits in the live voice
 tool set only (`BrainSupervisorToolGateway._voice_tools`, ADR-0011 stays a
 pure dispatcher), so on GPT-Live the thinking model calls it through
 `call_tool`; the identity block it receives carries one extra sentence
@@ -121,7 +121,7 @@ the notebook budget and the ledger. The review neither shows nor accepts the
 `soul` target: no review call and no reviewer tokens are spent on the
 assistant's character. The name itself is never stored as an entry.
 
-SOUL.md is not part of the learned snapshot below. `jarvis/brain/identity.py`
+SOUL.md is not part of the learned snapshot below. `dodaios/brain/identity.py`
 renders it, after a name directive ("YOUR NAME IS GEORGE ... Personal Jarvis
 is the name of the app you run inside, not your name"), at the very top of
 every surface: the classic brain prompt (and with it the CLI chat seats), the

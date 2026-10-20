@@ -9,10 +9,10 @@ confirmation — without it, a new destructive route silently ships under-gated
 (the exact failure mode of a hand-maintained denylist).
 
 DELETE routes are exempt: the method alone marks them dangerous everywhere
-(``jarvis.cli_ctl.safety.is_dangerous``), no per-route flag needed.
+(``dodaios.cli_ctl.safety.is_dangerous``), no per-route flag needed.
 
 The marker list is a deliberate stdlib-only copy of
-``jarvis.cli_ctl.safety._DANGEROUS_MARKERS`` (this gate must stay importable
+``dodaios.cli_ctl.safety._DANGEROUS_MARKERS`` (this gate must stay importable
 without the package installed); a parity test
 (``tests/unit/cli_ctl/test_danger_metadata.py``) asserts the two never drift.
 
@@ -25,9 +25,9 @@ import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
-_WEB = _REPO / "jarvis" / "ui" / "web"
+_WEB = _REPO / "dodaios" / "ui" / "web"
 
-# Copy of jarvis.cli_ctl.safety._DANGEROUS_MARKERS — parity-tested, see above.
+# Copy of dodaios.cli_ctl.safety._DANGEROUS_MARKERS — parity-tested, see above.
 DANGEROUS_MARKERS: tuple[str, ...] = (
     "/restart",
     "/outbound",

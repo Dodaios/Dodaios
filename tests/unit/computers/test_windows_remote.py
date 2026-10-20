@@ -19,14 +19,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat import remote_cli
-from jarvis.computers import identity, remote_os, service, toolbox
-from jarvis.computers.probe import WINDOWS_PROBE_SCRIPT, parse_probe
-from jarvis.computers.remote_terminal import SshPtyPool, pane_argv
-from jarvis.computers.service import ComputerService
-from jarvis.computers.ssh import authorize_key_script_windows
-from jarvis.computers.store import ComputerStore
-from jarvis.society import remote
+from dodaios.agent_chat import remote_cli
+from dodaios.computers import identity, remote_os, service, toolbox
+from dodaios.computers.probe import WINDOWS_PROBE_SCRIPT, parse_probe
+from dodaios.computers.remote_terminal import SshPtyPool, pane_argv
+from dodaios.computers.service import ComputerService
+from dodaios.computers.ssh import authorize_key_script_windows
+from dodaios.computers.store import ComputerStore
+from dodaios.society import remote
 from tests.fakes.fake_ssh_server import TEST_PASSWORD, FakeSshServer
 
 GIT_BASH = r"C:\Program Files\Git\bin\bash.exe"
@@ -112,7 +112,7 @@ class WindowsBox:
 @pytest.fixture
 def computers(tmp_path: Path, secret_box, monkeypatch: pytest.MonkeyPatch) -> ComputerService:  # noqa: ANN001
     path = tmp_path / "computers.json"
-    monkeypatch.setattr("jarvis.computers.store.default_path", lambda: path)
+    monkeypatch.setattr("dodaios.computers.store.default_path", lambda: path)
     svc = ComputerService(ComputerStore(path))
     monkeypatch.setattr(service, "_SERVICE", svc)
     return svc
@@ -433,7 +433,7 @@ async def test_keep_working_never_moves_panes_to_windows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Without tmux its agents would stop with the app's connection at quit."""
-    from jarvis.agentic_ide import offload_on_quit
+    from dodaios.agentic_ide import offload_on_quit
 
     monkeypatch.setattr(offload_on_quit, "target", lambda: desk.id)
     placed: list[str] = []

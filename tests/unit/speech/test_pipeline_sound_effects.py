@@ -12,8 +12,8 @@ import asyncio
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
 
-from jarvis.audio.chime import CHIME_PCM, READY_PCM
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.audio.chime import CHIME_PCM, READY_PCM
+from dodaios.speech.pipeline import SpeechPipeline
 
 _MISSING = object()
 
@@ -84,7 +84,7 @@ async def test_wake_chime_muted_but_spoken_ack_still_plays(monkeypatch):
     async def _fast_sleep(_secs):  # noqa: ANN001, ANN202
         return None
 
-    monkeypatch.setattr("jarvis.speech.pipeline.asyncio.sleep", _fast_sleep)
+    monkeypatch.setattr("dodaios.speech.pipeline.asyncio.sleep", _fast_sleep)
     await pipe._play_ack(ptt=False)
     assert pipe._player.plays == [pipe._ack_pcm]  # type: ignore[attr-defined]
 

@@ -9,8 +9,8 @@ from uuid import uuid4
 import pytest
 from pydantic import TypeAdapter
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     BrainTurnCompleted,
     BrainTurnStarted,
     Event,
@@ -18,15 +18,15 @@ from jarvis.core.events import (
     VoiceSessionStarted,
     VoiceTranscriptUpdated,
 )
-from jarvis.live import runtime
-from jarvis.live.native import NativeLiveVoiceSession
-from jarvis.live.session import LiveVoiceSession
-from jarvis.live.state import LiveLedger, TranscriptFragment
-from jarvis.live.transcript import LiveTranscript, read_legacy_transcript
-from jarvis.sessions.recorder import SessionRecorder
-from jarvis.sessions.store import SessionStore
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
-from jarvis.ui.web.chats_routes import ChatTurn, _live_voice_messages
+from dodaios.live import runtime
+from dodaios.live.native import NativeLiveVoiceSession
+from dodaios.live.session import LiveVoiceSession
+from dodaios.live.state import LiveLedger, TranscriptFragment
+from dodaios.live.transcript import LiveTranscript, read_legacy_transcript
+from dodaios.sessions.recorder import SessionRecorder
+from dodaios.sessions.store import SessionStore
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
+from dodaios.ui.web.chats_routes import ChatTurn, _live_voice_messages
 
 
 def feed(projector, role, text, start, end, *, snapshot=False):
@@ -97,7 +97,7 @@ def test_running_browser_call_blocks_a_competing_native_start(monkeypatch):
 )
 def test_python_typescript_payload_parity(event_class, interface):
     source = (
-        Path(__file__).resolve().parents[2] / "jarvis/ui/web/frontend/src/lib/liveTranscript.ts"
+        Path(__file__).resolve().parents[2] / "dodaios/ui/web/frontend/src/lib/liveTranscript.ts"
     ).read_text(encoding="utf-8")
     body = source.split(f"export interface {interface} {{", 1)[1].split("}", 1)[0]
     assert set(re.findall(r"^\s+(\w+):", body, re.MULTILINE)) == (

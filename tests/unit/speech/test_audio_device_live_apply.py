@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _FakePlayer:

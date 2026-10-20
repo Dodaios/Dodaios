@@ -1,6 +1,6 @@
 """Regression tests: a probed child process that survives ``kill()`` must
 not wedge the prober (or the synchronous ``asyncio.run(bootstrap())`` path
-in jarvis/clis/loader.py) forever.
+in dodaios/clis/loader.py) forever.
 
 Before this fix, ``proc.kill(); await proc.wait()`` had no timeout — a
 ``.cmd``/``.bat`` shim's actual grandchild process surviving the kill signal
@@ -13,9 +13,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.clis import prober as prober_mod
-from jarvis.clis.prober import CliStatusProber
-from jarvis.clis.spec import AuthConfig, CliSpec, InstallMethods, RiskConfig
+from dodaios.clis import prober as prober_mod
+from dodaios.clis.prober import CliStatusProber
+from dodaios.clis.spec import AuthConfig, CliSpec, InstallMethods, RiskConfig
 
 
 class _HangingProcess:
