@@ -29,7 +29,7 @@ from loguru import logger
 from ..ledger import now_ms
 from ..records import BuildRecord, Outcome, State
 from . import brief as brief_mod
-from .context import BRANCH_PREFIX, Context, land_repos, parse_signature
+from .context import BRANCH_PREFIX, Context, has_pull, land_repos, parse_signature
 from .github import PullState
 
 #: A pull request with no check at all after this long is judged by local tests.
@@ -90,7 +90,7 @@ async def _stop_thread(ctx: Context, session_id: str) -> None:
 
 async def watch(ctx: Context, record: BuildRecord) -> None:
     """One look at the pull request of ``record`` and whatever follows from it."""
-    if record.artefact.get("type") != "pull_request":
+    if not has_pull(record):
         return
     api = ctx.github()
     if api is None:

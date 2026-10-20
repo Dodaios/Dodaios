@@ -15,6 +15,7 @@ from dodaios.core.events import (
     VoiceTurnStarted,
 )
 from dodaios.core.protocols import AudioChunk, ToolResult
+from dodaios.realtime import session as session_mod
 from dodaios.realtime.protocol import RealtimeEvent
 from dodaios.realtime.session import RealtimeVoiceSession
 
@@ -378,7 +379,9 @@ async def test_open_injects_active_providers_model_and_voice():
     opened_cfg = sess._provider.opened_with
     assert opened_cfg.model == "gpt-realtime-2.1"
     assert opened_cfg.voice == "echo"
-    assert "Realtime engine, provider fake, model gpt-realtime-2.1" in opened_cfg.instructions
+    assert "Runtime: realtime engine, provider fake, model gpt-realtime-2.1." in (
+        opened_cfg.instructions
+    )
     ready = next(message for message in messages if message["type"] == "audio_ready")
     assert ready["provider"] == "fake"
     assert ready["model"] == "gpt-realtime-2.1"
@@ -815,7 +818,7 @@ async def test_final_transcript_sets_turn_language_before_requesting_response():
 
     assert provider.opened_with.language == "en"
     assert provider.opened_with.language_is_pinned is False
-    assert "language of the user's current spoken turn" in (
+    assert "Reply in the language of the user's turn" in (
         provider.opened_with.instructions
     )
     assert provider.session.session_updates[-1]["language"] == "es"
@@ -2409,8 +2412,8 @@ async def test_instructions_carry_tool_role_when_bridge_active():
     await sess.end(reason="test")
 
     instructions = provider.opened_with.instructions
-    assert "call the matching function" in instructions
-    assert "Dodaios-Agent spawn" in instructions
+    assert "call the matching one" in instructions
+    assert "Dodaios-Agent only on request" in instructions
 
 
 @pytest.mark.asyncio
@@ -2562,8 +2565,7 @@ async def test_delegate_mode_declares_single_action_function():
 
     assert _tool_names(provider.opened_with) == ["jarvis_action", "end_call"]
     assert "jarvis_action" in provider.opened_with.instructions
-    assert "Wiki or personal memory" in provider.opened_with.instructions
-    assert "MCPs" in provider.opened_with.instructions
+    assert "memory and past" in provider.opened_with.instructions
 
 
 @pytest.mark.asyncio
@@ -2839,12 +2841,12 @@ async def test_delegate_directive_names_screen_control_and_forbids_capability_de
     await sess.end(reason="test")
 
     instructions = provider.opened_with.instructions
-    assert "clicks, types, and navigates" in instructions
-    assert "Never tell the user that you lack" in instructions
+    assert "screen and computer" in instructions
+    assert "claim you lack access" in instructions
     declaration = next(
         d for d in provider.opened_with.tools if d["name"] == "jarvis_action"
     )
-    assert "click, type, and navigate" in declaration["description"]
+    assert "computer on screen" in declaration["description"]
 
 
 def test_delegate_history_keeps_a_task_five_exchanges_back():
@@ -2910,7 +2912,7 @@ async def test_local_evidence_turns_run_deterministic_jarvis_action(utterance):
     assert provider.session.text_inputs
     assert "<trusted_action_result>" in provider.session.text_inputs[-1]
     update = provider.session.session_updates[-1]["instructions"]
-    assert "orchestrator is handling this current turn" in update
+    assert session_mod._DELEGATE_REQUIRED_DIRECTIVE in update
     await sess.end(reason="test")
 
 
@@ -2976,8 +2978,8 @@ async def test_native_turn_update_discourages_delegation():
     await sess.wait_finished()
 
     update = provider.session.session_updates[-1]["instructions"]
-    assert "Answer it directly from your own knowledge" in update
-    assert "orchestrator is handling this current turn" not in update
+    assert session_mod._DELEGATE_DISCOURAGED_DIRECTIVE in update
+    assert session_mod._DELEGATE_REQUIRED_DIRECTIVE not in update
     await sess.end(reason="test")
 
 
@@ -2999,8 +3001,8 @@ async def test_forced_turn_update_never_carries_discourage_directive():
     await sess.wait_finished()
 
     update = provider.session.session_updates[-1]["instructions"]
-    assert "orchestrator is handling this current turn" in update
-    assert "Answer it directly from your own knowledge" not in update
+    assert session_mod._DELEGATE_REQUIRED_DIRECTIVE in update
+    assert session_mod._DELEGATE_DISCOURAGED_DIRECTIVE not in update
     await sess.end(reason="test")
 
 
@@ -3934,7 +3936,7 @@ async def test_turn_after_a_pending_action_may_not_claim_an_outcome():
     await asyncio.wait_for(instructions_seen.wait(), timeout=2)
 
     update = provider.session.session_updates[-1]["instructions"]
-    assert "still being executed" in update
+    assert session_mod._DELEGATE_PENDING_DIRECTIVE in update
     gate.set()
     await sess.wait_finished()
     await sess.end(reason="test")
@@ -5755,9 +5757,9 @@ async def test_delegate_directive_orders_a_function_call_for_private_memory():
     instructions = provider.opened_with.instructions
     # It must never again be told to sit on its hands for those turns.
     assert "Do not answer or call a function for those turns" not in instructions
-    assert "Wiki or personal memory" in instructions
-    assert "garbled follow-up" in instructions
-    assert "Never announce that you are going to" in instructions
+    assert "memory and past" in instructions
+    assert "vague follow-ups" in instructions
+    assert "Never announce an action" in instructions
 
 
 @pytest.mark.asyncio
@@ -7013,35 +7015,15 @@ def test_session_instructions_anchor_clock_and_stale_knowledge_guard(monkeypatch
     )
     text = session_mod._session_instructions("en")
     assert datetime.now().astimezone().strftime("%Y-%m-%d") in text
-    assert "training cutoff" in text
-    # The guard must anchor reasoning on the injected clock, not training years.
-    assert "current date" in text
-    # And it must demand honest dating instead of asserting stale state.
-    assert "as of my last information" in text
-
-
-def test_session_instructions_carry_the_precision_guard(monkeypatch):
-    """BUG-106: the freshness guard alone covers only time-sensitive facts.
-    The instructions must also forbid presenting remembered niche figures as
-    exact and resting categorical feasibility verdicts on them (live
-    2026-07-21 11:36: an invented runway length produced a confident,
-    wrong 'cannot land there')."""
-    from dodaios.brain import persona_loader
-    from dodaios.realtime import session as session_mod
-
-    monkeypatch.setattr(
-        persona_loader,
-        "load_effective_persona_prompt",
-        lambda *, compact=False: "PERSONA_MARKER",
-    )
-    text = session_mod._session_instructions("en")
-    assert "Precision guard" in text
-    # Niche figures must never be asserted as exact recall...
-    assert "Never present a remembered niche figure as exact" in text
-    # ...and no flat verdict may be built on one.
-    assert "never rest a categorical verdict" in text
-    # The escape hatch must stay reachable: "check" is an action request.
-    assert "explicit action request" in text
+    # The guard dates the model's knowledge against the injected clock...
+    assert "predates today" in text
+    # ...and demands honest dating of time-sensitive facts and niche figures
+    # (BUG-106: an invented runway length became a flat "cannot land there").
+    assert "possibly outdated" in text
+    assert "niche figures" in text
+    assert "offer to check" in text
+    # The escape hatch stays reachable: a check is a live check for the role.
+    assert "live check" in session_mod._DELEGATE_ROLE_DIRECTIVE
 
 
 def test_preferences_block_renders_the_user_file_with_the_realtime_cap(monkeypatch):
@@ -9318,9 +9300,9 @@ async def test_session_instructions_carry_the_one_speaker_discipline():
     from dodaios.realtime.session import _session_instructions
 
     text = _session_instructions("de")
-    assert "ONE voice" in text
-    assert "Never speak both sides" in text
-    assert "Do not say goodbye" in text
+    assert "exactly one assistant response" in text
+    assert "never supply the user's side" in text
+    assert "Keep the call open" in text
 
 
 @pytest.mark.asyncio

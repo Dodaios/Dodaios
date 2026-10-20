@@ -77,9 +77,11 @@ the queue; an undo stops it the same way and removes what it made.
    inside the repository (`<repo>/.worktrees/`). A branch of that name that
    already exists, here or on GitHub, stops the build. The person's checkout is
    never touched.
-2. At most one planning call on a connected subscription, inside
-   `cost.attributed(build_id)`. A `large` estimate stops the build. Without a
-   subscription brain there is no call and the coding agent plans itself.
+2. At most one planning call through the loop's shared seats
+   (`self_build.brain.ask`: signed-in subscriptions, then keyless local
+   models, never a per-token key), inside `cost.attributed(build_id)`. A
+   `large` estimate stops the build. Without a seat there is no call and the
+   coding agent plans itself.
 3. A headless coding thread in that worktree (the IDE's thread surface, so the
    person can read every step). The prompt holds the brief, the issue, the
    relevant file outlines and the rules: small change with tests, follow the
@@ -111,6 +113,14 @@ minutes):
   counts `corrected`; the build is kept. Closed without merge: the branch and
   worktree go and the build is `undone`. Each outcome feeds the repository's
   profile (triage) and its brief (`outcomes`, read by the next prompt).
+
+## In the ledger
+
+The record's `artefact` follows the provenance convention every "built by
+Dodaios" badge joins on: `{"type": "code", "id": <pull request URL>, "repo":
+"<owner>/<repo>"}`, plus `stage` (`worktree`, `coding`, `pushing`, `pushed`,
+`pull_request`), `branch`, `draft`, the local test result and the changed
+files. Before the pull request exists, `id` is empty.
 
 ## Undo
 

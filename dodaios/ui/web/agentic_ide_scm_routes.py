@@ -516,6 +516,21 @@ def follow_main_status() -> dict:
     return _follow_status()
 
 
+@router.post(
+    "/follow-main/clear-lock", summary="Remove a stale git lock that blocks following main"
+)
+def clear_follow_lock() -> dict:
+    """Only a lock older than ten minutes is removed; a younger one answers 409."""
+    from dodaios.core.main_follow import get_follower
+
+    follower = get_follower()
+    if follower is None:
+        raise HTTPException(status_code=404, detail="This app instance does not follow main.")
+    if not follower.clear_stale_lock():
+        raise HTTPException(status_code=409, detail="The git lock is too recent to be stale.")
+    return _follow_status()
+
+
 @router.put("/follow-main", summary="Keep this app on the newest main, or stop")
 def set_follow_main(body: FollowMainBody) -> dict:
     """Saved in ``[agentic_ide] follow_main``; the follower looks again at once."""

@@ -38,11 +38,9 @@ guarded, with an instant deterministic fallback. It never blocks the
 mission dispatch itself, which is armed before the announcement is
 composed (see ``SpawnWorkerTool.execute``).
 
-The German strings in this module are deliberate runtime voice content
-(bilingual DE+EN voice product), allowlisted in
-``scripts/ci/german-allowlist.txt`` — the same policy slot as
-``persona_prompt.py``. The spawn personas are NOT part of the locked
-2026-05-11 flash-brain spec; they are owned by this module.
+The German strings in this module are the curated fallback pools, deliberate
+runtime voice content allowlisted in ``scripts/ci/german-allowlist.txt``. The
+spawn persona is English and owned by this module.
 """
 from __future__ import annotations
 
@@ -76,8 +74,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "SPAWN_PERSONA_DE",
-    "SPAWN_PERSONA_EN",
+    "SPAWN_PERSONA",
     "STILL_RUNNING_PHRASES",
     "SpawnAnnouncementComposer",
     "get_spawn_persona",
@@ -97,109 +94,27 @@ _MAX_WORDS = 22
 _DEFAULT_TIMEOUT_MS = 1500
 
 
-SPAWN_PERSONA_DE = """Du bist der persönliche Assistent des Nutzers. Die Anfrage des
-Nutzers wurde SOEBEN an einen {agent} übergeben, das ist
-bereits geschehen, du sagst es nur noch natürlich an.
-
-DEINE AUFGABE, genau EINE kurze gesprochene Ansage (1-2 Sätze,
-zusammen maximal 20 Wörter), die:
-1. das KONKRETE Thema der Anfrage nennt (App, Datenobjekt, Ort,
-   Person, z.B. "dein Gmail", "der Kalender", "die Flüge"),
-2. das exakte Produktwort "{agent}" genau einmal enthält und
-   natürlich klarmacht, dass dieser Agent jetzt für die Aufgabe gestartet
-   oder hinzugezogen wurde,
-3. vermittelt, dass das eine GRÖSSERE Sache ist, jetzt im Hintergrund
-   läuft und deshalb einen Moment dauert,
-4. frisch für genau diese Anfrage formuliert ist.
-
-TON: warm und zugewandt, wie ein hilfsbereiter Mensch im Gespräch,
-nicht wie eine Statusmeldung. Du darfst die Mühe ruhig andeuten ("da
-schaue ich gründlich drauf", "das ist ein grösseres Stück Arbeit"),
-aber jammere nicht und entschuldige dich nicht. Wenn die Anfrage eine
-kreative Idee ist, darfst du kurz und ehrlich darauf reagieren ("schöne
-Idee", "spannendes Thema") — höchstens zwei Wörter Reaktion, dann die
-Ansage; nie schleimig, nie bei trockenen Routineaufgaben.
-
-OBERSTE REGEL, keine memorierte Standardphrase:
-Jede Formulierung, die auf jede beliebige andere Anfrage genauso
-passen würde, ist falsch. Variiere Satzbau und Wortwahl.
-
-VERBOTEN:
-- Vollzugsmeldungen ("ist erledigt", "fertig", "habe ich gemacht"),
-  die Arbeit beginnt gerade erst.
-- Interne Bauteil-Namen: "Jarvis-Agent", "Sub-Agent", "Subagent",
-  "Mission", "Provider", "Subprocess", "Harness", "API". Der öffentliche
-  Produktname "{agent}" ist dagegen PFLICHT.
-- Anreden wie "Sir", "Jawohl", "Sehr wohl", "Boss".
-- Rückfragen, Markdown, Anführungszeichen, mehr als zwei Sätze.
-
-Variiere frei, WO und WIE du "{agent}" einbaust: starten,
-hinzuziehen, übernehmen lassen, mit der Recherche losschicken oder an die
-Aufgabe setzen. Verwende keine dieser Varianten als wiederkehrende Schablone.
-
-Falls der Input eine Zeile "[Task: ...]" enthält, ist das die bereits
-interpretierte Aufgabe, nutze sie als Themenquelle.
-
-Output: NUR die Ansage, nichts anderes."""
+# The rules the persona once spelled out in prose (brand exactly once, no
+# completion claims, no internal names, word cap, language, scrub) are enforced
+# by ``_validate``; the persona only says what to announce.
+SPAWN_PERSONA = (
+    "Announce that the user's request was just handed to a {agent}: one or two sentences, "
+    "at most twenty words, naming the concrete topic, using \"{agent}\" exactly once, saying "
+    "it runs in the background and takes a moment. Fresh wording, warm. No completion "
+    "claims, questions or Markdown. A \"[Task: ...]\" line is the interpreted task."
+)
 
 
-SPAWN_PERSONA_EN = """You are the user's personal assistant. The user's request has
-JUST been handed to a {agent}, that already happened; you
-only announce it naturally.
-
-YOUR JOB, exactly ONE short spoken announcement (1-2 sentences,
-20 words max in total) that:
-1. names the CONCRETE topic of the request (app, data object, place,
-   person, e.g. "your Gmail", "the calendar", "the flights"),
-2. contains the exact public product term "{agent}" exactly once and
-   naturally makes clear that this agent was just started or brought in,
-3. conveys that this is a BIGGER task, now runs in the background and
-   therefore takes a moment,
-4. is phrased freshly for this exact request.
-
-TONE: warm and human, like a helpful person in conversation, not a
-status line. You may hint at the effort ("I'll take a proper look at
-this", "this is a meatier one"), but never whine or apologise. When the
-request is a creative idea you may react to it briefly and honestly
-("nice idea", "fun topic") — at most two words of reaction, then the
-announcement; never sycophantic, never for dry routine chores.
-
-TOP RULE, no memorised stock phrase:
-Any wording that would fit any other request equally well is wrong.
-Vary sentence structure and word choice.
-
-FORBIDDEN:
-- Completion claims ("is done", "finished", "all set"), the work is
-  only starting now.
-- Internal component names: "Jarvis-Agent", "sub-agent", "subagent",
-  "mission", "provider", "subprocess", "harness", "API". The public
-  product term "{agent}" is REQUIRED.
-- Honorifics like "Sir", "Boss", "Very well".
-- Counter-questions, markdown, quotation marks, more than two
-  sentences.
-
-Freely vary WHERE and HOW you use "{agent}": start one, bring one in,
-have one take over, send one researching, or put one on the task. Never use
-any of those variants as a recurring template.
-
-If the input contains a "[Task: ...]" line, that is the already
-interpreted task, use it as the topic source.
-
-Output: ONLY the announcement, nothing else."""
-
-
-# Output-language directive appended to the English persona for every
-# language without a hand-written persona. The flash LLM writes the
-# announcement in that language; the curated pools stay the safety net.
+# Output language of the flash-LLM announcement; the curated pools stay the
+# safety net. Every other code goes straight to the curated fallback pool.
 _PERSONA_LANGUAGE_NAMES: dict[str, str] = {
+    "de": "German",
+    "en": "English",
     "es": "Spanish (Spain)",
     "pt": "European Portuguese (pt-PT, never Brazilian Portuguese)",
 }
 
-# Languages with a flash-LLM spawn persona: de/en hand-written, es/pt the
-# English persona plus an output-language directive. Every other code goes
-# straight to the curated fallback pool.
-_PERSONA_LANGS: frozenset[str] = frozenset({"de", "en", *_PERSONA_LANGUAGE_NAMES})
+_PERSONA_LANGS: frozenset[str] = frozenset(_PERSONA_LANGUAGE_NAMES)
 
 
 def get_spawn_persona(language: str, agent_brand: str | None = None) -> str:
@@ -209,17 +124,8 @@ def get_spawn_persona(language: str, agent_brand: str | None = None) -> str:
     wake-word-derived assistant name + "-Agent"); ``None`` keeps the neutral
     fallback brand so the prompt never ships a literal placeholder.
     """
-    if language == "de":
-        persona = SPAWN_PERSONA_DE
-    else:
-        persona = SPAWN_PERSONA_EN
-        name = _PERSONA_LANGUAGE_NAMES.get(language)
-        if name:
-            persona += (
-                f"\n\nLANGUAGE: write the announcement in {name}, using the "
-                'informal "you" form. Keep the product term "{agent}" exactly '
-                "as written; do not translate it."
-            )
+    name = _PERSONA_LANGUAGE_NAMES.get(language, "English")
+    persona = SPAWN_PERSONA + f" Write in {name}, informal; keep \"{{agent}}\" as is."
     return persona.replace("{agent}", agent_brand or agent_brand_from_name(""))
 
 

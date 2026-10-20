@@ -290,7 +290,7 @@ describe("AgenticTerminal layout", () => {
     expect(terminalHarness.wheel.current).not.toBeNull();
   });
 
-  it("keeps conversation history in the header without a scrollbar overlay", () => {
+  it("keeps conversation history in the header and draws no scrollbar while there is nothing to scroll", () => {
     render(
       <AgenticTerminal
         name="Dana"

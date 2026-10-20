@@ -184,7 +184,6 @@ documentation, logs, and commit messages in English. Keep secrets and personal
 data out of the repository and PR. Contributions are licensed under
 [Apache 2.0](LICENSE); see [licensing details](docs/licensing.md).
 
-For private security reports, follow [SECURITY.md](SECURITY.md). For conduct
-concerns, see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Usage questions belong
-in [Discord](https://discord.gg/x7USduHxbc) or
+For private security reports, follow [SECURITY.md](SECURITY.md). Usage
+questions belong in [Discord](https://discord.gg/x7USduHxbc) or
 [Discussions](https://github.com/Dodaios/Dodaios/discussions).

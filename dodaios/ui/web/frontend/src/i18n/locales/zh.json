@@ -5798,7 +5798,10 @@
       "restart_aria": "重启 {pane}",
       "restart_title": "在 {pane} 中重新启动一个 {agent}",
       "restart": "重启",
-      "show_in_git": "在 Git 中显示 {pane} 的更改"
+      "show_in_git": "在 Git 中显示 {pane} 的更改",
+      "scrollbar": "滚动终端",
+      "scroll_up": "向上滚动",
+      "scroll_down": "向下滚动"
     }
   },
   "prompt_writer": {
@@ -8316,7 +8319,10 @@
         "follow_restart_pending": "新代码已就绪；没有任务或通话进行时应用会自动重启。",
         "follow_updated": "{when}已更新：{subject}",
         "follow_click_off": "点击以停止跟随 main。",
-        "session_diff_badge": "{pane} 的更改"
+        "session_diff_badge": "{pane} 的更改",
+        "follow_clear_lock": "移除过期的 git 锁",
+        "follow_clear_lock_title": "移除自 {since} 起存在的 git 锁？",
+        "follow_clear_lock_body": "一个中途停止的 git 命令留下了 .git/index.lock，它会阻止此应用更新。仅在此文件夹中没有正在运行的 git 命令时移除。"
       }
     },
     "skills": {

@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GitOverviewTab, resetGitOverviewCache } from "./GitOverviewTab";
-import type { GraphPage, ScmFile, ScmStatus } from "./scm/scmApi";
+import type { FollowMain, GraphPage, ScmFile, ScmStatus } from "./scm/scmApi";
 import { useCodeEditorStore } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
@@ -47,8 +47,8 @@ const GRAPH: GraphPage = {
 };
 
 let status: ScmStatus = BASE;
-const FOLLOW = { enabled: false, eligible: true, reason: "", head: "", remote: "", last_check: 0, last_update: 0, last_subject: "", busy: "", restart_pending: false, blocked_by: [] as string[] };
-let follow = FOLLOW;
+const FOLLOW: FollowMain = { enabled: false, eligible: true, reason: "", head: "", remote: "", last_check: 0, last_update: 0, last_subject: "", busy: "", restart_pending: false, blocked_by: [] as string[] };
+let follow: FollowMain = FOLLOW;
 const posts: { path: string; body: Record<string, unknown> }[] = [];
 const gets: string[] = [];
 
@@ -64,6 +64,10 @@ beforeEach(() => {
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const json = (body: unknown, code = 200) => new Response(JSON.stringify(body), { status: code, headers: { "Content-Type": "application/json" } });
+      if (url.includes("/scm/follow-main/clear-lock")) {
+        follow = { ...follow, lock_since: 0, lock_stale: false, reason: "" };
+        return json(follow);
+      }
       if (url.includes("/scm/follow-main")) {
         if (init?.method === "PUT") follow = { ...follow, ...JSON.parse(String(init.body)) };
         return json(follow);
@@ -358,6 +362,19 @@ describe("GitOverviewTab — following main", () => {
     fireEvent.click(await screen.findByTestId("scm-menu-follow-main"));
     await vi.waitFor(() => expect(follow.enabled).toBe(true));
     expect(await screen.findByTestId("scm-follow-status")).toBeTruthy();
+  });
+});
+
+describe("GitOverviewTab — a stale git lock", () => {
+  it("offers to remove it only after a confirmation", async () => {
+    follow = { ...FOLLOW, enabled: true, reason: "A git lock left by a stopped command blocks the update (.git/index.lock).", lock_since: 1_790_000_000, lock_stale: true };
+    render(<GitOverviewTab />);
+    await screen.findByTestId("scm-follow-status");
+    fireEvent.click(await screen.findByTestId("scm-title-more"));
+    fireEvent.click(await screen.findByTestId("scm-menu-follow-clear-lock"));
+    expect(await screen.findByTestId("scm-choice")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("scm-choice-remove"));
+    await vi.waitFor(() => expect(follow.lock_stale).toBe(false));
   });
 });
 

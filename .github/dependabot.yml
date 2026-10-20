@@ -136,7 +136,7 @@ updates:
   # Container base images are pinned by digest (multi-arch index) so a
   # rebuilt image cannot silently change; this keeps those digests current.
   - package-ecosystem: docker
-    directories: ["/", "/keyproxy", "/board-backend"]
+    directories: ["/", "/board-backend"]
     cooldown:
       default-days: 7
     schedule:

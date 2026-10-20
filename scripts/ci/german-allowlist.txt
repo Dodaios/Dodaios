@@ -6,10 +6,7 @@
 # One pattern per line; "#" starts a comment; blank lines ignored.
 
 # --- Deliberately German persona / soul prompts (load-bearing, not translated) ---
-dodaios/brain/JARVIS_PERSONA.md
-dodaios/brain/ack_brain/persona_prompt.py
 dodaios/brain/ack_brain/spawn_announcement.py
-dodaios/brain/persona_loader.py
 dodaios/brain/router.py
 dodaios/memory/soul.py
 dodaios/speech/persona.py

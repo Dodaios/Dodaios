@@ -200,7 +200,7 @@ async def test_notebook_and_note_links_cannot_expose_another_agents_profile(rt):
     "briefing", ["## Your user profile\nSCOUT PROFILE\n## Your memory\nSCOUT FACTS", ""]
 )
 def test_api_agent_prompt_does_not_read_global_profile_or_ambient_context(briefing):
-    from dodaios.brain.manager import _TURN_OVERRIDE, BrainManager
+    from dodaios.brain.manager import _CORE_CONTRACT, _TURN_OVERRIDE, BrainManager
     from dodaios.brain.turn_override import TurnOverride
 
     class PrivateGlobalData:
@@ -210,7 +210,6 @@ def test_api_agent_prompt_does_not_read_global_profile_or_ambient_context(briefi
     manager = BrainManager.__new__(BrainManager)
     manager._user_profile = manager._soul = manager._people = PrivateGlobalData()
     manager._config = SimpleNamespace(performance=SimpleNamespace(cache_optimized_prompt=True))
-    manager._render_live_tool_block = lambda: "SCOPED TOOL CONTRACT"
     manager._reply_language_directive = lambda: "REPLY LANGUAGE"
     manager._wiki_context_suffix = "GLOBAL PRIVATE WIKI"
     token = _TURN_OVERRIDE.set(
@@ -220,7 +219,7 @@ def test_api_agent_prompt_does_not_read_global_profile_or_ambient_context(briefi
     )
     try:
         prompt = manager._build_system_prompt()
-        assert "SCOPED TOOL CONTRACT" in prompt and "REPLY LANGUAGE" in prompt
+        assert _CORE_CONTRACT in prompt and "REPLY LANGUAGE" in prompt
         assert "GLOBAL PRIVATE WIKI" not in manager._build_turn_context()
         assert ("SCOUT PROFILE" in prompt) if briefing else ("unavailable" in prompt)
     finally:
