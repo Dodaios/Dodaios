@@ -46,13 +46,11 @@ Jarvis itself, tuned for a voice assistant.
    it, cut to 240 characters) and the two small notebooks. It returns at most
    three changes (`add`, `replace` to update or merge, `remove` only when the
    user retracted something), capped at 800 output tokens; proposals below
-   importance 5 are dropped. The call runs on the Jarvis lead's own seat:
-   the provider, model and auth mode the front-page Jarvis chat answers on
-   (the Agents selection; a subscription seat through its CLI, an API seat
-   on its Agents-tab key). An explicit `[memory.learning].provider` (with its
-   `model`) overrides that seat. No other provider is ever asked: a failed
-   review is retried after a growing pause, and after four failures in a row
-   its turns are dropped with one log line.
+   importance 5 are dropped. The call runs on the provider the person uses
+   by default, on its subscription whenever it can (see "Which seat a review
+   runs on and how it bills" below). A failed review is retried after a
+   growing pause, and after four failures in a row its turns are dropped with
+   one log line and a `dropped` line in the ledger.
 5. **Validate (Python decides).** A change is written only when:
    - its `evidence` is a verbatim quote (12 characters or more) of the
      **user's** own words the review was shown. Anything only the
@@ -79,7 +77,7 @@ Jarvis itself, tuned for a voice assistant.
    | --- | --- |
    | `society/jarvis/USER.md` | who the user is: identity, people, preferences, style, goals, plans with absolute dates |
    | `society/jarvis/MEMORY.md` | Jarvis' working notes: environment facts, conventions, lessons from corrections |
-   | `society/jarvis/.learning-ledger.jsonl` | every applied change with its old and new text and the evidence |
+   | `society/jarvis/.learning-ledger.jsonl` | every applied change with its old and new text and the evidence, and one `review` line per review or merge call |
 
    Nothing is ever lost: a replaced or removed entry stays in the ledger.
 7. **Use.** A cached snapshot of both notebooks is added to the classic brain
@@ -90,6 +88,57 @@ Jarvis itself, tuned for a voice assistant.
    snapshot is re-read only when a notebook file changes, so an edit made in
    the lead avatar's knowledge view or in Obsidian applies on the next turn,
    and the prompt stays byte-stable for the provider cache otherwise.
+
+## Which seat a review runs on and how it bills
+
+The loop is the one kind of background work that is not held off per-token
+keys (`dodaios/brain/background_policy.py`): it may cost money, but it bills
+the subscription of the provider the person uses by default whenever it can
+(maintainer decision, 2026-10-20). `review.seat_choices` picks, in order:
+
+1. **An explicit `[memory.learning].provider`** (with its `model`) wins, on
+   that provider's ordinary credential.
+2. **The default seat** is the Jarvis lead's (`seat_brain.jarvis_seat`): the
+   provider, model and auth mode the front-page Jarvis chat answers on (the
+   Agents selection, else the Agents tier). When it runs on a subscription
+   CLI or a keyless local model, the review runs there.
+3. **A default seat that bills a per-token key** is moved onto the same
+   provider family's subscription when that login is signed in right now
+   (`seat_brain.subscription_twin`; the family comes from the chat catalog's
+   `ProviderRow.family`, so the OpenAI key goes to the ChatGPT login through
+   Codex and the Anthropic key to the Claude login through Claude Code). The
+   chat's model is kept when the subscription offers it, else the
+   subscription's own default answers. If that subscription cannot be built
+   or does not answer, the same review falls back to the key seat.
+4. **Otherwise the key seat answers**, as before, and the key is billed.
+
+Example: the front-page chat runs on the OpenAI API key with `gpt-5.5` and
+the ChatGPT login is signed in. The review runs on Codex with `gpt-5.5` and
+bills the subscription; if Codex fails, that review runs on the OpenAI key.
+Signed out, every review runs on the key.
+
+Another family's subscription or a local model is never picked on the
+person's behalf, even when one is connected: the review would then run on a
+model the person did not choose for their assistant, and spend another plan's
+allowance on work they never assigned to it. Setting
+`[memory.learning].provider` is how they pick one. The merge calls of
+compaction follow the same rule. The Society agents' own reviews keep their
+rule (an agent on a key waits while a subscription is connected,
+`docs/routines.md`).
+
+Every review and merge call appends one line to the ledger:
+
+```json
+{"operation": "review", "source": "review: call ended", "outcome": "answered",
+ "changes": 1, "seat": "openai-codex/gpt-5.5", "seat_label": "OpenAI Codex",
+ "runner": "codex-cli", "billing": "subscription"}
+```
+
+`outcome` is `answered`, `failed` or `dropped`; `billing` is `subscription`,
+`local` or `metered` (a per-token API key). Changes the call wrote carry the same `seat`,
+`seat_label`, `runner` and `billing` fields. The assistant's profile page
+shows the newest call under "Recently learned" (`GET /api/soul` returns it as
+`last_review`), and the log names the seat and billing of every call.
 
 Turns stay pending until a review has really looked at them. When no reviewer
 answers, the turns are handed back and the next attempt waits 1, 2, 4 ...
@@ -167,17 +216,17 @@ Compaction (`compact.py`) keeps the files themselves small:
 4. **Bounded ledger.** `.learning-ledger.jsonl` rotates at 256 KB and keeps one
    previous file, so the audit trail never exceeds about 0.5 MB.
 
-Privacy: reviews and merges send the reviewed turns only to the provider the
-Jarvis chat already talks to (or the explicit `[memory.learning]` override);
-the loop adds no new destination. `enabled = false` switches it off.
+Privacy: reviews and merges send the reviewed turns only to the provider
+family the Jarvis chat already talks to (its API or its subscription CLI) or
+to the explicit `[memory.learning]` override; the loop adds no new vendor. `enabled = false` switches it off.
 
 ## Cost
 
 - An ordinary conversation (requests, questions, small talk): no model call.
 - "Remember that X": no model call.
 - A conversation with a personal fact, preference, correction or plan: one
-  call of roughly 1,300 input tokens and at most 800 output tokens on the
-  Jarvis chat's own seat (on a subscription when the chat runs on one).
+  call of roughly 1,300 input tokens and at most 800 output tokens, on the
+  default provider's subscription when it is signed in, else on its key.
 - Every turn: at most about 650 prompt tokens for the notebooks, usually far
   less, and byte-stable between reviews so provider prompt caches apply.
 - Compaction: nothing while a notebook is below 80 percent full; then at most

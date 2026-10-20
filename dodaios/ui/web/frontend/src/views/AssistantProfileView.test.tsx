@@ -149,6 +149,50 @@ describe("AssistantProfileView", () => {
     const recent = screen.getByTestId("assistant-recent");
     expect(within(recent).getByText("Added to memory")).toBeTruthy();
     expect(within(recent).getByText("You said: “merk dir das”")).toBeTruthy();
+    expect(within(recent).queryByTestId("assistant-last-review")).toBeNull();
+  });
+
+  it("says where the last review ran and how each change was billed", async () => {
+    const seat = { seat: "openai-codex/gpt-5.5", seat_label: "OpenAI Codex", billing: "subscription" };
+    const base = profile();
+    installFetch({
+      "GET /api/soul": () => ({
+        body: profile({
+          activity: [{ ...base.activity[0], ...seat }],
+          last_review: { ts: "2026-10-02T10:05:00+0200", source: "review: call ended", outcome: "answered", changes: 1, ...seat },
+        }),
+      }),
+    });
+    renderWithClient(<AssistantProfileView />);
+
+    const last = await screen.findByTestId("assistant-last-review");
+    expect(within(last).getByText("Last review ran on OpenAI Codex")).toBeTruthy();
+    expect(within(last).getByText("Billed to your subscription")).toBeTruthy();
+    expect(within(screen.getByTestId("assistant-recent")).getByText("Added to memory · via subscription")).toBeTruthy();
+  });
+
+  it("says when a review gave up, without claiming a bill", async () => {
+    installFetch({
+      "GET /api/soul": () => ({
+        body: profile({
+          last_review: {
+            ts: "2026-10-02T10:05:00+0200",
+            source: "review: call ended",
+            outcome: "dropped",
+            changes: 0,
+            seat: "openai/gpt-5.5",
+            seat_label: "OpenAI",
+            billing: "metered",
+          },
+        }),
+      }),
+    });
+    renderWithClient(<AssistantProfileView />);
+
+    const last = await screen.findByTestId("assistant-last-review");
+    expect(within(last).getByText(/gave up on OpenAI after several tries/)).toBeTruthy();
+    // A review that gave up billed nothing, so no billing line.
+    expect(within(last).queryByText("Billed per token to your API key")).toBeNull();
   });
 
   it("shows each file with its own first lines and the right count", async () => {

@@ -273,15 +273,115 @@ def validate(
     return accepted, rejected
 
 
+#: How a review was billed, as the ledger and the logs name it. Plain
+#: identifiers only; the UI's locale files turn them into words.
+BILLING_SUBSCRIPTION: Final[str] = "subscription"
+BILLING_LOCAL: Final[str] = "local"
+BILLING_METERED: Final[str] = "metered"
+
+
+@dataclass(frozen=True, slots=True)
+class SeatChoice:
+    """One seat a review may run on, how it bills, and why it was picked."""
+
+    seat: Any
+    billing: str
+    why: str
+
+    def describe(self) -> str:
+        """Provider, model, runner and billing mode: identifiers, never a credential."""
+        seat = self.seat
+        return f"{seat.provider}/{seat.model or 'default model'} via {seat.runner} ({self.billing})"
+
+    def ledger_fields(self) -> dict[str, str]:
+        """What the learning ledger records about the call (no credential)."""
+        from dodaios.agent_chat.catalog import provider_row
+
+        row = provider_row(self.seat.provider)
+        return {
+            "seat": f"{self.seat.provider}/{self.seat.model or 'default model'}",
+            "seat_label": row.label if row is not None else self.seat.provider,
+            "runner": self.seat.runner,
+            "billing": self.billing,
+        }
+
+
+def _failure_kind(exc: BaseException) -> str:
+    """A fixed word for why a review call failed, safe to log."""
+    import asyncio
+
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+        return "timeout"
+    if isinstance(exc, asyncio.CancelledError):
+        return "cancelled"
+    return "error"
+
+
+def _billing(seat: Any) -> str:
+    from dodaios.society.seat_brain import bills_per_token
+
+    if bills_per_token(seat):
+        return BILLING_METERED
+    return BILLING_LOCAL if seat.keyed else BILLING_SUBSCRIPTION
+
+
+def seat_choices(config: Any) -> list[SeatChoice]:
+    """The seats a learning review asks, in order. Blocking (login probes).
+
+    Maintainer decision (2026-10-20): the assistant's own learning loop may
+    cost money, but it bills the subscription of the provider the person uses
+    by default whenever it can. So, unlike other background work, it is never
+    blocked on a key, and:
+
+    1. an explicit ``[memory.learning].provider`` (with its model) wins;
+    2. a default seat (the Jarvis lead's, ``seat_brain.jarvis_seat``) that
+       runs on a subscription or a keyless local model is used as it is;
+    3. a default seat that bills a per-token key is tried on the same
+       family's subscription first when that login is signed in
+       (``seat_brain.subscription_twin``), with the key seat behind it in
+       case the subscription cannot be built or does not answer;
+    4. otherwise the key seat answers, as before.
+
+    Another family's subscription or a local model is never picked on the
+    person's behalf: the review then runs on a model the person did not
+    choose for their assistant, and spends another plan's allowance on work
+    they never assigned to it. ``[memory.learning].provider`` is how they
+    pick one.
+    """
+    from dodaios.society.seat_brain import Seat, jarvis_seat, subscription_twin
+
+    cfg = config.memory.learning
+    provider = str(cfg.provider or "").strip()
+    if provider:
+        # The person picked the reviewer for this loop: that provider on its
+        # ordinary credential, with its model or its router-tier one.
+        seat = Seat(provider, str(cfg.model or "").strip(), runner="brain", agent_key=False)
+        return [SeatChoice(seat, _billing(seat), "the [memory.learning] provider")]
+    seat = jarvis_seat(config)
+    billing = _billing(seat)
+    if billing != BILLING_METERED:
+        return [SeatChoice(seat, billing, "the Jarvis seat")]
+    twin = subscription_twin(seat)
+    if twin is None:
+        return [SeatChoice(seat, billing, "no subscription of this provider is signed in")]
+    return [
+        SeatChoice(twin, BILLING_SUBSCRIPTION, "the Jarvis provider's subscription"),
+        SeatChoice(seat, billing, "the subscription did not answer"),
+    ]
+
+
 class ModelReviewer:
-    """Ask the Jarvis lead's own seat for proposals, and nothing else.
+    """Ask the Jarvis lead's provider for proposals, on its subscription when it can.
 
     The seat is the one the front-page Jarvis chat answers on: the Agents
     selection's provider, model and auth mode (``society.seat_brain``;
-    maintainer decision 2026-09-30). An explicit ``[memory.learning]``
-    provider (with its model) overrides it. When that one seat cannot answer
-    the review returns ``None``: the loop's backoff retries it and finally
-    drops the turns. No other provider, subscription or key is asked.
+    maintainer decision 2026-09-30), moved onto that provider's signed-in
+    subscription when the chat itself bills a key (:func:`seat_choices`,
+    maintainer decision 2026-10-20). An explicit ``[memory.learning]``
+    provider overrides both. When no choice answers the review returns
+    ``None``: the loop's backoff retries it and finally drops the turns.
+    ``last_choice`` names the seat the last attempt ended on, and how it bills,
+    for the ledger.
     """
 
     def __init__(
@@ -298,6 +398,7 @@ class ModelReviewer:
         self._parse = parser
         self._max_tokens = max_tokens
         self._caller = caller
+        self.last_choice: SeatChoice | None = None
 
     def _live_config(self) -> Any:
         """The config the chat reads its seat from (the brain manager's), else ours."""
@@ -305,32 +406,40 @@ class ModelReviewer:
 
         return getattr(get_brain_manager(), "_config", None) or self._config
 
-    def seat(self, config: Any) -> Any:
-        """The seat this reviewer asks. Blocking (login and key probes)."""
-        from dodaios.society.seat_brain import Seat, jarvis_seat
-
-        cfg = config.memory.learning
-        provider = str(cfg.provider or "").strip()
-        if provider:
-            # The person picked the reviewer for this loop: that provider on
-            # its ordinary credential, with its model or its router-tier one.
-            return Seat(provider, str(cfg.model or "").strip(), runner="brain", agent_key=False)
-        return jarvis_seat(config)
-
     async def __call__(self, prompt: str) -> Any | None:
+        import asyncio
+
+        from dodaios.society.seat_brain import SeatUnavailable, seat_brain
+
+        config = self._live_config()
+        self.last_choice = None
+        try:
+            choices = await asyncio.to_thread(seat_choices, config)
+        except SeatUnavailable as exc:
+            log.info("learning review: the Jarvis seat is unavailable (%s)", exc)
+            return None
+        for choice in choices:
+            self.last_choice = choice
+            try:
+                brain = await seat_brain(config, choice.seat, caller=self._caller)
+            except SeatUnavailable as exc:
+                log.info("learning review: %s is unavailable (%s)", choice.describe(), exc)
+                continue
+            answered, result = await self._ask(brain, choice, config, prompt)
+            if answered:
+                log.info("learning review answered on %s: %s", choice.describe(), choice.why)
+                return result
+            log.warning("learning review: %s did not answer (%s)", choice.describe(), result)
+        return None
+
+    async def _ask(
+        self, brain: Any, choice: SeatChoice, config: Any, prompt: str
+    ) -> tuple[bool, Any]:
         import asyncio
 
         from dodaios.brain.streaming import aggregate
         from dodaios.core.protocols import BrainMessage, BrainRequest
-        from dodaios.society.seat_brain import SeatUnavailable, seat_brain
 
-        config = self._live_config()
-        try:
-            seat = await asyncio.to_thread(self.seat, config)
-            brain = await seat_brain(config, seat, caller=self._caller)
-        except SeatUnavailable as exc:
-            log.info("learning review: the Jarvis seat is unavailable (%s)", exc)
-            return None
         request = BrainRequest(
             system=self._system(),
             messages=(BrainMessage(role="user", content=prompt),),
@@ -343,14 +452,8 @@ class ModelReviewer:
                 aggregate(brain.complete(request)),
                 timeout=float(config.memory.learning.timeout_s),
             )
-            result = self._parse(agg.text)
-        except Exception as exc:  # noqa: BLE001 - a failed attempt; the loop retries later
-            # The type only: a provider's error body never reaches a log (AP-34).
-            log.warning(
-                "learning review: the Jarvis seat %s did not answer (%s)",
-                seat.describe(),
-                type(exc).__name__,
-            )
-            return None
-        log.info("learning review answered on the Jarvis seat %s", seat.describe())
-        return result
+            return True, self._parse(agg.text)
+        except Exception as exc:  # noqa: BLE001 - a failed attempt; the next seat or a retry
+            # A fixed category only: nothing derived from the call (which carries
+            # the person's conversation) or a provider's error body is logged (AP-34).
+            return False, _failure_kind(exc)
