@@ -13,7 +13,7 @@ import { useT } from "@/i18n";
 import type { SocietyAgent } from "../data";
 import { AgentBrowserPreview } from "./AgentBrowserPreview";
 import { AgentRoutinesList } from "./AgentRoutinesList";
-import { JarvisHistoryRail } from "../chat/JarvisHistoryRail";
+import { DodaiosHistoryRail } from "../chat/DodaiosHistoryRail";
 import { RetireButton } from "./RetireButton";
 const AgentAppearanceDialog = lazy(() => import("../companion/AgentAppearanceDialog").then(m => ({ default: m.AgentAppearanceDialog })));
 const ShareAgentDialog = lazy(() => import("./ShareAgentDialog").then(m => ({ default: m.ShareAgentDialog })));
@@ -100,7 +100,7 @@ export function OptionsRail({ agent, onRetired, sample = false }: OptionsRailPro
         </div>
         <div className={routineOpen ? "hidden" : "contents"}>
           <AgentBrowserPreview agent={agent} />
-          {agent.tier === "lead" ? <JarvisHistoryRail /> : null}
+          {agent.tier === "lead" ? <DodaiosHistoryRail /> : null}
         </div>
         <AgentRoutinesList
           key={agent.agentId}

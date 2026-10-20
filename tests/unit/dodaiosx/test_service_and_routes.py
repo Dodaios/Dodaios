@@ -247,7 +247,7 @@ def test_settings_writer_round_trip_and_allowlist(tmp_path) -> None:
 @pytest.fixture
 def client(tmp_path, monkeypatch, fake_screen):
     from dodaios.dodaiosx import recorder as rec
-    from dodaios.ui.web.jarvisx_routes import router
+    from dodaios.ui.web.dodaiosx_routes import router
 
     config_path = tmp_path / "jarvis.toml"
     config_path.write_text(

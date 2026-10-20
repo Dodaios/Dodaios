@@ -23,7 +23,7 @@ and **loopback does not bypass it**: anything on the machine could otherwise
 open a socket and start driving somebody's team.
 
 Note the trailing slash: the tools surface is addressed as
-`/api/control/mcp/` (what `jarvis_harness` has always sent). Without it
+`/api/control/mcp/` (what `dodaios_harness` has always sent). Without it
 Starlette answers a redirect that MCP clients do not follow. The agents URL
 needs no slash — `/api/control/mcp/agents` is a path *inside* the mount.
 

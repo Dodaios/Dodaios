@@ -155,6 +155,29 @@ def test_admin_port_is_read_from_the_config_file_the_tree_names(
     assert relauncher._restart_admin_port(tmp_path) == 40002
 
 
+def test_admin_port_is_read_from_the_first_config_file_that_exists(
+    tmp_path: Path, default_instance: None
+) -> None:
+    # A fresh install has only the current name.
+    (tmp_path / "dodaios.toml").write_text("[ui]\nadmin_api_port = 40003\n", encoding="utf-8")
+    assert relauncher._restart_admin_port(tmp_path) == 40003
+    # An existing jarvis.toml stays the configuration beside it.
+    (tmp_path / "jarvis.toml").write_text("[ui]\nadmin_api_port = 40004\n", encoding="utf-8")
+    assert relauncher._restart_admin_port(tmp_path) == 40004
+
+
+def test_the_pre_update_snapshot_saves_the_config_under_either_name(tmp_path: Path) -> None:
+    root = tmp_path / "install"
+    root.mkdir()
+    (root / "dodaios.toml").write_text("fresh\n", encoding="utf-8")
+    snapshot = relauncher.snapshot_user_state(root)
+    assert snapshot is not None
+    assert (snapshot / "dodaios.toml").read_text(encoding="utf-8") == "fresh\n"
+    (root / "jarvis.toml").write_text("kept\n", encoding="utf-8")
+    later = relauncher.snapshot_user_state(root)
+    assert later is not None and (later / "jarvis.toml").read_text(encoding="utf-8") == "kept\n"
+
+
 def test_launch_command_starts_the_module_the_tree_names(
     monkeypatch: pytest.MonkeyPatch, default_instance: None
 ) -> None:
@@ -287,10 +310,11 @@ def test_macos_restart_never_opens_another_app_for_want_of_the_right_one(
 # --------------------------------------------------------------------------- #
 # Rollback hook
 # --------------------------------------------------------------------------- #
-def _pending(root: Path) -> tuple[str, str]:
+def _pending(root: Path, marker: str | None = relauncher.MANAGED_MARKER) -> tuple[str, str]:
     previous, target = "a" * 40, "b" * 40
     (root / ".git").mkdir()
-    (root / relauncher.MANAGED_MARKER).write_text("{}\n", encoding="utf-8")
+    if marker is not None:
+        (root / marker).write_text("{}\n", encoding="utf-8")
     (root / relauncher.PENDING_UPDATE_FILENAME).write_text(
         json.dumps(
             {
@@ -364,7 +388,10 @@ class _FakeCheckout:
 def _finalize_with(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **options: object
 ) -> tuple[_FakeCheckout, bool, str, str]:
-    previous, target = _pending(tmp_path)
+    previous, target = _pending(
+        tmp_path,
+        options.pop("marker", relauncher.MANAGED_MARKER),  # type: ignore[arg-type]
+    )
     checkout = _FakeCheckout(
         tmp_path,
         target=target,
@@ -379,6 +406,29 @@ def _finalize_with(
     monkeypatch.setattr(relauncher, "_managed_python", lambda _root: "python")
     ok = relauncher.finalize_pending_update(tmp_path)
     return checkout, ok, previous, target
+
+
+@pytest.mark.parametrize("marker", relauncher.MANAGED_MARKERS)
+def test_a_checkout_marked_under_any_name_is_updated(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, marker: str
+) -> None:
+    # An install made before the rename and updated in-app since carries
+    # only the earlier name.
+    checkout, ok, _previous, target = _finalize_with(
+        monkeypatch, tmp_path, install_fails=False, marker=marker
+    )
+    assert ok is True
+    assert checkout.calls[0] == ["git", "reset", "--hard", target]
+
+
+def test_an_unmarked_checkout_is_never_reset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout, ok, _previous, _target = _finalize_with(
+        monkeypatch, tmp_path, install_fails=False, marker=None
+    )
+    assert ok is False
+    assert checkout.calls == []
 
 
 def test_a_successful_update_never_runs_the_rollback_hook(
@@ -1074,3 +1124,34 @@ def test_the_guard_notices_a_module_that_was_not_loaded_in_time(tmp_path: Path) 
         "dodaios.core.process_utils" in outcome["late"]
     )
     assert outcome["dialogs"] == []
+
+
+def test_an_updater_that_knows_only_the_earlier_bundle_name_restarts_the_renamed_app(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, default_instance: None
+) -> None:
+    """The crossing of the bundle rename, from the side of the release before it.
+
+    That release's helper knows the bundle as ``Personal Jarvis.app``. This
+    tree's installer renamed it in place under the bundle id it always had,
+    and this tree's contract says so: the helper must open the renamed bundle.
+    """
+    import dodaios.setup.macos_app_bundle as bundle_module
+    from dodaios.core.branding import LEGACY_MACOS_APP_DIR_NAMES, MACOS_BUNDLE_ID
+
+    contract = read_update_contract(REPO)
+    assert contract.macos_app_dir_name == relauncher.MACOS_APP_DIR_NAME
+    assert contract.macos_bundle_id == MACOS_BUNDLE_ID
+    earlier = LEGACY_MACOS_APP_DIR_NAMES[0]
+    known = tmp_path / "Applications" / earlier
+    renamed = _app_bundle(known.with_name(contract.macos_app_dir_name), MACOS_BUNDLE_ID)
+    monkeypatch.setattr(relauncher, "MACOS_APP_DIR_NAME", earlier)  # the older helper
+    monkeypatch.setattr(relauncher.sys, "platform", "darwin")
+    monkeypatch.setattr(relauncher.Path, "home", lambda: tmp_path / "home")
+    monkeypatch.setattr(bundle_module, "macos_app_bundle_path", lambda: known)
+
+    assert relauncher.build_launch_command("python3", contract=contract) == [
+        "/usr/bin/open",
+        "-W",
+        "-a",
+        str(renamed),
+    ]

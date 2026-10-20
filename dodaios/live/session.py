@@ -1821,8 +1821,7 @@ class LiveVoiceSession:
     async def _open_replacement(self, history: list[dict]) -> None:
         config = {**self._base_session_config, "input": history}
         config["instructions"] += (
-            " Connection restored. Previous tool receipts remain valid. "
-            "Wait for the user to continue before starting any task."
+            " Reconnected; earlier receipts stay valid. Wait for the user before any task."
         )
         offer = ""
         if self._using_webrtc:

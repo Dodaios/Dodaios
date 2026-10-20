@@ -454,7 +454,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
                          "note": row["note"], "value": m.group(0)}
                     )
 
-        # English-only artifact gate (AGENTS.md rule 1): no German outside the
+        # English-only artifact gate: no German outside the
         # allowlist may ship. `i18n-allow` inline marks and the path allowlist are
         # the only escapes — same contract as the CI/pre-commit language gate.
         if (
@@ -697,7 +697,8 @@ def cmd_set_version(args: argparse.Namespace) -> int:
         # portable-install-matrix gate went red on the release commit).
         tree / "uv.lock": (
             re.compile(
-                r'(\[\[package\]\]\nname = "personal-jarvis"\nversion = ")[^"]*(")'
+                # The project under its current or its earlier distribution name.
+                r'(\[\[package\]\]\nname = "(?:dodaios|personal-jarvis)"\nversion = ")[^"]*(")'
             ),
             rf'\g<1>{version}\g<2>',
         ),

@@ -1,7 +1,8 @@
 """The picker's markings as plain data — no Qt, so the rules are testable anywhere.
 
-After an area is chosen the picker stays open and the user marks it up in
-place with the same tools as the full appshot editor
+The picker opens with its toolbar already up: the user can mark the frozen
+screen first and choose the area after, or the other way round, with the
+same tools as the full appshot editor
 (``frontend/src/lib/appshotEditorModel.ts``): select and move, rectangle,
 filled rectangle, ellipse, line, arrow (three looks), text (three looks),
 pixelate/blur, spotlight, numbered steps, pen, highlighter and a background
@@ -40,6 +41,9 @@ REDACT = "redact"
 #: Not markings: the select tool, and the background frame switch.
 MOVE = "move"
 BACKGROUND = "background"
+#: Not a marking either: choosing the area to take. Releasing its drag takes
+#: the appshot at once, unless the user keeps the area to adjust it first.
+AREA = "area"
 
 #: Drawn by dragging a box.
 BOX_KINDS = frozenset({RECT, FILLED, ELLIPSE, SPOTLIGHT, REDACT})
@@ -52,7 +56,9 @@ STROKE_KINDS = frozenset({PEN, HIGHLIGHT})
 AREA_KINDS = frozenset({SPOTLIGHT, REDACT})
 
 #: Tool → key, in the full editor's toolbar order; the same keys as there.
+#: The area tool takes the full editor's crop key: the area is the crop.
 TOOL_KEYS: dict[str, str] = {
+    AREA: "K",
     MOVE: "V",
     RECT: "R",
     FILLED: "F",
@@ -168,6 +174,9 @@ def grab_scope(tool: str) -> str:
     drawn can be moved and reshaped again at once; ``grips``: pen and
     highlighter only take the selected marking's points, so writing over
     earlier ink never drags it along; ``none``: the background switch.
+    The area tool takes hold of markings like a drawing tool, so a marking
+    drawn first can still be moved before the area is chosen; Ctrl skips
+    that and starts the area right on top of it.
     """
     if tool == MOVE:
         return "any"
@@ -516,6 +525,28 @@ def resize(sel: Box, handle: str, p: Point, limit: tuple[float, float]) -> Box:
     return (x0, y0, x1 - x0, y1 - y0)
 
 
+def other_tool(tool: str, last_drawing: str) -> str:
+    """Tab / middle-click: from the area tool to the last drawing tool and back."""
+    return last_drawing if tool == AREA else AREA
+
+
+def toolbar_home(bar: tuple[float, float], screen: tuple[float, float], gap: float = 12.0) -> Point:
+    """The toolbar's place before any area is kept: centred at the top of the screen."""
+    bw, _bh = bar
+    sw, _sh = screen
+    return (max(gap, (sw - bw) / 2.0), gap)
+
+
+def toolbar_spot(
+    sel: Box | None, bar: tuple[float, float], screen: tuple[float, float], gap: float = 12.0
+) -> Point:
+    """Top centre; docked to a kept area only when the area would sit under it."""
+    home = toolbar_home(bar, screen, gap)
+    if sel is None or clip_to((home[0], home[1], bar[0], bar[1]), sel) is None:
+        return home
+    return toolbar_origin(sel, bar, screen, gap=10.0)
+
+
 def toolbar_origin(
     sel: Box, bar: tuple[float, float], screen: tuple[float, float], gap: float = 10.0
 ) -> Point:
@@ -547,6 +578,100 @@ def clip_to(box: Box, sel: Box) -> Box | None:
     if x1 - x0 <= 0 or y1 - y0 <= 0:
         return None
     return (x0, y0, x1 - x0, y1 - y0)
+
+
+# --------------------------------------------------------------------------
+# Snapping to the parts of a window
+# --------------------------------------------------------------------------
+
+#: A part must be at least this wide and tall (logical px) ...
+MIN_PART_PX = 40.0
+#: ... and cover at least this share of its window. Hovering then offers the
+#: big pieces (a sidebar, a file list, the page, a picture), not every
+#: button, row and text field.
+MIN_PART_SHARE = 0.015
+#: A part more than this share hidden under windows above it is left out:
+#: lighting it up would light the window on top of it too.
+MAX_PART_COVERED = 0.3
+
+
+def _overlap(a: Box, b: Box) -> float:
+    shared = clip_to(a, b)
+    return shared[2] * shared[3] if shared is not None else 0.0
+
+
+def window_parts(
+    window: Box,
+    boxes: list[Box],
+    *,
+    min_px: float = MIN_PART_PX,
+    min_share: float = MIN_PART_SHARE,
+    covers: list[Box] | None = None,
+) -> list[Box]:
+    """A window's parts worth snapping to, cut to the window.
+
+    Slivers, small pieces, copies, parts that are the window itself and parts
+    mostly hidden under the windows in ``covers`` (those above this one) are
+    dropped; what is left is what hovering may lift out of the dim instead of
+    the whole window.
+    """
+    out: list[Box] = []
+    seen: set[tuple[int, int, int, int]] = set()
+    whole = tuple(round(v) for v in window)
+    least = window[2] * window[3] * min_share
+    for box in boxes:
+        clipped = clip_to(box, window)
+        if clipped is None or clipped[2] < min_px or clipped[3] < min_px:
+            continue
+        area = clipped[2] * clipped[3]
+        if area < least:
+            continue
+        key = (round(clipped[0]), round(clipped[1]), round(clipped[2]), round(clipped[3]))
+        if key in seen or key == whole:
+            continue
+        if covers and sum(_overlap(clipped, top) for top in covers) > area * MAX_PART_COVERED:
+            continue
+        seen.add(key)
+        out.append(clipped)
+    return out
+
+
+#: Two nested parts this close on every edge (logical px, or this share of
+#: the larger box along that axis) count as one: a wheel step must visibly
+#: change the area, and the light must not flicker between near-identical
+#: wrappers. Per axis, so a web page under a browser's 120 px of bars stays
+#: its own step in a tall window.
+NEAR_PX = 16.0
+NEAR_SHARE = 0.06
+
+
+def _nearly_same(a: Box, b: Box) -> bool:
+    across = max(NEAR_PX, NEAR_SHARE * max(a[2], b[2]))
+    down = max(NEAR_PX, NEAR_SHARE * max(a[3], b[3]))
+    return (
+        abs(a[0] - b[0]) <= across
+        and abs((a[0] + a[2]) - (b[0] + b[2])) <= across
+        and abs(a[1] - b[1]) <= down
+        and abs((a[1] + a[3]) - (b[1] + b[3])) <= down
+    )
+
+
+def snap_candidates(point: Point, window: Box, parts: list[Box]) -> list[Box]:
+    """What a click at ``point`` may take: the parts under it, smallest first,
+    then the whole window. The mouse wheel steps along this list.
+
+    Nested parts that are nearly the same box (a pane and its content area,
+    a field and its frame) collapse into the larger one.
+    """
+    under = [box for box in parts if _inside(point, box, 0.0)]
+    under.sort(key=lambda box: box[2] * box[3])
+    out: list[Box] = []
+    for box in [*under, window]:
+        if out and _nearly_same(out[-1], box):
+            out[-1] = box
+        else:
+            out.append(box)
+    return out
 
 
 def hide_fractions(shapes: list[Shape], sel: Box) -> list[dict[str, object]]:
@@ -615,6 +740,7 @@ class History:
 
 
 __all__ = [
+    "AREA",
     "AREA_KINDS",
     "ARROW",
     "ARROW_STYLES",
@@ -628,6 +754,9 @@ __all__ = [
     "HANDLES",
     "HIGHLIGHT",
     "LINE",
+    "MAX_PART_COVERED",
+    "MIN_PART_PX",
+    "MIN_PART_SHARE",
     "MOVE",
     "PALETTE",
     "PEN",
@@ -660,13 +789,18 @@ __all__ = [
     "is_meaningful",
     "next_counter",
     "normalized",
+    "other_tool",
     "reshape",
     "resize",
     "rough_measure",
     "segment_middle",
     "segment_path",
     "shape_at",
+    "snap_candidates",
     "text_size",
+    "toolbar_home",
     "toolbar_origin",
+    "toolbar_spot",
     "translated",
+    "window_parts",
 ]

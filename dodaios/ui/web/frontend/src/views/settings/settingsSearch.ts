@@ -16,6 +16,7 @@ const SEARCH_GROUPS = [
   { id: "app", keys: ["app_settings_group_title", "autostart", "appearance", "jarvis_api"] },
   { id: "realtime-voice", keys: ["realtime_voice"] },
   { id: "system-prompt", keys: ["system_prompt"] },
+  { id: "self-build", keys: ["self_build"] },
   { id: "wake-word", keys: ["wake_word"] },
   { id: "volume", keys: ["volume"] },
   { id: "audio-devices", keys: ["audio_devices"] },

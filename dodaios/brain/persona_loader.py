@@ -1,16 +1,14 @@
-"""Persona loader: extracts the system-prompt block from `JARVIS_PERSONA.md`.
+"""Persona loader: extracts the system-prompt block from `DODAIOS_PERSONA.md`.
 
-`JARVIS_PERSONA.md` is the authoritative handbook for the voice persona
+`DODAIOS_PERSONA.md` is the authoritative handbook for the voice persona
 (speech patterns, OUTPUT RULES, INTERACTION PATTERNS). The actual system
 prompt is the plain text inside the first code fence (```) after the line
 `## System-Prompt`. Everything around it (docs, router notes, sources) is
 maintainer metadata — never sent to the LLM.
 
-A second, much shorter block lives after `## System-Prompt (Compact)`: the
-distilled persona for small self-hosted realtime brains, where the full 15k
-characters cost multiple seconds of prompt processing EVERY turn (7.8 s
-measured against qwen2.5:7b, 2026-08-07). Missing compact section falls back
-to the full block — honest, never a silent truncation.
+The block is about a thousand characters, short enough for small self-hosted
+realtime brains too, so there is no separate compact persona any more;
+`load_compact_persona_prompt` is kept for its callers and returns the same block.
 
 This loader:
 
@@ -32,14 +30,13 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-_PERSONA_MD_FILENAME = "JARVIS_PERSONA.md"
+_PERSONA_MD_FILENAME = "DODAIOS_PERSONA.md"
 _SECTION_MARKER = "## System-Prompt"
-_COMPACT_SECTION_MARKER = "## System-Prompt (Compact)"
 _FENCE = "```"
 
 
 def _persona_md_path() -> Path:
-    """Path to the authoritative `JARVIS_PERSONA.md` in the `dodaios/brain/` package."""
+    """Path to the authoritative `DODAIOS_PERSONA.md` in the `dodaios/brain/` package."""
     return Path(__file__).resolve().parent / _PERSONA_MD_FILENAME
 
 
@@ -74,47 +71,33 @@ def _read_persona_md() -> str:
     try:
         return path.read_text(encoding="utf-8")
     except FileNotFoundError:
-        log.warning("JARVIS_PERSONA.md missing at %s — persona layer empty.", path)
+        log.warning("DODAIOS_PERSONA.md missing at %s — persona layer empty.", path)
         return ""
     except OSError as exc:
-        log.warning("JARVIS_PERSONA.md unreadable (%s) — persona layer empty.", exc)
+        log.warning("DODAIOS_PERSONA.md unreadable (%s) — persona layer empty.", exc)
         return ""
 
 
 @lru_cache(maxsize=1)
 def load_persona_prompt() -> str:
-    """System-prompt block from `JARVIS_PERSONA.md` — cached for the process."""
+    """System-prompt block from `DODAIOS_PERSONA.md` — cached for the process."""
     block = _extract_fence_after_marker(_read_persona_md())
     if not block:
         log.warning(
-            "JARVIS_PERSONA.md: section '%s' or code fence missing — persona layer empty.",
+            "DODAIOS_PERSONA.md: section '%s' or code fence missing — persona layer empty.",
             _SECTION_MARKER,
         )
     return block
 
 
-@lru_cache(maxsize=1)
 def load_compact_persona_prompt() -> str:
-    """The distilled persona for small self-hosted brains — cached.
-
-    Falls back to the FULL block when the compact section is absent: a
-    persona that silently shrank to nothing would change the voice, while a
-    temporarily slower prompt merely changes latency.
-    """
-    compact = _extract_fence_after_marker(_read_persona_md(), _COMPACT_SECTION_MARKER)
-    if compact:
-        return compact
-    log.info(
-        "JARVIS_PERSONA.md: no '%s' section — compact requests use the full persona.",
-        _COMPACT_SECTION_MARKER,
-    )
+    """The persona for small self-hosted brains: the same short block."""
     return load_persona_prompt()
 
 
 def invalidate_cache() -> None:
-    """Invalidate the caches — for tests or hot reload after an MD edit."""
+    """Invalidate the cache — for tests or hot reload after an MD edit."""
     load_persona_prompt.cache_clear()
-    load_compact_persona_prompt.cache_clear()
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +106,7 @@ def invalidate_cache() -> None:
 # The user can replace the packaged JARVIS persona with their own Markdown from
 # the Settings UI and reset back to the shipped default with one click. The
 # override is a sidecar file (``data/custom_system_prompt.md``); the packaged
-# ``JARVIS_PERSONA.md`` is never mutated, so "reset to default" is just a delete
+# ``DODAIOS_PERSONA.md`` is never mutated, so "reset to default" is just a delete
 # and the default is always recoverable.
 #
 # Unlike the default block (cached for the process lifetime above), the override
@@ -171,7 +154,7 @@ def has_custom_prompt() -> bool:
 
 
 def default_persona_prompt() -> str:
-    """The packaged default persona block (from ``JARVIS_PERSONA.md``)."""
+    """The packaged default persona block (from ``DODAIOS_PERSONA.md``)."""
     return load_persona_prompt()
 
 

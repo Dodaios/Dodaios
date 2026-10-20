@@ -386,7 +386,19 @@ class TaskScheduler:
                 or bool(current.get("last_error"))
                 or current["state"] in ("failed", "cancelled")
             )
-            await self._store.hooks.mark(tid, delivery, "failed" if failed else "done")
+            outcome = "failed" if failed else "done"
+            if failed and current is not None and (
+                await self._store.last_log_event(tid) == "skipped"
+            ):
+                # Unattended work may not bill the routine's seat right now
+                # (``CapacityDeferred``): no turn started and the run history
+                # says why. The delivery is settled, not replayed: the cause
+                # is a setting (a per-token seat while a subscription is
+                # connected, or no free subscription or local model), so a
+                # timed retry would loop on it, and a replay after the
+                # setting changes would run a stale event late.
+                outcome = "skipped"
+            await self._store.hooks.mark(tid, delivery, outcome)
             spec = await self._store.get_spec(tid)
             if spec is not None and spec.trigger.type in ("webhook", "event_hook", "source"):
                 total, pending = await self._store.hooks.counts(tid)

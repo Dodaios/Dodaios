@@ -6,9 +6,9 @@ single build script that produces exactly one release asset.
 
 | OS      | Script                                                | Produces                                |
 | ------- | ----------------------------------------------------- | --------------------------------------- |
-| Windows | [`windows/build.ps1`](windows/build.ps1)              | `PersonalJarvis-Setup-x64.exe`          |
-| macOS   | [`macos/build.sh`](macos/build.sh)                    | `PersonalJarvis-macOS-<arm64\|x64>.dmg` |
-| Linux   | [`linux/build.sh`](linux/build.sh)                    | `PersonalJarvis-Linux-x86_64.AppImage`  |
+| Windows | [`windows/build.ps1`](windows/build.ps1)              | `PersonalJarvis-Setup-x64.exe` (the name SignPath pins) |
+| macOS   | [`macos/build.sh`](macos/build.sh)                    | `Dodaios-macOS-<arm64\|x64>.dmg`        |
+| Linux   | [`linux/build.sh`](linux/build.sh)                    | `Dodaios-Linux-x86_64.AppImage`         |
 
 Each script writes into `dist/installers/`, prints the artifact path, and exits
 non-zero on any failure. `.github/workflows/desktop-installers.yml` runs these
@@ -17,7 +17,7 @@ GitHub Release for the tag.
 
 Shared pieces that are not per-OS:
 
-- **`../jarvis.spec`** - the PyInstaller build every script starts from. One
+- **`../dodaios.spec`** - the PyInstaller build every script starts from. One
   `onedir` bundle: the windowed launcher (`PersonalJarvis`) and the console CLI
   (`dodaios`, built a second time as `jarvis`, its earlier name).
 - **`pyinstaller_rthook_frozen.py`** - runtime hook that points a frozen

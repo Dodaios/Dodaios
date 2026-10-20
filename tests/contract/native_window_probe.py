@@ -114,7 +114,7 @@ async def main() -> None:
             native = NativeWindow(int(pid))
             assert await asyncio.to_thread(native.ready.wait, 5)
             native.park()
-            badge = await asyncio.to_thread(native.brand, str(root / "dodaios/assets/icons/jarvis.ico"))
+            badge = await asyncio.to_thread(native.brand, str(root / "dodaios/assets/icons/dodaios.ico"))
             await asyncio.sleep(0.5)
             u = native.user32
             u.EnumChildWindows.argtypes = [wintypes.HWND, native.callback_type, wintypes.LPARAM]

@@ -1,0 +1,584 @@
+# PyInstaller spec for the natively installed Personal Jarvis desktop app.
+#
+# Strategy:
+# - `onedir` instead of `onefile` avoids 3-5 seconds of MEIPASS extraction and
+#   allows each DLL to be signed independently.
+# - Several executables share ONE Analysis/COLLECT, because a native install
+#   has to cover both surfaces the project promises:
+#     * a windowed GUI launcher (Start Menu / Applications / .desktop), built a
+#       second time under its earlier name `PersonalJarvis`, because taskbar
+#       pins, logon tasks and shortcuts of earlier releases name that file, and
+#     * a console CLI named `dodaios`, so `dodaios serve`, `dodaios --version`,
+#       `dodaios missions list` behave exactly like the pip console script.
+#       The same console program is built a second time as `jarvis`, the
+#       command's earlier name, which scripts and shell history still call.
+#   All of them run `dodaios/__main__.py`; only the console flag differs.
+# - The GUI binary is `DodaiosApp`, not `Dodaios`: `Dodaios` and `dodaios`
+#   are the SAME path on Windows (NTFS) and on a default macOS APFS volume, so
+#   the second executable would overwrite the first. `DodaiosApp` is the name
+#   dodaios.core.branding uses for the Windows branded launcher and the macOS
+#   bundle executable; `PersonalJarvis` is their earlier name.
+# - Downloaded ML models are not bundled. The first-run wizard downloads them to
+#   the platform-specific Jarvis model directory when the user enables them.
+# - Optional native voice engines are loaded lazily and degrade to cloud paths
+#   when unavailable. No Jarvis install profile requires torch or a GPU.
+# - Excluding unused GUI frameworks saves roughly 500 MB.
+#
+# Invoke through the per-OS build script (packaging/<os>/build.*) or directly
+# with `pyinstaller dodaios.spec --noconfirm --clean`.
+
+# ruff: noqa
+
+import re
+import sys
+from pathlib import Path
+
+from PyInstaller.utils.hooks import (
+    collect_data_files,
+    collect_submodules,
+    copy_metadata,
+)
+
+
+PROJECT_ROOT = Path(SPECPATH).resolve()  # noqa: F821  (SPECPATH is PyInstaller-injected)
+FRONTEND_DIST = PROJECT_ROOT / "dodaios" / "ui" / "web" / "dist"
+PACKAGE_ASSETS = PROJECT_ROOT / "dodaios" / "assets"
+ICON_DIR = PROJECT_ROOT / "assets" / "icons"
+
+# The COLLECT directory name stays `Jarvis` — the per-OS packaging scripts and
+# the release contract address the bundle as `dist/Jarvis/`.
+BUNDLE_DIR_NAME = "Jarvis"
+# Windowed launcher; see the header note on the case-collision.
+GUI_EXE_NAME = "DodaiosApp"
+# The windowed launcher under its earlier name, built from the same program:
+# a pinned taskbar button, a logon task or a shortcut of an earlier release
+# starts `{app}\PersonalJarvis.exe`, and must keep finding it.
+LEGACY_GUI_EXE_NAMES = ("PersonalJarvis",)
+# Console entry point. Same name as the pip console script on purpose.
+CLI_EXE_NAME = "dodaios"
+# The console entry point under its earlier name, built from the same program.
+# No name here may equal a GUI name ignoring case: they share one folder.
+LEGACY_CLI_EXE_NAMES = ("jarvis",)
+
+# The Python distribution this tree is installed as, current name first
+# (dodaios.core.branding.DISTRIBUTION_NAMES). An environment set up before the
+# rename still carries the earlier one.
+DISTRIBUTION_NAMES = ('dodaios', 'personal-jarvis')
+
+# The bundle name (``dodaios.core.branding.MACOS_APP_DIR_NAME``). Its bundle id
+# below did not move with it: the privacy grants of every installed copy name
+# that id, and the in-app updater installs a renamed bundle beside the old one.
+MACOS_APP_NAME = "Dodaios.app"
+MACOS_BUNDLE_IDENTIFIER = "ai.personaljarvis.desktop"
+MACOS_MIN_SYSTEM_VERSION = "12.0"
+
+
+def _package_version() -> str:
+    """Read ``dodaios.__version__`` without importing the package."""
+    text = (PROJECT_ROOT / "dodaios" / "__init__.py").read_text(encoding="utf-8")
+    match = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+    if not match:
+        raise SystemExit("dodaios/__init__.py does not define __version__")
+    return match.group(1)
+
+
+VERSION = _package_version()
+
+
+def _macos_privacy_strings():
+    """Load ``dodaios/core/macos_privacy_strings.py`` by path.
+
+    The spec runs before ``jarvis`` is importable, and the managed app's
+    ``Info.plist`` loads the very same file the very same way, so the two
+    bundles cannot drift apart (tests/unit/packaging/test_macos_privacy_strings.py).
+    """
+    import importlib.util
+
+    path = PROJECT_ROOT / "dodaios" / "core" / "macos_privacy_strings.py"
+    loader_spec = importlib.util.spec_from_file_location("_jarvis_macos_privacy_strings", path)
+    if loader_spec is None or loader_spec.loader is None:
+        raise SystemExit(f"cannot load the macOS usage strings from {path}")
+    module = importlib.util.module_from_spec(loader_spec)
+    loader_spec.loader.exec_module(module)
+    return module
+
+
+# --- Data files -------------------------------------------------------------
+
+datas = []
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/live_runner.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/native_window.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/manual_chrome.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/window_actions.py"), "dodaios/society/browser"))
+datas.append((str(PROJECT_ROOT / "dodaios/society/browser/pointer.py"), "dodaios/society/browser"))
+# The Hermes / OpenClaw pins (agent_runtimes/versions.py). The package-data
+# sweep below also finds them; named here so a narrower sweep cannot drop them
+# and send a frozen app's setup to upstream latest.
+datas.append((str(PROJECT_ROOT / "dodaios/agent_runtimes/runtime-versions.json"), "dodaios/agent_runtimes"))
+# Translated system phrases (dodaios/i18n/catalog.py); without them every
+# error and fallback phrase would raise instead of being spoken.
+datas.append((str(PROJECT_ROOT / "dodaios/i18n/locales"), "dodaios/i18n/locales"))
+# The data-directory migration engine as a plain file: the runtime hook loads it
+# by path before anything from the package is importable
+# (packaging/pyinstaller_rthook_frozen.py::_load_engine).
+datas.append((str(PROJECT_ROOT / "dodaios/core/identity_migration.py"), "dodaios/core"))
+
+# The local voice engine runs in its OWN Python environment, so a frozen build
+# must ship its sources as plain files: setup copies them into the engine home
+# (dodaios/realtime/local_voice_setup.py). Caches never ride along.
+_VOICE_ENGINE = PROJECT_ROOT / "dodaios" / "voice_engine"
+for entry in _VOICE_ENGINE.rglob("*"):
+    if entry.is_file() and "__pycache__" not in entry.parts and entry.suffix != ".pyc":
+        rel = entry.relative_to(_VOICE_ENGINE).parent
+        datas.append((str(entry), str(Path("dodaios/voice_engine") / rel)))
+
+# Include the frontend build when present. Preserve its package-relative layout
+# so the FastAPI static-files mount can serve it from a frozen application.
+if FRONTEND_DIST.exists():
+    for entry in FRONTEND_DIST.rglob("*"):
+        if entry.is_file():
+            rel = entry.relative_to(FRONTEND_DIST).parent
+            datas.append((str(entry), str(Path("dodaios/ui/web/dist") / rel)))
+
+# Include the default configuration a fresh install is seeded from. The runtime
+# hook copies it to the per-user app directory on first launch (as dodaios.toml
+# when that directory has no jarvis.toml of its own); the frozen app never reads
+# or writes the copy inside the bundle.
+datas.append((str(PROJECT_ROOT / "jarvis.toml"), "."))
+datas.append((str(PROJECT_ROOT / "docs" / "product"), "docs/product"))
+# The onboarding terms and redistribution notices must survive freezing.
+# Source-tree references in NOTICE are useful only when their target texts ship.
+datas.append((str(PROJECT_ROOT / "docs" / "legal" / "TERMS.md"), "docs/legal"))
+datas.append((str(PROJECT_ROOT / "docs" / "licensing.md"), "docs"))
+for name in ("LICENSE", "NOTICE"):
+    datas.append((str(PROJECT_ROOT / name), "."))
+for pattern in ("*/LICENSE", "*/NOTICE*", "*/ThirdPartyNotices.txt"):
+    for entry in sorted((PROJECT_ROOT / "third_party").glob(pattern)):
+        if entry.is_file():
+            datas.append((str(entry), str(entry.relative_to(PROJECT_ROOT).parent)))
+
+# Include build-time desktop assets such as icons and chimes when present.
+assets_dir = PROJECT_ROOT / "assets"
+if assets_dir.exists():
+    for entry in assets_dir.rglob("*"):
+        if entry.is_file():
+            rel = entry.relative_to(assets_dir).parent
+            datas.append((str(entry), str(Path("assets") / rel)))
+
+# Package assets are runtime dependencies, not downloadable models. This
+# explicitly includes the bundled CPU ONNX VAD model, wake backbones, licenses,
+# and icons in the same paths that ``dodaios.assets`` resolves after freezing.
+if PACKAGE_ASSETS.exists():
+    for entry in PACKAGE_ASSETS.rglob("*"):
+        if entry.is_file() and "__pycache__" not in entry.parts:
+            rel = entry.relative_to(PACKAGE_ASSETS).parent
+            datas.append((str(entry), str(Path("dodaios/assets") / rel)))
+
+# Every non-Python file inside the `jarvis` package. PyInstaller collects only
+# modules, so without this the frozen app silently loses its SQL migrations
+# (dodaios/memory), the built-in skills (dodaios/skills/builtin
+# — the boot log says "builtin skill '...' missing from package"), the CLI and
+# skill catalogs, the wiki templates and the marketplace usage cards. Roughly
+# 100 files / 400 KB, so collecting them wholesale costs nothing and closes the
+# whole "works from source, missing when frozen" class at once.
+_PACKAGE_DATA_SKIP_DIRS = {"__pycache__", "node_modules"}
+_PACKAGE_DATA_SKIP_ROOTS = (
+    PROJECT_ROOT / "dodaios" / "ui" / "web" / "frontend",  # source, not runtime
+    FRONTEND_DIST,   # already collected above, with its own layout
+    PACKAGE_ASSETS,  # collected explicitly below
+)
+_PACKAGE_DATA_SKIP_SUFFIXES = {".py", ".pyc", ".pyd", ".so", ".dylib", ".map"}
+_package_root = PROJECT_ROOT / "dodaios"
+for entry in _package_root.rglob("*"):
+    if not entry.is_file():
+        continue
+    if _PACKAGE_DATA_SKIP_DIRS & set(entry.parts):
+        continue
+    if entry.suffix.lower() in _PACKAGE_DATA_SKIP_SUFFIXES:
+        continue
+    if any(entry.is_relative_to(skip) for skip in _PACKAGE_DATA_SKIP_ROOTS):
+        continue
+    rel = entry.relative_to(PROJECT_ROOT).parent
+    datas.append((str(entry), str(rel)))
+
+# The Conductor jobs engine reads its SQL schema and seed jobs beside its own
+# modules; analysis finds the modules, not these files.
+for entry in (PROJECT_ROOT / "conductor").rglob("*"):
+    if entry.is_file() and entry.suffix.lower() in {".sql", ".yaml"}:
+        datas.append((str(entry), str(entry.relative_to(PROJECT_ROOT).parent)))
+
+# Configuration profiles live beside the checkout root, and dodaios.core.config
+# resolves them relative to it.
+profiles_dir = PROJECT_ROOT / "profiles"
+if profiles_dir.exists():
+    for entry in profiles_dir.rglob("*"):
+        if entry.is_file():
+            rel = entry.relative_to(profiles_dir).parent
+            datas.append((str(entry), str(Path("profiles") / rel)))
+
+# Preserve distribution metadata so importlib.metadata can discover the Jarvis
+# entry-point plugins in the frozen layout. The build environment holds the
+# tree under one of its distribution names; bundle the first one installed.
+def _installed_distribution() -> str:
+    from importlib import metadata
+
+    for name in DISTRIBUTION_NAMES:
+        try:
+            metadata.distribution(name)
+        except metadata.PackageNotFoundError:
+            continue
+        return name
+    raise SystemExit(
+        f"none of {', '.join(DISTRIBUTION_NAMES)} is installed; run pip install -e . first"
+    )
+
+
+datas += copy_metadata(_installed_distribution())
+
+# Legacy optional data packages are collected only when installed.
+for pkg in ("chromadb", "sentence_transformers"):
+    try:
+        datas += collect_data_files(pkg)
+    except Exception:
+        pass
+
+
+# --- Hidden imports ---------------------------------------------------------
+
+hiddenimports: list[str] = []
+
+# Entry-point-loaded Jarvis plugins and channels are invisible to static import
+# analysis and must be collected explicitly.
+hiddenimports += collect_submodules("dodaios.plugins")
+hiddenimports += collect_submodules("dodaios.channels")
+
+# Uvicorn standard installs version-specific backends through dynamic imports.
+for pkg in (
+    "uvicorn.lifespan.on",
+    "uvicorn.lifespan.off",
+    "uvicorn.protocols",
+    "uvicorn.loops",
+    "uvicorn.loops.asyncio",
+    "uvicorn.protocols.http",
+    "uvicorn.protocols.http.h11_impl",
+    "uvicorn.protocols.http.httptools_impl",
+    "uvicorn.protocols.websockets",
+    "uvicorn.protocols.websockets.websockets_impl",
+    "uvicorn.protocols.websockets.wsproto_impl",
+    "websockets.legacy",
+    "httptools",
+    "h11",
+    "wsproto",
+):
+    hiddenimports.append(pkg)
+
+# faster-whisper loads ctranslate2 dynamically when local voice is installed.
+for pkg in ("faster_whisper", "ctranslate2"):
+    try:
+        hiddenimports += collect_submodules(pkg)
+    except Exception:
+        pass
+
+# Optional per-OS integrations reached through lazy imports at runtime. Only the
+# ones actually installed on the build machine are added, so the spec stays
+# buildable on a host without the platform extras.
+_optional_hidden = [
+    "webview",
+    "pystray",
+    "PIL",
+]
+if sys.platform == "win32":
+    _optional_hidden += [
+        "win32api",
+        "win32com.client",
+        "win32con",
+        "win32gui",
+        "win32process",
+        "pythoncom",
+        "pywintypes",
+        "comtypes",
+        "pycaw",
+    ]
+for pkg in _optional_hidden:
+    try:
+        __import__(pkg)
+    except Exception:
+        continue
+    hiddenimports.append(pkg)
+
+# macOS: the permission port loads pyobjc frameworks BY NAME
+# (``SystemPermissionPort._load("AVFoundation")``), which no static import
+# analysis can see. Without AVFoundation the frozen app read the microphone
+# permission as "unavailable" for good, so the voice gate never opened - the
+# v2.5.0 image shipped exactly like that (BUG-222). It needs the
+# ``[desktop-macos]`` extra on the build machine; a build without it is refused
+# by scripts/ci/check_frozen_macos_app.py instead of being shipped quietly.
+if sys.platform == "darwin":
+    for pkg in ("AVFoundation",):
+        try:
+            hiddenimports += collect_submodules(pkg)
+        except Exception as exc:
+            print(f"[dodaios.spec] WARNING: cannot collect {pkg}: {exc}")
+
+
+# --- Bundle-size exclusions -------------------------------------------------
+
+excludes = [
+    "tkinter",
+    "PyQt5",
+    "PyQt6",
+    "PySide2",
+    "PySide6",
+    "matplotlib",
+    "IPython",
+    "jupyter",
+    "pytest",
+    "notebook",
+    "torch.test",
+    "tornado",
+    # Development-only. They arrive through the `[dev]` extra that the build
+    # machine installs (PyInstaller itself lives there too), and every one of
+    # them is dead weight in a shipped app - mypy alone is tens of megabytes of
+    # compiled mypyc extensions.
+    "PyInstaller",
+    "_pytest",
+    "coverage",
+    "hypothesis",
+    "mypy",
+    "mypyc",
+    "ruff",
+]
+
+
+# --- Analysis ---------------------------------------------------------------
+
+block_cipher = None
+
+a = Analysis(
+    ["dodaios/__main__.py"],
+    pathex=[str(PROJECT_ROOT)],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
+    # Outranks pyinstaller-hooks-contrib (HOOK_PRIORITY_USER_HOOKS); see the
+    # files in that directory for why each override exists.
+    hookspath=[str(PROJECT_ROOT / "packaging" / "pyinstaller_hooks")],
+    hooksconfig={},
+    # Redirects jarvis.toml + the data directory to the per-user app directory
+    # BEFORE dodaios.core.config freezes its import-time path constants.
+    runtime_hooks=[str(PROJECT_ROOT / "packaging" / "pyinstaller_rthook_frozen.py")],
+    excludes=excludes,
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+# Preserve notices of distributions actually present in the frozen graph. The
+# generated inventory deliberately leaves native transitive/source obligations
+# unassessed: copying Python package notices cannot settle those terms.
+import importlib.util
+
+_notice_helper_path = PROJECT_ROOT / "scripts" / "packaging" / "native_notices.py"
+_notice_helper_spec = importlib.util.spec_from_file_location("_native_notices", _notice_helper_path)
+if _notice_helper_spec is None or _notice_helper_spec.loader is None:
+    raise SystemExit(f"cannot load the native notice collector from {_notice_helper_path}")
+_notice_helper = importlib.util.module_from_spec(_notice_helper_spec)
+_notice_helper_spec.loader.exec_module(_notice_helper)
+a.datas += _notice_helper.collect_native_notices(
+    a.pure, a.binaries, a.datas,
+    Path(globals().get("WORKPATH", PROJECT_ROOT / "build")) / "native-notices",
+)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+
+# --- Windows version resource ----------------------------------------------
+# Explorer's Details tab, the SmartScreen prompt and AV reputation engines read
+# this. An unversioned binary is treated as less trustworthy.
+
+version_resource = None
+if sys.platform == "win32":
+    from PyInstaller.utils.win32.versioninfo import (
+        FixedFileInfo,
+        StringFileInfo,
+        StringStruct,
+        StringTable,
+        VarFileInfo,
+        VarStruct,
+        VSVersionInfo,
+    )
+
+    _numeric = [int(part) for part in re.findall(r"\d+", VERSION)[:4]]
+    _numeric += [0] * (4 - len(_numeric))
+    _filevers = tuple(_numeric)
+
+    version_resource = VSVersionInfo(
+        ffi=FixedFileInfo(
+            filevers=_filevers,
+            prodvers=_filevers,
+            mask=0x3F,
+            flags=0x0,
+            OS=0x40004,
+            fileType=0x1,
+            subtype=0x0,
+            date=(0, 0),
+        ),
+        kids=[
+            StringFileInfo(
+                [
+                    StringTable(
+                        "040904B0",
+                        [
+                            StringStruct("CompanyName", "Dodaios"),
+                            # TODO(signpath): FileDescription and ProductName keep
+                            # the earlier name until the SignPath artifact
+                            # configuration pins the new product name
+                            # (docs/code-signing-policy.md). Change them together.
+                            StringStruct("FileDescription", "Personal Jarvis"),
+                            StringStruct("FileVersion", VERSION),
+                            StringStruct("InternalName", GUI_EXE_NAME),
+                            StringStruct(
+                                "LegalCopyright",
+                                "Personal Jarvis contributors. Apache 2.0 licensed.",
+                            ),
+                            StringStruct("OriginalFilename", f"{GUI_EXE_NAME}.exe"),
+                            StringStruct("ProductName", "Personal Jarvis"),
+                            StringStruct("ProductVersion", VERSION),
+                        ],
+                    )
+                ]
+            ),
+            VarFileInfo([VarStruct("Translation", [0x0409, 1200])]),
+        ],
+    )
+
+
+def _icon_path():
+    """The platform's icon, or ``None`` when it has not been generated yet."""
+    candidate = ICON_DIR / ("dodaios.icns" if sys.platform == "darwin" else "dodaios.ico")
+    if candidate.is_file():
+        return str(candidate)
+    print(f"[dodaios.spec] icon {candidate} is missing - building without one")
+    return None
+
+
+ICON = _icon_path()
+
+
+# --- Executables ------------------------------------------------------------
+# One COLLECT: the windowed launcher, the windowed launcher again under each
+# earlier name, the console CLI, and the console CLI again under each earlier
+# name.
+
+def _gui_exe(name):
+    return EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=name,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,             # UPX commonly triggers antivirus false positives.
+        console=False,         # Match pythonw behavior without a console window.
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICON,
+        version=version_resource,
+        uac_admin=False,       # Run asInvoker; elevate only individual actions.
+    )
+
+
+exe_gui = _gui_exe(GUI_EXE_NAME)
+legacy_gui_exes = [_gui_exe(name) for name in LEGACY_GUI_EXE_NAMES]
+
+
+def _console_exe(name):
+    return EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=name,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,
+        console=True,          # `dodaios serve` must print to the terminal it ran in.
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICON,
+        version=version_resource,
+        uac_admin=False,
+    )
+
+
+exe_cli = _console_exe(CLI_EXE_NAME)
+legacy_cli_exes = [_console_exe(name) for name in LEGACY_CLI_EXE_NAMES]
+
+coll = COLLECT(
+    exe_gui,
+    *legacy_gui_exes,
+    exe_cli,
+    *legacy_cli_exes,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name=BUNDLE_DIR_NAME,
+)
+
+
+# --- macOS application bundle ----------------------------------------------
+# Cannot be produced anywhere else: BUNDLE only runs on darwin. packaging/macos
+# wraps the resulting .app in the release DMG.
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name=MACOS_APP_NAME,
+        icon=ICON,
+        bundle_identifier=MACOS_BUNDLE_IDENTIFIER,
+        version=VERSION,
+        info_plist={
+            "CFBundleName": "Dodaios",
+            "CFBundleDisplayName": "Dodaios",
+            "CFBundleExecutable": GUI_EXE_NAME,
+            "CFBundleIdentifier": MACOS_BUNDLE_IDENTIFIER,
+            "CFBundleShortVersionString": VERSION,
+            "CFBundleVersion": VERSION,
+            "CFBundlePackageType": "APPL",
+            # PyInstaller sets LSBackgroundOnly=True whenever the LAST executable
+            # of the COLLECT is a console one - and the CLI is. A
+            # background-only app gets no Dock icon, no menu bar and no windows
+            # from LaunchServices; the v2.5.0 image shipped that way. This is a
+            # windowed app (the CLI entry runs from a terminal, not through
+            # LaunchServices), so say so explicitly.
+            "LSBackgroundOnly": False,
+            "LSMinimumSystemVersion": MACOS_MIN_SYSTEM_VERSION,
+            "LSApplicationCategoryType": "public.app-category.productivity",
+            "NSHighResolutionCapable": True,
+            # Every NS...UsageDescription string comes from the single table in
+            # dodaios/core/macos_privacy_strings.py, which the managed app's
+            # Info.plist loads too. Without the microphone string macOS ends the
+            # process the moment it touches the microphone, so the table is
+            # asserted on the built app (scripts/ci/check_frozen_macos_app.py).
+            # Add or reword a string THERE, never here.
+            **_macos_privacy_strings().usage_descriptions(),
+            # German and Spanish usage strings: the languages are declared here,
+            # the <lang>.lproj/InfoPlist.strings files themselves are written
+            # into the finished .app by packaging/macos/build.sh (before signing,
+            # because they are part of the seal) from the same table.
+            **_macos_privacy_strings().localization_plist_keys(),
+        },
+    )

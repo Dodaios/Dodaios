@@ -1,0 +1,411 @@
+/*
+ * The Verse HUD: a ship's display, not a game overlay. Dark translucent
+ * panels with 1 px hairlines, small letter-spaced uppercase labels,
+ * monospace numbers; one red accent, amber for attention. No glow, no
+ * gradients.
+ */
+.verse-stage {
+  --verse-ink: #d9dee3;
+  --verse-ink-dim: rgba(217, 222, 227, 0.58);
+  --verse-ink-faint: rgba(217, 222, 227, 0.34);
+  --verse-panel: rgba(9, 11, 13, 0.82);
+  --verse-panel-solid: #0b0d0f;
+  --verse-line: rgba(196, 206, 216, 0.16);
+  --verse-line-strong: rgba(196, 206, 216, 0.34);
+  --verse-red: #c4372d;
+  --verse-amber: #d6a03c;
+  --verse-green: #5fae6e;
+  --verse-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --verse-sans: "Inter Variable", Inter, system-ui, "Segoe UI", sans-serif;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #050607;
+  color: var(--verse-ink);
+  font-family: var(--verse-sans);
+  outline: none;
+  user-select: none;
+}
+
+.verse-surface {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  cursor: default;
+}
+
+.verse-surface[data-cursor="pointer"] { cursor: pointer; }
+.verse-surface:active { cursor: grabbing; }
+
+.verse-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.verse-hud > * { pointer-events: auto; }
+
+.verse-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--verse-ink-dim);
+}
+
+.verse-num {
+  font-family: var(--verse-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.verse-panel {
+  background: var(--verse-panel);
+  border: 1px solid var(--verse-line);
+  border-radius: 2px;
+}
+
+.verse-fallback,
+.verse-status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--verse-ink-dim);
+  background: var(--verse-panel);
+  border: 1px solid var(--verse-line);
+  border-radius: 2px;
+  text-align: center;
+}
+
+.verse-status[data-tone="error"] { border-color: rgba(196, 55, 45, 0.6); color: var(--verse-ink); }
+
+/* Deck title, top left, with the commander's rank card under it. */
+.verse-deck {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  pointer-events: none;
+}
+
+.verse-deck-head { display: flex; align-items: stretch; gap: 10px; max-width: 100%; }
+
+.verse-deck-number {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  padding: 0 8px;
+  font-family: var(--verse-mono);
+  font-size: 18px;
+  color: var(--verse-ink);
+  border: 1px solid var(--verse-line-strong);
+  border-left: 2px solid var(--verse-red);
+  background: var(--verse-panel);
+}
+
+.verse-deck-text { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
+.verse-deck-name { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--verse-ink); }
+.verse-deck-sub { display: flex; flex-wrap: wrap; gap: 3px 12px; }
+.verse-deck-sub .verse-label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+.verse-rank-slot { pointer-events: auto; display: flex; max-width: 100%; }
+
+.verse-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--verse-ink-faint);
+}
+
+.verse-dot[data-state="working"] { background: var(--verse-green); }
+.verse-dot[data-state="waiting"] { background: var(--verse-amber); }
+.verse-dot[data-state="error"] { background: var(--verse-red); }
+.verse-dot[data-state="paused"] { background: rgba(217, 222, 227, 0.2); }
+
+/* Tool rail, top right. */
+.verse-tools {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  display: flex;
+  gap: 0;
+}
+
+.verse-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--verse-ink-dim);
+  background: var(--verse-panel);
+  border: 1px solid var(--verse-line);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.verse-tool + .verse-tool { border-left: none; }
+.verse-tool:hover { color: var(--verse-ink); border-color: var(--verse-line-strong); }
+.verse-tool:focus-visible { outline: 1px solid var(--verse-amber); outline-offset: 1px; }
+.verse-tool kbd { font-family: var(--verse-mono); font-size: 10px; color: var(--verse-ink-faint); }
+.verse-tool[aria-pressed="true"] { color: var(--verse-ink); border-color: var(--verse-amber); box-shadow: inset 0 -2px 0 var(--verse-amber); }
+.verse-key {
+  display: inline-block;
+  min-width: 15px;
+  margin-left: 6px;
+  padding: 0 4px;
+  font-family: var(--verse-mono);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  color: var(--verse-amber);
+  border: 1px solid var(--verse-amber);
+}
+
+/* Name plates and station labels follow the scene; the HUD moves them every frame. */
+.verse-plates { position: absolute; inset: 0; pointer-events: none; }
+
+.verse-plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-9999px, -9999px);
+  white-space: nowrap;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.verse-plate-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 9px 7px;
+  background: var(--verse-panel);
+  border: 1px solid var(--verse-line-strong);
+  border-left: 2px solid var(--verse-plate-accent, var(--verse-line-strong));
+  border-radius: 1px;
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
+.verse-plate-name { font-size: 12px; font-weight: 600; color: var(--verse-ink); letter-spacing: 0.02em; }
+.verse-plate-meta { display: flex; align-items: center; gap: 7px; }
+
+.verse-station-label {
+  padding: 5px 9px;
+  background: var(--verse-panel);
+  border: 1px solid var(--verse-line-strong);
+  border-radius: 1px;
+  transform: translate(-50%, calc(-100% - 6px));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.verse-station-label b { font-size: 11px; font-weight: 600; color: var(--verse-ink); letter-spacing: 0.04em; }
+
+/* Selected crew member card, bottom left. */
+.verse-card {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 300px;
+  max-width: calc(100% - 32px);
+  padding: 12px 14px 14px;
+}
+
+.verse-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.verse-card-name { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: var(--verse-ink); }
+.verse-card-rows { margin-top: 10px; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; }
+.verse-card-value { font-size: 12px; color: var(--verse-ink); }
+.verse-card-actions { margin-top: 12px; display: flex; gap: 0; }
+
+.verse-btn {
+  height: 28px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--verse-ink);
+  background: transparent;
+  border: 1px solid var(--verse-line-strong);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.verse-btn + .verse-btn { border-left: none; }
+.verse-btn:hover { background: rgba(217, 222, 227, 0.06); }
+.verse-btn[data-primary="true"] { border-color: rgba(196, 55, 45, 0.75); }
+.verse-btn[data-primary="true"]:hover { background: rgba(196, 55, 45, 0.16); }
+.verse-btn:focus-visible { outline: 1px solid var(--verse-amber); outline-offset: 1px; }
+
+.verse-close {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--verse-ink-dim);
+  background: transparent;
+  border: 1px solid var(--verse-line);
+  cursor: pointer;
+}
+
+.verse-close:hover { color: var(--verse-ink); border-color: var(--verse-line-strong); }
+
+/* Notices, bottom centre. */
+.verse-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  max-width: min(520px, calc(100% - 32px));
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--verse-ink);
+  border-left: 2px solid var(--verse-amber);
+}
+
+/* Turbolift panel and other dialogs. */
+.verse-scrim {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(2, 3, 4, 0.5);
+  pointer-events: auto;
+}
+
+.verse-dialog {
+  width: min(420px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow: auto;
+  background: var(--verse-panel-solid);
+  border: 1px solid var(--verse-line-strong);
+  border-top: 2px solid var(--verse-red);
+}
+
+.verse-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--verse-line);
+}
+
+.verse-dialog-title { font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--verse-ink); }
+
+.verse-lift-row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  text-align: left;
+  color: var(--verse-ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--verse-line);
+  cursor: pointer;
+}
+
+.verse-lift-row:hover { background: rgba(217, 222, 227, 0.05); }
+.verse-lift-row:focus-visible { outline: 1px solid var(--verse-amber); outline-offset: -1px; }
+.verse-lift-row[aria-current="true"] { cursor: default; background: rgba(217, 222, 227, 0.03); }
+.verse-lift-row b { font-family: var(--verse-mono); font-size: 20px; font-weight: 400; color: var(--verse-ink-dim); }
+.verse-lift-row[aria-current="true"] b { color: var(--verse-red); }
+.verse-lift-name { display: flex; flex-direction: column; gap: 3px; }
+.verse-lift-name span:first-child { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.verse-lift-name small { font-size: 11px; color: var(--verse-ink-dim); }
+
+/* The lift ride: doors close over the deck, open on the next. */
+.verse-doors {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  pointer-events: none;
+}
+
+.verse-doors i {
+  background: #0d0f11;
+  border-right: 1px solid rgba(196, 206, 216, 0.12);
+  transform: translateX(-101%);
+  transition: transform 420ms cubic-bezier(0.6, 0, 0.3, 1);
+}
+
+.verse-doors i + i { border-right: none; border-left: 1px solid rgba(196, 206, 216, 0.12); transform: translateX(101%); }
+.verse-doors[data-shut="true"] i { transform: translateX(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .verse-doors i { transition: none; }
+}
+
+/* Dev stats. */
+.verse-stats {
+  position: absolute;
+  right: 16px;
+  top: 54px;
+  padding: 6px 9px;
+  font-family: var(--verse-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--verse-ink-dim);
+  white-space: pre;
+  pointer-events: none;
+}
+
+/* The compact IDE side panel: tall and narrow. */
+.verse-stage[data-compact="true"] .verse-deck { left: 10px; top: 10px; max-width: calc(100% - 20px); }
+.verse-stage[data-compact="true"] .verse-deck-number { min-width: 28px; font-size: 15px; }
+.verse-stage[data-compact="true"] .verse-tools { right: 10px; top: auto; bottom: 10px; }
+.verse-stage[data-compact="true"] .verse-tool .verse-tool-text { display: none; }
+.verse-stage[data-compact="true"] .verse-card { left: 10px; bottom: 50px; width: auto; right: 10px; }
+
+@media (max-width: 560px) {
+  .verse-deck-sub { display: none; }
+  .verse-tool .verse-tool-text { display: none; }
+}
+
+/* Forms (the master systems console). */
+.verse-form { width: min(460px, calc(100% - 32px)); }
+.verse-form-body { display: flex; flex-direction: column; gap: 12px; padding: 14px; }
+.verse-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.verse-field-row { display: flex; gap: 10px; }
+.verse-field-narrow { flex: 0 0 84px; }
+.verse-input {
+  width: 100%;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--verse-ink);
+  background: #07090a;
+  border: 1px solid var(--verse-line-strong);
+  border-radius: 0;
+  outline: none;
+  resize: vertical;
+}
+.verse-input:focus-visible { border-color: var(--verse-amber); }
+.verse-form-note { margin: 0; font-size: 12px; color: var(--verse-ink-dim); }
+.verse-form-foot { display: flex; justify-content: flex-end; gap: 0; padding: 0 14px 14px; }
+.verse-btn:disabled { opacity: 0.45; cursor: default; }

@@ -19,7 +19,7 @@ import {
   type ChatMessage,
   type VoiceState,
 } from "@/store/events";
-import { useSubAgentStore, SUB_AGENT_EVENT_NAMES } from "@/store/jarvisAgents";
+import { useSubAgentStore, SUB_AGENT_EVENT_NAMES } from "@/store/dodaiosAgents";
 import {
   useCommandActivityStore,
   COMMAND_ACTIVITY_EVENTS,
@@ -350,6 +350,13 @@ export function useWebSocket(): void {
         // not on the next 30 s poll.
         if (env.event_name === "SocietyCheckpointChanged") {
           void queryClient.invalidateQueries({ queryKey: ["society", "roster"] });
+        }
+
+        // A build in the self-building ledger opened or moved: "Built for
+        // you", its nav count and the "built by" badges re-read the ledger.
+        // Never a toast — the loop does not interrupt (docs/self-build.md).
+        if (env.event_name === "SelfBuildChanged") {
+          void queryClient.invalidateQueries({ queryKey: ["self-build"] });
         }
 
         // The desktop pet's pen: the backend already raised this window; land

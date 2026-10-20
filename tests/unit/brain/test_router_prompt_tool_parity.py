@@ -55,24 +55,10 @@ def test_prompt_does_not_advertise_phantom_tools_as_callable() -> None:
         )
 
 
-def test_prompt_routes_app_actions_to_computer_use() -> None:
-    """The app-open / PC-operation path must point at a real ROUTER_TOOL.
-
-    Since the 2026-05-29 Computer-Use amendment the desktop path is the
-    dedicated ``computer_use`` tool (the dispatch_to_harness indirection was
-    never picked by the model for desktop actions — its description doesn't
-    mention the desktop). The prompt must advertise computer_use for PC
-    actions and still explicitly forbid the phantom open_app.
-    """
+def test_app_actions_route_to_a_real_computer_use_tool() -> None:
+    """The desktop path is the dedicated ``computer_use`` router tool; its own
+    declaration says when to use it, so the prompt no longer names it."""
     assert "computer-use" in ROUTER_TOOLS
-    assert "computer_use" in SYSTEM_PROMPT, (
-        "router prompt no longer routes PC actions to computer_use."
-    )
-    # And it explicitly tells the model NOT to use the phantom open_app.
-    assert re.search(r"NICHT\s+open_app", SYSTEM_PROMPT), (  # i18n-allow
-        "router prompt should explicitly forbid open_app so the model uses "
-        "computer_use for opening apps."
-    )
 
 
 def test_search_web_is_a_real_router_tool_and_advertised() -> None:
@@ -88,8 +74,10 @@ def test_search_web_is_a_real_router_tool_and_advertised() -> None:
         "search-web missing from ROUTER_TOOLS — the prompt's research "
         "doctrine would advertise a phantom tool (silence bug class)."
     )
-    assert "search_web" in SYSTEM_PROMPT, (
-        "router prompt does not advertise search_web — the model has no "
+    from dodaios.brain.manager import _CORE_CONTRACT
+
+    assert "search_web" in _CORE_CONTRACT, (
+        "core contract does not advertise search_web — the model has no "
         "visible inline path for news/knowledge questions and will fall "
         "back to spawning a worker mission for a single lookup."
     )

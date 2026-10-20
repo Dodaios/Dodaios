@@ -137,6 +137,33 @@ test("history distinguishes success, failure, active and legacy executions", () 
 });
 
 
+test("a skipped run is its own entry with its reason, also in an older two-step history", () => {
+  const step = (seq: number, payload: Record<string, unknown>) => ({ seq, kind: "log", timestamp_ns: seq * 1e9, payload } as TaskStep);
+  const steps = [
+    step(1, { event: "run_started" }),
+    step(2, { event: "skipped", reason: "waiting_capacity", code: "api_key_seat", provider: "gemini", message: "Held back." }),
+    step(3, { event: "run_started" }),
+    step(4, { event: "skipped", reason: "waiting_capacity", message: "Older skip." }),
+    step(5, { event: "error", message: "Older skip." }),
+    step(6, { event: "run_started" }),
+    step(7, { event: "error", message: "Provider failed." }),
+  ];
+  const runs = routineRuns("r1", steps);
+  expect(runs.map((run) => run.status)).toEqual(["skipped", "skipped", "failed"]);
+  expect(runs[0]).toMatchObject({ skipCode: "api_key_seat", skipProvider: "gemini", text: "Held back." });
+  expect(runs[1]).toMatchObject({ skipCode: "", text: "Older skip." });
+});
+
+test("the history shows a skipped run with its reason in plain words", async () => {
+  setup(false, [
+    { seq: 1, kind: "log", timestamp_ns: 1e12, payload: { event: "run_started" } },
+    { seq: 2, kind: "log", timestamp_ns: 1e12 + 1, payload: { event: "skipped", code: "api_key_seat", provider: "gemini", message: "Held back." } },
+  ] as TaskStep[]);
+  const reason = await screen.findByTestId("routine-run-skip-reason");
+  expect(reason.textContent).toBe("society.chat.skip_api_key_seat");
+  expect(screen.getByTestId("routine-run-r1:1").getAttribute("aria-label")).toContain("Skipped");
+});
+
 test("editing the time saves the new value without dropping weekdays", async () => {
   const { fetcher } = setup();
   await waitFor(() => expect((screen.getByLabelText("Name") as HTMLInputElement).disabled).toBe(false));

@@ -8,7 +8,7 @@ order: 4
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-19
 phase: "-"
 audience: end-user
 tags: [settings, appearance, startup, keyboard-shortcuts, jarvis-bar, sound]
@@ -46,7 +46,7 @@ that have their own guides.
 |---|---|---|
 | **Languages** | Interface, Voice Recognition Language, and Reply Language | Interface and reply choices apply live. After changing recognition, end any Realtime call and restart Dodaios for Pipeline recognition |
 | **App settings** | Launch the app when you sign in | The operating-system startup entry is added or removed immediately |
-| **Realtime voice (browser)** | Pipeline or Realtime voice mode | Saves immediately. An active desktop call reconnects when its mode changes; otherwise the next call uses the choice |
+| **Voice > Realtime voice** | Pipeline or Realtime voice mode | Saves immediately. An active desktop call reconnects when its mode changes; otherwise the next call uses the choice |
 | **System Prompt** | The assistant's general style and behavior | On the next message; no restart |
 | **Wake Word** | Activation, phrase, spoken language, detection engine, and self-test | Usually live when desktop voice is ready; otherwise on the next voice start |
 | **Thinking pause** | How long you may pause before Dodaios takes your turn — one value for Pipeline and Realtime. If you keep talking inside the pause, the words are added to the same request instead of being sent twice | Live with Pipeline running; Realtime uses the value on the next turn (some voice models on the next call) |
@@ -69,9 +69,10 @@ is spoken in German.
 
 ### Realtime Voice and Providers
 
-The **Realtime voice (browser)** switch chooses the voice engine. It does not
-choose the provider, model, or speaking voice. Configure those under
-[Providers and API Keys](providers-and-api-keys). When the optional Realtime
+The **Realtime voice** switch chooses the voice engine; off means Pipeline.
+**API Keys & Providers > Live calls > Voice engine** is the same choice. The
+switch does not choose the provider, model, or speaking voice. Configure
+those under [Providers and API Keys](providers-and-api-keys). When the optional Realtime
 engine is installed, the current adapters are OpenAI Realtime and Gemini Live.
 
 Dodaios skips installed Realtime providers that have no usable credential and
@@ -207,7 +208,7 @@ returns to idle.
 | A display choice says a restart is required | The new Bar or Mascot surface cannot be created safely during the current run | Finish active missions, select **Restart now**, and check the chosen style after the app returns |
 | Restart is refused | One or more Dodaios-Agent missions are still running | Wait for them to finish; force only if stopping them is acceptable |
 | **Launch app at login** is unavailable | The current host has no supported graphical login session | Use the desktop app on a supported host; a headless system needs its own service setup |
-| **Realtime voice (browser)** is unavailable | No installed Realtime provider has a usable credential, or this build does not include the optional Realtime engine | Connect OpenAI Realtime or Gemini Live under **API Keys**. If the control stays unavailable, use Pipeline |
+| **Realtime voice** is unavailable | No installed Realtime provider has a usable credential, or this build does not include the optional Realtime engine | Connect OpenAI Realtime or Gemini Live under **API Keys**. If the control stays unavailable, use Pipeline |
 | Music keeps playing after you enable muting | The platform backend is unavailable, macOS Automation access was denied, or the media app is unsupported | Accept the macOS Automation prompt when offered. On Linux or for unsupported players, use the operating system or media app controls |
 | **Save** stays disabled for a shortcut | The combination is incomplete, reserved, or overlaps another action | Follow the inline message and the on-screen keyboard markers, then choose a distinct combination |
 | A macOS feature remains blocked | The operating system has not granted the required access, or the new grant needs an app restart | Use the button on the short message Dodaios shows (**Open System Settings**, **Ask macOS now**, or **Quit and reopen**); [App Permissions](permissions) explains how to start over |

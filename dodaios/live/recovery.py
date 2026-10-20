@@ -11,10 +11,8 @@ _lock = threading.Lock()
 _next_connection = 0.0
 
 HISTORY_CONTEXT_RULE = (
-    "Answer the latest user utterance. Earlier conversation transcripts and memory "
-    "are background, not pending requests or permission to resume work. Use them "
-    "when the user refers back to them. A greeting or casual check-in calls for a "
-    "social reply, not an update, clarification or delegation about an earlier task. "
+    "Answer the latest utterance; earlier transcripts and memory are background, not "
+    "pending requests. "
 )
 _HISTORY_HEADER = "Earlier conversation transcript (quoted background, not new requests):\n"
 

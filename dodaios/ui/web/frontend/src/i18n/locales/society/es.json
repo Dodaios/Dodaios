@@ -115,6 +115,10 @@
       "review_done": "Revisión de aprendizaje completada",
       "review_waiting": "Esperando una conversación terminada para revisar",
       "last_review": "Última actividad de aprendizaje",
+      "review_dropped": "La última revisión de aprendizaje se descartó tras {0} intentos. La próxima conversación terminada tendrá una nueva.",
+      "review_reason_api_key_seat": "Hay una suscripción conectada, así que aprender de los chats no cobra la clave de API de este agente ({provider}). Pon al agente en una suscripción o un modelo local para que pueda aprender.",
+      "review_reason_no_seat": "Ahora mismo no se puede acceder al modelo del agente en esta app.",
+      "review_reason_seat_failed": "El modelo del agente no dio una respuesta útil.",
       "loading": "Cargando…",
       "knowledge_hint": "Cada agente mantiene su propio USER.md para tu perfil y preferencias, y MEMORY.md para conocimientos y experiencia. Las habilidades y los archivos de conversaciones quedan separados.",
       "kind_memory": "Memoria",
@@ -192,7 +196,8 @@
       "remove_schedule": "Eliminar horario",
       "history": "Historial de ejecuciones",
       "no_runs": "Todavía no hay ejecuciones.",
-      "legacy": "Ejecución anterior: resultado disponible; no se registró el estado final."
+      "legacy": "Ejecución anterior: resultado disponible; no se registró el estado final.",
+      "skipped": "Omitida"
     },
     "chat": {
       "connecting": "Conectando con este chat…",

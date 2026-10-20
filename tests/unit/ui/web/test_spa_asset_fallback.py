@@ -37,7 +37,7 @@ def _client(tmp_path, monkeypatch) -> tuple[TestClient, object]:
 
 def test_missing_asset_gets_honest_404_not_index_html(tmp_path, monkeypatch) -> None:
     client, _dist = _client(tmp_path, monkeypatch)
-    response = client.get("/jarvis-logo.png")
+    response = client.get("/dodaios-logo.png")
     assert response.status_code == 404
     assert b"<div id=root>" not in response.content
 
@@ -51,7 +51,7 @@ def test_client_side_route_still_falls_back_to_index(tmp_path, monkeypatch) -> N
 
 def test_existing_asset_is_served_as_is(tmp_path, monkeypatch) -> None:
     client, dist = _client(tmp_path, monkeypatch)
-    (dist / "jarvis-logo.png").write_bytes(b"\x89PNG\r\n\x1a\n fake-png-body")
-    response = client.get("/jarvis-logo.png")
+    (dist / "dodaios-logo.png").write_bytes(b"\x89PNG\r\n\x1a\n fake-png-body")
+    response = client.get("/dodaios-logo.png")
     assert response.status_code == 200
     assert response.content.startswith(b"\x89PNG")

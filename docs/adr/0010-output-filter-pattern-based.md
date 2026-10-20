@@ -68,7 +68,7 @@ Hyphen compounds (`Browser-Provider`, `Brain-Provider`) are preserved by lookbeh
 
 - **A. LLM-filter roundtrip** ("the brain produces raw, an LLM wrapper rephrases for voice"): cleanest output quality, but +200–800 ms latency kills the butler tone. **Rejected.**
 - **B. Hard cut at the tool-JSON marker** (cut off everything after `dispatch_to_*`): very fast, but wrecks legitimate Dodaios-Agent replies that happen to contain JSON-like strings ("Die Datei deklariert vier Provider in JSON-Format"). **Rejected.**
-- **D. Enforce a pre-filter via the brain system prompt** ("You MUST NOT output JSON"): not reliable — Gemini Flash still leaks occasionally. Defense in depth required (prompt + filter). **Implemented as a complement** (JARVIS_PERSONA.md ECHO-PARAPHRASE section + ROUTER-DISCIPLINE section), not as a replacement.
+- **D. Enforce a pre-filter via the brain system prompt** ("You MUST NOT output JSON"): not reliable — Gemini Flash still leaks occasionally. Defense in depth required (prompt + filter). **Implemented as a complement** (DODAIOS_PERSONA.md ECHO-PARAPHRASE section + ROUTER-DISCIPLINE section), not as a replacement.
 
 ## Subsequent drift-class extension 2026-04-28
 

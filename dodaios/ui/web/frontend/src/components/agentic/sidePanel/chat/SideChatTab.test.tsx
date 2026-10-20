@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TimelineItem, TurnBlock, TurnItem, TurnStatus } from "@/components/agentchat/reduce";
+import { forgetHeldFiles } from "@/components/agentchat/useChatAttachments";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
 import { SideChatTab } from "./SideChatTab";
@@ -55,6 +56,9 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  // Held files outlive the tab; one test's file must not leak into the next.
+  forgetHeldFiles(useSideChatStore);
+  vi.unstubAllGlobals();
 });
 
 describe("SideChatTab", () => {
@@ -86,7 +90,7 @@ describe("SideChatTab", () => {
     expect(send).not.toHaveBeenCalled();
     fireEvent.keyDown(input, { key: "Enter" });
 
-    await waitFor(() => expect(send).toHaveBeenCalledWith("hello"));
+    await waitFor(() => expect(send).toHaveBeenCalledWith("hello", []));
     expect(input.value).toBe("");
   });
 
@@ -176,5 +180,110 @@ describe("SideChatTab", () => {
     useEventStore.setState({ dictating: true });
     render(<SideChatTab />);
     expect((screen.getByTestId("side-chat-send") as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+const SHOT = {
+  name: "shot.png", reference: '".jarvis/drops/shot.png"', kind: "image" as const,
+  detail: "A login form with a red error.", described_by: "vision" as const, note: "",
+};
+
+/** A DataTransfer stand-in: jsdom's own carries neither files nor types. */
+function transfer(files: File[]) {
+  return {
+    files,
+    items: files.map((file) => ({ kind: "file", type: file.type, getAsFile: () => file })),
+    types: files.length ? ["Files"] : [],
+    getData: () => "",
+    dropEffect: "none",
+  };
+}
+
+describe("SideChatTab attachments", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn(async () => ({
+      ok: true, status: 200, json: async () => ({ attachments: [SHOT], cwd: "C:\chat" }),
+    }) as Response);
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("takes a file dropped anywhere on the tab, on the side surface", async () => {
+    seed([]);
+    render(<SideChatTab />);
+    const tab = screen.getByTestId("side-chat-tab");
+    const png = new File([new Uint8Array([1])], "shot.png", { type: "image/png" });
+
+    fireEvent.dragEnter(tab, { dataTransfer: transfer([png]) });
+    expect(screen.getByTestId("side-chat-drop-overlay")).toBeTruthy();
+    await act(async () => {
+      fireEvent.drop(tab, { dataTransfer: transfer([png]) });
+    });
+
+    await waitFor(() => expect(screen.getByTestId("chat-attachment-shot.png")).toBeTruthy());
+    expect(screen.queryByTestId("side-chat-drop-overlay")).toBeNull();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/agent-chat/attachments");
+    expect((init.body as FormData).get("surface")).toBe("side");
+  });
+
+  it("takes a pasted image and leaves pasted text to the box", async () => {
+    seed([]);
+    render(<SideChatTab />);
+    const input = screen.getByTestId("side-chat-input");
+
+    const textPaste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(textPaste, "clipboardData", { value: transfer([]) });
+    await act(async () => { input.dispatchEvent(textPaste); });
+    expect(textPaste.defaultPrevented).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const png = new File([new Uint8Array([1])], "image.png", { type: "image/png" });
+    await act(async () => { fireEvent.paste(input, { clipboardData: transfer([png]) }); });
+    await waitFor(() => expect(screen.getByTestId("chat-attachment-shot.png")).toBeTruthy());
+  });
+
+  it("attaches files picked with the paperclip", async () => {
+    seed([]);
+    render(<SideChatTab />);
+    expect(screen.getByTestId("side-chat-attach")).toBeTruthy();
+    const pdf = new File([new Uint8Array([1])], "notes.pdf", { type: "application/pdf" });
+    await act(async () => {
+      fireEvent.change(screen.getByTestId("side-chat-file-input"), { target: { files: [pdf] } });
+    });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
+  it("sends a file alone, with what was read from it, and then holds none", async () => {
+    const { send } = seed([]);
+    render(<SideChatTab />);
+    const png = new File([new Uint8Array([1])], "shot.png", { type: "image/png" });
+    await act(async () => {
+      fireEvent.drop(screen.getByTestId("side-chat-tab"), { dataTransfer: transfer([png]) });
+    });
+    await waitFor(() => expect(screen.getByTestId("chat-attachment-shot.png")).toBeTruthy());
+
+    expect((screen.getByTestId("side-chat-send") as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.keyDown(screen.getByTestId("side-chat-input"), { key: "Enter" });
+
+    await waitFor(() => expect(send).toHaveBeenCalledWith("", [SHOT]));
+    await waitFor(() => expect(screen.queryByTestId("chat-attachment-shot.png")).toBeNull());
+  });
+
+  it("puts the files of a message that never left back", async () => {
+    seed([], { send: vi.fn(async () => "failed" as const) });
+    render(<SideChatTab />);
+    const png = new File([new Uint8Array([1])], "shot.png", { type: "image/png" });
+    await act(async () => {
+      fireEvent.drop(screen.getByTestId("side-chat-tab"), { dataTransfer: transfer([png]) });
+    });
+    await waitFor(() => expect(screen.getByTestId("chat-attachment-shot.png")).toBeTruthy());
+    const input = screen.getByTestId("side-chat-input") as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "what is wrong" } });
+    fireEvent.click(screen.getByTestId("side-chat-send"));
+
+    await waitFor(() => expect(input.value).toBe("what is wrong"));
+    expect(screen.getByTestId("chat-attachment-shot.png")).toBeTruthy();
   });
 });

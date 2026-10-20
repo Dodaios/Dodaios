@@ -52,3 +52,29 @@ it("shows separate user and experience notebooks and loads each agent-qualified 
   expect(screen.queryByText("Prefers concise replies.")).toBeNull();
   expect(fetcher).toHaveBeenCalledWith("/api/society/agents/scout/knowledge/file?path=memory%2FMEMORY.md", expect.anything());
 });
+
+it("says why the last review is waiting and when one was dropped", async () => {
+  let record: Record<string, unknown> = { state: "pending", updated_ms: 1000, reason_code: "api_key_seat", provider: "gemini", reason: "server sentence" };
+  let counts = { pending: 1, done: 0 };
+  vi.stubGlobal("fetch", vi.fn(async () => json({ files: [], learned_instructions: [], reviews: counts, last_review: record })));
+  render(<QueryClientProvider client={new QueryClient()}><LearnedInstructions agentId="scout" sample={false} /></QueryClientProvider>);
+  expect((await screen.findByTestId("review-wait-reason")).textContent).toBe("society.profile_card.review_reason_api_key_seat");
+  record = { state: "dropped", updated_ms: 2000, attempts: 4, reason_code: "seat_failed" };
+  counts = { pending: 0, done: 0 };
+  fireEvent.click(screen.getByRole("button", { name: "society.profile_card.refresh" }));
+  await screen.findByText("society.profile_card.review_reason_seat_failed");
+  expect(screen.getByRole("status").textContent).toBe("society.profile_card.review_dropped");
+});
+
+it("falls back to the server sentence for a reason without a known code", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => json({ files: [], learned_instructions: [], reviews: { pending: 1, done: 0 }, last_review: { state: "pending", updated_ms: 1, reason: "a subscription is connected" } })));
+  render(<QueryClientProvider client={new QueryClient()}><LearnedInstructions agentId="scout" sample={false} /></QueryClientProvider>);
+  expect((await screen.findByTestId("review-wait-reason")).textContent).toBe("a subscription is connected");
+});
+
+it("shows no reason once a review is done", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => json({ files: [], learned_instructions: ["Check sources."], reviews: { pending: 0, done: 1 }, last_review: { state: "done", updated_ms: 1 } })));
+  render(<QueryClientProvider client={new QueryClient()}><LearnedInstructions agentId="scout" sample={false} /></QueryClientProvider>);
+  await screen.findByText("Check sources.");
+  expect(screen.queryByTestId("review-wait-reason")).toBeNull();
+});
