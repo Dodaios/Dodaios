@@ -19,7 +19,7 @@ const KNOWN_PLACES = new Set(["soul", "memory", "user"]);
 const BILLING_KEYS: Record<string, string> = {
   subscription: "subscription",
   local: "local",
-  "api key": "api_key",
+  metered: "api_key",
 };
 const OUTCOMES = new Set(["answered", "failed", "dropped"]);
 

@@ -135,7 +135,7 @@ Every review and merge call appends one line to the ledger:
 ```
 
 `outcome` is `answered`, `failed` or `dropped`; `billing` is `subscription`,
-`local` or `api key`. Changes the call wrote carry the same `seat`,
+`local` or `metered` (a per-token API key). Changes the call wrote carry the same `seat`,
 `seat_label`, `runner` and `billing` fields. The assistant's profile page
 shows the newest call under "Recently learned" (`GET /api/soul` returns it as
 `last_review`), and the log names the seat and billing of every call.

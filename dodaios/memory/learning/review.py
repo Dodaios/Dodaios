@@ -273,10 +273,11 @@ def validate(
     return accepted, rejected
 
 
-#: How a review was billed, as the ledger and the logs name it.
+#: How a review was billed, as the ledger and the logs name it. Plain
+#: identifiers only; the UI's locale files turn them into words.
 BILLING_SUBSCRIPTION: Final[str] = "subscription"
 BILLING_LOCAL: Final[str] = "local"
-BILLING_API_KEY: Final[str] = "api key"
+BILLING_METERED: Final[str] = "metered"
 
 
 @dataclass(frozen=True, slots=True)
@@ -288,7 +289,9 @@ class SeatChoice:
     why: str
 
     def describe(self) -> str:
-        return f"{self.seat.describe()} via {self.seat.runner} ({self.billing})"
+        """Provider, model, runner and billing mode: identifiers, never a credential."""
+        seat = self.seat
+        return f"{seat.provider}/{seat.model or 'default model'} via {seat.runner} ({self.billing})"
 
     def ledger_fields(self) -> dict[str, str]:
         """What the learning ledger records about the call (no credential)."""
@@ -296,7 +299,7 @@ class SeatChoice:
 
         row = provider_row(self.seat.provider)
         return {
-            "seat": self.seat.describe(),
+            "seat": f"{self.seat.provider}/{self.seat.model or 'default model'}",
             "seat_label": row.label if row is not None else self.seat.provider,
             "runner": self.seat.runner,
             "billing": self.billing,
@@ -307,7 +310,7 @@ def _billing(seat: Any) -> str:
     from dodaios.society.seat_brain import bills_per_token
 
     if bills_per_token(seat):
-        return BILLING_API_KEY
+        return BILLING_METERED
     return BILLING_LOCAL if seat.keyed else BILLING_SUBSCRIPTION
 
 
@@ -345,7 +348,7 @@ def seat_choices(config: Any) -> list[SeatChoice]:
         return [SeatChoice(seat, _billing(seat), "the [memory.learning] provider")]
     seat = jarvis_seat(config)
     billing = _billing(seat)
-    if billing != BILLING_API_KEY:
+    if billing != BILLING_METERED:
         return [SeatChoice(seat, billing, "the Jarvis seat")]
     twin = subscription_twin(seat)
     if twin is None:

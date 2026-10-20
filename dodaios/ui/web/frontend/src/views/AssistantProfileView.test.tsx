@@ -182,7 +182,7 @@ describe("AssistantProfileView", () => {
             changes: 0,
             seat: "openai/gpt-5.5",
             seat_label: "OpenAI",
-            billing: "api key",
+            billing: "metered",
           },
         }),
       }),
