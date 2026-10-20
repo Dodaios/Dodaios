@@ -133,7 +133,7 @@ class DeepgramSTT:
         self._api_key = (
             api_key
             or os.environ.get("DEEPGRAM_API_KEY", "")
-            or _read_keyring_secret("personal-jarvis", "deepgram_api_key")
+            or _read_keyring_secret(_KEYRING_SERVICE, "deepgram_api_key")
         )
         self._model = model
         self._last_used_model = ""
@@ -301,6 +301,12 @@ class DeepgramSTT:
 # ----------------------------------------------------------------------
 # Helpers (module-private)
 # ----------------------------------------------------------------------
+
+#: The OS credential-store service the host saves keys under. A plugin imports
+#: no ``jarvis.*``, so this restates ``jarvis.core.branding.KEYRING_SERVICE_NAME``;
+#: ``tests/unit/core/test_identity_single_source.py`` pins the two together.
+_KEYRING_SERVICE = "personal-jarvis"
+
 
 def _read_keyring_secret(service: str, username: str) -> str:
     """Best-effort credential-manager lookup. Returns ``""`` on any failure."""

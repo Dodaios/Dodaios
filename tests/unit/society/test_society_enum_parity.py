@@ -34,6 +34,8 @@ _PINS = [
     (events.RoomState, None, "ROOM_STATES"),
     (events.ApprovalState, None, "APPROVAL_STATES"),
     (events.QuestState, "society_quests.state", "QUEST_STATES"),
+    (events.TeamGoalState, "society_team_goals.state", "TEAM_GOAL_STATES"),
+    (events.TeamTaskState, "society_team_tasks.state", "TEAM_TASK_STATES"),
     (events.RunState, None, "RUN_STATES"),
 ]
 

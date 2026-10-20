@@ -73,7 +73,7 @@ logo match the original source assets, including assets embedded as data URLs.
 The seven separately emitted brand images were fetched from the live server
 and matched byte-for-byte; the served entry assets also match the local build.
 
-The actual Personal Jarvis desktop window's accessibility tree now reports a
+The actual Dodaios desktop window's accessibility tree now reports a
 Plugins dialog, its search field and recommendation filters, rather than the
 old four-column table. This was checked without mouse or keyboard input.
 Occluded-window screenshots that showed a different foreground application

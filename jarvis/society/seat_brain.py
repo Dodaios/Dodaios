@@ -164,7 +164,7 @@ def jarvis_seat(config: Any) -> Seat:
 
     tier = agents_tier(config)
     if not tier.ready or not tier.provider:
-        raise SeatUnavailable(tier.reason or "no provider can run the Jarvis chat")
+        raise SeatUnavailable(tier.reason or "no provider can run the Dodaios chat")
     return Seat(tier.provider, tier.model or "", resolve_runner(tier.provider, surface="jarvis"))
 
 

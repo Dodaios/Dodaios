@@ -1,7 +1,7 @@
 """Regression guard: every Tk surface wears the Jarvis mascot, not the Python logo.
 
 BUG #UI-Pin-2026-05-05 recurred because the icon fix lived only in the old orb
-(``ui/orb/overlay.py``) while the JarvisBar (``jarvis/ui/jarvisbar/overlay.py``,
+(``ui/orb/overlay.py``) while the JarvisBar (``jarvis/ui/dodaiosbar/overlay.py``,
 now the DEFAULT ``orb_style``) created its ``tk.Tk()`` root without any icon
 work — so it inherited the process icon (``pythonw.exe`` → Python logo on
 Windows, ``python3`` on Linux). The fix routes BOTH through one canonical
@@ -25,7 +25,7 @@ def test_apply_tk_window_icon_is_importable() -> None:
 
 def test_jarvisbar_wires_the_icon_helper() -> None:
     """The JarvisBar must call the canonical Tk-icon helper on its root."""
-    import jarvis.ui.jarvisbar.overlay as bar
+    import jarvis.ui.dodaiosbar.overlay as bar
 
     src = inspect.getsource(bar)
     assert "apply_tk_window_icon" in src, (

@@ -78,7 +78,7 @@ from typing import Any
 
 DEFAULT_BASE_URL = "http://127.0.0.1:47821"
 
-#: The bar's own top-level window title, set in ``jarvis/ui/jarvisbar/overlay.py``.
+#: The bar's own top-level window title, set in ``jarvis/ui/dodaiosbar/overlay.py``.
 #: An internal identifier matched as DATA, never rendered to a user; overridable
 #: because a different overlay backend may not set one at all.
 DEFAULT_BAR_WINDOW_TITLE = "JarvisBar"

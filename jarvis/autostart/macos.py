@@ -201,7 +201,7 @@ class MacOSAutostart:
         if not _launchctl("load", "-w", str(self._path)):
             log.info(
                 "macOS LaunchAgent written but launchctl could not arm it in this "
-                "session; RunAtLoad still starts Jarvis at the next login.",
+                "session; RunAtLoad still starts Dodaios at the next login.",
             )
         return self.status(spec)
 
@@ -227,7 +227,7 @@ class MacOSAutostart:
                 matches_spec=False,
                 entry_path=str(self._path),
                 detail=(
-                    f"The LaunchAgent could not be removed ({error}) — Jarvis may "
+                    f"The LaunchAgent could not be removed ({error}) — Dodaios may "
                     "still start at login; delete the file manually and retry."
                 ),
             )

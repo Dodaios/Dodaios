@@ -22,6 +22,7 @@ from jarvis.safety.tool_executor import ToolExecutor
         "Do not delete /tmp/keep-me",
         "Bitte lösche /tmp/keep-me nicht",
         "No borres /tmp/keep-me",
+        "Não apagues /tmp/keep-me",  # i18n-allow: pt voice input
         'The instructions say "delete /tmp/keep-me"',
         "Did you delete /tmp/keep-me?",
         "I deleted /tmp/keep-me yesterday",
@@ -58,6 +59,8 @@ def test_compound_or_ambiguous_shell_keeps_confirmation(command):
         "please remove the file /tmp/keep-me",
         "Bitte lösche die Datei /tmp/keep-me",
         "borra el archivo /tmp/keep-me",
+        "apaga o ficheiro /tmp/keep-me",  # i18n-allow: pt voice input
+        "por favor elimina a pasta /tmp/keep-me",  # i18n-allow: pt voice input
     ],
 )
 def test_exact_single_deletion_is_authorized(utterance):
@@ -80,10 +83,12 @@ def test_windows_literal_target_and_mismatch():
 
 
 def test_shell_parsing_cannot_change_the_authorized_operation_or_target():
-    target = r"/tmp/keep\me"
+    target = r"/tmp/keep\me"  # noqa: S108 -- parser input, never opened
     assert not command_confirms_destruction(f"rm {target}", f"delete '{target}'", windows=False)
     assert command_confirms_destruction(f"rm '{target}'", f"delete '{target}'", windows=False)
-    assert not command_confirms_destruction("rm\n/tmp/command", "delete /tmp/command", windows=False)
+    assert not command_confirms_destruction(
+        "rm\n/tmp/command", "delete /tmp/command", windows=False
+    )
 
 
 @pytest.mark.parametrize("authorized", [False, True])
@@ -100,7 +105,9 @@ async def test_real_executor_leaves_protected_file_and_deletes_authorized_target
         f"delete '{operand}'" if authorized else "List this directory. Do not delete any files."
     )
     bus = EventBus()
-    executor = ToolExecutor(bus, RiskTierEvaluator(SafetyConfig()), ApprovalWorkflow(bus))
+    executor = ToolExecutor(
+        bus, RiskTierEvaluator(SafetyConfig(approval_mode="ask")), ApprovalWorkflow(bus)
+    )
     result = await executor.execute(
         RunShellTool(),
         {"command": command},

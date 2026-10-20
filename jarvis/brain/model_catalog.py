@@ -343,8 +343,9 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
     # Piper (on-device). A Piper voice speaks ONE language, so this picker is a
     # speaker choice, not a language choice: the provider still resolves the
     # file from the turn's output language. Both sets are listed; the masculine
-    # trio is what the install downloads, and the feminine one is fetched on
-    # demand. Kept in sync with SHERPA_BUNDLES in jarvis/speech/local_models.py.
+    # set is what the install downloads, and the feminine one is fetched on
+    # demand (Piper has no feminine European Portuguese voice, so Tugão serves
+    # both profiles for pt). Kept in sync with SHERPA_BUNDLES in jarvis/speech/local_models.py.
     "piper-local": (
         "voice",
         _curated(
@@ -352,6 +353,7 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
                 ("vits-piper-de_DE-thorsten-medium", "Thorsten — German, masculine"),
                 ("vits-piper-en_US-ryan-medium", "Ryan — English, masculine"),
                 ("vits-piper-es_ES-davefx-medium", "Dave — Spanish, masculine"),
+                ("vits-piper-pt_PT-tugao-medium", "Tugão — European Portuguese, masculine"),
                 ("vits-piper-de_DE-ramona-low", "Ramona — German, feminine"),
                 ("vits-piper-en_US-amy-medium", "Amy — English, feminine"),
                 ("vits-piper-es_ES-sharvard-medium", "Sharvard — Spanish, feminine"),
@@ -364,7 +366,7 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
     # voice) instead of a curated one — kept in sync with DEFAULT_VOICES in
     # jarvis/plugins/tts/elevenlabs_tts.py.
     # Inworld — the new premium default (arena-#1 realtime, mid-2026). Voices are
-    # multilingual; these native masculine de/en/es voices are the curated pick,
+    # multilingual; these native de/en/es/pt voices are the curated pick,
     # kept in sync with DEFAULT_VOICE_* in jarvis/plugins/tts/inworld_tts.py.
     "inworld": (
         "voice",
@@ -376,6 +378,8 @@ TTS_CATALOG: dict[str, tuple[str, list[ModelInfo]]] = {
                 ("Ashley", "Ashley — English, bright"),
                 ("Diego", "Diego — Spanish, formal"),
                 ("Lupita", "Lupita — Spanish, warm"),
+                ("Leonor", "Leonor — European Portuguese"),
+                ("Heitor", "Heitor — Brazilian Portuguese, masculine"),
             ]
         ),
     ),
@@ -894,6 +898,8 @@ def parse_models_response(provider: str, payload: dict) -> list[ModelInfo]:
     """
     out: list[ModelInfo] = []
     if provider == "ollama":
+        from jarvis.brain.ollama_inventory import is_hidden_alias
+
         # Native /api/tags: {"models": [{"name": "qwen3.5:9b", ...}, ...]} —
         # the installed-model list of the user's own server. DOWNLOADED models
         # only: ``:cloud`` entries are ollama.com-proxied references, not
@@ -901,7 +907,7 @@ def parse_models_response(provider: str, payload: dict) -> list[ModelInfo]:
         # the machine (maintainer report 2026-07-25).
         for m in payload.get("models", []) or []:
             raw = (m.get("name") or "").strip()
-            if not raw or raw.endswith(":cloud") or m.get("remote"):
+            if not raw or raw.endswith(":cloud") or m.get("remote") or is_hidden_alias(raw):
                 continue
             out.append(ModelInfo(id=raw, label=raw))
         return out
@@ -1050,6 +1056,27 @@ def model_capabilities(provider: str, model_id: str) -> dict[str, bool | None]:
     except Exception:  # noqa: BLE001, S110 — missing/corrupt cache means unknown
         pass
     return {"vision": None, "tools": None}
+
+
+def model_context_length(provider: str, model_id: str) -> int | None:
+    """A model's declared context window, read SYNCHRONOUSLY from the cached
+    catalog; ``None`` when the cache does not know it.
+
+    For a brain constructor that has to publish a budget before it may touch
+    the network (same route and same reason as :func:`model_capabilities`).
+    """
+    from jarvis.core import config as _cfg
+
+    cache_path = _cfg.DATA_DIR / "model_catalog_cache.json"
+    wanted = {(model_id or "").strip(), (model_id or "").strip().removesuffix(":latest")}
+    try:
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        for m in data.get(provider, {}).get("models", []):
+            if str(m.get("id") or "").removesuffix(":latest") in wanted:
+                return _positive_limit(m.get("context_length"))
+    except Exception:  # noqa: BLE001, S110 — missing/corrupt cache means unknown
+        pass
+    return None
 
 
 def pick_vision_model(provider: str) -> str | None:
@@ -1830,6 +1857,13 @@ class ModelCatalog:
         aliases = {model, f"{model}:latest"} if provider == "ollama" else {model}
         return next((item for item in entry[1] if item.id in aliases), None)
 
+    async def invalidate(self, provider: str) -> None:
+        """Forget a previous endpoint's models and failed-fetch cooldown."""
+        async with self._lock:
+            self._cache.pop(provider, None)
+            self._fetch_failed_at.pop(provider, None)
+            await asyncio.to_thread(self._save_cache)
+
     async def list_models(self, provider: str, *, force_refresh: bool = False) -> CatalogResult:
         """Return the catalog for ``provider`` with an honest ``source`` flag.
 
@@ -1998,7 +2032,7 @@ class ModelCatalog:
             raise ValueError(f"Unsupported provider: {provider}")
         ep = _ENDPOINTS[provider]
         url = self._resolve_catalog_url(provider, ep)
-        key = cfg.get_provider_secret(provider)
+        key = cfg.resolve_provider_endpoint(provider).credential
         if not key and ep.auth in ("x-api-key", "bearer", "query"):
             raise RuntimeError(f"No API key configured for {provider}.")
         auth = ep.auth
@@ -2014,10 +2048,10 @@ class ModelCatalog:
                 headers = {"Authorization": f"Bearer {key}"}
         elif auth == "query":
             params = {"key": key or ""}
-        elif auth == "none" and ep.secret_slot is not None:
+        elif auth == "none" and (key or ep.secret_slot is not None):
             # Keyless local server with an OPTIONAL stored key (e.g. vLLM
             # --api-key): attach it when present, stay anonymous otherwise.
-            optional = cfg.get_secret(*ep.secret_slot)
+            optional = key or (cfg.get_secret(*ep.secret_slot) if ep.secret_slot else None)
             if optional:
                 headers = {"Authorization": f"Bearer {optional}"}
 
@@ -2039,12 +2073,15 @@ class ModelCatalog:
             resp.raise_for_status()
             models = parse_models_response(provider, resp.json())
             if provider == "ollama":
-                models = await self._enrich_ollama_capabilities(client, url, models)
+                models = await self._enrich_ollama_capabilities(
+                    client, url, models, headers=headers,
+                )
             return models
 
     @staticmethod
     async def _enrich_ollama_capabilities(
-        client: httpx.AsyncClient, tags_url: str, models: list[ModelInfo]
+        client: httpx.AsyncClient, tags_url: str, models: list[ModelInfo],
+        *, headers: dict[str, str] | None = None,
     ) -> list[ModelInfo]:
         """Attach each download's DECLARED capabilities from ``/api/show``.
 
@@ -2071,7 +2108,9 @@ class ModelCatalog:
         async def probe(info: ModelInfo) -> ModelInfo | None:
             async with semaphore:
                 try:
-                    resp = await client.post(f"{root}/api/show", json={"model": info.id})
+                    resp = await client.post(
+                        f"{root}/api/show", json={"model": info.id}, headers=headers,
+                    )
                     resp.raise_for_status()
                     shown = resp.json()
                     caps = shown.get("capabilities")

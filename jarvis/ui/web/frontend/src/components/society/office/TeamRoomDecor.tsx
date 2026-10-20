@@ -26,9 +26,10 @@ type Vec3 = [number, number, number];
 // ---------------------------------------------------------------------------
 
 const C = {
-  walnut: "#6a4631",
-  walnutDark: "#3f2a1d",
-  walnutLight: "#8b6246",
+  // The campus's oak: the keys keep the names the room was built with.
+  walnut: "#b99a72",
+  walnutDark: "#8e7252",
+  walnutLight: "#d2b68c",
   travertine: "#e8dfd0",
   clay: "#c4775a",
   sage: "#8d9f86",
@@ -44,7 +45,7 @@ const TM = {
   walnutLight: matte(C.walnutLight, { roughness: 0.55 }),
   travertine: matte(C.travertine, { roughness: 0.45 }),
   alu: matte("#c3c7cc", { roughness: 0.35, metalness: 0.5 }),
-  brass: matte("#c9a25a", { roughness: 0.35, metalness: 0.6 }),
+  brass: matte("#b08d5c", { roughness: 0.35, metalness: 0.6 }),
   ceramic: matte(C.cream, { roughness: 0.4 }),
   clay: matte(C.clay, { roughness: 0.8 }),
   terracotta: matte(C.terracotta, { roughness: 0.75 }),

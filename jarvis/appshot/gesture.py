@@ -131,8 +131,8 @@ def _macos_input_monitoring_missing() -> str:
         log.debug("appshot: Input Monitoring probe failed", exc_info=True)
         return ""
     return (
-        "Allow Input Monitoring for Personal Jarvis in System Settings > Privacy & "
-        "Security > Input Monitoring, then restart Personal Jarvis."
+        "Allow Input Monitoring for Dodaios in System Settings > Privacy & "
+        "Security > Input Monitoring, then restart Dodaios."
     )
 
 
@@ -169,7 +169,7 @@ def make_probe(family: str = "alt") -> tuple[Probe | None, str]:
 
 
 class BothKeysWatcher:
-    """Calls ``on_fire`` once each time both keys of a pair go down together."""
+    """Calls ``on_fire`` once each time both keys of a pair are down together."""
 
     def __init__(
         self,
@@ -212,8 +212,11 @@ class BothKeysWatcher:
         if state is None:
             return False
         left, right = state
-        if not (left or right):
+        if not (left and right):
+            # Either key lifting ends the press: holding one key and pressing
+            # the other again is a new gesture.
             self._armed = True
+        if not (left or right):
             self._first_down = None
             return False
         now = self._clock()

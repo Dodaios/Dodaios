@@ -12,7 +12,8 @@ spec + token into a claude-cli `mcpServers` entry:
 * ``transport: "stdio"``  -> ``{"command", "args", "env"}`` (token resolved
   into the env_template / argv placeholders).
 * ``transport: "http"``   -> ``{"type": "http", "url", "headers"}`` (token
-  resolved into the Authorization bearer header).
+  resolved into the Authorization bearer header); ``"sse"`` likewise with
+  ``"type": "sse"``.
 * ``transport: "rest_wrapper"`` (or anything else) -> skipped: it is not a
   real MCP server claude-cli can speak to.
 
@@ -25,6 +26,7 @@ import logging
 import sys
 from typing import Any
 
+from jarvis.marketplace.bundled_servers import runs_bundled_server, runs_connected_server
 from jarvis.marketplace.catalog import PluginCatalog
 from jarvis.marketplace.token_store import TokenStore
 
@@ -51,11 +53,7 @@ def _stdio_entry(spec: dict[str, Any], repl: dict[str, str]) -> dict[str, Any] |
         return None
     command = _resolve_placeholders(str(install[0]), repl)
     args = [_resolve_placeholders(str(a), repl) for a in install[1:]]
-    if (
-        command == "python"
-        and args[:1] == ["-m"]
-        and args[1:2] in (["jarvis.plugins.tool.connected_server"], ["jarvis.marketplace.amd_mcp"])
-    ):
+    if command == "python" and runs_bundled_server([command, *args]):
         command = sys.executable
     entry: dict[str, Any] = {"command": command, "args": args}
     env_template = spec.get("env_template") or {}
@@ -69,7 +67,8 @@ def _http_entry(spec: dict[str, Any], repl: dict[str, str]) -> dict[str, Any] | 
     url = spec.get("url")
     if not url:
         return None
-    entry: dict[str, Any] = {"type": "http", "url": str(url)}
+    kind = "sse" if str(spec.get("transport") or "").lower() == "sse" else "http"
+    entry: dict[str, Any] = {"type": kind, "url": str(url)}
     header_template = spec.get("auth_header_template")
     if header_template:
         resolved = _resolve_placeholders(str(header_template), repl)
@@ -110,17 +109,16 @@ def assemble_claude_mcp_servers(
         transport = str(spec.get("transport") or "").lower()
         if transport == "stdio":
             entry = _stdio_entry(spec, repl)
-            if entry is not None and entry.get("args", [])[:2] == [
-                "-m",
-                "jarvis.plugins.tool.connected_server",
-            ]:
+            if entry is not None and runs_connected_server(
+                [entry["command"], *entry.get("args", [])]
+            ):
                 entry.setdefault("env", {})["JARVIS_CONNECTOR_AUTH_TYPE"] = (
                     "oauth" if tokens.extra.get("client_id") else "pat"
                 )
-        elif transport == "http":
+        elif transport in ("http", "sse"):
             entry = _http_entry(spec, repl)
         else:
-            # rest_wrapper / sse / unknown -> not a claude-cli MCP server
+            # rest_wrapper / unknown -> not a claude-cli MCP server
             entry = None
 
         if entry is not None:

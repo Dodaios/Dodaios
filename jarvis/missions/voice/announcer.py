@@ -32,14 +32,17 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Literal
+from typing import Literal, get_args
 
 from jarvis.brain.output_filter import scrub_for_voice
 from jarvis.brain.scrub_verdict import is_harmless_scrub_residue
 from jarvis.core.bus import EventBus
 from jarvis.core.events import AnnouncementRequested
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.missions.voice.readback import (
     FAILURE_REASON_PHRASES,
+    Lang,
+    approved_summary,
     failure_phrase_key,
     render_agent_brand,
     render_capacity_wait,
@@ -59,7 +62,19 @@ from ..events import (
 logger = logging.getLogger(__name__)
 
 
-_Lang = Literal["de", "en"]
+_Lang = Lang
+_MISSION_LANGS: tuple[str, ...] = get_args(Lang)
+
+# Fixed announcer phrases per mission language (every supported reply
+# language; an unknown code speaks English).
+_FAILED_PREFIX: dict[str, str] = i18n_catalog.table("missions.announcer.failed_prefix")
+_REASON_LABEL: dict[str, str] = i18n_catalog.table("missions.announcer.reason_label")
+_CANCELLED: dict[str, str] = i18n_catalog.table("missions.announcer.cancelled")
+_TIMED_OUT: dict[str, str] = i18n_catalog.table("missions.announcer.timed_out")
+
+
+def _phrase(table: dict[str, str], lang: str) -> str:
+    return table.get(lang, table["en"])
 MISSION_ANNOUNCEMENT_SOURCE_LAYER = "missions.voice.announcer"
 
 
@@ -97,7 +112,7 @@ class MissionAnnouncer:
         speech_bus: EventBus,
         scrub: bool = True,
         announce_critic_loop: bool = False,
-        language_default: _Lang = "de",
+        language_default: _Lang = "en",
     ) -> None:
         self._bus = bus
         self._store = store
@@ -213,8 +228,7 @@ class MissionAnnouncer:
         payload = env.payload
 
         if isinstance(payload, MissionApproved):
-            summary = payload.summary_de if lang == "de" else payload.summary_en
-            return (summary, "normal")
+            return (approved_summary(payload, lang), "normal")
 
         if isinstance(payload, MissionFailed):
             # BUG-LIVE-03 (Recon-Agent 3, 2026-05-16): the announcer used
@@ -250,14 +264,13 @@ class MissionAnnouncer:
             # subprocess crashed but iter0 produced a real diff — the user hears
             # that the work succeeded and only the reviewer failed (the diff is
             # recoverable from the artifacts dir; live repro mission_019e3288).
-            de_map = FAILURE_REASON_PHRASES["de"]
-            en_map = FAILURE_REASON_PHRASES["en"]
-            if lang == "de":
-                tail = de_map.get(short_reason, f"Grund: {reason}" if reason else "")  # i18n-allow
-                text = f"Die Mission ist fehlgeschlagen. {render_agent_brand(tail)}".rstrip()  # i18n-allow: real German TTS voice output
-            else:
-                tail = en_map.get(short_reason, f"Reason: {reason}" if reason else "")
-                text = f"The mission failed. {render_agent_brand(tail)}".rstrip()
+            phrase_lang = lang if lang in FAILURE_REASON_PHRASES else "en"
+            label = _phrase(_REASON_LABEL, phrase_lang)
+            tail = FAILURE_REASON_PHRASES[phrase_lang].get(
+                short_reason, f"{label}: {reason}" if reason else ""
+            )
+            prefix = _phrase(_FAILED_PREFIX, phrase_lang)
+            text = f"{prefix} {render_agent_brand(tail)}".rstrip()
             # AD-OE5 (2026-05-29): "speak ONLY at the next turn-boundary, never
             # interrupt mid-utterance". A failed background mission must NOT
             # barge in over current speech — combined with the silent spawn-ACK
@@ -287,19 +300,10 @@ class MissionAnnouncer:
             )
 
         if isinstance(payload, MissionCancelled):
-            text = (
-                "Mission abgebrochen."
-                if lang == "de"
-                else "Mission cancelled."
-            )
-            return (text, "normal")
+            return (_phrase(_CANCELLED, lang), "normal")
 
         if isinstance(payload, MissionTimedOut):
-            text = (
-                "Die Mission lief in das Zeitlimit."  # i18n-allow: real German TTS voice output
-                if lang == "de"
-                else "The mission timed out."
-            )
+            text = _phrase(_TIMED_OUT, lang)
             # AD-OE5: do not barge in mid-utterance — queue for the next
             # turn-boundary (see MissionFailed above).
             return (text, "normal")
@@ -324,7 +328,7 @@ class MissionAnnouncer:
             if e.payload.event_type == "MissionDispatched":
                 is_voice = e.source_actor == "hauptjarvis"
                 raw_lang = e.payload.language  # type: ignore[attr-defined]
-                if raw_lang in ("de", "en"):
+                if raw_lang in _MISSION_LANGS:
                     lang = raw_lang  # type: ignore[assignment]
                 break
 

@@ -7,7 +7,7 @@
  */
 import { useMemo } from "react";
 import {
-  BoxGeometry, CylinderGeometry, DoubleSide, IcosahedronGeometry, MeshStandardMaterial, RepeatWrapping, type Texture,
+  BoxGeometry, CylinderGeometry, DoubleSide, IcosahedronGeometry, OctahedronGeometry, MeshStandardMaterial, RepeatWrapping, type Texture,
 } from "three";
 import { RoundedBoxGeometry } from "three-stdlib";
 import { cachedCanvasTexture } from "./canvasMaterials";
@@ -58,6 +58,10 @@ export const GEO = {
   potCyl: new CylinderGeometry(1, 0.8, 1, 16),
   // One subdivision: foliage reads as soft clusters rather than faceted low-poly rocks.
   blob: new IcosahedronGeometry(1, 1),
+  // Twenty faces: for foliage that is flat-shaded anyway, and for anything drawn by the hundred.
+  facet: new IcosahedronGeometry(1, 0),
+  // A blade of grass: a slim four-sided spindle, eight faces.
+  blade: new OctahedronGeometry(1, 0),
 };
 
 export function Box({ size, position, material, cast = true }: {
@@ -66,7 +70,10 @@ export function Box({ size, position, material, cast = true }: {
   return <mesh geometry={GEO.box} material={material} position={position} scale={size} castShadow={cast} receiveShadow />;
 }
 
-/** Rounded boxes are cached by size: every desk shares the same few geometries. */
+/**
+ * Rounded boxes are cached by size: every desk shares the same few geometries. One bevel segment: the corners are
+ * a few centimetres at most, and a second segment tripled the triangles of every piece of furniture on the floor.
+ */
 const roundedCache = new Map<string, RoundedBoxGeometry>();
 export function Rounded({ size, radius, position, material, cast = true }: {
   size: [number, number, number]; radius: number; position: [number, number, number]; material: MeshStandardMaterial; cast?: boolean;
@@ -74,7 +81,7 @@ export function Rounded({ size, radius, position, material, cast = true }: {
   const key = `${size.join("x")}:${radius}`;
   let geometry = roundedCache.get(key);
   if (!geometry) {
-    geometry = new RoundedBoxGeometry(size[0], size[1], size[2], 2, radius);
+    geometry = new RoundedBoxGeometry(size[0], size[1], size[2], 1, radius);
     roundedCache.set(key, geometry);
   }
   return <mesh geometry={geometry} material={material} position={position} castShadow={cast} receiveShadow />;

@@ -98,7 +98,9 @@ jobs:
           git pull --rebase --ff-only "$remote" main
           if ! git push "$remote" HEAD:main 2> push.err; then
             cat push.err
-            if grep -q "GH006\|protected branch" push.err; then
+            # GH006 is classic branch protection, GH013 a repository ruleset
+            # (main's merge queue, since 2026-10-08).
+            if grep -q "GH006\|GH013\|protected branch\|rule violations" push.err; then
               # Branch protection, not a broken job: say so once per run
               # instead of a red X on every merged pull request.
               echo "::warning::contributors: main is protected and this token may not push to it; the wall was not refreshed. Set INTEGRATION_TOKEN to a token that may bypass the protection."

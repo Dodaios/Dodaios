@@ -9,6 +9,12 @@ import accessoryModels from "@/assets/society/companions/accessories.glb";
 import { ACCESSORY_CATALOG, resolveFill, slotDepthM, wornAccessories } from "./accessories";
 import { companionEyeColors, type CompanionAppearance } from "./appearance";
 import { advancePetTrail, createPetTrail, petDisplayPosition, recordOwner, type PetTrail, type TrailPoint } from "./trail";
+import { useWornPet } from "./companionPetStore";
+import { companionFlies, type CompanionPet } from "./petCompanions";
+import { PetModel, VoxelPet, type PetDrive } from "./PetModel";
+import { advanceSkin, createSkinMaterial } from "./skinMaterial";
+import { CreatureModel } from "./CreatureModel";
+import { useShownCreature } from "./creatureDefault";
 
 class PetBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -17,9 +23,50 @@ class PetBoundary extends Component<{ children: ReactNode }, { failed: boolean }
   render() { return this.state.failed ? null : this.props.children; }
 }
 
+/** A flying pet worn by an agent hovers this high beside its owner, metres. */
+export const WORN_PET_LIFT_M = 0.32;
+
+/**
+ * An agent's companion in 3D: its shape, the pixel creature it wears
+ * instead, or its pet (`companion.pet`) with that pet's own model and gait. While the pets
+ * answer is still on its way a worn pet draws nothing, so no shape flashes
+ * first; a pet this machine does not have falls back to the shape.
+ */
+export function CompanionModel({ appearance, lead = false, drive, paused = false }: {
+  appearance: CompanionAppearance; lead?: boolean;
+  /** How fast the owner moves, for a worn pet's gait; a still pet without it. */
+  drive?: { current: PetDrive }; paused?: boolean;
+}) {
+  const pet = useWornPet(lead ? undefined : appearance.pet);
+  const creature = useShownCreature(appearance);
+  if (pet === undefined) return null;
+  if (pet) return <WornPet pet={pet} drive={drive} paused={paused} />;
+  if (creature && !lead) return <CreatureModel creature={creature} sizeM={appearance.sizeM} />;
+  return <ShapeModel appearance={appearance} lead={lead} />;
+}
+
+function WornPet({ pet, drive, paused }: { pet: CompanionPet; drive?: { current: PetDrive }; paused: boolean }) {
+  const reduced = useReducedMotion() ?? false;
+  const still = useRef<PetDrive>({ speed: 0, mood: "idle" });
+  const lift = companionFlies(pet) ? WORN_PET_LIFT_M : 0;
+  return <group position={[0, lift, 0]}>
+    {pet.kind === "model" ? <PetModel pet={pet} drive={drive ?? still} reduced={reduced} paused={paused} />
+      : pet.kind === "voxel" ? <VoxelPet pet={pet} reduced={reduced} paused={paused} />
+      // Gigi worn by an agent: the lead's own hover model at companion size.
+      : <ShapeModel appearance={GIGI_LOOK} lead />}
+  </group>;
+}
+
+const GIGI_LOOK: CompanionAppearance = {
+  shape: "circle", color: "#ffcd61", eyes: "dots", enabled: true, accessories: {}, sizeM: 0.5, followDistanceM: 1,
+};
+
 /** A cached authored mesh, with instance-owned materials and no extra canvas. */
-export function CompanionModel({ appearance, lead = false }: { appearance: CompanionAppearance; lead?: boolean }) {
+function ShapeModel({ appearance, lead = false }: { appearance: CompanionAppearance; lead?: boolean }) {
   const { scene } = useGLTF(lead ? gigiModel : companionModels);
+  const reduced = useReducedMotion() ?? false;
+  // The design by value: a freshly parsed but equal skin must not rebuild the material.
+  const skinKey = appearance.skin ? JSON.stringify(appearance.skin) : "";
   const instance = useMemo(() => {
     const original = lead ? scene : scene.getObjectByName(appearance.shape);
     if (!original) throw new Error("Companion silhouette missing from asset");
@@ -28,7 +75,10 @@ export function CompanionModel({ appearance, lead = false }: { appearance: Compa
     if (!lead) {
       const ink = companionEyeColors(appearance.color);
       // A soft vinyl sheen lets the light show the volume of each body.
-      const body = new MeshStandardMaterial({ color: appearance.color, roughness: 0.62 });
+      let bodyMesh: Mesh | undefined;
+      model.traverse(object => { if ((object as Mesh).isMesh && object.name.includes("Body")) bodyMesh ??= object as Mesh; });
+      const body = appearance.skin ? createSkinMaterial(appearance.skin, bodyMesh?.geometry)
+        : new MeshStandardMaterial({ color: appearance.color, roughness: 0.62 });
       const eyes = new MeshStandardMaterial({ color: ink.eye, roughness: 1 });
       const shine = new MeshStandardMaterial({ color: ink.highlight, roughness: 1 });
       materials.push(body, eyes, shine);
@@ -41,9 +91,31 @@ export function CompanionModel({ appearance, lead = false }: { appearance: Compa
         mesh.material = name.includes("Body") ? body : name.includes("Highlight") ? shine : eyes;
       });
     }
-    return { model, materials };
-  }, [scene, lead, appearance.shape, appearance.color, appearance.eyes]);
+    // The eyes that show, with the height of their middle: a blink squeezes them about it.
+    const eyes: { mesh: Mesh; middle: number }[] = [];
+    if (!lead) model.traverse(object => {
+      const mesh = object as Mesh;
+      if (!mesh.isMesh || !mesh.visible || !(mesh.name.includes("Dots") || mesh.name.includes("Lines"))) return;
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const box = mesh.geometry.boundingBox;
+      if (box) eyes.push({ mesh, middle: (box.min.y + box.max.y) / 2 });
+    });
+    return { model, materials, eyes };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- appearance.skin is read through skinKey
+  }, [scene, lead, appearance.shape, appearance.color, appearance.eyes, skinKey]);
   useEffect(() => () => { instance.materials.forEach(material => material.dispose()); }, [instance]);
+  // Each companion blinks on its own beat; only frames that are drawn anyway move the lids.
+  const blink = useRef(Math.random() * BLINK_EVERY_S);
+  useFrame((_, delta) => {
+    if (reduced) return;
+    if (skinKey) advanceSkin(instance.materials[0]!, delta);
+    blink.current = (blink.current + Math.min(delta, 0.1)) % BLINK_EVERY_S;
+    const open = blink.current < BLINK_S || (blink.current > BLINK_S * 2.4 && blink.current < BLINK_S * 3.4) ? 0.1 : 1;
+    for (const eye of instance.eyes) {
+      eye.mesh.scale.y = open;
+      eye.mesh.position.y = eye.middle * (1 - open);
+    }
+  });
   const wearing = !lead && wornAccessories(appearance.accessories).length > 0;
   // Gigi's authored body is 0.4 m; the symbol master is exactly 1 m.
   return <group scale={appearance.sizeM / (lead ? 0.4 : 1)}>
@@ -52,6 +124,9 @@ export function CompanionModel({ appearance, lead = false }: { appearance: Compa
     {wearing && <PetBoundary><Suspense fallback={null}><CompanionAccessories appearance={appearance} /></Suspense></PetBoundary>}
   </group>;
 }
+
+/** A shape companion blinks twice in quick succession this often, and one blink takes this long, seconds. */
+const BLINK_EVERY_S = 3.6, BLINK_S = 0.13;
 
 const PUFFS = 7;
 const PUFF_GEOMETRY = new SphereGeometry(1, 12, 8);
@@ -161,6 +236,9 @@ export function AgentFollower({ owner, appearance, paused, lead = false, waypoin
   const phase = useRef(0);
   const reduced = useReducedMotion() ?? false;
   const { invalidate } = useThree();
+  // A worn pet walks, waddles or flies on its own rig: it gets the owner's pace, not the shape's bob.
+  const worn = useWornPet(lead ? undefined : appearance.pet);
+  const drive = useRef<PetDrive>({ speed: 0, mood: "idle" });
   useEffect(() => { motion.current = null; invalidate(); }, [appearance.enabled, invalidate]);
   useFrame((_, delta) => {
     if (!root.current || !owner.current) return;
@@ -178,13 +256,14 @@ export function AgentFollower({ owner, appearance, paused, lead = false, waypoin
     if (waypoint) waypoint.current = null;
     advancePetTrail(trail, appearance.followDistanceM, delta);
     if (!reduced) phase.current += Math.min(delta, 0.1) * trail.speed * 9;
-    const bob = reduced || trail.speed < 0.02 ? 0 : Math.abs(Math.sin(phase.current)) * 0.035;
+    drive.current.speed = trail.speed;
+    const bob = worn || reduced || trail.speed < 0.02 ? 0 : Math.abs(Math.sin(phase.current)) * 0.035;
     const display = petDisplayPosition(trail.position, trail.yaw, appearance.sizeM, clear);
     root.current.position.set(display[0], display[1] + 0.04 + bob, display[2]);
     root.current.rotation.y = trail.points.length ? trail.yaw : owner.current.rotation.y;
     if (trail.speed > 0.005) invalidate();
   });
   return <group ref={root} visible={false}>
-    {appearance.enabled && <PetBoundary key={lead ? "gigi" : appearance.shape}><Suspense fallback={null}><CompanionModel appearance={appearance} lead={lead} /></Suspense></PetBoundary>}
+    {appearance.enabled && <PetBoundary key={lead ? "gigi" : appearance.pet ?? appearance.shape}><Suspense fallback={null}><CompanionModel appearance={appearance} lead={lead} drive={drive} paused={paused} /></Suspense></PetBoundary>}
   </group>;
 }

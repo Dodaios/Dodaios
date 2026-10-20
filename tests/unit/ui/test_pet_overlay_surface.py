@@ -16,8 +16,8 @@ import pytest
 
 from jarvis.core import runtime_refs
 from jarvis.ui.desktop_app import DesktopApp
-from jarvis.ui.jarvisbar.null_overlay import NullOverlay
-from jarvis.ui.jarvisbar.subprocess_overlay import SubprocessMascotOverlay
+from jarvis.ui.dodaiosbar.null_overlay import NullOverlay
+from jarvis.ui.dodaiosbar.subprocess_overlay import SubprocessMascotOverlay
 from ui.orb import controls
 from ui.orb.overlay import OrbOverlay
 from ui.orb.pet_renderer import PetRenderer
@@ -359,7 +359,7 @@ class _StatusSurface:
 
 
 def test_the_host_dispatches_status_ops_including_the_old_keys() -> None:
-    from jarvis.ui.jarvisbar import host
+    from jarvis.ui.dodaiosbar import host
 
     surface = _StatusSurface()
     host.dispatch(surface, {"op": "show_status", "title": "A", "detail": "b"})
@@ -451,7 +451,7 @@ def test_the_always_on_switch_keeps_the_strip_up_at_rest() -> None:
 
 
 def test_the_macos_proxy_carries_the_always_on_strip() -> None:
-    from jarvis.ui.jarvisbar import host
+    from jarvis.ui.dodaiosbar import host
 
     proxy = SubprocessMascotOverlay(style="pet", pet_strip_always=True)
     assert proxy._init_payload()["pet_strip_always"] is True
@@ -498,7 +498,7 @@ class _ActionSurface:
 
 
 def test_the_macos_proxy_and_host_carry_actions_and_busy() -> None:
-    from jarvis.ui.jarvisbar import host
+    from jarvis.ui.dodaiosbar import host
 
     proxy = SubprocessMascotOverlay(style="pet")
     sent: list[dict] = []

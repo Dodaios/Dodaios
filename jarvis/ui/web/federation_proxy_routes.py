@@ -177,7 +177,7 @@ async def pair_accept_from_friend(
     kr = _KeyringBackend()
     privkey, pubkey = _load_or_create_privkey(kr)
     cfg = request.app.state.config
-    display = cfg.board.federation.display_name or "Jarvis-User"
+    display = cfg.board.federation.display_name or "Dodaios-User"
 
     own_backend = _backend_url(request)
     body = {

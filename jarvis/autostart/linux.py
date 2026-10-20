@@ -262,7 +262,7 @@ class LinuxAutostart:
                 matches_spec=False,
                 entry_path=str(self._path),
                 detail=(
-                    f"The autostart entry could not be removed ({error}) — Jarvis "
+                    f"The autostart entry could not be removed ({error}) — Dodaios "
                     "may still start at login; delete the file manually and retry."
                 ),
             )

@@ -3,14 +3,18 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ClipboardPaste,
+  Columns2,
   Copy,
   CopyPlus,
   ExternalLink,
+  FileDiff,
   FilePlus,
   Folder,
   FolderOpen,
   FolderPlus,
+  FolderSearch,
   GitBranch,
+  GitCompareArrows,
   Loader2,
   Pencil,
   RefreshCw,
@@ -18,6 +22,7 @@ import {
   Search,
   SquareArrowOutUpRight,
   SquarePen,
+  SquareTerminal,
   Trash2,
   X,
 } from "lucide-react";
@@ -27,6 +32,7 @@ import {
   attachToTerminal,
   fetchWorkspaceFiles,
   openTerminalTarget,
+  revealTerminalTarget,
   type WorkspaceFileItem,
 } from "@/lib/agenticIdeApi";
 import { setWorkspaceDragPaths } from "@/components/agentic/paneDrop";
@@ -39,6 +45,9 @@ import { useCodeEditorStore, isUnder } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeExplorerStore, type ExplorerView } from "@/store/ideExplorer";
+import { MAX_TERMINAL_TABS, useIdeSidePanelStore } from "@/store/ideSidePanel";
+import { isMacClient } from "@/lib/embeddedDesktop";
+import { searchInFolder } from "@/components/agentic/sidePanel/search/SearchPanel";
 import { paneTitleFrom, recapsFor, usePaneRecapPoll, usePaneRecapsStore } from "@/store/paneRecaps";
 import { useWorkspacePanesStore } from "@/store/workspacePanes";
 import {
@@ -74,6 +83,16 @@ const STATUS_LETTER: Record<ChangeStatus, string> = {
 const baseName = (path: string) => path.split("/").filter(Boolean).pop() ?? path;
 const parentPath = (path: string) => path.split("/").slice(0, -1).join("/");
 const joinPath = (folder: string, name: string) => (folder ? `${folder}/${name}` : name);
+
+/** How long after Ctrl+K the second key of a two-step shortcut still counts. */
+const CHORD_WINDOW_MS = 2000;
+
+/** The file manager goes by a different name on each system. */
+function revealLabelKey(): string {
+  const agent = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  if (isMacClient(agent)) return "ide_side_panel.explorer.reveal_mac";
+  return /win/i.test(agent) ? "ide_side_panel.explorer.reveal_windows" : "ide_side_panel.explorer.reveal_linux";
+}
 
 /** The tree's own drag payload: the workspace paths being moved. */
 const EXPLORER_DRAG_TYPE = "application/x-jarvis-explorer-paths";
@@ -545,7 +564,11 @@ function FileTree({
   const [error, setError] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ path: string; isDirectory: boolean } | null>(null);
+  const workspaceName = useIdeChatStore((state) => state.workspace?.name ?? "");
+  const [menu, setMenu] = useState<{ path: string; isDirectory: boolean; point: { x: number; y: number } } | null>(null);
+  // "Select for compare" remembers one file; "Compare with …" on another opens the two side by side.
+  const [compareFrom, setCompareFrom] = useState<string | null>(null);
+  const chordAt = useRef(0);
   const [confirm, setConfirm] = useState<{ paths: string[]; isDirectory: boolean; permanent: boolean } | null>(null);
   // Several rows can be selected (Ctrl/Cmd+click, Shift+click) for delete,
   // cut/copy/paste and drag; a plain click selects one row again.
@@ -789,6 +812,30 @@ function FileTree({
   };
 
   const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(fail);
+  /** The path as the system writes it; the workspace folder itself for "". */
+  const fullPath = (path: string) => (path ? absolute(path) : absolute("").replace(/[\\/]+$/, ""));
+
+  /** Show the entry selected in the system file manager. */
+  const revealInSystem = (path: string) => void revealTerminalTarget(workspaceId, path || ".").catch(fail);
+
+  /** A plain terminal in the side panel, started in `folder`. */
+  const openTerminal = (folder: string) => {
+    const panel = useIdeSidePanelStore.getState();
+    if (panel.terminals.filter((terminal) => terminal.workspaceId === workspaceId).length >= MAX_TERMINAL_TABS) {
+      pushToast("error", t("ide_side_panel.terminal_limit"));
+      return;
+    }
+    panel.addTerminalTab(workspaceId, folder ? baseName(folder) : workspaceName, folder ? absolute(folder) : undefined);
+  };
+
+  const compareWith = (path: string) => {
+    if (!compareFrom) return;
+    editor.openFile(workspaceId, path, {
+      mode: "diff",
+      preview: false,
+      base: { ref: `file:${compareFrom}`, path: compareFrom, label: `${baseName(compareFrom)} ↔ ${baseName(path)}` },
+    });
+  };
 
   const rows: Row[] = [];
   const walk = (path: string, depth: number) => {
@@ -806,7 +853,27 @@ function FileTree({
   walk("", 0);
 
   const onRowKey = (event: ReactKeyboardEvent, item: WorkspaceFileItem) => {
-    if (event.key === "F2") {
+    // The physical key: Alt changes the typed character on some keyboards.
+    const letter = event.code?.startsWith("Key") ? event.code.slice(3).toLowerCase() : event.key.toLowerCase();
+    const mod = event.ctrlKey || event.metaKey;
+    if (event.shiftKey && event.altKey && !mod && ["r", "c", "f"].includes(letter)) {
+      event.preventDefault();
+      if (letter === "r") revealInSystem(item.path);
+      else if (letter === "c") copy(fullPath(item.path));
+      else searchInFolder(folderFor(item.path));
+    } else if (mod && !event.shiftKey && !event.altKey && letter === "k") {
+      // First half of Ctrl+K Ctrl+Shift+C.
+      event.preventDefault();
+      chordAt.current = Date.now();
+    } else if (mod && event.shiftKey && letter === "c" && Date.now() - chordAt.current < CHORD_WINDOW_MS) {
+      event.preventDefault();
+      chordAt.current = 0;
+      copy(item.path);
+    } else if (event.key === "Enter" && mod && !item.is_directory) {
+      // Ctrl+Enter: beside the file already open, instead of in its place.
+      event.preventDefault();
+      editor.openToSide(workspaceId, item.path);
+    } else if (event.key === "F2") {
       event.preventDefault();
       setRenaming(item.path);
     } else if (event.key === "Delete") {
@@ -840,7 +907,12 @@ function FileTree({
     event.preventDefault();
     event.stopPropagation();
     menuAnchor.current = event.currentTarget;
-    setMenu({ path, isDirectory });
+    // The menu acts on the row under the pointer; a row outside the selection replaces it.
+    if (path) {
+      setFocused(path);
+      if (!selected.has(path)) setSelected(new Set([path]));
+    }
+    setMenu({ path, isDirectory, point: { x: event.clientX, y: event.clientY } });
   };
 
   if (!children[""] && loading.has("")) {
@@ -1010,34 +1082,53 @@ function FileTree({
         })}
       </ul>
 
-      <ThreadPopover anchor={menuAnchor} open={menu !== null} onClose={() => setMenu(null)} label={t("ide_side_panel.explorer.menu_label")} width={240}>
+      <ThreadPopover anchor={menuAnchor} point={menu?.point} open={menu !== null} onClose={() => setMenu(null)} label={t("ide_side_panel.explorer.menu_label")} width={300}>
         {menu && (
           <div role="menu" data-testid="explorer-menu">
             <ThreadMenuItem icon={<FilePlus className="h-4 w-4" />} label={t("ide_side_panel.explorer.new_file")} onSelect={pick(() => onCreate(menuFolder, "file"))} />
             <ThreadMenuItem icon={<FolderPlus className="h-4 w-4" />} label={t("ide_side_panel.explorer.new_folder")} onSelect={pick(() => onCreate(menuFolder, "directory"))} />
-            {clip && (
-              <ThreadMenuItem
-                icon={<ClipboardPaste className="h-4 w-4" />}
-                label={t("ide_side_panel.explorer.paste")}
-                hint="Ctrl+V"
-                onSelect={pick(() => void paste(menuFolder))}
-              />
+            <ThreadMenuSeparator />
+            {menu.path && !menu.isDirectory && (
+              <>
+                <ThreadMenuItem icon={<SquarePen className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_editor")} onSelect={pick(() => editor.openFile(workspaceId, menu.path, { preview: false }))} />
+                <ThreadMenuItem icon={<Columns2 className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_side")} hint="Ctrl+Enter" onSelect={pick(() => editor.openToSide(workspaceId, menu.path))} />
+                <ThreadMenuItem icon={<ExternalLink className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_externally")} onSelect={pick(() => void openTerminalTarget(workspaceId, menu.path).catch(fail))} />
+              </>
             )}
-            {menu.path && (
+            <ThreadMenuItem icon={<FolderSearch className="h-4 w-4" />} label={t(revealLabelKey())} hint="Shift+Alt+R" onSelect={pick(() => revealInSystem(menu.path))} />
+            <ThreadMenuItem icon={<SquareTerminal className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_terminal")} onSelect={pick(() => openTerminal(menuFolder))} />
+            {menu.isDirectory && (
               <>
                 <ThreadMenuSeparator />
-                {!menu.isDirectory && (
-                  <ThreadMenuItem icon={<SquarePen className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_editor")} onSelect={pick(() => editor.openFile(workspaceId, menu.path, { preview: false }))} />
-                )}
-                {stagedPane && (
+                <ThreadMenuItem icon={<Search className="h-4 w-4" />} label={t("ide_side_panel.explorer.find_in_folder")} hint="Shift+Alt+F" onSelect={pick(() => searchInFolder(menu.path))} />
+              </>
+            )}
+            {menu.path && !menu.isDirectory && (
+              <>
+                <ThreadMenuSeparator />
+                <ThreadMenuItem icon={<GitCompareArrows className="h-4 w-4" />} label={t("ide_side_panel.explorer.select_compare")} onSelect={pick(() => setCompareFrom(menu.path))} />
+                {compareFrom && compareFrom !== menu.path && (
                   <ThreadMenuItem
-                    icon={<SquareArrowOutUpRight className="h-4 w-4" />}
-                    label={fill(t("ide_side_panel.explorer.reference_in"), { pane: stagedPane })}
-                    onSelect={pick(() => void attachToTerminal(stagedPane, { paths: [absolute(menu.path)] }).catch(fail))}
+                    icon={<FileDiff className="h-4 w-4" />}
+                    label={fill(t("ide_side_panel.explorer.compare_with"), { file: baseName(compareFrom) })}
+                    onSelect={pick(() => compareWith(menu.path))}
                   />
                 )}
-                <ThreadMenuItem icon={<ExternalLink className="h-4 w-4" />} label={t("ide_side_panel.explorer.open_externally")} onSelect={pick(() => void openTerminalTarget(workspaceId, menu.path).catch(fail))} />
+              </>
+            )}
+            {menu.path && stagedPane && (
+              <>
                 <ThreadMenuSeparator />
+                <ThreadMenuItem
+                  icon={<SquareArrowOutUpRight className="h-4 w-4" />}
+                  label={fill(t("ide_side_panel.explorer.reference_in"), { pane: stagedPane })}
+                  onSelect={pick(() => void attachToTerminal(stagedPane, { paths: selectionFor(menu.path).map(absolute) }).catch(fail))}
+                />
+              </>
+            )}
+            <ThreadMenuSeparator />
+            {menu.path && (
+              <>
                 <ThreadMenuItem
                   icon={<Scissors className="h-4 w-4" />}
                   label={t("ide_side_panel.explorer.cut")}
@@ -1050,9 +1141,20 @@ function FileTree({
                   hint="Ctrl+C"
                   onSelect={pick(() => setClip({ paths: selectionFor(menu.path), cut: false }))}
                 />
-                <ThreadMenuSeparator />
-                <ThreadMenuItem icon={<Copy className="h-4 w-4" />} label={t("ide_side_panel.explorer.copy_path")} onSelect={pick(() => copy(absolute(menu.path)))} />
-                <ThreadMenuItem icon={<span aria-hidden />} label={t("ide_side_panel.explorer.copy_relative_path")} onSelect={pick(() => copy(menu.path))} />
+              </>
+            )}
+            <ThreadMenuItem
+              icon={<ClipboardPaste className="h-4 w-4" />}
+              label={t("ide_side_panel.explorer.paste")}
+              hint="Ctrl+V"
+              disabled={!clip}
+              onSelect={pick(() => void paste(menuFolder))}
+            />
+            <ThreadMenuSeparator />
+            <ThreadMenuItem icon={<Copy className="h-4 w-4" />} label={t("ide_side_panel.explorer.copy_path")} hint="Shift+Alt+C" onSelect={pick(() => copy(fullPath(menu.path)))} />
+            {menu.path && (
+              <>
+                <ThreadMenuItem icon={<span aria-hidden />} label={t("ide_side_panel.explorer.copy_relative_path")} hint="Ctrl+K Ctrl+Shift+C" onSelect={pick(() => copy(menu.path))} />
                 <ThreadMenuSeparator />
                 <ThreadMenuItem icon={<Pencil className="h-4 w-4" />} label={t("ide_side_panel.explorer.rename")} hint="F2" onSelect={pick(() => setRenaming(menu.path))} />
                 <ThreadMenuItem

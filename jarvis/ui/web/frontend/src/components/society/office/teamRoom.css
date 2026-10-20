@@ -1,24 +1,24 @@
-/* Team room panel: theme tokens only, so light and dark mode both work. Member badges use each agent's own colour. */
-.team-cards { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px; }
-.team-card { display:flex; flex-direction:column; gap:7px; padding:9px 10px; border:1px solid hsl(var(--border)); border-radius:11px; background:hsl(var(--background) / .6); }
-.team-card[data-meeting] { border-color:hsl(var(--success) / .7); box-shadow:inset 3px 0 0 hsl(var(--success)); }
-.team-card-head { display:flex; flex-direction:column; gap:1px; min-width:0; }
-.team-card-name { font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.team-badges { display:flex; flex-wrap:wrap; gap:4px; }
-.team-badge { position:relative; display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; color:#fff; font-size:10px; font-weight:700; letter-spacing:.02em; text-shadow:0 1px 1px rgb(0 0 0 / .35); box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15); }
-.team-badge .office-dot { position:absolute; right:-1px; bottom:-1px; width:9px; height:9px; box-shadow:0 0 0 2px hsl(var(--popover)); }
-.team-badge .office-dot[data-state="paused"] { background:hsl(var(--popover)); box-shadow:0 0 0 2px hsl(var(--popover)), inset 0 0 0 1.5px hsl(var(--muted-foreground)); }
-.team-editor, .team-composer, .team-picker { display:flex; flex-direction:column; gap:7px; }
-.team-composer { padding-top:4px; border-top:1px solid hsl(var(--border)); }
-.team-picker .office-actions { align-items:center; }
-.team-picker .office-mini:disabled { opacity:.5; cursor:not-allowed; }
-.team-picker-count { margin-left:auto; }
-.team-picker-title { flex:none; max-width:45%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:hsl(var(--muted-foreground)); }
-.team-picker .office-list { max-height:190px; }
-.team-danger { border-color:hsl(var(--destructive)); color:hsl(var(--destructive)); font-weight:600; }
-.team-danger:hover:not(:disabled) { background:hsl(var(--destructive) / .1); }
-.team-meeting { display:flex; flex-direction:column; gap:5px; padding:9px 10px; border-radius:11px; border:1px solid hsl(var(--success) / .55); background:hsl(var(--success) / .1); }
-.team-meeting-title { display:flex; align-items:center; gap:7px; font-weight:700; overflow-wrap:anywhere; }
-.team-meeting-live { flex:none; width:8px; height:8px; border-radius:50%; background:hsl(var(--success)); animation:team-live 1.6s ease-in-out infinite; }
-@keyframes team-live { 50% { opacity:.35; } }
-@media (prefers-reduced-motion: reduce) { .team-meeting-live { animation:none; } }
+/* Teams sheet: theme tokens only, so light and dark mode both work. */
+/* Green is for a round that is really answering; a team the person merely called together gets a plain edge. */
+.team-card[data-called] { border-color:hsl(var(--border-strong)); box-shadow:inset 3px 0 0 hsl(var(--border-strong)); }
+.team-card[data-live] { border-color:hsl(var(--success) / .7); box-shadow:inset 3px 0 0 hsl(var(--success)); }
+.team-live-mark { flex:none; display:inline-flex; align-items:center; gap:5px; padding:1px 8px; border-radius:999px; background:hsl(var(--success) / .12); color:hsl(var(--success)); font-size:11px; font-weight:600; }
+.team-live-mark i { width:6px; height:6px; border-radius:50%; background:hsl(var(--success)); }
+/* A team's members as overlapping faces; each carries its run state as a dot. */
+.team-stack { display:inline-flex; align-items:center; padding-left:6px; }
+/* The face brings its own tile (agentFace.css); here it only overlaps its neighbour, parted by a ring in the dialog's ground. */
+.team-face { position:relative; display:inline-flex; margin-left:-6px; border-radius:50%; box-shadow:0 0 0 2px hsl(var(--background)); }
+.team-face .office-dot { position:absolute; right:-1px; bottom:-1px; width:9px; height:9px; box-shadow:0 0 0 2px hsl(var(--background)); }
+.team-face .office-dot[data-state="paused"] { background:hsl(var(--background)); box-shadow:0 0 0 2px hsl(var(--background)), inset 0 0 0 1.5px hsl(var(--muted-foreground)); }
+.team-face-more { width:32px; height:32px; font-size:11px; font-weight:600; color:hsl(var(--muted-foreground)); box-shadow:0 0 0 2px hsl(var(--background)), inset 0 0 0 1px hsl(var(--border-strong) / .7); }
+/* The member list scrolls on its own: up to 22 rem, less on a short window, so name, picks and buttons stay on screen with it. */
+.team-picker-list { max-height:min(22rem, max(8rem, calc(90dvh - 29rem))); }
+/* The new-team form's buttons stay at the sheet's lower edge while the form scrolls. The negative margins undo the
+   sheet body's 1.25 rem padding so the bar spans it edge to edge. */
+.team-footer { position:sticky; bottom:0; z-index:1; display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 -1.25rem -1.25rem; padding:12px 1.25rem; border-top:1px solid hsl(var(--border)); background:hsl(var(--background)); }
+/* The team the person called together: a banner in the sheet, a small card in the HUD. Neutral on purpose — it is a
+   gathering on the map, not a running round, so nothing here is green or pulses. */
+.team-meeting { display:flex; flex-direction:column; gap:4px; padding:12px 14px; border-radius:12px; border:1px solid hsl(var(--border-strong)); background:hsl(var(--secondary) / .6); }
+.team-meeting[data-compact] { width:100%; padding:9px 11px; border-color:hsl(var(--border)); background:hsl(var(--popover) / .92); }
+.team-meeting-title { display:flex; align-items:center; gap:8px; margin:0; font-size:13px; font-weight:600; overflow-wrap:anywhere; }
+.team-meeting-line { margin:0; font-size:12px; color:hsl(var(--muted-foreground)); }

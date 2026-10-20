@@ -1,6 +1,6 @@
 # How to Set Your Wake Word
 
-Personal Jarvis ships **no built-in wake word**. You pick any phrase you like
+Dodaios ships **no built-in wake word**. You pick any phrase you like
 during onboarding (or later in Settings); the recognizer is fully generic and
 runs entirely on your machine — wake-word listening never sends audio to the
 cloud. For the engineering rationale behind the detection paths, see
@@ -13,7 +13,7 @@ cloud. For the engineering rationale behind the detection paths, see
 1. **Desktop app** — the first-run onboarding has a wake-word step, and
    **Settings → Wake word** changes it any time. The desktop flow fixes the
    "Hey" prefix and you type the rest ("Hey" + your word); a prefixed phrase
-   is what keeps the bare word in normal conversation from waking Jarvis.
+   is what keeps the bare word in normal conversation from waking Dodaios.
    Prefer no wake word at all? The onboarding also offers activation through
    the configurable Call shortcut instead.
 2. **Terminal wizard** — `python -m jarvis --wizard` for SSH / headless
@@ -38,7 +38,7 @@ Every phrase goes through the same generic chain — no word is special:
    that transcribes short audio windows and fuzzy-matches your phrase
    (tolerates small mishearings). Part of the full install.
 4. **Honest degrade** — if none of these can serve your phrase on this
-   machine, the wake word stays **off** and Jarvis says so clearly. There is
+   machine, the wake word stays **off** and Dodaios says so clearly. There is
    no hidden fallback word; use the Call shortcut until a local engine is
    available.
 

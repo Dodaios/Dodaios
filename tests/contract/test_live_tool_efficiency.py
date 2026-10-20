@@ -57,6 +57,7 @@ def test_large_catalog_is_deferred_without_model_or_reasoning_downgrade(tmp_path
             "call_tool",
             "confirm_action",
             "end_call",
+            "task_status",
         }
         config = LiveConfig(configured=True, backend_model="selected", reasoning_effort="high")
         backend = config.session_config(language="en", tools=deferred)["delegation"]["responses"]

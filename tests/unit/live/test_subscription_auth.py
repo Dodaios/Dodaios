@@ -313,3 +313,27 @@ async def test_close_budget_leaves_refresh_pool_open_until_persistence(tmp_path,
         release.set()
         await auth.aclose()
         await asyncio.wait_for(finished.wait(), timeout=2)
+
+
+@pytest.mark.asyncio
+async def test_the_login_plan_is_read_as_metadata_and_never_required(tmp_path):
+    data = _write(tmp_path)
+    auth = SubscriptionAuth(account=_account(tmp_path))
+    assert (await auth.credentials()).plan == ""
+    await auth.aclose()
+
+    payload = {
+        "exp": time.time() + 3600,
+        "https://api.openai.com/auth": {
+            "chatgpt_account_id": "test-account",
+            "chatgpt_plan_type": "free",
+        },
+    }
+    encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    data["tokens"]["id_token"] = f"fixture.{encoded}.signature"
+    (tmp_path / "auth.json").write_text(json.dumps(data), encoding="utf-8")
+    auth = SubscriptionAuth(account=_account(tmp_path))
+    credentials = await auth.credentials()
+    assert credentials.plan == "free"
+    assert "free" not in repr(credentials)
+    await auth.aclose()

@@ -1131,7 +1131,7 @@ async def bootstrap_missions(
     budget_enabled: bool = True,
     # Voice flags (from [phase6.voice])
     voice_announce_critic_loop: bool = False,
-    voice_language_default: str = "de",
+    voice_language_default: str = "en",
     # Cleanup flags (from [phase6.cleanup])
     cleanup_days: int = 14,
     cleanup_startup_sweep: bool = True,

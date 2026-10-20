@@ -4,12 +4,12 @@ import { ChatAttachmentStrip } from "@/components/agentchat/ChatAttachmentStrip"
 import { ChatMarkdown } from "@/components/agentchat/ChatMarkdown";
 import { ComposerTypeahead } from "@/components/agentchat/ComposerTypeahead";
 import { DictationButton } from "@/components/agentchat/DictationButton";
-import { runningTurn, type QuestionState, type Timeline, type ToolBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
+import { runningTurn, type PendingApproval, type QuestionState, type Timeline, type ToolBlock, type TurnItem, type UserItem } from "@/components/agentchat/reduce";
 import { releaseHeldFiles, useChatAttachments, type HeldFiles } from "@/components/agentchat/useChatAttachments";
 import { useComposerDictation } from "@/components/agentchat/useComposerDictation";
 import { useComposerTypeahead } from "@/components/agentchat/useComposerTypeahead";
-import { useT } from "@/i18n";
-import type { ChatAttachment, PlanDecision } from "@/lib/agentChatApi";
+import { fill, useT } from "@/i18n";
+import type { AgentChatSession, ApprovalDecision, ChatAttachment, PlanDecision } from "@/lib/agentChatApi";
 import { joinProviderOptions, type ComposerDraft, type ProviderOption } from "@/store/agentChat";
 import { cn } from "@/lib/utils";
 import { effortLadder, snapEffort } from "@/lib/effortLadder";
@@ -44,7 +44,6 @@ interface SentMessage {
   afterSeq: number;
 }
 let lastSent: SentMessage | null = null;
-
 /** How long after sending Escape still takes a message back once the agent started thinking. */
 export const RECALL_WINDOW_MS = 15_000;
 
@@ -107,33 +106,61 @@ const PLAN_PROSE = cn(
   "[&>div>:first-child]:mt-0 [&>div>:last-child]:mb-0",
 );
 
-function ApprovalPanel({ timeline, onDecide }: { timeline: Timeline; onDecide: (id: string, decision: "allow" | "allow_always" | "deny") => void }) {
+/** The oldest approval the agent waits on, shown at the top of the composer. */
+function ApprovalPanel({ timeline }: { timeline: Timeline }) {
   const pending = timeline.pendingApprovals[0];
   if (!pending) return null;
+  // Keyed by the card: a new card starts with fresh buttons and no old error.
+  return <ApprovalCard key={pending.approvalId} pending={pending} count={timeline.pendingApprovals.length} />;
+}
+
+function ApprovalCard({ pending, count }: { pending: PendingApproval; count: number }) {
+  const t = useT();
+  const [sending, setSending] = useState<ApprovalDecision | null>(null);
+  const [error, setError] = useState("");
   const input = pending.input && typeof pending.input === "object" ? pending.input as Record<string, unknown> : {};
   // Claude Code's finished plan asks here too, and the plan itself is what gets approved.
   const isPlan = pending.name === "ExitPlanMode";
   const plan = isPlan ? String(input.plan ?? "").trim() : "";
   const detail = isPlan ? "" : String(input.command ?? input.file_path ?? input.path ?? input.url ?? "");
-  return <div data-testid="thread-approval" className="border-b border-border px-4 py-3">
+  // One answer per card: a second click while the first is on its way would
+  // land on a card that is already closed.
+  const decide = async (decision: ApprovalDecision) => {
+    if (sending) return;
+    setSending(decision);
+    setError("");
+    try {
+      await useThreadChatStore.getState().decide(pending.approvalId, decision);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setSending(null);
+    }
+  };
+  const spinner = (decision: ApprovalDecision) => sending === decision && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />;
+  return <div data-testid="thread-approval" aria-busy={sending !== null} className="border-b border-border px-4 py-3">
     <div className="flex items-start gap-2.5">
       {isPlan
         ? <ListChecks aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
         : <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground-strong">{isPlan ? "Plan ready" : "Approval needed"}{timeline.pendingApprovals.length > 1 ? ` (${timeline.pendingApprovals.length})` : ""}</p>
-        <p className="mt-0.5 text-sm text-muted-foreground">{isPlan ? "Build it, or keep planning and say what to change." : pending.summary || pending.name}</p>
+        <p className="flex items-baseline gap-2 text-sm font-medium text-foreground-strong">
+          <span className="min-w-0 flex-1">{isPlan ? t("ide_threads.plan_ready") : t("ide_threads.approval_needed")}</span>
+          {count > 1 && <span data-testid="thread-approval-count" className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{fill(t("ide_threads.one_of"), { count })}</span>}
+        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{isPlan ? t("ide_threads.plan_hint") : pending.summary || pending.name}</p>
         {plan && <div data-testid="thread-approval-plan" className={cn("mt-2 max-h-72 overflow-auto rounded-md bg-secondary px-3 py-2 scrollbar-jarvis", PLAN_PROSE)}><ChatMarkdown text={plan} /></div>}
         {detail && <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-secondary px-2.5 py-1.5 font-mono text-xs text-foreground scrollbar-jarvis">{detail}</pre>}
+        {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
       </div>
     </div>
     <div className="mt-3 flex flex-wrap justify-end gap-2">
-      <button type="button" onClick={() => onDecide(pending.approvalId, "deny")}
-        className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{isPlan ? "Keep planning" : "Decline"}</button>
-      {!isPlan && <button type="button" onClick={() => onDecide(pending.approvalId, "allow_always")}
-        className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Always allow</button>}
-      <button type="button" data-testid="thread-approve" onClick={() => onDecide(pending.approvalId, "allow")}
-        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{isPlan ? "Build it" : "Approve"}</button>
+      <button type="button" disabled={sending !== null} onClick={() => void decide("deny")}
+        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{spinner("deny")}{isPlan ? t("ide_threads.keep_planning") : t("ide_threads.decline")}</button>
+      {!isPlan && <button type="button" disabled={sending !== null} onClick={() => void decide("allow_always")}
+        title={t("ide_threads.always_allow_title")}
+        className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{spinner("allow_always")}{t("ide_threads.always_allow")}</button>}
+      <button type="button" data-testid="thread-approve" disabled={sending !== null} onClick={() => void decide("allow")}
+        className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{spinner("allow")}{isPlan ? t("ide_threads.build_it") : t("ide_threads.approve")}</button>
     </div>
   </div>;
 }
@@ -149,6 +176,7 @@ function waitingPlan(timeline: Timeline): TurnItem | null {
  * it in the runner's build mode, or keep planning and type what to change.
  */
 function PlanPanel({ timeline, provider }: { timeline: Timeline; provider: ProviderOption | null }) {
+  const t = useT();
   const turn = waitingPlan(timeline);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -170,25 +198,26 @@ function PlanPanel({ timeline, provider }: { timeline: Timeline; provider: Provi
     <div className="flex items-start gap-2.5">
       <ListChecks aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground-strong">Plan ready</p>
+        <p className="text-sm font-medium text-foreground-strong">{t("ide_threads.plan_ready")}</p>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          {mode ? `Build it switches access to ${mode.label} and starts building.` : "Build it starts building."} Or keep planning and type what to change.
+          {mode ? fill(t("ide_threads.build_switches"), { mode: mode.label }) : t("ide_threads.build_starts")} {t("ide_threads.or_keep_planning")}
         </p>
         {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
     </div>
     <div className="mt-3 flex flex-wrap justify-end gap-2">
       <button type="button" disabled={sending} onClick={() => void decide("keep")}
-        className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Keep planning</button>
+        className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("ide_threads.keep_planning")}</button>
       <button type="button" data-testid="thread-plan-build" disabled={sending} onClick={() => void decide("build")}
         className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <Hammer aria-hidden className="h-3.5 w-3.5" />Build it
+        <Hammer aria-hidden className="h-3.5 w-3.5" />{t("ide_threads.build_it")}
       </button>
     </div>
   </div>;
 }
 
 function QuestionPanel({ timeline }: { timeline: Timeline }) {
+  const t = useT();
   const open = openQuestion(timeline);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
@@ -214,7 +243,7 @@ function QuestionPanel({ timeline }: { timeline: Timeline }) {
     <div className="flex items-start gap-2.5">
       <MessageCircleQuestion aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{question.asker || "The agent"} asks{question.questions.length > 1 ? ` · ${index + 1} of ${question.questions.length}` : ""}</p>
+        <p className="text-xs text-muted-foreground">{fill(t("ide_threads.asks"), { asker: question.asker || t("ide_threads.the_agent") })}{question.questions.length > 1 ? ` · ${fill(t("ide_threads.n_of"), { index: index + 1, count: question.questions.length })}` : ""}</p>
         <p className="mt-0.5 text-sm font-medium text-foreground-strong">{item.question}</p>
         <div className="mt-2 flex flex-col gap-1">
           {item.options.map((option, optionIndex) => <button key={optionIndex} type="button" disabled={sending}
@@ -222,14 +251,14 @@ function QuestionPanel({ timeline }: { timeline: Timeline }) {
             className="flex w-full items-start gap-2 rounded-lg border border-border px-3 py-2 text-left text-sm hover:bg-secondary disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="min-w-0 flex-1"><span className="text-foreground">{option.label}</span>
               {option.description && <span className="block text-xs text-muted-foreground">{option.description}</span>}</span>
-            {optionIndex === 0 && <span className="shrink-0 text-xs text-accent">Recommended</span>}
+            {optionIndex === 0 && <span className="shrink-0 text-xs text-accent">{t("ide_git.recommended")}</span>}
           </button>)}
         </div>
         <form className="mt-2 flex gap-2" onSubmit={(event) => { event.preventDefault(); if (text.trim()) void answer({ text: text.trim() }); }}>
-          <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Or type your own answer" disabled={sending}
+          <input value={text} onChange={(event) => setText(event.target.value)} placeholder={t("ide_threads.own_answer")} disabled={sending}
             className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring" />
           <button type="button" disabled={sending} onClick={() => void useThreadChatStore.getState().skipQuestion(question.questionId).catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))}
-            className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary">Skip</button>
+            className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary">{t("ide_threads.skip")}</button>
         </form>
         {error && <p role="alert" className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
@@ -252,7 +281,8 @@ function QuestionPanel({ timeline }: { timeline: Timeline }) {
 export function ThreadComposer({
   threadKey,
   prepareDraft,
-  placeholder = "Ask for changes, send follow-ups, or attach images",
+  onSessionCreated,
+  placeholder,
   autoFocusNonce,
   strip,
   onScreen = true,
@@ -260,6 +290,7 @@ export function ThreadComposer({
   /** Which thread the box is typing for — the session id, or `draft:<project>`. */
   threadKey: string;
   prepareDraft: () => Promise<string | null>;
+  onSessionCreated?: (session: AgentChatSession) => void;
   placeholder?: string;
   autoFocusNonce: number;
   /** The strip that hangs under the card — where the agent works and on which branch. */
@@ -391,9 +422,9 @@ export function ThreadComposer({
         setStarting(false);
       }
     }
-    await useThreadChatStore.getState().send(text, attachments);
+    await useThreadChatStore.getState().send(text, attachments, [], onSessionCreated);
     return !useThreadChatStore.getState().lastError;
-  }, [prepareDraft]);
+  }, [prepareDraft, onSessionCreated]);
 
   // A queued message goes out the moment the agent is free again.
   useEffect(() => {
@@ -422,7 +453,7 @@ export function ThreadComposer({
     if (!text && files.attachments.length === 0) return;
     if (files.analyzing > 0 || starting) return;
     if (!provider || !provider.connected) {
-      setProblem("Choose a connected coding agent first.");
+      setProblem(t("ide_threads.choose_connected_agent"));
       return;
     }
     const held = files.take();
@@ -454,7 +485,7 @@ export function ThreadComposer({
     lastSent = null;
     setPaused(true);
     if (activeSessionId) useRecalledMessages.getState().hide(activeSessionId, asked.id);
-    void useThreadChatStore.getState().cancel();
+    void useThreadChatStore.getState().cancel("thread-recall");
     const current = drafts.get(threadKey) ?? "";
     setValue(current.trim() ? `${text}\n${current}` : text);
     files.restore(held);
@@ -491,23 +522,19 @@ export function ThreadComposer({
     rememberSeat(useThreadChatStore.getState().draft);
   };
 
-  const decide = (approvalId: string, decision: "allow" | "allow_always" | "deny") => {
-    void useThreadChatStore.getState().decide(approvalId, decision);
-  };
-
   const canSend = (value.trim().length > 0 || files.attachments.length > 0 || dictation.dictating) && files.analyzing === 0 && !starting;
   const error = problem || lastError || "";
 
   return <div className="mx-auto w-full max-w-3xl">
     {queue.length > 0 && <div className="mb-2 flex flex-col gap-1 px-2" data-testid="thread-queue">
       {paused && !running && <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
-        <span>Queue paused after the agent stopped.</span>
-        <button type="button" onClick={() => setPaused(false)} className="rounded px-1.5 py-0.5 text-foreground hover:bg-secondary">Send next</button>
+        <span>{t("ide_threads.queue_paused")}</span>
+        <button type="button" onClick={() => setPaused(false)} className="rounded px-1.5 py-0.5 text-foreground hover:bg-secondary">{t("ide_threads.send_next")}</button>
       </div>}
       {queue.map((entry) => <div key={entry.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm">
-        <span className="shrink-0 text-xs text-muted-foreground">Queued</span>
-        <span className="min-w-0 flex-1 truncate text-foreground">{entry.text || `${entry.attachments.length} file(s)`}</span>
-        <button type="button" aria-label="Remove queued message" onClick={() => setQueue((current) => current.filter((row) => row.id !== entry.id))}
+        <span className="shrink-0 text-xs text-muted-foreground">{t("ide_threads.queued")}</span>
+        <span className="min-w-0 flex-1 truncate text-foreground">{entry.text || fill(t(entry.attachments.length === 1 ? "ide_threads.files_one" : "ide_threads.files_other"), { count: entry.attachments.length })}</span>
+        <button type="button" aria-label={t("ide_threads.remove_queued")} onClick={() => setQueue((current) => current.filter((row) => row.id !== entry.id))}
           className="rounded p-0.5 text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
       </div>)}
     </div>}
@@ -517,7 +544,7 @@ export function ThreadComposer({
         "relative z-10 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_8px_24px_-12px_rgb(var(--scrim-rgb)/0.5)] transition-colors focus-within:border-border-strong",
         files.dragging && "border-accent ring-2 ring-accent/40",
       )}>
-      <ApprovalPanel timeline={timeline} onDecide={decide} />
+      <ApprovalPanel timeline={timeline} />
       <QuestionPanel timeline={timeline} />
       {!running && <PlanPanel timeline={timeline} provider={provider} />}
       {(files.attachments.length > 0 || files.analyzing > 0) && <div className="px-3 pt-3 sm:px-4">
@@ -525,8 +552,8 @@ export function ThreadComposer({
           onRemove={files.remove} previews={files.previews} look="thumbnail" />
       </div>}
       <textarea ref={textareaRef} value={value} rows={2} data-testid="thread-composer-input"
-        aria-label="Message the coding agent"
-        placeholder={running ? "Queue a follow-up for when the agent is done" : placeholder}
+        aria-label={t("ide_threads.message_agent")}
+        placeholder={running ? t("ide_threads.queue_placeholder") : placeholder ?? t("ide_threads.composer_placeholder")}
         onChange={(event) => { setValue(event.target.value); typeahead.refresh(); }}
         onKeyDown={onKeyDown}
         onKeyUp={() => typeahead.refresh()}
@@ -548,12 +575,12 @@ export function ThreadComposer({
           <DictationButton dictating={dictation.dictating} onToggle={dictation.toggle}
             startLabel={t("chats_view.dictation_start")} stopLabel={t("chats_view.dictation_stop")} shape="round" />
           {running && !canSend
-            ? <button type="button" aria-label="Stop the agent" title="Stop" data-testid="thread-stop"
-              onClick={() => { setPaused(true); void useThreadChatStore.getState().cancel(); }}
+            ? <button type="button" aria-label={t("ide_threads.stop_agent")} title={t("ide_threads.stop")} data-testid="thread-stop"
+              onClick={() => { setPaused(true); void useThreadChatStore.getState().cancel("thread-stop-button"); }}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Square className="h-3 w-3 fill-current" />
             </button>
-            : <button type="button" aria-label={running ? "Queue message" : "Send message"} title={running ? "Queue for when the agent is done" : "Send"}
+            : <button type="button" aria-label={running ? t("ide_threads.queue_message") : t("ide_threads.send_message")} title={running ? t("ide_threads.queue_title") : t("agent_chat.send")}
               data-testid="thread-send" disabled={!canSend} onClick={() => void submit()}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-[0_1px_2px_rgb(var(--accent-rgb)/0.3)] transition-[opacity,transform] duration-150 hover:scale-105 hover:opacity-95 disabled:opacity-40 disabled:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {starting || busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}

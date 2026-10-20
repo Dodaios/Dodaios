@@ -105,7 +105,7 @@ def parse_skill(path: Path) -> Skill:
         # and reads plain UTF-8 otherwise. Without this a BOM would shift the
         # leading ``---`` so neither python-frontmatter nor the manual splitter
         # recognise the frontmatter, dropping the skill to DRAFT with a
-        # 'name required' error (seen on jarvis-doc-author/SKILL.md).
+        # 'name required' error (seen on dodaios-doc-author/SKILL.md).
         raw = path.read_text(encoding="utf-8-sig")
     except OSError as exc:
         return Skill(
