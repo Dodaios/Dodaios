@@ -308,7 +308,7 @@ def test_gateway_failure_ends_the_real_acp_runner_and_recovery_keeps_the_questio
     class Driver:
         label = "Fake runtime"
 
-        def detect(self):
+        def detect(self, **_kw):
             return RuntimeStatus("hermes", self.label, installed=True, ready=True)
 
         async def launch(self, turn):

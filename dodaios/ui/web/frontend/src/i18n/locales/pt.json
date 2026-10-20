@@ -8884,6 +8884,9 @@
       },
       "cocoa": {
         "description": "Um cachorro Labrador chocolate: inclina a cabeça para ouvir, escava quando trabalha, corre às voltas no sucesso."
+      },
+      "dodaios": {
+        "description": "A figura encapuzada do logótipo: a ponta do capuz levanta-se para ouvir e a capa voa num salto."
       }
     },
     "create_dialog": {

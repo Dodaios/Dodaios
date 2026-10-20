@@ -21,6 +21,9 @@ if sys.platform != "win32":
 from ui.orb.drag_persistence import _ScreenSnapshot
 from ui.orb.overlay import DRAG_THRESHOLD_PX, OrbOverlay, _DragState
 
+# The still-picture mascot; without a configured image the mascot is a pet.
+pytestmark = pytest.mark.usefixtures("still_picture_mascot")
+
 
 def _make_overlay_with_fakes(tmp_path: Path, monkeypatch):
     ov = OrbOverlay()

@@ -462,6 +462,27 @@ export async function fetchAgentChatSession(
   );
 }
 
+/**
+ * Get a Hermes or OpenClaw agent ready before its next message: the backend
+ * starts the agent's runtime and opens its conversation in the background
+ * (no model call), so the reply starts without a start-up wait. Any other
+ * chat answers with a no-op. Fire and forget: a failed warm-up only means the
+ * next message pays the start-up itself.
+ */
+export function warmAgentChatSession(sessionId: string): void {
+  // Once a minute per chat at most: a remount or a second panel on the same
+  // chat finds the runtime warm already.
+  const now = Date.now();
+  if (now - (lastWarm.get(sessionId) ?? 0) < WARM_COOLDOWN_MS) return;
+  lastWarm.set(sessionId, now);
+  void fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/warm`, {
+    method: "POST",
+  }).catch(() => undefined);
+}
+
+const WARM_COOLDOWN_MS = 60_000;
+const lastWarm = new Map<string, number>();
+
 export async function sendAgentChatMessage(
   sessionId: string,
   text: string,

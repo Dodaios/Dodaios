@@ -50,7 +50,7 @@ class FakeDriver:
         self.is_busy = False
         self.installs: list[str | None] = []
 
-    def detect(self, *, refresh: bool = False) -> RuntimeStatus:
+    def detect(self, *, refresh: bool = False, fast: bool = False) -> RuntimeStatus:
         self.refreshed += int(refresh)
         fixed = self.marker is not None and self.marker.exists()
         ready = self.ready or fixed

@@ -807,6 +807,248 @@ def build_cocoa(root):
     )
 
 
+#: Edge of one Dodaios voxel in metres: the figure is the pixel pet made solid,
+#: about as many cubes tall as the sprite is pixels.
+DODAIOS_VOXEL = 0.0125
+_DODAIOS_INK, _DODAIOS_WHITE = 0, 1
+Voxels = dict[tuple[int, int, int], int]
+
+
+def _voxel_ellipsoid(centre, radii, floor: int | None = None) -> set[tuple[int, int, int]]:
+    """Voxels whose centre lies inside the ellipsoid, at or above ``floor``."""
+    out = set()
+    lo = [math.floor(c - r) - 1 for c, r in zip(centre, radii, strict=True)]
+    hi = [math.ceil(c + r) + 1 for c, r in zip(centre, radii, strict=True)]
+    for x in range(lo[0], hi[0]):
+        for y in range(lo[1], hi[1]):
+            for z in range(lo[2], hi[2]):
+                if floor is not None and z < floor:
+                    continue
+                d = sum(
+                    ((p + 0.5 - c) / r) ** 2
+                    for p, c, r in zip((x, y, z), centre, radii, strict=True)
+                )
+                if d <= 1.0:
+                    out.add((x, y, z))
+    return out
+
+
+def _voxel_front(solid, x: int, z: int) -> int | None:
+    """The y of the front-most voxel (-Y is forward) in the column ``(x, z)``."""
+    ys = [y for (vx, y, vz) in solid if vx == x and vz == z]
+    return min(ys) if ys else None
+
+
+def voxel_mesh(name: str, voxels: Voxels, pivot, materials, parent):
+    """A cube mesh of ``voxels`` (grid coordinates) around ``pivot`` (grid coordinates).
+
+    Only the faces that show are built, and same-coloured faces in one plane
+    are merged into rectangles, so a figure of a few thousand cubes stays a
+    small mesh. Shading is flat: the cubes are the look.
+    """
+    verts: dict[tuple[int, int, int], int] = {}
+    faces: list[tuple[int, ...]] = []
+    face_materials: list[int] = []
+    for axis in range(3):
+        u_axis, v_axis = (a for a in range(3) if a != axis)
+        for sign in (-1, 1):
+            layers: dict[int, dict[tuple[int, int], int]] = {}
+            for pos, mat in voxels.items():
+                beyond = list(pos)
+                beyond[axis] += sign
+                if tuple(beyond) not in voxels:
+                    layers.setdefault(pos[axis], {})[(pos[u_axis], pos[v_axis])] = mat
+            for layer in sorted(layers):
+                cells = layers[layer]
+                done: set[tuple[int, int]] = set()
+                for u, v in sorted(cells):
+                    if (u, v) in done:
+                        continue
+                    mat = cells[(u, v)]
+                    w = 1
+                    while cells.get((u + w, v)) == mat and (u + w, v) not in done:
+                        w += 1
+                    h = 1
+                    while all(
+                        cells.get((u + i, v + h)) == mat and (u + i, v + h) not in done
+                        for i in range(w)
+                    ):
+                        h += 1
+                    done.update((u + i, v + j) for i in range(w) for j in range(h))
+                    plane = layer + (1 if sign > 0 else 0)
+                    corners = [(u, v), (u + w, v), (u + w, v + h), (u, v + h)]
+                    # (u, v) winds towards +axis for x and z, towards -y for y.
+                    if (axis == 1) == (sign > 0):
+                        corners.reverse()
+                    quad = []
+                    for cu, cv in corners:
+                        point = [0, 0, 0]
+                        point[axis], point[u_axis], point[v_axis] = plane, cu, cv
+                        quad.append(verts.setdefault(tuple(point), len(verts)))
+                    faces.append(tuple(quad))
+                    face_materials.append(mat)
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(
+        [tuple((p[i] - pivot[i]) * DODAIOS_VOXEL for i in range(3)) for p in verts],
+        [],
+        faces,
+    )
+    for mat in materials:
+        mesh.materials.append(mat)
+    for polygon, mat in zip(mesh.polygons, face_materials, strict=True):
+        polygon.material_index = mat
+        polygon.use_smooth = False
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.parent = parent
+    return obj
+
+
+def build_dodaios(root):
+    """The hooded figure of the logo as a voxel toy: the pixel pet made solid.
+
+    Black cubes with white trim where the logo draws its lines: the lining
+    around the face, the collar, the hems of robe and cape and the toes. In
+    the world it stands up and walks on its two legs, each a pivot at the
+    hip; the cape, the hood's tip and the head are pivots of their own.
+    """
+    mats = (
+        material("dodaios.Ink", "#111114", 0.82),
+        material("dodaios.White", "#f4f4f6", 0.7),
+    )
+    v = DODAIOS_VOXEL
+    #: How far the standing figure's upper body sits above the ground (grid).
+    lift = 7
+
+    def at(point):
+        return tuple(c * v for c in point)
+
+    def pivot(name, point, parent, parent_point=(0, 0, 0)):
+        local = tuple(p - q for p, q in zip(point, parent_point, strict=True))
+        return empty(name, at(local), parent)
+
+    def exposed(solid, cell):
+        x, y, z = cell
+        return any(
+            n not in solid for n in ((x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z))
+        )
+
+    # Robe: a short round body with a white hem, clear of the ground.
+    body_at = (0, 0, lift)
+    body = pivot("dodaios_Body", body_at, root)
+    robe_solid = _voxel_ellipsoid((0, 1, lift + 7), (9.5, 8.5, 7.5), floor=lift)
+    robe: Voxels = dict.fromkeys(robe_solid, _DODAIOS_INK)
+    for cell in robe_solid:
+        if cell[2] <= lift + 1 and exposed(robe_solid, cell):
+            robe[cell] = _DODAIOS_WHITE
+    voxel_mesh("dodaios_Robe", robe, body_at, mats, body)
+
+    # Hood: a round head with a cone that leans back to its point.
+    head_at = (0, 0, lift + 12)
+    head = pivot("dodaios_Head", head_at, body, body_at)
+    solid = _voxel_ellipsoid((0, 0, lift + 21.5), (13, 11.5, 10.5))
+    for z in range(lift + 27, lift + 40):
+        t = (z + 0.5 - (lift + 27)) / 13
+        radius = max(1.2, 10 * (1 - t) ** 0.85)
+        centre_y = 1 + 4 * t
+        for x in range(-12, 12):
+            for y in range(-12, 18):
+                if (x + 0.5) ** 2 + (y + 0.5 - centre_y) ** 2 <= radius**2:
+                    solid.add((x, y, z))
+    hood: Voxels = dict.fromkeys(solid, _DODAIOS_INK)
+    # The collar: the hood's lower edge in white.
+    for cell in solid:
+        if cell[2] <= lift + 13 and exposed(solid, cell):
+            hood[cell] = _DODAIOS_WHITE
+    # The face: an oval carved two cubes deep, with the white lining around it.
+    for x in range(-12, 12):
+        for z in range(lift + 11, lift + 33):
+            front = _voxel_front(solid, x, z)
+            if front is None:
+                continue
+            face = ((x + 0.5) / 8.8) ** 2 + ((z + 0.5 - (lift + 21)) / 7.2) ** 2
+            lining = ((x + 0.5) / 10.8) ** 2 + ((z + 0.5 - (lift + 21.7)) / 9.3) ** 2
+            if face <= 1:
+                hood.pop((x, front, z), None)
+                hood.pop((x, front + 1, z), None)
+            elif lining <= 1:
+                hood[(x, front, z)] = _DODAIOS_WHITE
+                if (x, front + 1, z) in hood:
+                    hood[(x, front + 1, z)] = _DODAIOS_WHITE
+    voxel_mesh("dodaios_Hood", hood, head_at, mats, head)
+
+    # Eyes: white ovals set into the face, each on its own pivot so it can blink.
+    for side, sign in (("L", -1), ("R", 1)):
+        x0 = -7 if sign < 0 else 4
+        eye_front = _voxel_front(set(hood), x0 + 1, lift + 20)
+        eye_y = (eye_front if eye_front is not None else -9) - 1
+        eye_at = (x0 + 1.5, eye_y + 0.5, lift + 20.5)
+        eye = pivot(f"dodaios_Eye_{side}", eye_at, head, head_at)
+        cells = {
+            (x0 + i, eye_y, lift + 18 + j)
+            for i in range(3)
+            for j in range(6)
+            if not (i in (0, 2) and j in (0, 5))
+        }
+        voxel_mesh(
+            f"dodaios_EyeWhite_{side}", dict.fromkeys(cells, _DODAIOS_WHITE), eye_at, mats, eye
+        )
+
+    # The hood's point: a short flick out to one side and back.
+    tip_at = (0, 5, lift + 38)
+    tip = pivot("dodaios_Tip", tip_at, head, head_at)
+    flick: set[tuple[int, int, int]] = set()
+    path = ((0, 5, 38.4), (3, 7.5, 38.6), (6.5, 9.5, 37.4), (9.5, 10.5, 35.2))
+    for (ax, ay, az), (bx, by, bz) in zip(path, path[1:], strict=False):
+        for k in range(9):
+            f = k / 8
+            centre = (ax + (bx - ax) * f, ay + (by - ay) * f, lift + az + (bz - az) * f)
+            reach = 1.9 - 0.9 * (centre[0] / 9.5)
+            flick |= _voxel_ellipsoid(centre, (reach, reach, reach))
+    voxel_mesh("dodaios_Flick", dict.fromkeys(flick - solid, _DODAIOS_INK), tip_at, mats, tip)
+
+    # Cape: a thin sheet from the neck that flares and drifts back, hemmed in white.
+    top = lift + 16
+    cape_at = (0, 9, top)
+    cape = pivot("dodaios_Cape", cape_at, body, body_at)
+    sheet: Voxels = {}
+    for z in range(4, top + 1):
+        half = int(5 + (top - z) * 0.45)
+        back = 9 + round((top - z) * 0.35)
+        for x in range(-half, half):
+            hem = 4 + abs(x + 0.5) * 0.25
+            if z < hem:
+                continue
+            edge = z < hem + 1.5 or x in (-half, half - 1)
+            for y in (back, back + 1):
+                sheet[(x, y, z)] = _DODAIOS_WHITE if edge else _DODAIOS_INK
+    voxel_mesh("dodaios_CapeSheet", sheet, cape_at, mats, cape)
+
+    # Legs: a short leg and a round shoe each, swinging from the hip under the
+    # robe; the toes are capped in white like the logo's outlined feet.
+    for side, sign in (("L", -1), ("R", 1)):
+        hip_at = (sign * 5, 0, lift + 2)
+        leg = pivot(f"dodaios_Leg_{side}", hip_at, root)
+        limb: Voxels = {}
+        for z in range(2, lift + 3):
+            for x in range(-3, 3):
+                for y in range(-3, 3):
+                    if (x + 0.5) ** 2 + (y + 0.5) ** 2 <= 2.6**2:
+                        limb[(sign * 5 + x, y, z)] = _DODAIOS_INK
+        centre = (sign * 5, -2, 2.4)
+        shoe_solid = _voxel_ellipsoid(centre, (3.6, 5.2, 2.6), floor=0)
+        for cell in shoe_solid:
+            limb[cell] = _DODAIOS_INK
+        for x, y, z in shoe_solid:
+            if y != _voxel_front(shoe_solid, x, z):
+                continue
+            ring = ((x + 0.5 - centre[0]) / 3.6) ** 2 + ((z + 0.5 - centre[2]) / 2.6) ** 2
+            if ring >= 0.4:
+                limb[(x, y, z)] = _DODAIOS_WHITE
+        voxel_mesh(f"dodaios_LegMesh_{side}", limb, hip_at, mats, leg)
+
+
 PETS = {
     "miso": build_miso,
     "ember": build_ember,
@@ -815,6 +1057,7 @@ PETS = {
     "brew": build_brew,
     "bolt": build_bolt,
     "cocoa": build_cocoa,
+    "dodaios": build_dodaios,
 }
 
 
