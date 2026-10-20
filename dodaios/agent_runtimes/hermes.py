@@ -1,6 +1,8 @@
 """Hermes Agent as a society agent runtime (``docs/agent-runtimes.md``).
 
-One turn = one ``hermes acp`` process. Every agent is a Hermes *profile* of
+A turn runs on the agent's ``hermes acp`` process, which stays warm
+between turns (``warm.py``): started once, initialized, with the conversation
+open, so a message only costs ``session/prompt``. Every agent is a Hermes *profile* of
 one Hermes data root that Jarvis owns (``<runtimes_root>/hermes-home``):
 ``HERMES_HOME`` points at ``hermes-home/profiles/<agent>``. Jarvis writes the
 profile's ``config.yaml`` (JSON, which is valid YAML) and ``SOUL.md`` before
@@ -81,9 +83,21 @@ _PROFILE_NAME: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$"
 _SETUP_KEY: Final[str] = "~setup"
 
 #: Hermes toolsets no Jarvis agent gets: a headless Chromium (Jarvis has a
-#: visible browser over MCP), background desktop control, and Hermes' own
-#: scheduler (Jarvis owns routines and their budgets).
-_ALWAYS_DISABLED: Final[frozenset[str]] = frozenset({"browser", "computer_use", "cronjob"})
+#: visible browser over MCP), background desktop control, Hermes' own
+#: scheduler (Dodaios owns routines and their budgets) and Hermes' bundled
+#: skill library (Dodaios owns skills on every runtime; its listing alone
+#: was a third of every request's prompt).
+_ALWAYS_DISABLED: Final[frozenset[str]] = frozenset(
+    {"browser", "computer_use", "cronjob", "skills"}
+)
+
+#: A warm-up only runs when the agent's turn slot is free at once.
+_WARM_SLOT_WAIT_S: Final[float] = 0.5
+
+#: A turn's Hermes never installs or syncs dependencies on its own: that
+#: work (up to minutes, before the first token) belongs to the setup job
+#: (:meth:`HermesRuntime.prepare_command`), which runs without this mark.
+_TURN_ENV: Final[dict[str, str]] = {"HERMES_DISABLE_LAZY_INSTALLS": "1"}
 
 #: Effort levels Hermes accepts in ``agent.reasoning_effort``
 #: (``hermes_constants.VALID_REASONING_EFFORTS`` plus ``none``).
@@ -226,17 +240,26 @@ class HermesRuntime:
     label = LABEL
 
     def __init__(self) -> None:
+        from dodaios.agent_runtimes.warm import WarmPool
+
         self._detect = DetectCache()
         self._slots = TurnSlots(NAME, lock_dir=lambda: base.runtimes_root() / "locks")
+        self._warm = WarmPool(NAME)
 
     # ----------------------------------------------------------- detection
 
-    def detect(self, *, refresh: bool = False) -> RuntimeStatus:
+    def detect(self, *, refresh: bool = False, fast: bool = False) -> RuntimeStatus:
+        """Installed, version, ready. ``fast`` (a turn): an expired *ready*
+        answer is used and checked again in the background."""
         if refresh:
             self._detect.clear()
         cached = self._detect.get()
         if cached is not None:
             return cached
+        if fast:
+            stale = self._detect.stale_ready(lambda: self.detect(refresh=True))
+            if stale is not None:
+                return stale
         from dodaios.agent_runtimes.path_cleanup import clean_user_path_once
 
         clean_user_path_once()
@@ -358,8 +381,9 @@ class HermesRuntime:
         return self._slots.busy()
 
     async def stop(self, agent_id: str | None = None) -> None:
-        """Hermes runs one process per turn; nothing stays behind between turns."""
-        return
+        """Stop the warm processes of ``agent_id`` (all when ``None``)."""
+        keys = None if agent_id is None else {agent_id, f"{agent_id}~runs"}
+        await self._warm.stop(keys)
 
     # -------------------------------------------------------------- launch
 
@@ -433,7 +457,7 @@ class HermesRuntime:
         return config
 
     async def launch(self, turn: RuntimeTurn) -> RuntimeLaunch:
-        status = await asyncio.to_thread(self.detect)
+        status = await asyncio.to_thread(self.detect, fast=True)
         if not status.ready:
             raise RuntimeUnavailable(status.problem or "Hermes is not ready.")
         binary = _binary()
@@ -441,10 +465,63 @@ class HermesRuntime:
             raise RuntimeUnavailable("Hermes is not installed.")
         release = await self._slots.acquire(home_key(turn.agent_id, turn.session_id))
         try:
-            return await self._launch(binary, turn, release)
+            launch = await self._launch(binary, turn, release)
+            if turn.warm:
+                launch.proc = await self._warm.lease(
+                    home_key(turn.agent_id, turn.session_id), *self._warm_spec(launch, turn)
+                )
+            return launch
         except BaseException:
             release()
             raise
+
+    async def warm(
+        self, turn: RuntimeTurn, latest_resume: Callable[[], str | None] | None = None
+    ) -> bool:
+        """Start the agent's process and open its conversation before a message.
+
+        Spends no model call. Skipped unless the agent's turn slot is free
+        right now. ``latest_resume`` re-reads the chat's conversation once the
+        slot is held (a turn may have finished since ``turn`` was built).
+        """
+        status = await asyncio.to_thread(self.detect)
+        binary = _binary()
+        if not status.ready or binary is None or self.needs_prepare(status):
+            return False
+        key = home_key(turn.agent_id, turn.session_id)
+        try:
+            release = await self._slots.acquire(key, wait_s=_WARM_SLOT_WAIT_S)
+        except RuntimeUnavailable:
+            return False  # a turn (or another warm-up) has the agent right now
+        if latest_resume is not None:
+            turn.resume = latest_resume()
+        try:
+            launch = await self._launch(binary, turn, release)
+            return await self._warm.warm(key, *self._warm_spec(launch, turn))
+        finally:
+            release()
+
+    def _warm_spec(self, launch: RuntimeLaunch, turn: RuntimeTurn) -> tuple[Any, Any]:
+        from dodaios import __version__
+        from dodaios.agent_runtimes.acp import session_params
+        from dodaios.agent_runtimes.warm import SessionWant, WarmSpec, signature
+
+        spec = WarmSpec(
+            argv=launch.argv,
+            env=launch.env,
+            cwd=launch.cwd,
+            # Hermes reads its profile only at start: a changed one restarts.
+            signature=signature(
+                launch.argv, launch.env, str(launch.cwd),
+                self.config_for(turn), self._soul(turn),
+            ),
+            client_version=__version__,
+        )
+        want = SessionWant(
+            resume=launch.acp_resume,
+            params=session_params(str(launch.cwd), launch.mcp_servers),
+        )
+        return spec, want
 
     async def _launch(
         self, binary: str, turn: RuntimeTurn, release: Callable[[], None]
@@ -458,6 +535,7 @@ class HermesRuntime:
                 "HERMES_HOME": str(home),
                 # Only the Jarvis server handed over per session; none from config.
                 "HERMES_ACP_SKIP_CONFIGURED_MCP": "1",
+                **_TURN_ENV,
                 **turn.route.env(),
                 **_restore_key_aliases(turn.route.base_url, turn.route.api_key),
             }
@@ -492,15 +570,18 @@ class HermesRuntime:
 
         refresh_tool_search_cache(home, turn.resume)
         write_json_if_changed(home / "config.yaml", self.config_for(turn))
-        write_if_changed(
-            home / "SOUL.md",
+        write_if_changed(home / "SOUL.md", self._soul(turn))
+
+    @staticmethod
+    def _soul(turn: RuntimeTurn) -> str:
+        return (
             persona_text(turn.agent_name)
             + "Dodaios MCP tools are available through tool_search, tool_describe and "
             "tool_call. For a task that needs Dodaios or a connected account, use "
             "tool_search with the service and action, read the returned schema, "
             "then invoke its exact tool name through tool_call. Search before "
             "concluding a capability is missing. For a greeting or ordinary "
-            "conversation, reply directly without searching for tools.\n",
+            "conversation, reply directly without searching for tools.\n"
         )
 
 

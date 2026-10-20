@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/react-three-fiber.esm-DFtCJsNR.js
 import{r as tt,gO as $y,co as eS,j as Bn}from"./index-Dgl0YDC3.js";/**
+|||||||| parent of 929f0ef611 (perf(agent-runtimes): keep Hermes and OpenClaw agents warm between turns):dodaios/ui/web/dist/assets/react-three-fiber.esm-DAzsNAu3.js
+import{r as tt,gO as $y,co as eS,j as Bn}from"./index-CYB7DSZW.js";/**
+========
+import{r as tt,gP as $y,cp as eS,j as Bn}from"./index-BdyC9_VE.js";/**
+>>>>>>>> 929f0ef611 (perf(agent-runtimes): keep Hermes and OpenClaw agents warm between turns):dodaios/ui/web/dist/assets/react-three-fiber.esm-BM03OUQI.js
  * @license
  * Copyright 2010-2026 Three.js Authors
  * SPDX-License-Identifier: MIT

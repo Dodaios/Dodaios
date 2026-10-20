@@ -69,7 +69,7 @@ import { useRunLocale } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { createAgentChatStore, useAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
-import type { AgentChatSurface, ApprovalDecision } from "@/lib/agentChatApi";
+import { warmAgentChatSession, type AgentChatSurface, type ApprovalDecision } from "@/lib/agentChatApi";
 import { offeredModels, useSavedHiddenModels } from "@/lib/agentProviderPrefs";
 
 import { AgentSwatch, agentColor } from "../AgentSwatch";
@@ -270,6 +270,9 @@ function SpecialistChat({ agent, roster, composerExtras }: AgentChatPanelProps) 
   useLayoutEffect(() => {
     if (!sessionId) return;
     openSession(sessionId);
+    // An agent on Hermes or OpenClaw starts its runtime while its chat is
+    // read, not after the first message is sent.
+    warmAgentChatSession(sessionId);
   }, [sessionId, openSession]);
 
   useEffect(() => {

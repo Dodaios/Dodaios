@@ -27,6 +27,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -165,6 +166,9 @@ class RuntimeTurn:
     #: it reasons / it reads images. Never inferred from a provider or model name.
     reasoning: bool | None = None
     vision: bool | None = None
+    #: Run on the agent's warm process (``warm.WarmPool``). ``False`` for a
+    #: turn whose process runs elsewhere (another computer over SSH).
+    warm: bool = True
 
 
 @dataclass(slots=True)
@@ -186,13 +190,19 @@ class RuntimeLaunch:
     release: Callable[[], None] | None = None
     #: Prevent reusing a persistent gateway after an unconfirmed termination.
     invalidate: Callable[[], None] | None = None
+    #: The agent's warm process for this turn (``warm.Lease``), already
+    #: initialized; ``None`` = start ``argv``.
+    proc: Any | None = None
+    #: ``_meta`` for ``session/new`` and for ``session/prompt``.
+    session_meta: dict[str, Any] | None = None
+    prompt_meta: dict[str, Any] | None = None
 
 
 class AgentRuntimeDriver(Protocol):
     name: str
     label: str
 
-    def detect(self, *, refresh: bool = False) -> RuntimeStatus: ...
+    def detect(self, *, refresh: bool = False, fast: bool = False) -> RuntimeStatus: ...
 
     async def launch(self, turn: RuntimeTurn) -> RuntimeLaunch: ...
 
@@ -372,16 +382,19 @@ class TurnSlots:
         """Whether any turn holds a slot right now."""
         return self.gate.turns > 0 or any(lock.locked() for lock in self._locks.values())
 
-    async def acquire(self, key: str) -> Callable[[], None]:
+    async def acquire(self, key: str, *, wait_s: float | None = None) -> Callable[[], None]:
+        """The slot of ``key``; ``wait_s`` caps every wait (default: minutes)."""
+        slot_wait = _SLOT_WAIT_S if wait_s is None else wait_s
+        home_wait = _HOME_LOCK_WAIT_S if wait_s is None else wait_s
         try:
-            await self.gate.acquire_turn(_SLOT_WAIT_S)
+            await self.gate.acquire_turn(slot_wait)
         except TimeoutError:
             raise RuntimeUnavailable(
                 "Dodaios is still setting this runtime up; try again in a few minutes."
             ) from None
         lock = self.lock(key)
         try:
-            await asyncio.wait_for(lock.acquire(), timeout=_SLOT_WAIT_S)
+            await asyncio.wait_for(lock.acquire(), timeout=slot_wait)
         except TimeoutError:
             self.gate.release_turn()
             raise RuntimeUnavailable(
@@ -391,7 +404,7 @@ class TurnSlots:
         if self._lock_dir is not None:
             home_lock = HomeFileLock(self._lock_dir() / f"{self.runtime}-{safe_key(key)}.lock")
             try:
-                await home_lock.acquire(_HOME_LOCK_WAIT_S)
+                await home_lock.acquire(home_wait)
             except (TimeoutError, OSError):
                 lock.release()
                 self.gate.release_turn()
@@ -642,6 +655,7 @@ class DetectCache:
     def __init__(self) -> None:
         self._value: RuntimeStatus | None = None
         self._at = 0.0
+        self._refreshing = False
 
     def get(self) -> RuntimeStatus | None:
         if self._value is not None and time.monotonic() - self._at < _DETECT_TTL_S:
@@ -655,6 +669,31 @@ class DetectCache:
 
     def clear(self) -> None:
         self._value = None
+
+    def stale_ready(self, probe: Callable[[], RuntimeStatus]) -> RuntimeStatus | None:
+        """An expired answer that said *ready*, checked again in the background.
+
+        A turn must not wait for ``--version`` (1-2 s) only because the last
+        check is older than the TTL: the runtime that answered a few minutes
+        ago almost always still does. ``probe`` (``detect(refresh=True)``)
+        replaces the answer when it is done; the next turn sees it.
+        """
+        value = self._value
+        if value is None or not value.ready:
+            return None
+        if not self._refreshing:
+            self._refreshing = True
+
+            def run() -> None:
+                try:
+                    probe()
+                except Exception as exc:  # noqa: BLE001 - the next turn checks again
+                    log.warning("agent runtimes: background runtime check failed: %s", exc)
+                finally:
+                    self._refreshing = False
+
+            threading.Thread(target=run, name="runtime-detect", daemon=True).start()
+        return value
 
 
 def persona_text(agent_name: str) -> str:

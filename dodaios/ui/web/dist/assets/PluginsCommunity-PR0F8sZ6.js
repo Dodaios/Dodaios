@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/PluginsCommunity-PR0F8sZ6.js
 import{c as W,f as m,t as C,r as x,u as _,cn as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cy as T,B as y,cc as A,q as ee,S as te,L as $,cx as U,cv as P,x as ne}from"./index-Dgl0YDC3.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-BXjQnVon.js";import{S as re,C as oe}from"./store-Bjoybq31.js";/**
+|||||||| parent of 929f0ef611 (perf(agent-runtimes): keep Hermes and OpenClaw agents warm between turns):dodaios/ui/web/dist/assets/PluginsCommunity-CmsjziWm.js
+import{c as W,f as m,t as C,r as x,u as _,cn as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cy as T,B as y,cc as A,q as ee,S as te,L as $,cx as U,cv as P,x as ne}from"./index-CYB7DSZW.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-CMlcEcsi.js";import{S as re,C as oe}from"./store-BBiNMN8-.js";/**
+========
+import{c as W,f as m,t as C,r as x,u as _,co as V,j as e,e as E,z as J,Z as X,d as Y,W as K,cz as T,B as y,cd as A,q as ee,S as te,L as $,cy as U,cw as P,x as ne}from"./index-BdyC9_VE.js";import{P as L,a as se}from"./branding-COYPyT7k.js";import{C as B}from"./check-BHY-6Y-b.js";import{S as re,C as oe}from"./store-CeGovMR7.js";/**
+>>>>>>>> 929f0ef611 (perf(agent-runtimes): keep Hermes and OpenClaw agents warm between turns):dodaios/ui/web/dist/assets/PluginsCommunity-nN_diQVD.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

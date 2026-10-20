@@ -567,6 +567,10 @@ class CliPlan:
     after_turn: Callable[[], None] | None = None
     #: The local gateway knows failures that a runtime may render as prose.
     provider_failure: Future[str] | None = None
+    #: A process that is already running (an agent runtime's warm process,
+    #: ``agent_runtimes.warm.Lease``): driven instead of spawning ``argv``.
+    #: Its owner contains it, so the turn adds no process tree of its own.
+    proc: Any | None = None
 
 
 def claude_control_init() -> str:
@@ -3652,7 +3656,7 @@ async def _run_cli_once(
     log.info("agent chat %s: %s argv=%s", handle.turn_id, runner, plan.argv[:6])
     started_at = time.time()
     tree = None
-    if placement is None and (
+    if placement is None and plan.proc is None and (
         getattr(handle, "goal_turn", False)
         or (session.surface == "society" and session.permission_mode == "plan")
         or plan.acp is not None
@@ -3661,7 +3665,9 @@ async def _run_cli_once(
 
         tree = make_process_tree("chat-controlled-cli")
     proc: Any
-    if placement is not None:
+    if plan.proc is not None:
+        proc = plan.proc
+    elif placement is not None:
         from dodaios.agent_chat.remote_cli import RemoteCliUnavailable, spawn
 
         prompt_files: dict[str, str] = {}
@@ -4114,6 +4120,10 @@ async def _drive_cli(
             if plan.acp is not None:
                 proc.stdin.write(plan.acp.opening_frame().encode("utf-8"))
                 await proc.stdin.drain()
+                if plan.acp.saw_result:
+                    # Settled before a single frame (a warm process that cannot
+                    # reopen the conversation): nothing more will come.
+                    _close_stdin()
             if plan.stdin_text is not None:
                 proc.stdin.write(plan.stdin_text.encode("utf-8"))
                 await proc.stdin.drain()
