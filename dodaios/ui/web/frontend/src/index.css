@@ -460,10 +460,10 @@ label,
   display: none;
 }
 
-/* Agentic IDE panes hide xterm's native scrollbar: they draw their own, which
-   appears while scrolling and also drives full-screen CLIs that keep their
-   history inside their own UI (./components/agentic/PaneScrollbar). Keep these
-   rules top-level because xterm creates the viewport at runtime. */
+/* Agentic IDE panes intentionally show no scrollbar. Scrolling still works
+   through xterm's wheel handling, while recorded conversation history opens
+   from the book button in the pane header. Keep these rules top-level because
+   xterm creates the viewport at runtime. */
 .agentic-terminal-host .xterm-viewport {
   overscroll-behavior: contain;
   scrollbar-width: none;

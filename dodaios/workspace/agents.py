@@ -815,13 +815,7 @@ _AGENTS: dict[str, WorkspaceAgent] = {
         # of embedded panes. A per-launch override leaves standalone Codex and
         # the account's saved settings untouched; installation remains available
         # through Jarvis's CLI controls.
-        #
-        # ``--no-alt-screen``: the pane's terminal keeps the conversation as
-        # real scrollback, so the pane scrollbar can show and seek the true
-        # position. On the alternate screen Codex keeps its history inside its
-        # own UI, and no position is knowable from outside (measured on 0.160:
-        # ?1049 plus ?1003 mouse reporting). Also accepted after ``resume``.
-        launch_args=("-c", "check_for_update_on_startup=false", "--no-alt-screen"),
+        launch_args=("-c", "check_for_update_on_startup=false"),
         trust=CODEX_TRUST,
         account=AccountSpec(env=(("CODEX_HOME", "{dir}"),), native_dir="~/.codex"),
         win_shim=WinShim(
