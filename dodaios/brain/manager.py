@@ -3887,7 +3887,7 @@ class BrainManager:
         if persona_block:
             parts.append(persona_block)
 
-        # User's own standing-instructions file (AGENTS.md / CLAUDE.md equivalent),
+        # User's own standing-instructions file (CLAUDE.md equivalent),
         # named after the assistant (e.g. Assistant.md). Distinct from the persona: the
         # user writes personal preferences here, and the block is framed so they
         # refine behaviour but never override safety/confirmations. Read fresh each
@@ -12037,7 +12037,7 @@ class BrainManager:
             return agg.text
 
         # ONE output-language resolution for every honesty phrase this turn
-        # (AGENTS.md §1: one resolver decides the turn for ALL layers). The two
+        # (one resolver decides the turn for ALL layers). The two
         # guards below used to resolve separately with DIFFERENT defaults
         # ("de" here, DEFAULT_LOCALE there), so an undetectable turn could speak
         # a German evidence fallback followed by an English honesty phrase in the

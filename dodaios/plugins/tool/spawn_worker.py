@@ -59,8 +59,7 @@ def _readback_lang(turn_language: str | None) -> str:
     The turn's resolved output language wins (stamped by the tool-use loop via
     ``resolve_output_language`` — see ``execute``). Only when the turn carries
     none does this fall back to the ambient answer (reply-language pin →
-    default locale); this layer never re-derives a language from the utterance
-    (AGENTS.md §1).
+    default locale); this layer never re-derives a language from the utterance.
     """
     lang = (turn_language or "").strip().lower()
     return lang or resolve_ambient_language()

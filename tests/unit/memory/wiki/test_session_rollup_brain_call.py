@@ -4,7 +4,7 @@ These tests pin the **call shape** between the rollup worker and the Brain
 protocol. They fail loudly the moment a future refactor reverts to the
 old positional / kwarg-based signature that broke production from
 2026-05-13 onward (``GeminiBrain.complete() got an unexpected keyword
-argument 'max_tokens'`` — see BUGS.md B8).
+argument 'max_tokens'``).
 
 The fake matches the production contract from ``dodaios/core/protocols.py``:
 

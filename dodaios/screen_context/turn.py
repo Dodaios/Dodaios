@@ -240,7 +240,7 @@ async def screen_context_for_turn(
     ``locale`` must already be resolved via
     ``dodaios.core.turn_language.resolve_output_language`` — this function never
     derives a language, so a clarifying question cannot flip the conversation's
-    language mid-session (AGENTS.md §1.3).
+    language mid-session.
 
     An appshot waiting for the next message (``dodaios.appshot``) is this
     turn's picture, unless the utterance asks for a fresh appshot. Automated

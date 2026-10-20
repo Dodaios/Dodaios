@@ -1459,7 +1459,7 @@ _DELEGATE_BRIDGE_TEXTS: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
 
 #: Why the call is ending when NO voice engine could be opened. Carries every
 #: supported locale, resolved through the session's one language resolver
-#: (AGENTS.md §1 runtime rule 3) — never a de/en-only table and never a
+#: — never a de/en-only table and never a
 #: per-layer default. Deliberately two distinct causes rather than one generic
 #: apology: "it did not come up in time" and "it could not be reached" send the
 #: user to different places, and the whole point of speaking here is that the
@@ -1519,7 +1519,7 @@ def _pick_delegate_bridge_text(language: str) -> str:
 #: abandoned. One short, honest sentence: the user needs to know the work
 #: stopped, because a silent cancellation is indistinguishable from a session
 #: that simply ignored them — which is the failure this whole path exists to
-#: end. Same locale coverage as every other runtime pool (AGENTS.md §1).
+#: end. Same locale coverage as every other runtime pool.
 _INTERRUPT_ACK_TEXTS: dict[str, tuple[str, ...]] = i18n_catalog.variant_table(
     "realtime.interrupt_ack_texts"
 )
@@ -2839,7 +2839,7 @@ class RealtimeVoiceSession:
         utterance it was computed for.
 
         Every ``[skills]`` knob travels with it. Reading only some of the
-        section is a silent config switch (AGENTS.md §7).
+        section is a silent config switch.
         """
         key = str(text or "").strip()
         if not key:

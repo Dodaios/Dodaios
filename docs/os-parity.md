@@ -1480,8 +1480,8 @@ procedural draft grants no tool permission and activates no registry triggers.
 ## Maintenance
 
 - Fixing a gap: remove its row (git history keeps the record).
-- Landing a new Windows-only implementation: add a row (required by
-  AGENTS.md §3) with impact, evidence, and off-Windows behavior.
+- Landing a new Windows-only implementation: add a row
+  with impact, evidence, and off-Windows behavior.
 - Re-audit cadence: rerun the five-area sweep after any release that touches
   platform seams (`dodaios/platform/`, `dodaios/cu/actuate/`, `dodaios/vision/`,
   `dodaios/audio/`, `dodaios/missions/isolation/`).

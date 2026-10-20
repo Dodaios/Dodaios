@@ -242,7 +242,7 @@ def compose_prompt(
         "- Keep the change as small as the issue needs, and add or update tests for it.",
         "- Follow the repository's own instruction files shown in the brief.",
         "- Do not touch CI config (.github and the like), deployment, secrets, .env files or "
-        "the instruction files (AGENTS.md, CLAUDE.md). A change that does is thrown away.",
+        "the instruction files (CLAUDE.md). A change that does is thrown away.",
         "- Do not push, open pull requests, comment on GitHub, change git remotes or switch "
         "branches; Dodaios checks your work and does that.",
         "- Run the tests before you finish; they must pass: " + "; ".join(tests) + ".",
