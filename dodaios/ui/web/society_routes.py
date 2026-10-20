@@ -67,7 +67,7 @@ async def _agent_sandbox(request: Request, agent_id: str) -> Any:
         raise HTTPException(404, "Agent not found.")
     if agent.execution_environment != "sandbox":
         raise HTTPException(409, "This agent does not use the code sandbox.")
-    return for_agent(rt, agent_id)
+    return for_agent(rt, agent.agent_id)
 
 
 @router.get("/agents/{agent_id}/sandbox/files")

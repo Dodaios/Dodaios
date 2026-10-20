@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import shutil
 import time
 import uuid
@@ -125,7 +126,8 @@ class Sandbox:
     """One persistent volume per agent workspace, one disposable container per call."""
 
     def __init__(self, workspace: Path) -> None:
-        namespace = str(workspace.resolve()).encode("utf-8")
+        # Only the name is derived here; nothing on the host is read or created.
+        namespace = os.path.abspath(workspace).encode("utf-8")
         self.volume = "jarvis-sandbox-" + hashlib.sha256(namespace).hexdigest()[:24]
 
     def _arguments(
