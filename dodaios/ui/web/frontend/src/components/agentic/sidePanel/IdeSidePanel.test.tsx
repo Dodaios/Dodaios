@@ -16,8 +16,8 @@ vi.mock("@/components/workspace/WorkspaceTerminal", () => ({
 }));
 
 // The real stage is a WebGL scene; the tab only owes it the right props and a place to live.
-vi.mock("@/components/society/starship/ShipStage", () => ({
-  ShipStage: ({ onOpenLedger, initialDeck, compact }: { onOpenLedger: () => void; initialDeck?: string; compact?: boolean }) => (
+vi.mock("@/components/society/verse/VerseStage", () => ({
+  VerseStage: ({ onOpenLedger, initialDeck, compact }: { onOpenLedger: () => void; initialDeck?: string; compact?: boolean }) => (
     <div data-testid="office-stage" data-floor={initialDeck} data-compact={String(Boolean(compact))}>
       <button type="button" onClick={onOpenLedger}>ledger</button>
     </div>

@@ -1,0 +1,2161 @@
+{
+ "schema": "verse.deck/1",
+ "id": "hangar",
+ "name": "Main Hangar",
+ "floor": 4,
+ "quality": "final",
+ "camera": {
+  "pitch_deg": 60.0,
+  "yaw_deg": 0.0,
+  "px_per_m": 96,
+  "centre": [
+   50.0,
+   0.0,
+   25.8038
+  ],
+  "right": [
+   1.0,
+   0.0,
+   0.0
+  ],
+  "up": [
+   0.0,
+   0.5,
+   -0.8660254
+  ],
+  "forward": [
+   0.0,
+   -0.8660254,
+   -0.5
+  ],
+  "distance": 250.0,
+  "frame_w_m": 101.0,
+  "frame_h_m": 63.833333333333336,
+  "plate_w_px": 9696,
+  "plate_h_px": 6128,
+  "view_transform": "AgX",
+  "look": "None",
+  "exposure": -0.5
+ },
+ "plate": {
+  "format": "avif",
+  "tile_px": 2048,
+  "cols": 5,
+  "rows": 3,
+  "tile_url": "plate/L0_{col}_{row}.avif",
+  "l1_url": "plate/L1.avif",
+  "l1_w_px": 2424,
+  "l1_h_px": 1532
+ },
+ "occluders": {
+  "url": "occluders.glb",
+  "triangles": 2224
+ },
+ "nav": {
+  "url": "nav.png",
+  "origin_x": 0.0,
+  "origin_z": -0.0,
+  "cell": 0.2,
+  "w": 500,
+  "h": 310,
+  "height_zero": 128,
+  "height_step": 0.025,
+  "max_step": 0.3,
+  "clearance": 0.25,
+  "walkable_cells": 99439
+ },
+ "env": {
+  "url": "env.hdr",
+  "w": 512,
+  "h": 256,
+  "position": [
+   33.0,
+   1.4,
+   24.5
+  ]
+ },
+ "probes": [
+  {
+   "room": "armoury",
+   "position": [
+    89.0,
+    1.4,
+    52.4
+   ],
+   "sh": [
+    [
+     0.29393,
+     0.28316,
+     0.28476
+    ],
+    [
+     0.02204,
+     0.02413,
+     0.01269
+    ],
+    [
+     -0.17263,
+     -0.16917,
+     -0.15768
+    ],
+    [
+     -0.02194,
+     -0.02019,
+     -0.01993
+    ],
+    [
+     -0.01077,
+     -0.01015,
+     -0.00976
+    ],
+    [
+     -0.21216,
+     -0.20594,
+     -0.19873
+    ],
+    [
+     0.08052,
+     0.08075,
+     0.07175
+    ],
+    [
+     0.00793,
+     0.00769,
+     0.00695
+    ],
+    [
+     0.00364,
+     0.00375,
+     0.0009
+    ]
+   ]
+  },
+  {
+   "room": "arrivals",
+   "position": [
+    50.0,
+    1.4,
+    55.5
+   ],
+   "sh": [
+    [
+     0.34756,
+     0.31544,
+     0.31746
+    ],
+    [
+     -0.19065,
+     -0.17167,
+     -0.17317
+    ],
+    [
+     -0.15062,
+     -0.13646,
+     -0.13482
+    ],
+    [
+     0.02102,
+     0.01942,
+     0.01885
+    ],
+    [
+     0.00986,
+     0.00898,
+     0.00892
+    ],
+    [
+     -0.02733,
+     -0.02468,
+     -0.02407
+    ],
+    [
+     0.01634,
+     0.01474,
+     0.01201
+    ],
+    [
+     -0.01212,
+     -0.01144,
+     -0.01088
+    ],
+    [
+     0.01265,
+     0.01293,
+     0.01373
+    ]
+   ]
+  },
+  {
+   "room": "booth",
+   "position": [
+    14.0,
+    2.6,
+    51.6
+   ],
+   "sh": [
+    [
+     0.18572,
+     0.17453,
+     0.17812
+    ],
+    [
+     -0.0478,
+     -0.04575,
+     -0.04938
+    ],
+    [
+     -0.11761,
+     -0.10802,
+     -0.10853
+    ],
+    [
+     0.01555,
+     0.01166,
+     0.01237
+    ],
+    [
+     0.0116,
+     0.0107,
+     0.01002
+    ],
+    [
+     -0.00325,
+     -0.00202,
+     -0.00086
+    ],
+    [
+     0.07523,
+     0.06769,
+     0.06782
+    ],
+    [
+     -0.05425,
+     -0.04997,
+     -0.04848
+    ],
+    [
+     0.06205,
+     0.05912,
+     0.05619
+    ]
+   ]
+  },
+  {
+   "room": "crew_bay",
+   "position": [
+    36.0,
+    1.4,
+    51.0
+   ],
+   "sh": [
+    [
+     0.31086,
+     0.27953,
+     0.27429
+    ],
+    [
+     -0.14632,
+     -0.13027,
+     -0.12538
+    ],
+    [
+     -0.10733,
+     -0.09807,
+     -0.09909
+    ],
+    [
+     0.07437,
+     0.06794,
+     0.06804
+    ],
+    [
+     -0.0249,
+     -0.02322,
+     -0.0229
+    ],
+    [
+     -0.02204,
+     -0.02049,
+     -0.02003
+    ],
+    [
+     0.07988,
+     0.07033,
+     0.06732
+    ],
+    [
+     0.00074,
+     -0.00029,
+     -0.00159
+    ],
+    [
+     0.01004,
+     0.01075,
+     0.01278
+    ]
+   ]
+  },
+  {
+   "room": "flight_deck",
+   "position": [
+    33.0,
+    1.4,
+    24.5
+   ],
+   "sh": [
+    [
+     0.37572,
+     0.34463,
+     0.34833
+    ],
+    [
+     0.08676,
+     0.07633,
+     0.07102
+    ],
+    [
+     -0.28052,
+     -0.25333,
+     -0.24882
+    ],
+    [
+     0.05081,
+     0.04585,
+     0.04398
+    ],
+    [
+     0.03229,
+     0.02944,
+     0.02889
+    ],
+    [
+     -0.17632,
+     -0.15921,
+     -0.15682
+    ],
+    [
+     0.16816,
+     0.15064,
+     0.14622
+    ],
+    [
+     0.00686,
+     0.00614,
+     0.00693
+    ],
+    [
+     0.02997,
+     0.02636,
+     0.02434
+    ]
+   ]
+  },
+  {
+   "room": "lift_lobby",
+   "position": [
+    70.0,
+    1.4,
+    56.5
+   ],
+   "sh": [
+    [
+     0.70914,
+     0.64725,
+     0.64186
+    ],
+    [
+     0.19889,
+     0.17778,
+     0.17073
+    ],
+    [
+     -0.86451,
+     -0.78426,
+     -0.76958
+    ],
+    [
+     -0.01359,
+     -0.01178,
+     -0.0121
+    ],
+    [
+     -0.00049,
+     -0.00059,
+     -0.00069
+    ],
+    [
+     -0.49086,
+     -0.4435,
+     -0.43516
+    ],
+    [
+     0.85113,
+     0.77223,
+     0.75642
+    ],
+    [
+     0.01259,
+     0.01073,
+     0.01163
+    ],
+    [
+     0.06262,
+     0.05761,
+     0.05703
+    ]
+   ]
+  }
+ ],
+ "rooms": [
+  {
+   "id": "armoury",
+   "name": "Armoury",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     77.0,
+     61.6
+    ],
+    [
+     97.5,
+     61.6
+    ],
+    [
+     97.5,
+     47.5
+    ],
+    [
+     77.0,
+     47.5
+    ]
+   ],
+   "centre": [
+    87.25,
+    0.0,
+    54.55
+   ],
+   "area_m2": 289.05,
+   "main": false,
+   "props": {
+    "room": "armoury",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "arrivals",
+   "name": "Arrivals",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     40.0,
+     61.6
+    ],
+    [
+     62.0,
+     61.6
+    ],
+    [
+     62.0,
+     46.0
+    ],
+    [
+     40.0,
+     46.0
+    ]
+   ],
+   "centre": [
+    51.0,
+    0.0,
+    53.8
+   ],
+   "area_m2": 343.2,
+   "main": false,
+   "props": {
+    "room": "arrivals",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "booth",
+   "name": "Control Booth",
+   "floor_y": 1.2,
+   "polygon": [
+    [
+     3.0,
+     61.6
+    ],
+    [
+     25.0,
+     61.6
+    ],
+    [
+     25.0,
+     47.2
+    ],
+    [
+     3.0,
+     47.2
+    ]
+   ],
+   "centre": [
+    14.0,
+    1.2,
+    54.4
+   ],
+   "area_m2": 316.8,
+   "main": false,
+   "props": {
+    "room": "booth",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "crew_bay",
+   "name": "Ground Crew Bay",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     25.0,
+     61.6
+    ],
+    [
+     40.0,
+     61.6
+    ],
+    [
+     40.0,
+     46.0
+    ],
+    [
+     25.0,
+     46.0
+    ]
+   ],
+   "centre": [
+    32.5,
+    0.0,
+    53.8
+   ],
+   "area_m2": 234.0,
+   "main": false,
+   "props": {
+    "room": "crew_bay",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "flight_deck",
+   "name": "Flight Deck",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     2.5,
+     46.0
+    ],
+    [
+     97.5,
+     46.0
+    ],
+    [
+     97.5,
+     1.5
+    ],
+    [
+     2.5,
+     1.5
+    ]
+   ],
+   "centre": [
+    50.0,
+    0.0,
+    23.75
+   ],
+   "area_m2": 4227.5,
+   "main": true,
+   "props": {
+    "room": "flight_deck",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "lift_lobby",
+   "name": "Lift Lobby",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     62.0,
+     61.6
+    ],
+    [
+     77.0,
+     61.6
+    ],
+    [
+     77.0,
+     46.0
+    ],
+    [
+     62.0,
+     46.0
+    ]
+   ],
+   "centre": [
+    69.5,
+    0.0,
+    53.8
+   ],
+   "area_m2": 234.0,
+   "main": false,
+   "props": {
+    "room": "lift_lobby",
+    "nav": "walk"
+   }
+  }
+ ],
+ "sockets": [
+  {
+   "id": "lift_a",
+   "kind": "door",
+   "position": [
+    68.0,
+    0.0,
+    50.72
+   ],
+   "yaw_deg": 0.0,
+   "room": "lift_lobby",
+   "station": "lift",
+   "props": {
+    "width": 2.0
+   }
+  },
+  {
+   "id": "lift_b",
+   "kind": "door",
+   "position": [
+    72.0,
+    0.0,
+    50.72
+   ],
+   "yaw_deg": 0.0,
+   "room": "lift_lobby",
+   "station": "lift",
+   "props": {
+    "width": 2.0
+   }
+  },
+  {
+   "id": "main",
+   "kind": "lift",
+   "position": [
+    68.0,
+    0.0,
+    51.0
+   ],
+   "yaw_deg": 0.0,
+   "room": "lift_lobby",
+   "props": {
+    "decks": "all"
+   }
+  },
+  {
+   "id": "door_warning",
+   "kind": "light",
+   "position": [
+    50.0,
+    19.6,
+    3.0
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "colour": "#ff2a1a",
+    "blink_hz": 0.0
+   }
+  },
+  {
+   "id": "lift_beacon",
+   "kind": "light",
+   "position": [
+    70.0,
+    4.55,
+    49.0
+   ],
+   "yaw_deg": 0.0,
+   "room": "lift_lobby",
+   "props": {
+    "colour": "#ff4a1a",
+    "blink_hz": 0.5
+   }
+  },
+  {
+   "id": "shuttle_cabin",
+   "kind": "light",
+   "position": [
+    50.0,
+    3.2,
+    31.2
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "socket_kind": "light",
+    "owner": "Shuttle"
+   }
+  },
+  {
+   "id": "well_beacon_1",
+   "kind": "light",
+   "position": [
+    7.4,
+    0.3,
+    7.4
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "colour": "#ffae2a",
+    "blink_hz": 1.0
+   }
+  },
+  {
+   "id": "well_beacon_2",
+   "kind": "light",
+   "position": [
+    38.6,
+    0.3,
+    7.4
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "colour": "#ffae2a",
+    "blink_hz": 1.0
+   }
+  },
+  {
+   "id": "well_beacon_3",
+   "kind": "light",
+   "position": [
+    7.4,
+    0.3,
+    20.6
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "colour": "#ffae2a",
+    "blink_hz": 1.0
+   }
+  },
+  {
+   "id": "well_beacon_4",
+   "kind": "light",
+   "position": [
+    38.6,
+    0.3,
+    20.6
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "colour": "#ffae2a",
+    "blink_hz": 1.0
+   }
+  },
+  {
+   "id": "arrivals",
+   "kind": "screen",
+   "position": [
+    50.0,
+    1.1019,
+    50.801
+   ],
+   "yaw_deg": 0.0,
+   "room": "arrivals",
+   "station": "arrivals",
+   "size": [
+    0.7,
+    0.38
+   ],
+   "normal": [
+    0.0,
+    0.469472,
+    0.882948
+   ],
+   "corners": [
+    [
+     49.65,
+     1.2696,
+     50.7118
+    ],
+    [
+     50.35,
+     1.2696,
+     50.7118
+    ],
+    [
+     50.35,
+     0.9341,
+     50.8902
+    ],
+    [
+     49.65,
+     0.9341,
+     50.8902
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "create_agent",
+    "owner": "arrivals"
+   }
+  },
+  {
+   "id": "booth_1__1",
+   "kind": "screen",
+   "position": [
+    5.4,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     5.12,
+     2.4155,
+     48.1105
+    ],
+    [
+     5.68,
+     2.4155,
+     48.1105
+    ],
+    [
+     5.68,
+     2.1482,
+     48.2467
+    ],
+    [
+     5.12,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_1"
+   }
+  },
+  {
+   "id": "booth_1__2",
+   "kind": "screen",
+   "position": [
+    6.6,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     6.32,
+     2.4155,
+     48.1105
+    ],
+    [
+     6.88,
+     2.4155,
+     48.1105
+    ],
+    [
+     6.88,
+     2.1482,
+     48.2467
+    ],
+    [
+     6.32,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_1"
+   }
+  },
+  {
+   "id": "booth_1__3",
+   "kind": "screen",
+   "position": [
+    7.8,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     7.52,
+     2.4155,
+     48.1105
+    ],
+    [
+     8.08,
+     2.4155,
+     48.1105
+    ],
+    [
+     8.08,
+     2.1482,
+     48.2467
+    ],
+    [
+     7.52,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_1"
+   }
+  },
+  {
+   "id": "booth_2__1",
+   "kind": "screen",
+   "position": [
+    10.2,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     9.92,
+     2.4155,
+     48.1105
+    ],
+    [
+     10.48,
+     2.4155,
+     48.1105
+    ],
+    [
+     10.48,
+     2.1482,
+     48.2467
+    ],
+    [
+     9.92,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_2"
+   }
+  },
+  {
+   "id": "booth_2__2",
+   "kind": "screen",
+   "position": [
+    11.4,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     11.12,
+     2.4155,
+     48.1105
+    ],
+    [
+     11.68,
+     2.4155,
+     48.1105
+    ],
+    [
+     11.68,
+     2.1482,
+     48.2467
+    ],
+    [
+     11.12,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_2"
+   }
+  },
+  {
+   "id": "booth_2__3",
+   "kind": "screen",
+   "position": [
+    12.6,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     12.32,
+     2.4155,
+     48.1105
+    ],
+    [
+     12.88,
+     2.4155,
+     48.1105
+    ],
+    [
+     12.88,
+     2.1482,
+     48.2467
+    ],
+    [
+     12.32,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_2"
+   }
+  },
+  {
+   "id": "booth_3__1",
+   "kind": "screen",
+   "position": [
+    15.0,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     14.72,
+     2.4155,
+     48.1105
+    ],
+    [
+     15.28,
+     2.4155,
+     48.1105
+    ],
+    [
+     15.28,
+     2.1482,
+     48.2467
+    ],
+    [
+     14.72,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_3"
+   }
+  },
+  {
+   "id": "booth_3__2",
+   "kind": "screen",
+   "position": [
+    16.2,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     15.92,
+     2.4155,
+     48.1105
+    ],
+    [
+     16.48,
+     2.4155,
+     48.1105
+    ],
+    [
+     16.48,
+     2.1482,
+     48.2467
+    ],
+    [
+     15.92,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_3"
+   }
+  },
+  {
+   "id": "booth_3__3",
+   "kind": "screen",
+   "position": [
+    17.4,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     17.12,
+     2.4155,
+     48.1105
+    ],
+    [
+     17.68,
+     2.4155,
+     48.1105
+    ],
+    [
+     17.68,
+     2.1482,
+     48.2467
+    ],
+    [
+     17.12,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_3"
+   }
+  },
+  {
+   "id": "booth_4__1",
+   "kind": "screen",
+   "position": [
+    19.8,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     19.52,
+     2.4155,
+     48.1105
+    ],
+    [
+     20.08,
+     2.4155,
+     48.1105
+    ],
+    [
+     20.08,
+     2.1482,
+     48.2467
+    ],
+    [
+     19.52,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_4"
+   }
+  },
+  {
+   "id": "booth_4__2",
+   "kind": "screen",
+   "position": [
+    21.0,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     20.72,
+     2.4155,
+     48.1105
+    ],
+    [
+     21.28,
+     2.4155,
+     48.1105
+    ],
+    [
+     21.28,
+     2.1482,
+     48.2467
+    ],
+    [
+     20.72,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_4"
+   }
+  },
+  {
+   "id": "booth_4__3",
+   "kind": "screen",
+   "position": [
+    22.2,
+    2.2818,
+    48.1786
+   ],
+   "yaw_deg": 0.0,
+   "room": "booth",
+   "size": [
+    0.56,
+    0.3
+   ],
+   "normal": [
+    0.0,
+    0.45399,
+    0.891007
+   ],
+   "corners": [
+    [
+     21.92,
+     2.4155,
+     48.1105
+    ],
+    [
+     22.48,
+     2.4155,
+     48.1105
+    ],
+    [
+     22.48,
+     2.1482,
+     48.2467
+    ],
+    [
+     21.92,
+     2.1482,
+     48.2467
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "booth_4"
+   }
+  },
+  {
+   "id": "booth_1a",
+   "kind": "seat",
+   "position": [
+    5.7,
+    1.2,
+    49.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth",
+   "props": {
+    "seat_height": 0.5
+   }
+  },
+  {
+   "id": "booth_1b",
+   "kind": "seat",
+   "position": [
+    7.5,
+    1.2,
+    49.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth",
+   "props": {
+    "seat_height": 0.5
+   }
+  },
+  {
+   "id": "booth_2a",
+   "kind": "seat",
+   "position": [
+    10.5,
+    1.2,
+    49.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth",
+   "props": {
+    "seat_height": 0.5
+   }
+  },
+  {
+   "id": "booth_2b",
+   "kind": "seat",
+   "position": [
+    12.3,
+    1.2,
+    49.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth",
+   "props": {
+    "seat_height": 0.5
+   }
+  },
+  {
+   "id": "booth_3a",
+   "kind": "seat",
+   "position": [
+    15.3,
+    1.2,
+    49.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth",
+   "props": {
+    "seat_height": 0.5
+   }
+  },
+  {
+   "id": "booth_3b",
+   "kind": "seat",
+   "position": [
+    17.1,
+    1.2,
+    49.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth",
+   "props": {
+    "seat_height": 0.5
+   }
+  },
+  {
+   "id": "booth_4a",
+   "kind": "seat",
+   "position": [
+    20.1,
+    1.2,
+    49.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth",
+   "props": {
+    "seat_height": 0.5
+   }
+  },
+  {
+   "id": "booth_4b",
+   "kind": "seat",
+   "position": [
+    21.9,
+    1.2,
+    49.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth",
+   "props": {
+    "seat_height": 0.5
+   }
+  },
+  {
+   "id": "Hangar_TowTug_001__drone",
+   "kind": "spawn",
+   "position": [
+    38.7856,
+    0.0,
+    32.0
+   ],
+   "yaw_deg": 150.0,
+   "room": "flight_deck",
+   "props": {
+    "socket_kind": "spawn",
+    "owner": "Hangar_TowTug_001"
+   }
+  },
+  {
+   "id": "Hangar_TowTug_002__drone",
+   "kind": "spawn",
+   "position": [
+    39.6,
+    0.0,
+    54.0
+   ],
+   "yaw_deg": 180.0,
+   "room": "crew_bay",
+   "props": {
+    "socket_kind": "spawn",
+    "owner": "Hangar_TowTug_002"
+   }
+  },
+  {
+   "id": "arrival",
+   "kind": "spawn",
+   "position": [
+    50.0,
+    0.0,
+    38.1364
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "socket_kind": "spawn",
+    "owner": "Shuttle"
+   }
+  },
+  {
+   "id": "commander",
+   "kind": "spawn",
+   "position": [
+    70.0,
+    0.0,
+    54.2
+   ],
+   "yaw_deg": 0.0,
+   "room": "lift_lobby"
+  },
+  {
+   "id": "arrivals__arrival",
+   "kind": "stand",
+   "position": [
+    50.0,
+    0.0,
+    49.9275
+   ],
+   "yaw_deg": 0.0,
+   "room": "arrivals",
+   "station": "arrivals",
+   "props": {
+    "socket_kind": "stand",
+    "station_kind": "create_agent",
+    "owner": "arrivals"
+   }
+  },
+  {
+   "id": "arrivals_queue_1",
+   "kind": "stand",
+   "position": [
+    49.1,
+    0.0,
+    47.0
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "arrivals_queue_2",
+   "kind": "stand",
+   "position": [
+    50.9,
+    0.0,
+    47.0
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "booth_supervisor",
+   "kind": "stand",
+   "position": [
+    13.8,
+    1.2,
+    57.8
+   ],
+   "yaw_deg": 180.0,
+   "room": "booth"
+  },
+  {
+   "id": "welcome_01",
+   "kind": "stand",
+   "position": [
+    47.0,
+    0.0,
+    38.74
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "welcome_02",
+   "kind": "stand",
+   "position": [
+    47.0,
+    0.0,
+    40.54
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "welcome_03",
+   "kind": "stand",
+   "position": [
+    47.0,
+    0.0,
+    42.34
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "welcome_04",
+   "kind": "stand",
+   "position": [
+    47.0,
+    0.0,
+    44.14
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "welcome_05",
+   "kind": "stand",
+   "position": [
+    53.0,
+    0.0,
+    38.74
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "welcome_06",
+   "kind": "stand",
+   "position": [
+    53.0,
+    0.0,
+    40.54
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "welcome_07",
+   "kind": "stand",
+   "position": [
+    53.0,
+    0.0,
+    42.34
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "welcome_08",
+   "kind": "stand",
+   "position": [
+    53.0,
+    0.0,
+    44.14
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck"
+  },
+  {
+   "id": "arrivals",
+   "kind": "station",
+   "position": [
+    50.0,
+    0.0,
+    51.8275
+   ],
+   "yaw_deg": 180.0,
+   "room": "arrivals",
+   "station": "arrivals",
+   "props": {
+    "socket_kind": "station",
+    "station_kind": "create_agent",
+    "owner": "arrivals"
+   }
+  },
+  {
+   "id": "lift",
+   "kind": "station",
+   "position": [
+    68.0,
+    0.0,
+    52.4
+   ],
+   "yaw_deg": 180.0,
+   "room": "lift_lobby",
+   "props": {
+    "station_kind": "lift"
+   }
+  },
+  {
+   "id": "cargo_01",
+   "kind": "waypoint",
+   "position": [
+    66.0,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "cargo",
+    "order": 1
+   }
+  },
+  {
+   "id": "cargo_02",
+   "kind": "waypoint",
+   "position": [
+    76.2,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "cargo",
+    "order": 2
+   }
+  },
+  {
+   "id": "cargo_03",
+   "kind": "waypoint",
+   "position": [
+    76.2,
+    0.0,
+    44.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "cargo",
+    "order": 3
+   }
+  },
+  {
+   "id": "cargo_04",
+   "kind": "waypoint",
+   "position": [
+    84.7,
+    0.0,
+    44.0
+   ],
+   "yaw_deg": 180.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "cargo",
+    "order": 4
+   }
+  },
+  {
+   "id": "cargo_05",
+   "kind": "waypoint",
+   "position": [
+    84.7,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "cargo",
+    "order": 5
+   }
+  },
+  {
+   "id": "cargo_06",
+   "kind": "waypoint",
+   "position": [
+    94.6,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "cargo",
+    "order": 6
+   }
+  },
+  {
+   "id": "cargo_07",
+   "kind": "waypoint",
+   "position": [
+    94.6,
+    0.0,
+    44.0
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "cargo",
+    "order": 7
+   }
+  },
+  {
+   "id": "cargo_08",
+   "kind": "waypoint",
+   "position": [
+    66.0,
+    0.0,
+    44.0
+   ],
+   "yaw_deg": 180.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "cargo",
+    "order": 8
+   }
+  },
+  {
+   "id": "front_01",
+   "kind": "waypoint",
+   "position": [
+    27.0,
+    0.0,
+    45.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "front",
+    "order": 1
+   }
+  },
+  {
+   "id": "front_02",
+   "kind": "waypoint",
+   "position": [
+    47.0,
+    0.0,
+    45.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "front",
+    "order": 2
+   }
+  },
+  {
+   "id": "front_03",
+   "kind": "waypoint",
+   "position": [
+    64.0,
+    0.0,
+    45.0
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "front",
+    "order": 3
+   }
+  },
+  {
+   "id": "pad_01",
+   "kind": "waypoint",
+   "position": [
+    40.2,
+    0.0,
+    11.0
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "pad",
+    "order": 1
+   }
+  },
+  {
+   "id": "pad_02",
+   "kind": "waypoint",
+   "position": [
+    60.0,
+    0.0,
+    11.0
+   ],
+   "yaw_deg": 11.31,
+   "room": "flight_deck",
+   "props": {
+    "loop": "pad",
+    "order": 2
+   }
+  },
+  {
+   "id": "pad_03",
+   "kind": "waypoint",
+   "position": [
+    62.4,
+    0.0,
+    23.0
+   ],
+   "yaw_deg": -12.09,
+   "room": "flight_deck",
+   "props": {
+    "loop": "pad",
+    "order": 3
+   }
+  },
+  {
+   "id": "pad_04",
+   "kind": "waypoint",
+   "position": [
+    60.0,
+    0.0,
+    34.2
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "pad",
+    "order": 4
+   }
+  },
+  {
+   "id": "pad_05",
+   "kind": "waypoint",
+   "position": [
+    40.2,
+    0.0,
+    34.2
+   ],
+   "yaw_deg": -177.95,
+   "room": "flight_deck",
+   "props": {
+    "loop": "pad",
+    "order": 5
+   }
+  },
+  {
+   "id": "pad_06",
+   "kind": "waypoint",
+   "position": [
+    39.8,
+    0.0,
+    23.0
+   ],
+   "yaw_deg": 178.09,
+   "room": "flight_deck",
+   "props": {
+    "loop": "pad",
+    "order": 6
+   }
+  },
+  {
+   "id": "ramp_top",
+   "kind": "waypoint",
+   "position": [
+    50.0,
+    1.5,
+    32.2
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "Shuttle"
+   }
+  },
+  {
+   "id": "wall_01",
+   "kind": "waypoint",
+   "position": [
+    6.0,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "wall",
+    "order": 1
+   }
+  },
+  {
+   "id": "wall_02",
+   "kind": "waypoint",
+   "position": [
+    28.0,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "wall",
+    "order": 2
+   }
+  },
+  {
+   "id": "wall_03",
+   "kind": "waypoint",
+   "position": [
+    72.0,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "wall",
+    "order": 3
+   }
+  },
+  {
+   "id": "wall_04",
+   "kind": "waypoint",
+   "position": [
+    94.0,
+    0.0,
+    5.4
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "wall",
+    "order": 4
+   }
+  },
+  {
+   "id": "well_01",
+   "kind": "waypoint",
+   "position": [
+    6.0,
+    0.0,
+    23.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "well",
+    "order": 1
+   }
+  },
+  {
+   "id": "well_02",
+   "kind": "waypoint",
+   "position": [
+    36.0,
+    0.0,
+    23.4
+   ],
+   "yaw_deg": 159.04,
+   "room": "flight_deck",
+   "props": {
+    "loop": "well",
+    "order": 2
+   }
+  },
+  {
+   "id": "well_03",
+   "kind": "waypoint",
+   "position": [
+    39.6,
+    0.0,
+    14.0
+   ],
+   "yaw_deg": -155.77,
+   "room": "flight_deck",
+   "props": {
+    "loop": "well",
+    "order": 3
+   }
+  },
+  {
+   "id": "well_04",
+   "kind": "waypoint",
+   "position": [
+    36.0,
+    0.0,
+    6.0
+   ],
+   "yaw_deg": -90.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "well",
+    "order": 4
+   }
+  },
+  {
+   "id": "well_05",
+   "kind": "waypoint",
+   "position": [
+    6.0,
+    0.0,
+    6.0
+   ],
+   "yaw_deg": 0.0,
+   "room": "flight_deck",
+   "props": {
+    "loop": "well",
+    "order": 5
+   }
+  }
+ ],
+ "stations": [
+  {
+   "id": "arrivals",
+   "kind": "create_agent",
+   "room": "arrivals",
+   "position": [
+    50.0,
+    0.0,
+    51.8275
+   ],
+   "yaw_deg": 180.0,
+   "sockets": {
+    "screen": [
+     "arrivals"
+    ],
+    "stand": [
+     "arrivals__arrival"
+    ],
+    "station": [
+     "arrivals"
+    ]
+   }
+  },
+  {
+   "id": "lift",
+   "kind": "lift",
+   "room": "lift_lobby",
+   "position": [
+    68.0,
+    0.0,
+    52.4
+   ],
+   "yaw_deg": 180.0,
+   "sockets": {
+    "door": [
+     "lift_a",
+     "lift_b"
+    ]
+   }
+  }
+ ],
+ "stats": {
+  "samples": 384,
+  "blender": "5.0.1",
+  "plate_s": 706.81,
+  "nav_s": 10.7,
+  "occluders_s": 0.58,
+  "lighting_s": 6.12,
+  "blender_s": 729.2,
+  "package_s": 33.06,
+  "plate_bytes": 977473,
+  "bytes": 1398821
+ }
+}
