@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import mimetypes
 import os
 import time
 from collections.abc import Callable
@@ -33,9 +34,8 @@ from starlette.routing import Match
 from starlette.types import Scope
 
 from dodaios import __version__
-from dodaios.core.branding import CONFIG_FILE_NAME
 from dodaios.core.bus import EventBus, get_default_bus
-from dodaios.core.config import JarvisConfig
+from dodaios.core.config import JarvisConfig, resolve_config_path
 from dodaios.core.events import (
     AnnouncementRequested,
     ErrorOccurred,
@@ -70,6 +70,15 @@ DIST_DIR = WEB_DIR / "dist"
 INDEX_FILE = DIST_DIR / "index.html"
 ASSETS_DIR = DIST_DIR / "assets"
 
+# The Verse ships pre-rendered plates and 3D models; Windows' MIME registry
+# does not know these types, and a wrong type makes the WebView refuse them.
+for _suffix, _media_type in (
+    (".avif", "image/avif"),
+    (".glb", "model/gltf-binary"),
+    (".hdr", "image/vnd.radiance"),
+):
+    mimetypes.add_type(_media_type, _suffix)
+
 # Max time a single WS push to one browser client may take. A healthy
 # localhost ``send_json`` is sub-50 ms; exceeding this means the client is
 # stalled or half-open (TCP not yet torn down, send buffer full). Because the
@@ -102,6 +111,17 @@ _REGISTRY_BOOTSTRAP_STOP_TIMEOUT_S = 5.0
 def _is_backend_path(path: str) -> bool:
     """Paths the SPA catch-all must never claim: the API and the sockets."""
     return path == "/api" or path.startswith(("/api/", "/ws"))
+
+
+def _follow_main_saved() -> bool:
+    """``[agentic_ide] follow_main`` as saved now (the in-memory config is read at boot)."""
+    try:
+        from dodaios.core.config import load_config
+
+        return bool(getattr(load_config().agentic_ide, "follow_main", False))
+    except Exception as exc:  # noqa: BLE001 -- an unreadable file means "not opted in"
+        logger.debug("Follow main: the configuration could not be read: {}", exc)
+        return False
 
 
 class _SpaFallbackRoute(APIRoute):
@@ -484,8 +504,8 @@ class WebServer:
         from .agent_mcp_routes import router as agent_mcp_router
         from .agent_runtime_routes import router as agent_runtime_router
         from .agentic_ide_git_routes import router as agentic_ide_git_router
-        from .agentic_ide_scm_routes import router as agentic_ide_scm_router
         from .agentic_ide_routes import router as agentic_ide_router
+        from .agentic_ide_scm_routes import router as agentic_ide_scm_router
         from .antigravity_routes import router as antigravity_router
         from .app_actions_routes import router as app_actions_router
         from .appshot_routes import router as appshot_router
@@ -504,7 +524,6 @@ class WebServer:
         from .commands_routes import router as commands_router
         from .computer_use_routes import router as computer_use_router
         from .computers_routes import router as computers_router
-        from .server_pairing_routes import router as server_pairing_router
         from .contacts_routes import router as contacts_router
         from .control_routes import router as control_router
         from .costs_routes import router as costs_router
@@ -522,8 +541,9 @@ class WebServer:
         from .friends_routes import router as friends_router
         from .frontier_routes import router as frontier_router
         from .grok_build_routes import router as grok_build_router
+        from .ide_browser_routes import router as ide_browser_router
         from .ide_skills_routes import router as ide_skills_router
-        from .jarvisx_routes import router as jarvisx_router
+        from .dodaiosx_routes import router as jarvisx_router
         from .live_routes import router as live_router
         from .local_models_assistant_routes import (
             router as local_models_assistant_router,
@@ -555,7 +575,9 @@ class WebServer:
         from .routine_hooks_routes import router as routine_hooks_router
         from .runtime_gateway_routes import router as runtime_gateway_router
         from .screen_context_routes import router as screen_context_router
+        from .self_build_routes import router as self_build_router
         from .self_mod_routes import router as self_mod_router
+        from .server_pairing_routes import router as server_pairing_router
         from .sessions_routes import router as sessions_router
         from .settings_routes import router as settings_router
         from .setup_report_routes import router as setup_report_router
@@ -631,6 +653,7 @@ class WebServer:
         # Detachable views: the desktop shell (when attached) spawns/closes
         # solo windows; headless hosts answer honestly with a fallback URL.
         app.include_router(desktop_router)
+        app.include_router(ide_browser_router)
         app.include_router(profile_router)
         app.include_router(settings_router)
         app.include_router(soul_router)
@@ -639,7 +662,7 @@ class WebServer:
         # dodaios/ui/web/update_routes.py; refuses to self-reset a dev checkout.
         app.include_router(update_router)
         # Share-safe cross-device setup report (read-only) — names why THIS
-        # install behaves differently from another device (AGENTS.md §3 triage).
+        # install behaves differently from another device (triage).
         app.include_router(setup_report_router)
         # Starter plans + the one-time "all set" readiness note.
         app.include_router(starter_plan_router)
@@ -702,6 +725,9 @@ class WebServer:
         app.include_router(agentic_ide_git_router)
         app.state.team_threads = None
         app.include_router(team_thread_router)
+        # "Built for you": the self-building ledger (/api/self-build/*).
+        app.state.self_build = None
+        app.include_router(self_build_router)
         # The Skills tab's library of saved Markdown prompts (/api/agentic-ide/skills/*).
         app.include_router(ide_skills_router)
         app.include_router(agentic_ide_router)
@@ -1026,6 +1052,7 @@ class WebServer:
                 temperature=bio_cfg.temperature,
                 max_tokens=bio_cfg.max_tokens,
                 timeout_s=BIO_TIMEOUT_S,
+                reply_language=lambda: self.cfg.brain.reply_language,
             )
             # Hook-driven: rewrites the bio on unlocked achievements, never on
             # a timer or at boot.
@@ -2495,6 +2522,45 @@ class WebServer:
             self._start_marketplace_refresh_scheduler
         )
 
+    def _start_main_follower(self) -> None:
+        """Keep a git checkout's app on the newest main, when the person opted in.
+
+        The follower is a daemon thread whose first look waits well past boot;
+        here it is only created. ``[agentic_ide] follow_main`` is re-read every
+        round, so the toggle takes effect without a restart.
+        """
+        app = self.app
+
+        def enabled() -> bool:
+            return bool(getattr(self.cfg.agentic_ide, "follow_main", False)) or _follow_main_saved()
+
+        def idle() -> bool:
+            kontrollierer = getattr(app.state, "kontrollierer", None)
+            running = getattr(kontrollierer, "running_mission_ids", None)
+            if callable(running) and running():
+                return False
+            from dodaios.live.runtime import active
+
+            if any(getattr(session, "is_active", False) for session in active()):
+                return False
+            from dodaios.core.runtime_refs import get_speech_pipeline
+
+            pipeline = get_speech_pipeline()
+            in_session = getattr(pipeline, "is_session_active", None)
+            return not (callable(in_session) and in_session())
+
+        def restart() -> bool:
+            desktop = getattr(app.state, "desktop_app", None)
+            request = getattr(desktop, "request_restart", None)
+            return bool(request()) if callable(request) else False
+
+        try:
+            from dodaios.core.main_follow import start_follower
+
+            start_follower(enabled=enabled, idle=idle, restart=restart)
+        except Exception as exc:  # noqa: BLE001 -- following main is a convenience, never a boot blocker
+            logger.opt(exception=exc).warning("Follow main did not start.")
+
     def _start_local_models_health_monitor(self) -> None:
         """The Local models self-check task (best-effort, exactly once, off the boot path)."""
         if self._local_models_health_monitor is not None:
@@ -2605,6 +2671,29 @@ class WebServer:
             "Marketplace refresh scheduler started; connected OAuth tokens "
             "will be renewed in the background."
         )
+
+    def _schedule_credential_migration(self) -> None:
+        """Copy keys from the renamed credential service once, off the boot path (AP-26).
+
+        A daemon thread in the main instance only, started with a delay; reads
+        never depend on it (``get_secret`` falls back to the legacy service),
+        so a process that skips it loses nothing.
+        """
+        try:
+            from dodaios.core.identity_credentials import schedule_credential_migration
+
+            schedule_credential_migration()
+        except Exception as exc:  # noqa: BLE001 -- a background copy must never block boot
+            logger.opt(exception=exc).warning("Credential copy did not schedule.")
+
+    def _schedule_distribution_check(self) -> None:
+        """Warn once, off the boot path (AP-26), when both package names are installed."""
+        try:
+            from dodaios.core.distribution import schedule_duplicate_distribution_check
+
+            schedule_duplicate_distribution_check()
+        except Exception as exc:  # noqa: BLE001 -- a diagnostic must never block boot
+            logger.opt(exception=exc).debug("Duplicate distribution check did not schedule.")
 
     def _schedule_appshot_shortcut(self) -> None:
         """Arm the global appshot shortcut once the wake model has loaded.
@@ -2895,6 +2984,27 @@ class WebServer:
                 logger.debug("wiki health.record_bootstrap(False) failed", exc_info=True)
         _boot_mark("wiki_integration")
 
+        # The self-building loop's ledger: opens self_build.db, nothing else at
+        # boot. Observers and builders register themselves later.
+        try:
+            from dodaios.self_build.service import start as start_self_build
+
+            _self_build = start_self_build(
+                Path(self.cfg.memory.data_dir), lambda: self.cfg, publish=self.bus.publish
+            )
+            self.app.state.self_build = _self_build
+            _self_build.start_sweeper()
+            from dodaios.self_build.app import install_in_app
+
+            install_in_app(_self_build, self.app.state, self.bus)
+            from dodaios.self_build.code import install as install_code_builder
+
+            install_code_builder(_self_build, self.app.state)
+        except Exception as exc:  # noqa: BLE001
+            logger.opt(exception=exc).warning(
+                "self-build ledger init failed — nothing will be self-built this run"
+            )
+
         # Jarvis' own self-learning loop: two bus subscriptions, nothing else
         # at boot. Reviews run later in the background (dodaios/memory/learning).
         try:
@@ -3072,12 +3182,15 @@ class WebServer:
         # hook covers normal desktop, headless, and direct WebServer starts.
         self._schedule_marketplace_refresh_scheduler()
         self._start_local_models_health_monitor()
+        self._start_main_follower()
         self._schedule_local_models_autostart()
         # Same reasoning, and the same three boot paths: a headless or
         # browser-only install has no desktop shell to warm the realtime
         # transport for it.
         self._schedule_realtime_transport_warm()
         self._schedule_appshot_shortcut()
+        self._schedule_credential_migration()
+        self._schedule_distribution_check()
         # Browser provisioning includes a Chromium probe and may need Linux
         # system libraries. Leave it to explicit browser use/setup; boot and
         # shell-paint acknowledgements must keep headless installations usable.
@@ -3662,12 +3775,12 @@ class WebServer:
         )
 
     def _read_sessions_toml_section(self) -> dict:
-        """The raw ``[sessions]`` section from jarvis.toml (may be empty).
+        """The raw ``[sessions]`` section from the config file (may be empty).
 
         That section is NOT in the Pydantic tree (see assumption A-2 in the
         Phase-7 bootstrap), hence tomllib directly.
         """
-        toml_path = Path(CONFIG_FILE_NAME)
+        toml_path = resolve_config_path()
         if not toml_path.exists():
             return {}
         try:
@@ -3824,11 +3937,20 @@ class WebServer:
             else:
                 logger.info("Friends-Stack live: Telegram-Channel disabled (config off)")
 
-    async def _society_routine_result(self, tags: tuple[str, ...], text: str, status: str) -> None:
+    async def _society_routine_result(
+        self,
+        tags: tuple[str, ...],
+        text: str,
+        status: str,
+        *,
+        details: dict[str, str] | None = None,
+    ) -> None:
         """A routine tagged ``agent:<id>`` reports its result into that agent's
         own chat (the ecosystem card promises it). Tasks never import the
         society; this is the one seam. Every failure is logged, never raised
-        into the task."""
+        into the task. ``details`` (a skipped run's ``reason_code``,
+        ``provider`` and ``routine``) ride along on the notice so the chat
+        words the reason in the reader's language."""
         from dodaios.society.routines import agent_id_from_tags
         from dodaios.society.runtime import current_runtime
 
@@ -3857,6 +3979,7 @@ class WebServer:
                     "agent_id": agent.agent_id,
                     "agent_name": agent.name,
                     "source": "routine",
+                    **{key: str(value)[:200] for key, value in (details or {}).items()},
                 },
             )
         except Exception:  # noqa: BLE001 — the task already recorded its result; delivery is best effort

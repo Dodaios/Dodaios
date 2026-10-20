@@ -146,7 +146,7 @@ on emitting both `plugins[]` and `skills[]`.
 
 ### Path 1 — `jarvis plugin …` (the CLI) · **Recommended first**
 
-The contract already demands it (AGENTS.md §5: a feature is a REST route
+The contract already demands it (a feature is a REST route
 plus an auto-CLI), the audience already has Dodaios installed, and it costs
 zero infrastructure.
 

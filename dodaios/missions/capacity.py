@@ -23,8 +23,7 @@ Who is "pinned" (subject to all of the above): an install with a real
 subscription — the sticky signal :mod:`dodaios.brain.background_policy` uses for
 background work, or a positive login probe right now. An install that never
 connected a subscription keeps its cross-family fallback chain, its API keys
-are its primary, and it never parks for capacity (AGENTS.md "any single key
-must work", AP-22). The paid-fallback setting has no effect there.
+are its primary, and it never parks for capacity (AP-22). The paid-fallback setting has no effect there.
 
 Every decision — dispatch, resume, retry, critic — goes through
 :func:`decide_route`.

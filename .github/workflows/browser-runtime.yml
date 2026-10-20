@@ -67,7 +67,7 @@ jobs:
             tests/unit/society/test_browser.py
             tests/unit/society/test_browser_install.py
             tests/unit/society/test_approvals.py
-            tests/unit/agent_chat/test_jarvis_identity.py
+            tests/unit/agent_chat/test_dodaios_identity.py
             tests/unit/agent_chat/test_agent_chat_ladders.py
             tests/unit/brain/test_tool_gateway.py
           )

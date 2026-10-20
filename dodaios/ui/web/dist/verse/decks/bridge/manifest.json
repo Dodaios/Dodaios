@@ -1,0 +1,3661 @@
+{
+ "schema": "verse.deck/1",
+ "id": "bridge",
+ "name": "Command Bridge",
+ "floor": 1,
+ "quality": "final",
+ "camera": {
+  "pitch_deg": 60.0,
+  "yaw_deg": 0.0,
+  "px_per_m": 192,
+  "centre": [
+   36.0,
+   0.0,
+   20.268
+  ],
+  "right": [
+   1.0,
+   0.0,
+   0.0
+  ],
+  "up": [
+   0.0,
+   0.5,
+   -0.8660254
+  ],
+  "forward": [
+   0.0,
+   -0.8660254,
+   -0.5
+  ],
+  "distance": 250.0,
+  "frame_w_m": 73.0,
+  "frame_h_m": 42.166666666666664,
+  "plate_w_px": 14016,
+  "plate_h_px": 8096,
+  "view_transform": "AgX",
+  "look": "None",
+  "exposure": 0.0
+ },
+ "plate": {
+  "format": "avif",
+  "tile_px": 2048,
+  "cols": 7,
+  "rows": 4,
+  "tile_url": "plate/L0_{col}_{row}.avif",
+  "mips": [
+   {
+    "divisor": 2,
+    "w_px": 7008,
+    "h_px": 4048,
+    "cols": 4,
+    "rows": 2,
+    "tile_url": "plate/M2_{col}_{row}.avif"
+   },
+   {
+    "divisor": 4,
+    "w_px": 3504,
+    "h_px": 2024,
+    "cols": 2,
+    "rows": 1,
+    "tile_url": "plate/M4_{col}_{row}.avif"
+   }
+  ],
+  "l1_url": "plate/L1.avif",
+  "l1_w_px": 1752,
+  "l1_h_px": 1012
+ },
+ "occluders": {
+  "url": "occluders.glb",
+  "triangles": 1624
+ },
+ "nav": {
+  "url": "nav.png",
+  "origin_x": 0.0,
+  "origin_z": -0.0,
+  "cell": 0.2,
+  "w": 360,
+  "h": 220,
+  "height_zero": 128,
+  "height_step": 0.025,
+  "max_step": 0.3,
+  "clearance": 0.25,
+  "walkable_cells": 42489
+ },
+ "env": {
+  "url": "env.hdr",
+  "w": 512,
+  "h": 256,
+  "position": [
+   36.0,
+   1.4,
+   16.1225
+  ]
+ },
+ "probes": [
+  {
+   "room": "bridge",
+   "position": [
+    36.0,
+    1.4,
+    16.1225
+   ],
+   "sh": [
+    [
+     0.31799,
+     0.29465,
+     0.30719
+    ],
+    [
+     0.1392,
+     0.13079,
+     0.1395
+    ],
+    [
+     -0.01887,
+     -0.01688,
+     -0.01808
+    ],
+    [
+     0.00052,
+     -0.00318,
+     -0.00225
+    ],
+    [
+     -0.00435,
+     -0.00261,
+     -0.003
+    ],
+    [
+     0.01434,
+     0.0115,
+     0.00736
+    ],
+    [
+     -0.05621,
+     -0.05054,
+     -0.05155
+    ],
+    [
+     -0.00342,
+     0.002,
+     0.00122
+    ],
+    [
+     0.16268,
+     0.14651,
+     0.1472
+    ]
+   ]
+  },
+  {
+   "room": "briefing",
+   "position": [
+    15.9,
+    1.4,
+    38.4
+   ],
+   "sh": [
+    [
+     1.23899,
+     1.1683,
+     1.21617
+    ],
+    [
+     1.43992,
+     1.26736,
+     1.21466
+    ],
+    [
+     -0.02429,
+     -0.02443,
+     -0.02622
+    ],
+    [
+     0.01256,
+     0.01131,
+     0.01081
+    ],
+    [
+     0.01115,
+     0.01012,
+     0.00995
+    ],
+    [
+     0.15024,
+     0.13905,
+     0.13953
+    ],
+    [
+     -1.0492,
+     -0.99298,
+     -1.03625
+    ],
+    [
+     -0.00644,
+     -0.00523,
+     -0.00449
+    ],
+    [
+     -1.1081,
+     -1.07117,
+     -1.1415
+    ]
+   ]
+  },
+  {
+   "room": "lobby",
+   "position": [
+    36.0,
+    1.4,
+    38.4
+   ],
+   "sh": [
+    [
+     0.39968,
+     0.37091,
+     0.37777
+    ],
+    [
+     0.33505,
+     0.30688,
+     0.30972
+    ],
+    [
+     -0.18968,
+     -0.17533,
+     -0.17474
+    ],
+    [
+     -0.00449,
+     -0.00516,
+     -0.00501
+    ],
+    [
+     -0.00278,
+     -0.00167,
+     -0.00182
+    ],
+    [
+     -0.16621,
+     -0.15222,
+     -0.15474
+    ],
+    [
+     -0.2477,
+     -0.22677,
+     -0.23056
+    ],
+    [
+     0.00596,
+     0.0078,
+     0.00663
+    ],
+    [
+     0.09322,
+     0.08954,
+     0.09523
+    ]
+   ]
+  },
+  {
+   "room": "pit_p",
+   "position": [
+    18.0685,
+    0.0,
+    18.268
+   ],
+   "sh": [
+    [
+     0.60272,
+     0.56328,
+     0.56993
+    ],
+    [
+     0.54761,
+     0.50346,
+     0.51422
+    ],
+    [
+     -0.09502,
+     -0.09571,
+     -0.08441
+    ],
+    [
+     -0.07676,
+     -0.07508,
+     -0.07473
+    ],
+    [
+     -0.09227,
+     -0.08404,
+     -0.08578
+    ],
+    [
+     0.02561,
+     0.02291,
+     0.01574
+    ],
+    [
+     -0.07169,
+     -0.05711,
+     -0.07019
+    ],
+    [
+     0.01482,
+     0.01831,
+     0.01181
+    ],
+    [
+     -0.23113,
+     -0.20776,
+     -0.20942
+    ]
+   ]
+  },
+  {
+   "room": "pit_s",
+   "position": [
+    53.9315,
+    0.0,
+    18.268
+   ],
+   "sh": [
+    [
+     0.59404,
+     0.53896,
+     0.55186
+    ],
+    [
+     0.56133,
+     0.51731,
+     0.52698
+    ],
+    [
+     -0.08388,
+     -0.06545,
+     -0.06362
+    ],
+    [
+     0.07596,
+     0.05801,
+     0.06053
+    ],
+    [
+     0.09336,
+     0.08795,
+     0.08916
+    ],
+    [
+     -0.00202,
+     -0.00556,
+     -0.01036
+    ],
+    [
+     -0.11736,
+     -0.11419,
+     -0.11787
+    ],
+    [
+     -0.01756,
+     0.00384,
+     0.00397
+    ],
+    [
+     -0.22981,
+     -0.21759,
+     -0.21747
+    ]
+   ]
+  },
+  {
+   "room": "ready",
+   "position": [
+    56.1,
+    1.4,
+    38.4
+   ],
+   "sh": [
+    [
+     0.59347,
+     0.54578,
+     0.55316
+    ],
+    [
+     0.64103,
+     0.58742,
+     0.59151
+    ],
+    [
+     -0.58047,
+     -0.53255,
+     -0.53758
+    ],
+    [
+     0.06424,
+     0.05908,
+     0.05949
+    ],
+    [
+     0.11342,
+     0.1039,
+     0.10465
+    ],
+    [
+     -0.83979,
+     -0.76957,
+     -0.7753
+    ],
+    [
+     0.06876,
+     0.06408,
+     0.06641
+    ],
+    [
+     -0.07859,
+     -0.07295,
+     -0.07426
+    ],
+    [
+     -0.41761,
+     -0.38146,
+     -0.38172
+    ]
+   ]
+  }
+ ],
+ "rooms": [
+  {
+   "id": "bridge",
+   "name": "Command Bridge",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     3.6,
+     13.2
+    ],
+    [
+     9.6,
+     7.2
+    ],
+    [
+     31.8,
+     7.2
+    ],
+    [
+     31.8,
+     28.8
+    ],
+    [
+     3.6,
+     28.8
+    ],
+    [
+     3.6,
+     31.2
+    ],
+    [
+     68.4,
+     31.2
+    ],
+    [
+     68.4,
+     28.8
+    ],
+    [
+     40.2,
+     28.8
+    ],
+    [
+     40.2,
+     7.2
+    ],
+    [
+     62.4,
+     7.2
+    ],
+    [
+     68.4,
+     13.2
+    ],
+    [
+     68.4,
+     8.4
+    ],
+    [
+     63.6,
+     3.6
+    ],
+    [
+     8.4,
+     3.6
+    ],
+    [
+     3.6,
+     8.4
+    ]
+   ],
+   "centre": [
+    36.0,
+    0.0,
+    16.1225
+   ],
+   "area_m2": 583.2,
+   "main": true,
+   "props": {
+    "room": "bridge",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "briefing",
+   "name": "Briefing Room",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     3.6,
+     43.2
+    ],
+    [
+     28.2,
+     43.2
+    ],
+    [
+     28.2,
+     33.6
+    ],
+    [
+     3.6,
+     33.6
+    ]
+   ],
+   "centre": [
+    15.9,
+    0.0,
+    38.4
+   ],
+   "area_m2": 236.16,
+   "main": false,
+   "props": {
+    "room": "briefing",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "lobby",
+   "name": "Turbolift Lobby",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     30.6,
+     43.2
+    ],
+    [
+     41.4,
+     43.2
+    ],
+    [
+     41.4,
+     33.6
+    ],
+    [
+     30.6,
+     33.6
+    ]
+   ],
+   "centre": [
+    36.0,
+    0.0,
+    38.4
+   ],
+   "area_m2": 103.68,
+   "main": false,
+   "props": {
+    "room": "lobby",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "pit_p",
+   "name": "Port Crew Pit",
+   "floor_y": -1.4,
+   "polygon": [
+    [
+     3.6,
+     28.8
+    ],
+    [
+     31.8,
+     28.8
+    ],
+    [
+     31.8,
+     7.2
+    ],
+    [
+     9.6,
+     7.2
+    ],
+    [
+     3.6,
+     13.2
+    ]
+   ],
+   "centre": [
+    18.0685,
+    -1.4,
+    18.268
+   ],
+   "area_m2": 591.12,
+   "main": false,
+   "props": {
+    "room": "pit_p",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "pit_s",
+   "name": "Starboard Crew Pit",
+   "floor_y": -1.4,
+   "polygon": [
+    [
+     68.4,
+     13.2
+    ],
+    [
+     62.4,
+     7.2
+    ],
+    [
+     40.2,
+     7.2
+    ],
+    [
+     40.2,
+     28.8
+    ],
+    [
+     68.4,
+     28.8
+    ]
+   ],
+   "centre": [
+    53.9315,
+    -1.4,
+    18.268
+   ],
+   "area_m2": 591.12,
+   "main": false,
+   "props": {
+    "room": "pit_s",
+    "nav": "walk"
+   }
+  },
+  {
+   "id": "ready",
+   "name": "Ready Room",
+   "floor_y": 0.0,
+   "polygon": [
+    [
+     43.8,
+     43.2
+    ],
+    [
+     68.4,
+     43.2
+    ],
+    [
+     68.4,
+     33.6
+    ],
+    [
+     43.8,
+     33.6
+    ]
+   ],
+   "centre": [
+    56.1,
+    0.0,
+    38.4
+   ],
+   "area_m2": 236.16,
+   "main": false,
+   "props": {
+    "room": "ready",
+    "nav": "walk"
+   }
+  }
+ ],
+ "sockets": [
+  {
+   "id": "brief",
+   "kind": "door",
+   "position": [
+    26.4,
+    0.0,
+    32.4
+   ],
+   "yaw_deg": 0.0,
+   "room": null,
+   "props": {
+    "socket_kind": "door",
+    "width": 1.96
+   }
+  },
+  {
+   "id": "lift_p",
+   "kind": "door",
+   "position": [
+    32.4,
+    0.0,
+    33.6
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "door",
+    "width": 1.8
+   }
+  },
+  {
+   "id": "lift_s",
+   "kind": "door",
+   "position": [
+    39.6,
+    0.0,
+    33.6
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "door",
+    "width": 1.8
+   }
+  },
+  {
+   "id": "main",
+   "kind": "door",
+   "position": [
+    36.0,
+    0.0,
+    32.4
+   ],
+   "yaw_deg": 0.0,
+   "room": null,
+   "props": {
+    "socket_kind": "door",
+    "width": 3.16
+   }
+  },
+  {
+   "id": "ready",
+   "kind": "door",
+   "position": [
+    45.6,
+    0.0,
+    32.4
+   ],
+   "yaw_deg": 0.0,
+   "room": null,
+   "props": {
+    "socket_kind": "door",
+    "width": 1.96
+   }
+  },
+  {
+   "id": "briefing",
+   "kind": "holo",
+   "position": [
+    15.9,
+    0.85,
+    38.4
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "holo",
+    "station_kind": "team",
+    "owner": "briefing",
+    "radius": 1.0,
+    "height": 1.2
+   }
+  },
+  {
+   "id": "strategy",
+   "kind": "holo",
+   "position": [
+    36.0,
+    0.94,
+    13.2
+   ],
+   "yaw_deg": 0.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "holo",
+    "owner": "strategy",
+    "radius": 1.2,
+    "height": 1.6
+   }
+  },
+  {
+   "id": "main",
+   "kind": "lift",
+   "position": [
+    32.4,
+    0.0,
+    32.4
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "station": "lift",
+   "props": {
+    "socket_kind": "lift",
+    "decks": "all"
+   }
+  },
+  {
+   "id": "bridge_ceiling",
+   "kind": "light",
+   "position": [
+    36.0,
+    7.14,
+    18.0
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "light",
+    "light_kind": "ceiling_grid",
+    "count": 85,
+    "kelvin": 6200.0
+   }
+  },
+  {
+   "id": "briefing_ceiling",
+   "kind": "light",
+   "position": [
+    15.9,
+    3.54,
+    38.4
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "props": {
+    "socket_kind": "light",
+    "light_kind": "ceiling_fixtures",
+    "count": 6,
+    "kelvin": 6200.0
+   }
+  },
+  {
+   "id": "lobby_ceiling",
+   "kind": "light",
+   "position": [
+    36.0,
+    3.54,
+    38.4
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "light",
+    "light_kind": "ceiling_fixtures",
+    "count": 4,
+    "kelvin": 6200.0
+   }
+  },
+  {
+   "id": "ready_ceiling",
+   "kind": "light",
+   "position": [
+    56.1,
+    3.54,
+    38.4
+   ],
+   "yaw_deg": 180.0,
+   "room": "ready",
+   "props": {
+    "socket_kind": "light",
+    "light_kind": "ceiling_fixtures",
+    "count": 5,
+    "kelvin": 6200.0
+   }
+  },
+  {
+   "id": "brief_console_1",
+   "kind": "screen",
+   "position": [
+    4.8,
+    1.2117,
+    34.0176
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "size": [
+    0.4,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.422618,
+    0.906308
+   ],
+   "corners": [
+    [
+     4.6,
+     1.325,
+     33.9648
+    ],
+    [
+     5.0,
+     1.325,
+     33.9648
+    ],
+    [
+     5.0,
+     1.0984,
+     34.0704
+    ],
+    [
+     4.6,
+     1.0984,
+     34.0704
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "brief_console_1"
+   }
+  },
+  {
+   "id": "brief_console_2",
+   "kind": "screen",
+   "position": [
+    27.0,
+    1.2117,
+    34.0176
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "size": [
+    0.4,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.422618,
+    0.906308
+   ],
+   "corners": [
+    [
+     26.8,
+     1.325,
+     33.9648
+    ],
+    [
+     27.2,
+     1.325,
+     33.9648
+    ],
+    [
+     27.2,
+     1.0984,
+     34.0704
+    ],
+    [
+     26.8,
+     1.0984,
+     34.0704
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "brief_console_2"
+   }
+  },
+  {
+   "id": "brief_wall_1",
+   "kind": "screen",
+   "position": [
+    8.4,
+    0.9765,
+    34.0141
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "size": [
+    1.7,
+    0.26
+   ],
+   "normal": [
+    0.0,
+    0.882948,
+    0.469472
+   ],
+   "corners": [
+    [
+     7.55,
+     1.0375,
+     33.8993
+    ],
+    [
+     9.25,
+     1.0375,
+     33.8993
+    ],
+    [
+     9.25,
+     0.9155,
+     34.1289
+    ],
+    [
+     7.55,
+     0.9155,
+     34.1289
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen"
+   }
+  },
+  {
+   "id": "brief_wall_2",
+   "kind": "screen",
+   "position": [
+    14.4,
+    0.9765,
+    34.0141
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "size": [
+    1.7,
+    0.26
+   ],
+   "normal": [
+    0.0,
+    0.882948,
+    0.469472
+   ],
+   "corners": [
+    [
+     13.55,
+     1.0375,
+     33.8993
+    ],
+    [
+     15.25,
+     1.0375,
+     33.8993
+    ],
+    [
+     15.25,
+     0.9155,
+     34.1289
+    ],
+    [
+     13.55,
+     0.9155,
+     34.1289
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen"
+   }
+  },
+  {
+   "id": "brief_wall_3",
+   "kind": "screen",
+   "position": [
+    20.4,
+    0.9765,
+    34.0141
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "size": [
+    1.7,
+    0.26
+   ],
+   "normal": [
+    0.0,
+    0.882948,
+    0.469472
+   ],
+   "corners": [
+    [
+     19.55,
+     1.0375,
+     33.8993
+    ],
+    [
+     21.25,
+     1.0375,
+     33.8993
+    ],
+    [
+     21.25,
+     0.9155,
+     34.1289
+    ],
+    [
+     19.55,
+     0.9155,
+     34.1289
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen"
+   }
+  },
+  {
+   "id": "command__c",
+   "kind": "screen",
+   "position": [
+    36.0,
+    1.2117,
+    7.7426
+   ],
+   "yaw_deg": 0.0,
+   "room": "bridge",
+   "station": "command",
+   "size": [
+    0.52,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.422618,
+    0.906308
+   ],
+   "corners": [
+    [
+     35.74,
+     1.325,
+     7.6898
+    ],
+    [
+     36.26,
+     1.325,
+     7.6898
+    ],
+    [
+     36.26,
+     1.0984,
+     7.7955
+    ],
+    [
+     35.74,
+     1.0984,
+     7.7955
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "agents_list",
+    "owner": "command"
+   }
+  },
+  {
+   "id": "command__l",
+   "kind": "screen",
+   "position": [
+    34.8883,
+    1.2117,
+    8.091
+   ],
+   "yaw_deg": 38.0,
+   "room": "bridge",
+   "station": "command",
+   "size": [
+    0.4,
+    0.25
+   ],
+   "normal": [
+    0.557979,
+    0.422618,
+    0.71418
+   ],
+   "corners": [
+    [
+     34.6982,
+     1.325,
+     8.1725
+    ],
+    [
+     35.0134,
+     1.325,
+     7.9262
+    ],
+    [
+     35.0784,
+     1.0984,
+     8.0095
+    ],
+    [
+     34.7632,
+     1.0984,
+     8.2558
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "agents_list",
+    "owner": "command"
+   }
+  },
+  {
+   "id": "command__r",
+   "kind": "screen",
+   "position": [
+    37.1117,
+    1.2117,
+    8.091
+   ],
+   "yaw_deg": -38.0,
+   "room": "bridge",
+   "station": "command",
+   "size": [
+    0.4,
+    0.25
+   ],
+   "normal": [
+    -0.557979,
+    0.422618,
+    0.71418
+   ],
+   "corners": [
+    [
+     36.9866,
+     1.325,
+     7.9262
+    ],
+    [
+     37.3018,
+     1.325,
+     8.1725
+    ],
+    [
+     37.2368,
+     1.0984,
+     8.2558
+    ],
+    [
+     36.9216,
+     1.0984,
+     8.0095
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "agents_list",
+    "owner": "command"
+   }
+  },
+  {
+   "id": "pit_p_1",
+   "kind": "screen",
+   "position": [
+    25.5,
+    -0.354,
+    15.9215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     25.31,
+     -0.2457,
+     15.859
+    ],
+    [
+     25.69,
+     -0.2457,
+     15.859
+    ],
+    [
+     25.69,
+     -0.4623,
+     15.984
+    ],
+    [
+     25.31,
+     -0.4623,
+     15.984
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_p_1",
+    "row": 1,
+    "order": 1
+   }
+  },
+  {
+   "id": "pit_p_2",
+   "kind": "screen",
+   "position": [
+    20.7,
+    -0.354,
+    15.9215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     20.51,
+     -0.2457,
+     15.859
+    ],
+    [
+     20.89,
+     -0.2457,
+     15.859
+    ],
+    [
+     20.89,
+     -0.4623,
+     15.984
+    ],
+    [
+     20.51,
+     -0.4623,
+     15.984
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_p_2",
+    "row": 1,
+    "order": 2
+   }
+  },
+  {
+   "id": "pit_p_3",
+   "kind": "screen",
+   "position": [
+    15.9,
+    -0.354,
+    15.9215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     15.71,
+     -0.2457,
+     15.859
+    ],
+    [
+     16.09,
+     -0.2457,
+     15.859
+    ],
+    [
+     16.09,
+     -0.4623,
+     15.984
+    ],
+    [
+     15.71,
+     -0.4623,
+     15.984
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_p_3",
+    "row": 1,
+    "order": 3
+   }
+  },
+  {
+   "id": "pit_p_4",
+   "kind": "screen",
+   "position": [
+    11.1,
+    -0.354,
+    15.9215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     10.91,
+     -0.2457,
+     15.859
+    ],
+    [
+     11.29,
+     -0.2457,
+     15.859
+    ],
+    [
+     11.29,
+     -0.4623,
+     15.984
+    ],
+    [
+     10.91,
+     -0.4623,
+     15.984
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_p_4",
+    "row": 1,
+    "order": 4
+   }
+  },
+  {
+   "id": "pit_p_5",
+   "kind": "screen",
+   "position": [
+    25.5,
+    -0.354,
+    20.7215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     25.31,
+     -0.2457,
+     20.659
+    ],
+    [
+     25.69,
+     -0.2457,
+     20.659
+    ],
+    [
+     25.69,
+     -0.4623,
+     20.784
+    ],
+    [
+     25.31,
+     -0.4623,
+     20.784
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_p_5",
+    "row": 2,
+    "order": 5
+   }
+  },
+  {
+   "id": "pit_p_6",
+   "kind": "screen",
+   "position": [
+    20.7,
+    -0.354,
+    20.7215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     20.51,
+     -0.2457,
+     20.659
+    ],
+    [
+     20.89,
+     -0.2457,
+     20.659
+    ],
+    [
+     20.89,
+     -0.4623,
+     20.784
+    ],
+    [
+     20.51,
+     -0.4623,
+     20.784
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_p_6",
+    "row": 2,
+    "order": 6
+   }
+  },
+  {
+   "id": "pit_p_7",
+   "kind": "screen",
+   "position": [
+    15.9,
+    -0.354,
+    20.7215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     15.71,
+     -0.2457,
+     20.659
+    ],
+    [
+     16.09,
+     -0.2457,
+     20.659
+    ],
+    [
+     16.09,
+     -0.4623,
+     20.784
+    ],
+    [
+     15.71,
+     -0.4623,
+     20.784
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_p_7",
+    "row": 2,
+    "order": 7
+   }
+  },
+  {
+   "id": "pit_p_8",
+   "kind": "screen",
+   "position": [
+    11.1,
+    -0.354,
+    20.7215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     10.91,
+     -0.2457,
+     20.659
+    ],
+    [
+     11.29,
+     -0.2457,
+     20.659
+    ],
+    [
+     11.29,
+     -0.4623,
+     20.784
+    ],
+    [
+     10.91,
+     -0.4623,
+     20.784
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_p_8",
+    "row": 2,
+    "order": 8
+   }
+  },
+  {
+   "id": "pit_s_1",
+   "kind": "screen",
+   "position": [
+    46.5,
+    -0.354,
+    15.9215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     46.31,
+     -0.2457,
+     15.859
+    ],
+    [
+     46.69,
+     -0.2457,
+     15.859
+    ],
+    [
+     46.69,
+     -0.4623,
+     15.984
+    ],
+    [
+     46.31,
+     -0.4623,
+     15.984
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_s_1",
+    "row": 1,
+    "order": 1
+   }
+  },
+  {
+   "id": "pit_s_2",
+   "kind": "screen",
+   "position": [
+    51.3,
+    -0.354,
+    15.9215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     51.11,
+     -0.2457,
+     15.859
+    ],
+    [
+     51.49,
+     -0.2457,
+     15.859
+    ],
+    [
+     51.49,
+     -0.4623,
+     15.984
+    ],
+    [
+     51.11,
+     -0.4623,
+     15.984
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_s_2",
+    "row": 1,
+    "order": 2
+   }
+  },
+  {
+   "id": "pit_s_3",
+   "kind": "screen",
+   "position": [
+    56.1,
+    -0.354,
+    15.9215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     55.91,
+     -0.2457,
+     15.859
+    ],
+    [
+     56.29,
+     -0.2457,
+     15.859
+    ],
+    [
+     56.29,
+     -0.4623,
+     15.984
+    ],
+    [
+     55.91,
+     -0.4623,
+     15.984
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_s_3",
+    "row": 1,
+    "order": 3
+   }
+  },
+  {
+   "id": "pit_s_4",
+   "kind": "screen",
+   "position": [
+    60.9,
+    -0.354,
+    15.9215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     60.71,
+     -0.2457,
+     15.859
+    ],
+    [
+     61.09,
+     -0.2457,
+     15.859
+    ],
+    [
+     61.09,
+     -0.4623,
+     15.984
+    ],
+    [
+     60.71,
+     -0.4623,
+     15.984
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_s_4",
+    "row": 1,
+    "order": 4
+   }
+  },
+  {
+   "id": "pit_s_5",
+   "kind": "screen",
+   "position": [
+    46.5,
+    -0.354,
+    20.7215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     46.31,
+     -0.2457,
+     20.659
+    ],
+    [
+     46.69,
+     -0.2457,
+     20.659
+    ],
+    [
+     46.69,
+     -0.4623,
+     20.784
+    ],
+    [
+     46.31,
+     -0.4623,
+     20.784
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_s_5",
+    "row": 2,
+    "order": 5
+   }
+  },
+  {
+   "id": "pit_s_6",
+   "kind": "screen",
+   "position": [
+    51.3,
+    -0.354,
+    20.7215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     51.11,
+     -0.2457,
+     20.659
+    ],
+    [
+     51.49,
+     -0.2457,
+     20.659
+    ],
+    [
+     51.49,
+     -0.4623,
+     20.784
+    ],
+    [
+     51.11,
+     -0.4623,
+     20.784
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_s_6",
+    "row": 2,
+    "order": 6
+   }
+  },
+  {
+   "id": "pit_s_7",
+   "kind": "screen",
+   "position": [
+    56.1,
+    -0.354,
+    20.7215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     55.91,
+     -0.2457,
+     20.659
+    ],
+    [
+     56.29,
+     -0.2457,
+     20.659
+    ],
+    [
+     56.29,
+     -0.4623,
+     20.784
+    ],
+    [
+     55.91,
+     -0.4623,
+     20.784
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_s_7",
+    "row": 2,
+    "order": 7
+   }
+  },
+  {
+   "id": "pit_s_8",
+   "kind": "screen",
+   "position": [
+    60.9,
+    -0.354,
+    20.7215
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "size": [
+    0.38,
+    0.25
+   ],
+   "normal": [
+    0.0,
+    0.5,
+    0.866025
+   ],
+   "corners": [
+    [
+     60.71,
+     -0.2457,
+     20.659
+    ],
+    [
+     61.09,
+     -0.2457,
+     20.659
+    ],
+    [
+     61.09,
+     -0.4623,
+     20.784
+    ],
+    [
+     60.71,
+     -0.4623,
+     20.784
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "owner": "pit_s_8",
+    "row": 2,
+    "order": 8
+   }
+  },
+  {
+   "id": "ready_room",
+   "kind": "screen",
+   "position": [
+    56.4,
+    0.7789,
+    36.5473
+   ],
+   "yaw_deg": 180.0,
+   "room": "ready",
+   "station": "ready_room",
+   "size": [
+    0.5,
+    0.28
+   ],
+   "normal": [
+    0.0,
+    0.984808,
+    -0.173648
+   ],
+   "corners": [
+    [
+     56.65,
+     0.8032,
+     36.6851
+    ],
+    [
+     56.15,
+     0.8032,
+     36.6851
+    ],
+    [
+     56.15,
+     0.7546,
+     36.4094
+    ],
+    [
+     56.65,
+     0.7546,
+     36.4094
+    ]
+   ],
+   "props": {
+    "socket_kind": "screen",
+    "station_kind": "service_record",
+    "owner": "ready_room"
+   }
+  },
+  {
+   "id": "brief_1",
+   "kind": "seat",
+   "position": [
+    14.1,
+    0.46,
+    39.96
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_10",
+   "kind": "seat",
+   "position": [
+    15.0,
+    0.46,
+    36.84
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_11",
+   "kind": "seat",
+   "position": [
+    14.1,
+    0.46,
+    36.84
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_12",
+   "kind": "seat",
+   "position": [
+    12.74,
+    0.46,
+    38.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_2",
+   "kind": "seat",
+   "position": [
+    15.0,
+    0.46,
+    39.96
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_3",
+   "kind": "seat",
+   "position": [
+    15.9,
+    0.46,
+    39.96
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_4",
+   "kind": "seat",
+   "position": [
+    16.8,
+    0.46,
+    39.96
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_5",
+   "kind": "seat",
+   "position": [
+    17.7,
+    0.46,
+    39.96
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_6",
+   "kind": "seat",
+   "position": [
+    19.06,
+    0.46,
+    38.4
+   ],
+   "yaw_deg": -90.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_7",
+   "kind": "seat",
+   "position": [
+    17.7,
+    0.46,
+    36.84
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_8",
+   "kind": "seat",
+   "position": [
+    16.8,
+    0.46,
+    36.84
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "brief_9",
+   "kind": "seat",
+   "position": [
+    15.9,
+    0.46,
+    36.84
+   ],
+   "yaw_deg": 0.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "pit_p_1",
+   "kind": "seat",
+   "position": [
+    25.5,
+    -0.94,
+    16.7881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_p_1",
+    "row": 1,
+    "order": 1
+   }
+  },
+  {
+   "id": "pit_p_2",
+   "kind": "seat",
+   "position": [
+    20.7,
+    -0.94,
+    16.7881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_p_2",
+    "row": 1,
+    "order": 2
+   }
+  },
+  {
+   "id": "pit_p_3",
+   "kind": "seat",
+   "position": [
+    15.9,
+    -0.94,
+    16.7881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_p_3",
+    "row": 1,
+    "order": 3
+   }
+  },
+  {
+   "id": "pit_p_4",
+   "kind": "seat",
+   "position": [
+    11.1,
+    -0.94,
+    16.7881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_p_4",
+    "row": 1,
+    "order": 4
+   }
+  },
+  {
+   "id": "pit_p_5",
+   "kind": "seat",
+   "position": [
+    25.5,
+    -0.94,
+    21.5881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_p_5",
+    "row": 2,
+    "order": 5
+   }
+  },
+  {
+   "id": "pit_p_6",
+   "kind": "seat",
+   "position": [
+    20.7,
+    -0.94,
+    21.5881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_p_6",
+    "row": 2,
+    "order": 6
+   }
+  },
+  {
+   "id": "pit_p_7",
+   "kind": "seat",
+   "position": [
+    15.9,
+    -0.94,
+    21.5881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_p_7",
+    "row": 2,
+    "order": 7
+   }
+  },
+  {
+   "id": "pit_p_8",
+   "kind": "seat",
+   "position": [
+    11.1,
+    -0.94,
+    21.5881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_p_8",
+    "row": 2,
+    "order": 8
+   }
+  },
+  {
+   "id": "pit_s_1",
+   "kind": "seat",
+   "position": [
+    46.5,
+    -0.94,
+    16.7881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_s_1",
+    "row": 1,
+    "order": 1
+   }
+  },
+  {
+   "id": "pit_s_2",
+   "kind": "seat",
+   "position": [
+    51.3,
+    -0.94,
+    16.7881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_s_2",
+    "row": 1,
+    "order": 2
+   }
+  },
+  {
+   "id": "pit_s_3",
+   "kind": "seat",
+   "position": [
+    56.1,
+    -0.94,
+    16.7881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_s_3",
+    "row": 1,
+    "order": 3
+   }
+  },
+  {
+   "id": "pit_s_4",
+   "kind": "seat",
+   "position": [
+    60.9,
+    -0.94,
+    16.7881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_s_4",
+    "row": 1,
+    "order": 4
+   }
+  },
+  {
+   "id": "pit_s_5",
+   "kind": "seat",
+   "position": [
+    46.5,
+    -0.94,
+    21.5881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_s_5",
+    "row": 2,
+    "order": 5
+   }
+  },
+  {
+   "id": "pit_s_6",
+   "kind": "seat",
+   "position": [
+    51.3,
+    -0.94,
+    21.5881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_s_6",
+    "row": 2,
+    "order": 6
+   }
+  },
+  {
+   "id": "pit_s_7",
+   "kind": "seat",
+   "position": [
+    56.1,
+    -0.94,
+    21.5881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_s_7",
+    "row": 2,
+    "order": 7
+   }
+  },
+  {
+   "id": "pit_s_8",
+   "kind": "seat",
+   "position": [
+    60.9,
+    -0.94,
+    21.5881
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "pit_s_8",
+    "row": 2,
+    "order": 8
+   }
+  },
+  {
+   "id": "ready_guest_1",
+   "kind": "seat",
+   "position": [
+    55.6,
+    0.46,
+    37.7413
+   ],
+   "yaw_deg": 180.0,
+   "room": "ready",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "ready_guest_1"
+   }
+  },
+  {
+   "id": "ready_guest_2",
+   "kind": "seat",
+   "position": [
+    57.2,
+    0.46,
+    37.7413
+   ],
+   "yaw_deg": 180.0,
+   "room": "ready",
+   "props": {
+    "socket_kind": "seat",
+    "owner": "ready_guest_2"
+   }
+  },
+  {
+   "id": "ready_room",
+   "kind": "seat",
+   "position": [
+    56.4,
+    0.46,
+    35.9279
+   ],
+   "yaw_deg": 0.0,
+   "room": "ready",
+   "station": "ready_room",
+   "props": {
+    "socket_kind": "seat",
+    "station_kind": "service_record",
+    "owner": "ready_room"
+   }
+  },
+  {
+   "id": "ready_sofa_1",
+   "kind": "seat",
+   "position": [
+    48.0,
+    0.42,
+    37.95
+   ],
+   "yaw_deg": 0.0,
+   "room": "ready",
+   "props": {
+    "socket_kind": "seat"
+   }
+  },
+  {
+   "id": "ready_sofa_2",
+   "kind": "seat",
+   "position": [
+    49.2,
+    0.42,
+    37.95
+   ],
+   "yaw_deg": 0.0,
+   "room": "ready",
+   "props": {
+    "socket_kind": "seat"
+   }
+  },
+  {
+   "id": "commander",
+   "kind": "spawn",
+   "position": [
+    36.0,
+    0.0,
+    36.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "spawn"
+   }
+  },
+  {
+   "id": "brief_console_1",
+   "kind": "stand",
+   "position": [
+    4.8,
+    0.0,
+    34.674
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "brief_console_1"
+   }
+  },
+  {
+   "id": "brief_console_2",
+   "kind": "stand",
+   "position": [
+    27.0,
+    0.0,
+    34.674
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "brief_console_2"
+   }
+  },
+  {
+   "id": "command",
+   "kind": "stand",
+   "position": [
+    36.0,
+    0.0,
+    8.629
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "station": "command",
+   "props": {
+    "socket_kind": "stand",
+    "station_kind": "agents_list",
+    "owner": "command"
+   }
+  },
+  {
+   "id": "command_aide",
+   "kind": "stand",
+   "position": [
+    38.4,
+    0.0,
+    9.0
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand"
+   }
+  },
+  {
+   "id": "lobby_sentry_p",
+   "kind": "stand",
+   "position": [
+    33.3,
+    0.0,
+    34.3
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "stand"
+   }
+  },
+  {
+   "id": "lobby_sentry_s",
+   "kind": "stand",
+   "position": [
+    38.7,
+    0.0,
+    34.3
+   ],
+   "yaw_deg": 0.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "stand"
+   }
+  },
+  {
+   "id": "pit_p_1",
+   "kind": "stand",
+   "position": [
+    25.5,
+    -1.4,
+    17.4481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_p_1",
+    "row": 1,
+    "order": 1
+   }
+  },
+  {
+   "id": "pit_p_2",
+   "kind": "stand",
+   "position": [
+    20.7,
+    -1.4,
+    17.4481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_p_2",
+    "row": 1,
+    "order": 2
+   }
+  },
+  {
+   "id": "pit_p_3",
+   "kind": "stand",
+   "position": [
+    15.9,
+    -1.4,
+    17.4481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_p_3",
+    "row": 1,
+    "order": 3
+   }
+  },
+  {
+   "id": "pit_p_4",
+   "kind": "stand",
+   "position": [
+    11.1,
+    -1.4,
+    17.4481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_p_4",
+    "row": 1,
+    "order": 4
+   }
+  },
+  {
+   "id": "pit_p_5",
+   "kind": "stand",
+   "position": [
+    25.5,
+    -1.4,
+    22.2481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_p_5",
+    "row": 2,
+    "order": 5
+   }
+  },
+  {
+   "id": "pit_p_6",
+   "kind": "stand",
+   "position": [
+    20.7,
+    -1.4,
+    22.2481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_p_6",
+    "row": 2,
+    "order": 6
+   }
+  },
+  {
+   "id": "pit_p_7",
+   "kind": "stand",
+   "position": [
+    15.9,
+    -1.4,
+    22.2481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_p_7",
+    "row": 2,
+    "order": 7
+   }
+  },
+  {
+   "id": "pit_p_8",
+   "kind": "stand",
+   "position": [
+    11.1,
+    -1.4,
+    22.2481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_p_8",
+    "row": 2,
+    "order": 8
+   }
+  },
+  {
+   "id": "pit_s_1",
+   "kind": "stand",
+   "position": [
+    46.5,
+    -1.4,
+    17.4481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_s_1",
+    "row": 1,
+    "order": 1
+   }
+  },
+  {
+   "id": "pit_s_2",
+   "kind": "stand",
+   "position": [
+    51.3,
+    -1.4,
+    17.4481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_s_2",
+    "row": 1,
+    "order": 2
+   }
+  },
+  {
+   "id": "pit_s_3",
+   "kind": "stand",
+   "position": [
+    56.1,
+    -1.4,
+    17.4481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_s_3",
+    "row": 1,
+    "order": 3
+   }
+  },
+  {
+   "id": "pit_s_4",
+   "kind": "stand",
+   "position": [
+    60.9,
+    -1.4,
+    17.4481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_s_4",
+    "row": 1,
+    "order": 4
+   }
+  },
+  {
+   "id": "pit_s_5",
+   "kind": "stand",
+   "position": [
+    46.5,
+    -1.4,
+    22.2481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_s_5",
+    "row": 2,
+    "order": 5
+   }
+  },
+  {
+   "id": "pit_s_6",
+   "kind": "stand",
+   "position": [
+    51.3,
+    -1.4,
+    22.2481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_s_6",
+    "row": 2,
+    "order": 6
+   }
+  },
+  {
+   "id": "pit_s_7",
+   "kind": "stand",
+   "position": [
+    56.1,
+    -1.4,
+    22.2481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_s_7",
+    "row": 2,
+    "order": 7
+   }
+  },
+  {
+   "id": "pit_s_8",
+   "kind": "stand",
+   "position": [
+    60.9,
+    -1.4,
+    22.2481
+   ],
+   "yaw_deg": 0.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "pit_s_8",
+    "row": 2,
+    "order": 8
+   }
+  },
+  {
+   "id": "ready_case",
+   "kind": "stand",
+   "position": [
+    63.0,
+    0.0,
+    39.7
+   ],
+   "yaw_deg": 180.0,
+   "room": "ready",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "ready_case"
+   }
+  },
+  {
+   "id": "strategy__s1",
+   "kind": "stand",
+   "position": [
+    37.9863,
+    0.0,
+    12.3772
+   ],
+   "yaw_deg": -67.5,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "strategy"
+   }
+  },
+  {
+   "id": "strategy__s2",
+   "kind": "stand",
+   "position": [
+    36.8228,
+    0.0,
+    11.2137
+   ],
+   "yaw_deg": -22.5,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "strategy"
+   }
+  },
+  {
+   "id": "strategy__s3",
+   "kind": "stand",
+   "position": [
+    35.1772,
+    0.0,
+    11.2137
+   ],
+   "yaw_deg": 22.5,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "strategy"
+   }
+  },
+  {
+   "id": "strategy__s4",
+   "kind": "stand",
+   "position": [
+    34.0137,
+    0.0,
+    12.3772
+   ],
+   "yaw_deg": 67.5,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "strategy"
+   }
+  },
+  {
+   "id": "strategy__s5",
+   "kind": "stand",
+   "position": [
+    34.0137,
+    0.0,
+    14.0228
+   ],
+   "yaw_deg": 112.5,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "strategy"
+   }
+  },
+  {
+   "id": "strategy__s6",
+   "kind": "stand",
+   "position": [
+    35.1772,
+    0.0,
+    15.1863
+   ],
+   "yaw_deg": 157.5,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "strategy"
+   }
+  },
+  {
+   "id": "strategy__s7",
+   "kind": "stand",
+   "position": [
+    36.8228,
+    0.0,
+    15.1863
+   ],
+   "yaw_deg": -157.5,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "strategy"
+   }
+  },
+  {
+   "id": "strategy__s8",
+   "kind": "stand",
+   "position": [
+    37.9863,
+    0.0,
+    14.0228
+   ],
+   "yaw_deg": -112.5,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "stand",
+    "owner": "strategy"
+   }
+  },
+  {
+   "id": "briefing",
+   "kind": "station",
+   "position": [
+    15.9,
+    0.0,
+    40.75
+   ],
+   "yaw_deg": 180.0,
+   "room": "briefing",
+   "station": "briefing",
+   "props": {
+    "socket_kind": "station",
+    "station_kind": "team",
+    "owner": "briefing"
+   }
+  },
+  {
+   "id": "command",
+   "kind": "station",
+   "position": [
+    36.0,
+    0.0,
+    8.629
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "station": "command",
+   "props": {
+    "socket_kind": "station",
+    "station_kind": "agents_list",
+    "owner": "command"
+   }
+  },
+  {
+   "id": "lift",
+   "kind": "station",
+   "position": [
+    32.4,
+    0.0,
+    34.6
+   ],
+   "yaw_deg": 180.0,
+   "room": "lobby",
+   "props": {
+    "socket_kind": "station",
+    "station_kind": "lift"
+   }
+  },
+  {
+   "id": "ready_room",
+   "kind": "station",
+   "position": [
+    56.4,
+    0.0,
+    35.9079
+   ],
+   "yaw_deg": 0.0,
+   "room": "ready",
+   "station": "ready_room",
+   "props": {
+    "socket_kind": "station",
+    "station_kind": "service_record",
+    "owner": "ready_room"
+   }
+  },
+  {
+   "id": "aft_p",
+   "kind": "waypoint",
+   "position": [
+    18.0,
+    0.0,
+    30.0
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "aft_s",
+   "kind": "waypoint",
+   "position": [
+    54.0,
+    0.0,
+    30.0
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "pit_p_aisle",
+   "kind": "waypoint",
+   "position": [
+    18.0,
+    -1.4,
+    26.4
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "pit_s_aisle",
+   "kind": "waypoint",
+   "position": [
+    54.0,
+    -1.4,
+    26.4
+   ],
+   "yaw_deg": 180.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "step_p_1__bottom",
+   "kind": "waypoint",
+   "position": [
+    29.6,
+    -1.4,
+    19.1
+   ],
+   "yaw_deg": -90.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "step_p_1"
+   }
+  },
+  {
+   "id": "step_p_1__top",
+   "kind": "waypoint",
+   "position": [
+    32.1,
+    0.0,
+    19.1
+   ],
+   "yaw_deg": -90.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "step_p_1"
+   }
+  },
+  {
+   "id": "step_p_2__bottom",
+   "kind": "waypoint",
+   "position": [
+    29.6,
+    -1.4,
+    23.9
+   ],
+   "yaw_deg": -90.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "step_p_2"
+   }
+  },
+  {
+   "id": "step_p_2__top",
+   "kind": "waypoint",
+   "position": [
+    32.1,
+    0.0,
+    23.9
+   ],
+   "yaw_deg": -90.0,
+   "room": "pit_p",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "step_p_2"
+   }
+  },
+  {
+   "id": "step_s_1__bottom",
+   "kind": "waypoint",
+   "position": [
+    42.4,
+    -1.4,
+    19.1
+   ],
+   "yaw_deg": 90.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "step_s_1"
+   }
+  },
+  {
+   "id": "step_s_1__top",
+   "kind": "waypoint",
+   "position": [
+    39.9,
+    0.0,
+    19.1
+   ],
+   "yaw_deg": 90.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "step_s_1"
+   }
+  },
+  {
+   "id": "step_s_2__bottom",
+   "kind": "waypoint",
+   "position": [
+    42.4,
+    -1.4,
+    23.9
+   ],
+   "yaw_deg": 90.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "step_s_2"
+   }
+  },
+  {
+   "id": "step_s_2__top",
+   "kind": "waypoint",
+   "position": [
+    39.9,
+    0.0,
+    23.9
+   ],
+   "yaw_deg": 90.0,
+   "room": "pit_s",
+   "props": {
+    "socket_kind": "waypoint",
+    "owner": "step_s_2"
+   }
+  },
+  {
+   "id": "vp_1",
+   "kind": "waypoint",
+   "position": [
+    14.4,
+    0.0,
+    4.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "vp_2",
+   "kind": "waypoint",
+   "position": [
+    21.6,
+    0.0,
+    4.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "vp_3",
+   "kind": "waypoint",
+   "position": [
+    28.8,
+    0.0,
+    4.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "vp_4",
+   "kind": "waypoint",
+   "position": [
+    43.2,
+    0.0,
+    4.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "vp_5",
+   "kind": "waypoint",
+   "position": [
+    50.4,
+    0.0,
+    4.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "vp_6",
+   "kind": "waypoint",
+   "position": [
+    57.6,
+    0.0,
+    4.45
+   ],
+   "yaw_deg": 180.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "walk_p_1",
+   "kind": "waypoint",
+   "position": [
+    33.1,
+    0.0,
+    16.8
+   ],
+   "yaw_deg": -90.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "walk_p_2",
+   "kind": "waypoint",
+   "position": [
+    33.1,
+    0.0,
+    21.6
+   ],
+   "yaw_deg": -90.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "walk_p_3",
+   "kind": "waypoint",
+   "position": [
+    33.1,
+    0.0,
+    26.4
+   ],
+   "yaw_deg": -90.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "walk_s_1",
+   "kind": "waypoint",
+   "position": [
+    38.9,
+    0.0,
+    16.8
+   ],
+   "yaw_deg": 90.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "walk_s_2",
+   "kind": "waypoint",
+   "position": [
+    38.9,
+    0.0,
+    21.6
+   ],
+   "yaw_deg": 90.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  },
+  {
+   "id": "walk_s_3",
+   "kind": "waypoint",
+   "position": [
+    38.9,
+    0.0,
+    26.4
+   ],
+   "yaw_deg": 90.0,
+   "room": "bridge",
+   "props": {
+    "socket_kind": "waypoint"
+   }
+  }
+ ],
+ "stations": [
+  {
+   "id": "briefing",
+   "kind": "team",
+   "room": "briefing",
+   "position": [
+    15.9,
+    0.0,
+    40.75
+   ],
+   "yaw_deg": 180.0,
+   "sockets": {
+    "holo": [
+     "briefing"
+    ],
+    "screen": [
+     "brief_wall_1",
+     "brief_wall_2",
+     "brief_wall_3"
+    ],
+    "seat": [
+     "brief_1",
+     "brief_10",
+     "brief_11",
+     "brief_12",
+     "brief_2",
+     "brief_3",
+     "brief_4",
+     "brief_5",
+     "brief_6",
+     "brief_7",
+     "brief_8",
+     "brief_9"
+    ],
+    "station": [
+     "briefing"
+    ]
+   }
+  },
+  {
+   "id": "command",
+   "kind": "agents_list",
+   "room": "bridge",
+   "position": [
+    36.0,
+    0.0,
+    8.629
+   ],
+   "yaw_deg": 180.0,
+   "sockets": {
+    "screen": [
+     "command__c",
+     "command__l",
+     "command__r"
+    ],
+    "stand": [
+     "command"
+    ],
+    "station": [
+     "command"
+    ]
+   }
+  },
+  {
+   "id": "lift",
+   "kind": "lift",
+   "room": "lobby",
+   "position": [
+    32.4,
+    0.0,
+    34.6
+   ],
+   "yaw_deg": 180.0,
+   "sockets": {
+    "lift": [
+     "main"
+    ]
+   }
+  },
+  {
+   "id": "ready_room",
+   "kind": "service_record",
+   "room": "ready",
+   "position": [
+    56.4,
+    0.0,
+    35.9079
+   ],
+   "yaw_deg": 0.0,
+   "sockets": {
+    "screen": [
+     "ready_room"
+    ],
+    "seat": [
+     "ready_room"
+    ],
+    "station": [
+     "ready_room"
+    ]
+   }
+  }
+ ],
+ "stats": {
+  "samples": 192,
+  "blender": "5.0.1",
+  "plate_s": 656.69,
+  "nav_s": 19.3,
+  "occluders_s": 0.78,
+  "lighting_s": 14.01,
+  "blender_s": 693.5,
+  "package_s": 96.94,
+  "plate_bytes": 2811653,
+  "bytes": 3291549
+ }
+}

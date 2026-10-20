@@ -18,8 +18,7 @@ connected once keeps the install in subscription mode for
 treated as a key-only install again.
 
 An install that never connected a subscription is unaffected: its keys stay
-usable for background work, so a single-key download keeps a working product
-(AGENTS.md "any single key must work").
+usable for background work, so a single-key download keeps a working product.
 
 Provider membership comes from the provider cards' billing mode, never a name
 list (AP-21), so a new subscription CLI or local runtime joins by shipping a

@@ -1,0 +1,139 @@
+{
+  "self_build": {
+    "title": "Feito para si",
+    "subtitle": "O que {name} construiu por iniciativa própria, porquê, e como o desfazer.",
+    "loading": "A carregar construções…",
+    "status": {
+      "running": "Constrói por iniciativa própria",
+      "paused": "Em pausa",
+      "silent": "Só toma notas",
+      "off": "Desligado"
+    },
+    "pause": "Pausar construção",
+    "resume": "Retomar construção",
+    "pause_hint": "Deixa de reparar, construir e concluir ensaios. Tudo o que já foi construído fica como está.",
+    "settings": "Definições",
+    "stop_all": "Parar todos os agentes",
+    "stop_all_hint": "Para de imediato todos os agentes, missões e rotinas em curso, e pausa a construção.",
+    "stop_confirm_title": "Parar já todos os agentes?",
+    "stop_confirm_body": "Conversas, missões e rotinas em curso param de imediato, e a construção também pausa. Nada é apagado.",
+    "cancel": "Cancelar",
+    "notes": {
+      "paused": "A construção está em pausa. Nada é notado, construído ou concluído até retomar.",
+      "silent": "Os primeiros dias são calmos: {name} anota o que repete e ainda não constrói nada.",
+      "off": "A autoconstrução está desligada. Nada é notado nem construído.",
+      "stopped": "Todos os agentes estão parados. Rotinas e missões ficam paradas até as libertar.",
+      "release": "Libertar",
+      "turn_on": "Abrir definições"
+    },
+    "digest": {
+      "label": "Desde ontem",
+      "built": "{count} construídos",
+      "proposed": "{count} propostos",
+      "kept": "{count} mantidos",
+      "archived": "{count} arquivados",
+      "undone": "{count} anulados",
+      "live": "{count} ativos agora",
+      "nothing": "Nada de novo."
+    },
+    "shelf": {
+      "waiting": "À sua espera",
+      "waiting_hint": "Nada é construído antes de dizer que sim.",
+      "trial": "Em ensaio",
+      "trial_hint": "Ativo e assinalado. Anular remove-o por completo.",
+      "working": "Em construção",
+      "working_hint": "É verificado antes de ficar ativo.",
+      "kept": "Mantidos",
+      "kept_hint": "Mereceu o lugar. Ainda pode ser anulado.",
+      "past": "Arquivados e anulados",
+      "past_hint": "As construções arquivadas podem ser restauradas."
+    },
+    "show_past": "Mostrar {count}",
+    "hide_past": "Ocultar",
+    "kind": {
+      "memory": "Memória",
+      "skill": "Competência",
+      "routine": "Rotina",
+      "agent": "Agente",
+      "code": "Alteração de código"
+    },
+    "state": {
+      "proposed": "Proposto",
+      "building": "Em construção",
+      "proving": "Em verificação",
+      "trial": "Em ensaio",
+      "kept": "Mantido",
+      "archived": "Arquivado",
+      "undone": "Anulado",
+      "rejected": "Recusado",
+      "failed": "Falhou"
+    },
+    "step": {
+      "proposed": "Notado",
+      "building": "Construído",
+      "proving": "Verificado",
+      "trial": "Ensaio",
+      "kept": "Mantido"
+    },
+    "seen": "visto {count}×",
+    "trial_progress": "Dia {days} de {dayLimit} · {uses} de {useLimit} utilizações",
+    "action": {
+      "accept": "Construir",
+      "reject": "Isto não",
+      "keep": "Manter",
+      "restore": "Restaurar",
+      "undo": "Anular"
+    },
+    "no_builder": "{name} ainda não consegue construir este tipo. Fica como sugestão.",
+    "detail": {
+      "select": "Escolha uma construção para ver porque existe, como foi verificada e quanto custou.",
+      "close": "Fechar",
+      "why": "Porquê",
+      "noticed": "O que notou",
+      "noticed_empty": "Sem provas registadas.",
+      "proof": "Como foi verificado",
+      "proof_passed": "Aprovado",
+      "proof_failed": "Não aprovado",
+      "proof_none": "Ainda não verificado.",
+      "made": "O que construiu",
+      "made_none": "Ainda não existe nada.",
+      "open_link": "Abrir",
+      "open_thread": "Abrir a conversa de código",
+      "open_thread_title": "Lê cada passo do agente de código no Agentic IDE",
+      "use": "Utilização",
+      "uses": "{count} utilizações",
+      "unused": "Ainda não utilizado.",
+      "cost": "Custo",
+      "cost_none": "Nada cobrado",
+      "tokens": "{count} tokens",
+      "history": "Histórico",
+      "note": "Nota",
+      "opened": "aberto",
+      "code_branch": "ramo",
+      "code_pr": "pull request",
+      "code_draft": "pull request em rascunho"
+    },
+    "outcome": {
+      "used": "utilizado",
+      "accepted": "aceite tal como estava",
+      "corrected": "corrigido",
+      "ignored": "ignorado"
+    },
+    "empty": {
+      "title": "Ainda nada construído",
+      "body": "{name} repara no que faz à mão vezes sem conta. Quando algo se repete, constrói a coisa mais pequena que lhe tira esse trabalho, verifica-a e deixa-o experimentá-la com anulação num clique.",
+      "loop": {
+        "notice": "Reparar",
+        "decide": "Decidir",
+        "build": "Construir",
+        "check": "Verificar",
+        "trial": "Ensaio",
+        "keep": "Manter"
+      }
+    },
+    "error": {
+      "unavailable": "O registo de construções não está a correr. Reinicie a app para o abrir.",
+      "action": "Não resultou: {detail}"
+    }
+  }
+}

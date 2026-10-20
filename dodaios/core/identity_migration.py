@@ -42,6 +42,11 @@ load this file by path before anything from the package exists. For the same
 reason there is no ``from __future__ import annotations``: with string
 annotations ``dataclasses`` looks the module up in ``sys.modules``, where a file
 loaded by path need not be.
+
+The shell installers run this file as a program (:func:`main`), copied out of
+the release they are about to install, before any of it is checked out. The
+source therefore stays ASCII: a Windows PowerShell host reads text through a
+legacy code page and must not be able to alter a byte of it.
 """
 
 import enum
@@ -124,6 +129,19 @@ def _is_link(metadata: os.stat_result) -> bool:
     if not getattr(metadata, "st_file_attributes", 0) & _REPARSE_POINT:
         return False
     return getattr(metadata, "st_reparse_tag", 0) in _LINK_REPARSE_TAGS
+
+
+def is_directory_link(path: PathLike) -> bool:
+    """True when ``path`` itself is a symlink or a directory junction. Never follows it.
+
+    A caller about to delete a tree asks this first: removing a link must
+    remove the link, never what it leads to.
+    """
+    try:
+        return _is_link(os.lstat(path))
+    except OSError:
+        # Nothing there, or nothing that can be looked at: not a link.
+        return False
 
 
 def _exists(path: PathLike) -> bool:
@@ -799,6 +817,83 @@ def migrate_directory(
 
 
 # ----------------------------------------------------------------------
+# Is an installation in use?
+# ----------------------------------------------------------------------
+
+# OpenMutexW: SYNCHRONIZE access is enough to learn that the mutex exists.
+_SYNCHRONIZE = 0x00100000
+# ERROR_FILE_NOT_FOUND: no mutex of that name. Every other failure, access
+# denied included, means one exists or cannot be ruled out.
+_WINERROR_NO_SUCH_OBJECT = 2
+
+
+def named_mutex_exists(names: Iterable[str]) -> bool:
+    """True when a Windows named mutex of one of ``names`` exists. Always False elsewhere.
+
+    Opens, never creates: asking must not make this process look like the
+    instance that holds it. A probe that fails for any reason other than "no
+    such mutex" answers True, because the caller only moves directories when
+    nothing can be using them.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes  # noqa: PLC0415 - Windows-only
+        from ctypes import wintypes  # noqa: PLC0415 - Windows-only
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        open_mutex = kernel32.OpenMutexW
+        open_mutex.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+        open_mutex.restype = wintypes.HANDLE
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = (wintypes.HANDLE,)
+        close_handle.restype = wintypes.BOOL
+    except (ImportError, OSError, AttributeError) as exc:
+        log.warning("Cannot ask Windows for a running instance (%s); assuming one runs.", exc)
+        return True
+    for name in names:
+        handle = open_mutex(_SYNCHRONIZE, False, name)
+        if handle:
+            close_handle(handle)
+            return True
+        error = ctypes.get_last_error()
+        if error != _WINERROR_NO_SUCH_OBJECT:
+            log.warning(
+                "Mutex %s cannot be probed (Windows error %s); assuming it is held.", name, error
+            )
+            return True
+    return False
+
+
+def lock_file_held(paths: Iterable[PathLike]) -> bool:
+    """True when another process holds the OS lock on one of the existing ``paths``.
+
+    A missing file is skipped and never created. The lock is taken for an
+    instant and dropped again; a file that cannot be opened or locked counts
+    as held.
+    """
+    for path in paths:
+        try:
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+        except (FileNotFoundError, NotADirectoryError):
+            # No lock file, so nothing can hold it.
+            continue
+        except OSError as exc:
+            log.warning("Lock file %s cannot be opened (%s); assuming it is held.", path, exc)
+            return True
+        try:
+            if not _try_lock(fd):
+                return True
+            _unlock(fd)
+        except OSError as exc:
+            log.warning("Lock file %s cannot be probed (%s); assuming it is held.", path, exc)
+            return True
+        finally:
+            os.close(fd)
+    return False
+
+
+# ----------------------------------------------------------------------
 # Keyring migration
 # ----------------------------------------------------------------------
 
@@ -936,6 +1031,47 @@ def migrate_keyring(
     )
 
 
+# ----------------------------------------------------------------------
+# Command line
+# ----------------------------------------------------------------------
+
+# How long the installer's run waits for another migrator of the same pair.
+_CLI_WAIT_SECONDS = 5.0
+_CLI_USAGE = "usage: identity_migration.py migrate|resolve <legacy> <current>\n"
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Move or resolve one directory pair and print what happened as one JSON object.
+
+    ``migrate <legacy> <current>`` runs :func:`migrate_directory`; ``resolve
+    <legacy> <current>`` only reads, through :func:`resolve_directory`. Either
+    prints ``{"outcome": ..., "effective": ...}`` on one line, where
+    ``effective`` is the directory to use from now on, and exits 0: every
+    outcome is a valid state to continue from. A malformed command line exits
+    2 and prints nothing on stdout. The JSON is pure ASCII (non-ASCII path
+    characters are escaped), so no console encoding can change it on the way
+    to the caller. Diagnostics go to stderr.
+    """
+    args = list(sys.argv[1:] if argv is None else argv)
+    if len(args) != 3 or args[0] not in ("migrate", "resolve") or not all(args[1:]):
+        sys.stderr.write(_CLI_USAGE)
+        return 2
+    command, legacy, current = args
+    if not log.handlers and not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.WARNING, format="%(message)s", stream=sys.stderr)
+    if command == "resolve":
+        outcome = "resolved"
+        effective = resolve_directory(current, [legacy])
+    else:
+        migration = migrate_directory(legacy, current, wait_seconds=_CLI_WAIT_SECONDS)
+        outcome = migration.outcome.value
+        effective = migration.effective
+    report = {"outcome": outcome, "effective": os.fspath(effective)}
+    sys.stdout.write(json.dumps(report, ensure_ascii=True) + "\n")
+    sys.stdout.flush()
+    return 0
+
+
 __all__ = [
     "DirectoryMigration",
     "DirectoryOutcome",
@@ -948,8 +1084,16 @@ __all__ = [
     "create_directory_link",
     "default_lock_path",
     "inspect_legacy",
+    "is_directory_link",
     "keyring_marker_key",
+    "lock_file_held",
+    "main",
     "migrate_directory",
     "migrate_keyring",
+    "named_mutex_exists",
     "resolve_directory",
 ]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

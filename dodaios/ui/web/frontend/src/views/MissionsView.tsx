@@ -41,7 +41,7 @@ import { EventTimeline } from "@/components/missions/EventTimeline";
 import { CapacityDecisionPanel } from "@/components/missions/CapacityDecisionPanel";
 import { GlobalKillButton } from "@/components/missions/GlobalKillButton";
 import { MissionTree } from "@/components/missions/MissionTree";
-import { JarvisAgentPanel } from "@/components/missions/JarvisAgentPanel";
+import { DodaiosAgentPanel } from "@/components/missions/DodaiosAgentPanel";
 import {
   ToolApprovalPanel,
   useMissionToolApprovals,
@@ -228,7 +228,7 @@ export function MissionsView() {
               <PlanPanel />
             </TabsContent>
             <TabsContent value="jarvis-agent" className="m-0 flex-1 overflow-hidden">
-              <JarvisAgentPanel />
+              <DodaiosAgentPanel />
             </TabsContent>
             <TabsContent
               value="approvals"

@@ -1,6 +1,6 @@
 """Cross-device setup report — makes "why is THIS install different?" a 2-minute read.
 
-The most expensive cross-device misdiagnosis (AGENTS.md §3, device-parity
+The most expensive cross-device misdiagnosis (device-parity
 triage ritual): a feature "missing" on a second machine is usually not a code
 bug but an invisible setup difference — a key that exists only on the dev box,
 a tier that quietly crossed to a fallback family, a wake word never set.
@@ -72,7 +72,7 @@ def _install_snapshot() -> dict[str, Any]:
     """Managed-install marker + profile — is this a user install or a dev tree?"""
     try:
         root = _update._repo_root()
-        managed = bool(root is not None and (root / _update._MARKER_NAME).exists())
+        managed = bool(root is not None and _update._marker_path(root) is not None)
         profile = _update._managed_install_profile(root) if root is not None else "unknown"
     except Exception as exc:  # noqa: BLE001 — diagnostics must never raise
         log.debug("setup-report: install probe failed: %s", exc)

@@ -21,7 +21,7 @@ _STORE = (
     / "frontend"
     / "src"
     / "store"
-    / "jarvisAgents.ts"
+    / "dodaiosAgents.ts"
 )
 _BOARD = (
     _REPO

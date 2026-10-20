@@ -115,6 +115,10 @@
       "review_done": "Learning review completed",
       "review_waiting": "Waiting for a completed conversation to review",
       "last_review": "Last review activity",
+      "review_dropped": "The last learning review was dropped after {0} tries. The next finished conversation gets a new one.",
+      "review_reason_api_key_seat": "A subscription is connected, so this agent's API key ({provider}) is not charged for learning from its chats. Put the agent on a subscription or local model so it can learn.",
+      "review_reason_no_seat": "The agent's model cannot be reached in this app right now.",
+      "review_reason_seat_failed": "The agent's model did not give a usable answer.",
       "loading": "Loading…",
       "knowledge_hint": "Each agent maintains its own USER.md for your profile and preferences, and MEMORY.md for project knowledge and experience. Skills and conversation archives stay separate.",
       "kind_memory": "Memory",
@@ -192,7 +196,8 @@
       "remove_schedule": "Remove schedule",
       "history": "Execution history",
       "no_runs": "No executions yet.",
-      "legacy": "Older execution: result available; final status was not recorded."
+      "legacy": "Older execution: result available; final status was not recorded.",
+      "skipped": "Skipped"
     },
     "chat": {
       "connecting": "Connecting to this chat…",

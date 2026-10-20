@@ -23,7 +23,7 @@ from tests.fakes.fake_permission_tool import FakePermissionTool
 
 
 def test_example_config_and_fresh_config_share_the_bypass_default():
-    example = tomllib.loads(Path("jarvis.toml.example").read_text(encoding="utf-8"))
+    example = tomllib.loads(Path("dodaios.toml.example").read_text(encoding="utf-8"))
     assert SafetyConfig.model_validate(example["safety"]).approval_mode == "bypass"
     assert JarvisConfig().safety.approval_mode == "bypass"
 
