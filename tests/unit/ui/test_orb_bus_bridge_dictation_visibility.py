@@ -10,7 +10,7 @@ become visible, and about what happens when the answer is "no, and here is why".
 ``_Surface`` therefore models the three gates the real ``JarvisBarOverlay.show``
 applies — the mode vocabulary, the AP-26 startup gate, and persistence — instead
 of recording calls blindly. Those three rules are read straight out of the
-production surface by ``tests/unit/ui/jarvisbar/test_show_makes_the_window_visible.py``,
+production surface by ``tests/unit/ui/dodaiosbar/test_show_makes_the_window_visible.py``,
 which is what stops this model from drifting into wishful thinking.
 
 The refusal path is the reported bug itself. On the maintainer's configuration
@@ -54,7 +54,7 @@ from jarvis.core.events import (  # noqa: E402
     VoiceSessionEnded,
     VoiceSessionStarted,
 )
-from jarvis.ui.jarvisbar.modes import MODES  # noqa: E402
+from jarvis.ui.dodaiosbar.modes import MODES  # noqa: E402
 
 
 class _FakeBus:

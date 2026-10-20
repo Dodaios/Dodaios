@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from jarvis.core.branding import PRODUCT_NAME
+
 
 @dataclass(slots=True)
 class WindowConfig:
     """Parameters for the main pywebview window."""
-    title: str = "Jarvis"
+    title: str = PRODUCT_NAME
     url: str = "http://127.0.0.1:47821"
     width: int = 1280
     height: int = 820

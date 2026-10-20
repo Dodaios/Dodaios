@@ -84,9 +84,11 @@ interface CodeBlockProps {
    * header bars never stack.
    */
   chrome?: boolean;
+  /** Less air around the frame: a chat answer, not a long guide. */
+  dense?: boolean;
 }
 
-export function CodeBlock({ language, code, chrome = true }: CodeBlockProps) {
+export function CodeBlock({ language, code, chrome = true, dense = false }: CodeBlockProps) {
   const t = useT();
   const [html, setHtml] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -145,7 +147,8 @@ export function CodeBlock({ language, code, chrome = true }: CodeBlockProps) {
     <div
       className={cn(
         "not-prose group relative overflow-hidden",
-        chrome && "my-6 rounded-lg border border-border bg-card",
+        chrome && "rounded-lg border border-border bg-card",
+        chrome && (dense ? "my-3" : "my-6"),
       )}
     >
       {chrome && (
@@ -182,7 +185,7 @@ export function CodeBlock({ language, code, chrome = true }: CodeBlockProps) {
       {/* Body — either Shiki HTML or plain text */}
       {html ? (
         <div
-          className="overflow-x-auto px-4 py-3.5 font-mono text-sm leading-6 [&_pre]:m-0 [&_pre]:!bg-transparent [&_pre]:font-mono"
+          className="code-block-body overflow-x-auto px-4 py-3.5 font-mono text-sm leading-6 [&_pre]:m-0 [&_pre]:!bg-transparent [&_pre]:font-mono"
           // sanitized by Shiki — our code is only rendered locally
           dangerouslySetInnerHTML={{ __html: html }}
         />

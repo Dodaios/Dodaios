@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -94,6 +96,30 @@ async def test_command_nonzero_exit_is_error(tmp_path: Path) -> None:
     )
     assert err is True
     assert "exit 3" in out
+
+
+@pytest.mark.asyncio
+async def test_command_arguments_reach_the_program_as_separate_words(tmp_path: Path) -> None:
+    (tmp_path / "show_args.py").write_text(
+        "import json, sys\nprint(json.dumps(sys.argv[1:]))\n", encoding="utf-8"
+    )
+    words = ["two words", "se\u00f1al", "--label=caf\u00e9 au lait", "-x"]
+    out, err = await execute_worker_tool_async(
+        "RunCommand",
+        {"program": "python", "args": ["show_args.py", *words]},
+        worktree=tmp_path,
+    )
+    assert err is False, out
+    assert json.loads(out) == words
+
+
+def test_windows_launcher_names_no_cmdlet() -> None:
+    """A cmdlet sends PowerShell through module discovery before every command.
+
+    With the mission-scoped profile there is no analysis cache, so on a machine
+    with many installed modules that lookup cost tens of seconds per command.
+    """
+    assert re.findall(r"\b[A-Za-z]+-[A-Za-z]+\b", aat._WINDOWS_GATE_SCRIPT) == []
 
 
 def test_path_escape_is_rejected_on_write(tmp_path: Path) -> None:
@@ -321,9 +347,8 @@ def _tree_script(tmp_path: Path, *, fast_leader: bool = False) -> Path:
 
 # Bounds for event-driven waits below; each returns as soon as its condition
 # holds. On Windows a command runs behind a PowerShell containment launcher,
-# whose start-up alone took 10-20 s per command on the loaded CI runner (this
-# file ran 116-233 s there against ~10 s on a desktop), so a short bound
-# measures the runner, not the containment.
+# and a hosted runner starts a process far slower than a desktop does, so a
+# short bound measures the runner, not the containment.
 _TREE_START_TIMEOUT_S = 120.0
 _TREE_REAP_TIMEOUT_S = 30.0
 

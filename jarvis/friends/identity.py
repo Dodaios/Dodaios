@@ -2,7 +2,7 @@
 
 Why a key pair and not an account
 ---------------------------------
-Two people running Personal Jarvis have no shared server to be accounts on.
+Two people running Dodaios have no shared server to be accounts on.
 Anything that identifies them therefore has to be something they carry
 themselves. An Ed25519 key pair does exactly that: the public half *is* the
 identity (``node_id``), the private half proves it, and nobody has to be asked
@@ -98,7 +98,7 @@ def _ed25519() -> Any:
         from cryptography.hazmat.primitives.asymmetric import ed25519
     except Exception as exc:  # noqa: BLE001
         raise IdentityError(
-            "The 'cryptography' package is required for Personal Jarvis Socials."
+            "The 'cryptography' package is required for Dodaios Socials."
         ) from exc
     return ed25519
 
@@ -334,7 +334,7 @@ def decode_invite(code: str, *, now_ns: int | None = None) -> InvitePayload:
         raise InviteError("No invite code was given.")
     parts = text.split(".")
     if len(parts) != 3 or parts[0] != INVITE_PREFIX:
-        raise InviteError("That does not look like a Personal Jarvis invite code.")
+        raise InviteError("That does not look like a Dodaios invite code.")
     try:
         raw = _b64d(parts[1])
         signature = _b64d(parts[2])

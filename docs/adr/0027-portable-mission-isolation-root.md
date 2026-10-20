@@ -12,7 +12,7 @@ audience: developer
 # ADR-0027 — Portable Mission Isolation Root
 
 **Status:** Accepted (2026-07-13)
-**Phase:** 6 — Self-Healing Jarvis-Agents Orchestrator
+**Phase:** 6 — Self-Healing Dodaios-Agents Orchestrator
 **Reference:** ADR-0009, ADR-0025, ADR-0026, AP-10, AP-23
 
 ## Context
@@ -27,7 +27,7 @@ superficial boot probe.
 
 The distribution image also omitted the `git` executable. It could import the
 mission modules but could not create the standalone repositories used by lean
-Jarvis-Agent tasks. Its declared user home was `/home/<service-user>`, but that
+Dodaios-Agent tasks. Its declared user home was `/home/<service-user>`, but that
 directory did not exist. Skill, document, CLI-tool, and board registries then
 failed independently while trying to create their per-user state, shrinking
 the tool surface even though the web server continued to answer health checks.
@@ -47,7 +47,7 @@ existing bootstrap remains responsible for creation and error reporting.
 
 The official runtime image installs `git`. A distribution image without host
 checkout history can therefore run lean artifact tasks in an isolated
-standalone repository. Tasks that require the Personal Jarvis source checkout
+standalone repository. Tasks that require the Dodaios source checkout
 still require a real repository. Workspace classification is preserved across
 the deterministic, no-brain, provider-error, and invalid-plan decomposition
 paths; an unavailable decomposition model therefore cannot accidentally turn a
@@ -100,7 +100,7 @@ trying to create an undeclared `/home/<service-user>` tree.
   mutable container path and bypasses the declared data volume.
 - **Run the image as root:** rejected because it weakens the container security
   boundary to hide a path bug.
-- **Disable missions in headless mode:** rejected because Jarvis-Agents are a
+- **Disable missions in headless mode:** rejected because Dodaios-Agents are a
   core provider-agnostic capability, not a desktop-only feature.
 - **Keep `git` optional in the official image:** rejected because lean
   workspaces cannot satisfy the isolation and diff-capture contract without it.

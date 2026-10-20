@@ -5,7 +5,7 @@ Run in Blender:
     blender --background --factory-startup --disable-autoexec \
         --python scripts/art/build_pet_companions.py [-- --render <dir>]
 
-It saves the editable master to ``art/studies/jarvis-pet-companions/source/pets.blend``
+It saves the editable master to ``art/studies/dodaios-pet-companions/source/pets.blend``
 and exports one ``exports/<pet>.glb`` per pet. ``--render`` also writes one review image per pet.
 
 Conventions (see the study brief): metres, Blender Z up, -Y forward (glTF +Z
@@ -26,7 +26,7 @@ import bpy
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[2]
-STUDY = ROOT / "art/studies/jarvis-pet-companions"
+STUDY = ROOT / "art/studies/dodaios-pet-companions"
 TAU = 2 * math.pi
 COLLECTION = "PetsExport"
 

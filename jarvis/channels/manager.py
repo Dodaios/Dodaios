@@ -7,7 +7,8 @@ platform-specific config), so the bus and dependencies are bundled in
 a :class:`ChannelContext` and passed to plugins.
 
 Discovery:
-    Lazy-load via ``importlib.metadata.entry_points(group="jarvis.channel")``.
+    Lazy-load via ``jarvis.core.entry_points.entry_points(group="jarvis.channel")``,
+    which also reads the group's ``dodaios.channel`` spelling.
     Failed loads end up in ``self._failed_load`` and do not block the others.
 
 Instantiation:
@@ -26,10 +27,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from importlib.metadata import entry_points
 from typing import TYPE_CHECKING, Any
 
 from jarvis.core.bus import EventBus
+from jarvis.core.entry_points import entry_points
 from jarvis.core.protocols import ChannelAdapter
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -153,9 +154,14 @@ class ChannelManager:
             self._started.add(name)
             log.info("Channel '%s' started", name)
         except Exception as exc:  # noqa: BLE001
-            self._start_errors[name] = f"{type(exc).__name__}: {exc}"
-            log.error("Channel '%s' start failed: %s", name, exc)
-            raise ChannelStartError(f"Channel '{name}' could not start: {exc}") from exc
+            from jarvis.core.redact import redact_secrets
+
+            # A channel error may carry a credential (a Telegram token sits in
+            # every Bot API URL): only a redacted text is stored, logged or raised.
+            detail = redact_secrets(str(exc))
+            self._start_errors[name] = f"{type(exc).__name__}: {detail}"
+            log.error("Channel '%s' start failed: %s", name, detail)
+            raise ChannelStartError(f"Channel '{name}' could not start: {detail}") from None
 
     async def reload(self, name: str) -> None:
         """Stop, drop the cached instance, and start ``name`` afresh.
@@ -183,7 +189,9 @@ class ChannelManager:
         except ChannelStartError as exc:
             return str(exc)
         except Exception as exc:  # noqa: BLE001
-            return f"{type(exc).__name__}: {exc}"
+            from jarvis.core.redact import redact_secrets
+
+            return f"{type(exc).__name__}: {redact_secrets(str(exc))}"
 
     async def stop(self, name: str) -> None:
         if name not in self._started:
@@ -195,10 +203,12 @@ class ChannelManager:
         try:
             await instance.stop()
         except Exception as exc:  # noqa: BLE001
-            log.warning("Channel '%s' stop raised: %s", name, exc)
+            from jarvis.core.redact import redact_secrets
+
+            log.warning("Channel '%s' stop raised: %s", name, redact_secrets(str(exc)))
         finally:
             self._started.discard(name)
-            log.info("Channel '%s' gestoppt", name)
+            log.info("Channel '%s' stopped", name)
 
     async def stop_all(self) -> None:
         names = list(self._started)

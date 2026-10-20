@@ -4,7 +4,7 @@ purpose: wiki-maintenance-contract
 audience: llm-editor
 ---
 
-# Wiki Schema — Personal Jarvis Knowledge Vault
+# Wiki Schema — Dodaios Knowledge Vault
 
 This file is the contract that every LLM editing this vault MUST follow.
 It is read at the top of every wiki write operation. If a rule here
@@ -13,7 +13,7 @@ contradicts an in-page instruction, this file wins.
 Inspired by Andrej Karpathy's *LLM Wiki* pattern (gist 442a6bf). The
 core idea: knowledge is **compiled once and maintained continuously**,
 not retrieved-and-rederived on every query. The LLM is the editor; the
-markdown files are the codebase; Obsidian (or the Jarvis Desktop App
+markdown files are the codebase; Obsidian (or the Dodaios desktop app
 Wiki section) is the IDE.
 
 ## Three-Tier Memory

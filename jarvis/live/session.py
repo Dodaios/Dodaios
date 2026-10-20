@@ -18,11 +18,14 @@ from jarvis.core.runtime_refs import get_supervisor_tool_gateway
 from jarvis.core.turn_language import resolve_output_language
 from jarvis.live.config import LiveConfig
 from jarvis.live.state import LiveLedger, TranscriptFragment
+from jarvis.live.tasks import BackgroundTask, report_prompt
 from jarvis.live.timing import StartupTimings
 from jarvis.live.tools import LiveTools, take_images
 from jarvis.realtime.audio import StreamingPcm16Resampler
 
 log = logging.getLogger(__name__)
+_STARTUP_CLOSE_SEND_TIMEOUT_S = 2.0
+_STARTUP_CLOSE_TIMEOUT_S = 5.0
 
 
 def _identity(config: Any) -> str:
@@ -116,6 +119,8 @@ _BACKCHANNEL = frozenset(
 #: How long a handed-over agent report may wait for the model to start
 #: answering it. Past that it counts as not delivered and stays owed.
 REPORT_START_TIMEOUT_S = 20.0
+# How often a background task's result is handed to a call that does not voice it.
+_TASK_REPORT_ATTEMPTS = 3
 
 
 def _speech_pipeline() -> Any:
@@ -180,6 +185,7 @@ class LiveVoiceSession:
         self._brain = brain
         self._surface = surface
         self._connection: Any = None
+        self._opening_task: asyncio.Task | None = None
         self._pump_task: asyncio.Task | None = None
         self._jobs: set[asyncio.Task] = set()
         self._control_tasks: set[asyncio.Task] = set()
@@ -194,7 +200,14 @@ class LiveVoiceSession:
         self._detail = ""
         self._hangup_reason = ""
         self._ledger: LiveLedger | None = None
-        self._tools: LiveTools | None = None
+        self._live_tools: LiveTools | None = None
+        # Actions that left their turn (``LiveTools.execute_releasable``): the
+        # running ones, and the finished ones whose receipt is still to be told.
+        self._background_work: set[asyncio.Future] = set()
+        self._task_reports: list[BackgroundTask] = []
+        self._task_report_job: asyncio.Task | None = None
+        # The task whose report the model is answering right now.
+        self._task_report_told: BackgroundTask | None = None
         self._resampler = StreamingPcm16Resampler(48000, 24000)
         self._captions = {"user": "", "assistant": ""}
         from jarvis.live.transcript import LiveTranscript
@@ -264,6 +277,18 @@ class LiveVoiceSession:
         )
 
     @property
+    def _tools(self) -> LiveTools | None:
+        return self._live_tools
+
+    @_tools.setter
+    def _tools(self, tools: LiveTools | None) -> None:
+        self._live_tools = tools
+        if isinstance(tools, LiveTools):
+            tools.on_task_released = self._on_task_released
+            tools.on_task_finished = self._on_task_finished
+            tools.wire_epoch = lambda: self._wire_epoch
+
+    @property
     def surface(self) -> str:
         """Where the call's media lives: ``browser`` (WebView) or ``desktop``."""
         return self._surface
@@ -306,8 +331,13 @@ class LiveVoiceSession:
         """True at a real conversational pause: nobody speaks, nothing runs.
 
         An agent's report may start only then; it never talks over the user,
-        a running answer or a tool that is still working.
+        a running answer or a tool the model is still waiting for. A background
+        task is none of these: it runs on while results are told.
         """
+        return self._floor_open and self._task_report_job is None
+
+    @property
+    def _floor_open(self) -> bool:
         return bool(
             self.is_active
             and not self._recovering
@@ -357,6 +387,32 @@ class LiveVoiceSession:
         if self._report_state != "started":
             return
         self._report_state = "done" if delivered else "failed"
+        self._settle_task_report(delivered=delivered)
+
+    def _settle_task_report(self, *, delivered: bool) -> None:
+        """Close a background task's own report; an unspoken one stays owed.
+
+        The outcome is consumed here, so the speech pipeline never reads it as
+        the outcome of an agent reply it handed over.
+        """
+        task, self._task_report_told = self._task_report_told, None
+        if task is None:
+            return
+        self._report_state = ""
+        self._report_response_id = ""
+        if delivered:
+            if task.status == "needs_approval" and isinstance(self._tools, LiveTools):
+                # The question was told just now; a yes said from here on counts.
+                self._tools.approval_presented(str((task.result or {}).get("approval_id") or ""))
+            return
+        task.report_attempts += 1
+        if task.report_attempts < _TASK_REPORT_ATTEMPTS and self._task_report_current(task):
+            self._task_reports.insert(0, task)
+        else:
+            log.warning(
+                "Live call did not voice the result of %s; its receipt stays in the ledger",
+                task.task_id,
+            )
 
     def _cancel_report_timeout(self) -> None:
         if self._report_timeout is not None:
@@ -373,6 +429,7 @@ class LiveVoiceSession:
             REPORT_START_TIMEOUT_S,
         )
         self._report_state = "failed"
+        self._settle_task_report(delivered=False)
         self._notify_pause()
 
     def _notify_pause(self) -> None:
@@ -383,15 +440,21 @@ class LiveVoiceSession:
         never reaches a turn boundary the pipeline can see, and every result
         waited until the call ended (live 2026-10-02: Scout's report).
         """
-        if self._closing or not self.ready_for_report:
+        if self._closing or not self._floor_open:
+            return
+        # An agent reply's outcome nobody read yet goes to the pipeline before
+        # a task report reuses the report state.
+        outcome_unread = self._report_state in {"done", "failed"}
+        if not outcome_unread and self._offer_task_report():
             return
         hook = getattr(_speech_pipeline(), "live_call_paused", None)
-        if not callable(hook):
-            return
-        try:
-            hook(self)
-        except Exception:  # noqa: BLE001 — a failed offer stays queued for the next pause
-            log.warning("Live call pause could not be signalled", exc_info=True)
+        if callable(hook):
+            try:
+                hook(self)
+            except Exception:  # noqa: BLE001 — a failed offer stays queued for the next pause
+                log.warning("Live call pause could not be signalled", exc_info=True)
+        if outcome_unread:
+            self._offer_task_report()
 
     def _notify_ended(self) -> None:
         """Settle an owed reply that was still on its way when the call ended."""
@@ -406,6 +469,101 @@ class LiveVoiceSession:
             hook(self)
         except Exception:  # noqa: BLE001 — the reply stays in the chat either way
             log.warning("Live call end could not be signalled", exc_info=True)
+
+    def _on_task_released(self, task: BackgroundTask) -> None:
+        """An action left its turn: keep it alive, but it is no longer awaited."""
+        self._background_work.add(task.work)
+        task.work.add_done_callback(self._background_work.discard)
+
+    def _on_task_finished(self, task: BackgroundTask) -> None:
+        """Queue a background task's receipt for the next pause."""
+        if self._closing or task.status == "cancelled":
+            return
+        self._task_reports.append(task)
+        if len(self._task_reports) > 16:
+            dropped = self._task_reports.pop(0)
+            log.warning(
+                "Live task report queue full; the receipt of %s stays in the ledger",
+                dropped.task_id,
+            )
+        self._notify_pause()
+
+    def _task_report_current(self, task: BackgroundTask) -> bool:
+        """Whether a finished task may still be told on this connection.
+
+        An action's outcome is owed even when the user has said more since; a
+        late screen or lookup result only answers the request it was made for.
+        """
+        tools = self._tools
+        return bool(
+            self.is_active
+            and not self._recovering
+            and tools is not None
+            and task.epoch == self._wire_epoch
+            and not (task.cancel_token is not None and task.cancel_token.is_cancelled())
+            and not (task.obsolete_on_new_request and task.revision != tools.revision)
+        )
+
+    def _offer_task_report(self) -> bool:
+        """Start telling the oldest finished task; True while one is being told."""
+        if self._task_report_job is not None:
+            return True
+        current = [t for t in self._task_reports if self._task_report_current(t)]
+        for stale in self._task_reports:
+            if stale not in current:
+                # A new connection, a stop, or a newer request for a result that
+                # only answered the old one. The ledger keeps the receipt.
+                log.info("Live result of %s is no longer told on this call", stale.task_id)
+        self._task_reports = current
+        if not self._task_reports:
+            return False
+        task = self._task_reports.pop(0)
+        job = asyncio.create_task(self._report_task(task), name="live-task-report")
+        self._task_report_job = job
+        self._control_tasks.add(job)
+        job.add_done_callback(self._control_tasks.discard)
+        return True
+
+    async def _report_task(self, task: BackgroundTask) -> None:
+        delivered = True
+        # Set before the wire: the model's answer can arrive while the send is
+        # still awaited, and must settle this report.
+        self._task_report_told = task
+        try:
+            delivered = await self._deliver_task_report(task)
+        except asyncio.CancelledError:
+            self._task_report_told = None
+            raise
+        except Exception:
+            # Delivery may be uncertain. The receipt stays in the ledger; a
+            # partly sent report is never repeated and no action is retried.
+            self._task_report_told = None
+            self._cancel_report_timeout()
+            self._report_state = ""
+            log.warning("Live report for %s could not be delivered", task.task_id, exc_info=True)
+        finally:
+            self._task_report_job = None
+        if self._task_report_told is task and self._report_state not in {"sent", "started"}:
+            # Nothing is on its way to the model: never let another report's
+            # outcome be taken for this task's.
+            self._task_report_told = None
+        if not delivered:
+            if self._task_report_current(task):
+                # The floor closed in between; offered again at the next pause.
+                self._task_reports.insert(0, task)
+
+    async def _deliver_task_report(self, task: BackgroundTask) -> bool:
+        if not self._floor_open:
+            return False
+        result = dict(task.result or {})
+        take_images(result)
+        return await self._submit_report(
+            report_prompt(task, result, language=self._language), {"task_report": True}
+        )
+
+    def _report_floor(self, kwargs: dict[str, Any]) -> bool:
+        """Whether this report may start now; a task report holds the floor it took."""
+        return self._floor_open if kwargs.get("task_report") else self.ready_for_report
 
     def _track_job(self, task: asyncio.Task) -> None:
         """Keep a tool task; a finished task may open the floor for a report."""
@@ -682,7 +840,7 @@ class LiveVoiceSession:
         profile.session_config(language=self._language, tools=[])
         gateway = get_supervisor_tool_gateway()
         if gateway is None:
-            raise RuntimeError("Jarvis tools are still starting. Try voice again shortly.")
+            raise RuntimeError("Dodaios tools are still starting. Try voice again shortly.")
         root = user_data_dir()
 
         async def _open_ledger() -> LiveLedger:
@@ -699,6 +857,7 @@ class LiveVoiceSession:
         # off the wake path instead of stacked after a cold-disk sqlite open.
         self._ledger, _ = await asyncio.gather(_open_ledger(), _take_permit())
         assert self._ledger is not None
+        self._startup_timing.mark("local_setup_ready")
         setup_ms = (time.monotonic() - started_at) * 1000.0
         self._tools = LiveTools(
             gateway,
@@ -726,10 +885,6 @@ class LiveVoiceSession:
             claim(self.session_id)
             self._watch_input_mute()
             await self._send_json({"type": "input_mute", "muted": self._input_muted})
-            # The browser already captures. Finish the native handoff now,
-            # before a remote handshake can fill/overflow its 30-second buffer.
-            await self._take_startup_input(message)
-            self._startup_timing.mark("capture_handoff")
             await self._publish_phase("connecting")
             from jarvis.live.recovery import seed_messages
 
@@ -737,21 +892,29 @@ class LiveVoiceSession:
             if self._initial_seed:
                 config["input"] = seed_messages(self._initial_seed, [])
 
+            if self._closing:
+                return
             open_started_at = time.monotonic()
             self._startup_timing.mark("provider_open")
-            self._connection = await self._provider.open_session(
-                ContinuousVoiceStart(
-                    session=config, offer_sdp=offer,
-                    on_transport_ready=self._transport_ready if offer else None,
-                    on_startup_phase=self._startup_timing.mark,
-                )
+            opening = asyncio.create_task(
+                self._open_with_input_handoff(
+                    message,
+                    ContinuousVoiceStart(
+                        session=config, offer_sdp=offer,
+                        on_transport_ready=self._transport_ready if offer else None,
+                        on_startup_phase=self._startup_timing.mark,
+                    ),
+                ),
+                name="live-startup",
             )
+            self._opening_task = opening
+            try:
+                await opening
+            finally:
+                if self._opening_task is opening:
+                    self._opening_task = None
             if self._closing:
-                # A hangup may arrive through another surface during open.
-                try:
-                    await self._connection.send({"type": "session.close"})
-                finally:
-                    await self._connection.close()
+                # end() cancels and awaits opening before closing its result.
                 return
             self._startup_timing.mark("control_connected")
             open_ms = (time.monotonic() - open_started_at) * 1000.0
@@ -772,6 +935,7 @@ class LiveVoiceSession:
                                 "OpenAI Live rejected session setup. "
                                 "Check the selected model and account access."
                             )
+            self._startup_timing.mark("provider_ready")
             self._pump_task = asyncio.create_task(self._pump(), name="live-events")
             from jarvis.brain import provider_health_ledger as health_ledger
             from jarvis.core.events import (
@@ -801,20 +965,13 @@ class LiveVoiceSession:
                         turn_id=self._archive_turn_id,
                     )
                 )
-                await self._bus.publish(
-                    RealtimeSessionReady(
-                        session_id=self.session_id,
-                        provider=self.active_provider,
-                        model=profile.model,
-                        surface=self._surface,
-                        input_sample_rate=24000,
-                        output_sample_rate=24000,
-                        language=self._language,
-                    )
-                )
-            await self._publish_phase()
+            self._startup_timing.mark("lifecycle_started")
             if self._closing:
                 return
+            # Release usable audio before status fan-out and persistence. A
+            # slow observer must not hold the microphone behind a ready control
+            # channel. Session/turn events still precede input, and the browser
+            # separately waits for ICE/DTLS before releasing its local buffer.
             self._startup_timing.mark("audio_ready")
             await self._send_json(
                 {
@@ -835,6 +992,22 @@ class LiveVoiceSession:
                     "input_muted": self._input_muted,
                 }
             )
+            if self._closing:
+                return
+            if self._bus is not None:
+                await self._bus.publish(
+                    RealtimeSessionReady(
+                        session_id=self.session_id,
+                        provider=self.active_provider,
+                        model=profile.model,
+                        surface=self._surface,
+                        input_sample_rate=24000,
+                        output_sample_rate=24000,
+                        language=self._language,
+                    )
+                )
+            await self._publish_phase()
+            self._startup_timing.mark("ready_notifications_done")
             if not offer:
                 # Audio already flows over this socket: agent results that
                 # finished before the call may be offered at once. A WebRTC
@@ -846,6 +1019,64 @@ class LiveVoiceSession:
                 await self._announce_start_failure(exc)
             await self.end(reason="error")
             raise
+
+    async def _open_with_input_handoff(self, message: dict, config: Any) -> None:
+        """Overlap native microphone release with the explicitly requested call.
+
+        Handoff starts first and must finish, including delivery of its local
+        prefix, before audio_ready. Own the provider result immediately so a
+        concurrent handoff failure or hangup cannot orphan an allocated call.
+        Publish the connection to end() only when the handoff also succeeds.
+        """
+        async def handoff() -> None:
+            await self._take_startup_input(message)
+            self._startup_timing.mark("capture_handoff")
+
+        connection = None
+
+        async def open_connection() -> None:
+            nonlocal connection
+            connection = await self._provider.open_session(config)
+            self._startup_timing.mark("control_connected")
+
+        tasks = (
+            asyncio.create_task(handoff(), name="live-input-handoff"),
+            asyncio.create_task(open_connection(), name="live-provider-open"),
+        )
+        try:
+            await asyncio.gather(*tasks)
+        except BaseException:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
+            async def reap() -> None:
+                # A cancelled provider may still return an allocated call.
+                await asyncio.gather(*tasks, return_exceptions=True)
+                if connection is None:
+                    return
+                try:
+                    try:
+                        async with asyncio.timeout(_STARTUP_CLOSE_SEND_TIMEOUT_S):
+                            await connection.send({"type": "session.close"})
+                    finally:
+                        async with asyncio.timeout(_STARTUP_CLOSE_TIMEOUT_S):
+                            await connection.close()
+                except Exception:
+                    # Preserve the original cancellation/handoff error.
+                    log.warning("Live handoff cleanup could not confirm the allocated call closed")
+
+            cleanup = asyncio.create_task(reap(), name="live-startup-cleanup")
+            while not cleanup.done():
+                try:
+                    await asyncio.shield(cleanup)
+                except asyncio.CancelledError:
+                    # Hangup and surface disconnect can cancel independently.
+                    # Keep owning cleanup until the remote call is retired.
+                    continue
+            await cleanup
+            raise
+        self._connection = connection
 
     async def _transport_ready(self, answer_sdp: str) -> None:
         """Negotiate media early; this message never releases microphone audio."""
@@ -916,6 +1147,9 @@ class LiveVoiceSession:
         cause = {NO_CREDITS: "no_credits", RATE_LIMITED: "rate_limited"}.get(
             status, "unavailable"
         )
+        if getattr(exc, "code", "") == "voice_not_offered":
+            # Waiting does not help here: the account has to change.
+            cause = "not_offered"
         log.warning("Live session could not start (cause=%s): %s", cause, exc)
         try:
             await self._send_json(
@@ -1060,7 +1294,8 @@ class LiveVoiceSession:
             while not self._closed.is_set():
                 try:
                     event = await self._connection.receive()
-                except Exception:  # Shutdown is quiet; active failures enter the reporting recovery loop.
+                except Exception:
+                    # Shutdown is quiet; active failures enter reporting recovery.
                     if self._closing:
                         return
                     self._had_unconfirmed_wire = True
@@ -1075,7 +1310,14 @@ class LiveVoiceSession:
             log.exception("Live connection terminated")
             self._failed = True
             self._detail = "The voice connection was lost. Pending actions were not replayed."
-            await self._send_json({"type": "provider_error", "error": self._detail})
+            await self._send_json(
+                {
+                    "type": "provider_error",
+                    "error": self._detail,
+                    # Stable code the desktop UI translates; ``error`` stays.
+                    "message_code": "voice_connection_lost",
+                }
+            )
         finally:
             from jarvis.live.runtime import unregister
 
@@ -1154,6 +1396,15 @@ class LiveVoiceSession:
             # With WebRTC, only measured RTP playback owns the speaking
             # state. Sideband generation can lead playback or include silence.
             from jarvis.live.playback import AudioTimedFrame, playback_frame, source_interval
+
+            timing = self._startup_timing
+            if timing is not None and "first_output_signal_received" not in timing.marks:
+                # Continuous providers emit silent PCM before their first
+                # spoken response. Inspect at most one second per frame until
+                # nonzero PCM arrives; no samples or levels are retained.
+                pcm = base64.b64decode(event["delta"][:64_000])
+                if any(pcm):
+                    timing.mark("first_output_signal_received")
 
             timed = source_interval(event.get("start_ms"), event.get("end_ms"))
             if timed:
@@ -1409,7 +1660,7 @@ class LiveVoiceSession:
                     arguments = json.loads(item["arguments"])
                     if not isinstance(arguments, dict):
                         raise ValueError("Expected object arguments")
-                    result = await self._tools.execute(
+                    result = await self._tools.execute_releasable(
                         f"{self._wire_epoch}:{item['call_id']}", item["name"], arguments, revision
                     )
                 except (ValueError, TypeError):  # The tool receives an invalid-arguments result.
@@ -1626,6 +1877,32 @@ class LiveVoiceSession:
             }
         )
 
+    async def show_content(self, *, title: str, markdown: str) -> None:
+        """Put content on the user's screen and keep it in this call's record.
+
+        It is stored as one assistant passage right after the newest words, so
+        the reasoning backend sees it as part of the conversation and the
+        archived call still shows it. Nothing here is spoken.
+        """
+        from jarvis.core.events import VoiceContentShown
+
+        if self._ledger is not None:
+            # Every live engine keeps its own clock; the record is the common one.
+            said = await asyncio.to_thread(self._ledger.transcript, self.session_id)
+            at = max((int(row["end_ms"]) for row in said), default=-1) + 1
+            body = f"**{title}**\n\n{markdown}" if title else markdown
+            fragment = TranscriptFragment(
+                self.session_id, f"shown-{uuid4().hex}", "assistant", f"\n\n{body}\n\n", at, at
+            )
+            await asyncio.to_thread(self._ledger.transcript_snapshot, fragment)
+        if self._bus is not None:
+            await self._bus.publish(
+                VoiceContentShown(
+                    source_layer="live.session", session_id=self.session_id,
+                    title=title, markdown=markdown,
+                )
+            )
+
     async def deliver_announcement(
         self, text: str, *, report: str | None = None, **kwargs: Any
     ) -> bool:
@@ -1646,7 +1923,7 @@ class LiveVoiceSession:
         a turn is in flight — the caller parks it and retries at the next
         boundary — so it never talks over the user or a running answer.
         """
-        if not self.ready_for_report:
+        if not self._report_floor(kwargs):
             return False
         from jarvis.realtime.report_prompt import report_update_prompt
 
@@ -1657,6 +1934,15 @@ class LiveVoiceSession:
             language=language,
             kind=str(kwargs.get("spoken_kind") or "completion"),
         )
+        return await self._submit_report(prompt, kwargs)
+
+    async def _submit_report(self, prompt: str, kwargs: dict[str, Any]) -> bool:
+        """Put one report prompt on the wire; the caller checked the floor.
+
+        ``kwargs["task_report"]`` marks a background task's own receipt: the
+        model may then finish what the user had waiting on it.
+        """
+        del kwargs  # the backend of this wire always holds its tools
         # Marked before the wire: the model's answer can arrive while the
         # send is still being awaited, and must count as this report's.
         self._report_sent()
@@ -1737,6 +2023,13 @@ class LiveVoiceSession:
         unregister(self.session_id)
         self._closing = True
         self._notify_ended()
+        opening = self._opening_task
+        if opening is not None and opening is not asyncio.current_task():
+            if not opening.done() and not opening.cancelling():
+                opening.cancel()
+            # Stop a hung handoff and retire any allocation before returning
+            # from hangup, even if the provider returns during cancellation.
+            await asyncio.gather(opening, return_exceptions=True)
         if self._recovering and self._pump_task is not None:
             self._closed.set()
             if self._pump_task is not asyncio.current_task():
@@ -1811,10 +2104,10 @@ class LiveVoiceSession:
                         duration_s=self._voice_seconds,
                     )
                 )
-            if self._jobs:
+            if self._jobs or self._background_work:
                 from jarvis.live.runtime import retain_work
 
-                retain_work(tuple(self._jobs), self._ledger)
+                retain_work((*self._jobs, *self._background_work), self._ledger)
             else:
                 await asyncio.to_thread(self._ledger.close)
         self._closed.set()

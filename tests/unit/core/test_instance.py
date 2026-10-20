@@ -91,6 +91,13 @@ def test_dev_identity_differs_on_every_colliding_surface() -> None:
     d = inst.InstanceIdentity(inst.DEFAULT_INSTANCE_NAME)
     v = inst.InstanceIdentity(inst.DEV_INSTANCE_NAME)
     assert v.display_name == f"{PRODUCT_NAME} Dev"
+    # OS artifacts keep the persistent name; only the window title follows
+    # the display name.
+    assert d.persistent_name == "Personal Jarvis"
+    assert v.persistent_name == "Personal Jarvis Dev"
+    assert v.windows_shortcut_file_name == "Personal Jarvis Dev.lnk"
+    assert v.windows_branded_launcher_file_name == "PersonalJarvisDev.exe"
+    assert v.linux_desktop_entry_file_name == "personal-jarvis-dev.desktop"
     for attr in (
         "display_name",
         "compact_name",
@@ -122,7 +129,7 @@ def test_environ_pins_or_clears_the_variable() -> None:
 
 
 def test_dev_icons_ship_in_both_icon_homes() -> None:
-    # Rendered by scripts/make_dev_icon.py; the taskbar/tray/dock resolve them.
+    # Rendered by scripts/make_app_icon.py; the taskbar/tray/dock resolve them.
     root = Path(inst.__file__).resolve().parents[2]
     for home in (root / "jarvis" / "assets" / "icons", root / "assets" / "icons"):
         assert (home / inst.DEV_ICON_FILE_NAME).is_file(), home

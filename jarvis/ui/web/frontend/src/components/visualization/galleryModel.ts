@@ -16,16 +16,41 @@ export type RailRow =
   | { kind: "visual"; run: OutputSummary | null; visual: VisualArtifact; key: string }
   | { kind: "run"; run: OutputSummary; key: string };
 
-/** The library's categories — what the gallery's side rail offers. */
-export type RailFilter = "all" | "pages" | "images" | "documents" | "outputs";
+/**
+ * The library's tabs. Two are picks ("suggested": what is in progress, what is
+ * starred and what is new; "favorites": what the reader starred), four are
+ * kinds, and "all" is everything.
+ */
+export type RailFilter =
+  | "suggested"
+  | "favorites"
+  | "pages"
+  | "images"
+  | "documents"
+  | "outputs"
+  | "all";
 
 export const RAIL_FILTERS: readonly RailFilter[] = [
-  "all",
+  "suggested",
+  "favorites",
   "pages",
   "images",
   "documents",
   "outputs",
+  "all",
 ];
+
+/** The kind a card belongs to — every tab that is not a pick or "all". */
+export type RailCategory = "pages" | "images" | "documents" | "outputs";
+
+/** What the two pick tabs need to know: the starred cards and the time. */
+export interface PickContext {
+  favorites: ReadonlySet<string>;
+  /** Epoch milliseconds. */
+  now: number;
+}
+
+const NO_PICKS: PickContext = { favorites: new Set(), now: 0 };
 
 /** How the gallery orders its cards. */
 export type GallerySort = "newest" | "oldest" | "name";
@@ -92,7 +117,7 @@ export function isActiveRow(row: RailRow): boolean {
 }
 
 /** The category a card belongs to (besides "all"). */
-export function rowCategory(row: RailRow): Exclude<RailFilter, "all"> {
+export function rowCategory(row: RailRow): RailCategory {
   if (row.kind === "build") return "pages";
   if (row.kind === "run") return "outputs";
   switch (row.visual.kind) {
@@ -144,23 +169,171 @@ export function buildRailRows(
   ];
 }
 
-/** The cards a category lets through. */
-export function filterRailRows(rows: RailRow[], filter: RailFilter): RailRow[] {
+/** A week of work counts as new; a quiet library still suggests this many. */
+const SUGGEST_WINDOW_S = 7 * 86_400;
+const SUGGEST_MINIMUM = 12;
+
+/**
+ * The "Suggested" pick: everything in progress, everything starred and
+ * everything from the last week — topped up with the newest older cards so a
+ * library nobody touched this week still opens on a full wall. The order of
+ * `rows` is kept.
+ */
+export function suggestRows(rows: RailRow[], picks: PickContext): RailRow[] {
+  const since = picks.now / 1000 - SUGGEST_WINDOW_S;
+  const chosen = new Set<string>();
+  for (const row of rows) {
+    if (isActiveRow(row) || picks.favorites.has(row.key) || rowWhen(row) >= since) {
+      chosen.add(row.key);
+    }
+  }
+  if (chosen.size < SUGGEST_MINIMUM) {
+    const newest = [...rows].sort((a, b) => rowWhen(b) - rowWhen(a));
+    for (const row of newest) {
+      if (chosen.size >= SUGGEST_MINIMUM) break;
+      chosen.add(row.key);
+    }
+  }
+  return rows.filter((row) => chosen.has(row.key));
+}
+
+/** The cards a tab lets through. */
+export function filterRailRows(
+  rows: RailRow[],
+  filter: RailFilter,
+  picks: PickContext = NO_PICKS,
+): RailRow[] {
   if (filter === "all") return rows;
+  if (filter === "suggested") return suggestRows(rows, picks);
+  if (filter === "favorites") return rows.filter((row) => picks.favorites.has(row.key));
   return rows.filter((row) => rowCategory(row) === filter);
 }
 
-/** How many cards each category holds. */
-export function countByFilter(rows: RailRow[]): Record<RailFilter, number> {
+/** How many cards each tab holds. */
+export function countByFilter(
+  rows: RailRow[],
+  picks: PickContext = NO_PICKS,
+): Record<RailFilter, number> {
   const counts: Record<RailFilter, number> = {
-    all: rows.length,
+    suggested: suggestRows(rows, picks).length,
+    favorites: 0,
     pages: 0,
     images: 0,
     documents: 0,
     outputs: 0,
+    all: rows.length,
   };
-  for (const row of rows) counts[rowCategory(row)] += 1;
+  for (const row of rows) {
+    counts[rowCategory(row)] += 1;
+    if (picks.favorites.has(row.key)) counts.favorites += 1;
+  }
   return counts;
+}
+
+/* ------------------------------------------------------------------------- */
+
+/**
+ * The shapes a tile on the wall can take. All of them sit on one half-tile
+ * lattice — a wide tile is half a square, a tall one a square and a half — so
+ * columns of mixed tiles keep falling back into line.
+ */
+export type TileShape = "wide" | "square" | "tall" | "feature";
+
+/** The shape a picture of this width/height ratio is shown in. */
+export function shapeForRatio(ratio: number): Exclude<TileShape, "feature"> {
+  if (ratio >= 1.4) return "wide";
+  if (ratio <= 0.8) return "tall";
+  return "square";
+}
+
+/**
+ * A card's shape on the wall. A picture follows its own proportions once they
+ * are known (`ratio`), a PDF stands like the sheet it is, everything else is a
+ * square.
+ */
+export function tileShape(row: RailRow, ratio?: number): Exclude<TileShape, "feature"> {
+  if (row.kind !== "visual") return "square";
+  if (row.visual.kind === "document") return "tall";
+  const picture = row.visual.kind === "image" || row.visual.kind === "vector";
+  if (picture && ratio !== undefined && ratio > 0) return shapeForRatio(ratio);
+  return "square";
+}
+
+/**
+ * How far into the wall the lead tile may sit — behind work in progress and a
+ * few notes, not behind a whole row of other pictures.
+ */
+const FEATURE_WITHIN = 6;
+
+/**
+ * Which card leads the wall as a tile of four: the first page, picture or
+ * drawing near the top. A note has nothing to fill four tiles with and a PDF
+ * is a sheet, not a square, so neither leads. -1 when nothing does.
+ */
+export function featureIndex(rows: RailRow[]): number {
+  const limit = Math.min(rows.length, FEATURE_WITHIN);
+  for (let index = 0; index < limit; index += 1) {
+    const row = rows[index];
+    if (row.kind === "visual" && row.visual.kind !== "document") return index;
+  }
+  return -1;
+}
+
+export interface TileBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** How many columns of at least `minimum` px fit into `width`. */
+export function wallColumns(width: number, minimum: number, gap: number): number {
+  return Math.max(1, Math.floor((width + gap) / (minimum + gap)));
+}
+
+/**
+ * Where every tile goes: each one into the column that is shortest so far,
+ * leftmost on a tie — reading order stays roughly left to right, top to
+ * bottom, and no column runs away from the others. A "feature" tile takes two
+ * columns side by side and is two squares high.
+ */
+export function layoutWall(
+  shapes: TileShape[],
+  width: number,
+  columns: number,
+  gap: number,
+): { boxes: TileBox[]; height: number } {
+  const count = Math.max(1, columns);
+  const column = (width - gap * (count - 1)) / count;
+  const heights = new Array<number>(count).fill(0);
+  const boxes: TileBox[] = [];
+  for (const wanted of shapes) {
+    const shape = wanted === "feature" && count < 2 ? "square" : wanted;
+    if (shape === "feature") {
+      let at = 0;
+      let top = Number.POSITIVE_INFINITY;
+      for (let index = 0; index < count - 1; index += 1) {
+        const candidate = Math.max(heights[index], heights[index + 1]);
+        if (candidate < top) {
+          top = candidate;
+          at = index;
+        }
+      }
+      const size = column * 2 + gap;
+      boxes.push({ x: at * (column + gap), y: top, width: size, height: size });
+      heights[at] = heights[at + 1] = top + size + gap;
+      continue;
+    }
+    let at = 0;
+    for (let index = 1; index < count; index += 1) {
+      if (heights[index] < heights[at] - 0.5) at = index;
+    }
+    const height =
+      shape === "wide" ? (column - gap) / 2 : shape === "tall" ? column * 1.5 + gap / 2 : column;
+    boxes.push({ x: at * (column + gap), y: heights[at], width: column, height });
+    heights[at] += height + gap;
+  }
+  return { boxes, height: Math.max(0, Math.max(...heights) - gap) };
 }
 
 /** Cards whose title, request, summary or filename contain every search word. */

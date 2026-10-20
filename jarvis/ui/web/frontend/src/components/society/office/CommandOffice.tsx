@@ -13,11 +13,13 @@
  * Pieces are built in local space centred on the origin, front facing +z, and
  * stay inside their FURNITURE_SIZE box.
  */
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { CanvasActivity } from "@/hooks/useCanvasAwake";
 import { Html } from "@react-three/drei";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { CanvasTexture, CylinderGeometry, MeshBasicMaterial, MeshStandardMaterial, Quaternion, SRGBColorSpace, Vector3, type Group } from "three";
 import { useT } from "@/i18n";
+import { useRunLocale } from "@/components/runs/format";
 import { useWorkspacePanesStore } from "@/store/workspacePanes";
 import type { AgentRunState } from "../data";
 import { Box, MAT, matte, Rounded } from "./OfficeFurniture";
@@ -245,12 +247,15 @@ function useLiveScreen(width: number, height: number, key: string, draw: (ctx: C
 
 /** Minutes change the clock; a timer ticks it without any network. */
 function useClock(): string {
+  const active = useContext(CanvasActivity);
+  const locale = useRunLocale();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
+    if (!active) return;
     const timer = setInterval(() => setNow(new Date()), 20_000);
     return () => clearInterval(timer);
-  }, []);
-  return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }, [active]);
+  return now.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 }
 
 /** Opening Mission Control from anything in the office that is clicked. */

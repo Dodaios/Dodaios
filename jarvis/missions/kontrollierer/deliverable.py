@@ -108,6 +108,24 @@ _DELIVERABLE_TEMPLATES: Final[dict[str, dict[str, str]]] = {
         "few": "Done. I have saved {count} files as artifacts: {joined}.",
         "many": "Done. I have saved {count} files as artifacts.",
     },
+    "es": {
+        "one": "Hecho. He guardado {name} como artefacto.",  # i18n-allow: Spanish TTS
+        "few": "Hecho. He guardado {count} archivos como artefactos: {joined}.",  # i18n-allow
+        "many": "Hecho. He guardado {count} archivos como artefactos.",  # i18n-allow: Spanish TTS
+    },
+    "pt": {
+        "one": "Feito. Guardei {name} como artefacto.",  # i18n-allow: PT TTS
+        "few": "Feito. Guardei {count} ficheiros como artefactos: {joined}.",  # i18n-allow: PT TTS
+        "many": "Feito. Guardei {count} ficheiros como artefactos.",  # i18n-allow: PT TTS
+    },
+}
+
+# Generic completion phrase when a mission produced nothing nameable.
+MISSION_COMPLETED_PHRASES: Final[dict[str, str]] = {
+    "de": "Mission abgeschlossen.",  # i18n-allow: German TTS
+    "en": "Mission completed.",
+    "es": "Misión completada.",  # i18n-allow: Spanish TTS
+    "pt": "Missão concluída.",  # i18n-allow: PT TTS
 }
 
 _DELIVERED_TEMPLATES: Final[dict[str, dict[str, str]]] = _DELIVERABLE_TEMPLATES
@@ -119,10 +137,10 @@ def _templates(table: dict[str, dict[str, str]], language: str) -> dict[str, str
     German is the back-compat default (every pre-2026-06-24 caller and the
     ``Literal["de","en"]`` spawn contract's ``es``-fallback resolve here).
     """
-    return table.get(language, table["de"])
+    return table.get(language, table["en"])
 
 
-def build_deliverable_summary(mission_dir: Path, *, language: str = "de") -> str:
+def build_deliverable_summary(mission_dir: Path, *, language: str = "en") -> str:
     """Return a TTS-safe sentence naming the mission's archived files.
 
     Args:
@@ -460,7 +478,7 @@ def deliver_to_user_folder(
     return delivered
 
 
-def build_delivered_summary(delivered: list[Path], *, language: str = "de") -> str:
+def build_delivered_summary(delivered: list[Path], *, language: str = "en") -> str:
     """TTS-safe sentence naming delivered files as artifacts.
 
     Until 2026-08-23 this also spoke the mirror folder's name ("liegt im Ordner
@@ -487,6 +505,7 @@ def build_delivered_summary(delivered: list[Path], *, language: str = "de") -> s
 
 
 __all__ = [
+    "MISSION_COMPLETED_PHRASES",
     "build_deliverable_summary",
     "build_delivered_summary",
     "deliver_to_user_folder",

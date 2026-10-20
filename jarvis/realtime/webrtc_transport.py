@@ -184,7 +184,7 @@ def webrtc_unavailable_reason() -> str:
             "provider remains available."
         )
     return (
-        "In-process WebRTC audio needs the 'aiortc' package. Install Jarvis's "
+        "In-process WebRTC audio needs the 'aiortc' package. Install Dodaios's "
         "requirements to use ChatGPT subscription voice."
     )
 

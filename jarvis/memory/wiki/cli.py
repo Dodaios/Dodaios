@@ -280,7 +280,7 @@ async def _run_ingest(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m jarvis.memory.wiki.cli",
-        description="Personal Jarvis wiki curator — command-line entry point.",
+        description="Dodaios wiki curator — command-line entry point.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

@@ -96,6 +96,8 @@ from pathlib import Path
 
 from loguru import logger
 
+from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+
 from .file_index import cached_index
 from .session import MAX_PROMPT_CHARS, sanitize_prompt
 from .task_kind import (
@@ -270,7 +272,11 @@ _FILLER_RE = re.compile(
     r"\b(?:"
     r"ähm|ähmm|äh|ehm|hmm|einfach\s+mal|gell|weißt\s+du|"
     r"verstehst\s+du|sozusagen|jetzt\s+mal|mal\s+eben|"
-    r"uh|erm|you\s+know|i\s+mean|o\s+sea"
+    r"uh|erm|you\s+know|i\s+mean|o\s+sea|"
+    # European Portuguese: hesitation sounds plus the "o sea" equivalent.
+    # "tipo", "pronto", "pois" and "quer dizer" stay out: each is a content
+    # word or phrase ("o que quer dizer isto" = "what does this mean").
+    r"hum+|hã|ãh+|ou\s+seja"  # i18n-allow: input vocab
     r")\b[\s,]*",
     re.IGNORECASE,
 )
@@ -280,6 +286,7 @@ _POLITENESS_PREFIX_RE = re.compile(
     r"(?:kannst|k[oö]nntest|w[uü]rdest|willst|magst|k[oö]nnen)\s+(?:du|sie)\b\s*"
     r"|(?:could|can|would|will)\s+you\b\s*"
     r"|(?:puedes|podr[ií]as)\b\s*"
+    r"|(?:podes|poderias|consegues)\b\s*"  # i18n-allow: input vocab
     r"|(?:bitte|please|por\s+favor|mal|kurz|schnell|eben|just|quickly)\b[\s,]*"
     r")+",
     re.IGNORECASE,
@@ -339,8 +346,13 @@ ProgressSink = Callable[[ComposeNotice], None]
 and must not be able to await anything, let alone the pane it describes."""
 
 
-def print_notice(notice: ComposeNotice) -> None:
+def print_notice(notice: ComposeNotice, *, speaker: str = "") -> None:
     """Put one notice where the user is actually looking. Never raises.
+
+    ``speaker`` is the name the user gave the assistant; it leads the printed
+    line. A caller without a config leaves it empty and the neutral name is
+    used. The line is read by a person watching a terminal and parsed by
+    nothing.
 
     Standard output when there is one — that is the terminal a headless install
     and a ``--dev`` run are both watched from. Under the tray build there is no
@@ -354,7 +366,7 @@ def print_notice(notice: ComposeNotice) -> None:
         logger.info("Agentic IDE composer: {}", notice.message)
         return
     try:
-        stream.write(f"Jarvis: {notice.message}\n")
+        stream.write(f"{speaker.strip() or DEFAULT_ASSISTANT_NAME}: {notice.message}\n")
         stream.flush()
     except (OSError, ValueError, AttributeError, UnicodeError):
         # A closed, detached or non-decodable stream is not a failure of the

@@ -9,7 +9,7 @@
  * Set as one document, not a stack of cards:
  *
  *   George                                         (page header)
- *   Your assistant in Personal Jarvis, woken by "Hey George".
+ *   Your assistant in Dodaios, woken by "Hey George".
  *
  *   [pet]  Helpful but not obsequious. Direct, …   (the vibe, as the lead)
  *          ● Learning · 1 thing remembered · changed today

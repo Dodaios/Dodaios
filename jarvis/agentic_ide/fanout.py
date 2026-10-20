@@ -581,7 +581,7 @@ async def deliver(
                 terminal=term.name,
                 delivered=False,
                 reason_code="not_an_agent",
-                reason="it is a plain terminal, so Jarvis does not type into it",
+                reason="it is a plain terminal, so Dodaios does not type into it",
             )
         # Status and PTY are checked BEFORE composing: a prompt for a dead pane
         # costs a full quality-tier call and can never be typed anywhere.

@@ -11,7 +11,7 @@ import {
 import { clearVoiceInputLevel, setVoiceInputLevel } from "@/lib/voiceInputLevel";
 import { clearVoiceOutputLevel, setVoiceOutputLevel } from "@/lib/voiceOutputLevel";
 import {
-  SECTION_LABELS,
+  SECTION_LABEL_KEYS,
   VOICE_STATES,
   isSectionId,
   resolveSectionId,
@@ -30,9 +30,11 @@ import { handleAppshotEditRequest } from "@/store/appshotEditor";
 import { useDeckStore } from "@/store/deck";
 import { MEMORY_WRITE_EVENT, useMemoryWrites } from "@/store/memoryWrites";
 import { useHomeStore } from "@/store/home";
+import { useAgentChatStore } from "@/store/agentChat";
 import { PANE_ACTIVITY_EVENT } from "@/store/workspacePanes";
 import { WSAudioLevel, WSEventEnvelope, WSWelcome } from "@/schema/ws";
-import { useI18nStore, hydrateUiLanguage, hydrateReplyLanguage, isUiLanguage, translate } from "@/i18n";
+import { useI18nStore, hydrateUiLanguage, hydrateReplyLanguage, isUiLanguage, translate, fill } from "@/i18n";
+import { backendMessage } from "@/lib/backendMessage";
 import { hydrateUiTheme } from "@/hooks/useTheme";
 import { announceDictationSettings } from "@/hooks/usePromptMode";
 import { petKeys } from "@/hooks/usePets";
@@ -465,7 +467,7 @@ export function useWebSocket(): void {
         }
 
         if (env.event_name === "NavigateSidebar") {
-          const p = env.payload as { section?: string };
+          const p = env.payload as { section?: string; target?: string; target_id?: string };
           const solo = useEventStore.getState().solo;
           // A retired id ("outputs") still arrives from older deep links and
           // spoken aliases; it lands on the section that holds its content now.
@@ -486,12 +488,25 @@ export function useWebSocket(): void {
               // "go to settings" targets the main window, and following it here
               // would blank the very view the user split off to keep.
               setActiveSection(section);
+              // One thing inside the section: an agent's chat or a conversation.
+              if (section === "chats" && p.target_id) {
+                if (p.target === "agent") {
+                  useHomeStore.getState().openAgentChat(p.target_id);
+                } else if (p.target === "chat") {
+                  const events = useEventStore.getState();
+                  events.setActiveConversation("text", null);
+                  events.setMessages([]);
+                  useHomeStore.getState().openAgentChat(null);
+                  useAgentChatStore.getState().openSession(p.target_id);
+                  useHomeStore.getState().setJarvisCardMode("chat");
+                }
+              }
             }
             // The Settings "Autopilot Toasts" switch owns this note.
             if (!solo && isAutopilotToastsEnabled()) {
               pushToast(
                 "info",
-                `${translate("use_web_socket.jarvis_opened")} ${SECTION_LABELS[section]}`,
+                `${translate("use_web_socket.jarvis_opened")} ${translate(SECTION_LABEL_KEYS[section])}`,
               );
             }
           }
@@ -522,7 +537,7 @@ export function useWebSocket(): void {
           const p = env.payload as { to_provider?: string; from_provider?: string };
           if (typeof p.to_provider === "string") {
             setBrainProvider(p.to_provider);
-            pushToast("success", `Brain → ${p.to_provider}`);
+            pushToast("success", fill(translate("provider_switcher.switched_toast"), { provider: p.to_provider }));
             // The switch payload carries no model, so re-fetch the authoritative
             // status (provider + model) — keeps the sidebar model line fresh
             // after a voice/UI provider switch. useBrainStatus listens for this.
@@ -763,7 +778,16 @@ export function useWebSocket(): void {
             tier?: string;
           };
           if (typeof p.title === "string" && p.title.length > 0) {
-            pushToast("success", `Achievement: ${p.title}`);
+            // The id is the stable code (jarvis/board/achievements.py); a
+            // catalog entry this build has no translation for keeps its title.
+            const title = backendMessage(
+              translate,
+              "use_web_socket.achievement_title",
+              typeof p.achievement_id === "string" ? p.achievement_id : "",
+              null,
+              p.title,
+            );
+            pushToast("success", fill(translate("use_web_socket.achievement_toast"), { title }));
           }
           // Local custom event: AchievementGrid listens for it and invalidates
           // the React Query list, so the unlock becomes visible immediately.

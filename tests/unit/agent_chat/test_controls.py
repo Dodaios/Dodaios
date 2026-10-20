@@ -109,6 +109,57 @@ async def test_rejected_message_cannot_replace_a_newer_control_status() -> None:
     assert controls.state(sid).last_status == "failed"
 
 
+async def test_continue_preserves_a_rate_limited_question_and_its_approval_mode():
+    svc = FakeService()
+    sid = seat(svc)
+    question = "Was ist deine Aufgabe"
+    svc.store.append_event(sid, make_event("user_message", {"text": question}))
+    svc.store.append_event(
+        sid,
+        make_event(
+            "turn_finished",
+            {
+                "turn_id": "limited",
+                "status": "error",
+                "error": "HTTP 429; use /continue later",
+            },
+        ),
+    )
+    controls = ChatControls(svc, adapters=[])
+    result = await controls.execute(sid, request("continue"))
+    assert result.status == "started"
+    await svc.wait_turn(sid)
+    assert question in svc.sent[-1][0]
+    assert svc.store.list_events(sid)[0]["payload"]["text"] == question
+    session = svc.store.get_session(sid)
+    assert session.permission_mode == "ask" and session.provider == "openai"
+
+
+async def test_continue_names_why_a_delegated_failure_cannot_be_resumed():
+    svc = FakeService()
+    sid = seat(svc)
+    # A teammate's message: delivered without a user_message, then rate limited.
+    svc.store.append_event(sid, make_event("turn_started", {"turn_id": "incoming"}))
+    svc.store.append_event(
+        sid,
+        make_event("turn_finished", {"turn_id": "incoming", "status": "error", "error": "429"}),
+    )
+    controls = ChatControls(svc, adapters=[])
+    result = await controls.execute(sid, request("continue"))
+    assert result.status == "failed"
+    assert "not from you" in result.error
+    assert svc.sent == []
+
+
+async def test_continue_without_any_failure_says_there_is_nothing_to_continue():
+    svc = FakeService()
+    sid = seat(svc)
+    controls = ChatControls(svc, adapters=[])
+    result = await controls.execute(sid, request("continue"))
+    assert result.status == "failed"
+    assert result.error == "There is no interrupted task to continue"
+
+
 def test_plan_build_and_review_preserve_original_permissions_and_history() -> None:
     async def scenario() -> None:
         svc = FakeService()
@@ -379,3 +430,16 @@ def test_message_uses_executor_exact_text_sender_and_idempotency(monkeypatch: An
         assert any(e["kind"] == "tool_result" for e in svc.store.list_events(sid))
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("locale", ["en", "de", "es", "pt"])
+def test_command_request_accepts_every_slash_locale(locale: str) -> None:
+    # Mirrors ChatCommands.tsx: every interface language with its own slash
+    # dictionary sends its code, and the request must not reject it.
+    req = CommandRequest(command="status", request_id="r1", locale=locale)
+    assert req.locale == locale
+
+
+def test_command_request_rejects_an_unknown_locale() -> None:
+    with pytest.raises(ValueError):
+        CommandRequest(command="status", request_id="r1", locale="xx")

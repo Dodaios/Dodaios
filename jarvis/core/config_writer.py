@@ -1001,8 +1001,9 @@ def set_screen_context_settings(
 #: The master switch is ``[screen_context].enabled``, written by the setter above.
 APPSHOT_SETTING_KEYS: frozenset[str] = frozenset(
     {"keep_newest",
-     "hotkey", "region_hotkey", "recording_hotkey", "target", "sound", "effect", "card_seconds", "library",
-     "copy_to_clipboard"}
+     "hotkey", "region_hotkey", "recording_hotkey", "target", "sound", "effect", "card_seconds",
+     "library", "copy_to_clipboard", "recording_resolution", "recording_fps", "recording_bitrate_mbps",
+     "recording_system_audio"}
 )
 
 
@@ -1103,6 +1104,20 @@ def set_missions_paid_api_fallback(enabled: bool, *, path: Path = DEFAULT_CONFIG
     _patch_table(path, "missions", "paid_api_fallback", enabled)
 
 
+def set_wiki_semantic_search(
+    enabled: bool, *, path: Path = DEFAULT_CONFIG_FILE
+) -> None:
+    """Persist ``[wiki_context] semantic_search`` (search the wiki by meaning).
+
+    The only writer of this key, called from ``PUT /api/wiki/semantic-search``.
+    The route starts or stops the search engine itself, so the change applies
+    at once; this write makes it survive a restart.
+    """
+    if not isinstance(enabled, bool):
+        raise TypeError("semantic_search must be a bool")
+    _patch_table(path, "wiki_context", "semantic_search", enabled)
+
+
 def set_reply_language(name: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist the user-facing reply-language pin in ``[brain] reply_language``.
 
@@ -1125,7 +1140,8 @@ def set_proactivity(level: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
 def set_ui_language(name: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
     """Persist the interface (display) language in ``[ui] language``.
 
-    ``name`` is one of ``en`` | ``de`` | ``es`` | ``zh`` (validated by the caller).
+    ``name`` is one of ``en`` | ``de`` | ``es`` | ``pt`` | ``zh`` (validated by the
+    caller).
     This is the backend home for what used to be a frontend-only localStorage value,
     so a voice command / the Control API can change the visible app language and
     the open UI switches live (the change is broadcast over /ws).
@@ -1262,6 +1278,19 @@ def set_background_keep_running(enabled: bool, *, path: Path = DEFAULT_CONFIG_FI
     not track it. Read at quit time, so it applies without a restart.
     """
     _patch_table(path, "background", "keep_agents_running", bool(enabled))
+
+
+def set_agent_server(
+    *, persistent: bool, server_url: str = "", path: Path = DEFAULT_CONFIG_FILE,
+) -> None:
+    """Select independent server ownership for the next desktop launch."""
+    from jarvis.core.server_endpoint import server_endpoint
+
+    origin = server_endpoint(server_url) if server_url.strip() else ""
+    _patch_table(
+        path, "background", "persistent_server", bool(persistent),
+        extra={"server_url": origin},
+    )
 
 
 def set_wiki_vault_root(vault_root: str, *, path: Path = DEFAULT_CONFIG_FILE) -> None:
@@ -1969,7 +1998,7 @@ def set_brain_provider_defaults(
 _TTS_DEFAULTS: dict[str, dict[str, str]] = {
     "inworld": {
         # Inworld reads its per-language voices from the [tts.inworld] subtable
-        # (voice_de/voice_en/voice_es), NOT [tts].voice_de — same pattern as
+        # (voice_de/voice_en/voice_es/voice_pt), NOT [tts].voice_de — same pattern as
         # Cartesia. The scalar voice_de/voice_en are placeholders never consumed
         # by the Inworld factory path. [tts].model is ignored too (the model
         # comes from [tts.inworld].model or the plugin default inworld-tts-2), so
@@ -2072,13 +2101,15 @@ _TTS_DEFAULTS: dict[str, dict[str, str]] = {
         # and picks the matching installed voice per turn. Inheriting a
         # predecessor's pinned "de-DE" would therefore hard-wire every answer to
         # the German voice, including the ones the resolver decided to speak in
-        # English or Spanish — the runtime-language doctrine broken by a leftover
+        # English, Spanish or Portuguese — the runtime-language doctrine broken by a leftover
         # config value rather than by any code. "auto" keeps the decision where
         # it belongs.
         #
-        # The voices are the two the installer actually fetches
-        # (PIPER_DEFAULT_VOICES in jarvis/speech/local_models.py). They are named
-        # rather than left blank so switching away from a cloud provider does not
+        # The installer fetches one voice per reply language — German,
+        # English, Spanish and Portuguese (PIPER_DEFAULT_VOICES in
+        # jarvis/speech/local_models.py); the German and English ones fill the
+        # two voice keys below, and the plugin finds the others by language.
+        # They are named rather than left blank so switching away from a cloud provider does not
         # leave "Charon" sitting in the block: the resolver tolerates an unknown
         # name, but the settings screen would keep showing a voice this provider
         # cannot speak with. There is no [tts].model concept for Piper.
@@ -2106,6 +2137,7 @@ _VOICES_FOR_PROVIDER: dict[str, frozenset[str]] = {
             "vits-piper-en_US-amy-medium",
             "vits-piper-es_ES-davefx-medium",
             "vits-piper-es_ES-sharvard-medium",
+            "vits-piper-pt_PT-tugao-medium",
         }
     ),
     "gemini-flash-tts": frozenset(

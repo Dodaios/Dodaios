@@ -1,6 +1,6 @@
 """Pydantic schemas and dataclasses for docs.
 
-The frontmatter schema follows ``jarvis/skills/builtin/jarvis-doc-author/
+The frontmatter schema follows ``jarvis/skills/builtin/dodaios-doc-author/
 references/frontmatter-schema.md`` — intentionally tolerant (``extra="ignore"``),
 so existing Markdown files without frontmatter or with extra fields do not crash.
 Missing required fields are synthesised by the loader (``title`` from the
@@ -63,7 +63,7 @@ DocAudience = Literal["developer", "operator", "end-user"]
 class DocFrontmatter(BaseModel):
     """YAML frontmatter of a Jarvis doc.
 
-    Schema source: ``jarvis/skills/builtin/jarvis-doc-author/references/
+    Schema source: ``jarvis/skills/builtin/dodaios-doc-author/references/
     frontmatter-schema.md``. Intentionally tolerant — ``extra="ignore"``
     absorbs fields not modelled here (e.g. ADR-specific ``adr_status``).
     """

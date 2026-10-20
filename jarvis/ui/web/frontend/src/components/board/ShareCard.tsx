@@ -2,6 +2,7 @@ import { forwardRef, type CSSProperties } from "react";
 
 import { REPO_LABEL, type ShareStats } from "@/lib/shareImage";
 import { useT } from "@/i18n";
+import { uiLocale } from "@/lib/boardInsights";
 
 // ── Palette ───────────────────────────────────────────────────────────
 // A JARVIS-style HUD readout: bright instrument lines on deep ink, a quiet
@@ -32,7 +33,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
     ref,
   ) {
     const t = useT();
-    const nf = (n: number) => n.toLocaleString();
+    const nf = (n: number) => n.toLocaleString(uiLocale());
     const SEGMENTS = 28;
     const filled = Math.max(2, Math.min(SEGMENTS, Math.round((longestStreak / 30) * SEGMENTS)));
 
@@ -106,7 +107,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(
                   boxShadow: "0 0 24px -6px rgba(245,244,239,0.5)",
                 }}
               >
-                <img src="/jarvis-mark-256.png" width={38} height={38} alt="" style={{ display: "block" }} />
+                <img src="/jarvis-mark-256.png?v=hood" width={38} height={38} alt="" style={{ display: "block" }} />
               </span>
               <span
                 style={{

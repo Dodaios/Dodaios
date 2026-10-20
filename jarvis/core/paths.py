@@ -1,6 +1,6 @@
 """Central app directory convention.
 
-Personal Jarvis writes user data (skills, memory, logs, session file) to a
+Dodaios writes user data (skills, memory, logs, session file) to a
 single canonical location — analogous to Claude Code's ``~/.claude/``. On Windows
 this is ``%LOCALAPPDATA%\\Jarvis``; when the ENV variable is absent (portable
 scripts, tests) we fall back to ``~/.jarvis/``.
@@ -19,6 +19,7 @@ from pathlib import Path
 
 from jarvis.core.branding import (
     DESKTOP_OUTPUT_MIRROR_DIR_NAME,
+    DISTRIBUTION_NAME,
     FALLBACK_USER_DATA_DIR_NAME,
     WINDOWS_USER_DATA_DIR_NAME,
 )
@@ -123,7 +124,7 @@ def skill_prefs_path() -> Path:
 
 
 def repo_root() -> Path:
-    """Path to the repository root (local Personal Jarvis working tree).
+    """Path to the repository root (local Dodaios working tree).
 
     Derived from the location of this file: ``jarvis/core/paths.py`` ->
     ``parents[2]``. With an editable install (``pip install -e .``) this
@@ -162,7 +163,7 @@ def default_doc_roots() -> list[Path]:
         if prefix in seen_prefixes:
             continue
         seen_prefixes.add(prefix)
-        installed_docs = prefix / "share" / "personal-jarvis" / "docs"
+        installed_docs = prefix / "share" / DISTRIBUTION_NAME / "docs"
         if installed_docs.exists():
             return [installed_docs]
 

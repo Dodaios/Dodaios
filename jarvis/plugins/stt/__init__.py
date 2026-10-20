@@ -254,7 +254,7 @@ def local_stt_unavailable_reason() -> str:
         return ""
     return (
         "the local speech engine (faster-whisper) is not installed in the Python "
-        f"running Jarvis ({sys.executable})"
+        f"running Dodaios ({sys.executable})"
     )
 
 
@@ -515,7 +515,7 @@ def build_stt_from_config(stt_cfg: Any, *, dictionary_bias: bool = True) -> Any:
     if crossed_reason:
         logger.warning(
             "Speech-to-text falls back from {!r} to {!r}: {}. Install the local "
-            "engine from the API-Keys view, or start Jarvis with the Python that "
+            "engine from the API-Keys view, or start Dodaios with the Python that "
             "has it, to switch back.",
             configured_name,
             provider_name,

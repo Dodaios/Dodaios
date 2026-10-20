@@ -15,10 +15,12 @@ from scripts.ci import (
     check_workflow_policy,
     classify_changes,
     cut_release,
+    plan_run,
     ratchet_tests,
     release_admit,
     release_assets,
     required_results,
+    select_tests,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -150,7 +152,7 @@ def test_commit_identity_and_fresh_main_are_required(monkeypatch, tag_sha, fetch
 
 def pipeline_needs():
     flags = {name: "true" for name in classify_changes.LANES}
-    flags.update(full="true", macos="true", release="true")
+    flags.update(full="true", macos="true", release="true", proven="false", desktop_legs="all")
     needs = {name: {"result": "success"} for name in required_results.expected_jobs(flags)}
     needs["detect"]["outputs"] = flags
     return needs
@@ -178,7 +180,7 @@ def test_invalid_detection_does_not_turn_checks_off():
 
 def test_unaffected_lanes_can_still_skip():
     flags = {name: "false" for name in classify_changes.LANES}
-    flags.update(full="false", macos="false", release="false")
+    flags.update(full="false", macos="false", release="false", proven="false", desktop_legs="none")
     needs = {
         "detect": {"result": "success", "outputs": flags},
         "gates": {"result": "success"},
@@ -188,10 +190,41 @@ def test_unaffected_lanes_can_still_skip():
     assert required_results.evaluate(needs, pipeline=True)["ok"]
 
 
+def test_a_green_nightly_passes_the_strict_gate():
+    # The nightly of 2026-10-13 had every job green and still failed the
+    # gate: strict mode refused the skipped merge-queue-only macOS job.
+    gate_needs = workflows()["ci.yml"]["jobs"]["gate"]["needs"]
+    assert plan_run.plan("schedule")["mac_impact"] is False
+    flags = {name: "true" for name in classify_changes.LANES}
+    flags.update(
+        full="true",
+        macos="true",
+        release="false",
+        proven="false",
+        desktop_legs="all",
+        mac_tests="false",
+    )
+    never_at_night = {"dependency-review", "soak", "release-qualification", "tests-macos-impact"}
+    needs = {
+        name: {"result": "skipped" if name in never_at_night else "success"} for name in gate_needs
+    }
+    needs["detect"]["outputs"] = flags
+    assert required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
+    # Selected, it still has to run, strict or not.
+    flags["mac_tests"] = "true"
+    assert not required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
+    # Any other job skipped at night still fails the strict gate.
+    flags["mac_tests"] = "false"
+    needs["tests-linux"]["result"] = "skipped"
+    assert not required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
+
+
 def test_dependency_review_runs_only_on_pull_requests_and_may_skip_elsewhere():
     ci = workflows()["ci.yml"]["jobs"]
     assert ci["dependency-review"]["if"] == "github.event_name == 'pull_request'"
-    assert "if" not in ci["zizmor"]  # the workflow audit runs on every event
+    # The workflow audit runs on every event; only a push whose commit the
+    # merge queue already audited skips it.
+    assert ci["zizmor"]["if"] == "needs.detect.outputs.proven != 'true'"
     needs = pipeline_needs()
     needs["dependency-review"] = {"result": "skipped"}
     assert required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
@@ -208,6 +241,22 @@ def test_live_site_checks_run_only_nightly_and_never_fail_the_run():
     assert all(s.get("continue-on-error") for s in job["steps"] if "pytest" in s.get("run", ""))
 
 
+def test_every_tier_runs_the_whole_linux_and_windows_suite():
+    ci = workflows()["ci.yml"]["jobs"]
+    for tier in plan_run.TIERS:
+        sized = plan_run.matrices(tier, macos=False)
+        assert sized["linux_shards"] == [1, 2, 3, 4, 5, 6]
+        assert sized["windows_shards"] == [1, 2, 3, 4, 5, 6]
+    # No impact selection in CI: the Windows job always takes its shard of
+    # the whole suite, and the shard count comes from the same plan.
+    windows = "\n".join(step.get("run", "") for step in ci["tests-windows"]["steps"])
+    assert "select_tests" not in windows and "--files-from" not in windows
+    assert ci["tests-windows"]["strategy"]["matrix"]["shard"] == (
+        "${{ fromJSON(needs.detect.outputs.windows_shards) }}"
+    )
+    assert ci["detect"]["outputs"]["windows_shards"] == "${{ steps.mode.outputs.windows_shards }}"
+
+
 def test_merge_queue_runs_the_whole_suite_and_is_never_cancelled():
     ci = workflows()["ci.yml"]
     triggers = ci.get("on", ci.get(True))
@@ -215,9 +264,450 @@ def test_merge_queue_runs_the_whole_suite_and_is_never_cancelled():
     assert "merge_group" in ci["concurrency"]["group"]
     assert "merge_group" not in ci["concurrency"]["cancel-in-progress"]
     mode = next(s for s in ci["jobs"]["detect"]["steps"] if s.get("id") == "mode")
-    assert "push|merge_group) tests_full=true" in mode["run"]
+    assert "plan_run.py plan" in mode["run"]
     assert "merge_group.base_sha" in mode["env"]["PR_BASE"]
+    assert plan_run.decide("merge_group")["tier"] == "queue"
     assert ci["jobs"]["gate"]["if"] == "${{ !cancelled() }}"
+
+
+# --------------------------------------------------------------------------- tiers
+
+
+def test_a_pull_request_never_takes_a_macos_runner():
+    # Five macOS slots serve every run. With macOS legs on each push, pull
+    # requests waited 6 to 25 minutes for a slot (2026-10-13): the macOS
+    # proof is spent once per change, in the merge queue.
+    sized = plan_run.plan("pull_request")
+    assert sized["tier"] == "pr" and sized["pr_mode"] and not sized["mac_lanes"]
+    assert sized["desktop_legs"] == "none"
+    matrices = [v for k, v in sized.items() if k not in ("macos", "mac_lanes")]
+    assert "macos" not in json.dumps(matrices)
+    # The slowest real-runtime leg never runs per change.
+    assert {"os": "windows-latest", "runtime": "hermes"} not in sized["e2e_matrix"]
+    assert {"os": "windows-latest", "runtime": "openclaw"} in sized["e2e_matrix"]
+    # The real Inno upgrade of a running install stays on the pull request.
+    assert {"os": "windows-latest", "python": "3.12"} in sized["updater_matrix"]
+
+
+def test_a_merge_group_takes_at_most_two_macos_runners():
+    # Five macOS slots serve every group and every rebuild of one. With a
+    # macOS leg per lane plus three test shards a group carried eleven macOS
+    # jobs, and they waited 30 to 54 minutes for a slot (2026-10-13).
+    sized = plan_run.plan("merge_group")
+    assert not sized["mac_lanes"] and not sized["macos"]
+    matrices = [v for k, v in sized.items() if k not in ("macos", "mac_lanes", "mac_impact")]
+    assert "macos" not in json.dumps(matrices)
+    # The two: the macOS tests the change can reach, on one runner, and the
+    # Apple Silicon desktop bundle when the macOS lane is affected.
+    assert sized["mac_impact"] is True and sized["desktop_legs"] == "primary"
+    tests = ["tests/unit/platform/test_a.py", "tests/unit/brain/test_routing.py", "tests/x.py"]
+    assert select_tests.one_runner("all", tests, tests) == (
+        "selected",
+        ["tests/unit/brain/test_routing.py", "tests/unit/platform/test_a.py"],
+    )
+    many = [f"tests/unit/z/test_{i}.py" for i in range(select_tests.SHARD_FILES + 1)]
+    assert select_tests.one_runner("selected", many, many + tests)[1] == [
+        "tests/unit/brain/test_routing.py",
+        "tests/unit/platform/test_a.py",
+    ]
+    # A narrow selection keeps what it reached and takes the focused set too.
+    assert select_tests.one_runner("selected", tests[2:], tests) == ("selected", sorted(tests))
+    assert select_tests.one_runner("none", [], tests) == ("none", [])
+    assert select_tests.shards_for("selected", 2) == [1]
+    # The wide matrix keeps every macOS leg of every lane.
+    wide = plan_run.plan("schedule")
+    assert wide["lane_os"][-1] == "macos-latest" and "macos-latest" in wide["browser_os"]
+    assert {"os": "macos-latest", "python": "3.12"} in wide["updater_matrix"]
+    # The second Windows interpreter of the updater is the queue's one extra.
+    assert {"os": "windows-latest", "python": "3.11"} in sized["updater_matrix"]
+    wide = plan_run.plan("schedule")
+    assert {(leg["os"], leg["runtime"]) for leg in wide["e2e_matrix"]} == {
+        (os, runtime)
+        for os in ("ubuntu-latest", "windows-latest", "macos-latest")
+        for runtime in ("hermes", "openclaw")
+    }
+    # jarvisctl, dragdrop and the installer smoke have no macOS-specific code.
+    assert sized["os_matrix"] == ["ubuntu-latest", "windows-latest"]
+    # A push that reached main without the queue gets the same proof.
+    assert plan_run.plan("push") == sized
+
+
+def test_nightly_release_and_macos_dispatch_keep_the_wide_matrix():
+    for sized in (
+        plan_run.plan("schedule"),
+        plan_run.plan("workflow_dispatch", full_input=True, macos_input=True),
+    ):
+        assert sized["tier"] == "full" and sized["full_mode"] and sized["macos"]
+        assert sized["desktop_legs"] == "all"
+        assert sized["os_matrix"][-1] == "macos-latest"
+        assert len(sized["updater_matrix"]) == 7
+        assert len(sized["crypto_matrix"]) == 6
+        assert set(sized["browser_os"]) == {
+            "ubuntu-latest",
+            "ubuntu-24.04-arm",
+            "windows-latest",
+            "windows-11-arm",
+            "macos-latest",
+            "macos-15-intel",
+        }
+    # A branch asks for macOS before the queue without a full run.
+    branch = plan_run.plan("workflow_dispatch", macos_input=True)
+    assert branch["tier"] == "pr" and branch["pr_mode"] and branch["desktop_legs"] == "all"
+    # The merge train's stand-in for a push on main gets a push's proof,
+    # never the narrower one of a branch run.
+    stand_in = plan_run.plan("workflow_dispatch", ref="refs/heads/main")
+    assert stand_in["tier"] == "queue" and not stand_in["pr_mode"] and stand_in["mac_impact"]
+    assert plan_run.plan("workflow_dispatch", ref="refs/heads/claude/x")["tier"] == "pr"
+    # The merge train's macOS-free full dispatch stays off macOS.
+    train = plan_run.plan("workflow_dispatch", full_input=True)
+    assert train["full_mode"] and not train["mac_lanes"]
+    assert "macos" not in json.dumps(plan_run.matrices("full", macos=False))
+
+
+def test_ci_reads_every_matrix_from_the_plan():
+    ci = workflows()["ci.yml"]["jobs"]
+    outputs = ci["detect"]["outputs"]
+    planned = plan_run.plan("pull_request")
+    for key in ("lane_os", "updater_matrix", "crypto_matrix", "e2e_matrix", "browser_os"):
+        assert key in planned and outputs[key] == f"${{{{ steps.mode.outputs.{key} }}}}"
+    uses = {
+        "realtime-contract": ("os", "lane_os"),
+        "agent-runtimes-unit": ("os", "lane_os"),
+        "jarvisctl": ("os", "os_matrix"),
+        "dragdrop": ("os", "os_matrix"),
+        "updater": ("include", "updater_matrix"),
+        "native-crypto-runtime": ("include", "crypto_matrix"),
+        "agent-runtimes-e2e": ("include", "e2e_matrix"),
+    }
+    for job, (axis, key) in uses.items():
+        assert ci[job]["strategy"]["matrix"][axis] == (
+            f"${{{{ fromJSON(needs.detect.outputs.{key}) }}}}"
+        ), job
+    assert ci["browser"]["with"]["os"] == "${{ needs.detect.outputs.browser_os }}"
+    assert ci["macos-desktop"]["with"]["legs"] == "${{ needs.detect.outputs.desktop_legs }}"
+    assert "desktop_legs != 'none'" in ci["macos-desktop"]["if"]
+
+
+def _queue_run(**changes):
+    run = {
+        "head_sha": "a" * 40,
+        "event": "merge_group",
+        "status": "completed",
+        "conclusion": "success",
+        "path": ".github/workflows/ci.yml",
+        "head_repository": {"full_name": "owner/app"},
+    }
+    run.update(changes)
+    return run
+
+
+def test_a_commit_the_merge_queue_passed_is_proven():
+    assert plan_run.proven_by_queue([_queue_run()], repo="owner/app", sha="a" * 40)
+    # The API may name the workflow with the ref it ran from.
+    suffixed = _queue_run(path=".github/workflows/ci.yml@refs/heads/gh-readonly-queue/main/pr-1")
+    assert plan_run.proven_by_queue([suffixed], repo="owner/app", sha="a" * 40)
+    assert plan_run.is_proven("owner/app", "a" * 40, "token", lambda *_: [_queue_run()])
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"head_sha": "b" * 40},
+        {"event": "pull_request"},
+        {"event": "push"},
+        {"conclusion": "failure"},
+        {"status": "in_progress", "conclusion": None},
+        {"path": ".github/workflows/pretend-ci.yml"},
+        {"head_repository": {"full_name": "fork/app"}},
+        {"head_repository": None},
+    ],
+)
+def test_anything_but_a_green_queue_run_of_this_commit_is_not_proven(changes):
+    runs = [_queue_run(**changes)]
+    assert not plan_run.proven_by_queue(runs, repo="owner/app", sha="a" * 40)
+
+
+def test_the_proven_lookup_fails_open():
+    def broken(*_):
+        raise OSError("api down")
+
+    assert not plan_run.is_proven("owner/app", "a" * 40, "token", broken)
+    assert not plan_run.is_proven("owner/app", "a" * 40, "", lambda *_: [_queue_run()])
+    assert not plan_run.is_proven("owner/app", "a" * 40, "token", lambda *_: [])
+
+
+def test_a_proven_push_runs_nothing_but_detection_and_the_gate():
+    ci = workflows()["ci.yml"]["jobs"]
+    lanes = classify_changes.classify(["jarvis/core/config.py"], proven=True)
+    assert not any(lanes.values())
+    proven = next(s for s in ci["detect"]["steps"] if s.get("id") == "proven")
+    # Only a run on main that is neither a full nor a macOS run may skip.
+    assert '"$GITHUB_REF" = "refs/heads/main"' in proven["run"]
+    assert '"$FULL" != "true"' in proven["run"] and '"$MACOS" != "true"' in proven["run"]
+    assert ci["detect"]["permissions"] == {"contents": "read", "actions": "read"}
+    assert ci["gates"]["if"] == "needs.detect.outputs.proven != 'true'"
+    flags = {name: "false" for name in classify_changes.LANES}
+    flags.update(full="false", macos="false", release="false", proven="true", desktop_legs="none")
+    needs = {name: {"result": "skipped"} for name in ci["gate"]["needs"]}
+    needs["detect"] = {"result": "success", "outputs": flags}
+    assert required_results.evaluate(needs, pipeline=True)["ok"]
+    # A nightly run is never satisfied by an earlier proof.
+    assert not required_results.evaluate(needs, pipeline=True, strict=True)["ok"]
+    # Without the proof the same skips fail the gate.
+    flags["proven"] = "false"
+    assert not required_results.evaluate(needs, pipeline=True)["ok"]
+
+
+def test_the_linux_shard_count_has_one_source():
+    ci = workflows()["ci.yml"]["jobs"]
+    shard = next(s for s in ci["tests-linux"]["steps"] if s.get("name") == "Run shard")
+    floor = next(s for s in ci["test-report"]["steps"] if "--expected-shards" in s.get("run", ""))
+    for step in (shard, floor):
+        assert step["env"]["SHARDS"] == "${{ needs.detect.outputs.linux_shards }}"
+    assert '--shard "$SHARD/$total"' in shard["run"]
+    assert '--expected-shards "$total"' in floor["run"]
+
+
+def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issues():
+    alert = workflows()["nightly-alert.yml"]
+    assert alert["permissions"] == {}
+    job = alert["jobs"]["alert"]
+    assert job["permissions"] == {"actions": "read", "issues": "write"}
+    for clause in (
+        "github.event.workflow_run.event == 'schedule'",
+        "github.event.workflow_run.head_repository.full_name == github.repository",
+        "github.event.workflow_run.head_branch == 'main'",
+    ):
+        assert clause in job["if"], clause
+    # No pull-request code runs next to the issue token.
+    assert all("uses" not in step for step in job["steps"])
+    script = job["steps"][0]["run"]
+    assert "label=nightly-ci" in script and "write issue close" in script
+    assert '--label "$label"' in script
+    # A check by hand runs from main only, vets the run it is given like the
+    # event, and writes nothing unless the dry run is switched off.
+    by_hand = "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'"
+    assert by_hand in job["if"]
+    assert '.event == "schedule"' in script and '.head_branch == "main"' in script
+    triggers = alert.get("on", alert.get(True))
+    assert triggers["workflow_dispatch"]["inputs"]["dry_run"]["default"] is True
+    for direct in ("gh issue close", "gh issue edit", "gh issue create", "gh label create"):
+        assert direct not in script, direct
+    # The legs that left the per-change tiers are exactly what the nightly keeps.
+    nightly, queue = plan_run.plan("schedule"), plan_run.plan("merge_group")
+    only_nightly = [leg for leg in nightly["e2e_matrix"] if leg not in queue["e2e_matrix"]]
+    assert {"os": "windows-latest", "runtime": "hermes"} in only_nightly and len(only_nightly) == 3
+
+
+def test_the_nightly_run_never_queues_its_macos_legs_ahead_of_a_merge_group():
+    ci = workflows()["ci.yml"]
+    # One leg at a time in every matrix that carries macOS legs: the nightly
+    # run has no reader waiting, the merge groups sharing the five slots do.
+    assert plan_run.plan("schedule")["matrix_parallel"] == 1
+    for event in ("pull_request", "merge_group", "push"):
+        assert plan_run.plan(event)["matrix_parallel"] == plan_run.UNTHROTTLED
+    # A release tag run is a manual dispatch and stays at full width.
+    release = plan_run.plan("workflow_dispatch", full_input=True, macos_input=True)
+    assert release["matrix_parallel"] == plan_run.UNTHROTTLED
+    throttle = "${{ fromJSON(needs.detect.outputs.matrix_parallel) }}"
+    for job in (
+        "tests-macos",
+        "jarvisctl",
+        "native-crypto-runtime",
+        "realtime-contract",
+        "updater",
+        "dragdrop",
+        "agent-runtimes-unit",
+        "agent-runtimes-e2e",
+    ):
+        assert ci["jobs"][job]["strategy"]["max-parallel"] == throttle, job
+    assert ci["jobs"]["detect"]["outputs"]["matrix_parallel"] == (
+        "${{ steps.mode.outputs.matrix_parallel }}"
+    )
+    # Every matrix fits below the unthrottled limit.
+    widest = max(len(v) for v in plan_run.plan("schedule").values() if isinstance(v, list))
+    assert widest < plan_run.UNTHROTTLED
+
+
+def test_a_merge_group_runs_the_macos_tests_its_change_can_reach():
+    ci = workflows()["ci.yml"]["jobs"]
+    # Only the queue tier: a pull request takes no macOS runner, and the wide
+    # matrix runs the whole macOS suite instead.
+    assert plan_run.plan("merge_group")["mac_impact"] is True
+    assert plan_run.plan("push")["mac_impact"] is True
+    assert plan_run.plan("pull_request")["mac_impact"] is False
+    assert plan_run.plan("schedule")["mac_impact"] is False
+    # One runner for an ordinary change, two for a large one, the full split
+    # when the change selects everything, none when it reaches no test.
+    assert select_tests.shards_for("selected", 12) == [1]
+    assert select_tests.shards_for("selected", select_tests.SHARD_FILES + 1) == [1, 2]
+    assert select_tests.shards_for("all", 2500) == [1, 2, 3]
+    assert select_tests.shards_for("none", 0) == []
+    job = ci["tests-macos-impact"]
+    assert job["runs-on"] == "macos-latest"
+    assert job["if"] == (
+        "needs.detect.outputs.python == 'true' && needs.detect.outputs.mac_tests == 'true'"
+    )
+    assert job["strategy"]["matrix"]["shard"] == (
+        "${{ fromJSON(needs.detect.outputs.mac_test_shards) }}"
+    )
+    run = next(s for s in job["steps"] if s.get("name") == "Run the selected tests")["run"]
+    assert "--files-from mac_tests.txt" in run and '--shard "$SHARD/$total"' in run
+    ratchet = next(s for s in job["steps"] if s.get("name", "").startswith("Ratchet"))["run"]
+    assert "test-baseline-macos.json" in ratchet
+    # The selection is made once, in detect, and shipped in the snapshot; an
+    # empty matrix can never reach the job.
+    detect = ci["detect"]
+    select = next(s for s in detect["steps"] if s.get("id") == "mactests")["run"]
+    assert "select_tests.py --one-runner --changed-from changed.txt --out mac_tests.txt" in select
+    # The selection is sized by the duration history, so it runs after the
+    # step that guarantees one exists.
+    assert "--durations test_durations.json" in select
+    names = [s.get("name") or s.get("id") for s in detect["steps"]]
+    assert names.index("Ensure a duration snapshot exists") < names.index(
+        "Select the macOS tests this change can reach"
+    )
+    assert "'[1]'" in detect["outputs"]["mac_test_shards"]
+    shared = next(
+        s for s in detect["steps"] if s.get("name") == "Share duration snapshot with every shard"
+    )
+    assert "mac_tests.txt" in shared["with"]["path"].split()
+    # The gate waits for it and requires it when it was selected.
+    assert "tests-macos-impact" in ci["gate"]["needs"]
+    flags = {name: "true" for name in classify_changes.LANES}
+    flags.update(full="false", macos="false", release="false", proven="false")
+    flags.update(desktop_legs="primary", mac_tests="true")
+    assert "tests-macos-impact" in required_results.expected_jobs(flags)
+    needs = {name: {"result": "success"} for name in required_results.expected_jobs(flags)}
+    needs["detect"]["outputs"] = flags
+    assert required_results.evaluate(needs, pipeline=True)["ok"]
+    needs["tests-macos-impact"]["result"] = "skipped"
+    assert not required_results.evaluate(needs, pipeline=True)["ok"]
+    flags["mac_tests"] = "false"
+    assert "tests-macos-impact" not in required_results.expected_jobs(flags)
+
+
+def test_the_macos_runner_of_a_merge_group_is_filled_up_to_its_budget():
+    # The runner ended after one to three minutes while the gate waited eight
+    # to nine for Windows: the rest goes to the tests a macOS-only failure is
+    # most likely to show in, by the duration history.
+    reached = "tests/unit/brain/test_reached.py"
+    focus = "tests/unit/platform/test_focus.py"
+    lane = ["tests/unit/dictation/test_cheap.py", "tests/unit/dictation/test_dear.py"]
+    aware = "tests/unit/core/test_paths.py"
+    plain = "tests/unit/core/test_plain.py"
+    tests = sorted([reached, focus, *lane, aware, plain])
+    texts = dict.fromkeys(tests, "import json")
+    texts[aware] = 'if sys.platform == "darwin":'
+    history = {reached: 500.0, focus: 10.0, lane[0]: 5.0, lane[1]: 40.0, aware: 20.0, plain: 1.0}
+    assert select_tests.mac_lane_tests(tests) == sorted([*lane, focus])
+    assert select_tests.mac_aware(tests, texts) == [aware]
+
+    def sized(budget, mode="selected", chosen=(reached,)):
+        return select_tests.one_runner(mode, list(chosen), tests, texts, history, budget)[1]
+
+    # Enough budget: everything macOS-relevant, never an unrelated test.
+    assert sized(1000.0) == sorted([reached, focus, *lane, aware])
+    # What the change reached always runs, even alone above the budget.
+    assert sized(100.0) == [reached]
+    # The focused set first, then the lane's directories, then the tests
+    # that name macOS; a file that no longer fits ends its tier only.
+    assert sized(515.0) == sorted([reached, focus, lane[0]])
+    assert sized(536.0) == sorted([reached, focus, lane[0], aware])
+    # A change that reaches everything runs the whole focused set, then fills.
+    assert sized(0.0, mode="all", chosen=tests) == [focus]
+    assert sized(16.0, mode="all", chosen=tests) == sorted([focus, lane[0]])
+    # A file the history never timed costs the runner's default, not nothing.
+    assert select_tests.one_runner("selected", [reached], tests, texts, {}, 4.0)[1] == [reached]
+    # Whatever the selection holds, it is one runner.
+    assert select_tests.MAC_BUDGET_SECONDS <= 720
+
+
+def test_main_gets_the_whole_suite_on_macos_after_the_merge():
+    sweep = workflows()["macos-main-sweep.yml"]
+    triggers = sweep.get("on", sweep.get(True))
+    assert triggers["push"]["branches"] == ["main"]
+    # One sweep at a time and never cancelled: the pending one covers every
+    # commit merged while the running one took its single macOS slot.
+    assert sweep["concurrency"] == {"group": "macos-main-sweep", "cancel-in-progress": False}
+    assert sweep["permissions"] == {"contents": "read"}
+    assert list(sweep["jobs"]) == ["suite"]
+    job = sweep["jobs"]["suite"]
+    assert job["runs-on"] == "macos-latest" and "strategy" not in job
+    assert job["if"] == "github.ref == 'refs/heads/main'"
+    runs = "\n".join(step.get("run", "") for step in job["steps"])
+    assert "run_tests_parallel.py tests" in runs and "--shard" not in runs
+    assert "--files-from" not in runs and "test-baseline-macos.json" in runs
+    # Nothing waits for it: it is no job of the workflow behind `CI gate`.
+    assert "macos-main-sweep" not in yaml.safe_dump(workflows()["ci.yml"])
+    # A red sweep reaches someone through the same job as a red nightly.
+    alert = workflows()["nightly-alert.yml"]
+    watched = alert.get("on", alert.get(True))["workflow_run"]
+    assert watched["workflows"] == ["CI", sweep["name"]] and watched["branches"] == ["main"]
+    job = alert["jobs"]["alert"]
+    assert f"github.event.workflow_run.name == '{sweep['name']}'" in job["if"]
+    script = job["steps"][0]["run"]
+    assert '$path == ".github/workflows/macos-main-sweep.yml"' in script
+    assert "label=macos-main" in script and "/compare/" in script
+
+
+def test_only_a_complete_green_run_on_main_writes_the_duration_caches():
+    ci = workflows()["ci.yml"]["jobs"]
+    job = ci["duration-cache"]
+    # Any run on main (nightly, manual, a push that bypassed the queue), and
+    # only after every Linux and Windows shard succeeded: no `!cancelled()`.
+    assert job["if"] == "needs.detect.outputs.python == 'true' && github.ref == 'refs/heads/main'"
+    assert set(job["needs"]) == {"detect", "tests-linux", "tests-windows"}
+    saves = {
+        s["with"]["path"]: s["with"]["key"]
+        for s in job["steps"]
+        if "cache/save@" in s.get("uses", "")
+    }
+    assert saves == {
+        "test_durations.json": "test-durations-${{ github.run_id }}",
+        "test_durations_windows.json": "test-durations-windows-${{ github.run_id }}",
+    }
+    assert not any("cache/save@" in s.get("uses", "") for s in ci["test-report"]["steps"])
+    assert "duration-cache" in ci["gate"]["needs"]
+    # Each history is merged onto the one the run started from: a file that
+    # was flaky in this run reports no timing and must keep the one it had.
+    names = [s.get("name", "") for s in job["steps"]]
+    assert names.index("Download the duration history this run started from") < names.index(
+        "Merge the shard timings"
+    )
+    merge = next(s["run"] for s in job["steps"] if s.get("name") == "Merge the shard timings")
+    assert "--base test_durations.json --out test_durations.json reports/linux" in merge
+    assert (
+        "--base test_durations_windows.json --out test_durations_windows.json reports/windows"
+        in merge
+    )
+
+
+def test_windows_shards_by_its_own_history_and_falls_back_to_the_linux_one():
+    ci = workflows()["ci.yml"]["jobs"]
+    detect = ci["detect"]["steps"]
+    restores = {
+        s["with"]["path"]: s["with"]["restore-keys"]
+        for s in detect
+        if s.get("uses", "").startswith("actions/cache/restore@")
+    }
+    # Two caches with two keys: the Linux history keeps its key and version.
+    assert restores == {
+        "test_durations.json": "test-durations-",
+        "test_durations_windows.json": "test-durations-windows-",
+    }
+    ensure = next(s for s in detect if s.get("id") == "snapshot")["run"]
+    assert "test -s test_durations_windows.json || cp test_durations.json" in ensure
+    shared = next(s for s in detect if s.get("name") == "Share duration snapshot with every shard")
+    assert shared["with"]["path"].split()[:2] == [
+        "test_durations.json",
+        "test_durations_windows.json",
+    ]
+    windows = next(s for s in ci["tests-windows"]["steps"] if s.get("name") == "Run shard")["run"]
+    assert "--durations test_durations_windows.json" in windows
+    assert '--durations-out "out/durations-windows-$SHARD.json"' in windows
+    linux = next(s for s in ci["tests-linux"]["steps"] if s.get("name") == "Run shard")["run"]
+    assert "test_durations_windows" not in linux
 
 
 @pytest.mark.parametrize("payload", [{}, {"failed_ids": [], "counts": {}, "files": 0}])

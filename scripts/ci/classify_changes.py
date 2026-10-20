@@ -16,6 +16,9 @@ never be skipped when the change could break it:
 * ``python`` is a DENYLIST: it is off only when every path is provably
   outside what the test suite reads. Tests read docs/, the frontend source,
   install/ and assets/, so those keep it on.
+* ``--proven`` is the one way every lane goes off: the caller verified that
+  the merge queue already passed this exact commit (``plan_run.py proven``),
+  so nothing is left to prove on the push that lands it.
 
 Outputs beyond the lanes:
 
@@ -35,6 +38,12 @@ import os
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from scripts.ci import agent_runtime_suite  # noqa: E402
 
 # Trees the Python suite never reads (verified by grepping tests/ for each).
 # Everything NOT listed keeps the python lane on — unknown means relevant.
@@ -56,6 +65,13 @@ _PY_IRRELEVANT_FILES = {
 }
 
 _PIPELINE_PREFIXES = (".github/workflows/", ".github/actions/", "scripts/ci/")
+
+# The package directory as every table below spells it. A changed path under
+# any name the directory has had is read as this spelling first, so renaming
+# the directory can never turn a lane off: neither for the commit that moves
+# it nor for a branch that still carries the other layout.
+_PACKAGE_PREFIX = "jarvis/"
+_PACKAGE_NAMES = ("jarvis", "dodaios")
 
 _FRONTEND_PREFIXES = ("jarvis/ui/web/frontend/",)
 _FRONTEND_FILES = {"scripts/ci/check_frontend_bundle_budget.py"}
@@ -233,6 +249,7 @@ LANES = (
     "macos_desktop",
     "installer",
     "updater",
+    "agent_runtimes",
 )
 
 
@@ -242,6 +259,9 @@ def _normalize(paths: Iterable[str]) -> list[str]:
         path = raw.strip().replace("\\", "/")
         if path.startswith("./"):
             path = path[2:]
+        head, slash, rest = path.partition("/")
+        if slash and head in _PACKAGE_NAMES:
+            path = _PACKAGE_PREFIX + rest
         if path:
             out.append(path)
     return out
@@ -256,8 +276,10 @@ def _python_relevant(path: str) -> bool:
     return not (path.startswith(_PY_IRRELEVANT_PREFIXES) or path in _PY_IRRELEVANT_FILES)
 
 
-def classify(paths: Iterable[str], *, full: bool = False) -> dict[str, bool]:
+def classify(paths: Iterable[str], *, full: bool = False, proven: bool = False) -> dict[str, bool]:
     """Return ``{lane: bool}`` plus ``full`` for a change set."""
+    if proven:
+        return {**{lane: False for lane in LANES}, "full": False}
     changed = _normalize(paths)
     force = full or not changed or _any(changed, _PIPELINE_PREFIXES)
     if force:
@@ -276,6 +298,10 @@ def classify(paths: Iterable[str], *, full: bool = False) -> dict[str, bool]:
         "macos_desktop": _any(changed, _MACOS_PREFIXES, _MACOS_FILES),
         "installer": _any(changed, _INSTALLER_PREFIXES, _INSTALLER_FILES),
         "updater": _any(changed, _UPDATER_PREFIXES, _UPDATER_FILES),
+        # Hermes / OpenClaw agents, proven on all three OSes and with the
+        # real runtimes (scripts/ci/agent_runtime_suite.py owns the table).
+        "agent_runtimes": any(agent_runtime_suite.touches(p) for p in changed)
+        or _any(changed, (), _DEPS_FILES),
         "full": False,
     }
 
@@ -289,6 +315,11 @@ def _emit(result: dict[str, bool], changed_count: int) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--full", action="store_true", help="Force every lane on.")
+    parser.add_argument(
+        "--proven",
+        action="store_true",
+        help="Every lane off: the merge queue already passed this exact commit.",
+    )
     parser.add_argument("--files-from", type=Path, help="Read paths from this file, not stdin.")
     args = parser.parse_args(argv)
 
@@ -299,7 +330,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         paths = [] if sys.stdin is None or sys.stdin.isatty() else sys.stdin.read().splitlines()
     changed = _normalize(paths)
-    result = classify(changed, full=args.full)
+    result = classify(changed, full=args.full, proven=args.proven)
     lines = _emit(result, len(changed))
 
     output = os.environ.get("GITHUB_OUTPUT")

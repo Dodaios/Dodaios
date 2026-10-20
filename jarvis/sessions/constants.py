@@ -140,7 +140,7 @@ SPOKEN_KIND_UNAVAILABLE: Final[str] = "unavailable"
 """The whole brain provider chain was unreachable."""
 
 SPOKEN_KIND_STT_UNAVAILABLE: Final[str] = "stt_unavailable"
-"""Speech-to-text exhausted its retries — Jarvis could not hear the user."""
+"""Speech-to-text exhausted its retries — Dodaios could not hear the user."""
 
 SPOKEN_KIND_PRIVACY: Final[str] = "privacy"
 """A privacy acknowledgement ('Ja.' / 'Ich sehe wieder.') for the vision toggle."""

@@ -42,11 +42,16 @@ ExtraBuilder = Callable[[Any, Any], Awaitable[str]]
 SessionToolsBuilder = Callable[[Any, Any, Any], dict[str, Tool]]
 SessionExtraBuilder = Callable[[Any, Any, Any], Awaitable[str]]
 SessionFilterBuilder = Callable[[Any], Callable[[dict[str, Tool]], dict[str, Tool]] | None]
+#: ``session -> tool names`` this session's caller works with, or ``None``
+#: (see ``TurnOverride.tools_direct``).
+SessionDirectTools = Callable[[Any], frozenset[str] | None]
 #: ``(session, tool_name, args) -> handled``: what "Always allow" on the
 #: approval card means on this surface. ``True`` = the surface remembered it
 #: its own way (a society agent writes its own approval rule); ``False`` =
 #: the service falls back to its default (the session flips to auto).
 SessionAlwaysAllow = Callable[[Any, str, dict[str, Any]], Awaitable[bool]]
+#: ``(session, user_text, assistant_name) -> system prompt`` of a plain chat.
+PlainChatBuilder = Callable[[Any, str, str], Awaitable[str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +109,7 @@ class SurfaceKit:
     session_tools: SessionToolsBuilder | None = None
     session_system_extra: SessionExtraBuilder | None = None
     session_tool_filter: SessionFilterBuilder | None = None
+    session_direct_tools: SessionDirectTools | None = None
     #: How the card's "Always allow" is remembered here (see the alias above).
     session_always_allow: SessionAlwaysAllow | None = None
     turn_completed: Callable[[Any, ChatCompletion], Awaitable[None]] | None = None
@@ -112,6 +118,15 @@ class SurfaceKit:
     #: block becomes a question card and a finished plan-mode turn a plan card,
     #: so every CLI can ask and have its plan approved, not only Claude Code.
     turn_prompts: bool = False
+    #: A plain conversation: no tool on any seat. The builder writes the whole
+    #: system prompt; an API seat gets it as its system prompt, a CLI seat at
+    #: the head of every conversation it starts. The picker lists only the seats that can
+    #: answer without tools (``catalog.rows_for``).
+    plain_chat: PlainChatBuilder | None = None
+
+    @property
+    def plain(self) -> bool:
+        return self.plain_chat is not None
 
 
 def _chat_workspace() -> Path:
@@ -173,6 +188,13 @@ def _society_filter(session: Any) -> Callable[[dict[str, Tool]], dict[str, Tool]
     return society_tool_filter(session)
 
 
+def _society_direct(session: Any) -> frozenset[str] | None:
+    """The tools the agent's role points at (lazy)."""
+    from jarvis.society.surface import society_direct_tools
+
+    return society_direct_tools(session)
+
+
 async def _society_always_allow(session: Any, tool_name: str, args: dict[str, Any]) -> bool:
     """ "Always allow" writes the agent's own approval rule (lazy)."""
     from jarvis.society.surface import remember_always_allow
@@ -205,6 +227,13 @@ def _society_history_start(session: Any) -> int:
         return 0  # Subscription seats retain their vendor's history/compaction contract.
     runtime = current_runtime()
     return runtime.conversations.checkpoint(session.session_id)[0] if runtime is not None else 0
+
+
+async def _side_chat(session: Any, user_text: str, assistant_name: str) -> str:
+    """The IDE side chat's system prompt (lazy, AP-26)."""
+    from jarvis.agentic_ide.side_chat import system_prompt
+
+    return await system_prompt(session, user_text, assistant_name)
 
 
 def _only_local_models(tools: dict[str, Tool]) -> dict[str, Tool]:
@@ -284,9 +313,20 @@ _KITS: Final[dict[str, SurfaceKit]] = {
         session_tools=_society_tools,
         session_system_extra=_society_extra,
         session_tool_filter=_society_filter,
+        session_direct_tools=_society_direct,
         session_always_allow=_society_always_allow,
         turn_completed=_society_completed,
         history_start=_society_history_start,
+        workspace_dir=_chat_workspace,
+    ),
+    # The Agentic IDE's side chat: a plain AI chat beside the terminals. No
+    # tools, no approvals, no workspace - the model answers from the
+    # conversation alone. Subscription CLIs may answer too, run tool-free, so a
+    # person without an API key still has a chat.
+    "side": SurfaceKit(
+        surface="side",
+        cli_seats=True,
+        plain_chat=_side_chat,
         workspace_dir=_chat_workspace,
     ),
 }

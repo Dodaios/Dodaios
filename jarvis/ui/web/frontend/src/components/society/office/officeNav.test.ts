@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allDesks, buildOfficeLayout, seatOf, standOf, type OfficeAgentInput, type OfficeLayout, type Point } from "./officeLayout";
+import { allDesks, buildOfficeLayout, seatOf, standOf, type OfficeAgentInput, type OfficeLayout, type OfficeTeamInput, type Point } from "./officeLayout";
 import { buildNavGrid, findPath, hasLineOfSight, isWalkable, nearestWalkable, randomWalkablePoint, type NavGrid } from "./officeNav";
 import { createRng } from "./officeBehavior";
 
@@ -9,6 +9,13 @@ function roster(count: number): OfficeAgentInput[] {
   return Array.from({ length: count }, (_, i) => ({
     agentId: `a${i}`, name: `a${i}`, tier: i === 0 ? "lead" : "specialist",
     providerLabel: PROVIDERS[i % PROVIDERS.length], state: "idle", createdMs: i,
+  }));
+}
+
+/** `count` teams of `size` staff agents each (a0 is the lead), oldest first. */
+function teamsOf(count: number, size: number): OfficeTeamInput[] {
+  return Array.from({ length: count }, (_, t) => ({
+    id: `team-${t}`, name: `Team ${t}`, createdMs: t, members: Array.from({ length: size }, (_, i) => `a${1 + t * size + i}`),
   }));
 }
 
@@ -76,6 +83,35 @@ describe("office navigation", () => {
     });
   }
 
+  // The agents floor is built from its teams: every studio's seats, huddle places and board must be reachable too.
+  const TEAM_CASES: [string, number, OfficeTeamInput[]][] = [
+    ["one team", 10, teamsOf(1, 4)],
+    ["three teams", 16, teamsOf(3, 4)],
+    ["eight teams", 40, teamsOf(8, 4)],
+    ["teams of two and of twelve", 20, [...teamsOf(1, 12), { id: "duo", name: "Duo", createdMs: 99, members: ["a13", "a14"] }]],
+    ["an agent in two teams and a team of unknown ids", 9, [
+      { id: "x", name: "X", createdMs: 1, members: ["a1", "a2", "a3"] }, { id: "y", name: "Y", createdMs: 2, members: ["a3", "a4"] },
+      { id: "ghosts", name: "Ghosts", createdMs: 3, members: ["nobody-1", "nobody-2"] },
+    ]],
+  ];
+  for (const [name, count, teams] of TEAM_CASES) {
+    it(`reaches every seat, spot and checkpoint of a team campus from the spawn and the elevator (${name})`, () => {
+      const layout = buildOfficeLayout(roster(count), { teams });
+      expect(layout.studios).toHaveLength(teams.length + 1);
+      const grid = buildNavGrid(layout);
+      const elevator = layout.checkpoints.find((c) => c.id === "elevator")!;
+      for (const start of [layout.spawn, elevator]) {
+        expect(isWalkable(grid, start)).toBe(true);
+        for (const { name: target, p } of targetsOf(layout)) {
+          const path = findPath(grid, start, p);
+          if (!path) throw new Error(`${target} at ${p.x.toFixed(2)},${p.z.toFixed(2)} is unreachable`);
+          if (path.length === 0) continue;
+          assertClearPath(grid, start, p, path, target);
+        }
+      }
+    });
+  }
+
   it("blocks obstacles and everything outside the floor", () => {
     const layout = buildOfficeLayout(roster(4));
     const grid = buildNavGrid(layout);
@@ -92,7 +128,7 @@ describe("office navigation", () => {
   it("has no line of sight through a desk row", () => {
     const layout = buildOfficeLayout(roster(4));
     const grid = buildNavGrid(layout);
-    const desk = allDesks(layout).find((d) => d.id.startsWith("dept-0:0:south"))!;
+    const desk = allDesks(layout).find((d) => d.id.includes(":0:south:"))!;
     const seat = seatOf(desk);
     const across = { x: seat.x, z: desk.z + 2 };
     expect(hasLineOfSight(grid, seat, across)).toBe(false);
