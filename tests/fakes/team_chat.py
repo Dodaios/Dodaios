@@ -13,9 +13,9 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.service import SessionBusy
-from jarvis.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.service import SessionBusy
+from dodaios.agent_chat.store import AgentChatStore
 
 Script = Callable[[str, dict[str, Any]], Awaitable[str]]
 

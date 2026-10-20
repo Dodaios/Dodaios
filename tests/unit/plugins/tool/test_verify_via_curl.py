@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.plugins.tool.verify_via_curl import VerifyViaCurlTool
+from dodaios.plugins.tool.verify_via_curl import VerifyViaCurlTool
 
 
 @dataclass
@@ -137,7 +137,7 @@ async def test_http_call_is_offloaded_via_to_thread(
         return await real_to_thread(func, *args, **kwargs)
 
     monkeypatch.setattr(
-        "jarvis.plugins.tool.verify_via_curl.asyncio.to_thread",
+        "dodaios.plugins.tool.verify_via_curl.asyncio.to_thread",
         _recording_to_thread,
     )
     monkeypatch.setattr(

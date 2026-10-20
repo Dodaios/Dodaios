@@ -11,7 +11,7 @@ import asyncio
 
 import pytest
 
-from jarvis.dictation.local_preview import (
+from dodaios.dictation.local_preview import (
     LocalPreviewTranscriber,
     local_preview,
     reset_local_preview_for_tests,
@@ -83,7 +83,7 @@ async def test_a_second_caller_is_turned_away_not_queued():
 
 async def test_a_slow_preview_is_abandoned_not_awaited():
     """Stale preview text is worthless; the loop must not wait for it."""
-    import jarvis.dictation.local_preview as mod
+    import dodaios.dictation.local_preview as mod
 
     engine = _Engine(delay=0.5)
     original = mod.PREVIEW_TIMEOUT_S
@@ -130,7 +130,7 @@ def test_no_local_engine_means_no_local_preview(monkeypatch):
     Returning None rather than an inert object keeps that fallback an explicit
     decision instead of a preview that silently never appears.
     """
-    import jarvis.dictation.local_preview as mod
+    import dodaios.dictation.local_preview as mod
 
     monkeypatch.setattr(mod, "faster_whisper_available", lambda: False)
     assert local_preview() is None
@@ -138,7 +138,7 @@ def test_no_local_engine_means_no_local_preview(monkeypatch):
 
 def test_the_engine_is_shared_across_dictations(monkeypatch):
     """Consecutive dictations must not each pay the model load."""
-    import jarvis.dictation.local_preview as mod
+    import dodaios.dictation.local_preview as mod
 
     monkeypatch.setattr(mod, "faster_whisper_available", lambda: True)
     assert local_preview() is local_preview()
@@ -201,7 +201,7 @@ def test_the_device_probe_asks_ctranslate2_not_torch(monkeypatch):
 
 def test_a_cuda_model_that_cannot_decode_falls_back_to_cpu(monkeypatch):
     """A successful constructor is not proof that CUDA inference is usable."""
-    import jarvis.plugins.stt.fwhisper as fwhisper
+    import dodaios.plugins.stt.fwhisper as fwhisper
 
     calls: list[tuple[str, str]] = []
     cpu_model = object()
@@ -235,7 +235,7 @@ def test_a_cuda_model_that_cannot_decode_falls_back_to_cpu(monkeypatch):
 
 async def test_a_timed_out_native_call_keeps_the_engine_busy_until_it_really_ends():
     """AP-24: the timeout bounds the wait; it does not stop the native thread."""
-    import jarvis.dictation.local_preview as mod
+    import dodaios.dictation.local_preview as mod
 
     engine = _Engine(delay=0.15)
     original = mod.PREVIEW_TIMEOUT_S
@@ -259,7 +259,7 @@ async def test_a_wedged_native_preview_rotates_to_a_fresh_model_and_guard():
     """BUG-036: busy ticks must eventually orphan a never-returning engine."""
     import threading
 
-    import jarvis.dictation.local_preview as mod
+    import dodaios.dictation.local_preview as mod
 
     release = threading.Event()
     engine = _Engine()
@@ -384,7 +384,7 @@ def test_the_device_probe_prefers_plain_half_precision_on_cuda(monkeypatch):
 def test_a_dropped_engine_is_rebuilt_on_the_next_device_not_the_same_one(monkeypatch):
     """The rebuild spiral: an engine that keeps timing out was rebuilt with the
     SAME settings and timed out again, every 7 s. A drop now advances."""
-    import jarvis.plugins.stt.fwhisper as fwhisper
+    import dodaios.plugins.stt.fwhisper as fwhisper
 
     calls: list[tuple[str, str]] = []
 
@@ -428,7 +428,7 @@ def test_a_dropped_engine_is_rebuilt_on_the_next_device_not_the_same_one(monkeyp
 
 async def test_a_late_but_successful_preview_ends_the_failure_streak():
     """Slow is not wedged: a worker that comes back resets the drop counter."""
-    import jarvis.dictation.local_preview as mod
+    import dodaios.dictation.local_preview as mod
 
     engine = _Engine(delay=0.05)
     original = mod.PREVIEW_TIMEOUT_S
@@ -457,7 +457,7 @@ def test_the_worker_interpreter_is_found_when_the_branded_exe_stands_alone(
     """
     import sys
 
-    from jarvis.dictation import local_preview
+    from dodaios.dictation import local_preview
 
     branded_dir = tmp_path / "bin"
     branded_dir.mkdir()
@@ -479,7 +479,7 @@ def test_the_worker_interpreter_is_found_when_the_branded_exe_stands_alone(
 def test_a_missing_worker_interpreter_still_fails_loudly(monkeypatch, tmp_path):
     import sys
 
-    from jarvis.dictation import local_preview
+    from dodaios.dictation import local_preview
 
     branded = tmp_path / "PersonalJarvis.exe"
     branded.write_bytes(b"")
@@ -497,7 +497,7 @@ def test_a_relocated_copy_with_a_lost_prefix_finds_the_stdlib_install(monkeypatc
     the registry-supplied stdlib on ``sys.path`` still names the install."""
     import sys
 
-    from jarvis.dictation import local_preview
+    from dodaios.dictation import local_preview
 
     if sys.platform != "win32":
         pytest.skip("the relocated branded copy exists only on Windows")

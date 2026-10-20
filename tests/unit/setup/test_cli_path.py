@@ -1,4 +1,4 @@
-"""PATH setup for the terminal commands (jarvis/setup/cli_path.py), every OS."""
+"""PATH setup for the terminal commands (dodaios/setup/cli_path.py), every OS."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.setup import cli_path
-from jarvis.setup.cli_path import (
+from dodaios.setup import cli_path
+from dodaios.setup.cli_path import (
     COMMAND_NAMES,
     PROFILE_MARKER,
     add_profile_block,
@@ -241,7 +241,7 @@ def test_posix_bin_dir_is_the_xdg_user_bin(tmp_path):
 def test_no_command_collides_with_the_branded_windows_launcher():
     """Windows paths ignore case: a `personaljarvis` console script would be
     the same file as the branded launcher that pip and the app both write."""
-    from jarvis.core.instance import current_instance
+    from dodaios.core.instance import current_instance
 
     branded = Path(current_instance().windows_branded_launcher_file_name).stem.casefold()
     assert branded not in {command.casefold() for command in COMMAND_NAMES}

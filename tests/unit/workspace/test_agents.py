@@ -10,8 +10,8 @@ import sys
 
 import pytest
 
-from jarvis.clis.spec import CliSpec, CliStatus
-from jarvis.workspace.agents import (
+from dodaios.clis.spec import CliSpec, CliStatus
+from dodaios.workspace.agents import (
     AGENT_NAMES,
     PLAIN_TERMINAL,
     WorkspaceAgent,
@@ -294,7 +294,7 @@ async def test_a_registered_cli_is_detected_and_launchable_like_the_built_ins() 
         assert infos["acme"].installed is True
         assert infos["acme"].version == "1.2.3"
     finally:
-        from jarvis.workspace import agents as registry
+        from dodaios.workspace import agents as registry
 
         registry._AGENTS.pop("acme", None)
 
@@ -321,7 +321,7 @@ class CountingProber:
 @pytest.fixture
 def _no_cached_detection():
     """Run against a cold cache and leave one behind."""
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     registry.invalidate_agent_detection()
     yield
@@ -338,7 +338,7 @@ async def test_detection_is_cached_between_reads(monkeypatch, _no_cached_detecti
     of those used to pay for a fresh sweep, which the wake microphone (delivered
     on that same loop) paid for as added latency.
     """
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     prober = CountingProber()
     monkeypatch.setattr(registry, "CliStatusProber", lambda: prober)
@@ -353,7 +353,7 @@ async def test_detection_is_cached_between_reads(monkeypatch, _no_cached_detecti
 @pytest.mark.asyncio
 async def test_concurrent_reads_share_one_sweep(monkeypatch, _no_cached_detection) -> None:
     """Six panes asking at once are six answers, not six subprocess bursts."""
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     prober = CountingProber()
     monkeypatch.setattr(registry, "CliStatusProber", lambda: prober)
@@ -369,7 +369,7 @@ async def test_force_and_invalidate_reach_the_machine_again(
     monkeypatch, _no_cached_detection
 ) -> None:
     """A CLI installed while the app runs must not wait out the TTL."""
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     prober = CountingProber()
     monkeypatch.setattr(registry, "CliStatusProber", lambda: prober)
@@ -387,7 +387,7 @@ async def test_an_explicit_prober_never_reads_or_fills_the_cache(
     _no_cached_detection,
 ) -> None:
     """Handing over a prober is asking for THAT prober's answer."""
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     mine = FakeProber({"claude": CliStatus(installed=True, version="9.9.9")})
     infos = {i.name: i for i in await detect_agents(mine)}
@@ -425,7 +425,7 @@ async def test_a_recheck_probes_one_entry_and_not_the_others(
     processes to learn one fact — and stall the loop the wake microphone is
     delivered on while doing it.
     """
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     prober = OneProber(CliStatus(installed=True, version="0.1.1"))
     monkeypatch.setattr(registry, "CliStatusProber", lambda: prober)
@@ -446,7 +446,7 @@ async def test_a_recheck_drops_the_cached_sweep(monkeypatch, _no_cached_detectio
     the TTL everywhere ELSE in the app — which looks exactly like an installer
     that did nothing.
     """
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     counting = CountingProber()
     monkeypatch.setattr(registry, "CliStatusProber", lambda: counting)
@@ -473,7 +473,7 @@ async def test_a_recheck_answers_for_every_kind_of_entry(monkeypatch) -> None:
     copy, so an entry that has no spec answers the way it always did instead of
     reaching for a subprocess that would never work on it.
     """
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     monkeypatch.setattr(registry, "CliStatusProber", lambda: OneProber(CliStatus(installed=False)))
     shell = await registry.recheck_agent(PLAIN_TERMINAL)
@@ -487,6 +487,6 @@ async def test_a_recheck_answers_for_every_kind_of_entry(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_a_recheck_of_something_unregistered_is_not_an_answer() -> None:
     """``None``, so the route can 404 rather than invent a row."""
-    from jarvis.workspace import agents as registry
+    from dodaios.workspace import agents as registry
 
     assert await registry.recheck_agent("no-such-cli") is None

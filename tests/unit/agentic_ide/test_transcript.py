@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide.screen import ScreenBuffer
-from jarvis.agentic_ide.transcript import ReplayBuffer, Transcript, is_noise, strip_ansi
+from dodaios.agentic_ide.screen import ScreenBuffer
+from dodaios.agentic_ide.transcript import ReplayBuffer, Transcript, is_noise, strip_ansi
 
 REPAINT_CASES = json.loads(
     (Path(__file__).parents[2] / "fakes" / "terminal_repaint_cases.json").read_text(

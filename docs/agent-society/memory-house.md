@@ -23,10 +23,10 @@ Jarvis itself has four memory layers; the society uses one of them, thinly.
 
 | Layer | Where | Who writes | Who reads | Society agents today |
 |---|---|---|---|---|
-| **Core memory** (persona, user facts, ~1.5 k tokens, always in the prompt) | `data/core_memory.json` (`jarvis/memory/core_memory.py`) | the `remember` tool, the wizard | every brain call of Jarvis | not in their prompt; `remember` is a core tool they *can* call, which would write Jarvis' facts, not theirs |
-| **Recall** (conversation log + awareness episodes, FTS5/BM25) | `data/jarvis.db` (`jarvis/memory/recall.py`) | the message recorder, awareness | `awareness-recall`, `awareness-snapshot` | Jarvis' episodes only; agent chats are not recorded there |
-| **The wiki** (the long-term store: entities, concepts, projects, sessions; two-stage LLM curator; FTS5 index; a per-turn context injector with relevance gates) | `wiki/obsidian-vault/` (`jarvis/memory/wiki/*`, `jarvis/brain/wiki_context.py`) | the curator, `wiki-ingest`, the user in Obsidian | `wiki-recall`, `wiki-page-read`, `wiki-list`, the injector | **read**: the three tools when granted. **write**: only `society_wiki_note` into `society/<id>/` (a memory page + dated notes), with a `knowledge` staging row per write. `wiki-ingest` is denied |
-| **Skills** (procedural memory) | `skills/`, `data/society/<id>/skills/` (`jarvis/society/learning.py`) | the learning pass | the briefing, `society_run_skill` | built in the last wave; private per agent, promotion as draft |
+| **Core memory** (persona, user facts, ~1.5 k tokens, always in the prompt) | `data/core_memory.json` (`dodaios/memory/core_memory.py`) | the `remember` tool, the wizard | every brain call of Jarvis | not in their prompt; `remember` is a core tool they *can* call, which would write Jarvis' facts, not theirs |
+| **Recall** (conversation log + awareness episodes, FTS5/BM25) | `data/jarvis.db` (`dodaios/memory/recall.py`) | the message recorder, awareness | `awareness-recall`, `awareness-snapshot` | Jarvis' episodes only; agent chats are not recorded there |
+| **The wiki** (the long-term store: entities, concepts, projects, sessions; two-stage LLM curator; FTS5 index; a per-turn context injector with relevance gates) | `wiki/obsidian-vault/` (`dodaios/memory/wiki/*`, `dodaios/brain/wiki_context.py`) | the curator, `wiki-ingest`, the user in Obsidian | `wiki-recall`, `wiki-page-read`, `wiki-list`, the injector | **read**: the three tools when granted. **write**: only `society_wiki_note` into `society/<id>/` (a memory page + dated notes), with a `knowledge` staging row per write. `wiki-ingest` is denied |
+| **Skills** (procedural memory) | `skills/`, `data/society/<id>/skills/` (`dodaios/society/learning.py`) | the learning pass | the briefing, `society_run_skill` | built in the last wave; private per agent, promotion as draft |
 
 What is missing, found by reading the code, not the plan:
 
@@ -86,7 +86,7 @@ Every agent-written page carries `type: society`, `title`, `author: agent:<id>`,
 `trace`, `reviewed`, and shared pages add `promoted_from` and `promoted_ms`. `type: society`
 makes them schema-valid for the vault index without touching the schema of the user's pages.
 
-### 3.2 `jarvis/society/memory.py` — the one memory service
+### 3.2 `dodaios/society/memory.py` — the one memory service
 
 ```
 SocietyMemory(store, vault_root, on_activity)
@@ -117,7 +117,7 @@ available and are skipped quietly when it is not. Every call emits a `DIGEST` en
 
 ### 3.4 The world reads memory — the checkpoint engine
 
-`jarvis/society/checkpoints.py`, trusted Python, pure rules over facts the runtime already has
+`dodaios/society/checkpoints.py`, trusted Python, pure rules over facts the runtime already has
 (the vocabulary that exists in every layer today — `desk | meeting | archive | gate | idle`):
 
 1. `state == paused` → `idle`
@@ -161,14 +161,14 @@ the service refuses a `remember`/`note` body that matches the secret guard patte
 
 | # | Item | Where | Done when |
 |---|---|---|---|
-| 1 ✅ | `SocietyMemory` service: head, recall, remember, note, propose_shared, promote, dismiss, overview; `DIGEST kind=memory` per op; `type: society` frontmatter; secret guard | `jarvis/society/memory.py` | `tests/unit/society/test_memory.py` green |
+| 1 ✅ | `SocietyMemory` service: head, recall, remember, note, propose_shared, promote, dismiss, overview; `DIGEST kind=memory` per op; `type: society` frontmatter; secret guard | `dodaios/society/memory.py` | `tests/unit/society/test_memory.py` green |
 | 2 ✅ | Tools: `society_memory_recall`; `society_wiki_note` delegates to the service and accepts `kind: shared` | `agent_tools.py`, `surface.py` | tool tests green, briefing shows `## Your memory` |
-| 3 ✅ | Checkpoint engine + `SocietyCheckpointChanged` + runtime hooks (run start/end, memory activity, approval enqueue/resolve, room open/settle) | `checkpoints.py`, `runtime.py`, `jarvis/core/events.py` | `test_checkpoints.py` green; the roster row flips to `archive` after a memory op |
+| 3 ✅ | Checkpoint engine + `SocietyCheckpointChanged` + runtime hooks (run start/end, memory activity, approval enqueue/resolve, room open/settle) | `checkpoints.py`, `runtime.py`, `dodaios/core/events.py` | `test_checkpoints.py` green; the roster row flips to `archive` after a memory op |
 | 4 ✅ | REST: `GET /api/society/memory`, `POST /api/society/memory/recall`, `POST /api/society/memory/{id}/promote`, `POST …/dismiss`; approvals resolve promotes `core:memory:share` items | `society_routes.py` | route tests green; CLI coverage gate green |
 | 5 ✅ | Blender: `build_memory_house()`; GLB exported; preview checked through the MCP | `scripts/world/kit_memory_house.py`, `assets/society/world/kit/memory-house.glb` | GLB in the tree (4 584 triangles: the glass, the core and the halo cost more than a hall; trimmed bevels keep it near the other hubs) |
 | 6 ✅ | Island: the Memory House stands on the archive plot, old tower removed, footprint blocks walking, label renamed in three locales | `MemoryHouse.tsx`, `Landmarks.tsx`, `islandLayout.ts`, `PlaceLabels.tsx`, locales | `islandLayout.test.ts` green |
 | 7 ✅ | Memory drawer + live core signal + WS invalidation on `SocietyCheckpointChanged` | `MemoryDrawer.tsx`, `MemoryHouse.tsx`, `WorldStage.tsx`, `useWebSocket.ts` | drawer opens on click; core glows when an agent is at the house |
-| 8 ✅ | Docs: this file, `jarvis/society/README.md`, `world-behaviour-manual.md` §3 note, `agent-definition.md` §5 pointer | docs | privacy review of touched docs |
+| 8 ✅ | Docs: this file, `dodaios/society/README.md`, `world-behaviour-manual.md` §3 note, `agent-definition.md` §5 pointer | docs | privacy review of touched docs |
 | 9 | Bundle rebuilt (`npm run build`), commits per wave by pathspec, no push | — | the running app shows the house after its self-reload |
 
 ## 5. Tests

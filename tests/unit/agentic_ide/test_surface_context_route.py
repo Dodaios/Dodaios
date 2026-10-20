@@ -8,9 +8,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry
-from jarvis.ui.web import agentic_ide_routes
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry
+from dodaios.ui.web import agentic_ide_routes
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -145,7 +145,7 @@ def test_the_pydantic_literal_still_matches_the_source_of_truth() -> None:
     """
     from typing import get_args
 
-    from jarvis.agentic_ide.workspace_view import WORKSPACE_VIEWS
+    from dodaios.agentic_ide.workspace_view import WORKSPACE_VIEWS
 
     assert set(get_args(agentic_ide_routes.WorkspaceViewName)) == set(WORKSPACE_VIEWS)
 

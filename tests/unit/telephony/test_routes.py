@@ -11,10 +11,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.ui.web.telephony_routes as routes
-from jarvis.core.config import JarvisConfig, TwilioConfig
-from jarvis.telephony.status import TelephonyManager
-from jarvis.ui.web.telephony_routes import router as telephony_router
+import dodaios.ui.web.telephony_routes as routes
+from dodaios.core.config import JarvisConfig, TwilioConfig
+from dodaios.telephony.status import TelephonyManager
+from dodaios.ui.web.telephony_routes import router as telephony_router
 
 
 @pytest.fixture
@@ -129,7 +129,7 @@ def test_config_post_persists_via_writer(app, secret_store, fake_cfg, monkeypatc
         for k, v in values.items():
             setattr(fake_cfg.integrations.twilio, k, v)
 
-    monkeypatch.setattr("jarvis.core.config_writer.set_telephony_config", fake_writer)
+    monkeypatch.setattr("dodaios.core.config_writer.set_telephony_config", fake_writer)
     monkeypatch.setattr(routes.cfg_mod, "load_config", lambda *a, **k: fake_cfg)
 
     with TestClient(app) as client:
@@ -146,7 +146,7 @@ def test_config_post_persists_via_writer(app, secret_store, fake_cfg, monkeypatc
 def test_credentials_stores_token_and_sid(app, secret_store, fake_cfg, monkeypatch):
     written: dict[str, object] = {}
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_telephony_config",
+        "dodaios.core.config_writer.set_telephony_config",
         lambda values, **kw: written.update(values),
     )
     monkeypatch.setattr(routes.cfg_mod, "load_config", lambda *a, **k: fake_cfg)
@@ -182,7 +182,7 @@ def test_config_post_updates_live_shared_config_without_reload(
         for k, v in values.items():
             setattr(fake_cfg.integrations.twilio, k, v)
 
-    monkeypatch.setattr("jarvis.core.config_writer.set_telephony_config", fake_writer)
+    monkeypatch.setattr("dodaios.core.config_writer.set_telephony_config", fake_writer)
     monkeypatch.setattr(routes.cfg_mod, "load_config", lambda *a, **k: fake_cfg)
 
     live_twilio_before = app.state.config.integrations.twilio
@@ -201,7 +201,7 @@ def test_config_post_updates_live_shared_config_without_reload(
 
 def test_credentials_post_updates_live_shared_config_sid(app, secret_store, fake_cfg, monkeypatch):
     monkeypatch.setattr(
-        "jarvis.core.config_writer.set_telephony_config",
+        "dodaios.core.config_writer.set_telephony_config",
         lambda values, **kw: setattr(
             fake_cfg.integrations.twilio, "account_sid", values["account_sid"]
         ),
@@ -226,7 +226,7 @@ def test_credentials_reports_partial_commit_when_sid_write_fails(
     def _boom(values, **kw):
         raise RuntimeError("disk full (simulated)")
 
-    monkeypatch.setattr("jarvis.core.config_writer.set_telephony_config", _boom)
+    monkeypatch.setattr("dodaios.core.config_writer.set_telephony_config", _boom)
 
     with TestClient(app) as client:
         r = client.post(
@@ -248,7 +248,7 @@ def test_outbound_route_hides_unexpected_exception_text(app, secret_store, monke
     def boom(**kwargs):
         raise RuntimeError("C:/internal/path secret-ish detail")
 
-    monkeypatch.setattr("jarvis.telephony.outbound.place_call", boom)
+    monkeypatch.setattr("dodaios.telephony.outbound.place_call", boom)
     with TestClient(app) as client:
         r = client.post("/api/telephony/outbound", json={"to": "+4915112345678", "opening": "Hi"})
     assert r.status_code == 409
@@ -257,7 +257,7 @@ def test_outbound_route_hides_unexpected_exception_text(app, secret_store, monke
 
 
 def test_calls_endpoint_returns_ring_buffer(app, secret_store):
-    from jarvis.telephony.status import CallRecord
+    from dodaios.telephony.status import CallRecord
 
     mgr: TelephonyManager = app.state.telephony_manager
     mgr.record_call(
@@ -350,7 +350,7 @@ def test_outbound_route_places_call(app, secret_store, fake_cfg, monkeypatch):
         captured.update(kwargs)
         return "CA_OUT_42"
 
-    monkeypatch.setattr("jarvis.telephony.outbound.place_call", fake_place_call)
+    monkeypatch.setattr("dodaios.telephony.outbound.place_call", fake_place_call)
     with TestClient(app) as client:
         r = client.post(
             "/api/telephony/outbound",
@@ -402,12 +402,12 @@ def test_outbound_route_graceful_when_twilio_missing(app, secret_store, monkeypa
 
 
 def test_outbound_route_surfaces_provision_error(app, secret_store, monkeypatch):
-    from jarvis.telephony.provisioning import TelephonyProvisionError
+    from dodaios.telephony.provisioning import TelephonyProvisionError
 
     def boom(**kwargs):
         raise TelephonyProvisionError("Number purchase failed: nope")
 
-    monkeypatch.setattr("jarvis.telephony.outbound.place_call", boom)
+    monkeypatch.setattr("dodaios.telephony.outbound.place_call", boom)
     with TestClient(app) as client:
         r = client.post("/api/telephony/outbound", json={"to": "+4915112345678", "opening": "Hi"})
     assert r.status_code == 409
@@ -444,7 +444,7 @@ def test_voice_webhook_outbound_branch_returns_opening(app, secret_store, fake_c
 
 class _RecordingBus:
     """Records every published event. ``publish`` is async, mirroring
-    jarvis.core.bus.EventBus — a bare un-awaited call would silently drop
+    dodaios.core.bus.EventBus — a bare un-awaited call would silently drop
     the event."""
 
     def __init__(self) -> None:
@@ -457,7 +457,7 @@ class _RecordingBus:
 async def test_publish_start_delivers_event_via_async_bus() -> None:
     import asyncio
 
-    from jarvis.telephony.events import TelephonyCallStarted
+    from dodaios.telephony.events import TelephonyCallStarted
 
     bus = _RecordingBus()
     routes._publish_start(bus, "CA1", "+491", "+492", "MZ1")

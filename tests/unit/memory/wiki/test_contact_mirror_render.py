@@ -1,9 +1,9 @@
 """Rendering for the contact mirror: managed block, preservation, PII exclusion."""
 from __future__ import annotations
 
-from jarvis.contacts.store import ContactStore
-from jarvis.memory.frontmatter import parse_frontmatter
-from jarvis.memory.wiki.contact_mirror import (
+from dodaios.contacts.store import ContactStore
+from dodaios.memory.frontmatter import parse_frontmatter
+from dodaios.memory.wiki.contact_mirror import (
     MANAGED_BLOCK_END,
     MANAGED_BLOCK_START,
     extract_managed_block,
@@ -74,7 +74,7 @@ def test_resync_preserves_foreign_frontmatter_keys(tmp_path):
     contact = _contact(tmp_path)
     first = render_person_page(contact, existing_text=None)
     meta, body = parse_frontmatter(first)
-    from jarvis.memory.frontmatter import write_frontmatter
+    from dodaios.memory.frontmatter import write_frontmatter
 
     curated = write_frontmatter({**meta, "tags": ["vip"]}, body)
     page = render_person_page(contact, existing_text=curated)
@@ -87,7 +87,7 @@ def test_rendered_page_is_schema_valid(tmp_path):
     # an invalid page is rolled back, so this is load-bearing, not cosmetic.
     from pathlib import Path
 
-    from jarvis.memory.wiki.page import parse_markdown
+    from dodaios.memory.wiki.page import parse_markdown
 
     contact = _contact(tmp_path, relationship="friend")
     page = render_person_page(contact, existing_text=None)

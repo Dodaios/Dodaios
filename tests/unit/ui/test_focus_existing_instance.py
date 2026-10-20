@@ -22,7 +22,7 @@ class _Resp:
 
 
 def test_focus_response_requires_a_raised_window():
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     assert desktop_app._focus_response_means_window_raised(
         _Resp(payload={"ok": True, "focused": True})
@@ -40,7 +40,7 @@ def test_focus_response_requires_a_raised_window():
 def test_a_window_the_foreground_lock_kept_back_still_counts():
     """Live 2026-10-06: a healthy instance answered "shown, but Windows would
     not activate it", and the launch called it stuck and offered to kill it."""
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     assert desktop_app._focus_response_means_window_raised(
         _Resp(payload={"ok": True, "focused": False, "shown": True, "reason": "foreground_lock"})
@@ -57,7 +57,7 @@ def test_a_window_the_foreground_lock_kept_back_still_counts():
 def test_the_launch_hands_its_foreground_right_to_the_running_instance(monkeypatch):
     from types import ModuleType
 
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     order: list[str] = []
     granted: list[object] = []
@@ -71,7 +71,7 @@ def test_the_launch_hands_its_foreground_right_to_the_running_instance(monkeypat
         order.append("post")
         return _Resp(payload={"ok": True, "focused": True})
 
-    monkeypatch.setattr("jarvis.ui.foreground_grant.allow_foreground", _grant)
+    monkeypatch.setattr("dodaios.ui.foreground_grant.allow_foreground", _grant)
     monkeypatch.setattr(desktop_app, "_read_meta", lambda: {"pid": 4242, "port": 47821})
     monkeypatch.setattr(desktop_app, "_focus_request_headers", lambda port: {})
     monkeypatch.setattr(desktop_app, "_bring_window_to_front_by_title", lambda _t: True)
@@ -85,25 +85,25 @@ def test_the_launch_hands_its_foreground_right_to_the_running_instance(monkeypat
 
 
 def test_allow_foreground_is_a_quiet_no_op_off_windows(monkeypatch):
-    from jarvis.ui import foreground_grant
+    from dodaios.ui import foreground_grant
 
     monkeypatch.setattr(foreground_grant.sys, "platform", "linux")
     assert foreground_grant.allow_foreground(1234) is False
 
 
 def test_focus_headers_send_the_control_key_when_one_exists(monkeypatch):
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
-    monkeypatch.setattr("jarvis.core.control_key.get_control_key", lambda: "jctl_test_key")
+    monkeypatch.setattr("dodaios.core.control_key.get_control_key", lambda: "jctl_test_key")
     headers = desktop_app._focus_request_headers(47821)
     assert headers["Authorization"] == "Bearer jctl_test_key"
     assert "Origin" not in headers
 
 
 def test_focus_headers_fall_back_to_loopback_origin_without_a_key(monkeypatch):
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
-    monkeypatch.setattr("jarvis.core.control_key.get_control_key", lambda: None)
+    monkeypatch.setattr("dodaios.core.control_key.get_control_key", lambda: None)
     headers = desktop_app._focus_request_headers(47821)
     assert headers["Origin"] == "http://127.0.0.1:47821"
     assert "Authorization" not in headers
@@ -112,7 +112,7 @@ def test_focus_headers_fall_back_to_loopback_origin_without_a_key(monkeypatch):
 def test_focus_existing_instance_sends_those_headers(monkeypatch):
     from types import ModuleType
 
-    from jarvis.ui import desktop_app
+    from dodaios.ui import desktop_app
 
     seen: list[dict] = []
 

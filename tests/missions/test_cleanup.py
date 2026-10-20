@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.missions.cleanup import (
+from dodaios.missions.cleanup import (
     DEFAULT_CLEANUP_DAYS,
     DEFAULT_DAILY_INTERVAL_SECONDS,
     daily_cleanup_task,
     startup_sweep,
 )
-from jarvis.missions.standalone_run import write_marker
+from dodaios.missions.standalone_run import write_marker
 
 # --- startup_sweep ---
 
@@ -227,7 +227,7 @@ async def test_sweep_does_not_block_event_loop(
         shutil.rmtree(entry, ignore_errors=True)
         return True
 
-    monkeypatch.setattr("jarvis.missions.cleanup._remove_entry", slow_remove)
+    monkeypatch.setattr("dodaios.missions.cleanup._remove_entry", slow_remove)
 
     ticks = 0
 
@@ -285,7 +285,7 @@ async def test_daily_task_continues_on_sweep_error(tmp_path: Path, monkeypatch) 
         call_count["n"] += 1
         raise RuntimeError("simulated")
 
-    monkeypatch.setattr("jarvis.missions.cleanup.startup_sweep", crashing_sweep)
+    monkeypatch.setattr("dodaios.missions.cleanup.startup_sweep", crashing_sweep)
 
     task = asyncio.create_task(
         daily_cleanup_task(

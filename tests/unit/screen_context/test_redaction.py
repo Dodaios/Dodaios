@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from jarvis.screen_context.models import RedactionRule, WindowFacts
-from jarvis.screen_context.redaction import (
+from dodaios.screen_context.models import RedactionRule, WindowFacts
+from dodaios.screen_context.redaction import (
     blocked_by_denylist,
     build_patterns,
     merge_reports,
@@ -22,7 +22,7 @@ from jarvis.screen_context.redaction import (
 
 @dataclass
 class FakeNode:
-    """Shaped like ``jarvis.core.protocols.UIANode`` — only what we read."""
+    """Shaped like ``dodaios.core.protocols.UIANode`` — only what we read."""
 
     name: str = ""
     value: str = ""
@@ -222,7 +222,7 @@ def test_report_summary_distinguishes_image_from_text() -> None:
     )
     from PIL import Image
 
-    from jarvis.screen_context.redaction import apply_image_redactions
+    from dodaios.screen_context.redaction import apply_image_redactions
 
     _, region_hits = apply_image_redactions(
         Image.new("RGB", (100, 100), (255, 255, 255)), regions
@@ -242,7 +242,7 @@ def test_redaction_actually_blackens_the_pixels() -> None:
     """
     from PIL import Image
 
-    from jarvis.screen_context.redaction import apply_image_redactions
+    from dodaios.screen_context.redaction import apply_image_redactions
 
     image = Image.new("RGB", (100, 100), (255, 255, 255))
     image, hits = apply_image_redactions(
@@ -255,7 +255,7 @@ def test_redaction_actually_blackens_the_pixels() -> None:
 
 def test_apply_image_redactions_is_a_noop_without_regions() -> None:
     """No regions must not touch a drawing backend at all."""
-    from jarvis.screen_context.redaction import apply_image_redactions
+    from dodaios.screen_context.redaction import apply_image_redactions
 
     image = object()
     result, hits = apply_image_redactions(image, ())

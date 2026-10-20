@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from jarvis.brain.turn_planner import TurnReason, plan_turn
+from dodaios.brain.turn_planner import TurnReason, plan_turn
 
 
 @dataclass(frozen=True)

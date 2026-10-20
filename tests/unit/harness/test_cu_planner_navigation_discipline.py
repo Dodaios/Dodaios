@@ -35,10 +35,10 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.harness.screenshot_only_loop as loop_mod
-from jarvis.core.protocols import HarnessResult, HarnessTask, Observation
-from jarvis.harness.computer_use_context import ComputerUseContext
-from jarvis.harness.screenshot_only_loop import _PLANNER_SYSTEM_PROMPT, _run_screenshot_loop
+import dodaios.harness.screenshot_only_loop as loop_mod
+from dodaios.core.protocols import HarnessResult, HarnessTask, Observation
+from dodaios.harness.computer_use_context import ComputerUseContext
+from dodaios.harness.screenshot_only_loop import _PLANNER_SYSTEM_PROMPT, _run_screenshot_loop
 
 # ---------------------------------------------------------------------------
 # Fakes (compact, self-contained mirror of test_cu_loop_robustness.py)

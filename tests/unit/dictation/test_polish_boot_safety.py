@@ -5,7 +5,7 @@ normal test run because a test process has already imported half the world.
 
 **AP-26 — nothing initialises before the app is interactive.** The polish pass
 carries an HTTP stack and, on one transport, a Google SDK. If the speech
-pipeline ever grew a module-scope ``from jarvis.dictation.polish import ...``,
+pipeline ever grew a module-scope ``from dodaios.dictation.polish import ...``,
 that weight would move onto the boot path, where the budget gate measures a
 window of 8 seconds. The hook belongs INSIDE ``_finish_dictation``, exactly
 where ``clean_transcript`` already is.
@@ -13,7 +13,7 @@ where ``clean_transcript`` already is.
 **AP-11 — no LLM call inside the voice scrubber.** ``scrub_for_voice`` is regex
 only, on the hot path between the brain and TTS. The polish pass is a
 model call; it lives in the dictation lane and must never acquire a call site
-in ``jarvis/brain/``.
+in ``dodaios/brain/``.
 
 Both are measured in a FRESH interpreter, because the only honest way to ask
 "does importing X pull in Y" is to import X into a process that has imported
@@ -31,9 +31,9 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_PIPELINE = _REPO_ROOT / "jarvis" / "speech" / "pipeline.py"
-_OUTPUT_FILTER = _REPO_ROOT / "jarvis" / "brain" / "output_filter.py"
-_BRAIN_DIR = _REPO_ROOT / "jarvis" / "brain"
+_PIPELINE = _REPO_ROOT / "dodaios" / "speech" / "pipeline.py"
+_OUTPUT_FILTER = _REPO_ROOT / "dodaios" / "brain" / "output_filter.py"
+_BRAIN_DIR = _REPO_ROOT / "dodaios" / "brain"
 
 #: The names whose presence in ``sys.modules`` would mean the polish pass (or
 #: the transports it owns) had been dragged along.
@@ -42,7 +42,7 @@ import json, sys
 {imports}
 found = sorted(
     name for name in sys.modules
-    if name.startswith("jarvis.dictation.polish")
+    if name.startswith("dodaios.dictation.polish")
     or name == "httpx"
     or name.startswith("google.genai")
 )
@@ -77,20 +77,20 @@ def _modules_pulled_in_by(*modules: str) -> list[str]:
 def test_the_probe_actually_sees_the_polish_modules_when_they_are_imported() -> None:
     """The control. Without this, every assertion below could be passing simply
     because the probe never worked."""
-    found = _modules_pulled_in_by("jarvis.dictation.polish")
-    assert "jarvis.dictation.polish" in found, found
-    assert "jarvis.dictation.polish_client" in found, found
-    assert "jarvis.dictation.polish_guards" in found, found
-    assert "jarvis.dictation.polish_prompt" in found, found
+    found = _modules_pulled_in_by("dodaios.dictation.polish")
+    assert "dodaios.dictation.polish" in found, found
+    assert "dodaios.dictation.polish_client" in found, found
+    assert "dodaios.dictation.polish_guards" in found, found
+    assert "dodaios.dictation.polish_prompt" in found, found
 
 
 def test_importing_the_speech_pipeline_does_not_import_the_polish_pass() -> None:
     """AP-26. The hook is a lazy import inside ``_finish_dictation``; the day it
     moves to module scope, the pipeline starts paying for an HTTP stack and a
     model SDK on every boot."""
-    found = _modules_pulled_in_by("jarvis.speech.pipeline")
+    found = _modules_pulled_in_by("dodaios.speech.pipeline")
     assert found == [], (
-        "importing jarvis.speech.pipeline pulled in "
+        "importing dodaios.speech.pipeline pulled in "
         f"{found} — the polish pass must stay off the boot path (AP-26)"
     )
 
@@ -98,9 +98,9 @@ def test_importing_the_speech_pipeline_does_not_import_the_polish_pass() -> None
 def test_importing_the_voice_output_filter_does_not_import_the_polish_pass() -> None:
     """AP-11. ``scrub_for_voice`` is regex-only and sits on the brain->TTS hot
     path; a model call must not be one import away from it."""
-    found = _modules_pulled_in_by("jarvis.brain.output_filter")
+    found = _modules_pulled_in_by("dodaios.brain.output_filter")
     assert found == [], (
-        "importing jarvis.brain.output_filter pulled in "
+        "importing dodaios.brain.output_filter pulled in "
         f"{found} — the voice scrubber must never reach the polish pass (AP-11)"
     )
 
@@ -141,7 +141,7 @@ def test_any_polish_import_in_the_speech_pipeline_is_inside_a_function() -> None
     for number, line in enumerate(
         _PIPELINE.read_text(encoding="utf-8", errors="replace").splitlines(), start=1
     ):
-        if "jarvis.dictation.polish" not in line:
+        if "dodaios.dictation.polish" not in line:
             continue
         stripped = line.lstrip()
         if not stripped.startswith(("import ", "from ")):

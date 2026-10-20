@@ -39,7 +39,7 @@ The plan leans heavily on the existing `TaskStore`/`WorkflowStore` style (aiosql
 
 Rationale:
 - The aggregator is a **batch job** (every 6 h), not a hot path. A synchronous SQLite upsert over a few thousand events is done in milliseconds — async overhead would be a luxury without payoff.
-- This exact pattern is established in the project for batch/sync code (`jarvis/control/cost.py`, `jarvis/clis/usage_log.py`, `jarvis/skills/local_search.py`). The store is `sqlite3`, the API routes call it via `asyncio.to_thread(store.summary, ...)` — this keeps the event loop free and the store logic easy to test (see the plan smoke tests, which work synchronously with `agg.db.execute(...)`).
+- This exact pattern is established in the project for batch/sync code (`dodaios/control/cost.py`, `dodaios/clis/usage_log.py`, `dodaios/skills/local_search.py`). The store is `sqlite3`, the API routes call it via `asyncio.to_thread(store.summary, ...)` — this keeps the event loop free and the store logic easy to test (see the plan smoke tests, which work synchronously with `agg.db.execute(...)`).
 - WAL mode + short read connections make reader and writer independent — no deadlock risk.
 
 It stays compatible with Phase B: if the `AchievementEvaluator` runs as a bus subscriber and writes in **real time**, it can certainly use `aiosqlite` — the two stores speak to the same DB, because SQLite handles multiple connections transactionally.

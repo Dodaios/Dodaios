@@ -43,7 +43,7 @@ def test_recipe_imports_without_blender_and_preserves_runtime_handedness():
 
 
 def test_shared_definition_drives_outpost_station_and_bridge_locations():
-    layout = recipe.canonical_layout(ROOT / "jarvis/society/mars/definition.json")
+    layout = recipe.canonical_layout(ROOT / "dodaios/society/mars/definition.json")
     assert layout["origin"] == [320, 58, 50]
     assert layout["buildings"]["operations"]["local"] == (-26, 0, 14)
     assert layout["nodes"]["console"] == layout["buildings"]["operations"]["local"]
@@ -52,7 +52,7 @@ def test_shared_definition_drives_outpost_station_and_bridge_locations():
 
 
 def test_incompatible_shared_axes_are_rejected(tmp_path):
-    data = json.loads((ROOT / "jarvis/society/mars/definition.json").read_text())
+    data = json.loads((ROOT / "dodaios/society/mars/definition.json").read_text())
     data["axes"]["up"] = "+Z"
     path = tmp_path / "definition.json"
     path.write_text(json.dumps(data))
@@ -213,7 +213,7 @@ def test_cliff_fragments_stay_below_walkable_terrace_without_moving_deep_rocks()
 def test_authored_perimeter_and_arrival_slabs_have_no_coplanar_top_overlap():
     class CapturePaths(recipe.Author):
         def __init__(self):
-            self.layout = recipe.canonical_layout(ROOT / "jarvis/society/mars/definition.json")
+            self.layout = recipe.canonical_layout(ROOT / "dodaios/society/mars/definition.json")
             self.anchors = []
             self.surfaces = []
 

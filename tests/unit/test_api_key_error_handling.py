@@ -16,14 +16,14 @@ Drei zusammenhaengende Defekte gefixt:
 
 from __future__ import annotations
 
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _classify_provider_error,
     _format_provider_chain_error,
     _is_account_blocked_exc,
     _is_invalid_model_exc,
     _is_missing_key_exc,
 )
-from jarvis.plugins.brain.gemini import (
+from dodaios.plugins.brain.gemini import (
     _GEMINI_FORBIDDEN_SCHEMA_KEYS,
     _gemini_tool_name_map,
     _sanitize_for_gemini,

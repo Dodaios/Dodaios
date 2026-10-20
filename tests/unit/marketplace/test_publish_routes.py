@@ -9,10 +9,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.marketplace import publish
-from jarvis.marketplace.auth.base import AuthSession, FlowResult
-from jarvis.marketplace.token_store import Tokens
-from jarvis.ui.web import marketplace_publish_routes as routes
+from dodaios.marketplace import publish
+from dodaios.marketplace.auth.base import AuthSession, FlowResult
+from dodaios.marketplace.token_store import Tokens
+from dodaios.ui.web import marketplace_publish_routes as routes
 
 
 class FakeStore:

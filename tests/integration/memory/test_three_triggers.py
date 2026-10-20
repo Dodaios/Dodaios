@@ -30,20 +30,20 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from jarvis.brain.wiki_context import WikiContextInjector
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig, SessionRollupConfig
-from jarvis.core.events import IdleEntered
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.recall import RecallStore
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.fts_index import rebuild_index
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.search import VaultSearch
-from jarvis.memory.wiki.session_rollup import SessionRollupWorker
-from jarvis.memory.wiki.telemetry import telemetry
-from jarvis.memory.wiki.vault_index import VaultIndex
+from dodaios.brain.wiki_context import WikiContextInjector
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig, SessionRollupConfig
+from dodaios.core.events import IdleEntered
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.recall import RecallStore
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.fts_index import rebuild_index
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.search import VaultSearch
+from dodaios.memory.wiki.session_rollup import SessionRollupWorker
+from dodaios.memory.wiki.telemetry import telemetry
+from dodaios.memory.wiki.vault_index import VaultIndex
 
 NS_PER_MIN = 60 * 1_000_000_000
 

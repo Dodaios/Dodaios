@@ -12,9 +12,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from jarvis.voice_engine import protocol as p
-from jarvis.voice_engine.audio import to_pcm16
-from jarvis.voice_engine.engine import ConversationSession, EngineConfig, EngineModels
+from dodaios.voice_engine import protocol as p
+from dodaios.voice_engine.audio import to_pcm16
+from dodaios.voice_engine.engine import ConversationSession, EngineConfig, EngineModels
 
 RATE = 16_000
 

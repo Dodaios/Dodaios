@@ -6,7 +6,7 @@ byte cap, so both surfaces feed the same ``ingest_drop``.
 """
 from __future__ import annotations
 
-from jarvis.brain.drop_context import DroppedItem, items_from_paths
+from dodaios.brain.drop_context import DroppedItem, items_from_paths
 
 
 def test_reads_a_real_file(tmp_path) -> None:

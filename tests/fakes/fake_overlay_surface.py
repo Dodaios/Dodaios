@@ -8,7 +8,7 @@ window or spinning up a real pystray thread:
 * :class:`FakeOrb` — duck-typed ``ui.orb.overlay.OrbOverlay``: it records
   ``start_in_thread`` / ``show`` / ``hide`` / ``set_mode`` calls so a test can
   assert ``TkColorKeyOverlay`` delegates and maps states correctly.
-* :class:`FakeTray` — duck-typed ``jarvis.ui.tray.JarvisTray``: records the
+* :class:`FakeTray` — duck-typed ``dodaios.ui.tray.JarvisTray``: records the
   ``JarvisState`` values passed to ``set_state`` so a test can assert
   ``TrayOnlySurface`` maps orb states onto the tray enum.
 * :class:`FakeOverlaySurface` — a generic ``OverlaySurface`` implementation
@@ -21,7 +21,7 @@ from __future__ import annotations
 class FakeOrb:
     """Structurally compatible with ``ui.orb.overlay.OrbOverlay`` (the live Tk orb).
 
-    Only the methods :class:`~jarvis.overlay.surface.TkColorKeyOverlay` drives are
+    Only the methods :class:`~dodaios.overlay.surface.TkColorKeyOverlay` drives are
     implemented: ``start_in_thread``, ``show``, ``hide``, ``set_mode``. Every call
     is recorded for assertions; nothing touches Tk.
     """
@@ -52,7 +52,7 @@ class FakeOrb:
 
 
 class FakeTray:
-    """Structurally compatible with ``jarvis.ui.tray.JarvisTray``.
+    """Structurally compatible with ``dodaios.ui.tray.JarvisTray``.
 
     Records the ``JarvisState`` values passed to ``set_state`` (so a test can
     assert the orb-state → tray-state mapping) and the start/stop lifecycle.

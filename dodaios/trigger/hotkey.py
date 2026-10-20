@@ -1,0 +1,1257 @@
+"""Global hotkey trigger with multi-binding support (Call + Hangup).
+
+The hotkey machinery is split behind a cross-platform seam (Wave 1.4, AD-6/AD-8):
+``HotkeyTrigger`` is the OS-agnostic orchestrator — it builds the binding rows,
+owns the asyncio event queue, and drives the backend lifecycle — while the
+per-OS work lives in ``dodaios/trigger/backends/``:
+
+  * Windows keeps the battle-tested ``global-hotkeys`` package
+    (``backends/global_hotkeys.py`` — the ``_KEY_MAP``, the single-checker
+    refcount, the remove-by-string + pre-remove-on-reentry sequence — relocated
+    **verbatim** because each line carries a hard-won BUG fix, AD-7).
+  * macOS uses a listen-only Quartz event tap (``backends/quartz.py``), which
+    needs Input Monitoring only and is created lazily: the trigger re-arms it
+    when the permission service reports the grant (no restart, no second path).
+  * Linux-X11 uses ``pynput`` (``backends/pynput.py``).
+  * Wayland / no-hotkey hosts get ``backends/noop.py`` (logged-once no-op, AD-8).
+
+The backend is chosen by ``make_hotkey_backend()`` from the shared
+``dodaios.platform`` capability layer. ``HotkeyTrigger`` never imports a
+platform-only package at module scope (HN-7); the lazy import lives inside each
+backend's ``register``/``start``.
+
+Default bindings (Phase 1 Jarvis):
+  - "call"   -> Ctrl+RightAlt+J  OR  F3+F4
+  - "hangup" -> F1+F2
+
+F-keys without a modifier work in global-hotkeys — it registers pure key
+combinations, not just modifier combos.
+
+Lifecycle contract (the bug this module kept re-introducing)
+------------------------------------------------------------
+``global_hotkeys`` is a process-wide *singleton*: ``register_hotkeys`` raises
+"already registered" on a duplicate combo, and ``remove_hotkeys`` takes a list
+of combo **strings**. The four invariants that keep the shortcuts working
+permanently now live inside ``GlobalHotkeysBackend`` (relocated verbatim):
+
+1. teardown removes by combo **string** (never the binding rows);
+2. registration pre-removes its own combos so a stale registration left by a
+   crashed previous lifecycle never bricks re-entry;
+3. a module-level refcount runs a single shared checker so two concurrent
+   triggers never double-fire;
+4. registration failure (missing package / invalid combo) degrades to a no-op
+   instead of crashing the voice pipeline — voice still works via wake word /
+   mascot click (cloud-first doctrine + AD-OE6).
+
+``validate_hotkey`` and ``_normalize_combo`` stay importable from this module
+for backwards compatibility (the wizard / settings UI import them here).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import AsyncIterator, Callable, Iterator
+from dataclasses import dataclass
+from typing import Any
+
+# Relocated Windows machinery (AD-7). Imported here so callers that historically
+# did ``from dodaios.trigger.hotkey import _normalize_combo`` keep working, and so
+# the test-isolation hooks remain reachable at this module path. None of these
+# import ``global_hotkeys`` at module scope — that import is lazy inside the
+# backend's ``register`` (HN-7).
+from dodaios.platform.self_input import synthetic_input_recent
+from dodaios.trigger.backends import HotkeyBackend, make_hotkey_backend
+from dodaios.trigger.backends import global_hotkeys as _gh_backend
+from dodaios.trigger.backends.global_hotkeys import (
+    _KEY_MAP,  # noqa: F401 — re-exported for backwards compatibility
+    MOUSE_BUTTON_TOKENS,
+    _canonical_token,
+    _normalize_combo,
+    _reset_checker_state_for_tests,
+)
+
+log = logging.getLogger(__name__)
+
+# How often a trigger whose backend waits for Input Monitoring renews its
+# background permission episode. The service closes an unresolved episode after
+# 10 minutes without calling any listener, and it tells a listener about a grant
+# only inside an open episode, so a grant given later than that would never
+# re-arm the shortcuts. Renewing well inside that window keeps the episode open
+# for as long as the backend waits (a cheap silent read, never a request).
+_EPISODE_RENEW_S = 240.0
+# How often the liveness watch asks a tap that exposes ``report_if_deaf`` whether
+# it looks deaf (a cheap flag check until a tap runs and the user types). Never
+# restarts anything: a deaf tap only produces a "quit and reopen" hint.
+_LIVENESS_POLL_S = 15.0
+# How long ``__aexit__`` waits for a grant-driven ``backend.start`` that is
+# already running in a worker thread (the tap handshake takes up to 5 s).
+_GRANT_TASK_JOIN_S = 6.0
+
+
+def __getattr__(name: str):
+    """Proxy the relocated refcount so ``hk._CHECKER_REFCOUNT`` reads live.
+
+    The single-checker refcount is canonical in the relocated
+    ``GlobalHotkeysBackend`` module; existing regression tests read it via
+    ``dodaios.trigger.hotkey._CHECKER_REFCOUNT``. A module ``__getattr__`` keeps
+    that attribute live (a plain re-bound int would freeze at import time).
+    """
+    if name in ("_CHECKER_REFCOUNT", "_CHECKER_LOCK"):
+        return getattr(_gh_backend, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# Shortcut events that Jarvis's OWN synthetic keystrokes must not fire.
+#
+# A listener cannot tell a posted keystroke from a pressed one, so every combo
+# is armed against our own actuation. On macOS that is not a corner case: the
+# platform paste chord is ``cmd+v`` and the offered hold-to-dictate key is a
+# bare ``cmd``, so every dictation ended by pasting its own transcript and
+# tripping its own shortcut (live log 2026-08-09; the lane was still finishing,
+# refused the phantom press as ``already_running``, and the Jarvis Bar wore the
+# failure mark over a dictation that had pasted perfectly). During a
+# Computer-Use mission the same press is worse than cosmetic: nothing is
+# running to refuse it, so it STARTS a recording and takes the microphone.
+#
+# A DENY list, deliberately, not an allow list: everything unnamed keeps
+# firing. These are exactly the edges that START something and cost nothing to
+# miss for a quarter second. Every STOP gesture — ``kill`` (the kill switch),
+# ``cu_cancel``, ``hangup`` — and every ``*_release`` edge is absent on
+# purpose, because a suppressed release strands the latch it was meant to
+# clear, and a suppressed kill switch is indefensible at any window length.
+SELF_INPUT_SUPPRESSED_EVENTS: frozenset[str] = frozenset(
+    {
+        "ptt_press",
+        "dictate_press",
+        "dictate",  # legacy [dictation].mode = "toggle"
+        "dictate_toggle",
+        "paste_last",
+    }
+)
+
+def _is_bare_ctrl_alt_chord(combo: str) -> bool:
+    """A modifier-only chord holding Ctrl and Alt, e.g. ``ctrl+alt``.
+
+    On an AltGr keyboard layout the right Alt key IS Ctrl+Alt to Windows, so
+    such a chord also fires on every ``@``/``€`` typed and on the both-Alt
+    appshot gesture. An explicit ``right_ctrl`` is a real key, never AltGr.
+    """
+    tokens = [t.strip() for t in _normalize_combo(combo).split("+") if t.strip()]
+    return (
+        "control" in tokens
+        and "alt" in tokens
+        and "right_control" not in tokens
+        and all(t in _MODIFIER_TOKENS for t in tokens)
+    )
+
+
+# Tokens that are modifiers, not "real" keys. A hotkey made of ONLY modifiers
+# is not a usable trigger; a usable combo needs at least one real key.
+_MODIFIER_TOKENS = frozenset(
+    {
+        "ctrl",
+        "control",
+        "right_ctrl",
+        "right_control",
+        "alt",
+        "right_alt",
+        "left_alt",
+        "altgr",
+        "shift",
+        "win",
+        "window",
+        # macOS Command. The Quartz backend has always decoded it
+        # (``_FLAG_MASK_TO_TOKEN`` maps ``kCGEventFlagMaskCommand`` -> ``cmd``),
+        # but it was missing here, so the validator treated Command as an
+        # ordinary KEY. Consequence: every macOS-critical chord passed —
+        # ``cmd+q``, ``cmd+w``, ``cmd+c``, ``cmd+space`` were all accepted while
+        # their Windows equivalents were refused, and a user could bind "quit
+        # the focused app" as their dictation key.
+        "cmd",
+        "command",
+        "meta",
+        "super",
+    }
+)
+
+# Keys that are safe to bind SOLO (no modifier, no second key): function keys
+# are never produced while typing text, and the navigation cluster only fires
+# during cursor navigation — a deliberate user choice, not an accident. Bare
+# letters / digits / space / enter stay rejected: those fire on every
+# keystroke of normal typing and would make the assistant trigger constantly.
+_SOLO_SAFE_KEYS = frozenset({f"f{i}" for i in range(1, 25)}) | frozenset(
+    {
+        "up",
+        "down",
+        "left",
+        "right",
+        "home",
+        "end",
+        "page_up",
+        "page_down",
+        "insert",
+        "delete",
+    }
+)
+
+
+# Keys the OS keeps for itself no matter what the user wants.
+#   * F12 is permanently reserved for the debugger — Microsoft documents that it
+#     must not be registered as a hot key even when nothing is being debugged.
+_RESERVED_SOLO_KEYS = frozenset({"f12"})
+
+# Command-modified chords macOS assigns to universal system actions. Binding one
+# means the focused app keeps doing that action too (Cmd+Q quits it, Cmd+W closes
+# its window, Cmd+Space opens Spotlight) — worth a caution, never a refusal.
+_MACOS_CRITICAL_KEYS = frozenset({"c", "v", "x", "z", "q", "w", "a", "s", "space", "tab"})
+
+# The Windows-shell equivalent of the list above. It did not exist while
+# Win-key combos were refused outright; now that they are allowed, a user who
+# binds Win+D deserves the same warning a Mac user gets for Cmd+W — the shell
+# keeps showing the desktop on top of triggering the shortcut.
+_WINDOWS_CRITICAL_KEYS = frozenset(
+    {"d", "e", "l", "r", "x", "i", "s", "v", "a", "p", "tab", "left", "right", "up", "down"}
+)
+
+
+@dataclass(frozen=True)
+class HotkeyVerdict:
+    """The result of :func:`validate_hotkey`: a verdict plus soft cautions.
+
+    Why this shape and not a three-element tuple: every existing caller does
+    ``ok, reason = validate_hotkey(...)``. Appending a third element to the
+    tuple would turn each of them into a ``ValueError: too many values to
+    unpack`` at runtime — a silent-in-review, loud-in-production break across
+    the settings route, the setup wizard and four test modules. A small object
+    that ITERATES as the historical two-tuple keeps every one of those call
+    sites byte-identical, while ``verdict.cautions`` is there for the UI that
+    wants it. It is opt-in by construction: a caller who never asks for a
+    caution cannot accidentally receive one in place of the reason.
+
+    ``ok`` is False only for input that means nothing at all (an empty combo).
+    Everything the validator used to refuse — a modifiers-only chord, a bare
+    typing key, an OS-critical shortcut — is now ACCEPTED with a caution,
+    because the user, not the validator, owns the keyboard.
+    """
+
+    ok: bool
+    reason: str = ""
+    cautions: tuple[str, ...] = ()
+
+    @property
+    def caution(self) -> str:
+        """Every caution as one user-facing sentence block (``""`` when none)."""
+        return " ".join(self.cautions)
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+    def __iter__(self) -> Iterator[Any]:
+        # The historical ``(ok, reason)`` contract — see the class docstring.
+        yield self.ok
+        yield self.reason
+
+    def __len__(self) -> int:
+        return 2
+
+    def __getitem__(self, index: int) -> Any:
+        return (self.ok, self.reason)[index]
+
+
+def validate_hotkey(combo: str, *, platform: str | None = None) -> HotkeyVerdict:
+    """Validate a user-supplied hotkey string (call / hangup / dictate).
+
+    Returns a :class:`HotkeyVerdict` that still unpacks as the historical
+    ``(ok, reason)`` pair. The policy (maintainer directive 2026-07-28): **any
+    key combination is selectable**, mouse buttons included. The validator
+    refuses only what is genuinely meaningless — an empty combo — and reports
+    everything else as a NON-BLOCKING caution the UI can show next to the
+    saved shortcut:
+
+      * a modifiers-only chord (``ctrl+win``) also fires when any further key
+        joins it, so it triggers on Ctrl+Win+Left, Ctrl+Win+D and friends;
+      * a bare typing key fires while you type ordinary text;
+      * an OS-critical combo (Alt+F4, Ctrl+C, the macOS Command shortcuts,
+        F12) is still delivered to the focused app, which keeps doing its
+        thing on top of the shortcut;
+      * a Command chord on a machine that has no Command key cannot fire
+        there — honest, and harmless for a config that travels to a Mac;
+      * a mouse button does not swallow the click.
+
+    The two refusals that used to live here — "a combo of only Ctrl/Alt/Shift
+    cannot be a trigger" and "Windows / Super key combos are reserved by the
+    OS" — are gone because both were untrue for this codebase: the Windows
+    backend polls ``GetAsyncKeyState`` (it never calls ``RegisterHotKey``, so
+    the shell cannot claim the chord first), and Win/Super/Command are
+    first-class tokens in all three backends. What they cost the user was
+    real; what they protected against is a caution, not a wall.
+
+    ``platform`` (``"win32"`` / ``"darwin"`` / ``"linux"``) picks the
+    platform-specific cautions; it defaults to the live platform and exists so
+    tests are deterministic. The combo vocabulary itself stays
+    platform-neutral: a config file may legitimately travel between a Mac and
+    a PC.
+    """
+    if not combo or not combo.strip():
+        return HotkeyVerdict(False, "Hotkey is empty.")
+    parts = [_canonical_token(p.strip().lower()) for p in combo.split("+") if p.strip()]
+    if not parts:
+        return HotkeyVerdict(False, "Hotkey is empty.")
+
+    modifiers = [p for p in parts if p in _MODIFIER_TOKENS]
+    non_modifiers = [p for p in parts if p not in _MODIFIER_TOKENS]
+    mouse_buttons = [p for p in parts if p in MOUSE_BUTTON_TOKENS]
+    cautions: list[str] = []
+
+    if not non_modifiers:
+        cautions.append(
+            "This shortcut is modifier keys only, so it also fires the moment "
+            "any other key joins them — Ctrl+Win would trigger on Ctrl+Win+Left "
+            "(switch virtual desktop), Ctrl+Win+D and every other Ctrl+Win "
+            "shortcut too."
+        )
+    elif not modifiers and len(parts) < 2 and parts[0] not in _SOLO_SAFE_KEYS and not mouse_buttons:
+        cautions.append(
+            "This key also fires while you type normal text — every press of it "
+            "triggers the shortcut. Add Ctrl/Alt/Shift or a second key if that "
+            "is not what you want."
+        )
+
+    reserved = sorted(set(non_modifiers) & _RESERVED_SOLO_KEYS)
+    if reserved:
+        cautions.append(
+            f"{reserved[0].upper()} is claimed by the system debugger — some "
+            "applications will take it before the shortcut sees it."
+        )
+
+    _CTRL = ("ctrl", "control", "right_ctrl", "right_control")
+    _ALT = ("alt", "right_alt", "left_alt", "altgr")
+    _CMD = ("cmd", "command", "meta", "super")
+    _WIN = ("win", "window", "super", "meta")
+    alt_held = any(p in _ALT for p in modifiers)
+    # "X-only" means X-family modifiers and nothing else — so the exact OS
+    # shortcut is cautioned while a richer combo that merely contains it (e.g.
+    # Ctrl+Shift+C) stays silent.
+    ctrl_only = bool(modifiers) and all(p in _CTRL for p in modifiers)
+    cmd_only = bool(modifiers) and all(p in _CMD for p in modifiers)
+    win_only = bool(modifiers) and all(p in _WIN for p in modifiers)
+    if alt_held and "f4" in non_modifiers:
+        cautions.append(_os_shortcut_caution("Alt+F4", "closes the active window"))
+    if ctrl_only and non_modifiers == ["c"]:
+        cautions.append(_os_shortcut_caution("Ctrl+C", "copies, and interrupts a terminal"))
+    if win_only and len(non_modifiers) == 1 and non_modifiers[0] in _WINDOWS_CRITICAL_KEYS:
+        cautions.append(
+            _os_shortcut_caution(
+                f"Win+{non_modifiers[0].upper()}",
+                "is a system shortcut on Windows (show the desktop, lock the "
+                "screen, the emoji picker and friends)",
+            )
+        )
+    if cmd_only and len(non_modifiers) == 1 and non_modifiers[0] in _MACOS_CRITICAL_KEYS:
+        cautions.append(
+            _os_shortcut_caution(
+                f"Command+{non_modifiers[0].upper()}",
+                "is a system shortcut on macOS (copy, quit, close, Spotlight and friends)",
+            )
+        )
+
+    if any(p in ("cmd", "command") for p in modifiers):
+        host = platform if platform is not None else _detect_platform()
+        if host not in (None, "darwin"):
+            cautions.append(
+                "There is no Command key on this computer, so this shortcut "
+                "cannot fire here. (It works on macOS — a shortcut set on a "
+                "Mac keeps working when the config travels back.)"
+            )
+
+    if mouse_buttons:
+        cautions.append(
+            "A mouse button does not swallow the click: the button keeps doing "
+            "its normal job in whatever you are pointing at while it also "
+            "triggers this shortcut."
+        )
+
+    return HotkeyVerdict(True, "", tuple(cautions))
+
+
+def _os_shortcut_caution(pretty: str, does_what: str) -> str:
+    """One caution sentence for a combo the focused app also acts on."""
+    return (
+        f"{pretty} {does_what} — the app you are working in still receives it, "
+        "so you get both at once."
+    )
+
+
+def _detect_platform() -> str | None:
+    """The live platform id, or ``None`` when it cannot be determined.
+
+    Lazy + fail-open: a hotkey the validator cannot place is better accepted
+    (the backend then degrades honestly, per-combo) than rejected on a guess.
+    """
+    try:
+        from dodaios.platform import detect_platform
+
+        return detect_platform()
+    except Exception:  # noqa: BLE001 — validation must never depend on a probe
+        return None
+
+
+def normalized_combo_tokens(combo: str) -> frozenset[str]:
+    """The key set a combo ACTUALLY registers as, after normalization.
+
+    ``ctrl+right_alt+j`` and ``ctrl+left_alt+j`` are different strings and the
+    identical registration: the Windows backend folds every Alt variant onto
+    the generic ``alt`` (it cannot tell the sides apart), and win/super/meta
+    all fold onto ``window``. Any comparison of two shortcuts has to happen on
+    THIS set — comparing the raw tokens accepts two combos the OS sees as one.
+    """
+    return frozenset(p.strip() for p in _normalize_combo(combo).split("+") if p.strip())
+
+
+def combos_collide(a: str, b: str) -> bool:
+    """Whether two shortcuts cannot coexist — normalized, not raw.
+
+    The bug this closes: the settings route compared RAW token sets, so
+    ``ctrl+left_alt+j`` and ``ctrl+right_alt+j`` passed the overlap check as
+    two different shortcuts and then normalized to the SAME registration. The
+    second one lost the race inside ``register`` and died with a log line
+    nobody sees, leaving the user with two bound-looking rows, one of them
+    silently dead.
+
+    Two relations collide, both evaluated on the normalized key sets:
+
+    * identical sets — the same registration under two spellings;
+    * subset / superset — the polling backends match a chord as soon as its
+      keys are down, so ``f1`` and ``f1+f2`` fire each other.
+
+    An unbound (empty) combo never collides: an empty set is a subset of
+    everything, and every save would be refused the moment one action is
+    cleared.
+    """
+    tokens_a = normalized_combo_tokens(a)
+    tokens_b = normalized_combo_tokens(b)
+    if not tokens_a or not tokens_b:
+        return False
+    return tokens_a <= tokens_b or tokens_b <= tokens_a
+
+
+#: The user-facing sentences :func:`mouse_hotkeys_available` answers with,
+#: keyed by a stable code the desktop UI translates
+#: (``settings_view.keybinds.mouse_reason.<code>``). The English sentence stays
+#: the API answer; ``mouse_hotkeys_reason_code`` maps it back to its code.
+MOUSE_HOTKEY_REASONS: dict[str, str] = {
+    "macos_needs_quartz": (
+        "Mouse-button shortcuts need the pyobjc Quartz package, which is "
+        "not installed — install the [full] profile. Key combinations "
+        "still work."
+    ),
+    "wayland": (
+        "Wayland does not let an application watch the mouse buttons "
+        "globally, so a mouse-button shortcut cannot work here. Use a "
+        "key combination, or bind a compositor shortcut to the Dodaios "
+        "CLI."
+    ),
+    "linux_needs_pynput": (
+        "Mouse-button shortcuts need the pynput package, which is not "
+        "installed — install the [desktop-linux] extra. Key combinations "
+        "still work."
+    ),
+    "unsupported_host": (
+        "This system has no way to watch the mouse buttons globally — use a "
+        "key combination instead."
+    ),
+}
+
+
+def mouse_hotkeys_reason_code(reason: str) -> str:
+    """The stable code of a :func:`mouse_hotkeys_available` sentence, or ``""``."""
+    for code, sentence in MOUSE_HOTKEY_REASONS.items():
+        if sentence == reason:
+            return code
+    return ""
+
+
+def mouse_hotkeys_available(platform: str | None = None) -> tuple[bool, str]:
+    """Can this host bind a MOUSE BUTTON as a shortcut? ``(ok, reason)``.
+
+    A capability probe, never a platform name test (AP-21/AP-23). ``reason``
+    is an English sentence for the user when the answer is no, naming what is
+    missing and what still works — the UI shows it instead of offering a
+    control that would do nothing:
+
+    * Windows — always: the backend polls ``GetAsyncKeyState``, which reports
+      mouse buttons alongside keys.
+    * macOS — needs pyobjc's ``Quartz`` (the event tap already exists; it just
+      listens for mouse events too now) plus the Input Monitoring grant the
+      backend waits for at ``start`` (a listen-only tap needs nothing else).
+    * Linux/X11 — needs ``pynput`` (the opt-in ``[desktop-linux]`` extra).
+      Wayland has no global button grabs at all, the same reason keyboard
+      shortcuts degrade there.
+
+    Kept import-light and lazy so it never runs on the boot path (AP-26).
+    """
+    host = platform if platform is not None else _detect_platform()
+    if host == "win32":
+        return True, ""
+    if host == "darwin":
+        if _module_present("Quartz"):
+            return True, ""
+        return False, MOUSE_HOTKEY_REASONS["macos_needs_quartz"]
+    if host == "linux":
+        try:
+            from dodaios.platform.probes import is_wayland
+
+            wayland = is_wayland()
+        except Exception:  # noqa: BLE001 — a probe failure must never hard-fail
+            wayland = False
+        if wayland:
+            return False, MOUSE_HOTKEY_REASONS["wayland"]
+        if _module_present("pynput"):
+            return True, ""
+        return False, MOUSE_HOTKEY_REASONS["linux_needs_pynput"]
+    return False, MOUSE_HOTKEY_REASONS["unsupported_host"]
+
+
+def _module_present(name: str) -> bool:
+    """Is ``name`` importable, without importing it (cheap, AP-26)."""
+    try:
+        import importlib.util
+
+        return importlib.util.find_spec(name) is not None
+    except Exception:  # noqa: BLE001 — a broken meta-path must not raise here
+        return False
+
+
+# Virtual-key codes for the three named modifiers. The two Win keys already
+# live next to GetAsyncKeyState in the Windows backend; these three are the
+# rest of the chord the in-app recorder has to see even when the WebView
+# swallowed the DOM keyup (GitHub #98).
+_VK_SHIFT = 0x10
+_VK_CONTROL = 0x11
+_VK_MENU = 0x12  # Alt / Option
+
+# pynput / Quartz held-set spellings -> the four snapshot tokens the recorder
+# understands (ctrl, alt, shift, and win-or-cmd). Side-specific names fold
+# because the snapshot cannot tell left from right on every OS.
+_HELD_MODIFIER_TO_SNAPSHOT: dict[str, str] = {
+    "ctrl": "ctrl",
+    "ctrl_l": "ctrl",
+    "ctrl_r": "ctrl",
+    "control": "ctrl",
+    "right_control": "ctrl",
+    "alt": "alt",
+    "alt_l": "alt",
+    "alt_r": "alt",
+    "alt_gr": "alt",
+    "right_alt": "alt",
+    "left_alt": "alt",
+    "shift": "shift",
+    "shift_l": "shift",
+    "shift_r": "shift",
+    "cmd": "win",
+    "cmd_l": "win",
+    "cmd_r": "win",
+    "command": "win",
+    "win": "win",
+    "window": "win",
+    "super": "win",
+    "meta": "win",
+}
+
+
+def modifier_snapshot(
+    platform: str | None = None,
+    *,
+    backend_held: frozenset[str] | set[str] | None = None,
+) -> tuple[frozenset[str] | None, str]:
+    """Currently held modifier keys, or ``(None, reason)`` if this host cannot tell.
+
+    A capability probe, never a platform-name test at the call site (AP-21).
+    The in-app keybind recorder uses this when the WebView's DOM events lie:
+    macOS WKWebView often delivers a modifier ``keydown`` and then never the
+    matching ``keyup`` (the OS sent ``flagsChanged``, which is not a DOM
+    event), so a recorder that only trusts keyup hangs with Option/Command
+    still marked as held. Asking the OS is the one answer that cannot go
+    stale. Empty ``frozenset`` means "we can tell, and nothing is down".
+
+    Tokens are the recorder vocabulary: ``ctrl``, ``alt``, ``shift``, plus
+    ``cmd`` on macOS and ``win`` everywhere else.
+
+    * Windows — ``GetAsyncKeyState`` for Shift/Ctrl/Alt/Win (same primitive
+      the hotkey poller already uses).
+    * macOS — ``CGEventSourceFlagsState`` (no event tap, no Accessibility
+      grant). Needs pyobjc Quartz.
+    * Linux/X11 — no cheap OS-wide read in the base install. When the live
+      pynput listener is running its held-set is accepted as a fallback;
+      Wayland and a not-yet-started listener return ``None`` with an English
+      reason. The on-screen picker still works there.
+    """
+    host = platform if platform is not None else _detect_platform()
+    if host == "win32":
+        snap = _win32_modifier_snapshot()
+        if snap is not None:
+            return snap, ""
+        return None, (
+            "This Windows session cannot read the modifier keys right now. "
+            "Click the keys on the on-screen keyboard, or type a letter with "
+            "the modifiers held."
+        )
+    if host == "darwin":
+        snap = _darwin_modifier_snapshot()
+        if snap is not None:
+            return snap, ""
+        return None, (
+            "Reading the modifier keys needs the pyobjc Quartz package, which "
+            "is not installed — install the [full] profile. Click the keys on "
+            "the on-screen keyboard in the meantime."
+        )
+    if host == "linux":
+        if backend_held is not None:
+            return _snapshot_from_held(backend_held, meta_spelling="win"), ""
+        try:
+            from dodaios.platform.probes import is_wayland
+
+            wayland = is_wayland()
+        except Exception:  # noqa: BLE001 — a probe failure must never hard-fail
+            wayland = False
+        if wayland:
+            return None, (
+                "Wayland does not let an application read the modifier keys "
+                "globally. Click the keys on the on-screen keyboard, or bind "
+                "a compositor shortcut to the Dodaios CLI."
+            )
+        return None, (
+            "This Linux session cannot read the modifier keys until global "
+            "hotkeys are running. Click the keys on the on-screen keyboard, "
+            "or type a letter with the modifiers held."
+        )
+    return None, (
+        "This system has no way to read the modifier keys globally — click "
+        "the keys on the on-screen keyboard instead."
+    )
+
+
+def _snapshot_from_held(held: frozenset[str] | set[str], *, meta_spelling: str) -> frozenset[str]:
+    """Fold a backend held-set down to the four snapshot tokens."""
+    out: set[str] = set()
+    for token in held:
+        folded = _HELD_MODIFIER_TO_SNAPSHOT.get(token)
+        if folded is None:
+            continue
+        out.add(meta_spelling if folded == "win" else folded)
+    return frozenset(out)
+
+
+def _win32_modifier_snapshot() -> frozenset[str] | None:
+    """Shift/Ctrl/Alt/Win via GetAsyncKeyState. ``None`` if the probe cannot run."""
+    from dodaios.trigger.backends.global_hotkeys import (
+        _VK_LWIN,
+        _VK_RWIN,
+        _async_key_is_down,
+    )
+
+    tokens: set[str] = set()
+    for vk, name in (
+        (_VK_SHIFT, "shift"),
+        (_VK_CONTROL, "ctrl"),
+        (_VK_MENU, "alt"),
+    ):
+        down = _async_key_is_down(vk)
+        if down is None:
+            return None
+        if down:
+            tokens.add(name)
+    left = _async_key_is_down(_VK_LWIN)
+    right = _async_key_is_down(_VK_RWIN)
+    if left is None or right is None:
+        return None
+    if left or right:
+        tokens.add("win")
+    return frozenset(tokens)
+
+
+def _darwin_modifier_snapshot() -> frozenset[str] | None:
+    """Shift/Ctrl/Option/Command via CGEventSourceFlagsState. ``None`` if Quartz is missing."""
+    try:
+        import Quartz  # type: ignore[import-not-found,import-untyped]  # lazy (HN-7)
+    except Exception:  # noqa: BLE001 — optional [desktop-macos] extra
+        return None
+    try:
+        state = Quartz.kCGEventSourceStateCombinedSessionState
+        flags = int(Quartz.CGEventSourceFlagsState(state))
+    except Exception:  # noqa: BLE001 — a failed probe is "unknown", never a crash
+        log.debug("CGEventSourceFlagsState failed", exc_info=True)
+        return None
+    tokens: set[str] = set()
+    # Same masks as QuartzHotkeyBackend._FLAG_MASK_TO_TOKEN.
+    if flags & (1 << 17):
+        tokens.add("shift")
+    if flags & (1 << 18):
+        tokens.add("ctrl")
+    if flags & (1 << 19):
+        tokens.add("alt")
+    if flags & (1 << 20):
+        tokens.add("cmd")
+    return frozenset(tokens)
+
+
+class HotkeyTrigger:
+    """Manages several named hotkey bindings at once.
+
+    Usage:
+        trig = HotkeyTrigger(
+            {
+                "ptt":    ["ctrl+right_alt+j"],  # push-to-talk (both edges)
+                "call":   ["f3+f4"],             # toggle (release only)
+                "hangup": ["f1+f2"],             # toggle (release only)
+            },
+            push_to_talk={"ptt"},
+        )
+        async with trig:
+            async for event_name in trig.events():
+                if event_name == "ptt_press":     # key down → start recording
+                    ...
+                elif event_name == "ptt_release":  # key up → submit recording
+                    ...
+                elif event_name == "call":
+                    ...
+                elif event_name == "hangup":
+                    ...
+
+    A binding named in ``push_to_talk`` emits ``<name>_press`` / ``<name>_release``
+    on the two key edges; every other binding emits its bare name on release.
+    """
+
+    def __init__(
+        self,
+        bindings: dict[str, list[str]],
+        push_to_talk: frozenset[str] | set[str] = frozenset(),
+    ) -> None:
+        self._bindings_cfg = bindings
+        # Grant-driven re-arm (backends that wait for a permission only).
+        self._unsubscribe_grant: Callable[[], None] | None = None
+        self._grant_task: asyncio.Task[None] | None = None
+        # Keeps the service's background episode open while the backend waits.
+        self._keepalive_task: asyncio.Task[None] | None = None
+        # Reports a tap that hears nothing although the grant is visible.
+        self._liveness_task: asyncio.Task[None] | None = None
+        # Set once ``__aexit__`` begins: no new grant re-arm may start after that.
+        self._closing = False
+        # Event names that should fire on BOTH key edges (push-to-talk): such
+        # a binding emits ``<name>_press`` on the down edge and
+        # ``<name>_release`` on the up edge, so the consumer can start
+        # recording on press and submit on release. Every other binding keeps
+        # the legacy contract (on_release only → a held key fires once).
+        self._ptt_events = frozenset(push_to_talk)
+        # One shared queue — we yield (event_name) on every press.
+        self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=16)
+        self._loop: asyncio.AbstractEventLoop | None = None
+        # The per-OS backend (chosen at enter). ``None`` until __aenter__.
+        self._backend: HotkeyBackend | None = None
+        # Normalized binding rows ``[combo, on_press, on_release]`` handed to
+        # the backend; kept for introspection / debugging.
+        self._registered: list[list] = []
+        # The normalized combo STRINGS — for debugging / parity with the old API.
+        self._combo_strings: list[str] = []
+
+    @property
+    def _gh(self):
+        """Back-compat: the live ``global_hotkeys`` module handle, or ``None``.
+
+        Historically ``HotkeyTrigger`` stored the module here and tests assert
+        ``trig._gh is None`` on a degraded enter. The handle now lives on the
+        Windows backend; expose it transparently. Non-Windows backends have no
+        ``_gh`` attribute, so this reads ``None`` for them — preserving the
+        "degraded → None" contract everywhere.
+        """
+        return getattr(self._backend, "_gh", None)
+
+    def _make_handler(self, event_name: str):
+        # Only START edges are guarded: a dropped release would strand the
+        # latch its press set (see ``SELF_INPUT_SUPPRESSED_EVENTS``).
+        altgr_guarded = event_name in SELF_INPUT_SUPPRESSED_EVENTS and all(
+            _is_bare_ctrl_alt_chord(combo)
+            for combo in self._bindings_cfg.get(event_name.removesuffix("_press")) or ["x"]
+        )
+
+        def _on_press() -> None:
+            # Runs on the BACKEND's thread — the Windows poller calls it with
+            # no try/except around it (``HotkeyChecker.run``), so anything that
+            # escapes here kills that thread and, with it, every global
+            # shortcut in the process until a restart. Nothing may escape.
+            try:
+                if event_name in SELF_INPUT_SUPPRESSED_EVENTS and synthetic_input_recent():
+                    log.debug(
+                        "Hotkey %r ignored: Dodaios is synthesizing input right now.",
+                        event_name,
+                    )
+                    return
+                if altgr_guarded and _gh_backend.altgr_is_down():
+                    log.debug(
+                        "Hotkey %r ignored: AltGr, not Ctrl+Alt, is held.", event_name
+                    )
+                    return
+                loop = self._loop
+                if loop is None or loop.is_closed():
+                    return
+                loop.call_soon_threadsafe(self._push_nowait, event_name)
+            except RuntimeError:
+                # The loop closed between the check and the call — shutdown.
+                log.debug("Hotkey %r dropped: the event loop is closing.", event_name)
+            except Exception:  # noqa: BLE001 — a dead poller is worse than any lost edge
+                log.exception("Hotkey %r handler failed (edge dropped).", event_name)
+
+        return _on_press
+
+    def listening(self) -> bool | None:
+        """Is the backend's OS listener actually running right now?
+
+        Three answers, like ``chord_is_down``: ``True`` / ``False`` when the
+        backend can say (the macOS event tap: ``False`` while Input Monitoring is
+        missing and no tap exists; the no-op backend and a failed backend
+        selection: ``False``, nothing listens), ``None`` when it cannot (Windows
+        poller, pynput, not entered yet). A consumer that must not promise a key
+        it does not hold (the "Esc to cancel" pill) treats only ``False`` as "no".
+        """
+        backend = self._backend
+        if backend is None:
+            # Entered but no backend (selection failed) or already left: nothing
+            # listens. Before ``__aenter__`` there is nothing to say yet.
+            return False if self._loop is not None else None
+        probe = getattr(backend, "is_listening", None)
+        if not callable(probe):
+            return None
+        try:
+            return bool(probe())
+        except Exception:  # noqa: BLE001 — a failed probe is "unknown"
+            log.debug("is_listening() failed", exc_info=True)
+            return None
+
+    @property
+    def armed(self) -> bool:
+        """True only when the backend positively reports a running listener."""
+        return self.listening() is True
+
+    @property
+    def needs_input_monitoring(self) -> bool:
+        """The backend declined to start because Input Monitoring is not granted."""
+        return getattr(self._backend, "waiting_for_permission", False) is True
+
+    def chord_is_down(self, event_name: str) -> bool | None:
+        """Is the chord bound to ``event_name`` physically down right now?
+
+        Asks the backend for every combo the binding carries (a binding may be
+        armed under two spellings — the AltGr compatibility chord). Any combo
+        down → ``True``; every combo answered "up" → ``False``; the backend
+        cannot tell, is missing, or the binding is unknown → ``None``. The
+        three-way answer is the whole contract: a consumer must never read
+        ``None`` as "up" (see ``HotkeyBackend.chord_is_down``).
+        """
+        backend = self._backend
+        probe = getattr(backend, "chord_is_down", None)
+        if backend is None or not callable(probe):
+            return None
+        combos = self._bindings_cfg.get(event_name) or []
+        if not combos:
+            return None
+        answered = False
+        for combo in combos:
+            try:
+                answer = probe(_normalize_combo(combo))
+            except Exception:  # noqa: BLE001 — a failed probe is "unknown", never a crash
+                log.debug("chord_is_down(%r) failed", combo, exc_info=True)
+                return None
+            if answer is True:
+                return True
+            if answer is False:
+                answered = True
+        return False if answered else None
+
+    def held_tokens(self) -> frozenset[str] | None:
+        """Every token the live backend currently has in its held-set.
+
+        ``None`` when there is no backend or it cannot see the keyboard (not
+        started, Noop, Windows poller which has no held-set). The in-app
+        recorder uses this as a Linux fallback for :func:`modifier_snapshot`.
+        """
+        backend = self._backend
+        if backend is None:
+            return None
+        probe = getattr(backend, "held_tokens", None)
+        if callable(probe):
+            try:
+                answer = probe()
+            except Exception:  # noqa: BLE001 — a failed probe is "unknown"
+                log.debug("held_tokens() failed", exc_info=True)
+                return None
+            if answer is None:
+                return None
+            return frozenset(answer)
+        held = getattr(backend, "_held", None)
+        if isinstance(held, set):
+            return frozenset(held)
+        return None
+
+    def _push_nowait(self, event_name: str) -> None:
+        try:
+            self._queue.put_nowait(event_name)
+        except asyncio.QueueFull:
+            # Many events already pending — drop the OLDEST so the newest
+            # intent still lands.
+            try:
+                self._queue.get_nowait()
+                self._queue.put_nowait(event_name)
+            except asyncio.QueueEmpty:
+                pass
+
+    def _build_bindings(self) -> tuple[list[list], list[str]]:
+        """Build the normalized ``[combo, on_press, on_release]`` rows.
+
+        Backend-agnostic: the combo is normalized to the ``global-hotkeys`` form
+        (the Windows path stays byte-identical, AD-7); the ``pynput`` backend
+        translates that form to its own key tokens.
+        """
+        bindings: list[list] = []
+        combo_strings: list[str] = []
+        for event_name, combos in self._bindings_cfg.items():
+            if event_name in self._ptt_events:
+                # Push-to-talk: observe BOTH edges. The down edge starts the
+                # recording, the up edge submits it. on_press fires repeatedly
+                # while the chord is held down (key-repeat polling), so the
+                # consumer of ``<name>_press`` must be idempotent.
+                on_press = self._make_handler(f"{event_name}_press")
+                on_release = self._make_handler(f"{event_name}_release")
+            else:
+                # Toggle binding: the handler goes on on_release so a held key
+                # fires exactly once (no key-repeat storm).
+                on_press = None
+                on_release = self._make_handler(event_name)
+            for combo in combos:
+                normalized = _normalize_combo(combo)
+                bindings.append([normalized, on_press, on_release])
+                combo_strings.append(normalized)
+        return bindings, combo_strings
+
+    async def __aenter__(self) -> HotkeyTrigger:
+        self._loop = asyncio.get_running_loop()
+        self._closing = False
+
+        # Choose the per-OS backend (Windows global-hotkeys / pynput / no-op).
+        # The factory itself never raises (AD-6); a missing optional package is
+        # surfaced as a degrade INSIDE the backend's ``register``.
+        try:
+            backend = make_hotkey_backend()
+        except Exception:  # noqa: BLE001 — degrade, never crash the pipeline
+            log.error(
+                "Hotkey backend selection failed — hotkeys disabled for this "
+                "session; voice still works via wake word / mascot click.",
+                exc_info=True,
+            )
+            self._backend = None
+            return self
+
+        bindings, combo_strings = self._build_bindings()
+
+        # ``register`` degrades internally (logs + leaves the backend inert) on a
+        # missing package or an unrecoverable registration failure — it never
+        # raises, so the voice pipeline at ``async with HotkeyTrigger(...)``
+        # stays alive (AD-OE6).
+        backend.register(bindings)
+        if (
+            type(backend).__name__ == "GlobalHotkeysBackend"
+            and getattr(backend, "_gh", None) is None
+        ):
+            # The Windows backend degraded (no package / register failure):
+            # mirror the historical "no hotkeys" state and skip starting so the
+            # single-checker refcount is never incremented on a failed enter.
+            self._backend = backend
+            return self
+        backend.start()
+
+        self._backend = backend
+        self._registered = bindings
+        self._combo_strings = combo_strings
+        self._watch_for_grant(backend)
+        log.info(
+            "Hotkey-Trigger armed (%s): %s",
+            type(backend).__name__,
+            ", ".join(
+                f"{name}=[{', '.join(combos)}]" for name, combos in self._bindings_cfg.items()
+            ),
+        )
+        return self
+
+    # ------------------------------------------------------------------
+    # Grant-driven re-arm (a backend that waits for a permission: macOS tap)
+    # ------------------------------------------------------------------
+
+    def _watch_for_grant(self, backend: HotkeyBackend) -> None:
+        """Re-arm this trigger's backend when Input Monitoring gets granted.
+
+        Only a backend that can wait for the permission (it exposes
+        ``waiting_for_permission``) takes part; Windows, Linux and the no-op
+        backend never touch the permission service. While the backend waits we
+        open a BACKGROUND episode (``interactive=False``: no native request, no
+        toast, status snapshot only) because the service tells its listeners about
+        a grant only inside an open episode. Never raises.
+        """
+        if not hasattr(backend, "waiting_for_permission"):
+            return
+        self._start_liveness_watch(backend)
+        try:
+            from dodaios.platform.permission_service import (  # noqa: PLC0415
+                get_permission_service,
+            )
+            from dodaios.platform.permissions import PermissionId  # noqa: PLC0415
+
+            service = get_permission_service()
+            if self._unsubscribe_grant is None:
+                self._unsubscribe_grant = service.add_listener(
+                    PermissionId.INPUT_MONITORING, self._on_input_monitoring_granted
+                )
+            if self.needs_input_monitoring:
+                service.ensure(
+                    PermissionId.INPUT_MONITORING,
+                    feature="global_shortcuts",
+                    interactive=False,
+                )
+                self._start_episode_keepalive()
+        except Exception:  # noqa: BLE001 — shortcuts must never take voice down
+            log.debug("Watching for the Input Monitoring grant failed.", exc_info=True)
+
+    def _start_liveness_watch(self, backend: HotkeyBackend) -> None:
+        """Watch a backend that can report a deaf tap (one task at most)."""
+        task = self._liveness_task
+        loop = self._loop
+        if (
+            not callable(getattr(backend, "report_if_deaf", None))
+            or (task is not None and not task.done())
+            or loop is None
+            or loop.is_closed()
+        ):
+            return
+        self._liveness_task = loop.create_task(
+            self._watch_liveness(backend), name="hotkey-liveness-watch"
+        )
+
+    async def _watch_liveness(self, backend: HotkeyBackend) -> None:
+        """Ask the backend every ``_LIVENESS_POLL_S`` whether its tap is deaf.
+
+        The backend tells the permission service ONCE per tap (a ``restart_hint``
+        episode) and ends the episode again if the tap starts hearing events; this
+        loop only gives it a worker thread and a clock. It ends when the backend
+        says the tap has proven healthy, or with the trigger. AP-18: nothing escapes.
+        """
+        try:
+            while True:
+                await asyncio.sleep(_LIVENESS_POLL_S)
+                if self._closing or self._backend is not backend:
+                    return
+                if not await asyncio.to_thread(backend.report_if_deaf):
+                    return
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — a lost liveness pass only delays a hint, never voice
+            log.debug("The hotkey liveness watch failed.", exc_info=True)
+
+    def _start_episode_keepalive(self) -> None:
+        """Renew the background episode while the backend waits (one task at most)."""
+        task = self._keepalive_task
+        loop = self._loop
+        if (task is not None and not task.done()) or loop is None or loop.is_closed():
+            return
+        self._keepalive_task = loop.create_task(
+            self._keep_episode_open(), name="hotkey-episode-keepalive"
+        )
+
+    async def _keep_episode_open(self) -> None:
+        """Re-touch the service episode every ``_EPISODE_RENEW_S`` while the backend waits.
+
+        ``service.ensure(interactive=False)`` blocks on a native read, so it runs
+        in a worker thread. It makes no request and shows no toast; it only keeps
+        the episode (and with it the grant listener) alive past the service's
+        own expiry. Ends once the backend no longer waits. AP-18: nothing escapes.
+        """
+        try:
+            from dodaios.platform.permission_service import (  # noqa: PLC0415
+                get_permission_service,
+            )
+            from dodaios.platform.permissions import PermissionId  # noqa: PLC0415
+
+            while True:
+                await asyncio.sleep(_EPISODE_RENEW_S)
+                if self._backend is None or not self.needs_input_monitoring:
+                    return
+                await asyncio.to_thread(
+                    get_permission_service().ensure,
+                    PermissionId.INPUT_MONITORING,
+                    feature="global_shortcuts",
+                    interactive=False,
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — a lost renewal only delays the re-arm, never voice
+            log.debug("Renewing the Input Monitoring episode failed.", exc_info=True)
+
+    def _on_input_monitoring_granted(self) -> None:
+        """Permission-service listener: cheap, never raises, hops onto our loop."""
+        loop = self._loop
+        if loop is None or loop.is_closed():
+            return
+        try:
+            loop.call_soon_threadsafe(self._spawn_grant_rearm)
+        except RuntimeError:
+            log.debug("The loop closed before the shortcut re-arm could be scheduled.")
+
+    def _spawn_grant_rearm(self) -> None:
+        task = self._grant_task
+        if task is not None and not task.done():
+            return  # one re-arm in flight is enough
+        loop = self._loop
+        if self._closing or self._backend is None or loop is None or loop.is_closed():
+            return
+        self._grant_task = loop.create_task(self._rearm_after_grant(), name="hotkey-grant-rearm")
+
+    async def _rearm_after_grant(self) -> None:
+        """Start the waiting backend off the loop once Input Monitoring is granted.
+
+        The backend already holds the bindings, so ``backend.start`` creating the tap is
+        the whole re-arm (a pipeline reload would only register the same bindings again).
+        ``backend.start`` is idempotent and blocks for the tap thread handshake,
+        so it runs in a worker thread. AP-18: nothing escapes this task.
+        """
+        backend = self._backend
+        if backend is None:
+            return
+        try:
+            await asyncio.to_thread(backend.start)
+            log.info(
+                "Input Monitoring was allowed — global shortcuts %s.",
+                "are armed" if self.listening() is not False else "could not be armed yet",
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — a failed re-arm leaves shortcuts off, never voice
+            log.error(
+                "Re-arming the global shortcuts after the grant failed — they stay off "
+                "until the next restart; voice still works via wake word / mascot click.",
+                exc_info=True,
+            )
+
+    async def __aexit__(self, *exc_info) -> None:
+        self._closing = True
+        unsubscribe, self._unsubscribe_grant = self._unsubscribe_grant, None
+        if unsubscribe is not None:
+            unsubscribe()
+        keepalive, self._keepalive_task = self._keepalive_task, None
+        if keepalive is not None and not keepalive.done():
+            keepalive.cancel()
+        liveness, self._liveness_task = self._liveness_task, None
+        if liveness is not None and not liveness.done():
+            liveness.cancel()
+        task, self._grant_task = self._grant_task, None
+        if task is not None and not task.done():
+            # Cancelling the task would NOT stop the worker thread already inside
+            # ``backend.start``: that start would finish after ``stop`` below and
+            # leave a live tap on a backend nobody owns. Let it finish first.
+            await asyncio.wait({task}, timeout=_GRANT_TASK_JOIN_S)
+            if not task.done():
+                task.cancel()
+        backend = self._backend
+        if backend is None:
+            return  # never created (degraded) — nothing to tear down
+        try:
+            backend.stop()
+            backend.unregister()
+        except Exception:  # noqa: BLE001 — teardown must never propagate
+            log.debug("Hotkey backend teardown failed (non-fatal)", exc_info=True)
+        self._registered = []
+        self._combo_strings = []
+        self._backend = None
+
+    async def rearm(
+        self,
+        bindings: dict[str, list[str]],
+        push_to_talk: frozenset[str] | set[str] = frozenset(),
+    ) -> None:
+        """Re-register the live bindings in place — a keybind change WITHOUT an
+        app restart.
+
+        Root cause of "I set a key but pressing it does nothing": the bindings
+        were armed once at ``__aenter__`` and never re-read, so a UI/toml change
+        only took effect on the next voice boot. This mirrors the ``set_wake_plan``
+        live-apply contract: tear the backend's OS registration down and bring it
+        back up with the new combos, reusing the exact lifecycle calls
+        ``__aenter__``/``__aexit__`` use (so the relocated remove-by-string +
+        refcount invariants are preserved). The single shared checker is stopped
+        then restarted, keeping the refcount balanced (one stop, one start).
+
+        Degrade-safe (AD-OE6): a failed re-arm logs and leaves hotkeys inactive
+        rather than propagating — a keybind hiccup must never crash voice.
+        """
+        self._bindings_cfg = bindings
+        self._ptt_events = frozenset(push_to_talk)
+        backend = self._backend
+        if backend is None:
+            return  # entered degraded (no package) — nothing to re-arm
+
+        new_bindings, combo_strings = self._build_bindings()
+        grant_task = self._grant_task
+        if grant_task is not None and not grant_task.done():
+            # A grant-driven start is in a worker thread: let it finish before the
+            # backend is torn down under it.
+            await asyncio.wait({grant_task}, timeout=6.0)
+        try:
+            backend.stop()
+            backend.unregister()
+            backend.register(new_bindings)
+            if (
+                type(backend).__name__ == "GlobalHotkeysBackend"
+                and getattr(backend, "_gh", None) is None
+            ):
+                # Every new combo failed to register: leave it degraded but do
+                # not start an empty checker.
+                self._registered = []
+                self._combo_strings = []
+                log.warning("Hotkey re-arm degraded — no combo could be registered.")
+                return
+            backend.start()
+            self._registered = new_bindings
+            self._combo_strings = combo_strings
+            self._watch_for_grant(backend)
+            log.info(
+                "🔁 Hotkey-Live-Reload — re-armed: %s",
+                ", ".join(
+                    f"{name}=[{', '.join(combos)}]" for name, combos in self._bindings_cfg.items()
+                ),
+            )
+        except Exception:  # noqa: BLE001 — never crash voice on a re-arm hiccup
+            log.error(
+                "Hotkey re-arm failed — hotkeys may be inactive until the next "
+                "restart; voice still works via wake word / mascot click.",
+                exc_info=True,
+            )
+
+    async def events(self) -> AsyncIterator[str]:
+        """Yield event names ("call" / "hangup" / ...) on every press."""
+        while True:
+            name = await self._queue.get()
+            yield name
+
+
+__all__ = [
+    "MOUSE_BUTTON_TOKENS",
+    "SELF_INPUT_SUPPRESSED_EVENTS",
+    "HotkeyTrigger",
+    "HotkeyVerdict",
+    "combos_collide",
+    "modifier_snapshot",
+    "MOUSE_HOTKEY_REASONS",
+    "mouse_hotkeys_available",
+    "mouse_hotkeys_reason_code",
+    "normalized_combo_tokens",
+    "validate_hotkey",
+    "_normalize_combo",
+    "_reset_checker_state_for_tests",
+]

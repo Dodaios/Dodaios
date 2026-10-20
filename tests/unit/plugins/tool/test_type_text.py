@@ -14,8 +14,8 @@ import types
 
 import pytest
 
-from jarvis.plugins.tool import type_text as tt
-from jarvis.plugins.tool.type_text import TypeTextTool
+from dodaios.plugins.tool import type_text as tt
+from dodaios.plugins.tool.type_text import TypeTextTool
 
 try:  # ``ctypes.wintypes`` is importable cross-platform, but guard for safety.
     from ctypes import wintypes as _wt  # noqa: F401
@@ -88,8 +88,8 @@ async def test_screenshot_bound_typing_refuses_changed_foreground(monkeypatch):
             typed.append(text)
 
     monkeypatch.setattr(tt.os, "name", "posix")
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", lambda: _Actuator())
-    monkeypatch.setattr("jarvis.cu.target_guard.foreground_matches", lambda _: False)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", lambda: _Actuator())
+    monkeypatch.setattr("dodaios.cu.target_guard.foreground_matches", lambda _: False)
 
     result = await TypeTextTool().execute(
         {
@@ -106,15 +106,15 @@ async def test_screenshot_bound_typing_refuses_changed_foreground(monkeypatch):
 
 async def test_macos_permission_refusal_keeps_its_prefix_at_the_start(monkeypatch):
     """The engine maps the "[permission_needed:" prefix: type_text must not wrap it."""
-    from jarvis.cu.actuate.base import ActuationUnavailable, PermissionNeededError
-    from jarvis.platform.permissions import PermissionId
+    from dodaios.cu.actuate.base import ActuationUnavailable, PermissionNeededError
+    from dodaios.platform.permissions import PermissionId
     from tests.fakes.fake_permission_service import make_result
 
     def _refused():
         raise PermissionNeededError(make_result(PermissionId.ACCESSIBILITY, "needs_settings"))
 
     monkeypatch.setattr(tt.os, "name", "posix")
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", _refused)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", _refused)
 
     result = await TypeTextTool().execute({"text": "hello"}, _Ctx())
 
@@ -125,7 +125,7 @@ async def test_macos_permission_refusal_keeps_its_prefix_at_the_start(monkeypatc
     def _headless():
         raise ActuationUnavailable("no display")
 
-    monkeypatch.setattr("jarvis.cu.actuate.get_actuator", _headless)
+    monkeypatch.setattr("dodaios.cu.actuate.get_actuator", _headless)
     other = await TypeTextTool().execute({"text": "hello"}, _Ctx())
     assert other.error == "text input unavailable: no display"
 

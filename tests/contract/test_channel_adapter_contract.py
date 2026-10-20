@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import SystemStarted
-from jarvis.core.protocols import ChannelAdapter
+from dodaios.core.bus import EventBus
+from dodaios.core.events import SystemStarted
+from dodaios.core.protocols import ChannelAdapter
 
 
 def _discover_channel_classes() -> list[tuple[str, type]]:

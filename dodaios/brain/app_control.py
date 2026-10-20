@@ -1,0 +1,1039 @@
+"""App-Control service — shared logic behind the brain's App-Control tools.
+
+This module is the single source of truth for three things the brain needs to
+both *see* and *change* about the running Desktop App:
+
+1. ``is_credential_present`` — does a provider have a usable credential? (the
+   same check ``provider_routes`` uses for the UI cards; imported back there so
+   the two never drift — the BUG-008 multi-site-vocab class).
+2. ``build_settings_snapshot`` — a complete, read-only, secret-free picture of
+   the current configuration (providers, key settings, MCP servers) for the
+   ``describe-app-settings`` tool.
+3. ``apply_provider_switch`` — switch the active brain/tts/stt/subagent provider,
+   reusing the exact 3-layer persist + live-apply path the REST endpoints use,
+   via the live runtime references in :mod:`dodaios.core.runtime_refs`.
+
+Security boundary (binding): nothing here ever accepts a raw secret *value* by
+voice/chat, and nothing ever returns or logs a *full* secret. Provider switching
+only flips *which* provider is active; the target provider's key must already
+exist in the Credential Manager. Raw key writes stay UI-only
+(``/api/secrets/{key}``) per AP-2 (STT log leak = credential exfil) and the
+self-mod ``FORBIDDEN_PATTERNS`` doctrine.
+
+ONE sanctioned read of a secret value lives here: ``masked_secret_preview``
+returns ONLY the first 3 + last 3 characters (e.g. ``AIz...xQ2``), never the
+middle, never the full value, and never logs the value. This is an explicit
+user mandate (2026-05-31): the assistant may *speak* a masked preview when asked
+"what is my X key", but must refuse to speak the full key in any language. The
+mask leaves 30+ characters hidden on a real API key, so the preview alone is
+unusable for an attacker — the GitHub/Stripe "last 4" pattern.
+
+Layering note: this is a brain-layer service. It imports the pure-data provider
+catalog (``provider_spec``) and the low-layer config writer / mcp state. The UI
+layer (``provider_routes``) imports *down* into this module — never the reverse.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import TYPE_CHECKING, Any
+
+from dodaios.core import config as cfg_mod
+from dodaios.core import runtime_refs
+
+if TYPE_CHECKING:  # annotations only — `from __future__ import annotations` keeps these lazy
+    from dodaios.ui.web.provider_spec import ProviderSpec
+
+log = logging.getLogger(__name__)
+
+
+def _catalog() -> Any:
+    """Lazy import of the provider catalog (a brain module must not import the
+    UI layer at module-load time — keeps the dependency direction clean and
+    avoids any import cycle with ``provider_routes``)."""
+    from dodaios.ui.web import provider_spec
+
+    return provider_spec
+
+
+def get_spec(provider_id: str) -> Any:
+    """Provider spec by id, or ``None`` (thin wrapper over the lazy catalog)."""
+    return _catalog().get_spec(provider_id)
+
+
+# The tiers a provider switch can target. ``brain`` and ``tts`` apply live;
+# Jarvis-Agent workers re-resolve their provider before each mission. STT is
+# wired once at bootstrap and still needs a restart.
+SWITCHABLE_TIERS: frozenset[str] = frozenset({"brain", "tts", "stt", "subagent"})
+
+
+# Local providers allowed to stay active in the airgapped privacy profile.
+# SPEC-DERIVED since 2026-07-25 (local-first mandate): every provider card
+# declaring ``auth_mode == "none"`` is local by definition — ollama and
+# local-openai today, future local STT/TTS cards automatically — never a
+# hand-maintained name list (AP-21/22). (Wake still runs its own local
+# Whisper off this list.) Lives HERE (not in provider_routes) so every
+# switch path shares the one lock.
+def _spec_local_providers() -> frozenset[str]:
+    from dodaios.ui.web.provider_spec import PROVIDERS
+
+    return frozenset(s.id for s in PROVIDERS if s.auth_mode == "none")
+
+
+LOCAL_PROVIDERS: frozenset[str] = _spec_local_providers()
+
+# Maps a provider id to the credential-manager *provider slot* used by
+# ``cfg.get_provider_secret`` — needed where one key backs several provider ids
+# (e.g. gemini + gemini-flash-tts share ``gemini_api_key``). Kept in sync with
+# ``provider_routes`` by being imported there, not copied.
+AUTH_PROVIDER_ALIASES: dict[str, str] = {
+    "claude-api": "claude-api",
+    "openai": "openai",
+    "openai-tts": "openai",
+    "openai-api": "openai",
+    "openrouter": "openrouter",
+    "groq": "groq",
+    "groq-api": "groq",
+    # Dedicated slot — Deepgram shares its key with nothing else.
+    "deepgram-api": "deepgram",
+    "gemini": "gemini",
+    "gemini-flash-tts": "gemini",
+    "gemini-live": "gemini-live",
+    "grok": "grok",
+    "grok-voice": "grok",
+    "openai-realtime": "openai-realtime",
+    "openai-live": "openai",
+    # Codex-as-brain accepts its dedicated slot OR the general OpenAI key
+    # (config.PROVIDER_SECRET_CANDIDATES["codex"]); without this entry the
+    # presence check saw only the dedicated slot.
+    "codex": "codex",
+    # The Vertex family shares ONE credential across brain, STT, TTS and
+    # realtime, exactly as the Gemini rows above share theirs. ``vertex-live``
+    # keeps its own dedicated-slot-first family (a realtime-scoped key wins on
+    # its own surface).
+    "vertex": "vertex",
+    "vertex-stt": "vertex",
+    "vertex-tts": "vertex",
+    "vertex-live": "vertex-live",
+}
+
+#: API-key providers that can ALSO authenticate with no key stored at all, and
+#: the ``dodaios.core.config`` probe that answers for them.
+#:
+#: Vertex AI is the case: its Google Cloud project path signs requests with
+#: Application Default Credentials — a service account, a ``gcloud`` login,
+#: workload identity — so nothing lands in the keyring. Without this the setup
+#: Google documents for production reads as "open" on all four cards and every
+#: switch to it is refused for a missing key. Same shape as the ``codex`` and
+#: ``antigravity`` branches below, which fall back to a login probe for exactly
+#: the same reason; this table just makes it declarative instead of a fourth
+#: hand-written branch.
+KEYLESS_CREDENTIAL_PROBES: dict[str, str] = {
+    "vertex": "vertex_credential_configured",
+    "vertex-stt": "vertex_credential_configured",
+    "vertex-tts": "vertex_credential_configured",
+    "vertex-live": "vertex_credential_configured",
+}
+
+
+def _keyless_credential_present(provider_id: str) -> bool:
+    """Whether *provider_id* authenticates without a stored key. Never raises."""
+    probe_name = KEYLESS_CREDENTIAL_PROBES.get(provider_id)
+    if not probe_name:
+        return False
+    try:
+        return bool(getattr(cfg_mod, probe_name)())
+    except Exception as exc:  # noqa: BLE001 — a probe must never break a card
+        log.debug("Keyless credential probe %s for %s failed: %s", probe_name, provider_id, exc)
+        return False
+
+
+# Local providers that need no credential at all — the same spec-derived set
+# as LOCAL_PROVIDERS (auth_mode "none" IS the definition of "no credential").
+# is_credential_present() independently reports auth_mode=="none" providers as
+# configured, so the two can never disagree.
+_NO_CREDENTIAL_PROVIDERS: frozenset[str] = LOCAL_PROVIDERS
+
+# A stored secret must be at least this long before we reveal a 3+3 preview.
+# Below it, 6 revealed characters would expose too large a fraction of the key,
+# so we confirm it is set but show no preview.
+_MIN_PREVIEW_LEN: int = 12
+
+
+def _mask_secret(value: str) -> dict[str, Any]:
+    """Build a masked preview of a secret: first 3 + last 3 chars, middle hidden.
+
+    Returns a dict the brain can phrase naturally. NEVER returns the full value
+    and NEVER logs it. For values shorter than ``_MIN_PREVIEW_LEN`` the preview
+    is ``None`` (set, but too short to reveal safely).
+    """
+    v = (value or "").strip()
+    if len(v) < _MIN_PREVIEW_LEN:
+        return {"preview": None, "first3": None, "last3": None, "hidden_chars": len(v)}
+    first3, last3 = v[:3], v[-3:]
+    return {
+        "preview": f"{first3}...{last3}",
+        "first3": first3,
+        "last3": last3,
+        "hidden_chars": len(v) - 6,
+    }
+
+
+def _resolve_secret_value(provider_id: str, spec: Any) -> str:
+    """Fetch the stored secret value for a provider (or "" if absent).
+
+    Resolution order mirrors ``is_credential_present``: the provider-slot alias
+    first (handles shared keys like gemini + gemini-flash-tts), then the spec's
+    declared ``secret_keys``, then the provider id treated as a slot.
+    """
+    alias = AUTH_PROVIDER_ALIASES.get(provider_id)
+    if alias:
+        value = cfg_mod.get_provider_secret(alias)
+        if value:
+            return value
+    if spec is not None:
+        for key in getattr(spec, "secret_keys", ()):
+            value = cfg_mod.get_secret(key)
+            if value:
+                return value
+    return cfg_mod.get_provider_secret(provider_id) or ""
+
+
+def masked_secret_preview(provider_id: str) -> dict[str, Any]:
+    """Masked preview of a provider's stored API key (user mandate 2026-05-31).
+
+    Returns ``{provider, configured, preview, first3, last3, hidden_chars}``.
+    The preview is ``AIz...xQ2`` style — first 3 + last 3 only. Never returns
+    the full value; logs only the provider name and whether a key was present.
+    """
+    provider_id = (provider_id or "").strip()
+    spec = get_spec(provider_id)
+    value = _resolve_secret_value(provider_id, spec)
+    if not value:
+        log.info("masked_secret_preview: provider=%r has no stored key", provider_id)
+        return {"provider": provider_id, "configured": False, "preview": None}
+
+    masked = _mask_secret(value)
+    # Privacy: log only that a preview was produced, never the value or the mask.
+    log.info(
+        "masked_secret_preview: provider=%r configured (preview=%s)",
+        provider_id,
+        masked["preview"] is not None,
+    )
+    return {
+        "provider": provider_id,
+        "configured": True,
+        **masked,
+    }
+
+
+# ----------------------------------------------------------------------
+# Credential presence (single source of truth — also used by provider_routes)
+# ----------------------------------------------------------------------
+
+
+def local_readiness_error(spec: ProviderSpec) -> str | None:
+    """Why an on-device provider cannot run yet — or ``None`` when it can.
+
+    Returns ``None`` for every cloud provider too, so a caller can apply it
+    unconditionally: locality is decided by the local-model catalog, never by a
+    provider name (AP-21).
+
+    This exists because "needs no credential" and "is usable" are different
+    facts that an ``auth_mode == "none"`` check silently conflates. An on-device
+    provider needs its engine installed and its weights downloaded, and neither
+    is implied by the absence of an API key — the exact conflation that let a
+    local recogniser present itself as ready on a machine where nothing had been
+    installed.
+    """
+    try:
+        from dodaios.speech.local_models import local_status
+
+        state = local_status(getattr(spec, "id", "") or "")
+    except Exception as exc:  # noqa: BLE001 — an unavailable probe blocks nothing
+        log.debug("Local readiness probe failed (%s); treating as not local.", exc)
+        return None
+    if state is None or state.ready:
+        return None
+    return state.detail
+
+
+def is_credential_present(spec: ProviderSpec, binary_path: str | None = None) -> bool:
+    """True iff ``spec``'s provider has a usable stored credential.
+
+    Heuristic per ``auth_mode`` — mirrors the former private check in
+    ``provider_routes`` exactly (which now imports this function).
+    """
+    if spec.auth_mode == "none":
+        return True
+    if spec.auth_mode == "api_key":
+        secret_provider = AUTH_PROVIDER_ALIASES.get(spec.id)
+        if secret_provider is not None:
+            if cfg_mod.get_provider_secret(secret_provider):
+                return True
+        elif all(bool(cfg_mod.get_secret(k)) for k in spec.secret_keys):
+            return True
+        # A key is the usual answer but not the only one — see
+        # KEYLESS_CREDENTIAL_PROBES (Vertex's Cloud project path).
+        return _keyless_credential_present(spec.id)
+    if spec.auth_mode == "claude_cli":
+        from dodaios.claude_auth import ClaudeAuthService
+
+        # An unreadable keyring does not disconnect the CLI's native login.
+        try:
+            key = cfg_mod.get_jarvis_agent_secret("claude-api")
+        except Exception as exc:  # noqa: BLE001 — subscription credentials live independently
+            log.debug("Claude API key status unavailable (%s)", type(exc).__name__)
+            key = None
+        try:
+            # Match the Claude connection card. An OAuth bearer in the API-key
+            # slot is not an API credential and cannot bypass a signed-out CLI.
+            api_key_present = bool(key and not key.startswith("sk-ant-oat"))
+            return ClaudeAuthService(
+                binary_path, api_key_present=api_key_present
+            ).status().connected
+        except Exception as exc:  # noqa: BLE001 — status must survive a missing CLI
+            log.debug("Claude credential status unavailable (%s)", type(exc).__name__)
+            return False
+    if spec.auth_mode == "codex":
+        if any(bool(cfg_mod.get_secret(k)) for k in spec.secret_keys):
+            return True
+        try:
+            from dodaios.codex_auth import CodexAuthService
+
+            return CodexAuthService(binary_path).status().connected
+        except Exception:  # noqa: BLE001 — codex CLI absent is just "not present"
+            return False
+    if spec.auth_mode == "antigravity":
+        # Dual-billing (subscription OAuth OR an API key): mirror the codex branch
+        # and count a stored key first, so a key-only user shows as configured.
+        if any(bool(cfg_mod.get_secret(k)) for k in spec.secret_keys):
+            return True
+        try:
+            from dodaios.google_cli.auth_service import GoogleCliAuthService
+
+            return GoogleCliAuthService().status().connected
+        except Exception:  # noqa: BLE001 — Google CLI absent is just "not present"
+            return False
+    if spec.auth_mode == "grok_build":
+        try:
+            from dodaios.grok_build_auth import (
+                GrokBuildAuthService,
+                grok_build_provider_ready,
+            )
+
+            return grok_build_provider_ready(GrokBuildAuthService().status())
+        except Exception:  # noqa: BLE001 — Grok Build CLI absent is just "not present"
+            return False
+    return False
+
+
+def _provider_configured(provider_id: str) -> bool:
+    spec = get_spec(provider_id)
+    if spec is None:
+        # subagent providers (e.g. claude-api via OAuth) may not be in the
+        # brain/tts/stt catalog — fall back to the provider-secret check.
+        return bool(cfg_mod.get_provider_secret(provider_id))
+    return is_credential_present(spec)
+
+
+# ----------------------------------------------------------------------
+# Read: complete settings snapshot (secret-free)
+# ----------------------------------------------------------------------
+
+
+def _providers_for_tier(tier: str, active: str | None) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for spec in _catalog().PROVIDERS:
+        if spec.tier != tier:
+            continue
+        out.append(
+            {
+                "id": spec.id,
+                "label": spec.label,
+                "active": spec.id == active,
+                "configured": is_credential_present(spec),
+                "needs_credential": spec.auth_mode != "none",
+            }
+        )
+    return out
+
+
+def _safe(getter: Any, default: Any = None) -> Any:
+    try:
+        value = getter()
+    except Exception:  # noqa: BLE001 — a missing config field is not an error here
+        return default
+    return default if value is None else value
+
+
+def build_settings_snapshot(cfg: Any) -> dict[str, Any]:
+    """A complete, read-only, secret-free picture of the current config.
+
+    Every value is read defensively (``getattr`` chains) so a config schema that
+    is missing a field degrades to ``None`` rather than raising — this is a
+    read-only overview tool and must never crash the turn.
+    """
+    brain = getattr(cfg, "brain", None)
+    tts = getattr(cfg, "tts", None)
+    stt = getattr(cfg, "stt", None)
+    ui = getattr(cfg, "ui", None)
+    profile = getattr(cfg, "profile", None)
+    wake = getattr(cfg, "wake", None) or getattr(cfg, "wakeword", None)
+    autostart = getattr(cfg, "autostart", None)
+    computer_use = getattr(cfg, "computer_use", None)
+    sub_jarvis = getattr(brain, "worker", None) if brain is not None else None
+
+    active_brain = getattr(brain, "primary", None) if brain is not None else None
+    # Prefer the *live* active provider when the BrainManager is running — it is
+    # the ground truth after a mid-session switch; fall back to config.
+    manager = runtime_refs.get_brain_manager()
+    if manager is not None:
+        live = getattr(manager, "active_provider", None)
+        if live:
+            active_brain = live
+
+    active_tts = getattr(tts, "provider", None) if tts is not None else None
+    active_stt = getattr(stt, "provider", None) if stt is not None else None
+    active_sub = getattr(sub_jarvis, "provider", None) if sub_jarvis is not None else None
+
+    providers = {
+        "brain": _providers_for_tier("brain", active_brain),
+        "tts": _providers_for_tier("tts", active_tts),
+        "stt": _providers_for_tier("stt", active_stt),
+        "subagent": {
+            "active": active_sub,
+            "configured": _provider_configured(active_sub) if active_sub else False,
+        },
+    }
+
+    # Resolved name (the wake phrase is now the single source — there is no
+    # separate [persona].name; resolve_assistant_name derives it and is fully
+    # defensive, so it is safe inside the read-only snapshot).
+    from dodaios.brain.assistant_name import resolve_assistant_name
+
+    settings = {
+        "reply_language": _safe(lambda: brain.reply_language),
+        "assistant_name": _safe(lambda: resolve_assistant_name(cfg)),
+        "wake_phrase": _safe(lambda: wake.phrase),
+        "wake_engine": _safe(lambda: wake.engine),
+        "autostart_enabled": _safe(lambda: autostart.enabled),
+        "ui_theme": _safe(lambda: ui.theme),
+        "tts_voice_de": _safe(lambda: tts.voice_de),
+        "tts_voice_en": _safe(lambda: tts.voice_en),
+        "tts_speed": _safe(lambda: tts.speed),
+        "profile_language": _safe(lambda: profile.language),
+        "computer_use_step_budget": _safe(lambda: computer_use.step_budget),
+    }
+
+    mcp_servers = list_mcp_servers()
+
+    return {
+        "providers": providers,
+        "settings": settings,
+        "mcp_servers": mcp_servers,
+    }
+
+
+# ----------------------------------------------------------------------
+# Read: MCP server list
+# ----------------------------------------------------------------------
+
+
+def list_mcp_servers() -> list[dict[str, Any]]:
+    """The MCP servers declared in ``mcp.json`` (name, enabled, description)."""
+    try:
+        from dodaios.mcp import state as mcp_state
+
+        cfg = mcp_state.load_config()
+    except Exception as exc:  # noqa: BLE001
+        log.debug("list_mcp_servers: load_config failed: %s", exc)
+        return []
+    servers = cfg.get("mcpServers", {}) if isinstance(cfg, dict) else {}
+    out: list[dict[str, Any]] = []
+    for name, entry in servers.items():
+        if not isinstance(entry, dict):
+            continue
+        out.append(
+            {
+                "name": name,
+                "enabled": bool(entry.get("enabled", False)),
+                "description": entry.get("description", ""),
+                "transport": entry.get("transport", "stdio"),
+                "command": entry.get("command"),
+            }
+        )
+    return out
+
+
+# ----------------------------------------------------------------------
+# Write: provider switch (3-layer persist + live apply where supported)
+# ----------------------------------------------------------------------
+
+
+def _current_provider(cfg: Any, tier: str) -> str | None:
+    brain = getattr(cfg, "brain", None)
+    if tier == "brain":
+        return getattr(brain, "primary", None) if brain else None
+    if tier == "tts":
+        return getattr(getattr(cfg, "tts", None), "provider", None)
+    if tier == "stt":
+        return getattr(getattr(cfg, "stt", None), "provider", None)
+    if tier == "subagent":
+        sub = getattr(brain, "worker", None) if brain else None
+        return getattr(sub, "provider", None) if sub else None
+    return None
+
+
+async def apply_provider_switch(
+    tier: str,
+    provider: str,
+    *,
+    cfg: Any,
+    persist: bool = True,
+    manager: Any | None = None,
+) -> dict[str, Any]:
+    """Switch the active provider for ``tier`` to ``provider``.
+
+    Returns a result dict with ``ok``; on failure ``error`` + ``error_kind``;
+    on success ``old_provider``, ``new_provider``, ``persisted``,
+    ``applied_live``, ``requires_restart``.
+
+    Never sets a raw key — only flips which provider is active. The target
+    provider must already have a stored credential (checked up-front).
+
+    ``manager`` optionally pins the live BrainManager to switch (the REST
+    route passes its ``app.state.brain``); default is the runtime_refs lookup.
+    """
+    tier = (tier or "").strip().lower()
+    provider = (provider or "").strip()
+
+    if tier not in SWITCHABLE_TIERS:
+        return {
+            "ok": False,
+            "error_kind": "unknown_tier",
+            "error": (f"Unknown tier {tier!r}. Use one of: {', '.join(sorted(SWITCHABLE_TIERS))}."),
+        }
+
+    # Airgapped privacy profile admits only local providers. Enforced HERE so
+    # every switch path (voice gate, REST route, CLI, brain tool) hits the one
+    # lock — it used to live only in the REST route, so a voice-initiated
+    # switch could activate a cloud provider in privacy mode.
+    profile_name = getattr(getattr(cfg, "profile", None), "name", "default")
+    if profile_name == "airgapped" and provider not in LOCAL_PROVIDERS:
+        return {
+            "ok": False,
+            "error_kind": "airgapped_locked",
+            "error": (
+                "Privacy mode (airgapped profile) is active — only local "
+                "providers can be activated."
+            ),
+        }
+
+    old_provider = _current_provider(cfg, tier)
+
+    if tier == "subagent":
+        return await _switch_subagent(provider, cfg=cfg, persist=persist, old=old_provider)
+
+    # brain / tts / stt — validate against the provider catalog.
+    spec = get_spec(provider)
+    if spec is None:
+        return {
+            "ok": False,
+            "error_kind": "unknown_provider",
+            "error": f"Unknown provider {provider!r} for tier {tier!r}.",
+        }
+    if spec.tier != tier:
+        return {
+            "ok": False,
+            "error_kind": "wrong_tier",
+            "error": (
+                f"Provider {provider!r} is a {spec.tier} provider, not {tier}. "
+                f"Did you mean tier={spec.tier!r}?"
+            ),
+        }
+    if tier == "brain" and not getattr(spec, "brain_switchable", True):
+        return {
+            "ok": False,
+            "error_kind": "subagent_only",
+            "error": (
+                f"{spec.label} is subagent-only in Dodaios. It cannot be used as "
+                "the main Brain provider because it cannot see Computer-Use "
+                "screenshots. Switch it in the Subagent section instead."
+            ),
+        }
+    if not is_credential_present(spec):
+        return {
+            "ok": False,
+            "error_kind": "missing_credential",
+            "error": (
+                f"{spec.label} is not configured — its API key is missing. "
+                "Add it in the Settings tab first, then switch."
+            ),
+        }
+    # The on-device equivalent of the check above, and it has to be its own
+    # step: ``is_credential_present`` answers True for every keyless provider by
+    # definition, so without this an engine that was never installed would sail
+    # through here and only fail later, silently, on the first utterance.
+    # Enforced at this one lock so the voice gate, the CLI and the brain tool
+    # are covered, not just the REST route.
+    not_installed = local_readiness_error(spec)
+    if not_installed:
+        return {
+            "ok": False,
+            "error_kind": "not_installed",
+            "error": not_installed,
+        }
+
+    if tier == "brain":
+        return await _switch_brain(
+            provider, cfg=cfg, persist=persist, old=old_provider, manager=manager
+        )
+    if tier == "tts":
+        return _switch_tts(provider, cfg=cfg, persist=persist, old=old_provider)
+    return _switch_stt(provider, cfg=cfg, persist=persist, old=old_provider)
+
+
+async def _switch_brain(
+    provider: str,
+    *,
+    cfg: Any,
+    persist: bool,
+    old: str | None,
+    manager: Any | None = None,
+) -> dict[str, Any]:
+    if manager is None:
+        manager = runtime_refs.get_brain_manager()
+    persisted = False
+    applied_live = False
+
+    if manager is not None and hasattr(manager, "switch"):
+        try:
+            await manager.switch(provider, persist=persist)
+        except TypeError:
+            # Older switch signature without the persist kwarg.
+            await manager.switch(provider)
+            if persist:
+                persisted = _persist_brain_primary(provider)
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Brain switch to %r failed", provider)
+            return {
+                "ok": False,
+                "error_kind": "switch_failed",
+                "error": f"Switch failed: {type(exc).__name__}: {exc}",
+            }
+        else:
+            if persist:
+                persisted = bool(getattr(manager, "last_persist_ok", False))
+        applied_live = getattr(manager, "active_provider", None) == provider
+        if not applied_live:
+            return {
+                "ok": False,
+                "error_kind": "switch_not_applied",
+                "error": (
+                    f"Switch to {provider!r} was not applied "
+                    f"(active is {getattr(manager, 'active_provider', None)!r}). "
+                    "Provider may not be loadable."
+                ),
+            }
+    else:
+        # No live manager (headless build before bootstrap): persist only.
+        if persist:
+            persisted = _persist_brain_primary(provider)
+
+    _set_in_memory(cfg, ["brain", "primary"], provider)
+    _sync_local_server(provider, cfg)
+    return {
+        "ok": True,
+        "tier": "brain",
+        "old_provider": old,
+        "new_provider": provider,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "requires_restart": not applied_live,
+    }
+
+
+def _sync_local_server(provider: str, cfg: Any) -> None:
+    """Bring the local model server in line with the brain that was just picked.
+
+    Both directions, fire-and-forget, because a provider switch is the whole
+    gesture a user gets:
+
+    * TO the local server — :func:`dodaios.local_models.autostart.kick`, so
+      "choose local models" is followed by local models answering, not by a
+      two-second connect failure and the fallback on the first turn.
+    * AWAY from it — :func:`dodaios.local_models.autostart.release`, so the
+      graphics memory comes back. Without this half the switch only changed
+      who answers: the model stayed resident behind its keep-alive and a
+      6 GB card kept holding it for as long as Jarvis ran (BUG-204). The
+      release refuses while a local voice still runs on the server, and it
+      only ever stops the server this install started.
+
+    Every switch path (REST, voice gate, CLI, brain tool) lands here.
+    """
+    try:
+        from dodaios.local_models.autostart import (  # lazy (AP-26)
+            SERVER_PROVIDER_ID,
+            kick,
+            release,
+        )
+
+        if provider == SERVER_PROVIDER_ID:
+            kick(cfg)
+        else:
+            release(cfg)
+    except Exception:  # noqa: BLE001 — the switch already landed; only the server state lags
+        log.debug("local server sync after the switch was not scheduled", exc_info=True)
+
+
+def _switch_tts(provider: str, *, cfg: Any, persist: bool, old: str | None) -> dict[str, Any]:
+    persisted = _persist(lambda: _import_writer().set_tts_provider(provider)) if persist else False
+    _set_in_memory(cfg, ["tts", "provider"], provider)
+
+    applied_live = False
+    pipeline = runtime_refs.get_speech_pipeline()
+    tts_cfg = getattr(cfg, "tts", None)
+    if pipeline is not None and hasattr(pipeline, "set_tts") and tts_cfg is not None:
+        try:
+            from dodaios.plugins.tts import build_tts_from_config
+
+            pipeline.set_tts(build_tts_from_config(tts_cfg))
+            applied_live = True
+        except Exception as exc:  # noqa: BLE001
+            log.error("TTS live-switch failed (restart needed): %s", exc, exc_info=True)
+
+    return {
+        "ok": True,
+        "tier": "tts",
+        "old_provider": old,
+        "new_provider": provider,
+        "persisted": persisted,
+        "applied_live": applied_live,
+        "requires_restart": not applied_live,
+    }
+
+
+def _switch_stt(provider: str, *, cfg: Any, persist: bool, old: str | None) -> dict[str, Any]:
+    persisted = _persist(lambda: _import_writer().set_stt_provider(provider)) if persist else False
+    _set_in_memory(cfg, ["stt", "provider"], provider)
+    return {
+        "ok": True,
+        "tier": "stt",
+        "old_provider": old,
+        "new_provider": provider,
+        "persisted": persisted,
+        "applied_live": False,
+        "requires_restart": True,
+    }
+
+
+async def _switch_subagent(
+    provider: str, *, cfg: Any, persist: bool, old: str | None
+) -> dict[str, Any]:
+    from dodaios.brain.assistant_name import agent_brand
+
+    # Spoken/displayed brand follows the wake-word-derived assistant name.
+    brand = agent_brand(cfg)
+    try:
+        from dodaios.missions.worker_runtime.provider_map import (
+            ANTIGRAVITY_SUBAGENT_CANONICAL,
+            ANTIGRAVITY_SUBAGENT_SLUGS,
+            CODEX_SUBAGENT_CANONICAL,
+            CODEX_SUBAGENT_SLUGS,
+            GROK_BUILD_SUBAGENT_CANONICAL,
+            GROK_BUILD_SUBAGENT_SLUGS,
+            JARVIS_TO_WORKER_SLUG,
+            canonical_worker_provider,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "error_kind": "subagent_unavailable",
+            "error": f"Subagent provider map unavailable: {exc}",
+        }
+
+    canon = canonical_worker_provider(provider) or ""
+
+    # Codex is a DIRECT worker (no worker-harness slug) — accept it explicitly,
+    # mirroring the REST ``/api/jarvis-agent/switch`` path so the two switch sites
+    # never drift.
+    # Backed by the ChatGPT subscription (OAuth) OR an OpenAI API key.
+    if canon in CODEX_SUBAGENT_SLUGS:
+        try:
+            from dodaios.codex_auth import CodexAuthService
+
+            codex_cfg = getattr(cfg, "codex", None)
+            binary_path = getattr(codex_cfg, "binary_path", "") or None
+            codex_status = await asyncio.to_thread(CodexAuthService(binary_path).status)
+            codex_connected = codex_status.connected
+        except Exception:  # noqa: BLE001 — codex CLI absent is just "not connected"
+            codex_status = None
+            codex_connected = False
+        has_key = bool(
+            cfg_mod.get_secret("codex_openai_api_key", env_fallback="CODEX_OPENAI_API_KEY")
+        )
+        if codex_status is None or not codex_status.installed:
+            return {
+                "ok": False,
+                "error_kind": "subagent_unavailable",
+                "error": (
+                    "Codex CLI is not installed. Install it or select the OpenAI "
+                    f"{brand} provider for key-only execution."
+                ),
+            }
+        if not (codex_connected or has_key):
+            return {
+                "ok": False,
+                "error_kind": "missing_credential",
+                "error": (
+                    "Codex is not connected — run 'codex login' or save an OpenAI "
+                    f"API key first, then switch the {brand}."
+                ),
+            }
+        return _complete_agent_switch(
+            CODEX_SUBAGENT_CANONICAL,
+            cfg=cfg,
+            persist=persist,
+            old=old,
+        )
+
+    if canon in ANTIGRAVITY_SUBAGENT_SLUGS:
+        antigravity_status = None
+        try:
+            from dodaios.google_cli.auth_service import (
+                GoogleCliAuthService,
+                antigravity_provider_ready,
+            )
+
+            antigravity_status = await asyncio.to_thread(GoogleCliAuthService().status)
+        except Exception as exc:  # noqa: BLE001 — absent CLI is a normal capability miss
+            log.debug("Antigravity CLI readiness probe failed: %s", exc)
+        has_key = bool(cfg_mod.get_jarvis_agent_secret("gemini"))
+        if antigravity_status is None or not antigravity_status.installed:
+            return {
+                "ok": False,
+                "error_kind": "subagent_unavailable",
+                "error": (
+                    "Antigravity is not installed. Install the agy or Gemini CLI, "
+                    f"or select the Google Gemini {brand} provider for key-only "
+                    "execution."
+                ),
+            }
+        if not antigravity_provider_ready(
+            antigravity_status,
+            api_key_present=has_key,
+        ):
+            return {
+                "ok": False,
+                "error_kind": "missing_credential",
+                "error": (
+                    "Antigravity is not connected — sign in with Google "
+                    "(install agy or the Gemini CLI and log in) or save a "
+                    f"{brand} Gemini key, then switch the {brand}."
+                ),
+            }
+        return _complete_agent_switch(
+            ANTIGRAVITY_SUBAGENT_CANONICAL,
+            cfg=cfg,
+            persist=persist,
+            old=old,
+        )
+
+    if canon in GROK_BUILD_SUBAGENT_SLUGS:
+        grok_build_status = None
+        try:
+            from dodaios.grok_build_auth import (
+                GrokBuildAuthService,
+                grok_build_provider_ready,
+            )
+
+            grok_build_status = await asyncio.to_thread(GrokBuildAuthService().status)
+        except Exception as exc:  # noqa: BLE001 — absent CLI is a normal capability miss
+            log.debug("Grok Build CLI readiness probe failed: %s", exc)
+        if grok_build_status is None or not grok_build_status.installed:
+            return {
+                "ok": False,
+                "error_kind": "subagent_unavailable",
+                "error": (
+                    "Grok Build is not installed. Install the grok CLI from "
+                    f"x.ai/build, or select the xAI Grok {brand} provider for "
+                    "key-only execution."
+                ),
+            }
+        if not grok_build_provider_ready(grok_build_status):
+            return {
+                "ok": False,
+                "error_kind": "missing_credential",
+                "error": (
+                    "Grok Build is not connected — sign in with SuperGrok or "
+                    f"X Premium+ (install grok and run grok login), then "
+                    f"switch the {brand}."
+                ),
+            }
+        return _complete_agent_switch(
+            GROK_BUILD_SUBAGENT_CANONICAL,
+            cfg=cfg,
+            persist=persist,
+            old=old,
+        )
+
+    if canon not in JARVIS_TO_WORKER_SLUG:
+        # List EVERY worker-capable provider, not just the API/harness ones —
+        # Codex and Antigravity route through their own workers, so omitting them
+        # produced the false "codex is not a valid provider, only claude/gemini/
+        # openai/openrouter" reply (forensic 2026-06-27).
+        known = ", ".join(
+            sorted(
+                set(JARVIS_TO_WORKER_SLUG)
+                | {
+                    CODEX_SUBAGENT_CANONICAL,
+                    ANTIGRAVITY_SUBAGENT_CANONICAL,
+                    GROK_BUILD_SUBAGENT_CANONICAL,
+                }
+            )
+        )
+        return {
+            "ok": False,
+            "error_kind": "unknown_provider",
+            "error": (f"{provider!r} is not a {brand}-capable provider. Available: {known}."),
+        }
+    # Keyless local providers (Ollama, local OpenAI-compatible servers) have
+    # no Agent key slot at all, so demanding one bricks the only setup a
+    # keyless user has (AP-21/22).
+    has_credential = canon in _NO_CREDENTIAL_PROVIDERS or bool(
+        cfg_mod.get_jarvis_agent_secret(canon)
+    )
+    if canon == "claude-api" and not has_credential:
+        try:
+            from dodaios.missions.isolation.env import read_live_claude_oauth_token
+
+            has_credential = bool(read_live_claude_oauth_token())
+        except Exception:  # noqa: BLE001
+            has_credential = False
+        if not has_credential:
+            try:
+                from dodaios.claude_auth import usable_native_claude_subscription
+
+                native_status = await asyncio.to_thread(usable_native_claude_subscription)
+                has_credential = native_status is not None
+            except Exception:  # noqa: BLE001 — optional native CLI auth path
+                has_credential = False
+    if not has_credential and canon == "vertex":
+        # Vertex AI's Google Cloud project path signs with Application Default
+        # Credentials and stores NO key, so the key probe above reports the
+        # setup Google documents for production as unconfigured. Sibling of the
+        # claude-api OAuth rescue directly above: an on-disk login is a
+        # credential (AP-22). Asked through the shared credential state so this
+        # gate and the Vertex card can never disagree.
+        try:
+            has_credential = bool(cfg_mod.vertex_credential_configured())
+        except Exception as exc:  # noqa: BLE001 — a probe must not block the switch
+            log.debug("Vertex credential probe failed during switch: %s", exc)
+    if not has_credential:
+        return {
+            "ok": False,
+            "error_kind": "missing_credential",
+            "error": (
+                f"{canon} has no {brand} credential. Save a key on its "
+                f"{brand} card first, then switch the {brand}."
+            ),
+        }
+
+    return _complete_agent_switch(
+        canon,
+        cfg=cfg,
+        persist=persist,
+        old=old,
+    )
+
+
+def _complete_agent_switch(
+    provider: str, *, cfg: Any, persist: bool, old: str | None
+) -> dict[str, Any]:
+    """Persist and expose one validated Jarvis-Agent provider selection.
+
+    The mission factory re-reads the persisted provider before every new
+    mission, so a successful persisted switch is live without restarting the
+    app. An explicit non-persistent switch remains an in-memory preview only.
+    """
+    selected_model = None
+
+    def save_selection() -> None:
+        nonlocal selected_model
+        selected_model = _import_writer().set_worker_provider(provider, previous_provider=old)
+
+    persisted = _persist(save_selection) if persist else False
+    if persist and not persisted:
+        return {
+            "ok": False,
+            "error_kind": "persist_failed",
+            "error": "The mission-worker provider could not be saved.",
+        }
+    if isinstance(selected_model, str):
+        _set_in_memory(cfg, ["brain", "worker", "model"], selected_model)
+    elif _import_writer().worker_provider_changed(old, provider):
+        _set_in_memory(cfg, ["brain", "worker", "model"], "")
+    _set_in_memory(cfg, ["brain", "worker", "provider"], provider)
+    return {
+        "ok": True,
+        "tier": "subagent",
+        "old_provider": old,
+        "new_provider": provider,
+        "persisted": persisted,
+        "applied_live": persisted,
+        "requires_restart": not persisted,
+    }
+
+
+# ----------------------------------------------------------------------
+# Small helpers
+# ----------------------------------------------------------------------
+
+
+def resolve_running_cfg() -> Any:
+    """The config object the running app actually reads from.
+
+    Prefer the live BrainManager's ``_config`` (the same instance the server
+    threaded into ``app.state.config``), so an in-memory provider update is seen
+    by other readers (e.g. ``/api/providers``). Falls back to a fresh
+    ``load_config()`` for headless / pre-bootstrap callers.
+    """
+    manager = runtime_refs.get_brain_manager()
+    cfg = getattr(manager, "_config", None) if manager is not None else None
+    if cfg is not None:
+        return cfg
+    return cfg_mod.load_config()
+
+
+def _import_writer() -> Any:
+    from dodaios.core import config_writer
+
+    return config_writer
+
+
+def _persist(fn: Any) -> bool:
+    try:
+        fn()
+        return True
+    except Exception as exc:  # noqa: BLE001
+        log.error("Config persist failed: %s", exc)
+        return False
+
+
+def _persist_brain_primary(provider: str) -> bool:
+    return _persist(lambda: _import_writer().set_brain_primary(provider))
+
+
+def _set_in_memory(cfg: Any, path: list[str], value: Any) -> None:
+    """Best-effort in-memory cfg update (frozen models are not an error)."""
+    obj = cfg
+    try:
+        for key in path[:-1]:
+            obj = getattr(obj, key, None)
+            if obj is None:
+                return
+        setattr(obj, path[-1], value)
+    except Exception as exc:  # noqa: BLE001 — frozen / detached cfg is acceptable
+        log.debug("in-memory cfg update skipped (%s): %s", ".".join(path), exc)

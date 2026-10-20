@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain import app_control
-from jarvis.core.config import JarvisConfig
-from jarvis.missions.worker_runtime.provider_map import JARVIS_TO_WORKER_SLUG
+from dodaios.brain import app_control
+from dodaios.core.config import JarvisConfig
+from dodaios.missions.worker_runtime.provider_map import JARVIS_TO_WORKER_SLUG
 
 # Every keyless provider that can also run as the Jarvis-Agent.
 KEYLESS_AGENTS = sorted(app_control.LOCAL_PROVIDERS & set(JARVIS_TO_WORKER_SLUG))

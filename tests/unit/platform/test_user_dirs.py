@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.platform import user_dirs
+from dodaios.platform import user_dirs
 
 
 @pytest.fixture

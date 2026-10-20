@@ -12,8 +12,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.harness import screenshot_only_loop as sol
-from jarvis.platform import window_state as ws
+from dodaios.harness import screenshot_only_loop as sol
+from dodaios.platform import window_state as ws
 
 _REAL = sol._focus_task_target_window
 

@@ -31,8 +31,8 @@ import time
 
 import psutil
 
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import HarnessTask
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import HarnessTask
 
 _CHROME_NAME = "chrome.exe"
 
@@ -75,11 +75,11 @@ async def main() -> int:
 
     print("\n[1] Building default brain (wires ComputerUseContext) ...")
     bus = EventBus()
-    from jarvis.brain.factory import build_default_brain
+    from dodaios.brain.factory import build_default_brain
 
     build_default_brain(bus=bus)
 
-    from jarvis.harness.computer_use_context import get_computer_use_context
+    from dodaios.harness.computer_use_context import get_computer_use_context
 
     try:
         ctx = get_computer_use_context()
@@ -90,7 +90,7 @@ async def main() -> int:
         print(f"[1] ABORT: ComputerUseContext not wired: {exc}")
         return 3
 
-    from jarvis.plugins.harness.computer_use import ComputerUseHarness
+    from dodaios.plugins.harness.computer_use import ComputerUseHarness
 
     harness = ComputerUseHarness()
     if not await harness.health():

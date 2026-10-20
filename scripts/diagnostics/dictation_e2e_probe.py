@@ -78,7 +78,7 @@ from typing import Any
 
 DEFAULT_BASE_URL = "http://127.0.0.1:47821"
 
-#: The bar's own top-level window title, set in ``jarvis/ui/dodaiosbar/overlay.py``.
+#: The bar's own top-level window title, set in ``dodaios/ui/dodaiosbar/overlay.py``.
 #: An internal identifier matched as DATA, never rendered to a user; overridable
 #: because a different overlay backend may not set one at all.
 DEFAULT_BAR_WINDOW_TITLE = "JarvisBar"
@@ -96,8 +96,8 @@ SKIPPED = "SKIPPED"
 #: voice turn shares.
 _POLL_INTERVAL_S = 0.2
 
-#: Tokens the combo vocabulary uses (``jarvis/trigger/hotkey.py``) mapped onto
-#: pyautogui's key names. The repo's own actuator (``jarvis.cu.actuate``) is not
+#: Tokens the combo vocabulary uses (``dodaios/trigger/hotkey.py``) mapped onto
+#: pyautogui's key names. The repo's own actuator (``dodaios.cu.actuate``) is not
 #: reusable here: it exposes an atomic press-and-release ``key_combo`` and a
 #: push-to-talk shortcut needs the two edges held apart. Each entry lists
 #: candidates in preference order; the first one this pyautogui build actually
@@ -258,7 +258,7 @@ def _debug(message: str) -> None:
 def _resolve_profile(base_url: str | None) -> tuple[str, str | None]:
     """``(base_url, control_key)`` — the CLI's own resolution when available.
 
-    Reusing ``jarvis.cli_ctl.config`` means a non-default port or a remote
+    Reusing ``dodaios.cli_ctl.config`` means a non-default port or a remote
     instance the user already logged into is found with no extra flags. An
     explicit ``--base-url`` always wins, and a missing package degrades to the
     documented default rather than failing.
@@ -266,7 +266,7 @@ def _resolve_profile(base_url: str | None) -> tuple[str, str | None]:
     control_key: str | None = None
     resolved = base_url
     try:
-        from jarvis.cli_ctl.config import resolve_profile
+        from dodaios.cli_ctl.config import resolve_profile
 
         profile = resolve_profile()
         control_key = profile.control_key
@@ -284,13 +284,13 @@ def _resolve_profile(base_url: str | None) -> tuple[str, str | None]:
 def _insertion_capability() -> tuple[bool | None, str]:
     """Can synthetic input reach the foreground window from THIS process?
 
-    Asked of the app's own probe (``jarvis.dictation.insert.describe_target``),
+    Asked of the app's own probe (``dodaios.dictation.insert.describe_target``),
     which already covers Wayland, headless, a Windows window running elevated in
     front of an unelevated caller, and macOS secure input. ``None`` means the
     probe itself is unavailable — reported as unknown, never as a block.
     """
     try:
-        from jarvis.dictation.insert import describe_target
+        from dodaios.dictation.insert import describe_target
 
         report = describe_target()
         return bool(report.can_insert), str(report.detail or report.reason or "")
@@ -318,7 +318,7 @@ def _require_synthetic_input() -> str:
     """Refuse loudly where synthetic input cannot work. Returns a note on success."""
     notes: list[str] = []
     try:
-        from jarvis.platform.probes import display_present, is_wayland
+        from dodaios.platform.probes import display_present, is_wayland
 
         if sys.platform not in ("win32", "darwin"):
             if is_wayland():
@@ -353,13 +353,13 @@ def _require_synthetic_input() -> str:
 def _known_outcomes() -> frozenset[str]:
     """The canonical outcome vocabulary, imported — never mirrored by hand.
 
-    ``jarvis.dictation.outcomes.DICTATION_OUTCOMES`` is the one declaration of
+    ``dodaios.dictation.outcomes.DICTATION_OUTCOMES`` is the one declaration of
     this value (AP-4). When the package is not importable the probe returns an
     empty set, which makes the drift branch below unreachable rather than
     wrongly firing on a value it simply could not look up.
     """
     try:
-        from jarvis.dictation.outcomes import DICTATION_OUTCOMES
+        from dodaios.dictation.outcomes import DICTATION_OUTCOMES
 
         return frozenset(DICTATION_OUTCOMES)
     except Exception as exc:  # noqa: BLE001 — no vocabulary means no drift claim
@@ -369,7 +369,7 @@ def _known_outcomes() -> frozenset[str]:
 
 def _foreground_title() -> str:
     try:
-        from jarvis.platform.window_state import get_foreground_title
+        from dodaios.platform.window_state import get_foreground_title
 
         return str(get_foreground_title() or "")
     except Exception as exc:  # noqa: BLE001 — cosmetic context, never a verdict
@@ -381,7 +381,7 @@ def _monitor_rects() -> list[tuple[int, int, int, int]]:
     """Physical display rectangles as ``(left, top, width, height)``.
 
     Read through plain ``mss`` in the CALLING thread on purpose.
-    ``jarvis.cu.geometry.list_monitors`` looks like the obvious reuse and is the
+    ``dodaios.cu.geometry.list_monitors`` looks like the obvious reuse and is the
     wrong tool here: it pins its thread to per-monitor DPI awareness, while
     ``window_rect`` reads ``GetWindowRect`` unpinned. On a mixed-DPI desktop
     those are two different coordinate spaces, and comparing across them made
@@ -440,7 +440,7 @@ def _space_is_calibrated(monitors: list[tuple[int, int, int, int]]) -> bool | No
     if not monitors:
         return None
     try:
-        from jarvis.platform.window_state import foreground_window, window_rect
+        from dodaios.platform.window_state import foreground_window, window_rect
 
         win = foreground_window()
         rect = window_rect(win) if win is not None else None
@@ -458,7 +458,7 @@ def _matching_windows(title_contains: str) -> tuple[list[dict[str, Any]] | None,
     empty result.
     """
     try:
-        from jarvis.platform.window_state import list_windows, window_rect
+        from dodaios.platform.window_state import list_windows, window_rect
     except Exception as exc:  # noqa: BLE001
         return None, f"window enumeration is unavailable here ({exc})"
     try:

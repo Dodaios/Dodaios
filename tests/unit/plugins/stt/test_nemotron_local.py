@@ -19,8 +19,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from jarvis.plugins.stt import nemotron_local
-from jarvis.plugins.stt.nemotron_local import NemotronLocalSTT
+from dodaios.plugins.stt import nemotron_local
+from dodaios.plugins.stt.nemotron_local import NemotronLocalSTT
 
 
 class _FakeStream:
@@ -191,7 +191,7 @@ def test_missing_engine_raises_one_actionable_error(monkeypatch) -> None:
 
 def test_declares_that_it_runs_on_device() -> None:
     """The privacy floor reads this; a wrong answer uploads a local user's text."""
-    from jarvis.plugins.stt import provider_runs_on_device
+    from dodaios.plugins.stt import provider_runs_on_device
 
     assert NemotronLocalSTT.runs_on_device is True
     assert provider_runs_on_device("nemotron-local") is True

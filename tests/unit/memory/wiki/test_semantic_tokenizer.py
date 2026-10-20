@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.memory.wiki.semantic_tokenizer import UnigramTokenizer, normalize
+from dodaios.memory.wiki.semantic_tokenizer import UnigramTokenizer, normalize
 
 W = "▁"  # the word-start marker
 

@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.core import win32_dpi
+from dodaios.core import win32_dpi
 
 
 class _Fn:

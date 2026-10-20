@@ -1,4 +1,4 @@
-"""Tests for jarvis.core.path_augment — the GUI-PATH augmentation.
+"""Tests for dodaios.core.path_augment — the GUI-PATH augmentation.
 
 The bug class under guard: a GUI-launched process (macOS launchd, Windows tray
 relaunch) starts with a minimal PATH, so every ``shutil.which``-based CLI probe
@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-from jarvis.core import path_augment
+from dodaios.core import path_augment
 
 
 @pytest.fixture()
@@ -310,12 +310,12 @@ def test_a_process_past_the_windows_limit_can_spawn_again():
     import subprocess
     import textwrap
 
-    from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+    from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
     script = textwrap.dedent(
         """
         import os, subprocess, sys
-        from jarvis.core import path_augment
+        from dodaios.core import path_augment
 
         base = os.environ["PATH"]
         repeat = ";" + os.path.dirname(sys.executable)

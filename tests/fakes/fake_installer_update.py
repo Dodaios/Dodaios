@@ -1,4 +1,4 @@
-"""Fakes for the two edges of ``jarvis.core.installer_update``.
+"""Fakes for the two edges of ``dodaios.core.installer_update``.
 
 The updater talks to exactly two things it cannot own in a test: the network
 (:class:`FakeAssetFetcher`) and the operating system's process table
@@ -56,7 +56,7 @@ class FakeAssetFetcher:
         self.download_urls.append(url)
         if self.fail_download is not None:
             raise self.fail_download
-        from jarvis.core.installer_update import InstallerUpdateError
+        from dodaios.core.installer_update import InstallerUpdateError
 
         if len(self.payload) > max_bytes:
             # Mirrors the real streaming guard: the partial file is left for the

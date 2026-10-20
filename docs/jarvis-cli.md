@@ -42,7 +42,7 @@ It runs on Linux, macOS, and Windows (pure-Python: `typer`, `httpx`,
 ## Install
 
 The one-line installer puts the commands on your PATH on every OS, per user and
-without administrator rights (`jarvis/setup/cli_path.py`):
+without administrator rights (`dodaios/setup/cli_path.py`):
 
 | OS | Where the commands live | How the terminal finds them |
 | --- | --- | --- |

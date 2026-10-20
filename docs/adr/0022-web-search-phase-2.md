@@ -21,7 +21,7 @@ y_statement: >
   grounding via the native ``google_search`` tool, (b) a
   ``grounding_chunks → SearchHit`` citation pipeline, (c) ``ROUTER_TOOLS``
   + ``pyproject.toml`` entry-point registration, (d) the matching
-  ``jarvis/safety/risk_tier.py`` policy table entry, and (e) one live
+  ``dodaios/safety/risk_tier.py`` policy table entry, and (e) one live
   integration test gated behind a `pytest -m gemini_live` marker,
   to achieve a skill that the router-tier brain can actually dispatch
   from a real voice turn and return cited results from,
@@ -53,12 +53,12 @@ deterministic fake client. What it does **not** have, by design:
 2. **No citation pipeline.** `SearchHit(title, url, snippet)` is defined
    but never populated — `SearchResponse.hits` is always `()`.
 3. **No router integration.** The skill is a standalone artifact under
-   `src/skills/web_search/`. It is not in `ROUTER_TOOLS` (jarvis/brain/
+   `src/skills/web_search/`. It is not in `ROUTER_TOOLS` (dodaios/brain/
    factory.py), has no `pyproject.toml` entry-point, and is not
    reachable from voice / chat / REST paths.
 4. **No policy-table entry.** The hardcoded `RISK_TIER = "monitor"`
    constant exists in the package but has no corresponding row in
-   `jarvis/safety/risk_tier.py`'s tier table — `ToolExecutor` could not
+   `dodaios/safety/risk_tier.py`'s tier table — `ToolExecutor` could not
    safely dispatch the skill today even if it were wired in.
 5. **No live test.** The latency test bounds wall-clock against a
    `FakeGeminiClient` with 5 ms simulated round-trip; the suite has zero
@@ -107,21 +107,21 @@ telemetry / policy tuning (see §4 below).
 
 Two registration touch-points, both load-bearing:
 
-- `jarvis/brain/factory.py::ROUTER_TOOLS` gains `"web-search"`. This is
+- `dodaios/brain/factory.py::ROUTER_TOOLS` gains `"web-search"`. This is
   the only place where the router-tier brain's tool surface is
   declared (ADR-0011 amended).
 - `pyproject.toml::[project.entry-points."jarvis.tool"]` gains
   `web-search = "skills.web_search:WebSearchSkill"`. `pip install -e .
   --no-deps` is required after editing (AP-8).
 
-A wrapper module `jarvis/plugins/tool/web_search.py` translates the
+A wrapper module `dodaios/plugins/tool/web_search.py` translates the
 router-tier Tool protocol (`Tool.execute(args: dict, ctx: ToolContext)`)
 into a `WebSearchSkill.run(...)` call, marshals `SkillResult` into the
 Tool's `ToolResult`, and forwards the `voice` flag from the context.
 
 ### 4. `risk_tier` policy-table entry
 
-`jarvis/safety/risk_tier.py` gains a `"web-search": RiskTier.MONITOR`
+`dodaios/safety/risk_tier.py` gains a `"web-search": RiskTier.MONITOR`
 row in the `TOOL_DEFAULT_TIERS` mapping. The existing `risk_tier`
 constant in `src/skills/web_search/__init__.py` (`RISK_TIER = "monitor"`)
 remains the authoritative source — the policy-table entry is added with
@@ -165,8 +165,8 @@ does **not** opt in by default. Local invocation:
 **Negative**
 
 - Single-PR review surface is larger than Phase 1 (touches `pyproject.toml`,
-  `jarvis/brain/factory.py`, `jarvis/safety/risk_tier.py`,
-  `jarvis/plugins/tool/web_search.py`, plus the skill modules and a new
+  `dodaios/brain/factory.py`, `dodaios/safety/risk_tier.py`,
+  `dodaios/plugins/tool/web_search.py`, plus the skill modules and a new
   live test). Reviewers must check all five layers in one pass.
 - `pyproject.toml` entry-point edit requires `pip install -e . --no-deps`
   on every developer machine — easy to forget (BUG-006 territory).
@@ -177,7 +177,7 @@ does **not** opt in by default. Local invocation:
 **Neutral**
 
 - The skill remains under `src/skills/` rather than being migrated into
-  `jarvis/`. Phase 3 (not in scope here) can decide whether to
+  `dodaios/`. Phase 3 (not in scope here) can decide whether to
   consolidate into the in-tree layout if other skills follow the same
   pattern.
 
@@ -205,8 +205,8 @@ does **not** opt in by default. Local invocation:
   sanitiser unchanged; latency test still uses `FakeGeminiClient`).
 - `pytest -m gemini_live tests/integration/` (manual, opt-in) → 2 tests
   pass against the real API.
-- `python -c "from jarvis.brain.factory import ROUTER_TOOLS; assert 'web-search' in ROUTER_TOOLS"` → passes after entry-point install.
-- `grep -rn "web-search\|web_search" jarvis/safety/risk_tier.py` → row present.
+- `python -c "from dodaios.brain.factory import ROUTER_TOOLS; assert 'web-search' in ROUTER_TOOLS"` → passes after entry-point install.
+- `grep -rn "web-search\|web_search" dodaios/safety/risk_tier.py` → row present.
 - `tests/unit/safety/test_risk_tier_parity.py` → green (anti-drift guard).
 
 ## Open questions for review
@@ -217,7 +217,7 @@ does **not** opt in by default. Local invocation:
    read raw? Phase-1's `scrub_for_speech` returns the trimmed text
    directly; a prefix would need a new constant.
 2. **Cost-meter accounting.** Should `web-search` API spend land in
-   the existing `gemini-3.5-flash` bucket of `jarvis/brain/cost.py`, or
+   the existing `gemini-3.5-flash` bucket of `dodaios/brain/cost.py`, or
    does it warrant its own `web-search` cost bucket for budget
    visibility?
 3. **`grounding_supports` snippet selection.** Each `grounding_chunk`

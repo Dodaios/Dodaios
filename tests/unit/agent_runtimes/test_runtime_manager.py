@@ -12,11 +12,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import jarvis.agent_runtimes as runtimes
-from jarvis.agent_runtimes import base, manager
-from jarvis.agent_runtimes.base import RuntimeStatus
-from jarvis.core.config import override_provider_secrets
-from jarvis.ui.web.agent_runtime_routes import router
+import dodaios.agent_runtimes as runtimes
+from dodaios.agent_runtimes import base, manager
+from dodaios.agent_runtimes.base import RuntimeStatus
+from dodaios.core.config import override_provider_secrets
+from dodaios.ui.web.agent_runtime_routes import router
 
 
 class FakeDriver:
@@ -154,8 +154,8 @@ async def test_unknown_runtimes_are_refused(fakes):
 
 
 def test_routes_list_status_and_start_jobs(fakes, monkeypatch):
-    import jarvis.agent_runtimes.model_map as model_map
-    import jarvis.ui.web.agent_runtime_routes as routes
+    import dodaios.agent_runtimes.model_map as model_map
+    import dodaios.ui.web.agent_runtime_routes as routes
 
     monkeypatch.setattr(model_map, "claude_login_token", lambda: None)
     routes._USABLE_CACHE[:] = [float("-inf"), [], []]
@@ -221,7 +221,7 @@ async def test_the_daily_update_waits_while_a_turn_runs(fakes):
 
 
 async def test_the_daily_update_never_moves_past_the_tested_release(fakes):
-    from jarvis.agent_runtimes import versions
+    from dodaios.agent_runtimes import versions
 
     tested = versions.pin("hermes").tested_text
     for installed in (tested, "999.0.0"):
@@ -264,9 +264,9 @@ def test_the_ensure_route_starts_what_is_needed(unset):
 
 
 def test_a_claude_login_in_the_api_key_slot_is_not_an_api_key(fakes, monkeypatch):
-    import jarvis.agent_runtimes.model_map as model_map
-    import jarvis.ui.web.agent_runtime_routes as routes
-    from jarvis.agent_runtimes.model_map import RouteUnavailable, route_for
+    import dodaios.agent_runtimes.model_map as model_map
+    import dodaios.ui.web.agent_runtime_routes as routes
+    from dodaios.agent_runtimes.model_map import RouteUnavailable, route_for
 
     config = SimpleNamespace(brain=SimpleNamespace(providers={}))
     app = FastAPI()
@@ -285,7 +285,7 @@ def test_a_claude_login_in_the_api_key_slot_is_not_an_api_key(fakes, monkeypatch
     assert "claude-api" not in body["supported_providers"]
     assert body["login_providers"] == []
     # A live login: Claude is offered, marked as running on the login.
-    import jarvis.agent_runtimes.provider_errors as provider_errors
+    import dodaios.agent_runtimes.provider_errors as provider_errors
 
     monkeypatch.setattr(model_map, "claude_login_token", lambda: login)
     monkeypatch.setattr(provider_errors, "_REPORTS", {})
@@ -358,7 +358,7 @@ async def test_a_ready_runtime_that_needs_preparing_gets_a_prepare_job(fakes, mo
 
 
 async def test_a_failed_setup_rolls_back_to_the_last_good_release(unset, monkeypatch):
-    from jarvis.agent_runtimes import versions
+    from dodaios.agent_runtimes import versions
 
     broken = FakeDriver("openclaw", ready=False, update_fixes=False, exit_code=1)
     monkeypatch.setitem(runtimes._DRIVERS, "openclaw", broken)
@@ -370,7 +370,7 @@ async def test_a_failed_setup_rolls_back_to_the_last_good_release(unset, monkeyp
 
 
 async def test_a_successful_setup_is_remembered_for_rollback(unset):
-    from jarvis.agent_runtimes import versions
+    from dodaios.agent_runtimes import versions
 
     await manager.ensure("hermes")
     await manager.wait_ready("hermes", timeout_s=30)
@@ -456,7 +456,7 @@ def test_the_posix_installer_fails_when_the_download_fails():
 
 
 def test_installers_are_pinned_and_skip_the_browser_and_desktop_control(monkeypatch):
-    from jarvis.agent_runtimes import hermes, openclaw, versions
+    from dodaios.agent_runtimes import hermes, openclaw, versions
 
     for windows in (True, False):
         monkeypatch.setattr(hermes, "is_windows", lambda w=windows: w)
@@ -479,7 +479,7 @@ def test_installers_are_pinned_and_skip_the_browser_and_desktop_control(monkeypa
 def test_the_windows_openclaw_install_runs_npm_scripts_on_the_private_node(monkeypatch):
     """npm runs OpenClaw's preinstall via ``cmd /c node``; CI's system Node 22
     was picked and rejected (2026-10-07). The private Node must come first."""
-    from jarvis.agent_runtimes import openclaw
+    from dodaios.agent_runtimes import openclaw
 
     monkeypatch.setattr(openclaw, "is_windows", lambda: True)
     text = " ".join(openclaw.OpenClawRuntime().install_command() or [])

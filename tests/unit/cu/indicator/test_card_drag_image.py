@@ -22,7 +22,7 @@ def qt():
     from PySide6.QtWidgets import QApplication  # noqa: PLC0415
 
     app = QApplication.instance() or QApplication([])
-    from jarvis.cu.indicator import renderer  # noqa: PLC0415
+    from dodaios.cu.indicator import renderer  # noqa: PLC0415
 
     yield renderer
     del app

@@ -25,9 +25,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import agent_accounts
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry
+from dodaios import agent_accounts
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 

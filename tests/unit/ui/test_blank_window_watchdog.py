@@ -27,7 +27,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.ui.window_watchdog import (
+from dodaios.ui.window_watchdog import (
     Action,
     BlankReason,
     BlankWindowPolicy,
@@ -368,7 +368,7 @@ def test_the_page_brings_itself_back_without_being_clicked() -> None:
 
 def test_the_page_carries_the_users_theme_not_a_hardcoded_dark() -> None:
     """A black rectangle inside a paper-white frame is its own bug report."""
-    from jarvis.ui.theme import WINDOW_BACKGROUND
+    from dodaios.ui.theme import WINDOW_BACKGROUND
 
     light = render_notice(reason=BlankReason.VIEW_EMPTY, url="http://x", theme="light")
     assert WINDOW_BACKGROUND["light"] in light
@@ -445,7 +445,7 @@ def test_the_watchdog_reloads_the_configured_url() -> None:
     wd = _watchdog(window, url="http://127.0.0.1:1234")
     wd._apply(window, wd._policy.decide(_obs(0.0)))  # WAIT, still in grace
     assert window.loaded_urls == []
-    from jarvis.ui.window_watchdog import Verdict
+    from dodaios.ui.window_watchdog import Verdict
 
     wd._apply(window, Verdict(Action.RELOAD))
     assert window.loaded_urls == ["http://127.0.0.1:1234"]
@@ -453,7 +453,7 @@ def test_the_watchdog_reloads_the_configured_url() -> None:
 
 def test_a_hung_reload_ends_the_renderer_first_and_gets_a_fresh_probe() -> None:
     """A same-origin reload is committed to the busy renderer and never lands."""
-    from jarvis.ui.window_watchdog import Verdict
+    from dodaios.ui.window_watchdog import Verdict
 
     window = _FakeWindow()
     calls: list[str] = []
@@ -471,7 +471,7 @@ def test_a_hung_reload_ends_the_renderer_first_and_gets_a_fresh_probe() -> None:
 
 
 def test_an_ordinary_reload_never_ends_a_renderer() -> None:
-    from jarvis.ui.window_watchdog import Verdict
+    from dodaios.ui.window_watchdog import Verdict
 
     window = _FakeWindow()
     calls: list[int] = []
@@ -481,7 +481,7 @@ def test_an_ordinary_reload_never_ends_a_renderer() -> None:
 
 
 def test_a_failing_renderer_end_still_reloads() -> None:
-    from jarvis.ui.window_watchdog import Verdict
+    from dodaios.ui.window_watchdog import Verdict
 
     def _boom() -> list[int]:
         raise RuntimeError("access denied")
@@ -494,7 +494,7 @@ def test_a_failing_renderer_end_still_reloads() -> None:
 
 def test_ending_busy_renderers_without_any_renderer_is_a_no_op() -> None:
     """In-process web views (macOS, Linux) and the test runner have no renderer child."""
-    from jarvis.ui.window_watchdog import end_busy_renderers
+    from dodaios.ui.window_watchdog import end_busy_renderers
 
     assert end_busy_renderers(sample_s=0.0) == []
 
@@ -502,7 +502,7 @@ def test_ending_busy_renderers_without_any_renderer_is_a_no_op() -> None:
 def test_the_watchdog_writes_the_detail_it_was_given() -> None:
     window = _FakeWindow()
     wd = _watchdog(window, failure_detail=lambda: "ModuleNotFoundError: click")
-    from jarvis.ui.window_watchdog import Verdict
+    from dodaios.ui.window_watchdog import Verdict
 
     wd._apply(window, Verdict(Action.EXPLAIN, BlankReason.BACKEND_DEAD))
     assert window.loaded_html
@@ -529,7 +529,7 @@ def test_a_window_that_is_not_there_yet_costs_nothing() -> None:
 
     window = _NotYet()
     wd = _watchdog(window, policy=_policy())  # type: ignore[arg-type]
-    from jarvis.ui.window_watchdog import Verdict
+    from dodaios.ui.window_watchdog import Verdict
 
     wd._policy.decide(_obs(0.0))
     assert wd._apply(window, Verdict(Action.RELOAD)) is False
@@ -575,7 +575,7 @@ def test_attaching_a_reopened_window_starts_a_fresh_incident() -> None:
 
 
 def test_a_hung_page_is_asked_for_its_stack_before_the_renderer_ends() -> None:
-    from jarvis.ui.window_watchdog import Verdict
+    from dodaios.ui.window_watchdog import Verdict
 
     order: list[str] = []
 

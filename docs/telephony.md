@@ -48,7 +48,7 @@ since `audioop` left the stdlib). On Python 3.11/3.12 `audioop` is built in.
 ## 2. Store the Auth Token
 
 ```bash
-python -m jarvis --wizard
+python -m dodaios --wizard
 ```
 
 The wizard lists **Twilio Auth Token** among the secrets. It is stored in the
@@ -167,8 +167,8 @@ per turn:  inbound mu-law 8 kHz
   memory.
 - The path never imports `sounddevice` or `SpeechPipeline` — it runs headless on
   a VPS with no audio hardware.
-- Modules: `jarvis/telephony/` (audio, session, twiml, security, provisioning,
-  status, events, constants) + `jarvis/ui/web/telephony_routes.py`.
+- Modules: `dodaios/telephony/` (audio, session, twiml, security, provisioning,
+  status, events, constants) + `dodaios/ui/web/telephony_routes.py`.
 
 ### Probe without a phone
 

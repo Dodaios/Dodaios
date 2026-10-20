@@ -9,8 +9,8 @@ import threading
 
 import pytest
 
-from jarvis.appshot import picker as wire
-from jarvis.appshot import picker_host, region
+from dodaios.appshot import picker as wire
+from dodaios.appshot import picker_host, region
 
 
 class Output:

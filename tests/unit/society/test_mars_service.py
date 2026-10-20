@@ -6,9 +6,9 @@ import asyncio
 
 import pytest
 
-from jarvis.society.mars.models import CommandState, DispatchRejected, StationCommand, StationError
-from jarvis.society.mars.service import MarsStationService
-from jarvis.society.mars.store import MarsStore
+from dodaios.society.mars.models import CommandState, DispatchRejected, StationCommand, StationError
+from dodaios.society.mars.service import MarsStationService
+from dodaios.society.mars.store import MarsStore
 
 
 class RecordingExecutor:

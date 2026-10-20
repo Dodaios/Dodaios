@@ -16,8 +16,8 @@ from collections.abc import AsyncIterator
 
 import numpy as np
 
-from jarvis.core.protocols import AudioChunk
-from jarvis.plugins.wake.openwakeword_provider import (
+from dodaios.core.protocols import AudioChunk
+from dodaios.plugins.wake.openwakeword_provider import (
     OWW_FRAME_SAMPLES,
     OpenWakeWordProvider,
 )

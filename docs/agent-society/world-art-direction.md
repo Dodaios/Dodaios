@@ -8,7 +8,7 @@
 Status: **binding for M3 (world), decided with the maintainer on 2026-09-01/02.**
 Subordinate to [`MASTERPLAN.md`](MASTERPLAN.md) §4.1/§4.3; this is the art-direction pass the
 master plan requires before environment assets are built. Figures are governed by
-[`character-pipeline.md`](character-pipeline.md). Code: `jarvis/ui/web/frontend/src/components/society/world/`
+[`character-pipeline.md`](character-pipeline.md). Code: `dodaios/ui/web/frontend/src/components/society/world/`
 (model in `islandLayout.ts`, colours in `worldPalette.ts`).
 
 ## 1. The picture in one paragraph

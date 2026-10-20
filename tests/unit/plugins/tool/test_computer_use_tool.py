@@ -20,12 +20,12 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.core.protocols import ExecutionContext, HarnessResult, HarnessTask
-from jarvis.harness.computer_use_context import (
+from dodaios.core.protocols import ExecutionContext, HarnessResult, HarnessTask
+from dodaios.harness.computer_use_context import (
     ComputerUseContext,
     set_computer_use_context,
 )
-from jarvis.plugins.tool.computer_use_tool import _ctx_output_language
+from dodaios.plugins.tool.computer_use_tool import _ctx_output_language
 
 
 @pytest.fixture(autouse=True)
@@ -94,7 +94,7 @@ def _ctx() -> ExecutionContext:
 
 
 def test_tool_identity_and_schema() -> None:
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     tool = ComputerUseTool(manager=_FakeHarnessManager())
     # Underscore name = what the LLM sees (hyphenated "computer-use" is the
@@ -108,7 +108,7 @@ def test_tool_identity_and_schema() -> None:
 
 
 async def test_dispatches_goal_to_computer_use_harness() -> None:
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     fake = _FakeHarnessManager()
     tool = ComputerUseTool(manager=fake)
@@ -120,7 +120,7 @@ async def test_dispatches_goal_to_computer_use_harness() -> None:
 
 
 async def test_empty_goal_is_rejected_without_dispatch() -> None:
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     fake = _FakeHarnessManager()
     tool = ComputerUseTool(manager=fake)
@@ -169,8 +169,8 @@ class _SlowHarnessManager(_FakeHarnessManager):
 async def test_with_bus_returns_immediate_ack_and_announces_completion() -> None:
     import asyncio
 
-    from jarvis.core.events import AnnouncementRequested
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.core.events import AnnouncementRequested
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     bus = _FakeBus()
     fake = _SlowHarnessManager()
@@ -204,8 +204,8 @@ async def test_with_bus_returns_immediate_ack_and_announces_completion() -> None
 async def test_with_bus_failure_is_announced_not_silent() -> None:
     import asyncio
 
-    from jarvis.core.events import AnnouncementRequested
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.core.events import AnnouncementRequested
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     class _FailingManager(_FakeHarnessManager):
         async def dispatch(self, name: str, task) -> AsyncIterator[HarnessResult]:
@@ -234,7 +234,7 @@ async def test_with_bus_failure_is_announced_not_silent() -> None:
 
 async def test_without_bus_keeps_synchronous_contract() -> None:
     """No bus (tests / minimal wiring) → the old inline behaviour stays."""
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     fake = _FakeHarnessManager()
     tool = ComputerUseTool(manager=fake)
@@ -259,7 +259,7 @@ async def test_without_bus_keeps_synchronous_contract() -> None:
 def test_suppress_response_flag_is_true() -> None:
     """ComputerUseTool must carry suppress_response=True so tool_use_loop skips
     the second brain iteration and takes the output verbatim."""
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     assert ComputerUseTool.suppress_response is True
 
@@ -291,7 +291,7 @@ async def _drain_background(bus: _FakeBus, fake: _SlowHarnessManager) -> None:
     to trigger a "Task destroyed while pending" warning under a slower fake or
     eager loop teardown.
     """
-    from jarvis.core.events import AnnouncementRequested
+    from dodaios.core.events import AnnouncementRequested
 
     await asyncio.wait_for(fake.started.wait(), timeout=2.0)
     fake.release.set()
@@ -304,8 +304,8 @@ async def _drain_background(bus: _FakeBus, fake: _SlowHarnessManager) -> None:
 
 async def test_with_bus_ack_is_german_for_german_utterance() -> None:
     """A German-language turn must yield the German cu_dispatch_ack phrase."""
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
-    from jarvis.voice.action_phrases import action_phrase
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.voice.action_phrases import action_phrase
 
     bus = _FakeBus()
     fake = _SlowHarnessManager()
@@ -323,8 +323,8 @@ async def test_with_bus_ack_is_german_for_german_utterance() -> None:
 
 async def test_with_bus_ack_is_english_for_english_utterance() -> None:
     """An English-language turn must yield the English cu_dispatch_ack phrase."""
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
-    from jarvis.voice.action_phrases import action_phrase
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.voice.action_phrases import action_phrase
 
     bus = _FakeBus()
     fake = _SlowHarnessManager()
@@ -348,7 +348,7 @@ async def test_with_bus_ack_contains_no_internal_english_instruction() -> None:
     acknowledgement only ...'. This string is an implementation detail — it must
     not reach the user.
     """
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     for goal, ctx in (
         ("Terminal öffnen", _ctx_de()),  # i18n-allow: DE fixture
@@ -384,7 +384,7 @@ async def test_with_bus_ack_contains_no_internal_english_instruction() -> None:
 
 
 async def _collect_completion(bus: _FakeBus):
-    from jarvis.core.events import AnnouncementRequested
+    from dodaios.core.events import AnnouncementRequested
 
     for _ in range(200):
         if any(isinstance(e, AnnouncementRequested) for e in bus.events):
@@ -399,8 +399,8 @@ async def _collect_completion(bus: _FakeBus):
 
 
 async def test_success_readback_surfaces_verifier_observation() -> None:
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
-    from jarvis.voice.action_phrases import action_phrase
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.voice.action_phrases import action_phrase
 
     class _ProofManager(_FakeHarnessManager):
         async def dispatch(self, name, task) -> AsyncIterator[HarnessResult]:
@@ -444,8 +444,8 @@ class _EnvCapturingManager(_FakeHarnessManager):
 
 
 async def test_tool_threads_output_language_into_harness_env() -> None:
-    from jarvis.harness.screenshot_only_loop import _OUTPUT_LANGUAGE_ENV_KEY
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.harness.screenshot_only_loop import _OUTPUT_LANGUAGE_ENV_KEY
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     bus = _FakeBus()
     fake = _EnvCapturingManager()
@@ -472,8 +472,8 @@ async def test_completion_carries_cu_tool_source_layer_for_history_mirror() -> N
     with CU_TOOL_OUTCOME_LAYER; the manager subscriber mirrors that outcome into
     the live history (otherwise a router/text-chat desktop action vanishes from
     the model's next-turn context — the subsystem-confusion bug)."""
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
-    from jarvis.voice.action_phrases import CU_TOOL_OUTCOME_LAYER
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.voice.action_phrases import CU_TOOL_OUTCOME_LAYER
 
     bus = _FakeBus()
     tool = ComputerUseTool(bus=bus, manager=_FakeHarnessManager())
@@ -501,7 +501,7 @@ async def test_completion_carries_cu_tool_source_layer_for_history_mirror() -> N
 async def test_execute_without_context_returns_honest_failure() -> None:
     """Fresh machine: [computer_use].enabled=false -> context never wired.
     The tool must degrade to an actionable ToolResult, never raise."""
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
 
     # Override the file's autouse "wired" fixture for this test's scope only.
     set_computer_use_context(None)
@@ -518,8 +518,8 @@ async def test_execute_without_context_returns_honest_failure() -> None:
 
 
 async def test_success_readback_falls_back_to_done_without_proof() -> None:
-    from jarvis.plugins.tool.computer_use_tool import ComputerUseTool
-    from jarvis.voice.action_phrases import action_phrase
+    from dodaios.plugins.tool.computer_use_tool import ComputerUseTool
+    from dodaios.voice.action_phrases import action_phrase
 
     class _NoProofManager(_FakeHarnessManager):
         async def dispatch(self, name, task) -> AsyncIterator[HarnessResult]:

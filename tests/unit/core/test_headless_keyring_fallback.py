@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-import jarvis.core.config as cfg
+import dodaios.core.config as cfg
 
 
 @pytest.mark.parametrize("retain_platform_backend", [False, True])
@@ -125,7 +125,7 @@ def test_resolve_writable_data_dir_falls_back_when_project_dir_unwritable(monkey
     fallback_dir = tmp_path / "user_data_dir"
     monkeypatch.setattr(cfg, "DATA_DIR", unwritable_dir)
     monkeypatch.setattr(cfg, "_data_dir_cache", None, raising=False)
-    monkeypatch.setattr("jarvis.core.paths.user_data_dir", lambda: fallback_dir)
+    monkeypatch.setattr("dodaios.core.paths.user_data_dir", lambda: fallback_dir)
 
     original_write_text = Path.write_text
 

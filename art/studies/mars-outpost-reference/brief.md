@@ -55,7 +55,7 @@ flat colony texture, camera-facing facade, or effects hiding unfinished meshes.
 
 These are operational starting dimensions adopted with the foundation owner,
 not measured reference dimensions or user visual approval. The parent-owned
-`jarvis/society/mars/definition.json` is the layout authority; this study does not
+`dodaios/society/mars/definition.json` is the layout authority; this study does not
 create a second world registry. Collision, navigation, anchors and visuals must
 use that shared definition/version. Detail and access proposals below remain
 subject to gameplay checks and runtime review.

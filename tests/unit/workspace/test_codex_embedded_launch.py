@@ -2,9 +2,9 @@
 
 import pytest
 
-from jarvis.agentic_ide import session
-from jarvis.agentic_ide.agent_sessions import ResumeHandle, resume_argv
-from jarvis.workspace.agents import get_agent
+from dodaios.agentic_ide import session
+from dodaios.agentic_ide.agent_sessions import ResumeHandle, resume_argv
+from dodaios.workspace.agents import get_agent
 
 
 @pytest.mark.parametrize("remote", [False, True])

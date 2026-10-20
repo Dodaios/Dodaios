@@ -7,7 +7,7 @@ execution because it classified the request as an explanatory question"). A
 mandated-tool turn whose tool never ran must never speak the model's
 (unverified) answer.
 """
-from jarvis.brain.manager import (
+from dodaios.brain.manager import (
     _answer_claims_unverified_data,
     _evidence_answer_is_unverified,
     _evidence_unfulfilled_answer,

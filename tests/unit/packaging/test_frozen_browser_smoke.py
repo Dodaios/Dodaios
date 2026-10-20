@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from jarvis.core.instance import DEV_PORT_OFFSET
+from dodaios.core.instance import DEV_PORT_OFFSET
 from scripts.ci import check_frozen_browser as probe
 from tests.fakes.fake_frozen_browser import FrozenBrowserApp
 

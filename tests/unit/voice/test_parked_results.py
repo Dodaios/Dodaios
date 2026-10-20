@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.voice.parked_results import (
+from dodaios.voice.parked_results import (
     WAIT_QUERY_NONE,
     WAIT_QUERY_PROGRESS,
     WAIT_QUERY_RESULT,
