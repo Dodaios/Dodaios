@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:dodaios/ui/web/dist/assets/ChatsView-CqHMfOtn.js
-import{j as s}from"./index-BVYI_PV2.js";import{P as n}from"./PageHeader-3wwG260U.js";import"./WorkTrace-dWgFeMTV.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-|||||||| parent of 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/ChatsView-DBDkxfgQ.js
-import{j as s}from"./index-C_GzrgOE.js";import{P as n}from"./PageHeader-DiqoUuJv.js";import"./WorkTrace-CMxE3Eb1.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-========
-import{j as s}from"./index-jj6_dZ-W.js";import{P as n}from"./PageHeader-BsU517MC.js";import"./WorkTrace-D9IJ4ISe.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
->>>>>>>> 992cb09a3a (build(frontend): rebuild the bundled dist for the Dodaios-named components and public assets):dodaios/ui/web/dist/assets/ChatsView-lBPz85cw.js
