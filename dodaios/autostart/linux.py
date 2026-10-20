@@ -74,7 +74,7 @@ def _icon_value() -> str | None:
     """Absolute path to the bundled PNG for the ``Icon=`` key, or ``None``.
 
     Linux desktops read the launcher/menu/taskbar icon from ``Icon=`` and mostly
-    cannot decode a Windows ``.ico`` — so we ship and point at ``jarvis.png``.
+    cannot decode a Windows ``.ico`` — so we ship and point at ``dodaios.png``.
     Resolved fresh from the installed package (so the baked absolute path is
     correct on any layout); a partial checkout without the PNG simply omits the
     key (the entry still works, just unbranded — never a crash).

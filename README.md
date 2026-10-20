@@ -126,7 +126,7 @@ work needs.
   worktree), can split into parallel workers, and pass a review before you see
   the result.
 
-Read more in the [Agents guide](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/jarvis-agents.md),
+Read more in the [Agents guide](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md),
 [how agents learn](https://github.com/Dodaios/Dodaios/blob/main/docs/agent-society/self-learning.md)
 and [routines](https://github.com/Dodaios/Dodaios/blob/main/docs/routines.md).
 
@@ -162,7 +162,7 @@ and the [dictation guide](https://github.com/Dodaios/Dodaios/blob/main/docs/prod
 Read more about [plugins](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md),
 [MCP](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md),
 [command-line tools](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/cli-connections.md)
-and the [Dodaios CLI](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli.md).
+and the [Dodaios CLI](https://github.com/Dodaios/Dodaios/blob/main/docs/dodaios-cli.md).
 
 ## You stay in control
 
@@ -227,7 +227,7 @@ The installer sets that up for you.
 
 - **Getting started:** [quick start](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/first-run-setup.md), [app tour](https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/desktop-app-tour.md)
 - **Everyday use:** [voice](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/voice-conversations.md), [dictation](https://github.com/Dodaios/Dodaios/blob/main/docs/product/everyday-use/dictation.md), [memory](https://github.com/Dodaios/Dodaios/blob/main/docs/product/knowledge-and-sharing/wiki-and-memory.md)
-- **Agents and automation:** [agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md), [agents](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/jarvis-agents.md), [computer use](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md), [plugins](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md), [MCP](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md), [CLI](https://github.com/Dodaios/Dodaios/blob/main/docs/jarvis-cli.md)
+- **Agents and automation:** [agentic IDE](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md), [agents](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md), [computer use](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/computer-use.md), [plugins](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md), [MCP](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md), [CLI](https://github.com/Dodaios/Dodaios/blob/main/docs/dodaios-cli.md)
 - **Models:** [providers](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/providers-and-api-keys.md), [local models](https://github.com/Dodaios/Dodaios/blob/main/docs/product/personalize-and-connect/local-ai-providers.md)
 - **Running and fixing:** [server](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md), [architecture](https://github.com/Dodaios/Dodaios/blob/main/docs/architecture-overview.md), [troubleshooting](https://github.com/Dodaios/Dodaios/blob/main/docs/product/privacy-safety-and-support/troubleshooting.md)
 

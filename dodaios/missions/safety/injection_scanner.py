@@ -218,7 +218,7 @@ def extract_worker_authored_text(stream_text: str) -> str:
     Live mission 019eadaf-272d (2026-06-09) proved the failure mode:
     after 20 minutes of work and a clean 30 KB diff, the worker was
     killed via WorkerKilled(injection_detected) because the raw
-    stream.jsonl contained `rm -rf /` (from jarvis.toml.example's own
+    stream.jsonl contained `rm -rf /` (from dodaios.toml.example's own
     safety blacklist, read via Get-Content), `OPENAI_API_KEY=...` (a
     wizard docstring) and `fetch('/api/secret...')` (frontend code) —
     all of them rg/Get-Content OUTPUT, none of them worker-authored.

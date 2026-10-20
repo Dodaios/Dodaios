@@ -20,7 +20,7 @@ from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
 from dodaios.core import runtime_refs
 from dodaios.core.bus import EventBus
 from dodaios.core.protocols import ChatTurn, current_chat_turn
-from dodaios.mcp.jarvis_tools_server import build_server
+from dodaios.mcp.dodaios_tools_server import build_server
 from dodaios.society.routine_runner import run_owned_routine
 from dodaios.society.runtime import SocietyRuntime
 from dodaios.society.surface import tools_for_cli_session

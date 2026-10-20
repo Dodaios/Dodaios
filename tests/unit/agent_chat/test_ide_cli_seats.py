@@ -321,7 +321,7 @@ def stubbed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(rc, "claude_argv_prefix", lambda: ["claude"])
     monkeypatch.setattr(rc, "_account_env", lambda platform: {"HOME": "h"})
     monkeypatch.setattr(rc, "_registry_env", lambda agent, base: {**base, "AGENT": agent})
-    monkeypatch.setattr(rc.jarvis_harness, "mcp_config_json", lambda sid=None: None)
+    monkeypatch.setattr(rc.dodaios_harness, "mcp_config_json", lambda sid=None: None)
 
 
 def test_plan_opencode_speaks_run_json_and_the_stance_flags(stubbed: None) -> None:

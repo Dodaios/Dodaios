@@ -67,7 +67,7 @@ def _delete_test_key() -> None:
 # all resolve the icon through ``project_icon_path()``. If that returns a path
 # that does not exist, ALL of them silently fall back to the ``pythonw.exe``
 # Python logo — the "taskbar shows Python on a fresh machine" report. The icon
-# used to live ONLY at ``<repo-root>/assets/icons/jarvis.ico`` (found via
+# used to live ONLY at ``<repo-root>/assets/icons/dodaios.ico`` (found via
 # ``parents[2]``), which resolves only for a run from the project folder; a real
 # ``pip install`` relocates the package to ``site-packages`` where that repo-root
 # ``assets/`` is absent. The fix bundles the icon inside the package. These
@@ -93,7 +93,7 @@ def test_project_icon_path_prefers_bundled_in_package_copy() -> None:
     bundled = bundled_app_icon()
     assert bundled is not None and bundled.is_file()
     # The in-package copy lives under dodaios/assets/icons/, NOT the repo root.
-    assert bundled.as_posix().endswith("dodaios/assets/icons/jarvis.ico")
+    assert bundled.as_posix().endswith("dodaios/assets/icons/dodaios.ico")
     # project_icon_path() returns exactly that bundled copy when present.
     assert project_icon_path() == bundled
 
@@ -101,13 +101,13 @@ def test_project_icon_path_prefers_bundled_in_package_copy() -> None:
 def test_bundled_icon_is_byte_identical_to_repo_root_copy() -> None:
     """Drift guard: the packaged icon must match the build-tool repo-root copy.
 
-    The repo-root ``assets/icons/jarvis.ico`` is still referenced by the
+    The repo-root ``assets/icons/dodaios.ico`` is still referenced by the
     PyInstaller spec and ``scripts/install_shortcuts.py``. Keeping the two copies
     byte-identical means updating the brand icon in one place without the runtime
     and the installer drifting apart. If this fails, re-copy the repo-root icon
     into ``dodaios/assets/icons/``.
     """
-    repo_root = Path(__file__).resolve().parents[3] / "assets" / "icons" / "jarvis.ico"
+    repo_root = Path(__file__).resolve().parents[3] / "assets" / "icons" / "dodaios.ico"
     if not repo_root.is_file():
         pytest.skip("repo-root icon copy absent (slim checkout)")
     from dodaios.assets import bundled_app_icon
@@ -115,7 +115,7 @@ def test_bundled_icon_is_byte_identical_to_repo_root_copy() -> None:
     bundled = bundled_app_icon()
     assert bundled is not None
     assert bundled.read_bytes() == repo_root.read_bytes(), (
-        "dodaios/assets/icons/jarvis.ico drifted from assets/icons/jarvis.ico — "
+        "dodaios/assets/icons/dodaios.ico drifted from assets/icons/dodaios.ico — "
         "re-copy the repo-root icon into the package"
     )
 
@@ -161,7 +161,7 @@ def test_bundled_app_icon_png_exists_for_linux() -> None:
 
     png = bundled_app_icon_png()
     assert png is not None and png.is_file()
-    assert png.as_posix().endswith("dodaios/assets/icons/jarvis.png")
+    assert png.as_posix().endswith("dodaios/assets/icons/dodaios.png")
 
 
 def test_the_linux_shell_name_is_dodaios_and_the_aumid_stays() -> None:
@@ -200,7 +200,7 @@ def test_register_aumid_writes_icon_resource_when_given() -> None:
     import winreg
 
     _delete_test_key()
-    ico = Path(r"C:\fake\jarvis.ico")
+    ico = Path(r"C:\fake\dodaios.ico")
     try:
         ok = register_windows_app_user_model_id(
             _TEST_AUMID, display_name="Personal Jarvis", icon_path=ico

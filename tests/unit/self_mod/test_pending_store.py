@@ -22,7 +22,7 @@ from dodaios.core.self_mod import (
 )
 from dodaios.core.self_mod.schema import MutationRequest
 
-FIXTURE = Path(__file__).parent / "fixtures" / "minimal_jarvis.toml"
+FIXTURE = Path(__file__).parent / "fixtures" / "minimal_dodaios.toml"
 
 
 def _isolated_loader(path: Path) -> JarvisConfig:

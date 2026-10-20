@@ -185,7 +185,7 @@ def test_has_high_severity_false_for_empty() -> None:
 # because the safety scan ran over the raw stream.jsonl — which contains
 # the OUTPUT of the worker's READ commands (rg / Get-Content). The worker
 # had merely read its own repo: `rm -rf /` from the safety blacklist in
-# jarvis.toml.example, `OPENAI_API_KEY=...` from a wizard docstring, and
+# dodaios.toml.example, `OPENAI_API_KEY=...` from a wizard docstring, and
 # `fetch('/api/secret...')` from the frontend. Reading dangerous strings
 # is not authoring them — only worker-authored text (assistant prose,
 # commands it wants to run, tool_use inputs) may trigger the kill-path.
@@ -205,7 +205,7 @@ def test_codex_read_output_is_not_worker_authored() -> None:
         {
             "id": "item_1",
             "type": "command_execution",
-            "command": "powershell.exe -Command 'Get-Content jarvis.toml.example'",
+            "command": "powershell.exe -Command 'Get-Content dodaios.toml.example'",
             "aggregated_output": (
                 'commands = ["format *", "rm -rf /", "del /f /s /q C:\\\\"]\n'
                 "export OPENAI_API_KEY=sk-example\n"

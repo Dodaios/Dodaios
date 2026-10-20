@@ -79,7 +79,7 @@ def test_the_windows_setup_is_signed_under_the_pinned_name() -> None:
     upload = next(s for s in windows if s.get("name") == "Upload the installer")
     assert staged["with"]["path"].endswith("/PersonalJarvis-Setup-x64.exe")
     assert upload["with"]["path"].endswith("/PersonalJarvis-Setup-x64.exe")
-    iss = (ROOT / "packaging/windows/PersonalJarvis.iss").read_text(encoding="utf-8")
+    iss = (ROOT / "packaging/windows/Dodaios.iss").read_text(encoding="utf-8")
     assert '#define SignedSetupBaseName "PersonalJarvis-Setup-x64"' in iss
     assert "OutputBaseFilename={#SignedSetupBaseName}" in iss
 

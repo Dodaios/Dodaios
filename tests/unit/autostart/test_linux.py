@@ -52,7 +52,7 @@ def test_install_brands_entry_with_icon_and_wmclass(monkeypatch, tmp_path: Path)
     text = (tmp_path / "autostart" / "dodaios.desktop").read_text(encoding="utf-8")
 
     png = bundled_app_icon_png()
-    assert png is not None, "bundled jarvis.png must ship for the Linux Icon= key"
+    assert png is not None, "bundled dodaios.png must ship for the Linux Icon= key"
     # Every value goes through the key-file encoding. On a real Linux host that
     # is the identity for an icon path; on a Windows dev/CI host the bundled
     # path carries backslashes, and NOT escaping them would be the bug.

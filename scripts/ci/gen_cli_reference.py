@@ -1,11 +1,11 @@
-"""Generate docs/jarvis-cli-reference.md from the curated CLI command tree.
+"""Generate docs/dodaios-cli-reference.md from the curated CLI command tree.
 
 Walks the Typer app (the curated commands only — NOT the dynamic `api` group,
 which needs a live server's OpenAPI) and emits a grouped markdown reference. Run
 after adding/removing commands so the reference never drifts.
 
 Modes:
-* (no flag) — regenerate ``docs/jarvis-cli-reference.md`` in place.
+* (no flag) — regenerate ``docs/dodaios-cli-reference.md`` in place.
 * ``--check`` — build the reference in memory and exit non-zero if it differs
   from the committed file (the pre-push hook + CI drift gate use this, so the
   reference can never silently fall behind the command tree).
@@ -24,7 +24,7 @@ import typer  # noqa: E402
 from dodaios.cli_ctl.__main__ import app  # noqa: E402
 from dodaios.core.branding import CLI_COMMAND_NAME, PRODUCT_NAME  # noqa: E402
 
-_OUT = _REPO / "docs" / "jarvis-cli-reference.md"
+_OUT = _REPO / "docs" / "dodaios-cli-reference.md"
 
 
 def _is_group(cmd: click.Command) -> bool:
