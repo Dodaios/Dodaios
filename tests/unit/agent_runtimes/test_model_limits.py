@@ -2,15 +2,15 @@
 
 import pytest
 
-from jarvis.agent_runtimes import gateway
-from jarvis.agent_runtimes.base import RuntimeTurn
-from jarvis.agent_runtimes.hermes import HermesRuntime
-from jarvis.agent_runtimes.model_limits import ModelLimits, resolve_limits
-from jarvis.agent_runtimes.model_map import ModelRoute, prepare_route
-from jarvis.agent_runtimes.openclaw import OpenClawRuntime
-from jarvis.brain.model_catalog import CatalogResult, ModelCatalog, ModelInfo, parse_models_response
-from jarvis.core.config import BrainProviderConfig, JarvisConfig, OllamaModelOptions
-from jarvis.core.protocols import BrainDelta, BrainRequest
+from dodaios.agent_runtimes import gateway
+from dodaios.agent_runtimes.base import RuntimeTurn
+from dodaios.agent_runtimes.hermes import HermesRuntime
+from dodaios.agent_runtimes.model_limits import ModelLimits, resolve_limits
+from dodaios.agent_runtimes.model_map import ModelRoute, prepare_route
+from dodaios.agent_runtimes.openclaw import OpenClawRuntime
+from dodaios.brain.model_catalog import CatalogResult, ModelCatalog, ModelInfo, parse_models_response
+from dodaios.core.config import BrainProviderConfig, JarvisConfig, OllamaModelOptions
+from dodaios.core.protocols import BrainDelta, BrainRequest
 
 
 def config(context=None, output=None):
@@ -164,7 +164,7 @@ def test_declared_limits_are_preserved_without_model_name_guesses(provider, payl
 
 
 async def test_prepare_refreshes_limits_before_runtime_config(monkeypatch):
-    import jarvis.agent_runtimes.model_map as mapping
+    import dodaios.agent_runtimes.model_map as mapping
 
     gateway.reset()
     token = gateway.grant_token("eval", "ollama")
@@ -224,7 +224,7 @@ async def test_unavailable_metadata_preserves_the_prepared_limits(monkeypatch):
 
 
 def test_hermes_minimum_context_error_is_actionable_without_raw_details():
-    from jarvis.agent_runtimes.acp import _error_text
+    from dodaios.agent_runtimes.acp import _error_text
 
     error = {
         "message": "Internal error",

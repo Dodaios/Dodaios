@@ -18,16 +18,16 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.session import Registry, SessionError
-from jarvis.ui.web import agentic_ide_routes as routes
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.session import Registry, SessionError
+from dodaios.ui.web import agentic_ide_routes as routes
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
 @pytest.fixture(autouse=True)
 def _isolated_stores(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep the resume snapshot and recents out of the developer's own profile."""
-    from jarvis.agentic_ide import recents, resume_store
+    from dodaios.agentic_ide import recents, resume_store
 
     store = tmp_path / "store"
     store.mkdir()

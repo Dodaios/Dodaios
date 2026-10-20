@@ -17,11 +17,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import agent_transcript, drops, prompt_history, prompt_receipts
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
-from jarvis.agentic_ide.drop_analysis import DropAnalysis
-from jarvis.agentic_ide.session import Registry
+from dodaios.agentic_ide import agent_transcript, drops, prompt_history, prompt_receipts
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide.drop_analysis import DropAnalysis
+from dodaios.agentic_ide.session import Registry
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 # A 1x1 PNG — enough for the file route to serve something a browser draws.
@@ -84,7 +84,7 @@ def test_dereference_undoes_both_reference_shapes(reference: str, path: str) -> 
 
 
 def test_dereference_is_the_inverse_of_reference(monkeypatch: pytest.MonkeyPatch) -> None:
-    from jarvis.workspace import agents as workspace_agents
+    from dodaios.workspace import agents as workspace_agents
 
     for wants_at in (True, False):
         spec = SimpleNamespace(file_reference="at" if wants_at else "quoted")
@@ -207,7 +207,7 @@ def registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Registry:
     monkeypatch.setattr(prompt_history, "_store_dir", lambda: tmp_path / "prompt-history")
     reg = Registry(pty_manager=FakePtyManager())
     monkeypatch.setattr(session_mod, "get_registry", lambda: reg)
-    from jarvis.ui.web import agentic_ide_routes
+    from dodaios.ui.web import agentic_ide_routes
 
     monkeypatch.setattr(agentic_ide_routes, "get_registry", lambda: reg)
     return reg
@@ -215,7 +215,7 @@ def registry(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Registry:
 
 @pytest.fixture
 def client(registry: Registry) -> TestClient:
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -268,7 +268,7 @@ async def test_the_timeline_serves_the_sentence_and_a_picture_that_loads(
         "message": {"role": "user", "content": BRIEF + " "},
     }
     record.write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
-    from jarvis.ui.web import agentic_ide_routes
+    from dodaios.ui.web import agentic_ide_routes
 
     monkeypatch.setattr(agentic_ide_routes, "account_home", lambda *_a, **_k: home)
     body = client.get(f"/api/agentic-ide/terminals/{name}/timeline").json()

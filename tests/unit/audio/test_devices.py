@@ -1,6 +1,6 @@
 """Device enumeration + name resolution for the Settings audio-device pickers.
 
-Guards for :mod:`jarvis.audio.devices`:
+Guards for :mod:`dodaios.audio.devices`:
 
 1. **Picker list quality** — one entry per physical device: host-API twins
    (WASAPI/MME/DirectSound expose the same endpoint) are deduped, the
@@ -24,8 +24,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.audio import device_probe
-from jarvis.audio import devices as dv
+from dodaios.audio import device_probe
+from dodaios.audio import devices as dv
 
 
 def _patch_tables(monkeypatch, hostapis, devices, *, default=(-1, -1)) -> None:
@@ -250,7 +250,7 @@ def test_fresh_options_use_isolated_snapshot_instead_of_stale_live_table(
     ]
     assert outputs[0].is_default is True
     assert inputs[0].is_default is True
-    assert calls[0][0][1:3] == ["-m", "jarvis.audio.device_probe"]
+    assert calls[0][0][1:3] == ["-m", "dodaios.audio.device_probe"]
     assert calls[0][1]["creationflags"] == dv.NO_WINDOW_CREATIONFLAGS
 
 
@@ -362,8 +362,8 @@ def test_resolve_auto_or_empty_returns_none(monkeypatch, value) -> None:
 def _patch_all(monkeypatch, hostapis, devices) -> None:
     from types import SimpleNamespace as _NS
 
-    import jarvis.audio.capture as cap
-    import jarvis.audio.player as pl
+    import dodaios.audio.capture as cap
+    import dodaios.audio.player as pl
 
     for mod in (dv, pl, cap):
         monkeypatch.setattr(mod.sd, "query_devices", lambda: devices)
@@ -372,7 +372,7 @@ def _patch_all(monkeypatch, hostapis, devices) -> None:
 
 
 def test_player_resolves_configured_name_to_index(monkeypatch) -> None:
-    import jarvis.audio.player as pl
+    import dodaios.audio.player as pl
 
     hostapis, devices = _windows_tables()
     _patch_all(monkeypatch, hostapis, devices)
@@ -381,7 +381,7 @@ def test_player_resolves_configured_name_to_index(monkeypatch) -> None:
 
 
 def test_player_falls_back_to_auto_when_named_device_is_gone(monkeypatch) -> None:
-    import jarvis.audio.player as pl
+    import dodaios.audio.player as pl
 
     hostapis, devices = _windows_tables()
     _patch_all(monkeypatch, hostapis, devices)
@@ -393,7 +393,7 @@ def test_player_falls_back_to_auto_when_named_device_is_gone(monkeypatch) -> Non
 
 
 def test_capture_resolves_configured_name_to_index(monkeypatch) -> None:
-    import jarvis.audio.capture as cap
+    import dodaios.audio.capture as cap
 
     hostapis, devices = _windows_tables()
     _patch_all(monkeypatch, hostapis, devices)
@@ -402,7 +402,7 @@ def test_capture_resolves_configured_name_to_index(monkeypatch) -> None:
 
 
 def test_capture_falls_back_to_auto_when_named_device_is_gone(monkeypatch) -> None:
-    import jarvis.audio.capture as cap
+    import dodaios.audio.capture as cap
 
     hostapis, devices = _windows_tables()
     _patch_all(monkeypatch, hostapis, devices)

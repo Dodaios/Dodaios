@@ -27,9 +27,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from jarvis.core.config import VoiceConfig
-from jarvis.speech.continuation_buffer import ContinuationBuffer
-from jarvis.speech.pipeline import (
+from dodaios.core.config import VoiceConfig
+from dodaios.speech.continuation_buffer import ContinuationBuffer
+from dodaios.speech.pipeline import (
     _CLARIFY_QUESTION_PHRASE,
     SpeechPipeline,
     TurnTakingState,
@@ -124,7 +124,7 @@ async def test_ellipsis_trailoff_clarifies_even_when_globally_disabled() -> None
     # User choice 2026-06-14: a TRAILED-OFF sentence ("...") asks "what exactly?"
     # even with the global clarify default OFF — scoped to trail-offs only, so
     # the 2026-05-26 silent mandate stays intact for every OTHER incomplete case.
-    from jarvis.speech.completion import REASON_TRAILING_ELLIPSIS
+    from dodaios.speech.completion import REASON_TRAILING_ELLIPSIS
 
     pipe = _make_pipe(enabled=False, clarify_after_ms=80)
     held = pipe._continuation_buffer.process(
@@ -221,7 +221,7 @@ async def test_continuation_cancels_pending_clarifying_question() -> None:
 
 @pytest.mark.asyncio
 async def test_clarify_defers_while_user_holds_floor() -> None:
-    from jarvis.speech.completion import REASON_TRAILING_ELLIPSIS
+    from dodaios.speech.completion import REASON_TRAILING_ELLIPSIS
 
     pipe = _make_pipe(clarify_after_ms=60)
     held = pipe._continuation_buffer.process(
@@ -308,7 +308,7 @@ async def test_beheaded_turn_speaks_timeout_notice_despite_clarify_off() -> None
     spoken_text, spoken_lang = pipe._spoken[0]
     # A no-first-frame beheading means the assistant was blocked waiting on a
     # tool that never returned — name that honest cause, not the old vague phrase.
-    from jarvis.speech.pipeline import _TIMEOUT_TOOL_STALL_PHRASE
+    from dodaios.speech.pipeline import _TIMEOUT_TOOL_STALL_PHRASE
 
     assert spoken_text == _TIMEOUT_TOOL_STALL_PHRASE["de"]
     assert spoken_lang == "de"

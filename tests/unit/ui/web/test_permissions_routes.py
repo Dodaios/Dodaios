@@ -22,11 +22,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.platform.permission_service import get_permission_service
-from jarvis.platform.permissions import PermissionId
-from jarvis.ui.web import permissions_routes as routes
-from jarvis.ui.web.control_auth import require_control_key_or_session
-from jarvis.ui.web.permissions_routes import router
+from dodaios.platform.permission_service import get_permission_service
+from dodaios.platform.permissions import PermissionId
+from dodaios.ui.web import permissions_routes as routes
+from dodaios.ui.web.control_auth import require_control_key_or_session
+from dodaios.ui.web.permissions_routes import router
 from tests.fakes.fake_permission_service import FakePermissionService
 from tests.fakes.fake_tcc import DialogPolicy, FakeTCC, install_port
 
@@ -675,7 +675,7 @@ def test_every_handler_is_a_sync_def() -> None:
 
 def test_no_route_reaches_the_old_readiness_aggregation(make_env) -> None:
     """The routes stopped using ``port.snapshot()`` (the feature/``wanted`` aggregation)."""
-    from jarvis.platform.permissions import SystemPermissionPort
+    from dodaios.platform.permissions import SystemPermissionPort
 
     env = make_env(granted=["microphone"])
 
@@ -913,7 +913,7 @@ class _RecordingService:
     """A real service whose ``note_app_activated`` / ``refresh_episodes`` order is logged."""
 
     def __init__(self) -> None:
-        from jarvis.platform.permission_service import PermissionService
+        from dodaios.platform.permission_service import PermissionService
 
         self.inner = PermissionService()
         self.log: list[str] = []

@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.loader import parse_skill
+from dodaios.skills.loader import parse_skill
 
 BUILTIN_ROOT = (
-    Path(__file__).resolve().parents[3] / "jarvis" / "skills" / "builtin"
+    Path(__file__).resolve().parents[3] / "dodaios" / "skills" / "builtin"
 )
 SKILL_DIRS = sorted(
     p for p in BUILTIN_ROOT.iterdir() if (p / "SKILL.md").exists()

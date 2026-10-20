@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.missions.kontrollierer.deliverable import (
+from dodaios.missions.kontrollierer.deliverable import (
     build_deliverable_summary,
     build_delivered_summary,
 )
@@ -193,7 +193,7 @@ def test_delivered_summary_defaults_to_english(tmp_path: Path) -> None:
 def test_english_delivered_summary_resolves_to_en_at_pipeline_seam(
     tmp_path: Path,
 ) -> None:
-    from jarvis.core.turn_language import resolve_output_language
+    from dodaios.core.turn_language import resolve_output_language
 
     folder = tmp_path / "Jarvis-Outputs"
     folder.mkdir()

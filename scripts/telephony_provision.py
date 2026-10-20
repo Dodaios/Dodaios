@@ -1,4 +1,4 @@
-"""CLI over jarvis.telephony.provisioning — list/buy numbers, set the webhook.
+"""CLI over dodaios.telephony.provisioning — list/buy numbers, set the webhook.
 
 Reads Twilio credentials from the standard places: account SID from
 ``[integrations.twilio]`` in jarvis.toml (or ``--sid``), auth token from the
@@ -26,8 +26,8 @@ try:
 except Exception:  # noqa: BLE001, S110 - console encoding is best-effort
     pass
 
-from jarvis.core.config import get_secret, load_config
-from jarvis.telephony import provisioning
+from dodaios.core.config import get_secret, load_config
+from dodaios.telephony import provisioning
 
 
 def _resolve_credentials(args: argparse.Namespace) -> tuple[str, str]:

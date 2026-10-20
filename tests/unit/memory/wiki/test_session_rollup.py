@@ -18,15 +18,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 import pytest_asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import load_config
-from jarvis.core.events import IdleEntered
-from jarvis.core.protocols import BrainDelta, BrainRequest
-from jarvis.memory.recall import RecallStore
-from jarvis.memory.wiki.atomic_writer import AtomicWriter
-from jarvis.memory.wiki.log_writer import LogWriter
-from jarvis.memory.wiki.page import MarkdownPageRepository
-from jarvis.memory.wiki.session_rollup import (
+from dodaios.core.bus import EventBus
+from dodaios.core.config import load_config
+from dodaios.core.events import IdleEntered
+from dodaios.core.protocols import BrainDelta, BrainRequest
+from dodaios.memory.recall import RecallStore
+from dodaios.memory.wiki.atomic_writer import AtomicWriter
+from dodaios.memory.wiki.log_writer import LogWriter
+from dodaios.memory.wiki.page import MarkdownPageRepository
+from dodaios.memory.wiki.session_rollup import (
     SessionRollupResult,
     SessionRollupWorker,
 )
@@ -483,7 +483,7 @@ async def test_llm_timeout_reports_failure_status(worker_stack):
     # ``brain.complete`` itself is left untouched — the timeout simulates
     # the worker's outer ``asyncio.wait_for`` firing before the stream
     # completes.
-    with patch("jarvis.memory.wiki.session_rollup.asyncio.wait_for", side_effect=asyncio.TimeoutError):
+    with patch("dodaios.memory.wiki.session_rollup.asyncio.wait_for", side_effect=asyncio.TimeoutError):
         result = await worker.flush_session()
 
     assert result.status == "llm_failure"

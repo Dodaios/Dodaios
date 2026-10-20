@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.realtime.local_server import configure
+from dodaios.realtime.local_server import configure
 
 
 @pytest.mark.asyncio
 async def test_setup_persists_only_after_the_voice_smoke_passes(monkeypatch) -> None:
-    from jarvis.core import config_writer
-    from jarvis.realtime.local_server import install, smoke, supervisor
+    from dodaios.core import config_writer
+    from dodaios.realtime.local_server import install, smoke, supervisor
 
     calls: list[str] = []
     monkeypatch.setattr(configure, "build_launch_command", lambda *args, **kwargs: "new")
@@ -58,8 +58,8 @@ async def test_setup_persists_only_after_the_voice_smoke_passes(monkeypatch) -> 
 
 @pytest.mark.asyncio
 async def test_failed_voice_smoke_restores_previous_runtime(monkeypatch) -> None:
-    from jarvis.core import config_writer
-    from jarvis.realtime.local_server import smoke, supervisor
+    from dodaios.core import config_writer
+    from dodaios.realtime.local_server import smoke, supervisor
 
     replacements: list[str] = []
     monkeypatch.setattr(configure, "build_launch_command", lambda *args, **kwargs: "new")

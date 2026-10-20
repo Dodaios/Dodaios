@@ -17,7 +17,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.harness import screenshot_only_loop as sol
+from dodaios.harness import screenshot_only_loop as sol
 
 
 def _node(role: str, name: str, value: str = "") -> Any:

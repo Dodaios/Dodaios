@@ -3,10 +3,10 @@
 import httpx
 import pytest
 
-from jarvis.brain.model_catalog import parse_models_response
-from jarvis.core.config import BrainConfig, BrainProviderConfig, JarvisConfig, OllamaModelOptions
-from jarvis.core.protocols import BrainMessage, BrainRequest, ImageBlock
-from jarvis.plugins.brain.ollama import OllamaBrain
+from dodaios.brain.model_catalog import parse_models_response
+from dodaios.core.config import BrainConfig, BrainProviderConfig, JarvisConfig, OllamaModelOptions
+from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock
+from dodaios.plugins.brain.ollama import OllamaBrain
 from tests.fakes.fake_ollama_server import FakeOllamaServer
 from tests.fakes.provider_config import install_provider_config
 

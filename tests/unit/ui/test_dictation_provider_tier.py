@@ -3,7 +3,7 @@
 Two things are pinned here, and the second one is the point of the tier:
 
 1. **The cards are DERIVED, never re-declared.** ``POLISH_FAMILIES``
-   (``jarvis.dictation.polish_client``) owns the family ids, labels and
+   (``dodaios.dictation.polish_client``) owns the family ids, labels and
    credential slots; ``provider_spec`` contributes only the card text. A second
    hand-typed copy of that list is the exact shape that produced BUG-008 four
    times, so the derivation is asserted rather than assumed.
@@ -20,11 +20,11 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.ui.web.provider_routes as pr
-from jarvis.brain import section_health as _section_health
-from jarvis.dictation.polish_client import POLISH_FAMILIES
-from jarvis.setup.wizard import SECRETS as WIZARD_SECRETS
-from jarvis.ui.web.provider_spec import (
+import dodaios.ui.web.provider_routes as pr
+from dodaios.brain import section_health as _section_health
+from dodaios.dictation.polish_client import POLISH_FAMILIES
+from dodaios.setup.wizard import SECRETS as WIZARD_SECRETS
+from dodaios.ui.web.provider_spec import (
     DICTATION_FAMILY_BY_SPEC_ID,
     DICTATION_SPEC_ID_BY_FAMILY,
     PROVIDERS,
@@ -208,7 +208,7 @@ async def test_a_required_tier_still_nags(monkeypatch) -> None:
 
 async def test_an_optional_tier_still_reports_a_failing_key(monkeypatch) -> None:
     """Nag suppression covers "not set up", never "set up and broken"."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     monkeypatch.setattr(pr, "_is_credential_present", lambda spec, bp=None: True)
     spec = pr.get_spec(dictation_spec_id("groq"))
@@ -236,7 +236,7 @@ def test_the_rollup_carries_a_dictation_section() -> None:
 def test_active_polish_translates_a_family_id_into_a_card_id(monkeypatch) -> None:
     """``[dictation].polish_provider`` stores "groq"; every subject id, card and
     health section speaks "groq-polish". The translation lives in one place."""
-    from jarvis.dictation import polish_client
+    from dodaios.dictation import polish_client
 
     monkeypatch.setattr(
         polish_client, "family_has_key", lambda family: family.id == "openai"
@@ -251,7 +251,7 @@ def test_active_polish_is_none_when_the_pass_is_off() -> None:
 
 
 def test_active_polish_is_none_without_any_key(monkeypatch) -> None:
-    from jarvis.dictation import polish_client
+    from dodaios.dictation import polish_client
 
     monkeypatch.setattr(polish_client, "family_has_key", lambda family: False)
 
@@ -265,7 +265,7 @@ def test_active_polish_survives_a_config_without_a_dictation_block() -> None:
 
 def test_toggling_the_pass_invalidates_the_cached_health(monkeypatch) -> None:
     """Without this the switch appears to do nothing for _SECTION_HEALTH_TTL_S."""
-    from jarvis.dictation import polish_client
+    from dodaios.dictation import polish_client
 
     monkeypatch.setattr(polish_client, "family_has_key", lambda family: True)
 
@@ -345,7 +345,7 @@ def test_credential_presence_accepts_any_slot_the_family_reads(monkeypatch) -> N
     """A Google user holding only ``google_api_key`` has a working polish pass;
     the single-slot check would call that card "no key set" and send them
     hunting for a key they do not need."""
-    import jarvis.core.config as cfg_mod
+    import dodaios.core.config as cfg_mod
 
     monkeypatch.setattr(
         cfg_mod, "get_secret", lambda slot, *a, **kw: "k" if slot == "google_api_key" else None
@@ -361,8 +361,8 @@ def test_a_dictation_card_can_never_be_switched_into_another_tier(spec_id) -> No
     """``apply_provider_switch`` validates ``spec.tier`` against the requested
     tier, so a polish card can never become the brain/TTS/STT provider even
     though several of them share a credential slot with one."""
-    from jarvis.brain.app_control import SWITCHABLE_TIERS
-    from jarvis.ui.web.provider_spec import get_spec
+    from dodaios.brain.app_control import SWITCHABLE_TIERS
+    from dodaios.ui.web.provider_spec import get_spec
 
     assert "dictation" not in SWITCHABLE_TIERS
     assert get_spec(spec_id).tier == "dictation"

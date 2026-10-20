@@ -3,7 +3,7 @@
 **Status:** shipped 2026-10-03 ·
 **Registry side:** `Dodaios/marketplace` (`scripts/validate.py` →
 `validate_agent`, `scripts/intake.py`, workflow `intake.yml`) ·
-**App side:** `jarvis/society/agent_template.py`
+**App side:** `dodaios/society/agent_template.py`
 
 A person who built a good agent can hand it to everybody else: its job line,
 its standing instructions, its look and the tools it reaches for first. What
@@ -38,7 +38,7 @@ Agent card ─ Share ─► Share sheet ─────────────�
 2. **Ask &lt;agent&gt;** sends the agent a chat message asking it to write its
    own public version — a summary for strangers and its instructions with
    everything personal taken out. The agent saves it with the
-   `society_share_template` tool (`jarvis/society/share_tool.py`, `safe`
+   `society_share_template` tool (`dodaios/society/share_tool.py`, `safe`
    tier: it writes a local draft only). The sheet polls until the draft
    changes. The agent is never the privacy boundary — what it writes goes
    through the same scrubber as everything else.
@@ -77,7 +77,7 @@ without asking on the installer's machine: `account_id`, `provider`, `model`,
 `browser_allowed_domains`, and an imported figure file (`avatar.model`).
 
 This is stricter than the machine-to-machine ecosystem bundle
-(`jarvis/mcp/agents/portable.py`), which moves a person's OWN team to their
+(`dodaios/mcp/agents/portable.py`), which moves a person's OWN team to their
 own other computer and therefore keeps model choices and budgets.
 
 ## Scrubbing
@@ -150,13 +150,13 @@ runs on the installer's own model.
 
 | Piece | Where |
 |---|---|
-| Build, scrub, validate, install fields, share draft on disk | `jarvis/society/agent_template.py` |
-| Agent tool `society_share_template` | `jarvis/society/share_tool.py` (registered in `surface.society_tools`) |
-| REST `GET/PUT /api/society/agents/{id}/template`, `POST …/template/publish`, `POST /api/society/templates/install` | `jarvis/ui/web/society_routes.py` |
-| Issue intake submit, `registry_repo()`, agent drafts | `jarvis/marketplace/publish.py` |
-| Feed model `CommunityAgentEntry`, `index.agents` | `jarvis/marketplace/community_source.py` |
-| Browse payload `agents`, install by name | `jarvis/ui/web/marketplace_routes.py` |
-| CLI `jarvis marketplace install/browse` | `jarvis/cli_ctl/commands/marketplace.py` |
+| Build, scrub, validate, install fields, share draft on disk | `dodaios/society/agent_template.py` |
+| Agent tool `society_share_template` | `dodaios/society/share_tool.py` (registered in `surface.society_tools`) |
+| REST `GET/PUT /api/society/agents/{id}/template`, `POST …/template/publish`, `POST /api/society/templates/install` | `dodaios/ui/web/society_routes.py` |
+| Issue intake submit, `registry_repo()`, agent drafts | `dodaios/marketplace/publish.py` |
+| Feed model `CommunityAgentEntry`, `index.agents` | `dodaios/marketplace/community_source.py` |
+| Browse payload `agents`, install by name | `dodaios/ui/web/marketplace_routes.py` |
+| CLI `jarvis marketplace install/browse` | `dodaios/cli_ctl/commands/marketplace.py` |
 | Share sheet | `frontend/src/components/society/card/ShareAgentDialog.tsx` |
 | Agents shelf, drawer, import | `frontend/src/views/MarketplaceView.tsx` |
 | Client | `frontend/src/lib/agentShare.ts` |

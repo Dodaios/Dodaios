@@ -11,7 +11,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from jarvis.ui.web.schema import WSCommand, WSMessageIn, WSWelcome
+from dodaios.ui.web.schema import WSCommand, WSMessageIn, WSWelcome
 
 
 def test_message_in_text() -> None:

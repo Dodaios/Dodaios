@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.deduplicator import find_duplicates, jaccard
-from jarvis.skills.loader import parse_skill
+from dodaios.skills.deduplicator import find_duplicates, jaccard
+from dodaios.skills.loader import parse_skill
 
 
 def test_jaccard_identical():

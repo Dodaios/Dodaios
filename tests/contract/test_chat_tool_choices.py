@@ -13,11 +13,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat import runner_brain, tool_catalog
-from jarvis.agent_chat.folder_tools import plan_filter
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.agent_chat.tool_catalog import (
+from dodaios.agent_chat import runner_brain, tool_catalog
+from dodaios.agent_chat.folder_tools import plan_filter
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.tool_catalog import (
     Category,
     ToolChoice,
     build_catalog,
@@ -25,8 +25,8 @@ from jarvis.agent_chat.tool_catalog import (
     resolve_choices,
     search_catalog,
 )
-from jarvis.core.protocols import BrainDelta
-from jarvis.ui.web.agent_chat_routes import router
+from dodaios.core.protocols import BrainDelta
+from dodaios.ui.web.agent_chat_routes import router
 from tests.fakes.fake_brain_manager import FakeBrainManager
 
 
@@ -199,14 +199,14 @@ def test_http_rejects_stale_selection_before_recording_message(tmp_path, monkeyp
 
 def test_wire_category_and_fields_match_typescript():
     root = Path(__file__).resolve().parents[2]
-    source = (root / "jarvis/ui/web/frontend/src/components/agentchat/toolChoices.ts").read_text()
+    source = (root / "dodaios/ui/web/frontend/src/components/agentchat/toolChoices.ts").read_text()
     union = re.search(r"export type ToolCategory\s*=\s*([^;]+);", source).group(1)
     assert set(re.findall(r'"([a-z]+)"', union)) == set(get_args(Category))
     interface = source.split("export interface ToolChoice {", 1)[1].split("}", 1)[0]
     assert set(re.findall(r"^\s*(\w+)\??:", interface, re.M)) == set(ToolChoice.model_fields)
     for locale in ("en", "de", "es"):
         data = json.loads(
-            (root / f"jarvis/ui/web/frontend/src/i18n/locales/{locale}.json").read_text(
+            (root / f"dodaios/ui/web/frontend/src/i18n/locales/{locale}.json").read_text(
                 encoding="utf-8"
             )
         )
@@ -314,8 +314,8 @@ async def test_artifact_row_is_bilingual_and_searchable():
 async def test_subscription_turn_receives_browser_selection_only_for_current_turn(
     tmp_path, monkeypatch, card_pin
 ):
-    from jarvis.agent_chat import service
-    from jarvis.agent_chat.events import make_event
+    from dodaios.agent_chat import service
+    from dodaios.agent_chat.events import make_event
 
     rows = build_catalog({"society_browser": tool("society_browser")})
     monkeypatch.setattr(tool_catalog, "live_catalog", lambda *_a, **_k: rows)

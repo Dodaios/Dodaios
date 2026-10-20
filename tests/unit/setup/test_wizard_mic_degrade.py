@@ -12,7 +12,7 @@ import sys
 import types
 from unittest.mock import patch
 
-from jarvis.setup import wizard
+from dodaios.setup import wizard
 
 
 def test_mic_check_survives_missing_audio_backend() -> None:

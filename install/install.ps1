@@ -191,7 +191,7 @@ Write-Banner
 # Every JARVIS_ option this script reads also answers to its DODAIOS_
 # spelling. When both are set to different values the DODAIOS_ one wins, and
 # the clash is named, never its values. The rest of this script, and
-# installer.py after it, read the JARVIS_ spelling (jarvis/core/env_prefix.py
+# installer.py after it, read the JARVIS_ spelling (dodaios/core/env_prefix.py
 # does the same for the app). JARVIS_PAYLOAD_COMMIT is not an option: it is
 # the signed commit the verifying installer hands over, and no second name
 # may override it.
@@ -210,7 +210,7 @@ function Use-InstallOptionNames {
 }
 Use-InstallOptionNames
 
-# Standalone bootstrap projections of jarvis/core/branding.py. The branding
+# Standalone bootstrap projections of dodaios/core/branding.py. The branding
 # contract test rejects drift because this script runs before Python is installed.
 $OfficialRepoSlug = "$env:JARVIS_OFFICIAL_REPO_SLUG"
 if (-not $OfficialRepoSlug) { $OfficialRepoSlug = 'Dodaios/Dodaios' }

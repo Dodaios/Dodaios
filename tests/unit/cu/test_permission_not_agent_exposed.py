@@ -7,10 +7,10 @@ call must never reach it, or an agent could answer a system dialog's question fo
 user by itself. This is an AST contract over the tool modules, so a later tool or
 plugin that imports the service and calls one of these fails here.
 
-* Tool modules (``jarvis/plugins/tool``, ``jarvis/brain/tools``) never import the
+* Tool modules (``dodaios/plugins/tool``, ``dodaios/brain/tools``) never import the
   service. They reach permissions only through a consumer seam (``get_actuator``,
   ``screen_access``, the ``window_state`` helpers) that has its own gesture rules.
-* The actuator seam (``jarvis/cu/actuate``) may import it in ``base.py`` only, and
+* The actuator seam (``dodaios/cu/actuate``) may import it in ``base.py`` only, and
   only to ``ensure_all`` / ``check`` Accessibility.
 """
 
@@ -21,11 +21,11 @@ from pathlib import Path
 
 import pytest
 
-_ROOT = Path(__file__).resolve().parents[3] / "jarvis"
+_ROOT = Path(__file__).resolve().parents[3] / "dodaios"
 _FORBIDDEN_NAMES = frozenset(
     {"open_settings", "request_native", "note_reset", "refresh_episodes", "attach_bus"}
 )
-_SERVICE_MODULE = "jarvis.platform.permission_service"
+_SERVICE_MODULE = "dodaios.platform.permission_service"
 _TOOL_DIRS = ("plugins/tool", "brain/tools")
 
 
@@ -37,7 +37,7 @@ def _imports_service(tree: ast.AST) -> bool:
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module == _SERVICE_MODULE:
             return True
-        if isinstance(node, ast.ImportFrom) and node.module == "jarvis.platform":
+        if isinstance(node, ast.ImportFrom) and node.module == "dodaios.platform":
             if any(alias.name == "permission_service" for alias in node.names):
                 return True
         if isinstance(node, ast.Import) and any(a.name == _SERVICE_MODULE for a in node.names):

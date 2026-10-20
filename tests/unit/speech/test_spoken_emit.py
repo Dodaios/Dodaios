@@ -21,11 +21,11 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import ListeningStarted, SpeechSpoken
-from jarvis.core.protocols import AudioChunk
-from jarvis.sessions.constants import SPOKEN_KINDS
-from jarvis.speech.pipeline import SpeechPipeline, _announcement_spoken_kind
+from dodaios.core.bus import EventBus
+from dodaios.core.events import ListeningStarted, SpeechSpoken
+from dodaios.core.protocols import AudioChunk
+from dodaios.sessions.constants import SPOKEN_KINDS
+from dodaios.speech.pipeline import SpeechPipeline, _announcement_spoken_kind
 from tests.fakes.voice_session import open_classic_voice_session
 
 # --- minimal __new__ pipe for the pure _emit_spoken helper -----------------
@@ -243,7 +243,7 @@ async def test_on_announcement_forwards_detail_to_spoken() -> None:
     # A CU failure rides AnnouncementRequested(kind="completion") carrying the
     # optional technical `detail`; it must reach the recorded SpeechSpoken so
     # the transcript shows the exit code while the voice stays humanized.
-    from jarvis.core.events import AnnouncementRequested
+    from dodaios.core.events import AnnouncementRequested
 
     bus = EventBus()
     captured = await _capture(bus)
@@ -270,7 +270,7 @@ async def test_on_announcement_emits_spoken_with_mapped_kind() -> None:
     # Announcements (skill output, mission completion, spawn ack, progress
     # nudge, flash preamble) reach TTS through _on_announcement, not _speak —
     # so they need their own emit, tagged from the AnnouncementRequested.kind.
-    from jarvis.core.events import AnnouncementRequested
+    from dodaios.core.events import AnnouncementRequested
 
     bus = EventBus()
     captured = await _capture(bus)
@@ -297,9 +297,9 @@ async def test_end_to_end_voiced_phrase_reaches_the_session_store(tmp_path) -> N
     SessionRecorder on the same bus persists it, and it shows up in the session
     log — the literal user requirement ('everything the TTS speaks documented
     there')."""
-    from jarvis.core.events import VoiceSessionEnded, VoiceSessionStarted
-    from jarvis.sessions.recorder import SessionRecorder
-    from jarvis.sessions.store import SessionStore
+    from dodaios.core.events import VoiceSessionEnded, VoiceSessionStarted
+    from dodaios.sessions.recorder import SessionRecorder
+    from dodaios.sessions.store import SessionStore
 
     store = SessionStore(tmp_path / "sessions.db")
     store.open()

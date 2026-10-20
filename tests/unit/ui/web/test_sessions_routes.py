@@ -8,8 +8,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.sessions.store import SessionStore
-from jarvis.ui.web import sessions_routes
+from dodaios.sessions.store import SessionStore
+from dodaios.ui.web import sessions_routes
 
 
 @pytest.mark.asyncio

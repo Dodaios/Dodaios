@@ -7,16 +7,16 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from jarvis.board.evaluator import AchievementEvaluator
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.board.evaluator import AchievementEvaluator
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     AchievementUnlocked,
     ActionExecuted,
     HarnessCompleted,
     JarvisAgentTaskCompleted,
     TaskCompleted,
 )
-from jarvis.core.protocols import HarnessResult
+from dodaios.core.protocols import HarnessResult
 
 
 # ----------------------------------------------------------------------
@@ -182,7 +182,7 @@ def test_evaluator_does_not_block_on_evaluator_exception(tmp_path: Path) -> None
     ev = AchievementEvaluator(tmp_path / "personal.db")
 
     # Monkey-patch: a broken evaluator in the chain.
-    from jarvis.board import achievements
+    from dodaios.board import achievements
 
     original = achievements.ACHIEVEMENTS
     try:

@@ -1,7 +1,7 @@
 """The shell installers answer to the ``DODAIOS_`` spelling of every option they read.
 
 ``install.sh`` and ``install.ps1`` run before Python exists, so they cannot use
-``jarvis.core.env_prefix``. Each carries one small block that folds the new
+``dodaios.core.env_prefix``. Each carries one small block that folds the new
 spelling into the old one the rest of the script reads. These tests run those
 real blocks, extracted from the scripts, in a real shell.
 """
@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import env_prefix
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.core import env_prefix
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
 _ROOT = Path(__file__).resolve().parents[3]
 INSTALL_SH = _ROOT / "install" / "install.sh"

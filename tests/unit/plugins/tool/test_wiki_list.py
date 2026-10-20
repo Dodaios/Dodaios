@@ -23,8 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.brain.factory import ROUTER_TOOLS
-from jarvis.plugins.tool.wiki_list import WikiListTool
+from dodaios.brain.factory import ROUTER_TOOLS
+from dodaios.plugins.tool.wiki_list import WikiListTool
 
 
 @pytest.fixture()

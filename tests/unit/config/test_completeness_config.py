@@ -24,7 +24,7 @@ from pydantic import ValidationError
 
 def _make_completeness(**kwargs):
     """Return a CompletenessConfig, importing lazily so the test is isolated."""
-    from jarvis.core.config import CompletenessConfig
+    from dodaios.core.config import CompletenessConfig
     return CompletenessConfig(**kwargs)
 
 
@@ -118,7 +118,7 @@ class TestPendingDiscardS:
 class TestEmptyBlock:
     def test_empty_dict_applies_defaults(self) -> None:
         """Simulates an empty [speech.completeness] TOML block."""
-        from jarvis.core.config import CompletenessConfig
+        from dodaios.core.config import CompletenessConfig
         cfg = CompletenessConfig.model_validate({})
         assert cfg.enabled is True
         assert cfg.signal_mode == "auto"
@@ -146,17 +146,17 @@ class TestExtraAllow:
 
 class TestSpeechConfigNesting:
     def test_speech_config_has_completeness(self) -> None:
-        from jarvis.core.config import SpeechConfig, CompletenessConfig
+        from dodaios.core.config import SpeechConfig, CompletenessConfig
         cfg = SpeechConfig()
         assert isinstance(cfg.completeness, CompletenessConfig)
 
     def test_speech_config_completeness_defaults(self) -> None:
-        from jarvis.core.config import SpeechConfig
+        from dodaios.core.config import SpeechConfig
         cfg = SpeechConfig()
         assert cfg.completeness.pending_discard_s == 8.0
 
     def test_speech_config_extra_allow(self) -> None:
-        from jarvis.core.config import SpeechConfig
+        from dodaios.core.config import SpeechConfig
         # Must not raise with unknown top-level key
         cfg = SpeechConfig.model_validate({"completeness": {}, "unknown_field": 42})
         assert cfg.completeness.enabled is True
@@ -168,17 +168,17 @@ class TestSpeechConfigNesting:
 
 class TestJarvisConfigIntegration:
     def test_jarvis_config_has_speech_attribute(self) -> None:
-        from jarvis.core.config import JarvisConfig, SpeechConfig
+        from dodaios.core.config import JarvisConfig, SpeechConfig
         cfg = JarvisConfig()
         assert isinstance(cfg.speech, SpeechConfig)
 
     def test_jarvis_config_speech_completeness_path(self) -> None:
-        from jarvis.core.config import JarvisConfig, CompletenessConfig
+        from dodaios.core.config import JarvisConfig, CompletenessConfig
         cfg = JarvisConfig()
         assert isinstance(cfg.speech.completeness, CompletenessConfig)
 
     def test_jarvis_config_completeness_defaults_via_root(self) -> None:
-        from jarvis.core.config import JarvisConfig
+        from dodaios.core.config import JarvisConfig
         cfg = JarvisConfig()
         assert cfg.speech.completeness.enabled is True
         assert cfg.speech.completeness.signal_mode == "auto"
@@ -194,7 +194,7 @@ class TestJarvisConfigIntegration:
 class TestRealTomlLoad:
     def test_jarvis_toml_loads_without_error(self) -> None:
         """The real jarvis.toml must parse successfully after the [speech.completeness] block is added."""
-        from jarvis.core.config import load_config, DEFAULT_CONFIG_FILE
+        from dodaios.core.config import load_config, DEFAULT_CONFIG_FILE
         if not DEFAULT_CONFIG_FILE.exists():
             pytest.skip("jarvis.toml not found — skipping real-file round-trip")
         cfg = load_config(DEFAULT_CONFIG_FILE)
@@ -204,7 +204,7 @@ class TestRealTomlLoad:
 
     def test_jarvis_toml_completeness_values(self) -> None:
         """Values in jarvis.toml [speech.completeness] match the spec defaults."""
-        from jarvis.core.config import load_config, DEFAULT_CONFIG_FILE
+        from dodaios.core.config import load_config, DEFAULT_CONFIG_FILE
         if not DEFAULT_CONFIG_FILE.exists():
             pytest.skip("jarvis.toml not found")
         cfg = load_config(DEFAULT_CONFIG_FILE)

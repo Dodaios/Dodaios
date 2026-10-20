@@ -6,8 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.telephony.status import CallRecord, TelephonyManager
-from jarvis.ui.web import telephony_routes
+from dodaios.telephony.status import CallRecord, TelephonyManager
+from dodaios.ui.web import telephony_routes
 
 pytestmark = pytest.mark.no_auto_web_auth
 

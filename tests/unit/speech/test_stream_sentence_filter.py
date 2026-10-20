@@ -1,6 +1,6 @@
 """Pin the per-sentence contract of the streaming TTS path (OF-11 + OF-12).
 
-Two defects lived in ``_brain_streaming`` (jarvis/speech/pipeline.py):
+Two defects lived in ``_brain_streaming`` (dodaios/speech/pipeline.py):
 
 OF-11 — ``scrub_for_voice`` is a WHOLE-TURN filter. Several of its guards
 throw the input away and return a canned error phrase for ALL of it. Called
@@ -27,11 +27,11 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.brain.output_filter import FALLBACK_PHRASES, ScrubResult
-from jarvis.core.bus import EventBus
-from jarvis.core.protocols import AudioChunk
-from jarvis.speech import pipeline as pipeline_module
-from jarvis.speech.pipeline import (
+from dodaios.brain.output_filter import FALLBACK_PHRASES, ScrubResult
+from dodaios.core.bus import EventBus
+from dodaios.core.protocols import AudioChunk
+from dodaios.speech import pipeline as pipeline_module
+from dodaios.speech.pipeline import (
     SpeechPipeline,
     _is_whole_text_fallback,
     _next_stream_sentence_break,
@@ -255,7 +255,7 @@ async def test_filtered_sentence_never_interrupts_a_healthy_answer(
 ) -> None:
     """The canned phrase must NOT be spliced between two good sentences."""
     monkeypatch.setattr(pipeline_module, "scrub_for_voice", _fake_scrub)
-    with caplog.at_level(logging.WARNING, logger="jarvis.speech.pipeline"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.speech.pipeline"):
         spoken = await _spoken_sentences(
             ["Der Bericht ist fertig. ", f"{_POISON} Meldung. ",
              "Sonst noch was?"],
@@ -276,7 +276,7 @@ async def test_sentence_that_scrubs_to_nothing_is_logged(
 ) -> None:
     """The silent sibling: an empty scrub result loses a clause — say so."""
     monkeypatch.setattr(pipeline_module, "scrub_for_voice", _fake_scrub)
-    with caplog.at_level(logging.WARNING, logger="jarvis.speech.pipeline"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.speech.pipeline"):
         spoken = await _spoken_sentences(
             ["Der Bericht ist fertig. ", f"{_VANISH} Rest. ",
              "Sonst noch was?"],

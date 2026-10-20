@@ -4,7 +4,7 @@
 > `Elevator` + `AdminTransport` seams, AD-6 graceful null-fallback, AD-13
 > detect-and-degrade, EK-6 ADR-0001 superseded). PC-7: all 13 current ops are
 > Windows-native, so "port all" means a **new** per-OS op vocabulary, and the
-> elevation glue (`jarvis/admin/launcher.py`) is currently dormant (never
+> elevation glue (`dodaios/admin/launcher.py`) is currently dormant (never
 > auto-called).
 
 ---
@@ -34,10 +34,10 @@ ADR-0001 is superseded by a new ADR-0020.
 
 ### 3.1 — `AdminTransport` protocol; extract Windows pipe code; reuse the HMAC core
 
-- **Create:** `jarvis/admin/transport.py` (`AdminTransport` `Protocol` +
+- **Create:** `dodaios/admin/transport.py` (`AdminTransport` `Protocol` +
   `NamedPipeTransport` (Windows) + `make_admin_transport()` factory),
   `tests/fakes/fake_admin_transport.py`, `tests/unit/admin/test_transport_seam.py`.
-- **Modify:** `jarvis/admin/ipc.py` — move the **transport-specific** Windows code
+- **Modify:** `dodaios/admin/ipc.py` — move the **transport-specific** Windows code
   (`AdminPipeServer._accept_one` `:295`, `_handle_connection`/`_read_message`/
   `_write_message`/`_safe_close` `:330-424`, `AdminPipeClient._roundtrip` `:511`,
   `_build_sddl` `:123`, `current_user_sid` `:92`, `default_pipe_name` `:117`) into
@@ -66,12 +66,12 @@ ADR-0001 is superseded by a new ADR-0020.
   - `pytest tests/unit/admin/test_transport_seam.py -v` green (a fake transport
     round-trips a signed envelope through `_decode_request`/`_encode_response`
     with no real pipe/socket).
-  - `python -c "from jarvis.admin.transport import make_admin_transport, AdminTransport; assert isinstance(make_admin_transport(), AdminTransport)"` exits 0 on every OS (never raises).
-  - `python -c "import ast; m=ast.parse(open('jarvis/admin/ipc.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('win32pipe','win32file','win32security','pywintypes') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (pipe imports are now inside `transport.py`, lazily; `ipc.py` is import-clean).
+  - `python -c "from dodaios.admin.transport import make_admin_transport, AdminTransport; assert isinstance(make_admin_transport(), AdminTransport)"` exits 0 on every OS (never raises).
+  - `python -c "import ast; m=ast.parse(open('dodaios/admin/ipc.py').read()); assert not any(getattr(n,'names',None) and any(a.name in ('win32pipe','win32file','win32security','pywintypes') for a in n.names) for n in ast.walk(m) if isinstance(n,ast.Import))"` exits 0 (pipe imports are now inside `transport.py`, lazily; `ipc.py` is import-clean).
 
 ### 3.2 — `UnixSocketTransport` (0700 socket + peer-credential check)
 
-- **Create:** `jarvis/admin/unix_socket.py` (`UnixSocketTransport`),
+- **Create:** `dodaios/admin/unix_socket.py` (`UnixSocketTransport`),
   `tests/unit/admin/test_unix_socket_transport.py`,
   `tests/integration/test_admin_unix_loopback.py`.
 - **Approach:**
@@ -111,12 +111,12 @@ ADR-0001 is superseded by a new ADR-0020.
 
 ### 3.3 — Per-OS op vocabulary (macOS brew/launchctl, Linux apt/systemctl/ufw)
 
-- **Create:** `jarvis/admin/schema_unix.py` (the macOS + Linux op models),
+- **Create:** `dodaios/admin/schema_unix.py` (the macOS + Linux op models),
   `tests/unit/admin/test_schema_unix.py`.
-- **Modify:** `jarvis/admin/schema.py` — make the `AdminOperation` discriminated
+- **Modify:** `dodaios/admin/schema.py` — make the `AdminOperation` discriminated
   union (`:175-192`) and `ADMIN_OPERATION_TYPES` (`:195-209`) /
   `DESTRUCTIVE_OPS` (`:212`) platform-conditional (or a superset that the
-  executor dispatches per OS). `jarvis/admin/executor.py` — add macOS/Linux op
+  executor dispatches per OS). `dodaios/admin/executor.py` — add macOS/Linux op
   handlers alongside the Windows ones.
 - **Approach:**
   - New op models subclass `_AdminOpBase` (`schema.py:25`, `frozen=True`,
@@ -148,19 +148,19 @@ ADR-0001 is superseded by a new ADR-0020.
   - `pytest tests/unit/admin/test_schema_unix.py -v` green (asserts each op
     validates a good payload, rejects a malicious one — e.g. `package="foo; rm -rf /"`
     fails the regex — and that destructive ops are in `DESTRUCTIVE_OPS`).
-  - `python -c "from jarvis.admin.schema_unix import AptInstallOp; AptInstallOp(package='git')"` exits 0; `python -c "from jarvis.admin.schema_unix import AptInstallOp; AptInstallOp(package='git; whoami')"` exits non-zero (validation error).
+  - `python -c "from dodaios.admin.schema_unix import AptInstallOp; AptInstallOp(package='git')"` exits 0; `python -c "from dodaios.admin.schema_unix import AptInstallOp; AptInstallOp(package='git; whoami')"` exits non-zero (validation error).
   - `pytest tests/unit/admin/ -v` green on all OS legs (schema validation is pure-Python, CI-provable; actual execution is not).
 
 ### 3.4 — `Elevator` protocol + per-OS elevators (Uac / Sudo / Polkit / MacAuth / Null)
 
-- **Create:** `jarvis/admin/elevator.py` (`Elevator` `Protocol` + `UacElevator`,
+- **Create:** `dodaios/admin/elevator.py` (`Elevator` `Protocol` + `UacElevator`,
   `SudoElevator`, `PolkitElevator`, `MacAuthElevator`, `NullElevator` +
   `make_elevator()` factory), `tests/fakes/fake_elevator.py`,
   `tests/unit/admin/test_elevator.py`.
-- **Modify:** `jarvis/admin/launcher.py` — refactor `ensure_admin_secret` (`:42`)
+- **Modify:** `dodaios/admin/launcher.py` — refactor `ensure_admin_secret` (`:42`)
   to stay transport-agnostic, and move the Windows `ShellExecuteW(runas, ...)`
   helper-spawn (`launcher.py:11`, the dormant elevation glue per PC-7) behind
-  `UacElevator`. `jarvis/admin/client.py` — `AdminClient` (`:66`) gains an
+  `UacElevator`. `dodaios/admin/client.py` — `AdminClient` (`:66`) gains an
   injected `Elevator` (alongside its existing injectable `pipe_client` at `:80`,
   preserving the DI seam PC-3 calls out).
 - **Approach:**
@@ -168,11 +168,11 @@ ADR-0001 is superseded by a new ADR-0020.
     ElevationResult` (spawns/authorizes the privileged helper bound to the
     transport address) + `is_available() -> bool`.
     - **`UacElevator` (Windows):** the existing `ShellExecuteW("runas",
-      python.exe, "-m jarvis.admin.helper --pipe-name ...")` flow
+      python.exe, "-m dodaios.admin.helper --pipe-name ...")` flow
       (`launcher.py:11`), unchanged (AD-7).
     - **`PolkitElevator` (Linux, preferred):** `pkexec` to spawn the helper
       bound to the unix socket; a polkit policy file ships under
-      `jarvis/admin/data/`. `is_available()` = `shutil.which("pkexec")`.
+      `dodaios/admin/data/`. `is_available()` = `shutil.which("pkexec")`.
     - **`SudoElevator` (Linux, fallback):** `sudo -A`/`sudo` non-interactive when
       polkit is absent. `is_available()` = `shutil.which("sudo")`.
     - **`MacAuthElevator` (macOS):** `osascript -e 'do shell script "…" with
@@ -197,7 +197,7 @@ ADR-0001 is superseded by a new ADR-0020.
   - `pytest tests/unit/admin/test_elevator.py -v` green (asserts factory selection
     per platform + `is_available`, and that `NullElevator.ensure_elevated_helper`
     returns a refusal `ElevationResult` and never raises — AD-6).
-  - `python -c "from jarvis.admin.elevator import make_elevator, Elevator; assert isinstance(make_elevator(), Elevator)"` exits 0 on every OS.
+  - `python -c "from dodaios.admin.elevator import make_elevator, Elevator; assert isinstance(make_elevator(), Elevator)"` exits 0 on every OS.
   - `pytest tests/unit/admin/test_elevator.py -k null -v` green (the headless fallback path).
   - **No end-to-end elevation test** — the interactive prompt is excluded from CI and deferred to Wave 4 (AD-3); any test that would trigger a real prompt is marked `skip_ci`.
 
@@ -222,9 +222,9 @@ ADR-0001 is superseded by a new ADR-0020.
 
 ### 3.6 — Wire the seams into `AdminClient` + helper boot
 
-- **Modify:** `jarvis/admin/client.py` (`_ensure_pipe_client` `:108` → a
+- **Modify:** `dodaios/admin/client.py` (`_ensure_pipe_client` `:108` → a
   transport-agnostic `_ensure_transport` using `make_admin_transport()`; inject
-  `make_elevator()`), `jarvis/admin/helper.py` (bind the OS-appropriate transport
+  `make_elevator()`), `dodaios/admin/helper.py` (bind the OS-appropriate transport
   via `make_admin_transport()` instead of hardcoding `AdminPipeServer`).
 - **Approach:**
   - `AdminClient.execute` (`client.py:121`) keeps its exact control flow:
@@ -239,7 +239,7 @@ ADR-0001 is superseded by a new ADR-0020.
 - **Acceptance criteria:**
   - `pytest tests/unit/admin/ -v` green on all OS legs (client flow exercised with
     `fake_admin_transport.py` + `fake_elevator.py`).
-  - `python -c "import jarvis.admin.client, jarvis.admin.helper"` imports clean on Linux/macOS (no module-scope `win32*` — Wave 0 import gate covers it).
+  - `python -c "import dodaios.admin.client, dodaios.admin.helper"` imports clean on Linux/macOS (no module-scope `win32*` — Wave 0 import gate covers it).
   - The Windows loopback regression `tests/integration/test_admin_ipc_loopback.py` stays green (the named-pipe path is unbroken after extraction).
 
 ---
@@ -275,7 +275,7 @@ live sign-off, contributing to **EK-5**.
 
 ## Dependencies on prior waves
 
-**Wave 0** (the `jarvis/platform/` factory + `capabilities.has_elevation` probe,
+**Wave 0** (the `dodaios/platform/` factory + `capabilities.has_elevation` probe,
 the green CI matrix, and the import-cleanliness gate that locks in the `ipc.py`
 extraction). Independent of Wave 1 and Wave 2 — no shared files — so it can run in
 parallel with them. Must merge before Wave 4 so the live sign-off has the

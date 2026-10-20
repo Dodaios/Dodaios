@@ -13,11 +13,11 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from jarvis.commands.registry import get_command
-from jarvis.plugins.tool.app_command import AppCommandTool
-from jarvis.plugins.tool.delegate_to_agent import DelegateToAgentTool, SocietyStatusTool
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.ui.web.society_routes import router
+from dodaios.commands.registry import get_command
+from dodaios.plugins.tool.app_command import AppCommandTool
+from dodaios.plugins.tool.delegate_to_agent import DelegateToAgentTool, SocietyStatusTool
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.ui.web.society_routes import router
 
 
 @pytest.fixture
@@ -177,7 +177,7 @@ async def test_capability_catalog_reads_the_live_shared_catalog(society):
 async def test_voice_assignment_tracks_fallback_mission_bridge(
     tmp_path, terminal_event, expected_state
 ):
-    from jarvis.society.events import MsgType
+    from dodaios.society.events import MsgType
 
     class FakeManager:
         async def dispatch(self, **kwargs):

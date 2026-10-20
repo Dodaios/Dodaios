@@ -10,8 +10,8 @@ that rectangle — and a blank result there is refused, never described.
 
 from __future__ import annotations
 
-from jarvis.screen_context.models import IntentVerdict, VisualIntent, WindowFacts
-from jarvis.screen_context.service import ScreenContextSettings, _is_flat_frame
+from dodaios.screen_context.models import IntentVerdict, VisualIntent, WindowFacts
+from dodaios.screen_context.service import ScreenContextSettings, _is_flat_frame
 
 from .test_service import FakeCapturer, FakeWindowProbe, RecordingBus, make_service
 

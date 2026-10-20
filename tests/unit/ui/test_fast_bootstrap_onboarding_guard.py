@@ -13,10 +13,10 @@ import json
 
 import pytest
 
-from jarvis.setup import onboarding_fastpath as fp
-from jarvis.setup import state as st
-from jarvis.ui.web import surface_security
-from jarvis.ui.web.fast_bootstrap import FastBootstrap
+from dodaios.setup import onboarding_fastpath as fp
+from dodaios.setup import state as st
+from dodaios.ui.web import surface_security
+from dodaios.ui.web.fast_bootstrap import FastBootstrap
 
 _OWN = "http://127.0.0.1:47821"
 

@@ -7,7 +7,7 @@ output is non-deterministic; the prompt instruction is the testable contract).
 """
 from __future__ import annotations
 
-from jarvis.harness.screenshot_only_loop import _PLANNER_SYSTEM_PROMPT, _SYSTEM_PROMPT
+from dodaios.harness.screenshot_only_loop import _PLANNER_SYSTEM_PROMPT, _SYSTEM_PROMPT
 
 
 def test_executor_prompt_carries_literal_dictation_rule() -> None:

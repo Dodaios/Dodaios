@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui.web import server as server_module
+from dodaios.ui.web import server as server_module
 from tests.fakes.fake_society_shutdown import society_shutdown_server
 
 

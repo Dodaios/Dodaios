@@ -26,9 +26,9 @@ import asyncio
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.sessions.constants import HANGUP_IDLE_TIMEOUT
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.sessions.constants import HANGUP_IDLE_TIMEOUT
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 
 class _FakeMic:

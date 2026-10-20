@@ -18,10 +18,10 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.channels.manager import ChannelContext, ChannelManager, ChannelStartError
-from jarvis.channels.telegram import TelegramChannel, _safe_error
-from jarvis.core.bus import EventBus
-from jarvis.core.config import TelegramConfig
+from dodaios.channels.manager import ChannelContext, ChannelManager, ChannelStartError
+from dodaios.channels.telegram import TelegramChannel, _safe_error
+from dodaios.core.bus import EventBus
+from dodaios.core.config import TelegramConfig
 
 FAKE_TOKEN = "987654321:AAFakeTokenForTestsOnly_abcdefghijklmnop"  # noqa: S105 - a fake
 
@@ -93,7 +93,7 @@ def _install_fake_ptb(monkeypatch: pytest.MonkeyPatch, *, fail_on: str) -> None:
     monkeypatch.setitem(sys.modules, "telegram", telegram_mod)
     monkeypatch.setitem(sys.modules, "telegram.error", error_mod)
     monkeypatch.setitem(sys.modules, "telegram.ext", ext_mod)
-    monkeypatch.setattr("jarvis.channels.telegram.get_secret", lambda *_a, **_k: FAKE_TOKEN)
+    monkeypatch.setattr("dodaios.channels.telegram.get_secret", lambda *_a, **_k: FAKE_TOKEN)
 
 
 @pytest.mark.parametrize("fail_on", ["get_me", "initialize"])
@@ -155,12 +155,12 @@ async def test_send_failures_log_no_token_and_no_chat(caplog: pytest.LogCaptureF
 
 @pytest.fixture
 def telegram_step(monkeypatch: pytest.MonkeyPatch) -> Any:
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *_a, **_k: FAKE_TOKEN)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *_a, **_k: FAKE_TOKEN)
     return types.SimpleNamespace(chat_id="4242", text="hello")
 
 
 def _runner() -> Any:
-    from jarvis.workflows.runner import WorkflowRunner
+    from dodaios.workflows.runner import WorkflowRunner
 
     return WorkflowRunner.__new__(WorkflowRunner)
 
@@ -279,8 +279,8 @@ async def test_a_failed_workflow_run_stores_and_logs_no_token(
     failed ``telegram_send`` step, with the token echoed in the error body."""
     import asyncio
 
-    from jarvis.workflows import WorkflowRunner, WorkflowStore
-    from jarvis.workflows.schema import ManualTrigger, TelegramSendStep, WorkflowDef
+    from dodaios.workflows import WorkflowRunner, WorkflowStore
+    from dodaios.workflows.schema import ManualTrigger, TelegramSendStep, WorkflowDef
 
     _answer(
         monkeypatch,
@@ -325,7 +325,7 @@ async def test_a_failed_workflow_run_stores_and_logs_no_token(
 def test_the_redacting_filter_masks_a_bot_url_in_any_log_record(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from jarvis.core.redact import redact_logger
+    from dodaios.core.redact import redact_logger
 
     logger = logging.getLogger("jarvis.test.redact_probe")
     redact_logger("jarvis.test.redact_probe")

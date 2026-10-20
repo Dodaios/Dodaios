@@ -9,9 +9,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.society.agent_tools import ShellTool
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.shell import (
+from dodaios.society.agent_tools import ShellTool
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.shell import (
     OUTPUT_CAP_CHARS,
     ContainmentError,
     LocalBackend,
@@ -124,13 +124,13 @@ async def test_tool_respects_kill_switch_and_state(rt: SocietyRuntime, tmp_path:
 
 
 def test_container_probe_is_false_by_decision():
-    from jarvis.platform.probes import has_container
+    from dodaios.platform.probes import has_container
 
     assert has_container() is False
 
 
 async def test_folder_tools_are_contained(rt: SocietyRuntime, tmp_path: Path):
-    from jarvis.society.surface import society_tools
+    from dodaios.society.surface import society_tools
 
     ws = tmp_path / "ws"
     ws.mkdir()

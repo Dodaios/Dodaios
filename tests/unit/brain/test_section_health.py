@@ -11,9 +11,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain import provider_test
-from jarvis.brain import section_health as sh
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.brain import provider_test
+from dodaios.brain import section_health as sh
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 
 class TestSectionStatusForTest:
@@ -104,9 +104,9 @@ async def test_every_catalog_provider_health_is_bound_to_its_exact_id(
     that answers for keyless cards, and credential presence for the wording
     tier. No card may reach a provider on the way — the recorder proves it.
     """
-    from jarvis import codex_app_server
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.ui.web import provider_routes
+    from dodaios import codex_app_server
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.ui.web import provider_routes
     from tests.fakes.fake_provider_calls import ProviderCallRecorder
 
     recorder = ProviderCallRecorder().install(monkeypatch)
@@ -156,7 +156,7 @@ async def test_every_catalog_provider_health_is_bound_to_its_exact_id(
 
 def test_health_fingerprint_covers_every_model_selection_surface() -> None:
     """Every model-bearing API surface supersedes an older health snapshot."""
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.ui.web import provider_routes as pr
 
     # ``tool_model`` is the canonical Tool-Model field; the real
     # BrainProviderConfig exposes ``cu_model`` only as a property alias of it,
@@ -227,7 +227,7 @@ class TestSubagentSectionHealth:
         return _Cfg()
 
     def test_selected_usable_is_ok(self, monkeypatch) -> None:
-        from jarvis.ui.web import provider_routes as pr
+        from dodaios.ui.web import provider_routes as pr
 
         monkeypatch.setattr(pr, "_worker_usable", lambda p: True)
         monkeypatch.setattr(pr, "_worker_flagged_dead", lambda p: False)
@@ -236,12 +236,12 @@ class TestSubagentSectionHealth:
         assert health.subject_id == "claude-api"
 
     def test_selected_dead_with_fallback_is_needs_setup(self, monkeypatch) -> None:
-        from jarvis.ui.web import provider_routes as pr
+        from dodaios.ui.web import provider_routes as pr
 
         monkeypatch.setattr(pr, "_worker_usable", lambda p: True)
         monkeypatch.setattr(pr, "_worker_flagged_dead", lambda p: True)
         monkeypatch.setattr(
-            "jarvis.missions.init.reachable_worker_families", lambda: ["codex"]
+            "dodaios.missions.init.reachable_worker_families", lambda: ["codex"]
         )
         health = pr._jarvis_agent_section_health(self._cfg())
         assert health.status == sh.NEEDS_SETUP
@@ -251,30 +251,30 @@ class TestSubagentSectionHealth:
     def test_usage_capped_codex_selected_is_degraded(self, monkeypatch) -> None:
         """BUG-042 shape: selected provider codex, ChatGPT usage cap active —
         the tab must NOT stay green while the factory skips codex."""
-        from jarvis.ui.web import provider_routes as pr
+        from dodaios.ui.web import provider_routes as pr
 
         monkeypatch.setattr(pr, "_worker_usable", lambda p: True)
         monkeypatch.setattr(
-            "jarvis.codex_auth_state.codex_needs_reauth", lambda: False
+            "dodaios.codex_auth_state.codex_needs_reauth", lambda: False
         )
         monkeypatch.setattr(
-            "jarvis.codex_quota_state.codex_in_quota_cooldown",
+            "dodaios.codex_quota_state.codex_in_quota_cooldown",
             lambda **_k: True,
         )
         monkeypatch.setattr(
-            "jarvis.missions.init.reachable_worker_families", lambda: ["openrouter"]
+            "dodaios.missions.init.reachable_worker_families", lambda: ["openrouter"]
         )
         health = pr._jarvis_agent_section_health(self._cfg(provider="codex"))
         assert health.status == sh.NEEDS_SETUP
         assert health.reason == "degraded"
 
     def test_nothing_reachable_is_error(self, monkeypatch) -> None:
-        from jarvis.ui.web import provider_routes as pr
+        from dodaios.ui.web import provider_routes as pr
 
         monkeypatch.setattr(pr, "_worker_usable", lambda p: False)
         monkeypatch.setattr(pr, "_worker_flagged_dead", lambda p: False)
         monkeypatch.setattr(
-            "jarvis.missions.init.reachable_worker_families", lambda: []
+            "dodaios.missions.init.reachable_worker_families", lambda: []
         )
         health = pr._jarvis_agent_section_health(self._cfg())
         assert health.status == sh.ERROR
@@ -289,9 +289,9 @@ class TestSubagentSectionHealth:
         message must name the auth mode actually in play."""
         import json
 
-        from jarvis import claude_credentials
-        from jarvis.claude_auth import ClaudeAuthService, ClaudeAuthStatus
-        from jarvis.ui.web import provider_routes as pr
+        from dodaios import claude_credentials
+        from dodaios.claude_auth import ClaudeAuthService, ClaudeAuthStatus
+        from dodaios.ui.web import provider_routes as pr
 
         (tmp_path / ".credentials.json").write_text(
             json.dumps(
@@ -315,7 +315,7 @@ class TestSubagentSectionHealth:
         monkeypatch.setattr(pr, "_worker_usable", lambda p: False)
         monkeypatch.setattr(pr, "_worker_flagged_dead", lambda p: True)
         monkeypatch.setattr(
-            "jarvis.missions.init.reachable_worker_families", lambda: ["codex"]
+            "dodaios.missions.init.reachable_worker_families", lambda: ["codex"]
         )
         health = pr._jarvis_agent_section_health(self._cfg())
         assert "Claude (subscription)" in health.detail
@@ -324,9 +324,9 @@ class TestSubagentSectionHealth:
     def test_degraded_label_keeps_api_key_for_keyed_user(
         self, monkeypatch, tmp_path
     ) -> None:
-        from jarvis import claude_credentials
-        from jarvis.claude_auth import ClaudeAuthService, ClaudeAuthStatus
-        from jarvis.ui.web import provider_routes as pr
+        from dodaios import claude_credentials
+        from dodaios.claude_auth import ClaudeAuthService, ClaudeAuthStatus
+        from dodaios.ui.web import provider_routes as pr
 
         # No OAuth bearer anywhere → the user really is on the API-key path.
         monkeypatch.setattr(
@@ -340,7 +340,7 @@ class TestSubagentSectionHealth:
         monkeypatch.setattr(pr, "_worker_usable", lambda p: False)
         monkeypatch.setattr(pr, "_worker_flagged_dead", lambda p: True)
         monkeypatch.setattr(
-            "jarvis.missions.init.reachable_worker_families", lambda: ["codex"]
+            "dodaios.missions.init.reachable_worker_families", lambda: ["codex"]
         )
         health = pr._jarvis_agent_section_health(self._cfg())
         assert "Claude (API-Key)" in health.detail
@@ -355,7 +355,7 @@ def _gpt_live_config(mode: str = "realtime") -> SimpleNamespace:
 
 async def _section_modalities(monkeypatch, cfg) -> dict[str, str | None]:
     """Run the rollup with every check stubbed; return each tier's modality."""
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.ui.web import provider_routes as pr
 
     seen: dict[str, str | None] = {}
 
@@ -392,7 +392,7 @@ async def test_every_tier_reads_its_own_real_call_outcomes(monkeypatch) -> None:
     """Each tab is judged by the record of ITS calls: brain turns for Brain,
     tool-model steps for Tool Model, spoken sentences, transcriptions and
     realtime handshakes — never by a probe of the page's own (2026-09-30)."""
-    from jarvis.brain import provider_health_ledger as ledger
+    from dodaios.brain import provider_health_ledger as ledger
 
     seen = await _section_modalities(monkeypatch, _gpt_live_config())
 
@@ -408,8 +408,8 @@ async def test_every_tier_reads_its_own_real_call_outcomes(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_a_keyed_provider_never_used_is_silent_not_red(monkeypatch) -> None:
     """Credential present, no real call since: ``unknown`` — no dot, no probe."""
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.ui.web import provider_routes as pr
     from tests.fakes.fake_provider_calls import ProviderCallRecorder
 
     recorder = ProviderCallRecorder().install(monkeypatch)
@@ -427,8 +427,8 @@ async def test_a_keyed_provider_never_used_is_silent_not_red(monkeypatch) -> Non
 @pytest.mark.asyncio
 async def test_a_login_based_provider_is_ok_on_its_login(monkeypatch) -> None:
     """A signed-in CLI login is the whole verdict (the Test button gives no more)."""
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.ui.web import provider_routes as pr
 
     monkeypatch.setattr(pr, "_is_credential_present", lambda *args: True)
 
@@ -443,14 +443,14 @@ async def test_a_login_based_provider_is_ok_on_its_login(monkeypatch) -> None:
 def test_passive_health_polls_reuse_the_cache_for_minutes() -> None:
     """Sidebar and dock read this in every window and every build reloads every
     window; the credential/login reads behind it are cached for minutes."""
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.ui.web import provider_routes as pr
 
     assert pr._SECTION_HEALTH_TTL_S >= 15 * 60
 
 
 def test_a_new_real_call_outcome_supersedes_the_cached_rollup() -> None:
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.ui.web import provider_routes as pr
 
     cfg = SimpleNamespace(brain=SimpleNamespace(providers={}))
     request = SimpleNamespace(
@@ -467,8 +467,8 @@ def test_a_new_real_call_outcome_supersedes_the_cached_rollup() -> None:
 async def test_composer_health_reads_the_record_and_sends_nothing(monkeypatch) -> None:
     """The agent-chat composer used to spend one paid completion per keyed
     provider on every open. It now reads the same record the tabs read."""
-    from jarvis.brain import provider_health_ledger as ledger
-    from jarvis.ui.web import provider_routes as pr
+    from dodaios.brain import provider_health_ledger as ledger
+    from dodaios.ui.web import provider_routes as pr
     from tests.fakes.fake_provider_calls import ProviderCallRecorder
 
     recorder = ProviderCallRecorder().install(monkeypatch)

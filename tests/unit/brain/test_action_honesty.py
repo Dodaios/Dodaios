@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.action_honesty import (
+from dodaios.brain.action_honesty import (
     action_not_started_phrase,
     has_deferred_action_claim,
     has_false_completion_claim,
     has_unbacked_action_claim,
     replace_unbacked_action_claim,
 )
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import BrainProviderConfig, JarvisConfig
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import BrainProviderConfig, JarvisConfig
 from tests.fixtures.brain.fake_brain import FakeBrain
 
 
@@ -266,7 +266,7 @@ def test_executed_tool_grounds_a_false_completion() -> None:
 
 
 def test_packaged_persona_forbids_narrating_a_future_action() -> None:
-    from jarvis.brain.persona_loader import default_persona_prompt
+    from dodaios.brain.persona_loader import default_persona_prompt
 
     prompt = default_persona_prompt()
 

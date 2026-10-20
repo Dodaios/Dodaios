@@ -10,13 +10,13 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import MessageSent
-from jarvis.tasks.calendar import next_calendar_due_ns
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler
-from jarvis.tasks.schema import AgentAction, TaskSpec, TriggerCalendar, TriggerOnEvent
-from jarvis.tasks.store import SCHEMA_FILE, TaskStore
+from dodaios.core.bus import EventBus
+from dodaios.core.events import MessageSent
+from dodaios.tasks.calendar import next_calendar_due_ns
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler
+from dodaios.tasks.schema import AgentAction, TaskSpec, TriggerCalendar, TriggerOnEvent
+from dodaios.tasks.store import SCHEMA_FILE, TaskStore
 
 
 def ns(iso: str) -> int:
@@ -166,7 +166,7 @@ async def test_event_repeats_and_finite_limit_survives_hydration(tmp_path):
 
 
 async def test_client_timezone_context_is_isolated_between_turns():
-    from jarvis.tasks.context import client_timezone
+    from dodaios.tasks.context import client_timezone
 
     async def turn(zone):
         token = client_timezone.set(zone)
@@ -186,8 +186,8 @@ async def test_client_timezone_context_is_isolated_between_turns():
 def test_calendar_contract_reaches_sql_api_and_typescript():
     from pathlib import Path
 
-    from jarvis.tasks.schema import PAUSABLE_TRIGGER_TYPES, TRIGGER_TYPES
-    from jarvis.ui.web.tasks_routes import _row_to_summary
+    from dodaios.tasks.schema import PAUSABLE_TRIGGER_TYPES, TRIGGER_TYPES
+    from dodaios.ui.web.tasks_routes import _row_to_summary
 
     trigger = TriggerCalendar(timezone="America/Los_Angeles", local_time="08:00")
     spec = TaskSpec(title="Inbox", trigger=trigger, action=AgentAction(prompt="Read"))
@@ -203,7 +203,7 @@ def test_calendar_contract_reaches_sql_api_and_typescript():
     assert "'calendar'" in SCHEMA_FILE.read_text(encoding="utf-8")
     root = Path(__file__).resolve().parents[2]
     # The agent card describes a routine's calendar trigger from these fields.
-    typescript = (root / "jarvis/ui/web/frontend/src/lib/triggerDescription.ts").read_text(
+    typescript = (root / "dodaios/ui/web/frontend/src/lib/triggerDescription.ts").read_text(
         encoding="utf-8"
     )
     for field in (
@@ -218,8 +218,8 @@ def test_calendar_contract_reaches_sql_api_and_typescript():
 
 
 def test_calendar_proposal_keeps_timezone_after_approval_context_changes():
-    from jarvis.society.proposals import validate
-    from jarvis.tasks.context import client_timezone
+    from dodaios.society.proposals import validate
+    from dodaios.tasks.context import client_timezone
 
     token = client_timezone.set("America/Los_Angeles")
     try:
@@ -246,7 +246,7 @@ def test_calendar_proposal_keeps_timezone_after_approval_context_changes():
     ],
 )
 def test_unknown_events_and_unusable_filters_fail_before_scheduling(schedule):
-    from jarvis.tasks.event_catalog import validate_event_schedule
+    from dodaios.tasks.event_catalog import validate_event_schedule
 
     with pytest.raises(ValueError):
         validate_event_schedule(schedule)
@@ -257,8 +257,8 @@ async def test_http_timezone_propagates_to_spawned_turn_without_leaking():
 
     from fastapi import HTTPException
 
-    from jarvis.tasks.context import client_timezone
-    from jarvis.ui.web.agent_chat_routes import MessageBody, post_message
+    from dodaios.tasks.context import client_timezone
+    from dodaios.ui.web.agent_chat_routes import MessageBody, post_message
 
     captured = []
 

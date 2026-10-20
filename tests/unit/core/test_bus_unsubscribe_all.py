@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import Event
+from dodaios.core.bus import EventBus
+from dodaios.core.events import Event
 
 
 @pytest.mark.asyncio

@@ -8,10 +8,10 @@ import struct
 
 import pytest
 
-from jarvis.speech.hangup import HANGUP_RE
-from jarvis.telephony.audio import TWILIO_SAMPLE_RATE, pcm16_to_ulaw
-from jarvis.telephony.constants import CALL_COMPLETED, CALL_NO_AUDIO
-from jarvis.telephony.session import TelephonyCallSession
+from dodaios.speech.hangup import HANGUP_RE
+from dodaios.telephony.audio import TWILIO_SAMPLE_RATE, pcm16_to_ulaw
+from dodaios.telephony.constants import CALL_COMPLETED, CALL_NO_AUDIO
+from dodaios.telephony.session import TelephonyCallSession
 from tests.fakes.fake_telephony_stack import FakeBrain, FakeSTT, FakeTTS
 
 # asyncio_mode = "auto" (pyproject) runs async tests with no marker; sync tests
@@ -201,7 +201,7 @@ def test_time_cap_detection():
 
 class _FakeBus:
     """Records every published event. ``publish`` is async, mirroring
-    jarvis.core.bus.EventBus — a bare un-awaited call would silently drop
+    dodaios.core.bus.EventBus — a bare un-awaited call would silently drop
     every telephony event."""
 
     def __init__(self) -> None:
@@ -222,7 +222,7 @@ async def _drain_pending_publishes(session: TelephonyCallSession) -> None:
 
 
 async def test_turn_and_end_events_reach_the_bus():
-    from jarvis.telephony.events import TelephonyCallEnded, TelephonyCallTurn
+    from dodaios.telephony.events import TelephonyCallEnded, TelephonyCallTurn
 
     sink = _Sink()
     bus = _FakeBus()

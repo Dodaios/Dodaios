@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.missions.state_machine import (
+from dodaios.missions.state_machine import (
     ALLOWED_TRANSITIONS,
     IllegalStateTransition,
     MissionState,
@@ -151,9 +151,9 @@ def test_no_outgoing_transitions_from_terminal_states() -> None:
 
 
 def test_no_phase5_budget_warning_collision() -> None:
-    """Ensure jarvis/core/events.py:BudgetWarning stays untouched."""
-    from jarvis.core.events import BudgetWarning  # Phase-5-Event
-    from jarvis.missions.events import MissionBudgetWarning  # Phase-6
+    """Ensure dodaios/core/events.py:BudgetWarning stays untouched."""
+    from dodaios.core.events import BudgetWarning  # Phase-5-Event
+    from dodaios.missions.events import MissionBudgetWarning  # Phase-6
 
     assert BudgetWarning is not MissionBudgetWarning
     assert BudgetWarning.__module__ != MissionBudgetWarning.__module__

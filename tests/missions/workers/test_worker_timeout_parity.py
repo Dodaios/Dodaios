@@ -22,17 +22,17 @@ from typing import Any
 
 import pytest
 
-import jarvis.core.config as config_module
-import jarvis.missions.workers.api_agent_worker as api_module
-import jarvis.missions.workers.gemini_worker as gemini_module
-import jarvis.missions.workers.google_cli_worker as google_module
-from jarvis.google_cli.pty_runner import PtyRunResult
-from jarvis.google_cli.resolver import GoogleCli
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
-from jarvis.missions.workers.codex_direct_worker import CodexDirectWorker
-from jarvis.missions.workers.gemini_worker import GeminiWorker
-from jarvis.missions.workers.google_cli_worker import (
+import dodaios.core.config as config_module
+import dodaios.missions.workers.api_agent_worker as api_module
+import dodaios.missions.workers.gemini_worker as gemini_module
+import dodaios.missions.workers.google_cli_worker as google_module
+from dodaios.google_cli.pty_runner import PtyRunResult
+from dodaios.google_cli.resolver import GoogleCli
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions.workers.codex_direct_worker import CodexDirectWorker
+from dodaios.missions.workers.gemini_worker import GeminiWorker
+from dodaios.missions.workers.google_cli_worker import (
     GoogleCliWorker,
     _build_agy_worker_argv,
 )

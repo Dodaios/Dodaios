@@ -1,0 +1,2157 @@
+"""Native Tk host for the canonical Pet control-strip Jarvis Bar.
+
+Implements the same duck-typed surface API ``OrbBusBridge`` already drives, so
+the bridge is reused unchanged. ``show(mode)`` selects the renderer state;
+``set_level`` writes ``_ext_level`` directly (an atomic float assignment, like
+the orb). Text/mouth methods are deliberate no-ops — the bar shows no text.
+
+Signals:
+- LISTENING: the speech capture path publishes input RMS via ``mic_level``;
+  ``OrbBusBridge`` forwards it to this surface without opening a second mic.
+- SPEAKING: the audio player publishes its output RMS via ``level_tap``, which
+  this surface subscribes to on ``start()``.
+- THINKING: the renderer sweeps a highlight along the row (no external signal).
+
+Threading mirrors the orb: a daemon thread runs the Tk mainloop; all Tk
+mutations from the bus-subscriber thread go through ``_enqueue_ui`` → a queue
+drained on the Tk thread. ``set_level`` is the sole exception (atomic write).
+
+No ``SetWindowLong`` is ever called directly, but ``-topmost`` IS re-asserted
+on every reveal (``_do_show``), and Windows can silently drop the layered
+color-key/alpha on that kind of style mutation (BUG-030). A reveal therefore
+maps at zero opacity, composes the prepared canvas, and only then restores the
+configured opacity. This keeps Tk's opaque backing surface off-screen even
+when the bar spent long enough withdrawn for the idle renderer to stop
+repainting.
+"""
+
+from __future__ import annotations
+
+import logging
+import queue
+import sys
+import threading
+import time
+from collections.abc import Callable
+from typing import Any
+
+from dodaios.ui.dodaiosbar import interaction, renderer
+
+log = logging.getLogger("dodaios.ui.dodaiosbar")
+
+# Warn-once latch: the clear-backing pass runs on every reveal, but a missing
+# pyobjc should produce ONE actionable warning, not a log storm.
+_WARNED_NO_APPKIT = False
+
+COLOR_KEY_HEX = "#FF00FF"
+DRAG_THRESHOLD_PX = 16
+MARGIN_PX = 12
+# How long after a file drop the bar keeps ignoring clicks. The synthetic
+# press/release a drop produces on this window arrives around the drop event,
+# not reliably before it, so the guard has to outlive the drop itself. Short
+# enough that a user who drops a file and then deliberately clicks the bar is
+# not left wondering why nothing happened.
+DROP_CLICK_QUIET_S = 0.6
+# Gap above the taskbar (~0.2 cm) when anchoring at the default bottom-center.
+TASKBAR_GAP_PX = 8
+# Window opacity (the pill goes semi-transparent; magenta stays fully keyed
+# out). Lower = more see-through. Tune this one number for the glass look.
+BAR_ALPHA = 1.0
+
+# A topmost *flag* is not enough on Windows.  A mapped Tk window can retain
+# WS_EX_TOPMOST while falling below ordinary windows in the real Z-order band
+# (observed after the desktop/main window mapped over the boot-gated bar).  The
+# guard repairs the native band regularly without activating, moving, or
+# resizing the bar.  On macOS and X11 the same loop refreshes Tk's documented
+# ``-topmost`` window-manager request.  Half a second keeps a newly mapped app
+# from covering the bar perceptibly while adding negligible work.
+Z_ORDER_GUARD_INTERVAL_MS = 500
+
+# SetWindowPos flags used by the Win32 repair.  Deliberately omit SWP_NOZORDER:
+# HWND_TOPMOST must be applied to the actual Z-order, not merely cached as a
+# style bit.  SWP_NOACTIVATE is the important UX contract: the bar never steals
+# keyboard focus from the app the user just opened.
+_SWP_NOSIZE = 0x0001
+_SWP_NOMOVE = 0x0002
+_SWP_NOACTIVATE = 0x0010
+_SWP_NOOWNERZORDER = 0x0200
+_GW_HWNDPREV = 3
+_GWL_EXSTYLE = -20
+_WS_EX_TOPMOST = 0x00000008
+_WIN32_TOPMOST_FLAGS = _SWP_NOSIZE | _SWP_NOMOVE | _SWP_NOACTIVATE | _SWP_NOOWNERZORDER
+
+# Sound-driven look. The bar shows the speaking equalizer (bars) ONLY while real
+# audio is present — mic input while you speak, or TTS output while Jarvis speaks
+# — and the thinking sweep during silence (brain thinking AND the silent
+# TTS-synthesis lead-in). This tracks actual sound instead of the supervisor
+# state, which is unreliable here (continue-listening flips SPEAKING→LISTENING
+# mid-playback). AUDIBLE_LEVEL is the normalized 0..1 level above which a
+# set_level() counts as "sound now"; AUDIBLE_HOLD_S keeps the bars up across the
+# short word/sentence gaps so they don't flap back to the sweep on every pause.
+AUDIBLE_LEVEL = 0.06
+AUDIBLE_HOLD_S = 0.5
+
+# Frame-loop revival watchdog (anti-freeze). The animation re-arms only from its
+# own tail, so any single silent break (a swallowed after() failure, an exception
+# before the try/finally, a one-off Tk hiccup) would kill it permanently while
+# the Tk mainloop keeps running — the bar stays visible, frozen on its last
+# frame. A SECOND, independent after-chain (``_schedule_frame_watchdog``) watches
+# a per-frame heartbeat (``_last_frame_ns``) and kicks the frame loop back to life
+# when it goes stale. It renders nothing, so it is immune to the render/PIL faults
+# that kill the frame loop. The threshold is far above the 16 ms tick, so a
+# continuously-stamped heartbeat can never false-fire while the loop is ticking.
+WATCHDOG_INTERVAL_MS = 1000
+FRAME_STALL_THRESHOLD_NS = 2_000_000_000  # 2 s of silence ⇒ the loop is dead
+
+# Loop waker (BUG-202). The watchdog above shares the Tk thread's timer queue
+# with the loop it guards, so it cannot help when the THREAD is the thing that
+# stopped: the Tk mainloop was found asleep in ``GetMessage`` with every after
+# chain armed and none firing — Tcl's Windows notifier had lost its timer
+# wake-up once, and a settled idle bar generates no other message that would
+# return from that wait. From then on ``show("listen")`` set the mode but no
+# frame ever drew it: "Hey Jarvis" answered by voice while the pill stayed
+# collapsed. The cure was one posted message, so a small daemon thread OUTSIDE
+# Tk watches the same heartbeat and posts one whenever it goes stale, and
+# ``show()`` posts at once so a wake reveal never waits for the poll. Both are
+# quiet no-ops where the platform has no per-thread message queue.
+LOOP_WAKER_POLL_S = 0.5
+LOOP_ASLEEP_THRESHOLD_NS = 1_000_000_000  # 1 s without a tick ⇒ the Tk thread is asleep
+SHOW_WAKE_THRESHOLD_NS = 250_000_000  # a reveal after 250 ms of silence kicks at once
+
+# Frame pacing (BUG: "JarvisBar stutters" forensic, 2026-07-10). A 41s GIF
+# capture frame-diffed to only ~5 visual updates/second on average, in a
+# burst-then-freeze pattern (freezes up to 1.25s). Measured root causes, on
+# this machine:
+#
+# 1. The bar's window style itself (frameless + ``-topmost`` + a color-key
+#    ``-transparentcolor`` + a translucent ``-alpha``) is a Windows *layered*
+#    window; every ``ImageTk.PhotoImage``/``itemconfig`` swap makes DWM
+#    recomposite it. A benchmark that swaps a CONSTANT-COLOR image on an
+#    identically-styled window (zero render work) still only reached ~31
+#    updates/s against an ``after(16)`` (60fps) schedule — a ~15ms fixed
+#    per-tick compositing tax, independent of what gets drawn. So the 60fps
+#    target was already unreachable on this window style even at zero cost.
+#    The idle pill draws NOTHING beyond its at-rest background (see
+#    ``renderer.render``'s idle branch), so idle-at-rest frames are paying
+#    that compositing tax for a BYTE-IDENTICAL image every single tick — pure
+#    waste. ``_IDLE_SETTLE_TICKS`` below skips the render/PhotoImage/
+#    itemconfig work once the resting pill has visibly settled.
+# 2. A background thread holding the GIL (simulating wake-poll/other Python
+#    work sharing this process) collapsed the SAME loop to ~4-5 renders/s
+#    with 250-360ms gaps — matching the GIF's freeze pattern. This is GIL/CPU
+#    contention from OTHER threads in the process; no delay-scheduling choice
+#    made here can prevent it (a Windows thread-priority raise for the Tk
+#    thread was benchmarked too and showed no measurable improvement against
+#    pure GIL contention, so it is deliberately NOT used). What this loop CAN
+#    do is shrink its own contribution to that contention — the idle-skip
+#    above is the main lever, and adaptive pacing (below) prevents an
+#    occasional slow render (measured up to ~30ms in "think"+hovered mode,
+#    back when thinking drew a supersampled orbital core; the travelling
+#    sweep that replaced it costs the same as the equalizer — 3.2x less than
+#    the core, measured 2026-08-20 — so the pacing now has far less to
+#    absorb, but the states it protects are unchanged) from compounding into
+#    an even longer visible gap.
+#
+# Idle-static skip: EVERY branch renderer.render() can reach while the coarse
+# mode is "idle" is time-independent (the empty resting pill, the hovered
+# idle pill's static mic glyph, the muted idle pill's static mic glyph — the
+# equalizer bars and the close-X both require an active/listen/speak/think
+# mode, never reached while idle). So once the resting pill's eased size has
+# stopped changing (ease() with factor 0.5 converges to sub-pixel precision
+# within a handful of ticks; 30 is a generous margin) for a given
+# (hover, mute) combination, every further tick would repaint the exact same
+# pixels regardless of hover/mute. Skipped ticks still stamp the heartbeat
+# and re-arm the loop, so the watchdog/self-healing contract is untouched —
+# only the render()/PhotoImage()/itemconfig() work is skipped.
+_IDLE_SETTLE_TICKS = 30
+
+# Silent-active skip (CPU diet, 2026-08-22): the equalizer is deterministic in
+# (t, level) and ``bar_heights`` collapses to a flat row of ``min_h`` strokes
+# the moment the level is zero — so a ``listen``/``speak`` bar with no sound
+# (the wake listener waiting, which is the bar's state for HOURS) repaints the
+# same pixels every tick just like the idle pill does. Those ticks go through
+# the same settle counter: once the eased pill size and display level have
+# converged, the render/PhotoImage/itemconfig work is skipped until sound,
+# playback, a mode flip, hover or mute changes the tick key. Measured before
+# the change: the tk thread alone cost ~6 % of one core while nothing was
+# happening. ``think`` (the travelling sweep) and drop feedback stay
+# time-dependent and are never skipped.
+
+# Adaptive pacing: the nominal target is 40ms (25fps). The bar is a row of
+# five strokes and a sweep — 25 updates/s is visually indistinguishable from
+# the earlier 16ms target on this window style (whose measured DWM ceiling was
+# ~31 updates/s anyway, see above) and costs a little over a third of the
+# wake-ups. The actual next delay is derived from how long THIS tick took, not
+# a blind constant. In the common case (render cost << target) this is
+# indistinguishable from a fixed delay. It only matters after an unusually
+# slow tick, where it schedules the next one sooner instead of adding a full
+# target interval on top of the overrun — this bounds how much a single slow
+# frame can widen the gap to the next one.
+TARGET_FRAME_MS = 40
+MIN_FRAME_DELAY_MS = 1
+
+# Once the close-X is accepted, suppress rapid follow-up clicks long enough for
+# the authoritative IDLE state to arrive. Without this guard a double-click can
+# hit the same screen position after the optimistic visual collapse and be
+# reinterpreted as an idle-body click that immediately starts a new session.
+HANGUP_CLICK_GUARD_S = 1.0
+
+# Cursor-monitor follow poll. When enabled, the bar hops to whichever monitor
+# the mouse pointer is currently on (keeping its RELATIVE spot, so a bigger or
+# smaller monitor lines up — see interaction.project_relative). A ~250 ms poll
+# is imperceptible to the user yet costs only one global-pointer read plus one
+# MonitorFromPoint per tick — well off the animation hot path. The poll never
+# fights an in-progress drag and never re-derives a hidden/gated bar's spot.
+CURSOR_MONITOR_POLL_MS = 250
+
+
+def _probe_primary_raw_dpi() -> float | None:
+    """True physical DPI of the primary monitor for physical-size scaling, or
+    ``None`` (→ resolution fallback). Thin, lazily-imported, never-raising wrapper
+    around ``dodaios.platform.monitors.primary_monitor_raw_dpi``."""
+    try:
+        from dodaios.platform.monitors import primary_monitor_raw_dpi
+
+        return primary_monitor_raw_dpi()
+    except Exception:  # noqa: BLE001 — sizing is cosmetic; degrade to resolution
+        return None
+
+
+def _primary_work_area() -> tuple[int, int, int, int] | None:
+    """Primary-monitor work area (left, top, right, bottom) EXCLUDING the
+    taskbar, via Win32 ``SPI_GETWORKAREA``. None off Windows / on failure so
+    the caller falls back to a full-screen anchor.
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        SPI_GETWORKAREA = 0x0030
+        rect = wintypes.RECT()
+        ok = ctypes.windll.user32.SystemParametersInfoW(SPI_GETWORKAREA, 0, ctypes.byref(rect), 0)
+        if not ok:
+            return None
+        return (int(rect.left), int(rect.top), int(rect.right), int(rect.bottom))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _apply_macos_clear_backing() -> None:
+    """Make every NSWindow of THIS process paint a clear backing (BUG-075).
+
+    Tk 8.6 aqua turned the ``systemTransparent`` background into true
+    per-pixel transparency; Tk 9 (bundled by uv's python-build-standalone,
+    i.e. every fresh macOS install) paints it as an opaque appearance color
+    instead — the bar showed a solid grey box around the pill. Setting the
+    window backing non-opaque with a clear background is the native,
+    Tk-version-independent way to get the same effect; the RGBA frames the
+    renderer already produces then composite correctly.
+
+    Applied to ALL windows deliberately: this runs only inside the overlay
+    host process, whose every window (bar, mascot, comment bubble) wants a
+    clear backing. Safe post-BUG-067: Tk owns ``NSApp`` by the time any
+    window exists. Best-effort, never raises.
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        from AppKit import NSApp, NSColor  # type: ignore[import-not-found] # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        # Without this pass Tk 9 paints the window backing as an OPAQUE grey
+        # box (BUG-075) — the single most visible macOS defect. Say so loudly
+        # once instead of hiding the cause in a debug line.
+        global _WARNED_NO_APPKIT
+        if not _WARNED_NO_APPKIT:
+            _WARNED_NO_APPKIT = True
+            log.warning(
+                "pyobjc (AppKit) unavailable — Tk 9 paints the bar backing as "
+                "an opaque grey box. Install the [desktop-macos] extra "
+                "(pip install 'personal-jarvis[desktop-macos]') to fix it."
+            )
+        return
+    try:
+        wins = list(NSApp.windows())
+        for win in wins:
+            win.setOpaque_(False)
+            win.setBackgroundColor_(NSColor.clearColor())
+            win.setHasShadow_(False)
+        from dodaios.platform.capture_exclusion import (  # noqa: PLC0415
+            exclude_macos_app_windows,
+        )
+
+        exclude_macos_app_windows()
+        log.debug("macOS clear-backing applied to %d window(s)", len(wins))
+    except Exception:  # noqa: BLE001 — cosmetic; the grey box is the degrade
+        log.warning("macOS clear-backing pass failed", exc_info=True)
+
+
+def _create_hidden_tk_root(tk: Any) -> Any:
+    """Create a Tk root without mapping its platform-default backing window.
+
+    ``tk.Tk()`` starts with a default geometry (roughly 400x300 physical pixels
+    on a 150% Windows desktop). Configuring geometry and a color key afterwards
+    can leave that original DWM surface eligible for a flash during a later
+    layered-window style mutation. Withdraw synchronously so only the fully
+    configured Jarvis Bar can ever be mapped.
+    """
+    root = tk.Tk()
+    root.withdraw()
+    return root
+
+
+def _exclude_tk_window_from_capture(root: Any) -> bool:
+    """Keep the bar out of screenshots. Best-effort, never raises."""
+    try:
+        from dodaios.platform.capture_exclusion import (  # noqa: PLC0415
+            exclude_tk_window_from_capture,
+        )
+
+        return bool(exclude_tk_window_from_capture(root))
+    except Exception:  # noqa: BLE001 — overlay must degrade, never crash
+        log.debug("jarvisbar capture exclusion skipped", exc_info=True)
+        return False
+
+
+def _win32_force_topmost(root: Any, *, user32: Any | None = None) -> bool:
+    """Put a Tk toplevel in Win32's real topmost Z-order band.
+
+    Tk's ``winfo_id()`` is the inner ``TkChild`` HWND on Windows.  Window
+    manager operations must target its ``TkTopLevel`` parent, so resolve that
+    wrapper first and fall back to the supplied handle only when no parent is
+    present.  The optional ``user32`` seam keeps the native call unit-testable
+    on every host.  Returns ``False`` on unsupported hosts or any native error.
+    """
+    if user32 is None and sys.platform != "win32":
+        return False
+
+    hwnd_topmost: Any = -1
+    try:
+        if user32 is None:
+            import ctypes
+            from ctypes import wintypes
+
+            user32 = ctypes.WinDLL("user32", use_last_error=True)
+            user32.GetParent.argtypes = [wintypes.HWND]
+            user32.GetParent.restype = wintypes.HWND
+            user32.SetWindowPos.argtypes = [
+                wintypes.HWND,
+                wintypes.HWND,
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_int,
+                wintypes.UINT,
+            ]
+            user32.SetWindowPos.restype = wintypes.BOOL
+            hwnd_topmost = wintypes.HWND(-1)
+
+        inner_hwnd = int(root.winfo_id())
+        outer_hwnd = int(user32.GetParent(inner_hwnd) or inner_hwnd)
+        return bool(
+            user32.SetWindowPos(
+                outer_hwnd,
+                hwnd_topmost,
+                0,
+                0,
+                0,
+                0,
+                _WIN32_TOPMOST_FLAGS,
+            )
+        )
+    except Exception:  # noqa: BLE001 - the overlay must degrade, never crash
+        return False
+
+
+def _photo_size(photo: Any) -> tuple[int, int] | None:
+    """``(width, height)`` of a Tk photo image, or ``None`` when it cannot say.
+
+    ``None`` never matches a PIL image's ``size``, so a photo that cannot report
+    its geometry is simply rebuilt — the pre-existing path, never a crash.
+    """
+    try:
+        return (int(photo.width()), int(photo.height()))
+    except Exception:  # noqa: BLE001 - a stand-in or a torn-down interpreter
+        return None
+
+
+def _win32_topmost_band_is_healthy(root: Any, *, user32: Any | None = None) -> bool | None:
+    """Check whether any ordinary visible HWND sits above the Jarvis Bar.
+
+    ``WS_EX_TOPMOST`` on the bar itself cannot answer this: the reported bug
+    retained that bit while the real Z-order placed three non-topmost windows
+    above it.  Walking the windows above the bar detects the actual band.  A
+    ``None`` result means the native check was unavailable, so the caller may
+    conservatively attempt a repair.
+    """
+    if user32 is None and sys.platform != "win32":
+        return None
+
+    try:
+        get_window_long: Any
+        if user32 is None:
+            import ctypes
+            from ctypes import wintypes
+
+            user32 = ctypes.WinDLL("user32", use_last_error=True)
+            user32.GetParent.argtypes = [wintypes.HWND]
+            user32.GetParent.restype = wintypes.HWND
+            user32.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
+            user32.GetWindow.restype = wintypes.HWND
+            user32.IsWindowVisible.argtypes = [wintypes.HWND]
+            user32.IsWindowVisible.restype = wintypes.BOOL
+            get_window_long = getattr(user32, "GetWindowLongPtrW", None)
+            if get_window_long is None:
+                get_window_long = user32.GetWindowLongW
+            get_window_long.argtypes = [wintypes.HWND, ctypes.c_int]
+            get_window_long.restype = ctypes.c_ssize_t
+        else:
+            get_window_long = getattr(user32, "GetWindowLongPtrW", None)
+            if get_window_long is None:
+                get_window_long = user32.GetWindowLongW
+
+        inner_hwnd = int(root.winfo_id())
+        outer_hwnd = int(user32.GetParent(inner_hwnd) or inner_hwnd)
+        above = int(user32.GetWindow(outer_hwnd, _GW_HWNDPREV) or 0)
+        visited: set[int] = set()
+        while above and above not in visited and len(visited) < 512:
+            visited.add(above)
+            if bool(user32.IsWindowVisible(above)):
+                ex_style = int(get_window_long(above, _GWL_EXSTYLE))
+                if not ex_style & _WS_EX_TOPMOST:
+                    return False
+            above = int(user32.GetWindow(above, _GW_HWNDPREV) or 0)
+        if above:
+            return None  # corrupt/cyclic chain or an implausibly large walk
+        return True
+    except Exception:  # noqa: BLE001 - health probing must never break the bar
+        return None
+
+
+class JarvisBarOverlay:
+    def __init__(
+        self,
+        persistent: bool = True,
+        accent: str = "#e7c46e",
+        opacity: float = BAR_ALPHA,
+        startup_gated: bool = False,
+        size_scale: float = 1.0,
+        follow_cursor_monitor: bool = True,
+    ) -> None:
+        self._persistent = persistent
+        self._accent = accent
+        self._opacity = max(0.2, min(1.0, float(opacity)))  # clamp to sane range
+        # User "Bar size" preference (multiplied on top of the screen-adaptive
+        # scale) and the screen-adaptive scale captured at start(). Kept so the
+        # live "Bar size" slider can re-derive the geometry without re-probing
+        # the screen. See renderer.apply_display_scale / set_size_scale.
+        self._user_size_scale = renderer.clamp_user_size(size_scale)
+        self._screen_scale = 1.0
+        # The desktop boot path constructs and paints the bar early, while it is
+        # still withdrawn, then releases this gate on the honest voice-usable
+        # signal. This is stronger than an initial ``withdraw``: every early
+        # IDLE/wake/session ``show()`` is suppressed too, so no event can make the
+        # bar advertise a voice stack that is still warming. Runtime-created
+        # surfaces leave the opt-in gate off and retain their immediate behavior.
+        self._startup_gated = bool(startup_gated)
+        self._mode = "idle"
+        # The clock of the strokes bending into the loading loop while a call
+        # connects, and of their one-shot back out once it is connected.
+        self._connect_timeline = renderer.ConnectTimeline()
+        self._ext_level = 0.0
+        # perf_counter() of the last set_level() that carried real sound
+        # (>= AUDIBLE_LEVEL). Drives the sweep↔bars choice in _schedule_frame.
+        # 0.0 = "long ago" → starts on the sweep, not the bars.
+        self._last_audible_t = 0.0
+        # perf_counter() of the last set_level() of ANY value. The frame loop
+        # renders _ext_level only while fresh (renderer.LEVEL_STALE_S): a feed
+        # that stops without sending zero must read as silence, not as bars
+        # frozen dancing on the last sample.
+        self._last_level_rx_t = 0.0
+        # monotonic_ns() stamped on every frame tick (alive or dropped). The
+        # revival watchdog compares against this to tell a living loop from a
+        # silently-dead one. 0 = "no frame has run yet" → the watchdog holds off.
+        self._last_frame_ns = 0
+        # Loop waker state (BUG-202): the Tk thread's OS thread id (the address
+        # a wake-up message is posted to), the monotonic_ns() of the last kick
+        # (rate limit), and how many kicks the current sleep has taken (one
+        # warning per sleep, not one per poll).
+        self._tk_native_thread_id: int | None = None
+        self._last_wake_ns = 0
+        self._sleep_kicks = 0
+        # Idle-static skip bookkeeping (see _IDLE_SETTLE_TICKS docstring above
+        # _schedule_frame): tracks how many consecutive ticks have shared the
+        # same (effective_mode, hovered, muted) key, so a settled idle pill's
+        # repaint can be skipped once its eased size has stopped moving.
+        self._static_tick_key: tuple[str, bool, bool, str] | None = None
+        self._static_tick_count = 0
+        self._root: Any = None
+        self._canvas: Any = None
+        self._renderer: renderer.JarvisBarRenderer | None = None
+        self._photo: Any = None
+        self._image_id: Any = None
+        self._ui_queue: queue.Queue = queue.Queue()
+        self._started = threading.Event()
+        self._running = False
+        self._tk_thread_id: int | None = None
+        self._t0 = 0.0
+        self._x = 0
+        self._y = 0
+        self._drag: dict | None = None
+        # Set while a file drag hovers the bar, plus a short tail after it lands
+        # — see ``_set_drop_active``. Both are plain attributes read from the Tk
+        # thread only, so no lock is involved.
+        self._drop_active = False
+        self._drop_quiet_until = 0.0
+        # What the bar SHOWS about a drop (renderer.DROP_STATE_*), and the
+        # perf_counter() the current verdict started at. Distinct from
+        # ``_drop_active`` on purpose: that one governs click suppression and
+        # ends the moment the payload lands, while the visible confirmation has
+        # to outlive it by design. Tk thread only.
+        self._drop_visual = renderer.DROP_STATE_NONE
+        self._drop_visual_t0 = 0.0
+        # Multi-monitor follow: when on, the bar migrates to the monitor under
+        # the mouse. ``_rel_pos`` is the monitor-independent free-space fraction
+        # (the persisted placement truth); ``_cur_work`` is the work area the
+        # bar currently sits on, so the poll can tell when the cursor's monitor
+        # differs and a migration is due. Both are seeded in ``_resolve_position``.
+        self._follow_cursor = bool(follow_cursor_monitor)
+        self._rel_pos: tuple[float, float] | None = None
+        self._cur_work: tuple[int, int, int, int] | None = None
+        self._level_unsub: Callable[[], None] | None = None
+        self._on_mute_toggle: Callable[[], None] | None = None
+        self._on_prompt_mode_toggle: Callable[[], None] | None = None
+        # Interaction callbacks let the macOS companion host forward actions
+        # to the parent process, where the live SpeechPipeline is registered.
+        # They stay optional so Windows/Linux keep their existing in-process
+        # runtime_refs fallback when no callback is installed.
+        self._on_talk: Callable[[], None] | None = None
+        self._on_hangup: Callable[[], None] | None = None
+        # The close-X while DICTATING (an external host routes it to the
+        # parent; in-process it reaches the pipeline directly).
+        self._on_dictation_stop: Callable[[], None] | None = None
+        self._feedback_publisher: Callable[[str, dict], None] | None = None
+        self._on_show_window: Callable[[], None] | None = None
+        self._hovered = False  # mouse over the bar → reveal the close cross
+        # Mirror of ``[dictation].prompt_mode`` (the bridge keeps it current
+        # from DictationPromptModeChanged): lights the idle pill's sparkle.
+        self._prompt_mode = False
+        # ...and whether the bar is holding it (the sparkle's red slash).
+        # A runtime hold only: the setting on disk is untouched.
+        self._prompt_mode_paused = False
+        # True only on a macOS root whose "-transparent" attribute took; the
+        # frame loop then converts frames to RGBA (renderer.key_to_alpha).
+        self._mac_transparent = False
+        self._hangup_click_block_until = 0.0
+        # Local mirror of the global voice-mute state (mic muted FOR JARVIS only).
+        # Flipped optimistically on a mic-button click and reconciled by the
+        # authoritative VoiceMuteChanged via set_muted(). A bool write is atomic
+        # under the GIL, like _ext_level — read on the frame loop without a lock.
+        self._muted = False
+        self._speaker_muted = False
+        self._call_ring_started_t = 0.0
+        self._on_compose: Callable[[], None] | None = None
+        self._on_speaker_toggle: Callable[[], None] | None = None
+
+    # ------------------------------------------------------------------ #
+    # Surface API consumed by OrbBusBridge                               #
+    # ------------------------------------------------------------------ #
+    def _timeline(self) -> renderer.ConnectTimeline:
+        # ``__new__``-built test/hot-reload instances skip __init__.
+        timeline = getattr(self, "_connect_timeline", None)
+        if timeline is None:
+            timeline = self._connect_timeline = renderer.ConnectTimeline()
+        return timeline
+
+    def show(self, mode: str = "listen") -> None:
+        if mode not in renderer.MODES:
+            return
+        self._timeline().note_mode(self._mode, mode, time.perf_counter())
+        self._mode = mode
+        if self._root is None:
+            return
+        # A reveal is the moment the user is looking: if the Tk thread has
+        # gone quiet, wake it now rather than at the waker's next poll, so the
+        # mode just set is drawn on the very next tick (BUG-202).
+        self._kick_if_asleep(threshold_ns=SHOW_WAKE_THRESHOLD_NS)
+        # Keep accepting state updates while boot is warming so release can show
+        # the latest correct mode, but never map the native window before the
+        # voice-usable signal. This guard closes the historical bypass where a
+        # wake candidate revealed a merely start-withdrawn bar.
+        if getattr(self, "_startup_gated", False):
+            return
+        if not self._persistent and mode == "idle":
+            self._enqueue_ui(self._do_hide)
+        else:
+            self._enqueue_ui(self._do_show)
+
+    def hide(self) -> None:
+        # The bridge only calls hide() on a NON-persistent bar — it is wired
+        # with hide_on_idle=not persistent, so a persistent bar receives
+        # show("idle") instead and never this. swap_overlay also calls hide()
+        # to force-withdraw on a style switch, so there is no persistent gate
+        # here; the gate lives in the bridge wiring.
+        if self._root is None:
+            return
+        self._enqueue_ui(self._do_hide)
+
+    def reassert_z_order(self) -> None:
+        """Re-pin an already-visible bar without treating it as a reveal.
+
+        Wake/state updates call ``show`` repeatedly while a persistent bar is
+        already mapped. Those updates must not mutate the native layered-window
+        styles. The one deliberate post-boot repair uses this explicit method.
+        """
+        if self._root is None:
+            return
+        if getattr(self, "_startup_gated", False):
+            return
+        self._enqueue_ui(self._do_reassert_z_order)
+
+    def release_startup_gate(self) -> bool:
+        """Allow the boot-created bar to become visible exactly once.
+
+        Returns ``True`` only when this call released an active gate. The latest
+        mode has continued to track bus events while hidden, so a persistent bar
+        is revealed in that mode rather than being reset to idle. A
+        non-persistent bar remains withdrawn while idle and can pop normally on
+        its next real session.
+        """
+        if not getattr(self, "_startup_gated", False):
+            return False
+        self._startup_gated = False
+        if self._root is None:
+            return True
+        if not self._persistent and self._mode == "idle":
+            return True
+        self._enqueue_ui(self._do_show)
+        return True
+
+    def set_level(self, level: float) -> None:
+        # Direct atomic write (no enqueue) — matches OrbOverlay.set_level.
+        lv = 0.0 if level < 0.0 else 1.0 if level > 1.0 else float(level)
+        self._ext_level = lv
+        self._last_level_rx_t = time.perf_counter()
+        # Remember WHEN real sound last arrived (mic or TTS, both feed here via
+        # their level taps). _schedule_frame uses this to show bars while sound
+        # is present and the sweep during silence. Atomic float write, like
+        # _ext_level — safe from the audio/VAD threads with no lock.
+        if lv >= AUDIBLE_LEVEL:
+            self._last_audible_t = self._last_level_rx_t
+
+    # The bar has no text bubble and no mouth — these stay no-ops so the
+    # bridge's duck-typed calls remain safe.
+    def play_animation(self, name: str, **params: Any) -> None: ...
+    def stop_animation(self, name: str) -> None: ...
+    def show_listening_transcript(self, text: str = "", duration_ms: int = 30000) -> None: ...
+    def hide_comment(self) -> None: ...
+    def start_mouth_animation(self, duration_ms: int = 60000) -> None: ...
+    def stop_mouth_animation(self) -> None: ...
+
+    def set_muted(self, muted: bool) -> None:
+        """Mirror the pipeline's authoritative voice-mute state onto the bar.
+
+        Called by OrbBusBridge on every VoiceMuteChanged (from this bar, the
+        mascot, or a voice command), so the red rim + slashed-mic icon stay in
+        lock-step with reality regardless of where the toggle originated. Plain
+        atomic bool write — the frame loop reads it; no Tk marshal needed."""
+        self._muted = bool(muted)
+
+    def set_prompt_mode(self, enabled: bool, paused: bool = False) -> None:
+        """Mirror ``[dictation].prompt_mode`` and its pause onto the sparkle.
+
+        Called by OrbBusBridge on every DictationPromptModeChanged (from this
+        bar, the settings screen or the front-page pill), so the sparkle and
+        the switch behind it never disagree. ``enabled`` is the setting —
+        false draws nothing at all; ``paused`` is this bar's runtime hold and
+        strikes the mark through in red. Plain atomic bool writes; the frame
+        loop reads them, no Tk marshal needed."""
+        self._prompt_mode = bool(enabled)
+        self._prompt_mode_paused = bool(paused)
+
+    def set_size_scale(self, scale: float) -> None:
+        """Live-resize the bar to a new user "Bar size" multiplier.
+
+        Thread-safe: the geometry recompute + window resize run on the Tk
+        thread via the UI queue, so the route/audio threads only hand over a
+        float. Width AND height scale together (the pill's shape is preserved,
+        only its size changes), and the bar grows UPWARD from a fixed
+        bottom-centre so it never drops into the taskbar."""
+        self._user_size_scale = renderer.clamp_user_size(scale)
+        if self._root is None:
+            return
+        self._enqueue_ui(lambda s=self._user_size_scale: self._do_apply_size(s))
+
+    def set_follow_cursor(self, enabled: bool) -> None:
+        """Live-toggle 'follow the mouse to the active monitor'.
+
+        A plain flag the cursor-monitor poll reads each tick, so turning it off
+        simply stops future migrations (the bar stays put) and turning it on
+        makes the next poll place it on the monitor under the mouse. Atomic bool
+        write — no Tk marshal needed, like ``set_muted``."""
+        self._follow_cursor = bool(enabled)
+
+    def _call_ring_phase(self) -> int:
+        from ui.orb.controls import PET_CALL_RING_PASSES, PET_RING_PHASES, PET_RING_STEP_S
+
+        started = getattr(self, "_call_ring_started_t", 0.0)
+        if not started:
+            return 0
+        phase = int((time.perf_counter() - started) / PET_RING_STEP_S) + 1
+        return phase if 0 < phase <= PET_RING_PHASES * PET_CALL_RING_PASSES else 0
+
+    def _hover_action(self) -> str | None:
+        if not self._hovered:
+            return None
+        try:
+            if self._root is None:
+                return None
+            px, py = self._root.winfo_pointerxy()
+            x, y = px - self._root.winfo_rootx(), py - self._root.winfo_rooty()
+            from ui.orb.controls import pet_hit_test
+
+            action = pet_hit_test(x, y, renderer.strip_scale())
+            return "compose" if action == "bell" else action
+        except Exception:  # no window yet, or teardown in progress
+            log.debug("bar hover unavailable", exc_info=True)
+            return None
+
+    def set_on_compose(self, callback: Callable[[], None] | None) -> None:
+        self._on_compose = callback
+
+    def set_on_speaker_toggle(self, callback: Callable[[], None] | None) -> None:
+        self._on_speaker_toggle = callback
+
+    def set_speaker_muted(self, muted: bool) -> None:
+        self._speaker_muted = bool(muted)
+
+    def set_on_mute_toggle(self, callback: Callable[[], None] | None) -> None:
+        self._on_mute_toggle = callback
+
+    def set_on_prompt_mode_toggle(self, callback: Callable[[], None] | None) -> None:
+        self._on_prompt_mode_toggle = callback
+
+    def set_on_talk(self, callback: Callable[[], None] | None) -> None:
+        """Register the idle-body click action for an external host."""
+        self._on_talk = callback
+
+    def set_on_hangup(self, callback: Callable[[], None] | None) -> None:
+        """Register the active close-X action for an external host."""
+        self._on_hangup = callback
+
+    def set_on_dictation_stop(self, callback: Callable[[], None] | None) -> None:
+        """Register the dictating close-X action for an external host."""
+        self._on_dictation_stop = callback
+
+    def set_feedback_publisher(self, callback: Callable[[str, dict], None] | None) -> None:
+        self._feedback_publisher = callback
+
+    def set_on_show_window(self, callback: Callable[[], None] | None) -> None:
+        """Register the right-click → raise-main-window callback (set by
+        OrbBusBridge, which publishes ``ShowWindowRequested`` on fire)."""
+        self._on_show_window = callback
+
+    # ------------------------------------------------------------------ #
+    # Lifecycle                                                          #
+    # ------------------------------------------------------------------ #
+    def _should_start_withdrawn(self) -> bool:
+        """True while boot-gated or for the non-persistent variant.
+
+        The boot-created persistent bar is fully configured and painted while
+        withdrawn, then mapped by ``release_startup_gate`` once voice is usable.
+        Other persistent bars keep their immediate-map behavior.
+        """
+        return (not self._persistent) or getattr(self, "_startup_gated", False)
+
+    def start_in_thread(self, timeout: float = 3.0) -> None:
+        if sys.platform == "darwin":
+            # Aqua-Tk (like AppKit) is main-thread-only on macOS: creating the
+            # Tk root on this worker thread aborts the WHOLE process with a
+            # native, uncatchable assertion — the "Python quit unexpectedly"
+            # first-boot crash (BUG-057, same class as the BUG-056 tray). The
+            # desktop boot substitutes a NullOverlay before ever reaching
+            # this; the gate is the backstop for any other caller.
+            log.info(
+                "JarvisBar not started: macOS allows Tk windows on the main "
+                "thread only — running without the on-screen bar."
+            )
+            return
+
+        def _run() -> None:
+            try:
+                self.start()
+            except Exception:  # noqa: BLE001
+                log.exception("JarvisBar thread start failed")
+
+        t = threading.Thread(target=_run, name="jarvisbar-tk-mainloop", daemon=True)
+        t.start()
+        if not self._started.wait(timeout=timeout):
+            log.error("JarvisBar window not initialised within %.1fs", timeout)
+
+    def start(self) -> None:
+        import tkinter as tk
+
+        from dodaios.ui.tk_runtime import prepare_tk_runtime
+
+        prepare_tk_runtime()
+        from PIL import ImageTk  # noqa: F401 — fail fast here if Pillow missing
+
+        # DPI strategy (two steps, order matters — both no-ops off Windows):
+        #
+        # 1. ``ensure_dpi_awareness()`` — the PROCESS must be DPI-aware before
+        #    the per-window pin below can hold. Also fixes the HiDPI
+        #    "drag-teleport" (geometry vs pointer-event space drift) when the
+        #    bar wins the boot race.
+        # 2. ``pin_thread_dpi_per_monitor()`` — pin THIS thread (the bar's
+        #    dedicated Tk mainloop thread) so the Tk root created below
+        #    carries a PER-WINDOW per-monitor context: the bar renders its
+        #    RAW pixels (its original, maintainer-approved look) on every
+        #    monitor, DWM never bitmap-scales it, and pywebview's runtime
+        #    ``SetProcessDPIAware()`` flip can no longer re-interpret it.
+        #    Without the pin the window follows the PROCESS context: it
+        #    DWM-shrank to ~2/3 when moved onto the 100 % secondary monitor
+        #    (next to the 150 % primary) and jumped size/position on the
+        #    boot-race flip (GIF forensics 2026-07-02).
+        #
+        # NEVER pin UNAWARE here: Windows then upscales the bar into a blurry
+        # oversized "fat bar" — explicitly rejected by the maintainer twice
+        # (2026-07-01 session, commit 5c7a5d15). The original look is RAW
+        # pixels at a fixed size on every monitor.
+        try:
+            from dodaios.core.win32_dpi import (
+                ensure_dpi_awareness,
+                pin_thread_dpi_per_monitor,
+            )
+
+            ensure_dpi_awareness()
+            if pin_thread_dpi_per_monitor():
+                log.debug("jarvisbar Tk thread pinned PER_MONITOR_AWARE (per-window)")
+        except Exception:  # noqa: BLE001 — never block the bar on a DPI hiccup
+            log.debug("jarvisbar DPI-awareness setup skipped", exc_info=True)
+
+        self._tk_thread_id = threading.get_ident()
+        # The OS-level id is what a wake-up message is addressed to (BUG-202).
+        self._tk_native_thread_id = threading.get_native_id()
+
+        # Some window managers map Tk's default-size root eagerly. Hide it
+        # before assigning ``self._root`` or applying any styles so that stale
+        # backing surface can never flash at the top-left on a later wake.
+        root = _create_hidden_tk_root(tk)
+        self._root = root
+
+        # Base geometry scale. PHYSICAL-size-consistent when the monitor's true
+        # DPI is known (Windows/X11 report real physical pixels), so the bar
+        # looks the same size on the glass across monitors of different physical
+        # size; else the resolution-relative fallback. Must run BEFORE the
+        # renderer and any window geometry are derived from the module constants.
+        try:
+            raw_dpi = _probe_primary_raw_dpi()
+            self._screen_scale = renderer.resolve_screen_scale(
+                int(root.winfo_screenwidth()), int(root.winfo_screenheight()), raw_dpi
+            )
+            renderer.apply_display_scale(self._screen_scale, user_size=self._user_size_scale)
+            if renderer.DISPLAY_SCALE != 1.0 or self._user_size_scale != 1.0:
+                log.info(
+                    "jarvisbar scale %.3f (user size %.2f, raw dpi %s) for screen %sx%s",
+                    renderer.DISPLAY_SCALE,
+                    self._user_size_scale,
+                    raw_dpi,
+                    root.winfo_screenwidth(),
+                    root.winfo_screenheight(),
+                )
+        except Exception:  # noqa: BLE001 — sizing is cosmetic; 1.0 is the degrade
+            log.debug("jarvisbar display-scale probe failed", exc_info=True)
+        self._renderer = renderer.JarvisBarRenderer(accent=self._accent)
+        root.title("JarvisBar")
+        # Give the bar the Jarvis mascot icon on every OS. Tk otherwise inherits
+        # the interpreter's process icon (pythonw.exe → Python logo on Windows,
+        # python3 on Linux); if this frameless window ever surfaces on the
+        # taskbar/dock it would advertise itself as plain Python
+        # (BUG #UI-Pin-2026-05-05). Best-effort — never blocks the bar.
+        try:
+            from dodaios.ui.icon_utils import apply_tk_window_icon
+
+            apply_tk_window_icon(root)
+        except Exception:  # noqa: BLE001 — the bar is cosmetic; never crash on it
+            log.debug("jarvisbar icon setup skipped", exc_info=True)
+        root.overrideredirect(True)
+        root.wm_attributes("-topmost", True)
+        # Per-pixel transparency, per platform: Windows keys out the magenta
+        # color key on the layered window; macOS has no color key, so there
+        # the WINDOW itself becomes transparent (Aqua-Tk's "-transparent" +
+        # the systemTransparent background) and every frame carries a real
+        # alpha channel instead (renderer.key_to_alpha in the frame loop).
+        self._mac_transparent = False
+        if sys.platform == "darwin":
+            try:
+                root.wm_attributes("-transparent", True)
+                root.configure(bg="systemTransparent")
+                self._mac_transparent = True
+            except tk.TclError:
+                log.warning("macOS -transparent unsupported — bar will show its key colour")
+                root.configure(bg=COLOR_KEY_HEX)
+        else:
+            try:
+                root.wm_attributes("-transparentcolor", COLOR_KEY_HEX)
+            except tk.TclError:
+                log.warning("transparentcolor unsupported — bar will show its key colour")
+            root.configure(bg=COLOR_KEY_HEX)
+            # The colour key only ever applies to the window WE own. Once this
+            # Tk loop stops pumping — which any long GIL-holding stretch on
+            # another thread is enough to cause — Windows hides that window and
+            # paints an unlayered ``Ghost`` stand-in over the same rectangle,
+            # so the keyed-out padding arrives on screen as an opaque BLACK box
+            # around the pill. Turn the stand-in off rather than let a stall
+            # present itself as a rendering defect.
+            from dodaios.core.process_utils import disable_windows_app_ghosting
+
+            disable_windows_app_ghosting()
+        # Window-level alpha ON TOP of the color key: the magenta stays fully
+        # keyed out (verified — no bleed) while the pill itself goes
+        # semi-transparent, so the desktop shows through it (glass look).
+        try:
+            root.wm_attributes("-alpha", self._opacity)
+        except tk.TclError:
+            log.debug("window -alpha unsupported", exc_info=True)
+
+        self._resolve_position(root)
+        root.geometry(f"{renderer.WIN_W}x{renderer.WIN_H}+{self._x}+{self._y}")
+
+        self._canvas = tk.Canvas(
+            root,
+            width=renderer.WIN_W,
+            height=renderer.WIN_H,
+            bg="systemTransparent" if self._mac_transparent else COLOR_KEY_HEX,
+            highlightthickness=0,
+            borderwidth=0,
+        )
+        self._canvas.pack(fill="both", expand=True)
+        if self._mac_transparent:
+            # Tk 9 needs the native backing cleared too (BUG-075); the window
+            # must exist first, so flush geometry before the AppKit pass.
+            root.update_idletasks()
+            _apply_macos_clear_backing()
+        self._canvas.bind("<ButtonPress-1>", self._on_press)
+        self._canvas.bind("<B1-Motion>", self._on_motion)
+        self._canvas.bind("<ButtonRelease-1>", self._on_release)
+        self._canvas.bind("<ButtonPress-3>", self._on_right_click)
+        self._canvas.bind("<Enter>", self._on_enter)
+        self._canvas.bind("<Leave>", self._on_leave)
+
+        # Drag-drop onto the bar (desktop extra, cross-platform via tkdnd).
+        #
+        # This was disabled 2026-06-23: on a frameless color-key topmost window
+        # tkdnd's registration made the window emit SYNTHETIC press/release
+        # events on every turn mode-switch, the click handler read them as a
+        # close-X click, and a ``request_hangup`` storm (6+/turn) aborted every
+        # voice answer mid-thought. Re-enabled now that both halves of that are
+        # actually fixed rather than avoided:
+        #
+        # 1. ``_on_release`` honours a click only when the OS pointer is really
+        #    over the bar (``_pointer_over_bar``), which kills every phantom
+        #    pair fired under a stationary cursor.
+        # 2. That guard alone is NOT enough for a real drop — during one the
+        #    pointer genuinely IS over the bar, so a synthetic pair emitted by
+        #    the drop would pass it and hang up the call the user was in the
+        #    middle of. Hence ``_set_drop_active``: while a drag hovers, and for
+        #    a moment after it lands, the bar takes no clicks at all.
+        try:
+            from dodaios.overlay.drop_bridge import (
+                dispatch_drop,
+                set_drop_result_sink,
+            )
+            from dodaios.overlay.drop_target import make_drop_target
+
+            if make_drop_target().register(self._canvas, dispatch_drop, self._set_drop_active):
+                # Only claim the return leg once the target actually registered
+                # — a host without tkdnd has no drops to confirm, and leaving a
+                # stale sink installed would point at a bar that never sees one.
+                set_drop_result_sink(self.notify_drop_result)
+        except Exception:  # noqa: BLE001 — drop is optional; never block bar boot.
+            log.debug("bar drop target registration skipped", exc_info=True)
+
+        try:
+            from dodaios.audio import level_tap
+
+            self._level_unsub = level_tap.subscribe(self.set_level)
+        except Exception:  # noqa: BLE001
+            log.debug("level_tap subscribe failed", exc_info=True)
+
+        self._running = True
+        self._t0 = time.perf_counter()
+        # Paint a complete first frame while the root is still withdrawn.
+        self._schedule_frame()
+        self._schedule_ui_queue()
+        self._schedule_frame_watchdog()  # independent anti-freeze revival loop
+        self._start_loop_waker()  # outside Tk: wakes the thread itself (BUG-202)
+        self._schedule_z_order_guard()
+        self._schedule_cursor_monitor_guard()  # follow the mouse across monitors
+        # Affinity can be set on a still-withdrawn HWND. Do it before the
+        # first map so the first screenshot never photographs the bar.
+        _exclude_tk_window_from_capture(root)
+        if not self._should_start_withdrawn():
+            self._do_show()
+        self._started.set()
+        root.mainloop()
+
+    def stop(self) -> None:
+        self._running = False
+        # Release the drop return leg before the Tk root goes: a swap to
+        # another surface installs its own sink, and a stale one pointing at a
+        # destroyed bar would enqueue onto a dead UI queue.
+        try:
+            from dodaios.overlay.drop_bridge import set_drop_result_sink
+
+            set_drop_result_sink(None)
+        except Exception:  # noqa: BLE001 — teardown must never raise
+            log.debug("drop result sink release failed", exc_info=True)
+        if self._level_unsub is not None:
+            try:
+                self._level_unsub()
+            except Exception:  # noqa: BLE001
+                log.debug("level_tap unsubscribe failed", exc_info=True)
+            self._level_unsub = None
+        root = self._root
+        if root is not None:
+            try:
+                root.after(0, root.destroy)
+            except Exception:  # noqa: BLE001
+                log.debug("jarvisbar destroy failed", exc_info=True)
+
+    # ------------------------------------------------------------------ #
+    # Tk-thread internals                                                #
+    # ------------------------------------------------------------------ #
+    def _cursor_global(self) -> tuple[int, int] | None:
+        """Best-effort global pointer ``(x, y)`` in the bar's coordinate space.
+
+        ``winfo_pointerxy`` reports the same DPI-aware physical pixels the
+        window geometry uses (the Tk thread is pinned PER_MONITOR_AWARE), so it
+        lines up with :func:`dodaios.platform.monitors.work_area_at`. ``None`` on
+        any failure so callers keep the current placement."""
+        root = self._root
+        if root is None:
+            return None
+        try:
+            px, py = root.winfo_pointerxy()
+            return (int(px), int(py))
+        except Exception:  # noqa: BLE001 — pointer probe is best-effort
+            return None
+
+    def _work_area_for_point(self, x: int, y: int) -> tuple[int, int, int, int]:
+        """Work area ``(left, top, width, height)`` of the monitor at ``(x, y)``.
+
+        Degrades exactly like the old default anchor did when no per-monitor
+        info is available: the Windows primary work area (taskbar excluded),
+        then the full primary screen. So a headless/Wayland host keeps the
+        single-monitor behaviour instead of guessing."""
+        try:
+            from dodaios.platform.monitors import work_area_at
+
+            wa = work_area_at(int(x), int(y))
+            if wa is not None:
+                return wa
+        except Exception:  # noqa: BLE001 — monitor probe is best-effort
+            log.debug("jarvisbar work-area probe failed", exc_info=True)
+        primary = _primary_work_area()
+        if primary is not None:
+            wl, wt, wr, wb = primary
+            return (wl, wt, wr - wl, wb - wt)
+        try:
+            return (
+                0,
+                0,
+                int(self._root.winfo_screenwidth()),
+                int(self._root.winfo_screenheight()),
+            )
+        except Exception:  # noqa: BLE001
+            return (0, 0, 1920, 1080)
+
+    def _resolve_position(self, root: Any) -> None:
+        del root  # geometry is derived from the resolved monitor work area
+        pos: tuple[int, int] | None = None
+        rel: tuple[float, float] | None = None
+        try:
+            from dodaios.core.config_writer import DEFAULT_CONFIG_FILE
+
+            pos = interaction.load_jarvisbar_position(DEFAULT_CONFIG_FILE)
+            rel = interaction.load_jarvisbar_relative(DEFAULT_CONFIG_FILE)
+        except Exception:  # noqa: BLE001
+            pos, rel = None, None
+
+        # A legacy config stored only the absolute spot: recover its relative
+        # placement from the monitor it belonged to, so an upgrade keeps the
+        # spot (and, in follow mode, reproduces it on the cursor's monitor).
+        if rel is None and pos is not None:
+            pos_work = self._work_area_for_point(pos[0], pos[1])
+            rel = interaction.relative_within(
+                pos[0], pos[1], work=pos_work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
+            )
+
+        # Choose the monitor to place on: follow mode boots on the monitor under
+        # the mouse; pinned mode uses the monitor the saved spot belonged to.
+        if self._follow_cursor:
+            anchor = self._cursor_global() or pos or (0, 0)
+        else:
+            anchor = pos or (0, 0)
+        work = self._work_area_for_point(anchor[0], anchor[1])
+
+        if rel is not None:
+            self._x, self._y = interaction.project_relative(
+                rel[0], rel[1], work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
+            )
+        else:
+            # Fresh install: bottom-centre on the chosen monitor, just above its
+            # taskbar (the work area already excludes the taskbar on Windows).
+            wl, wt, ww, wh = work
+            self._x = wl + (ww - renderer.WIN_W) // 2
+            self._y = wt + wh - renderer.WIN_H - TASKBAR_GAP_PX
+            self._x, self._y = interaction.clamp_to_work_area(
+                self._x,
+                self._y,
+                work=work,
+                bar_w=renderer.WIN_W,
+                bar_h=renderer.WIN_H,
+                margin=MARGIN_PX,
+            )
+        self._rel_pos = interaction.relative_within(
+            self._x, self._y, work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
+        )
+        self._cur_work = work
+
+    def _do_apply_size(self, user_scale: float) -> None:
+        """Recompute geometry for ``user_scale`` and resize the window (Tk thread).
+
+        Runs on the Tk mainloop thread (enqueued by ``set_size_scale``), so it
+        is serialized against the frame loop — no lock needed on the module
+        geometry globals it mutates via ``apply_display_scale``.
+        """
+        if self._root is None:
+            return
+        try:
+            old_win_w, old_win_h = renderer.WIN_W, renderer.WIN_H
+            renderer.apply_display_scale(self._screen_scale, user_size=user_scale)
+            self._reanchor_after_resize(old_win_w, old_win_h)
+            self._invalidate_static_frame()
+        except Exception:  # noqa: BLE001 — a resize hiccup must never crash the bar
+            log.debug("jarvisbar live resize failed", exc_info=True)
+
+    def _reanchor_after_resize(self, old_win_w: int, old_win_h: int) -> None:
+        """Resize the window + canvas and keep the bar's bottom-centre fixed.
+
+        The pill is bottom-anchored (grows upward), so preserving the window's
+        bottom-centre keeps the resting spot above the taskbar unchanged while
+        a bigger bar simply extends higher. Clamped to the screen so an
+        enlarged bar near a screen edge can never spill off it.
+        """
+        if self._root is None:
+            return
+        center_x = self._x + old_win_w / 2.0
+        bottom_y = self._y + old_win_h
+        new_x = round(center_x - renderer.WIN_W / 2.0)
+        new_y = round(bottom_y - renderer.WIN_H)
+        # Clamp to the monitor the bar sits on (measured at the new centre), not
+        # the primary screen, so a resize near a secondary-monitor edge stays on
+        # that monitor.
+        work = self._work_area_for_point(new_x + renderer.WIN_W // 2, new_y + renderer.WIN_H // 2)
+        new_x, new_y = interaction.clamp_to_work_area(
+            new_x,
+            new_y,
+            work=work,
+            bar_w=renderer.WIN_W,
+            bar_h=renderer.WIN_H,
+            margin=MARGIN_PX,
+        )
+        self._x, self._y = new_x, new_y
+        # The bar size changed, so the relative-spot basis changed: refresh it
+        # from the new geometry so the follow poll keeps the correct fraction.
+        self._cur_work = work
+        self._rel_pos = interaction.relative_within(
+            self._x, self._y, work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
+        )
+        if self._canvas is not None:
+            try:
+                self._canvas.config(width=renderer.WIN_W, height=renderer.WIN_H)
+            except Exception:  # noqa: BLE001
+                log.debug("jarvisbar canvas resize failed", exc_info=True)
+        try:
+            self._root.geometry(f"{renderer.WIN_W}x{renderer.WIN_H}+{self._x}+{self._y}")
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar geometry resize failed", exc_info=True)
+
+    def _do_show(self) -> None:
+        if self._root is None:
+            return
+        # A persistent bar is already mapped when wake/state events arrive.
+        # Re-running deiconify/topmost/transparentcolor is not a harmless no-op
+        # on Windows: it mutates a layered HWND and can resurrect Tk's original
+        # default-size opaque backing surface at the top-left. The renderer reads
+        # ``self._mode`` directly, so a mapped window needs no native operation.
+        try:
+            if bool(self._root.winfo_ismapped()):
+                # Keep the no-native-mutation contract for a persistent mapped
+                # bar, but still submit one fresh canvas frame. This is the
+                # cheapest self-heal if DWM discarded a layered surface during
+                # a display/power transition while the logical HWND stayed
+                # mapped.
+                self._invalidate_static_frame()
+                return
+        except Exception:  # noqa: BLE001
+            # Unusual Tk shims may not expose the query. Prefer an attempted
+            # reveal over leaving a genuinely hidden bar unavailable.
+            log.debug("jarvisbar mapped-state query failed", exc_info=True)
+
+        # Follow mode: a bar that pops from withdrawn (a non-persistent bar on
+        # wake, or the boot-gated bar's first map) should appear on the monitor
+        # the mouse is on right now, not wherever it was last mapped. The move
+        # runs while still withdrawn so it is invisible.
+        if self._follow_cursor and self._project_onto_cursor_monitor():
+            try:
+                self._root.geometry(f"{renderer.WIN_W}x{renderer.WIN_H}+{self._x}+{self._y}")
+            except Exception:  # noqa: BLE001
+                log.debug("jarvisbar follow-monitor reveal move failed", exc_info=True)
+
+        # Reveal transaction (BUG-030): the boot-created bar can remain
+        # withdrawn for many seconds while voice warms. Its idle renderer has
+        # settled by then and deliberately skips byte-identical repaints. If a
+        # withdrawn -> deiconified/topmost transition makes DWM discard the
+        # prepared layered surface, mapping at the configured opacity exposes
+        # Tk's true opaque backing rectangle indefinitely -- there is no idle
+        # repaint left to replace it. Keep the HWND fully invisible during the
+        # native style changes, compose the already-painted canvas once, then
+        # restore the requested opacity. Every call is best-effort so a cosmetic
+        # platform limitation can never block the app.
+        self._apply_layered_attributes(opacity=0.0)
+        try:
+            self._root.deiconify()
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar deiconify failed", exc_info=True)
+        self._do_reassert_z_order(opacity=0.0)
+        if sys.platform == "darwin" and getattr(self, "_mac_transparent", False):
+            # Tk 9 (re)materializes the NSWindow on mapping; the construction-
+            # time clear-backing pass ran on a still-withdrawn root and can
+            # miss it, leaving the opaque grey box (BUG-075). Re-assert on
+            # every reveal — idempotent and cheap.
+            _apply_macos_clear_backing()
+        self._refresh_prepared_frame()
+        try:
+            # Flush geometry/map/canvas work while the window is still fully
+            # transparent. The first visible DWM composition therefore already
+            # contains the magenta color-key frame instead of a black backing.
+            self._root.update_idletasks()
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar reveal composition flush failed", exc_info=True)
+        finally:
+            self._apply_layered_attributes(opacity=self._opacity)
+
+    def _apply_layered_attributes(self, *, opacity: float) -> None:
+        """Best-effort color-key + opacity application on the Tk thread."""
+        if self._root is None:
+            return
+        if sys.platform != "darwin":
+            # The color key is a Windows layered-window concept (BUG-030
+            # re-assert); macOS transparency is the immutable "-transparent"
+            # attribute set at creation — nothing to re-assert there.
+            try:
+                self._root.wm_attributes("-transparentcolor", COLOR_KEY_HEX)
+            except Exception:  # noqa: BLE001
+                log.debug("jarvisbar transparentcolor re-assert failed", exc_info=True)
+        try:
+            self._root.wm_attributes("-alpha", opacity)
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar alpha re-assert failed", exc_info=True)
+
+    def _invalidate_static_frame(self) -> None:
+        """Force the next animation tick to repaint even when idle settled."""
+        self._static_tick_key = None
+        self._static_tick_count = 0
+
+    def _refresh_prepared_frame(self) -> None:
+        """Resubmit the hidden pre-render to Tk before reveal becomes visible."""
+        if self._canvas is None or self._image_id is None or self._photo is None:
+            return
+        try:
+            self._canvas.itemconfig(self._image_id, image=self._photo)
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar prepared-frame refresh failed", exc_info=True)
+
+    def _do_reassert_z_order(self, *, opacity: float | None = None) -> None:
+        if self._root is None:
+            return
+        # Re-assert topmost after every reveal. On Windows this must use
+        # SetWindowPos(HWND_TOPMOST): a live forensic found WS_EX_TOPMOST still
+        # set while the HWND sat *below* three ordinary windows in the actual
+        # Z-order. Repeating Tk's already-true attribute was a no-op and lift()
+        # only raised within the wrong band. Other desktop window managers use
+        # Tk's portable -topmost request + lift fallback.
+        self._do_pin_topmost()
+        # Style mutations (BUG-030 class) can silently drop display affinity
+        # the same way they drop the layered color-key. Re-pin after every
+        # topmost repair so the bar never re-enters screenshots.
+        _exclude_tk_window_from_capture(self._root)
+        # BUG-030 guard: re-asserting ``-topmost`` is itself a Win32 style
+        # mutation on this layered (color-key + alpha) window, and Windows can
+        # silently drop the layered attributes on such a mutation — the bar
+        # then briefly renders its true opaque black backing surface instead of
+        # the keyed-out magenta until the next repaint ("black border flashes
+        # around the bar, then disappears" forensic, 2026-06-30). Re-apply both
+        # exactly as set at creation so a dropped attribute self-heals on the
+        # very next reveal instead of needing an app restart. Guarded
+        # separately so a failure here can never undo the topmost re-assert.
+        self._apply_layered_attributes(opacity=self._opacity if opacity is None else opacity)
+        # A long-withdrawn idle bar may already be in the static-frame fast
+        # path. Native style/map changes require one fresh canvas submission so
+        # DWM cannot keep a stale backing surface indefinitely.
+        self._invalidate_static_frame()
+
+    def _do_pin_topmost(self) -> str:
+        """Repair topmost ordering without moving or focusing the bar.
+
+        Returns the strategy used (``"native"``, ``"tk"``, or ``"failed"``)
+        so the periodic guard can heal layered attributes only when the Win32
+        native path was unavailable and Tk had to mutate the window style.
+        """
+        if self._root is None:
+            return "failed"
+        if sys.platform == "win32" and _win32_force_topmost(self._root):
+            return "native"
+        try:
+            self._root.wm_attributes("-topmost", True)
+            self._root.lift()
+            return "tk"
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar lift/topmost re-assert failed", exc_info=True)
+            return "failed"
+
+    def _do_hide(self) -> None:
+        if self._root is None:
+            return
+        try:
+            self._root.withdraw()
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar withdraw failed", exc_info=True)
+
+    def _enqueue_ui(self, fn: Callable[[], None]) -> None:
+        if self._root is None:
+            return
+        if self._tk_thread_id == threading.get_ident():
+            fn()
+            return
+        self._ui_queue.put(fn)
+
+    def _schedule_ui_queue(self) -> None:
+        if not self._running or self._root is None:
+            return
+        while True:
+            try:
+                fn = self._ui_queue.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                fn()
+            except Exception:  # noqa: BLE001
+                log.exception("JarvisBar UI command failed")
+        self._root.after(20, self._schedule_ui_queue)
+
+    def _schedule_frame(self) -> None:
+        if not self._running or not self._root or not self._canvas or not self._renderer:
+            return
+        from PIL import ImageTk
+
+        # SELF-HEALING LOOP. This after-loop re-arms ONLY from its own tail, so a
+        # single transient render/Tk error (ImageTk.PhotoImage raising, a TclError
+        # during a window move, a one-off PIL glitch) used to skip the re-arm and
+        # the animation died PERMANENTLY — the Tk mainloop kept running, so the
+        # window stayed visible frozen on its last frame until an app restart
+        # ("JarvisBar stopped moving" forensic). The render body is now wrapped so
+        # one bad frame is dropped, logged, and the next tick is still armed in
+        # `finally`. The loop can no longer be killed by any one exception.
+        tick_started = time.perf_counter()
+        try:
+            now = tick_started
+            t = now - self._t0
+            # Sound-driven look: bars while audio is present (mic OR TTS), wave
+            # while silent. The coarse self._mode only decides active-vs-idle; the
+            # actual wave↔bars choice comes from how recently real sound arrived.
+            # This makes the silent TTS-synthesis lead-in render as the thinking
+            # wave and real speech (in or out) render as the equalizer —
+            # independent of the supervisor state's continue-listening flips.
+            from dodaios.audio import level_tap
+
+            playing = level_tap.playback_active()
+            effective_mode = renderer.visual_mode(
+                self._mode,
+                now - self._last_audible_t,
+                hold_s=AUDIBLE_HOLD_S,
+                playback_active=playing,
+            )
+
+            # Idle-static skip (see _IDLE_SETTLE_TICKS docstring above): every
+            # branch renderer.render() can reach while ``effective_mode ==
+            # "idle"`` is time-INDEPENDENT — the empty resting pill, the
+            # hovered idle pill (only draws the static mic glyph; the close-X
+            # and equalizer bars require an active/listen/speak mode, never
+            # reached here), and the muted idle pill (same static mic glyph)
+            # all draw nothing that depends on ``t``. The only thing that
+            # still moves per tick is the eased pill size/color, which
+            # converges (ease() factor 0.5) well within _IDLE_SETTLE_TICKS
+            # ticks of any (hover, mute) combination changing. So once idle
+            # has been static for that long, EVERY further tick — hovered or
+            # muted or neither — would repaint byte-identical pixels; skip
+            # the render/PhotoImage/itemconfig work entirely. Any change in
+            # mode, hover, or mute resets the counter, so a real transition
+            # (including a hover/mute flip) always renders immediately.
+            # Drag-drop feedback is time-DEPENDENT (a pulsing rim, a tick that
+            # strokes itself on and fades), so it belongs in the tick key AND
+            # must veto the skip outright. Without the veto the confirmation
+            # would never be seen: an idle bar has usually been settled for
+            # long before a file arrives, so the very frames the tick lives in
+            # are exactly the ones the fast path skips.
+            drop_visual = self._current_drop_visual()
+            # The "connected" flourish is time-dependent like the drop
+            # feedback: it joins the tick key and vetoes the static skip.
+            connect_look = self._timeline().look(self._mode, now)
+            # A stale level (the feed stopped without a zero) renders as
+            # silence, never as frozen dancing bars. getattr default:
+            # ``__new__``-built test/hot-reload instances skip __init__; a
+            # missing stamp reads as "never received".
+            level = renderer.effective_ext_level(
+                self._ext_level,
+                now - getattr(self, "_last_level_rx_t", 0.0),
+            )
+            # Silent-active skip (see the TARGET_FRAME_MS block above): with no
+            # level and no playback the equalizer is a flat, time-independent
+            # row, so a silent listen/speak bar settles exactly like the idle
+            # pill. The silence flag is part of the tick key so the first
+            # audible sample (or playback starting) resets the counter and
+            # renders immediately.
+            silent = level <= 0.0 and not playing
+            static_capable = effective_mode == "idle" or (
+                effective_mode in ("listen", "speak") and silent
+            )
+            tick_key = (
+                effective_mode,
+                self._hovered,
+                self._muted,
+                getattr(self, "_speaker_muted", False),
+                self._hover_action(),
+                self._call_ring_phase(),
+                drop_visual,
+                silent,
+                getattr(self, "_prompt_mode", False),
+                getattr(self, "_prompt_mode_paused", False),
+                connect_look,
+            )
+            if tick_key != self._static_tick_key:
+                self._static_tick_key = tick_key
+                self._static_tick_count = 0
+            else:
+                self._static_tick_count += 1
+            is_settled_static = (
+                static_capable
+                and drop_visual == renderer.DROP_STATE_NONE
+                and connect_look is None
+                and self._static_tick_count >= _IDLE_SETTLE_TICKS
+            )
+
+            if not is_settled_static:
+                # The level is fed live per ~60 ms TTS sub-block
+                # (player._write_samples), so the equalizer reacts to Jarvis's
+                # actual loudness — thin and lively, exactly like it reacts to
+                # your mic. No synthetic floor (that made the bars look
+                # uniformly blocky).
+                img = self._renderer.render(
+                    t,
+                    effective_mode,
+                    level,
+                    hovered=self._hovered,
+                    muted=self._muted,
+                    speaker_muted=getattr(self, "_speaker_muted", False),
+                    hovered_action=self._hover_action(),
+                    call_ring=self._call_ring_phase(),
+                    surface_mode=self._mode,
+                    prompt_mode=getattr(self, "_prompt_mode", False),
+                    prompt_mode_paused=getattr(self, "_prompt_mode_paused", False),
+                    drop_state=drop_visual,
+                    # Same getattr guard as the level stamp above, and for the
+                    # same reason: a ``__new__``-built test/hot-reload instance
+                    # skips __init__, and a missing stamp must read as "no drop
+                    # in flight" rather than blow the frame away.
+                    drop_elapsed=now - getattr(self, "_drop_visual_t0", 0.0),
+                    connect_look=connect_look,
+                )
+                if getattr(self, "_mac_transparent", False):
+                    # macOS: no color key — carry real per-pixel alpha instead.
+                    img = renderer.key_to_alpha(img)
+                # PhotoImage must be retained on self, else Tk GCs it before
+                # drawing.  The explicit master is equally load-bearing on
+                # macOS: the companion host owns a withdrawn bootstrap Tk root
+                # (so Tk, not pyobjc, creates NSApp) and this overlay owns a
+                # second Tcl interpreter.  Pillow otherwise binds the image to
+                # the bootstrap interpreter, and this canvas rejects it with
+                # ``TclError: image \"pyimageN\" does not exist`` — leaving only
+                # the empty backing rectangle on screen.  Supplying the actual
+                # consumer also stays correct for the single-root Windows/Linux
+                # paths.
+                #
+                # ONE Tk photo per bar, new pixels per frame. Building a fresh
+                # ``PhotoImage`` every tick means a Tcl ``image create photo``,
+                # an ``itemconfig`` that swaps the canvas item's image, and the
+                # ``image delete`` of the previous one when Python drops it —
+                # measured at 2.1-4.0 ms per frame against 0.8-1.0 ms for
+                # ``paste()`` into the existing photo (same layered window,
+                # same renderer, 25 fps; CPU diet 2026-08-23). The pixels are
+                # identical; only the bookkeeping is gone. A photo of another
+                # size (the bar was resized) or a stand-in without ``paste``
+                # (tests) takes the original create-and-swap path.
+                photo = self._photo
+                if (
+                    photo is not None
+                    and self._image_id is not None
+                    and callable(getattr(photo, "paste", None))
+                    and _photo_size(photo) == img.size
+                ):
+                    photo.paste(img)
+                else:
+                    self._photo = ImageTk.PhotoImage(img, master=self._root)
+                    if self._image_id is None:
+                        self._image_id = self._canvas.create_image(
+                            0, 0, anchor="nw", image=self._photo
+                        )
+                    else:
+                        self._canvas.itemconfig(self._image_id, image=self._photo)
+        except Exception:  # noqa: BLE001 — one bad frame must never freeze the bar
+            log.exception("JarvisBar frame render failed — dropping one frame")
+        finally:
+            # Heartbeat first: a dropped-but-rearmed frame is still a LIVING loop,
+            # so we stamp even on the failure path. The watchdog reads this to
+            # tell alive from silently-dead.
+            self._last_frame_ns = time.monotonic_ns()
+            # Adaptive pacing: derive the next delay from how long THIS tick
+            # actually took instead of always adding a flat 16ms on top. In the
+            # common case (tick cost << target) this is indistinguishable from
+            # the old fixed delay; it only shortens the next wait after an
+            # unusually slow tick, so a single slow render can't compound into
+            # an even longer visible gap (see TARGET_FRAME_MS docstring above).
+            elapsed_ms = (time.perf_counter() - tick_started) * 1000.0
+            next_delay_ms = max(MIN_FRAME_DELAY_MS, round(TARGET_FRAME_MS - elapsed_ms))
+            # Re-arm unconditionally so the loop is self-healing. Guard the after()
+            # call itself: if the root was torn down mid-frame, swallow the
+            # TclError and stop re-arming (the window is gone — correct to stop).
+            if self._running and self._root is not None:
+                try:
+                    self._root.after(next_delay_ms, self._schedule_frame)
+                except Exception:  # noqa: BLE001
+                    log.warning(
+                        "JarvisBar frame re-arm skipped — watchdog will revive",
+                        exc_info=True,
+                    )
+
+    def _schedule_frame_watchdog(self) -> None:
+        """Independent revival loop — the second after-chain (anti-freeze). Renders
+        nothing; only checks the frame-loop heartbeat and kicks ``_schedule_frame``
+        back to life if it has gone silent past ``FRAME_STALL_THRESHOLD_NS`` (e.g.
+        a render hang or a swallowed re-arm failure froze the bar). Its own re-arm
+        is in ``finally`` so a single check error cannot kill the watchdog. A
+        deliberate ``stop()`` (``_running`` False) ends it cleanly."""
+        if not self._running or self._root is None:
+            return
+        try:
+            last = self._last_frame_ns
+            if last and (time.monotonic_ns() - last) > FRAME_STALL_THRESHOLD_NS:
+                stalled_s = (time.monotonic_ns() - last) / 1e9
+                log.warning("JarvisBar frame loop stalled %.1fs — reviving it", stalled_s)
+                # Pre-stamp so a false alarm (a still-live loop) doesn't make us
+                # re-kick every tick; the revived loop immediately re-stamps.
+                self._last_frame_ns = time.monotonic_ns()
+                self._schedule_frame()
+        except Exception:  # noqa: BLE001 — the watchdog must itself never die
+            log.debug("JarvisBar frame watchdog check failed", exc_info=True)
+        finally:
+            if self._running and self._root is not None:
+                try:
+                    self._root.after(WATCHDOG_INTERVAL_MS, self._schedule_frame_watchdog)
+                except Exception:  # noqa: BLE001
+                    log.warning("JarvisBar frame watchdog re-arm skipped", exc_info=True)
+
+    # ------------------------------------------------------------------ #
+    # Loop waker — lives OUTSIDE the Tk thread (BUG-202)                  #
+    # ------------------------------------------------------------------ #
+    def _wake_tk_loop(self) -> bool:
+        """Post one no-op message to the Tk thread so a blocked wait returns."""
+        tid = getattr(self, "_tk_native_thread_id", None)
+        if tid is None:
+            return False
+        from dodaios.core.process_utils import wake_thread_message_loop
+
+        return wake_thread_message_loop(tid)
+
+    def _kick_if_asleep(
+        self,
+        *,
+        threshold_ns: int = LOOP_ASLEEP_THRESHOLD_NS,
+        now_ns: int | None = None,
+    ) -> bool:
+        """Wake the Tk thread when the frame heartbeat is older than ``threshold_ns``.
+
+        Safe to call from any thread and at any rate: it reads two integers,
+        posts at most one message per ``LOOP_ASLEEP_THRESHOLD_NS`` window, and
+        holds off entirely before the first frame has been stamped (the loop is
+        still booting, not asleep). Returns ``True`` when a wake-up was posted.
+
+        A wake that does not bring the heartbeat back means the thread is not
+        merely waiting but busy or truly hung; the poll keeps kicking at the
+        rate limit, warns once per sleep, and says when the loop is back.
+        """
+        if not self._running or self._root is None:
+            return False
+        last = getattr(self, "_last_frame_ns", 0)
+        if not last:
+            return False
+        now = time.monotonic_ns() if now_ns is None else now_ns
+        age = now - last
+        if age < threshold_ns:
+            kicks = getattr(self, "_sleep_kicks", 0)
+            if kicks:
+                self._sleep_kicks = 0
+                log.info("JarvisBar Tk loop is ticking again after %d wake-up(s).", kicks)
+            return False
+        if (now - getattr(self, "_last_wake_ns", 0)) < LOOP_ASLEEP_THRESHOLD_NS:
+            return False
+        self._last_wake_ns = now
+        if not self._wake_tk_loop():
+            return False
+        self._sleep_kicks = getattr(self, "_sleep_kicks", 0) + 1
+        if self._sleep_kicks == 1:
+            log.warning(
+                "JarvisBar Tk loop asleep for %.1fs (every timer armed, none firing) — "
+                "posted a wake-up from outside Tk.",
+                age / 1e9,
+            )
+        return True
+
+    def _loop_waker_run(self) -> None:
+        while self._running:
+            time.sleep(LOOP_WAKER_POLL_S)
+            try:
+                self._kick_if_asleep()
+            except Exception:  # noqa: BLE001 — the waker must outlive any one check
+                log.debug("JarvisBar loop waker check failed", exc_info=True)
+
+    def _start_loop_waker(self) -> None:
+        """Start the daemon that wakes a sleeping Tk thread; a no-op elsewhere.
+
+        Only a platform with a per-thread message queue can be woken this way
+        (see ``process_utils.thread_message_loop_wake_supported``); on the
+        others the X11/Aqua notifiers have not shown the lost-timer sleep, so
+        no thread is started rather than one that could never act.
+        """
+        from dodaios.core.process_utils import thread_message_loop_wake_supported
+
+        if not thread_message_loop_wake_supported():
+            log.debug("JarvisBar loop waker not started: no thread message queue here")
+            return
+        threading.Thread(
+            target=self._loop_waker_run, name="jarvisbar-loop-waker", daemon=True
+        ).start()
+
+    def _schedule_z_order_guard(self) -> None:
+        """Keep a mapped bar above apps that are opened after it.
+
+        This is intentionally independent of voice-state ``show()`` calls: a
+        persistent idle bar may remain mapped for hours without another reveal,
+        which is exactly when an external app can displace it. Hidden and
+        startup-gated surfaces are never mapped or raised by this guard.
+        """
+        if not self._running or self._root is None:
+            return
+        try:
+            mapped = bool(self._root.winfo_ismapped())
+            if mapped and not getattr(self, "_startup_gated", False):
+                strategy = "healthy"
+                if (
+                    sys.platform != "win32"
+                    or _win32_topmost_band_is_healthy(self._root) is not True
+                ):
+                    strategy = self._do_pin_topmost()
+                # The native Win32 path changes only Z-order. A rare Tk
+                # fallback can touch the layered style, so immediately restore
+                # color-key/alpha and request one fresh frame (BUG-030).
+                if sys.platform == "win32" and strategy == "tk":
+                    self._apply_layered_attributes(opacity=self._opacity)
+                    self._invalidate_static_frame()
+        except Exception:  # noqa: BLE001 - the guard must itself never die
+            log.debug("JarvisBar Z-order guard check failed", exc_info=True)
+        finally:
+            if self._running and self._root is not None:
+                try:
+                    self._root.after(Z_ORDER_GUARD_INTERVAL_MS, self._schedule_z_order_guard)
+                except Exception:  # noqa: BLE001
+                    log.warning("JarvisBar Z-order guard re-arm skipped", exc_info=True)
+
+    # ------------------------------------------------------------------ #
+    # Follow the mouse across monitors                                   #
+    # ------------------------------------------------------------------ #
+    def _project_onto_cursor_monitor(self) -> bool:
+        """Re-place the bar on the monitor under the mouse, keeping its spot.
+
+        Returns ``True`` when ``self._x/_y`` changed (the caller then applies the
+        geometry). The bar's RELATIVE spot is projected onto the cursor monitor's
+        work area, so a bigger or smaller monitor keeps the same centred/edge
+        placement (:func:`interaction.project_relative`). Deliberately does NOT
+        check the mapped state — the poll does that, while ``_do_show`` calls
+        this before the window is mapped. Never persists: the relative spot is
+        already the saved truth, so migrating monitors changes nothing durable."""
+        if not self._follow_cursor or self._drag is not None:
+            return False
+        cursor = self._cursor_global()
+        if cursor is None:
+            return False
+        work = self._work_area_for_point(cursor[0], cursor[1])
+        prev_work = self._cur_work
+        self._cur_work = work
+        if work == prev_work:
+            return False  # cursor is on the monitor the bar already lives on
+        rel = self._rel_pos
+        if rel is None:
+            rel = interaction.relative_within(
+                self._x,
+                self._y,
+                work=prev_work or work,
+                bar_w=renderer.WIN_W,
+                bar_h=renderer.WIN_H,
+            )
+        new_x, new_y = interaction.project_relative(
+            rel[0], rel[1], work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
+        )
+        if (new_x, new_y) == (self._x, self._y):
+            return False
+        self._x, self._y = new_x, new_y
+        return True
+
+    def _schedule_cursor_monitor_guard(self) -> None:
+        """~250 ms after-chain that follows the mouse across monitors.
+
+        Independent of the frame loop and the Z-order guard. It acts only for a
+        mapped, ungated, non-dragging bar with follow enabled; anything else is
+        a pure re-arm. A single check error can never kill the loop (``finally``
+        re-arms), and a deliberate ``stop()`` ends it cleanly."""
+        if not self._running or self._root is None:
+            return
+        try:
+            root = self._root
+            if (
+                self._follow_cursor
+                and not getattr(self, "_startup_gated", False)
+                and self._drag is None
+                and bool(root.winfo_ismapped())
+                and self._project_onto_cursor_monitor()
+            ):
+                root.geometry(f"{renderer.WIN_W}x{renderer.WIN_H}+{self._x}+{self._y}")
+        except Exception:  # noqa: BLE001 - the guard must itself never die
+            log.debug("JarvisBar cursor-monitor guard check failed", exc_info=True)
+        finally:
+            if self._running and self._root is not None:
+                try:
+                    self._root.after(CURSOR_MONITOR_POLL_MS, self._schedule_cursor_monitor_guard)
+                except Exception:  # noqa: BLE001
+                    log.warning("JarvisBar cursor-monitor guard re-arm skipped", exc_info=True)
+
+    # ------------------------------------------------------------------ #
+    # Drag (reposition) + click (start a voice session)                 #
+    # ------------------------------------------------------------------ #
+    def _on_press(self, event: Any) -> None:
+        # A press on the canvas means the pointer IS over the bar, so the close-X
+        # controls are (and visually become) available even if <Enter> was missed
+        # — e.g. the bar deiconified under a stationary cursor. resolve_click then
+        # still gates the hang-up on the X-glyph hit-box, so this only makes a
+        # DELIBERATE X-click reliable; it never widens the accidental-hangup zone.
+        self._hovered = True
+        self._drag = {
+            "sx": event.x_root,
+            "sy": event.y_root,
+            "ox": event.x_root - self._x,
+            "oy": event.y_root - self._y,
+            "cy": getattr(event, "y", renderer.WIN_H / 2),
+            "cx": event.x,  # canvas-relative x → which control zone was clicked
+            "hovered": True,  # press-time hover (the pointer IS on the bar now)
+            "moved": False,
+        }
+
+    def _on_motion(self, event: Any) -> None:
+        d = self._drag
+        if d is None or self._root is None:
+            return
+        dx = event.x_root - d["sx"]
+        dy = event.y_root - d["sy"]
+        if not d["moved"] and not interaction.is_drag(dx, dy, DRAG_THRESHOLD_PX):
+            return
+        d["moved"] = True
+        self._x = event.x_root - d["ox"]
+        self._y = event.y_root - d["oy"]
+        try:
+            self._root.geometry(f"{renderer.WIN_W}x{renderer.WIN_H}+{self._x}+{self._y}")
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar geometry update failed", exc_info=True)
+
+    def _set_drop_active(self, active: bool) -> None:
+        """A file drag is over the bar (or has just landed on it).
+
+        Called from the tkdnd callbacks. While this is armed the bar takes no
+        clicks: a drop makes the window emit a synthetic press/release with the
+        pointer genuinely over the bar, which is indistinguishable from a
+        deliberate close-X click by position alone — and reading it as one hung
+        up the user's call the moment they dropped a file.
+
+        The trailing window matters as much as the flag: the synthetic pair can
+        arrive just AFTER the drop is delivered, so clearing on the drop event
+        alone would let the very event this exists for through.
+        """
+        if active:
+            self._drop_active = True
+            self._set_drop_visual(renderer.DROP_STATE_ARMED)
+            return
+        self._drop_active = False
+        self._drop_quiet_until = time.monotonic() + DROP_CLICK_QUIET_S
+        # Leaving without dropping must not leave the rim pulsing. A verdict
+        # already on screen wins — the drop that produced it also reports
+        # ``False`` here, and clearing then would erase the confirmation the
+        # instant it appeared.
+        if self._drop_visual == renderer.DROP_STATE_ARMED:
+            self._set_drop_visual(renderer.DROP_STATE_NONE)
+
+    def _set_drop_visual(self, state: str) -> None:
+        """Switch what the bar shows about a drop and repaint promptly.
+
+        Restamps the clock on every transition so each verdict gets its full
+        animation, and invalidates the static-frame fast path so a long-settled
+        idle bar starts painting again for it.
+        """
+        self._drop_visual = state
+        self._drop_visual_t0 = time.perf_counter()
+        self._invalidate_static_frame()
+
+    def _current_drop_visual(self) -> str:
+        """The drop state to render now, expiring a finished confirmation.
+
+        The renderer is deliberately stateless about time, so somebody has to
+        retire a verdict once its animation has run out — doing it here means
+        the bar also falls back out of the fast-path veto and can settle again.
+        """
+        # getattr, like the level stamp in the frame loop: a ``__new__``-built
+        # test/hot-reload instance skips __init__, and an unset drop state must
+        # read as "nothing in flight" rather than kill the whole frame.
+        state = getattr(self, "_drop_visual", renderer.DROP_STATE_NONE)
+        if state in (renderer.DROP_STATE_OK, renderer.DROP_STATE_REJECTED):
+            elapsed = time.perf_counter() - getattr(self, "_drop_visual_t0", 0.0)
+            if elapsed >= renderer.DROP_CONFIRM_TOTAL_S:
+                self._drop_visual = renderer.DROP_STATE_NONE
+                return renderer.DROP_STATE_NONE
+        return state
+
+    def notify_drop_result(self, accepted: bool) -> None:
+        """Show the verdict of a drop this bar delivered. Thread-safe.
+
+        Called from the backend loop (via ``drop_bridge.report_drop_result``),
+        so the state change is marshalled onto the Tk thread like every other
+        cross-thread mutation. ``accepted=False`` deliberately still shows
+        something: a drop that produced nothing usable is exactly the case
+        where silence would leave the user guessing.
+        """
+        state = renderer.DROP_STATE_OK if accepted else renderer.DROP_STATE_REJECTED
+        if self._root is None:
+            # Not started (or already torn down) — nothing to animate on.
+            return
+        self._enqueue_ui(lambda s=state: self._set_drop_visual(s))
+
+    def _clicks_suppressed(self) -> bool:
+        """True while a drag/drop is claiming the bar's pointer events."""
+        return self._drop_active or time.monotonic() < self._drop_quiet_until
+
+    def _on_release(self, event: Any) -> None:
+        d = self._drag
+        self._drag = None
+        if d is None:
+            return
+        if self._clicks_suppressed():
+            log.debug("jarvisbar: ignoring click (a file drop is in flight)")
+            return
+        if interaction.classify_release(moved=bool(d["moved"])) == "click":
+            # Phantom-click guard (root cause of the request_hangup STORM): a
+            # frameless color-key topmost Tk window emits SYNTHETIC press/release
+            # events on withdraw/deiconify/turn-mode-switch under a stationary
+            # cursor. Read as a close-X click, they fired a machine-paced
+            # request_hangup storm that killed live sessions AND armed the
+            # post-hangup wake-lock, so the next "Hey Jarvis" was swallowed
+            # ("wake triggers, nothing happens"). Honor a click ONLY when the OS
+            # pointer is really over the bar right now.
+            if not self._pointer_over_bar():
+                log.debug("jarvisbar: ignoring phantom click (pointer off bar)")
+                return
+            # Use the PRESS-time hover (consistent with the press-time cx): a
+            # deliberate click that started on the bar registers even if a stray
+            # <Leave> flickered _hovered before release.
+            self._on_click(
+                d.get("cx", renderer.WIN_W / 2), click_y=d.get("cy"), hovered=bool(d.get("hovered"))
+            )
+            return
+        try:
+            # Pin the drop to the monitor it LANDED on (measured at the bar's
+            # centre), NOT the primary screen. Clamping to the primary is exactly
+            # what used to snap a cross-monitor drag back to where it started —
+            # the reported bug. The work-area helper degrades to the full primary
+            # screen when no per-monitor info is available, so single-monitor and
+            # headless hosts keep the old behaviour.
+            work = self._work_area_for_point(
+                self._x + renderer.WIN_W // 2,
+                self._y + renderer.WIN_H // 2,
+            )
+            self._x, self._y = interaction.clamp_to_work_area(
+                self._x,
+                self._y,
+                work=work,
+                bar_w=renderer.WIN_W,
+                bar_h=renderer.WIN_H,
+                margin=MARGIN_PX,
+            )
+            self._root.geometry(f"{renderer.WIN_W}x{renderer.WIN_H}+{self._x}+{self._y}")
+            # Remember the drop monitor + the monitor-independent relative spot so
+            # the follow poll reproduces this placement on any other monitor.
+            self._cur_work = work
+            self._rel_pos = interaction.relative_within(
+                self._x, self._y, work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
+            )
+            from dodaios.core.config_writer import DEFAULT_CONFIG_FILE
+
+            interaction.save_jarvisbar_position(
+                DEFAULT_CONFIG_FILE, self._x, self._y, rel=self._rel_pos
+            )
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar position persist failed", exc_info=True)
+
+    def _pointer_over_bar(self) -> bool:
+        """True when the OS pointer is really inside the bar window right now.
+
+        Guards against synthetic/phantom button events that a frameless
+        color-key topmost Tk window emits on withdraw/deiconify/turn-mode-switch
+        under a stationary cursor (tkdnd was one source, now disabled; the
+        deiconify path remains). Uses ``winfo_pointerxy`` + the window's own
+        ``winfo_rootx/rooty/width/height`` — all Tk screen-pixel measurements in
+        one coordinate space, so it stays correct under HiDPI scaling. Fails
+        CLOSED (returns False) on any error or an unmapped / zero-size window:
+        a missed real click is recoverable, a phantom hang-up is not.
+        """
+        root = self._root
+        if root is None:
+            return False
+        try:
+            if not int(root.winfo_ismapped()):
+                return False
+            bw = int(root.winfo_width())
+            bh = int(root.winfo_height())
+            if bw <= 1 or bh <= 1:
+                return False
+            px, py = root.winfo_pointerxy()
+            bx = int(root.winfo_rootx())
+            by = int(root.winfo_rooty())
+            return bx <= int(px) < bx + bw and by <= int(py) < by + bh
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _on_enter(self, _event: Any = None) -> None:
+        self._hovered = True
+
+    def _on_leave(self, _event: Any = None) -> None:
+        self._hovered = False
+
+    def _on_right_click(self, _event: Any = None) -> None:
+        """Right-click → raise the main desktop window via the injected
+        callback (OrbBusBridge publishes ``ShowWindowRequested``). No callback
+        wired (boot race / no bridge) → safe no-op."""
+        callback = self._on_show_window
+        if callback is None:
+            return
+        try:
+            callback()
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar show-window callback failed", exc_info=True)
+
+    def _on_click(
+        self, click_x: float | None = None, *, click_y: float | None = None, hovered: bool = False
+    ) -> None:
+        # Shared-strip hit testing routes the pen, microphone, orb, speaker
+        # and phone. All entries execute on the Tk thread.
+        if click_x is None:
+            click_x = renderer.WIN_W / 2
+        try:
+            action = interaction.resolve_click(
+                click_x,
+                renderer.WIN_W,
+                self._mode,
+                hovered=hovered,
+                prompt_mode=getattr(self, "_prompt_mode", False),
+                y=click_y,
+            )
+            # Match the Pet strip: repeated voice clicks cannot reopen a call,
+            # while writing and audio controls remain available immediately.
+            if action in ("talk", "hangup", "dictation_stop") and (
+                time.monotonic() < self._hangup_click_block_until
+            ):
+                return
+            if action == "talk":
+                self._call_ring_started_t = time.perf_counter()
+            if action == "compose":
+                callback = self._on_compose or self._on_show_window
+                if callback is not None:
+                    callback()
+                return
+            if action == "speaker":
+                callback = self._on_speaker_toggle
+                if callback is not None:
+                    callback()
+                else:
+                    from ui.orb.controls import toggle_speaker_mute
+
+                    result = toggle_speaker_mute(source="jarvis_bar")
+                    if result is not None:
+                        self.set_speaker_muted(result)
+                return
+            if action == "dictation_stop":
+                # The X while dictating ends the recording and delivers
+                # nothing — the same "make it go away" the X means for a
+                # voice session. Until BUG-191 this click resolved to nothing
+                # while the glyph was drawn.
+                callback = self._on_dictation_stop
+                if callback is not None:
+                    callback()
+                else:
+                    from dodaios.core.runtime_refs import get_speech_pipeline
+
+                    pipeline = get_speech_pipeline()
+                    stop = getattr(pipeline, "request_dictation_stop", None)
+                    if callable(stop):
+                        stop(discard=True)
+                # Immediate local feedback; the bridge reconciles on
+                # ``DictationCompleted``.
+                self._mode = "idle"
+                self._hangup_click_block_until = time.monotonic() + HANGUP_CLICK_GUARD_S
+                return
+            if action == "mute":
+                # The mic button toggles voice mute via the bridge-wired
+                # callback (publishes VoiceMuteToggleRequested → pipeline flips
+                # _muted → broadcasts VoiceMuteChanged → set_muted reconciles).
+                # Flip the local mirror optimistically so the red rim +
+                # slashed-mic show on the very next frame — but ONLY when a
+                # callback is wired, else a boot-race click would paint a false
+                # slash with nothing muted behind it.
+                cb = self._on_mute_toggle
+                if cb is not None:
+                    cb()
+                    self._muted = not self._muted
+            elif action == "prompt_mode_toggle":
+                # The idle pill's sparkle: ask the parent to PAUSE or resume
+                # Prompt Mode (the pipeline owns the hold and answers with
+                # DictationPromptModeChanged → set_prompt_mode). The setting
+                # itself is never touched here. Optimistic local flip for the
+                # next frame, only when a callback is wired — a boot-race
+                # click must not strike the mark through with nothing behind
+                # it.
+                cb = self._on_prompt_mode_toggle
+                if cb is not None:
+                    cb()
+                    self._prompt_mode_paused = not getattr(self, "_prompt_mode_paused", False)
+            elif action == "hangup":
+                callback = self._on_hangup
+                if callback is not None:
+                    # The macOS child cannot inspect the parent's live session.
+                    # It emits the resolved action; SubprocessBarOverlay applies
+                    # the same active/stuck-active guard in the parent process.
+                    callback()
+                    self._mode = "idle"
+                    self._hangup_click_block_until = time.monotonic() + HANGUP_CLICK_GUARD_S
+                    return
+
+                from dodaios.core.runtime_refs import get_speech_pipeline
+
+                pipeline = get_speech_pipeline()
+                if pipeline is None:
+                    return
+                # Only a LIVE session is hung up. If the bar is stuck in an
+                # active "listen/think/speak" look with NO session behind it
+                # (a wake confirmed then swallowed by the post-hangup wake-lock,
+                # or a stray event flipped the look), a close-X would be a no-op
+                # request_hangup that just traps the user. Start a session
+                # instead so a click ALWAYS escapes the stuck state. Legacy
+                # pipelines without is_session_active keep the plain hang-up.
+                active_fn = getattr(pipeline, "is_session_active", None)
+                if active_fn is not None and not active_fn():
+                    start = getattr(pipeline, "request_voice_session", None)
+                    if callable(start):
+                        start()
+                else:
+                    hangup = getattr(pipeline, "request_hangup", None)
+                    if callable(hangup):
+                        hangup()
+                        # Give immediate, local feedback instead of waiting for
+                        # microphone/provider teardown plus the EventBus IDLE
+                        # round-trip. The authoritative bridge state will
+                        # reconcile the same value when teardown completes.
+                        self._mode = "idle"
+                        self._hangup_click_block_until = time.monotonic() + HANGUP_CLICK_GUARD_S
+            elif action == "talk":
+                callback = self._on_talk
+                if callback is not None:
+                    callback()
+                    return
+
+                from dodaios.core.runtime_refs import get_speech_pipeline
+
+                pipeline = get_speech_pipeline()
+                if pipeline is not None:
+                    pipeline.request_voice_session()
+            # "none" → nothing
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar click action failed", exc_info=True)
+
+    def _on_reset_double_click(self, _event: Any = None) -> None:
+        """Reset the bar to its default bottom-center anchor.
+
+        Bridge-compatible: OrbBusBridge looks this up via getattr on
+        OrbResetRequested ("Orb reset"). Returning the bar to the default
+        anchor is the bar's analogue of the orb's position reset.
+        """
+        if self._root is None:
+            return
+        try:
+            # Reset onto the monitor the bar currently sits on — or, in follow
+            # mode, the one under the mouse — not always the primary. The bar
+            # returns to bottom-centre of the screen the user is actually on.
+            cursor = self._cursor_global() if self._follow_cursor else None
+            anchor = cursor or (
+                self._x + renderer.WIN_W // 2,
+                self._y + renderer.WIN_H // 2,
+            )
+            work = self._work_area_for_point(anchor[0], anchor[1])
+            wl, wt, ww, wh = work
+            self._x = wl + (ww - renderer.WIN_W) // 2
+            self._y = wt + wh - renderer.WIN_H - TASKBAR_GAP_PX
+            self._x, self._y = interaction.clamp_to_work_area(
+                self._x,
+                self._y,
+                work=work,
+                bar_w=renderer.WIN_W,
+                bar_h=renderer.WIN_H,
+                margin=MARGIN_PX,
+            )
+            self._root.geometry(f"{renderer.WIN_W}x{renderer.WIN_H}+{self._x}+{self._y}")
+            self._cur_work = work
+            self._rel_pos = interaction.relative_within(
+                self._x, self._y, work=work, bar_w=renderer.WIN_W, bar_h=renderer.WIN_H
+            )
+            from dodaios.core.config_writer import DEFAULT_CONFIG_FILE
+
+            interaction.save_jarvisbar_position(
+                DEFAULT_CONFIG_FILE, self._x, self._y, rel=self._rel_pos
+            )
+        except Exception:  # noqa: BLE001
+            log.debug("jarvisbar reset failed", exc_info=True)

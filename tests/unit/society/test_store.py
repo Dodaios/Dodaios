@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.events import MsgType, SocietyEnvelope
-from jarvis.society.store import SocietyStore
+from dodaios.society.events import MsgType, SocietyEnvelope
+from dodaios.society.store import SocietyStore
 
 
 @pytest.fixture
@@ -127,7 +127,7 @@ async def test_survives_a_crash_between_persist_and_publish(store: SocietyStore,
 async def test_cancelled_open_closes_provisional_connection(tmp_path, monkeypatch):
     import asyncio
 
-    from jarvis.society import store as store_module
+    from dodaios.society import store as store_module
 
     entered = asyncio.Event()
 
@@ -169,8 +169,8 @@ async def test_checkpoint_check_is_widened_on_an_old_database(tmp_path):
     opening it rebuilds the table and keeps every row."""
     import sqlite3
 
-    from jarvis.society.roster import Roster
-    from jarvis.society.store import _SCHEMA_PATH, SocietyStore
+    from dodaios.society.roster import Roster
+    from dodaios.society.store import _SCHEMA_PATH, SocietyStore
 
     schema = _SCHEMA_PATH.read_text(encoding="utf-8")
     start = schema.index("CHECK (checkpoint IN (")

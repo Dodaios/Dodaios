@@ -11,7 +11,7 @@ import inspect
 
 import pytest
 
-from jarvis.core.protocols import Observation, VisionSource
+from dodaios.core.protocols import Observation, VisionSource
 from tests.fixtures.vision.fake_vision import FakeVisionSource
 
 
@@ -19,10 +19,10 @@ def _get_sources() -> list[VisionSource]:
     sources: list[VisionSource] = [FakeVisionSource()]
     # production sources are optional until 5.1-A has run
     with contextlib.suppress(Exception):
-        from jarvis.vision.screenshot import ScreenshotSource  # type: ignore[attr-defined]
+        from dodaios.vision.screenshot import ScreenshotSource  # type: ignore[attr-defined]
         sources.append(ScreenshotSource())
     with contextlib.suppress(Exception):
-        from jarvis.vision.uia_tree import UIATreeSource  # type: ignore[attr-defined]
+        from dodaios.vision.uia_tree import UIATreeSource  # type: ignore[attr-defined]
         sources.append(UIATreeSource())
     return sources
 

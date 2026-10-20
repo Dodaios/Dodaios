@@ -6,7 +6,7 @@ probe become an opt-in power-user extra.
 """
 from __future__ import annotations
 
-from jarvis.core.config import TriggerConfig
+from dodaios.core.config import TriggerConfig
 
 
 def test_heavy_local_whisper_defaults_false() -> None:

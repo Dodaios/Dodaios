@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.dictation.cleanup import (
+from dodaios.dictation.cleanup import (
     FILLER_WORDS,
     SUPPORTED_LANGUAGES,
     clean_transcript,

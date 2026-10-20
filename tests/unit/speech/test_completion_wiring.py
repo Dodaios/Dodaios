@@ -13,8 +13,8 @@ keeps an arbitrary future write from breaking boot (AP-16).
 
 from __future__ import annotations
 
-from jarvis.core.config import JarvisConfig, VoiceConfig
-from jarvis.speech.pipeline import TurnTakingState
+from dodaios.core.config import JarvisConfig, VoiceConfig
+from dodaios.speech.pipeline import TurnTakingState
 
 
 def test_voice_config_has_completion_defaults() -> None:

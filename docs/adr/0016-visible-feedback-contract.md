@@ -88,7 +88,7 @@ class UserVisibleFeedback(Event):
   in single-monitor / primary-pin / default-anchor boots — no visual
   noise in the 99% case.
 - **L2 — Discovery-independent recovery.** Voice phrases "Orb zurück", "wo bist du", "reset orb" are matched by <!-- i18n-allow -->
-  `jarvis.brain.local_action_gate` and dispatched to the new
+  `dodaios.brain.local_action_gate` and dispatched to the new
   `reset_orb_position` tool, which publishes `OrbResetRequested`.
   The orb bridge subscribes and resets via the Tk-thread marshal.
   The previous recovery path (right-click → "Reset position") only
@@ -110,7 +110,7 @@ class UserVisibleFeedback(Event):
   guard around `DRAG_THRESHOLD_PX = 16`. The Tier-2 real-Tk test is
   the deepest end-to-end visibility contract assertion we can make
   without a graphics-comparison harness.
-- **L5 — `python -m jarvis --orb-doctor`.** Dry-run diagnostic that
+- **L5 — `python -m dodaios --orb-doctor`.** Dry-run diagnostic that
   reads the persisted pin, enumerates live monitors via
   `EnumDisplayMonitors`, and computes where the orb *would* spawn —
   all without opening a Tk window. Sits alongside `--check`,
@@ -121,7 +121,7 @@ class UserVisibleFeedback(Event):
 **Positive:**
 
 - The `UserVisibleFeedback` event is a clean architectural seam. TTS
-  adoption is one new publish call in `jarvis/audio/player.py` after
+  adoption is one new publish call in `dodaios/audio/player.py` after
   `AudioOutFirst`. Toast adoption is one publish call in
   `pywebview` window.created. No redesign needed for either.
 - A flight-recorder consumer can batch-compute drift events: for
@@ -191,11 +191,11 @@ sibling of anti-drift-three-layer, not an extension of it.
   - `ui/orb/drag_persistence.py` (L3 post-condition)
   - `ui/orb/overlay.py` (L1 boot flash, L0 publisher injection)
   - `ui/orb/bus_bridge.py` (L0 UserVisibleFeedback publish, L2 OrbResetRequested subscribe)
-  - `jarvis/brain/local_action_gate.py` (L2 voice patterns)
-  - `jarvis/plugins/tool/reset_orb_position.py` (L2 tool)
-  - `jarvis/core/events.py` (UserVisibleFeedback + OrbResetRequested dataclasses)
+  - `dodaios/brain/local_action_gate.py` (L2 voice patterns)
+  - `dodaios/plugins/tool/reset_orb_position.py` (L2 tool)
+  - `dodaios/core/events.py` (UserVisibleFeedback + OrbResetRequested dataclasses)
 - Tests:
   - `tests/unit/ui/test_orb_visibility_contract.py`
   - `tests/unit/brain/test_local_action_gate.py` (orb-reset cases)
   - `tests/unit/ui/test_orb_bus_bridge.py` (UserVisibleFeedback + OrbResetRequested cases)
-- Diagnostic: `python -m jarvis --orb-doctor`
+- Diagnostic: `python -m dodaios --orb-doctor`

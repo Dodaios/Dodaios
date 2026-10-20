@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.ui.dodaiosbar import interaction as I
-from jarvis.ui.dodaiosbar import renderer as R
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay
+from dodaios.ui.dodaiosbar import interaction as I
+from dodaios.ui.dodaiosbar import renderer as R
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay
 
 
 class _FakeRoot:
@@ -84,7 +84,7 @@ def _center() -> tuple[int, int]:
 @pytest.mark.skip(
     reason=(
         "CLUSTER 4: hover-expand feature was never shipped. "
-        "I.pointer_in_window does not exist in production jarvis.ui.dodaiosbar.interaction. "
+        "I.pointer_in_window does not exist in production dodaios.ui.dodaiosbar.interaction. "
         "Delete this test when the feature lands or remove it permanently."
     )
 )

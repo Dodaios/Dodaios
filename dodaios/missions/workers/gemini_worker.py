@@ -1,0 +1,566 @@
+"""GeminiWorker - wrap ``gemini -p ... --yolo`` as a Phase-6 worker subprocess.
+
+Driven by the Gemini CLI (installed via `npm install -g @google/gemini-cli`,
+resolved from PATH at runtime). Lets a mission honor the brain provider the
+user selected in the desktop app (`jarvis.toml [brain] primary = "gemini"`)
+instead of always falling back to Claude.
+
+Cmd-Layout:
+
+    gemini --prompt <prompt>
+           --model <gemini-3.1-pro-preview | gemini-3-flash-preview | ...>
+           --yolo
+           --output-format stream-json
+
+`stream-json` (not `text`): the archived ``stream.jsonl`` is the ONLY
+record of what a worker actually did — the Critic's evidence and the
+Visualization's node graph are both reconstructed from it. Text mode
+recorded nothing but the final prose, so gemini runs drew as bare
+Request → Result cards forever. The gemini event schema isn't the
+claude shape, but :func:`dodaios.missions.stream_evidence.
+normalize_worker_stream` rewrites it (verified against the installed
+CLI 0.47.0 bundle), so every downstream reader stays unchanged. The
+worker still yields only the two synthetic `Claude*`-shaped events
+(`ClaudeSystemInit` + `ClaudeResult`) — the orchestrator path is
+untouched; the final answer is assembled from the stream's assistant
+deltas, falling back to raw stdout for an older CLI that ignores the
+format flag.
+
+Spawn discipline:
+- Routed through `create_worker_subprocess` (NO shell=True, NO PTY); that
+  helper owns the Win32 creationflags (incl. CREATE_BREAKAWAY_FROM_JOB so the
+  per-mission Job Object can assign the tree) AND sets start_new_session=True
+  on POSIX so the worker forms its own killable process group (H3).
+- ``env=...`` comes strictly from ``build_worker_env`` (allowlist only); we expect
+  GEMINI_API_KEY / GOOGLE_API_KEY to be injected by the caller.
+- `cwd=worktree` — Gemini CLI writes/reads files relative to cwd, so
+  hello.py-style tasks land inside the git worktree and the
+  Kontrollierer's `_capture_diff` picks them up (`git add -N .` + `git
+  diff HEAD`).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import shutil
+import time
+import uuid
+from collections.abc import AsyncIterator
+from contextlib import suppress
+from pathlib import Path
+from typing import Any, ClassVar, Literal
+
+from dodaios.missions.stream_evidence import extract_stream_evidence
+
+from .capabilities import WorkerCapabilityInventory
+from .process_utils import create_worker_subprocess
+from .stream_consumer import ClaudeResult, ClaudeSystemInit
+
+logger = logging.getLogger(__name__)
+
+
+_GEMINI_BINARIES: tuple[str, ...] = ("gemini.cmd", "gemini")
+
+# Quota-fallback chain: if the Frontier model returns 429 / QUOTA_EXHAUSTED
+# we retry on Flash. Flash has its own quota bucket and stays available even
+# when Pro is rolling-window-exhausted (verified live 2026-05-13: Pro had
+# 6h+ reset while Flash answered immediately on the same key).
+_QUOTA_BLOCKED_MARKERS: tuple[str, ...] = (
+    "QUOTA_EXHAUSTED",
+    "code: 429",
+    "exhausted your capacity",
+    "PERMISSION_DENIED",
+)
+_FALLBACK_MODEL: str = "gemini-3-flash-preview"
+
+# 20 min default hard cap — used only when the orchestrator does not pass its
+# own degressive budget (720 s iteration-0 / 360 s correction) via ``timeout_s``.
+_WORKER_TIMEOUT_S: float = 1200.0
+
+
+def _build_isolated_gemini_env(
+    env: dict[str, str],
+    *,
+    log_dir: Path,
+    mcp_servers: dict[str, Any] | None = None,
+) -> tuple[dict[str, str], Path, str]:
+    """Apply a highest-precedence restricted config without hiding CLI auth."""
+    settings_path = log_dir / ".jarvis-gemini-system-settings.json"
+    server_names = tuple(sorted((mcp_servers or {}).keys()))
+    allowed_server = server_names[0] if server_names else f"jarvis-no-mcp-{uuid.uuid4().hex}"
+    settings: dict[str, Any] = {
+        "hooksConfig": {"enabled": False},
+        "mcp": {"allowed": list(server_names) or [allowed_server]},
+        "security": {"allowedExtensions": ["(?!)"]},
+        "skills": {"enabled": False},
+    }
+    if server_names:
+        settings["mcpServers"] = dict(mcp_servers or {})
+    settings_path.write_text(
+        json.dumps(settings),
+        encoding="utf-8",
+    )
+    restricted = dict(env)
+    restricted["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = str(settings_path)
+    return restricted, settings_path, allowed_server
+
+
+def _stderr_signals_quota_block(stderr_bytes: bytes) -> bool:
+    """True if the CLI stderr indicates the Frontier model is unavailable
+    (rolling-window 429 quota or 403 access denial). Used to decide whether
+    to retry with the cheaper Flash variant before failing the mission.
+    """
+    if not stderr_bytes:
+        return False
+    text = stderr_bytes.decode("utf-8", errors="replace")
+    return any(marker in text for marker in _QUOTA_BLOCKED_MARKERS)
+
+
+def _resolve_gemini_argv_prefix(*, bundle_finder: Any = None) -> list[str]:
+    """Returns the argv prefix for invoking the Gemini CLI.
+
+    On Windows, the npm-installed CLI ships as `gemini.cmd` — a batch
+    wrapper around `node bundle/gemini.js`. Calling `.cmd` from
+    `asyncio.create_subprocess_exec` makes cmd.exe re-parse the full
+    argv with batch tokenizer rules, and that tokenizer treats `<`,
+    `>`, `&`, `|`, `^`, `%` as metacharacters. Embedding a JSON
+    schema (which contains `<`) in `--prompt` then causes CreateProcess
+    to fail with the localized Win32 "file not found" error long before
+    the model is invoked - verified live 2026-05-13.
+
+    Skipping the .cmd wrapper entirely by invoking `node ...gemini.js`
+    directly avoids the second-stage parser and lets any payload
+    through verbatim. We only fall back to the bare CLI binary when
+    we can't locate node + the JS entrypoint.
+    """
+    import shutil  # noqa: PLC0415
+
+    node = shutil.which("node") or shutil.which("node.exe")
+    if node:
+        # The npm shim stores the actual JS bundle at a predictable
+        # path relative to the .cmd shim. Search the canonical layout.
+        for name in _GEMINI_BINARIES:
+            cli = shutil.which(name)
+            if not cli:
+                continue
+            cli_dir = Path(cli).resolve().parent
+            candidate = cli_dir / "node_modules" / "@google" / "gemini-cli" / "bundle" / "gemini.js"
+            if candidate.is_file():
+                return [node, str(candidate)]
+
+    # Robust fallback: probe the npm-global node_modules DIRECTLY (handles this
+    # machine's broken-shim case, where shutil.which misses the stale gemini.cmd
+    # temp files, so the loop above finds nothing). Drives `node <bundle>`, which
+    # also avoids the .cmd metachar re-parse. Shared with the brain resolver.
+    from dodaios.google_cli.resolver import _default_npm_bundle
+
+    finder = bundle_finder or _default_npm_bundle
+    bundle = finder()
+    if bundle:
+        node = shutil.which("node") or shutil.which("node.exe") or "node"
+        return [node, str(bundle)]
+
+    # Fallback: bare CLI (still works for prompts with no metachars).
+    for name in _GEMINI_BINARIES:
+        cli = shutil.which(name)
+        if cli:
+            return [cli]
+    return ["gemini"]
+
+
+def _resolve_gemini_model(requested: str | None) -> str:
+    """Returns the Gemini model slug to use for this worker call.
+
+    Resolution rules (highest priority first):
+        1. If `requested` is a Gemini slug already (starts with "gemini"),
+           pass it through verbatim.
+        2. Otherwise read `cfg.brain.providers.gemini.deep_model` from
+           jarvis.toml — that's the Frontier slot the user owns.
+        3. As a last resort (config unreachable, e.g. test environment
+           without a project layout), fall back to the documented
+           Frontier model at the time this code was written.
+
+    Why not hardcode Flash: the user is on Pay-as-you-go and explicitly
+    asked for Frontier-quality output, not the cheaper variant. The
+    "deep_model" config field exists specifically so newer Frontier
+    models (Gemini 4, etc.) can be adopted via a one-line TOML change.
+    See `memory/feedback_frontier_models.md`.
+    """
+    if requested and requested.lower().startswith("gemini"):
+        return requested
+    try:
+        from dodaios.core.config import load_config
+
+        cfg = load_config()
+        providers = cfg.brain.providers or {}
+        gemini_cfg = providers.get("gemini")
+        if gemini_cfg is not None:
+            deep = getattr(gemini_cfg, "deep_model", None)
+            if deep:
+                return str(deep)
+            model = getattr(gemini_cfg, "model", None)
+            if model:
+                return str(model)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "GeminiWorker: config lookup failed (%s) — using Frontier fallback",
+            exc,
+        )
+    # Documented Frontier @ 2026-Q2; keep in sync with jarvis.toml defaults.
+    return "gemini-3.1-pro-preview"
+
+
+def _resolve_gemini_binary() -> str:
+    """Returns the absolute path to the Gemini CLI executable.
+
+    Kept for backward compatibility with tests that pin a single
+    string. Production code should call `_resolve_gemini_argv_prefix()`
+    instead — it returns the full argv prefix (node + bundle.js) that
+    sidesteps the cmd.exe metacharacter trap.
+    """
+    for name in _GEMINI_BINARIES:
+        path = shutil.which(name)
+        if path:
+            return path
+    return "gemini"
+
+
+def _build_gemini_cmd(
+    prompt: str,
+    *,
+    model: str,
+    yolo: bool = True,
+    extra_args: tuple[str, ...] = (),
+) -> list[str]:
+    """Constructs the Gemini CLI argv.
+
+    Stable order so the dry-run test can pin it argument-for-argument.
+    `--yolo` is on by default — the worker is already running inside a
+    per-mission git worktree + Windows Job Object, so "auto-approve all
+    tools" is the safe shape for an unattended worker.
+
+    Prompt sanitization (Windows-only nasty): newlines inside a
+    `--prompt <text>` CLI argument get mangled by the `gemini.cmd`
+    batch wrapper before they reach the Node entrypoint. Concretely
+    `Create hello.py\\nThen exit.` arrives at the LLM as just
+    `Create hello.py` (and the LLM helpfully replies "I am ready for
+    your instructions, no explicit request was provided"). We collapse
+    every newline to a single space — it preserves the LLM-visible
+    intent (Gemini doesn't care about line breaks for plain
+    imperative prompts) and dodges the cmd-wrapper bug. Verified
+    live 2026-05-13: same prompt with newlines fails, without
+    newlines succeeds, on both Flash and Pro.
+    """
+    safe_prompt = " ".join(prompt.split())
+    cmd: list[str] = [
+        *_resolve_gemini_argv_prefix(),
+        "--prompt",
+        safe_prompt,
+        "--model",
+        model,
+        "--output-format",
+        "stream-json",
+    ]
+    if yolo:
+        cmd.append("--yolo")
+    cmd.extend(extra_args)
+    return cmd
+
+
+class GeminiWorker:
+    """Phase-6-Worker that drives the Gemini CLI.
+
+    Mirrors the `WorkerProtocol` contract — same async-iterator
+    spawn(), same event shape consumed by
+    `Kontrollierer._spawn_worker_collect`.
+
+    `cli` is declared as `"claude"` rather than a new literal so the
+    Phase-6 telemetry surfaces (WorkerSpawned.cli, missions UI) don't
+    need a schema migration to recognise this worker. The
+    `name=` field on the synthetic ClaudeSystemInit carries
+    `"gemini"` so debugging stays unambiguous.
+    """
+
+    cli: Literal["claude"] = "claude"
+    # Provider family this worker bills (dodaios/missions/capacity.worker_family).
+    family: ClassVar[str] = "gemini"
+
+    def __init__(
+        self,
+        *,
+        capability_inventory: WorkerCapabilityInventory | None = None,
+    ) -> None:
+        self.last_pid: int | None = None
+        self.last_session_id: str | None = None
+        self.capability_inventory = capability_inventory or WorkerCapabilityInventory.build()
+
+    async def spawn(
+        self,
+        prompt: str,
+        *,
+        worktree: Path,
+        env: dict[str, str],
+        job: Any,
+        worker_id: str,
+        log_dir: Path,
+        model: str = "gemini-3-flash-preview",
+        allowed_tools: str = "",  # accepted for parity, ignored by Gemini CLI
+        permission_mode: str = "yolo",
+        max_turns: int = 20,
+        resume_session_id: str | None = None,
+        extra_args: tuple[str, ...] = (),
+        timeout_s: float = _WORKER_TIMEOUT_S,
+        _broker_binding: Any | None = None,
+        **_unused: Any,
+    ) -> AsyncIterator[Any]:
+        """Run one Gemini worker lifecycle under one mission-scoped grant."""
+        broker_binding = _broker_binding
+        issued_here = broker_binding is None
+        if issued_here:
+            broker_binding = self.capability_inventory.bind_broker(
+                ttl_s=timeout_s + 60.0,
+                mission_id=_unused.get("mission_id"),
+                worker_id=worker_id,
+            )
+        try:
+            async for event in self._spawn_bound(
+                prompt,
+                worktree=worktree,
+                env=env,
+                job=job,
+                worker_id=worker_id,
+                log_dir=log_dir,
+                model=model,
+                allowed_tools=allowed_tools,
+                permission_mode=permission_mode,
+                max_turns=max_turns,
+                resume_session_id=resume_session_id,
+                extra_args=extra_args,
+                timeout_s=timeout_s,
+                broker_binding=broker_binding,
+                **_unused,
+            ):
+                yield event
+        finally:
+            if issued_here and broker_binding is not None:
+                try:
+                    broker_binding.close()
+                except Exception:  # noqa: BLE001 - cleanup must not mask cancellation
+                    logger.exception("GeminiWorker: broker binding cleanup failed")
+
+    async def _spawn_bound(
+        self,
+        prompt: str,
+        *,
+        worktree: Path,
+        env: dict[str, str],
+        job: Any,
+        worker_id: str,
+        log_dir: Path,
+        model: str = "gemini-3-flash-preview",
+        allowed_tools: str = "",  # accepted for parity, ignored by Gemini CLI
+        permission_mode: str = "yolo",
+        max_turns: int = 20,
+        resume_session_id: str | None = None,
+        extra_args: tuple[str, ...] = (),
+        timeout_s: float = _WORKER_TIMEOUT_S,
+        broker_binding: Any | None,
+        **_unused: Any,
+    ) -> AsyncIterator[Any]:
+        """Spawn the Gemini CLI and emit a synthetic init + result.
+
+        Returns events shaped like ClaudeSystemInit / ClaudeResult so
+        the Kontrollierer's collector logic stays generic. The diff is
+        NOT extracted from stream events — `_capture_diff(worktree)`
+        runs `git diff` after this generator exits.
+        """
+        log_dir.mkdir(parents=True, exist_ok=True)  # noqa: ASYNC240
+        stdout_log = log_dir / "stream.jsonl"
+        stderr_log = log_dir / "stderr.log"
+
+        # The Phase-6 decomposer defaults `Step.model="sonnet"` — that's
+        # a Claude alias and Gemini CLI would error out on it. Read the
+        # actual Frontier model from
+        # `jarvis.toml [brain.providers.gemini].deep_model` instead of
+        # hardcoding Flash. The user pays for Pay-as-you-go quota and
+        # explicitly wants top-tier output quality (see
+        # feedback_frontier_models.md). When a newer Frontier model ships
+        # (Gemini 4, etc.) the user updates the TOML and we pick it up
+        # automatically — no code change needed.
+        effective_model = _resolve_gemini_model(model)
+        broker_servers = (
+            broker_binding.mcp_server_config() if broker_binding is not None else {}
+        )
+
+        cmd = _build_gemini_cmd(
+            prompt,
+            model=effective_model,
+            yolo=(permission_mode == "yolo"),
+            extra_args=extra_args,
+        )
+
+        session_id = resume_session_id or str(uuid.uuid4())
+        self.last_session_id = session_id
+
+        # Yield the synthetic init event so WorkerSpawned fires upstream
+        # with a usable session_id (the orchestrator only needs SOMETHING
+        # non-empty to log; resume semantics aren't supported by Gemini
+        # CLI's stateless --prompt mode anyway).
+        yield ClaudeSystemInit(
+            session_id=session_id,
+            model=f"gemini/{effective_model}",
+            tools=[],
+            cwd=str(worktree),
+            external_capabilities=self.capability_inventory.report_for(
+                "gemini-cli", binding=broker_binding
+            ),
+        )
+
+        (
+            env_for_gemini,
+            restricted_settings,
+            no_mcp_server,
+        ) = _build_isolated_gemini_env(
+            (
+                broker_binding.apply_environment(env)
+                if broker_binding is not None
+                else env
+            ),
+            log_dir=log_dir,
+            mcp_servers=broker_servers,
+        )
+        cmd.extend(["--allowed-mcp-server-names", no_mcp_server])
+
+        logger.info(
+            "GeminiWorker[%s] spawn: cwd=%s model=%s yolo=%s",
+            worker_id,
+            worktree,
+            effective_model,
+            permission_mode == "yolo",
+        )
+
+        t0 = time.perf_counter()
+        # One deadline for the WHOLE spawn, shared with the quota-fallback
+        # re-spawn below — otherwise one iteration could burn 2 × timeout_s
+        # and blow the orchestrator's degressive task budget.
+        deadline = t0 + timeout_s
+
+        async def _spawn_once(spawn_cmd: list[str]) -> tuple[bytes, bytes, int]:
+            """Spawn the Gemini CLI once and return (stdout, stderr, exit).
+
+            Extracted so we can re-spawn with a fallback model when the
+            primary returns 429/QUOTA_EXHAUSTED without duplicating the
+            Job-Object assignment + log-tee logic in two places.
+            """
+            # Route through the shared helper so the worker is spawned into its
+            # own session/process-group on POSIX (start_new_session=True) and the
+            # per-mission Job Object owns the tree on Windows — never a raw
+            # create_subprocess_exec, which would leave the worker in the
+            # orchestrator's process group off Windows (H3).
+            proc_local = await create_worker_subprocess(
+                spawn_cmd,
+                cwd=str(worktree),
+                env=env_for_gemini,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            self.last_pid = proc_local.pid
+            try:
+                job.assign(proc_local.pid)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "GeminiWorker[%s]: job.assign(pid=%d) failed",
+                    worker_id,
+                    proc_local.pid,
+                    exc_info=True,
+                )
+            # The orchestrator's degressive budget (``timeout_s``) is the hard
+            # cap; a fallback re-spawn only gets whatever remains of it. The
+            # "timeout" substring in the stderr below flags is_timeout to the
+            # orchestrator, which then grades the on-disk diff instead of
+            # discarding it.
+            remaining = max(1.0, deadline - time.perf_counter())
+            try:
+                out, err = await asyncio.wait_for(proc_local.communicate(), timeout=remaining)
+            except TimeoutError:
+                with suppress(ProcessLookupError):
+                    proc_local.kill()
+                # Audit-2 H3 (2026-05-17): always wait() after kill() so the
+                # asyncio transport tears down and the Win32 handle drops.
+                with suppress(Exception):
+                    await asyncio.wait_for(proc_local.wait(), timeout=5.0)
+                out, err = b"", (
+                    f"GeminiWorker: subprocess wait_for timeout "
+                    f"({remaining:.0f}s of {timeout_s:.0f}s budget)"
+                ).encode()
+            exit_local = proc_local.returncode if proc_local.returncode is not None else -1
+            return out, err, exit_local
+
+        stdout_bytes, stderr_bytes, exit_code = await _spawn_once(cmd)
+
+        # Pro→Flash fallback. Google AI Studio enforces a rolling 6h
+        # quota on Pro-Preview models that is account-scoped (not
+        # project-scoped); when it triggers, the CLI returns
+        # `429 QUOTA_EXHAUSTED` on Pro while Flash keeps responding on
+        # the same key. Rather than fail the mission, retry once on
+        # Flash. Frontier-Routing snaps back automatically as soon as
+        # Pro quota refills, since `effective_model` is read from
+        # config on every spawn.
+        if (
+            exit_code != 0
+            and effective_model != _FALLBACK_MODEL
+            and _stderr_signals_quota_block(stderr_bytes)
+        ):
+            logger.warning(
+                "GeminiWorker[%s]: %s returned 429/quota — retrying on %s",
+                worker_id,
+                effective_model,
+                _FALLBACK_MODEL,
+            )
+            fallback_cmd = _build_gemini_cmd(
+                prompt,
+                model=_FALLBACK_MODEL,
+                yolo=(permission_mode == "yolo"),
+                extra_args=extra_args,
+            )
+            fallback_cmd.extend(["--allowed-mcp-server-names", no_mcp_server])
+            effective_model = _FALLBACK_MODEL
+            stdout_bytes, stderr_bytes, exit_code = await _spawn_once(fallback_cmd)
+
+        # Tee both streams to disk for post-mortem.
+        with suppress(OSError):
+            stdout_log.write_bytes(stdout_bytes)
+        with suppress(OSError):
+            stderr_log.write_bytes(stderr_bytes)
+        with suppress(OSError):
+            restricted_settings.unlink(missing_ok=True)
+
+        wall_ms = int((time.perf_counter() - t0) * 1000)
+        is_error = exit_code != 0
+
+        # Cost + tokens aren't consumed from the stream's stats frame yet.
+        # Leave them at None; the orchestrator falls back to 0 via the
+        # `tokens_used → total_tokens → num_turns` chain (also None here).
+        # The spoken answer is assembled from the stream-json assistant
+        # deltas via the shared canonicalizer; raw stdout is the fallback
+        # for an older CLI that emitted plain text despite the flag.
+        stdout_text = stdout_bytes.decode("utf-8", errors="replace")
+        result_text = (
+            extract_stream_evidence(stdout_text, max_result_chars=400).final_answer
+            or stdout_text
+        )
+        if is_error and stderr_bytes:
+            tail = stderr_bytes.decode("utf-8", errors="replace")[-300:]
+            result_text = (result_text or "") + f"\n[stderr-tail]\n{tail}"
+
+        yield ClaudeResult(
+            subtype="success" if not is_error else "error_during_execution",
+            is_error=is_error,
+            cost_usd=None,
+            num_turns=None,
+            session_id=session_id,
+            duration_ms=wall_ms,
+            result=result_text[:4000],  # cap to keep DB payload manageable
+        )

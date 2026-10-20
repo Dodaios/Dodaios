@@ -23,7 +23,7 @@ Per target in ``contract.json``:
    ``SOURCES.md`` from what was built.
 
 Runs on Windows, macOS and Linux (Blender needs no display in ``-b`` mode). It
-never imports ``jarvis.*``: Blender ships its own interpreter.
+never imports ``dodaios.*``: Blender ships its own interpreter.
 """
 
 from __future__ import annotations
@@ -46,8 +46,8 @@ sys.path.insert(0, str(HERE))
 import glb_tools as gt  # noqa: E402
 
 CONTRACT = json.loads((HERE / "contract.json").read_text(encoding="utf-8"))
-DEFAULT_OUT = REPO / "jarvis/ui/web/frontend/src/assets/society/figures"
-CATALOG_PATH = REPO / "jarvis/ui/web/frontend/src/components/society/figures/catalog.json"
+DEFAULT_OUT = REPO / "dodaios/ui/web/frontend/src/assets/society/figures"
+CATALOG_PATH = REPO / "dodaios/ui/web/frontend/src/components/society/figures/catalog.json"
 
 
 def log(msg: str) -> None:

@@ -1,4 +1,4 @@
-"""Unit tests for ``jarvis.memory.wiki.atomic_writer``.
+"""Unit tests for ``dodaios.memory.wiki.atomic_writer``.
 
 The :class:`AtomicWriter` is the only path that writes wiki pages to
 disk. The five-step pipeline is:
@@ -24,13 +24,13 @@ from unittest import mock
 
 import pytest
 
-from jarvis.memory.wiki.atomic_writer import (
+from dodaios.memory.wiki.atomic_writer import (
     ALLOWED_OPERATIONS,
     AtomicWriteError,
     AtomicWriter,
 )
-from jarvis.memory.wiki.backup import BackupManager
-from jarvis.memory.wiki.protocols import PageUpdate
+from dodaios.memory.wiki.backup import BackupManager
+from dodaios.memory.wiki.protocols import PageUpdate
 
 from .conftest import FakePageRepository, write_page
 
@@ -492,7 +492,7 @@ def test_crash_mid_write_does_not_corrupt_other_pages(
             raise OSError("simulated mid-write crash")
         return real_replace(src, dst)
 
-    with mock.patch("jarvis.memory.wiki.atomic_writer.os.replace", side_effect=flaky_replace):
+    with mock.patch("dodaios.memory.wiki.atomic_writer.os.replace", side_effect=flaky_replace):
         result = asyncio.run(writer.apply(updates, repo=fake_repo))
 
     # First and third applied; second skipped due to write failure.
@@ -721,7 +721,7 @@ def test_body_with_api_key_is_blocked(
     The page never lands on disk, surfaces in ``WriteResult.blocked_pii``,
     and the ``wiki_writes_blocked_pii`` counter increments (AP-2).
     """
-    from jarvis.memory.wiki.telemetry import telemetry
+    from dodaios.memory.wiki.telemetry import telemetry
 
     before = telemetry.get("wiki_writes_blocked_pii")
     target = vault_root / "entities" / "leaky.md"

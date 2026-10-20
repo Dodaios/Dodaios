@@ -1,5 +1,5 @@
 """Contract tests for every adapter in
-:data:`jarvis.brain.ack_brain.providers.REGISTRY`.
+:data:`dodaios.brain.ack_brain.providers.REGISTRY`.
 
 Each parametrised case runs against every registered adapter class, so
 new entries in the REGISTRY automatically inherit:
@@ -26,14 +26,14 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.ack_brain.config import (
+from dodaios.brain.ack_brain.config import (
     SUPPORTED_PROVIDERS,
     GeminiAckProviderConfig,
     GrokAckProviderConfig,
     OllamaAckProviderConfig,
     OpenAIAckProviderConfig,
 )
-from jarvis.brain.ack_brain.providers import (
+from dodaios.brain.ack_brain.providers import (
     REGISTRY,
     AbstractAckProvider,
     GeminiFlashAck,
@@ -247,7 +247,7 @@ def _install_httpx_fake(monkeypatch: pytest.MonkeyPatch) -> _FakeAsyncHTTPClient
 def _install_secret_fake(
     monkeypatch: pytest.MonkeyPatch, value: str | None = "fake-key"
 ) -> None:
-    from jarvis.core import config as cfg_module
+    from dodaios.core import config as cfg_module
 
     monkeypatch.setattr(
         cfg_module, "get_secret", lambda *_args, **_kwargs: value, raising=True

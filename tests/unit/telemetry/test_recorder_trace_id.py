@@ -12,9 +12,9 @@ import json
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import DictationTranscribing
-from jarvis.telemetry import FlightRecorder
+from dodaios.core.bus import EventBus
+from dodaios.core.events import DictationTranscribing
+from dodaios.telemetry import FlightRecorder
 
 
 @pytest.mark.asyncio

@@ -25,7 +25,7 @@ runtime — and any character that passes the gate walks correctly, whoever or w
 
 | Piece | Where | What it gives the figures |
 |---|---|---|
-| three `0.185.1`, `@react-three/fiber` v8, `@react-three/drei` `^9.122` | `jarvis/ui/web/frontend/package.json` | `GLTFLoader`, `SkinnedMesh` + `AnimationMixer`, `RenderPixelatedPass`, `SkeletonUtils.clone`, drei `useGLTF` / `useAnimations` / `Clone` / `Html` / `OrthographicCamera`. No `postprocessing` package — the pixel pass comes from three's own addons. `InstancedMesh` has NO skinning support in this version (checked `src/objects/InstancedMesh.js`): walkers are cloned skinned meshes, not instances. |
+| three `0.185.1`, `@react-three/fiber` v8, `@react-three/drei` `^9.122` | `dodaios/ui/web/frontend/package.json` | `GLTFLoader`, `SkinnedMesh` + `AnimationMixer`, `RenderPixelatedPass`, `SkeletonUtils.clone`, drei `useGLTF` / `useAnimations` / `Clone` / `Html` / `OrthographicCamera`. No `postprocessing` package — the pixel pass comes from three's own addons. `InstancedMesh` has NO skinning support in this version (checked `src/objects/InstancedMesh.js`): walkers are cloned skinned meshes, not instances. |
 | Vite `^6.4` | `frontend/vite.config.ts` | `.glb`/`.gltf` are known asset types: `import url from "./biped.glb"` yields a fingerprinted URL in `dist/assets/` — the same route the app mark took in commit `65f3b826d` (never `public/`, which is copied verbatim and caches stale). |
 | `useWebglSurface` (AP-32) | `src/hooks/useWebglSurface.ts` | context release on unmount, `webglcontextlost` recovery, remount key. Enforced by `scripts/ci/check_webgl_contexts_released.py` — every figure canvas mounts through it or the build is red. |
 | `useCanvasAwake` | `src/hooks/useCanvasAwake.ts` (untracked, model-card session) | IntersectionObserver gate for rAF; never `document.hidden` (WebView2 lies for minutes). |
@@ -124,7 +124,7 @@ cannot check does not belong in this section; it belongs in §8 (workflow guidan
 ### 4.2 Files and packaging
 
 ```
-jarvis/ui/web/frontend/src/assets/society/figures/
+dodaios/ui/web/frontend/src/assets/society/figures/
   biped-small.glb        biped-medium.glb        biped-large.glb
   quadruped.glb          spirit.glb
   parts/                 one GLB per swappable part, skinned to the archetype skeleton (§4.5)
@@ -349,11 +349,11 @@ authored at 24 fps so nearest-filtered motion reads as deliberate pixel steps.
 `scripts/figures/build_figures.py` runs inside Blender's Python:
 
 ```
-blender -b --python scripts/figures/build_figures.py -- --out jarvis/ui/web/frontend/src/assets/society/figures
+blender -b --python scripts/figures/build_figures.py -- --out dodaios/ui/web/frontend/src/assets/society/figures
 ```
 
 It works on Windows, macOS and a headless Linux CI runner (Blender runs without a display in `-b`
-mode); it is the ONLY producer of shipped GLBs. It never imports `jarvis.*` (Blender's bundled
+mode); it is the ONLY producer of shipped GLBs. It never imports `dodaios.*` (Blender's bundled
 interpreter). What it does, in order, for every target in `scripts/figures/contract.json`:
 
 1. **Load the source** (`scripts/figures/src/*.blend`, or a downloaded CC0 source recorded in

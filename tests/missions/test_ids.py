@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from uuid import UUID
 
-from jarvis.missions.ids import uuid7, uuid7_str
+from dodaios.missions.ids import uuid7, uuid7_str
 
 
 def test_uuid7_returns_uuid_instance() -> None:

@@ -4,7 +4,7 @@
 # -f bump=patch`). It:
 #
 #   1. refuses unless the latest `CI gate` on main is green,
-#   2. bumps pyproject.toml + jarvis/__init__.py and writes the CHANGELOG
+#   2. bumps pyproject.toml + dodaios/__init__.py and writes the CHANGELOG
 #      section (scripts/ci/cut_release.py: [Unreleased] notes, or the
 #      Conventional Commits since the last tag),
 #   3. checks the version commit through a candidate PR, then lands it through
@@ -140,7 +140,7 @@ jobs:
         run: |
           git config user.name "jarvis-release[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml jarvis/__init__.py uv.lock CHANGELOG.md
+          git add pyproject.toml dodaios/__init__.py uv.lock CHANGELOG.md
           git commit -m "chore(release): publish v$V"
           sha="$(git rev-parse HEAD)"
           candidate="release-cut/v${V}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
