@@ -2759,22 +2759,29 @@ async def reveal_terminal_target(
     return await _launch_terminal_target(request, req, reveal=True)
 
 
-def _grant_outside_file(folder: str, printed: str) -> str:
-    """The editor path for a modifier-clicked file, granting it if it is outside."""
+def _grant_outside_file(folder: str, printed: str) -> tuple[str, str]:
+    """What a modifier-clicked path is: (editor path, "file" or "directory").
+
+    A file outside the workspace is granted to the editor. A folder only counts
+    inside the workspace, where the Folder tab can show it.
+    """
     candidate = _printed_path(printed)
     root = Path(folder).expanduser().resolve(strict=True)
     if not candidate.is_absolute():
         # Agents often name a file in the person's home folder without it
         # ("Downloads\notes.md"); the workspace still wins when both exist.
-        inside = root / candidate
+        local = root / candidate
         home = Path.home() / candidate
-        candidate = inside if inside.exists() or not home.is_file() else home
+        candidate = local if local.exists() or not home.is_file() else home
     target = candidate.resolve(strict=True)
+    inside = target.is_relative_to(root)
+    if inside and target.is_dir() and target != root:
+        return target.relative_to(root).as_posix(), "directory"
     if not target.is_file():
         raise ValueError("not a file")
-    if target.is_relative_to(root):
-        return target.relative_to(root).as_posix()
-    return outside_files.grant(folder, target)
+    if inside:
+        return target.relative_to(root).as_posix(), "file"
+    return outside_files.grant(folder, target), "file"
 
 
 @router.post(
@@ -2798,12 +2805,12 @@ async def grant_outside_file(
         )
     folder = _workspace_folder(workspace_id)
     try:
-        path = await asyncio.to_thread(_grant_outside_file, folder, req.path)
+        path, kind = await asyncio.to_thread(_grant_outside_file, folder, req.path)
     except (OSError, RuntimeError, ValueError) as exc:
         # EditError is a ValueError too. One answer for every refusal.
         raise HTTPException(status_code=404, detail="That file is unavailable.") from exc
     log.info("Agentic IDE editor: opened file workspace=%s path=%s", workspace_id, path)
-    return {"workspace_id": workspace_id, "path": path}
+    return {"workspace_id": workspace_id, "path": path, "kind": kind}
 
 
 @router.get("/recents", response_model=RecentsResponse, summary="Recently opened workspaces")

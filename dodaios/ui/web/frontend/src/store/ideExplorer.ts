@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { create } from "zustand";
 
 import { fetchFileVersion, openOutsideFile } from "@/components/agentic/editor/editorApi";
-import { openTerminalTarget } from "@/lib/agenticIdeApi";
 import { OPEN_PATH_EVENT } from "@/lib/terminalLinks";
 import { useCodeEditorStore } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
@@ -104,45 +103,39 @@ export function parsePrintedPath(workspaceRoot: string, printed: string): Printe
 /**
  * Open what a terminal path points at: a file in the editor (at its line), a
  * folder in the Folder tab. A file outside the workspace (a note saved to
- * Downloads) opens in the editor too; anything else goes to the system app.
+ * Downloads) opens in the editor too; a path that is not there is reported.
  */
 export async function openPrintedPath(workspaceId: string, workspaceRoot: string, printed: string): Promise<void> {
   const parsed = parsePrintedPath(workspaceRoot, printed);
-  const external = () =>
-    openTerminalTarget(workspaceId, printed).catch((error: unknown) =>
-      useEventStore.getState().pushToast("error", (error as Error).message),
-    );
-  if (parsed.path === null) {
-    let path: string;
-    try {
-      path = await openOutsideFile(workspaceId, printed);
-    } catch {
-      await external();
-      return;
-    }
+  const open = (path: string) =>
     useCodeEditorStore.getState().openFile(workspaceId, path, {
       preview: false,
       line: parsed.line,
       column: parsed.column,
     });
-    return;
+  if (parsed.path !== null) {
+    // The common case: a file inside the workspace opens straight away.
+    try {
+      if ((await fetchFileVersion(workspaceId, parsed.path)) !== null) {
+        open(parsed.path);
+        return;
+      }
+    } catch {
+      /* the server decides below */
+    }
   }
-  let version: string | null;
+  // Anything else: the server finds the file, in the workspace, by absolute
+  // path, or in the home folder (Downloads/notes.md), and says what it is.
+  // A missing file is reported, never shown as the workspace's folder tree.
+  let found: { path: string; kind: "file" | "directory" };
   try {
-    version = await fetchFileVersion(workspaceId, parsed.path);
-  } catch {
-    await external();
+    found = await openOutsideFile(workspaceId, printed);
+  } catch (error) {
+    useEventStore.getState().pushToast("error", (error as Error).message);
     return;
   }
-  if (version === null) {
-    revealInExplorer({ workspaceId, path: parsed.path });
-    return;
-  }
-  useCodeEditorStore.getState().openFile(workspaceId, parsed.path, {
-    preview: false,
-    line: parsed.line,
-    column: parsed.column,
-  });
+  if (found.kind === "directory") revealInExplorer({ workspaceId, path: found.path });
+  else open(found.path);
 }
 
 /**
