@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/power-C0vrXml5.js
+import{c as o}from"./index-CgXsxyfO.js";/**
+========
+import{c as o}from"./index-D8GOZ2Y8.js";/**
+>>>>>>>> f77fac895bbfb70b704d362bf62173bbd955c8bf:dodaios/ui/web/dist/assets/power--X263YFm.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const a=o("Power",[["path",{d:"M12 2v10",key:"mnfbl"}],["path",{d:"M18.4 6.6a9 9 0 1 1-12.77.04",key:"obofu9"}]]);export{a as P};
