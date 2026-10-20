@@ -94,6 +94,7 @@ from dodaios.agentic_ide import (
     layout_tree,
     native_picker,
     notifications,
+    outside_files,
     pane_changes,
     prompt_attachments,
     prompt_history,
@@ -1211,6 +1212,16 @@ class NativePickResponse(BaseModel):
     error: str | None = Field(default=None, description="Why no folder came back.")
 
 
+class GrantOutsideFileRequest(BaseModel):
+    """A file path Ctrl/Cmd-clicked in a terminal, possibly outside the workspace."""
+
+    path: str = Field(
+        min_length=1,
+        max_length=4096,
+        description="Printed path or file URI, optionally with a line and column suffix.",
+    )
+
+
 class OpenTerminalTargetRequest(BaseModel):
     """A path explicitly activated in one Agentic-IDE terminal."""
 
@@ -2085,14 +2096,10 @@ _TERMINAL_LOCATION_SUFFIX = re.compile(
 )
 
 
-def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
-    """Resolve a printed path without letting terminal output escape its workspace.
+def _printed_path(printed: str) -> Path:
+    """The path a terminal printed, unquoted and without a line locator.
 
-    Coding-CLI output is untrusted. A modifier-click is deliberate, but it must
-    still not turn an OSC-8 payload into an arbitrary local file launcher.
-    Relative and absolute paths must therefore resolve inside the pane's own
-    workspace, including after symlinks are followed. Common line/column
-    locators are accepted because compilers and agents routinely print them.
+    Neither resolved nor confined: see :func:`_resolve_terminal_target`.
     """
     value = printed.strip()
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'", "`"}:
@@ -2117,9 +2124,20 @@ def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
             raise ValueError("invalid file URI")
     elif "://" in value:
         raise ValueError("unsupported URI scheme")
+    return Path(value).expanduser()
 
+
+def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
+    """Resolve a printed path without letting terminal output escape its workspace.
+
+    Coding-CLI output is untrusted. A modifier-click is deliberate, but it must
+    still not turn an OSC-8 payload into an arbitrary local file launcher.
+    Relative and absolute paths must therefore resolve inside the pane's own
+    workspace, including after symlinks are followed. Common line/column
+    locators are accepted because compilers and agents routinely print them.
+    """
     root = Path(workspace_folder).expanduser().resolve(strict=True)
-    candidate = Path(value).expanduser()
+    candidate = _printed_path(printed)
     if not candidate.is_absolute():
         candidate = root / candidate
     target = candidate.resolve(strict=True)
@@ -2145,7 +2163,10 @@ def _resolve_workspace_file(workspace_id: str, path: str) -> Path:
     if session is None:
         raise HTTPException(status_code=404, detail="That workspace is not open.")
     try:
-        target = _resolve_terminal_target(session.folder, path)
+        if file_editing.is_outside_key(path):
+            target = outside_files.granted_target(session.folder, path)
+        else:
+            target = _resolve_terminal_target(session.folder, path)
     except (OSError, RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=404, detail="That workspace file is unavailable.") from exc
     if not target.is_file():
@@ -2236,8 +2257,32 @@ def _workspace_folder(workspace_id: str) -> str:
     return str(session.folder)
 
 
-def _text_file_response(workspace_id: str, loaded: file_editing.TextFile) -> dict[str, object]:
-    return {"workspace_id": workspace_id, **asdict(loaded)}
+def _text_file_response(
+    workspace_id: str, loaded: file_editing.TextFile, path: str | None = None
+) -> dict[str, object]:
+    """``path`` replaces the loaded path for a file opened from outside the workspace."""
+    answer: dict[str, object] = {"workspace_id": workspace_id, **asdict(loaded)}
+    if path is not None:
+        answer["path"] = path.replace("\\", "/")
+    return answer
+
+
+def _editor_location(workspace_id: str, path: str) -> tuple[str, str, bool]:
+    """Where an editor path lives: (folder, path inside it, outside the workspace).
+
+    A workspace file is addressed relative to the workspace. A file opened
+    from outside it (an absolute path) must have been granted by a
+    modifier-click; it is then addressed by name inside its own folder, so the
+    usual containment and ``.git`` checks still apply.
+    """
+    folder = _workspace_folder(workspace_id)
+    if not file_editing.is_outside_key(path):
+        return folder, path, False
+    try:
+        target = outside_files.granted_target(folder, path)
+    except file_editing.EditError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return str(target.parent), target.name, True
 
 
 @router.get(
@@ -2256,16 +2301,16 @@ async def get_workspace_text_file(
     and a byte-order mark come back as they are on disk. ``encoding`` forces
     how the bytes are read ("Reopen with encoding"); otherwise it is detected.
     """
-    folder = _workspace_folder(workspace_id)
+    folder, relative, outside = _editor_location(workspace_id, path)
     try:
         loaded = await asyncio.to_thread(
-            file_editing.read_text_file, folder, path, encoding=encoding
+            file_editing.read_text_file, folder, relative, encoding=encoding
         )
     except file_editing.EditError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
         raise HTTPException(status_code=404, detail="That workspace file is unavailable.") from exc
-    return _text_file_response(workspace_id, loaded)
+    return _text_file_response(workspace_id, loaded, path if outside else None)
 
 
 @router.get(
@@ -2277,9 +2322,9 @@ async def get_workspace_text_file_version(workspace_id: str, path: str) -> dict[
 
     ``version`` is null when the file no longer exists.
     """
-    folder = _workspace_folder(workspace_id)
+    folder, relative, _ = _editor_location(workspace_id, path)
     try:
-        version = await asyncio.to_thread(file_editing.file_version, folder, path)
+        version = await asyncio.to_thread(file_editing.file_version, folder, relative)
     except file_editing.EditError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
@@ -2305,12 +2350,12 @@ async def save_workspace_text_file(
     Answers 409 with ``current_version`` when the file changed on disk since
     the editor loaded it, so an agent's edit is never silently overwritten.
     """
-    folder = _workspace_folder(workspace_id)
+    folder, relative, outside = _editor_location(workspace_id, req.path)
     try:
         saved = await asyncio.to_thread(
             file_editing.write_text_file,
             folder,
-            req.path,
+            relative,
             req.text,
             expected_version=req.expected_version,
             encoding=req.encoding,
@@ -2326,7 +2371,7 @@ async def save_workspace_text_file(
     except OSError as exc:
         log.warning("Agentic IDE editor: save failed for %s: %s", req.path, exc)
         raise HTTPException(status_code=500, detail="The file could not be saved.") from exc
-    return _text_file_response(workspace_id, saved)
+    return _text_file_response(workspace_id, saved, req.path if outside else None)
 
 
 @router.get(
@@ -2342,6 +2387,9 @@ async def get_workspace_head_text(
     ``text`` is null for a file git does not know (new, or not a repository).
     """
     folder = _workspace_folder(workspace_id)
+    if file_editing.is_outside_key(path):
+        # A file outside the workspace has no committed version here.
+        return {"workspace_id": workspace_id, "path": path.replace("\\", "/"), "text": None}
     try:
         text = await asyncio.to_thread(git_changes.head_text, folder, path, ref)
     except ValueError as exc:
@@ -2474,6 +2522,9 @@ async def python_intel(
         "definition": python_intel_module.definitions,
     }[action]
     empty: object = None if action == "hover" else []
+    if file_editing.is_outside_key(req.path):
+        # The workspace is the import root; a file outside it gets no analysis.
+        return {"workspace_id": workspace_id, "result": empty}
     try:
         result = await asyncio.wrap_future(
             python_intel_module.submit(
@@ -2624,6 +2675,20 @@ async def restore_workspace_entry(
     return {"workspace_id": workspace_id, "path": restored}
 
 
+def _launch_target(folder: str, printed: str) -> Path:
+    """A workspace path, or a file the editor opened from outside the workspace."""
+    if file_editing.is_outside_key(printed):
+        try:
+            target = outside_files.granted_target(folder, printed)
+        except file_editing.EditError as exc:
+            log.debug("Agentic IDE terminal target: not an outside file (%s)", exc)
+            return _resolve_terminal_target(folder, printed)
+        if not target.is_file():
+            raise ValueError("outside file is gone")
+        return target
+    return _resolve_terminal_target(folder, printed)
+
+
 async def _launch_terminal_target(
     request: Request, req: OpenTerminalTargetRequest, *, reveal: bool
 ) -> dict[str, object]:
@@ -2645,7 +2710,7 @@ async def _launch_terminal_target(
     if session is None:
         raise HTTPException(status_code=404, detail="That workspace is not open.")
     try:
-        target = await asyncio.to_thread(_resolve_terminal_target, session.folder, req.target)
+        target = await asyncio.to_thread(_launch_target, session.folder, req.target)
     except (OSError, RuntimeError, ValueError) as exc:
         # One answer for missing, malformed and outside-workspace paths: never
         # disclose through a crafted terminal payload which local file exists.
@@ -2692,6 +2757,53 @@ async def reveal_terminal_target(
     have launched the file.
     """
     return await _launch_terminal_target(request, req, reveal=True)
+
+
+def _grant_outside_file(folder: str, printed: str) -> str:
+    """The editor path for a modifier-clicked file, granting it if it is outside."""
+    candidate = _printed_path(printed)
+    root = Path(folder).expanduser().resolve(strict=True)
+    if not candidate.is_absolute():
+        # Agents often name a file in the person's home folder without it
+        # ("Downloads\notes.md"); the workspace still wins when both exist.
+        inside = root / candidate
+        home = Path.home() / candidate
+        candidate = inside if inside.exists() or not home.is_file() else home
+    target = candidate.resolve(strict=True)
+    if not target.is_file():
+        raise ValueError("not a file")
+    if target.is_relative_to(root):
+        return target.relative_to(root).as_posix()
+    return outside_files.grant(folder, target)
+
+
+@router.post(
+    "/workspaces/{workspace_id}/outside-files",
+    summary="Let the code editor open a file the person clicked outside the workspace",
+)
+async def grant_outside_file(
+    request: Request, workspace_id: str, req: GrantOutsideFileRequest
+) -> dict[str, object]:
+    """A Ctrl/Cmd-click on a file outside the workspace opens it in the editor.
+
+    Terminal output stays untrusted: only this deliberate click, on the
+    computer running Dodaios, adds one file to the workspace's list of outside
+    files. The answer is the path the editor uses for it: absolute for a file
+    outside the workspace, relative for one inside it.
+    """
+    if not is_loopback_request(request.scope):
+        raise HTTPException(
+            status_code=403,
+            detail="Outside files can only be opened on the computer running Dodaios.",
+        )
+    folder = _workspace_folder(workspace_id)
+    try:
+        path = await asyncio.to_thread(_grant_outside_file, folder, req.path)
+    except (OSError, RuntimeError, ValueError) as exc:
+        # EditError is a ValueError too. One answer for every refusal.
+        raise HTTPException(status_code=404, detail="That file is unavailable.") from exc
+    log.info("Agentic IDE editor: opened file workspace=%s path=%s", workspace_id, path)
+    return {"workspace_id": workspace_id, "path": path}
 
 
 @router.get("/recents", response_model=RecentsResponse, summary="Recently opened workspaces")

@@ -68,8 +68,19 @@ A case in `building` runs only while the person is away from the computer
 Dodaios, no open call and no typing into a pane's terminal in the app; a
 prompt Jarvis or an agent writes into a pane is not the person) and a
 subscription coding CLI is free (`seat.py`): its plan login is signed in, its
-own API-key variable is not set (the CLI would bill that key), it is not in a
-usage cooldown and no usage window is over 80 %. Otherwise the case waits, for
+own API-key variable does not reach it (the CLI would bill that key), it is not
+in a usage cooldown and no usage window is over 80 %. Codex signed in with a
+ChatGPT plan (`auth.json` holds the plan tokens and no key, and `config.toml`
+does not force the API login) runs with `OPENAI_API_KEY` and `CODEX_API_KEY`
+removed from its own child environment, so it bills the plan; the app's
+environment is not changed. Claude Code with `ANTHROPIC_API_KEY` set is skipped.
+
+Input idle time comes from `GetLastInputInfo` on Windows and `ioreg`'s
+`HIDIdleTime` on macOS. On Linux the first reading that answers counts: GNOME's
+idle monitor over D-Bus (`gdbus` or `dbus-send`, X11 and Wayland),
+`xprintidle` (X11 sessions only), the freedesktop screen saver's active time
+(KDE and others), systemd-logind's `IdleHint`. Without any of them only typing
+in IDE panes counts. Otherwise the case waits, for
 up to three days; a case that never got to run may be offered again later. The
 kill switch stops a running build at its next step and puts the case back in
 the queue; an undo stops it the same way and removes what it made.
@@ -97,8 +108,8 @@ the queue; an undo stops it the same way and removes what it made.
 4. The judge (`judge.py`), which the agent cannot edit: nothing protected was
    changed, and the test commands the brief read before the run pass.
 5. Push the branch (only when `origin` fetches from and pushes to that very
-   repository) and open a pull request that says `Closes #<n>`, with the agent's summary and what was
-   checked. Draft by default.
+   repository) and open a pull request that says `Closes #<n>`, with the agent's closing
+   summary (paths on this computer removed) and what was checked. Draft by default.
 
 Nothing else leaves the machine: no issue comments, labels or reviews, and no
 push to a repository the person does not own.
@@ -125,8 +136,10 @@ minutes):
 The record's `artefact` follows the provenance convention every "built by
 Dodaios" badge joins on: `{"type": "code", "id": <pull request URL>, "repo":
 "<owner>/<repo>"}`, plus `stage` (`worktree`, `coding`, `pushing`, `pushed`,
-`pull_request`), `branch`, `draft`, the local test result and the changed
-files. Before the pull request exists, `id` is empty.
+`pull_request`), `branch`, `draft`, the local test result, the changed files
+and `thread`, the coding run's agent-chat session, which the build detail opens
+in the Agentic IDE's threads view. Before the pull request exists, `id` is
+empty.
 
 ## Undo
 

@@ -33,14 +33,17 @@ from loguru import logger
 from dodaios.core.instance import current_instance
 from dodaios.core.paths import user_data_dir
 
-from .file_editing import MAX_EDITABLE_BYTES, EditError, _normalise_relative
+from .file_editing import MAX_EDITABLE_BYTES, EditError, _normalise_relative, is_outside_key
 
 __all__ = [
     "MAX_TABS",
     "drop_backup",
+    "folder_state_dir",
     "load_state",
+    "read_json",
     "save_backup",
     "save_tabs",
+    "write_json",
 ]
 
 #: More open tabs than this are not worth restoring; the oldest are dropped.
@@ -56,17 +59,17 @@ def _store_root() -> Path:
     return user_data_dir() / f"editor-backups{current_instance().state_file_suffix}"
 
 
-def _folder_dir(folder: str | os.PathLike[str]) -> Path:
+def folder_state_dir(folder: str | os.PathLike[str]) -> Path:
     real = os.path.normcase(os.path.realpath(os.fspath(folder)))
     return _store_root() / hashlib.sha256(real.encode("utf-8")).hexdigest()[:24]
 
 
 def _backup_file(folder: str | os.PathLike[str], path: str) -> Path:
     digest = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
-    return _folder_dir(folder) / "backups" / f"{digest}.json"
+    return folder_state_dir(folder) / "backups" / f"{digest}.json"
 
 
-def _write_json(target: Path, payload: dict[str, Any]) -> None:
+def write_json(target: Path, payload: dict[str, Any]) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     handle, temp_name = tempfile.mkstemp(prefix=".", suffix=".tmp", dir=target.parent)
     try:
@@ -81,7 +84,7 @@ def _write_json(target: Path, payload: dict[str, Any]) -> None:
                 logger.warning("Editor backup: could not remove temp file: {}", exc)
 
 
-def _read_json(source: Path) -> dict[str, Any] | None:
+def read_json(source: Path) -> dict[str, Any] | None:
     try:
         data = json.loads(source.read_text(encoding="utf-8"))
     except FileNotFoundError:  # no backup yet is the normal case
@@ -93,6 +96,16 @@ def _read_json(source: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _editor_path(path: str) -> str:
+    """A tab's path: workspace-relative, or absolute for a file opened from outside."""
+    value = (path or "").strip()
+    if is_outside_key(value):
+        if any(ord(char) < 32 for char in value):
+            raise EditError("That is not a valid file name here.")
+        return value.replace("\\", "/")
+    return _normalise_relative(value)
+
+
 def save_tabs(
     folder: str | os.PathLike[str], tabs: list[dict[str, Any]], active: str | None
 ) -> None:
@@ -100,16 +113,16 @@ def save_tabs(
     clean: list[dict[str, Any]] = []
     for tab in tabs[-MAX_TABS:]:
         try:
-            path = _normalise_relative(str(tab.get("path", "")))
+            path = _editor_path(str(tab.get("path", "")))
         except EditError:
             continue  # one unusable tab must not cost the others their place
         mode = tab.get("mode") if tab.get("mode") in _MODES else "edit"
         clean.append({"path": path, "mode": mode, "preview": bool(tab.get("preview"))})
     try:
-        active_path = _normalise_relative(active) if active else None
+        active_path = _editor_path(active) if active else None
     except EditError:  # an unusable active tab just leaves none active
         active_path = None
-    _write_json(_folder_dir(folder) / "tabs.json", {"tabs": clean, "active": active_path})
+    write_json(folder_state_dir(folder) / "tabs.json", {"tabs": clean, "active": active_path})
 
 
 def save_backup(
@@ -121,10 +134,10 @@ def save_backup(
     encoding: str,
 ) -> None:
     """Keep the unsaved text of one file until it is saved or discarded."""
-    relative = _normalise_relative(path)
+    relative = _editor_path(path)
     if len(text.encode("utf-8")) > MAX_EDITABLE_BYTES:
         raise EditError("That buffer is too large to back up.")
-    _write_json(
+    write_json(
         _backup_file(folder, relative),
         {
             "path": relative,
@@ -138,7 +151,7 @@ def save_backup(
 
 def drop_backup(folder: str | os.PathLike[str], path: str) -> None:
     """Forget a backup: the buffer was saved, reverted or discarded."""
-    target = _backup_file(folder, _normalise_relative(path))
+    target = _backup_file(folder, _editor_path(path))
     try:
         target.unlink()
     except FileNotFoundError:  # already gone is what forgetting wants
@@ -147,15 +160,15 @@ def drop_backup(folder: str | os.PathLike[str], path: str) -> None:
 
 def load_state(folder: str | os.PathLike[str]) -> dict[str, Any]:
     """The tabs and backups to restore for one workspace folder."""
-    root = _folder_dir(folder)
-    tabs_doc = _read_json(root / "tabs.json") or {}
+    root = folder_state_dir(folder)
+    tabs_doc = read_json(root / "tabs.json") or {}
     tabs = [tab for tab in tabs_doc.get("tabs", []) if isinstance(tab, dict)]
     backups: list[dict[str, Any]] = []
     backup_dir = root / "backups"
     if backup_dir.is_dir():
         cutoff = time.time() - MAX_BACKUP_AGE_S
         for entry in sorted(backup_dir.glob("*.json")):
-            doc = _read_json(entry)
+            doc = read_json(entry)
             if not (doc and isinstance(doc.get("path"), str) and isinstance(doc.get("text"), str)):
                 continue
             if float(doc.get("saved_at") or 0) < cutoff:
