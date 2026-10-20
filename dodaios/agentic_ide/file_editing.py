@@ -28,6 +28,7 @@ import codecs
 import hashlib
 import logging
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -131,6 +132,18 @@ class TextFile:
 
 def _version_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+_ABSOLUTE_KEY = re.compile(r"^(?:[a-zA-Z]:/|/)")
+
+
+def is_outside_key(path: str) -> bool:
+    """Is this editor path absolute, i.e. a file outside the workspace?
+
+    The editor names workspace files by relative POSIX paths and files opened
+    from outside it by their absolute path (see ``outside_files``).
+    """
+    return bool(_ABSOLUTE_KEY.match((path or "").strip().replace("\\", "/")))
 
 
 def _normalise_relative(path: str) -> str:

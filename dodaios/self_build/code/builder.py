@@ -123,7 +123,9 @@ def collect(worktree: str, branch: str, base_sha: str, message: str) -> list[str
         done = gitcmd.git(["commit", "-m", message], root)
         if not done.ok:
             raise BuildError(f"the change could not be committed: {done.tail(300)}")
-    listing = gitcmd.git(["diff", "--name-only", f"{base_sha}..HEAD"], root)
+    # "--": git would otherwise also stat the range as a path, which fails on
+    # Windows once the worktree path is deep ("Filename too long").
+    listing = gitcmd.git(["diff", "--name-only", f"{base_sha}..HEAD", "--"], root)
     if not listing.ok:
         raise BuildError("the change could not be read")
     return [line.strip() for line in listing.out.splitlines() if line.strip()]
@@ -167,11 +169,74 @@ def remove_local(
         if not force and _unsaved(worktree):
             logger.info("self-build code: kept {}: it has uncommitted changes", worktree)
             return False
-        gitcmd.git(["worktree", "remove", *(["--force"] if force else []), worktree], root)
+        removed = gitcmd.git(
+            ["worktree", "remove", *(["--force"] if force else []), worktree], root
+        )
+        if not removed.ok:
+            logger.info("self-build code: git left {}: {}", worktree, removed.tail(200))
     gitcmd.git(["worktree", "prune"], root)
+    if worktree and not _registered(root, worktree):
+        # What git could not delete (Windows: a long path or a held file).
+        _sweep(Path(worktree))
+        _drop_if_empty(Path(worktree).parent)
     if tip:
         gitcmd.git(["branch", "-D", branch], root)
     return True
+
+
+def _registered(root: Path, worktree: str) -> bool:
+    """Does git still know ``worktree`` as one of the repository's worktrees?"""
+    listing = gitcmd.git(["worktree", "list", "--porcelain"], root)
+    if not listing.ok:
+        return True  # unknown: nothing is deleted
+    want = Path(worktree).resolve()
+    for line in listing.out.splitlines():
+        if line.startswith("worktree ") and Path(line[9:].strip()).resolve() == want:
+            return True
+    return False
+
+
+def _sweep(worktree: Path, *, attempts: int = 5, pause_s: float = 1.0) -> None:
+    """Delete what is left of the loop's worktree once git forgot it: caches only.
+
+    Live on Windows the folder stayed behind with the test run's
+    ``__pycache__`` when git could not delete a path past the length limit or
+    a file a finished process still held. Only a folder that holds nothing but
+    such caches is deleted; a short retry covers a handle being released.
+    """
+    import shutil
+    import time
+
+    for attempt in range(attempts):
+        if not worktree.is_dir():
+            return
+        try:
+            files = [path for path in worktree.rglob("*") if path.is_file()]
+        except OSError:  # unreadable: left alone
+            return
+        parts = [path.relative_to(worktree).parts for path in files]
+        if any(not any(part in _JUNK for part in rel) for rel in parts):
+            logger.info("self-build code: kept {}: it holds more than caches", worktree)
+            return
+        try:
+            shutil.rmtree(worktree)
+            return
+        except OSError:  # still held by a process that is ending: try again shortly
+            if attempt + 1 < attempts:
+                time.sleep(pause_s)
+    logger.info("self-build code: {} is still in use; left for now", worktree)
+
+
+def _drop_if_empty(folder: Path) -> None:
+    """Remove ``<repo>/.worktrees`` once the loop's worktree was the last one in it."""
+    from dodaios.agentic_ide import git_ops
+
+    if folder.name != git_ops.WORKTREE_DIR:
+        return
+    try:
+        folder.rmdir()  # only succeeds while empty
+    except OSError:  # other worktrees live there, or it is already gone
+        pass
 
 
 def _unsaved(worktree: str) -> list[str]:
@@ -249,13 +314,34 @@ def compose_prompt(
         "the instruction files (CLAUDE.md). A change that does is thrown away.",
         "- Do not push, open pull requests, comment on GitHub, change git remotes or switch "
         "branches; Dodaios checks your work and does that.",
-        "- Run the tests before you finish; they must pass: " + "; ".join(tests) + ".",
+        "- Run the tests before you finish; Dodaios runs exactly these to judge the "
+        "change, so run them the same way: " + "; ".join(tests) + ".",
         "- Commit your work on this branch with a clear message.",
         "- If the issue cannot be done safely, change nothing and say why in one paragraph.",
         "- End with a short summary of what you changed and how you checked it; it becomes "
-        "the pull request description.",
+        "the pull request description, so write it for the repository's reviewers: no paths "
+        "on this computer, no notes about its tools or shell. Write it in the language the "
+        "issue is written in.",
     ]
     return "\n".join(parts)
+
+
+_LOCAL_PATH: Final[re.Pattern[str]] = re.compile(
+    r"(?i)(?<![\w/])(?:[a-z]:[\\/]|/(?:users|home|private|tmp|var/folders)/)[^\s`'\")\]]+"
+)
+_QUOTED_LOCAL_PATH: Final[re.Pattern[str]] = re.compile(
+    r"(?i)`[^`\n]*?(?<![\w/])(?:[a-z]:[\\/]|/(?:users|home|private|tmp|var/folders)/)[^`\n]*`"
+)
+
+
+def scrub(text: str, worktree: str = "") -> str:
+    """The agent's summary without this computer's paths (it goes to GitHub)."""
+    if worktree:
+        for form in {worktree, worktree.replace("\\", "/"), worktree.replace("/", "\\")}:
+            text = text.replace(form + "\\", "").replace(form + "/", "").replace(form, ".")
+    # A quoted path may hold spaces ("C:\Program Files\..."): the whole span goes.
+    text = _QUOTED_LOCAL_PATH.sub("`<local path>`", text)
+    return _LOCAL_PATH.sub("<local path>", text)
 
 
 def pr_body(
@@ -266,8 +352,10 @@ def pr_body(
     changed: list[str],
     build_id: str,
     plan: Plan,
+    worktree: str = "",
 ) -> str:
     text = re.sub(r"(?im)^\s*(closes|fixes|resolves)\s+#\d+\s*$", "", summary).strip()
+    text = scrub(text, worktree)
     lines = [f"Closes #{issue.number}", "", text[:_SUMMARY_CHARS] or "(no summary)", ""]
     lines += ["### Checked", *[f"- {line}" for line in tests_detail.splitlines() if line]]
     shown = ", ".join(f"`{path}`" for path in changed[:15])
@@ -362,9 +450,17 @@ async def _record(
         "repo": undo["repo"],
         "branch": undo["branch"],
         "stage": stage,
+        **_thread(undo),
         **extra,
     }
     await asyncio.to_thread(ctx.ledger.attach_artefact, record.id, artefact, dict(undo))
+
+
+def _thread(undo: dict[str, Any]) -> dict[str, str]:
+    """``{"thread": <agent-chat session id>}`` once the coding run has one: the
+    build detail links to it, so the person can read every step."""
+    session_id = str(undo.get("session_id") or "")
+    return {"thread": session_id} if session_id else {}
 
 
 async def _fail(ctx: Context, record: BuildRecord, error: BuildError, *, repo: str) -> None:
@@ -412,11 +508,18 @@ async def _guarded(ctx: Context, record: BuildRecord, step: Any) -> None:
         await _fail(ctx, record, BuildError(f"unexpected error: {type(exc).__name__}"), repo=repo)
 
 
-async def build(ctx: Context, record: BuildRecord, *, provider: str) -> None:
-    """Run one build to ``proving`` (pull request open), ``failed``, or back to the queue."""
+async def build(
+    ctx: Context, record: BuildRecord, *, provider: str, drop_env: tuple[str, ...] = ()
+) -> None:
+    """Run one build to ``proving`` (pull request open), ``failed``, or back to the queue.
+
+    ``drop_env``: variables the coding CLI's process must not see (``seat``).
+    """
 
     async def step(repo: str, issue: Issue, data: dict[str, Any]) -> None:
-        await _build(ctx, record, repo=repo, issue=issue, data=data, provider=provider)
+        await _build(
+            ctx, record, repo=repo, issue=issue, data=data, provider=provider, drop_env=drop_env
+        )
 
     await _guarded(ctx, record, step)
 
@@ -454,6 +557,7 @@ async def _build(
     issue: Issue,
     data: dict[str, Any],
     provider: str,
+    drop_env: tuple[str, ...] = (),
 ) -> None:
     folder = str(data["folder"])
     issue = await recheck(ctx, repo, issue, data)
@@ -495,12 +599,12 @@ async def _build(
         base=base,
         brief_text=brief.render(),
         plan=plan,
-        tests=[commands.shown(cmd) for cmd in tests],
+        tests=[commands.runnable(cmd) for cmd in tests],
     )
 
     async def remember_session(session_id: str) -> None:
         undo["session_id"] = session_id
-        await _record(ctx, record, "coding", undo, thread=session_id)
+        await _record(ctx, record, "coding", undo)
 
     def should_stop() -> bool:
         try:
@@ -517,6 +621,7 @@ async def _build(
         timeout_s=ctx.run_timeout_s,
         should_stop=should_stop,
         on_session=remember_session,
+        drop_env=drop_env,
     )
     checkpoint(ctx, record)
     if not result.ok:
@@ -589,6 +694,7 @@ async def finish(
             changed=changed,
             build_id=record.id,
             plan=plan,
+            worktree=worktree,
         ),
         draft=draft,
     )
@@ -605,6 +711,7 @@ async def finish(
         "tests": detail[:500],
         "changed": changed[:30],
         "opened_ms": now_ms(),
+        **_thread(undo),
     }
     await asyncio.to_thread(ledger.attach_artefact, record.id, artefact, dict(undo))
     checkpoint(ctx, record)
