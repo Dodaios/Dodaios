@@ -749,6 +749,9 @@ async def _persist_grant_then_check(plugin_id: str, spec: Any, granted: Tokens) 
     try:
         previous = store.load(plugin_id)
     except RuntimeError:
+        # An unreadable entry is replaced by the new grant anyway; a later
+        # rejection then removes it instead of restoring the unreadable blob.
+        log.info("plugin %s previous grant unreadable before save", plugin_id)
         previous = None
     # Persist BEFORE publishing the result: connect_poll reads `slot.result`
     # to decide "connected" vs "pending", so a result set before the save
@@ -767,7 +770,7 @@ async def _persist_grant_then_check(plugin_id: str, spec: Any, granted: Tokens) 
     failure: ConnectionVerificationError | None = None
     try:
         await verify_connection(spec, granted)
-    except ConnectionVerificationError as exc:
+    except ConnectionVerificationError as exc:  # classified and reported just below
         failure = exc
 
     if failure is not None and failure.rejected:
