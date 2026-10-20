@@ -82,6 +82,11 @@ class Env:
     society: Callable[[], Awaitable[Any]] | None = None
     #: Skill on/off switch (the Skills view's own preference store).
     set_skill_on: Callable[[str, bool], None] | None = None
+    #: A society agent's own skills, active and draft (``society/learning.py``).
+    #: Blocking; the loop calls it in a worker thread.
+    agent_skills: Callable[[str], list[Any]] = lambda _agent_id: []
+    #: The folder of the IDE's per-pane prompt histories; ``None`` reads none.
+    pane_history: Callable[[], Path | None] = lambda: None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
