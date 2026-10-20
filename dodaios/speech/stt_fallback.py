@@ -30,6 +30,7 @@ What it does NOT do, on purpose:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections.abc import AsyncIterator, Sequence
@@ -50,6 +51,48 @@ TRANSIENT_COOLDOWN_S = 15.0
 #: Reasons whose cooldown is the LONG one. A quota window and a rejected key
 #: both need real time to change; a 5xx or a dropped connection does not.
 _LONG_COOLDOWN_REASONS = frozenset({"rate_limited", "no_credit", "bad_key"})
+
+#: Per-provider deadline, as a multiple of the audio sent. Matches the dictation
+#: lane's own per-call ceiling, so a call that used to succeed on the provider in
+#: front still does; only one that used to run out the WHOLE ceiling now crosses.
+PROVIDER_DEADLINE_PER_AUDIO_S = 2.0
+
+
+class ProviderDeadlineExceeded(RuntimeError):
+    """A provider with another one behind it did not answer within its deadline.
+
+    Live bug 2026-10-20 17:35: the on-device final pass hung on 1.9 s of audio,
+    the dictation lane's single 8 s ceiling around the WHOLE chain ran out while
+    the chain was still waiting on it, and the cloud provider behind it never
+    got the audio — 0 characters, although a working fallback was keyed. The
+    chain now bounds every provider that is not the last one, so a wedge costs
+    its own deadline and then crosses.
+
+    Carries ``status = 503`` so :func:`dodaios.speech.stt_failure.classify_stt_failure`
+    reads it as ``unavailable`` — crossable, and transient to the dictation
+    retry ladder. It is deliberately NOT a ``TimeoutError``: that type means the
+    lane's own outer ceiling ran out (a wedge of the LAST provider), which the
+    ladder refuses to retry; this one means "the next provider has not been
+    asked yet".
+    """
+
+    status = 503
+
+
+def audio_seconds(pcm: object, sample_rate: object = 16_000) -> float:
+    """Duration of int16 mono PCM ``pcm``; ``0.0`` for anything that is not bytes."""
+    if not isinstance(pcm, (bytes, bytearray, memoryview)):
+        return 0.0
+    try:
+        rate = int(sample_rate or 16_000)
+    except (TypeError, ValueError):  # an unusable rate means the 16 kHz default
+        rate = 16_000
+    return len(pcm) / float(max(1, rate) * 2)
+
+
+def provider_deadline_s(audio_s: float, floor_s: float) -> float:
+    """How long ONE provider in front of another gets for ``audio_s`` of audio."""
+    return max(float(floor_s), max(0.0, float(audio_s)) * PROVIDER_DEADLINE_PER_AUDIO_S)
 
 
 def _classify(exc: BaseException) -> str:
@@ -94,9 +137,18 @@ class FallbackSTT:
         build: Any,
         *,
         primary_name: str = "",
+        provider_deadline_floor_s: float | None = None,
     ) -> None:
         self._primary = primary
         self._primary_name = primary_name or type(primary).__name__
+        # ``None`` keeps the historical behaviour (the caller's own ceiling is
+        # the only bound). A number arms per-provider deadlines on
+        # ``transcribe_pcm`` for every provider that has another one behind it.
+        self._deadline_floor_s = (
+            None
+            if provider_deadline_floor_s is None
+            else max(0.1, float(provider_deadline_floor_s))
+        )
         self._alternate_names = list(alternates)
         self._build = build
         # name -> instance, built on first use and kept for the process.
@@ -137,6 +189,22 @@ class FallbackSTT:
         read ``True`` here stays safe either way.
         """
         return bool(getattr(self._primary, "supports_concurrent_requests", False))
+
+    def crossing_reserve_s(self, audio_s: float) -> float:
+        """Extra wall-clock time a caller's ceiling must allow for crossing.
+
+        Each provider in front of another may use up to its own deadline before
+        the chain moves on, so a caller that bounds the whole call with ONE
+        provider's worth of time cuts the chain off exactly where it was about
+        to cross — the 2026-10-20 lost dictation. The caller adds this to its
+        own per-call ceiling; the last provider keeps that ceiling for itself.
+        ``0.0`` when the chain does not arm deadlines or has nowhere to cross.
+        """
+        if self._deadline_floor_s is None or not self._alternate_names:
+            return 0.0
+        return provider_deadline_s(audio_s, self._deadline_floor_s) * len(
+            self._alternate_names
+        )
 
     @property
     def last_used_provider(self) -> str:
@@ -222,10 +290,72 @@ class FallbackSTT:
     # ------------------------------------------------------------------
     # Transcription
     # ------------------------------------------------------------------
-    async def _call(self, method: str, *args: Any, **kwargs: Any) -> Any:
+    async def _invoke(self, name: str, provider: Any, fn: Any, args: Any, kwargs: Any) -> Any:
+        if getattr(provider, "supports_concurrent_requests", False):
+            return await fn(*args, **kwargs)
+        lock = self._serial_locks.setdefault(name, asyncio.Lock())
+        async with lock:
+            return await fn(*args, **kwargs)
+
+    async def _invoke_bounded(
+        self,
+        name: str,
+        provider: Any,
+        fn: Any,
+        args: Any,
+        kwargs: Any,
+        deadline_s: float,
+        audio_s: float,
+    ) -> Any:
+        """``_invoke`` with a deadline that ends in a CROSSABLE failure.
+
+        The wait for a serial provider's lock is inside the deadline on
+        purpose: queueing behind a wedged call is the same wedge. A provider's
+        OWN timeout exception (aiohttp raises ``TimeoutError``) still reaches
+        the classifier unchanged — only this chain's deadline becomes
+        :class:`ProviderDeadlineExceeded`.
+        """
+        task = asyncio.ensure_future(self._invoke(name, provider, fn, args, kwargs))
+        try:
+            done, _pending = await asyncio.wait({task}, timeout=deadline_s)
+        except asyncio.CancelledError:
+            task.cancel()
+            with contextlib.suppress(BaseException):
+                await task
+            raise
+        if task in done:
+            return task.result()
+        # Cancelling is what lets an on-device worker replace itself (AP-24:
+        # a wedged native engine is recovered by killing it, never by waiting).
+        task.cancel()
+        try:
+            late = await task
+        except asyncio.CancelledError:
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise
+        except Exception as exc:  # noqa: BLE001 — the late failure is moot now
+            log.debug("STT fallback: %s ended after its deadline (%s)", name, exc)
+        else:
+            # It finished in the instant between the deadline and the cancel:
+            # a real transcript is never thrown away to make a point.
+            return late
+        raise ProviderDeadlineExceeded(
+            f"{name} did not answer within {deadline_s:.0f}s for "
+            f"{audio_s:.1f}s of audio; the next provider takes it"
+        )
+
+    async def _call(
+        self,
+        method: str,
+        *args: Any,
+        _deadline_audio_s: float | None = None,
+        **kwargs: Any,
+    ) -> Any:
         first_error: BaseException | None = None
         self._last_failure = None
-        for name, preloaded in self._order():
+        order = self._order()
+        for index, (name, preloaded) in enumerate(order):
             try:
                 provider = preloaded if preloaded is not None else self._instance(name)
             except Exception as exc:  # noqa: BLE001 — an unbuildable alternate is skipped
@@ -235,13 +365,27 @@ class FallbackSTT:
             fn = getattr(provider, method, None)
             if fn is None:
                 continue
+            # Only a provider with another one BEHIND it is bounded here. The
+            # last one keeps the caller's ceiling for itself: there is nowhere
+            # left to cross, and cutting it short would only lose the words.
+            floor_s = self._deadline_floor_s
             try:
-                if getattr(provider, "supports_concurrent_requests", False):
-                    result = await fn(*args, **kwargs)
+                if (
+                    floor_s is not None
+                    and _deadline_audio_s is not None
+                    and index < len(order) - 1
+                ):
+                    result = await self._invoke_bounded(
+                        name,
+                        provider,
+                        fn,
+                        args,
+                        kwargs,
+                        provider_deadline_s(_deadline_audio_s, floor_s),
+                        _deadline_audio_s,
+                    )
                 else:
-                    lock = self._serial_locks.setdefault(name, asyncio.Lock())
-                    async with lock:
-                        result = await fn(*args, **kwargs)
+                    result = await self._invoke(name, provider, fn, args, kwargs)
             except Exception as exc:  # noqa: BLE001 — classified below
                 kind = _classify(exc)
                 if not kind:
@@ -271,7 +415,13 @@ class FallbackSTT:
         raise RuntimeError("No speech-to-text provider was able to transcribe.")
 
     async def transcribe_pcm(self, *args: Any, **kwargs: Any) -> Any:
-        return await self._call("transcribe_pcm", *args, **kwargs)
+        audio_s: float | None = None
+        if self._deadline_floor_s is not None and args:
+            rate = args[1] if len(args) > 1 else kwargs.get("sample_rate", 16_000)
+            audio_s = audio_seconds(args[0], rate)
+        return await self._call(
+            "transcribe_pcm", *args, _deadline_audio_s=audio_s, **kwargs
+        )
 
     async def transcribe(self, *args: Any, **kwargs: Any) -> Any:
         return await self._call("transcribe", *args, **kwargs)
@@ -363,9 +513,13 @@ def wrap_stt_with_fallback(provider: Any, stt_cfg: Any) -> Any:
 
 __all__ = [
     "FallbackSTT",
+    "PROVIDER_DEADLINE_PER_AUDIO_S",
+    "ProviderDeadlineExceeded",
     "RATE_LIMIT_COOLDOWN_S",
     "TRANSIENT_COOLDOWN_S",
     "alternate_provider_names",
+    "audio_seconds",
+    "provider_deadline_s",
     "configured_fallback_names",
     "wrap_stt_with_fallback",
 ]
