@@ -5,7 +5,7 @@
 | Artifact | Path | What it is |
 |---|---|---|
 | `PersonalJarvis-Linux-x86_64.AppImage` | `dist/installers/` | One executable file. No Python, no pip, no root. Download, `chmod +x`, run. |
-| `personal-jarvis_<version>_amd64.deb` | `dist/installers/` | The same tree as a normal Debian package: `apt install ./personal-jarvis_*.deb` registers the app in the menu and puts `jarvis` on `PATH`. Built only when `dpkg-deb` is present. |
+| `personal-jarvis_<version>_amd64.deb` | `dist/installers/` | The same tree as a normal Debian package: `apt install ./personal-jarvis_*.deb` registers the app in the menu and puts `dodaios` on `PATH`. Built only when `dpkg-deb` is present. |
 
 Both are produced from one PyInstaller `onedir` freeze and one AppDir, so a bug
 can only exist in both or in neither.
@@ -70,7 +70,8 @@ closes the gap: with no arguments and a graphical session it waits for
 `/api/health` to answer and then opens the address with `xdg-open` (falling
 back through `gio`, `x-www-browser`, `sensible-browser`, and the common browser
 binaries). It never opens a tab it has not confirmed first, and it stops
-waiting as soon as the app exits. `JARVIS_APPIMAGE_NO_BROWSER=1` turns it off.
+waiting as soon as the app exits. `DODAIOS_APPIMAGE_NO_BROWSER=1` (or the earlier `JARVIS_APPIMAGE_NO_BROWSER=1`)
+turns it off.
 
 Whether to do this at all is decided at build time, not guessed: `build.sh`
 inspects the freeze for PyGObject and writes
@@ -94,15 +95,16 @@ chmod +x PersonalJarvis-Linux-x86_64.AppImage
 ./PersonalJarvis-Linux-x86_64.AppImage --doctor
 ```
 
-To type `jarvis` instead, link it once:
+To type `dodaios` instead, link it once:
 
 ```bash
 mkdir -p ~/.local/bin
-ln -sf "$PWD/PersonalJarvis-Linux-x86_64.AppImage" ~/.local/bin/jarvis
+ln -sf "$PWD/PersonalJarvis-Linux-x86_64.AppImage" ~/.local/bin/dodaios
 ```
 
-The Debian package does this for you: it installs `/usr/bin/jarvis` (the
-console entry) and `/usr/bin/personal-jarvis` (the launcher).
+The Debian package does this for you: it installs `/usr/bin/dodaios` (the
+console entry), `/usr/bin/jarvis` (the same entry under its earlier name) and
+`/usr/bin/personal-jarvis` (the launcher).
 
 On a host without FUSE - containers, some hardened servers - run the AppImage
 with `--appimage-extract-and-run` (or `APPIMAGE_EXTRACT_AND_RUN=1`). That is
@@ -111,12 +113,12 @@ also how the build machine runs `appimagetool` itself.
 ## Desktop registration
 
 * **`.deb`** registers the app the normal way: a `.desktop` entry in
-  `/usr/share/applications`, the icon in the hicolor theme, and the two
+  `/usr/share/applications`, the icon in the hicolor theme, and the
   commands on `PATH`. `apt remove personal-jarvis` takes all of it away again.
 * **AppImage** carries its `.desktop` entry and icon inside itself, which is
   what AppImageLauncher and `appimaged` read when they offer to "integrate"
   the file. Without one of those tools an AppImage is just a file you run -
-  that is how the format works, and Personal Jarvis does not fight it.
+  that is how the format works, and Dodaios does not fight it.
 
 The app itself registers **nothing** when it is a frozen build:
 `jarvis/setup/desktop_integration.py` and the writers in

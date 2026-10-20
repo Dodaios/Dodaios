@@ -299,13 +299,14 @@ def placement_note(computer: Any, remote_cwd: str, *, tools_connected: bool = Fa
         f"person's main computer — not on the main computer itself. Your working "
         f"folder there is {remote_cwd}. "
         + (
-            "Jarvis tools are connected over SSH under your own chat identity. "
+            "Dodaios tools are connected over SSH under your own chat identity. "
             "Use society_routines and society_propose_change for persistent routines; "
-            "use society_browser for the visible Jarvis browser on the main computer. "
+            "use society_browser for the visible Dodaios browser on the main computer. "
             "Native file tools run here. Use society_shell for remote commands. "
-            "Jarvis file tools, memory and app services remain on the main computer.\n"
+            "Dodaios file tools, memory and app services remain on the main computer.\n"
             if tools_connected else
-            "Jarvis tools are not connected for this turn; work with the files and programs here.\n"
+            "Dodaios tools are not connected for this turn; "
+            "work with the files and programs here.\n"
         )
     )
 
@@ -388,7 +389,7 @@ async def spawn(
     try:
         if session_id and tools_enabled and runner not in SUPPORTED_RUNNERS:
             raise RemoteCliUnavailable(
-                "This coding CLI cannot connect to Jarvis tools remotely. "
+                "This coding CLI cannot connect to Dodaios tools remotely. "
                 "Choose a CLI with MCP support in the agent's model settings."
             )
         opened = await stack.enter_async_context(get_service().session(computer_id))

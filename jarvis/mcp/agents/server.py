@@ -86,7 +86,7 @@ async def _agent_resources() -> list[tuple[str, str, str]]:
     return [
         (
             f"{_AGENT_PREFIX}{a.agent_id}",
-            a.name,
+            rt.display_name(a),
             f"{a.title} — {a.description}"[:300],
         )
         for a in agents
@@ -190,7 +190,7 @@ def build_server() -> Any:
                     type="text",
                     text=(
                         f"{name} needs a wider scope than {client} has ({scope}). "
-                        "Ask the owner of this Jarvis for a token with a higher "
+                        "Ask the owner of this Dodaios for a token with a higher "
                         "scope, or use a read-only tool instead."
                     ),
                 )

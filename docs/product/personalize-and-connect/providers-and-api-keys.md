@@ -116,7 +116,7 @@ Three more things that bite on a real project:
 - **Realtime uses a different endpoint than everything else.** `global` serves
   no Live session at all, so the voice socket needs a named region even when the
   brain runs on `global`. That is what `[google].vertex_realtime_location` is
-  for; leave it empty and Jarvis picks a region and logs which one.
+  for; leave it empty and Dodaios picks a region and logs which one.
 - **The model.** Which models a region serves, and which of them your project is
   allowed to use, are separate gates — a region can list a model your project
   still gets a 404 for. Regions also differ a lot from one another. If a model
@@ -145,13 +145,13 @@ and a dedicated key is optional.
 
 You enter a provider's key once, on whichever card you happen to be on. The
 first key saved for a provider family becomes that family's key and serves
-every area that uses the provider — Brain, Tool Model, Jarvis-Agents, voice
+every area that uses the provider — Brain, Tool Model, Dodaios-Agents, voice
 output, voice input and Realtime. Saving the same key again on another card
 changes nothing.
 
 Only a genuinely different second key raises a question:
 
-- On a Realtime, Jarvis-Agents or Codex card while the provider already has a
+- On a Realtime, Dodaios-Agents or Codex card while the provider already has a
   key: **Only here** keeps the new key for that area; **Everywhere** replaces
   the provider's key in every area and drops old copies of the replaced key.
 - On the main provider card while some areas hold their own different key:

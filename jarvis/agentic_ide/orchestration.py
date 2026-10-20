@@ -57,8 +57,15 @@ _TARGET_KEYS = ("project_id", "workspace_id", "terminal_id")
 # A send of the same prompt to the same pane counts as a retry only this soon;
 # a later "continue" or "/compact" is a new instruction and must be typed.
 _RETRY_WINDOW_S = 120
-_PANE_ACTIONS = frozenset({"observe", "respond", "keys", "interrupt", "close"})
+_PANE_ACTIONS = frozenset(
+    {"observe", "respond", "keys", "interrupt", "restart", "close", "fork"}
+)
+# A pane whose agent process is gone (exited, or could not start). A send there
+# types nothing; restart brings the same pane back on its own conversation.
+_STOPPED = frozenset({"exited", "error"})
 _WORKSPACE_ACTIONS = frozenset({"open_workspace", "restore", "show"})
+# How much of an agent's last prompt the status board repeats.
+_STATUS_JOB_CHARS = 200
 # How many times one request may be re-attempted after receipts proving that
 # nothing was typed (the pane was busy, closed, or not a coding pane).
 _REFUSED_ATTEMPTS = 20
@@ -234,6 +241,20 @@ def _assignment(args: dict) -> str:
     return json.dumps([str(args.get("prompt") or "").strip(), args.get("image_refs", [])])
 
 
+def _git_brief(folder: str) -> dict[str, Any] | None:
+    """A workspace folder's git state for the status board; None when there is none."""
+    from . import git_ops
+
+    try:
+        return git_ops.brief(folder)
+    except (git_ops.GitError, OSError) as exc:
+        from loguru import logger
+
+        # The board still answers for the agents; only this folder's git row is missing.
+        logger.debug("Workspace status: no git state for {}: {}", folder, exc)
+        return None
+
+
 class WorkspaceOrchestrator:
     """One graph for Live discovery, explicit resolution and scoped delivery."""
 
@@ -294,6 +315,9 @@ class WorkspaceOrchestrator:
                             **({"availability": "busy", "brief_writing": True}
                                if term.name in writing else {}),
                             "accepts_tasks": accepts_prompts(term.agent) and not term.archived,
+                            "restartable": accepts_prompts(term.agent)
+                            and not term.archived
+                            and term.status in _STOPPED,
                         }
                         for term in owner.terminals
                     ]
@@ -309,16 +333,20 @@ class WorkspaceOrchestrator:
             ),
         }
 
-    def inspect(self, args: dict[str, Any]) -> dict[str, Any]:
-        """Read current task and transcript evidence only for the requested scope."""
+    def _scoped(self, args: dict[str, Any]) -> dict[str, Any]:
+        """The graph narrowed to the workspace or project a request names.
+
+        A reference that matches nothing comes back as the reply saying so,
+        which carries no ``projects``.
+        """
         graph = self.graph()
         if args.get("workspace") or args.get("workspace_id"):
             picked = self._workspace(args, graph, "")
             if isinstance(picked, dict):
                 return picked
             project, workspace = picked
-            graph = {**graph, "projects": [{**project, "workspaces": [workspace]}]}
-        elif args.get("project") or args.get("project_id"):
+            return {**graph, "projects": [{**project, "workspaces": [workspace]}]}
+        if args.get("project") or args.get("project_id"):
             reference = str(args.get("project_id") or args["project"])
             projects = (
                 [p for p in graph["projects"] if p["id"] == reference]
@@ -328,7 +356,147 @@ class WorkspaceOrchestrator:
             )
             if not projects:
                 return self._choice("project", [], graph, unmatched=reference)
-            graph = {**graph, "projects": projects}
+            return {**graph, "projects": projects}
+        return graph
+
+    async def status(self, args: dict[str, Any]) -> dict[str, Any]:
+        """One compact row per open coding agent, with each workspace's git state.
+
+        The answer to "what is running, what is done, who needs me": no
+        transcript is read, so it stays cheap across every workspace.
+        """
+        graph = await asyncio.to_thread(self._scoped, args)
+        if "projects" not in graph:
+            return graph
+        now = time.time()
+        counts: dict[str, int] = {}
+        needs_you: list[str] = []
+        rows: list[dict[str, Any]] = []
+        closed = 0
+        for project in graph["projects"]:
+            for workspace in project["workspaces"]:
+                owner = self.registry.get(workspace["id"])
+                if owner is None:
+                    closed += 1
+                    continue
+                watched = {
+                    "pane:" + term.history_id
+                    for term in owner.terminals
+                    if getattr(getattr(term, "delegation_result", None), "watched", False)
+                }
+                agents = []
+                for agent in workspace["agents"]:
+                    state = agent["availability"]
+                    counts[state] = counts.get(state, 0) + 1
+                    if state in {"needs_input", "needs_attention"}:
+                        needs_you.append(f"{agent['name']} ({workspace['name']})")
+                    since = float(agent.get("activity_since") or 0)
+                    agents.append({
+                        "terminal_id": agent["id"],
+                        "name": agent["name"],
+                        "cli": agent["agent"],
+                        "state": state,
+                        **({"for_seconds": round(max(0.0, now - since))} if since else {}),
+                        **({"title": agent["title"]} if agent.get("title") else {}),
+                        **({"job": " ".join(agent["last_prompt"].split())[:_STATUS_JOB_CHARS]}
+                           if agent.get("last_prompt") else {}),
+                        **({"watched": True} if agent["id"] in watched else {}),
+                    })
+                rows.append({
+                    "project_id": project["id"],
+                    "project": project["name"],
+                    "workspace_id": workspace["id"],
+                    "workspace": workspace["name"],
+                    "folder": workspace["folder"],
+                    "visible": bool(workspace.get("active")),
+                    "agents": agents,
+                })
+        states = await asyncio.gather(
+            *(asyncio.to_thread(_git_brief, row["folder"]) for row in rows)
+        )
+        for row, git in zip(rows, states, strict=True):
+            row.pop("folder")
+            if git is not None:
+                row["git"] = git
+        return {
+            "status": "ok",
+            "counts": counts,
+            "needs_you": needs_you,
+            "workspaces": rows,
+            **({"closed_workspaces": closed} if closed else {}),
+            "note": (
+                "busy = in a turn; needs_input = showing a question; idle = its conversation "
+                "is waiting; empty = unused; needs_attention = stopped, failed or exited. "
+                "A finished turn says nothing about whether the work is correct. observe one "
+                "agent for what it wrote; git counts uncommitted files per workspace folder."
+            ),
+        }
+
+    async def watch(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Report back when the named agent ends the job it is working on now.
+
+        For work the user started by hand: a brief sent through this
+        orchestrator is already followed without asking.
+        """
+        from jarvis.core.delegation import current_delegation_origin
+
+        from . import followthrough
+
+        named = any(str(args.get(key) or "").strip() for key in ("terminal_id", "agent"))
+        picked = await self._pane(args) if named else self._the_one_busy_pane()
+        if isinstance(picked, dict):
+            return picked
+        _owner, term, target = picked
+        state = snapshot(term)["availability"]
+        reply = {"target": target, "agent": term.name, "state": state}
+        tracked = getattr(term, "delegation_result", None)
+        if tracked is not None and followthrough.current(term, tracked):
+            return {
+                **reply, "status": "watching", "already": True,
+                "reason": "Its result is already on its way to this conversation when it stops.",
+            }
+        if state != "busy":
+            return {
+                **reply, "status": "not_running",
+                "reason": "That agent is not in a turn, so there is nothing to wait for. "
+                          "Its state is above; observe it for what it wrote.",
+            }
+        origin = current_delegation_origin.get() or {}
+        if origin.get("reply_surface") not in {"voice", "chat"}:
+            return {
+                **reply, "status": "unavailable",
+                "reason": "No conversation to report back to; nothing is watched.",
+            }
+        if not followthrough.can_report(term):
+            return {
+                **reply, "status": "unavailable",
+                "reason": "This agent's CLI keeps no local record its completion can be read "
+                          "from, so its end cannot be reported. Nothing is watched; use status "
+                          "to look again.",
+            }
+        armed = await followthrough.watch(term, origin)
+        if snapshot(term)["availability"] != "busy":
+            # It finished while the watch was being set up: that end is already
+            # in the watch's starting point and would never be reported.
+            if getattr(term, "delegation_result", None) is armed:
+                term.delegation_result = None
+            return {
+                **reply, "state": snapshot(term)["availability"], "status": "not_running",
+                "reason": "That agent just finished, so there is nothing to wait for. "
+                          "Its state is above; observe it for what it wrote.",
+            }
+        return {
+            **reply, "status": "watching",
+            "reason": "Its result is handed to this conversation when it stops or asks. Tell "
+                      "the user it is being watched, never that it is done, and do not poll. A "
+                      "new prompt typed into that agent ends the watch.",
+        }
+
+    def inspect(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Read current task and transcript evidence only for the requested scope."""
+        graph = self._scoped(args)
+        if "projects" not in graph:
+            return graph
         for project in graph["projects"]:
             for workspace in project["workspaces"]:
                 owner = self.registry.get(workspace["id"])
@@ -679,6 +847,39 @@ class WorkspaceOrchestrator:
 
             logger.warning("Workspace change was not announced to the UI: {}", exc)
 
+    def _the_one_busy_pane(self) -> tuple[Any, Any, dict[str, str]] | dict:
+        """The agent "the coding agent" means when no name is given: the one in a turn.
+
+        With several agents working the request stays ambiguous and their
+        call-signs are offered; with none there is nothing to wait for.
+        """
+        busy = [
+            (session, term)
+            for session in self.registry.sessions
+            for term in session.terminals
+            if snapshot(term)["availability"] == "busy"
+        ]
+        if len(busy) != 1:
+            return {
+                "status": "needs_clarification",
+                "kind": "agent",
+                "reason": (
+                    "Name the coding agent (its call-sign) or pass terminal_id."
+                    if not busy
+                    else "Several agents are working; name the one to watch."
+                ),
+                "working": [term.name for _session, term in busy],
+            }
+        from . import library
+
+        session, term = busy[0]
+        target = {
+            "project_id": session.project_id or library.project_id_for(session.folder),
+            "workspace_id": session.id,
+            "terminal_id": "pane:" + term.history_id,
+        }
+        return session, term, target
+
     async def _pane(self, args: dict[str, Any]) -> tuple[Any, Any, dict[str, str]] | dict:
         """The one open pane a request names, by IDs from resolve or by call-sign."""
         if str(args.get("terminal_id") or "").strip():
@@ -710,7 +911,8 @@ class WorkspaceOrchestrator:
         observe reads the screen and the newest recorded events; respond answers
         the question or permission prompt the agent is showing; keys presses
         keys (menus, Shift+Tab, Escape); interrupt stops the current turn
-        (Escape, the pane's Stop button); close stops and removes the pane.
+        (Escape, the pane's Stop button); restart starts a stopped or failed
+        pane's agent again on its own conversation; close stops and removes it.
         """
         action = str(args.get("action"))
         picked = await self._pane(args)
@@ -758,6 +960,37 @@ class WorkspaceOrchestrator:
                     ):
                         raise SessionError(f"{term.name} is not running.")
                 return {"status": "pressed", "target": target, "keys": keys, "agent": term.name}
+            if action == "restart":
+                return await self._restart(owner, term, target)
+            if action == "fork":
+                in_worktree = args.get("worktree") is True
+                copy = await self.registry.fork_terminal(
+                    term.name,
+                    workspace_id=owner.id,
+                    worktree=in_worktree,
+                    name=str(args.get("name") or "").strip() or None,
+                )
+                await self._announce(
+                    lambda: terminals_added_event(
+                        owner, [copy], source_layer="agentic_ide.orchestration"
+                    )
+                )
+                return {
+                    "status": "forked",
+                    "target": target,
+                    "agent": term.name,
+                    "copy": {
+                        "terminal_id": "pane:" + copy.history_id,
+                        "name": copy.name,
+                        **({"folder": copy.folder, "branch": copy.branch} if in_worktree else {}),
+                    },
+                    "reason": (
+                        "The copy continues the same conversation"
+                        + (" in its own worktree and branch" if in_worktree else "")
+                        + ". The original is untouched. Send the copy its next task by its "
+                        "terminal_id."
+                    ),
+                }
             if action == "close":
                 from .fleet_actions import terminals_closed_event
 
@@ -779,6 +1012,42 @@ class WorkspaceOrchestrator:
         except SessionError as exc:  # the refusal is returned to the caller with its reason
             return {"status": "not_accepted", "target": target, "reason": str(exc)}
         raise ValueError("Unknown pane action.")
+
+    async def _restart(self, owner: Any, term: Any, target: dict[str, str]) -> dict[str, Any]:
+        """Bring a stopped pane back under the same IDs, and say what happened.
+
+        Idempotent by state: a running agent is left alone and the receipt
+        says so, so a retried or duplicated restart never starts a second
+        process or cuts a turn short. Nothing is typed; the task follows as an
+        ordinary send, and a send refused earlier as stopped is retried with
+        its own request_id.
+        """
+        before = term.status
+        term, started = await self.registry.restart_terminal(
+            target["terminal_id"], owner.id
+        )
+        receipt: dict[str, Any] = {
+            "target": target,
+            "agent": term.name,
+            "cli": term.agent,
+            "previous_status": before,
+            "process_status": term.status,
+            "input_written": False,
+        }
+        if not started:
+            return {
+                **receipt,
+                "status": "already_running",
+                "reason": "The agent is running; nothing was restarted. A failed last turn "
+                          "does not stop it: send the task to the same terminal_id.",
+            }
+        return {
+            **receipt,
+            "status": "restarted",
+            "conversation": "continued" if term.resumed else "fresh",
+            "next": "Send the task to the same terminal_id. A send refused earlier because "
+                    "the agent was stopped is retried with the same request_id and prompt.",
+        }
 
     async def workspace_action(self, args: dict[str, Any], *, trace_id: str = "") -> dict:
         """Open a new workspace, restore a closed one, or bring one on screen."""
@@ -1176,7 +1445,7 @@ class WorkspaceOrchestrator:
             return {
                 "status": "restart_required", "success": False, "executed": False,
                 "reason": "Workspace control and its receipt store are from different app "
-                          "versions. Restart Personal Jarvis before retrying. This request "
+                          "versions. Restart Dodaios before retrying. This request "
                           "created no workspace or agent and sent no prompt. Do not retry, "
                           "reassign, or use another delivery tool before restarting.",
             }
@@ -1196,7 +1465,8 @@ class WorkspaceOrchestrator:
         created = {a["terminal_id"] for a in (creation or {}).get("agents", [])}
         to_created = action == "send" and str(args.get("terminal_id") or "") in created
         if (args.get("_requires_new") or creation) and not to_created and action not in {
-            "inspect", "create", "open_workspace", "context", "observe",
+            "inspect", "create", "open_workspace", "context", "observe", "status", "watch",
+            "git",
         }:
             # A NEW request cannot borrow an idle pane for its new task, but it
             # may also carry independent work for an agent the user NAMED
@@ -1235,6 +1505,15 @@ class WorkspaceOrchestrator:
             return self.resolve(args, graph)
         if action == "create":
             return await self.create(args, trace_id=trace_id)
+        if action == "git":
+            from . import workspace_git
+
+            return await workspace_git.run(self, args)
+        if action in {"status", "watch"}:
+            from . import task_state
+
+            await task_state.refresh(self.registry)
+            return await (self.status(args) if action == "status" else self.watch(args))
         if action in _PANE_ACTIONS:
             return await self.pane_action(args)
         if action in _WORKSPACE_ACTIONS:
@@ -1353,6 +1632,21 @@ class WorkspaceOrchestrator:
                 "status": "unavailable",
                 "target": target,
                 "reason": "This session does not accept coding tasks.",
+            }
+        if action == "send" and found[1].status in _STOPPED:
+            # Pre-write, so the same request_id is retried after a restart.
+            return {
+                "status": "not_accepted",
+                "target": target,
+                "reason": f"{found[1].name} is not running ({found[1].status}); nothing "
+                          "was sent.",
+                "completed": False,
+                "input_written": False,
+                "stopped": True,
+                "restartable": True,
+                "next": "To deliver it to this agent, call restart with this terminal_id (it "
+                        "continues the agent's own conversation and stops nothing), then "
+                        "resend this request with the same request_id and prompt.",
             }
         # The low-level gateway enforces idle/asking state and refuses exited
         # agents. It never falls through to a shell or a different pane.

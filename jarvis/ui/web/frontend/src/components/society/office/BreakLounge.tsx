@@ -15,6 +15,7 @@
  * one geometry per material, and canvas faces are drawn once and shared.
  */
 import { memo } from "react";
+import { useT } from "@/i18n";
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, DoubleSide, Euler, Matrix4, MeshBasicMaterial, MeshStandardMaterial, Quaternion,
   SphereGeometry, Vector3,
@@ -62,7 +63,7 @@ const BM = {
   charcoal: matte(C.charcoal, { roughness: 0.7 }),
   cream: matte(C.cream, { roughness: 0.45 }),
   navy: matte(C.navy, { roughness: 0.7 }),
-  brass: matte("#c9a25a", { roughness: 0.35, metalness: 0.6 }),
+  brass: matte("#b08d5c", { roughness: 0.35, metalness: 0.6 }),
   chrome: matte("#d5d8dc", { roughness: 0.25, metalness: 0.7 }),
   black: matte("#1d1e21", { roughness: 0.5 }),
   marble: matte("#ece9e4", { roughness: 0.3 }),
@@ -176,7 +177,7 @@ function drawKilim(ctx: Ctx, w: number, h: number): void {
 }
 
 /** A dark game mat of pixel invaders and stars in front of the arcade. */
-function drawPixelMat(ctx: Ctx, w: number, h: number): void {
+function drawPixelMat(ctx: Ctx, w: number, h: number, player: string): void {
   const rand = lcg(77);
   ctx.fillStyle = "#16142a";
   ctx.fillRect(0, 0, w, h);
@@ -200,7 +201,7 @@ function drawPixelMat(ctx: Ctx, w: number, h: number): void {
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 30px ui-monospace, 'Cascadia Mono', monospace";
   ctx.textAlign = "center";
-  ctx.fillText("PLAYER 1", w / 2, h - 34);
+  ctx.fillText(player, w / 2, h - 34, w - 40);
 }
 
 /** Neon tubes on a transparent sheet: a soft halo under a bright core. */
@@ -209,7 +210,13 @@ function drawNeon(text: string, colour: string) {
     ctx.clearRect(0, 0, w, h);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "italic 600 132px 'Segoe Script', 'Brush Script MT', 'Snell Roundhand', cursive";
+    // Shrink the script until a longer translation still fits between the board's edges.
+    let px = 132;
+    ctx.font = `italic 600 ${px}px 'Segoe Script', 'Brush Script MT', 'Snell Roundhand', cursive`;
+    while (px > 48 && ctx.measureText(text).width > w * 0.86) {
+      px -= 6;
+      ctx.font = `italic 600 ${px}px 'Segoe Script', 'Brush Script MT', 'Snell Roundhand', cursive`;
+    }
     ctx.lineJoin = "round";
     ctx.shadowColor = colour;
     ctx.shadowBlur = 44;
@@ -386,7 +393,7 @@ function drawWeave(ctx: Ctx, w: number, h: number): void {
 
 const faces = {
   kilim: () => canvasMaterial("break:kilim", 1024, 832, drawKilim, { fallback: "#efe4d0", roughness: 1 }),
-  pixelMat: () => canvasMaterial("break:pixel-mat", 256, 280, drawPixelMat, { glow: 0.25, fallback: "#16142a", roughness: 1 }),
+  pixelMat: (player: string) => canvasMaterial(`break:pixel-mat:${player}`, 256, 280, (ctx, w, h) => drawPixelMat(ctx, w, h, player), { glow: 0.25, fallback: "#16142a", roughness: 1 }),
   arches: () => canvasMaterial("break:print-arches", 160, 200, drawArches, { fallback: "#f4eee3", roughness: 0.8 }),
   sunset: () => canvasMaterial("break:print-sunset", 240, 300, drawSunset, { fallback: "#f3d9b8", roughness: 0.8 }),
   botanical: () => canvasMaterial("break:print-botanical", 160, 200, drawBotanical, { fallback: "#efe9dc", roughness: 0.8 }),
@@ -399,13 +406,15 @@ const faces = {
 };
 
 /** The neon sign glows on its own and lets the wall show through between the tubes. */
-let neonMaterial: MeshBasicMaterial | null = null;
-function neon(): MeshBasicMaterial {
+const neonMaterials = new Map<string, MeshBasicMaterial>();
+function neon(text: string): MeshBasicMaterial {
+  let neonMaterial = neonMaterials.get(text);
   if (!neonMaterial) {
-    const map = cachedCanvasTexture("break:neon", 1024, 300, drawNeon("take five", "#ff6f91"));
+    const map = cachedCanvasTexture(`break:neon:${text}`, 1024, 300, drawNeon(text, "#ff6f91"));
     neonMaterial = map
       ? new MeshBasicMaterial({ map, transparent: true, depthWrite: false, toneMapped: false })
       : new MeshBasicMaterial({ color: "#ff6f91", transparent: true, opacity: 0, depthWrite: false });
+    neonMaterials.set(text, neonMaterial);
   }
   return neonMaterial;
 }
@@ -702,9 +711,10 @@ function BreakRug({ w, d }: { w: number; d: number }) {
 
 /** The pixel game mat in front of the arcade, with a violet glow strip along its edge. */
 function ArcadeMat({ w, d }: { w: number; d: number }) {
+  const t = useT();
   return (
     <group>
-      <Box size={[w, 0.012, d]} position={[0, 0.006, 0]} material={faces.pixelMat()} cast={false} />
+      <Box size={[w, 0.012, d]} position={[0, 0.006, 0]} material={faces.pixelMat(t("society.office.break_player_one"))} cast={false} />
       <Box size={[0.02, 0.006, d - 0.04]} position={[-w / 2 + 0.03, 0.015, 0]} material={BM.pixelGlow} cast={false} />
     </group>
   );
@@ -951,6 +961,11 @@ export const BreakLoungeFittings = memo(function BreakLoungeFittings({ room, fur
   const table = furniture.find((f) => f.kind === "breakTable");
   const bar = furniture.find((f) => f.kind === "coffeeBar" && f.room === "break");
   const wallX = room.minX + 0.075;
+  const t = useT();
+  // The gallery and the clock hang either side of the west door, wherever a floor's break room has it.
+  const westDoor = room.doors.find((door) => door.side === "west");
+  const galleryZ = westDoor ? westDoor.at + westDoor.width / 2 + 0.55 : room.minZ + 5.55;
+  const clockZ = westDoor ? westDoor.at - westDoor.width / 2 - 0.65 : room.minZ + 2.35;
   return (
     <group>
       {table && (
@@ -965,15 +980,15 @@ export const BreakLoungeFittings = memo(function BreakLoungeFittings({ room, fur
           <Box size={[1.5, 0.5, 0.03]} position={[0, 1.6, 0]} material={BM.oak} />
           <Box size={[1.44, 0.44, 0.006]} position={[0, 1.6, 0.016]} material={BM.sagePaint} cast={false} />
           <Box size={[1.36, 0.4, 0.01]} position={[0, 1.6, 0.03]} material={BM.acrylic} cast={false} />
-          <Panel size={[1.36, 0.4]} position={[0, 1.6, 0.036]} material={neon()} />
+          <Panel size={[1.36, 0.4]} position={[0, 1.6, 0.036]} material={neon(t("society.office.break_neon"))} />
         </group>
       )}
       {/* West wall: a gallery of three prints south of the door, a clock north of it. */}
       <group position={[wallX, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
         {([
-          [room.minZ + 5.55, 1.42, 0.36, 0.45, faces.arches()],
-          [room.minZ + 6.25, 1.3, 0.56, 0.7, faces.sunset()],
-          [room.minZ + 6.95, 1.48, 0.36, 0.45, faces.botanical()],
+          [galleryZ, 1.42, 0.36, 0.45, faces.arches()],
+          [galleryZ + 0.7, 1.3, 0.56, 0.7, faces.sunset()],
+          [galleryZ + 1.4, 1.48, 0.36, 0.45, faces.botanical()],
         ] as const).map(([z, y, fw, fh, face]) => (
           <group key={z} position={[-z, y, 0]}>
             <Box size={[fw + 0.05, fh + 0.05, 0.025]} position={[0, 0, 0]} material={BM.oak} />
@@ -981,7 +996,7 @@ export const BreakLoungeFittings = memo(function BreakLoungeFittings({ room, fur
             <Panel size={[fw - 0.08, fh - 0.08]} position={[0, 0, 0.0155]} material={face} />
           </group>
         ))}
-        <group position={[-(room.minZ + 2.35), 1.55, 0]}>
+        <group position={[-clockZ, 1.55, 0]}>
           <Cyl radius={0.17} height={0.03} position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} material={BM.oak} />
           <mesh position={[0, 0, 0.0155]} material={faces.clock()}><circleGeometry args={[0.15, 32]} /></mesh>
         </group>

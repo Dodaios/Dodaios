@@ -328,7 +328,7 @@ describe("TurnCard spoken track", () => {
     expect(copied).toContain("(awaiting confirmation)");
   });
 
-  it("copies spoken preambles before the final Jarvis reply", () => {
+  it("copies spoken preambles before the final assistant reply", () => {
     const copied = formatTurnPlain(
       turn({ ended_ms: 1_717_780_020_000, jarvis_text: "Final answer." }),
       [
@@ -341,7 +341,7 @@ describe("TurnCard spoken track", () => {
     );
 
     expect(copied.indexOf("[SPOKEN: PREAMBLE] Preamble first.")).toBeLessThan(
-      copied.indexOf("[JARVIS] Final answer."),
+      copied.indexOf("[ASSISTANT] Final answer."),
     );
   });
 });

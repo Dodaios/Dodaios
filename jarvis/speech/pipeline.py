@@ -97,6 +97,7 @@ from jarvis.core.turn_language import (
     normalize_language_tag,
     resolve_output_language,
 )
+from jarvis.i18n import catalog as i18n_catalog
 from jarvis.plugins.stt.fwhisper import FasterWhisperProvider
 from jarvis.plugins.tts.gemini_flash_tts import GEMINI_TTS_SAMPLE_RATE, GeminiFlashTTS
 from jarvis.plugins.wake.openwakeword_provider import (
@@ -448,20 +449,7 @@ async def _echo_brain(text: str) -> str:
 # is UI-only, so it must not be read aloud. ``_speak`` does not scrub, so these
 # phrases reach TTS verbatim. (Runtime TTS strings stay bilingual per the
 # voice-output policy; only artifacts must be English.)
-_BRAIN_UNAVAILABLE_PHRASE: dict[str, str] = {
-    "de": (
-        "Entschuldige, Ruben — ich erreiche gerade keines meiner Sprachmodelle. "
-        "Bitte prüf kurz, ob bei den Anbietern noch Guthaben ist."
-    ),
-    "en": (
-        "Sorry, Ruben — I can't reach any of my language models right now. "
-        "Please check whether your providers still have credit."
-    ),
-    "es": (
-        "Lo siento, Ruben — ahora mismo no puedo acceder a ninguno de mis "
-        "modelos de lenguaje. Comprueba si tus proveedores aún tienen crédito."
-    ),
-}
+_BRAIN_UNAVAILABLE_PHRASE: dict[str, str] = i18n_catalog.table("speech.brain_unavailable")
 
 # AD-OE6 zero-silent-drop fallback for the *final* utterance STT. A cloud STT
 # (Groq/OpenAI/Deepgram) can transiently 429 when the in-utterance stability
@@ -469,33 +457,13 @@ _BRAIN_UNAVAILABLE_PHRASE: dict[str, str] = {
 # ``_transcribe_final`` exhausts its retries we say this instead of dropping the
 # user into silence (the "Jarvis listens forever, never answers" bug,
 # 2026-05-25). Short, bilingual, TTS-clean (``_speak`` does not scrub).
-_STT_UNAVAILABLE_PHRASE: dict[str, str] = {
-    "de": (
-        "Entschuldige, ich habe dich akustisch gerade nicht verstanden. "
-        "Sag es bitte noch einmal."
-    ),
-    "en": "Sorry, I didn't catch that just now. Could you say it again?",
-    "es": "Perdona, no te he entendido bien ahora mismo. ¿Puedes repetirlo, por favor?",
-}
+_STT_UNAVAILABLE_PHRASE: dict[str, str] = i18n_catalog.table("speech.stt_unavailable")
 
 # Honest cross-family fallback when a requested duplex provider cannot open a
 # session. The classic pipeline remains available for this voice call so a
 # missing key, exhausted balance, unsupported model, or network outage never
 # turns the Realtime switch into a silent dead end (AP-22/AP-23).
-_REALTIME_UNAVAILABLE_PHRASE: dict[str, str] = {
-    "de": (
-        "Die Realtime-Verbindung ist gerade nicht verfügbar. "
-        "Ich wechsle für diese Sitzung zur klassischen Sprachverarbeitung."
-    ),
-    "en": (
-        "The realtime connection is unavailable right now. "
-        "I am switching this session to the classic voice pipeline."
-    ),
-    "es": (
-        "La conexión en tiempo real no está disponible ahora mismo. "
-        "Cambiaré esta sesión al sistema de voz clásico."
-    ),
-}
+_REALTIME_UNAVAILABLE_PHRASE: dict[str, str] = i18n_catalog.table("speech.realtime_unavailable")
 
 # AD-OE6 zero-silent-drop fallback for a brain TURN that times out. Live bug
 # 2026-05-29: "kannst du Claude Code öffnen" stalled the Gemini stream; the
@@ -515,24 +483,13 @@ _REALTIME_UNAVAILABLE_PHRASE: dict[str, str] = {
 #   • NO-ANSWER — a bare provider stall / total cap with no tool evidence:
 #     honestly admit we could not find it out, never the vague "took too long".
 # Both are short, TTS-clean (``_speak`` does not scrub — no em-dash, two short
-# sentences), and carry all supported locales (de/en/es). String-only: NO LLM
+# sentences), and carry all supported locales (de/en/es/pt). String-only: NO LLM
 # call in this timeout/scrub path (AP-11). Resolved through the ONE output-
 # language decision via ``_resolve_timeout_phrase`` below (AGENTS.md §1 — no
 # per-layer language re-derivation).
-_TIMEOUT_TOOL_STALL_PHRASE: dict[str, str] = {
-    "de": (
-        "Ich habe rechtzeitig keine Antwort bekommen. Ein Tool, auf das ich "
-        "gewartet habe, hat nicht reagiert."
-    ),
-    "en": "I couldn't get an answer in time. A tool I was waiting on didn't respond.",
-    "es": "No pude obtener una respuesta a tiempo. Una herramienta que esperaba no respondió.",
-}
+_TIMEOUT_TOOL_STALL_PHRASE: dict[str, str] = i18n_catalog.table("speech.timeout_tool_stall")
 
-_TIMEOUT_NO_ANSWER_PHRASE: dict[str, str] = {
-    "de": "Das konnte ich gerade nicht herausfinden.",
-    "en": "I couldn't find that out just now.",
-    "es": "No pude averiguar eso ahora mismo.",
-}
+_TIMEOUT_NO_ANSWER_PHRASE: dict[str, str] = i18n_catalog.table("speech.timeout_no_answer")
 
 # AD-OE6 zero-silent-drop fallback for an ABANDONED incomplete utterance. When
 # the user trails off on a dangling fragment ("…erinnere mich daran, dass" +
@@ -546,6 +503,7 @@ _CLARIFY_QUESTION_PHRASE: dict[str, str] = {
     "de": "Wie meinst du das genau?",
     "en": "What do you mean exactly?",
     "es": "¿Qué quieres decir exactamente?",
+    "pt": "O que queres dizer exatamente?",
 }
 
 # AD-OE6 confirmation for a SUCCESSFUL wordless desktop-action turn. When the
@@ -562,21 +520,22 @@ _ACTION_DONE_PHRASE: dict[str, str] = {
     "de": "Erledigt.",
     "en": "Done.",
     "es": "Listo.",
+    "pt": "Feito.",
 }
 
 
-_PHRASE_LANGS: frozenset[str] = frozenset({"de", "en", "es"})
+_PHRASE_LANGS: frozenset[str] = frozenset({"de", "en", "es", "pt"})
 
 
 def _phrase_lang(lang: str | None) -> str:
-    """Normalize a detected-language tag to a canned-phrase key ("de"/"en"/"es").
+    """Normalize a detected-language tag to a canned-phrase key ("de"/"en"/"es"/"pt").
 
     The utterance language reaches the phrase pickers in two shapes: full
     language NAMES from the STT transcript (``(transcript.language or
     "en").lower()`` → ``"german"``/``"spanish"`` for Groq Whisper) and
     BCP-47-ish CODES ("de", "de-DE", "es-ES") from config pins / announcements.
     Both collapse through the canonical ``normalize_language_tag`` so every
-    supported language (de/en/es) selects its own phrase set; anything
+    supported language (de/en/es/pt) selects its own phrase set; anything
     unrecognised falls back to ``DEFAULT_LOCALE``. The pickers used to test
     ``lang.startswith("de")`` only — ``"german"`` does not start with "de", so
     every canned AD-OE6 fallback (clarify question, action-done ack,
@@ -585,7 +544,7 @@ def _phrase_lang(lang: str | None) -> str:
     bug 2026-06-09: "antwortet fast immer mit einer englischen
     Standardphrase"); a Spanish speaker hit the same trap until this normalizer
     learned ``es`` (Runtime Output Language doctrine). The canned tables now
-    carry all three languages.
+    carry every supported language (de/en/es/pt).
     """
     code = normalize_language_tag(lang)
     return code if code in _PHRASE_LANGS else DEFAULT_LOCALE
@@ -958,7 +917,7 @@ _DICTATION_HANDOVER_POLL_S = 0.02
 
 # Said when a voice gesture is refused and the permission layer has no sentence of
 # its own (an unreadable permission, an injected gate that only says "no").
-_MICROPHONE_REFUSED_SENTENCE = "Microphone access is not available for Personal Jarvis right now."
+_MICROPHONE_REFUSED_SENTENCE = "Microphone access is not available for Dodaios right now."
 
 # How long the wake loop parks on the microphone permission before it re-reads the
 # gate on its own. The grant normally wakes it at once (PermissionResolved); this
@@ -1930,11 +1889,21 @@ def _smalltalk_fallback_for_non_substantive(prompt: str, lang: str) -> str | Non
         "wie geht",
         "how are you",
         "how's it going",
+        "qué tal",  # i18n-allow: Spanish wellbeing marker
+        "cómo estás",  # i18n-allow: Spanish wellbeing marker
+        "como estas",  # i18n-allow: Spanish wellbeing marker
+        "como estás",  # i18n-allow: PT wellbeing marker
+        "tudo bem",  # i18n-allow: PT wellbeing marker
     )
     if not any(marker in low for marker in wellbeing_markers):
         return None
-    if _phrase_lang(lang) == "de":
+    phrase_lang = _phrase_lang(lang)
+    if phrase_lang == "de":
         return "Mir geht's gut, Ruben. Was machen wir als Naechstes?"
+    if phrase_lang == "es":
+        return "Estoy bien. ¿Qué hacemos ahora?"  # i18n-allow: Spanish TTS
+    if phrase_lang == "pt":
+        return "Estou bem. O que fazemos a seguir?"  # i18n-allow: PT TTS
     return "I'm good, Ruben. What's next?"
 
 
@@ -5074,6 +5043,10 @@ class SpeechPipeline:
             "es": (
                 "[ejecución programada] Es hora del skill '{name}'. Ejecuta sus "
                 "instrucciones ahora e informa brevemente el resultado."
+            ),
+            "pt": (
+                "[execução agendada] Está na hora do skill '{name}'. Executa as "
+                "suas instruções agora e informa brevemente o resultado."
             ),
             "en": (
                 "[scheduled run] It is time for the '{name}' skill. Execute its "
@@ -9365,7 +9338,7 @@ class SpeechPipeline:
                             source_layer="speech.pipeline",
                             session_id=session_id,
                             wake_keyword=wake_keyword,
-                            language="de",
+                            language=DEFAULT_LOCALE,
                         )
                     )
                     # A close accepted while a slow start subscriber runs must
@@ -17003,8 +16976,8 @@ class SpeechPipeline:
                 # These are *runtime* bilingual output strings (not artifacts),
                 # so they stay bilingual per the voice-output policy.
                 spoken_phrases: dict[str, dict[str, str]] = {
-                    "incomplete": {"de": "Mhm?", "en": "Mhm?"},
-                    "abort": {"de": "Okay.", "en": "Okay."},
+                    "incomplete": {"de": "Mhm?", "en": "Mhm?", "es": "¿Mhm?", "pt": "Hum?"},
+                    "abort": {"de": "Okay.", "en": "Okay.", "es": "Vale.", "pt": "Ok."},
                 }
                 lang_key = _phrase_lang(lang)
                 phrase = spoken_phrases.get(kind, {}).get(lang_key, "Mhm?")
@@ -17330,9 +17303,7 @@ class SpeechPipeline:
                         lang, len(dropped_sentences),
                     )
                     await _speak_sentence(
-                        FALLBACK_PHRASES.get(
-                            _phrase_lang(lang), FALLBACK_PHRASES["de"]
-                        )
+                        i18n_catalog.pick(FALLBACK_PHRASES, _phrase_lang(lang))
                     )
             except asyncio.CancelledError:
                 raise
@@ -18295,7 +18266,7 @@ class SpeechPipeline:
             event = SpeechSpoken(
                 source_layer="speech.pipeline",
                 text=text,
-                language=(language or "de"),
+                language=(language or "en"),
                 spoken_kind=kind,
                 detail=(detail or None),
                 voice=voice,
@@ -18317,7 +18288,7 @@ class SpeechPipeline:
         return result is not False
 
     #: Spoken readback for a Jarvis-Agent background task that finished off the
-    #: chat path. de/en/es so the readback follows the conversation language
+    #: chat path. de/en/es/pt so the readback follows the conversation language
     #: instead of a hardcoded German literal (forensic 2026-06-23). German
     #: strings are TTS product surface, not source artifacts (i18n-allow).
     _BG_READBACK_PHRASES: dict[str, dict[str, str]] = {
@@ -18339,13 +18310,21 @@ class SpeechPipeline:
             "fail": "Eso no funcionó. {e}",
             "unknown_err": "error desconocido",
         },
+        "pt": {
+            "done": "Feito.",
+            "done_summ": "Feito. {s}",
+            "fail": "Isso não funcionou. {e}",
+            "unknown_err": "erro desconhecido",
+        },
     }
 
-    _BCP47: dict[str, str] = {"de": "de-DE", "en": "en-US", "es": "es-ES"}
+    _BCP47: dict[str, str] = {
+        "de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT",
+    }
 
     @classmethod
     def _bcp47(cls, lang: object) -> str | None:
-        """Map a de/en/es turn-language code to a TTS BCP-47 locale, else None.
+        """Map a de/en/es/pt turn-language code to a TTS BCP-47 locale, else None.
 
         Single source for the whole pipeline — replaces four hand-copied maps,
         one of which (the task-ack prerender) had silently dropped ``es``, so a
@@ -18377,11 +18356,13 @@ class SpeechPipeline:
         # Conversation stickiness: a thin interjection ("Now") inherits the
         # running conversation language instead of flipping ack/phrases/TTS
         # (forensic 2026-06-18). The brain owns the sticky conversation language.
+        # An undetectable turn falls back to English (DEFAULT_LOCALE), never
+        # the UI language: the interface language says nothing about the
+        # language spoken (forensic 2026-10-19).
         conv = getattr(brain, "conversation_language", "")
-        ui = getattr(getattr(self, "_config", None), "ui", None)
         return resolve_output_language(
             pin, stt_language, text, conversation_language=conv,
-            default=_phrase_lang(getattr(ui, "language", None)),
+            default=DEFAULT_LOCALE,
         )
 
     async def _speak(
@@ -18706,14 +18687,14 @@ async def _main() -> None:
     )
     print()
     print("=" * 64)
-    print("  Personal Jarvis — Speech pipeline")
+    print("  Dodaios — Speech pipeline")
     print("=" * 64)
     print("  CALL    :  say your wake word           |  Ctrl+RightAlt+J  |  F3+F4")
     # i18n-allow: quoted German hang-up trigger phrase
     print("  HANG UP :  say 'auflegen'               |  F1+F2")
     print("  QUIT    :  Ctrl+C in the terminal")
     print()
-    print("  When Jarvis hears you: chime + a short spoken ack back.")
+    print("  When Dodaios hears you: chime + a short spoken ack back.")
     print("  The live score log shows whether the wake word triggers.")
     print("=" * 64)
     print()

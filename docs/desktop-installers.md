@@ -1,6 +1,6 @@
 # Desktop installers
 
-How Personal Jarvis becomes a one-click download, how each installer is built
+How Dodaios becomes a one-click download, how each installer is built
 and signed, and how an installed copy keeps itself up to date.
 
 This is the maintainer's page. A user never reads it: they press one button on
@@ -12,7 +12,7 @@ the website, run a normal install wizard, and the app updates itself afterwards.
 
 Every `v*.*.*` tag produces these assets on the GitHub Release. The names are a
 contract - the website's download button and the in-app updater both resolve
-`https://github.com/PersonalJarvis/PersonalJarvis/releases/latest/download/<name>`:
+`https://github.com/Dodaios/Dodaios/releases/latest/download/<name>`:
 
 | Asset                                  | Platform                                  |
 | -------------------------------------- | ----------------------------------------- |
@@ -39,15 +39,16 @@ pyinstaller jarvis.spec --noconfirm --clean
 `onedir`, not `onefile`: no 3-5 second extraction on every launch, and each DLL
 can be signed on its own.
 
-It produces **two executables that share one payload**:
+It produces **executables that share one payload**:
 
-| Binary                    | Console? | What it is                                                       |
-| ------------------------- | -------- | ---------------------------------------------------------------- |
-| `PersonalJarvis` (`.exe`) | no       | the windowed app - Start Menu, Dock, `.desktop`                   |
-| `jarvis` (`.exe`)         | yes      | the CLI: `jarvis serve`, `jarvis --version`, `jarvis missions list` |
+| Binary                    | Console? | What it is                                                          |
+| ------------------------- | -------- | ------------------------------------------------------------------- |
+| `PersonalJarvis` (`.exe`) | no       | the windowed app - Start Menu, Dock, `.desktop`                      |
+| `dodaios` (`.exe`)        | yes      | the CLI: `dodaios serve`, `dodaios --version`, `dodaios missions list` |
+| `jarvis` (`.exe`)         | yes      | the same CLI under its earlier name, kept for existing scripts       |
 
-Both run `jarvis/__main__.py`, so the CLI from a native install behaves exactly
-like the pip console script.
+All of them run `jarvis/__main__.py`, so the CLI from a native install behaves
+exactly like the pip console script.
 
 > **Why the GUI binary is not called `Jarvis`.** `Jarvis` and `jarvis` are the
 > same path on Windows (NTFS) and on a default macOS APFS volume, so one would
@@ -57,8 +58,9 @@ like the pip console script.
 
 Layout:
 
-- Windows / Linux: `dist/Jarvis/` with both binaries plus `_internal/`
-- macOS: `dist/Personal Jarvis.app`, CLI at `Contents/MacOS/jarvis`
+- Windows / Linux: `dist/Jarvis/` with the binaries plus `_internal/`
+- macOS: `dist/Personal Jarvis.app`, CLI at `Contents/MacOS/dodaios` (and
+  `Contents/MacOS/jarvis`)
 
 ### Where a frozen install keeps user data
 
@@ -107,11 +109,12 @@ The wizard itself is `packaging/windows/PersonalJarvis.iss`:
 - a **fixed `AppId` GUID** so every future setup upgrades in place instead of
   adding a second entry to "Installed apps"
 - Start Menu shortcut; optional desktop shortcut (off by default)
-- optional **"Add the `jarvis` command to PATH"** (on by default). Implemented
+- optional **"Add the `dodaios` command to PATH"** (on by default; the folder
+  it adds also holds `jarvis.exe`, so the earlier name works too). Implemented
   in `[Code]` against `HKCU\Environment` and broadcast with `WM_SETTINGCHANGE`,
   so a newly opened terminal sees it without a sign-out. Adding is idempotent,
   and clearing the task on an upgrade removes the entry again.
-- `CloseApplications=yes` so Restart Manager closes a running Personal Jarvis
+- `CloseApplications=yes` so Restart Manager closes a running Dodaios
   instead of failing on locked files
 - LZMA2/max, `x64compatible` only, `MinVersion=10.0`
 
@@ -140,7 +143,7 @@ table carries the German and Spanish versions: `jarvis.spec` declares the langua
 (`packaging/macos/add_localizations.py`) BEFORE it signs it, because the files are
 part of the code seal. There
 is deliberately no camera string, no speech-recognition string and no camera
-entitlement: Jarvis has no caller for either. The entitlements embedded by the
+entitlement: Dodaios has no caller for either. The entitlements embedded by the
 Developer ID path live in `packaging/macos/entitlements.plist` (no comments; the
 reasoning is in `packaging/macos/README.md`).
 
@@ -169,7 +172,7 @@ status each time: a microphone row that reads "unavailable" means the framework
 did not load inside the app (the check above only sees that the module is in the
 archive). The v2.5.0 image shipped with the first two defects (BUG-222).
 
-**Permission prompts.** Personal Jarvis asks for a macOS permission at the moment
+**Permission prompts.** Dodaios asks for a macOS permission at the moment
 a feature you start needs it (the first dictation asks for the microphone, the
 first screen capture for Screen Recording, and so on) and never at launch;
 nothing is requested up front and no banner or wizard nags. Apple's own dialog or
@@ -280,9 +283,12 @@ switch between them.
 
 For a frozen install (`jarvis/core/installer_update.py`):
 
-1. **Pick the asset.** OS plus CPU architecture map to exactly one name from the
-   table in section 1. No mapping (Windows on ARM, Linux on aarch64) means the
-   button never appears.
+1. **Pick the asset.** OS plus CPU architecture map to one row of
+   `INSTALLER_ASSET_NAMES` in `jarvis/core/installer_update.py`: the name from
+   the table in section 1, and the same file under the `Dodaios-` prefix. The
+   updater takes the first accepted name a release carries; when a release
+   carries more than one, the first that `installers-SHA256SUMS.txt` lists. No
+   mapping (Windows on ARM, Linux on aarch64) means the button never appears.
 2. **Refuse to offer what cannot be installed.** `status` reports
    `update_available: true` only when the release actually carries both this
    platform's installer and `installers-SHA256SUMS.txt`. Status is fail-open:
@@ -297,7 +303,15 @@ For a frozen install (`jarvis/core/installer_update.py`):
      Manager closes the app, the files are replaced, the app comes back.
    - macOS: `hdiutil attach` the DMG, swap the running `.app` with two renames
      on one filesystem (the old bundle is put back if the second rename fails),
-     `hdiutil detach`, relaunch with `open`.
+     `hdiutil detach`, relaunch with `open`. The swap is in place whenever the
+     disk image carries the app under the running bundle's name or under the
+     name this version ships with, so a bundle the user renamed or duplicated
+     in Finder is updated where it is. Only a disk image whose bundle has a
+     name this version has never used counts as a renamed app: it is installed
+     beside the running bundle under its own name and relaunched from there.
+     The superseded bundle is removed only after that copy is complete and
+     only when its `CFBundleIdentifier` is one of ours; an unrelated app that
+     already has the new name is never overwritten.
    - Linux: copy the new AppImage next to the running one, `chmod +x`,
      `os.replace` onto `$APPIMAGE` (atomic), relaunch.
 
@@ -307,6 +321,51 @@ still holds - but the honest answer is "no restart needed from you".
 
 Managed installs keep today's behaviour untouched: the frozen branch is entered
 only when `is_frozen()` is true, and the frozen branch never runs git.
+
+A managed update is applied by the restart helper of the version that is being
+replaced: it resets the checkout to the new revision, runs that revision's
+installer, verifies its UI bundle and starts it. The helper does not assume the
+new tree looks like its own. Each release states where it keeps its UI bundle,
+launcher module, version file, config file and macOS app bundle (name and
+bundle identifier) in
+`install/update-contract.json` (reader: `jarvis/core/update_contract.py`), and
+the helper reads the contract of whichever tree is checked out at that moment -
+the target after the reset, the previous one after a rollback. A tree without
+the file, or with one that fails validation (unknown schema, a path that leaves
+the checkout), is treated as using the default locations, so a wrong contract
+fails the bundle check and rolls back. A contract may name a `rollback_hook`: a
+tracked script of the new release that runs when its install failed, before
+the checkout returns to the previous revision.
+
+Re-running the one-line installer over an existing install downloads first
+(a fetch only writes inside `.git`), then stops every app running out of that
+install right before it resets the checkout, and again before it rebuilds the
+environment. A failed download therefore leaves the app running. The path that
+moves a broken install aside asks the download server first (`git ls-remote`,
+then a plain HTTPS request for the hosted repository, because the archive
+download still works where git is blocked) and changes nothing while it is out
+of reach. Started from a terminal inside the app, the installer
+refuses before it stops anything: its own parent processes run out of the
+install's environment, so stopping the app would end the installer with it.
+
+Known limits of the update contract. These names are not part of it, so a
+release that changes one has to keep the old one working for the update that
+crosses it:
+
+- the Windows launcher copy the desktop app runs as
+  (`WINDOWS_BRANDED_LAUNCHER_FILE_NAME`) and its one-process loop guard, the
+  environment variable `JARVIS_BRANDED_LAUNCH`
+  (`WINDOWS_BRANDED_LAUNCH_ENV_VAR`). The helper starts the new launcher
+  module through the old copy when one still exists, otherwise through the
+  interpreter;
+- the launcher module written into autostart entries and shortcuts
+  (`LAUNCHER_MODULE` in `jarvis/autostart/command.py`, `_LAUNCHER_MODULE` in
+  `jarvis/ui/icon_utils.py`). The helper rewrites neither: shortcuts are
+  renewed by the installer of the new release, the autostart entry by the new
+  app when it first starts;
+- processes of the old version that outlive the app window, such as the
+  terminal host (`jarvis.terminal.pty_host`), which keeps running the old code
+  until it is stopped. The helper waits for the app process only.
 
 ---
 

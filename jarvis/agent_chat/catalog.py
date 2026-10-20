@@ -412,7 +412,20 @@ def rows_for(surface: str) -> tuple[ProviderRow, ...]:
     """
     from jarvis.agent_chat.surface_kits import kit_for
 
-    if kit_for(surface).cli_seats:
+    kit = kit_for(surface)
+    if kit.plain:
+        # A plain chat seats whatever can answer with no tool: every provider
+        # an API key drives, and the CLIs that have a tool-free mode.
+        from jarvis.agent_chat.native_control import TOOL_FREE_RUNNERS
+        from jarvis.agent_chat.runner_api import supports_api_runner
+
+        return tuple(
+            row
+            for row in PROVIDER_ROWS
+            if supports_api_runner(row.id)
+            or (row.runner in TOOL_FREE_RUNNERS and _ide_has(row.agent))
+        )
+    if kit.cli_seats:
         return tuple(row for row in PROVIDER_ROWS if not row.agent or _ide_has(row.agent))
     from jarvis.agent_chat.runner_api import supports_api_runner
 

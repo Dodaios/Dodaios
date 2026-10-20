@@ -30,7 +30,7 @@ import { WorkspaceTerminalHeader } from "@/components/agentic/WorkspaceTerminalH
 import type { PaneEdgeState } from "@/components/agentic/terminalThemes";
 import { RosterRail } from "@/components/society/roster/RosterRail";
 import { useSocietyRoster, type SocietyAgent } from "../data";
-import { useSocietyChatGroups } from "@/lib/societyChatGroups";
+import { chatGroupsKnown, useSocietyChatGroups } from "@/lib/societyChatGroups";
 import { paneLabel, paneOccupants, type PaneOccupant } from "./codingFloor";
 import { PaneScreenView } from "./PaneLiveScreen";
 import { screenChanged } from "./terminalScreen";
@@ -79,7 +79,8 @@ function AgentsScreen() {
   const roster = useSocietyRoster();
   const agents = useMemo(() => roster.data?.agents ?? [], [roster.data]);
   const sample = roster.data?.sample ?? true;
-  const groups = useSocietyChatGroups(!sample).data ?? [];
+  const groupsQuery = useSocietyChatGroups(!sample);
+  const groups = groupsQuery.data ?? [];
   const shown = pickShownAgent(agents);
   const shownId = shown?.agentId ?? null;
   const store = useMemo(() => (shownId ? createAgentChatStore("society", `office-mission:${shownId}`) : null), [shownId]);
@@ -87,7 +88,7 @@ function AgentsScreen() {
   useEffect(() => () => store?.getState().disconnect(), [store]);
   return (
     <div className="grid h-full min-h-0 grid-cols-[300px_minmax(0,1fr)] bg-card">
-      <RosterRail agents={agents} groups={groups} loading={roster.isLoading} sample={sample}
+      <RosterRail agents={agents} groups={groups} loading={roster.isLoading} teamsPending={!sample && !chatGroupsKnown(groupsQuery)} sample={sample}
         activeAgentId={shownId} onOpen={() => undefined} onCreate={() => undefined}
         side="left" className="w-full border-0 jarvis-nav-surface" />
       <section className="flex min-h-0 flex-col overflow-hidden rounded-tl-[12px] border-l border-border bg-background">

@@ -12,7 +12,7 @@ audience: developer
 # ADR-0030 — Worker Knowledge-Surface Parity
 
 **Status:** Accepted (2026-07-25)
-**Phase:** 6 — Self-Healing Jarvis-Agents Orchestrator
+**Phase:** 6 — Self-Healing Dodaios-Agents Orchestrator
 **Reference:** ADR-0025 (broker mechanism), ADR-0012 (superseded placement
 note), ADR-0031 (pre-authorization); AP-5, AP-14, AP-21
 
@@ -33,7 +33,7 @@ were written when workers could not reach in-process tools at all. The broker
 removed that premise — the tool object, the store, and the credentials stay
 in the supervisor; a worker only sends a named request that still runs
 through `ToolExecutor`. ADR-0012 explicitly invites this reopening ("Reopen
-if/when Jarvis-Agent workers need recall directly").
+if/when Dodaios-Agent workers need recall directly").
 
 ## Decision
 

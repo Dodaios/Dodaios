@@ -8,11 +8,11 @@ import { create } from "zustand";
 export interface OfficeSettings {
   /** Walk at sprint pace by default; Shift then slows to a walk. */
   alwaysRun: boolean;
-  /** Show the one-line controls reminder at the bottom of the map. */
-  showHintBar: boolean;
+  /** The first-visit control hints were dismissed; they stay away until the person asks for them again. */
+  hintsSeen: boolean;
 }
 
-export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { alwaysRun: false, showHintBar: true };
+export const DEFAULT_OFFICE_SETTINGS: OfficeSettings = { alwaysRun: false, hintsSeen: false };
 
 const STORAGE_KEY = "jarvis.office.settings.v1";
 
@@ -20,10 +20,11 @@ export function loadOfficeSettings(): OfficeSettings {
   try {
     const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_OFFICE_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<OfficeSettings>;
+    const parsed = JSON.parse(raw) as Partial<OfficeSettings> & { showHintBar?: unknown };
     return {
       alwaysRun: typeof parsed.alwaysRun === "boolean" ? parsed.alwaysRun : DEFAULT_OFFICE_SETTINGS.alwaysRun,
-      showHintBar: typeof parsed.showHintBar === "boolean" ? parsed.showHintBar : DEFAULT_OFFICE_SETTINGS.showHintBar,
+      // Someone who had switched the old permanent hint bar off has seen the hints.
+      hintsSeen: typeof parsed.hintsSeen === "boolean" ? parsed.hintsSeen : parsed.showHintBar === false,
     };
   } catch (error) {
     // Blocked or corrupt storage: the defaults are a complete, working set.
@@ -50,8 +51,8 @@ export const useOfficeSettings = create<OfficeSettingsState>((set, get) => ({
   ...loadOfficeSettings(),
   set: (patch) => {
     set(patch);
-    const { alwaysRun, showHintBar } = get();
-    saveOfficeSettings({ alwaysRun, showHintBar });
+    const { alwaysRun, hintsSeen } = get();
+    saveOfficeSettings({ alwaysRun, hintsSeen });
   },
   reset: () => {
     set({ ...DEFAULT_OFFICE_SETTINGS });
@@ -65,9 +66,9 @@ export function isRunning(shiftHeld: boolean, alwaysRun: boolean): boolean {
 }
 
 /** The reception's tabs; H opens reception on the controls tab from anywhere. */
-export type ReceptionTab = "welcome" | "controls" | "settings";
+export type ReceptionTab = "agents" | "places" | "controls" | "settings";
 
 export const useReceptionTab = create<{ tab: ReceptionTab; setTab: (tab: ReceptionTab) => void }>((set) => ({
-  tab: "welcome",
+  tab: "agents",
   setTab: (tab) => set({ tab }),
 }));

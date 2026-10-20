@@ -57,7 +57,7 @@ todo-fox/
 │   │   └── SKILL.md
 │   └── todo-weekly-review/
 │       └── SKILL.md
-├── io.github.personaljarvis/    ← everything specific to this client
+├── io.github.dodaios/           ← everything specific to this client
 │   └── usage-card.md
 └── LICENSE
 ```
@@ -67,8 +67,8 @@ plugin has `mcp.json` too, because that is what gives it tools; `skills/`
 is what makes it *good* — the tools plus the instructions for using them
 well, in one install.
 
-**`plugin.json`** — the identity. Everything Jarvis-specific sits inside the
-`io.github.personaljarvis` namespace, which every other client ignores:
+**`plugin.json`** — the identity. Everything Dodaios-specific sits inside the
+`io.github.dodaios` namespace, which every other client ignores:
 
 ```json
 {
@@ -78,7 +78,7 @@ well, in one install.
   "version": "1.2.0",
   "license": "MIT",
   "extensions": {
-    "io.github.personaljarvis": {
+    "io.github.dodaios": {
       "display_name": "TodoFox",
       "category": "Lists & Tasks",
       "logo_slug": "todofox",
@@ -92,6 +92,23 @@ well, in one install.
   }
 }
 ```
+
+The namespace was called `io.github.personaljarvis` before the product was
+renamed. A package written with it stays valid as it is: the app reads the
+block under either key and the usage card from either directory, and a plugin
+is the same plugin whichever one it uses, because its identity is its `name`.
+Three rules keep the two in step:
+
+- Publishing from the app (the Publish tab) sends the block under **both**
+  keys, identical. The registry's validator and app versions released before
+  the rename read only the earlier key, so a submission without it would be
+  refused there (see [validator-parity.md](validator-parity.md), "The
+  extension namespace").
+- A pull request opened against the registry by hand needs the same: until
+  the registry accepts `io.github.dodaios` on its own, keep the block under
+  `io.github.personaljarvis` as well.
+- A manifest that carries both keys must carry the same block under each.
+  Two blocks that differ are refused at install, never merged.
 
 **`mcp.json`** — exactly one server, either hosted over HTTPS:
 
@@ -123,8 +140,8 @@ version, with tokens as placeholders and never as literals:
 }
 ```
 
-**`io.github.personaljarvis/usage-card.md`** — the words that decide *when*
-your plugin is offered. Without it, Jarvis only reaches for the plugin when
+**`io.github.dodaios/usage-card.md`** — the words that decide *when*
+your plugin is offered. Without it, Dodaios only reaches for the plugin when
 a turn names it outright:
 
 ```markdown
@@ -156,7 +173,7 @@ the user clearly asks to change something.
 | `plugin.json` binding a `native_tool` | Native tools are Python inside the app; that tier is contributed to the main repo. |
 | Plain `http://` anywhere | Your users' tokens travel over these URLs. |
 | A stdio launcher other than `npx`/`uvx`/`docker`, or an unpinned version | Anything else is an arbitrary command line on a stranger's machine. |
-| A token written into `headers` or `env` | Those files are public. Use a `$plugin_…` placeholder; Jarvis fills it at connect time. |
+| A token written into `headers` or `env` | Those files are public. Use a `$plugin_…` placeholder; Dodaios fills it at connect time. |
 | A package with no components at all | It would be a card that collects a token and does nothing. |
 
 Limits: 10 skills per package, 64 KB per `SKILL.md`.

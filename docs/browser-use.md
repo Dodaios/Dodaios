@@ -82,7 +82,7 @@ The application container includes the required native libraries.
 
 The managed installation and real-browser contracts passed on Linux x64/ARM64,
 Windows x64/ARM64, and macOS Intel/Apple Silicon in
-[the six-platform run](https://github.com/PersonalJarvis/PersonalJarvis/actions/runs/34451340158).
+[the six-platform run](https://github.com/Dodaios/Dodaios/actions/runs/34451340158).
 Subsequent changes must pass the same matrix before integration.
 
 A full ordinary agent-chat turn selected the browser capability, submitted the

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MainView } from "./MainView";
 import { useEventStore } from "@/store/events";
@@ -7,7 +7,12 @@ vi.mock("@/views/ChatsSurface", () => ({
   ChatsSurface: () => <input aria-label="Unsent message" defaultValue="A draft" />,
 }));
 vi.mock("@/views/PluginsView", () => ({
-  PluginsView: ({ inDialog }: { inDialog: boolean }) => <div>Catalog {String(inDialog)}</div>,
+  PluginsView: () => <div>Catalog</div>,
+  // The section sidebar lists installed plugins from the shared catalog.
+  usePluginCatalog: () => ({ plugins: [], isLoading: false, error: null, refetch: () => {} }),
+  BrandTile: () => null,
+  matchesQuery: () => true,
+  sortPluginsByName: () => 0,
 }));
 vi.mock("@/views/SkillsView", () => ({ SkillsView: () => <input aria-label="Skill search" /> }));
 vi.mock("@/views/McpsView", () => ({ McpsView: () => <div>MCP content</div> }));
@@ -21,7 +26,7 @@ it("opens a bounded dialog while preserving the current draft and restores that 
   fireEvent.change(draft, { target: { value: "Keep this draft" } });
   act(() => useEventStore.getState().setActiveSection("plugins"));
   await screen.findByRole("dialog", { name: "Plugins" });
-  expect(screen.getByText("Catalog true")).toBeDefined();
+  expect(screen.getByText("Catalog")).toBeDefined();
   expect(screen.getByLabelText("Unsent message")).toBe(draft);
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -36,14 +41,15 @@ it("routes Skills and MCPs into the same dialog and keeps the original backgroun
   act(() => useEventStore.getState().setActiveSection("skills"));
   await screen.findByLabelText("Skill search");
   const dialog = screen.getByRole("dialog");
-  expect(screen.getByRole("tab", { name: "Skills" }).getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("button", { name: "Skills" }).getAttribute("aria-current")).toBe("page");
   act(() => useEventStore.getState().setActiveSection("mcps"));
   await screen.findByText("MCP content");
   expect(screen.getByRole("dialog")).toBe(dialog);
-  expect(screen.getByRole("tab", { name: "MCPs" }).getAttribute("aria-selected")).toBe("true");
-  expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Plugins", "MCPs", "Skills"]);
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "Plugins" }), { button: 0, ctrlKey: false });
-  await screen.findByText("Catalog true");
+  expect(screen.getByRole("button", { name: "MCPs" }).getAttribute("aria-current")).toBe("page");
+  const areas = screen.getByRole("navigation", { name: "Plugins, MCPs & Skills" });
+  expect(within(areas).getAllByRole("button").map((area) => area.textContent)).toEqual(["Plugins", "MCPs", "Skills"]);
+  fireEvent.click(screen.getByRole("button", { name: "Plugins" }));
+  await screen.findByText("Catalog");
   expect(useEventStore.getState().activeSection).toBe("plugins");
   expect(screen.getByLabelText("Unsent message")).toBe(draft);
   fireEvent.keyDown(document, { key: "Escape" });

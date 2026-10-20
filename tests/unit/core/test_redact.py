@@ -8,6 +8,10 @@ is capped so a tool cannot smuggle a large blob into the log.
 """
 from __future__ import annotations
 
+import logging
+
+import pytest
+
 from jarvis.core.redact import DEFAULT_PREVIEW_CHARS, redact_secrets, safe_preview
 
 
@@ -111,3 +115,57 @@ def test_structured_values_preview_as_json_not_python_repr() -> None:
     assert safe_preview(["café", 2]) == '["café", 2]'
     # Anything JSON cannot encode still previews instead of raising.
     assert safe_preview({"at": object()}).startswith('{"at": "<object object')
+
+
+# --- RedactingLogFilter ----------------------------------------------------------
+
+_BOT_TOKEN = "987654321:AAFakeTokenForTestsOnly_abcdefghijklmnop"  # noqa: S105 - a fake
+
+
+@pytest.mark.parametrize(
+    "level", [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
+)
+def test_the_redacting_filter_masks_every_level_and_the_logged_exception(
+    caplog: pytest.LogCaptureFixture, level: int
+) -> None:
+    """A record's message, its arguments, and the traceback printed under it
+    (the error and the cause it was raised from) all lose the token."""
+    from jarvis.core.redact import redact_logger
+
+    name = "jarvis.test.redact_probe_levels"
+    logger = logging.getLogger(name)
+    redact_logger(name)
+    url = f"https://api.telegram.org/bot{_BOT_TOKEN}/getUpdates"
+    try:
+        try:
+            raise ConnectionError(f"cannot reach {url}")
+        except ConnectionError as cause:
+            raise RuntimeError(f"The token `{_BOT_TOKEN}` was rejected by the server.") from cause
+    except RuntimeError:
+        with caplog.at_level(logging.DEBUG, logger=name):
+            logger.log(level, "polling %s failed", url, exc_info=True, stack_info=True)
+
+    assert len(caplog.records) == 1
+    record = caplog.records[0]
+    assert _BOT_TOKEN not in caplog.text
+    assert _BOT_TOKEN not in record.getMessage()
+    # No handler can format the original exception again.
+    assert record.exc_info is None and _BOT_TOKEN not in (record.exc_text or "")
+    assert "RuntimeError" in caplog.text and "ConnectionError" in caplog.text
+
+
+def test_the_redacting_filter_leaves_a_clean_exception_alone(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from jarvis.core.redact import redact_logger
+
+    name = "jarvis.test.redact_probe_clean"
+    logger = logging.getLogger(name)
+    redact_logger(name)
+    try:
+        raise ValueError("nothing secret here")
+    except ValueError:
+        with caplog.at_level(logging.DEBUG, logger=name):
+            logger.exception("it failed")
+    assert caplog.records[0].exc_info is not None  # untouched: nothing to mask
+    assert "nothing secret here" in caplog.text

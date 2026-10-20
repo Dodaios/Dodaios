@@ -160,3 +160,20 @@ def test_compose_without_prior_block_has_no_dangling_separator() -> None:
     out = compose_worker_prompt("", "do the thing")
     assert "\n\n\n" not in out
     assert out.strip() == out
+
+
+# --- final report ------------------------------------------------------------
+
+
+def test_every_worker_is_asked_to_close_with_outcome_status_and_open_decisions():
+    from jarvis.missions.kontrollierer.worker_prompt import FINAL_REPORT_DIRECTIVE
+
+    for prior in ("", "PRIOR FEEDBACK: tighten the layout"):
+        out = compose_worker_prompt(prior, "Build the report page")
+        assert FINAL_REPORT_DIRECTIVE in out
+        assert out.index(FINAL_REPORT_DIRECTIVE) < out.index("Build the report page")
+    text = FINAL_REPORT_DIRECTIVE.lower()
+    assert "what you built or found" in text
+    assert "where things stand" in text
+    assert "any decision the user still has to make" in text
+    assert "blocked" in text

@@ -109,7 +109,7 @@ def test_body_hash_stable(skill_dir: Path):
 def test_parse_skill_with_utf8_bom(tmp_path: Path):
     """A UTF-8 BOM before the frontmatter must not break parsing.
 
-    Regression: a builtin (jarvis-doc-author/SKILL.md) shipped with a BOM,
+    Regression: a builtin (dodaios-doc-author/SKILL.md) shipped with a BOM,
     which made the loader miss the ``---`` delimiter and drop the skill to
     DRAFT with a 'name required' error (loaded under the fallback name
     'SKILL'). Reading with ``utf-8-sig`` strips the BOM transparently.

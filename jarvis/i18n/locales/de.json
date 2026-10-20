@@ -1,0 +1,136 @@
+{
+  "brain": {
+    "cli_failure": {
+      "cause": "Der Befehl ist fehlgeschlagen: {cause}",
+      "code": "Der Befehl ist mit Fehlercode {code} fehlgeschlagen.",
+      "bare": "Der Befehl ist fehlgeschlagen."
+    },
+    "nothing_found": "Dazu habe ich nichts gefunden.",
+    "navigation_ack": "Öffne {label}.",
+    "evidence_unfulfilled": "Ich konnte das gerade nicht abrufen — der Zugriff über das passende Werkzeug ist nicht durchgelaufen. Sag noch mal Bescheid, dann versuche ich es erneut.",
+    "evidence_domain_labels": {
+      "calendar": "deinen Kalender",
+      "email": "dein Postfach",
+      "tasks": "deine Aufgaben",
+      "repos": "deine Repositories",
+      "deployments": "deine Deployments",
+      "cloud": "deine Cloud-Abrechnung",
+      "activity": "deinen Aktivitätsverlauf"
+    },
+    "evidence_unfulfilled_domain": "Ich konnte {label} gerade nicht abrufen — der Zugriff ist nicht durchgelaufen. Sag noch mal Bescheid, dann versuche ich es erneut.",
+    "action_unfulfilled": {
+      "society_propose_change": "Die Routine wurde nicht erstellt. Der Speichervorgang wurde nicht ausgeführt.",
+      "society-create-routine": "Die Routine wurde nicht erstellt. Der Speichervorgang wurde nicht ausgeführt.",
+      "contact-upsert": "Ich hab den Kontakt noch nicht gespeichert — sag mir die Angaben noch mal, dann lege ich ihn an.",
+      "wiki-ingest": "Ich hab das noch nicht in deinem Wiki vermerkt — sag's noch mal, dann schreib ich's rein.",
+      "run_shell": "Das hab ich noch nicht ausgeführt — der Befehl ist nicht gelaufen. Sag's noch mal, dann mache ich es direkt."
+    },
+    "lang_switch_confirm_session": "Für diese Sitzung antworte ich auf Deutsch — dauerhaft speichern hat nicht geklappt.",
+    "subagent_switch_confirm": "Erledigt — dein Sub-Agent läuft ab der nächsten Mission auf {p}.",
+    "subagent_switch_fail": {
+      "missing_credential": "{p} ist nicht verbunden — richte es zuerst ein, dann stelle ich um.",
+      "other": "Das konnte ich nicht auf {p} umstellen."
+    },
+    "provider_switch_confirm": "Erledigt — dein Haupt-Brain läuft jetzt auf {p}.",
+    "provider_switch_fail": {
+      "missing_credential": "{p} ist nicht eingerichtet — hinterlege zuerst den Schlüssel, dann stelle ich um.",
+      "subagent_only": "{p} geht nur als Sub-Agent, nicht als Haupt-Brain.",
+      "other": "Den Haupt-Brain konnte ich nicht auf {p} umstellen."
+    },
+    "cancel_confirm": "Erledigt — {n} laufende Aufgabe(n) gestoppt.",
+    "cancel_none": "Es lief gerade nichts, das ich stoppen könnte.",
+    "depth_confirm": {
+      "deep": "Alles klar — ich denke ab jetzt gründlicher.",
+      "fast": "Alles klar — ich denke ab jetzt schneller."
+    },
+    "provider_down": [
+      "Entschuldige, ich komme gerade nicht an mein Sprachmodell. Einen Moment, bitte.",
+      "Tut mir leid, mein Sprachmodell ist im Moment nicht erreichbar. Ich versuche es gleich erneut.",
+      "Ich kann gerade nicht antworten — die Verbindung zu meinem Modell hakt. Gib mir kurz Zeit."
+    ],
+    "provider_down_cause": {
+      "missing_key": "Entschuldige — für mein Sprachmodell ist gerade kein API-Schlüssel hinterlegt. Öffne in der Seitenleiste die API-Keys und trag einen ein, dann geht es sofort weiter.",
+      "bad_key": "Entschuldige — mein hinterlegter API-Schlüssel wird abgelehnt, er ist wohl ungültig oder abgelaufen. Bitte ersetze ihn in den API-Keys in der Seitenleiste.",
+      "account_blocked": "Entschuldige — das Konto meines Sprachmodells blockiert gerade, vermutlich ist das Guthaben aufgebraucht oder das Limit erreicht. Bitte wirf einen Blick auf das Anbieter-Konto.",
+      "rate_limit": "Entschuldige — mein Anbieter bremst mich gerade wegen zu vieler Anfragen. Warte einen Moment und frag mich dann einfach noch einmal.",
+      "invalid_model": "Entschuldige — das eingestellte Modell wird vom Anbieter nicht akzeptiert. Bitte prüf die Modell-Auswahl in den Einstellungen.",
+      "context_overflow": "Entschuldige — diese Anfrage ist für das eingestellte Modell zu groß, sein Kontextfenster reicht dafür nicht. Wähle ein Modell mit größerem Kontext oder starte einen neuen Chat.",
+      "local_context": "Entschuldige — dein lokales Modell läuft mit einem zu kleinen Kontextfenster für diese Anfrage. Stell in deinem lokalen Modell-Server eine größere Kontextlänge ein und lade das Modell neu; bei den Modellen unter Lokale Modelle geht das über Tune. Die nötige Größe steht im Protokoll.",
+      "unreachable": "Entschuldige — ich erreiche meinen Anbieter gerade nicht, vermutlich ein Netzwerk- oder Anbieterproblem. Versuch es gleich bitte noch einmal.",
+      "vision_unsupported": "Entschuldige — keiner der verbundenen Assistenten kann gerade Bilder auswerten. Der Schlüssel ist da, nur das Sehen fehlt. Nimm unter API-Keys einen Anbieter mit Bildverarbeitung."
+    },
+    "mid_answer_error": "Ich habe die Zwischenschritte ausgeführt, aber beim Formulieren der Antwort gab es einen Fehler. Frag mich bitte gleich noch einmal.",
+    "action_failed": "Ich habe die Aktion erkannt, konnte sie aber nicht ausführen.",
+    "lang_switch_confirm": "Erledigt — ich antworte ab jetzt auf Deutsch.",
+    "lang_switch_confirm_auto": "Erledigt — ich passe meine Sprache ab jetzt automatisch deiner an."
+  },
+  "tool_loop": {
+    "anti_silence": "Das kann ich gerade nicht ausführen — mir fehlt dafür das passende Werkzeug.",
+    "meta_debug_ack": "Verstanden. Was genau hätte anders sein sollen?"
+  },
+  "output_filter": {
+    "fallback": "Es trat ein Fehler auf."
+  },
+  "speech": {
+    "brain_unavailable": "Entschuldige, Ruben — ich erreiche gerade keines meiner Sprachmodelle. Bitte prüf kurz, ob bei den Anbietern noch Guthaben ist.",
+    "stt_unavailable": "Entschuldige, ich habe dich akustisch gerade nicht verstanden. Sag es bitte noch einmal.",
+    "realtime_unavailable": "Die Realtime-Verbindung ist gerade nicht verfügbar. Ich wechsle für diese Sitzung zur klassischen Sprachverarbeitung.",
+    "timeout_tool_stall": "Ich habe rechtzeitig keine Antwort bekommen. Ein Tool, auf das ich gewartet habe, hat nicht reagiert.",
+    "timeout_no_answer": "Das konnte ich gerade nicht herausfinden."
+  },
+  "missions": {
+    "announcer": {
+      "failed_prefix": "Die Mission ist fehlgeschlagen.",
+      "reason_label": "Grund",
+      "cancelled": "Mission abgebrochen.",
+      "timed_out": "Die Mission lief in das Zeitlimit."
+    },
+    "readback": {
+      "failure_reason": {
+        "critic_loop_exhausted": "Drei Versuche haben nicht gereicht.",
+        "critic_rejected": "Die Prüfung war nicht zufrieden.",
+        "task_error": "Der Worker ist abgebrochen.",
+        "attempts_timed_out": "Das Zeitlimit wurde überschritten.",
+        "review_time_budget_exhausted": "Das Prüfzeitlimit ist erreicht; das Zwischenergebnis ist verfügbar.",
+        "budget_exceeded": "Das Kostenlimit ist erreicht.",
+        "decompose_failed": "Die Aufgabe konnte ich nicht zerlegen.",
+        "crash_recovery": "Eine alte Mission wurde aufgeräumt.",
+        "interrupted": "Eine laufende Mission wurde unterbrochen.",
+        "empty_diff": "Es wurden keine Dateien geschrieben.",
+        "critic_unavailable": "Der Prüfer ist abgestürzt, die Arbeit liegt im Worktree.",
+        "worktree_setup_failed": "Ich konnte keinen Arbeitsbereich anlegen.",
+        "checkpoint_missing": "Der gesicherte Zwischenstand fehlt, ich kann nicht fortsetzen.",
+        "git_missing": "{agents} brauchen eine Git-Installation im PATH.",
+        "git_not_a_repository": "{agents} brauchen einen Git-Checkout, bitte über den Git-Installer installieren, nicht als ZIP.",
+        "source_checkout_unavailable": "Diese {agent}-Aufgabe braucht den Quellcode-Checkout, der in dieser Installation nicht verfügbar ist.",
+        "provider_auth": "Die Anmeldung beim KI-Anbieter ist ungültig oder abgelaufen.",
+        "provider_quota": "Das Kontingent des KI-Anbieters ist erschöpft.",
+        "provider_unreachable": "Der KI-Anbieter ist gerade nicht erreichbar.",
+        "worker_timeout": "Der Worker hat das Zeitlimit überschritten."
+      },
+      "empty_summary": "Aufgabe erledigt.",
+      "unknown_reason": "unbekannter Fehler",
+      "no_tool_call": "Konnte ich nicht ausführen — kein Tool-Aufruf."
+    }
+  },
+  "realtime": {
+    "local_output_failure": "Ich konnte das gerade nicht abspielen. Der Lautsprecher war weg.",
+    "output_language_failure": "Ich konnte gerade keine sichere Antwort auf Deutsch erzeugen.",
+    "handshake_failure": {
+      "timeout": "Die Sprachverbindung kam nicht rechtzeitig zustande, deshalb habe ich abgebrochen.",
+      "unavailable": "Ich konnte die Sprachverbindung gerade nicht aufbauen.",
+      "rate_limited": "Die Sprachverbindung ist gerade überlastet. Bitte versuch es gleich noch einmal.",
+      "no_credits": "Das Guthaben für die Sprachverbindung ist aufgebraucht. Lade es beim Anbieter auf, dann klappt es wieder.",
+      "not_offered": "Dein Konto bietet diese Sprachverbindung gerade nicht an. Prüfe den Tarif oder wähle ein anderes Konto.",
+      "dropped": "Die Sprachverbindung ist abgebrochen."
+    }
+  },
+  "self_mod": {
+    "short_error": {
+      "pre_validate": "die Vorabprüfung hat den Wert abgelehnt",
+      "reload": "der Reload-Test hat den neuen Wert abgelehnt",
+      "rollback": "der Rollback selbst ist fehlgeschlagen — manueller Restore nötig",
+      "unexpected": "unerwarteter Fehler beim Ändern der Einstellung"
+    }
+  }
+}

@@ -25,7 +25,20 @@ export interface ThreadSelection {
   projectId: string;
   /** The chat session on screen, or null for a new thread's draft. */
   sessionId: string | null;
+  /**
+   * A team thread on screen instead: its id, or `TEAM_DRAFT` while the person
+   * still picks the members and writes the task. Absent for an ordinary thread.
+   */
+  team?: string;
+  /**
+   * A team member's own thread opened from its team: the team it belongs to,
+   * so the thread view can lead back to it.
+   */
+  fromTeam?: string;
 }
+
+/** `ThreadSelection.team` of a team thread that has not started yet. */
+export const TEAM_DRAFT = "new";
 
 const LAYOUT_KEY = "jarvis.agenticIde.layout.v1";
 const SELECTION_KEY = "jarvis.agenticIde.threadSelection.v1";
@@ -67,7 +80,11 @@ const parseSelection = (raw: unknown): ThreadSelection | null => {
   const row = raw as Record<string, unknown>;
   const projectId = typeof row.projectId === "string" ? row.projectId : "";
   const sessionId = typeof row.sessionId === "string" && row.sessionId ? row.sessionId : null;
-  return { projectId, sessionId };
+  // A stored draft is not worth restoring; an open team thread is.
+  const team = typeof row.team === "string" && row.team && row.team !== TEAM_DRAFT ? row.team : undefined;
+  if (team) return { projectId, sessionId: null, team };
+  const fromTeam = sessionId && typeof row.fromTeam === "string" && row.fromTeam ? row.fromTeam : undefined;
+  return fromTeam ? { projectId, sessionId, fromTeam } : { projectId, sessionId };
 };
 
 const parseStringMap = (raw: unknown): Record<string, string> | null => {
@@ -118,12 +135,22 @@ interface IdeThreadsState {
   order: Record<string, string[]>;
   /** Bumped to ask the thread view to focus its composer. */
   focusNonce: number;
+  /** What was on screen before the team start form opened; its cancel goes back there. */
+  beforeTeamDraft: ThreadSelection | null;
 
   setLayout: (layout: IdeLayout) => void;
   /** Open an existing thread. */
   openThread: (sessionId: string, projectId: string) => void;
   /** Open an empty draft in a project; its first message starts the thread. */
   newThread: (projectId: string) => void;
+  /** Open a team thread. */
+  openTeam: (teamId: string, projectId: string) => void;
+  /** Open the form that starts a team thread in a project. */
+  newTeam: (projectId: string) => void;
+  /** Leave the start form for what was on screen before it. */
+  cancelTeamDraft: () => void;
+  /** Open a team member's own thread, remembering the team to come back to. */
+  openMemberThread: (sessionId: string, projectId: string, teamId: string) => void;
   /** The draft became a session: remember where it belongs and show it. */
   adoptThread: (sessionId: string, projectId: string) => void;
   /** A session started in `projectId` while another thread was picked: file it, show nothing new. */
@@ -147,6 +174,7 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
   archived: read(ARCHIVED_KEY, parseNumberMap, {}),
   order: read(ORDER_KEY, parseOrder, {}),
   focusNonce: 0,
+  beforeTeamDraft: null,
 
   setLayout: (layout) => {
     if (get().layout === layout) return;
@@ -162,6 +190,29 @@ export const useIdeThreadsStore = create<IdeThreadsState>((set, get) => ({
     const selection = { projectId, sessionId: null };
     write(SELECTION_KEY, selection);
     set((state) => ({ selection, focusNonce: state.focusNonce + 1 }));
+  },
+  openTeam: (teamId, projectId) => {
+    const selection = { projectId, sessionId: null, team: teamId };
+    write(SELECTION_KEY, selection);
+    set({ selection });
+  },
+  newTeam: (projectId) => {
+    const selection = { projectId, sessionId: null, team: TEAM_DRAFT };
+    const current = get().selection;
+    const beforeTeamDraft = current.team === TEAM_DRAFT ? get().beforeTeamDraft : current;
+    set((state) => ({ selection, beforeTeamDraft, focusNonce: state.focusNonce + 1 }));
+  },
+  cancelTeamDraft: () => {
+    if (get().selection.team !== TEAM_DRAFT) return;
+    const back = get().beforeTeamDraft;
+    const selection = back ?? { projectId: get().selection.projectId, sessionId: null };
+    write(SELECTION_KEY, selection);
+    set({ selection, beforeTeamDraft: null });
+  },
+  openMemberThread: (sessionId, projectId, teamId) => {
+    const selection = { projectId, sessionId, fromTeam: teamId };
+    write(SELECTION_KEY, selection);
+    set({ selection });
   },
   adoptThread: (sessionId, projectId) => {
     const selection = { projectId, sessionId };

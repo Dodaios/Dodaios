@@ -1,5 +1,5 @@
 ---
-title: "How Personal Jarvis Fits Together"
+title: "How Dodaios Fits Together"
 slug: architecture
 summary: Follow a request from the user interface through providers, tools, safety checks, events, agents, memory, and output.
 section: "Reference"
@@ -15,8 +15,8 @@ tags: [architecture, desktop, web, api, providers, jarvis-agents, data]
 related: [providers-and-api-keys, jarvis-agents, safety-and-approvals, control-api-reference]
 ---
 
-Personal Jarvis is one local supervisor with several ways in. The desktop
-window, browser interface, Jarvis CLI, Pipeline and Realtime voice modes, and
+Dodaios is one local supervisor with several ways in. The desktop
+window, browser interface, Dodaios CLI, Pipeline and Realtime voice modes, and
 connected channels are not separate assistants. They share core services, but
 each surface can use only the capabilities available to its client and host.
 
@@ -25,27 +25,27 @@ request, the core decides whether to answer through a Brain provider, use a
 protected tool, or start a background mission. A Brain provider is the service
 and model that generate or route a response. An open window proves that the
 local server is reachable, but not that speech, providers, tools, or
-Jarvis-Agents are ready.
+Dodaios-Agents are ready.
 
 ## The System in One View
 
 The shortest useful model is:
 
-**request surface -> local Jarvis core -> direct operation, provider, tool, or
+**request surface -> local Dodaios core -> direct operation, provider, tool, or
 mission -> live events and saved results -> request surface**
 
 | Part | What it does | Important boundary |
 |---|---|---|
-| **Request surfaces** | Accept input from the desktop or browser UI, voice, the Jarvis CLI, connected channels, or another trusted client | A surface can expose only the capabilities available on its device and operating system |
+| **Request surfaces** | Accept input from the desktop or browser UI, voice, the Dodaios CLI, connected channels, or another trusted client | A surface can expose only the capabilities available on its device and operating system |
 | **Local web server** | Serves the UI and its application programming interface (API); normal request-response calls use REST, while persistent WebSocket connections carry live updates | Desktop and headless mode share this server; headless mode has no native window or host microphone pipeline, but an enabled browser voice session can use the browser's microphone and speaker |
 | **Shared core** | Applies configuration, language, conversation context, capability checks, routing, and cancellation | It coordinates the product; it is not itself an AI model or external account |
 | **Providers and tools** | Supply reasoning, speech, vision, live audio, or a connection to another app or service | A provider sees the content sent to it, and a connected service receives the arguments needed for its action |
-| **Jarvis-Agents** | Run substantial work as saved missions in isolated working copies, followed by review | Missions have their own worker selection, lifecycle, and output; they are not long chat replies |
+| **Dodaios-Agents** | Run substantial work as saved missions in isolated working copies, followed by review | Missions have their own worker selection, lifecycle, and output; they are not long chat replies |
 | **Data and output** | Keep conversations, memory, mission events, settings, and generated files in purpose-specific stores | Live events and durable history are different; reconnecting surfaces reload saved state |
 
 ## Four Ways a Request Can Run
 
-Jarvis chooses an execution path based on the request and the capabilities that
+Dodaios chooses an execution path based on the request and the capabilities that
 are ready. These paths can be combined, but they remain separate enough to fail
 and recover independently.
 
@@ -53,8 +53,8 @@ and recover independently.
 |---|---|---|
 | **Direct local operation** | Open a view, read settings, list documentation, inspect status, or perform a supported app command | The local API or a deterministic handler returns the result. A Brain provider is not required unless that operation explicitly asks one to interpret or generate content. |
 | **Brain answer** | Explain something, continue a conversation, summarize available context, or decide which tool fits | The shared Brain manager selects a suitable model, streams the response when supported, and records the turn. Text and Pipeline voice use the same Brain stack, while their saved text and voice records remain distinct sources shown together in Chats. |
-| **Protected tool call** | Search, control an app, use a connected service, or change something through a Jarvis tool | A tool-capable model can propose the call. Jarvis evaluates the exact tool and arguments, requests approval when required, then runs the call through the supervised executor. A button or direct API operation can have a separate route-specific confirmation path. |
-| **Background mission** | Build a deliverable, change a project, or complete substantial multi-step work | Jarvis saves a mission, plans bounded steps, runs each step in an isolated workspace, reviews the result, and keeps the mission record plus any archived output. |
+| **Protected tool call** | Search, control an app, use a connected service, or change something through a Dodaios tool | A tool-capable model can propose the call. Dodaios evaluates the exact tool and arguments, requests approval when required, then runs the call through the supervised executor. A button or direct API operation can have a separate route-specific confirmation path. |
+| **Background mission** | Build a deliverable, change a project, or complete substantial multi-step work | Dodaios saves a mission, plans bounded steps, runs each step in an isolated workspace, reviews the result, and keeps the mission record plus any archived output. |
 
 Pipeline voice adds speech-to-text before the shared Brain path and
 text-to-speech after the response has been cleaned for speech. Realtime voice
@@ -72,7 +72,7 @@ text-to-speech voice are expected to use that same decision.
 
 ## Eight Layers and Replaceable Edges
 
-Jarvis uses eight layers. The numbers describe dependency direction, not eight
+Dodaios uses eight layers. The numbers describe dependency direction, not eight
 separate processes.
 
 | Layer | Reader-facing role | Examples |
@@ -115,7 +115,7 @@ with a curated tool set. It can answer, call an allowed direct tool, or use
 `spawn-worker` for a mission. Spawn tools are not exposed to mission workers,
 which prevents one worker from recursively starting the supervisor path.
 
-For a normal Brain turn, Jarvis starts with the active provider and selected
+For a normal Brain turn, Dodaios starts with the active provider and selected
 model. It can try another suitable model and then another credential-ready
 provider when the first path has no usable credential, is unavailable, is rate
 limited, or is out of credit. Known unusable providers are skipped for the
@@ -125,11 +125,11 @@ missing capability or make an unavailable account healthy.
 
 Realtime voice has its own credential-aware provider chain. If no Realtime
 session opens, the caller can use an available Pipeline or classic browser
-voice path. Once a Realtime provider has accepted a meaningful turn, Jarvis does
+voice path. Once a Realtime provider has accepted a meaningful turn, Dodaios does
 not replay the captured audio through another path because that could repeat an
 action.
 
-If every compatible provider fails, Jarvis returns an unavailable or
+If every compatible provider fails, Dodaios returns an unavailable or
 provider-down result. It does not treat a local server response as proof that a
 remote model completed the turn.
 
@@ -159,7 +159,7 @@ objects and credentials remain with the supervisor, and a worker request still
 passes through the same executor. Secret, configuration-mutation, skill, and
 recursive mission tools are not exported to workers.
 
-## Jarvis-Agent Missions
+## Dodaios-Agent Missions
 
 A mission has a durable event log and a lifecycle separate from chat. The
 mission decomposer can split the goal into bounded steps. Each step gets a fresh
@@ -177,16 +177,16 @@ are cleaned up.
 Review is a quality gate, not a guarantee that an output is correct. A worker,
 Critic, budget, safety check, or provider can fail. The mission records that
 failure, and Outputs can mark retained partial work as needing review. A task
-that needs the Personal Jarvis source tree also needs Git and a real source
+that needs the Dodaios source tree also needs Git and a real source
 checkout; a packaged installation without Git history cannot run that kind of
 source-editing mission.
 
-The Jarvis-Agents view shows live agent activity. Mission history and archived
+The Dodaios-Agents view shows live agent activity. Mission history and archived
 Outputs are the durable sources to use after a reconnect or restart.
 
 ## Readiness and Platform Limits
 
-Jarvis deliberately shows its interface before every heavy subsystem finishes
+Dodaios deliberately shows its interface before every heavy subsystem finishes
 warming. A feature can report **getting ready**, return a temporary `503`, or
 show a setup message while the rest of the app already works. The health route
 proves the web boundary, not a Brain, voice, tool, or mission provider.
@@ -207,11 +207,11 @@ present.
 
 ## Data, Events, and Trust Boundaries
 
-Jarvis separates live state from durable records.
+Dodaios separates live state from durable records.
 
 | Data or boundary | Where it belongs | What can leave the local device |
 |---|---|---|
-| **Chats and memory** | Local conversation, profile, Wiki, and workspace stores | A provider receives only the request and context Jarvis selects for that turn |
+| **Chats and memory** | Local conversation, profile, Wiki, and workspace stores | A provider receives only the request and context Dodaios selects for that turn |
 | **Missions and Outputs** | A durable event store plus archived workspace snapshots | Worker and reviewer providers receive the instructions and content needed for their work |
 | **Product Docs** | Local Markdown indexed and served through the Docs API | Reading bundled documentation needs no Brain provider |
 | **Settings and credentials** | Atomic local configuration plus the protected credential layer | Integrations receive the settings and secret needed to authenticate; the UI normally receives status, not the saved secret |
@@ -236,7 +236,7 @@ Use one harmless chat turn to check the main shared path:
 
 1. Open **Chats**, create a conversation, and ask a short, non-sensitive
    question.
-2. Confirm that your message appears, Jarvis enters a working state, and a real
+2. Confirm that your message appears, Dodaios enters a working state, and a real
    answer returns through the Brain provider stack.
 3. Open another view, return to **Chats**, and reopen the conversation. Confirm
    that both messages are still present.
@@ -244,7 +244,7 @@ Use one harmless chat turn to check the main shared path:
 This checks the UI, local server, live event flow, Brain routing, provider
 selection, and text history together. A provider setup or unavailable message
 proves that the local path answered, but it does not prove the provider leg.
-Tools, voice, and Jarvis-Agents each need their own feature check.
+Tools, voice, and Dodaios-Agents each need their own feature check.
 
 ## Troubleshooting
 
@@ -255,15 +255,15 @@ Tools, voice, and Jarvis-Agents each need their own feature check.
 | A chat message is saved, but no normal answer appears | The Brain failed to build or no connected provider could serve the turn | Open **API Keys & Providers > Brain**, test the active card, and try a ready provider from another compatible family. |
 | An action waits, is denied, or has no effect | A safety decision, operating-system permission, service scope, or route-specific confirmation blocked it | Review the exact request and permission. Do not bypass a block; use [Safety and Approvals](safety-and-approvals) to find the missing boundary. |
 | Browser voice is absent on a headless host | Browser voice is disabled, the browser lacks microphone permission, the connection is not secure, or a speech provider is unavailable | Keep using text, then check the browser permission, HTTPS, voice mode, and matching provider cards. |
-| A mission is missing, stays active, or finishes without the expected file | The request was not delegated, the worker or Critic is unavailable, review is still running, or only partial work was archived | Open **Jarvis-Agents** for live state and **Outputs** for the durable record, then follow [Jarvis-Agents](jarvis-agents). |
+| A mission is missing, stays active, or finishes without the expected file | The request was not delegated, the worker or Critic is unavailable, review is still running, or only partial work was archived | Open **Dodaios-Agents** for live state and **Outputs** for the durable record, then follow [Dodaios-Agents](jarvis-agents). |
 
 ## Next Steps
 
 - Read [Providers and API Keys](providers-and-api-keys) to connect services,
   understand capabilities, and see how compatible fallback works.
-- Read [Jarvis-Agents](jarvis-agents) to follow the isolated worker, review, and
+- Read [Dodaios-Agents](jarvis-agents) to follow the isolated worker, review, and
   output path for substantial background work.
 - Read [Safety and Approvals](safety-and-approvals) to understand why a tool
   runs, waits for a decision, or is blocked.
 - Read the [Control API Reference](control-api-reference) to build a trusted
-  client against the same local control plane used by Jarvis surfaces.
+  client against the same local control plane used by Dodaios surfaces.

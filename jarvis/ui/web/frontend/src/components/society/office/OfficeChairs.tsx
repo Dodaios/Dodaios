@@ -2,14 +2,13 @@
  * The office's chairs, built once as merged geometry so every copy costs a
  * handful of draw calls however much detail a chair carries.
  *
- * - The desk task chair is an ergonomic mesh chair in the Aeron / Gesture
- *   class: a sculpted seat with a waterfall front edge, a curved mesh back in
+ * - The desk task chair is an ergonomic mesh chair: a sculpted seat with a
+ *   waterfall front edge, a curved mesh back in
  *   a black frame with a lumbar pad, T-arms with soft pads, a gas lift in its
  *   sleeve and a polished five-star base on twin-wheel casters. It is exported
  *   as a part list (`TASK_CHAIR_PARTS`) that `DeskInstances` instances per desk.
- * - The meeting chair is a soft-pad conference chair after the Eames
- *   Aluminium Group: stitched leather pads slung between polished side rails
- *   on a four-star base.
+ * - The meeting chair is a soft-pad conference chair: stitched leather pads
+ *   slung between polished side rails on a four-star base.
  *
  * Both keep the seat top where the seated pose expects it (0.52 m at a desk,
  * 0.50 m at the table) and stay inside a chair's 0.29 m reach from the column.
@@ -68,12 +67,12 @@ function smooth(geometry: BufferGeometry): BufferGeometry {
 }
 
 /** A round tube along a smooth curve through `points`; callers squash it with a scale to make a blade. */
-function tube(points: Vec3[], radius: number, closed = false, segments = 32): BufferGeometry {
+function tube(points: Vec3[], radius: number, closed = false, segments = 14): BufferGeometry {
   const curve = new CatmullRomCurve3(points.map((p) => new Vector3(...p)), closed, "centripetal");
-  return new TubeGeometry(curve, segments, radius, 8, closed);
+  return new TubeGeometry(curve, segments, radius, 5, closed);
 }
 
-const rounded = (w: number, h: number, d: number, r: number) => new RoundedBoxGeometry(w, h, d, 2, r);
+const rounded = (w: number, h: number, d: number, r: number) => new RoundedBoxGeometry(w, h, d, 1, r);
 
 // ---------------------------------------------------------------------------
 // Shared base pieces
@@ -128,7 +127,7 @@ function seatCushion(): BufferGeometry {
   s.quadraticCurveTo(0.196, 0.514, 0.198, 0.494);
   s.lineTo(0.19, 0.466);
   const depth = 0.43;
-  const g = new ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.028, bevelSize: 0.012, bevelSegments: 3, curveSegments: 8 });
+  const g = new ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.028, bevelSize: 0.012, bevelSegments: 1, curveSegments: 5 });
   // Extruded along z; turn it so the profile's first axis becomes local z and the width runs along x.
   g.applyMatrix4(new Matrix4().makeRotationY(-Math.PI / 2));
   g.translate(depth / 2, 0, 0);
@@ -153,7 +152,7 @@ function backPoint(s: number, t: number, inset = 0): Vector3 {
 }
 
 function backPanel(): BufferGeometry {
-  const g = new PlaneGeometry(1, 1, 12, 8);
+  const g = new PlaneGeometry(1, 1, 6, 4);
   const pos = g.getAttribute("position");
   for (let i = 0; i < pos.count; i += 1) {
     const p = backPoint(pos.getX(i) * 2, pos.getY(i) + 0.5);
@@ -177,7 +176,7 @@ function backFrame(): BufferGeometry {
   edge([1, 0], [1, 1], 6);
   edge([1, 1], [-1, 1], 6);
   edge([-1, 1], [-1, 0], 6);
-  return tube(points, 0.015, true, 96);
+  return tube(points, 0.015, true, 36);
 }
 
 /** A rounded box bent round the backrest's curve at height `t`, standing `inset` in front of the mesh. */
@@ -255,7 +254,8 @@ const TASK_METAL = merged([
 /** The ergonomic desk chair, one entry per draw call. */
 export const TASK_CHAIR_PARTS: ChairPart[] = [
   { finish: "metal", geometry: TASK_METAL, cast: true },
-  { finish: "frame", geometry: TASK_FRAME, cast: true },
+  // The frame is arms, spine and casters: the seat and the back panel already throw the chair's shadow.
+  { finish: "frame", geometry: TASK_FRAME, cast: false },
   { finish: "fabric", geometry: seatCushion(), cast: true },
   // Lumbar pad in the seat fabric across the small of the back.
   { finish: "fabric", geometry: bentPad(0.34, 0.07, 0.022, 0.2, 0.014), cast: false },
@@ -304,7 +304,7 @@ const MEETING_METAL = merged([
   ...starBase(4, 0.29, 0.1),
   [new CylinderGeometry(0.024, 0.024, 0.32, 16), at([0, 0.27, 0])],
   // Side rails, flattened into blades, and the spreaders that tie them together.
-  ...[-1, 1].map((side): [BufferGeometry, Matrix4] => [tube(RAIL, 0.02, false, 40), at([side * RAIL_X, 0, 0], [0, 0, 0], [0.55, 1, 1])]),
+  ...[-1, 1].map((side): [BufferGeometry, Matrix4] => [tube(RAIL, 0.02, false, 24), at([side * RAIL_X, 0, 0], [0, 0, 0], [0.55, 1, 1])]),
   [new BoxGeometry(RAIL_X * 2, 0.02, 0.05), at([0, 0.44, -0.02])],
   [new BoxGeometry(RAIL_X * 2, 0.03, 0.02), at([0, 0.8, -0.3], [BACK_TILT, 0, 0])],
   // Arm posts rising off the rails.

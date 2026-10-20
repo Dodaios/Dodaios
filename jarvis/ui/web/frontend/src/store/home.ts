@@ -126,6 +126,11 @@ export const useHomeStore = create<HomeStore>((set, get) => ({
       useEventStore.getState().setTranscription("", true);
       set({ liveReply: "", liveSessionId: sessionId || null });
     }
+    if (name === "VoiceContentShown") {
+      // A card belongs to the call it was shown in, never to another one.
+      const sessionId = (payload as { session_id?: string } | null)?.session_id;
+      if (sessionId && get().liveSessionId && sessionId !== get().liveSessionId) return;
+    }
     if (name === "VoiceSessionEnded") {
       const sessionId = (payload as { session_id?: string } | null)?.session_id;
       if (sessionId && get().liveSessionId && sessionId !== get().liveSessionId) return;

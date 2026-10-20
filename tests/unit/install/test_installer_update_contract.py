@@ -11,6 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from tests.package_names import is_package_module
+
 REPO = Path(__file__).resolve().parents[3]
 _SPEC = importlib.util.spec_from_file_location(
     "installer_update_contract", REPO / "install" / "installer.py"
@@ -210,12 +212,12 @@ def test_macos_launch_survives_missing_editable_import(
 
     real_import = builtins.__import__
 
-    def _no_jarvis(name, *args, **kwargs):
-        if name.startswith("jarvis"):
-            raise ModuleNotFoundError("No module named 'jarvis'")
+    def _no_package(name, *args, **kwargs):
+        if is_package_module(name):
+            raise ModuleNotFoundError(f"No module named {name!r}", name=name)
         return real_import(name, *args, **kwargs)
 
-    monkeypatch.setattr(builtins, "__import__", _no_jarvis)
+    monkeypatch.setattr(builtins, "__import__", _no_package)
 
     installer.step_launch(headless=False, dry_run=True)
 
