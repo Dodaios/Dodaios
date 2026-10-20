@@ -1816,6 +1816,36 @@ def _learned_block(*, compact: bool = False) -> str:
         return ""
 
 
+def _initiative_blocks(level: str | None, *, compact: bool = False) -> tuple[str, str]:
+    """The initiative rule and the dated plans it may draw on (``dodaios.brain.proactivity``).
+
+    ``level`` ``None`` reads the live level. Degrades to ``("", "")`` so a
+    fault never blocks the session handshake.
+    """
+    try:
+        from dodaios.brain import proactivity
+
+        resolved = proactivity.current_level() if level is None else level
+        return (
+            proactivity.directive(resolved, compact=compact),
+            proactivity.upcoming_block(resolved, compact=compact),
+        )
+    except Exception:  # noqa: BLE001 — never break the voice session on an initiative fault
+        log.warning("realtime: initiative blocks unavailable", exc_info=True)
+        return "", ""
+
+
+def _proactivity_level(config: Any) -> str | None:
+    """The configured initiative level; ``None`` (the live level) on a fault."""
+    try:
+        from dodaios.brain.proactivity import current_level
+
+        return current_level(config)
+    except Exception:  # noqa: BLE001 — the live level still answers
+        log.debug("realtime: initiative level unavailable", exc_info=True)
+        return None
+
+
 def _identity_block(config: Any, *, compact: bool = False) -> str:
     """Name directive and SOUL.md character (``dodaios.brain.identity``).
 
@@ -1848,6 +1878,7 @@ def _session_instructions(
     society_directive: str = "",
     compact: bool = False,
     history_lost: bool = False,
+    proactivity_level: str | None = None,
 ) -> str:
     """Assemble the session instructions, static first and dynamic last.
 
@@ -1904,6 +1935,7 @@ def _session_instructions(
         + "."
     )
     history_lost_line = _HISTORY_LOST_INSTRUCTION if history_lost else ""
+    initiative, upcoming = _initiative_blocks(proactivity_level, compact=compact)
     parts = [
         # Who the assistant is (wake-word name + SOUL.md) frames everything.
         identity,
@@ -1913,6 +1945,9 @@ def _session_instructions(
         preferences,
         _learned_block(compact=compact),
         _VOICE_CONTRACT,
+        # What to add once the request is answered: one grounded idea at most,
+        # never an action. Static per level, so it stays in the cached prefix.
+        initiative,
         role_directive,
         knowledge_line,
         identity_line,
@@ -1925,6 +1960,8 @@ def _session_instructions(
         history_lost_line,
         input_directive,
         clock_line,
+        # Dated plans from the notebooks, relative to the clock line above.
+        upcoming,
         turn_mode_line,
         # Last, so it wins by recency.
         language_directive,
@@ -3315,6 +3352,7 @@ class RealtimeVoiceSession:
             session_config = RealtimeSessionConfig(
                 instructions=_session_instructions(
                     self._language,
+                    proactivity_level=_proactivity_level(self._config),
                     identity=_identity_block(
                         self._config,
                         compact=bool(
@@ -4929,6 +4967,7 @@ class RealtimeVoiceSession:
                         update_kwargs: dict[str, Any] = {
                             "instructions": _session_instructions(
                                 new_language,
+                                proactivity_level=_proactivity_level(self._config),
                                 identity=_identity_block(
                                     self._config,
                                     compact=getattr(
@@ -6816,6 +6855,7 @@ class RealtimeVoiceSession:
             await self._session.update_session(
                 instructions=_session_instructions(
                     self._language,
+                    proactivity_level=_proactivity_level(self._config),
                     identity=_identity_block(
                         self._config,
                         compact=getattr(self, "_compact_instructions", False),
