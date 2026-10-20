@@ -3,7 +3,9 @@
  * the ship's company. The stage says who should be here and where they are
  * going (the cast); this layer loads and dresses their bodies, spawns
  * newcomers at the lift, sends leavers to the lift, and steps every body each
- * frame, publishing where they stand for the HUD and the screen feeds.
+ * frame, publishing where they stand for the HUD and the screen feeds. In
+ * third person it also hands the held keys to the commander and keeps the
+ * camera on them.
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -11,6 +13,7 @@ import { CanvasTexture, type Texture } from "three";
 import type { Deck } from "../content/deck";
 import type { StageRuntime } from "../runtime";
 import { seatedCrew } from "../../crewFeeds/seated";
+import { worldToPlate } from "../engine/plateMath";
 import { floorHeight, nearestWalkable } from "../nav/pathfind";
 import { hash32 } from "../life/crew";
 import { Actor, socketPose, type ActorContext, type Goal, type Pose } from "./actor";
@@ -182,6 +185,10 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
     // A slow frame still moves people at their pace; a stall (a hidden tab) does not teleport them.
     const dtS = Math.min(dt, 0.25);
     ctx.now = performance.now();
+    // Third person: the held movement keys walk the commander.
+    const control = runtime.control;
+    const lead = actors.current.get(commanderId);
+    lead?.drive(control.mode === "follow" ? control.direction() : null, control.run);
     for (const actor of actors.current.values()) {
       actor.update(dtS, ctx);
       if (actor.gone) {
@@ -205,6 +212,16 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
       else seatedCrew.delete(actor.id);
     }
     runtime.stats.actors = actors.current.size;
+    // The third-person camera stays on the commander while they move (a drag looks around until they walk again).
+    if (lead && !lead.gone && control.mode === "follow" && runtime.view.measured && (lead.moving || control.reframe)) {
+      const p = worldToPlate(deck.camera, lead.x, lead.y + lead.height * 0.5, lead.z);
+      if (control.reframe) {
+        control.reframe = false;
+        runtime.view.focus(p.u, p.v, runtime.view.followScale());
+      } else {
+        runtime.view.follow(p.u, p.v);
+      }
+    }
   }, -1);
 
   return null;

@@ -34,6 +34,20 @@ Cooked content lives in `dodaios/ui/web/frontend/public/verse/` (AVIF plate
 tiles, glb, json). Code lives in
 `dodaios/ui/web/frontend/src/components/society/verse/`.
 
+## Controls
+
+The person is the commanding officer and steers them in **third person** by
+default: WASD or the arrow keys walk the commander (Shift hurries), the camera
+stays close and follows them, and E works the station within reach (its label
+shows the key). **V** (or the bird's-eye button on the tool rail) pulls the
+camera back over the whole deck; there WASD pans the map. V again returns to
+the commander. In both views a click on the floor walks there, a click on a
+crew member selects them, a drag looks around and the wheel zooms.
+
+The deck stays a pre-rendered plate seen from one fixed angle, so the third
+person camera follows from above, not from behind the shoulder; a camera
+behind the commander would need the decks as real-time 3D scenes.
+
 ## Decks
 
 | # | Deck | Who is there | Stations |
