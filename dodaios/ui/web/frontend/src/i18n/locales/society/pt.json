@@ -115,6 +115,10 @@
       "review_done": "Revisão de aprendizagem concluída",
       "review_waiting": "À espera de uma conversa concluída para rever",
       "last_review": "Última atividade de revisão",
+      "review_dropped": "A última revisão de aprendizagem foi descartada após {0} tentativas. A próxima conversa concluída recebe uma nova.",
+      "review_reason_api_key_seat": "Há uma subscrição ligada, por isso aprender com as conversas não cobra a chave de API deste agente ({provider}). Coloque o agente numa subscrição ou num modelo local para que possa aprender.",
+      "review_reason_no_seat": "De momento, não é possível aceder ao modelo do agente nesta app.",
+      "review_reason_seat_failed": "O modelo do agente não deu uma resposta utilizável.",
       "loading": "A carregar…",
       "knowledge_hint": "Cada agente mantém o seu próprio USER.md para o teu perfil e preferências e o MEMORY.md para conhecimento e experiência do projeto. As skills e os arquivos de conversas ficam separados.",
       "kind_memory": "Memória",
@@ -192,7 +196,8 @@
       "remove_schedule": "Remover agendamento",
       "history": "Histórico de execuções",
       "no_runs": "Ainda não há execuções.",
-      "legacy": "Execução mais antiga: resultado disponível; o estado final não foi registado."
+      "legacy": "Execução mais antiga: resultado disponível; o estado final não foi registado.",
+      "skipped": "Ignorada"
     },
     "chat": {
       "connecting": "A ligar a este chat…",

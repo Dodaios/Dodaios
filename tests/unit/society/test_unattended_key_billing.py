@@ -146,7 +146,7 @@ async def test_the_task_runner_records_a_routine_deferral_as_a_skip(
 
     delivered: list[tuple[tuple[str, ...], str, str]] = []
 
-    async def sink(tags: tuple[str, ...], text: str, status: str) -> None:
+    async def sink(tags: tuple[str, ...], text: str, status: str, **_: Any) -> None:
         delivered.append((tags, text, status))
 
     runner = TaskRunner(task_store, EventBus(), owned_agent_runner=owned_runner, result_sink=sink)
@@ -169,6 +169,7 @@ async def test_the_task_runner_records_a_routine_deferral_as_a_skip(
                for e in events)
     assert not any(e.get("event") == "owner_seat_failed" for e in events)
     assert delivered and "did not bill a key" in delivered[0][1]
+    assert delivered[0][2] == "skipped"
 
 
 # ── post-turn review and skill learning ──────────────────────────────────────
@@ -274,3 +275,74 @@ async def test_a_deferred_review_stays_pending_with_a_reason_the_ui_can_show(
     record = json.loads(await society.store.get_meta("review:last:scout"))
     assert record["state"] == "pending"
     assert record["reason"] == "a subscription is connected; the key is not billed"
+    assert record["reason_code"] == "api_key_seat"
+
+
+async def test_a_review_dropped_after_its_retries_says_so_and_why(
+    society: SocietyRuntime, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bounded queue gives up; the agent's status shows the drop and its reason."""
+    from dodaios.society import review_queue
+
+    calls: list[str] = []
+
+    async def deferred(config: Any, agent: Any, *, caller: str) -> Any:
+        calls.append(caller)
+        raise seat_brain.SeatDeferred("the key is not billed", provider="gemini")
+
+    monkeypatch.setattr(seat_brain, "agent_brain", deferred)
+    monkeypatch.setattr(review_queue.random, "uniform", lambda *args: 0)
+    society.conversations.queue_review(
+        "society:scout",
+        "turn-1",
+        [
+            {"kind": "user_message", "payload": {"text": "Check the dates."}},
+            {"kind": "assistant_text", "payload": {"text": "Done."}},
+            {"kind": "turn_finished", "payload": {"status": "done"}},
+        ],
+        direct_user=True,
+    )
+    await society.recover_reviews()
+    for _ in range(20):
+        retry = getattr(society, "_memory_review_retry", None)
+        if retry is None or retry.done():
+            break
+        await asyncio.wait_for(retry, 5)
+
+    assert len(calls) == review_queue.MAX_ATTEMPTS  # bounded: no retry storm
+    record = json.loads(await society.store.get_meta("review:last:scout"))
+    assert record["state"] == "dropped"
+    assert record["attempts"] == review_queue.MAX_ATTEMPTS
+    assert record["reason_code"] == "api_key_seat"
+    assert record["provider"] == "gemini"
+    assert society.conversations.review_counts("scout")["dropped"] == 1
+    assert society.conversations.pending_reviews() == []
+
+
+async def test_a_seat_that_did_not_answer_is_named_as_the_reason(
+    society: SocietyRuntime,
+) -> None:
+    async def silent(runtime: Any, agent: Any, prompt: str) -> None:
+        from dodaios.society import review
+
+        review._wait_reason.set({"reason_code": "seat_failed", "provider": "openai"})
+
+    society.turn_reviewer = silent  # type: ignore[attr-defined]
+    pending = {
+        "session": "society:scout",
+        "turn_id": "turn-2",
+        "direct_user": True,
+        "events": [
+            {"kind": "user_message", "payload": {"text": "Sort the inbox."}},
+            {"kind": "turn_finished", "payload": {"status": "done"}},
+        ],
+    }
+    assert not await review_turn(society, pending)
+    record = json.loads(await society.store.get_meta("review:last:scout"))
+    assert record == {
+        "turn_id": "turn-2",
+        "updated_ms": record["updated_ms"],
+        "state": "pending",
+        "reason_code": "seat_failed",
+        "provider": "openai",
+    }

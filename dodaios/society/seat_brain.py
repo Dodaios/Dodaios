@@ -85,8 +85,13 @@ class SeatDeferred(SeatUnavailable):
 
     Raised for unattended Society work while a subscription is connected
     (``brain.background_policy``). The message is app-authored and names the
-    reason, so a status line can show it.
+    reason, so a status line can show it; ``provider`` is the seat's provider,
+    for a UI that words the reason itself.
     """
+
+    def __init__(self, message: str, *, provider: str = "") -> None:
+        super().__init__(message)
+        self.provider = provider
 
 
 class SeatCallFailed(RuntimeError):
@@ -301,7 +306,8 @@ def hold_to_background_policy(seat: Seat) -> None:
         raise SeatDeferred(
             f"a subscription is connected, so background memory work does not bill "
             f"this agent's API key ({seat.provider}); put the agent on a subscription "
-            "or local model for it to learn from its chats"
+            "or local model for it to learn from its chats",
+            provider=seat.provider,
         )
 
 
