@@ -13,7 +13,8 @@ Each build runs the same stages on its ledger record:
 ``building`` the spec exists (the decide step wrote it; for an accepted card
 written without a model, it is written now). ``proving`` the judge
 (:mod:`.judge`) checks the spec, with a shadow run for routines and agents
-that is produced on a subscription or local seat and delivered nowhere.
+and a read-only run of a skill's steps (:mod:`.sandbox`), each produced on a
+subscription or local seat and delivered nowhere.
 ``trial`` the artefact is created, labelled as self-built and undoable. A
 failed proof marks the build ``failed`` and records the lesson, so the same
 build is not tried again.
@@ -57,9 +58,12 @@ _OTHER_REQUESTS: Final[int] = 60
 _DAY_MS: Final[int] = 86_400_000
 #: Shadow requests an agent must answer before it exists.
 _AGENT_SHADOWS: Final[int] = 2
-#: Model calls per day for writing specs and shadow runs (the decide step has
-#: its own budget in loop.py). A routine costs one, an agent two.
+#: Model calls per day for writing specs, shadow runs and skill replays (the
+#: decide step has its own budget in loop.py). A routine costs one, an agent
+#: two, a skill one per replay (at most :data:`SKILL_REPLAYS`).
 DAILY_MODEL_CALLS: Final[int] = 6
+#: Past requests a drafted skill's steps are run on before it may go live.
+SKILL_REPLAYS: Final[int] = 2
 
 ROUTINE_SHADOW_SYSTEM: Final[str] = (
     "You are running a scheduled routine for your user, as a dry run. Produce the result the "
@@ -87,6 +91,9 @@ class Env:
     agent_skills: Callable[[str], list[Any]] = lambda _agent_id: []
     #: The folder of the IDE's per-pane prompt histories; ``None`` reads none.
     pane_history: Callable[[], Path | None] = lambda: None
+    #: Runs a drafted skill's steps read-only on one request; ``None`` is
+    #: :func:`.sandbox.run` (tests pass their own).
+    run_skill: Callable[..., Awaitable[Any]] | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -361,6 +368,14 @@ class Builders:
             )
         finally:
             await asyncio.to_thread(shutil.rmtree, scratch, True)
+        if proof.passed:
+            # Routing and form hold; now the steps themselves, read-only, on
+            # requests the person made (may wait for a seat or the budget).
+            runs, accepted = await self._execute_skill(record, need, draft)
+            execution = judge.skill_execution(runs, accepted=accepted)
+            proof = judge.Proof(
+                execution.passed, proof.judge, f"{proof.detail}; {execution.detail}"
+            )
         if not await self._prove(record, proof):
             return
         creator = SkillCreatorService(registry=registry, bus=self.env.bus)
@@ -395,6 +410,79 @@ class Builders:
             "path": str(promoted.path.parent),
         }
         await self._live(record, payload, payload, f"skill:{promoted.name}")
+
+    async def _execute_skill(
+        self, record: BuildRecord, need: Need, draft: dict[str, Any]
+    ) -> tuple[list[Any], list[tuple[str, ...]]]:
+        """Run the draft's steps read-only on up to :data:`SKILL_REPLAYS` past requests.
+
+        Each run takes one unit of the daily build budget. Without a seat or
+        budget for the first run the build waits (it stays ``building``).
+        """
+        from . import sandbox
+
+        replays = await asyncio.to_thread(self._replays, need)
+        tools = tuple(
+            dict.fromkeys(
+                [*draft["requires_tools"], *(t for turn in need.turns for t in turn.tools)]
+            )
+        )
+        runner = self.env.run_skill or sandbox.run
+        runs: list[Any] = []
+        accepted: list[tuple[str, ...]] = []
+        for turn in replays:
+            if not await asyncio.to_thread(self.store.take_daily, "model_calls", DAILY_MODEL_CALLS):
+                if runs:
+                    break
+                raise Waiting("today's model budget for self-building is spent")
+            try:
+                with attributed(record.id):
+                    result = await runner(
+                        self.env.config(),
+                        skill_name=draft["name"],
+                        skill_body=draft["body"],
+                        request=turn.text,
+                        tools=tools,
+                    )
+            except brain.BackgroundDeferred as exc:
+                raise Waiting(str(exc)) from exc
+            runs.append(result)
+            accepted.append(turn.tools)
+        return runs, accepted
+
+    def _replays(self, need: Need) -> list[TurnRow]:
+        """The requests to run a skill on: ones the person accepted, newest first.
+
+        Accepted means answered (not failed), not itself a correction, and not
+        corrected by the person's next turn in that conversation. A need made
+        only of failures replays its newest failures: the steps must do better.
+        """
+        from .loop import CORRECTION_WINDOW_MS
+
+        turns = sorted(need.turns, key=lambda t: t.ts_ms, reverse=True)
+        accepted: list[TurnRow] = []
+        for turn in turns:
+            if turn.failed or turn.correction:
+                continue
+            after = self.store.turns_in(
+                turn.conversation,
+                since_ms=turn.ts_ms + 1,
+                until_ms=turn.ts_ms + CORRECTION_WINDOW_MS,
+            )
+            if any(t.correction for t in after):
+                continue
+            accepted.append(turn)
+        pool = accepted or turns
+        picked: list[TurnRow] = []
+        for turn in pool:  # different days first: two replays of one morning say less
+            if all(turn.day != p.day for p in picked):
+                picked.append(turn)
+            if len(picked) == SKILL_REPLAYS:
+                return picked
+        for turn in pool:
+            if turn not in picked and len(picked) < SKILL_REPLAYS:
+                picked.append(turn)
+        return picked
 
     def _candidate(self, scratch: Path, draft: dict[str, Any]) -> Any:
         """The skill as it would load, parsed from a scratch copy (live state)."""

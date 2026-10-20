@@ -14,7 +14,11 @@ What each kind must show (docs/self-build.md, "Prove"):
 * skill: a replay of the person's past requests through the production skill
   router: it must catch at least two thirds of them and fire on none of the
   person's other recent requests, pass the skill validator, the pre-promote
-  lint and the duplicate check, and need only tools the assistant used;
+  lint and the duplicate check, and need only tools the assistant used; then
+  its steps, run read-only on one or two of those requests
+  (:mod:`.sandbox`), must finish without a failed step, answer, and reach the
+  tools that answered the request the person accepted then
+  (:func:`skill_execution`);
 * routine: a calendar schedule that would have run before most of the past
   requests, a prompt grounded in them that asks for nothing outbound, and a
   shadow run that produced an answer;
@@ -171,6 +175,53 @@ def skill(
         "skill",
         f"replay caught {hits} of {len(said)} past requests and fired on none of "
         f"{len(others)} other ones",
+    )
+
+
+def skill_execution(runs: list[Any], *, accepted: list[tuple[str, ...]]) -> Proof:
+    """Compare read-only replays of a skill's steps with what the person accepted then.
+
+    ``runs`` are :class:`.sandbox.Run` results, ``accepted`` the tools that
+    answered each of those requests at the time (in the same order). The
+    person's answer text is not kept (only their own words are), so what is
+    compared is what can be: the replay finished, no step failed (a step held
+    back because it would have had a side effect is reached, not failed), it
+    produced an answer, and it reached at least one tool family of the
+    accepted answer when that answer used tools.
+    """
+    from dodaios.self_build.miner import tool_family
+
+    if not runs:
+        return Proof.fail("skill", "the steps were not run on any past request")
+    reached: list[str] = []
+    held = 0
+    for run, then in zip(runs, accepted, strict=False):
+        quote = " ".join(str(run.request).split())[:60]
+        if run.error:
+            return Proof.fail("skill", f"the steps did not finish on {quote!r}: {run.error}")
+        failed = [s for s in run.steps if not s.ok and not s.held]
+        if failed:
+            step = failed[0]
+            detail = f": {step.error[:80]}" if step.error else ""
+            return Proof.fail("skill", f"step {step.name!r} failed on {quote!r}{detail}")
+        answer = " ".join(str(run.answer or "").split())
+        if len(answer) < MIN_SHADOW_CHARS:
+            return Proof.fail("skill", f"the steps gave no answer to {quote!r}")
+        wanted = {tool_family(t) for t in then if t}
+        used = {tool_family(s.name) for s in run.steps if s.name}
+        if wanted and not wanted & used:
+            return Proof.fail(
+                "skill",
+                f"the steps did not reach the tools the accepted answer to {quote!r} used "
+                f"({', '.join(sorted(wanted))[:120]})",
+            )
+        reached += [s.name for s in run.steps if s.ok]
+        held += sum(1 for s in run.steps if s.held)
+    ran = ", ".join(dict.fromkeys(reached)) or "no tool"
+    return Proof.ok(
+        "skill",
+        f"ran the steps read-only on {len(runs)} past request(s): {ran} ran, "
+        f"{held} step(s) with side effects held back",
     )
 
 
@@ -382,4 +433,5 @@ __all__ = [
     "served_by",
     "served_by_agent",
     "skill",
+    "skill_execution",
 ]
