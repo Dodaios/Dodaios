@@ -4724,6 +4724,9 @@ class SelfBuildConfig(BaseModel):
     max_code_runs_per_day: int = Field(default=1, ge=0, le=20)
     #: A need the person rejected or undid this often is not offered again.
     max_rejections: int = Field(default=2, ge=1, le=20)
+    #: Repositories (``owner/name``) whose loop pull requests are merged once CI is
+    #: green ("land it"). Empty: every loop pull request is a draft the person merges.
+    code_land_repos: list[str] = Field(default_factory=list)
 
 
 class JarvisConfig(BaseModel):

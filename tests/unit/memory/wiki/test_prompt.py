@@ -168,23 +168,22 @@ def test_compute_vault_summary_resilient_to_vault_errors() -> None:
 # ---------------------------------------------------------------------
 
 
-def test_build_system_prompt_includes_schema_verbatim() -> None:
-    """The schema body must appear verbatim — no paraphrase, no normalisation."""
+def test_build_system_prompt_no_longer_embeds_schema_md() -> None:
+    """``schema.md`` is vault documentation; the prompt carries the contract itself."""
 
-    schema = "---\ntype: meta\n---\n\n# Wiki Schema\n\nVerbatim spec.\n"
-    prompt = build_system_prompt(schema, vault_summary=None)
-    assert "Verbatim spec." in prompt
-    assert "# Wiki Schema" in prompt
+    prompt = build_system_prompt(None)
+    assert "# Wiki Schema" not in prompt
+    assert "Pages: frontmatter type, slug" in prompt
 
 
 def test_build_system_prompt_appends_output_contract() -> None:
     """The JSON output contract is always part of the system prompt."""
 
-    prompt = build_system_prompt("schema body", vault_summary=None)
+    prompt = build_system_prompt(vault_summary=None)
     assert "Output Contract" in prompt
     assert '"operation"' in prompt
     assert "create" in prompt and "update" in prompt
-    assert "smalltalk" in prompt.lower()
+    assert "[]" in prompt
 
 
 def test_build_system_prompt_includes_vault_summary_when_provided() -> None:
@@ -200,7 +199,7 @@ def test_build_system_prompt_includes_vault_summary_when_provided() -> None:
         },
         "recent_log": ["[2026-05-11 18:00] create | seed"],
     }
-    prompt = build_system_prompt("schema body", vault_summary=vault_summary)
+    prompt = build_system_prompt(vault_summary=vault_summary)
     assert "Entities: 2" in prompt
     assert "ruben-luetke" in prompt
     assert "Concepts: 1" in prompt
@@ -208,9 +207,9 @@ def test_build_system_prompt_includes_vault_summary_when_provided() -> None:
 
 
 def test_build_system_prompt_handles_no_summary() -> None:
-    """Passing ``None`` skips the snapshot section but keeps schema + contract."""
+    """Passing ``None`` skips the snapshot section but keeps the contract."""
 
-    prompt = build_system_prompt("schema body", vault_summary=None)
+    prompt = build_system_prompt(vault_summary=None)
     assert "Current Vault Snapshot" not in prompt
     assert "Output Contract" in prompt
 
@@ -273,94 +272,21 @@ def test_build_user_prompt_demands_json_at_end() -> None:
 # ---------------------------------------------------------------------
 
 
-def test_system_prompt_has_dedicated_salience_section() -> None:
-    """The dedicated salience header must be present and listed first."""
+def test_system_prompt_states_the_applied_checks() -> None:
+    """The deterministic checks the model cannot know are stated as facts."""
+    from dodaios.memory.wiki.curator_llm import _MAX_UPDATES_PER_INGEST
 
-    prompt = build_system_prompt("schema body", vault_summary=None)
-    assert "Salience filter" in prompt
-    # Read-first ordering: salience section appears before the output
-    # contract block so the LLM sees the filter rules before the schema.
-    assert prompt.find("Salience filter") < prompt.find("Output Contract")
-
-
-def test_system_prompt_lists_smalltalk_to_drop() -> None:
-    """All required smalltalk markers must appear in the empty-list block."""
-
-    prompt = build_system_prompt("schema body", vault_summary=None).lower()
-    # Greetings, status questions, tool-acks, smalltalk -- each category
-    # must have at least one concrete example in the prompt so the LLM
-    # has anchor words to pattern-match on.
-    expected_smalltalk_markers = (
-        "hallo",        # greeting
-        "wie geht",     # status question
-        "danke",        # ack as whole utterance
-        "smalltalk",    # explicit category label
-    )
-    missing = [m for m in expected_smalltalk_markers if m not in prompt]
-    assert not missing, f"missing smalltalk markers in salience block: {missing}"
-
-
-def test_system_prompt_lists_fact_categories_to_persist() -> None:
-    """All fact categories the curator must persist appear as bullet labels."""
-
-    prompt = build_system_prompt("schema body", vault_summary=None).lower()
-    # The six categories the user explicitly named in B8.9. Lowercased
-    # matches so the test is whitespace/punctuation forgiving.
-    expected_fact_markers = (
-        "people",       # persons
-        "dates",        # appointments
-        "places",       # locations
-        "preferences",  # likes / habits
-        "decisions",    # from-now-on rules
-        "project",      # active workstreams
-        "relationship", # who-knows-whom
-    )
-    missing = [m for m in expected_fact_markers if m not in prompt]
-    assert not missing, f"missing fact categories in salience block: {missing}"
-
-
-def test_system_prompt_demands_empty_array_for_smalltalk() -> None:
-    """Smalltalk inputs must produce `[]`, explicitly stated in the prompt."""
-
-    prompt = build_system_prompt("schema body", vault_summary=None)
-    # The "return []" directive lives in the salience block.
-    assert "[]" in prompt
-    salience_block = prompt.split("Output Contract")[0]
-    assert "[]" in salience_block, (
-        "the empty-array directive must appear inside the salience block, "
-        "not only in the legacy output-contract rules below it"
-    )
-
-
-def test_system_prompt_carries_the_asymmetric_curation_bar() -> None:
-    """Recall-protected for personal facts, precision-biased elsewhere."""
-
-    prompt = " ".join(build_system_prompt("schema body", vault_summary=None).split())
-    # Anchor phrases; if the wording shifts in future revisions, update
-    # these assertions together with the prompt.
-    assert "forgetting is the worse failure" in prompt
-    assert "writing junk is the worse failure" in prompt
-    assert "when in doubt with no strong personal anchor, skip it" in prompt
-
-
-def test_system_prompt_requires_self_disclosure_for_topic_memory() -> None:
-    """A request topic is not evidence of a lasting user relationship."""
-    prompt = " ".join(build_system_prompt("schema body", vault_summary=None).split())
-
-    assert '"What are the benefits of Vitamin D?"' in prompt
-    assert '"Tell me about Monaco."' in prompt
-    assert "both require `[]`" in prompt
-    assert '"I own a yacht."' in prompt
-    assert '"I plan to attend Monaco."' in prompt
-    assert "Topic choice alone never qualifies" in prompt
-    assert "first-person lived-experience report" in prompt
+    prompt = build_system_prompt(vault_summary=None)
+    assert f"At most {_MAX_UPDATES_PER_INGEST} updates apply" in prompt
+    assert "becomes plain text" in prompt
+    assert "<!-- contact-mirror:start -->" in prompt
 
 
 def test_system_prompt_has_no_maintainer_specific_user_target() -> None:
     """Generic curator guidance never bakes in one maintainer's profile slug."""
-    prompt = build_system_prompt("schema body", vault_summary=None).lower()
-    assert "entities/ruben.md" not in prompt
-    assert "never infer a personal slug" in prompt
+    prompt = build_system_prompt(vault_summary=None)
+    assert "entities/ruben.md" not in prompt.lower()
+    assert 'exact subject slug is ["user"]' in prompt
 
 
 # ---------------------------------------------------------------------
@@ -426,56 +352,50 @@ def test_consolidator_prompt_rechecks_question_derived_user_claims() -> None:
 
     system, user = build_consolidator_prompt([candidate], {})
 
-    assert "evidence must assert or confirm that relationship" in system
-    assert '"What are the benefits of Vitamin D?"' in system
-    assert '"Tell me about Monaco."' in system
-    assert 'both examples require "noop"' in system
-    assert '"I own a yacht." and "I plan to attend Monaco."' in system
+    assert "asserts or confirms it" in system
+    assert "Vitamin D" not in system
     assert "What are the benefits of Vitamin D?" in user
     # Rows without basis metadata render the explicit/3 defaults.
     assert "basis=explicit salience=3" in user
 
 
-def test_consolidator_prompt_carries_the_graph_visibility_rule() -> None:
-    candidate = SimpleNamespace(
+def test_consolidator_prompt_renders_the_validator_flags_per_candidate() -> None:
+    place = SimpleNamespace(
         id=9,
-        fact="The user is pursuing a high-end espresso machine.",
-        kind="preference",
-        subjects=("user", "espresso-machine"),
+        fact="The user lives in San Francisco.",
+        kind="place",
+        subjects=("user", "san-francisco"),
     )
-
-    system, _user = build_consolidator_prompt([candidate], {})
-
-    assert "Graph visibility (binding)" in system
-    assert 'ALSO emit a secondary "add"' in system
-    assert "cross-link it with the profile in both directions" in system
-    assert "one-off mentions, smalltalk themes, or unsupported guesses" in system
-
-
-def test_consolidator_prompt_elevates_explicit_persistence_requests() -> None:
-    candidate = SimpleNamespace(
+    plan = SimpleNamespace(
         id=8,
         fact="The user plans to travel to San Francisco tomorrow.",
         kind="plan",
         subjects=("user",),
-        evidence_turn_id="sf-turn",
-        evidence_excerpt=(
-            "Evidence user turn [sf-turn]: Kannst du bitte hinzufügen, dass "  # i18n-allow
-            "ich morgen nach San Francisco reisen möchte?"  # i18n-allow
-        ),
     )
 
-    system, user = build_consolidator_prompt([candidate], {})
+    system, user = build_consolidator_prompt(
+        [place, plan],
+        {},
+        row_flags={
+            9: "persist_requested=no required_page=entities/san-francisco.md",
+            8: "persist_requested=yes required_page=-",
+        },
+    )
 
-    assert "Explicit persistence requests are binding" in system
-    assert "English, German, Spanish, and European Portuguese" in system
-    assert 'MUST be "add" or "update"' in system
-    assert "exact fact already" in system
+    assert (
+        "candidate_id=9 kind=place subjects=[user, san-francisco] basis=explicit "
+        "salience=3 persist_requested=no required_page=entities/san-francisco.md"
+    ) in user
+    assert "persist_requested=yes required_page=-" in user
+    assert "required_page=<path>" in system
     assert "unsupported by user evidence" in system
-    assert "commands with no separately asserted durable content" in system
-    assert "the one-shot action" in system
-    assert "request itself remains non-durable" in system
-    assert "San Francisco" in user
+
+
+def test_consolidator_prompt_without_flags_keeps_the_plain_candidate_line() -> None:
+    row = SimpleNamespace(id=3, fact="f", kind="preference", subjects=("user",))
+    _system, user = build_consolidator_prompt([row], {})
+    assert "persist_requested" not in user
+    assert "basis=explicit salience=3\n" in user
 
 
 # ---------------------------------------------------------------------
@@ -491,7 +411,7 @@ def test_build_full_prompt_roundtrip_smoke() -> None:
         "concept": [_Page("awareness-layer", "concept")],
     })
     summary = compute_vault_summary(vault)
-    system_prompt = build_system_prompt("BINDING SCHEMA TEXT", summary)
+    system_prompt = build_system_prompt(summary)
     top_slugs = select_top_slugs("Ruben pushed the awareness layer", [
         "ruben-luetke", "awareness-layer", "personal-jarvis",
     ])
@@ -499,7 +419,6 @@ def test_build_full_prompt_roundtrip_smoke() -> None:
         "BrainTurnCompleted", "Ruben pushed the awareness layer", top_slugs,
     )
 
-    assert "BINDING SCHEMA TEXT" in system_prompt
     assert "Entities: 2" in system_prompt
     assert "Concepts: 1" in system_prompt
     assert "ruben-luetke" in user_prompt

@@ -8,7 +8,7 @@ order: 7
 diataxis: howto
 status: active
 owner: maintainers
-last_reviewed: 2026-08-09
+last_reviewed: 2026-10-19
 phase: "-"
 audience: end-user
 tags: [providers, local-ai, ollama, speech-recognition, text-to-speech, privacy, self-hosting]
@@ -20,8 +20,9 @@ you control. Make one part local first, then add the others when ready.
 
 ## Before You Start
 
-- Open **API Keys & Providers**; no settings-file editing is needed. Select
-  **Pipeline** for local speech because Realtime bypasses its three providers.
+- Open **API Keys & Providers**; no settings-file editing is needed. On the
+  **Live calls** tab, set **Voice engine** to **Pipeline** for local speech,
+  because GPT-Live bypasses the three Pipeline steps.
 - Keep the app open during installation and leave extra disk space.
 - Treat a model on another computer as self-hosted, not offline. Your text or
   audio still crosses the network to that computer.
@@ -104,11 +105,12 @@ VRAM even when the model weights appear to fit.
 
 ## Install Local Speech
 
-1. Select **Pipeline**, open **Voice Input**, and choose Whisper or Nemotron.
+1. Open **API Keys & Providers > Live calls**, set **Voice engine** to
+   **Pipeline**, and choose Whisper or Nemotron under **Voice Input**.
 2. Select **Install on this machine**. The app remains usable while it works.
 3. Wait until both the engine and model show ready, then select **Test** and
    **Set active**.
-4. Open **Voice Output** and repeat those steps for Piper.
+4. Repeat those steps for Piper under **Voice Output** on the same tab.
 
 The card probes the engine and model separately, so incomplete files are not
 called ready. A second click joins the same installation. After an error,
@@ -146,7 +148,7 @@ of deleting runtime folders behind the running app.
 | Feature | Relationship | Boundary to remember |
 |---|---|---|
 | **Dictation** | Whisper or Nemotron turns speech into text locally. | Polish and translation have a separate local or cloud choice. |
-| **Voice conversations** | Pipeline combines Voice Input, the Brain, and Voice Output. | Realtime bypasses all three selections. |
+| **Voice conversations** | Pipeline combines Voice Input, the Brain, and Voice Output. | GPT-Live bypasses all three selections. |
 | **API Keys & Providers** | Shows installation, readiness, server address, test, and active state. | Making one category local does not change the others. |
 | **Privacy and local data** | Local inference reduces data sent to model vendors. | History, connected sources, tools, and LAN servers keep their own storage and network rules. |
 
@@ -168,7 +170,7 @@ tools are local.
 | Self-hosted server is unreachable | Stopped server, wrong address, or blocked network | Restart it, copy its address, select **Save**, and retest. |
 | Chat works, but an action or image fails | The model lacks tools or vision | Choose a capable Ollama model or another suitable provider. |
 | Replies are very slow | The model is too large for available memory or compute | Choose a smaller Brain, use Nemotron for faster speech, or move the server. |
-| Local speech is active but unused | Realtime or an old Pipeline session is still running | Select Pipeline, end the voice session, and start a new one. |
+| Local speech is active but unused | GPT-Live or an old Pipeline session is still running | Set **Live calls > Voice engine** to **Pipeline**, end the voice session, and start a new one. |
 | You still see network use | Another slot, fallback, tool, or wording choice is hosted | Review all active cards and test the exact feature again. |
 
 ## Next Steps

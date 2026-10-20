@@ -318,7 +318,13 @@ class Builders:
             await self._fail(record, "the notebook already says this")
             return
         entry_id = await asyncio.to_thread(_entry_id, notebook, target, text)
-        payload = {"type": "memory", "target": target, "entry_id": entry_id, "text": text}
+        payload = {
+            "type": "memory",
+            "id": await asyncio.to_thread(_memory_path, notebook, target),
+            "target": target,
+            "entry_id": entry_id,
+            "text": text,
+        }
         await self._live(record, payload, payload, f"memory:{target}:{entry_id}")
 
     # ------------------------------------------------------------ skill
@@ -378,6 +384,7 @@ class Builders:
             raise
         payload = {
             "type": "skill",
+            "id": promoted.name,
             "name": promoted.name,
             "slug": slug,
             "path": str(promoted.path.parent),
@@ -479,7 +486,12 @@ class Builders:
         )
         task = task.model_copy(update={"tags": (*task.tags, PROVENANCE)})
         task_id = await create_routine(store, scheduler, task)
-        payload = {"type": "routine", "task_id": task_id, "agent_id": lead.agent_id}
+        payload = {
+            "type": "routine",
+            "id": task_id,
+            "task_id": task_id,
+            "agent_id": lead.agent_id,
+        }
         await self._live(record, payload, payload, f"task:{task_id}")
 
     # ------------------------------------------------------------ agent
@@ -515,7 +527,12 @@ class Builders:
         if not created:
             await self._fail(record, f"the name {agent.name!r} belongs to an existing agent")
             return
-        payload = {"type": "agent", "agent_id": agent.agent_id, "name": agent.name}
+        payload = {
+            "type": "agent",
+            "id": agent.agent_id,
+            "agent_id": agent.agent_id,
+            "name": agent.name,
+        }
         await self._live(record, payload, payload, f"agent:{agent.agent_id}")
 
     # ------------------------------------------------------------ undo, dormant, restore
@@ -659,6 +676,16 @@ class Builders:
 
 
 # ------------------------------------------------------------------ helpers
+
+
+def _memory_path(notebook: Any, target: str) -> str:
+    """The notebook file an entry lives in, relative to the vault (the badge's join key)."""
+    path = Path(notebook.paths()[target])
+    vault = Path(getattr(notebook, "_vault", path.parent))
+    try:
+        return path.relative_to(vault).as_posix()
+    except ValueError:  # a notebook outside the vault: its full path is the key
+        return path.as_posix()
 
 
 def _entry_id(notebook: Any, target: str, text: str) -> str:

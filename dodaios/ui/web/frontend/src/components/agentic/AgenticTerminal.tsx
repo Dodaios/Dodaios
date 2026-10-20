@@ -144,6 +144,7 @@ import {
 import { installQuerySuppression } from "./terminalQueries";
 import { installSynchronizedOutput } from "./terminalSynchronizedOutput";
 import { FULL_SCREEN_ERASE_SCAN_TAIL, hasFullScreenErase } from "./terminalRepaint";
+import { PaneScrollbar } from "./PaneScrollbar";
 import {
   bindTerminalScrollRegion,
   captureWheelForTerminalHistory,
@@ -3114,6 +3115,17 @@ export function AgenticTerminal({
            * another.
            */
           className="agentic-terminal-host h-full min-h-0 w-full overflow-hidden"
+        />
+        <PaneScrollbar
+          termRef={termRef}
+          epoch={terminalEpoch}
+          regionRef={terminalRegionRef}
+          testId={`agentic-pane-scrollbar-${name}`}
+          labels={{
+            bar: t("agentic_grid.pane.scrollbar"),
+            up: t("agentic_grid.pane.scroll_up"),
+            down: t("agentic_grid.pane.scroll_down"),
+          }}
         />
         <PaneConversationDialog
           terminal={name}
