@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.society.roster import Roster
-from jarvis.society.routines import (
+from dodaios.society.roster import Roster
+from dodaios.society.routines import (
     agent_tag,
     build_task_spec,
     create_routine,
@@ -17,7 +17,7 @@ from jarvis.society.routines import (
     manage_routine,
     routine_seat,
 )
-from jarvis.society.store import SocietyStore
+from dodaios.society.store import SocietyStore
 
 
 class FakeTaskStore:
@@ -163,7 +163,7 @@ async def test_scheduler_is_preferred(agent):
 
 
 def test_the_agent_id_is_read_off_the_tags():
-    from jarvis.society.routines import agent_id_from_tags
+    from dodaios.society.routines import agent_id_from_tags
 
     assert agent_id_from_tags(("society", "agent:mailbox")) == "mailbox"
     assert agent_id_from_tags(["agent:scout"]) == "scout"
@@ -282,8 +282,8 @@ async def test_an_artifact_routine_names_the_builder(agent):
     """ "Every day at 8, my morning briefing as an artifact": the routine's
     prompt tells the agent to call create_artifact, which is also what opens
     the artifact gate for that unattended turn."""
-    from jarvis.brain.artifact_gate import wants_artifact
-    from jarvis.society.routines import ARTIFACT_DELIVERY
+    from dodaios.brain.artifact_gate import wants_artifact
+    from dodaios.society.routines import ARTIFACT_DELIVERY
 
     spec = build_task_spec(
         agent,

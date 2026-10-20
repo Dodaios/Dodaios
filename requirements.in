@@ -25,7 +25,7 @@ google-genai>=1.0
 # Security floor for async clients and the web stack (CVE-2026-63374,
 # CVE-2026-64847, CVE-2026-63349).
 anyio>=4.14.2
-# Lazy-imported by jarvis/brain/structured_output_parser.py to recover
+# Lazy-imported by dodaios/brain/structured_output_parser.py to recover
 # malformed vision JSON; without it the repair path silently degrades on
 # every fresh install (found 2026-07-18, was never declared).
 json-repair>=0.30
@@ -115,7 +115,7 @@ vosk>=0.3.44,<0.3.45; sys_platform != 'win32' or platform_machine != 'ARM64'
 elevenlabs>=1.5
 
 # Memory
-# chromadb removed 2026-06-28 — unused in jarvis/ (legacy-curator vestige),
+# chromadb removed 2026-06-28 — unused in dodaios/ (legacy-curator vestige),
 # critical advisory with no fixed release. See pyproject.toml note.
 # sentence-transformers was removed entirely because no runtime path imports it;
 # keeping an unused embedding stack would reintroduce torch.
@@ -163,7 +163,7 @@ mcp>=1.28.1,<2
 rich>=13.9
 typer>=0.12
 platformdirs>=4
-# click is imported directly by jarvis/cli_ctl; modern typer no longer
+# click is imported directly by dodaios/cli_ctl; modern typer no longer
 # guarantees it transitively, so declare it explicitly.
 click>=8.1
 

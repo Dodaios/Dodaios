@@ -14,15 +14,15 @@ from __future__ import annotations
 
 import asyncio
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     MessageSent,
     ResponseGenerated,
     TranscriptFinal,
     VoiceSessionEnded,
     VoiceTurnCompleted,
 )
-from jarvis.memory.wiki.voice_bridge import VoiceFactBridge
+from dodaios.memory.wiki.voice_bridge import VoiceFactBridge
 
 SUBSCRIBED_EVENTS = (
     TranscriptFinal,

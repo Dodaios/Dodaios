@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.setup.macos_signing_identity as msi
-from jarvis.setup.macos_signing_identity import (
+import dodaios.setup.macos_signing_identity as msi
+from dodaios.setup.macos_signing_identity import (
     IDENTITY_LABEL,
     create_local_signing_identity,
     ensure_local_signing_identity,

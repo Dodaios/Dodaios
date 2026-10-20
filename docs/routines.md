@@ -1,6 +1,6 @@
 # Agent routines
 
-Routines run on the task store and scheduler (`jarvis/tasks`). Each routine
+Routines run on the task store and scheduler (`dodaios/tasks`). Each routine
 belongs to an agent, appears in its Routines rail, and executes
 through that agent's canonical chat with its current instructions and permissions.
 Creating a routine never grants additional plugin permissions.

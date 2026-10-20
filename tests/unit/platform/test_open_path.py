@@ -5,8 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import jarvis.platform.open_path as op
-from jarvis.platform.capabilities import Capabilities
+import dodaios.platform.open_path as op
+from dodaios.platform.capabilities import Capabilities
 
 
 def _ok(returncode: int = 0) -> SimpleNamespace:

@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.skills.loader import parse_skill
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.trigger_matcher import TriggerMatcher, normalize_hotkey
+from dodaios.skills.loader import parse_skill
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.trigger_matcher import TriggerMatcher, normalize_hotkey
 
 
 def _write_skill(root: Path, name: str, body: str) -> None:
@@ -159,7 +159,7 @@ def test_normalize_hotkey_basic():
 
 import dataclasses
 
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.schema import SkillLifecycleState
 
 
 def _force_state(reg: SkillRegistry, skill_name: str, state: SkillLifecycleState) -> None:

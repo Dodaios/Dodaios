@@ -22,8 +22,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.plugins.stt as stt_pkg
-from jarvis.plugins.stt import (
+import dodaios.plugins.stt as stt_pkg
+from dodaios.plugins.stt import (
     _run_wake_gpu_probe_subprocess,
     _wake_gpu_inference_verified,
     _wake_gpu_probe_cache_path,

@@ -19,16 +19,16 @@ import pytest
 from fastapi import FastAPI, HTTPException, Request
 from starlette.datastructures import State
 
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-from jarvis.society.mars.models import (
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+from dodaios.society.mars.models import (
     CommandState,
     DispatchRejected,
     ExecutionReceipt,
     StationCommand,
     StationError,
 )
-from jarvis.society.mars.store import MarsStore
-from jarvis.ui.web.mars_routes import (
+from dodaios.society.mars.store import MarsStore
+from dodaios.ui.web.mars_routes import (
     _service,
     ensure_mars_station,
     schedule_mars_resume,
@@ -108,7 +108,7 @@ async def seed_journal(data_dir: Path, checkpoint: str):
 
 
 def setup_state(data_dir: Path, monkeypatch):
-    import jarvis.society.mars.ordinary as ordinary
+    import dodaios.society.mars.ordinary as ordinary
 
     runtime = FixtureRuntime(data_dir)
     executor = FixtureExecutor(runtime)
@@ -254,7 +254,7 @@ async def test_canceled_http_waiter_preserves_shared_initialization(tmp_path, mo
 
 
 async def test_initialization_deadline_is_shared_and_retryable(tmp_path, monkeypatch, caplog):
-    import jarvis.ui.web.mars_routes as routes
+    import dodaios.ui.web.mars_routes as routes
 
     monkeypatch.setattr(routes, "_INITIALIZATION_TIMEOUT_S", 0.02)
     state, runtime, _executor, calls = setup_state(tmp_path, monkeypatch)
@@ -279,7 +279,7 @@ async def test_initialization_deadline_is_shared_and_retryable(tmp_path, monkeyp
 
 
 async def test_cancellation_ignoring_startup_cannot_publish_after_stop(tmp_path, monkeypatch):
-    import jarvis.ui.web.mars_routes as routes
+    import dodaios.ui.web.mars_routes as routes
 
     state, runtime, executor, _calls = setup_state(tmp_path, monkeypatch)
     runtime.ready.clear()
@@ -315,11 +315,11 @@ async def test_cancellation_ignoring_startup_cannot_publish_after_stop(tmp_path,
 
 
 async def test_server_stop_finishes_independent_cleanup_after_mars_timeout(tmp_path, monkeypatch):
-    import jarvis.clis.shared as cli_shared
-    import jarvis.codex_app_server as codex_servers
-    import jarvis.marketplace.plugin_shared as plugin_shared
-    import jarvis.ui.web.mars_routes as routes
-    from jarvis.ui.web.server import WebServer
+    import dodaios.clis.shared as cli_shared
+    import dodaios.codex_app_server as codex_servers
+    import dodaios.marketplace.plugin_shared as plugin_shared
+    import dodaios.ui.web.mars_routes as routes
+    from dodaios.ui.web.server import WebServer
 
     state, runtime, executor, _calls = setup_state(tmp_path, monkeypatch)
     runtime.ready.clear()
@@ -489,7 +489,7 @@ async def test_recovery_errors_log_only_exception_type(tmp_path, caplog):
 
 
 async def child_recover(data_dir: Path):
-    import jarvis.society.mars.ordinary as ordinary
+    import dodaios.society.mars.ordinary as ordinary
 
     seed = json.loads((data_dir / "seed.json").read_text("utf-8"))
     runtime = FixtureRuntime(data_dir)

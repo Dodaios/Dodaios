@@ -27,13 +27,13 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.recovery import (
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.recovery import (
     RECOVERY_RESWEEP_INTERVAL_S,
     RECOVERY_STALE_AFTER_MS,
     periodic_recovery_sweep,
 )
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.state_machine import MissionState
 
 _MIN_MS = 60_000
 
@@ -103,7 +103,7 @@ async def test_next_tick_finalizes_mission_once_stale(open_store: MissionManager
     mid = await _running_mission(open_store, "orphaned-after-boot")
 
     # A clock 40 minutes ahead of the mission's last event -> stale.
-    from jarvis.missions.events import now_ms
+    from dodaios.missions.events import now_ms
 
     base = now_ms()
 
@@ -145,7 +145,7 @@ async def test_raising_tick_does_not_kill_loop(
     We patch ``startup_recover`` to raise on the first call and succeed after,
     counting calls. If the loop died on the exception, ``calls`` would stay at 1.
     """
-    import jarvis.missions.recovery as recovery_mod
+    import dodaios.missions.recovery as recovery_mod
 
     calls = {"n": 0}
     real_startup_recover = recovery_mod.startup_recover

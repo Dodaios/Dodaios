@@ -5,9 +5,9 @@ from types import SimpleNamespace
 import pytest
 from PIL import ImageColor
 
-from jarvis.platform import monitors
-from jarvis.ui.pets import context_menu, menu_renderer
-from jarvis.ui.theme import POPOVER_COLORS
+from dodaios.platform import monitors
+from dodaios.ui.pets import context_menu, menu_renderer
+from dodaios.ui.theme import POPOVER_COLORS
 from ui.orb import pet_context_menu as popup
 
 
@@ -214,5 +214,5 @@ def test_current_appearance_follows_settings_and_system_mode(tmp_path, monkeypat
     path.write_text('[ui]\ntheme="light"')
     assert context_menu.appearance(path) == "light"
     path.write_text('[ui]\ntheme="system"')
-    monkeypatch.setattr("jarvis.ui.theme.detect_os_theme", lambda: "dark")
+    monkeypatch.setattr("dodaios.ui.theme.detect_os_theme", lambda: "dark")
     assert context_menu.appearance(path) == "dark"

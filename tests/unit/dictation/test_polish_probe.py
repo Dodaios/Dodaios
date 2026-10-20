@@ -18,7 +18,7 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.dictation.polish_probe import probe_polish_family
+from dodaios.dictation.polish_probe import probe_polish_family
 
 
 def _cfg(timeout_ms: int = 1200) -> SimpleNamespace:
@@ -33,7 +33,7 @@ def _cfg(timeout_ms: int = 1200) -> SimpleNamespace:
 
 
 def _family(family_id: str = "openai") -> Any:
-    from jarvis.dictation.polish_client import family_by_id
+    from dodaios.dictation.polish_client import family_by_id
 
     return family_by_id(family_id)
 

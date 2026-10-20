@@ -23,8 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import agent_usage
-from jarvis.agent_accounts import AgentAccount
+from dodaios import agent_usage
+from dodaios.agent_accounts import AgentAccount
 
 #: Captured before any fixture runs. The autouse ``_no_network`` fixture below
 #: replaces the module attribute, so a test that wants to exercise the REAL

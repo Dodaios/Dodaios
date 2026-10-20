@@ -15,9 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agentic_ide import claude_session_hook, pane_sessions, resume_store
-from jarvis.agentic_ide import session as ide
-from jarvis.agentic_ide.agent_sessions import ResumeHandle
+from dodaios.agentic_ide import claude_session_hook, pane_sessions, resume_store
+from dodaios.agentic_ide import session as ide
+from dodaios.agentic_ide.agent_sessions import ResumeHandle
 from tests.unit.agentic_ide.test_pty_host_adoption import ConnectRecorder, FakeHostedPool
 
 

@@ -1,6 +1,6 @@
 """Regression tests for the F1+F2 (hangup) / F3+F4 (call) global hotkeys.
 
-These lock the lifecycle of ``jarvis.trigger.hotkey.HotkeyTrigger`` against the
+These lock the lifecycle of ``dodaios.trigger.hotkey.HotkeyTrigger`` against the
 bug that silently bricked the shortcuts after an in-process pipeline restart:
 
 * ``__aexit__`` handed ``global_hotkeys.remove_hotkeys`` the full
@@ -37,7 +37,7 @@ def fake_gh(monkeypatch):
     Also resets the module-level checker refcount so the single-checker
     invariant is asserted from a clean slate regardless of test ordering.
     """
-    import jarvis.trigger.hotkey as hk
+    import dodaios.trigger.hotkey as hk
 
     fake = FakeGlobalHotkeys()
     saved = sys.modules.get("global_hotkeys")
@@ -46,7 +46,7 @@ def fake_gh(monkeypatch):
     # This module verifies the Windows global-hotkeys contract.  Pin the
     # backend explicitly so the same tests remain valid on the macOS and Linux
     # CI legs instead of silently selecting Quartz/pynput from the host OS.
-    from jarvis.trigger.backends.global_hotkeys import GlobalHotkeysBackend
+    from dodaios.trigger.backends.global_hotkeys import GlobalHotkeysBackend
 
     monkeypatch.setattr(hk, "make_hotkey_backend", GlobalHotkeysBackend)
     try:
@@ -68,7 +68,7 @@ async def _next_event(trig, timeout_s: float = 1.0) -> str:
 # ----------------------------------------------------------------------
 
 def test_normalize_combo_maps_modifiers_and_keeps_fkeys():
-    from jarvis.trigger.hotkey import _normalize_combo
+    from dodaios.trigger.hotkey import _normalize_combo
 
     assert _normalize_combo("ctrl+right_alt+j") == "control + alt + j"
     assert _normalize_combo("f1+f2") == "f1 + f2"
@@ -105,7 +105,7 @@ import pytest as _pytest  # noqa: E402
     ],
 )
 def test_validate_hotkey_accepts_safe_combos(combo):
-    from jarvis.trigger.hotkey import validate_hotkey
+    from dodaios.trigger.hotkey import validate_hotkey
 
     ok, reason = validate_hotkey(combo)
     assert ok, f"{combo!r} should be valid, got: {reason}"
@@ -115,7 +115,7 @@ def test_validate_hotkey_accepts_safe_combos(combo):
 def test_validate_hotkey_rejects_only_the_meaningless(combo):
     """The ONLY hard refusal left (maintainer directive 2026-07-28): a combo
     with no keys in it. Everything else the user asks for, the user gets."""
-    from jarvis.trigger.hotkey import validate_hotkey
+    from dodaios.trigger.hotkey import validate_hotkey
 
     ok, reason = validate_hotkey(combo)
     assert not ok, f"{combo!r} should be rejected"
@@ -146,7 +146,7 @@ def test_formerly_refused_combos_are_accepted_with_a_caution(combo, caution_mark
     """The refusals became a NON-BLOCKING warning channel: the combo saves, and
     the UI can tell the user what it will cost them. A caution that is empty is
     the real regression here — that would be silent acceptance."""
-    from jarvis.trigger.hotkey import validate_hotkey
+    from dodaios.trigger.hotkey import validate_hotkey
 
     verdict = validate_hotkey(combo, platform="win32")
     assert verdict.ok is True, f"{combo!r} must be selectable now"
@@ -156,7 +156,7 @@ def test_formerly_refused_combos_are_accepted_with_a_caution(combo, caution_mark
 def test_the_verdict_still_unpacks_as_the_historical_pair():
     """Every existing caller does ``ok, reason = validate_hotkey(...)``. A third
     tuple element would have turned all of them into a ValueError."""
-    from jarvis.trigger.hotkey import validate_hotkey
+    from dodaios.trigger.hotkey import validate_hotkey
 
     ok, reason = validate_hotkey("ctrl+win", platform="win32")
     assert ok is True
@@ -168,7 +168,7 @@ def test_the_verdict_still_unpacks_as_the_historical_pair():
 
 def test_a_clean_combo_carries_no_caution():
     """Cautions must stay rare, or the UI trains the user to ignore them."""
-    from jarvis.trigger.hotkey import validate_hotkey
+    from dodaios.trigger.hotkey import validate_hotkey
 
     verdict = validate_hotkey("ctrl+right_alt+j", platform="win32")
     assert verdict.ok is True
@@ -178,7 +178,7 @@ def test_a_clean_combo_carries_no_caution():
 
 def test_validate_hotkey_allows_ctrl_c_when_part_of_larger_combo():
     """Ctrl+C alone is the interrupt; Ctrl+Shift+C is a different, safe combo."""
-    from jarvis.trigger.hotkey import validate_hotkey
+    from dodaios.trigger.hotkey import validate_hotkey
 
     verdict = validate_hotkey("ctrl+shift+c")
     assert verdict.ok
@@ -210,8 +210,8 @@ def test_the_super_and_meta_aliases_normalize_to_a_key_that_fires(
     VK_LWIN/VK_RWIN, the Quartz tap decodes from the Command flag, and pynput
     matches through its ``cmd`` aliases. Accepting them WITHOUT this assertion
     would re-open the original bug."""
-    from jarvis.trigger.backends.pynput import _GENERIC_MODIFIER_ALIASES, _parse_combo_tokens
-    from jarvis.trigger.hotkey import normalized_combo_tokens, validate_hotkey
+    from dodaios.trigger.backends.pynput import _GENERIC_MODIFIER_ALIASES, _parse_combo_tokens
+    from dodaios.trigger.hotkey import normalized_combo_tokens, validate_hotkey
 
     verdict = validate_hotkey(combo, platform=platform)
     assert verdict.ok is True, f"{combo!r} must be selectable on {platform}"
@@ -226,7 +226,7 @@ def test_the_super_and_meta_aliases_normalize_to_a_key_that_fires(
 
 
 def _normalize_for_test(combo: str) -> str:
-    from jarvis.trigger.hotkey import _normalize_combo
+    from dodaios.trigger.hotkey import _normalize_combo
 
     return _normalize_combo(combo)
 
@@ -234,7 +234,7 @@ def _normalize_for_test(combo: str) -> str:
 def test_legacy_super_combos_still_normalize_to_a_real_key():
     """A jarvis.toml written before the rule above must not arm a token no
     backend understands: super/meta fold to the same key ``win`` does."""
-    from jarvis.trigger.hotkey import _normalize_combo
+    from dodaios.trigger.hotkey import _normalize_combo
 
     assert _normalize_combo("ctrl+super+space") == "control + window + space"
     assert _normalize_combo("ctrl+meta+space") == "control + window + space"
@@ -243,7 +243,7 @@ def test_legacy_super_combos_still_normalize_to_a_real_key():
 
 def test_command_chords_stay_valid_on_macos():
     """Closing the Super hole must not take macOS Command with it."""
-    from jarvis.trigger.hotkey import validate_hotkey
+    from dodaios.trigger.hotkey import validate_hotkey
 
     ok, reason = validate_hotkey("cmd+d", platform="darwin")
     assert ok, reason
@@ -254,7 +254,7 @@ def test_command_chords_stay_valid_on_macos():
 # ----------------------------------------------------------------------
 
 async def test_enter_registers_all_call_and_hangup_combos(fake_gh):
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(LIVE_BINDINGS):
         assert "control+alt+j" in fake_gh.registered
@@ -264,7 +264,7 @@ async def test_enter_registers_all_call_and_hangup_combos(fake_gh):
 
 
 async def test_hangup_combo_press_yields_hangup_event(fake_gh):
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(LIVE_BINDINGS) as trig:
         fake_gh.fire("f1+f2")
@@ -272,7 +272,7 @@ async def test_hangup_combo_press_yields_hangup_event(fake_gh):
 
 
 async def test_both_call_combos_yield_call_event(fake_gh):
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(LIVE_BINDINGS) as trig:
         fake_gh.fire("f3+f4")
@@ -296,7 +296,7 @@ async def test_exit_removes_hotkeys_with_string_format(fake_gh):
     A clean exit must leave the singleton registry empty so the next run can
     re-register.
     """
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(LIVE_BINDINGS):
         pass
@@ -314,7 +314,7 @@ async def test_reentry_after_exit_does_not_raise_already_registered(fake_gh):
     Before the fix the second enter raised "already registered" and killed
     every hotkey. After the fix it re-registers cleanly.
     """
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(LIVE_BINDINGS):
         pass
@@ -326,7 +326,7 @@ async def test_reentry_after_exit_does_not_raise_already_registered(fake_gh):
 
 
 async def test_exit_leaves_no_live_checker(fake_gh):
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(LIVE_BINDINGS):
         assert fake_gh.checker_running
@@ -338,7 +338,7 @@ async def test_missing_global_hotkeys_degrades_gracefully():
     not installed, entering the trigger must NOT crash the voice pipeline —
     it degrades to "no hotkeys" and voice still works via wake word.
     """
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     saved = sys.modules.get("global_hotkeys")
     sys.modules["global_hotkeys"] = None  # forces ImportError on `import`
@@ -360,8 +360,8 @@ async def test_register_failure_degrades_without_crashing_the_pipeline(fake_gh):
     `async with HotkeyTrigger(...)`. It degrades to "no hotkeys" (AD-OE6), and
     the shared checker refcount stays balanced so the next trigger is healthy.
     """
-    import jarvis.trigger.hotkey as hk
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    import dodaios.trigger.hotkey as hk
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     fake_gh.register_error = Exception("simulated register failure")
     async with HotkeyTrigger(LIVE_BINDINGS) as trig:
@@ -376,7 +376,7 @@ async def test_concurrent_instances_share_a_single_checker(fake_gh):
     must not spawn two checker loops — a duplicate loop double-fires every
     press. Peak live checkers stays at 1.
     """
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger({"call": ["f3+f4"]}):
         async with HotkeyTrigger({"kill": ["ctrl+alt+shift+k"]}):
@@ -393,8 +393,8 @@ async def test_rearm_swaps_bindings_live_without_reentry(fake_gh):
     """``rearm`` re-registers in place: the OLD combo stops firing, the NEW one
     starts — the fix for "I set a key but nothing happens until I restart". The
     single shared checker is preserved (no leaked second loop)."""
-    import jarvis.trigger.hotkey as hk
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    import dodaios.trigger.hotkey as hk
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger({"call": ["f3+f4"]}) as trig:
         fake_gh.fire("f3+f4")
@@ -416,7 +416,7 @@ async def test_rearm_swaps_bindings_live_without_reentry(fake_gh):
 
 async def test_rearm_switches_a_toggle_into_push_to_talk(fake_gh):
     """Re-arming can also flip an action into push-to-talk (both edges)."""
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger({"call": ["f3+f4"]}) as trig:
         await trig.rearm({"ptt": ["ctrl+right_alt+j"]}, push_to_talk={"ptt"})
@@ -428,7 +428,7 @@ async def test_rearm_switches_a_toggle_into_push_to_talk(fake_gh):
 
 async def test_rearm_when_degraded_is_a_safe_noop():
     """Re-arming a trigger that entered degraded (no package) never raises."""
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     saved = sys.modules.get("global_hotkeys")
     sys.modules["global_hotkeys"] = None
@@ -454,7 +454,7 @@ async def test_ptt_press_and_release_yield_distinct_edge_events(fake_gh):
     """A push-to-talk binding fires ``<name>_press`` on the down edge and
     ``<name>_release`` on the up edge — the two events the pipeline needs to
     start the recording on press and submit it on release."""
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(PTT_BINDINGS, push_to_talk={"ptt"}) as trig:
         fake_gh.fire_press("control + alt + j")
@@ -466,7 +466,7 @@ async def test_ptt_press_and_release_yield_distinct_edge_events(fake_gh):
 async def test_ptt_binding_registers_an_on_press_handler(fake_gh):
     """Unlike a normal toggle binding (on_release only), a push-to-talk combo
     must register a live on_press handler so the down edge is observable."""
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(PTT_BINDINGS, push_to_talk={"ptt"}):
         on_press, on_release = fake_gh.registered["control+alt+j"]
@@ -478,7 +478,7 @@ async def test_non_ptt_binding_stays_release_only(fake_gh):
     """A binding NOT marked push-to-talk keeps the legacy contract: only the
     on_release edge fires, so a held key triggers exactly once (not per
     key-repeat poll). The press edge must be ``None``."""
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(PTT_BINDINGS, push_to_talk={"ptt"}) as trig:
         on_press, on_release = fake_gh.registered["f1+f2"]
@@ -492,7 +492,7 @@ async def test_non_ptt_binding_stays_release_only(fake_gh):
 async def test_default_has_no_push_to_talk_bindings(fake_gh):
     """Without the push_to_talk argument every binding is a release-only
     toggle — the pre-PTT behaviour is preserved by default."""
-    from jarvis.trigger.hotkey import HotkeyTrigger
+    from dodaios.trigger.hotkey import HotkeyTrigger
 
     async with HotkeyTrigger(LIVE_BINDINGS):
         for combo in ("control+alt+j", "f3+f4", "f1+f2"):

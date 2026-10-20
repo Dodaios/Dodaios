@@ -23,15 +23,15 @@ from pathlib import Path
 
 import pytest_asyncio
 
-from jarvis.missions.events import (
+from dodaios.missions.events import (
     EventEnvelope,
     MissionApproved,
     WorkerDraftReady,
     now_ms,
 )
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.recovery import startup_recover
-from jarvis.missions.state_machine import MissionState
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.recovery import startup_recover
+from dodaios.missions.state_machine import MissionState
 
 
 _MIN_MS = 60_000

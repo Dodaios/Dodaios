@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core import config_writer
+from dodaios.core import config_writer
 
 
 @pytest.fixture
@@ -311,7 +311,7 @@ def test_receipt_flags_a_baseline_that_could_not_be_written(
         raise PermissionError(f"{path} is read-only")
 
     monkeypatch.setattr(config_writer, "_atomic_write_text", _refuse)
-    with caplog.at_level("ERROR", logger="jarvis.core.config_writer"):
+    with caplog.at_level("ERROR", logger="dodaios.core.config_writer"):
         receipt = config_writer.set_brain_provider_model(
             "gemini", model="gemini-3.5-flash", path=sample_toml
         )

@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from PIL import Image, ImageDraw
 
-from jarvis.ui.dodaiosbar import qt_overlay, renderer
+from dodaios.ui.dodaiosbar import qt_overlay, renderer
 
 
 class _Rect:

@@ -17,10 +17,10 @@ from pathlib import Path
 import aiosqlite
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.tasks.runner import TaskRunner
-from jarvis.tasks.scheduler import TaskScheduler, parse_iso_timestamp_to_ns
-from jarvis.tasks.schema import (
+from dodaios.core.bus import EventBus
+from dodaios.tasks.runner import TaskRunner
+from dodaios.tasks.scheduler import TaskScheduler, parse_iso_timestamp_to_ns
+from dodaios.tasks.schema import (
     AgentAction,
     PluginGrant,
     SpeakAction,
@@ -28,7 +28,7 @@ from jarvis.tasks.schema import (
     TriggerAfterDelay,
     TriggerEvery,
 )
-from jarvis.tasks.store import TaskStore
+from dodaios.tasks.store import TaskStore
 
 pytestmark = pytest.mark.phase5
 
@@ -245,8 +245,8 @@ async def test_runner_agent_retains_result_and_only_speaks_on_opt_in(
 
 async def test_runner_arms_auto_approver_for_write_grants(store: TaskStore):
     """A write-scoped grant lets an ask-tier tool run unattended."""
-    from jarvis.core.events import ActionApprovalRequired, ActionApproved
-    from jarvis.tasks.approval_bridge import TaskAutoApprover
+    from dodaios.core.events import ActionApprovalRequired, ActionApproved
+    from dodaios.tasks.approval_bridge import TaskAutoApprover
 
     bus = EventBus()
     approver = TaskAutoApprover(bus)
@@ -285,8 +285,8 @@ async def test_runner_arms_auto_approver_for_write_grants(store: TaskStore):
 
 async def test_runner_does_not_auto_approve_read_grants(store: TaskStore):
     """A read-scoped grant must NOT pre-authorize an ask-tier action."""
-    from jarvis.core.events import ActionApprovalRequired, ActionApproved
-    from jarvis.tasks.approval_bridge import TaskAutoApprover
+    from dodaios.core.events import ActionApprovalRequired, ActionApproved
+    from dodaios.tasks.approval_bridge import TaskAutoApprover
 
     bus = EventBus()
     approver = TaskAutoApprover(bus)

@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.audio.alerts import play_voice_offline_alert
-from jarvis.audio.chime import CHIME_SAMPLE_RATE, DISCONNECT_PCM
+from dodaios.audio.alerts import play_voice_offline_alert
+from dodaios.audio.chime import CHIME_SAMPLE_RATE, DISCONNECT_PCM
 
 
 class _FakePlayer:

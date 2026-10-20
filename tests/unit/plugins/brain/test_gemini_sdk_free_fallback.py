@@ -8,11 +8,11 @@ from typing import Any
 import openai
 import pytest
 
-import jarvis.core.config as cfg
-from jarvis.core.config import ResolvedEndpoint
-from jarvis.core.protocols import BrainMessage, BrainRequest, ImageBlock
-from jarvis.plugins.brain import gemini as gemini_mod
-from jarvis.plugins.brain.gemini import GeminiBrain
+import dodaios.core.config as cfg
+from dodaios.core.config import ResolvedEndpoint
+from dodaios.core.protocols import BrainMessage, BrainRequest, ImageBlock
+from dodaios.plugins.brain import gemini as gemini_mod
+from dodaios.plugins.brain.gemini import GeminiBrain
 
 _MISSING_NATIVE_MODULES = (
     "google.genai",

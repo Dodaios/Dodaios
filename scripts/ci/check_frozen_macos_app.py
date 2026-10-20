@@ -21,7 +21,7 @@ fails with the exact thing that is missing.
 It also asserts the privacy-permission declarations of the bundle:
 
 * every ``NS...UsageDescription`` string of the single table in
-  ``jarvis/core/macos_privacy_strings.py`` is in ``Info.plist`` with exactly that
+  ``dodaios/core/macos_privacy_strings.py`` is in ``Info.plist`` with exactly that
   text, and the keys that table lists as removed (camera, speech recognition,
   system administration) are not;
 * the bundle is localised for German, Spanish and European Portuguese: ``Info.plist`` declares
@@ -59,9 +59,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from jarvis.core import macos_privacy_strings  # noqa: E402
-from jarvis.core.branding import MACOS_DMG_BUNDLE_ID  # noqa: E402
-from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
+from dodaios.core import macos_privacy_strings  # noqa: E402
+from dodaios.core.branding import MACOS_DMG_BUNDLE_ID  # noqa: E402
+from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: E402
 
 ENTITLEMENTS_FILE = ROOT / "packaging" / "macos" / "entitlements.plist"
 
@@ -120,7 +120,7 @@ _DEFAULT_MISSING_STRING_CONSEQUENCE = (
 def check_usage_strings(info: Mapping[str, object]) -> list[str]:
     """What is wrong with the bundle's usage-description strings (empty = fine).
 
-    The reference is ``jarvis/core/macos_privacy_strings.py``, the one table the
+    The reference is ``dodaios/core/macos_privacy_strings.py``, the one table the
     spec and the managed bundle both load: a missing, blank or different string
     means this bundle was not built from it, and a key from the removed list
     claims access the app never uses.
@@ -134,7 +134,7 @@ def check_usage_strings(info: Mapping[str, object]) -> list[str]:
             problems.append(f"{key} is missing: {consequence}")
         elif value != expected[key]:
             problems.append(
-                f"{key} differs from jarvis/core/macos_privacy_strings.py: the bundle was "
+                f"{key} differs from dodaios/core/macos_privacy_strings.py: the bundle was "
                 "not built from the single usage-string table (jarvis.spec must load it)"
             )
     for key in macos_privacy_strings.REMOVED_USAGE_KEYS:
@@ -180,7 +180,7 @@ def check_localization_files(resources_dir: Path) -> list[str]:
         if text != macos_privacy_strings.info_plist_strings_text(language):
             problems.append(
                 f"{language}.lproj/InfoPlist.strings differs from "
-                "jarvis/core/macos_privacy_strings.py: it was not written from the "
+                "dodaios/core/macos_privacy_strings.py: it was not written from the "
                 "single usage-string table"
             )
     return problems

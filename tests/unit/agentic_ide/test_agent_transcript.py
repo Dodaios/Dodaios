@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jarvis.agentic_ide import agent_transcript
+from dodaios.agentic_ide import agent_transcript
 
 
 def _write(path: Path, rows: list[dict]) -> None:

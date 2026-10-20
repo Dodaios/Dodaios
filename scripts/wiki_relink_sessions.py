@@ -9,7 +9,7 @@ hub — so each session floats as an isolated 2-node pair. New rollups are
 already fixed at the source; this tool cleans the pages that already exist.
 
 It reuses the same tested, LLM-free logic the live worker applies
-(``jarvis.memory.wiki.session_links.relink_session_body``): strip dangling
+(``dodaios.memory.wiki.session_links.relink_session_body``): strip dangling
 fragments, canonicalise links that resolve to a real page, demote the rest to
 plain text, and append a ``## Related`` backbone linking the user entity and
 the concepts/projects the body actually references.
@@ -38,8 +38,8 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from jarvis.memory.wiki.session_links import SlugIndex, relink_session_body  # noqa: E402
-from jarvis.memory.wiki.session_rollup import _DURABLE_DIRS, _read_aliases  # noqa: E402
+from dodaios.memory.wiki.session_links import SlugIndex, relink_session_body  # noqa: E402
+from dodaios.memory.wiki.session_rollup import _DURABLE_DIRS, _read_aliases  # noqa: E402
 
 _FM_BOUNDARY = "---"
 

@@ -16,7 +16,7 @@ fault in the gate fail OPEN (tools unchanged) rather than blinding the brain.
 
 from __future__ import annotations
 
-from jarvis.brain.manager import BrainManager
+from dodaios.brain.manager import BrainManager
 
 
 def _mgr() -> BrainManager:
@@ -85,7 +85,7 @@ def test_a_surface_without_the_tool_is_returned_untouched():
 
 def test_a_gate_fault_fails_open(monkeypatch):
     """A gate bug must never cost the brain a tool it was supposed to have."""
-    import jarvis.brain.artifact_gate as gate
+    import dodaios.brain.artifact_gate as gate
 
     def _boom(_text: str) -> bool:
         raise RuntimeError("gate exploded")

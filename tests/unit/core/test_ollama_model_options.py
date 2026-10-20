@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     OLLAMA_MODEL_OPTION_KEYS,
     BrainProviderConfig,
     JarvisConfig,
@@ -23,7 +23,7 @@ from jarvis.core.config import (
     load_config,
     ollama_hf_enabled,
 )
-from jarvis.core.config_writer import (
+from dodaios.core.config_writer import (
     PROVIDER_FLAG_KEYS,
     clear_ollama_model_options,
     set_ollama_hf_enabled,

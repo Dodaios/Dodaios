@@ -21,8 +21,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from jarvis.speech.wake_phrase import compile_wake_matcher
-from jarvis.speech.wake_verifier import (
+from dodaios.speech.wake_phrase import compile_wake_matcher
+from dodaios.speech.wake_verifier import (
     CUSTOM_WAKE_MIN_RMS,
     pcm_tail_rms,
     transcript_has_hey_prefix,
@@ -242,7 +242,7 @@ async def test_verify_retries_transient_error_then_succeeds(monkeypatch) -> None
     momentarily rate-limited (429) — the established repo pattern is retry
     (see _transcribe_final). One transient failure then a successful
     transcription containing the prefix must activate the wake."""
-    import jarvis.speech.wake_verifier as wv
+    import dodaios.speech.wake_verifier as wv
 
     monkeypatch.setattr(wv, "_WAKE_VERIFY_BACKOFF_S", 0.0, raising=False)
     stt = _FlakySTT("Hey Jarvis, was läuft", fail_times=1)  # i18n-allow
@@ -326,7 +326,7 @@ async def test_verify_caps_a_hung_stt_call(monkeypatch) -> None:
     """A hung cloud STT round-trip is cut off by the wake-verify timeout cap
     instead of blocking the wake path for seconds. On timeout the hit is
     suppressed (fail-closed), exactly like a persistent STT error."""
-    import jarvis.speech.wake_verifier as wv
+    import dodaios.speech.wake_verifier as wv
 
     monkeypatch.setattr(wv, "_WAKE_VERIFY_BACKOFF_S", 0.0, raising=False)
     monkeypatch.setattr(wv, "_WAKE_VERIFY_TIMEOUT_S", 0.05, raising=False)

@@ -14,7 +14,7 @@ pattern) is the tracked follow-up, not covered here.
 """
 from __future__ import annotations
 
-from jarvis.harness import screenshot_only_loop as sol
+from dodaios.harness import screenshot_only_loop as sol
 
 
 def test_block_names_sensitive_screens():

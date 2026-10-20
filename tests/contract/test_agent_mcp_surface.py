@@ -18,10 +18,10 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 
-from jarvis.core import runtime_refs
-from jarvis.mcp.agents import SERVER_NAME, tool_specs
-from jarvis.mcp.agents import tools as agent_tools
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.core import runtime_refs
+from dodaios.mcp.agents import SERVER_NAME, tool_specs
+from dodaios.mcp.agents import tools as agent_tools
+from dodaios.society.runtime import SocietyRuntime
 
 #: The vocabulary a client is entitled to find. Adding a tool is a feature;
 #: removing or renaming one breaks every connected client, so it fails here.
@@ -153,7 +153,7 @@ def test_no_spawn_vehicle_is_offered() -> None:
 
 def test_server_name_is_distinct_from_the_tools_surface() -> None:
     """Both surfaces may be connected at once, so their names must not collide."""
-    from jarvis.mcp.jarvis_tools_server import build_server as tools_server
+    from dodaios.mcp.jarvis_tools_server import build_server as tools_server
 
     assert SERVER_NAME == "jarvis-agents"
     assert tools_server().name != SERVER_NAME

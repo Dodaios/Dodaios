@@ -17,8 +17,8 @@ import threading
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.runs.loader import _LIST_EVENT_KINDS, RunLoader
-from jarvis.runs.routes import router as runs_router
+from dodaios.runs.loader import _LIST_EVENT_KINDS, RunLoader
+from dodaios.runs.routes import router as runs_router
 
 
 class _RecordingStore:
@@ -50,7 +50,7 @@ class _RecordingStore:
 
 
 def _session(idx: int):
-    from jarvis.sessions.models import SessionListItem
+    from dodaios.sessions.models import SessionListItem
     return SessionListItem(id=f"s{idx}", started_ms=idx, ended_ms=idx + 1,
                            duration_s=0.001, preview="")
 

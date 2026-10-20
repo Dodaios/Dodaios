@@ -79,7 +79,7 @@ def frame_for(qt, colors, *, padding=8, valid=True, mapping=True, short=False):
 
 
 def test_rgb_stride_colors_and_lifetime_survive_backend_reuse(qt):
-    from jarvis.appshot.recording_frame import owned_capture_image
+    from dodaios.appshot.recording_frame import owned_capture_image
 
     colors = [[(211, 17, 39, 255), (12, 207, 36, 255), (23, 43, 227, 255)],
               [(15, 18, 21, 255), (231, 225, 220, 255), (17, 65, 95, 255)]]
@@ -94,7 +94,7 @@ def test_rgb_stride_colors_and_lifetime_survive_backend_reuse(qt):
 
 @pytest.mark.parametrize("alpha,empty", [(0, True), (255, False)])
 def test_uninitialized_transparent_buffers_are_skipped_but_black_screens_are_kept(qt, alpha, empty):
-    from jarvis.appshot.recording_frame import owned_capture_image
+    from dodaios.appshot.recording_frame import owned_capture_image
 
     frame = frame_for(qt, [[(0, 0, 0, alpha)] * 3] * 2)
     image = owned_capture_image(frame)
@@ -104,7 +104,7 @@ def test_uninitialized_transparent_buffers_are_skipped_but_black_screens_are_kep
 
 @pytest.mark.parametrize("kind", ["invalid", "unmappable", "short"])
 def test_unusable_buffers_do_not_leak_a_mapping_or_return_pixels(qt, kind):
-    from jarvis.appshot.recording_frame import owned_capture_image
+    from dodaios.appshot.recording_frame import owned_capture_image
 
     frame = frame_for(qt, [[(10, 20, 30, 255)] * 3] * 2,
                       valid=kind != "invalid", mapping=kind != "unmappable", short=kind == "short")
@@ -113,7 +113,7 @@ def test_unusable_buffers_do_not_leak_a_mapping_or_return_pixels(qt, kind):
 
 
 def test_rotated_and_mirrored_rgb_frames_keep_presentation_orientation(qt):
-    from jarvis.appshot.recording_frame import owned_capture_image
+    from dodaios.appshot.recording_frame import owned_capture_image
 
     frame = frame_for(qt, [[(255, 0, 0, 255), (0, 255, 0, 255)],
                            [(0, 0, 255, 255), (255, 255, 255, 255)],
@@ -126,7 +126,7 @@ def test_rotated_and_mirrored_rgb_frames_keep_presentation_orientation(qt):
 
 
 def test_desktop_rejects_uninitialized_alpha_without_rejecting_portal_transparency(qt):
-    from jarvis.appshot.recording_frame import owned_capture_image
+    from dodaios.appshot.recording_frame import owned_capture_image
 
     colors = [[(0, 43, 68, 43)] * 3] * 2
     desktop = frame_for(qt, colors)

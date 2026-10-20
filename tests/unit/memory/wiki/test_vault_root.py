@@ -1,6 +1,6 @@
 """Vault-root resolution must not depend on the process CWD (spec A7)."""
-from jarvis.core.paths import repo_root
-from jarvis.memory.wiki.vault_root import resolve_vault_root
+from dodaios.core.paths import repo_root
+from dodaios.memory.wiki.vault_root import resolve_vault_root
 
 
 def test_relative_root_anchors_to_repo_root_not_cwd(tmp_path):

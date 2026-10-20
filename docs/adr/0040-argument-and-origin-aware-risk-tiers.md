@@ -13,8 +13,8 @@ audience: developer
 
 **Status:** Proposed. The record-only part is implemented (chunks A and B
 below, without the timeline badge); nothing that changes a decision is.
-**Reference:** AP-3, AP-11, ADR-0025, ADR-0031; `jarvis/safety/risk_tier.py`,
-`jarvis/safety/tool_executor.py`
+**Reference:** AP-3, AP-11, ADR-0025, ADR-0031; `dodaios/safety/risk_tier.py`,
+`dodaios/safety/tool_executor.py`
 
 ## Question
 
@@ -26,8 +26,8 @@ matters most for computer use and for marketplace plugins.
 ## How it works today
 
 Every tool call goes through `ToolExecutor.execute()`
-(`jarvis/safety/tool_executor.py`). The tier is decided by
-`RiskTierEvaluator.evaluate(tool, args)` (`jarvis/safety/risk_tier.py`) in a
+(`dodaios/safety/tool_executor.py`). The tier is decided by
+`RiskTierEvaluator.evaluate(tool, args)` (`dodaios/safety/risk_tier.py`) in a
 fixed order:
 
 1. **Blacklist.** The arguments are flattened into one string
@@ -196,7 +196,7 @@ that.
 
 ## What the record-only stage does
 
-`jarvis/safety/origin.py` and `ToolExecutor` implement chunks A and B as a
+`dodaios/safety/origin.py` and `ToolExecutor` implement chunks A and B as a
 record. `ActionProposed` and `ActionApprovalRequired` carry `effect`,
 `target_origin` (`user`, `known`, `unsourced`, `external`, or empty for a call
 without a target) and `origin_source` (the tool whose result held the value).

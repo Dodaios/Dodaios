@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web.settings_routes import router
+from dodaios.ui.web.settings_routes import router
 
 
 def _client(
@@ -32,7 +32,7 @@ def test_get_bar_persistent():
 
 
 def test_put_bar_persistent_live(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_bar_persistent", lambda v, **k: None)
     applied = {}
@@ -52,7 +52,7 @@ def test_get_bar_follow_cursor():
 
 
 def test_put_bar_follow_cursor_live(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_bar_follow_cursor_monitor", lambda v, **k: None)
     applied = {}
@@ -73,7 +73,7 @@ def test_get_mute_music():
 
 
 def test_put_mute_music_live(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     monkeypatch.setattr(cw, "set_mute_music", lambda v, **k: None)
     seen = {}

@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.config import JarvisConfig
-from jarvis.core.self_mod import (
+from dodaios.core.config import JarvisConfig
+from dodaios.core.self_mod import (
     AtomicConfigWriter,
     AuditActor,
     AuditSource,
@@ -29,7 +29,7 @@ from jarvis.core.self_mod import (
     ProviderSwitchLockedError,
     SelfModAudit,
 )
-from jarvis.core.self_mod.provider_lock import (
+from dodaios.core.self_mod.provider_lock import (
     PROVIDER_LOCK_PATHS,
     is_provider_lock_path,
 )
@@ -157,8 +157,8 @@ class TestSelfModConfigTool:
     async def test_brain_primary_is_refused_honestly(
         self, writer: AtomicConfigWriter, fixture_path: Path
     ) -> None:
-        from jarvis.brain.tools.self_mod_tools import SetConfigValueTool
-        from jarvis.core.self_mod import PendingMutationStore
+        from dodaios.brain.tools.self_mod_tools import SetConfigValueTool
+        from dodaios.core.self_mod import PendingMutationStore
 
         store = PendingMutationStore(writer=writer, auto_apply="all")
         tool = SetConfigValueTool(pending_store=store)  # default actor=HAUPTJARVIS

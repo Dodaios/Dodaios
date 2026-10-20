@@ -21,17 +21,17 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import (
+from dodaios.core.bus import EventBus
+from dodaios.core.events import (
     AnnouncementRequested,
     JarvisAgentBackgroundCompleted,
     SpeechSpoken,
     SystemStateChanged,
 )
-from jarvis.core.protocols import AudioChunk
-from jarvis.sessions.constants import SPOKEN_KIND_SUBAGENT
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState, _announcement_spoken_kind
-from jarvis.state.supervisor import Supervisor
+from dodaios.core.protocols import AudioChunk
+from dodaios.sessions.constants import SPOKEN_KIND_SUBAGENT
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState, _announcement_spoken_kind
+from dodaios.state.supervisor import Supervisor
 
 
 @dataclass

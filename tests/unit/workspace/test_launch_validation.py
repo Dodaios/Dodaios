@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.workspace.launcher import (
+from dodaios.workspace.launcher import (
     LAYOUT_CHOICES,
     build_slots,
     validate_split,

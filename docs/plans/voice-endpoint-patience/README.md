@@ -6,9 +6,9 @@
 > tuning, semantic patience) remain optional hardening and are **not** done.
 >
 > **Implemented:**
-> - `jarvis/audio/vad.py` — the probe callback now reports `tail_loud` (tail energy vs. the
+> - `dodaios/audio/vad.py` — the probe callback now reports `tail_loud` (tail energy vs. the
 >   relative-silence floor).
-> - `jarvis/speech/pipeline.py` — `_on_vad_probe` / `_stt_probe_async` gate **both** end
+> - `dodaios/speech/pipeline.py` — `_on_vad_probe` / `_stt_probe_async` gate **both** end
 >   signals on `tail_loud`: a quiet empty/stable tail defers to `silence_ms` instead of
 >   forcing the endpoint.
 > - `tests/unit/speech/test_thinking_pause_patience.py` (new, 4 cases) +
@@ -35,7 +35,7 @@ The turn-ending decision is **not** one place. It is a layered chain across two 
 
 ```
 mic 100ms blocks
-   └─> SileroEndpointer.utterances()                      jarvis/audio/vad.py:109
+   └─> SileroEndpointer.utterances()                      dodaios/audio/vad.py:109
         ├─ per 512-sample (32ms) frame: Silero prob + RMS  vad.py:146-160
         ├─ silent_run accumulator (+ cancel-hysteresis)    vad.py:182-219
         ├─ probe_callback(tail) every ~650ms               vad.py:228-236  ─┐
@@ -150,9 +150,9 @@ complete questions. So the obvious "just add more patterns" fix is exactly what 
 
 ### Corrected agent finding (verified false)
 A Jarvis-Agent flagged commit `17296d5e3` ("accumulate long dictation across VAD max-utterance
-cuts") with a `FORCED_CUT_REASONS` enum in `jarvis/audio/vad_reasons.py`. **The commit
+cuts") with a `FORCED_CUT_REASONS` enum in `dodaios/audio/vad_reasons.py`. **The commit
 exists, but that file and those symbols do NOT exist in the current tree** (`grep` finds
-zero `FORCED_CUT_REASONS` / `_last_endpoint_reason`; `jarvis/audio/vad_reasons.py` is
+zero `FORCED_CUT_REASONS` / `_last_endpoint_reason`; `dodaios/audio/vad_reasons.py` is
 absent). The PCM-carry-across-cuts mechanism it introduced was removed by a later refactor.
 This is itself a data point: **a patience feature was added and then silently deleted** —
 the exact pattern the user describes.
@@ -212,7 +212,7 @@ real pauses without re-breaking the speaker-bleed cure.
 
 **Files:**
 - Create: `tests/unit/speech/test_thinking_pause_patience.py`
-- Reference: `jarvis/audio/vad.py:109` (`SileroEndpointer.utterances`), existing
+- Reference: `dodaios/audio/vad.py:109` (`SileroEndpointer.utterances`), existing
   `tests/unit/audio/test_vad_turn_taking.py` for the synthetic-frame fixture pattern.
 
 - [ ] **Step 1: Write the failing test.** Drive `SileroEndpointer` with a synthetic frame
@@ -224,7 +224,7 @@ real pauses without re-breaking the speaker-bleed cure.
 ```python
 # Skeleton — fill RMS/prob values from test_vad_turn_taking.py conventions.
 import numpy as np, pytest
-from jarvis.audio.vad import SileroEndpointer
+from dodaios.audio.vad import SileroEndpointer
 
 @pytest.mark.asyncio
 async def test_thinking_pause_does_not_end_turn(monkeypatch):
@@ -254,8 +254,8 @@ unrelated feature edit fail loudly instead of silently regressing the user.
 > needed, no hang risk. Original step-by-step proposal kept below for reference.
 
 **Files:**
-- Modify: `jarvis/audio/vad.py:228-236` (probe-callback emit — also pass tail RMS)
-- Modify: `jarvis/speech/pipeline.py:842-919` (`_on_vad_probe` / `_stt_probe_async` signature
+- Modify: `dodaios/audio/vad.py:228-236` (probe-callback emit — also pass tail RMS)
+- Modify: `dodaios/speech/pipeline.py:842-919` (`_on_vad_probe` / `_stt_probe_async` signature
   + `tail_is_empty` branch)
 
 - [ ] **Step 1:** Extend `probe_callback` to receive the tail's mean RMS alongside the PCM
@@ -271,9 +271,9 @@ unrelated feature edit fail loudly instead of silently regressing the user.
 ### Task 3 — Consolidate endpoint timings into one configurable block
 
 **Files:**
-- Modify: `jarvis/core/config.py` (add a `TurnEndpointConfig` with the params below)
+- Modify: `dodaios/core/config.py` (add a `TurnEndpointConfig` with the params below)
 - Modify: `jarvis.toml` (`[turn.endpoint]` section with comments)
-- Modify: `jarvis/speech/pipeline.py:572-589` (read from config instead of hardcoded literals)
+- Modify: `dodaios/speech/pipeline.py:572-589` (read from config instead of hardcoded literals)
 - Modify: `scripts/config-soll.json` (so the drift-guard pins the patience values too) <!-- i18n-allow: "soll" is part of the config-soll.json filename, not German prose -->
 
 - [ ] **Step 1:** Define one source of truth: `silence_ms`, `max_utterance_s`,
@@ -289,7 +289,7 @@ unrelated feature edit fail loudly instead of silently regressing the user.
 ### Task 4 — Align probe cadence to the real (cloud) STT latency
 
 **Files:**
-- Modify: `jarvis/speech/pipeline.py:587` (`probe_interval_ms`)
+- Modify: `dodaios/speech/pipeline.py:587` (`probe_interval_ms`)
 
 - [ ] **Step 1:** Since production runs the probe against cloud Groq (`heavy_local_whisper=False`,
   `config.py:102`; `_probe_stt`, `pipeline.py:544`), set `probe_interval_ms` from the active
@@ -298,7 +298,7 @@ unrelated feature edit fail loudly instead of silently regressing the user.
 
 ### Task 5 (OPTIONAL, HANDLE WITH CARE) — broaden semantic patience
 
-**Files:** `jarvis/speech/pipeline.py:293-326` (`_looks_context_incomplete`)
+**Files:** `dodaios/speech/pipeline.py:293-326` (`_looks_context_incomplete`)
 
 - [ ] Only after Tasks 1-2 land. The history (`c122429a1`, comment `pipeline.py:313-317`)
   proves broadening this traps the pipeline in silent LISTENING. If touched at all, every new
@@ -322,9 +322,9 @@ unrelated feature edit fail loudly instead of silently regressing the user.
 
 | File | Role | Hot lines |
 |---|---|---|
-| `jarvis/audio/vad.py` | Endpoint engine; 3 triggers; cancel-hysteresis | `94`, `146-160`, `182-219`, `228-236`, `240-284` |
-| `jarvis/speech/pipeline.py` | Probe logic; config defaults; post-submit buffer | `293-326`, `447-466`, `544`, `572-622`, `842-962`, `2150`, `2430-2535` |
-| `jarvis/core/config.py` | `heavy_local_whisper`, `single_turn_mode` defaults | `95`, `102` |
+| `dodaios/audio/vad.py` | Endpoint engine; 3 triggers; cancel-hysteresis | `94`, `146-160`, `182-219`, `228-236`, `240-284` |
+| `dodaios/speech/pipeline.py` | Probe logic; config defaults; post-submit buffer | `293-326`, `447-466`, `544`, `572-622`, `842-962`, `2150`, `2430-2535` |
+| `dodaios/core/config.py` | `heavy_local_whisper`, `single_turn_mode` defaults | `95`, `102` |
 | `jarvis.toml` / `scripts/config-soll.json` | Config layers | `[turn]` §, `single_turn_mode` <!-- i18n-allow: "soll" is part of the config-soll.json filename, not German prose --> |
 | `tests/unit/audio/test_vad_turn_taking.py` | Existing VAD test (fixture pattern) | — |
 

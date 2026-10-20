@@ -20,12 +20,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agentic_ide import ui_prefs
+from dodaios.agentic_ide import ui_prefs
 
 
 @pytest.fixture
 def client() -> TestClient:
-    from jarvis.ui.web.agentic_ide_routes import router
+    from dodaios.ui.web.agentic_ide_routes import router
 
     app = FastAPI()
     app.include_router(router)
@@ -140,7 +140,7 @@ def test_the_toolbar_and_the_backend_agree_on_the_bounds() -> None:
     # (the grid imports them); the parity check follows the definition.
     grid = (
         Path(__file__).resolve().parents[3]
-        / "jarvis/ui/web/frontend/src/components/agentic/paneFont.ts"
+        / "dodaios/ui/web/frontend/src/components/agentic/paneFont.ts"
     ).read_text(encoding="utf-8")
 
     assert f"const FONT_MIN = {ui_prefs.FONT_MIN};" in grid

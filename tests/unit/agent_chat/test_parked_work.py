@@ -8,14 +8,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat import delegation_wait, parked_work, send_queue
-from jarvis.agent_chat import service as service_mod
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
-from jarvis.agent_chat.send_queue import send_or_queue
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.core.delegated_work import DelegatedWork, register_delegated_work
+from dodaios.agent_chat import delegation_wait, parked_work, send_queue
+from dodaios.agent_chat import service as service_mod
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.parked_work import BACKGROUND_ORIGIN, ParkedWorkBoard
+from dodaios.agent_chat.send_queue import send_or_queue
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.core.delegated_work import DelegatedWork, register_delegated_work
 
 _FIRST = "Brief the agent in terminal two about the login bug."
 _SECOND = "And create a new agent for the documentation."
@@ -211,6 +211,6 @@ def test_an_agents_own_chat_keeps_its_turn():
 def test_the_timeline_knows_the_background_origin():
     """The marker crosses to the frontend as a literal: both sides name it the same."""
     reducer = (
-        _REPO / "jarvis/ui/web/frontend/src/components/agentchat/reduce.ts"
+        _REPO / "dodaios/ui/web/frontend/src/components/agentchat/reduce.ts"
     ).read_text(encoding="utf-8")
     assert f'p.origin === "{BACKGROUND_ORIGIN}"' in reducer

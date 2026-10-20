@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.ui.web import agent_chat_routes as routes
+from dodaios.ui.web import agent_chat_routes as routes
 
 
 async def test_catalog_waits_for_one_service_without_blocking_the_event_loop(monkeypatch):

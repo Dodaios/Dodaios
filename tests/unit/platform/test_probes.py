@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.platform import probes
+from dodaios.platform import probes
 
 
 def _force_platform(monkeypatch, name: str):
     """Make both the package-level and probe-level detect_platform return name."""
-    monkeypatch.setattr("jarvis.platform.detect_platform", lambda: name)
-    monkeypatch.setattr("jarvis.platform.probes.detect_platform", lambda: name)
+    monkeypatch.setattr("dodaios.platform.detect_platform", lambda: name)
+    monkeypatch.setattr("dodaios.platform.probes.detect_platform", lambda: name)
 
 
 # --- display_present -------------------------------------------------------

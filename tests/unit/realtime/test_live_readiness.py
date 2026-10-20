@@ -8,11 +8,11 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.core.events import RealtimeSessionReady, VoiceSessionStarted, VoiceTurnStarted
-from jarvis.live import session as module
-from jarvis.live.config import LiveConfig
-from jarvis.plugins.realtime import _live_transport as transport
+from dodaios.core.bus import EventBus
+from dodaios.core.events import RealtimeSessionReady, VoiceSessionStarted, VoiceTurnStarted
+from dodaios.live import session as module
+from dodaios.live.config import LiveConfig
+from dodaios.plugins.realtime import _live_transport as transport
 from tests.fakes.fake_subscription_live_wire import FakeSubscriptionLiveWire
 
 
@@ -127,7 +127,7 @@ async def test_local_tls_prepares_during_allocation_and_answer_does_not_wait(mon
     else:
         from websockets.asyncio import client as ws_client
 
-        from jarvis.plugins.realtime.openai_live import OpenAILiveProvider
+        from dodaios.plugins.realtime.openai_live import OpenAILiveProvider
 
         original_client = httpx.AsyncClient
 

@@ -17,20 +17,20 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.capacity import (
+from dodaios.missions.capacity import (
     CHECKPOINT_NAME,
     WorkerCapacityUnavailable,
     capacity_resume_loop,
     read_checkpoint,
     worker_family,
 )
-from jarvis.missions.events import MissionFailed, MissionWaitingCapacity
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
-from jarvis.missions.workers.api_agent_worker import ApiAgentWorker
-from jarvis.missions.workers.claude_direct_worker import ClaudeDirectWorker
-from jarvis.missions.workers.codex_direct_worker import CodexDirectWorker
+from dodaios.missions.events import MissionFailed, MissionWaitingCapacity
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
+from dodaios.missions.workers.api_agent_worker import ApiAgentWorker
+from dodaios.missions.workers.claude_direct_worker import ClaudeDirectWorker
+from dodaios.missions.workers.codex_direct_worker import CodexDirectWorker
 from tests.fakes.fake_mission_runtime import FakeMissionWorker, make_kontrollierer
 
 
@@ -290,7 +290,7 @@ async def test_repeat_parks_without_progress_back_off(
 ) -> None:
     """Finding 4: a probe that says yes while the run keeps re-parking must
     not churn every 5 minutes — the wait doubles from 5 to 60 minutes."""
-    from jarvis.missions.capacity import RESUME_BACKOFF_MAX_S, resume_backoff_s
+    from dodaios.missions.capacity import RESUME_BACKOFF_MAX_S, resume_backoff_s
 
     factory = SwitchableFactory()
     k, mission_id, _first, _second = await _park_second_step(manager, tmp_path, factory)
@@ -325,7 +325,7 @@ async def test_progress_resets_the_backoff(manager: MissionManager, tmp_path: Pa
     assert checkpoint is not None and checkpoint["idle_parks"] == 1
     # Expire the backoff by hand: the next resume finishes the step.
     checkpoint["next_resume_ms"] = 0
-    from jarvis.missions.capacity import write_checkpoint
+    from dodaios.missions.capacity import write_checkpoint
 
     write_checkpoint(mission_dir, {k_: v for k_, v in checkpoint.items() if k_ != "version"})
     factory.capacity = True
@@ -340,7 +340,7 @@ async def test_resume_without_a_critic_probe_answer_stays_parked(
 ) -> None:
     """A step parked with its review pending resumes only when a critic has
     capacity — never claim, restore and re-park on every tick."""
-    from jarvis.missions.capacity import CriticCapacityUnavailable
+    from dodaios.missions.capacity import CriticCapacityUnavailable
     from tests.missions.test_capacity_critic import DELIVERED_DIFF, ScriptedCritic
 
     class ProbedCritic(ScriptedCritic):
@@ -351,7 +351,7 @@ async def test_resume_without_a_critic_probe_answer_stays_parked(
         def capacity_available(self) -> bool:
             return self.available
 
-    from jarvis.missions.kontrollierer.orchestrator import Kontrollierer
+    from dodaios.missions.kontrollierer.orchestrator import Kontrollierer
 
     critic = ProbedCritic(CriticCapacityUnavailable("provider_quota", "claude"))
     factory = SwitchableFactory()
@@ -512,7 +512,7 @@ def test_worker_families_tell_billing_apart() -> None:
 
 
 def test_checkpoint_is_plain_json(tmp_path: Path) -> None:
-    from jarvis.missions.capacity import write_checkpoint
+    from dodaios.missions.capacity import write_checkpoint
 
     path = write_checkpoint(tmp_path, {"mission_id": "m", "steps": []})
     assert json.loads(path.read_text(encoding="utf-8"))["mission_id"] == "m"

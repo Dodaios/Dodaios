@@ -16,7 +16,7 @@ import time
 
 import pytest
 
-from jarvis.realtime.session import (
+from dodaios.realtime.session import (
     RealtimeVoiceSession,
     _LoopLagProbe,
 )
@@ -58,14 +58,14 @@ def _stall_line(caplog) -> str:
 
 def test_responsive_loop_blames_the_provider(caplog) -> None:
     session = _bare_session(loop_lag_ms=12.0)
-    with caplog.at_level(logging.INFO, logger="jarvis.realtime.session"):
+    with caplog.at_level(logging.INFO, logger="dodaios.realtime.session"):
         session._note_audio_flow(b"\x00\x10" * 480, _FakeChunk())
     assert "the provider sent no audio" in _stall_line(caplog)
 
 
 def test_starved_loop_is_named_instead_of_the_provider(caplog) -> None:
     session = _bare_session(loop_lag_ms=1_700.0)
-    with caplog.at_level(logging.INFO, logger="jarvis.realtime.session"):
+    with caplog.at_level(logging.INFO, logger="dodaios.realtime.session"):
         session._note_audio_flow(b"\x00\x10" * 480, _FakeChunk())
     line = _stall_line(caplog)
     assert "event loop stalled" in line
@@ -124,7 +124,7 @@ def test_loop_stall_warns_loudly_and_rate_limited(caplog) -> None:
     it outright, bounded by a cooldown so a stall storm cannot flood the log.
     """
     probe = _LoopLagProbe()
-    with caplog.at_level(logging.WARNING, logger="jarvis.realtime.session"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.realtime.session"):
         probe._note_sample(now=100.0, lag_ms=15_000.0)  # noqa: SLF001
         probe._note_sample(now=101.0, lag_ms=900.0)  # noqa: SLF001 — cooldown
         probe._note_sample(now=131.0, lag_ms=800.0)  # noqa: SLF001 — past it
@@ -136,7 +136,7 @@ def test_loop_stall_warns_loudly_and_rate_limited(caplog) -> None:
 
 def test_loop_stall_warn_ignores_ordinary_scheduling_jitter(caplog) -> None:
     probe = _LoopLagProbe()
-    with caplog.at_level(logging.WARNING, logger="jarvis.realtime.session"):
+    with caplog.at_level(logging.WARNING, logger="dodaios.realtime.session"):
         probe._note_sample(now=100.0, lag_ms=350.0)  # noqa: SLF001
 
     assert _stall_warns(caplog) == []

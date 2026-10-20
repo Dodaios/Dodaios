@@ -6,10 +6,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.agent_chat import service as service_module
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.ui.web.agent_chat_routes import router
+from dodaios.agent_chat import service as service_module
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.ui.web.agent_chat_routes import router
 from tests.fakes.fake_disconnect_runner import ApprovalRunner
 
 

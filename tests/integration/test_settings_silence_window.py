@@ -6,9 +6,9 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 class _FakePipeline:
@@ -33,7 +33,7 @@ def server() -> Iterator[WebServer]:
 @pytest.fixture(autouse=True)
 def _no_toml_write(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     calls: list[int] = []
-    from jarvis.core import config_writer
+    from dodaios.core import config_writer
 
     monkeypatch.setattr(
         config_writer, "set_silence_window_ms", lambda ms, **kw: calls.append(ms)

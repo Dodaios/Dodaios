@@ -11,11 +11,11 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
-from jarvis.trigger.hotkey import modifier_snapshot
+from dodaios.trigger.hotkey import modifier_snapshot
 
 
 def test_win32_snapshot_reports_each_held_modifier(monkeypatch) -> None:
-    from jarvis.trigger.backends import global_hotkeys as ghb
+    from dodaios.trigger.backends import global_hotkeys as ghb
 
     down = {0x11, 0x5B}  # VK_CONTROL + VK_LWIN
     monkeypatch.setattr(ghb, "_async_key_is_down", lambda vk: int(vk) in down)
@@ -26,7 +26,7 @@ def test_win32_snapshot_reports_each_held_modifier(monkeypatch) -> None:
 
 
 def test_win32_snapshot_empty_set_means_nothing_held(monkeypatch) -> None:
-    from jarvis.trigger.backends import global_hotkeys as ghb
+    from dodaios.trigger.backends import global_hotkeys as ghb
 
     monkeypatch.setattr(ghb, "_async_key_is_down", lambda vk: False)
 
@@ -36,7 +36,7 @@ def test_win32_snapshot_empty_set_means_nothing_held(monkeypatch) -> None:
 
 
 def test_win32_snapshot_is_unknown_when_the_probe_cannot_run(monkeypatch) -> None:
-    from jarvis.trigger.backends import global_hotkeys as ghb
+    from dodaios.trigger.backends import global_hotkeys as ghb
 
     monkeypatch.setattr(ghb, "_async_key_is_down", lambda vk: None)
 
@@ -73,7 +73,7 @@ def test_linux_uses_the_live_listener_held_set() -> None:
 
 
 def test_linux_without_a_listener_is_unknown(monkeypatch) -> None:
-    import jarvis.platform.probes as probes
+    import dodaios.platform.probes as probes
 
     monkeypatch.setattr(probes, "is_wayland", lambda: False)
     tokens, reason = modifier_snapshot(platform="linux")
@@ -82,7 +82,7 @@ def test_linux_without_a_listener_is_unknown(monkeypatch) -> None:
 
 
 def test_wayland_names_the_compositor_instead_of_pretending(monkeypatch) -> None:
-    import jarvis.platform.probes as probes
+    import dodaios.platform.probes as probes
 
     monkeypatch.setattr(probes, "is_wayland", lambda: True)
     tokens, reason = modifier_snapshot(platform="linux")

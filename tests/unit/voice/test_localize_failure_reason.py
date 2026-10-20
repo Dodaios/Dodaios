@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.voice.action_phrases import action_phrase, localize_failure_reason
+from dodaios.voice.action_phrases import action_phrase, localize_failure_reason
 
 GMAIL = "Gmail is not connected — connect it in the Plugins view."
 CALENDAR_EXPIRED = (

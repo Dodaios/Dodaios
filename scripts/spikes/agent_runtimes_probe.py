@@ -27,7 +27,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from jarvis.agent_runtimes.acp import AcpTurn, McpServer, frame_line  # noqa: E402
+from dodaios.agent_runtimes.acp import AcpTurn, McpServer, frame_line  # noqa: E402
 from tests.fakes.fake_openai_server import MODEL_ID, FakeOpenAIServer  # noqa: E402
 
 MCP_SCRIPT = textwrap.dedent(

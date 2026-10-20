@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.ui.web import wiki_routes
-from jarvis.ui.web.wiki_routes import (
+from dodaios.ui.web import wiki_routes
+from dodaios.ui.web.wiki_routes import (
     _scan_visible_pages,
     _scan_visible_pages_sync,
     invalidate_visible_page_cache,

@@ -16,8 +16,8 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from jarvis.core.screenshots import screenshots_dir  # noqa: E402
-from jarvis.ui.whisperbar import renderer as R  # noqa: E402
+from dodaios.core.screenshots import screenshots_dir  # noqa: E402
+from dodaios.ui.whisperbar import renderer as R  # noqa: E402
 
 DESKTOP_BG = (32, 31, 34)  # neutral dark backdrop standing in for the desktop
 UPSCALE = 4

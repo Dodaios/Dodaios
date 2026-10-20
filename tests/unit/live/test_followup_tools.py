@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from jarvis.live.state import LiveLedger
-from jarvis.live.tools import LiveTools
+from dodaios.live.state import LiveLedger
+from dodaios.live.tools import LiveTools
 from tests.fakes.fake_subscription_session import SafeMessageGateway
 
 

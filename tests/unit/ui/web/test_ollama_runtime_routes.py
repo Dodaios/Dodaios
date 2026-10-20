@@ -11,10 +11,10 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from jarvis.brain import ollama_runtime
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
-from jarvis.ui.web.server import WebServer
+from dodaios.brain import ollama_runtime
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
+from dodaios.ui.web.server import WebServer
 
 
 @pytest.fixture

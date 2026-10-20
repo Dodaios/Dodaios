@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from jarvis.autostart.factory import make_autostart_manager
-from jarvis.autostart.linux import LinuxAutostart
-from jarvis.autostart.macos import MacOSAutostart
-from jarvis.autostart.null import NullAutostart
-from jarvis.autostart.windows import WindowsAutostart
+from dodaios.autostart.factory import make_autostart_manager
+from dodaios.autostart.linux import LinuxAutostart
+from dodaios.autostart.macos import MacOSAutostart
+from dodaios.autostart.null import NullAutostart
+from dodaios.autostart.windows import WindowsAutostart
 
 from .conftest import make_caps
 

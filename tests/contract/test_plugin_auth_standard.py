@@ -23,8 +23,8 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.marketplace import auth as auth_pkg
-from jarvis.marketplace.auth.base import (
+from dodaios.marketplace import auth as auth_pkg
+from dodaios.marketplace.auth.base import (
     ERROR_DENIED,
     ERROR_TIMEOUT,
     ERROR_UNKNOWN,
@@ -32,21 +32,21 @@ from jarvis.marketplace.auth.base import (
     FlowResult,
     sanitize_provider_error,
 )
-from jarvis.marketplace.catalog_data import load_catalog
-from jarvis.marketplace.connect_helpers import (
+from dodaios.marketplace.catalog_data import load_catalog
+from dodaios.marketplace.connect_helpers import (
     is_placeholder_client_id,
     oauth_client_family,
 )
 
 
 def _pkce_plugins():
-    from jarvis.marketplace.catalog import OAuthPkceLoopbackAuth
+    from dodaios.marketplace.catalog import OAuthPkceLoopbackAuth
 
     return [p for p in load_catalog().plugins if isinstance(p.auth, OAuthPkceLoopbackAuth)]
 
 
 def _dcr_plugins():
-    from jarvis.marketplace.catalog import HostedMcpOAuthDcrAuth
+    from dodaios.marketplace.catalog import HostedMcpOAuthDcrAuth
 
     return [p for p in load_catalog().plugins if isinstance(p.auth, HostedMcpOAuthDcrAuth)]
 
@@ -66,7 +66,7 @@ def test_dcr_discovery_url_has_host(plugin):
 
 @pytest.mark.parametrize("plugin", _dcr_plugins(), ids=lambda p: p.id)
 def test_dcr_handler_builds_from_catalog(plugin):
-    from jarvis.marketplace.connect_helpers import build_handler_from_catalog
+    from dodaios.marketplace.connect_helpers import build_handler_from_catalog
 
     handler = build_handler_from_catalog(plugin.id)
     assert handler is not None, f"{plugin.id}: no refresh handler builds"
@@ -89,13 +89,13 @@ def test_placeholder_pkce_plugin_declares_expert_family(plugin):
 
 @pytest.mark.parametrize("plugin", _pkce_plugins(), ids=lambda p: p.id)
 def test_placeholder_is_not_standard_ready_without_secrets(plugin, monkeypatch):
-    from jarvis.marketplace.publisher_clients import (
+    from dodaios.marketplace.publisher_clients import (
         SHIPPED_PUBLIC_CLIENT_IDS,
         is_standard_ready,
         resolve_publisher_client,
     )
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *a, **k: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *a, **k: None)
     _cid, _sec, source = resolve_publisher_client(
         plugin.id, plugin.auth.client_id, plugin.auth.client_secret
     )
@@ -116,7 +116,7 @@ def test_placeholder_is_not_standard_ready_without_secrets(plugin, monkeypatch):
 
 
 def test_publisher_client_beats_catalog_placeholder(monkeypatch):
-    from jarvis.marketplace.publisher_clients import resolve_publisher_client
+    from dodaios.marketplace.publisher_clients import resolve_publisher_client
 
     def fake_get(key, env_fallback=None):
         if key == "publisher_microsoft_oauth_client_id":
@@ -125,7 +125,7 @@ def test_publisher_client_beats_catalog_placeholder(monkeypatch):
             return "publisher-provided-secret"
         return None
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", fake_get)
+    monkeypatch.setattr("dodaios.core.config.get_secret", fake_get)
     cid, sec, source = resolve_publisher_client("outlook", "REPLACE_WITH_YOUR_CLIENT_ID", None)
     assert (cid, sec, source) == (
         "publisher-provided-id",
@@ -135,7 +135,7 @@ def test_publisher_client_beats_catalog_placeholder(monkeypatch):
 
 
 def test_expert_override_beats_publisher(monkeypatch):
-    from jarvis.marketplace.publisher_clients import resolve_publisher_client
+    from dodaios.marketplace.publisher_clients import resolve_publisher_client
 
     def fake_get(key, env_fallback=None):
         if key == "microsoft_oauth_client_id":
@@ -144,15 +144,15 @@ def test_expert_override_beats_publisher(monkeypatch):
             return "publisher-provided-id"
         return None
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", fake_get)
+    monkeypatch.setattr("dodaios.core.config.get_secret", fake_get)
     cid, _sec, source = resolve_publisher_client("outlook", "REPLACE_WITH_YOUR_CLIENT_ID", None)
     assert (cid, source) == ("expert-id", "own")
 
 
 def test_real_catalog_client_keeps_source_catalog(monkeypatch):
-    from jarvis.marketplace.publisher_clients import resolve_publisher_client
+    from dodaios.marketplace.publisher_clients import resolve_publisher_client
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *a, **k: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *a, **k: None)
     cid, _sec, source = resolve_publisher_client("spotify", "real-id", None)
     assert (cid, source) == ("real-id", "catalog")
 
@@ -164,8 +164,8 @@ async def test_device_connect_uses_resolved_client(monkeypatch, source):
 
     from fastapi import BackgroundTasks, HTTPException
 
-    from jarvis.marketplace.auth.base import FlowRegistry
-    from jarvis.ui.web import marketplace_routes as routes
+    from dodaios.marketplace.auth.base import FlowRegistry
+    from dodaios.ui.web import marketplace_routes as routes
 
     captured = []
     registry = FlowRegistry()
@@ -189,12 +189,12 @@ async def test_device_connect_uses_resolved_client(monkeypatch, source):
             completed.set()
             return FlowResult(tokens=None, error="denied", error_code=ERROR_DENIED)
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", fake_get)
+    monkeypatch.setattr("dodaios.core.config.get_secret", fake_get)
     monkeypatch.setattr(routes, "DeviceFlowHandler", DeviceHandler)
     monkeypatch.setattr(routes, "get_registry", lambda: registry)
     if source == "missing":
         monkeypatch.setattr(
-            "jarvis.marketplace.publisher_clients.SHIPPED_PUBLIC_CLIENT_IDS", {}
+            "dodaios.marketplace.publisher_clients.SHIPPED_PUBLIC_CLIENT_IDS", {}
         )
     if source == "missing":
         with pytest.raises(HTTPException) as exc:
@@ -205,7 +205,7 @@ async def test_device_connect_uses_resolved_client(monkeypatch, source):
         response = await routes.connect_start("github", BackgroundTasks())
         await asyncio.wait_for(completed.wait(), timeout=1)
         assert response["kind"] == "device_flow"
-        from jarvis.marketplace.publisher_clients import SHIPPED_PUBLIC_CLIENT_IDS
+        from dodaios.marketplace.publisher_clients import SHIPPED_PUBLIC_CLIENT_IDS
 
         expected = {
             "own": "expert-client",
@@ -221,10 +221,10 @@ async def test_device_connect_uses_resolved_client(monkeypatch, source):
 
 
 def test_device_refresh_handler_resolves_publisher_client(monkeypatch):
-    from jarvis.marketplace.connect_helpers import build_handler_from_catalog
+    from dodaios.marketplace.connect_helpers import build_handler_from_catalog
 
     monkeypatch.setattr(
-        "jarvis.core.config.get_secret",
+        "dodaios.core.config.get_secret",
         lambda key, *args: (
             "publisher-client" if key == "publisher_github_oauth_client_id" else None
         ),
@@ -238,8 +238,8 @@ def test_device_refresh_handler_resolves_publisher_client(monkeypatch):
 async def test_device_refresh_preserves_issuing_client(monkeypatch, bound):
     import httpx
 
-    from jarvis.marketplace.auth.oauth_device import DeviceFlowConfig, DeviceFlowHandler
-    from jarvis.marketplace.token_store import Tokens
+    from dodaios.marketplace.auth.oauth_device import DeviceFlowConfig, DeviceFlowHandler
+    from dodaios.marketplace.token_store import Tokens
 
     requests = []
 
@@ -259,7 +259,7 @@ async def test_device_refresh_preserves_issuing_client(monkeypatch, bound):
                 200, json={"access_token": "renewed-access", "refresh_token": "rotated"}
             )
 
-    monkeypatch.setattr("jarvis.marketplace.auth.oauth_device.httpx.AsyncClient", Client)
+    monkeypatch.setattr("dodaios.marketplace.auth.oauth_device.httpx.AsyncClient", Client)
     handler = DeviceFlowHandler(
         DeviceFlowConfig(
             plugin_id="github",
@@ -286,8 +286,8 @@ async def test_device_refresh_preserves_issuing_client(monkeypatch, bound):
 async def test_poll_cannot_consume_another_plugins_flow(monkeypatch):
     from fastapi import HTTPException
 
-    from jarvis.marketplace.auth.base import FlowRegistry
-    from jarvis.ui.web import marketplace_routes as routes
+    from dodaios.marketplace.auth.base import FlowRegistry
+    from dodaios.ui.web import marketplace_routes as routes
 
     registry = FlowRegistry()
     session = AuthSession(flow_id="owned-flow", plugin_id="github", kind="device_flow")
@@ -318,7 +318,7 @@ class _FakeCallbackServer:
 
 @pytest.mark.asyncio
 async def test_pkce_cancel_stops_listener_and_clears_pending(monkeypatch):
-    from jarvis.marketplace.auth.oauth_pkce_loopback import (
+    from dodaios.marketplace.auth.oauth_pkce_loopback import (
         PkceLoopbackConfig,
         PkceLoopbackHandler,
     )
@@ -331,7 +331,7 @@ async def test_pkce_cancel_stops_listener_and_clears_pending(monkeypatch):
         return srv
 
     monkeypatch.setattr(
-        "jarvis.marketplace.auth.oauth_pkce_loopback.make_callback_server",
+        "dodaios.marketplace.auth.oauth_pkce_loopback.make_callback_server",
         fake_factory,
     )
     handler = PkceLoopbackHandler(
@@ -353,7 +353,7 @@ async def test_pkce_cancel_stops_listener_and_clears_pending(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_dcr_cancel_clears_pending():
-    from jarvis.marketplace.auth.oauth_dcr import DcrConfig, HostedMcpDcrHandler
+    from dodaios.marketplace.auth.oauth_dcr import DcrConfig, HostedMcpDcrHandler
 
     handler = HostedMcpDcrHandler(
         DcrConfig(plugin_id="probe", discovery_url="https://example.com/x")
@@ -367,7 +367,7 @@ async def test_dcr_cancel_clears_pending():
 async def test_device_cancel_clears_pending():
     from datetime import UTC, datetime, timedelta
 
-    from jarvis.marketplace.auth.oauth_device import (
+    from dodaios.marketplace.auth.oauth_device import (
         DeviceFlowConfig,
         DeviceFlowHandler,
         _PendingDeviceFlow,
@@ -397,7 +397,7 @@ async def test_device_cancel_clears_pending():
 async def test_device_cancel_flags_poll_to_stop():
     from datetime import UTC, datetime, timedelta
 
-    from jarvis.marketplace.auth.oauth_device import (
+    from dodaios.marketplace.auth.oauth_device import (
         DeviceFlowConfig,
         DeviceFlowHandler,
         _PendingDeviceFlow,
@@ -464,7 +464,7 @@ def test_flow_result_carries_error_code():
 
 
 def test_device_error_classification():
-    from jarvis.marketplace.auth.oauth_device import _classify_device_error
+    from dodaios.marketplace.auth.oauth_device import _classify_device_error
 
     assert _classify_device_error(RuntimeError("user denied authorization")) == ERROR_DENIED
     assert _classify_device_error(RuntimeError("device code expired")) == ERROR_TIMEOUT
@@ -472,7 +472,7 @@ def test_device_error_classification():
 
 
 def test_pkce_error_classification():
-    from jarvis.marketplace.auth.oauth_pkce_loopback import _classify_callback_error
+    from dodaios.marketplace.auth.oauth_pkce_loopback import _classify_callback_error
 
     assert (
         _classify_callback_error(RuntimeError("OAuth provider returned error: access_denied"))
@@ -487,8 +487,8 @@ def test_pkce_error_classification():
 
 
 def test_pat_prefix_helper_accepts_documented_formats():
-    from jarvis.marketplace.catalog import PatPasteAuth
-    from jarvis.ui.web.marketplace_routes import pat_prefix_ok
+    from dodaios.marketplace.catalog import PatPasteAuth
+    from dodaios.ui.web.marketplace_routes import pat_prefix_ok
 
     github = PatPasteAuth(
         mode="pat_paste",
@@ -535,8 +535,8 @@ def test_client_secret_never_serializes(plugin):
 
 @pytest.mark.asyncio
 async def test_poll_error_reports_machine_code():
-    from jarvis.marketplace.auth import get_registry
-    from jarvis.ui.web.marketplace_routes import connect_poll
+    from dodaios.marketplace.auth import get_registry
+    from dodaios.ui.web.marketplace_routes import connect_poll
 
     registry = get_registry()
 
@@ -567,7 +567,7 @@ def _migrated_dual_mode_ids():
 
 @pytest.mark.parametrize("plugin_id", _migrated_dual_mode_ids())
 def test_migrated_plugin_has_browser_primary_and_pat_fallback(plugin_id):
-    from jarvis.marketplace.catalog import PatPasteAuth
+    from dodaios.marketplace.catalog import PatPasteAuth
 
     spec = load_catalog().by_id(plugin_id)
     assert spec is not None
@@ -579,8 +579,8 @@ def test_migrated_plugin_has_browser_primary_and_pat_fallback(plugin_id):
 
 
 def test_pat_block_prefers_primary_then_fallback():
-    from jarvis.marketplace.catalog import OAuthPkceLoopbackAuth, PatPasteAuth, PluginSpec
-    from jarvis.ui.web.marketplace_routes import _pat_block
+    from dodaios.marketplace.catalog import OAuthPkceLoopbackAuth, PatPasteAuth, PluginSpec
+    from dodaios.ui.web.marketplace_routes import _pat_block
 
     pat = PatPasteAuth(
         mode="pat_paste",
@@ -631,8 +631,8 @@ def test_pat_block_prefers_primary_then_fallback():
 @pytest.mark.asyncio
 async def test_connect_pat_accepts_fallback_plugin(monkeypatch):
     """The paste endpoint serves a dual-mode plugin through its fallback."""
-    from jarvis.marketplace.token_store import InMemoryBackend, TokenStore
-    from jarvis.ui.web import marketplace_routes as mr
+    from dodaios.marketplace.token_store import InMemoryBackend, TokenStore
+    from dodaios.ui.web import marketplace_routes as mr
 
     spec = load_catalog().by_id("gitlab")
     assert spec is not None and spec.fallback_auth is not None
@@ -657,7 +657,7 @@ async def test_connect_pat_accepts_fallback_plugin(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_connect_pat_still_rejects_browser_only_plugin(monkeypatch):
-    from jarvis.ui.web import marketplace_routes as mr
+    from dodaios.ui.web import marketplace_routes as mr
 
     spec = load_catalog().by_id("outlook")
     assert spec is not None and spec.fallback_auth is None
@@ -677,12 +677,12 @@ async def test_connect_pat_still_rejects_browser_only_plugin(monkeypatch):
 async def test_list_plugins_exposes_fallback_and_device_standard(monkeypatch):
     from fastapi import Response
 
-    from jarvis.marketplace.token_store import InMemoryBackend, TokenStore
-    from jarvis.ui.web import marketplace_routes as mr
+    from dodaios.marketplace.token_store import InMemoryBackend, TokenStore
+    from dodaios.ui.web import marketplace_routes as mr
 
     store = TokenStore(InMemoryBackend())
     monkeypatch.setattr(mr, "TokenStore", lambda: store)
-    monkeypatch.setattr("jarvis.core.config.get_secret", lambda *a, **k: None)
+    monkeypatch.setattr("dodaios.core.config.get_secret", lambda *a, **k: None)
 
     payload = await mr.list_plugins(Response())
     by_id = {p["id"]: p for p in payload["plugins"]}
@@ -710,14 +710,14 @@ async def test_list_plugins_exposes_fallback_and_device_standard(monkeypatch):
 
 
 def test_new_families_resolve_publisher_precedence(monkeypatch):
-    from jarvis.marketplace.publisher_clients import resolve_publisher_client
+    from dodaios.marketplace.publisher_clients import resolve_publisher_client
 
     def fake_get(key, env_fallback=None):
         if key == "publisher_github_oauth_client_id":
             return "pub-github-id"
         return None
 
-    monkeypatch.setattr("jarvis.core.config.get_secret", fake_get)
+    monkeypatch.setattr("dodaios.core.config.get_secret", fake_get)
     cid, _, source = resolve_publisher_client(
         "github", "REPLACE_WITH_JARVIS_GITHUB_CLIENT_ID", None
     )
@@ -725,7 +725,7 @@ def test_new_families_resolve_publisher_precedence(monkeypatch):
 
 
 def test_loader_accepts_and_guards_fallback_auth():
-    from jarvis.marketplace.agent_plugins_loader import (
+    from dodaios.marketplace.agent_plugins_loader import (
         AgentPluginError,
         convert_manifest,
     )
@@ -807,7 +807,7 @@ def test_loader_accepts_and_guards_fallback_auth():
 @pytest.mark.asyncio
 async def test_prefix_error_names_formats_without_double_underscore(monkeypatch):
     """The 400 prefix hint shows 'github_pat_', never 'github_pat__'."""
-    from jarvis.ui.web import marketplace_routes as mr
+    from dodaios.ui.web import marketplace_routes as mr
 
     spec = load_catalog().by_id("github")
     assert spec is not None and spec.fallback_auth is not None
@@ -842,7 +842,7 @@ def test_github_mirror_matches_seed():
     import json
     from pathlib import Path
 
-    manifest = Path("jarvis/marketplace/plugins/github/plugin.json")
+    manifest = Path("dodaios/marketplace/plugins/github/plugin.json")
     assert manifest.is_file(), "github agent-plugin mirror is missing"
     data = json.loads(manifest.read_text(encoding="utf-8"))
     ext = data["extensions"]["io.github.personaljarvis"]

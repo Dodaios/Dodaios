@@ -8,11 +8,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.agent_chat.control import ChatControls
-from jarvis.agent_chat.control_store import ControlStore
-from jarvis.agent_chat.control_types import COMMANDS, CommandRequest, GoalVerdict
-from jarvis.agent_chat.events import make_event
-from jarvis.agent_chat.store import AgentChatStore
+from dodaios.agent_chat.control import ChatControls
+from dodaios.agent_chat.control_store import ControlStore
+from dodaios.agent_chat.control_types import COMMANDS, CommandRequest, GoalVerdict
+from dodaios.agent_chat.events import make_event
+from dodaios.agent_chat.store import AgentChatStore
 
 
 class FakeService:
@@ -358,13 +358,13 @@ def test_goal_attachments_are_saved_and_read_before_work_starts() -> None:
 def test_message_uses_executor_exact_text_sender_and_idempotency(monkeypatch: Any) -> None:
     from types import SimpleNamespace
 
-    from jarvis.agent_chat.service import AgentChatService
-    from jarvis.core.bus import EventBus
-    from jarvis.core.config import SafetyConfig
-    from jarvis.core.protocols import ToolResult
-    from jarvis.safety.approval import ApprovalWorkflow
-    from jarvis.safety.risk_tier import RiskTierEvaluator
-    from jarvis.safety.tool_executor import ToolExecutor
+    from dodaios.agent_chat.service import AgentChatService
+    from dodaios.core.bus import EventBus
+    from dodaios.core.config import SafetyConfig
+    from dodaios.core.protocols import ToolResult
+    from dodaios.safety.approval import ApprovalWorkflow
+    from dodaios.safety.risk_tier import RiskTierEvaluator
+    from dodaios.safety.tool_executor import ToolExecutor
 
     calls = []
 
@@ -387,7 +387,7 @@ def test_message_uses_executor_exact_text_sender_and_idempotency(monkeypatch: An
         bus = EventBus()
         executor = ToolExecutor(bus, RiskTierEvaluator(SafetyConfig()), ApprovalWorkflow(bus))
         monkeypatch.setattr(
-            "jarvis.agent_chat.runner_brain.brain_manager",
+            "dodaios.agent_chat.runner_brain.brain_manager",
             lambda: SimpleNamespace(_tool_executor=executor),
         )
 
@@ -399,11 +399,11 @@ def test_message_uses_executor_exact_text_sender_and_idempotency(monkeypatch: An
             turn_completed=completed,
             browser=SimpleNamespace(live=SimpleNamespace(sessions={})),
         )
-        from jarvis.society import surface as society_surface
+        from dodaios.society import surface as society_surface
 
-        monkeypatch.setattr("jarvis.society.runtime.current_runtime", lambda: runtime)
+        monkeypatch.setattr("dodaios.society.runtime.current_runtime", lambda: runtime)
         monkeypatch.setattr(society_surface, "current_runtime", lambda: runtime)
-        monkeypatch.setattr("jarvis.society.agent_tools.MessageAgentTool", MessageTool)
+        monkeypatch.setattr("dodaios.society.agent_tools.MessageAgentTool", MessageTool)
         svc = AgentChatService(AgentChatStore(), bus=lambda: bus)
 
         async def isolated_session(sid: str, **_kwargs):

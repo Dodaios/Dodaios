@@ -1,13 +1,13 @@
 """Direct-Anthropic (claude-api) tool-name sanitization — mirror of the
 OpenAI/OpenRouter fix so a user whose single key IS Anthropic also survives a tool
-turn that includes a slash-named MCP tool (jarvis/mcp/adapter.py). Anthropic
+turn that includes a slash-named MCP tool (dodaios/mcp/adapter.py). Anthropic
 rejects ``tools.N.custom.name`` for anything outside ``[a-zA-Z0-9_-]{1,128}``.
 """
 from __future__ import annotations
 
 import re
 
-from jarvis.plugins.brain._anthropic_base import _tools_anthropic_format
+from dodaios.plugins.brain._anthropic_base import _tools_anthropic_format
 
 _VALID = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 

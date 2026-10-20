@@ -27,8 +27,8 @@ pages:
     authoritative_sources:
       - README.md
       - AGENTS.md
-      - jarvis/ui/web/frontend/src/components/layout/Sidebar.tsx
-      - jarvis/ui/web/frontend/src/components/layout/MainView.tsx
+      - dodaios/ui/web/frontend/src/components/layout/Sidebar.tsx
+      - dodaios/ui/web/frontend/src/components/layout/MainView.tsx
     related:
       - install-dodaios
       - desktop-app-tour
@@ -67,10 +67,10 @@ pages:
     diataxis: tutorial
     summary: Your pet explains the app, then you add one key, connect a subscription, pick a wake word and try ten first steps.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/components/onboarding/setup/SetupTour.tsx
-      - jarvis/ui/web/frontend/src/components/onboarding/setup/setupSteps.ts
-      - jarvis/ui/web/frontend/src/components/onboarding/tour/tourSteps.ts
-      - jarvis/ui/web/onboarding_routes.py
+      - dodaios/ui/web/frontend/src/components/onboarding/setup/SetupTour.tsx
+      - dodaios/ui/web/frontend/src/components/onboarding/setup/setupSteps.ts
+      - dodaios/ui/web/frontend/src/components/onboarding/tour/tourSteps.ts
+      - dodaios/ui/web/onboarding_routes.py
     related:
       - providers-and-api-keys
       - audio-and-wake-word
@@ -88,10 +88,10 @@ pages:
     diataxis: explanation
     summary: Learn where conversations, agents, tools, history, settings, and help live in the desktop app.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/App.tsx
-      - jarvis/ui/web/frontend/src/components/layout/Sidebar.tsx
-      - jarvis/ui/web/frontend/src/components/layout/MainView.tsx
-      - jarvis/ui/web/frontend/src/i18n/locales/en.json
+      - dodaios/ui/web/frontend/src/App.tsx
+      - dodaios/ui/web/frontend/src/components/layout/Sidebar.tsx
+      - dodaios/ui/web/frontend/src/components/layout/MainView.tsx
+      - dodaios/ui/web/frontend/src/i18n/locales/en.json
     related:
       - start-your-first-chat
       - chats
@@ -108,10 +108,10 @@ pages:
     diataxis: tutorial
     summary: Send a first message, dictate a draft, add bounded context, and reopen what the app saved.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/ChatsView.tsx
-      - jarvis/ui/web/chats_routes.py
-      - jarvis/state/chat_store.py
-      - jarvis/ui/web/frontend/src/lib/chatsApi.ts
+      - dodaios/ui/web/frontend/src/views/ChatsView.tsx
+      - dodaios/ui/web/chats_routes.py
+      - dodaios/state/chat_store.py
+      - dodaios/ui/web/frontend/src/lib/chatsApi.ts
     related:
       - chats
       - dictation
@@ -129,10 +129,10 @@ pages:
     diataxis: tutorial
     summary: Start a voice conversation, follow each listening and reply state, and end the call safely on desktop or in the browser.
     authoritative_sources:
-      - jarvis/speech/pipeline.py
-      - jarvis/realtime/session.py
-      - jarvis/ui/web/voice_runtime.py
-      - jarvis/ui/web/frontend/src/components/VoiceIndicator.tsx
+      - dodaios/speech/pipeline.py
+      - dodaios/realtime/session.py
+      - dodaios/ui/web/voice_runtime.py
+      - dodaios/ui/web/frontend/src/components/VoiceIndicator.tsx
     related:
       - voice-conversations
       - audio-and-wake-word
@@ -150,10 +150,10 @@ pages:
     diataxis: howto
     summary: Organize conversations, continue earlier work, add files, and understand how chats relate to sessions and outputs.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/ChatsView.tsx
-      - jarvis/ui/web/chats_routes.py
-      - jarvis/channels/chat_bridge.py
-      - jarvis/state/chat_store.py
+      - dodaios/ui/web/frontend/src/views/ChatsView.tsx
+      - dodaios/ui/web/chats_routes.py
+      - dodaios/channels/chat_bridge.py
+      - dodaios/state/chat_store.py
     related:
       - sessions-and-run-inspector
       - outputs-and-files
@@ -171,10 +171,10 @@ pages:
     diataxis: explanation
     summary: Understand how Pipeline and Realtime handle spoken questions, actions, privacy, interruptions, and fallback.
     authoritative_sources:
-      - jarvis/speech/pipeline.py
-      - jarvis/realtime/session.py
-      - jarvis/browser_voice/session.py
-      - jarvis/core/turn_language.py
+      - dodaios/speech/pipeline.py
+      - dodaios/realtime/session.py
+      - dodaios/browser_voice/session.py
+      - dodaios/core/turn_language.py
     related:
       - audio-and-wake-word
       - dictation
@@ -192,12 +192,12 @@ pages:
     diataxis: howto
     summary: Schedule recurring and one-off work as routines on your agents, then review, pause or stop each run.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/components/society/card/AgentRoutinesList.tsx
-      - jarvis/society/routines.py
-      - jarvis/ui/web/tasks_routes.py
-      - jarvis/tasks/store.py
-      - jarvis/tasks/scheduler.py
-      - jarvis/tasks/approval_bridge.py
+      - dodaios/ui/web/frontend/src/components/society/card/AgentRoutinesList.tsx
+      - dodaios/society/routines.py
+      - dodaios/ui/web/tasks_routes.py
+      - dodaios/tasks/store.py
+      - dodaios/tasks/scheduler.py
+      - dodaios/tasks/approval_bridge.py
     related:
       - jarvis-agents
       - workflows-and-commands
@@ -214,11 +214,11 @@ pages:
     diataxis: explanation
     summary: See the difference between conversation history and a detailed run trace, then use both to understand an answer.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/SessionsView.tsx
-      - jarvis/ui/web/frontend/src/components/agentchat/WorkTrace.tsx
-      - jarvis/ui/web/sessions_routes.py
-      - jarvis/ui/web/diagnostics_routes.py
-      - jarvis/sessions/recorder.py
+      - dodaios/ui/web/frontend/src/views/SessionsView.tsx
+      - dodaios/ui/web/frontend/src/components/agentchat/WorkTrace.tsx
+      - dodaios/ui/web/sessions_routes.py
+      - dodaios/ui/web/diagnostics_routes.py
+      - dodaios/sessions/recorder.py
     related:
       - chats
       - voice-conversations
@@ -236,10 +236,10 @@ pages:
     diataxis: howto
     summary: Find generated files, preview them safely, open them in another app, and recover unfinished work when available.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/VisualizationView.tsx
-      - jarvis/ui/web/outputs_routes.py
-      - jarvis/ui/web/downloads_routes.py
-      - jarvis/ui/web/frontend/src/lib/fileActions.ts
+      - dodaios/ui/web/frontend/src/views/VisualizationView.tsx
+      - dodaios/ui/web/outputs_routes.py
+      - dodaios/ui/web/downloads_routes.py
+      - dodaios/ui/web/frontend/src/lib/fileActions.ts
     related:
       - chats
       - jarvis-agents
@@ -256,9 +256,9 @@ pages:
     diataxis: howto
     summary: Teach speech recognition names and specialist words it often mishears, then test the improvement.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/DictionaryView.tsx
-      - jarvis/ui/web/dictionary_routes.py
-      - jarvis/speech/stt_dictionary.py
+      - dodaios/ui/web/frontend/src/views/DictionaryView.tsx
+      - dodaios/ui/web/dictionary_routes.py
+      - dodaios/speech/stt_dictionary.py
     related:
       - voice-conversations
       - audio-and-wake-word
@@ -275,11 +275,11 @@ pages:
     diataxis: howto
     summary: Keep your own preferences and the people you mention organized, and understand how both support more relevant conversations.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/ProfileView.tsx
-      - jarvis/ui/web/frontend/src/views/contacts/ContactsView.tsx
-      - jarvis/ui/web/profile_routes.py
-      - jarvis/ui/web/contacts_routes.py
-      - jarvis/contacts/store.py
+      - dodaios/ui/web/frontend/src/views/ProfileView.tsx
+      - dodaios/ui/web/frontend/src/views/contacts/ContactsView.tsx
+      - dodaios/ui/web/profile_routes.py
+      - dodaios/ui/web/contacts_routes.py
+      - dodaios/contacts/store.py
     related:
       - instructions-and-persona
       - wiki-and-memory
@@ -296,12 +296,12 @@ pages:
     diataxis: howto
     summary: Turn speech into text in the focused field, recover missed words, and choose what stays local or uses a provider.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/DictationView.tsx
-      - jarvis/ui/web/frontend/src/views/voice/ShortcutsTab.tsx
-      - jarvis/ui/web/frontend/src/views/voice/LanguageTab.tsx
-      - jarvis/ui/web/dictation_routes.py
-      - jarvis/dictation/history.py
-      - jarvis/speech/pipeline.py
+      - dodaios/ui/web/frontend/src/views/DictationView.tsx
+      - dodaios/ui/web/frontend/src/views/voice/ShortcutsTab.tsx
+      - dodaios/ui/web/frontend/src/views/voice/LanguageTab.tsx
+      - dodaios/ui/web/dictation_routes.py
+      - dodaios/dictation/history.py
+      - dodaios/speech/pipeline.py
     related:
       - voice-conversations
       - speech-dictionary
@@ -319,11 +319,11 @@ pages:
     diataxis: howto
     summary: Connect cloud services or local models to each assistant capability, then verify what is actually ready.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/ApiKeysView.tsx
-      - jarvis/ui/web/provider_routes.py
-      - jarvis/brain/provider_registry.py
-      - jarvis/brain/resolver.py
-      - jarvis/core/config.py
+      - dodaios/ui/web/frontend/src/views/ApiKeysView.tsx
+      - dodaios/ui/web/provider_routes.py
+      - dodaios/brain/provider_registry.py
+      - dodaios/brain/resolver.py
+      - dodaios/core/config.py
     related:
       - local-ai-providers
       - dictation
@@ -341,10 +341,10 @@ pages:
     diataxis: howto
     summary: Choose a microphone and speaker, set a wake phrase, and tune reliable hands-free listening.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/settings/AudioDevicesGroup.tsx
-      - jarvis/ui/web/frontend/src/views/SettingsView.tsx
-      - jarvis/speech/wake_phrase.py
-      - jarvis/plugins/wake/openwakeword_provider.py
+      - dodaios/ui/web/frontend/src/views/settings/AudioDevicesGroup.tsx
+      - dodaios/ui/web/frontend/src/views/SettingsView.tsx
+      - dodaios/speech/wake_phrase.py
+      - dodaios/plugins/wake/openwakeword_provider.py
       - docs/local-wakeword/USER-GUIDE-WAKE-WORD.md
     related:
       - voice-conversations
@@ -363,11 +363,11 @@ pages:
     diataxis: howto
     summary: Choose reply language, speech language, and speaking voice while keeping every layer of a conversation consistent.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/settings/LanguagesGroup.tsx
-      - jarvis/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx
-      - jarvis/core/turn_language.py
-      - jarvis/plugins/tts/grok_voice_tts.py
-      - jarvis/realtime/factory.py
+      - dodaios/ui/web/frontend/src/views/settings/LanguagesGroup.tsx
+      - dodaios/ui/web/frontend/src/views/settings/RealtimeVoiceGroup.tsx
+      - dodaios/core/turn_language.py
+      - dodaios/plugins/tts/grok_voice_tts.py
+      - dodaios/realtime/factory.py
     related:
       - voice-conversations
       - providers-and-api-keys
@@ -384,11 +384,11 @@ pages:
     diataxis: howto
     summary: Adjust startup, sound, keyboard shortcuts, the Dodaios Bar, overlays, and other everyday behavior.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/SettingsView.tsx
-      - jarvis/ui/web/frontend/src/views/settings/AppSettingsGroup.tsx
-      - jarvis/ui/web/frontend/src/views/settings/OverlayTaskbarGroup.tsx
-      - jarvis/ui/web/frontend/src/views/settings/KeyboardMap.tsx
-      - jarvis/ui/web/settings_routes.py
+      - dodaios/ui/web/frontend/src/views/SettingsView.tsx
+      - dodaios/ui/web/frontend/src/views/settings/AppSettingsGroup.tsx
+      - dodaios/ui/web/frontend/src/views/settings/OverlayTaskbarGroup.tsx
+      - dodaios/ui/web/frontend/src/views/settings/KeyboardMap.tsx
+      - dodaios/ui/web/settings_routes.py
     related:
       - desktop-app-tour
       - audio-and-wake-word
@@ -405,11 +405,11 @@ pages:
     diataxis: howto
     summary: Shape how your assistant responds without changing providers, memories, or safety rules.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/AssistantProfileView.tsx
-      - jarvis/brain/agent_instructions.py
-      - jarvis/brain/persona_loader.py
-      - jarvis/brain/JARVIS_PERSONA.md
-      - jarvis/ui/web/frontend/src/views/settings/SystemPromptGroup.tsx
+      - dodaios/ui/web/frontend/src/views/AssistantProfileView.tsx
+      - dodaios/brain/agent_instructions.py
+      - dodaios/brain/persona_loader.py
+      - dodaios/brain/JARVIS_PERSONA.md
+      - dodaios/ui/web/frontend/src/views/settings/SystemPromptGroup.tsx
     related:
       - chats
       - profile-and-contacts
@@ -427,10 +427,10 @@ pages:
     summary: Connect the optional telephony feature, understand inbound and outbound calls, and keep call credentials private.
     authoritative_sources:
       - docs/telephony.md
-      - jarvis/ui/web/frontend/src/views/TelephonyView.tsx
-      - jarvis/ui/web/telephony_routes.py
-      - jarvis/telephony/session.py
-      - jarvis/telephony/security.py
+      - dodaios/ui/web/frontend/src/views/TelephonyView.tsx
+      - dodaios/ui/web/telephony_routes.py
+      - dodaios/telephony/session.py
+      - dodaios/telephony/security.py
     related:
       - providers-and-api-keys
       - credentials-and-secrets
@@ -447,14 +447,14 @@ pages:
     diataxis: howto
     summary: Run chat and speech on your own machine, or connect a trusted self-hosted server, without making cloud access mandatory.
     authoritative_sources:
-      - jarvis/ui/web/provider_spec.py
-      - jarvis/ui/web/provider_routes.py
-      - jarvis/speech/local_models.py
-      - jarvis/speech/local_install.py
-      - jarvis/plugins/brain/ollama.py
-      - jarvis/plugins/brain/local_openai.py
-      - jarvis/plugins/stt/nemotron_local.py
-      - jarvis/plugins/tts/piper_local.py
+      - dodaios/ui/web/provider_spec.py
+      - dodaios/ui/web/provider_routes.py
+      - dodaios/speech/local_models.py
+      - dodaios/speech/local_install.py
+      - dodaios/plugins/brain/ollama.py
+      - dodaios/plugins/brain/local_openai.py
+      - dodaios/plugins/stt/nemotron_local.py
+      - dodaios/plugins/tts/piper_local.py
     related:
       - providers-and-api-keys
       - dictation
@@ -471,12 +471,12 @@ pages:
     diataxis: explanation
     summary: Understand what Dodaios can remember, how the Wiki connects ideas, and how memory supports chats, contacts, and agents.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/MemoryView.tsx
-      - jarvis/ui/web/memory_vault_routes.py
-      - jarvis/memory/wiki/vault_model.py
-      - jarvis/ui/web/wiki_routes.py
-      - jarvis/memory/wiki/integration.py
-      - jarvis/memory/wiki/curator.py
+      - dodaios/ui/web/frontend/src/views/MemoryView.tsx
+      - dodaios/ui/web/memory_vault_routes.py
+      - dodaios/memory/wiki/vault_model.py
+      - dodaios/ui/web/wiki_routes.py
+      - dodaios/memory/wiki/integration.py
+      - dodaios/memory/wiki/curator.py
       - docs/adr/0013-knowledge-wiki-architecture.md
     related:
       - profile-and-contacts
@@ -496,10 +496,10 @@ pages:
     summary: Use an existing Obsidian vault as a readable knowledge source while keeping file ownership and backups clear.
     authoritative_sources:
       - docs/obsidian-setup.md
-      - jarvis/ui/web/frontend/src/components/wiki/ObsidianSetupDialog.tsx
-      - jarvis/ui/web/frontend/src/components/wiki/ObsidianStatus.tsx
-      - jarvis/memory/wiki/vault_root.py
-      - jarvis/memory/wiki/watcher.py
+      - dodaios/ui/web/frontend/src/components/wiki/ObsidianSetupDialog.tsx
+      - dodaios/ui/web/frontend/src/components/wiki/ObsidianStatus.tsx
+      - dodaios/memory/wiki/vault_root.py
+      - dodaios/memory/wiki/watcher.py
     related:
       - wiki-and-memory
       - privacy-and-local-data
@@ -516,10 +516,10 @@ pages:
     diataxis: explanation
     summary: Explore personal activity, achievements, and optional sharing, including what data leaves the device.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/BoardView.tsx
-      - jarvis/ui/web/board_routes.py
-      - jarvis/board/aggregator.py
-      - jarvis/board/sync.py
+      - dodaios/ui/web/frontend/src/views/BoardView.tsx
+      - dodaios/ui/web/board_routes.py
+      - dodaios/board/aggregator.py
+      - dodaios/board/sync.py
       - docs/jarvis-board/ARCHITECTURE.md
     related:
       - profile-and-contacts
@@ -537,10 +537,10 @@ pages:
     diataxis: howto
     summary: Find official community links and share useful feedback without accidentally including private information.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/socials/SocialsView.tsx
-      - jarvis/ui/web/frontend/src/views/feedback/FeedbackView.tsx
-      - jarvis/ui/web/socials_routes.py
-      - jarvis/ui/web/feedback_routes.py
+      - dodaios/ui/web/frontend/src/views/socials/SocialsView.tsx
+      - dodaios/ui/web/frontend/src/views/feedback/FeedbackView.tsx
+      - dodaios/ui/web/socials_routes.py
+      - dodaios/ui/web/feedback_routes.py
     related:
       - profile-and-contacts
       - jarvis-board
@@ -557,11 +557,11 @@ pages:
     diataxis: howto
     summary: Search the built-in documentation, use related-page links, and move between overview, guides, troubleshooting, and reference material.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/DocsView.tsx
-      - jarvis/ui/web/frontend/src/components/docs/DocsOverview.tsx
-      - jarvis/ui/web/frontend/src/components/docs/DocsSearchModal.tsx
-      - jarvis/ui/web/docs_routes.py
-      - jarvis/docs/registry.py
+      - dodaios/ui/web/frontend/src/views/DocsView.tsx
+      - dodaios/ui/web/frontend/src/components/docs/DocsOverview.tsx
+      - dodaios/ui/web/frontend/src/components/docs/DocsSearchModal.tsx
+      - dodaios/ui/web/docs_routes.py
+      - dodaios/docs/registry.py
     related:
       - desktop-app-tour
       - troubleshooting
@@ -578,10 +578,10 @@ pages:
     diataxis: explanation
     summary: Learn when Dodaios delegates longer work, how missions and workers fit together, and how to follow progress and results.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/JarvisAgentsView.tsx
-      - jarvis/ui/web/missions_routes.py
-      - jarvis/missions/manager.py
-      - jarvis/missions/state_machine.py
+      - dodaios/ui/web/frontend/src/views/JarvisAgentsView.tsx
+      - dodaios/ui/web/missions_routes.py
+      - dodaios/missions/manager.py
+      - dodaios/missions/state_machine.py
     related:
       - tasks-and-reminders
       - outputs-and-files
@@ -599,11 +599,11 @@ pages:
     diataxis: explanation
     summary: Understand how a skill gives Dodaios repeatable instructions, when it runs, and how drafts differ from enabled skills.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/SkillsView.tsx
-      - jarvis/ui/web/skills_routes.py
-      - jarvis/skills/registry.py
-      - jarvis/skills/lifecycle.py
-      - jarvis/skills/runner.py
+      - dodaios/ui/web/frontend/src/views/SkillsView.tsx
+      - dodaios/ui/web/skills_routes.py
+      - dodaios/skills/registry.py
+      - dodaios/skills/lifecycle.py
+      - dodaios/skills/runner.py
     related:
       - plugins
       - mcp-connections
@@ -621,11 +621,11 @@ pages:
     diataxis: explanation
     summary: Connect packaged capabilities, understand sign-in and health states, and see how plugins can expose tools and skills.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/PluginsView.tsx
-      - jarvis/ui/web/marketplace_routes.py
-      - jarvis/marketplace/plugin_registry.py
-      - jarvis/marketplace/plugin_loader.py
-      - jarvis/marketplace/plugin_mcp.py
+      - dodaios/ui/web/frontend/src/views/PluginsView.tsx
+      - dodaios/ui/web/marketplace_routes.py
+      - dodaios/marketplace/plugin_registry.py
+      - dodaios/marketplace/plugin_loader.py
+      - dodaios/marketplace/plugin_mcp.py
     related:
       - skills
       - mcp-connections
@@ -643,10 +643,10 @@ pages:
     diataxis: howto
     summary: Add and inspect Model Context Protocol servers, then understand how their tools become available safely.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/McpsView.tsx
-      - jarvis/ui/web/mcp_routes.py
-      - jarvis/mcp/registry.py
-      - jarvis/mcp/client.py
+      - dodaios/ui/web/frontend/src/views/McpsView.tsx
+      - dodaios/ui/web/mcp_routes.py
+      - dodaios/mcp/registry.py
+      - dodaios/mcp/client.py
       - mcp.json.example
     related:
       - plugins
@@ -665,11 +665,11 @@ pages:
     diataxis: howto
     summary: Let Dodaios discover command-line tools, check their readiness, and use only the capabilities available on the current computer.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/ClisView.tsx
-      - jarvis/ui/web/cli_routes.py
-      - jarvis/clis/registry.py
-      - jarvis/clis/prober.py
-      - jarvis/clis/risk_integration.py
+      - dodaios/ui/web/frontend/src/views/ClisView.tsx
+      - dodaios/ui/web/cli_routes.py
+      - dodaios/clis/registry.py
+      - dodaios/clis/prober.py
+      - dodaios/clis/risk_integration.py
     related:
       - skills
       - workflows-and-commands
@@ -688,10 +688,10 @@ pages:
     summary: Understand how Dodaios sees and operates desktop apps, when it asks for confirmation, and how to stop or recover a run.
     authoritative_sources:
       - docs/computer-use.md
-      - jarvis/plugins/tool/computer_use_tool.py
-      - jarvis/harness/native_computer_use.py
-      - jarvis/vision/engine.py
-      - jarvis/safety/vision_telemetry.py
+      - dodaios/plugins/tool/computer_use_tool.py
+      - dodaios/harness/native_computer_use.py
+      - dodaios/vision/engine.py
+      - dodaios/safety/vision_telemetry.py
     related:
       - permissions
       - safety-and-approvals
@@ -709,10 +709,10 @@ pages:
     diataxis: explanation
     summary: See how reusable workflows, natural-language actions, REST routes, and CLI commands connect to the same underlying capability.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/WorkflowsView.tsx
-      - jarvis/ui/web/workflows_routes.py
-      - jarvis/workflows/runner.py
-      - jarvis/commands/registry.py
+      - dodaios/ui/web/frontend/src/views/WorkflowsView.tsx
+      - dodaios/ui/web/workflows_routes.py
+      - dodaios/workflows/runner.py
+      - dodaios/commands/registry.py
       - docs/commands-reference.md
     related:
       - tasks-and-reminders
@@ -732,13 +732,13 @@ pages:
     diataxis: howto
     summary: Open a project workspace, coordinate coding agents in live terminal panes, and keep every instruction and result visible.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/AgenticIdeView.tsx
-      - jarvis/ui/web/frontend/src/components/agentic/AgenticGrid.tsx
-      - jarvis/ui/web/agentic_ide_routes.py
-      - jarvis/agentic_ide/session.py
-      - jarvis/agentic_ide/resume_store.py
-      - jarvis/agentic_ide/notifications.py
-      - jarvis/workspace/trust.py
+      - dodaios/ui/web/frontend/src/views/AgenticIdeView.tsx
+      - dodaios/ui/web/frontend/src/components/agentic/AgenticGrid.tsx
+      - dodaios/ui/web/agentic_ide_routes.py
+      - dodaios/agentic_ide/session.py
+      - dodaios/agentic_ide/resume_store.py
+      - dodaios/agentic_ide/notifications.py
+      - dodaios/workspace/trust.py
     related:
       - cli-connections
       - jarvis-agents
@@ -756,13 +756,13 @@ pages:
     diataxis: howto
     summary: Let your assistant inspect one requested screen or window with visible capture, privacy filtering, and short-lived memory.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/AppshotsView.tsx
-      - jarvis/ui/web/screen_context_routes.py
-      - jarvis/screen_context/service.py
-      - jarvis/screen_context/intent.py
-      - jarvis/screen_context/targeting.py
-      - jarvis/screen_context/redaction.py
-      - jarvis/screen_context/ports.py
+      - dodaios/ui/web/frontend/src/views/AppshotsView.tsx
+      - dodaios/ui/web/screen_context_routes.py
+      - dodaios/screen_context/service.py
+      - dodaios/screen_context/intent.py
+      - dodaios/screen_context/targeting.py
+      - dodaios/screen_context/redaction.py
+      - dodaios/screen_context/ports.py
     related:
       - computer-use
       - permissions
@@ -780,11 +780,11 @@ pages:
     diataxis: howto
     summary: Connect a self-hosted Home Assistant, protect its long-lived token, and use approved smart-home reads and actions safely.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/PluginsView.tsx
-      - jarvis/ui/web/marketplace_routes.py
-      - jarvis/marketplace/seed_catalog.json
-      - jarvis/marketplace/usage_cards/home_assistant.md
-      - jarvis/plugins/tool/home_assistant_rest.py
+      - dodaios/ui/web/frontend/src/views/PluginsView.tsx
+      - dodaios/ui/web/marketplace_routes.py
+      - dodaios/marketplace/seed_catalog.json
+      - dodaios/marketplace/usage_cards/home_assistant.md
+      - dodaios/plugins/tool/home_assistant_rest.py
     related:
       - plugins
       - skills
@@ -803,10 +803,10 @@ pages:
     summary: Learn what Dodaios stores locally, what may be sent to a connected service, and how each optional feature changes that boundary.
     authoritative_sources:
       - AGENTS.md
-      - jarvis/core/paths.py
-      - jarvis/core/redact.py
-      - jarvis/state/chat_store.py
-      - jarvis/memory/wiki/secret_guard.py
+      - dodaios/core/paths.py
+      - dodaios/core/redact.py
+      - dodaios/state/chat_store.py
+      - dodaios/memory/wiki/secret_guard.py
     related:
       - credentials-and-secrets
       - permissions
@@ -824,11 +824,11 @@ pages:
     diataxis: explanation
     summary: Understand how credentials are entered, stored, redacted, replaced, and kept out of conversations and documentation.
     authoritative_sources:
-      - jarvis/core/config.py
-      - jarvis/core/control_key.py
-      - jarvis/core/redact.py
-      - jarvis/marketplace/token_store.py
-      - jarvis/memory/wiki/secret_guard.py
+      - dodaios/core/config.py
+      - dodaios/core/control_key.py
+      - dodaios/core/redact.py
+      - dodaios/marketplace/token_store.py
+      - dodaios/memory/wiki/secret_guard.py
     related:
       - providers-and-api-keys
       - privacy-and-local-data
@@ -846,14 +846,14 @@ pages:
     diataxis: howto
     summary: See when macOS asks for microphone, screen, accessibility, and input access, and how to change an answer later.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/lib/permissionToast.ts
-      - jarvis/ui/web/frontend/src/i18n/locales/en.json
-      - jarvis/cli_ctl/commands/permissions.py
-      - jarvis/core/macos_privacy_strings.py
-      - jarvis/ui/web/permissions_routes.py
-      - jarvis/platform/permissions.py
-      - jarvis/platform/permission_service.py
-      - jarvis/platform/capabilities.py
+      - dodaios/ui/web/frontend/src/lib/permissionToast.ts
+      - dodaios/ui/web/frontend/src/i18n/locales/en.json
+      - dodaios/cli_ctl/commands/permissions.py
+      - dodaios/core/macos_privacy_strings.py
+      - dodaios/ui/web/permissions_routes.py
+      - dodaios/platform/permissions.py
+      - dodaios/platform/permission_service.py
+      - dodaios/platform/capabilities.py
     related:
       - first-run-setup
       - audio-and-wake-word
@@ -872,10 +872,10 @@ pages:
     summary: Learn why some actions run immediately, some require confirmation, and some are blocked before they can affect your computer or accounts.
     authoritative_sources:
       - AGENTS.md
-      - jarvis/safety/risk_tier.py
-      - jarvis/safety/approval.py
-      - jarvis/safety/tool_executor.py
-      - jarvis/missions/tool_approvals.py
+      - dodaios/safety/risk_tier.py
+      - dodaios/safety/approval.py
+      - dodaios/safety/tool_executor.py
+      - dodaios/missions/tool_approvals.py
     related:
       - computer-use
       - tasks-and-reminders
@@ -895,8 +895,8 @@ pages:
     authoritative_sources:
       - docs/BUGS.md
       - docs/README-desktop-black-screen.md
-      - jarvis/diagnostics/doctor.py
-      - jarvis/ui/web/diagnostics_routes.py
+      - dodaios/diagnostics/doctor.py
+      - dodaios/ui/web/diagnostics_routes.py
     related:
       - install-dodaios
       - providers-and-api-keys
@@ -914,11 +914,11 @@ pages:
     diataxis: howto
     summary: Find, use, replace, and regenerate the one key that unlocks Dodaios in a browser and authenticates local agents.
     authoritative_sources:
-      - jarvis/core/control_key.py
-      - jarvis/ui/web/control_routes.py
-      - jarvis/ui/web/surface_security.py
-      - jarvis/ui/web/frontend/src/views/settings/JarvisApiGroup.tsx
-      - jarvis/ui/web/frontend/src/components/AuthGate.tsx
+      - dodaios/core/control_key.py
+      - dodaios/ui/web/control_routes.py
+      - dodaios/ui/web/surface_security.py
+      - dodaios/ui/web/frontend/src/views/settings/JarvisApiGroup.tsx
+      - dodaios/ui/web/frontend/src/components/AuthGate.tsx
     related:
       - credentials-and-secrets
       - control-api-reference
@@ -939,7 +939,7 @@ pages:
       - docs/jarvis-cli.md
       - docs/jarvis-cli-reference.md
       - docs/reference/jarvis-cli.md
-      - jarvis/cli_ctl
+      - dodaios/cli_ctl
       - scripts/ci/gen_cli_reference.py
     related:
       - cli-connections
@@ -960,10 +960,10 @@ pages:
     summary: Understand API authentication, discovery, error behavior, and how REST operations map to CLI and in-app actions.
     authoritative_sources:
       - docs/jarvis-control-api.md
-      - jarvis/ui/web/server.py
-      - jarvis/ui/web/control_routes.py
-      - jarvis/ui/web/surface_security.py
-      - jarvis/core/control_key.py
+      - dodaios/ui/web/server.py
+      - dodaios/ui/web/control_routes.py
+      - dodaios/ui/web/surface_security.py
+      - dodaios/core/control_key.py
     related:
       - cli-reference
       - app-command-reference
@@ -981,11 +981,11 @@ pages:
     diataxis: reference
     summary: Look up supported settings, defaults, environment overrides, and safe configuration-write behavior.
     authoritative_sources:
-      - jarvis/core/config.py
-      - jarvis/core/config_writer.py
+      - dodaios/core/config.py
+      - dodaios/core/config_writer.py
       - pyproject.toml
-      - jarvis/ui/web/settings_routes.py
-      - jarvis/ui/web/provider_spec.py
+      - dodaios/ui/web/settings_routes.py
+      - dodaios/ui/web/provider_spec.py
     related:
       - settings-and-appearance
       - providers-and-api-keys
@@ -1004,8 +1004,8 @@ pages:
     summary: Learn how to browse the canonical app-command catalog shared by voice, chat, desktop, CLI, and REST surfaces.
     authoritative_sources:
       - docs/commands-reference.md
-      - jarvis/commands/registry.py
-      - jarvis/ui/web/commands_routes.py
+      - dodaios/commands/registry.py
+      - dodaios/ui/web/commands_routes.py
       - scripts/ci/gen_commands_reference.py
     related:
       - workflows-and-commands
@@ -1025,9 +1025,9 @@ pages:
     summary: Follow a request from the user interface through providers, tools, safety checks, events, agents, memory, and output.
     authoritative_sources:
       - docs/architecture-overview.md
-      - jarvis/core/protocols.py
-      - jarvis/core/bus.py
-      - jarvis/brain/factory.py
+      - dodaios/core/protocols.py
+      - dodaios/core/bus.py
+      - dodaios/brain/factory.py
       - pyproject.toml
     related:
       - providers-and-api-keys
@@ -1050,7 +1050,7 @@ pages:
       - install/README.md
       - install/install.ps1
       - install/install.sh
-      - jarvis/platform/capabilities.py
+      - dodaios/platform/capabilities.py
     related:
       - install-dodaios
       - permissions
@@ -1068,8 +1068,8 @@ pages:
     diataxis: howto
     summary: Understand recorded usage, compare providers, and trace spending to individual runs.
     authoritative_sources:
-      - jarvis/ui/web/frontend/src/views/CostsView.tsx
-      - jarvis/ui/web/costs_routes.py
+      - dodaios/ui/web/frontend/src/views/CostsView.tsx
+      - dodaios/ui/web/costs_routes.py
     related:
       - tasks-and-reminders
       - jarvis-agents

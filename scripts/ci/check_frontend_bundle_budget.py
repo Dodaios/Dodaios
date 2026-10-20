@@ -46,7 +46,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DIST = REPO_ROOT / "jarvis" / "ui" / "web" / "dist"
+DIST = REPO_ROOT / "dodaios" / "ui" / "web" / "dist"
 INDEX_HTML = DIST / "index.html"
 
 SKIP_EXIT = 78  # "could not measure" — neutral, not a failure

@@ -15,10 +15,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.marketplace import catalog_data, community_source
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.ui.web.marketplace_routes import router as market_router
-from jarvis.ui.web.society_routes import router as society_router
+from dodaios.marketplace import catalog_data, community_source
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.ui.web.marketplace_routes import router as market_router
+from dodaios.ui.web.society_routes import router as society_router
 
 TEMPLATE = {
     "schema": 1,

@@ -11,7 +11,7 @@ speech_bus is available; the listener is the fallback for direct-TTS callers.
 """
 from __future__ import annotations
 
-from jarvis.missions.init import _resolve_readback_mode
+from dodaios.missions.init import _resolve_readback_mode
 
 
 def _fn(*_a: object, **_k: object) -> None:  # stand-in TTS callback
