@@ -57,6 +57,8 @@ FRONTEND = f"{PACKAGE}/ui/web/frontend"
 _NOT_APP_CODE = ("tests/", "scripts/", "docs/", "tools/")
 _NPM_INPUTS = {f"{FRONTEND}/package.json", f"{FRONTEND}/package-lock.json"}
 _PIP_INPUTS = {"pyproject.toml", "requirements.txt"}
+#: A git lock this old belongs to no running command: one that was killed left it.
+STALE_LOCK_S = 10 * 60.0
 
 
 @dataclass(slots=True)
@@ -77,6 +79,10 @@ class FollowStatus:
     restart_pending: bool = False
     #: Local edits that stop the fast-forward.
     blocked_by: list[str] = field(default_factory=list)
+    #: When a git lock that blocks the update was last written (epoch s); 0 = none.
+    lock_since: float = 0.0
+    #: That lock is older than :data:`STALE_LOCK_S`: offered for removal.
+    lock_stale: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -254,7 +260,55 @@ class MainFollower:
                 self._try_restart()
             return status
 
+    def _index_lock(self) -> Path | None:
+        git_dir = _git(["rev-parse", "--absolute-git-dir"], self.root).stdout.strip()
+        return Path(git_dir) / "index.lock" if git_dir else None
+
+    def _locked(self, status: FollowStatus) -> bool:
+        """Is the checkout's index locked? Says so, with its age, instead of failing later."""
+        lock = self._index_lock()
+        if lock is None or not lock.exists():
+            status.lock_since = 0.0
+            status.lock_stale = False
+            return False
+        try:
+            since = lock.stat().st_mtime
+        except OSError:  # removed between the check and the read: not locked any more
+            return False
+        status.lock_since = since
+        status.lock_stale = time.time() - since > STALE_LOCK_S
+        self._note(
+            "A git lock left by a stopped command blocks the update (.git/index.lock)."
+            if status.lock_stale
+            else "Another git command is working in this checkout; the update waits."
+        )
+        return True
+
+    def clear_stale_lock(self) -> bool:
+        """Remove the checkout's index lock, only while it is older than :data:`STALE_LOCK_S`.
+
+        Called from the person's own click; a lock any younger may belong to a
+        command still running and is never touched.
+        """
+        with self._lock:
+            lock = self._index_lock()
+            if lock is None or not lock.exists():
+                self.status.lock_since = 0.0
+                self.status.lock_stale = False
+                return True
+            if time.time() - lock.stat().st_mtime <= STALE_LOCK_S:
+                return False
+            lock.unlink()
+            logger.info("Follow main: removed the stale git lock at the person's request.")
+            self.status.lock_since = 0.0
+            self.status.lock_stale = False
+            self._note("")
+        self.poke()
+        return True
+
     def _update(self, status: FollowStatus) -> None:
+        if self._locked(status):
+            return
         listed = _git(["diff", "--name-only", "HEAD", "origin/main"], self.root)
         changed = [line.strip() for line in listed.stdout.splitlines() if line.strip()]
         status.busy = "update"

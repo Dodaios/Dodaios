@@ -200,3 +200,32 @@ def test_python_outside_the_app_needs_no_restart(setup: tuple[Path, Path]) -> No
     status = recorder.follower(app).tick()
     assert (app / "tests/test_x.py").exists()
     assert not status.restart_pending and recorder.restarts == 0
+
+
+def test_a_git_lock_waits_and_only_an_old_one_is_offered_for_removal(
+    setup: tuple[Path, Path],
+) -> None:
+    import os
+    import time
+
+    app, other = setup
+    _land(other, {"jarvis_extra.txt": "x\n"}, "chore: extra")
+    lock = app / ".git" / "index.lock"
+    lock.write_bytes(b"")
+    follower = Recorder().follower(app)
+
+    status = follower.tick()
+    assert status.lock_since and not status.lock_stale
+    assert "Another git command" in status.reason
+    assert not follower.clear_stale_lock() and lock.exists()
+
+    old = time.time() - main_follow.STALE_LOCK_S - 60
+    os.utime(lock, (old, old))
+    status = follower.tick()
+    assert status.lock_stale and "stopped command" in status.reason
+    assert not (app / "jarvis_extra.txt").exists()
+
+    assert follower.clear_stale_lock() and not lock.exists()
+    status = follower.tick()
+    assert (app / "jarvis_extra.txt").exists()
+    assert status.lock_since == 0 and status.reason == ""
