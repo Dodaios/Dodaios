@@ -98,6 +98,8 @@
       "made": "O que construiu",
       "made_none": "Ainda não existe nada.",
       "open_link": "Abrir",
+      "open_thread": "Abrir a conversa de código",
+      "open_thread_title": "Lê cada passo do agente de código no Agentic IDE",
       "use": "Utilização",
       "uses": "{count} utilizações",
       "unused": "Ainda não utilizado.",

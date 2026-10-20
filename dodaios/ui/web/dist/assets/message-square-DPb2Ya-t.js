@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/message-square-JD9mN3s_.js
+import{c as e}from"./index-CkK4PJyq.js";/**
+========
+import{c as e}from"./index-CmoKpm0t.js";/**
+>>>>>>>> d84bbb4628131b2c04faf54938b4281077244cee:dodaios/ui/web/dist/assets/message-square-DPb2Ya-t.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const s=e("MessageSquare",[["path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",key:"1lielz"}]]);export{s as M};
