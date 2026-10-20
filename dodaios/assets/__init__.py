@@ -12,13 +12,13 @@ Currently:
   ``onnxruntime``. Loaded via
   :func:`bundled_silero_vad_model`.
 - ``icons/``: the desktop/taskbar icon (the Gigi ghost mascot), in two formats:
-  ``jarvis.ico`` for every Win32 icon surface (window class icon, AUMID icon,
-  Start-Menu + autostart shortcut, taskbar name) and ``jarvis.png`` for the
+  ``dodaios.ico`` for every Win32 icon surface (window class icon, AUMID icon,
+  Start-Menu + autostart shortcut, taskbar name) and ``dodaios.png`` for the
   Linux XDG ``.desktop`` ``Icon=`` key (most Linux desktops cannot render
   ``.ico``). Bundled so both can be found regardless of how the package was
   installed. Loaded via :func:`bundled_app_icon` / :func:`bundled_app_icon_png`.
   The ``.ico`` is byte-identical to the build-tool copy at
-  ``<repo-root>/assets/icons/jarvis.ico`` (kept in sync by
+  ``<repo-root>/assets/icons/dodaios.ico`` (kept in sync by
   ``tests/unit/ui/test_icon_identity.py``).
 
 Future bundles (e.g. packaged voice clips) live under this package.
@@ -37,8 +37,8 @@ _VAD_DIR = Path(__file__).resolve().parent / "vad"
 _SILERO_VAD_FILE = "silero_vad.onnx"
 
 _ICONS_DIR = Path(__file__).resolve().parent / "icons"
-_APP_ICON_FILE = "jarvis.ico"
-_APP_ICON_PNG_FILE = "jarvis.png"
+_APP_ICON_FILE = "dodaios.ico"
+_APP_ICON_PNG_FILE = "dodaios.png"
 
 
 def bundled_wakeword_models() -> dict[str, Path] | None:
@@ -79,7 +79,7 @@ def bundled_silero_vad_model() -> Path | None:
 
 
 def bundled_app_icon() -> Path | None:
-    """Return the absolute path to the bundled ``jarvis.ico``, or ``None``.
+    """Return the absolute path to the bundled ``dodaios.ico``, or ``None``.
 
     ``None`` only when the file is missing (partial checkout). Shipping the icon
     *inside* the package — rather than at ``<repo-root>/assets/icons/`` where the
@@ -99,7 +99,7 @@ def bundled_app_icon() -> Path | None:
 def _instance_icon(default_name: str) -> Path | None:
     """The icon file for the running *instance* (``dodaios.core.instance``).
 
-    The dev app carries a DEV-badged copy (``jarvis-dev.ico`` / ``.png``,
+    The dev app carries a DEV-badged copy (``dodaios-dev.ico`` / ``.png``,
     rendered by ``scripts/make_app_icon.py``) so its taskbar, dock and tray
     entries are told apart from the default app's at a glance. A missing badged
     file falls back to the default icon rather than to no icon at all.
@@ -118,7 +118,7 @@ def _instance_icon(default_name: str) -> Path | None:
 
 
 def bundled_app_icon_png() -> Path | None:
-    """Return the absolute path to the bundled ``jarvis.png``, or ``None``.
+    """Return the absolute path to the bundled ``dodaios.png``, or ``None``.
 
     The Linux counterpart to :func:`bundled_app_icon`. Linux desktops read the
     autostart/menu entry's icon from the ``.desktop`` ``Icon=`` key, and most of

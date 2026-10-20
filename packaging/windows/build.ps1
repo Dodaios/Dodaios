@@ -7,7 +7,7 @@
     One command from a clean checkout to a shippable installer:
 
         1. build the React frontend when dodaios/ui/web/dist is missing,
-        2. freeze the app with PyInstaller (jarvis.spec, onedir),
+        2. freeze the app with PyInstaller (dodaios.spec, onedir),
         3. wrap dist/Jarvis in an Inno Setup wizard.
 
     The result is dist/installers/PersonalJarvis-Setup-x64.exe - the name the
@@ -77,16 +77,16 @@ function Invoke-Checked {
 
 # --- Locate the repository -------------------------------------------------
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$SpecFile = Join-Path $RepoRoot "jarvis.spec"
+$SpecFile = Join-Path $RepoRoot "dodaios.spec"
 $BundleDir = Join-Path $RepoRoot "dist\Jarvis"
 $InstallerDir = Join-Path $RepoRoot "dist\installers"
 $FrontendDir = Join-Path $RepoRoot "dodaios\ui\web\frontend"
 $FrontendDist = Join-Path $RepoRoot "dodaios\ui\web\dist"
-$IssFile = Join-Path $PSScriptRoot "PersonalJarvis.iss"
-$IconFile = Join-Path $RepoRoot "assets\icons\jarvis.ico"
+$IssFile = Join-Path $PSScriptRoot "Dodaios.iss"
+$IconFile = Join-Path $RepoRoot "assets\icons\dodaios.ico"
 
-if (-not (Test-Path $SpecFile)) { Stop-WithError "jarvis.spec not found at $SpecFile" }
-if (-not (Test-Path $IssFile)) { Stop-WithError "PersonalJarvis.iss not found at $IssFile" }
+if (-not (Test-Path $SpecFile)) { Stop-WithError "dodaios.spec not found at $SpecFile" }
+if (-not (Test-Path $IssFile)) { Stop-WithError "Dodaios.iss not found at $IssFile" }
 
 # --- Version ---------------------------------------------------------------
 # Single source of truth. A hand-typed version here would drift from the tag
@@ -122,7 +122,7 @@ if (Test-Path (Join-Path $FrontendDist "index.html")) {
 }
 
 # --- 2. PyInstaller --------------------------------------------------------
-# jarvis.spec bundles ./jarvis.toml unconditionally, and that file is
+# dodaios.spec bundles ./jarvis.toml unconditionally, and that file is
 # .gitignore'd - a fresh clone (every CI runner) does not have one and
 # PyInstaller aborts before it starts with "Unable to find ... jarvis.toml".
 # Seed the shipped default so the build works from a clean checkout. On a
@@ -134,16 +134,16 @@ if (Test-Path (Join-Path $FrontendDist "index.html")) {
 # they were written; this script did not, which is why the first CI run
 # produced a DMG and an AppImage and no .exe.
 $ConfigFile = Join-Path $RepoRoot "jarvis.toml"
-$ConfigExample = Join-Path $RepoRoot "jarvis.toml.example"
+$ConfigExample = Join-Path $RepoRoot "dodaios.toml.example"
 if (-not (Test-Path $ConfigFile)) {
     if (-not (Test-Path $ConfigExample)) {
-        Stop-WithError "neither jarvis.toml nor jarvis.toml.example exists; jarvis.spec cannot bundle a default configuration"
+        Stop-WithError "neither jarvis.toml nor dodaios.toml.example exists; dodaios.spec cannot bundle a default configuration"
     }
-    Write-Step "seeding jarvis.toml from jarvis.toml.example (clean checkout)"
+    Write-Step "seeding jarvis.toml from dodaios.toml.example (clean checkout)"
     Copy-Item -LiteralPath $ConfigExample -Destination $ConfigFile
 } elseif ((Test-Path $ConfigExample) -and
           ((Get-FileHash -LiteralPath $ConfigFile).Hash -ne (Get-FileHash -LiteralPath $ConfigExample).Hash)) {
-    Write-Step "WARNING: jarvis.spec bundles this machine's jarvis.toml into the installer, and it differs from jarvis.toml.example. Check it carries nothing personal before publishing the build."
+    Write-Step "WARNING: dodaios.spec bundles this machine's jarvis.toml into the installer, and it differs from dodaios.toml.example. Check it carries nothing personal before publishing the build."
 }
 
 if ($SkipPyInstaller) {
@@ -151,12 +151,12 @@ if ($SkipPyInstaller) {
 } else {
     Write-Step "2/3 freezing with PyInstaller"
     Invoke-Checked -Executable $Python `
-        -Arguments @("-m", "PyInstaller", "jarvis.spec", "--noconfirm", "--clean") `
+        -Arguments @("-m", "PyInstaller", "dodaios.spec", "--noconfirm", "--clean") `
         -WorkingDirectory $RepoRoot -What "pyinstaller"
 }
 
 # The windowed launcher under its current and its earlier name, then the CLI
-# under both of its names (jarvis.spec).
+# under both of its names (dodaios.spec).
 foreach ($required in @("DodaiosApp.exe", "PersonalJarvis.exe", "dodaios.exe", "jarvis.exe")) {
     $candidate = Join-Path $BundleDir $required
     if (-not (Test-Path $candidate)) {
@@ -167,7 +167,7 @@ foreach ($required in @("DodaiosApp.exe", "PersonalJarvis.exe", "dodaios.exe", "
 # Running the app straight out of dist/Jarvis (the obvious way to smoke-test a
 # build) leaves runtime state behind in _internal: a jarvis.db, flight-recorder
 # JSONL, logs. Shipping that would put the builder's own data inside every
-# downloaded installer. The build output is defined by jarvis.spec, so anything
+# downloaded installer. The build output is defined by dodaios.spec, so anything
 # below is not part of it and goes before the payload is compressed.
 $strayState = @("_internal\data", "_internal\data-dev", "_internal\logs")
 foreach ($stray in $strayState) {

@@ -70,7 +70,7 @@ FRONTEND = "dodaios/ui/web/frontend"
 # (glob, regenerator key). Main's copy is taken, then the key regenerates it.
 GENERATED: tuple[tuple[str, str], ...] = (
     ("dodaios/ui/web/dist/*", "frontend-build"),
-    ("docs/jarvis-cli-reference.md", "reference-docs"),
+    ("docs/dodaios-cli-reference.md", "reference-docs"),
     ("docs/commands-reference.md", "reference-docs"),
     (f"{FRONTEND}/package-lock.json", "npm-lock"),
     ("uv.lock", "uv-lock"),
