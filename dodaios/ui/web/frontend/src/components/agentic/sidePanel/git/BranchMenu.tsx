@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { fill, useT } from "@/i18n";
 import { robustCopy } from "@/lib/clipboard";
-import { openExternalUrl } from "@/lib/openExternal";
+import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ideBrowserLinks";
 import { useEventStore } from "@/store/events";
 import { needsPull, needsPush, syncOf } from "./gitInsights";
 import type { BranchRow } from "./gitOverviewApi";
@@ -129,7 +129,7 @@ export function BranchMenu({
 
   const open = (url: string) => () => {
     onDismiss();
-    void openExternalUrl(url);
+    void openLinkInIdeBrowser(url);
   };
   const copy = (text: string) => () => {
     onDismiss();

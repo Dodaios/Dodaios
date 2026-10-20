@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { BrowserTab } from "./BrowserTab";
+import { openLinkInIdeBrowser, useIdeBrowserLinkStore } from "./ideBrowserLinks";
 import { initialChoice, type NativeBrowser } from "./nativeBrowserApi";
 import { boxesOverlap, measurePanel, overlayCovers } from "./useNativePlacement";
 
@@ -115,5 +117,73 @@ describe("BrowserTab on the desktop app", () => {
     renderTab({ available: false, reason: "no_browser", state: "idle", browsers: [] });
     await waitFor(() => expect(screen.getByTestId("ide-browser-address")).toBeTruthy());
     expect(screen.queryByTestId("ide-browser-use-native")).toBeNull();
+  });
+});
+
+describe("links clicked in the IDE", () => {
+  const host = window as unknown as { __JARVIS_EMBEDDED_DESKTOP?: boolean };
+  const realRect = HTMLElement.prototype.getBoundingClientRect;
+
+  beforeEach(() => {
+    localStorage.clear();
+    useIdeBrowserLinkStore.setState({ pending: null });
+    host.__JARVIS_EMBEDDED_DESKTOP = true;
+    // The panel counts as on screen only with a real size.
+    HTMLElement.prototype.getBoundingClientRect = () => rect(0, 0, 400, 300);
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete host.__JARVIS_EMBEDDED_DESKTOP;
+    HTMLElement.prototype.getBoundingClientRect = realRect;
+    vi.unstubAllGlobals();
+  });
+
+  function renderTab(status: Record<string, unknown>) {
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => ({
+      ok: true,
+      json: async () => (url.endsWith("/status") ? status : { ...status, ok: true }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><BrowserTab /></QueryClientProvider>);
+    return fetchMock;
+  }
+
+  function bodies(fetchMock: ReturnType<typeof renderTab>, path: string) {
+    return fetchMock.mock.calls.filter(([url]) => url.endsWith(path)).map(([, init]) => JSON.parse(String(init?.body)));
+  }
+
+  it("bring the Browser tab forward on the desktop app", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    await openLinkInIdeBrowser("https://github.com/o/r/tree/main");
+    expect(useIdeSidePanelStore.getState()).toMatchObject({ open: true, active: "browser" });
+    expect(useIdeBrowserLinkStore.getState().pending?.url).toBe("https://github.com/o/r/tree/main");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("go to the user's browser outside the desktop app", async () => {
+    delete host.__JARVIS_EMBEDDED_DESKTOP;
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ opened: true }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await openLinkInIdeBrowser("https://github.com/o/r")).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/open-external", expect.anything());
+    expect(useIdeBrowserLinkStore.getState().pending).toBeNull();
+  });
+
+  it("open as a new tab in the shown window", async () => {
+    useIdeBrowserLinkStore.getState().request("https://github.com/o/r/tree/feature");
+    const fetchMock = renderTab({ available: true, reason: "", state: "embedded", browser: "chrome", profile: "Profile 3", browsers: BROWSERS });
+    await waitFor(() => expect(bodies(fetchMock, "/open")).toEqual([{ url: "https://github.com/o/r/tree/feature" }]));
+    expect(bodies(fetchMock, "/launch")).toEqual([]);
+    expect(useIdeBrowserLinkStore.getState().pending).toBeNull();
+  });
+
+  it("open a new panel window on the address when there is none", async () => {
+    useIdeBrowserLinkStore.getState().request("https://github.com/o/r/pulls");
+    const fetchMock = renderTab({ available: true, reason: "", state: "closed", browser: "chrome", profile: "Profile 3", browsers: BROWSERS });
+    await waitFor(() => expect(bodies(fetchMock, "/launch")).toHaveLength(1));
+    expect(bodies(fetchMock, "/launch")[0]).toMatchObject({ browser: "chrome", profile: "Profile 3", url: "https://github.com/o/r/pulls" });
+    expect(bodies(fetchMock, "/open")).toEqual([]);
   });
 });

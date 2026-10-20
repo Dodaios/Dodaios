@@ -32,7 +32,8 @@ the window events are delivered there.
 Limits that come with a foreign window: a popup of the app that overlaps the
 panel would sit below the browser (the page hides the browser while one does),
 and a link opened from another program can land in this window when it was
-the browser's last active one.
+the browser's last active one. Links clicked in the app itself go to the panel
+on purpose: ``open_tab`` makes its window the active one and opens a tab there.
 """
 
 from __future__ import annotations
@@ -52,6 +53,7 @@ from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
+from urllib.parse import urlparse
 
 from dodaios.ui.browser_profiles import (
     BrowserSpec,
@@ -402,6 +404,55 @@ class ChromeEmbed:
             logger.warning("Browser panel launch failed: %s", exc, exc_info=True)
             return self._fail("launch_failed")
 
+    def open_tab(self, url: str) -> dict[str, Any]:
+        """Open ``url`` as a new tab in the panel's window.
+
+        A plain start of the browser exe hands the address to the running
+        browser, which opens it in its last active window. The panel's window
+        is made the active one first, so the tab lands there and not in a
+        hidden window or another window of the user. Only works while the
+        window is embedded and shown; otherwise ``ok`` is false and the page
+        opens a new panel window on the address instead.
+        """
+        if not self.supported():
+            return self._fail_quietly("unsupported")
+        target = url.strip()
+        parsed = urlparse(target)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return self._fail_quietly("bad_url")
+        with self._lock:
+            hwnd, browser_id, profile = self._chrome, self._browser, self._profile
+            embedded = self._state == "embedded"
+        spec = browser_by_id(browser_id)
+        exe = find_browser_exe(spec) if spec is not None else None
+        if not (embedded and hwnd and exe is not None and self._thread is not None):
+            return self._fail_quietly("not_embedded")
+        try:
+            shown = self._call(lambda: self._activate_for_tab(hwnd))
+        except Exception as exc:  # noqa: BLE001 - reported to the page, logged here
+            logger.warning("Browser panel activate failed: %s", exc, exc_info=True)
+            return self._fail_quietly("activate_failed")
+        if not shown:
+            return self._fail_quietly("not_shown")
+        if not self._start_browser(exe, profile, target, new_window=False):
+            return self._fail_quietly("launch_failed")
+        return {**self.status(), "ok": True}
+
+    def _activate_for_tab(self, hwnd: int) -> bool:
+        """Make the shown panel window the browser's active one (native thread)."""
+        user32 = self._load_api().user32
+        if hwnd != self._chrome or not user32.IsWindow(hwnd):
+            return False
+        self._sync()
+        if not self._shown:
+            return False
+        user32.SetForegroundWindow(hwnd)
+        return True
+
+    def _fail_quietly(self, reason: str) -> dict[str, Any]:
+        """A refusal that leaves the window's own state alone."""
+        return {**self.status(), "ok": False, "reason": reason}
+
     def _current(self, generation: int) -> bool:
         with self._lock:
             return generation == self._generation and not self._closing
@@ -588,7 +639,7 @@ class ChromeEmbed:
         return {**self.status(), "ok": False, "reason": reason}
 
     @staticmethod
-    def _start_browser(exe: Path, profile: str, url: str) -> bool:
+    def _start_browser(exe: Path, profile: str, url: str, *, new_window: bool = True) -> bool:
         """Start the browser exe; a running browser opens the window in its own process.
 
         The browser must not belong to the app's job object: when the browser
@@ -598,7 +649,8 @@ class ChromeEmbed:
         """
         from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS  # noqa: PLC0415
 
-        argv = [str(exe), f"--profile-directory={profile}", "--new-window", url]
+        window = ["--new-window"] if new_window else []
+        argv = [str(exe), f"--profile-directory={profile}", *window, url]
         # The browser finds its profiles below %LOCALAPPDATA%. An app started
         # with that variable pointed elsewhere (an isolated instance) would
         # otherwise start a second, empty browser instead of the user's own.

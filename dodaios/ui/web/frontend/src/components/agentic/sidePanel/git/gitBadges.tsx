@@ -1,7 +1,7 @@
 import type { ReactNode, SVGProps } from "react";
 import { CircleCheck, CircleDashed, CircleX, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, Loader2 } from "lucide-react";
 import { fill, useT } from "@/i18n";
-import { openExternalUrl } from "@/lib/openExternal";
+import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ideBrowserLinks";
 import { cn } from "@/lib/utils";
 import { QuickTooltip } from "@/components/ui/tooltip";
 import type { CiState, CiStatus, PullRequest, PullRequestState } from "./gitOverviewApi";
@@ -92,7 +92,7 @@ export function LinkIcon({
       aria-label={label}
       onClick={(event) => {
         event.stopPropagation();
-        void openExternalUrl(url);
+        void openLinkInIdeBrowser(url);
       }}
       className="inline-flex h-6 min-w-6 items-center justify-center gap-0.5 rounded-md px-1 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
