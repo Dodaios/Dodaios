@@ -98,6 +98,8 @@
       "made": "它构建了什么",
       "made_none": "还没有任何东西。",
       "open_link": "打开",
+      "open_thread": "打开编码线程",
+      "open_thread_title": "在 Agentic IDE 中查看编码代理的每一步",
       "use": "使用",
       "uses": "{count} 次使用",
       "unused": "尚未使用。",

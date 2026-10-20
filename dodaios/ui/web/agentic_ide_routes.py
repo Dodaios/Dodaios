@@ -149,6 +149,7 @@ from dodaios.agentic_ide.workspace_view import (
     view_from_legacy_chat_flag,
 )
 
+from .control_auth import person_at_window
 from .surface_security import credentials_valid, is_loopback_request
 
 log = logging.getLogger(__name__)
@@ -5213,6 +5214,10 @@ async def terminal_prompt(
                 "dry_run": True,
             }
 
+        # Typed at the window (prompt bar, pane chat, launcher), not a brief the
+        # brain or an agent sent through this route: the person's own words,
+        # which the self-building loop may count (docs/self-build.md).
+        by_person = person_at_window(request)
         try:
             # The receipt beside the brief: the sentence as typed and the files
             # that went with it, for the pane's chat stage (prompt_receipts).
@@ -5222,9 +5227,14 @@ async def terminal_prompt(
                 workspace_id=found[0].id,
                 typed=req.prompt,
                 attachments=attachments,
+                origin="person" if by_person else "",
             )
         except SessionError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if by_person:
+            from dodaios.self_build.app import pane_prompt_recorded
+
+            pane_prompt_recorded(term.history_id)
 
         # Say out loud that a prompt went in.
         #
