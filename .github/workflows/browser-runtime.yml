@@ -42,12 +42,12 @@ jobs:
           python -m pip install playwright==1.62.0
           python -m playwright install-deps chromium
       - name: Install and verify the isolated browser runtime
-        run: python -m jarvis.society.browser.install
+        run: python -m dodaios.society.browser.install
       - name: Select verified browser artifacts
         shell: python
         run: |
           import os
-          from jarvis.society.browser.install import venv_python, browser_executable
+          from dodaios.society.browser.install import venv_python, browser_executable
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
               stream.write(f"JARVIS_BROWSER_TEST_PYTHON={venv_python()}\n")
               stream.write(f"JARVIS_BROWSER_TEST_EXECUTABLE={browser_executable()}\n")
@@ -84,8 +84,8 @@ jobs:
           import os
           import subprocess
           from pathlib import Path
-          from jarvis.core.process_utils import NO_WINDOW_CREATIONFLAGS
-          from jarvis.society.browser.install import worker_env
+          from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
+          from dodaios.society.browser.install import worker_env
           result = subprocess.run(
               [os.environ["JARVIS_BROWSER_TEST_PYTHON"],
                "tests/contract/native_window_probe.py",

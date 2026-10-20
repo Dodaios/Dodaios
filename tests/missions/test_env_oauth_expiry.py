@@ -25,8 +25,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import claude_credentials
-from jarvis.missions.isolation import env as env_mod
+from dodaios import claude_credentials
+from dodaios.missions.isolation import env as env_mod
 
 # Test fixtures, not real credentials.
 _TEST_OAT = "sk-ant-oat01-test-token"  # noqa: S105 — test fixture, not a real token

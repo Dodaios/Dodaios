@@ -16,8 +16,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web import wiki_routes
-from jarvis.ui.web.wiki_routes import router as wiki_router
+from dodaios.ui.web import wiki_routes
+from dodaios.ui.web.wiki_routes import router as wiki_router
 
 # ----------------------------------------------------------------------
 # Fixtures
@@ -27,9 +27,9 @@ from jarvis.ui.web.wiki_routes import router as wiki_router
 @pytest.fixture(autouse=True)
 def _isolate_wiki_health(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep process-wide Wiki health mutations local to each route test."""
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki.health import WikiHealth
 
-    monkeypatch.setattr("jarvis.memory.wiki.health.health", WikiHealth())
+    monkeypatch.setattr("dodaios.memory.wiki.health.health", WikiHealth())
 
 
 def _make_app(vault_root: Path | None) -> FastAPI:
@@ -531,10 +531,10 @@ def test_search_happy_path_returns_scored_hits(
     # hermetic instead of depending on the shared real data/jarvis.db.
     import sqlite3
 
-    fts_index = pytest.importorskip("jarvis.memory.wiki.fts_index")
+    fts_index = pytest.importorskip("dodaios.memory.wiki.fts_index")
     db = tmp_path / "fts.db"
     monkeypatch.setattr(
-        "jarvis.memory.wiki.search._default_db_path", lambda: db
+        "dodaios.memory.wiki.search._default_db_path", lambda: db
     )
     conn = sqlite3.connect(str(db))
     try:
@@ -695,7 +695,7 @@ def test_backfill_preview_uses_live_capture_runtime(
         return _FakeBackfillResult()
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.backfill.backfill_realtime_sessions",
+        "dodaios.memory.wiki.backfill.backfill_realtime_sessions",
         _fake_backfill,
     )
     app = _make_app(tmp_path / "vault")
@@ -714,7 +714,7 @@ def test_backfill_execute_reports_only_writes_from_this_request(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    from jarvis.memory.wiki.journal import CandidateFact, CandidateJournal
+    from dodaios.memory.wiki.journal import CandidateFact, CandidateJournal
 
     journal = CandidateJournal(tmp_path / "data" / "jarvis.db")
     historical_key = "session:v2:historical"
@@ -798,7 +798,7 @@ def test_backfill_execute_reports_only_writes_from_this_request(
             return result
 
         monkeypatch.setattr(
-            "jarvis.memory.wiki.backfill.backfill_realtime_sessions",
+            "dodaios.memory.wiki.backfill.backfill_realtime_sessions",
             _fake_backfill,
         )
         app = _make_app(tmp_path / "vault")
@@ -837,7 +837,7 @@ def test_backfill_execute_reports_terminal_stage2_loss(
     expected_status: int,
     expected_code: str,
 ) -> None:
-    from jarvis.memory.wiki.journal import CandidateFact, CandidateJournal
+    from dodaios.memory.wiki.journal import CandidateFact, CandidateJournal
 
     journal = CandidateJournal(tmp_path / "data" / "jarvis.db")
     key = "session:v2:loss"
@@ -888,7 +888,7 @@ def test_backfill_execute_reports_terminal_stage2_loss(
     )
     monkeypatch.setattr(wiki_routes, "get_running_capture_runtime", lambda: runtime)
     monkeypatch.setattr(
-        "jarvis.memory.wiki.backfill.backfill_realtime_sessions", _fake_backfill
+        "dodaios.memory.wiki.backfill.backfill_realtime_sessions", _fake_backfill
     )
     app = _make_app(tmp_path / "vault")
     app.state.session_store = object()
@@ -919,7 +919,7 @@ def test_backfill_execute_fails_closed_on_incomplete_extraction(
     expected_status: int,
     expected_code: str,
 ) -> None:
-    from jarvis.memory.wiki.journal import CandidateJournal
+    from dodaios.memory.wiki.journal import CandidateJournal
 
     journal = CandidateJournal(tmp_path / "data" / "jarvis.db")
     runtime = SimpleNamespace(
@@ -949,7 +949,7 @@ def test_backfill_execute_fails_closed_on_incomplete_extraction(
         return result
 
     monkeypatch.setattr(
-        "jarvis.memory.wiki.backfill.backfill_realtime_sessions", _fake_backfill
+        "dodaios.memory.wiki.backfill.backfill_realtime_sessions", _fake_backfill
     )
     app = _make_app(tmp_path / "vault")
     app.state.session_store = object()
@@ -989,7 +989,7 @@ def test_reindex_replaces_stale_rows_with_active_vault(
 ) -> None:
     import sqlite3
 
-    from jarvis.memory.wiki.db_path import resolve_wiki_db_path
+    from dodaios.memory.wiki.db_path import resolve_wiki_db_path
 
     app = _make_app(populated_vault)
     db_path = resolve_wiki_db_path(app.state.config.memory.data_dir)
@@ -1076,9 +1076,9 @@ def test_health_returns_200_with_fresh_snapshot(
     mutated it — replace it with a brand-new instance for this assertion
     rather than relying on run order for isolation.
     """
-    from jarvis.memory.wiki.health import WikiHealth
+    from dodaios.memory.wiki.health import WikiHealth
 
-    monkeypatch.setattr("jarvis.memory.wiki.health.health", WikiHealth())
+    monkeypatch.setattr("dodaios.memory.wiki.health.health", WikiHealth())
 
     app = FastAPI()
     app.include_router(wiki_router)
@@ -1122,7 +1122,7 @@ def test_health_returns_200_with_fresh_snapshot(
 
 
 def test_health_restores_last_write_and_backlog_from_journal(tmp_path: Path) -> None:
-    from jarvis.memory.wiki.journal import CandidateFact, CandidateJournal
+    from dodaios.memory.wiki.journal import CandidateFact, CandidateJournal
 
     vault = tmp_path / "vault"
     _write_page(

@@ -13,12 +13,12 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from jarvis.brain import provider_health_ledger as ledger
-from jarvis.brain import provider_test as pt
-from jarvis.core.protocols import AudioChunk
-from jarvis.plugins.tts.fallback_tts import FallbackTTS
-from jarvis.speech.stt_fallback import FallbackSTT
-from jarvis.speech.usage_meter import SpeechUsage, meter_stt, meter_tts
+from dodaios.brain import provider_health_ledger as ledger
+from dodaios.brain import provider_test as pt
+from dodaios.core.protocols import AudioChunk
+from dodaios.plugins.tts.fallback_tts import FallbackTTS
+from dodaios.speech.stt_fallback import FallbackSTT
+from dodaios.speech.usage_meter import SpeechUsage, meter_stt, meter_tts
 
 _PCM = b"\x00" * 3200  # 100 ms of 16 kHz mono int16
 

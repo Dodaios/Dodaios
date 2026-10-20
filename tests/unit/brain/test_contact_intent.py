@@ -8,7 +8,7 @@ mandates the real tool on a contact-write turn so the read-style evidence gate's
 backstop can catch a fake confirmation. Pure regex, no LLM (AP-9/AP-11).
 """
 
-from jarvis.brain.contact_intent import (
+from dodaios.brain.contact_intent import (
     CONTACT_WRITE_DIRECTIVE,
     WIKI_INGEST_DIRECTIVE,
     detect_contact_write_intent,

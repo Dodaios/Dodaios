@@ -1,5 +1,5 @@
-from jarvis.marketplace import plugin_shared
-from jarvis.marketplace.plugin_loader import PluginToolLoader
+from dodaios.marketplace import plugin_shared
+from dodaios.marketplace.plugin_loader import PluginToolLoader
 
 
 class _FakeRegistry:

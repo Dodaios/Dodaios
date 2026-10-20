@@ -8,14 +8,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agent_chat.service import AgentChatService
-from jarvis.agent_chat.store import AgentChatStore
-from jarvis.society.events import MsgType, SocietyEnvelope
-from jarvis.society.mars.models import CommandState, StationCommand, StationError
-from jarvis.society.mars.ordinary import OrdinaryStationExecutor
-from jarvis.society.mars.service import MarsStationService
-from jarvis.society.mars.store import MarsStore
-from jarvis.society.runtime import SocietyRuntime
+from dodaios.agent_chat.service import AgentChatService
+from dodaios.agent_chat.store import AgentChatStore
+from dodaios.society.events import MsgType, SocietyEnvelope
+from dodaios.society.mars.models import CommandState, StationCommand, StationError
+from dodaios.society.mars.ordinary import OrdinaryStationExecutor
+from dodaios.society.mars.service import MarsStationService
+from dodaios.society.mars.store import MarsStore
+from dodaios.society.runtime import SocietyRuntime
 
 
 class ControlledChat(AgentChatService):

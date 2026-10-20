@@ -6,8 +6,8 @@ import os
 import pytest
 from filelock import FileLock
 
-from jarvis.ui import desktop_app
-from jarvis.ui.web import launcher
+from dodaios.ui import desktop_app
+from dodaios.ui.web import launcher
 
 
 def test_closing_marks_the_owned_instance_before_teardown(monkeypatch, tmp_path):
@@ -131,7 +131,7 @@ def test_background_service_winning_during_quit_hands_back_to_the_desktop(monkey
 
 
 def test_service_handover_does_not_target_a_different_replacement(monkeypatch):
-    from jarvis.core import background_service
+    from dodaios.core import background_service
 
     monkeypatch.setattr(background_service, "service_pid", lambda: 4243)
 

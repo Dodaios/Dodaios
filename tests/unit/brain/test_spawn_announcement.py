@@ -25,9 +25,9 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain.ack_brain import CircuitBreaker
-from jarvis.brain.ack_brain.config import AckBrainConfig
-from jarvis.brain.ack_brain.spawn_announcement import (
+from dodaios.brain.ack_brain import CircuitBreaker
+from dodaios.brain.ack_brain.config import AckBrainConfig
+from dodaios.brain.ack_brain.spawn_announcement import (
     _FALLBACK_ALREADY_RUNNING,
     _FALLBACK_SPAWN,
     STILL_RUNNING_PHRASES,
@@ -259,7 +259,7 @@ def test_es_pools_survive_voice_scrubbing() -> None:
     ``_validate`` — ``_detect_language`` only knows de/en/unknown), so guard the
     real concern directly: every es phrase must survive ``scrub_for_voice``
     intact (TTS-clean, not gutted to empty)."""
-    from jarvis.brain.output_filter import scrub_for_voice
+    from dodaios.brain.output_filter import scrub_for_voice
 
     es_pools = (
         _FALLBACK_SPAWN["es"],
@@ -279,7 +279,7 @@ def test_es_pools_survive_voice_scrubbing() -> None:
 def test_pt_pools_survive_voice_scrubbing() -> None:
     """The European Portuguese pools, like the Spanish ones, bypass
     ``_validate``; every pt phrase must survive ``scrub_for_voice`` intact."""
-    from jarvis.brain.output_filter import scrub_for_voice
+    from dodaios.brain.output_filter import scrub_for_voice
 
     for pool in (
         _FALLBACK_SPAWN["pt"],
@@ -528,7 +528,7 @@ async def test_open_breaker_skips_provider() -> None:
 # Failover provider (primary exhausted → live secondary, not the pool)        #
 # --------------------------------------------------------------------------- #
 # Mirrors the pre-thinking ack's Gemini→Grok failover
-# (jarvis.brain.factory._build_ack_fallback). Root cause of the 2026-06-21
+# (dodaios.brain.factory._build_ack_fallback). Root cause of the 2026-06-21
 # "contextless stock phrase" report: the primary flash provider (gemini) was
 # billing-exhausted (429 → None) and the spawn announcer had NO failover, so it
 # degraded straight to the generic pool while a healthy grok was available.

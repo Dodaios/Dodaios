@@ -26,8 +26,8 @@ import sys
 
 import pytest
 
-from jarvis.missions.isolation import job_object as jo
-from jarvis.missions.workers import process_utils as pu
+from dodaios.missions.isolation import job_object as jo
+from dodaios.missions.workers import process_utils as pu
 
 _SIGTERM = getattr(signal, "SIGTERM", 15)
 _SIGKILL = getattr(signal, "SIGKILL", 9)
@@ -294,7 +294,7 @@ def test_bootstrap_job_factory_reaps_on_posix(monkeypatch: pytest.MonkeyPatch) -
     """The mission bootstrap must route its per-mission job through the platform
     factory (real POSIX session/group reaping), not the hard-coded no-op that
     used to leak worker trees on Linux/macOS."""
-    import jarvis.missions.init as mi
+    import dodaios.missions.init as mi
 
     monkeypatch.setattr(jo.sys, "platform", "linux")
     job = mi._default_job_factory()
@@ -319,7 +319,7 @@ def _worker_source(module) -> str:
 
 
 def test_gemini_worker_routes_spawn_through_containment_helper() -> None:
-    from jarvis.missions.workers import gemini_worker
+    from dodaios.missions.workers import gemini_worker
 
     src = _worker_source(gemini_worker)
     assert "create_worker_subprocess(" in src
@@ -329,7 +329,7 @@ def test_gemini_worker_routes_spawn_through_containment_helper() -> None:
 
 
 def test_codex_worker_routes_spawn_through_containment_helper() -> None:
-    from jarvis.missions.workers import codex_worker
+    from dodaios.missions.workers import codex_worker
 
     src = _worker_source(codex_worker)
     assert "create_worker_subprocess(" in src
@@ -339,7 +339,7 @@ def test_codex_worker_routes_spawn_through_containment_helper() -> None:
 def test_bootstrap_job_factory_uses_win32_impl_on_windows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import jarvis.missions.init as mi
+    import dodaios.missions.init as mi
 
     monkeypatch.setattr(jo.sys, "platform", "win32")
     # On a non-Windows host pywin32 is absent, so the factory degrades to the

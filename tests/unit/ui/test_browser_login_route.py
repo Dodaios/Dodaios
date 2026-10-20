@@ -13,8 +13,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.ui.web import missions_auth, surface_security
-from jarvis.ui.web.settings_routes import router
+from dodaios.ui.web import missions_auth, surface_security
+from dodaios.ui.web.settings_routes import router
 
 # The suite-wide auto-auth fixture would give every client a valid session
 # cookie, hiding exactly the no-session path this file exists to prove.
@@ -32,7 +32,7 @@ def _client(*, require_browser_login: bool = False) -> TestClient:
 
 @pytest.fixture(autouse=True)
 def _no_toml_writes(monkeypatch):
-    import jarvis.core.config_writer as cw
+    import dodaios.core.config_writer as cw
 
     written = {}
     monkeypatch.setattr(

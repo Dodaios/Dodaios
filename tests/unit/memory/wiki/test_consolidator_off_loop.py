@@ -17,15 +17,15 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import (
+from dodaios.core.config import (
     BrainConfig,
     BrainProviderConfig,
     JarvisConfig,
     MemoryConfig,
     WikiMemoryConfig,
 )
-from jarvis.memory.wiki.consolidator import Consolidator
-from jarvis.memory.wiki.journal import CandidateFact, CandidateJournal
+from dodaios.memory.wiki.consolidator import Consolidator
+from dodaios.memory.wiki.journal import CandidateFact, CandidateJournal
 
 
 def _config() -> JarvisConfig:

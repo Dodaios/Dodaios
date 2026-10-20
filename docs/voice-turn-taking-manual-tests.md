@@ -1,6 +1,6 @@
 # Voice Turn-Taking Manual Tests
 
-Run with `voice.bat` or `python -m jarvis.speech.watchdog`, then inspect
+Run with `voice.bat` or `python -m dodaios.speech.watchdog`, then inspect
 `data/jarvis_watchdog.log`.
 
 1. Short pause inside one command:

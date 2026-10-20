@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Final
 
 #: Misfire grace — a slot later than this is skipped, not caught up (BUG-212).
-#: Conductor is a standalone package, so this mirrors ``jarvis.core.misfire``
+#: Conductor is a standalone package, so this mirrors ``dodaios.core.misfire``
 #: instead of importing it; ``tests/unit/conductor`` pins the two together.
 MISFIRE_GRACE_NS: Final[int] = 30 * 60 * 1_000_000_000
 

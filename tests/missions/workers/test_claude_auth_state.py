@@ -17,7 +17,7 @@ Semantics under test:
 """
 from __future__ import annotations
 
-import jarvis.claude_auth_state as cas
+import dodaios.claude_auth_state as cas
 
 
 def _reset() -> None:

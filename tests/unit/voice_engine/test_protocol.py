@@ -6,7 +6,7 @@ import struct
 
 import pytest
 
-from jarvis.voice_engine import protocol as p
+from dodaios.voice_engine import protocol as p
 
 
 def test_json_and_audio_frames_round_trip_across_arbitrary_splits() -> None:

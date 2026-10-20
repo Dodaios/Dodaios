@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import jarvis
-from jarvis.core.branding import LEGACY_PACKAGE_NAMES
+import dodaios
+from dodaios.core.branding import LEGACY_PACKAGE_NAMES
 from tests.package_names import PACKAGE_NAME, PACKAGE_NAMES, is_package_module
 
 
 def test_the_names_cover_the_imported_package_and_every_earlier_name() -> None:
-    assert PACKAGE_NAME == jarvis.__name__ == jarvis.core.branding.__name__.partition(".")[0]
+    assert PACKAGE_NAME == dodaios.__name__ == dodaios.core.branding.__name__.partition(".")[0]
     assert PACKAGE_NAMES[0] == PACKAGE_NAME
     assert set(LEGACY_PACKAGE_NAMES) <= set(PACKAGE_NAMES)
     assert len(set(PACKAGE_NAMES)) == len(PACKAGE_NAMES)

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import hashlib
 
-from jarvis.cu.direct import Foreground, Probes
-from jarvis.cu.geometry import CoordinateMapper
+from dodaios.cu.direct import Foreground, Probes
+from dodaios.cu.geometry import CoordinateMapper
 
 _THUMB_BYTES = 96 * 54
 

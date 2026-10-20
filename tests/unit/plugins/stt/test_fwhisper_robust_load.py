@@ -13,8 +13,8 @@ when the configured device/compute_type fails to load.
 """
 from __future__ import annotations
 
-from jarvis.plugins.stt import fwhisper
-from jarvis.plugins.stt.fwhisper import (
+from dodaios.plugins.stt import fwhisper
+from dodaios.plugins.stt.fwhisper import (
     FasterWhisperProvider,
     _cpu_safe_compute_type,
     _normalize_model_name,

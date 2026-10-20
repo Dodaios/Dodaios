@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 from typing import get_args
 
-from jarvis.missions.events import WorkerKilled
+from dodaios.missions.events import WorkerKilled
 
 
 def _python_reasons() -> set[str]:
@@ -22,7 +22,7 @@ def _python_reasons() -> set[str]:
 def _ts_reasons() -> set[str]:
     ts = (
         Path(__file__).resolve().parents[2]
-        / "jarvis" / "ui" / "web" / "frontend" / "src" / "types" / "missions.ts"
+        / "dodaios" / "ui" / "web" / "frontend" / "src" / "types" / "missions.ts"
     )
     text = ts.read_text(encoding="utf-8")
     m = re.search(r"export type WorkerKilledReason\s*=([^;]+);", text)

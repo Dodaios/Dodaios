@@ -31,9 +31,9 @@ from uuid import uuid4
 
 import pytest
 
-import jarvis.harness.screenshot_only_loop as loop_mod
-from jarvis.core.protocols import HarnessResult, HarnessTask, Observation
-from jarvis.harness.computer_use_context import ComputerUseContext
+import dodaios.harness.screenshot_only_loop as loop_mod
+from dodaios.core.protocols import HarnessResult, HarnessTask, Observation
+from dodaios.harness.computer_use_context import ComputerUseContext
 
 # ---------------------------------------------------------------------------
 # Fakes (compact mirror of tests/unit/harness/test_cu_fail_gate.py)
@@ -135,7 +135,7 @@ async def run_loop(ctx: ComputerUseContext, goal: str) -> list[HarnessResult]:
     return chunks
 
 
-from jarvis.harness.screenshot_only_loop import _run_screenshot_loop  # noqa: E402
+from dodaios.harness.screenshot_only_loop import _run_screenshot_loop  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -293,8 +293,8 @@ async def test_compound_screenshot_goal_uses_the_loop_not_the_fast_path(
 @pytest.mark.parametrize(
     "module_name",
     (
-        "jarvis.harness.screenshot_only_loop",
-        "jarvis.harness.screenshot_only_loop_stable",
+        "dodaios.harness.screenshot_only_loop",
+        "dodaios.harness.screenshot_only_loop_stable",
     ),
 )
 def test_legacy_save_screenshot_degrades_without_asking_when_recording_is_not_granted(

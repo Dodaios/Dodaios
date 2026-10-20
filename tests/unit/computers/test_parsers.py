@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from jarvis.computers import cloud, local_vm
-from jarvis.computers.probe import parse_probe
+from dodaios.computers import cloud, local_vm
+from dodaios.computers.probe import parse_probe
 from tests.fakes.fake_ssh_server import LINUX_PROBE_OUTPUT
 
 MACOS_OUTPUT = """@@hostname

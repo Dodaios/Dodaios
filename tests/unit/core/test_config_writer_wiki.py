@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.config import JarvisConfig
-from jarvis.core.config_writer import set_wiki_vault_root
+from dodaios.core.config import JarvisConfig
+from dodaios.core.config_writer import set_wiki_vault_root
 
 
 @pytest.mark.parametrize(

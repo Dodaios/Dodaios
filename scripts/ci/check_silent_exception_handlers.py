@@ -53,7 +53,7 @@ _BASELINE = Path(__file__).resolve().parent / "silent-handlers-baseline.json"
 
 #: Trees scanned. Tests are excluded: a quiet ``except`` in a test is a test
 #: concern, and the product surface is what this gate protects.
-_ROOTS = ("jarvis",)
+_ROOTS = ("dodaios",)
 
 #: A call whose dotted name contains one of these is treated as reporting the
 #: error. Deliberately generous — the goal is "somebody could find out", not a

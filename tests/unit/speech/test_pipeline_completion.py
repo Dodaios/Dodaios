@@ -31,8 +31,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from jarvis.speech.pending_buffer import PendingPromptBuffer
-from jarvis.speech.pipeline import SpeechPipeline, TurnTakingState
+from dodaios.speech.pending_buffer import PendingPromptBuffer
+from dodaios.speech.pipeline import SpeechPipeline, TurnTakingState
 
 
 def _make_pipe(

@@ -1,0 +1,720 @@
+import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { OverlayTaskbarGroup } from "@/views/settings/OverlayTaskbarGroup";
+import { LanguagesGroup } from "@/views/settings/LanguagesGroup";
+import { MusicGroup } from "@/views/settings/MusicGroup";
+import { AppSettingsGroup } from "@/views/settings/AppSettingsGroup";
+import { RealtimeVoiceGroup } from "@/views/settings/RealtimeVoiceGroup";
+import { VolumeGroup } from "@/views/settings/VolumeGroup";
+import { AudioDevicesGroup } from "@/views/settings/AudioDevicesGroup";
+import { SystemPromptGroup } from "@/views/settings/SystemPromptGroup";
+import { SettingsGroupBoundary } from "@/views/settings/SettingsGroupBoundary";
+import { settingsInputCls } from "@/views/settings/SettingsBlock";
+import {
+  SettingsCard,
+  SettingsNote,
+  SettingsPage,
+  SettingsRow,
+  SettingsSection,
+  SettingsSelect,
+} from "@/views/settings/SettingsLayout";
+import {
+  useWakeWord,
+  useLocalSpeechInstall,
+  type WakeWordSaveResult,
+} from "@/hooks/useWakeWord";
+import { deriveAssistantName } from "@/lib/deriveAssistantName";
+import { backendMessage } from "@/lib/backendMessage";
+import { WAKE_ENGINES, WAKE_ENGINE_I18N_KEY } from "@/constants/wakeEngines";
+import { useEventStore } from "@/store/events";
+import { fill, useT } from "@/i18n";
+import { isAutopilotToastsEnabled, setAutopilotToastsEnabled } from "@/lib/autopilotToasts";
+
+// The wake-word language pin — its OWN setting ([trigger.wake_word] language),
+// deliberately independent of both the app display language and the general
+// STT recognition language (maintainer mandate 2026-07-21: app in English +
+// wake word spoken in German must be possible, with neither following the
+// other). Mirrors dodaios/ui/web/settings_routes.py::_WAKE_LANGUAGES minus
+// "auto".
+type WakeLanguage = "en" | "de" | "es" | "pt";
+
+// Concrete spoken languages only — "auto" is deliberately NOT offered here: the
+// wake word must be pinned to the language the user actually speaks (an
+// ambiguous "auto" silently derives a default from other settings, the exact
+// trap that left German speakers deaf). A user on "auto" sees a "choose your
+// language" placeholder until they pick.
+const WAKE_LANGUAGES: WakeLanguage[] = ["en", "de", "es", "pt"];
+
+interface WakeSelfTestResult {
+  ok: boolean;
+  phrase: string;
+  engine: string;
+  language: string;
+  wake_available: boolean;
+  phrase_in_vocab: boolean | null;
+  mic_ok: boolean;
+  message: string;
+  hint: string;
+  // Stable codes for `message` / `hint` (dodaios/ui/web/settings_routes.py
+  // WAKE_MESSAGE_CODES / WAKE_HINT_CODES, plus the wake plan's codes); the UI
+  // translates them and falls back to the English sentences above.
+  message_code?: string;
+  message_params?: Record<string, string>;
+  hint_code?: string;
+}
+
+/**
+ * The General settings page: one reading column of sections, each a heading
+ * over a grouped card. Every group is fault-isolated — one panel throwing
+ * costs that one panel, never the whole page. Section and row anchors keep the
+ * `settings-<id>` ids the hub search and the first-run guide scroll to.
+ */
+export function SettingsView({ searchTarget, onSearchTargetHandled }: {
+  searchTarget?: string | null;
+  onSearchTargetHandled?: () => void;
+} = {}) {
+  const t = useT();
+
+  useEffect(() => {
+    if (!searchTarget) return;
+    const target = document.getElementById(`settings-${searchTarget}`);
+    if (!target) return;
+    target.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    onSearchTargetHandled?.();
+  }, [searchTarget, onSearchTargetHandled]);
+
+  return (
+    <div data-testid="settings-scroll" className="h-full min-h-0">
+      <SettingsPage title={t("settings_hub.general")}>
+        {SECTIONS.map((section) => (
+          <div
+            key={section.id}
+            id={`settings-${section.id}`}
+            data-settings-section={section.id}
+            data-tour={`settings-${section.id}`}
+            className="scroll-mt-6"
+          >
+            <SettingsGroupBoundary group={section.id}>
+              {section.render()}
+            </SettingsGroupBoundary>
+          </div>
+        ))}
+      </SettingsPage>
+    </div>
+  );
+}
+
+/**
+ * The voice rows share one card. Each keeps its own boundary and its own
+ * `settings-<id>` anchor, so search still lands on the exact row.
+ */
+function VoiceSettingsGroup() {
+  const t = useT();
+  return (
+    <SettingsSection title={t("settings_view.sections.voice")}>
+      <SettingsCard>
+        <SettingsGroupBoundary group="realtime-voice" inline>
+          <RealtimeVoiceGroup />
+        </SettingsGroupBoundary>
+        <SettingsGroupBoundary group="volume" inline>
+          <VolumeGroup />
+        </SettingsGroupBoundary>
+        <SettingsGroupBoundary group="audio-devices" inline>
+          <AudioDevicesGroup />
+        </SettingsGroupBoundary>
+      </SettingsCard>
+    </SettingsSection>
+  );
+}
+
+/** The groups in page order. */
+const SECTIONS: readonly { id: string; render: () => React.ReactNode }[] = [
+  { id: "languages", render: () => <LanguagesGroup /> },
+  { id: "app", render: () => <AppSettingsGroup><AutopilotToastsRow /></AppSettingsGroup> },
+  { id: "voice", render: () => <VoiceSettingsGroup /> },
+  { id: "wake-word", render: () => <WakeWordPanel /> },
+  { id: "system-prompt", render: () => <SystemPromptGroup /> },
+  { id: "music", render: () => <MusicGroup /> },
+  { id: "overlay-taskbar", render: () => <OverlayTaskbarGroup /> },
+];
+
+/** "Autopilot toasts" — the one row of the former "More" group. */
+function AutopilotToastsRow() {
+  const t = useT();
+  const [autopilotToasts, setAutopilotToasts] = useState(isAutopilotToastsEnabled);
+  return (
+    <SettingsRow
+      id="settings-more"
+      title={t("settings_view.rows.toasts_title")}
+      description={t("settings_view.rows.toasts_description")}
+      control={
+        <Switch
+          checked={autopilotToasts}
+          aria-label={t("settings_view.rows.toasts_title")}
+          onCheckedChange={(next) => {
+            setAutopilotToasts(next);
+            setAutopilotToastsEnabled(next);
+          }}
+        />
+      }
+    />
+  );
+}
+
+/**
+ * Editable wake-word panel: free-text phrase input, engine select, optional
+ * custom-model path, and a Save button that surfaces the backend's resolved
+ * engine, message, and a restart hint. A degraded result is shown as a
+ * warning; a phrase without local-Whisper gets an inline hint. There is no
+ * user-facing speed/sensitivity control (removed 2026-07-10 mandate): every
+ * wake path always runs at its calibrated-reliable maximum-speed value,
+ * identically on every OS.
+ *
+ * No quick-pick chips: the user must type their own phrase. The onboarding gate
+ * (WakeWordOnboardingGate) handles the mandatory first-run flow.
+ */
+/**
+ * The wake-word language dropdown — a native <select> cannot style its option
+ * list (the OS renders it), which clashed with the theme. Presentation is the
+ * shared BrandedSelect's: a float surface for the list and the interaction
+ * ladder for its rows. Nothing is passed in here, because a select that carries
+ * a coloured hairline at one call site and not at the others is two controls.
+ * Shows a placeholder when the value is not one of the offered concrete
+ * languages (e.g. a fresh "auto" config), nudging an explicit choice.
+ */
+function LanguageDropdown({
+  value,
+  options,
+  placeholder,
+  labelFor,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  options: WakeLanguage[];
+  placeholder: string;
+  labelFor: (code: WakeLanguage) => string;
+  onChange: (code: WakeLanguage) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <SettingsSelect
+      value={value}
+      onValueChange={(code) => onChange(code as WakeLanguage)}
+      ariaLabel={placeholder}
+      placeholder={placeholder}
+      disabled={disabled}
+      options={options.map((code) => ({
+        value: code,
+        label: labelFor(code),
+      }))}
+    />
+  );
+}
+
+function WakeWordPanel() {
+  const t = useT();
+  const { config, loading, error, saveWakeWord, refetch, setWakeLanguage, setWakeActivation } =
+    useWakeWord();
+  const pushToast = useEventStore((s) => s.pushToast);
+  // In-app installer for the local speech pack (faster-whisper) that unlocks any
+  // wake phrase. Refetch the wake config on success so the hint clears.
+  const { status: installStatus, install } = useLocalSpeechInstall(refetch);
+
+  // The wake-word language pin: a Vosk model is acoustically language-specific,
+  // so the model must match the language the user speaks their wake word in.
+  // Its OWN backend setting ([trigger.wake_word] language) — independent of the
+  // app display language and the general STT recognition language, so switching
+  // either never silently moves the wake model. Local state mirrors the config
+  // for a snappy dropdown; the backend refetch (via jarvis:wake-word-changed)
+  // keeps it truthful.
+  const [wakeLang, setWakeLangLocal] = useState("auto");
+  const [phrase, setPhrase] = useState("");
+  const [engine, setEngine] = useState<string>("auto");
+  const [customModelPath, setCustomModelPath] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<WakeWordSaveResult | null>(null);
+  const [selfTest, setSelfTest] = useState<{
+    state: "idle" | "running" | "done";
+    data: WakeSelfTestResult | null;
+  }>({ state: "idle", data: null });
+  // The activation master switch (product rule 2026-07-04): on = always-on wake
+  // word (needs a local model for the user's word), off = Call shortcut only.
+  const [enabled, setEnabled] = useState(false);
+  const [togglingActivation, setTogglingActivation] = useState(false);
+  // In-app recovery for the degraded-wake-word scenario: downloads the Vosk
+  // model that wake_phrase.py's degrade message points at (Settings -> Wake
+  // word -> "Download wake model"). Mirrors the local-speech-install status
+  // shape above but drives a different, one-shot backend route.
+  const [wakeModelDownload, setWakeModelDownload] = useState<{
+    state: "idle" | "running" | "done" | "error";
+    message: string;
+  }>({ state: "idle", message: "" });
+
+  // Hydrate the form once the GET resolves (and whenever the config changes).
+  useEffect(() => {
+    if (!config) return;
+    // Every field defaults. The panel derives `phrase.trim()` on the next
+    // render, so a backend that omits the field (older build, degraded route)
+    // would throw out of the render path and take the whole view with it —
+    // the same version-skew failure the keybind rows hit.
+    setPhrase(config.phrase ?? "");
+    setEngine(config.engine || "auto");
+    setCustomModelPath(config.custom_model_path ?? "");
+    // ?? "auto" keeps the dropdown controlled even if an older backend omits it.
+    setWakeLangLocal(config.language ?? "auto");
+    // ?? false keeps the Switch controlled even if an older backend omits it.
+    setEnabled(config.enabled ?? false);
+  }, [config]);
+
+  // Pin the wake language: optimistic local update, then persist + live-apply
+  // via the backend. On failure, revert and surface the honest error.
+  async function onPickWakeLanguage(code: WakeLanguage) {
+    const previous = wakeLang;
+    setWakeLangLocal(code);
+    try {
+      await setWakeLanguage(code);
+    } catch (e) {
+      setWakeLangLocal(previous);
+      pushToast("error", (e as Error).message);
+    }
+  }
+
+  async function onToggleActivation(next: boolean) {
+    setTogglingActivation(true);
+    setEnabled(next); // optimistic
+    try {
+      const activation = await setWakeActivation(next);
+      pushToast(
+        activation.restart_required ? "info" : "success",
+        t(
+          activation.restart_required
+            ? "settings_view.wake_word.restart_required"
+            : "settings_view.wake_word.activation_saved",
+        ),
+      );
+    } catch (e) {
+      setEnabled(!next); // revert on failure
+      pushToast("error", (e as Error).message);
+    } finally {
+      setTogglingActivation(false);
+    }
+  }
+
+  const localWhisperAvailable = config?.local_whisper_available ?? true;
+
+  const trimmedPhrase = phrase.trim();
+  // No local-Whisper extra + any non-empty phrase → the engine will degrade.
+  const showNeedsWhisperHint = !localWhisperAvailable && trimmedPhrase.length > 0;
+  const derivedName = deriveAssistantName(phrase);
+
+  async function onSave() {
+    if (!trimmedPhrase) return;
+    setSaving(true);
+    setResult(null);
+    // A fresh save gets a fresh download control — stale done/error state from
+    // a previous degrade shouldn't bleed into the next result.
+    setWakeModelDownload({ state: "idle", message: "" });
+    try {
+      const res = await saveWakeWord({
+        phrase: trimmedPhrase,
+        engine,
+        custom_model_path:
+          engine === "custom_onnx" ? customModelPath.trim() : undefined,
+        persist: true,
+      });
+      setResult(res);
+      if (res.degraded) {
+        pushToast(
+          "warning",
+          backendMessage(
+            t,
+            "settings_view.wake_word.msg",
+            res.message_code,
+            res.message_params,
+            res.message,
+          ),
+        );
+      } else {
+        pushToast("success", t("settings_view.wake_word.saved"));
+      }
+    } catch (e) {
+      pushToast("error", (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Recovers the "stt_match only, unreliable" degrade in-app: provisions the
+  // per-language Vosk model via POST /api/settings/wake-word/download-model
+  // (dodaios/ui/web/settings_routes.py), then re-runs Save so the plan
+  // re-resolves to vosk_kws now that the model is present. Never throws — a
+  // failed fetch or a still-absent model surfaces an honest retry message.
+  async function onDownloadWakeModel() {
+    setWakeModelDownload({ state: "running", message: "" });
+    try {
+      const res = await fetch("/api/settings/wake-word/download-model", {
+        method: "POST",
+      });
+      const data: {
+        ok?: boolean;
+        present?: boolean;
+        message?: string;
+        message_code?: string;
+      } = await res
+        .json()
+        .catch(() => ({}));
+      const downloadMessage = backendMessage(
+        t,
+        "settings_view.wake_word.msg",
+        data.message_code,
+        null,
+        typeof data.message === "string" ? data.message : "",
+      );
+      if (!res.ok) {
+        setWakeModelDownload({
+          state: "error",
+          message: downloadMessage || `HTTP ${res.status}`,
+        });
+        return;
+      }
+      if (data.present) {
+        setWakeModelDownload({ state: "done", message: downloadMessage });
+        // Model is present now — re-save with the same phrase/engine so the
+        // panel re-resolves to vosk_kws and drops out of the degraded state.
+        await onSave();
+      } else {
+        setWakeModelDownload({
+          state: "error",
+          message: downloadMessage || t("settings_view.wake_word.download_model_error"),
+        });
+      }
+    } catch (e) {
+      setWakeModelDownload({ state: "error", message: (e as Error).message });
+    }
+  }
+
+  // Readiness check for the "Test wake word" button — asks the backend whether
+  // the configured word will actually fire (right-language model armed, word in
+  // vocabulary, mic delivering signal) without a second mic stream. Never throws.
+  async function onSelfTest() {
+    setSelfTest({ state: "running", data: null });
+    try {
+      const res = await fetch("/api/settings/wake-word/self-test", {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => null)) as WakeSelfTestResult | null;
+      setSelfTest({ state: "done", data });
+    } catch (e) {
+      setSelfTest({
+        state: "done",
+        data: {
+          ok: false,
+          phrase,
+          engine,
+          language: wakeLang,
+          wake_available: false,
+          phrase_in_vocab: null,
+          mic_ok: false,
+          message: (e as Error).message,
+          hint: "",
+        },
+      });
+    }
+  }
+
+  const showResultNote = selfTest.state === "done" && selfTest.data;
+  const wakeSaveMessage = result
+    ? backendMessage(
+        t,
+        "settings_view.wake_word.msg",
+        result.message_code,
+        result.message_params,
+        result.message,
+      )
+    : "";
+
+  return (
+    <SettingsSection
+      title={t("settings_view.wake_word.title")}
+      description={t("settings_view.wake_word.description")}
+    >
+      <SettingsCard>
+        <SettingsRow
+          title={t("settings_view.wake_word.activation_title")}
+          description={t("settings_view.wake_word.activation_hint")}
+          control={
+            <Switch
+              checked={enabled}
+              disabled={loading || togglingActivation}
+              aria-label={t("settings_view.wake_word.activation_title")}
+              onCheckedChange={onToggleActivation}
+            />
+          }
+        >
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </SettingsRow>
+
+        {/* Phrase input — free text, no quick-picks */}
+        <SettingsRow
+          title={t("settings_view.wake_word.phrase_label")}
+          description={
+            derivedName
+              ? t("settings_view.wake_word.derived_name").replace("{0}", derivedName)
+              : undefined
+          }
+          control={
+            <input
+              value={phrase}
+              onChange={(e) => setPhrase(e.target.value)}
+              maxLength={64}
+              placeholder={t("settings_view.wake_word.phrase_placeholder")}
+              aria-label={t("settings_view.wake_word.phrase_label")}
+              disabled={loading}
+              className={settingsInputCls + " h-8 w-56 disabled:opacity-50"}
+            />
+          }
+        />
+
+        {/* LANGUAGE — the #1 cause of a silently dead wake word is picking
+            the wrong one, and the trap is unintuitive: it is the language the
+            user SPEAKS (their pronunciation), NOT the origin of the word
+            ("Ruben" is heard by the German model because the user speaks it
+            in German). Bound to the wake word's OWN language pin
+            ([trigger.wake_word] language) — the app display language and the
+            STT recognition language stay untouched, and neither can move
+            this choice. */}
+        <SettingsRow
+          title={t("settings_view.wake_word.language_label")}
+          description={t("settings_view.wake_word.language_callout_title")}
+          control={
+            <LanguageDropdown
+              value={wakeLang}
+              options={WAKE_LANGUAGES}
+              placeholder={t("settings_view.wake_word.language_placeholder")}
+              labelFor={(code) => t(`languages_view.options.${code}.label`)}
+              onChange={(code) => void onPickWakeLanguage(code)}
+              disabled={loading}
+            />
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            {t("settings_view.wake_word.language_hint")}
+          </p>
+        </SettingsRow>
+
+        <SettingsRow
+          title={t("settings_view.wake_word.engine_label")}
+          control={
+            <SettingsSelect
+              value={engine}
+              onValueChange={setEngine}
+              ariaLabel={t("settings_view.wake_word.engine_label")}
+              disabled={loading}
+              options={WAKE_ENGINES.map((wakeEngine) => ({
+                value: wakeEngine,
+                label: t(WAKE_ENGINE_I18N_KEY[wakeEngine]),
+              }))}
+            />
+          }
+        >
+          {engine === "custom_onnx" && (
+            <label className="block">
+              <span className="mb-1.5 block text-sm text-muted-foreground">
+                {t("settings_view.wake_word.custom_model_path_label")}
+              </span>
+              <input
+                value={customModelPath}
+                onChange={(e) => setCustomModelPath(e.target.value)}
+                placeholder="C:\\Users\\...\\my_wakeword.onnx"
+                disabled={loading}
+                className={settingsInputCls + " font-mono text-sm disabled:opacity-50"}
+              />
+            </label>
+          )}
+
+          {/* Any-phrase enablement: install the local speech pack in-app so
+              an arbitrary wake word works, instead of silently degrading. */}
+          {showNeedsWhisperHint && (
+            <SettingsNote>
+              <p className="text-warning">
+                {t("settings_view.wake_word.needs_whisper_hint")}
+              </p>
+
+              {installStatus.state === "idle" && (
+                <Button size="sm" className="mt-stack" onClick={() => void install()}>
+                  {t("settings_view.wake_word.enable_local_button")}
+                </Button>
+              )}
+
+              {installStatus.state === "running" && (
+                <p className="mt-stack flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {t("settings_view.wake_word.enable_local_installing")}
+                </p>
+              )}
+
+              {installStatus.state === "error" && (
+                <div className="mt-stack text-destructive">
+                  <p>{t("settings_view.wake_word.enable_local_error")}</p>
+                  {installStatus.message && (
+                    <p className="mt-1 font-mono text-micro text-muted-foreground">
+                      {installStatus.message}
+                    </p>
+                  )}
+                  <Button size="sm" className="mt-stack" onClick={() => void install()}>
+                    {t("settings_view.wake_word.enable_local_retry")}
+                  </Button>
+                </div>
+              )}
+
+              {installStatus.state === "done" && (
+                <p className="mt-stack text-success">
+                  {t("settings_view.wake_word.enable_local_done")}
+                </p>
+              )}
+            </SettingsNote>
+          )}
+        </SettingsRow>
+
+        {/* Save + Test, then the honest verdicts they produce. */}
+        <div className="space-y-3 px-4 py-3.5">
+          {/* Self-test result — readiness verdict (engine + language +
+              vocabulary + mic), the fast way to see WHY a word won't wake.
+              One surface for both verdicts; the status ink carries it. */}
+          {showResultNote && selfTest.data && (
+            <SettingsNote>
+              <p className={selfTest.data.ok ? "text-success" : "text-destructive"}>
+                {backendMessage(
+                  t,
+                  "settings_view.wake_word.msg",
+                  selfTest.data.message_code,
+                  selfTest.data.message_params,
+                  selfTest.data.message,
+                )}
+              </p>
+              {selfTest.data.hint && (
+                <p className="mt-1 text-muted-foreground">
+                  {backendMessage(
+                    t,
+                    "settings_view.wake_word.hint",
+                    selfTest.data.hint_code,
+                    selfTest.data.message_params,
+                    selfTest.data.hint,
+                  )}
+                </p>
+              )}
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                {fill(t("settings_view.wake_word.diag_engine"), { engine: selfTest.data.engine })}
+                {" · "}
+                {fill(t("settings_view.wake_word.diag_language"), { language: selfTest.data.language })}
+                {selfTest.data.phrase_in_vocab === false
+                  ? ` · ${t("settings_view.wake_word.diag_not_in_vocab")}`
+                  : ""}
+                {selfTest.data.mic_ok ? "" : ` · ${t("settings_view.wake_word.diag_mic_quiet")}`}
+              </p>
+            </SettingsNote>
+          )}
+
+          {result && (
+            <SettingsNote>
+              <p className={result.degraded ? "text-warning" : "text-success"}>
+                {result.degraded
+                  ? t("settings_view.wake_word.degraded_warning")
+                  : wakeSaveMessage}
+              </p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                {fill(t("settings_view.wake_word.diag_engine"), { engine: result.resolved_engine })}
+              </p>
+              {result.degraded && result.message && (
+                <p className="mt-1 text-muted-foreground">{wakeSaveMessage}</p>
+              )}
+              {result.restart_required && (
+                <p className="mt-1 text-muted-foreground">
+                  {t("settings_view.wake_word.restart_required")}
+                </p>
+              )}
+
+              {/* In-app recovery for the degraded ("stt_match only")
+                  scenario: the backend's own suggestion as a real button. */}
+              {result.degraded && (
+                <div className="mt-stack">
+                  {wakeModelDownload.state === "idle" && (
+                    <Button size="sm" onClick={() => void onDownloadWakeModel()}>
+                      {t("settings_view.wake_word.download_model_button")}
+                    </Button>
+                  )}
+
+                  {wakeModelDownload.state === "running" && (
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      {t("settings_view.wake_word.download_model_downloading")}
+                    </p>
+                  )}
+
+                  {wakeModelDownload.state === "done" && (
+                    <p className="text-success">
+                      {wakeModelDownload.message ||
+                        t("settings_view.wake_word.download_model_done")}
+                    </p>
+                  )}
+
+                  {wakeModelDownload.state === "error" && (
+                    <div className="text-destructive">
+                      <p>
+                        {wakeModelDownload.message ||
+                          t("settings_view.wake_word.download_model_error")}
+                      </p>
+                      <Button
+                        size="sm"
+                        className="mt-stack"
+                        onClick={() => void onDownloadWakeModel()}
+                      >
+                        {t("settings_view.wake_word.download_model_retry")}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </SettingsNote>
+          )}
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void onSelfTest()}
+              disabled={selfTest.state === "running" || loading || !trimmedPhrase}
+            >
+              {selfTest.state === "running" ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  {t("settings_view.wake_word.self_test_running")}
+                </>
+              ) : (
+                t("settings_view.wake_word.self_test_button")
+              )}
+            </Button>
+            <Button
+              size="sm"
+              onClick={onSave}
+              disabled={saving || loading || !trimmedPhrase}
+            >
+              {saving
+                ? t("settings_view.saving")
+                : t("settings_view.wake_word.save")}
+            </Button>
+          </div>
+        </div>
+      </SettingsCard>
+    </SettingsSection>
+  );
+}
+
+/*
+ * The keybind rows moved to their own Settings-hub page ("Keyboard shortcuts",
+ * views/ShortcutsView). Re-exported so existing imports keep resolving.
+ */
+export { KeybindsPanel } from "@/views/settings/KeybindsPanel";

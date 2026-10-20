@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.society.capabilities import build_catalog
-from jarvis.society.focus import derive_approval_rules, derive_focus
+from dodaios.society.capabilities import build_catalog
+from dodaios.society.focus import derive_approval_rules, derive_focus
 
 
 def _tool(name: str, desc: str = "x.") -> SimpleNamespace:

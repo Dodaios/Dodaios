@@ -61,11 +61,11 @@ timestamp window. Specifically unchanged:
 - `_canonical_args_json`, `_compute_hmac`, `_decode_request` (with its 5-step
   ordering: parse → timestamp window → nonce-replay → HMAC verify → schema
   validate), `_encode_response`, the nonce LRU, and the
-  `_TIMESTAMP_WINDOW_NS` / `_NONCE_LRU_SIZE` constants (`jarvis/admin/ipc.py`).
+  `_TIMESTAMP_WINDOW_NS` / `_NONCE_LRU_SIZE` constants (`dodaios/admin/ipc.py`).
 - `_AdminOpBase` (`frozen=True`, `extra="forbid"`) and the discriminated
-  `AdminOperation` union (`jarvis/admin/schema.py`).
+  `AdminOperation` union (`dodaios/admin/schema.py`).
 - The `AdminExecutor._run_subprocess` list-argv + `shell=False` +
-  `NO_WINDOW_CREATIONFLAGS` contract (`jarvis/admin/executor.py`).
+  `NO_WINDOW_CREATIONFLAGS` contract (`dodaios/admin/executor.py`).
 
 **The regression guard that protects this core is
 `tests/unit/admin/test_hmac_replay.py`** — it exercises `_decode_request` at the
@@ -74,7 +74,7 @@ refactor.
 
 ### 2. `AdminTransport` seam (transport swap)
 
-A new `AdminTransport` protocol (`jarvis/admin/transport.py`) carries raw bytes:
+A new `AdminTransport` protocol (`dodaios/admin/transport.py`) carries raw bytes:
 
 - Server: `async def serve(handler)` where `handler: Callable[[bytes],
   Awaitable[bytes]]` is the reused `_decode_request → executor.execute →
@@ -103,7 +103,7 @@ Per-OS implementations:
 
 ### 3. `Elevator` seam (privilege acquisition)
 
-A new `Elevator` protocol (`jarvis/admin/elevator.py`) spawns/authorizes the
+A new `Elevator` protocol (`dodaios/admin/elevator.py`) spawns/authorizes the
 helper bound to the transport address:
 
 - **`UacElevator` (Windows):** the existing `ShellExecuteW("runas", …)` flow,
@@ -133,7 +133,7 @@ defenses for convenience. The helper still runs every op through the reused
 
 All 13 ADR-0001-era ops are Windows-native (winget/sc/netsh/winreg/schtasks).
 "Port all" means a **new** per-OS op vocabulary, defined in
-`jarvis/admin/schema_unix.py`. Every new model subclasses `_AdminOpBase`
+`dodaios/admin/schema_unix.py`. Every new model subclasses `_AdminOpBase`
 (`frozen=True`, `extra="forbid"`) so it inherits the exact same strict
 validation, and every user-controlled field is **pattern-validated argv only** —
 a malicious payload such as `package="git; rm -rf /"` fails the regex before any
@@ -216,16 +216,16 @@ per-action prompt even at autonomy level `trusted`).
 - Regression guard (unmoved security core):
   `tests/unit/admin/test_hmac_replay.py`.
 - Implementation:
-  - `jarvis/admin/transport.py` (`AdminTransport`, `NamedPipeTransport`,
+  - `dodaios/admin/transport.py` (`AdminTransport`, `NamedPipeTransport`,
     `make_admin_transport`) — sub-task 3.1.
-  - `jarvis/admin/unix_socket.py` (`UnixSocketTransport`) — sub-task 3.2.
-  - `jarvis/admin/schema_unix.py` (per-OS op vocabulary) — sub-task 3.3.
-  - `jarvis/admin/executor.py` (per-OS argv builders) — sub-task 3.3.
-  - `jarvis/admin/elevator.py` (`Elevator`, `UacElevator`, `PolkitElevator`,
+  - `dodaios/admin/unix_socket.py` (`UnixSocketTransport`) — sub-task 3.2.
+  - `dodaios/admin/schema_unix.py` (per-OS op vocabulary) — sub-task 3.3.
+  - `dodaios/admin/executor.py` (per-OS argv builders) — sub-task 3.3.
+  - `dodaios/admin/elevator.py` (`Elevator`, `UacElevator`, `PolkitElevator`,
     `SudoElevator`, `MacAuthElevator`, `NullElevator`, `make_elevator`) —
     sub-task 3.4.
-  - `jarvis/admin/client.py` / `jarvis/admin/helper.py` (seam wiring) —
+  - `dodaios/admin/client.py` / `dodaios/admin/helper.py` (seam wiring) —
     sub-task 3.6.
 - Fakes: `tests/fakes/fake_admin_transport.py`, `tests/fakes/fake_elevator.py`.
-- Safety mandate: `jarvis/admin/schema.py` module docstring (§Safety); CLAUDE.md
+- Safety mandate: `dodaios/admin/schema.py` module docstring (§Safety); CLAUDE.md
   AP-1/AP-2/AP-3 (subprocess hygiene, no-secrets-via-voice, ToolExecutor-only).

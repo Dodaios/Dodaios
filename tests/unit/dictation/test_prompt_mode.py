@@ -34,11 +34,11 @@ from typing import Any
 
 import pytest
 
-from jarvis.core.config import DictationConfig
-from jarvis.core.config_writer import DICTATION_SETTING_KEYS
-from jarvis.dictation import polish, prompt_mode
-from jarvis.dictation.polish import POLISH_STATUSES
-from jarvis.dictation.prompt_mode import (
+from dodaios.core.config import DictationConfig
+from dodaios.core.config_writer import DICTATION_SETTING_KEYS
+from dodaios.dictation import polish, prompt_mode
+from dodaios.dictation.polish import POLISH_STATUSES
+from dodaios.dictation.prompt_mode import (
     STATUS_PROMPTED,
     asks_for_a_prompt,
     build_prompt_mode_prompt,
@@ -57,7 +57,7 @@ from jarvis.dictation.prompt_mode import (
     timeout_budget_s,
     transcript_literals,
 )
-from jarvis.ui.web.dictation_routes import SettingsBody
+from dodaios.ui.web.dictation_routes import SettingsBody
 
 RAW = (
     "okay so um the login page is broken again when you type a wrong password "

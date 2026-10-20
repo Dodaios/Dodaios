@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import threading
 
-from jarvis.vision.screenshot import ScreenshotSource, _CapturedImage
+from dodaios.vision.screenshot import ScreenshotSource, _CapturedImage
 
 
 async def test_concurrent_observations_keep_their_own_capture_geometry(

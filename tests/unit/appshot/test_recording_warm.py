@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.appshot import recording
+from dodaios.appshot import recording
 
 
 class FakeInput:
@@ -56,7 +56,7 @@ class FakeProcess:
 
 @pytest.fixture
 def setup_service(monkeypatch, tmp_path):
-    from jarvis.core import config
+    from dodaios.core import config
 
     monkeypatch.setattr(recording, "recording_dir", lambda: tmp_path)
     monkeypatch.setattr(recording, "capability", lambda: {"available": True})
@@ -71,7 +71,7 @@ def setup_service(monkeypatch, tmp_path):
     processes = []
 
     async def spawn(*args, **kwargs):
-        assert "jarvis.appshot.recording_worker" in args
+        assert "dodaios.appshot.recording_worker" in args
         assert "creationflags" in kwargs
         process = FakeProcess()
         processes.append(process)
@@ -197,7 +197,7 @@ async def test_cancelled_warmup_reaps_a_late_spawn(setup_service, monkeypatch):
 
 
 async def test_standby_timeout_reaps_worker_and_allows_retry(setup_service, monkeypatch):
-    from jarvis.appshot import recording_runtime
+    from dodaios.appshot import recording_runtime
 
     service, processes = setup_service
     original = asyncio.create_subprocess_exec

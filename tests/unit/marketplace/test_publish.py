@@ -7,8 +7,8 @@ from typing import Any
 import httpx
 import pytest
 
-from jarvis.marketplace import publish
-from jarvis.marketplace.token_store import Tokens
+from dodaios.marketplace import publish
+from dodaios.marketplace.token_store import Tokens
 
 
 def _skill_draft(**overrides: Any) -> dict[str, Any]:
@@ -205,7 +205,7 @@ def test_mcp_and_install_authority_agree_on_acceptance() -> None:
     """W3 "done when" (publishing-plan.md): the same mcp.json fixture is
     judged identically by the app's pre-check and by the install-time
     authority (agent_plugins_loader.validate_mcp_server) it delegates to."""
-    from jarvis.marketplace import agent_plugins_loader
+    from dodaios.marketplace import agent_plugins_loader
 
     server = {
         "type": "stdio",
@@ -225,7 +225,7 @@ def test_mcp_and_install_authority_agree_on_acceptance() -> None:
 
 
 def test_mcp_and_install_authority_agree_on_rejection() -> None:
-    from jarvis.marketplace import agent_plugins_loader
+    from dodaios.marketplace import agent_plugins_loader
 
     server = {"type": "sse", "url": "https://mcp.todofox.example/sse"}
     mcp_json = {"mcpServers": {"todo-fox": server}}
@@ -450,7 +450,7 @@ async def test_submit_disabled_deployment(monkeypatch: pytest.MonkeyPatch) -> No
 async def test_live_status_reports_the_feed_truthfully(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from jarvis.marketplace import community_source
+    from dodaios.marketplace import community_source
 
     index = community_source.CommunityIndex.model_validate(
         {"skills": [{"name": "three-point-check", "version": "1.0.0"}]}

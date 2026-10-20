@@ -42,7 +42,7 @@ from typing import Any
 
 import pytest
 
-from jarvis.agentic_ide import resume_store
+from dodaios.agentic_ide import resume_store
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +64,7 @@ def _pane_sessions_in_tmp(
     A spawned Claude pane writes its hook settings file; without this every
     test that spawns one would write into the developer's own data folder.
     """
-    from jarvis.agentic_ide import pane_sessions
+    from dodaios.agentic_ide import pane_sessions
 
     target = tmp_path_factory.mktemp("pane-sessions") / "pane_sessions"
     monkeypatch.setattr(pane_sessions, "_state_dir", lambda: target)
@@ -80,7 +80,7 @@ def _ui_prefs_in_tmp(
     Same store, same failure class as 1 and 2 above: a test that writes a text
     size would change the size of the developer's own terminals.
     """
-    from jarvis.agentic_ide import ui_prefs
+    from dodaios.agentic_ide import ui_prefs
 
     target = tmp_path_factory.mktemp("ui-prefs") / "ui_prefs.json"
     monkeypatch.setattr(ui_prefs, "_store_path", lambda: target)
@@ -98,7 +98,7 @@ def _chat_library_in_tmp(
     would file its temporary folders into the sidebar of whoever ran it — and,
     worse, could delete a real project on the way through a delete test.
     """
-    from jarvis.agentic_ide import library
+    from dodaios.agentic_ide import library
 
     root = tmp_path_factory.mktemp("chat-library")
     monkeypatch.setattr(library, "_root", lambda: root)
@@ -108,7 +108,7 @@ def _chat_library_in_tmp(
 @pytest.fixture(autouse=True)
 def _never_touch_real_agent_configs(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep the trust pre-seed away from the developer's own CLI configuration."""
-    from jarvis.workspace import trust
+    from dodaios.workspace import trust
 
     def _skip(*_args: Any, **_kwargs: Any) -> list[trust.TrustResult]:
         return []
@@ -124,7 +124,7 @@ def _fresh_writer_cache() -> None:
     production. Between tests that cache is a leak: the first test to resolve a
     writer would hand its monkeypatched brain to every later test in the run.
     """
-    from jarvis.agentic_ide import writer
+    from dodaios.agentic_ide import writer
 
     writer.invalidate_writer_cache()
 
@@ -138,7 +138,7 @@ def _fresh_hedge_history() -> None:
     leak: an instant fake writer in one test would tighten the insurance for a
     later test that expects the documented ceiling.
     """
-    from jarvis.agentic_ide import prompt_composer
+    from dodaios.agentic_ide import prompt_composer
 
     prompt_composer._forget_writer_seconds()  # noqa: SLF001
 
@@ -160,8 +160,8 @@ def _agent_history_in_tmp(
     variable are redirected at their own seam, for the same reason: a test that
     can reach the developer's real history is a test that will, eventually.
     """
-    from jarvis.agentic_ide import agent_sessions
-    from jarvis.workspace import agents as workspace_agents
+    from dodaios.agentic_ide import agent_sessions
+    from dodaios.workspace import agents as workspace_agents
 
     home = tmp_path_factory.mktemp("agent-history")
     for entry in workspace_agents.coding_agents():
@@ -190,7 +190,7 @@ def _agent_accounts_in_tmp(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ) -> Path:
     """Give each test its own empty account list and account folder root."""
-    from jarvis import agent_accounts
+    from dodaios import agent_accounts
 
     root = tmp_path_factory.mktemp("agent-accounts")
     monkeypatch.setattr(agent_accounts, "_store_path", lambda: root / "accounts.json")
@@ -206,7 +206,7 @@ def existing_conversation() -> Any:
     exists" and "a conversation exists" is the bug this guards, and stubbing the
     lookup would stub out exactly the thing under test.
     """
-    from jarvis.agentic_ide import agent_sessions
+    from dodaios.agentic_ide import agent_sessions
 
     def _claude(session_id: str) -> None:
         folder = agent_sessions._claude_home() / "projects" / "a-project"

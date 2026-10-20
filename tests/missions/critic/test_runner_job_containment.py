@@ -20,8 +20,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.missions.critic.runner import CriticRunner
-from jarvis.missions.critic.verdict import REQUIRED_AXES
+from dodaios.missions.critic.runner import CriticRunner
+from dodaios.missions.critic.verdict import REQUIRED_AXES
 
 
 def _valid_verdict_json(verdict: str = "approve") -> str:
@@ -95,7 +95,7 @@ async def test_claude_direct_assigns_spawned_pid_to_the_job(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
 
@@ -126,7 +126,7 @@ async def test_claude_direct_without_factory_stays_a_graceful_no_op(
     callers, e.g. tests/missions/critic/test_runner_claude_direct.py) must
     keep working unchanged."""
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
 
@@ -148,7 +148,7 @@ async def test_codex_direct_assigns_spawned_pid_to_the_job(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._resolve_codex_binary",
+        "dodaios.missions.workers.codex_direct_worker._resolve_codex_binary",
         lambda: "codex",
     )
     ndjson = (
@@ -185,7 +185,7 @@ async def test_codex_direct_without_factory_stays_a_graceful_no_op(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(
-        "jarvis.missions.workers.codex_direct_worker._resolve_codex_binary",
+        "dodaios.missions.workers.codex_direct_worker._resolve_codex_binary",
         lambda: "codex",
     )
     ndjson = (
@@ -217,10 +217,10 @@ async def test_claude_direct_timeout_still_closes_the_job(
 ) -> None:
     """The job must be closed (reaping any grandchild) even on the timeout
     path, which re-raises CriticTimeout."""
-    from jarvis.missions.critic.runner import CriticTimeout
+    from dodaios.missions.critic.runner import CriticTimeout
 
     monkeypatch.setattr(
-        "jarvis.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
+        "dodaios.missions.workers.claude_direct_worker._resolve_claude_argv_prefix",
         lambda: ["claude"],
     )
 

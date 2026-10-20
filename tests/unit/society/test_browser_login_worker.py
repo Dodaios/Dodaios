@@ -22,7 +22,7 @@ from tests.fakes.browser_login import (
 def runtime(monkeypatch, tmp_path):
     previous = sys.stdout
     try:
-        from jarvis.society.browser import live_runner
+        from dodaios.society.browser import live_runner
     finally:
         sys.stdout = previous
     events, wire = [], []

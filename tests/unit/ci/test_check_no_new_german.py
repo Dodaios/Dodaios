@@ -62,7 +62,7 @@ class TestLooksGerman:
 # --------------------------------------------------------------------------- #
 class TestAllowlist:
     patterns = [
-        "jarvis/brain/JARVIS_PERSONA.md",
+        "dodaios/brain/JARVIS_PERSONA.md",
         "scripts/bulk_translate*.py",
         "*/i18n/*",
         "wiki/obsidian-vault/*",
@@ -70,24 +70,24 @@ class TestAllowlist:
     ]
 
     def test_exact_match(self):
-        assert gate.is_allowlisted("jarvis/brain/JARVIS_PERSONA.md", self.patterns)
+        assert gate.is_allowlisted("dodaios/brain/JARVIS_PERSONA.md", self.patterns)
 
     def test_glob_prefix(self):
         assert gate.is_allowlisted("scripts/bulk_translate_2.py", self.patterns)
 
     def test_subtree_match(self):
         assert gate.is_allowlisted(
-            "jarvis/ui/web/frontend/src/i18n/de.ts", self.patterns
+            "dodaios/ui/web/frontend/src/i18n/de.ts", self.patterns
         )
         assert gate.is_allowlisted(
             "wiki/obsidian-vault/sessions/2026-05-28-x.md", self.patterns
         )
 
     def test_backslash_normalised(self):
-        assert gate.is_allowlisted("jarvis\\brain\\JARVIS_PERSONA.md", self.patterns)
+        assert gate.is_allowlisted("dodaios\\brain\\JARVIS_PERSONA.md", self.patterns)
 
     def test_non_allowlisted(self):
-        assert not gate.is_allowlisted("jarvis/brain/manager.py", self.patterns)
+        assert not gate.is_allowlisted("dodaios/brain/manager.py", self.patterns)
 
     def test_real_allowlist_file_loads(self):
         patterns = gate.load_allowlist()
@@ -97,7 +97,7 @@ class TestAllowlist:
 
 class TestScannedExtensions:
     def test_text_types_scanned(self):
-        assert gate.is_scanned("jarvis/foo.py")
+        assert gate.is_scanned("dodaios/foo.py")
         assert gate.is_scanned("docs/readme.md")
         assert gate.is_scanned("ui/Component.tsx")
 
@@ -111,10 +111,10 @@ class TestScannedExtensions:
 # diff parsing
 # --------------------------------------------------------------------------- #
 DIFF = """\
-diff --git a/jarvis/foo.py b/jarvis/foo.py
+diff --git a/dodaios/foo.py b/dodaios/foo.py
 index 1111111..2222222 100644
---- a/jarvis/foo.py
-+++ b/jarvis/foo.py
+--- a/dodaios/foo.py
++++ b/dodaios/foo.py
 @@ -10,0 +11,2 @@ def foo():
 +    raise ValueError("Datei wurde nicht gefunden")
 +    raise ValueError("file not found")
@@ -131,8 +131,8 @@ index 3333333..0000000
 class TestParseAddedLines:
     def test_extracts_added_with_paths_and_linenos(self):
         added = gate.parse_added_lines(DIFF)
-        assert ("jarvis/foo.py", 11, '    raise ValueError("Datei wurde nicht gefunden")') in added
-        assert ("jarvis/foo.py", 12, '    raise ValueError("file not found")') in added
+        assert ("dodaios/foo.py", 11, '    raise ValueError("Datei wurde nicht gefunden")') in added
+        assert ("dodaios/foo.py", 12, '    raise ValueError("file not found")') in added
 
     def test_deletions_to_devnull_ignored(self):
         added = gate.parse_added_lines(DIFF)
@@ -148,15 +148,15 @@ class TestFindViolations:
         added = gate.parse_added_lines(DIFF)
         violations = gate.find_violations(added, patterns=[])
         assert len(violations) == 1
-        assert violations[0][0] == "jarvis/foo.py"
+        assert violations[0][0] == "dodaios/foo.py"
         assert violations[0][1] == 11
 
     def test_allowlisted_path_is_exempt(self):
-        added = [("jarvis/brain/JARVIS_PERSONA.md", 5, "Du bist ein Butler und hilfst")]
-        assert gate.find_violations(added, ["jarvis/brain/JARVIS_PERSONA.md"]) == []
+        added = [("dodaios/brain/JARVIS_PERSONA.md", 5, "Du bist ein Butler und hilfst")]
+        assert gate.find_violations(added, ["dodaios/brain/JARVIS_PERSONA.md"]) == []
 
     def test_inline_escape_is_exempt(self):
-        added = [("jarvis/x.py", 5, 'TEST = "Datei nicht gefunden"  # i18n-allow')]
+        added = [("dodaios/x.py", 5, 'TEST = "Datei nicht gefunden"  # i18n-allow')]
         assert gate.find_violations(added, []) == []
 
     def test_non_text_file_is_skipped(self):

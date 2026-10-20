@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "ci"))
 import privacy_pre_push as gate  # noqa: E402
 import privacy_scan_ci as ci  # noqa: E402
 
-PATH = "jarvis/marketplace/plugins/github/mcp.json"
+PATH = "dodaios/marketplace/plugins/github/mcp.json"
 HTTP = {"type": "streamable-http", "url": "https://api.githubcopilot.com/mcp/"}
 
 
@@ -29,7 +29,7 @@ def manifest(server=None, name="github"):
 
 
 def test_existing_catalog_manifests_are_public():
-    paths = list((ROOT / "jarvis/marketplace/plugins").glob("*/mcp.json"))
+    paths = list((ROOT / "dodaios/marketplace/plugins").glob("*/mcp.json"))
     assert paths
     for path in paths:
         assert gate.is_public_catalog_mcp(path.relative_to(ROOT).as_posix(), path.read_text()), path
@@ -40,11 +40,11 @@ def test_existing_catalog_manifests_are_public():
     [
         "mcp.json",
         "private/mcp.json",
-        "jarvis/marketplace/plugins/example/../mcp.json",
-        "./jarvis/marketplace/plugins/example/mcp.json",
+        "dodaios/marketplace/plugins/example/../mcp.json",
+        "./dodaios/marketplace/plugins/example/mcp.json",
         PATH.replace("/", "\\"),
         "/" + PATH,
-        "jarvis/marketplace/plugins/example/nested/mcp.json",
+        "dodaios/marketplace/plugins/example/nested/mcp.json",
     ],
 )
 def test_personal_and_ambiguous_paths_stay_forbidden(path):
@@ -115,9 +115,9 @@ def test_invalid_structure_is_forbidden(text):
     [
         ["-c", "print('private')"],
         ["-m", "other"],
-        ["-m", "jarvis.plugins.tool.connected_server", "other"],
-        ["-m", "jarvis.marketplace.amd_mcp"],
-        ["-m", "jarvis.plugins.tool.connected_server", "example", "private"],
+        ["-m", "dodaios.plugins.tool.connected_server", "other"],
+        ["-m", "dodaios.marketplace.amd_mcp"],
+        ["-m", "dodaios.plugins.tool.connected_server", "example", "private"],
     ],
 )
 def test_arbitrary_stdio_commands_are_forbidden(args):
@@ -128,7 +128,7 @@ def test_arbitrary_stdio_commands_are_forbidden(args):
 
 def test_a_manifest_may_name_the_server_under_every_package_name():
     """Published manifests keep the module name they were published with."""
-    from jarvis.core import branding
+    from dodaios.core import branding
 
     assert gate.LEGACY_PACKAGE_NAMES == branding.LEGACY_PACKAGE_NAMES
     here = PATH.partition("/")[0]
@@ -164,7 +164,7 @@ def test_normalized_stdio_identity_is_allowed():
     server = {
         "type": "stdio",
         "command": "python",
-        "args": ["-m", "jarvis.plugins.tool.connected_server", "some_plugin"],
+        "args": ["-m", "dodaios.plugins.tool.connected_server", "some_plugin"],
     }
     assert gate.is_public_catalog_mcp(
         PATH.replace("github", "some-plugin"), manifest(server, "some_plugin")

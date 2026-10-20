@@ -8,7 +8,7 @@ accessible pin, NOT the ambiguous bare "opus" alias the guard below forbids.
 """
 from __future__ import annotations
 
-from jarvis.missions.critic.escalation import (
+from dodaios.missions.critic.escalation import (
     DEFAULT_FALLBACK_MODEL,
     MODEL_TIER_BY_ITERATION,
     choose_critic_model,

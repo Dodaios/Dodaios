@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from jarvis.platform.permission_service import PermissionService
+from dodaios.platform.permission_service import PermissionService
 from tests.fakes.fake_tcc import TccService, install_port, make_darwin_port
 
 _WORKFLOW = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "macos-desktop.yml"

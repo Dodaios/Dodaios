@@ -7,8 +7,8 @@ pinned by monkeypatching the platform probes.
 """
 from __future__ import annotations
 
-from jarvis.platform import window_state as ws
-from jarvis.platform.window_state import WindowInfo
+from dodaios.platform import window_state as ws
+from dodaios.platform.window_state import WindowInfo
 
 # --- pure: window_is_on_monitor ----------------------------------------------
 

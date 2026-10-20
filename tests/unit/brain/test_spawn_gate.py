@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.spawn_gate import (
+from dodaios.brain.spawn_gate import (
     OFFER_WINDOW,
     SPAWN_VEHICLE_TOOL_NAMES,
     DelegationOfferWindow,
@@ -230,6 +230,6 @@ def test_explicit_request_disarms_a_stale_offer() -> None:
 
 
 def test_vehicle_tool_names_match_manager_inventory() -> None:
-    from jarvis.brain.manager import _SPAWN_TOOL_NAMES
+    from dodaios.brain.manager import _SPAWN_TOOL_NAMES
 
     assert SPAWN_VEHICLE_TOOL_NAMES == _SPAWN_TOOL_NAMES

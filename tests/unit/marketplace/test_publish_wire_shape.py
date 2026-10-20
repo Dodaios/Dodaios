@@ -19,8 +19,8 @@ from __future__ import annotations
 import inspect
 import re
 
-from jarvis.marketplace import publish
-from jarvis.ui.web.marketplace_publish_routes import SubmissionDraft
+from dodaios.marketplace import publish
+from dodaios.ui.web.marketplace_publish_routes import SubmissionDraft
 
 # Keys `validate_draft` (and the helpers it calls in the same module) read off
 # the incoming draft dict.

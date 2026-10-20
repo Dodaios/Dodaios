@@ -10,8 +10,8 @@ import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.friends.registry import FriendRegistry
-from jarvis.ui.web.friends_routes import router as friends_router
+from dodaios.friends.registry import FriendRegistry
+from dodaios.ui.web.friends_routes import router as friends_router
 
 
 @pytest_asyncio.fixture

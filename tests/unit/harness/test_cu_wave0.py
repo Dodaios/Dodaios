@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-import jarvis.harness.screenshot_only_loop as loop_mod
-from jarvis.core.events import (
+import dodaios.harness.screenshot_only_loop as loop_mod
+from dodaios.core.events import (
     CU_PROGRESS_EVENTS,
     ActionPlanned,
     AnnouncementRequested,
@@ -63,7 +63,7 @@ def test_speech_pipeline_subscribes_via_the_constant() -> None:
     subscription instead of hardcoding two event types."""
     import inspect
 
-    import jarvis.speech.pipeline as pipeline_mod
+    import dodaios.speech.pipeline as pipeline_mod
 
     src = inspect.getsource(pipeline_mod)
     assert "CU_PROGRESS_EVENTS" in src

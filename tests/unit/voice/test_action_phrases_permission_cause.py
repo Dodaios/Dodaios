@@ -6,11 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.brain.manager import BrainManager
-from jarvis.platform.permission_service import agent_detail_for
-from jarvis.platform.permissions import PermissionId
-from jarvis.realtime.session import _speakable_failure_reason
-from jarvis.voice.action_phrases import (
+from dodaios.brain.manager import BrainManager
+from dodaios.platform.permission_service import agent_detail_for
+from dodaios.platform.permissions import PermissionId
+from dodaios.realtime.session import _speakable_failure_reason
+from dodaios.voice.action_phrases import (
     action_phrase,
     cu_failure_readback,
     extract_speakable_reason,

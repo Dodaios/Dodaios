@@ -12,7 +12,7 @@ stamp it would escape the budget entirely.
 
 from __future__ import annotations
 
-from jarvis.diagnostics.realtime_forensics import (
+from dodaios.diagnostics.realtime_forensics import (
     SPAWN_FIRST_AUDIO_BUDGET_MS,
     SPAWN_READY_BUDGET_MS,
     evaluate_postmortem,

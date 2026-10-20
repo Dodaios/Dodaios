@@ -13,12 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.core.bus import EventBus
-from jarvis.skills.registry import SkillRegistry
-from jarvis.skills.runner import SkillRunner
-from jarvis.skills.schema import SkillDirectTriggered
-from jarvis.skills.skill_context import SkillContext, set_skill_context
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.core.bus import EventBus
+from dodaios.skills.registry import SkillRegistry
+from dodaios.skills.runner import SkillRunner
+from dodaios.skills.schema import SkillDirectTriggered
+from dodaios.skills.skill_context import SkillContext, set_skill_context
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class FakeTTS:
@@ -210,8 +210,8 @@ class FakeCronBrain(FakeBrain):
 async def test_cron_fire_routes_through_brain_and_announces(
     skill_ctx_with_bus: EventBus,
 ) -> None:
-    from jarvis.core.events import AnnouncementRequested
-    from jarvis.skills.skill_context import get_skill_context
+    from dodaios.core.events import AnnouncementRequested
+    from dodaios.skills.skill_context import get_skill_context
 
     bus = skill_ctx_with_bus
     brain = FakeCronBrain(reply="Briefing done.")
@@ -243,7 +243,7 @@ async def test_cron_fire_legacy_fallback_without_brain_handoff(
     skill_ctx_with_bus: EventBus,
 ) -> None:
     """A brain without note_skill_trigger falls back to the legacy runner."""
-    from jarvis.skills.skill_context import get_skill_context
+    from dodaios.skills.skill_context import get_skill_context
 
     bus = skill_ctx_with_bus
 

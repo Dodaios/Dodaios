@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jarvis.voice_engine.chunker import ClauseChunker
+from dodaios.voice_engine.chunker import ClauseChunker
 
 
 def _run(deltas: list[str], **kwargs: int) -> list[str]:

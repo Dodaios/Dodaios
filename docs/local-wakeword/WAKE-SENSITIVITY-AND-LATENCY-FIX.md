@@ -26,20 +26,20 @@ shouting) for **any** user-configured wake word, and make the Jarvis-Bar appear
 
 ## The fix
 
-- **New shared input AGC** — `jarvis/audio/wake_normalizer.py`
+- **New shared input AGC** — `dodaios/audio/wake_normalizer.py`
   (`AdaptiveWakeNormalizer`): one reusable, amplify-only, capped normalizer with
   an **adaptive noise floor** (EMA over quiet frames, like
   `mic_level.LevelNormalizer`). On a quiet mic the floor settles low so a quiet
   wake rises above it and is amplified; flat digital silence and steady
   sub-floor hiss are returned unchanged, so the AGC can never manufacture an
   ambient false-fire band. Pure numpy — no OS-specific code.
-- **openWakeWord** (`jarvis/plugins/wake/openwakeword_provider.py`):
+- **openWakeWord** (`dodaios/plugins/wake/openwakeword_provider.py`):
   `WakeGainNormalizer` now delegates to the shared adaptive normalizer
   (floor 0.02 → adaptive-from-0.006, gain cap 20 dB → 30 dB). `start()` now runs
   one throwaway inference to pay the cold-start off the wake path. The pinned
   0.15 activation threshold and the amplify-only + sub-floor guards are
   unchanged, so quiet wakes are lifted **without** widening the false-fire band.
-- **RollingWhisperWake** (`jarvis/speech/rolling_whisper_wake.py`): peak gate
+- **RollingWhisperWake** (`dodaios/speech/rolling_whisper_wake.py`): peak gate
   0.012 → 0.008 (still well above the ~0.0046 idle-hiss level that stays gated),
   poll interval 0.3 s → 0.2 s.
 
@@ -89,9 +89,9 @@ byte-identical results. The reveal path is Tk on every OS (pre-created window,
 
 ## Changed files
 
-- `jarvis/audio/wake_normalizer.py` (new)
-- `jarvis/plugins/wake/openwakeword_provider.py`
-- `jarvis/speech/rolling_whisper_wake.py`
+- `dodaios/audio/wake_normalizer.py` (new)
+- `dodaios/plugins/wake/openwakeword_provider.py`
+- `dodaios/speech/rolling_whisper_wake.py`
 - `tests/unit/audio/test_wake_normalizer.py` (new)
 - `tests/unit/plugins/wake/test_openwakeword_quiet_mic.py` (new)
 - `tests/unit/speech/test_rolling_whisper_wake_quiet_mic.py` (new)

@@ -14,8 +14,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from jarvis.plugins.tts import piper_local
-from jarvis.plugins.tts.piper_local import PiperLocalTTS
+from dodaios.plugins.tts import piper_local
+from dodaios.plugins.tts.piper_local import PiperLocalTTS
 
 
 class _FakeAudio:
@@ -42,7 +42,7 @@ def all_voices_installed(monkeypatch: pytest.MonkeyPatch) -> dict[str, _FakeEngi
     engines: dict[str, _FakeEngine] = {}
 
     monkeypatch.setattr(
-        "jarvis.speech.local_models.bundle_present",
+        "dodaios.speech.local_models.bundle_present",
         lambda model_id, **kw: True,
     )
 
@@ -80,7 +80,7 @@ def test_each_language_gets_its_own_voice(all_voices_installed) -> None:
 
 def test_the_speaker_profile_survives_a_language_switch(all_voices_installed) -> None:
     """Switching language must not switch WHO is speaking (BUG-086's shape)."""
-    from jarvis.speech.local_models import SHERPA_BUNDLES
+    from dodaios.speech.local_models import SHERPA_BUNDLES
 
     tts = PiperLocalTTS(gender="feminine")
 
@@ -120,7 +120,7 @@ def test_no_downloaded_voice_raises_an_actionable_error(
 ) -> None:
     """Silence is the worst possible failure for a voice — say why instead."""
     monkeypatch.setattr(
-        "jarvis.speech.local_models.bundle_present", lambda model_id, **kw: False
+        "dodaios.speech.local_models.bundle_present", lambda model_id, **kw: False
     )
     tts = PiperLocalTTS()
 
@@ -134,7 +134,7 @@ def test_only_downloaded_voices_are_offered(monkeypatch: pytest.MonkeyPatch) -> 
     """Listing a voice that is not on disk would let the user pick silence."""
     present = {"vits-piper-de_DE-thorsten-medium"}
     monkeypatch.setattr(
-        "jarvis.speech.local_models.bundle_present",
+        "dodaios.speech.local_models.bundle_present",
         lambda model_id, **kw: model_id in present,
     )
     tts = PiperLocalTTS()
@@ -183,7 +183,7 @@ def test_callback_capable_engine_yields_incremental_audio(
             return _FakeAudio(seconds=0.0)
 
     monkeypatch.setattr(
-        "jarvis.speech.local_models.bundle_present",
+        "dodaios.speech.local_models.bundle_present",
         lambda _model_id, **_kwargs: True,
     )
     monkeypatch.setattr(
@@ -213,7 +213,7 @@ def test_voices_cover_every_supported_reply_language() -> None:
     of them per turn. A missing voice there is not a gap in a nice-to-have — it
     is the assistant going silent mid-conversation.
     """
-    from jarvis.speech.local_models import PIPER_DEFAULT_VOICES, SHERPA_BUNDLES
+    from dodaios.speech.local_models import PIPER_DEFAULT_VOICES, SHERPA_BUNDLES
 
     languages = {SHERPA_BUNDLES[v].language for v in PIPER_DEFAULT_VOICES}
 
@@ -222,7 +222,7 @@ def test_voices_cover_every_supported_reply_language() -> None:
 
 def test_default_voices_share_one_speaker_profile() -> None:
     """All three defaults must be the same kind of speaker, per the test above."""
-    from jarvis.speech.local_models import PIPER_DEFAULT_VOICES, SHERPA_BUNDLES
+    from dodaios.speech.local_models import PIPER_DEFAULT_VOICES, SHERPA_BUNDLES
 
     genders = {SHERPA_BUNDLES[v].gender for v in PIPER_DEFAULT_VOICES}
 

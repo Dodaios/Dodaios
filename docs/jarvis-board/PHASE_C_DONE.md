@@ -151,7 +151,7 @@ board-backend/
 Plus on the local Jarvis side (commit `b4abe131`):
 
 ```
-jarvis/
+dodaios/
 ├── board/
 │   └── sync.py                # SyncClient with Ed25519 push, keyring priv storage
 ├── core/
@@ -248,7 +248,7 @@ should be planned for Phase D.
 
 ### 5.6 Privkey storage on Linux/macOS
 
-The `_KeyringBackend` in `jarvis/board/sync.py` falls back to the
+The `_KeyringBackend` in `dodaios/board/sync.py` falls back to the
 `keyring` package. On Windows with Credential Manager: stable.
 On Linux without `secret-service` (headless server): keyring fails,
 the privkey ends up **in-memory only** — on restart a
@@ -277,7 +277,7 @@ All three plan decisions from Phase C confirmed and implemented:
 
 | Decision | Where? |
 |---|---|
-| **Push** instead of pull | `jarvis/board/sync.py::SyncClient._push` — the local client goes to the backend, not the other way around. |
+| **Push** instead of pull | `dodaios/board/sync.py::SyncClient._push` — the local client goes to the backend, not the other way around. |
 | **Pubkey-only identity, display_name per push** | `models.Identity.pubkey` is PK; `routes/sync.py` updates `ident.display_name = body.display_name` on every sync. |
 | **Admin token only for initial pairing** | `routes/identity.py` is the only route with `Depends(require_admin_token)`. All other routes use `require_signed_request`. |
 

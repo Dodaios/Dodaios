@@ -23,13 +23,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.agentic_ide import prompt_composer
-from jarvis.agentic_ide import session as session_mod
-from jarvis.agentic_ide.prompt_composer import ComposedPrompt
-from jarvis.agentic_ide.session import PendingPromptAttachmentBatch, Registry
-from jarvis.brain.manager import BrainManager
-from jarvis.core.bus import EventBus
-from jarvis.core.config import JarvisConfig
+from dodaios.agentic_ide import prompt_composer
+from dodaios.agentic_ide import session as session_mod
+from dodaios.agentic_ide.prompt_composer import ComposedPrompt
+from dodaios.agentic_ide.session import PendingPromptAttachmentBatch, Registry
+from dodaios.brain.manager import BrainManager
+from dodaios.core.bus import EventBus
+from dodaios.core.config import JarvisConfig
 from tests.fakes.fake_pty_manager import FakePtyManager
 
 
@@ -38,7 +38,7 @@ def _isolated_recents(
     tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Never rewrite the developer's real recent-workspace list from a test."""
-    from jarvis.agentic_ide import recents
+    from dodaios.agentic_ide import recents
 
     store = tmp_path_factory.mktemp("recents") / "recents.json"
     monkeypatch.setattr(recents, "_store_path", lambda: store)
@@ -53,7 +53,7 @@ def _fake_composer(monkeypatch: pytest.MonkeyPatch) -> None:
         instruction = kwargs.get("instruction") or utterance
         return ComposedPrompt(
             text=f"## Task for {name}\n{instruction}",
-            files=["jarvis/core/bus.py"],
+            files=["dodaios/core/bus.py"],
             composed_by="llm",
         )
 
@@ -273,7 +273,7 @@ async def test_a_split_request_gives_each_pane_its_own_brief(
     works for a downloader with no quality-tier key at all (§3) — the
     deterministic directory split has to carry it.
     """
-    from jarvis.agentic_ide import work_split
+    from dodaios.agentic_ide import work_split
 
     monkeypatch.setattr(work_split, "_resolve_splitter", lambda: None)
     for sub in ("jarvis", "docs", "tests"):
@@ -318,7 +318,7 @@ async def test_a_split_is_never_planned_for_a_single_pane(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """One agent cannot divide work with anyone — planning would be pure latency."""
-    from jarvis.agentic_ide import work_split
+    from dodaios.agentic_ide import work_split
 
     async def explode(*_a: object, **_kw: object) -> object:
         raise AssertionError("no split may be planned for one pane")
@@ -398,7 +398,7 @@ async def test_a_fan_out_that_falls_over_still_says_so(
     model asked about a pane it cannot see answers from the user's own question
     — which is how a briefing that never left the building was spoken as done.
     """
-    from jarvis.agentic_ide import fanout as ide_fanout
+    from dodaios.agentic_ide import fanout as ide_fanout
 
     async def exploding_deliver(**_kwargs: object) -> object:
         raise RuntimeError("pty layer is gone")
