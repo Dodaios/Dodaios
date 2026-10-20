@@ -272,7 +272,7 @@ Logs: `journalctl -u jarvis -f`.
 
 ## See also
 
-- [`docs/jarvis-cli.md`](jarvis-cli.md) — driving a running instance from the
+- [`docs/dodaios-cli.md`](dodaios-cli.md) — driving a running instance from the
   terminal, including the remote/tunnel setup.
 - [`docs/os-parity.md`](os-parity.md) — what differs per operating system, with
   the headless Linux column called out per capability.
