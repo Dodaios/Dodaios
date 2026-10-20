@@ -15,8 +15,8 @@ tags: [telephony, phone-calls, voice, contacts, security]
 related: [providers-and-api-keys, credentials-and-secrets, safety-and-approvals]
 ---
 
-Phone Calls connects a Twilio voice number to Jarvis. People can call that
-number and talk to Jarvis, and you can ask Jarvis to call a saved contact after
+Phone Calls connects a Twilio voice number to Dodaios. People can call that
+number and talk to your assistant, and you can ask it to call a saved contact after
 you approve the action. Calls reuse the configured speech recognition, Brain,
 and voice-output providers. The host does not need a microphone or speakers
 because the audio travels over the network.
@@ -40,7 +40,7 @@ You need:
 
 Open **API Keys & Providers > Advanced > Telephony** first. If the page says
 **Telephony extra not installed**, follow the installation hint shown there,
-restart Jarvis, and return to the same section.
+restart Dodaios, and return to the same section.
 
 > [!warning] A telephone number is a public entry point. A valid Twilio
 > signature proves that Twilio sent the webhook; it does not prove who the
@@ -49,7 +49,7 @@ restart Jarvis, and return to the same section.
 
 ## Plan for Costs and Public Access
 
-Phone Calls can create charges outside Personal Jarvis.
+Phone Calls can create charges outside Dodaios.
 
 | Cost or requirement | What to check |
 |---|---|
@@ -63,21 +63,21 @@ Twilio trial limits and Voice Geographic Permissions can restrict incoming
 callers and outbound destinations. Number availability and regulatory
 requirements vary by country and number type.
 
-Jarvis accepts telephone numbers only in E.164 form: `+`, the country code,
+Dodaios accepts telephone numbers only in E.164 form: `+`, the country code,
 and the remaining digits without spaces or a local trunk prefix. This syntax
 check does not prove that the number belongs to your account, supports Voice,
 or can call a particular destination.
 
 The public address is a security boundary. Twilio sends a signed `POST` request
 to the displayed **Voice webhook**, then opens a secure WebSocket for the
-bidirectional Media Stream. Jarvis checks the signature against the exact
+bidirectional Media Stream. Dodaios checks the signature against the exact
 public URL and uses a new secret for that call's media connection.
 
 Twilio supports `wss://` for Media Streams, so the public base URL must use
 HTTPS. The proxy or tunnel must pass both the webhook and WebSocket without
-rewriting their public scheme, host, or path. Other Jarvis endpoints keep their
+rewriting their public scheme, host, or path. Other Dodaios endpoints keep their
 normal host and Control Key checks, but exposing the server still increases its
-attack surface. Read [Control Key](control-key) before forwarding the Jarvis
+attack surface. Read [Control Key](control-key) before forwarding the Dodaios
 port.
 
 These checks protect the network bridge, not the caller's identity. Twilio
@@ -94,7 +94,7 @@ Voice Geographic Permissions for every destination you plan to test. Keep the
 account dashboard open, but do not copy its credential into chat, voice input,
 a task, or a screenshot.
 
-### 2. Make Jarvis reachable over HTTPS
+### 2. Make Dodaios reachable over HTTPS
 
 In the Telephony section, select **Setup script**. The setup view shows a
 portable `cloudflared` command, a Windows PowerShell helper, and a Caddy
@@ -116,7 +116,7 @@ Return to **API Keys & Providers > Advanced > Telephony** and fill in:
 - **Public base URL**;
 - **Language code** and an optional **Greeting**.
 
-Turn on **Enabled**, then select **Save**. Jarvis stores the Auth Token through
+Turn on **Enabled**, then select **Save**. Dodaios stores the Auth Token through
 its credential system and clears the field after saving. The app later reports
 only whether a token is stored; it does not return the token value.
 
@@ -126,10 +126,10 @@ from German only. Use an English code such as `en-US` or a German code such as
 selected providers support another language. The speech-recognition provider
 keeps its own configured language, so align that setting with this field.
 
-Restart Jarvis after you add or change **Public base URL**. The public hostname
+Restart Dodaios after you add or change **Public base URL**. The public hostname
 is added to the server's trusted-host list when the server starts.
 
-### 4. Point the number at Jarvis
+### 4. Point the number at Dodaios
 
 Copy the **Voice webhook** shown in the Telephony setup view. In the Twilio
 number settings, set the incoming voice webhook to that exact address and set
@@ -159,16 +159,16 @@ real call, so let the first test greeting finish before speaking.
 
 ## Inbound and Outbound Calls
 
-| Direction | What starts it | What Jarvis does | Safety point |
+| Direction | What starts it | What Dodaios does | Safety point |
 |---|---|---|---|
 | Inbound | Someone dials the connected number | Validates the Twilio webhook, opens a one-call media connection, speaks the greeting, then runs speech recognition, Brain, and voice output | Twilio is authenticated, but the human caller is not |
-| Outbound by contact | You ask Jarvis to call a saved contact | Resolves the contact's primary phone number, requests approval, places the call, and speaks the requested or default opening | The `call-contact` action uses the `ask` safety tier |
+| Outbound by contact | You ask your assistant to call a saved contact | Resolves the contact's primary phone number, requests approval, places the call, and speaks the requested or default opening | The `call-contact` action uses the `ask` safety tier |
 | Outbound by CLI | You run `jarvis telephony outbound <number> --yes` | Validates an E.164 destination and asks Twilio to place the call | This skips contact lookup but still requires complete, enabled telephony setup |
 
 The desktop app does not provide a general-purpose dial pad. For the normal app
-flow, save a phone number under **Contacts**, then ask Jarvis to call that
+flow, save a phone number under **Contacts**, then ask your assistant to call that
 contact. If the contact or number is missing, telephony is disabled, approval
-is declined, or Twilio rejects the destination, Jarvis does not dial.
+is declined, or Twilio rejects the destination, Dodaios does not dial.
 
 ## How It Fits Together
 
@@ -198,7 +198,7 @@ and regional behavior still needs testing on your installation.
 The steps below are a test procedure for your installation, not evidence that
 the integration has already been verified on every host or account.
 
-1. Save the setup and restart Jarvis if the public base URL changed.
+1. Save the setup and restart Dodaios if the public base URL changed.
 2. Select **Test connection** and confirm that the account is reachable with
    the expected account status.
 3. Select **Self-test voice** and confirm that it shows a response, a nonzero
@@ -207,23 +207,23 @@ the integration has already been verified on every host or account.
    request, and listen for a relevant spoken reply.
 5. Return to **Recent calls** and confirm that the call appears with a status,
    turn count, and duration.
-6. If you need outbound calling, ask Jarvis to call a permitted saved contact,
+6. If you need outbound calling, ask your assistant to call a permitted saved contact,
    review the confirmation, and approve only the intended call.
 
 If it succeeds, the final call verifies the public call address and live audio
 connection on your installation. The two in-app tests alone cannot prove that
-an outside caller can reach Jarvis.
+an outside caller can reach Dodaios.
 
 ## Troubleshooting
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| **Telephony extra not installed** | This installation does not include the optional phone integration | Follow the installation hint in the Telephony section, restart Jarvis, and reopen the page |
+| **Telephony extra not installed** | This installation does not include the optional phone integration | Follow the installation hint in the Telephony section, restart Dodaios, and reopen the page |
 | **Setup needed** or **Not reachable** | A required account field is missing, the credential is invalid, or Twilio cannot be reached | Recheck the saved SID and token, inspect the returned account status, then run **Test connection** again; remember that this test does not validate the number or webhook |
 | **Self-test voice** fails or reports zero audio bytes | The Brain or voice-output path is unavailable even if Twilio credentials work | Test the related providers under **API Keys & Providers**, then align the voice and language settings |
-| An inbound call ends immediately or never reaches **Recent calls** | Telephony is disabled, the app was not restarted after a hostname change, the webhook is not exact `POST`, the host is unreachable, or signature validation failed | Restart Jarvis, copy the displayed webhook again, and verify HTTPS plus WebSocket forwarding without URL rewriting |
+| An inbound call ends immediately or never reaches **Recent calls** | Telephony is disabled, the app was not restarted after a hostname change, the webhook is not exact `POST`, the host is unreachable, or signature validation failed | Restart Dodaios, copy the displayed webhook again, and verify HTTPS plus WebSocket forwarding without URL rewriting |
 | The call connects but has no usable conversation, or uses the wrong fallback language | The media WebSocket or speech provider failed, or the phone language does not match the speech settings | Check proxy WebSocket support and provider health; test with `en-US` or `de-DE` and a matching speech-recognition language |
-| Jarvis cannot place an outbound call, or **Recent calls** is empty after restart | The contact or E.164 number is invalid, approval was declined, Twilio blocked the destination, or the in-memory call list was cleared | Check **Contacts**, account credit, trial and geographic permissions, and approve only the intended call; use Twilio's records for durable billing history |
+| Dodaios cannot place an outbound call, or **Recent calls** is empty after restart | The contact or E.164 number is invalid, approval was declined, Twilio blocked the destination, or the in-memory call list was cleared | Check **Contacts**, account credit, trial and geographic permissions, and approve only the intended call; use Twilio's records for durable billing history |
 
 ## Next Steps
 

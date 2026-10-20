@@ -976,7 +976,7 @@ def request_permission(
     the person has to flip a switch, DENIED once macOS will not ask again). The
     decision itself arrives later as ``PermissionResolved``. Outside the installed
     app nothing is asked unless the body says ``allow_outside_app``: the person's
-    one "Ask macOS now" click on a toast that says the app that started Jarvis
+    one "Ask macOS now" click on a toast that says the app that started Dodaios
     receives the grant. Rate limited (429).
     """
     options = body if body is not None else PermissionRequestBody()
@@ -987,7 +987,7 @@ def request_permission(
         # sentence, that the app that started Jarvis receives the grant), never for
         # an agent that holds the control key (P9).
         return _requires_ui_response(
-            "Confirming a grant for the app that started Jarvis needs the Jarvis "
+            "Confirming a grant for the app that started Dodaios needs the Dodaios "
             "window; a script or the control key cannot do it."
         )
     label = _ROW_LABELS.get(PANE_FAMILY[permission_id], permission_id.value)
@@ -1124,7 +1124,7 @@ def reset_permission(
         # would make macOS ask over and over and undo a denial the person gave (P4).
         # "Ask again" is a click in the Jarvis window.
         return _requires_ui_response(
-            "Resetting a privacy permission needs the Jarvis window; a script or the "
+            "Resetting a privacy permission needs the Dodaios window; a script or the "
             "control key cannot do it."
         )
     if not dry_run:

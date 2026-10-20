@@ -97,7 +97,7 @@ def test_request_refuses_clearly_without_the_installed_app_and_sends_nothing(
     assert result.exit_code == 1
     assert capture_api["calls"] == []
     message = " ".join(result.output.split())
-    assert "installed Personal Jarvis app was not found" in message
+    assert "installed Dodaios app was not found" in message
     assert "nothing was requested" in message
 
 
@@ -385,7 +385,7 @@ def test_reset_without_an_installed_app_says_what_to_do(monkeypatch, tmp_path):
 
     assert result.exit_code == 1
     message = " ".join(result.output.split())
-    assert "installed Personal Jarvis app was not found" in message
+    assert "installed Dodaios app was not found" in message
     assert "--bundle-id" in message and "nothing was reset" in message
     assert recorder.calls == []
 
@@ -396,7 +396,7 @@ def test_reset_refuses_an_installed_app_with_a_foreign_bundle_id(monkeypatch, tm
     result = runner.invoke(app, ["permissions", "reset", "microphone", "--yes"])
 
     assert result.exit_code == 1
-    assert "not one of Personal Jarvis's" in " ".join(result.output.split())
+    assert "not one of Dodaios's" in " ".join(result.output.split())
     assert recorder.calls == []
 
 

@@ -18,7 +18,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { FeedbackView } from "@/views/feedback/FeedbackView";
 import * as openExternal from "@/lib/openExternal";
 
-const ISSUES_URL = "https://github.com/PersonalJarvis/PersonalJarvis/issues";
+const ISSUES_URL = "https://github.com/Dodaios/Dodaios/issues";
 
 const STATUS_NOT_CONFIGURED = {
   configured: false,

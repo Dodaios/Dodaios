@@ -5,7 +5,7 @@ One command for every agent (Claude Code, Codex, Gemini CLI, ...) working in
 its own worktree or clone::
 
     python scripts/agent_land.py            # on a feature branch -> PR, auto-merge
-    python scripts/agent_land.py --direct   # fast-forward main itself
+    python scripts/agent_land.py --direct   # admin only: fast-forward main itself
 
 What it does, in order — and it stops at the first real problem:
 
@@ -17,8 +17,9 @@ What it does, in order — and it stops at the first real problem:
 3. **Relevant tests** — ``scripts/ci/select_tests.py`` picks the test files
    the diff can affect and ``scripts/ci/run_tests_parallel.py`` runs them in
    isolated processes. The full suite runs in CI.
-4. **Push** — a feature branch gets a pull request labelled ``auto-merge``;
-   the merge train keeps it current and lands it once the CI gate is green.
+4. **Push** — a feature branch gets a pull request labelled ``auto-merge``
+   with GitHub's auto-merge requested: once the CI gate is green GitHub adds
+   it to the merge queue by itself. The merge train keeps it current.
 
 It never stashes, never force-pushes, and refuses a dirty worktree: the main
 checkout is shared with other sessions, so this belongs in your own worktree.
@@ -27,6 +28,7 @@ checkout is shared with other sessions, so this belongs in your own worktree.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -59,11 +61,49 @@ def step(title: str) -> None:
     print(f"\n== {title}", flush=True)
 
 
+def wants_queue(pull_request: dict) -> bool:
+    """Whether a pull request may be queued on green: open for merging and not opted out."""
+    labels = {str(label.get("name", "")) for label in pull_request.get("labels") or []}
+    return not pull_request.get("isDraft") and not labels & agent_integrate.OPT_OUT_LABELS
+
+
+def queue_when_green(branch: str, runner=run) -> bool:
+    """Ask GitHub to add the pull request to the merge queue once its checks pass.
+
+    The merge train enqueues only with its bot token; without one a green pull
+    request waits until a person adds it by hand. Auto-merge is requested with
+    the agent's own login, so the queue's ``merge_group`` run starts normally.
+    Never blocking: a refusal leaves the pull request to the train.
+    """
+    view = runner(["gh", "pr", "view", branch, "--json", "number,isDraft,labels"])
+    try:
+        pull_request = json.loads(view.stdout or "null") if view.returncode == 0 else None
+    except ValueError:
+        pull_request = None
+    if not isinstance(pull_request, dict):
+        print("Could not read the pull request; the merge train lands it when green.")
+        return False
+    if not wants_queue(pull_request):
+        print("Draft or opted out: not asking GitHub to queue it.")
+        return False
+    asked = runner(["gh", "pr", "merge", branch, "--auto", "--squash"])
+    if asked.returncode != 0:
+        print("GitHub did not accept auto-merge; the merge train lands it when green.")
+        print((asked.stdout + asked.stderr).strip())
+        return False
+    print(f"PR #{pull_request.get('number')} joins the merge queue by itself once CI is green.")
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--remote", default="origin")
     parser.add_argument("--direct", action="store_true", help="Push straight to main.")
-    parser.add_argument("--pr", action="store_true", help="Push the branch and open a PR.")
+    parser.add_argument(
+        "--pr",
+        action="store_true",
+        help="Accepted for compatibility: a feature branch always lands through a PR.",
+    )
     parser.add_argument("--skip-tests", action="store_true")
     parser.add_argument("--skip-gates", action="store_true")
     parser.add_argument("--no-push", action="store_true", help="Check only.")
@@ -78,7 +118,12 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
 
     branch = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], check=True).stdout.strip()
-    direct = args.direct or (branch == "main" and not args.pr)
+    if branch == "main" and not args.direct:
+        print("Refusing to land from main: local main mirrors origin/main and takes no commits.")
+        print("Work on a feature branch in your own worktree:")
+        print("  git worktree add -b <agent>/<topic> <path> origin/main")
+        return 2
+    direct = args.direct
     dirty = run(["git", "status", "--porcelain", "--untracked-files=no"]).stdout.strip()
     if dirty:
         print("Refusing to land: the worktree has uncommitted changes to tracked files.")
@@ -96,9 +141,13 @@ def main(argv: list[str] | None = None) -> int:
         print("\nThese files conflict and need a human-quality resolution:")
         for path in report.get("unresolved", []):  # type: ignore[union-attr]
             print(f"  - {path}")
+        # A branch that predates the package move stops at the commit before
+        # it; one already carried across the move holds a merge a rebase drops.
+        target = report.get("onto", upstream)
+        verb = "merge" if report.get("package_move") else "rebase"
         print(
-            f"\nRun `git rebase {upstream}`, resolve them (keep both sides' intent), "
-            "`git add` them, `git rebase --continue`, then run this script again."
+            f"\nRun `git {verb} {target}`, resolve them (keep both sides' intent), "
+            f"`git add` them, `git {verb} --continue`, then run this script again."
         )
         return 3
 
@@ -176,11 +225,15 @@ def main(argv: list[str] | None = None) -> int:
         return 6
     existing = run(["gh", "pr", "view", branch, "--json", "number", "-q", ".number"])
     if existing.returncode == 0 and existing.stdout.strip():
-        print(f"PR #{existing.stdout.strip()} updated; the merge train lands it when green.")
+        print(f"PR #{existing.stdout.strip()} updated.")
+        queue_when_green(branch)
         return 0
     created = run(["gh", "pr", "create", "--fill", "--base", "main", "--label", "auto-merge"])
     print(created.stdout + created.stderr)
-    return 0 if created.returncode == 0 else 7
+    if created.returncode != 0:
+        return 7
+    queue_when_green(branch)
+    return 0
 
 
 if __name__ == "__main__":

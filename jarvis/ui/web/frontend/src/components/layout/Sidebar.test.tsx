@@ -44,7 +44,7 @@ test.each([SIDEBAR_DEFAULT_WIDTH, SIDEBAR_RAIL_WIDTH])(
   },
 );
 
-test("IDE rail keeps workspace options and Jarvis Live reachable", () => {
+test("IDE rail keeps workspace options and Dodaios Live reachable", () => {
   act(() => {
     useEventStore.setState({ activeSection: "agentic-ide" });
     useIdeProjectsStore.setState({ activeWorkspaceId: null, action: null });
@@ -53,7 +53,7 @@ test("IDE rail keeps workspace options and Jarvis Live reachable", () => {
   expect(screen.queryByTestId("ide-project-tree")).toBeNull();
   const options = screen.getByRole("button", { name: "Workspace options" }) as HTMLButtonElement;
   expect(options.disabled).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Jarvis Live" }));
+  fireEvent.click(screen.getByRole("button", { name: "Dodaios Live" }));
   expect(useIdeProjectsStore.getState().action?.kind).toBe("toggle-voice");
   act(() => useIdeProjectsStore.setState({ activeWorkspaceId: "w1" }));
   expect(options.disabled).toBe(false);

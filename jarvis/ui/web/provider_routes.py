@@ -2832,7 +2832,9 @@ class BaseUrlResponse(BaseModel):
 
 
 @router.put("/providers/{provider_id}/base-url")
-async def set_provider_base_url(provider_id: str, body: BaseUrlBody) -> BaseUrlResponse:
+async def set_provider_base_url(
+    provider_id: str, body: BaseUrlBody, request: Request,
+) -> BaseUrlResponse:
     """Set (or clear) the server URL of a local/self-hosted provider.
 
     Only cards with ``supports_base_url`` accept one (400 otherwise). The URL
@@ -2862,6 +2864,26 @@ async def set_provider_base_url(provider_id: str, body: BaseUrlBody) -> BaseUrlR
     from jarvis.core import config_writer
 
     config_writer.set_provider_base_url(provider_id, cleaned or None)
+    # Cached Society and voice instances must not keep the previous server.
+    from jarvis.core.config import BrainProviderConfig
+
+    live_brain = getattr(request.app.state, "brain", None)
+    for config in (_resolve_cfg(request), getattr(live_brain, "_config", None)):
+        if config is None:
+            continue
+        previous = config.brain.providers.get(provider_id) or BrainProviderConfig()
+        config.brain.providers[provider_id] = previous.model_copy(
+            update={"base_url": cleaned or None},
+        )
+    reactivate = getattr(live_brain, "reactivate_provider", None)
+    if callable(reactivate):
+        reactivate(provider_id)
+    await _get_model_catalog(request).invalidate(provider_id)
+    from jarvis.agent_runtimes.gateway import invalidate_provider_metadata
+
+    invalidate_provider_metadata(provider_id)
+    _health_ledger.forget_providers([provider_id], modality=_health_ledger.MODALITY_BRAIN)
+    _invalidate_section_health_state(request)
     return BaseUrlResponse(
         provider=provider_id,
         base_url=cleaned or None,
@@ -3819,7 +3841,7 @@ _REALTIME_PREVIEW_TIMEOUT_S = 30.0
 # BCP-47 pronunciation pins for the sample languages. Gemini's prebuilt
 # voices are language-agnostic; an unpinned call auto-detects per word and
 # can code-switch mid-sentence, so the sample pins the language it speaks.
-_REALTIME_PREVIEW_LANG_CODES = {"de": "de-DE", "en": "en-US", "es": "es-ES"}
+_REALTIME_PREVIEW_LANG_CODES = {"de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT"}
 
 
 async def _gemini_live_voice_sample(
@@ -3984,7 +4006,7 @@ _REALTIME_PREVIEW_SAMPLERS: dict[str, Any] = {
 
 class RealtimeVoicePreviewBody(BaseModel):
     voice: str = Field(default="", max_length=200)
-    # The sample language to speak ("de" | "en" | "es"). Falls back to English.
+    # The sample language to speak ("de" | "en" | "es" | "pt"). Falls back to English.
     language: str = Field(default="en", max_length=16)
     # The realtime model to sample through where the sampler needs one
     # (openai-realtime); "" = the adapter default. Validated when non-empty.
@@ -4173,7 +4195,7 @@ async def codex_login(request: Request) -> dict[str, Any]:
 
 @router.post("/codex/subscription-voice/login")
 async def codex_subscription_voice_login(request: Request) -> dict[str, Any]:
-    """Start Codex's own login in Jarvis's isolated voice profile."""
+    """Start Codex's own login in Dodaios's isolated voice profile."""
     from jarvis.codex_app_server import (
         CodexSubscriptionUnavailable,
         start_codex_subscription_login,
@@ -4266,7 +4288,7 @@ def _secret_slot_labels(slots: tuple[str, ...]) -> list[str]:
                 found = True
         if not found:
             # Agent rows are not provider specs; name the section instead.
-            labels.setdefault("Jarvis-Agents" if slot.startswith("jarvis_agent_") else slot)
+            labels.setdefault("Dodaios-Agents" if slot.startswith("jarvis_agent_") else slot)
     return list(labels)
 
 
@@ -4600,6 +4622,11 @@ _TTS_PREVIEW_SAMPLES: dict[str, str] = {
         "¡Hola! Soy tu asistente personal. "
         "Así suena mi voz cuando hablo contigo y te ayudo con tus tareas."
     ),
+    "pt": (
+        "Olá! Sou o teu assistente pessoal. "  # i18n-allow: Portuguese TTS preview output.
+        "É assim que soa a minha voz quando falo contigo "  # i18n-allow
+        "e te ajudo com as tuas tarefas."  # i18n-allow
+    ),
 }
 _TTS_PREVIEW_DEFAULT_LANG = "en"
 
@@ -4754,7 +4781,7 @@ class TtsPreviewBody(BaseModel):
     provider: str = Field(default=_VOICE_PICKER_PROVIDER)
     model: str = Field(default="", max_length=200)
     voice: str = Field(default="", max_length=200)
-    # The sample language to speak ("de" | "en" | "es"). Falls back to English.
+    # The sample language to speak ("de" | "en" | "es" | "pt"). Falls back to English.
     language: str = Field(default=_TTS_PREVIEW_DEFAULT_LANG, max_length=16)
 
 

@@ -8,7 +8,7 @@ const quick = vi.hoisted(() => ({ create: vi.fn(async () => ({ agentId: "lead" }
 vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useLocaleChunk: () => true }));
 vi.mock("@/lib/mapFullscreen", () => ({ setMapFullscreen: async () => undefined }));
 vi.mock("@/components/society/chat/useModelMenuData", () => ({ useModelMenuData: () => undefined }));
-vi.mock("@/lib/societyChatGroups", () => ({ useSocietyChatGroups: () => ({ data: [] }) }));
+vi.mock("@/lib/societyChatGroups", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/societyChatGroups")>()), useSocietyChatGroups: () => ({ data: [], isSuccess: true, isError: false, failureCount: 0 }) }));
 vi.mock("@/components/society/chat/ChatGroupPanel", () => ({ ChatGroupPanel: () => null }));
 vi.mock("@/components/society/chat/AgentChatPanel", () => ({ useSocietyChatStore: { getState: () => ({ disconnect: () => undefined }) } }));
 vi.mock("@/components/society/data", () => ({ useQuickCreateAgent: () => quick.create,
@@ -47,7 +47,12 @@ it("never evaluates closed dialog modules; creates agents without a dialog", asy
   expect(screen.getByLabelText("Existing chat draft")).toBe(draft);
   expect((draft as HTMLInputElement).value).toBe("Keep this draft");
 
-  fireEvent.click(screen.getByRole("tab", { name: "society.world.mode_map" }));
+  const worldTab = screen.getByRole("tab", { name: "society.world.mode_map" });
+  fireEvent.pointerEnter(worldTab);
+  await waitFor(() => expect(loaded.world).toBe(1));
+  expect(screen.queryByTestId("society-world-surface")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Open foundry" })).toBeNull();
+  fireEvent.click(worldTab);
   fireEvent.click(await screen.findByRole("button", { name: "Open foundry" }));
   expect(await screen.findByRole("dialog", { name: "Building" })).toBeTruthy();
   expect(screen.getByText("foundry")).toBeTruthy();

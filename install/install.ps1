@@ -1,7 +1,7 @@
 # Personal Jarvis - Windows quick-install bootstrap (Stage 1)
 #
 # Usage (from PowerShell):
-#   irm https://raw.githubusercontent.com/PersonalJarvis/PersonalJarvis/main/install/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
 #
 # This bootstrap is intentionally small. It:
 #   1. Verifies Python 3.11+ and git are available.
@@ -157,30 +157,23 @@ OzU7NTht4paA4paAG1swbSAgICAgG1swbRtbMzg7NTsxMDBt4paAG1swbSAgICAbWzBt
             # Best-effort decoration only - never let the mascot block an install.
         }
     }
-    # Wordmark glyphs are machine-generated (figlet ANSI Shadow, the full
-    # PERSONAL JARVIS - maintainer request 2026-07-16) and live inside this
-    # here-string, where non-ASCII is syntactically inert. Do not hand-edit --
-    # that is how the historical Harvis typo crept in. The 12 rows carry ONE
-    # continuous vertical gradient (hi -> brand -> deep) so both words read
-    # as a single forged-gold wordmark.
+    # Wordmark glyphs are machine-generated (figlet ANSI Shadow, DODAIOS) and
+    # live inside this here-string, where non-ASCII is syntactically inert. Do
+    # not hand-edit -- that is how the historical Harvis typo crept in. The 6
+    # rows carry ONE continuous vertical gradient (hi -> brand -> deep) so the
+    # word reads as a single forged-gold wordmark.
     $art = @"
 
-$GoldHi██████╗ ███████╗██████╗ ███████╗ ██████╗ ███╗   ██╗ █████╗ ██╗$Rst
-$GoldHi██╔══██╗██╔════╝██╔══██╗██╔════╝██╔═══██╗████╗  ██║██╔══██╗██║$Rst
-$GoldHi██████╔╝█████╗  ██████╔╝███████╗██║   ██║██╔██╗ ██║███████║██║$Rst
-$GoldHi██╔═══╝ ██╔══╝  ██╔══██╗╚════██║██║   ██║██║╚██╗██║██╔══██║██║$Rst
-$Gold██║     ███████╗██║  ██║███████║╚██████╔╝██║ ╚████║██║  ██║███████╗$Rst
-$Gold╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝$Rst
-$Gold                ██╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗$Rst
-$Gold                ██║██╔══██╗██╔══██╗██║   ██║██║██╔════╝$Rst
-$GoldDeep                ██║███████║██████╔╝██║   ██║██║███████╗$Rst
-$GoldDeep           ██   ██║██╔══██║██╔══██╗╚██╗ ██╔╝██║╚════██║$Rst
-$GoldDeep           ╚█████╔╝██║  ██║██║  ██║ ╚████╔╝ ██║███████║$Rst
-$GoldDeep            ╚════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚═╝╚══════╝$Rst
+$GoldHi       ██████╗  ██████╗ ██████╗  █████╗ ██╗ ██████╗ ███████╗$Rst
+$GoldHi       ██╔══██╗██╔═══██╗██╔══██╗██╔══██╗██║██╔═══██╗██╔════╝$Rst
+$Gold       ██║  ██║██║   ██║██║  ██║███████║██║██║   ██║███████╗$Rst
+$Gold       ██║  ██║██║   ██║██║  ██║██╔══██║██║██║   ██║╚════██║$Rst
+$GoldDeep       ██████╔╝╚██████╔╝██████╔╝██║  ██║██║╚██████╔╝███████║$Rst
+$GoldDeep       ╚═════╝  ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚══════╝$Rst
 
 $Dim     talk to your computer · installs the full profile · launches when done$Rst
 
-$Dim┌$Rst  ${Gold}Personal Jarvis installer$Rst
+$Dim┌$Rst  ${Gold}Dodaios installer$Rst
 "@
     Write-Host $art
 }
@@ -195,14 +188,37 @@ function Write-Err([string]$Text)    { Write-Host "$Gut  $Red$Crs $Text$Rst" }
 Write-Banner
 
 # ----------------------------------------------------------------- config
+# Every JARVIS_ option this script reads also answers to its DODAIOS_
+# spelling. When both are set to different values the DODAIOS_ one wins, and
+# the clash is named, never its values. The rest of this script, and
+# installer.py after it, read the JARVIS_ spelling (jarvis/core/env_prefix.py
+# does the same for the app). JARVIS_PAYLOAD_COMMIT is not an option: it is
+# the signed commit the verifying installer hands over, and no second name
+# may override it.
+function Use-InstallOptionNames {
+    foreach ($Option in 'INSTALL_REPO', 'INSTALL_REF', 'INSTALL_DIR', 'INSTALL_PREREQS', 'OFFICIAL_REPO_SLUG', 'PYTHON') {
+        $NewName = "DODAIOS_$Option"
+        $OldName = "JARVIS_$Option"
+        $NewValue = [Environment]::GetEnvironmentVariable($NewName)
+        if (-not $NewValue) { continue }
+        $OldValue = [Environment]::GetEnvironmentVariable($OldName)
+        if ($OldValue -and $OldValue -cne $NewValue) {
+            Write-Note "$NewName and $OldName differ; using $NewName."
+        }
+        [Environment]::SetEnvironmentVariable($OldName, $NewValue)
+    }
+}
+Use-InstallOptionNames
+
 # Standalone bootstrap projections of jarvis/core/branding.py. The branding
 # contract test rejects drift because this script runs before Python is installed.
 $OfficialRepoSlug = "$env:JARVIS_OFFICIAL_REPO_SLUG"
-if (-not $OfficialRepoSlug) { $OfficialRepoSlug = 'PersonalJarvis/PersonalJarvis' }
+if (-not $OfficialRepoSlug) { $OfficialRepoSlug = 'Dodaios/Dodaios' }
 if ($OfficialRepoSlug -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
     throw 'JARVIS_OFFICIAL_REPO_SLUG must be an exact owner/repository slug'
 }
 $RepoUrl    = if ($env:JARVIS_INSTALL_REPO) { $env:JARVIS_INSTALL_REPO } else { "https://github.com/$OfficialRepoSlug.git" }
+$LegacyOfficialRepoSlug = 'PersonalJarvis/PersonalJarvis'
 $ConfigFileName = 'jarvis.toml'
 $Branch     = if ($env:JARVIS_INSTALL_REF)  { $env:JARVIS_INSTALL_REF }  else { 'main' }
 $InstallDir = if ($env:JARVIS_INSTALL_DIR)  { $env:JARVIS_INSTALL_DIR }  else { Join-Path $env:USERPROFILE '.personal-jarvis' }
@@ -372,7 +388,7 @@ function Request-PrerequisiteConsent {
         return $false
     }
     Write-Note "Missing required software: $($Missing -join ', ')."
-    Write-Note 'Jarvis can install it with WinGet, wait for completion, and continue this same run.'
+    Write-Note 'Dodaios can install it with WinGet, wait for completion, and continue this same run.'
     Write-Note 'Continuing also accepts the package and WinGet source agreements for these packages.'
     try {
         $answer = Read-Host '  Install the missing prerequisites now? [Y/n]'
@@ -416,7 +432,7 @@ function Invoke-MissingPrerequisiteInstall {
     param($State)
     $wingetCheck = Test-Tool 'winget'
     if (-not $wingetCheck.Found) {
-        Write-Err 'WinGet is not available, so Jarvis cannot install the prerequisites automatically.'
+        Write-Err 'WinGet is not available, so Dodaios cannot install the prerequisites automatically.'
         return $false
     }
     $installOk = $true
@@ -529,7 +545,7 @@ if ($ExtraArgs -contains '--headless') {
     if ($nodeOk) {
         Write-Ok "Node.js $($nodeCheck.Version)"
     } else {
-        Write-Note 'Node.js 18+ not found - continuing, Jarvis runs fine without it.'
+        Write-Note 'Node.js 18+ not found - continuing, Dodaios runs fine without it.'
         Write-Note 'It only powers the optional coding-agent worker (Claude Code / Codex).'
         Write-Note 'Install the LTS build any time from https://nodejs.org/ and add the'
         Write-Note 'worker later in-app.'
@@ -537,7 +553,7 @@ if ($ExtraArgs -contains '--headless') {
 }
 
 # ----------------------------------------------------------------- clone / update
-Write-Phase '2/6' 'Fetching Personal Jarvis'
+Write-Phase '2/6' 'Fetching Dodaios'
 Write-Note $InstallDir
 
 # On an interactive console, git paints its own "Receiving objects: NN%"
@@ -640,12 +656,45 @@ function Invoke-FetchPayload {
     return $false
 }
 
+# Nothing is stopped or moved until the download server answers. Without a
+# connection the fresh copy cannot arrive, and an install that was moved aside
+# for nothing is worse than one that simply was not updated.
+# git is asked first. A network that lets no git transfer through still reaches
+# the archive download the installer falls back to, so a plain HTTPS answer
+# from the same host counts as well.
+# (POSIX twin: the salvage-guard block in install.sh.)
+function Test-RepositoryReachable {
+    # git reports an unreachable repository on stderr, which Windows PowerShell
+    # turns into a terminating error under 'Stop'. The exit code is the answer.
+    $PreviousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & git @GitNetOpts ls-remote --quiet --heads $RepoUrl 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) { return $true }
+        if ($RepoUrl -notmatch 'github\.com/') { return $false }
+        if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) { return $false }
+        $ProbePath = ($RepoUrl -split 'github\.com/', 2)[1] -replace '\.git$', ''
+        & curl.exe -fsIL --max-time 20 "https://github.com/$ProbePath" 2>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    } finally {
+        $ErrorActionPreference = $PreviousPreference
+    }
+}
+
 # Self-heal a broken install dir (leftover non-git folder from an earlier or
 # aborted install, or a checkout whose git state no longer updates): keep the
 # old tree as a timestamped sibling backup - never delete - clone fresh, then
 # carry the user's local state (data/, jarvis.toml, .env) into the new
 # checkout. A stale folder must never require manual cleanup to install.
 function Invoke-SalvageReclone {
+    if (-not (Test-RepositoryReachable)) {
+        Write-Err 'cannot reach the download server right now - nothing was changed.'
+        Write-Note 'Check your internet connection (Wi-Fi, VPN, proxy), then re-run the installer.'
+        exit 1
+    }
+    Stop-RunningApp
     $StaleBackup = "$InstallDir.stale-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     try {
         Move-Item -LiteralPath $InstallDir -Destination $StaleBackup -ErrorAction Stop
@@ -687,13 +736,106 @@ function Invoke-SalvageReclone {
     Write-Ok 'reinstalled fresh (previous state preserved in the backup dir)'
 }
 
+# A checkout cloned before the GitHub rename still stores the old origin. Git
+# fetches through GitHub's redirect, but the in-app updater identifies a managed
+# install by this remote, so an untouched one loses its Update button. Only the
+# stock repository is retargeted; an explicit repository override is left alone.
+# (POSIX twin: retarget_legacy_origin in install.sh.)
+function Update-LegacyOrigin {
+    if ($env:JARVIS_INSTALL_REPO -or $env:JARVIS_OFFICIAL_REPO_SLUG) { return }
+    $Origin = & git -C $InstallDir config --get remote.origin.url
+    if ($LASTEXITCODE -ne 0 -or -not $Origin) { return }
+    $Tail = "$Origin".Trim().TrimEnd('/') -replace '\.git$', ''
+    if ($Tail -notmatch ('github\.com[:/]' + [regex]::Escape($LegacyOfficialRepoSlug) + '$')) { return }
+    & git -C $InstallDir remote set-url origin $RepoUrl
+    if ($LASTEXITCODE -eq 0) {
+        Write-Note 'pointed this install at the renamed repository'
+    } else {
+        Write-Note 'could not update the stored repository address - continuing'
+    }
+}
+
+# Stop any Jarvis still running out of THIS install. Called before the
+# checkout is replaced and again before its environment is rebuilt: a release
+# may move or delete files the live app still loads, and an app left running
+# across that keeps serving a half-old, half-new program until it falls over.
+# On Windows the running interpreter additionally holds venv DLLs open, which
+# can make pip's in-place upgrade fail.
+#
+# Every process whose image lives in this install's venv is stopped, whatever
+# it is called: the desktop app usually runs as the branded launcher copy
+# beside python.exe, not as python.exe itself. Best-effort: a lookup or stop
+# failure never blocks the install. Safe to call twice - the second call finds
+# nothing left to stop. (POSIX twin: stop_running_app in install.sh.)
+function Stop-RunningApp {
+    $StopVenv = Join-Path $InstallDir '.venv'
+    if (-not (Test-Path (Join-Path $StopVenv 'Scripts\python.exe'))) { return }
+    $StartedInsideApp = $false
+    try {
+        $venvPrefix = $StopVenv.TrimEnd('\') + '\'
+        $all = @(Get-CimInstance Win32_Process -ErrorAction Stop)
+        $stale = @($all |
+            Where-Object {
+                $_.ExecutablePath -and
+                $_.ExecutablePath.StartsWith($venvPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and
+                $_.ProcessId -ne $PID
+            })
+        if ($stale.Count -gt 0) {
+            # The installer refuses to do this to itself. Started from a
+            # terminal inside the app, its own parents (the pane's console
+            # host, the terminal host, the app) run out of this venv; stopping
+            # them would end the installer mid-way with the app gone and
+            # nothing installed.
+            $staleIds = @{}
+            foreach ($proc in $stale) { $staleIds[[int]$proc.ProcessId] = $true }
+            $byId = @{}
+            foreach ($proc in $all) { $byId[[int]$proc.ProcessId] = $proc }
+            $seen = @{}
+            $cursor = $byId[[int]$PID]
+            while ($cursor -and -not $seen.ContainsKey([int]$cursor.ProcessId)) {
+                $seen[[int]$cursor.ProcessId] = $true
+                $parent = $byId[[int]$cursor.ParentProcessId]
+                # Windows reuses process ids: a "parent" that started after its
+                # child is an unrelated process that inherited the number.
+                if (-not $parent -or $parent.CreationDate -gt $cursor.CreationDate) { break }
+                if ($staleIds.ContainsKey([int]$parent.ProcessId)) { $StartedInsideApp = $true; break }
+                $cursor = $parent
+            }
+        }
+        # A refusal is reported below, outside this try: its catch would turn
+        # it into "could not check" and carry on.
+        if (-not $StartedInsideApp -and $stale.Count -gt 0) {
+            foreach ($proc in $stale) {
+                try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop } catch {}
+            }
+            # Give the OS a beat to release file handles before files change.
+            Start-Sleep -Milliseconds 500
+            Write-Note 'stopped the running Dodaios app for the update'
+        }
+    } catch {
+        Write-Note 'could not check for a running Dodaios app - continuing'
+    }
+    if ($StartedInsideApp) {
+        Write-Err 'this installer was started from inside the running app.'
+        Write-Note 'Updating stops the app, which would end this installer with it.'
+        Write-Note 'Nothing was changed. Run the install command again from a normal'
+        Write-Note 'terminal outside the app.'
+        exit 1
+    }
+}
+
+# The fetch only writes inside .git, so the app keeps running through it: a
+# failed download (offline, an outage) then leaves a working app behind. It is
+# stopped at the last moment, right before the files it runs from change.
 if (Test-Path (Join-Path $InstallDir '.git')) {
+    Update-LegacyOrigin
     $UpdateOk = $true
     Push-Location $InstallDir
     try {
         & git @GitNetOpts fetch $GitVerbosity --depth 1 origin $Branch
         if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
         if ($UpdateOk) {
+            Stop-RunningApp
             & git checkout --quiet $Branch
             if ($LASTEXITCODE -ne 0) { $UpdateOk = $false }
         }
@@ -783,32 +925,10 @@ $VenvPython = Join-Path $VenvPath 'Scripts\python.exe'
 # touch its environment. A live app (often revived by the login autostart)
 # keeps serving stale, half-updated features while pip rewrites the venv
 # under it - the "app is already open but nothing works yet" field report
-# (2026-07-14; POSIX twin: the pkill block in install.sh). On Windows the
-# running pythonw.exe additionally holds venv DLLs open, which can make
-# pip's in-place upgrade fail. The installer relaunches a fresh instance
-# as its very last step. Best-effort: a lookup/stop failure never blocks
-# the install.
-if (Test-Path $VenvPython) {
-    try {
-        $venvPrefix = $VenvPath.TrimEnd('\') + '\'
-        $stale = @(Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='pythonw.exe'" -ErrorAction Stop |
-            Where-Object {
-                $_.ExecutablePath -and
-                $_.ExecutablePath.StartsWith($venvPrefix, [System.StringComparison]::OrdinalIgnoreCase) -and
-                $_.ProcessId -ne $PID
-            })
-        if ($stale.Count -gt 0) {
-            foreach ($proc in $stale) {
-                try { Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop } catch {}
-            }
-            # Give the OS a beat to release file handles before pip writes.
-            Start-Sleep -Milliseconds 500
-            Write-Note 'stopped the running Jarvis app for the update'
-        }
-    } catch {
-        Write-Note 'could not check for a running Jarvis app - continuing'
-    }
-}
+# (2026-07-14). The installer relaunches a fresh instance as its very last
+# step. The app was already stopped once before the checkout was replaced;
+# this second call catches one the login autostart revived in between.
+Stop-RunningApp
 
 if (-not (Test-Path $VenvPython)) {
     & $pythonExe -m venv $VenvPath

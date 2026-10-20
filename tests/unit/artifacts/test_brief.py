@@ -120,6 +120,11 @@ def test_an_oversized_previous_page_is_clipped_head_and_tail() -> None:
     assert len(brief.prompt) < MAX_PREVIOUS_HTML_CHARS + 30_000
 
 
+def test_a_portuguese_request_names_european_portuguese() -> None:
+    brief = build_artifact_brief("Uma página.", title="Página", language="pt")  # i18n-allow
+    assert "European Portuguese" in brief.prompt
+
+
 def test_brief_is_deterministic() -> None:
     a = build_artifact_brief("Same.", title="Same", language="es")
     b = build_artifact_brief("Same.", title="Same", language="es")
@@ -180,7 +185,7 @@ def test_the_brief_teaches_the_page_anatomy_and_the_writing() -> None:
 
 def test_the_colophon_carries_the_gigi_mark_and_never_the_star() -> None:
     assert GIGI_MARK_SVG in PAGE_SKELETON
-    assert "Personal Jarvis" in PAGE_SKELETON
+    assert "Dodaios" in PAGE_SKELETON
     assert 'class="eye"' in GIGI_MARK_SVG
     assert "star" not in GIGI_MARK_SVG.lower()
 

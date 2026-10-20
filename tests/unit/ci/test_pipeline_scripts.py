@@ -4,8 +4,11 @@ impact selection, conflict resolution, release cut)."""
 from __future__ import annotations
 
 import json
+import shlex
 import shutil
 import subprocess
+import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -213,6 +216,22 @@ def test_batches_stay_in_one_directory_and_isolate_slow_files():
     assert sorted(f for batch in batches for f in batch) == sorted(files)
 
 
+def test_a_wedged_batch_is_killed_after_minutes_not_after_the_whole_job():
+    # Twelve ordinary files: five minutes, not twelve five-minute floors.
+    batch = [f"tests/unit/a/test_{i}.py" for i in range(12)]
+    quick = dict.fromkeys(batch, 3.0)
+    assert run_tests_parallel.batch_timeout(batch, quick) == run_tests_parallel.MIN_FILE_TIMEOUT
+    # A batch with real load gets a multiple of its own history ...
+    heavy = dict.fromkeys(batch, 100.0)
+    assert run_tests_parallel.batch_timeout(batch, heavy) == run_tests_parallel.MAX_BATCH_TIMEOUT
+    assert run_tests_parallel.batch_timeout(batch[:2], heavy) == 6 * 200.0
+    # ... and never less than its slowest file would get alone.
+    one_slow = {**quick, batch[0]: 280.0}
+    assert run_tests_parallel.batch_timeout(batch, one_slow) >= run_tests_parallel.file_timeout(
+        batch[0], one_slow
+    )
+
+
 def test_file_timeout_scales_with_history_but_is_bounded():
     assert run_tests_parallel.file_timeout("x", {}) == run_tests_parallel.MIN_FILE_TIMEOUT
     assert (
@@ -249,6 +268,172 @@ def test_runner_reports_failures_and_passes(tmp_path):
     assert code == 1
     assert report["counts"]["passed"] == 1
     assert any(fid.endswith("::test_bad") for fid in report["failed_ids"])
+
+
+class _ScriptedRunner(run_tests_parallel.Runner):
+    """A runner whose pytest processes are scripted: no process is started."""
+
+    script: dict[str, list[str]] = {}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.calls: list[tuple[tuple[str, ...], float]] = []
+        self.left = {file: list(steps) for file, steps in self.script.items()}
+
+    def run(self, files, timeout):
+        self.calls.append((tuple(files), timeout))
+        step = self.left[files[0]].pop(0) if len(files) == 1 else "pass"
+        return run_tests_parallel.RunResult(
+            files=list(files),
+            exit_code=0 if step == "pass" else 1,
+            duration=12.0,
+            timed_out=step == "timeout",
+            failed_ids=[] if step == "pass" else [f"{files[0]}::<{step}>"],
+            file_seconds={file: 7.0 for file in files} if step == "pass" else {},
+            counts={"tests": 1, "passed": int(step == "pass"), "failed": 0, "skipped": 0},
+        )
+
+
+def _scripted(tmp_path, script, durations=None):
+    runner_type = type("_Runner", (_ScriptedRunner,), {"script": script})
+    return runner_type(None, durations or {}, tmp_path)
+
+
+def test_a_file_that_runs_out_of_its_budget_gets_one_longer_attempt(tmp_path):
+    # GitHub issue #574 follow-up: a Windows file without history started on
+    # the 300 s floor, needed more on a loaded runner, and each timeout ejected
+    # a pull request from the merge queue.
+    runner = _scripted(tmp_path, {"t/test_slow.py": ["timeout", "pass"]})
+
+    outcome = runner.run_unit(["t/test_slow.py"])
+
+    floor = run_tests_parallel.MIN_FILE_TIMEOUT
+    assert [timeout for _files, timeout in runner.calls] == [floor, 2 * floor]
+    assert outcome["flaky"] == ["t/test_slow.py"]
+    assert outcome["slow"] == ["t/test_slow.py"]
+    assert [run.ok for run in outcome["runs"]] == [True]
+
+
+def test_a_file_that_hangs_twice_still_fails_as_a_timeout(tmp_path):
+    runner = _scripted(tmp_path, {"t/test_hang.py": ["timeout", "timeout"]})
+
+    outcome = runner.run_unit(["t/test_hang.py"])
+
+    assert len(runner.calls) == 2
+    assert outcome["flaky"] == [] and outcome["slow"] == []
+    (run,) = outcome["runs"]
+    assert run.timed_out and not run.ok
+
+
+def test_a_failed_file_is_retried_on_the_same_budget_and_is_not_slow(tmp_path):
+    runner = _scripted(tmp_path, {"t/test_flaky.py": ["fail", "pass"]})
+
+    outcome = runner.run_unit(["t/test_flaky.py"])
+
+    floor = run_tests_parallel.MIN_FILE_TIMEOUT
+    assert [timeout for _files, timeout in runner.calls] == [floor, floor]
+    assert outcome["flaky"] == ["t/test_flaky.py"] and outcome["slow"] == []
+
+
+def test_the_longer_attempt_never_exceeds_the_file_ceiling():
+    ceiling = run_tests_parallel.MAX_FILE_TIMEOUT
+    assert run_tests_parallel.retry_timeout("x", {"x": 10_000}) == ceiling
+    assert run_tests_parallel.retry_timeout("x", {"x": 250.0}) == ceiling
+    assert run_tests_parallel.retry_timeout("x", {}) < ceiling
+
+
+def test_a_slow_file_enters_the_duration_history_and_the_run_stays_green(
+    tmp_path, monkeypatch
+):
+    repo = run_tests_parallel.REPO_ROOT
+    rel = f"tests/unit/ci/_runner_probe_{tmp_path.name}"
+    probe = repo / rel
+    probe.mkdir()
+    slow, quick = f"{rel}/test_probe_slow.py", f"{rel}/test_probe_quick.py"
+    script = {slow: ["timeout", "pass"], quick: ["pass"]}
+    monkeypatch.setattr(
+        run_tests_parallel, "Runner", type("_Runner", (_ScriptedRunner,), {"script": script})
+    )
+    # One file per batch, as a file with a long history runs.
+    monkeypatch.setattr(run_tests_parallel, "BATCH_MAX_FILES", 1)
+    try:
+        for name in (slow, quick):
+            (repo / name).write_text("def test_ok():\n    assert True\n")
+        code = run_tests_parallel.main(
+            [
+                rel,
+                "--workers",
+                "1",
+                "--durations",
+                str(tmp_path / "none.json"),
+                "--report",
+                str(tmp_path / "r.json"),
+                "--junit-out",
+                str(tmp_path / "r.xml"),
+                "--durations-out",
+                str(tmp_path / "d.json"),
+            ]
+        )
+    finally:
+        shutil.rmtree(probe, ignore_errors=True)
+    report = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
+    timings = json.loads((tmp_path / "d.json").read_text(encoding="utf-8"))
+    assert code == 0
+    assert report["failed_ids"] == [] and report["timeouts"] == []
+    assert report["flaky_files"] == [slow]
+    assert timings == {slow: 8.0, quick: 8.0}
+
+
+def test_memory_probe_reads_this_machine():
+    free = run_tests_parallel.available_memory()
+    assert free is None or free > 0
+
+
+def test_memory_gate_never_holds_back_the_only_batch():
+    gate = run_tests_parallel.MemoryGate(reserve=10, probe=lambda: 0, poll_seconds=0.01)
+    gate.acquire()
+    assert gate.running == 1
+    assert gate.waits == 0
+
+
+def test_memory_gate_holds_a_second_batch_until_memory_frees():
+    free = {"bytes": 0}
+    gate = run_tests_parallel.MemoryGate(reserve=10, probe=lambda: free["bytes"], poll_seconds=0.01)
+    gate.acquire()
+    entered = threading.Event()
+
+    def second() -> None:
+        gate.acquire()
+        entered.set()
+
+    worker = threading.Thread(target=second, daemon=True)
+    worker.start()
+    assert not entered.wait(0.2)
+    assert gate.waits == 1
+    free["bytes"] = 100
+    assert entered.wait(2)
+    worker.join(2)
+    assert gate.running == 2
+
+
+def test_memory_gate_lets_a_waiting_batch_in_when_the_others_finish():
+    gate = run_tests_parallel.MemoryGate(reserve=10, probe=lambda: 0, poll_seconds=0.01)
+    gate.acquire()
+    entered = threading.Event()
+    worker = threading.Thread(target=lambda: (gate.acquire(), entered.set()), daemon=True)
+    worker.start()
+    assert not entered.wait(0.2)
+    gate.release()
+    assert entered.wait(2)
+    worker.join(2)
+
+
+def test_memory_gate_is_open_where_memory_cannot_be_read():
+    gate = run_tests_parallel.MemoryGate(reserve=10, probe=lambda: None)
+    gate.acquire()
+    gate.acquire()
+    assert gate.running == 2
+    assert gate.waits == 0
 
 
 # --------------------------------------------------------------------------- ratchet
@@ -487,6 +672,346 @@ def test_train_updates_only_conflicting_or_stale_red_branches():
     assert decide("MERGEABLE", "failure", False) == "wait"
     assert decide("UNKNOWN", "success", False) == "wait"
     assert decide("UNKNOWN", "approve", False) == "approve"
+
+
+def test_train_gives_its_update_slots_to_the_pull_requests_that_can_land():
+    wanted = [
+        # The oldest ones: an unresolved conflict and a pull request with red CI.
+        {"number": 1, "labels": ["needs-rebase"], "state": "success"},
+        {"number": 2, "labels": [], "state": "failure"},
+        {"number": 3, "labels": ["needs-rebase"], "state": "failure"},
+        # Green pull requests that only conflict with main.
+        {"number": 4, "labels": ["auto-merge"], "state": "success"},
+        {"number": 5, "labels": [], "state": "success"},
+        {"number": 6, "labels": [], "state": "success"},
+    ]
+    assert agent_integrate.grant_updates(wanted, 3) == {4, 5, 6}
+    # A free slot still goes to the red one before the conflict nobody resolved.
+    assert agent_integrate.grant_updates(wanted, 4) == {2, 4, 5, 6}
+    assert agent_integrate.grant_updates(wanted, 6) == {1, 2, 3, 4, 5, 6}
+    # `priority` moves a pull request to the front, whatever its state.
+    urgent = [*wanted, {"number": 9, "labels": ["priority", "needs-rebase"], "state": "failure"}]
+    assert agent_integrate.grant_updates(urgent, 1) == {9}
+    assert agent_integrate.grant_updates(wanted, 0) == set()
+
+
+def test_train_asks_again_while_github_computes_mergeability(monkeypatch):
+    def listing(state: str) -> list[dict]:
+        own = {"baseRefName": "main", "isDraft": False, "labels": [], "mergeable": state}
+        return [
+            {**own, "number": 1, "headRefName": "claude/a"},
+            {**own, "number": 2, "headRefName": "feature/not-on-the-train", "mergeable": "UNKNOWN"},
+        ]
+
+    answers = [listing("UNKNOWN"), listing("UNKNOWN"), listing("CONFLICTING")]
+    asked: list[tuple[str, ...]] = []
+    naps: list[float] = []
+
+    def fake_gh_json(*args: str) -> object:
+        asked.append(args)
+        return answers[min(len(asked), len(answers)) - 1]
+
+    monkeypatch.setattr(agent_integrate, "gh_json", fake_gh_json)
+    prs = agent_integrate.open_pull_requests("example/project", pause=7.0, sleep=naps.append)
+    # An ineligible pull request never keeps the train waiting.
+    assert prs[0]["mergeable"] == "CONFLICTING" and len(asked) == 3 and naps == [7.0, 7.0]
+
+    asked.clear(), naps.clear()
+    answers[:] = [listing("UNKNOWN")]
+    prs = agent_integrate.open_pull_requests("example/project", attempts=3, sleep=naps.append)
+    assert prs[0]["mergeable"] == "UNKNOWN" and len(asked) == 3 and len(naps) == 2
+
+
+def test_train_leaves_a_queued_pull_request_to_the_queue():
+    decide = agent_integrate.decide
+    assert decide("MERGEABLE", "success", True, queued=True) == "queued"
+    assert decide("CONFLICTING", "failure", True, queued=True) == "queued"
+
+
+def test_train_never_re_enqueues_a_head_the_queue_already_failed():
+    decide = agent_integrate.decide
+    # Behind main: a newer main may be the fix, so update and re-test.
+    assert decide("MERGEABLE", "success", True, queue_failed=True) == "update"
+    # Already contains main: re-adding it unchanged would fail the same way.
+    assert decide("MERGEABLE", "success", False, queue_failed=True) == "held"
+    assert decide("MERGEABLE", "success", False, queue_failed=False) == "merge"
+
+
+def _queue_run(number, conclusion, created, status="completed"):
+    return {
+        "event": "merge_group",
+        "head_branch": f"gh-readonly-queue/main/pr-{number}-{'b' * 40}",
+        "status": status,
+        "conclusion": conclusion,
+        "created_at": created,
+    }
+
+
+def test_queue_runs_are_mapped_to_their_pull_request():
+    runs = [
+        _queue_run(7, "failure", "2026-10-07T10:00:00Z"),
+        _queue_run(7, "success", "2026-10-07T11:00:00Z"),
+        _queue_run(9, "failure", "2026-10-07T09:00:00Z"),
+        {"event": "push", "head_branch": "main", "created_at": "2026-10-07T12:00:00Z"},
+        {"event": "merge_group", "head_branch": "gh-readonly-queue/main/odd"},
+    ]
+    newest = agent_integrate.queue_runs_by_pr(runs)
+    assert set(newest) == {7, 9}
+    assert newest[7]["conclusion"] == "success"
+
+
+def test_queue_failure_holds_only_until_a_newer_green_pull_request_run():
+    green = _run("pull_request", "completed", "success", "2026-10-07T10:00:00Z")
+    failed = _queue_run(5, "failure", "2026-10-07T10:30:00Z")
+    assert agent_integrate.queue_rejected(failed, [green])
+    newer = _run("pull_request", "completed", "success", "2026-10-07T11:00:00Z")
+    assert not agent_integrate.queue_rejected(failed, [green, newer])
+    # A cancelled or still-running queue run is not a verdict.
+    cancelled = _queue_run(5, "cancelled", "2026-10-07T10:30:00Z")
+    assert not agent_integrate.queue_rejected(cancelled, [green])
+    running = _queue_run(5, None, "2026-10-07T10:30:00Z", status="in_progress")
+    assert not agent_integrate.queue_rejected(running, [green])
+    assert not agent_integrate.queue_rejected(None, [green])
+
+
+class _FakeGh:
+    """Records gh calls instead of reaching GitHub."""
+
+    def __init__(self):
+        self.calls: list[tuple[str, ...]] = []
+
+    def __call__(self, *args: str) -> int:
+        self.calls.append(args)
+        return 0
+
+
+def _origin_with_feature(tmp_path, repo, main_edit, branch_edit):
+    _diverge(repo, main_edit, branch_edit)
+    origin = tmp_path / "origin.git"
+    _git(tmp_path, "clone", "-q", "--bare", str(repo), str(origin))
+    machines = []
+    for name in ("integrate", "apply"):
+        clone = tmp_path / name
+        _git(tmp_path, "clone", "-q", str(origin), str(clone))
+        _git(clone, "config", "user.email", "t@example.invalid")
+        _git(clone, "config", "user.name", "t")
+        _git(clone, "config", "core.autocrlf", "false")
+        machines.append(clone)
+    plan = {
+        "repo": "example/project",
+        "main": _git(origin, "rev-parse", "main").strip(),
+        "queue": True,
+        "entries": [
+            {
+                "number": 3,
+                "branch": "feature",
+                "head": _git(origin, "rev-parse", "feature").strip(),
+                "id": "PR_node",
+                "action": "update",
+                "run_id": None,
+                "note": "",
+            }
+        ],
+    }
+    return origin, machines[0], machines[1], plan
+
+
+def test_train_phases_update_a_branch_across_separate_machines(tmp_path, repo, monkeypatch):
+    origin, integrate, applier, plan = _origin_with_feature(
+        tmp_path,
+        repo,
+        {"CHANGELOG.md": "# Changelog\n\n- main entry\n- base\n"},
+        {"CHANGELOG.md": "# Changelog\n\n- branch entry\n- base\n"},
+    )
+    work = tmp_path / "train"
+    assert agent_integrate.integrate_merge(work, plan, integrate) == 0
+    agent_integrate.integrate_finish(work, plan)
+    agent_integrate.cleanup_worktrees(work, integrate)
+    state = json.loads((work / "state" / "pr-3.json").read_text(encoding="utf-8"))
+    assert state["status"] == "ready", state
+    assert state["resolved"] == ["CHANGELOG.md"]
+
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    outcome = agent_integrate.apply_update(work, plan, plan["entries"][0], False, applier)
+    assert outcome.startswith("updated with main"), outcome
+    pushed = _git(origin, "rev-parse", "feature").strip()
+    assert pushed == state["sha"]
+    changelog = _git(origin, "show", "feature:CHANGELOG.md")
+    assert "main entry" in changelog and "branch entry" in changelog
+    unlabel = ("pr", "edit", "3", "--repo", "example/project", "--remove-label", "needs-rebase")
+    assert unlabel in fake.calls
+
+
+def test_train_resolver_runs_between_merge_and_finish(tmp_path, repo, monkeypatch):
+    origin, integrate, applier, plan = _origin_with_feature(
+        tmp_path, repo, {"app.py": "VALUE = 2\n"}, {"app.py": "VALUE = 3\n"}
+    )
+    work = tmp_path / "train"
+    assert agent_integrate.integrate_merge(work, plan, integrate) == 1
+    resolver = tmp_path / "resolver.py"
+    resolver.write_text(
+        "from pathlib import Path\nPath('app.py').write_text('VALUE = 5\\n')\n", encoding="utf-8"
+    )
+    command = f"{shlex.quote(sys.executable)} {shlex.quote(str(resolver))}"
+    agent_integrate.integrate_resolve(work, plan, command)
+    agent_integrate.integrate_finish(work, plan)
+    agent_integrate.cleanup_worktrees(work, integrate)
+    state = json.loads((work / "state" / "pr-3.json").read_text(encoding="utf-8"))
+    assert state["status"] == "ready" and state["ai_resolved"] == ["app.py"], state
+
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    agent_integrate.apply_update(work, plan, plan["entries"][0], False, applier)
+    assert _git(origin, "show", "feature:app.py") == "VALUE = 5\n"
+    assert any(call[:2] == ("pr", "comment") for call in fake.calls)
+
+
+def test_push_rejections_are_told_apart():
+    github = (
+        "! [remote rejected] abc -> claude/x (refusing to allow a GitHub App to create or "
+        "update workflow `.github/workflows/ci.yml` without `workflows` permission)"
+    )
+    assert agent_integrate.push_rejection(github) == "workflows"
+    assert agent_integrate.push_rejection("! [rejected] abc -> x (non-fast-forward)") == "moved"
+
+
+def test_a_workflow_permission_refusal_is_reported_once(tmp_path, repo, monkeypatch):
+    origin, integrate, applier, plan = _origin_with_feature(
+        tmp_path,
+        repo,
+        {"CHANGELOG.md": "# Changelog\n\n- main entry\n- base\n"},
+        {"CHANGELOG.md": "# Changelog\n\n- branch entry\n- base\n"},
+    )
+    hook = origin / "hooks" / "pre-receive"
+    hook.write_text(
+        "#!/bin/sh\necho 'refusing to allow a GitHub App to create or update workflow "
+        "`.github/workflows/ci.yml` without `workflows` permission' >&2\nexit 1\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    hook.chmod(0o755)
+    work = tmp_path / "train"
+    agent_integrate.integrate_merge(work, plan, integrate)
+    agent_integrate.integrate_finish(work, plan)
+    agent_integrate.cleanup_worktrees(work, integrate)
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    outcome = agent_integrate.apply_update(work, plan, plan["entries"][0], False, applier)
+    assert "workflows" in outcome, outcome
+    assert any(c[:2] == ("pr", "comment") for c in fake.calls)
+    told = {**plan["entries"][0], "labels": ["needs-rebase"]}
+    quiet = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", quiet)
+    agent_integrate.apply_update(work, plan, told, False, applier)
+    assert not quiet.calls  # already labelled: no comment on every tick
+
+
+def test_train_reports_a_conflict_without_a_resolver(tmp_path, repo, monkeypatch):
+    origin, integrate, applier, plan = _origin_with_feature(
+        tmp_path, repo, {"app.py": "VALUE = 2\n"}, {"app.py": "VALUE = 3\n"}
+    )
+    head = plan["entries"][0]["head"]
+    work = tmp_path / "train"
+    assert agent_integrate.integrate_merge(work, plan, integrate) == 1
+    agent_integrate.integrate_finish(work, plan)
+    agent_integrate.cleanup_worktrees(work, integrate)
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    outcome = agent_integrate.apply_update(work, plan, plan["entries"][0], False, applier)
+    assert outcome == "conflict - app.py"
+    assert _git(origin, "rev-parse", "feature").strip() == head
+    label = ("pr", "edit", "3", "--repo", "example/project", "--add-label", "needs-rebase")
+    assert label in fake.calls
+
+
+def test_apply_rejects_a_bundle_not_built_on_the_planned_head(tmp_path, repo, monkeypatch):
+    origin, integrate, applier, plan = _origin_with_feature(
+        tmp_path,
+        repo,
+        {"CHANGELOG.md": "# Changelog\n\n- main entry\n- base\n"},
+        {"CHANGELOG.md": "# Changelog\n\n- branch entry\n- base\n"},
+    )
+    work = tmp_path / "train"
+    agent_integrate.integrate_merge(work, plan, integrate)
+    agent_integrate.integrate_finish(work, plan)
+    agent_integrate.cleanup_worktrees(work, integrate)
+    # A head the bundle does not build on (an unrelated commit in the applier).
+    _git(applier, "checkout", "-q", "--orphan", "elsewhere")
+    _git(applier, "commit", "-q", "--allow-empty", "-m", "unrelated")
+    forged = {**plan["entries"][0], "head": _git(applier, "rev-parse", "HEAD").strip()}
+    monkeypatch.setattr(agent_integrate, "gh", _FakeGh())
+    outcome = agent_integrate.apply_update(work, plan, forged, False, applier)
+    assert outcome.startswith("update bundle rejected"), outcome
+    assert _git(origin, "rev-parse", "feature").strip() == plan["entries"][0]["head"]
+
+
+def test_apply_enqueues_green_pull_requests_and_reports_the_rest(tmp_path, monkeypatch):
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    plan = {
+        "repo": "example/project",
+        "main": "m" * 40,
+        "queue": True,
+        "entries": [
+            {"number": 1, "branch": "claude/a", "head": "a" * 40, "id": "PR_a", "action": "merge"},
+            {"number": 2, "branch": "claude/b", "head": "b" * 40, "id": "PR_b", "action": "merge"},
+            {"number": 3, "branch": "claude/c", "head": "c" * 40, "id": "PR_c", "action": "queued"},
+            {"number": 4, "branch": "claude/d", "head": "d" * 40, "id": "PR_d", "action": "held"},
+        ],
+    }
+    assert agent_integrate.apply(tmp_path, plan, False, False) == 0  # merge bot token
+    enqueued = [c for c in fake.calls if c[:2] == ("api", "graphql")]
+    assert len(enqueued) == 2  # a queue takes every green PR, not one per tick
+    assert "head=" + "a" * 40 in enqueued[0] and "id=PR_a" in enqueued[0]
+    assert not any(c[:2] == ("pr", "merge") or c[:2] == ("workflow", "run") for c in fake.calls)
+
+
+def test_github_token_never_enqueues_because_the_queue_would_stall(tmp_path, monkeypatch):
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    plan = {
+        "repo": "example/project",
+        "main": "m" * 40,
+        "queue": True,
+        "entries": [
+            {"number": 1, "branch": "claude/a", "head": "a" * 40, "id": "PR_a", "action": "merge"}
+        ],
+    }
+    assert agent_integrate.apply(tmp_path, plan, False, True) == 0
+    assert not fake.calls  # no enqueue, no direct merge past the queue
+
+
+def test_apply_reruns_only_the_failed_jobs_of_a_cancelled_run(tmp_path, monkeypatch):
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    plan = {
+        "repo": "example/project",
+        "main": "m" * 40,
+        "queue": True,
+        "entries": [{"number": 1, "branch": "claude/a", "head": "a" * 40, "id": "PR_a",
+                     "action": "rerun", "run_id": 77}],
+    }
+    agent_integrate.apply(tmp_path, plan, False, True)
+    assert ("run", "rerun", "77", "--failed", "--repo", "example/project") in fake.calls
+
+
+def test_apply_without_a_queue_merges_directly_and_pins_the_head(tmp_path, monkeypatch):
+    fake = _FakeGh()
+    monkeypatch.setattr(agent_integrate, "gh", fake)
+    plan = {
+        "repo": "example/project",
+        "main": "m" * 40,
+        "queue": False,
+        "entries": [
+            {"number": 1, "branch": "claude/a", "head": "a" * 40, "id": "PR_a", "action": "merge"}
+        ],
+    }
+    agent_integrate.apply(tmp_path, plan, False, True)
+    merge = next(c for c in fake.calls if c[:2] == ("pr", "merge"))
+    assert merge[-2:] == ("--match-head-commit", "a" * 40) and "--squash" in merge
+    dispatch = ("workflow", "run", "ci.yml", "--ref", "main", "-f", "full=false")
+    assert dispatch + ("-f", "include_macos=false") in fake.calls  # no macOS lanes per merge
 
 
 # --------------------------------------------------------------------------- release

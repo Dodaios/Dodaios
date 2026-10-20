@@ -1,11 +1,11 @@
 # Brand Guidelines
 
-The visual language of Personal Jarvis: a neutral, cool-black interface with one
-restrained accent, and a distressed wordmark. The goal is *confident and engineered*,
+The visual language of Dodaios: a neutral, cool-black interface with one restrained
+accent, the hooded-figure logo, and a distressed wordmark. The goal is *confident and engineered*,
 never noisy or playful.
 
 <p align="center">
-  <img src="../assets/brand/banner.png" alt="Personal Jarvis wordmark" width="720" />
+  <img src="../assets/brand/dodaios-logo.png" alt="Dodaios logo" width="160" />
 </p>
 
 ## Color
@@ -56,7 +56,9 @@ asset must stay on the same values so nothing drifts.
   composer. No glows.
 - **Both modes, always.** A colour comes from a theme token or from the per-appearance
   tables in `terminalThemes.ts`. Never hardcode one mode's value.
-- **Gigi** is black-and-white: a black body, white eyes and outline, no disc behind it.
+- **The logo** is the hooded figure in black and white: black ink on a white tile, white ink
+  on dark surfaces. It is the primary Dodaios logo; no other mark stands in for it. Its single source is `assets/brand/dodaios-logo.svg`; every icon is
+  rendered from it by `scripts/make_app_icon.py`.
 - **Rasters convert on max(r, g, b), the orb on luma.** That is what keeps a mark legible
   after it loses its colour.
 
@@ -87,12 +89,15 @@ fetched from a remote host.
 
 ## The wordmark
 
-The hero is the word **PERSONAL JARVIS** as an embossed, beveled **metallic-gold** wordmark
+The wordmark is the word **DODAIOS** as an embossed, beveled **metallic-gold** wordmark
 on matte black — chunky geometric capitals with 3D bevels, specular highlights, a warm
 golden bloom, and faint embers. It should read like forged gold, not flat text.
 
+The banner files below still spell the former product name; regenerate them with the
+current name before using the banner anywhere.
+
 - **Live banner:** [`../assets/brand/banner.png`](../assets/brand/banner.png) — a
-  high-resolution generated raster (2172×724, 3:1). This is the file the README embeds.
+  high-resolution generated raster (2172×724, 3:1).
 - **CSS fallback:** [`../assets/brand/banner.html`](../assets/brand/banner.html) is a
   fully reproducible pure-CSS/SVG treatment of the same wordmark;
   `pwsh assets/brand/render.ps1` rasterizes it to `banner-css.png`. Use it only where a
@@ -130,5 +135,7 @@ Write like a senior engineer who respects the reader's time.
 | Hero banner (CSS fallback source) | `assets/brand/banner.html` → `banner-css.png` |
 | Banner render script | `assets/brand/render.ps1` |
 | Product Orb | `jarvis/ui/web/frontend/public/hero-orb.png` |
-| Mascot (Gigi) | `assets/icons/jarvis-gigi-256.png` |
+| Logo (vector source) | `assets/brand/dodaios-logo.svg` |
+| Logo (raster master, 1254 px) | `assets/brand/dodaios-logo.png` |
+| App icon (rendered) | `assets/icons/jarvis.ico`, `jarvis-1024.png`, `jarvis.icns` |
 | App screenshots | `assets/screenshots/` |

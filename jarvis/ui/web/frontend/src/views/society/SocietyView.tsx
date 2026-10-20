@@ -22,7 +22,7 @@ import { RosterRail } from "@/components/society/roster/RosterRail";
 import { useModelMenuData } from "@/components/society/chat/useModelMenuData";
 import { ChatGroupPanel } from "@/components/society/chat/ChatGroupPanel";
 import { useSocietyChatStore } from "@/components/society/chat/AgentChatPanel";
-import { createSocietyChatGroup, updateSocietyChatGroup, useSocietyChatGroups } from "@/lib/societyChatGroups";
+import { chatGroupsKnown, createSocietyChatGroup, updateSocietyChatGroup, useSocietyChatGroups } from "@/lib/societyChatGroups";
 import { CanvasActivity } from "@/hooks/useCanvasAwake";
 import { forgetLastAgentId, rememberLastAgentId, storedLastAgentId } from "./lastAgent";
 
@@ -32,9 +32,9 @@ const MODES = [
   { value: "agents", labelKey: "society.roster.title", Icon: Users },
 ] as const;
 
-const JarvisAgentsBoard = lazy(() =>
-  import("@/views/JarvisAgentsView").then((m) => ({ default: m.JarvisAgentsView })),
-);
+const loadWorld = () => import("@/views/JarvisAgentsView").then((m) => ({ default: m.JarvisAgentsView }));
+const JarvisAgentsBoard = lazy(loadWorld);
+const preloadWorld = () => { void loadWorld().catch((error) => console.debug("World preload unavailable", error)); };
 
 // Do not evaluate either dialog's 3D dependencies until someone opens it.
 const loadBuildingDialog = () => import("@/components/society/card/BuildingCardOverlay")
@@ -51,11 +51,13 @@ export function SocietyView() {
   const t = useT();
   useLocaleChunk("society");
   const [mode, setMode] = useState<"agents" | "world">("agents");
+  const [worldVisited, setWorldVisited] = useState(false);
   const roster = useSocietyRoster();
   const agents = useMemo(() => roster.data?.agents ?? [], [roster.data]);
   const sample = roster.data?.sample ?? true;
   const groupsQuery = useSocietyChatGroups(!sample);
   const groups = useMemo(() => groupsQuery.data ?? [], [groupsQuery.data]);
+  const teamsPending = !sample && !chatGroupsKnown(groupsQuery);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const openGroup = groups.find((group) => group.group_id === openGroupId) ?? null;
   const [openAgentId, setOpenAgentId] = useState<string | null>(storedLastAgentId);
@@ -120,6 +122,7 @@ export function SocietyView() {
 
   const [fullscreenError, setFullscreenError] = useState(false);
   const switchMode = useCallback((next: "agents" | "world") => {
+    if (next === "world") setWorldVisited(true);
     setMode(next);
     setFullscreenError(false);
     if (inDesktopShell()) void setMapFullscreen(next === "world").catch(() => setFullscreenError(true));
@@ -190,6 +193,8 @@ export function SocietyView() {
         return <button key={value} type="button" role="tab" aria-selected={mode === value}
           aria-label={label} title={label} data-testid={`society-mode-${value}`}
           onClick={() => switchMode(value)}
+          onPointerEnter={value === "world" ? preloadWorld : undefined}
+          onFocus={value === "world" ? preloadWorld : undefined}
           style={{ width: CAPTION_SEGMENT_PX }}
           className={cn(CAPTION_SEGMENT, mode === value ? CAPTION_SEGMENT_ON : CAPTION_SEGMENT_OFF)}>
           <Icon aria-hidden className={CAPTION_ICON_CLASS} strokeWidth={CAPTION_ICON_STROKE} />
@@ -214,12 +219,13 @@ export function SocietyView() {
         {fullscreenError && <p role="alert" className="bg-card px-4 py-2 text-sm text-destructive">{t("society.world.fullscreen_failed")}</p>}
         {groupError && <p role="alert" className="bg-card px-4 py-2 text-sm text-destructive">{groupError}</p>}
         {createError && <p role="alert" className="bg-card px-4 py-2 text-sm text-destructive">{createError}</p>}
-        {mode === "world" ? (
-        <div className="relative flex min-h-0 flex-1">
+        {worldVisited ? (
+        <div className={mode === "world" ? "relative flex min-h-0 flex-1" : "hidden"} data-testid="society-world-surface" aria-hidden={mode !== "world"}>
           <div className="min-w-0 flex-1">
-            <CanvasActivity.Provider value={!openPlace}>
-              <Suspense fallback={null}>
+            <CanvasActivity.Provider value={mode === "world" && !openPlace}>
+              <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-muted-foreground" role="status">{t("society.office.loading")}</div>}>
                 <JarvisAgentsBoard onSelectAgent={onIslandSelect} onSelectPlace={onIslandPlace} onOpenAgents={() => switchMode("agents")}
+                  active={mode === "world"}
                   onCreateAgent={createAgent} onOpenGroup={(groupId) => { selectGroup(groupId); switchMode("agents"); }} />
               </Suspense>
             </CanvasActivity.Provider>
@@ -233,13 +239,13 @@ export function SocietyView() {
             onCreateAgent={createAgent} onDeleted={() => setOpenGroupId(null)}
             onGroupAgents={groupAgents} onAddAgentToGroup={addAgentToGroup} />
         ) : openAgent ? (
-          <AgentCardOverlay embedded agent={openAgent} roster={agents} rosterLoading={roster.isLoading}
+          <AgentCardOverlay embedded agent={openAgent} roster={agents} rosterLoading={roster.isLoading} teamsPending={teamsPending}
             groups={groups} onSelectGroup={selectGroup}
             onGroupAgents={sample ? undefined : groupAgents} onAddAgentToGroup={sample ? undefined : addAgentToGroup}
             sample={sample} onSelectAgent={selectAgent} onCreate={createAgent}
             onClose={() => setOpenAgentId(null)} />
         ) : (
-          <RosterRail agents={agents} loading={roster.isLoading} sample={sample}
+          <RosterRail agents={agents} loading={roster.isLoading} teamsPending={teamsPending} sample={sample}
             groups={groups} onOpenGroup={selectGroup}
             onGroupAgents={sample ? undefined : groupAgents} onAddAgentToGroup={sample ? undefined : addAgentToGroup}
             activeAgentId={null} onOpen={selectAgent} onCreate={createAgent} side="left"

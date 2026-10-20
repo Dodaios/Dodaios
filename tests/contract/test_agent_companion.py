@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from jarvis.society.agent_template import public_avatar
 from jarvis.society.companion import AccessorySlot, CompanionAppearance, validate_avatar_companion
 from jarvis.society.runtime import SocietyRuntime
 from jarvis.ui.web.society_routes import router
@@ -46,6 +47,33 @@ def test_worn_accessories_survive_and_bare_looks_stay_unchanged():
     assert worn["accessories"] == CASES["valid"][3]["accessories"]
     bare = validate_avatar_companion({"companion": CASES["valid"][0]})["companion"]
     assert "accessories" not in bare
+
+
+def test_a_worn_pet_survives_and_a_look_without_one_stores_no_pet_key():
+    worn = validate_avatar_companion({"companion": {"shape": "drop", "color": "#79c7c4", "pet": "cocoa"}})
+    assert worn["companion"]["pet"] == "cocoa"
+    bare = validate_avatar_companion({"companion": {"shape": "drop", "color": "#79c7c4", "pet": None}})
+    assert "pet" not in bare["companion"]
+
+
+def test_a_worn_creature_survives_storage_and_sharing_and_a_bare_look_stores_none():
+    creature = {"seed": 24, "palette": "neon", "eyes": "dot"}
+    look = {"shape": "circle", "color": "#a25bff", "creature": creature}
+    assert validate_avatar_companion({"companion": look})["companion"]["creature"] == creature
+    assert public_avatar({"companion": look})["companion"]["creature"] == creature
+    bare = validate_avatar_companion({"companion": {**look, "creature": None}})
+    assert "creature" not in bare["companion"]
+    assert "look" not in bare["companion"]
+    worn_shape = {"shape": "triangle", "color": "#a25bff", "look": "shape"}
+    assert validate_avatar_companion({"companion": worn_shape})["companion"]["look"] == "shape"
+    assert public_avatar({"companion": worn_shape})["companion"]["look"] == "shape"
+
+
+def test_a_shared_template_keeps_a_builtin_pet_and_drops_a_drawn_one():
+    builtin = public_avatar({"companion": {"shape": "drop", "color": "#79c7c4", "pet": "cocoa"}})
+    assert builtin["companion"]["pet"] == "cocoa"
+    drawn = public_avatar({"companion": {"shape": "drop", "color": "#79c7c4", "pet": "u0123456789abcdef"}})
+    assert drawn["companion"] == {"shape": "drop", "color": "#79c7c4"}
 
 
 def test_legacy_and_imported_characters_survive_companion_validation():
@@ -92,6 +120,12 @@ def test_fresh_headless_create_edit_reload_without_inference_or_credentials(tmp_
             assert response.json()["agent"]["avatar"]["companion"]["enabled"] is False
             bad = client.patch(url, json={"avatar": {**avatar, "companion": CASES["invalid"][0]}})
             assert bad.status_code == 409
+            # A pixel creature is stored with the look and comes back after a restart.
+            creature = {"seed": 24, "palette": "neon", "eyes": "dot"}
+            updated = {**avatar, "companion": {**CASES["valid"][1], "creature": creature}}
+            response = client.patch(url, json={"avatar": updated})
+            assert response.status_code == 200, response.text
+            assert response.json()["agent"]["avatar"]["companion"]["creature"] == creature
         finally:
             client.portal.call(runtime.close)
     app, runtime = open_app()

@@ -95,7 +95,7 @@ removing or renaming a trigger requires amending this ADR.
 | `VoiceFactBridge` (ack path) | `ResponseGenerated` / `VoiceTurnCompleted` with ack keyword | Stage-1 extraction into the candidate journal in background; held and retried while the wiki must wait for a subscription | **loud regression** — every extraction failure is exception-logged; a wait shows on the wiki health strip |
 | `SessionRollupWorker` | `IdleEntered` past `session_idle_threshold_minutes` | writes one session Markdown page | **loud regression** — failure increments `session_rollups_failed` and is WARNING-logged |
 
-New triggers (planned in B6: external-source ingest, Jarvis-Agents
+New triggers (planned in B6: external-source ingest, Dodaios-Agents
 context hints) MUST be added to this table in the same PR that adds
 their code.
 
@@ -152,7 +152,7 @@ guard. The original text is kept for history.
 
 Any second-path ingest mode that fires without an explicit
 acknowledgement signal (today: `VoiceFactBridge` aggressive path;
-future: Jarvis-Agents context hints) MUST satisfy three structural
+future: Dodaios-Agents context hints) MUST satisfy three structural
 properties.
 
 **Configurable cost gate.** A per-source minimum interval is available via

@@ -22,6 +22,7 @@ from .control_types import (
     GoalState,
     GoalVerdict,
 )
+from .parked_work import BACKGROUND_ORIGIN
 
 log = logging.getLogger(__name__)
 _command_origin: ContextVar[CommandRequest | None] = ContextVar("chat_command_origin", default=None)
@@ -31,6 +32,27 @@ def supports_restricted_turn(session: Any) -> bool:
     from .service import session_runner
 
     return session_runner(session) not in ("kimi-cli", "dsh-cli")
+
+
+def _chat_language(current: str, text: str) -> str:
+    """The conversation language after *text*, sticky, else *current*.
+
+    Never the UI language: the interface being English says nothing about
+    the language a person chats in (forensic 2026-10-19, a Turkish chat in an
+    English UI was forced into English after a slash command).
+    """
+    from jarvis.core import runtime_refs
+    from jarvis.core.turn_language import resolve_conversation_language
+    from jarvis.i18n import is_known_language
+
+    brain = runtime_refs.get_brain_manager()
+    language = resolve_conversation_language(
+        getattr(brain, "reply_language", "auto") or "auto",
+        "unknown",
+        text or "",
+        conversation_language=current,
+    )
+    return language if is_known_language(language) else current
 
 
 class ChatControls:
@@ -104,7 +126,7 @@ class ChatControls:
     async def execute(self, sid: str, request: CommandRequest) -> CommandResult:
         session = self.service.store.get_session(sid)
         if session is None or session.surface not in ("jarvis", "society"):
-            raise ValueError("Commands are available in Jarvis and agent chats only")
+            raise ValueError("Commands are available in Dodaios and agent chats only")
         # Stop must remain usable while another command waits for a turn or an approval.
         if request.command == "stop":
             return await self._execute(sid, request)
@@ -134,15 +156,9 @@ class ChatControls:
 
             if contains_secret(request.arguments):
                 raise ValueError("Configure credentials in app settings, not in chat commands")
-            from jarvis.core.config import load_config
-            from jarvis.core.turn_language import resolve_output_language
-
             state = self.state(sid)
-            state.output_language = resolve_output_language(
-                load_config().brain.reply_language,
-                request.locale,
-                request.arguments or state.last_request,
-                default=request.locale,
+            state.output_language = _chat_language(
+                state.output_language, request.arguments or state.last_request
             )
             self.store.save(state)
             data = await self._dispatch(
@@ -262,6 +278,12 @@ class ChatControls:
             if state.goal and state.goal.status == "active":
                 return {"started": sid in self.jobs}
             if not state.last_request or state.last_status not in ("interrupted", "failed"):
+                if self._last_failure_was_not_yours(sid):
+                    raise ValueError(
+                        "The task that failed last came from Dodaios, a teammate or a "
+                        "routine, not from you, so /continue cannot resume it. Ask the "
+                        "agent yourself, or let the sender try again."
+                    )
                 raise ValueError("There is no interrupted task to continue")
             return {
                 "turn_id": await self._send(
@@ -277,8 +299,8 @@ class ChatControls:
             hits = []
             for event in self.service.store.list_events(sid):
                 payload = event.get("payload") or {}
-                if payload.get("origin") == "control":
-                    continue
+                if payload.get("origin") in ("control", BACKGROUND_ORIGIN):
+                    continue  # nothing the person typed
                 if event["kind"] not in ("user_message", "assistant_text", "agent_message"):
                     continue
                 text = str(payload.get("typed") or payload.get("text") or "")
@@ -336,6 +358,9 @@ class ChatControls:
         if kwargs.get("direct_user", True):
             state = self.state(sid)
             state.last_request, state.last_status = text, "running"
+            # Keep the stored language the conversation's, turn by turn, so a
+            # later send never inherits one an older command left behind.
+            state.output_language = _chat_language(state.output_language, text)
             self.store.save(state)
             origin = _command_origin.get()
             if origin:
@@ -527,6 +552,25 @@ class ChatControls:
         else:
             state.last_status = "failed"
         await self.publish(state)
+
+    def _last_failure_was_not_yours(self, sid: str) -> bool:
+        """Whether the chat's latest turn failed and the person did not start it.
+
+        The service emits a person's ``user_message`` right before its
+        ``turn_started``; work delivered by Jarvis, a teammate or a routine has
+        none, and ``/continue`` only resumes the person's own request
+        (``turn_completed``).
+        """
+        events = self.service.store.list_events(sid)
+        finished = [e for e in events if e["kind"] == "turn_finished"]
+        if not finished or finished[-1]["payload"].get("status") not in ("error", "cancelled"):
+            return False
+        turn_id = finished[-1]["payload"].get("turn_id")
+        for index, event in enumerate(events):
+            if event["kind"] == "turn_started" and event["payload"].get("turn_id") == turn_id:
+                before = [e for e in events[:index] if e["kind"] != "notice"]
+                return not before or before[-1]["kind"] != "user_message"
+        return False
 
     async def turn_completed(
         self, sid: str, turn_id: str, text: str, direct_user: bool, read_only: bool

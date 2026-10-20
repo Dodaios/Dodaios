@@ -700,7 +700,7 @@ class LocalInputTranscriber:
         self._unavailable_logged = True
         log.warning(
             "Local input transcription is unavailable; this provider's voice "
-            "still answers, but Jarvis-side features that need the user's "
+            "still answers, but Dodaios-side features that need the user's "
             "words stay idle",
             exc_info=True,
         )

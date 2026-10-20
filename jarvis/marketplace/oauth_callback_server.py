@@ -23,19 +23,19 @@ log = logging.getLogger(__name__)
 
 
 _SUCCESS_HTML = """<!doctype html>
-<html><head><meta charset="utf-8"><title>Personal Jarvis</title>
+<html><head><meta charset="utf-8"><title>Dodaios</title>
 <style>body{font-family:system-ui,sans-serif;background:#0a0a0a;color:#eee;
 display:grid;place-items:center;height:100vh;margin:0}
 main{text-align:center;max-width:32rem;padding:2rem}
 h1{font-weight:500;margin:0 0 1rem;color:#FFD60A}
 p{opacity:.7}</style></head>
 <body><main><h1>Connected.</h1>
-<p>You can close this tab. Personal Jarvis received the authorization.</p>
+<p>You can close this tab. Dodaios received the authorization.</p>
 </main></body></html>"""
 
 
 _ERROR_HTML = """<!doctype html>
-<html><head><meta charset="utf-8"><title>Personal Jarvis</title>
+<html><head><meta charset="utf-8"><title>Dodaios</title>
 <style>body{{font-family:system-ui,sans-serif;background:#0a0a0a;color:#eee;
 display:grid;place-items:center;height:100vh;margin:0}}
 main{{text-align:center;max-width:32rem;padding:2rem}}

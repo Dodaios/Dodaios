@@ -132,7 +132,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const body = (await response.json().catch(() => null)) as unknown;
   if (!response.ok) {
-    throw new Error(errorDetail(body) || `Jarvis X request failed (${response.status}).`);
+    throw new Error(errorDetail(body) || `Dodaios X request failed (${response.status}).`);
   }
   return body as T;
 }

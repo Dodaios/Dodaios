@@ -270,22 +270,25 @@ alone.
 ## Reaching the CLI
 
 The bundle ships the console entry at
-`Personal Jarvis.app/Contents/MacOS/jarvis`. It is the same program as the
-pip-installed `jarvis` command:
+`Personal Jarvis.app/Contents/MacOS/dodaios`. It is the same program as the
+pip-installed `dodaios` command:
 
 ```bash
-"/Applications/Personal Jarvis.app/Contents/MacOS/jarvis" --version
-"/Applications/Personal Jarvis.app/Contents/MacOS/jarvis" serve
+"/Applications/Personal Jarvis.app/Contents/MacOS/dodaios" --version
+"/Applications/Personal Jarvis.app/Contents/MacOS/dodaios" serve
 ```
 
-To type plain `jarvis`, link it once:
+To type plain `dodaios`, link it once:
 
 ```bash
-sudo ln -sf "/Applications/Personal Jarvis.app/Contents/MacOS/jarvis" /usr/local/bin/jarvis
+sudo ln -sf "/Applications/Personal Jarvis.app/Contents/MacOS/dodaios" /usr/local/bin/dodaios
 # or, without sudo, if ~/.local/bin is on your PATH:
 mkdir -p ~/.local/bin
-ln -sf "/Applications/Personal Jarvis.app/Contents/MacOS/jarvis" ~/.local/bin/jarvis
+ln -sf "/Applications/Personal Jarvis.app/Contents/MacOS/dodaios" ~/.local/bin/dodaios
 ```
+
+`Contents/MacOS/jarvis` is the same entry under the command's earlier name; a
+link made to it before keeps working.
 
 The symlink keeps working across updates because the app bundle is replaced at
 the same path. Run the CLI through the **bundle**, never through a copy of the

@@ -21,10 +21,12 @@ import type { CompanionAppearance } from "./companion/appearance";
 import { useCreateAgentDialog } from "./create/createAgentStore";
 
 import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
+import { societyChatGroupsQuery } from "@/lib/societyChatGroups";
 import { useEventStore } from "@/store/events";
+import { translate } from "@/i18n";
 
 import { PALETTE_PRESETS, resolvePalette, type FigureRecipe } from "./figures/figureRecipe";
-import { SAMPLE_ROSTER } from "./mockRoster";
+import { localizeSampleRoster, SAMPLE_ROSTER } from "./mockRoster";
 import { beginRetirement, retirementRunning, retirementStageMounted } from "./world/retireStore";
 import { announceSpawn } from "./world/spawnStore";
 
@@ -34,6 +36,28 @@ export class AgentNameTaken extends Error {
     super("An agent with this name already exists");
     this.name = "AgentNameTaken";
   }
+}
+
+/** Hermes / OpenClaw cannot drive the chosen provider (422
+ *  `runtime_provider_unsupported`); the UI shows its own translated sentence. */
+export class RuntimeProviderUnsupported extends Error {
+  constructor(detail: string) {
+    super(detail);
+    this.name = "RuntimeProviderUnsupported";
+  }
+}
+
+/** The error a failed society request stands for: a typed one when the
+ *  backend names a reason the UI explains itself, else its detail text. */
+export function requestError(body: { detail?: unknown } | null, fallback: string): Error {
+  const reason = body?.detail;
+  if (typeof reason === "string") return new Error(reason);
+  if (reason && typeof reason === "object") {
+    const typed = reason as { reason?: unknown; detail?: unknown };
+    const text = typeof typed.detail === "string" ? typed.detail : fallback;
+    return typed.reason === "runtime_provider_unsupported" ? new RuntimeProviderUnsupported(text) : new Error(text);
+  }
+  return new Error(fallback);
 }
 
 /** MASTERPLAN §2.5 — exactly one lead (Jarvis), orchestrators may ASSIGN. */
@@ -91,7 +115,7 @@ export interface AgentStats {
   lastActiveMs: number | null;
 }
 
-/** Grok-style rules under the ceiling (agent-definition §3.4); require wins. */
+/** Permission rules under the ceiling (agent-definition §3.4); require wins. */
 export interface ApprovalRules {
   requireApproval: string[];
   alwaysAllow: string[];
@@ -187,6 +211,12 @@ function paletteFor(figure: FigureRecipe | null): AgentPalette {
   return { primary: p.primary, secondary: p.secondary, accent: p.accent };
 }
 
+/** Provider labels that are words, not brand names: translated when a row is read. */
+const PROVIDER_LABEL_KEYS: Record<string, string> = {
+  ollama: "society.provider_label.ollama",
+  "local-openai": "society.provider_label.local_server",
+};
+
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
@@ -196,14 +226,17 @@ const PROVIDER_LABELS: Record<string, string> = {
   groq: "Groq",
   mistral: "Mistral",
   deepseek: "DeepSeek",
-  ollama: "Ollama (local)",
-  "local-openai": "Local server",
   "claude-api": "Anthropic Claude",
   "openai-codex": "OpenAI Codex",
   grok: "xAI Grok",
   openrouter: "OpenRouter",
   nvidia: "NVIDIA NIM",
 };
+
+function providerLabelFor(provider: string): string {
+  const key = PROVIDER_LABEL_KEYS[provider];
+  return key ? translate(key) : PROVIDER_LABELS[provider] ?? provider;
+}
 
 export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
   const tier = row.tier as AgentTier;
@@ -224,7 +257,7 @@ export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
     description: row.description,
     tier,
     provider: row.provider,
-    providerLabel: row.provider ? (PROVIDER_LABELS[row.provider] ?? row.provider) : "",
+    providerLabel: row.provider ? providerLabelFor(row.provider) : "",
     model: row.model,
     accountId: row.account_id,
     computerId: row.computer_id ?? null,
@@ -281,7 +314,7 @@ async function fetchSocietyRoster(): Promise<RosterData> {
   } catch {
     // Unreachable backend: the sample roster below says so on the rail.
   }
-  const rows = [...SAMPLE_ROSTER].filter((a) => !RETIRED_SAMPLE.has(a.agentId));
+  const rows = [...localizeSampleRoster()].filter((a) => !RETIRED_SAMPLE.has(a.agentId));
   return { agents: rows, sample: true };
 }
 
@@ -300,6 +333,33 @@ function patchRoster(
   void client.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
 }
 
+/** A list this fresh is not asked for again by `warmSocietyLists`. */
+const WARM_FRESH_MS = 2_000;
+
+/**
+ * Load the roster and the teams ahead of the views that show them.
+ *
+ * The Agents section starts some twenty requests when it mounts and a browser
+ * sends six at a time to one host, so the two lists, asked last, waited over a
+ * second for answers that take milliseconds: new agents were missing and every
+ * team member stood alone until then. Asked here (at app start and on the
+ * switch to the section, before it renders) both are there for its first paint.
+ */
+export async function warmSocietyLists(client: QueryClient): Promise<void> {
+  // A refetch mid-ceremony would delete the figure being carried to the mine.
+  if (retirementRunning()) return;
+  const rosterQuery = { queryKey: ROSTER_QUERY_KEY, queryFn: fetchSocietyRoster, staleTime: WARM_FRESH_MS };
+  const teams = () => client.prefetchQuery({ ...societyChatGroupsQuery, staleTime: WARM_FRESH_MS });
+  // The sample roster has no teams; a roster known to be real asks for both at once.
+  const known = client.getQueryData<RosterData>(ROSTER_QUERY_KEY);
+  if (known && !known.sample) {
+    await Promise.all([client.prefetchQuery(rosterQuery), teams()]);
+    return;
+  }
+  const roster = await client.fetchQuery(rosterQuery);
+  if (!roster.sample) await teams();
+}
+
 /**
  * The lead is the assistant itself, so it wears the name the user gave it
  * through the wake phrase ("George"), not the roster row's seeded name. The
@@ -312,12 +372,13 @@ export function withLeadName(data: RosterData, assistantName: string): RosterDat
   return { ...data, agents: data.agents.map((a) => (a.tier === "lead" ? { ...a, name } : a)) };
 }
 
-export function useSocietyRoster() {
+export function useSocietyRoster(enabled = true) {
   const assistantName = useEventStore((s) => s.assistantName) ?? "";
   const select = useCallback((data: RosterData) => withLeadName(data, assistantName), [assistantName]);
   return useQuery({
     queryKey: ROSTER_QUERY_KEY,
     queryFn: fetchSocietyRoster,
+    enabled,
     select,
     staleTime: 15_000,
     // A refetch mid-ceremony would delete the figure being carried to the
@@ -430,15 +491,7 @@ export function useCreateSocietyAgent() {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const detail = (await res.json().catch(() => null)) as { detail?: unknown } | null;
-      const reason = detail?.detail;
-      throw new Error(
-        typeof reason === "string"
-          ? reason
-          : reason && typeof reason === "object" && "detail" in reason
-            ? String((reason as { detail: unknown }).detail)
-            : `create ${res.status}`,
-      );
+      throw requestError((await res.json().catch(() => null)) as { detail?: unknown } | null, `create ${res.status}`);
     }
     const created = (await res.json()) as { agent: SocietyAgentRow; created?: boolean };
     if (created.created === false) throw new AgentNameTaken();
@@ -542,9 +595,8 @@ export function useUpdateAgentModel() {
       body: JSON.stringify(choice),
     });
     if (!res.ok) {
-      // A 422 explains itself ("Hermes and OpenClaw run on an API key…").
-      const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
-      throw new Error(typeof body?.detail === "string" ? body.detail : `HTTP ${res.status}`);
+      // A 422 explains itself; a runtime that cannot drive the provider is typed.
+      throw requestError((await res.json().catch(() => null)) as { detail?: unknown } | null, `HTTP ${res.status}`);
     }
     const body = await res.json() as { agent: SocietyAgentRow };
     const updated = rowToAgent(body.agent);

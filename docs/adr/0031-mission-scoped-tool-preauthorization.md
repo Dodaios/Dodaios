@@ -12,7 +12,7 @@ audience: developer
 # ADR-0031 — Mission-Scoped Tool Pre-Authorization
 
 **Status:** Accepted (2026-07-25)
-**Phase:** 6 — Self-Healing Jarvis-Agents Orchestrator
+**Phase:** 6 — Self-Healing Dodaios-Agents Orchestrator
 **Reference:** ADR-0025, ADR-0009, AP-3, AP-5, AP-14; BUG-096 four-facts rule
 
 ## Context

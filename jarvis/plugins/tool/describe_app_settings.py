@@ -29,7 +29,7 @@ class DescribeAppSettingsTool:
     name: ClassVar[str] = "describe-app-settings"
     risk_tier: ClassVar[str] = "safe"
     description: ClassVar[str] = (
-        "Get a complete, current overview of the Jarvis Desktop App configuration: "
+        "Get a complete, current overview of the Dodaios Desktop App configuration: "
         "the active brain/TTS/STT/subagent provider (and which providers have a "
         "stored API key), the key settings (wake word, assistant name, autostart, "
         "reply language, UI theme, TTS voice/speed), and the list of configured MCP "

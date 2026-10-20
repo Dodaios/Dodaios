@@ -9,9 +9,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncIterator
-from importlib.metadata import entry_points
 
 from jarvis.core.bus import EventBus
+from jarvis.core.entry_points import entry_points
 from jarvis.core.events import HarnessCompleted, HarnessDispatched, HarnessProgress
 from jarvis.core.protocols import Harness, HarnessResult, HarnessTask
 

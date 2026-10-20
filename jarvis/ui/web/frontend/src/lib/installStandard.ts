@@ -10,7 +10,7 @@
  *
  * TWO standards, not one:
  *
- *  - **Personal Jarvis** — `jarvis marketplace install <name>` installs into
+ *  - **the app's own** — `jarvis marketplace install <name>` installs into
  *    this app. Available for every listing, because the registry is ours.
  *  - **skills.sh** — `npx skills add <owner>/<repo>` is the open agent-skills
  *    installer (Vercel Labs; see https://skills.sh). It reads a `SKILL.md`
@@ -30,6 +30,9 @@
  * shell prompt drawn in front of them differs, which is what `shellPrompt`
  * answers.
  */
+
+import { fill, translate } from "@/i18n";
+import { PRODUCT_NAME } from "@/lib/branding";
 
 export type EntryKind = "plugin" | "skill";
 
@@ -88,7 +91,7 @@ const NAME_RE = /^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$/;
  * What a GitHub owner, repository, or folder segment may contain.
  *
  * Deliberately its own rule rather than `NAME_RE`: GitHub allows uppercase and
- * underscores (`PersonalJarvis/marketplace`), which our registry names do not.
+ * underscores (`Dodaios/marketplace`), which our registry names do not.
  * It stays strict about everything a shell would interpret, because this value
  * is pasted into a command line unquoted.
  */
@@ -204,9 +207,9 @@ export function installBlock(
   const commands: InstallCommand[] = [
     {
       id: "jarvis",
-      label: "Personal Jarvis",
+      label: PRODUCT_NAME,
       command: cli,
-      note: "Runs in any terminal while Personal Jarvis is running.",
+      note: fill(translate("install_standard.note_jarvis"), { product: PRODUCT_NAME }),
     },
   ];
 
@@ -220,7 +223,7 @@ export function installBlock(
         id: "skills",
         label: "skills.sh",
         command: skillsShCommand(target),
-        note: "Installs the same skill into Claude Code, Cursor, Codex, and other agents.",
+        note: translate("install_standard.note_skills_sh"),
       });
     }
   }

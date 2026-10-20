@@ -160,7 +160,7 @@ def check_claude_cli() -> DependencyStatus:
     """Probe ``claude`` -- the canonical worker / critic backend.
 
     Since the BUG-023 (worker) and CRIT-1 (critic) fixes the default
-    Personal-Jarvis voice path spawns ``claude --print`` directly via
+    Dodaios voice path spawns ``claude --print`` directly via
     the user's Claude Max OAuth (no Anthropic API key). Without claude
     on PATH the worker dies with "claude binary not found" and the
     mission reports an unactionable error.
@@ -295,7 +295,7 @@ def classify_pip_failure(stderr: str) -> str | None:
             f"No prebuilt package exists for Python {ver} on this system yet "
             "(pip tried to build it from source, which needs developer "
             "libraries). Python 3.12 or 3.13 has full prebuilt support - "
-            "install one from python.org and re-run the Jarvis installer."
+            "install one from python.org and re-run the Dodaios installer."
         )
     if any(marker in s for marker in _PIP_NETWORK_MARKERS):
         return (

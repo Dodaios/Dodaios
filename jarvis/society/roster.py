@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import secrets
 import sqlite3
@@ -44,15 +45,17 @@ from .events import (
 from .failure_reasons import FailureReason
 from .store import SocietyStore
 
+log = logging.getLogger(__name__)
+
 __all__ = [
     "AgentRecord",
     "LEAD_AGENT_ID",
     "Roster",
     "RosterError",
     "PAIR_SESSION_MARKER",
-    "FRESH_NAMES",
     "canonical_session_id",
     "conversation_session_id",
+    "has_placeholder_name",
     "is_fresh",
     "pair_session_id",
     "slugify",
@@ -64,13 +67,8 @@ _NAME_RE: Final[re.Pattern[str]] = re.compile(r"^[^/\\:@#<>\"'`]{1,40}$")
 _MAX_TITLE: Final[int] = 120
 _MAX_DESCRIPTION: Final[int] = 20_000
 
-#: Placeholder names for an agent created with one click. Short, neutral and
-#: readable in every UI language; the agent proposes its real name in its
-#: first conversation.
-FRESH_NAMES: Final[tuple[str, ...]] = (
-    "Nova", "Juno", "Iris", "Kite", "Lumen", "Sage", "Vega", "Wren", "Orion", "Milo",
-    "Luna", "Finn", "Mira", "Otto", "Ruby", "Theo", "Zara", "Ivy", "Leo", "Nia",
-)
+#: A visibly temporary name; the agent chooses its identity in conversation.
+_FRESH_NAME: Final[str] = "New Agent"
 
 
 class RosterError(ValueError):
@@ -88,6 +86,19 @@ def slugify(name: str) -> str:
     text = unicodedata.normalize("NFKD", folded).encode("ascii", "ignore").decode("ascii")
     text = re.sub(r"[^a-zA-Z0-9]+", "-", text).strip("-").lower()
     return text or "agent"
+
+
+def has_placeholder_name(agent: AgentRecord) -> bool:
+    """An unnamed creation still waiting for its first role-based name.
+
+    The random creation id distinguishes placeholders from explicit names.
+    Include the previous default so existing conversations can catch up.
+    """
+    return (
+        str(agent.tier) != "lead"
+        and re.fullmatch(r"agent-[0-9a-f]{8}", agent.agent_id) is not None
+        and re.fullmatch(r"New (?:Agent|Bot)(?: [1-9][0-9]*)?", agent.name) is not None
+    )
 
 
 def is_fresh(agent: AgentRecord) -> bool:
@@ -382,6 +393,40 @@ def _validate_computer(value: Any) -> str | None:
     return computer_id
 
 
+#: Roster columns whose change moves an agent off the model route its
+#: Hermes / OpenClaw runtime was granted.
+_SEAT_COLUMNS: Final[tuple[str, ...]] = ("provider", "model", "account_id")
+
+
+def _seat_left(before: dict[str, Any], after: dict[str, Any]) -> bool:
+    """Whether a runtime agent's model gateway grants stopped being its own.
+
+    True for an agent on Hermes / OpenClaw whose provider, model or paying
+    account changed, or that was archived.
+    """
+    if str(after.get("runtime") or "jarvis") == "jarvis":
+        return False
+    if str(after.get("state") or "") == str(AgentState.ARCHIVED) != str(before.get("state") or ""):
+        return True
+    return any(str(before.get(key) or "") != str(after.get(key) or "") for key in _SEAT_COLUMNS)
+
+
+def _revoke_runtime_grants(agent_id: str) -> None:
+    """Drop the agent's model gateway tokens, so a runtime process still
+    holding one cannot spend the old seat; the next turn is granted anew."""
+    from jarvis.agent_runtimes import gateway
+
+    revoke = getattr(gateway, "revoke_agent", None)
+    if revoke is None:  # a build without grant revocation: tokens end with the app
+        return
+    try:
+        revoked = revoke(agent_id)
+    except Exception:  # noqa: BLE001 — the roster change stands; the stale grant is logged
+        log.warning("society: runtime grants of %s not revoked", agent_id, exc_info=True)
+        return
+    log.info("society: revoked %s runtime gateway grant(s) of %s", revoked, agent_id)
+
+
 def _check_runtime_placement(runtime: Any, computer_id: Any) -> None:
     """An external runtime (Hermes, OpenClaw) runs on this computer only, for now."""
     if str(runtime or "jarvis") != "jarvis" and computer_id:
@@ -515,16 +560,13 @@ class Roster:
         self._epoch += 1
 
     async def _placeholder_name(self) -> str:
-        """A free name from :data:`FRESH_NAMES`, else ``Agent <n>``."""
-        pool = list(FRESH_NAMES)
-        secrets.SystemRandom().shuffle(pool)
-        for candidate in pool:
-            if await self._store.get_agent_row_by_name(candidate) is None:
-                return candidate
+        """Use ``New Agent``, adding a number when another agent holds it."""
+        candidate = _FRESH_NAME
         number = 2
-        while await self._store.get_agent_row_by_name(f"Agent {number}") is not None:
+        while await self._store.get_agent_row_by_name(candidate) is not None:
+            candidate = f"{_FRESH_NAME} {number}"
             number += 1
-        return f"Agent {number}"
+        return candidate
 
     async def _fresh_agent_id(self) -> str:
         while True:
@@ -582,7 +624,9 @@ class Roster:
         unnamed = not str(name or "").strip()
         if unnamed:
             if tier_value is Tier.LEAD:
-                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "the lead is always Jarvis")
+                raise RosterError(
+                    FailureReason.TIER_NOT_ALLOWED, "the lead is the assistant itself"
+                )
             clean_name = await self._placeholder_name()
             agent_id = await self._fresh_agent_id()
         else:
@@ -598,19 +642,21 @@ class Roster:
                 agent_id = await self._fresh_agent_id()
         if tier_value is Tier.LEAD and agent_id != LEAD_AGENT_ID:
             raise RosterError(
-                FailureReason.TIER_NOT_ALLOWED, "exactly one lead exists and it is Jarvis"
+                FailureReason.TIER_NOT_ALLOWED, "exactly one lead exists: the assistant itself"
             )
         if tier_value is Tier.LEAD and fields.get("computer_id"):
             raise RosterError(
                 FailureReason.TIER_NOT_ALLOWED, "the lead always runs on this computer"
             )
         if tier_value is Tier.LEAD and str(fields.get("runtime") or "jarvis") != "jarvis":
-            raise RosterError(FailureReason.TIER_NOT_ALLOWED, "the lead always runs on Jarvis")
+            raise RosterError(
+                FailureReason.TIER_NOT_ALLOWED, "the lead always runs on the app's own brain"
+            )
         _check_runtime_placement(fields.get("runtime"), fields.get("computer_id"))
         if tier_value is Tier.LEAD and "approval_mode" in fields:
             raise RosterError(
                 FailureReason.BLOCKED_BY_POLICY,
-                "the Jarvis lead uses the app chat permission policy",
+                "the lead uses the app chat permission policy",
             )
         same_slug = await self._store.get_agent_row(agent_id)
         if same_slug is not None:
@@ -631,11 +677,7 @@ class Roster:
             "workspace_dir": f"society/{agent_id}/workspace",
             "wiki_namespace": f"society/{agent_id}/",
             "approval_mode": (None if tier_value is Tier.LEAD else str(AgentApprovalMode.BYPASS)),
-            "permission_ceiling": (
-                str(PermissionCeiling.MONITOR)
-                if tier_value is Tier.LEAD
-                else str(PermissionCeiling.ASK)
-            ),
+            "permission_ceiling": str(PermissionCeiling.ASK),
         }
         if tier_value is Tier.ORCHESTRATOR:
             row["max_concurrent_runs"] = 3
@@ -679,7 +721,10 @@ class Roster:
         if "name" in fields:
             clean_name = _validate_name(fields["name"])
             if agent_id == LEAD_AGENT_ID and clean_name != current["name"]:
-                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "Jarvis keeps the lead name")
+                raise RosterError(
+                    FailureReason.TIER_NOT_ALLOWED,
+                    "the lead is named by the wake word and cannot be renamed here",
+                )
             existing = await self._store.get_agent_row_by_name(clean_name)
             if existing is not None and existing["agent_id"] != agent_id:
                 existing = await self._release_archived_name(clean_name)
@@ -690,11 +735,11 @@ class Roster:
             if key not in _EDITABLE:
                 raise RosterError(FailureReason.BLOCKED_BY_POLICY, f"field {key!r} is not editable")
             if key == "tier" and agent_id == LEAD_AGENT_ID and str(value) != str(Tier.LEAD):
-                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "Jarvis stays the lead")
+                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "the lead stays the lead")
             if key == "approval_mode" and agent_id == LEAD_AGENT_ID:
                 raise RosterError(
                     FailureReason.BLOCKED_BY_POLICY,
-                    "the Jarvis lead uses the app chat permission policy",
+                    "the lead uses the app chat permission policy",
                 )
             if key == "computer_id" and agent_id == LEAD_AGENT_ID and value:
                 raise RosterError(
@@ -708,7 +753,9 @@ class Roster:
                     "an agent's runtime is chosen when it is created and cannot change",
                 )
             if key == "tier" and str(value) == str(Tier.LEAD) and agent_id != LEAD_AGENT_ID:
-                raise RosterError(FailureReason.TIER_NOT_ALLOWED, "only Jarvis is the lead")
+                raise RosterError(
+                    FailureReason.TIER_NOT_ALLOWED, "only the assistant itself is the lead"
+                )
             if key == "parent_agent_id" and value:
                 if str(value) == agent_id:
                     raise RosterError(
@@ -732,6 +779,8 @@ class Roster:
         assert row is not None
         record = await self._hydrate(row)
         await self.refresh()
+        if _seat_left(current, row):
+            _revoke_runtime_grants(agent_id)
         return record
 
     async def archive(self, agent_id: str) -> AgentRecord:

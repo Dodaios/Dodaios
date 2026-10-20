@@ -47,7 +47,7 @@ class ShareTemplateTool:
     name: str = SHARE_TOOL_NAME
     risk_tier: str = "safe"
     description: str = (
-        "Prepare the shareable template of YOURSELF for the Personal Jarvis marketplace. "
+        "Prepare the shareable template of YOURSELF for the Dodaios marketplace. "
         "Call it when the user asks you to create, prepare or improve your template. "
         "Write 'summary': one or two plain sentences a stranger reads on the store card "
         "(what you do, for whom). Write 'instructions': your standing instructions "

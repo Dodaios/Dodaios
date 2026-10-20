@@ -38,6 +38,7 @@ vi.mock("@/lib/openExternal", () => ({
 }));
 
 import { MarketplaceView } from "@/views/MarketplaceView";
+import { MARKETPLACE_REPO_URL } from "@/lib/branding";
 import { setUiLanguage } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import type { CommunityResponse } from "@/views/PluginsCommunity";
@@ -58,7 +59,7 @@ const INDEX: CommunityResponse = {
       logo_color: "362D59",
       publisher: "octocat",
       version: "1.0.0",
-      source_url: "https://github.com/PersonalJarvis/marketplace/tree/main/plugins/sentry",
+      source_url: "https://github.com/Dodaios/marketplace/tree/main/plugins/sentry",
       auth: { mode: "hosted_mcp_oauth_dcr" },
       // Exactly the shape the live index serves for this entry.
       mcp_server: { transport: "http", url: "https://mcp.sentry.dev/mcp" },
@@ -73,7 +74,7 @@ const INDEX: CommunityResponse = {
       publisher: "octocat",
       version: "1.0.0",
       categories: ["productivity", "writing"],
-      source_url: "https://github.com/PersonalJarvis/marketplace",
+      source_url: "https://github.com/Dodaios/marketplace",
       raw_url: "https://raw.example/skills/three-bullet-brief/SKILL.md",
       installed: false,
     },
@@ -311,7 +312,7 @@ describe("MarketplaceView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Storefront/ }));
 
-    expect(openExternalUrl).toHaveBeenCalledWith("https://github.com/PersonalJarvis/marketplace");
+    expect(openExternalUrl).toHaveBeenCalledWith(MARKETPLACE_REPO_URL);
   });
 
   it("opens the Publish Studio in the app instead of sending people to the website", async () => {

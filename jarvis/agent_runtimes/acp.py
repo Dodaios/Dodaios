@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any, Final, Protocol
 
 from jarvis.agent_chat.events import make_event
+from jarvis.core.mcp_names import CLI_TOOL_PREFIX, TOOLS_SERVER_NAMES, cli_tool_name
 
 log = logging.getLogger(__name__)
 
@@ -55,10 +56,22 @@ RESUME_LOST_ERROR: Final[str] = "ACP session not found"
 #: JSON-RPC "method not found".
 _METHOD_NOT_FOUND: Final[int] = -32601
 
-#: ``mcp_<server>_<tool>`` (Hermes) and ``<server>__<tool>`` spellings of a
-#: Jarvis MCP tool, normalised to the ``mcp__jarvis__<tool>`` form the
-#: society checkpoints and quests read.
-_JARVIS_TOOL_PREFIXES: Final[tuple[str, ...]] = ("mcp_jarvis_", "jarvis__", "jarvis.")
+#: ``stopReason`` values that end a turn before its answer was complete.
+_STOPPED_EARLY: Final[dict[str, str]] = {
+    "max_tokens": "The answer stopped at the model's output limit.",
+    "max_turn_requests": "The agent reached its step limit for one turn.",
+    "cancelled": "The turn was cancelled before it finished.",
+}
+
+#: ``mcp_<server>_<tool>`` (Hermes), ``<server>__<tool>`` and
+#: ``<server>.<tool>`` spellings of a tool on this app's own MCP server, per
+#: name that server is registered under. Normalised to the
+#: ``mcp__<server>__<tool>`` form the society checkpoints and quests read.
+_OWN_TOOL_PREFIXES: Final[tuple[tuple[str, str], ...]] = tuple(
+    (prefix, server)
+    for server in TOOLS_SERVER_NAMES
+    for prefix in (f"mcp_{server}_", f"{server}__", f"{server}.")
+)
 _IDENTIFIER: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z_][\w.:-]{0,120}$")
 
 
@@ -102,12 +115,16 @@ class McpServer:
 
 
 def normalize_tool_name(name: str) -> str:
-    """Give a Jarvis MCP tool the ``mcp__jarvis__<tool>`` name Jarvis reads."""
-    if name.startswith("mcp__"):
+    """Give a tool on this app's MCP server the ``mcp__<server>__<tool>`` name it is read by.
+
+    The server part stays the one the runtime used: a session mounted under an
+    earlier name keeps reporting it, and every reader accepts both.
+    """
+    if name.startswith(CLI_TOOL_PREFIX):
         return name
-    for prefix in _JARVIS_TOOL_PREFIXES:
+    for prefix, server in _OWN_TOOL_PREFIXES:
         if name.startswith(prefix):
-            return "mcp__jarvis__" + name[len(prefix) :]
+            return cli_tool_name(name[len(prefix) :], server)
     return name
 
 
@@ -203,6 +220,27 @@ class AcpTurn:
             }
         )
 
+    def cancel_frame(self) -> dict[str, Any] | None:
+        """The ``session/cancel`` notification for the running prompt (``None`` when
+        no prompt is in flight). The agent answers the prompt with
+        ``stopReason: cancelled`` once its turn has wound down."""
+        if not self._acp_session or self.saw_result:
+            return None
+        return {
+            "jsonrpc": "2.0",
+            "method": "session/cancel",
+            "params": {"sessionId": self._acp_session},
+        }
+
+    @property
+    def handshaken(self) -> bool:
+        """Whether the session is open (``session/new`` / ``session/load`` answered)."""
+        return bool(self._acp_session)
+
+    def tool_running(self) -> bool:
+        """Whether a tool call started and has not reported its end yet."""
+        return any(call not in self._finished_tools for call in self._tool_started)
+
     def _session_params(self) -> dict[str, Any]:
         return {"cwd": self.cwd, "mcpServers": [s.to_acp() for s in self.mcp_servers]}
 
@@ -292,9 +330,31 @@ class AcpTurn:
             self._take_usage(res.get("usage"))
             if self.stop_reason == "refusal" and not self.emitted_text:
                 self._fail("The model refused this request.")
-            elif self.stop_reason in {"max_tokens", "max_turn_requests"} and not self.emitted_text:
-                self._fail(f"The agent stopped early ({self.stop_reason}).")
+            elif self.stop_reason in _STOPPED_EARLY and not self.emitted_text:
+                self._fail(_STOPPED_EARLY[self.stop_reason])
+            elif self.stop_reason in _STOPPED_EARLY:
+                self._fail(f"{_STOPPED_EARLY[self.stop_reason]} ({self.stop_reason})")
+                # Retain the partial answer while reporting that the turn is incomplete.
+                await io.emit(
+                    make_event(
+                        "notice",
+                        {
+                            "kind": "stop_reason",
+                            "turn_id": self.turn_id,
+                            "stop_reason": self.stop_reason,
+                            "text": _STOPPED_EARLY[self.stop_reason],
+                        },
+                    )
+                )
             return
+
+    async def cancel(self, io: AcpIO) -> None:
+        """Abort the upstream session before its stdio bridge is terminated."""
+        if self._acp_session and not self.saw_result:
+            await io.write({
+                "jsonrpc": "2.0", "method": "session/cancel",
+                "params": {"sessionId": self._acp_session},
+            })
 
     async def _on_agent_request(self, obj: dict[str, Any], method: str, io: AcpIO) -> None:
         rid = obj.get("id")
@@ -542,6 +602,21 @@ def _tool_name(update: dict[str, Any]) -> str:
 def _error_text(error: dict[str, Any]) -> str:
     message = str(error.get("message") or "error")
     data = error.get("data")
+    if isinstance(data, dict):
+        # Hermes' ACP SDK nests this local configuration failure under
+        # details. Translate only the known numeric contract; never expose
+        # arbitrary upstream details (which may contain provider bodies).
+        detail = str(data.get("details") or "")
+        bounds = re.search(
+            r"context window of ([\d,]+) tokens, which is below the minimum "
+            r"([\d,]+) required by Hermes Agent\.", detail,
+        )
+        if bounds:
+            actual, minimum = bounds.groups()
+            return (
+                f"Hermes requires at least {minimum} context tokens; this model has {actual}. "
+                "Increase the model context in Settings or choose a model with a larger window."
+            )
     if isinstance(data, str) and data:
         return f"{message}: {data}"
     if isinstance(data, dict) and data.get("message"):

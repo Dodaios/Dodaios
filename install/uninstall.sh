@@ -27,7 +27,8 @@ MACOS_AUTOSTART_LABEL="com.personal-jarvis.autostart"
 LINUX_DESKTOP_ENTRY_FILE_NAME="personal-jarvis.desktop"
 KEYRING_SERVICE_NAME="personal-jarvis"
 
-INSTALL_DIR="${JARVIS_INSTALL_DIR:-$HOME/$DEFAULT_INSTALL_DIR_NAME}"
+# DODAIOS_INSTALL_DIR and JARVIS_INSTALL_DIR are one option; the new name wins.
+INSTALL_DIR="${DODAIOS_INSTALL_DIR:-${JARVIS_INSTALL_DIR:-$HOME/$DEFAULT_INSTALL_DIR_NAME}}"
 VENV_PYTHON="$INSTALL_DIR/.venv/bin/python"
 
 if [ -t 1 ]; then
@@ -95,10 +96,10 @@ stop_running_instances() {
         sleep 1
     fi
     n=$(echo "$pids" | wc -w | tr -d ' ')
-    ok "Stopped the running Jarvis app ($n process(es))."
+    ok "Stopped the running Dodaios app ($n process(es))."
 }
 
-step 'Uninstall Personal Jarvis'
+step 'Uninstall Dodaios'
 note "$INSTALL_DIR"
 
 # Is this a dry run? Then never touch the folder. --yes/-y skips every prompt
@@ -175,7 +176,7 @@ elif [ "$RC" -ne 0 ]; then
     err "The cleanup step failed (exit $RC) — nothing was changed."
     note 'Its own error is printed above. On macOS the usual cause is a venv'
     note 'broken by a system/Homebrew Python upgrade.'
-    note 'To remove Jarvis anyway:'
+    note 'To remove Dodaios anyway:'
     note "  rm -rf \"$INSTALL_DIR\""
     note "Saved API keys then stay in your OS keychain under \"$KEYRING_SERVICE_NAME\"."
     exit "$RC"
@@ -189,9 +190,9 @@ if [ "$DRY_RUN" -eq 0 ]; then
     stop_running_instances "$INSTALL_DIR"
     if ! rm -rf "$INSTALL_DIR"; then
         err "Could not fully remove $INSTALL_DIR — something is still using files inside it."
-        note 'Close every Jarvis window, then run this uninstaller again.'
+        note 'Close every Dodaios window, then run this uninstaller again.'
         exit 3
     fi
     ok "Removed $INSTALL_DIR"
-    step 'Done. Personal Jarvis has been uninstalled.'
+    step 'Done. Dodaios has been uninstalled.'
 fi

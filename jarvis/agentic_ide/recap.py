@@ -430,10 +430,10 @@ def _task_sentence(task: str, *, sent: int, working: bool = False) -> str:
     if task:
         return f'Last asked to: "{task}".'
     if sent:
-        return "Its last instruction came from Jarvis."
+        return "Its last instruction came from Dodaios."
     if working:
-        return "It is being driven directly in the terminal, not through Jarvis."
-    return "No instruction has been sent to it from Jarvis yet."
+        return "It is being driven directly in the terminal, not through Dodaios."
+    return "No instruction has been sent to it from Dodaios yet."
 
 
 def summarize(term: Any, *, lines: Sequence[str] | None = None) -> Recap:

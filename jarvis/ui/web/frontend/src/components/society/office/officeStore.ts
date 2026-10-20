@@ -7,17 +7,23 @@
  */
 import { create } from "zustand";
 import type { CheckpointKind, Point } from "./officeLayout";
-
-/** `arcade` is a playable arcade cabinet, by furniture id. */
-export type Selection = { kind: "agent"; id: string } | { kind: "checkpoint"; id: CheckpointKind } | { kind: "arcade"; id: string };
+import { courierSession } from "./courierStore";
 
 /**
- * The floors of the building, bottom to top: the Jarvis agents office, the
- * coding agents one elevator ride up, and the arcade hall on the top floor.
+ * `arcade` is a playable arcade cabinet, by furniture id. `team` is a team studio's board, by its
+ * `Studio.board.id` (`studio-board:<deptId>`); the stage resolves the team through `layout.studios`.
  */
-export type OfficeFloor = "agents" | "coding" | "arcade";
+export type Selection = { kind: "agent"; id: string } | { kind: "checkpoint"; id: CheckpointKind } | { kind: "arcade"; id: string }
+  | { kind: "team"; id: string };
 
-export const OFFICE_FLOORS: readonly OfficeFloor[] = ["agents", "coding", "arcade"];
+/**
+ * The floors of the building, bottom to top: the Jarvis agents' campus, the
+ * coding agents one elevator ride up, the arcade hall, and the Level Hall on
+ * the top floor.
+ */
+export type OfficeFloor = "agents" | "coding" | "arcade" | "hall";
+
+export const OFFICE_FLOORS: readonly OfficeFloor[] = ["agents", "coding", "arcade", "hall"];
 
 /** The floor number shown in the elevator (0 = ground floor). */
 export function floorLevel(floor: OfficeFloor): number {
@@ -35,7 +41,11 @@ export interface Summon {
 }
 
 /** A team meeting at the team-room table; its members hold summons with a chair each until it ends. */
-export interface TeamMeeting { groupId: string; name: string; members: string[]; untilMs: number }
+export interface TeamMeeting {
+  groupId: string; name: string; members: string[]; untilMs: number;
+  /** The studio board the team gathers at (`Studio.board.id`); absent = the team room's table. */
+  boardId?: string;
+}
 
 interface OfficeState {
   /** The floor on screen; lives here so leaving the map and coming back keeps it. */
@@ -49,6 +59,9 @@ interface OfficeState {
   selection: Selection | null;
   /** The closest thing the character can interact with (E), or null. */
   nearby: Selection | null;
+  /** What the pointer rests on in the world (a station's object, an agent), or null. */
+  hover: Selection | null;
+  setHover: (hover: Selection | null) => void;
   /** Camera follows the character; any manual pan turns it off, moving turns it back on. */
   follow: boolean;
   /** One-shot camera fly-to request, consumed by the camera rig. */
@@ -75,6 +88,8 @@ interface OfficeState {
   toggleDraft: (agentId: string) => void;
   clearDraft: () => void;
   clearSummons: () => void;
+  /** Let these agents go back to their day; other calls and a running meeting stay. */
+  release: (agentIds: readonly string[]) => void;
   select: (selection: Selection | null) => void;
   setNearby: (nearby: Selection | null) => void;
   setFollow: (follow: boolean) => void;
@@ -91,10 +106,13 @@ let seq = 0;
 export const useOfficeStore = create<OfficeState>((set) => ({
   floor: "agents",
   setFloor: (floor) => set((s) => (s.floor === floor ? s : {
-    floor, selection: null, nearby: null, summons: {}, meeting: null, walkTo: null, zoom: null, sectionDive: null, focus: null, teamDraft: [], follow: true,
+    floor, selection: null, nearby: null, hover: null, summons: {}, meeting: null, walkTo: null, zoom: null, sectionDive: null, focus: null, teamDraft: [], follow: true,
   })),
   selection: null,
   nearby: null,
+  hover: null,
+  // In the courier a click steers the ship: nothing in the office is hovered, picked or walked to meanwhile.
+  setHover: (hover) => set((s) => (sameSelection(s.hover, hover) || (hover && courierSession.flying) ? s : { hover })),
   follow: true,
   focus: null,
   summons: {},
@@ -124,7 +142,11 @@ export const useOfficeStore = create<OfficeState>((set) => ({
   })),
   clearDraft: () => set({ teamDraft: [] }),
   clearSummons: () => set({ summons: {}, meeting: null }),
-  select: (selection) => set({ selection }),
+  release: (agentIds) => set((s) => {
+    const gone = new Set(agentIds);
+    return { summons: Object.fromEntries(Object.entries(s.summons).filter(([id]) => !gone.has(id))) };
+  }),
+  select: (selection) => { if (!(selection && courierSession.flying)) set({ selection }); },
   setNearby: (nearby) => set((s) => (sameSelection(s.nearby, nearby) ? s : { nearby })),
   setFollow: (follow) => set((s) => (s.follow === follow ? s : { follow })),
   focusOn: (point) => set({ focus: { point, seq: ++seq }, follow: false }),
@@ -141,7 +163,7 @@ export const useOfficeStore = create<OfficeState>((set) => ({
     });
     return { summons: next };
   }),
-  requestWalk: (point) => set({ walkTo: { point, seq: ++seq }, follow: true }),
+  requestWalk: (point) => { if (!courierSession.flying) set({ walkTo: { point, seq: ++seq }, follow: true }); },
 }));
 
 /**

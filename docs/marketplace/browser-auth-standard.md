@@ -7,7 +7,7 @@ which is externally blocked, and why).
 ## 1. The standard flow
 
 Plugin selected → "Connect" → the OFFICIAL provider opens in the browser →
-user signs in and approves → Jarvis captures the callback automatically →
+user signs in and approves → Dodaios captures the callback automatically →
 plugin is connected AND usable.
 
 Normal users MUST NOT have to:
@@ -17,7 +17,7 @@ Normal users MUST NOT have to:
 - create their own OAuth apps, developer projects, or developer orgs;
 - configure redirect URIs, env vars, or config files.
 
-Internal tokens still exist. Jarvis obtains, stores (OS credential store),
+Internal tokens still exist. Dodaios obtains, stores (OS credential store),
 and refreshes them automatically. This standard abolishes MANUAL credential
 setup, not technical authentication.
 

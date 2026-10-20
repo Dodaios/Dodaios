@@ -71,12 +71,12 @@ class JarvisClient:
             # crashed-stale-session / not-started / remote-target all get
             # DIFFERENT advice — one canned "start the app" is often wrong).
             raise ApiError(
-                f"Jarvis at {self.base_url} is unreachable.",
+                f"Dodaios at {self.base_url} is unreachable.",
                 None, base_url=self.base_url,
             ) from exc
         except httpx.TransportError as exc:
             raise ApiError(
-                f"Jarvis at {self.base_url} is unreachable: {exc}",
+                f"Dodaios at {self.base_url} is unreachable: {exc}",
                 None, base_url=self.base_url,
             ) from exc
 

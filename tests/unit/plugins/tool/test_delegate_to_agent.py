@@ -147,6 +147,20 @@ async def test_status_answers_from_the_board(runtime):
     assert unknown.success is False
 
 
+async def test_status_board_gives_one_short_row_per_agent(runtime):
+    rt, _ = runtime
+    status = SocietyStatusTool(runtime_resolver=lambda: rt)
+    delegate = DelegateToAgentTool(runtime_resolver=lambda: rt)
+    await delegate.execute({"agent": "scout", "task": "Find the best VPS."}, _ctx("let scout"))
+    board = await status.execute({"board": True}, _ctx("what is everyone doing"))
+    assert board.success
+    rows = {row["agent"]: row for row in board.output["agents"]}
+    assert set(rows) == {"Archivist", "Scout"}  # the lead is not a row of its own board
+    assert rows["Scout"]["state"] == "working" and "VPS" in rows["Scout"]["task"]
+    assert rows["Scout"]["latest"]
+    assert rows["Archivist"] == {"agent": "Archivist", "state": "idle"}
+
+
 # --------------------------------------------------------------- the lead picks
 
 
@@ -524,3 +538,25 @@ async def test_status_resolves_a_misheard_name(voice_team):
     status = SocietyStatusTool(runtime_resolver=lambda: rt)
     res = await status.execute({"agent": "Java Scout", "turn_language": "en"}, _ctx("x"))
     assert res.success and res.output == "Jarvis-Scout has nothing to do right now."
+
+
+def test_every_spoken_table_carries_european_portuguese() -> None:
+    """All locales rank equally: each spoken table that has a Spanish column
+    also has a pt column with the same placeholders, so a pt turn never falls
+    back to English."""
+    import string
+
+    from jarvis.plugins.tool import delegate_to_agent as module
+
+    def fields(text: str) -> set[str]:
+        return {f for _, f, _, _ in string.Formatter().parse(text) if f}
+
+    tables = [
+        value
+        for value in vars(module).values()
+        if isinstance(value, dict) and "es" in value and isinstance(value["es"], str)
+    ]
+    assert len(tables) >= 16
+    for table in tables:
+        assert "pt" in table, table
+        assert fields(table["pt"]) == fields(table["es"]), table

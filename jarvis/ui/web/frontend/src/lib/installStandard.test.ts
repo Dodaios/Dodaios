@@ -7,7 +7,7 @@ import {
   skillsShTarget,
 } from "@/lib/installStandard";
 
-// The storefront on personaljarvis.ai computes these same strings in
+// The storefront on dodaios.ai computes these same strings in
 // `src/lib/install-standard.ts` and pins them in its own check. Both surfaces
 // have to advertise a command that actually works, so the expected values
 // below are the contract between them: change one, change both.
@@ -63,9 +63,9 @@ describe("the skills.sh target", () => {
     expect(
       skillsShTarget("three-point-check", {
         rawUrl:
-          "https://raw.githubusercontent.com/PersonalJarvis/marketplace/main/skills/three-point-check/SKILL.md",
+          "https://raw.githubusercontent.com/Dodaios/marketplace/main/skills/three-point-check/SKILL.md",
       }),
-    ).toEqual({ repo: "PersonalJarvis/marketplace", skill: "three-point-check" });
+    ).toEqual({ repo: "Dodaios/marketplace", skill: "three-point-check" });
   });
 
   it("does not mistake a refs/heads branch for the skill folder", () => {
@@ -87,9 +87,9 @@ describe("the skills.sh target", () => {
   it("falls back to the entry name when only the repository is known", () => {
     expect(
       skillsShTarget("three-point-check", {
-        sourceUrl: "https://github.com/PersonalJarvis/marketplace",
+        sourceUrl: "https://github.com/Dodaios/marketplace",
       }),
-    ).toEqual({ repo: "PersonalJarvis/marketplace", skill: "three-point-check" });
+    ).toEqual({ repo: "Dodaios/marketplace", skill: "three-point-check" });
   });
 
   it("prefers the raw URL over the repository URL", () => {
@@ -137,13 +137,13 @@ describe("the skills.sh target", () => {
 describe("the commands a listing offers", () => {
   it("gives a GitHub-published skill both standards, Jarvis first", () => {
     const block = installBlock("three-point-check", "skill", {
-      sourceUrl: "https://github.com/PersonalJarvis/marketplace",
+      sourceUrl: "https://github.com/Dodaios/marketplace",
       rawUrl:
-        "https://raw.githubusercontent.com/PersonalJarvis/marketplace/main/skills/three-point-check/SKILL.md",
+        "https://raw.githubusercontent.com/Dodaios/marketplace/main/skills/three-point-check/SKILL.md",
     });
     expect(block?.commands.map((c) => c.command)).toEqual([
       "jarvis marketplace install three-point-check",
-      "npx skills add PersonalJarvis/marketplace --skill three-point-check",
+      "npx skills add Dodaios/marketplace --skill three-point-check",
     ]);
   });
 

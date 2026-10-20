@@ -120,7 +120,7 @@ class ChromeConnections:
             raise ValueError("Unsupported Chrome operation")
         connection = self._connections.get(profile_id)
         if connection is None:
-            raise RuntimeError("Connect this Chrome profile in its Jarvis extension first")
+            raise RuntimeError("Connect this Chrome profile in its Dodaios extension first")
         key = uuid4().hex
         future = asyncio.get_running_loop().create_future()
         connection.pending[key] = future
