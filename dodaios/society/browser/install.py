@@ -64,6 +64,22 @@ def managed_python_request(system: str, machine: str) -> str:
     return "3.12"
 
 
+def host_matches_managed_python(request: str, version: tuple[int, int], *, frozen: bool) -> bool:
+    """True when this very interpreter can seed the browser runtime.
+
+    The browser dependency lock is hashed for one CPython minor version, so a
+    host 3.11 or 3.13 would build a runtime whose wheels do not match it. Only
+    a plain ``"X.Y"`` request equal to the host's own minor version reuses the
+    host; a frozen app or a pinned build string (Windows on ARM) goes to uv.
+    """
+    if frozen:
+        return False
+    major, dot, minor = request.partition(".")
+    if not (dot and major.isdigit() and minor.isdigit()):
+        return False
+    return (int(major), int(minor)) == tuple(version[:2])
+
+
 def _manifest(data_dir: Path | None = None) -> dict[str, Any]:
     try:
         row = json.loads((install_root(data_dir) / "installed.json").read_text("utf-8"))
@@ -286,10 +302,8 @@ def ensure_installed(
         _set(data_dir, phase="installing", percent=5, error="", detail="Preparing browser runtime")
         try:
             request = managed_python_request(sys.platform, platform.machine())
-            if (
-                not getattr(sys, "frozen", False)
-                and (3, 11) <= sys.version_info[:2] < (3, 14)
-                and request == "3.12"
+            if host_matches_managed_python(
+                request, sys.version_info[:2], frozen=bool(getattr(sys, "frozen", False))
             ):
                 _run([sys.executable, "-m", "venv", str(runtime)], env=env)
             else:

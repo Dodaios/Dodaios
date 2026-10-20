@@ -1,8 +1,8 @@
 """GET /api/voice/state + POST /api/voice/call + /hangup — the voice orb's click.
 
-The click must take the SAME path as the call hotkey (``request_voice_session``
-/ ``request_voice_hangup``), report a pipeline refusal as an answer rather than
-an error, and degrade honestly on a headless install (503 / available=false)
+The click must take the SAME path as the call hotkey (``start_voice_session``
+/ ``request_voice_hangup``), report a pipeline refusal as an answer that names
+its reason rather than an error, and degrade honestly on a headless install (503 / available=false)
 instead of 500-ing.
 """
 from __future__ import annotations
@@ -21,21 +21,21 @@ class _Pipeline:
 
     def __init__(
         self,
-        armed: bool = True,
+        refusal: str = "",
         stopped: bool = True,
         *,
         state: str = "IDLE",
         supervisor_state: str = "IDLE",
     ) -> None:
-        self._armed = armed
+        self._refusal = refusal
         self._stopped = stopped
         self.calls: list[str] = []
         self._state = SimpleNamespace(name=state)
         self._supervisor = SimpleNamespace(state=supervisor_state)
 
-    def request_voice_session(self) -> bool:
+    def start_voice_session(self) -> str:
         self.calls.append("call")
-        return self._armed
+        return self._refusal
 
     def request_voice_hangup(self) -> bool:
         self.calls.append("hangup")
@@ -66,16 +66,17 @@ def test_call_arms_a_wake_style_session(monkeypatch):
     client = _client(monkeypatch, pipeline)
     answer = client.post("/api/voice/call")
     assert answer.status_code == 200
-    assert answer.json() == {"armed": True}
+    assert answer.json() == {"armed": True, "reason": ""}
     assert pipeline.calls == ["call"]
 
 
 def test_call_reports_a_refusal_as_an_answer(monkeypatch):
-    # A session already running (or a hidden window) is a refusal, not an error.
-    client = _client(monkeypatch, _Pipeline(armed=False))
+    # A refusal is an answer, not an error, and it says which refusal it was:
+    # the control must never guess "a conversation is already running".
+    client = _client(monkeypatch, _Pipeline(refusal="muted"))
     answer = client.post("/api/voice/call")
     assert answer.status_code == 200
-    assert answer.json() == {"armed": False}
+    assert answer.json() == {"armed": False, "reason": "muted"}
 
 
 def test_hangup_takes_the_hangup_contract(monkeypatch):

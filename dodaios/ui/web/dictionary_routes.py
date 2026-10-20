@@ -2,10 +2,14 @@
 
 Endpoints (mounted by the WebServer in ``_build_app()``):
 
-    GET    /api/dictionary        → {"entries": [entry, ...]} in insertion order.
+    GET    /api/dictionary        → {"entries": [entry, ...]}: the user's
+                                    entries in insertion order, then the shipped
+                                    defaults still in force (``"default": true``).
     POST   /api/dictionary        → create one entry; 201 (400 on duplicate).
-    PATCH  /api/dictionary/{id}   → partial edit; returns the entry; 404.
-    DELETE /api/dictionary/{id}   → remove (idempotent → 200, {"removed": bool}).
+    PATCH  /api/dictionary/{id}   → partial edit; returns the entry; 404. Editing
+                                    a default makes it the user's own entry.
+    DELETE /api/dictionary/{id}   → remove (idempotent → 200, {"removed": bool});
+                                    a deleted default stays deleted.
 
 An entry is one canonical ``word`` plus optional ``misheard`` variants — see
 ``dodaios/speech/stt_dictionary.py``. Storage is the atomic JSON sidecar under
@@ -65,7 +69,7 @@ class EntryUpdate(BaseModel):
 @router.get("")
 def list_entries() -> dict[str, Any]:
     with _LOCK:
-        entries = _store().list_all()
+        entries = _store().effective_entries()
     return {"entries": [e.to_dict() for e in entries]}
 
 
