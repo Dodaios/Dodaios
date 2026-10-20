@@ -24,6 +24,7 @@ and personality come from their idle rows; no external assets are used.
 | `brew` | Teal teapot with a gold knob, spout and handle, a face on its belly | hopping |
 | `mochi` | Pink jelly blob | squash-and-stretch bouncing |
 | `shelly` | Green snail with an orange spiral shell and eyes on stalks | crawling |
+| `dodaios` | The hooded figure of the logo built of cubes, one per pixel of the pet: black with white trim (face lining, collar, cape hem, soles) | walking upright on two legs, cape streaming |
 
 A pet the person drew themselves (a single uploaded sheet) has no authored
 model. It is extruded in the runtime into a voxel figure from its own idle
@@ -34,6 +35,9 @@ frames and floats low, so every choice still shows in 3D.
 - Matches the office's toy style (`docs/agent-society/office-map.md` §2):
   chunky rounded primitives, flat matte colours, dot eyes with one glint, no
   textures. Colours are taken from the pixel pets' palettes.
+  `dodaios` is the one exception to the rounded primitives: it is built of
+  flat-shaded cubes, so the figure keeps the pixel look of its sprite and of
+  the logo it comes from.
 - Blender master: metres, Z up, -Y forward (glTF +Z forward), bottom-centred
   pivot per pet. Animated parts hang under named pivot empties
   (`<pet>_Head`, `<pet>_Leg_FL`, `<pet>_Wing_L`, …) so the runtime can drive

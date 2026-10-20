@@ -240,8 +240,33 @@ replayed during `session/load` is swallowed because the chat already shows it.
   `approvals.mode: manual` and OpenClaw with `tools.exec.mode: ask`; every
   request reaches Dodaios over ACP and is answered from the chat's stance —
   Bypass allows without a card, Ask shows the card, Plan refuses.
-- **A finished turn ends.** After the prompt's answer the runtime gets ten
-  seconds to exit on its own, then it is ended; the answer already stands.
+- **Warm processes** (`warm.py`). An agent's runtime process stays up
+  between its turns, initialized and with its conversation open, so a message
+  only costs `session/prompt` (Hermes: first answer text 0.03 s instead of
+  7 s; replay model). A turn borrows the process through a `Lease`, which the
+  CLI runner drives like a child process: the turn's stdout and stderr, a
+  stdin whose close ends the turn (not the process), and kill, which ends the
+  process. The process is reused only with exactly the launch it was started
+  for (argv, environment, working folder and the runtime's config files,
+  OpenClaw also the Gateway run); anything else retires it and starts a fresh
+  one. A turn without `resume` (a new conversation, a rollover) never reuses
+  the open Hermes session. Idle processes stop after 30 minutes, at most six
+  are kept per runtime, and `stop()` (updates, agent deleted) ends them.
+- **Warm-up when a chat opens.** `POST /api/agent-chat/sessions/{id}/warm`
+  (the agent's chat panel calls it when it opens, at most once a minute)
+  starts the agent's process (OpenClaw: its Gateway first) and opens its
+  conversation in the background. It makes no paid model call, runs only when
+  the agent's turn slot is free at once, re-reads the conversation id once it
+  holds the slot, and does nothing for an agent placed on another computer,
+  whose process starts there per turn. Each warm-up step has 45 s; a message
+  sent meanwhile waits for it and then runs on the warm process.
+- **Nothing slow in front of the first token.** Catalog facts for a model are
+  reused for 15 minutes and re-read in the background; an expired *ready*
+  runtime check (`--version`) is reused while it is checked again; the route
+  and the readiness check run concurrently.
+- **A finished turn ends.** After the prompt's answer the turn is over; a
+  process that is not warm gets ten seconds to exit on its own, then it is
+  ended. The answer already stands.
 - **Stop is a real stop.** Stop, the turn deadline, a provider failure and the
   stall watchdog first send ACP `session/cancel` and give the runtime five
   seconds to end its turn, then kill it. An OpenClaw run lives in its Gateway,
@@ -255,15 +280,20 @@ replayed during `session/load` is swallowed because the chat already shows it.
 - **Incomplete answers say so.** `stopReason` `max_tokens`,
   `max_turn_requests` or `cancelled` without any text is the turn's error;
   with text the answer stands and a `stop_reason` notice marks it incomplete.
-- **Nothing outlives the turn.** The runtime runs in the turn's process
-  container (Job Object on Windows, process group on POSIX). On POSIX its
+- **Nothing outlives the process.** The runtime runs in its own process
+  container (Job Object on Windows, process group on POSIX), the warm pool's
+  for a warm process and the turn's otherwise. On POSIX its
   descendants are also recorded while it runs, so a shell command it started
   under `setsid` (Hermes does that for every command) is reaped with the turn: the tree is walked while the runtime lives, and every descendant inherits a per-turn `JARVIS_TURN_MARK`, so one that detached between two walks is still found by its environment.
   A frame larger than the 16 MB read limit ends the turn with a plain error.
 
 ## Hermes
 
-- **Process:** `hermes acp`, one process per turn, stdin EOF ends it (exit 0).
+- **Process:** `hermes acp`, kept warm between turns (see above), stdin EOF
+  ends it (exit 0). Turns run with `HERMES_DISABLE_LAZY_INSTALLS=1`: Hermes
+  otherwise syncs its dependency environment, and retries a pending source
+  update tail, in front of the turn (60-190 s measured on Windows). Only the
+  setup job (`prepare_command`) runs without it.
 - **Profiles of one Dodaios data root:** every agent folder is a Hermes profile,
   `HERMES_HOME=<runtimes_root>/hermes-home/profiles/<agent>`. Hermes keeps its
   Python dependency environment (about 700 MB) per *data root*, and a profile
@@ -288,8 +318,9 @@ replayed during `session/load` is swallowed because the chat already shows it.
   Hermes migrates the file forward), `model.provider` / `model.default` /
   `model.base_url`, `terminal.cwd` = the agent workspace, Hermes' own memory
   and skill nudges off (Dodaios owns memory and skills), the `browser`,
-  `computer_use` and `cronjob` toolsets always disabled (Dodaios has a visible
-  browser and its own routines; Hermes' browser is a headless Chromium), and
+  `computer_use`, `cronjob` and `skills` toolsets always disabled (Dodaios has
+  a visible browser, its own routines and its own skills; Hermes' browser is a
+  headless Chromium, and its skill listing was a third of every prompt), and
   `SOUL.md` = the agent's Dodaios briefing. The only key is the gateway token,
   in the process environment.
 - **Dodaios tools:** passed per session in `session/new` / `session/load`
@@ -327,12 +358,30 @@ replayed during `session/load` is swallowed because the chat already shows it.
   upstream): Dodaios supervises an OpenClaw Gateway child with the embedding
   preset (`OPENCLAW_SKIP_CHANNELS=1`, `OPENCLAW_NO_RESPAWN=1`,
   `OPENCLAW_DISABLE_BONJOUR=1`, `OPENCLAW_EXEC_SHELL_SNAPSHOT=0`) and drives
-  each turn through the version-matched `openclaw acp` bridge
-  (`--url ws://127.0.0.1:<port> --session agent:main:main`). No hand-written
+  its turns through the version-matched `openclaw acp` bridge
+  (`--url ws://127.0.0.1:<port>`), kept warm between turns. `session/new`
+  names the conversation in its `_meta` (`sessionKey: agent:main:main`, and
+  `resetSession: true` for a fresh conversation), and each `session/prompt`
+  carries the agent's thinking level (`_meta.thinking`), so one bridge serves
+  every turn and a changed effort never restarts the Gateway. No hand-written
   Gateway WebSocket client: its wire protocol requires an exact version match.
+- **Warm-up run.** A fresh Gateway sets its agent loop up on its first run
+  (session lifecycle, SQLite store, harness and context assembly, the MCP
+  connection: about 6 s on Windows; no setting skips it). When a chat opens,
+  Dodaios runs that first run in a session of its own
+  (`agent:main:dodaios-warmup`) inside `gateway.warming(token)`: while it
+  lasts, every model call of that agent's token is answered by Dodaios' model
+  gateway itself, whatever its prompt (no provider call, nothing billed). The
+  warm-up holds the agent's turn slot, so none of the person's turns runs on
+  that token meanwhile. A warm-up never resets the conversation; a fresh one
+  is reset by its own turn. The person's first message then reaches the
+  model in about 0.3 s (replay model).
 - **Isolation:** one state directory (`OPENCLAW_STATE_DIR`,
   `OPENCLAW_CONFIG_PATH`) and one Gateway per agent folder, on its own
-  loopback port, started on the first turn and stopped after 15 idle minutes.
+  loopback port, started when the agent's chat opens (or on its first turn)
+  and stopped after 30 idle minutes, together with its warm bridge. At most
+  three Gateways run at once (about 1.3 GB of memory each): the least
+  recently used idle one stops for a new one.
   A changed config restarts the Gateway (with no turn in flight) instead of
   trusting its file watcher to have reloaded in time. Start-up took 17–26 s
   on Windows with the plugins below denied (46 s before). The user's own
@@ -349,7 +398,14 @@ replayed during `session/load` is swallowed because the chat already shows it.
   `gateway.{mode,port,bind,auth}`, `models.providers.<id>` for the agent's
   model, `agents.defaults.{model.primary,workspace,heartbeat.every:"0m"}`,
   `session.reset.mode:"none"`, `mcp.servers.jarvis`, `tools.deny` for native
-  tools that duplicate Dodaios features (automations, messaging, the browser),
+  tools that duplicate Dodaios features (automations, messaging, the browser)
+  or serve OpenClaw's own apps (skill workshop, themes, dashboards, mobile
+  UI, progress cards, presence, portal, TTS, plugin management; their
+  schemas were about a quarter of every request),
+  `skills.workshop.autonomous.mode:"off"` (no skill review, a model call
+  nobody started, after a turn), `update.checkOnStart:false`,
+  `gateway.controlUi.enabled:false` (its asset build cost seconds of CPU after
+  every start),
   `plugins.deny` for the bundled browser, canvas, desktop-control
   (`cua-computer`), device-pairing, file-transfer, location, voice, GitHub and
   Linux-node plugins, and `logging.file` inside the agent's state folder
@@ -365,7 +421,7 @@ replayed during `session/load` is swallowed because the chat already shows it.
   name (`jarvis__<tool>`, `mcp__jarvis__<tool>`) are read the same way
   everywhere a tool name is matched (`dodaios/core/mcp_names.py`).
 - **Sessions:** the fixed session key keeps one conversation across bridge
-  processes; the ACP session id changes per process and is not stored.
+  processes and ACP sessions; the ACP session id is not stored.
 - **Heartbeat:** OpenClaw runs a background model turn every 30 minutes by
   default. Dodaios sets `heartbeat.every: "0m"` for every agent: nothing the
   person did not start may bill a key.

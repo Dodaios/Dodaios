@@ -52,9 +52,11 @@ irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 |
 curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
 ```
 
-The installer checks for Python 3.11 or newer and Git, offers to install
-whatever is missing, adds the desktop launcher and opens the app. If you run it
-again, it updates your existing installation. You choose your language, wake
+You do not need to install anything first. If Python is missing, the
+installer downloads a private copy just for Dodaios, and on Windows it does the
+same for Git, without administrator rights or questions. It then adds the
+desktop launcher and opens the app. If you run it again, it updates your
+existing installation. You choose your language, wake
 phrase and models inside the app.
 
 You need one API key, a subscription or a local model. A microphone helps for
@@ -213,7 +215,7 @@ on macOS 15, go to **System Settings > Privacy & Security** and click **Open
 Anyway**. Up to macOS 14, right-click the app and choose **Open**. The one-line
 installer above does not need this step.
 
-To run Dodaios on a server, use `pip install personal-jarvis` and `jarvis serve`,
+To run Dodaios on a server, use `pip install dodaios` and `dodaios serve`,
 then open `http://localhost:47821` in a browser. Using a microphone from another
 computer needs HTTPS. The [headless deployment guide](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md)
 explains the setup. If you install with pip or pipx by hand on an Intel Mac or

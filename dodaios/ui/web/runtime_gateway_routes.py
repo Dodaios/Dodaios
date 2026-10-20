@@ -51,12 +51,23 @@ async def runtime_gateway_chat(request: Request) -> Any:
     """One model call for a Hermes / OpenClaw agent, on its Dodaios provider."""
     grant = _grant(request)
     try:
-        lease = gateway.capture_turn(grant)
+        # The runtime's warm-up run holds the agent's turn slot without a
+        # turn of the person: answered here, no provider call, nothing billed.
+        warmup = gateway.is_warmup(grant)
+        lease = None if warmup else gateway.capture_turn(grant)
         if grant.provider == gateway.SUBSCRIPTION_PROVIDER:
             raise gateway.GatewayError("This agent's subscription answers on /responses.")
         body = await _body(request)
         model, brain_request = gateway.chat_request(body)
         gateway.check_model(grant, model)
+        if warmup:
+            if body.get("stream") is True:
+                return StreamingResponse(
+                    gateway.warmup_chat_stream(model),
+                    media_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache"},
+                )
+            return gateway.warmup_chat_completion(model)
         # A runtime that sets no temperature gets the model's own default.
         temperature_given = gateway.temperature_given(body)
         if body.get("stream") is True:
@@ -78,12 +89,22 @@ async def runtime_gateway_responses(request: Request) -> Any:
     """One model turn for a Hermes / OpenClaw agent, on its ChatGPT subscription."""
     grant = _grant(request)
     try:
-        lease = gateway.capture_turn(grant)
+        # A warm-up run: answered here (see ``runtime_gateway_chat``).
+        warmup = gateway.is_warmup(grant)
+        lease = None if warmup else gateway.capture_turn(grant)
         if grant.provider != gateway.SUBSCRIPTION_PROVIDER:
             raise gateway.GatewayError("This agent's provider answers on /chat/completions.")
         body = await _body(request)
         args = gateway.request_args(body)
         gateway.check_model(grant, args["model"])
+        if warmup:
+            if body.get("stream") is True:
+                return StreamingResponse(
+                    gateway.warmup_response_stream(args["model"]),
+                    media_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache"},
+                )
+            return gateway.warmup_response(args["model"])
         if body.get("stream") is True:
             events = await gateway.open_response_stream(grant, args, lease=lease)
             return StreamingResponse(

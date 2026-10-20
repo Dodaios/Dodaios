@@ -4,8 +4,10 @@
 #   irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 | iex
 #
 # This bootstrap is intentionally small. It:
-#   1. Verifies Python 3.11+ and git are available.
-#   2. Offers to install either missing prerequisite, then re-checks in place.
+#   1. Uses Python 3.11+ and git when they are installed.
+#   2. Otherwise fetches private, checksum-pinned copies (uv-managed Python,
+#      MinGit) into %LOCALAPPDATA%\Dodaios\tools - no admin rights, no
+#      prompt - and offers WinGet only when that download fails.
 #   3. Checks for Node.js 18+ (optional - a missing Node never blocks the install).
 #   4. Clones (or updates) Dodaios into ~\.dodaios (an update moves an install
 #      made under the earlier name ~\.personal-jarvis there).
@@ -303,6 +305,132 @@ function Test-PythonCandidate {
     }
 }
 
+# Private copies of Python and Git for a machine that has neither. They land in
+# %LOCALAPPDATA%\Dodaios\tools without administrator rights or a prompt, and
+# nothing is added to the user's PATH or registry: this installer and the app
+# (dodaios/core/path_augment.py) look in that folder themselves. Every download
+# is pinned to a version and checked against its SHA-256 before it is used.
+$BundledUvVersion = '0.12.23'
+$BundledUvSha256 = @{
+    'x86_64'  = '75d05de6762778c31ee183398de7dd15093fad0ed90b1f236d8205ea5ec00c90'
+    'aarch64' = '13294e232ececbe709c06b74e6ced06f2a225ea5591476685362f22be56a50d5'
+}
+$BundledPythonVersion = '3.12'
+$BundledGitTag = 'v2.56.0.windows.2'
+$BundledGitZip = @{
+    'x86_64'  = @{ Name = 'MinGit-2.56.0.2-64-bit.zip'; Sha256 = 'da35e72aa21c005a5a0d298cfbae110bc1609a815730ea0dde84b01a1b3cd3be' }
+    'aarch64' = @{ Name = 'MinGit-2.56.0.2-arm64.zip'; Sha256 = '38b33dc6024026e3315cf88ab2cfea65205bbd7bb3a8e824bd21c8ad4fe609a7' }
+}
+
+function Get-BundledToolsDir {
+    if (-not $env:LOCALAPPDATA) { return $null }
+    return (Join-Path $env:LOCALAPPDATA 'Dodaios\tools')
+}
+
+function Get-BundledArch {
+    $arch = $env:PROCESSOR_ARCHITEW6432
+    if (-not $arch) { $arch = $env:PROCESSOR_ARCHITECTURE }
+    switch ($arch) {
+        'AMD64' { return 'x86_64' }
+        'ARM64' { return 'aarch64' }
+        default { return $null }
+    }
+}
+
+function Save-VerifiedDownload {
+    param([string]$Url, [string]$Sha256, [string]$Path)
+    try {
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = `
+                [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        } catch {}
+        $previous = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+        try {
+            Invoke-WebRequest -Uri $Url -OutFile $Path -UseBasicParsing
+        } finally {
+            $ProgressPreference = $previous
+        }
+        $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash
+        if ($actual -ne $Sha256) {
+            Write-Err "checksum mismatch for $Url - the download was discarded."
+            Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+        return $true
+    } catch {
+        Write-Err "download failed: $Url ($($_.Exception.Message))"
+        return $false
+    }
+}
+
+function Expand-BundledZip {
+    param([string]$Url, [string]$Sha256, [string]$Destination)
+    $zip = Join-Path ([IO.Path]::GetTempPath()) ('dodaios-' + [Guid]::NewGuid().ToString('N') + '.zip')
+    try {
+        if (-not (Save-VerifiedDownload $Url $Sha256 $zip)) { return $false }
+        $staging = "$Destination.partial"
+        Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+        Expand-Archive -LiteralPath $zip -DestinationPath $staging -Force
+        Remove-Item -LiteralPath $Destination -Recurse -Force -ErrorAction SilentlyContinue
+        Move-Item -LiteralPath $staging -Destination $Destination
+        return $true
+    } catch {
+        Write-Err "could not unpack $Url ($($_.Exception.Message))"
+        return $false
+    } finally {
+        Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Install-BundledPython {
+    $toolsDir = Get-BundledToolsDir
+    $arch = Get-BundledArch
+    if (-not $toolsDir -or -not $arch) { return $false }
+    $uvDir = Join-Path $toolsDir 'uv'
+    $uvExe = Join-Path $uvDir 'uv.exe'
+    if (-not (Test-Path -LiteralPath $uvExe)) {
+        Write-Note "downloading the uv Python manager $BundledUvVersion"
+        $url = "https://github.com/astral-sh/uv/releases/download/$BundledUvVersion/uv-$arch-pc-windows-msvc.zip"
+        if (-not (Expand-BundledZip $url $BundledUvSha256[$arch] $uvDir)) { return $false }
+    }
+    Write-Note "downloading Python $BundledPythonVersion (about 30 MB, only for Dodaios)"
+    $uvOutput = & $uvExe python install $BundledPythonVersion --install-dir (Join-Path $toolsDir 'python') `
+        --no-bin --no-registry --quiet 2>&1
+    $uvCode = $LASTEXITCODE
+    if ($uvCode -ne 0) {
+        Write-Err "Python $BundledPythonVersion could not be downloaded (uv exit $uvCode)."
+        @($uvOutput | Select-Object -Last 8) | ForEach-Object { Write-Note ([string]$_) }
+        return $false
+    }
+    Write-Ok "Python $BundledPythonVersion ready (private copy for Dodaios)"
+    return $true
+}
+
+function Install-BundledGit {
+    $toolsDir = Get-BundledToolsDir
+    $arch = Get-BundledArch
+    if (-not $toolsDir -or -not $arch) { return $false }
+    $asset = $BundledGitZip[$arch]
+    Write-Note 'downloading Git (about 40 MB, only for Dodaios)'
+    $url = "https://github.com/git-for-windows/git/releases/download/$BundledGitTag/$($asset.Name)"
+    if (-not (Expand-BundledZip $url $asset.Sha256 (Join-Path $toolsDir 'git'))) { return $false }
+    Write-Ok 'Git ready (private copy for Dodaios)'
+    return $true
+}
+
+function Install-BundledPrerequisites {
+    param($State)
+    $allOk = $true
+    if (-not $State.Python.Found) {
+        if (-not (Install-BundledPython)) { $allOk = $false }
+    }
+    if (-not $State.GitFound) {
+        if (-not (Install-BundledGit)) { $allOk = $false }
+    }
+    return $allOk
+}
+
 function Find-CompatiblePython {
     $candidates = @()
     if ($env:JARVIS_PYTHON) {
@@ -317,6 +445,11 @@ function Find-CompatiblePython {
         }
         if ($env:ProgramFiles) {
             $patterns += Join-Path $env:ProgramFiles 'Python*\python.exe'
+        }
+        $toolsDir = Get-BundledToolsDir
+        if ($toolsDir) {
+            # The private copy Install-BundledPython fetched on an earlier run.
+            $patterns += Join-Path $toolsDir 'python\cpython-3.*\python.exe'
         }
         foreach ($pattern in $patterns) {
             $candidates += @(Get-ChildItem -Path $pattern -File -ErrorAction SilentlyContinue |
@@ -441,6 +574,10 @@ function Refresh-ProcessPath {
     if ($env:LOCALAPPDATA) {
         $commonGitPaths += Join-Path $env:LOCALAPPDATA 'Programs\Git\cmd'
     }
+    $toolsDir = Get-BundledToolsDir
+    if ($toolsDir) {
+        $commonGitPaths += Join-Path $toolsDir 'git\cmd'
+    }
     $commonGitPaths = @($commonGitPaths | Where-Object { Test-Path $_ })
     $env:Path = ((@($InitialPath, $userPath, $machinePath) + $commonGitPaths |
         Where-Object { $_ }) -join ';')
@@ -514,6 +651,19 @@ function Ensure-Prerequisites {
         Write-Note "JARVIS_PYTHON is pinned to '$($env:JARVIS_PYTHON)' and is not a compatible interpreter."
         Write-Note 'Update or unset that pin before prerequisite installation.'
         return $null
+    }
+
+    # A private copy needs no administrator rights and changes nothing outside
+    # the Dodaios folder, so it is fetched without asking. WinGet and the
+    # consent prompt below stay the fallback when that download fails.
+    if ($PrerequisiteMode -ne 'never') {
+        if (Install-BundledPrerequisites $state) {
+            $state = Wait-ForPrerequisites -Seconds 2
+            if ($state.Ready) {
+                Write-PrerequisiteState $state
+                return $state
+            }
+        }
     }
 
     $missing = @(Get-MissingPrerequisiteLabels $state)

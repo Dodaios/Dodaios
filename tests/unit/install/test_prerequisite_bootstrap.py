@@ -54,7 +54,7 @@ BASH = _find_bash()
 
 
 def _run_powershell_flow(
-    tmp_path: Path, *, powershell: str, initially_ready: bool
+    tmp_path: Path, *, powershell: str, initially_ready: bool, bundled_ok: bool = False
 ) -> str:
     driver = r"""
 $ErrorActionPreference = 'Stop'
@@ -106,17 +106,31 @@ function Invoke-MissingPrerequisiteInstall {
     return $true
 }
 
-function Wait-ForPrerequisites { return Get-PrerequisiteState }
+$script:BundledCalls = 0
+function Install-BundledPrerequisites {
+    param($State)
+    $script:BundledCalls += 1
+    if (__BUNDLED_OK__) {
+        $script:InitiallyReady = $true
+        return $true
+    }
+    return $false
+}
+function Request-PrerequisiteConsent { param([string[]]$Missing) return $true }
+
+function Wait-ForPrerequisites { param([int]$Seconds = 10) return Get-PrerequisiteState }
 function Refresh-ProcessPath { }
 
 $result = Ensure-Prerequisites
 if ($null -eq $result) { throw 'flow did not return a ready state' }
 $summary = "READY=$($result.Ready);INSTALLS=$script:InstallCalls"
-$summary += ";ITEMS=$script:Installed;STATES=$script:StateCalls"
+$summary += ";ITEMS=$script:Installed;STATES=$script:StateCalls;BUNDLED=$script:BundledCalls"
 Write-Output $summary
 """
-    driver = driver.replace("__BLOCK__", _block(INSTALL_PS1)).replace(
-        "__INITIAL_READY__", "$true" if initially_ready else "$false"
+    driver = (
+        driver.replace("__BLOCK__", _block(INSTALL_PS1))
+        .replace("__INITIAL_READY__", "$true" if initially_ready else "$false")
+        .replace("__BUNDLED_OK__", "$true" if bundled_ok else "$false")
     )
     path = tmp_path / "driver.ps1"
     path.write_text(driver, encoding="utf-8")
@@ -210,9 +224,39 @@ def test_powershell_rechecks_and_continues_in_same_process(
         tmp_path, powershell=powershell, initially_ready=initially_ready
     )
     if initially_ready:
-        assert out == "READY=True;INSTALLS=0;ITEMS=;STATES=1"
+        assert out == "READY=True;INSTALLS=0;ITEMS=;STATES=1;BUNDLED=0"
     else:
-        assert out == "READY=True;INSTALLS=1;ITEMS=python,git;STATES=2"
+        # The private-copy download failed (offline), so WinGet takes over.
+        assert out == "READY=True;INSTALLS=1;ITEMS=python,git;STATES=2;BUNDLED=1"
+
+
+@pytest.mark.parametrize("powershell", POWERSHELLS or (None,))
+def test_powershell_fetches_private_copies_without_asking_or_winget(
+    tmp_path: Path, powershell: str | None
+) -> None:
+    """A machine with neither Python nor Git needs no prompt and no WinGet."""
+    if powershell is None:
+        pytest.skip("PowerShell is not available")
+    out = _run_powershell_flow(
+        tmp_path, powershell=powershell, initially_ready=False, bundled_ok=True
+    )
+    assert out == "READY=True;INSTALLS=0;ITEMS=;STATES=2;BUNDLED=1"
+
+
+def test_windows_private_copies_are_pinned_and_checksum_verified() -> None:
+    block = _block(INSTALL_PS1)
+    assert "$BundledUvVersion = '" in block
+    assert "github.com/astral-sh/uv/releases/download/$BundledUvVersion/" in block
+    assert "github.com/git-for-windows/git/releases/download/$BundledGitTag/" in block
+    assert "Get-FileHash -Algorithm SHA256" in block
+    # Nothing outside Dodaios's own folder: no PATH shims, no registry entries.
+    assert "--no-bin --no-registry" in block
+    assert "'Dodaios\\tools'" in block
+    # The private copies come before the WinGet consent prompt.
+    ensure = block[block.index("function Ensure-Prerequisites") :]
+    assert ensure.index("Install-BundledPrerequisites") < ensure.index(
+        "Request-PrerequisiteConsent"
+    )
 
 
 @pytest.mark.parametrize("powershell", POWERSHELLS or (None,))
@@ -288,6 +332,51 @@ def test_posix_rechecks_and_continues_in_same_process(
         assert out == "READY=1;INSTALLS=0;ITEMS=;STATES=1"
     else:
         assert out == "READY=1;INSTALLS=1;ITEMS=python,git;STATES=2"
+
+
+@pytest.mark.skipif(BASH is None, reason="Bash is not available")
+def test_posix_fetches_a_private_python_without_asking(tmp_path: Path) -> None:
+    """No Python on the machine: the per-user uv copy is used, no prompt, no sudo."""
+    driver = r"""#!/usr/bin/env bash
+set -euo pipefail
+PREREQUISITE_MODE=ask
+unset JARVIS_PYTHON || true
+FOUND_TOO_OLD=''
+PYTHON_EXE=''
+note() { :; }
+ok() { :; }
+err() { :; }
+find_python() { return 1; }
+
+__BLOCK__
+
+FETCHES=0
+CONSENT=0
+git_available() { return 0; }
+write_prerequisite_state() { :; }
+request_prerequisite_consent() { CONSENT=$((CONSENT + 1)); return 1; }
+_bootstrap_target_version() { printf '3.13'; }
+bootstrap_full_support_python() {
+    if [ -n "$_PY_BOOTSTRAPPED" ]; then PYTHON_EXE="$_PY_BOOTSTRAPPED"; return 0; fi
+    FETCHES=$((FETCHES + 1))
+    _PY_BOOTSTRAPPED=/private/python3.13
+    PYTHON_EXE="$_PY_BOOTSTRAPPED"
+    return 0
+}
+
+ensure_prerequisites
+refresh_prerequisite_state
+printf 'READY=%s;PY=%s;FETCHES=%s;CONSENT=%s\n' \
+    "$PREREQUISITES_READY" "$PYTHON_EXE" "$FETCHES" "$CONSENT"
+""".replace("__BLOCK__", _block(INSTALL_SH))
+    path = tmp_path / "private-python.sh"
+    path.write_text(driver, encoding="utf-8", newline="\n")
+    result = subprocess.run(
+        [BASH, str(path)], capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    # A second check reuses the copy instead of losing it or fetching again.
+    assert result.stdout.strip() == "READY=1;PY=/private/python3.13;FETCHES=1;CONSENT=0"
 
 
 def test_windows_uses_exact_trusted_package_ids_and_refreshes_path() -> None:

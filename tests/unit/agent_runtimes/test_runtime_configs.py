@@ -555,9 +555,15 @@ def test_hermes_writes_the_agents_effort(tmp_path, effort, expected):
     ("effort", "expected"),
     [("high", "high"), ("none", "off"), ("minimal", "minimal"), ("", None), ("bogus", None)],
 )
-def test_openclaw_writes_the_agents_thinking_default(tmp_path, effort, expected):
-    config = OpenClawRuntime().config_for(_turn(tmp_path, effort=effort), port=1, token=_TOKEN)
-    assert config["agents"]["defaults"].get("thinkingDefault") == expected
+def test_openclaw_sends_the_agents_thinking_with_each_prompt(tmp_path, effort, expected):
+    from dodaios.agent_runtimes import openclaw
+
+    turn = _turn(tmp_path, effort=effort)
+    meta = openclaw.prompt_meta(turn)
+    assert (meta or {}).get("thinking") == expected
+    # Never in the config: a changed effort must not restart the Gateway.
+    config = OpenClawRuntime().config_for(turn, port=1, token=_TOKEN)
+    assert "thinkingDefault" not in config["agents"]["defaults"]
 
 
 @pytest.mark.parametrize(

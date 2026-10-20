@@ -1249,6 +1249,47 @@ async def post_message(session_id: str, body: MessageBody, request: Request) -> 
     return {"turn_id": turn_id, "session_id": session_id}
 
 
+#: Warm-ups in flight, by chat session (one at a time; kept so they finish).
+_WARMING: dict[str, asyncio.Task[bool]] = {}
+
+
+@router.post(
+    "/sessions/{session_id}/warm",
+    summary="Get a Hermes or OpenClaw agent ready before the next message",
+    description=(
+        "Starts the agent's runtime process and opens its conversation in the "
+        "background, so the message that follows answers without a start-up wait. "
+        "Makes no model call. A no-op for every other chat."
+    ),
+)
+async def warm_session(session_id: str, request: Request) -> dict[str, Any]:
+    svc = await _async_service(request)
+    session = svc.store.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    if session.surface != "society" or not session.runtime:
+        return {"warming": False, "session_id": session_id}
+    running = _WARMING.get(session_id)
+    if running is None and not svc.is_running(session_id):
+        from dodaios.agent_chat.runner_acp import warm_session as warm
+
+        task = asyncio.create_task(
+            warm(session, svc.store), name=f"agent-runtime-warm-{session_id}"
+        )
+        _WARMING[session_id] = task
+
+        def done(finished: asyncio.Task[bool]) -> None:
+            _WARMING.pop(session_id, None)
+            if not finished.cancelled() and finished.exception() is not None:
+                log.warning(
+                    "agent chat %s: runtime warm-up failed: %s", session_id, finished.exception()
+                )
+
+        task.add_done_callback(done)
+        running = task
+    return {"warming": running is not None, "session_id": session_id}
+
+
 @router.post(
     "/sessions/{session_id}/cancel",
     summary="Stop the turn this chat session is running",
