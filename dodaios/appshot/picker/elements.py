@@ -29,6 +29,13 @@ from PySide6.QtCore import QObject, Signal
 MAX_PARTS = 3000
 #: How long one window may keep UI Automation busy (ms) before it gives up.
 UIA_TIMEOUT_MS = 1000
+#: The kinds of element that make a part: containers and pictures. Single
+#: buttons, rows, items, tabs, text runs, links and web components are left
+#: out; they made hovering light up pieces nobody meant to take.
+PART_KINDS = (
+    "DataGrid", "Document", "Edit", "Group", "Image", "List", "Menu", "MenuBar",
+    "Pane", "StatusBar", "Tab", "Table", "ToolBar", "Tree", "Window",
+)
 
 Scan = Callable[[int], list[list[int]]]
 
@@ -142,17 +149,7 @@ def uia_scan() -> Scan | None:
         )
         uia.TransactionTimeout = UIA_TIMEOUT_MS
         uia.ConnectionTimeout = UIA_TIMEOUT_MS
-        kinds = [
-            getattr(uia_api, f"UIA_{name}ControlTypeId")
-            for name in (
-                "Button", "ComboBox", "Custom", "DataGrid", "DataItem", "Document",
-                "Edit", "Group", "Header", "Image", "List", "ListItem", "Menu",
-                "MenuBar", "MenuItem", "Pane", "SplitButton", "StatusBar", "Tab",
-                "TabItem", "Table", "ToolBar", "Tree", "TreeItem", "Window",
-            )
-        ]
-        # Text runs, links, scroll bars and separators are left out: too
-        # small or too many to be a part anyone means to take.
+        kinds = [getattr(uia_api, f"UIA_{name}ControlTypeId") for name in PART_KINDS]
         wanted = uia.CreateAndCondition(
             uia.CreateOrConditionFromArray(
                 [uia.CreatePropertyCondition(uia_api.UIA_ControlTypePropertyId, k) for k in kinds]
@@ -181,4 +178,4 @@ def uia_scan() -> Scan | None:
     return scan
 
 
-__all__ = ["MAX_PARTS", "ElementScanner", "uia_scan"]
+__all__ = ["MAX_PARTS", "PART_KINDS", "ElementScanner", "uia_scan"]

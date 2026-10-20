@@ -62,9 +62,9 @@ blur previews, markings and windows while keeping Qt loaded. The picker provides
   pixels. No lens, no boxed labels, no banner;
 - hovering lifts the window under the pointer out of the dim, and a click
   without a drag takes exactly that window. On Windows it offers the parts
-  inside the window too (a sidebar, a list, a field, a panel, a button):
-  the smallest part under the pointer lights up as soon as the window has
-  been read (typically 10-200 ms), the mouse wheel steps out to the larger
+  inside the window too (a sidebar, a file list, the page, a panel, a
+  picture): the smallest part under the pointer lights up as soon as the
+  window has been read (typically 10-200 ms), the mouse wheel steps out to the larger
   parts around it and the whole window (and back in), and a click takes
   what is lit;
 - a drag clears the dim and tints the selected area a translucent grey
@@ -161,8 +161,11 @@ skips minimized and (on Windows) cloaked windows; where no list is available
 (Wayland) only dragging works. The parts of a window come from UI Automation
 (`dodaios/appshot/picker/elements.py`): one cached query per window on a
 worker thread, the window under the pointer first, each window read once per
-pick; text runs, links, scroll bars and parts under 16 px are left out, and
-nested parts that are nearly the same box count as one wheel step. Off
+pick. Only containers and pictures count (panes, groups, documents, lists,
+trees, tables, toolbars, tabs, text areas, images); single buttons, rows,
+items, links and web components are left out, and so is any part under
+40 px a side, under 1.5 % of the window, or mostly hidden under another
+window. Nested parts that are nearly the same box count as one wheel step. Off
 Windows, and for windows that expose no parts, hovering snaps to whole
 windows as before. The picker gives up after fifteen minutes
 without a result.
