@@ -5,7 +5,7 @@ import { SAMPLE_ROSTER } from "../mockRoster";
 import { AgentProfileDialog } from "./AgentProfileDialog";
 import { RosterRail } from "../roster/RosterRail";
 
-vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useLocaleChunk: () => true }));
+vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useLocaleChunk: () => true, useUiLanguage: () => "en" }));
 vi.mock("../AgentSwatch", () => ({ AgentSwatch: () => <span /> }));
 
 const agent = { ...SAMPLE_ROSTER[1], agentId: "research", name: "Research", title: "Researcher", description: "Check primary sources.", tier: "specialist" as const };
@@ -115,6 +115,8 @@ it("opens the avatar profile without selecting the chat and leaves name-click na
 it("customizes the agent's look and saves it with the character recipe kept", async () => {
   const { fetcher } = setup();
   fireEvent.click(screen.getAllByRole("button", { name: "society.profile_card.look" })[0]);
+  // Accessories belong to the shape; an agent that never picked a look opens on its pixel creature.
+  fireEvent.click(await screen.findByRole("button", { name: "society.companion.look_shape" }));
   fireEvent.click(await screen.findByRole("button", { name: "society.companion.items.suit" }));
   fireEvent.click(screen.getByRole("button", { name: "society.card.save" }));
   await screen.findByText("society.profile_card.saved");

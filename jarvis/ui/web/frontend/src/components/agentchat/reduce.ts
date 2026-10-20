@@ -107,6 +107,41 @@ export function isQuestionTool(name: string): boolean {
 }
 
 /**
+ * An agent's secure credential field (jarvis/agent_chat/credential_requests.py).
+ * The person pastes a secret that goes straight to the agent's vault; no event
+ * ever carries the value. `status` is `null` until the person saves or declines.
+ * Older event logs can also contain `timeout` or `cancelled` resolutions.
+ */
+export interface CredentialState {
+  requestId: string;
+  asker: string;
+  env: string;
+  label: string;
+  description: string;
+  placeholder: string;
+  replace: boolean;
+  expiresMs: number | null;
+  status: string | null;
+}
+
+/** The tool an agent asks for a credential with — bare or behind an MCP prefix. */
+export const CREDENTIAL_TOOL = "society_request_credential";
+
+export function isCredentialTool(name: string): boolean {
+  return name === CREDENTIAL_TOOL || name.endsWith(`__${CREDENTIAL_TOOL}`);
+}
+
+/** The call shows a card the person answers: a question or a credential field. */
+export function hasPersonCard(block: ToolBlock): boolean {
+  return Boolean(block.question || block.credential);
+}
+
+/** The call's card still waits for the person. */
+export function waitsOnCard(block: ToolBlock): boolean {
+  return Boolean((block.question && !block.question.closed) || (block.credential && block.credential.status === null));
+}
+
+/**
  * A coding agent's plan card (jarvis/agent_chat/turn_prompts.py): the turn
  * finished in plan mode. `decision` is `build`, `keep`, `superseded` (the
  * person started another turn instead) or `null` while it waits.
@@ -127,6 +162,8 @@ export interface ToolBlock {
   approval: ApprovalState | null;
   /** The question card this call shows, when the call is an agent's question. */
   question?: QuestionState;
+  /** The secure credential field this call shows, when the agent asked for a secret. */
+  credential?: CredentialState;
   /** When the call was made; a result without its own duration is timed from here. */
   startedMs: number;
   /** The sub-agent this call spawned, when the runner reported one (`subagent_*` events). */
@@ -171,7 +208,12 @@ export type TurnBlock = TextBlock | ReasoningBlock | ToolBlock;
 export type TurnStatus = "running" | "done" | "cancelled" | "error";
 
 export interface UserItem {
-  origin?: "control";
+  /**
+   * Not typed by the person: "control" is a chat command's own turn,
+   * "background" opens the result of an earlier request whose agents
+   * finished after its turn had closed (`text` is that request).
+   */
+  origin?: "control" | "background";
   type: "user";
   id: string;
   /**
@@ -189,7 +231,24 @@ export interface UserItem {
   toolChoices?: ToolChoice[];
   /** A Jarvis agent wrote this message into a coding thread on the person's behalf. */
   author?: { agentId: string; name: string };
+  /**
+   * The team engine woke a team lead with this turn; nobody typed it. `update`
+   * brings members' results, `check` asks for the report, `resumed` continues
+   * a goal the person resumed.
+   */
+  teamEvent?: TeamEvent;
   tsMs: number;
+}
+
+export type TeamEvent = "update" | "check" | "resumed";
+
+/** The frame the team engine puts on a lead's managing turn (jarvis/society/team_lead.py `_frame`). */
+const TEAM_FRAME = /^\[team (update|goal check|goal resumed) for team /;
+const TEAM_EVENTS: Record<string, TeamEvent> = { update: "update", "goal check": "check", "goal resumed": "resumed" };
+
+function teamEventOf(prompt: string): TeamEvent | undefined {
+  const match = TEAM_FRAME.exec(prompt);
+  return match ? TEAM_EVENTS[match[1]] : undefined;
 }
 
 /** One file's receipt in the timeline — enough to say what was sent, no more. */
@@ -225,6 +284,11 @@ export interface TurnItem {
   error: string | null;
   /** The plan card of a turn that finished in plan mode. */
   plan?: PlanState;
+  /**
+   * Who still works on this turn's request after it closed: the turn handed
+   * its seat to the next message and the result arrives in a turn of its own.
+   */
+  background?: string[];
 }
 
 export interface ErrorItem {
@@ -446,6 +510,57 @@ function settleWaitingCards(items: TimelineItem[]): TimelineItem[] {
   return changed ? next : items;
 }
 
+function updateCredential(
+  tl: Timeline,
+  turnId: string,
+  requestId: string,
+  fn: (c: CredentialState) => CredentialState,
+): Timeline {
+  return updateTurn(tl, turnId, (turn) => {
+    const i = turn.blocks.findIndex((b) => b.kind === "tool" && b.credential?.requestId === requestId);
+    if (i < 0) return turn;
+    const block = turn.blocks[i] as ToolBlock;
+    return { ...turn, blocks: replaceAt(turn.blocks, i, { ...block, credential: fn(block.credential!) }) };
+  });
+}
+
+/** Attach a credential field to its tool row: the open request call, else a row of its own. */
+function withCredential(turn: TurnItem, credential: CredentialState, tsMs: number): TurnItem {
+  let index = -1;
+  for (let i = turn.blocks.length - 1; i >= 0; i -= 1) {
+    const b = turn.blocks[i];
+    if (b.kind !== "tool") continue;
+    if (b.credential?.requestId === credential.requestId) return turn;
+    if (isCredentialTool(b.name) && !b.credential) {
+      index = i;
+      break;
+    }
+  }
+  if (index >= 0) {
+    const block = turn.blocks[index] as ToolBlock;
+    return { ...turn, blocks: replaceAt(turn.blocks, index, { ...block, credential }) };
+  }
+  const closed = closeLiveReasoning(turn, tsMs);
+  return {
+    ...closed,
+    blocks: [
+      ...closed.blocks,
+      {
+        kind: "tool",
+        callId: `cred-${credential.requestId}`,
+        name: CREDENTIAL_TOOL,
+        input: null,
+        output: null,
+        isError: false,
+        durationMs: null,
+        approval: null,
+        credential,
+        startedMs: tsMs,
+      },
+    ],
+  };
+}
+
 function withQuestion(turn: TurnItem, question: QuestionState, tsMs: number): TurnItem {
   let index = -1;
   for (let i = turn.blocks.length - 1; i >= 0; i -= 1) {
@@ -539,6 +654,46 @@ function mapToolDeep(
     }
   }
   return null;
+}
+
+/** A row whose approval was never answered, closed as `expired` — its sub-agent's rows too. */
+function expireOpenApproval(block: TurnBlock): TurnBlock {
+  if (block.kind !== "tool") return block;
+  const open = block.approval !== null && block.approval.decision === null;
+  const inner = block.subagent?.blocks.map(expireOpenApproval);
+  const innerChanged = inner !== undefined && inner.some((b, i) => b !== block.subagent?.blocks[i]);
+  if (!open && !innerChanged) return block;
+  return {
+    ...block,
+    approval: open && block.approval ? { ...block.approval, decision: "expired" } : block.approval,
+    ...(innerChanged && block.subagent && inner ? { subagent: { ...block.subagent, blocks: inner } } : {}),
+  };
+}
+
+/**
+ * Record `decision` on approval `approvalId`: its row stops asking and its
+ * card leaves the composer. The `approval_resolved` event lands here, and so
+ * does a decision the backend already confirmed (or reported expired) before
+ * that event arrived — the card must not wait on the socket to go away.
+ */
+export function settleApproval(tl: Timeline, approvalId: string, decision: string, turnId = ""): Timeline {
+  const owner = turnId || tl.pendingApprovals.find((a) => a.approvalId === approvalId)?.turnId || "";
+  const settle = (turn: TurnItem): TurnItem => {
+    const blocks = mapToolDeep(
+      turn.blocks,
+      (b) => b.approval?.approvalId === approvalId,
+      (b) => (b.approval && b.approval.decision === null ? { ...b, approval: { ...b.approval, decision } } : b),
+    );
+    return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
+  };
+  const withTurn = owner
+    ? updateTurn(tl, owner, settle)
+    : (() => {
+        const items = tl.items.map((item) => (item.type === "turn" ? settle(item) : item));
+        return items.some((item, i) => item !== tl.items[i]) ? { ...tl, items } : tl;
+      })();
+  const pendingApprovals = withTurn.pendingApprovals.filter((a) => a.approvalId !== approvalId);
+  return pendingApprovals.length === withTurn.pendingApprovals.length ? withTurn : { ...withTurn, pendingApprovals };
 }
 
 /** Update the sub-agent `agentId` spawned; a spawn call the stream never announced gets a row of its own. */
@@ -663,7 +818,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             type: "user",
             id: `u-${seq || ev.ts_ms}`,
             ...(p.origin === "control" ? { origin: "control" as const } : {}),
+            ...(p.origin === "background" ? { origin: "background" as const } : {}),
             ...(messageAuthor(p.author) ? { author: messageAuthor(p.author) } : {}),
+            ...(teamEventOf(str(p.text)) ? { teamEvent: teamEventOf(str(p.text)) } : {}),
             // `typed` is present only when the message carried files, and it
             // is the person's own sentence; `text` is the composed prompt.
             text: str(p.typed) || str(p.text),
@@ -860,6 +1017,7 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
           (b) => b.kind === "tool" && b.callId === callId,
           (ex) => ({
             ...(ex?.question ? { question: ex.question } : {}),
+            ...(ex?.credential ? { credential: ex.credential } : {}),
             ...(ex?.subagent ? { subagent: ex.subagent } : {}),
             kind: "tool",
             callId,
@@ -979,31 +1137,18 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
           }),
         );
       });
+      // The same call asking again (its CLI outlived an app restart) replaces
+      // the older card: nothing waits on that one any more.
+      const replaced = (a: PendingApproval) =>
+        a.approvalId === approvalId || (callId !== "" && a.turnId === turnId && a.callId === callId);
       return {
         ...withTurn,
-        pendingApprovals: [
-          ...withTurn.pendingApprovals.filter((a) => a.approvalId !== approvalId),
-          pending,
-        ],
+        pendingApprovals: [...withTurn.pendingApprovals.filter((a) => !replaced(a)), pending],
       };
     }
 
-    case "approval_resolved": {
-      const approvalId = str(p.approval_id);
-      const decision = str(p.decision);
-      const withTurn = updateTurn(base, turnId, (turn) => {
-        const blocks = mapToolDeep(
-          turn.blocks,
-          (b) => b.approval?.approvalId === approvalId,
-          (b) => ({ ...b, approval: b.approval ? { ...b.approval, decision } : null }),
-        );
-        return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
-      });
-      return {
-        ...withTurn,
-        pendingApprovals: withTurn.pendingApprovals.filter((a) => a.approvalId !== approvalId),
-      };
-    }
+    case "approval_resolved":
+      return settleApproval(base, str(p.approval_id), str(p.decision), turnId);
 
     case "question_required": {
       const questionId = str(p.question_id);
@@ -1046,6 +1191,28 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       }));
     }
 
+    case "credential_required": {
+      const requestId = str(p.request_id);
+      const env = str(p.env);
+      if (!requestId || !env) return base;
+      const credential: CredentialState = {
+        requestId,
+        asker: str(p.asker),
+        env,
+        label: str(p.label) || env,
+        description: str(p.description),
+        placeholder: str(p.placeholder),
+        replace: Boolean(p.replace),
+        expiresMs: num(p.expires_ms),
+        status: null,
+      };
+      return updateTurn(base, turnId, (turn) => withCredential(turn, credential, ev.ts_ms));
+    }
+
+    case "credential_resolved": {
+      return updateCredential(base, turnId, str(p.request_id), (c) => ({ ...c, status: str(p.status, "cancelled") }));
+    }
+
     case "turn_finished": {
       // Older event logs can contain a stale reader's timeout after the real
       // process completed. Only a terminal event settles a turn, and it does
@@ -1074,8 +1241,10 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
                     answers: b.question.answers.map((a) => a ?? { text: "", optionIndex: null, source: "closed" }),
                   },
                 }
+              // Credential entry belongs to the person, not the turn's lifetime.
               : b,
-        ),
+        // An approval nobody answered stops offering buttons nothing listens to.
+        ).map(expireOpenApproval),
         durationMs: num(p.duration_ms) ?? Math.max(0, ev.ts_ms - turn.startedMs),
         usage:
           p.usage && typeof p.usage === "object" && Object.keys(p.usage as object).length > 0
@@ -1083,6 +1252,9 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
             : turn.liveUsage,
         costUsd: num(p.cost_usd),
         error: str(p.error, "") || null,
+        ...(Array.isArray(p.background) && p.background.length > 0
+          ? { background: (p.background as unknown[]).map((name) => str(name)) }
+          : {}),
       }));
       return {
         ...finished,

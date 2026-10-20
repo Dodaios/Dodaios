@@ -12,6 +12,8 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { CodingModeBadge } from "@/components/layout/CodingModeBadge";
 import { SectionNavButtons } from "@/components/layout/SectionNavButtons";
+import { SectionWindowButton } from "@/components/layout/SectionWindowButton";
+import { sectionWindow } from "@/lib/sectionWindows";
 import { IdeLayoutSwitch } from "@/components/agentic/threads/IdeLayoutSwitch";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { openExternalUrl } from "@/lib/openExternal";
@@ -19,7 +21,6 @@ import { IdeSidePanelToggle } from "@/components/agentic/sidePanel/IdeSidePanelT
 import { ThreadTerminalToggle } from "@/components/agentic/threads/ThreadTerminalToggle";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
 import { useIdeThreadsStore } from "@/store/ideThreads";
-import { WikiInspectorToggle } from "@/components/wiki/WikiInspectorToggle";
 import { useDesktopChrome, WindowControls } from "@/components/layout/WindowControls";
 
 /**
@@ -77,6 +78,8 @@ const CHROME_ARMED = "bg-warning text-background";
 
 export function TopBar() {
   const chrome = useDesktopChrome();
+  const solo = useEventStore((s) => s.solo);
+  const section = useEventStore((s) => sectionWindow(s.activeSection));
   const controls = chrome.frameless ? chrome.controls : "none";
 
   return (
@@ -94,6 +97,8 @@ export function TopBar() {
         <WindowControls controls={controls} maximized={chrome.maximized} onCommand={chrome.command} />
       )}
       <SectionNavButtons />
+      {/* Modal hubs carry this action inside their own focus scope. */}
+      {(solo || !["settings", "plugins"].includes(section)) && <SectionWindowButton />}
       <div
         className="pywebview-drag-region min-w-0 flex-1"
         onDoubleClick={() => {
@@ -104,7 +109,6 @@ export function TopBar() {
       <div className="flex shrink-0 items-center">
         <CodingModeBadge />
         <IdeCaptionPanelToggle />
-        <WikiCaptionPanelToggle />
         {controls === "trailing" && (
           <WindowControls controls={controls} maximized={chrome.maximized} onCommand={chrome.command} />
         )}
@@ -127,12 +131,6 @@ function IdeCaptionSwitch() {
       <IdeLayoutSwitch className="pointer-events-auto" />
     </div>
   );
-}
-
-/** The Wiki inspector's open / close button, only on the Wiki section. */
-function WikiCaptionPanelToggle() {
-  const onWiki = useEventStore((s) => s.activeSection === "memory");
-  return onWiki ? <WikiInspectorToggle /> : null;
 }
 
 /**

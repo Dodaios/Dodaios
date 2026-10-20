@@ -63,7 +63,7 @@ class ProductHelpTool:
 
     name = "product_help"
     description = (
-        "Read Personal Jarvis's built-in user guide: what a feature does, how to set it up, "
+        "Read Dodaios's built-in user guide: what a feature does, how to set it up, "
         "where a setting is, and how to fix a problem. Pass a few English keywords as query "
         "(for example 'connect claude subscription' or 'wake word not working'), or a slug "
         "from an earlier result to read that whole guide."

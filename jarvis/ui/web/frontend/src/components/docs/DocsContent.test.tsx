@@ -47,7 +47,7 @@ describe("DocsContent", () => {
             body_hash: "hash",
             error: null,
             heading_count: 1,
-            body: "## Next Steps\n\nRead the [online docs](https://personaljarvis.ai/docs/).",
+            body: "## Next Steps\n\nRead the [online docs](https://dodaios.ai/docs/).",
             headings: [{ level: 2, text: "Next Steps", slug: "next-steps" }],
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -74,7 +74,7 @@ describe("DocsContent", () => {
     const link = await waitFor(() => screen.getByRole("link", { name: "online docs" }));
     fireEvent.click(link);
 
-    expect(openSpy).toHaveBeenCalledWith("https://personaljarvis.ai/docs/");
+    expect(openSpy).toHaveBeenCalledWith("https://dodaios.ai/docs/");
   });
   it("labels callouts and shows the reading time from tokens, not raw colours", async () => {
     vi.stubGlobal(

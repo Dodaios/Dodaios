@@ -11,6 +11,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
+from jarvis.brain.assistant_name import DEFAULT_ASSISTANT_NAME
+
 from .constants import SPOKEN_KIND_WITHHELD
 from .diagnostics import diagnostic_value, session_termination_diagnostics
 from .models import VoiceEventRow, VoiceSessionRow, VoiceTurnRow
@@ -129,12 +131,24 @@ def _fold_withheld_twins(items: list[_JarvisOutput]) -> list[_JarvisOutput]:
     return result
 
 
+def _speaker(assistant_name: str | None) -> str:
+    """The label of the assistant's lines: the caller's name for it, else the neutral one."""
+    return " ".join((assistant_name or "").split()) or DEFAULT_ASSISTANT_NAME
+
+
 def format_session_markdown(
     session: VoiceSessionRow,
     turns: Iterable[VoiceTurnRow],
     events: Iterable[VoiceEventRow] | None = None,
+    *,
+    assistant_name: str | None = None,
 ) -> str:
-    """Render a structured transcript for rich copy-and-paste targets."""
+    """Render a structured transcript for rich copy-and-paste targets.
+
+    ``assistant_name`` labels the assistant's lines. The export is read by a
+    person and parsed by nothing, so it carries the name the user chose.
+    """
+    speaker = _speaker(assistant_name)
     turns_list = list(turns)
     events_list = list(events or [])
     events_map = _events_by_turn(events_list)
@@ -198,7 +212,7 @@ def format_session_markdown(
         if t.cost_usd > 0:
             meta_parts.append(f"${t.cost_usd:.4f}")
         if meta_parts:
-            lines.append(f"**🧠 Jarvis dachte:** {' · '.join(meta_parts)}")
+            lines.append(f"**🧠 {speaker} dachte:** {' · '.join(meta_parts)}")
             lines.append("")
 
         if t.tool_calls:
@@ -222,7 +236,7 @@ def format_session_markdown(
                     voice_note = (
                         f" · _Voice (requested, not verified): `{spoken_by}`_"
                     )
-            lines.append(f"**🔊 Jarvis sagte** _(de={t.jarvis_lang})_{voice_note}")
+            lines.append(f"**🔊 {speaker} sagte** _(de={t.jarvis_lang})_{voice_note}")
             lines.append("")
             for output in outputs:
                 if output.is_reply and t.awaiting_confirmation:
@@ -263,13 +277,17 @@ def format_session_plain(
     session: VoiceSessionRow,
     turns: Iterable[VoiceTurnRow],
     events: Iterable[VoiceEventRow] | None = None,
+    *,
+    assistant_name: str | None = None,
 ) -> str:
     """Render dialogue plus the session's final termination evidence.
 
     The body uses speaker labels, without Markdown, emojis, or per-turn
     cost/model telemetry. Supplemental audible phrases remain dialogue;
     termination diagnostics are labelled as not spoken after the dialogue.
+    ``assistant_name`` labels the assistant's lines (see the markdown form).
     """
+    speaker = _speaker(assistant_name)
     turns_list = list(turns)
     events_list = list(events or [])
     events_map = _events_by_turn(events_list)
@@ -305,7 +323,7 @@ def format_session_plain(
         for output in _jarvis_outputs_for_turn(t, events_map.get(t.id, [])):
             # The clean transcript reads as dialogue — the technical ``detail``
             # (exit codes, harness reasons) stays out to avoid AI-slop.
-            blocks.append(f"Jarvis: {output.text}")
+            blocks.append(f"{speaker}: {output.text}")
 
     if blocks:
         lines.append("\n\n".join(blocks))

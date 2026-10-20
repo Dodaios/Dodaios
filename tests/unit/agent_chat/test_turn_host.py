@@ -331,6 +331,85 @@ async def test_a_restarted_app_carries_on_the_thread_turn_the_host_kept(
     assert store.open_turns() == []
 
 
+async def test_a_restarted_app_asks_again_on_the_card_already_on_screen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, app_host_mode: Any
+) -> None:
+    """The replayed permission prompt reuses the open card instead of stacking a dead one.
+
+    2026-10-06: after a restart the thread showed "Approval needed (2)" — the
+    card from before the restart on top, whose buttons answered "no such
+    pending approval", and the live one hidden behind it.
+    """
+    monkeypatch.setattr(turn_host_client, "spool_dir", lambda: tmp_path / "spool")
+    monkeypatch.setattr(turn_host_client, "_host_alive", lambda state: False)
+
+    async def no_live_host(*, start: bool = True) -> None:
+        return None
+
+    monkeypatch.setattr(turn_host_client, "get_client", no_live_host)
+    db = tmp_path / "agent_chat.db"
+    store = AgentChatStore(db)
+    session = store.create_session(
+        provider="claude-api", model="m", effort="medium", cwd=str(tmp_path), surface="agent"
+    )
+    sid = session.session_id
+
+    def card(approval_id: str, call_id: str) -> dict[str, Any]:
+        payload = {"turn_id": "t1", "approval_id": approval_id, "call_id": call_id, "name": "Bash"}
+        return {"kind": "approval_required", "ts_ms": 2_000, "payload": payload}
+
+    store.append_event(sid, {"kind": "turn_started", "ts_ms": 1_000, "payload": {"turn_id": "t1"}})
+    # Two restarts already stacked two cards for the same call; one card has no call id.
+    for event in (card("first", "tu1"), card("second", "tu1"), card("loose", "")):
+        store.append_event(sid, event)
+    lines = [
+        _CLAUDE_LINES[0],
+        _CLAUDE_LINES[2],
+        {
+            "type": "control_request",
+            "request_id": "r1",
+            "request": {
+                "subtype": "can_use_tool",
+                "tool_name": "Bash",
+                "input": {"command": "ls"},
+                "tool_use_id": "tu1",
+            },
+        },
+        *_CLAUDE_LINES[3:],
+    ]
+    record = _spool_record(tmp_path, session_id=sid, turn_id="t1", acked=2)
+    record["stdout"] = [json.dumps(line) for line in lines]
+    Path(record["spool_path"]).write_text(json.dumps(record), encoding="utf-8")
+
+    svc = AgentChatService(AgentChatStore(db))
+    await svc.wait_reattached()
+    for _ in range(200):
+        if svc.pending_approvals(sid):
+            break
+        await asyncio.sleep(0.02)
+    assert svc.pending_approvals(sid) == ["second"]
+    closed = {
+        e["payload"]["approval_id"]: e["payload"]["decision"]
+        for e in store.list_events(sid)
+        if e["kind"] == "approval_resolved"
+    }
+    assert closed == {"first": "expired", "loose": "expired"}
+    asked = [e["payload"] for e in store.list_events(sid) if e["kind"] == "approval_required"]
+    assert asked[-1]["approval_id"] == "second"
+    assert asked[-1]["call_id"] == "tu1"
+
+    assert svc.resolve_approval(sid, "second", "allow")
+    run = svc._running.get(sid)
+    if run is not None and run.task is not None:
+        await asyncio.wait_for(run.task, timeout=10)
+    events = store.list_events(sid)
+    resolved = [e["payload"] for e in events if e["kind"] == "approval_resolved"]
+    assert resolved[-1] == {"turn_id": "t1", "approval_id": "second", "decision": "allow"}
+    assert events[-1]["kind"] == "turn_finished"
+    assert events[-1]["payload"]["status"] == "done"
+    assert svc._unanswered == {}
+
+
 def test_tests_and_scripts_never_reach_the_users_turn_host() -> None:
     host_mode.reset()
     assert not turn_host_client.host_available()
@@ -589,9 +668,22 @@ def test_concurrent_first_requests_build_only_one_chat_service() -> None:
     assert all(svc is state.agent_chat for svc in services)
 
 
-async def test_reattaching_twice_hands_over_the_old_reader_without_killing_the_cli(tmp_path):
+async def test_reattaching_twice_hands_over_the_old_reader_without_killing_the_cli(tmp_path, monkeypatch):
     host, task, port = await _start_host(tmp_path)
     client = await _client(port)
+    attach = host._attach
+    attachments = 0
+
+    async def interleaved(peer, rid, turn):
+        nonlocal attachments
+        attachments += 1
+        if attachments == 2:
+            # A live frame can reach the replacement before the host handles
+            # its attach request. Replay must still start at the first line.
+            await peer.send({"ev": "line", "id": turn.turn_id, "seq": 2, "d": "two"})
+        await attach(peer, rid, turn)
+
+    monkeypatch.setattr(host, "_attach", interleaved)
     try:
         spawned = await client.spawn(
             [sys.executable, "-c", _CHILD],
@@ -623,6 +715,36 @@ async def test_reattaching_twice_hands_over_the_old_reader_without_killing_the_c
         ]
         assert await asyncio.wait_for(second.wait(), 3) == 3
         second.release()
+    finally:
+        client.detach()
+        await _stop(host, task)
+
+
+async def test_failed_attach_can_retry_without_leaving_a_dead_reader(tmp_path, monkeypatch):
+    host, task, port = await _start_host(tmp_path)
+    client = await _client(port)
+    try:
+        spawned = await client.spawn(
+            [sys.executable, "-c", _CHILD], cwd=str(tmp_path), env=None,
+            stdin="hi\n", keep_stdin=True, meta={"turn_id": "retry-attach", "keep_stdin": True},
+        )
+        request = client._request
+
+        async def refused(*_args, **_kwargs):
+            raise ConnectionError("attach reply unavailable")
+
+        monkeypatch.setattr(client, "_request", refused)
+        with pytest.raises(ConnectionError, match="attach reply unavailable"):
+            await client.attach(spawned.host_id)
+        assert client.live() == []
+        monkeypatch.setattr(client, "_request", request)
+        resumed = await client.attach(spawned.host_id)
+        assert resumed is not None
+        assert await resumed.stdout.readline() == b"got hi\n"
+        assert resumed.stdin is not None
+        resumed.stdin.write(b"go\n")
+        assert await asyncio.wait_for(resumed.wait(), 3) == 3
+        resumed.release()
     finally:
         client.detach()
         await _stop(host, task)

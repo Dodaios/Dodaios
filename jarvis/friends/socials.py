@@ -1,8 +1,8 @@
-"""Personal Jarvis Socials — the friend-graph service.
+"""Dodaios Socials — the friend-graph service.
 
 Not to be confused with :mod:`jarvis.ui.web.socials_routes`, which is CRUD for
 the *project's* marketing links (``/api/socials``). This module is the people
-side: friends who also run Personal Jarvis, what they let you see of their
+side: friends who also run Dodaios, what they let you see of their
 usage, and writing to them. Its HTTP surface lives under ``/api/friends``.
 
 What this service owns
@@ -176,7 +176,7 @@ class SocialsService:
             raise SocialsError(f"You are already connected with {name}.")
 
         friend = Friend(
-            display_name=(display_name or invite.display_name or "Jarvis friend")[:120],
+            display_name=(display_name or invite.display_name or "Dodaios friend")[:120],
             note=note,
         )
         await self._registry.add_friend(friend)
@@ -472,7 +472,7 @@ class SocialsService:
         still sees and can delete. Nothing here is silent.
         """
         profile = self.profile()
-        peer_name = str(body.get("display_name") or "").strip()[:120] or "Jarvis friend"
+        peer_name = str(body.get("display_name") or "").strip()[:120] or "Dodaios friend"
         peer_endpoint = _clean(body.get("endpoint"))
 
         link = await self._registry.peers.get_by_node(node_id)

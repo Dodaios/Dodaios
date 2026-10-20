@@ -214,7 +214,7 @@ def _http_error(exc: OllamaServerError) -> HTTPException:
 async def get_inventory(provider_id: str, request: Request) -> InventoryResponse:
     """Every download with its facts, what is loaded, and the disk total.
 
-    Jarvis's own aliases (option profiles, the voice alias) are hidden from
+    Dodaios's own aliases (option profiles, the voice alias) are hidden from
     ``models``; ``running`` still names them, so the memory an alias holds is
     visible and ``loaded_vram_bytes`` stays honest.
     """
@@ -509,7 +509,7 @@ def set_role(
     message = (
         f"{role} now uses {tag}."
         if tag
-        else f"{role} is back to discovery: Jarvis picks the smallest capable download."
+        else f"{role} is back to discovery: Dodaios picks the smallest capable download."
     )
     if not written.get("drift_guarded", True):
         message += (
@@ -630,6 +630,7 @@ def put_model_options(
             provider.models.pop(stored_key, None)
         if opts is not None:
             provider.models[tag] = opts
+    _refresh_option_consumers(request)
     _forget_overview()
     return _options_response(tag, opts)
 
@@ -652,8 +653,20 @@ def delete_model_options(
     provider = _ollama_provider_cfg(cfg)
     if stored_key is not None and provider is not None:
         provider.models.pop(stored_key, None)
+    _refresh_option_consumers(request)
     _forget_overview()
     return _options_response(name, None)
+
+
+def _refresh_option_consumers(request: Request) -> None:
+    """The next turn must budget with the saved context before assembling tools."""
+    from jarvis.agent_runtimes.gateway import invalidate_provider_metadata
+
+    brain = getattr(request.app.state, "brain", None)
+    reactivate = getattr(brain, "reactivate_provider", None)
+    if callable(reactivate):
+        reactivate("ollama")
+    invalidate_provider_metadata("ollama")
 
 
 @router.get("/models/{name:path}/suggested-options", response_model=SuggestedOptionsResponse)
@@ -742,7 +755,7 @@ class HfPullBody(BaseModel):
 
 _HF_OFF = (
     "Hugging Face browsing is switched off. Turn it on under Local models → "
-    "Hugging Face; until then Jarvis makes no request to huggingface.co."
+    "Hugging Face; until then Dodaios makes no request to huggingface.co."
 )
 
 
@@ -887,7 +900,7 @@ async def get_server(provider_id: str) -> ServerResponse:
     openapi_extra={"x-jarvis-dangerous": True},
 )
 async def post_server_stop(provider_id: str) -> ServerActionResponse:
-    """Stop the Ollama Jarvis itself started — never one started elsewhere."""
+    """Stop the Ollama Dodaios itself started — never one started elsewhere."""
     _require_pull_capable(provider_id)
     ok, message = await asyncio.to_thread(ollama_runtime.stop_server)
     return ServerActionResponse(ok=ok, message=message)
@@ -943,7 +956,7 @@ class AutostartBody(BaseModel):
 
 @router.get("/runtime/autostart", response_model=AutostartResponse)
 def get_autostart(provider_id: str, request: Request) -> AutostartResponse:
-    """Whether the local server starts with Jarvis, and whether that would fire."""
+    """Whether the local server starts with Dodaios, and whether that would fire."""
     _require_pull_capable(provider_id)
     from jarvis.core.config import ollama_autostart
     from jarvis.local_models import autostart
@@ -1032,7 +1045,7 @@ async def post_server_test(provider_id: str, body: ServerTestBody) -> ServerProb
 async def get_server_log(
     provider_id: str, lines: int = Query(default=40, ge=1, le=500)
 ) -> ServerLogResponse:
-    """The last lines of the server log Jarvis writes when it starts Ollama."""
+    """The last lines of the server log Dodaios writes when it starts Ollama."""
     _require_pull_capable(provider_id)
     return ServerLogResponse(lines=await asyncio.to_thread(ollama_runtime.tail_log, lines))
 

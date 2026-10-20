@@ -346,7 +346,7 @@ def recommend_whisper(
 def _format_report(report: HardwareReport, rec: WhisperRecommendation) -> str:
     lines = [
         "╔══════════════════════════════════════════════════════════╗",
-        "║  Jarvis Hardware Analysis                                ║",
+        "║  Dodaios Hardware Analysis                               ║",
         "╚══════════════════════════════════════════════════════════╝",
         "",
         f"OS:            {report.os_name} "
@@ -378,7 +378,7 @@ def _format_report(report: HardwareReport, rec: WhisperRecommendation) -> str:
         for pkg, version in sorted(report.existing_installs.items()):
             lines.append(f"  - {pkg}: {version}")
     else:
-        lines.append("  (no relevant Jarvis dependencies pre-installed)")
+        lines.append("  (no relevant Dodaios dependencies pre-installed)")
 
     lines.extend(
         [
@@ -586,7 +586,7 @@ def _ollama_log_paths() -> list[Path]:
 
         paths.append(_log_path())
     except Exception:  # noqa: BLE001 — the runtime module is optional on a bare install
-        log.debug("hardware: Jarvis's own Ollama log path is unavailable", exc_info=True)
+        log.debug("hardware: Dodaios's own Ollama log path is unavailable", exc_info=True)
     if os.name == "nt":
         local = os.environ.get("LOCALAPPDATA", "")
         if local:
@@ -731,6 +731,10 @@ def _probe_accelerator_gb() -> tuple[float, str]:
         log.debug("hardware: vendor-neutral accelerator probe failed", exc_info=True)
         vendor_gb, vendor_source = 0.0, ""
     if vendor_gb > 0:
+        if sys.platform == "darwin" and platform.machine() == "arm64":
+            # Keep the measured Metal budget and its supported device family.
+            # Consumers distinguish MPS from generic, unqualified GPU reports.
+            return vendor_gb, "apple-unified"
         return vendor_gb, vendor_source
     if sys.platform == "darwin" and platform.machine() == "arm64":
         try:

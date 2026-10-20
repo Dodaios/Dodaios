@@ -4,13 +4,41 @@
  * agents live in tmux there and keep working while this PC is off; the folder
  * is copied there first (new files that look like secrets stay here).
  */
-import { useEffect } from "react";
-import { Laptop, Server } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Laptop, Server, Shuffle } from "lucide-react";
 import { useComputerChoiceList } from "@/hooks/useComputers";
+import { computersApi } from "@/lib/computersApi";
 import { useEventStore } from "@/store/events";
 import { cn } from "@/lib/utils";
+import { fill, useT } from "@/i18n";
 
 const RUN_ON_KEY = "jarvis.agenticIde.runOn.";
+/** The picker's value for "let automatic placement choose" (Settings, Computers). */
+export const RUN_ON_AUTO = "auto";
+
+/** Whether automatic placement is switched on; one quiet fetch, off on any failure. */
+function useAutoPlacement(wanted: boolean): { on: boolean; settled: boolean } {
+  const [state, setState] = useState({ on: false, settled: !wanted });
+  useEffect(() => {
+    if (!wanted) return;
+    let alive = true;
+    const settle = (on: boolean) => {
+      if (alive) setState({ on, settled: true });
+    };
+    try {
+      void computersApi
+        .placement()
+        .then((settings) => settle(Boolean(settings?.enabled)))
+        .catch(() => settle(false));
+    } catch {
+      settle(false); /* fetch unavailable: no automatic placement */
+    }
+    return () => {
+      alive = false;
+    };
+  }, [wanted]);
+  return state;
+}
 
 /** The computer last chosen for a project's new workspaces; storage may be blocked. */
 export function storedRunOn(projectId: string | undefined): string | null {
@@ -25,10 +53,10 @@ export function storeRunOn(projectId: string | undefined, computerId: string | n
   } catch { /* a convenience only */ }
 }
 
-function detailFor(status: string): string {
-  if (status === "online") return "Keeps running while this PC is off";
-  if (status === "unknown") return "Not checked yet";
-  return "Not reachable right now";
+function detailKeyFor(status: string): string {
+  if (status === "online") return "workspace_launcher.run_on.online";
+  if (status === "unknown") return "workspace_launcher.run_on.unknown";
+  return "workspace_launcher.run_on.offline";
 }
 
 export function RunOnPicker({
@@ -36,37 +64,53 @@ export function RunOnPicker({
   onChange,
   disabled,
   hideWhenNone = false,
+  allowAuto = false,
 }: {
   value: string | null;
   onChange: (computerId: string | null) => void;
   disabled?: boolean;
   /** Show nothing (instead of a "Connect a server" hint) when no computer is connected. */
   hideWhenNone?: boolean;
+  /** Offer "Automatic" (value {@link RUN_ON_AUTO}) when automatic placement is on. */
+  allowAuto?: boolean;
 }) {
+  const t = useT();
   const { computers, loaded } = useComputerChoiceList();
   const setActiveSection = useEventStore((state) => state.setActiveSection);
-  const usable = computers.filter((computer) => computer.health.status !== "provisioning");
+  const usable = computers.filter(
+    (computer) => computer.health.status !== "provisioning" && computer.enabled !== false,
+  );
+  const placement = useAutoPlacement(allowAuto);
+  const auto = placement.on && usable.length > 0;
   const options = [
-    { id: null as string | null, name: "This computer", detail: "Stops when this PC sleeps or shuts down", online: true, icon: Laptop },
+    ...(auto
+      ? [{ id: RUN_ON_AUTO as string | null, name: t("workspace_launcher.run_on.auto"), detail: t("workspace_launcher.run_on.auto_detail"), online: true, icon: Shuffle }]
+      : []),
+    { id: null as string | null, name: t("workspace_launcher.run_on.local"), detail: t("workspace_launcher.run_on.local_detail"), online: true, icon: Laptop },
     ...usable.map((computer) => ({
       id: computer.id as string | null,
       name: computer.name,
-      detail: detailFor(computer.health.status),
+      detail: t(detailKeyFor(computer.health.status)),
       online: computer.health.status === "online",
       icon: Server,
     })),
   ];
   // A remembered computer that has been removed since falls back to this PC,
   // rather than leaving no choice selected and failing on create.
-  const missing = loaded && value !== null && !usable.some((computer) => computer.id === value);
+  const missing =
+    loaded &&
+    value !== null &&
+    (value === RUN_ON_AUTO
+      ? !allowAuto || (placement.settled && !auto)
+      : !usable.some((computer) => computer.id === value));
   useEffect(() => { if (missing) onChange(null); }, [missing, onChange]);
 
   if (hideWhenNone && usable.length === 0) return null;
   const chosen = usable.find((computer) => computer.id === value);
   return (
     <fieldset data-testid="ide-run-on" disabled={disabled}>
-      <legend className="text-xs font-medium text-muted-foreground">Runs on</legend>
-      <div role="radiogroup" aria-label="Runs on" className="mt-2 grid gap-2 sm:grid-cols-2">
+      <legend className="text-xs font-medium text-muted-foreground">{t("workspace_launcher.run_on.label")}</legend>
+      <div role="radiogroup" aria-label={t("workspace_launcher.run_on.label")} className="mt-2 grid gap-2 sm:grid-cols-2">
         {options.map((option) => {
           const active = option.id === value;
           const Icon = option.icon;
@@ -88,7 +132,7 @@ export function RunOnPicker({
               <span className="min-w-0">
                 <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                   <span className="truncate">{option.name}</span>
-                  {option.id && (
+                  {option.id && option.id !== RUN_ON_AUTO && (
                     <span
                       aria-hidden="true"
                       className={cn("h-1.5 w-1.5 shrink-0 rounded-full", option.online ? "bg-accent" : "bg-foreground-faint")}
@@ -103,16 +147,15 @@ export function RunOnPicker({
       </div>
       {chosen && (
         <p data-testid="ide-run-on-note" className="mt-2 text-xs text-muted-foreground">
-          The folder is copied to {chosen.name} first, uncommitted changes included. Files like .env
-          and private keys stay on this PC. The coding CLI must be installed there.
+          {fill(t("workspace_launcher.run_on.copy_note"), { computer: chosen.name })}
         </p>
       )}
       {usable.length === 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
-          Want agents that keep working while this PC is off?{" "}
+          {t("workspace_launcher.run_on.none_hint")}{" "}
           <button type="button" onClick={() => setActiveSection("computers")}
             className="font-medium text-accent underline-offset-4 hover:underline">
-            Connect a server
+            {t("workspace_launcher.run_on.connect_server")}
           </button>
         </p>
       )}

@@ -53,6 +53,81 @@ def test_a_shorter_chord_does_not_fire_with_the_longer_one(monkeypatch):
     assert events == ["long"]
 
 
+CTRL = SimpleNamespace(name="ctrl_l", char=None)
+SHIFT = SimpleNamespace(name="shift", char=None)
+X = SimpleNamespace(vk=0x58, char="x")
+Y = SimpleNamespace(vk=0x59, char="y")
+B = SimpleNamespace(vk=0x42, char="b")
+
+
+def _area_and_recording(monkeypatch):
+    monkeypatch.setattr("jarvis.appshot.key_events.key_is_down", lambda *_args: None)
+    events = []
+    listener = AppshotKeyEvents()
+    listener.register([
+        ["control + x", None, lambda: events.append("area")],
+        ["control + y", None, lambda: events.append("recording")],
+    ])
+    return listener, events
+
+
+def test_a_held_modifier_serves_the_next_shortcut_too(monkeypatch):
+    listener, events = _area_and_recording(monkeypatch)
+    listener._on_press_key(CTRL)
+    for key in (X, Y, X):
+        listener._on_press_key(key)
+        listener._on_release_key(key)
+    listener._on_release_key(CTRL)
+    assert events == ["area", "recording", "area"]
+
+
+def test_the_letter_may_go_down_before_the_modifier(monkeypatch):
+    listener, events = _area_and_recording(monkeypatch)
+    listener._on_press_key(X)
+    listener._on_press_key(X)  # The held letter repeats before Ctrl joins.
+    for _ in range(2):
+        listener._on_press_key(CTRL)
+        listener._on_release_key(CTRL)
+    listener._on_release_key(X)
+    assert events == ["area", "area"]
+
+
+def test_a_shorter_chord_does_not_start_when_the_longer_one_loses_a_key(monkeypatch):
+    monkeypatch.setattr("jarvis.appshot.key_events.key_is_down", lambda *_args: None)
+    events = []
+    listener = AppshotKeyEvents()
+    listener.register([
+        ["control + shift + b", None, lambda: events.append("long")],
+        ["control + b", None, lambda: events.append("short")],
+    ])
+    for key in (CTRL, SHIFT, B):
+        listener._on_press_key(key)
+    listener._on_release_key(SHIFT)
+    listener._on_press_key(Y)  # An unrelated key must not start it either.
+    listener._on_release_key(Y)
+    listener._on_release_key(B)
+    listener._on_release_key(CTRL)
+    assert events == ["long"]
+
+
+def test_a_key_whose_release_was_lost_still_starts_the_chord_again(monkeypatch):
+    down = {"x": True}
+    listener, events = _area_and_recording(monkeypatch)
+    monkeypatch.setattr(
+        "jarvis.appshot.key_events.key_is_down", lambda name, _vk=None: down.get(name),
+    )
+    listener._on_press_key(X)  # Its release never arrives.
+    down["x"] = False
+    listener._on_press_key(Y)
+    listener._on_release_key(Y)
+    assert "x" not in listener._held
+    listener._on_press_key(CTRL)
+    down["x"] = True
+    listener._on_press_key(X)
+    listener._on_release_key(X)
+    assert events == ["area"]
+
+
 def test_a_stuck_modifier_does_not_turn_the_next_letter_into_the_chord(monkeypatch):
     # The OS says every leftover key is up. Z itself is the key this event
     # is about, so the sweep must leave it for the press and release edges.

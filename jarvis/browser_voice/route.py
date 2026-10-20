@@ -45,7 +45,7 @@ _UNSAFE_FALLBACK_DETAIL = (
 _USAGE_FALLBACK_DISABLED_DETAIL = (
     "The selected voice connection could not start. Check its connection and "
     "model settings. Automatic usage-billed API fallback is disabled; "
-    "Jarvis did not switch to another provider."
+    "Dodaios did not switch to another provider."
 )
 # The close reason a browser shows the person when the classic chain cannot be
 # built. WebSocket close reasons are capped at 123 bytes.
@@ -54,8 +54,8 @@ _SPEECH_STACK_UNAVAILABLE_REASON = (
     "provider is missing. Check API Keys."
 )
 
-# BCP-47 from the canonical per-turn resolver (de/en/es).
-_LANG_MAP = {"de": "de-DE", "en": "en-US", "es": "es-ES"}
+# BCP-47 from the canonical per-turn resolver (de/en/es/pt).
+_LANG_MAP = {"de": "de-DE", "en": "en-US", "es": "es-ES", "pt": "pt-PT"}
 
 
 def browser_voice_enabled(cfg: Any) -> bool:

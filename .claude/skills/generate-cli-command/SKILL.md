@@ -3,7 +3,7 @@ name: generate-cli-command
 description: >-
   Use after building a feature that adds or changes a REST route in
   jarvis/ui/web/*_routes.py, as the "definition of done" before committing.
-  Ensures the new endpoint is reachable from the Jarvis CLI: confirms the router
+  Ensures the new endpoint is reachable from the Dodaios CLI: confirms the router
   is mounted, checks its OpenAPI metadata is clean, and (for high-value routes)
   scaffolds a curated `jarvis <group> <command>` plus a test and a docs entry.
   Trigger phrases: "generate a CLI command", "/generate-cli-command", "wire this
@@ -12,7 +12,7 @@ description: >-
 
 # Generate a CLI Command for a New Feature
 
-The Jarvis CLI (`jarvis/cli_ctl/`, the `jarvis`/`jarvisctl`/`jctl` binaries) is a
+The Dodaios CLI (`jarvis/cli_ctl/`, the `jarvis`/`jarvisctl`/`jctl` binaries) is a
 thin HTTP client over the REST API. Its dynamic `jarvis api <tag> <op>` layer turns
 **every mounted REST route into a command automatically** — so a new feature is
 CLI-reachable the moment its route is mounted with clean OpenAPI metadata. This

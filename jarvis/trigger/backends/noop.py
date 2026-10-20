@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import logging
 
+from jarvis.core.branding import CLI_COMMAND_NAME
+
 log = logging.getLogger(__name__)
 
 # Process-wide "already explained" flag so the message logs exactly once.
@@ -58,7 +60,7 @@ def explain_unavailable() -> str:
         return (
             "this host cannot register a global keyboard shortcut. Voice still "
             "works via the wake word, and dictation can be started from the "
-            "Jarvis Bar, the Dictation view, or `jarvis api dictation start`."
+            f"Dodaios Bar, the Dictation view, or `{CLI_COMMAND_NAME} api dictation start`."
         )
 
     if platform == "linux":
@@ -70,22 +72,22 @@ def explain_unavailable() -> str:
             return (
                 "Wayland does not let an application grab a global shortcut — "
                 "the compositor owns them by design. Bind a shortcut in your "
-                "desktop settings to `jarvis api dictation start` instead; "
+                f"desktop settings to `{CLI_COMMAND_NAME} api dictation start` instead; "
                 "voice also still works via the wake word."
             )
         return (
             "the pynput package is not installed. On an X11 desktop, "
             "`pip install 'personal-jarvis[desktop-linux]'` enables global "
             "shortcuts (it builds evdev, so a C compiler and the kernel "
-            "headers are required). Until then, use the wake word, the Jarvis "
-            "Bar, or `jarvis api dictation start`."
+            "headers are required). Until then, use the wake word, the Dodaios "
+            f"Bar, or `{CLI_COMMAND_NAME} api dictation start`."
         )
 
     if platform == "darwin":
         return (
             "the pyobjc Quartz package is not installed (the [full] profile "
             "includes it). With it, global shortcuts arm themselves once "
-            "macOS has allowed Input Monitoring for Personal Jarvis."
+            "macOS has allowed Input Monitoring for Dodaios."
         )
 
     return (

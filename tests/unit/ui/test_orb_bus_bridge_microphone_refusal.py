@@ -92,9 +92,9 @@ def test_every_table_covers_every_interface_language(table: str) -> None:
 @pytest.mark.parametrize(
     ("language", "switch", "place"),
     [
-        ("en", "Personal Jarvis", "Privacy & Security > Microphone"),
-        ("de", "Personal Jarvis", "Datenschutz & Sicherheit > Mikrofon"),  # i18n-allow
-        ("es", "Personal Jarvis", "Privacidad y seguridad > Micrófono"),  # i18n-allow
+        ("en", "Dodaios", "Privacy & Security > Microphone"),
+        ("de", "Dodaios", "Datenschutz & Sicherheit > Mikrofon"),  # i18n-allow
+        ("es", "Dodaios", "Privacidad y seguridad > Micrófono"),  # i18n-allow
     ],
 )
 async def test_a_denied_microphone_names_the_switch_and_the_place(

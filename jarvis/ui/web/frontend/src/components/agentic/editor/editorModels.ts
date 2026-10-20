@@ -1,6 +1,7 @@
 import type * as Monaco from "monaco-editor/editor/editor.api";
 
 import { useEventStore } from "@/store/events";
+import { translate } from "@/i18n";
 import { useCodeEditorStore, type EditorFile } from "@/store/codeEditor";
 import { viewKindOf } from "./fileKinds";
 import {
@@ -339,7 +340,11 @@ export function loadHead(fileKey: string): Promise<Monaco.editor.ITextModel | nu
     if (!file || !api) return null;
     let text: string | null = null;
     try {
-      text = await fetchHeadText(file.workspaceId, file.path, store().diffBases[fileKey]?.ref);
+      const base = store().diffBases[fileKey];
+      // A file-to-file compare reads the other file from disk; any other diff asks git.
+      text = base?.path
+        ? (await loadTextFile(file.workspaceId, base.path)).text
+        : await fetchHeadText(file.workspaceId, file.path, base?.ref);
     } catch (error) {
       toast((error as Error).message);
     }
@@ -442,7 +447,7 @@ export async function revertFile(fileKey: string, { follow = false } = {}): Prom
     const loaded = await loadTextFile(file.workspaceId, file.path);
     if (entries.get(fileKey) !== entry) return;
     if (loaded.text === null) {
-      toast("The file on disk can no longer be edited here.");
+      toast(translate("code_editor.errors.not_editable"));
       return;
     }
     if (follow && entry.model.getAlternativeVersionId() !== before) {
@@ -472,7 +477,7 @@ export async function reopenWithEncoding(fileKey: string, encoding: string): Pro
   const entry = entries.get(fileKey);
   if (!file || !entry) return;
   if (file.dirty) {
-    toast("Save or discard the changes before reopening the file in another encoding.");
+    toast(translate("code_editor.errors.reopen_dirty"));
     return;
   }
   try {

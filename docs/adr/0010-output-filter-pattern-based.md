@@ -19,14 +19,14 @@ audience: developer
 Brain output lands on two TTS paths:
 
 1. `pipeline._handle_utterance` → `_speak()` → `tts.synthesize()` (main path).
-2. `pipeline._on_announcement` (`AnnouncementRequested` bus handler) → `tts.synthesize()` (bus bypass for skill / Jarvis-Agent announcements).
+2. `pipeline._on_announcement` (`AnnouncementRequested` bus handler) → `tts.synthesize()` (bus bypass for skill / Dodaios-Agent announcements).
 
 On both paths, tool-call JSON, stack traces, Markdown remnants, engineering jargon (`Harness`/`MCP`/`Subprocess`/`Provider`), self-reference (self-identification as AI), echo paraphrase (reformulation opening) and filler openers (generic affirmations) reach the TTS synthesis unfiltered — the user hears engineering garbage read aloud. Pre-existing pre-filters (`_strip_paraphrase_prefix`, `_is_non_substantive_response`) cover only a part of it.
 
 Three filter strategies were up for debate:
 
 - **A. LLM roundtrip** ("Please rephrase this in voice form"). Clean output quality, but 200–800 ms of additional latency per turn. Kills any butler tone.
-- **B. Hard cut** (truncate everything after the first stack-trace / JSON marker). Fast, but wrecks legitimate Jarvis-Agent replies that look "JSON-like".
+- **B. Hard cut** (truncate everything after the first stack-trace / JSON marker). Fast, but wrecks legitimate Dodaios-Agent replies that look "JSON-like".
 - **C. Pattern-based** (regex-only, with whitelist protection for user-concept words). Fast, testable, deterministic.
 
 ## Decision
@@ -51,7 +51,7 @@ Hyphen compounds (`Browser-Provider`, `Brain-Provider`) are preserved by lookbeh
 
 ### Rationale
 
-- **Latency requirement:** the main Jarvis must deliver the first token in <1 s. An LLM-filter roundtrip would be +200–800 ms per turn — unacceptable for smalltalk.
+- **Latency requirement:** the main Dodaios must deliver the first token in <1 s. An LLM-filter roundtrip would be +200–800 ms per turn — unacceptable for smalltalk.
 - **Testability:** regex patterns are encapsulable as tests (23 cases in `tests/unit/brain/test_output_filter.py`). An LLM filter would be non-deterministic.
 - **Defense in depth:** the filter complements the existing pre-filters (`_strip_paraphrase_prefix`, `_is_non_substantive_response`) — they partially overlap, but that is OK. Multiple protection layers are more robust.
 
@@ -67,7 +67,7 @@ Hyphen compounds (`Browser-Provider`, `Brain-Provider`) are preserved by lookbeh
 ## Alternatives Considered
 
 - **A. LLM-filter roundtrip** ("the brain produces raw, an LLM wrapper rephrases for voice"): cleanest output quality, but +200–800 ms latency kills the butler tone. **Rejected.**
-- **B. Hard cut at the tool-JSON marker** (cut off everything after `dispatch_to_*`): very fast, but wrecks legitimate Jarvis-Agent replies that happen to contain JSON-like strings ("Die Datei deklariert vier Provider in JSON-Format"). **Rejected.**
+- **B. Hard cut at the tool-JSON marker** (cut off everything after `dispatch_to_*`): very fast, but wrecks legitimate Dodaios-Agent replies that happen to contain JSON-like strings ("Die Datei deklariert vier Provider in JSON-Format"). **Rejected.**
 - **D. Enforce a pre-filter via the brain system prompt** ("You MUST NOT output JSON"): not reliable — Gemini Flash still leaks occasionally. Defense in depth required (prompt + filter). **Implemented as a complement** (JARVIS_PERSONA.md ECHO-PARAPHRASE section + ROUTER-DISCIPLINE section), not as a replacement.
 
 ## Subsequent drift-class extension 2026-04-28

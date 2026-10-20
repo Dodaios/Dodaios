@@ -655,7 +655,7 @@ class SystemPermissionPort:
 
         Together with :attr:`outside_installed_app` it tells a copy run from a
         mounted disk image or the Downloads folder (a bundle, wrongly placed:
-        the grantee is Personal Jarvis itself) from a terminal or IDE run (no
+        the grantee is Dodaios itself) from a terminal or IDE run (no
         bundle: the grantee is the app that started it).
         """
         if self.platform != "darwin":
@@ -1240,7 +1240,7 @@ class SystemPermissionPort:
         bundle_id, _path, _launched, stable = self._bundle_identity()
         if not stable or not bundle_id:
             return refused(
-                "Relaunch Personal Jarvis from its installed app before resetting a permission."
+                "Relaunch Dodaios from its installed app before resetting a permission."
             )
         import subprocess  # lazy: this method is darwin-only at runtime
 

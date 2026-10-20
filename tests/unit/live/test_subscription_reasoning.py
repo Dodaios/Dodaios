@@ -123,8 +123,25 @@ async def test_usage_limit_midstream_is_safe_and_terminal():
     with pytest.raises(SubscriptionReasoningError, match="usage limit") as caught:
         await _collect(reasoning)
     assert caught.value.code == "usage_limit_reached"
+    assert caught.value.status == 429
     assert "sensitive-provider-body" not in str(caught.value)
     assert credentials.calls == [False]
+    await reasoning.aclose()
+
+
+async def test_http_rate_limit_keeps_retry_after_without_retrying_or_refreshing():
+    requests = []
+
+    def limited(request):
+        requests.append(request)
+        return httpx.Response(429, headers={"Retry-After": "3600"}, text="sensitive-body")
+
+    reasoning, credentials = _reasoning(limited)
+    with pytest.raises(SubscriptionReasoningError) as caught:
+        await _collect(reasoning)
+    assert caught.value.status == 429 and caught.value.retry_after == "3600"
+    assert "sensitive-body" not in str(caught.value)
+    assert credentials.calls == [False] and len(requests) == 1
     await reasoning.aclose()
 
 
@@ -134,7 +151,7 @@ async def test_hosted_tool_is_rejected_before_auth_or_network():
         pytest.fail("Hosted tools must fail before opening a request")
 
     reasoning, credentials = _reasoning(forbidden)
-    with pytest.raises(SubscriptionReasoningError, match="Jarvis function"):
+    with pytest.raises(SubscriptionReasoningError, match="Dodaios function"):
         async for _ in reasoning.stream(
             model="chosen", input=[], instructions="", tools=[{"type": "computer"}]
         ):
@@ -201,6 +218,8 @@ async def test_catalog_efforts_and_default_are_preserved_without_provider_metada
                             {"effort": "bad\nvalue"},
                         ],
                         "default_reasoning_level": "low",
+                        "context_window": 400000,
+                        "max_output_tokens": 64000,
                     }
                 ]
             },
@@ -212,6 +231,8 @@ async def test_catalog_efforts_and_default_are_preserved_without_provider_metada
             "label": "Selected",
             "efforts": ["low", "max", "ultra"],
             "default_effort": "low",
+            "context_length": 400000,
+            "max_output_tokens": 64000,
         }
     ]
     await reasoning.aclose()
@@ -378,4 +399,65 @@ async def test_brain_accepts_protocol_req_keyword():
     brain = SubscriptionReasoningBrain(reasoning, "chosen-model")
     deltas = [delta async for delta in brain.complete(req=BrainRequest(messages=()))]
     assert deltas[-1].finish_reason == "stop"
+    await reasoning.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "catalog,code",
+    [
+        ([{"slug": "other-model", "visibility": "list"}], "model_not_found"),
+        ([{"slug": "chosen-model", "visibility": "hide"}], "invalid_request_error"),
+        ([], "invalid_request_error"),
+        (None, "invalid_request_error"),
+    ],
+)
+async def test_a_refused_model_the_account_no_longer_carries_is_named(catalog, code):
+    """Live 2026-10-13: a model saved under a plan that had ended was refused
+    with a bare 400, reported only as "ChatGPT rejected this request"."""
+    requests = []
+
+    def handler(request):
+        requests.append(request.url.path)
+        if request.url.path.endswith("/models"):
+            if catalog is None:
+                return httpx.Response(500, text="sensitive-body")
+            return httpx.Response(200, json={"models": catalog})
+        return httpx.Response(400, text="sensitive-body")
+
+    reasoning, _ = _reasoning(handler)
+    with pytest.raises(SubscriptionReasoningError) as caught:
+        await _collect(reasoning)
+    assert caught.value.code == code and caught.value.status == 400
+    assert ("unavailable on this ChatGPT subscription" in str(caught.value)) is (
+        code == "model_not_found"
+    )
+    assert "sensitive-body" not in str(caught.value)
+    # One inference request, never replayed; at most one free catalog request.
+    assert requests.count("/backend-api/codex/responses") == 1
+    assert requests.count("/backend-api/codex/models") == 1
+    await reasoning.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_login_lost_during_the_catalog_check_keeps_the_original_refusal():
+    from jarvis.live.subscription_auth import SubscriptionAuthError
+
+    calls = []
+
+    async def credentials(*, force_refresh=False):
+        calls.append(force_refresh)
+        if len(calls) > 1:
+            raise SubscriptionAuthError("Sign in to the selected ChatGPT account again.")
+        return SubscriptionCredentials("fixture-access", "fixture-account")
+
+    pool = HttpClientPool(
+        timeout_s=1,
+        transport=httpx.MockTransport(lambda _request: httpx.Response(400, text="sensitive-body")),
+    )
+    reasoning = SubscriptionReasoning(credentials, http_pool=pool)
+    with pytest.raises(SubscriptionReasoningError) as caught:
+        await _collect(reasoning)
+    assert caught.value.code == "invalid_request_error" and caught.value.status == 400
+    assert len(calls) == 2
     await reasoning.aclose()

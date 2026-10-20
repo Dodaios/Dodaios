@@ -25,22 +25,22 @@ Four terms make the rest of this guide easier:
 | **Workspace** | One project folder, its pane layout, and its coding mode |
 | **Pane** | One live terminal in the workspace, identified by a call-sign such as **T1** |
 | **Coding agent** | An installed coding CLI running inside a pane; a plain terminal is a shell, not a coding agent |
-| **Jarvis-Agent** | A separate background mission worker with an isolated worktree and review flow |
+| **Dodaios-Agent** | A separate background mission worker with an isolated worktree and review flow |
 
 The app names the background Agents area from your configured assistant name.
-This documentation uses **Jarvis-Agents** for that separate feature.
+This documentation uses **Dodaios-Agents** for that separate feature.
 
 ## Before You Start
 
 - Install and sign in to at least one supported coding CLI on the same computer
-  as Jarvis. The Agentic IDE enables only programs it can actually launch.
+  as Dodaios. The Agentic IDE enables only programs it can actually launch.
 - Open **API Keys** when you have more than one subscription. An
   account choice applies to new panes; a running pane keeps its original one.
 - Choose a folder you trust. Opening a workspace marks that folder as trusted
   in supported coding CLIs so their own trust question does not block a hidden
   pane.
 - Review the coding CLI's own permission mode. Agentic IDE panes run as your
-  operating-system user; they are not the isolated, reviewed Jarvis-Agent
+  operating-system user; they are not the isolated, reviewed Dodaios-Agent
   mission environment.
 
 > [!warning]
@@ -59,7 +59,7 @@ This documentation uses **Jarvis-Agents** for that separate feature.
 5. Review the plan, then choose **Open workspace**. Nothing starts before this
    confirmation.
 
-Opening a workspace turns on focused coding mode, so Jarvis can use the active
+Opening a workspace turns on focused coding mode, so Dodaios can use the active
 folder and pane activity. Turning it off does not stop the panes.
 
 Use the workspace bar to add, switch, rename, or close workspaces. Switching
@@ -81,7 +81,7 @@ yourself opens in a pane — it has no headless mode this app could read.
 
 ### Add a Coding CLI of Your Own
 
-The pane step lists the coding CLIs Jarvis ships with. If yours is not among
+The pane step lists the coding CLIs Dodaios ships with. If yours is not among
 them, choose **Add a CLI** at the bottom of that list and give it:
 
 - a **name** — what you will see in the pickers and say out loud;
@@ -94,7 +94,7 @@ removing it later is on its own row in the same list.
 
 Two things to know about a CLI you added:
 
-- Jarvis checks only that the command's program is installed, and reports no
+- Dodaios checks only that the command's program is installed, and reports no
   version number for it. It never runs your command to ask, because that would
   start an unknown program every time the app checks what this machine can run.
 - Trust pre-seeding, several subscriptions, and reopening earlier conversations
@@ -144,14 +144,14 @@ Escape closes the menu and Backspace goes back one step. Example:
 
 For voice, name the pane and action: “Tell T2 to review the failing tests” or
 “What is terminal three doing?” Near matches trigger a confirmation instead of
-a guess. An explicit background-mission request still goes to Jarvis-Agents.
+a guess. An explicit background-mission request still goes to Dodaios-Agents.
 
 ## Send Clear Work
 
 Every pane is a live coding-agent CLI with a cursor of its own, so the direct
 way to send work is to type into the pane, exactly as you would in a terminal.
 
-Jarvis's own path is spoken. Name the pane and the work, and Jarvis prepares a
+Dodaios's own path is spoken. Name the pane and the work, and Dodaios prepares a
 fuller project-aware brief and types that into the pane for you.
 
 For several panes, say whether they should receive the same work or divide it:
@@ -165,7 +165,7 @@ prove it received the work.
 
 Each pane shows a receipt. **Submitted** means it visibly accepted the prompt.
 If text is waiting in its input box, press Enter there. **Unconfirmed** means
-Jarvis could not prove delivery, so inspect before retrying. The history button
+Dodaios could not prove delivery, so inspect before retrying. The history button
 shows exact prompts and their recorded submission states.
 
 ### Add Files and Screenshots
@@ -188,7 +188,7 @@ to them depends on what ended:
 | What happened | What the agents do | What you see next time |
 |---|---|---|
 | You closed the app, or it crashed or restarted | They keep working | The last open workspaces come back by themselves in the same layout, with the same focused pane, and each pane shows what its agent printed meanwhile |
-| The computer was turned off or restarted | They stopped with the machine | After you sign in, Jarvis starts again (login autostart is on by default) and brings every agent that was running back on its own conversation. A Claude Code agent that was cut off in the middle of a task finishes it by itself (the CLI's own interrupted-turn resume); a finished one stays finished. Other CLIs come back holding their conversation at their prompt. Jarvis never types anything into a pane. If you ran `/clear` or `/resume` inside a Claude Code pane, it is the conversation you switched to that comes back, not the one the pane started with |
+| The computer was turned off or restarted | They stopped with the machine | After you sign in, Dodaios starts again (login autostart is on by default) and brings every agent that was running back on its own conversation. A Claude Code agent that was cut off in the middle of a task finishes it by itself (the CLI's own interrupted-turn resume); a finished one stays finished. Other CLIs come back holding their conversation at their prompt. Dodaios never types anything into a pane. If you ran `/clear` or `/resume` inside a Claude Code pane, it is the conversation you switched to that comes back, not the one the pane started with |
 | An agent ended by itself (for example `/exit`) | It stays ended | The pane comes back and starts when you open it |
 | You closed every workspace before quitting | Nothing runs | Nothing reopens by itself; the workspaces stay in the sidebar |
 | You pressed **Stop all agents** in the Agents panel | Every agent in every workspace ends | Same as closing every workspace |
@@ -223,9 +223,9 @@ erase a coding CLI's own conversation history.
 | Related feature | Relationship to Agentic IDE |
 |---|---|
 | [CLI Connections](cli-connections) | General CLI connections expose cataloged command tools to the assistant. Agentic IDE launches supported coding CLIs as interactive panes. |
-| [Jarvis-Agents](jarvis-agents) | Jarvis-Agents run reviewed background missions in isolated worktrees. Agentic IDE panes work interactively in the folder you opened. |
-| [Safety and Approvals](safety-and-approvals) | Jarvis safety governs assistant tools. A coding pane also follows its external CLI's own permission and approval settings. |
-| [CLI Reference](cli-reference) | The Jarvis CLI controls the same local Agentic IDE routes. Curated `jarvis ide` commands cover common pane actions; `jarvis api agentic-ide ...` exposes the full API while the app server is running. |
+| [Dodaios-Agents](jarvis-agents) | Dodaios-Agents run reviewed background missions in isolated worktrees. Agentic IDE panes work interactively in the folder you opened. |
+| [Safety and Approvals](safety-and-approvals) | Dodaios safety governs assistant tools. A coding pane also follows its external CLI's own permission and approval settings. |
+| [CLI Reference](cli-reference) | The Dodaios CLI controls the same local Agentic IDE routes. Curated `jarvis ide` commands cover common pane actions; `jarvis api agentic-ide ...` exposes the full API while the app server is running. |
 
 The desktop installation includes terminal backends for Windows, macOS, and
 Linux. A minimal or headless installation may have none. Native folder browsing
@@ -247,7 +247,7 @@ terminal backend.
 
 | What you see | What it usually means | What to do |
 |---|---|---|
-| No coding CLI is available | Jarvis cannot resolve an installed program on its process path | Install or sign in with the CLI's official instructions, restart Jarvis if the process path changed, then recheck |
+| No coding CLI is available | Dodaios cannot resolve an installed program on its process path | Install or sign in with the CLI's official instructions, restart Dodaios if the process path changed, then recheck |
 | A pane says the account is not signed in | That pane's selected subscription has no usable CLI login | Open the account controls, test the intended account, and create a new pane with it |
 | A spoken instruction reaches no pane | The call-sign was missing, ambiguous, or referred to a pane that no longer exists | Read the current header, use its exact call-sign such as **T2**, and answer any clarification question |
 | The receipt is waiting or unconfirmed | The terminal did not visibly accept the prompt | Inspect the pane; press Enter only when the text is waiting, or retry after confirming it was missed |
@@ -256,7 +256,7 @@ terminal backend.
 
 ## Next Steps
 
-- Read [Jarvis-Agents](jarvis-agents) when a task needs isolation, background
+- Read [Dodaios-Agents](jarvis-agents) when a task needs isolation, background
   execution, and a review verdict.
 - Read [CLI Connections](cli-connections) for ordinary non-interactive command
   tools rather than live coding panes.

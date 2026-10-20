@@ -349,7 +349,7 @@ class TestVariety:
 
 
 class TestLanguageCoverage:
-    @pytest.mark.parametrize("lang", ["de", "en", "es"])
+    @pytest.mark.parametrize("lang", ["de", "en", "es", "pt"])
     def test_all_pools_carry_all_supported_languages(self, lang: str) -> None:
         # Runtime-output-language doctrine: a phrase table missing a
         # supported language silently degrades that language's turns.
@@ -373,24 +373,50 @@ class TestLanguageCoverage:
         for token in ("Okay, einen Moment", "One moment", "Ich "):  # i18n-allow: German leak-detection tokens
             assert token not in ack
 
+    @pytest.mark.parametrize(
+        "tool",
+        [
+            "dispatch_to_harness", "run_shell", "search_web", "spawn_sub_jarvis",
+            "multi_spawn", "open_app", "run_skill", "gmail", "google_calendar",
+            "remember", "verify_via_curl", "start_preview_server",
+            "set_config_value", "cli_gh", "unknown_tool",
+        ],
+    )
+    def test_every_family_answers_in_european_portuguese(self, tool: str) -> None:
+        ack = generate_ack(tool, {"query": "x", "tasks": [1, 2]}, language="pt", picker=_fresh())
+        assert ack
+        leaks = ("Okay, einen Moment", "One moment", "Ich ", "Vale", "Listo")  # i18n-allow
+        for token in leaks:
+            assert token not in ack
+
     @pytest.mark.parametrize("hint", ["en", "EN", "en-US", "english", "en-GB"])
     def test_english_hints_resolve_to_en(self, hint: str) -> None:
         ack = generate_ack("run_shell", {}, language=hint, picker=_fresh())
         assert ack in _SHELL_ACK["en"]
 
-    @pytest.mark.parametrize("hint", ["de", "DE", "de-DE", "german", "deutsch", "fr", ""])
-    def test_non_english_hints_default_to_de(self, hint: str) -> None:
-        # Project default is German; unrecognized hints fall to de.
+    @pytest.mark.parametrize("hint", ["de", "DE", "de-DE", "german", "deutsch"])
+    def test_german_hints_resolve_to_de(self, hint: str) -> None:
         ack = generate_ack("run_shell", {}, language=hint, picker=_fresh())
         assert ack in _SHELL_ACK["de"]
+
+    @pytest.mark.parametrize("hint", ["fr", "tr", ""])
+    def test_unknown_hints_default_to_en(self, hint: str) -> None:
+        # Every system phrase falls back to English (DEFAULT_LOCALE), never German.
+        ack = generate_ack("run_shell", {}, language=hint, picker=_fresh())
+        assert ack in _SHELL_ACK["en"]
 
     def test_spanish_hint_resolves_to_es(self) -> None:
         ack = generate_ack("run_shell", {}, language="es", picker=_fresh())
         assert ack in _SHELL_ACK["es"]
 
-    def test_none_language_defaults_to_de(self) -> None:
+    @pytest.mark.parametrize("hint", ["pt", "PT", "pt-PT"])
+    def test_portuguese_hint_resolves_to_pt(self, hint: str) -> None:
+        ack = generate_ack("run_shell", {}, language=hint, picker=_fresh())
+        assert ack in _SHELL_ACK["pt"]
+
+    def test_none_language_defaults_to_en(self) -> None:
         ack = generate_ack("run_shell", {}, language=None, picker=_fresh())  # type: ignore[arg-type]
-        assert ack in _SHELL_ACK["de"]
+        assert ack in _SHELL_ACK["en"]
 
 
 class TestGermanDiacritics:
@@ -451,8 +477,8 @@ class TestFinalSummaryMarker:
     def test_english(self) -> None:
         assert final_summary_marker("en") == "Done."
 
-    def test_unknown_language_defaults_to_de(self) -> None:
-        assert final_summary_marker("fr") == "Erledigt."  # i18n-allow: German completion marker under test
+    def test_unknown_language_defaults_to_en(self) -> None:
+        assert final_summary_marker("fr") == "Done."
 
 
 class TestShouldPrependMarker:

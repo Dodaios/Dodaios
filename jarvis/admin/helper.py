@@ -41,7 +41,7 @@ from .transport import current_user_sid, default_pipe_name, make_admin_transport
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="jarvis.admin.helper",
-        description="UAC-elevated admin helper for Personal Jarvis (ADR-0001).",
+        description="UAC-elevated admin helper for Dodaios (ADR-0001).",
     )
     p.add_argument(
         "--pipe-name",

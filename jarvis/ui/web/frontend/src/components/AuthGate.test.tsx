@@ -155,7 +155,7 @@ describe("AuthGate", () => {
     render(<AuthGate><div>Application</div></AuthGate>);
 
     expect(await screen.findByText("Where do I find the Control Key?")).toBeTruthy();
-    expect(screen.getByText(/generated automatically for this Jarvis install/i)).toBeTruthy();
+    expect(screen.getByText(/generated automatically for this Dodaios install/i)).toBeTruthy();
     expect(screen.getByText(/\.control_api_key/)).toBeTruthy();
   });
 

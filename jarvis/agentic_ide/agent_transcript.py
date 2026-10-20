@@ -477,6 +477,32 @@ def _text_of(content: Any) -> str:
     return "\n".join(parts)
 
 
+#: What a person typed after a slash command. Claude Code records
+#: ``/goal fix the login test`` as a command block whose arguments are the
+#: request itself — inside the same kind of tag it wraps its own bookkeeping in.
+_COMMAND_ARGS = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL)
+
+#: Fewer words than this after a slash command set the command up (``high``,
+#: ``--fix``, a PR number); they do not say what the session is for.
+_COMMAND_REQUEST_WORDS = 3
+
+
+def _command_request(text: str) -> str:
+    """The request a person typed as a slash command's arguments, or "".
+
+    A session opened with ``/goal <request>`` has no plain first message: the
+    whole record is one command block, so :func:`_spoken` finds nobody
+    speaking, and the CLI writes no title of its own for it either. The
+    arguments are still the person's own words, and for such a session they
+    are the only statement of what it is about.
+    """
+    match = _COMMAND_ARGS.search(str(text or ""))
+    if match is None:
+        return ""
+    request = " ".join(match.group(1).split())
+    return request if len(request.split()) >= _COMMAND_REQUEST_WORDS else ""
+
+
 def _claude_first_user_text(session_id: str, home: Path | None) -> str | None:
     path = _claude_file(session_id, home)
     if path is None:
@@ -485,14 +511,16 @@ def _claude_first_user_text(session_id: str, home: Path | None) -> str | None:
         if str(row.get("type") or "") != "user":
             continue
         # A meta row is the CLI annotating the conversation (an image's size, a
-        # slash command's echo); a sidechain is a sub-agent's conversation.
-        # Neither is the person opening this session.
-        if row.get("isMeta") or row.get("isSidechain"):
+        # slash command's echo); a sidechain is a sub-agent's conversation; a
+        # compact summary is the CLI retelling the conversation to itself.
+        # None of them is the person opening this session.
+        if row.get("isMeta") or row.get("isSidechain") or row.get("isCompactSummary"):
             continue
         message = row.get("message")
         if not isinstance(message, dict) or str(message.get("role") or "") != "user":
             continue
-        spoken = _spoken(_text_of(message.get("content")))
+        text = _text_of(message.get("content"))
+        spoken = _spoken(text) or _command_request(text)
         if spoken:
             return spoken
     return ""
@@ -1218,6 +1246,34 @@ def read_timeline(
         effort=log.effort,
         permission_mode=log.permission_mode,
     )
+
+
+def stamp(agent: str, session_id: str, *, home: Path | None = None) -> tuple[int, int] | None:
+    """Size and modification time of a session's record: has it grown since?
+
+    A record is tens of megabytes after a day's work, and reading it whole to
+    learn that nothing was added is the expensive way to ask. ``None`` when the
+    record is not one file this module can name, or is not there: the caller
+    has no cheap answer then and reads it.
+    """
+    key = _agent_key(agent)
+    session = str(session_id or "").strip()
+    if not session:
+        return None
+    try:
+        if key == "claude":
+            path = _claude_file(session, home)
+        elif key == "codex":
+            path = _codex_file(session, home)
+        else:
+            return None
+        if path is None:
+            return None
+        info = path.stat()
+    except OSError:
+        # Unreadable for a moment (the CLI is rotating it): reading it decides.
+        return None
+    return info.st_size, info.st_mtime_ns
 
 
 def read_events(
@@ -2026,4 +2082,5 @@ __all__ = [
     "read",
     "read_events",
     "read_timeline",
+    "stamp",
 ]

@@ -28,6 +28,8 @@ QUESTION = {"question": "Which project?", "options": ["Reading tracker", "Budget
             "Ich schlage vor, zuerst einen Entwurf zu machen.",
         ),  # i18n-allow
         ("Por favor crea el archivo.", "Si quieres, puedo crearlo."),  # i18n-allow
+        ("Cria o ficheiro, por favor.", "Se quiseres, posso criá-lo."),  # i18n-allow
+        ("Podes criar o relatório?", "Qual projeto devo usar?"),  # i18n-allow
         ("Please create a project overview.", "Which project should I use?"),
     ],
 )
@@ -46,6 +48,8 @@ def test_offer_and_unstructured_blocking_question_are_not_execution(user_request
         ("Please create a plan.", "I suggest these steps."),
         ("Did you create the file?", "I can create it if you want."),
         ("Summarize this text: please create a file.", "I can create it if you want."),
+        ("Cria um plano com exemplo.", "Posso sugerir estes passos."),  # i18n-allow
+        ("Cria o ficheiro.", "Criei o ficheiro. Queres mais alguma coisa?"),  # i18n-allow
     ],
 )
 def test_advice_plans_and_actual_results_do_not_start_unrequested_work(user_request, reply):
@@ -313,3 +317,80 @@ async def test_service_continues_to_artifact_after_question_without_another_user
             await svc.cancel(session.session_id)
         await rt.close()
         svc.store.close()
+
+
+# ------------------------------------------------------------------ credential guard
+
+
+def stored(names):
+    async def fake(_session_id):
+        return names
+
+    return fake
+
+
+async def finish_with(gate, *events):
+    for event in events:
+        await gate.emit(event)
+    await gate.emit(make_event("turn_finished", {"status": "done", "usage": {}}))
+
+
+async def test_a_secret_asked_for_in_the_reply_is_steered_to_the_secure_field_once(
+    card_world, monkeypatch
+):
+    from jarvis.agent_chat import turn_completion
+
+    monkeypatch.setattr(turn_completion, "_stored_credentials", stored([]))
+    _, _, gate = card_world
+    ask = make_event(
+        "assistant_text", {"text": "Please paste your Discord bot token here so I can connect."}
+    )
+    await finish_with(gate, ask)
+    prompt = await gate.next_prompt()
+    assert "society_request_credential" in prompt and "Stored credentials right now: none" in prompt
+    assert gate.request in prompt
+    await finish_with(gate, ask)
+    assert await gate.next_prompt() is None
+
+
+@pytest.mark.parametrize("server", ["dodaios", "jarvis"])
+async def test_a_turn_that_opened_the_field_is_left_alone(card_world, monkeypatch, server):
+    """The tool is recognised behind the server's current and its earlier name."""
+    from jarvis.agent_chat import turn_completion
+
+    monkeypatch.setattr(turn_completion, "_stored_credentials", stored([]))
+    _, _, gate = card_world
+    call = make_event(
+        "tool_call",
+        {"call_id": "c", "name": f"mcp__{server}__society_request_credential", "input": {}},
+    )
+    await finish_with(
+        gate, call, make_event("assistant_text", {"text": "Please enter the token in the field."})
+    )
+    assert await gate.next_prompt() is None
+
+
+async def test_a_claimed_token_that_is_not_stored_is_corrected(card_world, monkeypatch):
+    from jarvis.agent_chat import turn_completion
+
+    _, _, gate = card_world
+    claim = make_event(
+        "assistant_text", {"text": "Der Bot-Token ist bereits sicher gespeichert."}  # i18n-allow
+    )
+    monkeypatch.setattr(turn_completion, "_stored_credentials", stored(["DISCORD_BOT_TOKEN"]))
+    await finish_with(gate, claim)
+    assert await gate.next_prompt() is None  # it really is stored
+    gate.credential_corrected = False
+    monkeypatch.setattr(turn_completion, "_stored_credentials", stored([]))
+    assert "society_request_credential" in await gate.next_prompt()
+
+
+async def test_chats_without_the_credential_tool_are_never_steered(card_world, monkeypatch):
+    from jarvis.agent_chat import turn_completion
+
+    monkeypatch.setattr(turn_completion, "_stored_credentials", stored(None))
+    _, _, gate = card_world
+    await finish_with(gate, make_event("assistant_text", {"text": "I need your API key."}))
+    prompt = await gate.next_prompt()
+    assert prompt is None or "society_request_credential" not in prompt
+    assert not gate.credential_corrected

@@ -13,11 +13,13 @@ from typing import Any, Final
 
 from jarvis.core.protocols import BrainDelta, BrainMessage, BrainRequest
 
+from . import _agent_profile
+
 # Reuse the tested tool-name sanitizer/map (regex [^A-Za-z0-9_-] + dedup). Its
 # 64-char cap is stricter than Anthropic's 128 but still valid, so a slash/dot/
 # colon MCP name (jarvis/mcp/adapter.py) no longer trips Anthropic's
 # ``tools.N.custom.name`` 400 on the direct claude-api path.
-from ._openai_base import _openai_tool_name_map
+from ._openai_base import _openai_tool_name_map, _sanitize_openai_function_name
 
 # Latency-sprint-2: beta header for the 1h cache TTL. The default is 5 min;
 # 1h extends the effective cache duration and covers more voice sessions.
@@ -30,7 +32,9 @@ _ANTHROPIC_CACHE_TTL_BETA = "extended-cache-ttl-2025-04-11"
 _ENV_PROMPT_CACHE = "JARVIS_ANTHROPIC_PROMPT_CACHE"
 
 
-def _to_anthropic_messages(messages: tuple[BrainMessage, ...]) -> list[dict[str, Any]]:
+def _to_anthropic_messages(
+    messages: tuple[BrainMessage, ...], name_map: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
     """BrainMessages → Anthropic API messages array.
 
     Anthropic supports roles: "user", "assistant". "system" is passed
@@ -41,9 +45,20 @@ def _to_anthropic_messages(messages: tuple[BrainMessage, ...]) -> list[dict[str,
     Backwards compat: without images, string content stays a string.
     """
     out: list[dict[str, Any]] = []
+    name_map = dict(name_map or {})
+    taken = set(name_map.values())
     for m in messages:
         role = m.role
         content = m.content
+        if role == "assistant" and isinstance(content, list):
+            content = [dict(block) for block in content]
+            for block in content:
+                if block.get("type") == "tool_use":
+                    original = str(block.get("name") or "")
+                    if original not in name_map:
+                        name_map[original] = _sanitize_openai_function_name(original, taken)
+                        taken.add(name_map[original])
+                    block["name"] = name_map[original]
 
         if role == "system":
             continue  # system is passed externally as the `system` parameter
@@ -100,6 +115,37 @@ def _to_anthropic_messages(messages: tuple[BrainMessage, ...]) -> list[dict[str,
         else:
             out.append({"role": role, "content": content})
     return out
+
+
+#: A prompt-cache breakpoint with the default five-minute lifetime: a tool
+#: loop's next round arrives well within it, and it costs no beta header.
+_EPHEMERAL: Final[dict[str, str]] = {"type": "ephemeral"}
+
+
+def _cache_last_message(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """``messages`` with a cache breakpoint on the last content block.
+
+    Anthropic reads the cache up to the longest marked prefix it has seen, so
+    one rolling breakpoint at the end lets every tool round reuse the whole
+    conversation before it instead of paying the full input rate again.
+    """
+    if not messages:
+        return messages
+    last = dict(messages[-1])
+    content = last.get("content")
+    if isinstance(content, str):
+        if not content:
+            return messages
+        blocks: list[dict[str, Any]] = [{"type": "text", "text": content}]
+    elif isinstance(content, list) and content and isinstance(content[-1], dict):
+        blocks = [dict(block) if isinstance(block, dict) else block for block in content]
+    else:
+        return messages
+    if blocks[-1].get("type") == "text" and not blocks[-1].get("text"):
+        return messages  # an empty text block may not carry a breakpoint
+    blocks[-1] = {**blocks[-1], "cache_control": dict(_EPHEMERAL)}
+    last["content"] = blocks
+    return [*messages[:-1], last]
 
 
 def _extract_system(messages: tuple[BrainMessage, ...], extra_system: str | None) -> str | None:
@@ -234,11 +280,11 @@ async def stream_complete(
     req: BrainRequest,
 ) -> AsyncIterator[BrainDelta]:
     """Runs a streaming messages.create and yields BrainDeltas."""
-    messages = _to_anthropic_messages(req.messages)
     system = _extract_system(req.messages, req.system)
     # Sanitize tool names + keep a reverse map so the inbound tool_use name maps
     # back to the ORIGINAL tool the executor knows (e.g. the "server/tool" MCP name).
     name_map = _openai_tool_name_map(req.tools) if req.tools else {}
+    messages = _to_anthropic_messages(req.messages, name_map)
     reverse_name_map = {safe: original for original, safe in name_map.items()}
     tools_payload = _tools_anthropic_format(req.tools, name_map) if req.tools else None
 
@@ -247,6 +293,8 @@ async def stream_complete(
     # tool schema as the cache boundary (Anthropic caches everything up
     # to and including the marked block).
     prompt_cache_enabled = os.environ.get(_ENV_PROMPT_CACHE) == "1"
+    profile = _agent_profile.current()
+    agent_cache = profile is not None and profile.prompt_cache
     extra_headers: dict[str, str] = {}
     system_payload: Any = system
     if prompt_cache_enabled and system:
@@ -266,6 +314,16 @@ async def stream_complete(
         cached_tools[-1]["cache_control"] = {"type": "ephemeral", "ttl": "1h"}
         tools_payload = cached_tools
         extra_headers.setdefault("anthropic-beta", _ANTHROPIC_CACHE_TTL_BETA)
+    if agent_cache:
+        # An agent's tool loop resends system, tools and the whole history on
+        # every round: mark all three (at most four breakpoints in total).
+        if system and not prompt_cache_enabled:
+            system_payload = [{"type": "text", "text": system, "cache_control": dict(_EPHEMERAL)}]
+        if tools_payload and not prompt_cache_enabled:
+            cached_tools = [dict(t) for t in tools_payload]
+            cached_tools[-1]["cache_control"] = dict(_EPHEMERAL)
+            tools_payload = cached_tools
+        messages = _cache_last_message(messages)
 
     kwargs: dict[str, Any] = {
         "model": model,
@@ -275,8 +333,18 @@ async def stream_complete(
     # `temperature` is deprecated on reasoning models (opus-4.x, sonnet-4.x).
     # Only send it for explicitly classic models; on the new defaults,
     # temperature=1 is hardcoded on the backend anyway.
-    if not _is_reasoning_model(model):
+    if not _is_reasoning_model(model) and _agent_profile.sends_temperature():
         kwargs["temperature"] = req.temperature
+    # An agent call may think for minutes; the voice path's short client
+    # timeout is replaced only while an agent request profile is active.
+    if (timeout := _agent_profile.http_timeout()) is not None:
+        from anthropic import Timeout
+
+        # The SDK owns its transport family (httpx or httpx2). Preserve every
+        # bound while constructing the timeout type that its client accepts.
+        kwargs["timeout"] = Timeout(
+            connect=timeout.connect, read=timeout.read, write=timeout.write, pool=timeout.pool,
+        )
     # A requested reasoning effort (the agent chat's picker) becomes
     # ``output_config.effort`` plus adaptive thinking on the models that
     # take it; the voice brain never sets one and sends exactly what it did.
@@ -286,18 +354,42 @@ async def stream_complete(
     if tools_payload:
         kwargs["tools"] = tools_payload
     if extra_headers:
+        # Per-request headers replace SDK defaults. Keep authentication betas
+        # (notably OAuth) when adding the cache capability.
+        defaults = getattr(client, "default_headers", {})
+        existing = next((str(v) for k, v in defaults.items()
+                         if k.lower() == "anthropic-beta"), "")
+        extra_headers["anthropic-beta"] = ",".join(dict.fromkeys(
+            beta.strip() for beta in (existing + "," + extra_headers["anthropic-beta"]).split(",")
+            if beta.strip()
+        ))
         kwargs["extra_headers"] = extra_headers
 
     async with client.messages.stream(**kwargs) as stream:
         # Tool-call accumulator (Anthropic streams tool_use as separate blocks)
         current_tool: dict[str, Any] | None = None
         current_tool_json = ""
+        initial_usage: dict[str, int] = {}
+        reported_usage: dict[str, int] = {}
+        response_blocks: list[dict[str, Any]] = []
+        pending_tools: list[dict[str, Any]] = []
+        current_block: dict[str, Any] | None = None
 
         async for event in stream:
             etype = getattr(event, "type", None) or getattr(event, "event", None)
 
+            if etype == "message_start":
+                usage = getattr(getattr(event, "message", None), "usage", None)
+                initial_usage = {
+                    target: int(getattr(usage, source, 0) or 0)
+                    for source, target in (
+                        ("input_tokens", "input_tokens"),
+                        ("cache_read_input_tokens", "cache_hit_tokens"),
+                        ("cache_creation_input_tokens", "cache_write_tokens"),
+                    )
+                }
             # Text delta
-            if etype == "content_block_delta":
+            elif etype == "content_block_delta":
                 delta = getattr(event, "delta", None)
                 if delta is None:
                     continue
@@ -305,15 +397,33 @@ async def stream_complete(
                 if dtype == "text_delta":
                     text = getattr(delta, "text", "") or ""
                     if text:
+                        if current_block is not None:
+                            current_block["text"] = current_block.get("text", "") + text
                         yield BrainDelta(content=text)
                 elif dtype == "input_json_delta":
                     if current_tool is not None:
                         partial = getattr(delta, "partial_json", "") or ""
                         current_tool_json += partial
+                elif dtype in {"thinking_delta", "signature_delta"} and current_block is not None:
+                    field = "thinking" if dtype == "thinking_delta" else "signature"
+                    current_block[field] = current_block.get(field, "") + (
+                        getattr(delta, field, "") or ""
+                    )
 
             # Tool-use block start
             elif etype == "content_block_start":
                 block = getattr(event, "content_block", None)
+                current_block = None
+                kind = getattr(block, "type", "")
+                if kind == "thinking":
+                    current_block = {"type": kind, "thinking": getattr(block, "thinking", ""),
+                                     "signature": getattr(block, "signature", "")}
+                elif kind == "redacted_thinking":
+                    current_block = {"type": kind, "data": getattr(block, "data", "")}
+                elif kind == "text":
+                    current_block = {"type": kind, "text": getattr(block, "text", "")}
+                if current_block is not None:
+                    response_blocks.append(current_block)
                 if block is not None and getattr(block, "type", None) == "tool_use":
                     _raw_name = getattr(block, "name", "")
                     current_tool = {
@@ -327,33 +437,59 @@ async def stream_complete(
                 if current_tool is not None:
                     try:
                         parsed = json.loads(current_tool_json) if current_tool_json else {}
-                    except json.JSONDecodeError:
-                        parsed = {}
+                    except json.JSONDecodeError as exc:
+                        raise ValueError(
+                            "The provider returned incomplete tool arguments.",
+                        ) from exc
+                    if not isinstance(parsed, dict):
+                        raise ValueError("The provider returned non-object tool arguments.")
                     current_tool["input"] = parsed
-                    yield BrainDelta(tool_call=current_tool)
+                    response_blocks.append({"type": "tool_use", **current_tool})
+                    pending_tools.append(current_tool)
                     current_tool = None
                     current_tool_json = ""
+                current_block = None
 
             # Message end with usage
             elif etype == "message_delta":
                 delta = getattr(event, "delta", None)
                 finish = getattr(delta, "stop_reason", None) if delta else None
+                if finish and pending_tools:
+                    if finish == "max_tokens":
+                        raise ValueError("The provider stopped before completing its tool calls.")
+                    has_thinking = any(b["type"] in {"thinking", "redacted_thinking"}
+                                       for b in response_blocks)
+                    for call in pending_tools:
+                        # Opaque continuation data stays inside Jarvis; the
+                        # gateway's OpenAI wire cannot represent signed blocks.
+                        if has_thinking:
+                            call = {**call, "_anthropic_blocks": response_blocks}
+                        yield BrainDelta(tool_call=call)
+                    pending_tools.clear()
                 usage = getattr(event, "usage", None)
-                usage_d: dict[str, int] = {}
+                usage_d: dict[str, int] = dict(initial_usage)
                 if usage is not None:
-                    usage_d = {
-                        "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
+                    usage_d.update({
+                        "input_tokens": int(getattr(usage, "input_tokens", None)
+                                            or initial_usage.get("input_tokens", 0)),
                         "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
                         # The protocol key is cache_hit_tokens (protocols.py) —
                         # this plugin used to forward Anthropic's wire name
                         # cache_read_input_tokens, which no consumer reads, so
                         # cache hits were invisible in cost and telemetry and
                         # cache regressions could not be measured.
-                        "cache_hit_tokens": int(getattr(usage, "cache_read_input_tokens", 0) or 0),
+                        "cache_hit_tokens": int(getattr(usage, "cache_read_input_tokens", None)
+                                                or initial_usage.get("cache_hit_tokens", 0)),
                         # Cache writes bill above the input rate; a mission's
                         # paid-use cap counts them (jarvis/missions/capacity.py).
                         "cache_write_tokens": int(
-                            getattr(usage, "cache_creation_input_tokens", 0) or 0
+                            getattr(usage, "cache_creation_input_tokens", None)
+                            or initial_usage.get("cache_write_tokens", 0)
                         ),
-                    }
-                yield BrainDelta(finish_reason=finish, usage=usage_d or None)
+                    })
+                # Anthropic's updates are cumulative; BrainDelta consumers sum
+                # increments across the stream.
+                increment = {key: max(0, value - reported_usage.get(key, 0))
+                             for key, value in usage_d.items()}
+                reported_usage.update(usage_d)
+                yield BrainDelta(finish_reason=finish, usage=increment or None)
