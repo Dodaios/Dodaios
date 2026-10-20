@@ -23,8 +23,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain import app_control, provider_test
-from jarvis.brain.provider_test import run_provider_test
+from dodaios.brain import app_control, provider_test
+from dodaios.brain.provider_test import run_provider_test
 
 
 @dataclass(frozen=True)
@@ -80,7 +80,7 @@ INSTALLED = _Status(
 
 def _patch_status(monkeypatch: pytest.MonkeyPatch, status: _Status | None) -> None:
     """Point both call sites at one fake on-disk verdict."""
-    import jarvis.speech.local_models as local_models
+    import dodaios.speech.local_models as local_models
 
     monkeypatch.setattr(
         local_models, "local_status", lambda pid, **kw: status, raising=False

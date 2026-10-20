@@ -8,7 +8,7 @@ on:
       - scripts/build_native_crypto.py
       - tests/contract/test_native_crypto.py
       - tests/contract/test_native_ssh.py
-      - jarvis/computers/ssh_packet_guard.py
+      - dodaios/computers/ssh_packet_guard.py
   workflow_dispatch:
 
 permissions:

@@ -30,14 +30,14 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.speech.pipeline as pipeline_mod
-from jarvis.audio.capture import MicrophoneAccessError
-from jarvis.core.bus import EventBus
-from jarvis.core.events import PermissionResolved
-from jarvis.platform.permission_service import PermissionOutcome
-from jarvis.platform.permissions import PermissionId
-from jarvis.speech.pipeline import PipelineState, SpeechPipeline
-from jarvis.speech.wake_phrase import resolve_wake_plan
+import dodaios.speech.pipeline as pipeline_mod
+from dodaios.audio.capture import MicrophoneAccessError
+from dodaios.core.bus import EventBus
+from dodaios.core.events import PermissionResolved
+from dodaios.platform.permission_service import PermissionOutcome
+from dodaios.platform.permissions import PermissionId
+from dodaios.speech.pipeline import PipelineState, SpeechPipeline
+from dodaios.speech.wake_phrase import resolve_wake_plan
 from tests.fakes.fake_permission_service import FakePermissionService
 
 
@@ -46,7 +46,7 @@ def _no_vosk_model(monkeypatch):
     """Isolate from any per-install Vosk model: this module pins the
     stt_match/none dead-state contracts. vosk_kws has its own suite in
     test_wake_plan_vosk.py."""
-    import jarvis.speech.wake_phrase as wp
+    import dodaios.speech.wake_phrase as wp
 
     monkeypatch.setattr(wp, "resolve_vosk_model_path", lambda *_: None)
 
@@ -123,7 +123,7 @@ def test_set_wake_plan_stt_match_without_whisper_is_hotkey_only(monkeypatch) -> 
     2026-07-04). It arms NO detector — wake OFF, Call-shortcut activation — which is
     a RECOVERABLE parked state (the wake loop parks on _wake_reload_event so a
     later set_wake_plan re-arms it), not the old permanent dead listener."""
-    import jarvis.plugins.stt as stt_pkg
+    import dodaios.plugins.stt as stt_pkg
 
     def _boom(*_a: object, **_k: object) -> object:
         raise RuntimeError("no faster-whisper installed")
@@ -145,7 +145,7 @@ def test_set_wake_plan_stt_match_without_whisper_is_hotkey_only(monkeypatch) -> 
 def test_set_wake_plan_stt_match_with_whisper_uses_rolling_wake(monkeypatch) -> None:
     """Control: when a wake Whisper CAN be built, the custom phrase still routes
     to the RollingWhisperWake transcript matcher (no regression)."""
-    import jarvis.plugins.stt as stt_pkg
+    import dodaios.plugins.stt as stt_pkg
 
     class _FakeWakeWhisper:
         async def transcribe_pcm(self, *_a: object, **_k: object) -> object:

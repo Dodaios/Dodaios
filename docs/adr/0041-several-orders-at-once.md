@@ -10,7 +10,7 @@ The user gives one order, and while it is still being carried out gives the
 next: "brief the agent in terminal two", then "create an agent for the docs",
 then "and look up X". ADR-0034 made a heavy turn stop blocking the legacy
 realtime session. The sessions every realtime provider uses today
-(`jarvis/live`) and the typed chat still handled one order at a time:
+(`dodaios/live`) and the typed chat still handled one order at a time:
 
 - `LiveTools.execute` held one lock for the whole execution, so every tool of
   a call ran strictly after the previous one, across turns.
@@ -60,7 +60,7 @@ hold the conversation:
 
 The call is answered with a pending receipt that carries a `task_id`. The
 action is not cancelled and not repeated; it finishes on the call's
-`TaskBoard` (`jarvis/live/tasks.py`) and keeps its durable receipt in the
+`TaskBoard` (`dodaios/live/tasks.py`) and keeps its durable receipt in the
 ledger. All three session classes use the same path: the native session with
 the voice budget as deadline, the continuous and the subscription session
 without one.
@@ -105,7 +105,7 @@ section. `scope: call` returns only this call's tasks.
 
 On Dodaios' own chat (surface `jarvis`), a turn whose model work is done and
 which only waits for delegates gives up its seat when the person sends another
-message (`jarvis/agent_chat/parked_work.py`):
+message (`dodaios/agent_chat/parked_work.py`):
 
 - the turn closes with what it has said, and its `turn_finished` names who is
   still working (`background`);
@@ -196,12 +196,12 @@ every voice engine, and no engine names a finished order to the tool.
 
 ## References
 
-- `jarvis/live/tasks.py`, `jarvis/live/tools.py`, `jarvis/live/session.py`,
-  `jarvis/live/native.py`, `jarvis/live/subscription.py`,
-  `jarvis/realtime/report_prompt.py`
-- `jarvis/agent_chat/parked_work.py`, `jarvis/agent_chat/delegation_wait.py`,
-  `jarvis/agent_chat/send_queue.py`, `jarvis/agent_chat/service.py`
-- `jarvis/plugins/tool/spawn_worker.py`
+- `dodaios/live/tasks.py`, `dodaios/live/tools.py`, `dodaios/live/session.py`,
+  `dodaios/live/native.py`, `dodaios/live/subscription.py`,
+  `dodaios/realtime/report_prompt.py`
+- `dodaios/agent_chat/parked_work.py`, `dodaios/agent_chat/delegation_wait.py`,
+  `dodaios/agent_chat/send_queue.py`, `dodaios/agent_chat/service.py`
+- `dodaios/plugins/tool/spawn_worker.py`
 - `tests/unit/live/test_background_tasks.py`,
   `tests/unit/agent_chat/test_parked_work.py`,
   `tests/unit/plugins/tool/test_spawn_worker_cooldown.py`

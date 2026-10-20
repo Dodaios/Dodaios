@@ -7,10 +7,10 @@ InfoPlist.strings`` and cannot come from the spec, so ``packaging/macos/build.sh
 runs this script on the finished ``.app`` BEFORE it signs it: the files are part of
 the code seal, and a file added afterwards would invalidate the signature.
 
-The text comes from the single table in ``jarvis/core/macos_privacy_strings.py``,
+The text comes from the single table in ``dodaios/core/macos_privacy_strings.py``,
 loaded by path exactly like ``jarvis.spec`` does (the package is not necessarily
 importable on the build machine). The managed source-install app writes the same
-files itself (``jarvis.setup.macos_app_bundle``), so both bundles show the same
+files itself (``dodaios.setup.macos_app_bundle``), so both bundles show the same
 sentences.
 
     python packaging/macos/add_localizations.py --app "dist/Personal Jarvis.app"
@@ -27,7 +27,7 @@ from pathlib import Path
 from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TABLE_PATH = REPO_ROOT / "jarvis" / "core" / "macos_privacy_strings.py"
+TABLE_PATH = REPO_ROOT / "dodaios" / "core" / "macos_privacy_strings.py"
 
 
 def _load_table(path: Path = TABLE_PATH) -> ModuleType:

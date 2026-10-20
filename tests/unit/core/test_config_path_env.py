@@ -9,12 +9,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.core import config as cfg
-from jarvis.core.config import (
+from dodaios.core import config as cfg
+from dodaios.core.config import (
     DEFAULT_CONFIG_FILE,
     resolve_config_path,
 )
-from jarvis.core.self_mod import AtomicConfigWriter
+from dodaios.core.self_mod import AtomicConfigWriter
 
 
 def test_resolve_falls_back_to_default_when_unset(monkeypatch) -> None:

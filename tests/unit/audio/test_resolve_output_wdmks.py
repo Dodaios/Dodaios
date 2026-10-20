@@ -19,7 +19,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.audio.player as player_mod
+import dodaios.audio.player as player_mod
 
 
 @pytest.fixture(autouse=True)

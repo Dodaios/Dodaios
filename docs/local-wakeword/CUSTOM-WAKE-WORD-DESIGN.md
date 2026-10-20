@@ -53,7 +53,7 @@ sensitivity = 0.5            # 0..1, mapped onto the OWW activation threshold
 fuzzy_match_ratio = 0.8      # STT-match tolerance for transcription drift (engine=stt_match)
 ```
 
-At boot, `resolve_wake_plan()` (in `jarvis/speech/wake_phrase.py`) turns this into a
+At boot, `resolve_wake_plan()` (in `dodaios/speech/wake_phrase.py`) turns this into a
 concrete `WakeWordPlan` using the following decision lens:
 
 ```
@@ -94,7 +94,7 @@ message: str              # English status string for logs + UI
 The installed `openwakeword` package already ships, on disk, the ONNX for:
 `hey_jarvis`, `alexa`, `hey_mycroft`, `hey_rhasspy` (plus `timer`/`weather`, which are not
 wake names). So Path A supports **four** instant, CPU-only, offline wake words with zero
-download. `hey_jarvis` stays bundled in-repo (`jarvis/assets/wakeword/`) for first-boot
+download. `hey_jarvis` stays bundled in-repo (`dodaios/assets/wakeword/`) for first-boot
 offline; the other three resolve from the package's `resources/models/` directory.
 
 ### The phrase matcher (`WakeMatcher`)
@@ -119,7 +119,7 @@ noisy STT transcript ("Athena" → Whisper may emit "Athene", "Atena", "a Tina")
 [`docs/anti-drift-three-layer.md`](../anti-drift-three-layer.md) this gets the five-layer
 treatment:
 
-- **Single source of truth:** `jarvis/speech/wake_constants.WAKE_ENGINES`.
+- **Single source of truth:** `dodaios/speech/wake_constants.WAKE_ENGINES`.
 - **Pydantic:** `WakeWordConfig` validates `engine` against the SoT and coerces an unknown
   value to `"auto"` with a warning (boot-resilient — AP-16: a stale/garbage value must not
   brick the boot).
@@ -160,25 +160,25 @@ not be undone by a persistence hiccup.
 - `wake_plan` provided → overrides the OWW model path, the verifier matcher, the
   rolling-whisper pattern, and the canonical keyword from the plan.
 
-`jarvis/ui/desktop_app.py` resolves the plan once, decides whether to build a local
+`dodaios/ui/desktop_app.py` resolves the plan once, decides whether to build a local
 `FasterWhisperProvider` (`plan.needs_local_whisper or cfg.trigger.heavy_local_whisper`), and
 threads the plan in. If `plan.degraded`, it logs the English message and (later) the UI
 surfaces it.
 
 ## 8. Files touched
 
-**New:** `jarvis/speech/wake_constants.py`, `jarvis/speech/wake_phrase.py`,
+**New:** `dodaios/speech/wake_constants.py`, `dodaios/speech/wake_phrase.py`,
 `tests/unit/speech/test_wake_phrase.py`, `tests/unit/speech/test_wake_engine_parity.py`,
 `tests/unit/core/test_wake_word_config.py`,
-`jarvis/ui/web/frontend/src/constants/wakeEngines.ts`.
+`dodaios/ui/web/frontend/src/constants/wakeEngines.ts`.
 
-**Modified:** `jarvis/core/config.py` (`WakeWordConfig`), `jarvis.toml`,
-`jarvis/plugins/wake/openwakeword_provider.py`, `jarvis/speech/wake_verifier.py`,
-`jarvis/speech/rolling_whisper_wake.py`, `jarvis/speech/pipeline.py`,
-`jarvis/ui/desktop_app.py`, `jarvis/core/config_writer.py`,
-`jarvis/ui/web/settings_routes.py`, `jarvis/ui/web/frontend/src/views/SettingsView.tsx`,
-`jarvis/ui/web/frontend/src/hooks/*`, `jarvis/ui/web/frontend/src/i18n/locales/{de,en,es}.json`,
-`jarvis/setup/wizard.py`.
+**Modified:** `dodaios/core/config.py` (`WakeWordConfig`), `jarvis.toml`,
+`dodaios/plugins/wake/openwakeword_provider.py`, `dodaios/speech/wake_verifier.py`,
+`dodaios/speech/rolling_whisper_wake.py`, `dodaios/speech/pipeline.py`,
+`dodaios/ui/desktop_app.py`, `dodaios/core/config_writer.py`,
+`dodaios/ui/web/settings_routes.py`, `dodaios/ui/web/frontend/src/views/SettingsView.tsx`,
+`dodaios/ui/web/frontend/src/hooks/*`, `dodaios/ui/web/frontend/src/i18n/locales/{de,en,es}.json`,
+`dodaios/setup/wizard.py`.
 
 ## 9. Acceptance criteria
 

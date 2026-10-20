@@ -3,19 +3,19 @@
 Per AGENTS.md the project uses real fakes, never ``unittest.mock``. A real
 elevator triggers an interactive OS prompt (UAC / polkit / Touch-ID) that cannot
 run in CI, so :class:`FakeElevator` stands in for any
-:class:`jarvis.admin.elevator.Elevator`. It records every
+:class:`dodaios.admin.elevator.Elevator`. It records every
 ``ensure_elevated_helper`` call and returns a configurable
-:class:`~jarvis.admin.elevator.ElevationResult`, so a test can drive the
+:class:`~dodaios.admin.elevator.ElevationResult`, so a test can drive the
 ``AdminClient`` elevation gate (available -> proceeds; unavailable -> typed
 refusal) without spawning anything.
 
-Structurally compatible with :class:`jarvis.admin.elevator.Elevator`:
+Structurally compatible with :class:`dodaios.admin.elevator.Elevator`:
 ``ensure_elevated_helper`` / ``is_available``.
 """
 
 from __future__ import annotations
 
-from jarvis.admin.elevator import ElevationResult
+from dodaios.admin.elevator import ElevationResult
 
 
 class FakeElevator:

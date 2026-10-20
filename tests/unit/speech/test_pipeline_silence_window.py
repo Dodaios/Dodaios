@@ -1,7 +1,7 @@
 """SpeechPipeline.set_silence_window_ms delegates to the live VAD."""
 from __future__ import annotations
 
-from jarvis.speech.pipeline import SpeechPipeline
+from dodaios.speech.pipeline import SpeechPipeline
 
 
 class _RecordingVad:

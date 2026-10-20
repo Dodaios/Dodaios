@@ -7,9 +7,9 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.core import runtime_refs
-from jarvis.core.events import AnnouncementRequested
-from jarvis.live import announcements, runtime
+from dodaios.core import runtime_refs
+from dodaios.core.events import AnnouncementRequested
+from dodaios.live import announcements, runtime
 
 
 class _Call:

@@ -17,8 +17,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis.harness import screenshot_only_loop as loop
-from jarvis.voice.action_phrases import action_phrase
+from dodaios.harness import screenshot_only_loop as loop
+from dodaios.voice.action_phrases import action_phrase
 
 
 class _RecordingBus:
@@ -46,7 +46,7 @@ def _fast_elevation_timings(monkeypatch):
 
 def _set_probe(monkeypatch, fn) -> None:
     monkeypatch.setattr(
-        "jarvis.platform.privileged_prompt.privileged_prompt_active", fn
+        "dodaios.platform.privileged_prompt.privileged_prompt_active", fn
     )
 
 

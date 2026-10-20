@@ -10,9 +10,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.society import design_library
-from jarvis.society.companion import CompanionSkin
-from jarvis.ui.web.society_routes import router
+from dodaios.society import design_library
+from dodaios.society.companion import CompanionSkin
+from dodaios.ui.web.society_routes import router
 
 GALAXY = {
     "colors": ["#e05cc5", "#6a2fc2", "#160f3d"],

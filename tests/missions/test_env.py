@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jarvis.missions.isolation.env import build_worker_env
+from dodaios.missions.isolation.env import build_worker_env
 
 
 # --- Allowlist strikt ---------------------------------------------------------
@@ -243,7 +243,7 @@ def test_seed_does_nothing_when_no_source_available(
     tmp_path: Path, monkeypatch
 ) -> None:
     """No npm-installed openclaw source on disk -> helper is a no-op."""
-    from jarvis.missions.isolation import env as env_mod
+    from dodaios.missions.isolation import env as env_mod
 
     state_dir = tmp_path / "state"
     # Empty candidate list -> nothing to point a symlink at.
@@ -262,7 +262,7 @@ def test_seed_creates_real_symlink_when_privilege_available(
     """With a usable source and a working os.symlink, the target ends up
     as a symlink (not a directory) -- the exact thing the openclaw worker's
     readlink() call expects."""
-    from jarvis.missions.isolation import env as env_mod
+    from dodaios.missions.isolation import env as env_mod
     import os
 
     # Synthesise a fake source dir layout: <source>/SKILL.md
@@ -306,7 +306,7 @@ def test_seed_eperm_keeps_target_missing(
     helper must NOT fall back to creating a directory -- that was the
     EINVAL trap. Target stays missing so the openclaw worker sees the same
     file-not-found state it would see without our intervention."""
-    from jarvis.missions.isolation import env as env_mod
+    from dodaios.missions.isolation import env as env_mod
     import os
 
     source = tmp_path / "fake_worker_cli"
@@ -337,7 +337,7 @@ def test_seed_idempotent_existing_symlink_is_left_alone(
     tmp_path: Path, monkeypatch
 ) -> None:
     """Second invocation must not break a working symlink from the first."""
-    from jarvis.missions.isolation import env as env_mod
+    from dodaios.missions.isolation import env as env_mod
     import os
 
     source = tmp_path / "src"
@@ -373,7 +373,7 @@ def test_seed_cleans_up_stale_directory_from_old_buggy_runs(
     those have a stale directory at the target path. On the next mission
     we must clean it up and (try to) replace it with a symlink, so the
     EINVAL on readlink() stops repeating."""
-    from jarvis.missions.isolation import env as env_mod
+    from dodaios.missions.isolation import env as env_mod
 
     source = tmp_path / "src"
     source.mkdir()
@@ -543,7 +543,7 @@ def test_posix_user_is_derived_when_gui_environment_omits_it(
     with (
         patch.dict("os.environ", fake_env, clear=True),
         patch(
-            "jarvis.missions.isolation.env.getpass.getuser",
+            "dodaios.missions.isolation.env.getpass.getuser",
             return_value="derived-user",
         ),
     ):
@@ -576,7 +576,7 @@ def test_classic_api_key_does_not_set_claude_code_oauth_token(tmp_path: Path) ->
 
 import sys  # noqa: E402
 
-from jarvis.missions.isolation.env import _repair_windows_worker_path  # noqa: E402
+from dodaios.missions.isolation.env import _repair_windows_worker_path  # noqa: E402
 
 
 def test_repair_path_appends_system32_when_missing() -> None:
@@ -620,7 +620,7 @@ def test_build_worker_env_repairs_broken_path_and_forwards_comspec(
 ) -> None:
     """End-to-end: a degraded inherited PATH (no System32, no node) yields a
     worker PATH that DOES contain both, plus ComSpec/PATHEXT forwarded."""
-    from jarvis.missions.isolation import env as env_mod
+    from dodaios.missions.isolation import env as env_mod
 
     monkeypatch.setattr(
         env_mod, "resolve_node_executable",
@@ -649,7 +649,7 @@ def test_build_worker_env_leaves_posix_path_untouched(
 ) -> None:
     """Cross-platform doctrine: the Windows-shaped PATH repair must NOT run on
     POSIX (a Linux VPS PATH must arrive verbatim)."""
-    from jarvis.missions.isolation import env as env_mod
+    from dodaios.missions.isolation import env as env_mod
 
     monkeypatch.setattr(env_mod, "_worker_path_repair_is_windows", lambda: False)
     with patch.dict("os.environ", {"PATH": "/usr/bin:/bin"}, clear=True):

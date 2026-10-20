@@ -19,16 +19,16 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from jarvis.core import runtime_refs
-from jarvis.core.protocols import (
+from dodaios.core import runtime_refs
+from dodaios.core.protocols import (
     SupervisorToolDescriptor,
     SupervisorToolRequest,
     ToolResult,
 )
-from jarvis.missions.kontrollierer.decomposer import MissionPlan, Step
-from jarvis.missions.manager import MissionManager
-from jarvis.missions.state_machine import MissionState
-from jarvis.missions.workers.capabilities import WorkerCapabilityInventory
+from dodaios.missions.kontrollierer.decomposer import MissionPlan, Step
+from dodaios.missions.manager import MissionManager
+from dodaios.missions.state_machine import MissionState
+from dodaios.missions.workers.capabilities import WorkerCapabilityInventory
 
 from .test_loop import (
     FakeCriticRunner,
@@ -202,7 +202,7 @@ async def test_denied_tool_call_reaches_critic_and_is_named(
 def test_summary_partitions_refusals_from_integrity_failures() -> None:
     """Every non-success status belongs to exactly one bucket: observed
     refusal (keeps the iteration reviewable) or integrity failure (gates)."""
-    from jarvis.missions.workers.worker_tool_broker import (
+    from dodaios.missions.workers.worker_tool_broker import (
         WorkerToolCallOutcome,
         WorkerToolExecutionSummary,
     )

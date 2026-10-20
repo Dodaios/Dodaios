@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.cli.review_eval import (
+from dodaios.cli.review_eval import (
     DEFAULT_QUERIES_PATH,
     _can_run_real,
     _load_queries,

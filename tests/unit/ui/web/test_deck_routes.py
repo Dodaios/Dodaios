@@ -15,9 +15,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.screen_context import last_frame as last_frame_module
-from jarvis.screen_context.last_frame import LastFrameMirror
-from jarvis.ui.web import deck_routes
+from dodaios.screen_context import last_frame as last_frame_module
+from dodaios.screen_context.last_frame import LastFrameMirror
+from dodaios.ui.web import deck_routes
 
 
 @pytest.fixture

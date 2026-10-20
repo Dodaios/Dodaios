@@ -23,7 +23,7 @@ about square beyond that. A pane opened without a place joins the right edge
 while the workspace is under four columns wide; past that, a shape nobody
 arranged is dealt into the even grid again, while a hand-built arrangement is
 kept and the new pane splits its largest pane. The only guard is on one request:
-`MAX_PANES_PER_REQUEST` in `jarvis/agentic_ide/session.py` (mirrored in
+`MAX_PANES_PER_REQUEST` in `dodaios/agentic_ide/session.py` (mirrored in
 `workspaceDocking.ts`) bounds how many panes a single launch or batch opens.
 Screens too small for every pane's minimum size scroll rather than shrinking
 the user's terminal font. Dragging a card header or using

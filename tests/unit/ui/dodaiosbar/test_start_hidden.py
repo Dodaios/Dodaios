@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from jarvis.ui.dodaiosbar.overlay import JarvisBarOverlay, _create_hidden_tk_root
+from dodaios.ui.dodaiosbar.overlay import JarvisBarOverlay, _create_hidden_tk_root
 
 
 class _FakeRoot:

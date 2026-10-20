@@ -1,4 +1,4 @@
-"""Tests for the Spend & Tokens read model (``jarvis/costs``).
+"""Tests for the Spend & Tokens read model (``dodaios/costs``).
 
 The section makes four claims that are easy to get quietly wrong, so each has
 a test of its own:
@@ -23,9 +23,9 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.costs import CostSources, build_report, collect_entries
-from jarvis.costs.aggregate import filter_entries
-from jarvis.costs.model import price_entry
+from dodaios.costs import CostSources, build_report, collect_entries
+from dodaios.costs.aggregate import filter_entries
+from dodaios.costs.model import price_entry
 
 # ---------------------------------------------------------------------------
 # Fixtures — minimal replicas of the real schemas
@@ -653,7 +653,7 @@ def test_a_bring_your_own_key_cli_row_is_billed_at_its_recorded_price(tmp_path: 
     not a subscription quote, and its free models stay free."""
     import sqlite3
 
-    from jarvis.costs.cli_usage_index import _SCHEMA, DB_NAME
+    from dodaios.costs.cli_usage_index import _SCHEMA, DB_NAME
 
     data = tmp_path / "data"
     data.mkdir()
@@ -715,7 +715,7 @@ def test_a_session_counts_the_same_whatever_grain_the_report_draws_at(
     204 calls, 2026-08-25). It now always reads at the finest grain the
     section ever draws, and rolls up from there.
     """
-    from jarvis.costs.cli_usage_index import refresh
+    from dodaios.costs.cli_usage_index import refresh
 
     data = tmp_path / "data"
     _claude_transcript(tmp_path, hours=[9, 10, 11])
@@ -747,7 +747,7 @@ def _runtime_turn(turn_id: str, ts_ms: int, seq: int) -> list[tuple]:
 
 
 def test_gateway_metered_runtime_turns_are_billed_once(tmp_path: Path) -> None:
-    from jarvis.costs import ledger
+    from dodaios.costs import ledger
 
     chat = tmp_path / "agent_chat.db"
     conn = sqlite3.connect(chat)

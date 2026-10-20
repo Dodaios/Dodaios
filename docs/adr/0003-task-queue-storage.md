@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS task_steps (
 + No second connection pool, no second WAL file.
 + Simple join for queries like "all tasks that produced memory entries `X`" (via `trace_id`).
 - Locking contention: when a RecallStore write (FTS5 trigger) is running and a task-state update is pending at the same time. Mitigation: WAL + `journal_mode=WAL` + `busy_timeout=5000` (already set).
-- Schema migrations have to be coordinated. Introduce by extending `jarvis/memory/schema.sql` + a migration script on the setup-wizard re-run.
+- Schema migrations have to be coordinated. Introduce by extending `dodaios/memory/schema.sql` + a migration script on the setup-wizard re-run.
 
 ## Alternatives Considered
 

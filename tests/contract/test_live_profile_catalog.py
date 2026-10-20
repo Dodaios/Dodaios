@@ -6,15 +6,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from jarvis.live.config import LiveConfig
-from jarvis.ui.web.provider_spec import PROVIDERS
+from dodaios.live.config import LiveConfig
+from dodaios.ui.web.provider_spec import PROVIDERS
 
 
 @pytest.fixture
 def live_catalog(monkeypatch):
-    from jarvis.brain import model_catalog
-    from jarvis.live import subscription_auth, subscription_reasoning
-    from jarvis.ui.web import live_routes
+    from dodaios.brain import model_catalog
+    from dodaios.live import subscription_auth, subscription_reasoning
+    from dodaios.ui.web import live_routes
 
     state = SimpleNamespace(api_calls=[], accounts=[], clients=[], fail=False)
 

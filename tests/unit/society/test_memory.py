@@ -9,11 +9,11 @@ from uuid import uuid4
 
 import pytest
 
-from jarvis.society.agent_tools import MemoryRecallTool, WikiNoteTool
-from jarvis.society.events import MsgType
-from jarvis.society.memory import MEMORY_SHARE_CAPABILITY, MemoryRefused
-from jarvis.society.runtime import SocietyRuntime
-from jarvis.society.surface import build_briefing
+from dodaios.society.agent_tools import MemoryRecallTool, WikiNoteTool
+from dodaios.society.events import MsgType
+from dodaios.society.memory import MEMORY_SHARE_CAPABILITY, MemoryRefused
+from dodaios.society.runtime import SocietyRuntime
+from dodaios.society.surface import build_briefing
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ async def test_pages_are_schema_valid_and_scoped(rt: SocietyRuntime, tmp_path: P
     )
     assert note.startswith("society/scout/") and row_id > 0
     # The vault's own page parser accepts the page (it lands in the FTS index).
-    from jarvis.memory.wiki.page import parse_markdown
+    from dodaios.memory.wiki.page import parse_markdown
 
     page = parse_markdown((vault / note).read_text(encoding="utf-8"), vault / note)
     assert page.page_type == "society"
@@ -102,9 +102,9 @@ async def test_head_shows_only_own_memory_without_shared_prompts(
 async def test_user_wiki_stays_available_only_through_explicit_wiki_lookup(
     rt: SocietyRuntime, tmp_path: Path
 ):
-    from jarvis.memory.wiki.fts_index import ensure_schema, index_vault
-    from jarvis.memory.wiki.search import VaultSearch
-    from jarvis.plugins.tool.wiki_recall import WikiRecallTool
+    from dodaios.memory.wiki.fts_index import ensure_schema, index_vault
+    from dodaios.memory.wiki.search import VaultSearch
+    from dodaios.plugins.tool.wiki_recall import WikiRecallTool
 
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -231,7 +231,7 @@ async def test_overview_lists_shared_agents_and_queue(rt: SocietyRuntime, tmp_pa
 
 
 def test_build_memory_diff_paints_red_green():
-    from jarvis.society.memory import build_memory_diff
+    from dodaios.society.memory import build_memory_diff
 
     before = "line one\nline two\n"
     after = "line one\nline TWO\nline three\n"

@@ -62,7 +62,7 @@
 **Steps:**
 ```bash
 # Terminal A — Backend + Voice-Pipeline + Orb-Overlay
-python -m jarvis
+python -m dodaios
 
 # Browser
 # Open http://localhost:47821/
@@ -84,7 +84,7 @@ python -m jarvis
 
 ```bash
 # Terminal A
-python -m jarvis
+python -m dodaios
 # Dispatch mission via voice or UI
 
 # While the mission is running:
@@ -92,7 +92,7 @@ python -m jarvis
 taskkill /F /IM pythonw.exe
 
 # Re-launch
-python -m jarvis
+python -m dodaios
 ```
 
 Expectation:
@@ -108,7 +108,7 @@ Expectation:
 # [phase6.budget]
 # per_mission_usd = 0.05  # instead of 5.0
 
-python -m jarvis
+python -m dodaios
 # Voice: "Bau mir die ganze README neu."
 ```
 

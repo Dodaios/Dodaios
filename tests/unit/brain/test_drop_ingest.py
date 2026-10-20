@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from jarvis.brain.drop_context import DroppedItem, ingest_drop
+from dodaios.brain.drop_context import DroppedItem, ingest_drop
 
 
 class _FakeBrain:

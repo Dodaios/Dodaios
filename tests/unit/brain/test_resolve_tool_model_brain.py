@@ -17,8 +17,8 @@ from typing import Any
 
 import pytest
 
-from jarvis.brain import resolver
-from jarvis.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
+from dodaios.brain import resolver
+from dodaios.core.config import BrainProviderConfig, BrainTierConfig, JarvisConfig
 
 
 class _FakeRegistry:

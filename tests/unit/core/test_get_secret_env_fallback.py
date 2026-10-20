@@ -10,7 +10,7 @@ from __future__ import annotations
 import keyring
 import pytest
 
-from jarvis.core.config import get_secret
+from dodaios.core.config import get_secret
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +19,7 @@ def _isolated_credential_backend(monkeypatch, tmp_path):
 
     ``get_secret`` retains a platform backend and reads it DIRECTLY whenever the
     local-file store is the active keyring (``_FILE_BACKEND_ACTIVE`` in
-    ``jarvis/core/config.py``). That state is module-global, so any earlier test
+    ``dodaios/core/config.py``). That state is module-global, so any earlier test
     in the same session whose keyring access failed leaves it set — and these
     tests then consult the host's REAL credential store instead of the patched
     keyring. Two consequences, both observed: they fail in a full-suite run
@@ -27,7 +27,7 @@ def _isolated_credential_backend(monkeypatch, tmp_path):
     API key into the log. Pinning the backend, plus a throwaway DATA_DIR for the
     file fallback, makes them hermetic on any host.
     """
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
 
     monkeypatch.setattr(cfg, "_FILE_BACKEND_ACTIVE", False, raising=False)
     monkeypatch.setattr(cfg, "_PLATFORM_KEYRING_BACKEND", None, raising=False)
@@ -62,7 +62,7 @@ def test_absent_everywhere_returns_none(monkeypatch):
 
 def test_file_fallback_is_read_when_working_keyring_returns_none(monkeypatch, tmp_path):
     """A prior fallback save remains visible after the OS keyring recovers."""
-    from jarvis.core import config
+    from dodaios.core import config
 
     monkeypatch.setattr(keyring, "get_password", lambda *a, **k: None)
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
@@ -75,7 +75,7 @@ def test_file_fallback_is_read_when_working_keyring_returns_none(monkeypatch, tm
 
 
 def test_environment_still_precedes_file_fallback(monkeypatch, tmp_path):
-    from jarvis.core import config
+    from dodaios.core import config
 
     monkeypatch.setattr(keyring, "get_password", lambda *a, **k: None)
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
@@ -101,7 +101,7 @@ def test_environment_still_precedes_file_fallback(monkeypatch, tmp_path):
 def test_the_dotenv_fallback_reads_a_prefixed_name_under_both_prefixes(
     monkeypatch, tmp_path, dotenv, expected
 ):
-    from jarvis.core import config
+    from dodaios.core import config
 
     monkeypatch.setattr(keyring, "get_password", lambda *a, **k: None)
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)
@@ -112,7 +112,7 @@ def test_the_dotenv_fallback_reads_a_prefixed_name_under_both_prefixes(
 
 
 def test_the_dotenv_fallback_matches_an_unprefixed_name_exactly(monkeypatch, tmp_path):
-    from jarvis.core import config
+    from dodaios.core import config
 
     monkeypatch.setattr(keyring, "get_password", lambda *a, **k: None)
     monkeypatch.setattr(config, "PROJECT_ROOT", tmp_path)

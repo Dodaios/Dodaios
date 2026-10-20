@@ -11,8 +11,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from jarvis.harness import screenshot_only_loop as sol
-from jarvis.harness.computer_use_context import ComputerUseContext
+from dodaios.harness import screenshot_only_loop as sol
+from dodaios.harness.computer_use_context import ComputerUseContext
 
 
 def _node(role: str, value: str, name: str = "f") -> Any:

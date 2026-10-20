@@ -372,8 +372,8 @@ that way.
   their entries start the bundled servers by module name, an existing install
   keeps its own copy of that command, and the browser evidence of a plugin is
   bound to it. Code that has to recognise such a command asks
-  `jarvis/marketplace/bundled_servers.py`, which accepts the module under every
-  name in `LEGACY_PACKAGE_NAMES` (`jarvis/core/branding.py`) and under the name
+  `dodaios/marketplace/bundled_servers.py`, which accepts the module under every
+  name in `LEGACY_PACKAGE_NAMES` (`dodaios/core/branding.py`) and under the name
   the package is imported as; the push-time privacy scan restates the same
   names.
 
@@ -388,7 +388,7 @@ anything.
 A release happens **only** when the maintainer asks for one.
 
 * **`release-cut.yml`** (manual): refuses unless main is green, bumps
-  `pyproject.toml` + `jarvis/__init__.py` + the root package in `uv.lock`, moves the `[Unreleased]` notes (or
+  `pyproject.toml` + `dodaios/__init__.py` + the root package in `uv.lock`, moves the `[Unreleased]` notes (or
   the Conventional Commits since the last tag) into a dated CHANGELOG section
   (`scripts/ci/cut_release.py`), lands the candidate through a CI-checked PR
   and the merge queue, tags the landed commit, and dispatches full CI with macOS on that
@@ -472,12 +472,12 @@ decides the order of steps:
   (`releases/latest/download/<name>`). A running app caches the answer for
   30 minutes.
 * An update is offered only when Latest is **strictly newer** than the running
-  version (`_is_newer` in `jarvis/ui/web/update_routes.py`). Nothing ever
+  version (`_is_newer` in `dodaios/ui/web/update_routes.py`). Nothing ever
   downgrades. A user already on the bad version leaves it only when a newer
   version is published.
 * A native update downloads the installer from that same release and refuses
   it unless it matches that release's `installers-SHA256SUMS.txt`
-  (`jarvis/core/installer_update.py`).
+  (`dodaios/core/installer_update.py`).
 
 Steps:
 

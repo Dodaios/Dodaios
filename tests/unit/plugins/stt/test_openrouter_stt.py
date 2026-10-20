@@ -18,7 +18,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from jarvis.plugins.stt.openrouter_stt import (
+from dodaios.plugins.stt.openrouter_stt import (
     DEFAULT_MODEL,
     OpenRouterSTT,
     Transcript,
@@ -266,7 +266,7 @@ async def test_cleanup_never_reports_silence_for_audio_that_had_speech(
 ) -> None:
     """Confidence follows the RAW text: a filter bug must not read as silence."""
     monkeypatch.setattr(
-        "jarvis.plugins.stt.transcript_filter.clean_stt_text",
+        "dodaios.plugins.stt.transcript_filter.clean_stt_text",
         lambda *_a, **_k: "",
     )
 
@@ -310,7 +310,7 @@ async def test_empty_pcm_returns_empty_transcript_without_calling_api() -> None:
 async def test_missing_key_raises_clear_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """With no injected key AND no configured credential, a clear English error
     is raised so the STT factory degrades to the local floor (AP-22)."""
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
 
     monkeypatch.setattr(
         cfg,
@@ -354,7 +354,7 @@ async def test_key_is_resolved_lazily_from_config(
 ) -> None:
     """When no key is injected, it is pulled from resolve_provider_endpoint and
     the base_url override (if any) is honored for the transcription URL."""
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
 
     monkeypatch.setattr(
         cfg,
@@ -387,7 +387,7 @@ async def test_shared_key_replacement_applies_to_the_next_transcription(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A config-resolved key is refreshed without rebuilding the STT instance."""
-    from jarvis.core import config as cfg
+    from dodaios.core import config as cfg
 
     state: dict[str, object] = {"key": "old-key", "revision": 0}
     seen_auth: list[str] = []

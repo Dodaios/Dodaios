@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import jarvis.harness.computer_use_context as ctx_mod
-from jarvis.harness.computer_use_context import (
+import dodaios.harness.computer_use_context as ctx_mod
+from dodaios.harness.computer_use_context import (
     ComputerUseContext,
     _refresh_context_from_config,
     set_computer_use_context,
@@ -48,7 +48,7 @@ def test_refresh_is_noop_without_context(monkeypatch):
     def _boom():
         raise RuntimeError("config blew up")
 
-    monkeypatch.setattr("jarvis.core.config.load_config", _boom)
+    monkeypatch.setattr("dodaios.core.config.load_config", _boom)
     _refresh_context_from_config()  # no exception == pass
 
 
@@ -64,7 +64,7 @@ def test_refresh_updates_scalar_knobs(monkeypatch):
             verify_after_each_step=False,
         )
     )
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: fake_cfg)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: fake_cfg)
 
     _refresh_context_from_config()
 
@@ -79,7 +79,7 @@ def test_refresh_survives_config_failure(monkeypatch):
     ctx = _make_ctx(step_budget=100)
     set_computer_use_context(ctx)
     monkeypatch.setattr(
-        "jarvis.core.config.load_config",
+        "dodaios.core.config.load_config",
         lambda: (_ for _ in ()).throw(RuntimeError("boom")),
     )
     _refresh_context_from_config()  # must not raise
@@ -114,7 +114,7 @@ def test_subscribe_is_idempotent_per_bus():
 
 
 def test_config_reloaded_event_refreshes_live_context(monkeypatch):
-    from jarvis.core.events import ConfigReloaded
+    from dodaios.core.events import ConfigReloaded
 
     ctx = _make_ctx(step_budget=100)
     set_computer_use_context(ctx)
@@ -130,7 +130,7 @@ def test_config_reloaded_event_refreshes_live_context(monkeypatch):
             verify_after_each_step=True,
         )
     )
-    monkeypatch.setattr("jarvis.core.config.load_config", lambda: fake_cfg)
+    monkeypatch.setattr("dodaios.core.config.load_config", lambda: fake_cfg)
 
     # Simulate the Self-Mod writer firing ConfigReloaded after a voice-tunable
     # write to computer_use.step_budget.

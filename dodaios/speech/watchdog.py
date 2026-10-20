@@ -1,0 +1,280 @@
+"""Watchdog mode: the pipeline runs continuously and everything is logged.
+
+Difference from `pipeline.py`:
+- Logs go BOTH to the console AND to `./data/jarvis_watchdog.log`
+- Debug WAVs (rolling-Whisper transcriptions) in `./data/wake_debug/*.wav`
+- Heartbeat every 3 sec even when nothing happens
+- On every wake, audio buffers are saved for later analysis
+
+The user / I can check the log file after a test to see whether mic audio
+is coming through, what Whisper transcribes, and whether wake triggers.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import sys
+from pathlib import Path
+
+
+def _setup_logging(log_file: Path) -> None:
+    """Logs go to both the file AND the console."""
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    fmt = "%(asctime)s %(levelname)-5s %(name)s | %(message)s"
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.handlers.clear()
+
+    # Console
+    ch = logging.StreamHandler(sys.stderr)
+    ch.setFormatter(logging.Formatter(fmt))
+    root.addHandler(ch)
+
+    # File (append-Mode — mehrere Runs nacheinander ok)
+    fh = logging.FileHandler(str(log_file), mode="a", encoding="utf-8")
+    fh.setFormatter(logging.Formatter(fmt))
+    root.addHandler(fh)
+
+
+def _load_env() -> None:
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if v and not os.environ.get(k):
+            os.environ[k] = v
+
+
+def _pid_file(project_root: Path) -> Path:
+    """PID file for the fast voice.bat single-instance check.
+
+    The launcher used to enumerate every process via PowerShell
+    (Get-CimInstance, ~1s startup cost) on each ``voice`` start.
+    A plain PID file plus a native ``tasklist`` liveness probe in the
+    batch file is instant and needs no PowerShell at all.
+    """
+    return project_root / "data" / "jarvis_watchdog.pid"
+
+
+def _write_pid_file(path: Path) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(str(os.getpid()), encoding="utf-8")
+    except OSError:  # The PID marker is advisory; startup still proceeds without it.
+        pass
+
+
+def _read_pid_file(path: Path) -> int | None:
+    try:
+        return int(path.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):  # An unreadable marker has no trusted owner PID.
+        return None
+
+
+def _pid_is_live_watchdog(pid: int) -> bool:
+    """True only when ``pid`` is a running dodaios.speech.watchdog process.
+
+    Guards against PID reuse: a stale PID file must never block a fresh
+    start or kill an unrelated process (e.g. a browser that inherited the
+    number). Uses psutil's command line when available; without psutil it
+    fails closed (assumes running) so we never double-start blindly.
+    """
+    if pid <= 0:
+        return False
+    try:
+        import psutil  # noqa: PLC0415 - optional at type-check time, required at runtime
+    except ImportError:  # Without the optional process probe, do not claim a PID is dead.
+        return True
+    try:
+        proc = psutil.Process(pid)
+        if not proc.is_running():
+            return False
+        try:
+            parts = list(proc.cmdline())
+        except Exception:  # noqa: BLE001 - unreadable cmdline fails closed
+            return True
+        joined = " ".join(parts)
+        if "dodaios.speech.watchdog" not in joined:
+            return False
+        # Strict: a real watchdog runs as ``python -m dodaios.speech.watchdog``
+        # (or pythonw). A bare substring also matches our own lightweight
+        # ``python -c "from dodaios.speech.watchdog import ..."`` verifier,
+        # which must never count as a running watchdog.
+        return (
+            ("-m" in parts) or ("speech/watchdog.py" in joined) or ("speech\\watchdog.py" in joined)
+        )
+    except Exception:  # noqa: BLE001 - gone/denied means not our watchdog
+        return False
+
+
+def recorded_watchdog_alive(project_root: Path | None = None) -> bool:
+    """Whether the PID file points at a live watchdog process."""
+    root = project_root or Path(__file__).resolve().parents[2]
+    pid = _read_pid_file(_pid_file(root))
+    return pid is not None and _pid_is_live_watchdog(pid)
+
+
+def recorded_watchdog_pid(project_root: Path | None = None) -> int | None:
+    """The PID recorded in the PID file, or ``None`` when unreadable."""
+    root = project_root or Path(__file__).resolve().parents[2]
+    return _read_pid_file(_pid_file(root))
+
+
+def _clear_pid_file(path: Path) -> None:
+    try:
+        if path.is_file():
+            if _read_pid_file(path) != os.getpid():
+                return
+            path.unlink()
+    except OSError:  # Best-effort marker cleanup must not mask shutdown.
+        pass
+
+
+async def _main() -> None:
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+        except (AttributeError, OSError):  # stderr may not support reconfiguration.
+            pass
+
+    project_root = Path(__file__).resolve().parents[2]
+    data_dir = project_root / "data"
+    log_file = data_dir / "jarvis_watchdog.log"
+    debug_dir = data_dir / "wake_debug"
+    debug_dir.mkdir(parents=True, exist_ok=True)
+
+    os.environ["JARVIS_DEBUG_DIR"] = str(debug_dir)
+    _setup_logging(log_file)
+    _load_env()
+
+    pid_file = _pid_file(project_root)
+    _write_pid_file(pid_file)
+
+    log = logging.getLogger("jarvis.watchdog")
+    log.info("=" * 60)
+    log.info("WATCHDOG-START — Pipeline mit voller Diagnostik")
+    log.info("Log-Datei:   %s", log_file)
+    log.info("WAV-Debug:   %s", debug_dir)
+    log.info("=" * 60)
+
+    from dodaios.brain.factory import build_default_brain
+    from dodaios.core import config as cfg
+    from dodaios.core.bus import EventBus
+    from dodaios.plugins.stt.fwhisper import FasterWhisperProvider
+    from dodaios.plugins.wake.openwakeword_provider import (
+        PRODUCTION_WAKE_THRESHOLD,
+    )
+    from dodaios.speech.pipeline import SpeechPipeline
+    from dodaios.state.supervisor import Supervisor
+
+    config = cfg.load_config()
+
+    # Wire up event bus + supervisor — prerequisite for Orb integration
+    bus = EventBus()
+    supervisor = Supervisor(bus=bus)
+
+    # Orb-Overlay als UI-Feedback: erscheint bei LISTENING, versteckt bei IDLE.
+    # Start im Daemon-Thread (Tk-Mainloop) damit asyncio-Loop frei bleibt.
+    try:
+        from ui.orb.bus_bridge import OrbBusBridge
+        from ui.orb.overlay import OrbOverlay
+        orb = OrbOverlay(sticky=False, mic_reactive=False)
+        orb.start_in_thread()
+        bridge = OrbBusBridge(bus=bus, orb=orb)
+        bridge.attach()
+        log.info("Orb-Overlay + Bus-Bridge aktiv.")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Orb overlay failed to start (%s) — running without UI.", exc)
+
+    # STT language from config (default "auto" = bilingual DE+EN auto-detect).
+    stt_language = config.stt.language if config.stt.language not in ("", "auto") else None
+    stt = FasterWhisperProvider(
+        model=config.stt.model,
+        device=config.stt.device,
+        compute_type=config.stt.compute_type,
+        language=stt_language,
+    )
+    from dodaios.plugins.tts import build_tts_from_config
+    tts = build_tts_from_config(config.tts)
+    brain = build_default_brain()
+
+    # Output device from config.audio.output_device ("auto-headset" by default)
+    # → resolved by AudioPlayer._resolve_output_device to the actual
+    # headset index, so TTS doesn't play through the monitor speaker.
+    output_device = config.audio.output_device or None
+    _call_hk, _ptt_hk = config.trigger.resolve_hotkeys()
+    pipeline = SpeechPipeline(
+        call_hotkeys=_call_hk,
+        ptt_hotkeys=_ptt_hk,
+        dictate_hotkeys=(
+            (config.trigger.hotkey_dictate,)
+            if config.trigger.hotkey_dictate.strip()
+            else ()
+        ),
+        # Hands-free dictation. Wired here as well as in desktop_app: this is
+        # the pipeline the watchdog rebuilds after a voice restart, so a
+        # binding missing here works exactly once and then disappears.
+        dictate_toggle_hotkeys=(
+            (config.trigger.hotkey_dictate_toggle,)
+            if config.trigger.hotkey_dictate_toggle.strip()
+            else ()
+        ),
+        paste_last_hotkeys=(
+            (config.trigger.hotkey_paste_last,)
+            if config.trigger.hotkey_paste_last.strip()
+            else ()
+        ),
+        # The pet shortcut: same reason as above — the rebuilt pipeline must
+        # arm it too, or it works until the first voice restart.
+        pet_toggle_hotkeys=(
+            (config.trigger.hotkey_pet_toggle,)
+            if config.trigger.hotkey_pet_toggle.strip()
+            else ()
+        ),
+        dictate_mode=config.dictation.mode,
+        dictation_config=config.dictation,
+        hangup_hotkeys=(
+            (config.trigger.hotkey_hangup,)
+            if config.trigger.hotkey_hangup.strip()
+            else ()
+        ),
+        wake_keywords=(),
+        # Single source of truth — see PRODUCTION_WAKE_THRESHOLD and the
+        # data-driven reasoning in openwakeword_provider.py (BUG-009 episode 5,
+        # 2026-05-24: the 0.06 over-correction made OWW fire on ambient speech).
+        wake_threshold=PRODUCTION_WAKE_THRESHOLD,
+        stt=stt,
+        tts=tts,
+        brain_callback=brain,
+        enable_whisper_wake=True,
+        # ``[trigger].single_turn_mode`` is the canonical source. Shipped
+        # default since 2026-07-18 is conversation mode (false); true opts
+        # back into a fresh wake per turn (the retired 2026-05-18 mandate).
+        continue_listening_after_response=not config.trigger.single_turn_mode,
+        # ``session_idle_timeout_s`` <= 0 keeps a conversation session active
+        # until a manual hangup; the 30 s default stays the safe baseline.
+        idle_timeout_s=config.trigger.session_idle_timeout_s,
+        bus=bus,
+        supervisor=supervisor,
+        input_device=config.audio.input_device or None,
+        output_device=output_device,
+    )
+    log.info("Starting pipeline …")
+    try:
+        await pipeline.run()
+    finally:
+        _clear_pid_file(pid_file)
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(_main())
+    except KeyboardInterrupt:
+        print("\nWatchdog stopped.")

@@ -8,18 +8,18 @@ from typing import Any
 
 import pytest
 
-from jarvis.control.cancel import CancelToken
-from jarvis.core.bus import EventBus
-from jarvis.core.events import MessageSent, PermissionNeeded
-from jarvis.tasks.scheduler import TaskScheduler, _match_filter
-from jarvis.tasks.schema import (
+from dodaios.control.cancel import CancelToken
+from dodaios.core.bus import EventBus
+from dodaios.core.events import MessageSent, PermissionNeeded
+from dodaios.tasks.scheduler import TaskScheduler, _match_filter
+from dodaios.tasks.schema import (
     SpeakAction,
     TaskSpec,
     TriggerAfterDelay,
     TriggerAtTime,
     TriggerOnEvent,
 )
-from jarvis.tasks.store import TaskStore
+from dodaios.tasks.store import TaskStore
 
 
 class FakeRunner:

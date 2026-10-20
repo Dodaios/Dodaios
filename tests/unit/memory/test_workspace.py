@@ -1,4 +1,4 @@
-"""Unit tests for `jarvis.memory.workspace`.
+"""Unit tests for `dodaios.memory.workspace`.
 
 Focus:
 - `Workspace.ensure` creates default files (USER.md, SOUL.md, people/).
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jarvis.memory.workspace import (
+from dodaios.memory.workspace import (
     BOOTSTRAP_MD,
     PEOPLE_DIR,
     SOUL_MD,

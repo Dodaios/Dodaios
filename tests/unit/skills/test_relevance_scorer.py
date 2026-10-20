@@ -12,8 +12,8 @@ import time
 
 import pytest
 
-from jarvis.skills import relevance
-from jarvis.skills.relevance import (
+from dodaios.skills import relevance
+from dodaios.skills.relevance import (
     FIELD_WEIGHTS,
     ScoredSkill,
     build_index,
@@ -23,7 +23,7 @@ from jarvis.skills.relevance import (
     normalize_text,
     tokenize,
 )
-from jarvis.skills.schema import SkillLifecycleState
+from dodaios.skills.schema import SkillLifecycleState
 
 # German vocabulary used as fixtures throughout — the speech input under test.
 # Declared once so the assertions stay readable and inside the line limit.

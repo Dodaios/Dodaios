@@ -5,7 +5,7 @@ import importlib.util
 
 import pytest
 
-from jarvis.voice.number_speller import spell_out_numbers
+from dodaios.voice.number_speller import spell_out_numbers
 
 _HAVE_NUM2WORDS = importlib.util.find_spec("num2words") is not None
 requires_num2words = pytest.mark.skipif(

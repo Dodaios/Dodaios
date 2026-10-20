@@ -39,7 +39,7 @@ Gemini's grounded-search mode — fills that gap.
 Two architectural pressures shaped the design:
 
 1. **Safety classification must be tamper-resistant.** The existing
-   risk-tier system (`jarvis/safety/risk_tier.py`) reads tier mappings
+   risk-tier system (`dodaios/safety/risk_tier.py`) reads tier mappings
    from configuration. For a skill that fans out to the open web,
    classification drift via TOML edit (or via the soft-disabled but
    still-present self-mod allowlist path) is a credible vector. The
@@ -93,7 +93,7 @@ appears in exactly one place (`skill.py`) and is verifiable via
 
 **Neutral**
 
-- The skill is currently *not* wired into `jarvis/plugins/tool/` or
+- The skill is currently *not* wired into `dodaios/plugins/tool/` or
   `pyproject.toml` entry-points. It lives under `src/skills/` as a
   standalone artifact. Integration into Dodaios's router-tier
   `ROUTER_TOOLS` frozenset is deferred to a Wave-2 follow-up ADR.

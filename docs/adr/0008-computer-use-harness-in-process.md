@@ -24,7 +24,7 @@ The new Computer-Use harness deliberately breaks this pattern — see the decisi
 
 ## Decision
 
-**`jarvis/plugins/harness/computer_use.py` runs in-process** (in the Dodaios main process), while the other five harnesses remain subprocesses.
+**`dodaios/plugins/harness/computer_use.py` runs in-process** (in the Dodaios main process), while the other five harnesses remain subprocesses.
 
 ### Rationale
 By its nature, Computer-Use is **not an external Dodaios-Agent framework** (as Dodaios-Agents or Codex are), but an internal plan-observe-act-verify loop that:
@@ -61,10 +61,10 @@ The rule targets **third-party agent code** (Dodaios-Agents, Codex, Open Interpr
 - **Dedicated thread pool (`ThreadPoolExecutor`):** Half-baked — the thread runs in the same GIL, but cancel semantics are treacherous. Rejected.
 - **Subprocess without HTTP callback, own brain stack in the child:** Duplicate API calls, duplicate token burn, no shared cost tracker. Rejected.
 
-## Amendment 2026-07-02 — engine rebuilt as `jarvis/cu` (decision unchanged)
+## Amendment 2026-07-02 — engine rebuilt as `dodaios/cu` (decision unchanged)
 
 The loop implementation was rebuilt from scratch as the modular package
-`jarvis/cu/` (geometry / capture / conventions / actuate / verify / ledger /
+`dodaios/cu/` (geometry / capture / conventions / actuate / verify / ledger /
 engine) and became the default via `[computer_use].engine = "v2"`. The
 architectural decision of THIS ADR — the Computer-Use harness runs
 in-process — is unchanged and applies to the new engine identically: it

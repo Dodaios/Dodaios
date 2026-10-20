@@ -1,6 +1,6 @@
 """Tests for the Socials section REST endpoints (CRUD + atomic JSON store).
 
-Contract (see jarvis/ui/web/socials_routes.py):
+Contract (see dodaios/ui/web/socials_routes.py):
 - GET    /api/socials          → {"entries": [...]} sorted by ``order``.
                                   On first run (no data file) the store is
                                   seeded with Discord + the two GitHub links.
@@ -13,7 +13,7 @@ Storage is a dedicated JSON file under ``user_data_dir()/data/socials.json``
 written atomically (tempfile + os.replace). It does NOT depend on the Brain, so
 it works headless / with MockBrain — the tests use a bare app with only the
 router, and redirect ``user_data_dir()`` via the ``LOCALAPPDATA`` env (read at
-call time by jarvis.core.paths.user_data_dir, so this works cross-platform).
+call time by dodaios.core.paths.user_data_dir, so this works cross-platform).
 
 A ``javascript:`` (or any non-http(s)) URL must be rejected — the URL becomes an
 ``href`` in the UI, so the scheme allowlist is an XSS guard.
@@ -42,7 +42,7 @@ def _isolate_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _client() -> TestClient:
     """A fresh app with only the socials router — proves no Brain dependency."""
-    from jarvis.ui.web.socials_routes import router
+    from dodaios.ui.web.socials_routes import router
 
     app = FastAPI()
     app.include_router(router)

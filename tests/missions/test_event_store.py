@@ -7,9 +7,9 @@ from unittest.mock import patch
 import pytest
 import pytest_asyncio
 
-from jarvis.missions.event_bus import MissionBus
-from jarvis.missions.event_store import MissionEventStore
-from jarvis.missions.events import (
+from dodaios.missions.event_bus import MissionBus
+from dodaios.missions.event_store import MissionEventStore
+from dodaios.missions.events import (
     CriticVerdictReady,
     EventEnvelope,
     MissionApproved,
@@ -17,7 +17,7 @@ from jarvis.missions.events import (
     MissionStateChanged,
     now_ms,
 )
-from jarvis.missions.ids import uuid7_str
+from dodaios.missions.ids import uuid7_str
 
 
 # --- Fixtures ---

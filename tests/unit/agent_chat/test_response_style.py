@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.agent_chat import jarvis_harness
-from jarvis.agent_chat.runner_api import system_prompt
-from jarvis.brain.manager import _WRITTEN_CHAT_STYLE
-from jarvis.brain.persona_loader import load_compact_persona_prompt, load_persona_prompt
-from jarvis.core.response_style import (
+from dodaios.agent_chat import jarvis_harness
+from dodaios.agent_chat.runner_api import system_prompt
+from dodaios.brain.manager import _WRITTEN_CHAT_STYLE
+from dodaios.brain.persona_loader import load_compact_persona_prompt, load_persona_prompt
+from dodaios.core.response_style import (
     CONVERSATIONAL_RESPONSE_STYLE,
     CONVERSATIONAL_TURN_REMINDER,
 )
@@ -79,8 +79,8 @@ def test_both_voice_personas_include_reporting_without_losing_spoken_rules() -> 
 def test_society_api_turn_carries_the_reply_policy_exactly_once(briefed: bool) -> None:
     from types import SimpleNamespace
 
-    from jarvis.brain.manager import _TURN_OVERRIDE, BrainManager
-    from jarvis.brain.turn_override import TurnOverride
+    from dodaios.brain.manager import _TURN_OVERRIDE, BrainManager
+    from dodaios.brain.turn_override import TurnOverride
 
     briefing = "## How to reply to the person\n" + CONVERSATIONAL_RESPONSE_STYLE
     manager = BrainManager.__new__(BrainManager)

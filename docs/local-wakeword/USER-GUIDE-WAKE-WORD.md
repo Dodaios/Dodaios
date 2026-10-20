@@ -16,7 +16,7 @@ cloud. For the engineering rationale behind the detection paths, see
    is what keeps the bare word in normal conversation from waking Dodaios.
    Prefer no wake word at all? The onboarding also offers activation through
    the configurable Call shortcut instead.
-2. **Terminal wizard** — `python -m jarvis --wizard` for SSH / headless
+2. **Terminal wizard** — `python -m dodaios --wizard` for SSH / headless
    setups. Headless installs can also complete the same onboarding in the
    browser UI.
 
@@ -70,4 +70,4 @@ voice start instead.
 | Change the wake word | Settings → Wake word (or first-run onboarding) |
 | Best accuracy for your word | Train/supply a custom `.onnx` (`custom_onnx`) |
 | No wake word, manual activation | Choose the Call-shortcut path |
-| Wake word "stopped working" | Run `python -m jarvis.speech.diagnose` |
+| Wake word "stopped working" | Run `python -m dodaios.speech.diagnose` |

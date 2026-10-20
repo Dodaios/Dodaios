@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jarvis.core import music_service as ms
-from jarvis.core.config import JarvisConfig, MusicConfig
-from jarvis.core.music_constants import (
+from dodaios.core import music_service as ms
+from dodaios.core.config import JarvisConfig, MusicConfig
+from dodaios.core.music_constants import (
     MUSIC_PLAYBACK_MODES,
     MUSIC_SERVICES,
 )
@@ -143,7 +143,7 @@ def test_music_config_defaults_and_sanitising():
 
 
 def test_description_hint_reads_the_cached_preference(monkeypatch):
-    import jarvis.core.config as config_mod
+    import dodaios.core.config as config_mod
 
     calls = {"n": 0}
 

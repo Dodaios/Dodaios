@@ -1,6 +1,6 @@
 """Quick-win DCR connector drafts stay valid and ready for promotion.
 
-Each draft under ``jarvis/marketplace/drafts/`` listed in
+Each draft under ``dodaios/marketplace/drafts/`` listed in
 ``docs/marketplace/quick-win-pending-e2e.json`` must parse as a catalog entry,
 use the one-click DCR flow, agree with its MCP template and paired skill, and
 carry a pending record bound to its exact configuration. None of them may be in
@@ -17,12 +17,12 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from jarvis.marketplace.catalog import PluginSpec
-from jarvis.skills.loader import parse_skill
+from dodaios.marketplace.catalog import PluginSpec
+from dodaios.skills.loader import parse_skill
 
 ROOT = Path(__file__).resolve().parents[3]
-DRAFTS = ROOT / "jarvis" / "marketplace" / "drafts"
-SKILL_DRAFTS = ROOT / "jarvis" / "skills" / "drafts"
+DRAFTS = ROOT / "dodaios" / "marketplace" / "drafts"
+SKILL_DRAFTS = ROOT / "dodaios" / "skills" / "drafts"
 PENDING = json.loads(
     (ROOT / "docs" / "marketplace" / "quick-win-pending-e2e.json").read_text(encoding="utf-8")
 )
@@ -100,7 +100,7 @@ def test_pending_record_is_bound_to_the_draft_configuration(pid: str) -> None:
 
 def test_drafts_are_not_shipped_before_a_real_journey() -> None:
     seed = json.loads(
-        (ROOT / "jarvis" / "marketplace" / "seed_catalog.json").read_text(encoding="utf-8")
+        (ROOT / "dodaios" / "marketplace" / "seed_catalog.json").read_text(encoding="utf-8")
     )
     shipped = {plugin["id"] for plugin in seed["plugins"]}
     assert shipped.isdisjoint(ROWS)

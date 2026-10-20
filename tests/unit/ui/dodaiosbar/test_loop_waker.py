@@ -14,8 +14,8 @@ from __future__ import annotations
 import sys
 import time
 
-from jarvis.core import process_utils
-from jarvis.ui.dodaiosbar.overlay import (
+from dodaios.core import process_utils
+from dodaios.ui.dodaiosbar.overlay import (
     LOOP_ASLEEP_THRESHOLD_NS,
     SHOW_WAKE_THRESHOLD_NS,
     JarvisBarOverlay,

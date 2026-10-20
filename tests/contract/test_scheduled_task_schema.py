@@ -11,7 +11,7 @@ from uuid import UUID
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from jarvis.tasks import (
+from dodaios.tasks import (
     TRIGGER_TYPES,
     HarnessDispatchAction,
     RetryPolicy,
