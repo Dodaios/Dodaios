@@ -1,38 +1,39 @@
 """Tests for the Critic prompt templates.
 
-Checks the applicable critic criteria from
-`docs/adr/0009-self-healing-worker-critic.md`:
-- Criterion 1 — evidence-cite requirement (prompt demands file:line / log_line:N / test:name).
-- Criterion 2 — skeptical framing without a defect quota.
-- Criterion 3 — anchor token (mission_prompt verbatim, triple-bracketed).
+Pins the contract the critic needs: evidence formats, no defect quota
+(ADR-0009 amendment), the verbatim anchor token, the ``# ground-truth:``
+marker every runtime-verified evidence block carries, and the output contract.
 """
 from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
 
 from dodaios.missions.critic.prompts import (
     ADVERSARIAL_REFRAME_PREFIX,
     CODEX_FLAT_OUTPUT_CONTRACT,
     CRITIC_SYSTEM_PROMPT,
-    FULL_CRITIC_OUTPUT_CONTRACT,
     render_critic_prompt,
 )
+from dodaios.missions.critic.verdict import CRITIC_JSON_SCHEMA
 
-# --- Criterion 2 — Adversarial Framing ---
-
-
-def test_template_contains_skeptical_phrasing() -> None:
-    assert "skeptical of this" in CRITIC_SYSTEM_PROMPT
+# --- No defect quota ---
 
 
 def test_template_forbids_a_defect_quota() -> None:
-    assert "find at least three concrete bugs" not in CRITIC_SYSTEM_PROMPT
-    assert "Never invent findings" in CRITIC_SYSTEM_PROMPT
+    assert "find at least three" not in CRITIC_SYSTEM_PROMPT
+    assert "non-blocking" in CRITIC_SYSTEM_PROMPT
 
 
 def test_template_only_revises_for_blocking_defects() -> None:
-    assert "verdict=revise only" in CRITIC_SYSTEM_PROMPT
-    assert "cited blocking defect" in CRITIC_SYSTEM_PROMPT
-    assert "NON-BLOCKING" in CRITIC_SYSTEM_PROMPT
-    assert "requirements not present in the original mission" in CRITIC_SYSTEM_PROMPT
+    assert "revise = cited blocking defect" in CRITIC_SYSTEM_PROMPT
+    assert "non-blocking" in CRITIC_SYSTEM_PROMPT
+    assert "requirements not in the goal" in CRITIC_SYSTEM_PROMPT
+
+
+def test_template_names_the_role() -> None:
+    assert "Dodaios mission critic" in CRITIC_SYSTEM_PROMPT
 
 
 def test_codex_prompt_uses_only_the_flat_output_contract() -> None:
@@ -46,13 +47,12 @@ def test_codex_prompt_uses_only_the_flat_output_contract() -> None:
     )
 
     assert CODEX_FLAT_OUTPUT_CONTRACT in prompt
-    assert FULL_CRITIC_OUTPUT_CONTRACT not in prompt
-    assert '"correctness_evidence"' in prompt
+    assert "blocking_issue" in prompt
     assert '"axes"' not in prompt
     assert '"issues"' not in prompt
 
 
-def test_default_prompt_retains_the_full_verdict_contract() -> None:
+def test_default_prompt_leaves_the_schema_to_the_call_site() -> None:
     prompt = render_critic_prompt(
         mission_prompt="Build a report",
         worker_diff="diff",
@@ -61,19 +61,10 @@ def test_default_prompt_retains_the_full_verdict_contract() -> None:
         iteration=0,
     )
 
-    assert FULL_CRITIC_OUTPUT_CONTRACT in prompt
     assert CODEX_FLAT_OUTPUT_CONTRACT not in prompt
 
 
-def test_template_demands_falsification_justification() -> None:
-    assert "plausible failure modes do not apply" in CRITIC_SYSTEM_PROMPT
-
-
-def test_template_uses_adversarial_role() -> None:
-    assert "adversarial mission-output critic" in CRITIC_SYSTEM_PROMPT
-
-
-# --- Criterion 1 — Evidence-Cite Requirement ---
+# --- Evidence ---
 
 
 def test_template_requires_evidence_format() -> None:
@@ -82,15 +73,11 @@ def test_template_requires_evidence_format() -> None:
     assert "test:name" in CRITIC_SYSTEM_PROMPT
 
 
-def test_template_rejects_empty_evidence_pass() -> None:
-    assert "Empty-evidence PASSes are also rejected" in CRITIC_SYSTEM_PROMPT
+def test_template_rejects_an_axis_without_evidence() -> None:
+    assert "without evidence is rejected" in CRITIC_SYSTEM_PROMPT
 
 
-def test_template_rejects_empty_evidence_fail() -> None:
-    assert "Empty-evidence FAILs are treated as abstentions" in CRITIC_SYSTEM_PROMPT
-
-
-# --- Criterion 3 — Anchor Token ---
+# --- Anchor Token ---
 
 
 def test_anchor_token_triple_bracketed_in_template() -> None:
@@ -123,10 +110,10 @@ def test_render_does_not_paraphrase_mission_prompt() -> None:
     assert weird in out
 
 
-# --- Schema-Reminder + Output-Rules ---
+# --- Schema + rules ---
 
 
-def test_full_output_contract_includes_schema_keys() -> None:
+def test_json_schema_carries_the_verdict_keys() -> None:
     for key in (
         "verdict",
         "axes",
@@ -136,72 +123,49 @@ def test_full_output_contract_includes_schema_keys() -> None:
         "confidence",
         "suggested_next_action",
     ):
-        assert f'"{key}"' in FULL_CRITIC_OUTPUT_CONTRACT
-
-
-def test_template_demands_no_prose_no_markdown() -> None:
-    """`no prose` + `markdown` can be split across a line break."""
-    assert "no prose" in CRITIC_SYSTEM_PROMPT
-    assert "markdown" in CRITIC_SYSTEM_PROMPT
-    assert "no code fences" in CRITIC_SYSTEM_PROMPT
+        assert key in CRITIC_JSON_SCHEMA["properties"]
 
 
 def test_template_states_read_only_mode() -> None:
-    """Critic must be told not to modify files. As of 2026-05-15 the wording
-    is honest about the fact that OpenClaw 2026.5.7 does NOT enforce this
-    via a `--permission-mode plan` flag — it's a behavioural request, not a
-    hard guarantee. Fix A+B (empty-diff pre-gate + hearsay rule) catch the
-    sycophancy class this used to mask."""
-    assert "Do NOT modify files" in CRITIC_SYSTEM_PROMPT
-    # Either the old hard-claim or the new honest "advisory mode" phrasing.
-    assert (
-        "Read-only mode" in CRITIC_SYSTEM_PROMPT
-        or "advisory mode" in CRITIC_SYSTEM_PROMPT
-    )
+    assert "Read-only" in CRITIC_SYSTEM_PROMPT
 
 
 def test_template_has_ground_truth_rule() -> None:
-    """Fix B regression: empty-diff must veto regardless of log claims.
-    Without this rule the Critic was sycophantic to worker-text claims like
-    'file successfully created' (live repro mission_019e2c18, 2026-05-15)."""
-    assert "GROUND-TRUTH-RULE" in CRITIC_SYSTEM_PROMPT
     assert "diff is ground truth" in CRITIC_SYSTEM_PROMPT
-    assert "log is hearsay" in CRITIC_SYSTEM_PROMPT
+    assert "hearsay" in CRITIC_SYSTEM_PROMPT
 
 
 def test_template_has_meta_phrase_rule() -> None:
-    """Live false-positive mission_019eb1ac (2026-06-10): the user asked Jarvis
-    to "spawn a subagent that creates an HTML file". The worker produced a
-    substantial HTML file, but the Critic treated the routing meta-instruction
-    ("spawn a subagent") as part of the deliverable and returned verdict=revise
-    demanding evidence that an agent was actually spawned. The mission runtime
-    IS the spawned subagent; such phrases are routing meta-language, never a
-    deliverable. The Critic must never demand agent/subagent-spawning evidence
-    nor fail an axis for missing it."""
-    assert "META-PHRASE-RULE" in CRITIC_SYSTEM_PROMPT
+    """A "spawn a subagent to do X" request is judged on X: the worker is the
+    spawned agent, so spawning evidence is never a deliverable."""
     assert "spawn a subagent" in CRITIC_SYSTEM_PROMPT
-    assert "The mission runtime IS that subagent" in CRITIC_SYSTEM_PROMPT
-    assert (
-        "Never demand evidence that an agent" in CRITIC_SYSTEM_PROMPT
-        or "never demand evidence that an agent" in CRITIC_SYSTEM_PROMPT
+    assert "judge X" in CRITIC_SYSTEM_PROMPT
+
+
+def test_template_points_at_runtime_verified_blocks() -> None:
+    assert "# ground-truth:" in CRITIC_SYSTEM_PROMPT
+    assert "# untracked-not-in-diff:" in CRITIC_SYSTEM_PROMPT
+
+
+def test_every_verified_evidence_block_carries_the_ground_truth_marker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The prompt refers to ``# ground-truth:``; every block renderer must emit it."""
+    from dodaios.missions.critic import runner
+    from dodaios.missions.kontrollierer import orchestrator
+
+    blocks = [
+        orchestrator._format_external_write_block(Path("C:/out/report.md"), b"hello"),
+        orchestrator._format_command_evidence_block([("git push", "")]),
+        orchestrator._format_desktop_action_evidence_block([("start chrome", "")]),
+    ]
+    for block in blocks:
+        assert "\n# ground-truth: " in block
+    monkeypatch.setattr(
+        runner, "extract_verified_external_actions", lambda _log: [("mcp_send", "sent")]
     )
-
-
-def test_ground_truth_rule_recognizes_verified_external_writes() -> None:
-    """mission_019e7abd (2026-05-30): a worker may legitimately write to an
-    absolute path OUTSIDE the worktree (e.g. the user's Desktop). The
-    Kontrollierer surfaces such deliverables as `diff --external-target` blocks
-    that are verified on disk. The GROUND-TRUTH-RULE must treat those as real
-    delivered content — NOT as an empty diff to veto — otherwise out-of-worktree
-    tasks fail 3× even when the file exists and is correct."""
-    assert "diff --external-target" in CRITIC_SYSTEM_PROMPT
-    # The empty-diff veto must explicitly carve out the verified-external case.
-    assert "verified-external-write" in CRITIC_SYSTEM_PROMPT
-
-
-def test_ground_truth_rule_recognizes_verified_external_actions() -> None:
-    assert "diff --external-action-evidence" in CRITIC_SYSTEM_PROMPT
-    assert "verified-external-action" in CRITIC_SYSTEM_PROMPT
+    mcp_block = runner._render_external_action_evidence("log")
+    assert "# verified-external-action\n# ground-truth: " in mcp_block
 
 
 # --- Render-Behavior ---
@@ -229,7 +193,7 @@ def test_render_handles_empty_reflections() -> None:
         prior_reflections="",
         iteration=0,
     )
-    assert "<<<>>>" in out  # explizit empty Anchor-Bracket
+    assert "<<<>>>" in out  # explicitly empty anchor bracket
 
 
 def test_render_adversarial_reframe_prepends_prefix() -> None:
@@ -254,10 +218,10 @@ def test_render_adversarial_reframe_prepends_prefix() -> None:
     assert ADVERSARIAL_REFRAME_PREFIX not in plain
 
 
-def test_adversarial_prefix_emphasizes_skepticism() -> None:
-    assert "maximum skepticism" in ADVERSARIAL_REFRAME_PREFIX
+def test_adversarial_prefix_stays_short_and_honest() -> None:
     assert "do not invent a blocker" in ADVERSARIAL_REFRAME_PREFIX
     assert "default position is now FAIL" not in ADVERSARIAL_REFRAME_PREFIX
+    assert "Keep it short" in ADVERSARIAL_REFRAME_PREFIX
 
 
 def test_render_anchor_present_in_both_modes() -> None:
@@ -271,3 +235,14 @@ def test_render_anchor_present_in_both_modes() -> None:
         adversarial_reframe=True,
     )
     assert "<<<ANCHOR_X>>>" in out
+
+
+def test_the_prompt_schema_drops_titles_but_keeps_the_contract() -> None:
+    import json
+
+    from dodaios.missions.critic.runner import _schema_for_prompt
+
+    rendered = _schema_for_prompt(CRITIC_JSON_SCHEMA)
+    assert '"title"' not in rendered
+    assert json.loads(rendered)["properties"].keys() == CRITIC_JSON_SCHEMA["properties"].keys()
+    assert len(rendered) < len(json.dumps(CRITIC_JSON_SCHEMA))

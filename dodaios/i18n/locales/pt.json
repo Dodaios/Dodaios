@@ -521,6 +521,10 @@
     },
     "case": {
       "counted": "Pedido {count} vezes em {days} dias diferentes."
+    },
+    "code": {
+      "title": "Resolver o issue #{number} em {repo}: {title}",
+      "case": "O issue #{number} de {repo} parece adequado para um agente sem supervisão ({signal}). Um agente de programação trabalharia nele com a sua assinatura enquanto você está ausente, no seu próprio worktree e branch, e executaria os testes ({tests}). O resultado é um pull request que fecha o issue, como rascunho, a menos que você deixe este repositório fazer o merge sozinho. {url}"
     }
   }
 }

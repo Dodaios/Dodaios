@@ -70,6 +70,27 @@ from .verdict import (
 logger = logging.getLogger(__name__)
 
 
+def _schema_for_prompt(schema: dict[str, Any]) -> str:
+    """Compact JSON of ``schema`` without Pydantic's ``title`` labels.
+
+    The schema travels in the critic prompt only; validation runs against the
+    full Pydantic model, so the labels are dead weight to the model.
+    """
+
+    def _strip(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {
+                key: _strip(value)
+                for key, value in node.items()
+                if not (key == "title" and isinstance(value, str))
+            }
+        if isinstance(node, list):
+            return [_strip(item) for item in node]
+        return node
+
+    return json.dumps(_strip(schema), separators=(",", ":"))
+
+
 def _render_external_action_evidence(worker_log: str) -> str:
     """Render correlated successful MCP results as a critic evidence block."""
     actions = extract_verified_external_actions(worker_log)
@@ -78,6 +99,7 @@ def _render_external_action_evidence(worker_log: str) -> str:
     lines = [
         "diff --external-action-evidence",
         "# verified-external-action",
+        "# ground-truth: correlated non-errored MCP tool results.",
     ]
     for name, result in actions:
         compact = " ".join(result.split())
@@ -605,49 +627,6 @@ def _win32_creationflags() -> int:
     )
 
 
-def build_critic_cmd(
-    prompt: str,
-    *,
-    model: str,
-    schema_json: str,
-    use_bare: bool,
-    provider: str | None = None,
-) -> list[str]:
-    """Build the Jarvis-Agent worker argv for the critic subprocess.
-
-    `model` and `use_bare` stay in the signature for compatibility with older
-    callers. The effective provider/model comes from the Jarvis-Agent SubJarvis
-    fallback chain so worker and critic use the same backend policy.
-    """
-    del model, use_bare
-
-    from dodaios.missions.worker_runtime.provider_map import to_worker_slug
-    from dodaios.missions.workers.provider_chain import (
-        _build_worker_cmd,
-        _resolve_provider_chain,
-        _resolve_worker_argv_prefix,
-    )
-
-    chain = _resolve_provider_chain(requested_provider=provider)
-    primary = chain[0]
-    worker_slug = to_worker_slug(primary.provider)
-    augmented_prompt = (
-        f"{prompt}\n\n"
-        "---\n"
-        "Output contract: return exactly one JSON object matching this JSON "
-        "schema. No prose, markdown, or code fences before or after it.\n"
-        f"{schema_json}\n"
-    )
-    return _build_worker_cmd(
-        augmented_prompt,
-        binary=_resolve_worker_argv_prefix(),
-        session_id="critic",
-        worker_slug=worker_slug,
-        model=primary.model,
-        timeout_s=DEFAULT_TIMEOUT_SECONDS,
-        extra_args=("--agent", "critic"),
-    )
-
 # --- Codex structured-output schema (Welle 6 follow-up, 2026-05-24) ---------
 #
 # The codex CLI (ChatGPT subscription) is an *agent*, not a print tool. Given
@@ -1113,7 +1092,7 @@ class CriticRunner:
             prior_confidence=prior_confidence,
         )
         log_summary = await summarize_log(worker_log, triage_fn=self._log_triage)
-        schema_json = json.dumps(CRITIC_JSON_SCHEMA)
+        schema_json = _schema_for_prompt(CRITIC_JSON_SCHEMA)
         use_bare = False
 
         # First round — no adversarial reframe.
@@ -1507,24 +1486,16 @@ class CriticRunner:
             codex_flat=True,
         )
 
-        # Append the JSON-only output contract once at the call site so both
-        # the Jarvis-Agent worker and the direct paths see the same prompt. (The old
-        # `build_critic_cmd` appended it for the Jarvis-Agent worker path; we lift that
-        # so the direct path doesn't end up without the contract.)
+        # The JSON-only output contract is appended once here, so every
+        # non-Codex path sees the same prompt. Codex is held to its flat schema
+        # by ``--output-schema``; it needs no inline copy.
         prompt_for_subprocess = (
             f"{prompt}\n\n"
             "---\n"
-            "Output contract: return exactly one JSON object matching this "
-            "JSON schema. No prose, markdown, or code fences before or after "
-            f"it.\n{schema_json}\n"
+            "Output contract: exactly one JSON object matching this schema, "
+            f"nothing before or after it.\n{schema_json}\n"
         )
-        codex_prompt_for_subprocess = (
-            f"{codex_prompt}\n\n"
-            "---\n"
-            "Output contract: return exactly one flat JSON object matching "
-            "this JSON schema. No prose, markdown, or code fences before or "
-            f"after it.\n{json.dumps(_CODEX_CRITIC_OUTPUT_SCHEMA)}\n"
-        )
+        codex_prompt_for_subprocess = codex_prompt
 
         primary_provider, primary_model = _resolve_critic_provider_model()
         # Capacity policy (dodaios/missions/capacity.py): on a subscription
@@ -2124,11 +2095,7 @@ class CriticRunner:
 
             req = BrainRequest(
                 messages=(BrainMessage(role="user", content=prompt),),
-                system=(
-                    "You are a strict, adversarial mission-output critic. Return "
-                    "EXACTLY one JSON object matching the schema in the prompt — "
-                    "no prose and no markdown fences before or after it."
-                ),
+                system="You are the Dodaios mission critic. Reply with one JSON object.",
                 temperature=0.0,
                 max_tokens=2048,
             )
@@ -2881,6 +2848,5 @@ __all__ = [
     "MAX_CRITIC_LOOPS",
     "CriticRunner",
     "CapabilityHonestyCheck",
-    "build_critic_cmd",
     "enforce_capability_honesty",
 ]

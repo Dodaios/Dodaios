@@ -1,159 +1,79 @@
-"""Tests for the worker-prompt composer + the artifact-language directive.
+"""Tests for the worker-prompt composer and the one worker contract.
 
-Root cause (2026-06-22): nothing in the mission-dispatch chain ever told the
-worker to produce English code artifacts. The mission prompt is mostly German
-(the user speaks German, ``spawn_worker`` wraps it with German labels), so the
-worker naturally wrote German identifiers/comments/docstrings — violating the
-repo Output Language Policy ("every artifact an agent produces is English").
-
-The fix injects ``ARTIFACT_LANGUAGE_DIRECTIVE`` at the single guaranteed
-chokepoint (``orchestrator._run_iterations`` builds the ``worker_prompt`` for
-every worker, every iteration, every decomposition path) via
-``compose_worker_prompt``. These tests pin that composer's contract.
+``compose_worker_prompt`` is the single chokepoint every mission worker prompt
+passes through (``orchestrator._run_iterations`` and the sub-agent fan-out),
+so the contract pins live here.
 """
 from __future__ import annotations
 
 from dodaios.missions.kontrollierer.worker_prompt import (
-    ARTIFACT_LANGUAGE_DIRECTIVE,
-    OUTPUT_SHAPE_DIRECTIVE,
-    SUPERVISOR_BOUNDARY_DIRECTIVE,
+    SUBAGENT_CONTRACT,
+    WORKER_CONTRACT,
     compose_worker_prompt,
 )
 
-# --- The directive itself -----------------------------------------------------
+# --- The contract itself ------------------------------------------------------
 
 
-def test_directive_mandates_english_for_code_artifacts() -> None:
-    text = ARTIFACT_LANGUAGE_DIRECTIVE.lower()
+def test_contract_mandates_english_code_artifacts() -> None:
+    text = WORKER_CONTRACT.lower()
     assert "english" in text
-    # It must name the code-artifact surfaces it governs, not just "be English".
-    assert "comment" in text
-    assert "identifier" in text or "docstring" in text
+    assert "comments" in text
 
 
-def test_directive_is_language_independent_not_a_de_en_toggle() -> None:
-    # The leak was: German request -> German code. The directive must hold
-    # REGARDLESS of the request language, so it cannot be a "de/en" branch.
-    text = ARTIFACT_LANGUAGE_DIRECTIVE.lower()
-    assert "even" in text or "regardless" in text
+def test_contract_says_no_user_can_answer() -> None:
+    text = WORKER_CONTRACT.lower()
+    assert "no user" in text
+    assert "background" in text
 
 
-def test_directive_preserves_user_facing_content_exception() -> None:
-    # The user explicitly said: sometimes German is correct. A generated
-    # German news page or quoted text must stay German — only code artifacts
-    # default to English.
-    text = ARTIFACT_LANGUAGE_DIRECTIVE.lower()
-    assert "user-facing" in text or "content" in text
-    assert "explicit" in text or "request" in text
+def test_contract_names_the_diff_review_and_forbids_commits() -> None:
+    assert "git diff HEAD" in WORKER_CONTRACT
+    assert "Do not commit" in WORKER_CONTRACT
 
 
-# --- OUTPUT_SHAPE_DIRECTIVE ---------------------------------------------------
-# Root cause (2026-06-22, mission 019ef052): the user asked for a SINGLE HTML
-# file; the worker shipped four (index.html + app.js + styles.css + assets/).
-# The standing _QUALITY_DIRECTIVE ("never downgrade to a minimal version,
-# skeleton is a floor not a ceiling") reads a single self-contained file as a
-# forbidden minimal version, so the worker built the "production-quality" norm
-# of a split multi-file project. Nothing in the chain told the worker to honor
-# an explicit form/shape constraint. This directive is that missing layer.
+def test_contract_lets_the_verbatim_words_win() -> None:
+    assert "verbatim words win" in WORKER_CONTRACT
 
 
-def test_shape_directive_honors_explicit_single_file_constraint() -> None:
-    text = OUTPUT_SHAPE_DIRECTIVE.lower()
-    # The canonical case that broke: "a single (HTML) file".
-    assert "single" in text
-    assert "file" in text
-    # It must frame the requested shape as a requirement to follow exactly,
-    # not an optional preference.
-    assert "honor" in text or "honour" in text or "exactly" in text
+def test_contract_stops_honestly_without_a_tool() -> None:
+    assert "say so and stop" in WORKER_CONTRACT
 
 
-def test_shape_directive_says_honoring_a_constraint_is_not_a_downgrade() -> None:
-    # The whole point: neutralize the _QUALITY_DIRECTIVE's "never downgrade to
-    # minimal" pull, which otherwise treats a single-file deliverable as a
-    # forbidden minimal/stub version.
-    text = OUTPUT_SHAPE_DIRECTIVE.lower()
-    assert "downgrade" in text
-    assert "stub" in text or "minimal" in text
+def test_contract_excludes_live_control_surfaces() -> None:
+    text = WORKER_CONTRACT.lower()
+    assert "jarvisctl" in text
+    assert "configuration" in text
 
 
-def test_shape_directive_is_a_default_keeping_judgment_when_unconstrained() -> None:
-    # No explicit shape constraint -> the worker keeps professional judgment for
-    # packaging; the directive must NOT force everything into one file always.
-    text = OUTPUT_SHAPE_DIRECTIVE.lower()
-    assert "judgment" in text or "judgement" in text
+def test_contract_ends_with_spoken_summary_and_written_line() -> None:
+    assert "read aloud" in WORKER_CONTRACT
+    assert "Written:" in WORKER_CONTRACT
+    assert "No file output required." in WORKER_CONTRACT
 
 
-def test_shape_directive_is_provider_and_language_agnostic() -> None:
-    # Like the language directive, it must hold regardless of request language /
-    # which worker CLI runs — no de/en toggle, no provider name.
-    text = OUTPUT_SHAPE_DIRECTIVE.lower()
+def test_contract_is_provider_agnostic() -> None:
+    text = WORKER_CONTRACT.lower()
     for banned in ("claude", "gemini", "codex", "grok", "anthropic", "openai"):
         assert banned not in text
-
-
-def test_compose_includes_output_shape_directive() -> None:
-    out = compose_worker_prompt("", "Make a single HTML file about moving to SF")
-    assert OUTPUT_SHAPE_DIRECTIVE in out
-
-
-def test_supervisor_boundary_excludes_live_control_surfaces() -> None:
-    text = SUPERVISOR_BOUNDARY_DIRECTIVE.lower()
-    assert "jarvisctl" in text
-    assert "computer use" in text
-    assert "live configuration" in text
-    assert "wiki-list" in text
-    assert "wiki-ingest" in text
-
-
-def test_supervisor_boundary_names_the_knowledge_surface() -> None:
-    """The directive is the one prompt chokepoint — a granted tool the model
-    was never told about is dead weight (ADR-0030)."""
-    text = SUPERVISOR_BOUNDARY_DIRECTIVE.lower()
-    for name in ("search_web", "contact-lookup"):
-        assert name in text
-    # Honesty clause: gated-off tools are simply absent from the tool list,
-    # and the model must not guess-call them (a blind call dirties the
-    # ADR-0025 completion certificate).
-    assert "absent from your tool list" in text
-    # Refusals stay recoverable (W3 soft-fail contract).
-    assert "recoverable" in text
-
-
-def test_compose_places_supervisor_boundary_before_the_step() -> None:
-    step = "Research this topic and update the Wiki."
-    out = compose_worker_prompt("", step)
-    assert out.index(SUPERVISOR_BOUNDARY_DIRECTIVE) < out.index(step)
-
-
-def test_compose_orders_both_directives_before_the_step() -> None:
-    step = "Make me a single, self-contained HTML file."
-    out = compose_worker_prompt("", step)
-    assert OUTPUT_SHAPE_DIRECTIVE in out
-    assert ARTIFACT_LANGUAGE_DIRECTIVE in out
-    assert out.index(OUTPUT_SHAPE_DIRECTIVE) < out.index(step)
-    assert out.index(ARTIFACT_LANGUAGE_DIRECTIVE) < out.index(step)
 
 
 # --- compose_worker_prompt ----------------------------------------------------
 
 
-def test_compose_puts_directive_before_the_step_prompt() -> None:
-    step = "Erstelle ein sinnvolles HTML-Grundgeruest."
+def test_compose_puts_contract_before_the_step_prompt() -> None:
+    step = "Build a single HTML page."
     out = compose_worker_prompt("", step)
-    assert ARTIFACT_LANGUAGE_DIRECTIVE in out
+    assert WORKER_CONTRACT in out
     assert step in out
-    assert out.index(ARTIFACT_LANGUAGE_DIRECTIVE) < out.index(step)
+    assert out.index(WORKER_CONTRACT) < out.index(step)
 
 
-def test_compose_keeps_prior_reflections_and_orders_directive_first() -> None:
+def test_compose_keeps_prior_reflections_and_orders_contract_first() -> None:
     prior = "PRIOR CRITIC FEEDBACK: the previous attempt left a stub."
     step = "Finish the deliverable."
     out = compose_worker_prompt(prior, step)
-    # All three present, directive first, step last.
-    assert ARTIFACT_LANGUAGE_DIRECTIVE in out
-    assert prior in out
-    assert step in out
-    assert out.index(ARTIFACT_LANGUAGE_DIRECTIVE) < out.index(prior) < out.index(step)
+    assert out.index(WORKER_CONTRACT) < out.index(prior) < out.index(step)
 
 
 def test_compose_without_prior_block_has_no_dangling_separator() -> None:
@@ -162,18 +82,9 @@ def test_compose_without_prior_block_has_no_dangling_separator() -> None:
     assert out.strip() == out
 
 
-# --- final report ------------------------------------------------------------
-
-
-def test_every_worker_is_asked_to_close_with_outcome_status_and_open_decisions():
-    from dodaios.missions.kontrollierer.worker_prompt import FINAL_REPORT_DIRECTIVE
-
-    for prior in ("", "PRIOR FEEDBACK: tighten the layout"):
-        out = compose_worker_prompt(prior, "Build the report page")
-        assert FINAL_REPORT_DIRECTIVE in out
-        assert out.index(FINAL_REPORT_DIRECTIVE) < out.index("Build the report page")
-    text = FINAL_REPORT_DIRECTIVE.lower()
-    assert "what you built or found" in text
-    assert "where things stand" in text
-    assert "any decision the user still has to make" in text
-    assert "blocked" in text
+def test_compose_accepts_the_subagent_contract() -> None:
+    out = compose_worker_prompt("", "Sub-task: x", contract=SUBAGENT_CONTRACT)
+    assert out.startswith(SUBAGENT_CONTRACT)
+    assert WORKER_CONTRACT not in out
+    # A fan-out child is not in a git worktree.
+    assert "git diff" not in SUBAGENT_CONTRACT

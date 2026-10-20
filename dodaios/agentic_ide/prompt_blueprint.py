@@ -81,193 +81,43 @@ from .task_kind import (
     KIND_REVIEW,
 )
 
-# The hard ceiling. MAX_PROMPT_CHARS is the transport cap above this.
-# Set above what a lean brief plus a dropped-file description measures, not
-# at the target: a limit the writer breaches on every ordinary composition
-# teaches it that the limits in this prompt are approximate.
+# The hard ceiling for the deterministic fallback; MAX_PROMPT_CHARS is the
+# transport cap above it.
 MAX_BODY_CHARS = 2200
 
-# What a GOOD prompt weighs. The 1400-2400 target (2026-07-27) bought a
-# specification the agent then re-read from the same @files, and the writer
-# spent 10-30 s of thinking plus generation on it. A competitor Flash call
-# that cleaned the spoken sentence and attached the neighbouring files landed
-# a comparable brief in about a second (maintainer, 2026-08-18). The target
-# is therefore the cleaned task plus a short Key files list — not a map of
-# the code the agent is about to open. Raised 900 -> 1200 (2026-10-01) for
-# the optional ``## Context`` bullets the file excerpts make possible.
-TARGET_MIN_CHARS = 280
+# What a good brief weighs; the only length the writer is told.
 TARGET_MAX_CHARS = 1200
 
-_SKELETON = """\
-## Task
-<what must be achieved, in the imperative - one to three sentences>
-
-## Key files
-- `@path/to/file` - why this file is the starting point
-- `@path/to/other` - same, specifically
-
-## Context
-- <a fact the file excerpts show that the agent needs to start>
-
-## Done when
-- <an observable outcome the user actually stated>\
-"""
-
-# The two rules the composer states once each, so "goal, not route" cannot
-# come to mean two subtly different things across the kinds below.
-#
-# The dictation Prompt Mode used to import both. It no longer does (v5,
-# 2026-08-27), and the difference is what each surface writes FOR: the
-# composer briefs an agent already running in the user's repository, where a
-# guessed implementation gets built; Prompt Mode writes a prompt the user
-# pastes wherever they like, and its instruction is deliberately one paragraph
-# — the rules it had accumulated were making its prompts worse, not better.
-# Both still refuse to invent what was not said; only this one says it here.
-GOAL_NOT_IMPLEMENTATION_RULE = """\
-Give the agent the GOAL, the CONTEXT and the CONSTRAINTS - never the \
-implementation. Which approach, which mechanism, which order are its decisions, \
-made against code it can see and you cannot; a solution you guess at gets built \
-even when it is wrong or already there. Say what must be true when it is done, \
-and leave the route open."""
-
-FORBIDDEN_SUBJECTS_RULE = """\
-Two subjects must not appear in the prompt AT ALL - not as a requirement and \
-not as a prohibition. Say nothing about either; the agent handles both \
-correctly on its own, and raising them measurably degrades its work:
-- Verification. No "verify your work", no "double-check", and equally no "do \
-not double-check". Write neither.
-- Its own reasoning. No "explain your reasoning", "show your thinking" or \
-"narrate your steps", and equally no instruction forbidding those. Write \
-neither. (A line like "Do not narrate your internal reasoning" in the finished \
-prompt is this rule being LEAKED instead of followed - it is a defect.)"""
-
+# The writer sees excerpts, the agent sees the code: the brief carries the
+# goal and its constraints, never a guessed implementation. ``@path`` hygiene
+# (no invented paths, never ending on a reference) is enforced by the composer.
 _SHARED_RULES = f"""\
-You turn a spoken instruction into a brief for a coding agent (Claude Code or \
-Codex) already running inside the user's repository. The agent will act on what \
-you write, so write the brief you would want to receive.
+You write the prompt Dodaios sends to a coding agent (Claude Code or Codex) \
+running in the user's repository. Words that address the agent ("tell T2 \
+to ...") are the handover, not its task. The agent sees only your text: \
+replace references to the conversation with what they stand for, and state \
+the user's goal and constraints, not an implementation.
 
-{GOAL_NOT_IMPLEMENTATION_RULE}
+English Markdown, no preamble or code fence, at most {TARGET_MAX_CHARS} \
+characters. `## Task` is required; optional: `## Key files` (`@path` from the \
+workspace tree, one reason each), `## Context` (up to three facts the excerpts \
+show, symbol and file), `## Done when` (only outcomes the user stated or the \
+repository defines)."""
 
-The user is SPEAKING to their assistant about this agent, so their words name the \
-handover as well as the work: "prompt T2 and T3 to ...", "write Alex the prompt \
-for ...", "tell Nova it should ...". THE BRIEF YOU ARE WRITING IS THAT PROMPT. \
-Never make prompt-writing the agent's task - a `## Task` reading "create the \
-prompt for T2" sends the agent off to do your job and loses the one thing the \
-user asked for. The work is whatever the sentence asks for AROUND the handover. \
-(The exception is narrow and unmistakable: the user is talking about prompt \
-text that lives in the repository as a file.)
-
-The brief is ALL the agent gets. It sees no conversation, no earlier answer, no \
-"context" of any kind, so anything the user said by pointing back - "points two \
-and three", "the second option", "what you just suggested", "that one" - must \
-be REPLACED by what it stands for, spelled out from the conversation you were \
-given. A brief that forwards the pointer instead ("incorporate points 2 and 3 \
-from the current context") gives the agent nothing it can act on. If a \
-reference cannot be resolved from what you were given, write what IS known and \
-leave the unresolvable part out rather than pointing at it.
-
-Markdown, exactly this skeleton:
-
-{_SKELETON}
-
-- Output ONLY the brief: no preamble, no code fence, no quotes.
-- `## Task` is mandatory; every other section is OPTIONAL. Omit any you cannot \
-ground rather than padding it.
-
-INVENTING is forbidden: a requirement, constraint, boundary or success \
-criterion the user did not state and the workspace does not establish. `## Done \
-when` holds only what the user asked for or what the repository itself \
-determines (its test command, its lint gate). Omit it otherwise. Do not add a \
-`## Scope` or `## How it works today` section - the agent will open the @files \
-and discover the current code itself.
-
-`## Context` exists only when you were given FILE OUTLINES AND TASK-RELEVANT \
-LINES: at most three bullets, each a fact those excerpts actually show and \
-the agent needs to start - which function owns the behaviour, where a value \
-is set and what it is now, where something is wired. Name the symbol and its \
-file. Never a proposed change, never a walkthrough of the code. Omit it when \
-the excerpts show nothing the task needs.
-
-- Aim for {TARGET_MIN_CHARS}-{TARGET_MAX_CHARS} characters, never over \
-{MAX_BODY_CHARS}. Length comes from a clean task and a concrete Key files \
-list, never from restating the files' internals, hedging or dictated steps.
-- `@path` references only inside `## Key files`, only paths that appear in the \
-workspace tree (join a directory header with the file name under it), each \
-with one short reason. Never invent a path. Never end the prompt on an \
-`@path` or `/command` - a trailing reference holds the agent's completion \
-popup open and the prompt is never submitted.
-- ENGLISH, whatever language the user spoke.
-- Preserve every constraint, file, symbol and intent expressed; drop speech \
-artefacts and the clause addressing the agent by name.
-
-{FORBIDDEN_SUBJECTS_RULE}\
-"""
-
-# Per-kind guardrails. Short on purpose: a short coherent set is followed, a
-# long one is averaged.
 _KIND_RULES: dict[str, str] = {
-    KIND_IMPLEMENT: """\
-This is an IMPLEMENTATION task. Specific to it:
-- Specify the OUTCOME completely, so the agent can work start to finish without \
-coming back with questions: the behaviour that must exist afterwards, how it \
-should behave when things go wrong, and any constraint it has to respect. \
-Complete means the agent lacks no context - not that you dictated the steps.
-- Point at the starting files. Do not narrate how those files work today - \
-the agent will open them. A symbol name or one fact from the excerpts is \
-enough.
-- A bound the user actually drew belongs in `## Task`, not in a separate \
-section. Do not fill the brief with generic don'ts - "no unrequested \
-refactors", "no speculative abstractions", "no surrounding cleanup" are \
-things the agent already gets right.
-- `## Done when` states observable outcomes, not activities, and only when \
-the user stated one or the workspace names the test command.\
-""",
-    KIND_REVIEW: """\
-This is a REVIEW task. Specific to it:
-- Ask for every finding, each with its severity and the file and line it sits \
-on. Filtering happens afterwards, in a separate pass. Never instruct the agent \
-to report only serious issues, or to apply a high bar, or to err on the side \
-of silence - it will follow that literally and stay quiet about real defects.
-- Say what the code is FOR and what would count as a defect in it. A reviewer \
-who knows that the ranking decides which results reach a spoken answer reviews \
-differently from one who sees a sorting function.
-- Name what to weigh the code against when the workspace establishes it: the \
-repository's own conventions, its anti-pattern register, its tests. List the \
-specific dimensions worth a pass - correctness, edge cases, error handling, \
-test coverage, and whatever the code's own purpose makes risky.
-- The deliverable is the findings. Do not ask for fixes in the same prompt.\
-""",
-    KIND_INVESTIGATE: """\
-This is an INVESTIGATION task. Specific to it:
-- The deliverable is a diagnosis: the cause, the evidence for it, and what \
-would confirm it. Say so explicitly.
-- Say that the agent should report the finding and stop, and should not apply \
-a fix before the user has seen it.
-- Carry across every symptom, error message, timing and reproduction detail \
-the user gave, VERBATIM. Those are the evidence; do not summarise them away.
-- Point at the files under suspicion. Do not walk the path for the agent - \
-it will open the @files.\
-""",
-    KIND_QUESTION: """\
-This is a QUESTION. Specific to it:
-- The deliverable is an answer grounded in the code, not a change. Say that \
-the agent should read the relevant files before answering and should not \
-change anything.
-- Be specific about what is actually being asked and what a useful answer \
-would cover, so the agent does not return either a one-liner or an essay.
-- A question rarely needs `## Done when`; omit it unless the user set a \
-real boundary.\
-""",
-    KIND_NEUTRAL: """\
-The kind of work is not clearly determined. Stay with what the user said:
-- State the task as they framed it, at the scope they framed it. Do not \
-sharpen an open request into a specific one - if they were broad, the agent \
-gets to decide where to start.
-- Attach the candidate files. Do not fill in a map of the code - being unsure \
-which KIND of work this is is no reason to write a longer brief.
-- If they described a problem rather than asking for a change, say that the \
-deliverable is the assessment.\
-""",
+    KIND_IMPLEMENT: "Kind: implementation.",
+    KIND_REVIEW: (
+        "Kind: review. Ask for every finding with severity and file:line; "
+        "findings are filtered later. No fixes."
+    ),
+    KIND_INVESTIGATE: (
+        "Kind: investigation. The deliverable is the cause and its evidence, "
+        "no fix. Quote the user's symptoms verbatim."
+    ),
+    KIND_QUESTION: (
+        "Kind: question. The deliverable is an answer from the code; nothing is changed."
+    ),
+    KIND_NEUTRAL: "Kind: unclear. Keep the user's framing and scope.",
 }
 
 
@@ -305,26 +155,11 @@ def attachment_block(attachments: list) -> str:
     return "\n\n".join(parts)
 
 
-# What the writer must do with a dropped file, appended only when there is one.
-# Stated as its own rule set rather than folded into the shared rules: on a
-# prompt with no attachment these lines are noise, and a rule that applies to
-# nothing teaches the model that the rules are approximate.
+# Appended only when the user dropped a file.
 _ATTACHMENT_RULES = """\
-The user DROPPED one or more files into this instruction, and their contents \
-are given above. Specific to that:
-- Carry the substance across. The agent may not be able to open an image at \
-all, so the description is its only view of it: put what the image actually \
-shows into `## Task`, in detail, rather than writing "the screenshot the \
-user dropped".
-- Quote the exact strings. Error messages, stack traces, labels and code from \
-an attachment go into the prompt VERBATIM — those are what the agent will \
-search the repository for, and a paraphrase cannot be grepped.
-- Reference the file as well, using the reference given in its attachment tag, \
-so an agent that CAN open it does. The description is the floor, not a \
-replacement.
-- The attachment is context, not the task. What the user asked for still \
-decides what the prompt asks the agent to do.\
-"""
+The agent may not see images: put what an attachment shows into `## Task`, \
+quote its error text, labels and code verbatim, and cite it by the reference \
+in its tag."""
 
 
 def user_block(
@@ -359,66 +194,50 @@ def user_block(
     if profile_lines:
         parts.append("WORKSPACE\n" + "\n".join(profile_lines))
     if house_rules:
-        parts.append("HOUSE RULES OF THIS REPOSITORY\n" + house_rules)
+        parts.append("HOUSE RULES\n" + house_rules)
 
     dropped = attachment_block(attachments or [])
     if dropped:
         parts.append(
-            "FILES THE USER DROPPED (already saved where the agent can open "
-            "them; an image was described by a model that could see it)\n" + dropped
+            "DROPPED FILES (saved in the workspace; images described by a vision model)\n"
+            + dropped
         )
         parts.append(_ATTACHMENT_RULES)
 
     if tree:
         parts.append(
-            "WORKSPACE TREE (repo-relative; a directory header plus the files "
-            "under it. Pick Key files from HERE - join header + name to form "
-            "@path. Do not invent paths, do not open files, the agent will)\n" + tree
+            "WORKSPACE TREE (directory header, then its files; @path = header + name)\n" + tree
         )
 
     if skeletons:
         outlines = "\n\n".join(
             f'<file path="{path}">\n{text}\n</file>' for path, text in skeletons.items()
         )
-        parts.append(
-            "FILE OUTLINES AND TASK-RELEVANT LINES (Dodaios looked into these "
-            "files; partial - signatures plus the numbered lines that mention "
-            "the task. Use them to choose the right Key files, to name real "
-            "symbols instead of describing code vaguely, and for ## Context)\n"
-            + outlines
-        )
+        parts.append("FILE OUTLINES AND TASK-RELEVANT LINES (partial excerpts)\n" + outlines)
 
     if tree:
         if candidates:
             parts.append(
-                "SPOKEN WORDS ALREADY POINTED AT (hints from the names, not a "
-                "limit - the tree above is the real map)\n"
+                "SPOKEN WORDS ALREADY POINTED AT (hints, not a limit)\n"
                 + "\n".join(f"- {c}" for c in candidates)
             )
     else:
         candidate_block = (
-            "\n".join(f"- {c}" for c in candidates)
-            if candidates
-            else "(no candidate files matched - omit the Key files section)"
+            "\n".join(f"- {c}" for c in candidates) if candidates else "(none - omit Key files)"
         )
-        parts.append(
-            "CANDIDATE FILES (repo-relative; use only these in @references)\n" + candidate_block
-        )
+        parts.append("CANDIDATE FILES (use only these in @references)\n" + candidate_block)
 
     spoken = conversation_module.render(conversation or ())
     if spoken:
         parts.append(
-            "THE CONVERSATION THIS CAME OUT OF (oldest first; the agent will "
-            "never see any of it, so resolve every back-reference against it)\n" + spoken
+            "THE CONVERSATION THIS CAME OUT OF (oldest first; the agent will never "
+            "see any of it)\n" + spoken
         )
 
-    parts.append(
-        f"The user is talking to the coding agent {agent_display} running in a "
-        f"terminal they call {terminal_name}."
-    )
-    parts.append(f"WHAT THE USER SAID (verbatim speech transcript)\n{utterance}")
+    parts.append(f"Target: {agent_display} in terminal {terminal_name}.")
+    parts.append(f"WHAT THE USER SAID (speech transcript)\n{utterance}")
     if instruction and instruction != utterance:
-        parts.append("THE INSTRUCTION PART, WITH THE ADDRESSING REMOVED\n" + instruction)
+        parts.append("INSTRUCTION WITHOUT THE ADDRESSING\n" + instruction)
     parts.append("Write the prompt now.")
 
     return "\n\n".join(parts)
@@ -469,7 +288,7 @@ def render_fallback(
         # Never end on a reference: a trailing @path holds the completion popup
         # open, and the Enter that follows picks a suggestion instead of
         # submitting the prompt.
-        out.append("Start with these files; search further if they are not enough.")
+        out.append("Starting points, not a limit.")
     return "\n\n".join(out)[:MAX_BODY_CHARS]
 
 
@@ -536,11 +355,8 @@ def looks_like_brief(text: str) -> bool:
 
 
 __all__ = [
-    "FORBIDDEN_SUBJECTS_RULE",
-    "GOAL_NOT_IMPLEMENTATION_RULE",
     "MAX_BODY_CHARS",
     "TARGET_MAX_CHARS",
-    "TARGET_MIN_CHARS",
     "attachment_block",
     "ends_on_reference",
     "looks_like_brief",

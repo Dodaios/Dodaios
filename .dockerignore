@@ -41,9 +41,7 @@ dodaios/ui/web/frontend/dist/
 
 # Sibling subprojects with their own images / not part of the headless server.
 board-backend/
-keyproxy/
 conductor/
-video/
 
 # Tests + heavy docs are not needed at runtime.
 tests/
