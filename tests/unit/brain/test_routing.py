@@ -855,12 +855,12 @@ def test_factory_wires_mcp_tool_into_router_set() -> None:
         capabilities._reset_registry_for_tests()
 
 
-def test_router_prompt_mentions_plugin_inline_reads():
-    from dodaios.brain.router import SYSTEM_PROMPT
+def test_core_contract_mentions_plugin_inline_reads():
+    from dodaios.brain.manager import _CORE_CONTRACT
 
-    low = SYSTEM_PROMPT.lower()
+    low = _CORE_CONTRACT.lower()
     assert "plugin" in low
-    assert "spawn_worker" in low or "spawn-worker" in low
+    assert "spawn_worker" in low
 
 
 def test_apply_plugin_relevance_drops_cardless_mcp_on_unrelated_turn() -> None:
@@ -2643,72 +2643,8 @@ def test_github_work_is_not_treated_as_external_integration() -> None:
             __import__("sys").modules.pop("dodaios.core.capabilities", None)
 
 
-class _FakeProfileForPrompt:
-    """Minimal UserProfile stand-in: only render_for_prompt is exercised."""
-
-    def render_for_prompt(self, *, max_chars: int = 2000) -> str:
-        return "## About the user\n- **Name:** Example User"
-
-
-class _FakeUpdateProfileTool:
-    name = "update_profile"
-    schema: dict[str, Any] = {}
-
-
-def test_system_prompt_includes_profile_write_directive_when_tool_wired() -> None:
-    """When update_profile is in the tool set and a user profile exists, the
-    system prompt must instruct the brain to persist durable personal facts.
-
-    Without this directive the (now sole) write path is dead: the legacy auto-
-    curator is soft-disabled, so the brain only learns structured facts if it
-    actively calls update_profile — which it will not do reliably unless told.
-    """
-    manager = BrainManager(
-        config=JarvisConfig(),
-        bus=EventBus(),
-        tools={"update_profile": _FakeUpdateProfileTool()},
-        tool_executor=_RecordingExecutor(),  # type: ignore[arg-type]
-        user_profile=_FakeProfileForPrompt(),
-    )
-    prompt = manager._build_system_prompt()
-    assert "PROFIL-PFLEGE" in prompt
-    assert "update_profile" in prompt
-
-
-def test_system_prompt_omits_profile_directive_when_tool_absent() -> None:
-    """No update_profile tool → no directive (never instruct a tool that is not
-    wired; that would contradict the hard 'do not invent tools' rule)."""
-    manager = BrainManager(
-        config=JarvisConfig(),
-        bus=EventBus(),
-        tools={"spawn_worker": _FakeTool()},
-        tool_executor=_RecordingExecutor(),  # type: ignore[arg-type]
-        user_profile=_FakeProfileForPrompt(),
-    )
-    prompt = manager._build_system_prompt()
-    assert "PROFIL-PFLEGE" not in prompt
-
-
-def test_system_prompt_contains_no_invent_tools_rule() -> None:
-    """The system prompt must carry the hard anti-invention rule in DE and EN.
-
-    Wording changed with PR-05 (2026-08-18): the rule is now scoped to tool
-    NAMES and to CLAIMS, because the old "never an action that is not in the
-    list above" sat under a list that did not contain the tools it named.
-    """
-    manager, _executor = _manager_with_spawn()
-    prompt = manager._build_system_prompt()
-    assert "erfinde niemals einen Werkzeugnamen" in prompt, (
-        "System prompt must contain the DE 'do not invent a tool name' rule"
-    )
-    assert "never invent a tool name" in prompt, (
-        "System prompt must contain the EN 'do not invent a tool name' rule"
-    )
-
-
 # ---------------------------------------------------------------------------
-# PR-05 / PR-06: the tool block must tell the truth, and the routing rules
-# must actually ship.
+# The core contract: one honesty rule, the routing difference, no tool list.
 # ---------------------------------------------------------------------------
 
 
@@ -2721,91 +2657,33 @@ class _NamedFakeTool:
         self.name = name
 
 
-def _manager_with_named_tools(*names: str) -> BrainManager:
-    return BrainManager(
-        config=JarvisConfig(),
-        bus=EventBus(),
-        tools={n: _NamedFakeTool(n) for n in names},
-        tool_executor=_RecordingExecutor(),  # type: ignore[arg-type]
-    )
-
-
-def test_system_prompt_lists_every_attached_tool_name() -> None:
-    """PR-05: the tool block is rendered from the LIVE surface.
-
-    The static capability seed knows none of these four, yet all four are
-    genuinely attached — the old block declared its 19-entry seed the
-    "vollständige Liste — keine anderen existieren" and thereby denied the
-    model tools it was holding.
-    """
-    manager = _manager_with_named_tools(
-        "search_web", "gmail", "update_profile", "set_config_value", "cli_gh"
-    )
-    prompt = manager._build_system_prompt()
-    for name in ("search_web", "gmail", "update_profile", "set_config_value", "cli_gh"):
-        assert name in prompt, f"attached tool {name!r} missing from the system prompt"
-
-
-def test_system_prompt_tool_block_names_are_callable_names() -> None:
-    """PR-05 (b): capability ids are not tool names.
-
-    ``tool.run-shell`` is what the registry render emitted; ``run_shell`` is
-    what the loop can resolve. The block must carry the callable spelling.
-    """
-    manager = _manager_with_named_tools("run_shell", "spawn_worker")
-    prompt = manager._build_system_prompt()
-    assert "run_shell" in prompt
-    assert "tool.run-shell" not in prompt
-    assert "REGISTRIERTE WERKZEUGE" not in prompt
-
-
-def test_system_prompt_tool_block_counts_the_tools_it_lists() -> None:
-    """The completeness claim must be backed by the number it states."""
-    names = tuple(f"tool_{i}" for i in range(7))
-    manager = _manager_with_named_tools(*names)
-    prompt = manager._build_system_prompt()
-    assert "vollständige Liste der 7 Namen" in prompt
-
-
-def test_system_prompt_tool_block_hides_local_action_tools() -> None:
-    """Local-action tools are hidden from the router schema on purpose.
-
-    Naming them would advertise tool names no provider request carries, so
-    the block filters them back out of ``_live_tool_names()``.
-    """
-    manager = _manager_with_named_tools("run_shell")
-    manager._local_action_tools = {"open_app": _NamedFakeTool("open_app")}
-    prompt = manager._build_system_prompt()
-    assert "run_shell" in prompt
-    assert "open_app" not in prompt
-
-
-def test_system_prompt_tool_block_omitted_without_tools() -> None:
-    """No tools attached → no completeness claim at all (the lie in reverse)."""
+def test_system_prompt_carries_no_tool_name_list() -> None:
+    """Every attached tool reaches the model as a full function definition, so
+    the system prompt does not repeat the names."""
     manager = BrainManager(
         config=JarvisConfig(),
         bus=EventBus(),
-        tools={},
+        tools={n: _NamedFakeTool(n) for n in ("tool_alpha_one", "tool_beta_two")},
         tool_executor=_RecordingExecutor(),  # type: ignore[arg-type]
     )
-    assert manager._render_live_tool_block() == ""
+    prompt = manager._build_system_prompt()
+    assert "tool_alpha_one" not in prompt
+    assert "tool_beta_two" not in prompt
+    assert manager._live_tool_names() == ("tool_alpha_one", "tool_beta_two")
 
 
-def test_system_prompt_always_contains_tool_routing_rules() -> None:
-    """PR-06: the search_web-versus-cli_* rules used to be the ``else`` branch
-    of a capability render that is always truthy (the factory seeds the
-    registry on every brain build), so they never shipped. They are
-    unconditional now — including with a fully populated registry.
-    """
+def test_system_prompt_always_contains_the_core_contract() -> None:
+    """The search_web-versus-cli_* rule ships unconditionally, also with a
+    fully populated capability registry."""
+    from dodaios.brain.manager import _CORE_CONTRACT
     from dodaios.core.capabilities import get_registry
     from dodaios.core.capabilities_seed import seed_registry
 
     seed_registry(get_registry())
     manager, _executor = _manager_with_spawn()
     prompt = manager._build_system_prompt()
-    assert "TOOL-SELECTION-REGELN (strikt)" in prompt
-    assert "NICHT cli_supabase" in prompt
-    assert "'über X' = Search, 'mit X tun' = Action" in prompt
+    assert _CORE_CONTRACT in prompt
+    assert "never cli_*" in prompt
 
 
 def test_delegated_voice_budget_survives_a_multi_step_task() -> None:
@@ -2820,47 +2698,12 @@ def test_delegated_voice_budget_survives_a_multi_step_task() -> None:
     assert 30.0 <= _DELEGATE_DEADLINE_S <= 60.0
 
 
-@pytest.mark.parametrize(
-    "forbidden_phrase",
-    [
-        "mache ich",
-        "wird erledigt",
-        "ist gesendet",
-        "ist eingetragen",
-        "kümmere mich",
-    ],
-)
-def test_ack_brain_persona_de_forbids_action_promise_phrases(
-    forbidden_phrase: str,
-) -> None:
-    """PERSONA_PROMPT_DE must explicitly list each action-promise phrase as
-    forbidden so the ack-brain cannot emit fake confirmations."""
-    from dodaios.brain.ack_brain.persona_prompt import PERSONA_PROMPT_DE
+def test_ack_brain_persona_forbids_promises_and_claims() -> None:
+    """The ack persona forbids promises and claims once, in English; the
+    generator's ``has_unbacked_action_claim`` post-filter enforces it."""
+    from dodaios.brain.ack_brain.persona_prompt import PERSONA_PROMPT
 
-    assert forbidden_phrase in PERSONA_PROMPT_DE, (
-        f"PERSONA_PROMPT_DE must list forbidden action-promise phrase: {forbidden_phrase!r}"
-    )
-
-
-@pytest.mark.parametrize(
-    "forbidden_phrase",
-    [
-        "I'll do that",
-        "will be sent",
-        "will be scheduled",
-        "consider it done",
-    ],
-)
-def test_ack_brain_persona_en_forbids_action_promise_phrases(
-    forbidden_phrase: str,
-) -> None:
-    """PERSONA_PROMPT_EN must explicitly list each action-promise phrase as
-    forbidden so the ack-brain cannot emit fake confirmations."""
-    from dodaios.brain.ack_brain.persona_prompt import PERSONA_PROMPT_EN
-
-    assert forbidden_phrase in PERSONA_PROMPT_EN, (
-        f"PERSONA_PROMPT_EN must list forbidden action-promise phrase: {forbidden_phrase!r}"
-    )
+    assert "Never answer, promise or claim anything" in PERSONA_PROMPT
 
 
 # ---------------------------------------------------------------------------

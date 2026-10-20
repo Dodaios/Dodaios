@@ -197,9 +197,7 @@ def test_block_carries_the_silence_mandate() -> None:
     lowered = block.lower()
 
     assert "- Name: Nova User" in block
-    assert "silence beats a personal fact nobody asked for" in lowered
-    assert "never volunteer a personal detail the question did not ask for" in lowered
-    assert "never read this block out" in lowered
+    assert "never recite it" in lowered
 
 
 # ---------------------------------------------------------------------------

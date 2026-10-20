@@ -38,14 +38,21 @@ export function overlayCovers(panel: HTMLElement, root: ParentNode = document): 
   return false;
 }
 
-/** What to tell the backend about `panel` right now. */
-export function measurePanel(panel: HTMLElement | null, owner: string): PanelPlacement {
+/**
+ * What to tell the backend about `panel` right now. `covered` passes the popup
+ * scan's answer in when it is already known (the scan runs less often).
+ */
+export function measurePanel(
+  panel: HTMLElement | null,
+  owner: string,
+  covered?: boolean,
+): PanelPlacement {
   const hidden: PanelPlacement = { owner, visible: false, rect: null, dpr: window.devicePixelRatio || 1 };
   if (!panel || document.visibilityState === "hidden") return hidden;
   const box = panel.getBoundingClientRect();
   // A `hidden` ancestor (another side panel tab, another workspace) gives a 0 box.
   if (box.width < 2 || box.height < 2) return hidden;
-  if (overlayCovers(panel)) return hidden;
+  if (covered ?? overlayCovers(panel)) return hidden;
   return {
     owner,
     visible: true,
@@ -55,6 +62,8 @@ export function measurePanel(panel: HTMLElement | null, owner: string): PanelPla
 }
 
 const HEARTBEAT_MS = 1000;
+const OVERLAY_SCAN_MS = 100;
+const HIDDEN_CHECK_MS = 250;
 
 function samePlacement(a: PanelPlacement | null, b: PanelPlacement): boolean {
   if (!a || a.visible !== b.visible || a.dpr !== b.dpr) return false;
@@ -71,10 +80,12 @@ function samePlacement(a: PanelPlacement | null, b: PanelPlacement): boolean {
  * Keep the native browser window on `panel`'s rectangle, and hide it whenever
  * the panel is not on screen. Returns whether the panel is visible.
  *
- * Layout changes that move the panel without resizing it (a sidebar folding,
- * the window being maximized) do not reach a ResizeObserver, so the rectangle
- * is also checked on a short timer, and right after every click or key press
- * (which is how app menus open). Only changes are sent, one request at a
+ * The rectangle is read on every animation frame while the panel is on screen,
+ * so the browser window follows a dragged panel edge or a layout animation
+ * frame by frame (a ResizeObserver misses moves without a resize). The scan
+ * for app popups over the panel is heavier: it runs every 100 ms, and at once
+ * after a click or key press (which is how app menus open). While the panel is
+ * hidden it is checked every 250 ms. Only changes are sent, one request at a
  * time, and only the newest placement waits behind it.
  */
 export function useNativePlacement(
@@ -110,46 +121,59 @@ export function useNativePlacement(
       });
     };
 
-    const check = () => {
-      if (disposed) return;
-      const placement = measurePanel(panel.current, owner);
+    let covered = false;
+    let coveredAt = 0;
+    let forceScan = true;
+    const check = (): boolean => {
+      const now = performance.now();
+      if (forceScan || now - coveredAt > OVERLAY_SCAN_MS) {
+        covered = panel.current ? overlayCovers(panel.current) : false;
+        coveredAt = now;
+        forceScan = false;
+      }
+      const placement = measurePanel(panel.current, owner, covered);
       setVisible(placement.visible);
       // A shown window is confirmed every second; the backend hides it when the
       // confirmations stop (the page reloaded or crashed without cleaning up).
       const heartbeat = placement.visible && Date.now() - lastSentAt > HEARTBEAT_MS;
       if (heartbeat || !samePlacement(sent.current, placement)) send(placement);
+      return placement.visible;
     };
 
+    // Every frame while shown; a slow timer while hidden.
     let frame = 0;
-    const schedule = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        check();
-      });
+    let idle = 0;
+    const tick = () => {
+      frame = 0;
+      idle = 0;
+      if (disposed) return;
+      if (check()) frame = requestAnimationFrame(tick);
+      else idle = window.setTimeout(tick, HIDDEN_CHECK_MS);
+    };
+    const wake = () => {
+      forceScan = true;
+      if (frame || disposed) return;
+      window.clearTimeout(idle);
+      frame = requestAnimationFrame(tick);
     };
 
     // Menus and dialogs open from a click or a key: look again right after.
     const soon = () => {
-      schedule();
-      window.setTimeout(schedule, 60);
+      wake();
+      window.setTimeout(wake, 60);
     };
 
-    check();
-    const timer = window.setInterval(check, 250);
-    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
-    if (panel.current) resize?.observe(panel.current);
-    window.addEventListener("resize", schedule);
-    document.addEventListener("visibilitychange", schedule);
+    tick();
+    window.addEventListener("resize", wake);
+    document.addEventListener("visibilitychange", wake);
     document.addEventListener("pointerdown", soon, true);
     document.addEventListener("keydown", soon, true);
     return () => {
       disposed = true;
       if (frame) cancelAnimationFrame(frame);
-      window.clearInterval(timer);
-      resize?.disconnect();
-      window.removeEventListener("resize", schedule);
-      document.removeEventListener("visibilitychange", schedule);
+      window.clearTimeout(idle);
+      window.removeEventListener("resize", wake);
+      document.removeEventListener("visibilitychange", wake);
       document.removeEventListener("pointerdown", soon, true);
       document.removeEventListener("keydown", soon, true);
     };

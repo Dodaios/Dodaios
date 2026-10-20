@@ -1,9 +1,10 @@
 """The one model call before a coding run: a short plan and a size estimate.
 
 It runs only when a build was admitted to building (or accepted), never for a
-proposal, and only on a connected subscription
-(``brain.resolver.resolve_subscription_brain``). Without one there is no call
-at all: the coding agent plans for itself and the estimate stays unknown.
+proposal, and only through the loop's shared seat list
+(:func:`dodaios.self_build.brain.ask`: signed-in subscriptions, then keyless
+local models, never a per-token key). Without a seat there is no call at all:
+the coding agent plans for itself and the estimate stays unknown.
 Every call runs inside :func:`dodaios.self_build.cost.attributed`, so the
 ledger shows what it cost.
 
@@ -13,7 +14,6 @@ something to hand an unattended agent.
 
 from __future__ import annotations
 
-import asyncio
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -53,11 +53,10 @@ def parse(answer: str) -> Plan:
     return Plan(text=plan.strip()[:2_000], size=size)
 
 
-def _subscription_brain() -> Any | None:
-    from dodaios.brain.resolver import resolve_subscription_brain
+def _config() -> Any:
     from dodaios.core.config import load_config
 
-    return resolve_subscription_brain(load_config())
+    return load_config()
 
 
 async def plan(
@@ -65,39 +64,24 @@ async def plan(
     issue: Issue,
     brief_text: str,
     *,
-    brain: Callable[[], Any | None] = _subscription_brain,
+    config: Callable[[], Any] = _config,
 ) -> Plan:
-    """At most one call; an empty :class:`Plan` when no subscription can answer."""
-    from dodaios.core.protocols import BrainMessage, BrainRequest
+    """At most one call; an empty :class:`Plan` when no seat can answer."""
+    from dodaios.brain.background_policy import BackgroundDeferred
 
-    try:
-        model = await asyncio.to_thread(brain)
-    except Exception:  # noqa: BLE001 - no brain is an answer: the agent plans itself
-        logger.opt(exception=True).info("self-build code: no subscription brain for the plan")
-        model = None
-    if model is None:
-        return Plan()
+    from .. import brain
+
     prompt = (
         f"Issue #{issue.number}: {issue.title}\n\n{issue.body[:4_000]}\n\n"
         f"Project brief:\n{brief_text[:5_000]}"
     )
-    request = BrainRequest(
-        messages=(BrainMessage(role="user", content=prompt),),
-        system=_SYSTEM,
-        temperature=0.1,
-        max_tokens=_MAX_TOKENS,
-        stream=True,
-        reasoning_effort="low",
-    )
-    chunks: list[str] = []
     try:
         with attributed(build_id):
-            async for delta in model.complete(request):
-                if delta.content:
-                    chunks.append(delta.content)
+            answer = await brain.ask(config(), _SYSTEM, prompt, max_tokens=_MAX_TOKENS)
+    except BackgroundDeferred:  # no subscription or local seat: the agent plans itself
+        logger.info("self-build code: no seat for the plan; the coding agent plans")
+        return Plan()
     except Exception:  # noqa: BLE001 - a failed plan call leaves planning to the agent
         logger.opt(exception=True).info("self-build code: plan call failed")
         return Plan()
-    result = parse("".join(chunks))
-    writer = str(getattr(model, "model", "") or getattr(model, "name", "") or "")
-    return Plan(text=result.text, size=result.size, writer=writer)
+    return parse(answer)

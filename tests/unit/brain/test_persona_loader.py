@@ -95,32 +95,26 @@ def test_load_persona_prompt_extracts_real_persona(monkeypatch) -> None:
     assert "JARVIS" not in prompt
     assert "voice companion" in prompt
     assert "LANGUAGE POLICY" in prompt
-    # Mandate phase 2: ECHO-PARAPHRASE section right after OUTPUT RULES
-    assert "ECHO-PARAPHRASE" in prompt
+    # The speech-transcript fact (merged from the router prompt): a sound-alike
+    # name is the one under discussion.
+    assert "sound-alike" in prompt
     # The host-owned two-turn confirmation must reach the brain. A farewell
     # alone must never be presented as sufficient consent to end the call.
     assert "Voice hang-up always requires confirmation" in prompt
     assert "separate explicit yes" in prompt
 
 
-def test_compact_persona_is_a_real_distillation() -> None:
-    """The compact block exists in the shipped MD, keeps the load-bearing
-    rules, and is a fraction of the full block's size (the entire point:
-    7.8 s of 7B prefill per turn measured 2026-08-07)."""
+def test_compact_persona_is_the_full_short_block() -> None:
+    """There is no separate compact persona: the full block is short enough
+    for small self-hosted brains too."""
     invalidate_cache()
     try:
         full = load_persona_prompt()
         compact = pl.load_compact_persona_prompt()
     finally:
         invalidate_cache()
-    assert compact
-    assert compact != full
-    assert len(compact) < len(full) / 4
-    assert "JARVIS" not in compact  # name-neutral, like the full block
-    assert "voice companion" in compact
-    # The strict spoken-output core must survive the distillation.
-    assert "digit" in compact
-    assert "Markdown" in compact
+    assert compact == full
+    assert len(full) < 1200
 
 
 def test_compact_falls_back_to_full_when_section_missing(
@@ -209,8 +203,11 @@ def test_persona_loader_path_points_to_real_file() -> None:
     assert path.exists(), f"expected: {path} exists"
 
 
-def test_persona_fence_carries_end_call_sentinel() -> None:
+def test_persona_ends_with_the_ending_the_call_section() -> None:
+    """The realtime path cuts ``ENDING THE CALL`` to the end of the text, so the
+    section must be the last one; the legacy sentinel is gone."""
     from dodaios.brain.persona_loader import invalidate_cache, load_persona_prompt
+    from dodaios.realtime.session import _realtime_persona
     from dodaios.speech.hangup import END_CALL_SIGNAL
 
     invalidate_cache()
@@ -219,6 +216,10 @@ def test_persona_fence_carries_end_call_sentinel() -> None:
     finally:
         invalidate_cache()
     assert prompt, "persona fence must load"
-    assert END_CALL_SIGNAL in prompt, "persona must instruct the END_CALL sentinel"
-    # Conservative bias must be spelled out: do not end when unsure.
-    assert "do NOT" in prompt or "do not" in prompt
+    assert END_CALL_SIGNAL not in prompt
+    lines = prompt.rstrip().splitlines()
+    heading = lines.index("ENDING THE CALL")
+    assert all(line == line.lstrip() and not line.isupper() for line in lines[heading + 1 :])
+    stripped = _realtime_persona(prompt)
+    assert "ENDING THE CALL" not in stripped
+    assert "REPORTING RESULTS" in stripped

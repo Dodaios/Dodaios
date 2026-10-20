@@ -302,7 +302,8 @@ async def _record(
     ctx: Context, record: BuildRecord, stage: str, undo: dict[str, Any], **extra: Any
 ) -> None:
     artefact = {
-        "type": "branch",
+        "type": "code",
+        "id": "",  # the pull request's URL, once there is one
         "repo": undo["repo"],
         "branch": undo["branch"],
         "stage": stage,
@@ -532,7 +533,9 @@ async def finish(
     )
     undo.update({"pr_id": pull.id, "pr_number": pull.number, "pr_url": pull.url})
     artefact = {
-        "type": "pull_request",
+        "type": "code",
+        "id": pull.url,
+        "stage": "pull_request",
         "repo": repo,
         "number": pull.number,
         "url": pull.url,

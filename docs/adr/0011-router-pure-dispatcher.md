@@ -722,7 +722,7 @@ aloud.
 **Root cause.** `dispatch-to-harness` exposed a free-form `harness` string
 parameter and its description advertised *"OpenClaw, Codex, Python-Script, MCP"*
 as Dodaios-Agent vehicles. But the legacy OpenClaw harness name is **not a registered harness** — it was
-removed in Welle 4 (~92% nested-claude hang; see `docs/BUGS.md`), and
+removed in Welle 4 (~92% nested-claude hang), and
 `pyproject.toml` registers only `open-interpreter`, `mcp-remote`,
 `python-script`, `screenshot`. So a "Dodaios-Agent" turn could name a phantom harness
 that can never run. The capability surface compounded it: `tool.spawn-worker`

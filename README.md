@@ -235,8 +235,6 @@ The installer sets that up for you.
 
 A good place to start is a [good first issue](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and the guide to [your first contribution in 10 minutes](https://github.com/Dodaios/Dodaios/blob/main/CONTRIBUTING.md#your-first-contribution-in-10-minutes). Questions and ideas go to [discussions](https://github.com/Dodaios/Dodaios/discussions), and security reports follow [SECURITY.md](https://github.com/Dodaios/Dodaios/blob/main/SECURITY.md).
 
-If you are an AI agent helping with this repository, read [`AGENTS.md`](https://github.com/Dodaios/Dodaios/blob/main/AGENTS.md) first.
-
 If Dodaios is useful to you, a star on GitHub helps other people find it. Sponsors are listed in [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md).
 
 <!-- contributors:start -->

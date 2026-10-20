@@ -304,25 +304,16 @@ def _provider_display_name(provider: str) -> str:
 def _provider_identity_directive(provider: str, model: str | None, name: str) -> str:
     """Authoritative, anti-guessing self-identity line for the system prompt.
 
-    The single source of truth for "which AI model am I right now?". Names the
-    *actual* provider/model answering this turn (set per fallback-chain attempt
-    in ``generate()``), and carves out the one allowed exception to the persona's
-    "never discuss your technical nature" rule: a direct provider/model question
-    gets an honest, specific answer instead of a guessed "Gemini".
+    Names the *actual* provider/model answering this turn (set per fallback-chain
+    attempt in ``generate()``). ``name`` is kept for callers; the assistant's name
+    is already stated by the identity block.
     """
     label = _provider_display_name(provider)
     model_str = (model or "").strip() or "the provider's default"
     return (
-        f"ACTIVE BRAIN MODEL — INFRASTRUCTURE FACT (authoritative): You are right "
-        f"now running on the brain provider {label} (model: {model_str}). {label} "
-        f"is the provider actually generating your reply this turn. If the user "
-        f"asks which provider, backend, or AI model is powering you right now, "
-        f"answer truthfully and specifically with this — never guess, and never "
-        f"name a provider other than the one stated here (a recurring failure was "
-        f'wrongly claiming to be "Gemini"). This is the one allowed exception to '
-        f"the persona rule about not discussing your own technical nature: a "
-        f"direct question about your underlying provider/model gets an honest, "
-        f"specific answer; otherwise you stay {name} and never raise it unprompted."
+        f"Runtime fact: this turn you are running on the brain provider {label} "
+        f"(model: {model_str}). If asked which model or provider powers you, say exactly "
+        "this; never guess."
     )
 
 
@@ -504,17 +495,10 @@ _DELEGATE_REASONING_EFFORT: Literal["none"] = "none"
 # round count IS the latency. Static text (byte-stable across turns) so the
 # delegated prefix keeps its own provider prompt-cache entry.
 _DELEGATE_VOICE_DIRECTIVE = (
-    "DELEGATED VOICE TURN — SPEED CONTRACT: the user is waiting in a live "
-    "voice call, and every model round costs seconds. Finish in as few "
-    "rounds as possible: batch ALL independent lookups as multiple function "
-    "calls in ONE round instead of one per round; never re-issue a tool call "
-    "(or a rephrasing of it) whose result you already have; as soon as the "
-    "gathered evidence answers the question, stop calling tools and answer. "
-    "For web research: put your 2-3 query variants into ONE search_web call "
-    "(its 'queries' parameter) and ANSWER from that first round of results — "
-    "a good spoken answer NOW beats a perfect one after more digging; search "
-    "again only if the first results are genuinely unusable. "
-    "Keep the final answer concise and speakable."
+    "DELEGATED VOICE TURN: the user is waiting on a live call and every model round costs "
+    "seconds. Batch independent lookups into one round (search_web takes several "
+    "`queries`), never repeat a call whose result you have, and answer as soon as the "
+    "evidence suffices."
 )
 
 
@@ -2112,143 +2096,30 @@ _CANCEL_NONE: dict[str, str] = i18n_catalog.table("brain.cancel_none")
 # path. Confirms the new depth instead of staying silent (audit 2026-06-27).
 _DEPTH_CONFIRM: dict[str, dict[str, str]] = i18n_catalog.nested_table("brain.depth_confirm")
 
-# General self-control (2026-06-22). Not every settings change can have its own
-# deterministic gate — the gates (language, sub-agent) are high-precision
-# guardrails for the common cases; this covers the LONG TAIL generally. When a
-# turn is recognised as a request to change/control Jarvis's OWN configuration,
-# a per-turn directive is injected into the system prompt so WHICHEVER provider
-# handles the turn (the active one, or — for a CLI brain that can't emit
-# tool_calls — the tool-capable provider the intelligent router hands the turn
-# to) reliably uses cli_jarvisctl / set_config_value instead of confabulating a
-# refusal. Detection needs BOTH a change verb AND a Jarvis-settings noun, so a
-# general "change the code" task is not mistaken for self-control. It must NOT
-# rely on the bare word "Jarvis" (the evidence gate filters that wake word).
-_SELF_CONTROL_VERB_RE = re.compile(
-    r"\b(?:änder\w*|aender\w*|umänder\w*|umaender\w*|stell\w*|umstell\w*|umschalt\w*"
-    r"|setz\w*|set|wechsel\w*|wechsle|aktivier\w*|deaktivier\w*|schalt\w*|switch\w*"
-    r"|change\w*|enable\w*|disable\w*|configure\w*|konfigurier\w*|adjust\w*|turn)\b",
-    re.IGNORECASE,
-)
-_SELF_CONTROL_NOUN_RE = re.compile(
-    r"\b(?:einstellung\w*|konfiguration\w*|config\w*|setting\w*|sprache|antwortsprache"
-    r"|stimme|voice|provider|anbieter|modell|model|theme|design|lautstärke|lautstaerke"
-    r"|volume|wake[-\s]?word\w*|hotkey|shortcut|stt|tts|sub[-\s]?agent|subagent"
-    r"|worker)\b",
-    re.IGNORECASE,
-)
-# Always-on compact self-control truth (forensic 2026-07-10): the LONG
-# directive below is injected only when _SELF_CONTROL_PATTERN matches, but a
-# keyword-free phrasing ("ich will dich ab jetzt Edith  # i18n-allow: quoted utterance
-# rufen koennen") sails past the regex — the router LLM  # i18n-allow: quoted utterance
-# then answered in prose and CLAIMED the
-# change without any tool call. Broadening the keyword list would be
-# whack-a-mole (the AP-27 tightening class); instead this short line rides in
-# EVERY substantive prompt so the model always knows it has the power and
-# that claiming without calling is forbidden. The keyworded directive stays
-# as the detailed intensifier.
-_SELF_CONTROL_STANDING = (
-    "SELF-CONTROL (always in effect): When the user asks you to change or "
-    "check anything about Dodaios itself — wake phrase, voice, volume, "
-    "providers, languages, settings, restart, missions/tasks — you CAN do it "
-    "yourself with the registry command tools in your tool set (e.g. "
-    "`wake-word-set`, `brain-switch`, `provider-test`, `tts-volume-set`, "
-    "`app-restart`); `set_config_value` covers a plain config key, "
-    "`cli_jarvisctl` is the fallback for anything not covered. NEVER state "
-    "or imply that a change or action happened unless a tool call actually "
-    "returned success in THIS turn; without such a result, say honestly that "
-    "you have not done it yet."
+# The one standing contract every substantive prompt carries: the honesty rule
+# (said once in the whole prompt; the unbacked-claim backstop enforces it), the
+# research-versus-action routing difference, and the self-control facts the
+# model cannot know. Every attached tool already reaches the model as a full
+# function definition, so the prompt carries no tool-name list. Static, so the
+# cached system prefix stays byte-stable.
+_CORE_CONTRACT = (
+    "Never claim an action or result unless a tool call in this turn returned it; "
+    "otherwise say it has not happened.\n"
+    "Research and fresh facts (news, prices, weather): search_web, never cli_*; cli_* "
+    "and plugin tools act on the user's own accounts; evergreen knowledge needs no tool. "
+    "Work for one of your agents: delegate_to_agent; spawn_worker only for heavy "
+    "background work the user asked for.\n"
+    "Dodaios's own settings (wake phrase, voice, providers, language, restart) are yours "
+    "to change: its command tools such as `brain-switch` or `wake-word-set`, "
+    "`set_config_value` for a plain key, `cli_jarvisctl` as the fallback."
 )
 
-_SELF_CONTROL_DIRECTIVE = (
-    "SELF-CONTROL: The user is asking to change or control Dodaios's OWN settings, "
-    "configuration, providers, voice, language, or behavior. You have full "
-    "control over this. PREFER the registry command tools — `brain-switch`, "
-    "`tts-switch`, `provider-test`, `wake-word-set`, `reply-language-set`, "
-    "`tts-volume-set`, `app-restart`, `missions-list`, `task-cancel`, … — "
-    "each validates its arguments against the app's own endpoint, so it "
-    "cannot hit the wrong target. For a simple config key use "
-    "`set_config_value`; only for actions NOT covered by either, fall back "
-    "to the `cli_jarvisctl` tool (e.g. `jarvisctl config set <key> "
-    "<value>`). NEVER say you lack access or permission to change a Dodaios "
-    "setting, and never claim the change without actually calling the tool: "
-    "call it and confirm success only AFTER it returns, using the values the "
-    "tool actually reports."
-)
-
-# Intent → tool class → concrete tool. Keeps the model from firing
-# ``cli_supabase`` at "recherchiere zu Supabase" instead of ``search_web``.
-#
-# PR-06 (2026-08-18): this text used to be the ``else`` branch of the
-# capability render in ``_build_system_prompt`` — and that branch is
-# unreachable, because ``dodaios/brain/factory.py`` seeds the CapabilityRegistry
-# on EVERY brain build, so the render is always truthy. The one block that
-# teaches search_web-versus-cli_* therefore never shipped. It is appended
-# unconditionally now, and the live tool list follows it.
-#
-# Module-level and static so the delegated prompt prefix stays byte-stable
-# across turns (provider prompt-cache entry).
-_TOOL_ROUTING_RULES = (
-    "TOOL-SELECTION-REGELN (strikt):\n"
-    "1) RECHERCHIEREN/ANALYSIEREN/ERKLÄREN/VERGLEICHEN/ZUSAMMENFASSEN "
-    "(Info *über* ein Thema, nicht Aktion darauf):\n"
-    "   → NUTZE: search_web (Primary). Tiefe Multi-Source-Recherche MIT "
-    "Bericht: spawn_worker.\n"
-    "   → NIEMALS: cli_* Tools, MCP-Action-Tools.\n"
-    "   → Bsp: 'recherchiere zu Supabase' → search_web('Supabase'), NICHT cli_supabase.\n"
-    "2) AKTION auf verbundenem System (öffne, starte, deploye, migrate, liste MEINE X):\n"
-    "   → NUTZE: cli_* / MCP-Tools. Bildschirm/App bedienen: computer_use.\n"
-    "   → Bsp: 'liste meine Supabase-Projekte' → cli_supabase 'supabase projects list'.\n"
-    "3) CODE SCHREIBEN/REFACTOREN/DEBUGGEN (echter Brocken):\n"
-    "   → NUTZE: spawn_worker mit der User-Utterance.\n"
-    "4) Unklar? → search_web (Read-only, kein Schaden) oder Rückfrage an User.\n"
-    "Der Unterschied zwischen (1) und (2) liegt am Intent, nicht am Thema: "
-    "'über X' = Search, 'mit X tun' = Action."
-)
-
-# Closes the tool list: the anti-invention rule. Deliberately scoped to TOOL
-# NAMES and to CLAIMS, not to "actions not in the list above" as before — the
-# old wording sat under a list that did not contain the tools it named, so it
-# read as an order to refuse work the surface actually covered (PR-05).
-_TOOL_LIST_RULE = (
-    "STRENGE REGEL: Rufe ausschließlich Werkzeuge aus dieser Liste auf und "
-    "erfinde niemals einen Werkzeugnamen. Passt für die gewünschte Aktion "
-    "wirklich keines, sag ehrlich: "
-    "'Das kann ich noch nicht — mir fehlt das passende Werkzeug.' "
-    "Und behaupte NIEMALS, etwas getan zu haben, das du nicht in diesem Turn "
-    "wirklich aufgerufen hast und dessen Ergebnis du gesehen hast.\n"
-    "Call ONLY tools from the list above and never invent a tool name. If "
-    "nothing fits, say honestly: \"I can't do that yet — I don't have a "
-    "registered tool for it.\" And NEVER claim to have done something you did "
-    "not actually call in this turn."
-)
-
-# Soft wrap width for the comma-separated tool-name list. Purely cosmetic —
-# a single 1.5k-character line reads as noise to a human debugging a prompt
-# dump, and the token cost is identical either way.
-_TOOL_LIST_WRAP_CHARS = 88
-
-# Conversational style for typed (written) turns: the front-page chat, society
-# chats and every other surface with {"delivery": "written"}. The shared
-# system prompt carries the VOICE persona ("never emit Markdown, never write
-# a digit, no emojis — your text is spoken"), which is correct for speech but
-# leaves a typed turn with no visual rules at all. Without an explicit
-# written block the model falls back to its pretraining default: emoji
-# headers, hype openers, status-dot tables and three
-# redundant closers. This block overrides the spoken-output rules for written
-# turns only. The shared policy below controls length and conversational tone.
+# Conversational style for typed (written) turns: the shared system prompt
+# carries the voice persona's spoken-output rules, which must not govern an
+# answer that is read on screen.
 _WRITTEN_CHAT_STYLE = (
-    "WRITTEN CHAT STYLE (this is a typed turn read on screen, NOT voice — "
-    "this block overrides the voice persona's spoken-output rules for this turn):\n"
-    "This answer is read, not spoken: digits and Markdown are allowed when useful; "
-    "plain chat prose is the default.\n"
-    "Write in a natural, calm style: direct, precise, no hype, "
-    "no marketing superlatives, no filler openers, no pep-talk before the content.\n"
-    "NEVER use emojis — not in headings, tables, lists, status columns or body "
-    "text. Zero emojis unless the user explicitly asks for one in this turn. "
-    "No emoji status icons (no colored dots, rockets, folders, pointers, check "
-    "marks as emoji): use plain words such as No risk, Low, Medium, Check first.\n"
-    "Use tables only when requested or when they clarify genuinely tabular data, "
-    "with plain-text headers and no emoji column."
+    "WRITTEN CHAT STYLE: this turn is typed and read on screen, so the SPOKEN OUTPUT "
+    "rules do not apply; Markdown and digits are fine where they help. No emojis."
 )
 
 # The written-only rules, for a prompt that already carries the shared policy
@@ -3873,23 +3744,18 @@ class BrainManager:
         wording that survives tool-synthesis.
         """
         return (
-            f"REPLY LANGUAGE — MANDATORY: Always reply in {name}, no matter "
-            f"which language the user writes or speaks in. This overrides any "
-            f"other language cue anywhere in this prompt. Keep proper nouns, "
-            f"brand / product / company names and technical identifiers "
-            f"(e.g. 'Anthropic', 'GitHub', file paths, code, commands) "
-            f"unchanged in their original form — never translate them. Keep the "
-            f"reply natural and fluent in {name}."
+            f"REPLY LANGUAGE — MANDATORY: Always reply in {name}. Keep names, brands and "
+            "technical identifiers (e.g. Anthropic, GitHub, paths, code) untranslated."
         )
 
     def _reply_language_directive(self) -> str:
         """The reply-language instruction appended last to the system prompt.
 
-        Written in English (Output Language Policy) but names the target
-        language explicitly and is placed last so it overrides the otherwise
-        German prompt. Pinned modes carve out proper nouns / brand names /
-        technical identifiers so e.g. "Anthropic" or "GitHub" are never
-        translated — the user's explicit requirement.
+        Names the target language explicitly and is placed last so it wins by
+        recency; it must start with "REPLY LANGUAGE" (``cli_prompt_context``
+        cuts the block from there to the end). Pinned modes carve out proper
+        nouns / brand names / technical identifiers so e.g. "Anthropic" or
+        "GitHub" are never translated — the user's explicit requirement.
         """
         name = _REPLY_LANG_NAMES.get(self._reply_language)
         if name is not None:
@@ -3897,9 +3763,8 @@ class BrainManager:
         # auto mode: when THIS turn's language is confidently detected, pin it
         # HARD with the same MANDATORY wording as an explicit pin. A soft
         # "please mirror" line let the model anchor to German on clean English
-        # input — most visibly on tool-synthesis turns, where the English
-        # question is far from the generation point and the German-heavy prompt
-        # wins (live bug 2026-06-14: an English weather turn answered in German).
+        # input — most visibly on tool-synthesis turns, where the question is
+        # far from the generation point.
         # ``_turn_detected_lang`` is set per turn by generate(); ambiguous text
         # detects as "unknown" (not in _REPLY_LANG_NAMES) and falls through to
         # the soft mirror. The pin only changes when the user's language
@@ -3911,13 +3776,9 @@ class BrainManager:
         if turn_name is not None:
             return self._mandatory_lang_directive(turn_name)
         return (
-            "REPLY LANGUAGE: Reply in the SAME language as the user's latest "
-            "message — detect it fresh each turn and mirror it: English in "
-            "English, German in German, Spanish in Spanish, Portuguese in European "
-            "Portuguese (pt-PT, never Brazilian). Do NOT default to "
-            "German just because the rest of this prompt is German; the user's "
-            "language always wins. Keep proper nouns, brand / product names and "
-            "technical identifiers in their original form — never translate them."
+            "REPLY LANGUAGE: reply in the SAME language as the user's latest message "
+            "(Portuguese means European Portuguese, never Brazilian). Keep names, brands and "
+            "technical identifiers untranslated."
         )
 
     def _action_failed_phrase(self, user_text: str) -> str:
@@ -3973,12 +3834,12 @@ class BrainManager:
 
         Layer order (Jarvis-Agent priority map):
         1. SOUL.md           — Jarvis' own persona (who I am, tone rules)
-        2. JARVIS_PERSONA.md — voice persona incl. ECHO-PARAPHRASE section
-                               and hangup contract (mandate phase 2 effect)
+        2. JARVIS_PERSONA.md — voice persona incl. the hang-up contract
         3. USER.md           — about the user (name, communication style, values, …)
         4. people/           — list of known people in the user's environment
         5. CoreMemory        — legacy JSON facts (transitional, kept for back-compat)
-        6. Base-Prompt       — voice rules
+        6. _CORE_CONTRACT    — honesty, routing and self-control facts
+        7. REPLY LANGUAGE    — always last (machine contract)
         """
         private = _TURN_OVERRIDE.get()
         if private is not None and private.tool_context.get("tool_origin") == "society":
@@ -3987,8 +3848,7 @@ class BrainManager:
             parts = [
                 private.system_extra
                 or "Your private agent context is unavailable; do not invent it.",
-                _TOOL_ROUTING_RULES,
-                self._render_live_tool_block(),
+                _CORE_CONTRACT,
                 getattr(self, "_evidence_directive", ""),
                 # The briefing already carries the shared reply policy; sending
                 # it twice costs ~2.3k characters on every society API turn.
@@ -4018,8 +3878,7 @@ class BrainManager:
             )
         )
 
-        # Mandate phase 2 (reactivated 2026-04-28): persona block from
-        # JARVIS_PERSONA.md incl. ECHO-PARAPHRASE section and hangup contract.
+        # Persona block from JARVIS_PERSONA.md incl. the hang-up contract.
         # The "effective" loader returns the user's custom system prompt when one
         # is set in Settings (data/custom_system_prompt.md), else the packaged
         # default. Read fresh each turn, so an edit/reset applies on the next turn
@@ -4060,39 +3919,6 @@ class BrainManager:
                 parts.append(learned_block)
         except Exception:  # noqa: BLE001 — a notebook fault never breaks a prompt build
             log.debug("learned notebook block unavailable", exc_info=True)
-
-        # Profile-write directive — only when the update_profile tool is actually
-        # wired (else this would contradict the hard "do not invent tools" rule).
-        # The legacy auto-curator is soft-disabled, so the brain itself must
-        # persist durable personal facts via the tool; the next turn's profile
-        # block (rendered above) then reflects them. See profile_update.py.
-        if self._user_profile is not None and "update_profile" in self._tools:
-            parts.append(
-                "PROFIL-PFLEGE: Wenn der User einen dauerhaften Fakt ueber SICH "
-                "SELBST nennt oder korrigiert — Name, Anrede, Sprache(n), Zeitzone, "
-                "Geraete, Werte, Pet-Peeves, Kommunikations- oder Feedback-Stil — "
-                "rufe still das Tool `update_profile`, um ihn ins Profil zu "
-                "schreiben (zusaetzlich zu deiner normalen Antwort, ohne "
-                "Rueckfrage). Keine sensiblen Kategorien (Politik/Religion/Gesundheit)."
-            )
-
-        # Chunk B (contacts): e-mail-by-name rule. No new e-mail tool exists —
-        # the path is contact-lookup (resolve name -> e-mail) THEN gmail (send).
-        # Only emitted when BOTH tools are wired (never instruct a tool that is
-        # not present — the hard "do not invent tools" rule). The literal
-        # "contact-lookup first" phrase is the directive's unambiguous marker.
-        # ``getattr`` guard: some tests build the manager via __new__ (bypassing
-        # __init__) and set only the attrs the prompt needs — tolerate a missing
-        # _tools the same way the rest of this builder tolerates missing state.
-        _tools_now = getattr(self, "_tools", None) or {}
-        if "contact-lookup" in _tools_now and "gmail" in _tools_now:
-            parts.append(
-                "CONTACTS: When the user names a person to send them an email or "
-                "message ('write an email to Christoph'), call `contact-lookup` "
-                "first to resolve the name to the stored email, then send with "
-                "`gmail`. Never invent an address — if contact-lookup finds "
-                "nothing, say so."
-            )
 
         if self._people is not None:
             try:
@@ -4224,10 +4050,6 @@ class BrainManager:
         if self._evidence_directive:
             parts.append(self._evidence_directive)
 
-        # General self-control directive (settings/config control long tail).
-        if getattr(self, "_self_control_directive", ""):
-            parts.append(self._self_control_directive)
-
         if self._system_prompt_extra:
             parts.append(self._system_prompt_extra)
 
@@ -4236,57 +4058,9 @@ class BrainManager:
         if _turn_override is not None and _turn_override.system_extra:
             parts.append(_turn_override.system_extra)
 
-        # Structural-only base block (2026-06-29 consolidation): the editable
-        # persona above now OWNS voice / tone / length / anti-filler /
-        # screen-context rules. They used to be duplicated AND contradicted here
-        # (this block said "KEINE Ein-Satz-Pflicht" while the old persona said
-        # "one or two sentences, never paragraphs" — the mixed signal that made
-        # replies choppy). This block keeps ONLY the non-editable structural
-        # truths: the runtime name stitch + the action/tool routing pointer.
-        # Platform-neutral (no "Windows 11" — cloud-first doctrine).
-        base = (
-            f"Du bist {name}, der persoenliche Meta-Orchestrator dieses Users. "
-            "Deine Stimme, dein Ton und deine Antwortlaenge richten sich nach der "
-            "Persona-Beschreibung weiter oben in diesem Prompt; halte dich an sie "
-            "und erfinde keine eigenen Stil- oder Laengen-Regeln. "
-            "Bei Aktionen: passende Tools sofort aufrufen, mehrere im selben Turn "
-            "wenn noetig. Aufgaben fuer einen deiner Agenten (Karte 'Your agent "
-            "society'): delegate_to_agent. Bei echten Brocken ohne passenden Agenten "
-            "(Code bauen/refactoren, langer Bericht, Multi-Step-Aufgabe): spawn_worker "
-            "mit der User-Utterance. Bildschirm/Apps bedienen: computer_use."
-        )
-        parts.append(base)
-
-        # Always-on self-control truth (see _SELF_CONTROL_STANDING rationale):
-        # keyword-free self-control phrasings must still find the tool path,
-        # and "claimed it, did nothing" is forbidden in every turn.
-        parts.append(_SELF_CONTROL_STANDING)
-
-        # Tool selection rules — unconditional (PR-06). They used to hang off
-        # the ``else`` of the capability render below, which never runs: the
-        # factory seeds the CapabilityRegistry on every brain build, so the
-        # render was always truthy and the routing rules never reached a single
-        # prompt. See _TOOL_ROUTING_RULES for the full rationale.
-        parts.append(_TOOL_ROUTING_RULES)
-
-        # The honest tool list (PR-05). This used to render the
-        # CapabilityRegistry under the header "REGISTRIERTE WERKZEUGE
-        # (vollständige Liste — keine anderen existieren)", and that header was
-        # false twice over:
-        #   (a) The registry holds 19 static seed entries plus whatever MCP /
-        #       plugin code happened to register. search_web, gmail,
-        #       update_profile, set_config_value and every cli_* / registry
-        #       command tool are missing from it although they ARE attached —
-        #       so the prompt denied the model tools it was holding and pushed
-        #       it toward the dictated "mir fehlt das passende Werkzeug".
-        #   (b) Registry ids ("tool.run-shell") are not callable tool names
-        #       ("run_shell"). ToolUseLoop._resolve_tool carries a comment
-        #       about exactly this drift.
-        # The live surface is the only honest source, and it is the same one
-        # ``_check_unsupported_intent`` already trusts.
-        tool_list_block = self._render_live_tool_block()
-        if tool_list_block:
-            parts.append(tool_list_block)
+        # The standing contract: honesty, research-versus-action routing and
+        # self-control facts. The assistant's name is in the identity block.
+        parts.append(_CORE_CONTRACT)
 
         # B5 Agent C: per-turn wiki context suffix.  Set by generate() via
         # maybe_inject() just before the first provider call, consumed here,
@@ -4316,8 +4090,7 @@ class BrainManager:
         # was live and answering yet claimed to be Gemini). Set per fallback-chain
         # attempt in generate(), where the real prov_name/model are known; absent
         # on non-turn prompt builds (compression / wiki-delta base) → no block.
-        # Placed late for high recency so it overrides the persona's "never
-        # discuss your technical nature" line; provider-stable across same-provider
+        # Placed late for high recency; provider-stable across same-provider
         # turns, so it stays prompt-cache-friendly. On a fallback the block's
         # provider label changes between attempts within the turn, invalidating
         # the prefix cache for the second attempt — acceptable, since a fallback
@@ -4337,8 +4110,9 @@ class BrainManager:
         if _is_written_turn():
             parts.append(_WRITTEN_CHAT_STYLE)
 
-        # Reply-language directive LAST — highest recency-salience so it wins
-        # over the otherwise German prompt above it. Byte-stable across turns
+        # Reply-language directive LAST — highest recency-salience, and
+        # cli_prompt_context cuts it from "REPLY LANGUAGE" to the end.
+        # Byte-stable across turns
         # (only changes on an explicit language switch), so it stays prompt-
         # cache-friendly.
         parts.append(self._reply_language_directive())
@@ -4707,26 +4481,6 @@ class BrainManager:
             return i18n_catalog.pick(_LANG_SWITCH_CONFIRM, lang)
         return i18n_catalog.pick(_LANG_SWITCH_CONFIRM_SESSION, lang)
 
-    def _is_self_control_turn(self, text: str) -> bool:
-        """Broad (class-level, NOT per-command) detector for a request to change
-        or control Jarvis's OWN configuration.
-
-        True only when BOTH a change verb (ändere/stell/wechsle/aktiviere/
-        switch/set/…) AND a Jarvis-settings noun (Einstellung/Sprache/Stimme/
-        Provider/Theme/Lautstärke/STT/TTS/Sub-Agent/…) are present, so a general
-        "change the code" task is never mistaken for self-control. Used only to
-        inject a prompt directive — the LLM still constructs the actual tool
-        call, so any phrasing/setting is covered without a per-command gate.
-        Never raises (getattr-safe); returns False on any error.
-        """
-        try:
-            t = (text or "").lower()
-            return bool(
-                _SELF_CONTROL_VERB_RE.search(t) and _SELF_CONTROL_NOUN_RE.search(t)
-            )
-        except Exception:  # noqa: BLE001 — a detector must never break a turn
-            return False
-
     def _detect_subagent_switch_intent(self, text: str) -> str | None:
         """Strict gate-based sub-agent (Heavy-Task worker) provider switch.
 
@@ -4968,64 +4722,6 @@ class BrainManager:
         if override is not None:
             tools = self._apply_turn_override_tools(tools, override)
         return tuple(sorted(tools))
-
-    def _render_live_tool_block(self) -> str:
-        """Render the attached tool surface for the system prompt (PR-05).
-
-        NAMES ONLY, on purpose. Every attached tool already reaches the model
-        as a complete function definition — name, description, JSON schema —
-        in the provider request itself, and the CONNECTED CLIS / AVAILABLE
-        SKILLS sections describe their own entries a second time. Repeating
-        the descriptions here would cost roughly 7k characters per turn to
-        say what the model has been told twice already, on a prompt the
-        router-block cut (8117ad73) had just brought down to ~57k. The block's
-        job is not to introduce the tools; it is to state, truthfully, WHICH
-        names exist — the exact claim the old capability render got wrong.
-
-        Sorted, so the rendered text only changes when the surface changes
-        and the cached system prefix survives an ordinary turn.
-
-        Renders the ATTACHED surface (``self._tools``), not the turn's gated
-        subset: the per-turn gates (screenshot / create_artifact / inspect-pointer)
-        drop tools on most turns, so following them would rewrite the system
-        prefix nearly every turn and cost the provider prompt cache far more
-        than the precision is worth. Hence "aktuell angeschlossen", never
-        "in diesem Turn aufrufbar", in the header below.
-
-        Returns ``""`` when nothing is attached (tests that bypass
-        ``__init__``). A completeness claim over an empty surface would be the
-        same lie the other way round.
-        """
-        # ``_live_tool_names`` is the honest-refusal source and deliberately
-        # includes ``_local_action_tools``. Those are hidden from the router
-        # schema on purpose (see ``_run_local_action_fast_path``) and run
-        # BEFORE the model gets the turn, so naming them here would hand it
-        # five tool names no provider request carries.
-        hidden = set(getattr(self, "_local_action_tools", None) or {})
-        names = [n for n in self._live_tool_names() if n not in hidden]
-        if not names:
-            return ""
-
-        lines: list[str] = []
-        current = ""
-        for name in names:
-            candidate = f"{current}, {name}" if current else name
-            if current and len(candidate) > _TOOL_LIST_WRAP_CHARS:
-                lines.append(f"{current},")
-                current = name
-            else:
-                current = candidate
-        if current:
-            lines.append(current)
-
-        return (
-            f"DEINE WERKZEUGE — vollständige Liste der {len(names)} Namen, die "
-            "aktuell an dich angeschlossen sind. Beschreibung und Parameter "
-            "jedes Werkzeugs stehen in deinen Tool-Definitionen, nicht hier:\n"
-            + "\n".join(lines)
-            + "\n\n"
-            + _TOOL_LIST_RULE
-        )
 
     def _check_unsupported_intent(self, user_text: str) -> str | None:
         """Agent-C capability gate: return a deterministic refusal when the
@@ -5308,9 +5004,6 @@ class BrainManager:
     # so an unmet mandate's spoken fallback can NAME the capability instead of
     # the generic "the tool" (B3, 2026-06-30). Reset per turn.
     _evidence_required_domain: str = ""
-    # Per-turn self-control directive (general settings/config control). Reset
-    # at the start of every generate() turn; appended to the system prompt.
-    _self_control_directive: str = ""
 
     def _local_skill_turn_state(self) -> _SkillTurnState | None:
         state = _SKILL_TURN_STATE.get()
@@ -10971,9 +10664,6 @@ class BrainManager:
         self._evidence_required_tool = ""
         self._evidence_required_is_write = False
         self._evidence_required_domain = ""
-        # General self-control directive — reset here, set below once the
-        # smalltalk classification for this turn is known.
-        self._self_control_directive = ""
         # AD-S4: a trigger noted by the speech pipeline / chat hook takes
         # precedence — it carries the captured content and the source label.
         self._consume_pending_skill_trigger(user_text)
@@ -11411,12 +11101,9 @@ class BrainManager:
 
             if requests_routine_creation(user_text):
                 self._evidence_directive = (
-                    "MANDATORY THIS TURN: the user asked you to CREATE a routine. "
-                    "Read existing routines with society_routines, then call "
-                    "society_propose_change with kind=routine and mode=apply. "
-                    "Use the current request and agreed conversation details; "
-                    "do not invent missing requirements. Verify the saved routine. "
-                    "If a prerequisite prevents saving it, say that it was not created."
+                    "MANDATORY THIS TURN: read society_routines, then save the routine with "
+                    "society_propose_change (kind=routine, mode=apply) from the agreed details, "
+                    "and verify it."
                 )
                 self._evidence_required_tool = "society_propose_change"
                 self._evidence_required_is_write = True
@@ -11436,12 +11123,10 @@ class BrainManager:
 
             if wants_agent_routine(user_text):
                 self._evidence_directive = (
-                    "MANDATORY THIS TURN: the user wants work done on a schedule. "
-                    "If the agent does not exist yet, create it with society-create-agent "
-                    "first. Then call society-create-routine for that agent with a "
-                    "self-contained prompt and the schedule. Never use create-skill for "
-                    "scheduled work. Speak the returned next_run; if the tool fails, say "
-                    "the routine was not created."
+                    "MANDATORY THIS TURN: scheduled work. Create the agent with "
+                    "society-create-agent if it does not exist, then call society-create-routine "
+                    "with a self-contained prompt and the schedule; never create-skill. Report "
+                    "the returned next_run."
                 )
                 self._evidence_required_tool = "society-create-routine"
                 self._evidence_required_is_write = True
@@ -11474,13 +11159,6 @@ class BrainManager:
                 "Smalltalk-Turn → nur read-only Tools fuer LLM sichtbar: %r",
                 user_text[:80],
             )
-
-        # General self-control (the long tail not covered by a deterministic
-        # gate, which runs earlier and returns): inject a directive so whichever
-        # provider handles the turn reliably uses cli_jarvisctl / set_config_value
-        # instead of confabulating a refusal. Substantive turns only.
-        if not is_smalltalk_turn and self._is_self_control_turn(user_text):
-            self._self_control_directive = _SELF_CONTROL_DIRECTIVE
 
         # 2. Router: which level applies?
         decision = self._picked_level(user_text)
