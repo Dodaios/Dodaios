@@ -5,12 +5,14 @@ has no git checkout, so ``dodaios/ui/web/update_routes.py``'s managed path canno
 update it. What it does have is a GitHub Release carrying one installer asset
 per platform plus a ``installers-SHA256SUMS.txt`` manifest:
 
-* ``PersonalJarvis-Setup-x64.exe``          Windows 10/11 x64
-* ``PersonalJarvis-macOS-arm64.dmg``        Apple Silicon
-* ``PersonalJarvis-macOS-x64.dmg``          Intel Mac
-* ``PersonalJarvis-Linux-x86_64.AppImage``  Linux x86_64
+* ``Dodaios-Setup-x64.exe``          Windows 10/11 x64
+* ``Dodaios-macOS-arm64.dmg``        Apple Silicon
+* ``Dodaios-macOS-x64.dmg``          Intel Mac
+* ``Dodaios-Linux-x86_64.AppImage``  Linux x86_64
 
-A release may publish the same four files under the ``Dodaios-`` prefix instead;
+Releases publish each file a second time, with identical bytes, under the
+earlier ``PersonalJarvis-`` prefix, which is the only one older installs know;
+releases from before the rename carry only that prefix.
 :data:`INSTALLER_ASSET_NAMES` lists every accepted name per platform.
 
 This module resolves which of those belongs to the running machine, downloads
@@ -50,7 +52,9 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from dodaios.core.branding import (
+    LEGACY_MACOS_APP_DIR_NAMES,
     MACOS_APP_DIR_NAME,
+    MACOS_APP_DIR_NAMES,
     MACOS_BUNDLE_ID,
     MACOS_DMG_BUNDLE_ID,
     UPDATER_USER_AGENT,
@@ -150,11 +154,11 @@ class InstallerAsset:
 #: Every installer file name the updater accepts, per ``(os, cpu)``, best
 #: first. This is the one place the names live.
 #:
-#: A release publishes each installer under ONE of the names in its row. The
-#: updater takes the first name the release actually carries, so an install
-#: keeps updating whichever prefix a release uses. The LAST name of a row is
-#: the one every release published so far carries
-#: (``scripts/ci/release_assets.py`` pins that set for the release pipeline).
+#: The updater takes the first name of its row that the release actually
+#: carries, so an install keeps updating whichever prefix a release uses.
+#: Current releases carry BOTH names of every row with identical bytes; the
+#: LAST name is the one every release ever published carries
+#: (``scripts/ci/release_assets.py`` pins the set for the release pipeline).
 INSTALLER_ASSET_NAMES: dict[tuple[str, str], tuple[str, ...]] = {
     ("windows", "x64"): ("Dodaios-Setup-x64.exe", "PersonalJarvis-Setup-x64.exe"),
     ("macos", "arm64"): ("Dodaios-macOS-arm64.dmg", "PersonalJarvis-macOS-arm64.dmg"),
@@ -868,19 +872,21 @@ def _handover_macos(
     """Mount the DMG, swap the running ``.app`` for the one inside, relaunch.
 
     The running bundle is replaced in place whenever the disk image carries
-    the app under the running bundle's name or under the name this version
-    ships with. The second case is a bundle the USER renamed or duplicated
-    ("Keep Both" in Finder): the image still holds the usual name, and the
-    update belongs into the bundle they launched.
+    the app under the running bundle's name or under a name this version
+    knows (the current one or an earlier one). That covers a bundle the USER
+    renamed or duplicated ("Keep Both" in Finder): the image still holds the
+    usual name, and the update belongs into the bundle they launched.
 
-    Only an image whose single bundle has a name this version has never used is
-    a release that renamed the app. That one is installed beside the running
-    bundle under its own name, relaunched from there, and the old bundle is
-    removed afterwards (see :func:`_install_renamed_bundle`).
+    Two cases install the image's bundle beside the running one under its own
+    name, relaunch it from there and set the old bundle aside afterwards (see
+    :func:`_install_renamed_bundle`): a running bundle that still carries an
+    earlier name of ours while the image carries the current one, and an image
+    whose single bundle has a name this version has never used (a release that
+    renamed the app again).
     """
     if app_path is None:
         raise InstallerUpdateError(
-            "could not locate the running Personal Jarvis.app — refusing to update"
+            f"could not locate the running {MACOS_APP_DIR_NAME} — refusing to update"
         )
 
     mountpoint = Path(tempfile.mkdtemp(prefix="jarvis-dmg-"))
@@ -913,8 +919,15 @@ def _handover_macos(
                 )
             source = candidates[0]
 
-        known_names = {app_path.name.casefold(), MACOS_APP_DIR_NAME.casefold()}
-        if source.name.casefold() in known_names:
+        known_names = {app_path.name.casefold(), *map(str.casefold, MACOS_APP_DIR_NAMES)}
+        earlier_names = set(map(str.casefold, LEGACY_MACOS_APP_DIR_NAMES))
+        # The bundle still has the name an earlier release gave it: the update
+        # brings the current name with it instead of filling the old folder.
+        takes_the_current_name = (
+            app_path.name.casefold() in earlier_names
+            and source.name.casefold() == MACOS_APP_DIR_NAME.casefold()
+        )
+        if source.name.casefold() in known_names and not takes_the_current_name:
             installed = app_path
             _replace_directory(source, app_path)
         else:
@@ -1119,7 +1132,7 @@ def _install_renamed_bundle(source: Path, installed: Path, *, replaced: Path) ->
 
 
 def _running_macos_app() -> Path | None:
-    """``/Applications/Personal Jarvis.app`` for the RUNNING process, if any.
+    """The ``.app`` bundle of the RUNNING process (``/Applications/<name>.app``), if any.
 
     ``bundle_root()`` is ``<app>/Contents/MacOS``; the bundle is two levels up.
     """

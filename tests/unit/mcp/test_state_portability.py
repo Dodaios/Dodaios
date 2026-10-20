@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from dodaios.core.branding import WINDOWS_USER_DATA_DIR_NAME
 from dodaios.mcp import state
 
 
@@ -39,7 +40,7 @@ def test_unwritable_project_config_crosses_to_per_user_storage(
 
     state.save_config({"mcpServers": {"hosted": {"enabled": True}}})
 
-    fallback = tmp_path / "user-data" / "Jarvis" / "mcp.json"
+    fallback = tmp_path / "user-data" / WINDOWS_USER_DATA_DIR_NAME / "mcp.json"
     assert fallback.exists()
     assert state.load_config()["mcpServers"]["hosted"]["enabled"] is True
 

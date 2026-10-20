@@ -1,7 +1,8 @@
 """The picker's markings as plain data — no Qt, so the rules are testable anywhere.
 
-After an area is chosen the picker stays open and the user marks it up in
-place with the same tools as the full appshot editor
+The picker opens with its toolbar already up: the user can mark the frozen
+screen first and choose the area after, or the other way round, with the
+same tools as the full appshot editor
 (``frontend/src/lib/appshotEditorModel.ts``): select and move, rectangle,
 filled rectangle, ellipse, line, arrow (three looks), text (three looks),
 pixelate/blur, spotlight, numbered steps, pen, highlighter and a background
@@ -40,6 +41,9 @@ REDACT = "redact"
 #: Not markings: the select tool, and the background frame switch.
 MOVE = "move"
 BACKGROUND = "background"
+#: Not a marking either: choosing the area to take. Releasing its drag takes
+#: the appshot at once, unless the user keeps the area to adjust it first.
+AREA = "area"
 
 #: Drawn by dragging a box.
 BOX_KINDS = frozenset({RECT, FILLED, ELLIPSE, SPOTLIGHT, REDACT})
@@ -52,7 +56,9 @@ STROKE_KINDS = frozenset({PEN, HIGHLIGHT})
 AREA_KINDS = frozenset({SPOTLIGHT, REDACT})
 
 #: Tool → key, in the full editor's toolbar order; the same keys as there.
+#: The area tool takes the full editor's crop key: the area is the crop.
 TOOL_KEYS: dict[str, str] = {
+    AREA: "K",
     MOVE: "V",
     RECT: "R",
     FILLED: "F",
@@ -168,6 +174,9 @@ def grab_scope(tool: str) -> str:
     drawn can be moved and reshaped again at once; ``grips``: pen and
     highlighter only take the selected marking's points, so writing over
     earlier ink never drags it along; ``none``: the background switch.
+    The area tool takes hold of markings like a drawing tool, so a marking
+    drawn first can still be moved before the area is chosen; Ctrl skips
+    that and starts the area right on top of it.
     """
     if tool == MOVE:
         return "any"
@@ -516,6 +525,28 @@ def resize(sel: Box, handle: str, p: Point, limit: tuple[float, float]) -> Box:
     return (x0, y0, x1 - x0, y1 - y0)
 
 
+def other_tool(tool: str, last_drawing: str) -> str:
+    """Tab / middle-click: from the area tool to the last drawing tool and back."""
+    return last_drawing if tool == AREA else AREA
+
+
+def toolbar_home(bar: tuple[float, float], screen: tuple[float, float], gap: float = 12.0) -> Point:
+    """The toolbar's place before any area is kept: centred at the top of the screen."""
+    bw, _bh = bar
+    sw, _sh = screen
+    return (max(gap, (sw - bw) / 2.0), gap)
+
+
+def toolbar_spot(
+    sel: Box | None, bar: tuple[float, float], screen: tuple[float, float], gap: float = 12.0
+) -> Point:
+    """Top centre; docked to a kept area only when the area would sit under it."""
+    home = toolbar_home(bar, screen, gap)
+    if sel is None or clip_to((home[0], home[1], bar[0], bar[1]), sel) is None:
+        return home
+    return toolbar_origin(sel, bar, screen, gap=10.0)
+
+
 def toolbar_origin(
     sel: Box, bar: tuple[float, float], screen: tuple[float, float], gap: float = 10.0
 ) -> Point:
@@ -615,6 +646,7 @@ class History:
 
 
 __all__ = [
+    "AREA",
     "AREA_KINDS",
     "ARROW",
     "ARROW_STYLES",
@@ -660,6 +692,7 @@ __all__ = [
     "is_meaningful",
     "next_counter",
     "normalized",
+    "other_tool",
     "reshape",
     "resize",
     "rough_measure",
@@ -667,6 +700,8 @@ __all__ = [
     "segment_path",
     "shape_at",
     "text_size",
+    "toolbar_home",
     "toolbar_origin",
+    "toolbar_spot",
     "translated",
 ]

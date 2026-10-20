@@ -5,7 +5,7 @@
 aiofiles==25.1.0 \
     --hash=sha256:a8d728f0a29de45dc521f18f07297428d56992a742f0cd2701ba86e44d23d5b2 \
     --hash=sha256:abe311e527c862958650f9438e859c1fa7568a141b22abcd015e120e86a85695
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 aioice==0.10.2 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
     --hash=sha256:14911c15ab12d096dd14d372ebb4aecbb7420b52c9b76fdfcf54375dec17fcbf \
     --hash=sha256:bf236c6829ee33c8e540535d31cd5a066b531cb56de2be94c46be76d68b1a806
@@ -13,15 +13,15 @@ aioice==0.10.2 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
 aiolimiter==1.2.1 \
     --hash=sha256:d3f249e9059a20badcb56b61601a83556133655c11d1eb3dd3e04ff069e5f3c7 \
     --hash=sha256:e02a37ea1a855d9e832252a105420ad4d15011505512a1a1d814647451b5cca9
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 aiortc==1.15.0 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
     --hash=sha256:4e1e54bff31a9c2cb654c7b7edc068085a7df53365e5df24a5cb24168e3f95f7 \
     --hash=sha256:ee6c0757ca070cf6d6bee441936d6ede24eef51211bbff6653409c540f72e625
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 aiosqlite==0.22.1 \
     --hash=sha256:043e0bd78d32888c0a9ca90fc788b38796843360c855a7262a532813133a0650 \
     --hash=sha256:21c002eb13823fad740196c5a2e9d8e62f6243bd9e7e4a1f87fb5e44ecb4fceb
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 annotated-doc==0.0.4 \
     --hash=sha256:571ac1dc6991c450b25a9c2d84a3705e2ae7a53467b5d111c24fa8baabbed320 \
     --hash=sha256:fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4
@@ -35,12 +35,12 @@ annotated-types==0.7.0 \
 anthropic==0.115.0 \
     --hash=sha256:6bb25184441d51544f8bc9877a7efbddd9bc4a6207cce898536d84b233310f4a \
     --hash=sha256:aa4bbea9272fa1cced6749728f18d0af9d7934b7268779e84d6f5a246f4b998d
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 anyio==4.15.1 \
     --hash=sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101 \
     --hash=sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   anthropic
     #   google-genai
     #   httpx
@@ -51,7 +51,7 @@ anyio==4.15.1 \
 asyncssh==2.24.0 \
     --hash=sha256:4064c590e59ce2e8d82a2f66d35f3120d765828b4df5e3dbfb07b4a8c24686c9 \
     --hash=sha256:9abd46300adcb6d4b73269b34c53cd0d17a138b9a22b5b38008ce7d5808734b7
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 attrs==26.1.0 \
     --hash=sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309 \
     --hash=sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32
@@ -108,7 +108,7 @@ audioop-lts==0.2.2 ; python_full_version >= '3.13' \
     --hash=sha256:f9ee9b52f5f857fbaf9d605a360884f034c92c1c23021fb90b2e39b8e64bede6 \
     --hash=sha256:fbdd522624141e40948ab3e8cdae6e04c748d78710e9f0f8d4dae2750831de19 \
     --hash=sha256:fd3d4602dc64914d462924a08c1a9816435a2155d74f325853c1f1ac3b2d9800
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 av==15.1.0 ; (python_full_version >= '3.14' and sys_platform == 'darwin') or (platform_machine == 'arm64' and sys_platform == 'darwin') \
     --hash=sha256:07a8ae30c0cfc3132eff320a6b27d18a5e0dda36effd0ae28892888f4ee14729 \
     --hash=sha256:08eac47a90ebae1e2bd5935f400dd515166019bab4ff5b03c4625fa6ac3a0a5e \
@@ -161,7 +161,7 @@ av==15.1.0 ; (python_full_version >= '3.14' and sys_platform == 'darwin') or (pl
     --hash=sha256:f985661644879e4520d28a995fcb2afeb951bc15a1d51412eb8e5f36da85b6fe \
     --hash=sha256:fe07cf7de162acc09d021e02154b1f760bca742c62609ec0ae586a6a1e0579ac
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   aiortc
 av==17.1.0 ; (python_full_version < '3.14' and platform_machine != 'arm64' and sys_platform == 'darwin') or (platform_machine != 'ARM64' and sys_platform == 'win32') or (sys_platform != 'darwin' and sys_platform != 'win32') \
     --hash=sha256:1284addf3c0dd939887a9722dc30df2241a97471ad52c3c507e31583ae22ff02 \
@@ -195,7 +195,7 @@ av==17.1.0 ; (python_full_version < '3.14' and platform_machine != 'arm64' and s
     --hash=sha256:ff457ed419348e5b8e8c811d341389b052c5e4d5839da3794d019b125b9fe830 \
     --hash=sha256:ffbd78d73d2c9bf31e9a007c992faec3991428b2941a3b085b84fb82e8c32d19
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   aiortc
 backports-tarfile==1.2.0 ; python_full_version < '3.12' \
     --hash=sha256:77e284d754527b01fb1e6fa8a1afe577858ebe4e9dad8919e34c862cb399bc34 \
@@ -494,13 +494,13 @@ charset-normalizer==3.4.7 \
     --hash=sha256:fbccdc05410c9ee21bbf16a35f4c1d16123dcdeb8a1d38f33654fa21d0234f79 \
     --hash=sha256:fea24543955a6a729c45a73fe90e08c743f0b3334bbf3201e6c4bc1b0c7fa464
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   requests
 click==8.4.2 \
     --hash=sha256:9a6cea6e60b17ebe0a44c5cc636d94f09bd66142c1cd7d8b4cd731c4917a15f6 \
     --hash=sha256:e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   ddgs
     #   uvicorn
 colorama==0.4.6 ; sys_platform == 'win32' \
@@ -518,7 +518,7 @@ coloredlogs==15.0.1 ; python_full_version < '3.14' and platform_machine == 'arm6
 croniter==6.2.4 \
     --hash=sha256:8ef3d544107a5c05a150a2d78f8bf5a8eb9c5c4d93405a736b824109574e3f4d \
     --hash=sha256:fc124f751b1b04805c2a04b061898b436b45ab2320b045e1e052ea895de65189
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 cryptography==50.0.2 \
     --hash=sha256:0ddc924c04591c2811ca024d62ecad4f7f6f08af8939c211438f48a16bd23602 \
     --hash=sha256:0ec5f09541743261e66e291b4a0cbf0fb2997aeaab6d9e9c740b9dba1b58d1c2 \
@@ -582,7 +582,7 @@ cryptography==50.0.2 \
     --hash=sha256:fa8f5efb344d6908a1ce62f4a24e2e5780f825d6f53f5f50ec5ffacac72936cb \
     --hash=sha256:fdd28f912fccfec1846a94e2e1e8f9b0012f557f0c46fe4f3eb0d7a87afcf90b
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   aiortc
     #   asyncssh
     #   google-auth
@@ -592,7 +592,7 @@ cryptography==50.0.2 \
 ddgs==9.14.3 \
     --hash=sha256:2bc5dceb092f330585277a8f3fc50f488828f55e09793ae85975e01b3141879c \
     --hash=sha256:670f464512b5bcaa5182d2ab0cea688f23df58d7338083d68f6f37747434f53b
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 distro==1.9.0 \
     --hash=sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed \
     --hash=sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2
@@ -614,15 +614,15 @@ docstring-parser==0.18.0 \
 elevenlabs==2.55.0 \
     --hash=sha256:9d84371b766375951935d0cb6512f38fbf17d67ff3617ac6ba8756887f0118c7 \
     --hash=sha256:e88a2673842dcc43bb415fc47b8064ba6cefb1b39962a52f8bc723c1a2a8ce07
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 fastapi==0.138.2 \
     --hash=sha256:6432359d067a432134620e7c5e4c6e5063e7f37815bbbbf20acef14b0d2e3fc8 \
     --hash=sha256:db90c1ffb5517fba5d4a9f80e866daa008747e646310c9ce155c8c535f9d1615
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 filelock==3.32.3 \
     --hash=sha256:0ffa185a3540854c95caa7fa76b76cb219d907415e2c5dc9af25fd970563487f \
     --hash=sha256:7f0ca4bcc0e181c60dbbd8aa9ab5b120ebb99e4e064e83636340056f833a1f09
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 flatbuffers==25.12.19 ; (python_full_version < '3.14' and platform_machine == 'arm64') or sys_platform != 'darwin' \
     --hash=sha256:7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4
     # via onnxruntime
@@ -633,7 +633,7 @@ gitdb==4.0.12 \
 gitpython==3.1.62 \
     --hash=sha256:1791de66309bc0c7cfca40bf8d2e3de7ca091cbf94e6051be1ad0722c61062af \
     --hash=sha256:7002251225e10e29d2e1f49e6532613fe5d5d9f0b6f1f02997a52b38fe56899e
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 google-auth==2.55.1 \
     --hash=sha256:eada68dfd52b3b81191827601e2a0c3fa12540c818534b630ddc5355769c3995 \
     --hash=sha256:fb2d9b730f2c9b8d326ec8d7222f21aef2ead15bf0513793d6442485d87af0a1
@@ -676,7 +676,7 @@ google-crc32c==1.8.0 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
 google-genai==2.10.0 \
     --hash=sha256:77912cd558cd7dfd5b75c25fd1c609e78d7954dde583331104022a46ea90f9ee \
     --hash=sha256:d5350311567ae660c24cbc1752aee4b3d660f89c0106d2dcd2a69978c35afe1e
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 h11==0.16.0 \
     --hash=sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1 \
     --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
@@ -693,7 +693,7 @@ httpx==0.28.1 \
     --hash=sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc \
     --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   anthropic
     #   elevenlabs
     #   google-genai
@@ -738,7 +738,7 @@ jaraco-functools==4.5.0 \
 jedi==0.20.0 \
     --hash=sha256:7bdd9c2634f56713299976f4cbd59cb3fa92165cc5e05ea811fb253480728b67 \
     --hash=sha256:c3f4ccbd276696f4b19c54618d4fb18f9fc24b0aef02acf704b23f487daa1011
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 jeepney==0.9.0 ; sys_platform == 'linux' \
     --hash=sha256:97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683 \
     --hash=sha256:cf0e9e845622b81e4a28df94c40345400256ec608d0e55bb8a3feaa9163f5732
@@ -748,7 +748,7 @@ jeepney==0.9.0 ; sys_platform == 'linux' \
 jinja2==3.1.6 \
     --hash=sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d \
     --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 jiter==0.16.0 \
     --hash=sha256:0542a7189c26920778658fc8fcf2af8bae05bae9924577f71804acef37996536 \
     --hash=sha256:0758ab7747a984797cf048e8eedea1d8ef39d7994b25611daf5b48fc903e8873 \
@@ -865,12 +865,12 @@ joblib==1.5.3 ; (python_full_version < '3.14' and platform_machine == 'arm64' an
 json-repair==0.61.5 \
     --hash=sha256:766a712a05b5a2673212ca0df0e27e6dbb446c9b59ab837613a369304b222886 \
     --hash=sha256:965cc39a7cddc84aad0a1b00a4ce44906cf14893bd0e3890a386d28ca21dd0f0
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 jsonschema==4.26.0 \
     --hash=sha256:0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326 \
     --hash=sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   mcp
 jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
@@ -879,11 +879,11 @@ jsonschema-specifications==2025.9.1 \
 keyring==25.7.0 \
     --hash=sha256:be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f \
     --hash=sha256:fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 loguru==0.7.3 \
     --hash=sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6 \
     --hash=sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 lxml==6.1.1 \
     --hash=sha256:05a82eb6e1530a64f26225b55cbd178113bd0b5af1c2b625f25e5296742c26d2 \
     --hash=sha256:07a4a68e286ee7a1ed7dfb8af83e615757c0ccfe9f18c6b4ea6771388d9ba8c9 \
@@ -1023,7 +1023,7 @@ lxml==6.1.1 \
 markdown==3.10.3 \
     --hash=sha256:3589362618f743188b4d955b874402bc814f4f83f544dc207719f4baa7d9c45f \
     --hash=sha256:fa6c92a00a4a3c98b22728c64a935ae1928250ae65058a6ded814d2cc29a4cea
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 markdown-it-py==4.2.0 \
     --hash=sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49 \
     --hash=sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a
@@ -1122,7 +1122,7 @@ markupsafe==3.0.3 \
 mcp==1.28.1 \
     --hash=sha256:2726bca5e7193f61c5dde8b12500a6de2d9acf6d1a1c0be9e8c2e706437991df \
     --hash=sha256:d51e36a5f5644faea4f85ea649bfffa6bc6c26770d42798ad6a3de3d2ba69683
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 mdurl==0.1.2 \
     --hash=sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8 \
     --hash=sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba
@@ -1144,7 +1144,7 @@ narwhals==2.23.0 ; (python_full_version < '3.14' and platform_machine == 'arm64'
 num2words==0.5.14 \
     --hash=sha256:1c8e5b00142fc2966fd8d685001e36c4a9911e070d1b120e1beb721fa1edb33d \
     --hash=sha256:b066ec18e56b6616a3b38086b5747daafbaa8868b226a36127e0451c0cf379c6
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 numpy==2.1.3 ; (python_full_version < '3.14' and platform_machine != 'ARM64') or (python_full_version < '3.14' and sys_platform != 'win32') \
     --hash=sha256:016d0f6f5e77b0f0d45d77387ffa4bb89816b57c835580c3ce8e099ef830befe \
     --hash=sha256:02135ade8b8a84011cbb67dc44e07c58f28575cf9ecf8ab304e51c05528c19f0 \
@@ -1202,7 +1202,7 @@ numpy==2.1.3 ; (python_full_version < '3.14' and platform_machine != 'ARM64') or
     --hash=sha256:f653490b33e9c3a4c1c01d41bc2aef08f9475af51146e4a7710c450cf9761598 \
     --hash=sha256:fa2d1337dc61c8dc417fbccf20f6d1e139896a30721b7f1e832b2bb6ef4eb6c4
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   onnxruntime
     #   scikit-learn
     #   scipy
@@ -1283,7 +1283,7 @@ numpy==2.3.5 ; (python_full_version >= '3.14' and platform_machine != 'ARM64') o
     --hash=sha256:ffe22d2b05504f786c867c8395de703937f934272eb67586817b46188b4ded6d \
     --hash=sha256:fffe29a1ef00883599d1dc2c51aa2e5d80afe49523c261a74933df395c15c520
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   onnxruntime
     #   scikit-learn
     #   scipy
@@ -1311,7 +1311,7 @@ onnxruntime==1.23.2 ; python_full_version < '3.14' and platform_machine == 'arm6
     --hash=sha256:da44b99206e77734c5819aa2142c69e64f3b46edc3bd314f6a45a932defc0b3e \
     --hash=sha256:e2b9233c4947907fd1818d0e581c049c41ccc39b2856cc942ff6d26317cee145
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   openwakeword
 onnxruntime==1.27.0 ; sys_platform != 'darwin' \
     --hash=sha256:0874edc171f470fc4dd2bbb60bc0989612ed1a8b89b365cda016630a93227f13 \
@@ -1339,23 +1339,23 @@ onnxruntime==1.27.0 ; sys_platform != 'darwin' \
     --hash=sha256:e4f7b0e90d2d212e2c2deaa6c8291616183ab815d3ec558ea12d3ac8b26d36f4 \
     --hash=sha256:ff050e4f6bf7f12918fa14dcb047c0b02e295f35e86d42532552be4b3d54e977
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   openwakeword
 openai==2.44.0 \
     --hash=sha256:0a2a3ab2e29aeda368700f662ff9ba0f9df17ba4c54577a64e08b8115a3cc0ad \
     --hash=sha256:68a5a5ffad82b8ff7d451c437529fb64f7c3b8123aaf0c021966a882d9e3947d
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 opentelemetry-api==1.44.0 \
     --hash=sha256:67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a \
     --hash=sha256:94b98c893a91b88657eaac1e3ba89618cdb85be6918196705354f34728b2cdef
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
 opentelemetry-sdk==1.44.0 \
     --hash=sha256:cebe7f65dc12f26ead75c6064de12fd2a9052e5060c0272d402cfa203aae123b \
     --hash=sha256:df081c4c6bcfdb1211e3e86140376792643128a25f8d72d1d27675936e7e96ad
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 opentelemetry-semantic-conventions==0.65b0 \
     --hash=sha256:1cacde7b0ad306f84c5ef08c3dbe1bbaf20165bba6f8bff43b670e555a086bcb \
     --hash=sha256:f9b2b81e9d5b64f11bc952075e7e9c7fb0aab075c7fd1c46d597f1b919852d60
@@ -1363,12 +1363,12 @@ opentelemetry-semantic-conventions==0.65b0 \
 openwakeword==0.6.0 ; (python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin') or (python_full_version < '3.12' and platform_machine == 'x86_64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux') \
     --hash=sha256:36858d90f1183e307485597a912a4e3c3384b14ea9923f83feaffae7c1565565 \
     --hash=sha256:6f423a4e3ae9dd0e3cd12b50ff8abf69679f687b4ab349d7c82c021c0e2abc9d
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 packaging==26.2 \
     --hash=sha256:5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e \
     --hash=sha256:ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   onnxruntime
 parso==0.8.7 \
     --hash=sha256:a8926eb2a1b915486941fdbd31e86a4baf88fe8c210f25f2f35ecec5b574ca1c \
@@ -1462,11 +1462,11 @@ pillow==12.3.0 \
     --hash=sha256:fdafc9cce40277e0f7a0feabce0ee50dd2fa1800f3b38015e51296b5e814048d \
     --hash=sha256:fe3cca2e4e8a592be0f269a1ca4835c25199d9f3ce815c8491048f785b0a0198 \
     --hash=sha256:ffd0c5368496f41b0944be820fcb7a838aa6e623d250b01acf2643939c3f99d7
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 platformdirs==4.10.0 \
     --hash=sha256:31e761a6a0ca04faf7353ea759bdba55652be214725111e5aac52dfa29d4bef7 \
     --hash=sha256:fb516cdb12eb0d857d0cd85a7c57cea4d060bee4578d6cf5a14dfdf8cbf8784a
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 primp==1.3.1 \
     --hash=sha256:0504de2901c97903a9c369856a4b186dc90a782d8320652c142b066e697d5a1a \
     --hash=sha256:09ada1752629fe89d7b128beeb59cb641f404af462e24177ba36aed1cf322299 \
@@ -1503,7 +1503,7 @@ primp==1.3.1 \
 prometheus-client==0.25.0 \
     --hash=sha256:5e373b75c31afb3c86f1a52fa1ad470c9aace18082d39ec0d2f918d11cc9ba28 \
     --hash=sha256:d5aec89e349a6ec230805d0df882f3807f74fd6c1a2fa86864e3c2279059fed1
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 protobuf==7.35.1 ; (python_full_version < '3.14' and platform_machine == 'arm64') or sys_platform != 'darwin' \
     --hash=sha256:11d6b0ec246892d85215b0a13ca6e0233cf5284b68f0ac02646427f4ff88a799 \
     --hash=sha256:230a75ddfc2de4806e56696ce9640c1cdfdb6543b7cfce98d42a4c0a0e7bdb87 \
@@ -1536,7 +1536,7 @@ psutil==7.2.2 \
     --hash=sha256:ed0cace939114f62738d808fdcecd4c869222507e266e574799e9c0faa17d486 \
     --hash=sha256:eed63d3b4d62449571547b60578c5b2c4bcccc5387148db46e0c2313dad0ee00 \
     --hash=sha256:fd04ef36b4a6d599bbdb225dd1d3f51e00105f6d48a28f006da7f9822f2606d8
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 pyasn1==0.6.4 \
     --hash=sha256:9c447d8431c947fe4c8febc4ed9e760bc29011a5b01e5c74b67025bd9fb8ce81 \
     --hash=sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b
@@ -1553,7 +1553,7 @@ pydantic==2.13.4 \
     --hash=sha256:45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba \
     --hash=sha256:c40756b57adaa8b1efeeced5c196f3f3b7c435f90e84ea7f443901bec8099ef6
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   anthropic
     #   elevenlabs
     #   fastapi
@@ -1689,7 +1689,7 @@ pydantic-settings==2.14.2 \
     --hash=sha256:a20c97b37910b6550d5ea50fbcc2d4187defe58cd57070b73863d069419c9440 \
     --hash=sha256:c19dd64b19097f1de80184f0cc7b0272a13ae6e170cbf240a3e27e381ed14a5f
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   mcp
 pyee==13.0.1 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
     --hash=sha256:0b931f7c14535667ed4c7e0d531716368715e860b988770fc7eb8578d1f67fc8 \
@@ -1703,7 +1703,7 @@ pyjwt==2.15.1 \
     --hash=sha256:42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193 \
     --hash=sha256:4f259e80cdfb6b3fc18a7de51fd1ef9ec79652f25019bae68975ca2468a34df8
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   mcp
 pylibsrtp==1.0.0 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
     --hash=sha256:2696bdb2180d53ac55d0eb7b58048a2aa30cd4836dd2ca683669889137a94d2a \
@@ -1726,7 +1726,7 @@ pyopenssl==26.4.0 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
 pypdf==6.19.0 \
     --hash=sha256:7e5d6e730e7dae87d560a2cee218b852f6498c8be61966f3cd02ead971e48d14 \
     --hash=sha256:bbc43aca292369ccc6cbc8a921991ecf2538a3587ab5a116eff06c321d647155
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 python-dateutil==2.9.0.post0 \
     --hash=sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3 \
     --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
@@ -1742,7 +1742,7 @@ python-multipart==0.0.32 \
 python-telegram-bot==22.8 \
     --hash=sha256:42373918097f1b837cc4e717d588c19ea79651497ec712bb5b0c76e5e63c50e1 \
     --hash=sha256:f9d3847fcb23ee603477e442800b33bb4adf851a73e0619d2050be879decf1ef
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 pywin32==312 ; sys_platform == 'win32' \
     --hash=sha256:02ebca0f0242b75292e218065004310d6a477407c09fa449bfe4f6022bc0c0fc \
     --hash=sha256:17948aeadbdb091f0ced6ef0841620794e68327b94ee415571c1203594b7215c \
@@ -1844,7 +1844,7 @@ pyyaml==6.0.3 \
     --hash=sha256:f7057c9a337546edc7973c0d3ba84ddcdf0daa14533c2065749c9075001090e6 \
     --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
     --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 referencing==0.37.0 \
     --hash=sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231 \
     --hash=sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8
@@ -1864,7 +1864,7 @@ rich==15.0.0 \
     --hash=sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb \
     --hash=sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   typer
 rpds-py==2026.6.3 \
     --hash=sha256:0be972be84cfcaf46c8c6edf690ca0f154ac17babf1f6a955a51579b34ad2dc5 \
@@ -2082,7 +2082,7 @@ scipy==1.17.1 ; python_full_version < '3.12' \
     --hash=sha256:f8885db0bc2bffa59d5c1b72fad7a6a92d3e80e7257f967dd81abb553a90d293 \
     --hash=sha256:fcb310ddb270a06114bb64bbe53c94926b943f5b7f0842194d585c65eb4edd76
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   openwakeword
     #   scikit-learn
 scipy==1.18.0 ; python_full_version >= '3.12' \
@@ -2128,7 +2128,7 @@ scipy==1.18.0 ; python_full_version >= '3.12' \
     --hash=sha256:f2a6af57bd9e4a75d70e4117e78a1bbee84f79ae3fbb6d0111005d6ebcc4cb8d \
     --hash=sha256:f351e0dd702687d12a402b867a1b4146a256923e1c38317cbc472f6372b94707
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   openwakeword
     #   scikit-learn
 secretstorage==3.5.0 ; sys_platform == 'linux' \
@@ -2138,7 +2138,7 @@ secretstorage==3.5.0 ; sys_platform == 'linux' \
 send2trash==2.1.0 \
     --hash=sha256:0da2f112e6d6bb22de6aa6daa7e144831a4febf2a87261451c4ad849fe9a873c \
     --hash=sha256:1c72b39f09457db3c05ce1d19158c2cbef4c32b8bedd02c155e49282b7ea7459
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 shellingham==1.5.4 \
     --hash=sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686 \
     --hash=sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de
@@ -2165,7 +2165,7 @@ sounddevice==0.5.5 \
     --hash=sha256:30ff99f6c107f49d25ad16a45cacd8d91c25a1bcdd3e81a206b921a3a6405b1f \
     --hash=sha256:3861901ddd8230d2e0e8ae62ac320cdd4c688d81df89da036dcb812f757bb3e6 \
     --hash=sha256:cfc6b2c49fb7f555591c78cb8ecf48d6a637fd5b6e1db5fec6ed9365d64b3519
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 srt==3.5.3 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
     --hash=sha256:4884315043a4f0740fd1f878ed6caa376ac06d70e135f306a6dc44632eed0cc0
     # via vosk
@@ -2183,7 +2183,7 @@ starlette==1.3.1 \
 structlog==26.1.0 \
     --hash=sha256:e081a26d6c373e6d201eca24eede26d8ffab07f88f477822e679183428d3d91e \
     --hash=sha256:f63a716cbd1b1291cf7661de7794b455acfa4c43c5bcf1630e6ad5ddc1adb3b7
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 sympy==1.14.0 ; python_full_version < '3.14' and platform_machine == 'arm64' and sys_platform == 'darwin' \
     --hash=sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517 \
     --hash=sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5
@@ -2192,7 +2192,7 @@ tenacity==9.1.4 \
     --hash=sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55 \
     --hash=sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   google-genai
 tflite-runtime==2.14.0 ; python_full_version < '3.12' and platform_machine == 'x86_64' and sys_platform == 'linux' \
     --hash=sha256:195ab752e7e57329a68e54dd3dd5439fad888b9bff1be0f0dc042a3237a90e4d \
@@ -2215,7 +2215,7 @@ threadpoolctl==3.6.0 ; (python_full_version < '3.14' and platform_machine == 'ar
 tomlkit==0.15.1 \
     --hash=sha256:177a05aece5a8ca5266fd3c448abb47b8d352f09d477d3ca8332db4d89b24304 \
     --hash=sha256:e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 tqdm==4.68.3 \
     --hash=sha256:00dfa48452b6b6cfae3dd9885636c23d3422d1ec97c66d96818cbd5e0821d482 \
     --hash=sha256:39832cc2def2789a6f29df83f172db7416cea70052c0907a57801c5f2fdccb03
@@ -2226,7 +2226,7 @@ tqdm==4.68.3 \
 typer==0.27.1 \
     --hash=sha256:53150287edd11baeb4e4722c8e394fcdf8181c0ae89485cba8d25c778d5edd56 \
     --hash=sha256:a79bef8469a79c45498e7b814ecf8d603cc7644e9acbd9e19cac0334240b18df
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
     --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
@@ -2260,18 +2260,18 @@ typing-inspection==0.4.2 \
 tzdata==2026.3 \
     --hash=sha256:4a1518b8993086a7982523e071643f3c0e5f213e75b21318e78bcabfff9d1415 \
     --hash=sha256:dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 urllib3==2.8.0 \
     --hash=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 \
     --hash=sha256:63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   requests
 uvicorn==0.52.4 \
     --hash=sha256:73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86 \
     --hash=sha256:f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   mcp
 vosk==0.3.44 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
     --hash=sha256:029d0b3d6a5cff874c575b8a5814a4cccfb37608cff52e846c02a8c67a882801 \
@@ -2280,7 +2280,7 @@ vosk==0.3.44 ; platform_machine != 'ARM64' or sys_platform != 'win32' \
     --hash=sha256:93895a51b8bd7b4c780eef05a3d99bf2af03f02fe5f4e4bba3da17bd0fd69138 \
     --hash=sha256:9995b7fa5434b134b4bd09897e2490dbc56115c2ad2943c030621e10c7037b34 \
     --hash=sha256:a0d4a2c384692d721d4cda58aa79aac22edb0c445759e9ca2df61f44a5d2fdda
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 watchdog==6.0.0 ; (python_full_version < '3.14' and sys_platform == 'darwin') or (platform_machine != 'ARM64' and sys_platform == 'win32') or (sys_platform != 'darwin' and sys_platform != 'win32') \
     --hash=sha256:07df1fdd701c5d4c8e55ef6cf55b8f0120fe1aef7ef39a1c6fc6bc2e606d517a \
     --hash=sha256:20ffe5b202af80ab4266dcd3e91aae72bf2da48c0d33bdb15c66658e685e94e2 \
@@ -2312,7 +2312,7 @@ watchdog==6.0.0 ; (python_full_version < '3.14' and sys_platform == 'darwin') or
     --hash=sha256:e6f0e77c9417e7cd62af82529b10563db3423625c5fce018430b249bf977f9e8 \
     --hash=sha256:e7631a77ffb1f7d2eefa4445ebbee491c720a5661ddf6df3498ebecae5ed375c \
     --hash=sha256:ef810fbf7b781a5a593894e4f439773830bdecb885e6880d957d5b9382a960d2
-    # via personal-jarvis (pyproject.toml)
+    # via dodaios (pyproject.toml)
 websockets==16.0 \
     --hash=sha256:0298d07ee155e2e9fda5be8a9042200dd2e3bb0b8a38482156576f863a9d457c \
     --hash=sha256:04cdd5d2d1dacbad0a7bf36ccbcd3ccd5a30ee188f2560b7a62a30d14107b31a \
@@ -2376,7 +2376,7 @@ websockets==16.0 \
     --hash=sha256:f4a32d1bd841d4bcbffdcb3d2ce50c09c3909fbead375ab28d0181af89fd04da \
     --hash=sha256:fd3cb4adb94a2a6e2b7c0d8d05cb94e6f1c81a0cf9dc2694fb65c7e8d94c42e4
     # via
-    #   personal-jarvis (pyproject.toml)
+    #   dodaios (pyproject.toml)
     #   elevenlabs
     #   google-genai
     #   vosk

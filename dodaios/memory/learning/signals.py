@@ -39,6 +39,22 @@ _PEOPLE_AND_THINGS_PT = (  # i18n-allow: input vocabulary
     "|viagem|casamento|exame|consulta"  # i18n-allow
 )
 
+#: Corrections of the assistant ("that's wrong", "no, I meant"): the self-build
+#: miner counts them (a correction the person keeps repeating is a lesson the
+#: assistant has not learned), and they are signals here too.
+_CORRECTIONS: Final[tuple[re.Pattern[str], ...]] = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\b(?:that's wrong|that is wrong|not what i (?:said|meant|asked)|i told you"
+        r"|you forgot|no,? i meant|actually,? i)\b",
+        r"\b(?:das (?:ist|war) falsch|nein,? ich meinte|hab ich (?:dir )?doch gesagt"  # i18n-allow
+        r"|du hast vergessen|stimmt nicht)\b",  # i18n-allow
+        r"\b(?:eso está mal|no es lo que dije|te dije|te olvidaste)\b",  # i18n-allow
+        r"\b(?:isso est[áa] errado|n[ãa]o foi isso que (?:eu )?disse|eu disse-te"  # i18n-allow
+        r"|j[áa] te disse|esqueceste-te)\b",  # i18n-allow
+    )
+)
+
 _SIGNALS: Final[tuple[re.Pattern[str], ...]] = tuple(
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -61,14 +77,6 @@ _SIGNALS: Final[tuple[re.Pattern[str], ...]] = tuple(
         r"\b(?:prefiero|me gusta|no me gusta|odio|llámame|a partir de ahora)\b",  # i18n-allow
         r"\b(?:prefiro|gosto de|n[ãa]o gosto de|adoro|detesto|chama-me|trata-me por"  # i18n-allow
         r"|a partir de agora|daqui para a frente|lembra-te|n[ãa]o te esque[çc]as)\b",  # i18n-allow
-        # Corrections of the assistant.
-        r"\b(?:that's wrong|that is wrong|not what i (?:said|meant|asked)|i told you"
-        r"|you forgot|no,? i meant|actually,? i)\b",
-        r"\b(?:das (?:ist|war) falsch|nein,? ich meinte|hab ich (?:dir )?doch gesagt"  # i18n-allow
-        r"|du hast vergessen|stimmt nicht)\b",  # i18n-allow
-        r"\b(?:eso está mal|no es lo que dije|te dije|te olvidaste)\b",  # i18n-allow
-        r"\b(?:isso est[áa] errado|n[ãa]o foi isso que (?:eu )?disse|eu disse-te"  # i18n-allow
-        r"|j[áa] te disse|esqueceste-te)\b",  # i18n-allow
         # Plans and goals.
         r"\b(?:i|we)(?: am|'m| are|'re)? (?:plan|planning|going to|working on|preparing"
         r"|moving|launching)\b",
@@ -79,7 +87,7 @@ _SIGNALS: Final[tuple[re.Pattern[str], ...]] = tuple(
         r"\b(?:vou|vamos) (?:mudar|lan[çc]ar|come[çc]ar|casar)|\b(?:planeio|planeamos"  # i18n-allow
         r"|estou a preparar|estou a trabalhar em|vou mudar-me)\b",  # i18n-allow
     )
-)
+) + _CORRECTIONS
 
 
 def has_signal(text: str) -> bool:
@@ -88,3 +96,9 @@ def has_signal(text: str) -> bool:
     if len(clean) < _MIN_CHARS:
         return False
     return any(pattern.search(clean) for pattern in _SIGNALS)
+
+
+def is_correction(text: str) -> bool:
+    """True when ``text`` corrects the assistant ("that's wrong", "no, I meant")."""
+    clean = " ".join((text or "").split())
+    return len(clean) >= _MIN_CHARS and any(p.search(clean) for p in _CORRECTIONS)

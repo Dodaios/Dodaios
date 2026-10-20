@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 #
-# Build the distributable macOS disk image for Personal Jarvis.
+# Build the distributable macOS disk image for Dodaios.
 #
 #   packaging/macos/build.sh
 #
 # Output (per the release contract):
-#   dist/installers/PersonalJarvis-macOS-arm64.dmg   on Apple Silicon
-#   dist/installers/PersonalJarvis-macOS-x64.dmg     on Intel
+#   dist/installers/Dodaios-macOS-arm64.dmg   on Apple Silicon
+#   dist/installers/Dodaios-macOS-x64.dmg     on Intel
 #
-# The disk image contains "Personal Jarvis.app" next to a symlink to
+# A release also publishes each image as PersonalJarvis-macOS-<arch>.dmg, a
+# byte-identical copy for installs from before the rename
+# (scripts/ci/installer_aliases.py).
+#
+# The disk image contains "Dodaios.app" next to a symlink to
 # /Applications, which is the drag-to-install layout every Mac user already
 # knows. The app is a PyInstaller BUNDLE built from jarvis.spec.
 #
@@ -46,8 +50,8 @@ DRY_RUN="${DRY_RUN:-0}"
 PYTHON="${PYTHON:-python3}"
 SKIP_FRONTEND="${SKIP_FRONTEND:-0}"
 
-APP_NAME="Personal Jarvis"
-VOLUME_NAME="Personal Jarvis"
+APP_NAME="Dodaios"
+VOLUME_NAME="Dodaios"
 DIST_DIR="${REPO_ROOT}/dist"
 APP_BUNDLE="${DIST_DIR}/${APP_NAME}.app"
 OUT_DIR="${DIST_DIR}/installers"
@@ -89,7 +93,7 @@ case "${MACHINE}" in
   x86_64) ARCH_TAG="x64" ;;
   *)      die "unsupported macOS architecture: ${MACHINE}" ;;
 esac
-DMG_PATH="${OUT_DIR}/PersonalJarvis-macOS-${ARCH_TAG}.dmg"
+DMG_PATH="${OUT_DIR}/Dodaios-macOS-${ARCH_TAG}.dmg"
 log "host ${MACHINE} -> building ${ARCH_TAG}"
 
 # A half-configured certificate is a mistake worth hearing about before the
@@ -383,7 +387,7 @@ if [ "${SIGNED_FOR_DISTRIBUTION}" = "1" ] && notary_credentials_present; then
   # stapled INTO the bundle. A ticket stapled only to the .dmg disappears the
   # moment the user drags the app out of it, which is the one thing every user
   # does - the app would then need a network round trip on first launch.
-  ZIP_PATH="${DIST_DIR}/PersonalJarvis-macOS-${ARCH_TAG}-notarize.zip"
+  ZIP_PATH="${DIST_DIR}/Dodaios-macOS-${ARCH_TAG}-notarize.zip"
   run rm -f "${ZIP_PATH}"
   run ditto -c -k --keepParent "${APP_BUNDLE}" "${ZIP_PATH}"
   notarize "${ZIP_PATH}"

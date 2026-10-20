@@ -128,7 +128,12 @@ async def take_appshot(
             # be wallpaper only, so the area is then grabbed live after the
             # picker has asked macOS just in time.
             frozen = None if issue is not None else await service.freeze_screens()
-            picked = await _pick_area(service, _language(config), trace_id=capture_trace_id)
+            picked = await _pick_area(
+                service,
+                _language(config),
+                keep_area=bool(getattr(config.appshot, "region_keep_area", False)),
+                trace_id=capture_trace_id,
+            )
             if isinstance(picked, AppshotResult):
                 return picked
             bbox, selection = picked
@@ -353,7 +358,11 @@ async def _finish_action(action: str, shot: Appshot, bus: Any | None) -> None:
 
 
 async def _pick_area(
-    service: Any, language: str = "en", *, trace_id: uuid.UUID | None = None,
+    service: Any,
+    language: str = "en",
+    *,
+    keep_area: bool = False,
+    trace_id: uuid.UUID | None = None,
 ) -> tuple[Any, Any] | AppshotResult:
     """Run the area picker; ``(rectangle, selection)``, or the refusal to return."""
     from dodaios.appshot.region import (  # noqa: PLC0415
@@ -364,7 +373,7 @@ async def _pick_area(
     from dodaios.platform.screen_access import ScreenCaptureRefused
 
     try:
-        selection = await pick_region(language=language, trace_id=trace_id)
+        selection = await pick_region(language=language, keep_area=keep_area, trace_id=trace_id)
     except ScreenCaptureRefused as exc:
         log.info("appshot: area selection refused (%s)", exc.reason or "capture_permission")
         return AppshotResult(

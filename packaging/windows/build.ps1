@@ -10,8 +10,12 @@
         2. freeze the app with PyInstaller (jarvis.spec, onedir),
         3. wrap dist/Jarvis in an Inno Setup wizard.
 
-    The result is dist/installers/PersonalJarvis-Setup-x64.exe - the exact asset
-    name the website's download button and the in-app updater expect.
+    The result is dist/installers/PersonalJarvis-Setup-x64.exe - the name the
+    SignPath artifact configuration pins (docs/code-signing-policy.md). A
+    release signs it under that name and then publishes it twice with identical
+    bytes: as Dodaios-Setup-x64.exe and as PersonalJarvis-Setup-x64.exe, the
+    name installs from before the rename look for
+    (scripts/ci/installer_aliases.py).
 
     Every failure stops the script with a non-zero exit code; nothing is left
     half-built and reported as success.
@@ -151,7 +155,9 @@ if ($SkipPyInstaller) {
         -WorkingDirectory $RepoRoot -What "pyinstaller"
 }
 
-foreach ($required in @("PersonalJarvis.exe", "dodaios.exe", "jarvis.exe")) {
+# The windowed launcher under its current and its earlier name, then the CLI
+# under both of its names (jarvis.spec).
+foreach ($required in @("DodaiosApp.exe", "PersonalJarvis.exe", "dodaios.exe", "jarvis.exe")) {
     $candidate = Join-Path $BundleDir $required
     if (-not (Test-Path $candidate)) {
         Stop-WithError "the frozen bundle is missing $required (expected at $candidate)"
@@ -207,6 +213,7 @@ $IsccArgs = @(
 )
 Invoke-Checked -Executable $Iscc -Arguments $IsccArgs -WorkingDirectory $RepoRoot -What "ISCC"
 
+# The signed name (OutputBaseFilename = SignedSetupBaseName in the .iss).
 $Artifact = Join-Path $InstallerDir "PersonalJarvis-Setup-x64.exe"
 if (-not (Test-Path $Artifact)) {
     Stop-WithError "ISCC reported success but $Artifact does not exist"

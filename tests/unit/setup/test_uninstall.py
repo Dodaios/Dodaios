@@ -14,6 +14,9 @@ from pathlib import Path
 
 import pytest
 
+from dodaios.core import secret_slots
+from dodaios.core.identity_migration import create_directory_link, keyring_marker_key
+from dodaios.core.keychain_bundle import VAULT_ACCOUNT
 from dodaios.setup import uninstall
 from dodaios.setup.uninstall import UninstallPlan
 
@@ -79,7 +82,10 @@ def test_build_plan_reflects_real_repo(monkeypatch: pytest.MonkeyPatch) -> None:
     assert plan.install_dir == Path(cfg.PROJECT_ROOT).resolve()
     # The repo we run from IS a Jarvis install.
     assert plan.is_jarvis_install is True
-    assert plan.config_file == plan.install_dir / "jarvis.toml"
+    # jarvis.toml while the checkout has one, else dodaios.toml.
+    from dodaios.core.identity_boot import resolve_config_file
+
+    assert plan.config_file == resolve_config_file(plan.install_dir)
     assert plan.data_dir == plan.install_dir / "data"
 
 
@@ -196,12 +202,16 @@ def test_bootstraps_stop_the_running_app_and_retry_the_delete() -> None:
 
 
 # ---------------------------------------------------------------- key removal
+MARKER = keyring_marker_key(uninstall.cfg.LEGACY_KEYRING_SERVICES[0])
+
+
 def test_remove_keys_deletes_each_present_key(monkeypatch: pytest.MonkeyPatch) -> None:
     deleted: list[str] = []
     monkeypatch.setattr(uninstall.cfg, "delete_secret", lambda key: (deleted.append(key) or True))
     n = uninstall._remove_keys(["openai_api_key", "gemini_api_key"])
     assert n == 2
-    assert deleted == ["openai_api_key", "gemini_api_key"]
+    # Then the migration marker, which is bookkeeping and not a counted key.
+    assert deleted == ["openai_api_key", "gemini_api_key", MARKER]
 
 
 # ------------------------------------------- macOS Keychain (prompt-free paths)
@@ -255,7 +265,8 @@ def test_macos_probe_declines_on_other_platforms(monkeypatch: pytest.MonkeyPatch
 def test_macos_delete_loops_over_duplicates_and_stops(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    codes = iter([0, 0, 44])
+    # Current service: two duplicates, then "not found"; legacy service: none.
+    codes = iter([0, 0, 44, 44])
     calls: list[list[str]] = []
 
     def fake_run(argv, **_kwargs):  # noqa: ANN001, ANN003
@@ -266,9 +277,16 @@ def test_macos_delete_loops_over_duplicates_and_stops(
     monkeypatch.setattr(uninstall.subprocess, "run", fake_run)
 
     assert uninstall._macos_delete_keychain_items("openai_api_key") is True
-    assert len(calls) == 3  # two duplicates removed, then "not found" ends the loop
+    assert len(calls) == 4  # two duplicates removed, then "not found" ends each loop
     assert calls[0][:2] == ["security", "delete-generic-password"]
     assert all("-w" not in argv for argv in calls)
+    services = [argv[argv.index("-s") + 1] for argv in calls]
+    assert services == [
+        uninstall.cfg.KEYRING_SERVICE,
+        uninstall.cfg.KEYRING_SERVICE,
+        uninstall.cfg.KEYRING_SERVICE,
+        *uninstall.cfg.LEGACY_KEYRING_SERVICES,
+    ]
 
 
 def test_macos_delete_noop_on_other_platforms(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -297,8 +315,15 @@ def test_remove_keys_deletes_keychain_item_before_shared_cleanup(
     n = uninstall._remove_keys(["openai_api_key"])
     assert n == 1
     # The silent Keychain delete must run FIRST so delete_secret's read-back
-    # verification finds nothing to decrypt (= no password dialog).
-    assert order == ["security:openai_api_key", "shared:openai_api_key"]
+    # verification finds nothing to decrypt (= no password dialog). The same
+    # goes for the migration marker; the vault item of each service goes last.
+    assert order == [
+        "security:openai_api_key",
+        "shared:openai_api_key",
+        f"security:{MARKER}",
+        f"shared:{MARKER}",
+        f"security:{VAULT_ACCOUNT}",
+    ]
 
 
 def test_remove_keys_counts_security_only_deletion(
@@ -328,6 +353,7 @@ def test_keyring_keys_present_darwin_never_reads_secret_values(
         uninstall, "_macos_keychain_item_present", lambda key: key == target
     )
     monkeypatch.setattr(uninstall, "_file_fallback_copy_present", lambda key: False)
+    monkeypatch.setattr(secret_slots, "dynamic_secret_keys", frozenset)
 
     assert uninstall._keyring_keys_present() == [target]
 
@@ -345,8 +371,51 @@ def test_keyring_keys_present_still_sees_file_fallback_copies(
     monkeypatch.setattr(
         uninstall, "_file_fallback_copy_present", lambda key: key == target
     )
+    monkeypatch.setattr(secret_slots, "dynamic_secret_keys", frozenset)
 
     assert uninstall._keyring_keys_present() == [target]
+
+
+# ------------------------------------------- both credential services
+
+
+@pytest.fixture
+def fake_platform(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):  # noqa: ANN201
+    import keyring
+
+    from tests.fakes.fake_platform_keyring import FakePlatformKeyring
+
+    monkeypatch.setattr(uninstall.sys, "platform", "linux")
+    monkeypatch.delenv("JARVIS_DATA_DIR", raising=False)
+    monkeypatch.setattr(uninstall.cfg, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(uninstall.cfg, "_KEYRING_BACKEND_READY", True)
+    monkeypatch.setattr(uninstall.cfg, "_FILE_BACKEND_ACTIVE", False)
+    monkeypatch.setattr(uninstall.cfg, "_PLATFORM_KEYRING_BACKEND", None)
+    monkeypatch.setattr(secret_slots, "dynamic_secret_keys", frozenset)
+    original = keyring.get_keyring()
+    fake = FakePlatformKeyring()
+    keyring.set_keyring(fake)
+    yield fake
+    keyring.set_keyring(original)
+
+
+def test_keys_saved_under_either_service_are_found_and_removed(fake_platform) -> None:  # noqa: ANN001
+    current = uninstall.cfg.KEYRING_SERVICE
+    legacy = uninstall.cfg.LEGACY_KEYRING_SERVICES[0]
+    fake_platform.entries[(legacy, "openai_api_key")] = "old"
+    fake_platform.entries[(current, "gemini_api_key")] = "new"
+    fake_platform.entries[(current, "telegram_bot_token")] = "bot"  # not a wizard slot
+    fake_platform.entries[(current, MARKER)] = "1"
+    uninstall.cfg._FileCredStore().set(legacy, "zai_api_key", "file-copy")
+
+    present = uninstall._keyring_keys_present()
+
+    assert set(present) == {"openai_api_key", "gemini_api_key", "telegram_bot_token", "zai_api_key"}
+    assert MARKER not in present
+
+    assert uninstall._remove_keys(present) == 4
+    assert fake_platform.entries == {}
+    assert uninstall.cfg._FileCredStore().usernames(legacy) == ()
 
 
 # ---------------------------------------------------------------- folder removal
@@ -358,6 +427,77 @@ def test_remove_folder_direct_delete(tmp_path: Path) -> None:
     # on every OS (no self-delete branch).
     assert uninstall._remove_folder(target) is True
     assert not target.exists()
+
+
+def _moved_install(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """``(home, install, link)``: ``~/.dodaios`` and the link left at its earlier name."""
+    home = tmp_path / "home"
+    install = home / ".dodaios"
+    (install / "data").mkdir(parents=True)
+    (install / "data" / "keep.txt").write_text("user data", encoding="utf-8")
+    link = home / ".personal-jarvis"
+    create_directory_link(link, install)
+    return home, install, link
+
+
+def test_the_plan_lists_the_link_an_install_folder_move_left_behind(tmp_path: Path) -> None:
+    home, install, link = _moved_install(tmp_path)
+    unrelated = home / ".elsewhere"
+    unrelated.mkdir()
+
+    assert uninstall._install_links(install, home=home) == (link,)
+    # A real folder under the earlier name is another install, not a link.
+    link_is_real = tmp_path / "other-home"
+    (link_is_real / ".personal-jarvis").mkdir(parents=True)
+    assert uninstall._install_links(install, home=link_is_real) == ()
+
+
+def test_removing_the_link_never_reaches_into_the_folder(tmp_path: Path) -> None:
+    _home, install, link = _moved_install(tmp_path)
+
+    uninstall._remove_link(link)
+
+    assert not os.path.lexists(link)
+    assert (install / "data" / "keep.txt").read_text(encoding="utf-8") == "user data"
+    # And a real folder is never taken for a link.
+    with pytest.raises(OSError, match="not a link"):
+        uninstall._remove_link(install)
+    assert install.is_dir()
+
+
+def test_remove_folder_given_a_link_removes_only_the_link(tmp_path: Path) -> None:
+    _home, install, link = _moved_install(tmp_path)
+
+    assert uninstall._remove_folder(link) is True
+
+    assert not os.path.lexists(link)
+    assert (install / "data" / "keep.txt").is_file()
+
+
+def test_uninstall_removes_the_link_first_then_the_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _home, install, link = _moved_install(tmp_path)
+    plan = UninstallPlan(
+        install_dir=install,
+        is_jarvis_install=True,
+        autostart_supported=False,
+        autostart_entry=None,
+        install_links=(link,),
+    )
+    _use_plan(monkeypatch, plan)
+    called = _record_steps(monkeypatch)
+    monkeypatch.setattr(
+        uninstall,
+        "_remove_folder",
+        lambda p: called.append(f"folder:{os.path.lexists(link)}") or True,
+    )
+
+    uninstall.run_uninstall(assume_yes=True)
+
+    # The link was gone before the folder went.
+    assert called[-1] == "folder:False"
+    assert install.is_dir()
 
 
 def test_running_inside_detects_self_host() -> None:
