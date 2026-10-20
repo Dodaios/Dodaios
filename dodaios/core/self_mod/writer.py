@@ -45,7 +45,7 @@ from pydantic import ValidationError as PydanticValidationError
 from tomlkit import TOMLDocument
 from tomlkit.items import AbstractTable
 
-from dodaios.core.branding import CONFIG_FILE_NAME
+from dodaios.core.branding import CONFIG_FILE_NAME, LEGACY_CONFIG_FILE_NAMES
 from dodaios.core.bus import EventBus
 from dodaios.core.config import (
     JarvisConfig,
@@ -82,8 +82,27 @@ _LOG = logging.getLogger(__name__)
 DEFAULT_BACKUP_SUBDIR = "backups/self_mod"
 _LEGACY_BACKUP_SUBDIR = ".backups"
 BACKUP_FILE_GLOB = f"{CONFIG_FILE_NAME}.*.bak"
+# A backup is named after the file it copies, and a configuration may still
+# carry its earlier name; backups of either are listed and pruned together.
+BACKUP_FILE_GLOBS = tuple(
+    f"{name}.*.bak" for name in (CONFIG_FILE_NAME, *LEGACY_CONFIG_FILE_NAMES)
+)
 BACKUP_TS_FORMAT = "%Y%m%dT%H%M%S_%fZ"
 _ATOMIC_REPLACE_RETRY_DELAYS_S = (0.0, 0.025, 0.05, 0.1, 0.2, 0.4)
+
+
+def _backup_files(root: Path) -> list[Path]:
+    """Every config backup in ``root``, whatever name the copied file had."""
+    found: dict[Path, None] = {}
+    for pattern in BACKUP_FILE_GLOBS:
+        found.update(dict.fromkeys(root.glob(pattern)))
+    return list(found)
+
+
+def _backup_prefix_name(config_path: Path) -> str:
+    """The name a backup of ``config_path`` starts with: the file's own known name."""
+    known = (CONFIG_FILE_NAME, *LEGACY_CONFIG_FILE_NAMES)
+    return config_path.name if config_path.name in known else CONFIG_FILE_NAME
 
 
 def _default_backup_dir() -> Path:
@@ -254,7 +273,7 @@ class AtomicConfigWriter:
         for root in (self._backup_dir, *self._legacy_backup_dirs):
             if not root.exists():
                 continue
-            for path in root.glob(BACKUP_FILE_GLOB):
+            for path in _backup_files(root):
                 try:
                     stat = path.stat()
                 except FileNotFoundError:
@@ -607,7 +626,7 @@ class AtomicConfigWriter:
         # mkstemp writes the final .bak file directly; uniqueness is OS-guaranteed.
         fd, target_name = tempfile.mkstemp(
             suffix=".bak",
-            prefix=f"{CONFIG_FILE_NAME}.{ts}.",
+            prefix=f"{_backup_prefix_name(self._config_path)}.{ts}.",
             dir=str(self._backup_dir),
         )
         target = Path(target_name)
@@ -669,7 +688,7 @@ class AtomicConfigWriter:
         if not self._backup_dir.exists():
             return
         backups = sorted(
-            self._backup_dir.glob(BACKUP_FILE_GLOB),
+            _backup_files(self._backup_dir),
             key=lambda p: p.stat().st_mtime,
         )  # oldest first
         if len(backups) <= self._backup_min_keep:
@@ -766,4 +785,4 @@ def _summarize_error(exc: BaseException) -> str:
     return first[:200] if len(first) > 200 else first
 
 
-__all__ = ["BACKUP_FILE_GLOB", "DEFAULT_BACKUP_SUBDIR", "AtomicConfigWriter"]
+__all__ = ["BACKUP_FILE_GLOB", "BACKUP_FILE_GLOBS", "DEFAULT_BACKUP_SUBDIR", "AtomicConfigWriter"]

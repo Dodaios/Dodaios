@@ -15,6 +15,11 @@ Free code signing provided by [SignPath.io](https://signpath.io), certificate by
 | --- | --- | --- |
 | `PersonalJarvis-Setup-x64.exe` | Windows 10/11 x64 | SignPath Foundation certificate, via SignPath.io |
 
+The setup is signed under that name because the artifact configuration below
+pins it. After signing, the release publishes the same signed file a second
+time as `Dodaios-Setup-x64.exe`; the two downloads are byte-identical, so both
+carry this signature.
+
 Only files built from this repository's source code by the
 [`Desktop installers`](../.github/workflows/desktop-installers.yml) GitHub Actions
 workflow are submitted for signing. The workflow runs on GitHub-hosted runners

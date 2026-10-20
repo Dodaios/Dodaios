@@ -12,7 +12,7 @@ choice on its next 5-minute run), the guard's derived ENV-variable name for
 ``brain.primary`` MUST be exactly ``JARVIS__BRAIN__PRIMARY`` -- the same name
 the UI sets and the same name the maintainer sets by hand.
 
-``scripts/jarvis-config-drift-guard.ps1`` derives that name with the rule
+``scripts/dodaios-config-drift-guard.ps1`` derives that name with the rule
 (see the ENV-override block around lines 153-163)::
 
     "JARVIS__" + <section>.ToUpper() + "__" + <key>.ToUpper()
@@ -48,7 +48,7 @@ DESIRED_STATE_PATH = (
 def _derive_env_name(section: str, key: str) -> str:
     """Reproduce the drift-guard's JARVIS__<SECTION>__<KEY> derivation.
 
-    Mirrors ``scripts/jarvis-config-drift-guard.ps1``:
+    Mirrors ``scripts/dodaios-config-drift-guard.ps1``:
         "JARVIS__" + $section.Name.ToUpper() + "__" + $keyProp.Name.ToUpper()
     """
     return "JARVIS__" + section.upper() + "__" + key.upper()
@@ -140,7 +140,7 @@ def test_structured_stt_models_never_becomes_one_env_override(
     guard = (
         Path(__file__).resolve().parents[3]
         / "scripts"
-        / "jarvis-config-drift-guard.ps1"
+        / "dodaios-config-drift-guard.ps1"
     )
     sandbox = tmp_path / "repo"
     sandbox.mkdir()
@@ -204,7 +204,7 @@ def test_user_selected_stt_provider_survives_stale_desired_state(
     guard = (
         Path(__file__).resolve().parents[3]
         / "scripts"
-        / "jarvis-config-drift-guard.ps1"
+        / "dodaios-config-drift-guard.ps1"
     )
     sandbox = tmp_path / "repo"
     sandbox.mkdir()

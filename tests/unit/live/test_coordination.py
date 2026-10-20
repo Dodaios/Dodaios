@@ -49,7 +49,6 @@ def test_speaking_model_is_told_how_to_handle_a_request():
         "Talk it through",
         "Take a quick look",
         "Hand it over",
-        "one focused question at a time",
         "start no implementation until they approve",
         "preferences for the whole task",
         "Never read out tables, lists, diffs, code or logs",

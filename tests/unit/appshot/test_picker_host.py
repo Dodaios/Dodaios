@@ -94,6 +94,32 @@ def host(monkeypatch):
     return picker_host.PickerHost(), children
 
 
+async def test_the_area_switch_goes_out_with_start_and_comes_back_saved(host, monkeypatch):
+    owner, children = host
+    saved: list[dict] = []
+    from dodaios.core import config_writer
+
+    monkeypatch.setattr(config_writer, "set_appshot_settings", saved.append)
+    await owner.prewarm()
+    proc = children[0]
+    proc.finish = False
+    try:
+        task = asyncio.create_task(owner.pick(5, "en", keep_area=True))
+        await asyncio.to_thread(proc.started.wait, 2)
+        assert proc.commands[-1]["keep_area"] is True
+        proc.stdout.emit({"event": wire.EVENT_OPTION, "keep_area": False})
+        proc.stdout.emit({"event": wire.EVENT_SELECTION, "cancelled": True})
+        payload, _code, _timed_out = await task
+        assert payload["cancelled"]
+        for _ in range(50):
+            if saved:
+                break
+            await asyncio.sleep(0.02)
+        assert saved == [{"region_keep_area": False}]
+    finally:
+        await owner.close()
+
+
 async def test_standby_never_requests_pixels_and_repeated_picks_reuse_process(host):
     owner, children = host
     try:

@@ -12,7 +12,7 @@
  * Pure: facts in, i18n keys + variables out. The component only renders.
  */
 import { fill } from "@/i18n";
-import type { SubAgentNode } from "@/store/jarvisAgents";
+import type { SubAgentNode } from "@/store/dodaiosAgents";
 import { type AgentOutcome, splitReason, REASON_LABEL_KEYS } from "./outcome";
 
 type T = (key: string) => string;

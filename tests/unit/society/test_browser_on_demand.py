@@ -62,7 +62,7 @@ async def test_cold_agent_and_routine_start_reuse_and_reopen_browser(
     )
     cfg = SimpleNamespace(wiki=SimpleNamespace(vault_root=str(tmp_path / "vault")))
     briefing = await society_system_extra(cfg, None, session)
-    assert "starts the browser automatically" in briefing
+    assert "your own persistent browser profile, starts on demand" in briefing
     assert "Not set up" not in briefing
     assert not installs and not runtime.browser.live.sessions
     tools = society_tools(cfg, None, session)

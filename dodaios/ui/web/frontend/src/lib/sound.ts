@@ -1,6 +1,6 @@
 /**
  * A tiny, dependency-free confirmation chime for UI affordances (currently the
- * JarvisDock "mission captured" feedback). WebAudio is a browser built-in, so
+ * DodaiosDock "mission captured" feedback). WebAudio is a browser built-in, so
  * this works on any cloud-first client and adds nothing to the bundle.
  *
  * Brief from the product: quiet and smooth. Two soft sine voices a gentle

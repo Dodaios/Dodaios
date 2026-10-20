@@ -5,7 +5,7 @@ import {
   Loader2, RefreshCw, Sparkles, Trash2, Upload, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { openExternalUrl } from "@/lib/openExternal";
+import { openLinkInIdeBrowser } from "@/components/agentic/sidePanel/browser/ideBrowserLinks";
 import {
   GitApiError, commitAll, fetchRemotes, folderName, inspectGit, mergeBack, openPullRequest, prepareGit,
   pruneWorktrees, pushBranch, removeWorktree, type GitRepoInfo, type GitWorktree,
@@ -133,7 +133,7 @@ export function GitPanelDialog({ open, onOpenChange, folder, workspace, onOpenWo
           {notice && <div role={notice.tone === "error" ? "alert" : "status"}
             className={cn("rounded-lg border px-3 py-2 text-sm", notice.tone === "error" ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border bg-muted/40")}>
             {notice.text}
-            {notice.url && <button type="button" aria-label={t("ide_git.open_link")} onClick={() => void openExternalUrl(notice.url!)} className="ml-2 inline-flex items-center gap-1 font-medium underline underline-offset-2">{t("ide_git.open")} <ExternalLink className="h-3 w-3" /></button>}
+            {notice.url && <button type="button" aria-label={t("ide_git.open_link")} onClick={() => void openLinkInIdeBrowser(notice.url!)} className="ml-2 inline-flex items-center gap-1 font-medium underline underline-offset-2">{t("ide_git.open")} <ExternalLink className="h-3 w-3" /></button>}
           </div>}
 
           {!info ? <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{t("ide_git.reading_repo")}</p>

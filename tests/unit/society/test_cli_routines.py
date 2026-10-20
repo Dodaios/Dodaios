@@ -13,7 +13,7 @@ from dodaios.agent_chat.tool_context import register_turn, restore_turn, unregis
 from dodaios.brain.tool_gateway import BrainSupervisorToolGateway
 from dodaios.core import runtime_refs
 from dodaios.core.protocols import ChatTurn, current_chat_turn
-from dodaios.mcp.jarvis_tools_server import CHAT_SESSION_REF, build_server
+from dodaios.mcp.dodaios_tools_server import CHAT_SESSION_REF, build_server
 from dodaios.society.runtime import SocietyRuntime
 from dodaios.society.surface import tools_for_cli_session
 from dodaios.tasks.context import client_timezone
@@ -227,14 +227,14 @@ def test_context_cleanup_and_isolation():
 
 
 def test_resumed_society_seat_refreshes_routine_contract(monkeypatch, tmp_path):
-    from dodaios.agent_chat import jarvis_harness, runner_cli
+    from dodaios.agent_chat import dodaios_harness, runner_cli
 
     monkeypatch.setattr(runner_cli, "codex_argv_prefix", lambda: ["codex"])
-    monkeypatch.setattr(jarvis_harness, "control_key", lambda: "test-key")
+    monkeypatch.setattr(dodaios_harness, "control_key", lambda: "test-key")
     monkeypatch.setattr(
-        jarvis_harness, "endpoint", lambda: "http://localhost:47821/api/control/mcp/"
+        dodaios_harness, "endpoint", lambda: "http://localhost:47821/api/control/mcp/"
     )
-    identity = jarvis_harness.Identity(
+    identity = dodaios_harness.Identity(
         session_id="society:scout", text="LARGE OLD IDENTITY", compact="old", path=None
     )
     plan = runner_cli.plan_codex(
@@ -262,23 +262,25 @@ def test_resumed_society_seat_refreshes_routine_contract(monkeypatch, tmp_path):
     for session_id in (None, "ordinary-chat"):
         assert not any(
             "default_tools_approval_mode" in arg
-            for arg in jarvis_harness.codex_config_args(session_id)
+            for arg in dodaios_harness.codex_config_args(session_id)
         )
-    assert "society_propose_change" in plan.stdin_text
+    # The routine contract lives in the tool descriptions, sent fresh by MCP;
+    # the resumed turn carries only the memory refresh, never the old identity.
+    assert "<current_agent_memory>" in plan.stdin_text
     assert "LARGE OLD IDENTITY" not in plan.stdin_text
     assert plan.stdin_text.endswith("Check comments every hour")
     assert "test-key" not in " ".join(plan.argv)
 
 
 def test_routine_approval_delegation_is_only_for_society(monkeypatch):
-    from dodaios.agent_chat import jarvis_harness
+    from dodaios.agent_chat import dodaios_harness
 
-    monkeypatch.setattr(jarvis_harness, "control_key", lambda: "test-key")
+    monkeypatch.setattr(dodaios_harness, "control_key", lambda: "test-key")
     monkeypatch.setattr(
-        jarvis_harness, "endpoint", lambda: "http://localhost:47821/api/control/mcp/"
+        dodaios_harness, "endpoint", lambda: "http://localhost:47821/api/control/mcp/"
     )
     for session_id in (None, "ordinary-chat"):
         assert not any(
             "default_tools_approval_mode" in arg
-            for arg in jarvis_harness.codex_config_args(session_id)
+            for arg in dodaios_harness.codex_config_args(session_id)
         )

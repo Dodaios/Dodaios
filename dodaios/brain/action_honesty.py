@@ -23,6 +23,8 @@ import unicodedata
 from collections.abc import Collection
 from typing import NamedTuple
 
+from dodaios.i18n import catalog as i18n_catalog
+
 
 def _normalize(text: str) -> str:
     folded = unicodedata.normalize("NFKD", str(text or "").casefold())
@@ -230,24 +232,9 @@ _MIN_SUBSTANCE_TOKENS = 2
 # shares this predicate) keeps its established suppression boundary.
 _MAX_BARE_COMMITMENT_TAIL = 24
 
-_ACTION_NOT_STARTED_PHRASES: dict[str, str] = {
-    "de": (
-        "Ich habe dafür gerade keine Aktion gestartet "  # i18n-allow: runtime voice phrase
-        "und deshalb noch kein Ergebnis. "  # i18n-allow: runtime voice phrase
-        "Bitte sag es noch einmal."  # i18n-allow: runtime voice phrase
-    ),  # i18n-allow: German runtime voice/chat output
-    "en": (
-        "I did not start an action for that, so I do not have a result yet. Please ask me again."
-    ),
-    "es": (
-        "No inicié ninguna acción para eso, así que todavía no tengo un "
-        "resultado. Pídemelo de nuevo."
-    ),  # i18n-allow: Spanish runtime voice/chat output
-    "pt": (  # i18n-allow
-        "Não iniciei nenhuma ação para isso, por isso ainda não tenho um resultado. Pede-mo "
-        "outra vez."  # i18n-allow
-    ),  # i18n-allow
-}
+_ACTION_NOT_STARTED_PHRASES: dict[str, str] = i18n_catalog.table(
+    "brain.action_honesty.action_not_started_phrases"
+)
 
 
 class _Clause(NamedTuple):

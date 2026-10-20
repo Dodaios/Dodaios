@@ -1952,7 +1952,7 @@ body {
   }
 
   /* -----------------------------------------------------------
-     The orb moves with the voice (DeckOrb.tsx, JarvisOrb.tsx).
+     The orb moves with the voice (DeckOrb.tsx, DodaiosOrb.tsx).
      `--orb-level` is ONE number, 0..1, on the orb's root — the real
      microphone while listening, a speech-shaped envelope while the
      assistant speaks, a heartbeat while it thinks (lib/orbLevel.ts)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -11,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from dodaios.agentic_ide import file_editing
+from dodaios.agentic_ide import delete_undo, file_editing
 from dodaios.agentic_ide.file_editing import (
     EditConflict,
     EditError,
@@ -305,6 +306,8 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         get=lambda workspace_id: session if workspace_id == "workspace-1" else None
     )
     monkeypatch.setattr(routes, "get_registry", lambda: registry)
+    # Undo copies of deleted entries go to the test's folder, never the user's.
+    monkeypatch.setattr(delete_undo, "_store_root", lambda: tmp_path / "undo-store")
     return root
 
 
@@ -408,3 +411,48 @@ def test_save_keeps_the_file_mode(tmp_path: Path) -> None:
     write_text_file(tmp_path, "run.sh", "echo bye\n", expected_version=loaded.version)
 
     assert script.stat().st_mode & 0o777 == 0o755
+
+
+async def test_delete_route_keeps_a_copy_that_restore_puts_back(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (workspace / "src").mkdir()
+    (workspace / "src" / "a.txt").write_text("hello", encoding="utf-8")
+    def fake_trash(target: Path) -> bool:
+        shutil.rmtree(target)
+        return True
+
+    monkeypatch.setattr(file_editing, "_move_to_trash", fake_trash)
+    answer = await routes.delete_workspace_entry(
+        "workspace-1", routes.DeleteWorkspaceEntryRequest(path="src")
+    )
+    assert answer["trashed"] is True
+    assert not (workspace / "src").exists()
+    token = answer["undo_token"]
+    assert isinstance(token, str)
+
+    restored = await routes.restore_workspace_entry(
+        "workspace-1", routes.RestoreWorkspaceEntryRequest(token=token)
+    )
+    assert restored["path"] == "src"
+    assert (workspace / "src" / "a.txt").read_text(encoding="utf-8") == "hello"
+
+    # A token is used once.
+    with pytest.raises(HTTPException) as caught:
+        await routes.restore_workspace_entry(
+            "workspace-1", routes.RestoreWorkspaceEntryRequest(token=token)
+        )
+    assert caught.value.status_code == 409
+
+
+async def test_failed_delete_drops_its_undo_copy(
+    workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (workspace / "a.txt").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(file_editing, "_move_to_trash", lambda target: False)
+    with pytest.raises(HTTPException):
+        await routes.delete_workspace_entry(
+            "workspace-1", routes.DeleteWorkspaceEntryRequest(path="a.txt")
+        )
+    store = tmp_path / "undo-store"
+    assert not store.exists() or not any(store.iterdir())

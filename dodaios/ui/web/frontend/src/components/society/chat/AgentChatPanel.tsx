@@ -86,6 +86,7 @@ import { AgentModelPicker } from "./AgentModelPicker";
 import { mentionChoice, messageChoices } from "./mentionChoices";
 import { ChatCommandPanel, useChatCommands } from "@/components/agentchat/ChatCommands";
 import { useTranscriptView } from "./useTranscriptView";
+import { societyResultHeadline, societyResultText } from "@/lib/skipReasons";
 import {
   buildMentionCatalog,
   codingMentionsInText,
@@ -838,14 +839,11 @@ export function NoticeLine({ item }: { item: NoticeItem }) {
   if (item.kind === "native_goal_verdict") return <p className="py-1 text-xs text-muted-foreground">{t("slash.verifying")}</p>;
   const headline =
     item.kind === "society_result"
-      ? t(item.status === "done" ? "society.chat.result_done" : "society.chat.result_blocked").replace(
-          "{0}",
-          item.agentName || t("society.chat.result_agent"),
-        )
+      ? societyResultHeadline(t, item)
       : item.agentName;
   return (
     <ChatActivity label={headline || item.text.split("\n")[0]} failed={item.status === "blocked" || item.resolved === "failed"}>
-      {item.text ? <ChatMarkdown text={item.text} className="leading-relaxed" /> : null}
+      {item.text ? <ChatMarkdown text={item.kind === "society_result" ? societyResultText(t, item) : item.text} className="leading-relaxed" /> : null}
     </ChatActivity>
   );
 }

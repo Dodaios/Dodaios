@@ -84,6 +84,7 @@ from pydantic import BaseModel, Field
 from dodaios.agentic_ide import (
     agent_transcript,
     change_authors,
+    delete_undo,
     drop_analysis,
     drops,
     editor_backups,
@@ -93,6 +94,7 @@ from dodaios.agentic_ide import (
     layout_tree,
     native_picker,
     notifications,
+    outside_files,
     pane_changes,
     prompt_attachments,
     prompt_history,
@@ -147,7 +149,9 @@ from dodaios.agentic_ide.workspace_view import (
     WORKSPACE_VIEWS,
     view_from_legacy_chat_flag,
 )
+from dodaios.core import presence
 
+from .control_auth import person_at_window
 from .surface_security import credentials_valid, is_loopback_request
 
 log = logging.getLogger(__name__)
@@ -1136,6 +1140,12 @@ class DeleteWorkspaceEntryRequest(BaseModel):
     permanent: bool = False
 
 
+class RestoreWorkspaceEntryRequest(BaseModel):
+    """Undo a delete: put the copy kept under ``token`` back where it was."""
+
+    token: str = Field(min_length=1, max_length=64)
+
+
 class SearchResponse(BaseModel):
     query: str
     entries: list[FolderItem]
@@ -1200,6 +1210,16 @@ class NativePickResponse(BaseModel):
         default=False, description="True when the user closed the window without choosing."
     )
     error: str | None = Field(default=None, description="Why no folder came back.")
+
+
+class GrantOutsideFileRequest(BaseModel):
+    """A file path Ctrl/Cmd-clicked in a terminal, possibly outside the workspace."""
+
+    path: str = Field(
+        min_length=1,
+        max_length=4096,
+        description="Printed path or file URI, optionally with a line and column suffix.",
+    )
 
 
 class OpenTerminalTargetRequest(BaseModel):
@@ -2076,14 +2096,10 @@ _TERMINAL_LOCATION_SUFFIX = re.compile(
 )
 
 
-def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
-    """Resolve a printed path without letting terminal output escape its workspace.
+def _printed_path(printed: str) -> Path:
+    """The path a terminal printed, unquoted and without a line locator.
 
-    Coding-CLI output is untrusted. A modifier-click is deliberate, but it must
-    still not turn an OSC-8 payload into an arbitrary local file launcher.
-    Relative and absolute paths must therefore resolve inside the pane's own
-    workspace, including after symlinks are followed. Common line/column
-    locators are accepted because compilers and agents routinely print them.
+    Neither resolved nor confined: see :func:`_resolve_terminal_target`.
     """
     value = printed.strip()
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'", "`"}:
@@ -2108,9 +2124,20 @@ def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
             raise ValueError("invalid file URI")
     elif "://" in value:
         raise ValueError("unsupported URI scheme")
+    return Path(value).expanduser()
 
+
+def _resolve_terminal_target(workspace_folder: str, printed: str) -> Path:
+    """Resolve a printed path without letting terminal output escape its workspace.
+
+    Coding-CLI output is untrusted. A modifier-click is deliberate, but it must
+    still not turn an OSC-8 payload into an arbitrary local file launcher.
+    Relative and absolute paths must therefore resolve inside the pane's own
+    workspace, including after symlinks are followed. Common line/column
+    locators are accepted because compilers and agents routinely print them.
+    """
     root = Path(workspace_folder).expanduser().resolve(strict=True)
-    candidate = Path(value).expanduser()
+    candidate = _printed_path(printed)
     if not candidate.is_absolute():
         candidate = root / candidate
     target = candidate.resolve(strict=True)
@@ -2136,7 +2163,10 @@ def _resolve_workspace_file(workspace_id: str, path: str) -> Path:
     if session is None:
         raise HTTPException(status_code=404, detail="That workspace is not open.")
     try:
-        target = _resolve_terminal_target(session.folder, path)
+        if file_editing.is_outside_key(path):
+            target = outside_files.granted_target(session.folder, path)
+        else:
+            target = _resolve_terminal_target(session.folder, path)
     except (OSError, RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=404, detail="That workspace file is unavailable.") from exc
     if not target.is_file():
@@ -2227,8 +2257,32 @@ def _workspace_folder(workspace_id: str) -> str:
     return str(session.folder)
 
 
-def _text_file_response(workspace_id: str, loaded: file_editing.TextFile) -> dict[str, object]:
-    return {"workspace_id": workspace_id, **asdict(loaded)}
+def _text_file_response(
+    workspace_id: str, loaded: file_editing.TextFile, path: str | None = None
+) -> dict[str, object]:
+    """``path`` replaces the loaded path for a file opened from outside the workspace."""
+    answer: dict[str, object] = {"workspace_id": workspace_id, **asdict(loaded)}
+    if path is not None:
+        answer["path"] = path.replace("\\", "/")
+    return answer
+
+
+def _editor_location(workspace_id: str, path: str) -> tuple[str, str, bool]:
+    """Where an editor path lives: (folder, path inside it, outside the workspace).
+
+    A workspace file is addressed relative to the workspace. A file opened
+    from outside it (an absolute path) must have been granted by a
+    modifier-click; it is then addressed by name inside its own folder, so the
+    usual containment and ``.git`` checks still apply.
+    """
+    folder = _workspace_folder(workspace_id)
+    if not file_editing.is_outside_key(path):
+        return folder, path, False
+    try:
+        target = outside_files.granted_target(folder, path)
+    except file_editing.EditError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return str(target.parent), target.name, True
 
 
 @router.get(
@@ -2247,16 +2301,16 @@ async def get_workspace_text_file(
     and a byte-order mark come back as they are on disk. ``encoding`` forces
     how the bytes are read ("Reopen with encoding"); otherwise it is detected.
     """
-    folder = _workspace_folder(workspace_id)
+    folder, relative, outside = _editor_location(workspace_id, path)
     try:
         loaded = await asyncio.to_thread(
-            file_editing.read_text_file, folder, path, encoding=encoding
+            file_editing.read_text_file, folder, relative, encoding=encoding
         )
     except file_editing.EditError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
         raise HTTPException(status_code=404, detail="That workspace file is unavailable.") from exc
-    return _text_file_response(workspace_id, loaded)
+    return _text_file_response(workspace_id, loaded, path if outside else None)
 
 
 @router.get(
@@ -2268,9 +2322,9 @@ async def get_workspace_text_file_version(workspace_id: str, path: str) -> dict[
 
     ``version`` is null when the file no longer exists.
     """
-    folder = _workspace_folder(workspace_id)
+    folder, relative, _ = _editor_location(workspace_id, path)
     try:
-        version = await asyncio.to_thread(file_editing.file_version, folder, path)
+        version = await asyncio.to_thread(file_editing.file_version, folder, relative)
     except file_editing.EditError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
@@ -2296,12 +2350,12 @@ async def save_workspace_text_file(
     Answers 409 with ``current_version`` when the file changed on disk since
     the editor loaded it, so an agent's edit is never silently overwritten.
     """
-    folder = _workspace_folder(workspace_id)
+    folder, relative, outside = _editor_location(workspace_id, req.path)
     try:
         saved = await asyncio.to_thread(
             file_editing.write_text_file,
             folder,
-            req.path,
+            relative,
             req.text,
             expected_version=req.expected_version,
             encoding=req.encoding,
@@ -2317,7 +2371,7 @@ async def save_workspace_text_file(
     except OSError as exc:
         log.warning("Agentic IDE editor: save failed for %s: %s", req.path, exc)
         raise HTTPException(status_code=500, detail="The file could not be saved.") from exc
-    return _text_file_response(workspace_id, saved)
+    return _text_file_response(workspace_id, saved, req.path if outside else None)
 
 
 @router.get(
@@ -2333,6 +2387,9 @@ async def get_workspace_head_text(
     ``text`` is null for a file git does not know (new, or not a repository).
     """
     folder = _workspace_folder(workspace_id)
+    if file_editing.is_outside_key(path):
+        # A file outside the workspace has no committed version here.
+        return {"workspace_id": workspace_id, "path": path.replace("\\", "/"), "text": None}
     try:
         text = await asyncio.to_thread(git_changes.head_text, folder, path, ref)
     except ValueError as exc:
@@ -2465,6 +2522,9 @@ async def python_intel(
         "definition": python_intel_module.definitions,
     }[action]
     empty: object = None if action == "hover" else []
+    if file_editing.is_outside_key(req.path):
+        # The workspace is the import root; a file outside it gets no analysis.
+        return {"workspace_id": workspace_id, "result": empty}
     try:
         result = await asyncio.wrap_future(
             python_intel_module.submit(
@@ -2565,22 +2625,68 @@ async def copy_workspace_entry(
 async def delete_workspace_entry(
     workspace_id: str, req: DeleteWorkspaceEntryRequest
 ) -> dict[str, object]:
-    """Move to the system trash; 409 ``trash_unavailable`` asks for a permanent delete."""
+    """Move to the system trash; 409 ``trash_unavailable`` asks for a permanent delete.
+
+    A copy of a small entry is kept first; ``undo_token`` (null when it was
+    too large) lets the explorer's Undo put it back.
+    """
     folder = _workspace_folder(workspace_id)
+    token: str | None = None
     try:
+        token = await asyncio.to_thread(delete_undo.keep, folder, req.path)
         trashed = await asyncio.to_thread(
             file_editing.delete_entry, folder, req.path, permanent=req.permanent
         )
     except file_editing.TrashUnavailable as exc:
+        await asyncio.to_thread(delete_undo.discard, token)
         raise HTTPException(
             status_code=409, detail={"message": str(exc), "trash_unavailable": True}
         ) from exc
     except file_editing.EditError as exc:
+        await asyncio.to_thread(delete_undo.discard, token)
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
+        await asyncio.to_thread(delete_undo.discard, token)
         log.warning("Agentic IDE editor: delete failed for %s: %s", req.path, exc)
         raise HTTPException(status_code=500, detail="It could not be deleted.") from exc
-    return {"workspace_id": workspace_id, "path": req.path, "trashed": trashed}
+    return {
+        "workspace_id": workspace_id,
+        "path": req.path,
+        "trashed": trashed,
+        "undo_token": token,
+    }
+
+
+@router.post(
+    "/workspaces/{workspace_id}/entries/restore",
+    summary="Undo a delete in a workspace",
+)
+async def restore_workspace_entry(
+    workspace_id: str, req: RestoreWorkspaceEntryRequest
+) -> dict[str, object]:
+    folder = _workspace_folder(workspace_id)
+    try:
+        restored = await asyncio.to_thread(delete_undo.restore, folder, req.token)
+    except file_editing.EditError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except OSError as exc:
+        log.warning("Agentic IDE editor: restore failed: %s", exc)
+        raise HTTPException(status_code=500, detail="It could not be restored.") from exc
+    return {"workspace_id": workspace_id, "path": restored}
+
+
+def _launch_target(folder: str, printed: str) -> Path:
+    """A workspace path, or a file the editor opened from outside the workspace."""
+    if file_editing.is_outside_key(printed):
+        try:
+            target = outside_files.granted_target(folder, printed)
+        except file_editing.EditError as exc:
+            log.debug("Agentic IDE terminal target: not an outside file (%s)", exc)
+            return _resolve_terminal_target(folder, printed)
+        if not target.is_file():
+            raise ValueError("outside file is gone")
+        return target
+    return _resolve_terminal_target(folder, printed)
 
 
 async def _launch_terminal_target(
@@ -2604,7 +2710,7 @@ async def _launch_terminal_target(
     if session is None:
         raise HTTPException(status_code=404, detail="That workspace is not open.")
     try:
-        target = await asyncio.to_thread(_resolve_terminal_target, session.folder, req.target)
+        target = await asyncio.to_thread(_launch_target, session.folder, req.target)
     except (OSError, RuntimeError, ValueError) as exc:
         # One answer for missing, malformed and outside-workspace paths: never
         # disclose through a crafted terminal payload which local file exists.
@@ -2651,6 +2757,60 @@ async def reveal_terminal_target(
     have launched the file.
     """
     return await _launch_terminal_target(request, req, reveal=True)
+
+
+def _grant_outside_file(folder: str, printed: str) -> tuple[str, str]:
+    """What a modifier-clicked path is: (editor path, "file" or "directory").
+
+    A file outside the workspace is granted to the editor. A folder only counts
+    inside the workspace, where the Folder tab can show it.
+    """
+    candidate = _printed_path(printed)
+    root = Path(folder).expanduser().resolve(strict=True)
+    if not candidate.is_absolute():
+        # Agents often name a file in the person's home folder without it
+        # ("Downloads\notes.md"); the workspace still wins when both exist.
+        local = root / candidate
+        home = Path.home() / candidate
+        candidate = local if local.exists() or not home.is_file() else home
+    target = candidate.resolve(strict=True)
+    inside = target.is_relative_to(root)
+    if inside and target.is_dir() and target != root:
+        return target.relative_to(root).as_posix(), "directory"
+    if not target.is_file():
+        raise ValueError("not a file")
+    if inside:
+        return target.relative_to(root).as_posix(), "file"
+    return outside_files.grant(folder, target), "file"
+
+
+@router.post(
+    "/workspaces/{workspace_id}/outside-files",
+    summary="Let the code editor open a file the person clicked outside the workspace",
+)
+async def grant_outside_file(
+    request: Request, workspace_id: str, req: GrantOutsideFileRequest
+) -> dict[str, object]:
+    """A Ctrl/Cmd-click on a file outside the workspace opens it in the editor.
+
+    Terminal output stays untrusted: only this deliberate click, on the
+    computer running Dodaios, adds one file to the workspace's list of outside
+    files. The answer is the path the editor uses for it: absolute for a file
+    outside the workspace, relative for one inside it.
+    """
+    if not is_loopback_request(request.scope):
+        raise HTTPException(
+            status_code=403,
+            detail="Outside files can only be opened on the computer running Dodaios.",
+        )
+    folder = _workspace_folder(workspace_id)
+    try:
+        path, kind = await asyncio.to_thread(_grant_outside_file, folder, req.path)
+    except (OSError, RuntimeError, ValueError) as exc:
+        # EditError is a ValueError too. One answer for every refusal.
+        raise HTTPException(status_code=404, detail="That file is unavailable.") from exc
+    log.info("Agentic IDE editor: opened file workspace=%s path=%s", workspace_id, path)
+    return {"workspace_id": workspace_id, "path": path, "kind": kind}
 
 
 @router.get("/recents", response_model=RecentsResponse, summary="Recently opened workspaces")
@@ -5174,6 +5334,10 @@ async def terminal_prompt(
                 "dry_run": True,
             }
 
+        # Typed at the window (prompt bar, pane chat, launcher), not a brief the
+        # brain or an agent sent through this route: the person's own words,
+        # which the self-building loop may count (docs/self-build.md).
+        by_person = person_at_window(request)
         try:
             # The receipt beside the brief: the sentence as typed and the files
             # that went with it, for the pane's chat stage (prompt_receipts).
@@ -5183,9 +5347,14 @@ async def terminal_prompt(
                 workspace_id=found[0].id,
                 typed=req.prompt,
                 attachments=attachments,
+                origin="person" if by_person else "",
             )
         except SessionError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if by_person:
+            from dodaios.self_build.app import pane_prompt_recorded
+
+            pane_prompt_recorded(term.history_id)
 
         # Say out loud that a prompt went in.
         #
@@ -5588,6 +5757,8 @@ async def agentic_pty(ws: WebSocket, name: str) -> None:
                     )
                 else:
                     registry.write(term.key, data, pane_workspace)
+                    # The pane's own viewer: the person at the keyboard.
+                    presence.note(presence.PANE)
             elif kind == "r":
                 # ``on_output`` identifies THIS socket. A pane open in two
                 # places has two viewers and one pseudo-terminal, so a size
@@ -5752,7 +5923,7 @@ def _tool_model_option() -> PromptWriterOption:
         )
     # Plain ASCII separator: this label is rendered in the desktop UI but also
     # printed by `jarvis api agentic-ide prompt-writer`, and a terminal's
-    # encoding is not ours to assume (AGENTS.md §5, Windows defaults to cp1252).
+    # encoding is not ours to assume (Windows defaults to cp1252).
     detail = f"{_provider_label(provider)}"
     if model:
         detail = f"{detail} - {model}"

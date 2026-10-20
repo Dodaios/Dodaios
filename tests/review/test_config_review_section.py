@@ -83,7 +83,7 @@ def test_rubric_items_not_empty() -> None:
 
 def test_example_config_uses_valid_review_defaults() -> None:
     """The public example remains valid when the review section is omitted."""
-    jarvis_toml = REPO_ROOT / "jarvis.toml.example"
+    jarvis_toml = REPO_ROOT / "dodaios.toml.example"
     assert jarvis_toml.exists()
 
     raw = tomllib.loads(jarvis_toml.read_text(encoding="utf-8"))

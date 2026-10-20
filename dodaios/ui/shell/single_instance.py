@@ -3,10 +3,13 @@
 **Two-layer strategy:**
 
 1. **Atomic primary claim with kernel-guaranteed crash cleanup:**
-   a named mutex via pywin32 on Windows, an exclusive non-blocking
+   named mutexes via pywin32 on Windows, an exclusive non-blocking
    ``flock`` on ``instance.lock`` on POSIX. In both cases the OS releases
    the claim when the process dies (handle close / fd close), so there are
-   no stale locks to garbage-collect.
+   no stale locks to garbage-collect. On Windows the primary holds the
+   mutex under its current name AND under every name an earlier release
+   used: a process that finds any of them taken is a secondary, so an old
+   and a new release never run side by side (``dodaios.core.branding``).
 
 2. **Session file** (``<user-app-dir>/session.json``) — stores the port +
    token of the running primary instance, so a secondary can ping it on
@@ -15,7 +18,7 @@
 
 Flow when a secondary starts:
 
-1. Mutex claim fails → a primary already exists.
+1. A mutex claim fails (any name) → a primary already exists.
 2. Read the session file → port+token → HTTP POST.
 3. The primary brings its window to the front, the secondary exits.
 4. If the session file is missing / the HTTP call fails → the primary is a
@@ -36,9 +39,13 @@ import httpx
 from dodaios.core.instance import current_instance
 from dodaios.core.paths import ensure_user_dirs
 
-# Per instance (``dodaios.core.instance``): the dev app claims its own mutex so
-# it never reads the live app as "already running".
+# Per instance (``dodaios.core.instance``): the dev app claims its own mutexes
+# so it never reads the live app as "already running".
 MUTEX_NAME = current_instance().windows_mutex_name
+#: The names an earlier release's primary of this instance holds. Claimed too.
+LEGACY_MUTEX_NAMES = current_instance().legacy_windows_mutex_names
+#: Every name a primary claims, the current one first.
+MUTEX_NAMES = (MUTEX_NAME, *LEGACY_MUTEX_NAMES)
 
 logger = logging.getLogger(__name__)
 
@@ -61,22 +68,23 @@ def _app_data_dir() -> Path:
 @dataclass(slots=True)
 class InstanceClaim:
     """Handle to the active claim — call `release()` on shutdown."""
-    _mutex: Any = None
+    _mutexes: tuple[Any, ...] = ()
     _lock_fd: int | None = None
     _session_file: Path | None = None
 
     def release(self) -> None:
-        # Release the Windows mutex
-        if self._mutex is not None:
+        # Release the Windows mutexes, every name the claim holds
+        for mutex in self._mutexes:
             try:
                 import win32api  # type: ignore[import-not-found]
                 import win32event  # type: ignore[import-not-found]
 
-                win32event.ReleaseMutex(self._mutex)
-                win32api.CloseHandle(self._mutex)
-            except Exception:  # noqa: BLE001
-                pass
-            self._mutex = None
+                win32event.ReleaseMutex(mutex)
+                win32api.CloseHandle(mutex)
+            except Exception as exc:  # noqa: BLE001
+                # The kernel still releases the mutex when this process exits.
+                logger.debug("Could not release a mutex: %s", exc)
+        self._mutexes = ()
         # Release the POSIX flock (closing the fd drops the kernel lock)
         if self._lock_fd is not None:
             try:
@@ -121,7 +129,7 @@ class SingleInstance:
         """Primary claim — returns an `InstanceClaim`, or None if another
         process is already active.
         """
-        if os.name != "nt":
+        if not _is_windows():
             return self._try_claim_posix()
         try:
             import win32event  # type: ignore[import-not-found]
@@ -130,21 +138,19 @@ class SingleInstance:
             # Windows without pywin32 — no mutex available, report as primary
             # (the load-bearing launcher lock still enforces exclusivity).
             self._on_primary_claim()
-            return InstanceClaim(_mutex=None, _session_file=self.session_file)
+            return InstanceClaim(_session_file=self.session_file)
 
-        mutex = win32event.CreateMutex(None, False, MUTEX_NAME)
-        last_error = _get_last_error()
-        if last_error == winerror.ERROR_ALREADY_EXISTS:
-            # Already active — close the handle right away.
-            try:
-                import win32api
-
-                win32api.CloseHandle(mutex)
-            except Exception:  # noqa: BLE001
-                pass
-            return None
+        handles: list[Any] = []
+        for name in MUTEX_NAMES:
+            handles.append(win32event.CreateMutex(None, False, name))
+            if _get_last_error() == winerror.ERROR_ALREADY_EXISTS:
+                # A primary of this or an earlier release is active. Drop
+                # every handle taken so far, so the names this process did
+                # create vanish with it and never block the next start.
+                _close_handles(handles)
+                return None
         self._on_primary_claim()
-        return InstanceClaim(_mutex=mutex, _session_file=self.session_file)
+        return InstanceClaim(_mutexes=tuple(handles), _session_file=self.session_file)
 
     def _try_claim_posix(self) -> InstanceClaim | None:
         """POSIX primary claim via an exclusive non-blocking ``flock``.
@@ -223,6 +229,23 @@ class SingleInstance:
             return r.status_code == 200
         except httpx.HTTPError:
             return False
+
+
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
+def _close_handles(handles: list[Any]) -> None:
+    try:
+        import win32api  # type: ignore[import-not-found]
+    except ImportError:
+        return  # without pywin32 no mutex handle was ever created
+    for handle in handles:
+        try:
+            win32api.CloseHandle(handle)
+        except Exception as exc:  # noqa: BLE001
+            # The kernel still closes the handle when this process exits.
+            logger.debug("Could not close a mutex handle: %s", exc)
 
 
 def _get_last_error() -> int:

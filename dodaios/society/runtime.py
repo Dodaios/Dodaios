@@ -127,6 +127,26 @@ def _turn_alive(svc: Any, session_id: str) -> bool:
         return True
 
 
+def _pause_self_build() -> bool:
+    """The society kill switch also pauses the self-building loop.
+
+    Stopping every agent while the loop keeps building new ones would make the
+    switch a half stop. Releasing the kill switch does not resume the loop:
+    the person resumes it in "Built for you" (docs/self-build.md).
+    """
+    try:
+        from dodaios.self_build import current as current_self_build
+
+        service = current_self_build()
+        if service is None:
+            return False
+        service.set_paused(True)
+        return True
+    except Exception:  # noqa: BLE001 — the kill switch itself must never fail on this
+        log.warning("society kill switch: pausing the self-build loop failed", exc_info=True)
+        return False
+
+
 def _agent_frame(agent: AgentRecord, task: str, config: Any = None) -> str:
     """The mission prompt that carries the agent's identity to a worker."""
     name = display_name(agent, config)
@@ -1019,7 +1039,7 @@ class SocietyRuntime:
                     # A quiet poll found no terminal event. A turn whose task has
                     # ended without writing one (a runner that returned early, a
                     # failed final write) would otherwise hold this agent's slot
-                    # and Jarvis's report forever.
+                    # and the lead's report forever.
                     polled = False
                     gone_polls = 0 if _turn_alive(svc, session_id) else gone_polls + 1
                     if gone_polls >= _WATCH_GONE_POLLS:
@@ -1290,6 +1310,7 @@ class SocietyRuntime:
 
     async def engage_kill_switch(self) -> dict[str, Any]:
         await self.store.set_kill_switch(True)
+        building_paused = _pause_self_build()
         halted = await self.scheduler.halt_all()
         goals_paused = await self.team_leads.halt()
         await self._cancel_active_society_chats()
@@ -1313,6 +1334,7 @@ class SocietyRuntime:
             "rooms_settled": settled,
             "missions_cancelled": killed,
             "team_goals_paused": goals_paused,
+            "self_build_paused": building_paused,
         }
 
     async def release_kill_switch(self) -> dict[str, Any]:
