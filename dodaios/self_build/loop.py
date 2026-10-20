@@ -2,14 +2,21 @@
 
 Wiring (all event-driven; nothing here runs on a timer that wakes a model):
 
-* **Observe.** Finished voice turns (``VoiceTurnCompleted``) and the person's
+* **Observe.** Finished voice turns (``VoiceTurnCompleted``), the person's
   own typed turns in the Jarvis chat and in agent chats (the chat surfaces'
-  completion hooks) go to the :class:`~.miner.Miner`. Turns an agent or a
-  routine started are dropped. Each turn costs one SQLite insert.
+  completion hooks), and the prompts the person typed to coding agents in the
+  IDE (``agentic_ide/prompt_history.py`` rows marked ``origin: person``) go
+  to the :class:`~.miner.Miner`. Turns an agent or a routine started, and
+  prompts the brain or an agent sent to a pane, are dropped. Each turn costs
+  one SQLite insert.
 * **Gate.** A need that crossed its threshold is checked without a model:
   an open build, a rejected or archived one, a recent "build nothing", earlier
   failed proofs, an installed skill that already serves it, and
-  :func:`~.policy.admit` for every candidate kind. Most needs stop here.
+  :func:`~.policy.admit` for every candidate kind. Agent chats feed needs by
+  one rule: a need seen only in one agent's chat belongs to that agent's own
+  learning (``society/learning.py``) and is left to it; a need that spans
+  agents, or agents and the assistant, is the loop's, unless one of those
+  agents already has a skill that serves it. Most needs stop here.
 * **Decide.** Needs that pass wait until the person has been quiet for
   :data:`QUIET_S`: no new turn, and no keyboard or mouse input and no typing
   in an IDE pane for that long (the idle reading the code builder uses,
@@ -21,9 +28,10 @@ Wiring (all event-driven; nothing here runs on a timer that wakes a model):
 * **Measure.** Uses are recorded from what really happens: a self-built skill
   fires (``SkillInvoked``) and is or is not corrected in the next turn, a
   self-built routine runs (``TaskCompleted``) or the person still asks by
-  hand, the person talks to a self-built agent, a self-built memory's topic
-  comes up with or without a correction. The service's hourly sweep settles
-  trials; kept builds unused for :data:`RETIRE_DAYS` are archived here.
+  hand, the person talks to a self-built agent, a self-built memory entry
+  that was in the prompt is relied on (:func:`.judge.memory_relied`) or
+  corrected. The service's hourly sweep settles trials; kept builds unused
+  for :data:`RETIRE_DAYS` are archived here.
 
 The kill switch (``POST /api/self-build/pause``), ``[self_build].enabled`` and
 the per-kind autonomy are read on every event, so pausing stops observation,
@@ -45,7 +53,7 @@ from . import brain, decide, judge, policy
 from .builders import KINDS, Builders, Env, need_json
 from .decide import Verdict
 from .ledger import now_ms
-from .miner import Miner, Need, Observation
+from .miner import PANE, WINDOW_DAYS, Miner, Need, Observation
 from .records import BuildRecord, Kind, Outcome, State, caller_for
 from .signals import SignalStore, TurnRow
 
@@ -73,6 +81,8 @@ CORRECTION_WINDOW_MS: Final[int] = 120_000
 ROUTINE_REACH_MS: Final[int] = 24 * 3_600_000
 #: Turn statuses that mean the assistant answered.
 _DONE: Final[frozenset[str]] = frozenset({"done", "ok", "completed"})
+#: Channels whose prompt carries the assistant's notebook (a memory can be used there).
+_NOTEBOOK_CHANNELS: Final[frozenset[str]] = frozenset({"voice", "chat"})
 
 _current: SelfBuildLoop | None = None
 
@@ -105,6 +115,11 @@ class SelfBuildLoop:
         self._last_skill: tuple[str, int, str | None] | None = None
         #: ``(build id, conversation)`` already counted, one use per conversation.
         self._counted: set[tuple[str, str]] = set()
+        #: conversation -> ``(memory build id, ms)`` of the last turn that relied
+        #: on a self-built memory: a correction right after it counts against it.
+        self._memory_hits: dict[str, tuple[str, int]] = {}
+        #: One reader of the IDE's prompt histories at a time.
+        self._pane_lock = asyncio.Lock()
         #: Model calls made by the decide step (diagnostics and tests).
         self.decide_calls = 0
 
@@ -137,6 +152,8 @@ class SelfBuildLoop:
         ):
             bus.subscribe(event_type, handler)
             self._subscriptions.append((event_type, handler))
+        # Pane prompts written while the loop was not running.
+        self._spawn(self.ingest_pane_prompts(), "pane-prompts")
 
     async def stop(self) -> None:
         for event_type, handler in self._subscriptions:
@@ -193,6 +210,7 @@ class SelfBuildLoop:
                     tools=tuple(str(t) for t in getattr(event, "tool_calls", ()) or ()),
                     lang=str(getattr(event, "user_lang", "") or ""),
                     ref=f"voice:{session}/{getattr(event, 'turn_id', '')}",
+                    answer=str(getattr(event, "jarvis_text", "") or ""),
                 )
             ),
             "observe",
@@ -227,6 +245,11 @@ class SelfBuildLoop:
             e.get("kind") == "tool_result" and (e.get("payload") or {}).get("is_error")
             for e in events
         )
+        answer = "".join(
+            str((e.get("payload") or {}).get("text") or "")
+            for e in events
+            if e.get("kind") == "assistant_text"
+        )
         agent_id = ""
         if surface == "society":
             from dodaios.society.surface import agent_id_of
@@ -242,6 +265,7 @@ class SelfBuildLoop:
                     failed=(bool(status) and status not in _DONE) or errors,
                     agent_id=agent_id,
                     ref=f"chat:{session.session_id}/{getattr(turn, 'turn_id', '')}",
+                    answer=answer[-4000:],
                 )
             ),
             "observe",
@@ -259,17 +283,17 @@ class SelfBuildLoop:
         stamp = obs.ts_ms or now_ms()
         if not obs.ts_ms:
             obs = Observation(**{**_fields(obs), "ts_ms": stamp})
-        correction = is_correction(obs.text)
+        # A pane prompt corrects a coding agent, not the assistant: no lesson
+        # for the assistant's notebook comes from it.
+        correction = obs.channel != PANE and is_correction(obs.text)
         if obs.agent_id:
-            # An agent chat only counts uses: each agent learns its own skills
-            # (society/learning.py), and the loop's rungs serve the work the
-            # person does with the assistant itself.
+            # A turn in a self-built agent's chat is a use of that agent. The
+            # turn is filed too; the gate decides whose need it is.
             build = await asyncio.to_thread(self.store.build_for, f"agent:{obs.agent_id}")
             await self._record(build, Outcome.CORRECTED if correction else Outcome.USED)
-            return
         row, needs = await asyncio.to_thread(self.miner.observe, obs, correction=correction)
         if row is not None:
-            await self._count_uses(row)
+            await self._count_uses(row, obs.answer)
         for need in needs:
             if await asyncio.to_thread(self._worth_deciding, need):
                 self._queue[need.signature] = need
@@ -312,6 +336,8 @@ class SelfBuildLoop:
             return False
         if self.ledger.rejections(need.signature) >= cfg.max_rejections:
             return False
+        if owning_agent(need):
+            return False  # one agent's own work: its learning pass covers it
         before = self.ledger.ever_for(need.signature)
         if any(r.state in (State.KEPT, State.ARCHIVED) for r in before):
             return False  # built before: kept, or archived because nobody used it
@@ -367,19 +393,27 @@ class SelfBuildLoop:
             return None
         lessons = await asyncio.to_thread(self.store.lessons, need.signature)
         allowed = await asyncio.to_thread(self._rungs, need, lessons)
-        if Kind.SKILL in allowed:
-            served = await asyncio.to_thread(self._served, need)
-            if served:
+        if Kind.SKILL in allowed or Kind.AGENT in allowed:
+            served = await asyncio.to_thread(self._served, need) if Kind.SKILL in allowed else None
+            by_agent = await asyncio.to_thread(self._served_by_agents, need)
+            note = ""
+            if by_agent is not None:
+                # An agent already learned this: neither a global skill nor
+                # another agent is built for it.
+                allowed = tuple(k for k in allowed if k not in (Kind.SKILL, Kind.AGENT))
+                note = f"the agent {by_agent[0]!r} has the skill {by_agent[1]!r} for this"
+            elif served:
                 allowed = tuple(k for k in allowed if k != Kind.SKILL)
-                if not allowed:
-                    await asyncio.to_thread(
-                        self.store.record_decision,
-                        need.signature,
-                        "served",
-                        need.occurrences,
-                        f"the skill {served!r} already does this",
-                    )
-                    return None
+                note = f"the skill {served!r} already does this"
+            if note and not allowed:
+                await asyncio.to_thread(
+                    self.store.record_decision,
+                    need.signature,
+                    "served",
+                    need.occurrences,
+                    note,
+                )
+                return None
         if not allowed:
             return None
         verdict = await self._verdict(need, allowed, lessons)
@@ -464,6 +498,24 @@ class SelfBuildLoop:
     def _served(self, need: Need) -> str | None:
         return judge.served_by(self._installed_skills(), [t.text for t in need.turns])
 
+    def _served_by_agents(self, need: Need) -> tuple[str, str] | None:
+        """``(agent id, skill name)`` when an agent in the need's chats has a skill for it."""
+        agents = sorted({t.agent_id for t in need.turns if t.agent_id})
+        if not agents:
+            return None
+        said = [t.text for t in need.turns]
+        core = core_stems(need)
+        for agent_id in agents:
+            try:
+                skills = list(self.builders.env.agent_skills(agent_id))
+            except Exception:  # noqa: BLE001 - an unreadable namespace serves nothing
+                log.debug("self_build: skills of %s unreadable", agent_id, exc_info=True)
+                continue
+            name = judge.served_by_agent(skills, said, core)
+            if name:
+                return agent_id, name
+        return None
+
     # ------------------------------------------------------------ measure
 
     async def _record(self, build_id: str | None, outcome: Outcome) -> None:
@@ -474,7 +526,7 @@ class SelfBuildLoop:
             return
         await asyncio.to_thread(self.ledger.record_use, build_id, outcome)
 
-    async def _count_uses(self, row: TurnRow) -> None:
+    async def _count_uses(self, row: TurnRow, answer: str = "") -> None:
         last = self._last_skill
         if last is not None:
             build, fired_at, conversation = last
@@ -496,15 +548,147 @@ class SelfBuildLoop:
                 ran = int(self.store.get_meta(f"ran:{record.id}", "0") or 0)
                 if ran and row.ts_ms - ran <= ROUTINE_REACH_MS:
                     await self._record(record.id, Outcome.CORRECTED)
-            elif record.kind == Kind.MEMORY:
-                key = (record.id, row.conversation)
-                if row.correction:
+        await self._count_memories(row, answer, topic=cluster.signature)
+
+    async def _count_memories(self, row: TurnRow, answer: str, *, topic: str) -> None:
+        """A self-built memory counts when it was in the prompt and the turn relied on it.
+
+        In the prompt: the entry's text is in the notebook snapshot the
+        assistant's prompts carry (an archived or edited entry is not).
+        Relied on (:func:`.judge.memory_relied`): the person's words name the
+        entry's subject, or the answer carries what only the entry said. At
+        most one use per conversation. A correction in a turn about the
+        entry, or right after a turn that relied on it, counts against it.
+        """
+        if row.channel not in _NOTEBOOK_CHANNELS:
+            return  # coding agents and society agents do not read this notebook
+        last = self._memory_hits.pop(row.conversation, None)
+        if last is not None and row.correction and row.ts_ms - last[1] <= CORRECTION_WINDOW_MS:
+            await self._record(last[0], Outcome.CORRECTED)
+            return
+        live = await asyncio.to_thread(self._live_memories)
+        if not live:
+            return
+        snapshot = await asyncio.to_thread(self._notebook_snapshot)
+        for record in live:
+            entry = str((record.artefact or {}).get("text") or "")
+            if not entry or entry not in snapshot:
+                continue
+            on_topic = record.signature == topic
+            if row.correction:
+                if on_topic or judge.memory_concerned(entry, said=row.stems):
                     await self._record(record.id, Outcome.CORRECTED)
-                elif key not in self._counted:
-                    if len(self._counted) >= 5_000:
-                        self._counted.clear()
-                    self._counted.add(key)
-                    await self._record(record.id, Outcome.USED)
+                continue
+            if not judge.memory_relied(entry, said=row.stems, answer=answer, topic=on_topic):
+                continue
+            self._memory_hits[row.conversation] = (record.id, row.ts_ms)
+            key = (record.id, row.conversation)
+            if key in self._counted:
+                continue
+            if len(self._counted) >= 5_000:
+                self._counted.clear()
+            self._counted.add(key)
+            await self._record(record.id, Outcome.USED)
+
+    def _live_memories(self) -> list[BuildRecord]:
+        return [
+            r
+            for r in self.ledger.list(states=[State.TRIAL, State.KEPT], kinds=[Kind.MEMORY])
+            if not self.builders.sleeping(r.id)
+        ]
+
+    def _notebook_snapshot(self) -> str:
+        notebook = self.builders.env.notebook()
+        if notebook is None:
+            return ""
+        try:
+            return notebook.snapshot(compact=False) + "\n" + notebook.snapshot(compact=True)
+        except Exception:  # noqa: BLE001 - an unreadable notebook injected nothing
+            log.debug("self_build: notebook snapshot unreadable", exc_info=True)
+            return ""
+
+    # ------------------------------------------------------------ pane prompts
+
+    def pane_prompt_recorded(self, history_id: str) -> None:
+        """The IDE stored a prompt the person typed into a pane: read that history."""
+        from dodaios.agentic_ide.prompt_history import path_for
+
+        folder = self.builders.env.pane_history()
+        if folder is None:
+            return
+        path = folder / path_for(history_id).name
+        self._spawn(self.ingest_pane_prompts([path]), "pane-prompts")
+
+    async def ingest_pane_prompts(self, paths: list[Any] | None = None) -> int:
+        """File the person's new pane prompts as turns; ``paths`` ``None`` reads every pane.
+
+        Each history file is read from where the last pass stopped (an offset
+        in the signal store), so a prompt is filed once. Only rows marked
+        ``origin: person`` count, in the person's own words (``typed`` when the
+        prompt was a brief around them). While the loop is paused or off the
+        offsets still move: what was typed then is never filed later.
+        """
+        async with self._pane_lock:
+            found = await asyncio.to_thread(self._read_pane_prompts, paths)
+        if not found or not self._active():
+            return 0
+        for obs in sorted(found, key=lambda o: o.ts_ms):
+            await self.observe(obs)
+        return len(found)
+
+    def _read_pane_prompts(self, paths: list[Any] | None) -> list[Observation]:
+        from pathlib import Path
+
+        from dodaios.agentic_ide.prompt_history import PromptHistoryEntry
+
+        if paths is None:
+            folder = self.builders.env.pane_history()
+            files = sorted(folder.glob("*.jsonl")) if folder is not None and folder.is_dir() else []
+        else:
+            files = [Path(p) for p in paths]
+        cutoff = now_ms() - WINDOW_DAYS * _DAY_MS
+        found: list[Observation] = []
+        for path in files:
+            key = f"pane:{path.name}"
+            offset = int(self.store.get_meta(key, "0") or 0)
+            try:
+                size = path.stat().st_size
+                if size < offset:
+                    offset = 0  # the file was replaced: read it again
+                if size == offset:
+                    continue
+                with path.open("rb") as handle:
+                    handle.seek(offset)
+                    data = handle.read()
+            except OSError:  # gone or locked: the next pass reads it
+                continue
+            end = data.rfind(b"\n")
+            if end < 0:
+                continue  # a line still being written
+            chunk = data[: end + 1]
+            self.store.set_meta(key, str(offset + len(chunk)))
+            for line in chunk.splitlines():
+                try:
+                    entry = PromptHistoryEntry.from_dict(json.loads(line))
+                except (ValueError, UnicodeDecodeError):  # a damaged row says nothing
+                    continue
+                if entry is None or entry.origin != "person":
+                    continue
+                if entry.attachments and not entry.typed:
+                    continue  # the text holds the dropped files' contents, not the person's
+                stamp = int(entry.at * 1000)
+                if stamp < cutoff:
+                    continue
+                found.append(
+                    Observation(
+                        text=entry.typed or entry.text,
+                        channel=PANE,
+                        conversation=f"pane:{path.stem[:16]}",
+                        ts_ms=stamp,
+                        ref=f"pane:{entry.id}",
+                    )
+                )
+        return found
 
     def _live_for(self, signature: str) -> list[BuildRecord]:
         return [r for r in self.ledger.ever_for(signature) if r.state in (State.TRIAL, State.KEPT)]
@@ -566,6 +750,8 @@ class SelfBuildLoop:
         await asyncio.to_thread(self.store.prune, now=stamp)
         # Turns filed while no zone could be named get their clock now.
         await asyncio.to_thread(self.store.fill_clocks)
+        # Pane prompts whose notice was missed (the app was busy or restarting).
+        await self.ingest_pane_prompts()
         kept = await asyncio.to_thread(self.ledger.list, states=[State.KEPT], kinds=KINDS)
         for record in kept:
             last = max(record.last_used_ms, record.trial_started_ms, record.created_ms)
@@ -593,6 +779,21 @@ class SelfBuildLoop:
         for record in waiting:
             if stamp - record.updated_ms >= RETRY_MS and not self.builders.running(record.id):
                 self.service.spawn(self.builders.build(record), f"retry {record.id}")
+
+
+def owning_agent(need: Need) -> str:
+    """The agent whose chat every turn of the need came from, else ``""``."""
+    agents = {t.agent_id for t in need.turns}
+    return next(iter(agents)) if len(agents) == 1 else ""
+
+
+def core_stems(need: Need) -> frozenset[str]:
+    """The stems at least half of the need's requests share: what it is about."""
+    from collections import Counter
+
+    counts = Counter(stem for t in need.turns for stem in t.stems)
+    half = max(1, (len(need.turns) + 1) // 2)
+    return frozenset(stem for stem, n in counts.items() if n >= half)
 
 
 def _person_idle(seconds: float) -> bool:
