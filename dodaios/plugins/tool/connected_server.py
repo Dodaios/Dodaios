@@ -55,6 +55,17 @@ def operation_schema(operation: Operation) -> dict[str, Any]:
     }
 
 
+class ProviderHttpError(RuntimeError):
+    """A provider HTTP failure whose status callers may branch on.
+
+    The message is our own fixed text; the provider body never enters it.
+    """
+
+    def __init__(self, message: str, *, status_code: int) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class ConnectedRestClient:
     """One pool per connected service; requests never follow credential redirects."""
 
@@ -183,17 +194,21 @@ class ConnectedRestClient:
                 "outcome may be unknown, check before retrying a write"
             ) from None
         if response.status_code in {401, 403}:
-            raise RuntimeError(
+            raise ProviderHttpError(
                 f"{self.plugin_id}: HTTP {response.status_code}; "
-                "reconnect in Plugins or check account permissions"
+                "reconnect in Plugins or check account permissions",
+                status_code=response.status_code,
             )
         if response.status_code == 429:
-            raise RuntimeError(f"{self.plugin_id}: provider rate limit; retry later")
+            raise ProviderHttpError(
+                f"{self.plugin_id}: provider rate limit; retry later", status_code=429
+            )
         if not 200 <= response.status_code < 300:
             # Provider bodies may echo submitted secrets; never propagate them.
-            raise RuntimeError(
+            raise ProviderHttpError(
                 f"{self.plugin_id}: HTTP {response.status_code}; "
-                "check resource IDs and request fields"
+                "check resource IDs and request fields",
+                status_code=response.status_code,
             )
         if response.status_code == 204 or not response.content:
             return {"accepted": True, "http_status": response.status_code}
