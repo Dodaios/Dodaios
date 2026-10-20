@@ -1031,6 +1031,28 @@ def _dictation_retry_worthwhile(exc: BaseException | None) -> bool:
     return status in _STT_TRANSIENT_STATUS
 
 
+def _stt_crossing_reserve_s(stt: Any, audio_s: float) -> float:
+    """Time the provider chain behind ``stt`` may spend crossing, else ``0.0``.
+
+    A :class:`dodaios.speech.stt_fallback.FallbackSTT` with per-provider
+    deadlines bounds each provider that has another one behind it; the lane's
+    own ceiling must cover those deadlines PLUS a full call on the provider it
+    crosses to. One provider's worth of time around the whole chain is exactly
+    what lost the 2026-10-20 17:35 dictation: the local pass hung for the full
+    8 s, the ceiling ran out, and the keyed cloud provider never got the audio.
+    Read through the transparent wrappers (meter, dictionary), each of which
+    forwards unknown attributes. Never raises.
+    """
+    reserve = getattr(stt, "crossing_reserve_s", None)
+    if not callable(reserve):
+        return 0.0
+    try:
+        value = float(reserve(audio_s))
+    except Exception:  # noqa: BLE001 — a missing reserve only shortens the ceiling
+        return 0.0
+    return value if value > 0.0 else 0.0
+
+
 def _align_pcm(offset: int) -> int:
     """``offset`` rounded down to a whole int16 sample boundary."""
     return max(0, offset - (offset % 2))
@@ -11981,6 +12003,15 @@ class SpeechPipeline:
             configured = str(getattr(stt_cfg, "provider", "") or "").strip()
             alternates = list(_resolve_stt_fallback_chain(stt_cfg, configured))
             configured_instance = instance
+            # Every provider in front of another one gets the lane's own
+            # per-call ceiling and then the chain crosses (2026-10-20: a wedged
+            # local pass ate the whole ceiling and the keyed cloud provider
+            # behind it never heard the audio). ``_transcribe`` widens its own
+            # ceiling by the same amount, so the crossing never eats the next
+            # provider's time.
+            deadline_floor_s = float(
+                getattr(self, "_stt_final_timeout_s", 8.0) or 8.0
+            )
 
             def _build(name: str) -> Any:
                 if name == configured:
@@ -12011,6 +12042,7 @@ class SpeechPipeline:
                     chain,
                     _build,
                     primary_name=local_final.provider_label,
+                    provider_deadline_floor_s=deadline_floor_s,
                 )
                 log.info(
                     "Dictation STT chain armed: %s/%s (out of process) -> %s "
@@ -12023,7 +12055,11 @@ class SpeechPipeline:
                 from dodaios.speech.stt_fallback import FallbackSTT
 
                 instance = FallbackSTT(
-                    instance, alternates, _build, primary_name=configured
+                    instance,
+                    alternates,
+                    _build,
+                    primary_name=configured,
+                    provider_deadline_floor_s=deadline_floor_s,
                 )
                 log.info(
                     "Dictation STT chain armed: %s -> %s (no voice bias prompt).",
@@ -12750,7 +12786,7 @@ class SpeechPipeline:
                 float(getattr(self, "_stt_final_timeout_s", 8.0) or 8.0),
                 (len(pcm) / bytes_per_second)
                 * _DICTATION_TRANSCRIBE_TIMEOUT_PER_AUDIO_S,
-            )
+            ) + _stt_crossing_reserve_s(stt, len(pcm) / bytes_per_second)
             if ask_for is None:
                 ask_for = resolve_recognition_language(
                     pinned=dictation_language, session_language=session_language
@@ -14760,6 +14796,22 @@ class SpeechPipeline:
                 # about why the words never arrived. The localized half is the
                 # reason CODE on ``error``, which the UI translates.
                 detail = stt_failure_message(stt_error)
+                # Every provider failed and the words exist only as audio now.
+                # That audio is kept for exactly this case (``failed`` is a
+                # recoverable outcome), so the notice says where to get the
+                # words back — the 2026-10-20 lost dictation told the user only
+                # that the service "could not be reached". Promised only when
+                # the sidecar will really be written: history on, the user's
+                # keep switch on, and audio captured.
+                if (
+                    audio
+                    and bool(getattr(cfg, "history_enabled", True))
+                    and bool(getattr(cfg, "keep_failed_audio", True))
+                ):
+                    detail += (
+                        " The audio was kept — use Restore in the dictation "
+                        "history to try again."
+                    )
             elif rejected_detail:
                 # Nothing arrived because what arrived was not speech. Saying so
                 # is the difference between "your microphone heard nothing" and
