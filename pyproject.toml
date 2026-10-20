@@ -216,7 +216,7 @@ dependencies = [
     # and stops auto-wrapping return values, which breaks
     # dodaios/missions/workers/broker_stdio.py at import time. Lift the
     # ceiling only together with a deliberate 2.x migration of that adapter.
-    "mcp>=1.28.1,<2",
+    "mcp>=1.30.0,<2",
     "rich>=13.9",
     # jarvisctl control CLI (dodaios/cli_ctl/): Typer command surface + platformdirs
     # for cross-platform per-user config/cache dirs. Pure-Python, VPS-safe.
