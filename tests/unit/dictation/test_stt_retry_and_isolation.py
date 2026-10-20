@@ -491,7 +491,9 @@ def test_protected_terms_carry_the_words_the_user_chose(
     duplicates — a repeated term is a wasted slot in a bounded prompt."""
     import dodaios.speech.stt_dictionary as dictionary
 
-    monkeypatch.setattr(dictionary, "dictionary_bias_words", lambda: ["Vokando", "Adex"])
+    monkeypatch.setattr(
+        dictionary, "dictionary_protected_words", lambda: ["Vokando", "Adex"]
+    )
     pipe = SpeechPipeline.__new__(SpeechPipeline)
     pipe._wake_phrase_label = "Hey Adex"
 
@@ -511,7 +513,7 @@ def test_protected_terms_survive_an_unreadable_dictionary(
     def _boom() -> list[str]:
         raise RuntimeError("store is locked")
 
-    monkeypatch.setattr(dictionary, "dictionary_bias_words", _boom)
+    monkeypatch.setattr(dictionary, "dictionary_protected_words", _boom)
     pipe = SpeechPipeline.__new__(SpeechPipeline)
     pipe._wake_phrase_label = "Nova"
 

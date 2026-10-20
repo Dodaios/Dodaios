@@ -25,7 +25,10 @@ the agent does not use.
 Three callers share this module: the Society turn review
 (``society/review.py``), Society skill learning (``society/learning.py``)
 and Jarvis' own learning loop (``memory/learning``), whose seat is the Jarvis
-lead's: the front-page chat's pick.
+lead's: the front-page chat's pick. That loop is the one exception to the
+billing rule (maintainer decision 2026-10-20): it is not held off a key, and
+:func:`subscription_twin` moves a key seat onto the same family's signed-in
+subscription first (``memory.learning.review.seat_choices``).
 
 "The seat" is read from the same places the chat reads it, so the two cannot
 disagree:
@@ -67,6 +70,7 @@ __all__ = [
     "hold_to_background_policy",
     "jarvis_seat",
     "seat_brain",
+    "subscription_twin",
 ]
 
 #: Runners that are a provider's own API behind a key, not a vendor CLI.
@@ -289,6 +293,38 @@ def bills_per_token(seat: Seat) -> bool:
         return True
     row = provider_row(seat.provider)
     return not (row is not None and bool(getattr(row, "keyless", False)))
+
+
+def subscription_twin(seat: Seat) -> Seat | None:
+    """The same provider family's subscription seat, when it is signed in now.
+
+    For a seat that bills a per-token key: the subscription card whose chat row
+    has the key row's brand family (``catalog.ProviderRow.family``; the OpenAI
+    key and the ChatGPT login through Codex, the Anthropic key and the Claude
+    login through Claude Code). Only a login the probe reports signed in right
+    now counts. Its model is kept when that subscription offers it, else the
+    subscription's own default answers. Decided from rows and cards, never a
+    provider name (AP-21). Blocking (the login probe): call it in a thread.
+    """
+    if not bills_per_token(seat):
+        return None
+    from dodaios.agent_chat.catalog import provider_row
+    from dodaios.brain.background_policy import login_state, subscription_capable
+    from dodaios.core.task_agent import subscription_seats
+
+    own = provider_row(seat.provider)
+    if own is None:
+        return None
+    for card, (row_id, runner) in subscription_seats().items():
+        row = provider_row(row_id)
+        if row is None or row.family != own.family or not subscription_capable(card):
+            continue
+        if login_state(card) is not True:
+            continue
+        offered = {model.id for model in row.curated_models}
+        model = seat.model if row.id == seat.provider or seat.model in offered else ""
+        return Seat(row.id, model, runner)
+    return None
 
 
 def hold_to_background_policy(seat: Seat) -> None:

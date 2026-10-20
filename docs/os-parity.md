@@ -1,5 +1,34 @@
 # OS Feature Parity — macOS / Linux Gap Register
 
+## Terminal start and update commands (2026-10-03, T3)
+
+`dodaios` (and its earlier names `jarvis` and `personal-jarvis`) starts the
+desktop app from a terminal and `dodaios update` updates a managed install, on
+every OS. The installer links the commands into `~/.local/bin` on macOS and
+Linux (adding one guarded PATH line to the login shell's profile: zsh, bash,
+fish or `~/.profile`) and copies the console-script launchers into
+`<install>in` on Windows, which goes onto the per-user `Path`;
+`.venv\Scripts` itself is never put on `Path` because it would shadow the
+user's own `python`. There is deliberately no `dodaiosapp` or `personaljarvis`
+alias: Windows paths ignore case and the venv already holds the branded
+`DodaiosApp.exe` launcher (`PersonalJarvis.exe` in earlier releases). Typed
+into an interactive terminal, `dodaios` starts the app detached through the
+restart identity (LaunchServices bundle, branded exe, launcher module); a Linux
+session without `DISPLAY` or `WAYLAND_DISPLAY` keeps the foreground start.
+`dodaios update` stages and finalizes the update in child processes so the
+parent never holds a native module the reinstall replaces (Windows), and
+finalizes in its own process group or session so Ctrl+C cannot interrupt the
+installer. It clears an earlier run's result before installing and reports
+success only when the installer wrote one, and the uninstaller rewrites a shell
+profile atomically with its line endings kept. Covered by
+`tests/unit/setup/test_cli_path.py`, `tests/unit/install/test_cli_links.py`,
+`tests/unit/cli/test_app_update.py` and
+`tests/unit/test_bare_dodaios_starts_desktop.py` with fakes for the registry and
+child processes; verified for real on Windows (a copied launcher runs from
+another folder; `update --check` on a developer checkout). Not yet verified: a
+full `dodaios update` of a managed install on any OS, and the macOS/Linux
+symlink and profile paths on a physical host (CI runs them on Linux).
+
 ## Credential service renamed to `dodaios` (2026-10-19, T3)
 
 New keys are saved under the credential service `dodaios` on every OS (Windows
@@ -27,6 +56,22 @@ per-variable limit, so the PATH is never shortened there; the budget logic runs
 on every OS in the unit tests, and the real spawn past the limit was verified on
 Windows 11 only.
 
+## Desktop pet context menu (2026-10-08, T2)
+
+The pet's figure and control strip share a branded right-click popup on desktop
+hosts: open the app, reset the position, or hide the pet. Opening or dismissing
+the menu does not hide the figure. Labels follow the current interface language
+and the hide entry shows the configured shortcut. The existing global Pet
+visibility shortcut restores it; its existing
+Wayland limitation is unchanged. The macOS companion host reports local
+dismissal to its parent so settings and host recovery retain the user's choice.
+The popup uses the existing native RGBA surface and shared app theme tokens,
+with bundled Inter and JetBrains Mono fonts (system-font fallback when needed).
+Tests cover menu choices, mouse/keyboard cancellation, focus and grab cleanup,
+monitor-edge placement, translated labels, the event-bus shortcut and companion
+protocol. Both themes were inspected from the actual popup renderer. Native
+pointer input and macOS/Linux desktop behavior remain unverified.
+
 ## Local voice and audio topology refresh (issue #464, T2)
 
 Local final transcription uses its configured model independently of the wake
@@ -41,6 +86,29 @@ stream close, and retries a deferred refresh. Transient device enumeration
 changes that disappear during settling do not trigger re-initialization.
 Regression tests use fake devices and models on Windows. Ubuntu/PipeWire,
 macOS audio devices and NVIDIA T600 inference have not been verified live.
+
+## Section windows (2026-10-08, T2)
+
+The section-window action opens Agents, Agentic IDE, Settings, Plugins, CLIs,
+Docs, Wiki, Board, Sessions, Marketplace and Visualization in separate windows.
+Settings (including Profile) shares one window across all its tabs; the IDE,
+Plugins and CLIs also share a window within their respective tab families.
+Voice stays in the main window's navigation. Returning a detached view first
+restores the main window. A missing detached owner never targets main for a
+close or zoom command.
+
+Windows and Linux use the existing resizable frameless desktop window path;
+macOS retains its native frame. Browser-only clients open named tabs without
+controlling the desktop application's windows. The IDE window action requires
+the native shell so a second browser tab cannot compete for terminal streams.
+Automated tests cover section
+ownership, family reuse, failure handling and the three platform frame options.
+Real Windows WebView2 checks opened Settings, Agents and Agentic IDE windows
+simultaneously against a local test page, reused the Settings window for an API
+Keys request, maximized/restored it and closed it while preserving main. Chrome
+checks covered the Settings browser tab, internal tab navigation, returning to
+the full app, and light/dark appearance at a narrow width.
+Physical macOS and Linux window behavior remains unverified.
 
 ## Screenshots paste anywhere (2026-10-05, T2)
 

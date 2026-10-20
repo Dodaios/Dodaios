@@ -23,7 +23,7 @@ import asyncio
 import json
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -160,6 +160,12 @@ class _PluginStatusMeta:
     # When the provider itself ends the refresh grant (Google: an OAuth app in
     # Testing status). ``None`` when the provider stated no fixed lifetime.
     refresh_expires_at: str | None = None
+    # Capability health, separate from auth health: "verified" when the
+    # connect-time resource check passed, "degraded" when the grant is valid
+    # but the check failed (``capability_reason`` says why, as one of the
+    # CAPABILITY_* codes). ``None`` for a grant that was never checked.
+    capability_state: str | None = None
+    capability_reason: str | None = None
 
 
 def _plugin_status_meta(plugin_id: str, store: TokenStore) -> _PluginStatusMeta:
@@ -189,6 +195,8 @@ def _plugin_status_meta(plugin_id: str, store: TokenStore) -> _PluginStatusMeta:
             tokens.reauth_at.isoformat() if tokens.needs_reauth and tokens.reauth_at else None
         ),
         refresh_expires_at=tokens.extra.get("refresh_expires_at") or None,
+        capability_state=tokens.extra.get(_CAPABILITY_STATE_KEY) or None,
+        capability_reason=tokens.extra.get(_CAPABILITY_REASON_KEY) or None,
     )
 
 
@@ -409,6 +417,8 @@ async def list_plugins(response: Response) -> dict[str, Any]:
         item["reauth_reason"] = meta.reauth_reason
         item["reauth_at"] = meta.reauth_at
         item["refresh_expires_at"] = meta.refresh_expires_at
+        item["capability_state"] = meta.capability_state
+        item["capability_reason"] = meta.capability_reason
         item["unavailable_reason"] = None
         item["unavailable_reason_code"] = ""
         if spec.id == "amd_gpu" and spec.auth.mode == "local":
@@ -701,6 +711,104 @@ class BrowserConnectBody(BaseModel):
     instance_url: str | None = None
 
 
+# Where a grant's capability health lives inside ``Tokens.extra``.
+_CAPABILITY_STATE_KEY = "capability_state"
+_CAPABILITY_REASON_KEY = "capability_reason"
+CAPABILITY_VERIFIED = "verified"
+CAPABILITY_DEGRADED = "degraded"
+
+
+def _roll_back_rejected_grant(
+    store: TokenStore, plugin_id: str, granted: Tokens, previous: Tokens | None
+) -> None:
+    """Undo the save of a grant the provider refused, leaving the prior state.
+
+    Only when the store still holds exactly that grant: a reconnect or
+    disconnect that ran meanwhile wins and is never overwritten.
+    """
+    try:
+        if previous is not None:
+            store.compare_and_save(plugin_id, granted, previous)
+        elif store.load(plugin_id) == granted:
+            store.delete(plugin_id)
+    except Exception as exc:  # noqa: BLE001 - the error is reported either way
+        log.warning("plugin %s rejected-grant rollback failed (%s)", plugin_id, type(exc).__name__)
+
+
+async def _persist_grant_then_check(plugin_id: str, spec: Any, granted: Tokens) -> FlowResult:
+    """Store a completed OAuth grant FIRST, then check what it can reach.
+
+    Auth health and capability health are separate. The grant is saved before
+    the resource check runs, so an outage, a missing scope or a crash during
+    the check never throws away a consent the user already gave in the
+    browser. Only a provider that refuses the credential itself (HTTP 401)
+    undoes the save and reports an error, exactly as before. Any other failed
+    check leaves the plugin connected with ``capability_state="degraded"``.
+    """
+    store = TokenStore()
+    try:
+        previous = store.load(plugin_id)
+    except RuntimeError:
+        # An unreadable entry is replaced by the new grant anyway; a later
+        # rejection then removes it instead of restoring the unreadable blob.
+        log.info("plugin %s previous grant unreadable before save", plugin_id)
+        previous = None
+    # Persist BEFORE publishing the result: connect_poll reads `slot.result`
+    # to decide "connected" vs "pending", so a result set before the save
+    # landed let a poll (or a crash right after) report success for a token
+    # that was never written to the store.
+    try:
+        store.save(plugin_id, granted)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("plugin %s token save failed (%s)", plugin_id, type(exc).__name__)
+        return FlowResult(
+            tokens=None,
+            error="The connection could not be saved. Try again.",
+            error_code=ERROR_UNKNOWN,
+        )
+
+    failure: ConnectionVerificationError | None = None
+    try:
+        await verify_connection(spec, granted)
+    except ConnectionVerificationError as exc:  # classified and reported just below
+        failure = exc
+
+    if failure is not None and failure.rejected:
+        log.info("plugin %s authorization rejected at verification", plugin_id)
+        _roll_back_rejected_grant(store, plugin_id, granted, previous)
+        return FlowResult(tokens=None, error=str(failure), error_code="provider_unreachable")
+
+    if failure is None:
+        health = {_CAPABILITY_STATE_KEY: CAPABILITY_VERIFIED}
+    else:
+        log.info("plugin %s connected, capability degraded (%s)", plugin_id, failure.reason)
+        health = {
+            _CAPABILITY_STATE_KEY: CAPABILITY_DEGRADED,
+            _CAPABILITY_REASON_KEY: failure.reason,
+        }
+    extra = {
+        key: value
+        for key, value in granted.extra.items()
+        if key not in (_CAPABILITY_STATE_KEY, _CAPABILITY_REASON_KEY)
+    }
+    checked = replace(granted, extra={**extra, **health})
+    try:
+        if not store.compare_and_save(plugin_id, granted, checked):
+            # A reconnect or disconnect won the race; report this grant as
+            # saved but leave the newer state alone.
+            checked = granted
+    except Exception as exc:  # noqa: BLE001 - the grant itself is already stored
+        log.warning("plugin %s health save failed (%s)", plugin_id, type(exc).__name__)
+        checked = granted
+    _refresh_plugin_in_live_registry(plugin_id)
+    log.info("plugin %s connected via browser authorization", plugin_id)
+    return FlowResult(
+        tokens=checked,
+        error=None,
+        extra={"capability_message": str(failure)} if failure is not None else {},
+    )
+
+
 @router.post("/plugins/{plugin_id}/connect/start")
 async def connect_start(
     plugin_id: str,
@@ -876,34 +984,12 @@ async def connect_start(
                 log.info("plugin %s connect flow cancelled", plugin_id)
                 return
             if result.tokens is not None:
-                try:
-                    await verify_connection(spec, result.tokens)
-                except ConnectionVerificationError as exc:
-                    log.info("plugin %s resource verification failed", plugin_id)
-                    if registry.get(session.flow_id) is slot:
-                        slot.result = FlowResult(
-                            tokens=None, error=str(exc), error_code="provider_unreachable"
-                        )
-                    return
+                # The grant is stored before its resource check runs. A
+                # dialog closed DURING the check therefore keeps the consent
+                # the user already gave; only the result is no longer shown.
+                result = await _persist_grant_then_check(plugin_id, spec, result.tokens)
                 if registry.get(session.flow_id) is not slot:
                     return
-                # Persist BEFORE publishing the result: connect_poll reads
-                # `slot.result` to decide "connected" vs "pending", so setting
-                # it before the save actually lands let a poll (or a crash
-                # right after) report success for a token that was never
-                # written to the store.
-                try:
-                    TokenStore().save(plugin_id, result.tokens)
-                except Exception as exc:  # noqa: BLE001
-                    log.warning("plugin %s token save failed (%s)", plugin_id, type(exc).__name__)
-                    slot.result = FlowResult(
-                        tokens=None,
-                        error="The connection could not be saved. Try again.",
-                        error_code=ERROR_UNKNOWN,
-                    )
-                    return
-                _refresh_plugin_in_live_registry(plugin_id)
-                log.info("plugin %s connected via DCR", plugin_id)
             slot.result = result
 
     asyncio.create_task(_drive(), name=f"oauth-drive:{plugin_id}:{session.flow_id}")
@@ -972,7 +1058,17 @@ async def connect_poll(plugin_id: str, flow_id: str) -> dict[str, Any]:
         }
 
     registry.drop(flow_id)
-    return {"state": "connected", "flow_id": flow_id, "plugin_id": plugin_id}
+    extra = slot.result.tokens.extra
+    return {
+        "state": "connected",
+        "flow_id": flow_id,
+        "plugin_id": plugin_id,
+        # Capability health beside the auth outcome: a valid grant whose
+        # resource check failed is connected but "degraded", never dropped.
+        "capability_state": extra.get(_CAPABILITY_STATE_KEY) or None,
+        "capability_reason": extra.get(_CAPABILITY_REASON_KEY) or None,
+        "capability_message": slot.result.extra.get("capability_message") or None,
+    }
 
 
 # ----------------------------------------------------------------------
