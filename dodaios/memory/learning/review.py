@@ -50,6 +50,8 @@ SYSTEM_PROMPT: Final[str] = (
     "Keep only what matters in every future conversation; usually that is nothing. "
     "Never stored: requests, one-off tasks, what the assistant said, credentials, and "
     "health, religion, politics or sexuality unless the user asked to remember it.\n"
+    "Lasting preferences include which suggestions and how much initiative the user "
+    "wants; a goal, plan or deadline carries an absolute date in YYYY-MM-DD form.\n"
     'Return only JSON: {{"changes": [{{"target": "user|memory", "operation": '
     '"add|replace|remove", "entry_id": "", "text": "", "evidence": "", '
     '"importance": 7}}]}}\n'
