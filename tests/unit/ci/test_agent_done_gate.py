@@ -40,6 +40,7 @@ class FakeWorld:
         self.ff_works = True
         self.is_repo = True
         self.commands: list[list[str]] = []
+        self.timeouts: list[tuple[list[str], float | None]] = []
 
     def ok(self, cmd: list[str], out: object = "") -> subprocess.CompletedProcess:
         text = out if isinstance(out, str) else json.dumps(out)
@@ -48,8 +49,11 @@ class FakeWorld:
     def fail(self, cmd: list[str]) -> subprocess.CompletedProcess:
         return subprocess.CompletedProcess(cmd, 1, "", "no")
 
-    def __call__(self, cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+    def __call__(
+        self, cmd: list[str], cwd: Path | None = None, timeout: float | None = None
+    ) -> subprocess.CompletedProcess:
         self.commands.append(cmd)
+        self.timeouts.append((cmd, timeout))
         if cmd[0] == "git":
             return self.git(cmd, cmd[1:], cwd)
         return self.gh(cmd, cmd[1:])
@@ -407,6 +411,42 @@ def test_a_local_main_with_edits_is_left_alone_and_noted(world: FakeWorld) -> No
     assert verdict.verdict == "DONE"
     assert verdict.checks["D5"] is False
     assert "left untouched" in verdict.notes[0]
+
+
+def test_the_fast_forward_of_local_main_is_never_killed_on_a_short_timer(
+    world: FakeWorld,
+) -> None:
+    world.branch("claude/x")
+    world.pr("claude/x", state="MERGED", mergeCommit={"oid": MERGE_SHA})
+    world.main_runs = [main_run(MERGE_SHA, "success")]
+    assert run_gate(world, ["claude/x"]).verdict == "DONE"
+    merges = [t for cmd, t in world.timeouts if cmd[1:3] == ["merge", "--ff-only"]]
+    assert merges == [gate.GIT_WRITE_TIMEOUT_S] and gate.GIT_WRITE_TIMEOUT_S >= 30 * 60
+
+
+def test_a_local_main_another_git_command_is_updating_is_left_as_it_is(
+    world: FakeWorld,
+) -> None:
+    world.branch("claude/x")
+    world.pr("claude/x", state="MERGED", mergeCommit={"oid": MERGE_SHA})
+    world.main_runs = [main_run(MERGE_SHA, "success")]
+    (world.top / ".git" / "index.lock").write_bytes(b"")
+    verdict = run_gate(world, ["claude/x"])
+    assert verdict.verdict == "DONE" and verdict.checks["D5"] is False
+    assert "being updated by another git command" in verdict.notes[0]
+    assert not any(cmd[1:2] == ["merge"] for cmd in world.commands)
+
+
+def test_the_index_lock_of_a_linked_worktree_is_found_through_its_git_file(
+    tmp_path: Path,
+) -> None:
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    (tree / ".git").write_text("gitdir: ../repo/.git/worktrees/tree\n", encoding="utf-8")
+    assert gate.index_lock(tree) == tree / "../repo/.git/worktrees/tree" / "index.lock"
+    (tmp_path / "plain" / ".git").mkdir(parents=True)
+    assert gate.index_lock(tmp_path / "plain") == tmp_path / "plain" / ".git" / "index.lock"
+    assert gate.index_lock(tmp_path / "nothing") is None
 
 
 def test_the_worst_branch_decides_for_the_session(world: FakeWorld) -> None:
