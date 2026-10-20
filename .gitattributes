@@ -63,3 +63,9 @@ install/tuf/*.json           text eol=lf
 # language statistics. Contributors never commit it; the maintainer rebuilds
 # the bundle from HEAD's sources (see CONTRIBUTING.md, "Opening your PR").
 dodaios/ui/web/dist/**        linguist-generated=true
+
+# The bundle is committed byte for byte as `npm run build` writes it (LF). Left
+# to `core.autocrlf=true`, a Windows checkout writes CRLF copies, so every
+# rebuild makes hundreds of files look modified (line endings only) and that
+# noise blocks the fast-forward of anyone following main. No eol conversion.
+dodaios/ui/web/dist/**        -text
