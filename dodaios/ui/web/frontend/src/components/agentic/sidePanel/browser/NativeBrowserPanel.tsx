@@ -4,16 +4,23 @@ import { Loader2 } from "lucide-react";
 
 import { BrandedSelect } from "@/components/ui/select";
 import { fill, useT } from "@/i18n";
+import { openExternalUrl } from "@/lib/openExternal";
 
 import {
   NATIVE_BROWSER_STATUS_QUERY,
   initialChoice,
   launchNativeBrowser,
+  openNativeBrowserTab,
   rememberChoice,
   type NativeBrowserChoice,
   type NativeBrowserStatus,
 } from "./nativeBrowserApi";
+import { useIdeBrowserLinkStore } from "./ideBrowserLinks";
 import { useNativePlacement } from "./useNativePlacement";
+
+/** The window may not be shown yet right after the tab came forward: ask again. */
+const OPEN_TRIES = 8;
+const OPEN_RETRY_MS = 150;
 
 const LINK_BTN =
   "rounded-md border border-border px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary " +
@@ -68,10 +75,10 @@ export function NativeBrowserPanel({
     description: status.browsers.length > 1 ? browser.label : undefined,
   }))), [status.browsers]);
 
-  const launch = useCallback(async (next: NativeBrowserChoice) => {
+  const launch = useCallback(async (next: NativeBrowserChoice, url: string | null = startUrl) => {
     setLaunching(true);
     setFailure(null);
-    const result = await launchNativeBrowser(next, startUrl);
+    const result = await launchNativeBrowser(next, url);
     // A newer pick replaced this one; its own answer decides what shows.
     if (result.reason === "superseded") return;
     setLaunching(false);
@@ -80,10 +87,43 @@ export function NativeBrowserPanel({
       old ? { ...old, ...result, browsers: old.browsers } : old);
   }, [queryClient, startUrl]);
 
+  // A link clicked elsewhere in the IDE: a new tab in the shown window, or a
+  // new window on that address when there is none.
+  const pending = useIdeBrowserLinkStore((store) => store.pending);
+  const take = useIdeBrowserLinkStore((store) => store.take);
+  const embedded = status.state === "embedded";
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
+  useEffect(() => {
+    if (!pending || !visible || !choice || launching) return;
+    take(pending.id);
+    autoStarted.current = true;
+    const { url } = pending;
+    if (!embedded) {
+      void launch(choice, url);
+      return;
+    }
+    void (async () => {
+      for (let attempt = 0; attempt < OPEN_TRIES && mounted.current; attempt += 1) {
+        const result = await openNativeBrowserTab(url);
+        if (result.ok || !mounted.current) return;
+        if (result.reason === "not_embedded") {
+          void launch(choice, url);
+          return;
+        }
+        if (result.reason !== "not_shown") break;
+        await new Promise((resolve) => window.setTimeout(resolve, OPEN_RETRY_MS));
+      }
+      // The panel's window is on screen by now: the user's browser shows it there or nearby.
+      if (mounted.current) void openExternalUrl(url);
+    })();
+  }, [pending, visible, choice, launching, embedded, take, launch]);
+
   // Open the window the first time the panel is on screen. A window the user
   // closed or popped out stays that way until they ask for it again.
   useEffect(() => {
     if (!visible || !choice || autoStarted.current) return;
+    if (useIdeBrowserLinkStore.getState().pending) return; // the link opens the window
     autoStarted.current = true;
     const alreadyThere = status.state === "embedded"
       && status.browser === choice.browser && status.profile === choice.profile;

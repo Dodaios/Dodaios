@@ -8,6 +8,7 @@ there (see ``dodaios.ui.browser_embed``). The page drives it through these route
     POST /api/ide-browser/launch   {browser, profile, url?, view?}  open + take a window
     POST /api/ide-browser/place    {owner, visible, rect?, dpr?, view?}  follow the panel
     POST /api/ide-browser/release  {close}  close it, or hand it back as a normal window
+    POST /api/ide-browser/open     {url}  open a link as a new tab in the shown window
 
 Only the Windows desktop shell can do this. Anywhere else (a browser tab, a
 headless server, macOS, Linux) ``status`` answers ``available: false`` with a
@@ -51,6 +52,10 @@ class PlaceBody(BaseModel):
     rect: PanelRect | None = None
     dpr: float = Field(default=1.0, gt=0, le=16)
     view: str | None = Field(default=None, max_length=64)
+
+
+class OpenBody(BaseModel):
+    url: str = Field(min_length=1, max_length=4096)
 
 
 class ReleaseBody(BaseModel):
@@ -129,3 +134,14 @@ async def ide_browser_release(body: ReleaseBody) -> dict[str, Any]:
     if not embed.supported():
         return _unavailable("unsupported_platform")
     return await asyncio.to_thread(embed.release, close=body.close, focus=not body.close)
+
+
+@router.post("/open", operation_id="open")
+async def ide_browser_open(body: OpenBody) -> dict[str, Any]:
+    """Open a link from the app as a new tab in the panel's shown browser window."""
+    from dodaios.ui.browser_embed import get_embed
+
+    embed = get_embed()
+    if not embed.supported():
+        return _unavailable("unsupported_platform")
+    return await asyncio.to_thread(embed.open_tab, body.url)

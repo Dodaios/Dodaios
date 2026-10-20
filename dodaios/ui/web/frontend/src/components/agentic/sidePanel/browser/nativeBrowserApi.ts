@@ -97,6 +97,11 @@ export function placeNativeBrowser(placement: PanelPlacement) {
   return call("place", { ...placement, view: currentWindowView() });
 }
 
+/** Open `url` as a new tab in the shown panel window. */
+export function openNativeBrowserTab(url: string) {
+  return call("open", { url });
+}
+
 export function releaseNativeBrowser(close: boolean) {
   return call("release", { close });
 }
