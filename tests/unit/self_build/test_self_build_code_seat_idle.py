@@ -263,3 +263,34 @@ def test_linux_without_any_reading_leaves_it_to_the_ide(monkeypatch: pytest.Monk
     assert idle.person_idle()
     monkeypatch.setattr(idle, "ide_idle_s", lambda: 30.0)
     assert not idle.person_idle()
+
+
+# ------------------------------------------------------------------ the GitHub account
+
+
+def test_viewer_without_read_org_still_knows_the_person(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dodaios.agentic_ide import github_link
+    from dodaios.self_build.code.github import GitHubApi
+
+    def graphql(token: str, query: str, variables: Any = None) -> dict[str, Any]:
+        if "organizations" in query:
+            # What GitHub answers a token from the in-app connection (no read:org).
+            raise github_link.GitHubError("GitHub could not answer this request.")
+        return {"data": {"viewer": {"login": "me"}}}
+
+    monkeypatch.setattr(github_link, "graphql", graphql)
+    who = GitHubApi("t").viewer()
+    assert who.login == "me" and who.admin_orgs == frozenset()
+    assert who.owns("me/proj") and not who.owns("some-org/proj")
+
+    def with_orgs(token: str, query: str, variables: Any = None) -> dict[str, Any]:
+        if "organizations" in query:
+            nodes = [
+                {"login": "Org", "viewerCanAdminister": True},
+                {"login": "other", "viewerCanAdminister": False},
+            ]
+            return {"data": {"viewer": {"organizations": {"nodes": nodes}}}}
+        return {"data": {"viewer": {"login": "me"}}}
+
+    monkeypatch.setattr(github_link, "graphql", with_orgs)
+    assert GitHubApi("t").viewer().admin_orgs == frozenset({"org"})
