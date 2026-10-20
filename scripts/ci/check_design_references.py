@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CI gate: public text never presents another product as our design template.
 
-AGENTS.md ("Public product descriptions"): tracked docs, comments, docstrings,
+Tracked docs, comments, docstrings,
 test descriptions, video copy and changelog text describe our features
 directly. They never say a feature is inspired by, modeled on, adapted from or
 drawn "the way" another product does it. Required license and attribution
@@ -186,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"      {text}")
     print(
         f"\n{len(violations)} line(s). Describe our feature directly instead "
-        "(AGENTS.md, 'Public product descriptions').\n"
+        ".\n"
         "A license header or a factual integration line may carry an inline "
         f"'{_INLINE_ESCAPE}' marker."
     )

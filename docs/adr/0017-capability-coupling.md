@@ -234,7 +234,7 @@ not a confirmation loop for phantom capability.
   - `tests/unit/brain/test_routing.py` (Agent C)
   - `tests/missions/critic/test_runner_dryrun.py` (Agent D)
   - `tests/integration/test_capability_coupling_e2e.py` (this ADR — Agent E)
-- Bug register: `docs/BUGS.md` — BUG-028 Capability Hallucination
+- BUG-028 Capability Hallucination
 - Sibling pattern: `docs/anti-drift-three-layer.md`
 - Dodaios-Agents bridge: `docs/jarvis-agents-bridge.md` AD-9 (Critic + risk-tier)
 - Welle-3 telemetry: Dodaios-Agents bridge contract AP-OC7

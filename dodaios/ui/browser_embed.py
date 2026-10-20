@@ -38,6 +38,7 @@ the browser's last active one.
 from __future__ import annotations
 
 import ctypes
+import json
 import logging
 import os
 import queue
@@ -80,6 +81,8 @@ WATCH_INTERVAL_MS = 200
 CALL_TIMEOUT_S = 5.0
 #: How long a visible placement holds without the page confirming it.
 LEASE_S = 3.0
+#: Where the window in use is remembered, so a restarted app takes it back.
+STATE_FILE_NAME = "ide_browser_window.json"
 
 _WINDOW_CLASS = "Chrome_WidgetWin_1"
 
@@ -100,6 +103,7 @@ WS_CLIPSIBLINGS = 0x04000000
 WS_CLIPCHILDREN = 0x02000000
 WS_EX_APPWINDOW = 0x00040000
 WS_EX_TOOLWINDOW = 0x00000080
+WS_EX_TOPMOST = 0x00000008
 SWP_NOSIZE = 0x0001
 SWP_NOMOVE = 0x0002
 SWP_NOZORDER = 0x0004
@@ -305,6 +309,8 @@ class ChromeEmbed:
         self._event_proc: Any = None
         self._syncing = False
         self._clip_key: tuple[int, ...] | None = None
+        #: Whether the browser window is on screen over the panel right now.
+        self._shown = False
         self._state = "idle"
         self._reason = ""
         self._browser = ""
@@ -362,6 +368,11 @@ class ChromeEmbed:
             if alive and same:
                 self._call(lambda: self._set_host(host))
                 return {**self.status(), "ok": True}
+            if not alive:
+                self._ensure_thread()
+                adopted = self._call(lambda: self._adopt_left_over(spec, profile, host))
+                if adopted:
+                    return {**self.status(), "ok": True}
             if alive:
                 self.release(close=True)
             self._ensure_thread()
@@ -470,6 +481,102 @@ class ChromeEmbed:
         if api is not None and self._thread_id:
             api.user32.PostThreadMessageW(self._thread_id, WM_QUIT, 0, 0)
         thread.join(1.0)
+
+    # -- a window left by the previous app run ---------------------------------
+
+    @staticmethod
+    def _state_path() -> Path | None:
+        try:
+            from dodaios.core.config import DATA_DIR  # noqa: PLC0415
+        except Exception:  # noqa: BLE001 - without a data folder nothing is remembered
+            return None
+        return Path(DATA_DIR) / STATE_FILE_NAME
+
+    def _remember(self) -> None:
+        """Write down the window in use, with what it looked like before it was taken."""
+        path, saved = self._state_path(), self._saved
+        if path is None or saved is None or not self._chrome:
+            return
+        placement = saved.placement
+        rect = placement.rcNormalPosition
+        record = {
+            "hwnd": int(self._chrome), "pid": int(self._chrome_pid),
+            "browser": self._browser, "profile": self._profile,
+            "style": int(saved.style), "exstyle": int(saved.exstyle),
+            "show": int(placement.showCmd),
+            "normal": [rect.left, rect.top, rect.right, rect.bottom],
+        }
+        try:
+            path.write_text(json.dumps(record), encoding="utf-8")
+        except OSError as exc:
+            logger.debug("Browser panel window not remembered: %s", exc)
+
+    def _forget(self) -> None:
+        path = self._state_path()
+        if path is not None:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.debug("Browser panel window record not removed: %s", exc)
+
+    def _left_over(self, spec: BrowserSpec) -> dict[str, Any] | None:
+        """The remembered window, if it is still that browser's window in panel style."""
+        path = self._state_path()
+        if path is None or not path.is_file():
+            return None
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+            hwnd, pid = int(record["hwnd"]), int(record["pid"])
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            logger.info("Browser panel window record unreadable, dropped: %s", exc)
+            self._forget()
+            return None
+        api = self._load_api()
+        user32 = api.user32
+        ok = (
+            user32.IsWindow(hwnd) and api.pid(hwnd) == pid
+            and api.class_name(hwnd) == _WINDOW_CLASS
+            and api.image_name(hwnd) == spec.image_name
+            and int(user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)) & WS_EX_TOOLWINDOW
+        )
+        if not ok:
+            self._forget()
+            return None
+        return record
+
+    def _adopt_left_over(self, spec: BrowserSpec, profile: str, host: int) -> bool:
+        """Take back the window a hard-stopped app left on screen, tabs and all.
+
+        A window of another profile is handed back to the desktop instead.
+        """
+        record = self._left_over(spec)
+        if record is None:
+            return False
+        api = self._load_api()
+        placement = api.WINDOWPLACEMENT()
+        placement.length = ctypes.sizeof(api.WINDOWPLACEMENT)
+        api.user32.GetWindowPlacement(int(record["hwnd"]), ctypes.byref(placement))
+        placement.showCmd = int(record.get("show", SW_SHOWNORMAL))
+        left, top, right, bottom = (int(v) for v in record.get("normal", [0, 0, 800, 600]))
+        rect = placement.rcNormalPosition
+        rect.left, rect.top, rect.right, rect.bottom = left, top, right, bottom
+        saved = _Saved(int(record["style"]), int(record["exstyle"]), placement)
+        with self._lock:
+            self._chrome = int(record["hwnd"])
+            self._chrome_pid = int(record["pid"])
+            self._saved = saved
+            self._browser = str(record.get("browser", spec.id))
+            self._profile = str(record.get("profile", ""))
+            self._host = host or self._host
+            self._clip_key = None
+            self._state, self._reason = "embedded", ""
+        if self._profile != profile:
+            self._give_back(close=True, focus=False)
+            return False
+        self._hook_browser_events()
+        self._sync()
+        logger.info("Browser panel took back the window of the previous run")
+        return True
 
     # -- launching (caller thread) ----------------------------------------------
 
@@ -609,8 +716,37 @@ class ChromeEmbed:
 
     # -- window events (delivered on the embed thread) ---------------------------
 
+    def zorder_anchor(self, host: int) -> int | None:
+        """The browser window when it is shown over ``host``: the app window stays under it.
+
+        Called from the app window's own window procedure (see
+        ``window_frame.set_zorder_anchor``), so it only reads plain fields.
+        """
+        chrome, api = self._chrome, self._api
+        if not chrome or api is None or host != self._host or not self._shown:
+            return None
+        # Only when nothing else lies above the browser window: otherwise the app
+        # would come up under another program instead of to the front.
+        user32 = api.user32
+        window = user32.GetWindow(chrome, GW_HWNDPREV)
+        for _ in range(256):
+            if not window:
+                return chrome
+            if user32.IsWindowVisible(window) and not (
+                int(user32.GetWindowLongPtrW(window, GWL_EXSTYLE)) & WS_EX_TOPMOST
+            ):
+                return None
+            window = user32.GetWindow(window, GW_HWNDPREV)
+        return None
+
     def _hook_app_events(self, api: _Api) -> None:
         """Follow the app: front, minimize and restore, move and resize, show and hide."""
+        try:
+            from dodaios.ui.window_frame import set_zorder_anchor  # noqa: PLC0415
+
+            set_zorder_anchor(self.zorder_anchor)
+        except Exception:  # noqa: BLE001 - without it the window is raised after the app
+            logger.debug("Browser panel z-order anchor not installed", exc_info=True)
         self._event_proc = api.WINEVENTPROC(self._on_event)
         own = os.getpid()
         for low, high, pid in (
@@ -709,6 +845,7 @@ class ChromeEmbed:
             self._clip_key = None
             self._state, self._reason = "embedded", ""
         self._hook_browser_events()
+        self._remember()
         self._sync()
         logger.info("Browser panel took a %s window", self._browser)
 
@@ -771,6 +908,7 @@ class ChromeEmbed:
         self._syncing = True
         try:
             if not self._should_show() or self._page_rect is None:
+                self._shown = False
                 if user32.IsWindowVisible(hwnd):
                     user32.ShowWindow(hwnd, SW_HIDE)
                 return
@@ -789,6 +927,7 @@ class ChromeEmbed:
                 if after is None:
                     flags |= SWP_NOZORDER
                 user32.SetWindowPos(hwnd, after, *want, flags)
+            self._shown = True
             # The browser keeps an invisible resize border around its page; cut
             # the window to the page so that border cannot catch the app's clicks.
             self._clip(want[2], want[3], (left, top, right, bottom))
@@ -868,6 +1007,8 @@ class ChromeEmbed:
             logger.debug("Browser panel watchdog tick failed", exc_info=True)
 
     def _lost(self, state: str) -> None:
+        self._forget()
+        self._shown = False
         self._chrome = 0
         self._chrome_pid = 0
         self._saved = None
