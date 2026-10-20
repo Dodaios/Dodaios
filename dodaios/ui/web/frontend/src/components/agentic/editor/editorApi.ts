@@ -143,8 +143,14 @@ export function moveEntry(workspaceId: string, source: string, destination: stri
   return send(`${base(workspaceId)}/entries/move`, json("POST", { source, destination }));
 }
 
+export interface DeleteResult {
+  trashed: boolean;
+  /** Undo puts the entry back with this; null when it was too large to keep. */
+  undo_token: string | null;
+}
+
 /** Move to the system trash, or delete for good when `permanent` is set. */
-export async function deleteEntry(workspaceId: string, path: string, permanent = false): Promise<{ trashed: boolean }> {
+export async function deleteEntry(workspaceId: string, path: string, permanent = false): Promise<DeleteResult> {
   const res = await fetch(`${base(workspaceId)}/entries/delete`, json("POST", { path, permanent }));
   if (res.status === 409) {
     const { message, detail } = await failure(res);
@@ -152,7 +158,13 @@ export async function deleteEntry(workspaceId: string, path: string, permanent =
     throw new Error(message);
   }
   if (!res.ok) throw new Error((await failure(res)).message);
-  return (await res.json()) as { trashed: boolean };
+  const answer = (await res.json()) as Partial<DeleteResult>;
+  return { trashed: Boolean(answer.trashed), undo_token: answer.undo_token ?? null };
+}
+
+/** Undo a delete: put the entry kept under `token` back where it was. */
+export function restoreEntry(workspaceId: string, token: string): Promise<{ path: string }> {
+  return send(`${base(workspaceId)}/entries/restore`, json("POST", { token }));
 }
 
 export interface EditorTabRecord {

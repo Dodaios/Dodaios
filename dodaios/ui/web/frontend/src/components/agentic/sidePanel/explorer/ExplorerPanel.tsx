@@ -17,6 +17,7 @@ import {
   GitCompareArrows,
   Loader2,
   Pencil,
+  Redo2,
   RefreshCw,
   Scissors,
   Search,
@@ -24,6 +25,7 @@ import {
   SquarePen,
   SquareTerminal,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import { fill, useT } from "@/i18n";
@@ -37,8 +39,7 @@ import {
 } from "@/lib/agenticIdeApi";
 import { setWorkspaceDragPaths } from "@/components/agentic/paneDrop";
 import { AgentMark } from "@/components/agentic/AgentMark";
-import { copyEntry, createEntry, deleteEntry, moveEntry, TrashUnavailableError } from "@/components/agentic/editor/editorApi";
-import { moveModels } from "@/components/agentic/editor/editorModels";
+import { TrashUnavailableError } from "@/components/agentic/editor/editorApi";
 import { forgetFileList } from "@/components/agentic/editor/QuickOpen";
 import { ThreadMenuItem, ThreadMenuSeparator, ThreadPopover } from "@/components/agentic/threads/ThreadPopover";
 import { useCodeEditorStore, isUnder } from "@/store/codeEditor";
@@ -59,6 +60,20 @@ import {
   type WorkspaceChanges,
 } from "./explorerApi";
 import { FileTypeIcon } from "./FileTypeIcon";
+import {
+  entryDeletes,
+  peekFileUndo,
+  recordFileUndo,
+  replayFileUndo,
+  runFileOp,
+  setConfirm,
+  shouldConfirm,
+  useFileUndoStore,
+  type ConfirmKind,
+  type FileOp,
+  type FileUndoEntry,
+  type UndoDirection,
+} from "./explorerUndo";
 
 /** How often git is asked what changed while the Changes or Folder tab is on screen. */
 const CHANGES_POLL_MS = 6000;
@@ -96,6 +111,16 @@ function revealLabelKey(): string {
 
 /** The tree's own drag payload: the workspace paths being moved. */
 const EXPLORER_DRAG_TYPE = "application/x-jarvis-explorer-paths";
+
+/**
+ * The paths of the tree drag in progress. A dragover cannot read the payload
+ * (the browser hides it until the drop), but it must know whether the folder
+ * under the pointer can take the drop at all.
+ */
+let draggedPaths: string[] | null = null;
+
+/** How long a drag must rest on a closed folder before it opens. */
+const DRAG_EXPAND_MS = 600;
 
 /**
  * Start a drag that a terminal pane turns into file references, and that a
@@ -388,7 +413,7 @@ export function ExplorerPanel({ view }: { view: ExplorerView }) {
               {needle ? t("ide_side_panel.explorer.no_match") : t("ide_side_panel.explorer.clean")}
             </p>
           ) : (
-            <ul data-testid="explorer-changes">
+            <ul data-testid="explorer-changes" data-keeps-keyboard>
               {changedFiles.map((file) => {
                 const authors = file.authors ?? [];
                 return (
@@ -569,16 +594,20 @@ function FileTree({
   // "Select for compare" remembers one file; "Compare with …" on another opens the two side by side.
   const [compareFrom, setCompareFrom] = useState<string | null>(null);
   const chordAt = useRef(0);
-  const [confirm, setConfirm] = useState<{ paths: string[]; isDirectory: boolean; permanent: boolean } | null>(null);
+  // The one question on screen (move, delete, replace, undo); answering resolves its promise.
+  const [ask, setAsk] = useState<AskRequest | null>(null);
   // Several rows can be selected (Ctrl/Cmd+click, Shift+click) for delete,
   // cut/copy/paste and drag; a plain click selects one row again.
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const anchorRef = useRef<string | null>(null);
   const [clip, setClip] = useState<{ paths: string[]; cut: boolean } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const dragExpand = useRef<{ path: string; timer: number } | null>(null);
   const menuAnchor = useRef<HTMLElement | null>(null);
   const list = useRef<HTMLUListElement>(null);
   const loaded = useRef<Set<string>>(new Set());
+  const undoNext = useFileUndoStore((state) => state.undo[workspaceId]?.at(-1) ?? null);
+  const redoNext = useFileUndoStore((state) => state.redo[workspaceId]?.at(-1) ?? null);
 
   const load = useCallback(
     async (path: string) => {
@@ -588,8 +617,10 @@ function FileTree({
         loaded.current.add(path);
         setChildren((current) => ({ ...current, [path]: answer.entries }));
         setError(answer.error ?? "");
+        return answer.entries;
       } catch (err) {
         setError((err as Error).message);
+        return null;
       } finally {
         setLoading((current) => {
           const next = new Set(current);
@@ -697,12 +728,51 @@ function FileTree({
   const editor = useCodeEditorStore.getState();
   const fail = (err: unknown) => pushToast("error", (err as Error).message);
 
+  /** Ask one question in the dialog; resolves true on the confirm button. */
+  const confirmWith = (request: Omit<AskRequest, "resolve">) =>
+    new Promise<boolean>((resolve) => setAsk({ ...request, resolve }));
+
+  /** Show an action as done, with an Undo button while it is still the newest one. */
+  const announce = (message: string, entry: FileUndoEntry | null) => {
+    pushToast(
+      "success",
+      message,
+      entry ? { action: { label: t("ide_side_panel.explorer.undo"), onAction: () => undoFromToast(entry) } } : undefined,
+    );
+  };
+
+  /** Re-read the folders around paths that changed; folders under them are read again when opened. */
+  const reloadAround = async (paths: string[]) => {
+    const folders = new Set<string>();
+    for (const path of paths) {
+      folders.add(parentPath(path));
+      loaded.current = new Set([...loaded.current].filter((entry) => entry === "" || !isUnder(entry, path)));
+    }
+    await Promise.all(
+      // Every folder read before, open or not: a closed one may open right after (a drop target).
+      [...folders].filter((folder) => folder === "" || loaded.current.has(folder)).map((folder) => load(folder)),
+    );
+  };
+
+  /** Open folders keep their open state when they move. */
+  const followMove = (from: string, to: string) => {
+    setExpanded((current) => {
+      const next = new Set<string>();
+      for (const entry of current) next.add(isUnder(entry, from) ? to + entry.slice(from.length) : entry);
+      return next;
+    });
+  };
+
   const create = async (folder: string, kind: "file" | "directory", name: string) => {
     onCreatingDone();
     const path = joinPath(folder, name.replace(/\\/g, "/"));
     try {
-      const created = await createEntry(workspaceId, path, kind);
-      forgetFileList(workspaceId);
+      const created = await runFileOp(workspaceId, { kind: "create", path, entry: kind });
+      recordFileUndo(
+        workspaceId,
+        t(kind === "file" ? "ide_side_panel.explorer.new_file" : "ide_side_panel.explorer.new_folder"),
+        [created.inverse],
+      );
       // "a/b/c.ts" may have created folders on the way; re-read from the top one.
       const top = joinPath(folder, path.slice(folder ? folder.length + 1 : 0).split("/")[0]);
       await load(folder);
@@ -714,40 +784,18 @@ function FileTree({
     }
   };
 
-  /** Rename or move one entry; open buffers, tabs and open folders follow it. */
-  const moveTo = async (path: string, destination: string): Promise<string | null> => {
-    const saving = Object.values(useCodeEditorStore.getState().files).some(
-      (file) => file.workspaceId === workspaceId && file.saving && isUnder(file.path, path),
-    );
-    // A save in flight would land under the old name; wait for it.
-    if (saving) {
-      pushToast("error", t("ide_side_panel.explorer.busy_saving"));
-      return null;
-    }
-    try {
-      const moved = await moveEntry(workspaceId, path, destination);
-      forgetFileList(workspaceId);
-      moveModels(workspaceId, path, moved.path);
-      editor.renamePath(workspaceId, path, moved.path);
-      setExpanded((current) => {
-        const next = new Set<string>();
-        for (const entry of current) next.add(isUnder(entry, path) ? moved.path + entry.slice(path.length) : entry);
-        return next;
-      });
-      loaded.current = new Set([...loaded.current].filter((entry) => !isUnder(entry, path)));
-      await load(parentPath(path));
-      if (parentPath(moved.path) !== parentPath(path)) await load(parentPath(moved.path));
-      return moved.path;
-    } catch (err) {
-      fail(err);
-      return null;
-    }
-  };
-
   const rename = async (path: string, name: string) => {
     setRenaming(null);
-    const moved = await moveTo(path, joinPath(parentPath(path), name));
-    if (moved) setFocused(moved);
+    try {
+      const moved = await runFileOp(workspaceId, { kind: "move", from: path, to: joinPath(parentPath(path), name) });
+      followMove(path, moved.path);
+      recordFileUndo(workspaceId, t("ide_side_panel.explorer.rename"), [moved.inverse]);
+      await reloadAround([path, moved.path]);
+      setFocused(moved.path);
+      setSelected(new Set([moved.path]));
+    } catch (err) {
+      fail(err);
+    }
   };
 
   const isDirectory = (path: string) =>
@@ -757,17 +805,84 @@ function FileTree({
   /** What an action on `path` covers: the whole selection when the row is part of it. */
   const selectionFor = (path: string) => (selected.has(path) && selected.size > 1 ? topLevel([...selected]) : [path]);
 
-  const moveInto = async (paths: string[], folder: string) => {
-    let last: string | null = null;
-    for (const path of topLevel(paths)) {
-      if (parentPath(path) === folder || isUnder(folder, path)) continue;
-      last = (await moveTo(path, joinPath(folder, baseName(path)))) ?? last;
+  /** The folder's name as the dialogs show it; the workspace's name for the root. */
+  const folderLabel = (folder: string) => (folder ? baseName(folder) : workspaceName || baseName(fullPath("").replace(/\\/g, "/")));
+
+  /** Which of `paths` would really move into `folder` (not already there, not into itself). */
+  const movable = (paths: string[], folder: string) =>
+    topLevel(paths).filter((path) => parentPath(path) !== folder && !isUnder(folder, path));
+
+  /**
+   * Move entries into a folder as one undoable step. A name already taken
+   * there asks before the existing entry is replaced (it goes to the trash).
+   */
+  const moveInto = async (paths: string[], folder: string): Promise<string[]> => {
+    const moving = movable(paths, folder);
+    if (moving.length === 0) return [];
+    const existing = new Set(((await load(folder)) ?? childrenRef.current[folder] ?? []).map((entry) => entry.name));
+    const ops: FileOp[] = [];
+    const landed: string[] = [];
+    const touched: string[] = [];
+    for (const path of moving) {
+      const name = baseName(path);
+      const target = joinPath(folder, name);
+      try {
+        if (existing.has(name)) {
+          const replace = await confirmWith({
+            title: fill(t("ide_side_panel.explorer.replace_title"), { file: name, folder: folderLabel(folder) }),
+            body: t("ide_side_panel.explorer.replace_body"),
+            confirmLabel: t("ide_side_panel.explorer.replace"),
+            danger: true,
+          });
+          if (!replace) continue;
+          const removed = await runFileOp(workspaceId, { kind: "delete", path: target });
+          ops.push(removed.inverse);
+          touched.push(target);
+        }
+        const moved = await runFileOp(workspaceId, { kind: "move", from: path, to: target });
+        followMove(path, moved.path);
+        ops.push(moved.inverse);
+        landed.push(moved.path);
+        touched.push(...moved.touched);
+      } catch (err) {
+        fail(err);
+      }
     }
+    const entry = recordFileUndo(workspaceId, t("ide_side_panel.explorer.action_move"), ops);
+    await reloadAround(touched);
     if (folder) expand(folder);
-    if (last) {
-      setFocused(last);
-      setSelected(new Set([last]));
+    if (landed.length > 0) {
+      setFocused(landed[landed.length - 1]);
+      setSelected(new Set(landed));
+      announce(
+        landed.length === 1
+          ? fill(t("ide_side_panel.explorer.moved_one"), { file: baseName(landed[0]), folder: folderLabel(folder) })
+          : fill(t("ide_side_panel.explorer.moved_many"), { count: landed.length, folder: folderLabel(folder) }),
+        entry,
+      );
     }
+    return landed;
+  };
+
+  /** A drag dropped on a folder: ask first (unless told not to), then move. */
+  const dropInto = async (paths: string[], folder: string) => {
+    const moving = movable(paths, folder);
+    if (moving.length === 0) return;
+    if (shouldConfirm("move")) {
+      const ok = await confirmWith({
+        title:
+          moving.length === 1
+            ? fill(t("ide_side_panel.explorer.move_one_title"), { file: baseName(moving[0]), folder: folderLabel(folder) })
+            : fill(t("ide_side_panel.explorer.move_many_title"), { count: moving.length, folder: folderLabel(folder) }),
+        body: t("ide_side_panel.explorer.move_body"),
+        items: moving.length > 1 ? moving : undefined,
+        confirmLabel: t("ide_side_panel.explorer.action_move"),
+        dontAsk: "move",
+      });
+      if (!ok) return;
+    }
+    await moveInto(moving, folder);
+    list.current?.focus({ preventScroll: true });
   };
 
   const paste = async (folder: string) => {
@@ -777,38 +892,133 @@ function FileTree({
       setClip(null);
       return;
     }
-    let last: string | null = null;
+    const ops: FileOp[] = [];
+    const landed: string[] = [];
     for (const path of topLevel(clip.paths)) {
       try {
-        last = (await copyEntry(workspaceId, path, joinPath(folder, baseName(path)), true)).path;
+        const copied = await runFileOp(workspaceId, {
+          kind: "copy",
+          source: path,
+          to: joinPath(folder, baseName(path)),
+          unique: true,
+        });
+        ops.push(copied.inverse);
+        landed.push(copied.path);
       } catch (err) {
         fail(err);
       }
     }
-    forgetFileList(workspaceId);
+    recordFileUndo(workspaceId, t("ide_side_panel.explorer.paste"), ops);
     await load(folder);
     if (folder) expand(folder);
-    if (last) setFocused(last);
+    if (landed.length > 0) {
+      setFocused(landed[landed.length - 1]);
+      setSelected(new Set(landed));
+    }
+  };
+
+  /** Delete after the question (always asked for a permanent delete). */
+  const requestDelete = async (paths: string[], permanent = false) => {
+    if (paths.length === 0) return;
+    if (permanent || shouldConfirm("delete")) {
+      const single = paths.length === 1;
+      const title = !single
+        ? "ide_side_panel.explorer.delete_many_title"
+        : permanent
+          ? "ide_side_panel.explorer.delete_permanent_title"
+          : isDirectory(paths[0])
+            ? "ide_side_panel.explorer.delete_folder_title"
+            : "ide_side_panel.explorer.delete_file_title";
+      const ok = await confirmWith({
+        title: fill(t(title), { file: baseName(paths[0]), count: paths.length }),
+        body: t(permanent ? "ide_side_panel.explorer.delete_permanent_body" : "ide_side_panel.explorer.delete_body"),
+        items: single ? undefined : paths,
+        confirmLabel: t(permanent ? "ide_side_panel.explorer.delete_permanent" : "ide_side_panel.explorer.delete_trash"),
+        danger: true,
+        dontAsk: permanent ? undefined : "delete",
+      });
+      if (!ok) return;
+    }
+    await remove(paths, permanent);
   };
 
   const remove = async (paths: string[], permanent: boolean) => {
-    setConfirm(null);
+    const ops: FileOp[] = [];
+    let rest: string[] = [];
     for (const [index, path] of paths.entries()) {
       try {
-        await deleteEntry(workspaceId, path, permanent);
-        editor.markDeleted(workspaceId, path);
+        ops.push((await runFileOp(workspaceId, { kind: "delete", path, permanent })).inverse);
       } catch (err) {
         if (err instanceof TrashUnavailableError) {
           // No trash on this computer: ask once for the rest, permanently.
-          setConfirm({ paths: paths.slice(index), isDirectory: isDirectory(path), permanent: true });
+          rest = paths.slice(index);
           break;
         }
         fail(err);
       }
     }
-    forgetFileList(workspaceId);
+    const entry = recordFileUndo(workspaceId, t("ide_side_panel.explorer.delete"), ops);
     setSelected(new Set());
-    for (const folder of new Set(paths.map(parentPath))) await load(folder);
+    await reloadAround(paths);
+    if (ops.length > 0) {
+      announce(
+        ops.length === 1
+          ? fill(t("ide_side_panel.explorer.deleted_one"), { file: baseName(paths[0]) })
+          : fill(t("ide_side_panel.explorer.deleted_many"), { count: ops.length }),
+        entry,
+      );
+    }
+    list.current?.focus({ preventScroll: true });
+    if (rest.length > 0) await requestDelete(rest, true);
+  };
+
+  /** Ctrl+Z / Ctrl+Y in the tree, and the menu's Undo / Redo. */
+  const replay = async (direction: UndoDirection) => {
+    const entry = peekFileUndo(workspaceId, direction);
+    if (!entry) return;
+    if (entryDeletes(entry) && shouldConfirm("undo")) {
+      const ok = await confirmWith({
+        title: fill(
+          t(direction === "undo" ? "ide_side_panel.explorer.undo_confirm_title" : "ide_side_panel.explorer.redo_confirm_title"),
+          { action: entry.label },
+        ),
+        body: t("ide_side_panel.explorer.undo_confirm_body"),
+        confirmLabel: t(direction === "undo" ? "ide_side_panel.explorer.undo" : "ide_side_panel.explorer.redo"),
+        dontAsk: "undo",
+      });
+      if (!ok) return;
+    }
+    const result = await replayFileUndo(workspaceId, direction);
+    if (!result) return;
+    // Open folders follow a folder moved back.
+    for (const op of entry.ops) if (op.kind === "move") followMove(op.from, op.to);
+    await reloadAround(result.touched);
+    const shown = result.paths.filter((path) => !entry.ops.some((op) => op.kind === "delete" && op.path === path));
+    if (shown.length > 0) {
+      setFocused(shown[shown.length - 1]);
+      setSelected(new Set(shown));
+      for (const path of shown) {
+        const parts = path.split("/");
+        for (let index = 1; index < parts.length; index += 1) expand(parts.slice(0, index).join("/"));
+      }
+    }
+    if (result.error) fail(result.error);
+    else {
+      pushToast(
+        "info",
+        fill(t(direction === "undo" ? "ide_side_panel.explorer.undone" : "ide_side_panel.explorer.redone"), { action: result.label }),
+      );
+    }
+    list.current?.focus({ preventScroll: true });
+  };
+
+  /** The toast's Undo only takes back its own action, never a newer one. */
+  const undoFromToast = (entry: FileUndoEntry) => {
+    if (peekFileUndo(workspaceId, "undo") !== entry) {
+      pushToast("info", t("ide_side_panel.explorer.undo_stale"));
+      return;
+    }
+    void replay("undo");
   };
 
   const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(fail);
@@ -878,7 +1088,8 @@ function FileTree({
       setRenaming(item.path);
     } else if (event.key === "Delete") {
       event.preventDefault();
-      setConfirm({ paths: selectionFor(item.path), isDirectory: item.is_directory, permanent: false });
+      // Shift+Delete skips the trash, as in every file manager.
+      void requestDelete(selectionFor(item.path), event.shiftKey);
     } else if ((event.ctrlKey || event.metaKey) && ["c", "x"].includes(event.key.toLowerCase())) {
       event.preventDefault();
       setClip({ paths: selectionFor(item.path), cut: event.key.toLowerCase() === "x" });
@@ -924,6 +1135,48 @@ function FileTree({
     );
   }
 
+  /** Dragging over a folder: accept only a move that would change something; rest on a closed folder to open it. */
+  const dragOverFolder = (event: DragEvent, folder: string, closedFolder: string | null = null) => {
+    if (!event.dataTransfer.types.includes(EXPLORER_DRAG_TYPE)) return;
+    if (draggedPaths && movable(draggedPaths, folder).length === 0) {
+      event.dataTransfer.dropEffect = "none";
+      if (dropTarget !== null) setDropTarget(null);
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (dropTarget !== folder) setDropTarget(folder);
+    if (dragExpand.current?.path !== closedFolder) {
+      if (dragExpand.current) window.clearTimeout(dragExpand.current.timer);
+      dragExpand.current = closedFolder
+        ? { path: closedFolder, timer: window.setTimeout(() => expand(closedFolder), DRAG_EXPAND_MS) }
+        : null;
+    }
+  };
+
+  const endDragHover = () => {
+    setDropTarget(null);
+    if (dragExpand.current) window.clearTimeout(dragExpand.current.timer);
+    dragExpand.current = null;
+  };
+
+  const dropOn = (event: DragEvent, folder: string) => {
+    endDragHover();
+    const raw = event.dataTransfer.getData(EXPLORER_DRAG_TYPE);
+    draggedPaths = null;
+    if (!raw) return;
+    event.preventDefault();
+    let paths: unknown;
+    try {
+      paths = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (Array.isArray(paths) && paths.every((path) => typeof path === "string")) void dropInto(paths as string[], folder);
+  };
+
+  const askingOff = (["move", "delete", "undo"] as ConfirmKind[]).some((kind) => !shouldConfirm(kind));
+
   const menuFolder = menu ? (menu.isDirectory ? menu.path : parentPath(menu.path)) : "";
   const pick = (action: () => void) => () => {
     setMenu(null);
@@ -935,9 +1188,10 @@ function FileTree({
       <ul
         ref={list}
         data-testid="explorer-tree"
+        data-keeps-keyboard
         role="tree"
         aria-label={t("ide_side_panel.explorer.view_files")}
-        className="min-h-full"
+        className={cn("min-h-full focus-visible:outline-none", dropTarget === "" && "bg-primary/5 ring-1 ring-inset ring-primary/40")}
         // A click on the empty space below the rows clears the selection, so
         // New File / New Folder go to the workspace root again.
         onClick={(event) => {
@@ -947,21 +1201,30 @@ function FileTree({
           }
         }}
         onContextMenu={(event) => openMenu(event, "", true)}
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          // Undo / redo of the tree's own file actions, while the tree has focus.
+          if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+          if ((event.target as HTMLElement).tagName === "INPUT") return;
+          const letter = event.code?.startsWith("Key") ? event.code.slice(3).toLowerCase() : event.key.toLowerCase();
+          if (letter === "z" && !event.shiftKey) {
+            event.preventDefault();
+            void replay("undo");
+          } else if (letter === "y" || (letter === "z" && event.shiftKey)) {
+            event.preventDefault();
+            void replay("redo");
+          }
+        }}
         // Dropped on the empty space below the rows: into the workspace root.
         onDragOver={(event) => {
-          if (event.target !== event.currentTarget || !event.dataTransfer.types.includes(EXPLORER_DRAG_TYPE)) return;
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
-          setDropTarget("");
+          if (event.target !== event.currentTarget) return;
+          dragOverFolder(event, "");
         }}
-        onDragLeave={() => setDropTarget(null)}
-        onDrop={(event) => {
-          setDropTarget(null);
-          const raw = event.dataTransfer.getData(EXPLORER_DRAG_TYPE);
-          if (!raw) return;
-          event.preventDefault();
-          void moveInto(JSON.parse(raw) as string[], "");
+        onDragLeave={(event) => {
+          // Moving between rows fires a leave on each; only leaving the tree counts.
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) endDragHover();
         }}
+        onDrop={(event) => dropOn(event, "")}
       >
         {error && <li className="px-3 py-2 text-[11px] text-destructive">{error}</li>}
         {rows.map((row) => {
@@ -1002,22 +1265,24 @@ function FileTree({
               <button
                 type="button"
                 draggable
-                onDragStart={(event) => startFileDrag(event, selectionFor(item.path).map(absolute), selectionFor(item.path))}
-                onDragOver={(event) => {
-                  if (!event.dataTransfer.types.includes(EXPLORER_DRAG_TYPE)) return;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  event.dataTransfer.dropEffect = "move";
-                  setDropTarget(folderFor(item.path));
+                onDragStart={(event) => {
+                  const paths = selectionFor(item.path);
+                  // Dragging a row outside the selection drags that row alone, and selects it.
+                  if (!selected.has(item.path)) setSelected(new Set([item.path]));
+                  startFileDrag(event, paths.map(absolute), paths);
+                  draggedPaths = paths;
                 }}
-                onDragLeave={() => setDropTarget(null)}
-                onDrop={(event) => {
-                  setDropTarget(null);
-                  const raw = event.dataTransfer.getData(EXPLORER_DRAG_TYPE);
-                  if (!raw) return;
-                  event.preventDefault();
+                onDragEnd={() => {
+                  draggedPaths = null;
+                  endDragHover();
+                }}
+                onDragOver={(event) => {
                   event.stopPropagation();
-                  void moveInto(JSON.parse(raw) as string[], folderFor(item.path));
+                  dragOverFolder(event, folderFor(item.path), item.is_directory && !open ? item.path : null);
+                }}
+                onDrop={(event) => {
+                  event.stopPropagation();
+                  dropOn(event, folderFor(item.path));
                 }}
                 onClick={(event) => {
                   setFocused(item.path);
@@ -1059,7 +1324,9 @@ function FileTree({
                   current && "bg-secondary",
                   selected.has(item.path) && selected.size > 1 && "bg-primary/10",
                   focused === item.path && "ring-1 ring-inset ring-ring/50",
-                  item.is_directory && dropTarget === item.path && "bg-primary/15 ring-1 ring-inset ring-primary/50",
+                  // The whole folder the drop lands in lights up, as in VS Code.
+                  dropTarget !== null && dropTarget !== "" && isUnder(item.path, dropTarget) && "bg-primary/10",
+                  dropTarget === item.path && "ring-1 ring-inset ring-primary/60",
                   clip?.cut && clip.paths.includes(item.path) && "opacity-50",
                 )}
               >
@@ -1162,90 +1429,151 @@ function FileTree({
                   label={t("ide_side_panel.explorer.delete")}
                   hint="Del"
                   danger
-                  onSelect={pick(() => setConfirm({ paths: selectionFor(menu.path), isDirectory: menu.isDirectory, permanent: false }))}
+                  onSelect={pick(() => void requestDelete(selectionFor(menu.path)))}
                 />
               </>
+            )}
+            {(undoNext || redoNext || askingOff) && <ThreadMenuSeparator />}
+            {undoNext && (
+              <ThreadMenuItem
+                icon={<Undo2 className="h-4 w-4" />}
+                label={fill(t("ide_side_panel.explorer.undo_action"), { action: undoNext.label })}
+                hint="Ctrl+Z"
+                onSelect={pick(() => void replay("undo"))}
+              />
+            )}
+            {redoNext && (
+              <ThreadMenuItem
+                icon={<Redo2 className="h-4 w-4" />}
+                label={fill(t("ide_side_panel.explorer.redo_action"), { action: redoNext.label })}
+                hint="Ctrl+Y"
+                onSelect={pick(() => void replay("redo"))}
+              />
+            )}
+            {askingOff && (
+              <ThreadMenuItem
+                icon={<span aria-hidden />}
+                label={t("ide_side_panel.explorer.ask_again")}
+                onSelect={pick(() => {
+                  for (const kind of ["move", "delete", "undo"] as ConfirmKind[]) setConfirm(kind, true);
+                })}
+              />
             )}
           </div>
         )}
       </ThreadPopover>
 
-      {confirm && (
-        <DeleteDialog
-          name={baseName(confirm.paths[0])}
-          count={confirm.paths.length}
-          isDirectory={confirm.isDirectory}
-          permanent={confirm.permanent}
-          onCancel={() => setConfirm(null)}
-          onConfirm={() => void remove(confirm.paths, confirm.permanent)}
+      {ask && (
+        <ConfirmDialog
+          key={ask.title}
+          request={ask}
+          onDone={(ok, dontAskAgain) => {
+            setAsk(null);
+            if (ok && dontAskAgain && ask.dontAsk) setConfirm(ask.dontAsk, false);
+            ask.resolve(ok);
+          }}
         />
       )}
     </>
   );
 }
 
-function DeleteDialog({
-  name,
-  count,
-  isDirectory,
-  permanent,
-  onConfirm,
-  onCancel,
-}: {
-  name: string;
-  count: number;
-  isDirectory: boolean;
-  permanent: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
+/** One question the Folder tab asks before a move, delete, replace or undo. */
+interface AskRequest {
+  title: string;
+  body?: string;
+  /** Workspace paths the question is about, listed when there are several. */
+  items?: string[];
+  confirmLabel: string;
+  danger?: boolean;
+  /** Offers "Don't ask me again" for this kind of question. */
+  dontAsk?: ConfirmKind;
+  resolve: (ok: boolean) => void;
+}
+
+/** How many entries a dialog lists before it says "and N more". */
+const DIALOG_LIST_MAX = 8;
+
+function ConfirmDialog({ request, onDone }: { request: AskRequest; onDone: (ok: boolean, dontAskAgain: boolean) => void }) {
   const t = useT();
   const confirmButton = useRef<HTMLButtonElement>(null);
+  const [dontAsk, setDontAsk] = useState(false);
   useEffect(() => confirmButton.current?.focus(), []);
-  const title =
-    count > 1
-      ? "ide_side_panel.explorer.delete_many_title"
-      : permanent
-        ? "ide_side_panel.explorer.delete_permanent_title"
-        : isDirectory
-          ? "ide_side_panel.explorer.delete_folder_title"
-          : "ide_side_panel.explorer.delete_file_title";
+  const items = request.items ?? [];
+  const hidden = items.length - DIALOG_LIST_MAX;
   return (
     <div
       role="presentation"
+      data-testid="explorer-dialog-backdrop"
       className="fixed inset-0 z-[86] flex items-center justify-center bg-background/60 p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onDone(false, false);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.stopPropagation();
-          onCancel();
+          onDone(false, false);
         }
       }}
     >
       <section
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="explorer-delete-title"
-        data-testid="explorer-delete-dialog"
+        aria-labelledby="explorer-dialog-title"
+        aria-describedby={request.body ? "explorer-dialog-body" : undefined}
+        data-testid="explorer-dialog"
         className="w-full max-w-sm rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-float"
       >
-        <h2 id="explorer-delete-title" className="text-sm font-semibold text-foreground-strong">
-          {fill(t(title), { file: name, count })}
+        <h2 id="explorer-dialog-title" className="break-words text-sm font-semibold text-foreground-strong">
+          {request.title}
         </h2>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {t(permanent ? "ide_side_panel.explorer.delete_permanent_body" : "ide_side_panel.explorer.delete_body")}
-        </p>
+        {items.length > 0 && (
+          <ul className="scrollbar-jarvis mt-2 max-h-40 overflow-y-auto rounded-md border border-border/60 bg-background/40 px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
+            {items.slice(0, DIALOG_LIST_MAX).map((path) => (
+              <li key={path} className="truncate" title={path}>
+                {path}
+              </li>
+            ))}
+            {hidden > 0 && <li>{fill(t("ide_side_panel.explorer.and_more"), { count: hidden })}</li>}
+          </ul>
+        )}
+        {request.body && (
+          <p id="explorer-dialog-body" className="mt-2 text-xs text-muted-foreground">
+            {request.body}
+          </p>
+        )}
+        {request.dontAsk && (
+          <label className="mt-3 flex cursor-pointer select-none items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={dontAsk}
+              onChange={(event) => setDontAsk(event.target.checked)}
+              data-testid="explorer-dialog-dont-ask"
+              className="h-3.5 w-3.5 accent-primary"
+            />
+            {t("ide_side_panel.explorer.dont_ask_again")}
+          </label>
+        )}
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className="h-8 rounded-md px-3 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <button
+            type="button"
+            onClick={() => onDone(false, false)}
+            data-testid="explorer-dialog-cancel"
+            className="h-8 rounded-md px-3 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             {t("ide_side_panel.explorer.cancel")}
           </button>
           <button
             ref={confirmButton}
             type="button"
-            onClick={onConfirm}
-            data-testid="explorer-delete-confirm"
-            className="h-8 rounded-md bg-destructive px-3 text-xs font-medium text-destructive-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => onDone(true, dontAsk)}
+            data-testid="explorer-dialog-confirm"
+            className={cn(
+              "h-8 rounded-md px-3 text-xs font-medium hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              request.danger ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground",
+            )}
           >
-            {t(permanent ? "ide_side_panel.explorer.delete_permanent" : "ide_side_panel.explorer.delete")}
+            {request.confirmLabel}
           </button>
         </div>
       </section>

@@ -84,6 +84,7 @@ from pydantic import BaseModel, Field
 from dodaios.agentic_ide import (
     agent_transcript,
     change_authors,
+    delete_undo,
     drop_analysis,
     drops,
     editor_backups,
@@ -1134,6 +1135,12 @@ class DeleteWorkspaceEntryRequest(BaseModel):
 
     path: str = Field(min_length=1, max_length=4096)
     permanent: bool = False
+
+
+class RestoreWorkspaceEntryRequest(BaseModel):
+    """Undo a delete: put the copy kept under ``token`` back where it was."""
+
+    token: str = Field(min_length=1, max_length=64)
 
 
 class SearchResponse(BaseModel):
@@ -2565,22 +2572,54 @@ async def copy_workspace_entry(
 async def delete_workspace_entry(
     workspace_id: str, req: DeleteWorkspaceEntryRequest
 ) -> dict[str, object]:
-    """Move to the system trash; 409 ``trash_unavailable`` asks for a permanent delete."""
+    """Move to the system trash; 409 ``trash_unavailable`` asks for a permanent delete.
+
+    A copy of a small entry is kept first; ``undo_token`` (null when it was
+    too large) lets the explorer's Undo put it back.
+    """
     folder = _workspace_folder(workspace_id)
+    token: str | None = None
     try:
+        token = await asyncio.to_thread(delete_undo.keep, folder, req.path)
         trashed = await asyncio.to_thread(
             file_editing.delete_entry, folder, req.path, permanent=req.permanent
         )
     except file_editing.TrashUnavailable as exc:
+        await asyncio.to_thread(delete_undo.discard, token)
         raise HTTPException(
             status_code=409, detail={"message": str(exc), "trash_unavailable": True}
         ) from exc
     except file_editing.EditError as exc:
+        await asyncio.to_thread(delete_undo.discard, token)
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except OSError as exc:
+        await asyncio.to_thread(delete_undo.discard, token)
         log.warning("Agentic IDE editor: delete failed for %s: %s", req.path, exc)
         raise HTTPException(status_code=500, detail="It could not be deleted.") from exc
-    return {"workspace_id": workspace_id, "path": req.path, "trashed": trashed}
+    return {
+        "workspace_id": workspace_id,
+        "path": req.path,
+        "trashed": trashed,
+        "undo_token": token,
+    }
+
+
+@router.post(
+    "/workspaces/{workspace_id}/entries/restore",
+    summary="Undo a delete in a workspace",
+)
+async def restore_workspace_entry(
+    workspace_id: str, req: RestoreWorkspaceEntryRequest
+) -> dict[str, object]:
+    folder = _workspace_folder(workspace_id)
+    try:
+        restored = await asyncio.to_thread(delete_undo.restore, folder, req.token)
+    except file_editing.EditError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except OSError as exc:
+        log.warning("Agentic IDE editor: restore failed: %s", exc)
+        raise HTTPException(status_code=500, detail="It could not be restored.") from exc
+    return {"workspace_id": workspace_id, "path": restored}
 
 
 async def _launch_terminal_target(
