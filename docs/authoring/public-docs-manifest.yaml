@@ -13,7 +13,7 @@ generated_reference_policy:
   description: Generated references remain generated. Reader pages may introduce and link to them, but must not copy or hand-maintain their contents.
   paths:
     - docs/commands-reference.md
-    - docs/jarvis-cli-reference.md
+    - docs/dodaios-cli-reference.md
 
 pages:
   - section: Start here
@@ -408,7 +408,7 @@ pages:
       - dodaios/ui/web/frontend/src/views/AssistantProfileView.tsx
       - dodaios/brain/agent_instructions.py
       - dodaios/brain/persona_loader.py
-      - dodaios/brain/JARVIS_PERSONA.md
+      - dodaios/brain/DODAIOS_PERSONA.md
       - dodaios/ui/web/frontend/src/views/settings/SystemPromptGroup.tsx
     related:
       - chats
@@ -511,7 +511,7 @@ pages:
     section_order: 4
     order: 3
     slug: jarvis-board
-    file: docs/product/knowledge-and-sharing/jarvis-board.md
+    file: docs/product/knowledge-and-sharing/dodaios-board.md
     title: Dodaios Board
     diataxis: explanation
     summary: Explore personal activity, achievements, and optional sharing, including what data leaves the device.
@@ -520,7 +520,7 @@ pages:
       - dodaios/ui/web/board_routes.py
       - dodaios/board/aggregator.py
       - dodaios/board/sync.py
-      - docs/jarvis-board/ARCHITECTURE.md
+      - docs/dodaios-board/ARCHITECTURE.md
     related:
       - profile-and-contacts
       - socials-and-feedback
@@ -573,12 +573,12 @@ pages:
     section_order: 5
     order: 1
     slug: jarvis-agents
-    file: docs/product/extend-and-automate/jarvis-agents.md
+    file: docs/product/extend-and-automate/dodaios-agents.md
     title: Dodaios-Agents
     diataxis: explanation
     summary: Learn when Dodaios delegates longer work, how missions and workers fit together, and how to follow progress and results.
     authoritative_sources:
-      - dodaios/ui/web/frontend/src/views/JarvisAgentsView.tsx
+      - dodaios/ui/web/frontend/src/views/DodaiosAgentsView.tsx
       - dodaios/ui/web/missions_routes.py
       - dodaios/missions/manager.py
       - dodaios/missions/state_machine.py
@@ -916,7 +916,7 @@ pages:
       - dodaios/core/control_key.py
       - dodaios/ui/web/control_routes.py
       - dodaios/ui/web/surface_security.py
-      - dodaios/ui/web/frontend/src/views/settings/JarvisApiGroup.tsx
+      - dodaios/ui/web/frontend/src/views/settings/DodaiosApiGroup.tsx
       - dodaios/ui/web/frontend/src/components/AuthGate.tsx
     related:
       - credentials-and-secrets
@@ -935,9 +935,9 @@ pages:
     diataxis: reference
     summary: Find the supported command-line surfaces, authentication options, common flags, and the generated command catalog.
     authoritative_sources:
-      - docs/jarvis-cli.md
-      - docs/jarvis-cli-reference.md
-      - docs/reference/jarvis-cli.md
+      - docs/dodaios-cli.md
+      - docs/dodaios-cli-reference.md
+      - docs/reference/dodaios-cli.md
       - dodaios/cli_ctl
       - scripts/ci/gen_cli_reference.py
     related:
@@ -947,7 +947,7 @@ pages:
       - configuration-reference
     reader_level: advanced
     maturity: stable
-    source_policy: Link to docs/jarvis-cli-reference.md; do not copy or hand-edit its generated command catalog.
+    source_policy: Link to docs/dodaios-cli-reference.md; do not copy or hand-edit its generated command catalog.
 
   - section: Reference
     section_order: 7
@@ -958,7 +958,7 @@ pages:
     diataxis: reference
     summary: Understand API authentication, discovery, error behavior, and how REST operations map to CLI and in-app actions.
     authoritative_sources:
-      - docs/jarvis-control-api.md
+      - docs/dodaios-control-api.md
       - dodaios/ui/web/server.py
       - dodaios/ui/web/control_routes.py
       - dodaios/ui/web/surface_security.py

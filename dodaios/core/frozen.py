@@ -47,7 +47,7 @@ def resources_root() -> Path | None:
     """Root of the bundled data files (``sys._MEIPASS``); ``None`` when not frozen.
 
     In the ``onedir`` layout this is ``<bundle_root>/_internal``; the
-    package-relative ``datas`` from ``jarvis.spec`` resolve beneath it.
+    package-relative ``datas`` from ``dodaios.spec`` resolve beneath it.
     """
     if not is_frozen():
         return None

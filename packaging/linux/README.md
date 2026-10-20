@@ -56,7 +56,7 @@ not a bug, and here is the whole reasoning:
   distributions - the exact failure mode this project treats as a defect.
 * **Qt is not available either, today.** The `[desktop]` extra installs
   `pyside6-essentials`, which does *not* contain QtWebEngine; pywebview's Qt
-  backend needs `QtWebEngineWidgets` from `pyside6-addons`. `jarvis.spec` also
+  backend needs `QtWebEngineWidgets` from `pyside6-addons`. `dodaios.spec` also
   excludes PySide6 outright to keep the bundle small. Adding `pyside6-addons`
   and removing that exclusion is the realistic route to a native Linux window,
   at roughly +400 MB - a trade worth making deliberately, not by accident.

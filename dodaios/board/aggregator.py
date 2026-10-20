@@ -1,7 +1,7 @@
 """BoardAggregator — FlightRecorder JSONL → ``personal.db`` aggregation.
 
-Phase A of the Jarvis Board plan (see ``docs/jarvis-board/RECON.md`` and
-``docs/jarvis-board/ARCHITECTURE.md``).
+Phase A of the Jarvis Board plan (see ``docs/dodaios-board/RECON.md`` and
+``docs/dodaios-board/ARCHITECTURE.md``).
 
 ## Responsibilities
 

@@ -677,7 +677,7 @@ class LiveSessions:
                         "executable": str(install.browser_executable(self.data_dir)),
                         "creationflags": NO_WINDOW_CREATIONFLAGS,
                         "icon_path": str(
-                            Path(__file__).parents[2] / "assets" / "icons" / "jarvis.ico"
+                            Path(__file__).parents[2] / "assets" / "icons" / "dodaios.ico"
                         ),
                         "allowed_domains": list(binding.domains),
                         "cdp_url": self.cdp_url if binding.kind == "attach" else "",

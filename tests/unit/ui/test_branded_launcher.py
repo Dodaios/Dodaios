@@ -151,7 +151,7 @@ def test_relocated_copy_carries_the_runtime_dlls(
     without them the relocated exe dies before any window exists."""
     _brandable(monkeypatch)
     src_dir = _fake_interpreter_dir(tmp_path)
-    ico = tmp_path / "jarvis.ico"
+    ico = tmp_path / "dodaios.ico"
     ico.write_bytes(b"ico")
     target = tmp_path / "user" / "bin" / icon_utils.BRANDED_LAUNCHER_EXE_NAME
 
@@ -170,7 +170,7 @@ def test_relocated_copy_that_fails_the_smoke_start_is_discarded(
     (the re-exec parent already exited) — it must be deleted, not returned."""
     _brandable(monkeypatch, boots=False)
     src_dir = _fake_interpreter_dir(tmp_path)
-    ico = tmp_path / "jarvis.ico"
+    ico = tmp_path / "dodaios.ico"
     ico.write_bytes(b"ico")
     target = tmp_path / "user" / "bin" / icon_utils.BRANDED_LAUNCHER_EXE_NAME
 
@@ -185,7 +185,7 @@ def test_relocated_copy_missing_a_dll_is_rebuilt(
     build) cannot start and would otherwise be trusted forever."""
     _brandable(monkeypatch)
     src_dir = _fake_interpreter_dir(tmp_path)
-    ico = tmp_path / "jarvis.ico"
+    ico = tmp_path / "dodaios.ico"
     ico.write_bytes(b"ico")
     target = tmp_path / "user" / "bin" / icon_utils.BRANDED_LAUNCHER_EXE_NAME
     target.parent.mkdir(parents=True)
@@ -211,7 +211,7 @@ def test_unwritable_first_home_falls_through_to_the_user_dir(
     _brandable(monkeypatch)
     src_dir = _fake_interpreter_dir(tmp_path)
     src = src_dir / "pythonw.exe"
-    ico = tmp_path / "jarvis.ico"
+    ico = tmp_path / "dodaios.ico"
     ico.write_bytes(b"ico")
     # Candidate 1's parent is a FILE → every write attempt there fails, like a
     # read-only Program Files dir. Candidate 2 is a writable user dir.

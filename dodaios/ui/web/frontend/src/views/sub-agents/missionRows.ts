@@ -25,7 +25,7 @@
  * not (the directory was cleaned up), the row keeps what it had.
  */
 import type { MissionSummary } from "@/types/missions";
-import type { SubAgentNode } from "@/store/jarvisAgents";
+import type { SubAgentNode } from "@/store/dodaiosAgents";
 import type { OutputSummary } from "@/hooks/useOutputs";
 import { missionIdFromTraceId } from "./outcome";
 

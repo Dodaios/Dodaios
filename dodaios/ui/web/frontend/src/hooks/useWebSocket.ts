@@ -19,7 +19,7 @@ import {
   type ChatMessage,
   type VoiceState,
 } from "@/store/events";
-import { useSubAgentStore, SUB_AGENT_EVENT_NAMES } from "@/store/jarvisAgents";
+import { useSubAgentStore, SUB_AGENT_EVENT_NAMES } from "@/store/dodaiosAgents";
 import {
   useCommandActivityStore,
   COMMAND_ACTIVITY_EVENTS,

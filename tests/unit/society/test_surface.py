@@ -90,7 +90,7 @@ def _live_chat(rt: SocietyRuntime, session: SimpleNamespace):
 
 
 async def test_task_execution_contract_survives_long_memory_and_compact_transport(rt):
-    from dodaios.agent_chat.jarvis_harness import SOCIETY_PREAMBLE, compact_identity
+    from dodaios.agent_chat.dodaios_harness import SOCIETY_PREAMBLE, compact_identity
 
     agent, _ = await rt.roster.create(name="Task owner", description="Complete assigned work.")
     briefing = build_briefing(

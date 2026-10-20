@@ -543,7 +543,7 @@ class WebServer:
         from .grok_build_routes import router as grok_build_router
         from .ide_browser_routes import router as ide_browser_router
         from .ide_skills_routes import router as ide_skills_router
-        from .jarvisx_routes import router as jarvisx_router
+        from .dodaiosx_routes import router as jarvisx_router
         from .live_routes import router as live_router
         from .local_models_assistant_routes import (
             router as local_models_assistant_router,

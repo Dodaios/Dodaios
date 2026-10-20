@@ -878,14 +878,9 @@ contact-lookup = "dodaios.plugins.tool.contact_lookup:ContactLookupTool"
 contact-upsert = "dodaios.plugins.tool.contact_upsert:ContactUpsertTool"
 call-contact = "dodaios.plugins.tool.call_contact:CallContactTool"
 
-[tool.setuptools.packages.find]
-where = ["."]
-# ``conductor`` is the scheduled-jobs engine behind /api/conductor/* and the
-# ``jarvis conductor`` commands. Left out, it imported only when the app ran
-# with the checkout as its working directory (run.bat), so the console script,
-# autostart and every wheel install served no Conductor API at all.
-include = ["dodaios*", "jarvis*", "conductor*"]
-exclude = ["*.__pycache__", "*.__pycache__.*"]
+# The package list (dodaios, conductor and the legacy ``jarvis`` alias built
+# from dodaios/_legacy_alias) is in setup.py: a ``packages`` table here would
+# override it, and ``packages.find`` cannot publish a folder under another name.
 
 [tool.setuptools.exclude-package-data]
 # Resource globs must never distribute interpreter caches or their build paths.
@@ -917,7 +912,7 @@ dodaios = [
     # Voice persona (brain/persona_loader.py), skill-authoring import
     # allowlist (skills/authoring/draft_writer.py), Jarvis-Agent critic
     # verdict JSON-schema (core/review/spawns.py).
-    "brain/JARVIS_PERSONA.md",
+    "brain/DODAIOS_PERSONA.md",
     "skills/safe_imports.txt",
     "core/review/verdict_schema.json",
     "society/mars/definition.json",

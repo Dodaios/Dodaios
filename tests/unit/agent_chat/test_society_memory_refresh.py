@@ -1,6 +1,6 @@
 """Fresh agent knowledge reaches a resumed vendor conversation."""
 
-from dodaios.agent_chat.jarvis_harness import COMPACT_MAX_CHARS, Identity, society_memory_refresh
+from dodaios.agent_chat.dodaios_harness import COMPACT_MAX_CHARS, Identity, society_memory_refresh
 from dodaios.agent_chat.runner_cli import _REFRESH_EVERY, _with_identity
 from dodaios.core.response_style import CREDENTIAL_GUIDANCE
 

@@ -94,7 +94,7 @@ llama-server -hf google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0 --host 127.0.0.1 --por
 
 In **Local server (OpenAI-compatible)**, use
 `http://127.0.0.1:8080` and model `gemma-4-12b-it-qat-q4_0`. The matching
-optional block ships in `jarvis.toml.example`; the cloud provider remains the
+optional block ships in `dodaios.toml.example`; the cloud provider remains the
 fresh-install default. Users with enough memory can instead serve
 `ggml-org/Qwen3.6-35B-A3B-GGUF:Q4_K_M`, but its model file alone is about
 20.4 GB, so it is not the right preset for a 16 GB GPU. On a 16 GB card, keep
