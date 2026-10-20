@@ -16,7 +16,6 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
-import time
 from typing import Final
 
 from loguru import logger
@@ -78,26 +77,28 @@ def os_idle_s() -> float | None:
 
 
 def ide_idle_s(now: float | None = None) -> float | None:
-    """Seconds since a key was typed into any Agentic IDE pane, None without panes."""
-    try:
-        from dodaios.agentic_ide.session import get_registry
+    """Seconds since the person typed into a pane's terminal in the app, None if never."""
+    from dodaios.core import presence
 
-        stamps = [
-            float(term.last_input_at)
-            for session in get_registry().sessions
-            for term in getattr(session, "terminals", []) or []
-            if getattr(term, "last_input_at", None)
-        ]
-    except Exception:  # noqa: BLE001 - no registry (tests, CLI) means no pane input
-        logger.opt(exception=True).debug("self-build code: pane activity unreadable")
-        return None
-    if not stamps:
-        return None
-    return (now if now is not None else time.time()) - max(stamps)
+    return presence.idle_s(sources=[presence.PANE], now=now)
+
+
+def dodaios_idle_s(now: float | None = None) -> float | None:
+    """Seconds since the person's last turn in Dodaios (0 during a call), None if never."""
+    from dodaios.core import presence
+
+    return presence.idle_s(sources=[presence.TURN], now=now)
 
 
 def person_idle(after_s: float = IDLE_AFTER_S) -> bool:
-    for reading in (os_idle_s(), ide_idle_s()):
+    """No input from the person for ``after_s``: OS input, a turn in Dodaios, pane typing.
+
+    A coding run is heavy, so it waits until the person is not working at all.
+    A prompt Jarvis or an agent wrote into a pane is not the person: the
+    pane's ``last_input_at`` stamps those too, so it is not read here; the
+    pane reading is the person's own typing in the app (``core/presence.py``).
+    """
+    for reading in (os_idle_s(), dodaios_idle_s(), ide_idle_s()):
         if reading is not None and reading < after_s:
             return False
     return True

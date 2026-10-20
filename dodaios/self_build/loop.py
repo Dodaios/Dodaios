@@ -17,10 +17,12 @@ Wiring (all event-driven; nothing here runs on a timer that wakes a model):
   learning (``society/learning.py``) and is left to it; a need that spans
   agents, or agents and the assistant, is the loop's, unless one of those
   agents already has a skill that serves it. Most needs stop here.
-* **Decide.** Needs that pass wait until the person has been quiet for
-  :data:`QUIET_S`: no new turn, and no keyboard or mouse input and no typing
-  in an IDE pane for that long (the idle reading the code builder uses,
-  :func:`.code.idle.person_idle`), or until a call ends. Then they get at most
+* **Decide.** Needs that pass wait until the person is not in the middle of
+  talking to Dodaios: no turn of theirs, no typing into a pane and no open
+  call for :data:`QUIET_S` (:mod:`dodaios.core.presence`; the operating
+  system's input idle time is not asked, so work in other programs does not
+  hold it up), or until a call ends, and never longer than
+  :data:`MAX_WAIT_S` after the first need was queued. Then they get at most
   one model call each on a subscription or local seat, :data:`DECIDE_PER_DAY`
   at most per day. With no such seat a plain proposal is written from the
   counts instead.
@@ -60,9 +62,12 @@ from .signals import SignalStore, TurnRow
 log = logging.getLogger(__name__)
 
 _DAY_MS: Final[int] = 86_400_000
-#: Needs are decided after this much quiet: never while the person is busy.
-#: Quiet means no new turn AND no keyboard, mouse or pane input for this long.
+#: Needs are decided after this much quiet: never in the middle of a conversation.
+#: Quiet means no turn of the person, no pane typing and no open call for this long.
 QUIET_S: Final[float] = 90.0
+#: A queued need is decided at the latest this long after it was queued, even
+#: when the person keeps talking to Dodaios the whole time.
+MAX_WAIT_S: Final[float] = 20 * 60.0
 #: Model calls the decide step may make per day, whatever crosses.
 DECIDE_PER_DAY: Final[int] = 4
 #: A "build nothing" verdict holds this long, unless the need doubles.
@@ -94,7 +99,7 @@ class SelfBuildLoop:
         store: SignalStore,
         *,
         builders: Builders,
-        idle: Callable[[float], bool] | None = None,
+        idle: Callable[[], float | None] | None = None,
     ) -> None:
         self.service = service
         self.store = store
@@ -107,8 +112,11 @@ class SelfBuildLoop:
         self._subscriptions: list[tuple[type[Any], Any]] = []
         self._bus: Any = None
         self._maintained = 0.0
-        #: ``idle(seconds) -> bool``: no input for that long (``code/idle.py``).
-        self._idle = idle if idle is not None else _person_idle
+        #: ``idle() -> seconds | None``: since the person's last activity in
+        #: Dodaios (``core/presence.py``); ``None`` when there was none.
+        self._idle = idle if idle is not None else _dodaios_idle_s
+        #: When the queue last went from empty to waiting (monotonic seconds).
+        self._queued_at: float | None = None
         #: The last self-built skill that fired: ``(build id, ms, conversation)``;
         #: the conversation is filled in by the turn that fired it, so the
         #: person's NEXT turn there is the one judged for a correction.
@@ -135,6 +143,7 @@ class SelfBuildLoop:
             TaskCompleted,
             TaskFailed,
             VoiceSessionEnded,
+            VoiceSessionStarted,
             VoiceTurnCompleted,
         )
         from dodaios.skills.schema import SkillInvoked
@@ -144,6 +153,7 @@ class SelfBuildLoop:
         self._bus = bus
         for event_type, handler in (
             (VoiceTurnCompleted, self._on_voice_turn),
+            (VoiceSessionStarted, self._on_voice_started),
             (VoiceSessionEnded, self._on_voice_ended),
             (SkillInvoked, self._on_skill_invoked),
             (TaskCompleted, self._on_task_completed),
@@ -216,7 +226,15 @@ class SelfBuildLoop:
             "observe",
         )
 
-    async def _on_voice_ended(self, _event: Any) -> None:
+    async def _on_voice_started(self, event: Any) -> None:
+        from dodaios.core import presence
+
+        presence.call_started(str(getattr(event, "session_id", "") or ""))
+
+    async def _on_voice_ended(self, event: Any) -> None:
+        from dodaios.core import presence
+
+        presence.call_ended(str(getattr(event, "session_id", "") or ""))
         # A call that ended is the quiet moment the decide step waits for.
         if self._queue:
             self._spawn(self.run_queue(), "decide")
@@ -273,7 +291,13 @@ class SelfBuildLoop:
 
     async def observe(self, obs: Observation) -> None:
         """File one turn, count its uses and queue the needs it completes."""
-        if not obs.text.strip() or not self._active():
+        if not obs.text.strip():
+            return
+        from dodaios.core import presence
+
+        # The person spoke or typed to Dodaios: background work waits for quiet.
+        presence.note(presence.TURN, at=obs.ts_ms / 1000 if obs.ts_ms else None)
+        if not self._active():
             return
         from dodaios.memory.learning.signals import is_correction
         from dodaios.society.memory_intent import requested_memory
@@ -303,27 +327,42 @@ class SelfBuildLoop:
             self._spawn(self.maintain(), "maintain")
 
     def _arm(self) -> None:
+        """Look again after :data:`QUIET_S`, never later than the queue's deadline."""
         if self._timer is not None:
             self._timer.cancel()
+            self._timer = None
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:  # no loop: the queue waits for the next event
             return
-        self._timer = loop.call_later(QUIET_S, lambda: self._spawn(self._when_quiet(), "decide"))
+        now = time.monotonic()
+        if self._queued_at is None:
+            self._queued_at = now
+        left = MAX_WAIT_S - (now - self._queued_at)
+        delay = max(0.0, min(QUIET_S, left))
+        self._timer = loop.call_later(delay, lambda: self._spawn(self._when_quiet(), "decide"))
+
+    def _busy(self) -> bool:
+        """The person is talking to Dodaios: a turn, pane typing or a call within QUIET_S."""
+        try:
+            idle = self._idle()
+        except Exception:  # noqa: BLE001 - an unreadable reading never blocks deciding
+            log.debug("self_build: presence reading failed", exc_info=True)
+            return False
+        return idle is not None and idle < QUIET_S
 
     async def _when_quiet(self) -> None:
-        """No turn for :data:`QUIET_S`; decide only if the person is away from the input too."""
+        """Decide once the person is quiet in Dodaios, or the queue waited :data:`MAX_WAIT_S`."""
         self._timer = None
         if not self._queue:
+            self._queued_at = None
             return
-        try:
-            idle = await asyncio.to_thread(self._idle, QUIET_S)
-        except Exception:  # noqa: BLE001 - an unreadable idle clock never blocks deciding
-            log.debug("self_build: idle reading failed", exc_info=True)
-            idle = True
-        if not idle:
-            self._arm()  # still typing or pointing: look again after another quiet stretch
+        waited = time.monotonic() - (self._queued_at or time.monotonic())
+        if waited < MAX_WAIT_S and self._busy():
+            self._arm()  # mid-conversation: look again after another quiet stretch
             return
+        if waited >= MAX_WAIT_S:
+            log.info("self_build: deciding after %.0f s of waiting for quiet", waited)
         await self.run_queue()
 
     # ------------------------------------------------------------ gate
@@ -386,6 +425,8 @@ class SelfBuildLoop:
                     continue
                 if record is not None:
                     opened.append(record)
+            if not self._queue:
+                self._queued_at = None
         return opened
 
     async def decide(self, need: Need) -> BuildRecord | None:
@@ -796,10 +837,10 @@ def core_stems(need: Need) -> frozenset[str]:
     return frozenset(stem for stem, n in counts.items() if n >= half)
 
 
-def _person_idle(seconds: float) -> bool:
-    from .code.idle import person_idle
+def _dodaios_idle_s() -> float | None:
+    from dodaios.core import presence
 
-    return person_idle(seconds)
+    return presence.idle_s()
 
 
 def _fields(obs: Observation) -> dict[str, Any]:
