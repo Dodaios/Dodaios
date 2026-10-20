@@ -2679,7 +2679,8 @@ def _launch_target(folder: str, printed: str) -> Path:
     if file_editing.is_outside_key(printed):
         try:
             target = outside_files.granted_target(folder, printed)
-        except file_editing.EditError:
+        except file_editing.EditError as exc:
+            log.debug("Agentic IDE terminal target: not an outside file (%s)", exc)
             return _resolve_terminal_target(folder, printed)
         if not target.is_file():
             raise ValueError("outside file is gone")
@@ -2770,11 +2771,9 @@ def _grant_outside_file(folder: str, printed: str) -> str:
     target = candidate.resolve(strict=True)
     if not target.is_file():
         raise ValueError("not a file")
-    try:
-        inside = target.relative_to(root)
-    except ValueError:
-        return outside_files.grant(folder, target)
-    return inside.as_posix()
+    if target.is_relative_to(root):
+        return target.relative_to(root).as_posix()
+    return outside_files.grant(folder, target)
 
 
 @router.post(
