@@ -148,6 +148,7 @@ from dodaios.agentic_ide.workspace_view import (
     WORKSPACE_VIEWS,
     view_from_legacy_chat_flag,
 )
+from dodaios.core import presence
 
 from .control_auth import person_at_window
 from .surface_security import credentials_valid, is_loopback_request
@@ -5637,6 +5638,8 @@ async def agentic_pty(ws: WebSocket, name: str) -> None:
                     )
                 else:
                     registry.write(term.key, data, pane_workspace)
+                    # The pane's own viewer: the person at the keyboard.
+                    presence.note(presence.PANE)
             elif kind == "r":
                 # ``on_output`` identifies THIS socket. A pane open in two
                 # places has two viewers and one pseudo-terminal, so a size
