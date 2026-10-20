@@ -211,7 +211,7 @@ def list_git_processes() -> list[GitProcess] | None:
     """Every running git process, or ``None`` when that cannot be found out."""
     try:
         import psutil
-    except ImportError:
+    except ImportError:  # no psutil: cannot tell, keep the lock
         return None
     found: list[GitProcess] = []
     try:
@@ -223,18 +223,18 @@ def list_git_processes() -> list[GitProcess] | None:
             cmdline: list[str] | None = None
             try:
                 cwd = proc.cwd()
-            except psutil.NoSuchProcess:
+            except psutil.NoSuchProcess:  # ended meanwhile: holds nothing
                 continue
-            except (psutil.Error, OSError):
+            except (psutil.Error, OSError):  # unreadable cwd: cmdline still checked
                 pass
             try:
                 cmdline = list(proc.cmdline())
-            except psutil.NoSuchProcess:
+            except psutil.NoSuchProcess:  # ended meanwhile: holds nothing
                 continue
-            except (psutil.Error, OSError):
+            except (psutil.Error, OSError):  # unreadable cmdline: matched by cwd
                 pass
             found.append(GitProcess(name, cwd, cmdline))
-    except (psutil.Error, OSError):
+    except (psutil.Error, OSError):  # unreadable table: keep the lock
         return None
     return found
 
@@ -243,7 +243,7 @@ def _inside(path: str, root: Path) -> bool:
     try:
         resolved = os.path.normcase(os.path.abspath(path))
         top = os.path.normcase(os.path.abspath(root))
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # unresolvable: not inside
         return False
     return resolved == top or resolved.startswith(top.rstrip("\\/") + os.sep)
 
@@ -420,7 +420,7 @@ class MainFollower:
         if status.lock_stale and git_works_in(self.root, self._processes()) is False:
             try:
                 lock.unlink()
-            except FileNotFoundError:
+            except FileNotFoundError:  # gone already: someone else removed it, which is the goal
                 pass
             except OSError as exc:
                 logger.warning("Follow main: the stale git lock could not be removed: {}", exc)
@@ -540,7 +540,7 @@ class MainFollower:
         for rel in untracked:
             try:
                 (self.root / rel).unlink()
-            except FileNotFoundError:
+            except FileNotFoundError:  # gone already: nothing left to remove
                 pass
             except OSError as exc:
                 logger.warning("Follow main: could not remove the leftover {}: {}", rel, exc)
