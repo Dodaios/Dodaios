@@ -173,6 +173,19 @@ describe("PaneScrollbar", () => {
     expect(wheels).toHaveLength(2);
     expect(wheels[1].deltaY).toBe(1);
     expect(term.scrollLines).not.toHaveBeenCalled();
+    // No thumb: a full-screen CLI's position is not knowable from outside.
+    expect(screen.queryByTestId("bar-thumb")).toBeNull();
+  });
+
+  it("follows a wheel scroll on an idle pane while the bar is shown", () => {
+    const { term, active } = fakeTerminal({ baseY: 100, viewportY: 100 });
+    render(<Harness term={term} />);
+    fireEvent.wheel(screen.getByTestId("region"), { deltaY: -100 });
+    active.viewportY = 0;
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    expect(screen.getByTestId("bar").getAttribute("aria-valuenow")).toBe("0");
   });
 
   it("follows the terminal into app mode when the CLI takes the screen", () => {
