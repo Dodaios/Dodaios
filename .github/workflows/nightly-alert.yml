@@ -52,7 +52,8 @@ jobs:
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.head_repository.full_name == github.repository &&
        github.event.workflow_run.head_branch == 'main' &&
-       contains(fromJSON('["success","failure"]'), github.event.workflow_run.conclusion) &&
+       contains(fromJSON('["success","failure","cancelled","timed_out"]'),
+                github.event.workflow_run.conclusion) &&
        (github.event.workflow_run.event == 'schedule' ||
         github.event.workflow_run.name == 'macOS main sweep'))
     runs-on: ubuntu-latest
@@ -87,9 +88,19 @@ jobs:
             about="The whole suite on macOS is red on main"
           fi
           case "$conclusion" in
-            (success|failure) ;;
+            (success|failure|cancelled|timed_out) ;;
             (*) echo "The $what ended as '$conclusion': nothing to record." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0 ;;
           esac
+          jobs_url="repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100&filter=latest"
+          if [ "$label" = "nightly-ci" ] && [ "$conclusion" = "cancelled" ]; then
+            gate_conclusion="$(gh api "$jobs_url" --paginate \
+              --jq '.jobs[] | select(.name == "CI gate") | .conclusion' | head -n 1)"
+            if [ "$gate_conclusion" != "failure" ]; then
+              message="The nightly CI run ended cancelled without a failed CI gate: nothing to record."
+              echo "$message" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
           write() { if [ "$DRY_RUN" = "true" ]; then echo "dry run, not executed: gh $*"; else gh "$@"; fi; }
           # The label lists issues without the search index, which lags behind
           # a freshly created issue and would invite a duplicate.
@@ -110,7 +121,6 @@ jobs:
             echo
             echo "Failed jobs:"
             echo
-            jobs_url="repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100&filter=latest"
             failed="$(gh api "$jobs_url" --paginate --jq '.jobs[]
               | select(.name != "CI gate" and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out"))
               | "- [\(.name)](\(.html_url)) (\(.conclusion))"')"
