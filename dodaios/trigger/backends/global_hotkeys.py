@@ -599,7 +599,7 @@ _VK_RMENU = 0xA5
 # Characters that sit on AltGr on every common AltGr layout (German ``@ € { \``,
 # French ``@ # {``, Nordic ``@ $ {`` …). A US layout types all of them without
 # Ctrl+Alt, so none of them reports that shift state there.
-_ALTGR_PROBE_CHARS = "@€{[]}\|~"
+_ALTGR_PROBE_CHARS = r"@€{[]}\|~"
 _altgr_layout_cache: dict[int, bool] = {}
 
 
