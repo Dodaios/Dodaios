@@ -473,16 +473,25 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     assert alert["permissions"] == {}
     job = alert["jobs"]["alert"]
     assert job["permissions"] == {"actions": "read", "issues": "write"}
+    condition = " ".join(job["if"].split())
     for clause in (
         "github.event.workflow_run.event == 'schedule'",
         "github.event.workflow_run.head_repository.full_name == github.repository",
         "github.event.workflow_run.head_branch == 'main'",
+        (
+            'contains(fromJSON(\'["success","failure","cancelled","timed_out"]\'), '
+            "github.event.workflow_run.conclusion)"
+        ),
     ):
-        assert clause in job["if"], clause
+        assert clause in condition, clause
     # No pull-request code runs next to the issue token.
     assert all("uses" not in step for step in job["steps"])
     script = job["steps"][0]["run"]
     assert "label=nightly-ci" in script and "write issue close" in script
+    assert "(success|failure|cancelled|timed_out) ;;" in script
+    assert '[ "$label" = "nightly-ci" ] && [ "$conclusion" = "cancelled" ]' in script
+    assert 'select(.name == "CI gate") | .conclusion' in script
+    assert '[ "$gate_conclusion" != "failure" ]' in script
     assert '--label "$label"' in script
     # A check by hand runs from main only, vets the run it is given like the
     # event, and writes nothing unless the dry run is switched off.
