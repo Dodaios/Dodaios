@@ -72,10 +72,10 @@ jobs:
       run-fresh: ${{ steps.paths.outputs.run-fresh }}
       run-verify: ${{ steps.paths.outputs.run-verify }}
     steps:
-      - name: Checkout (full history — the path gate needs a diff base)
+      - name: Checkout (shallow; path-gated runs fetch a diff base if needed)
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          fetch-depth: 0
+          fetch-depth: 1
           persist-credentials: false
 
       - name: Pick OS matrix
