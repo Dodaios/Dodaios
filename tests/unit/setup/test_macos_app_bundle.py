@@ -215,6 +215,52 @@ def test_runtime_identity_probe_diagnoses_open_failure(
     assert "kLSNoExecutableErr" in joined
 
 
+def test_runtime_identity_probe_accepts_payload_on_wait_race(tmp_path: Path, monkeypatch) -> None:
+    import dodaios.setup.macos_app_bundle as mab
+
+    monkeypatch.setattr(mab.sys, "platform", "darwin")
+    install_root = tmp_path / "install"
+    launcher_file = install_root / "dodaios" / "ui" / "web" / "launcher.py"
+    launcher_file.parent.mkdir(parents=True)
+    launcher_file.write_text("# test launcher\n", encoding="utf-8")
+    bundle = tmp_path / "Applications" / APP_DIR_NAME
+    executable = bundle / "Contents" / "MacOS" / "Personal Jarvis"
+    payload = {
+        "bundle_id": mab.BUNDLE_ID,
+        "bundle_path": str(bundle),
+        "executable": str(executable),
+        "launcher_file": str(launcher_file),
+        "install_root": str(install_root),
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}",
+        "machine": platform.machine(),
+    }
+
+    def _open_with_kevent_race(command: list[str], **_kwargs) -> SimpleNamespace:
+        probe = Path(command[command.index("--jarvis-identity-probe") + 1])
+        probe.write_text(json.dumps(payload), encoding="utf-8")
+        return SimpleNamespace(
+            returncode=1,
+            stdout="",
+            stderr="initial call to kevent() failed: No such process",
+        )
+
+    monkeypatch.setattr(mab.subprocess, "run", _open_with_kevent_race)
+    diagnostics: list[str] = []
+
+    assert (
+        mab._runtime_identity_valid(
+            bundle,
+            install_root=install_root,
+            diagnostics=diagnostics,
+        )
+        is True
+    )
+
+    joined = "\n".join(diagnostics)
+    assert "open returncode 1" in joined
+    assert "probe payload:" in joined
+
+
 def test_runtime_identity_probe_diagnoses_missing_probe_file(
     tmp_path: Path, monkeypatch
 ) -> None:

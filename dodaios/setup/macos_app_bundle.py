@@ -1039,8 +1039,10 @@ def _runtime_identity_valid(
             diagnostics.append(
                 f"open returncode {result.returncode}, stderr tail: {stderr_tail or '(empty)'}"
             )
-        if result.returncode != 0 or not probe.is_file():
-            if diagnostics is not None and not probe.is_file():
+        # ``open -W`` can lose its wait hook after the probe process exits;
+        # a written payload is still checked for the full runtime identity below.
+        if not probe.is_file():
+            if diagnostics is not None:
                 diagnostics.append("probe file was not written")
             return False
         payload = json.loads(probe.read_text(encoding="utf-8"))
