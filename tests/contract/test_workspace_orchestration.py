@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import pytest
 
-from dodaios.agentic_ide import library, orchestration, resume_store
+from dodaios.agentic_ide import library, orchestration, resume_store, task_state
 from dodaios.agentic_ide.folders import probe_project
 from dodaios.agentic_ide.orchestration import WorkspaceOrchestrator
 from dodaios.agentic_ide.session import (
@@ -69,6 +69,10 @@ def rig(tmp_path, monkeypatch):
     # and the pane then reads as unknown instead of idle; keep it fresh here.
     from dodaios.agentic_ide import activity
 
+    # These fake panes have no resume or PTY identity, so separate rigs can
+    # share a task-state cache key. Never let one test's lifecycle evidence
+    # decide whether another test's freshly-created pane is available.
+    task_state.reset()
     monkeypatch.setattr(activity, "STAMP_FRESH_S", 3600.0)
     monkeypatch.setattr(library, "_root", lambda: tmp_path / "library")
     monkeypatch.setattr(resume_store, "_store_path", lambda: tmp_path / "snapshot.json")
@@ -101,14 +105,33 @@ def rig(tmp_path, monkeypatch):
     ledger = LiveLedger(tmp_path / "receipts.db")
     sessions = Sessions()
     orchestrator = WorkspaceOrchestrator(registry, sessions, ledger)
-    yield orchestrator, registry, sessions
-    ledger.close()
+    try:
+        yield orchestrator, registry, sessions
+    finally:
+        try:
+            ledger.close()
+        finally:
+            task_state.reset()
 
 
 async def target(rig, **refs):
     result = await rig[0].run({"action": "resolve", **refs})
     assert result["status"] == "resolved", result
     return result["target"]
+
+
+def test_rig_clears_stale_task_state_before_setup(tmp_path, monkeypatch, request):
+    now = time.time()
+    term = Terminal("stale", "Stale", "codex", "Codex", 0, status="live")
+    key = task_state._key(term)
+    stale = task_state.Evidence("stopped", at=now, checked_at=now)
+    task_state._readings[key] = stale
+    task_state._files[key] = (("stale.jsonl", 0, 0), stale)
+
+    request.getfixturevalue("rig")
+
+    assert task_state.evidence(term) is None
+    assert task_state._files == {}
 
 
 async def test_named_background_workspace_wins_without_ui_switch(rig):
