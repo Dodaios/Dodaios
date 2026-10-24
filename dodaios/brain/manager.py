@@ -10220,6 +10220,11 @@ class BrainManager:
             if fast:
                 chain.append((active, fast))
 
+        # Model-less local providers own model discovery. Keep the selected
+        # provider on the chain so its plugin can choose an installed model.
+        if not fast and not deep and active in ("ollama", "local-openai"):
+            chain.append((active, None))
+
         # 2. Explicit tier fallbacks from jarvis.toml. These must run before
         # generic cross-provider probing so runtime matches healthcheck order.
         available = set(self._registry.available())

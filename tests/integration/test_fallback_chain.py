@@ -192,6 +192,42 @@ async def test_router_picks_fast_for_simple_intent():
     assert chain[1][1] == "opus-model"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["ollama", "local-openai"])
+async def test_selected_local_provider_discovers_model_without_cloud_keys(
+    monkeypatch: pytest.MonkeyPatch, provider: str
+) -> None:
+    """An empty local model pin delegates discovery to the selected plugin."""
+    config = JarvisConfig()
+    config.brain.primary = provider
+    config.brain.deep_brain = ""
+    config.brain.providers[provider] = BrainProviderConfig(model="", deep_model="")
+    config.voice.mode = "pipeline"
+
+    manager = BrainManager(config=config, bus=EventBus(), tools={})
+    manager._registry._loaded = True
+    available = [provider, "claude-api", "gemini", "openrouter", "openai", "grok", "nvidia"]
+    monkeypatch.setattr(manager._registry, "available", lambda: available)
+    manager._dead_providers = set(available) - {provider}
+    manager._configured_fallbacks = []
+    monkeypatch.setattr(manager, "_active_can_call_tools", lambda: True)
+
+    attempted: list[tuple[str, str | None]] = []
+    brain = FakeBrain(text_response="four")
+
+    def get_brain(name: str, model: str | None) -> FakeBrain:
+        attempted.append((name, model))
+        return brain
+
+    monkeypatch.setattr(manager, "_get_brain", get_brain)
+
+    reply = await manager.generate("What is two plus two?", use_history=False)
+
+    assert reply == "four"
+    assert attempted == [(provider, None)]
+    assert manager._last_turn_all_failed is False
+
+
 class _MissingKeyBrain:
     """Brain stub that fails like a real provider with no API key.
 
