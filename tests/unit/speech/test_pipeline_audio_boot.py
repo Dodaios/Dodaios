@@ -37,6 +37,24 @@ def _stub_stabilize(monkeypatch, info: dict) -> None:
     monkeypatch.setattr(pl, "wait_for_stable_audio_devices", lambda **kw: info)
 
 
+def test_realtime_audio_resolution_uses_the_current_embedded_renderer(monkeypatch) -> None:
+    from dodaios.realtime import factory
+
+    seen: list[str | None] = []
+
+    def _resolve(_config, *, desktop_renderer=None):
+        seen.append(desktop_renderer)
+        return desktop_renderer != "gtkwebkit2"
+
+    monkeypatch.setattr(factory, "realtime_browser_audio", _resolve)
+    pipe = SpeechPipeline.__new__(SpeechPipeline)
+    pipe._config = object()
+    pipe._realtime_audio_renderer = lambda: "gtkwebkit2"
+
+    assert pipe._realtime_browser_audio() is False
+    assert seen == ["gtkwebkit2"]
+
+
 @pytest.mark.asyncio
 async def test_stabilize_reresolves_output_device(monkeypatch) -> None:
     """After the device table settles, the player must re-resolve its output

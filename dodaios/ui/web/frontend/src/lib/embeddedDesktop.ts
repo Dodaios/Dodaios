@@ -20,6 +20,17 @@ export function hasEmbeddedDesktopBridge(): boolean {
   );
 }
 
+/**
+ * Let backend capabilities account for the embedded renderer without
+ * treating an ordinary browser connected to the same desktop backend as a
+ * native surface.
+ */
+export function voiceModeEndpoint(): string {
+  return hasEmbeddedDesktopBridge()
+    ? "/api/settings/voice-mode?surface=desktop"
+    : "/api/settings/voice-mode";
+}
+
 /** Clients whose user agent says macOS (the embedded WebView and Safari/Chrome on a Mac). */
 export function isMacClient(userAgent: string): boolean {
   return /Macintosh|Mac OS X/i.test(userAgent);

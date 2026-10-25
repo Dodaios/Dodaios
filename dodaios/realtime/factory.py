@@ -530,7 +530,15 @@ def realtime_webrtc_start_event_required(cfg: Any) -> bool:
     return True
 
 
-def realtime_browser_audio(cfg: Any) -> bool:
+def _provider_uses_browser_audio(provider: Any, desktop_renderer: str | None) -> bool:
+    if not bool(getattr(provider, "browser_audio", False)):
+        return False
+    renderer = str(desktop_renderer or "").strip()
+    unsupported_renderers = getattr(provider, "browser_audio_unsupported_renderers", ())
+    return not renderer or renderer not in unsupported_renderers
+
+
+def realtime_browser_audio(cfg: Any, *, desktop_renderer: str | None = None) -> bool:
     """Whether the engine a call would open needs browser echo-cancelled audio.
 
     A pinned primary answers for itself. Without a pin the call opens on the
@@ -543,25 +551,26 @@ def realtime_browser_audio(cfg: Any) -> bool:
     transport (follow-up to issue #399).
 
     The unpinned answer reads credentials, so callers keep it off the voice
-    and request loops.
+    and request loops. ``desktop_renderer`` is supplied only by the embedded
+    desktop surface; remote browsers leave it unset. Providers may disable
+    browser audio for a specific embedded renderer when that renderer cannot
+    sustain its browser-audio path.
     """
     if cfg is None:
         return False
     for provider_id in _explicit_provider_ids(cfg)[:1]:
         try:
             provider = load(_GROUP, provider_id, protocol=RealtimeProvider)
-            return bool(getattr(provider, "browser_audio", False))
+            return _provider_uses_browser_audio(provider, desktop_renderer)
         except Exception:
             log.warning("Browser audio capability unavailable", exc_info=True)
             return False
     # The same candidate order the session builder uses, including its refusal
     # to fall back ambiently behind a pin that is missing or does not load.
-    candidates = _identified_provider_candidates(
-        cfg, defer_external_login_probe=True, limit=1
-    )
+    candidates = _identified_provider_candidates(cfg, defer_external_login_probe=True, limit=1)
     if not candidates:
         return False
-    return bool(getattr(candidates[0][1], "browser_audio", False))
+    return _provider_uses_browser_audio(candidates[0][1], desktop_renderer)
 
 
 def build_realtime_session(

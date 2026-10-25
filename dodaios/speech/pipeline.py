@@ -2302,6 +2302,7 @@ class SpeechPipeline:
         supervisor: Supervisor | None = None,
         config: Any = None,
         vision_provider: Any = None,
+        realtime_audio_renderer: Callable[[], str | None] | None = None,
         activation_gate: Callable[[], bool] | None = None,
         # Silent predicate for a USER gesture (push-to-talk, a voice session,
         # dictation): true unless the microphone is refused. ``activation_gate``
@@ -3020,6 +3021,7 @@ class SpeechPipeline:
         # provider, every vision hook is a no-op.
         self._config = config
         self._vision_provider = vision_provider
+        self._realtime_audio_renderer = realtime_audio_renderer
         self._activation_gate = activation_gate or (lambda: True)
         self._user_activation_gate = user_activation_gate or (lambda: True)
         self._permission_gate = permission_gate
@@ -8223,22 +8225,35 @@ class SpeechPipeline:
             self._hangup_event.clear()
             self._explicit_hard_hangup = False
 
+    def _realtime_browser_audio(self, config: Any = None) -> bool:
+        """Resolve browser audio with the live embedded renderer, when known."""
+        from dodaios.realtime.factory import realtime_browser_audio
+
+        renderer = None
+        renderer_getter = getattr(self, "_realtime_audio_renderer", None)
+        if callable(renderer_getter):
+            try:
+                renderer = renderer_getter()
+            except Exception as exc:  # noqa: BLE001 - keep the provider default on probe failure
+                log.warning(
+                    "Embedded audio renderer probe failed (%s); using provider default.",
+                    type(exc).__name__,
+                )
+        selected_config = getattr(self, "_config", None) if config is None else config
+        return realtime_browser_audio(selected_config, desktop_renderer=renderer)
+
     @asynccontextmanager
     async def _capture_first_session_input(
         self,
     ) -> AsyncIterator[_SessionInputBuffer]:
         """Borrow the wake mic or open exactly one fallback session mic."""
-        from dodaios.realtime.factory import realtime_browser_audio
-
         config = getattr(self, "_config", None)
         # An unpinned engine is resolved from the credentials, so the answer
         # is read off the voice loop, like the session build.
         browser_media = (
             not getattr(self, "_ptt_mode", False)
             and getattr(self, "_active_voice_mode", None) == "realtime"
-            and bool(
-                await _run_voice_critical_thread(lambda: realtime_browser_audio(config))
-            )
+            and bool(await _run_voice_critical_thread(lambda: self._realtime_browser_audio(config)))
         )
         buffer = await self._claim_wake_capture_for_session()
         if browser_media and buffer is None:
@@ -9847,7 +9862,7 @@ class SpeechPipeline:
         echo cancellation. The browser surface provides full duplex with Web
         Audio echo cancellation.
         """
-        from dodaios.realtime.factory import realtime_browser_audio, realtime_handshake_budget_s
+        from dodaios.realtime.factory import realtime_handshake_budget_s
 
         config = self._config
 
@@ -9857,7 +9872,7 @@ class SpeechPipeline:
             Both answers can read credentials (an unpinned engine is resolved
             from the keys), so they run off the voice loop together.
             """
-            if not realtime_browser_audio(config):
+            if not self._realtime_browser_audio(config):
                 return None
             return realtime_handshake_budget_s(config)
 

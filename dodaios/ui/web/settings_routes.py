@@ -327,7 +327,21 @@ async def get_voice_mode(request: Request) -> dict[str, object]:
     handshake_budget_s = await asyncio.to_thread(_realtime_handshake_budget_s, cfg)
     # Without a pin the answer follows the first credential-ready provider,
     # which reads credentials — off the loop like the lookups above.
-    browser_audio = await asyncio.to_thread(realtime_browser_audio, cfg)
+    desktop_renderer = None
+    if request.query_params.get("surface") == "desktop":
+        desktop_app = getattr(request.app.state, "desktop_app", None)
+        renderer_getter = getattr(desktop_app, "realtime_audio_renderer", None)
+        if callable(renderer_getter):
+            try:
+                desktop_renderer = renderer_getter()
+            except Exception as exc:  # noqa: BLE001 - capability probe must not break settings
+                log.warning(
+                    "Embedded audio renderer probe failed (%s); using provider default.",
+                    type(exc).__name__,
+                )
+    browser_audio = await asyncio.to_thread(
+        realtime_browser_audio, cfg, desktop_renderer=desktop_renderer
+    )
     transport_offer_ready = (
         None if browser_audio else await _realtime_transport_offer_ready(requires_webrtc_offer)
     )

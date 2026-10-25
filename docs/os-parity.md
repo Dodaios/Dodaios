@@ -768,6 +768,13 @@ transports. Browser audio is selected by provider capability and owns echo
 cancellation on desktop and remote surfaces. OS-specific capture and actuation
 remain behind the existing screen/desktop adapters and ToolExecutor.
 
+Gemini Live uses native desktop audio in the embedded Linux `gtkwebkit2` window,
+where its browser-audio session can close after transcription and before the
+first answer. An ordinary browser connected to that desktop backend keeps the
+browser-audio path, as do other embedded renderers. The renderer-specific
+choice is covered by the realtime factory, desktop pipeline, and voice-mode
+route tests; this macOS host cannot exercise a physical WebKitGTK session.
+
 Windows contract tests, OpenAI/Gemini synthetic tool-and-audio recovery probes,
 and a fresh Python 3.11 slim installation passed. The Linux installation boots
 without PortAudio and passes the 34 Live contract cases plus an isolated OpenAI

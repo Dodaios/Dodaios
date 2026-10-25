@@ -1187,6 +1187,10 @@ class GeminiLiveProvider:
     # alias backed by the very same credential family (AP-22).
     credential_family = "gemini"
     browser_audio = True
+    # WebKitGTK can start the browser-audio path but drops Gemini Live before
+    # its first turn. The embedded desktop can use native audio there; remote
+    # browser clients keep the normal browser-audio path.
+    browser_audio_unsupported_renderers = frozenset({"gtkwebkit2"})
     native_tool_orchestration = True
     supports_realtime = True
     implicit_usage_fallback_allowed = True

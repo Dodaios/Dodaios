@@ -109,7 +109,7 @@ def test_get_voice_mode_reports_browser_offer_capability(monkeypatch):
 
     # An offer-requiring transport without browser audio. Fixed here, because
     # without a pin the answer follows the host's real credentials.
-    monkeypatch.setattr(rf, "realtime_browser_audio", lambda _cfg: False)
+    monkeypatch.setattr(rf, "realtime_browser_audio", lambda _cfg, **_kwargs: False)
     monkeypatch.setattr(
         settings_routes,
         "_realtime_available_provider",
@@ -138,6 +138,33 @@ def test_get_voice_mode_reports_browser_offer_capability(monkeypatch):
     assert body["requires_webrtc_offer"] is True
     assert body["transport_offer_ready"] is True
     assert body["transport_offer_detail"] == "Embedded desktop WebRTC offer is ready."
+
+
+def test_get_voice_mode_scopes_renderer_audio_to_the_embedded_desktop(monkeypatch):
+    import dodaios.realtime.factory as rf
+    from dodaios.ui.web import settings_routes
+
+    seen_renderers: list[str | None] = []
+
+    def _browser_audio(_cfg, *, desktop_renderer=None):
+        seen_renderers.append(desktop_renderer)
+        return desktop_renderer != "gtkwebkit2"
+
+    monkeypatch.setattr(rf, "realtime_browser_audio", _browser_audio)
+    monkeypatch.setattr(settings_routes, "_realtime_available_provider", lambda _cfg: "gemini-live")
+    monkeypatch.setattr(settings_routes, "_realtime_requires_webrtc_offer", lambda _cfg: False)
+    app = _app(mode="realtime")
+    app.state.desktop_app = SimpleNamespace(
+        realtime_audio_renderer=lambda: "gtkwebkit2",
+    )
+    client = TestClient(app)
+
+    embedded = client.get("/api/settings/voice-mode?surface=desktop").json()
+    browser = client.get("/api/settings/voice-mode").json()
+
+    assert embedded["browser_audio"] is False
+    assert browser["browser_audio"] is True
+    assert seen_renderers == ["gtkwebkit2", None]
 
 
 def test_get_voice_mode_reports_stable_subscription_profile(monkeypatch):
