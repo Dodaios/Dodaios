@@ -134,10 +134,7 @@ def _run_install(provider_id: str) -> None:
         verify = local_status(provider_id)
         if verify is not None and not verify.ready:
             ok = False
-            message = (
-                f"The install finished, but {entry.model_label} is still not "
-                "usable. Try again — the download may have been interrupted."
-            )
+            message = verify.detail
 
     with run.lock:
         run.state = "done" if ok else "error"

@@ -42,19 +42,23 @@ def test_installed_engine_without_weights_is_not_ready(
     importable" as "this provider works".
     """
     monkeypatch.setattr(local_models, "runtime_installed", lambda runtime: True)
-    monkeypatch.setattr(local_models, "whisper_model_cached", lambda name: False)
+    monkeypatch.setattr(
+        local_models,
+        "_whisper_model_cache_issue",
+        lambda name: "missing or empty model files: model.bin",
+    )
 
     status = local_models.whisper_status("large-v3")
 
     assert status.ready is False
     assert status.engine_installed is True
     assert status.model_present is False
-    assert "downloaded" in status.detail
+    assert "missing or empty model files: model.bin" in status.detail
 
 
 def test_engine_and_weights_present_is_ready(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(local_models, "runtime_installed", lambda runtime: True)
-    monkeypatch.setattr(local_models, "whisper_model_cached", lambda name: True)
+    monkeypatch.setattr(local_models, "_whisper_model_cache_issue", lambda name: None)
 
     status = local_models.whisper_status("large-v3")
 
@@ -149,7 +153,11 @@ def test_status_reports_the_model_the_config_actually_names(
 ) -> None:
     """An override must be reflected, or the card reassures about the wrong model."""
     monkeypatch.setattr(local_models, "runtime_installed", lambda runtime: True)
-    monkeypatch.setattr(local_models, "whisper_model_cached", lambda name: False)
+    monkeypatch.setattr(
+        local_models,
+        "_whisper_model_cache_issue",
+        lambda name: "missing or empty model files: model.bin",
+    )
 
     status = local_models.local_status("faster-whisper", model_override="small")
 
