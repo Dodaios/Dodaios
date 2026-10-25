@@ -20,6 +20,20 @@ def test_the_names_are_the_distribution_names_branding_declares() -> None:
     assert (bd.LEGACY,) == branding.LEGACY_DISTRIBUTION_NAMES
 
 
+def test_build_setuptools_floor_and_lock_clear_the_advisory() -> None:
+    project = tomllib.loads(PYPROJECT)
+    requirement = next(
+        item for item in project["build-system"]["requires"] if item.startswith("setuptools")
+    )
+    assert requirement == "setuptools>=84.1.0"
+
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    version = next(
+        package["version"] for package in lock["package"] if package["name"] == "setuptools"
+    )
+    assert tuple(int(part) for part in version.split(".")) >= (84, 1, 0)
+
+
 def test_the_real_pyproject_renames_to_the_earlier_distribution() -> None:
     project = tomllib.loads(bd.renamed_pyproject(PYPROJECT))
     assert project["project"]["name"] == "personal-jarvis"
@@ -30,9 +44,7 @@ def test_the_real_pyproject_renames_to_the_earlier_distribution() -> None:
         "personal-jarvis[desktop,desktop-macos,telephony,channels,local-voice]"
     ]
     assert extras["dev"][0] == "personal-jarvis[desktop,local-voice]"
-    assert all(
-        not item.startswith("dodaios[") for group in extras.values() for item in group
-    )
+    assert all(not item.startswith("dodaios[") for group in extras.values() for item in group)
     data_files = project["tool"]["setuptools"]["data-files"]
     assert set(data_files) == {"share/personal-jarvis/docs", "share/personal-jarvis/docs/legal"}
 
