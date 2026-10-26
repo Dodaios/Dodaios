@@ -409,3 +409,106 @@
 .verse-form-note { margin: 0; font-size: 12px; color: var(--verse-ink-dim); }
 .verse-form-foot { display: flex; justify-content: flex-end; gap: 0; padding: 0 14px 14px; }
 .verse-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* The view switch on the tool rail: bird's-eye, third and first person side by side; the one on screen pressed and
+   named, the others an icon and their key (the name is in the tooltip). */
+.verse-view-switch { display: flex; }
+.verse-view-switch + .verse-tool { border-left: none; }
+.verse-view-switch .verse-tool[aria-pressed="false"] .verse-tool-text { display: none; }
+.verse-view-switch .verse-tool:disabled { opacity: 0.4; cursor: default; }
+.verse-view-switch .verse-tool:disabled:hover { color: var(--verse-ink-dim); border-color: var(--verse-line); }
+
+/* Shooter look (third and first person): a small mark in the middle of the view; the left button or E works what is
+   under it. Dimmer while the mouse is free, amber over something it can work. */
+.verse-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  pointer-events: none;
+  border: 1px solid rgba(217, 222, 227, 0.55);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(5, 6, 7, 0.45);
+}
+.verse-reticle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 2px;
+  margin: -1px 0 0 -1px;
+  background: var(--verse-ink);
+}
+.verse-reticle[data-locked="false"] { opacity: 0.45; }
+.verse-reticle[data-on] { border-color: var(--verse-amber); }
+.verse-reticle[data-on]::after { background: var(--verse-amber); }
+
+/* With the mouse free in third or first person: how to take it back. */
+.verse-look-hint {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 22px);
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  pointer-events: none;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--verse-ink-dim);
+  background: var(--verse-panel);
+  border: 1px solid var(--verse-line);
+}
+
+/* View settings. */
+.verse-setting-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.verse-setting-value { font-family: var(--verse-mono); font-size: 11px; color: var(--verse-ink); font-variant-numeric: tabular-nums; }
+.verse-setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.verse-range {
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  accent-color: var(--verse-amber);
+  cursor: pointer;
+}
+.verse-range:focus-visible { outline: 1px solid var(--verse-amber); outline-offset: 2px; }
+
+.verse-switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--verse-line-strong);
+  border-radius: 0;
+  cursor: pointer;
+}
+.verse-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  background: var(--verse-ink-dim);
+  transition: transform 120ms ease;
+}
+.verse-switch[aria-checked="true"] { border-color: var(--verse-amber); }
+.verse-switch[aria-checked="true"] i { transform: translateX(16px); background: var(--verse-amber); }
+.verse-switch:focus-visible { outline: 1px solid var(--verse-amber); outline-offset: 1px; }
+
+.verse-seg { display: flex; }
+.verse-seg .verse-btn { flex: 1; color: var(--verse-ink-dim); }
+.verse-seg .verse-btn[aria-pressed="true"] { color: var(--verse-ink); border-color: var(--verse-amber); box-shadow: inset 0 -2px 0 var(--verse-amber); }
+.verse-seg .verse-btn + .verse-btn { border-left: 1px solid var(--verse-line-strong); margin-left: -1px; }
+.verse-seg .verse-btn[aria-pressed="true"] { position: relative; z-index: 1; border-left-color: var(--verse-amber); }
+
+@media (prefers-reduced-motion: reduce) {
+  .verse-switch i { transition: none; }
+}
