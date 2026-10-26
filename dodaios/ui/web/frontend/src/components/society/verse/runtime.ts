@@ -9,7 +9,7 @@
  * compact panel) and, on decks exported for it, the eye-level 3D view behind
  * the commander's shoulder (`eye`, set while that view is on screen).
  */
-import { DoubleSide, Ray, Raycaster, Vector2, Vector3, type PerspectiveCamera } from "three";
+import { DoubleSide, Ray, Raycaster, Vector2, Vector3, type PerspectiveCamera, type Scene, type Texture } from "three";
 import type { MeshBVH } from "three-mesh-bvh";
 import type { Deck } from "./content/deck";
 import { worldToPlate } from "./engine/plateMath";
@@ -62,6 +62,18 @@ export interface CameraOverride {
   fovDeg: number;
 }
 
+/**
+ * The first-person viewmodel (`viewmodel/`): a scene and camera of its own,
+ * drawn over the eye view with depth cleared. The eye view calls `prepare`
+ * once its camera is placed for the frame, then draws it while `visible`.
+ */
+export interface ViewmodelDraw {
+  scene: Scene;
+  camera: PerspectiveCamera;
+  visible: boolean;
+  prepare(eye: PerspectiveCamera, dtS: number, environment: Texture | null): void;
+}
+
 /** A screen point (CSS px). */
 export interface ScreenPoint { x: number; y: number }
 
@@ -84,6 +96,8 @@ export class StageRuntime {
   commanderHidden = false;
   /** While set, the eye-level view renders from this camera instead of the shoulder rig (a duel). */
   cameraOverride: CameraOverride | null = null;
+  /** The first-person arms (and blaster), drawn over the eye view while set and visible. */
+  viewmodel: ViewmodelDraw | null = null;
   /** A duel holds the commander: the deck neither walks nor shows their usual body. */
   duelActive = false;
   /** The duel's hall while a duel runs: crew standing in it are not drawn (nobody walks into the line of fire). */

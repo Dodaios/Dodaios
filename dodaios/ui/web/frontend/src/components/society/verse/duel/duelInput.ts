@@ -12,6 +12,7 @@
  * | Q (hold)     | energy shield                             |
  * | Space        | dodge roll (in the move direction)        |
  * | R            | vent; again inside the window: perfect    |
+ * | 2, 3, V      | over the shoulder / through the eyes      |
  * | Esc          | pause (pointer released); again: leave    |
  *
  * Presses (dodge, vent) are latched until the next `control()` call reads
@@ -137,6 +138,8 @@ export interface DuelInputCallbacks {
   relock: () => void;
   /** The duel takes input now (running, not paused or over). */
   live: () => boolean;
+  /** A key that may switch the view (third / first person); returns whether it did. */
+  view?: (code: string) => boolean;
 }
 
 /**
@@ -160,6 +163,11 @@ export function attachDuelInput(el: HTMLElement, input: DuelInput, cb: DuelInput
     }
     if (!cb.live()) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!e.repeat && cb.view?.(e.code)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     if (input.keyDown(e.code, e.repeat)) {
       e.preventDefault();
       e.stopImmediatePropagation();

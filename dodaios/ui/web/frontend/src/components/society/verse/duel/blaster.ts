@@ -12,12 +12,19 @@
 import {
   BoxGeometry, Color, CylinderGeometry, Group, Mesh, MeshStandardMaterial, TorusGeometry, Vector3, type BufferGeometry, type Material,
 } from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 export interface Blaster {
   group: Group;
   /** Muzzle point and the left hand's hold point, local. */
   muzzle: Vector3;
   fore: Vector3;
+  /** The centre of the holographic sight's window, local (aiming down the sights puts it on the eye line). */
+  sight: Vector3;
+  /** The sight's glowing pane (the first-person view swaps it for a see-through reticle). */
+  sightGlass: Mesh;
+  /** The stock's parts (the first-person view leaves them out: they would hide the right hand). */
+  stock: Mesh[];
   materials: Material[];
   /** Heat 0..1; `venting` pulses the vents; `overheated` turns them red. */
   setHeat(heat: number, venting: boolean, overheated: boolean, timeS: number): void;
@@ -36,7 +43,15 @@ const BLASTER_SCALE = 1.3;
 const WARM = new Color(1.0, 0.55, 0.12);
 const HOT = new Color(1.0, 0.12, 0.04);
 
-export function buildBlaster(accent: Color): Blaster {
+export interface BlasterOptions {
+  /**
+   * Chamfer the boxes' edges so they catch the light (the first-person view, a hand's breadth from the eye).
+   * The duellists' blasters, seen from metres away, keep plain boxes.
+   */
+  bevel?: boolean;
+}
+
+export function buildBlaster(accent: Color, options: BlasterOptions = {}): Blaster {
   const group = new Group();
   group.name = "DuelBlaster";
   // Built at true size, drawn a little larger so it reads at shoulder-camera distance.
@@ -62,32 +77,40 @@ export function buildBlaster(accent: Color): Blaster {
     parts.add(m);
     return m;
   };
+  const box = (w: number, h: number, d: number): BufferGeometry =>
+    options.bevel ? new RoundedBoxGeometry(w, h, d, 1, Math.min(w, h, d) * 0.22) : new BoxGeometry(w, h, d);
   const alongZ = (geo: BufferGeometry) => geo.rotateX(Math.PI / 2);
 
   // Receiver: a long, slightly tapered block, a gold spine on top.
-  add(new BoxGeometry(0.056, 0.078, 0.32), graphite, 0, 0.012, 0.06);
-  add(new BoxGeometry(0.06, 0.03, 0.2), steel, 0, -0.03, 0.03);
-  add(new BoxGeometry(0.012, 0.008, 0.26), gold, 0, 0.055, 0.07);
+  add(box(0.056, 0.078, 0.32), graphite, 0, 0.012, 0.06);
+  add(box(0.06, 0.03, 0.2), steel, 0, -0.03, 0.03);
+  add(box(0.012, 0.008, 0.26), gold, 0, 0.055, 0.07);
   // Energy cells along both sides.
-  add(new BoxGeometry(0.004, 0.016, 0.17), cells, 0.0295, 0.016, 0.07);
-  add(new BoxGeometry(0.004, 0.016, 0.17), cells, -0.0295, 0.016, 0.07);
+  add(box(0.004, 0.016, 0.17), cells, 0.0295, 0.016, 0.07);
+  add(box(0.004, 0.016, 0.17), cells, -0.0295, 0.016, 0.07);
   // Shroud and barrel: an octagonal sleeve with vents, a slim barrel inside.
   add(alongZ(new CylinderGeometry(0.026, 0.03, 0.22, 8)), graphite, 0, 0.012, 0.31);
   add(alongZ(new CylinderGeometry(0.012, 0.012, 0.3, 10)), steel, 0, 0.012, 0.34);
-  for (let i = 0; i < 3; i++) add(new BoxGeometry(0.03, 0.006, 0.022), vents, 0, 0.04, 0.25 + i * 0.045);
-  add(new BoxGeometry(0.006, 0.022, 0.16), gold, 0, -0.018, 0.31);
+  for (let i = 0; i < 3; i++) add(box(0.03, 0.006, 0.022), vents, 0, 0.04, 0.25 + i * 0.045);
+  add(box(0.006, 0.022, 0.16), gold, 0, -0.018, 0.31);
   // Emitter ring and muzzle.
   add(new TorusGeometry(0.022, 0.005, 6, 16), emitter, 0, 0.012, 0.43);
   add(alongZ(new CylinderGeometry(0.02, 0.016, 0.04, 10)), steel, 0, 0.012, 0.47);
   // Optic: a low rail and a small holographic sight.
-  add(new BoxGeometry(0.028, 0.012, 0.08), steel, 0, 0.058, 0.0);
-  add(new BoxGeometry(0.03, 0.03, 0.006), gold, 0, 0.078, 0.035);
-  add(new BoxGeometry(0.022, 0.018, 0.002), emitter, 0, 0.08, 0.034);
+  add(box(0.028, 0.012, 0.08), steel, 0, 0.058, 0.0);
+  // The sight's frame is open (four bars), so the first-person view can look through it.
+  add(box(0.03, 0.004, 0.006), gold, 0, 0.091, 0.035);
+  add(box(0.03, 0.004, 0.006), gold, 0, 0.066, 0.035);
+  add(box(0.004, 0.03, 0.006), gold, 0.013, 0.0785, 0.035);
+  add(box(0.004, 0.03, 0.006), gold, -0.013, 0.0785, 0.035);
+  const sightGlass = add(new BoxGeometry(0.022, 0.021, 0.002), emitter, 0, 0.0785, 0.034);
   // Grip, trigger guard, a short angular stock.
-  add(new BoxGeometry(0.034, 0.105, 0.042), grip, 0, -0.06, -0.01, -0.28);
-  add(new BoxGeometry(0.008, 0.008, 0.07), steel, 0, -0.06, 0.04);
-  add(new BoxGeometry(0.04, 0.06, 0.13), graphite, 0, -0.005, -0.15, 0.12);
-  add(new BoxGeometry(0.044, 0.07, 0.014), gold, 0, -0.01, -0.22, 0.12);
+  add(box(0.034, 0.105, 0.042), grip, 0, -0.06, -0.01, -0.28);
+  add(box(0.008, 0.008, 0.07), steel, 0, -0.06, 0.04);
+  const stock = [
+    add(box(0.04, 0.06, 0.13), graphite, 0, -0.005, -0.15, 0.12),
+    add(box(0.044, 0.07, 0.014), gold, 0, -0.01, -0.22, 0.12),
+  ];
 
   const base = { cells: accent.clone() };
   const tmp = new Color();
@@ -95,6 +118,9 @@ export function buildBlaster(accent: Color): Blaster {
     group,
     muzzle: new Vector3(0, 0.012, 0.49).multiplyScalar(BLASTER_SCALE),
     fore: new Vector3(0, -0.02, 0.29).multiplyScalar(BLASTER_SCALE),
+    sight: new Vector3(0, 0.0785, 0.034).multiplyScalar(BLASTER_SCALE),
+    sightGlass,
+    stock,
     materials,
     setHeat(heat, venting, overheated, timeS) {
       const h = Math.max(0, Math.min(1, heat));

@@ -6,6 +6,10 @@
  * flashes, impact sparks and scorches, hit sparks, block ripples, parry
  * bursts, overheat steam).
  *
+ * In first person the person's own body is not drawn (the viewmodel's arms
+ * and blaster stand in for it, `viewmodel/`), and their muzzle flashes and
+ * vent steam come from the viewmodel's blaster instead.
+ *
  * Mounted inside the stage's Canvas while a duel is on; everything it adds
  * to the scene goes again when it unmounts.
  */
@@ -24,6 +28,7 @@ import type { DuelController } from "./duelController";
 import { BoltPool, Flashes, radialTexture, Scorches, Sparks, Steam } from "./effects";
 import { DuelFigure, type FigureLook } from "./figure";
 import { ShieldMesh } from "./shield";
+import { HIDE_BODY_FIRST_SHARE } from "../viewmodel/motion";
 
 interface Props {
   runtime: StageRuntime;
@@ -41,7 +46,8 @@ export const OPPONENT_LOOK: FigureLook = {
   accent: new Color(1, 0.16, 0.08),
 };
 
-const OWN_ACCENT = new Color(1, 0.6, 0.15);
+/** The person's blaster cells (amber). */
+export const OWN_ACCENT = new Color(1, 0.6, 0.15);
 const WHITE = new Color(1, 1, 1);
 const SPARK_HOT = new Color(1, 0.62, 0.25);
 const SHIELD_SPARK = new Color(0.45, 0.8, 1);
@@ -129,6 +135,8 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
     }
     fx.group.visible = true;
     const floorY = controller.floorY;
+    const eyeCamera = runtime.eye?.camera;
+    if (eyeCamera) controller.camera.aspect = eyeCamera.aspect;
     controller.frame(Math.min(dt, 0.25) * 1000, runtime.eye?.test ?? null);
     const view = controller.view;
     if (!view) return;
@@ -141,6 +149,9 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
     const step = controller.phase === "paused" ? 0 : Math.min(dt, 0.1);
     scratch.time += step;
     const mySlot = view.slot;
+    // Through the eyes the person's own body is hidden; the viewmodel draws their arms and blaster.
+    const ownHidden = controller.camera.firstShare > HIDE_BODY_FIRST_SHARE;
+    if (figures.current.own) figures.current.own.group.visible = !ownHidden;
     const bySlot = (slot: number) => (slot === mySlot ? figures.current.own : figures.current.foe);
     for (const p of view.players) {
       const f = bySlot(p.slot);
@@ -148,7 +159,7 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
       fx.shields[p.slot === mySlot ? 0 : 1].update(step, p, floorY);
       // A venting blaster steams.
       const k = p.slot === mySlot ? 0 : 1;
-      if (f && p.alive && (p.venting || p.heat > 0.85)) {
+      if (f && p.alive && (p.venting || p.heat > 0.85) && !(k === 0 && ownHidden)) {
         scratch.steamAcc[k] += step * (p.overheated ? 40 : p.venting ? 26 : 8);
         const n = Math.floor(scratch.steamAcc[k]);
         if (n > 0) { scratch.steamAcc[k] -= n; f.muzzle(scratch.v); fx.steam.emit(scratch.v.x, scratch.v.y - 0.02, scratch.v.z, n); }
@@ -170,6 +181,7 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
       switch (e.type) {
         case "shot": {
           const own = e.player === mySlot;
+          if (own && ownHidden) break;
           const colour = own ? BOLT_COLOURS.own : BOLT_COLOURS.foe;
           const f = bySlot(e.player);
           const at = f ? f.muzzle(scratch.v) : scratch.v.set(e.x, y(e.y), e.z);
@@ -211,6 +223,7 @@ export function DuelLayer({ runtime, controller, deck, library, commanderId, com
           fx.shields[e.player === mySlot ? 0 : 1].shatter();
           break;
         case "overheat": {
+          if (e.player === mySlot && ownHidden) break;
           const f = bySlot(e.player);
           if (f) { f.muzzle(scratch.v); fx.steam.emit(scratch.v.x, scratch.v.y, scratch.v.z, 30); fx.flashes.spawn(scratch.v.x, scratch.v.y, scratch.v.z, HIT_SPARK, 5, 0.1, 0.35, 0.2); }
           break;

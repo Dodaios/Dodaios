@@ -1,0 +1,110 @@
+/**
+ * Mounts the first-person viewmodel on a stage with an eye-level view: makes
+ * the arms in the commander's uniform, hands them to the eye view
+ * (`runtime.viewmodel`), and every frame tells them what to show: the deck's
+ * empty hands while the commander walks in first person, the blaster while a
+ * duel is fought through the eyes, nothing in third person or bird's-eye.
+ */
+import { useEffect, useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import type { Deck } from "../content/deck";
+import type { StageRuntime } from "../runtime";
+import type { CharacterLibrary } from "../actors/characters";
+import type { Look } from "../actors/look";
+import type { DuelController } from "../duel/duelController";
+import { OWN_ACCENT } from "../duel/DuelLayer";
+import { ARM } from "./arms";
+import { MOTION, viewmodelVisibility } from "./motion";
+import { Viewmodel, VIEWMODEL, type ArmColours, type ViewmodelFrame } from "./viewmodel";
+
+interface Props {
+  runtime: StageRuntime;
+  duel: DuelController;
+  deck: Deck;
+  library: CharacterLibrary | null;
+  commanderId: string;
+  commanderLook: Look;
+}
+
+/** The uniform tiers' colours when the character contract has not loaded yet. */
+const FALLBACK: ArmColours = { uniform: "#3b3f47", trim: "#5a5f68" };
+/** A walking officer's speed (the bob is measured against it) when the library has none. */
+const WALK_SPEED = 1.4;
+
+export function armColours(library: CharacterLibrary | null, look: Look): ArmColours {
+  const tier = library?.contract.tiers[look.tier];
+  return tier ? { uniform: tier.M_Uniform, trim: tier.M_Trim } : FALLBACK;
+}
+
+export function ViewmodelLayer({ runtime, duel, deck, library, commanderId, commanderLook }: Props) {
+  const { uniform, trim } = armColours(library, commanderLook);
+  const vmRef = useRef<Viewmodel | null>(null);
+  useEffect(() => {
+    const vm = new Viewmodel(FALLBACK, OWN_ACCENT);
+    vmRef.current = vm;
+    runtime.viewmodel = vm;
+    // Development handle: tune the layout live (edit `layout`, then `retune()`).
+    if (import.meta.env.DEV) Object.assign(window, { __verseViewmodel: { layout: VIEWMODEL, arm: ARM, motion: MOTION, retune: () => vm.retune(), viewmodel: vm } });
+    return () => {
+      if (runtime.viewmodel === vm) runtime.viewmodel = null;
+      if (vmRef.current === vm) vmRef.current = null;
+      vm.dispose();
+    };
+  }, [runtime]);
+  // The sleeves wear the commander's uniform (a promotion repaints them).
+  useEffect(() => { vmRef.current?.setColours({ uniform, trim }); }, [runtime, uniform, trim]);
+
+  const frame = useMemo<ViewmodelFrame>(() => ({
+    visibility: { arms: false, mode: "deck", hideOwnBody: false, raise: 0 },
+    player: null, speed: 0, walkSpeed: WALK_SPEED, x: 0, y: 0, z: 0, deck: null, reduced: false, frozen: false,
+  }), []);
+  const last = useRef({ x: 0, z: 0, primed: false });
+
+  // Before the eye view renders (priority 1) and after the duel's frame: what the arms show this frame.
+  useFrame((_, dt) => {
+    const vm = vmRef.current;
+    if (!vm) return;
+    const eyeOn = !!runtime.eye;
+    const step = Math.min(0.25, Math.max(1e-4, dt));
+    const view = duel.active ? duel.view : null;
+    const me = view ? view.players[view.slot] ?? null : null;
+    frame.visibility = viewmodelVisibility({
+      eyeOn,
+      firstShare: runtime.shoulder.firstShare,
+      thirdDistance: runtime.shoulder.actual,
+      duelFirstShare: duel.active ? duel.camera.firstShare : null,
+    });
+    frame.deck = deck;
+    frame.reduced = runtime.view.reduced;
+    frame.player = me;
+    frame.frozen = duel.active && duel.phase !== "running";
+    if (me) {
+      frame.speed = me.speed;
+      frame.x = me.x;
+      frame.y = duel.floorY;
+      frame.z = me.z;
+      vm.shot(duel.ownShots, duel.lastShotAds);
+      last.current.primed = false;
+    } else {
+      const pose = runtime.poses.get(commanderId);
+      if (pose) {
+        const l = last.current;
+        const moved = l.primed ? Math.hypot(pose.x - l.x, pose.z - l.z) : 0;
+        // A jump (a lift ride, a duel's end) is not a walk.
+        const speed = moved > 1 ? 0 : moved / step;
+        frame.speed += (speed - frame.speed) * Math.min(1, step / 0.08);
+        l.x = pose.x;
+        l.z = pose.z;
+        l.primed = true;
+        frame.x = pose.x;
+        frame.y = pose.y;
+        frame.z = pose.z;
+      } else {
+        frame.speed = 0;
+      }
+    }
+    vm.set(frame);
+  }, 0);
+
+  return null;
+}
