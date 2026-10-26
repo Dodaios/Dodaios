@@ -285,7 +285,7 @@ corrected until the dark areas matched.
 
 | Deck | Export | `realtime/` | Triangles / chunks | Density (weight 1) | Pages in use |
 |---|---|---|---|---|---|
-| bridge | 21 min (bake 16 min) | 18.8 MB | 1.02 M / 323 | 42.5 px/m | 37-51 % surface, 86 % in rectangles |
+| bridge | 17 min (bake 13 min) | 19.3 MB | 1.07 M / 356 | 37.6 px/m | 4 pages (wall cladding 2026-10-26) |
 | engineering | 11 min (bake 7.5 min) | 21.2 MB | 1.56 M / 206 | 29.5 px/m | 25-41 % surface, 82 % in rectangles |
 | hangar | 12 min (bake 9 min) | 18.7 MB | 1.09 M / 197 | 27.7 px/m | 21-54 % surface, 80 % in rectangles |
 | ops | 17 min (bake 11 min) | 16.2 MB | 0.91 M / 441 | 29.5 px/m | 38-53 % surface |
@@ -296,7 +296,15 @@ bay | gallery) carry dark panelling with a rail and thin light strips
 (`eng_upper.cladding`, Architecture), the door slots in them have heads,
 and the near hull wall's upper panels are dark paint and charcoal instead
 of flat mid grey; the hangar's front band (booth, crew bay, arrivals, lift
-lobby, armoury) got the same upper panelling (`hangar_upper`).
+lobby, armoury) got the same upper panelling (`hangar_upper`). On the
+bridge (`decks/bridge/cladding.py`) the side hull walls and the aft
+bulkhead's hall face carry charcoal panels with recessed seams, gunmetal
+ribs every 4.8 m with dash lamps, light columns in alternating bays, louvre
+vents, a conduit bundle on a rail and a recessed cornice; the aft rooms'
+walls carry the light-grey room panelling with a light channel. All of it is
+ceiling ghosts built below the lowest floor (nothing clipped; the bulkhead's
+room faces, which the plate sees below the cut, are clipped at it), so the
+plate, nav grid and occluders keep their shape.
 
 "Surface" is the share of each page the lightmap UVs cover; before the
 packing rebuild the bridge's pages held 3-15 %. The bridge numbers in
@@ -340,9 +348,6 @@ packing rebuild the bridge's pages held 3-15 %. The bridge numbers in
 - Planar reflections for the main floors would add the crew and consoles to
   the black deck's mirror; the box-projected probes show the room only.
 - The x-ray silhouettes of the plate view are off at eye level.
-- The bridge's side hull walls are large plain panels; at eye level they
-  want the panelling, light strips and structure the other walls have
-  (a level-design pass for the deck-bridge builder).
 - Lightmap texels are 2.6–3.5 cm: crisp enough with the live reflections and
   the floor's plate detail, soft on small console details up close. Tiling
   detail normals per material (`detail` "painted"/"metal" today only break
