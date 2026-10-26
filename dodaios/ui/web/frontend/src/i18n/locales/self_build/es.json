@@ -1,13 +1,13 @@
 {
   "self_build": {
     "title": "Hecho para ti",
-    "subtitle": "Lo que {name} construyó por su cuenta, por qué lo hizo y cómo deshacerlo.",
     "loading": "Cargando construcciones…",
     "status": {
-      "running": "Construye por su cuenta",
+      "running": "Observando",
       "paused": "En pausa",
-      "silent": "Solo toma notas",
-      "off": "Desactivado"
+      "silent": "Aprendiendo",
+      "off": "Desactivado",
+      "stopped": "Detenido"
     },
     "pause": "Pausar la construcción",
     "resume": "Reanudar la construcción",
@@ -20,9 +20,6 @@
     "cancel": "Cancelar",
     "notes": {
       "paused": "La construcción está en pausa. No se nota, construye ni cierra nada hasta que la reanudes.",
-      "silent": "Los primeros días son tranquilos: {name} anota lo que repites y todavía no construye nada.",
-      "off": "La autoconstrucción está desactivada. No se nota ni se construye nada.",
-      "stopped": "Todos los agentes están detenidos. Las rutinas y misiones siguen paradas hasta que las liberes.",
       "release": "Liberar",
       "turn_on": "Abrir ajustes"
     },
@@ -37,16 +34,14 @@
       "nothing": "Nada nuevo."
     },
     "shelf": {
-      "waiting": "Esperando por ti",
-      "waiting_hint": "No se construye nada hasta que digas que sí.",
-      "trial": "En prueba",
-      "trial_hint": "Activo y señalado. Deshacer lo quita por completo.",
-      "working": "En construcción",
-      "working_hint": "Se comprueba antes de activarse.",
-      "kept": "Conservados",
-      "kept_hint": "Se ganó su lugar. Todavía se puede deshacer.",
-      "past": "Archivados y deshechos",
-      "past_hint": "Las construcciones archivadas se pueden restaurar."
+      "waiting": "Te necesita",
+      "waiting_hint": "Nada se crea hasta que digas que sí.",
+      "kept": "Conservado",
+      "kept_hint": "Se ganó su sitio. Aún se puede deshacer.",
+      "past": "Archivado y deshecho",
+      "past_hint": "Los ayudantes archivados se pueden restaurar.",
+      "live": "Trabajando para ti",
+      "live_hint": "En prueba y señalado. Deshacer lo quita por completo."
     },
     "show_past": "Mostrar {count}",
     "hide_past": "Ocultar",
@@ -75,7 +70,6 @@
       "trial": "Prueba",
       "kept": "Conservado"
     },
-    "seen": "visto {count}×",
     "trial_progress": "Día {days} de {dayLimit} · {uses} de {useLimit} usos",
     "action": {
       "accept": "Construirlo",
@@ -86,7 +80,6 @@
     },
     "no_builder": "{name} todavía no puede construir este tipo. Se queda como sugerencia.",
     "detail": {
-      "select": "Elige una construcción para ver por qué existe, cómo se comprobó y cuánto costó.",
       "close": "Cerrar",
       "why": "Por qué",
       "noticed": "Lo que notó",
@@ -119,21 +112,93 @@
       "corrected": "corregido",
       "ignored": "ignorado"
     },
-    "empty": {
-      "title": "Todavía no hay nada construido",
-      "body": "{name} se fija en lo que haces a mano una y otra vez. Cuando algo se repite, construye lo más pequeño que te lo quite de encima, lo comprueba y te deja probarlo con deshacer en un clic.",
-      "loop": {
-        "notice": "Notar",
-        "decide": "Decidir",
-        "build": "Construir",
-        "check": "Comprobar",
-        "trial": "Prueba",
-        "keep": "Conservar"
-      }
-    },
     "error": {
       "unavailable": "El registro de construcciones no está en marcha. Reinicia la app para abrirlo.",
       "action": "No funcionó: {detail}"
-    }
+    },
+    "hero": {
+      "silent_title": "{name} está conociendo tu forma de trabajar.",
+      "silent_body": "Cuando pides lo mismo una y otra vez, {name} crea un pequeño ayudante que lo hace por ti. Durante los primeros {days} días solo toma notas y pregunta antes de crear nada. Desde el {date} podrá probar cosas pequeñas por su cuenta, siempre con deshacer.",
+      "silent_body_nodate": "Cuando pides lo mismo una y otra vez, {name} crea un pequeño ayudante que lo hace por ti. Durante los primeros {days} días solo toma notas y pregunta antes de crear nada.",
+      "running_title": "{name} está atento a lo que repites.",
+      "running_body": "Cuando pides lo mismo en días distintos, {name} crea el ayudante más pequeño que te lo quite de encima, lo comprueba y te deja probarlo con deshacer en un clic.",
+      "ideas_title_one": "{name} tiene {count} idea para ti.",
+      "ideas_title_other": "{name} tiene {count} ideas para ti.",
+      "ideas_body": "Notó algo que sigues haciendo a mano. Échale un vistazo abajo y di sí o no. Nada se crea sin ti.",
+      "paused_title": "La creación está en pausa.",
+      "paused_body": "{name} no nota ni crea nada ahora mismo. Los ayudantes que ya creó siguen funcionando.",
+      "off_title": "Crear para ti está desactivado.",
+      "off_body": "Actívalo y {name} empezará a notar lo que repites. Tú decides hasta dónde puede llegar.",
+      "stopped_title": "Todos los agentes están detenidos.",
+      "stopped_body": "Las rutinas, misiones y la creación siguen detenidas hasta que las liberes. No se borró nada.",
+      "ring_day": "Día {day} de {days}",
+      "ring_of_days": "de {days} días",
+      "ring_live_one": "{count} ayudante activo",
+      "ring_live_other": "{count} ayudantes activos",
+      "ring_helper_one": "ayudante",
+      "ring_helper_other": "ayudantes"
+    },
+    "reach": {
+      "title": "Lo que {name} puede hacer",
+      "off": "Nunca",
+      "suggest": "Te pregunta antes",
+      "trial": "Lo prueba, con deshacer",
+      "full": "Lo hace por su cuenta"
+    },
+    "kinds": {
+      "memory": "Recuerdos",
+      "skill": "Habilidades",
+      "routine": "Rutinas",
+      "agent": "Agentes",
+      "code": "Cambios de código"
+    },
+    "noticed": {
+      "title": "Notado hasta ahora",
+      "hint": "Solo cuenta lo que pides tú.",
+      "empty": "Todavía no se repite nada.",
+      "empty_hint": "Sigue trabajando como siempre. {name} cuenta en silencio en este ordenador.",
+      "once_one": "{count} petición anotada una vez hasta ahora.",
+      "once_other": "{count} peticiones anotadas una vez hasta ahora.",
+      "more": "{count} repeticiones más",
+      "times": "Pedido {count} veces",
+      "days_one": "en {count} día",
+      "days_other": "en {count} días",
+      "quote_open": "«",
+      "quote_close": "»",
+      "progress": "{count} de {total} días",
+      "more_days_one": "Falta {count} día",
+      "more_days_other": "Faltan {count} días",
+      "more_times_one": "Falta {count} vez",
+      "more_times_other": "Faltan {count} veces",
+      "stage": {
+        "ready": "Listo. {name} lo mirará pronto",
+        "proposed": "Ver la sugerencia",
+        "direct": "{name} lo responde directamente",
+        "declined": "Dijiste que no",
+        "served": "Una habilidad ya lo hace",
+        "nothing": "Nada que merezca crearse",
+        "ready_paused": "Listo. Espera a que reanudes"
+      }
+    },
+    "how": {
+      "title": "Cómo funciona",
+      "notice_title": "Lo nota",
+      "notice_body": "Pides lo mismo en días distintos. {name} lo cuenta, en este ordenador.",
+      "suggest_title": "Lo sugiere",
+      "suggest_body": "El ayudante más pequeño que encaje: algo que recordar, una habilidad, una rutina, un agente o un cambio de código.",
+      "try_title": "Tú lo pruebas",
+      "try_body": "Funciona en una prueba señalada. Quédatelo o deshazlo con un clic."
+    },
+    "suggested": {
+      "memory": "Recuerdo sugerido",
+      "skill": "Habilidad sugerida",
+      "routine": "Rutina sugerida",
+      "agent": "Agente sugerido",
+      "code": "Cambio de código sugerido"
+    },
+    "based_on_one": "Basado en {count} petición",
+    "based_on_other": "Basado en {count} peticiones",
+    "details": "Detalles",
+    "stop_footer": "¿Necesitas que todo se detenga a la vez?"
   }
 }

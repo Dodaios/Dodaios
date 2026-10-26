@@ -1,13 +1,13 @@
 {
   "self_build": {
     "title": "Für dich gebaut",
-    "subtitle": "Was {name} von sich aus gebaut hat, warum, und wie du es zurücknimmst.",
     "loading": "Bauten werden geladen…",
     "status": {
-      "running": "Baut von sich aus",
+      "running": "Beobachtet",
       "paused": "Pausiert",
-      "silent": "Macht nur Notizen",
-      "off": "Aus"
+      "silent": "Lernt",
+      "off": "Aus",
+      "stopped": "Gestoppt"
     },
     "pause": "Bauen pausieren",
     "resume": "Bauen fortsetzen",
@@ -20,9 +20,6 @@
     "cancel": "Abbrechen",
     "notes": {
       "paused": "Das Bauen ist pausiert. Nichts wird bemerkt, gebaut oder abgeschlossen, bis du fortsetzt.",
-      "silent": "Die ersten Tage sind ruhig: {name} notiert, was du wiederholst, und baut noch nichts.",
-      "off": "Selbstbau ist aus. Nichts wird bemerkt oder gebaut.",
-      "stopped": "Alle Agenten sind gestoppt. Routinen und Missionen bleiben angehalten, bis du sie freigibst.",
       "release": "Freigeben",
       "turn_on": "Einstellungen öffnen"
     },
@@ -37,16 +34,14 @@
       "nothing": "Nichts Neues."
     },
     "shelf": {
-      "waiting": "Wartet auf dich",
-      "waiting_hint": "Nichts wird gebaut, bevor du Ja sagst.",
-      "trial": "Auf Probe",
-      "trial_hint": "Live und gekennzeichnet. Rückgängig entfernt es vollständig.",
-      "working": "Wird gebaut",
-      "working_hint": "Wird geprüft, bevor es live geht.",
+      "waiting": "Braucht dich",
+      "waiting_hint": "Nichts wird gebaut, bevor du ja sagst.",
       "kept": "Behalten",
-      "kept_hint": "Hat sich bewährt. Weiter rückgängig zu machen.",
+      "kept_hint": "Hat sich bewährt. Weiterhin rückgängig zu machen.",
       "past": "Archiviert und rückgängig gemacht",
-      "past_hint": "Archivierte Bauten lassen sich wiederherstellen."
+      "past_hint": "Archivierte Helfer lassen sich wiederherstellen.",
+      "live": "Arbeitet für dich",
+      "live_hint": "Auf Probe und gekennzeichnet. Rückgängig entfernt es vollständig."
     },
     "show_past": "{count} anzeigen",
     "hide_past": "Ausblenden",
@@ -75,7 +70,6 @@
       "trial": "Probe",
       "kept": "Behalten"
     },
-    "seen": "{count}× gesehen",
     "trial_progress": "Tag {days} von {dayLimit} · {uses} von {useLimit} Nutzungen",
     "action": {
       "accept": "Bauen",
@@ -86,7 +80,6 @@
     },
     "no_builder": "{name} kann diese Art noch nicht bauen. Es bleibt ein Vorschlag.",
     "detail": {
-      "select": "Wähle einen Bau, um zu sehen, warum es ihn gibt, wie er geprüft wurde und was er gekostet hat.",
       "close": "Schließen",
       "why": "Warum",
       "noticed": "Was es bemerkt hat",
@@ -119,21 +112,93 @@
       "corrected": "korrigiert",
       "ignored": "ignoriert"
     },
-    "empty": {
-      "title": "Noch nichts gebaut",
-      "body": "{name} achtet auf Dinge, die du immer wieder von Hand tust. Wiederholt sich etwas, baut es das Kleinste, das es dir abnimmt, prüft es und lässt es dich ausprobieren, mit Rückgängig per Klick.",
-      "loop": {
-        "notice": "Bemerken",
-        "decide": "Entscheiden",
-        "build": "Bauen",
-        "check": "Prüfen",
-        "trial": "Probe",
-        "keep": "Behalten"
-      }
-    },
     "error": {
       "unavailable": "Das Bau-Register läuft nicht. Starte die App neu, um es zu öffnen.",
       "action": "Das hat nicht geklappt: {detail}"
-    }
+    },
+    "hero": {
+      "silent_title": "{name} lernt gerade, wie du arbeitest.",
+      "silent_body": "Wenn du immer wieder um dasselbe bittest, baut {name} einen kleinen Helfer, der es für dich erledigt. In den ersten {days} Tagen macht es sich nur Notizen und fragt, bevor es etwas baut. Ab {date} darf es Kleines selbst ausprobieren, immer mit Rückgängig.",
+      "silent_body_nodate": "Wenn du immer wieder um dasselbe bittest, baut {name} einen kleinen Helfer, der es für dich erledigt. In den ersten {days} Tagen macht es sich nur Notizen und fragt, bevor es etwas baut.",
+      "running_title": "{name} achtet auf Wiederholungen.",
+      "running_body": "Wenn du an verschiedenen Tagen um dasselbe bittest, baut {name} den kleinsten Helfer, der es dir abnimmt, prüft ihn und lässt dich ihn mit Rückgängig per Klick ausprobieren.",
+      "ideas_title_one": "{name} hat {count} Idee für dich.",
+      "ideas_title_other": "{name} hat {count} Ideen für dich.",
+      "ideas_body": "Es hat etwas bemerkt, das du immer wieder von Hand machst. Sieh es dir unten an und sag ja oder nein. Ohne dich wird nichts gebaut.",
+      "paused_title": "Das Bauen ist pausiert.",
+      "paused_body": "{name} bemerkt und baut gerade nichts. Die Helfer, die es schon gebaut hat, laufen weiter.",
+      "off_title": "Für dich bauen ist aus.",
+      "off_body": "Schalte es ein, und {name} bemerkt, was du wiederholst. Du entscheidest, wie weit es gehen darf.",
+      "stopped_title": "Alle Agenten sind gestoppt.",
+      "stopped_body": "Routinen, Missionen und das Bauen bleiben angehalten, bis du sie freigibst. Nichts wurde gelöscht.",
+      "ring_day": "Tag {day} von {days}",
+      "ring_of_days": "von {days} Tagen",
+      "ring_live_one": "{count} Helfer läuft",
+      "ring_live_other": "{count} Helfer laufen",
+      "ring_helper_one": "Helfer",
+      "ring_helper_other": "Helfer"
+    },
+    "reach": {
+      "title": "Was {name} darf",
+      "off": "Nie",
+      "suggest": "Fragt dich zuerst",
+      "trial": "Probiert es, mit Rückgängig",
+      "full": "Macht es selbst"
+    },
+    "kinds": {
+      "memory": "Erinnerungen",
+      "skill": "Skills",
+      "routine": "Routinen",
+      "agent": "Agenten",
+      "code": "Code-Änderungen"
+    },
+    "noticed": {
+      "title": "Bisher bemerkt",
+      "hint": "Es zählt nur, worum du selbst bittest.",
+      "empty": "Noch wiederholt sich nichts.",
+      "empty_hint": "Arbeite einfach wie gewohnt. {name} zählt still auf diesem Computer mit.",
+      "once_one": "{count} Anfrage bisher einmal notiert.",
+      "once_other": "{count} Anfragen bisher einmal notiert.",
+      "more": "{count} weitere Wiederholungen",
+      "times": "{count}-mal gefragt",
+      "days_one": "an {count} Tag",
+      "days_other": "an {count} Tagen",
+      "quote_open": "„",
+      "quote_close": "“",
+      "progress": "{count} von {total} Tagen",
+      "more_days_one": "Noch {count} Tag",
+      "more_days_other": "Noch {count} Tage",
+      "more_times_one": "Noch {count}-mal",
+      "more_times_other": "Noch {count}-mal",
+      "stage": {
+        "ready": "Bereit. {name} sieht es sich bald an",
+        "proposed": "Zum Vorschlag",
+        "direct": "{name} beantwortet das direkt",
+        "declined": "Du hast nein gesagt",
+        "served": "Ein Skill erledigt das schon",
+        "nothing": "Nichts, das sich zu bauen lohnt",
+        "ready_paused": "Bereit. Wartet, bis du fortsetzt"
+      }
+    },
+    "how": {
+      "title": "So funktioniert es",
+      "notice_title": "Es bemerkt",
+      "notice_body": "Du bittest an verschiedenen Tagen um dasselbe. {name} zählt mit, auf diesem Computer.",
+      "suggest_title": "Es schlägt vor",
+      "suggest_body": "Den kleinsten passenden Helfer: etwas zum Merken, einen Skill, eine Routine, einen Agenten oder eine Code-Änderung.",
+      "try_title": "Du probierst es",
+      "try_body": "Er läuft als gekennzeichnete Probe. Behalte ihn oder mach ihn mit einem Klick rückgängig."
+    },
+    "suggested": {
+      "memory": "Vorgeschlagene Erinnerung",
+      "skill": "Vorgeschlagener Skill",
+      "routine": "Vorgeschlagene Routine",
+      "agent": "Vorgeschlagener Agent",
+      "code": "Vorgeschlagene Code-Änderung"
+    },
+    "based_on_one": "Aus {count} Anfrage",
+    "based_on_other": "Aus {count} Anfragen",
+    "details": "Details",
+    "stop_footer": "Soll alles auf einmal anhalten?"
   }
 }

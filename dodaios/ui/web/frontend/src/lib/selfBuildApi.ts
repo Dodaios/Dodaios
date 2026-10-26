@@ -126,6 +126,40 @@ export interface SelfBuildSettingsPayload {
   bounds: Partial<Record<keyof SelfBuildSettings, { min: number | null; max: number | null }>>;
 }
 
+/** Where a noticed request stands against the repeat threshold (self_build_routes.noticed_payload). */
+export type NoticedStage =
+  | "counting"
+  | "ready"
+  | "direct"
+  | "proposed"
+  | "declined"
+  | "served"
+  | "nothing";
+
+export interface NoticedNeed {
+  id: number;
+  /** The person's own latest wording, cut short. */
+  label: string;
+  times: number;
+  days: number;
+  first_ms: number;
+  last_ms: number;
+  stage: NoticedStage;
+  /** The proposal this need became, when `stage` is "proposed". */
+  build_id: string;
+}
+
+export interface Noticed {
+  needs: NoticedNeed[];
+  /** Requests made only once so far (counted, not listed). */
+  once: number;
+  /** Repeated requests beyond the ones listed. */
+  more: number;
+  threshold: { times: number; days: number; window_days: number };
+  /** The quiet first days: `until_ms` is 0 when there are none. */
+  quiet_start: { days: number; since_ms: number; until_ms: number };
+}
+
 export interface ProvenanceItem {
   build_id: string;
   type: string;
@@ -181,6 +215,7 @@ export const selfBuildApi = {
   settings: (signal?: AbortSignal) => call<SelfBuildSettingsPayload>("/settings", { signal }),
   saveSettings: (patch: Partial<SelfBuildSettings>) =>
     call<SelfBuildSettingsPayload>("/settings", { method: "PUT", body: JSON.stringify(patch) }),
+  noticed: (signal?: AbortSignal) => call<Noticed>("/noticed", { signal }),
   provenance: (type?: string, signal?: AbortSignal) =>
     call<{ items: Record<string, ProvenanceItem> }>(
       `/provenance${type ? `?type=${encodeURIComponent(type)}` : ""}`,
