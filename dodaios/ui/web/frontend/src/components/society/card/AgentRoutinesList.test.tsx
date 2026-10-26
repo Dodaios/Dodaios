@@ -46,6 +46,8 @@ describe("AgentRoutinesList", () => {
     fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? "GET";
+      // Run activity, "seen" and parking routes are enrichment; they answer empty here.
+      if (path.includes("/routines-") || path.includes("/routine-parking")) return json({});
       if (path.includes("/routines") && method === "POST") {
         const body = JSON.parse(String(init?.body ?? "{}")) as { title?: string; prompt?: string };
         routines = [
@@ -93,7 +95,9 @@ describe("AgentRoutinesList", () => {
 
   test("shows an empty list only after the routine request succeeds", async () => {
     let respond!: (response: Response) => void;
-    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => { respond = resolve; }));
+    fetchMock.mockImplementation((url: string) => String(url).endsWith("/routines")
+      ? new Promise<Response>((resolve) => { respond = resolve; })
+      : Promise.resolve(json({})));
     mount();
     expect(await screen.findByText("Loading…")).toBeTruthy();
     expect(screen.queryByText("No routines yet.")).toBeNull();

@@ -32,7 +32,15 @@ async def test_persisted_run_links_survive_reopening_without_loading_main_chat(w
         await run_owned_routine(runtime, task_id, spec.tags, spec.action.prompt)
         await run_owned_routine(runtime, task_id, spec.tags, spec.action.prompt)
         row = await store.get(task_id)
-        links = [step["payload"]["session_id"] for step in row["steps"]]
+        links = [
+            step["payload"]["session_id"]
+            for step in row["steps"]
+            if step["payload"].get("event") == "routine_chat"
+        ]
+        # Each run also leaves one summary step naming its own chat.
+        summaries = [s["payload"] for s in row["steps"]
+                     if s["payload"].get("event") == "routine_summary"]
+        assert [s["session_id"] for s in summaries] == links
         assert len(set(links)) == 2
         reopened = AgentChatStore(tmp_path / "chat.db")
         try:

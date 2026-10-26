@@ -1908,6 +1908,112 @@
       "look_start": "Desde o início",
       "next_look": "Próximo aspeto: {0} no nível {1}",
       "team_note": "Os agentes sobem de nível com trabalho concluído e usam sempre os seus melhores desbloqueios."
+    },
+    "agent_routines": {
+      "schedule": {
+        "every_minute": "A cada minuto",
+        "every_minutes": "A cada {n} minutos",
+        "every_hour": "A cada hora",
+        "every_hour_at": "A cada hora aos :{minute}",
+        "every_hours": "A cada {n} horas",
+        "every_hours_at": "A cada {n} horas aos :{minute}",
+        "every_day": "Todos os dias",
+        "every_week": "Todas as semanas",
+        "daily_at": "Todos os dias às {time}",
+        "every_n_days_at": "A cada {n} dias às {time}",
+        "weekdays_at": "Nos dias úteis às {time}",
+        "weekends_at": "Aos fins de semana às {time}",
+        "days_at": "Todas as {days} às {time}",
+        "monthly_at": "Todos os meses no dia {days} às {time}",
+        "yearly_at": "Todos os anos a {date} às {time}",
+        "in_months": "{schedule}, só em {months}",
+        "with_days": "{schedule}, {days}",
+        "on_weekdays": "nos dias úteis",
+        "on_weekends": "aos fins de semana",
+        "zone_time": "{schedule} (hora de {zone})",
+        "converted": "{schedule} · {time} em {zone}",
+        "custom_cron": "Horário personalizado: {expression}",
+        "custom": "Horário: {kind}",
+        "every_duration": "A cada {duration}",
+        "n_days": "{n} dias",
+        "n_hours": "{n} horas",
+        "n_minutes": "{n} minutos",
+        "n_seconds": "{n} segundos",
+        "once_at": "Uma vez, {when}",
+        "once_in": "Uma vez, dentro de {duration}",
+        "on_event": "Quando acontece {event}",
+        "on_webhook": "Quando o seu webhook é chamado",
+        "on_provider": "Com eventos de {provider}",
+        "on_integration": "Com o evento de integração {event}",
+        "on_demand": "Quando a inicia",
+        "on_file": "Quando mudam ficheiros em {path}",
+        "on_source": "Com novas mensagens de {source}"
+      },
+      "list": {
+        "running": "A correr agora",
+        "parked": "Em pausa enquanto esteve fora",
+        "test_run": "Executar teste agora",
+        "pause": "Pausar",
+        "resume": "Retomar",
+        "due_now": "para agora",
+        "setup_in_chat": "Configurar no chat",
+        "setup_prompt": "Configura-me uma rotina: ",
+        "or_chat": "Ou descreva-a no chat",
+        "empty_body": "Tarefas que este agente faz sozinho, como um resumo da manhã ou uma verificação semanal.",
+        "active_hint": "Ativas de todas as rotinas"
+      },
+      "parking": {
+        "title": "Em pausa enquanto esteve fora",
+        "body": "{count} rotinas geraram {unread} resultados em {days} dias que ninguém abriu, por isso foram pausadas para poupar execuções.",
+        "body_one": "Esta rotina gerou {unread} resultados em {days} dias que ninguém abriu, por isso foi pausada para poupar execuções.",
+        "keep_running": "Retomar",
+        "keep_paused": "Manter em pausa",
+        "never_ask": "Retomar e não voltar a pausar"
+      },
+      "away": {
+        "label": "Pausar rotinas cujos resultados ninguém lê",
+        "never": "Nunca",
+        "after_days": "Após {n} dias",
+        "hint": "Aplica-se às rotinas agendadas de todos os agentes. O que inicia por si nunca é pausado.",
+        "off_for_agent": "Nunca pausado para este agente",
+        "turn_on": "Ativar"
+      },
+      "detail": {
+        "edit_in_chat": "Editar no chat",
+        "edit_prompt": "Altera a minha rotina «{title}» ({schedule}): ",
+        "running": "A correr agora",
+        "parked": "Em pausa enquanto esteve fora",
+        "due_now": "para agora",
+        "active": "Ativa",
+        "last_failure": "Última falha",
+        "failed_no_detail": "A execução falhou sem mensagem de erro.",
+        "open_failed_run": "Abrir essa execução",
+        "instruction": "Instrução",
+        "delete_note": "As próximas execuções param. Os resultados já entregues ficam no chat do agente."
+      },
+      "runs": {
+        "empty": "Ainda sem execuções. Use Execução de teste para experimentar já.",
+        "manual": "Manual",
+        "included": "Incluído na sua subscrição",
+        "skip_away": "Ignorada: ninguém abriu os resultados durante algum tempo, por isso a rotina foi pausada.",
+        "show_all": "Mostrar todas as {n}",
+        "show_less": "Mostrar menos"
+      },
+      "status": {
+        "waiting": "À espera",
+        "pending": "Adiada",
+        "interrupted": "Interrompida"
+      },
+      "webhook": {
+        "url_help": "Envie JSON por POST para este endereço para iniciar a rotina.",
+        "key_help": "Mantenha-a secreta. Renove-a se for divulgada.",
+        "header": "Cabeçalho",
+        "header_help": "Cole esta linha nos cabeçalhos do pedido do serviço que envia.",
+        "reveal": "Mostrar chave",
+        "hide": "Ocultar chave",
+        "copy_url": "Copiar URL",
+        "copy_header": "Copiar linha de cabeçalho"
+      }
     }
   }
 }

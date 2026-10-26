@@ -213,6 +213,10 @@ async def run_owned_routine(
             "Background work is waiting for a subscription or local model on its owner's seat"
         )
     await _hold_unattended_run_off_keys(provider, account_id)
+    # Results nobody opens for days: pause instead of producing another one.
+    from .routine_parking import maybe_park
+
+    await maybe_park(runtime, agent, task_id)
     permission_mode = "bypass"
     if autonomous:
         from .autonomous_routines import ORIGIN_PERMISSION_TAG, ORIGIN_SESSION_TAG
@@ -338,6 +342,10 @@ async def run_owned_routine(
             if event.get("kind") == "assistant_text":
                 answer = str(payload.get("text") or answer)
             if event.get("kind") == "turn_finished":
+                await _record_run_summary(
+                    task_store, task_id, session.session_id, turn_id, payload,
+                    provider=provider, model=model, account_id=account_id,
+                )
                 if payload.get("status") == "cancelled":
                     raise asyncio.CancelledError
                 if payload.get("status") not in {"done", "ok", "completed"}:
@@ -353,6 +361,45 @@ async def run_owned_routine(
         raise RuntimeError(f"The routine chat failed: {exc}") from exc
     finally:
         service.unsubscribe(session.session_id, queue)
+
+
+async def _record_run_summary(
+    task_store: Any,
+    task_id: str,
+    session_id: str,
+    turn_id: str,
+    finished: dict[str, Any],
+    *,
+    provider: str,
+    model: str,
+    account_id: str,
+) -> None:
+    """One ``routine_summary`` step per run: seat, duration and cost of its turn.
+
+    The run history reads it instead of opening every run's chat. Written
+    once, best effort: a failed write leaves the history to the chat fallback.
+    """
+    if task_store is None:
+        return
+    cost = finished.get("cost_usd")
+    try:
+        await task_store.append_step(
+            task_id,
+            "log",
+            {
+                "event": "routine_summary",
+                "session_id": session_id,
+                "turn_id": turn_id,
+                "status": str(finished.get("status") or ""),
+                "duration_ms": int(finished.get("duration_ms") or 0),
+                "cost_usd": float(cost) if isinstance(cost, int | float) else None,
+                "provider": provider,
+                "model": model,
+                "billed_via_key": _billed_via_api(provider, account_id),
+            },
+        )
+    except Exception:  # noqa: BLE001 — the summary is a projection of the run's own chat
+        log.warning("routine: run summary not recorded for %s", task_id, exc_info=True)
 
 
 async def _report_autonomous_result(
