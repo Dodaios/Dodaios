@@ -89,10 +89,10 @@ call with its own provider plugins (`gateway.py`,
   (the Agents-tier key wins, as for Dodaios' own agents), a local server with
   an address, or Vertex AI on a Google Cloud project without a key. The
   runtimes can use the providers listed in `model_map._ENDPOINTS`; a new
-  provider plugin needs an entry there too. A way of paying that exists but
-  is refused right now (a Claude login whose Extra Usage is off or spent) is
-  reported in `access_blocked` on `/api/agent-runtimes` with its reason code,
-  so the dialog shows it disabled.
+  provider plugin needs an entry there too. The Claude subscription is
+  offered when Claude Code is installed and signed in to a Claude plan
+  (`claude auth status`); `login_providers` and `access_blocked` on
+  `/api/agent-runtimes` stay empty for older clients.
 - **Keys and logins stay in Dodaios.** The runtime gets a per-agent token
   (`jrg_…`, process environment only); `SurfaceSecurity` accepts it on
   `/api/runtime-gateway/` and nowhere else. Hermes finds it again on session
@@ -133,11 +133,10 @@ call with its own provider plugins (`gateway.py`,
   runtimes read as "compress and resend"), 504 `timeout` ("took too long",
   not "not reachable"), 503 `provider_unreachable` / `provider_overloaded`,
   404 `model_not_found`, 400 `tools_unsupported` / `invalid_tool_schema` /
-  `invalid_request`, 401 `provider_auth` / `claude_login_expired`, 429
+  `invalid_request`, 401 `provider_auth`, 409 `claude_cli_only`, 429
   `rate_limited` with a cooldown, 502 `provider_error`. Only the codes no
   runtime can recover from end the Dodaios turn at once
-  (`provider_errors.TERMINAL_CODES`: billing, Extra Usage, refused key or
-  login, unknown model, tool refusals, rate limit); an overflow, a timeout or
+  (`provider_errors.TERMINAL_CODES`: billing, refused key, unknown model, tool refusals, rate limit); an overflow, a timeout or
   an overloaded provider goes back to the runtime's own retry and
   compression.
 - **Costs.** Every gateway call is metered into the cost ledger (caller
@@ -172,25 +171,37 @@ call with its own provider plugins (`gateway.py`,
   offers (from the account's catalog, no inference), and a `system` or
   `developer` input message moves into the instructions, which ChatGPT's
   backend requires.
-- **Claude subscription: billed as extra usage.** Claude runs on an
-  Anthropic API key when one is saved. Without one, the gateway answers on
-  the person's live Claude Code login (read-only: only the Claude CLI renews
-  it, so an expired login fails with `claude_login_expired` and says to open
-  Claude Code once). Anthropic bills
-  a subscription used outside Claude Code as extra usage, not from the plan's
-  limits, so the model picker labels that seat "billed as extra usage"
-  (`login_providers` on `/api/agent-runtimes`). A Claude login (`sk-ant-oat…`)
-  saved in the Anthropic API-key slot is never sent as an API key.
-  Measured 2026-10-07: Anthropic serves a subscription to Hermes and
-  OpenClaw only from the account's Extra Usage ("Third-party apps now draw
-  from your extra usage, not your plan limits", HTTP 400; Sonnet, Opus and
-  Fable sometimes answer a bare 429 instead), for every model including
-  Haiku. Before the runtime starts, `route_for` reads the account's usage
-  report (`/api/oauth/usage`, no inference, cached two minutes) and refuses
-  the turn at once when Extra Usage is off or its monthly limit is spent;
-  a refusal that still arrives is reported as 402 with the same reason. The
-  gateway sends Anthropic the agent's own request; it never presents itself
-  as Claude Code.
+- **Claude subscription: only through the official Claude CLI.** Claude
+  runs on an Anthropic API key when one is saved, or on the Claude
+  subscription when the agent is pinned to it or no key is saved
+  (`model_map.uses_claude_cli`). Anthropic bills a Claude login that a
+  third-party app sends to its HTTP API as Extra Usage, never from the plan
+  (measured 2026-10-07), so that login is never sent there and no API key
+  stands in for it. The route (`transport="claude_cli"`) carries no gateway
+  token, no key and no bearer: only which Claude CLI to run and the agent's
+  Claude account directory (`CLAUDE_CONFIG_DIR`; nothing for the platform
+  default). Before the runtime starts, `claude_login` asks that CLI
+  `claude auth status --json` under the runtime's own minimal environment
+  and refuses the turn in plain words when Claude Code is missing or not
+  signed in to a plan. The CLI owns the login and its renewal; Dodaios never
+  reads its credentials. A gateway call for such a seat (a token minted
+  while the agent still ran on its key) is refused with 409
+  `claude_cli_only`. A Claude login (`sk-ant-oat…`) saved in the Anthropic
+  API-key slot is never sent as an API key.
+  - **OpenClaw** runs the model on its bundled `claude-cli` backend
+    (`anthropic/<model>` with `agentRuntime.id: "claude-cli"`), the Claude
+    CLI's directory first on the Gateway's `PATH`; no Dodaios gateway
+    provider is configured. Claude's native tools ask on OpenClaw's
+    plugin-approval channel, which the ACP bridge does not relay, so the
+    chat's stance is applied in the config: Bypass (the agents' default)
+    runs them (`tools.exec.mode: "full"`), any other stance refuses them at
+    once (`"deny"`, never a prompt nobody sees). Dodaios' MCP tools keep
+    their own approvals.
+  - **Hermes** refuses the subscription with the reason. Its only route is
+    an experimental Hermes plugin that runs the Claude CLI as its model
+    provider; installing it changes the Hermes install's dependency
+    environment and its catalog source moved between Hermes 0.21.5 and
+    0.21.7, so Dodaios does not install it.
 
 `scripts/spikes/agent_runtimes_gateway_e2e.py <runtime> <provider> [model]`
 runs two real turns through the gateway (route built by `route_for`, the real

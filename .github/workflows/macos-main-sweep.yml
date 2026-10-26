@@ -70,7 +70,7 @@ jobs:
         run: python scripts/ci/ratchet_tests.py check --baseline scripts/ci/test-baseline-macos.json out/test-report-macos-sweep.json
       - name: Upload the report
         if: always()
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tests-macos-sweep
           path: out/

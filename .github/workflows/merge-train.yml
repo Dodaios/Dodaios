@@ -115,7 +115,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python scripts/ci/agent_integrate.py plan --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/train"
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: merge-train-plan
           path: ${{ runner.temp }}/train/plan.json
@@ -185,7 +185,7 @@ jobs:
           python scripts/ci/agent_integrate.py resolve --dir "$RUNNER_TEMP/train" --resolver-cmd "$cmd"
       - name: Regenerate and bundle (runs PR code; no secrets, read-only token)
         run: python scripts/ci/agent_integrate.py finish --dir "$RUNNER_TEMP/train"
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: merge-train-updates
           path: |

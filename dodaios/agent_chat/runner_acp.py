@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from concurrent.futures import Future
 from pathlib import Path
 from typing import Any
 
@@ -278,13 +279,19 @@ async def plan_runtime_turn(
             launch.release()
 
     try:
-        failure = gateway.watch_failure(route.api_key or "", effort=session.effort or "")
+        if route.api_key:
+            failure = gateway.watch_failure(route.api_key, effort=session.effort or "")
+        else:
+            # The Claude CLI route: no model call passes through Dodaios'
+            # gateway, so no gateway failure can end this turn.
+            failure = Future()
     except BaseException:
         release_launch()
         raise
 
     def release() -> None:
-        gateway.unwatch_failure(route.api_key or "", failure)
+        if route.api_key:
+            gateway.unwatch_failure(route.api_key, failure)
         acp = plan.acp if plan is not None else None
         if launch.invalidate is not None and (
             handle.cancel.is_set()

@@ -457,6 +457,7 @@ class HermesRuntime:
         return config
 
     async def launch(self, turn: RuntimeTurn) -> RuntimeLaunch:
+        _refuse_claude_cli(turn)
         status = await asyncio.to_thread(self.detect, fast=True)
         if not status.ready:
             raise RuntimeUnavailable(status.problem or "Hermes is not ready.")
@@ -484,6 +485,8 @@ class HermesRuntime:
         right now. ``latest_resume`` re-reads the chat's conversation once the
         slot is held (a turn may have finished since ``turn`` was built).
         """
+        if turn.route.transport == "claude_cli":
+            return False
         status = await asyncio.to_thread(self.detect)
         binary = _binary()
         if not status.ready or binary is None or self.needs_prepare(status):
@@ -582,6 +585,24 @@ class HermesRuntime:
             "then invoke its exact tool name through tool_call. Search before "
             "concluding a capability is missing. For a greeting or ordinary "
             "conversation, reply directly without searching for tools.\n"
+        )
+
+
+def _refuse_claude_cli(turn: RuntimeTurn) -> None:
+    """Hermes cannot run an agent on the Claude subscription.
+
+    Its only route there is an experimental Hermes plugin that runs the
+    Claude CLI as its model provider; installing it changes the Hermes
+    install's own dependency environment and its catalog source moves between
+    Hermes releases, so Dodaios does not install it. The subscription is never
+    sent to Anthropic's HTTP API instead (billed as Extra Usage), and no API
+    key stands in for it.
+    """
+    if turn.route.transport == "claude_cli":
+        raise RuntimeUnavailable(
+            "Hermes cannot run on the Claude subscription. Run this agent on OpenClaw "
+            "or as a Dodaios agent, or switch it to an Anthropic API key in its settings. "
+            "No API key or Extra Usage was used."
         )
 
 

@@ -465,7 +465,7 @@ def offers(surface: str, provider_id: str) -> bool:
 #: ``API_KEY_ACCOUNT`` runs on the provider's saved API key.
 API_KEY_ACCOUNT: Final[str] = "api-key"
 #: ``SUBSCRIPTION_ACCOUNT`` runs on the subscription login even when an API key
-#: is saved too (Hermes / OpenClaw: Claude Code's login, billed as extra usage).
+#: is saved too (Hermes / OpenClaw: only through the official Claude CLI).
 SUBSCRIPTION_ACCOUNT: Final[str] = "subscription"
 #: Both reserved values: never the id of a real login.
 ACCESS_ACCOUNTS: Final[frozenset[str]] = frozenset({API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT})
