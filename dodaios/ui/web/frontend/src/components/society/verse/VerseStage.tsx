@@ -48,7 +48,7 @@ import { useDevDuty } from "./life/devOverrides";
 import { pickFloor } from "./nav/floorPick";
 import { nearestWalkable } from "./nav/pathfind";
 import { ScreensLayer } from "./effects/ScreensLayer";
-import { useScreenFaces } from "./effects/useScreenFaces";
+import { terminalSocketIds, useScreenFaces } from "./effects/useScreenFaces";
 import { HoloLayer } from "./effects/HoloLayer";
 import { BeaconsLayer } from "./effects/BeaconsLayer";
 import { LightsLayer } from "./effects/LightsLayer";
@@ -134,6 +134,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const library = useCharacterLibrary(awake);
   const life = useCrewLife(deck, deckId, awake, messUntil > Date.now());
   const faces = useScreenFaces(deck, life, awake, t);
+  const terminalSockets = useMemo(() => terminalSocketIds(deck), [deck]);
   const runningTeams = useMemo(() => new Set(life.rounds.keys()), [life.rounds]);
   useWorldActions(runtime, deck, deckId, awake, runningTeams);
   // The crew salute when the commander is promoted.
@@ -522,7 +523,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
                   <DeckBackdrop runtime={runtime} deck={deck} debug={debug} awake={awake} onReady={onPlateReady} onError={onFailure}>
                     <DeckEnvironment url={deck.envUrl} />
                     {library && <ActorsLayer runtime={runtime} deck={deck} library={library} cast={cast} commanderId={COMMANDER_ID} reduced={reduced} saluteAt={saluteAt} />}
-                    <ScreensLayer deck={deck} faces={faces} />
+                    <ScreensLayer deck={deck} faces={faces} terminalSockets={terminalSockets} />
                     <HoloLayer sockets={holos} lit={litHolos} reduced={reduced} />
                     <LightsLayer deck={deck} alarm={alarm} reduced={reduced} />
                     <BeaconsLayer runtime={runtime} statuses={deckStatuses} reduced={reduced} />

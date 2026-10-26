@@ -132,6 +132,7 @@ import {
 import { installPasteBridge } from "./terminalPaste";
 import { installCopyBridge } from "./terminalCopy";
 import { createKeyEventChain } from "./terminalKeyChain";
+import { registerLiveTerminal } from "@/lib/liveTerminals";
 import { PANE_INPUT_EVENT, type PaneInputDetail } from "./ideHotkeys";
 import { installNewlineBridge } from "./terminalNewline";
 import { cancelPaneReflow, queuePaneReflow } from "./paneReflowQueue";
@@ -1098,6 +1099,8 @@ export function AgenticTerminal({
     // invalidates every existing pane's cache just to open an empty terminal.
     alignTerminalCells(term);
     term.open(container);
+    // The ship's monitors draw this pane from the same buffer; see lib/liveTerminals.
+    const unregisterLive = registerLiveTerminal(workspaceId ?? "", name, term);
     // The wheel always moves xterm's own history, even while a normal-buffer
     // CLI has negotiated mouse tracking — otherwise scrolling only "works"
     // when the CLI feels like it, which is the per-provider inconsistency the
@@ -2485,6 +2488,7 @@ export function AgenticTerminal({
       heldLeadRef.current = holdsSizeLead(leadKey, leadToken);
       releaseSizeLead(leadKey, leadToken);
       // Before the terminal: frees this pane's WebGL context slot.
+      unregisterLive();
       renderer.dispose();
       term.dispose();
       termRef.current = null;
