@@ -744,6 +744,7 @@ stands in the line of fire.
 | Q | energy shield (hold) |
 | Space | dodge roll in the move direction |
 | R | vent; again inside the gold window: perfect vent |
+| 2 / 3, V | fight over the shoulder / through the eyes (V toggles); the bird's-eye view waits for the match's end |
 | Esc | pause; again: leave |
 
 Presses are latched until the next frame reads them. Keys the duel uses never
@@ -755,8 +756,17 @@ again (*Click to aim* shows under the crosshair).
 `DuelCamera` turns with the eye-level views' mouse look (`mouseLook.ts`:
 the same rate per pixel, sensitivity and inverted axis; the pointer lock asks
 for raw movement), so aiming feels the same in and out of a match. The duel
-is always fought over the shoulder: first person on the deck switches to the
-duel's camera for the match and back afterwards. It eases the core's rigs
+is fought in the person the deck was seen in: over the shoulder from third
+person (or the bird's-eye view), through the eyes from first person; 2, 3
+and V switch mid-match and the camera blends over about a fifth of a second.
+Through the eyes (`firstPerson`) the camera sits at the duellist's eyes
+(1.65 m, 0.1 m ahead of the body's axis, kept 0.12 m short of a wall in
+front), dips through a dodge roll and falls with a knocked-out body; its field
+of view is the person's first-person setting on the frame's aspect, narrowed
+in the sights and widened in a sprint by the same ratios as the rigs
+(`firstFov`); recoil and shake apply as over the shoulder. The person's own
+body is hidden and the first-person viewmodel (realtime.md, "First-person
+viewmodel") holds the blaster. Over the shoulder it eases the core's rigs
 (`cameraRigFor`: hip, sights, sprint, shield; about 0.15 s) and adds 0.2 m to the side (less in the sights) so the
 body clears the crosshair. The camera's vertical field of view is the rig's
 (50 deg hip, about 80 deg across a 16:9 frame, the angle the bot's perception

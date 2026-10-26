@@ -9,7 +9,8 @@ import { describe, expect, it } from "vitest";
 import { createLocalDuel, type LocalDuelOptions } from "../combat/session";
 import type { CombatEvent } from "../combat/types";
 import type { PlayerView, ViewState } from "../combat/view";
-import { DuelCamera, DUEL_CAMERA, duelFov } from "./duelCamera";
+import { SHOULDER } from "../engine/realtime/shoulderRig";
+import { DuelCamera, DUEL_CAMERA, duelFov, firstFov } from "./duelCamera";
 import { DuelController, type DuelExit } from "./duelController";
 import { buildHudModel, DuelHudFeed, HUD_TIMES } from "./duelHud";
 import { DuelInput, isDuelKey } from "./duelInput";
@@ -174,6 +175,65 @@ describe("duel camera", () => {
     const pose = cam.update(1 / 60, player({ aimPitch: 0.02 }), 0);
     expect(pose.dir.y).toBeGreaterThan(0.015);
     expect(pose.aimDir.y).toBeCloseTo(0, 6);
+  });
+
+  it("fights through the eyes in first person, with the first-person field of view", () => {
+    const cam = new DuelCamera();
+    cam.firstPerson = true;
+    cam.face(0);
+    const p = player();
+    const pose = cam.update(1 / 60, p, 0);
+    expect(cam.firstShare).toBe(1);
+    // At eye height, a little ahead of the body's axis along the view (+Z), not beside the head.
+    expect(pose.position.y).toBeCloseTo(DUEL_CAMERA.eyeHeight, 6);
+    expect(pose.position.x).toBeCloseTo(p.x, 6);
+    expect(pose.position.z).toBeCloseTo(p.z + DUEL_CAMERA.eyeForward, 6);
+    expect(pose.fovDeg).toBeCloseTo(firstFov(50, SHOULDER.firstHfovDeg, 16 / 9), 3);
+    // The sights narrow it.
+    const hipFov = pose.fovDeg;
+    let ads = hipFov;
+    for (let i = 0; i < 60; i++) ads = cam.update(1 / 60, player({ ads: 1 }), 0).fovDeg;
+    expect(ads).toBeLessThan(hipFov);
+    // A wider first-person setting widens it.
+    expect(firstFov(50, 100)).toBeGreaterThan(firstFov(50, 85));
+  });
+
+  it("blends between the shoulder and the eyes when the person changes mid-match", () => {
+    const cam = new DuelCamera();
+    cam.face(0);
+    const third = cam.update(1 / 60, player(), 0).position.y;
+    cam.firstPerson = true;
+    cam.update(1 / 60, player(), 0);
+    expect(cam.firstShare).toBeGreaterThan(0);
+    expect(cam.firstShare).toBeLessThan(1);
+    for (let i = 0; i < 60; i++) cam.update(1 / 60, player(), 0);
+    expect(cam.firstShare).toBe(1);
+    cam.firstPerson = false;
+    for (let i = 0; i < 60; i++) cam.update(1 / 60, player(), 0);
+    expect(cam.firstShare).toBe(0);
+    expect(cam.pose.position.y).toBeCloseTo(third, 3);
+  });
+
+  it("dips the eyes through a dodge roll, drops them when knocked out, keeps them off a wall ahead", () => {
+    const cam = new DuelCamera();
+    cam.firstPerson = true;
+    cam.face(0);
+    const rolling = cam.update(1 / 60, player({ dodging: true, dodgeProgress: 0.5 }), 0).position.y;
+    expect(rolling).toBeLessThan(DUEL_CAMERA.eyeHeight - 0.4);
+    let down = 0;
+    for (let i = 0; i < 60; i++) down = cam.update(1 / 60, player({ alive: false }), 0).position.y;
+    expect(down).toBeLessThan(0.5);
+    // A wall 5 cm ahead of the body's axis: the eyes stay behind it.
+    const p = player();
+    const wall = p.z + 0.05;
+    const test = (from: { z: number }, to: { z: number }) => {
+      if ((from.z - wall) * (to.z - wall) >= 0) return null;
+      return (wall - from.z) / (to.z - from.z);
+    };
+    const near = new DuelCamera();
+    near.firstPerson = true;
+    near.face(0);
+    expect(near.update(1 / 60, p, 0, test).position.z).toBeLessThanOrEqual(wall);
   });
 });
 

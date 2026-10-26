@@ -4,7 +4,9 @@
  * while `active`, owns the frame: steps the eye-level camera (over the
  * shoulder or through the eyes) on the commander, renders deck, people and effects through the post chain (HDR
  * target with MSAA, bloom, AgX at the plate's exposure) and publishes the
- * camera for the HUD and the pointer (`runtime.eye`).
+ * camera for the HUD and the pointer (`runtime.eye`). In first person the
+ * commander's own arms (`runtime.viewmodel`) are drawn last, into the same
+ * target with depth cleared.
  *
  * Quality tiers: "high" (bloom, 4x MSAA, full resolution) by default; when
  * frames stay slower than ~45 fps the view drops to "low" (no post chain,
@@ -17,7 +19,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
-  AgXToneMapping, Color, DoubleSide, HalfFloatType, PerspectiveCamera, Ray, Vector2, Vector3, WebGLRenderTarget,
+  AgXToneMapping, Color, DoubleSide, HalfFloatType, PerspectiveCamera, Ray, Vector2, Vector3, WebGLRenderTarget, type Texture,
 } from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -31,6 +33,8 @@ import { loadRealtimeScene, type RealtimeScene } from "./realtimeScene";
 import { DECK_SHARED } from "./deckMaterial";
 import { verticalFov, type SegmentTest } from "./shoulderRig";
 import type { QualityChoice } from "./viewSettings";
+import { viewmodelVisibility } from "../../viewmodel/motion";
+import { drawViewmodel, ViewmodelPass } from "../../viewmodel/viewmodelPass";
 
 interface Props {
   runtime: StageRuntime;
@@ -56,10 +60,6 @@ const BLOOM = { strength: 0.035, radius: 0.3, threshold: 1.5 };
 /** Slower than this (smoothed frame time, ms) for the window below drops to the low tier. */
 const SLOW_FRAME_MS = 22;
 const SLOW_WINDOW_MS = 2500;
-/** Closer than this behind the pivot (a wall pushed the camera in), the commander is hidden, metres. */
-const HIDE_COMMANDER_BELOW_M = 0.55;
-/** Blended this far into first person, the commander's own body is hidden (the camera is inside the head). */
-const HIDE_COMMANDER_FIRST_SHARE = 0.3;
 /** Frames ignored after the view opens (shader compiles, uploads). */
 const WARMUP_FRAMES = 90;
 
@@ -147,14 +147,17 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
     return c;
   }, []);
 
-  const { composer, bloom } = useMemo(() => {
+  const { composer, bloom, viewmodelPass } = useMemo(() => {
     const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: 4 });
     const c = new EffectComposer(gl, target);
     c.addPass(new RenderPass(scene, camera));
+    // First person: the commander's arms over the deck, before bloom and tone mapping like everything else.
+    const vm = new ViewmodelPass();
+    c.addPass(vm);
     const pass = new UnrealBloomPass(new Vector2(1, 1), BLOOM.strength, BLOOM.radius, BLOOM.threshold);
     c.addPass(pass);
     c.addPass(new OutputPass());
-    return { composer: c, bloom: pass };
+    return { composer: c, bloom: pass, viewmodelPass: vm };
   }, [gl, scene, camera]);
   useEffect(() => () => composer.dispose(), [composer]);
 
@@ -233,13 +236,17 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
       rig.update(dt, body, test);
     }
     if (!override) {
-      runtime.commanderHidden = rig.actual < HIDE_COMMANDER_BELOW_M || rig.firstShare > HIDE_COMMANDER_FIRST_SHARE;
+      // Close behind the head or inside it (first person) the commander's own body is not drawn.
+      runtime.commanderHidden = viewmodelVisibility({ eyeOn: true, firstShare: rig.firstShare, thirdDistance: rig.actual, duelFirstShare: null }).hideOwnBody;
       camera.position.set(rig.position.x, rig.position.y, rig.position.z);
       camera.lookAt(rig.target.x, rig.target.y, rig.target.z);
       const fov = verticalFov(camera.aspect, rig.hfov());
       if (Math.abs(camera.fov - fov) > 1e-3) { camera.fov = fov; camera.updateProjectionMatrix(); }
     }
     camera.updateMatrixWorld();
+    const vm = runtime.viewmodel;
+    vm?.prepare(camera, dt, scene.environment as Texture | null);
+    viewmodelPass.draw = vm;
     gl.info.reset();
     const tune = tuning();
     if (tune || tuned.current) applyTuning(loaded, bloom, tune);
@@ -256,6 +263,7 @@ export function RealtimeBackdrop({ runtime, deck, active, commanderId, quality =
     } else {
       gl.setRenderTarget(null);
       gl.render(scene, camera);
+      if (vm?.visible) drawViewmodel(gl, vm, null);
     }
     gl.setClearColor(clearColour, clearAlpha);
     const s = runtime.stats;
