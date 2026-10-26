@@ -466,11 +466,7 @@ def _path_forms(path: Path) -> list[str]:
 
 
 def _inside(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-    except ValueError:
-        return False
-    return True
+    return path.is_relative_to(root)
 
 
 def agent_worktrees(
