@@ -135,6 +135,8 @@ export class Actor {
   private lastPlan = 0;
   private steer: Point | null = null;
   private steerRun = false;
+  /** Shooter views: the way the body faces while driven (the view, `viewMode.bodyFacing`), and a walk played backwards. */
+  private steerFace: { yaw: number; reverse: boolean } | null = null;
   private readonly clipNames: ReadonlySet<string>;
   private readonly shadow: Mesh<PlaneGeometry, MeshBasicMaterial>;
 
@@ -182,10 +184,25 @@ export class Actor {
     this.oneShotUntil = this.playOnce("salute");
   }
 
-  /** Direct control: walk toward `direction` (unit length, on the floor) from the next update on; null lets go. */
-  drive(direction: Point | null, run = false): void {
+  /**
+   * Direct control: walk toward `direction` (unit length, on the floor) from
+   * the next update on; null lets go. `face` turns the body that way instead
+   * of along the walk (a shooter view: strafing, walking backwards).
+   */
+  drive(direction: Point | null, run = false, face: { yaw: number; reverse: boolean } | null = null): void {
     this.steer = direction;
     this.steerRun = run;
+    this.steerFace = direction ? face : null;
+  }
+
+  /** Stop whatever walk or settle is in progress and stand where the body is (until the next goal). */
+  halt(): void {
+    this.steer = null;
+    this.follower = null;
+    this.settle = null;
+    this.phase = "settled";
+    this.speed = 0;
+    this.play(this.isDrone ? "hover" : "idle");
   }
 
   /** Put the body somewhere at once (spawn, or a pose it already holds). */
@@ -318,9 +335,11 @@ export class Actor {
       this.settle = null;
       this.oneShotUntil = 0;
     }
-    const heading = Math.atan2(direction.x, direction.z);
+    const face = this.steerFace;
+    const heading = face ? face.yaw : Math.atan2(direction.x, direction.z);
     this.yaw = turnToward(this.yaw, heading, DRIVE_TURN_RATE, dtS);
     const pace = this.pace * (this.steerRun ? RUN_FACTOR : 1) * turnPace(this.yaw, heading);
+    const stride = face?.reverse ? -1 : 1;
     const from = { x: this.x, z: this.z };
     const near = ctx.neighbours(this);
     // Nobody walks through a person; drones are small enough to pass.
@@ -344,7 +363,7 @@ export class Actor {
     const walking = this.motion === "walk" || this.motion === "drive";
     if (this.speed > DRIVE_WALK_ABOVE || (walking && this.speed > DRIVE_STAND_BELOW)) {
       this.play("walk");
-      if (this.action) this.action.timeScale = Math.max(0.3, this.speed / Math.max(0.1, this.instance.walkSpeed));
+      if (this.action) this.action.timeScale = stride * Math.max(0.3, this.speed / Math.max(0.1, this.instance.walkSpeed));
     } else {
       this.play(this.isDrone ? "hover" : "idle");
       if (this.action) this.action.timeScale = 1;

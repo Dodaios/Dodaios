@@ -14,6 +14,7 @@ import type { Deck } from "../content/deck";
 import type { StageRuntime } from "../runtime";
 import { seatedCrew } from "../../crewFeeds/seated";
 import { worldToPlate } from "../engine/plateMath";
+import { bodyFacing } from "../engine/realtime/viewMode";
 import { floorHeight, nearestWalkable } from "../nav/pathfind";
 import { hash32 } from "../life/crew";
 import { Actor, socketPose, type ActorContext, type Goal, type Pose } from "./actor";
@@ -65,6 +66,21 @@ function liftPoint(deck: Deck): Pose | null {
   return lift ? { x: lift.x, y: lift.y, z: lift.z, yaw: lift.yaw } : null;
 }
 
+/**
+ * Which way a body placed at (x, z) faces: the spawn or lift it stands at
+ * (a spawn's own facing; out of the lift doors), else toward −Z, the deck's
+ * forward. Pure.
+ */
+export function arrivalYaw(deck: Pick<Deck, "sockets">, x: number, z: number): number {
+  let best: { yaw: number; d: number } | null = null;
+  for (const s of deck.sockets) {
+    if (s.kind !== "spawn" && s.kind !== "lift") continue;
+    const d = Math.hypot(s.x - x, s.z - z);
+    if (d <= 2.5 && (!best || d < best.d)) best = { yaw: s.yaw, d };
+  }
+  return best ? best.yaw : Math.PI;
+}
+
 function spawnPoint(deck: Deck, entry: CastMember["entry"]): Pose | null {
   if (entry === "spawn") {
     const spawn = deck.sockets.find((s) => s.kind === "spawn" && s.id.startsWith("arrival")) ?? deck.sockets.find((s) => s.kind === "spawn");
@@ -112,7 +128,7 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
         const start = arrive ? null : spawnPoint(deck, now.entry);
         if (start) actor.place(start);
         else if (now.goal.kind === "socket") actor.place(socketPose(deck, now.goal.socket, now.goal.activity, actor.seatHeight));
-        else if (now.goal.kind === "point") actor.place({ x: now.goal.x, y: 0, z: now.goal.z, yaw: 0 });
+        else if (now.goal.kind === "point") actor.place({ x: now.goal.x, y: 0, z: now.goal.z, yaw: arrivalYaw(deck, now.goal.x, now.goal.z) });
         else if (now.goal.kind === "follow") {
           // At the leader's heel: where the leader stands, or is about to.
           const leaderId = now.goal.leaderId;
@@ -180,6 +196,9 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
     },
     poseOf: (id) => actors.current.get(id) ?? null,
   }), [deck, reduced, commanderId]);
+  // The commander's walking direction, refilled every frame (the actor reads it within the same frame).
+  const steering = useMemo(() => ({ x: 0, z: 0 }), []);
+  const facing = useMemo(() => ({ yaw: 0, reverse: false }), []);
 
   useFrame((_, dt) => {
     // A slow frame still moves people at their pace; a stall (a hidden tab) does not teleport them.
@@ -188,9 +207,23 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
     // Third person: the held movement keys walk the commander.
     const control = runtime.control;
     const lead = actors.current.get(commanderId);
-    lead?.drive(control.mode === "follow" ? control.direction() : null, control.run);
+    const steer = control.mode !== "follow" || runtime.duelActive ? null : runtime.eye ? control.directionFrom(runtime.shoulder, steering) : control.direction(steering);
+    // At eye level the commander faces the view while walking (shooter strafing); on the plate, the way they walk.
+    lead?.drive(steer, control.run, steer && runtime.eye ? bodyFacing(runtime.shoulder.yaw, steer, facing) : null);
+    // A duel ended: the commander stands where they finished it, on the deck's walkable floor.
+    const placed = runtime.placeCommander;
+    if (lead && placed) {
+      runtime.placeCommander = null;
+      const at = nearestWalkable(deck.nav, { x: placed.x, z: placed.z }, 3) ?? placed;
+      lead.halt();
+      lead.place({ x: at.x, y: floorHeight(deck.nav, at.x, at.z), z: at.z, yaw: placed.yaw });
+    }
+    // In a duel the duellist's own body stands in for the commander's.
+    if (lead) lead.group.visible = !runtime.duelActive && !(runtime.eye && runtime.commanderHidden);
+    const area = runtime.duelActive ? runtime.duelArea : null;
     for (const actor of actors.current.values()) {
       actor.update(dtS, ctx);
+      if (actor !== lead) actor.group.visible = !area || actor.x < area.x0 || actor.x > area.x1 || actor.z < area.z0 || actor.z > area.z1;
       if (actor.gone) {
         const member = castRef.current.find((m) => m.id === actor.id);
         if (member) departed.current.add(`${member.id}|${member.goalKey}`);
@@ -203,9 +236,9 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
       }
       const pose = runtime.poses.get(actor.id);
       if (pose) {
-        pose.x = actor.x; pose.y = actor.y; pose.z = actor.z; pose.height = actor.height; pose.moving = actor.moving;
+        pose.x = actor.x; pose.y = actor.y; pose.z = actor.z; pose.yaw = actor.yaw; pose.height = actor.height; pose.moving = actor.moving;
       } else {
-        runtime.poses.set(actor.id, { id: actor.id, x: actor.x, y: actor.y, z: actor.z, height: actor.height, moving: actor.moving });
+        runtime.poses.set(actor.id, { id: actor.id, x: actor.x, y: actor.y, z: actor.z, yaw: actor.yaw, height: actor.height, moving: actor.moving });
       }
       const at = actor.settledAt;
       if (at && at.kind === "seat" && screenSeats.has(at.id)) seatedCrew.add(actor.id);
@@ -216,7 +249,7 @@ export function ActorsLayer({ runtime, deck, library, cast, commanderId, reduced
     // them when they stop; a drag looks around until they walk again.
     const view = runtime.view;
     if (lead?.moving) control.looking = false;
-    if (lead && !lead.gone && control.mode === "follow" && view.measured && (!control.looking || control.reframe || view.leading)) {
+    if (lead && !lead.gone && !runtime.eye && control.mode === "follow" && view.measured && (!control.looking || control.reframe || view.leading)) {
       const p = worldToPlate(deck.camera, lead.x, lead.y + lead.height * 0.5, lead.z);
       if (control.reframe) {
         control.reframe = false;

@@ -220,3 +220,35 @@ describe("useResizablePane", () => {
     expect(result.current.size).toBe(200);
   });
 });
+
+describe("useResizablePane drag-to-close", () => {
+  const opts = { storageKey: "test.collapse", defaultSize: 340, min: 260, max: 1000, axis: "x" as const, handle: "start" as const, collapseBelow: 160 };
+
+  it("closes when the start-edge grip is pushed to the far edge, and keeps the old width", () => {
+    let closed = 0;
+    const { result } = renderHook(() => useResizablePane({ ...opts, onCollapse: () => { closed += 1; } }));
+    drag(result.current, { x: 1000, y: 0 }, { x: 1300, y: 0 });
+    expect(closed).toBe(1);
+    expect(result.current.size).toBe(340);
+    expect(window.localStorage.getItem("test.collapse")).toBe("340");
+  });
+
+  it("follows the pointer below the minimum during the drag", async () => {
+    const { result } = renderHook(() => useResizablePane({ ...opts, onCollapse: () => {} }));
+    act(() => { result.current.startResize({ clientX: 1000, clientY: 0, preventDefault: () => {} } as unknown as React.PointerEvent); });
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("pointermove", { clientX: 1240, clientY: 0 }));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    expect(result.current.size).toBe(100);
+    act(() => { window.dispatchEvent(new MouseEvent("pointerup")); });
+  });
+
+  it("settles at the minimum when let go short of the close point", () => {
+    let closed = 0;
+    const { result } = renderHook(() => useResizablePane({ ...opts, onCollapse: () => { closed += 1; } }));
+    drag(result.current, { x: 1000, y: 0 }, { x: 1150, y: 0 });
+    expect(closed).toBe(0);
+    expect(result.current.size).toBe(260);
+  });
+});
