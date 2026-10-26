@@ -262,6 +262,8 @@ wiki/obsidian-vault/entities/
 wiki/obsidian-vault/concepts/
 wiki/obsidian-vault/projects/
 wiki/obsidian-vault/log.md
+# Per-agent memory books (dodaios/society/memory_books.py) are personal content too.
+wiki/obsidian-vault/society/
 # Runtime-regenerated vault self-documentation page (live stats + person links).
 wiki/obsidian-vault/memory.md
 
