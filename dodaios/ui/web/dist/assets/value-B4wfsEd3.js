@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:dodaios/ui/web/dist/assets/value-ClTnEQsi.js
-import{gQ as U,cp as C}from"./index-Bqdh6B9t.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
-========
 import{gU as I,cp as C}from"./index-D0oKD7Wa.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
->>>>>>>> 549905391c0f7d4916ea0fbb61b42c8391456deb:dodaios/ui/web/dist/assets/value-B4wfsEd3.js
  * @license React
  * use-sync-external-store-shim.production.js
  *

@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:dodaios/ui/web/dist/assets/cliVendors-DM25rZBn.js
-import{c}from"./index-Bqdh6B9t.js";/**
-========
 import{c}from"./index-D0oKD7Wa.js";/**
->>>>>>>> 549905391c0f7d4916ea0fbb61b42c8391456deb:dodaios/ui/web/dist/assets/cliVendors-CGTtTp3a.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

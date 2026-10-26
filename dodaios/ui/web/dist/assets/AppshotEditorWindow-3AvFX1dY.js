@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:dodaios/ui/web/dist/assets/AppshotEditorWindow-0k5WIbt5.js
-import{c as le,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as be,l as ge,T as ve}from"./index-Bqdh6B9t.js";import{AppshotEditor as we}from"./AppshotEditor-CHt7TnEm.js";import{Q as P}from"./tooltip-iKe92ghH.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke,S as Ne}from"./skip-forward-AWgVK1Zm.js";import{P as ae}from"./play-QXPdHH9c.js";import{P as Se}from"./pause-CRwNwSV4.js";import"./switch-G5m35pQ5.js";import"./image-plus-BpNdAZzh.js";import"./check-RZhT4rqa.js";import"./undo-2-wRLjTKm4.js";/**
-========
 import{c as le,u as ue,a as pe,b as he,d as me,r as d,f as W,j as e,L as te,X as fe,B as xe,e as R,R as be,l as ge,T as ve}from"./index-D0oKD7Wa.js";import{AppshotEditor as we}from"./AppshotEditor-CTzlUjOV.js";import{Q as P}from"./tooltip-CqjfuHYB.js";import{e as ye,s as je,a as re,R as _e}from"./appshotApi-BklOgPoR.js";import{F as ke,S as Ne}from"./skip-forward-Cfv1HhiR.js";import{P as ae}from"./play-rB8RgcoN.js";import{P as Se}from"./pause-CrK16OYf.js";import"./switch-CGmIwyaY.js";import"./image-plus-CrlTwBf7.js";import"./check-ME3Ynh9M.js";import"./undo-2-DnSBZsXs.js";/**
->>>>>>>> 549905391c0f7d4916ea0fbb61b42c8391456deb:dodaios/ui/web/dist/assets/AppshotEditorWindow-3AvFX1dY.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
