@@ -4,8 +4,9 @@
 
 Checks every deck manifest against art/verse/schema/deck.schema.json, file
 existence and image sizes (L0 tiles, the M2/M4 mip tiles, L1), naming, cross
-references, that every socket lies inside the plate frame, and the content
-budgets.
+references, that every socket lies inside the plate frame, the optional
+realtime (eye-level) export of a deck (glTF chunks, lightmap pages, probes,
+docs/verse/realtime.md), and the content budgets.
 """
 
 from __future__ import annotations
@@ -27,8 +28,9 @@ SCHEMA_PATH = REPO_ROOT / "art" / "verse" / "schema" / "deck.schema.json"
 PUBLIC_VERSE = REPO_ROOT / "dodaios" / "ui" / "web" / "frontend" / "public" / "verse"
 
 MB = 1024 * 1024
-BUDGET_TOTAL = 90 * MB
+BUDGET_TOTAL = 160 * MB  # plates, characters and up to four realtime exports
 BUDGET_PLATE = 16 * MB  # L0 + mips + L1 of one deck
+BUDGET_REALTIME = 25 * MB  # realtime/ of one deck: scene.glb, lightmap pages, probes
 BUDGET_CHARACTER_GLB = 2 * MB
 MIP_DIVISORS = (2, 4)  # the tiled mip levels every cooked deck carries
 CHARACTER_PREFIXES = ("SK_", "SM_", "A_", "T_")
@@ -128,6 +130,7 @@ def validate_deck_dir(deck_dir: Path, validator: Draft202012Validator | None = N
     problems += _check_files(where, deck_dir, manifest)
     problems += _check_references(where, manifest)
     problems += _check_sockets_in_frame(where, manifest)
+    problems += _check_realtime(where, deck_dir, manifest)
     return problems
 
 
@@ -306,6 +309,99 @@ def _check_sockets_in_frame(where: str, manifest: dict) -> list[str]:
         x, y = world_to_plate_px(camera, socket["position"])
         if not (0 <= x <= camera["plate_w_px"] and 0 <= y <= camera["plate_h_px"]):
             problems.append(f"{where}: socket {socket['kind']}_{socket['id']} is outside the plate")
+    return problems
+
+
+def image_size(path: Path) -> tuple[int, int, str]:
+    with Image.open(path) as image:
+        return image.width, image.height, image.mode
+
+
+def _check_realtime(where: str, deck_dir: Path, manifest: dict) -> list[str]:
+    """The eye-level export: every file it names, the glTF chunks, the budget."""
+    block = manifest.get("realtime")
+    folder = deck_dir / "realtime"
+    if block is None:
+        return [
+            f"{where}: realtime/ exists but the manifest has no realtime block"
+        ] * folder.is_dir()
+    problems: list[str] = []
+    expected: set[str] = set()
+    rooms = {room["id"] for room in manifest["rooms"]}
+    pages = block["lightmaps"]["pages"]
+    for index, page in enumerate(pages):
+        expected.add(Path(page["url"]).name)
+        path = deck_dir / page["url"]
+        if not path.is_file():
+            problems.append(f"{where}: missing {page['url']}")
+            continue
+        width, height, mode = image_size(path)
+        if (width, height) != (page["size"], page["size"]):
+            problems.append(
+                f"{where}: lightmap page {index} is {width}x{height}, not {page['size']}"
+            )
+        if mode != "RGBA":
+            problems.append(f"{where}: lightmap page {index} is {mode}, rgbm2 needs RGBA")
+    for probe in block["probes"]:
+        expected.add(Path(probe["url"]).name)
+        path = deck_dir / probe["url"]
+        if probe["room"] not in rooms:
+            problems.append(f"{where}: realtime probe for unknown room {probe['room']!r}")
+        if not path.is_file():
+            problems.append(f"{where}: missing {probe['url']}")
+            continue
+        width, height, mode = image_size(path)
+        if (width, height) != (probe["w"], probe["h"]) or mode != "RGBA":
+            problems.append(f"{where}: probe {probe['room']} is {width}x{height} {mode}")
+    scene = block["scene"]
+    expected.add(Path(scene["url"]).name)
+    path = deck_dir / scene["url"]
+    if not path.is_file():
+        problems.append(f"{where}: missing {scene['url']}")
+    else:
+        problems += _check_realtime_glb(where, path, block, rooms, len(pages))
+    if folder.is_dir():
+        extra = {p.name for p in folder.iterdir()} - expected
+        if extra:
+            problems.append(f"{where}: stray files in realtime/: {sorted(extra)}")
+        size = sum(p.stat().st_size for p in folder.rglob("*") if p.is_file())
+        if size != block["bytes"]:
+            problems.append(
+                f"{where}: realtime/ is {size} bytes, the manifest says {block['bytes']}"
+            )
+        if size > BUDGET_REALTIME:
+            budget = BUDGET_REALTIME // MB
+            problems.append(f"{where}: realtime/ is {size / MB:.2f} MB (budget {budget} MB)")
+    return problems
+
+
+def _check_realtime_glb(
+    where: str, path: Path, block: dict, rooms: set[str], pages: int
+) -> list[str]:
+    try:
+        gltf = glb_json(path)
+    except ValueError as error:
+        return [f"{where}: {error}"]
+    problems = []
+    required = set(gltf.get("extensionsRequired", []))
+    if required - {"EXT_meshopt_compression", "KHR_mesh_quantization"}:
+        problems.append(f"{where}: scene.glb requires unsupported extensions {sorted(required)}")
+    nodes = [node for node in gltf.get("nodes", []) if "mesh" in node]
+    chunks = block["scene"]["chunks"]
+    if len(nodes) != chunks:
+        problems.append(f"{where}: scene.glb has {len(nodes)} chunks, the manifest says {chunks}")
+    for node in nodes:
+        extras = node.get("extras") or {}
+        name = node.get("name", "?")
+        if extras.get("material") not in block["materials"]:
+            problems.append(
+                f"{where}: chunk {name} uses unknown material {extras.get('material')!r}"
+            )
+        if extras.get("room") not in rooms:
+            problems.append(f"{where}: chunk {name} names unknown room {extras.get('room')!r}")
+        page = extras.get("page")
+        if not isinstance(page, int) or not 0 <= page < pages:
+            problems.append(f"{where}: chunk {name} names lightmap page {page!r} of {pages}")
     return problems
 
 

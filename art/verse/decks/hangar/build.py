@@ -28,6 +28,7 @@ import hangar_arch as arch  # noqa: E402
 import hangar_layout as L  # noqa: E402
 import hangar_light as light  # noqa: E402
 import hangar_props as props  # noqa: E402
+import hangar_upper as upper  # noqa: E402
 from lib import kit, scene  # noqa: E402
 
 B = L.B
@@ -158,6 +159,7 @@ def build() -> None:
     arch.launch_well(well_piece=well_piece)
     arch.front_band()
     arch.ceiling()
+    upper.build()
     arch.occluders(well_piece=well_piece)
     props.build_all()
     light.build(mounts)

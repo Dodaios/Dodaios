@@ -50,6 +50,8 @@ interface Screen {
   painted: string;
   paintedBlink: boolean;
   paintedAt: number;
+  /** Where the quad sits in the plate view: slid out of its console's occluder toward the plate camera. */
+  plateOffset: Vector3;
 }
 
 /** Everything a text face draws except the cursor blink. */
@@ -138,8 +140,8 @@ export function occluderClearance(corners: readonly [number, number, number][], 
   return lift > 0 ? lift + 0.015 : 0;
 }
 
-function screenQuad(corners: readonly [number, number, number][], offset: Vector3): BufferGeometry {
-  const p = corners.flatMap((q) => [q[0] + offset.x, q[1] + offset.y, q[2] + offset.z]);
+function screenQuad(corners: readonly [number, number, number][]): BufferGeometry {
+  const p = corners.flatMap((q) => [q[0], q[1], q[2]]);
   const g = new BufferGeometry();
   g.setAttribute("position", new BufferAttribute(new Float32Array(p), 3));
   g.setAttribute("uv", new BufferAttribute(new Float32Array([0, 1, 1, 1, 1, 0, 0, 0]), 2));
@@ -147,13 +149,20 @@ function screenQuad(corners: readonly [number, number, number][], offset: Vector
   return g;
 }
 
-export function ScreensLayer({ deck, faces, terminalSockets }: {
+export function ScreensLayer({ deck, faces, terminalSockets, plateView = true }: {
   deck: Deck;
   faces: ReadonlyMap<string, ScreenView>;
   /** Sockets that show terminals and get a sharper canvas. */
   terminalSockets: ReadonlySet<string>;
+  /**
+   * Is the photographed plate the view on screen? Only there is a screen slid out of its
+   * occluder; the eye-level view renders the same scene in perspective, where it stays on the glass.
+   */
+  plateView?: boolean;
 }) {
   const scene = useThree((s) => s.scene);
+  const plateViewRef = useRef(plateView);
+  plateViewRef.current = plateView;
   const facesRef = useRef(faces);
   facesRef.current = faces;
   const group = useMemo(() => new Group(), []);
@@ -168,7 +177,8 @@ export function ScreensLayer({ deck, faces, terminalSockets }: {
       const corners = screenCorners(socket, terminalSockets.has(socket.id) ? TERMINAL_BLEED_M : 0);
       if (!corners) continue;
       const toCamera = new Vector3(...cameraBasis(deck.camera.pitchDeg).dir).negate().normalize();
-      const geometry = screenQuad(corners, toCamera.clone().multiplyScalar(occluderClearance(corners, toCamera, scene.getObjectByName("occluders"))));
+      const geometry = screenQuad(corners);
+      const plateOffset = toCamera.clone().multiplyScalar(occluderClearance(corners, toCamera, scene.getObjectByName("occluders")));
       const canvas = document.createElement("canvas");
       const size = terminalSockets.has(socket.id)
         ? terminalCanvasSize(socket.size[0], socket.size[1])
@@ -186,7 +196,7 @@ export function ScreensLayer({ deck, faces, terminalSockets }: {
       const mesh = new Mesh(geometry, material);
       mesh.renderOrder = RENDER_ORDER.screen;
       mesh.name = `screen:${socket.id}`;
-      out.push({ socket, mesh, ctx, texture, face: null, content: "", painted: "", paintedBlink: false, paintedAt: 0 });
+      out.push({ socket, mesh, ctx, texture, face: null, content: "", painted: "", paintedBlink: false, paintedAt: 0, plateOffset });
     }
     return out;
   }, [deck, terminalSockets, scene]);
@@ -207,6 +217,10 @@ export function ScreensLayer({ deck, faces, terminalSockets }: {
 
   useFrame(() => {
     const now = performance.now();
+    const plate = plateViewRef.current;
+    for (const s of screens) {
+      if (plate) s.mesh.position.copy(s.plateOffset); else s.mesh.position.set(0, 0, 0);
+    }
     const blinkOn = Math.floor(now / BLINK_MS) % 2 === 0;
     let budget = MAX_PAINTS_PER_FRAME;
     const n = screens.length;

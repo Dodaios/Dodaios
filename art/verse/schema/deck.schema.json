@@ -186,6 +186,90 @@
         "bytes": { "type": "integer" },
         "plate_bytes": { "type": "integer" }
       }
+    },
+    "realtime": {
+      "description": "Optional: the deck as an eye-level 3D scene (docs/verse/realtime.md). Written by `cook.py deck <id> --realtime`; absent on decks never exported.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "quality", "scene", "lightmaps", "probes", "materials", "bytes", "stats"],
+      "properties": {
+        "version": { "const": 1 },
+        "quality": { "enum": ["preview", "final"] },
+        "scene": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["url", "vertices", "triangles", "chunks"],
+          "properties": {
+            "url": { "type": "string", "pattern": "^realtime/[^/]+\\.glb$", "description": "Meshopt-compressed glTF 2.0 (EXT_meshopt_compression, KHR_mesh_quantization); one node per (material, room, page) chunk with extras {material, room, page}; TEXCOORD_0 is the lightmap UV." },
+            "vertices": { "type": "integer", "minimum": 1 },
+            "triangles": { "type": "integer", "minimum": 1 },
+            "chunks": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "lightmaps": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["encoding", "range", "pages"],
+          "properties": {
+            "encoding": { "const": "rgbm2", "description": "RGBA8: m = a^2 * range, rgb = c^2 * m (linear scene radiance, albedo and emission included)." },
+            "range": { "type": "number", "exclusiveMinimum": 0 },
+            "pages": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["url", "size", "density"],
+                "properties": {
+                  "url": { "type": "string", "pattern": "^realtime/[^/]+\\.webp$" },
+                  "size": { "type": "integer", "minimum": 64, "maximum": 8192 },
+                  "density": { "type": "number", "exclusiveMinimum": 0, "description": "Texels per metre at density weight 1." }
+                }
+              }
+            }
+          }
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["room", "url", "w", "h", "range", "position", "box_min", "box_max"],
+            "properties": {
+              "room": { "type": "string" },
+              "url": { "type": "string", "pattern": "^realtime/[^/]+\\.webp$" },
+              "w": { "type": "integer", "minimum": 1 },
+              "h": { "type": "integer", "minimum": 1 },
+              "range": { "type": "number", "exclusiveMinimum": 0 },
+              "position": { "$ref": "#/$defs/vec3" },
+              "box_min": { "$ref": "#/$defs/vec3" },
+              "box_max": { "$ref": "#/$defs/vec3" }
+            }
+          }
+        },
+        "materials": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["roughness", "metalness", "color", "clearcoat", "clearcoat_roughness", "specular", "detail", "transparent", "opacity", "collide"],
+            "properties": {
+              "roughness": { "type": "number", "minimum": 0, "maximum": 1 },
+              "metalness": { "type": "number", "minimum": 0, "maximum": 1 },
+              "color": { "$ref": "#/$defs/vec3" },
+              "clearcoat": { "type": "number", "minimum": 0, "maximum": 1 },
+              "clearcoat_roughness": { "type": "number", "minimum": 0, "maximum": 1 },
+              "specular": { "type": "number", "minimum": 0, "maximum": 1 },
+              "detail": { "enum": ["none", "deck_plates", "painted", "metal"] },
+              "transparent": { "type": "boolean" },
+              "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+              "collide": { "type": "boolean" }
+            }
+          }
+        },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "stats": { "type": "object" }
+      }
     }
   },
   "$defs": {
