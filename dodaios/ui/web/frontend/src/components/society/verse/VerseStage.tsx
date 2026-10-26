@@ -24,7 +24,7 @@ import { openPaneSession } from "../crewFeeds/codingNavigate";
 import { useProgressionSync } from "../progression/useProgressionSync";
 import { useProgression } from "../progression/progressionStore";
 import { RankCard, RanksOverlay, rankForLevel, useCommanderRank, useCommanderUniform } from "./ranks";
-import type { DeckId } from "./decks";
+import { DECK_IDS, type DeckId } from "./decks";
 import type { Deck, Station } from "./content/deck";
 import { useDeck } from "./content/useDeck";
 import { CAMERA_FAR } from "./engine/plateCamera";
@@ -374,9 +374,9 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   }, [awake, compact]);
 
   // Keyboard: WASD/arrows walk the commander (third person) or pan (bird's-eye), Shift hurries, V switches the view,
-  // E works the station at hand, +/- zoom, Escape closes, F9 the alignment overlay (development).
-  const keyActions = useRef({ toggleView, workNearStation });
-  keyActions.current = { toggleView, workNearStation };
+  // E works the station at hand, 1-4 change deck, +/- zoom, Escape closes, F9 the alignment overlay (development).
+  const keyActions = useRef({ toggleView, workNearStation, rideTo });
+  keyActions.current = { toggleView, workNearStation, rideTo };
   useEffect(() => {
     if (!awake) return;
     const owns = (e: KeyboardEvent) => {
@@ -399,6 +399,11 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       else if (e.code === "Minus" || e.code === "NumpadSubtract") v.zoomAt(v.vp.width / 2, v.vp.height / 2, 0.8);
       else if (e.code === "KeyV" && !e.repeat) keyActions.current.toggleView();
       else if (e.code === "KeyE" && !e.repeat) keyActions.current.workNearStation();
+      else if (/^(Digit|Numpad)[1-9]$/.test(e.code) && !e.repeat) {
+        // The number keys ride the turbolift straight to that deck.
+        const to = DECK_IDS[Number(e.code.slice(-1)) - 1];
+        if (to) keyActions.current.rideTo(to);
+      }
       else if (e.code === "Escape") { setPanel(null); setSelected(null); }
       else if (e.code === "F9" && import.meta.env.DEV) setDebug((d) => !d);
     };
@@ -537,7 +542,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       {chunkReady && (
         <div className="verse-hud">
           <FloatingLabels runtime={runtime} plates={plates} station={labelledStation} deck={deck} />
-          <DeckTitle deck={deckId} t={t} counts={counts} rankCard={<RankCard compact={compact} />} />
+          <DeckTitle deck={deckId} t={t} counts={counts} rankCard={<RankCard compact={compact} />} onLift={() => setPanel("lift")} />
           <Toolbar
             t={t}
             mode={mode}
