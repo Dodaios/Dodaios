@@ -15,7 +15,12 @@ import { parseTemplateText, previewTemplate, type TemplatePreview } from "./star
 export interface ImportState {
   template: Record<string, unknown> | null;
   preview: TemplatePreview | null;
+  /** The text changed and its check is still running: the preview on screen
+   *  is the previous text's, so nothing may be created from it yet. */
+  pending: boolean;
 }
+
+export const EMPTY_IMPORT: ImportState = { template: null, preview: null, pending: false };
 
 interface Props {
   text: string;
@@ -35,6 +40,8 @@ export function ImportTemplatePane({ text, onTextChange, onChange, disabled }: P
   const [errors, setErrors] = useState<string[]>([]);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const last = useRef<ImportState>(EMPTY_IMPORT);
+  const emit = (state: ImportState) => { last.current = state; onChangeRef.current(state); };
   // useT hands out a new function every render; the check runs on text only.
   const tRef = useRef(t);
   tRef.current = t;
@@ -44,16 +51,18 @@ export function ImportTemplatePane({ text, onTextChange, onChange, disabled }: P
     setErrors([]);
     if (!trimmed) {
       setProblem(null);
-      onChangeRef.current({ template: null, preview: null });
+      emit(EMPTY_IMPORT);
       return;
     }
     const template = parseTemplateText(trimmed);
     if (!template) {
       setProblem(tRef.current("agent_create.import.invalid_json"));
-      onChangeRef.current({ template: null, preview: null });
+      emit(EMPTY_IMPORT);
       return;
     }
     setProblem(null);
+    // Keep the last preview on screen while this text is checked, but hold Create.
+    emit({ ...last.current, pending: true });
     let live = true;
     const timer = window.setTimeout(() => {
       setChecking(true);
@@ -61,16 +70,18 @@ export function ImportTemplatePane({ text, onTextChange, onChange, disabled }: P
         .then((preview) => {
           if (!live) return;
           setErrors(preview.ok ? [] : preview.errors);
-          onChangeRef.current({ template, preview: preview.ok ? preview : null });
+          emit({ template, preview: preview.ok ? preview : null, pending: false });
         })
         .catch((exc: unknown) => {
           if (!live) return;
           setProblem(exc instanceof Error ? exc.message : String(exc));
-          onChangeRef.current({ template: null, preview: null });
+          emit(EMPTY_IMPORT);
         })
         .finally(() => { if (live) setChecking(false); });
     }, CHECK_DELAY_MS);
     return () => { live = false; window.clearTimeout(timer); };
+    // `emit` only writes through refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
 
   async function openFile(file: File | undefined) {

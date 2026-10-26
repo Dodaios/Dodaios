@@ -215,6 +215,30 @@ def test_imported_template_previews_then_installs_on_the_dialog_seat(tmp_path: P
             client.portal.call(runtime.close)
 
 
+def test_imported_figure_stays_under_the_dialog_companion(tmp_path: Path):
+    client, runtime = _client(tmp_path)
+    template = {
+        "schema": 1,
+        "name": "Figure check",
+        "instructions": "Keep the notes tidy.",
+        "avatar": {"archetype": "scout"},
+    }
+    companion = {"shape": "drop", "color": "#c9a227"}
+    with client:
+        try:
+            res = client.post(
+                "/api/society/starters/install",
+                json={"template": template, "seat": {"provider": "openai", "companion": companion}},
+            )
+            assert res.status_code == 200, res.text
+            avatar = res.json()["agent"]["avatar"]
+            # The template's checked figure stays; the dialog's companion wins.
+            assert avatar["archetype"] == "scout"
+            assert avatar["companion"]["shape"] == "drop"
+        finally:
+            client.portal.call(runtime.close)
+
+
 async def test_routine_is_created_only_when_ticked(tmp_path: Path):
     import httpx
 

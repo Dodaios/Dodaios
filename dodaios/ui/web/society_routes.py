@@ -2453,7 +2453,12 @@ async def install_template(
     wanted = fields.pop("name")
     name = await _free_agent_name(rt, wanted)
     scope = template.get("knowledge_scope", "shared")
-    body = CreateAgentBody(name=name, **{**fields, **(seat or {})})
+    merged = {**fields, **(seat or {})}
+    if seat and isinstance(seat.get("avatar"), dict):
+        # The template's figure has been through ``public_avatar``; the seat
+        # only brings the dialog's companion on top of it.
+        merged["avatar"] = {**(fields.get("avatar") or {}), **seat["avatar"]}
+    body = CreateAgentBody(name=name, **merged)
     created = await create_agent(body, request)
     agent_row = created["agent"]
     if scope == "own" and agent_row.get("knowledge_scope") != "own":
@@ -2528,7 +2533,7 @@ def _unwrap_template(template: dict[str, Any]) -> dict[str, Any]:
     return template
 
 
-def _seat_fields(seat: StarterSeat, template: dict[str, Any]) -> dict[str, Any]:
+def _seat_fields(seat: StarterSeat) -> dict[str, Any]:
     """CreateAgentBody fields from the dialog's seat; blanks keep the defaults."""
     fields: dict[str, Any] = {
         key: value
@@ -2538,9 +2543,9 @@ def _seat_fields(seat: StarterSeat, template: dict[str, Any]) -> dict[str, Any]:
     if fields.get("runtime") == "jarvis":
         fields.pop("runtime")
     if seat.companion:
-        # The figure recipe the template brings stays; the companion is the dialog's.
-        avatar = template.get("avatar") if isinstance(template.get("avatar"), dict) else {}
-        fields["avatar"] = {**avatar, "companion": seat.companion}
+        # ``install_template`` lays it over the template's checked figure; the
+        # raw template avatar never reaches the roster unchecked.
+        fields["avatar"] = {"companion": seat.companion}
     return fields
 
 
@@ -2600,7 +2605,7 @@ async def install_starter(body: InstallStarterBody, request: Request) -> dict[st
         if body.tools is not None and isinstance(template.get("focus"), list):
             # Unticking narrows the author's focus; nothing can be added here.
             template["focus"] = [cap for cap in template["focus"] if cap in set(body.tools)]
-    installed = await install_template(template, request, _seat_fields(body.seat, template))
+    installed = await install_template(template, request, _seat_fields(body.seat))
     result: dict[str, Any] = {
         **installed,
         "first_message": starter.first_message if starter else "",
