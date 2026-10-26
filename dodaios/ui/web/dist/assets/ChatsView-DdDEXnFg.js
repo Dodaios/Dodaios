@@ -1,7 +1,0 @@
-<<<<<<<< HEAD:dodaios/ui/web/dist/assets/ChatsView-DdDEXnFg.js
-import{j as s}from"./index-DuG1Ovqw.js";import{P as n}from"./PageHeader-Dc4IQ5YG.js";import"./WorkTrace-DthZOpi7.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-|||||||| parent of 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/ChatsView-CqNuPga3.js
-import{j as s}from"./index-durcwvFq.js";import{P as n}from"./PageHeader-CPS0fIHb.js";import"./WorkTrace-RLRf--yG.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
-========
-import{j as s}from"./index-BTxcVJt0.js";import{P as n}from"./PageHeader-CfZxDeAk.js";import"./WorkTrace-Dp09gTVm.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
->>>>>>>> 92970d9487 (feat(ide): split the side panel to show two tabs side by side):dodaios/ui/web/dist/assets/ChatsView-CAr3l4jx.js
