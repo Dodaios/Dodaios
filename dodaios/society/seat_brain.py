@@ -149,18 +149,19 @@ def agent_seat(config: Any, agent: Any) -> Seat:
 def _runtime_seat(provider: str, model: str, account: str) -> Seat:
     """The seat of a Hermes / OpenClaw agent: the auth its gateway route uses.
 
-    Jarvis' model gateway answers such an agent on the provider's API key, or
-    on the Claude login when the agent is pinned to it or no key is saved
-    (``model_map.login_token_for``). ``resolve_runner`` alone would prefer
+    Jarvis' model gateway answers such an agent on the provider's API key;
+    on the Claude subscription (pinned to it, or no key saved:
+    ``model_map.uses_claude_cli``) the runtime runs Claude Code itself.
+    ``resolve_runner`` alone would prefer
     Claude Code for an unpinned agent, so its reviews would run on the plan
     while its chat bills the key. The login is reachable for a review only
     through Claude Code; without it the seat is unavailable, never a key.
     """
     from dodaios.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
     from dodaios.agent_chat.service import resolve_runner
-    from dodaios.agent_runtimes.model_map import login_token_for
+    from dodaios.agent_runtimes.model_map import uses_claude_cli
 
-    on_login = login_token_for(provider, account) is not None
+    on_login = uses_claude_cli(provider, account)
     pinned = SUBSCRIPTION_ACCOUNT if on_login else API_KEY_ACCOUNT
     runner = resolve_runner(provider, surface="society", account_id=pinned)
     if on_login and runner in _KEYED_RUNNERS:
