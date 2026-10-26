@@ -61,6 +61,26 @@ _FALSE_COMPLETION_RE = re.compile(
     r"\bte\s+(?:envio|abro)\s+(?:el|la|un|una|tu)\b|"  # i18n-allow: ES output
     r"\bestoy\s+(?:reproduciendo|abriendo|iniciando|enviando)\b|"  # i18n-allow
     r"\bhe\s+(?:reproducido|abierto|iniciado|enviado|guardado)\b|"  # i18n-allow
+    # App-launch completions that name the app instead of "you"/"the": a
+    # user report (2026-10-26) had "open chrome" answered with "ok, done"
+    # while Chrome never opened, and none of the shapes above saw it.
+    # A bare "I opened X" is too broad (it is also how a readback reports
+    # finished work), so the plain past tense only counts with "for you".
+    r"\bi(?:'ve|\s+have)\s+(?:just\s+)?(?:opened|launched)\b|"
+    r"\bi\s+(?:just\s+)?(?:opened|launched)\s+\S+(?:\s+\S+)?\s+for\s+you\b|"
+    r"\b(?:is|are)\s+(?:now\s+)?(?:open|opened|launched|up)\s+now\b|"
+    r"\b(?:is|are)\s+now\s+(?:open|opened|launched|up)\b|"
+    # The gap may not hold a negation: the German honest fallback itself
+    # says "I have started no action" and is not a claim.
+    r"\bich\s+habe\s+(?:(?!\b(?:kein\w*|nicht|nichts|nie)\b).){0,48}"  # i18n-allow: DE
+    r"(?:geoffnet|gestartet)\b|"  # i18n-allow: DE output
+    r"\b(?:ist|sind)\s+(?:jetzt|nun)\s+"  # i18n-allow: DE output
+    r"(?:offen|geoffnet|gestartet)\b|"  # i18n-allow: DE output
+    # A clause that is nothing but "done" claims the whole request is
+    # finished. The leading "okay," is its own clause and carries no content.
+    r"^(?:all\s+)?(?:done|finished)$|"
+    r"^(?:ist\s+|schon\s+)?erledigt$|"  # i18n-allow: DE output
+    r"^(?:listo|hecho)$|"  # i18n-allow: ES output
     # World-state completions name no actor at all ("it is playing now"),
     # so none of the first-person alternatives above can see them. Live
     # 2026-08-22 18:22: "Sie laufen jetzt auf YouTube Music" cleared every

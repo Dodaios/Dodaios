@@ -426,7 +426,12 @@ _AND_RE = re.compile(r"\b(?:und|and)\b", re.IGNORECASE)
 # folded into ``is_open_app_intent`` — that predicate is also the force-spawn
 # guard, and a negated open must still count as an open there (to stay OFF the
 # sub-agent worker path), just not trigger an actual launch here.
-_OPEN_NEGATION_RE = re.compile(r"\bnicht\b|\bkein\w*\b|\bniemals\b", re.IGNORECASE)
+# English forms too: "Don't open Chrome." used to launch Chrome.
+_OPEN_NEGATION_RE = re.compile(
+    r"\bnicht\b|\bkein\w*\b|\bniemals\b"  # i18n-allow: German input matcher
+    r"|\bdon'?t\b|\bdo\s+not\b|\bnever\b",
+    re.IGNORECASE,
+)
 # Signals that the request is NOT a plain desktop app-open but heavy worker /
 # external-system work, which a sandboxed worker (not computer-use) owns. This
 # is the single veto consulted by is_open_app_intent (and therefore by both the
@@ -635,6 +640,9 @@ def is_open_app_intent(text: str) -> bool:
 _APP_ALIASES = {
     "chrome": "chrome",
     "google chrome": "chrome",
+    # Speech-to-text often drops the final "e" ("open chrom").
+    "chrom": "chrome",
+    "google chrom": "chrome",
     "firefox": "firefox",
     "edge": "msedge",
     "microsoft edge": "msedge",
@@ -1096,6 +1104,9 @@ def _match_scripted_local_plan(text: str) -> LocalActionPlan | None:
     return None
 
 
+_WORD_PUNCTUATION = ".,!?;:\"'()[]…"
+
+
 def _extract_known_app(text: str) -> str | None:
     """Return the canonical app for the FIRST known app name in a normalised
     open-app utterance, else ``None``.
@@ -1108,7 +1119,11 @@ def _extract_known_app(text: str) -> str | None:
     MUST first confirm :func:`is_open_app_intent` so a bare app mention in a
     non-open sentence ("ich höre Spotify gern") never launches anything.
     """
-    tokens = [t for t in text.split() if t]
+    # Strip punctuation glued to a word: speech-to-text writes "Open Chrome."
+    # and "chrome." is not an alias, so the command fell through to the LLM,
+    # which could answer "done" without ever launching the app.
+    tokens = [t.strip(_WORD_PUNCTUATION) for t in text.split()]
+    tokens = [t for t in tokens if t]
     for window in (2, 1):
         for i in range(len(tokens) - window + 1):
             phrase = " ".join(tokens[i:i + window])
