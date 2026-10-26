@@ -24,6 +24,7 @@ export const selfBuildKeys = {
   detail: (id: string) => ["self-build", "detail", id] as const,
   digest: (hours: number) => ["self-build", "digest", hours] as const,
   settings: () => ["self-build", "settings"] as const,
+  noticed: () => ["self-build", "noticed"] as const,
   provenance: () => ["self-build", "provenance"] as const,
   societyKill: () => ["society", "kill-switch"] as const,
 };
@@ -60,6 +61,19 @@ export function useSelfBuildDigest(hours = 24) {
     queryKey: selfBuildKeys.digest(hours),
     queryFn: ({ signal }) => selfBuildApi.digest(hours, signal),
     refetchInterval: SAFETY_POLL_MS,
+    retry: false,
+  });
+}
+
+/**
+ * What the loop is counting so far. It moves with every turn of the person,
+ * not with a build, so it refreshes on a short interval while the page is open.
+ */
+export function useSelfBuildNoticed() {
+  return useQuery({
+    queryKey: selfBuildKeys.noticed(),
+    queryFn: ({ signal }) => selfBuildApi.noticed(signal),
+    refetchInterval: 60_000,
     retry: false,
   });
 }
