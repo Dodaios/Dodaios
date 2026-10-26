@@ -495,6 +495,23 @@ class SignalStore:
             self.set_meta(f"{key}:used", str(used + 1))
             return True
 
+    def meta_keys(self, prefix: str) -> list[str]:
+        """Every meta key that starts with ``prefix``."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT key FROM meta WHERE substr(key, 1, ?) = ?", (len(prefix), prefix)
+            ).fetchall()
+        return [str(r[0]) for r in rows]
+
+    def delete_meta(self, keys: Iterable[str]) -> int:
+        values = [(k,) for k in keys]
+        if not values:
+            return 0
+        with self._lock:
+            self._conn.executemany("DELETE FROM meta WHERE key = ?", values)
+            self._conn.commit()
+        return len(values)
+
     def get_meta(self, key: str, default: str = "") -> str:
         with self._lock:
             row = self._conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()

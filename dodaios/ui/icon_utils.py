@@ -1084,6 +1084,86 @@ def ensure_desktop_shortcut(
     return False
 
 
+def _default_taskbar_pins_dir() -> Path | None:
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return None
+    return (
+        Path(appdata)
+        / "Microsoft"
+        / "Internet Explorer"
+        / "Quick Launch"
+        / "User Pinned"
+        / "TaskBar"
+    )
+
+
+def _read_shortcut_aumid(lnk: Path) -> str | None:
+    try:
+        import pywintypes
+        from win32com.propsys import propsys, pscon
+
+        store = propsys.SHGetPropertyStoreFromParsingName(
+            str(lnk), None, 0, pywintypes.IID(_IID_IPROPERTYSTORE)  # GPS_DEFAULT
+        )
+        value = store.GetValue(pscon.PKEY_AppUserModel_ID).GetValue()
+        return value if isinstance(value, str) else None
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("could not read AUMID of {}: {}", lnk, exc)
+        return None
+
+
+def repair_taskbar_pins(
+    *,
+    aumid: str = APP_USER_MODEL_ID,
+    display_name: str = WINDOWS_APP_DISPLAY_NAME,
+    icon_path: Path | None = None,
+    pins_dir: Path | None = None,
+) -> int:
+    """Re-aim taskbar pins of this app that point at an old install.
+
+    A pinned taskbar button is its own ``.lnk`` in the "User Pinned" folder,
+    written when the user pinned the app. Nothing ever updated it, so after a
+    rename or move (``jarvis`` -> ``dodaios``) the pin kept the old icon path and
+    launcher module. The shell then draws a blank page for the button and a click
+    starts nothing.
+
+    Only pins that carry this app's AUMID are touched, and each is rewritten in
+    place under its own file name so the pin itself survives. Never creates a
+    pin. Returns how many pins were rewritten.
+    """
+    if sys.platform != "win32":
+        return 0
+    if _installer_owns_shell_registration("taskbar pin"):
+        return 0
+    pins = pins_dir or _default_taskbar_pins_dir()
+    if pins is None or not pins.is_dir():
+        return 0
+    if not _interpreter_may_own_the_launcher_shortcut():
+        return 0
+    target = _shortcut_launch_target()
+    if target is None:
+        return 0
+    ico = icon_path or project_icon_path()
+    repaired = 0
+    for lnk in sorted(pins.glob("*.lnk")):
+        if _read_shortcut_aumid(lnk) != aumid:
+            continue
+        if _shortcut_matches_install(
+            lnk,
+            expected_target=target,
+            expected_icon=ico,
+            expected_arguments=_launcher_arguments(),
+        ):
+            continue
+        if _write_branded_shortcut(
+            lnk, target=target, ico=ico, aumid=aumid, display_name=display_name
+        ):
+            logger.info("taskbar pin re-aimed at this install: {}", lnk)
+            repaired += 1
+    return repaired
+
+
 def _notify_shell_of_shortcut(lnk: Path) -> None:
     """Tell the shell the Start-Menu entry changed, so app search can pick it up.
 
@@ -1153,6 +1233,7 @@ def ensure_windows_app_identity(
     # appears, so Explorer resolves them on first button creation.
     if write_shortcut:
         ensure_start_menu_shortcut(aumid=app_id, icon_path=ico_arg)
+        repair_taskbar_pins(aumid=app_id, icon_path=ico_arg)
     register_windows_app_user_model_id(app_id, icon_path=ico_arg)
     try:
         import ctypes

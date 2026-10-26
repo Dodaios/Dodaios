@@ -56,6 +56,9 @@ class CodeLoop:
         self._building: asyncio.Task[None] | None = None
         self._building_id = ""
         self._wake: asyncio.Event | None = None
+        #: What the last pass did (``/api/self-build`` status ``code``).
+        self.last_pass: dict[str, Any] = {}
+        self._said: tuple[Any, ...] = ()
 
     # ------------------------------------------------------------ wiring
 
@@ -124,7 +127,31 @@ class CodeLoop:
 
     # ------------------------------------------------------------ one pass
 
+    def state(self) -> dict[str, Any]:
+        """The last pass, for the status line: why nothing is polled is visible."""
+        return dict(self.last_pass)
+
     async def tick(self) -> dict[str, Any]:
+        try:
+            summary = await self._tick()
+        except Exception as exc:
+            self.last_pass = {"at_ms": now_ms(), "error": str(exc)[:300]}
+            raise
+        self.last_pass = {"at_ms": now_ms(), **summary}
+        said = (summary.get("skipped"), tuple(summary.get("projects") or ()))
+        if said != self._said:
+            self._said = said
+            if summary.get("skipped"):
+                logger.info("self-build code: pass skipped: {}", summary["skipped"])
+            elif not summary.get("projects"):
+                logger.info(
+                    "self-build code: no project to poll ({})", summary.get("not_polled") or {}
+                )
+            else:
+                logger.info("self-build code: polling {}", ", ".join(summary["projects"]))
+        return summary
+
+    async def _tick(self) -> dict[str, Any]:
         ctx = self.ctx
         cfg = ctx.config()
         if policy.autonomy(cfg, Kind.CODE) == policy.Autonomy.OFF:
@@ -138,8 +165,10 @@ class CodeLoop:
         if who is None:
             summary["skipped"] = "github account unknown"
             return summary
-        projects = await asyncio.to_thread(intake.owned_projects, ctx, who)
+        not_polled: dict[str, int] = {}
+        projects = await asyncio.to_thread(intake.owned_projects, ctx, who, not_polled)
         summary["projects"] = [p.repo for p in projects]
+        summary["not_polled"] = not_polled
         summary["opened"] = await intake.intake(ctx, projects, who)
         summary["build"] = await self._maybe_build()
         return summary
@@ -298,4 +327,5 @@ def install(service: Any, app_state: Any = None) -> CodeLoop:
     loop = CodeLoop(ctx)
     loop.attach()
     loop.start()
+    service.code_loop = loop
     return loop

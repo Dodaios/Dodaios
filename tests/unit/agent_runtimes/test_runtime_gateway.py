@@ -610,21 +610,30 @@ def test_a_subscription_overflow_mid_stream_keeps_its_code(fake, guarded, monkey
     assert failed[0]["response"]["error"]["code"] == "context_length_exceeded"
 
 
-async def test_an_expired_claude_login_says_how_to_renew_it(monkeypatch) -> None:
-    import dodaios.agent_runtimes.model_map as model_map
+async def test_a_claude_subscription_seat_is_refused_not_billed(monkeypatch) -> None:
+    """No API key saved: the seat is the Claude subscription, which only the
+    Claude CLI may use. The gateway says so instead of sending the login to
+    Anthropic's HTTP API (billed as Extra Usage)."""
     import dodaios.core.config as config
-    from dodaios.agent_runtimes.provider_errors import ProviderRefusal
+    from dodaios.agent_chat import runner_api
     from dodaios.core.protocols import BrainMessage, BrainRequest
 
-    monkeypatch.setattr(model_map, "login_route", lambda provider, account: (True, None))
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: None)
+    monkeypatch.setattr(
+        config, "resolve_provider_endpoint", lambda *args, **kwargs: SimpleNamespace(
+            credential=None, base_url="https://api.anthropic.com", via_proxy=False,
+        ),
+    )
+    built = []
+    monkeypatch.setattr(runner_api, "build_brain", lambda *args: built.append(args))
     request = BrainRequest(messages=(BrainMessage("user", "Hi"),), max_tokens=16)
-    with pytest.raises(ProviderRefusal) as caught:
+    with pytest.raises(gateway.GatewayError) as caught:
         async for _ in gateway._deltas(gateway.Grant("a", "claude-api"), "claude-x", request):
             pass
     failure = gateway._failure("claude-api", caught.value)
-    assert (failure.status, failure.code) == (401, "claude_login_expired")
-    assert "Open Claude Code" in str(failure)
+    assert (failure.status, failure.code) == (409, "claude_cli_only")
+    assert "Claude Code" in str(failure) and "No API key" in str(failure)
+    assert built == []
 
 
 async def test_a_request_the_subscription_client_refuses_is_a_400_not_a_retry():

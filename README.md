@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/dodaios-logo-on-dark.svg" />
-    <img alt="Dodaios" src="assets/brand/dodaios-logo-on-light.svg" width="112" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/dodaios-logo-on-dark.svg" />
+    <img alt="Dodaios" src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/dodaios-logo-on-light.svg" width="112" />
   </picture>
 </p>
 
@@ -12,13 +12,15 @@
   <a href="https://github.com/Dodaios/Dodaios/blob/main/README.zh-CN.md">简体中文</a>
 </p>
 
-<p align="center">
-  <strong>Dodaios is an open-source agent OS for your desktop.</strong><br />
-  It is the layer between you and your AI agents: it runs them, remembers for them, connects their tools and keeps you in control.
-</p>
+<!-- canonical tagline: keep in sync with GitHub description, dodaios.ai and X bio (docs/rename/repo-metadata-proposal.md) -->
+<p align="center"><strong>Dodaios is an open-source agent OS for your desktop: it runs your coding agents, browser and apps by voice or chat, on your own machine.</strong></p>
+
+<p align="center">Formerly <strong>Personal Jarvis</strong>. Same project, same license, new name (<a href="https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/">why</a>).</p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="Dodaios: three coding agents working side by side in the Agentic IDE, with the browser, files and a Git diff" width="800" /></p>
 
 <p align="center">
-  <a href="https://pypi.org/project/personal-jarvis/"><img alt="PyPI" src="https://img.shields.io/pypi/v/personal-jarvis?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
+  <a href="https://pypi.org/project/dodaios/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dodaios?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
   <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache_2.0-F7F7F4?labelColor=0A0A0A" /></a>
   <a href="https://github.com/Dodaios/Dodaios/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Dodaios/Dodaios/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://discord.gg/x7USduHxbc"><img alt="Discord" src="https://img.shields.io/badge/Discord-join-F7F7F4?labelColor=0A0A0A&amp;logo=discord&amp;logoColor=white" /></a>
@@ -26,6 +28,7 @@
 
 <p align="center">
   <a href="#install"><strong>Install</strong></a> ·
+  <a href="#why-dodaios">Why Dodaios</a> ·
   <a href="#code-by-talking">Code by talking</a> ·
   <a href="#from-one-prompt-to-a-merged-pull-request">Workflow</a> ·
   <a href="#everything-in-one-app">Features</a> ·
@@ -35,7 +38,9 @@
   <a href="https://x.com/dodaios">X</a>
 </p>
 
-<p align="center"><sub>No API key needed if you have a Claude or ChatGPT subscription, or a local model. Formerly Personal Jarvis.</sub></p>
+<p align="center">If Dodaios is useful to you, a <a href="https://github.com/Dodaios/Dodaios">star on GitHub</a> helps other people find it.</p>
+
+<p align="center"><sub>No API key needed if you have a Claude or ChatGPT subscription, or a local model.</sub></p>
 
 ---
 
@@ -53,16 +58,23 @@ irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 |
 curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
 ```
 
-You do not need to install anything first. If Python is missing, the
-installer downloads a private copy just for Dodaios, and on Windows it does the
-same for Git, without administrator rights or questions. It then adds the
-desktop launcher and opens the app. If you run it again, it updates your
-existing installation. You choose your language, wake
-phrase and models inside the app.
+Nothing to install first, no GPU needed. Bring one API key, a Claude or ChatGPT
+subscription, or a local model. Desktop installers and the server setup are
+under [more ways to install](#more-ways-to-install).
 
-You need one API key, a subscription or a local model. A microphone helps for
-voice. You do not need a GPU. Desktop installers and the server setup are under
-[more ways to install](#more-ways-to-install).
+## Why Dodaios
+
+- **Local, no account.** The app and your data stay on your machine. There is no sign-up and no cloud of ours between you and your models.
+- **Any model or subscription.** Hosted models, local models through Ollama, or the Claude and ChatGPT plans you already pay for.
+- **Many coding agents side by side.** Claude Code, Codex, OpenCode and more run in live panes you can watch and steer.
+- **Voice.** Your own wake phrase, live conversations and dictation, with speech recognition that can run offline.
+
+|  | Dodaios | Coding-agent CLIs in separate terminals | Hosted chat assistants |
+|---|---|---|---|
+| Runs on your machine | Yes. Models can be local or hosted | The CLI runs locally, the model is usually hosted | No, it runs in the provider's cloud |
+| Several coding agents side by side | Yes, in live panes with call signs (T1, T2) | One terminal per agent, switched by hand | No coding-agent panes |
+| Voice | Wake phrase, live conversation, dictation | Varies by tool | Varies by provider |
+| Open source | Yes, Apache 2.0 | Varies: Codex CLI and OpenCode are, Claude Code is not | Usually not |
 
 ## Code by talking
 
@@ -196,7 +208,7 @@ and the [dictation guide](https://github.com/Dodaios/Dodaios/blob/main/docs/prod
 - Skills are reusable instructions that Dodaios picks up when your request fits
   one.
 - You can reach Dodaios from Telegram and Discord.
-- The `jarvis` command and a local API give your own scripts, and other agents,
+- The `dodaios` command and a local API give your own scripts, and other agents,
   the same control you have.
 
 Read more about [plugins](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md),
@@ -217,19 +229,32 @@ and [privacy and local data](https://github.com/Dodaios/Dodaios/blob/main/docs/p
 
 ## More ways to install
 
-The [one-line installer](#install) is the quickest way in. After it has run,
-open Dodaios from the desktop launcher or from a terminal:
+The [one-line installer](#install) is the quickest way in. You do not need to
+install anything first. If Python is missing, the installer downloads a private
+copy just for Dodaios, and on Windows it does the same for Git, without
+administrator rights or questions. It then adds the desktop launcher and opens
+the app. If you run it again, it updates your existing installation. You choose
+your language, wake phrase and models inside the app.
+
+You need one API key, a subscription or a local model. A microphone helps for
+voice. You do not need a GPU.
+
+After the installer has run, open Dodaios from the desktop launcher or from a
+terminal:
 
 ```bash
-jarvis          # full desktop
+dodaios         # full desktop
+jarvis          # the same, under its earlier name
 ```
 
 If you prefer a regular desktop installer, download one here:
 
-- [Windows](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Setup-x64.exe)
-- [macOS on Apple Silicon](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-arm64.dmg)
-- [macOS on Intel](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-x64.dmg)
-- [Linux AppImage](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Linux-x86_64.AppImage)
+- [Dodaios for Windows (x64)](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Setup-x64.exe)
+- [Dodaios for macOS (Apple Silicon)](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-arm64.dmg)
+- [Dodaios for macOS (Intel)](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-x64.dmg)
+- [Dodaios for Linux (AppImage, x86_64)](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Linux-x86_64.AppImage)
+
+The files keep their original `PersonalJarvis-` names for compatibility with existing installs.
 
 Windows installers are signed under our
 [code signing policy](https://github.com/Dodaios/Dodaios/blob/main/docs/code-signing-policy.md)
@@ -273,9 +298,9 @@ The installer sets that up for you.
 
 ## Contribute
 
-A good place to start is a [good first issue](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and the guide to [your first contribution in 10 minutes](https://github.com/Dodaios/Dodaios/blob/main/CONTRIBUTING.md#your-first-contribution-in-10-minutes). Questions and ideas go to [discussions](https://github.com/Dodaios/Dodaios/discussions), and security reports follow [SECURITY.md](https://github.com/Dodaios/Dodaios/blob/main/SECURITY.md).
+A good place to start is a [good first issue](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22). If none are open, pick any issue labeled [`help wanted`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) or [`area:docs`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%3Adocs), or ask in [Discussions](https://github.com/Dodaios/Dodaios/discussions). The guide to [your first contribution in 10 minutes](https://github.com/Dodaios/Dodaios/blob/main/CONTRIBUTING.md#your-first-contribution-in-10-minutes) walks you through it. Questions and ideas go to [discussions](https://github.com/Dodaios/Dodaios/discussions), and security reports follow [SECURITY.md](https://github.com/Dodaios/Dodaios/blob/main/SECURITY.md).
 
-If Dodaios is useful to you, a star on GitHub helps other people find it. Sponsors are listed in [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md).
+A star on GitHub helps other people find Dodaios. Sponsors are listed in [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md).
 
 <!-- contributors:start -->
 

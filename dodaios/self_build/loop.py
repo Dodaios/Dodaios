@@ -3,12 +3,16 @@
 Wiring (all event-driven; nothing here runs on a timer that wakes a model):
 
 * **Observe.** Finished voice turns (``VoiceTurnCompleted``), the person's
-  own typed turns in the Jarvis chat and in agent chats (the chat surfaces'
-  completion hooks), and the prompts the person typed to coding agents in the
-  IDE (``agentic_ide/prompt_history.py`` rows marked ``origin: person``) go
-  to the :class:`~.miner.Miner`. Turns an agent or a routine started, and
-  prompts the brain or an agent sent to a pane, are dropped. Each turn costs
-  one SQLite insert.
+  own typed turns in the Jarvis chat, in agent chats, in the IDE's agent chat
+  and side chat (the chat surfaces' completion hooks), and the prompts the
+  person gave coding agents in the IDE go to the :class:`~.miner.Miner`. A
+  pane prompt is the person's when it came from the prompt bar
+  (``agentic_ide/prompt_history.py`` rows marked ``origin: person``) or was
+  typed into a Claude pane itself: the CLI reports it through its
+  ``UserPromptSubmit`` hook (``agentic_ide/claude_session_hook.py``) and the
+  person pressed Enter in that pane's window just before. Turns an agent or a
+  routine started, and prompts the brain or an agent sent to a pane, are
+  dropped. Each turn costs one SQLite insert.
 * **Gate.** A need that crossed its threshold is checked without a model:
   an open build, a rejected or archived one, a recent "build nothing", earlier
   failed proofs, an installed skill that already serves it, and
@@ -55,7 +59,7 @@ from . import brain, decide, judge, policy
 from .builders import KINDS, Builders, Env, need_json
 from .decide import Verdict
 from .ledger import now_ms
-from .miner import PANE, WINDOW_DAYS, Miner, Need, Observation
+from .miner import PANE, WINDOW_DAYS, Miner, Need, Observation, stems
 from .records import BuildRecord, Kind, Outcome, State, caller_for
 from .signals import SignalStore, TurnRow
 
@@ -88,6 +92,29 @@ ROUTINE_REACH_MS: Final[int] = 24 * 3_600_000
 _DONE: Final[frozenset[str]] = frozenset({"done", "ok", "completed"})
 #: Channels whose prompt carries the assistant's notebook (a memory can be used there).
 _NOTEBOOK_CHANNELS: Final[frozenset[str]] = frozenset({"voice", "chat"})
+#: Channels whose turns go through the assistant's skill router.
+_ROUTED_CHANNELS: Final[frozenset[str]] = frozenset({"voice", "chat"})
+#: Chat surfaces whose typed turns are the person's, and the channel each is filed under.
+#: The IDE's agent chat hands work to a coding agent, like a pane prompt.
+CHAT_CHANNELS: Final[dict[str, str]] = {
+    "jarvis": "chat",
+    "society": "agent",
+    "side": "side",
+    "agent": PANE,
+}
+#: A prompt a Claude pane reports counts when the person pressed Enter in that
+#: pane at most this long before (a prompt typed while the agent works is
+#: queued by the CLI and reported when its turn starts).
+TYPED_CONFIRM_S: Final[float] = 30 * 60.0
+#: The CLI reports a prompt a moment after Enter: the pane is read this much later.
+TYPED_READ_DELAY_S: Final[float] = 3.0
+#: Enter presses remembered per pane (each confirms one reported prompt).
+TYPED_KEEP: Final[int] = 32
+#: A typed pane prompt needs this many content words to describe a task
+#: ("continue", "yes do it" are steering, not a need).
+TYPED_MIN_STEMS: Final[int] = 3
+#: A prompt Jarvis or an agent sent to the pane is recognised within this long.
+INJECTED_MATCH_S: Final[float] = 10 * 60.0
 
 _current: SelfBuildLoop | None = None
 
@@ -128,6 +155,8 @@ class SelfBuildLoop:
         self._memory_hits: dict[str, tuple[str, int]] = {}
         #: One reader of the IDE's prompt histories at a time.
         self._pane_lock = asyncio.Lock()
+        #: pane history id -> times the person pressed Enter in its window.
+        self._keyboard: dict[str, list[float]] = {}
         #: Model calls made by the decide step (diagnostics and tests).
         self.decide_calls = 0
 
@@ -268,16 +297,20 @@ class SelfBuildLoop:
             for e in events
             if e.get("kind") == "assistant_text"
         )
+        channel = CHAT_CHANNELS.get(surface)
+        if channel is None:
+            return  # a surface nobody types to as themselves
         agent_id = ""
         if surface == "society":
             from dodaios.society.surface import agent_id_of
 
             agent_id = agent_id_of(str(session.session_id)) or ""
+            channel = "agent" if agent_id else "chat"
         self._spawn(
             self.observe(
                 Observation(
                     text=text,
-                    channel="agent" if agent_id else "chat",
+                    channel=channel,
                     conversation=f"chat:{session.session_id}",
                     tools=tuple(t for t in tools if t),
                     failed=(bool(status) and status not in _DONE) or errors,
@@ -537,7 +570,11 @@ class SelfBuildLoop:
         return [str(s.name) for s in self._installed_skills()]
 
     def _served(self, need: Need) -> str | None:
-        return judge.served_by(self._installed_skills(), [t.text for t in need.turns])
+        """The installed skill that already catches the need, judged on the turns
+        where the assistant's skill router runs: a coding agent in a pane or in
+        the IDE's agent chat never routes to Dodaios' skills."""
+        said = [t.text for t in need.turns if t.channel in _ROUTED_CHANNELS]
+        return judge.served_by(self._installed_skills(), said) if said else None
 
     def _served_by_agents(self, need: Need) -> tuple[str, str] | None:
         """``(agent id, skill name)`` when an agent in the need's chats has a skill for it."""
@@ -691,9 +728,15 @@ class SelfBuildLoop:
         found: list[Observation] = []
         for path in files:
             key = f"pane:{path.name}"
+            try:
+                stat = path.stat()
+            except OSError:  # gone or locked: the next pass reads it
+                continue
+            if paths is None and stat.st_mtime * 1000 < cutoff:
+                continue  # nothing in it is recent enough to count: no offset kept
             offset = int(self.store.get_meta(key, "0") or 0)
             try:
-                size = path.stat().st_size
+                size = stat.st_size
                 if size < offset:
                     offset = 0  # the file was replaced: read it again
                 if size == offset:
@@ -730,6 +773,159 @@ class SelfBuildLoop:
                     )
                 )
         return found
+
+    # ------------------------------------------------------------ prompts typed into a pane
+
+    def pane_keyboard_submit(self, history_id: str) -> None:
+        """The person pressed Enter in a pane's window: read what its CLI reports next."""
+        if not history_id:
+            return
+        presses = self._keyboard.pop(history_id, [])
+        presses.append(time.time())
+        self._keyboard[history_id] = presses[-TYPED_KEEP:]
+        while len(self._keyboard) > 256:  # panes long closed
+            self._keyboard.pop(next(iter(self._keyboard)))
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # no loop: the maintenance pass reads it
+            return
+        loop.call_later(
+            TYPED_READ_DELAY_S,
+            lambda: self._spawn(self.ingest_typed_prompts([history_id]), "typed-prompts"),
+        )
+
+    async def ingest_typed_prompts(self, panes: list[str] | None = None) -> int:
+        """File the prompts Claude panes reported that the person typed there.
+
+        ``panes`` ``None`` reads every pane the person pressed Enter in lately.
+        A reported prompt counts when an Enter press in the pane's own window
+        came before it (each press confirms one prompt), it is not a prompt
+        the prompt bar, Jarvis or an agent sent (those are in the pane's prompt
+        history), and it describes a task rather than steering one.
+        """
+        async with self._pane_lock:
+            found = await asyncio.to_thread(self._read_typed_prompts, panes)
+        if not found or not self._active():
+            return 0
+        for obs in sorted(found, key=lambda o: o.ts_ms):
+            await self.observe(obs)
+        return len(found)
+
+    def _read_typed_prompts(self, panes: list[str] | None) -> list[Observation]:
+        from dodaios.agentic_ide.claude_session_hook import prompts_file
+        from dodaios.agentic_ide.prompt_history import path_for
+
+        folder = self.builders.env.pane_typed()
+        if folder is None:
+            return []
+        cutoff = now_ms() - WINDOW_DAYS * _DAY_MS
+        found: list[Observation] = []
+        for history_id in list(self._keyboard) if panes is None else panes:
+            path = prompts_file(history_id, folder)
+            if path is None:
+                continue
+            key = f"typed:{path.name}"
+            offset = int(self.store.get_meta(key, "0") or 0)
+            try:
+                size = path.stat().st_size
+                if size < offset:
+                    offset = 0  # the hook started the file over
+                if size == offset:
+                    continue
+                with path.open("rb") as handle:
+                    handle.seek(offset)
+                    data = handle.read()
+            except OSError:  # not written yet, or locked: the next pass reads it
+                continue
+            end = data.rfind(b"\n")
+            if end < 0:
+                continue
+            chunk = data[: end + 1]
+            self.store.set_meta(key, str(offset + len(chunk)))
+            sent = self._sent_to_pane(history_id)
+            conversation = f"pane:{path_for(history_id).stem[:16]}"
+            for line in chunk.splitlines():
+                try:
+                    row = json.loads(line)
+                    at = float(row.get("at") or 0.0)
+                    text = " ".join(str(row.get("prompt") or "").split())
+                except (ValueError, TypeError, AttributeError):  # a damaged row says nothing
+                    continue
+                if not self._confirmed(history_id, at):
+                    continue  # no Enter of the person came before it
+                if not text or text[0] in "/!<" or int(at * 1000) < cutoff:
+                    continue  # a command, a shell line, machine-made, or too old
+                if any(
+                    abs(at - when) <= INJECTED_MATCH_S and _same_text(text, other)
+                    for when, other in sent
+                ):
+                    continue  # the prompt bar, Jarvis or an agent sent it
+                if len(stems(text)) < TYPED_MIN_STEMS:
+                    continue
+                found.append(
+                    Observation(
+                        text=text,
+                        channel=PANE,
+                        conversation=conversation,
+                        ts_ms=int(at * 1000),
+                        ref=f"pane-typed:{conversation[5:]}:{int(at * 1000)}",
+                    )
+                )
+        return found
+
+    def _confirmed(self, history_id: str, at: float) -> bool:
+        """Take the newest Enter press that came before ``at`` (and every older one)."""
+        presses = self._keyboard.get(history_id) or []
+        before = [p for p in presses if at - TYPED_CONFIRM_S <= p <= at + 2.0]
+        if not before:
+            return False
+        newest = max(before)
+        self._keyboard[history_id] = [p for p in presses if p > newest]
+        return True
+
+    def _sent_to_pane(self, history_id: str) -> list[tuple[float, str]]:
+        """``(at, text)`` of every prompt the IDE itself sent to the pane (its prompt history)."""
+        from dodaios.agentic_ide.prompt_history import PromptHistoryEntry, path_for
+
+        folder = self.builders.env.pane_history()
+        if folder is None:
+            return []
+        path = folder / path_for(history_id).name
+        sent: list[tuple[float, str]] = []
+        try:
+            lines = path.read_bytes().splitlines()
+        except OSError:  # no prompt was ever sent through the IDE
+            return []
+        for line in lines[-200:]:
+            try:
+                entry = PromptHistoryEntry.from_dict(json.loads(line))
+            except (ValueError, UnicodeDecodeError):  # a damaged row says nothing
+                continue
+            if entry is not None:
+                sent.append((entry.at, entry.text))
+                if entry.typed:
+                    sent.append((entry.at, entry.typed))
+        return sent
+
+    def _prune_offsets(self) -> int:
+        """Forget read offsets of pane files that are gone or older than the window. Blocking."""
+        cutoff = now_ms() - WINDOW_DAYS * _DAY_MS
+        stale: list[str] = []
+        for prefix, folder in (
+            ("pane:", self.builders.env.pane_history()),
+            ("typed:", self.builders.env.pane_typed()),
+        ):
+            for key in self.store.meta_keys(prefix):
+                if folder is None:
+                    stale.append(key)
+                    continue
+                try:
+                    if (folder / key[len(prefix) :]).stat().st_mtime * 1000 >= cutoff:
+                        continue
+                except OSError:  # the file is gone
+                    pass
+                stale.append(key)
+        return self.store.delete_meta(stale)
 
     def _live_for(self, signature: str) -> list[BuildRecord]:
         return [r for r in self.ledger.ever_for(signature) if r.state in (State.TRIAL, State.KEPT)]
@@ -793,6 +989,10 @@ class SelfBuildLoop:
         await asyncio.to_thread(self.store.fill_clocks)
         # Pane prompts whose notice was missed (the app was busy or restarting).
         await self.ingest_pane_prompts()
+        await self.ingest_typed_prompts()
+        # Offsets of pane files that are gone or too old to count: the IDE
+        # keeps a history file per pane ever opened.
+        await asyncio.to_thread(self._prune_offsets)
         kept = await asyncio.to_thread(self.ledger.list, states=[State.KEPT], kinds=KINDS)
         for record in kept:
             last = max(record.last_used_ms, record.trial_started_ms, record.created_ms)
@@ -841,6 +1041,16 @@ def _dodaios_idle_s() -> float | None:
     from dodaios.core import presence
 
     return presence.idle_s()
+
+
+def _same_text(left: str, right: str) -> bool:
+    """One prompt, as the IDE sent it and as the CLI reported it back."""
+    a = " ".join(left.split()).casefold()
+    b = " ".join(right.split()).casefold()
+    if not a or not b:
+        return False
+    head = min(len(a), len(b), 200)
+    return a == b or a[:head] == b[:head]
 
 
 def _fields(obs: Observation) -> dict[str, Any]:
