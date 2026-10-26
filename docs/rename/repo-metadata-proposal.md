@@ -57,7 +57,9 @@ a discovery term.
 ## 3. Website and X
 
 - dodaios.ai: use the tagline as the page description (`<meta name="description">`
-  and the Open Graph description) and as the line under the main heading.
+  and the Open Graph description). The page title uses its first half:
+  "Dodaios — an open-source agent OS for your desktop". The hero heading stays
+  as it is.
 - X bio of @dodaios: the tagline word for word (136 characters, limit 160). The
   rename note does not fit as well, so it stays out of the bio. Set the profile
   link to `https://github.com/Dodaios/Dodaios` (it still pointed to the old

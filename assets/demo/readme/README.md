@@ -28,17 +28,20 @@ user-attachment videos inline.
 The current GIF is cut from the real Agentic IDE recording that the README also
 shows as a video in "Run every coding agent at once" (three coding agents in
 panes, the browser panel, files and a Git diff). It is 900 px wide, 8 frames
-per second, about 31 seconds and 5 MB. It covers seconds 7 to 38.5 of the
-recording, which leaves out the fade-in and the parts with failed-hook
-messages.
+per second, about 22 seconds and 3 MB. It joins seconds 7 to 17.2 and 20 to
+31.5 of the recording. That leaves out the fade-in, the stretches with
+failed-hook messages and two stretches where a "Prompt typed, not started"
+notice sits at the bottom of a pane.
 
 How it was made, so it can be redone from a new recording:
 
 ```bash
-ffmpeg -ss 7 -t 31.5 -i demo.mp4 -vf "fps=8,scale=900:-1:flags=lanczos,palettegen=max_colors=128:stats_mode=diff" pal.png
-ffmpeg -ss 7 -t 31.5 -i demo.mp4 -i pal.png -lavfi "fps=8,scale=900:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" raw.gif
+F="[0:v]trim=7:17.2,setpts=PTS-STARTPTS[a];[0:v]trim=20:31.5,setpts=PTS-STARTPTS[b];[a][b]concat=n=2:v=1[c];[c]fps=8,scale=900:-1:flags=lanczos"
+ffmpeg -i demo.mp4 -filter_complex "$F,palettegen=max_colors=128:stats_mode=diff" pal.png
+ffmpeg -i demo.mp4 -i pal.png -filter_complex "$F[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" raw.gif
 npx gifsicle -O3 --lossy=80 raw.gif -o dodaios-demo.gif
 ```
 
-`-ss` and `-t` pick a clean stretch: the first frame shows the app, not a black fade,
-and no error output is on screen.
+The two `trim` ranges pick clean stretches: the first frame shows the app, not a
+black fade, and no error or warning notice is on screen. The usage meters of the
+coding agents (for example "monthly limit") are part of their normal display.

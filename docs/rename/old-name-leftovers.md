@@ -169,7 +169,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `docs/marketplace/google-oauth-setup.md` | 4 | 1 | (a) | Kept: Name of the registered Google OAuth client; clarification "the former name of Dodaios" added |
 | `docs/marketplace/google-oauth-setup.md` | 19, 42 | 2 | (a) | Kept: live OAuth token-broker host the code calls (`_BROKER_BASE`); renaming it is a runtime change |
 | `docs/marketplace/microsoft-oauth-setup.md` | 9 | 1 | (a) | Kept: Name of the registered Entra app; clarification added |
-| `docs/marketplace/microsoft-oauth-setup.md` | 27, 54 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
+| `docs/marketplace/microsoft-oauth-setup.md` | 27, 54 | 2 | (a) | Kept: Name of the registered Entra app, which users see on the sign-in screen |
 | `docs/marketplace/plugin-auth-audit.md` | 25 | 1 | (d) | Kept: dated plugin auth audit record (names of registered OAuth apps) |
 | `docs/marketplace/plugin-auth-audit.md` | 29 | 1 | (a) | Kept: live OAuth token-broker host the code calls (`_BROKER_BASE`); renaming it is a runtime change |
 | `docs/marketplace/plugin-auth-audit.md` | 30, 33 | 2 | (d) | Kept: dated plugin auth audit record (names of registered OAuth apps) |
@@ -445,4 +445,4 @@ Consecutive hits of one file with the same category and action share a row.
 | `tests/unit/voice/test_action_phrases.py` | 222, 629 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/web/test_local_only_install_has_every_tier.py` | 3 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/web/test_update_progress_route.py` | 169, 172 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
-| `wiki/obsidian-vault/.obsidian/themes/Minimal/manifest.json` | 5 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
+| `wiki/obsidian-vault/.obsidian/themes/Minimal/manifest.json` | 5 | 1 | (a) | Kept: cosmetic author field of the Obsidian theme manifest in `wiki/obsidian-vault`; left unchanged because this change touches only docs |
