@@ -15,7 +15,7 @@ export const WSEventEnvelope = z.object({
   source_layer: z.string().default(""),
   timestamp_ns: z.number(),
   trace_id: z.string(),
-  payload: z.record(z.unknown()).default({}),
+  payload: z.record(z.string(), z.unknown()).default({}),
 });
 export type WSEventEnvelopeT = z.infer<typeof WSEventEnvelope>;
 
@@ -43,7 +43,7 @@ export const WSMessageIn = z.object({
   type: z.literal("message"),
   kind: z.enum(["text", "voice", "system", "action"]),
   content: z.string(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export type WSMessageInT = z.infer<typeof WSMessageIn>;
 
@@ -65,7 +65,7 @@ export const WSCommand = z.object({
     // task into the live conversation context.
     "mission.inject",
   ]),
-  payload: z.record(z.unknown()).default({}),
+  payload: z.record(z.string(), z.unknown()).default({}),
 });
 export type WSCommandT = z.infer<typeof WSCommand>;
 

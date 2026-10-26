@@ -170,8 +170,11 @@ def _has_obsolete_slack_scopes(plugin: dict, seed_plugin: dict) -> bool:
     auth = plugin.get("auth")
     if plugin.get("id") != "slack" or not isinstance(auth, dict):
         return False
+    # Identity check of a shipped auth *config* (scopes, mode, labels), never
+    # a credential value -- not a security hash.
     digest = hashlib.sha256(
-        json.dumps(auth, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        json.dumps(auth, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        usedforsecurity=False,
     ).hexdigest()
     return digest in _LEGACY_SLACK_AUTH_DIGESTS and plugin.get("mcp_server") in (
         None,
@@ -188,8 +191,11 @@ def _has_obsolete_builtin_auth(plugin: dict, seed_plugin: dict) -> bool:
     expected = _LEGACY_PAT_AUTH_DIGESTS.get(plugin_id)
     if expected is None:
         return False
+    # Identity check of a shipped auth *config* (scopes, mode, labels), never
+    # a credential value -- not a security hash.
     digest = hashlib.sha256(
-        json.dumps(auth, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        json.dumps(auth, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        usedforsecurity=False,
     ).hexdigest()
     if digest != expected:
         return False

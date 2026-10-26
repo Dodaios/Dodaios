@@ -130,7 +130,26 @@ _DOTTED_RE = re.compile(r"(?<![\w.,])\d{1,4}(?:\.\d{1,4})+\.?(?!\w)(?!,\d)")
 # number is spoken.
 _NUMBER_RE = re.compile(r"(?<!\w)(?:\d[\d.,]*\d|\d)(?!\w)")
 # The last plain word before a token, used as the date cue.
-_LAST_WORD_RE = re.compile(r"([^\W\d_]+)\W*$")
+_WORD_CHAR_RE = re.compile(r"\w")
+_LETTER_RE = re.compile(r"[^\W\d_]")
+
+
+def _last_word_before(text: str, end: int) -> str:
+    """The run of letters that ``text[:end]`` ends on, ignoring non-word chars.
+
+    Same result as ``re.search(r"([^\\W\\d_]+)\\W*$", text[:end]).group(1)``
+    (or ``""`` without a match), but it walks back from ``end`` instead of
+    searching the whole prefix. That search ran once per dotted token and
+    backtracked through every long letter run, so a long reply could stall the
+    speech path for seconds.
+    """
+    stop = end
+    while stop > 0 and not _WORD_CHAR_RE.match(text[stop - 1]):
+        stop -= 1
+    begin = stop
+    while begin > 0 and _LETTER_RE.match(text[begin - 1]):
+        begin -= 1
+    return text[begin:stop]
 
 
 def _norm_lang(language: str | None) -> str:
@@ -364,10 +383,13 @@ def spell_out_numbers(text: str, language: str = "en") -> str:
 
     out = _TIME_RE.sub(_time_sub, text)
 
+    # Where the text's trailing whitespace starts: a token ending at or after
+    # it is the last thing said. Computed once instead of per token.
+    content_end = len(out.rstrip())
+
     def _dotted_sub(match: re.Match[str]) -> str:
-        cue_match = _LAST_WORD_RE.search(match.string[: match.start()])
-        cue = cue_match.group(1).lower() if cue_match else ""
-        at_end = not match.string[match.end() :].strip()
+        cue = _last_word_before(match.string, match.start()).lower()
+        at_end = match.end() >= content_end
         spelled = _spell_dotted_token(match.group(0), lang, cue, at_end)
         return spelled if spelled is not None else match.group(0)
 

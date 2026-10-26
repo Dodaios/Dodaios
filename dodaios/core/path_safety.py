@@ -41,8 +41,14 @@ def contained_path(root: str | os.PathLike[str], candidate: str | os.PathLike[st
     """
     real_root = os.path.realpath(os.fspath(root))
     real_target = os.path.realpath(os.path.join(real_root, os.fspath(candidate)))
+    if real_target == real_root:
+        # The root itself. Returned from the root's own value, so the result
+        # never carries the caller's spelling past this point.
+        return Path(real_root)
     prefix = real_root if real_root.endswith(os.sep) else real_root + os.sep
-    if real_target != real_root and not real_target.startswith(prefix):
+    # One unconditional ``startswith`` guard on the resolved target: a compound
+    # condition here would hide the guard from static analysers.
+    if not real_target.startswith(prefix):
         raise UnsafePathError(f"path escapes its directory: {os.fspath(candidate)!r}")
     return Path(real_target)
 

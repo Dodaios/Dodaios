@@ -45,7 +45,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from dodaios.core.path_safety import contained_path
+from dodaios.core.path_safety import UnsafePathError, contained_path
 from dodaios.platform import detect_platform, user_dirs
 
 # Reuse the proven collision-avoidance helper from the sessions save path
@@ -175,12 +175,11 @@ def _resolve_saved_file(path_str: str) -> Path:
     miss; never returns an out-of-tree or missing path.
     """
     try:
-        p = Path(path_str).resolve()
-    except OSError as exc:
+        p = contained_path(user_dirs.downloads_dir(), path_str)
+    except UnsafePathError as exc:
+        raise HTTPException(status_code=403, detail="path-outside-downloads") from exc
+    except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail="invalid-path") from exc
-    downloads = user_dirs.downloads_dir().resolve()
-    if p != downloads and downloads not in p.parents:
-        raise HTTPException(status_code=403, detail="path-outside-downloads")
     if not p.is_file():
         raise HTTPException(status_code=404, detail="file-not-found")
     return p
