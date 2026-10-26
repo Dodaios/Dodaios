@@ -10226,5 +10226,130 @@
     "label": "Built by {name}",
     "title": "{name} built this on its own. Open its build.",
     "trial": "on trial"
+  },
+  "run_view": {
+    "phrase": {
+      "thinking_0": "Thinking",
+      "thinking_1": "Planning the next step",
+      "thinking_2": "Weighing it up",
+      "thinking_3": "Connecting the dots",
+      "composing": "Writing back",
+      "search_web": "Looking it up online",
+      "search_web_for": "Looking up “{target}”",
+      "search_files": "Searching the project",
+      "search_for": "Searching for “{target}”",
+      "read_page": "Reading a page on {target}",
+      "read_any": "Opening a file",
+      "read_file": "Opening {target}",
+      "view_image": "Looking at an image",
+      "list_folder": "Looking through {target}",
+      "edit_file": "Editing {target}",
+      "write_file": "Writing {target}",
+      "write_any": "Writing a file",
+      "run_cmd": "Running {target}",
+      "run_any": "At the terminal",
+      "browse_site": "On {target}",
+      "browse_any": "In the browser",
+      "recall": "Checking its notes",
+      "note": "Making a note",
+      "message": "Writing to {target}",
+      "message_any": "Writing to a teammate",
+      "delegate": "Briefing a helper: {target}",
+      "delegate_any": "A helper is on it",
+      "delegate_many": "{target} helpers at work",
+      "connect": "Working in {target}",
+      "setup": "Setting things up",
+      "waiting": "Needs your answer",
+      "waiting_approval": "Needs your OK",
+      "working_0": "On it",
+      "working_1": "Making progress",
+      "working_2": "Working through it"
+    },
+    "timer": {
+      "min": "{count} min",
+      "hour": "{hours} h {minutes} min"
+    },
+    "work": {
+      "working": "Working",
+      "worked_for": "Worked for {duration}",
+      "stopped_after": "Stopped after {duration}",
+      "failed_after": "Ended with an error after {duration}",
+      "steps_one": "{count} step",
+      "steps_other": "{count} steps",
+      "files_one": "{count} file",
+      "files_other": "{count} files",
+      "helpers_one": "{count} helper",
+      "helpers_other": "{count} helpers",
+      "open": "Show the work"
+    },
+    "inspector": {
+      "title": "Work trace",
+      "close": "Close the work trace",
+      "resize": "Resize the work trace",
+      "tabs": "Who worked on this",
+      "tokens": "{count} tokens",
+      "thoughts_one": "{count} thought",
+      "thoughts_other": "{count} thoughts",
+      "failed": "{count} failed",
+      "expand_all": "Open all",
+      "collapse_all": "Close all",
+      "empty": "Nothing was recorded for this turn.",
+      "empty_live": "Steps show up here as soon as the agent takes them.",
+      "thought_private": "The provider keeps the words of this thought private.",
+      "no_details": "No details were recorded.",
+      "open_helper": "Open the helper's trace",
+      "no_answer": "No answer",
+      "truncated": "{count} more lines not shown",
+      "empty_output": "It returned nothing.",
+      "took": "Took {duration}"
+    },
+    "row": {
+      "prompt": "Your message",
+      "task": "Task",
+      "thought": "Thought",
+      "thought_hidden": "Thought (private)",
+      "reply": "Reply",
+      "question": "Asked you",
+      "credential": "Asked for a credential",
+      "approval": "Asked for your OK",
+      "helper": "Helper"
+    },
+    "status": {
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed",
+      "stopped": "Stopped",
+      "waiting": "Waiting for you",
+      "declined": "Declined"
+    },
+    "section": {
+      "asked_for": "Asked for",
+      "request": "Request",
+      "task": "Task",
+      "answer": "Answer",
+      "command": "Command",
+      "input": "Input",
+      "changes": "Changes",
+      "output": "Output",
+      "error": "Error"
+    },
+    "announce": {
+      "started": "{agent} started working.",
+      "replied": "{agent} replied.",
+      "finished": "{agent} finished.",
+      "stopped": "{agent} stopped.",
+      "failed": "{agent} ran into a problem.",
+      "asked": "{agent} asks: {question}",
+      "needs_ok": "{agent} needs your OK."
+    },
+    "time": {
+      "today": "Today {time}",
+      "yesterday": "Yesterday {time}"
+    },
+    "pill": {
+      "new_one": "{count} new message",
+      "new_other": "{count} new messages",
+      "dismiss": "Dismiss"
+    }
   }
 }

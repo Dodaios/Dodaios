@@ -146,7 +146,7 @@ export function shortPath(path: string): string {
 }
 
 /** Plumbing calls draw nothing: loading a tool's schema, polling a question card. */
-function isPlumbing(block: ToolBlock): boolean {
+export function isPlumbing(block: ToolBlock): boolean {
   if (isQuestionTool(block.name) && !block.question) return true;
   if (isCredentialTool(block.name) && !block.credential && !block.isError) return true;
   if (block.name.replace(/^mcp__[^_]+__/, "") === "ToolSearch") {
@@ -318,7 +318,7 @@ export function ownServerTool(name: string): string | null {
 }
 
 /** One finished or running call as its line. */
-function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: string): Call {
+export function callOf(block: ToolBlock, turn: TurnStatus, t: Translate, lang: string): Call {
   const view = traceToolIdentity(block);
   const record = inputRecord(block);
   const { status, reason } = statusOf(block, turn, t);

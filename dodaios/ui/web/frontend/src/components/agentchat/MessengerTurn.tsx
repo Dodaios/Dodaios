@@ -5,8 +5,11 @@ import { CredentialCard } from "./CredentialCard";
 import { QuestionCard } from "./QuestionCard";
 import type { ApprovalDecision } from "@/lib/agentChatApi";
 import type { TurnItem } from "./reduce";
-import { actionNoticeOf, presenceOf, type ActionNotice } from "./messengerPresence";
-import { BotStage, useDoneFlourish, useTypingPresence } from "./botStage/BotStage";
+import { actionNoticeOf, type ActionNotice } from "./messengerPresence";
+import { BotStage, useDoneFlourish } from "./botStage/BotStage";
+import { ActivityLine } from "./activity/ActivityLine";
+import type { NameOf } from "./activity/activityModel";
+import { WorkDisclosure } from "./activity/WorkDisclosure";
 import { ApprovalPrompt, PROSE, THREAD_MEDIA } from "@/components/agentic/threads/ThreadTimeline";
 import { SubagentCard } from "@/components/agentic/threads/ThreadSubagents";
 import { isSubagentCall } from "@/components/agentic/threads/subagents";
@@ -19,11 +22,13 @@ import { turnErrorText } from "./turnError";
  * are grey bubbles; what it changed for the person (a routine, a rule, a
  * saved skill) is a quiet centred line between them; while it works, its
  * own face plays a little scene of what it is doing on a stage below
- * (BotStage) and hops once when the turn is done. No reasoning and no work
- * log: the agent's own messages say what is happening, what is done and
- * what comes next.
+ * (BotStage) with one paced phrase for the step it is on (ActivityLine),
+ * and hops once when the turn is done. No reasoning and no work log in the
+ * conversation: the agent's own messages say what is happening, and one
+ * quiet line under the turn (WorkDisclosure) opens the whole trace in the
+ * work inspector.
  */
-export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, onDecide, memoryLinks }: {
+export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, onDecide, memoryLinks, nameOf, peerFace, onShowWork, workOpen = false }: {
   turn: TurnItem;
   /** The agent's face at 30 px; it plays the scenes. */
   avatar: ReactNode;
@@ -32,13 +37,21 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
   onDecide: (approvalId: string, decision: ApprovalDecision) => void | Promise<void>;
   /** Memory receipts posted after the turn: each a "Noted" quill line that opens the file. */
   memoryLinks?: MemoryLink[];
+  /** A teammate's roster id or name → the name the activity line says. */
+  nameOf?: NameOf;
+  /** A teammate's face beside "Writing to …". */
+  peerFace?: (peer: string) => ReactNode;
+  /** Opens this turn's work in the inspector; without it the turn shows no "show work" line. */
+  onShowWork?: () => void;
+  /** The inspector shows this turn right now. */
+  workOpen?: boolean;
 }) {
   const t = useT();
   const textLength = useMemo(() => turn.blocks.reduce((n, block) => n + (block.kind === "text" ? block.text.length : 0), 0), [turn.blocks]);
-  const presence = useTypingPresence(presenceOf(turn), textLength);
   const hasText = textLength > 0 && turn.blocks.some((block) => block.kind === "text" && block.text.trim());
   const flourish = useDoneFlourish(turn.status === "running", turn.status === "done");
-  const stage = presence ?? (flourish ? "done" : null);
+  const running = turn.status === "running";
+  const work = onShowWork ? <WorkDisclosure turn={turn} open={workOpen} onOpen={onShowWork} /> : null;
   let noteIndex = 0;
   return <div className="flex min-w-0 flex-col gap-1.5" data-testid="messenger-turn" data-status={turn.status}>
     {turn.blocks.map((block) => {
@@ -57,7 +70,12 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
       return <ActionLine key={block.callId} notice={notice} link={link} />;
     })}
     {memoryLinks?.slice(noteIndex).map((link) => <ActionLine key={`memory:${link.key}`} notice={NOTED} link={link} />)}
-    {stage && <BotStage presence={stage} seed={turn.id} avatar={avatar} color={color} />}
+    {/* While it works: the face and one paced phrase for the step it is on,
+        with the live work one click away. Once done: a short flourish. */}
+    {running ? <div className="flex min-w-0 flex-wrap items-center gap-x-2">
+      <ActivityLine turn={turn} avatar={avatar} color={color} nameOf={nameOf} peerFace={peerFace} />
+      {work}
+    </div> : flourish ? <BotStage presence="done" seed={turn.id} avatar={avatar} color={color} /> : null}
     {turn.status === "error" && (
       <p role="alert" className="mx-auto flex max-w-[85%] items-center gap-1.5 py-1 text-center text-xs text-destructive">
         <CircleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />
@@ -66,6 +84,7 @@ export const MessengerTurn = memo(function MessengerTurn({ turn, avatar, color, 
     )}
     {turn.status === "cancelled" && <SystemLine>{t("thread_turn.stopped")}</SystemLine>}
     {turn.status === "done" && !hasText && !flourish && <SystemLine>{t("thread_turn.no_answer")}</SystemLine>}
+    {!running ? work : null}
   </div>;
 });
 
