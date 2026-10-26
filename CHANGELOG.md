@@ -41,6 +41,7 @@ versioning per [SemVer](https://semver.org/).
 
 ### Fixed
 
+- Keep sherpa-onnx below 2.0, which ships no macOS Intel wheel
 - File only the pane prompts this app announced (#881)
 - Show every agent of the folder in the Agents tab by default (#876)
 - Keep the terminal grid inside its frame when the side panel opens (#874)
