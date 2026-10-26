@@ -41,7 +41,7 @@ beforeEach(() => {
   useWorkspacePanesStore.setState({ panes: [], activeId: null, loaded: true, load: async () => {} });
   useIdeProjectsStore.setState({ activeWorkspaceId: null });
   useEventStore.setState({ activeSection: "agentic-ide" });
-  useIdeSidePanelStore.setState({ open: false, tabs: ["agents"], active: "agents", terminals: [], maximized: false, inUse: false, split: null, splitRatio: 0.5, focusedColumn: 0 });
+  useIdeSidePanelStore.setState({ open: false, tabs: ["agents"], active: "agents", terminals: [], maximized: false, inUse: false, layout: null, focusedPane: null });
   useIdeChatStore.setState({ workspace: { id: "w1", name: "App", path: "/code/app" } });
 });
 
@@ -372,21 +372,41 @@ describe("IdeSidePanel", () => {
     act(() => useIdeSidePanelStore.getState().setOpen(false));
     expect(useIdeSidePanelStore.getState().inUse).toBe(false);
   });
+  const rect = (left: number, top: number, width: number, height: number) =>
+    ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) });
+  /** Content area 800x600 under a 44px strip, so drops can be aimed in jsdom. */
+  const aim = () => {
+    vi.stubGlobal("PointerEvent", PointerEventStub);
+    screen.getByTestId("ide-side-panel-content").getBoundingClientRect = () => rect(0, 50, 800, 600);
+    screen.getByRole("tablist").getBoundingClientRect = () => rect(0, 0, 700, 44);
+  };
+  const drag = (from: HTMLElement, to: { x: number; y: number }) => {
+    const box = { clientX: 20, clientY: 20 };
+    fireEvent.pointerDown(from, { button: 0, ...box });
+    fireEvent.pointerMove(window, { clientX: to.x + 3, clientY: to.y + 3 });
+    fireEvent.pointerMove(window, { clientX: to.x, clientY: to.y });
+    fireEvent.pointerUp(window, { clientX: to.x, clientY: to.y });
+    fireEvent.click(from);
+  };
+  const paneTabs = () => [...document.querySelectorAll<HTMLElement>("[data-testid^='ide-side-panel-pane-header-']")]
+    .map((node) => node.dataset.testid!.replace("ide-side-panel-pane-header-", ""));
+  const twoPanes = () => {
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents", "files", "changes"], active: "agents" }));
+    act(() => useIdeSidePanelStore.getState().dropTab("files", null, "right"));
+  };
+
   it("shows two tabs side by side from the split button and joins them back", () => {
     act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents", "files"], active: "agents" }));
     render(<Harness />);
     fireEvent.click(screen.getByTestId("ide-side-panel-split"));
-    expect(useIdeSidePanelStore.getState()).toMatchObject({ active: "agents", split: "files", focusedColumn: 1 });
-    expect(screen.getByTestId("ide-side-panel-content").dataset.split).toBe("true");
-    expect(screen.getByTestId("ide-side-panel-column-agents")).toBeTruthy();
-    expect(screen.getByTestId("ide-side-panel-column-files")).toBeTruthy();
-    expect(screen.getByTestId("ide-side-panel-split-resizer")).toBeTruthy();
-    // Both visible tabs read as selected in the strip.
+    expect(screen.getByTestId("ide-side-panel-content").dataset.panes).toBe("2");
+    expect(paneTabs()).toEqual(["agents", "files"]);
+    expect(useIdeSidePanelStore.getState().active).toBe("files");
     expect(screen.getByTestId("ide-side-panel-tab-agents").getAttribute("aria-selected")).toBe("true");
     expect(screen.getByTestId("ide-side-panel-tab-files").getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByTestId("ide-side-panel-split"));
-    expect(useIdeSidePanelStore.getState()).toMatchObject({ active: "files", split: null });
-    expect(screen.queryByTestId("ide-side-panel-column-agents")).toBeNull();
+    expect(useIdeSidePanelStore.getState()).toMatchObject({ layout: null, active: "files" });
+    expect(paneTabs()).toEqual([]);
   });
 
   it("disables the split button while only one tab is open", () => {
@@ -395,57 +415,80 @@ describe("IdeSidePanel", () => {
     expect((screen.getByTestId("ide-side-panel-split") as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("splits when a tab is dragged onto the left half of the panel", () => {
-    vi.stubGlobal("PointerEvent", PointerEventStub);
+  it("stacks a tab dragged onto the bottom edge under the one in front", () => {
     act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents", "files"], active: "agents" }));
     render(<Harness />);
-    const content = screen.getByTestId("ide-side-panel-content");
-    content.getBoundingClientRect = () => ({ left: 0, top: 50, right: 800, bottom: 650, width: 800, height: 600, x: 0, y: 50, toJSON: () => ({}) });
-    fireEvent.pointerDown(screen.getByTestId("ide-side-panel-tab-files"), { button: 0, clientX: 300, clientY: 20 });
-    // A small wobble is still a click, not a drag.
+    aim();
+    const tab = screen.getByTestId("ide-side-panel-tab-files");
+    fireEvent.pointerDown(tab, { button: 0, clientX: 300, clientY: 20 });
     fireEvent.pointerMove(window, { clientX: 302, clientY: 21 });
     expect(screen.queryByTestId("ide-side-panel-drop-zones")).toBeNull();
-    fireEvent.pointerMove(window, { clientX: 150, clientY: 300 });
+    fireEvent.pointerMove(window, { clientX: 400, clientY: 630 });
     expect(screen.getByTestId("ide-side-panel-drop-zones").hasAttribute("data-hides-native-browser")).toBe(true);
-    expect(screen.getByTestId("ide-side-panel-drop-left").dataset.over).toBe("true");
-    fireEvent.pointerUp(window, { clientX: 150, clientY: 300 });
-    fireEvent.click(screen.getByTestId("ide-side-panel-tab-files"));
-    expect(useIdeSidePanelStore.getState()).toMatchObject({ active: "files", split: "agents", focusedColumn: 0 });
-    expect(screen.queryByTestId("ide-side-panel-drop-zones")).toBeNull();
+    expect(screen.getByTestId("ide-side-panel-drop-bottom")).toBeTruthy();
+    fireEvent.pointerUp(window, { clientX: 400, clientY: 630 });
+    fireEvent.click(tab);
+    const { layout } = useIdeSidePanelStore.getState();
+    expect(layout).toMatchObject({ kind: "split", direction: "column" });
+    expect(paneTabs()).toEqual(["agents", "files"]);
+    expect(useIdeSidePanelStore.getState().active).toBe("files");
   });
 
-  it("cancels a tab drag on Escape or a release outside the panel", () => {
-    vi.stubGlobal("PointerEvent", PointerEventStub);
+  it("adds a third pane and swaps two panes by dragging a title bar onto the other", () => {
+    render(<Harness />);
+    twoPanes();
+    aim();
+    // Changes onto the right edge of Folder (the right half of the area).
+    drag(screen.getByTestId("ide-side-panel-tab-changes"), { x: 795, y: 350 });
+    expect(paneTabs()).toEqual(["agents", "files", "changes"]);
+    expect(screen.getByTestId("ide-side-panel-content").dataset.panes).toBe("3");
+    // Agents' title bar onto the middle of Changes (the last third): they trade places.
+    const grip = screen.getByTestId("ide-side-panel-pane-header-agents").querySelector<HTMLElement>("[role='button']")!;
+    drag(grip, { x: 667, y: 350 });
+    expect(paneTabs()).toEqual(["changes", "files", "agents"]);
+  });
+
+  it("takes a pane out of the split by dragging it onto the strip or out of the panel", () => {
+    render(<Harness />);
+    twoPanes();
+    aim();
+    const grip = () => screen.getByTestId("ide-side-panel-pane-header-files").querySelector<HTMLElement>("[role='button']")!;
+    fireEvent.pointerDown(grip(), { button: 0, clientX: 500, clientY: 60 });
+    fireEvent.pointerMove(window, { clientX: 300, clientY: 20 });
+    expect(screen.getByRole("tablist").dataset.detachTarget).toBe("true");
+    fireEvent.pointerUp(window, { clientX: 300, clientY: 20 });
+    expect(useIdeSidePanelStore.getState()).toMatchObject({ layout: null, active: "agents" });
+    expect(useIdeSidePanelStore.getState().tabs).toContain("files");
+    // Split again, then drag the pane away from the panel altogether.
+    act(() => useIdeSidePanelStore.getState().dropTab("files", null, "right"));
+    drag(grip(), { x: 1200, y: 300 });
+    expect(useIdeSidePanelStore.getState().layout).toBeNull();
+  });
+
+  it("cancels a tab drag on Escape and ignores a release outside for a tab not in a split", () => {
     act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents", "files"], active: "agents" }));
     render(<Harness />);
-    const content = screen.getByTestId("ide-side-panel-content");
-    content.getBoundingClientRect = () => ({ left: 0, top: 50, right: 800, bottom: 650, width: 800, height: 600, x: 0, y: 50, toJSON: () => ({}) });
+    aim();
     fireEvent.pointerDown(screen.getByTestId("ide-side-panel-tab-files"), { button: 0, clientX: 300, clientY: 20 });
     fireEvent.pointerMove(window, { clientX: 600, clientY: 300 });
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByTestId("ide-side-panel-drop-zones")).toBeNull();
-    fireEvent.pointerDown(screen.getByTestId("ide-side-panel-tab-files"), { button: 0, clientX: 300, clientY: 20 });
-    fireEvent.pointerMove(window, { clientX: 900, clientY: 300 });
-    fireEvent.pointerUp(window, { clientX: 900, clientY: 300 });
-    expect(useIdeSidePanelStore.getState().split).toBeNull();
+    drag(screen.getByTestId("ide-side-panel-tab-files"), { x: 1200, y: 300 });
+    expect(useIdeSidePanelStore.getState()).toMatchObject({ layout: null, active: "agents" });
   });
 
-  it("puts a clicked tab into the focused column and ends the split when a half closes", () => {
-    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents", "files", "changes"], active: "agents" }));
+  it("detaches from the title bar, fills the focused pane on a tab click and closes up when a pane's tab closes", () => {
+    render(<Harness />);
+    twoPanes();
     const store = useIdeSidePanelStore.getState;
-    act(() => store().splitWith("files", 1));
-    expect(store()).toMatchObject({ active: "agents", split: "files", focusedColumn: 1 });
+    expect(store().active).toBe("files");
     act(() => store().select("changes"));
-    expect(store()).toMatchObject({ active: "agents", split: "changes" });
-    act(() => store().select("agents"));
-    expect(store().focusedColumn).toBe(0);
-    act(() => store().select("files"));
-    expect(store()).toMatchObject({ active: "files", split: "changes" });
-    // Dropping the left tab on the right swaps the two.
-    act(() => store().splitWith("files", 1));
-    expect(store()).toMatchObject({ active: "changes", split: "files" });
-    act(() => store().closeTab("changes"));
-    expect(store()).toMatchObject({ active: "files", split: null, tabs: ["agents", "files"] });
-    expect(JSON.parse(localStorage.getItem("jarvis.agenticIde.sidePanelSplit.v1")!)).toMatchObject({ split: null });
+    expect(paneTabs()).toEqual(["agents", "changes"]);
+    fireEvent.click(screen.getByTestId("ide-side-panel-pane-detach-changes"));
+    expect(store()).toMatchObject({ layout: null, active: "agents" });
+    act(() => store().dropTab("files", null, "bottom"));
+    act(() => store().closeTab("files"));
+    expect(store()).toMatchObject({ layout: null, active: "agents", tabs: ["agents", "changes"] });
+    expect(JSON.parse(localStorage.getItem("jarvis.agenticIde.sidePanelLayout.v1")!)).toMatchObject({ layout: null });
   });
 });
