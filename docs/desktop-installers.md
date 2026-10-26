@@ -51,7 +51,8 @@ It produces **executables that share one payload**:
 
 | Binary                    | Console? | What it is                                                          |
 | ------------------------- | -------- | ------------------------------------------------------------------- |
-| `PersonalJarvis` (`.exe`) | no       | the windowed app - Start Menu, Dock, `.desktop`                      |
+| `DodaiosApp` (`.exe`)     | no       | the windowed app - Start Menu, Dock, `.desktop`                      |
+| `PersonalJarvis` (`.exe`) | no       | the same windowed app under its earlier name, kept for old pins      |
 | `dodaios` (`.exe`)        | yes      | the CLI: `dodaios serve`, `dodaios --version`, `dodaios missions list` |
 | `jarvis` (`.exe`)         | yes      | the same CLI under its earlier name, kept for existing scripts       |
 
@@ -60,14 +61,14 @@ exactly like the pip console script.
 
 > **Why the GUI binary is not called `Jarvis`.** `Jarvis` and `jarvis` are the
 > same path on Windows (NTFS) and on a default macOS APFS volume, so one would
-> silently overwrite the other. `PersonalJarvis` is the name
-> `dodaios.core.branding` already uses for the Windows branded launcher and the
-> macOS bundle executable.
+> silently overwrite the other. `DodaiosApp` is the name
+> `dodaios.core.branding` uses for the Windows branded launcher and the macOS
+> bundle executable; `PersonalJarvis` is their earlier name.
 
 Layout:
 
 - Windows / Linux: `dist/Jarvis/` with the binaries plus `_internal/`
-- macOS: `dist/Personal Jarvis.app`, CLI at `Contents/MacOS/dodaios` (and
+- macOS: `dist/Dodaios.app`, CLI at `Contents/MacOS/dodaios` (and
   `Contents/MacOS/jarvis`)
 
 ### Where a frozen install keeps user data
@@ -157,7 +158,7 @@ reasoning is in `packaging/macos/README.md`).
 
 Several things in that block are easy to get wrong and invisible to a headless
 smoke run, so the macOS job checks the finished bundle
-(`python scripts/ci/check_frozen_macos_app.py --app "dist/Personal Jarvis.app"`):
+(`python scripts/ci/check_frozen_macos_app.py --app "dist/Dodaios.app"`):
 
 - `LSBackgroundOnly` must be `False`. PyInstaller sets it to true whenever the
   last executable of the bundle is a console one (the `jarvis` CLI is), and
@@ -381,7 +382,8 @@ crosses it:
 ## 7. What an uninstall keeps
 
 The Windows uninstaller removes the **program directory only**
-(`%LOCALAPPDATA%\Programs\Personal Jarvis`) and its PATH entry, Start Menu
+(`%LOCALAPPDATA%\Programs\Dodaios`, or `%LOCALAPPDATA%\Programs\Personal Jarvis`
+for an install upgraded from before the rename) and its PATH entry, Start Menu
 shortcut and uninstall registry key.
 
 It deliberately keeps **`%LOCALAPPDATA%\Jarvis`** - `jarvis.toml`, memory,

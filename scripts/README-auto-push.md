@@ -1,4 +1,4 @@
-# End-of-Day Auto-Push for Personal Jarvis
+# End-of-Day Auto-Push for Dodaios
 
 ## What does it do?
 
