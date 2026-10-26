@@ -9,6 +9,8 @@ Jarvis Bar (live log, 2026-09-29).
 from __future__ import annotations
 
 import asyncio
+import warnings
+from pathlib import Path
 
 import pytest
 
@@ -67,3 +69,19 @@ def test_probe_is_a_quiet_no_on_hosts_without_win32() -> None:
     # Off Windows GetAsyncKeyState is unavailable; the guard must never drop.
     if global_hotkeys._async_key_is_down(0x10) is None:
         assert global_hotkeys.altgr_is_down() is False
+
+
+def test_global_hotkeys_source_has_no_invalid_escape_warning() -> None:
+    assert global_hotkeys._ALTGR_PROBE_CHARS == r"@€{[]}\|~"
+    source_path = Path(global_hotkeys.__file__)
+    source = source_path.read_text(encoding="utf-8")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        compile(source, str(source_path), "exec")
+
+    invalid_escapes = [
+        warning
+        for warning in caught
+        if "invalid escape sequence" in str(warning.message) and "\\|" in str(warning.message)
+    ]
+    assert not invalid_escapes, "\n".join(str(warning.message) for warning in invalid_escapes)
