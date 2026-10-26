@@ -15,7 +15,7 @@ import { useIdeThreadsStore } from "@/store/ideThreads";
 import { loadLocaleChunk, setUiLanguage } from "@/i18n";
 import { useEventStore } from "@/store/events";
 import { useSelfBuildFocus } from "@/store/selfBuildFocus";
-import type { Build, SelfBuildStatus } from "@/lib/selfBuildApi";
+import type { Build, Noticed, SelfBuildStatus } from "@/lib/selfBuildApi";
 
 const NOW = Date.now();
 
@@ -81,10 +81,21 @@ interface Call {
   body: unknown;
 }
 
-function installFetch(status: SelfBuildStatus = STATUS, kill = false) {
+const NOTICED: Noticed = {
+  needs: [
+    { id: 1, label: "Did I get any important emails?", times: 4, days: 2, first_ms: NOW - 2 * 86_400_000, last_ms: NOW - 3_600_000, stage: "counting", build_id: "" },
+    { id: 2, label: "Summarise the open pull requests", times: 3, days: 3, first_ms: NOW - 3 * 86_400_000, last_ms: NOW - 7_200_000, stage: "proposed", build_id: "p1" },
+  ],
+  once: 5,
+  more: 0,
+  threshold: { times: 3, days: 3, window_days: 28 },
+  quiet_start: { days: 7, since_ms: NOW - 2.5 * 86_400_000, until_ms: NOW + 4.5 * 86_400_000 },
+};
+
+function installFetch(status: SelfBuildStatus = STATUS, kill = false, builds: Build[] = BUILDS, noticed: Noticed = NOTICED) {
   const calls: Call[] = [];
   const routes: Record<string, (body: unknown) => unknown> = {
-    "GET /api/self-build": () => ({ builds: BUILDS, status }),
+    "GET /api/self-build": () => ({ builds, status }),
     "GET /api/self-build/digest?hours=24": () => ({
       since_ms: NOW - 86_400_000,
       until_ms: NOW,
@@ -110,6 +121,7 @@ function installFetch(status: SelfBuildStatus = STATUS, kill = false) {
       cost: { tokens: 1200, usd: 0 },
     }),
     "GET /api/society/status": () => ({ kill_switch: kill }),
+    "GET /api/self-build/noticed": () => noticed,
     "POST /api/self-build/p1/accept": () => ({ build: { ...BUILDS[0], state: "building" } }),
     "POST /api/self-build/p2/undo": () => ({ build: { ...BUILDS[1], state: "rejected" } }),
     "POST /api/self-build/t1/keep": () => ({ build: { ...BUILDS[2], state: "kept" } }),
@@ -151,7 +163,7 @@ describe("SelfBuildView", () => {
     renderWith(<SelfBuildView />);
     const waiting = await screen.findByTestId("shelf-waiting");
     expect(within(waiting).getAllByTestId("build-row").map((r) => r.dataset.buildId)).toEqual(["p1", "p2"]);
-    expect(within(screen.getByTestId("shelf-trial")).getByText("A standup digest")).toBeTruthy();
+    expect(within(screen.getByTestId("shelf-live")).getByText("A standup digest")).toBeTruthy();
     expect(within(screen.getByTestId("shelf-kept")).getByText("Mail humanizer")).toBeTruthy();
     // The past shelf is folded until asked for.
     const past = screen.getByTestId("shelf-past");
@@ -160,7 +172,8 @@ describe("SelfBuildView", () => {
     expect(within(past).getByText("Fix the flaky test")).toBeTruthy();
     // The digest reads as one line.
     expect(screen.getByTestId("self-build-digest").textContent).toMatch(/2 proposed/);
-    expect(screen.getByTestId("self-build-digest").textContent).toMatch(/2 live now/);
+    // Two ideas wait: the hero says so in a sentence.
+    expect(screen.getByTestId("self-build-hero").textContent).toMatch(/has 2 ideas for you/);
   });
 
   it("builds a proposal or turns it down in one click; a kind without a builder cannot be built", async () => {
@@ -214,6 +227,37 @@ describe("SelfBuildView", () => {
     // Accepting would start a build, so it waits while building is paused.
     const first = (await screen.findAllByTestId("build-row"))[0];
     expect((within(first).getByTestId("build-accept") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("teaches the idea and shows what it is counting during the quiet start", async () => {
+    installFetch({ ...STATUS, silent: true }, false, []);
+    renderWith(<SelfBuildView />);
+    const hero = await screen.findByTestId("self-build-hero");
+    expect(hero.dataset.tone).toBe("silent");
+    expect(hero.textContent).toMatch(/getting to know how you work/);
+    await waitFor(() => expect(screen.getByTestId("self-build-ring").getAttribute("aria-label")).toBe("Day 3 of 7"));
+    expect(within(screen.getByTestId("self-build-reach")).getByText("Tries it, with undo")).toBeTruthy();
+    expect(screen.getByTestId("self-build-how")).toBeTruthy();
+    const needs = await screen.findAllByTestId("noticed-need");
+    expect(needs[0].textContent).toMatch(/Did I get any important emails\?/);
+    expect(needs[0].textContent).toMatch(/Asked 4 times · on 2 days/);
+    expect(needs[0].textContent).toMatch(/1 more day to go/);
+    expect(screen.getByTestId("self-build-noticed").textContent).toMatch(/5 requests noted once/);
+  });
+
+  it("links a need that became a suggestion to it", async () => {
+    installFetch();
+    renderWith(<SelfBuildView />);
+    const needs = await screen.findAllByTestId("noticed-need");
+    fireEvent.click(within(needs[1]).getByRole("button", { name: /see the suggestion/i }));
+    expect((await screen.findByTestId("build-detail")).dataset.buildId).toBe("p1");
+  });
+
+  it("says nothing repeated yet when the miner has nothing", async () => {
+    installFetch(STATUS, false, [], { ...NOTICED, needs: [], once: 0 });
+    renderWith(<SelfBuildView />);
+    expect(await screen.findByTestId("noticed-empty")).toBeTruthy();
+    expect(screen.getByTestId("self-build-hero").textContent).toMatch(/watching for repeats/);
   });
 
   it("opens on the build a badge asked for", async () => {

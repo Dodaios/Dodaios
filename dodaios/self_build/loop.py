@@ -191,7 +191,8 @@ class SelfBuildLoop:
         ):
             bus.subscribe(event_type, handler)
             self._subscriptions.append((event_type, handler))
-        # Pane prompts written while the loop was not running.
+        # Rows written while the loop was not running are not filed: only the
+        # prompts this app announces are (``pane_prompt_recorded``).
         self._spawn(self.ingest_pane_prompts(), "pane-prompts")
 
     async def stop(self) -> None:
@@ -698,17 +699,23 @@ class SelfBuildLoop:
         self._spawn(self.ingest_pane_prompts([path]), "pane-prompts")
 
     async def ingest_pane_prompts(self, paths: list[Any] | None = None) -> int:
-        """File the person's new pane prompts as turns; ``paths`` ``None`` reads every pane.
+        """File the person's new pane prompts as turns.
 
-        Each history file is read from where the last pass stopped (an offset
-        in the signal store), so a prompt is filed once. Only rows marked
-        ``origin: person`` count, in the person's own words (``typed`` when the
-        prompt was a brief around them). While the loop is paused or off the
-        offsets still move: what was typed then is never filed later.
+        ``paths`` are the history files the IDE just stored a person's prompt
+        in (:meth:`pane_prompt_recorded`, in this process). Each is read from
+        where the last pass stopped (an offset in the signal store), so a
+        prompt is filed once. Only rows marked ``origin: person`` count, in the
+        person's own words (``typed`` when the prompt was a brief around them).
+
+        ``paths`` ``None`` scans every pane but only moves the offsets: a row
+        nobody in this app announced was written by another process (a test
+        run, another instance), and is not the person's evidence. While the
+        loop is paused or off the offsets still move: what was typed then is
+        never filed later.
         """
         async with self._pane_lock:
             found = await asyncio.to_thread(self._read_pane_prompts, paths)
-        if not found or not self._active():
+        if paths is None or not found or not self._active():
             return 0
         for obs in sorted(found, key=lambda o: o.ts_ms):
             await self.observe(obs)
@@ -987,7 +994,7 @@ class SelfBuildLoop:
         await asyncio.to_thread(self.store.prune, now=stamp)
         # Turns filed while no zone could be named get their clock now.
         await asyncio.to_thread(self.store.fill_clocks)
-        # Pane prompts whose notice was missed (the app was busy or restarting).
+        # Move the offsets past rows no notice announced (written elsewhere).
         await self.ingest_pane_prompts()
         await self.ingest_typed_prompts()
         # Offsets of pane files that are gone or too old to count: the IDE

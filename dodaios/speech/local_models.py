@@ -537,7 +537,7 @@ FASTER_WHISPER_PACKAGE = "faster-whisper>=1.0"
 #: (PR #3671, released 2026-06-15). An older wheel loads the same files and
 #: then transcribes every language as English — a silent wrong answer, which is
 #: worse than a refusal, so the version is pinned rather than hoped for.
-SHERPA_ONNX_PACKAGE = "sherpa-onnx>=1.13.3"
+SHERPA_ONNX_PACKAGE = "sherpa-onnx>=1.13.3,<2"
 
 #: The multilingual Nemotron 3.5 streaming bundle, int8-quantised at a 560 ms
 #: chunk. Choices worth stating: MULTILINGUAL (the ``-en-`` sibling would

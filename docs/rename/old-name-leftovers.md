@@ -37,17 +37,17 @@ names on purpose. Line numbers in the full table are those of this run.
 
 ## Summary
 
-**Current tree: 916 hits on `main` at fb037e8f82 with this PR's edits
+**Current tree: 906 hits on `main` at fb037e8f82 with this PR's edits
 applied, docs/rename excluded.** Line numbers are a snapshot of that tree and
 drift as `main` moves; re-run the command above for current positions.
 
 | Category | Hits | Notes |
 | --- | ---: | --- |
-| (a) must stay | 807 | Includes the "Formerly Personal Jarvis" lines in `README.md` and `README.zh-CN.md` (required by A2 of #850), the one-time "(formerly Personal Jarvis)" notes, and reworded lines that still name a legacy file or app |
+| (a) must stay | 797 | Includes the "Formerly Personal Jarvis" lines in `README.md` and `README.zh-CN.md` (required by A2 of #850), the one-time "(formerly Personal Jarvis)" notes, and reworded lines that still name a legacy file or app |
 | (b) old URL | 0 | |
 | (c) prose | 0 | |
 | (d) historical | 109 | |
-| **Total** | **916** | |
+| **Total** | **906** | |
 
 Hits by area:
 
@@ -59,7 +59,7 @@ Hits by area:
 | dodaios/ (app code, shipped plugin text, built bundle) | 68 |
 | packaging/, install/, dodaios.spec | 52 |
 | Other root files (launchers, configs, brand assets, wiki) | 24 |
-| README.md, README.zh-CN.md | 12 |
+| README.md, README.zh-CN.md | 2 |
 
 For reference: the first run, on 2026-10-26 before any edits, found 916 hits
 as well ((a) 791, (b) 2, (c) 14, (d) 109). The total did not move because 9
@@ -74,6 +74,9 @@ the `Personal Jarvis.app` build paths and the dev shortcut names in
 two README lines are the rename line A2 of #850 asks for, and the rest were
 reworded so that the old name remains only where it names a legacy file,
 bundle or app.
+
+Since then, both READMEs link the `Dodaios-*` release assets (v4.0.1 ships
+both names), which removed their 10 `PersonalJarvis-` hits.
 
 What came in: six "(formerly Personal Jarvis)" notes in docs, the sentence in
 each README explaining the `PersonalJarvis-` download names, and one new test
@@ -137,9 +140,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `.mailmap` | 14 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `.pre-commit-config.yaml` | 1 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `README.md` | 18 | 1 | (a) | Must stay: required by A2 of #850 (the one-time "Formerly Personal Jarvis" line) |
-| `README.md` | 252, 253, 254, 255, 257 | 5 | (a) | Kept: download links to the `PersonalJarvis-*` release assets, plus the sentence explaining those names |
 | `README.zh-CN.md` | 18 | 1 | (a) | Must stay: required by A2 of #850 (the one-time "Formerly Personal Jarvis" line) |
-| `README.zh-CN.md` | 208, 209, 210, 211, 213 | 5 | (a) | Kept: download links to the `PersonalJarvis-*` release assets, plus the sentence explaining those names |
 | `TRADEMARK.md` | 8 | 1 | (a) | Kept: legal / trademark text |
 | `assets/brand/banner.html` | 3 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `assets/brand/how-dodaios-works-v2.prompt.txt` | 9, 11 | 2 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |

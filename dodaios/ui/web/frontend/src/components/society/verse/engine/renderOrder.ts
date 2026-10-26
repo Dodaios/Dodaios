@@ -32,3 +32,5 @@ export const BACKDROP_LAYER = 4;
 export const XRAY_LAYER = 1;
 /** Development overlays (socket markers, occluder wireframes). */
 export const DEBUG_LAYER = 2;
+/** The eye-level deck (realtime geometry); only the eye-level renderer draws it. */
+export const REALTIME_LAYER = 5;

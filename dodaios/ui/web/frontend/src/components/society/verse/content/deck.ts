@@ -118,6 +118,42 @@ export interface PlateImages {
   levels: readonly PlateLevel[];
 }
 
+/** The specular layer of one realtime material (see ManifestRealtimeMaterial). */
+export interface RealtimeMaterial {
+  roughness: number;
+  metalness: number;
+  color: readonly [number, number, number];
+  clearcoat: number;
+  clearcoatRoughness: number;
+  specular: number;
+  detail: string;
+  transparent: boolean;
+  opacity: number;
+  collide: boolean;
+}
+
+export interface RealtimeProbe {
+  room: string;
+  url: string;
+  width: number;
+  height: number;
+  range: number;
+  position: readonly [number, number, number];
+  boxMin: readonly [number, number, number];
+  boxMax: readonly [number, number, number];
+}
+
+/** The deck as an eye-level 3D scene (docs/verse/realtime.md), URLs resolved. */
+export interface RealtimeContent {
+  sceneUrl: string;
+  /** rgbm2 span of the lightmap pages. */
+  range: number;
+  pages: readonly { url: string; size: number }[];
+  probes: readonly RealtimeProbe[];
+  materials: Readonly<Record<string, RealtimeMaterial>>;
+  triangles: number;
+}
+
 export interface Deck {
   id: DeckId;
   /** The content folder it was cooked into (the deck id, or "testbed" in development). */
@@ -136,6 +172,8 @@ export interface Deck {
   stations: readonly Station[];
   rooms: readonly Room[];
   probes: readonly LightProbe[];
+  /** The eye-level scene, or null when the deck has none (or one this runtime cannot read). */
+  realtime: RealtimeContent | null;
 }
 
 export function socketById(deck: Deck, kind: SocketKind, id: string): Socket | undefined {

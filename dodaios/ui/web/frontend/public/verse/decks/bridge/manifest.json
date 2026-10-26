@@ -3656,6 +3656,847 @@
   "blender_s": 693.5,
   "package_s": 96.94,
   "plate_bytes": 2811653,
-  "bytes": 3291549
+  "bytes": 22060431
+ },
+ "realtime": {
+  "version": 1,
+  "quality": "final",
+  "scene": {
+   "url": "realtime/scene.glb",
+   "vertices": 1320074,
+   "triangles": 1022265,
+   "chunks": 323
+  },
+  "lightmaps": {
+   "encoding": "rgbm2",
+   "range": 32.0,
+   "pages": [
+    {
+     "url": "realtime/lm_0.webp",
+     "size": 4096,
+     "density": 42.49
+    },
+    {
+     "url": "realtime/lm_1.webp",
+     "size": 4096,
+     "density": 42.49
+    },
+    {
+     "url": "realtime/lm_2.webp",
+     "size": 4096,
+     "density": 42.49
+    },
+    {
+     "url": "realtime/lm_3.webp",
+     "size": 4096,
+     "density": 42.49
+    }
+   ]
+  },
+  "probes": [
+   {
+    "room": "bridge",
+    "url": "realtime/probe_bridge.webp",
+    "w": 1024,
+    "h": 512,
+    "range": 32.0,
+    "position": [
+     36.0,
+     1.4,
+     16.1225
+    ],
+    "box_min": [
+     3.6,
+     0.0,
+     3.6
+    ],
+    "box_max": [
+     68.4,
+     7.2,
+     31.2
+    ]
+   },
+   {
+    "room": "briefing",
+    "url": "realtime/probe_briefing.webp",
+    "w": 1024,
+    "h": 512,
+    "range": 32.0,
+    "position": [
+     15.9,
+     1.4,
+     38.4
+    ],
+    "box_min": [
+     3.6,
+     0.0,
+     33.6
+    ],
+    "box_max": [
+     28.2,
+     3.6,
+     43.2
+    ]
+   },
+   {
+    "room": "lobby",
+    "url": "realtime/probe_lobby.webp",
+    "w": 1024,
+    "h": 512,
+    "range": 32.0,
+    "position": [
+     36.0,
+     1.4,
+     38.4
+    ],
+    "box_min": [
+     30.6,
+     0.0,
+     33.6
+    ],
+    "box_max": [
+     41.4,
+     3.6,
+     43.2
+    ]
+   },
+   {
+    "room": "pit_p",
+    "url": "realtime/probe_pit_p.webp",
+    "w": 1024,
+    "h": 512,
+    "range": 32.0,
+    "position": [
+     18.0685,
+     0.0,
+     18.268
+    ],
+    "box_min": [
+     3.6,
+     -1.4,
+     7.2
+    ],
+    "box_max": [
+     31.8,
+     7.2,
+     28.8
+    ]
+   },
+   {
+    "room": "pit_s",
+    "url": "realtime/probe_pit_s.webp",
+    "w": 1024,
+    "h": 512,
+    "range": 32.0,
+    "position": [
+     53.9315,
+     0.0,
+     18.268
+    ],
+    "box_min": [
+     40.2,
+     -1.4,
+     7.2
+    ],
+    "box_max": [
+     68.4,
+     7.2,
+     28.8
+    ]
+   },
+   {
+    "room": "ready",
+    "url": "realtime/probe_ready.webp",
+    "w": 1024,
+    "h": 512,
+    "range": 32.0,
+    "position": [
+     56.1,
+     1.4,
+     38.4
+    ],
+    "box_min": [
+     43.8,
+     0.0,
+     33.6
+    ],
+    "box_max": [
+     68.4,
+     3.6,
+     43.2
+    ]
+   }
+  ],
+  "materials": {
+   "M_Ceiling_Panel": {
+    "roughness": 0.47,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "painted",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Console_Body": {
+    "roughness": 0.36,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.15,
+    "clearcoat_roughness": 0.12,
+    "specular": 0.5,
+    "detail": "painted",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Console_Deck": {
+    "roughness": 0.43,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "painted",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Console_Keys": {
+    "roughness": 0.5,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Emit_BacklitPanel": {
+    "roughness": 0.6,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.25,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Floor_GlossBlack": {
+    "roughness": 0.3,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.06,
+    "specular": 0.12,
+    "detail": "deck_plates",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Floor_Grating": {
+    "roughness": 0.46,
+    "metalness": 1.0,
+    "color": [
+     0.32,
+     0.33,
+     0.34
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Floor_SatinDark": {
+    "roughness": 0.3,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.35,
+    "clearcoat_roughness": 0.06,
+    "specular": 0.5,
+    "detail": "deck_plates",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Glass_Clear": {
+    "roughness": 0.01,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": true,
+    "opacity": 0.04,
+    "collide": false
+   },
+   "M_Hull_Pipe": {
+    "roughness": 0.41,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Hull_PipeInsulated": {
+    "roughness": 0.69,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Hull_Structure": {
+    "roughness": 0.5,
+    "metalness": 0.75,
+    "color": [
+     0.07,
+     0.075,
+     0.085
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Indicator_Amber": {
+    "roughness": 0.25,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.02,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Indicator_Blue": {
+    "roughness": 0.25,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.02,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Indicator_Green": {
+    "roughness": 0.25,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.02,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Indicator_Red": {
+    "roughness": 0.25,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.02,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Indicator_White": {
+    "roughness": 0.25,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.02,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Lacquer_BlackGloss": {
+    "roughness": 0.07,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.03,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Light_Backlit": {
+    "roughness": 0.6,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.25,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Light_CeilingPanel": {
+    "roughness": 0.6,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.25,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Light_FloorInlay": {
+    "roughness": 0.6,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.25,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Light_RedTrim": {
+    "roughness": 0.6,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.25,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Light_WallStrip": {
+    "roughness": 0.6,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.25,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Paint_TrimRed": {
+    "roughness": 0.3,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Plastic_BlackSatin": {
+    "roughness": 0.48,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Plastic_LampOff": {
+    "roughness": 0.25,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.5,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Recess_Dark": {
+    "roughness": 0.7,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Rubber_Black": {
+    "roughness": 0.72,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.35,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Screen": {
+    "roughness": 0.3,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.03,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Seat_Upholstery": {
+    "roughness": 0.4,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Starfield": {
+    "roughness": 1.0,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.0,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "M_Struct_Gunmetal": {
+    "roughness": 0.38,
+    "metalness": 1.0,
+    "color": [
+     0.16,
+     0.165,
+     0.175
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "metal",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Trim_BrushedSteel": {
+    "roughness": 0.22,
+    "metalness": 1.0,
+    "color": [
+     0.56,
+     0.565,
+     0.575
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "metal",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Trim_Chrome": {
+    "roughness": 0.07,
+    "metalness": 1.0,
+    "color": [
+     0.82,
+     0.83,
+     0.84
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Wall_Charcoal": {
+    "roughness": 0.32,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.25,
+    "clearcoat_roughness": 0.12,
+    "specular": 0.5,
+    "detail": "painted",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Wall_PaintedDark": {
+    "roughness": 0.39,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "painted",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Wall_PaintedLight": {
+    "roughness": 0.28,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.2,
+    "clearcoat_roughness": 0.12,
+    "specular": 0.5,
+    "detail": "painted",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "M_Wall_PaintedMid": {
+    "roughness": 0.41,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "painted",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   },
+   "TMP_M_Glass_HoloLens": {
+    "roughness": 0.04,
+    "metalness": 0.0,
+    "color": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "clearcoat": 1.0,
+    "clearcoat_roughness": 0.02,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": false
+   },
+   "TMP_M_Metal_RankGold": {
+    "roughness": 0.3,
+    "metalness": 1.0,
+    "color": [
+     0.8,
+     0.56,
+     0.22
+    ],
+    "clearcoat": 0.0,
+    "clearcoat_roughness": 0.05,
+    "specular": 0.5,
+    "detail": "none",
+    "transparent": false,
+    "opacity": 1.0,
+    "collide": true
+   }
+  },
+  "bytes": 18753386,
+  "stats": {
+   "objects": 751,
+   "triangles": 1022265,
+   "vertices": 1320074,
+   "chunks": 323,
+   "area_m2": 28524.2,
+   "hidden_objects": 646,
+   "hidden_area_m2": 7403.6,
+   "far_split": 2,
+   "far_decimated_triangles": 1108,
+   "density": [
+    42.49,
+    42.49,
+    42.49,
+    42.49
+   ],
+   "samples": 512,
+   "blender": "5.0.1",
+   "realise_s": 6.45,
+   "visibility_s": 21.8,
+   "unwrap_s": 36.22,
+   "join_s": 2.64,
+   "bake_s": 945.31,
+   "probes_s": 25.34,
+   "geometry_s": 6.39,
+   "blender_s": 1048.5,
+   "package_s": 215.34
+  }
  }
 }
