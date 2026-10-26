@@ -244,17 +244,14 @@ terminal:
 
 ```bash
 dodaios         # full desktop
-jarvis          # the same, under its earlier name
 ```
 
 If you prefer a regular desktop installer, download one here:
 
-- [Dodaios for Windows (x64)](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Setup-x64.exe)
-- [Dodaios for macOS (Apple Silicon)](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-arm64.dmg)
-- [Dodaios for macOS (Intel)](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-x64.dmg)
-- [Dodaios for Linux (AppImage, x86_64)](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Linux-x86_64.AppImage)
-
-The files keep their original `PersonalJarvis-` names for compatibility with existing installs.
+- [Dodaios for Windows (x64)](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Setup-x64.exe)
+- [Dodaios for macOS (Apple Silicon)](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-arm64.dmg)
+- [Dodaios for macOS (Intel)](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-macOS-x64.dmg)
+- [Dodaios for Linux (AppImage, x86_64)](https://github.com/Dodaios/Dodaios/releases/latest/download/Dodaios-Linux-x86_64.AppImage)
 
 Windows installers are signed under our
 [code signing policy](https://github.com/Dodaios/Dodaios/blob/main/docs/code-signing-policy.md)
