@@ -19,7 +19,8 @@ for a concrete bug or task. For a larger design, use
 [Discussions](https://github.com/Dodaios/Dodaios/discussions) to
 agree on scope before implementing it. You can open a small, self-contained PR
 without an issue. The `good first issue` label is used when a specific task has
-been scoped; browse open bugs or propose a small task if that list is empty.
+been scoped. If that list is empty, pick an issue labeled `help wanted` or
+`area:docs`, or propose a small task in Discussions.
 
 Interested in helping maintain an area over time? Name the subsystem and the
 kind of testing or review you can provide in a Discussion. A series of scoped
@@ -36,6 +37,9 @@ code.
 
 1. Fork the repo and clone your fork.
 2. Find a task: browse [issues labeled `good first issue`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+   If none are open, pick any issue labeled [`help wanted`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+   or [`area:docs`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%3Adocs),
+   or ask in [Discussions](https://github.com/Dodaios/Dodaios/discussions).
    Comment on it to claim it if you plan to start right away.
 3. Make your edit directly in the file the issue points to. No install needed
    for a Markdown-only change.
@@ -61,6 +65,9 @@ You do not need the Python backend running for this path.
 
 1. Fork the repo and clone your fork.
 2. Find a task: browse [issues labeled `good first issue`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+   If none are open, pick any issue labeled [`help wanted`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+   or [`area:docs`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%3Adocs),
+   or ask in [Discussions](https://github.com/Dodaios/Dodaios/discussions).
    Comment on it to claim it if you plan to start right away.
 3. Set up once (Python 3.11+ and Git required):
    ```bash
