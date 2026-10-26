@@ -22,7 +22,10 @@ import { ChatGroupPanel } from "@/components/society/chat/ChatGroupPanel";
 import { useSocietyChatStore } from "@/components/society/chat/AgentChatPanel";
 import { chatGroupsKnown, createSocietyChatGroup, updateSocietyChatGroup, useSocietyChatGroups } from "@/lib/societyChatGroups";
 import { CanvasActivity } from "@/hooks/useCanvasAwake";
+import { AttentionBell } from "@/components/society/attention/AttentionBell";
+import { useAgentChatStore } from "@/store/agentChat";
 import { forgetLastAgentId, rememberLastAgentId, storedLastAgentId } from "./lastAgent";
+import { revealCard, setAgentOnScreen, takeAgentRequest, useAgentNavigation } from "./agentNavigation";
 
 /** The page's two faces, in caption order: the agents, then the Verse. */
 const MODES = [
@@ -179,6 +182,35 @@ export function SocietyView() {
     };
   }, [mode, switchMode, openPlace]);
 
+  // "Needs you": tell the notifier which agent is on screen, and honour a
+  // request to open an agent at one of its cards (agentNavigation.openAgent).
+  const onScreenId = mode === "agents" && !openGroup ? openAgent?.agentId ?? null : null;
+  useEffect(() => {
+    setAgentOnScreen(onScreenId ? { agentId: onScreenId } : null);
+  }, [onScreenId]);
+  useEffect(() => () => setAgentOnScreen(null), []);
+
+  const navigation = useAgentNavigation((s) => s.request);
+  useEffect(() => {
+    if (!navigation) return;
+    const target = agents.find((agent) => agent.agentId === navigation.agentId);
+    if (!target) {
+      // Still loading: keep the request. Gone (or only the sample roster): drop it.
+      if (!roster.isLoading) takeAgentRequest();
+      return;
+    }
+    const taken = takeAgentRequest();
+    if (!taken) return;
+    switchMode("agents");
+    selectAgent(taken.agentId);
+    // The lead's card is the front-page chat, which holds many sessions.
+    if (target.tier === "lead" && taken.sessionId && !taken.sessionId.startsWith("society:")) {
+      const chat = useAgentChatStore.getState();
+      if (chat.activeSessionId !== taken.sessionId) chat.openSession(taken.sessionId);
+    }
+    void revealCard({ cardRef: taken.cardRef, kind: taken.kind });
+  }, [navigation, agents, roster.isLoading, selectAgent, switchMode]);
+
   const onIslandSelect = useCallback((agentId: string | null) => {
     if (agentId) {
       selectAgent(agentId);
@@ -220,7 +252,7 @@ export function SocietyView() {
             modes — one switch, always centered, always a way back. */}
         {createPortal(
           <div className="pointer-events-none fixed inset-x-0 top-0 z-[140] flex h-8 items-center justify-center" data-testid="mode-switch">
-            <div className="pointer-events-auto flex items-center gap-2">{modeSwitch}<BrowserProfilesButton iconOnly /></div>
+            <div className="pointer-events-auto flex items-center gap-2">{modeSwitch}<BrowserProfilesButton iconOnly /><AttentionBell /></div>
           </div>,
           document.body,
         )}

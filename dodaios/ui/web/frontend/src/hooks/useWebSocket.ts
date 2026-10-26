@@ -39,6 +39,7 @@ import { announceDictationSettings } from "@/hooks/usePromptMode";
 import { petKeys } from "@/hooks/usePets";
 import { focusChatComposer, startNewTextChat } from "@/lib/newChat";
 import { SPEAKER_MUTE_EVENT } from "@/lib/speakerMute";
+import { onAgentAttention, seedAgentAttention } from "@/components/society/attention/attentionBus";
 
 let singleton: WSClient | null = null;
 
@@ -126,6 +127,8 @@ export function useWebSocket(): void {
           // with the window hidden, a wake-word denial before the socket opened)
           // is a one-shot bus event and would otherwise never be told.
           seedPermissionToast();
+          // The "waiting for you" badge, re-read on every (re)connect.
+          seedAgentAttention();
           return;
         }
 
@@ -692,6 +695,8 @@ export function useWebSocket(): void {
             }),
           );
         }
+
+        if (env.event_name === "AgentAttentionChanged") onAgentAttention(env.payload, queryClient);
 
         if (env.event_name === "ToastNotification") {
           const p = env.payload as { kind?: string; message?: string };

@@ -174,8 +174,18 @@ export interface SocietyAgent {
   wikiNamespace: string;
   /** The canonical agent_chat session bound to this agent; null on sample rows. */
   chatSessionId: string | null;
+  /** What it waits on the person for right now (a question, an approval, ...); null when nothing. */
+  waitingReason?: WaitingReason | null;
   routines: AgentRoutine[];
   stats: AgentStats;
+}
+
+/** Why an agent waits on the person (the society payload's `waiting_reason`). */
+export interface WaitingReason {
+  kind: "question" | "approval" | "credential" | "proposal";
+  summary: string;
+  sessionId: string;
+  refId: string;
 }
 
 export interface RosterData {
@@ -292,6 +302,14 @@ export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
     workspaceDir: row.workspace_dir ?? "",
     wikiNamespace: row.wiki_namespace ?? "",
     chatSessionId: row.session_id || null,
+    waitingReason: row.waiting_reason
+      ? {
+        kind: row.waiting_reason.kind,
+        summary: row.waiting_reason.summary,
+        sessionId: row.waiting_reason.session_id,
+        refId: row.waiting_reason.ref_id,
+      }
+      : null,
     routines: [],
     stats: {
       runs: row.stats?.runs ?? 0,
