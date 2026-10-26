@@ -24,6 +24,12 @@ def _fake_message(*, data=None, server_content=None, tool_call=None, go_away=Non
     )
 
 
+def test_gemini_browser_audio_declares_webkitgtk_as_unsupported_renderer():
+    assert GeminiLiveProvider.browser_audio is True
+    assert GeminiLiveProvider.browser_audio_unsupported_renderers == frozenset({"gtkwebkit2"})
+    assert VertexLiveProvider.browser_audio_unsupported_renderers == frozenset({"gtkwebkit2"})
+
+
 @pytest.mark.asyncio
 async def test_key_injection_controls_availability():
     assert await GeminiLiveProvider(api_key="test-key").can_open_duplex_session() is True

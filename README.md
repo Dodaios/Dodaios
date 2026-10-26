@@ -26,6 +26,7 @@
 
 <p align="center">
   <a href="#install"><strong>Install</strong></a> ·
+  <a href="#code-by-talking">Code by talking</a> ·
   <a href="#from-one-prompt-to-a-merged-pull-request">Workflow</a> ·
   <a href="#everything-in-one-app">Features</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md">Docs</a> ·
@@ -62,6 +63,31 @@ phrase and models inside the app.
 You need one API key, a subscription or a local model. A microphone helps for
 voice. You do not need a GPU. Desktop installers and the server setup are under
 [more ways to install](#more-ways-to-install).
+
+## Code by talking
+
+Open a project, put Claude Code, Codex or OpenCode in a few panes, and talk to
+them. Each pane has a call sign, so you steer them like a team:
+
+> "T1, run the tests."<br />
+> "T2, fix whatever T1 finds."<br />
+> "T3, write the changelog for this release."<br />
+> "What is T2 doing right now?"
+
+- **You speak, Dodaios writes the prompt.** It turns your sentence into a full,
+  project-aware brief and types it into the right pane.
+- **Same job or split job.** "Tell T1 and T2 to run the same checks" sends one
+  instruction; "Have T1 and T2 split the audit" hands out separate parts.
+- **New panes on request.** Ask for more agents and Dodaios opens and briefs
+  them. Panes you did not name stay untouched.
+- **No guessing.** If a call sign is unclear, Dodaios asks before it sends
+  anything, and every pane shows whether your instruction really arrived.
+- **Hang up, the work goes on.** An instruction you already gave is still
+  delivered, and the agents keep working after the call ends.
+
+It uses the subscriptions you already pay for, and every pane is still a real
+terminal you can type into. See the
+[Agentic IDE guide](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md#send-clear-work).
 
 ## From one prompt to a merged pull request
 

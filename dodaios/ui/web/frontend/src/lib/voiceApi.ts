@@ -1,6 +1,7 @@
 // REST client for the voice orb. Plain same-origin fetch (mirrors
 // agenticIdeApi), `no-store` so a WebView cannot answer with yesterday's state.
 import { fill, translate } from "@/i18n";
+import { voiceModeEndpoint } from "./embeddedDesktop";
 
 export interface VoiceCallAnswer {
   armed: boolean;
@@ -60,7 +61,7 @@ export function requestVoiceHangup(): Promise<VoiceHangupAnswer> {
  */
 export async function fetchRealtimeOfferRequirement(): Promise<boolean | null> {
   try {
-    const res = await fetch("/api/settings/voice-mode", { cache: "no-store" });
+    const res = await fetch(voiceModeEndpoint(), { cache: "no-store" });
     if (!res.ok) return null;
     const body = (await res.json()) as { requires_webrtc_offer?: unknown };
     return typeof body.requires_webrtc_offer === "boolean"

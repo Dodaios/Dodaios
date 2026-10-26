@@ -56,6 +56,17 @@ SHERPA_ONNX_MODULE = "sherpa_onnx"
 
 Runtime = Literal["faster-whisper", "sherpa-onnx"]
 
+# Keep the cache probe aligned with faster-whisper.utils.download_model. Its
+# snapshot filter deliberately excludes repository documentation and metadata.
+_WHISPER_MODEL_ALLOW_PATTERNS = (
+    "config.json",
+    "preprocessor_config.json",
+    "model.bin",
+    "tokenizer.json",
+    "vocabulary.*",
+)
+_WHISPER_MODEL_REQUIRED_FILES = ("config.json", "model.bin", "tokenizer.json")
+
 #: Runtime id -> module to probe. A runtime the app does not know about is
 #: reported absent rather than guessed at.
 _RUNTIME_MODULES: dict[str, str] = {
@@ -236,8 +247,13 @@ def whisper_model_cached(name: str) -> bool:
     failure (not cached, engine missing, unfamiliar cache layout) reads as
     "not present", which is the fail-closed direction for a readiness claim.
     """
+    return _whisper_model_cache_issue(name) is None
+
+
+def _whisper_model_cache_issue(name: str) -> str | None:
+    """Explain why a faster-whisper checkpoint is not usable from the cache."""
     if not name.strip():
-        return False
+        return "no model was selected"
     try:
         directory = Path(name)
         if not directory.is_dir():
@@ -260,22 +276,33 @@ def whisper_model_cached(name: str) -> bool:
                         break
                 repo_id = aliases.get(name, "")
                 if not isinstance(repo_id, str) or not repo_id:
-                    return False
+                    return "the model name is not available in the installed faster-whisper runtime"
             from huggingface_hub import snapshot_download
 
-            directory = Path(snapshot_download(repo_id, local_files_only=True))
+            directory = Path(
+                snapshot_download(
+                    repo_id,
+                    local_files_only=True,
+                    allow_patterns=list(_WHISPER_MODEL_ALLOW_PATTERNS),
+                )
+            )
         # A snapshot directory alone can be a partial download. The tokenizer
         # must also be local, otherwise the recognizer fetches one during boot.
-        required = ("config.json", "model.bin", "tokenizer.json")
-        return all(
-            (directory / file).is_file() and (directory / file).stat().st_size > 0
-            for file in required
-        ) and any(
+        missing = [
+            file
+            for file in _WHISPER_MODEL_REQUIRED_FILES
+            if not (directory / file).is_file() or (directory / file).stat().st_size == 0
+        ]
+        if not any(
             file.is_file() and file.stat().st_size > 0 for file in directory.glob("vocabulary.*")
-        )
+        ):
+            missing.append("vocabulary.*")
+        if missing:
+            return f"missing or empty model files: {', '.join(missing)}"
+        return None
     except Exception as exc:  # noqa: BLE001 — an uncertain cache is not ready
         log.debug("Whisper checkpoint %r is not cached locally: %s", name, exc)
-        return False
+        return "the required model files could not be read from the local cache"
 
 
 def models_root(data_dir: str | None = None) -> Path:
@@ -339,17 +366,15 @@ def whisper_status(model: str) -> LocalModelStatus:
     tells them what to do next.
     """
     engine = runtime_installed("faster-whisper")
-    cached = whisper_model_cached(model) if engine else False
+    cache_issue = _whisper_model_cache_issue(model) if engine else None
+    cached = engine and cache_issue is None
     if not engine:
         detail = (
             "The local speech engine is not installed yet. Install it from here "
             "to transcribe on this machine without an API key."
         )
-    elif not cached:
-        detail = (
-            f"The engine is installed, but the {model} model still has to be "
-            "downloaded (about 3 GB, once)."
-        )
+    elif cache_issue is not None:
+        detail = f"The engine is installed, but the {model} model is not ready: {cache_issue}."
     else:
         detail = f"Ready — {model} runs entirely on this machine."
     return LocalModelStatus(

@@ -19,6 +19,7 @@ import {
   createTerminalLinkActivator,
   createTerminalOscLinkHandler,
   findTerminalPathMatches,
+  OPEN_PATH_EVENT,
   TERMINAL_OSC_LINK_HANDLER,
   TerminalPathLinksAddon,
 } from "./terminalLinks";
@@ -90,6 +91,37 @@ describe("terminal links", () => {
     );
   });
 
+  it("offers a plainly clicked path to the app and never to the OS", () => {
+    const seen: unknown[] = [];
+    const onOpen = (event: Event) => seen.push((event as CustomEvent).detail);
+    window.addEventListener(OPEN_PATH_EVENT, onOpen);
+    activateTerminalLink(click(), "C:\\Users\\me\\Downloads\\shot.jpg", {
+      workspaceId: "workspace-1",
+    });
+    window.removeEventListener(OPEN_PATH_EVENT, onOpen);
+
+    expect(seen).toEqual([
+      {
+        workspaceId: "workspace-1",
+        path: "C:\\Users\\me\\Downloads\\shot.jpg",
+        launch: false,
+      },
+    ]);
+    expect(openTarget).not.toHaveBeenCalled();
+  });
+
+  it("keeps the click that ends a text selection from opening a path", () => {
+    const onOpen = vi.fn();
+    window.addEventListener(OPEN_PATH_EVENT, onOpen);
+    activateTerminalLink(click(), "src/main.ts", {
+      workspaceId: "workspace-1",
+      hasSelection: () => true,
+    });
+    window.removeEventListener(OPEN_PATH_EVENT, onOpen);
+
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
   it("allows file OSC-8 links only when a workspace boundary is available", () => {
     const handler = createTerminalOscLinkHandler({
       workspaceId: "workspace-1",
@@ -152,6 +184,14 @@ describe("terminal links", () => {
         (match) => match.text,
       ),
     ).toEqual(["README.md", "./scripts", "../shared", "assets/icons/"]);
+  });
+
+  it("recognises bare image and video filenames", () => {
+    expect(
+      findTerminalPathMatches("Saved demo.mp4 and cover.avif").map(
+        (match) => match.text,
+      ),
+    ).toEqual(["demo.mp4", "cover.avif"]);
   });
 
   it("registers detected paths as xterm links with clickable cell ranges", () => {

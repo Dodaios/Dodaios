@@ -44,6 +44,7 @@ class _GeminiProvider(_BaseProvider):
     credential_candidates = (("gemini_api_key", "GEMINI_API_KEY"),)
     # Mirrors the real adapter: its calls need browser echo-cancelled audio.
     browser_audio = True
+    browser_audio_unsupported_renderers = frozenset({"gtkwebkit2"})
 
 
 class _AcmeProvider(_BaseProvider):
@@ -247,6 +248,16 @@ def test_pinned_browser_audio_answers_for_the_pin_without_reading_credentials(mo
 
     assert realtime_browser_audio(_cfg(provider="gemini-live")) is True
     assert realtime_browser_audio(_cfg(provider="openai-realtime")) is False
+
+
+def test_gemini_browser_audio_uses_native_desktop_audio_on_webkitgtk(monkeypatch):
+    _fake_registry(monkeypatch, {"gemini"})
+    config = _cfg(provider="gemini-live")
+
+    assert realtime_browser_audio(config, desktop_renderer="gtkwebkit2") is False
+    assert realtime_browser_audio(config, desktop_renderer="edgechromium") is True
+    # Remote browser callers do not pass an embedded renderer.
+    assert realtime_browser_audio(config) is True
 
 
 def test_pipeline_mode_never_builds_realtime_session(monkeypatch):

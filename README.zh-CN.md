@@ -26,6 +26,7 @@
 
 <p align="center">
   <a href="#安装"><strong>安装</strong></a> ·
+  <a href="#动嘴写代码">动嘴写代码</a> ·
   <a href="#从一句话到合并的拉取请求">工作流</a> ·
   <a href="#一个应用包含一切">功能</a> ·
   <a href="https://github.com/Dodaios/Dodaios/blob/main/docs/product/start-here/welcome-to-dodaios.md">文档</a> ·
@@ -57,6 +58,24 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 
 **你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
 桌面版安装包和服务器部署见[更多安装方式](#更多安装方式)。
+
+## 动嘴写代码
+
+打开一个项目，在几个窗格里分别启动 Claude Code、Codex 或 OpenCode，然后直接对它们说话。每个窗格都有一个呼号，你可以像指挥团队一样指挥它们：
+
+> “T1，跑一下测试。”<br />
+> “T2，修复 T1 发现的问题。”<br />
+> “T3，为这个版本写更新日志。”<br />
+> “T2 现在在做什么？”
+
+- **你开口，Dodaios 写提示词。** 它把你的一句话变成一份完整、了解项目上下文的任务说明，并输入到对应的窗格。
+- **同一任务或分工。** “让 T1 和 T2 做同样的检查”会发送同一条指令；“让 T1 和 T2 分担这次审查”会分配不同的部分。
+- **按需新开窗格。** 需要更多智能体时，Dodaios 会打开新窗格并下达任务。你没点名的窗格不会被动。
+- **不靠猜。** 呼号不明确时，Dodaios 会先问你再发送；每个窗格都会显示你的指令是否真正送达。
+- **挂断后工作继续。** 已经下达的指令仍会送达，通话结束后智能体也会继续工作。
+
+它使用你已经付费的订阅，每个窗格仍然是一个真正的终端，你随时可以自己输入。详见
+[Agentic IDE 指南](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md#send-clear-work)。
 
 ## 从一句话到合并的拉取请求
 

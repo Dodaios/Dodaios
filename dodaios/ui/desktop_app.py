@@ -1985,6 +1985,11 @@ class DesktopApp:
         """Return whether voice activation is allowed for the desktop UI."""
         return bool(self._window is not None and self._window_visible)
 
+    def realtime_audio_renderer(self) -> str | None:
+        """Return the renderer for the embedded window, once it is available."""
+        renderer = getattr(getattr(self._window, "gui", None), "renderer", None)
+        return str(renderer) if renderer else None
+
     def get_background_status(self) -> BackgroundStatus:
         """Report the current session's close policy without native GUI calls."""
         from dodaios.ui.desktop_background import native_background_reason  # noqa: PLC0415
@@ -4973,6 +4978,7 @@ class DesktopApp:
                 output_device=self.cfg.audio.output_device or None,
                 config=self.cfg,
                 vision_provider=voice_vision,
+                realtime_audio_renderer=self.realtime_audio_renderer,
                 activation_gate=voice_activation_gate,
                 user_activation_gate=voice_user_gate,
                 ack_brain=voice_ack_brain,
