@@ -118,6 +118,24 @@ logs/
 /*.webm
 /*.mkv
 /*.log
+# Films, recordings, masters and archives anywhere in the tree, not only the
+# root (scripts/ci/check_repo_junk.py enforces the same list).
+*.mp4
+*.m4v
+*.mov
+*.webm
+*.mkv
+*.avi
+*.wav
+*.flac
+*.blend
+*.blend1
+*.psd
+*.exr
+*.zip
+*.7z
+*.bak
+*.backup
 # OS screenshot dumps anywhere in the tree (Windows / macOS naming). Extension-free
 # so the .jpg and .mp4 variants of the same dialog are caught too.
 Screenshot *
