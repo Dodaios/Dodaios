@@ -21,7 +21,7 @@ import { useSectionHealth } from "@/hooks/useProviders";
 import { usePluginAttention } from "@/hooks/usePluginAttention";
 import { clsx } from "clsx";
 import { cn } from "@/lib/utils";
-import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { useT } from "@/i18n";
 import { RecentChats } from "@/components/home/RecentChats";
 import { useHomeStore } from "@/store/home";
@@ -29,6 +29,7 @@ import { LazyIdeProjectTree } from "@/components/agentic/LazyIdeProjectTree";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { SidebarSearchBar } from "@/components/layout/SidebarSearchBar";
+import { SidebarMoreFlyout } from "@/components/layout/SidebarMoreFlyout";
 import { useQuickSwitchSettings } from "@/store/quickSwitchSettings";
 import { useAppInstance } from "@/hooks/useAppInstance";
 import { usePublishIdentity } from "@/hooks/usePublishIdentity";
@@ -224,7 +225,6 @@ export function Sidebar({
    * long as any of them is running.
    */
   const onIdeSection = IDE_SECTIONS.includes(active);
-  const [moreOpen, setMoreOpen] = useState(false);
   // An empty chat on the front page: nothing open, nothing being read.
   const onEmptyChat = useAgentChatStore(
     (st) => active === "chats" && !st.activeSessionId && st.timeline.items.length === 0,
@@ -531,22 +531,25 @@ export function Sidebar({
               <Plus aria-hidden strokeWidth={1.75} className="h-[18px] w-[18px] shrink-0" />
               {!railed && <span>{t("sidebar.new_chat")}</span>}
             </button></li>
+            {/* The order the maintainer chose (2026-10-26): the agents, where
+                they code, what they built on their own, the voice, then the
+                extensions. */}
             {renderRow(findItem("agents"))}
-            {/* What the agents and the loop built on their own, beside them. */}
+            {renderRow(findItem("agentic-ide"))}
             {renderRow(findItem("self-build"))}
             {renderRow(findItem("dictation"))}
           </ul>
           <ul className="space-y-px">
-            {renderRow(findItem("visualization"))}
-            {renderRow(findItem("agentic-ide"))}
             {renderRow({ ...findItem("plugins"), labelKey: "sidebar.extensions_label" })}
+            {renderRow(findItem("visualization"))}
           </ul>
-          <button type="button" onClick={() => { setMoreOpen(!moreOpen); }} aria-expanded={moreOpen}
-            aria-controls="sidebar-more" title={t("sidebar.more")} data-testid="sidebar-more-toggle" className={cn(rowClass, "text-muted-foreground")}>
-            <ChevronDown aria-hidden strokeWidth={1.75} className={cn("h-[18px] w-[18px] shrink-0 transition-transform", moreOpen && "rotate-180")} />
-            {!railed && <span>{t(moreOpen ? "sidebar.show_less" : "sidebar.more")}</span>}
-          </button>
-          {moreOpen && <ul id="sidebar-more" className="space-y-1">{moreItems.map((item) => renderRow(item))}</ul>}
+          <SidebarMoreFlyout
+            items={moreItems}
+            railed={railed}
+            rowClass={rowClass}
+            label={t("sidebar.more")}
+            renderRow={(item) => renderRow(item, false)}
+          />
         </nav>}
         {!railed && (onIdeSection
           ? <LazyIdeProjectTree />
