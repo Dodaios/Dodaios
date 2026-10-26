@@ -19,6 +19,7 @@ import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { useRunLocale } from "@/components/runs/format";
 import { useLocaleChunk, useT } from "@/i18n";
 import { societyDisplayName } from "@/lib/societyDisplayName";
+import { resolveToolBrand } from "@/lib/toolBrand";
 import { useEventStore } from "@/store/events";
 
 import { RuntimeMark } from "../../RuntimeBadge";
@@ -93,7 +94,10 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
   if (!lead && disconnected.length > 0) {
     suggestions.push({
       id: "connect",
-      text: t("society.agent_pane.suggest_connect").replace("{0}", String(disconnected.length)),
+      text: t("society.agent_pane.suggest_connect").replace(
+        "{0}",
+        disconnected.map((id) => resolveToolBrand(byId.get(id)?.tool_name || id.replace(/^[a-z]+:/, "")).label).join(", "),
+      ),
       go: () => onTab("tools"),
     });
   }
@@ -108,7 +112,7 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
   const toolsDetail = lead
     ? t("society.card.tools_all")
     : agent.focus.length
-      ? agent.focus.map((id) => byId.get(id)?.label ?? id.replace(/^(plugin|cli|mcp|skill|core):/, "")).join(", ")
+      ? agent.focus.map((id) => resolveToolBrand(byId.get(id)?.tool_name || id.replace(/^(plugin|cli|mcp|skill|core):/, "")).label).join(", ")
       : agent.grantMode === "allowlist"
         ? t("society.agent_pane.tools_allowlist_detail").replace("{0}", String(agent.toolGrants.length))
         : t("society.agent_pane.tools_all_detail");
@@ -150,7 +154,7 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
       <PaneSection title={t("society.agent_pane.identity")}>
         <div className="flex flex-col gap-1.5">
           <div className="flex min-w-0 items-baseline gap-2">
-            <span className="w-14 shrink-0 text-xs text-muted-foreground">{t("society.profile_card.name")}</span>
+            <span className="w-14 shrink-0 truncate text-xs text-muted-foreground">{t("society.profile_card.name")}</span>
             {lead ? (
               <span className="truncate text-sm font-medium" title={t("society.agent_pane.lead_name_hint")}>
                 {societyDisplayName(agent, assistantName)}
@@ -171,7 +175,7 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
             )}
           </div>
           <div className="flex min-w-0 items-baseline gap-2">
-            <span className="w-14 shrink-0 text-xs text-muted-foreground">{t("society.profile_card.role")}</span>
+            <span className="w-14 shrink-0 truncate text-xs text-muted-foreground">{t("society.agent_pane.role")}</span>
             <InlineEdit
               value={agent.title}
               label={t("society.agent_pane.edit_role")}
@@ -262,7 +266,7 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
                 ? t("society.agent_pane.memory_waiting").replace("{0}", String(pendingReview))
                 : t("society.agent_pane.memory_detail")
             }
-            count={sample ? null : memoryFiles.length}
+            count={sample ? null : pendingReview > 0 ? pendingReview : memoryFiles.length}
             attention={pendingReview > 0}
             onOpen={() => onTab("memory")}
             testId="agent-pane-row-memory"

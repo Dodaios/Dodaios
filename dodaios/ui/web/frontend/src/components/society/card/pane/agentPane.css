@@ -132,11 +132,15 @@
   gap: 2px;
   border-bottom: 1px solid hsl(var(--border));
   padding: 0 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.ap-tabs::-webkit-scrollbar { display: none; }
 
 .ap-tab {
   position: relative;
   display: inline-flex;
+  flex-shrink: 0;
   height: 34px;
   min-width: 30px;
   align-items: center;

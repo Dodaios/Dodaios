@@ -50,7 +50,7 @@ test("rejected environment selection keeps the saved environment", async () => {
 });
 
 test("leaving the sandbox asks before the agent gets this computer back", async () => {
-  const fetcher = vi.fn(async (url: string) => new Response(JSON.stringify(
+  const fetcher = vi.fn(async (url: string, _init?: RequestInit) => new Response(JSON.stringify(
     url === "/api/society/sandbox" ? { available: true } : { files: [] },
   )));
   vi.stubGlobal("fetch", fetcher);
