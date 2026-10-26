@@ -10,6 +10,11 @@ const terminalHarness = vi.hoisted(() => ({
   spacingAtOpen: [] as unknown[],
   /** What the terminal reports after a fit — a test moves it to grow the pane. */
   size: { cols: 80, rows: 24 },
+  /**
+   * The columns the grid HOLDS, when a test needs them apart from what the
+   * tile proposes (null: the grid always matches the staged size).
+   */
+  gridCols: null as number | null,
   /** Every frame the pane hands its socket. Returns whether it went out. */
   send: vi.fn<(payload: unknown) => boolean>(() => true),
   /** Every explicit grid resize — how the pane pins itself below the floors. */
@@ -62,7 +67,7 @@ const terminalHarness = vi.hoisted(() => ({
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     get cols() {
-      return terminalHarness.size.cols;
+      return terminalHarness.gridCols ?? terminalHarness.size.cols;
     }
     get rows() {
       return terminalHarness.size.rows;
@@ -208,6 +213,7 @@ import {
   AgenticTerminal,
   CURTAIN_MAX_MS,
   DRAG_REFIT_MS,
+  NARROW_SETTLE_MS,
   REBUILD_QUIET_MS,
   REBUILD_SETTLE_MAX_MS,
   REPAINT_WAIT_MAX_MS,
@@ -1489,6 +1495,69 @@ describe("pane refit", () => {
     vi.restoreAllMocks();
     Reflect.deleteProperty(HTMLElement.prototype, "clientWidth");
     Reflect.deleteProperty(HTMLElement.prototype, "clientHeight");
+  });
+
+  it("gives the agent a narrower width only once the tile has held it", () => {
+    // Recorded 2026-10-26: a layout switch squeezed every pane to 16 columns
+    // for about a second. Claude Code sized a running command's output for
+    // those 16 columns and kept that height, leaving 36 blank rows mid-pane.
+    terminalHarness.gridCols = 80;
+    terminalHarness.fit.mockImplementation(() => {
+      terminalHarness.gridCols = terminalHarness.size.cols;
+    });
+    try {
+      render(pane(false));
+      settle();
+      const sentCols = () =>
+        terminalHarness.send.mock.calls
+          .map(([frame]) => frame as { t?: string; cols?: number })
+          .filter((frame) => frame.t === "r" || frame.t === "claim")
+          .map((frame) => frame.cols);
+      terminalHarness.send.mockClear();
+
+      // A squeeze that is undone again never reaches the agent.
+      terminalHarness.size = { cols: 16, rows: 24 };
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      settle();
+      terminalHarness.size = { cols: 80, rows: 24 };
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      settle();
+      act(() => {
+        vi.advanceTimersByTime(NARROW_SETTLE_MS + 100);
+      });
+      expect(sentCols()).not.toContain(16);
+      expect(terminalHarness.gridCols).toBe(80);
+
+      // A narrowing that stays is applied once it has held.
+      terminalHarness.size = { cols: 40, rows: 24 };
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      settle();
+      expect(sentCols()).not.toContain(40);
+      act(() => {
+        vi.advanceTimersByTime(NARROW_SETTLE_MS);
+      });
+      settle();
+      expect(sentCols()).toContain(40);
+      expect(terminalHarness.gridCols).toBe(40);
+
+      // Widening is not held.
+      terminalHarness.send.mockClear();
+      terminalHarness.size = { cols: 90, rows: 24 };
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+      settle();
+      expect(sentCols()).toContain(90);
+    } finally {
+      terminalHarness.gridCols = null;
+      terminalHarness.fit.mockReset();
+    }
   });
 
   it("follows a drag in throttled steps instead of freezing until release", () => {
