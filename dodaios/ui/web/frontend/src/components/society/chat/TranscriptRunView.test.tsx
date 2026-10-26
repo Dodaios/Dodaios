@@ -119,3 +119,24 @@ describe("announcer", () => {
     expect(screen.getByTestId("run-announcer").textContent).toBe("Scout replied.");
   });
 });
+
+describe("live turn", () => {
+  it("keeps the same turn mounted when it finishes, so the done flourish can play", () => {
+    const start = [
+      ev("user_message", { text: "hi" }, BASE),
+      ev("turn_started", { turn_id: "t1", provider: "openai" }, BASE + 1),
+      ev("assistant_text", { turn_id: "t1", message_id: "m1", text: "Hello!" }, BASE + 2),
+    ];
+    const { rerender } = draw(start);
+    const running = screen.getByTestId("messenger-turn");
+    expect(running.dataset.status).toBe("running");
+    const done = reduceEvents(EMPTY_TIMELINE, [
+      ...start,
+      ev("turn_finished", { turn_id: "t1", status: "done", duration_ms: 10 }, BASE + 3),
+    ]).items;
+    rerender(<Transcript items={done} agent={agent} roster={[]} onDecide={async () => {}} />);
+    const finished = screen.getByTestId("messenger-turn");
+    expect(finished).toBe(running);
+    expect(finished.dataset.status).toBe("done");
+  });
+});
