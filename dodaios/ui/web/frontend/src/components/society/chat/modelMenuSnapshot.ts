@@ -33,8 +33,8 @@ const snapshotSchema = z.object({
       tier: z.unknown().transform(() => null), warning: z.unknown().transform(() => null),
     })).max(100),
   })).max(100),
-  live: z.record(z.array(model).max(20_000)),
-  liveUpdatedAt: z.record(z.number().finite().nonnegative()).default({}),
+  live: z.record(z.string(), z.array(model).max(20_000)),
+  liveUpdatedAt: z.record(z.string(), z.number().finite().nonnegative()).default({}),
 });
 
 export interface ModelMenuSnapshot {

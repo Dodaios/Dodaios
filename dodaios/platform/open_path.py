@@ -37,7 +37,11 @@ def open_file(path: Path) -> bool:
         if plat == "win32":
             os.startfile(str(path))  # type: ignore[attr-defined]  # noqa: S606
             return True
+        # The argv list never goes through a shell. A relative path that
+        # starts with "-" is anchored with "./" so it is never read as an option.
         path_str = path.as_posix()
+        if path_str.startswith("-"):
+            path_str = f"./{path_str}"
         cmd = ["open", path_str] if plat == "darwin" else ["xdg-open", path_str]
         subprocess.Popen(  # noqa: S603
             cmd, creationflags=NO_WINDOW_CREATIONFLAGS, close_fds=True

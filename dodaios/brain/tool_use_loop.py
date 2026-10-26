@@ -455,6 +455,23 @@ def _meta_debug_ack_phrase(
     )
 
 
+def _has_indicative_subject_before(text: str, end: int) -> bool:
+    """Does ``text[:end]`` end in a subject or infinitive marker plus whitespace?
+
+    Same answer as ``_INDICATIVE_SUBJECT_BEFORE_RE.search(text[:end])``, but it
+    only looks at the end of the prefix. Searching the whole prefix once per
+    verb match made a long run of "to mach to mach ..." quadratic.
+    """
+    cut = end
+    while cut > 0 and text[cut - 1].isspace():
+        cut -= 1
+    if cut == end:
+        return False
+    # The longest subject word has four letters; one more character lets the
+    # leading word boundary see what precedes it.
+    return _INDICATIVE_SUBJECT_BEFORE_RE.search(text[max(0, cut - 5):end]) is not None
+
+
 def _has_trailing_imperative(utterance: str) -> bool:
     """True when a command follows the question inside the SAME turn.
 
@@ -470,7 +487,7 @@ def _has_trailing_imperative(utterance: str) -> bool:
     for match in _IMPERATIVE_VERB_RE.finditer(tail):
         if _INDICATIVE_SUBJECT_RE.match(tail, match.end()):
             continue
-        if _INDICATIVE_SUBJECT_BEFORE_RE.search(tail[:match.start()]):
+        if _has_indicative_subject_before(tail, match.start()):
             continue
         return True
     return False

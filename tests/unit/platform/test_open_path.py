@@ -399,3 +399,11 @@ def test_open_url_never_raises_on_error():
          patch.object(op.subprocess, "run", side_effect=OSError("boom")), \
          patch.object(op.shutil, "which", return_value=None):
         assert op.open_url("https://example.com") is False
+
+
+def test_open_file_never_passes_a_leading_dash_as_an_option():
+    with patch.object(op, "detect_capabilities", return_value=_caps()), \
+         patch.object(op, "detect_platform", return_value="linux"), \
+         patch.object(op.subprocess, "Popen") as popen:
+        assert op.open_file(Path("-n.md")) is True
+        assert popen.call_args.args[0] == ["xdg-open", "./-n.md"]

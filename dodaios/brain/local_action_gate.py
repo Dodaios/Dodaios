@@ -263,33 +263,66 @@ _INDICATIVE_SUBJECT_BEFORE_RE = re.compile(
 #: 1st-person and impersonal subjects count here — never "du"/"you", which can
 #: perfectly well address Jarvis ("du sollst mal runterscrollen" is an order,
 #: not narration).
-_CLAUSE_START_RE = re.compile(r"[,;:.!?]")
+_CLAUSE_BREAK_MARKS = ",;:.!?"
 _NARRATING_SUBJECT_RE = re.compile(r"\b(?:ich|man|wir|i|we)\b", re.IGNORECASE)
 
 
-def _is_narrated(text: str, start: int, end: int) -> bool:
-    """True when the verb at ``[start:end)`` carries an explicit subject.
+def _has_subject_before(text: str, end: int) -> bool:
+    """``_INDICATIVE_SUBJECT_BEFORE_RE.search(text[:end])``, reading only the end.
+
+    The pattern is anchored at the end of the prefix, so only the trailing
+    whitespace and the word in front of it can match. The longest subject word
+    has four letters; one more character lets the word boundary see what
+    precedes it.
+    """
+    cut = end
+    while cut > 0 and text[cut - 1].isspace():
+        cut -= 1
+    if cut == end:
+        return False
+    return _INDICATIVE_SUBJECT_BEFORE_RE.search(text[max(0, cut - 5):end]) is not None
+
+
+def _has_unnarrated_verb(text: str, verb_re: re.Pattern[str]) -> bool:
+    """True when some ``verb_re`` match carries no explicit subject.
 
     A described action ("dann klicke ich da drauf") is not an order. Same shape
     as ``spawn_gate._REPORTED_VEHICLE_RE``: the vocabulary matches, but the
     grammar says the user is reporting, not requesting.
+
+    A verb is narrated when a subject follows it, an English subject or
+    infinitive marker precedes it, or a 1st-person/impersonal subject sits
+    anywhere in its clause (the text since the last clause break). The clause
+    is scanned incrementally, once overall: re-reading everything in front of
+    every verb made long inputs quadratic.
     """
-    before = text[:start]
-    clause_breaks = list(_CLAUSE_START_RE.finditer(before))
-    clause = before[clause_breaks[-1].end():] if clause_breaks else before
-    return bool(
-        _INDICATIVE_SUBJECT_AFTER_RE.match(text, end)
-        or _INDICATIVE_SUBJECT_BEFORE_RE.search(before)
-        or _NARRATING_SUBJECT_RE.search(clause)
-    )
+    clause_has_subject = False
+    scanned = 0
+    for match in verb_re.finditer(text):
+        start, end = match.span()
+        gap = text[scanned:start]
+        last_break = max(gap.rfind(mark) for mark in _CLAUSE_BREAK_MARKS)
+        if last_break >= 0:
+            clause_has_subject = False
+            gap = gap[last_break + 1:]
+        # A subject word cannot straddle ``scanned``: it is either 0 or the
+        # start of an earlier verb match, which sits on a word boundary.
+        if not clause_has_subject and _NARRATING_SUBJECT_RE.search(gap):
+            clause_has_subject = True
+        scanned = start
+        narrated = (
+            clause_has_subject
+            or _INDICATIVE_SUBJECT_AFTER_RE.match(text, end) is not None
+            or _has_subject_before(text, start)
+        )
+        if not narrated:
+            return True
+    return False
 
 
 def _has_assistant_imperative(text: str) -> bool:
     """True when the turn gives Jarvis an order somewhere in it."""
-    return any(
-        not _is_narrated(text, match.start(), match.end())
-        for match in _ASSISTANT_IMPERATIVE_RE.finditer(text)
-    )
+    return _has_unnarrated_verb(text, _ASSISTANT_IMPERATIVE_RE)
 
 
 def _is_information_question(text: str) -> bool:
@@ -313,10 +346,7 @@ def _has_commanding_gui_verb(text: str) -> bool:
     ``_GUI_VERB_RE`` alone matched "dann klicke ich da drauf" and handed a
     vocabulary question to the vision loop (live 2026-08-25).
     """
-    return any(
-        not _is_narrated(text, match.start(), match.end())
-        for match in _GUI_VERB_RE.finditer(text)
-    )
+    return _has_unnarrated_verb(text, _GUI_VERB_RE)
 
 
 def _looks_like_desktop_control(text: str) -> bool:
