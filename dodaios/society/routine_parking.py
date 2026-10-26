@@ -103,7 +103,7 @@ class ParkingState:
     def from_json(cls, raw: str) -> ParkingState:
         try:
             data = json.loads(raw) if raw else {}
-        except ValueError:
+        except ValueError:  # a corrupt parking file starts fresh with defaults
             data = {}
         if not isinstance(data, dict):
             data = {}
@@ -182,7 +182,7 @@ def activity_of(row: dict[str, Any]) -> RoutineActivity:
     if raw:
         try:
             spec = json.loads(raw) if isinstance(raw, str) else dict(raw)
-        except ValueError:
+        except ValueError:  # an unreadable spec reads as a routine with no trigger
             spec = {}
     trigger = spec.get("trigger") or {}
     tags = [str(t) for t in spec.get("tags") or []]
@@ -212,7 +212,7 @@ async def load_days(society_store: Any) -> int:
     raw = await society_store.get_meta(_DAYS_KEY, "")
     try:
         days = int(raw) if raw != "" else DEFAULT_DAYS
-    except ValueError:
+    except ValueError:  # a non-numeric setting falls back to the default window
         days = DEFAULT_DAYS
     return max(0, min(MAX_DAYS, days))
 
