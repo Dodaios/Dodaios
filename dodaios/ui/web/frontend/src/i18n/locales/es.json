@@ -10226,5 +10226,130 @@
     "label": "Hecho por {name}",
     "title": "{name} lo construyó por su cuenta. Abrir su construcción.",
     "trial": "en prueba"
+  },
+  "run_view": {
+    "phrase": {
+      "thinking_0": "Pensando",
+      "thinking_1": "Planeando el siguiente paso",
+      "thinking_2": "Sopesándolo",
+      "thinking_3": "Atando cabos",
+      "composing": "Respondiendo",
+      "search_web": "Buscando en internet",
+      "search_web_for": "Buscando «{target}»",
+      "search_files": "Buscando en el proyecto",
+      "search_for": "Buscando «{target}»",
+      "read_page": "Leyendo una página de {target}",
+      "read_any": "Abriendo un archivo",
+      "read_file": "Abriendo {target}",
+      "view_image": "Mirando una imagen",
+      "list_folder": "Revisando {target}",
+      "edit_file": "Editando {target}",
+      "write_file": "Escribiendo {target}",
+      "write_any": "Escribiendo un archivo",
+      "run_cmd": "Ejecutando {target}",
+      "run_any": "En la terminal",
+      "browse_site": "En {target}",
+      "browse_any": "En el navegador",
+      "recall": "Revisando sus notas",
+      "note": "Tomando una nota",
+      "message": "Escribiendo a {target}",
+      "message_any": "Escribiendo a un compañero",
+      "delegate": "Preparando a un ayudante: {target}",
+      "delegate_any": "Un ayudante se encarga",
+      "delegate_many": "{target} ayudantes trabajando",
+      "connect": "Trabajando en {target}",
+      "setup": "Preparando todo",
+      "waiting": "Necesita tu respuesta",
+      "waiting_approval": "Necesita tu visto bueno",
+      "working_0": "En ello",
+      "working_1": "Avanzando",
+      "working_2": "Resolviéndolo"
+    },
+    "timer": {
+      "min": "{count} min",
+      "hour": "{hours} h {minutes} min"
+    },
+    "work": {
+      "working": "Trabajando",
+      "worked_for": "Trabajó {duration}",
+      "stopped_after": "Detenido tras {duration}",
+      "failed_after": "Terminó con un error tras {duration}",
+      "steps_one": "{count} paso",
+      "steps_other": "{count} pasos",
+      "files_one": "{count} archivo",
+      "files_other": "{count} archivos",
+      "helpers_one": "{count} ayudante",
+      "helpers_other": "{count} ayudantes",
+      "open": "Ver el trabajo"
+    },
+    "inspector": {
+      "title": "Registro de trabajo",
+      "close": "Cerrar el registro de trabajo",
+      "resize": "Cambiar el ancho del registro de trabajo",
+      "tabs": "Quién trabajó en esto",
+      "tokens": "{count} tokens",
+      "thoughts_one": "{count} pensamiento",
+      "thoughts_other": "{count} pensamientos",
+      "failed": "{count} fallidos",
+      "expand_all": "Abrir todo",
+      "collapse_all": "Cerrar todo",
+      "empty": "No se registró nada en este turno.",
+      "empty_live": "Los pasos aparecen aquí en cuanto el agente los da.",
+      "thought_private": "El proveedor mantiene en privado el texto de este pensamiento.",
+      "no_details": "No se registraron detalles.",
+      "open_helper": "Abrir el registro del ayudante",
+      "no_answer": "Sin respuesta",
+      "truncated": "{count} líneas más sin mostrar",
+      "empty_output": "No devolvió nada.",
+      "took": "Tardó {duration}"
+    },
+    "row": {
+      "prompt": "Tu mensaje",
+      "task": "Tarea",
+      "thought": "Pensamiento",
+      "thought_hidden": "Pensamiento (privado)",
+      "reply": "Respuesta",
+      "question": "Te preguntó",
+      "credential": "Pidió una credencial",
+      "approval": "Pidió tu visto bueno",
+      "helper": "Ayudante"
+    },
+    "status": {
+      "running": "En curso",
+      "done": "Hecho",
+      "failed": "Falló",
+      "stopped": "Detenido",
+      "waiting": "Te espera",
+      "declined": "Rechazado"
+    },
+    "section": {
+      "asked_for": "Pidió",
+      "request": "Solicitud",
+      "task": "Tarea",
+      "answer": "Respuesta",
+      "command": "Comando",
+      "input": "Entrada",
+      "changes": "Cambios",
+      "output": "Salida",
+      "error": "Error"
+    },
+    "announce": {
+      "started": "{agent} empezó a trabajar.",
+      "replied": "{agent} respondió.",
+      "finished": "{agent} terminó.",
+      "stopped": "{agent} se detuvo.",
+      "failed": "{agent} tuvo un problema.",
+      "asked": "{agent} pregunta: {question}",
+      "needs_ok": "{agent} necesita tu visto bueno."
+    },
+    "time": {
+      "today": "Hoy {time}",
+      "yesterday": "Ayer {time}"
+    },
+    "pill": {
+      "new_one": "{count} mensaje nuevo",
+      "new_other": "{count} mensajes nuevos",
+      "dismiss": "Descartar"
+    }
   }
 }

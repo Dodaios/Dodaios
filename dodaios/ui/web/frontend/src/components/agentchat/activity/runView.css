@@ -1,0 +1,177 @@
+/*
+ * The run view: the live activity line, the per-turn "show work" line, the
+ * transcript's time stamps and catch-up pills. Theme variables only; the
+ * agent's own colour (--agent) is the one accent.
+ */
+
+/* ---- activity line ------------------------------------------------------ */
+
+.run-activity {
+  min-height: 36px;
+}
+.run-activity .bs-label {
+  /* The phrase carries its own light sweep; the stage's pulse would fight it. */
+  animation: bs-label-in 0.3s ease-out both;
+  max-width: 100%;
+  overflow: hidden;
+}
+.run-activity-words {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.run-activity-phrase {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--muted-foreground)) 0%,
+    hsl(var(--muted-foreground)) 36%,
+    hsl(var(--foreground-strong)) 50%,
+    hsl(var(--muted-foreground)) 64%,
+    hsl(var(--muted-foreground)) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: run-sweep 2.6s linear infinite;
+}
+.run-activity[data-family="waiting"] .run-activity-phrase {
+  /* Nothing moves until the person answers: the words rest. */
+  animation: none;
+  background-image: none;
+  color: hsl(var(--foreground-secondary));
+}
+.run-activity-timer {
+  flex: none;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+.run-activity-brand,
+.run-activity-peer {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+@keyframes run-sweep {
+  from { background-position: 100% 0; }
+  to { background-position: -150% 0; }
+}
+
+/* ---- show work ------------------------------------------------------------ */
+
+.run-work {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 10px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 18px;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.run-work:hover,
+.run-work[aria-expanded="true"] {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+.run-work:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+.run-work-sep {
+  opacity: 0.5;
+}
+.run-work-chev {
+  opacity: 0;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.run-work:hover .run-work-chev,
+.run-work:focus-visible .run-work-chev,
+.run-work[aria-expanded="true"] .run-work-chev {
+  opacity: 0.7;
+}
+@media (hover: none) {
+  .run-work-chev { opacity: 0.7; }
+}
+.run-diff-add { color: hsl(var(--diff-add)); }
+.run-diff-del { color: hsl(var(--diff-del)); }
+
+/* ---- time stamps ---------------------------------------------------------- */
+
+.run-stamp {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.01em;
+}
+.run-stamp::before,
+.run-stamp::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: hsl(var(--border));
+}
+
+/* ---- catch-up pill ---------------------------------------------------------- */
+
+.run-pill {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border-strong));
+  background: hsl(var(--card));
+  box-shadow: 0 12px 32px -8px rgb(var(--scrim-rgb) / 0.55), 0 1px 2px rgb(var(--scrim-rgb) / 0.18);
+  font-size: 12px;
+  line-height: 18px;
+  animation: run-pill-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.run-pill button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  color: hsl(var(--foreground));
+  transition: background-color 150ms ease;
+}
+.run-pill button:hover { background: hsl(var(--secondary)); }
+.run-pill button:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+.run-pill-main { padding: 5px 6px 5px 12px; }
+.run-pill-close { padding: 6px; color: hsl(var(--muted-foreground)) !important; }
+@keyframes run-pill-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ---- new rows settle in --------------------------------------------------- */
+
+.run-settle {
+  will-change: height;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-activity-phrase {
+    animation: none;
+    background-image: none;
+    color: hsl(var(--foreground-secondary));
+  }
+  .run-pill { animation: none; }
+  .run-work, .run-work-chev { transition: none; }
+}

@@ -65,7 +65,6 @@ import { AwaitingTurn, MessengerTurn, type MemoryLink } from "@/components/agent
 import { VoiceStage } from "@/components/home/VoiceStage";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { fill, useT } from "@/i18n";
-import { useRunLocale } from "@/components/runs/format";
 import { cn } from "@/lib/utils";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { createAgentChatStore, useAgentChatStore, type AgentChatStoreHook } from "@/store/agentChat";
@@ -96,9 +95,18 @@ import {
   mentionsInText,
   type MentionItem,
 } from "./mentionItems";
+import { stampPlan, type StampEntry } from "@/components/agentchat/activity/transcriptTime";
+import { CatchUpPill, RunAnnouncer, SettleBox, TranscriptStamp, useFarFromEnd, useUnseen } from "@/components/agentchat/activity/TranscriptAids";
+import { WorkInspector } from "@/components/agentchat/inspector/WorkInspector";
+import { inspectorDocked, readInspectorWidth, writeInspectorWidth } from "@/components/agentchat/inspector/inspectorWidth";
 
-/** A gap this long between messages earns a fresh time stamp. */
-const STAMP_GAP_MS = 30 * 60_000;
+/** Who spoke an item, for time stamps that never split one speaker's run. */
+function stampEntry(item: TimelineItem): StampEntry {
+  const ts = item.type === "turn" ? item.startedMs : item.tsMs;
+  const author = item.type === "turn" ? "agent" : item.type === "user" ? "person" : item.type;
+  const end = item.type === "turn" && item.durationMs ? item.startedMs + item.durationMs : undefined;
+  return { id: item.id, ts, end, author };
+}
 
 /**
  * Messages use the full conversation lane; each bubble limits its own prose
@@ -711,6 +719,61 @@ export function Transcript({
   // watches the content's own size too, so growth follows; scrolled up, the
   // reader keeps their place and gets a button back.
   const { rootRef, contentRef, atEnd, jumpToEnd, follow } = useStickToBottom();
+  // The scroller itself too: past 80 px from the end it offers the way back.
+  const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const setRoot = useCallback((node: HTMLDivElement | null) => {
+    rootRef(node);
+    setScroller(node);
+  }, [rootRef]);
+  const far = useFarFromEnd(scroller);
+  const unseen = useUnseen(items, atEnd);
+  // A stamp marks a pause of 15 minutes or a new day, before a speaker's run.
+  const stamps = useMemo(() => stampPlan(items.map(stampEntry)), [items]);
+  const assistantName = useEventStore((state) => state.assistantName);
+  // "Writing to Scout": a teammate by the name and face a person knows.
+  const memberOf = useCallback((value: string) => {
+    const key = value.trim().toLowerCase();
+    return roster.find((a) => a.agentId === value || a.name.toLowerCase() === key);
+  }, [roster]);
+  const nameOf = useCallback((value: string) => {
+    const member = memberOf(value);
+    return member ? societyDisplayName(member, assistantName) : value;
+  }, [memberOf, assistantName]);
+  const peerFace = useCallback((value: string) => {
+    const member = memberOf(value);
+    return member ? <AgentSwatch agent={{ ...member, state: undefined }} size={16} /> : null;
+  }, [memberOf]);
+  // The work inspector: one turn's whole trace beside the conversation.
+  const [inspecting, setInspecting] = useState<string | null>(null);
+  const inspectedAt = inspecting ? items.findIndex((item) => item.type === "turn" && item.id === inspecting) : -1;
+  const inspected = inspectedAt >= 0 ? items[inspectedAt] as TurnItem : null;
+  const inspectedPrompt = useMemo(() => {
+    for (let i = inspectedAt - 1; i >= 0; i--) {
+      const item = items[i];
+      if (item.type === "user") return visibleUserText(item.text);
+      if (item.type === "turn") break;
+    }
+    return undefined;
+  }, [items, inspectedAt]);
+  const [inspectorWidth, setInspectorWidth] = useState(readInspectorWidth);
+  const onInspectorWidth = useCallback((width: number) => {
+    setInspectorWidth(width);
+    writeInspectorWidth(width);
+  }, []);
+  const closeInspector = useCallback(() => setInspecting(null), []);
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
+  const [frameWidth, setFrameWidth] = useState(0);
+  // Measured only while the inspector is open: a closed one costs nothing.
+  const inspectorOpen = inspected !== null;
+  useEffect(() => {
+    if (!frame || !inspectorOpen) return;
+    setFrameWidth(frame.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setFrameWidth(frame.clientWidth));
+    ro.observe(frame);
+    return () => ro.disconnect();
+  }, [frame, inspectorOpen]);
+  const docked = frameWidth > 0 && inspectorDocked(frameWidth, inspectorWidth);
   // The person's bubbles wear the colour of the agent they talk to.
   const tint = useMemo(() => bubbleTint(agentColor(agent)), [agent]);
   // `items` itself, not its length: a reasoning trace or tool row grows
@@ -732,57 +795,61 @@ export function Transcript({
     );
   }
 
-  let lastStamp = 0;
+  const displayName = societyDisplayName(agent, assistantName);
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div ref={rootRef} className="chat-scroller min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6" data-testid="society-transcript">
-        <div ref={contentRef} className={cn(CHAT_MEASURE, "flex flex-col gap-3")}>
-        {items.map((item) => {
-          const ts = item.type === "turn" ? item.startedMs : item.tsMs;
-          const stamp = ts && ts - lastStamp > STAMP_GAP_MS ? ts : 0;
-          if (stamp) lastStamp = ts;
-          return (
-            <div key={item.id} data-chat-item={item.id} className="flex flex-col gap-2">
-              {stamp ? <TimeStamp ms={stamp} /> : null}
-              {item.type === "internal" ? (
-                <AgentMessageActivity item={item} roster={roster} />
-              ) : item.type === "user" && assignmentOf(item.text) ? (
-                <DelegationActivity {...assignmentOf(item.text)!} roster={roster} />
-              ) : item.type === "user" && item.teamEvent ? (
-                <TeamEventLine event={item.teamEvent} text={item.text} />
-              ) : item.type === "user" ? (
-                <UserBubble item={item} agentId={agent.agentId} sessionId={sessionId ?? agent.chatSessionId ?? undefined} tint={tint} />
-              ) : item.type === "turn" ? (
-                <TurnBubble item={item} agent={agent} memory={memoryByTurn.get(item.id)} onDecide={onDecide} />
-              ) : item.type === "notice" ? (
-                item.kind === "proposal" ? (
-                  <ProposalCard item={item} />
-                ) : (
-                  <NoticeLine item={item} />
-                )
+    <div ref={setFrame} className="relative flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <div ref={setRoot} className="chat-scroller min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6" data-testid="society-transcript">
+          <div ref={contentRef} className={cn(CHAT_MEASURE, "flex flex-col gap-3")}>
+          {items.map((item, index) => {
+            const stamp = stamps.has(item.id) ? (item.type === "turn" ? item.startedMs : item.tsMs) : 0;
+            // The live turn glides to its new height as it grows.
+            const live = index === items.length - 1 && item.type === "turn" && item.status === "running";
+            const body = item.type === "internal" ? (
+              <AgentMessageActivity item={item} roster={roster} />
+            ) : item.type === "user" && assignmentOf(item.text) ? (
+              <DelegationActivity {...assignmentOf(item.text)!} roster={roster} />
+            ) : item.type === "user" && item.teamEvent ? (
+              <TeamEventLine event={item.teamEvent} text={item.text} />
+            ) : item.type === "user" ? (
+              <UserBubble item={item} agentId={agent.agentId} sessionId={sessionId ?? agent.chatSessionId ?? undefined} tint={tint} />
+            ) : item.type === "turn" ? (
+              <TurnBubble item={item} agent={agent} memory={memoryByTurn.get(item.id)} onDecide={onDecide}
+                nameOf={nameOf} peerFace={peerFace} workOpen={inspecting === item.id} onShowWork={setInspecting} />
+            ) : item.type === "notice" ? (
+              item.kind === "proposal" ? (
+                <ProposalCard item={item} />
               ) : (
-                <p className="self-start rounded-2xl bg-destructive/10 px-3 py-2 text-xs text-destructive">{item.text}</p>
-              )}
-            </div>
-          );
-        })}
-        {awaiting ? <AwaitingTurn since={awaiting.tsMs} seed={awaiting.id}
-          avatar={<AgentSwatch agent={{ ...agent, state: undefined }} size={28} expressive />} color={agentColor(agent)} /> : null}
+                <NoticeLine item={item} />
+              )
+            ) : (
+              <p className="self-start rounded-2xl bg-destructive/10 px-3 py-2 text-xs text-destructive">{item.text}</p>
+            );
+            return (
+              <div key={item.id} data-chat-item={item.id} className="flex flex-col gap-2">
+                {stamp ? <TranscriptStamp ms={stamp} /> : null}
+                {/* A turn always sits in its settle box, so finishing (or a
+                    notice arriving after it) never remounts it mid-flight. */}
+                {item.type === "turn" ? <SettleBox active={live}>{body}</SettleBox> : body}
+              </div>
+            );
+          })}
+          {awaiting ? <AwaitingTurn since={awaiting.tsMs} seed={awaiting.id}
+            avatar={<AgentSwatch agent={{ ...agent, state: undefined }} size={28} expressive />} color={agentColor(agent)} /> : null}
+          </div>
         </div>
+        {/* Scrolled up: what arrived meanwhile, else simply the way back. */}
+        {!atEnd && unseen.count > 0
+          ? <CatchUpPill count={unseen.count} onJump={jumpToEnd} onDismiss={unseen.dismiss} />
+          : !atEnd && far ? <ScrollToEndButton onClick={jumpToEnd} testId="society-scroll-end" className="top-auto bottom-3" /> : null}
+        <RunAnnouncer items={items} agentName={displayName} />
       </div>
-      {!atEnd && <ScrollToEndButton onClick={jumpToEnd} testId="society-scroll-end" className="top-auto bottom-3" />}
+      {inspected ? <WorkInspector turn={inspected} prompt={inspectedPrompt} agentName={displayName}
+        color={agentColor(agent)} avatar={<AgentSwatch agent={{ ...agent, state: undefined }} size={24} />}
+        width={docked || frameWidth === 0 ? inspectorWidth : Math.min(inspectorWidth, Math.max(280, frameWidth - 24))}
+        onWidth={onInspectorWidth} floating={!docked} onClose={closeInspector} /> : null}
     </div>
   );
-}
-
-function TimeStamp({ ms }: { ms: number }) {
-  const t = useT();
-  const locale = useRunLocale();
-  const date = new Date(ms);
-  const today = new Date().toDateString() === date.toDateString();
-  const time = date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-  const day = today ? t("society.chat.today") : date.toLocaleDateString(locale, { day: "2-digit", month: "short" });
-  return <p className="my-4 text-center text-[11px] text-muted-foreground">{`${day} ${time}`}</p>;
 }
 
 /**
@@ -1074,11 +1141,20 @@ function TurnBubble({
   agent,
   memory,
   onDecide,
+  nameOf,
+  peerFace,
+  workOpen,
+  onShowWork,
 }: {
   item: TurnItem;
   agent: SocietyAgent;
   memory?: NoticeItem[];
   onDecide: (approvalId: string, decision: ApprovalDecision) => Promise<void>;
+  nameOf?: (idOrName: string) => string;
+  peerFace?: (peer: string) => ReactNode;
+  workOpen?: boolean;
+  /** Opens the work inspector on a turn (by its id). */
+  onShowWork?: (turnId: string) => void;
 }) {
   const t = useT();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -1090,12 +1166,15 @@ function TurnBubble({
     [memory, t],
   );
   const opened = openId ? memory?.find((notice) => notice.id === openId) : undefined;
+  const face = useMemo(() => <AgentSwatch agent={{ ...agent, state: undefined }} size={28} expressive />, [agent]);
+  const showWork = useMemo(() => onShowWork ? () => onShowWork(item.id) : undefined, [onShowWork, item.id]);
   // An agent's turn reads like a messenger: its messages, what it changed,
   // and while it works its face with a word for what it is doing.
   // The face stays a face: the effect beside it says what it is doing, so
   // the swatch's own "working" dots would only repeat it.
   return <>
-    <MessengerTurn turn={item} avatar={<AgentSwatch agent={{ ...agent, state: undefined }} size={28} expressive />} color={agentColor(agent)} onDecide={onDecide} memoryLinks={memoryLinks} />
+    <MessengerTurn turn={item} avatar={face} color={agentColor(agent)} onDecide={onDecide} memoryLinks={memoryLinks}
+      nameOf={nameOf} peerFace={peerFace} onShowWork={showWork} workOpen={workOpen} />
     {opened && <MemoryNoticeViewer item={opened} onClose={() => setOpenId(null)} />}
   </>;
 }

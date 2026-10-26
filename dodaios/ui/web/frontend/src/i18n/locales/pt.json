@@ -10226,5 +10226,130 @@
     "label": "Feito por {name}",
     "title": "{name} construiu isto por iniciativa própria. Abrir a construção.",
     "trial": "em ensaio"
+  },
+  "run_view": {
+    "phrase": {
+      "thinking_0": "Pensando",
+      "thinking_1": "Planejando o próximo passo",
+      "thinking_2": "Pesando as opções",
+      "thinking_3": "Ligando os pontos",
+      "composing": "Respondendo",
+      "search_web": "Pesquisando na internet",
+      "search_web_for": "Pesquisando “{target}”",
+      "search_files": "Procurando no projeto",
+      "search_for": "Procurando “{target}”",
+      "read_page": "Lendo uma página em {target}",
+      "read_any": "Abrindo um arquivo",
+      "read_file": "Abrindo {target}",
+      "view_image": "Olhando uma imagem",
+      "list_folder": "Revendo {target}",
+      "edit_file": "Editando {target}",
+      "write_file": "Escrevendo {target}",
+      "write_any": "Escrevendo um arquivo",
+      "run_cmd": "Executando {target}",
+      "run_any": "No terminal",
+      "browse_site": "Em {target}",
+      "browse_any": "No navegador",
+      "recall": "Consultando as próprias notas",
+      "note": "Fazendo uma anotação",
+      "message": "Escrevendo para {target}",
+      "message_any": "Escrevendo para um colega",
+      "delegate": "Orientando um ajudante: {target}",
+      "delegate_any": "Um ajudante está cuidando disso",
+      "delegate_many": "{target} ajudantes trabalhando",
+      "connect": "Trabalhando com {target}",
+      "setup": "Preparando tudo",
+      "waiting": "Precisa da sua resposta",
+      "waiting_approval": "Precisa do seu OK",
+      "working_0": "Cuidando disso",
+      "working_1": "Avançando",
+      "working_2": "Resolvendo"
+    },
+    "timer": {
+      "min": "{count} min",
+      "hour": "{hours} h {minutes} min"
+    },
+    "work": {
+      "working": "Trabalhando",
+      "worked_for": "Trabalhou por {duration}",
+      "stopped_after": "Parou após {duration}",
+      "failed_after": "Terminou com um erro após {duration}",
+      "steps_one": "{count} passo",
+      "steps_other": "{count} passos",
+      "files_one": "{count} arquivo",
+      "files_other": "{count} arquivos",
+      "helpers_one": "{count} ajudante",
+      "helpers_other": "{count} ajudantes",
+      "open": "Ver o trabalho"
+    },
+    "inspector": {
+      "title": "Registro de trabalho",
+      "close": "Fechar o registro de trabalho",
+      "resize": "Mudar a largura do registro de trabalho",
+      "tabs": "Quem trabalhou nisso",
+      "tokens": "{count} tokens",
+      "thoughts_one": "{count} pensamento",
+      "thoughts_other": "{count} pensamentos",
+      "failed": "{count} com falha",
+      "expand_all": "Abrir tudo",
+      "collapse_all": "Fechar tudo",
+      "empty": "Nada foi registrado neste turno.",
+      "empty_live": "Os passos aparecem aqui assim que o agente os dá.",
+      "thought_private": "O provedor mantém o texto deste pensamento privado.",
+      "no_details": "Nenhum detalhe foi registrado.",
+      "open_helper": "Abrir o registro do ajudante",
+      "no_answer": "Sem resposta",
+      "truncated": "Mais {count} linhas não exibidas",
+      "empty_output": "Não retornou nada.",
+      "took": "Levou {duration}"
+    },
+    "row": {
+      "prompt": "Sua mensagem",
+      "task": "Tarefa",
+      "thought": "Pensamento",
+      "thought_hidden": "Pensamento (privado)",
+      "reply": "Resposta",
+      "question": "Perguntou a você",
+      "credential": "Pediu uma credencial",
+      "approval": "Pediu seu OK",
+      "helper": "Ajudante"
+    },
+    "status": {
+      "running": "Em andamento",
+      "done": "Concluído",
+      "failed": "Falhou",
+      "stopped": "Parado",
+      "waiting": "Aguardando você",
+      "declined": "Recusado"
+    },
+    "section": {
+      "asked_for": "Pediu",
+      "request": "Pedido",
+      "task": "Tarefa",
+      "answer": "Resposta",
+      "command": "Comando",
+      "input": "Entrada",
+      "changes": "Alterações",
+      "output": "Saída",
+      "error": "Erro"
+    },
+    "announce": {
+      "started": "{agent} começou a trabalhar.",
+      "replied": "{agent} respondeu.",
+      "finished": "{agent} terminou.",
+      "stopped": "{agent} parou.",
+      "failed": "{agent} encontrou um problema.",
+      "asked": "{agent} pergunta: {question}",
+      "needs_ok": "{agent} precisa do seu OK."
+    },
+    "time": {
+      "today": "Hoje {time}",
+      "yesterday": "Ontem {time}"
+    },
+    "pill": {
+      "new_one": "{count} nova mensagem",
+      "new_other": "{count} novas mensagens",
+      "dismiss": "Dispensar"
+    }
   }
 }
