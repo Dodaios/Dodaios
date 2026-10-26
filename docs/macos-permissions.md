@@ -4,7 +4,7 @@ Status: implemented, **not yet exercised on a physical Mac** (section 7 is the c
 closes that gap). Last reviewed: 2026-10-02, reconciled with the finished code on that date
 (AP-35 is in `AGENTS.md`, ADR-0038 and BUG-225; the legacy permission wall is deleted; the
 custom permission UI was then reduced to one toast, 4.10 and the ADR-0038 amendment). Scope:
-Dodaios on macOS (the downloadable `.dmg` app and the managed source-install app).
+Dodaios (formerly Personal Jarvis) on macOS (the downloadable `.dmg` app and the managed source-install app).
 
 ## 1. Summary
 
