@@ -1,6 +1,6 @@
 """Map a society agent's Jarvis provider + model onto an external runtime.
 
-Every agent on Hermes or OpenClaw reaches its model through Jarvis' own model
+An agent on Hermes or OpenClaw reaches its model through Jarvis' own model
 gateway (``gateway.py``): the runtime is configured with one provider —
 Jarvis, on the app's loopback server — and a per-agent token in its process
 environment (:data:`KEY_ENV_VAR`). Jarvis answers with its own provider
@@ -8,23 +8,31 @@ plugins, so the runtime never holds a vendor key or login and its config is
 the same for every provider. API-key and local providers speak Chat
 Completions; the ChatGPT subscription (``openai-codex``) speaks Responses.
 
+The Claude subscription is the one exception (transport ``claude_cli``).
+Anthropic bills a Claude login sent to its HTTP API by a third-party app as
+Extra Usage, never from the plan, so that login is never sent there: the
+runtime runs the official Claude CLI itself (OpenClaw's bundled
+``claude-cli`` backend), and the CLI owns the login and its renewal. The
+route carries only which CLI to run and which Claude account directory it
+reads; no bearer and no API key.
+
 This module decides which providers an agent can use right now (a saved key,
 a local server with an address, a signed-in subscription) and builds the
-route. Claude runs on an Anthropic API key or, when none is saved, on the
-person's Claude Code login: Anthropic bills a subscription used outside
-Claude Code as extra usage (pay as you go), so the picker says so.
+route. Claude runs on an Anthropic API key, or on the Claude subscription
+when the agent is pinned to it or no key is saved.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass, replace
 from typing import Any, Final, Literal
 
 log = logging.getLogger(__name__)
 
-Transport = Literal["chat_completions", "anthropic_messages", "responses"]
+Transport = Literal["chat_completions", "anthropic_messages", "responses", "claude_cli"]
 
 #: The environment variable both runtimes read the model key from.
 KEY_ENV_VAR: Final[str] = "JARVIS_RUNTIME_API_KEY"
@@ -45,8 +53,8 @@ class _Endpoint:
     local_server: bool = False
     #: Served by Jarvis' own model gateway on the person's subscription.
     subscription: bool = False
-    #: Without an API key, the person's Claude Code login answers instead
-    #: (billed by Anthropic as extra usage, not from the plan's limits).
+    #: Without an API key (or pinned to it), the person's Claude subscription
+    #: answers instead, through the official Claude CLI only.
     claude_login: bool = False
     #: May authenticate without a key: Google Cloud Application Default
     #: Credentials for a configured project (Vertex AI).
@@ -80,13 +88,21 @@ class ModelRoute:
     model: str
     base_url: str
     transport: Transport
-    #: ``None`` for a keyless local server.
+    #: ``None`` for a keyless local server and for the Claude CLI.
     api_key: str | None
     context_window: int = 32_768
     max_output_tokens: int | None = None
+    #: ``claude_cli`` only: the official Claude CLI the runtime runs.
+    claude_binary: str = ""
+    #: ``claude_cli`` only: the environment that selects the agent's Claude
+    #: account (its config directory). Never a credential.
+    claude_env: tuple[tuple[str, str], ...] = ()
 
     def env(self) -> dict[str, str]:
-        """The child environment that carries the key (empty when keyless)."""
+        """The child environment: the key (empty when keyless), or for the
+        Claude CLI only the account selection."""
+        if self.transport == "claude_cli":
+            return dict(self.claude_env)
         return {KEY_ENV_VAR: self.api_key} if self.api_key else {}
 
 
@@ -100,14 +116,77 @@ def subscription_providers() -> frozenset[str]:
     return frozenset(name for name, endpoint in _ENDPOINTS.items() if endpoint.subscription)
 
 
-def claude_login_token() -> str | None:
-    """The live Claude Code login's bearer, or ``None``. Read-only: only the
-    Claude CLI redeems the refresh token, so an expired login stays unused
-    until Claude Code runs again (a second refresher would break its login)."""
-    from dodaios.claude_credentials import freshest_claude_oauth
+@dataclass(frozen=True, slots=True)
+class ClaudeLogin:
+    """A signed-in Claude subscription the official CLI can run on."""
 
-    snapshot = freshest_claude_oauth()
-    return snapshot.access_token if snapshot.status == "valid" else None
+    #: The Claude CLI executable.
+    binary: str
+    #: What selects the account in the CLI's environment (``CLAUDE_CONFIG_DIR``;
+    #: empty for the platform default). Never a credential.
+    env: tuple[tuple[str, str], ...] = ()
+
+
+def _claude_account_env(account_id: str) -> dict[str, str]:
+    """The environment that points the Claude CLI at the agent's account.
+
+    ``account_id`` may name a Claude login (``dodaios.agent_accounts``);
+    anything else (``""``, a reserved access value) means the active Claude
+    account. The built-in account adds nothing, so the CLI keeps its platform
+    default (the macOS Keychain, for one) — unless this app itself runs with
+    a ``CLAUDE_CONFIG_DIR``, which a runtime's minimal child environment
+    would otherwise drop.
+    """
+    from dodaios import agent_accounts
+    from dodaios.agent_chat.catalog import ACCESS_ACCOUNTS
+
+    named = account_id if account_id and account_id not in ACCESS_ACCOUNTS else ""
+    account = agent_accounts.resolve(named) if named else agent_accounts.active_account("claude")
+    if account is None or account.platform != "claude":
+        account = agent_accounts.active_account("claude")
+    env = agent_accounts.env_overrides("claude", account.id)
+    inherited = os.environ.get("CLAUDE_CONFIG_DIR", "").strip()
+    if not env and inherited:
+        env = {"CLAUDE_CONFIG_DIR": inherited}
+    return env
+
+
+def claude_login(account_id: str = "") -> ClaudeLogin:
+    """The Claude subscription the agent runs on, checked with the CLI itself.
+
+    Only ``claude auth status`` is asked, under the same minimal environment
+    the runtime gives its CLI: no credential is read and no bearer leaves the
+    CLI. Raises :class:`RouteUnavailable` with the reason in plain words.
+    Blocking (one short process, cached a few seconds).
+    """
+    from dodaios.agent_runtimes.base import child_env
+    from dodaios.claude_auth import (
+        claude_install_hint,
+        cli_login_env,
+        is_subscription_login,
+        native_subscription_login,
+    )
+
+    selection = _claude_account_env(account_id)
+    env = cli_login_env(child_env(selection))
+    binary, login = native_subscription_login(env)
+    if binary is None:
+        raise RouteUnavailable(
+            "This agent runs on the Claude subscription, which Dodaios uses only through "
+            f"Claude Code, and Claude Code is not installed. {claude_install_hint()} "
+            "No API key was used."
+        )
+    if not is_subscription_login(login):
+        raise RouteUnavailable(
+            "This agent runs on the Claude subscription, which Dodaios uses only through "
+            "Claude Code, and Claude Code is not signed in to a Claude plan. Sign in to "
+            "Claude Code (Settings → API keys), or switch the agent to an Anthropic API "
+            "key. No API key was used."
+        )
+    if env.get("USER"):
+        # The CLI's native credential lookup needs it (POSIX).
+        selection.setdefault("USER", env["USER"])
+    return ClaudeLogin(binary=binary, env=tuple(sorted(selection.items())))
 
 
 def _api_key(provider: str, credential: str | None) -> str | None:
@@ -131,47 +210,34 @@ def _saved_key(provider: str, endpoint: _Endpoint) -> str | None:
     return _api_key(provider, resolved.credential)
 
 
-def login_route(provider: str, account_id: str = "") -> tuple[bool, str | None]:
-    """Whether ``provider`` answers on the person's Claude Code login for
-    ``account_id``, and that login's live bearer (``None`` once it expired).
-    ``account_id`` may pin the agent to its key or to the login
-    (``catalog.ACCESS_ACCOUNTS``); without a pin the API key wins. Blocking
-    (keyring)."""
+def uses_claude_cli(provider: str, account_id: str = "") -> bool:
+    """Whether ``provider`` answers on the Claude subscription for
+    ``account_id``, which only the official Claude CLI may use. ``account_id``
+    may pin the agent to its key or to the subscription
+    (``catalog.ACCESS_ACCOUNTS``); without a pin the API key wins. A
+    subscription seat stays one when its login is gone: it is reported as
+    such, never answered on a key. Blocking (keyring)."""
     from dodaios.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
 
     endpoint = _ENDPOINTS.get(provider)
     if endpoint is None or not endpoint.claude_login or account_id == API_KEY_ACCOUNT:
-        return False, None
-    if account_id != SUBSCRIPTION_ACCOUNT and _saved_key(provider, endpoint) is not None:
-        return False, None
-    return True, claude_login_token()
-
-
-def login_token_for(provider: str, account_id: str = "") -> str | None:
-    """The Claude login ``provider`` answers on, or ``None`` when it runs on
-    an API key (or cannot use a login at all). Blocking (keyring)."""
-    return login_route(provider, account_id)[1]
-
-
-def login_providers() -> list[str]:
-    """Usable providers that answer on a Claude login, not an API key: the
-    picker labels them as billed extra usage. Blocking (keyring)."""
-    return [name for name in _ENDPOINTS if _login_available(login_token_for(name))]
-
-
-def _login_available(token: str | None) -> bool:
-    """Use the same cached, non-inference billing check as runtime startup."""
-    if not token:
         return False
-    from dodaios.agent_runtimes.provider_errors import login_blocked
+    return account_id == SUBSCRIPTION_ACCOUNT or _saved_key(provider, endpoint) is None
 
-    return login_blocked(token, "") is None
+
+def _claude_login_ready(account_id: str = "") -> bool:
+    try:
+        claude_login(account_id)
+    except RouteUnavailable:  # not installed or not signed in: not offered
+        return False
+    return True
 
 
 def access_choices() -> dict[str, list[str]]:
-    """Per provider that can pay two ways (Claude: API key or Claude Code
-    login), the ways that work right now: ``"api"`` and/or ``"subscription"``.
-    The "New agent" dialog offers exactly these. Blocking (keyring)."""
+    """Per provider that can pay two ways (Claude: API key or the Claude
+    subscription through Claude Code), the ways that work right now: ``"api"``
+    and/or ``"subscription"``. The "New agent" dialog offers exactly these.
+    Blocking (keyring, ``claude auth status``)."""
     choices: dict[str, list[str]] = {}
     for name, endpoint in _ENDPOINTS.items():
         if not endpoint.claude_login:
@@ -179,31 +245,11 @@ def access_choices() -> dict[str, list[str]]:
         found: list[str] = []
         if _saved_key(name, endpoint) is not None:
             found.append("api")
-        if _login_available(claude_login_token()):
+        if _claude_login_ready():
             found.append("subscription")
         if found:
             choices[name] = found
     return choices
-
-
-def access_blocked() -> dict[str, dict[str, str]]:
-    """Per provider that can pay two ways, the ways that exist but are refused
-    right now, with the refusal's code: a live Claude Code login whose Extra
-    Usage is off (``extra_usage_off``) or spent (``extra_usage_spent``) — the
-    only way Anthropic serves a subscription to Hermes and OpenClaw. The
-    "New agent" dialog shows such a way disabled with its reason. Blocking
-    (keyring, one cached usage GET, no inference)."""
-    from dodaios.agent_runtimes.provider_errors import login_blocked
-
-    blocked: dict[str, dict[str, str]] = {}
-    for name, endpoint in _ENDPOINTS.items():
-        if not endpoint.claude_login:
-            continue
-        token = claude_login_token()
-        refusal = login_blocked(token, "") if token else None
-        if refusal is not None:
-            blocked[name] = {"subscription": refusal.code}
-    return blocked
 
 
 def supports(provider: str) -> bool:
@@ -225,7 +271,6 @@ def usable_providers(config: Any) -> list[str]:
     for provider in sorted(_ENDPOINTS, key=lambda name: (not _ENDPOINTS[name].subscription, name)):
         try:
             _checked_model(config, provider, "probe")
-            _check_login_billing(provider, "", "")
         except RouteUnavailable:  # not connected: the provider is simply not offered
             continue
         except Exception:  # noqa: BLE001 — one unreadable provider must not empty the list
@@ -284,6 +329,12 @@ def _checked_model(config: Any, provider: str, model: str, *, account_id: str = 
         if not chosen:
             raise RouteUnavailable("Choose a ChatGPT model for this agent first.")
         return chosen
+    if endpoint.claude_login and uses_claude_cli(provider, account_id):
+        claude_login(account_id)
+        chosen = model.strip() or _default_model(config, provider)
+        if not chosen:
+            raise RouteUnavailable("Choose a Claude model for this agent first.")
+        return chosen
     from dodaios.core.config import resolve_provider_endpoint
 
     resolved = resolve_provider_endpoint(
@@ -298,30 +349,18 @@ def _checked_model(config: Any, provider: str, model: str, *, account_id: str = 
         )
     # The Agents-tier key wins over the shared one, exactly as the gateway uses it.
     key = _api_key(provider, resolved.credential)
-    if endpoint.claude_login:
-        from dodaios.agent_chat.catalog import API_KEY_ACCOUNT, SUBSCRIPTION_ACCOUNT
-
-        if account_id == API_KEY_ACCOUNT and key is None:
-            raise RouteUnavailable(
-                "This agent runs on an Anthropic API key, and none is saved. Connect "
-                "one in Settings → API keys, or switch the agent to the subscription."
-            )
-        if account_id == SUBSCRIPTION_ACCOUNT and not claude_login_token():
-            raise RouteUnavailable(
-                "This agent runs on the Claude Code login, and it is not live. Open "
-                "Claude Code once to renew it, or switch the agent to an API key."
-            )
-    if key is None and endpoint.claude_login and not claude_login_token():
+    if endpoint.claude_login and key is None:
+        # Only an agent pinned to its key gets here without one.
         raise RouteUnavailable(
-            "Claude needs an Anthropic API key or a live Claude Code login. Connect "
-            "one in Settings → API keys, or open Claude Code once to renew its login."
+            "This agent runs on an Anthropic API key, and none is saved. Connect "
+            "one in Settings → API keys, or switch the agent to the subscription."
         )
     if key is None and endpoint.cloud_project:
         from dodaios.core.config import vertex_credential_configured
 
         if vertex_credential_configured():
             key = ""  # the Cloud project signs the requests (no key)
-    if key is None and not endpoint.keyless and not endpoint.claude_login:
+    if key is None and not endpoint.keyless:
         raise RouteUnavailable(
             f"No API key is saved for {provider}. Connect it in Settings → API keys."
         )
@@ -331,18 +370,29 @@ def _checked_model(config: Any, provider: str, model: str, *, account_id: str = 
     return chosen
 
 
-def _check_login_billing(provider: str, model: str, account_id: str) -> None:
-    """Fail before the runtime starts when Anthropic will refuse the Claude
-    login: it bills third-party apps only as Extra Usage (off or spent here).
-    Blocking (keyring, one cached usage GET)."""
-    login = login_token_for(provider, account_id)
-    if not login:
-        return
-    from dodaios.agent_runtimes.provider_errors import login_blocked
+def _claude_cli_route(config: Any, provider: str, model: str, account_id: str) -> ModelRoute:
+    """The route of an agent on the Claude subscription: the official CLI,
+    run by the runtime itself. No gateway token: nothing of this agent's can
+    reach Anthropic's HTTP API, which bills a third-party login as Extra Usage."""
+    from dodaios.agent_runtimes.model_limits import resolve_limits
+    from dodaios.brain.model_catalog import ModelCatalog
 
-    refusal = login_blocked(login, model)
-    if refusal is not None:
-        raise RouteUnavailable(refusal.message)
+    login = claude_login(account_id)
+    chosen = model.strip() or _default_model(config, provider)
+    if not chosen:
+        raise RouteUnavailable("Choose a Claude model for this agent first.")
+    limits = resolve_limits(config, provider, chosen, ModelCatalog().cached_model(provider, chosen))
+    return ModelRoute(
+        provider=provider,
+        model=chosen,
+        base_url="",
+        transport="claude_cli",
+        api_key=None,
+        context_window=limits.context_window,
+        max_output_tokens=limits.max_output_tokens,
+        claude_binary=login.binary,
+        claude_env=login.env,
+    )
 
 
 def route_for(
@@ -356,9 +406,11 @@ def route_for(
 ) -> ModelRoute:
     """The agent's route through Jarvis' gateway. Blocking (keyring): call it
     in a thread. The token speaks for ``agent_id`` on ``provider`` (and, for
-    the subscription, on that Codex ``account_id``)."""
+    the subscription, on that Codex ``account_id``). An agent on the Claude
+    subscription gets the Claude CLI route instead (:func:`_claude_cli_route`)."""
+    if uses_claude_cli(provider, account_id):
+        return _claude_cli_route(config, provider, model, account_id)
     chosen = _checked_model(config, provider, model, account_id=account_id)
-    _check_login_billing(provider, chosen, account_id)
     from dodaios.agent_runtimes import gateway
     from dodaios.agent_runtimes.base import home_key
     from dodaios.agent_runtimes.model_limits import resolve_limits
@@ -400,6 +452,8 @@ async def prepare_route(
         route_for, config, provider, model, agent_id=agent_id, account_id=account_id,
         session_id=session_id,
     )
+    if route.transport == "claude_cli":
+        return route
     assert route.api_key is not None
     grant = gateway.verify(route.api_key)
     assert grant is not None
