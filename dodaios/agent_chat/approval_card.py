@@ -315,7 +315,7 @@ def request_detail(args: dict[str, Any], command: str = "") -> str:
     masked = mask_secrets(args)
     try:
         text = json.dumps(masked, ensure_ascii=False, indent=2, default=str)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError):  # unserialisable args still show, as their plain repr
         text = str(masked)
     return redact_secrets(text)[:_DETAIL_CHARS]
 
