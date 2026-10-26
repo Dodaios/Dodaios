@@ -284,6 +284,26 @@ describe("QuestionCard", () => {
     await waitFor(() => expect(submit).toHaveBeenCalledWith("q1", [{ text: "Atlas" }]));
   });
 
+  it("offers a Send button once own words are typed on a lone single question", async () => {
+    const { submit } = draw(questionOf(asking([], [DB])));
+    expect(screen.queryByTestId("question-done")).toBeNull();
+    fireEvent.change(within(screen.getByTestId("question-card")).getByRole("textbox"), { target: { value: "MySQL" } });
+    fireEvent.click(screen.getByTestId("question-done"));
+    await waitFor(() => expect(submit).toHaveBeenCalledWith("q1", [{ text: "MySQL" }]));
+  });
+
+  it("keeps every multi pick when a store answers one question at a time", async () => {
+    const answerQuestion = vi.fn(async () => undefined);
+    draw(questionOf(asking([], [FEATURES])), { submitQuestion: undefined, answerQuestion });
+    const rows = rowsOf(screen.getByTestId("question-card"));
+    fireEvent.click(rows[0]);
+    fireEvent.click(rows[2]);
+    fireEvent.click(screen.getByTestId("question-done"));
+    await waitFor(() =>
+      expect(answerQuestion).toHaveBeenCalledWith("q1", 0, { optionIndices: [0, 2], text: undefined }),
+    );
+  });
+
   it("offers two named ways out instead of a silent close", async () => {
     const { skip, submit } = draw(questionOf(asking([], [DB])));
     fireEvent.click(screen.getByRole("button", { name: /question options/i }));

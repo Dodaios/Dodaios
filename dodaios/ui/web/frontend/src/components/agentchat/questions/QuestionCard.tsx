@@ -237,8 +237,10 @@ function OpenCard({
     rows[(at + (event.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length]?.focus();
   };
 
-  const answered = locals.filter(hasAnswer).length;
-  const footer = series || item?.kind === "multi" || item?.kind === "text" || failed;
+  const answered = locals.map(hasAnswer);
+  // A lone single question shows Send once the person typed their own words.
+  const typedSingle = !series && item?.kind === "single" && Boolean(local.text.trim());
+  const footer = series || item?.kind === "multi" || item?.kind === "text" || typedSingle || failed;
 
   return (
     <section
@@ -365,10 +367,10 @@ function OpenCard({
                 {t("question_card.send_answers")}
               </button>
             ) : null}
-            {!series && item && item.kind !== "single" && !failed ? (
+            {!series && item && (item.kind !== "single" || typedSingle) && !failed ? (
               <button type="button" className="qc-btn qc-btn-primary" data-testid="question-done" onClick={commitStep}>
-                {item.kind === "text" ? <CornerDownLeft aria-hidden className="h-3.5 w-3.5" /> : null}
-                {item.kind === "text" ? t("question_card.send") : t("question_card.done")}
+                {item.kind === "multi" ? null : <CornerDownLeft aria-hidden className="h-3.5 w-3.5" />}
+                {item.kind === "multi" ? t("question_card.done") : t("question_card.send")}
               </button>
             ) : null}
           </span>

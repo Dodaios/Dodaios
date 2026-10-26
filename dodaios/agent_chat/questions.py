@@ -240,6 +240,17 @@ def _parse_one(raw: dict[str, Any]) -> QuestionSpec:
     elif not MIN_OPTIONS <= len(options) <= MAX_OPTIONS:
         raise ValueError(f"give each question {MIN_OPTIONS} to {MAX_OPTIONS} distinct options")
     picked = _recommended(raw.get("recommended", 0), len(options), kind)
+    stored_count = raw.get("recommended_count")
+    if (
+        kind == MULTI
+        and picked == [0]
+        and isinstance(stored_count, int)
+        and not isinstance(stored_count, bool)
+        and stored_count > 1
+    ):
+        # A stored card (an end-of-turn card read back from its event) keeps
+        # its recommendations in front and says how many lead.
+        picked = list(range(min(stored_count, len(options) - 1)))
     if picked:
         # The recommendations lead, in the agent's order; the rest keep theirs.
         lead = [options[i] for i in picked]

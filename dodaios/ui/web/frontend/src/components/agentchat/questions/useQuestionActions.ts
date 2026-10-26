@@ -39,8 +39,8 @@ export function useQuestionActions(question: QuestionState) {
       if (live.current.answers[index]) continue;
       if ("skip" in answer) await state.skipQuestion(questionId, index);
       else if ("option_index" in answer) await state.answerQuestion(questionId, index, { optionIndex: answer.option_index });
-      else if ("option_indices" in answer && answer.option_indices.length) {
-        await state.answerQuestion(questionId, index, { optionIndex: answer.option_indices[0] });
+      else if ("option_indices" in answer) {
+        await state.answerQuestion(questionId, index, { optionIndices: answer.option_indices, text: answer.text });
       } else await state.answerQuestion(questionId, index, { text: "text" in answer ? answer.text ?? "" : "" });
     }
   }, [store, questionId]);

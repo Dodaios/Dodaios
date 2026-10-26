@@ -404,3 +404,22 @@ def test_a_chat_message_settles_a_deferred_card_without_consuming(tmp_path: Path
         assert turn_prompts.newest_open_ask(svc.store.list_events(sid)) is None
 
     asyncio.run(scenario())
+
+
+def test_a_stored_multi_card_keeps_every_recommendation(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        svc, sid, sent = await _deferred(tmp_path, {"questions": [_FEATURES]})
+        (card,) = _payloads(svc, sid, "question_required")
+        assert card["questions"][0]["recommended_count"] == 2
+        # The card is read back from its event; closing it applies both picks.
+        assert await svc.skip_turn_question(sid, card["question_id"])
+        ((prompt, _),) = sent
+        assert "go with your recommendation (Sharing, Search)" in prompt
+
+    asyncio.run(scenario())
+
+
+def test_a_stored_multi_payload_parses_back_to_the_same_question() -> None:
+    (spec,) = parse_questions(_FEATURES)
+    (again,) = parse_questions({"questions": [spec.to_payload()]})
+    assert again == spec
