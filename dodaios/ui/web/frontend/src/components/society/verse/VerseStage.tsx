@@ -3,13 +3,18 @@
  *
  * Each deck is a photograph rendered offline (the plate); the stage puts the
  * live crew, their screens and the ship's small lights into it with a camera
- * that matches the photograph exactly (BRIEF §3). The person is the
- * commanding officer, steered in third person (the keys walk them, the camera
+ * that matches the photograph exactly (BRIEF §3). Decks exported as eye-level
+ * scenes (docs/verse/realtime.md) are walked on the full-size stage in third
+ * person (over the commander's shoulder) or first person (through their
+ * eyes), both with shooter mouse look; the plate stays the bird's-eye view
+ * and the IDE panel's view. V cycles the three views, 1/2/3 pick one, and
+ * the wheel hands third person over to first. The person is the commanding
+ * officer, steered in third or first person (the keys walk them, the camera
  * follows) or sent by clicks from a bird's-eye view; the agents are officers
  * at the bridge consoles; coding panes are technicians at engineering's
  * terminals; stations turn places of the ship into the app's actions.
  */
-import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useReducedMotion } from "framer-motion";
 import { CanvasActivity, useCanvasAwake } from "@/hooks/useCanvasAwake";
@@ -32,6 +37,13 @@ import { DeckBackdrop } from "./engine/DeckBackdrop";
 import { DeckEnvironment } from "./engine/DeckEnvironment";
 import { DebugOverlay } from "./engine/DebugOverlay";
 import { attachPointerInput } from "./engine/pointerInput";
+import { RealtimeBackdrop } from "./engine/realtime/RealtimeBackdrop";
+import { attachOrbitInput } from "./engine/realtime/orbitInput";
+import { hasMouseLook, releaseMouseLook, requestMouseLook } from "./engine/realtime/mouseLook";
+import { controlModeOf, cycleView, isShooterView, resolveView, viewForKey, type Person, type VerseView } from "./engine/realtime/viewMode";
+import { eyePick } from "./engine/realtime/eyePick";
+import { useViewSettings } from "./engine/realtime/viewSettings";
+import { eyeCapable as canWalkAtEyeLevel } from "./engine/stageView";
 import { pickBody, pickStation } from "./engine/picking";
 import { worldToPlate } from "./engine/plateMath";
 import { screenToPlate } from "./engine/view";
@@ -41,7 +53,7 @@ import { useCharacterLibrary } from "./actors/useCharacterLibrary";
 import type { Look } from "./actors/look";
 import { buildCast, COMMANDER_ID, type CommanderState } from "./life/cast";
 import { commanderTarget, type CommanderOrders } from "./life/commander";
-import { stationWithin, type ControlMode } from "./life/control";
+import { stationWithin } from "./life/control";
 import { useCrewLife } from "./life/useCrewLife";
 import { useWorldActions } from "./life/useWorldActions";
 import { useDevDuty } from "./life/devOverrides";
@@ -58,7 +70,14 @@ import { LiftPanel } from "./hud/LiftPanel";
 import { DeckTitle, StatsReadout, Toolbar } from "./hud/DeckBar";
 import { LauncherPanel } from "./hud/LauncherPanel";
 import { SimulatorPanel } from "./hud/SimulatorPanel";
+import { ViewSettingsPanel } from "./hud/ViewSettingsPanel";
 import { StageRuntime } from "./runtime";
+import { REACTOR_ARENA } from "./combat/arenaReactor";
+import { DuelController, type DuelDifficulty } from "./duel/duelController";
+import { attachDuelInput } from "./duel/duelInput";
+import { DuelLayer } from "./duel/DuelLayer";
+import { DuelHud } from "./hud/DuelHud";
+import { DuelPanel } from "./hud/DuelPanel";
 import "./verse.css";
 
 export interface VerseStageProps {
@@ -86,11 +105,28 @@ const PAN_KEYS: Record<string, PanKey> = {
 /** How long the off-duty crew stays in the mess when called. */
 const MESS_CALL_MS = 90_000;
 const NOTICE_MS = 4200;
+/** The help text is long: it stays up long enough to read. */
+const HELP_MS = 15_000;
 const DOORS_MS = 460;
 const DOORS_GIVE_UP_MS = 5000;
 
 type Hover = { kind: "crew"; id: string } | { kind: "station"; id: string } | null;
-type Panel = "lift" | "launcher" | "games" | null;
+type Panel = "lift" | "launcher" | "games" | "settings" | "duel" | null;
+
+/** The deck the duel arena overlays (Reactor Engineering). */
+const ARENA_DECK = REACTOR_ARENA.deck as DeckId;
+
+/**
+ * Testing switch: `localStorage["verse.duel.anyDeck"] = "1"` starts a duel on whatever deck is loaded (the arena's
+ * coordinates are engineering's), for checking the duel on a deck whose eye-level export is not there yet.
+ */
+function duelAnyDeck(): boolean {
+  try {
+    return window.localStorage.getItem("verse.duel.anyDeck") === "1";
+  } catch {
+    return false;
+  }
+}
 
 function typesText(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -111,13 +147,23 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const webgl = useWebglSupported();
   const runtime = useMemo(() => new StageRuntime(), []);
   runtime.view.reduced = reduced;
+  // The duel (docs/verse/combat.md): one controller per stage; its phase drives the HUD and the input.
+  const duel = useMemo(() => new DuelController(), []);
+  useEffect(() => () => duel.dispose(), [duel]);
+  const duelPhase = useSyncExternalStore(duel.subscribe, duel.getPhase);
+  /** Stage actions the duel input calls back into (filled once the stage's callbacks exist). */
+  const duelActions = useRef({ lockAim: () => undefined as void });
+  const dueling = duelPhase !== "off";
+  runtime.duelActive = dueling;
 
   const [deckId, setDeckId] = useState<DeckId>(initialDeck ?? "bridge");
   const deckState = useDeck(deckId);
   const deck = deckState.deck;
   /** The deck whose plate is on screen. */
   const [shownDeck, setShownDeck] = useState<Deck | null>(null);
-  const plateReady = !!deck && shownDeck === deck;
+  /** The deck whose eye-level scene is loaded, and the decks whose eye-level scene failed here (they fall back to the plate). */
+  const [eyeDeck, setEyeDeck] = useState<Deck | null>(null);
+  const [eyeFailed, setEyeFailed] = useState<ReadonlySet<string>>(() => new Set());
   const [failure, setFailure] = useState<Error | null>(null);
   const [debug, setDebug] = useState(false);
   const [hover, setHover] = useState<Hover>(null);
@@ -146,6 +192,8 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const lifeRef = useRef(life);
   lifeRef.current = life;
   useEffect(() => {
+    // The frame numbers are read by QA runs against built bundles too; the handle with the stage itself stays development-only.
+    Object.assign(window, { __verseStats: runtime.stats });
     if (!import.meta.env.DEV) return;
     const handle = {
       runtime,
@@ -154,7 +202,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       setDuty: useDevDuty.getState().setDuty,
       get life() { return lifeRef.current; },
     };
-    Object.assign(window, { __verse: handle, __verseStats: runtime.stats });
+    Object.assign(window, { __verse: handle });
   }, [runtime]);
 
   // The IDE tab always opens on its deck; another host keeps where the person last was.
@@ -174,18 +222,48 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     runtime.control.reframe = true;
   }, [deck, runtime]);
 
-  // Third person (the keys walk the commander, the camera follows) or bird's-eye (the keys pan over the whole deck).
-  const [mode, setMode] = useState<ControlMode>(runtime.control.mode);
-  const switchMode = useCallback((next: ControlMode) => {
+  // The view (viewMode.ts): bird's-eye (the keys pan over the whole deck), third or first person (the keys walk the
+  // commander, the camera follows). The person's last choice is kept in this browser.
+  const chosenView = useViewSettings((s) => s.view);
+  // The full-size stage walks an exported deck at eye level; the plate stays the bird's-eye view and the compact view.
+  const eyeCapable = !!deck && canWalkAtEyeLevel({ compact, realtime: !!deck.realtime, failed: eyeFailed.has(deck.id) });
+  const view = resolveView(chosenView, eyeCapable);
+  const mode = controlModeOf(view);
+  const eyeOn = eyeCapable && mode === "follow";
+  /** Shooter mouse look (pointer lock, a centre crosshair): third and first person at eye level. */
+  const shooter = isShooterView(view, eyeCapable);
+  const plateReady = !!deck && (eyeOn ? eyeDeck === deck : shownDeck === deck);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  // The view on screen steers the commander (or the map) and picks the eye-level camera's person.
+  useEffect(() => {
     const control = runtime.control;
-    if (control.mode === next) return;
-    control.mode = next;
-    control.clearKeys();
-    runtime.view.clearKeys();
-    if (next === "overview") runtime.view.overview();
-    else control.reframe = true;
-    setMode(next);
-  }, [runtime]);
+    const next = controlModeOf(view);
+    if (control.mode !== next) {
+      control.mode = next;
+      control.clearKeys();
+      runtime.view.clearKeys();
+      if (next === "overview") runtime.view.overview();
+      else control.reframe = true;
+    }
+    if (view !== "overview") runtime.shoulder.setPerson(view);
+  }, [view, runtime]);
+  const chooseView = useCallback((next: VerseView) => useViewSettings.getState().set({ view: next }), []);
+
+  // The person's mouse settings turn the eye-level camera; the quality goes to its renderer.
+  const sensitivity = useViewSettings((s) => s.sensitivity);
+  const invertY = useViewSettings((s) => s.invertY);
+  const quality = useViewSettings((s) => s.quality);
+  const fovThird = useViewSettings((s) => s.fovThird);
+  const fovFirst = useViewSettings((s) => s.fovFirst);
+  useEffect(() => {
+    runtime.shoulder.sensitivity = sensitivity;
+    runtime.shoulder.invertY = invertY;
+    runtime.shoulder.fovThird = fovThird;
+    runtime.shoulder.fovFirst = fovFirst;
+    duel.camera.sensitivity = sensitivity;
+    duel.camera.invertY = invertY;
+  }, [runtime, duel, sensitivity, invertY, fovThird, fovFirst]);
 
   // The doors open once the car has arrived and the new deck is on screen (or after a moment, whatever happens).
   useEffect(() => {
@@ -198,9 +276,9 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => () => { for (const timer of timers.current) clearTimeout(timer); }, []);
   const later = useCallback((fn: () => void, ms: number) => { timers.current.push(setTimeout(fn, ms)); }, []);
-  const say = useCallback((text: string) => {
+  const say = useCallback((text: string, ms: number = NOTICE_MS) => {
     setNotice(text);
-    later(() => setNotice((n) => (n === text ? null : n)), NOTICE_MS);
+    later(() => setNotice((n) => (n === text ? null : n)), ms);
   }, [later]);
 
   const quickCreate = useQuickCreateAgent();
@@ -276,19 +354,48 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     }
   }, [walkTo, onOpenLedger, onOpenGroup, teamAtTable, say, t, messUntil, life.crew, later, createAgent]);
 
-  const toggleView = useCallback(() => {
-    const next: ControlMode = runtime.control.mode === "follow" ? "overview" : "follow";
-    switchMode(next);
-    say(t(next === "overview" ? "verse.notice.view_overview" : "verse.notice.view_follow"));
-  }, [runtime, switchMode, say, t]);
+  // Choosing a view (the switch, V, 1/2/3) is a click or a key press: third and first person take the mouse for
+  // shooter look at once, the bird's-eye view gives it back.
+  const showView = useCallback((wanted: VerseView) => {
+    const next = resolveView(wanted, eyeCapable);
+    if (next !== viewRef.current) {
+      chooseView(next);
+      say(t(next === "overview" ? "verse.notice.view_overview" : !eyeCapable ? "verse.notice.view_follow" : next === "first" ? "verse.notice.view_first" : "verse.notice.view_follow_eye"));
+    }
+    const el = surfaceRef.current;
+    if (!el || runtime.duelActive) return;
+    if (isShooterView(next, eyeCapable)) requestMouseLook(el);
+    else releaseMouseLook(el);
+  }, [eyeCapable, chooseView, say, t, runtime]);
+  const cycle = useCallback(() => showView(cycleView(viewRef.current, eyeCapable)), [showView, eyeCapable]);
+  // The wheel pushed third person into first (or pulled first back out): the switch follows, the mouse stays as it is.
+  const zoomEye = useCallback((factor: number) => {
+    const changed: Person | null = runtime.shoulder.zoom(factor);
+    if (changed) chooseView(changed);
+  }, [runtime, chooseView]);
 
-  // The use key works the station the commander stands at.
-  const workNearStation = useCallback(() => {
+  // The station within the commander's reach, the one in front preferred: where the eye-level camera looks, else where
+  // the commander faces.
+  // The duel terminals: the four consoles on the reactor's control ring (engineering only, or anywhere for testing).
+  const duelTerminals = useMemo<Station[]>(() => {
+    if (!deck || (deck.id !== ARENA_DECK && !duelAnyDeck())) return [];
+    const floor = deck.rooms.find((r) => r.id === REACTOR_ARENA.room)?.floorY ?? 0;
+    return REACTOR_ARENA.terminals.map((tm) => ({ id: `duel:${tm.id}`, kind: "games" as const, room: REACTOR_ARENA.room, x: tm.x, y: floor, z: tm.z, sockets: {} }));
+  }, [deck]);
+  const stationAtHand = useCallback((): Station | null => {
     const d = runtime.deck;
     const pose = runtime.poses.get(COMMANDER_ID);
-    const station = d && pose ? stationWithin(d.stations, pose.x, pose.z) : null;
+    if (!d || !pose) return null;
+    const facing = runtime.eye ? runtime.shoulder.forward() : { x: Math.sin(pose.yaw), z: Math.cos(pose.yaw) };
+    return stationWithin(duelTerminals.length ? [...d.stations, ...duelTerminals] : d.stations, pose.x, pose.z, undefined, facing);
+  }, [runtime, duelTerminals]);
+
+  // The use key works the station at hand.
+  const workNearStation = useCallback(() => {
+    const station = stationAtHand();
+    if (station?.id.startsWith("duel:")) { setPanel("duel"); return; }
     if (station) activateStation(station);
-  }, [runtime, activateStation]);
+  }, [stationAtHand, activateStation]);
 
   // Third person: which station is within the commander's reach (checked a few times a second), offered with its key.
   const [nearStation, setNearStation] = useState<string | null>(null);
@@ -299,31 +406,61 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       const now = performance.now();
       if (now - last < 200) return;
       last = now;
-      const d = runtime.deck;
-      const pose = runtime.poses.get(COMMANDER_ID);
-      const id = d && pose && runtime.control.mode === "follow" ? stationWithin(d.stations, pose.x, pose.z)?.id ?? null : null;
+      const id = runtime.control.mode === "follow" && !runtime.duelActive ? stationAtHand()?.id ?? null : null;
       setNearStation((prev) => (prev === id ? prev : id));
     };
     runtime.afterFrame.add(check);
     return () => { runtime.afterFrame.delete(check); };
-  }, [awake, runtime]);
+  }, [awake, runtime, stationAtHand]);
 
   // Pointer: hover labels, taps on crew, stations and the floor.
+  const eyeHit = useCallback((sx: number, sy: number) => {
+    const d = runtime.deck;
+    const ray = runtime.ray(sx, sy);
+    if (!d || !ray || !runtime.eye) return null;
+    return eyePick(ray.ray, d.stations, runtime.poses.values(), (id) => life.crew.has(id), runtime.eye.collider);
+  }, [runtime, life.crew]);
   const hit = useCallback((sx: number, sy: number): Hover => {
     const d = runtime.deck;
     if (!d) return null;
+    if (runtime.eye) {
+      const h = eyeHit(sx, sy);
+      return h && h.kind !== "floor" ? h : null;
+    }
     const p = screenToPlate(runtime.view.current, runtime.view.vp, sx, sy);
     const body = pickBody(d.camera, runtime.poses.values(), p, (id) => life.crew.has(id));
     if (body) return { kind: "crew", id: body };
     const station = pickStation(d, p);
     return station ? { kind: "station", id: station.id } : null;
-  }, [runtime, life.crew]);
+  }, [runtime, life.crew, eyeHit]);
 
-  const handlers = useRef({ hover: (_x: number, _y: number) => undefined as void, tap: (_x: number, _y: number) => undefined as void });
+  const handlers = useRef({
+    hover: (_x: number, _y: number) => undefined as void,
+    tap: (_x: number, _y: number) => undefined as void,
+    aim: (_x: number, _y: number) => false as boolean,
+  });
   handlers.current.hover = (sx, sy) => {
     const h = hit(sx, sy);
     setHover((prev) => (sameHover(prev, h) ? prev : h));
     if (surfaceRef.current) surfaceRef.current.dataset.cursor = h ? "pointer" : "";
+  };
+  // Shooter look: the left button (or E) works what the centre crosshair is on, a crew member or a station; never the
+  // floor (that would send the commander off with every press of the button). Returns whether something was there.
+  handlers.current.aim = (sx, sy) => {
+    const d = runtime.deck;
+    if (!d) return false;
+    const h = hit(sx, sy);
+    if (h?.kind === "crew") {
+      if (selected === h.id) openCrew(h.id);
+      else setSelected(h.id);
+      return true;
+    }
+    if (h?.kind === "station") {
+      const station = d.stations.find((s) => s.id === h.id);
+      if (station) activateStation(station);
+      return !!station;
+    }
+    return false;
   };
   handlers.current.tap = (sx, sy) => {
     const d = runtime.deck;
@@ -341,6 +478,12 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       return;
     }
     setSelected(null);
+    if (runtime.eye) {
+      const at = eyeHit(sx, sy);
+      const floor = at?.kind === "floor" ? nearestWalkable(d.nav, { x: at.x, z: at.z }, 1.2) : null;
+      if (floor) walkTo(floor.x, floor.z);
+      return;
+    }
     const p = screenToPlate(runtime.view.current, runtime.view.vp, sx, sy);
     const floor = pickFloor(d.camera, d.nav, p.u, p.v);
     if (floor) walkTo(floor.x, floor.z);
@@ -349,6 +492,33 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
   useEffect(() => {
     const el = surfaceRef.current;
     if (!el) return;
+    // A duel: the mouse aims and fires, the keys fight (duel/duelInput.ts).
+    if (dueling) {
+      return attachDuelInput(el, duel.input, {
+        look: (dx, dy) => duel.camera.look(dx, dy),
+        escape: () => {
+          if (document.pointerLockElement === el) document.exitPointerLock?.();
+          duel.escape();
+        },
+        relock: () => duelActions.current.lockAim(),
+        live: () => duel.live,
+      });
+    }
+    // Third and first person: shooter mouse look (a click takes the mouse), the wheel zooms and hands over between them.
+    if (eyeOn) {
+      return attachOrbitInput(el, runtime.shoulder, {
+        tap: (x, y) => handlers.current.tap(x, y),
+        hover: (x, y) => handlers.current.hover(x, y),
+        leave: () => setHover(null),
+        moved: () => setHover(null),
+        aim: (x, y) => { handlers.current.aim(x, y); },
+        capture: () => {
+          hostRef.current?.focus({ preventScroll: true });
+          requestMouseLook(el);
+        },
+        zoom: (factor) => keyActions.current.zoomEye(factor),
+      });
+    }
     return attachPointerInput(el, runtime.view, {
       tap: (x, y) => handlers.current.tap(x, y),
       hover: (x, y) => handlers.current.hover(x, y),
@@ -362,7 +532,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
         return pose ? runtime.toScreen(pose.x, pose.y + pose.height * 0.5, pose.z) : null;
       },
     });
-  }, [runtime, webgl, generation]);
+  }, [runtime, webgl, generation, eyeOn, dueling, duel]);
 
   // Opening the full-size stage hands it the keyboard, so the movement keys work at once (unless someone is typing;
   // the IDE's side panel never takes focus from the terminal beside it).
@@ -375,8 +545,47 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
 
   // Keyboard: WASD/arrows walk the commander (third person) or pan (bird's-eye), Shift hurries, V switches the view,
   // E works the station at hand, +/- zoom, Escape closes, F9 the alignment overlay (development).
-  const keyActions = useRef({ toggleView, workNearStation });
-  keyActions.current = { toggleView, workNearStation };
+  const lockPointer = useCallback(() => {
+    const el = surfaceRef.current;
+    if (!el || !runtime.eye) return;
+    if (hasMouseLook(el)) { releaseMouseLook(el); return; }
+    requestMouseLook(el);
+    say(t("verse.notice.mouse_look"));
+  }, [runtime, say, t]);
+  // E: what the crosshair is on (at eye level), else the station within reach.
+  const interact = useCallback(() => {
+    const el = surfaceRef.current;
+    if (runtime.eye && el && handlers.current.aim(el.clientWidth / 2, el.clientHeight / 2)) return;
+    workNearStation();
+  }, [runtime, workNearStation]);
+  // The bird's-eye view (or a deck without an eye-level scene) gives the mouse back; so does leaving the stage.
+  useEffect(() => { if (!eyeOn && !dueling) releaseMouseLook(surfaceRef.current); }, [eyeOn, dueling]);
+  useEffect(() => {
+    const surface = surfaceRef.current;
+    return () => releaseMouseLook(surface);
+  }, []);
+  // Mouse look is on while the surface holds the pointer lock: a reticle marks what a click works.
+  const [locked, setLocked] = useState(false);
+  useEffect(() => {
+    const changed = () => {
+      const now = !!surfaceRef.current && document.pointerLockElement === surfaceRef.current;
+      setLocked(now);
+      // The browser released the mouse (Escape): the duel pauses rather than playing on without aim.
+      if (now) duel.hadLock = true;
+      else if (duel.phase === "running" && duel.hadLock) duel.pause();
+    };
+    document.addEventListener("pointerlockchange", changed);
+    return () => document.removeEventListener("pointerlockchange", changed);
+  }, [duel]);
+  // A dialog needs the pointer: opening one ends mouse look.
+  useEffect(() => {
+    if (panel && surfaceRef.current && document.pointerLockElement === surfaceRef.current) document.exitPointerLock();
+  }, [panel]);
+  const keyActions = useRef({ cycle, showView, interact, lockPointer, zoomEye });
+  keyActions.current = { cycle, showView, interact, lockPointer, zoomEye };
+  /** What Escape closes first: a selected crew member or an open panel. */
+  const closable = useRef(false);
+  closable.current = selected !== null || panel !== null;
   useEffect(() => {
     if (!awake) return;
     const owns = (e: KeyboardEvent) => {
@@ -384,7 +593,20 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       const focused = document.activeElement;
       return !focused || focused === document.body || !!hostRef.current?.contains(focused);
     };
+    // Escape ends mouse look, or closes the crew card or a panel, and nothing else: claimed before the Agents view sees
+    // it (it would leave the ship). With nothing open it goes through and leaves as before.
+    const escape = (e: KeyboardEvent) => {
+      if (e.code !== "Escape" || runtime.duelActive) return;
+      const surface = surfaceRef.current;
+      const looking = !!surface && document.pointerLockElement === surface;
+      if (!(looking || closable.current) || !owns(e)) return;
+      e.preventDefault();
+      if (looking) { document.exitPointerLock?.(); return; }
+      setPanel(null);
+      setSelected(null);
+    };
     const down = (e: KeyboardEvent) => {
+      if (runtime.duelActive) return;
       if (e.key === "Shift") runtime.control.run = true;
       if (!owns(e)) return;
       const key = PAN_KEYS[e.code];
@@ -395,11 +617,13 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
         else v.setKey(key, true, e.shiftKey);
         return;
       }
-      if (e.code === "Equal" || e.code === "NumpadAdd") v.zoomAt(v.vp.width / 2, v.vp.height / 2, 1.25);
-      else if (e.code === "Minus" || e.code === "NumpadSubtract") v.zoomAt(v.vp.width / 2, v.vp.height / 2, 0.8);
-      else if (e.code === "KeyV" && !e.repeat) keyActions.current.toggleView();
-      else if (e.code === "KeyE" && !e.repeat) keyActions.current.workNearStation();
-      else if (e.code === "Escape") { setPanel(null); setSelected(null); }
+      const direct = e.repeat ? null : viewForKey(e.code);
+      if (direct) { e.preventDefault(); keyActions.current.showView(direct); return; }
+      if (e.code === "Equal" || e.code === "NumpadAdd") { if (runtime.eye) keyActions.current.zoomEye(0.85); else v.zoomAt(v.vp.width / 2, v.vp.height / 2, 1.25); }
+      else if (e.code === "Minus" || e.code === "NumpadSubtract") { if (runtime.eye) keyActions.current.zoomEye(1.18); else v.zoomAt(v.vp.width / 2, v.vp.height / 2, 0.8); }
+      else if (e.code === "KeyV" && !e.repeat) keyActions.current.cycle();
+      else if (e.code === "KeyE" && !e.repeat) keyActions.current.interact();
+      else if (e.code === "KeyL" && !e.repeat) keyActions.current.lockPointer();
       else if (e.code === "F9" && import.meta.env.DEV) setDebug((d) => !d);
     };
     const up = (e: KeyboardEvent) => {
@@ -410,10 +634,12 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       runtime.control.setKey(key, false, e.shiftKey);
     };
     const blur = () => { runtime.view.clearKeys(); runtime.control.clearKeys(); };
+    window.addEventListener("keydown", escape, true);
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
     return () => {
+      window.removeEventListener("keydown", escape, true);
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
@@ -421,10 +647,114 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     };
   }, [awake, runtime]);
 
+  // The duel: start it (riding down to engineering first when the commander is elsewhere), lock the mouse for aiming,
+  // pause when the stage goes out of sight, and give the commander back to the deck where the duel ended.
+  const [duelChoice, setDuelChoice] = useState<DuelDifficulty>("hard");
+  const [pendingDuel, setPendingDuel] = useState<DuelDifficulty | null>(null);
+  // The duel aims with the same mouse look as third and first person.
+  duelActions.current.lockAim = () => {
+    const el = surfaceRef.current;
+    if (el) requestMouseLook(el);
+  };
+  const beginDuel = useCallback((difficulty: DuelDifficulty) => {
+    const d = runtime.deck;
+    if (!d) return;
+    // The duel is fought over the shoulder (its own camera); from the bird's-eye view the stage goes to third person.
+    if (viewRef.current === "overview") chooseView("third");
+    runtime.control.mode = "follow";
+    runtime.control.clearKeys();
+    duel.floorY = d.rooms.find((r) => r.id === REACTOR_ARENA.room)?.floorY ?? 0;
+    runtime.duelArea = REACTOR_ARENA.bounds;
+    setSelected(null);
+    setHover(null);
+    duel.start(difficulty);
+  }, [runtime, duel, chooseView]);
+  const startDuel = useCallback((difficulty: DuelDifficulty) => {
+    setPanel(null);
+    setDuelChoice(difficulty);
+    if (deckId !== ARENA_DECK && !duelAnyDeck()) {
+      // Down to Reactor Engineering first; the match starts once its eye-level scene is on screen.
+      setPendingDuel(difficulty);
+      rideTo(ARENA_DECK);
+      return;
+    }
+    if (!eyeCapable) { say(t("verse.duel.notice.needs_eye")); return; }
+    beginDuel(difficulty);
+    duelActions.current.lockAim();
+  }, [deckId, eyeCapable, rideTo, beginDuel, say, t]);
+  useEffect(() => {
+    if (!pendingDuel || doors || !deck || deck.id !== ARENA_DECK) return;
+    if (!eyeCapable) { setPendingDuel(null); say(t("verse.duel.notice.needs_eye")); return; }
+    if (eyeDeck !== deck) return;
+    setPendingDuel(null);
+    beginDuel(pendingDuel);
+  }, [pendingDuel, doors, deck, eyeCapable, eyeDeck, beginDuel, say, t]);
+  useEffect(() => {
+    duel.onExit = (at) => {
+      if (surfaceRef.current && document.pointerLockElement === surfaceRef.current) document.exitPointerLock?.();
+      if (at) runtime.placeCommander = { x: at.x, z: at.z, yaw: at.yaw };
+      runtime.duelArea = null;
+      runtime.control.clearKeys();
+      runtime.control.reframe = true;
+    };
+    return () => { duel.onExit = null; };
+  }, [duel, runtime]);
+  // The pause and result screens need the pointer; a hidden stage pauses the match.
+  useEffect(() => {
+    if (duelPhase !== "paused" && duelPhase !== "result") return;
+    if (surfaceRef.current && document.pointerLockElement === surfaceRef.current) document.exitPointerLock?.();
+  }, [duelPhase]);
+  useEffect(() => { if (!awake && duel.phase === "running") duel.pause(); }, [awake, duel]);
+  const leaveDuel = useCallback(() => {
+    const midMatch = duel.phase === "running" || duel.phase === "paused";
+    duel.leave();
+    if (midMatch) say(t("verse.duel.notice.left"));
+  }, [duel, say, t]);
+  // QA hook (built bundles too, like __verseStats): start a duel on the deck on screen and drive it without a mouse.
+  const beginRef = useRef(beginDuel);
+  beginRef.current = beginDuel;
+  useEffect(() => {
+    const hook = {
+      start: (difficulty: DuelDifficulty = "hard") => beginRef.current(difficulty),
+      leave: () => duel.leave(),
+      /** Put the commander somewhere on the deck (a ring console, to check the start prompt). */
+      place: (x: number, z: number, yaw = 0) => { runtime.placeCommander = { x, z, yaw }; runtime.control.reframe = true; },
+      look: (dx: number, dy: number) => duel.camera.look(dx, dy),
+      hold: (c: Parameters<DuelController["hold"]>[0]) => duel.hold(c),
+      press: (name: "dodge" | "vent") => duel.press(name),
+      state: () => ({ phase: duel.phase, hud: duel.hud(), view: duel.view, result: duel.result, aim: duel.aimTarget, pose: duel.pose }),
+    };
+    Object.assign(window, { __verseDuel: hook });
+    return () => { if ((window as unknown as { __verseDuel?: unknown }).__verseDuel === hook) delete (window as unknown as { __verseDuel?: unknown }).__verseDuel; };
+  }, [duel, runtime]);
+
+  // QA hook (built bundles too): switch views, look and zoom without a mouse (headless browsers cannot lock the pointer).
+  const viewActions = useRef({ showView, zoomEye });
+  viewActions.current = { showView, zoomEye };
+  useEffect(() => {
+    const hook = {
+      set: (v: VerseView) => viewActions.current.showView(v),
+      look: (dx: number, dy: number) => runtime.shoulder.look(dx, dy, true),
+      zoom: (factor: number) => viewActions.current.zoomEye(factor),
+      state: () => ({
+        view: viewRef.current, person: runtime.shoulder.person, distance: runtime.shoulder.distance, actual: runtime.shoulder.actual,
+        firstShare: runtime.shoulder.firstShare, hfov: runtime.shoulder.hfov(), yaw: runtime.shoulder.yaw, pitch: runtime.shoulder.pitch,
+        commanderHidden: runtime.commanderHidden, locked: hasMouseLook(surfaceRef.current),
+      }),
+    };
+    Object.assign(window, { __verseView: hook });
+    return () => { if ((window as unknown as { __verseView?: unknown }).__verseView === hook) delete (window as unknown as { __verseView?: unknown }).__verseView; };
+  }, [runtime]);
+
   const focusOn = useCallback((id: string) => {
     const pose = runtime.poses.get(id);
     const d = runtime.deck;
     if (!pose || !d) return;
+    const me = runtime.poses.get(COMMANDER_ID);
+    if (runtime.eye && me) {
+      runtime.shoulder.faceToward(me.x, me.z, pose.x, pose.z);
+      return;
+    }
     const p = worldToPlate(d.camera, pose.x, pose.y, pose.z);
     runtime.view.focus(p.u, p.v);
   }, [runtime]);
@@ -476,9 +806,11 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     if (!deck) return null;
     const pointed = hover?.kind === "station";
     const id = pointed ? hover.id : nearStation;
+    const terminal = id ? duelTerminals.find((s) => s.id === id) : undefined;
+    if (terminal) return { station: terminal, name: t("verse.duel.terminal"), action: t("verse.duel.start"), key: "E" };
     const station = id ? deck.stations.find((s) => s.id === id) : undefined;
     return station ? { station, name: t(`verse.station.${station.kind}.name`), action: t(`verse.station.${station.kind}.action`), key: pointed ? null : "E" } : null;
-  }, [hover, nearStation, deck, t]);
+  }, [hover, nearStation, deck, t, duelTerminals]);
   const card = useMemo<CrewCardInfo | null>(() => {
     const m = selected ? life.crew.get(selected) : undefined;
     if (!m) return null;
@@ -500,6 +832,13 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
 
   const onPlateReady = useCallback((shown: Deck) => setShownDeck(shown), []);
   const onFailure = useCallback((error: Error) => { console.error("Verse deck failed", error); setFailure(error); }, []);
+  const onEyeReady = useCallback((shown: Deck) => setEyeDeck(shown), []);
+  // A deck whose eye-level scene cannot load is still walked on its plate.
+  const onEyeFailure = useCallback((error: Error) => {
+    console.error("Verse eye-level view failed; showing the plate", error);
+    const failed = runtime.deck?.id;
+    if (failed) setEyeFailed((prev) => (prev.has(failed) ? prev : new Set(prev).add(failed)));
+  }, [runtime]);
   const problem = failure ?? deckState.error;
   const fallback = <div className="verse-fallback" role="status">{chunkReady ? t("verse.stage.unavailable") : null}</div>;
 
@@ -518,13 +857,19 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
                 gl={{ antialias: true, alpha: false, stencil: false, powerPreference: "high-performance" }}
                 onCreated={({ gl }) => gl.setClearColor(0x050607, 1)}
               >
+                {deck && !problem && eyeCapable && (
+                  <RealtimeBackdrop runtime={runtime} deck={deck} active={eyeOn} commanderId={COMMANDER_ID} quality={quality} onReady={onEyeReady} onError={onEyeFailure} />
+                )}
+                {deck && !problem && eyeCapable && dueling && (
+                  <DuelLayer runtime={runtime} controller={duel} deck={deck} library={library} commanderId={COMMANDER_ID} commanderLook={commanderLook} />
+                )}
                 {deck && !problem && (
-                  <DeckBackdrop runtime={runtime} deck={deck} debug={debug} awake={awake} onReady={onPlateReady} onError={onFailure}>
+                  <DeckBackdrop runtime={runtime} deck={deck} debug={debug} awake={awake} active={!eyeOn} onReady={onPlateReady} onError={onFailure}>
                     <DeckEnvironment url={deck.envUrl} />
                     {library && <ActorsLayer runtime={runtime} deck={deck} library={library} cast={cast} commanderId={COMMANDER_ID} reduced={reduced} saluteAt={saluteAt} />}
                     <ScreensLayer deck={deck} faces={faces} />
                     <HoloLayer sockets={holos} lit={litHolos} reduced={reduced} />
-                    <LightsLayer deck={deck} alarm={alarm} reduced={reduced} />
+                    <LightsLayer deck={deck} alarm={alarm} reduced={reduced} runtime={runtime} />
                     <BeaconsLayer runtime={runtime} statuses={deckStatuses} reduced={reduced} />
                     {import.meta.env.DEV && debug && <DebugOverlay deck={deck} />}
                   </DeckBackdrop>
@@ -536,22 +881,35 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
       )}
       {chunkReady && (
         <div className="verse-hud">
-          <FloatingLabels runtime={runtime} plates={plates} station={labelledStation} deck={deck} />
-          <DeckTitle deck={deckId} t={t} counts={counts} rankCard={<RankCard compact={compact} />} />
-          <Toolbar
+          {!dueling && <FloatingLabels runtime={runtime} plates={plates} station={labelledStation} deck={deck} />}
+          {!dueling && <DeckTitle deck={deckId} t={t} counts={counts} rankCard={<RankCard compact={compact} />} />}
+          {!dueling && <Toolbar
             t={t}
-            mode={mode}
-            onToggleView={toggleView}
+            view={view}
+            firstAvailable={eyeCapable}
+            onView={showView}
             onLift={() => setPanel("lift")}
             onCommander={() => { if (runtime.control.mode === "follow") runtime.control.reframe = true; else focusOn(COMMANDER_ID); }}
-            onHelp={() => say(t("verse.stage.help"))}
-          />
+            onSettings={eyeCapable ? () => setPanel("settings") : undefined}
+            onDuel={compact ? undefined : () => setPanel("duel")}
+            onHelp={() => say(t(eyeOn ? "verse.stage.help_eye" : "verse.stage.help"), HELP_MS)}
+          />}
+          {shooter && !dueling && <div className="verse-reticle" data-locked={locked} data-on={hover ? "" : undefined} aria-hidden />}
+          {shooter && !dueling && !locked && !panel && plateReady && (
+            <div className="verse-look-hint" aria-hidden>{t("verse.tools.click_to_look")}</div>
+          )}
+          {dueling && (
+            <DuelHud runtime={runtime} controller={duel} phase={duelPhase} locked={locked} t={t}
+              onResume={() => { duel.resume(); duelActions.current.lockAim(); }}
+              onLeave={leaveDuel}
+              onRematch={() => { duel.rematch(); duelActions.current.lockAim(); }} />
+          )}
           {(!plateReady || problem) && (
             <div className="verse-status" role="status" data-tone={problem ? "error" : "quiet"}>
               {problem ? t("verse.stage.deck_missing") : t("verse.stage.loading")}
             </div>
           )}
-          {card && (
+          {card && !dueling && (
             <CrewCard info={card} t={t} onOpen={() => openCrew(card.id)} onShow={() => focusOn(card.id)} onClose={() => setSelected(null)}
               onWalk={() => {
                 const pose = runtime.poses.get(card.id);
@@ -564,6 +922,10 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
             <LauncherPanel t={t} say={say} onClose={() => setPanel(null)} onOpenIde={() => { setPanel(null); useEventStore.getState().setActiveSection("agentic-ide"); }} />
           )}
           {panel === "games" && <SimulatorPanel t={t} onClose={() => setPanel(null)} />}
+          {panel === "duel" && !dueling && (
+            <DuelPanel t={t} ride={deckId !== ARENA_DECK && !duelAnyDeck()} last={duelChoice} onStart={startDuel} onClose={() => setPanel(null)} />
+          )}
+          {panel === "settings" && <ViewSettingsPanel t={t} tier={eyeOn ? runtime.stats.tier : ""} onClose={() => setPanel(null)} />}
           <RanksOverlay active={awake} crew={officers} companionName={lead?.name} />
           {import.meta.env.DEV && <StatsReadout runtime={runtime} />}
           <div className="verse-doors" data-shut={doors !== null} aria-hidden><i /><i /></div>
