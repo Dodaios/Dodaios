@@ -27,6 +27,14 @@ export interface ResizablePaneOptions {
   axis?: ResizeAxis;
   /** Edge the grip sits on — see `ResizeHandleEdge`. Defaults to ``end``. */
   handle?: ResizeHandleEdge;
+  /**
+   * Drag-to-close. When set, a drag past `min` keeps following the pointer
+   * down to 0, and a release below this size calls `onCollapse` instead of
+   * settling: the stored size stays what it was before the drag, so the pane
+   * reopens at its old width.
+   */
+  collapseBelow?: number;
+  onCollapse?: () => void;
 }
 
 export interface ResizablePane {
@@ -81,11 +89,17 @@ export function useResizablePane({
   max,
   axis = "x",
   handle = "end",
+  collapseBelow,
+  onCollapse,
 }: ResizablePaneOptions): ResizablePane {
   const [size, setSize] = useState<number>(() =>
     clampSize(loadSize(storageKey, defaultSize), min, max),
   );
   const [isResizing, setIsResizing] = useState(false);
+  // Size under the pointer while a collapsible drag is below `min`.
+  const [overshoot, setOvershoot] = useState<number | null>(null);
+  const collapse = useRef({ below: collapseBelow, run: onCollapse });
+  collapse.current = { below: collapseBelow, run: onCollapse };
 
   // Drag anchors — refs so the move handler never reads a stale closure.
   const startPoint = useRef(0);
@@ -133,12 +147,16 @@ export function useResizablePane({
      */
     let frame: number | undefined;
     let point = startPoint.current;
+    let raw = startSize.current;
 
     const apply = () => {
       frame = undefined;
       const travelled = point - startPoint.current;
       const grown = handle === "end" ? travelled : -travelled;
-      setSize(clampSize(startSize.current + grown, min, max));
+      raw = startSize.current + grown;
+      const below = collapse.current.below !== undefined && raw < min;
+      setOvershoot(below ? Math.max(0, Math.round(raw)) : null);
+      setSize(clampSize(raw, min, max));
     };
 
     const onMove = (e: PointerEvent) => {
@@ -154,6 +172,12 @@ export function useResizablePane({
       if (frame !== undefined) {
         cancelAnimationFrame(frame);
         apply();
+      }
+      setOvershoot(null);
+      const { below, run } = collapse.current;
+      if (below !== undefined && raw < below) {
+        setSize(startSize.current);
+        run?.();
       }
       setIsResizing(false);
     };
@@ -194,7 +218,7 @@ export function useResizablePane({
   // fits the current measured frame. Merely narrowing a window must not erase
   // the user's wider layout preference.
   const visibleSize = clampSize(size, min, max);
-  return { size: visibleSize, isResizing, startResize, reset, nudge, resize };
+  return { size: overshoot ?? visibleSize, isResizing, startResize, reset, nudge, resize };
 }
 
 function loadSize(key: string, fallback: number): number {
