@@ -567,6 +567,32 @@ describe("RosterRail shell", () => {
     expect(onToggleCollapsed).toHaveBeenCalled();
   });
 
+  it("lists everyone on the folded rail even while a filter is chosen", () => {
+    localStorage.setItem("society.roster.filter.v1", "needs-you");
+    renderRail([agent({ agentId: "a", name: "A" }), waiting({ agentId: "b", name: "B" })], { collapsed: true });
+    expect(screen.getByRole("button", { name: "A" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "B" })).toBeTruthy();
+    // The choice itself is kept for when the rows come back.
+    expect(localStorage.getItem("society.roster.filter.v1")).toBe("needs-you");
+  });
+
+  it("does not let pins of retired agents fill the pinned places", () => {
+    localStorage.setItem("society.roster.pinned.v1", JSON.stringify(["gone1", "gone2", "gone3", "gone4", "gone5", "gone6", "gone7", "gone8"]));
+    renderRail([agent({ agentId: "a", name: "A" })]);
+    fireEvent.contextMenu(screen.getByText("A"));
+    const pin = screen.getByRole("menuitem", { name: "society.shell.pin" }) as HTMLButtonElement;
+    expect(pin.disabled).toBe(false);
+    fireEvent.click(pin);
+    expect(JSON.parse(localStorage.getItem("society.roster.pinned.v1") ?? "[]")).toEqual(["a"]);
+  });
+
+  it("shows no misleading empty state when every agent is hidden", () => {
+    localStorage.setItem("society.roster.hidden-agent-ids", JSON.stringify(["a"]));
+    renderRail([agent({ agentId: "a", name: "A" })]);
+    expect(screen.queryByTestId("roster-empty")).toBeNull();
+    expect(screen.getByText("society.roster.show_hidden")).toBeTruthy();
+  });
+
   it("says what to do when there are no agents yet", () => {
     const onCreate = vi.fn();
     renderRail([], { onCreate });

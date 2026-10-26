@@ -28,6 +28,7 @@ import {
   ROSTER_DEFAULT,
   ROSTER_MAX,
   ROSTER_MIN,
+  ROSTER_RAIL,
   readShellPrefs,
   resolveShellLayout,
   shellPrefsReducer,
@@ -87,7 +88,11 @@ export function AgentChatLayout({ children, options, roster, header, resetKey }:
   const measured = useMeasuredWidth(rootRef);
   // Before the first measurement (and in a test DOM) nothing has to give way.
   const available = measured > 0 ? measured : Number.POSITIVE_INFINITY;
-  const layout = resolveShellLayout(available, roster ? prefs : { ...prefs, rosterCollapsed: true, rosterWidth: 0 }, true);
+  // Without a roster the frame is chat | details; the resolver always counts
+  // a roster column, so hand it the rail's width back.
+  const layout = roster
+    ? resolveShellLayout(available, prefs, true)
+    : resolveShellLayout(available + ROSTER_RAIL, { ...prefs, rosterCollapsed: true }, true);
   const rosterWidth = roster ? layout.rosterWidth : 0;
 
   useEffect(() => {

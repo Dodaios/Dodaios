@@ -140,7 +140,7 @@ export function RosterRail({
   const t = useT();
   const language = useUiLanguage();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useRosterFilter();
+  const [chosenFilter, setFilter] = useRosterFilter();
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [hiddenIds, setHiddenIds] = usePersistedIds(HIDDEN_AGENTS_KEY);
@@ -182,7 +182,14 @@ export function RosterRail({
   const setHidden = useCallback((agentId: string, hidden: boolean) => {
     setHiddenIds((current) => (hidden ? [...new Set([...current, agentId])] : current.filter((id) => id !== agentId)));
   }, [setHiddenIds]);
-  const onTogglePin = useCallback((agentId: string) => setPinIds((current) => togglePin(current, agentId)), [setPinIds]);
+  // A pin left behind by a retired agent must not hold one of the places.
+  const livePinCount = pinIds.filter((id) => agents.some((agent) => agent.agentId === id)).length;
+  const onTogglePin = useCallback((agentId: string) => setPinIds((current) => {
+    const known = loading || agents.length === 0
+      ? current
+      : current.filter((id) => agents.some((agent) => agent.agentId === id));
+    return togglePin(known, agentId);
+  }), [agents, loading, setPinIds]);
   const closeMenu = useCallback(() => setMenu(null), []);
   const openMenu = (event: MouseEvent, agentId: string) => {
     event.preventDefault();
@@ -205,7 +212,10 @@ export function RosterRail({
     const agent = agents.find((row) => row.agentId === id);
     return agent ? display(agent) : id;
   };
-  const q = query.trim().toLowerCase();
+  // The folded rail has no search box or filter on screen, so it lists
+  // everyone; the person's choice comes back with the rows.
+  const filter: RosterFilter = collapsed ? "all" : chosenFilter;
+  const q = collapsed ? "" : query.trim().toLowerCase();
   const browsing = q === "" && filter === "all";
   const visibleGroups = filter === "all"
     ? groups.filter((group) => `${group.name} ${group.members.map(memberName).join(" ")}`.toLowerCase().includes(q))
@@ -666,7 +676,7 @@ export function RosterRail({
     <>
       {menu && menuAgent && <AgentRosterActions key={menu.agentId} agent={menuAgent} roster={agents} sample={sample}
         hidden={hiddenIds.includes(menu.agentId)} x={menu.x} y={menu.y} onVisibilityChange={setHidden} onDismiss={closeMenu}
-        pinned={pinIds.includes(menu.agentId)} canPin={pinIds.length < MAX_PINNED} onTogglePin={onTogglePin}
+        pinned={pinIds.includes(menu.agentId)} canPin={livePinCount < MAX_PINNED} onTogglePin={onTogglePin}
         unread={unread.has(menu.agentId)} canMarkUnread={menu.agentId !== activeAgentId} onMarkUnread={markUnread} />}
       {groupMenu && menuGroup && <GroupRosterActions key={groupMenu.groupId} group={menuGroup} x={groupMenu.x} y={groupMenu.y}
         onEdit={() => setEditingGroupId(menuGroup.group_id)} onDismiss={() => setGroupMenu(null)} />}
@@ -888,7 +898,9 @@ export function RosterRail({
           {showLoading ? (
             <p className="px-2 py-3 text-xs text-muted-foreground">{t("society.roster.loading")}</p>
           ) : null}
-          {!showLoading && !loading && nothingListed ? (
+          {/* Under "All" with no search, an empty list means everyone is
+              hidden; the show-hidden control above already says so. */}
+          {!showLoading && !loading && nothingListed && (agents.length === 0 || q !== "" || filter !== "all") ? (
             <EmptyState
               filter={filter}
               searching={q !== ""}
