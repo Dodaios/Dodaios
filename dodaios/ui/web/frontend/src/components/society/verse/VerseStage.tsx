@@ -77,6 +77,7 @@ import { REACTOR_ARENA } from "./combat/arenaReactor";
 import { DuelController, type DuelDifficulty } from "./duel/duelController";
 import { attachDuelInput } from "./duel/duelInput";
 import { DuelLayer } from "./duel/DuelLayer";
+import { ViewmodelLayer } from "./viewmodel/ViewmodelLayer";
 import { DuelHud } from "./hud/DuelHud";
 import { DuelPanel } from "./hud/DuelPanel";
 import "./verse.css";
@@ -268,7 +269,10 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     duel.camera.sensitivity = sensitivity;
     duel.camera.invertY = invertY;
     duel.camera.hfovSetting = fovThird;
+    duel.camera.hfovFirst = fovFirst;
   }, [runtime, duel, sensitivity, invertY, fovThird, fovFirst]);
+  // A duel is fought in the person the deck was seen in: through the eyes in first person, else over the shoulder.
+  useEffect(() => { duel.camera.firstPerson = view === "first"; }, [duel, view]);
 
   // The doors open once the car has arrived and the new deck is on screen (or after a moment, whatever happens).
   useEffect(() => {
@@ -507,6 +511,14 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
         },
         relock: () => duelActions.current.lockAim(),
         live: () => duel.live,
+        // 2 and 3 (and V) switch between the shoulder and the eyes mid-match; the bird's-eye view waits for the end.
+        view: (code) => {
+          const direct = viewForKey(code);
+          const next = code === "KeyV" ? (viewRef.current === "first" ? "third" : "first") : direct;
+          if (!next || next === "overview") return false;
+          keyActions.current.showView(next);
+          return true;
+        },
       });
     }
     // Third and first person: shooter mouse look (a click takes the mouse), the wheel zooms and hands over between them.
@@ -867,6 +879,9 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
                 )}
                 {deck && !problem && eyeCapable && dueling && (
                   <DuelLayer runtime={runtime} controller={duel} deck={deck} library={library} commanderId={COMMANDER_ID} commanderLook={commanderLook} />
+                )}
+                {deck && !problem && eyeCapable && (
+                  <ViewmodelLayer runtime={runtime} duel={duel} deck={deck} library={library} commanderId={COMMANDER_ID} commanderLook={commanderLook} />
                 )}
                 {deck && !problem && (
                   <DeckBackdrop runtime={runtime} deck={deck} debug={debug} awake={awake} active={!eyeOn} onReady={onPlateReady} onError={onFailure}>

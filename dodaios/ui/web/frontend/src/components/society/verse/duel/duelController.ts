@@ -67,6 +67,9 @@ export class DuelController {
   aimTarget: "player" | "world" | "none" = "none";
   /** QA: held controls forced on top of the person's (`window.__verseDuel.hold`). */
   forced: Partial<ControlState> = {};
+  /** Shots the person has fired this match, and whether the last one was in the sights (the viewmodel kicks on each). */
+  ownShots = 0;
+  lastShotAds = false;
   private duel: LocalDuel | null = null;
   private readonly control: ControlState = idleControl();
   private readonly listeners = new Set<() => void>();
@@ -120,6 +123,7 @@ export class DuelController {
     this.forced = {};
     this.forcedPress = {};
     this.hadLock = false;
+    this.ownShots = 0;
     const spawn = this.duel.arena.def.spawns;
     // The camera faces the first spawn's way until the first frame says which side the person has.
     this.camera.face(spawn[0].yaw);
@@ -238,7 +242,11 @@ export class DuelController {
         control.pitch = aim.pitch;
         this.aimTarget = aim.target;
         for (const e of events) {
-          if (e.type === "shot" && e.player === view.slot) this.camera.kick(e.ads ? 0.35 : 0.6);
+          if (e.type === "shot" && e.player === view.slot) {
+            this.camera.kick(e.ads ? 0.35 : 0.6);
+            this.ownShots++;
+            this.lastShotAds = !!e.ads;
+          }
           if (e.type === "hit" && e.target === view.slot) this.camera.kick(1.1);
           if (e.type === "parry" && e.player === view.slot) this.camera.kick(0.8);
         }
