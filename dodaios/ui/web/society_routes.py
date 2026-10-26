@@ -1810,6 +1810,132 @@ async def update_agent_routine(
     return {"ok": True, "id": task_id}
 
 
+# ------------------------------------------------- routine runs and parking
+
+
+async def _owned_agent(request: Request, agent_id: str) -> tuple[Any, AgentRecord]:
+    rt = await _runtime(request)
+    agent = await rt.roster.resolve(agent_id)
+    if agent is None:
+        raise HTTPException(404, {"reason": str(FailureReason.TARGET_UNKNOWN)})
+    return rt, agent
+
+
+def _routine_runs_of(row: dict[str, Any], chat_service: Any, limit: int) -> list[dict[str, Any]]:
+    """Newest first, at most ``limit``; older runs read their own chat once."""
+    from dodaios.society.routine_history import enrich_from_chat, parse_runs
+
+    runs = parse_runs(str(row.get("id") or ""), list(row.get("steps") or []))
+    newest = list(reversed(runs))[: max(1, limit)]
+    chat_store = getattr(chat_service, "store", None)
+    for run in newest:
+        if run.status != "running":
+            enrich_from_chat(run, chat_store)
+    return [{k: v for k, v in run.to_dict().items() if k != "result"} for run in newest]
+
+
+@router.get("/agents/{agent_id}/routines/{task_id}/runs")
+async def list_routine_runs(
+    agent_id: str, task_id: str, request: Request, limit: int = 30
+) -> dict[str, Any]:
+    """One routine's executions: status, start, duration, cost and a summary line."""
+    from dodaios.society.routines import is_agent_routine
+
+    rt, agent = await _owned_agent(request, agent_id)
+    row = await _task_store(request).get(task_id)
+    if row is None or not is_agent_routine(row, agent.agent_id):
+        raise HTTPException(404, "Routine not found")
+    runs = _routine_runs_of(row, rt.chat_service(), min(max(1, limit), 200))
+    return {"runs": runs, "total": len(runs)}
+
+
+@router.get("/agents/{agent_id}/routines-activity")
+async def routine_activity(agent_id: str, request: Request) -> dict[str, Any]:
+    """Each routine's newest run plus the agent's away-parking state."""
+    from dodaios.society.routine_parking import load_days, load_state
+    from dodaios.society.routines import list_routines
+
+    rt, agent = await _owned_agent(request, agent_id)
+    store = _task_store(request)
+    last: dict[str, Any] = {}
+    for summary in await list_routines(store, agent.agent_id):
+        row = await store.get(str(summary.get("id")))
+        if row is None:
+            continue
+        runs = _routine_runs_of(row, rt.chat_service(), 1)
+        last[str(row.get("id"))] = runs[0] if runs else None
+    days = await load_days(rt.store)
+    state = await load_state(rt.store, agent.agent_id)
+    return {"last_runs": last, "parking": _parking_view(state, days)}
+
+
+def _parking_view(state: Any, days: int) -> dict[str, Any]:
+    return {
+        "enabled": days > 0 and not state.never_ask,
+        "days": days,
+        "banner": bool(state.banner),
+        "parked_ids": list(state.parked_ids),
+        "parked_ms": state.parked_ms,
+        "parked_days": state.days or days,
+        "unread": state.unread,
+        "never_ask": state.never_ask,
+    }
+
+
+@router.post("/agents/{agent_id}/routines-seen")
+async def routines_seen(agent_id: str, request: Request) -> dict[str, Any]:
+    """The person opened this agent's routine results: a new away period starts."""
+    from dodaios.society.routine_parking import mark_seen
+
+    rt, agent = await _owned_agent(request, agent_id)
+    state = await mark_seen(rt.store, agent.agent_id)
+    return {"ok": True, "seen_ms": state.seen_ms}
+
+
+class ParkingChoiceBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    choice: Literal["keep_running", "keep_paused", "never_ask", "ask_again"]
+
+
+@router.post("/agents/{agent_id}/routines-parking", openapi_extra={"x-jarvis-dangerous": True})
+async def routines_parking_choice(
+    agent_id: str, body: ParkingChoiceBody, request: Request
+) -> dict[str, Any]:
+    """Answer the away-parking banner (resume, keep paused, never ask)."""
+    from dodaios.society.routine_parking import apply_choice, load_days
+
+    rt, agent = await _owned_agent(request, agent_id)
+    scheduler = getattr(request.app.state, "task_scheduler", None)
+    if scheduler is None:
+        raise HTTPException(503, "The task scheduler is unavailable")
+    state = await apply_choice(
+        rt.store, _task_store(request), scheduler, agent.agent_id, body.choice
+    )
+    return {"ok": True, "parking": _parking_view(state, await load_days(rt.store))}
+
+
+class ParkingSettingsBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    days: int = Field(ge=0, le=90)
+
+
+@router.get("/routine-parking")
+async def get_routine_parking(request: Request) -> dict[str, Any]:
+    from dodaios.society.routine_parking import load_days
+
+    rt = await _runtime(request)
+    return {"days": await load_days(rt.store)}
+
+
+@router.put("/routine-parking")
+async def put_routine_parking(body: ParkingSettingsBody, request: Request) -> dict[str, Any]:
+    """Days without opened results before routines are parked; 0 = never."""
+    from dodaios.society.routine_parking import save_days
+
+    rt = await _runtime(request)
+    return {"days": await save_days(rt.store, body.days)}
+
+
 # ---------------------------------------------------------------- approvals
 
 
