@@ -17,7 +17,7 @@
 
 <p align="center">Formerly <strong>Personal Jarvis</strong>. Same project, same license, new name (<a href="https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/">why</a>).</p>
 
-https://github.com/user-attachments/assets/e652bcc3-7341-4175-94e9-110a67bfdce4
+https://github.com/user-attachments/assets/3364aa29-8f38-4d3e-b148-184ad16669ff
 
 <p align="center">
   <a href="https://pypi.org/project/dodaios/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dodaios?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
@@ -76,18 +76,19 @@ server setup are under [more ways to install](#more-ways-to-install).
 
 ## Code by talking
 
-https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
+https://github.com/user-attachments/assets/1daa832e-a566-4f22-add6-8b21eb8aaaad
 
-Put Claude Code, Codex or OpenCode in a few panes and talk to them. Each pane
-has a call sign, so you steer them like a team: "T1, run the tests." "T2, fix
-whatever T1 finds." Dodaios turns each sentence into a full, project-aware brief,
-types it into the right pane and asks first when a call sign is unclear. Work you
-handed out keeps going after you hang up.
+Talk to Dodaios and it hands the work to your coding agents. In this recording
+(made before the rename) one spoken sentence starts a new Claude Code session
+that digs into the app's performance. In the Agentic IDE every pane has a call
+sign, so you can also say "T1, run the tests" or "T2, fix whatever T1 finds".
+Dodaios turns each sentence into a full, project-aware brief, asks first when a
+call sign is unclear, and the work keeps going after you hang up.
 [How it works](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md#send-clear-work)
 
 ## Run every coding agent at once
 
-https://github.com/user-attachments/assets/d0919a81-4b60-49ec-a3f7-e37160a60240
+https://github.com/user-attachments/assets/83c50d16-8c3c-420f-baab-e6d06381307b
 
 The Agentic IDE turns one screen into a room full of coding agents. Open a
 project, split it into panes and start any coding tool you have installed in each
