@@ -327,6 +327,21 @@ describe("IdeSidePanel", () => {
     expect(screen.getByTestId("office-stage")).toBe(stage);
   });
 
+  it("closes when its grip is pushed against the right edge", async () => {
+    vi.stubGlobal("PointerEvent", PointerEventStub);
+    act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents"], active: "agents" }));
+    render(<Harness />);
+    fireEvent.pointerDown(screen.getByTestId("ide-side-panel-resizer"), { clientX: 1000, clientY: 10 });
+    await act(async () => {
+      window.dispatchEvent(new MouseEvent("pointermove", { clientX: 1900, clientY: 10 }));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    expect(screen.getByTestId("ide-side-panel-body").dataset.closing).toBe("true");
+    act(() => { window.dispatchEvent(new MouseEvent("pointerup")); });
+    expect(useIdeSidePanelStore.getState().open).toBe(false);
+    expect(localStorage.getItem("jarvis.agenticIde.sidePanelOpen")).toBe("0");
+  });
+
   it("drops the full view when the panel closes", () => {
     act(() => useIdeSidePanelStore.setState({ open: true, tabs: ["agents"], active: "agents" }));
     render(<Harness />);
