@@ -1,0 +1,289 @@
+/* The action card (ActionCard.tsx). Built from the theme's own tokens only:
+   surfaces from the ladder, ink from the four ink steps, status from the
+   semantic set. No literal colour, no surface token with opacity. */
+
+.action-card-wrap {
+  width: 100%;
+  max-width: 42rem;
+  min-width: 0;
+}
+
+.action-card {
+  position: relative;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) + 2px);
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  padding: 12px 14px 12px;
+  box-shadow: 0 1px 2px rgb(var(--scrim-rgb) / 0.06);
+  animation: action-card-in 160ms ease-out;
+}
+
+/* A waiting card is the one thing in the chat that needs the person: one
+   strong hairline on its leading edge says so without shouting. */
+.action-card::before {
+  content: "";
+  position: absolute;
+  inset: 10px auto 10px -1px;
+  width: 2px;
+  border-radius: 2px;
+  background: hsl(var(--primary));
+}
+
+.action-card-tile {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground-secondary));
+}
+.action-card-tile svg {
+  width: 13px;
+  height: 13px;
+}
+.action-card-tile .tool-choice-icon svg,
+.action-card-tile .tool-choice-icon img {
+  width: 14px;
+  height: 14px;
+}
+.action-card-tile-sm {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+}
+.action-card-tile-sm svg {
+  width: 12px;
+  height: 12px;
+}
+
+.action-card-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+.action-card-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+}
+.action-card-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.action-card-button[data-tone="primary"] {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.action-card-button[data-tone="primary"]:not(:disabled):hover {
+  opacity: 0.88;
+}
+.action-card-button[data-tone="secondary"] {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+.action-card-button[data-tone="secondary"]:not(:disabled):hover {
+  border-color: hsl(var(--border-strong));
+  background: hsl(var(--secondary));
+}
+.action-card-button[data-tone="tertiary"] {
+  color: hsl(var(--muted-foreground));
+  padding: 0 10px;
+}
+.action-card-button[data-tone="tertiary"]:not(:disabled):hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+.action-card-button-compact {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.action-card-code {
+  position: relative;
+  margin-top: 6px;
+  border-radius: 8px;
+  background: hsl(var(--surface-raised));
+  color: hsl(var(--foreground));
+}
+.action-card-code pre {
+  margin: 0;
+  max-height: 14rem;
+  overflow: auto;
+  padding: 8px 36px 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.action-card-copy {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.action-card-copy:hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+.action-card-copy:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+
+.action-card-caution {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 2px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: hsl(var(--warning));
+}
+.action-card-caution svg {
+  margin-top: 2px;
+}
+
+.action-card-settled {
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--background));
+  padding: 6px 10px;
+}
+.action-card-settled-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 0 0 2px 26px;
+}
+
+.action-card-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: hsl(var(--muted-foreground));
+}
+.action-card-dot[data-tone="success"] {
+  background: hsl(var(--success));
+}
+.action-card-dot[data-tone="danger"] {
+  background: hsl(var(--destructive));
+}
+.action-card-dot[data-tone="warning"] {
+  background: hsl(var(--warning));
+}
+
+.action-card-receipt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+.action-card-receipt svg {
+  width: 12px;
+  height: 12px;
+  color: hsl(var(--success));
+}
+
+/* The rule chooser inside an open card. */
+.action-card-rule {
+  border-radius: 10px;
+  background: hsl(var(--secondary));
+  padding: 10px 12px;
+}
+.action-card-segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+}
+.action-card-segment {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.action-card-segment:hover {
+  color: hsl(var(--foreground));
+}
+.action-card-segment[aria-checked="true"] {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground-strong));
+  font-weight: 500;
+}
+.action-card-segment:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+
+.action-card-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.action-card-dismiss:hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+.action-card-dismiss:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+.action-card-dismiss:disabled {
+  opacity: 0.5;
+}
+
+@keyframes action-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-card {
+    animation: none;
+  }
+  .action-card-wrap *,
+  .action-card-wrap *::before {
+    transition: none !important;
+  }
+}

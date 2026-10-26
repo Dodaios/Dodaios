@@ -10358,5 +10358,99 @@
       "new_other": "{count} mensajes nuevos",
       "dismiss": "Descartar"
     }
+  },
+  "action_card": {
+    "needs_approval": "Necesita tu aprobación",
+    "source": {
+      "terminal": "Terminal",
+      "files": "Archivos",
+      "browser": "Navegador",
+      "computer": "Ordenador",
+      "plan": "Plan",
+      "agent": "Agente auxiliar",
+      "connector": "Conector",
+      "tool": "Herramienta",
+      "secure_field": "Campo seguro",
+      "proposal": "Cambio sugerido"
+    },
+    "title": {
+      "terminal": "¿Ejecutar este comando?",
+      "files": "¿Cambiar este archivo?",
+      "browser": "¿Usar el navegador?",
+      "computer": "¿Controlar este ordenador?",
+      "plan": "¿Empezar a construir con este plan?",
+      "agent": "¿Iniciar un agente auxiliar?",
+      "connector": "¿Usar {app}?",
+      "connector_verb": "¿Usar {app} para «{verb}»?",
+      "tool": "¿Ejecutar {tool}?",
+      "tool_plain": "¿Ejecutar esta herramienta?"
+    },
+    "field": {
+      "in": "En {where}",
+      "on": "En {where}",
+      "why": "«{why}»"
+    },
+    "show_command": "Mostrar comando",
+    "hide_command": "Ocultar comando",
+    "show_details": "Mostrar detalles",
+    "hide_details": "Ocultar detalles",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "allow_once": "Permitir una vez",
+    "always_allow": "Permitir siempre",
+    "always_allow_more": "Permitir siempre…",
+    "deny": "Denegar",
+    "deny_esc": "Denegar (Esc)",
+    "elsewhere": "Responde en el chat del que viene.",
+    "plan_build": "Empezar a construir",
+    "plan_keep": "Seguir planificando",
+    "caution": {
+      "irreversible": "Esto no se puede deshacer.",
+      "security": "Esto cambia ajustes de seguridad o de acceso.",
+      "data_leaves": "Esto envía datos fuera de este chat."
+    },
+    "outcome": {
+      "allow": "Permitido una vez",
+      "allow_always": "Permitido siempre",
+      "deny": "Denegado",
+      "expired": "Caducado",
+      "cancel": "Cerrado sin respuesta"
+    },
+    "outcome_note": {
+      "expired": "No se ejecutó nada: nadie respondió a tiempo.",
+      "cancel": "No se ejecutó nada: la solicitud terminó antes de que alguien respondiera.",
+      "deny": "El agente recibió un no y no lo hizo."
+    },
+    "expand": "Mostrar detalles",
+    "collapse": "Ocultar detalles",
+    "failed": "No se pudo completar. Inténtalo de nuevo.",
+    "rule": {
+      "heading": "Convertirlo en regla",
+      "scope_label": "Dónde se aplica la regla",
+      "scope_agent": "Este agente",
+      "scope_chat": "Este chat",
+      "breadth_label": "Hasta dónde llega",
+      "breadth_action": "Solo «{verb}»",
+      "breadth_app": "Todo {app}",
+      "always_verb": "Permitir siempre «{verb}» con {app}",
+      "always_app": "Permitir siempre {app}",
+      "always_generic": "Permitir siempre esto",
+      "ask_verb": "Preguntar antes de «{verb}» con {app}",
+      "ask_app": "Preguntar antes de usar {app}",
+      "ask_generic": "Preguntar la próxima vez",
+      "where_agent": "Se guarda en las reglas de este agente. Puedes cambiarla en sus ajustes.",
+      "where_chat": "Deja de preguntar en este chat hasta que la app se reinicie.",
+      "chat_tool": "Deja de preguntar por {app} en este chat.",
+      "chat_all": "Deja de preguntar por todo en este chat.",
+      "save_allow": "Guardar y permitir",
+      "back": "Atrás",
+      "always_next_time": "Permitir siempre la próxima vez",
+      "ask_next_time": "Preguntar la próxima vez",
+      "saved": "Regla guardada: {rule}",
+      "saved_chat": "Permitido en este chat: {app}",
+      "saved_short": "Regla guardada",
+      "still_asks": "Una regla más estricta sigue preguntando primero.",
+      "save_failed": "No se pudo guardar la regla."
+    }
   }
 }

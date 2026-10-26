@@ -106,6 +106,11 @@ class ChatApprovalBridge:
         #: own timeout, another surface's answer — closes its card here, so a
         #: late click can no longer read "approved" for a call that was refused.
         self._asking: dict[UUID, asyncio.Task[None]] = {}
+        #: ``(session_id, tool_name) -> bool``: whether an "Always allow" also
+        #: stops this chat asking for the whole tool. The service answers no
+        #: when the card saved a rule on the agent instead: that rule (perhaps
+        #: one action only) governs, and the chat must not widen it.
+        self.chat_keeps_always: Callable[[str, str], bool] = lambda _sid, _tool: True
         bus.subscribe(ActionProposed, self._on_proposed)
         bus.subscribe(ActionApprovalRequired, self._on_required)
         bus.subscribe(ActionApproved, self._on_settled)
@@ -188,6 +193,13 @@ class ChatApprovalBridge:
 
     # ------------------------------------------------------------ policy
 
+    def _chat_keeps(self, grant: ChatGrant, tool_name: str) -> bool:
+        try:
+            return bool(self.chat_keeps_always(grant.session_id, tool_name))
+        except Exception:  # noqa: BLE001 — as before: the chat remembers the tool
+            log.warning("chat approval bridge: always-allow check failed", exc_info=True)
+            return True
+
     @staticmethod
     def _decide_inline(
         grant: ChatGrant, tool_name: str, args: dict[str, Any] | None = None
@@ -224,7 +236,7 @@ class ChatApprovalBridge:
         # Our own answer below must not read as "settled elsewhere".
         self._forget(event.trace_id, asyncio.current_task())
         if decision in ("allow", "allow_always"):
-            if decision == "allow_always":
+            if decision == "allow_always" and self._chat_keeps(grant, event.tool_name):
                 grant.always_allowed.add(_bare(event.tool_name))
             await self._bus.publish(
                 ActionApproved(

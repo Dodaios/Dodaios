@@ -1,9 +1,9 @@
 import { memo, useId, useRef, useState, type FormEvent } from "react";
-import { Check, KeyRound, ShieldCheck, X } from "lucide-react";
+import { KeyRound, ShieldCheck, X } from "lucide-react";
 import { fill, useT } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { AgentChatApiError, declineAgentChatCredential, submitAgentChatCredential, type CredentialResult } from "@/lib/agentChatApi";
 import { useAgentChat } from "./AgentChatStoreContext";
+import { ActionCard } from "./actionCard/ActionCard";
 import type { CredentialState } from "./reduce";
 
 /**
@@ -85,37 +85,31 @@ function OpenCard({ credential, descriptionId }: { credential: CredentialState; 
 
   if (resolved) return <ClosedCard credential={{ ...credential, status: resolved }} />;
 
+  // The shared action card frame: the source says a secure field is asking,
+  // the field and its two answers sit where every card keeps its actions.
   return (
-    <section
-      role="group"
-      aria-label={t("credential_card.aria")}
-      aria-describedby={descriptionId}
-      data-testid="credential-card"
-      data-state="open"
-      className="w-full rounded-2xl border border-border bg-card p-4 text-foreground shadow-sm"
-    >
-      <header className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold leading-6 [overflow-wrap:anywhere]">{credential.label}</h3>
-          {credential.replace ? (
-            <p className="mt-1 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-              {fill(t("credential_card.replace_note"), { agent })}
-            </p>
-          ) : null}
-        </div>
+    <ActionCard
+      id={`credential:${credential.requestId}`}
+      testId="credential-card"
+      state="open"
+      source={{ icon: <KeyRound strokeWidth={1.75} />, label: t("action_card.source.secure_field") }}
+      title={credential.label}
+      ariaLabel={t("credential_card.aria")}
+      lines={credential.replace ? [fill(t("credential_card.replace_note"), { agent })] : undefined}
+      trailing={
         <button
           type="button"
           onClick={() => void run((sid) => declineAgentChatCredential(sid, credential.requestId), "declined")}
           disabled={busy}
           aria-label={t("credential_card.decline")}
           title={t("credential_card.decline")}
-          className="-mr-1 -mt-0.5 shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          className="action-card-dismiss"
         >
-          <X aria-hidden className="h-5 w-5" />
+          <X aria-hidden className="h-4 w-4" />
         </button>
-      </header>
-
-      <form onSubmit={submit} className="mt-4 flex flex-col gap-2 sm:flex-row">
+      }
+    >
+      <form onSubmit={submit} aria-describedby={descriptionId} className="flex flex-col gap-2 sm:flex-row">
         <input
           type="password"
           value={value}
@@ -133,34 +127,30 @@ function OpenCard({ credential, descriptionId }: { credential: CredentialState; 
           aria-label={credential.label}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${descriptionId} ${errorId}` : descriptionId}
-          className="min-w-0 flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          className="h-[34px] min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={busy || !value.trim()}
-          className={cn(
-            "shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            "bg-primary text-primary-foreground hover:opacity-90",
-            "disabled:bg-secondary disabled:text-muted-foreground disabled:hover:opacity-100",
-          )}
+          className="action-card-button h-[34px] justify-center"
+          data-tone="primary"
         >
           {busy ? t("credential_card.saving") : t("credential_card.save")}
         </button>
       </form>
-
-      <footer className="mt-3 space-y-1 text-xs leading-5 text-muted-foreground">
-        <p className="flex items-center gap-1.5">
+      <div className="mt-2.5 space-y-0.5 text-xs leading-5 text-muted-foreground">
+        <p className="m-0 flex items-center gap-1.5">
           <ShieldCheck aria-hidden className="h-3.5 w-3.5 shrink-0" />
           <span>{t("credential_card.footer")}</span>
         </p>
-        <p>{t("credential_card.stays_open")}</p>
+        <p className="m-0">{t("credential_card.stays_open")}</p>
         {error ? (
-          <p id={errorId} role="alert" className="text-destructive">
+          <p id={errorId} role="alert" className="m-0 text-destructive">
             {error}
           </p>
         ) : null}
-      </footer>
-    </section>
+      </div>
+    </ActionCard>
   );
 }
 
@@ -168,17 +158,16 @@ function ClosedCard({ credential }: { credential: CredentialState }) {
   const t = useT();
   const saved = credential.status === "saved";
   const key = saved ? "saved" : credential.status === "declined" ? "declined" : credential.status === "timeout" ? "timeout" : "cancelled";
+  const sentence = fill(t(`credential_card.${key}`), { label: credential.label, env: credential.env });
   return (
-    <div
-      role="status"
-      data-testid="credential-card"
-      data-state={credential.status ?? ""}
-      className="my-1 flex w-full max-w-2xl items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm text-muted-foreground"
-    >
-      {saved ? <Check aria-hidden className="h-4 w-4 shrink-0 text-primary" /> : <KeyRound aria-hidden className="h-4 w-4 shrink-0" />}
-      <span className="min-w-0 [overflow-wrap:anywhere]">
-        {fill(t(`credential_card.${key}`), { label: credential.label, env: credential.env })}
-      </span>
-    </div>
+    <ActionCard
+      id={`credential:${credential.requestId}`}
+      testId="credential-card"
+      state={credential.status ?? ""}
+      source={{ icon: <KeyRound strokeWidth={1.75} />, label: t("action_card.source.secure_field") }}
+      title={credential.label}
+      ariaLabel={sentence}
+      settled={{ tone: saved ? "success" : "muted", label: sentence }}
+    />
   );
 }

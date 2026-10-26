@@ -10358,5 +10358,99 @@
       "new_other": "{count} new messages",
       "dismiss": "Dismiss"
     }
+  },
+  "action_card": {
+    "needs_approval": "Needs approval",
+    "source": {
+      "terminal": "Terminal",
+      "files": "Files",
+      "browser": "Browser",
+      "computer": "Computer",
+      "plan": "Plan",
+      "agent": "Helper agent",
+      "connector": "Connector",
+      "tool": "Tool",
+      "secure_field": "Secure field",
+      "proposal": "Suggested change"
+    },
+    "title": {
+      "terminal": "Run this command?",
+      "files": "Change this file?",
+      "browser": "Use the browser?",
+      "computer": "Control this computer?",
+      "plan": "Start building from this plan?",
+      "agent": "Start a helper agent?",
+      "connector": "Use {app}?",
+      "connector_verb": "Use {app} to {verb}?",
+      "tool": "Run {tool}?",
+      "tool_plain": "Run this tool?"
+    },
+    "field": {
+      "in": "In {where}",
+      "on": "On {where}",
+      "why": "“{why}”"
+    },
+    "show_command": "Show command",
+    "hide_command": "Hide command",
+    "show_details": "Show details",
+    "hide_details": "Hide details",
+    "copy": "Copy",
+    "copied": "Copied",
+    "allow_once": "Allow once",
+    "always_allow": "Always allow",
+    "always_allow_more": "Always allow…",
+    "deny": "Deny",
+    "deny_esc": "Deny (Esc)",
+    "elsewhere": "Answer this in the chat it came from.",
+    "plan_build": "Start building",
+    "plan_keep": "Keep planning",
+    "caution": {
+      "irreversible": "This can't be undone.",
+      "security": "This changes security or access settings.",
+      "data_leaves": "This sends data outside this chat."
+    },
+    "outcome": {
+      "allow": "Allowed once",
+      "allow_always": "Always allowed",
+      "deny": "Denied",
+      "expired": "Expired",
+      "cancel": "Closed without an answer"
+    },
+    "outcome_note": {
+      "expired": "Nothing ran: no one answered in time.",
+      "cancel": "Nothing ran: the request ended before anyone answered.",
+      "deny": "The agent was told no and did not do it."
+    },
+    "expand": "Show details",
+    "collapse": "Hide details",
+    "failed": "That did not go through. Try again.",
+    "rule": {
+      "heading": "Make it a rule",
+      "scope_label": "Where the rule applies",
+      "scope_agent": "This agent",
+      "scope_chat": "This chat",
+      "breadth_label": "How far it reaches",
+      "breadth_action": "Only “{verb}”",
+      "breadth_app": "All of {app}",
+      "always_verb": "Always allow “{verb}” with {app}",
+      "always_app": "Always allow {app}",
+      "always_generic": "Always allow this",
+      "ask_verb": "Ask first before “{verb}” with {app}",
+      "ask_app": "Ask first before using {app}",
+      "ask_generic": "Ask first next time",
+      "where_agent": "Saved to this agent's rules. You can change it in the agent's settings.",
+      "where_chat": "Stops asking in this chat until the app restarts.",
+      "chat_tool": "Stops asking for {app} in this chat.",
+      "chat_all": "Stops asking for anything in this chat.",
+      "save_allow": "Save and allow",
+      "back": "Back",
+      "always_next_time": "Always allow next time",
+      "ask_next_time": "Ask first next time",
+      "saved": "Rule saved: {rule}",
+      "saved_chat": "Allowed in this chat: {app}",
+      "saved_short": "Rule saved",
+      "still_asks": "A stricter rule still asks first.",
+      "save_failed": "Could not save the rule."
+    }
   }
 }

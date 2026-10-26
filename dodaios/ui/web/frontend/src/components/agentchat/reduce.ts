@@ -3,6 +3,7 @@ import type { ChatControlState } from "@/lib/chatControlApi";
 import { hideAskBlocks } from "./askFence";
 import { hideMeetingPass } from "./meetingPass";
 import { readToolChoices, type ToolChoice } from "./toolChoices";
+import { parseApprovalCard, parseSavedRule, type ApprovalCardInfo, type RuleScope, type SavedApprovalRule } from "./actionCard/approvalInfo";
 
 /**
  * Fold the agent-chat event log into the timeline the column renders.
@@ -48,6 +49,12 @@ export interface ApprovalState {
   summary: string;
   /** Set once the person (or a cancel) decided. */
   decision: string | null;
+  /** What the card shows besides its answers; absent on events older than the fields. */
+  card?: ApprovalCardInfo;
+  /** Where an "Always allow" from the card lives (`approval_resolved.scope`). */
+  scope?: RuleScope;
+  /** A standing rule saved from this card, now or later. */
+  rule?: SavedApprovalRule;
 }
 
 /** One prepared answer on an agent's question card. */
@@ -676,13 +683,15 @@ function expireOpenApproval(block: TurnBlock): TurnBlock {
  * does a decision the backend already confirmed (or reported expired) before
  * that event arrived — the card must not wait on the socket to go away.
  */
-export function settleApproval(tl: Timeline, approvalId: string, decision: string, turnId = ""): Timeline {
+export function settleApproval(tl: Timeline, approvalId: string, decision: string, turnId = "", scope?: RuleScope): Timeline {
   const owner = turnId || tl.pendingApprovals.find((a) => a.approvalId === approvalId)?.turnId || "";
   const settle = (turn: TurnItem): TurnItem => {
     const blocks = mapToolDeep(
       turn.blocks,
       (b) => b.approval?.approvalId === approvalId,
-      (b) => (b.approval && b.approval.decision === null ? { ...b, approval: { ...b.approval, decision } } : b),
+      (b) => (b.approval && b.approval.decision === null
+        ? { ...b, approval: { ...b.approval, decision, ...(scope ? { scope } : {}) } }
+        : b),
     );
     return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
   };
@@ -694,6 +703,21 @@ export function settleApproval(tl: Timeline, approvalId: string, decision: strin
       })();
   const pendingApprovals = withTurn.pendingApprovals.filter((a) => a.approvalId !== approvalId);
   return pendingApprovals.length === withTurn.pendingApprovals.length ? withTurn : { ...withTurn, pendingApprovals };
+}
+
+/** Record a standing rule saved from approval `approvalId`'s card, decided or not. */
+export function noteApprovalRule(tl: Timeline, approvalId: string, rule: SavedApprovalRule, turnId = ""): Timeline {
+  const patch = (turn: TurnItem): TurnItem => {
+    const blocks = mapToolDeep(
+      turn.blocks,
+      (b) => b.approval?.approvalId === approvalId,
+      (b) => (b.approval ? { ...b, approval: { ...b.approval, rule } } : b),
+    );
+    return blocks && blocks !== turn.blocks ? { ...turn, blocks } : turn;
+  };
+  if (turnId) return updateTurn(tl, turnId, patch);
+  const items = tl.items.map((item) => (item.type === "turn" ? patch(item) : item));
+  return items.some((item, i) => item !== tl.items[i]) ? { ...tl, items } : tl;
 }
 
 /** Update the sub-agent `agentId` spawned; a spawn call the stream never announced gets a row of its own. */
@@ -1118,7 +1142,8 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
         summary: str(p.summary),
       };
       const withTurn = updateTurn(base, turnId, (turn) => {
-        const approval = { approvalId, summary: pending.summary, decision: null };
+        const card = parseApprovalCard(p as Record<string, unknown>);
+        const approval: ApprovalState = { approvalId, summary: pending.summary, decision: null, ...(card ? { card } : {}) };
         const nested = mapToolDeep(turn.blocks, (b) => b.callId === callId, (b) => ({ ...b, approval }));
         if (nested) return nested === turn.blocks ? turn : { ...turn, blocks: nested };
         return upsertBlock<ToolBlock>(
@@ -1147,8 +1172,11 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       };
     }
 
-    case "approval_resolved":
-      return settleApproval(base, str(p.approval_id), str(p.decision), turnId);
+    case "approval_resolved": {
+      const scope = str(p.scope);
+      return settleApproval(base, str(p.approval_id), str(p.decision), turnId,
+        scope === "agent" || scope === "chat" ? scope : undefined);
+    }
 
     case "question_required": {
       const questionId = str(p.question_id);
@@ -1295,6 +1323,11 @@ export function reduceEvent(tl: Timeline, ev: AgentChatEvent): Timeline {
       const text = str(p.text);
       const kind = str(p.kind);
       if (!text && !kind) return base;
+      if (kind === "approval_rule") {
+        // A rule saved from an approval card patches that card, never a row of its own.
+        const rule = parseSavedRule(p as Record<string, unknown>);
+        return rule ? noteApprovalRule(base, str(p.approval_id), rule, turnId) : base;
+      }
       if (kind === "message_dequeued") {
         // A waiting message started (or could not): its waiting line goes.
         const queueId = str(p.queue_id);

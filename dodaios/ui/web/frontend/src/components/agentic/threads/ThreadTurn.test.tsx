@@ -53,7 +53,7 @@ describe("a thread turn in an agent chat", () => {
     // The turn ended while it waited: the work folds, the approval stays in view.
     expect(screen.getByTestId("thread-worked-for")).toBeTruthy();
     expect(screen.getByText("Push to origin?")).toBeTruthy();
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Approve" })); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Allow once" })); });
     expect(onDecide).toHaveBeenCalledWith("ap1", "allow");
   });
 
@@ -61,7 +61,7 @@ describe("a thread turn in an agent chat", () => {
     const asking = tool("c1", "git push", { output: null, durationMs: null, approval: { approvalId: "ap1", summary: "Push to origin?", decision: null } });
     render(<ThreadTurn turn={turn([asking], "running")} />);
     expect(screen.getByText("Waiting for approval — Push to origin?")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Allow once" })).toBeNull();
   });
 
   it("folds memory receipts with the work, above the answer", () => {

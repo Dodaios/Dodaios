@@ -10358,5 +10358,99 @@
       "new_other": "{count} neue Nachrichten",
       "dismiss": "Ausblenden"
     }
+  },
+  "action_card": {
+    "needs_approval": "Braucht deine Freigabe",
+    "source": {
+      "terminal": "Terminal",
+      "files": "Dateien",
+      "browser": "Browser",
+      "computer": "Computer",
+      "plan": "Plan",
+      "agent": "Hilfsagent",
+      "connector": "Verbindung",
+      "tool": "Werkzeug",
+      "secure_field": "Sicheres Feld",
+      "proposal": "Vorgeschlagene Änderung"
+    },
+    "title": {
+      "terminal": "Diesen Befehl ausführen?",
+      "files": "Diese Datei ändern?",
+      "browser": "Den Browser verwenden?",
+      "computer": "Diesen Computer steuern?",
+      "plan": "Nach diesem Plan loslegen?",
+      "agent": "Einen Hilfsagenten starten?",
+      "connector": "{app} verwenden?",
+      "connector_verb": "{app} für „{verb}“ verwenden?",
+      "tool": "{tool} ausführen?",
+      "tool_plain": "Dieses Werkzeug ausführen?"
+    },
+    "field": {
+      "in": "In {where}",
+      "on": "Auf {where}",
+      "why": "„{why}“"
+    },
+    "show_command": "Befehl anzeigen",
+    "hide_command": "Befehl ausblenden",
+    "show_details": "Details anzeigen",
+    "hide_details": "Details ausblenden",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "allow_once": "Einmal erlauben",
+    "always_allow": "Immer erlauben",
+    "always_allow_more": "Immer erlauben…",
+    "deny": "Ablehnen",
+    "deny_esc": "Ablehnen (Esc)",
+    "elsewhere": "Beantworte das im Chat, aus dem es kommt.",
+    "plan_build": "Loslegen",
+    "plan_keep": "Weiter planen",
+    "caution": {
+      "irreversible": "Das lässt sich nicht rückgängig machen.",
+      "security": "Das ändert Sicherheits- oder Zugriffseinstellungen.",
+      "data_leaves": "Das schickt Daten aus diesem Chat hinaus."
+    },
+    "outcome": {
+      "allow": "Einmal erlaubt",
+      "allow_always": "Immer erlaubt",
+      "deny": "Abgelehnt",
+      "expired": "Abgelaufen",
+      "cancel": "Ohne Antwort geschlossen"
+    },
+    "outcome_note": {
+      "expired": "Nichts ist gelaufen: Niemand hat rechtzeitig geantwortet.",
+      "cancel": "Nichts ist gelaufen: Die Anfrage endete, bevor jemand antwortete.",
+      "deny": "Der Agent hat ein Nein bekommen und es nicht getan."
+    },
+    "expand": "Details anzeigen",
+    "collapse": "Details ausblenden",
+    "failed": "Das hat nicht geklappt. Versuch es noch einmal.",
+    "rule": {
+      "heading": "Als Regel speichern",
+      "scope_label": "Wo die Regel gilt",
+      "scope_agent": "Dieser Agent",
+      "scope_chat": "Dieser Chat",
+      "breadth_label": "Wie weit sie reicht",
+      "breadth_action": "Nur „{verb}“",
+      "breadth_app": "Alles in {app}",
+      "always_verb": "„{verb}“ mit {app} immer erlauben",
+      "always_app": "{app} immer erlauben",
+      "always_generic": "Das immer erlauben",
+      "ask_verb": "Vor „{verb}“ mit {app} erst fragen",
+      "ask_app": "Vor der Nutzung von {app} erst fragen",
+      "ask_generic": "Nächstes Mal erst fragen",
+      "where_agent": "Wird in den Regeln dieses Agenten gespeichert. Du kannst sie in seinen Einstellungen ändern.",
+      "where_chat": "Fragt in diesem Chat nicht mehr, bis die App neu startet.",
+      "chat_tool": "Fragt in diesem Chat nicht mehr nach {app}.",
+      "chat_all": "Fragt in diesem Chat nach nichts mehr.",
+      "save_allow": "Speichern und erlauben",
+      "back": "Zurück",
+      "always_next_time": "Nächstes Mal immer erlauben",
+      "ask_next_time": "Nächstes Mal erst fragen",
+      "saved": "Regel gespeichert: {rule}",
+      "saved_chat": "In diesem Chat erlaubt: {app}",
+      "saved_short": "Regel gespeichert",
+      "still_asks": "Eine strengere Regel fragt trotzdem zuerst.",
+      "save_failed": "Die Regel ließ sich nicht speichern."
+    }
   }
 }

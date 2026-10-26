@@ -682,6 +682,7 @@ export function createPaneChatStore(options: PaneChatStoreOptions) {
       },
       // Approvals never come out of a transcript — the CLI asks in its own TUI.
       decide: async () => undefined,
+      saveApprovalRule: async () => undefined,
       answerQuestion: async () => undefined,
       skipQuestion: async () => undefined,
       resolvePlan: async () => undefined,

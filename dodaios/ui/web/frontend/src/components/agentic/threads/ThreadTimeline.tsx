@@ -9,7 +9,7 @@ import { CallMark, StretchMark } from "@/components/agentchat/TraceTimeline";
 import { plural, readableOutput, traceDuration, type Call } from "@/components/agentchat/traceEntries";
 import { fill, useI18nStore, useT } from "@/i18n";
 import { localeForUiLanguage } from "@/components/runs/format";
-import type { ApprovalDecision } from "@/lib/agentChatApi";
+import { ApprovalActionCard, type ApprovalDecide } from "@/components/agentchat/actionCard/ApprovalActionCard";
 import { robustCopy } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import { ChatThought } from "./ChatThought";
@@ -544,8 +544,8 @@ function answerText(turn: TurnItem): string {
   return turn.blocks.filter((block): block is TextBlock => block.kind === "text").map((block) => block.text.trim()).filter(Boolean).join("\n\n");
 }
 
-/** How a surface answers an approval: by its id, with the person's decision. */
-export type Decide = (id: string, decision: ApprovalDecision) => void | Promise<void>;
+/** How a surface answers an approval: by its id, the person's decision and where an "always" lives. */
+export type Decide = ApprovalDecide;
 
 /** A call still waiting for the person: an open question or an undecided approval. */
 function waitsForPerson(block: ToolBlock): boolean {
@@ -561,40 +561,11 @@ function pendingLabel(block: ToolBlock, t: (key: string) => string): { icon: Rea
 }
 
 /**
- * An approval answered in the turn itself: the waiting line, what the agent
- * asks for, and the three answers under it.
+ * An approval answered in the turn itself, on the shared action card: what
+ * the agent asks for in plain words, with "Allow once" first.
  */
 export function ApprovalPrompt({ block, onDecide }: { block: ToolBlock; onDecide?: Decide }) {
-  const t = useT();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const approval = block.approval;
-  if (!approval) return null;
-  const decide = async (decision: ApprovalDecision) => {
-    if (!onDecide || busy) return;
-    setBusy(true);
-    setError(null);
-    try { await onDecide(approval.approvalId, decision); }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
-    finally { setBusy(false); }
-  };
-  return <div className="min-w-0" role="group" aria-label={t("work_trace.approval")} data-testid="thread-approval">
-    <WorkRow icon={<ShieldAlert strokeWidth={1.75} />} label={t("thread_turn.approval_waiting")} live />
-    <div className="mb-1.5 ml-7 space-y-2 text-sm">
-      {approval.summary && <p className="m-0 text-foreground [overflow-wrap:anywhere]">{approval.summary}</p>}
-      {onDecide
-        ? <div className="flex flex-wrap gap-2">
-          {(["allow", "allow_always", "deny"] as const).map((decision) => <button key={decision} type="button" disabled={busy}
-            onClick={() => void decide(decision)}
-            className={cn("rounded-md px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
-              decision === "allow" ? "bg-primary text-primary-foreground hover:opacity-90" : "border border-border text-foreground hover:bg-secondary")}>
-            {t(`work_trace.${decision}`)}
-          </button>)}
-        </div>
-        : <p className="m-0 text-xs text-muted-foreground">{t("work_trace.approval_elsewhere")}</p>}
-      {error && <p role="alert" className="m-0 text-xs text-destructive">{error}</p>}
-    </div>
-  </div>;
+  return <ApprovalActionCard block={block} onDecide={onDecide} />;
 }
 
 /**

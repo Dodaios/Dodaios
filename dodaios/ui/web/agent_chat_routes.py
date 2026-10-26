@@ -12,7 +12,10 @@ Prefix ``/api/agent-chat``:
     DELETE /sessions/{id}
     POST   /sessions/{id}/messages           {text, attachments} -> starts a turn
     POST   /sessions/{id}/cancel
-    POST   /sessions/{id}/approvals/{aid}    {decision: allow | allow_always | deny}
+    POST   /sessions/{id}/approvals/{aid}    {decision: allow | allow_always | deny,
+                                             scope?: agent | chat, breadth?: action | app}
+    POST   /sessions/{id}/approvals/{aid}/rule  {kind: always_allow | require_approval,
+                                             scope, breadth} -> a rule from a settled card
     POST   /sessions/{id}/questions/{qid}    {index, option_index} or {index, text} -> answer
                                              one question of an agent's card
     POST   /sessions/{id}/questions/{qid}/skip  close the card: recommendations apply
@@ -70,6 +73,8 @@ from dodaios.agent_chat.permissions import (
 )
 from dodaios.agent_chat.service import (
     DECISIONS,
+    RULE_BREADTHS,
+    RULE_SCOPES,
     AgentChatService,
     NoSuchSession,
     SessionBusy,
@@ -266,6 +271,15 @@ class MessageBody(BaseModel):
 
 class ApprovalBody(BaseModel):
     decision: str
+    #: Where an "Always allow" lives (the card's rule chooser); empty = as before.
+    scope: str = ""
+    breadth: str = ""
+
+
+class ApprovalRuleBody(BaseModel):
+    kind: str
+    scope: str
+    breadth: str = "action"
 
 
 class CredentialBody(BaseModel):
@@ -1336,7 +1350,15 @@ async def resolve_approval(
     svc = (await _async_service(request))
     if body.decision not in DECISIONS:
         raise HTTPException(status_code=400, detail=f"decision must be one of {list(DECISIONS)}")
-    ok = svc.resolve_approval(session_id, approval_id, body.decision)
+    if body.scope and body.scope not in RULE_SCOPES:
+        raise HTTPException(status_code=400, detail=f"scope must be one of {list(RULE_SCOPES)}")
+    if body.breadth and body.breadth not in RULE_BREADTHS:
+        raise HTTPException(
+            status_code=400, detail=f"breadth must be one of {list(RULE_BREADTHS)}"
+        )
+    ok = svc.resolve_approval(
+        session_id, approval_id, body.decision, scope=body.scope, breadth=body.breadth
+    )
     if not ok:
         if await svc.close_stale_approval(session_id, approval_id):
             # The card outlived what it asked for (an app restart, a second
@@ -1350,6 +1372,29 @@ async def resolve_approval(
             )
         raise HTTPException(status_code=404, detail="no such pending approval")
     return {"ok": True, "approval_id": approval_id, "decision": body.decision}
+
+
+@router.post("/sessions/{session_id}/approvals/{approval_id}/rule")
+async def save_approval_rule(
+    session_id: str, approval_id: str, body: ApprovalRuleBody, request: Request
+) -> dict[str, Any]:
+    """Turn a card into a standing rule after the fact ("Always allow next time")."""
+    svc = await _async_service(request)
+    if body.kind not in ("always_allow", "require_approval"):
+        raise HTTPException(status_code=400, detail="kind must be always_allow or require_approval")
+    if body.breadth not in RULE_BREADTHS:
+        raise HTTPException(status_code=400, detail="breadth must be action or app")
+    try:
+        rule = await svc.save_approval_rule(
+            session_id, approval_id, kind=body.kind, scope=body.scope, breadth=body.breadth
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="no such approval card") from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=409, detail="no rule fits this card here") from exc
+    return {"ok": True, "approval_id": approval_id, "rule": rule}
 
 
 @router.post(

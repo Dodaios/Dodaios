@@ -10358,5 +10358,99 @@
       "new_other": "{count} 条新消息",
       "dismiss": "关闭"
     }
+  },
+  "action_card": {
+    "needs_approval": "需要你的批准",
+    "source": {
+      "terminal": "终端",
+      "files": "文件",
+      "browser": "浏览器",
+      "computer": "电脑",
+      "plan": "计划",
+      "agent": "辅助智能体",
+      "connector": "连接器",
+      "tool": "工具",
+      "secure_field": "安全输入",
+      "proposal": "建议的更改"
+    },
+    "title": {
+      "terminal": "运行这个命令？",
+      "files": "修改这个文件？",
+      "browser": "使用浏览器？",
+      "computer": "控制这台电脑？",
+      "plan": "按这个计划开始构建？",
+      "agent": "启动一个辅助智能体？",
+      "connector": "使用 {app}？",
+      "connector_verb": "用 {app} 执行“{verb}”？",
+      "tool": "运行 {tool}？",
+      "tool_plain": "运行这个工具？"
+    },
+    "field": {
+      "in": "位置：{where}",
+      "on": "网站：{where}",
+      "why": "“{why}”"
+    },
+    "show_command": "显示命令",
+    "hide_command": "隐藏命令",
+    "show_details": "显示详情",
+    "hide_details": "隐藏详情",
+    "copy": "复制",
+    "copied": "已复制",
+    "allow_once": "允许一次",
+    "always_allow": "始终允许",
+    "always_allow_more": "始终允许…",
+    "deny": "拒绝",
+    "deny_esc": "拒绝（Esc）",
+    "elsewhere": "请在它来自的对话中回答。",
+    "plan_build": "开始构建",
+    "plan_keep": "继续规划",
+    "caution": {
+      "irreversible": "此操作无法撤销。",
+      "security": "这会更改安全或访问设置。",
+      "data_leaves": "这会把数据发送到此对话之外。"
+    },
+    "outcome": {
+      "allow": "已允许一次",
+      "allow_always": "已始终允许",
+      "deny": "已拒绝",
+      "expired": "已过期",
+      "cancel": "未回答即关闭"
+    },
+    "outcome_note": {
+      "expired": "没有执行任何操作：无人及时回答。",
+      "cancel": "没有执行任何操作：请求在有人回答前就结束了。",
+      "deny": "智能体收到了拒绝，没有执行。"
+    },
+    "expand": "显示详情",
+    "collapse": "隐藏详情",
+    "failed": "没有成功，请重试。",
+    "rule": {
+      "heading": "设为规则",
+      "scope_label": "规则适用范围",
+      "scope_agent": "这个智能体",
+      "scope_chat": "这个对话",
+      "breadth_label": "覆盖范围",
+      "breadth_action": "仅“{verb}”",
+      "breadth_app": "{app} 的全部操作",
+      "always_verb": "始终允许用 {app} 执行“{verb}”",
+      "always_app": "始终允许 {app}",
+      "always_generic": "始终允许此操作",
+      "ask_verb": "用 {app} 执行“{verb}”前先询问",
+      "ask_app": "使用 {app} 前先询问",
+      "ask_generic": "下次先询问",
+      "where_agent": "保存到这个智能体的规则中，可在它的设置里修改。",
+      "where_chat": "在这个对话中不再询问，直到应用重启。",
+      "chat_tool": "在这个对话中不再询问 {app}。",
+      "chat_all": "在这个对话中不再询问任何操作。",
+      "save_allow": "保存并允许",
+      "back": "返回",
+      "always_next_time": "下次始终允许",
+      "ask_next_time": "下次先询问",
+      "saved": "规则已保存：{rule}",
+      "saved_chat": "已在此对话中允许：{app}",
+      "saved_short": "规则已保存",
+      "still_asks": "仍有更严格的规则会先询问。",
+      "save_failed": "无法保存规则。"
+    }
   }
 }
