@@ -21,7 +21,7 @@ export const companionSchema = z.object({
   shape: z.enum(COMPANION_SHAPES), color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   eyes: z.enum(["dots", "lines"]).default("lines"), enabled: z.boolean().default(true),
   // One item id per slot. Ids stay open so a newer catalog never invalidates a saved look.
-  accessories: z.record(z.enum(ACCESSORY_SLOTS), z.string().regex(/^[a-z0-9_]{1,40}$/)).default({}),
+  accessories: z.partialRecord(z.enum(ACCESSORY_SLOTS), z.string().regex(/^[a-z0-9_]{1,40}$/)).default({}),
   // A pet from My Pets worn instead of the shape. Open like accessory ids: a pet
   // missing on this machine shows the shape, it never invalidates the look.
   pet: z.string().regex(PET_ID).optional(),
