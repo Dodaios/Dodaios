@@ -886,3 +886,26 @@ def test_github_not_answering_the_recheck_keeps_the_case_waiting(world: World) -
     del world.github.fresh[1]
     world.tick()
     assert world.service.ledger.get(record.id).state == State.PROVING
+
+
+# ------------------------------------------------------------------ why nothing is polled
+
+
+def test_a_library_of_only_dodaios_says_why_nothing_is_polled(world: World) -> None:
+    (world.work / "dodaios" / "self_build").mkdir(parents=True)  # Dodaios' own source
+    world.loop.ctx.brief_checked.clear()
+    world.service.code_loop = world.loop
+    summary = world.tick()
+    assert summary["projects"] == [] and summary["opened"] == 0
+    assert summary["not_polled"] == {"Dodaios' own source": 1}
+    status = world.service.status()["code"]
+    assert status["not_polled"] == {"Dodaios' own source": 1} and status["at_ms"] > 0
+    assert world.github.calls == ["viewer"]  # no repository was asked for issues
+
+
+def test_the_status_carries_the_last_pass(world: World) -> None:
+    world.service.code_loop = world.loop
+    assert world.service.status()["code"] == {}
+    world.tick()
+    status = world.service.status()["code"]
+    assert status["projects"] == ["me/proj"] and status["not_polled"] == {}
