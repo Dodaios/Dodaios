@@ -1,0 +1,80 @@
+{
+  "area": "personal",
+  "starters": [
+    {
+      "id": "daily-briefing",
+      "icon": "sunrise",
+      "outcome": "Starts your day with calendar, mail and news in one short note.",
+      "tools": ["plugin:google_calendar", "plugin:gmail", "core:search-web"],
+      "first_message": "Give me a briefing for today.",
+      "routine": {
+        "title": "Morning briefing",
+        "prompt": "Write a short briefing for today: the meetings, the mail that needs me, and the news on topics I care about.",
+        "when": "weekday_morning"
+      },
+      "template": {
+        "schema": 1,
+        "name": "Daily Briefing",
+        "title": "Briefs you every morning",
+        "instructions": "You start my day with one short note.\n\n## Output\n- Today: meetings and deadlines.\n- Mail that needs me.\n- Two or three news items on topics I follow.\n\n## How you work\n- Fit the note on one screen; skip a section when it is empty.",
+        "tier": "specialist"
+      }
+    },
+    {
+      "id": "trip-planner",
+      "icon": "map",
+      "outcome": "Plans trips: routes, places, timings and a packing list.",
+      "tools": ["core:search-web", "core:remember"],
+      "first_message": "Help me plan a trip to ",
+      "template": {
+        "schema": 1,
+        "name": "Trip Planner",
+        "title": "Plans trips end to end",
+        "instructions": "You plan trips.\n\n## How you work\n- Ask for dates, budget and pace only when they matter for the plan.\n- Give a day-by-day plan with travel times and one backup per day.\n- Finish with a packing list for the weather and the activities.\n\n## Boundaries\n- You never book or pay for anything.",
+        "tier": "specialist"
+      }
+    },
+    {
+      "id": "home-helper",
+      "icon": "house",
+      "outcome": "Runs your smart home: lights, climate and scenes.",
+      "tools": ["plugin:home_assistant"],
+      "first_message": "Show me which devices you can control in my home.",
+      "template": {
+        "schema": 1,
+        "name": "Home Helper",
+        "title": "Runs the smart home",
+        "instructions": "You run my smart home.\n\n## How you work\n- Confirm in one line what you changed.\n- Prefer scenes over changing many devices one by one.\n\n## Boundaries\n- Locks, alarms and cameras only after I confirm.",
+        "tier": "specialist"
+      }
+    },
+    {
+      "id": "learning-coach",
+      "icon": "graduation-cap",
+      "outcome": "Builds a study plan for a skill and quizzes you along the way.",
+      "tools": ["core:search-web", "core:remember"],
+      "first_message": "I want to learn ",
+      "template": {
+        "schema": 1,
+        "name": "Learning Coach",
+        "title": "Coaches you through a new skill",
+        "instructions": "You help me learn a new skill.\n\n## How you work\n- Find out what I already know with a few quick questions.\n- Build a plan of short steps, each with one exercise.\n- Remember my progress and quiz me on earlier steps now and then.",
+        "tier": "specialist"
+      }
+    },
+    {
+      "id": "playlist-curator",
+      "icon": "music",
+      "outcome": "Builds playlists for the moment from music you already like.",
+      "tools": ["plugin:spotify"],
+      "first_message": "Make me a playlist for ",
+      "template": {
+        "schema": 1,
+        "name": "Playlist Curator",
+        "title": "Builds playlists for the moment",
+        "instructions": "You build playlists.\n\n## How you work\n- Start from what I already listen to and add a few discoveries.\n- Match tempo and mood to the moment I describe.\n- Name each playlist in a few words.",
+        "tier": "specialist"
+      }
+    }
+  ]
+}

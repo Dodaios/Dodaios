@@ -6,7 +6,7 @@
  * No jest-dom in this repo — assertions use toBeTruthy()/toBeNull().
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/views/ChatsView", () => ({
@@ -20,6 +20,8 @@ vi.mock("@/views/ChatsView", () => ({
 vi.mock("@/lib/openExternal", () => ({ openExternalUrl: vi.fn() }));
 
 import { MarketplaceView } from "@/views/MarketplaceView";
+import { useCreateAgentDialog } from "@/components/society/create/createAgentStore";
+import type { SocietyAgent } from "@/components/society/data";
 import type { CommunityResponse } from "@/views/PluginsCommunity";
 
 const TEMPLATE = {
@@ -134,7 +136,7 @@ describe("MarketplaceView — agents", () => {
     expect(await screen.findByText(/on your team now/)).toBeTruthy();
   });
 
-  it("imports an exported template file as a new teammate", async () => {
+  it("previews an exported template file in the New-agent dialog before it becomes a teammate", async () => {
     const fetchMock = installFetchMock();
     renderView();
     await screen.findByText("Inbox Butler");
@@ -145,10 +147,30 @@ describe("MarketplaceView — agents", () => {
     });
     fireEvent.change(input, { target: { files: [file] } });
 
+    // The dialog opens on the import preview; nothing is installed yet.
+    await waitFor(() => expect(useCreateAgentDialog.getState().open).toBe(true));
+    expect(useCreateAgentDialog.getState().initial).toMatchObject({
+      mode: "import",
+      template: { kind: "agent", agent: { name: "Scribe" } },
+    });
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/install"))).toBe(false);
+
+    // The person confirms in the dialog: the marketplace lands on the new teammate.
+    act(() => useCreateAgentDialog.getState().finish({ agentId: "agent-scribe", name: "Scribe" } as SocietyAgent));
     expect(await screen.findByText(/Scribe installed/)).toBeTruthy();
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url) === "/api/society/templates/install"),
-    ).toBe(true);
+  });
+
+  it("a closed import dialog installs nothing and shows no error", async () => {
+    const fetchMock = installFetchMock();
+    renderView();
+    await screen.findByText("Inbox Butler");
+    const input = screen.getByTestId("marketplace-import-agent-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File([JSON.stringify(TEMPLATE)], "t.agent.json")] } });
+    await waitFor(() => expect(useCreateAgentDialog.getState().open).toBe(true));
+    act(() => useCreateAgentDialog.getState().cancel());
+    await waitFor(() => expect(useCreateAgentDialog.getState().open).toBe(false));
+    expect(screen.queryByText(/could not be imported/)).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/install"))).toBe(false);
   });
 
   it("names the problem when an imported file is not JSON", async () => {

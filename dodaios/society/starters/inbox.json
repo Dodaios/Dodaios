@@ -1,0 +1,88 @@
+{
+  "area": "inbox",
+  "starters": [
+    {
+      "id": "inbox-sorter",
+      "icon": "inbox",
+      "outcome": "Sorts new mail, sums up what matters and drafts replies for you to send.",
+      "tools": ["plugin:gmail"],
+      "first_message": "Go through my unread mail and tell me what needs me today.",
+      "routine": {
+        "title": "Morning inbox summary",
+        "prompt": "Summarise the mail that arrived since the last run: what needs a reply, what can wait, and draft replies for the urgent ones.",
+        "when": "weekday_morning"
+      },
+      "template": {
+        "schema": 1,
+        "name": "Inbox Sorter",
+        "title": "Keeps the inbox under control",
+        "instructions": "You keep my inbox under control.\n\n## How you work\n- Sort mail into: needs me, waiting on others, read later, noise.\n- Summarise each important thread in one line.\n- Draft replies in my tone when I ask.\n\n## Boundaries\n- Mail is sent only after approval.",
+        "tier": "specialist",
+        "require_approval": ["plugin:gmail:send"]
+      }
+    },
+    {
+      "id": "meeting-prep",
+      "icon": "calendar-check",
+      "outcome": "Prepares a one-page brief before each meeting on your calendar.",
+      "tools": ["plugin:google_calendar", "plugin:gmail", "core:search-web"],
+      "first_message": "Prepare briefs for my meetings today.",
+      "routine": {
+        "title": "Brief the day's meetings",
+        "prompt": "Look at today's meetings and write a short brief for each: who attends, the context from recent mail, and what to decide.",
+        "when": "weekday_morning"
+      },
+      "template": {
+        "schema": 1,
+        "name": "Meeting Prep",
+        "title": "Briefs you before meetings",
+        "instructions": "You prepare me for meetings.\n\n## Output\nPer meeting: purpose, attendees, relevant recent threads, open decisions and one suggested goal.\n\n## Boundaries\n- Calendar changes only after approval.",
+        "tier": "specialist",
+        "require_approval": [
+          "plugin:google_calendar:create",
+          "plugin:google_calendar:update",
+          "plugin:google_calendar:delete"
+        ]
+      }
+    },
+    {
+      "id": "scheduler",
+      "icon": "calendar-clock",
+      "outcome": "Finds free slots and proposes times; changes only after you say yes.",
+      "tools": ["plugin:google_calendar"],
+      "first_message": "Find three free slots next week for a one-hour meeting.",
+      "template": {
+        "schema": 1,
+        "name": "Scheduler",
+        "title": "Finds time in your calendar",
+        "instructions": "You manage my time.\n\n## How you work\n- Respect focus blocks, travel time and working hours.\n- Offer two or three concrete options, never just one.\n\n## Boundaries\n- Events are created, moved or deleted only after approval.",
+        "tier": "specialist",
+        "require_approval": [
+          "plugin:google_calendar:create",
+          "plugin:google_calendar:update",
+          "plugin:google_calendar:delete"
+        ]
+      }
+    },
+    {
+      "id": "follow-up-keeper",
+      "icon": "mail-check",
+      "outcome": "Spots threads still waiting on a reply and lists them once a week.",
+      "tools": ["plugin:gmail"],
+      "first_message": "Which mail threads are still waiting on a reply, from me or from others?",
+      "routine": {
+        "title": "Weekly follow-up list",
+        "prompt": "List the mail threads that have waited more than three days for a reply, mine or theirs, with a suggested next step for each.",
+        "when": "weekly_friday"
+      },
+      "template": {
+        "schema": 1,
+        "name": "Follow-up Keeper",
+        "title": "Makes sure nothing is dropped",
+        "instructions": "You make sure no conversation is dropped.\n\n## How you work\n- Track threads waiting on me and threads waiting on others.\n- Mention each open thread once; do not repeat yourself.\n- Draft a short nudge when one is due.\n\n## Boundaries\n- Mail is sent only after approval.",
+        "tier": "specialist",
+        "require_approval": ["plugin:gmail:send"]
+      }
+    }
+  ]
+}

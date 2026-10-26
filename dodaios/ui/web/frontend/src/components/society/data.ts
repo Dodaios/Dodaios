@@ -474,6 +474,8 @@ export interface NewAgentChoice {
   accountId?: string;
   /** The small companion bot that follows the agent. */
   companion?: CompanionAppearance;
+  /** One line on its job: the structured brief's mission (`society/brief.py`). */
+  mission?: string;
 }
 
 /**
@@ -495,6 +497,7 @@ export function useCreateSocietyAgent() {
       if (choice.accountId) body.account_id = choice.accountId;
     }
     if (choice.companion) body.avatar = { companion: choice.companion };
+    if (choice.mission?.trim()) body.mission = choice.mission.trim();
     const res = await fetch("/api/society/agents", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
