@@ -1251,3 +1251,33 @@ def test_orders_still_reach_computer_use(utterance: str) -> None:
 def test_information_question_classifier(utterance: str, is_question: bool) -> None:
     """The TASK-or-QUESTION decision itself, on already-normalised input."""
     assert _is_information_question(utterance) is is_question
+
+
+# User report 2026-10-26: speech-to-text writes "Open Chrome." with a full
+# stop. "chrome." was not an alias, so the command went to the LLM, which
+# answered "done" without launching anything.
+@pytest.mark.parametrize(
+    ("utterance", "app"),
+    [
+        ("Open Chrome.", "chrome"),
+        ("Open Chrome!", "chrome"),
+        ("Open chrome, please.", "chrome"),
+        ("Launch Chrome.", "chrome"),
+        ("Can you open Chrome?", "chrome"),
+        ("Open Google Chrome.", "chrome"),
+        ("open chrom", "chrome"),
+        ("Open Discord.", "discord"),
+    ],
+)
+def test_english_open_with_punctuation_launches_directly(utterance: str, app: str) -> None:
+    plan = match_local_action(utterance, "en", _registry=None)
+    assert plan is not None
+    assert plan.mode is LocalActionMode.DIRECT
+    assert plan.tool_calls == (LocalToolCall(name="open_app", args={"app_name": app}),)
+
+
+@pytest.mark.parametrize(
+    "utterance", ["Don't open Chrome.", "Do not open Spotify.", "Never open Discord."]
+)
+def test_english_negated_open_launches_nothing(utterance: str) -> None:
+    assert match_local_action(utterance, "en", _registry=None) is None
