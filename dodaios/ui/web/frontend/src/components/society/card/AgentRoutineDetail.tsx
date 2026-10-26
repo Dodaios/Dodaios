@@ -1,66 +1,45 @@
-/** The agent's routine editor, backed by the existing task scheduler. */
-import { useState } from "react";
+/**
+ * One routine, as a task the person can understand at a glance and leave
+ * running: what triggers it (as a sentence), whether it is on, a test run,
+ * "edit in chat", the last failure, every run with its duration and cost,
+ * and the full editor (instruction, model seat, schedules, connections).
+ * Backed by the existing task scheduler.
+ */
+import { useEffect, useState } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Clock, Plus, SkipForward, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Clock, Loader2, MessageSquareText, Play, Plus, Trash2 } from "lucide-react";
 import { useT } from "@/i18n";
 import { useRunLocale } from "@/components/runs/format";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { cancelAndDeleteTask, cancelTask, fetchTask, runTaskNow, setTaskEnabled } from "@/lib/tasksApi";
 import { describeTrigger, displayRoutineTitle, type LiveRoutine } from "../cardData";
-import type { TaskDetail, TaskStep } from "@/lib/tasksApi";
+import type { TaskDetail } from "@/lib/tasksApi";
+import { useSocietyAgent } from "../data";
 import { TriggerBuilder } from "./TriggerBuilder";
 import { WebhookConnection } from "./WebhookConnection";
 import { SourceControls } from "./SourceControls";
 import { RoutineSeatPicker, type RoutineSeat } from "./RoutineSeatPicker";
 import { useRoutineNavigation } from "../chat/routineNavigation";
 import { routineSkipReason } from "@/lib/skipReasons";
+import { TriggerIcon, type RoutineTone } from "./routines/TriggerIcon";
+import { humanSchedule } from "./routines/humanSchedule";
+import { fill, formatDuration, relativeTime } from "./routines/format";
+import { markRoutinesSeen, useRoutineRuns } from "./routines/routinesApi";
+import { mergeRunDetails, routineRuns, type Run } from "./routines/runs";
+import { RunHistory, runReason } from "./routines/RunHistory";
+import { seedAgentComposer } from "./routines/editThroughChat";
+import { useNow } from "./routines/useNow";
 
-const field = "w-full rounded-lg border border-border bg-background px-3 py-2 text-[12px] text-foreground";
-const button = "rounded-md bg-secondary px-2.5 py-1.5 text-[12px] text-foreground hover:bg-secondary/70 disabled:opacity-50";
+export { routineRuns } from "./routines/runs";
+
+const field = "w-full rounded-lg border border-border bg-background px-3 py-2 text-[12px] text-foreground transition-colors focus:border-border-strong focus:outline-none disabled:opacity-60";
+const button = "inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[12px] font-medium text-foreground transition-colors duration-150 hover:bg-secondary disabled:opacity-40";
+const primary = "inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-[12px] font-medium text-background transition-colors duration-150 hover:bg-foreground/90 disabled:opacity-40";
+const heading = "text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
 const recurring = ["every", "calendar", "cron", "webhook", "event_hook", "source", "on_event"];
 const terminal = ["completed", "failed", "cancelled", "interrupted"];
 const timeKinds = ["every", "calendar", "cron"];
-
-interface Run {
-  id: string; taskId: string; timestamp: number; status: string; text: string; sessionId?: string; startedMs?: number; finishedMs?: number;
-  /** A skipped run's reason code and seat (`skipped` step), worded by `routineSkipReason`. */
-  skipCode?: string; skipProvider?: string;
-}
-
-/** New runs have explicit boundaries; retain older result/error records too. */
-export function routineRuns(taskId: string, steps: TaskStep[]): Run[] {
-  const runs: Run[] = [];
-  let current: Run | undefined;
-  for (const step of steps) {
-    const event = step.payload.event;
-    const text = String(step.payload.message ?? step.payload.text ?? "");
-    if (event === "run_started") {
-      if (current?.status === "running") current.status = "interrupted";
-      current = { id: `${taskId}:${step.seq}`, taskId, timestamp: step.timestamp_ns / 1e6, startedMs: step.timestamp_ns / 1e6, status: "running", text: "" };
-      runs.push(current);
-    } else if (event === "routine_chat" && current && typeof step.payload.session_id === "string") {
-      current.sessionId = step.payload.session_id;
-    } else if (event === "agent_result" && current) {
-      current.text = text;
-    } else if (event === "skipped") {
-      // Unattended work that may not bill its seat: no turn started. The skip
-      // ends the run; an older history also logged an "error" right after it.
-      const skip = { status: "skipped", text, finishedMs: step.timestamp_ns / 1e6,
-        skipCode: String(step.payload.code ?? ""), skipProvider: String(step.payload.provider ?? "") };
-      if (current) Object.assign(current, skip);
-      else { current = { id: `${taskId}:${step.seq}`, taskId, timestamp: step.timestamp_ns / 1e6, ...skip }; runs.push(current); }
-    } else if (["run_completed", "run_cancelled", "error", "deferred"].includes(String(event))) {
-      const status = event === "run_completed" ? "completed" : event === "run_cancelled" ? "cancelled" : event === "deferred" ? "pending" : "failed";
-      if (current?.status === "skipped") current = undefined;
-      else if (current) { current.status = status; current.finishedMs = step.timestamp_ns / 1e6; if (text) current.text = text; current = undefined; }
-      else runs.push({ id: `${taskId}:${step.seq}`, taskId, timestamp: step.timestamp_ns / 1e6, finishedMs: step.timestamp_ns / 1e6, status, text });
-    } else if (event === "agent_result") {
-      // Legacy runners persisted the result before the final state transition.
-      runs.push({ id: `${taskId}:${step.seq}`, taskId, timestamp: step.timestamp_ns / 1e6, finishedMs: step.timestamp_ns / 1e6, status: "legacy", text });
-    }
-  }
-  return runs;
-}
 
 async function writeRoutine(url: string, body: unknown, method = "PATCH") {
   const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -70,18 +49,22 @@ async function writeRoutine(url: string, body: unknown, method = "PATCH") {
   }
 }
 
-export function AgentRoutineDetail({ agentId, routine, onClose }: {
+export function AgentRoutineDetail({ agentId, routine, onClose, parked = false }: {
   agentId: string; routine: LiveRoutine; onClose: () => void;
+  /** Paused by away-parking (the list knows; the banner explains). */
+  parked?: boolean;
 }) {
   const t = useT();
   const locale = useRunLocale();
   const label = (key: string) => t(`society.routine_detail.${key}`);
+  const own = (key: string) => t(`society.agent_routines.detail.${key}`);
   const client = useQueryClient();
   const members = routine.members ?? [routine];
   const queries = useQueries({ queries: members.map((member) => ({
     queryKey: ["tasks", "detail", member.id], queryFn: () => fetchTask(member.id),
     retry: false, refetchInterval: import.meta.env.MODE === "test" ? false : 3000,
   })) });
+  const { agent } = useSocietyAgent(agentId);
   const [draft, setDraft] = useState<{ title: string; prompt: string } | null>(null);
   const [editing, setEditing] = useState<LiveRoutine | "new" | null>(null);
   const [schedule, setSchedule] = useState<Record<string, unknown> | null>(null);
@@ -90,6 +73,7 @@ export function AgentRoutineDetail({ agentId, routine, onClose }: {
   const [notice, setNotice] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const openChat = useRoutineNavigation((state) => state.open);
+  useEffect(() => { markRoutinesSeen(agentId); }, [agentId]);
   const details = queries.map((query) => query.data);
   const first = details[0];
   const rawPrompt = String((first?.spec?.action as { prompt?: string } | undefined)?.prompt ?? "");
@@ -112,6 +96,7 @@ export function AgentRoutineDetail({ agentId, routine, onClose }: {
   );
   const ready = details.every(Boolean);
   const running = details.some((detail) => detail?.state === "running");
+  const now = useNow(running ? 1000 : 30_000);
   const active = details.some((detail) => detail && detail.state !== "paused" && !terminal.includes(detail.state));
   const editable = ready && !running && details.every((detail, index) => detail && (
     index > 0 && terminal.includes(detail.state) || recurring.includes(detail.trigger_type) && !terminal.includes(detail.state)
@@ -121,6 +106,8 @@ export function AgentRoutineDetail({ agentId, routine, onClose }: {
   const refresh = () => Promise.all([
     client.invalidateQueries({ queryKey: ["tasks"] }),
     client.invalidateQueries({ queryKey: ["society", "agent-routines", agentId] }),
+    client.invalidateQueries({ queryKey: ["society", "routine-activity", agentId] }),
+    client.invalidateQueries({ queryKey: ["society", "routine-runs", agentId] }),
   ]);
   const act = async (fn: () => Promise<void>) => {
     setPending(true); setError(""); setNotice("");
@@ -133,12 +120,24 @@ export function AgentRoutineDetail({ agentId, routine, onClose }: {
     ...(seatDirty ? { provider: seat.provider, model: seat.model, effort: seat.effort, account_id: seat.account_id } : {}),
   });
   const valid = Boolean(values.title.trim() && values.prompt.trim());
-  const runs = details.flatMap((detail) => detail ? routineRuns(detail.id, detail.steps) : []).sort((a, b) => b.timestamp - a.timestamp);
+  const history = useRoutineRuns(agentId, members.map((member) => member.id), running);
+  const localRuns = details.flatMap((detail) => detail ? routineRuns(detail.id, detail.steps) : []).sort((a, b) => b.timestamp - a.timestamp);
+  const runs = mergeRunDetails(localRuns, history.runs);
+  const latest = runs[0];
+  const lastFailure = runs.find((run) => run.status === "failed");
+  const showFailure = lastFailure && (latest?.status === "failed" || latest?.status === "interrupted") ? lastFailure : undefined;
   const renderConnection = (detail: TaskDetail) => {
     if (detail.trigger_type === "webhook") return <WebhookConnection taskId={detail.id} />;
     if (detail.trigger_type === "source") return <SourceControls taskId={detail.id} source={(detail.trigger as { source: { kind: string } }).source} />;
     return null;
   };
+  const sentenceOf = (trigger: unknown) => humanSchedule(trigger, { t, locale }) || describeTrigger(trigger, t);
+  const headTrigger = first?.trigger ?? routine.trigger;
+  const sentence = sentenceOf(headTrigger);
+  const due = details.filter((detail) => detail?.state === "scheduled" && detail.due_at_ns).map((detail) => detail!.due_at_ns! / 1e6);
+  const nextMs = due.length ? Math.min(...due) : null;
+  const tone: RoutineTone = running ? "running" : !active ? (parked ? "parked" : "paused") : latest?.status === "failed" ? "failed" : "active";
+  const canTest = !(pending || !ready || running || Boolean(draft) || Boolean(editing) || !first || terminal.includes(first.state) || first.trigger_type === "source");
 
   const openRun = (run: Run) => {
     const ownChat = run.sessionId?.startsWith(`society:${agentId}:routine:${run.taskId}:`);
@@ -148,41 +147,70 @@ export function AgentRoutineDetail({ agentId, routine, onClose }: {
       ...(!ownChat ? { legacy: { taskId: run.taskId, startedMs: run.startedMs, finishedMs: run.finishedMs } } : {}),
     });
   };
+  const editInChat = () => void seedAgentComposer(
+    { tier: agent?.tier ?? "specialist", chatSessionId: agent?.chatSessionId ?? `society:${agentId}` },
+    fill(own("edit_prompt"), { title: saved.title, schedule: sentence }),
+  );
+  const runningRun = runs.find((run) => run.status === "running");
+  const status = running
+    ? `${own("running")}${runningRun?.startedMs ? ` · ${formatDuration(Math.max(0, now - runningRun.startedMs))}` : ""}`
+    : !active ? (parked ? own("parked") : t("tasks_view.state.paused"))
+    : nextMs ? `${t("society.card.next_run")} ${nextMs <= now ? own("due_now") : relativeTime(nextMs, now, locale)}` : own("active");
 
   return <section className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4 text-foreground" data-testid="agent-routine-detail">
-    <button type="button" className="flex items-center gap-1 text-[12px] text-muted-foreground" disabled={pending} onClick={onClose}><ArrowLeft size={14} />{t("society.card.routines")}</button>
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="mr-auto flex items-center gap-2 text-[12px]"><Switch aria-label={label("active")} checked={active} disabled={pending || !editable} onCheckedChange={(enabled) => void act(async () => {
-        for (const detail of details) if (detail && !terminal.includes(detail.state) && (detail.state === "paused") === enabled) await setTaskEnabled(detail.id, enabled);
-      })} />{label("active")}</label>
-      <button type="button" className={button} disabled={pending || !ready || running} onClick={() => setConfirmDelete(true)}>{label("delete")}</button>
-      <button type="button" className={button} disabled={pending || !ready || running || Boolean(draft) || Boolean(editing) || !first || terminal.includes(first.state) || first.trigger_type === "source"} onClick={() => void act(async () => {
-        await runTaskNow(routine.id); setNotice(label("test_started"));
-      })}>{label("test")}</button>
-    </div>
-    {confirmDelete && <div className="space-y-2 rounded-lg border border-border p-3" role="alert">
-      <p className="text-[12px]">{label("delete_confirm")}</p>
-      <button className={button} disabled={pending} onClick={() => void act(async () => {
-        for (const detail of [...details].reverse()) if (detail) await cancelAndDeleteTask(detail.id, !terminal.includes(detail.state));
-        onClose();
-      })}>{label("delete")}</button>{" "}<button className={button} disabled={pending} onClick={() => setConfirmDelete(false)}>{label("cancel")}</button>
-    </div>}
-    {queries.some((query) => query.isLoading) && <p role="status" className="text-[12px]">{t("tasks_view.loading_details")}</p>}
+    <button type="button" className="-ml-1 flex items-center gap-1 rounded-md px-1 py-0.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground" disabled={pending} onClick={onClose}><ArrowLeft size={14} />{t("society.card.routines")}</button>
+
+    <header className="rounded-2xl border border-border bg-card p-3 shadow-[0_1px_2px_rgb(var(--scrim-rgb)/0.05),0_6px_16px_-10px_rgb(var(--scrim-rgb)/0.18)]">
+      <div className="flex items-start gap-3">
+        <TriggerIcon trigger={headTrigger} tone={tone} size="lg" />
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[14px] font-semibold leading-5 text-foreground-strong" title={saved.title}>{saved.title}</h3>
+          {sentence && <p className="text-[12px] leading-snug text-foreground-secondary" data-testid="routine-schedule-sentence">{sentence}</p>}
+          <p className={cn("mt-0.5 text-[11px] leading-4", tone === "parked" ? "text-warning" : tone === "running" ? "text-primary" : "text-muted-foreground")}
+            title={nextMs ? new Date(nextMs).toLocaleString(locale, { timeZoneName: "short" }) : undefined}>{status}</p>
+        </div>
+        <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground"><Switch aria-label={label("active")} checked={active} disabled={pending || !editable} onCheckedChange={(enabled) => void act(async () => {
+          for (const detail of details) if (detail && !terminal.includes(detail.state) && (detail.state === "paused") === enabled) await setTaskEnabled(detail.id, enabled);
+        })} /><span className="sr-only sm:not-sr-only">{label("active")}</span></label>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <button type="button" className={primary} disabled={!canTest} onClick={() => void act(async () => {
+          await runTaskNow(routine.id); setNotice(label("test_started"));
+        })}>{running ? <Loader2 size={13} className="motion-safe:animate-spin" /> : <Play size={13} />}{label("test")}</button>
+        <button type="button" className={button} onClick={editInChat}><MessageSquareText size={13} />{own("edit_in_chat")}</button>
+      </div>
+    </header>
+
+    {queries.some((query) => query.isLoading) && <p role="status" className="text-[12px] text-muted-foreground">{t("tasks_view.loading_details")}</p>}
     {queries.some((query) => query.error) && <p role="alert" className="text-[12px] text-destructive">{t("tasks_view.load_error")}</p>}
     {error && <p role="alert" className="break-words text-[12px] text-destructive">{error}</p>}
     {notice && <p role="status" className="text-[12px] text-success">{notice}</p>}
-    <label className="block space-y-1 text-[11px] text-muted-foreground">{label("name")}<input className={field} aria-label={label("name")} maxLength={200} disabled={pending || !editable || Boolean(editing)} value={values.title} onChange={(event) => setDraft({ ...values, title: event.target.value })} /></label>
-    <label className="block space-y-1 text-[11px] text-muted-foreground">{label("prompt")}<textarea className={field} aria-label={label("prompt")} maxLength={16000} rows={7} disabled={pending || !editable || Boolean(editing) || (first?.spec?.action as { kind?: string } | undefined)?.kind !== "agent"} value={values.prompt} onChange={(event) => setDraft({ ...values, prompt: event.target.value })} /></label>
-    {draft && <div className="flex gap-2"><button className={button} disabled={pending || !valid || !editable || Boolean(editing)} onClick={() => void act(async () => {
-      for (const [index, member] of members.entries()) if (!terminal.includes(details[index]!.state)) await update(member, details[index]?.trigger);
-      setDraft(null); setSeatDraft(null); setSeatOpen(false); setNotice(label("saved"));
-    })}>{label("save")}</button><button className={button} disabled={pending} onClick={() => setDraft(null)}>{label("cancel")}</button></div>}
+
+    {showFailure && <div className="rounded-xl border border-destructive/30 bg-destructive/[0.05] p-3" data-testid="routine-last-failure">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-destructive">
+        <AlertTriangle size={13} aria-hidden />{own("last_failure")}
+        <span className="ml-auto font-normal normal-case tracking-normal text-muted-foreground">{relativeTime(showFailure.finishedMs ?? showFailure.timestamp, now, locale)}</span>
+      </div>
+      <p className="mt-1.5 break-words text-[12px] leading-snug text-foreground-secondary">{runReason(t, showFailure) || own("failed_no_detail")}</p>
+      <button type="button" className="mt-2 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => openRun(showFailure)}>{own("open_failed_run")}</button>
+    </div>}
+
+    <section className="space-y-2">
+      <h4 className={heading}>{own("instruction")}</h4>
+      <label className="block space-y-1 text-[11px] text-muted-foreground">{label("name")}<input className={field} aria-label={label("name")} maxLength={200} disabled={pending || !editable || Boolean(editing)} value={values.title} onChange={(event) => setDraft({ ...values, title: event.target.value })} /></label>
+      <label className="block space-y-1 text-[11px] text-muted-foreground">{label("prompt")}<textarea className={cn(field, "resize-y leading-relaxed")} aria-label={label("prompt")} maxLength={16000} rows={6} disabled={pending || !editable || Boolean(editing) || (first?.spec?.action as { kind?: string } | undefined)?.kind !== "agent"} value={values.prompt} onChange={(event) => setDraft({ ...values, prompt: event.target.value })} /></label>
+      {draft && <div className="flex gap-2"><button className={primary} disabled={pending || !valid || !editable || Boolean(editing)} onClick={() => void act(async () => {
+        for (const [index, member] of members.entries()) if (!terminal.includes(details[index]!.state)) await update(member, details[index]?.trigger);
+        setDraft(null); setSeatDraft(null); setSeatOpen(false); setNotice(label("saved"));
+      })}>{label("save")}</button><button className={button} disabled={pending} onClick={() => setDraft(null)}>{label("cancel")}</button></div>}
+    </section>
+
     {seatEditable && <div className="space-y-2 rounded-xl border border-border p-3">
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-[11px] text-muted-foreground">{label("model")}</h4>
+        <h4 className={heading}>{label("model")}</h4>
         <button
           type="button"
-          className="text-[11px] text-muted-foreground underline disabled:opacity-50"
+          className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
           disabled={pending || !editable || Boolean(editing)}
           onClick={() => setSeatOpen((open) => !open)}
         >
@@ -194,49 +222,55 @@ export function AgentRoutineDetail({ agentId, routine, onClose }: {
       </p>
       {seatOpen && <RoutineSeatPicker seat={seat} disabled={pending || !editable || Boolean(editing)} onChange={setSeatDraft} />}
     </div>}
-    {seatDirty && <div className="flex gap-2"><button className={button} disabled={pending || !valid || !editable || Boolean(editing) || Boolean(draft)} onClick={() => void act(async () => {
+    {seatDirty && <div className="flex gap-2"><button className={primary} disabled={pending || !valid || !editable || Boolean(editing) || Boolean(draft)} onClick={() => void act(async () => {
       for (const [index, member] of members.entries()) if (!terminal.includes(details[index]!.state)) await update(member, details[index]?.trigger);
       setSeatDraft(null); setSeatOpen(false); setNotice(label("saved"));
     })}>{label("save")}</button><button className={button} disabled={pending} onClick={() => setSeatDraft(null)}>{label("cancel")}</button></div>}
-    <div className="space-y-2">
-      <h4 className="text-[11px] text-muted-foreground">{label("when")}</h4>
-      <div className="space-y-2 rounded-xl border border-border p-3">
+
+    <section className="space-y-2">
+      <h4 className={heading}>{label("when")}</h4>
+      <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border">
         {members.map((member, index) => {
           const detail = details[index];
           if (index > 0 && detail && terminal.includes(detail.state)) return null;
-          return <div key={member.id} className="space-y-1">
-            <button className="flex w-full items-start gap-2 rounded text-left text-[12px] disabled:opacity-70" disabled={pending || !editable || Boolean(draft) || !detail || !timeKinds.includes(detail.trigger_type)} onClick={() => { setEditing({ ...member, trigger: detail?.trigger }); setSchedule(null); }}>
-              <Clock size={14} className="mt-0.5 shrink-0" /><span>{describeTrigger(detail?.trigger ?? member.trigger, t)}</span>
+          return <div key={member.id} className="space-y-1 px-3 py-2.5">
+            <button className="flex w-full items-start gap-2 rounded text-left text-[12px] transition-colors enabled:hover:text-foreground disabled:opacity-80" disabled={pending || !editable || Boolean(draft) || !detail || !timeKinds.includes(detail.trigger_type)} onClick={() => { setEditing({ ...member, trigger: detail?.trigger }); setSchedule(null); }}>
+              <Clock size={14} className="mt-0.5 shrink-0 text-muted-foreground" /><span>{sentenceOf(detail?.trigger ?? member.trigger)}</span>
             </button>
             {detail?.due_at_ns && detail.state === "scheduled" ? <p className="pl-5 text-[11px] text-muted-foreground">{t("society.card.next_run")}: {new Date(detail.due_at_ns / 1e6).toLocaleString(locale, { timeZoneName: "short" })}</p> : null}
-            {detail && renderConnection(detail)}
-            {index > 0 && <button className="pl-5 text-[11px] text-muted-foreground" disabled={pending || !editable || Boolean(draft)} onClick={() => void act(async () => { await cancelTask(member.id); })}>{label("remove_schedule")}</button>}
+            {detail && <div className="pl-5">{renderConnection(detail)}</div>}
+            {index > 0 && <button className="pl-5 text-[11px] text-muted-foreground hover:text-foreground" disabled={pending || !editable || Boolean(draft)} onClick={() => void act(async () => { await cancelTask(member.id); })}>{label("remove_schedule")}</button>}
           </div>;
         })}
-        <button className="flex items-center gap-1 text-[12px] text-muted-foreground disabled:opacity-50" disabled={pending || !editable || Boolean(draft)} onClick={() => { setEditing("new"); setSchedule(null); }}><Plus size={14} />{label("add_schedule")}</button>
+        <div className="px-3 py-2">
+          <button className="flex items-center gap-1 text-[12px] text-muted-foreground transition-colors enabled:hover:text-foreground disabled:opacity-50" disabled={pending || !editable || Boolean(draft)} onClick={() => { setEditing("new"); setSchedule(null); }}><Plus size={14} />{label("add_schedule")}</button>
+        </div>
       </div>
-      {editing && <div className="space-y-2 rounded-lg border border-border p-3">
+      {editing && <div className="space-y-2 rounded-xl border border-border bg-card p-3">
         <TriggerBuilder key={editing === "new" ? "new" : editing.id} timeOnly initialValue={editing === "new" ? undefined : editing.trigger as Record<string, unknown>} onChange={setSchedule} />
-        <button className={button} disabled={pending || !schedule || !valid} onClick={() => void act(async () => {
+        <button className={primary} disabled={pending || !schedule || !valid} onClick={() => void act(async () => {
           if (editing === "new") await writeRoutine(url, { title: values.title, prompt: values.prompt, schedule, parent_task_id: routine.id }, "POST");
           else await update(editing, schedule);
           setEditing(null); setNotice(label("saved"));
         })}>{label("save")}</button>{" "}<button className={button} disabled={pending} onClick={() => setEditing(null)}>{label("cancel")}</button>
       </div>}
-    </div>
-    <div className="space-y-2">
-      <h4 className="text-[11px] text-muted-foreground">{label("history")}</h4>
-      {runs.length > 0 && <button type="button" className={button} onClick={() => openRun(runs[0])}>{label("latest_chat")}</button>}
-      {ready && runs.length === 0 && <p className="text-[12px] text-muted-foreground">{label("no_runs")}</p>}
-      {runs.map((run) => {
-        const state = run.status === "legacy" ? label("legacy") : run.status === "skipped" ? label("skipped") : t(`tasks_view.state.${run.status}`);
-        return <button key={run.id} type="button" data-testid={`routine-run-${run.id}`} aria-label={`${label("open_chat")} · ${new Date(run.timestamp).toLocaleString(locale)} · ${state}`} onClick={() => openRun(run)} className="block w-full cursor-pointer rounded py-1 text-left text-[12px] hover:bg-secondary focus-visible:outline focus-visible:outline-ring">
-          <span className="flex items-center justify-between gap-2"><time dateTime={new Date(run.timestamp).toISOString()}>{new Date(run.timestamp).toLocaleString()}</time><span className="flex items-center gap-1" title={state}>
-            {run.status === "completed" ? <Check size={15} className="text-success" aria-label={state} /> : run.status === "failed" || run.status === "cancelled" ? <X size={15} className="text-destructive" aria-label={state} /> : run.status === "skipped" ? <SkipForward size={15} className="text-muted-foreground" aria-label={state} /> : <Clock size={15} aria-label={state} />}
-          </span></span>
-          {run.status === "skipped" && <span data-testid="routine-run-skip-reason" className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{routineSkipReason(t, run.skipCode, run.skipProvider, run.text)}</span>}
-        </button>;
-      })}
-    </div>
+    </section>
+
+    <RunHistory runs={runs} ready={ready} locale={locale} onOpen={openRun} />
+
+    <footer className="space-y-2 border-t border-border/70 pt-3">
+      <button type="button" className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[12px] text-muted-foreground transition-colors hover:text-destructive disabled:opacity-40" disabled={pending || !ready || running} onClick={() => setConfirmDelete(true)}><Trash2 size={13} aria-hidden />{label("delete")}</button>
+      {confirmDelete && <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-3" role="alert">
+        <p className="text-[12px] text-foreground">{label("delete_confirm")}</p>
+        <p className="text-[11px] text-muted-foreground">{own("delete_note")}</p>
+        <div className="flex gap-2">
+          <button className="rounded-lg bg-destructive px-2.5 py-1.5 text-[12px] font-medium text-destructive-foreground disabled:opacity-50" disabled={pending} onClick={() => void act(async () => {
+            for (const detail of [...details].reverse()) if (detail) await cancelAndDeleteTask(detail.id, !terminal.includes(detail.state));
+            onClose();
+          })}>{label("delete")}</button>
+          <button className={button} disabled={pending} onClick={() => setConfirmDelete(false)}>{label("cancel")}</button>
+        </div>
+      </div>}
+    </footer>
   </section>;
 }

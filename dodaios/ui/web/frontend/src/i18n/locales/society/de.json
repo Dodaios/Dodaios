@@ -1908,6 +1908,112 @@
       "look_start": "Von Anfang an",
       "next_look": "Nächster Look: {0} ab Level {1}",
       "team_note": "Agenten steigen durch erledigte Arbeit auf und tragen immer ihre besten Teile."
+    },
+    "agent_routines": {
+      "schedule": {
+        "every_minute": "Jede Minute",
+        "every_minutes": "Alle {n} Minuten",
+        "every_hour": "Jede Stunde",
+        "every_hour_at": "Jede Stunde um :{minute}",
+        "every_hours": "Alle {n} Stunden",
+        "every_hours_at": "Alle {n} Stunden um :{minute}",
+        "every_day": "Jeden Tag",
+        "every_week": "Jede Woche",
+        "daily_at": "Jeden Tag um {time}",
+        "every_n_days_at": "Alle {n} Tage um {time}",
+        "weekdays_at": "Werktags um {time}",
+        "weekends_at": "Am Wochenende um {time}",
+        "days_at": "Jeden {days} um {time}",
+        "monthly_at": "Monatlich am Tag {days} um {time}",
+        "yearly_at": "Jedes Jahr am {date} um {time}",
+        "in_months": "{schedule}, nur im {months}",
+        "with_days": "{schedule}, {days}",
+        "on_weekdays": "werktags",
+        "on_weekends": "am Wochenende",
+        "zone_time": "{schedule} (Zeit in {zone})",
+        "converted": "{schedule} · {time} in {zone}",
+        "custom_cron": "Eigener Zeitplan: {expression}",
+        "custom": "Zeitplan: {kind}",
+        "every_duration": "Alle {duration}",
+        "n_days": "{n} Tage",
+        "n_hours": "{n} Stunden",
+        "n_minutes": "{n} Minuten",
+        "n_seconds": "{n} Sekunden",
+        "once_at": "Einmal, {when}",
+        "once_in": "Einmal, in {duration}",
+        "on_event": "Wenn {event} eintritt",
+        "on_webhook": "Wenn sein Webhook aufgerufen wird",
+        "on_provider": "Bei Ereignissen von {provider}",
+        "on_integration": "Beim Integrationsereignis {event}",
+        "on_demand": "Wenn du sie startest",
+        "on_file": "Wenn sich Dateien in {path} ändern",
+        "on_source": "Bei neuen {source}-Nachrichten"
+      },
+      "list": {
+        "running": "Läuft gerade",
+        "parked": "Pausiert, während du weg warst",
+        "test_run": "Jetzt testweise ausführen",
+        "pause": "Pausieren",
+        "resume": "Fortsetzen",
+        "due_now": "jetzt fällig",
+        "setup_in_chat": "Im Chat einrichten",
+        "setup_prompt": "Richte mir eine Routine ein: ",
+        "or_chat": "Oder im Chat beschreiben",
+        "empty_body": "Aufgaben, die dieser Agent von selbst erledigt, etwa eine Morgenübersicht oder ein Wochencheck.",
+        "active_hint": "Aktive von allen Routinen"
+      },
+      "parking": {
+        "title": "Pausiert, während du weg warst",
+        "body": "{count} Routinen haben in {days} Tagen {unread} Ergebnisse erzeugt, die niemand geöffnet hat. Sie wurden pausiert, um Läufe zu sparen.",
+        "body_one": "Diese Routine hat in {days} Tagen {unread} Ergebnisse erzeugt, die niemand geöffnet hat. Sie wurde pausiert, um Läufe zu sparen.",
+        "keep_running": "Fortsetzen",
+        "keep_paused": "Pausiert lassen",
+        "never_ask": "Fortsetzen und nie wieder pausieren"
+      },
+      "away": {
+        "label": "Routinen mit ungelesenen Ergebnissen pausieren",
+        "never": "Nie",
+        "after_days": "Nach {n} Tagen",
+        "hint": "Gilt für geplante Routinen aller Agenten. Läufe, die du selbst startest, werden nie pausiert.",
+        "off_for_agent": "Für diesen Agenten nie pausiert",
+        "turn_on": "Einschalten"
+      },
+      "detail": {
+        "edit_in_chat": "Im Chat ändern",
+        "edit_prompt": "Ändere meine Routine „{title}“ ({schedule}): ",
+        "running": "Läuft gerade",
+        "parked": "Pausiert, während du weg warst",
+        "due_now": "jetzt fällig",
+        "active": "Aktiv",
+        "last_failure": "Letzter Fehler",
+        "failed_no_detail": "Der Lauf ist ohne Fehlermeldung fehlgeschlagen.",
+        "open_failed_run": "Diesen Lauf öffnen",
+        "instruction": "Anweisung",
+        "delete_note": "Künftige Läufe enden. Bereits gelieferte Ergebnisse bleiben im Chat des Agenten."
+      },
+      "runs": {
+        "empty": "Noch keine Läufe. Mit „Testlauf“ probierst du sie sofort aus.",
+        "manual": "Manuell",
+        "included": "In deinem Abo enthalten",
+        "skip_away": "Übersprungen: Die Ergebnisse wurden länger nicht geöffnet, daher wurde die Routine pausiert.",
+        "show_all": "Alle {n} zeigen",
+        "show_less": "Weniger zeigen"
+      },
+      "status": {
+        "waiting": "Wartet",
+        "pending": "Verschoben",
+        "interrupted": "Unterbrochen"
+      },
+      "webhook": {
+        "url_help": "Sende JSON per POST an diese Adresse, um die Routine zu starten.",
+        "key_help": "Halte ihn geheim. Erneuere ihn, falls er bekannt wird.",
+        "header": "Header",
+        "header_help": "Füge diese Zeile in die Request-Header des sendenden Dienstes ein.",
+        "reveal": "Schlüssel zeigen",
+        "hide": "Schlüssel verbergen",
+        "copy_url": "URL kopieren",
+        "copy_header": "Header-Zeile kopieren"
+      }
     }
   }
 }

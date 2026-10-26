@@ -1908,6 +1908,112 @@
       "look_start": "初始造型",
       "next_look": "下一个造型：{0}（等级 {1}）",
       "team_note": "智能体通过完成工作升级，并始终穿着已解锁的最佳装备。"
+    },
+    "agent_routines": {
+      "schedule": {
+        "every_minute": "每分钟",
+        "every_minutes": "每 {n} 分钟",
+        "every_hour": "每小时",
+        "every_hour_at": "每小时的第 {minute} 分",
+        "every_hours": "每 {n} 小时",
+        "every_hours_at": "每 {n} 小时的第 {minute} 分",
+        "every_day": "每天",
+        "every_week": "每周",
+        "daily_at": "每天 {time}",
+        "every_n_days_at": "每 {n} 天 {time}",
+        "weekdays_at": "工作日 {time}",
+        "weekends_at": "周末 {time}",
+        "days_at": "每{days} {time}",
+        "monthly_at": "每月 {days} 日 {time}",
+        "yearly_at": "每年 {date} {time}",
+        "in_months": "{schedule}，仅限 {months}",
+        "with_days": "{schedule}，{days}",
+        "on_weekdays": "工作日",
+        "on_weekends": "周末",
+        "zone_time": "{schedule}（{zone} 时间）",
+        "converted": "{schedule} · {zone} 时间 {time}",
+        "custom_cron": "自定义计划：{expression}",
+        "custom": "计划：{kind}",
+        "every_duration": "每 {duration}",
+        "n_days": "{n} 天",
+        "n_hours": "{n} 小时",
+        "n_minutes": "{n} 分钟",
+        "n_seconds": "{n} 秒",
+        "once_at": "一次，{when}",
+        "once_in": "一次，{duration}后",
+        "on_event": "当 {event} 发生时",
+        "on_webhook": "当它的 Webhook 被调用时",
+        "on_provider": "收到 {provider} 事件时",
+        "on_integration": "收到集成事件 {event} 时",
+        "on_demand": "由你手动启动",
+        "on_file": "当 {path} 中的文件变化时",
+        "on_source": "收到新的 {source} 消息时"
+      },
+      "list": {
+        "running": "正在运行",
+        "parked": "你不在时已暂停",
+        "test_run": "立即测试运行",
+        "pause": "暂停",
+        "resume": "恢复",
+        "due_now": "现在到期",
+        "setup_in_chat": "在聊天中设置",
+        "setup_prompt": "帮我设置一个例行任务：",
+        "or_chat": "或在聊天中描述",
+        "empty_body": "这个智能体自行完成的工作，例如早间摘要或每周检查。",
+        "active_hint": "启用的例行任务 / 全部"
+      },
+      "parking": {
+        "title": "你不在时已暂停",
+        "body": "{count} 个例行任务在 {days} 天内产生了 {unread} 条无人打开的结果，因此已暂停以节省运行。",
+        "body_one": "此例行任务在 {days} 天内产生了 {unread} 条无人打开的结果，因此已暂停以节省运行。",
+        "keep_running": "恢复",
+        "keep_paused": "保持暂停",
+        "never_ask": "恢复且不再暂停"
+      },
+      "away": {
+        "label": "结果无人查看时暂停例行任务",
+        "never": "从不",
+        "after_days": "{n} 天后",
+        "hint": "适用于所有智能体的定时例行任务。你自己启动的运行永远不会被暂停。",
+        "off_for_agent": "此智能体从不暂停",
+        "turn_on": "开启"
+      },
+      "detail": {
+        "edit_in_chat": "在聊天中修改",
+        "edit_prompt": "修改我的例行任务「{title}」（{schedule}）：",
+        "running": "正在运行",
+        "parked": "你不在时已暂停",
+        "due_now": "现在到期",
+        "active": "已启用",
+        "last_failure": "最近一次失败",
+        "failed_no_detail": "这次运行失败了，但没有错误信息。",
+        "open_failed_run": "打开那次运行",
+        "instruction": "指令",
+        "delete_note": "之后的运行将停止。已送达的结果会保留在智能体的聊天中。"
+      },
+      "runs": {
+        "empty": "还没有运行记录。点击“测试运行”立即试试。",
+        "manual": "手动",
+        "included": "包含在你的订阅中",
+        "skip_away": "已跳过：结果一段时间无人打开，因此例行任务已暂停。",
+        "show_all": "显示全部 {n} 条",
+        "show_less": "收起"
+      },
+      "status": {
+        "waiting": "等待中",
+        "pending": "已推迟",
+        "interrupted": "已中断"
+      },
+      "webhook": {
+        "url_help": "向此地址 POST JSON 即可启动例行任务。",
+        "key_help": "请妥善保密。如有泄露请轮换。",
+        "header": "请求头",
+        "header_help": "将这一行粘贴到发送方服务的请求头中。",
+        "reveal": "显示密钥",
+        "hide": "隐藏密钥",
+        "copy_url": "复制 URL",
+        "copy_header": "复制请求头"
+      }
     }
   }
 }
