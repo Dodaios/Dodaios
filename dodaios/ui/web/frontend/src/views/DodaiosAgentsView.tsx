@@ -6,6 +6,7 @@
 import { useLocaleChunk } from "@/i18n";
 import type { PlaceId } from "@/components/society/world/islandLayout";
 import { VerseStage } from "@/components/society/verse/VerseStage";
+import { VerseLoadingScreen } from "@/components/society/verse/VerseLoadingScreen";
 
 export interface DodaiosAgentsViewProps {
   onSelectAgent?: (agentId: string | null) => void;
@@ -18,7 +19,7 @@ export interface DodaiosAgentsViewProps {
 
 export function DodaiosAgentsView({ onSelectAgent, onOpenAgents, onCreateAgent, onOpenGroup, active = true }: DodaiosAgentsViewProps) {
   const ready = useLocaleChunk("society");
-  if (!ready) return null;
+  if (!ready) return <div className="relative h-full"><VerseLoadingScreen /></div>;
   return (
     <div className="h-full min-h-0">
       <VerseStage active={active} onOpenLedger={onOpenAgents} onSelectAgent={onSelectAgent} onCreateAgent={onCreateAgent} onOpenGroup={onOpenGroup} />
