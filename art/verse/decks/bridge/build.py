@@ -9,7 +9,8 @@ room, the turbolift lobby and the commander's ready room.
 Layout numbers live in ``layout.py``; the bespoke hero pieces in
 ``viewport.py`` (forward wall), ``pits.py``, ``hall.py`` and ``aft.py``;
 hull structure in ``fill.py``; ceilings and fixtures in ``lights.py``; the
-upper parts of the cut-away walls (ceiling ghosts) in ``upper.py``.
+upper parts of the cut-away walls (ceiling ghosts) in ``upper.py``; the
+eye-level dressing of the plain walls in ``cladding.py``.
 Kit pieces (consoles, chairs, stairs, rails, hull bays, ceiling panels) come
 from ``art/verse/kit``.
 
@@ -44,6 +45,7 @@ def _modules():
         "fill",
         "lights",
         "upper",
+        "cladding",
     )
     mods = {}
     for name in names:
@@ -140,6 +142,7 @@ def build() -> None:
         m["aft"].build_ready(use_kit)
     m["lights"].build()
     m["upper"].build()
+    m["cladding"].build()
     _waypoints(L)
     _rooms(L)
     if not use_kit:
