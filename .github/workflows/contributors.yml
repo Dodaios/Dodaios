@@ -33,14 +33,14 @@ on:
     types: [closed]
   workflow_dispatch:
 
-# Read-only by default; the job below asks for the push it makes.
+# Read-only: the merge bot token pushes the bot branch and opens the PR.
 permissions:
   contents: read
 
 concurrency:
-  # One constant group, NOT keyed on the ref: every run of this job pushes to
-  # main, so a merge-triggered run and the Monday run overlapping would have
-  # them racing on the same branch. Serialise instead, and never cancel - a
+  # One constant group, NOT keyed on the ref: every run of this job pushes the
+  # same bot branch, so a merge-triggered run and the Monday run overlapping
+  # would race on it. Serialise instead, and never cancel - a
   # cancelled run silently drops somebody off the wall until the next one.
   group: contributors
   cancel-in-progress: false
@@ -52,16 +52,18 @@ jobs:
     if: github.event_name != 'pull_request_target' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The merge bot's private key lives in this environment, which only main
+    # may use. Every trigger here runs on main and runs no PR code.
+    environment: merge-train
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          # The job pushes, so it needs a real branch rather than a detached HEAD.
           ref: main
-          # The push token never lands in .git/config: only the commit step
-          # below receives it, so nothing else in this job runs beside it.
+          # The bot token never lands in .git/config: only the last step
+          # receives it, so nothing else in this job runs beside it.
           persist-credentials: false
 
       - name: Set up Python 3.11
@@ -75,36 +77,47 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/ci/update_contributors.py
 
-      - name: Commit when it changed
+      - name: Mint a merge bot token
+        id: bot
+        if: vars.MERGE_APP_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.MERGE_APP_ID }}
+          private-key: ${{ secrets.MERGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Open a pull request when it changed
         env:
-          # main is protected. GITHUB_TOKEN can never push there; a maintainer
-          # token in INTEGRATION_TOKEN (the secret release-cut also reads) can
-          # when its owner may bypass the protection.
-          PUSH_TOKEN: ${{ secrets.INTEGRATION_TOKEN || github.token }}
+          # main only takes changes through its merge queue, so nothing may
+          # push there. The merge bot pushes a bot/ branch and opens a pull
+          # request; the merge train (merge-train.yml) queues it once CI is
+          # green. An App token, unlike GITHUB_TOKEN, starts that CI run.
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+          BRANCH: bot/contributor-wall
         run: |
           set -euo pipefail
           if git diff --quiet -- README.md; then
-            echo "contributors: nothing changed, no commit."
+            echo "contributors: nothing changed, no pull request."
+            exit 0
+          fi
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::contributors: MERGE_APP_ID is not set (merge-train.yml names the app), so the wall was not refreshed."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- README.md
           git commit -m "docs(readme): refresh the contributor avatar wall"
-          # Someone may have pushed while this ran. Rebase once, then push; a
-          # second failure is reported rather than swallowed, so a genuinely
-          # broken job is visible instead of quietly skipping every week.
-          remote="https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git pull --rebase --ff-only "$remote" main
-          if ! git push "$remote" HEAD:main 2> push.err; then
-            cat push.err
-            # GH006 is classic branch protection, GH013 a repository ruleset
-            # (main's merge queue, since 2026-10-08).
-            if grep -q "GH006\|GH013\|protected branch\|rule violations" push.err; then
-              # Branch protection, not a broken job: say so once per run
-              # instead of a red X on every merged pull request.
-              echo "::warning::contributors: main is protected and this token may not push to it; the wall was not refreshed. Set INTEGRATION_TOKEN to a token that may bypass the protection."
-              exit 0
-            fi
-            exit 1
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # One bot branch, rebuilt from main each run: an older refresh that
+          # never landed is replaced by this one, never stacked on top of it.
+          git push --force "$remote" "HEAD:refs/heads/$BRANCH"
+          open="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            echo "contributors: updated pull request #$open."
+            exit 0
           fi
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title "docs(readme): refresh the contributor avatar wall" \
+            --body "Regenerated by contributors.yml. The merge train queues it once CI is green."

@@ -164,3 +164,35 @@ def test_status_reports_the_model_the_config_actually_names(
     assert status is not None
     assert status.model_label == "small"
     assert "small" in status.detail
+
+
+def test_never_downloaded_model_gets_the_plain_download_sentence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A first run is not a broken cache: tell the user to download once."""
+    monkeypatch.setattr(local_models, "runtime_installed", lambda runtime: True)
+    monkeypatch.setattr(
+        local_models,
+        "_whisper_model_cache_issue",
+        lambda name: local_models._WHISPER_NOT_DOWNLOADED,
+    )
+
+    status = local_models.whisper_status("large-v3")
+
+    assert status.ready is False
+    assert "still has to be downloaded" in status.detail
+
+
+def test_uncached_repo_reads_as_not_downloaded(monkeypatch: pytest.MonkeyPatch) -> None:
+    import huggingface_hub
+    from huggingface_hub.errors import LocalEntryNotFoundError
+
+    def _missing(*_args, **_kwargs):
+        raise LocalEntryNotFoundError("not cached")
+
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", _missing)
+
+    assert (
+        local_models._whisper_model_cache_issue("Systran/faster-whisper-large-v3")
+        == local_models._WHISPER_NOT_DOWNLOADED
+    )

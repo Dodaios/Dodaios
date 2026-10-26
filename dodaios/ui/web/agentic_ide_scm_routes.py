@@ -551,10 +551,12 @@ def session_file(
     pane: str = Query(..., min_length=1),
     path: str = Query(..., min_length=1),
     base: str = Query(..., min_length=7, max_length=64),
+    checkout: str = Query(default="", max_length=200),
 ) -> dict:
     """The file at the commit before the session's first change, and as it is now.
 
-    The pane's own worktree is read when it has one, like its review list.
+    The pane's own worktree is read when it has one, or the worktree its
+    agent made and worked in, like its review list.
     """
     session = get_registry().get(workspace_id)
     if session is None:
@@ -562,7 +564,10 @@ def session_file(
     term = next((entry for entry in session.terminals if entry.name == pane), None)
     if term is None:
         raise HTTPException(status_code=404, detail="Terminal not found.")
+    from .agentic_ide_routes import _checkout_folder
+
+    folder = _checkout_folder(workspace_id, session, term, checkout)
     try:
-        return scm.session_file_diff(term.folder or session.folder, path, base)
+        return scm.session_file_diff(folder, path, base)
     except GitError as exc:
         raise _fail(exc) from exc

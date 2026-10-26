@@ -88,7 +88,7 @@ jobs:
           for _ in $(seq 1 100); do ls "$XDG_RUNTIME_DIR"/wayland-* >/dev/null 2>&1 && break; sleep 0.1; done
           SOCKET=$(basename "$(ls "$XDG_RUNTIME_DIR"/wayland-* | grep -v lock | head -1)")
           WAYLAND_DISPLAY="$SOCKET" env -u DISPLAY python scripts/ci/appshot_desktop_smoke.py --report out/smoke-wayland.json
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: appshot-linux
@@ -108,7 +108,7 @@ jobs:
         run: python -m pip install -e .
       - name: Smoke — the appshot code degrades without a display or extras
         run: python scripts/ci/appshot_desktop_smoke.py --headless --report out/smoke-base.json
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: appshot-linux-base
@@ -146,7 +146,7 @@ jobs:
       # refused here; the clipboard, markings, gallery and Save must all work.
       - name: Smoke — real pasteboard
         run: python scripts/ci/appshot_desktop_smoke.py --report out/smoke-macos.json
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: appshot-macos-${{ matrix.runner }}
@@ -173,7 +173,7 @@ jobs:
         run: python -m pytest -q -p no:cacheprovider $APPSHOT_TESTS --junitxml=out/junit-windows.xml
       - name: Smoke — real clipboard and capture
         run: python scripts/ci/appshot_desktop_smoke.py --expect-capture --report out/smoke-windows.json
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: appshot-windows

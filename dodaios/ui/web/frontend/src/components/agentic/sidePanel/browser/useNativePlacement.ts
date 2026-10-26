@@ -13,6 +13,8 @@ const OVERLAY_SELECTOR = [
   '[role="menu"]',
   '[role="listbox"]',
   "[data-radix-popper-content-wrapper]",
+  // The drop zones of a dragged side panel tab.
+  "[data-hides-native-browser]",
 ].join(",");
 
 interface Box {

@@ -111,21 +111,22 @@ async def test_gateway_never_marks_unfinished_provider_streams_complete(
     assert signal.done()
 
 
-async def test_subscription_pin_cannot_fall_back_to_api_key_after_login_expires(
+async def test_subscription_pin_never_reaches_the_http_api_or_a_key(
     monkeypatch, isolated_gateway,
 ):
+    """The Claude subscription runs through the Claude CLI only: the gateway
+    neither sends its login to Anthropic's HTTP API nor answers on the key."""
     from dodaios.agent_chat import runner_api
     from dodaios.agent_chat.catalog import SUBSCRIPTION_ACCOUNT
-    from dodaios.agent_runtimes import model_map
     from dodaios.core import config
 
-    monkeypatch.setattr(model_map, "claude_login_token", lambda: None)
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: "test-api-key")
     called = []
     monkeypatch.setattr(runner_api, "build_brain", lambda *args: called.append(args))
     grant = gateway.Grant("agent", "claude-api", SUBSCRIPTION_ACCOUNT)
-    with pytest.raises(Exception, match="Claude Code login"):
+    with pytest.raises(gateway.GatewayError) as refused:
         await anext(gateway._deltas(grant, "claude-sonnet-4-6", BrainRequest(messages=())))
+    assert refused.value.code == "claude_cli_only"
     assert called == []
 
 
@@ -186,7 +187,7 @@ async def test_selected_effort_reaches_api_brain(monkeypatch, isolated_gateway):
             yield BrainDelta(content="OK", finish_reason="stop")
 
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: None)
-    monkeypatch.setattr(model_map, "login_route", lambda *args: (False, None))
+    monkeypatch.setattr(model_map, "uses_claude_cli", lambda *args: False)
     monkeypatch.setattr(runner_api, "build_brain", lambda *args: Brain())
     token = gateway.grant_token("agent", "ollama", require_active_turn=True)
     gateway.watch_failure(token, effort="high")
@@ -283,7 +284,7 @@ async def test_claude_signed_tool_continuation_survives_openai_runtime(
     wire.tool_arguments = '{"path":"a"}'
     wire.thinking = True
     monkeypatch.setattr(config, "get_jarvis_agent_secret", lambda provider: None)
-    monkeypatch.setattr(model_map, "login_route", lambda *args: (False, None))
+    monkeypatch.setattr(model_map, "uses_claude_cli", lambda *args: False)
     grant = gateway.Grant("agent", "claude-api")
     body = {"model": "claude-sonnet-4-6", "messages": [{"role": "user", "content": "Read a"}]}
     async with AsyncAnthropic(api_key="test-only", http_client=wire.client()) as client:

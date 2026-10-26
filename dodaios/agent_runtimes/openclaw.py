@@ -572,6 +572,8 @@ class OpenClawRuntime:
             # temp-folder log every OpenClaw on the machine appends to.
             "logging": {"file": str(home / "state" / "logs" / "openclaw.log")},
         }
+        if route.transport == "claude_cli":
+            _use_claude_cli(config, turn)
         if turn.mcp_url and turn.control_key:
             from dodaios.agent_chat.dodaios_harness import HEADER_NAME
             from dodaios.core.branding import MCP_TOOLS_SERVER_NAME
@@ -742,6 +744,14 @@ class OpenClawRuntime:
                 **({_CONTROL_KEY_ENV: turn.control_key} if turn.control_key else {}),
             }
         )
+        if turn.route.transport == "claude_cli" and turn.route.claude_binary:
+            # The bundled backend runs `claude` from the Gateway's PATH: the
+            # CLI the subscription was checked with comes first.
+            gateway_env["PATH"] = os.pathsep.join(
+                part for part in (
+                    str(Path(turn.route.claude_binary).parent), gateway_env.get("PATH", "")
+                ) if part
+            )
         gateway = await self._ensure_gateway(turn, key, home, token, launcher, gateway_env)
 
         def release() -> None:
@@ -1002,6 +1012,32 @@ class OpenClawRuntime:
             if agent_id is None or key in (agent_id, f"{agent_id}~runs"):
                 async with self._gateway_lock(key):
                     await self._stop_gateway(gateway)
+
+
+def _use_claude_cli(config: dict[str, Any], turn: RuntimeTurn) -> None:
+    """Run the agent on the Claude subscription through OpenClaw's bundled
+    ``claude-cli`` backend (``docs/gateway/cli-backends.md`` of OpenClaw).
+
+    Claude Code owns the login and its renewal; OpenClaw never reads or
+    forwards its token and sends no Anthropic API request. Dodaios' model
+    gateway is not configured at all, so no model call of this agent can
+    reach the HTTP API, which bills a third-party login as Extra Usage.
+
+    Claude's native tools ask for approval on OpenClaw's plugin-approval
+    channel, which the ACP bridge does not relay. So the chat's stance is
+    applied here instead of per call: Bypass runs them, any other stance
+    refuses them at once (``deny`` never prompts, so a turn cannot hang on an
+    approval nobody sees). Dodaios' own MCP tools keep their approvals.
+    """
+    model_ref = f"anthropic/{turn.route.model}"
+    config.pop("models", None)
+    defaults = config["agents"]["defaults"]
+    defaults["model"] = {"primary": model_ref}
+    defaults["models"] = {model_ref: {"agentRuntime": {"id": "claude-cli"}}}
+    tools = config["tools"]
+    tools["exec"]["mode"] = "full" if turn.auto_approve else "deny"
+    if "shell" in turn.denied_native:
+        tools["deny"] = [*tools["deny"], "exec", "process"]
 
 
 def prompt_meta(turn: RuntimeTurn) -> dict[str, Any] | None:

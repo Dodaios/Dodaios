@@ -29,11 +29,11 @@ def claude_code_installed(monkeypatch):
 def _login(monkeypatch, *, live: bool) -> list[tuple[str, str]]:
     asked: list[tuple[str, str]] = []
 
-    def login_token_for(provider: str, account_id: str = "") -> str | None:
+    def uses_claude_cli(provider: str, account_id: str = "") -> bool:
         asked.append((provider, account_id))
-        return "sk-ant-oat-test" if live else None
+        return live
 
-    monkeypatch.setattr(model_map, "login_token_for", login_token_for)
+    monkeypatch.setattr(model_map, "uses_claude_cli", uses_claude_cli)
     return asked
 
 

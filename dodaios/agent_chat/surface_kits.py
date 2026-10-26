@@ -223,6 +223,14 @@ async def _jarvis_completed(session: Any, completion: ChatCompletion) -> None:
     await self_build_observe(session, completion, surface="jarvis")
 
 
+async def _person_chat_completed(session: Any, completion: ChatCompletion) -> None:
+    """The IDE's agent chat and side chat: the person's typed turns feed the
+    self-building loop (lazy, a no-op when off)."""
+    from dodaios.self_build.app import chat_turn_completed as self_build_observe
+
+    await self_build_observe(session, completion, surface=str(getattr(session, "surface", "")))
+
+
 def _society_history_start(session: Any) -> int:
     from dodaios.agent_chat.service import session_runner
     from dodaios.society.runtime import current_runtime
@@ -255,7 +263,7 @@ def _only_local_models(tools: dict[str, Tool]) -> dict[str, Tool]:
 # ── the table ─────────────────────────────────────────────────────────────
 
 _KITS: Final[dict[str, SurfaceKit]] = {
-    "agent": SurfaceKit(surface="agent", turn_prompts=True),
+    "agent": SurfaceKit(surface="agent", turn_prompts=True, turn_completed=_person_chat_completed),
     "jarvis": SurfaceKit(
         surface="jarvis",
         brain_runner=True,
@@ -332,6 +340,7 @@ _KITS: Final[dict[str, SurfaceKit]] = {
         cli_seats=True,
         plain_chat=_side_chat,
         workspace_dir=_chat_workspace,
+        turn_completed=_person_chat_completed,
     ),
 }
 

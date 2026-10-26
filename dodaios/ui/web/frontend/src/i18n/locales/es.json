@@ -7604,6 +7604,13 @@
   "ide_side_panel": {
     "aria": "Panel lateral",
     "tabs_aria": "Pestañas del panel lateral",
+    "split": "Dividir: mostrar dos pestañas lado a lado",
+    "unsplit": "Volver a una pestaña",
+    "split_needs_two": "Abre una segunda pestaña para dividir el panel",
+    "split_resize": "Arrastra para ajustar las columnas (doble clic restablece)",
+    "drop_left": "Abrir a la izquierda",
+    "drop_right": "Abrir a la derecha",
+    "drag_hint": "Arrastra a la mitad izquierda o derecha para ver dos pestañas lado a lado",
     "expand": "Abrir panel lateral",
     "collapse": "Cerrar panel lateral",
     "resize": "Cambiar el ancho del panel lateral",

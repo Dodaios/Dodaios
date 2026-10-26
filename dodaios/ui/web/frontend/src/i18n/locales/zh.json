@@ -7604,6 +7604,13 @@
   "ide_side_panel": {
     "aria": "侧边面板",
     "tabs_aria": "侧边面板标签页",
+    "split": "分屏：并排显示两个标签页",
+    "unsplit": "恢复为单个标签页",
+    "split_needs_two": "再打开一个标签页即可分屏",
+    "split_resize": "拖动以调整列宽（双击重置）",
+    "drop_left": "在左侧打开",
+    "drop_right": "在右侧打开",
+    "drag_hint": "拖到左半边或右半边，即可并排查看两个标签页",
     "expand": "打开侧边面板",
     "collapse": "关闭侧边面板",
     "resize": "调整侧边面板大小",

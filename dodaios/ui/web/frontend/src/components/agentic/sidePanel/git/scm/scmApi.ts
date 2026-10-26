@@ -191,8 +191,8 @@ export const scmApi = {
   commit: (workspace_id: string, commit: string) => get<CommitDetails>("/commit", { workspace_id, commit }),
   commitFile: (workspace_id: string, commit: string, path: string, original = "") =>
     get<CommitFileDiff>("/commit/file", { workspace_id, commit, path, original }),
-  sessionFile: (workspace_id: string, pane: string, path: string, base: string) =>
-    get<{ path: string; before: string | null; after: string | null; binary: boolean }>("/session-file", { workspace_id, pane, path, base }),
+  sessionFile: (workspace_id: string, pane: string, path: string, base: string, checkout = "") =>
+    get<{ path: string; before: string | null; after: string | null; binary: boolean }>("/session-file", { workspace_id, pane, path, base, checkout }),
   followMain: () => get<FollowMain>("/follow-main", {}),
   setFollowMain: (enabled: boolean) => put<FollowMain>("/follow-main", { enabled }),
   clearFollowLock: () => post<FollowMain>("/follow-main/clear-lock", {}),
