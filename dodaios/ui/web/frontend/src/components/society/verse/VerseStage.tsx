@@ -267,6 +267,7 @@ export function VerseStage({ onOpenLedger, onSelectAgent, onCreateAgent, onOpenG
     runtime.shoulder.fovFirst = fovFirst;
     duel.camera.sensitivity = sensitivity;
     duel.camera.invertY = invertY;
+    duel.camera.hfovSetting = fovThird;
   }, [runtime, duel, sensitivity, invertY, fovThird, fovFirst]);
 
   // The doors open once the car has arrived and the new deck is on screen (or after a moment, whatever happens).
