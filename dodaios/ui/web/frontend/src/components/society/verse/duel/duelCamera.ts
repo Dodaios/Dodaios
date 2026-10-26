@@ -18,7 +18,7 @@ import { cameraRigFor, type CameraRig } from "../combat/camera";
 import { DEG } from "../combat/math";
 import type { PlayerView } from "../combat/view";
 import { MOUSE_LOOK_RATE, lookDelta } from "../engine/realtime/mouseLook";
-import type { SegmentTest, Vec3 } from "../engine/realtime/shoulderRig";
+import { SHOULDER, clampHfov, type SegmentTest, type Vec3 } from "../engine/realtime/shoulderRig";
 
 export const DUEL_CAMERA = {
   /** Radians per pointer-lock pixel at sensitivity 1 (the eye-level views' mouse look); sights turn slower. */
@@ -53,6 +53,16 @@ export interface DuelCameraPose {
   fovDeg: number;
 }
 
+/**
+ * A rig's vertical field of view (set for the default third-person field of
+ * view) at the person's own third-person setting: the same zoom ratio, so a
+ * wider setting widens the duel just as much. Pure.
+ */
+export function duelFov(rigFovDeg: number, hfovSettingDeg: number = SHOULDER.hfovDeg): number {
+  const ratio = Math.tan((clampHfov(hfovSettingDeg, SHOULDER.hfovDeg) * DEG) / 2) / Math.tan((SHOULDER.hfovDeg * DEG) / 2);
+  return (2 * Math.atan(Math.tan((rigFovDeg * DEG) / 2) * ratio)) / DEG;
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
@@ -75,8 +85,10 @@ export class DuelCamera {
   pitch = 0;
   sensitivity = 1;
   invertY = false;
+  /** The person's third-person horizontal field of view (view settings), degrees. */
+  hfovSetting: number = SHOULDER.hfovDeg;
   readonly pose: DuelCameraPose = {
-    position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: 0 }, dir: { x: 0, y: 0, z: 1 }, aimDir: { x: 0, y: 0, z: 1 }, fovDeg: 70,
+    position: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: 0 }, dir: { x: 0, y: 0, z: 1 }, aimDir: { x: 0, y: 0, z: 1 }, fovDeg: duelFov(cameraRigFor({ sprinting: false, shieldUp: false, ads: 0 } as PlayerView).fovDeg),
   };
   private rig: CameraRig = { ...cameraRigFor({ sprinting: false, shieldUp: false, ads: 0 } as PlayerView) };
   private primed = false;
@@ -175,7 +187,7 @@ export class DuelCamera {
     pose.target.x = pivot.x + dir.x * 20;
     pose.target.y = pivot.y + dir.y * 20;
     pose.target.z = pivot.z + dir.z * 20;
-    pose.fovDeg = r.fovDeg;
+    pose.fovDeg = duelFov(r.fovDeg, this.hfovSetting);
     return pose;
   }
 }

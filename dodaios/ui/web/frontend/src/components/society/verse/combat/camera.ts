@@ -16,15 +16,19 @@ export interface CameraRig {
   right: number;
   up: number;
   back: number;
-  /** Vertical field of view, degrees. */
+  /**
+   * Vertical field of view, degrees, at the default third-person setting (the
+   * duel camera widens or narrows it with the person's field of view). Hip
+   * 50 deg shows about 80 deg across a 16:9 frame, a usual shoulder shooter.
+   */
   fovDeg: number;
 }
 
 export const CAMERA_RIGS: Readonly<Record<"hip" | "ads" | "sprint" | "shield", CameraRig>> = {
-  hip: { right: 0.55, up: 1.68, back: 2.5, fovDeg: 70 },
-  ads: { right: 0.42, up: 1.62, back: 1.3, fovDeg: 50 },
-  sprint: { right: 0.5, up: 1.6, back: 2.9, fovDeg: 76 },
-  shield: { right: 0.62, up: 1.72, back: 2.75, fovDeg: 68 },
+  hip: { right: 0.55, up: 1.68, back: 2.5, fovDeg: 50 },
+  ads: { right: 0.42, up: 1.62, back: 1.3, fovDeg: 34 },
+  sprint: { right: 0.5, up: 1.6, back: 2.9, fovDeg: 55 },
+  shield: { right: 0.62, up: 1.72, back: 2.75, fovDeg: 48 },
 };
 
 function mix(a: CameraRig, b: CameraRig, t: number): CameraRig {
