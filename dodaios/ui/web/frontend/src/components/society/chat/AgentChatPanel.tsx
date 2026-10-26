@@ -64,6 +64,7 @@ import {
 import { AwaitingTurn, MessengerTurn, type MemoryLink } from "@/components/agentchat/MessengerTurn";
 import { ActionCard, type ActionSpec } from "@/components/agentchat/actionCard/ActionCard";
 import { WandSparkles as ProposalIcon } from "lucide-react";
+import { openQuestionOf } from "@/components/agentchat/questions/questionModel";
 import { VoiceStage } from "@/components/home/VoiceStage";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { fill, useT } from "@/i18n";
@@ -1254,6 +1255,8 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
     fieldRef.current?.setText(text);
   }, () => void submit());
   const timeline = useAgentChat((s) => s.timeline);
+  // A card waiting on the person: the composer becomes a second way to answer it.
+  const openAsk = useMemo(() => openQuestionOf(timeline), [timeline]);
   const sending = useAgentChat((s) => s.busy);
   // Track HTTP admission and running work independently of composer readiness.
   const live = runningTurn(timeline) !== null || sending;
@@ -1365,6 +1368,13 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
     if (codingHint) lines.push(codingHint);
     const hint = lines.join("\n");
     setProblem(null);
+    const answerByMessage = chatStore.getState().answerByMessage;
+    if (openAsk && answerByMessage && text && !hint && attachments.attachments.length === 0) {
+      writeComposerDraft(chatStore, sessionId, { text: "", choices: [] });
+      fieldRef.current?.clear();
+      // A running turn took the message as its answer: nothing else to send.
+      if (await answerByMessage(text)) return;
+    }
     const held = attachments.take();
     if (!text && held.attachments.length === 0) return;
     const draftTarget = captureComposerDraftTarget(chatStore, sessionId);
@@ -1497,7 +1507,9 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
           placeholder={
             dictation.dictating
               ? t("chats_view.dictation_listening")
-              : t("society.chat.placeholder").replace("{0}", agent.name)
+              : openAsk
+                ? t("question_card.composer_placeholder").replace("{agent}", openAsk.question.asker || agent.name)
+                : t("society.chat.placeholder").replace("{0}", agent.name)
           }
           disabled={false}
           onSubmit={() => (dictation.dictating ? dictation.stopAndSend() : void submit())}

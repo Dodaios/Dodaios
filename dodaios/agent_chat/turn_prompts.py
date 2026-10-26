@@ -34,14 +34,17 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from dodaios.agent_chat.questions import (
+    DECLINED,
     MAX_OPTIONS,
     MAX_QUESTIONS,
     MIN_OPTIONS,
+    MOVED_ON,
     PERSON,
     SKIPPED,
     QuestionAnswer,
     QuestionSpec,
     answer_from,
+    as_line,
     parse_questions,
     recommended_answer,
 )
@@ -58,8 +61,8 @@ ASK_PROTOCOL: Final[str] = (
     f"{ASK_FENCE} block: "
     '{"questions": [{"question": "...", "options": [{"label": "...", "description": "..."}], '
     f'"recommendation_reason": "..."}}]}} with 1-{MAX_QUESTIONS} questions, '
-    f"{MIN_OPTIONS}-{MAX_OPTIONS} options each, recommended option first. Then stop; "
-    "the answers arrive as your next message.\n\n"
+    f"{MIN_OPTIONS}-{MAX_OPTIONS} options each, recommended option first. Add \"multi\": true "
+    "where several options may be picked. Then stop; the answers arrive as your next message.\n\n"
 )
 
 #: What the agent is told when the person approved its plan.
@@ -146,14 +149,31 @@ def _answers_from(raw: Any, count: int) -> list[QuestionAnswer | None]:
             out.append(None)
             continue
         option = row.get("option_index")
+        picks = row.get("option_indices")
         out.append(
             QuestionAnswer(
                 str(row.get("answer") or ""),
                 option if isinstance(option, int) else None,
                 str(row.get("source") or PERSON),
+                tuple(i for i in picks if isinstance(i, int)) if isinstance(picks, list) else (),
             )
         )
     return out
+
+
+def newest_open_ask(events: Sequence[dict[str, Any]]) -> OpenAsk | None:
+    """The newest end-of-turn card that still waits for the person, or ``None``."""
+    newest = ""
+    for event in events:
+        kind = event.get("kind")
+        payload = event.get("payload") or {}
+        if kind == "question_required" and payload.get("deferred"):
+            newest = str(payload.get("question_id") or "")
+        elif kind == "turn_started":
+            newest = ""
+        elif kind == "question_resolved" and payload.get("question_id") == newest:
+            newest = ""
+    return open_ask(events, newest) if newest else None
 
 
 def open_ask(events: Sequence[dict[str, Any]], question_id: str) -> OpenAsk | None:
@@ -207,7 +227,12 @@ def open_plan(events: Sequence[dict[str, Any]], turn_id: str) -> OpenPlan | None
 
 
 def answer(
-    card: OpenAsk, index: int, *, option_index: int | None, text: str | None
+    card: OpenAsk,
+    index: int,
+    *,
+    option_index: int | None,
+    text: str | None,
+    option_indices: list[int] | None = None,
 ) -> list[QuestionAnswer | None]:
     """The card's answers with question ``index`` answered by the person.
 
@@ -217,7 +242,9 @@ def answer(
     if not 0 <= index < len(card.specs) or card.answers[index] is not None:
         raise IndexError(index)
     answers = list(card.answers)
-    answers[index] = answer_from(card.specs[index], option_index=option_index, text=text)
+    answers[index] = answer_from(
+        card.specs[index], option_index=option_index, text=text, option_indices=option_indices
+    )
     return answers
 
 
@@ -233,19 +260,23 @@ def answers_prompt(specs: Sequence[QuestionSpec], answers: Sequence[QuestionAnsw
     """The next message the agent receives once the card closed."""
     lines = ["Answers to your questions:"]
     for spec, picked in zip(specs, answers, strict=True):
-        if picked.source == SKIPPED:
+        answer_text = as_line(picked.answer)
+        if picked.source in (SKIPPED, MOVED_ON):
             lines.append(
-                f"- {spec.question} -> left to you; go with your recommendation ({picked.answer})."
+                f"- {spec.question} -> left to you; go with your recommendation ({answer_text})."
             )
+        elif picked.source == DECLINED or not answer_text:
+            lines.append(f"- {spec.question} -> skipped; decide it yourself.")
         else:
-            lines.append(f"- {spec.question} -> {picked.answer}")
+            lines.append(f"- {spec.question} -> {answer_text}")
     return "\n".join(lines)
 
 
 def answers_display(specs: Sequence[QuestionSpec], answers: Sequence[QuestionAnswer]) -> str:
     """What the timeline shows as the person's message: the picks, in their words."""
     return "\n".join(
-        f"{spec.question} — {picked.answer}" for spec, picked in zip(specs, answers, strict=True)
+        f"{spec.question} — {as_line(picked.answer) or '—'}"
+        for spec, picked in zip(specs, answers, strict=True)
     )
 
 
@@ -261,6 +292,7 @@ __all__ = [
     "answer",
     "answers_display",
     "answers_prompt",
+    "newest_open_ask",
     "open_ask",
     "open_plan",
     "parse_ask_block",

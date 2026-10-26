@@ -654,8 +654,14 @@ export async function saveAgentChatApprovalRule(
   return reply.rule;
 }
 
-/** The person's answer to an agent's question: one option, or their own words. */
-export type QuestionAnswerInput = { optionIndex: number } | { text: string };
+/**
+ * The person's answer to an agent's question: one option, their own words, or
+ * the picks of a multi-select question (with their own words beside them).
+ */
+export type QuestionAnswerInput =
+  | { optionIndex: number }
+  | { text: string }
+  | { optionIndices: number[]; text?: string };
 
 function questionUrl(sessionId: string, questionId: string): string {
   return `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/questions/${encodeURIComponent(questionId)}`;
@@ -670,7 +676,11 @@ export async function answerAgentChatQuestion(
 ): Promise<void> {
   const body = {
     index,
-    ...("optionIndex" in answer ? { option_index: answer.optionIndex } : { text: answer.text }),
+    ...("optionIndex" in answer
+      ? { option_index: answer.optionIndex }
+      : "optionIndices" in answer
+        ? { option_indices: answer.optionIndices, ...(answer.text ? { text: answer.text } : {}) }
+        : { text: answer.text }),
   };
   await json(
     await fetch(questionUrl(sessionId, questionId), {
@@ -682,10 +692,66 @@ export async function answerAgentChatQuestion(
   );
 }
 
-/** Close an agent's card: its open questions take the agent's recommendations. */
-export async function skipAgentChatQuestion(sessionId: string, questionId: string): Promise<void> {
+/**
+ * Close an agent's card: its open questions take the agent's recommendations.
+ * With `index`, only that question is skipped (an empty answer the agent
+ * decides on) and the rest of the card stays open.
+ */
+export async function skipAgentChatQuestion(sessionId: string, questionId: string, index?: number): Promise<void> {
   await json(
-    await fetch(`${questionUrl(sessionId, questionId)}/skip`, { method: "POST" }),
+    await fetch(`${questionUrl(sessionId, questionId)}/skip`, {
+      method: "POST",
+      ...(index === undefined
+        ? {}
+        : { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ index }) }),
+    }),
+    "question-failed",
+  );
+}
+
+/** One reviewed answer of a card's series, as `/submit` takes it. */
+export type QuestionSubmitAnswer =
+  | { option_index: number }
+  | { option_indices: number[]; text?: string }
+  | { text: string }
+  | { skip: true };
+
+/** Send the person's reviewed answers to the whole card at once. */
+export async function submitAgentChatQuestion(
+  sessionId: string,
+  questionId: string,
+  answers: QuestionSubmitAnswer[],
+): Promise<void> {
+  await json(
+    await fetch(`${questionUrl(sessionId, questionId)}/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers }),
+    }),
+    "question-failed",
+  );
+}
+
+/** The person is still answering on the card: its quiet window starts again. */
+export async function touchAgentChatQuestion(sessionId: string, questionId: string): Promise<void> {
+  await json(await fetch(`${questionUrl(sessionId, questionId)}/touch`, { method: "POST" }), "question-failed");
+}
+
+/**
+ * A chat message sent while a question card is open answers it. `consumed`
+ * means a running turn took it as its answer and nothing else is sent; an
+ * end-of-turn card settles too, and the message then goes out as usual.
+ */
+export async function replyToAgentChatQuestion(
+  sessionId: string,
+  text: string,
+): Promise<{ consumed: boolean; question_id: string | null }> {
+  return json(
+    await fetch(`/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/reply-to-question`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    }),
     "question-failed",
   );
 }

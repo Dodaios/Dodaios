@@ -87,6 +87,7 @@ from dodaios.agent_chat.questions import (
     CANCELLED,
     UNATTENDED,
     TooManyQuestions,
+    as_line,
     parse_questions,
     recommended_answer,
 )
@@ -4059,8 +4060,9 @@ async def _drive_cli(
     async def _claude_question(tool_input: dict[str, Any]) -> dict[str, Any]:
         """Claude Code's own ``AskUserQuestion``, answered on the chat's question card.
 
-        The answers go back the way the CLI reads them: ``updatedInput`` keeps
-        the questions and adds ``answers`` keyed by each question's text.
+        A question's ``multiSelect`` becomes a multi-select card question. The
+        answers go back the way the CLI reads them: ``updatedInput`` keeps the
+        questions and adds ``answers`` keyed by each question's text.
         """
         raw = tool_input.get("questions")
         rows = raw if isinstance(raw, list) else []
@@ -4086,8 +4088,12 @@ async def _drive_cli(
             answers = [recommended_answer(spec, UNATTENDED) for spec in specs]
         if any(a.source == CANCELLED for a in answers):
             return {"behavior": "deny", "message": "The turn was stopped."}
+        # A multi-select answer reads the way the CLI's own picker writes one:
+        # the chosen labels joined by commas.
+        # A skipped question (empty answer) still gets words the CLI can read.
         picked = {
-            str(row.get("question") or ""): a.answer for row, a in zip(rows, answers, strict=True)
+            str(row.get("question") or ""): as_line(a.answer) or "No preference; decide yourself."
+            for row, a in zip(rows, answers, strict=True)
         }
         return {"behavior": "allow", "updatedInput": {**tool_input, "answers": picked}}
 

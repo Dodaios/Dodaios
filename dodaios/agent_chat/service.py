@@ -49,6 +49,8 @@ from dodaios.agent_chat.permissions import default_permission, ladder_key, norma
 from dodaios.agent_chat.questions import (
     CANCELLED,
     MAX_ASKS_PER_TURN,
+    MESSAGE,
+    MOVED_ON,
     QUESTION_TIMEOUT_S,
     SKIPPED,
     TIMEOUT,
@@ -56,6 +58,8 @@ from dodaios.agent_chat.questions import (
     QuestionSpec,
     TooManyQuestions,
     answer_from,
+    answer_json,
+    declined_answer,
     recommended_answer,
 )
 from dodaios.agent_chat.runner_api import TurnHandle, run_api_turn, supports_api_runner
@@ -320,7 +324,8 @@ class _OpenQuestion:
     """
 
     __slots__ = (
-        "answers", "closing", "delivered", "result", "session_id", "specs", "turn_id", "wake",
+        "answers", "closing", "delivered", "result", "session_id", "specs", "touched",
+        "turn_id", "wake",
     )
 
     def __init__(
@@ -339,10 +344,33 @@ class _OpenQuestion:
         self.wake = asyncio.Event()
         self.result = result
         self.delivered = False
+        #: The person is working through the card (picks not sent yet):
+        #: the watcher restarts its quiet window once.
+        self.touched = False
 
     @property
     def done(self) -> bool:
         return bool(self.closing) or all(a is not None for a in self.answers)
+
+
+def _message_answer(spec: QuestionSpec, text: str) -> QuestionAnswer:
+    """A chat message as the answer to ``spec``: a reply that names an option
+    (its label, or its letter on its own) picks it; anything else is the
+    person's own words."""
+    typed = text.strip()
+    folded = typed.casefold().rstrip(".!")
+    for index, option in enumerate(spec.options):
+        letter = "ABCD"[index] if index < 4 else ""
+        if folded == option.label.casefold() or (letter and folded == letter.casefold()):
+            if spec.kind == "multi":
+                return answer_from(spec, option_index=None, text=None, option_indices=[index],
+                                   source=MESSAGE)
+            return answer_from(spec, option_index=index, text=None, source=MESSAGE)
+    return answer_from(spec, option_index=None, text=typed, source=MESSAGE)
+
+
+def _first_open(answers: list[QuestionAnswer | None] | tuple[QuestionAnswer | None, ...]) -> int:
+    return next((i for i, a in enumerate(answers) if a is None), -1)
 
 
 def _expires_ms(timeout_s: float) -> int:
@@ -2479,7 +2507,8 @@ class AgentChatService:
                 # before this watcher starts or while a progress event emits.
                 open_q.wake.clear()
                 answered = sum(a is not None for a in open_q.answers)
-                if answered > reported and not open_q.done:
+                touched, open_q.touched = open_q.touched, False
+                if (answered > reported or touched) and not open_q.done:
                     reported = answered
                     deadline = loop.time() + timeout_s
                     await self._emit(
@@ -2545,6 +2574,12 @@ class AgentChatService:
             answers.append(answer)
         return answers
 
+    def _open_card(self, session_id: str, question_id: str) -> _OpenQuestion | None:
+        open_q = getattr(self, "_questions", {}).get(question_id)
+        if open_q is None or open_q.session_id != session_id or open_q.done:
+            return None
+        return open_q
+
     def resolve_question(
         self,
         session_id: str,
@@ -2552,6 +2587,7 @@ class AgentChatService:
         *,
         index: int = 0,
         option_index: int | None = None,
+        option_indices: list[int] | None = None,
         text: str | None = None,
     ) -> bool:
         """The person's answer to question ``index`` of the card.
@@ -2559,25 +2595,119 @@ class AgentChatService:
         False for an unknown, foreign, closed or already answered question.
         Raises ``ValueError`` for an answer that does not fit the question.
         """
-        open_q = self._questions.get(question_id)
-        if open_q is None or open_q.session_id != session_id or open_q.done:
+        open_q = self._open_card(session_id, question_id)
+        if open_q is None:
             return False
         if not 0 <= index < len(open_q.specs) or open_q.answers[index] is not None:
             return False
         open_q.answers[index] = answer_from(
-            open_q.specs[index], option_index=option_index, text=text
+            open_q.specs[index], option_index=option_index, option_indices=option_indices,
+            text=text,
         )
         open_q.wake.set()
         return True
 
-    def skip_question(self, session_id: str, question_id: str) -> bool:
-        """The person closed the card: every open question takes its recommendation."""
-        open_q = self._questions.get(question_id)
-        if open_q is None or open_q.session_id != session_id or open_q.done:
+    def submit_questions(
+        self, session_id: str, question_id: str, answers: list[dict[str, Any]]
+    ) -> bool:
+        """The person's reviewed answers to the whole card, sent at once.
+
+        One entry per question (``{option_index | option_indices | text | skip}``);
+        a question already answered keeps its answer. All entries are checked
+        before any is stored, so a bad one changes nothing. False for an
+        unknown, foreign or closed card; ``ValueError`` for an answer that does
+        not fit or a list of the wrong length.
+        """
+        open_q = self._open_card(session_id, question_id)
+        if open_q is None:
             return False
-        open_q.closing = SKIPPED
+        if len(answers) != len(open_q.specs):
+            raise ValueError(f"send one answer per question ({len(open_q.specs)})")
+        parsed = [
+            current if current is not None else answer_json(spec, raw)
+            for spec, current, raw in zip(open_q.specs, open_q.answers, answers, strict=True)
+        ]
+        open_q.answers[:] = parsed
         open_q.wake.set()
         return True
+
+    def skip_question(self, session_id: str, question_id: str, index: int | None = None) -> bool:
+        """The person closed the card: every open question takes its recommendation.
+
+        With ``index``, only that question is skipped: it resolves to an empty
+        answer the agent decides on its own, and the rest of the card stays open.
+        """
+        open_q = self._open_card(session_id, question_id)
+        if open_q is None:
+            return False
+        if index is not None:
+            if not 0 <= index < len(open_q.specs) or open_q.answers[index] is not None:
+                return False
+            open_q.answers[index] = declined_answer()
+        else:
+            open_q.closing = SKIPPED
+        open_q.wake.set()
+        return True
+
+    def touch_question(self, session_id: str, question_id: str) -> bool:
+        """The person is answering on the card but has not sent it yet: the
+        quiet window starts again, so a careful reader is never cut off."""
+        open_q = self._open_card(session_id, question_id)
+        if open_q is None:
+            return False
+        open_q.touched = True
+        open_q.wake.set()
+        return True
+
+    async def answer_by_message(
+        self, session_id: str, text: str
+    ) -> dict[str, Any]:
+        """A chat message sent while a question card is open answers it.
+
+        The newest open card takes the message as the answer to its current
+        question (source ``message``); its other open questions, and every
+        older open card, settle with their recommendations (``moved_on``)
+        unless a question asked to stay open. Returns ``{"consumed": True}``
+        when a running turn took the message as its answer, so the caller
+        sends nothing else. An end-of-turn card is settled the same way, but
+        ``consumed`` stays False: the message itself is what the agent reads
+        next, so the caller sends it as usual.
+        """
+        typed = (text or "").strip()
+        if not typed:
+            return {"consumed": False, "question_id": None}
+        live = [
+            (qid, q) for qid, q in getattr(self, "_questions", {}).items()
+            if q.session_id == session_id and not q.done
+        ]
+        if live:
+            newest_id, newest = live[-1]
+            for qid, open_q in live:
+                current = _first_open(open_q.answers) if qid == newest_id else -1
+                for index, spec in enumerate(open_q.specs):
+                    if open_q.answers[index] is not None:
+                        continue
+                    if index == current:
+                        open_q.answers[index] = _message_answer(spec, typed)
+                    elif spec.dismiss_on_move_on:
+                        open_q.answers[index] = recommended_answer(spec, MOVED_ON)
+                open_q.wake.set()
+            return {"consumed": True, "question_id": newest_id}
+        async with self._turn_prompt_lock():
+            card = turn_prompts.newest_open_ask(
+                self.store.list_events(session_id, tail=self._TURN_PROMPT_TAIL)
+            )
+            if card is None:
+                return {"consumed": False, "question_id": None}
+            current = _first_open(card.answers)
+            final = [
+                a if a is not None
+                else _message_answer(spec, typed) if index == current
+                else recommended_answer(spec, MOVED_ON)
+                for index, (spec, a) in enumerate(zip(card.specs, card.answers, strict=True))
+            ]
+            await self._resolve_turn_question(session_id, card, final)
+        return {"consumed": False, "question_id": card.question_id}
 
     def pending_questions(self, session_id: str) -> list[str]:
         return [
@@ -2736,6 +2866,7 @@ class AgentChatService:
         option_index: int | None = None,
         text: str | None = None,
         author: dict[str, str] | None = None,
+        option_indices: list[int] | None = None,
     ) -> bool:
         """The person's answer to one question of an end-of-turn card.
 
@@ -2749,22 +2880,13 @@ class AgentChatService:
                 return False
             try:
                 answers = turn_prompts.answer(
-                    card, index, option_index=option_index, text=text
+                    card, index, option_index=option_index, text=text,
+                    option_indices=option_indices,
                 )
             except IndexError:  # a stale option index is a no-op click; the caller reports False
                 return False
             if any(a is None for a in answers):
-                await self._emit(
-                    session_id,
-                    make_event(
-                        "question_progress",
-                        {
-                            "turn_id": card.turn_id,
-                            "question_id": question_id,
-                            "answers": [a.to_payload() if a else None for a in answers],
-                        },
-                    ),
-                )
+                await self._turn_question_progress(session_id, card, answers)
                 return True
             final = [a for a in answers if a is not None]
             await self._resolve_turn_question(session_id, card, final)
@@ -2772,17 +2894,78 @@ class AgentChatService:
         return True
 
     async def skip_turn_question(
-        self, session_id: str, question_id: str, *, author: dict[str, str] | None = None
+        self,
+        session_id: str,
+        question_id: str,
+        *,
+        index: int | None = None,
+        author: dict[str, str] | None = None,
     ) -> bool:
-        """The person closed an end-of-turn card: the agent's recommendations stand."""
+        """The person closed an end-of-turn card: the agent's recommendations stand.
+
+        With ``index``, only that question is skipped (an empty answer the
+        agent decides on); the card sends once its last question is settled.
+        """
         async with self._turn_prompt_lock():
             card = turn_prompts.open_ask(self.store.list_events(session_id), question_id)
             if card is None:
                 return False
-            final = turn_prompts.skipped(card)
+            if index is None:
+                final = turn_prompts.skipped(card)
+            else:
+                if not 0 <= index < len(card.specs) or card.answers[index] is not None:
+                    return False
+                answers = list(card.answers)
+                answers[index] = declined_answer()
+                if any(a is None for a in answers):
+                    await self._turn_question_progress(session_id, card, answers)
+                    return True
+                final = [a for a in answers if a is not None]
             await self._resolve_turn_question(session_id, card, final)
         await self._send_turn_answer(session_id, card, final, author=author)
         return True
+
+    async def submit_turn_question(
+        self,
+        session_id: str,
+        question_id: str,
+        answers: list[dict[str, Any]],
+        *,
+        author: dict[str, str] | None = None,
+    ) -> bool:
+        """The person's reviewed answers to a whole end-of-turn card, sent as
+        the next message. Same contract as :meth:`submit_questions`."""
+        async with self._turn_prompt_lock():
+            card = turn_prompts.open_ask(self.store.list_events(session_id), question_id)
+            if card is None:
+                return False
+            if len(answers) != len(card.specs):
+                raise ValueError(f"send one answer per question ({len(card.specs)})")
+            final = [
+                current if current is not None else answer_json(spec, raw)
+                for spec, current, raw in zip(card.specs, card.answers, answers, strict=True)
+            ]
+            await self._resolve_turn_question(session_id, card, final)
+        await self._send_turn_answer(session_id, card, final, author=author)
+        return True
+
+    async def _turn_question_progress(
+        self,
+        session_id: str,
+        card: turn_prompts.OpenAsk,
+        answers: list[QuestionAnswer | None],
+    ) -> None:
+        await self._emit(
+            session_id,
+            make_event(
+                "question_progress",
+                {
+                    "turn_id": card.turn_id,
+                    "question_id": card.question_id,
+                    "answers": [a.to_payload() if a else None for a in answers],
+                },
+            ),
+        )
 
     async def _resolve_turn_question(
         self, session_id: str, card: turn_prompts.OpenAsk, answers: list[QuestionAnswer]

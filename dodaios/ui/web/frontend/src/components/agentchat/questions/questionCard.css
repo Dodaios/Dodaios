@@ -1,0 +1,755 @@
+/*
+ * The question card. Every colour comes from the theme tokens (index.css);
+ * the one accent is the asking agent's own colour, handed in as --qc-tint
+ * with its readable ink as --qc-tint-ink, and the theme's primary fill when
+ * the agent is unknown. Calm by default: no borders between rows, one soft
+ * lift, motion only where something changes.
+ */
+
+.qc {
+  --qc-tint: hsl(var(--primary));
+  --qc-tint-ink: hsl(var(--primary-foreground));
+  --qc-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --qc-ease-std: cubic-bezier(0.2, 0, 0, 1);
+  position: relative;
+  width: 100%;
+  max-width: 40rem;
+  border-radius: 20px;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow:
+    0 0 0 1px hsl(var(--border)),
+    0 1px 2px rgb(var(--scrim-rgb) / 0.06),
+    0 10px 28px -14px rgb(var(--scrim-rgb) / 0.28);
+}
+
+.qc[data-enter="new"] {
+  animation: qc-enter 320ms var(--qc-ease-out) backwards;
+}
+
+@keyframes qc-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+}
+
+@keyframes qc-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* --- Header ------------------------------------------------------------ */
+
+.qc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 10px 0 16px;
+}
+
+.qc-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: hsl(var(--secondary));
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-asker {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-asker b {
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.qc-count {
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--faint-foreground));
+}
+
+.qc-icon-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 140ms, color 140ms;
+}
+
+.qc-icon-btn:hover,
+.qc-icon-btn[aria-expanded="true"] {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+
+.qc-icon-btn:focus-visible,
+.qc-btn:focus-visible,
+.qc-sum:focus-visible,
+.qc-why:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 1px;
+}
+
+.qc-ring {
+  flex: none;
+  color: hsl(var(--warning));
+}
+
+.qc-ring circle {
+  fill: none;
+  stroke-width: 2.2;
+}
+
+.qc-ring .qc-ring-track {
+  stroke: hsl(var(--border-strong));
+}
+
+.qc-ring .qc-ring-left {
+  stroke: currentColor;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+}
+
+/* --- The steps: stacked in one cell, so the card never jumps ------------- */
+
+.qc-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.qc-step {
+  grid-area: 1 / 1;
+  min-width: 0;
+  visibility: hidden;
+}
+
+.qc-step[data-active] {
+  visibility: visible;
+  animation: qc-fade 160ms ease-out;
+}
+
+.qc-title {
+  padding: 6px 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+  color: hsl(var(--foreground-strong));
+  overflow-wrap: anywhere;
+}
+
+.qc-help {
+  padding: 2px 16px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px;
+}
+
+.qc-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 12px;
+  text-align: left;
+  color: hsl(var(--foreground));
+  transition: background-color 140ms;
+}
+
+.qc-row:hover {
+  background: hsl(var(--secondary));
+}
+
+.qc-row:active {
+  background: hsl(var(--surface-raised));
+  transition-duration: 0ms;
+}
+
+.qc-row:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: -2px;
+}
+
+.qc-row:disabled {
+  cursor: default;
+  color: hsl(var(--faint-foreground));
+}
+
+.qc-row:disabled:hover {
+  background: transparent;
+}
+
+.qc-row[data-described] {
+  align-items: center;
+}
+
+.qc-keycap {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid hsl(var(--border-strong));
+  border-radius: 7px;
+  background: hsl(var(--secondary));
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 140ms, border-color 140ms, color 140ms, transform 140ms var(--qc-ease-out);
+}
+
+.qc[data-target] .qc-keycap {
+  color: hsl(var(--foreground));
+}
+
+.qc-keycap[data-on] {
+  border-color: transparent;
+  background: var(--qc-tint);
+  color: var(--qc-tint-ink);
+  box-shadow: inset 0 1px 0 rgb(var(--sheen-rgb) / 0.12);
+  transform: scale(1.04);
+}
+
+.qc-keycap[data-size="sm"] {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  font-size: 10.5px;
+}
+
+.qc-row-body {
+  min-width: 0;
+  flex: 1;
+  padding-top: 2px;
+}
+
+.qc-label {
+  display: block;
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.qc-desc {
+  display: block;
+  font-size: 12px;
+  line-height: 18px;
+  color: hsl(var(--muted-foreground));
+  overflow-wrap: anywhere;
+}
+
+.qc-tag {
+  flex: none;
+  align-self: center;
+  border-radius: 999px;
+  padding: 1px 7px;
+  background: hsl(var(--secondary));
+  font-size: 11px;
+  line-height: 16px;
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-row:hover .qc-tag {
+  background: hsl(var(--surface-raised));
+}
+
+.qc-own {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 12px;
+  cursor: text;
+  transition: background-color 140ms;
+}
+
+.qc-own:hover {
+  background: hsl(var(--secondary));
+}
+
+.qc-own:focus-within {
+  background: hsl(var(--secondary));
+}
+
+.qc-own textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 22px;
+  max-height: 160px;
+  padding: 1px 0 0;
+  resize: none;
+  overflow-y: auto;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  color: hsl(var(--foreground));
+  white-space: pre-wrap;
+  field-sizing: content;
+}
+
+.qc-own textarea::placeholder {
+  color: hsl(var(--faint-foreground));
+}
+
+.qc-own textarea:focus {
+  outline: none;
+}
+
+.qc-why {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: -2px 0 4px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-why:hover {
+  color: hsl(var(--foreground));
+}
+
+.qc-reason {
+  margin: 0 16px 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: hsl(var(--secondary));
+  font-size: 12px;
+  line-height: 18px;
+  color: hsl(var(--foreground-secondary));
+  overflow-wrap: anywhere;
+}
+
+/* --- Review step -------------------------------------------------------- */
+
+.qc-review {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px 8px;
+}
+
+.qc-review-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 12px;
+  text-align: left;
+  transition: background-color 140ms;
+}
+
+.qc-review-row:hover {
+  background: hsl(var(--secondary));
+}
+
+.qc-review-row:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: -2px;
+}
+
+.qc-review-q {
+  display: block;
+  font-size: 12px;
+  line-height: 18px;
+  color: hsl(var(--muted-foreground));
+  overflow-wrap: anywhere;
+}
+
+.qc-review-a {
+  display: block;
+  font-size: 14px;
+  line-height: 20px;
+  color: hsl(var(--foreground));
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.qc-review-a[data-empty] {
+  color: hsl(var(--faint-foreground));
+}
+
+.qc-review-edit {
+  flex: none;
+  align-self: center;
+  font-size: 12px;
+  color: hsl(var(--faint-foreground));
+  opacity: 0;
+  transition: opacity 140ms;
+}
+
+.qc-review-row:hover .qc-review-edit,
+.qc-review-row:focus-visible .qc-review-edit {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .qc-review-edit {
+    opacity: 1;
+  }
+}
+
+/* --- Footer ------------------------------------------------------------- */
+
+.qc-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 12px 16px;
+}
+
+.qc-foot-end {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.qc-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.qc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: hsl(var(--border-strong));
+  transition: width 200ms var(--qc-ease-std), background-color 200ms;
+}
+
+.qc-dot[data-done] {
+  background: hsl(var(--muted-foreground));
+}
+
+.qc-dot[data-on] {
+  width: 16px;
+  background: var(--qc-tint);
+}
+
+.qc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 140ms, color 140ms, opacity 140ms;
+}
+
+.qc-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.qc-btn-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.qc-btn-primary:not(:disabled):hover {
+  opacity: 0.9;
+}
+
+.qc-btn-quiet {
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-btn-quiet:not(:disabled):hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+
+.qc-alert {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: hsl(var(--destructive));
+}
+
+/* --- The card's menu ---------------------------------------------------- */
+
+.qc-menu {
+  position: absolute;
+  top: 42px;
+  right: 10px;
+  z-index: 20;
+  width: min(17rem, calc(100% - 20px));
+  padding: 4px;
+  border-radius: 12px;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow:
+    0 0 0 1px hsl(var(--border-strong)),
+    0 12px 32px -10px rgb(var(--scrim-rgb) / 0.35);
+  animation: qc-menu-in 150ms var(--qc-ease-out);
+  transform-origin: top right;
+}
+
+@keyframes qc-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+  }
+}
+
+.qc-menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.qc-menu-item:hover,
+.qc-menu-item:focus-visible {
+  outline: none;
+  background: hsl(var(--secondary));
+}
+
+.qc-menu-item svg {
+  flex: none;
+  margin-top: 2px;
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-menu-title {
+  display: block;
+  font-size: 13px;
+  line-height: 18px;
+  color: hsl(var(--foreground));
+}
+
+.qc-menu-hint {
+  display: block;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* --- Settled ------------------------------------------------------------ */
+
+.qc[data-settled] {
+  background: hsl(var(--background));
+  box-shadow: 0 0 0 1px hsl(var(--border));
+  border-radius: 16px;
+}
+
+.qc-sum {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 16px;
+  text-align: left;
+}
+
+.qc-sum-prompt {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 18px;
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-sum-arrow {
+  flex: none;
+  color: hsl(var(--faint-foreground));
+}
+
+.qc-chips {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.qc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 16rem;
+  padding: 2px 8px 2px 3px;
+  border-radius: 8px;
+  background: hsl(var(--secondary));
+  font-size: 12.5px;
+  line-height: 18px;
+  color: hsl(var(--foreground));
+}
+
+.qc-chip > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qc-chip[data-plain] {
+  padding-left: 8px;
+}
+
+.qc-chip[data-muted] {
+  border: 1px dashed hsl(var(--border-strong));
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+}
+
+.qc-sum-tail {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  color: hsl(var(--faint-foreground));
+}
+
+.qc-chevron {
+  transition: transform 200ms var(--qc-ease-std);
+}
+
+.qc-sum[aria-expanded="true"] .qc-chevron {
+  transform: rotate(180deg);
+}
+
+.qc-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms var(--qc-ease-std);
+}
+
+.qc-collapse[data-open] {
+  grid-template-rows: 1fr;
+  transition-duration: 240ms;
+}
+
+.qc-collapse > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.qc-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: hsl(var(--muted-foreground));
+}
+
+.qc[data-dismissed] .qc-sum-prompt {
+  color: hsl(var(--faint-foreground));
+}
+
+.qc-pending {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--qc-tint);
+  animation: qc-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes qc-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* --- Answered from the chat: a plain question and the person's reply ---- */
+
+.qc-asked {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.qc-asked-bubble {
+  min-width: 0;
+  max-width: min(85%, 42rem);
+  padding: 8px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 21px;
+  overflow-wrap: anywhere;
+}
+
+.qc-reply {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.qc-reply-bubble {
+  max-width: min(85%, 36rem);
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: hsl(var(--user-bubble));
+  color: hsl(var(--user-bubble-foreground));
+  font-size: 14px;
+  line-height: 21px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.qc-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qc,
+  .qc *,
+  .qc *::before,
+  .qc *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

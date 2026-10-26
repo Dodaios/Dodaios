@@ -446,6 +446,58 @@ def test_claude_asks_on_the_question_card_and_reads_the_answers(
     ]
 
 
+def test_claude_multi_select_becomes_a_multi_card_and_answers_with_commas(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    question = {
+        "question": "Which toppings?",
+        "header": "Toppings",
+        "options": [{"label": "Cheese"}, {"label": "Olives"}, {"label": "Basil"}],
+        "multiSelect": True,
+    }
+
+    async def ask_multi(self: Any, session_id: str, specs: Any, **_: Any) -> list[QuestionAnswer]:
+        self.asked.append(specs)
+        return [QuestionAnswer("Cheese\nBasil", None, "person", (0, 2))]
+
+    monkeypatch.setattr(_FakeChat, "ask_questions", ask_multi)
+    answers, chat, _ = _claude_turn(
+        monkeypatch,
+        tmp_path,
+        [_can_use("AskUserQuestion", {"questions": [question]})],
+        mode="default",
+    )
+    ((spec,),) = chat.asked
+    assert spec.kind == "multi"
+    assert answers[0]["updatedInput"]["answers"] == {"Which toppings?": "Cheese, Basil"}
+
+
+def test_a_skipped_claude_question_still_answers_in_words(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    async def ask_declined(self: Any, session_id: str, specs: Any, **_: Any) -> list[QuestionAnswer]:
+        self.asked.append(specs)
+        return [QuestionAnswer("", None, "declined")]
+
+    monkeypatch.setattr(_FakeChat, "ask_questions", ask_declined)
+    answers, _, _ = _claude_turn(
+        monkeypatch,
+        tmp_path,
+        [_can_use("AskUserQuestion", {"questions": [_ASK["questions"][0]]})],
+        mode="default",
+    )
+    (picked,) = answers[0]["updatedInput"]["answers"].values()
+    assert picked == "No preference; decide yourself."
+
+
+def test_the_protocol_names_multi_select_in_one_sentence() -> None:
+    assert '"multi": true' in turn_prompts.ASK_PROTOCOL
+    specs = turn_prompts.parse_ask_block(
+        _reply_with_block({"questions": [{**_ASK["questions"][0], "multi": True}]})
+    )
+    assert specs is not None and specs[0].kind == "multi"
+
+
 def test_an_approved_claude_plan_leaves_plan_mode(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
