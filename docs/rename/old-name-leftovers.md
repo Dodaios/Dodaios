@@ -37,50 +37,48 @@ names on purpose. Line numbers in the full table are those of this run.
 
 ## Summary
 
-**Current tree: 906 hits on `main` at fb037e8f82 with this PR's edits
+**Current tree: 910 hits on `main` at ad1a29656f with this PR's edits
 applied, docs/rename excluded.** Line numbers are a snapshot of that tree and
 drift as `main` moves; re-run the command above for current positions.
 
 | Category | Hits | Notes |
 | --- | ---: | --- |
-| (a) must stay | 797 | Includes the "Formerly Personal Jarvis" lines in `README.md` and `README.zh-CN.md` (required by A2 of #850), the one-time "(formerly Personal Jarvis)" notes, and reworded lines that still name a legacy file or app |
+| (a) must stay | 801 | Includes the "Formerly Personal Jarvis" lines in `README.md` and `README.zh-CN.md` (required by A2 of #850), the one-time "(formerly Personal Jarvis)" notes, and reworded lines that still name a legacy file or app |
 | (b) old URL | 0 | |
 | (c) prose | 0 | |
 | (d) historical | 109 | |
-| **Total** | **906** | |
+| **Total** | **910** | |
 
 Hits by area:
 
 | Area | Hits |
 | --- | ---: |
-| Tests | 523 |
+| Tests | 525 |
 | docs/ | 164 |
-| .github/, scripts/ | 73 |
+| .github/, scripts/ | 74 |
 | dodaios/ (app code, shipped plugin text, built bundle) | 68 |
 | packaging/, install/, dodaios.spec | 52 |
-| Other root files (launchers, configs, brand assets, wiki) | 24 |
+| Other root files (launchers, configs, brand assets, wiki) | 25 |
 | README.md, README.zh-CN.md | 2 |
 
 For reference: the first run, on 2026-10-26 before any edits, found 916 hits
-as well ((a) 791, (b) 2, (c) 14, (d) 109). The total did not move because 9
-hits went away and 9 new ones came in.
+((a) 791, (b) 2, (c) 14, (d) 109).
 
-What went away: the two old-organization links in
+What went away since: the two old-organization links in
 `docs/code-signing-policy.md` (b), now pointing to the Dodaios organization;
 the `Personal Jarvis.app` build paths and the dev shortcut names in
 `docs/desktop-installers.md` and `docs/dev-instance.md`; the title of
-`scripts/README-auto-push.md`; and the old name in
-`third_party/hermes-agent/README.md`. The other (c) lines are now (a): the
-two README lines are the rename line A2 of #850 asks for, and the rest were
-reworded so that the old name remains only where it names a legacy file,
-bundle or app.
+`scripts/README-auto-push.md`; the old name in
+`third_party/hermes-agent/README.md`; and the README links to the
+`PersonalJarvis-*` downloads, which now point to the `Dodaios-*` copies. The
+other (c) lines are now (a): the two README lines are the rename line A2 of
+#850 asks for, and the rest were reworded so that the old name remains only
+where it names a legacy file, bundle or app.
 
-Since then, both READMEs link the `Dodaios-*` release assets (v4.0.1 ships
-both names), which removed their 10 `PersonalJarvis-` hits.
-
-What came in: six "(formerly Personal Jarvis)" notes in docs, the sentence in
-each README explaining the `PersonalJarvis-` download names, and one new test
-line in `tests/unit/setup/test_macos_app_bundle.py` from the base branch.
+What came in: the one-time "(formerly Personal Jarvis)" notes in docs, and
+lines added on `main` by other changes (tests, a workflow) and by the README
+video notes. The dist bundle row names the current hashed file; `main`
+rebuilds it after merges, so its name changes over time.
 
 ### Old URLs that were not category (b)
 
@@ -148,8 +146,8 @@ Consecutive hits of one file with the same category and action share a row.
 | `build.bat` | 2, 9 | 2 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `dev.bat` | 2 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `docs/adr/0015-obsidian-setup-wizard.md` | 15 | 1 | (d) | Kept: historical record (ADR, recon snapshot, incident quote, dated verification or plan quoting the past state) |
-| `docs/ci-pipeline.md` | 285 | 1 | (a) | Kept: Name of the registered "PersonalJarvis Merge Bot" GitHub App |
-| `docs/ci-pipeline.md` | 474, 477 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
+| `docs/ci-pipeline.md` | 286 | 1 | (a) | Kept: Name of the registered "PersonalJarvis Merge Bot" GitHub App |
+| `docs/ci-pipeline.md` | 475, 478 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
 | `docs/code-signing-policy.md` | 6 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
 | `docs/code-signing-policy.md` | 16 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
 | `docs/code-signing-policy.md` | 96 | 1 | (a) | Kept: SignPath artifact configuration pins this file and product name |
@@ -259,7 +257,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `dodaios/skills/builtin/plugin-sharepoint/SKILL.md` | 22 | 1 | (a) | Kept: shipped plugin text naming the registered Microsoft Entra app "Personal Jarvis" that admins approve |
 | `dodaios/skills/builtin/plugin-teams/SKILL.md` | 22 | 1 | (a) | Kept: shipped plugin text naming the registered Microsoft Entra app "Personal Jarvis" that admins approve |
 | `dodaios/ui/desktop_app.py` | 6701 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
-| `dodaios/ui/web/dist/assets/index-DuG1Ovqw.js` | 52 | 1 | (a) | Kept: built frontend bundle (generated) |
+| `dodaios/ui/web/dist/assets/index-D0oKD7Wa.js` | 52 | 1 | (a) | Kept: built frontend bundle (generated) |
 | `dodaios/ui/web/feedback_routes.py` | 381 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `dodaios/ui/web/frontend/src/__tests__/topbarUpdateButton.test.tsx` | 483, 524 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `dodaios/ui/web/frontend/src/__tests__/voiceBrandName.test.tsx` | 116 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
@@ -301,7 +299,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `packaging/windows/Dodaios.iss` | 1, 22, 25, 56, 59, 63, 68, 95 | 8 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `packaging/windows/Dodaios.iss` | 231, 232 | 2 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `packaging/windows/build.ps1` | 4, 13, 16, 99, 160, 217 | 6 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
-| `pyproject.toml` | 517 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
+| `pyproject.toml` | 518 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `requirements.in` | 1 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `run-dev.bat` | 2, 5 | 2 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `run-dev.sh` | 2, 5 | 2 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
@@ -328,7 +326,10 @@ Consecutive hits of one file with the same category and action share a row.
 | `scripts/measure_desktop_boot.py` | 2 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `scripts/preflight.ps1` | 9 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `scripts/sandbox/new-dodaios-sandbox.ps1` | 3, 79 | 2 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
-| `tests/conftest.py` | 204 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
+| `tests/conftest.py` | 210 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
+| `tests/unit/ui/test_taskbar_pin_repair.py` | 23, 53 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
+| `.github/workflows/frontend-bundle.yml` | 18 | 1 | (a) | Kept: name of the registered GitHub App ("PersonalJarvis Merge Bot") |
+| `assets/demo/readme/README.md` | 11 | 1 | (a) | Kept: describes what the pre-rename Code by talking recording shows and says |
 | `tests/contract/test_agent_template_share.py` | 96 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/contract/test_coding_image_handoff.py` | 170, 172 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/contract/test_live_product_knowledge.py` | 1 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
