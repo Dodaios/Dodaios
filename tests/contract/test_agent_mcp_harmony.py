@@ -97,6 +97,18 @@ WITHHELD: Final[dict[str, str]] = {
         "installing a stranger's template is a consent decision made in the app, "
         "where the instructions are on screen first"
     ),
+    "GET /api/society/starters": (
+        "the starter gallery is the New-agent dialog's catalogue; MCP clients "
+        "create agents through agent_create"
+    ),
+    "POST /api/society/starters/preview": (
+        "the import preview exists so the owner reads a template on screen "
+        "before anything is created"
+    ),
+    "POST /api/society/starters/install": (
+        "creating from a starter or an imported template is the dialog's consent "
+        "step, made in the app with the preview on screen"
+    ),
     "PATCH /api/society/agents/{agent_id}": (
         "editing a roster row (model, ceiling, focus) is configuration the owner "
         "does at their own keyboard, not something a remote client should change"

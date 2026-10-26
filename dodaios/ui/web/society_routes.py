@@ -2431,12 +2431,17 @@ async def _free_agent_name(rt: SocietyRuntime, wanted: str) -> str:
     raise HTTPException(409, {"reason": "name_taken", "detail": "pick another name"})
 
 
-async def install_template(template: dict[str, Any], request: Request) -> dict[str, Any]:
+async def install_template(
+    template: dict[str, Any], request: Request, seat: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Create a NEW agent from a template on this install's own model.
 
-    Shared by the import route below and the marketplace's install-by-name.
-    Use the normal creation defaults, including Bypass permissions. Explicit
-    template approval rules and any creator restrictions still apply.
+    Shared by the import route below, the starter gallery and the
+    marketplace's install-by-name. Use the normal creation defaults, including
+    Bypass permissions. Explicit template approval rules and any creator
+    restrictions still apply. ``seat`` carries what the New-agent dialog
+    picked on THIS machine (provider, model, account, runtime, placement,
+    companion); a template never brings one of its own.
     """
     from dodaios.society.agent_template import TemplateError, create_fields
 
@@ -2448,7 +2453,12 @@ async def install_template(template: dict[str, Any], request: Request) -> dict[s
     wanted = fields.pop("name")
     name = await _free_agent_name(rt, wanted)
     scope = template.get("knowledge_scope", "shared")
-    body = CreateAgentBody(name=name, **fields)
+    merged = {**fields, **(seat or {})}
+    if seat and isinstance(seat.get("avatar"), dict):
+        # The template's figure has been through ``public_avatar``; the seat
+        # only brings the dialog's companion on top of it.
+        merged["avatar"] = {**(fields.get("avatar") or {}), **seat["avatar"]}
+    body = CreateAgentBody(name=name, **merged)
     created = await create_agent(body, request)
     agent_row = created["agent"]
     if scope == "own" and agent_row.get("knowledge_scope") != "own":
@@ -2474,6 +2484,163 @@ async def install_template_route(body: InstallTemplateBody, request: Request) ->
     if template.get("kind") == "agent" and isinstance(template.get("agent"), dict):
         template = template["agent"]
     return await install_template(template, request)
+
+
+# ----------------------------------------------------------------- starters
+#
+# The New-agent dialog's gallery (dodaios/society/starters.py): job-shaped
+# templates we wrote ourselves, installed through the same create path as an
+# imported template, on the seat the person picked in the dialog.
+
+
+class StarterSeat(BaseModel):
+    """The dialog's seat and look; every field may be left out."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(default="", max_length=80)
+    model: str = Field(default="", max_length=200)
+    account_id: str = Field(default="", max_length=200)
+    runtime: str | None = Field(default=None, max_length=20)
+    execution_environment: ExecutionEnvironment | None = None
+    companion: dict[str, Any] | None = None
+
+
+class InstallStarterBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    #: A gallery starter by id, or a pasted / opened template (bare or wrapped).
+    starter_id: str | None = Field(default=None, max_length=40)
+    template: dict[str, Any] | None = None
+    name: str | None = Field(default=None, max_length=40)
+    #: The ticked tools; only ids the starter suggests count. ``None`` = all.
+    tools: list[str] | None = Field(default=None, max_length=20)
+    seat: StarterSeat = Field(default_factory=StarterSeat)
+    #: Also set up the starter's routine (off unless the person ticks it).
+    with_routine: bool = False
+    #: The person's IANA zone, for the routine's wall-clock schedule.
+    timezone: str = Field(default="", max_length=100)
+
+
+class PreviewTemplateBody(BaseModel):
+    template: dict[str, Any]
+
+
+def _unwrap_template(template: dict[str, Any]) -> dict[str, Any]:
+    """A bare template, from a bare one or a whole marketplace submission."""
+    if template.get("kind") == "agent" and isinstance(template.get("agent"), dict):
+        return template["agent"]
+    return template
+
+
+def _seat_fields(seat: StarterSeat) -> dict[str, Any]:
+    """CreateAgentBody fields from the dialog's seat; blanks keep the defaults."""
+    fields: dict[str, Any] = {
+        key: value
+        for key, value in seat.model_dump(exclude_none=True, exclude={"companion"}).items()
+        if value not in ("", None)
+    }
+    if fields.get("runtime") == "jarvis":
+        fields.pop("runtime")
+    if seat.companion:
+        # ``install_template`` lays it over the template's checked figure; the
+        # raw template avatar never reaches the roster unchecked.
+        fields["avatar"] = {"companion": seat.companion}
+    return fields
+
+
+def _catalog_or_empty(rt: SocietyRuntime) -> list[Any]:
+    try:
+        return list(rt.catalog())
+    except Exception:  # noqa: BLE001 — the gallery still shows; tools read as unavailable
+        log.warning("society: capability catalog unavailable for the starters", exc_info=True)
+        return []
+
+
+@router.get("/starters", openapi_extra={"x-jarvis-readonly": True})
+async def list_starters(request: Request) -> dict[str, Any]:
+    """The gallery: every starter, with its suggested tools as they stand here."""
+    from dodaios.society.starters import AREAS, load_starters, starter_payload
+
+    rt = await _runtime(request)
+    catalog = _catalog_or_empty(rt)
+    rows = [starter_payload(starter, catalog) for starter in load_starters()]
+    return {"areas": list(AREAS), "starters": rows, "total": len(rows)}
+
+
+@router.post("/starters/preview", openapi_extra={"x-jarvis-readonly": True})
+async def preview_template(body: PreviewTemplateBody, request: Request) -> dict[str, Any]:
+    """Check and count an imported template before anything is created."""
+    from dodaios.society.starters import preview_payload
+
+    rt = await _runtime(request)
+    return preview_payload(_unwrap_template(body.template), _catalog_or_empty(rt))
+
+
+@router.post("/starters/install")
+async def install_starter(body: InstallStarterBody, request: Request) -> dict[str, Any]:
+    """Create an agent from a starter or an imported template on the dialog's seat."""
+    from dodaios.society.starters import (
+        StarterError,
+        routine_schedule,
+        starter_by_id,
+        starter_template,
+    )
+
+    if (body.starter_id is None) == (body.template is None):
+        raise HTTPException(
+            422, {"reason": "invalid_request", "detail": "send a starter or a template"}
+        )
+    starter = None
+    if body.starter_id is not None:
+        try:
+            starter = starter_by_id(body.starter_id)
+        except StarterError as exc:
+            raise HTTPException(404, {"reason": "unknown_starter", "detail": str(exc)}) from exc
+        template = starter_template(starter, name=body.name, tools=body.tools)
+    else:
+        template = dict(_unwrap_template(body.template or {}))
+        if body.name and body.name.strip():
+            template["name"] = " ".join(body.name.split())
+        if body.tools is not None and isinstance(template.get("focus"), list):
+            # Unticking narrows the author's focus; nothing can be added here.
+            template["focus"] = [cap for cap in template["focus"] if cap in set(body.tools)]
+    installed = await install_template(template, request, _seat_fields(body.seat))
+    result: dict[str, Any] = {
+        **installed,
+        "first_message": starter.first_message if starter else "",
+        "routine": None,
+        "routine_error": None,
+    }
+    if starter is None or starter.routine is None or not body.with_routine:
+        return result
+    if not body.timezone.strip():
+        result["routine_error"] = "timezone_required"
+        return result
+    rt = await _runtime(request)
+    agent = await rt.roster.resolve(installed["agent"]["agent_id"])
+    schedule = routine_schedule(starter, body.timezone.strip())
+    if agent is None or schedule is None:
+        result["routine_error"] = "agent_missing"
+        return result
+    try:
+        result["routine"] = await _create_routine_for(
+            agent,
+            RoutineBody(
+                title=starter.routine["title"],
+                prompt=starter.routine["prompt"],
+                schedule=schedule,
+            ),
+            request,
+        )
+    except HTTPException as exc:
+        # The agent stands; the routine can still be added from its chat.
+        log.warning("society: starter routine not created: %s", exc.detail)
+        detail = exc.detail
+        result["routine_error"] = (
+            str(detail.get("reason")) if isinstance(detail, dict) else str(detail)
+        )
+    return result
 
 
 # ----------------------------------------------------------------- controls

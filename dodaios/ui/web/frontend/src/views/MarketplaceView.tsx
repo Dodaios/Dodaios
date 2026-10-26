@@ -37,7 +37,8 @@ import { MARKETPLACE_REPO_URL } from "@/lib/branding";
 import { openExternalUrl } from "@/lib/openExternal";
 import { bundledPluginLogo } from "@/lib/pluginLogos";
 import { useEventStore, type SectionId } from "@/store/events";
-import { installAgentTemplate, readFileText, type AgentTemplateWire } from "@/lib/agentShare";
+import { readFileText, type AgentTemplateWire } from "@/lib/agentShare";
+import { isCreateCancelled, useCreateAgentDialog } from "@/components/society/create/createAgentStore";
 import { CompanionMark } from "@/components/society/companion/CompanionMark";
 import { resolveCompanion } from "@/components/society/companion/appearance";
 import {
@@ -343,29 +344,29 @@ export function MarketplaceView() {
     },
   });
 
-  // An exported template from somebody else: installed straight from the file.
+  // An exported template from somebody else: previewed in the New-agent
+  // dialog, and created only once the person confirms it there.
   const importAgent = useMutation({
-    mutationFn: async (file: File): Promise<InstallResultWire> => {
+    mutationFn: async (file: File): Promise<InstallResultWire | null> => {
       let parsed: unknown;
       try {
         parsed = JSON.parse(await readFileText(file));
       } catch {
         throw new Error(fill(t("marketplace.import_failed"), { error: file.name }));
       }
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error(fill(t("marketplace.import_failed"), { error: file.name }));
+      }
       try {
-        const done = await installAgentTemplate(parsed as Record<string, unknown>);
-        return {
-          ok: true,
-          kind: "agent",
-          id: done.agent.agent_id,
-          title: done.agent.name,
-          ready: true,
-        };
+        const agent = await useCreateAgentDialog.getState().request({ template: parsed as Record<string, unknown> });
+        return { ok: true, kind: "agent", id: agent.agentId, title: agent.name, ready: true };
       } catch (err) {
+        if (isCreateCancelled(err)) return null;
         throw new Error(fill(t("marketplace.import_failed"), { error: (err as Error).message }));
       }
     },
     onSuccess: (result) => {
+      if (!result) return;
       setLanding(result);
       queryClient.invalidateQueries({ queryKey: ["society", "roster"] });
       queryClient.invalidateQueries({ queryKey: ["marketplace-community"] });

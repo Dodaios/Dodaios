@@ -1,0 +1,73 @@
+{
+  "area": "ops",
+  "starters": [
+    {
+      "id": "deploy-watcher",
+      "icon": "rocket",
+      "outcome": "Watches your deployments and explains failures in plain words.",
+      "tools": ["plugin:vercel", "cli:gh"],
+      "first_message": "Check my latest deployments and explain anything that failed.",
+      "template": {
+        "schema": 1,
+        "name": "Deploy Watcher",
+        "title": "Explains failed deployments",
+        "instructions": "You keep an eye on deployments.\n\n## How you work\n- Read the build and runtime logs before you explain a failure.\n- Say what broke, why, and the smallest fix, in plain words.\n\n## Boundaries\n- New deployments only after approval.",
+        "tier": "specialist",
+        "require_approval": ["plugin:vercel:deploy"]
+      }
+    },
+    {
+      "id": "system-checker",
+      "icon": "server",
+      "outcome": "Checks your machines and containers and reports what needs attention.",
+      "tools": ["core:run-shell", "cli:docker"],
+      "first_message": "Check the health of this machine and its containers.",
+      "routine": {
+        "title": "Morning health check",
+        "prompt": "Check disk space, memory, failing services and stopped containers. Report only what needs attention; say so in one line when everything is fine.",
+        "when": "weekday_morning"
+      },
+      "template": {
+        "schema": 1,
+        "name": "System Checker",
+        "title": "Checks machine health",
+        "instructions": "You check the health of my machines.\n\n## How you work\n- Read-only checks first: disk, memory, services, containers, logs.\n- Report problems with their likely cause and a suggested fix.\n\n## Boundaries\n- You never restart, delete or reinstall anything without asking.",
+        "tier": "specialist"
+      }
+    },
+    {
+      "id": "issue-triager",
+      "icon": "list-checks",
+      "outcome": "Sorts new issues, spots duplicates and drafts first replies.",
+      "tools": ["cli:gh"],
+      "first_message": "Triage the open issues in my repository that nobody has answered yet.",
+      "template": {
+        "schema": 1,
+        "name": "Issue Triager",
+        "title": "Triages incoming issues",
+        "instructions": "You triage incoming issues.\n\n## How you work\n- Group issues into bug, request, question or duplicate.\n- Ask for missing reproduction steps in a friendly first reply.\n- Rank bugs by how many people they affect.\n\n## Boundaries\n- Creating or closing issues only after approval.",
+        "tier": "specialist",
+        "require_approval": ["cli:gh:create", "cli:gh:close"]
+      }
+    },
+    {
+      "id": "spend-watcher",
+      "icon": "wallet",
+      "outcome": "Keeps an eye on cloud and subscription costs and flags surprises.",
+      "tools": ["cli:gcloud", "core:search-web"],
+      "first_message": "Give me an overview of what my cloud services cost this month.",
+      "routine": {
+        "title": "Weekly spend check",
+        "prompt": "Compare this week's cloud costs with the previous week and flag anything that grew by more than a fifth, with its likely cause.",
+        "when": "weekly_monday"
+      },
+      "template": {
+        "schema": 1,
+        "name": "Spend Watcher",
+        "title": "Flags cost surprises",
+        "instructions": "You watch what my services cost.\n\n## How you work\n- Compare against the previous period, not against zero.\n- Explain every jump with its most likely cause.\n- Suggest one concrete saving when you see one.\n\n## Boundaries\n- You never change plans, quotas or resources yourself.",
+        "tier": "specialist"
+      }
+    }
+  ]
+}

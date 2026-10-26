@@ -5550,6 +5550,239 @@
       "note": "Der Wechsel gilt für jedes ab jetzt geöffnete Terminal, Teilungen eingeschlossen — vorhandene Fenster behalten das Konto, mit dem sie gestartet sind, damit kein laufender Agent seine Unterhaltung verliert. Nur ein Fenster, dessen Abo bewusst gewählt wurde (im Arbeitsbereich-Assistenten), gibt diese Wahl beim Teilen weiter."
     }
   },
+  "agent_create": {
+    "mode": {
+      "label": "Wie starten",
+      "quick": "Leer",
+      "starter": "Aus einer Vorlage",
+      "import": "Importieren",
+      "quick_hint": "Gib ihm einen Namen, seine Aufgabe in einer Zeile und wähle, worauf er läuft.",
+      "starter_hint": "Wähle eine fertige Aufgabe, prüfe, was sie mitbringt, und in Sekunden ist er bereit.",
+      "import_hint": "Füge eine geteilte Vorlage ein oder öffne sie. Erstellt wird erst, wenn du bestätigst."
+    },
+    "quick": {
+      "job_label": "Seine Aufgabe",
+      "optional": "Optional",
+      "job_placeholder": "Zum Beispiel: hält mein Postfach sortiert und entwirft Antworten",
+      "job_hint": "Wird der Anfang seiner Anweisungen. Du kannst sie jederzeit in seinem Chat verfeinern."
+    },
+    "runtime_note": {
+      "jarvis": "Unsere eigene Agentenschleife: jedes Werkzeug und jeder verbundene Anbieter. Der Typ steht fest, sobald der Agent existiert; das Modell kannst du jederzeit wechseln.",
+      "hermes": "Läuft in der Hermes-Laufzeit, die für dich eingerichtet wird. Der Typ steht fest, sobald der Agent existiert; das Modell kannst du jederzeit wechseln.",
+      "openclaw": "Läuft in der OpenClaw-Laufzeit, die für dich eingerichtet wird. Der Typ steht fest, sobald der Agent existiert; das Modell kannst du jederzeit wechseln."
+    },
+    "seat": {
+      "runs_on": "Läuft auf",
+      "change": "Ändern",
+      "hide": "Ausblenden",
+      "needs_choice": "Wähle, worauf er läuft"
+    },
+    "gallery": {
+      "search": "Vorlagen durchsuchen",
+      "areas": "Bereiche",
+      "loading": "Vorlagen werden geladen…",
+      "failed": "Die Vorlagen konnten nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "empty": "Keine Vorlage passt. Versuch ein anderes Wort oder einen anderen Bereich.",
+      "back": "Alle Vorlagen"
+    },
+    "area": {
+      "all": "Alle",
+      "coding": "Programmieren",
+      "research": "Recherche",
+      "inbox": "Postfach & Kalender",
+      "writing": "Schreiben",
+      "ops": "Betrieb",
+      "personal": "Persönlich"
+    },
+    "preview": {
+      "name_label": "Name des Agenten",
+      "brings": "Was er mitbringt",
+      "instructions": "Anweisungen",
+      "instructions_rules": "{rules} Regeln · {words} Wörter",
+      "instructions_words": "{words} Wörter",
+      "skills": "Skills",
+      "skills_all": "Alle deine",
+      "routines": "Routinen",
+      "tools": "Werkzeuge",
+      "tools_value": "{picked} von {total}",
+      "asks_before_one": "Fragt dich vor {count} Art von Aktion",
+      "asks_before_other": "Fragt dich vor {count} Arten von Aktionen",
+      "limited_tools": "Nutzt nur die Werkzeuge, die seine Vorlage nennt.",
+      "tools_title": "Werkzeuge, die er zuerst nimmt",
+      "tools_hint": "Alle anderen Werkzeuge, die du erlaubst, bleiben verfügbar.",
+      "tool_connected": "Verbunden",
+      "tool_not_connected": "Nicht verbunden",
+      "tool_missing": "Nicht auf diesem Computer",
+      "routine_toggle": "Diese Routine auch einrichten",
+      "routine_hint": "läuft von selbst, jederzeit pausierbar",
+      "read_instructions": "Anweisungen lesen",
+      "first_message": "Sein Chat öffnet mit",
+      "first_message_hint": "Steht im Eingabefeld, wird nicht gesendet. Bearbeite oder lösche ihn.",
+      "pick_prompt": "Wähle eine Vorlage, um zu sehen, was sie mitbringt."
+    },
+    "when": {
+      "weekday_morning": "Werktags um 08:00",
+      "daily_morning": "Täglich um 08:00",
+      "daily_evening": "Täglich um 18:00",
+      "weekly_monday": "Montags um 09:00",
+      "weekly_friday": "Freitags um 16:00"
+    },
+    "import": {
+      "paste_label": "Vorlage",
+      "open_file": "Datei öffnen",
+      "paste_placeholder": "Füge hier eine Agentenvorlage (JSON) ein",
+      "checking": "Vorlage wird geprüft…",
+      "invalid_json": "Das ist keine Vorlage: Der Text ist kein gültiges JSON.",
+      "errors_title": "Diese Vorlage kann nicht verwendet werden",
+      "safety_note": "Eine Vorlage enthält nur das Design eines Agenten: Anweisungen, Werkzeuge und Aussehen. Nie ein Modell, ein Konto oder weitere Rechte.",
+      "empty_preview": "Füge eine Vorlage ein oder öffne sie, um zu sehen, was sie mitbringt.",
+      "no_title": "Ein geteilter Agent",
+      "design_only": "Die Rechte starten mit deinen eigenen Standards."
+    },
+    "footer": {
+      "quick": "Modell, Werkzeuge und Regeln kannst du später ändern.",
+      "starter": "Sein Chat öffnet mit einer fertigen ersten Nachricht. Gesendet wird erst, wenn du auf Senden drückst.",
+      "import": "Nur das Design reist mit. Die Rechte starten mit deinen eigenen Standards."
+    },
+    "open_chat": "Seinen Chat öffnen",
+    "routine_failed": "{agent} ist bereit, aber seine Routine konnte nicht eingerichtet werden. Du kannst sie in seinem Chat hinzufügen.",
+    "starter": {
+      "code_reviewer": {
+        "name": "Code-Prüfer",
+        "outcome": "Liest einen Branch vor dem Merge und listet, was zu beheben ist, das Riskanteste zuerst.",
+        "first": "Prüfe die Änderungen auf meinem aktuellen Branch und sag mir, was ich vor dem Merge beheben sollte."
+      },
+      "bug_hunter": {
+        "name": "Fehlerjäger",
+        "outcome": "Reproduziert einen Fehler, findet die Ursache und schlägt den kleinsten Fix vor.",
+        "first": "Hier ist ein Fehler, auf den ich immer wieder stoße: "
+      },
+      "test_writer": {
+        "name": "Testschreiber",
+        "outcome": "Findet ungetestete Codepfade und schreibt gezielte Tests dafür.",
+        "first": "Finde den riskantesten ungetesteten Code in diesem Projekt und schreib Tests dafür."
+      },
+      "release_notes": {
+        "name": "Release Notes",
+        "outcome": "Macht aus zusammengeführter Arbeit einmal pro Woche klare Release Notes.",
+        "first": "Entwirf Release Notes für alles, was in den letzten sieben Tagen gemergt wurde.",
+        "routine": "Wöchentliche Release Notes"
+      },
+      "inbox_sorter": {
+        "name": "Postfach-Sortierer",
+        "outcome": "Sortiert neue Mails, fasst das Wichtige zusammen und entwirft Antworten zum Absenden.",
+        "first": "Geh meine ungelesenen Mails durch und sag mir, was heute meine Aufmerksamkeit braucht.",
+        "routine": "Morgendliche Postfach-Übersicht"
+      },
+      "meeting_prep": {
+        "name": "Meeting-Vorbereitung",
+        "outcome": "Bereitet vor jedem Termin in deinem Kalender eine einseitige Übersicht vor.",
+        "first": "Bereite Übersichten für meine heutigen Termine vor.",
+        "routine": "Die Termine des Tages vorbereiten"
+      },
+      "scheduler": {
+        "name": "Terminplaner",
+        "outcome": "Findet freie Zeiten und schlägt Termine vor; Änderungen erst nach deinem Ja.",
+        "first": "Finde drei freie Zeitfenster nächste Woche für ein einstündiges Meeting."
+      },
+      "follow_up_keeper": {
+        "name": "Nachfass-Hüter",
+        "outcome": "Erkennt Unterhaltungen, die noch auf eine Antwort warten, und listet sie einmal pro Woche.",
+        "first": "Welche Mail-Unterhaltungen warten noch auf eine Antwort, von mir oder von anderen?",
+        "routine": "Wöchentliche Nachfassliste"
+      },
+      "deploy_watcher": {
+        "name": "Deploy-Wächter",
+        "outcome": "Beobachtet deine Deployments und erklärt Fehler in einfachen Worten.",
+        "first": "Prüfe meine letzten Deployments und erkläre alles, was fehlgeschlagen ist."
+      },
+      "system_checker": {
+        "name": "System-Prüfer",
+        "outcome": "Prüft deine Rechner und Container und meldet, was Aufmerksamkeit braucht.",
+        "first": "Prüfe den Zustand dieses Rechners und seiner Container.",
+        "routine": "Morgendlicher Gesundheitscheck"
+      },
+      "issue_triager": {
+        "name": "Issue-Sortierer",
+        "outcome": "Sortiert neue Issues, erkennt Duplikate und entwirft erste Antworten.",
+        "first": "Sortiere die offenen Issues in meinem Repository, auf die noch niemand geantwortet hat."
+      },
+      "spend_watcher": {
+        "name": "Kostenwächter",
+        "outcome": "Behält Cloud- und Abokosten im Blick und meldet Überraschungen.",
+        "first": "Gib mir einen Überblick, was meine Cloud-Dienste diesen Monat kosten.",
+        "routine": "Wöchentlicher Kostencheck"
+      },
+      "daily_briefing": {
+        "name": "Tagesbriefing",
+        "outcome": "Startet deinen Tag mit Kalender, Mails und Nachrichten in einer kurzen Notiz.",
+        "first": "Gib mir ein Briefing für heute.",
+        "routine": "Morgenbriefing"
+      },
+      "trip_planner": {
+        "name": "Reiseplaner",
+        "outcome": "Plant Reisen: Routen, Orte, Zeiten und eine Packliste.",
+        "first": "Hilf mir, eine Reise zu planen nach "
+      },
+      "home_helper": {
+        "name": "Haushelfer",
+        "outcome": "Steuert dein Smart Home: Licht, Klima und Szenen.",
+        "first": "Zeig mir, welche Geräte in meinem Zuhause du steuern kannst."
+      },
+      "learning_coach": {
+        "name": "Lerncoach",
+        "outcome": "Erstellt einen Lernplan für eine Fähigkeit und fragt dich unterwegs ab.",
+        "first": "Ich möchte lernen: "
+      },
+      "playlist_curator": {
+        "name": "Playlist-Kurator",
+        "outcome": "Stellt Playlists für den Moment zusammen, aus Musik, die du schon magst.",
+        "first": "Mach mir eine Playlist für "
+      },
+      "researcher": {
+        "name": "Rechercheur",
+        "outcome": "Beantwortet eine Frage mit Quellen und behält die Erkenntnisse für später.",
+        "first": "Recherchiere das für mich und nenne deine Quellen: "
+      },
+      "topic_watcher": {
+        "name": "Themenwächter",
+        "outcome": "Verfolgt ein Thema oder einen Markt und schickt eine kurze Übersicht, was sich geändert hat.",
+        "first": "Behalte dieses Thema für mich im Blick: ",
+        "routine": "Wöchentliche Themenübersicht"
+      },
+      "document_digester": {
+        "name": "Dokumentenleser",
+        "outcome": "Macht aus langen Dokumenten und Papern Kernpunkte und offene Fragen.",
+        "first": "Fasse dieses Dokument in Kernpunkte und offene Fragen zusammen: "
+      },
+      "fact_checker": {
+        "name": "Faktenprüfer",
+        "outcome": "Prüft die Behauptungen in einem Entwurf und markiert alles Unbelegte.",
+        "first": "Prüfe die Fakten in diesem Entwurf und markiere jede Behauptung, die du nicht belegen kannst: "
+      },
+      "editor": {
+        "name": "Lektor",
+        "outcome": "Strafft deine Entwürfe: klarer und kürzer, in deiner eigenen Stimme.",
+        "first": "Überarbeite diesen Entwurf, damit er klarer und kürzer wird, aber behalte meine Stimme: "
+      },
+      "post_writer": {
+        "name": "Post-Schreiber",
+        "outcome": "Macht aus Notizen und Neuigkeiten kurze Posts, die nach dir klingen.",
+        "first": "Mach aus diesem Update einen kurzen Post: "
+      },
+      "docs_writer": {
+        "name": "Doku-Schreiber",
+        "outcome": "Schreibt und aktualisiert Dokumentation aus Code und Notizen.",
+        "first": "Finde den am schlechtesten dokumentierten Teil dieses Projekts und verbessere ihn."
+      },
+      "translator": {
+        "name": "Übersetzer",
+        "outcome": "Übersetzt Texte und hält deine Begriffe und deinen Ton einheitlich.",
+        "first": "Übersetze das und halte meine Begriffe einheitlich: "
+      }
+    }
+  },
   "ide_chats": {
     "workspace_band": "Workspace {n}",
     "heading": "Offene Workspaces",

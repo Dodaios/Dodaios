@@ -5550,6 +5550,239 @@
       "note": "Switching applies to every terminal opened from now on, splits included — the panes you already have keep the account they started with, so no running agent loses its conversation. Only a pane whose subscription was chosen deliberately (in the workspace wizard) passes that choice on when you split it."
     }
   },
+  "agent_create": {
+    "mode": {
+      "label": "How to start",
+      "quick": "Blank",
+      "starter": "From a starter",
+      "import": "Import",
+      "quick_hint": "Name it, give it a job in one line and pick what it runs on.",
+      "starter_hint": "Pick a ready-made job, check what it brings, and it is ready in seconds.",
+      "import_hint": "Paste or open a template somebody shared. Nothing is created until you confirm."
+    },
+    "quick": {
+      "job_label": "Its job",
+      "optional": "Optional",
+      "job_placeholder": "For example: keeps my inbox sorted and drafts replies",
+      "job_hint": "Becomes the start of its instructions. Refine them any time in its chat."
+    },
+    "runtime_note": {
+      "jarvis": "Our own agent loop: every tool and any connected provider. The type is fixed once the agent exists; the model can change any time.",
+      "hermes": "Runs in the Hermes runtime, which is set up for you. The type is fixed once the agent exists; the model can change any time.",
+      "openclaw": "Runs in the OpenClaw runtime, which is set up for you. The type is fixed once the agent exists; the model can change any time."
+    },
+    "seat": {
+      "runs_on": "Runs on",
+      "change": "Change",
+      "hide": "Hide",
+      "needs_choice": "Choose what it runs on"
+    },
+    "gallery": {
+      "search": "Search starters",
+      "areas": "Areas",
+      "loading": "Loading starters…",
+      "failed": "The starters could not be loaded.",
+      "retry": "Try again",
+      "empty": "No starter matches. Try another word or area.",
+      "back": "All starters"
+    },
+    "area": {
+      "all": "All",
+      "coding": "Coding",
+      "research": "Research",
+      "inbox": "Inbox & calendar",
+      "writing": "Writing",
+      "ops": "Operations",
+      "personal": "Personal"
+    },
+    "preview": {
+      "name_label": "Agent name",
+      "brings": "What it brings",
+      "instructions": "Instructions",
+      "instructions_rules": "{rules} rules · {words} words",
+      "instructions_words": "{words} words",
+      "skills": "Skills",
+      "skills_all": "All of yours",
+      "routines": "Routines",
+      "tools": "Tools",
+      "tools_value": "{picked} of {total}",
+      "asks_before_one": "Asks you first before {count} kind of action",
+      "asks_before_other": "Asks you first before {count} kinds of action",
+      "limited_tools": "Uses only the tools its template lists.",
+      "tools_title": "Tools it reaches for first",
+      "tools_hint": "Every other tool you allow stays available.",
+      "tool_connected": "Connected",
+      "tool_not_connected": "Not connected",
+      "tool_missing": "Not on this computer",
+      "routine_toggle": "Also set up this routine",
+      "routine_hint": "runs on its own, pause it any time",
+      "read_instructions": "Read the instructions",
+      "first_message": "Its chat opens with",
+      "first_message_hint": "Ready in the composer, not sent. Edit it or delete it.",
+      "pick_prompt": "Pick a starter to see what it brings."
+    },
+    "when": {
+      "weekday_morning": "Weekdays at 08:00",
+      "daily_morning": "Every day at 08:00",
+      "daily_evening": "Every day at 18:00",
+      "weekly_monday": "Mondays at 09:00",
+      "weekly_friday": "Fridays at 16:00"
+    },
+    "import": {
+      "paste_label": "Template",
+      "open_file": "Open file",
+      "paste_placeholder": "Paste an agent template (JSON) here",
+      "checking": "Checking the template…",
+      "invalid_json": "This is not a template: the text is not valid JSON.",
+      "errors_title": "This template cannot be used",
+      "safety_note": "A template carries an agent's design only: its instructions, tools and look. Never a model, an account or wider permissions.",
+      "empty_preview": "Paste or open a template to see what it brings.",
+      "no_title": "A shared agent",
+      "design_only": "Permissions start at your own defaults."
+    },
+    "footer": {
+      "quick": "You can change its model, tools and rules later.",
+      "starter": "Its chat opens with a first message ready. Nothing is sent until you press send.",
+      "import": "Only the design travels. Permissions start at your own defaults."
+    },
+    "open_chat": "Open its chat",
+    "routine_failed": "{agent} is ready, but its routine could not be set up. You can add it from its chat.",
+    "starter": {
+      "code_reviewer": {
+        "name": "Code Reviewer",
+        "outcome": "Reads a branch before you merge and lists what to fix, riskiest first.",
+        "first": "Review the changes on my current branch and tell me what to fix before I merge."
+      },
+      "bug_hunter": {
+        "name": "Bug Hunter",
+        "outcome": "Reproduces a bug, finds the root cause and proposes the smallest fix.",
+        "first": "Here is a bug I keep hitting: "
+      },
+      "test_writer": {
+        "name": "Test Writer",
+        "outcome": "Finds untested code paths and writes focused tests for them.",
+        "first": "Find the riskiest untested code in this project and write tests for it."
+      },
+      "release_notes": {
+        "name": "Release Notes",
+        "outcome": "Turns merged work into clear release notes once a week.",
+        "first": "Draft release notes for everything merged in the last seven days.",
+        "routine": "Weekly release notes"
+      },
+      "inbox_sorter": {
+        "name": "Inbox Sorter",
+        "outcome": "Sorts new mail, sums up what matters and drafts replies for you to send.",
+        "first": "Go through my unread mail and tell me what needs me today.",
+        "routine": "Morning inbox summary"
+      },
+      "meeting_prep": {
+        "name": "Meeting Prep",
+        "outcome": "Prepares a one-page brief before each meeting on your calendar.",
+        "first": "Prepare briefs for my meetings today.",
+        "routine": "Brief the day's meetings"
+      },
+      "scheduler": {
+        "name": "Scheduler",
+        "outcome": "Finds free slots and proposes times; changes only after you say yes.",
+        "first": "Find three free slots next week for a one-hour meeting."
+      },
+      "follow_up_keeper": {
+        "name": "Follow-up Keeper",
+        "outcome": "Spots threads still waiting on a reply and lists them once a week.",
+        "first": "Which mail threads are still waiting on a reply, from me or from others?",
+        "routine": "Weekly follow-up list"
+      },
+      "deploy_watcher": {
+        "name": "Deploy Watcher",
+        "outcome": "Watches your deployments and explains failures in plain words.",
+        "first": "Check my latest deployments and explain anything that failed."
+      },
+      "system_checker": {
+        "name": "System Checker",
+        "outcome": "Checks your machines and containers and reports what needs attention.",
+        "first": "Check the health of this machine and its containers.",
+        "routine": "Morning health check"
+      },
+      "issue_triager": {
+        "name": "Issue Triager",
+        "outcome": "Sorts new issues, spots duplicates and drafts first replies.",
+        "first": "Triage the open issues in my repository that nobody has answered yet."
+      },
+      "spend_watcher": {
+        "name": "Spend Watcher",
+        "outcome": "Keeps an eye on cloud and subscription costs and flags surprises.",
+        "first": "Give me an overview of what my cloud services cost this month.",
+        "routine": "Weekly spend check"
+      },
+      "daily_briefing": {
+        "name": "Daily Briefing",
+        "outcome": "Starts your day with calendar, mail and news in one short note.",
+        "first": "Give me a briefing for today.",
+        "routine": "Morning briefing"
+      },
+      "trip_planner": {
+        "name": "Trip Planner",
+        "outcome": "Plans trips: routes, places, timings and a packing list.",
+        "first": "Help me plan a trip to "
+      },
+      "home_helper": {
+        "name": "Home Helper",
+        "outcome": "Runs your smart home: lights, climate and scenes.",
+        "first": "Show me which devices you can control in my home."
+      },
+      "learning_coach": {
+        "name": "Learning Coach",
+        "outcome": "Builds a study plan for a skill and quizzes you along the way.",
+        "first": "I want to learn "
+      },
+      "playlist_curator": {
+        "name": "Playlist Curator",
+        "outcome": "Builds playlists for the moment from music you already like.",
+        "first": "Make me a playlist for "
+      },
+      "researcher": {
+        "name": "Researcher",
+        "outcome": "Answers a question with sources and keeps the findings for later.",
+        "first": "Research this for me and cite your sources: "
+      },
+      "topic_watcher": {
+        "name": "Topic Watcher",
+        "outcome": "Follows a topic or market and sends a short digest of what changed.",
+        "first": "Keep an eye on this topic for me: ",
+        "routine": "Weekly topic digest"
+      },
+      "document_digester": {
+        "name": "Document Digester",
+        "outcome": "Turns long documents and papers into key points and open questions.",
+        "first": "Summarise this document into key points and open questions: "
+      },
+      "fact_checker": {
+        "name": "Fact Checker",
+        "outcome": "Checks the claims in a draft and flags anything unsupported.",
+        "first": "Fact-check this draft and flag every claim you cannot support: "
+      },
+      "editor": {
+        "name": "Editor",
+        "outcome": "Tightens your drafts: clearer and shorter, in your own voice.",
+        "first": "Edit this draft so it is clearer and shorter, but keep my voice: "
+      },
+      "post_writer": {
+        "name": "Post Writer",
+        "outcome": "Turns notes and updates into short posts that sound like you.",
+        "first": "Turn this update into a short post: "
+      },
+      "docs_writer": {
+        "name": "Docs Writer",
+        "outcome": "Writes and updates documentation from code and notes.",
+        "first": "Find the part of this project with the weakest documentation and improve it."
+      },
+      "translator": {
+        "name": "Translator",
+        "outcome": "Translates text and keeps your terms and tone consistent.",
+        "first": "Translate this and keep my terms consistent: "
+      }
+    }
+  },
   "ide_chats": {
     "workspace_band": "Workspace {n}",
     "heading": "Open workspaces",

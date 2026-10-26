@@ -5550,6 +5550,239 @@
       "note": "El cambio se aplica a todos los terminales que se abran a partir de ahora, divisiones incluidas: los paneles que ya tienes conservan la cuenta con la que empezaron, así ningún agente en marcha pierde su conversación. Solo un panel cuya suscripción se eligió a propósito (en el asistente del espacio de trabajo) transmite esa elección al dividirlo."
     }
   },
+  "agent_create": {
+    "mode": {
+      "label": "Cómo empezar",
+      "quick": "En blanco",
+      "starter": "Desde una plantilla",
+      "import": "Importar",
+      "quick_hint": "Ponle nombre, describe su trabajo en una línea y elige en qué funciona.",
+      "starter_hint": "Elige un trabajo listo, revisa lo que trae y estará listo en segundos.",
+      "import_hint": "Pega o abre una plantilla que alguien compartió. No se crea nada hasta que confirmes."
+    },
+    "quick": {
+      "job_label": "Su trabajo",
+      "optional": "Opcional",
+      "job_placeholder": "Por ejemplo: mantiene mi bandeja ordenada y redacta respuestas",
+      "job_hint": "Será el inicio de sus instrucciones. Puedes afinarlas cuando quieras en su chat."
+    },
+    "runtime_note": {
+      "jarvis": "Nuestro propio bucle de agente: todas las herramientas y cualquier proveedor conectado. El tipo queda fijo al crear el agente; el modelo se puede cambiar cuando quieras.",
+      "hermes": "Funciona en el entorno Hermes, que se configura por ti. El tipo queda fijo al crear el agente; el modelo se puede cambiar cuando quieras.",
+      "openclaw": "Funciona en el entorno OpenClaw, que se configura por ti. El tipo queda fijo al crear el agente; el modelo se puede cambiar cuando quieras."
+    },
+    "seat": {
+      "runs_on": "Funciona con",
+      "change": "Cambiar",
+      "hide": "Ocultar",
+      "needs_choice": "Elige en qué funciona"
+    },
+    "gallery": {
+      "search": "Buscar plantillas",
+      "areas": "Áreas",
+      "loading": "Cargando plantillas…",
+      "failed": "No se pudieron cargar las plantillas.",
+      "retry": "Reintentar",
+      "empty": "Ninguna plantilla coincide. Prueba otra palabra u otra área.",
+      "back": "Todas las plantillas"
+    },
+    "area": {
+      "all": "Todas",
+      "coding": "Programación",
+      "research": "Investigación",
+      "inbox": "Correo y calendario",
+      "writing": "Escritura",
+      "ops": "Operaciones",
+      "personal": "Personal"
+    },
+    "preview": {
+      "name_label": "Nombre del agente",
+      "brings": "Lo que trae",
+      "instructions": "Instrucciones",
+      "instructions_rules": "{rules} reglas · {words} palabras",
+      "instructions_words": "{words} palabras",
+      "skills": "Habilidades",
+      "skills_all": "Todas las tuyas",
+      "routines": "Rutinas",
+      "tools": "Herramientas",
+      "tools_value": "{picked} de {total}",
+      "asks_before_one": "Te pregunta antes de {count} tipo de acción",
+      "asks_before_other": "Te pregunta antes de {count} tipos de acción",
+      "limited_tools": "Usa solo las herramientas que indica su plantilla.",
+      "tools_title": "Herramientas que usa primero",
+      "tools_hint": "Todas las demás herramientas que permitas siguen disponibles.",
+      "tool_connected": "Conectada",
+      "tool_not_connected": "Sin conectar",
+      "tool_missing": "No está en este equipo",
+      "routine_toggle": "Configurar también esta rutina",
+      "routine_hint": "se ejecuta sola, puedes pausarla cuando quieras",
+      "read_instructions": "Leer las instrucciones",
+      "first_message": "Su chat se abre con",
+      "first_message_hint": "Listo en el campo de mensaje, sin enviar. Edítalo o bórralo.",
+      "pick_prompt": "Elige una plantilla para ver lo que trae."
+    },
+    "when": {
+      "weekday_morning": "Días laborables a las 08:00",
+      "daily_morning": "Cada día a las 08:00",
+      "daily_evening": "Cada día a las 18:00",
+      "weekly_monday": "Los lunes a las 09:00",
+      "weekly_friday": "Los viernes a las 16:00"
+    },
+    "import": {
+      "paste_label": "Plantilla",
+      "open_file": "Abrir archivo",
+      "paste_placeholder": "Pega aquí una plantilla de agente (JSON)",
+      "checking": "Comprobando la plantilla…",
+      "invalid_json": "Esto no es una plantilla: el texto no es JSON válido.",
+      "errors_title": "Esta plantilla no se puede usar",
+      "safety_note": "Una plantilla solo lleva el diseño de un agente: sus instrucciones, herramientas y aspecto. Nunca un modelo, una cuenta ni permisos más amplios.",
+      "empty_preview": "Pega o abre una plantilla para ver lo que trae.",
+      "no_title": "Un agente compartido",
+      "design_only": "Los permisos empiezan con tus propios valores."
+    },
+    "footer": {
+      "quick": "Puedes cambiar su modelo, herramientas y reglas más tarde.",
+      "starter": "Su chat se abre con un primer mensaje listo. No se envía nada hasta que pulses enviar.",
+      "import": "Solo viaja el diseño. Los permisos empiezan con tus propios valores."
+    },
+    "open_chat": "Abrir su chat",
+    "routine_failed": "{agent} está listo, pero no se pudo configurar su rutina. Puedes añadirla desde su chat.",
+    "starter": {
+      "code_reviewer": {
+        "name": "Revisor de código",
+        "outcome": "Lee una rama antes de fusionarla y enumera qué corregir, lo más arriesgado primero.",
+        "first": "Revisa los cambios de mi rama actual y dime qué debo corregir antes de fusionar."
+      },
+      "bug_hunter": {
+        "name": "Cazador de errores",
+        "outcome": "Reproduce un error, encuentra la causa y propone la corrección más pequeña.",
+        "first": "Este es un error con el que me encuentro una y otra vez: "
+      },
+      "test_writer": {
+        "name": "Autor de pruebas",
+        "outcome": "Encuentra rutas de código sin probar y escribe pruebas precisas para ellas.",
+        "first": "Encuentra el código sin pruebas más arriesgado de este proyecto y escribe pruebas para él."
+      },
+      "release_notes": {
+        "name": "Notas de versión",
+        "outcome": "Convierte el trabajo fusionado en notas de versión claras una vez por semana.",
+        "first": "Redacta notas de versión de todo lo fusionado en los últimos siete días.",
+        "routine": "Notas de versión semanales"
+      },
+      "inbox_sorter": {
+        "name": "Organizador de correo",
+        "outcome": "Ordena el correo nuevo, resume lo importante y redacta respuestas para que las envíes.",
+        "first": "Revisa mi correo sin leer y dime qué necesita mi atención hoy.",
+        "routine": "Resumen matinal del correo"
+      },
+      "meeting_prep": {
+        "name": "Preparador de reuniones",
+        "outcome": "Prepara un resumen de una página antes de cada reunión de tu calendario.",
+        "first": "Prepara resúmenes para mis reuniones de hoy.",
+        "routine": "Preparar las reuniones del día"
+      },
+      "scheduler": {
+        "name": "Planificador",
+        "outcome": "Encuentra huecos libres y propone horarios; cambia algo solo cuando dices que sí.",
+        "first": "Encuentra tres huecos libres la semana que viene para una reunión de una hora."
+      },
+      "follow_up_keeper": {
+        "name": "Guardián de seguimientos",
+        "outcome": "Detecta conversaciones que aún esperan respuesta y las enumera una vez por semana.",
+        "first": "¿Qué conversaciones de correo siguen esperando respuesta, mía o de otros?",
+        "routine": "Lista semanal de seguimientos"
+      },
+      "deploy_watcher": {
+        "name": "Vigía de despliegues",
+        "outcome": "Vigila tus despliegues y explica los fallos con palabras sencillas.",
+        "first": "Revisa mis últimos despliegues y explica lo que haya fallado."
+      },
+      "system_checker": {
+        "name": "Revisor de sistemas",
+        "outcome": "Revisa tus equipos y contenedores e informa de lo que necesita atención.",
+        "first": "Revisa el estado de este equipo y de sus contenedores.",
+        "routine": "Revisión matinal del sistema"
+      },
+      "issue_triager": {
+        "name": "Clasificador de incidencias",
+        "outcome": "Ordena las incidencias nuevas, detecta duplicados y redacta primeras respuestas.",
+        "first": "Clasifica las incidencias abiertas de mi repositorio que nadie ha respondido todavía."
+      },
+      "spend_watcher": {
+        "name": "Vigía de gastos",
+        "outcome": "Vigila los costes de la nube y de las suscripciones y avisa de sorpresas.",
+        "first": "Dame un resumen de lo que cuestan este mes mis servicios en la nube.",
+        "routine": "Revisión semanal de gastos"
+      },
+      "daily_briefing": {
+        "name": "Resumen diario",
+        "outcome": "Empieza tu día con calendario, correo y noticias en una nota breve.",
+        "first": "Dame un resumen para hoy.",
+        "routine": "Resumen matinal"
+      },
+      "trip_planner": {
+        "name": "Planificador de viajes",
+        "outcome": "Planifica viajes: rutas, lugares, horarios y una lista de equipaje.",
+        "first": "Ayúdame a planificar un viaje a "
+      },
+      "home_helper": {
+        "name": "Asistente del hogar",
+        "outcome": "Controla tu hogar inteligente: luces, clima y escenas.",
+        "first": "Muéstrame qué dispositivos de mi casa puedes controlar."
+      },
+      "learning_coach": {
+        "name": "Entrenador de aprendizaje",
+        "outcome": "Crea un plan de estudio para una habilidad y te pone a prueba por el camino.",
+        "first": "Quiero aprender "
+      },
+      "playlist_curator": {
+        "name": "Curador de listas",
+        "outcome": "Crea listas para cada momento a partir de la música que ya te gusta.",
+        "first": "Hazme una lista de reproducción para "
+      },
+      "researcher": {
+        "name": "Investigador",
+        "outcome": "Responde una pregunta con fuentes y guarda lo encontrado para después.",
+        "first": "Investiga esto por mí y cita tus fuentes: "
+      },
+      "topic_watcher": {
+        "name": "Vigía de temas",
+        "outcome": "Sigue un tema o un mercado y envía un breve resumen de lo que cambió.",
+        "first": "Vigila este tema por mí: ",
+        "routine": "Resumen semanal del tema"
+      },
+      "document_digester": {
+        "name": "Lector de documentos",
+        "outcome": "Convierte documentos y artículos largos en puntos clave y preguntas abiertas.",
+        "first": "Resume este documento en puntos clave y preguntas abiertas: "
+      },
+      "fact_checker": {
+        "name": "Verificador de datos",
+        "outcome": "Comprueba las afirmaciones de un borrador y marca todo lo que no tenga respaldo.",
+        "first": "Verifica este borrador y marca cada afirmación que no puedas respaldar: "
+      },
+      "editor": {
+        "name": "Editor",
+        "outcome": "Pule tus borradores: más claros y más cortos, con tu propia voz.",
+        "first": "Edita este borrador para que sea más claro y más corto, pero mantén mi voz: "
+      },
+      "post_writer": {
+        "name": "Redactor de publicaciones",
+        "outcome": "Convierte notas y novedades en publicaciones breves que suenan a ti.",
+        "first": "Convierte esta novedad en una publicación breve: "
+      },
+      "docs_writer": {
+        "name": "Redactor de documentación",
+        "outcome": "Escribe y actualiza documentación a partir de código y notas.",
+        "first": "Encuentra la parte peor documentada de este proyecto y mejórala."
+      },
+      "translator": {
+        "name": "Traductor",
+        "outcome": "Traduce textos y mantiene tus términos y tu tono coherentes.",
+        "first": "Traduce esto y mantén mis términos coherentes: "
+      }
+    }
+  },
   "ide_chats": {
     "workspace_band": "Workspace {n}",
     "heading": "Workspaces abiertos",

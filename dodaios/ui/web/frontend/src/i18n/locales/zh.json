@@ -5550,6 +5550,239 @@
       "note": "切换会应用于此后打开的每个终端，包括拆分出的终端——现有窗格保留启动时的账号，因此运行中的智能体不会丢失对话。只有在工作区向导中特意选择了订阅的窗格，拆分时才会沿用该选择。"
     }
   },
+  "agent_create": {
+    "mode": {
+      "label": "如何开始",
+      "quick": "空白",
+      "starter": "从模板开始",
+      "import": "导入",
+      "quick_hint": "起个名字，用一句话写下它的工作，再选择它运行在哪里。",
+      "starter_hint": "选一个现成的工作，看看它带来什么，几秒钟就能用。",
+      "import_hint": "粘贴或打开别人分享的模板。确认之前不会创建任何东西。"
+    },
+    "quick": {
+      "job_label": "它的工作",
+      "optional": "可选",
+      "job_placeholder": "例如：整理我的收件箱并起草回复",
+      "job_hint": "会成为它指令的开头。之后随时可以在它的聊天中完善。"
+    },
+    "runtime_note": {
+      "jarvis": "我们自己的智能体循环：所有工具，任意已连接的提供商。智能体创建后类型固定；模型随时可以更换。",
+      "hermes": "运行在 Hermes 运行时中，会自动为你配置。智能体创建后类型固定；模型随时可以更换。",
+      "openclaw": "运行在 OpenClaw 运行时中，会自动为你配置。智能体创建后类型固定；模型随时可以更换。"
+    },
+    "seat": {
+      "runs_on": "运行于",
+      "change": "更改",
+      "hide": "收起",
+      "needs_choice": "选择它运行在哪里"
+    },
+    "gallery": {
+      "search": "搜索模板",
+      "areas": "领域",
+      "loading": "正在加载模板…",
+      "failed": "无法加载模板。",
+      "retry": "重试",
+      "empty": "没有匹配的模板。换个词或领域试试。",
+      "back": "全部模板"
+    },
+    "area": {
+      "all": "全部",
+      "coding": "编程",
+      "research": "调研",
+      "inbox": "邮件与日历",
+      "writing": "写作",
+      "ops": "运维",
+      "personal": "个人"
+    },
+    "preview": {
+      "name_label": "智能体名称",
+      "brings": "它带来什么",
+      "instructions": "指令",
+      "instructions_rules": "{rules} 条规则 · {words} 词",
+      "instructions_words": "{words} 词",
+      "skills": "技能",
+      "skills_all": "你的全部技能",
+      "routines": "例行任务",
+      "tools": "工具",
+      "tools_value": "{picked} / {total}",
+      "asks_before_one": "执行 {count} 类操作前会先问你",
+      "asks_before_other": "执行 {count} 类操作前会先问你",
+      "limited_tools": "只使用模板列出的工具。",
+      "tools_title": "优先使用的工具",
+      "tools_hint": "你允许的其他工具仍然可用。",
+      "tool_connected": "已连接",
+      "tool_not_connected": "未连接",
+      "tool_missing": "此电脑上没有",
+      "routine_toggle": "同时设置这个例行任务",
+      "routine_hint": "自动运行，随时可以暂停",
+      "read_instructions": "查看指令",
+      "first_message": "它的聊天将以此开始",
+      "first_message_hint": "已放在输入框中，不会自动发送。可以编辑或删除。",
+      "pick_prompt": "选择一个模板，看看它带来什么。"
+    },
+    "when": {
+      "weekday_morning": "工作日 08:00",
+      "daily_morning": "每天 08:00",
+      "daily_evening": "每天 18:00",
+      "weekly_monday": "每周一 09:00",
+      "weekly_friday": "每周五 16:00"
+    },
+    "import": {
+      "paste_label": "模板",
+      "open_file": "打开文件",
+      "paste_placeholder": "在此粘贴智能体模板（JSON）",
+      "checking": "正在检查模板…",
+      "invalid_json": "这不是模板：文本不是有效的 JSON。",
+      "errors_title": "此模板无法使用",
+      "safety_note": "模板只包含智能体的设计：指令、工具和外观。绝不包含模型、账户或更多权限。",
+      "empty_preview": "粘贴或打开模板，看看它带来什么。",
+      "no_title": "一个分享的智能体",
+      "design_only": "权限从你自己的默认设置开始。"
+    },
+    "footer": {
+      "quick": "之后可以更改它的模型、工具和规则。",
+      "starter": "它的聊天会带着准备好的第一条消息打开。在你按下发送前不会发送任何内容。",
+      "import": "只传递设计。权限从你自己的默认设置开始。"
+    },
+    "open_chat": "打开它的聊天",
+    "routine_failed": "{agent} 已就绪，但它的例行任务未能设置。你可以在它的聊天中添加。",
+    "starter": {
+      "code_reviewer": {
+        "name": "代码审查员",
+        "outcome": "在合并前阅读分支，按风险从高到低列出需要修复的问题。",
+        "first": "审查我当前分支上的改动，告诉我合并前需要修复什么。"
+      },
+      "bug_hunter": {
+        "name": "除虫手",
+        "outcome": "复现缺陷，找到根本原因，并提出最小的修复方案。",
+        "first": "这是我反复遇到的一个缺陷："
+      },
+      "test_writer": {
+        "name": "测试编写员",
+        "outcome": "找出未经测试的代码路径，并为它们编写有针对性的测试。",
+        "first": "找出这个项目中风险最高的未测试代码，并为它编写测试。"
+      },
+      "release_notes": {
+        "name": "发布说明",
+        "outcome": "每周把已合并的工作整理成清晰的发布说明。",
+        "first": "为过去七天合并的所有内容起草发布说明。",
+        "routine": "每周发布说明"
+      },
+      "inbox_sorter": {
+        "name": "收件箱整理员",
+        "outcome": "整理新邮件，总结重点，并起草回复供你发送。",
+        "first": "看看我的未读邮件，告诉我今天有哪些需要我处理。",
+        "routine": "早间收件箱摘要"
+      },
+      "meeting_prep": {
+        "name": "会议准备员",
+        "outcome": "在日历中的每场会议前准备一页简报。",
+        "first": "为我今天的会议准备简报。",
+        "routine": "准备当天的会议"
+      },
+      "scheduler": {
+        "name": "日程安排员",
+        "outcome": "找出空闲时段并给出时间建议；只有你同意后才会更改。",
+        "first": "找出下周三个空闲时段，用于一小时的会议。"
+      },
+      "follow_up_keeper": {
+        "name": "跟进管家",
+        "outcome": "发现仍在等待回复的邮件往来，每周列出一次。",
+        "first": "哪些邮件往来还在等待回复，无论是我还是别人？",
+        "routine": "每周跟进清单"
+      },
+      "deploy_watcher": {
+        "name": "部署观察员",
+        "outcome": "关注你的部署，用通俗的话解释失败原因。",
+        "first": "检查我最近的部署，并解释所有失败的部分。"
+      },
+      "system_checker": {
+        "name": "系统检查员",
+        "outcome": "检查你的机器和容器，报告需要关注的问题。",
+        "first": "检查这台机器及其容器的健康状况。",
+        "routine": "早间健康检查"
+      },
+      "issue_triager": {
+        "name": "问题分拣员",
+        "outcome": "整理新问题，识别重复项，并起草首次回复。",
+        "first": "分拣我仓库中尚无人回复的未关闭问题。"
+      },
+      "spend_watcher": {
+        "name": "开支观察员",
+        "outcome": "留意云服务和订阅费用，发现意外支出及时提醒。",
+        "first": "给我一个本月云服务费用的概览。",
+        "routine": "每周费用检查"
+      },
+      "daily_briefing": {
+        "name": "每日简报",
+        "outcome": "用一条简短笔记开启你的一天：日程、邮件和新闻。",
+        "first": "给我一份今天的简报。",
+        "routine": "早间简报"
+      },
+      "trip_planner": {
+        "name": "旅行规划师",
+        "outcome": "规划旅行：路线、地点、时间安排和行李清单。",
+        "first": "帮我规划一次去这里的旅行："
+      },
+      "home_helper": {
+        "name": "家居助手",
+        "outcome": "管理你的智能家居：灯光、温控和场景。",
+        "first": "告诉我你能控制我家里的哪些设备。"
+      },
+      "learning_coach": {
+        "name": "学习教练",
+        "outcome": "为一项技能制定学习计划，并在过程中考考你。",
+        "first": "我想学习："
+      },
+      "playlist_curator": {
+        "name": "歌单策划",
+        "outcome": "根据你已经喜欢的音乐，为当下的场景制作歌单。",
+        "first": "帮我做一个适合这个场景的歌单："
+      },
+      "researcher": {
+        "name": "研究员",
+        "outcome": "带着来源回答问题，并把发现保存下来以备后用。",
+        "first": "帮我调研这个问题并注明来源："
+      },
+      "topic_watcher": {
+        "name": "话题观察员",
+        "outcome": "跟踪某个话题或市场，发送简短的变化摘要。",
+        "first": "帮我关注这个话题：",
+        "routine": "每周话题摘要"
+      },
+      "document_digester": {
+        "name": "文档精读员",
+        "outcome": "把冗长的文档和论文整理成要点和待解问题。",
+        "first": "把这份文档总结成要点和待解问题："
+      },
+      "fact_checker": {
+        "name": "事实核查员",
+        "outcome": "核查草稿中的说法，标出所有缺乏依据的内容。",
+        "first": "核查这份草稿，标出你无法证实的每一个说法："
+      },
+      "editor": {
+        "name": "编辑",
+        "outcome": "精简你的草稿：更清晰、更简短，保留你自己的风格。",
+        "first": "把这份草稿改得更清晰、更简短，但保留我的风格："
+      },
+      "post_writer": {
+        "name": "帖子写手",
+        "outcome": "把笔记和动态写成听起来像你的简短帖子。",
+        "first": "把这条动态写成一篇简短的帖子："
+      },
+      "docs_writer": {
+        "name": "文档写手",
+        "outcome": "根据代码和笔记编写并更新文档。",
+        "first": "找出这个项目中文档最薄弱的部分并加以改进。"
+      },
+      "translator": {
+        "name": "翻译员",
+        "outcome": "翻译文本，并保持你的术语和语气一致。",
+        "first": "翻译这段内容，并保持我的术语一致："
+      }
+    }
+  },
   "ide_chats": {
     "workspace_band": "工作区 {n}",
     "heading": "打开的工作区",
