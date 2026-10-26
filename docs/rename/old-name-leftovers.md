@@ -37,8 +37,9 @@ names on purpose. Line numbers in the full table are those of this run.
 
 ## Summary
 
-**Current tree: 916 hits as of commit 7633eb42e9 (with this PR's edits
-applied), docs/rename excluded.**
+**Current tree: 916 hits on `main` at fb037e8f82 with this PR's edits
+applied, docs/rename excluded.** Line numbers are a snapshot of that tree and
+drift as `main` moves; re-run the command above for current positions.
 
 | Category | Hits | Notes |
 | --- | ---: | --- |
@@ -132,11 +133,11 @@ Consecutive hits of one file with the same category and action share a row.
 | `.github/workflows/release-wrapper-smoke.yml` | 108, 116, 119, 136, 169, 177, 180, 197 | 8 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `.github/workflows/sign-installer.yml` | 1, 892 | 2 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `.gitignore` | 145, 146 | 2 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
-| `.gitignore` | 434 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
+| `.gitignore` | 436 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `.mailmap` | 14 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `.pre-commit-config.yaml` | 1 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `README.md` | 18 | 1 | (a) | Must stay: required by A2 of #850 (the one-time "Formerly Personal Jarvis" line) |
-| `README.md` | 251, 252, 253, 254, 256 | 5 | (a) | Kept: download links to the `PersonalJarvis-*` release assets, plus the sentence explaining those names |
+| `README.md` | 252, 253, 254, 255, 257 | 5 | (a) | Kept: download links to the `PersonalJarvis-*` release assets, plus the sentence explaining those names |
 | `README.zh-CN.md` | 18 | 1 | (a) | Must stay: required by A2 of #850 (the one-time "Formerly Personal Jarvis" line) |
 | `README.zh-CN.md` | 208, 209, 210, 211, 213 | 5 | (a) | Kept: download links to the `PersonalJarvis-*` release assets, plus the sentence explaining those names |
 | `TRADEMARK.md` | 8 | 1 | (a) | Kept: legal / trademark text |
@@ -183,11 +184,11 @@ Consecutive hits of one file with the same category and action share a row.
 | `docs/marketplace/portable-skills.md` | 50 | 1 | (d) | Kept: historical record (ADR, recon snapshot, incident quote, dated verification or plan quoting the past state) |
 | `docs/marketplace/publishing-plan.md` | 28, 29 | 2 | (d) | Kept: historical record (ADR, recon snapshot, incident quote, dated verification or plan quoting the past state) |
 | `docs/os-parity.md` | 14 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/os-parity.md` | 1166 | 1 | (a) | Kept: Name of the existing per-user macOS signing certificate |
-| `docs/os-parity.md` | 1413 | 1 | (d) | Kept: dated live-verification record of the Windows dev-instance identity |
-| `docs/os-parity.md` | 1428 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/os-parity.md` | 1429 | 1 | (a) | Kept: `PersonalJarvis-macOS-*` asset names; the bundle name on this line now says `Dodaios.app` |
-| `docs/os-parity.md` | 1430 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
+| `docs/os-parity.md` | 1186 | 1 | (a) | Kept: Name of the existing per-user macOS signing certificate |
+| `docs/os-parity.md` | 1433 | 1 | (d) | Kept: dated live-verification record of the Windows dev-instance identity |
+| `docs/os-parity.md` | 1448 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
+| `docs/os-parity.md` | 1449 | 1 | (a) | Kept: `PersonalJarvis-macOS-*` asset names; the bundle name on this line now says `Dodaios.app` |
+| `docs/os-parity.md` | 1450 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
 | `docs/product/privacy-safety-and-support/control-key.md` | 19 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
 | `docs/product/privacy-safety-and-support/control-key.md` | 192 | 1 | (a) | Kept: name macOS shows for an existing `Personal Jarvis.app` bundle (maintainer to confirm once every install has `Dodaios.app`) |
 | `docs/product/privacy-safety-and-support/permissions.md` | 34, 123 | 2 | (a) | Kept: name macOS shows for an existing `Personal Jarvis.app` bundle (maintainer to confirm once every install has `Dodaios.app`) |
@@ -256,8 +257,8 @@ Consecutive hits of one file with the same category and action share a row.
 | `dodaios/skills/builtin/plugin-outlook/SKILL.md` | 22 | 1 | (a) | Kept: shipped plugin text naming the registered Microsoft Entra app "Personal Jarvis" that admins approve |
 | `dodaios/skills/builtin/plugin-sharepoint/SKILL.md` | 22 | 1 | (a) | Kept: shipped plugin text naming the registered Microsoft Entra app "Personal Jarvis" that admins approve |
 | `dodaios/skills/builtin/plugin-teams/SKILL.md` | 22 | 1 | (a) | Kept: shipped plugin text naming the registered Microsoft Entra app "Personal Jarvis" that admins approve |
-| `dodaios/ui/desktop_app.py` | 6695 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
-| `dodaios/ui/web/dist/assets/index-durcwvFq.js` | 52 | 1 | (a) | Kept: built frontend bundle (generated) |
+| `dodaios/ui/desktop_app.py` | 6701 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
+| `dodaios/ui/web/dist/assets/index-DuG1Ovqw.js` | 52 | 1 | (a) | Kept: built frontend bundle (generated) |
 | `dodaios/ui/web/feedback_routes.py` | 381 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `dodaios/ui/web/frontend/src/__tests__/topbarUpdateButton.test.tsx` | 483, 524 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `dodaios/ui/web/frontend/src/__tests__/voiceBrandName.test.tsx` | 116 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |

@@ -64,7 +64,7 @@ under [more ways to install](#more-ways-to-install).
 
 ## Why Dodaios
 
-- **Local, no account.** The app and your data stay on your machine. There is no sign-up and no cloud of ours in between.
+- **Local, no account.** The app and your data stay on your machine. There is no sign-up and no cloud of ours between you and your models.
 - **Any model or subscription.** Hosted models, local models through Ollama, or the Claude and ChatGPT plans you already pay for.
 - **Many coding agents side by side.** Claude Code, Codex, OpenCode and more run in live panes you can watch and steer.
 - **Voice.** Your own wake phrase, live conversations and dictation, with speech recognition that can run offline.

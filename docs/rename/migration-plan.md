@@ -72,13 +72,16 @@ Installs up to and including 3.1.1 do not follow GitHub's repository redirect
 when they check for updates, so they stopped seeing new releases after the
 move to `Dodaios/Dodaios`.
 
-1. Keep the `PersonalJarvis-*` asset names in every release, because those old
-   updaters look for exactly these names.
-2. Tell these users how to update by hand: run the one-line installer again. Put
+1. These installs can only be reached by hand: they never see a new release,
+   whatever its assets are called.
+2. Keep the `PersonalJarvis-*` asset names anyway. Installs from after 3.1.1
+   that predate the `Dodaios-*` aliases follow the redirect but look for the
+   old names.
+3. Tell users on 3.1.1 or older how to update by hand: run the one-line installer again. Put
    that sentence in the release notes and in the troubleshooting page.
-3. Do not try to reach them by recreating the old repository (see the warning
+4. Do not try to reach them by recreating the old repository (see the warning
    below).
-4. Before dropping any old name, check the download counts of the
+5. Before dropping any old name, check the download counts of the
    `PersonalJarvis-*` assets of the last three releases. If they still get
    downloads, keep them.
 
@@ -88,4 +91,4 @@ move to `Dodaios/Dodaios`.
 rename another repository to that name). GitHub redirects the old URL to
 `Dodaios/Dodaios` only as long as nothing exists at the old address. A new
 repository there silently breaks every old link, the raw install URLs and the
-update check of older installs.
+update check of installs that follow the redirect.
