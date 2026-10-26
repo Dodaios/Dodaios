@@ -1358,7 +1358,8 @@ def _tool_call(index: int, call: dict[str, Any]) -> dict[str, Any]:
 
 
 async def open_chat_stream(
-    grant: Grant, model: str, request: Any, *, temperature_given: bool = True, lease: Any = _UNBOUND,
+    grant: Grant, model: str, request: Any, *, temperature_given: bool = True,
+    lease: Any = _UNBOUND,
 ) -> AsyncIterator[bytes]:
     """The answer as Chat Completions chunks.
 
@@ -1455,7 +1456,8 @@ async def _chat_chunks(
 
 
 async def complete_chat(
-    grant: Grant, model: str, request: Any, *, temperature_given: bool = True, lease: Any = _UNBOUND,
+    grant: Grant, model: str, request: Any, *, temperature_given: bool = True,
+    lease: Any = _UNBOUND,
 ) -> dict[str, Any]:
     """The finished ``chat.completion`` for a runtime that did not ask to stream."""
     signal = capture_turn(grant) if lease is _UNBOUND else lease
