@@ -106,25 +106,47 @@ def _brief(ctx: Context, folder: str, repo: str) -> Brief:
     return brief
 
 
-def owned_projects(ctx: Context, who: Viewer) -> list[OwnedProject]:
-    """Blocking: git calls and brief refreshes for the person's own projects."""
+def owned_projects(
+    ctx: Context, who: Viewer, skipped: dict[str, int] | None = None
+) -> list[OwnedProject]:
+    """Blocking: git calls and brief refreshes for the person's own projects.
+
+    ``skipped`` counts why each other library project is not polled.
+    """
     out: list[OwnedProject] = []
     seen: set[str] = set()
     cutoff = time.time() - RECENT_DAYS * 86_400
+    why = skipped if skipped is not None else {}
+
+    def skip(reason: str) -> None:
+        why[reason] = why.get(reason, 0) + 1
+
     for project in ctx.projects():
         if getattr(project, "scratch", False) or getattr(project, "archived", False):
+            skip("scratch or archived")
             continue
         folder = _repo_root(str(getattr(project, "path", "") or ""))
-        if not folder or folder.lower() in seen:
+        if not folder:
+            skip("not a git repository")
+            continue
+        if folder.lower() in seen:
             continue
         seen.add(folder.lower())
         repo = repo_of(folder)
-        if not repo or not who.owns(repo) or is_dodaios_source(folder, ctx.dodaios_root):
+        if not repo:
+            skip("no GitHub origin")
+            continue
+        if not who.owns(repo):
+            skip("not the person's repository")
+            continue
+        if is_dodaios_source(folder, ctx.dodaios_root):
+            skip("Dodaios' own source")
             continue
         brief = _brief(ctx, folder, repo)
         recent = float(getattr(project, "last_opened_at", 0) or 0) >= cutoff
         mine = bool((brief.parts.get("activity") or {}).get("person_active"))
         if not (recent or mine):
+            skip("not worked on lately")
             continue
         out.append(
             OwnedProject(
