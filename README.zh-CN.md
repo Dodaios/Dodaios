@@ -17,7 +17,7 @@
 
 <p align="center">原名 <strong>Personal Jarvis</strong>。同一个项目，同一个许可证，只是换了名字（<a href="https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/">原因</a>）。</p>
 
-https://github.com/user-attachments/assets/e652bcc3-7341-4175-94e9-110a67bfdce4
+https://github.com/user-attachments/assets/3364aa29-8f38-4d3e-b148-184ad16669ff
 
 <p align="center">
   <a href="https://pypi.org/project/dodaios/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dodaios?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
@@ -71,14 +71,14 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 
 ## 动嘴写代码
 
-https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
+https://github.com/user-attachments/assets/1daa832e-a566-4f22-add6-8b21eb8aaaad
 
-在几个窗格里启动 Claude Code、Codex 或 OpenCode，然后直接对它们说话。每个窗格都有一个呼号，你可以像指挥团队一样指挥它们：“T1，跑一下测试。”“T2，修复 T1 发现的问题。”Dodaios 会把每句话变成一份完整、了解项目上下文的任务说明，输入到对应的窗格；呼号不明确时会先问你。挂断之后，已经下达的工作仍会继续。
+对 Dodaios 说话，它会把工作交给你的编程智能体。在这段录像（录制于改名之前）中，一句话就启动了一个新的 Claude Code 会话，去研究应用的性能。在 Agentic IDE 中，每个窗格都有一个呼号，所以你也可以说“T1，跑一下测试”或“T2，修复 T1 发现的问题”。Dodaios 会把每句话变成一份完整、了解项目上下文的任务说明；呼号不明确时会先问你；挂断之后，工作仍会继续。
 [工作原理](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md#send-clear-work)
 
 ## 同时运行所有编程智能体
 
-https://github.com/user-attachments/assets/d0919a81-4b60-49ec-a3f7-e37160a60240
+https://github.com/user-attachments/assets/83c50d16-8c3c-420f-baab-e6d06381307b
 
 Agentic IDE 把一块屏幕变成一个满是编程智能体的房间。打开一个项目，分成几个窗格，在每个窗格里启动你已安装的任意编程工具，使用你已经付费的订阅。差异对比、编辑器、Git 和拉取请求就在窗格旁边，你可以在每一行代码合并之前审阅它；每个窗格也始终是一个可以直接输入的真实终端。
 [Agentic IDE 指南](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md)
