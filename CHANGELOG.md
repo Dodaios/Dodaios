@@ -11,6 +11,78 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [4.1.0] — 2026-10-26
+
+### Added
+
+- Realtime 3D decks with third-person, first-person and bird's-eye views, plus a 1v1 duel mode (#866)
+- Open a printed path with a plain click (#853)
+- Add per-agent code sandboxes (#498)
+- Grounded initiative without unrequested actions (#466)
+- Add the Dodaios pet, show it as the Mascot style and give it a voxel model in the Verse (#542)
+- Need neither Python nor Git before the one-line installer (#818)
+- Start and update the app from any terminal (#368)
+- Bill the default provider's subscription for the assistant's own learning loop (#801)
+- Close third-person camera on 192 px/m decks with close-up characters (#808)
+- Ctrl+click opens files outside the workspace in the editor (#799)
+- Steer the commander in third person, bird's-eye on V (#791)
+- Show why unattended routine runs and reviews were skipped or dropped (#790)
+- Prove a drafted skill by running its steps read-only before it goes live (#793)
+- Open a code build's coding thread from its build detail (#788)
+- Mine the person's pane prompts and agent chats; measure memory use by reliance (#792)
+- Snap the area picker to the parts of a window, not only the window (#785)
+- Richer operations deck, tailored uniforms, trousers by rank tier (#784)
+- Rebuild the Verse as a photoreal fleet capital ship with a Blender content pipeline (#782)
+
+### Changed
+
+- Keep Hermes and OpenClaw agents warm between turns (#817)
+- Rename every jarvis-named file and folder to Dodaios (#798)
+
+### Fixed
+
+- Keep sherpa-onnx below 2.0, which ships no macOS Intel wheel
+- File only the pane prompts this app announced (#881)
+- Show every agent of the folder in the Agents tab by default (#876)
+- Keep the terminal grid inside its frame when the side panel opens (#874)
+- Observe the prompts typed into panes and keep tests out of live data (#867)
+- Show session changes an agent made in its own worktrees (#870)
+- Keep the plain download hint for a Whisper model never downloaded (#860)
+- Repair taskbar pins left on an old install (#861)
+- Refresh the contributor wall through a bot pull request (#857)
+- Report cancelled nightly gate failures (#825)
+- Run Claude subscription agents through the official Claude CLI (#856)
+- Pin setuptools above advisory range (#842)
+- Repair PATH at Codex spawn boundaries (#844)
+- Use native audio for Gemini in WebKitGTK (#843)
+- Align Whisper cache readiness (#841)
+- Preserve model-less local provider discovery (#838)
+- Avoid invalid AltGr escape warning (#827)
+- Accept valid probe after open wait race (#823)
+- Isolate Windows platform simulation (#819)
+- Avoid conflicting Anthropic credentials (#834)
+- Restore native controls and minimized detached windows (#452)
+- Say why a voice start was refused instead of guessing (#552)
+- Cross a stuck provider instead of losing the words, and ship a default vocabulary (#815)
+- Keep a browser OAuth grant when its capability check fails (#814)
+- Release a turn that ended without a result; close settled approval cards (#314)
+- Reuse the host Python only for the exact requested minor (#813)
+- Sandbox every inline artifact download, not just HTML and SVG (#812)
+- Never kill a writing git, heal a stale lock, stop bundle line-ending noise (#807)
+- Show a closed panel window again when the page refuses to close (#805)
+- Links clicked in the IDE open in its Browser tab (#804)
+- Ctrl+click on a drive-less path opens the file, not the folder tree (#803)
+- Codex on its plan without the app's keys, Linux idle fallbacks, live-run fixes for the code builder (#797)
+- New Claude Code panes keep the person's own renderer (#800)
+- Decide when the person is quiet in Dodaios, not when the computer is idle (#796)
+- Stop a release cut early when its version is already tagged (#795)
+- Offer only the big parts of a window when hovering in the area picker (#794)
+- Keep tokens out of logged tracebacks (#789)
+- Exact pane scrollbar for Claude Code and Codex (#787)
+- Count habits on this computer's zone until the UI reports one, decide only while the person is idle (#786)
+
+---
+
 ## [4.0.1] — 2026-10-20
 
 4.0.1 is the first published release of 4.0: the 4.0.0 build was held back by a security check on a dependency. Everything listed under 4.0.0 below ships with it, including the move to the Dodaios name for the program, its folders and its stored keys.

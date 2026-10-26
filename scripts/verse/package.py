@@ -27,6 +27,7 @@ L1_DIVISOR = 8  # whole-plate overview (~24 px/m at the final density)
 L0_TILE_URL = "plate/L0_{col}_{row}.avif"
 MIP_TILE_URL = "plate/M{divisor}_{{col}}_{{row}}.avif"
 L1_URL = "plate/L1.avif"
+REALTIME_DIR = "realtime"  # written by package_realtime.py, kept by plate cooks
 
 
 @dataclass(frozen=True)
@@ -186,7 +187,11 @@ def package_deck(raw_dir: Path, out_dir: Path, extra_stats: dict | None = None) 
     shutil.rmtree(staging, ignore_errors=True)
     staging.mkdir(parents=True)
     try:
-        manifest = _write_deck(raw_dir, staging, cook, extra_stats or {}, started)
+        # A deck's realtime export (docs/verse/realtime.md) survives a plate cook.
+        realtime = _previous_realtime(out_dir)
+        if realtime is not None:
+            shutil.copytree(out_dir / REALTIME_DIR, staging / REALTIME_DIR)
+        manifest = _write_deck(raw_dir, staging, cook, extra_stats or {}, started, realtime)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
@@ -196,14 +201,32 @@ def package_deck(raw_dir: Path, out_dir: Path, extra_stats: dict | None = None) 
     return manifest
 
 
+def _previous_realtime(out_dir: Path) -> dict | None:
+    """The realtime block of the deck already at `out_dir`, if it has one and its folder."""
+    path = out_dir / "manifest.json"
+    if not path.is_file() or not (out_dir / REALTIME_DIR).is_dir():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get("realtime")
+    except json.JSONDecodeError:
+        return None
+
+
 def _write_deck(
-    raw_dir: Path, staging: Path, cook: dict, extra_stats: dict, started: float
+    raw_dir: Path,
+    staging: Path,
+    cook: dict,
+    extra_stats: dict,
+    started: float,
+    realtime: dict | None = None,
 ) -> dict:
     plate = _encode_plate(assemble_plate(raw_dir, cook), staging)
     nav = _encode_nav(raw_dir / "nav.npy", staging, cook["nav"])
     shutil.copyfile(raw_dir / "occluders.glb", staging / "occluders.glb")
     shutil.copyfile(raw_dir / "env.hdr", staging / "env.hdr")
     manifest = build_manifest(cook, plate, nav)
+    if realtime is not None:
+        manifest["realtime"] = realtime
     stats = manifest["stats"]
     stats.update(extra_stats)
     stats["package_s"] = round(time.monotonic() - started, 2)

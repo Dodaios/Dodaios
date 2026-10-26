@@ -144,6 +144,62 @@ export interface ManifestStation {
   sockets: Readonly<Partial<Record<ManifestSocketKind, readonly string[]>>>;
 }
 
+/** One lightmap atlas page (RGBA WebP, "rgbm2"). */
+export interface ManifestRealtimePage {
+  url: string;
+  /** Edge in texels (pages are square). */
+  size: number;
+  /** Texels per metre at density weight 1. */
+  density: number;
+}
+
+/** A room's reflection panorama (equirect, three.js layout, "rgbm2") and its projection box. */
+export interface ManifestRealtimeProbe {
+  room: string;
+  url: string;
+  w: number;
+  h: number;
+  /** The rgbm2 span of this image. */
+  range: number;
+  position: ManifestVec3;
+  box_min: ManifestVec3;
+  box_max: ManifestVec3;
+}
+
+/** The specular layer the runtime adds to the baked radiance of one material. */
+export interface ManifestRealtimeMaterial {
+  roughness: number;
+  metalness: number;
+  /** Specular tint of metals, linear RGB. */
+  color: ManifestVec3;
+  clearcoat: number;
+  clearcoat_roughness: number;
+  /** Blender's Specular IOR Level: 0.5 = F0 4 %. */
+  specular: number;
+  /** Close-up detail layer: "deck_plates", "painted", "metal" or "none". */
+  detail: string;
+  transparent: boolean;
+  opacity: number;
+  /** The camera stops at it. */
+  collide: boolean;
+}
+
+/**
+ * The deck as an eye-level 3D scene (optional; docs/verse/realtime.md):
+ * geometry with a lightmap UV set, baked radiance pages, reflection probes.
+ */
+export interface ManifestRealtime {
+  version: number;
+  quality: "preview" | "final";
+  /** Meshopt-compressed glTF; one node per (material, room, page) chunk, `extras` name them. */
+  scene: { url: string; vertices: number; triangles: number; chunks: number };
+  lightmaps: { encoding: "rgbm2"; range: number; pages: readonly ManifestRealtimePage[] };
+  probes: readonly ManifestRealtimeProbe[];
+  materials: Readonly<Record<string, ManifestRealtimeMaterial>>;
+  bytes: number;
+  stats: Readonly<Record<string, unknown>>;
+}
+
 export interface DeckManifest {
   schema: typeof DECK_MANIFEST_SCHEMA;
   id: string;
@@ -161,6 +217,8 @@ export interface DeckManifest {
   sockets: readonly ManifestSocket[];
   stations: readonly ManifestStation[];
   stats: Readonly<Record<string, number | string>>;
+  /** The eye-level scene, when the deck has been exported for it. */
+  realtime?: ManifestRealtime;
 }
 
 // ------------------------------------------------------------------ maths
@@ -331,6 +389,55 @@ function checkSocket(value: Json, path: string): void {
   if (s.props !== undefined) obj(s.props, `${path}.props`);
 }
 
+/** The realtime block's version this runtime reads. */
+export const REALTIME_VERSION = 1;
+
+function bool(value: Json, path: string): boolean {
+  if (typeof value !== "boolean") fail(path, "expected a boolean");
+  return value;
+}
+
+function checkRealtime(value: Json): void {
+  const r = obj(value, "realtime");
+  int(r.version, "realtime.version", 1);
+  if (r.quality !== "preview" && r.quality !== "final") fail("realtime.quality", 'expected "preview" or "final"');
+  const scene = obj(r.scene, "realtime.scene");
+  str(scene.url, "realtime.scene.url");
+  for (const key of ["vertices", "triangles", "chunks"]) int(scene[key], `realtime.scene.${key}`, 1);
+  const maps = obj(r.lightmaps, "realtime.lightmaps");
+  if (maps.encoding !== "rgbm2") fail("realtime.lightmaps.encoding", 'expected "rgbm2"');
+  if (num(maps.range, "realtime.lightmaps.range") <= 0) fail("realtime.lightmaps.range", "expected > 0");
+  const pages = list(maps.pages, "realtime.lightmaps.pages");
+  if (pages.length === 0) fail("realtime.lightmaps.pages", "expected at least one page");
+  pages.forEach((page, i) => {
+    const p = obj(page, `realtime.lightmaps.pages[${i}]`);
+    str(p.url, `realtime.lightmaps.pages[${i}].url`);
+    int(p.size, `realtime.lightmaps.pages[${i}].size`, 1);
+    num(p.density, `realtime.lightmaps.pages[${i}].density`);
+  });
+  list(r.probes, "realtime.probes").forEach((probe, i) => {
+    const p = obj(probe, `realtime.probes[${i}]`);
+    str(p.room, `realtime.probes[${i}].room`);
+    str(p.url, `realtime.probes[${i}].url`);
+    int(p.w, `realtime.probes[${i}].w`, 1);
+    int(p.h, `realtime.probes[${i}].h`, 1);
+    num(p.range, `realtime.probes[${i}].range`);
+    for (const key of ["position", "box_min", "box_max"]) vec(p[key], `realtime.probes[${i}].${key}`, 3);
+  });
+  for (const [name, material] of Object.entries(obj(r.materials, "realtime.materials"))) {
+    const m = obj(material, `realtime.materials.${name}`);
+    for (const key of ["roughness", "metalness", "clearcoat", "clearcoat_roughness", "specular", "opacity"]) {
+      num(m[key], `realtime.materials.${name}.${key}`);
+    }
+    vec(m.color, `realtime.materials.${name}.color`, 3);
+    str(m.detail, `realtime.materials.${name}.detail`);
+    bool(m.transparent, `realtime.materials.${name}.transparent`);
+    bool(m.collide, `realtime.materials.${name}.collide`);
+  }
+  int(r.bytes, "realtime.bytes");
+  obj(r.stats, "realtime.stats");
+}
+
 /** Validate parsed JSON as a deck manifest; throws ManifestError naming the first bad field. */
 export function parseDeckManifest(value: Json): DeckManifest {
   const m = obj(value, "manifest");
@@ -388,5 +495,6 @@ export function parseDeckManifest(value: Json): DeckManifest {
     }
   });
   obj(m.stats, "stats");
+  if (m.realtime !== undefined) checkRealtime(m.realtime);
   return value as DeckManifest;
 }

@@ -12,7 +12,7 @@ build-backend = "setuptools.build_meta"
 # transition (scripts/ci/build_distributions.py). Keep the self-references in
 # the extras below spelled with this name: that script rewrites them together.
 name = "dodaios"
-version = "4.0.1"
+version = "4.1.0"
 description = "Turn your computer into an AI agent that coordinates apps, tools, models, and other agents"
 requires-python = ">=3.11,<3.15"
 readme = "README.md"
@@ -477,10 +477,11 @@ local-voice = [
     # encoder input added in that release, and an older wheel loads the same
     # files and then transcribes every language as English. Kept in step with
     # dodaios/speech/local_models.py::SHERPA_ONNX_PACKAGE, which the in-app
-    # installer asks pip for.
+    # installer asks pip for. The <2 cap keeps resolution on a release with
+    # wheels for every advertised platform (2.0.1 ships none for macOS x86_64).
     # Upstream publishes no Windows ARM64 wheel. The providers already expose
     # an honest unavailable state when the optional runtime is absent.
-    "sherpa-onnx>=1.13.3; sys_platform != 'win32' or platform_machine != 'ARM64'",
+    "sherpa-onnx>=1.13.3,<2; sys_platform != 'win32' or platform_machine != 'ARM64'",
 ]
 # GPU runtime for the on-device CTranslate2 recognizer (faster-whisper): the
 # cuBLAS 12 / cuDNN 9 wheels ctranslate2 4.x links against. Opt-in and OUTSIDE

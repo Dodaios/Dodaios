@@ -5421,6 +5421,22 @@
       "choose_agent": "Escolhe um agente",
       "edit_session": "Editar a sessão {number}: {agent}"
     },
+    "presets": {
+      "aria": "Formações salvas",
+      "title": "Presets",
+      "hint": "Um clique preenche a formação",
+      "apply": "Usar preset {preset}: {lineup}",
+      "missing": "Indisponível aqui: {agents}",
+      "delete": "Excluir preset {preset}",
+      "confirm_delete": "Excluir",
+      "save_current": "Salvar como preset",
+      "save_hint": "Guardar esta formação para a próxima vez",
+      "name_placeholder": "Nome, ex. Equipe de revisão",
+      "name_aria": "Nome do preset",
+      "starter_duo": "Dupla",
+      "starter_squad": "Esquadrão",
+      "starter_all": "Um de cada"
+    },
     "run_on": {
       "online": "Continua a correr com este PC desligado",
       "unknown": "Ainda não verificado",
