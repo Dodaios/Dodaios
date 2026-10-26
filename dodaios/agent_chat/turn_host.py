@@ -370,11 +370,18 @@ class TurnHost:
 
     # ------------------------------------------------------------ requests
     async def _spawn(self, frame: dict[str, Any]) -> dict[str, Any]:
+        from dodaios.core.path_augment import ensure_cli_paths
         from dodaios.core.process_utils import NO_WINDOW_CREATIONFLAGS
 
         argv = [str(part) for part in frame.get("argv") or ()]
         if not argv:
             return {"ok": False, "error": "empty argv"}
+        # A turn host can outlive and be reattached by the desktop process that
+        # created it.  In particular, an older host may still carry the PATH it
+        # inherited before the Windows length guard was added.  Repair the
+        # caller's PATH immediately before CreateProcess: changing only the
+        # child environment is too late for WinError 8.
+        ensure_cli_paths()
         env = frame.get("env")
         stdin_data = frame.get("stdin")
         proc = await asyncio.create_subprocess_exec(

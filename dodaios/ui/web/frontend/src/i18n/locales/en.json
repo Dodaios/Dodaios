@@ -7604,6 +7604,13 @@
   "ide_side_panel": {
     "aria": "Side panel",
     "tabs_aria": "Side panel tabs",
+    "split": "Split: show two tabs side by side",
+    "unsplit": "Back to one tab",
+    "split_needs_two": "Open a second tab to split the panel",
+    "split_resize": "Drag to resize the columns (double-click resets)",
+    "drop_left": "Open on the left",
+    "drop_right": "Open on the right",
+    "drag_hint": "Drag onto the left or right half to see two tabs side by side",
     "expand": "Open side panel",
     "collapse": "Close side panel",
     "resize": "Resize side panel",

@@ -154,11 +154,12 @@ async def test_unknown_runtimes_are_refused(fakes):
 
 
 def test_routes_list_status_and_start_jobs(fakes, monkeypatch):
-    import dodaios.agent_runtimes.model_map as model_map
+    import dodaios.claude_auth as claude_auth
     import dodaios.ui.web.agent_runtime_routes as routes
 
-    monkeypatch.setattr(model_map, "claude_login_token", lambda: None)
-    routes._USABLE_CACHE[:] = [float("-inf"), [], []]
+    # No Claude Code: no Claude subscription seat.
+    monkeypatch.setattr(claude_auth.ClaudeAuthService, "_resolve_binary", lambda self: None)
+    routes._USABLE_CACHE[:] = [float("-inf"), [], {}]
     app = FastAPI()
     app.include_router(router)
     app.state.config = SimpleNamespace(brain=SimpleNamespace(providers={}))
@@ -263,11 +264,18 @@ def test_the_ensure_route_starts_what_is_needed(unset):
     assert body["job"]["kind"] == "install"
 
 
-def test_a_claude_login_in_the_api_key_slot_is_not_an_api_key(fakes, monkeypatch):
-    import dodaios.agent_runtimes.model_map as model_map
+def test_a_claude_login_in_the_api_key_slot_is_not_an_api_key(fakes, monkeypatch, tmp_path):
+    import dodaios.claude_auth as claude_auth
     import dodaios.ui.web.agent_runtime_routes as routes
     from dodaios.agent_runtimes.model_map import RouteUnavailable, route_for
+    from tests.fakes import fake_claude_cli
 
+    launcher = fake_claude_cli.install(tmp_path / "bin")
+    monkeypatch.setattr(
+        claude_auth.ClaudeAuthService, "_resolve_binary", lambda self: str(launcher)
+    )
+    account = tmp_path / "claude-account"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(account))
     config = SimpleNamespace(brain=SimpleNamespace(providers={}))
     app = FastAPI()
     app.include_router(router)
@@ -275,36 +283,27 @@ def test_a_claude_login_in_the_api_key_slot_is_not_an_api_key(fakes, monkeypatch
     login = "sk-ant-" + "oat01-" + "x" * 20
     secrets = {"openai": None, "claude-api": login, "openrouter": None, "grok": None,
                "nvidia": None, "gemini": None}
-    # No live Claude Code login: Claude is not offered.
-    monkeypatch.setattr(model_map, "claude_login_token", lambda: None)
-    routes._USABLE_CACHE[:] = [float("-inf"), [], []]
+    # Claude Code is not signed in: Claude is not offered, and the login in
+    # the key slot is never used as a key.
+    fake_claude_cli.sign_in(account, fake_claude_cli.LOGGED_OUT)
+    claude_auth.clear_version_cache()
+    routes._USABLE_CACHE[:] = [float("-inf"), [], {}]
     with override_provider_secrets(secrets):
         body = TestClient(app).get("/api/agent-runtimes").json()
-        with pytest.raises(RouteUnavailable, match="Claude Code login"):
+        with pytest.raises(RouteUnavailable, match="not signed in"):
             route_for(config, "claude-api", "claude-sonnet-5-5")
     assert "claude-api" not in body["supported_providers"]
-    assert body["login_providers"] == []
-    # A live login: Claude is offered, marked as running on the login.
-    import dodaios.agent_runtimes.provider_errors as provider_errors
-
-    monkeypatch.setattr(model_map, "claude_login_token", lambda: login)
-    monkeypatch.setattr(provider_errors, "_REPORTS", {})
-    monkeypatch.setattr(provider_errors, "_claude_usage", lambda token: {})
-    routes._USABLE_CACHE[:] = [float("-inf"), [], []]
+    # Signed in to a plan: Claude is offered, on the plan, never as Extra Usage.
+    fake_claude_cli.sign_in(account, fake_claude_cli.SUBSCRIPTION)
+    claude_auth.clear_version_cache()
+    routes._USABLE_CACHE[:] = [float("-inf"), [], {}]
     with override_provider_secrets(secrets):
         body = TestClient(app).get("/api/agent-runtimes").json()
     assert "claude-api" in body["supported_providers"]
-    assert body["login_providers"] == ["claude-api"]
+    assert body["access"] == {"claude-api": ["subscription"]}
+    assert body["login_providers"] == []
     assert body["access_blocked"] == {}
-    # Extra Usage off: the way exists, the dialog shows it disabled with why.
-    monkeypatch.setattr(provider_errors, "_REPORTS", {})
-    monkeypatch.setattr(
-        provider_errors, "_claude_usage", lambda token: {"extra_usage": {"is_enabled": False}}
-    )
-    routes._USABLE_CACHE[:] = [float("-inf"), [], []]
-    with override_provider_secrets(secrets):
-        body = TestClient(app).get("/api/agent-runtimes").json()
-    assert body["access_blocked"] == {"claude-api": {"subscription": "extra_usage_off"}}
+    claude_auth.clear_version_cache()
 
 
 # ------------------------------------------------- gate, prepare, rollback
