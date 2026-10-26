@@ -30,21 +30,29 @@ export function SandboxChoice({ value, onChange, disabled = false }: {
   </div>;
 }
 
-export function AgentSandboxSection({ agent }: { agent: SocietyAgent }) {
+/**
+ * `choice` is the environment picker alone (the agent pane's placement
+ * section), `files` the sandbox file browser alone (its Files page), `all`
+ * both, as the create dialog and older surfaces use it.
+ */
+export function AgentSandboxSection({ agent, show = "all" }: { agent: SocietyAgent; show?: "all" | "choice" | "files" }) {
   const t = useT();
   const client = useQueryClient();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [path, setPath] = useState(".");
+  // Leaving the sandbox gives the agent this computer's files, shell and
+  // network back: that widening asks once before it is saved.
+  const [confirmLocal, setConfirmLocal] = useState(false);
   const enabled = agent.executionEnvironment === "sandbox";
   const base = `/api/society/agents/${encodeURIComponent(agent.agentId)}/sandbox`;
   const ready = useQuery({
-    queryKey: ["society", "sandbox", "status"], enabled, retry: false,
+    queryKey: ["society", "sandbox", "status"], enabled: enabled && show !== "choice", retry: false,
     queryFn: () => json<{ available: boolean; needs_image: boolean; message: string }>("/api/society/sandbox"),
   });
   const files = useQuery({
     queryKey: ["society", "sandbox", agent.agentId, path],
-    enabled: enabled && ready.data?.available === true, retry: false,
+    enabled: enabled && show !== "choice" && ready.data?.available === true, retry: false,
     queryFn: () => json<{ files: { name: string; directory: boolean }[] }>(`${base}/files?path=${encodeURIComponent(path)}`),
   });
   async function perform(work: () => Promise<unknown>) {
@@ -52,16 +60,28 @@ export function AgentSandboxSection({ agent }: { agent: SocietyAgent }) {
     try { await work(); } catch (exc) { setError(exc instanceof Error ? exc.message : String(exc)); }
     finally { setBusy(false); }
   }
+  const place = (value: "local" | "sandbox") => void perform(async () => {
+    setConfirmLocal(false);
+    await json(`/api/society/agents/${encodeURIComponent(agent.agentId)}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ execution_environment: value }),
+    });
+    await client.invalidateQueries({ queryKey: ["society", "roster"] });
+  });
   return <section className="flex flex-col gap-3" data-testid="agent-sandbox">
-    <SandboxChoice value={enabled ? "sandbox" : "local"} disabled={busy || agent.runtime !== "jarvis" && !!agent.runtime}
-      onChange={(value) => void perform(async () => {
-        await json(`/api/society/agents/${encodeURIComponent(agent.agentId)}`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ execution_environment: value }),
-        });
-        await client.invalidateQueries({ queryKey: ["society", "roster"] });
-      })} />
-    {enabled ? <>
+    {show !== "files" ? <SandboxChoice value={enabled ? "sandbox" : "local"} disabled={busy || agent.runtime !== "jarvis" && !!agent.runtime}
+      onChange={(value) => {
+        if (enabled && value === "local") setConfirmLocal(true);
+        else place(value);
+      }} /> : null}
+    {confirmLocal ? <div role="alertdialog" aria-label={t("society.agent_pane.leave_sandbox")} className="flex flex-col gap-2 rounded-lg border border-warning p-3 text-xs" data-testid="agent-sandbox-confirm-local">
+      <p className="text-foreground">{t("society.agent_pane.leave_sandbox_body")}</p>
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={() => setConfirmLocal(false)}>{t("society.agent_pane.go_back")}</Button>
+        <Button size="sm" onClick={() => place("local")} data-testid="agent-sandbox-confirm-local-yes">{t("society.agent_pane.allow_and_save")}</Button>
+      </div>
+    </div> : null}
+    {enabled && show !== "choice" ? <>
       <p className="text-xs text-muted-foreground">{t("society.sandbox.storage")}</p>
       {ready.isLoading ? <p role="status">{t("society.sandbox.checking")}</p> : null}
       {ready.data?.message ? <p role="status" className="text-xs">{ready.data.message}</p> : null}

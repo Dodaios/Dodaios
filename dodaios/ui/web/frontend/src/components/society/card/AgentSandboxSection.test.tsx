@@ -48,3 +48,21 @@ test("rejected environment selection keeps the saved environment", async () => {
     method: "PATCH", body: JSON.stringify({ execution_environment: "sandbox" }),
   }));
 });
+
+test("leaving the sandbox asks before the agent gets this computer back", async () => {
+  const fetcher = vi.fn(async (url: string, _init?: RequestInit) => new Response(JSON.stringify(
+    url === "/api/society/sandbox" ? { available: true } : { files: [] },
+  )));
+  vi.stubGlobal("fetch", fetcher);
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <AgentSandboxSection agent={agent} show="choice" />
+  </QueryClientProvider>);
+  fireEvent.click(screen.getByRole("combobox"));
+  fireEvent.click(await screen.findByRole("option", { name: "society.sandbox.local" }));
+  expect(await screen.findByTestId("agent-sandbox-confirm-local")).toBeTruthy();
+  expect(fetcher.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")).toBe(false);
+  fireEvent.click(screen.getByTestId("agent-sandbox-confirm-local-yes"));
+  await waitFor(() => expect(fetcher).toHaveBeenCalledWith("/api/society/agents/sandbox-user", expect.objectContaining({
+    method: "PATCH", body: JSON.stringify({ execution_environment: "local" }),
+  })));
+});

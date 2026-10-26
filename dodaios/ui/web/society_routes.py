@@ -1435,6 +1435,55 @@ async def promote_agent_skill(agent_id: str, slug: str, request: Request) -> dic
     return {"promoted": str(target), "state": "draft"}
 
 
+# ---------------------------------------------------------- learning review
+
+
+@router.get("/agents/{agent_id}/review-queue", openapi_extra={"x-jarvis-readonly": True})
+async def agent_review_queue(agent_id: str, request: Request) -> dict[str, Any]:
+    """What this agent proposed or wrote that waits for the person (agent pane)."""
+    from dodaios.society.learning_review import queue
+
+    rt = await _runtime(request)
+    agent = await rt.roster.resolve(agent_id)
+    if agent is None:
+        raise HTTPException(404, {"reason": str(FailureReason.TARGET_UNKNOWN)})
+    return await queue(rt, agent)
+
+
+@router.post(
+    "/agents/{agent_id}/review/{item_id}/{decision}",
+    openapi_extra={"x-jarvis-dangerous": True},
+)
+async def decide_review_item(
+    agent_id: str,
+    item_id: str,
+    decision: Literal["approve", "reject"],
+    request: Request,
+) -> dict[str, Any]:
+    """Approve or reject one review item; a proposal goes through its own resolve path."""
+    from dodaios.society.learning_review import ReviewRefused, decide
+
+    rt = await _runtime(request)
+    agent = await rt.roster.resolve(agent_id)
+    if agent is None:
+        raise HTTPException(404, {"reason": str(FailureReason.TARGET_UNKNOWN)})
+    try:
+        return await decide(
+            rt,
+            agent,
+            item_id,
+            approve=decision == "approve",
+            task_store=getattr(request.app.state, "task_store", None),
+            scheduler=getattr(request.app.state, "task_scheduler", None),
+        )
+    except KeyError as exc:
+        raise HTTPException(404, {"reason": str(FailureReason.TARGET_UNKNOWN)}) from exc
+    except ReviewRefused as exc:
+        raise HTTPException(
+            409, {"reason": str(FailureReason.BLOCKED_BY_POLICY), "detail": str(exc)}
+        ) from exc
+
+
 # ----------------------------------------------------------------- browser
 
 

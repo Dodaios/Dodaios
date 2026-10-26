@@ -125,6 +125,13 @@ WITHHELD: Final[dict[str, str]] = {
         "confirming a proposal changes an agent's rules, routines or skills — the "
         "owner's decision at their own keyboard, never a remote client's"
     ),
+    "GET /api/society/agents/{agent_id}/review-queue": (
+        "the learning review queue is the owner's view in the agent's details pane"
+    ),
+    "POST /api/society/agents/{agent_id}/review/{item_id}/{decision}": (
+        "approving or rejecting what an agent learned is the owner's decision, "
+        "never a remote client's"
+    ),
     "POST /api/society/onboarding/start": (
         "the one-time team offer is onboarding UI in the lead's chat, not an API verb"
     ),
