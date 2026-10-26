@@ -89,9 +89,10 @@ and one undoer for each of the four kinds, and the event subscriptions below.
 | `loop.py` | event intake, the gate, the decide queue, use counting, maintenance |
 
 **Observe.** Inputs are finished voice turns (`VoiceTurnCompleted`), the
-person's own typed turns in the Jarvis chat and agent chats (the chat
-surfaces' completion hook; turns an agent or routine started are dropped), and
-the prompts the person types to coding agents in the IDE (channel `pane`).
+person's own typed turns in the Jarvis chat, agent chats, the IDE's side chat
+(channel `side`) and the IDE's agent chat (channel `pane`) (the chat surfaces'
+completion hook; turns an agent or routine started are dropped), and the
+prompts the person gives coding agents in the IDE (channel `pane`).
 Only the person's words are stored; tool names are kept as context, and the
 assistant's answer is read once for memory use (below), never stored.
 Requests are grouped by six-letter stems of their content words (the skill
@@ -126,8 +127,27 @@ contents is skipped. The route tells the loop when such a prompt was stored,
 and each pass reads a history file from where the last one stopped, so a
 prompt is filed once; the maintenance pass catches a missed notice. While the
 loop is paused or off the read position still moves, so nothing typed then is
-filed later. Prompts typed straight into a terminal (not through the app) are
-not in the history and are not counted.
+filed later.
+
+**Prompts typed into a pane.** Most work in the IDE is typed or dictated
+straight into a pane's terminal, which the prompt history does not see. A
+Claude pane reports each prompt its CLI accepts through a `UserPromptSubmit`
+hook (`agentic_ide/claude_session_hook.py`, next to the session hook; it
+prints nothing, because that hook's output would join the prompt) into
+`<pane>.prompts.jsonl` in the panes' state folder. Such a prompt is the
+person's only when they pressed Enter in that pane's own window before it
+(within 30 minutes: a prompt typed while the agent works is reported when its
+turn starts); each Enter confirms one prompt. A prompt that matches one the
+IDE itself sent to the pane (its prompt history) is skipped, as are slash
+commands, shell lines, machine-made messages and steering with fewer than
+three content words ("continue"). Other coding CLIs have no such hook; their
+directly typed prompts are not counted.
+
+Read offsets are kept per file; offsets of files that are gone or untouched
+for longer than the 28-day window are pruned in the maintenance pass, and
+files that old get none. The prompt history and the panes' state folder are
+per instance, so a dev instance never feeds the main app's loop, and the test
+suite redirects both.
 
 **Agent chats.** A request typed to a society agent is filed like any other
 turn and also counts as a use of a self-built agent. Whose need it is follows

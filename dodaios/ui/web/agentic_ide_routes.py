@@ -144,7 +144,7 @@ from dodaios.agentic_ide.session import (
     terminals_added_event,
     workspace_changed_event,
 )
-from dodaios.agentic_ide.terminal_input import is_terminal_report_only
+from dodaios.agentic_ide.terminal_input import classify_terminal_input, is_terminal_report_only
 from dodaios.agentic_ide.workspace_view import (
     WORKSPACE_VIEWS,
     view_from_legacy_chat_flag,
@@ -5756,9 +5756,16 @@ async def agentic_pty(ws: WebSocket, name: str) -> None:
                         term.name,
                     )
                 else:
-                    registry.write(term.key, data, pane_workspace)
+                    pasting = term.bracketed_paste_active
+                    written = registry.write(term.key, data, pane_workspace)
                     # The pane's own viewer: the person at the keyboard.
                     presence.note(presence.PANE)
+                    if written and classify_terminal_input(data, pasting)[0]:
+                        # The person pressed Enter here: the prompt the pane's
+                        # CLI reports next is theirs (self-building loop).
+                        from dodaios.self_build.app import pane_keyboard_submit
+
+                        pane_keyboard_submit(term.history_id)
             elif kind == "r":
                 # ``on_output`` identifies THIS socket. A pane open in two
                 # places has two viewers and one pseudo-terminal, so a size

@@ -91,6 +91,9 @@ class Env:
     agent_skills: Callable[[str], list[Any]] = lambda _agent_id: []
     #: The folder of the IDE's per-pane prompt histories; ``None`` reads none.
     pane_history: Callable[[], Path | None] = lambda: None
+    #: The folder of the prompts Claude panes report as typed
+    #: (``<pane>.prompts.jsonl``, ``agentic_ide/claude_session_hook.py``).
+    pane_typed: Callable[[], Path | None] = lambda: None
     #: Runs a drafted skill's steps read-only on one request; ``None`` is
     #: :func:`.sandbox.run` (tests pass their own).
     run_skill: Callable[..., Awaitable[Any]] | None = None
