@@ -63,7 +63,7 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, get_args
 
@@ -1003,6 +1003,11 @@ class PaneChangedFileItem(ChangedFileItem):
     diff: PaneFileDiffItem | None = Field(
         default=None, description="Its diff against the base; null when it is read on demand."
     )
+    checkout: str = Field(
+        default="",
+        description="The worktree the agent made and changed it in; empty: the pane folder.",
+    )
+    base: str = Field(default="", description="The commit this file is compared with.")
 
 
 class PaneChangesResponse(BaseModel):
@@ -1865,28 +1870,101 @@ def _pane_of(workspace_id: str, name: str) -> tuple[Any, Any]:
     return session, term
 
 
-def _read_pane_changes(
-    folder: str, record: change_authors.PaneRecord | None
-) -> tuple[pane_changes.PaneWork, str | None, int, pane_changes.PaneListing]:
-    """(the agent's work, the base it is compared with, generated files left out, listing)."""
-    events: list[dict[str, Any]] = []
-    if record is not None:
-        try:
-            events = (
-                agent_transcript.read_events(record.agent, record.session_id, home=record.home)
-                or []
-            )
-        except Exception as exc:  # a record the CLI rewrote mid-read: an empty review this time
-            log.info("Pane changes: %s record unreadable: %s", record.pane, exc)
-    work = pane_changes.pane_work(folder, events, record.folder if record else None)
+def _pane_events(record: change_authors.PaneRecord | None) -> list[dict[str, Any]]:
+    if record is None:
+        return []
+    try:
+        return agent_transcript.read_events(record.agent, record.session_id, home=record.home) or []
+    except Exception as exc:  # a record the CLI rewrote mid-read: an empty review this time
+        log.info("Pane changes: %s record unreadable: %s", record.pane, exc)
+        return []
+
+
+#: The worktrees each pane's agent made and worked in:
+#: ``{(workspace, pane): (monotonic s, [(name, folder), ...])}``.
+_agent_checkouts: dict[tuple[str, str], tuple[float, list[tuple[str, str]]]] = {}
+_AGENT_CHECKOUTS_TTL_S = 600.0
+
+
+def _agent_checkouts_of(
+    workspace_id: str,
+    session: Any,
+    term: Any,
+    events: list[dict[str, Any]] | None = None,
+) -> list[tuple[str, str]]:
+    """``(name, folder)`` of the worktrees a pane's agent made and worked in.
+
+    An agent may start in the shared folder and then work in worktrees it made
+    itself; the shared folder shows none of that work. A pane on a worktree of
+    its own is read there alone.
+    """
+    if term.folder:
+        return []
+    key = (workspace_id, term.name)
+    record = _pane_record(session, term)
+    if events is None:
+        cached = _agent_checkouts.get(key)
+        if cached is not None and time.monotonic() - cached[0] < _AGENT_CHECKOUTS_TTL_S:
+            return cached[1]
+        events = _pane_events(record)
+    found = pane_changes.agent_worktrees(
+        session.folder, events, record.folder if record else None
+    )
+    checkouts = [(name, str(folder)) for name, folder in found]
+    _agent_checkouts[key] = (time.monotonic(), checkouts)
+    return checkouts
+
+
+def _checkout_folder(workspace_id: str, session: Any, term: Any, checkout: str) -> str:
+    """The folder one review file lives in: the pane's own, or a worktree its agent made."""
+    if not checkout:
+        return str(term.folder or session.folder)
+    for name, folder in _agent_checkouts_of(workspace_id, session, term):
+        if name == checkout:
+            return folder
+    raise HTTPException(status_code=404, detail="This pane's agent did not work in that worktree.")
+
+
+@dataclass(slots=True)
+class _CheckoutReading:
+    """One checkout's share of a pane's review."""
+
+    checkout: str
+    work: pane_changes.PaneWork
+    base: str | None
+    generated: set[str]
+    listing: pane_changes.PaneListing
+
+
+def _read_checkout(
+    checkout: str, folder: str, events: list[dict[str, Any]], record_folder: str | None
+) -> _CheckoutReading:
+    work = pane_changes.pane_work(folder, events, record_folder)
     with ThreadPoolExecutor(max_workers=2) as pool:
         generated_job = pool.submit(pane_changes.generated_paths, folder, set(work.files))
         base_job = pool.submit(pane_changes.session_base, folder, work.since_ms)
         generated, base = generated_job.result(), base_job.result()
     wanted = set(work.files) - generated
     if not wanted or not base:
-        return work, base if wanted else None, len(generated), pane_changes.PaneListing()
-    return work, base, len(generated), pane_changes.pane_changes(folder, wanted, base)
+        empty = pane_changes.PaneListing()
+        return _CheckoutReading(checkout, work, base if wanted else None, generated, empty)
+    listing = pane_changes.pane_changes(folder, wanted, base)
+    return _CheckoutReading(checkout, work, base, generated, listing)
+
+
+def _read_pane_changes(workspace_id: str, session: Any, term: Any) -> list[_CheckoutReading]:
+    """The pane's folder first, then every worktree its agent made and worked in."""
+    record = _pane_record(session, term)
+    events = _pane_events(record)
+    record_folder = record.folder if record else None
+    checkouts = [("", str(term.folder or session.folder))]
+    checkouts += _agent_checkouts_of(workspace_id, session, term, events)
+    with ThreadPoolExecutor(max_workers=max(1, min(4, len(checkouts)))) as pool:
+        jobs = [
+            pool.submit(_read_checkout, name, folder, events, record_folder)
+            for name, folder in checkouts
+        ]
+        return [job.result() for job in jobs]
 
 
 def _diff_item(diff: git_changes.FileDiff | None) -> PaneFileDiffItem | None:
@@ -1908,45 +1986,51 @@ async def get_pane_changes(workspace_id: str, name: str) -> PaneChangesResponse:
     The files are the ones its agent's own record names as written; each is
     compared with the code before the agent's first write (``base``), so work
     it already committed shows as well as work still pending. A pane on its
-    own worktree is read in that worktree. A pane whose record cannot be read
-    answers an empty list.
+    own worktree is read in that worktree, and so is a worktree its agent made
+    and worked in. A pane whose record cannot be read answers an empty list.
     """
     session, term = _pane_of(workspace_id, name)
     folder = term.folder or session.folder
     # The repository check and the record's reading run side by side.
-    changes, (work, base, generated, listing) = await asyncio.gather(
+    changes, readings = await asyncio.gather(
         asyncio.to_thread(git_changes.workspace_changes, folder, set()),
-        asyncio.to_thread(_read_pane_changes, folder, _pane_record(session, term)),
+        asyncio.to_thread(_read_pane_changes, workspace_id, session, term),
     )
     if not changes.available:
         return PaneChangesResponse(
             workspace_id=workspace_id, available=False, reason=changes.reason
         )
+    files = [
+        PaneChangedFileItem(
+            **asdict(item),
+            authors=[
+                ChangeAuthorItem(
+                    pane=term.name,
+                    history_id=term.history_id,
+                    agent=term.agent,
+                    display_name=term.display_name,
+                    last_edit_ms=reading.work.files.get(item.path, 0),
+                )
+            ],
+            committed=item.path not in reading.listing.pending,
+            diff=_diff_item(reading.listing.diffs.get(item.path)),
+            checkout=reading.checkout,
+            base=reading.base or "",
+        )
+        for reading in readings
+        for item in reading.listing.files
+    ]
+    starts = [reading.work.since_ms for reading in readings if reading.work.since_ms > 0]
+    generated = {path for reading in readings for path in reading.generated}
     return PaneChangesResponse(
         workspace_id=workspace_id,
         available=True,
         branch=changes.branch,
-        files=[
-            PaneChangedFileItem(
-                **asdict(item),
-                authors=[
-                    ChangeAuthorItem(
-                        pane=term.name,
-                        history_id=term.history_id,
-                        agent=term.agent,
-                        display_name=term.display_name,
-                        last_edit_ms=work.files.get(item.path, 0),
-                    )
-                ],
-                committed=item.path not in listing.pending,
-                diff=_diff_item(listing.diffs.get(item.path)),
-            )
-            for item in listing.files
-        ],
-        truncated=listing.truncated,
-        base=base or "",
-        since_ms=work.since_ms,
-        generated=generated,
+        files=files,
+        truncated=any(reading.listing.truncated for reading in readings),
+        base=readings[0].base or "",
+        since_ms=min(starts, default=0),
+        generated=len(generated),
     )
 
 
@@ -1956,11 +2040,14 @@ async def get_pane_changes(workspace_id: str, name: str) -> PaneChangesResponse:
     summary="How one file a pane's agent changed differs from the code before it",
 )
 async def get_pane_file_diff(
-    workspace_id: str, name: str, path: str, base: str
+    workspace_id: str, name: str, path: str, base: str, checkout: str = ""
 ) -> WorkspaceFileDiffResponse:
-    """One file of the pane's review, against the ``base`` its list answered."""
+    """One file of the pane's review, against the ``base`` its list answered.
+
+    ``checkout`` names the worktree the file lives in, as the list said.
+    """
     session, term = _pane_of(workspace_id, name)
-    folder = term.folder or session.folder
+    folder = await asyncio.to_thread(_checkout_folder, workspace_id, session, term, checkout)
     try:
         diff = await asyncio.to_thread(pane_changes.pane_file_diff, folder, path, base)
     except ValueError as exc:
