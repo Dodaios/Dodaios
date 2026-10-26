@@ -336,6 +336,22 @@ export const RESIZE_PARSE_WAIT_MS = 250;
 export const DRAG_REFIT_MS = 200;
 
 /**
+ * How long a NARROWER tile must hold before the pane and its agent take it.
+ *
+ * Switching a layout passes through widths nobody chose: every pane of a
+ * workspace was squeezed to 15-16 columns for about a second and then widened
+ * back to 46 (recorded 2026-10-26). Claude Code sizes the live output box of a
+ * running command for the width it sees and never shrinks that box while the
+ * command runs, so one such second left 36 blank rows in the middle of the pane
+ * until the command ended; finished blocks showed the same kind of gap. No
+ * resize afterwards brings the space back. A narrowing that is undone within
+ * this window therefore never reaches the agent; one that stays is applied
+ * after it. Widening is not held, and neither are the deliberate refits (drag
+ * release, a pane returning to the stage, a font change).
+ */
+export const NARROW_SETTLE_MS = 1_500;
+
+/**
  * How long a call-sign may be — the same cap the backend enforces
  * (`MAX_TERMINAL_NAME`), so the field stops where the save would have failed
  * rather than letting somebody type a name that comes back rejected.
@@ -2336,6 +2352,54 @@ export function AgenticTerminal({
     // to drop it when the pane goes away. See ./paneReflowQueue for why panes
     // must not reflow in the same frame as each other.
     const reflow = () => sendResize();
+    /** The narrower width this pane is waiting to see hold (NARROW_SETTLE_MS). */
+    let narrowCols: number | null = null;
+    let narrowTimer: number | undefined;
+    const clearNarrowHold = () => {
+      narrowCols = null;
+      if (narrowTimer !== undefined) window.clearTimeout(narrowTimer);
+      narrowTimer = undefined;
+    };
+    /**
+     * The observer's refit: a wider tile is taken at once, a narrower one only
+     * once it has held for NARROW_SETTLE_MS (see there for why).
+     */
+    const observedReflow = () => {
+      if (disposed) return;
+      let proposedCols: number | undefined;
+      // Only a pane that already gave its agent a size can hold one back; the
+      // first fit after mount is never a transient.
+      if (sentSize && measurable() && activeRef.current) {
+        try {
+          proposedCols = fit.proposeDimensions()?.cols;
+        } catch {
+          proposedCols = undefined;
+        }
+      }
+      const cols =
+        proposedCols !== undefined && Number.isFinite(proposedCols)
+          ? Math.max(proposedCols, MIN_REAL_COLS)
+          : undefined;
+      if (cols === undefined || cols >= term.cols) {
+        clearNarrowHold();
+        sendResize();
+        return;
+      }
+      if (cols === narrowCols) {
+        // Held for the whole window: the tile really is this narrow now.
+        if (narrowTimer === undefined) {
+          narrowCols = null;
+          sendResize();
+        }
+        return;
+      }
+      clearNarrowHold();
+      narrowCols = cols;
+      narrowTimer = window.setTimeout(() => {
+        narrowTimer = undefined;
+        queuePaneReflow(observedReflow);
+      }, NARROW_SETTLE_MS);
+    };
     const scheduleResize = () => {
       // While a seam or the prompt bar is being dragged the pane still
       // follows, but on a leash: at most one refit per DRAG_REFIT_MS, so the
@@ -2356,7 +2420,7 @@ export function AgenticTerminal({
       if (resizeTimer !== undefined) window.clearTimeout(resizeTimer);
       resizeTimer = window.setTimeout(() => {
         resizeTimer = undefined;
-        queuePaneReflow(reflow);
+        queuePaneReflow(observedReflow);
       }, 80);
     };
 
@@ -2456,6 +2520,8 @@ export function AgenticTerminal({
       // A queued reflow outlives the pane by up to a frame, and would then fit
       // a disposed terminal inside a detached element.
       cancelPaneReflow(reflow);
+      cancelPaneReflow(observedReflow);
+      clearNarrowHold();
       window.removeEventListener("resize", scheduleResize);
       window.removeEventListener("focus", claimResize);
       window.removeEventListener("pointermove", reclaimOnGesture);
