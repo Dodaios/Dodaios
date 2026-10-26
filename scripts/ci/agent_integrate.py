@@ -15,7 +15,11 @@ Conflicts are resolved by file class, cheapest first:
 1. **Generated files** (frontend ``dist/``, the .claude / .codex copies of
    .agents, the CLI reference docs, lockfiles, timing caches): take main's
    copy, then REGENERATE from the merged sources. A hand-merge of generated
-   output is always wrong; a regeneration is always right.
+   output is always wrong; a regeneration is always right. The frontend
+   bundle is the exception: a branch never carries its own build. Every
+   update puts main's ``dist/`` back (``pin_bundle``) and the Frontend bundle
+   workflow rebuilds it on main after the merge, so two frontend pull
+   requests can no longer knock each other out of the merge queue.
 2. **Append-only files** (CHANGELOG.md, allowlists, .gitignore): a union
    merge keeps both sides' lines.
 3. **Everything else**: handed to an optional resolver command
@@ -69,7 +73,8 @@ FRONTEND = "dodaios/ui/web/frontend"
 
 # (glob, regenerator key). Main's copy is taken, then the key regenerates it.
 GENERATED: tuple[tuple[str, str], ...] = (
-    ("dodaios/ui/web/dist/*", "frontend-build"),
+    # No regenerator: the branch keeps main's bundle (see ``pin_bundle``).
+    ("dodaios/ui/web/dist/*", ""),
     ("docs/dodaios-cli-reference.md", "reference-docs"),
     ("docs/commands-reference.md", "reference-docs"),
     (f"{FRONTEND}/package-lock.json", "npm-lock"),
@@ -90,6 +95,10 @@ UNION: tuple[str, ...] = (
 OLD_PACKAGE = "jarvis"
 NEW_PACKAGE = "dodaios"
 RENAME_SCRIPT = "scripts/rename/rewrite_package.py"
+BUNDLE_DIR = "dodaios/ui/web/dist"
+# The one branch that does carry a bundle: the Frontend bundle workflow's
+# rebuild of main (.github/workflows/frontend-bundle.yml).
+BUNDLE_BOT_BRANCH = "bot/frontend-bundle"
 AGENT_BRANCH_PREFIXES = ("codex/", "claude/", "agent/", "agents/", "gemini/", "cursor/", "bot/")
 OPT_OUT_LABELS = {"no-auto-merge", "do-not-merge", "wip", "needs-human"}
 OPT_IN_LABEL = "auto-merge"
@@ -213,6 +222,36 @@ def take_side(path: str, side: str, cwd: Path) -> None:
         (cwd / path).unlink(missing_ok=True)
         return
     git("add", "--", path, cwd=cwd)
+
+
+def pin_bundle(onto: str, cwd: Path, branch: str = "") -> bool:
+    """Give HEAD the frontend bundle of ``onto`` and commit that if it changes
+    anything. Returns whether a commit was made.
+
+    The bundle is built from main by the Frontend bundle workflow after each
+    merge. A branch that carries its own build conflicts with every other
+    frontend pull request the moment one of them lands, and the merge queue
+    ejects it, so its copy is dropped here. The workflow's own branch keeps
+    its build: that build is the point of it.
+    """
+    if not branch:
+        branch = git("rev-parse", "--abbrev-ref", "HEAD", check=False, cwd=cwd).stdout.strip()
+    if branch == BUNDLE_BOT_BRANCH:
+        return False
+    if not git("diff", "--quiet", onto, "HEAD", "--", BUNDLE_DIR, check=False, cwd=cwd).returncode:
+        return False
+    git("rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", BUNDLE_DIR, cwd=cwd)
+    if _in_tree(onto, BUNDLE_DIR, cwd):
+        git("checkout", onto, "--", BUNDLE_DIR, cwd=cwd)
+    commit = git(
+        "commit",
+        "-q",
+        "-m",
+        "chore: keep main's frontend bundle, it is rebuilt on main after the merge",
+        check=False,
+        cwd=cwd,
+    )
+    return commit.returncode == 0
 
 
 def regenerate(keys: set[str], cwd: Path) -> list[str]:
@@ -478,6 +517,8 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
     """Update HEAD with ``onto``. Returns a JSON-able report; ``status`` is
     ``up-to-date`` | ``updated`` | ``conflict``."""
     if git("merge-base", "--is-ancestor", onto, "HEAD", check=False, cwd=cwd).returncode == 0:
+        if pin_bundle(onto, cwd):
+            return {"status": "updated", "bundle": "kept main's"}
         return {"status": "up-to-date"}
     report: dict[str, object] = {"status": "updated", "resolved": [], "ai_resolved": []}
     regen: set[str] = set()
@@ -542,6 +583,8 @@ def update(onto: str, mode: str, resolver_cmd: str, cwd: Path = REPO_ROOT) -> di
         if outcome is None:
             return {"status": "conflict", "unresolved": ["<regenerated files rejected>"]}
         report.update(outcome)
+    if pin_bundle(onto, cwd):
+        report["bundle"] = "kept main's"
     report["resolved"] = sorted(set(resolved))
     report["ai_resolved"] = sorted(set(ai))
     return report
@@ -1289,7 +1332,13 @@ def merge_main_into(
     git("worktree", "add", "--quiet", "--detach", str(wt), head, cwd=checkout)
     if git("merge-base", "--is-ancestor", main_sha, "HEAD", check=False, cwd=wt).returncode == 0:
         return {"status": "up-to-date"}
-    state: dict[str, object] = {"status": "merged", "resolved": [], "ai_resolved": [], "regen": []}
+    state: dict[str, object] = {
+        "status": "merged",
+        "branch": branch,
+        "resolved": [],
+        "ai_resolved": [],
+        "regen": [],
+    }
     moved = package_move(main_sha, wt)
     if moved:
         before, move = moved
@@ -1382,6 +1431,8 @@ def _finish_one(root: Path, wt: Path, number: int, state: dict, known: tuple[str
         if outcome is None:
             return {**state, "status": "conflict", "unresolved": ["<regenerated files rejected>"]}
         state = {**state, **outcome}
+    if pin_bundle(str(state.get("onto") or known[1]), wt, str(state.get("branch", ""))):
+        state = {**state, "bundle": "kept main's"}
     ref = f"refs/train/pr-{number}"
     git("update-ref", ref, "HEAD", cwd=wt)
     bundle = root / "bundles" / f"pr-{number}.bundle"
