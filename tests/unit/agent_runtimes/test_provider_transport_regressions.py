@@ -62,9 +62,11 @@ async def test_claude_cache_preserves_oauth_header_and_stream_usage(
     monkeypatch, intermediate_usage,
 ):
     monkeypatch.setenv("JARVIS_ANTHROPIC_PROMPT_CACHE", "1")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     wire = AnthropicWire()
     wire.intermediate_usage = intermediate_usage
-    async with AsyncAnthropic(api_key="", auth_token="test-only",  # noqa: S106 - local fake
+    # Only the bearer: newer SDKs refuse an api_key and an auth_token together.
+    async with AsyncAnthropic(auth_token="test-only",  # noqa: S106 - local fake
         default_headers={"anthropic-beta": "oauth-2025-04-20"},
         http_client=wire.client(),
     ) as client:
