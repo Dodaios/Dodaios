@@ -68,7 +68,7 @@ it("switches to Map and back without losing the selected agent or draft", async 
   fireEvent.click(screen.getByText("Select specialist"));
   const draft = screen.getByLabelText("Draft") as HTMLInputElement;
   fireEvent.change(draft, { target: { value: "Unsent message" } });
-  fireEvent.click(screen.getByRole("tab", { name: "society.world.mode_map" }));
+  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
   const map = await screen.findByTestId("map");
   expect(map.dataset.active).toBe("true");
   fireEvent.click(screen.getByRole("tab", { name: "society.roster.title" }));
@@ -78,7 +78,7 @@ it("switches to Map and back without losing the selected agent or draft", async 
   expect(draft.value).toBe("Unsent message");
   expect(screen.getByTestId("map")).toBe(map);
   expect(map.dataset.active).toBe("false");
-  fireEvent.click(screen.getByRole("tab", { name: "society.world.mode_map" }));
+  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
   expect(screen.getByTestId("map")).toBe(map);
   expect(map.dataset.active).toBe("true");
   expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("false");
@@ -97,7 +97,7 @@ it("restores the most recently selected agent after the view is remounted", () =
 
 it("opens map selections in Agents and keeps creation available", async () => {
   render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.world.mode_map" }));
+  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
   fireEvent.click(await screen.findByText("Map specialist"));
   expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");
   expect(screen.getByText("Specialist")).toBeTruthy();
@@ -128,8 +128,8 @@ it("keeps the Map/Agents switch in the caption in both modes", async () => {
   // straight under the caption, the switch rides centered in it.
   expect(screen.queryByRole("button", { name: "settings_hub.back_to_app" })).toBeNull();
   const captionSwitch = screen.getByTestId("mode-switch");
-  expect(within(captionSwitch).getByRole("tab", { name: "society.world.mode_map" })).toBeTruthy();
-  fireEvent.click(within(captionSwitch).getByRole("tab", { name: "society.world.mode_map" }));
+  expect(within(captionSwitch).getByRole("tab", { name: "society.shell.mode_verse" })).toBeTruthy();
+  fireEvent.click(within(captionSwitch).getByRole("tab", { name: "society.shell.mode_verse" }));
   await screen.findByTestId("map");
   // Map mode takes the native window fullscreen: the switch stays in the
   // caption instead of shrinking into the map HUD, so Agents stays reachable.
@@ -151,7 +151,7 @@ it("navigates back through the window caption instead of a sections toggle", () 
 
 it("leaves Map on Escape without requesting native fullscreen in a browser", async () => {
   render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.world.mode_map" }));
+  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
   await screen.findByTestId("map");
   expect(setMapFullscreen).not.toHaveBeenCalledWith(true);
   fireEvent.keyDown(document, { key: "Escape" });
@@ -166,7 +166,7 @@ it("shows no station shortcut in Agents mode", () => {
 
 it("does not discard a Mars form when Escape belongs to its input", async () => {
   render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.world.mode_map" }));
+  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
   const field = await screen.findByLabelText("Mars draft");
   fireEvent.change(field, { target: { value: "Unsent station draft" } });
   fireEvent.keyDown(field, { key: "Escape" });
@@ -178,7 +178,7 @@ it("does not discard a Mars form when Escape belongs to its input", async () => 
 
 it.each(["Mars draft", "Player viewport", "Follow viewport"])("preserves focused %s when the browser exits fullscreen without a keydown", async (target) => {
   render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.world.mode_map" }));
+  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
   const field = await screen.findByLabelText("Mars draft");
   fireEvent.change(field, { target: { value: "Unsent station draft" } });
   const focused = target === "Mars draft" ? field : screen.getByText(target);
@@ -194,7 +194,7 @@ it.each(["Mars draft", "Player viewport", "Follow viewport"])("preserves focused
 
 it("still leaves the ordinary map when browser fullscreen exits", async () => {
   render(<SocietyView />);
-  fireEvent.click(screen.getByRole("tab", { name: "society.world.mode_map" }));
+  fireEvent.click(screen.getByRole("tab", { name: "society.shell.mode_verse" }));
   await screen.findByTestId("map");
   fireEvent(document, new Event("fullscreenchange"));
   expect(screen.getByTestId("society-world-surface").getAttribute("aria-hidden")).toBe("true");

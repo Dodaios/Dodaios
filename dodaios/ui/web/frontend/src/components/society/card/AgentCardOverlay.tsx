@@ -1,24 +1,26 @@
 /**
- * The agent card is a chat workspace: agent selection, conversation and actions.
- * The workspace can be embedded in the section or opened as a modal.
- * Radix Dialog provides focus containment and Escape-to-close.
+ * The agent workspace: the roster, the open agent's chat under its header,
+ * and its details pane, in the three-region frame of `AgentChatLayout`.
+ * It can be embedded in the section or opened as a modal; Radix Dialog
+ * provides focus containment and Escape-to-close for the modal.
  */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { useLocaleChunk, useT } from "@/i18n";
 import { societyDisplayName } from "@/lib/societyDisplayName";
 import { useEventStore } from "@/store/events";
 
-import { AgentSwatch } from "../AgentSwatch";
 import type { SocietyAgent } from "../data";
-import { AgentChatPanel } from "../chat/AgentChatPanel";
+import { AgentChatPanel, useSocietyChatStore } from "../chat/AgentChatPanel";
 import { RosterRail } from "../roster/RosterRail";
+import { useRosterActivity } from "../roster/useRosterActivity";
 import type { SocietyChatGroup } from "@/lib/societyChatGroups";
 import { OptionsRail } from "./OptionsRail";
 import { AgentChatLayout } from "./AgentChatLayout";
+import { AgentHeader } from "./AgentHeader";
+import { HeaderModelSlotContext } from "./headerModelSlot";
 
 export interface AgentCardOverlayProps {
   agent: SocietyAgent | null;
@@ -43,6 +45,8 @@ export interface AgentCardOverlayProps {
   embedded?: boolean;
   /** Drawn at the top of the agent list, in the gray column. */
   railHeader?: ReactNode;
+  /** The section-wide roster shortcuts listen while this is true (the section is on screen). */
+  active?: boolean;
 }
 
 export function AgentCardOverlay({
@@ -60,76 +64,67 @@ export function AgentCardOverlay({
   onClose,
   embedded = false,
   railHeader,
+  active = true,
 }: AgentCardOverlayProps) {
   const t = useT();
   useLocaleChunk("society");
   const assistantName = useEventStore((s) => s.assistantName);
   const displayName = agent ? societyDisplayName(agent, assistantName) : "";
-  // The modal keeps a real dialog title plus its close control. The embedded
-  // workspace hides this row entirely: the left rail already marks the active
-  // agent and the right rail names it, so the row was a second, boring band.
+  const activity = useRosterActivity(roster, useSocietyChatStore);
+  const [modelSaving, setModelSaving] = useState(false);
   const Title = embedded ? "h2" : Dialog.Title;
   const Description = embedded ? "p" : Dialog.Description;
-  const content = (
+  const content = agent ? (
     <>
-      {agent ? (
-        <>
-          {!embedded && (
-          <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5">
-            <div data-testid="agent-card-identity" className="flex min-w-0 flex-1 items-center gap-2">
-              <AgentSwatch agent={agent} size={32} />
-              <div className="min-w-0 flex-1">
-                <Title className="truncate font-display text-base font-semibold tracking-tight text-foreground">
-                  {displayName}
-                </Title>
-                <Description className="truncate text-xs text-muted-foreground">
-                  {agent.title}
-                </Description>
-              </div>
-            </div>
-            <Badge variant="outline">{t(`society.state.${agent.state}`)}</Badge>
-            <button type="button" onClick={onClose} aria-label={t("society.card.close")}
-              className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground">
-              <X className="h-4 w-4" aria-hidden />
-            </button>
-          </header>
-          )}
-          <div className="agent-card-columns grid min-h-0 flex-1 grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
-            <RosterRail
-              agents={roster}
-              groups={groups}
-              onOpenGroup={onSelectGroup}
-              onGroupAgents={onGroupAgents}
-              onAddAgentToGroup={onAddAgentToGroup}
-              loading={rosterLoading}
-              teamsPending={teamsPending}
-              sample={sample}
-              activeAgentId={agent.agentId}
-              onOpen={(id) => { if (id !== agent.agentId) onSelectAgent?.(id); }}
-              onCreate={() => onCreate?.()}
-              side="left"
-              className="w-full border-0 jarvis-nav-surface"
-              header={railHeader}
-            />
-            {/* Inner reading pane: same ground, divider and corner as the
-                window sheet, but WITHOUT its top border. Top + left borders
-                meet exactly at the rounded corner, and on a fractional grid
-                seam that joint rasterizes as a small step. The gray caption
-                above already separates by ground, so one border is enough. */}
-            <AgentChatLayout options={<OptionsRail agent={agent} onRetired={onClose} sample={sample} />}>
-            <section
-              className="flex min-h-0 min-w-0 flex-col"
-              aria-label={t("society.card.chat")}
-              data-testid="agent-card-chat"
-            >
-              <AgentChatPanel key={agent.agentId} agent={agent} roster={roster} />
-            </section>
-            </AgentChatLayout>
+      {!embedded && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5">
+          <div data-testid="agent-card-identity" className="min-w-0 flex-1">
+            <Title className="truncate font-display text-sm font-semibold tracking-tight text-foreground">{displayName}</Title>
+            <Description className="sr-only">{agent.title}</Description>
           </div>
-        </>
-      ) : null}
+          <button type="button" onClick={onClose} aria-label={t("society.card.close")}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground">
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      )}
+      <AgentChatLayout
+        resetKey={agent.agentId}
+        roster={({ collapsed, onToggleCollapsed }) => (
+          <RosterRail
+            agents={roster}
+            groups={groups}
+            onOpenGroup={onSelectGroup}
+            onGroupAgents={onGroupAgents}
+            onAddAgentToGroup={onAddAgentToGroup}
+            loading={rosterLoading}
+            teamsPending={teamsPending}
+            sample={sample}
+            activeAgentId={agent.agentId}
+            onOpen={(id) => { if (id !== agent.agentId) onSelectAgent?.(id); }}
+            onCreate={() => onCreate?.()}
+            side="left"
+            className="w-full border-0"
+            header={railHeader}
+            activity={activity}
+            collapsed={collapsed}
+            onToggleCollapsed={onToggleCollapsed}
+            keyboard={active}
+          />
+        )}
+        header={(detailsToggle) => (
+          <AgentHeader agent={agent} sample={sample} detailsToggle={detailsToggle} onModelSavingChange={setModelSaving} />
+        )}
+        options={<OptionsRail agent={agent} onRetired={onClose} sample={sample} />}
+      >
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label={t("society.card.chat")} data-testid="agent-card-chat">
+          <HeaderModelSlotContext.Provider value={agent.tier === "lead" ? null : { saving: modelSaving }}>
+            <AgentChatPanel key={agent.agentId} agent={agent} roster={roster} />
+          </HeaderModelSlotContext.Provider>
+        </section>
+      </AgentChatLayout>
     </>
-  );
+  ) : null;
   if (embedded) {
     return <div data-testid="agent-card" className="agent-card-workspace flex min-h-0 flex-1 flex-col overflow-hidden bg-card">{content}</div>;
   }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import * as Dialog from "@radix-ui/react-dialog";
-import { EyeOff, Eye, Pencil, Trash2 } from "lucide-react";
+import { EyeOff, Eye, MailCheck, MailOpen, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,21 @@ interface Props {
   y: number;
   onVisibilityChange: (agentId: string, hidden: boolean) => void;
   onDismiss: () => void;
+  /** Pinning is offered when the roster shows a pinned grid. */
+  pinned?: boolean;
+  canPin?: boolean;
+  onTogglePin?: (agentId: string) => void;
+  /** Read state is offered when the roster tracks unread results. */
+  unread?: boolean;
+  /** False for the open agent: it is being read right now. */
+  canMarkUnread?: boolean;
+  onMarkUnread?: (agentId: string, unread: boolean) => void;
 }
 
-export function AgentRosterActions({ agent, roster, sample, hidden, x, y, onVisibilityChange, onDismiss }: Props) {
+export function AgentRosterActions({
+  agent, roster, sample, hidden, x, y, onVisibilityChange, onDismiss,
+  pinned = false, canPin = true, onTogglePin, unread = false, canMarkUnread = true, onMarkUnread,
+}: Props) {
   const t = useT();
   const client = useQueryClient();
   const retire = useRetireAgent();
@@ -112,6 +124,18 @@ export function AgentRosterActions({ agent, roster, sample, hidden, x, y, onVisi
     {!mode && <div ref={menuRef} role="menu" aria-label={t("society.roster.menu")} onKeyDown={onMenuKeyDown}
       style={{ width: 260, visibility: "hidden" }}
       className="fixed z-[100] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-float">
+      {onTogglePin && <button type="button" role="menuitem" disabled={!pinned && !canPin} onClick={() => { onTogglePin(agent.agentId); onDismiss(); }}
+        title={!pinned && !canPin ? t("society.shell.pin_full") : undefined}
+        className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-secondary focus:bg-secondary focus:outline-none disabled:opacity-40">
+        {pinned ? <PinOff className="h-4 w-4" aria-hidden /> : <Pin className="h-4 w-4" aria-hidden />}
+        {t(pinned ? "society.shell.unpin" : "society.shell.pin")}
+      </button>}
+      {onMarkUnread && <button type="button" role="menuitem" disabled={!unread && !canMarkUnread} onClick={() => { onMarkUnread(agent.agentId, !unread); onDismiss(); }}
+        className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-secondary focus:bg-secondary focus:outline-none disabled:opacity-40">
+        {unread ? <MailCheck className="h-4 w-4" aria-hidden /> : <MailOpen className="h-4 w-4" aria-hidden />}
+        {t(unread ? "society.shell.mark_read" : "society.shell.mark_unread")}
+      </button>}
+      {(onTogglePin || onMarkUnread) && <div className="my-1 border-t border-border" aria-hidden />}
       <button type="button" role="menuitem" disabled={sample || isLead} onClick={() => { setMode("rename"); setError(false); }}
         className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-secondary focus:bg-secondary focus:outline-none disabled:opacity-40">
         <Pencil className="h-4 w-4" aria-hidden />{t("society.roster.rename")}
