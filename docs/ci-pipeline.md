@@ -251,9 +251,10 @@ merge queue), and hourly as a safety net:
    with green CI that only conflict with main, then to red ones, and last to
    those already labelled `needs-rebase`: in number order the three oldest
    pull requests, two of them unresolvable, had held every slot for days.
-2. Conflicts resolve by file class: **generated** files (frontend `dist/`,
-   CLI reference docs, lockfiles, timing caches) take main's
-   copy and are regenerated; **append-only** files (CHANGELOG, allowlists,
+2. Conflicts resolve by file class: **generated** files (CLI reference
+   docs, lockfiles, timing caches) take main's copy and are regenerated;
+   the frontend bundle `dist/` takes main's copy and stays that way (see
+   "Frontend bundle" below); **append-only** files (CHANGELOG, allowlists,
    `.gitignore`) are union-merged; **everything else** goes
    to the optional AI resolver (`ANTHROPIC_API_KEY` → Claude Code,
    `OPENAI_API_KEY` → Codex CLI, both pinned to exact versions). Its result
@@ -611,6 +612,33 @@ CodeQL's default setup, and none is part of the required `CI gate`:
 * **osv-scanner** checks the shipped lockfiles against osv.dev on main and
   weekly. It reports and never blocks.
 * **OpenSSF Scorecard** publishes a weekly repository security score.
+
+### Frontend bundle
+
+The repo ships the built UI (`dodaios/ui/web/dist`) so a fresh clone or
+install needs no Node. Pull requests do not carry it: `agent_land.py` and the
+merge train put main's `dist/` back on every update (`pin_bundle` in
+`scripts/ci/agent_integrate.py`). Before 2026-10-26 each frontend pull request
+committed its own build, so every frontend merge put all the other frontend
+pull requests in conflict and the merge queue ejected them.
+
+After a merge that touches `dodaios/ui/web/frontend/**`,
+`.github/workflows/frontend-bundle.yml` builds `dist/` from main (job `build`,
+no secrets), then commits only `dist/` to the branch `bot/frontend-bundle`,
+opens or updates its pull request and requests auto-merge with the merge
+bot's token (job `publish`, environment `merge-train`, variable
+`MERGE_APP_ID`; without the app the job fails red and main's bundle stays
+behind). A newer frontend merge
+replaces an unlanded rebuild. Between a frontend merge and its rebuild landing
+(about one queue round), main's bundle is one step behind its sources; the
+desktop app that follows main rebuilds locally anyway (`main_follow.py`), and
+`check_release_completeness.py` refuses a release cut in that window.
+
+To see a frontend change in the running app, build locally
+(`npm run build` in `dodaios/ui/web/frontend`); do not commit the result.
+
+Merge queue: `max_entries_to_build` is 3 (ruleset 24704136; raised from 2 on
+2026-10-26, 12 pull requests were waiting at about 7.5 minutes each).
 
 Dependabot covers npm through security updates only. Version updates for the
 frontend stay off for the same reason as pip: a bump also needs a rebuilt

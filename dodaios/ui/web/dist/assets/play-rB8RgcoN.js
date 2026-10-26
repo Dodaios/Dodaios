@@ -1,0 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/play-QXPdHH9c.js
+import{c as o}from"./index-Bqdh6B9t.js";/**
+========
+import{c as o}from"./index-D0oKD7Wa.js";/**
+>>>>>>>> 549905391c0f7d4916ea0fbb61b42c8391456deb:dodaios/ui/web/dist/assets/play-rB8RgcoN.js
+ * @license lucide-react v0.445.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const c=o("Play",[["polygon",{points:"6 3 20 12 6 21 6 3",key:"1oa8hb"}]]);export{c as P};
