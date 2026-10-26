@@ -4,6 +4,7 @@ import type { AgentStatus } from "@/lib/agenticIdeApi";
 import { cn } from "@/lib/utils";
 import { fill, useT } from "@/i18n";
 import { AgentMark } from "./AgentMark";
+import { WorkspacePresets } from "./WorkspacePresets";
 import { MAX_PANES_PER_REQUEST, balancedColumns } from "./workspaceDocking";
 
 interface Props {
@@ -51,6 +52,9 @@ export function WorkspaceAgentSetup({ agents, sessions, onChange, disabled = fal
   const idle = "border-border bg-background/40 hover:border-foreground/30 hover:bg-muted/60";
 
   return <div className="space-y-6">
+    <WorkspacePresets agents={agents} sessions={sessions} disabled={disabled}
+      onChange={(next) => { setEditing(null); onChange(next); }} />
+
     <section aria-label={t("workspace_launcher.agent_setup.agents_aria")}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("workspace_launcher.agent_setup.agent")}</h3>

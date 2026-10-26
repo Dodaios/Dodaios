@@ -32,6 +32,8 @@ const SPLIT_MIN_PX = 720;
 const TAB_DRAG_SLOP_PX = 6;
 /** Strip of terminal grid kept beside the panel, so its grip always stays reachable. */
 const GRID_RESERVED_PX = 120;
+/** Dragging the grip toward the right edge past this width and letting go closes the panel. */
+const COLLAPSE_BELOW_PX = 160;
 
 // Preserve the existing public export without coupling caption chrome to the panel.
 export { SIDE_PANEL_ID } from "./sidePanelIds";
@@ -60,6 +62,7 @@ export function IdeSidePanelFrame({ children, markInUse = false, appearance, onS
   const open = useIdeSidePanelStore((state) => state.open);
   const inUse = useIdeSidePanelStore((state) => state.inUse);
   const setInUse = useIdeSidePanelStore((state) => state.setInUse);
+  const setOpen = useIdeSidePanelStore((state) => state.setOpen);
   const active = useIdeSidePanelStore((state) => state.active);
   const split = useIdeSidePanelStore((state) => state.split);
   const maximized = useIdeSidePanelStore((state) => state.maximized);
@@ -88,7 +91,13 @@ export function IdeSidePanelFrame({ children, markInUse = false, appearance, onS
     axis: "x",
     // The panel sits on the right, so its grip is its LEFT edge.
     handle: "start",
+    // Push the grip against the right edge to close the panel; it reopens at
+    // the width it had before the drag.
+    collapseBelow: COLLAPSE_BELOW_PX,
+    onCollapse: () => setOpen(false),
   });
+  // Past this point a release closes the panel: fade it as the hint.
+  const closing = pane.isResizing && pane.size < COLLAPSE_BELOW_PX;
   // Keep a wider stored preference intact while the window is narrow.
   const width = Math.min(pane.size, max);
 
@@ -159,7 +168,8 @@ export function IdeSidePanelFrame({ children, markInUse = false, appearance, onS
             {/* Same element either way, so the live office scene is never remounted.
                 A press anywhere in it (capture phase: the office canvas and the
                 terminals in it stop their own events) makes it the area in use. */}
-            <div hidden={!open} data-testid="ide-side-panel-body" className={maximized ? "absolute inset-0 z-30" : "relative h-full"}
+            <div hidden={!open} data-testid="ide-side-panel-body" data-closing={closing ? "true" : undefined}
+              className={cn(maximized ? "absolute inset-0 z-30" : "relative h-full", closing && "opacity-40")}
               onPointerDownCapture={() => setInUse(true)}>
               <IdeSidePanel appearance={appearance} onScreen={onScreen} />
               {/* The "you are here" frame, drawn over everything in the panel so
