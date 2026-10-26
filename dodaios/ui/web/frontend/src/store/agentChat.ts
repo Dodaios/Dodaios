@@ -17,6 +17,7 @@ import {
   invalidateAgentChatSessions,
   patchAgentChatSession,
   resolveAgentChatApproval,
+  saveAgentChatApprovalRule,
   answerAgentChatQuestion,
   bindVoiceChat,
   skipAgentChatQuestion,
@@ -32,12 +33,14 @@ import {
   type AgentChatSurface,
   type AgentConnectionRow,
   type ApprovalDecision,
+  type ApprovalRuleChoice,
+  type ApprovalRuleRequest,
   type ChatAttachment,
   type CuratedModel,
   type PatchSessionInput,
   type ProviderHealth,
 } from "@/lib/agentChatApi";
-import { EMPTY_TIMELINE, reduceEvent, reduceEvents, settleApproval, type Timeline } from "@/components/agentchat/reduce";
+import { EMPTY_TIMELINE, noteApprovalRule, reduceEvent, reduceEvents, settleApproval, type Timeline } from "@/components/agentchat/reduce";
 import { jitteredDelay, requestConnect } from "../lib/connectBudget";
 import { reuseHistoryRows } from "@/lib/historyRequests";
 
@@ -186,7 +189,13 @@ export interface AgentChatStore {
    * the backend took the answer, or said nothing waits on it any more; any
    * other failure throws so the card can say why.
    */
-  decide: (approvalId: string, decision: ApprovalDecision) => Promise<void>;
+  decide: (approvalId: string, decision: ApprovalDecision, rule?: ApprovalRuleChoice) => Promise<void>;
+  /**
+   * Turn an approval card into a standing rule after the fact ("Always allow
+   * next time", "Ask first next time"). The card shows it at once; throws so
+   * the card can say why when nothing was saved.
+   */
+  saveApprovalRule: (approvalId: string, rule: ApprovalRuleRequest) => Promise<void>;
   /** Answer question `index` of an agent's card in the active session; throws so the card can say why. */
   answerQuestion: (questionId: string, index: number, answer: QuestionAnswerInput) => Promise<void>;
   /** Close an agent's card so its recommendations apply; throws so the card can say why. */
@@ -880,12 +889,13 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
         }
       },
 
-      decide: async (approvalId, decision) => {
+      decide: async (approvalId, decision, rule) => {
         const sid = get().activeSessionId;
         if (!sid) return;
         let outcome: string = decision;
         try {
-          await resolveAgentChatApproval(sid, approvalId, decision);
+          if (rule) await resolveAgentChatApproval(sid, approvalId, decision, rule);
+          else await resolveAgentChatApproval(sid, approvalId, decision);
         } catch (err) {
           // 410: the card outlived what it asked for (an app restart) and is
           // closed now; 404: the backend never knew it. Either way nothing
@@ -894,7 +904,22 @@ export function createAgentChatStore(surface: AgentChatSurface, draftNamespace =
           if (!gone) throw err;
           outcome = "expired";
         }
-        if (get().activeSessionId === sid) set({ timeline: settleApproval(get().timeline, approvalId, outcome) });
+        if (get().activeSessionId === sid) {
+          const scope = outcome === "allow_always" ? rule?.scope : undefined;
+          set({ timeline: settleApproval(get().timeline, approvalId, outcome, "", scope) });
+        }
+      },
+
+      saveApprovalRule: async (approvalId, rule) => {
+        const sid = get().activeSessionId;
+        if (!sid) throw new Error("no open chat");
+        const saved = await saveAgentChatApprovalRule(sid, approvalId, rule);
+        if (get().activeSessionId !== sid) return;
+        // The socket's notice says the same; the card must not wait on it.
+        set({ timeline: noteApprovalRule(get().timeline, approvalId, {
+          kind: rule.kind, scope: rule.scope, pattern: saved.pattern,
+          app: saved.app ?? "", verb: saved.verb ?? "", stillAsks: saved.still_asks === true,
+        }) });
       },
 
       answerQuestion: async (questionId, index, answer) => {

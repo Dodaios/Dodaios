@@ -62,6 +62,8 @@ import {
   type UserItem,
 } from "@/components/agentchat/reduce";
 import { AwaitingTurn, MessengerTurn, type MemoryLink } from "@/components/agentchat/MessengerTurn";
+import { ActionCard, type ActionSpec } from "@/components/agentchat/actionCard/ActionCard";
+import { WandSparkles as ProposalIcon } from "lucide-react";
 import { VoiceStage } from "@/components/home/VoiceStage";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { fill, useT } from "@/i18n";
@@ -998,33 +1000,51 @@ function ProposalCard({ item }: { item: NoticeItem }) {
         : item.resolved
           ? t("society.chat.proposal_failed")
           : "";
-  if (item.resolved && item.resolved !== "failed") return <ChatActivity
-    label={<>{resolvedLabel} · {kind ? t(`society.chat.proposal_kind_${kind}`) : ""} · {summary}</>}>
-    <p className="whitespace-pre-wrap">{detail || summary}</p>
-    {reason ? <p className="mt-2">{reason}</p> : null}
-    {outcome ? <p className="mt-2">{outcome}</p> : null}
-  </ChatActivity>;
+  const kindLabel = kind ? t(`society.chat.proposal_kind_${kind}`) : "";
+  const title = t("society.chat.proposal_title").replace("{0}", item.agentName || t("society.chat.result_agent"));
+  const source = { icon: <ProposalIcon strokeWidth={1.75} />, label: kindLabel || t("action_card.source.proposal") };
+  if (item.resolved) {
+    // Decided: one line that says what happened, the proposal itself one click away.
+    return <ActionCard
+      id={`proposal:${proposalId || item.id}`}
+      testId="proposal-card"
+      state={item.resolved}
+      source={source}
+      title={title}
+      ariaLabel={`${resolvedLabel}: ${summary}`}
+      settled={{
+        tone: item.resolved === "applied" ? "success" : item.resolved === "rejected" ? "muted" : "danger",
+        label: resolvedLabel,
+        detail: summary,
+        body: <>
+          <p className="m-0 whitespace-pre-wrap text-xs leading-5 text-foreground-secondary">{detail || summary}</p>
+          {reason ? <p className="m-0 text-xs leading-5 text-muted-foreground">{reason}</p> : null}
+          {outcome ? <p className={cn("m-0 text-xs leading-5", item.resolved === "failed" ? "text-destructive" : "text-muted-foreground")}>{outcome}</p> : null}
+        </>,
+      }}
+    />;
+  }
+  const actions: ActionSpec[] = [
+    { id: "confirm", label: t("society.chat.proposal_confirm"), tone: "primary", onSelect: () => void decide(true), disabled: busy || (kind === "team" && chosen.length === 0) },
+    { id: "reject", label: t("society.chat.proposal_reject"), tone: "tertiary", onSelect: () => void decide(false), disabled: busy },
+  ];
   return (
-    <div
-      className={cn(
-        "flex max-w-[85%] flex-col gap-1.5 self-start rounded-2xl rounded-bl-md border px-3.5 py-2.5 text-xs",
-        item.resolved === "applied"
-          ? "border-primary/40 bg-primary/5"
-          : item.resolved
-            ? "border-border bg-card"
-            : "border-primary/60 bg-card",
-      )}
+    <ActionCard
+      id={`proposal:${proposalId || item.id}`}
+      testId="proposal-card"
+      source={source}
+      title={title}
+      ariaLabel={`${t("society.chat.proposal_pending")}: ${title}`}
+      lines={reason ? [<><span className="font-medium text-foreground-secondary">{t("society.chat.proposal_reason")}: </span>{reason}</>] : undefined}
+      actions={actions}
+      failure={error || null}
+      note={t("society.chat.proposal_pending")}
+      className="self-start"
     >
-      <p className="font-medium text-foreground">
-        {t("society.chat.proposal_title").replace("{0}", item.agentName || t("society.chat.result_agent"))}
-      </p>
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {kind ? t(`society.chat.proposal_kind_${kind}`) : ""}
-      </p>
-      {kind === "team" && !item.resolved ? (
-        <ul className="flex flex-col gap-1">
+      {kind === "team" ? (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
           {offered.map((row) => (
-            <li key={row.name} className="flex items-center gap-2">
+            <li key={row.name} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 id={`${proposalId}-${row.name}`}
@@ -1037,7 +1057,7 @@ function ProposalCard({ item }: { item: NoticeItem }) {
                       : chosen.filter((name) => name !== row.name),
                   )
                 }
-                className="h-3.5 w-3.5 accent-[var(--primary)]"
+                className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
               />
               <label htmlFor={`${proposalId}-${row.name}`} className="cursor-pointer text-foreground">
                 <span className="font-medium">{row.name}</span>
@@ -1047,42 +1067,9 @@ function ProposalCard({ item }: { item: NoticeItem }) {
           ))}
         </ul>
       ) : (
-        <p className="whitespace-pre-wrap leading-relaxed text-foreground">{detail || summary}</p>
+        <p className="m-0 whitespace-pre-wrap text-sm leading-relaxed text-foreground">{detail || summary}</p>
       )}
-      {reason ? (
-        <p className="leading-relaxed text-muted-foreground">
-          <span className="font-medium">{t("society.chat.proposal_reason")}: </span>
-          {reason}
-        </p>
-      ) : null}
-      {item.resolved ? (
-        <p className={cn("font-medium", item.resolved === "failed" ? "text-destructive" : "text-foreground")}>
-          {resolvedLabel}
-          {outcome ? <span className="font-normal text-muted-foreground"> — {outcome}</span> : null}
-        </p>
-      ) : (
-        <div className="mt-1 flex items-center gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void decide(true)}
-            className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {t("society.chat.proposal_confirm")}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void decide(false)}
-            className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
-          >
-            {t("society.chat.proposal_reject")}
-          </button>
-          <span className="text-muted-foreground">{t("society.chat.proposal_pending")}</span>
-        </div>
-      )}
-      {error ? <p className="text-destructive">{error}</p> : null}
-    </div>
+    </ActionCard>
   );
 }
 
