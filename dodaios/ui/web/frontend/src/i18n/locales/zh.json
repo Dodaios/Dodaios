@@ -10226,5 +10226,130 @@
     "label": "由 {name} 构建",
     "title": "{name} 主动构建了它。打开它的构建记录。",
     "trial": "试用中"
+  },
+  "run_view": {
+    "phrase": {
+      "thinking_0": "正在思考",
+      "thinking_1": "正在规划下一步",
+      "thinking_2": "正在权衡",
+      "thinking_3": "正在理清头绪",
+      "composing": "正在回复",
+      "search_web": "正在网上查找",
+      "search_web_for": "正在查找“{target}”",
+      "search_files": "正在搜索项目",
+      "search_for": "正在搜索“{target}”",
+      "read_page": "正在阅读 {target} 上的页面",
+      "read_any": "正在打开文件",
+      "read_file": "正在打开 {target}",
+      "view_image": "正在查看图片",
+      "list_folder": "正在浏览 {target}",
+      "edit_file": "正在编辑 {target}",
+      "write_file": "正在写入 {target}",
+      "write_any": "正在写入文件",
+      "run_cmd": "正在运行 {target}",
+      "run_any": "正在使用终端",
+      "browse_site": "正在访问 {target}",
+      "browse_any": "正在使用浏览器",
+      "recall": "正在翻看自己的笔记",
+      "note": "正在记笔记",
+      "message": "正在给 {target} 写消息",
+      "message_any": "正在给队友写消息",
+      "delegate": "正在安排助手：{target}",
+      "delegate_any": "助手正在处理",
+      "delegate_many": "{target} 个助手在工作",
+      "connect": "正在使用 {target}",
+      "setup": "正在进行设置",
+      "waiting": "需要你的回答",
+      "waiting_approval": "需要你的同意",
+      "working_0": "正在处理",
+      "working_1": "正在推进",
+      "working_2": "正在逐步完成"
+    },
+    "timer": {
+      "min": "{count} 分钟",
+      "hour": "{hours} 小时 {minutes} 分钟"
+    },
+    "work": {
+      "working": "工作中",
+      "worked_for": "工作了 {duration}",
+      "stopped_after": "{duration} 后停止",
+      "failed_after": "{duration} 后因错误结束",
+      "steps_one": "{count} 个步骤",
+      "steps_other": "{count} 个步骤",
+      "files_one": "{count} 个文件",
+      "files_other": "{count} 个文件",
+      "helpers_one": "{count} 个助手",
+      "helpers_other": "{count} 个助手",
+      "open": "查看工作过程"
+    },
+    "inspector": {
+      "title": "工作记录",
+      "close": "关闭工作记录",
+      "resize": "调整工作记录宽度",
+      "tabs": "参与这项工作的成员",
+      "tokens": "{count} 个 token",
+      "thoughts_one": "{count} 次思考",
+      "thoughts_other": "{count} 次思考",
+      "failed": "{count} 个失败",
+      "expand_all": "全部展开",
+      "collapse_all": "全部收起",
+      "empty": "这一轮没有记录任何内容。",
+      "empty_live": "智能体一开始行动，步骤就会显示在这里。",
+      "thought_private": "提供方不公开这次思考的具体内容。",
+      "no_details": "没有记录详细信息。",
+      "open_helper": "打开助手的工作记录",
+      "no_answer": "没有回答",
+      "truncated": "还有 {count} 行未显示",
+      "empty_output": "没有返回任何内容。",
+      "took": "耗时 {duration}"
+    },
+    "row": {
+      "prompt": "你的消息",
+      "task": "任务",
+      "thought": "思考",
+      "thought_hidden": "思考（未公开）",
+      "reply": "回复",
+      "question": "向你提问",
+      "credential": "请求凭据",
+      "approval": "请求你的同意",
+      "helper": "助手"
+    },
+    "status": {
+      "running": "进行中",
+      "done": "完成",
+      "failed": "失败",
+      "stopped": "已停止",
+      "waiting": "等待你",
+      "declined": "已拒绝"
+    },
+    "section": {
+      "asked_for": "请求内容",
+      "request": "请求",
+      "task": "任务",
+      "answer": "回答",
+      "command": "命令",
+      "input": "输入",
+      "changes": "改动",
+      "output": "输出",
+      "error": "错误"
+    },
+    "announce": {
+      "started": "{agent} 开始工作了。",
+      "replied": "{agent} 已回复。",
+      "finished": "{agent} 已完成。",
+      "stopped": "{agent} 已停止。",
+      "failed": "{agent} 遇到了问题。",
+      "asked": "{agent} 提问：{question}",
+      "needs_ok": "{agent} 需要你的同意。"
+    },
+    "time": {
+      "today": "今天 {time}",
+      "yesterday": "昨天 {time}"
+    },
+    "pill": {
+      "new_one": "{count} 条新消息",
+      "new_other": "{count} 条新消息",
+      "dismiss": "关闭"
+    }
   }
 }

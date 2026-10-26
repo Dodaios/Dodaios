@@ -21,7 +21,7 @@ import "./botStage.css";
  * scene never cuts: the outgoing face, prop and word stay mounted, still
  * playing their scene, and fade off over the incoming ones (Crossfade).
  */
-export function BotStage({ presence, seed, avatar, color }: {
+export function BotStage({ presence, seed, avatar, color, words, wordsId, announce = true }: {
   presence: Presence;
   /** Stable per turn: picks which scene of a family this turn plays. */
   seed: string;
@@ -29,6 +29,18 @@ export function BotStage({ presence, seed, avatar, color }: {
   avatar: ReactNode;
   /** The agent's colour, for the accents of the props. */
   color: string;
+  /**
+   * Words in place of the scene's own word (the activity line's phrase).
+   * `wordsId` keys their crossfade, so new words of the same step swap in
+   * place instead of fading.
+   */
+  words?: ReactNode;
+  wordsId?: string;
+  /**
+   * The stage is its own status region. Off where the surface announces the
+   * lifecycle itself, so a phrase per step never floods a screen reader.
+   */
+  announce?: boolean;
 }) {
   const t = useT();
   const scene = useSceneDirector(presence, seed);
@@ -36,7 +48,8 @@ export function BotStage({ presence, seed, avatar, color }: {
   // The tick on the finished turn's badge takes the ink that reads on the agent's colour.
   const ink = bubbleTint(color)?.color ?? "#ffffff";
   return <div className="bot-stage" data-scene={scene} style={{ "--bot": color, "--bot-ink": ink } as CSSProperties}
-    role="status" aria-label={label} data-testid="messenger-presence" data-presence={presence}>
+    role={announce ? "status" : undefined} aria-label={announce ? label : undefined}
+    data-testid="messenger-presence" data-presence={presence}>
     <span className="bs-set" aria-hidden>
       <Crossfade id={scene} className="bs-face">
         {/* A face that wears a pet plays the scene's pet row instead of moving its eyes. */}
@@ -49,7 +62,7 @@ export function BotStage({ presence, seed, avatar, color }: {
         {PROP[scene] && <svg className="bs-prop" viewBox="0 0 20 20" width="20" height="20">{PROP[scene]}</svg>}
       </Crossfade>
     </span>
-    <span className="bs-label"><Crossfade id={scene} className="bs-word">{label}</Crossfade></span>
+    <span className="bs-label"><Crossfade id={wordsId ?? scene} className="bs-word">{words ?? label}</Crossfade></span>
   </div>;
 }
 

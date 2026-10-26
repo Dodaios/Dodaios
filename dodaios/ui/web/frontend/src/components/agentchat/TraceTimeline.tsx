@@ -170,10 +170,16 @@ function ActivityView({ entry, renderers }: { entry: ActivityEntry; renderers: T
       <CallLine call={current ?? entry.calls[0]} renderers={renderers} />
     </div>;
   }
+  // A stretch that edited files says by how much, the way a single edit does.
+  const added = entry.calls.reduce((n, call) => n + call.added, 0);
+  const removed = entry.calls.reduce((n, call) => n + call.removed, 0);
   return <div className="min-w-0" data-trace-entry="activity">
     <button type="button" className={lineButton} aria-expanded={open} onClick={() => setOpen(!open)}>
       <StretchMark calls={entry.calls} />
       <span className="min-w-0 truncate">{entry.summary}</span>
+      {added || removed ? <span className="shrink-0 font-mono text-xs tabular-nums" data-trace-diffstat>
+        <span className="diff-count-add">+{added}</span>{" "}<span className="diff-count-del">−{removed}</span>
+      </span> : null}
       <Chevron open={open} />
     </button>
     {open ? <div className="mb-1 ml-[7px] min-w-0 border-l border-border pl-4">
