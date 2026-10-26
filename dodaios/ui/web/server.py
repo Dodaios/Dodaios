@@ -501,6 +501,7 @@ class WebServer:
 
         from .agent_accounts_routes import router as agent_accounts_router
         from .agent_chat_routes import router as agent_chat_router
+        from .attention_routes import router as attention_router
         from .agent_mcp_routes import router as agent_mcp_router
         from .agent_runtime_routes import router as agent_runtime_router
         from .agentic_ide_git_routes import router as agentic_ide_git_router
@@ -797,6 +798,7 @@ class WebServer:
         # opens on the boot path (AP-26); stop() cancels running turns.
         app.state.agent_chat = None
         app.state.agent_chat_factory = self._build_agent_chat_service
+        app.include_router(attention_router)
         app.include_router(agent_chat_router)
         from .agent_server_routes import router as agent_server_router
 
@@ -4123,7 +4125,16 @@ class WebServer:
         # Install on first chat use, keeping result tracking off the boot path.
         self.bus.unsubscribe(DelegationResultReady, self._forward_delegation_to_chat)
         self.bus.subscribe(DelegationResultReady, self._forward_delegation_to_chat)
-        return AgentChatService(store, assistant_name=_name, bus=lambda: self.bus)
+        service = AgentChatService(store, assistant_name=_name, bus=lambda: self.bus)
+        # "Needs you" list and notifier: one event listener, nothing on boot.
+        from dodaios.agent_chat.attention import install as install_attention
+
+        install_attention(
+            service,
+            publish=self.bus.publish,
+            society=lambda: getattr(self.app.state, "society", None),
+        )
+        return service
 
     def _schedule_registry_bootstraps(self) -> None:
         """Start registry discovery after composition without delaying readiness."""
