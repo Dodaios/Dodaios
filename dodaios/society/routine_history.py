@@ -57,9 +57,14 @@ class RoutineRun:
     skip_provider: str = ""
     #: Internal: the full result text, for the transcript fallback.
     result: str = field(default="", repr=False)
+    #: Internal: a ``routine_summary`` step was recorded, so the chat holds
+    #: nothing the history still needs (CLI seats often report no cost).
+    recorded: bool = field(default=False, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data.pop("recorded", None)
+        return data
 
 
 def run_summary_line(text: str, limit: int = SUMMARY_CHARS) -> str:
@@ -116,6 +121,7 @@ def parse_runs(task_id: str, steps: list[dict[str, Any]]) -> list[RoutineRun]:
         elif event == "routine_chat" and current is not None:
             current.session_id = str(payload.get("session_id") or "")
         elif event == "routine_summary" and current is not None:
+            current.recorded = True
             current.duration_ms = int(_number(payload.get("duration_ms")) or 0) or None
             current.cost_usd = _number(payload.get("cost_usd"))
             billed = payload.get("billed_via_key")
@@ -220,7 +226,7 @@ def enrich_from_chat(run: RoutineRun, chat_store: Any) -> None:
     as parsed. Only the routine's first turn counts: later turns are the
     person's follow-up questions in that chat.
     """
-    if chat_store is None or not run.session_id:
+    if chat_store is None or not run.session_id or run.recorded:
         return
     if run.cost_usd is not None and run.summary:
         return

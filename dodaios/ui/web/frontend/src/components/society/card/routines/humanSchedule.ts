@@ -219,8 +219,10 @@ function cronSentence(expression: string, zone: string, options: HumanScheduleOp
   const dom = parseCronField(fields[2], 1, 31);
   const month = parseCronField(fields[3], 1, 12, MONTH_NAMES, 1);
   // Cron counts Sunday as 0 (and 7); the calendar trigger counts Monday as 0.
-  const dowRaw = parseCronField(fields[4].replace(/\b7\b/g, "0"), 0, 6, DAY_NAMES);
-  const dow = dowRaw.any ? [] : [...new Set(dowRaw.values.map((day) => (day + 6) % 7))].sort((a, b) => a - b);
+  // Parsed over 0–7 so ranges like "1-7" stay valid; 7 folds onto Sunday.
+  const dowRaw = parseCronField(fields[4], 0, 7, DAY_NAMES);
+  const dowSet = dowRaw.any ? [] : [...new Set(dowRaw.values.map((day) => (day + 6) % 7))].sort((a, b) => a - b);
+  const dow = dowSet.length === 7 ? [] : dowSet;
   const months = month.any ? [] : month.values;
   const daysSuffix = (sentence: string) => {
     if (!dow.length) return sentence;
