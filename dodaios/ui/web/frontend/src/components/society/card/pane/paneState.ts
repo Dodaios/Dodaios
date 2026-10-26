@@ -65,7 +65,10 @@ export function useDismissedSuggestions(agentId: string): [Set<string>, (id: str
   const [all, setAll] = useState(readDismissed);
   const dismiss = useCallback((id: string) => {
     setAll((prev) => {
-      const next = { ...prev, [agentId]: [...new Set([...(prev[agentId] ?? []), id])] };
+      // A counted id ("review:3") replaces its older counts, so the list stays small.
+      const family = id.includes(":") ? `${id.split(":")[0]}:` : null;
+      const kept = (prev[agentId] ?? []).filter((x) => !family || !x.startsWith(family));
+      const next = { ...prev, [agentId]: [...new Set([...kept, id])] };
       write(DISMISSED_KEY, JSON.stringify(next));
       return next;
     });

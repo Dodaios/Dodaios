@@ -168,6 +168,31 @@ describe("the agent pane's limits and permissions", () => {
     await waitFor(() => expect(patchBody()).toEqual({ daily_budget_usd: 2 }));
   });
 
+  test("after a save, a later change to the agent is adopted rather than shadowed by a stale draft", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const tree = (agent: SocietyAgent) => (
+      <QueryClientProvider client={client}>
+        <ToolsTab agent={agent} sample={false} />
+      </QueryClientProvider>
+    );
+    // The server stores sets sorted: the saved row lists the sites in another order.
+    const view = render(tree(AGENT));
+    const sites = await screen.findByTestId("agent-pane-sites");
+    for (const site of ["zeta.example", "alpha.example"]) {
+      fireEvent.change(within(sites).getByRole("textbox"), { target: { value: site } });
+      fireEvent.keyDown(within(sites).getByRole("textbox"), { key: "Enter" });
+    }
+    fireEvent.click(screen.getByTestId("agent-pane-save"));
+    await waitFor(() => expect(patchBody()).toEqual({ browser_allowed_domains: ["zeta.example", "alpha.example"] }));
+    const saved: SocietyAgent = { ...AGENT, browserAllowedDomains: ["alpha.example", "zeta.example"] };
+    view.rerender(tree(saved));
+    await waitFor(() => expect(screen.queryByTestId("agent-pane-savebar")).toBeNull());
+    // An approved proposal then moves the budget: the tab shows it, with nothing "unsaved".
+    view.rerender(tree({ ...saved, dailyBudgetUsd: 5 }));
+    await waitFor(() => expect((screen.getByTestId("agent-budget-input") as HTMLInputElement).value).toBe("5"));
+    expect(screen.queryByTestId("agent-pane-savebar")).toBeNull();
+  });
+
   test("Discard returns every field to the saved value", async () => {
     renderTab();
     const input = (await screen.findByTestId("agent-budget-input")) as HTMLInputElement;

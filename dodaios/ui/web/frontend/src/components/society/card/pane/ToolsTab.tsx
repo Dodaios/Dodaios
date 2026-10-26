@@ -17,7 +17,9 @@ import { Ban, Check, Circle, Search, Star } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useLocaleChunk, useT } from "@/i18n";
 import { AGENT_APPROVAL_MODES, PERMISSION_CEILINGS, fetchSocietyProviders, type AgentApprovalMode, type BrowserMode } from "@/lib/societyApi";
+import { societyDisplayName } from "@/lib/societyDisplayName";
 import { resolveToolBrand } from "@/lib/toolBrand";
+import { useEventStore } from "@/store/events";
 
 import { capabilityKind, capabilityName } from "../../CapabilityChip";
 import { ComputerPicker } from "../../create/ComputerPicker";
@@ -64,20 +66,25 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
   useLocaleChunk("society");
   const lead = agent.tier === "lead";
   const update = useUpdateAgentConfig();
+  const assistantName = useEventStore((s) => s.assistantName);
   const capabilities = useSocietyCapabilities(!sample);
   const providers = useQuery({ queryKey: ["society", "providers"], queryFn: fetchSocietyProviders, enabled: !lead && !sample, retry: false });
   const runner = providers.data?.find((row) => row.id === agent.provider)?.runner;
 
   const base = useMemo(() => draftFromAgent(agent), [agent]);
   const [draft, setDraft] = useState<AccessDraft>(base);
-  const baseRef = useRef(base);
-  // A saved change (or a refetch) moves the agent: adopt it unless the
-  // person is in the middle of an edit of their own.
+  const agentRef = useRef(agent);
+  // A saved change, an approved proposal or a refetch moves the agent: adopt
+  // it unless the person is in the middle of an edit of their own. "In the
+  // middle of an edit" is judged by meaning, not by text, because the server
+  // stores sets sorted and a byte-wise check would freeze a stale draft.
   useEffect(() => {
-    const previous = baseRef.current;
-    baseRef.current = base;
-    setDraft((current) => (JSON.stringify(current) === JSON.stringify(previous) ? base : current));
-  }, [base]);
+    const previous = agentRef.current;
+    agentRef.current = agent;
+    if (previous === agent) return;
+    setDraft((current) => (isDirty(previous, current) ? current : draftFromAgent(agent)));
+  }, [agent]);
+  const confirmRef = useRef<HTMLButtonElement>(null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -102,13 +109,20 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
     setSaving(true);
     setError("");
     try {
-      await update(agent, patchFromDraft(agent, draft));
+      const saved = await update(agent, patchFromDraft(agent, draft));
+      // Take the stored values (sorted, normalised) as the new starting point.
+      setDraft(draftFromAgent(saved));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
     }
   };
+
+  // The confirmation takes focus, so a keyboard user hears it and can answer.
+  useEffect(() => {
+    if (confirm) confirmRef.current?.focus();
+  }, [confirm]);
 
   const disabled = sample || saving;
   const ceilingOptions: SegmentOption<PermissionCeiling>[] = PERMISSION_CEILINGS.map((step) => ({ value: step, label: t(`society.ceiling.${step}`) }));
@@ -309,7 +323,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
       {confirm ? (
         <div className="ap-savebar" data-tone="warn" role="alertdialog" aria-label={t("society.agent_pane.widen_title")} data-testid="agent-pane-widen">
           <div className="ap-widen">
-            <strong className="text-xs font-semibold">{t("society.agent_pane.widen_title").replace("{0}", agent.name)}</strong>
+            <strong className="text-xs font-semibold">{t("society.agent_pane.widen_title").replace("{0}", societyDisplayName(agent, assistantName))}</strong>
             <ul>
               {confirm.map((w) => (
                 <li key={w.key}>{wideningText(w, t, labelOf)}</li>
@@ -317,7 +331,7 @@ export function ToolsTab({ agent, sample }: { agent: SocietyAgent; sample: boole
             </ul>
           </div>
           <span className="flex-1" />
-          <button type="button" className="ap-btn" data-variant="ghost" onClick={() => setConfirm(null)}>
+          <button ref={confirmRef} type="button" className="ap-btn" data-variant="ghost" onClick={() => setConfirm(null)}>
             {t("society.agent_pane.go_back")}
           </button>
           <button type="button" className="ap-btn" data-variant="primary" onClick={() => void save(true)} data-testid="agent-pane-widen-confirm">

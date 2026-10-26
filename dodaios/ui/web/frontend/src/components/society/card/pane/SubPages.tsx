@@ -36,7 +36,9 @@ export function InstructionsPage({ agent, sample }: { agent: SocietyAgent; sampl
     setError("");
     setSaved(false);
     try {
-      await update(agent, { description: draft });
+      const text = draft.trim();
+      await update(agent, { description: text });
+      setDraft(text);
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

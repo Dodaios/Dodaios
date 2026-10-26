@@ -5,7 +5,7 @@
  * that swaps everything.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { readComposerDraft, writeComposerDraft } from "@/components/agentchat/composerDrafts";
@@ -111,6 +111,9 @@ describe("OptionsRail (agent pane)", () => {
         return json({ id: "proposal:p1", outcome: "applied", detail: "" });
       }
       if (path.includes("/gamil-agent/review-queue")) return json(QUEUE);
+      if (path.includes("/notes-agent/review-queue")) {
+        return json({ items: [QUEUE.items[1]], total: 1, counts: { proposal: 0, memory_share: 0, memory: 1 } });
+      }
       if (path.includes("/review-queue")) return json({ items: [], total: 0, counts: { proposal: 0, memory_share: 0, memory: 0 } });
       if (path.includes("/knowledge")) {
         return json({ files: [{ path: "memory/USER.md", name: "USER.md", kind: "memory", updated_ms: 1, size: 10 }],
@@ -283,6 +286,21 @@ describe("OptionsRail (agent pane)", () => {
     await waitFor(() => expect(screen.getByTestId("agent-routines").textContent).toContain("Dawn brief"));
     expect(screen.getByTestId("agent-card-options").textContent).toContain("Scout");
     expect(screen.getByTestId("agent-routines").textContent).not.toContain("Inbox sweep");
+  });
+
+  test("only real decisions mark the Memory tab, and the review nudge can be dismissed", async () => {
+    const first = mount(agent());
+    await waitFor(() => expect(screen.getByTestId("agent-pane-row-memory").textContent).toContain("2 waiting"));
+    expect(screen.getByTestId("agent-pane-tab-memory").querySelector(".ap-tab-badge")).toBeTruthy();
+    first.unmount();
+
+    mount(agent({ agentId: "notes-agent", chatSessionId: "society:notes-agent" }));
+    await waitFor(() => expect(screen.getByTestId("agent-pane-row-memory").textContent).toContain("1 waiting"));
+    // A notebook write is listed, but it does not raise a mark on the tab.
+    expect(screen.getByTestId("agent-pane-tab-memory").querySelector(".ap-tab-badge")).toBeNull();
+    const nudge = await screen.findByTestId("agent-pane-suggestion-review");
+    fireEvent.click(within(nudge).getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => expect(screen.queryByTestId("agent-pane-suggestion-review")).toBeNull());
   });
 
   test("the lead gets a History tab and no Share", async () => {
