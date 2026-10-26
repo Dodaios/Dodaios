@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:dodaios/ui/web/dist/assets/file-code-2-BkpZXe2l.js
-import{c as e}from"./index-BxlEpWN3.js";/**
-========
 import{c as e}from"./index-Bqt5iolU.js";/**
->>>>>>>> b0c8b072db95375ef62a7de682922d98c8ae8edc:dodaios/ui/web/dist/assets/file-code-2-DQv9jBzw.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.
