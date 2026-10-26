@@ -4,6 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentStatus } from "@/lib/agenticIdeApi";
 import { WorkspaceAgentSetup } from "./WorkspaceAgentSetup";
 
+vi.mock("@/lib/agenticIdeApi", () => ({
+  fetchLaunchPresets: vi.fn().mockResolvedValue({ presets: [], stored: true }),
+  saveLaunchPresets: vi.fn(),
+}));
+
 const agents: AgentStatus[] = [
   { name: "claude", display_name: "Claude Code", installed: true, version: null, install_command: null },
   { name: "codex", display_name: "Codex", installed: true, version: null, install_command: null },

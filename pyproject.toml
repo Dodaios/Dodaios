@@ -482,7 +482,7 @@ local-voice = [
     # installer asks pip for.
     # Upstream publishes no Windows ARM64 wheel. The providers already expose
     # an honest unavailable state when the optional runtime is absent.
-    "sherpa-onnx>=1.13.3; sys_platform != 'win32' or platform_machine != 'ARM64'",
+    "sherpa-onnx>=1.13.3,<2; sys_platform != 'win32' or platform_machine != 'ARM64'",
 ]
 # GPU runtime for the on-device CTranslate2 recognizer (faster-whisper): the
 # cuBLAS 12 / cuDNN 9 wheels ctranslate2 4.x links against. Opt-in and OUTSIDE
