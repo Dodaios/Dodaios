@@ -595,22 +595,63 @@ export async function cancelAgentChatTurn(sessionId: string, via = ""): Promise<
 
 export type ApprovalDecision = "allow" | "allow_always" | "deny";
 
+/** Where an "Always allow" from the card lives (the card's rule chooser). */
+export interface ApprovalRuleChoice {
+  scope: "agent" | "chat";
+  breadth?: "action" | "app";
+}
+
+function approvalUrl(sessionId: string, approvalId: string): string {
+  return `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(approvalId)}`;
+}
+
 export async function resolveAgentChatApproval(
   sessionId: string,
   approvalId: string,
   decision: ApprovalDecision,
+  rule?: ApprovalRuleChoice,
 ): Promise<void> {
   await json(
-    await fetch(
-      `/api/agent-chat/sessions/${encodeURIComponent(sessionId)}/approvals/${encodeURIComponent(approvalId)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision }),
-      },
-    ),
+    await fetch(approvalUrl(sessionId, approvalId), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        rule && decision === "allow_always"
+          ? { decision, scope: rule.scope, breadth: rule.breadth ?? "action" }
+          : { decision },
+      ),
+    }),
     "approval-failed",
   );
+}
+
+/** A standing rule saved from a settled card: "Always allow next time", "Ask first next time". */
+export interface ApprovalRuleRequest extends ApprovalRuleChoice {
+  kind: "always_allow" | "require_approval";
+}
+
+export interface SavedApprovalRuleReply {
+  kind: string;
+  pattern: string;
+  app?: string;
+  verb?: string;
+  still_asks?: boolean;
+}
+
+export async function saveAgentChatApprovalRule(
+  sessionId: string,
+  approvalId: string,
+  rule: ApprovalRuleRequest,
+): Promise<SavedApprovalRuleReply> {
+  const reply = await json<{ ok: boolean; rule: SavedApprovalRuleReply }>(
+    await fetch(`${approvalUrl(sessionId, approvalId)}/rule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: rule.kind, scope: rule.scope, breadth: rule.breadth ?? "action" }),
+    }),
+    "approval-rule-failed",
+  );
+  return reply.rule;
 }
 
 /** The person's answer to an agent's question: one option, or their own words. */
