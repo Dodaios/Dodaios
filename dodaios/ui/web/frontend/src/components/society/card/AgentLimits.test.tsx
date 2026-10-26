@@ -127,7 +127,7 @@ describe("the agent pane's limits and permissions", () => {
     fireEvent.click(within(ceiling).getByText("Ask first"));
     fireEvent.click(screen.getByTestId("agent-pane-save"));
     const confirm = await screen.findByTestId("agent-pane-widen");
-    expect(confirm.textContent).toContain("Ask first");
+    await waitFor(() => expect(confirm.textContent).toContain("Ask first"));
     expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "PATCH")).toBe(false);
     fireEvent.click(screen.getByTestId("agent-pane-widen-confirm"));
     await waitFor(() => expect(patchBody()).toEqual({ permission_ceiling: "ask" }));

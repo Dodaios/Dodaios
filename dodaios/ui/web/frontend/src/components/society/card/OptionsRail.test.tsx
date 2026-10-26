@@ -265,7 +265,7 @@ describe("OptionsRail (agent pane)", () => {
     fireEvent.click(row.querySelector('[data-value="on"]')!);
     fireEvent.click(await screen.findByTestId("agent-pane-save"));
     const confirm = await screen.findByTestId("agent-pane-widen");
-    expect(confirm.textContent).toContain("Gmail");
+    await waitFor(() => expect(confirm.textContent).toContain("Gmail"));
     expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")).toBe(false);
   });
 
