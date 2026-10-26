@@ -11,11 +11,18 @@
  *   throws on the floor below.
  *
  * Everything stays faint: these are the room's own lights, not effects.
+ *
+ * At eye level (`runtime.eye`) the sprites keep their size in metres, are
+ * pulled a little toward the camera so the wall behind a lamp never cuts
+ * them, and are hidden by whatever stands in front. The fixture dips stay
+ * plate-only: there the ceilings are real geometry, and a dark pool sprite
+ * would stand up in the room like a shadow.
  */
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { AdditiveBlending, CanvasTexture, Group, NormalBlending, Sprite, SpriteMaterial, type Blending, type Texture } from "three";
 import type { Deck, Socket } from "../content/deck";
+import type { StageRuntime } from "../runtime";
 import { RENDER_ORDER } from "../engine/renderOrder";
 import { hash32 } from "../life/crew";
 import { insidePolygon } from "../actors/roomLight";
@@ -69,7 +76,27 @@ export function ceilingPool(deck: Pick<Deck, "rooms">, socket: Socket, seed: num
   return { x: (x0 + x1) / 2, y: room.floorY, z: (z0 + z1) / 2 };
 }
 
-export function LightsLayer({ deck, alarm, reduced }: { deck: Deck; alarm: boolean; reduced: boolean }) {
+/** Eye level: a lamp sprite moves this far from its socket toward the camera, metres (a pulsing source half its size). */
+const EYE_PULL_M = 0.3;
+
+/** How far a lamp's sprites move toward the camera at eye level, metres: never more than half the way there. Pure. */
+export function eyePull(kind: LampKind, size: number, distance: number): number {
+  const want = kind === "pulse" ? size * 0.5 : EYE_PULL_M;
+  return Math.max(0, Math.min(want, distance * 0.5));
+}
+
+/** The lamps whose sprites show at eye level (the fixture dips are plate-only). */
+const EYE_KINDS: ReadonlySet<LampKind> = new Set(["blink", "alarm", "pulse"]);
+
+interface Props {
+  deck: Deck;
+  alarm: boolean;
+  reduced: boolean;
+  /** The stage's runtime: at eye level (`runtime.eye`) the sprites face its camera. */
+  runtime?: StageRuntime;
+}
+
+export function LightsLayer({ deck, alarm, reduced, runtime }: Props) {
   const scene = useThree((s) => s.scene);
   const texture = useMemo(glowTexture, []);
   const alarmRef = useRef(alarm);
@@ -113,6 +140,9 @@ export function LightsLayer({ deck, alarm, reduced }: { deck: Deck; alarm: boole
     dippers: [], window: -1, pick: null, at: 0, placed: false,
   });
 
+  // The sprites were last placed for the eye-level camera (they go back onto their sockets on the plate).
+  const eyeWas = useRef(false);
+
   useFrame(() => {
     const t = performance.now() / 1000;
     const window = Math.floor(t / FLICKER_EVERY_S);
@@ -124,9 +154,27 @@ export function LightsLayer({ deck, alarm, reduced }: { deck: Deck; alarm: boole
       d.at = window * FLICKER_EVERY_S + ((hash32(`t${window}`) % 1000) / 1000) * (FLICKER_EVERY_S - 2);
       d.placed = false;
     }
-    const pick = reduced ? null : d.pick;
+    const cam = runtime?.eye?.camera.position ?? null;
+    const leftEye = eyeWas.current && !cam;
+    eyeWas.current = !!cam;
+    const pick = reduced || cam ? null : d.pick;
     const at = d.at;
     for (const l of lamps) {
+      if (EYE_KINDS.has(l.kind)) {
+        const p = l.socket;
+        if (cam) {
+          const dx = cam.x - p.x;
+          const dy = cam.y - p.y;
+          const dz = cam.z - p.z;
+          const dist = Math.hypot(dx, dy, dz);
+          const k = dist > 1e-6 ? eyePull(l.kind, l.glow.scale.x, dist) / dist : 0;
+          l.glow.position.set(p.x + dx * k, p.y + dy * k, p.z + dz * k);
+          l.shade.position.copy(l.glow.position);
+        } else if (leftEye) {
+          l.glow.position.set(p.x, p.y, p.z);
+          l.shade.position.set(p.x, p.y, p.z);
+        }
+      }
       const g = l.glow.material;
       const s = l.shade.material;
       switch (l.kind) {
