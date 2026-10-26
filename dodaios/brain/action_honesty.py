@@ -64,7 +64,10 @@ _FALSE_COMPLETION_RE = re.compile(
     # App-launch completions that name the app instead of "you"/"the": a
     # user report (2026-10-26) had "open chrome" answered with "ok, done"
     # while Chrome never opened, and none of the shapes above saw it.
-    r"\bi(?:'ve|\s+have)?\s+(?:just\s+)?(?:opened|launched)\b|"
+    # A bare "I opened X" is too broad (it is also how a readback reports
+    # finished work), so the plain past tense only counts with "for you".
+    r"\bi(?:'ve|\s+have)\s+(?:just\s+)?(?:opened|launched)\b|"
+    r"\bi\s+(?:just\s+)?(?:opened|launched)\s+\S+(?:\s+\S+)?\s+for\s+you\b|"
     r"\b(?:is|are)\s+(?:now\s+)?(?:open|opened|launched|up)\s+now\b|"
     r"\b(?:is|are)\s+now\s+(?:open|opened|launched|up)\b|"
     # The gap may not hold a negation: the German honest fallback itself
