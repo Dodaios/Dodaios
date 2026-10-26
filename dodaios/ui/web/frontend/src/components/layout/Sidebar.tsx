@@ -13,6 +13,7 @@ import {
   type NavItem,
 } from "@/components/layout/navGroups";
 import { useEventStore } from "@/store/events";
+import { useTilingStore } from "@/store/tiling";
 import { useSelfBuildWaiting } from "@/hooks/useSelfBuild";
 import { useSectionPrefetch } from "@/hooks/useSectionPrefetch";
 import { useVoiceReadiness } from "@/hooks/useVoiceReadiness";
@@ -21,7 +22,7 @@ import { useSectionHealth } from "@/hooks/useProviders";
 import { usePluginAttention } from "@/hooks/usePluginAttention";
 import { clsx } from "clsx";
 import { cn } from "@/lib/utils";
-import { lazy, Suspense, useMemo, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { useT } from "@/i18n";
 import { RecentChats } from "@/components/home/RecentChats";
 import { useHomeStore } from "@/store/home";
@@ -345,7 +346,11 @@ export function Sidebar({
       alert={item.id === "apikeys" && apikeysHasError} alertTitle={t("sidebar.apikeys_alert")}
       warn={item.id === "plugins" && pluginsNeedReconnect}
       warnTitle={pluginWarnTitle}
-      onClick={() => { setActive(item.id); }} />;
+      // Shift+click opens the section in a tile beside the focused one.
+      onClick={(event?: ReactMouseEvent) => {
+        if (event?.shiftKey) useTilingStore.getState().openBeside(item.id);
+        else setActive(item.id);
+      }} />;
   };
 
   return (

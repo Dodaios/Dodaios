@@ -1,3 +1,4 @@
+import { isSectionOnScreen } from "@/store/tiling";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { fill, useT } from "@/i18n";
@@ -13,7 +14,6 @@ import { cn } from "@/lib/utils";
 import { BrandedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { QuickTooltip } from "@/components/ui/tooltip";
-import { useEventStore } from "@/store/events";
 import type { SubscriptionRow } from "./subscriptionsModel";
 
 /**
@@ -72,7 +72,7 @@ export function SeatSwitchProvider({
     let alive = true;
     let timer: number | undefined;
     const tick = async () => {
-      if (useEventStore.getState().activeSection === "agentic-ide") {
+      if (isSectionOnScreen("agentic-ide")) {
         try {
           const next = await fetchAutoSwitch();
           if (alive) {

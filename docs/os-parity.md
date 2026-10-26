@@ -100,28 +100,26 @@ Real container file/test/export, isolation, timeout and cancellation checks were
 run on Windows with Docker's Linux engine. Policy/schema checks are portable.
 Native macOS and Linux host execution has not been verified.
 
-## Section windows (2026-10-08, T2)
+## Tiling layout (2026-10-26, replaces section windows)
 
-The section-window action opens Agents, Agentic IDE, Settings, Plugins, CLIs,
-Docs, Wiki, Board, Sessions, Marketplace and Visualization in separate windows.
-Settings (including Profile) shares one window across all its tabs; the IDE,
-Plugins and CLIs also share a window within their respective tab families.
-Voice stays in the main window's navigation. Returning a detached view first
-restores the main window. A missing detached owner never targets main for a
-close or zoom command.
+Sections no longer open in separate desktop windows. The caption's Layout menu
+arranges them side by side inside the main window: one section, two side by
+side or stacked, one plus two stacked, three columns, or a 2x2 grid. Each tile
+has a slim title row to change its section, split it, fill the screen or close
+it; dragging a title row onto another tile swaps the two, and the seams between
+tiles can be dragged. Shift+click on a sidebar row opens that section beside
+the focused tile. A section family (Settings tabs, the IDE family, Plugins,
+CLIs) appears in at most one tile, so the Agentic IDE is never mounted twice.
+Settings and Plugins still open as a dialog over the tiles.
 
-Windows and Linux use the existing resizable frameless desktop window path;
-macOS retains its native frame. Browser-only clients open named tabs without
-controlling the desktop application's windows. The IDE window action requires
-the native shell so a second browser tab cannot compete for terminal streams.
-Automated tests cover section
-ownership, family reuse, failure handling and the three platform frame options.
-Real Windows WebView2 checks opened Settings, Agents and Agentic IDE windows
-simultaneously against a local test page, reused the Settings window for an API
-Keys request, maximized/restored it and closed it while preserving main. Chrome
-checks covered the Settings browser tab, internal tab navigation, returning to
-the full app, and light/dark appearance at a narrow width.
-Physical macOS and Linux window behavior remains unverified.
+Behind the tiles sits the desktop's own wallpaper (Windows
+`SystemParametersInfo`, macOS System Events, GNOME `gsettings`), or a picture
+the user uploads in the Layout menu (`/api/wallpaper`). The layout is kept in
+the browser's local storage. Only the editor tool windows (appshot editor,
+Dodaios X editor) still open as their own native windows.
+Checked on Windows in an isolated dev instance (four tiles, seams, desktop
+wallpaper, Layout menu). macOS and GNOME wallpaper lookup is covered by unit
+tests only.
 
 ## Screenshots paste anywhere (2026-10-05, T2)
 

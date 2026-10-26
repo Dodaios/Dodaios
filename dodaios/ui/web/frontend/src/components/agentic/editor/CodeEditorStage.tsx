@@ -1,3 +1,4 @@
+import { isSectionOnScreen } from "@/store/tiling";
 import { Fragment, Suspense, lazy, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -219,7 +220,7 @@ export function CodeEditorStage({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!workspaceId || !(event.ctrlKey || event.metaKey) || event.altKey) return;
-      if (useEventStore.getState().activeSection !== "agentic-ide") return;
+      if (!isSectionOnScreen("agentic-ide")) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       // A terminal keeps every Ctrl key for its shell (Ctrl+P, Ctrl+W, …).
       if (target?.closest(".xterm")) return;
@@ -283,7 +284,7 @@ export function CodeEditorStage({
     let alive = true;
     let timer: number | undefined;
     const check = () => {
-      if (document.visibilityState === "visible" && useEventStore.getState().activeSection === "agentic-ide") {
+      if (document.visibilityState === "visible" && isSectionOnScreen("agentic-ide")) {
         for (const fileKey of watchedFileKeys.split("\n")) void checkDisk(fileKey);
       }
     };

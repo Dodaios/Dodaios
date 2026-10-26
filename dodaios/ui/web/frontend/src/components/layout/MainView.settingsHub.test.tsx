@@ -17,7 +17,7 @@ vi.mock("@/views/SettingsHubView", () => ({
 }));
 
 beforeEach(() => {
-  useEventStore.setState({ activeSection: "chats", solo: false, detachedViews: [] });
+  useEventStore.setState({ activeSection: "chats", solo: false });
 });
 
 afterEach(() => {
@@ -27,19 +27,13 @@ afterEach(() => {
 
 describe("MainView — every settings-hub id mounts the hub", () => {
   it("renders only the settings hub in its own window", async () => {
-    useEventStore.setState({ activeSection: "profile", solo: true, detachedViews: ["settings"] });
+    useEventStore.setState({ activeSection: "profile", solo: true });
     render(<MainView />);
     expect(await screen.findByTestId("standalone-settings")).toBeTruthy();
     expect(screen.queryByTestId("chats-surface")).toBeNull();
     expect(screen.queryByTestId("settings-hub")).toBeNull();
   });
 
-  it("treats every settings tab as one detached window", async () => {
-    useEventStore.setState({ activeSection: "apikeys", detachedViews: ["settings"] });
-    render(<MainView />);
-    expect(await screen.findByTestId("detached-view-placeholder")).toBeTruthy();
-    expect(screen.queryByTestId("settings-hub")).toBeNull();
-  });
   it.each([
     "settings",
     "taskbar",

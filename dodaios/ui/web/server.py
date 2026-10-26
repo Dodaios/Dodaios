@@ -534,6 +534,7 @@ class WebServer:
         from .dictation_routes import router as dictation_router
         from .dictionary_routes import router as dictionary_router
         from .docs_routes import router as docs_router
+        from .dodaiosx_routes import router as jarvisx_router
         from .downloads_routes import router as downloads_router
         from .drop_routes import router as drop_router
         from .federation_proxy_routes import router as federation_proxy_router
@@ -543,7 +544,6 @@ class WebServer:
         from .grok_build_routes import router as grok_build_router
         from .ide_browser_routes import router as ide_browser_router
         from .ide_skills_routes import router as ide_skills_router
-        from .dodaiosx_routes import router as jarvisx_router
         from .live_routes import router as live_router
         from .local_models_assistant_routes import (
             router as local_models_assistant_router,
@@ -597,6 +597,7 @@ class WebServer:
         from .tools_routes import router as tools_router
         from .update_routes import router as update_router
         from .voice_call_routes import router as voice_call_router
+        from .wallpaper_routes import router as wallpaper_router
         from .wiki_routes import router as wiki_router
         from .wiki_ws import router as wiki_ws_router
         from .workflows_routes import router as workflows_router
@@ -650,9 +651,11 @@ class WebServer:
         # Several subscriptions per coding CLI, switchable without a logout.
         app.include_router(agent_accounts_router)
         app.include_router(control_router)
-        # Detachable views: the desktop shell (when attached) spawns/closes
-        # solo windows; headless hosts answer honestly with a fallback URL.
+        # Native window chrome and the editor tool windows; headless hosts
+        # answer honestly with a fallback URL.
         app.include_router(desktop_router)
+        # The picture behind the tiled section layout.
+        app.include_router(wallpaper_router)
         app.include_router(ide_browser_router)
         app.include_router(profile_router)
         app.include_router(settings_router)

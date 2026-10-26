@@ -1033,6 +1033,29 @@ body {
   }
 
   /*
+   * The tiling layout: several sections side by side over a wallpaper (the
+   * desktop's own picture by default, or one the user picked). The gradient
+   * is what shows while the picture loads, or when the system has none.
+   */
+  .jarvis-tiling-stage {
+    background-color: hsl(var(--sidebar));
+    background-image: radial-gradient(120% 90% at 20% 10%, hsl(var(--primary) / 0.16), transparent 60%),
+      radial-gradient(90% 80% at 85% 90%, hsl(var(--foreground) / 0.08), transparent 55%);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .jarvis-tile {
+    background: hsl(var(--background));
+    box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.55);
+  }
+
+  .jarvis-tile-focused {
+    border-color: hsl(var(--primary) / 0.75);
+  }
+
+  /*
    * The reading surface under the gray window bar.
    *
    * The fill, the stroke and the corner are one box, so the line bends with

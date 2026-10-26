@@ -1,3 +1,4 @@
+import { isSectionOnScreen } from "@/store/tiling";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AlertTriangle, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { fill, useT } from "@/i18n";
@@ -12,7 +13,6 @@ import {
 import { cn } from "@/lib/utils";
 import { ProviderLogo } from "@/components/providers/ProviderLogo";
 import { QuickTooltip } from "@/components/ui/tooltip";
-import { useEventStore } from "@/store/events";
 import { AutoSwitchBar, SeatSwitchProvider, SwitchSeatButton } from "./SeatSwitch";
 import { BankedResets } from "./BankedResets";
 import {
@@ -62,7 +62,7 @@ function useSubscriptions() {
     let refresh = force > 0;
     let pollMs = MIN_POLL_MS;
     const tick = async () => {
-      if (useEventStore.getState().activeSection === "agentic-ide") {
+      if (isSectionOnScreen("agentic-ide")) {
         setLoading(true);
         try {
           const [nextAccounts, nextUsage] = await Promise.all([fetchAgentAccounts(), fetchAgentUsage(refresh)]);

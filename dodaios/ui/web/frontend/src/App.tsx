@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 
-import { isSectionId, useEventStore, type SectionId } from "@/store/events";
+import { useEventStore, type SectionId } from "@/store/events";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useBrainStatus } from "@/hooks/useBrainStatus";
 import { useVoiceStatus } from "@/hooks/useVoiceStatus";
@@ -63,6 +63,7 @@ import { installDictationFocusTracker } from "@/lib/dictationTarget";
 import { SubscriptionRealtimeTransportBroker } from "@/components/voice/SubscriptionRealtimeTransportBroker";
 import { BrowserRealtimeControl } from "@/components/voice/BrowserRealtimeControl";
 import { cn } from "@/lib/utils";
+import { useTilingStore } from "@/store/tiling";
 
 /** Where the collapsed/expanded choice for the nav sidebar is remembered. */
 const NAV_COLLAPSED_KEY = "jarvis.sidebar.collapsed.v1";
@@ -203,31 +204,6 @@ export default function App() {
   useEffect(() => installDictationFocusTracker(), []);
 
   /*
-   * Resync the detached-window registry once per document. The WS events keep
-   * it live afterwards; this fetch covers the window that (re)loaded after the
-   * events fired — preload recovery reloads every window after a frontend
-   * rebuild, and a fresh solo window mounts long after its own "opened" event.
-   */
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/window/detached")
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = (await res.json().catch(() => null)) as {
-          views?: unknown[];
-        } | null;
-        if (cancelled || !Array.isArray(data?.views)) return;
-        useEventStore.getState().setDetachedViews(data.views.filter(isSectionId));
-      })
-      .catch(() => {
-        /* headless or warming backend — the WS events will catch us up */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /*
    * The sidebar is draggable, app-wide.
    *
    * It matters most in the Agentic IDE — every pixel taken from the nav is a
@@ -289,21 +265,18 @@ export default function App() {
   // Agents, Docs and the Wiki fill the window: each brings its own navigation column,
   // and the caption's home/back buttons leave it, so the app sidebar and the
   // toggle that used to reveal it are not needed there.
-  const sectionFullscreen = FULLSCREEN_SECTIONS.includes(activeSection);
+  // Tiled, the sidebar stays: the section shares the stage with others.
+  const tiled = useTilingStore((s) => s.tree !== null);
+  const sectionFullscreen = !tiled && FULLSCREEN_SECTIONS.includes(activeSection);
   const solo = useEventStore((s) => s.solo);
-  const detachedViews = useEventStore((s) => s.detachedViews);
 
   /*
    * The realtime broker must exist exactly ONCE across all windows: it
    * registers WebRTC offers for the native voice session, and two live brokers
-   * publish competing offers. Ownership follows the voice surface — a detached
-   * Voice window brings its own broker (the desktop shell injects the broker
-   * token only there), and the main window stands down while that window
-   * exists. Every other solo window never mounts one.
+   * publish competing offers. The main window owns it; the editor tool windows
+   * (`solo`) never mount one.
    */
-  const brokerMounted = solo
-    ? activeSection === "chats"
-    : !detachedViews.includes("chats");
+  const brokerMounted = !solo;
 
   // Which ground the section is drawn on — see `SectionStage`. Read here rather
   // than inside it so both window shapes below get the same answer from one

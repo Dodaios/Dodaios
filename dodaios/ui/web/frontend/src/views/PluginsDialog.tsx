@@ -1,4 +1,3 @@
-import { SectionWindowButton } from "@/components/layout/SectionWindowButton";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useRef, useState } from "react";
 import { X } from "lucide-react";
@@ -51,7 +50,6 @@ export function PluginsDialog({ onClose, area = "plugins", onAreaChange, standal
       <div data-plugin-pane className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {!standalone && (
           <div className="absolute right-3 top-2.5 z-10 flex items-center gap-1">
-            <SectionWindowButton />
             <Dialog.Close asChild>
               <button type="button" aria-label={t("common.close")} className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <X className="h-4 w-4" aria-hidden />

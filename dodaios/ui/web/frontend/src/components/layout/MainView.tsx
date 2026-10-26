@@ -2,9 +2,13 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useLayoutEffect,
+  useRef,
   useState,
   type ComponentType,
+  type CSSProperties,
   type LazyExoticComponent,
+  type ReactNode,
 } from "react";
 import { Loader2 } from "lucide-react";
 import { useEventStore, type SectionId } from "@/store/events";
@@ -12,9 +16,14 @@ import { sectionPrefetch } from "@/lib/sectionPrefetch";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ViewErrorBoundary } from "@/components/ViewErrorBoundary";
-import { DetachedViewPlaceholder } from "@/components/layout/DetachedViewPlaceholder";
 import { SETTINGS_HUB_IDS } from "@/components/layout/navGroups";
-import { detachedWindowFor } from "@/lib/sectionWindows";
+import { sectionWindow } from "@/lib/sectionWindows";
+import { FULL_RECT, layoutLeaves, type TileRect } from "@/lib/tilingLayout";
+import { useTilingStore } from "@/store/tiling";
+import { useWallpaper } from "@/hooks/useWallpaper";
+import { TileHeader, TILE_DRAG_TYPE } from "@/components/layout/tiling/TileHeader";
+import { TileGutters } from "@/components/layout/tiling/TileGutters";
+import { TileSectionContext } from "@/components/layout/tiling/tileSection";
 // Type-only, so the section's chunk stays split out of the entry bundle.
 import type { AgenticIdeViewProps } from "@/views/AgenticIdeView";
 // The default section is the one view that must be on screen the moment React
@@ -230,11 +239,31 @@ const STICKY_SECTION = "agentic-ide";
  * / `max-w-form` / `max-w-page` to the element that actually needs it.
  */
 
+/** Space between tiles, and between the tiles and the stage edge, in px. */
+const TILE_GAP = 14;
+
+/** Where one section sits on the stage; `rect` null = mounted but hidden. */
+interface Placement {
+  section: SectionId;
+  leafId: string | null;
+  rect: TileRect | null;
+  focused: boolean;
+}
+
+const isCoding = (section: string) => (CODING_SECTION_IDS as readonly string[]).includes(section);
+
 /**
- * Main area to the right of the sidebar. Views are switched the classic way
- * (one view active, the others unmounted) — this saves render load and is
- * semantically fine because they rehydrate their state from React Query / the
- * store.
+ * Main area to the right of the sidebar.
+ *
+ * Two shapes. Classic: one section fills the stage. Tiled: several sections
+ * share it side by side over the wallpaper, in the layout the tiling store
+ * holds (see `store/tiling.ts`). Both shapes render the same flat, keyed list
+ * of frames, so a section that moves between them — or from one tile to
+ * another — keeps its state instead of mounting again.
+ *
+ * Views are otherwise switched the classic way (one view per frame, the
+ * others unmounted) — this saves render load and is semantically fine because
+ * they rehydrate their state from React Query / the store.
  *
  * The Agentic IDE is the ONE exception, and it is not an optimisation: its
  * panes are live terminals, and unmounting them is destructive in a way no
@@ -253,104 +282,220 @@ const STICKY_SECTION = "agentic-ide";
  * `display: none` as off-screen and parks their output (see AgenticTerminal),
  * and their `ResizeObserver` re-fits them when they come back. Sticky rather
  * than always-mounted so a user who never opens the section never pays for it.
+ * It is mounted at most ONCE: a second instance would steal every pane's
+ * output stream from the first, which is why a section family sits in one
+ * tile only.
  */
 export function MainView() {
   const active = useEventStore((s) => s.activeSection);
   const setActive = useEventStore((s) => s.setActiveSection);
   const solo = useEventStore((s) => s.solo);
-  const detachedViews = useEventStore((s) => s.detachedViews);
+  const tree = useTilingStore((s) => s.tree);
+  const focusedId = useTilingStore((s) => s.focusedId);
+  const maximizedId = useTilingStore((s) => s.maximizedId);
+  const tiled = tree !== null && !solo;
   const [backgroundSection, setBackgroundSection] = useState(
     isOverlaySection(active) ? "chats" : active,
   );
   if (!isOverlaySection(active) && backgroundSection !== active) setBackgroundSection(active);
-  const activeDetached = !solo ? detachedWindowFor(active, detachedViews) : undefined;
-  const displayed = isOverlaySection(active) && !activeDetached ? backgroundSection : active;
-  const displayedDetached = !solo ? detachedWindowFor(displayed, detachedViews) : undefined;
+  const displayed = isOverlaySection(active) ? backgroundSection : active;
   const soloOverlay = solo && isOverlaySection(active);
 
-  /*
-   * While a coding view lives in a detached solo window, THIS (non-solo)
-   * window must not keep a mounted IDE instance around — not even hidden: the
-   * detached window's panes claim the PTY streams, and a second connected
-   * instance steals every pane's output (the exact defect the sticky-mount
-   * comment below warns about). The solo window itself is exempt — it IS the
-   * detached instance the registry entry refers to.
-   */
-  const codingDetached =
-    !solo &&
-    detachedViews.some((v) => (CODING_SECTION_IDS as readonly string[]).includes(v));
+  const placements: Placement[] = soloOverlay
+    ? []
+    : tree && tiled
+      ? layoutLeaves(tree).map(({ leaf, rect }) => ({
+          section: leaf.section,
+          leafId: leaf.id,
+          rect: maximizedId ? (leaf.id === maximizedId ? FULL_RECT : null) : rect,
+          focused: leaf.id === focusedId,
+        }))
+      : [{ section: displayed, leafId: null, rect: FULL_RECT, focused: true }];
 
-  const stickyActive =
-    (CODING_SECTION_IDS as readonly string[]).includes(displayed) && !codingDetached && !soloOverlay;
+  const idePlacement = placements.find((item) => isCoding(item.section));
+  const stickyActive = !!idePlacement?.rect;
   const [stickyMounted, setStickyMounted] = useState(stickyActive);
   useEffect(() => {
     if (stickyActive) setStickyMounted(true);
   }, [stickyActive]);
-  useEffect(() => {
-    // Genuine unmount on detach — and remount happens through the normal
-    // sticky path once DetachedViewClosed clears the registry.
-    if (codingDetached) setStickyMounted(false);
-  }, [codingDetached]);
+
+  const wallpaper = useWallpaper(tiled);
+  const stage = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const node = stage.current;
+    if (!tiled || !node || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const { width, height } = node.getBoundingClientRect();
+      if (width > 0 && height > 0) useTilingStore.getState().setStageAspect(width / height);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [tiled]);
 
   return (
-    <>
-      {stickyMounted && !codingDetached && !soloOverlay && (
-        <div
-          className={cn("h-full w-full", !stickyActive && "hidden")}
-          data-testid="sticky-agentic-ide"
-          // Hidden from assistive technology too while it is off screen: the
-          // panes stay in the DOM, and a screen reader walking a workspace's
-          // worth of terminal output behind the visible section would be a
-          // wall of noise nobody asked for.
-          aria-hidden={!stickyActive}
-        >
-          {/* Its own boundary, un-keyed: this instance must survive every
-              section change, which is the entire point of keeping it. */}
-          <ViewErrorBoundary
-            viewName={STICKY_SECTION}
-            resetKey={STICKY_SECTION}
-            onRecover={() => setActive("chats")}
-          >
-            <Suspense fallback={<ViewLoadingFallback />}>
-              {/* Told rather than measured: a `display: none` subtree has no
-                  geometry to read, and the view's background polling has to
-                  know it is off screen so it can stop asking the backend what
-                  a dozen panes are doing while nobody is watching them. */}
-              <AgenticIdeView onScreen={stickyActive} />
-            </Suspense>
-          </ViewErrorBoundary>
+    <div
+      ref={stage}
+      className={cn("relative h-full w-full", tiled && "jarvis-tiling-stage")}
+      style={tiled && wallpaper ? { backgroundImage: `url("${wallpaper}")` } : undefined}
+      data-testid={tiled ? "tiling-stage" : undefined}
+    >
+      <div className="absolute inset-0" style={tiled ? { padding: TILE_GAP / 2 } : undefined}>
+        <div className="relative h-full w-full">
+          {stickyMounted && !soloOverlay && (
+            <TileFrame
+              placement={idePlacement ?? { section: STICKY_SECTION, leafId: null, rect: null, focused: false }}
+              tiled={tiled}
+              maximized={!!idePlacement?.leafId && idePlacement.leafId === maximizedId}
+              testId="sticky-agentic-ide"
+            >
+              {/* Its own boundary, un-keyed: this instance must survive every
+                  section change, which is the entire point of keeping it. */}
+              <ViewErrorBoundary
+                viewName={STICKY_SECTION}
+                resetKey={STICKY_SECTION}
+                onRecover={() => setActive("chats")}
+              >
+                <Suspense fallback={<ViewLoadingFallback />}>
+                  {/* Told rather than measured: a `display: none` subtree has no
+                      geometry to read, and the view's background polling has to
+                      know it is off screen so it can stop asking the backend what
+                      a dozen panes are doing while nobody is watching them. */}
+                  <AgenticIdeView onScreen={stickyActive} />
+                </Suspense>
+              </ViewErrorBoundary>
+            </TileFrame>
+          )}
+          {placements
+            .filter((item) => !isCoding(item.section))
+            .map((item) => (
+              <TileFrame
+                key={sectionWindow(item.section)}
+                placement={item}
+                tiled={tiled}
+                maximized={!!item.leafId && item.leafId === maximizedId}
+              >
+                <ViewErrorBoundary
+                  viewName={item.section}
+                  resetKey={item.section}
+                  onRecover={() => setActive("chats")}
+                >
+                  {/* Keyed on the section so switching away from a still-loading
+                      view cannot leave the previous section's fallback on screen. */}
+                  <Suspense key={item.section} fallback={<ViewLoadingFallback />}>
+                    <SwitchOnActiveSection active={item.section} />
+                  </Suspense>
+                </ViewErrorBoundary>
+              </TileFrame>
+            ))}
+          {tree && tiled && !maximizedId && <TileGutters tree={tree} gap={TILE_GAP} />}
         </div>
-      )}
-      {!stickyActive && !soloOverlay && (
-        <ViewErrorBoundary
-          viewName={displayed}
-          resetKey={displayed}
-          onRecover={() => setActive("chats")}
-        >
-          {/* Keyed on the active section so switching away from a still-loading
-              view cannot leave the previous section's fallback on screen. */}
-          <Suspense key={displayed} fallback={<ViewLoadingFallback />}>
-            {displayedDetached
-              ? <DetachedViewPlaceholder view={displayedDetached} />
-              : <SwitchOnActiveSection active={displayed} />}
-          </Suspense>
-        </ViewErrorBoundary>
-      )}
-      {isPluginArea(active) && !activeDetached && (
+      </div>
+      {isPluginArea(active) && (
         <ViewErrorBoundary viewName="plugins" resetKey="plugins" onRecover={() => setActive(backgroundSection)}>
           <Suspense fallback={null}>
             <PluginsDialog standalone={solo} area={active} onAreaChange={setActive} onClose={() => setActive(backgroundSection)} />
           </Suspense>
         </ViewErrorBoundary>
       )}
-      {isSettingsHub(active) && !activeDetached && (
+      {isSettingsHub(active) && (
         <ViewErrorBoundary viewName="settings" resetKey="settings" onRecover={() => setActive(backgroundSection)}>
           <Suspense fallback={null}>
             {solo ? <SettingsHubView /> : <SettingsHubDialog onClose={() => setActive(backgroundSection)} />}
           </Suspense>
         </ViewErrorBoundary>
       )}
-    </>
+    </div>
+  );
+}
+
+/**
+ * One section's frame on the stage.
+ *
+ * Classic shape: fills the stage, no chrome. Tiled: a rounded card at its
+ * place in the layout with a slim title row; a press anywhere inside focuses
+ * it, and another tile's title row dropped on it swaps the two.
+ */
+function TileFrame({
+  placement,
+  tiled,
+  maximized,
+  testId,
+  children,
+}: {
+  placement: Placement;
+  tiled: boolean;
+  maximized: boolean;
+  testId?: string;
+  children: ReactNode;
+}) {
+  const { rect, leafId, focused, section } = placement;
+  const [dropTarget, setDropTarget] = useState(false);
+  const visible = rect !== null;
+  const inner = (
+    <TileSectionContext.Provider value={section}>{children}</TileSectionContext.Provider>
+  );
+
+  // One element shape for both cases — outer box, optional title row, content
+  // box — so a section that moves between the classic stage and a tile keeps
+  // its React subtree (and the IDE its live terminals).
+  const tile = tiled && leafId !== null;
+  const half = TILE_GAP / 2;
+  const style: CSSProperties | undefined = tile && rect
+    ? {
+        left: `calc(${rect.x * 100}% + ${half}px)`,
+        top: `calc(${rect.y * 100}% + ${half}px)`,
+        width: `calc(${rect.w * 100}% - ${TILE_GAP}px)`,
+        height: `calc(${rect.h * 100}% - ${TILE_GAP}px)`,
+      }
+    : undefined;
+
+  return (
+    <div
+      className={cn(
+        tile
+          ? cn(
+              "jarvis-tile absolute flex flex-col overflow-hidden rounded-xl border",
+              focused ? "jarvis-tile-focused" : "border-white/10",
+              dropTarget && "ring-2 ring-primary",
+            )
+          : "absolute inset-0 flex flex-col",
+        !visible && "hidden",
+      )}
+      style={style}
+      data-testid={testId ?? (tile ? "tile" : undefined)}
+      data-focused={(tile && focused) || undefined}
+      // Hidden from assistive technology too while it is off screen: the
+      // panes stay in the DOM, and a screen reader walking a workspace's
+      // worth of terminal output behind the visible section would be a
+      // wall of noise nobody asked for.
+      aria-hidden={!visible}
+      onPointerDownCapture={tile && leafId ? () => {
+        if (!focused) useTilingStore.getState().focusTile(leafId);
+      } : undefined}
+      onDragOver={tile ? (event) => {
+        if (!event.dataTransfer.types.includes(TILE_DRAG_TYPE)) return;
+        event.preventDefault();
+        setDropTarget(true);
+      } : undefined}
+      onDragLeave={tile ? () => setDropTarget(false) : undefined}
+      onDrop={tile && leafId ? (event) => {
+        setDropTarget(false);
+        const from = event.dataTransfer.getData(TILE_DRAG_TYPE);
+        if (from && from !== leafId) {
+          event.preventDefault();
+          useTilingStore.getState().swapTiles(from, leafId);
+        }
+      } : undefined}
+    >
+      {tile && leafId && (
+        <TileHeader leafId={leafId} section={section} focused={focused} maximized={maximized} />
+      )}
+      <div className={tile ? "jarvis-section-stage relative min-h-0 flex-1" : "relative min-h-0 flex-1"}>
+        {inner}
+      </div>
+    </div>
   );
 }
 

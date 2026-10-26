@@ -1,3 +1,4 @@
+import { isSectionOnScreen } from "@/store/tiling";
 import { useEffect } from "react";
 import { create } from "zustand";
 
@@ -87,7 +88,7 @@ function schedule(): void {
 }
 
 function tick(): void {
-  if (useEventStore.getState().activeSection === "agentic-ide") {
+  if (isSectionOnScreen("agentic-ide")) {
     void usePaneRecapsStore.getState().load(frontWorkspace());
   }
   schedule();

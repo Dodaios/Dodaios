@@ -21,7 +21,6 @@ beforeEach(() => {
   useEventStore.setState({
     activeSection: "dictation",
     solo: false,
-    detachedViews: [],
   });
   // The shut side panel's toggle counts waiting agents; no poll leaves the test.
   useWorkspacePanesStore.setState({ panes: [], load: async () => {} });
@@ -29,11 +28,11 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("TopBar caption buttons", () => {
-  it("offers a section window without theme or restart controls", () => {
+  it("offers the layout menu without theme or restart controls", () => {
     useEventStore.setState({ activeSection: "agents" });
     render(<TopBar />);
     expect(screen.queryByTestId("theme-toggle")).toBeNull();
-    expect(screen.getByTestId("detach-view-button")).toBeTruthy();
+    expect(screen.getByTestId("layout-menu-button")).toBeTruthy();
     expect(screen.queryByTestId("section-nav-sidebar")).toBeNull();
     expect(screen.queryByRole("button", { name: /restart/i })).toBeNull();
   });
@@ -109,7 +108,7 @@ describe("TopBar section navigation", () => {
     },
   );
 
-  it("stays out of a detached solo window", () => {
+  it("stays out of a solo tool window", () => {
     useEventStore.setState({ solo: true });
     render(<TopBar />);
     expect(screen.queryByTestId("section-nav-buttons")).toBeNull();

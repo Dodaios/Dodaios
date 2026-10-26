@@ -1,3 +1,4 @@
+import { useStageSection } from "@/components/layout/tiling/tileSection";
 import { TerminalSquare, FlaskConical } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 
@@ -41,7 +42,8 @@ type AreaId = (typeof AREAS)[number]["id"];
 
 export function ClisHubView() {
   const t = useT();
-  const active = useEventStore((s) => s.activeSection);
+  // The tile's own section: in a tiled layout another tile may hold focus.
+  const active = useStageSection();
   const setActive = useEventStore((s) => s.setActiveSection);
 
   // The router only mounts us for clis/cli-test-hub; any other value is

@@ -17,7 +17,7 @@ vi.mock("@/views/PluginsView", () => ({
 vi.mock("@/views/SkillsView", () => ({ SkillsView: () => <input aria-label="Skill search" /> }));
 vi.mock("@/views/McpsView", () => ({ McpsView: () => <div>MCP content</div> }));
 
-beforeEach(() => { useEventStore.setState({ activeSection: "chats", solo: false, detachedViews: [] }); });
+beforeEach(() => { useEventStore.setState({ activeSection: "chats", solo: false }); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 it("opens a bounded dialog while preserving the current draft and restores that view on close", async () => {
