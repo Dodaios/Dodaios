@@ -16,9 +16,14 @@ Prefix ``/api/agent-chat``:
                                              scope?: agent | chat, breadth?: action | app}
     POST   /sessions/{id}/approvals/{aid}/rule  {kind: always_allow | require_approval,
                                              scope, breadth} -> a rule from a settled card
-    POST   /sessions/{id}/questions/{qid}    {index, option_index} or {index, text} -> answer
-                                             one question of an agent's card
-    POST   /sessions/{id}/questions/{qid}/skip  close the card: recommendations apply
+    POST   /sessions/{id}/questions/{qid}    {index, option_index | option_indices | text}
+                                             -> answer one question of an agent's card
+    POST   /sessions/{id}/questions/{qid}/submit  {answers: [...]} -> the whole reviewed card
+    POST   /sessions/{id}/questions/{qid}/skip  close the card: recommendations apply;
+                                             {index} skips that one question only
+    POST   /sessions/{id}/questions/{qid}/touch  the person is still answering: restart
+                                             the card's quiet window
+    POST   /sessions/{id}/reply-to-question  {text} -> a chat message answers the open card
     POST   /sessions/{id}/plan               {turn_id, decision: build | keep} -> answer
                                              a coding agent's plan card
     WS     /sessions/{id}/ws?after=<seq>     snapshot, then live events
@@ -295,8 +300,25 @@ class QuestionAnswerBody(BaseModel):
     index: int = 0
     #: The picked option (0 is the agent's recommendation) ...
     option_index: int | None = None
-    #: ... or the person's own typed answer. Exactly one of the two.
+    #: ... the picked options of a multi-select question ...
+    option_indices: list[int] | None = None
+    #: ... or the person's own typed answer (next to the picks of a multi-select).
     text: str | None = None
+
+
+class QuestionSubmitBody(BaseModel):
+    #: One entry per question: ``{option_index | option_indices | text | skip}``.
+    answers: list[dict[str, Any]] = Field(default_factory=list, max_length=8)
+
+
+class QuestionSkipBody(BaseModel):
+    #: Skip only this question of the series; absent closes the whole card.
+    index: int | None = None
+
+
+class QuestionReplyBody(BaseModel):
+    #: The chat message the person sent while a question card was open.
+    text: str = Field(default="", max_length=20000)
 
 
 class PlanBody(BaseModel):
@@ -1411,6 +1433,7 @@ async def answer_question(
             question_id,
             index=body.index,
             option_index=body.option_index,
+            option_indices=body.option_indices,
             text=body.text,
         )
         if not ok:
@@ -1421,6 +1444,7 @@ async def answer_question(
                 question_id,
                 index=body.index,
                 option_index=body.option_index,
+                option_indices=body.option_indices,
                 text=body.text,
             )
     except ValueError as exc:
@@ -1436,17 +1460,69 @@ async def answer_question(
     "/sessions/{session_id}/questions/{question_id}/skip",
     summary="Close an agent's question card and let its recommendations apply",
 )
-async def skip_question(session_id: str, question_id: str, request: Request) -> dict[str, Any]:
+async def skip_question(
+    session_id: str,
+    question_id: str,
+    request: Request,
+    body: QuestionSkipBody | None = None,
+) -> dict[str, Any]:
     svc = (await _async_service(request))
+    index = body.index if body is not None else None
     try:
-        ok = svc.skip_question(session_id, question_id) or await svc.skip_turn_question(
-            session_id, question_id
+        ok = svc.skip_question(session_id, question_id, index) or await svc.skip_turn_question(
+            session_id, question_id, index=index
         )
     except SessionBusy as exc:
         raise HTTPException(status_code=409, detail="session is busy") from exc
     if not ok:
         raise HTTPException(status_code=404, detail="no such open question")
     return {"ok": True, "question_id": question_id}
+
+
+@router.post(
+    "/sessions/{session_id}/questions/{question_id}/submit",
+    summary="Send the person's reviewed answers to a whole question card at once",
+)
+async def submit_question(
+    session_id: str, question_id: str, body: QuestionSubmitBody, request: Request
+) -> dict[str, Any]:
+    svc = (await _async_service(request))
+    try:
+        ok = svc.submit_questions(
+            session_id, question_id, body.answers
+        ) or await svc.submit_turn_question(session_id, question_id, body.answers)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SessionBusy as exc:
+        raise HTTPException(status_code=409, detail="session is busy") from exc
+    if not ok:
+        raise HTTPException(status_code=404, detail="no such open question")
+    return {"ok": True, "question_id": question_id}
+
+
+@router.post(
+    "/sessions/{session_id}/questions/{question_id}/touch",
+    summary="The person is still answering a question card: restart its quiet window",
+)
+async def touch_question(session_id: str, question_id: str, request: Request) -> dict[str, Any]:
+    svc = (await _async_service(request))
+    # An end-of-turn card has no window, so only a live card can be touched.
+    return {"ok": bool(svc.touch_question(session_id, question_id))}
+
+
+@router.post(
+    "/sessions/{session_id}/reply-to-question",
+    summary="A chat message answers the open question card",
+)
+async def reply_to_question(
+    session_id: str, body: QuestionReplyBody, request: Request
+) -> dict[str, Any]:
+    svc = (await _async_service(request))
+    try:
+        outcome = await svc.answer_by_message(session_id, body.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, **outcome}
 
 
 @router.post(

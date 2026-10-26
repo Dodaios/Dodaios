@@ -3,6 +3,8 @@
 Each question offers two to four prepared answers with the recommended one
 first; the person taps an answer (or types their own) and the card walks
 through the series as "question 1 of 3" (dodaios/agent_chat/questions.py).
+A question may also let the person pick several answers (``kind: multi``) or
+ask for their own words only (``kind: text``).
 Three guarantees keep work moving and asking rare:
 
 * When nobody answers for five minutes, the open questions take their
@@ -20,11 +22,14 @@ from typing import Any, Final
 
 from dodaios.agent_chat.questions import (
     CANCELLED,
+    DECLINED,
+    KINDS,
     MAX_ASKS_PER_TURN,
     MAX_OPTIONS,
     MAX_QUESTIONS,
+    MESSAGE,
     MIN_OPTIONS,
-    PERSON,
+    MOVED_ON,
     QUESTION_TIMEOUT_S,
     SKIPPED,
     TIMEOUT,
@@ -59,9 +64,16 @@ _QUESTION_SCHEMA: Final[dict[str, Any]] = {
             "type": "string",
             "description": "The question, clear and specific, ending with a question mark.",
         },
+        "kind": {
+            "type": "string",
+            "enum": list(KINDS),
+            "description": (
+                "single (default): one answer. multi: the user may pick several. "
+                "text: the user writes the answer; options are optional suggestions."
+            ),
+        },
         "options": {
             "type": "array",
-            "minItems": MIN_OPTIONS,
             "maxItems": MAX_OPTIONS,
             "items": {
                 "type": "object",
@@ -74,14 +86,17 @@ _QUESTION_SCHEMA: Final[dict[str, Any]] = {
                 },
                 "required": ["label"],
             },
-            "description": "The answers, your recommendation FIRST.",
+            "description": (
+                f"{MIN_OPTIONS}-{MAX_OPTIONS} answers, your recommendation FIRST "
+                "(optional for kind text)."
+            ),
         },
         "recommendation_reason": {
             "type": "string",
             "description": "One sentence: why the first option beats the runner-up.",
         },
     },
-    "required": ["question", "options", "recommendation_reason"],
+    "required": ["question", "recommendation_reason"],
 }
 
 
@@ -100,7 +115,8 @@ class AskUserTool:
         "better); the user answers them one after another. Each question offers "
         f"{MIN_OPTIONS}-{MAX_OPTIONS} concrete, mutually exclusive answers with your "
         "recommendation FIRST and recommendation_reason saying why it beats the "
-        "runner-up. The user may also type their own answer. If nobody answers within "
+        "runner-up; set kind 'multi' only when several answers can be combined. "
+        "The user may also type their own answer. If nobody answers within "
         f"{_MINUTES} minutes, your recommendations are applied, so recommend the safest "
         "sensible choice. Never ask for permission to do what you were asked, never ask "
         "what you could look up, and never ask again what was already answered. "
@@ -251,12 +267,14 @@ def _result(specs: tuple[QuestionSpec, ...], answers: list[QuestionAnswer]) -> T
             "answer": answer.answer,
             "source": answer.source,
         }
+        if answer.option_indices:
+            row["picked"] = [spec.options[i].label for i in answer.option_indices]
         if answer.option_index is not None:
             row["recommended"] = answer.option_index == 0
             description = spec.options[answer.option_index].description
             if description:
                 row["option_description"] = description
-        elif answer.source == PERSON:
+        elif answer.by_person and not answer.option_indices:
             row["typed"] = True
         rows.append(row)
     output: dict[str, Any] = {"answers": rows}
@@ -271,4 +289,12 @@ def _result(specs: tuple[QuestionSpec, ...], answers: list[QuestionAnswer]) -> T
             "The user closed the card and left the open questions to you: your "
             "recommendations were applied. Continue without asking again."
         )
+    elif MESSAGE in sources or MOVED_ON in sources:
+        output["note"] = (
+            "The user replied in the chat instead of on the card: read that message as "
+            "their answer. Questions they did not address took your recommendations."
+        )
+    if DECLINED in sources:
+        skipped = "The user skipped a question (empty answer): decide it yourself."
+        output["note"] = f"{output['note']} {skipped}" if "note" in output else skipped
     return ToolResult(success=True, output=output)
