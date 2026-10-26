@@ -15,7 +15,7 @@ tags: [troubleshooting, diagnostics, recovery, startup, providers, voice, connec
 related: [install-dodaios, providers-and-api-keys, audio-and-wake-word, platform-support]
 ---
 
-Dodaios combines a local app, optional online providers, operating
+Dodaios (formerly Personal Jarvis) combines a local app, optional online providers, operating
 system permissions, connected tools, and background work. One part can fail
 while the rest of the app remains healthy. Find the affected part before you
 change any settings.

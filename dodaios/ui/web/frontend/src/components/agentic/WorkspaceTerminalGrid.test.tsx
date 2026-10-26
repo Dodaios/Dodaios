@@ -304,3 +304,13 @@ it("hands the blue frame back from the side panel to a pressed pane", () => {
   expect(screen.getByTestId("pane-T1").dataset.markFocus).toBe("true");
   useIdeSidePanelStore.setState({ open: false, inUse: false });
 });
+
+it("never grows past its frame, so an open side panel shrinks the panes instead of covering one", () => {
+  render(<WorkspaceTerminalGrid {...props} session={makeSession(["T1", "T2", "T3", "T4", "T5", "T6"])} />);
+  const grid = screen.getByTestId("workspace-terminal-grid");
+  const canvas = screen.getByTestId("workspace-terminal-canvas");
+  expect(grid.className).toContain("overflow-hidden");
+  expect(grid.className).not.toContain("overflow-auto");
+  expect(canvas.style.minWidth).toBe("");
+  expect(canvas.style.minHeight).toBe("");
+});

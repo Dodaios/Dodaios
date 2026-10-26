@@ -22,8 +22,10 @@ export function IdeSidePanelToggle({ className }: { className?: string }) {
   const open = useIdeSidePanelStore((state) => state.open);
   const setOpen = useIdeSidePanelStore((state) => state.setOpen);
   const activeWorkspaceId = useIdeProjectsStore((state) => state.activeWorkspaceId);
-  // An open panel shows its agents itself; only a shut one needs the count.
-  const panes = useWorkspacePanes(!open);
+  // Always subscribed: the caption is on screen whenever the IDE is, so the one
+  // shared pane poll stays warm and the Agents tab opens with its list ready
+  // instead of waiting for a first answer. Only a shut panel needs the count.
+  const panes = useWorkspacePanes();
   const waiting = open ? 0 : workspaceAgents(panes, activeWorkspaceId).filter((pane) => dotKindFor(pane) === "waiting").length;
   const action = t(open ? "ide_side_panel.collapse" : "ide_side_panel.expand");
   const label = waiting > 0 ? `${action} (${fill(t("ide_side_panel.rail_waiting"), { n: waiting })})` : action;
