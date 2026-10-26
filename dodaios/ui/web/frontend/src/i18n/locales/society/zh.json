@@ -1062,6 +1062,10 @@
     },
     "office": {
       "title": "Dodaios Verse",
+      "loading_title": "加载中",
+      "loading_tip_1": "按 1 到 4 乘坐升降梯直达对应甲板。",
+      "loading_tip_2": "你启动的每个编码智能体都在反应堆工程区的终端前工作。",
+      "loading_tip_3": "按 V 切换到整层甲板的鸟瞰视角。",
       "viewport": "Dodaios Verse",
       "loading": "正在打开 Dodaios Verse…",
       "no_graphics": "此处无法进行 3D 渲染。每个智能体的状态仍可在智能体列表中查看。",

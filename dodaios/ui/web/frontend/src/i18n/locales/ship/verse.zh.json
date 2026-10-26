@@ -120,6 +120,7 @@
     },
     "lift": {
       "title": "升降梯",
+      "switch": "切换甲板",
       "here": "当前甲板"
     },
     "notice": {

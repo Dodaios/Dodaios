@@ -120,6 +120,7 @@
     },
     "lift": {
       "title": "Turboascensor",
+      "switch": "Cambiar cubierta",
       "here": "Esta cubierta"
     },
     "notice": {

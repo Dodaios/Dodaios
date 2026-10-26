@@ -120,6 +120,7 @@
     },
     "lift": {
       "title": "Turbolift",
+      "switch": "Change deck",
       "here": "This deck"
     },
     "notice": {

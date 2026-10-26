@@ -1320,8 +1320,8 @@ if [ -d "$INSTALL_DIR/.git" ]; then
     if pretty_git git $GIT_NET_OPTS -C "$INSTALL_DIR" fetch "$GIT_VERBOSITY" --depth 1 origin "$BRANCH" \
         && stop_running_app \
         && migrate_install_dir \
-        && git -C "$INSTALL_DIR" checkout --quiet "$BRANCH" \
-        && git -C "$INSTALL_DIR" reset --quiet --hard "origin/$BRANCH"; then
+        && git -C "$INSTALL_DIR" checkout --quiet --detach FETCH_HEAD \
+        && git -C "$INSTALL_DIR" reset --quiet --hard FETCH_HEAD; then
         ok 'updated existing checkout to latest'
     else
         note 'existing checkout would not update (broken git state) - reinstalling in place.'
@@ -1441,3 +1441,4 @@ note 'handing over to the Python installer (phases 4-6)'
 
 cd "$INSTALL_DIR"
 exec "$VENV_PYTHON" "$INSTALLER_PY" "$@"
+

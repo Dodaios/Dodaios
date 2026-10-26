@@ -52,10 +52,13 @@ export function mergeScreens(
   return next ?? prev;
 }
 
-export function usePaneScreens(targets: PaneScreenTarget[], awake: boolean): ReadonlyMap<string, PaneScreen> {
+/** `seatedOnly`: poll only agents at their desk; off for screens that show every pane. */
+export function usePaneScreens(targets: PaneScreenTarget[], awake: boolean, seatedOnly = true): ReadonlyMap<string, PaneScreen> {
   const [screens, setScreens] = useState<ReadonlyMap<string, PaneScreen>>(new Map());
   const targetsRef = useRef(targets);
   targetsRef.current = targets;
+  const seatedOnlyRef = useRef(seatedOnly);
+  seatedOnlyRef.current = seatedOnly;
   const active = awake && targets.length > 0;
   useEffect(() => {
     if (!active) return;
@@ -64,7 +67,9 @@ export function usePaneScreens(targets: PaneScreenTarget[], awake: boolean): Rea
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => { timer = setTimeout(() => void tick(), POLL_MIN_MS + Math.random() * POLL_JITTER_MS); };
     const tick = async () => {
-      const due = dueTargets(targetsRef.current, seatedCrew);
+      const due = seatedOnlyRef.current
+        ? dueTargets(targetsRef.current, seatedCrew)
+        : targetsRef.current.slice(0, MAX_SCREEN_TARGETS);
       if (due.length > 0) {
         try {
           const fetched = await fetchPaneScreens(due.map((t) => ({ workspaceId: t.workspaceId, key: t.key })));

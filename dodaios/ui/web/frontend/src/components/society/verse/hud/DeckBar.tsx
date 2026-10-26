@@ -15,9 +15,13 @@ interface TitleProps {
   t: (key: string) => string;
   counts: { aboard: number; working: number; waiting: number };
   rankCard: ReactNode;
+  /** Opens the turbolift. The title is where people look for the other decks, so the switch sits right on it. */
+  onLift: () => void;
 }
 
-export function DeckTitle({ deck, t, counts, rankCard }: TitleProps) {
+const LIFT_ICON = "M3.5 1.5v10M1 4l2.5-2.5L6 4M9.5 11.5v-10M7 9l2.5 2.5L12 9";
+
+export function DeckTitle({ deck, t, counts, rankCard, onLift }: TitleProps) {
   return (
     <div className="verse-deck">
       <div className="verse-deck-head">
@@ -36,6 +40,10 @@ export function DeckTitle({ deck, t, counts, rankCard }: TitleProps) {
             )}
           </span>
         </div>
+        <button type="button" className="verse-deck-switch" onClick={onLift} title={t("verse.tools.lift")}>
+          {icon(LIFT_ICON)}
+          <span>{t("verse.lift.switch")}</span>
+        </button>
       </div>
       {/* Below the title, never beside it: the two never compete for width. */}
       {rankCard && <div className="verse-rank-slot">{rankCard}</div>}
@@ -97,7 +105,7 @@ export function Toolbar({ t, view, firstAvailable, onView, onLift, onCommander, 
         })}
       </div>
       <button type="button" className="verse-tool" onClick={onLift} title={t("verse.tools.lift")}>
-        {icon("M3.5 1.5v10M1 4l2.5-2.5L6 4M9.5 11.5v-10M7 9l2.5 2.5L12 9")}
+        {icon(LIFT_ICON)}
         <span className="verse-tool-text">{t("verse.tools.lift")}</span>
       </button>
       <button type="button" className="verse-tool" onClick={onCommander} title={t("verse.tools.commander")}>

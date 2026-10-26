@@ -120,6 +120,7 @@
     },
     "lift": {
       "title": "Turboelevador",
+      "switch": "Mudar de convés",
       "here": "Este convés"
     },
     "notice": {
