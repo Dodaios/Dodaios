@@ -143,13 +143,11 @@ export function BrowserRealtimeControl({ controlOnly = false }: { controlOnly?: 
   const clientRef = useRef<RealtimeAudioClient | null>(null);
   const events = useEventStore((store) => store.events);
   const solo = useEventStore((store) => store.solo);
-  const activeSection = useEventStore((store) => store.activeSection);
-  const detachedViews = useEventStore((store) => store.detachedViews);
   const embedded = hasEmbeddedDesktopBridge();
-  // Match the desktop's media owner across main and detached windows. An
+  // The desktop's main window owns the media; its tool windows never do. An
   // external tab must never compete with the desktop for a wake request.
   const wakeOwner = controlOnly && (embedded
-    ? (solo ? activeSection === "chats" : !detachedViews.includes("chats"))
+    ? !solo
     : capabilities.data?.native_file_actions === false);
   const canStartInBackground = embedded && wakeOwner;
   const handledRequest = useRef<string | null>(null);

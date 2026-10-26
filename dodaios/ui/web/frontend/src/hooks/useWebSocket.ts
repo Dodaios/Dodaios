@@ -13,7 +13,6 @@ import { clearVoiceOutputLevel, setVoiceOutputLevel } from "@/lib/voiceOutputLev
 import {
   SECTION_LABEL_KEYS,
   VOICE_STATES,
-  isSectionId,
   resolveSectionId,
   useEventStore,
   type ChatMessage,
@@ -516,27 +515,6 @@ export function useWebSocket(): void {
                 `${translate("use_web_socket.jarvis_opened")} ${translate(SECTION_LABEL_KEYS[section])}`,
               );
             }
-          }
-        }
-
-        if (
-          env.event_name === "DetachedViewOpened" ||
-          env.event_name === "DetachedViewClosed"
-        ) {
-          // Mirror the desktop shell's detached-window registry into EVERY
-          // window: the origin unmounts its copy of a detached section (one
-          // mounted Agentic IDE max — a second instance steals the pane
-          // streams) and remounts when the detached window closes.
-          const p = env.payload as { view?: string };
-          if (isSectionId(p.view)) {
-            const state = useEventStore.getState();
-            const next =
-              env.event_name === "DetachedViewOpened"
-                ? state.detachedViews.includes(p.view)
-                  ? state.detachedViews
-                  : [...state.detachedViews, p.view]
-                : state.detachedViews.filter((v) => v !== p.view);
-            if (next !== state.detachedViews) state.setDetachedViews(next);
           }
         }
 

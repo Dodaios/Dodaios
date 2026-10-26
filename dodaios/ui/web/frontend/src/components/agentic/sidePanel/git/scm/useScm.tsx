@@ -1,3 +1,4 @@
+import { isSectionOnScreen } from "@/store/tiling";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Cloud, GitBranch, Plus, Tag } from "lucide-react";
@@ -36,7 +37,7 @@ export function useScmStatus(workspaceId: string | null) {
     let controller: AbortController | null = null;
     const tick = async () => {
       const visible = typeof document === "undefined" || document.visibilityState !== "hidden";
-      if (visible && useEventStore.getState().activeSection === "agentic-ide") {
+      if (visible && isSectionOnScreen("agentic-ide")) {
         controller = new AbortController();
         try {
           const next = await scmApi.status(workspaceId, controller.signal);

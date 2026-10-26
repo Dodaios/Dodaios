@@ -12,8 +12,7 @@ import { fill, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { CodingModeBadge } from "@/components/layout/CodingModeBadge";
 import { SectionNavButtons } from "@/components/layout/SectionNavButtons";
-import { SectionWindowButton } from "@/components/layout/SectionWindowButton";
-import { sectionWindow } from "@/lib/sectionWindows";
+import { LayoutMenuButton } from "@/components/layout/tiling/LayoutMenuButton";
 import { IdeLayoutSwitch } from "@/components/agentic/threads/IdeLayoutSwitch";
 import { IDE_SECTIONS } from "@/lib/ideSections";
 import { openExternalUrl } from "@/lib/openExternal";
@@ -79,7 +78,6 @@ const CHROME_ARMED = "bg-warning text-background";
 export function TopBar() {
   const chrome = useDesktopChrome();
   const solo = useEventStore((s) => s.solo);
-  const section = useEventStore((s) => sectionWindow(s.activeSection));
   const controls = chrome.frameless ? chrome.controls : "none";
 
   return (
@@ -97,8 +95,8 @@ export function TopBar() {
         <WindowControls controls={controls} maximized={chrome.maximized} onCommand={chrome.command} />
       )}
       <SectionNavButtons />
-      {/* Modal hubs carry this action inside their own focus scope. */}
-      {(solo || !["settings", "plugins"].includes(section)) && <SectionWindowButton />}
+      {/* Arrange sections side by side; tool windows show one view only. */}
+      {!solo && <LayoutMenuButton />}
       <div
         className="pywebview-drag-region min-w-0 flex-1"
         onDoubleClick={() => {

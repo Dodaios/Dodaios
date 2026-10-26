@@ -23,7 +23,7 @@ it("does not execute unused sections or warm API queries while idle, then loads 
   vi.stubGlobal("cancelIdleCallback", window.clearTimeout);
   const client = new QueryClient();
   const prefetch = vi.spyOn(client, "prefetchQuery");
-  useEventStore.setState({ activeSection: "chats", solo: false, detachedViews: [] });
+  useEventStore.setState({ activeSection: "chats", solo: false });
   render(<QueryClientProvider client={client}><MainView /></QueryClientProvider>);
   expect(screen.getByText("Current chat")).toBeTruthy();
   await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });

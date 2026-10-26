@@ -96,7 +96,6 @@ describe("BrowserRealtimeControl", () => {
       transcriptionFinal: true,
       solo: false,
       activeSection: "chats",
-      detachedViews: [],
     });
   });
 

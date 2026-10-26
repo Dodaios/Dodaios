@@ -10,7 +10,6 @@ const { mockState } = vi.hoisted(() => ({
   mockState: {
     activeSection: "settings" as string,
     solo: false,
-    detachedViews: [],
     setActiveSection: vi.fn(),
   },
 }));

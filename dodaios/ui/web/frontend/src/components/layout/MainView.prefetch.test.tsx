@@ -63,7 +63,7 @@ afterEach(() => {
 
 test("an idle home window loads no unused sections or speculative data; navigation still loads its view", async () => {
   vi.useFakeTimers();
-  useEventStore.setState({ activeSection: "chats", solo: false, detachedViews: [] });
+  useEventStore.setState({ activeSection: "chats", solo: false });
   const client = new QueryClient();
   const prefetch = vi.spyOn(client, "prefetchQuery").mockResolvedValue(undefined);
   render(<QueryClientProvider client={client}><MainView /></QueryClientProvider>);

@@ -34,7 +34,7 @@ from dodaios.core.config import DATA_DIR, JarvisConfig, load_config
 from dodaios.core.instance import current_instance
 from dodaios.core.process_utils import drop_inherited_electron_node_mode, ensure_standard_streams
 from dodaios.i18n import catalog as i18n_catalog
-from dodaios.ui.section_windows import SECTION_WINDOW_TITLES, WINDOW_GROUPS, section_window
+from dodaios.ui.section_windows import section_window
 
 if TYPE_CHECKING:
     from dodaios.ui.desktop_background import BackgroundStatus
@@ -94,30 +94,13 @@ LOCK_FILE_PATH = DATA_DIR / "jarvis.lock"
 # the window frame.
 TEXT_SELECTABLE: dict[str, Any] = {"text_select": True}
 
-# Views the desktop shell can split off into their own solo window, mapped to
-# the window-title label. Keys mirror the frontend ``SECTION_IDS``
-# (``store/events.ts``); labels are deliberately the stable English section
-# names, NOT the wake-word brand — the product/window title is a compatibility
-# contract (see ``dodaios/core/branding.py``), only agent names are dynamic.
+# Tool windows the desktop shell opens beside the main window, mapped to the
+# window-title label. Sections never get their own window: they are arranged
+# side by side inside the main window instead (the tiling layout, see
+# ``frontend/src/store/tiling.ts``). Labels are stable English names, NOT the
+# wake-word brand — the window title is a compatibility contract (see
+# ``dodaios/core/branding.py``).
 DETACHABLE_VIEWS: dict[str, str] = {
-    **SECTION_WINDOW_TITLES,
-    **{tab: SECTION_WINDOW_TITLES[owner] for owner, tabs in WINDOW_GROUPS.items() for tab in tabs},
-    "chats": "Voice",
-    # The Voice hub family (one VoiceHubView with internal tabs). Each id keeps
-    # its own label so two detached voice windows can never share a title —
-    # the title is the Win32 window handle for focus and the taskbar icon.
-    "dictation": "Dictation",
-    "dictionary": "Dictionary",
-    "voice-shortcuts": "Voice Shortcuts",
-    "voice-language": "Dictation Language",
-    "voice-api-keys": "Voice Input Keys",
-    # The Visualization board. Detachable for the reason it exists at all: a
-    # picture is something you keep looking at WHILE you carry on working, and
-    # on a second monitor it stops competing with the section that produced it.
-    "visualization": "Visualization",
-    # The appshot editor: a click on the corner card opens
-    # it in front of the user without raising or resizing the main window.
-    # Always on one appshot (``&appshot=<id>``); ONE window is reused.
     "appshot-editor": "Appshot Editor",
     # The Jarvis X annotation editor. Never a section of the main window: it
     # opens from a capture's thumbnail card or the library, always on one
@@ -5777,21 +5760,13 @@ class DesktopApp:
         """Prime a freshly loaded detached window — ``loaded`` hook.
 
         Injects the embedded-shell flag (drives shell detection, dictation
-        delivery, open-external routing) and — ONLY for the voice surface —
-        the realtime broker token, so exactly one window across the process
-        ever runs a live broker. NEVER ``__JARVIS_TOKEN``: the bootstrap token
+        delivery, open-external routing). Never the realtime broker token: only
+        the main window runs a broker. NEVER ``__JARVIS_TOKEN``: the bootstrap token
         is single-use server-side and already consumed by the main window;
         the detached window authenticates via open access or the shared
         WebView2 cookie jar.
         """
         js = "window.__JARVIS_EMBEDDED_DESKTOP = true;"
-        if view == "chats":
-            broker_token_literal = json.dumps(self.realtime_transport_broker_token)
-            js += (
-                "Object.defineProperty(window, '__JARVIS_REALTIME_BROKER_TOKEN', {"
-                f"value: {broker_token_literal}, configurable: true, writable: false"
-                "});"
-            )
         js += "window.dispatchEvent(new Event('jarvis-token-ready'));"
         try:
             window.evaluate_js(js)

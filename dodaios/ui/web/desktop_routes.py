@@ -1,10 +1,10 @@
-"""REST API for the desktop shell's window management (detachable views).
+"""REST API for the desktop shell's window management.
 
-A view can be split off into its own native desktop window ("detached solo
-window") — initially the Agentic IDE and the Voice/Chats surface. The window
-itself is created by the desktop shell (pywebview) because ``window.open`` is
-silently dropped inside WebView2; the frontend calls these routes only when it
-detects the embedded shell and falls back to a plain browser tab elsewhere.
+Sections never get their own window; they are tiled side by side inside the
+main window (the frontend's tiling layout). The routes below open and close
+the shell's TOOL windows only — the appshot editor and the Dodaios X editor.
+The window itself is created by the desktop shell (pywebview) because
+``window.open`` is silently dropped inside WebView2.
 
 Endpoints:
     POST /api/window/detach   {view}  → open (or focus) the detached window

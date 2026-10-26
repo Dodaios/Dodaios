@@ -1,6 +1,6 @@
+import { useStageSection } from "@/components/layout/tiling/tileSection";
 import { Mic } from "lucide-react";
 
-import { useEventStore } from "@/store/events";
 import { SectionTabBar, type SectionTab } from "@/components/layout/SectionTabBar";
 import { ViewHeader } from "@/views/ChatsView";
 import { useT } from "@/i18n";
@@ -42,7 +42,8 @@ const TABS = [
 
 export function VoiceHubView() {
   const t = useT();
-  const active = useEventStore((s) => s.activeSection);
+  // The tile's own section: in a tiled layout another tile may hold focus.
+  const active = useStageSection();
 
   // The router only mounts us for the five ids above; any other value is
   // unexpected — fall back to the Dictation tab defensively.

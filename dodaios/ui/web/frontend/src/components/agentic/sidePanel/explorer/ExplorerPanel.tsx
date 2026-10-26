@@ -1,3 +1,4 @@
+import { isSectionOnScreen } from "@/store/tiling";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import {
   ChevronRight,
@@ -154,7 +155,7 @@ function useWorkspaceChanges(workspaceId: string | null) {
     let alive = true;
     let timer: number | undefined;
     const tick = async () => {
-      if (useEventStore.getState().activeSection === "agentic-ide") {
+      if (isSectionOnScreen("agentic-ide")) {
         try {
           const next = await fetchWorkspaceChanges(workspaceId);
           if (alive) {

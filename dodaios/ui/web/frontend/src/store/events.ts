@@ -484,15 +484,6 @@ interface EventStore {
    */
   solo: boolean;
   /**
-   * Sections currently living in their own detached desktop window, mirrored
-   * into EVERY connected window via the DetachedViewOpened/Closed WS events
-   * (plus a GET /api/window/detached resync on mount). Drives the single-
-   * IDE-instance rule: while a coding view is detached, the main window
-   * unmounts its sticky Agentic IDE and shows a placeholder instead — a second
-   * mounted instance would steal every pane's output stream.
-   */
-  detachedViews: SectionId[];
-  /**
    * The pending "show this" request for the Visualization stage, or null when
    * nobody has asked for anything (the stage then keeps its own selection).
    * Written by `requestVisual`, read by the section — see VisualStageRequest.
@@ -593,7 +584,6 @@ interface EventStore {
   setWarming: (warming: boolean) => void;
   clearEvents: () => void;
   setActiveSection: (s: SectionId) => void;
-  setDetachedViews: (views: SectionId[]) => void;
   /**
    * Route a visual into the Visualization section and go there.
    *
@@ -680,7 +670,6 @@ export const useEventStore = create<EventStore>((set, get) => ({
   solo: soloWindowFromSearch(
     typeof window === "undefined" ? "" : window.location.search,
   ),
-  detachedViews: [],
   visualStage: null,
   wikiPageRequest: null,
   idePaneRequest: null,
@@ -725,7 +714,6 @@ export const useEventStore = create<EventStore>((set, get) => ({
   setWarming: (warming) => set({ wsWarming: warming }),
   clearEvents: () => set({ events: [] }),
   setActiveSection: (s) => set({ activeSection: s }),
-  setDetachedViews: (views) => set({ detachedViews: views }),
 
   requestVisual: (target = "latest") =>
     set((state) => ({

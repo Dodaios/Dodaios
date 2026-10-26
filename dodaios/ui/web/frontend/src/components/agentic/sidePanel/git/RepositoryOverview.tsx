@@ -1,3 +1,4 @@
+import { isSectionOnScreen } from "@/store/tiling";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { fill, useT } from "@/i18n";
@@ -72,7 +73,7 @@ function useGitOverview(workspaceId: string | null) {
     forceNext.current = false;
     let githubLoading = false;
     const tick = async () => {
-      if (useEventStore.getState().activeSection === "agentic-ide") {
+      if (isSectionOnScreen("agentic-ide")) {
         setLoading(true);
         try {
           const next = await fetchGitOverview(workspaceId, refresh);
