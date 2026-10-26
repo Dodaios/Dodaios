@@ -17,7 +17,7 @@
 
 <p align="center">原名 <strong>Personal Jarvis</strong>。同一个项目，同一个许可证，只是换了名字（<a href="https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/">原因</a>）。</p>
 
-HERO_VIDEO_URL
+https://github.com/user-attachments/assets/e652bcc3-7341-4175-94e9-110a67bfdce4
 
 <p align="center">
   <a href="https://pypi.org/project/dodaios/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dodaios?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
@@ -78,14 +78,14 @@ https://github.com/user-attachments/assets/42afcb9f-323b-4a57-9b6d-17aa7a2585b2
 
 ## 同时运行所有编程智能体
 
-IDE_VIDEO_URL
+https://github.com/user-attachments/assets/d0919a81-4b60-49ec-a3f7-e37160a60240
 
 Agentic IDE 把一块屏幕变成一个满是编程智能体的房间。打开一个项目，分成几个窗格，在每个窗格里启动你已安装的任意编程工具，使用你已经付费的订阅。差异对比、编辑器、Git 和拉取请求就在窗格旁边，你可以在每一行代码合并之前审阅它；每个窗格也始终是一个可以直接输入的真实终端。
 [Agentic IDE 指南](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/agentic-ide.md)
 
 ## 一支智能体团队
 
-AGENTS_VIDEO_URL
+https://github.com/user-attachments/assets/4c29df69-2114-4ed1-a220-703f6ff8386a
 
 一键创建专门的智能体：研究员、发布经理、写作者。每个智能体都有一个永不结束的对话，会从自己的工作中学习，按计划运行例行任务，并把产出放进 Artifacts，每一次工具调用都清晰可见。智能体也可以运行在 Hermes 和 OpenClaw 上。
 [智能体指南](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/dodaios-agents.md)

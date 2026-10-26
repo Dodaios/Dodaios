@@ -17,7 +17,7 @@
 
 <p align="center">Formerly <strong>Personal Jarvis</strong>. Same project, same license, new name (<a href="https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/">why</a>).</p>
 
-HERO_VIDEO_URL
+https://github.com/user-attachments/assets/e652bcc3-7341-4175-94e9-110a67bfdce4
 
 <p align="center">
   <a href="https://pypi.org/project/dodaios/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dodaios?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
@@ -87,7 +87,7 @@ handed out keeps going after you hang up.
 
 ## Run every coding agent at once
 
-IDE_VIDEO_URL
+https://github.com/user-attachments/assets/d0919a81-4b60-49ec-a3f7-e37160a60240
 
 The Agentic IDE turns one screen into a room full of coding agents. Open a
 project, split it into panes and start any coding tool you have installed in each
@@ -98,7 +98,7 @@ every pane stays a real terminal you can type into.
 
 ## A team of agents
 
-AGENTS_VIDEO_URL
+https://github.com/user-attachments/assets/4c29df69-2114-4ed1-a220-703f6ff8386a
 
 Create specialists with one click: a researcher, a release manager, a writer.
 Each agent keeps one chat that never ends, learns from its own work, runs

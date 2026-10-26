@@ -37,23 +37,23 @@ names on purpose. Line numbers in the full table are those of this run.
 
 ## Summary
 
-**Current tree: 906 hits on `main` at fb037e8f82 with this PR's edits
+**Current tree: 908 hits on `main` at c0654065bf with this PR's edits
 applied, docs/rename excluded.** Line numbers are a snapshot of that tree and
 drift as `main` moves; re-run the command above for current positions.
 
 | Category | Hits | Notes |
 | --- | ---: | --- |
-| (a) must stay | 797 | Includes the "Formerly Personal Jarvis" lines in `README.md` and `README.zh-CN.md` (required by A2 of #850), the one-time "(formerly Personal Jarvis)" notes, and reworded lines that still name a legacy file or app |
+| (a) must stay | 799 | Includes the "Formerly Personal Jarvis" lines in `README.md` and `README.zh-CN.md` (required by A2 of #850), the one-time "(formerly Personal Jarvis)" notes, and reworded lines that still name a legacy file or app |
 | (b) old URL | 0 | |
 | (c) prose | 0 | |
 | (d) historical | 109 | |
-| **Total** | **906** | |
+| **Total** | **908** | |
 
 Hits by area:
 
 | Area | Hits |
 | --- | ---: |
-| Tests | 523 |
+| Tests | 525 |
 | docs/ | 164 |
 | .github/, scripts/ | 73 |
 | dodaios/ (app code, shipped plugin text, built bundle) | 68 |
@@ -259,7 +259,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `dodaios/skills/builtin/plugin-sharepoint/SKILL.md` | 22 | 1 | (a) | Kept: shipped plugin text naming the registered Microsoft Entra app "Personal Jarvis" that admins approve |
 | `dodaios/skills/builtin/plugin-teams/SKILL.md` | 22 | 1 | (a) | Kept: shipped plugin text naming the registered Microsoft Entra app "Personal Jarvis" that admins approve |
 | `dodaios/ui/desktop_app.py` | 6701 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
-| `dodaios/ui/web/dist/assets/index-DuG1Ovqw.js` | 52 | 1 | (a) | Kept: built frontend bundle (generated) |
+| `dodaios/ui/web/dist/assets/index-CPe1uXou.js` | 52 | 1 | (a) | Kept: built frontend bundle (generated) |
 | `dodaios/ui/web/feedback_routes.py` | 381 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `dodaios/ui/web/frontend/src/__tests__/topbarUpdateButton.test.tsx` | 483, 524 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `dodaios/ui/web/frontend/src/__tests__/voiceBrandName.test.tsx` | 116 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
@@ -328,7 +328,8 @@ Consecutive hits of one file with the same category and action share a row.
 | `scripts/measure_desktop_boot.py` | 2 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `scripts/preflight.ps1` | 9 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `scripts/sandbox/new-dodaios-sandbox.ps1` | 3, 79 | 2 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
-| `tests/conftest.py` | 204 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
+| `tests/conftest.py` | 210 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
+| `tests/unit/ui/test_taskbar_pin_repair.py` | 23, 53 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/contract/test_agent_template_share.py` | 96 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/contract/test_coding_image_handoff.py` | 170, 172 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/contract/test_live_product_knowledge.py` | 1 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
