@@ -44,6 +44,12 @@ only when all of these hold:
 - the person works on it: opened in the IDE in the last 45 days, or their own
   commits are among the recent ones.
 
+The status (`GET /api/self-build`, `status.code`) carries the last pass:
+which repositories were polled and, per reason, how many library projects were
+not (for example `Dodaios' own source`), so a library without another project
+of the person's says why nothing is polled. A change in that answer is logged
+once.
+
 Each repository is asked for issues at most every 30 minutes. Triage
 (`triage.py`) is plain Python. An issue is a candidate when it is open and
 unassigned; the person wrote it or it carries an agent label (`agent`,

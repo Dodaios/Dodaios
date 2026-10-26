@@ -16,7 +16,7 @@ related: [credentials-and-secrets, control-api-reference, providers-and-api-keys
 ---
 
 The **Control Key** is the administrator credential for one Dodaios
-installation. You use it to unlock a protected browser and to authenticate the
+(formerly Personal Jarvis) installation. You use it to unlock a protected browser and to authenticate the
 Dodaios CLI, trusted agents, and other Control API clients.
 
 When no existing key or operator-provided seed is available, Dodaios creates a

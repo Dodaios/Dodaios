@@ -8555,6 +8555,7 @@
       "no_workspace": "Seleciona um workspace para ver os agentes.",
       "empty": "Nenhum agente em execução neste workspace.",
       "empty_folder": "Nenhum agente em execução nesta pasta.",
+      "loading": "Carregando agentes…",
       "scope": {
         "aria": "Mostrar agentes de",
         "workspace": "Este espaço",

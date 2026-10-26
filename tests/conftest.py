@@ -144,11 +144,17 @@ def _agentic_ide_history_in_tmp(tmp_path_factory, monkeypatch):  # noqa: ANN001
     protects the developer's data; the rule itself is verified against the real
     temp directory in ``test_recents_scratch_folders.py``.
     """
-    from dodaios.agentic_ide import recents, resume_store
+    from dodaios.agentic_ide import pane_sessions, prompt_history, recents, resume_store
 
     root = tmp_path_factory.mktemp("agentic-ide-history")
     monkeypatch.setattr(recents, "_store_path", lambda: root / "recents.json")
     monkeypatch.setattr(resume_store, "_store_path", lambda: root / "last_session.json")
+    # The per-pane prompt histories and the panes' hook records: the running
+    # app's self-building loop reads both as the person's own prompts. A run
+    # of the IDE suites once left 20,000 history files there, six of them
+    # marked as typed by the person, and the live app filed them as turns.
+    monkeypatch.setattr(prompt_history, "_store_dir", lambda: root / "prompt_history")
+    monkeypatch.setattr(pane_sessions, "_state_dir", lambda: root / "pane_sessions")
     monkeypatch.setattr(recents, "_temp_roots", list)
     yield root
 

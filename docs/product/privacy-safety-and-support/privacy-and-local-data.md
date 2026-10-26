@@ -15,7 +15,7 @@ tags: [privacy, local-data, retention, deletion, providers, backups]
 related: [credentials-and-secrets, permissions, wiki-and-memory, jarvis-board]
 ---
 
-Dodaios stores history on its host and contacts configured services for remote
+Dodaios (formerly Personal Jarvis) stores history on its host and contacts configured services for remote
 AI, speech, tools, calls, or sharing. A local installation also contacts the
 project's OAuth service for some plugin sign-ins.
 

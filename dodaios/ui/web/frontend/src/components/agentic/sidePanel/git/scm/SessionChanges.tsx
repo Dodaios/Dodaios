@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useCodeEditorStore } from "@/store/codeEditor";
 import { useEventStore } from "@/store/events";
 import { FileTypeIcon } from "../../explorer/FileTypeIcon";
-import { loadPaneChanges, type PaneChanges, type ReviewFile } from "../../../paneChangesApi";
+import { loadPaneChanges, reviewFileKey, type PaneChanges, type ReviewFile } from "../../../paneChangesApi";
 import { agoLabel } from "../gitBadges";
 import { Codicon, Twistie } from "./Codicon";
 import type { DiffSource } from "./DiffDialog";
@@ -86,7 +86,9 @@ export function SessionChanges({
   const pending = useMemo(() => new Set(status.changes.map((file) => file.path)), [status.changes]);
   const files = (changes?.files ?? []).filter((file) => !file.is_directory);
   const repoPath = (file: ReviewFile) => `${changes?.ownCheckout ? "" : status.prefix}${file.path}`;
-  const actionable = (file: ReviewFile) => !changes?.ownCheckout && pending.has(repoPath(file));
+  // A file in a worktree the agent made lives outside this folder: it can only be viewed.
+  const elsewhere = (file: ReviewFile) => Boolean(changes?.ownCheckout || file.checkout);
+  const actionable = (file: ReviewFile) => !elsewhere(file) && pending.has(repoPath(file));
 
   const openDiff = (file: ReviewFile) => {
     if (!changes?.base) {
@@ -95,11 +97,11 @@ export function SessionChanges({
       useCodeEditorStore.getState().openFile(workspaceId, file.path, { mode: "diff" });
       return;
     }
-    const base = changes.base;
+    const base = file.base || changes.base;
     // A file in the shared folder opens in the editor's diff, like any other
-    // change, compared with the code before the session's first edit. A pane's
-    // own worktree and a deleted file have nothing the editor could open.
-    if (!changes.ownCheckout && file.status !== "deleted") {
+    // change, compared with the code before the session's first edit. A
+    // worktree's file and a deleted file have nothing the editor could open.
+    if (!elsewhere(file) && file.status !== "deleted") {
       useCodeEditorStore.getState().openFile(workspaceId, file.path, {
         mode: "diff",
         base: { ref: base, label: fill(t("ide_side_panel.git.scm.session_diff_badge"), { pane: session.pane }) },
@@ -107,9 +109,9 @@ export function SessionChanges({
       return;
     }
     onDiff({
-      title: `${baseName(file.path)} (${session.pane})`,
+      title: `${baseName(file.path)} (${file.checkout || session.pane})`,
       path: file.path,
-      load: () => scmApi.sessionFile(workspaceId, session.pane, file.path, base),
+      load: () => scmApi.sessionFile(workspaceId, session.pane, file.path, base, file.checkout ?? ""),
     });
   };
 
@@ -185,13 +187,16 @@ export function SessionChanges({
           {files.map((file) => {
             const letter = LETTER[file.status] ?? "M";
             const tone = letterTone(letter);
-            const description = [dirName(file.path), file.committed ? t("ide_side_panel.git.scm.session_committed") : ""].filter(Boolean).join(" · ");
+            const description = [file.checkout ?? "", dirName(file.path), file.committed ? t("ide_side_panel.git.scm.session_committed") : ""]
+              .filter(Boolean)
+              .join(" · ");
             return (
               <div
-                key={file.path}
+                key={reviewFileKey(file)}
                 role="treeitem"
                 data-testid="scm-session-file"
                 data-path={file.path}
+                data-checkout={file.checkout || undefined}
                 data-letter={letter}
                 onClick={() => openDiff(file)}
                 style={{ height: ROW, paddingLeft: 16 }}
@@ -204,7 +209,7 @@ export function SessionChanges({
                   {description && <span className="ml-[0.5em] min-w-0 truncate text-[0.9em] opacity-70">{description}</span>}
                 </span>
                 <span className="scm-actions shrink-0 items-center gap-[2px] pl-1">
-                  {letter !== "D" && !changes?.ownCheckout && (
+                  {letter !== "D" && !elsewhere(file) && (
                     <button
                       type="button"
                       aria-label={t("ide_side_panel.git.scm.open_file")}
