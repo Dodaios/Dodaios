@@ -276,20 +276,36 @@ detail.
 
 ## In the app
 
-- **Built for you** (sidebar, under Agents; section id `self-build`) lists
-  every build on the shelf of what it asks of the person: waiting for a yes,
-  on trial, being built, kept, archived and undone. A row shows the build's
-  one sentence, its kind, how often the need was seen and a small lifecycle
-  rail; proposals and trials carry their actions inline. A build opens into
-  its case file: why, what it noticed, how it was checked, what it made, use,
-  cost and every state change. Undo is one click with no confirmation.
-- The **digest** is one line at the top: what was built, proposed, kept,
-  archived or undone in the last 24 hours, and how much is live. The nav row
-  shows how many proposals wait. Nothing is announced: no toast, no sound, no
-  voice.
-- **Pause building** is the loop's kill switch. **Stop all agents** engages
-  the society kill switch after a confirmation (which pauses building too);
-  while it is engaged the page says so and offers Release.
+- **Built for you** (sidebar, under Agents; section id `self-build`) is one
+  reading column. At the top, one sentence says what the page is and whether
+  it is working, with a ring: the quiet first days fill day by day (with the
+  date suggestions may start), while watching it holds the number of helpers
+  running, paused / off / stopped show their glyph and the one button that
+  undoes that state. Under it, how far the assistant may go per kind, in plain
+  words ("Asks you first", "Tries it, with undo").
+- Then, in the order a person asks about it: **Needs you** (proposals with
+  their first "why" sentence and Build it / Not this), **Working for you**
+  (trials with day and use progress, builds in progress), **Noticed so far**,
+  **Kept**, and **Archived and undone** (folded). While nothing is built, a
+  three-step "How it works" sits above the lists; afterwards it moves small to
+  the bottom. A build opens as a sheet on the right with its case file: why,
+  what it noticed, how it was checked, what it made, use, cost and every state
+  change. Undo is one click with no confirmation.
+- **Noticed so far** comes from `GET /api/self-build/noticed` (read-only): each
+  request the person made more than once in the miner's window, labelled with
+  their own latest wording (cut to 90 characters), how often and on how many
+  days, pips toward the repeat threshold, and where it stands (counting, ready,
+  answered directly, suggested, declined, nothing to build). Requests made
+  once are only counted. Needs that became a live or kept build are left out.
+  The response also carries when the quiet start ends.
+- The **digest** is one quiet line under the top: what was proposed, built,
+  kept, archived or undone in the last 24 hours (hidden when nothing was). The
+  nav row shows how many proposals wait. Nothing is announced: no toast, no
+  sound, no voice.
+- **Pause building** is the loop's kill switch. **Stop all agents** sits in
+  the page footer and engages the society kill switch after a confirmation
+  (which pauses building too); while it is engaged the top says so and offers
+  Release.
 - **Settings → General → Self-building** edits `[self_build]`, including the
   repositories whose loop pull requests merge on green CI (`code_land_repos`),
   shown with a warning that a listed repository changes without a review.
