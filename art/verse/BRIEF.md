@@ -37,6 +37,10 @@ or character is copied or named anywhere in the repository. Use generic words
   viewport; zoom-in stops at 1.25× the plate's native density.
 - Decks are separate floors stacked in the hull, reached by turbolift. New
   decks are added as modules without touching the stage.
+- Eye-level view (added 2026-10-20): a deck exported as a realtime 3D scene
+  is walked in third person from behind the commander's shoulder on the
+  full-size stage; the fixed plate camera above stays the bird's-eye view
+  and the compact (IDE panel) view. Contract: docs/verse/realtime.md.
 
 ## 3. Rendering technique (fixed)
 
@@ -82,6 +86,10 @@ Blender is the level editor, the cook is the build, the browser is the engine.
   wall of a deck and any east–west wall with no walkable space behind it stand
   at full height and show their panelling.
 - Walls running along Z are seen edge-on and may stand at full height.
+- The cut-away parts still exist above the cut as ceiling ghosts (invisible
+  to the plate camera and to shadow rays): they close the rooms for
+  reflections and probes, and the realtime export turns them into real
+  walls, so a deck's rooms are complete at eye level.
 - Consoles face +Z where possible so their screens face the camera (the crew
   sits on their +Z side and is seen over the shoulder).
 
@@ -144,7 +152,8 @@ beacon), **idle** (seeded off-duty life: mess, corridor, viewports), **paused**
 - Only CC0 third-party textures/HDRIs (e.g. Poly Haven), recorded in a license
   ledger with URL and hash.
 - Cooked output lives in `dodaios/ui/web/frontend/public/verse/` (plates as
-  AVIF tiles, glb, json). Budget for the whole cooked Verse: **≤ 90 MB**,
+  AVIF tiles, glb, json). Budget for the whole cooked Verse: **≤ 160 MB**
+  (up to 25 MB of it per deck for the eye-level export, docs/verse/realtime.md),
   at most 16 MB of plate per deck.
 - Gates: asset validator (names, budgets, sockets, manifest schema), cook
   reproducibility, runtime checks (draw calls, frame time), visual QA in Chrome

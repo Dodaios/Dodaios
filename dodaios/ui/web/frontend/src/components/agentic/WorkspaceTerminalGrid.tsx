@@ -18,10 +18,9 @@ import { PaneResizer } from "@/components/layout/PaneResizer";
 import { treeLayout, treeLeaves, type LayoutNode, type PaneSeam } from "./treeLayout";
 import { useTreeSizes } from "./useTreeSizes";
 import { PANE_COMMAND_EVENT, neighborInDirection, type PaneCommandDetail } from "./ideHotkeys";
-import { DOCK_LABELS, dockPosition, layoutSpan, paneStyle, previewDock, workspaceLayout } from "./workspaceDocking";
+import { DOCK_LABELS, dockPosition, paneStyle, previewDock, workspaceLayout } from "./workspaceDocking";
 
 const GAP = 8;
-const MIN_WIDTH = 280;
 const idOf = (terminal: TerminalState) => terminal.history_id ?? terminal.key;
 
 /*
@@ -144,7 +143,6 @@ export function WorkspaceTerminalGrid({ session, onChanged, onAdd, onClose, onSe
   const tree = pendingOrderMatches ? optimistic : sizes.tree;
   const layout = treeLayout(tree, tiles);
   const resizing = sizes.dragging !== null;
-  const columns = Math.max(1, layoutSpan(tree, "row"));
   const visibleMaximized = maximized && members.includes(maximized) ? maximized : null;
   const minimal = look === "minimal";
 
@@ -465,20 +463,10 @@ export function WorkspaceTerminalGrid({ session, onChanged, onAdd, onClose, onSe
   const showSeams = !visibleMaximized && !drag && !saving && !disabled && !optimistic && tiles.length > 1;
   const dragged = drag ? session.terminals.find((terminal) => idOf(terminal) === drag.id) : null;
 
-  // A pane picked from the side panel may sit off-screen on a narrow grid.
-  useEffect(() => {
-    if (!spotlitPane) return;
-    const node = frame.current?.querySelector("[data-spotlit=\"true\"]");
-    if (node instanceof HTMLElement && typeof node.scrollIntoView === "function") {
-      node.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
-    }
-  }, [spotlitPane]);
-
-  return <div ref={frame} data-testid="workspace-terminal-grid" aria-busy={saving} className="relative h-full min-h-0 overflow-auto p-2">
-    <div ref={canvas} className={cn("relative h-full", resizing && "select-none")} style={{
-      minWidth: visibleMaximized ? undefined : `${columns * MIN_WIDTH + (columns - 1) * GAP}px`,
-      minHeight: visibleMaximized ? "240px" : `${Math.max(1, layoutSpan(tree, "column")) * 200}px`,
-    }}>
+  // The grid is always one screenful: more panes, or an open side panel, make
+  // every pane smaller and never push one off screen or under the panel.
+  return <div ref={frame} data-testid="workspace-terminal-grid" aria-busy={saving} className="relative h-full min-h-0 overflow-hidden p-2">
+    <div ref={canvas} data-testid="workspace-terminal-canvas" className={cn("relative h-full w-full", resizing && "select-none")}>
       {tiles.map((terminal, index) => {
         const id = idOf(terminal);
         return <div key={id} ref={(node) => { if (node) paneNodes.current.set(id, node); else paneNodes.current.delete(id); }} data-session-id={id} data-spotlit={spotlitPane === terminal.name ? "true" : undefined} tabIndex={0}
