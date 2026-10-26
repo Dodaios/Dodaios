@@ -167,6 +167,9 @@ tools are local.
 |---|---|---|
 | Engine installed, model not ready | Missing or incomplete model files | Keep the app open, check space and the error, then select **Try again**. |
 | Ollama test reports no model | Ollama is running with no downloaded model | Download one under **Models on this machine** on the Ollama card, then retest. |
+| Ollama card says "dictation polish: No answer within 8s" | The optional wording test uses a separate model (`qwen3.5:4b` by default), not the chat model | Run `ollama pull qwen3.5:4b`, or choose an installed dictation polish model, then test again. |
+| Whisper downloads, but readiness reports missing files | Older readiness checks also expected repository metadata | Update to a release containing [the readiness fix](https://github.com/Dodaios/Dodaios/pull/841). On older versions, use [the full-snapshot workaround](https://github.com/Dodaios/Dodaios/issues/835) in Dodaios's Python environment, then reopen the app. |
+| Pipeline voice with Ollama says "no API key", although chat works | No Ollama model is selected on an older version | Select an installed model on the Ollama card and start a new voice session. This was fixed by [local model discovery](https://github.com/Dodaios/Dodaios/pull/838). |
 | Self-hosted server is unreachable | Stopped server, wrong address, or blocked network | Restart it, copy its address, select **Save**, and retest. |
 | Chat works, but an action or image fails | The model lacks tools or vision | Choose a capable Ollama model or another suitable provider. |
 | Replies are very slow | The model is too large for available memory or compute | Choose a smaller Brain, use Nemotron for faster speech, or move the server. |
