@@ -70,6 +70,8 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
   const routineCount = sample ? agent.routines.length : routineRows.length;
   const nextRun = routineRows.map((r) => r.dueMs).filter((ms): ms is number => typeof ms === "number").sort((a, b) => a - b)[0];
   const pendingReview = queue?.total ?? 0;
+  // Proposals and share requests are decisions; notebook writes are not.
+  const decisions = (queue?.counts?.proposal ?? 0) + (queue?.counts?.memory_share ?? 0);
 
   const byId = useMemo(() => new Map((capabilities.data ?? []).map((c) => [c.id, c])), [capabilities.data]);
   const disconnected = agent.focus.filter((id) => byId.get(id)?.connected === false);
@@ -82,8 +84,10 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
 
   const suggestions: Suggestion[] = [];
   if (pendingReview > 0) {
+    // Keyed by the count: dismissing it holds until something new arrives,
+    // so a busy notebook never turns into a standing nag.
     suggestions.push({
-      id: "review",
+      id: `review:${pendingReview}`,
       text: t("society.agent_pane.suggest_review").replace("{0}", String(pendingReview)),
       go: () => onTab("memory"),
     });
@@ -104,10 +108,7 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
   if (!sample && routines.isSuccess && routineCount === 0) {
     suggestions.push({ id: "routine", text: t("society.agent_pane.suggest_routine"), go: () => onTab("tasks") });
   }
-  // "review" comes back whenever something new waits; the rest stay dismissed.
-  const visible = suggestions
-    .filter((s) => s.id === "review" || !dismissed.has(s.id))
-    .slice(0, MAX_SUGGESTIONS);
+  const visible = suggestions.filter((s) => !dismissed.has(s.id)).slice(0, MAX_SUGGESTIONS);
 
   const toolsDetail = lead
     ? t("society.card.tools_all")
@@ -130,21 +131,19 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
         <PaneSection title={t("society.agent_pane.next_steps")} testId="agent-pane-suggestions">
           <div className="flex flex-col gap-1.5">
             {visible.map((s) => (
-              <div key={s.id} className="ap-suggest" data-testid={`agent-pane-suggestion-${s.id}`}>
+              <div key={s.id} className="ap-suggest" data-testid={`agent-pane-suggestion-${s.id.split(":")[0]}`}>
                 <button type="button" className="ap-suggest-go" onClick={s.go}>
                   {s.text}
                 </button>
-                {s.id === "review" ? null : (
-                  <button
-                    type="button"
-                    className="ap-icon-btn h-6 w-6"
-                    aria-label={t("society.agent_pane.dismiss")}
-                    title={t("society.agent_pane.dismiss")}
-                    onClick={() => dismiss(s.id)}
-                  >
-                    <X className="h-3 w-3" aria-hidden />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="ap-icon-btn h-6 w-6"
+                  aria-label={t("society.agent_pane.dismiss")}
+                  title={t("society.agent_pane.dismiss")}
+                  onClick={() => dismiss(s.id)}
+                >
+                  <X className="h-3 w-3" aria-hidden />
+                </button>
               </div>
             ))}
           </div>
@@ -267,7 +266,7 @@ export function OverviewTab({ agent, sample, queue, onTab, onPage }: OverviewTab
                 : t("society.agent_pane.memory_detail")
             }
             count={sample ? null : pendingReview > 0 ? pendingReview : memoryFiles.length}
-            attention={pendingReview > 0}
+            attention={decisions > 0}
             onOpen={() => onTab("memory")}
             testId="agent-pane-row-memory"
           />

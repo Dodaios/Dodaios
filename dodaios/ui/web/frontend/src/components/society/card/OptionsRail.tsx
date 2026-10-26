@@ -88,7 +88,9 @@ export function OptionsRail({ agent, onRetired, sample = false, width }: Options
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const queue = useReviewQueue(agent.agentId, !sample);
-  const pending = queue.data?.total ?? 0;
+  // Only real decisions (a proposal, a share request) mark the tab; the
+  // agent's routine notebook writes wait quietly in the list.
+  const pending = (queue.data?.counts?.proposal ?? 0) + (queue.data?.counts?.memory_share ?? 0);
   const { reset } = stack;
 
   useEffect(() => {
@@ -234,16 +236,22 @@ function PaneHeader({
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const paused = agent.lifecycle === "paused" || agent.state === "paused";
 
   useEffect(() => setMore(false), [agent.agentId]);
   useEffect(() => {
     if (!more) return;
+    // Keyboard users land on the first action, as a menu should.
+    moreRef.current?.querySelector<HTMLElement>('[role="menu"] button:not(:disabled)')?.focus();
     const onDown = (e: MouseEvent) => {
       if (!moreRef.current?.contains(e.target as Node)) setMore(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMore(false);
+      if (e.key === "Escape") {
+        setMore(false);
+        triggerRef.current?.focus();
+      }
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -287,6 +295,7 @@ function PaneHeader({
       ) : null}
       <div ref={moreRef} className="relative">
         <button
+          ref={triggerRef}
           type="button"
           className="ap-icon-btn"
           aria-label={t("society.card.options_more")}
