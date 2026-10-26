@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:dodaios/ui/web/dist/assets/selfBuildFocus-BSUVno3X.js
-import{d as l,V as s}from"./index-Birmj4zq.js";const i=s((e,u)=>({buildId:null,request:t=>e({buildId:t}),take:()=>{const{buildId:t}=u();return t!==null&&e({buildId:null}),t}}));function o(e){i.getState().request(e),l.getState().setActiveSection("self-build")}export{o,i as u};
-========
-import{d as l,V as s}from"./index-Bqt5iolU.js";const i=s((e,u)=>({buildId:null,request:t=>e({buildId:t}),take:()=>{const{buildId:t}=u();return t!==null&&e({buildId:null}),t}}));function o(e){i.getState().request(e),l.getState().setActiveSection("self-build")}export{o,i as u};
->>>>>>>> a063a6eebbd0dfbd8b13bf5ef88480b7aa1c25fd:dodaios/ui/web/dist/assets/selfBuildFocus-Dfy5EVui.js
