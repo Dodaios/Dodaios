@@ -282,4 +282,8 @@
   .action-card {
     animation: none;
   }
+  .action-card-wrap *,
+  .action-card-wrap *::before {
+    transition: none !important;
+  }
 }

@@ -48,6 +48,38 @@ describe("the keyboard target", () => {
     dialog.remove();
     expect(onEscape).not.toHaveBeenCalled();
   });
+
+  it("leaves Esc to an open menu or listbox, but not to one kept hidden", () => {
+    const element = document.createElement("div");
+    const menu = document.createElement("div");
+    menu.setAttribute("role", "menu");
+    document.body.append(element, menu);
+    const onEscape = vi.fn();
+    const release = claimKeyboardTarget({ priority: 2, element: () => element, onEscape });
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(onEscape).not.toHaveBeenCalled();
+    menu.hidden = true;
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(onEscape).toHaveBeenCalledTimes(1);
+    release();
+    element.remove();
+    menu.remove();
+  });
+
+  it("leaves Esc to a focused control whose popup is open", () => {
+    const element = document.createElement("div");
+    const button = document.createElement("button");
+    button.setAttribute("aria-haspopup", "listbox");
+    button.setAttribute("aria-expanded", "true");
+    document.body.append(element, button);
+    const onEscape = vi.fn();
+    const release = claimKeyboardTarget({ priority: 2, element: () => element, onEscape });
+    button.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    release();
+    element.remove();
+    button.remove();
+    expect(onEscape).not.toHaveBeenCalled();
+  });
 });
 
 describe("masking", () => {

@@ -438,6 +438,80 @@ def test_an_always_saved_on_the_agent_auto_allows_the_next_call(tmp_path: Path, 
     asyncio.run(scenario())
 
 
+def test_an_agent_rule_for_one_action_is_not_widened_by_the_bridge(
+    tmp_path: Path, society_runtime
+):
+    """"Only send with Gmail" saved on the agent: the chat must not then wave
+    every Gmail action through (the bridge's own chat-wide "always")."""
+
+    async def scenario() -> None:
+        svc, session = _service(tmp_path, surface="society", session_id="society:ada")
+        sid = session.session_id
+        q = svc.subscribe(sid)
+        bus = EventBus()
+        bridge = svc._bridge_for(bus)  # noqa: SLF001 — wires the service's hook
+        assert bridge is not None
+        approved: list[ActionApproved] = []
+
+        async def seen(event: ActionApproved) -> None:
+            approved.append(event)
+
+        bus.subscribe(ActionApproved, seen)
+        ref = approval_ref(sid)
+        bridge.arm(
+            ref,
+            ChatGrant(
+                session_id=sid,
+                turn_id="t1",
+                stance="ask",
+                always_allowed=svc.always_allowed(sid),
+                ask=lambda call_id, name, args, summary: svc._ask(  # noqa: SLF001
+                    sid, "t1", call_id, name, args, summary
+                ),
+            ),
+        )
+        send = ActionProposed(tool_name="gmail", args={"action": "send"})
+        await bus.publish(send)
+        await bus.publish(
+            ActionApprovalRequired(trace_id=send.trace_id, tool_name="gmail", approval_ref=ref)
+        )
+        payload = (await _next(q, "approval_required"))["payload"]
+        svc.resolve_approval(
+            sid, payload["approval_id"], "allow_always", scope="agent", breadth="action"
+        )
+        await _next(q, "notice")
+        await asyncio.sleep(0.05)
+        assert approved and approved[-1].trace_id == send.trace_id
+        assert society_runtime.roster.agent.approval_rules["always_allow"] == ["plugin:gmail:send"]
+        assert "gmail" not in svc.always_allowed(sid)
+        # Another Gmail action still reaches the card.
+        delete = ActionProposed(tool_name="gmail", args={"action": "delete"})
+        await bus.publish(delete)
+        await bus.publish(
+            ActionApprovalRequired(trace_id=delete.trace_id, tool_name="gmail", approval_ref=ref)
+        )
+        again = (await _next(q, "approval_required"))["payload"]
+        assert again["source"]["verb"] == "delete"
+        svc.resolve_approval(sid, again["approval_id"], "deny")
+        await asyncio.sleep(0.05)
+
+    asyncio.run(scenario())
+
+
+def test_a_chat_always_still_covers_the_tool(tmp_path: Path):
+    """Without an agent rule the bridge keeps remembering the tool for the chat."""
+    svc, session = _service(tmp_path)
+    bridge = svc._bridge_for(EventBus())  # noqa: SLF001
+    assert bridge is not None
+    assert bridge.chat_keeps_always(session.session_id, "gmail") is True
+
+
+def test_breadth_is_validated(tmp_path: Path):
+    svc, session = _service(tmp_path)
+    with pytest.raises(ValueError):
+        svc.resolve_approval(session.session_id, "a1", "allow_always", scope="agent", breadth="all")
+
+
 def test_a_rule_saved_after_the_fact(tmp_path: Path, society_runtime):
     async def scenario() -> None:
         svc, session = _service(tmp_path, surface="society", session_id="society:ada")
@@ -588,3 +662,8 @@ def test_the_rule_route(tmp_path: Path):
             json={"decision": "allow_always", "scope": "planet"},
         )
         assert bad_scope.status_code == 400
+        bad_breadth = client.post(
+            f"/api/agent-chat/sessions/{jarvis}/approvals/a1",
+            json={"decision": "allow_always", "scope": "agent", "breadth": "planet"},
+        )
+        assert bad_breadth.status_code == 400

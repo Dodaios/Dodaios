@@ -73,6 +73,7 @@ from dodaios.agent_chat.permissions import (
 )
 from dodaios.agent_chat.service import (
     DECISIONS,
+    RULE_BREADTHS,
     RULE_SCOPES,
     AgentChatService,
     NoSuchSession,
@@ -1351,6 +1352,10 @@ async def resolve_approval(
         raise HTTPException(status_code=400, detail=f"decision must be one of {list(DECISIONS)}")
     if body.scope and body.scope not in RULE_SCOPES:
         raise HTTPException(status_code=400, detail=f"scope must be one of {list(RULE_SCOPES)}")
+    if body.breadth and body.breadth not in RULE_BREADTHS:
+        raise HTTPException(
+            status_code=400, detail=f"breadth must be one of {list(RULE_BREADTHS)}"
+        )
     ok = svc.resolve_approval(
         session_id, approval_id, body.decision, scope=body.scope, breadth=body.breadth
     )
@@ -1377,7 +1382,7 @@ async def save_approval_rule(
     svc = await _async_service(request)
     if body.kind not in ("always_allow", "require_approval"):
         raise HTTPException(status_code=400, detail="kind must be always_allow or require_approval")
-    if body.breadth not in ("action", "app"):
+    if body.breadth not in RULE_BREADTHS:
         raise HTTPException(status_code=400, detail="breadth must be action or app")
     try:
         rule = await svc.save_approval_rule(
