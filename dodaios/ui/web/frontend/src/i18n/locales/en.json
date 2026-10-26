@@ -5421,6 +5421,22 @@
       "choose_agent": "Choose an agent",
       "edit_session": "Edit session {number}: {agent}"
     },
+    "presets": {
+      "aria": "Saved lineups",
+      "title": "Presets",
+      "hint": "One click fills the lineup",
+      "apply": "Use preset {preset}: {lineup}",
+      "missing": "Not available here: {agents}",
+      "delete": "Delete preset {preset}",
+      "confirm_delete": "Delete",
+      "save_current": "Save as preset",
+      "save_hint": "Keep this lineup for next time",
+      "name_placeholder": "Name, e.g. Review team",
+      "name_aria": "Preset name",
+      "starter_duo": "Duo",
+      "starter_squad": "Squad",
+      "starter_all": "One of each"
+    },
     "run_on": {
       "online": "Keeps running while this PC is off",
       "unknown": "Not checked yet",

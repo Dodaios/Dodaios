@@ -5421,6 +5421,22 @@
       "choose_agent": "Agent wählen",
       "edit_session": "Sitzung {number} bearbeiten: {agent}"
     },
+    "presets": {
+      "aria": "Gespeicherte Aufstellungen",
+      "title": "Presets",
+      "hint": "Ein Klick füllt die Aufstellung",
+      "apply": "Preset {preset} verwenden: {lineup}",
+      "missing": "Hier nicht verfügbar: {agents}",
+      "delete": "Preset {preset} löschen",
+      "confirm_delete": "Löschen",
+      "save_current": "Als Preset speichern",
+      "save_hint": "Diese Aufstellung für später merken",
+      "name_placeholder": "Name, z. B. Review-Team",
+      "name_aria": "Name des Presets",
+      "starter_duo": "Duo",
+      "starter_squad": "Squad",
+      "starter_all": "Von jedem einen"
+    },
     "run_on": {
       "online": "Läuft weiter, wenn dieser PC aus ist",
       "unknown": "Noch nicht geprüft",

@@ -5421,6 +5421,22 @@
       "choose_agent": "Elige un agente",
       "edit_session": "Editar la sesión {number}: {agent}"
     },
+    "presets": {
+      "aria": "Alineaciones guardadas",
+      "title": "Presets",
+      "hint": "Un clic rellena la alineación",
+      "apply": "Usar preset {preset}: {lineup}",
+      "missing": "No disponible aquí: {agents}",
+      "delete": "Eliminar preset {preset}",
+      "confirm_delete": "Eliminar",
+      "save_current": "Guardar como preset",
+      "save_hint": "Guarda esta alineación para la próxima vez",
+      "name_placeholder": "Nombre, p. ej. Equipo de revisión",
+      "name_aria": "Nombre del preset",
+      "starter_duo": "Dúo",
+      "starter_squad": "Escuadra",
+      "starter_all": "Uno de cada"
+    },
     "run_on": {
       "online": "Sigue funcionando con este PC apagado",
       "unknown": "Aún sin comprobar",
