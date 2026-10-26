@@ -82,23 +82,24 @@ reinstalling the app.
 
 ### An Update or Restart Does Not Finish
 
-Managed official installs show **Update available** only when a newer
-published release is available. Selecting it stages that release and restarts
-the app. If staging finishes but the restart fails, the control changes to
-**Finish update** so you can try the restart again.
+Managed official installs show **Update available** only when a newer release
+is published. Selecting it stages that release and restarts the app. If staging
+finishes but the restart fails, the control changes to **Finish update** to try
+again.
 
 - Finish or stop active agent missions before updating. Continuing through
   **Restart anyway?** can stop them.
-- If the app reports that it rolled back, keep using the restored version and
-  report the exact update message.
+- If the app reports a rollback, keep using the restored version and report the
+  exact update message.
+- On 3.1.1 or older, run the one-line installer again to update.
 - Manual source checkouts, development installs, and headless processes do not
-  use the desktop managed-update control. Update them through the method used
-  to install them.
+  use the desktop managed-update control. Update them the way you installed
+  them.
 - When one device works and another does not, compare their installed versions
-  first. Then compare provider credentials, selected devices, and settings.
+  first, then provider credentials, selected devices, and settings.
   Only investigate an operating system gap after the version and setup match.
 
-To print the installed command-line version, run:
+To print the installed version, run:
 
 ```bash
 jarvis version
