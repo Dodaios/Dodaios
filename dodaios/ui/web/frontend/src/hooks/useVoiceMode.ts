@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { voiceModeEndpoint } from "@/lib/embeddedDesktop";
 import {
   REALTIME_TRANSPORT_ISSUE_EVENT,
   requestRealtimeTransportOffer,
@@ -125,7 +126,7 @@ export function useVoiceMode() {
     queryKey: ["voice-mode"],
     queryFn: async ({ signal }) =>
       (
-        await fetch("/api/settings/voice-mode", {
+        await fetch(voiceModeEndpoint(), {
           cache: "no-store",
           signal,
         })

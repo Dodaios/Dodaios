@@ -491,6 +491,13 @@ describe("terminal path clicks", () => {
     expect(useCodeEditorStore.getState().tabs).toEqual([]);
     expect(calls.some((call) => call.url.includes("terminal-target"))).toBe(true);
   });
+
+  it("open a printed file on a plain click, without the OS opener", async () => {
+    renderHook(() => useExplorerPathRouting());
+    act(() => activateTerminalLink(new MouseEvent("click", { button: 0 }), "README.md", { workspaceId: "w1" }));
+    await waitFor(() => expect(useCodeEditorStore.getState().tabs).toMatchObject([{ path: "README.md" }]));
+    expect(calls.some((call) => call.url.includes("terminal-target"))).toBe(false);
+  });
 });
 
 describe("parsePrintedPath", () => {

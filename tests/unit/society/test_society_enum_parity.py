@@ -21,6 +21,7 @@ _TS = _ROOT / "dodaios" / "ui" / "web" / "frontend" / "src" / "lib" / "societyAp
 # (python enum, SQL column whose CHECK lists it, TS const name). ``state`` is
 # pinned in the society_agents block only — rooms and approvals have their own.
 _PINS = [
+    (events.ExecutionEnvironment, "execution_environment", "EXECUTION_ENVIRONMENTS"),
     (events.MsgType, "msg_type", "MSG_TYPES"),
     (events.Tier, "tier", "TIERS"),
     (events.AgentState, "society_agents.state", "AGENT_STATES"),

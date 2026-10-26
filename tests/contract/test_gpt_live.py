@@ -606,7 +606,7 @@ async def test_browser_audio_keeps_wake_capture_until_the_browser_takes_over(mon
         return original
 
     pipeline._claim_wake_capture_for_session = claim
-    monkeypatch.setattr(factory, "realtime_browser_audio", lambda cfg: True)
+    monkeypatch.setattr(factory, "realtime_browser_audio", lambda cfg, **_kwargs: True)
     async with pipeline._capture_first_session_input() as buffer:
         assert not original._closed
         assert buffer is original
@@ -975,7 +975,7 @@ def test_browser_audio_does_not_wait_for_a_legacy_desktop_offer(monkeypatch):
     from dodaios.realtime import factory
     from dodaios.ui.web import settings_routes
 
-    monkeypatch.setattr(factory, "realtime_browser_audio", lambda cfg: True)
+    monkeypatch.setattr(factory, "realtime_browser_audio", lambda cfg, **_kwargs: True)
     monkeypatch.setattr(settings_routes, "_realtime_available_provider", lambda cfg: "openai-live")
     monkeypatch.setattr(settings_routes, "_realtime_requires_webrtc_offer", lambda cfg: True)
     monkeypatch.setattr(settings_routes, "_realtime_handshake_budget_s", lambda cfg: 60)

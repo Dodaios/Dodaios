@@ -131,6 +131,13 @@ class AgentApprovalMode(StrEnum):
     ALWAYS_ASK = "always_ask"
 
 
+class ExecutionEnvironment(StrEnum):
+    """Where a Dodaios agent's machine-facing tools execute."""
+
+    LOCAL = "local"
+    SANDBOX = "sandbox"
+
+
 class AgentRuntime(StrEnum):
     """The agent loop that executes an agent's turns (``docs/agent-runtimes.md``).
 

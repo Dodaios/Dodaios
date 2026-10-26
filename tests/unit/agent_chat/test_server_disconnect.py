@@ -30,6 +30,11 @@ def test_client_disconnect_reconnect_and_completed_restart(
     async def bind(*args, **kwargs):
         return session
 
+    async def local(_session_id):
+        return "local"
+
+    # A society turn reads the agent's execution environment before any runner starts.
+    monkeypatch.setattr(service_module, "society_execution_environment", local)
     fake = ApprovalRunner()
     monkeypatch.setattr(service, "bind_society_session", bind)
     monkeypatch.setattr(service_module, "run_cli_turn", fake)

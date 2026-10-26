@@ -87,6 +87,19 @@ changes that disappear during settling do not trigger re-initialization.
 Regression tests use fake devices and models on Windows. Ubuntu/PipeWire,
 macOS audio devices and NVIDIA T600 inference have not been verified live.
 
+## Agent code sandbox
+
+The optional code sandbox uses the same Docker CLI and Linux image on Windows,
+macOS and Linux. It is capability-probed only when used. Base installation and
+startup need no Docker; unavailable or non-Linux engines return an explicit
+error and never run the command on the host. Windows helper processes use the
+shared no-window flag. The model/controller remains on the host, while code and
+files are restricted to the container and its identity-specific volume.
+
+Real container file/test/export, isolation, timeout and cancellation checks were
+run on Windows with Docker's Linux engine. Policy/schema checks are portable.
+Native macOS and Linux host execution has not been verified.
+
 ## Section windows (2026-10-08, T2)
 
 The section-window action opens Agents, Agentic IDE, Settings, Plugins, CLIs,
@@ -767,6 +780,13 @@ The new continuous voice core uses portable Python, SQLite and WebRTC/WebSocket
 transports. Browser audio is selected by provider capability and owns echo
 cancellation on desktop and remote surfaces. OS-specific capture and actuation
 remain behind the existing screen/desktop adapters and ToolExecutor.
+
+Gemini Live uses native desktop audio in the embedded Linux `gtkwebkit2` window,
+where its browser-audio session can close after transcription and before the
+first answer. An ordinary browser connected to that desktop backend keeps the
+browser-audio path, as do other embedded renderers. The renderer-specific
+choice is covered by the realtime factory, desktop pipeline, and voice-mode
+route tests; this macOS host cannot exercise a physical WebKitGTK session.
 
 Windows contract tests, OpenAI/Gemini synthetic tool-and-audio recovery probes,
 and a fresh Python 3.11 slim installation passed. The Linux installation boots

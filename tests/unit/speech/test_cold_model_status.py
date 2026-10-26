@@ -34,15 +34,50 @@ def test_alias_probe_reads_installed_mapping_without_executing_it(tmp_path, monk
     monkeypatch.syspath_prepend(str(tmp_path))
     monkeypatch.delitem(sys.modules, "faster_whisper", raising=False)
     seen = []
+    model_dir = tmp_path / "partial"
+    model_dir.mkdir()
+    for name in (
+        "config.json",
+        "preprocessor_config.json",
+        "model.bin",
+        "tokenizer.json",
+        "vocabulary.json",
+    ):
+        (model_dir / name).write_text("fixture", encoding="utf-8")
 
     def snapshot(repo, **kwargs):
         seen.append((repo, kwargs))
-        return str(tmp_path / "partial")
+        return str(model_dir)
 
     monkeypatch.setattr(huggingface_hub, "snapshot_download", snapshot)
-    assert local_models.whisper_model_cached("turbo") is False
-    assert seen == [("custom/turbo", {"local_files_only": True})]
+    assert local_models.whisper_model_cached("turbo") is True
+    assert seen == [
+        (
+            "custom/turbo",
+            {
+                "local_files_only": True,
+                "allow_patterns": [
+                    "config.json",
+                    "preprocessor_config.json",
+                    "model.bin",
+                    "tokenizer.json",
+                    "vocabulary.*",
+                ],
+            },
+        )
+    ]
+    assert not (model_dir / "README.md").exists()
+    assert not (model_dir / ".gitattributes").exists()
     assert "faster_whisper" not in sys.modules
+
+
+def test_cache_issue_names_missing_payload_files(tmp_path):
+    for name in ("config.json", "tokenizer.json", "vocabulary.json"):
+        (tmp_path / name).write_text("fixture", encoding="utf-8")
+
+    assert local_models._whisper_model_cache_issue(str(tmp_path)) == (
+        "missing or empty model files: model.bin"
+    )
 
 
 @pytest.mark.asyncio
