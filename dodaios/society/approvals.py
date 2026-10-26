@@ -32,7 +32,19 @@ from .store import SocietyStore
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Approval", "Approvals", "Verdict", "decide", "matches"]
+__all__ = [
+    "RULE_BREADTHS",
+    "RULE_KINDS",
+    "Approval",
+    "Approvals",
+    "Verdict",
+    "apply_rule",
+    "card_rule",
+    "decide",
+    "matches",
+    "rule_text",
+    "save_card_rule",
+]
 
 DEFAULT_TTL_MS: Final[int] = 24 * 60 * 60 * 1000
 _TIER_RANK: Final[dict[str, int]] = {"safe": 0, "monitor": 1, "ask": 2, "block": 3}
@@ -272,3 +284,125 @@ class Approvals:
             if got is not None:
                 revived.append(got)
         return revived
+
+
+# ------------------------------------------------------------ rules from the card
+#
+# The chat's approval card can turn one answer into a standing rule on the
+# agent's own ``approval_rules`` (``always_allow`` / ``require_approval``). The
+# patterns stay the source of truth: a rule's readable text is derived from its
+# pattern for display, never stored. Nothing below changes ``decide()``.
+
+#: The two lists a card may write to.
+RULE_KINDS: Final[tuple[str, ...]] = ("always_allow", "require_approval")
+#: ``action``: only this verb of the app (``plugin:gmail:send``); ``app``: every
+#: action of the app (``plugin:gmail``).
+RULE_BREADTHS: Final[tuple[str, ...]] = ("action", "app")
+
+
+def card_rule(tool_name: str, args: dict[str, Any]) -> dict[str, str] | None:
+    """The rule an approval card for this call can save on the agent, if any.
+
+    Only a tool the agent's own rules govern qualifies: one of the capability
+    catalog's rows, reached bare or through this app's MCP server. A runtime's
+    or another server's own tool (Claude's ``Bash``, an ACP terminal) answers
+    ``None``; its "always" stays the runtime's business.
+    """
+    from dodaios.agent_chat.approval_card import action_verb, app_label
+    from dodaios.core.mcp_names import own_cli_tool
+
+    from .capabilities import capability_id_for_tool
+    from .runtime import current_runtime
+
+    if tool_name.startswith("mcp__") and own_cli_tool(tool_name) is None:
+        return None
+    bare = own_cli_tool(tool_name) or tool_name
+    capability = capability_id_for_tool(bare)
+    rt = current_runtime()
+    if capability is None or rt is None:
+        return None
+    try:
+        rows = rt.catalog()
+    except Exception:  # noqa: BLE001 — no catalog, no rule offer; the card still asks
+        log.warning("approval card: capability catalog unavailable", exc_info=True)
+        return None
+    row = next((r for r in rows if r.id == capability), None)
+    if row is None:
+        return None
+    verb = action_verb(args)
+    return {
+        "capability": capability,
+        "app": app_label(row.label or bare),
+        "verb": verb,
+        "pattern": f"{capability}:{verb}" if verb else capability,
+        "broad": capability,
+    }
+
+
+def rule_text(kind: str, app: str, verb: str = "") -> str:
+    """A rule as a sentence, for logs and notices (the card localizes its own)."""
+    what = f"{verb} with {app}" if verb else app
+    if kind == "require_approval":
+        return f"Ask first before {what}"
+    return f"Always allow {what}"
+
+
+def apply_rule(rules: dict[str, list[str]], kind: str, pattern: str) -> dict[str, list[str]]:
+    """``rules`` with ``pattern`` added to ``kind`` and taken out of the other list.
+
+    A person who says "always allow" for exactly this pattern withdraws the
+    same "ask first", and the other way round. A broader opposite pattern is
+    left alone: :func:`decide` still reads ``require_approval`` first.
+    """
+    if kind not in RULE_KINDS:
+        raise ValueError(f"kind must be one of {RULE_KINDS}")
+    other = "require_approval" if kind == "always_allow" else "always_allow"
+    out = {
+        "require_approval": list(rules.get("require_approval", [])),
+        "always_allow": list(rules.get("always_allow", [])),
+    }
+    if pattern not in out[kind]:
+        out[kind] = sorted([*out[kind], pattern])
+    out[other] = [p for p in out[other] if p != pattern]
+    return out
+
+
+async def save_card_rule(
+    session_id: str, tool_name: str, args: dict[str, Any], *, kind: str, breadth: str = "action"
+) -> dict[str, Any] | None:
+    """Write a rule from the approval card onto the society agent of ``session_id``.
+
+    Returns ``{kind, pattern, app, verb, text, still_asks}`` or ``None`` when no
+    rule fits (not a society chat, not an agent's own tool). ``still_asks`` is
+    true when a broader ``require_approval`` keeps asking anyway.
+    """
+    from .runtime import current_runtime
+    from .surface import agent_id_of
+
+    if kind not in RULE_KINDS or breadth not in RULE_BREADTHS:
+        raise ValueError("unknown rule kind or breadth")
+    rt = current_runtime()
+    agent_id = agent_id_of(session_id)
+    offer = card_rule(tool_name, args)
+    if rt is None or agent_id is None or offer is None:
+        return None
+    agent = await rt.roster.get(agent_id)
+    if agent is None:
+        return None
+    pattern = offer["broad"] if breadth == "app" else offer["pattern"]
+    verb = "" if breadth == "app" else offer["verb"]
+    rules = apply_rule(agent.approval_rules, kind, pattern)
+    if rules != agent.approval_rules:
+        updated = await rt.roster.update(agent.agent_id, {"approval_rules": rules})
+        rt.cache_agent(updated)
+    still_asks = kind == "always_allow" and any(
+        matches(p, offer["capability"], offer["verb"]) for p in rules["require_approval"]
+    )
+    return {
+        "kind": kind,
+        "pattern": pattern,
+        "app": offer["app"],
+        "verb": verb,
+        "text": rule_text(kind, offer["app"], verb),
+        "still_asks": still_asks,
+    }

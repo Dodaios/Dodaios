@@ -163,6 +163,8 @@ def _orphan_event(turn_id: str, started_ms: int, last_ms: int) -> dict[str, Any]
 
 
 DECISIONS: tuple[str, ...] = ("allow", "allow_always", "deny")
+#: Where a rule from the approval card lives: the agent's own rules or this chat.
+RULE_SCOPES: tuple[str, ...] = ("agent", "chat")
 
 
 class SessionBusy(RuntimeError):
@@ -461,6 +463,9 @@ class AgentChatService:
         # no word for "auto" and flipping to bypass would silence every later
         # card, a mail send included.
         self._always_allowed: dict[str, set[str]] = {}
+        # Where an "Always allow" from the card is to live, by approval id:
+        # ``(scope, breadth)`` as the card's rule chooser sent it.
+        self._approval_choice: dict[str, tuple[str, str]] = {}
         # Voice turn ids already mirrored into a chat timeline (see
         # import_voice_turn): the bus may deliver a turn twice across
         # reconnects, and a second copy in the chat would read as if the
@@ -2082,6 +2087,7 @@ class AgentChatService:
             make_event(
                 "approval_required",
                 {
+                    **self._approval_card(session_id, name, args, summary),
                     "turn_id": turn_id,
                     "approval_id": approval_id,
                     "call_id": call_id,
@@ -2111,15 +2117,31 @@ class AgentChatService:
         finally:
             self._approvals.pop(approval_id, None)
             self._approval_session.pop(approval_id, None)
+            choice = self._approval_choice.pop(approval_id, None)
         await self._emit(
             session_id,
             make_event(
                 "approval_resolved",
-                {"turn_id": turn_id, "approval_id": approval_id, "decision": decision},
+                {
+                    "turn_id": turn_id,
+                    "approval_id": approval_id,
+                    "decision": decision,
+                    **({"scope": choice[0]} if decision == "allow_always" and choice else {}),
+                },
             ),
         )
         if decision == "allow_always":
             session = self.store.get_session(session_id)
+            if choice is not None and session is not None:
+                try:
+                    saved = await self._rule_from_card(
+                        session, approval_id, turn_id, name, args, "always_allow", *choice
+                    )
+                except Exception:  # noqa: BLE001 — falls back to the surface's own "always"
+                    log.warning("agent chat: rule from the card failed for %s", name, exc_info=True)
+                    saved = None
+                if saved is not None:
+                    return decision
             handled = False
             hook = kit_for(session.surface).session_always_allow if session is not None else None
             if hook is not None:
@@ -2144,16 +2166,150 @@ class AgentChatService:
         """The tools waved through with "always allow" in this session (Jarvis surface)."""
         return self._always_allowed.setdefault(session_id, set())
 
-    def resolve_approval(self, session_id: str, approval_id: str, decision: str) -> bool:
+    def resolve_approval(
+        self,
+        session_id: str,
+        approval_id: str,
+        decision: str,
+        *,
+        scope: str = "",
+        breadth: str = "",
+    ) -> bool:
+        """Answer an open card. ``scope``/``breadth`` say where an "Always allow"
+        lives (the card's rule chooser); without them it does what it always did."""
         if decision not in DECISIONS:
             raise ValueError(f"decision must be one of {DECISIONS}")
+        if scope and scope not in RULE_SCOPES:
+            raise ValueError(f"scope must be one of {RULE_SCOPES}")
         if self._approval_session.get(approval_id) != session_id:
             return False
         fut = self._approvals.get(approval_id)
         if fut is None or fut.done():
             return False
+        if decision == "allow_always" and scope:
+            self._approval_choice[approval_id] = (scope, breadth or "action")
         fut.set_result(decision)
         return True
+
+    def _approval_card(
+        self, session_id: str, name: str, args: dict[str, Any], summary: str
+    ) -> dict[str, Any]:
+        """The card's display fields (approval_card.py); empty when unavailable."""
+        from .approval_card import describe_call, rule_offer
+
+        try:
+            session = self.store.get_session(session_id)
+            surface = session.surface if session is not None else ""
+            agent_rule = None
+            if surface == "society":
+                from dodaios.society.approvals import card_rule
+
+                agent_rule = card_rule(name, args or {})
+            rule = rule_offer(surface, name, args or {}, agent_rule)
+            cwd = str(session.cwd or "") if session is not None else ""
+            return describe_call(name, args, summary, cwd=cwd, rule=rule)
+        except Exception:  # noqa: BLE001 — the card still asks with its name and summary
+            log.warning("agent chat: approval card fields unavailable for %s", name, exc_info=True)
+            return {}
+
+    async def _rule_from_card(
+        self,
+        session: Any,
+        approval_id: str,
+        turn_id: str,
+        name: str,
+        args: dict[str, Any],
+        kind: str,
+        scope: str,
+        breadth: str,
+    ) -> dict[str, Any] | None:
+        """Save the rule a card asked for and note it on the card; ``None`` if none fits.
+
+        ``agent``: the society agent's own approval rules (persistent).
+        ``chat``: this conversation stops asking for this tool until the app
+        restarts (the Jarvis and society surfaces, whose tools ask through the
+        approval bridge). Nothing else is ever widened from here.
+        """
+        from .approval_bridge import _bare
+        from .approval_card import app_label
+
+        rule: dict[str, Any] | None = None
+        if scope == "agent" and session.surface == "society":
+            from dodaios.society.approvals import save_card_rule
+
+            rule = await save_card_rule(
+                session.session_id, name, args or {}, kind=kind, breadth=breadth
+            )
+        elif (
+            scope == "chat"
+            and kind == "always_allow"
+            and session.surface in ("society", "jarvis")
+        ):
+            bare = _bare(name)
+            self._always_allowed.setdefault(session.session_id, set()).add(bare)
+            rule = {"kind": kind, "pattern": bare, "app": app_label(bare), "verb": ""}
+        if rule is None:
+            return None
+        await self._emit(
+            session.session_id,
+            make_event(
+                "notice",
+                {
+                    "kind": "approval_rule",
+                    "turn_id": turn_id,
+                    "approval_id": approval_id,
+                    "rule_kind": rule["kind"],
+                    "scope": scope,
+                    "pattern": rule["pattern"],
+                    "app": rule.get("app", ""),
+                    "verb": rule.get("verb", ""),
+                    "still_asks": bool(rule.get("still_asks")),
+                },
+            ),
+        )
+        return rule
+
+    async def save_approval_rule(
+        self,
+        session_id: str,
+        approval_id: str,
+        *,
+        kind: str,
+        scope: str,
+        breadth: str = "action",
+    ) -> dict[str, Any]:
+        """A rule from a card already answered (or expired): "Always allow next
+        time", "Ask first next time". Raises KeyError for an unknown card and
+        LookupError when no rule fits that card in that scope."""
+        if scope not in RULE_SCOPES:
+            raise ValueError(f"scope must be one of {RULE_SCOPES}")
+        session = self.store.get_session(session_id)
+        if session is None:
+            raise KeyError(session_id)
+        asked: dict[str, Any] | None = None
+        for event in await asyncio.to_thread(self.store.list_events, session_id):
+            payload = event.get("payload") or {}
+            if (
+                event.get("kind") == "approval_required"
+                and payload.get("approval_id") == approval_id
+            ):
+                asked = payload
+        if asked is None:
+            raise KeyError(approval_id)
+        args = asked.get("input") if isinstance(asked.get("input"), dict) else {}
+        rule = await self._rule_from_card(
+            session,
+            approval_id,
+            str(asked.get("turn_id") or ""),
+            str(asked.get("name") or ""),
+            args,
+            kind,
+            scope,
+            breadth,
+        )
+        if rule is None:
+            raise LookupError("no rule fits this card")
+        return rule
 
     async def close_stale_approval(self, session_id: str, approval_id: str) -> bool:
         """Close a card the transcript still shows open but nothing waits on.
