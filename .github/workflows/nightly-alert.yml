@@ -101,6 +101,15 @@ jobs:
               exit 0
             fi
           fi
+          if [ "$label" = "macos-main" ] && [ "$conclusion" = "cancelled" ]; then
+            failed_macos_job="$(gh api "$jobs_url" --paginate \
+              --jq '.jobs[] | select(.conclusion == "failure") | .name' | head -n 1)"
+            if [ -z "$failed_macos_job" ]; then
+              message="The macOS sweep ended cancelled without a failed job: nothing to record."
+              echo "$message" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
           write() { if [ "$DRY_RUN" = "true" ]; then echo "dry run, not executed: gh $*"; else gh "$@"; fi; }
           # The label lists issues without the search index, which lags behind
           # a freshly created issue and would invite a duplicate.

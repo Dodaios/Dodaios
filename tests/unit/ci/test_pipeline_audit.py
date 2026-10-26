@@ -492,6 +492,9 @@ def test_a_red_nightly_reaches_someone_and_only_a_nightly_on_main_can_write_issu
     assert '[ "$label" = "nightly-ci" ] && [ "$conclusion" = "cancelled" ]' in script
     assert 'select(.name == "CI gate") | .conclusion' in script
     assert '[ "$gate_conclusion" != "failure" ]' in script
+    assert '[ "$label" = "macos-main" ] && [ "$conclusion" = "cancelled" ]' in script
+    assert '.jobs[] | select(.conclusion == "failure") | .name' in script
+    assert 'macOS sweep ended cancelled without a failed job' in script
     assert '--label "$label"' in script
     # A check by hand runs from main only, vets the run it is given like the
     # event, and writes nothing unless the dry run is switched off.
