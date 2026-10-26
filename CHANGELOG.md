@@ -11,6 +11,20 @@ versioning per [SemVer](https://semver.org/).
 
 ---
 
+## [4.1.1] — 2026-10-26
+
+4.1.1 is the first published release of 4.1: the 4.1.0 build was held back by a security check on its dependencies. Everything listed under 4.1.0 below ships with it.
+
+### Added
+
+- Redesign Built for you so anyone gets it at a glance (#865)
+
+### Fixed
+
+- Raise pillow, pypdf, gitpython, filelock, certifi and opentelemetry past published advisories
+
+---
+
 ## [4.1.0] — 2026-10-26
 
 ### Added
