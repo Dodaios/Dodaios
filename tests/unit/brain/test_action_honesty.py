@@ -343,3 +343,40 @@ def test_a_send_off_alone_does_not_rescue_a_false_completion() -> None:
         )
         is True
     )
+
+
+# User report 2026-10-26: "open chrome" was answered "ok, done" while Chrome
+# never opened. Bare "done" and app-named launch claims must be caught.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Okay, done.",
+        "Done.",
+        "All done!",
+        "Chrome is open now.",
+        "Sure, Chrome is now open.",
+        "I've opened Chrome.",
+        "Okay, I opened Chrome for you.",
+        "Ich habe Chrome geöffnet.",  # i18n-allow: German model output
+        "Chrome ist jetzt offen.",
+        "Okay, erledigt.",
+        "Listo.",
+    ],
+)
+def test_bare_done_and_app_launch_claims_are_detected(text: str) -> None:
+    assert has_unbacked_action_claim(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The store is open until 8 pm.",
+        "Is Chrome open?",
+        "Getting things done is a book by David Allen.",
+        "When you're done, tell me.",
+        "Ist es erledigt?",
+        "Here is the summary: the meeting is done at 5.",
+    ],
+)
+def test_done_and_open_in_ordinary_answers_are_not_claims(text: str) -> None:
+    assert not has_unbacked_action_claim(text)
