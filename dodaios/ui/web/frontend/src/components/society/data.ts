@@ -16,7 +16,7 @@ import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { MentionPlugin } from "./chat/mentionItems";
 
-import type { AgentApprovalMode, AgentRuntime, Checkpoint, SocietyAgentRow } from "@/lib/societyApi";
+import type { AgentApprovalMode, AgentRuntime, BrowserMode, Checkpoint, SocietyAgentRow } from "@/lib/societyApi";
 import type { CompanionAppearance } from "./companion/appearance";
 import { useCreateAgentDialog } from "./create/createAgentStore";
 
@@ -141,6 +141,10 @@ export interface SocietyAgent {
   /** Where the agent runs: null/absent = this computer, else a connected computer id. */
   computerId?: string | null;
   executionEnvironment?: "local" | "sandbox";
+  /** `own` = the agent's own browser profile; `attach` = the person's running Chrome. */
+  browserMode?: BrowserMode;
+  /** Sites its browser may open; empty = no restriction. */
+  browserAllowedDomains?: string[];
   /** The agent loop that runs its turns (docs/agent-runtimes.md); absent = Jarvis. */
   runtime?: AgentRuntime;
   /** The character: archetype, base, parts, palette. null = the palette tile. */
@@ -263,6 +267,8 @@ export function rowToAgent(row: SocietyAgentRow): SocietyAgent {
     accountId: row.account_id,
     computerId: row.computer_id ?? null,
     executionEnvironment: row.execution_environment ?? "local",
+    browserMode: row.browser_mode ?? "own",
+    browserAllowedDomains: row.browser_allowed_domains ?? [],
     runtime: row.runtime ?? "jarvis",
     effort: row.effort,
     figure,
@@ -659,6 +665,90 @@ export function useUpdateAgentLimits() {
         agent.maxConcurrentRuns = body.max_concurrent_runs;
       }
       await client.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
+    },
+    [client],
+  );
+}
+
+/**
+ * Any subset of the fields the agent pane edits after creation. Each maps onto
+ * one `PATCH /api/society/agents/{id}` field; the roster validators
+ * (`society/roster.py::_coerce`) stay the only judge of what is allowed.
+ */
+export interface AgentConfigPatch {
+  name?: string;
+  title?: string;
+  description?: string;
+  grantMode?: GrantMode;
+  toolGrants?: string[];
+  focus?: string[];
+  denies?: string[];
+  approvalMode?: AgentApprovalMode;
+  permissionCeiling?: PermissionCeiling;
+  approvalRules?: ApprovalRules;
+  dailyBudgetUsd?: number;
+  maxConcurrentRuns?: number;
+  browserMode?: BrowserMode;
+  browserAllowedDomains?: string[];
+}
+
+/** The wire body for a config patch: only the keys that are set, in snake case. */
+export function agentConfigBody(patch: AgentConfigPatch): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  if (patch.name !== undefined) body.name = patch.name;
+  if (patch.title !== undefined) body.title = patch.title;
+  if (patch.description !== undefined) body.description = patch.description;
+  if (patch.grantMode !== undefined) body.grant_mode = patch.grantMode;
+  if (patch.toolGrants !== undefined) body.grants = patch.toolGrants;
+  if (patch.focus !== undefined) body.focus = patch.focus;
+  if (patch.denies !== undefined) body.denies = patch.denies;
+  if (patch.approvalMode !== undefined) body.approval_mode = patch.approvalMode;
+  if (patch.permissionCeiling !== undefined) body.permission_ceiling = patch.permissionCeiling;
+  if (patch.approvalRules !== undefined) {
+    body.approval_rules = {
+      require_approval: patch.approvalRules.requireApproval,
+      always_allow: patch.approvalRules.alwaysAllow,
+    };
+  }
+  if (patch.dailyBudgetUsd !== undefined) body.daily_budget_usd = Math.max(0, patch.dailyBudgetUsd);
+  if (patch.maxConcurrentRuns !== undefined) body.max_concurrent_runs = Math.max(1, Math.round(patch.maxConcurrentRuns));
+  if (patch.browserMode !== undefined) body.browser_mode = patch.browserMode;
+  if (patch.browserAllowedDomains !== undefined) body.browser_allowed_domains = patch.browserAllowedDomains;
+  return body;
+}
+
+/**
+ * Save part of an agent's configuration from the agent pane. The updated row
+ * goes straight into the roster cache, so the pane never flickers back to
+ * the old value while the refetch runs. Sample rows change in place.
+ */
+export function useUpdateAgentConfig() {
+  const client = useQueryClient();
+  return useCallback(
+    async (agent: SocietyAgent, patch: AgentConfigPatch): Promise<SocietyAgent> => {
+      const body = agentConfigBody(patch);
+      if (Object.keys(body).length === 0) return agent;
+      if (SAMPLE_ROSTER.includes(agent)) {
+        Object.assign(agent, patch);
+        await client.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
+        return agent;
+      }
+      const res = await fetch(`/api/society/agents/${encodeURIComponent(agent.agentId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        throw requestError((await res.json().catch(() => null)) as { detail?: unknown } | null, `HTTP ${res.status}`);
+      }
+      const updated = rowToAgent(((await res.json()) as { agent: SocietyAgentRow }).agent);
+      const merged = { ...updated, state: agent.state, routines: agent.routines };
+      client.setQueryData<RosterData>(ROSTER_QUERY_KEY, (prev) => prev ? {
+        ...prev,
+        agents: prev.agents.map((row) => (row.agentId === agent.agentId ? { ...merged, name: row.tier === "lead" ? row.name : merged.name } : row)),
+      } : prev);
+      void client.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
+      return merged;
     },
     [client],
   );
