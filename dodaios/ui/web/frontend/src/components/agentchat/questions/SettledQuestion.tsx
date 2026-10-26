@@ -202,12 +202,13 @@ function answerChips(item: QuestionItem, answer: QuestionState["answers"][number
 }
 
 /** Progress dots of a series: a pill for the step on screen, darker for done ones. */
-export function Dots({ total, current, done, label }: { total: number; current: number; done: number; label: string }) {
+export function Dots({ total, current, done, label }: { total: number; current: number; done: number | readonly boolean[]; label: string }) {
+  const isDone = (i: number) => (typeof done === "number" ? i < done : Boolean(done[i]));
   const text = label.replace("{current}", String(Math.min(current + 1, total))).replace("{total}", String(total));
   return (
     <span className="qc-dots" role="img" aria-label={text}>
       {Array.from({ length: total }, (_, i) => (
-        <span key={i} className="qc-dot" data-on={i === current ? "" : undefined} data-done={i < done && i !== current ? "" : undefined} />
+        <span key={i} className="qc-dot" data-on={i === current ? "" : undefined} data-done={isDone(i) && i !== current ? "" : undefined} />
       ))}
     </span>
   );

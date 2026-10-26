@@ -4090,8 +4090,9 @@ async def _drive_cli(
             return {"behavior": "deny", "message": "The turn was stopped."}
         # A multi-select answer reads the way the CLI's own picker writes one:
         # the chosen labels joined by commas.
+        # A skipped question (empty answer) still gets words the CLI can read.
         picked = {
-            str(row.get("question") or ""): as_line(a.answer)
+            str(row.get("question") or ""): as_line(a.answer) or "No preference; decide yourself."
             for row, a in zip(rows, answers, strict=True)
         }
         return {"behavior": "allow", "updatedInput": {**tool_input, "answers": picked}}

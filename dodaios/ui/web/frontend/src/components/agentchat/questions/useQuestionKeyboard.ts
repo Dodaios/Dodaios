@@ -48,7 +48,7 @@ function editable(node: EventTarget | null): boolean {
 }
 
 function onWindowKey(event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
   if (editable(event.target)) return;
   const el = currentTarget();
   if (!el) return;
