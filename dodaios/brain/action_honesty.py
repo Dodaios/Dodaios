@@ -67,7 +67,10 @@ _FALSE_COMPLETION_RE = re.compile(
     r"\bi(?:'ve|\s+have)?\s+(?:just\s+)?(?:opened|launched)\b|"
     r"\b(?:is|are)\s+(?:now\s+)?(?:open|opened|launched|up)\s+now\b|"
     r"\b(?:is|are)\s+now\s+(?:open|opened|launched|up)\b|"
-    r"\bich\s+habe\s+.{0,48}(?:geoffnet|gestartet)\b|"  # i18n-allow: DE output
+    # The gap may not hold a negation: the German honest fallback itself
+    # says "I have started no action" and is not a claim.
+    r"\bich\s+habe\s+(?:(?!\b(?:kein\w*|nicht|nichts|nie)\b).){0,48}"  # i18n-allow: DE
+    r"(?:geoffnet|gestartet)\b|"  # i18n-allow: DE output
     r"\b(?:ist|sind)\s+(?:jetzt|nun)\s+"  # i18n-allow: DE output
     r"(?:offen|geoffnet|gestartet)\b|"  # i18n-allow: DE output
     # A clause that is nothing but "done" claims the whole request is
