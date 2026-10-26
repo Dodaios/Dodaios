@@ -18,6 +18,7 @@ import type { MentionPlugin } from "./chat/mentionItems";
 
 import type { AgentApprovalMode, AgentRuntime, BrowserMode, Checkpoint, SocietyAgentRow } from "@/lib/societyApi";
 import type { CompanionAppearance } from "./companion/appearance";
+import type { WaitingReason } from "./roster/rosterPreview";
 import { useCreateAgentDialog } from "./create/createAgentStore";
 
 import { NEUTRAL_ASSISTANT_NAME } from "@/lib/assistantNameCache";
@@ -181,12 +182,7 @@ export interface SocietyAgent {
 }
 
 /** Why an agent waits on the person (the society payload's `waiting_reason`). */
-export interface WaitingReason {
-  kind: "question" | "approval" | "credential" | "proposal";
-  summary: string;
-  sessionId: string;
-  refId: string;
-}
+export type { WaitingReason };
 
 export interface RosterData {
   agents: SocietyAgent[];
