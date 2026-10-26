@@ -101,7 +101,7 @@ describe("countUnseen", () => {
 
 describe("run announcer", () => {
   const question = call("society_ask_user", {}, null, {
-    callId: "q", question: { questionId: "q1", asker: "", questions: [{ question: "Which branch?", options: [], recommendationReason: "" }],
+    callId: "q", question: { questionId: "q1", asker: "", questions: [{ question: "Which branch?", options: [], recommendationReason: "", kind: "single", allowCustom: true, recommendedCount: 1 }],
       answers: [null], expiresMs: null, closed: false },
   });
 
