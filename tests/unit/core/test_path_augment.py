@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -142,7 +143,7 @@ def test_resolve_node_executable_finds_well_known_windows_install(
     node_exe.parent.mkdir(parents=True)
     node_exe.write_bytes(b"MZ")
 
-    monkeypatch.setattr(path_augment.sys, "platform", "win32")
+    monkeypatch.setattr(path_augment, "sys", SimpleNamespace(platform="win32"))
     monkeypatch.setenv("PATH", "")
     monkeypatch.setenv("ProgramFiles", str(program_files))
     monkeypatch.delenv("ProgramW6432", raising=False)
@@ -201,7 +202,7 @@ def _dirs_filling(tmp_path, budget: int) -> list[str]:
 
 
 def test_only_windows_has_a_path_budget(monkeypatch):
-    monkeypatch.setattr(path_augment.sys, "platform", "win32")
+    monkeypatch.setattr(path_augment, "sys", SimpleNamespace(platform="win32"))
     assert path_augment._path_budget() == path_augment._WINDOWS_PATH_BUDGET
     # Room for the application directory and the system directories Windows
     # puts in front of PATH when it builds the 32,767-character search path.
