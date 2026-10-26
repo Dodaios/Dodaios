@@ -66,6 +66,9 @@ _WHISPER_MODEL_ALLOW_PATTERNS = (
     "vocabulary.*",
 )
 _WHISPER_MODEL_REQUIRED_FILES = ("config.json", "model.bin", "tokenizer.json")
+# Cache issue for a checkpoint that was never downloaded: the common first-run
+# state, which gets the plain "download it once" sentence instead of a file list.
+_WHISPER_NOT_DOWNLOADED = "the model has not been downloaded yet"
 
 #: Runtime id -> module to probe. A runtime the app does not know about is
 #: reported absent rather than guessed at.
@@ -264,7 +267,7 @@ def _whisper_model_cache_issue(name: str) -> str | None:
             if "/" not in name:
                 spec = importlib.util.find_spec("faster_whisper")
                 if spec is None or spec.origin is None:
-                    return False
+                    return "the faster-whisper runtime could not be located"
                 source = Path(spec.origin).with_name("utils.py").read_text(encoding="utf-8")
                 aliases = {}
                 for node in ast.parse(source).body:
@@ -278,14 +281,19 @@ def _whisper_model_cache_issue(name: str) -> str | None:
                 if not isinstance(repo_id, str) or not repo_id:
                     return "the model name is not available in the installed faster-whisper runtime"
             from huggingface_hub import snapshot_download
+            from huggingface_hub.errors import LocalEntryNotFoundError
 
-            directory = Path(
-                snapshot_download(
-                    repo_id,
-                    local_files_only=True,
-                    allow_patterns=list(_WHISPER_MODEL_ALLOW_PATTERNS),
+            try:
+                directory = Path(
+                    snapshot_download(
+                        repo_id,
+                        local_files_only=True,
+                        allow_patterns=list(_WHISPER_MODEL_ALLOW_PATTERNS),
+                    )
                 )
-            )
+            except LocalEntryNotFoundError:
+                log.debug("Whisper checkpoint %r has not been downloaded yet", name)
+                return _WHISPER_NOT_DOWNLOADED
         # A snapshot directory alone can be a partial download. The tokenizer
         # must also be local, otherwise the recognizer fetches one during boot.
         missing = [
@@ -372,6 +380,11 @@ def whisper_status(model: str) -> LocalModelStatus:
         detail = (
             "The local speech engine is not installed yet. Install it from here "
             "to transcribe on this machine without an API key."
+        )
+    elif cache_issue == _WHISPER_NOT_DOWNLOADED:
+        detail = (
+            f"The engine is installed, but the {model} model still has to be "
+            "downloaded (about 3 GB, once)."
         )
     elif cache_issue is not None:
         detail = f"The engine is installed, but the {model} model is not ready: {cache_issue}."

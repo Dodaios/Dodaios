@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/dodaios-logo-on-dark.svg" />
-    <img alt="Dodaios" src="assets/brand/dodaios-logo-on-light.svg" width="112" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/dodaios-logo-on-dark.svg" />
+    <img alt="Dodaios" src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/brand/dodaios-logo-on-light.svg" width="112" />
   </picture>
 </p>
 
@@ -12,13 +12,15 @@
   <strong>简体中文</strong>
 </p>
 
-<p align="center">
-  <strong>Dodaios 是一个面向桌面的开源智能体操作系统（Agent OS）。</strong><br />
-  它是你和 AI 智能体之间的那一层：负责运行它们、替它们记忆、连接它们的工具，并让你始终掌握控制权。
-</p>
+<!-- canonical tagline: keep in sync with README.md, GitHub description, dodaios.ai and X bio (docs/rename/repo-metadata-proposal.md) -->
+<p align="center"><strong>Dodaios 是一个面向桌面的开源智能体操作系统（Agent OS）：在你自己的电脑上，用语音或聊天驱动你的编程智能体、浏览器和应用。</strong></p>
+
+<p align="center">原名 <strong>Personal Jarvis</strong>。同一个项目，同一个许可证，只是换了名字（<a href="https://dodaios.ai/blog/personal-jarvis-is-now-dodaios/">原因</a>）。</p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/Dodaios/Dodaios/main/assets/demo/readme/dodaios-demo.gif" alt="Dodaios：三个编程智能体在 Agentic IDE 中并排工作，旁边是浏览器、文件和 Git 差异" width="800" /></p>
 
 <p align="center">
-  <a href="https://pypi.org/project/personal-jarvis/"><img alt="PyPI" src="https://img.shields.io/pypi/v/personal-jarvis?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
+  <a href="https://pypi.org/project/dodaios/"><img alt="PyPI" src="https://img.shields.io/pypi/v/dodaios?labelColor=0A0A0A&amp;color=F7F7F4" /></a>
   <a href="https://github.com/Dodaios/Dodaios/blob/main/LICENSE"><img alt="Apache 2.0" src="https://img.shields.io/badge/License-Apache_2.0-F7F7F4?labelColor=0A0A0A" /></a>
   <a href="https://github.com/Dodaios/Dodaios/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Dodaios/Dodaios/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://discord.gg/x7USduHxbc"><img alt="Discord" src="https://img.shields.io/badge/Discord-join-F7F7F4?labelColor=0A0A0A&amp;logo=discord&amp;logoColor=white" /></a>
@@ -26,6 +28,7 @@
 
 <p align="center">
   <a href="#安装"><strong>安装</strong></a> ·
+  <a href="#为什么选择-dodaios">为什么选择 Dodaios</a> ·
   <a href="#动嘴写代码">动嘴写代码</a> ·
   <a href="#从一句话到合并的拉取请求">工作流</a> ·
   <a href="#一个应用包含一切">功能</a> ·
@@ -35,7 +38,9 @@
   <a href="https://x.com/dodaios">X</a>
 </p>
 
-<p align="center"><sub>有 Claude 或 ChatGPT 订阅，或者有本地模型，就不需要 API 密钥。本项目原名 Personal Jarvis。</sub></p>
+<p align="center">如果 Dodaios 对你有用，在 GitHub 上点一个 <a href="https://github.com/Dodaios/Dodaios">Star</a> 能帮助更多人发现它。</p>
+
+<p align="center"><sub>有 Claude 或 ChatGPT 订阅，或者有本地模型，就不需要 API 密钥。</sub></p>
 
 ---
 
@@ -53,11 +58,22 @@ irm https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.ps1 |
 curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/install.sh | bash
 ```
 
-无需预先安装任何东西。如果缺少 Python，安装程序会为 Dodaios 单独下载一份私有副本；在 Windows 上 Git 也是如此，不需要管理员权限，也不会询问。随后它会注册桌面启动器并打开应用。
-再次运行即可更新现有安装。语言、唤醒词和模型都在应用内设置。
-
-**你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
+无需预先安装任何东西，也不需要 GPU。准备一个 API 密钥、一个 Claude 或 ChatGPT 订阅，或一个本地模型即可。
 桌面版安装包和服务器部署见[更多安装方式](#更多安装方式)。
+
+## 为什么选择 Dodaios
+
+- **本地运行，无需账号。** 应用和数据都留在你的电脑上。不用注册，你和模型之间也没有我们的云。
+- **任意模型或订阅。** 托管模型、通过 Ollama 运行的本地模型，或者你已经付费的 Claude 和 ChatGPT 订阅。
+- **多个编程智能体并排工作。** Claude Code、Codex、OpenCode 等在实时窗格中运行，你可以随时查看和指挥。
+- **语音。** 自定义唤醒词、实时对话和听写，语音识别可以完全离线运行。
+
+|  | Dodaios | 在不同终端里分别运行编程智能体 CLI | 托管的聊天助手 |
+|---|---|---|---|
+| 在你的电脑上运行 | 是。模型可以本地也可以托管 | CLI 在本地运行，模型通常是托管的 | 否，运行在服务商的云端 |
+| 多个编程智能体并排 | 是，实时窗格，带呼号（T1、T2） | 每个智能体一个终端，手动切换 | 没有编程智能体窗格 |
+| 语音 | 唤醒词、实时对话、听写 | 因工具而异 | 因服务商而异 |
+| 开源 | 是，Apache 2.0 | 因工具而异：Codex CLI 和 OpenCode 开源，Claude Code 不开源 | 通常不开源 |
 
 ## 动嘴写代码
 
@@ -167,7 +183,7 @@ https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
 - **命令行工具。** GitHub、Vercel、Supabase、Stripe、Docker、各类云 CLI 等，都能在应用中被检测到并完成登录。
 - **技能。** 可复用的指令，当你的请求合适时 Dodaios 会自动调用。
 - **渠道。** 通过 Telegram 和 Discord 联系 Dodaios。
-- **你自己的脚本。** `jarvis` CLI 和本地 API 让其他程序——以及其他智能体——拥有和你一样的控制能力。
+- **你自己的脚本。** `dodaios` 命令和本地 API 让其他程序——以及其他智能体——拥有和你一样的控制能力。
 
 [插件 →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/plugins.md) ·
 [MCP →](https://github.com/Dodaios/Dodaios/blob/main/docs/product/extend-and-automate/mcp-connections.md) ·
@@ -185,12 +201,16 @@ https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
 
 ## 更多安装方式
 
-[一行安装命令](#安装)是最快的方式。
+[一行安装命令](#安装)是最快的方式。无需预先安装任何东西：如果缺少 Python，安装程序会为 Dodaios 单独下载一份私有副本；在 Windows 上 Git 也是如此，不需要管理员权限，也不会询问。随后它会注册桌面启动器并打开应用。再次运行即可更新现有安装。语言、唤醒词和模型都在应用内设置。
 
-**桌面版下载：** [Windows](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Setup-x64.exe) ·
-[macOS（Apple 芯片）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-arm64.dmg) ·
-[macOS（Intel）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-x64.dmg) ·
-[Linux AppImage](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Linux-x86_64.AppImage)
+**你需要**一个 API 密钥、一个订阅或一个本地模型。使用语音时最好有麦克风。不需要 GPU。
+
+**桌面版下载：** [Dodaios Windows 版（x64）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Setup-x64.exe) ·
+[Dodaios macOS 版（Apple 芯片）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-arm64.dmg) ·
+[Dodaios macOS 版（Intel）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-macOS-x64.dmg) ·
+[Dodaios Linux 版（AppImage，x86_64）](https://github.com/Dodaios/Dodaios/releases/latest/download/PersonalJarvis-Linux-x86_64.AppImage)
+
+为了与现有安装保持兼容，下载文件仍保留原来的 `PersonalJarvis-` 文件名。
 
 > **Windows：** SignPath Foundation 开源项目批准后，Windows 安装程序将按照[代码签名政策（Code signing policy）](https://github.com/Dodaios/Dodaios/blob/main/docs/code-signing-policy.md)签名。Free code signing provided by SignPath.io, certificate by SignPath Foundation.
 
@@ -198,7 +218,7 @@ https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
 > **系统设置 > 隐私与安全性 > 仍要打开**（macOS 15；在 macOS 14 及更早版本上可以右键点按 > 打开）。
 > 上面的一行安装命令不需要这一步。
 
-**服务器：** 运行 `pip install personal-jarvis` 和 `jarvis serve`，然后在浏览器中打开
+**服务器：** 运行 `pip install dodaios` 和 `dodaios serve`，然后在浏览器中打开
 `http://localhost:47821`。远程使用麦克风需要 HTTPS。
 参见[无界面部署指南](https://github.com/Dodaios/Dodaios/blob/main/docs/headless-vps-deployment.md)。
 在 Intel macOS 和 Windows ARM64 上手动用 pip/pipx 安装时，还需要配置
@@ -225,7 +245,7 @@ https://github.com/user-attachments/assets/290a8687-f925-4bb1-ac4c-0f23ea948a07
 
 ## 参与贡献
 
-可以从一个 [good first issue](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) 和[10 分钟完成你的第一次贡献](https://github.com/Dodaios/Dodaios/blob/main/CONTRIBUTING.md#your-first-contribution-in-10-minutes)开始。问题和想法请发到 [Discussions](https://github.com/Dodaios/Dodaios/discussions)，安全问题请参阅 [SECURITY.md](https://github.com/Dodaios/Dodaios/blob/main/SECURITY.md)。
+可以从一个 [good first issue](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) 开始。如果目前没有，可以选择任何带有 [`help wanted`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) 或 [`area:docs`](https://github.com/Dodaios/Dodaios/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%3Adocs) 标签的 issue，或者在 [Discussions](https://github.com/Dodaios/Dodaios/discussions) 里提问。[10 分钟完成你的第一次贡献](https://github.com/Dodaios/Dodaios/blob/main/CONTRIBUTING.md#your-first-contribution-in-10-minutes)会一步步带你完成。问题和想法请发到 [Discussions](https://github.com/Dodaios/Dodaios/discussions)，安全问题请参阅 [SECURITY.md](https://github.com/Dodaios/Dodaios/blob/main/SECURITY.md)。
 
 如果 Dodaios 对你有用，**点一个 Star 能帮助更多人发现它。** 赞助者名单见 [SPONSORS.md](https://github.com/Dodaios/Dodaios/blob/main/SPONSORS.md)。
 贡献者名单见[英文 README](https://github.com/Dodaios/Dodaios/blob/main/README.md#contribute)。

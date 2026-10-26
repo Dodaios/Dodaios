@@ -52,6 +52,8 @@ class SelfBuild:
         self._tasks: set[asyncio.Task[None]] = set()
         self._sweeper: asyncio.Task[None] | None = None
         self.undo = UndoRegistry()
+        #: The code builder's pass (``code/loop.py``), once installed.
+        self.code_loop: Any = None
         self.ledger = BuildLedger(Path(data_dir) / DB_NAME, on_change=self._changed)
 
     # ------------------------------------------------------------ wiring
@@ -84,6 +86,7 @@ class SelfBuild:
             "silent": policy.silent(self.ledger, cfg),
             "autonomy": {kind.value: policy.autonomy(cfg, kind).value for kind in Kind},
             "builders": sorted(kind.value for kind in self._builders),
+            "code": self.code_loop.state() if self.code_loop is not None else {},
         }
 
     # ------------------------------------------------------------ person's actions

@@ -43,7 +43,8 @@ function pane(name: string, workspaceId: string, overrides: Partial<WorkspacePan
 }
 
 beforeEach(() => {
-  localStorage.removeItem("jarvis.agenticIde.agentsScope");
+  // Most cases read one workspace; the default (whole folder) has its own cases.
+  localStorage.setItem("jarvis.agenticIde.agentsScope.v2", "workspace");
   resetWorkspacePanesPoll();
   useIdeSidePanelStore.setState({ spotlight: null });
   usePaneReviewsStore.setState({ reviewed: {} });
@@ -177,6 +178,31 @@ describe("AgentsOverview", () => {
     render(<AgentsOverview />);
     expect(screen.queryByTestId("ide-workspace-agent-row")).toBeNull();
     expect(screen.getByTestId("ide-workspace-agents").textContent).toContain("No agents");
+  });
+
+  it("lists the whole folder by default, with a count on each scope", () => {
+    localStorage.removeItem("jarvis.agenticIde.agentsScope.v2");
+    useWorkspacePanesStore.setState({
+      panes: [
+        pane("T1", "w1", { activity: "working" }),
+        pane("T1", "w2", { activity: "working", workspace_name: "Blog" }),
+        pane("T2", "w2", { activity: "waiting", workspace_name: "Blog" }),
+        pane("T1", "w3", { activity: "working", folder: "/code/other" }),
+      ],
+    });
+    render(<AgentsOverview />);
+    expect(screen.getByTestId("ide-agents-scope-folder").getAttribute("aria-checked")).toBe("true");
+    expect(screen.getAllByTestId("ide-workspace-agent-row")).toHaveLength(3);
+    expect(screen.getByTestId("ide-agents-scope-count-folder").textContent).toBe("3");
+    expect(screen.getByTestId("ide-agents-scope-count-workspace").textContent).toBe("1");
+  });
+
+  it("shows a loading state instead of an empty list before the first answer", () => {
+    useWorkspacePanesStore.setState({ panes: [], loaded: false });
+    render(<AgentsOverview />);
+    expect(screen.getByTestId("ide-agents-loading")).toBeTruthy();
+    expect(screen.getByTestId("ide-workspace-agents").textContent).not.toContain("No agents");
+    expect(screen.queryByTestId("ide-agents-scope-count-folder")).toBeNull();
   });
 
   it("widens to every workspace of the folder and remembers the choice", () => {
