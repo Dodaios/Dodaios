@@ -14,7 +14,7 @@
  * (fixed for the agent's life) and any connected provider. Mounted once
  * (App.tsx); every plus opens it through `useCreateAgentDialog`.
  */
-import { useEffect, useMemo, useState, Suspense, lazy, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense, lazy, type KeyboardEvent, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, FileInput, LayoutGrid, Loader2, PencilLine, TriangleAlert, X } from "lucide-react";
@@ -29,7 +29,7 @@ import { randomCreature } from "../companion/creature";
 import { announceSpawn } from "../world/spawnStore";
 import { useCreateAgentDialog, type CreateAgentMode } from "./createAgentStore";
 import { seedFirstMessage } from "./firstMessage";
-import { ImportTemplatePane, type ImportState } from "./ImportTemplatePane";
+import { EMPTY_IMPORT, ImportTemplatePane, type ImportState } from "./ImportTemplatePane";
 import { SeatFields, SeatSummary, useCreateSeat, type SeatPick } from "./SeatFields";
 import { StarterGallery } from "./StarterGallery";
 import { defaultTools, starterCopy, type AreaFilter } from "./starterFilters";
@@ -78,6 +78,17 @@ function CreateAgentDialog() {
   const createAgent = useCreateSocietyAgent();
   const seat = useCreateSeat();
   const [mode, setMode] = useState<CreateAgentMode>(initial.mode ?? "quick");
+  const modeTabs = useRef<(HTMLButtonElement | null)[]>([]);
+  function onModeKey(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = MODES.length - 1;
+    const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: last }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    const target = (next + MODES.length) % MODES.length;
+    modeTabs.current[target]?.focus();
+    setMode(MODES[target].id);
+    setError(null);
+  }
   const [name, setName] = useState("");
   const [job, setJob] = useState("");
   const [companion, setCompanion] = useState<CompanionAppearance>(randomCompanion);
@@ -121,7 +132,7 @@ function CreateAgentDialog() {
 
   // Import path.
   const [importText, setImportText] = useState(() => initial.template ? JSON.stringify(initial.template, null, 2) : "");
-  const [imported, setImported] = useState<ImportState>({ template: null, preview: null });
+  const [imported, setImported] = useState<ImportState>(EMPTY_IMPORT);
   const [importName, setImportName] = useState("");
   const [importPicked, setImportPicked] = useState<Set<string>>(new Set());
   const importKey = imported.preview ? JSON.stringify(imported.template) : "";
@@ -133,7 +144,7 @@ function CreateAgentDialog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [importKey]);
 
-  const pathReady = mode === "quick" ? true : mode === "starter" ? Boolean(starter) : Boolean(imported.preview && imported.template);
+  const pathReady = mode === "quick" ? true : mode === "starter" ? Boolean(starter) : Boolean(imported.preview && imported.template && !imported.pending);
   const canCreate = !saving && seat.ready && pathReady;
 
   async function afterInstall(result: InstallStarterResult, firstMessage: string) {
@@ -237,14 +248,17 @@ function CreateAgentDialog() {
               </button>
             </div>
             <div role="tablist" aria-label={t("agent_create.mode.label")} className="flex w-full gap-1 rounded-[10px] border border-border bg-background/60 p-1 sm:w-auto sm:self-start">
-              {MODES.map((entry) => {
+              {MODES.map((entry, index) => {
                 const on = entry.id === mode;
                 return (
                   <button
                     key={entry.id}
+                    ref={(node) => { modeTabs.current[index] = node; }}
                     type="button"
                     role="tab"
                     aria-selected={on}
+                    tabIndex={on ? 0 : -1}
+                    onKeyDown={(event) => onModeKey(event, index)}
                     disabled={saving || Boolean(created)}
                     onClick={() => { setMode(entry.id); setError(null); }}
                     data-testid={`create-agent-mode-${entry.id}`}
@@ -325,7 +339,7 @@ function CreateAgentDialog() {
                 </div>
                 <div className={cn("flex min-h-0 flex-col gap-4 overflow-y-auto p-5", !mobilePreview && "hidden md:flex")}>
                   <button type="button" onClick={() => setMobilePreview(false)}
-                    className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground hover:text-foreground md:hidden">
+                    className="inline-flex items-center gap-1.5 self-start rounded text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden">
                     <ArrowLeft className="size-3.5" aria-hidden /> {t("agent_create.gallery.back")}
                   </button>
                   {starter && copy ? (

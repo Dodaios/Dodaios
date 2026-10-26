@@ -32,8 +32,14 @@ const { createAgent, seed, spawn, menu } = vi.hoisted(() => ({
 vi.mock("../data", async () => {
   class AgentNameTaken extends Error {}
   class RuntimeProviderUnsupported extends Error {}
+  const requestError = (body: { detail?: { reason?: string; detail?: string } | string } | null, fallback: string) => {
+    const detail = body?.detail;
+    if (typeof detail === "string") return new Error(detail);
+    if (detail?.reason === "runtime_provider_unsupported") return new RuntimeProviderUnsupported(detail.detail ?? fallback);
+    return new Error(detail?.detail ?? fallback);
+  };
   return {
-    AgentNameTaken, RuntimeProviderUnsupported, useCreateSocietyAgent: () => createAgent,
+    AgentNameTaken, RuntimeProviderUnsupported, requestError, useCreateSocietyAgent: () => createAgent,
     rowToAgent: (row: { agent_id: string; name: string; session_id?: string }) => ({
       agentId: row.agent_id, name: row.name, chatSessionId: row.session_id ?? null,
     }),
@@ -259,6 +265,33 @@ describe("CreateAgentDialog: starters", () => {
     fireEvent.click(screen.getByTestId("create-agent-submit"));
     await expect(pending).resolves.toMatchObject({ agentId: "agent-3" });
   });
+  test("a runtime that cannot drive the provider is said in the person's language", async () => {
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => url === "/api/society/starters/install"
+      ? json({ detail: { reason: "runtime_provider_unsupported", detail: "Hermes cannot run this provider" } }, 422)
+      : route(url, init));
+    mount();
+    act(() => { useCreateAgentDialog.getState().request({ mode: "starter" }).catch(() => undefined); });
+    await screen.findByTestId("starter-code-reviewer");
+    await waitFor(() => expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId("create-agent-submit"));
+    expect(await screen.findByText("society.runtime.provider_unsupported")).toBeTruthy();
+    expect(useCreateAgentDialog.getState().open).toBe(true);
+  });
+
+  test("the three ways in are tabs the arrow keys move through", async () => {
+    mount();
+    act(() => { useCreateAgentDialog.getState().request().catch(() => undefined); });
+    const quick = await screen.findByTestId("create-agent-mode-quick");
+    expect(quick.getAttribute("tabindex")).toBe("0");
+    expect(screen.getByTestId("create-agent-mode-starter").getAttribute("tabindex")).toBe("-1");
+    fireEvent.keyDown(quick, { key: "ArrowRight" });
+    expect(screen.getByTestId("create-agent-mode-starter").getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByTestId("create-agent-mode-starter"));
+    fireEvent.keyDown(screen.getByTestId("create-agent-mode-starter"), { key: "End" });
+    expect(screen.getByTestId("create-agent-mode-import").getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(screen.getByTestId("create-agent-mode-import"), { key: "ArrowRight" });
+    expect(screen.getByTestId("create-agent-mode-quick").getAttribute("aria-selected")).toBe("true");
+  });
 });
 
 describe("CreateAgentDialog: import", () => {
@@ -294,6 +327,24 @@ describe("CreateAgentDialog: import", () => {
     expect(await screen.findByTestId("import-errors")).toBeTruthy();
     expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId("create-agent-empty-preview")).toBeTruthy();
+  });
+
+  test("an edit holds Create until the new text is checked", async () => {
+    mount();
+    act(() => {
+      useCreateAgentDialog.getState().request({
+        template: { schema: 1, name: "Note Keeper", instructions: "Keep my notes." },
+      }).catch(() => undefined);
+    });
+    await waitFor(() => expect((screen.getByTestId("template-preview-name") as HTMLInputElement).value).toBe("Note Keeper"));
+    await waitFor(() => expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(screen.getByTestId("import-text"), {
+      target: { value: JSON.stringify({ schema: 1, name: "Other Keeper", instructions: "Keep other notes." }) },
+    });
+    // The old preview stays on screen, but it is no longer what Create would install.
+    expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => expect((screen.getByTestId("template-preview-name") as HTMLInputElement).value).toBe("Other Keeper"));
+    await waitFor(() => expect((screen.getByTestId("create-agent-submit") as HTMLButtonElement).disabled).toBe(false));
   });
 });
 

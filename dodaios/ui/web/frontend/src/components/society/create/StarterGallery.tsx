@@ -49,6 +49,8 @@ export function StarterGallery(props: Props) {
     [props.starters, props.areas, props.query, copyOf],
   );
   const chips: AreaFilter[] = ["all", ...props.areas];
+  // One row is always reachable with Tab, even when the picked starter is filtered out.
+  const selectedShown = shown.some((starter) => starter.id === props.selectedId);
 
   function onRowKey(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
@@ -106,7 +108,7 @@ export function StarterGallery(props: Props) {
         ) : props.failed ? (
           <div className="flex flex-col items-start gap-2 px-2 py-6 text-sm">
             <p role="alert" className="text-destructive">{t("agent_create.gallery.failed")}</p>
-            <button type="button" onClick={props.onRetry} className="rounded-full border border-border px-2.5 py-1 text-xs hover:bg-secondary">
+            <button type="button" onClick={props.onRetry} className="rounded-full border border-border px-2.5 py-1 text-xs hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {t("agent_create.gallery.retry")}
             </button>
           </div>
@@ -124,7 +126,7 @@ export function StarterGallery(props: Props) {
                     type="button"
                     role="option"
                     aria-selected={selected}
-                    tabIndex={selected || (!props.selectedId && index === 0) ? 0 : -1}
+                    tabIndex={selected || (!selectedShown && index === 0) ? 0 : -1}
                     onClick={() => props.onSelect(starter)}
                     onKeyDown={(event) => onRowKey(event, index)}
                     data-testid={`starter-${starter.id}`}

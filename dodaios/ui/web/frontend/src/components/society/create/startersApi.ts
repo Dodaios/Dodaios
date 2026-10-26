@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fill, translate } from "@/i18n";
 import type { CompanionAppearance } from "../companion/appearance";
 import type { AgentRuntime } from "@/lib/societyApi";
+import { requestError } from "../data";
 
 export type StarterArea = "coding" | "research" | "inbox" | "writing" | "ops" | "personal";
 
@@ -96,22 +97,12 @@ export interface InstallStarterResult {
 
 export const STARTERS_QUERY_KEY = ["society", "starters"] as const;
 
-export class StarterRequestError extends Error {
-  constructor(message: string, readonly status: number) {
-    super(message);
-    this.name = "StarterRequestError";
-  }
-}
-
-async function readError(res: Response): Promise<StarterRequestError> {
+/** A failed request as the dialog shows it: Hermes / OpenClaw refusing the
+ *  provider stays typed (`RuntimeProviderUnsupported`), so the dialog says it
+ *  in the person's language, exactly like a blank agent's create. */
+async function readError(res: Response): Promise<Error> {
   const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
-  const detail = body?.detail;
-  const text = typeof detail === "string"
-    ? detail
-    : detail && typeof detail === "object" && "detail" in detail && typeof (detail as { detail: unknown }).detail === "string"
-      ? (detail as { detail: string }).detail
-      : fill(translate("common.request_failed"), { status: res.status });
-  return new StarterRequestError(text, res.status);
+  return requestError(body, fill(translate("common.request_failed"), { status: res.status }));
 }
 
 export async function fetchStarters(): Promise<StartersResponse> {
