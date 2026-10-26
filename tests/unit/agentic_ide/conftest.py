@@ -80,10 +80,12 @@ def _ui_prefs_in_tmp(
     Same store, same failure class as 1 and 2 above: a test that writes a text
     size would change the size of the developer's own terminals.
     """
-    from dodaios.agentic_ide import ui_prefs
+    from dodaios.agentic_ide import launch_presets, ui_prefs
 
     target = tmp_path_factory.mktemp("ui-prefs") / "ui_prefs.json"
     monkeypatch.setattr(ui_prefs, "_store_path", lambda: target)
+    presets = target.with_name("launch_presets.json")
+    monkeypatch.setattr(launch_presets, "_store_path", lambda: presets)
     return target
 
 

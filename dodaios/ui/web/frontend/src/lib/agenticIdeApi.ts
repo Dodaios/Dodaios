@@ -2214,3 +2214,38 @@ export async function savePromptWriter(id: string): Promise<PromptWriterState> {
   if (!res.ok) throw new Error(await detail(res));
   return (await res.json()) as PromptWriterState;
 }
+
+/** One agent in a saved workspace lineup. */
+export interface LaunchPresetAgent {
+  agent: string;
+  count: number;
+}
+
+/** A named lineup for the New-workspace dialog, e.g. 2× Claude Code + 1× Codex. */
+export interface LaunchPreset {
+  id: string;
+  name: string;
+  agents: LaunchPresetAgent[];
+}
+
+export interface LaunchPresetsResponse {
+  presets: LaunchPreset[];
+  /** False until presets were saved once; starter presets are offered only then. */
+  stored: boolean;
+}
+
+/** Saved lineups. Kept in the backend: the desktop WebView forgets browser storage. */
+export function fetchLaunchPresets(): Promise<LaunchPresetsResponse> {
+  return getJson<LaunchPresetsResponse>("/api/agentic-ide/launch-presets");
+}
+
+/** Replace the whole saved list; returns what was stored. */
+export async function saveLaunchPresets(presets: LaunchPreset[]): Promise<LaunchPresetsResponse> {
+  const res = await fetch("/api/agentic-ide/launch-presets", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ presets }),
+  });
+  if (!res.ok) throw new Error(await detail(res));
+  return (await res.json()) as LaunchPresetsResponse;
+}
