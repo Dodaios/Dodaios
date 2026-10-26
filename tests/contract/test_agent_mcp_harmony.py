@@ -218,6 +218,24 @@ WITHHELD: Final[dict[str, str]] = {
         "pausing, deleting or running a routine now changes recurring spend; "
         "the owner does it on the routine card, not via a remote client"
     ),
+    "GET /api/society/agents/{agent_id}/routines/{task_id}/runs": (
+        "a routine's run history is the owner's read-out on the routine card; "
+        "a remote client reads results in the agent's own chat"
+    ),
+    "GET /api/society/agents/{agent_id}/routines-activity": (
+        "newest run per routine and the away-parking banner feed the routine "
+        "list in the app; nothing a remote client acts on"
+    ),
+    "POST /api/society/agents/{agent_id}/routines-seen": (
+        "records that the owner looked at routine results in the app; a remote "
+        "client reporting it would defeat away-parking"
+    ),
+    "POST /api/society/agents/{agent_id}/routines-parking": (
+        "answering the away-parking banner resumes recurring spend; the owner "
+        "does it on the routine list, not via a remote client"
+    ),
+    "GET /api/society/routine-parking": "the away-parking window is an owner setting in the app",
+    "PUT /api/society/routine-parking": "changing the away-parking window is an owner setting",
     "GET /api/society/agents/{agent_id}/conversations": (
         "lists the agent's chats with Jarvis and teammates for the owner's "
         "history rail in the app; a remote client messages agents directly"
