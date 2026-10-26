@@ -7,11 +7,13 @@
  * half-built scene.
  */
 import type { DeckId } from "../decks";
-import { STATION_KINDS, type Deck, type NavGrid, type PlateImages, type PlateLevel, type Socket, type Station, type StationKind } from "./deck";
+import {
+  STATION_KINDS, type Deck, type NavGrid, type PlateImages, type PlateLevel, type RealtimeContent, type Socket, type Station, type StationKind,
+} from "./deck";
 import { fetchImageBitmap } from "../engine/imageFetch";
 import {
-  fillTileUrl, manifestUrl as resolveUrl, parseDeckManifest,
-  type DeckManifest, type ManifestCamera, type ManifestNav, type ManifestPlate, type ManifestSocket,
+  fillTileUrl, manifestUrl as resolveUrl, parseDeckManifest, REALTIME_VERSION,
+  type DeckManifest, type ManifestCamera, type ManifestNav, type ManifestPlate, type ManifestRealtime, type ManifestSocket,
 } from "./manifest";
 
 export class DeckLoadError extends Error {
@@ -83,6 +85,32 @@ export function plateImages(camera: ManifestCamera, plate: ManifestPlate, url: (
   };
 }
 
+/** The realtime block as the runtime uses it; null for a version this runtime does not read. Pure apart from URL resolution. */
+export function realtimeContent(r: ManifestRealtime | undefined, url: (relative: string) => string): RealtimeContent | null {
+  if (!r || r.version !== REALTIME_VERSION) return null;
+  const materials: Record<string, RealtimeContent["materials"][string]> = {};
+  for (const [name, m] of Object.entries(r.materials)) {
+    materials[name] = {
+      roughness: m.roughness, metalness: m.metalness, color: [m.color[0], m.color[1], m.color[2]],
+      clearcoat: m.clearcoat, clearcoatRoughness: m.clearcoat_roughness, specular: m.specular,
+      detail: m.detail, transparent: m.transparent, opacity: m.opacity, collide: m.collide,
+    };
+  }
+  return {
+    sceneUrl: url(r.scene.url),
+    range: r.lightmaps.range,
+    pages: r.lightmaps.pages.map((p) => ({ url: url(p.url), size: p.size })),
+    probes: r.probes.map((p) => ({
+      room: p.room, url: url(p.url), width: p.w, height: p.h, range: p.range,
+      position: [p.position[0], p.position[1], p.position[2]],
+      boxMin: [p.box_min[0], p.box_min[1], p.box_min[2]],
+      boxMax: [p.box_max[0], p.box_max[1], p.box_max[2]],
+    })),
+    materials,
+    triangles: r.scene.triangles,
+  };
+}
+
 /** Validate a manifest and turn it into a deck (nav still to decode). Pure apart from URL resolution. */
 export function deckFromManifest(json: unknown, at: string, deckId: DeckId, contentId: string): Omit<Deck, "nav"> & { navUrl: string; navMeta: ManifestNav } {
   let m: DeckManifest;
@@ -118,6 +146,7 @@ export function deckFromManifest(json: unknown, at: string, deckId: DeckId, cont
     stations,
     rooms: m.rooms.map((r) => ({ id: r.id, name: r.name, floorY: r.floor_y, polygon: r.polygon, main: r.main })),
     probes: m.probes.map((p) => ({ room: p.room, x: p.position[0], y: p.position[1], z: p.position[2], sh: p.sh })),
+    realtime: realtimeContent(m.realtime, url),
     navUrl: url(m.nav.url),
     navMeta: m.nav,
   };

@@ -8555,6 +8555,7 @@
       "no_workspace": "Wähle einen Workspace, um seine Agents zu sehen.",
       "empty": "In diesem Workspace laufen keine Agents.",
       "empty_folder": "In diesem Ordner laufen keine Agents.",
+      "loading": "Agents werden geladen…",
       "scope": {
         "aria": "Agents anzeigen aus",
         "workspace": "Dieser Space",
