@@ -38,7 +38,8 @@ and headless Linux hosts are deliberately not registered.
 On macOS, every launch path enters through the same app bundle so privacy
 grants stay attached to one identity. The source installer compiles a small
 native launcher (`dodaios/setup/macos_stub_launcher.c`) into
-`Personal Jarvis.app`, signs it with a per-user code-signing certificate it
+`Dodaios.app` (a bundle from before the rename, `Personal Jarvis.app`, is
+renamed once), signs it with a per-user code-signing certificate it
 creates on the first run (macOS asks for the login password once to trust
 it; grants then survive every rebuild and update), verifies the identity from
 inside a LaunchServices process, and preserves the bundle unchanged across

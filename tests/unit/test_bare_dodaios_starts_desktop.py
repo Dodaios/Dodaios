@@ -129,7 +129,7 @@ def test_dependency_probe_passes_on_this_install() -> None:
     assert (result is None) is have_webview
 
 
-def test_readme_still_documents_bare_jarvis_as_the_desktop_entry() -> None:
+def test_readme_documents_bare_dodaios_as_the_desktop_entry() -> None:
     """Guard the contract from the other side: docs and code must agree."""
     readme = Path(__file__).resolve().parents[2] / "README.md"
     if not readme.is_file():
@@ -137,20 +137,21 @@ def test_readme_still_documents_bare_jarvis_as_the_desktop_entry() -> None:
     text = readme.read_text(encoding="utf-8")
     # Read the documented COMMAND, not the prose around it: a rewrite that
     # changes the wording or the column of the comment must not fail the
-    # suite, only one that drops bare `jarvis` or sends it somewhere else.
+    # suite, only one that drops bare `dodaios` or sends it somewhere else.
+    # The old `jarvis` name still works but is no longer documented.
     blocks = re.findall(r"```(?:bash|sh|shell|console|powershell)?\n(.*?)```", text, re.S)
     bare = [
         line.partition("#")[2].strip().lower()
         for block in blocks
         for line in block.splitlines()
-        if line.partition("#")[0].strip() == "jarvis"
+        if line.partition("#")[0].strip() == "dodaios"
     ]
     assert bare, (
-        "README no longer documents bare `jarvis` as a command — if the desktop "
+        "README no longer documents bare `dodaios` as a command; if the desktop "
         "entry changed on purpose, update this test and __main__.main()"
     )
     assert not any("headless" in comment for comment in bare), (
-        "README describes bare `jarvis` as headless, but __main__.main() starts "
+        "README describes bare `dodaios` as headless, but __main__.main() starts "
         "the desktop app"
     )
 

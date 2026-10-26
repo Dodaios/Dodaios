@@ -14,7 +14,7 @@ const BODY_HALF_W = 0.3;
 const STATION_HALF = 0.85;
 
 /** The body under plate point p, nearest the camera first; null when none. */
-export function pickBody(cam: PlateCamera, poses: Iterable<ActorPose>, p: PlatePoint, accept: (id: string) => boolean): string | null {
+export function pickBody(cam: PlateCamera, poses: Iterable<Omit<ActorPose, "yaw">>, p: PlatePoint, accept: (id: string) => boolean): string | null {
   let best: string | null = null;
   let bestDepth = -Infinity;
   const cos = Math.cos((cam.pitchDeg * Math.PI) / 180);

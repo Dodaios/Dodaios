@@ -62,6 +62,12 @@ def _pane_history() -> Path:
     return store_dir()
 
 
+def _pane_typed() -> Path:
+    from dodaios.agentic_ide.pane_sessions import prompts_dir
+
+    return prompts_dir()
+
+
 def install_in_app(service: Any, app_state: Any, bus: Any) -> SelfBuildLoop:
     """Register the four builders and start observing (idempotent)."""
     existing = current()
@@ -78,6 +84,7 @@ def install_in_app(service: Any, app_state: Any, bus: Any) -> SelfBuildLoop:
         society=_society_accessor(app_state),
         agent_skills=_agent_skills,
         pane_history=_pane_history,
+        pane_typed=_pane_typed,
     )
     return install(service, env=env, bus=bus)
 
@@ -94,6 +101,21 @@ def pane_prompt_recorded(history_id: str) -> None:
         loop.pane_prompt_recorded(history_id)
     except Exception:  # noqa: BLE001 - observation must never break a prompt
         log.warning("self_build: pane prompt not observed", exc_info=True)
+
+
+def pane_keyboard_submit(history_id: str) -> None:
+    """The person pressed Enter in a pane's own window; a no-op when off.
+
+    The prompt the pane's CLI reports next (its ``UserPromptSubmit`` hook) is
+    then the person's. Never raises into the terminal socket.
+    """
+    loop = current()
+    if loop is None:
+        return
+    try:
+        loop.pane_keyboard_submit(history_id)
+    except Exception:  # noqa: BLE001 - observation must never break typing
+        log.warning("self_build: pane keystroke not observed", exc_info=True)
 
 
 async def chat_turn_completed(session: Any, completion: Any, *, surface: str) -> None:

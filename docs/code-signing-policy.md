@@ -3,7 +3,7 @@
 Free code signing provided by [SignPath.io](https://signpath.io), certificate by
 [SignPath Foundation](https://signpath.org).
 
-> **Status:** Dodaios has applied to the SignPath Foundation open-source
+> **Status:** Dodaios (formerly Personal Jarvis) has applied to the SignPath Foundation open-source
 > program. Until the application is approved and the first signed release ships,
 > the Windows installer on the
 > [Releases page](https://github.com/Dodaios/Dodaios/releases) is
@@ -34,8 +34,8 @@ The macOS disk images and the Linux AppImage are not covered by this policy.
 
 | Role | Who |
 | --- | --- |
-| Committers and reviewers | [Members of the PersonalJarvis organization](https://github.com/orgs/PersonalJarvis/people) |
-| Approvers | [Owners of the PersonalJarvis organization](https://github.com/orgs/PersonalJarvis/people?query=role%3Aowner) |
+| Committers and reviewers | [Members of the Dodaios organization](https://github.com/orgs/Dodaios/people) |
+| Approvers | [Owners of the Dodaios organization](https://github.com/orgs/Dodaios/people?query=role%3Aowner) |
 
 - **Committers** may change the source code in this repository.
 - **Reviewers** review every pull request from people outside the team before it

@@ -5,7 +5,8 @@
       "loading": "Loading deck",
       "unavailable": "The ship needs WebGL, which this window cannot start right now.",
       "deck_missing": "This deck has not been built yet.",
-      "help": "Third person: WASD or the arrow keys walk the commander, Shift hurries, E works the station within reach. V switches to the bird's-eye view and back. Drag to look around, scroll to zoom. Click the deck to walk there, click a crew member for their record."
+      "help": "Third person: WASD or the arrow keys walk the commander, Shift hurries, E works the station within reach. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. Drag to look around, scroll to zoom. Click the deck to walk there, click a crew member for their record.",
+      "help_eye": "Third and first person play like a shooter: a click on the view takes the mouse, moving it turns the camera, Esc gives it back. WASD walks relative to the view, Shift hurries; the left button or E works what the crosshair is on (a crew member, a station), else E works the station within reach. Scroll to move the camera in or out: all the way in is first person, scrolling out of it comes back. 1, 2 and 3 pick the bird's-eye view, third or first person; V cycles them. The settings button on the tool rail sets mouse sensitivity, inverted look, field of view and quality."
     },
     "deck": {
       "label": "Deck {n}",
@@ -90,10 +91,32 @@
       "elsewhere": "Elsewhere aboard"
     },
     "tools": {
+      "view": "View",
+      "follow": "Third person",
       "overview": "Bird's-eye",
       "lift": "Turbolift",
       "commander": "Commander",
-      "help": "Help"
+      "settings": "View settings",
+      "help": "Help",
+      "duel": "Duel",
+      "first": "First person",
+      "first_unavailable": "First person needs this deck's eye-level scene on the full-size stage.",
+      "click_to_look": "Click to look around"
+    },
+    "settings": {
+      "title": "View settings",
+      "sensitivity": "Mouse sensitivity",
+      "invert_y": "Invert vertical look",
+      "quality": "Render quality",
+      "quality_auto": "Auto",
+      "quality_high": "High",
+      "quality_low": "Low",
+      "quality_note": "Auto starts high and lowers the quality on a graphics card that cannot keep about 45 frames per second.",
+      "quality_now": "Now rendering: {tier}.",
+      "mouse_lock": "In third and first person a click on the view takes the mouse: moving it turns the camera, the left button works what the crosshair is on. Esc gives it back; L takes or releases it too.",
+      "reset": "Reset",
+      "fov_third": "Field of view, third person",
+      "fov_first": "Field of view, first person"
     },
     "lift": {
       "title": "Turbolift",
@@ -104,8 +127,11 @@
       "mess_nobody": "Nobody is off duty right now.",
       "mess_ended": "The crew goes back to their routine.",
       "no_team": "No team meets at this table yet. Create one in the crew list.",
-      "view_overview": "Bird's-eye view: WASD pans the map. V takes you back to the commander.",
-      "view_follow": "Third person: WASD walks the commander, E works the station within reach. V switches to the bird's-eye view."
+      "view_overview": "Bird's-eye view: WASD pans the map. 2 or 3 takes you back to the commander.",
+      "view_follow": "Third person: WASD walks the commander, E works the station within reach. V cycles the views.",
+      "view_follow_eye": "Third person: the mouse aims the view, WASD walks, the wheel zooms (all the way in is first person). Esc frees the mouse.",
+      "mouse_look": "Mouse look: move the mouse to turn the camera, click to work what the crosshair is on. Esc releases the mouse.",
+      "view_first": "First person: the mouse aims the view, WASD walks, scrolling out returns to third person. Esc frees the mouse."
     },
     "screen": {
       "standby": "STANDBY",
@@ -130,6 +156,102 @@
     "games": {
       "title": "Simulator room",
       "loading": "Loading the simulation…"
+    },
+    "duel": {
+      "tool": "Duel",
+      "terminal": "Duel terminal",
+      "start": "Start a duel",
+      "title": "Reactor duel",
+      "intro": "A one-on-one blaster duel in the Reactor Shaft against a combat bot. Best of three rounds; leave at any time.",
+      "ride": "The turbolift takes you down to Reactor Engineering first.",
+      "choose": "Choose the opponent",
+      "difficulty": {
+        "normal": "Normal",
+        "normal_about": "Learn the blaster, the shield and the vent.",
+        "hard": "Hard",
+        "hard_about": "A fair fight for a good player.",
+        "elite": "Elite",
+        "elite_about": "Fast and precise: parries, punishes, reads your strafing."
+      },
+      "controls": {
+        "title": "Controls",
+        "move": "Move",
+        "sprint": "Sprint",
+        "fire": "Fire",
+        "ads": "Aim down the sights",
+        "shield": "Energy shield (hold)",
+        "dodge": "Dodge roll",
+        "vent": "Vent heat; again inside the window vents at once",
+        "pause": "Pause; again to leave",
+        "lmb": "Left mouse",
+        "rmb": "Right mouse",
+        "space": "Space",
+        "shift": "Shift",
+        "esc": "Esc"
+      },
+      "hud": {
+        "you": "You",
+        "bot": "Bot",
+        "round": "Round {n}",
+        "health": "Health",
+        "shield": "Shield",
+        "heat": "Heat",
+        "roll": "Roll",
+        "ready": "Ready",
+        "overheated": "Overheated",
+        "venting": "Venting",
+        "vent_hint": "R in the gold window",
+        "shield_down": "Down {s} s",
+        "parry_ready": "Parry ready",
+        "parry_locked": "Parry cooling",
+        "surge": "Reactor surge: positions revealed",
+        "fight": "Fight",
+        "click_to_aim": "Click to aim",
+        "vent": "Vent"
+      },
+      "callout": {
+        "parry": "Parry",
+        "parried": "Parried",
+        "perfect_vent": "Perfect vent",
+        "vent_miss": "Vent missed",
+        "overheat": "Overheated",
+        "shield_break": "Shield broken",
+        "deflect": "Deflected"
+      },
+      "round": {
+        "won": "Round won",
+        "lost": "Round lost",
+        "draw": "Round drawn",
+        "kill": "Knockout",
+        "time": "Time: more health wins",
+        "trade": "Both down"
+      },
+      "pause": {
+        "title": "Paused",
+        "resume": "Resume",
+        "leave": "Leave the duel",
+        "hint": "The match waits. Esc again leaves it."
+      },
+      "result": {
+        "won": "Victory",
+        "lost": "Defeat",
+        "draw": "Draw",
+        "cancelled": "Duel ended",
+        "rounds": "Rounds {me} : {them}",
+        "against": "Against the {tier} bot",
+        "accuracy": "Accuracy",
+        "damage": "Damage dealt",
+        "headshots": "Headshots",
+        "parries": "Parries",
+        "blocks": "Blocks",
+        "perfect_vents": "Perfect vents",
+        "rematch": "Rematch",
+        "leave": "Back to the ship"
+      },
+      "notice": {
+        "needs_eye": "Duels need the third-person 3D view.",
+        "left": "You left the duel."
+      }
     }
   }
 }

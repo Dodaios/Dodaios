@@ -1418,7 +1418,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7" },
     { name = "scipy", specifier = ">=1.14" },
     { name = "send2trash", specifier = ">=1.8.3" },
-    { name = "sherpa-onnx", marker = "(platform_machine != 'ARM64' and extra == 'local-voice') or (sys_platform != 'win32' and extra == 'local-voice')", specifier = ">=1.13.3" },
+    { name = "sherpa-onnx", marker = "(platform_machine != 'ARM64' and extra == 'local-voice') or (sys_platform != 'win32' and extra == 'local-voice')", specifier = ">=1.13.3,<2" },
     { name = "soundcard", marker = "(sys_platform == 'linux' and extra == 'desktop') or (sys_platform == 'win32' and extra == 'desktop')", specifier = ">=0.4.6" },
     { name = "sounddevice", specifier = ">=0.5" },
     { name = "structlog", specifier = ">=24.4" },

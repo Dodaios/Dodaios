@@ -82,14 +82,14 @@ async def test_a_pane_prompt_typed_on_three_days_becomes_one_proposal(
     world: Any, panes: Path
 ) -> None:
     world.brain.answers = [PANE_ANSWER]
-    _write_history(
+    path = _write_history(
         panes,
         "pane-a",
         [{"text": PROMPT, "at": _days_ago(d, 10) / 1000} for d in (6, 4, 2)],
     )
-    assert await world.loop.ingest_pane_prompts() == 3
+    assert await world.loop.ingest_pane_prompts([path]) == 3
     # Read once: a second pass files nothing again.
-    assert await world.loop.ingest_pane_prompts() == 0
+    assert await world.loop.ingest_pane_prompts([path]) == 0
     turns = world.loop.store.recent_turns(since_ms=0)
     assert {t.channel for t in turns} == {"pane"} and len(turns) == 3
     opened = await world.loop.run_queue()
@@ -112,15 +112,15 @@ async def test_prompts_the_brain_or_an_agent_sent_are_not_evidence(world: Any, p
             "attachments": [{"name": "notes.txt"}],
         }
     )
-    _write_history(panes, "pane-b", rows)
-    assert await world.loop.ingest_pane_prompts() == 0
+    path = _write_history(panes, "pane-b", rows)
+    assert await world.loop.ingest_pane_prompts([path]) == 0
     assert world.loop.store.recent_turns(since_ms=0) == []
 
 
 async def test_the_persons_words_are_filed_not_the_brief_around_them(
     world: Any, panes: Path
 ) -> None:
-    _write_history(
+    path = _write_history(
         panes,
         "pane-c",
         [
@@ -131,7 +131,7 @@ async def test_the_persons_words_are_filed_not_the_brief_around_them(
             }
         ],
     )
-    await world.loop.ingest_pane_prompts()
+    await world.loop.ingest_pane_prompts([path])
     (turn,) = world.loop.store.recent_turns(since_ms=0)
     assert turn.text == PROMPT and not turn.correction
 
@@ -145,12 +145,25 @@ async def test_the_ide_hook_reads_only_the_pane_it_names(world: Any, panes: Path
     assert [t.text for t in world.loop.store.recent_turns(since_ms=0)] == [PROMPT]
 
 
+async def test_rows_no_notice_announced_are_never_filed(world: Any, panes: Path) -> None:
+    """A row in a history file this app did not announce was written by another
+    process: a test run once left six "typed by the person" rows in the live
+    folder, and the scan filed them as a need."""
+    path = _write_history(panes, "pane-g", [{"text": PROMPT, "at": _days_ago(1, 10) / 1000}])
+    assert await world.loop.ingest_pane_prompts() == 0  # the scan
+    await world.loop.maintain()
+    assert world.loop.store.recent_turns(since_ms=0) == []
+    # The scan moved past it: a later notice for that pane files only new rows.
+    _write_history(panes, "pane-g", [{"text": "open the release notes draft", "at": time.time()}])
+    assert await world.loop.ingest_pane_prompts([path]) == 1
+
+
 async def test_pane_prompts_typed_while_paused_are_never_filed(world: Any, panes: Path) -> None:
-    _write_history(panes, "pane-f", [{"text": PROMPT, "at": _days_ago(1, 10) / 1000}])
+    path = _write_history(panes, "pane-f", [{"text": PROMPT, "at": _days_ago(1, 10) / 1000}])
     world.service.set_paused(True)
-    assert await world.loop.ingest_pane_prompts() == 0
+    assert await world.loop.ingest_pane_prompts([path]) == 0
     world.service.set_paused(False)
-    assert await world.loop.ingest_pane_prompts() == 0
+    assert await world.loop.ingest_pane_prompts([path]) == 0
     assert world.loop.store.recent_turns(since_ms=0) == []
 
 
