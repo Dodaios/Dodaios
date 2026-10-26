@@ -5,3 +5,5 @@ setuptools==84.1.0
 wheel==0.48.0
 # Security floor for a transitive dependency (twine -> requests): GHSA-65pc-fj4g-8rjx.
 idna>=3.20
+# Security floor for a transitive dependency (twine -> requests): PYSEC-2026-4320.
+certifi>=2026.10.18
