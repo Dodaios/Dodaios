@@ -216,3 +216,69 @@ async def test_unknown_workspace_or_pane_is_a_404(workspace: SimpleNamespace) ->
     with pytest.raises(HTTPException) as missing_workspace:
         await routes.get_pane_changes("nope", "T1")
     assert missing_workspace.value.status_code == 404
+
+
+async def test_work_in_a_worktree_the_agent_made_is_read_there(
+    repo: Path, workspace: SimpleNamespace, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    # The agent started in the shared folder, made its own worktree, and did
+    # all its editing and committing there. The shared folder shows none of it.
+    tree = tmp_path_factory.mktemp("trees") / "feature"
+    _git(repo, "worktree", "add", "-q", "-b", "feature", str(tree))
+    (tree / "mine.py").write_text("two\n", encoding="utf-8")
+    _git(tree, "commit", "-q", "-am", "feat: in the worktree", at=NOW - 10)
+    (tree / "new.py").write_text("fresh\n", encoding="utf-8")
+    workspace.records["s1"] = (
+        _write(str(tree / "mine.py"), "c1")
+        + _write(str(tree / "new.py"), "c3")
+        + _shell("c9", f'cd "{tree.as_posix()}" && git commit -am "feat: in the worktree"', "")
+    )
+    routes._agent_checkouts.clear()
+
+    answer = await routes.get_pane_changes("w1", "T1")
+
+    assert [(f.checkout, f.path, f.committed) for f in answer.files] == [
+        ("feature", "mine.py", True),
+        ("feature", "new.py", False),
+    ]
+    mine = answer.files[0]
+    diff = await routes.get_pane_file_diff("w1", "T1", "mine.py", mine.base, mine.checkout)
+    assert [(line.kind, line.text) for hunk in diff.hunks for line in hunk.lines] == [
+        ("del", "one"),
+        ("add", "two"),
+    ]
+    # The shared folder's copy is untouched: without the worktree there is no change.
+    shared = await routes.get_pane_file_diff("w1", "T1", "mine.py", mine.base)
+    assert shared.hunks == []
+    with pytest.raises(HTTPException) as unknown:
+        await routes.get_pane_file_diff("w1", "T1", "mine.py", mine.base, "elsewhere")
+    assert unknown.value.status_code == 404
+    # A pane whose agent stayed in the shared folder still reads only there.
+    other = await routes.get_pane_changes("w1", "T2")
+    assert all(not f.checkout for f in other.files)
+
+
+async def test_work_in_two_worktrees_and_the_shared_folder_is_all_listed(
+    repo: Path, workspace: SimpleNamespace, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    trees = tmp_path_factory.mktemp("trees")
+    first, second = trees / "first", trees / "second"
+    _git(repo, "worktree", "add", "-q", "-b", "first", str(first))
+    _git(repo, "worktree", "add", "-q", "-b", "second", str(second))
+    (first / "mine.py").write_text("first\n", encoding="utf-8")
+    (second / "mine.py").write_text("second\n", encoding="utf-8")
+    (repo / "theirs.py").write_text("shared\n", encoding="utf-8")
+    workspace.records["s1"] = (
+        _write(str(first / "mine.py"), "c1")
+        + _write(str(second / "mine.py"), "c2")
+        + _write(str(repo / "theirs.py"), "c3")
+    )
+    routes._agent_checkouts.clear()
+
+    answer = await routes.get_pane_changes("w1", "T1")
+
+    assert sorted((f.checkout, f.path) for f in answer.files) == [
+        ("", "theirs.py"),
+        ("first", "mine.py"),
+        ("second", "mine.py"),
+    ]
