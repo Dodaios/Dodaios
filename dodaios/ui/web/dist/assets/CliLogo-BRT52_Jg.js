@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/CliLogo-BRT52_Jg.js
 import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-2RK89ntT.js";import{c as n,j as a,e as o}from"./index-CPe1uXou.js";import{T as c}from"./terminal-BUGBOHgy.js";import{C as I}from"./credit-card-CMcTLlgQ.js";import{G as S}from"./git-branch-BhUjg9qy.js";import{R as W}from"./rocket-mTKP-GsM.js";import{C as $}from"./cloud-i-2u_i00.js";/**
+|||||||| parent of 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/CliLogo-B0SNWC9s.js
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-Cr0Y9eoj.js";import{c as n,j as a,e as o}from"./index-DRyRqFHp.js";import{T as c}from"./terminal-BARV2Rlb.js";import{C as I}from"./credit-card-CxVROmDi.js";import{G as S}from"./git-branch-CP6oIRbf.js";import{R as W}from"./rocket-CyC10Q-5.js";import{C as $}from"./cloud-CQjd-b67.js";/**
+========
+import{c as v,C as m,_ as b,a as k,b as p,d as h,e as u,f,g as y,h as x,i as w,j,k as M,l as C,m as L,n as G,o as R,p as B,q as V,r as z,s as D,t as N,u as O,D as E}from"./cliVendors-CRgpwtJ6.js";import{c as n,j as a,e as o}from"./index-zPHbcOOp.js";import{T as c}from"./terminal-eSAS1cW_.js";import{C as I}from"./credit-card-MM-Gjfav.js";import{G as S}from"./git-branch-0pUTGH0g.js";import{R as W}from"./rocket-DoBbMhyH.js";import{C as $}from"./cloud-Bkk48YZD.js";/**
+>>>>>>>> 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/CliLogo-kU_VmwaN.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

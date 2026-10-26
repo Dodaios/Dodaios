@@ -685,15 +685,38 @@ describe("compact sidebar navigation", () => {
     expect(useEventStore.getState().activeSection).toBe("visualization");
   });
 
-  test("expands tools through More without duplicating rows", () => {
+  test("More opens a side panel that closes on a pick", () => {
     renderSidebar();
+    expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
     fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
-    expect(screen.getByTestId("nav-row-memory")).toBeTruthy();
+    const panel = screen.getByTestId("sidebar-more-panel");
+    // Portaled beside the column, not pushed into it.
+    expect(screen.getByTestId("sidebar").contains(panel)).toBe(false);
     fireEvent.click(screen.getByTestId("nav-row-memory"));
     expect(useEventStore.getState().activeSection).toBe("memory");
-    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
-    expect(screen.queryByTestId("nav-row-memory")).toBeNull();
+    expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
     expect(screen.getByTestId("recent-chats")).toBeTruthy();
+  });
+
+  test("More closes on Escape and on a second click", () => {
+    renderSidebar();
+    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
+    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
+    fireEvent.click(screen.getByTestId("sidebar-more-toggle"));
+    expect(screen.queryByTestId("sidebar-more-panel")).toBeNull();
+  });
+
+  test("shows the agents, the IDE, built for you and the voice in that order", () => {
+    renderSidebar();
+    const order = ["agents", "agentic-ide", "self-build", "dictation", "plugins"].map(
+      (id) => screen.getByTestId(`nav-row-${id}`),
+    );
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i - 1].compareDocumentPosition(order[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    expect(screen.getByTestId("nav-row-agentic-ide").textContent).not.toContain("Beta");
   });
 
   test("the profile button opens the hub — hub tabs are the hub's own tests", () => {

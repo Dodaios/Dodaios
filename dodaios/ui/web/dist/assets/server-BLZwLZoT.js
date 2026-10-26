@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/server-BLZwLZoT.js
 import{c as e}from"./index-CPe1uXou.js";/**
+|||||||| parent of 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/server-jNg88TCt.js
+import{c as e}from"./index-DRyRqFHp.js";/**
+========
+import{c as e}from"./index-zPHbcOOp.js";/**
+>>>>>>>> 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/server-KXEJdzJv.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

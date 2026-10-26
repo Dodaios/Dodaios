@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/AppshotEditor-Dts2-84N.js
 import{c as wr,t as xn,u as mn,a as pn,b as gn,d as er,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as tr,X as kr,R as wn,B as ft,G as rr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-CPe1uXou.js";import{S as nr}from"./switch-BCc4BTGC.js";import{Q as D}from"./tooltip-DQujuHh_.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BCizrXZ1.js";import{C as Tn}from"./check-CyzmCwCF.js";import{U as En,R as Ln,C as zn}from"./undo-2-DnN6H29f.js";/**
+|||||||| parent of 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/AppshotEditor-DvTL90LD.js
+import{c as wr,t as xn,u as mn,a as pn,b as gn,d as er,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as tr,X as kr,R as wn,B as ft,G as rr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-DRyRqFHp.js";import{S as nr}from"./switch-nff9Pn5K.js";import{Q as D}from"./tooltip-BVhdcAwn.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-BbKEE4fx.js";import{C as Tn}from"./check-BXcivqn_.js";import{U as En,R as Ln,C as zn}from"./undo-2-5AphOxX_.js";/**
+========
+import{c as wr,t as xn,u as mn,a as pn,b as gn,d as er,r as x,f as Z,s as yn,v as bn,j as o,L as re,e as $,w as tr,X as kr,R as wn,B as ft,G as rr,x as kn,y as vn,z as Mn,F as jn,A as Cn}from"./index-zPHbcOOp.js";import{S as nr}from"./switch-Dr3TSeiD.js";import{Q as D}from"./tooltip-C_QkP7bX.js";import{l as Nn,b as vr,f as Sn}from"./appshotApi-BklOgPoR.js";import{I as _n}from"./image-plus-C4YRgcNU.js";import{C as Tn}from"./check-BhMytvc2.js";import{U as En,R as Ln,C as zn}from"./undo-2-BD6YOCGR.js";/**
+>>>>>>>> 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/AppshotEditor-DhVc7-vh.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

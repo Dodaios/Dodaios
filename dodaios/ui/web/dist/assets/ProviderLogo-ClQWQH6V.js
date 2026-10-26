@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/ProviderLogo-ClQWQH6V.js
 import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-CPe1uXou.js";import{S as U}from"./server-BLZwLZoT.js";/**
+|||||||| parent of 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/ProviderLogo-CTlM4ZVx.js
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-DRyRqFHp.js";import{S as U}from"./server-jNg88TCt.js";/**
+========
+import{_ as u,a as m,b as p,c as f,d as b,e as h,f as w,g as y,h as x,i as k,j,k as z,l as N,m as L,n as q,o as M,p as W,q as C,r as D,s as P,t as R,u as S,v as H,w as O,x as $,y as E}from"./xai-DOoawZUy.js";import{c as I,j as i,e as n}from"./index-zPHbcOOp.js";import{S as U}from"./server-KXEJdzJv.js";/**
+>>>>>>>> 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/ProviderLogo-B8g3woEW.js
  * @license lucide-react v0.445.0 - ISC
  *
  * This source code is licensed under the ISC license.

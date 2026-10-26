@@ -1,1 +1,7 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/ChatsView-DkCQmv62.js
 import{j as s}from"./index-CPe1uXou.js";import{P as n}from"./PageHeader-CF22NP3t.js";import"./WorkTrace-DJcRAqbT.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+|||||||| parent of 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/ChatsView-C-qnGhyO.js
+import{j as s}from"./index-DRyRqFHp.js";import{P as n}from"./PageHeader-FAKmJluE.js";import"./WorkTrace-QHnVMdA9.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+========
+import{j as s}from"./index-zPHbcOOp.js";import{P as n}from"./PageHeader-BAaU95Z4.js";import"./WorkTrace-TrFkZALT.js";function c({icon:i,title:a,titleBadge:r,subtitle:o,right:e}){return s.jsx("div",{className:"shrink-0 px-8",children:s.jsx(n,{icon:i,title:a,description:o,className:"pb-4",actions:r||e?s.jsxs(s.Fragment,{children:[r,e]}):void 0})})}export{c as V};
+>>>>>>>> 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/ChatsView-cZAkbsPZ.js

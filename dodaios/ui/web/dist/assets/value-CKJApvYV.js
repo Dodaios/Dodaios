@@ -1,4 +1,10 @@
+<<<<<<<< HEAD:dodaios/ui/web/dist/assets/value-CKJApvYV.js
 import{gQ as U,cp as C}from"./index-CPe1uXou.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+|||||||| parent of 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/value-DJVXIUYv.js
+import{gQ as U,cp as C}from"./index-DRyRqFHp.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+========
+import{gQ as U,cp as C}from"./index-zPHbcOOp.js";import{c as G,i as q,a as M,b as O,d as L}from"./string-CvptbcKz.js";var g={exports:{}},R={},j={exports:{}},x={};/**
+>>>>>>>> 3434606156 (feat(sidebar): reorder the main rows and open More as a side panel):dodaios/ui/web/dist/assets/value-DoX4Pv8w.js
  * @license React
  * use-sync-external-store-shim.production.js
  *
