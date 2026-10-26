@@ -8,7 +8,7 @@ import math
 import re
 
 from lib import kit
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from . import geo, panels
 from . import layout as L
@@ -765,33 +765,49 @@ def _display_case() -> None:
 
 
 def _ready_viewport() -> None:
-    """Corner hull wall with two slit viewports (3.6 m, hides nothing walkable)."""
+    """Corner hull wall with two slit viewports (3.6 m, hides nothing walkable).
+
+    The room face carries the room walls' light-grey panelling framed around
+    the slits (``cladding.window_wall``). It is real geometry, seen by the
+    plate camera, and sits inside the old wall's volume: the panelling's
+    front face is the wall's former face, so nav and occluders keep their
+    shape."""
+    from .cladding import Builders, Window, window_wall
+
     a, b = (L.READY_X[1] - 3.6, L.ROOMS_Z[0]), (L.READY_X[1], L.ROOMS_Z[0] + 3.6)
     seg, length = geo.segment_matrix(a, b)
-    wall = kit.MeshBuilder(seg)
     x0, x1 = -length / 2, length / 2
     slits = (-0.9, 0.9)
     sw = 0.42
     z0, z1 = 0.5, 3.0
-    wall.box((x0 - 0.3, 0.0, 0.0), (x1 + 0.3, 0.6, 0.15), "M_Wall_PaintedDark")
+    depth = 0.125  # the panelling's depth: core face behind the former face
+    # Gunmetal core: its faces show only as the slits' reveals. It stops under
+    # the section cap (a shared top face would show the unlit gunmetal).
+    top = L.ROOM_CEILING - 0.02
+    core = "M_Struct_Gunmetal"
+    wall = kit.MeshBuilder(seg)
     edges = [x0 - 0.3]
     for s in slits:
         edges += [s - sw / 2, s + sw / 2]
     edges.append(x1 + 0.3)
     for i in range(0, len(edges), 2):
-        wall.box((edges[i], 0.0, 0.15), (edges[i + 1], 0.6, L.ROOM_CEILING), PANEL)
+        wall.box((edges[i], depth, 0.0), (edges[i + 1], 0.6, top), core)
     for s in slits:
-        wall.box((s - sw / 2, 0.0, 0.15), (s + sw / 2, 0.6, z0), PANEL)
-        wall.box((s - sw / 2, 0.0, z1), (s + sw / 2, 0.6, L.ROOM_CEILING), PANEL)
-        wall.box(
-            (s - sw / 2 - 0.06, -0.04, z0 - 0.06),
-            (s + sw / 2 + 0.06, 0.0, z0),
-            "M_Trim_BrushedSteel",
-        )
-    wall.box(
-        (x0 - 0.3, -0.004, L.ROOM_CEILING - 0.02), (x1 + 0.3, 0.6, L.ROOM_CEILING), "M_Section_Cap"
-    )
+        wall.box((s - sw / 2, depth, 0.0), (s + sw / 2, 0.6, z0), core)
+        wall.box((s - sw / 2, depth, z1), (s + sw / 2, 0.6, top), core)
+    wall.box((x0 - 0.3, -0.004, top), (x1 + 0.3, 0.6, L.ROOM_CEILING), "M_Section_Cap")
     wall.build("SM_ready_viewport_wall", bevel_width=0.006)
+    # Panelling: cladding's (u, v, h) with v from the core face into the room.
+    face = seg @ Matrix(((1, 0, 0, 0), (0, -1, 0, depth), (0, 0, 1, 0), (0, 0, 0, 1)))
+    B = Builders().at(face)
+    window_wall(
+        B,
+        x0,
+        x1,
+        windows=[Window(s - sw / 2, s + sw / 2, z0, z1) for s in slits],
+        top=top,
+    )
+    B.finish("SM_ready_viewport_clad")
     stars = kit.MeshBuilder(seg)
     for s in slits:
         stars.quad(
