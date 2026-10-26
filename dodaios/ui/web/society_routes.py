@@ -355,11 +355,18 @@ def _agent_row(agent: AgentRecord, request: HTTPConnection) -> dict[str, Any]:
 async def list_agents(request: Request, include_archived: bool = False) -> dict[str, Any]:
     rt = await _runtime(request)
     agents = await rt.roster.list(include_archived=include_archived)
+    from dodaios.agent_chat.attention import waiting_reasons
+
+    reasons = await waiting_reasons(request.app.state)
     rows = []
     for agent in agents:
         row = _agent_row(agent, request)
+        # What it waits on the person for (a question, an approval, ...), or None.
+        row["waiting_reason"] = reasons.get(agent.agent_id)
         if agent.state == "paused":
             row["run_state"] = "paused"
+        elif row["waiting_reason"] is not None:
+            row["run_state"] = "waiting"
         elif rt.checkpoints.is_busy(agent.agent_id):
             # A scheduler run OR a turn typed into the card: both are work.
             row["run_state"] = "working"

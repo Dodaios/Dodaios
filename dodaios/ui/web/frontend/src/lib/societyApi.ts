@@ -199,6 +199,16 @@ export interface SocietyAgentRow {
     last_active_ms: number | null;
   };
   run_state?: RunState;
+  /** What the agent waits on the person for (dodaios/agent_chat/attention.py); null when nothing. */
+  waiting_reason?: WaitingReasonRow | null;
+}
+
+/** Why an agent waits on the person: the newest open card of its chats, else a queued item. */
+export interface WaitingReasonRow {
+  kind: "question" | "approval" | "credential" | "proposal";
+  summary: string;
+  session_id: string;
+  ref_id: string;
 }
 
 /** One quest as GET /api/society/quests returns it (dodaios/society/quests.py). */
