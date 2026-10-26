@@ -18,13 +18,15 @@ interface Props {
   debug: boolean;
   /** The stage is on screen (a hidden stage gives its full-resolution tiles back). */
   awake: boolean;
+  /** The plate is the view on screen; false while the eye-level view renders (the plate then idles). */
+  active?: boolean;
   /** The plate's overview is on screen (the stage hides its loading state). */
   onReady: (deck: Deck) => void;
   onError: (error: Error) => void;
   children?: ReactNode;
 }
 
-export function DeckBackdrop({ runtime, deck, debug, awake, onReady, onError, children }: Props) {
+export function DeckBackdrop({ runtime, deck, debug, awake, active = true, onReady, onError, children }: Props) {
   const scene = useThree((s) => s.scene);
   const invalidate = useThree((s) => s.invalidate);
   const [plate, setPlate] = useState<PlateLayer | null>(null);
@@ -48,8 +50,12 @@ export function DeckBackdrop({ runtime, deck, debug, awake, onReady, onError, ch
 
   // Off screen the full-resolution tiles go back; the overview stays for a quick return.
   useEffect(() => {
-    if (!awake) plate?.trim();
-  }, [awake, plate]);
+    if (!awake || !active) plate?.trim();
+  }, [awake, active, plate]);
+  // Only the view on screen draws the plate.
+  useEffect(() => {
+    if (plate) plate.group.visible = active;
+  }, [plate, active]);
 
   useEffect(() => {
     if (!deck.occludersUrl) return;
@@ -72,7 +78,7 @@ export function DeckBackdrop({ runtime, deck, debug, awake, onReady, onError, ch
   if (!plate) return null;
   return (
     <>
-      <StageRenderer runtime={runtime} deck={deck} plate={plate} debug={debug} />
+      <StageRenderer runtime={runtime} deck={deck} plate={plate} debug={debug} active={active} />
       {(occluders || !deck.occludersUrl) && children}
     </>
   );
