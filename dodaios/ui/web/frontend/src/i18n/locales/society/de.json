@@ -2131,6 +2131,42 @@
         "copy_url": "URL kopieren",
         "copy_header": "Header-Zeile kopieren"
       }
+    },
+    "shell": {
+      "mode_verse": "Verse",
+      "new_agent": "Neuer Agent",
+      "roster_collapse": "Agentenliste einklappen",
+      "roster_expand": "Agentenliste ausklappen",
+      "resize_roster": "Breite der Agentenliste ändern",
+      "resize_details": "Breite des Detailbereichs ändern",
+      "filter_label": "Agenten anzeigen",
+      "filter_all": "Alle",
+      "filter_needs_you": "Braucht dich",
+      "filter_unread": "Ungelesen",
+      "pinned": "Angeheftete Agenten",
+      "section_needs_you": "Braucht dich",
+      "section_teams": "Teams",
+      "section_agents": "Agenten",
+      "team_empty": "Noch keine Mitglieder. Halte einen Agenten über dieses Team, um ihn hinzuzufügen.",
+      "status_needs_you": "Braucht dich",
+      "status_waiting": "Wartet auf dich",
+      "preview_needs_you": "Braucht dich",
+      "preview_draft": "Entwurf:",
+      "preview_working": "Arbeitet…",
+      "time_now": "jetzt",
+      "pin": "Oben anheften",
+      "unpin": "Lösen",
+      "pin_full": "Es sind schon acht Agenten angeheftet. Löse zuerst einen.",
+      "mark_read": "Als gelesen markieren",
+      "mark_unread": "Als ungelesen markieren",
+      "reorder_keys": "Alt + Umschalt + Pfeil hoch / runter verschiebt den Agenten",
+      "empty_agents": "Noch keine Agenten. Gib deinem ersten Agenten eine Aufgabe, dann erscheint er hier.",
+      "empty_needs_you": "Gerade braucht dich niemand. Fragen und Freigaben erscheinen hier.",
+      "empty_unread": "Du bist auf dem neuesten Stand. Neue Ergebnisse deiner Agenten erscheinen hier.",
+      "show_all": "Alle Agenten zeigen",
+      "clear_search": "Suche leeren",
+      "approval_legacy": "Bisherige Berechtigungen",
+      "approval_confirm": "Erneut klicken, um mehr ohne Nachfrage zu erlauben"
     }
   }
 }

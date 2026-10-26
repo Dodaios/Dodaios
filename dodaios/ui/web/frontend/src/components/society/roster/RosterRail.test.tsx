@@ -7,7 +7,7 @@ import { useRetireStore } from "@/components/society/world/retireStore";
 import { useEventStore } from "@/store/events";
 import { RosterRail, type RosterRailProps } from "./RosterRail";
 
-vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
+vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, useUiLanguage: () => "en" }));
 
 afterEach(() => {
   useRetireStore.getState().cutShort();
@@ -166,10 +166,12 @@ describe("RosterRail agent actions", () => {
     </QueryClientProvider>);
   };
 
-  it("opens exactly the three requested actions on right click", () => {
+  it("opens the pin, read, rename, hide and delete actions on right click", () => {
     renderRail([agent({ agentId: "a", name: "A" })]);
     fireEvent.contextMenu(screen.getByText("A"));
-    expect(screen.getAllByRole("menuitem")).toHaveLength(3);
+    expect(screen.getAllByRole("menuitem")).toHaveLength(5);
+    expect(screen.getByRole("menuitem", { name: "society.shell.pin" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "society.shell.mark_unread" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "society.roster.rename" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "society.roster.hide" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "society.roster.delete" })).toBeTruthy();
@@ -261,12 +263,12 @@ describe("RosterRail reorder", () => {
     expect(rowOrder()).toEqual(["c", "a", "b"]);
   });
 
-  it("moves a row with Alt + Arrow keys", () => {
+  it("moves a row with Alt + Shift + Arrow keys", () => {
     renderRail(trio());
-    fireEvent.keyDown(rowOf("A"), { key: "ArrowDown", altKey: true });
+    fireEvent.keyDown(rowOf("A"), { key: "ArrowDown", altKey: true, shiftKey: true });
     expect(rowOrder()).toEqual(["b", "a", "c"]);
     expect(JSON.parse(localStorage.getItem(ORDER_KEY) ?? "[]")).toEqual(["b", "a", "c"]);
-    fireEvent.keyDown(rowOf("A"), { key: "ArrowUp", altKey: true });
+    fireEvent.keyDown(rowOf("A"), { key: "ArrowUp", altKey: true, shiftKey: true });
     expect(rowOrder()).toEqual(["a", "b", "c"]);
   });
 
@@ -450,4 +452,157 @@ it("shows and finds the lead by the wake-word name", () => {
   expect(screen.getByText("Hanna")).toBeTruthy();
   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "hanna" } });
   expect(screen.getByText("Hanna")).toBeTruthy();
+});
+
+describe("RosterRail shell", () => {
+  const renderRail = (agents: SocietyAgent[], props: Partial<RosterRailProps> = {}) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(<QueryClientProvider client={client}>
+      <RosterRail {...baseProps} activeAgentId={null} {...props} agents={agents} />
+    </QueryClientProvider>);
+  };
+  const waiting = (over: Partial<SocietyAgent> & Pick<SocietyAgent, "agentId" | "name">) =>
+    ({ ...agent({ state: "waiting", ...over }), waiting_reason: { kind: "question", summary: "Which folder?" } }) as SocietyAgent;
+
+  it("groups agents that wait on the person under Needs you, with the reason as the preview", () => {
+    renderRail([agent({ agentId: "a", name: "A" }), waiting({ agentId: "b", name: "B" })]);
+    const section = screen.getByTestId("roster-needs-you");
+    expect(section.textContent).toContain("B");
+    expect(section.textContent).toContain("society.shell.preview_needs_you · Which folder?");
+    expect(section.textContent).not.toContain("A");
+    expect(screen.getByLabelText("society.shell.status_needs_you")).toBeTruthy();
+  });
+
+  it("previews a draft before the last message, then the last message with its time", () => {
+    const now = Date.now();
+    renderRail([agent({ agentId: "a", name: "A" }), agent({ agentId: "b", name: "B" })], {
+      activity: new Map([
+        ["a", { draft: "check the invoices", lastMessage: "Done.", lastMs: now - 5 * 60_000 }],
+        ["b", { lastMessage: "All **three** reports are in.", lastMs: now - 3 * 3_600_000 }],
+      ]),
+    });
+    const previews = screen.getAllByTestId("roster-preview");
+    expect(previews[0].dataset.kind).toBe("draft");
+    expect(previews[0].textContent).toBe("society.shell.preview_draft check the invoices");
+    expect(previews[1].dataset.kind).toBe("message");
+    expect(previews[1].textContent).toBe("All three reports are in.");
+    expect(screen.getByText(/^5\s?m/)).toBeTruthy();
+  });
+
+  it("pins an agent into the face grid and remembers it", () => {
+    const agents = [agent({ agentId: "a", name: "A" }), agent({ agentId: "b", name: "B" })];
+    const { unmount } = renderRail(agents);
+    fireEvent.contextMenu(screen.getByText("B"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "society.shell.pin" }));
+    expect(screen.getByTestId("roster-pins").textContent).toContain("B");
+    expect(JSON.parse(localStorage.getItem("society.roster.pinned.v1") ?? "[]")).toEqual(["b"]);
+    unmount();
+    renderRail(agents);
+    expect(screen.getByTestId("roster-pins").textContent).toContain("B");
+  });
+
+  it("filters to the agents that need the person and offers a way back when none do", () => {
+    renderRail([agent({ agentId: "a", name: "A" }), waiting({ agentId: "b", name: "B" })]);
+    fireEvent.click(screen.getByTestId("roster-filter-needs-you"));
+    expect(screen.queryByText("A")).toBeNull();
+    expect(screen.getByText("B")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("roster-filter-unread"));
+    expect(screen.getByTestId("roster-empty").textContent).toContain("society.shell.empty_unread");
+    fireEvent.click(screen.getByRole("button", { name: "society.shell.show_all" }));
+    expect(screen.getByText("A")).toBeTruthy();
+    expect(localStorage.getItem("society.roster.filter.v1")).toBe("all");
+  });
+
+  it("marks an agent unread from its menu", () => {
+    renderRail([agent({ agentId: "a", name: "A" })]);
+    fireEvent.contextMenu(screen.getByText("A"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "society.shell.mark_unread" }));
+    expect(screen.getByLabelText("society.roster.unread")).toBeTruthy();
+    fireEvent.contextMenu(screen.getByText("A"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "society.shell.mark_read" }));
+    expect(screen.queryByLabelText("society.roster.unread")).toBeNull();
+  });
+
+  it("steps between agents with Alt + Arrow and jumps with Ctrl + digit, pinned first", () => {
+    localStorage.setItem("society.roster.pinned.v1", JSON.stringify(["c"]));
+    const onOpen = vi.fn();
+    renderRail([agent({ agentId: "a", name: "A" }), agent({ agentId: "b", name: "B" }), agent({ agentId: "c", name: "C" })],
+      { keyboard: true, activeAgentId: "a", onOpen });
+    // Visible order: C (pinned), A, B.
+    fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+    expect(onOpen).toHaveBeenLastCalledWith("b");
+    fireEvent.keyDown(window, { key: "ArrowUp", altKey: true });
+    expect(onOpen).toHaveBeenLastCalledWith("c");
+    fireEvent.keyDown(window, { key: "1", code: "Digit1", ctrlKey: true });
+    expect(onOpen).toHaveBeenLastCalledWith("c");
+    fireEvent.keyDown(window, { key: "3", code: "Digit3", ctrlKey: true });
+    expect(onOpen).toHaveBeenLastCalledWith("b");
+    expect(onOpen).toHaveBeenCalledTimes(4);
+  });
+
+  it("leaves the keyboard alone when the shortcuts are off or a dialog is open", () => {
+    const onOpen = vi.fn();
+    const { unmount } = renderRail([agent({ agentId: "a", name: "A" }), agent({ agentId: "b", name: "B" })], { activeAgentId: "a", onOpen });
+    fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+    expect(onOpen).not.toHaveBeenCalled();
+    unmount();
+    renderRail([agent({ agentId: "a", name: "A" }), agent({ agentId: "b", name: "B" })], { activeAgentId: "a", onOpen, keyboard: true });
+    const modal = document.createElement("div");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    document.body.appendChild(modal);
+    fireEvent.keyDown(window, { key: "ArrowDown", altKey: true });
+    expect(onOpen).not.toHaveBeenCalled();
+    modal.remove();
+  });
+
+  it("folds to an avatar rail that still opens agents", () => {
+    const onOpen = vi.fn();
+    const onToggleCollapsed = vi.fn();
+    renderRail([agent({ agentId: "a", name: "A" }), waiting({ agentId: "b", name: "B" })], { collapsed: true, onToggleCollapsed, onOpen });
+    expect(screen.getByTestId("society-roster-rail").dataset.collapsed).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    expect(onOpen).toHaveBeenCalledWith("a");
+    fireEvent.click(screen.getByTestId("roster-expand"));
+    expect(onToggleCollapsed).toHaveBeenCalled();
+  });
+
+  it("lists everyone on the folded rail even while a filter is chosen", () => {
+    localStorage.setItem("society.roster.filter.v1", "needs-you");
+    renderRail([agent({ agentId: "a", name: "A" }), waiting({ agentId: "b", name: "B" })], { collapsed: true });
+    expect(screen.getByRole("button", { name: "A" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "B" })).toBeTruthy();
+    // The choice itself is kept for when the rows come back.
+    expect(localStorage.getItem("society.roster.filter.v1")).toBe("needs-you");
+  });
+
+  it("does not let pins of retired agents fill the pinned places", () => {
+    localStorage.setItem("society.roster.pinned.v1", JSON.stringify(["gone1", "gone2", "gone3", "gone4", "gone5", "gone6", "gone7", "gone8"]));
+    renderRail([agent({ agentId: "a", name: "A" })]);
+    fireEvent.contextMenu(screen.getByText("A"));
+    const pin = screen.getByRole("menuitem", { name: "society.shell.pin" }) as HTMLButtonElement;
+    expect(pin.disabled).toBe(false);
+    fireEvent.click(pin);
+    expect(JSON.parse(localStorage.getItem("society.roster.pinned.v1") ?? "[]")).toEqual(["a"]);
+  });
+
+  it("shows no misleading empty state when every agent is hidden", () => {
+    localStorage.setItem("society.roster.hidden-agent-ids", JSON.stringify(["a"]));
+    renderRail([agent({ agentId: "a", name: "A" })]);
+    expect(screen.queryByTestId("roster-empty")).toBeNull();
+    expect(screen.getByText("society.roster.show_hidden")).toBeTruthy();
+  });
+
+  it("says what to do when there are no agents yet", () => {
+    const onCreate = vi.fn();
+    renderRail([], { onCreate });
+    expect(screen.getByTestId("roster-empty").textContent).toContain("society.shell.empty_agents");
+    fireEvent.click(screen.getByRole("button", { name: "society.shell.new_agent" }));
+    expect(onCreate).toHaveBeenCalled();
+  });
+
+  it("offers a visible New team action", () => {
+    renderRail([agent({ agentId: "a", name: "A" })], { onOpenGroup: () => undefined });
+    expect(screen.getByTestId("society-create-group-button").textContent).toContain("society.groups.create");
+  });
 });

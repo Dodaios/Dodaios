@@ -2131,6 +2131,42 @@
         "copy_url": "Copiar URL",
         "copy_header": "Copiar linha de cabeçalho"
       }
+    },
+    "shell": {
+      "mode_verse": "Verse",
+      "new_agent": "Novo agente",
+      "roster_collapse": "Recolher a lista de agentes",
+      "roster_expand": "Expandir a lista de agentes",
+      "resize_roster": "Ajustar a largura da lista de agentes",
+      "resize_details": "Ajustar a largura do painel de detalhes",
+      "filter_label": "Mostrar agentes",
+      "filter_all": "Todos",
+      "filter_needs_you": "Precisa de você",
+      "filter_unread": "Não lidos",
+      "pinned": "Agentes fixados",
+      "section_needs_you": "Precisa de você",
+      "section_teams": "Equipes",
+      "section_agents": "Agentes",
+      "team_empty": "Ainda sem membros. Segure um agente sobre esta equipe para adicioná-lo.",
+      "status_needs_you": "Precisa de você",
+      "status_waiting": "Esperando por você",
+      "preview_needs_you": "Precisa de você",
+      "preview_draft": "Rascunho:",
+      "preview_working": "Trabalhando…",
+      "time_now": "agora",
+      "pin": "Fixar no topo",
+      "unpin": "Desafixar",
+      "pin_full": "Já há oito agentes fixados. Desafixe um primeiro.",
+      "mark_read": "Marcar como lido",
+      "mark_unread": "Marcar como não lido",
+      "reorder_keys": "Alt + Shift + seta para cima / baixo move o agente",
+      "empty_agents": "Ainda não há agentes. Dê uma tarefa ao seu primeiro agente e ele aparecerá aqui.",
+      "empty_needs_you": "Nada precisa de você agora. Perguntas e aprovações aparecem aqui.",
+      "empty_unread": "Você está em dia. Novos resultados dos seus agentes aparecem aqui.",
+      "show_all": "Mostrar todos os agentes",
+      "clear_search": "Limpar busca",
+      "approval_legacy": "Permissões atuais",
+      "approval_confirm": "Clique de novo para permitir mais sem perguntar"
     }
   }
 }

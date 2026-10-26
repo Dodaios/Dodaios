@@ -87,6 +87,7 @@ import { AgentModelPicker } from "./AgentModelPicker";
 import { mentionChoice, messageChoices } from "./mentionChoices";
 import { ChatCommandPanel, useChatCommands } from "@/components/agentchat/ChatCommands";
 import { useTranscriptView } from "./useTranscriptView";
+import { useHeaderModelSlot } from "../card/headerModelSlot";
 import { societyResultHeadline, societyResultText } from "@/lib/skipReasons";
 import {
   buildMentionCatalog,
@@ -1217,7 +1218,10 @@ interface ComposerProps {
 export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, surface = "jarvis", onClear, onSend, onCancel }: ComposerProps) {
   const t = useT();
   const chatStore = useAgentChatApi();
-  const [modelSaving, setModelSaving] = useState(false);
+  const [ownModelSaving, setModelSaving] = useState(false);
+  // The Agents header may carry the brain picker; then it owns the save state.
+  const headerModel = useHeaderModelSlot();
+  const modelSaving = ownModelSaving || Boolean(headerModel?.saving);
   const messageDraft = useComposerDraft(chatStore, sessionId);
   const value = messageDraft.text;
   const setValue = (text: string) => writeComposerDraft(chatStore, sessionId, {
@@ -1532,7 +1536,7 @@ export function Composer({ agent, mentionable, busy, sessionId, cwd, provider, s
         />
         {/* Hidden, not unmounted, while recording: the pill needs the room,
             and a save in flight must still report back. */}
-        {surface === "society" ? <div className={cn("h-8 min-w-0 max-w-[40%] shrink-0 items-center", dictation.dictating ? "hidden" : "flex")}>
+        {surface === "society" && !headerModel ? <div className={cn("h-8 min-w-0 max-w-[40%] shrink-0 items-center", dictation.dictating ? "hidden" : "flex")}>
           <AgentModelPicker key={agent.agentId} agent={agent} busy={busy} onSavingChange={setModelSaving} />
         </div> : null}
         <DictationButton

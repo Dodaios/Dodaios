@@ -2131,6 +2131,42 @@
         "copy_url": "Copy URL",
         "copy_header": "Copy header line"
       }
+    },
+    "shell": {
+      "mode_verse": "Verse",
+      "new_agent": "New agent",
+      "roster_collapse": "Fold the agent list",
+      "roster_expand": "Unfold the agent list",
+      "resize_roster": "Resize the agent list",
+      "resize_details": "Resize the details pane",
+      "filter_label": "Show agents",
+      "filter_all": "All",
+      "filter_needs_you": "Needs you",
+      "filter_unread": "Unread",
+      "pinned": "Pinned agents",
+      "section_needs_you": "Needs you",
+      "section_teams": "Teams",
+      "section_agents": "Agents",
+      "team_empty": "No members yet. Hold an agent over this team to add it.",
+      "status_needs_you": "Needs you",
+      "status_waiting": "Waiting for you",
+      "preview_needs_you": "Needs you",
+      "preview_draft": "Draft:",
+      "preview_working": "Working…",
+      "time_now": "now",
+      "pin": "Pin to the top",
+      "unpin": "Unpin",
+      "pin_full": "Eight agents are pinned already. Unpin one first.",
+      "mark_read": "Mark as read",
+      "mark_unread": "Mark as unread",
+      "reorder_keys": "Alt + Shift + Arrow Up / Down moves the agent",
+      "empty_agents": "No agents yet. Give your first agent a job and it shows up here.",
+      "empty_needs_you": "Nothing needs you right now. Questions and approvals show up here.",
+      "empty_unread": "You are all caught up. New results from your agents show up here.",
+      "show_all": "Show all agents",
+      "clear_search": "Clear search",
+      "approval_legacy": "Existing permissions",
+      "approval_confirm": "Click again to allow more without asking"
     }
   }
 }

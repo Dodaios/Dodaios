@@ -1,16 +1,13 @@
 import { lazy, Suspense, useCallback, useMemo, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Users } from "lucide-react";
+import { Orbit, Users } from "lucide-react";
 
 import { setMapFullscreen } from "@/lib/mapFullscreen";
 import { inDesktopShell } from "@/lib/nativeDrop";
 import { useLocaleChunk, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
-import {
-  CAPTION_ICON_CLASS, CAPTION_ICON_STROKE, CAPTION_SEGMENT, CAPTION_SEGMENT_OFF, CAPTION_SEGMENT_ON,
-  CAPTION_SEGMENT_PX, CAPTION_THUMB, CAPTION_TRACK,
-} from "@/components/layout/captionSwitch";
+import { CAPTION_ICON_STROKE, CAPTION_SEGMENT_OFF, CAPTION_SEGMENT_ON, CAPTION_TRACK } from "@/components/layout/captionSwitch";
 import { AgentCardOverlay } from "@/components/society/card/AgentCardOverlay";
 import { BrowserProfilesButton } from "@/components/society/browser/BrowserProfilesButton";
 import { BUILDING_CARDS, isBuildingPlace, type BuildingPlace } from "@/components/society/card/buildingCards";
@@ -19,6 +16,7 @@ import type { PlaceId } from "@/components/society/world/islandLayout";
 import { useQuickCreateAgent, useSocietyRoster } from "@/components/society/data";
 import { isCreateCancelled } from "@/components/society/create/createAgentStore";
 import { RosterRail } from "@/components/society/roster/RosterRail";
+import { useRosterActivity } from "@/components/society/roster/useRosterActivity";
 import { useModelMenuData } from "@/components/society/chat/useModelMenuData";
 import { ChatGroupPanel } from "@/components/society/chat/ChatGroupPanel";
 import { useSocietyChatStore } from "@/components/society/chat/AgentChatPanel";
@@ -26,14 +24,22 @@ import { chatGroupsKnown, createSocietyChatGroup, updateSocietyChatGroup, useSoc
 import { CanvasActivity } from "@/hooks/useCanvasAwake";
 import { forgetLastAgentId, rememberLastAgentId, storedLastAgentId } from "./lastAgent";
 
-/** The page's two faces, in caption order: the Verse map, then the agent roster. */
+/** The page's two faces, in caption order: the agents, then the Verse. */
 const MODES = [
-  { value: "world", labelKey: "society.world.mode_map", Icon: Building2 },
-  { value: "agents", labelKey: "society.roster.title", Icon: Users },
+  { value: "agents", labelKey: "society.roster.title", titleKey: "society.roster.title", Icon: Users },
+  { value: "world", labelKey: "society.shell.mode_verse", titleKey: "society.world.mode_map", Icon: Orbit },
 ] as const;
 
 // Small and three.js-free: the fallback in front of the lazy Verse chunk.
 import { VerseLoadingScreen, preloadLoadingArt } from "@/components/society/verse/VerseLoadingScreen";
+
+/** A labelled segment on the caption track: icon plus word, the "on" one lifted. */
+const MODE_SEGMENT =
+  "relative z-[1] flex h-full items-center gap-1.5 rounded-full border px-3 text-xs font-medium " +
+  "transition-[background-color,color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const MODE_SEGMENT_ON =
+  "border-border-strong/60 bg-background shadow-[0_1px_2px_rgb(var(--scrim-rgb)/0.25)] dark:border-border-strong dark:bg-surface-raised";
 
 const loadWorld = () => import("@/views/DodaiosAgentsView").then((m) => ({ default: m.DodaiosAgentsView }));
 const JarvisAgentsBoard = lazy(loadWorld);
@@ -74,6 +80,8 @@ export function SocietyView() {
     () => agents.find((a) => a.agentId === openAgentId) ?? agents.find((a) => a.tier === "lead") ?? agents[0] ?? null,
     [agents, openAgentId],
   );
+  // The workspace reads its own; only the bare roster (nobody open) needs this.
+  const standaloneActivity = useRosterActivity(agents, useSocietyChatStore, !openAgent && !openGroupId);
 
   const selectAgent = useCallback((agentId: string | null) => {
     setOpenGroupId(null);
@@ -184,23 +192,20 @@ export function SocietyView() {
     if (isBuildingPlace(place)) setOpenPlace(place);
   }, []);
 
-  // Icon-only, in the same caption look as the Agentic IDE's switch; the
-  // names live on as the accessible label and the hover title.
-  const modeIndex = MODES.findIndex((item) => item.value === mode);
+  // Labelled, in the caption look the Agentic IDE's switch uses: a word
+  // names each face, so the switch reads without hovering.
   const modeSwitch = (
     <div role="tablist" aria-label={t("society.world.mode_label")} className={CAPTION_TRACK}>
-      <span aria-hidden className={CAPTION_THUMB}
-        style={{ width: CAPTION_SEGMENT_PX, transform: `translateX(${Math.max(0, modeIndex) * CAPTION_SEGMENT_PX}px)` }} />
-      {MODES.map(({ value, labelKey, Icon }) => {
-        const label = t(labelKey);
-        return <button key={value} type="button" role="tab" aria-selected={mode === value}
-          aria-label={label} title={label} data-testid={`society-mode-${value}`}
+      {MODES.map(({ value, labelKey, titleKey, Icon }) => {
+        const on = mode === value;
+        return <button key={value} type="button" role="tab" aria-selected={on}
+          title={t(titleKey)} data-testid={`society-mode-${value}`}
           onClick={() => switchMode(value)}
           onPointerEnter={value === "world" ? preloadWorld : undefined}
           onFocus={value === "world" ? preloadWorld : undefined}
-          style={{ width: CAPTION_SEGMENT_PX }}
-          className={cn(CAPTION_SEGMENT, mode === value ? CAPTION_SEGMENT_ON : CAPTION_SEGMENT_OFF)}>
-          <Icon aria-hidden className={CAPTION_ICON_CLASS} strokeWidth={CAPTION_ICON_STROKE} />
+          className={cn(MODE_SEGMENT, on ? cn(CAPTION_SEGMENT_ON, MODE_SEGMENT_ON) : cn(CAPTION_SEGMENT_OFF, "border-transparent"))}>
+          <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={CAPTION_ICON_STROKE} />
+          <span>{t(labelKey)}</span>
         </button>;
       })}
     </div>
@@ -242,7 +247,7 @@ export function SocietyView() {
             onCreateAgent={createAgent} onDeleted={() => setOpenGroupId(null)}
             onGroupAgents={groupAgents} onAddAgentToGroup={addAgentToGroup} />
         ) : openAgent ? (
-          <AgentCardOverlay embedded agent={openAgent} roster={agents} rosterLoading={roster.isLoading} teamsPending={teamsPending}
+          <AgentCardOverlay embedded active={mode === "agents"} agent={openAgent} roster={agents} rosterLoading={roster.isLoading} teamsPending={teamsPending}
             groups={groups} onSelectGroup={selectGroup}
             onGroupAgents={sample ? undefined : groupAgents} onAddAgentToGroup={sample ? undefined : addAgentToGroup}
             sample={sample} onSelectAgent={selectAgent} onCreate={createAgent}
@@ -252,7 +257,8 @@ export function SocietyView() {
             groups={groups} onOpenGroup={selectGroup}
             onGroupAgents={sample ? undefined : groupAgents} onAddAgentToGroup={sample ? undefined : addAgentToGroup}
             activeAgentId={null} onOpen={selectAgent} onCreate={createAgent} side="left"
-            className="w-full border-0 jarvis-nav-surface" />
+            activity={standaloneActivity} keyboard={mode === "agents"}
+            className="w-full border-0" />
         )}
         </div>
       </div>
