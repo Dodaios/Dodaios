@@ -5421,6 +5421,22 @@
       "choose_agent": "选择智能体",
       "edit_session": "编辑会话 {number}：{agent}"
     },
+    "presets": {
+      "aria": "已保存的阵容",
+      "title": "预设",
+      "hint": "一键填充阵容",
+      "apply": "使用预设 {preset}：{lineup}",
+      "missing": "此处不可用：{agents}",
+      "delete": "删除预设 {preset}",
+      "confirm_delete": "删除",
+      "save_current": "保存为预设",
+      "save_hint": "保留此阵容以便下次使用",
+      "name_placeholder": "名称，例如 评审团队",
+      "name_aria": "预设名称",
+      "starter_duo": "双人组",
+      "starter_squad": "小队",
+      "starter_all": "每种一个"
+    },
     "run_on": {
       "online": "此电脑关机时仍继续运行",
       "unknown": "尚未检查",
@@ -8555,6 +8571,7 @@
       "no_workspace": "选择一个工作区以查看其智能体。",
       "empty": "此工作区中没有正在运行的智能体。",
       "empty_folder": "此文件夹中没有正在运行的智能体。",
+      "loading": "正在加载智能体…",
       "scope": {
         "aria": "显示智能体的范围",
         "workspace": "此空间",

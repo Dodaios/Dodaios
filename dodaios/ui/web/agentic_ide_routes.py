@@ -529,6 +529,27 @@ class TerminalTextSizeRequest(BaseModel):
     )
 
 
+class LaunchPresetAgent(BaseModel):
+    """One agent in a saved lineup and how many sessions of it to start."""
+
+    agent: str = Field(description="Coding agent id, e.g. 'claude', 'codex', 'kimi'.")
+    count: int = Field(ge=1, le=MAX_PANES_PER_REQUEST, description="Sessions of this agent.")
+
+
+class LaunchPreset(BaseModel):
+    """A named lineup for the New-workspace dialog."""
+
+    id: str = Field(default="", description="Stable id; empty for a new preset.")
+    name: str = Field(min_length=1, max_length=40, description="Name shown on the preset card.")
+    agents: list[LaunchPresetAgent] = Field(min_length=1, description="Agents in launch order.")
+
+
+class LaunchPresetsRequest(BaseModel):
+    """The complete list of saved lineups, replacing the stored one."""
+
+    presets: list[LaunchPreset] = Field(max_length=24, description="Presets in display order.")
+
+
 class ActiveAccountRequest(BaseModel):
     """Which subscription new terminals of one coding CLI should open on."""
 
@@ -3589,6 +3610,33 @@ async def set_ui_preferences(req: TerminalTextSizeRequest) -> dict:
         "max": ui_prefs.FONT_MAX,
         "default": ui_prefs.FONT_DEFAULT,
     }
+
+
+@router.get("/launch-presets", summary="Saved workspace lineups")
+async def get_launch_presets() -> dict:
+    """The saved lineups offered in the New-workspace dialog.
+
+    ``stored`` is false until presets were saved once; the dialog uses it to
+    offer starter presets on a first run only.
+    """
+    from dodaios.agentic_ide import launch_presets
+
+    return {
+        "ok": True,
+        "presets": await asyncio.to_thread(launch_presets.list_presets),
+        "stored": await asyncio.to_thread(launch_presets.stored),
+    }
+
+
+@router.put("/launch-presets", summary="Replace the saved workspace lineups")
+async def set_launch_presets(req: LaunchPresetsRequest) -> dict:
+    """Store the full preset list (create, rename, reorder and delete in one call)."""
+    from dodaios.agentic_ide import launch_presets
+
+    saved = await asyncio.to_thread(
+        launch_presets.save_presets, [preset.model_dump() for preset in req.presets]
+    )
+    return {"ok": True, "presets": saved, "stored": True}
 
 
 @router.get("/accounts", summary="Which subscription new terminals use")

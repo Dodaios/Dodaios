@@ -10,6 +10,7 @@ Endpoints (all under ``/api/self-build``)::
     POST   /{build_id}/keep    Keep a build on trial (or restore an archived one)
     POST   /{build_id}/undo    Remove what the build created, or reject the proposal
     GET    /provenance      Which agents, skills and routines a build created (the badge)
+    GET    /noticed         What the loop is counting so far, and when the quiet start ends
     GET    /settings        ``[self_build]`` with each number's range
     PUT    /settings        Change ``[self_build]``; written to jarvis.toml, applied at once
 
@@ -105,6 +106,133 @@ async def provenance(request: Request, type: str = "") -> dict[str, Any]:  # noq
     if service is None:
         return {"items": {}}
     return {"items": await asyncio.to_thread(service.provenance, type or None)}
+
+
+# ------------------------------------------------------------------ noticed
+
+#: Needs shown on the page; the rest are only counted.
+_NOTICED_LIMIT = 8
+#: A label is the person's latest wording of the request, cut to this length.
+_LABEL_CHARS = 90
+_MENTION = re.compile(r"^(?:@\S+\s+)+")
+
+
+def _signals(request: Request) -> Any:
+    store = getattr(request.app.state, "self_build_signals", None)
+    if store is not None:
+        return store
+    from dodaios.self_build import loop as loop_module
+
+    running = loop_module.current()
+    return running.store if running is not None else None
+
+
+def _label(text: str) -> str:
+    words = _MENTION.sub("", " ".join(text.split())).strip()
+    if len(words) <= _LABEL_CHARS:
+        return words
+    return words[: _LABEL_CHARS - 1].rstrip() + "…"
+
+
+def _quiet_start(service: SelfBuild) -> dict[str, int]:
+    """When the quiet first days end (``until_ms`` 0 when there are none)."""
+    from dodaios.self_build import policy
+
+    cfg = policy.section(service.config())
+    days = int(getattr(cfg, "silent_days", 0) or 0) if cfg is not None else 0
+    first = policy.first_seen_ms(service.ledger)
+    until = first + days * 86_400_000 if days > 0 else 0
+    return {"days": days, "since_ms": first, "until_ms": until}
+
+
+def noticed_payload(service: SelfBuild, store: Any, *, now: int | None = None) -> dict[str, Any]:
+    """What the loop is counting, as the page shows it. Blocking (SQLite).
+
+    One entry per request the person made more than once in the miner's
+    window: a short label (their own latest wording), how often and on how
+    many days, and where it stands against the repeat threshold. Requests
+    made once are only counted. Needs that already became a live or kept
+    build are left out: the page shows the build instead.
+    """
+    from dodaios.self_build.ledger import now_ms
+    from dodaios.self_build.miner import (
+        PANE,
+        REPEAT_DAYS,
+        REPEAT_TIMES,
+        TOOL_SHARE,
+        WINDOW_DAYS,
+        consistent_tools,
+    )
+    from dodaios.self_build.records import State
+
+    stamp = now if now is not None else now_ms()
+    quiet = _quiet_start(service)
+    out: dict[str, Any] = {
+        "needs": [],
+        "once": 0,
+        "more": 0,
+        "threshold": {"times": REPEAT_TIMES, "days": REPEAT_DAYS, "window_days": WINDOW_DAYS},
+        "quiet_start": quiet,
+    }
+    if store is None:
+        return out
+    since = stamp - WINDOW_DAYS * 86_400_000
+    needs: list[dict[str, Any]] = []
+    once = 0
+    for cluster in store.clusters_since(since):
+        turns = store.turns_of(cluster.id, since_ms=since)
+        if len(turns) < 2:
+            once += len(turns)
+            continue
+        builds = service.ledger.ever_for(cluster.signature)
+        latest = builds[-1] if builds else None
+        if latest is not None and latest.state in (
+            State.BUILDING,
+            State.PROVING,
+            State.TRIAL,
+            State.KEPT,
+        ):
+            continue
+        days = len({t.day for t in turns})
+        delegated = sum(1 for t in turns if t.channel == PANE)
+        needs_tool = not consistent_tools(turns) and delegated < len(turns) * TOOL_SHARE
+        decision = store.decision(cluster.signature)
+        if latest is not None and latest.state == State.PROPOSED:
+            stage = "proposed"
+        elif latest is not None and latest.state in (State.REJECTED, State.UNDONE):
+            stage = "declined"
+        elif decision is not None and decision[1] == "served":
+            stage = "served"
+        elif decision is not None and decision[1] == "nothing":
+            stage = "nothing"
+        elif len(turns) >= REPEAT_TIMES and days >= REPEAT_DAYS:
+            stage = "direct" if needs_tool else "ready"
+        else:
+            stage = "counting"
+        needs.append(
+            {
+                "id": cluster.id,
+                "label": _label(turns[-1].text),
+                "times": len(turns),
+                "days": days,
+                "first_ms": turns[0].ts_ms,
+                "last_ms": turns[-1].ts_ms,
+                "stage": stage,
+                "build_id": latest.id if latest is not None and stage == "proposed" else "",
+            }
+        )
+    needs.sort(key=lambda n: (-min(n["days"], REPEAT_DAYS), -n["times"], -n["last_ms"]))
+    out["needs"] = needs[:_NOTICED_LIMIT]
+    out["once"] = once
+    out["more"] = max(0, len(needs) - _NOTICED_LIMIT)
+    return out
+
+
+@router.get("/noticed")
+async def noticed(request: Request) -> dict[str, Any]:
+    """What the loop has noticed so far (read-only): the "Noticed so far" list."""
+    service = _service(request)
+    return await asyncio.to_thread(noticed_payload, service, _signals(request))
 
 
 # ------------------------------------------------------------------ settings

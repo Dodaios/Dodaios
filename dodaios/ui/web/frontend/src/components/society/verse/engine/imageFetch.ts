@@ -43,7 +43,11 @@ export class NotAnImage extends Error {
   }
 }
 
-export async function fetchImageBitmap(url: string, signal?: AbortSignal): Promise<ImageBitmap> {
+/**
+ * `orientation` "flipY" flips rows at decode time (WebGL ignores flipY for
+ * ImageBitmap uploads); "none" keeps the file's row order.
+ */
+export async function fetchImageBitmap(url: string, signal?: AbortSignal, orientation: "none" | "flipY" = "none"): Promise<ImageBitmap> {
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`Image fetch failed: ${url} (HTTP ${res.status})`);
   const bytes = new Uint8Array(await res.arrayBuffer());
@@ -53,5 +57,6 @@ export async function fetchImageBitmap(url: string, signal?: AbortSignal): Promi
   return createImageBitmap(new Blob([bytes], { type }), {
     premultiplyAlpha: "none",
     colorSpaceConversion: "none",
+    ...(orientation === "flipY" ? { imageOrientation: "flipY" as const } : {}),
   });
 }

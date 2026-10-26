@@ -1,13 +1,13 @@
 {
   "self_build": {
     "title": "Built for you",
-    "subtitle": "What {name} built on its own, why it did, and how to take it back.",
     "loading": "Loading builds…",
     "status": {
-      "running": "Building on its own",
+      "running": "Watching",
       "paused": "Paused",
-      "silent": "Taking notes only",
-      "off": "Off"
+      "silent": "Learning",
+      "off": "Off",
+      "stopped": "Stopped"
     },
     "pause": "Pause building",
     "resume": "Resume building",
@@ -20,9 +20,6 @@
     "cancel": "Cancel",
     "notes": {
       "paused": "Building is paused. Nothing is noticed, built or settled until you resume.",
-      "silent": "The first days are quiet: {name} notes what you repeat and builds nothing yet.",
-      "off": "Self-building is off. Nothing is noticed or built.",
-      "stopped": "All agents are stopped. Routines and missions stay halted until you release them.",
       "release": "Release",
       "turn_on": "Open settings"
     },
@@ -37,16 +34,14 @@
       "nothing": "Nothing new."
     },
     "shelf": {
-      "waiting": "Waiting for you",
+      "waiting": "Needs you",
       "waiting_hint": "Nothing is built until you say yes.",
-      "trial": "On trial",
-      "trial_hint": "Live and labelled. Undo removes it completely.",
-      "working": "Being built",
-      "working_hint": "Checked before it goes live.",
       "kept": "Kept",
       "kept_hint": "Earned its place. Still undoable.",
       "past": "Archived and undone",
-      "past_hint": "Archived builds can be restored."
+      "past_hint": "Archived helpers can be restored.",
+      "live": "Working for you",
+      "live_hint": "On trial and labelled. Undo removes it completely."
     },
     "show_past": "Show {count}",
     "hide_past": "Hide",
@@ -75,7 +70,6 @@
       "trial": "Trial",
       "kept": "Kept"
     },
-    "seen": "seen {count}×",
     "trial_progress": "Day {days} of {dayLimit} · {uses} of {useLimit} uses",
     "action": {
       "accept": "Build it",
@@ -86,7 +80,6 @@
     },
     "no_builder": "{name} cannot build this kind yet. It stays a suggestion.",
     "detail": {
-      "select": "Pick a build to see why it exists, how it was checked and what it cost.",
       "close": "Close",
       "why": "Why",
       "noticed": "What it noticed",
@@ -119,21 +112,93 @@
       "corrected": "corrected",
       "ignored": "ignored"
     },
-    "empty": {
-      "title": "Nothing built yet",
-      "body": "{name} watches for things you keep doing by hand. When something repeats, it builds the smallest thing that takes it off you, checks it, and lets you try it with one-click undo.",
-      "loop": {
-        "notice": "Notice",
-        "decide": "Decide",
-        "build": "Build",
-        "check": "Check",
-        "trial": "Trial",
-        "keep": "Keep"
-      }
-    },
     "error": {
       "unavailable": "The build ledger is not running. Restart the app to open it.",
       "action": "That did not work: {detail}"
-    }
+    },
+    "hero": {
+      "silent_title": "{name} is getting to know how you work.",
+      "silent_body": "When you ask for the same thing again and again, {name} builds a small helper that does it for you. For the first {days} days it only takes notes and asks before it builds anything. From {date} it may try small things on its own, always with undo.",
+      "silent_body_nodate": "When you ask for the same thing again and again, {name} builds a small helper that does it for you. For the first {days} days it only takes notes and asks before it builds anything.",
+      "running_title": "{name} is watching for repeats.",
+      "running_body": "When you ask for the same thing on different days, {name} builds the smallest helper that takes it off you, checks it, and lets you try it with one-click undo.",
+      "ideas_title_one": "{name} has {count} idea for you.",
+      "ideas_title_other": "{name} has {count} ideas for you.",
+      "ideas_body": "It noticed something you keep doing by hand. Have a look below and say yes or no. Nothing is built without you.",
+      "paused_title": "Building is paused.",
+      "paused_body": "{name} is not noticing or building anything right now. The helpers it already built keep working.",
+      "off_title": "Building for you is off.",
+      "off_body": "Turn it on and {name} starts noticing what you repeat. You decide how far it may go.",
+      "stopped_title": "All agents are stopped.",
+      "stopped_body": "Routines, missions and building stay halted until you release them. Nothing was deleted.",
+      "ring_day": "Day {day} of {days}",
+      "ring_of_days": "of {days} days",
+      "ring_live_one": "{count} helper running",
+      "ring_live_other": "{count} helpers running",
+      "ring_helper_one": "helper",
+      "ring_helper_other": "helpers"
+    },
+    "reach": {
+      "title": "What {name} may do",
+      "off": "Never",
+      "suggest": "Asks you first",
+      "trial": "Tries it, with undo",
+      "full": "Does it on its own"
+    },
+    "kinds": {
+      "memory": "Memories",
+      "skill": "Skills",
+      "routine": "Routines",
+      "agent": "Agents",
+      "code": "Code changes"
+    },
+    "noticed": {
+      "title": "Noticed so far",
+      "hint": "Only what you ask for yourself counts.",
+      "empty": "Nothing repeated yet.",
+      "empty_hint": "Keep working as usual. {name} counts quietly on this computer.",
+      "once_one": "{count} request noted once so far.",
+      "once_other": "{count} requests noted once so far.",
+      "more": "{count} more repeats",
+      "times": "Asked {count} times",
+      "days_one": "on {count} day",
+      "days_other": "on {count} days",
+      "quote_open": "“",
+      "quote_close": "”",
+      "progress": "{count} of {total} days",
+      "more_days_one": "{count} more day to go",
+      "more_days_other": "{count} more days to go",
+      "more_times_one": "{count} more time to go",
+      "more_times_other": "{count} more times to go",
+      "stage": {
+        "ready": "Ready. {name} looks at it soon",
+        "proposed": "See the suggestion",
+        "direct": "{name} answers this directly",
+        "declined": "You said no",
+        "served": "A skill already does this",
+        "nothing": "Nothing worth building",
+        "ready_paused": "Ready. Waits until you resume"
+      }
+    },
+    "how": {
+      "title": "How it works",
+      "notice_title": "It notices",
+      "notice_body": "You ask for the same thing on different days. {name} counts it, on this computer.",
+      "suggest_title": "It suggests",
+      "suggest_body": "The smallest helper that fits: something to remember, a skill, a routine, an agent or a code change.",
+      "try_title": "You try it",
+      "try_body": "It runs on a labelled trial. Keep it, or undo it with one click."
+    },
+    "suggested": {
+      "memory": "Suggested memory",
+      "skill": "Suggested skill",
+      "routine": "Suggested routine",
+      "agent": "Suggested agent",
+      "code": "Suggested code change"
+    },
+    "based_on_one": "Based on {count} request",
+    "based_on_other": "Based on {count} requests",
+    "details": "Details",
+    "stop_footer": "Need everything to stop at once?"
   }
 }

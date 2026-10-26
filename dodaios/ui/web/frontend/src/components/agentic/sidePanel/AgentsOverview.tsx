@@ -6,7 +6,7 @@ import { useEventStore } from "@/store/events";
 import { useIdeChatStore } from "@/store/ideChat";
 import { useIdeProjectsStore } from "@/store/ideProjects";
 import { useIdeSidePanelStore } from "@/store/ideSidePanel";
-import { useWorkspacePanes } from "@/store/workspacePanes";
+import { useWorkspacePanes, useWorkspacePanesStore } from "@/store/workspacePanes";
 import { usePaneReviewsStore } from "@/store/paneReviews";
 import { AgentMark } from "@/components/agentic/AgentMark";
 import { paneTitleFrom, recapsFor, usePaneRecapPoll, usePaneRecapsStore } from "@/store/paneRecaps";
@@ -39,18 +39,23 @@ function useClock(): number {
   return now;
 }
 
-const SCOPE_KEY = "jarvis.agenticIde.agentsScope";
+// v2: the default moved from this workspace to the whole folder, so a choice
+// stored under the old default does not keep hiding most agents.
+const SCOPE_KEY = "jarvis.agenticIde.agentsScope.v2";
 const SCOPES: readonly AgentScope[] = ["workspace", "folder"];
 
 function storedScope(): AgentScope {
   try {
-    return localStorage.getItem(SCOPE_KEY) === "folder" ? "folder" : "workspace";
+    return localStorage.getItem(SCOPE_KEY) === "workspace" ? "workspace" : "folder";
   } catch {
-    return "workspace";
+    return "folder";
   }
 }
 
-/** The tab's own filter, remembered per browser: this workspace, or its whole folder. */
+/**
+ * The tab's own filter, remembered per browser: the whole folder (the default,
+ * so every running agent shows up) or just the workspace at the front.
+ */
 function useAgentScope(): [AgentScope, (scope: AgentScope) => void] {
   const [scope, setScope] = useState<AgentScope>(storedScope);
   const choose = (next: AgentScope) => {
@@ -84,7 +89,7 @@ const COLUMN_TONE: Record<AgentColumn, string> = {
 };
 
 /**
- * What every coding agent of the workspace at the front is doing right now.
+ * What every coding agent of the project folder is doing right now.
  *
  * The side panel's Agents tab, in three columns top to bottom: Done (finished
  * and not looked at yet — what needs the user), Working, and Reviewed (a
@@ -92,8 +97,8 @@ const COLUMN_TONE: Record<AgentColumn, string> = {
  * `store/paneReviews`). A card leads with the agent's brand mark, then its
  * goal, its state and for how long, and when it last printed anything. A click
  * brings the pane forward, frames it in the grid (the `spotlight`) and counts
- * as reviewing it. A switch at the top widens the list from the workspace at
- * the front to every workspace of its project folder; a card from another
+ * as reviewing it. A switch at the top picks every workspace of the project
+ * folder (the default) or only the workspace at the front; a card from another
  * workspace names it, and its click brings that workspace forward.
  */
 export function AgentsOverview() {
@@ -104,6 +109,7 @@ export function AgentsOverview() {
   const spotlight = useIdeSidePanelStore((state) => state.spotlight);
   const setSpotlight = useIdeSidePanelStore((state) => state.setSpotlight);
   const panes = useWorkspacePanes();
+  const loaded = useWorkspacePanesStore((state) => state.loaded);
   usePaneRecapPoll();
   const recaps = usePaneRecapsStore((state) => state);
   const [scope, setScope] = useAgentScope();
@@ -112,10 +118,11 @@ export function AgentsOverview() {
       state.projects.flatMap((project) => project.workspaces).find((workspace) => workspace.id === activeWorkspaceId)
         ?.folder ?? null,
   );
-  const mine =
-    scope === "folder"
-      ? folderAgents(panes, activeWorkspaceId, activeFolder)
-      : workspaceAgents(panes, activeWorkspaceId);
+  const scoped: Record<AgentScope, WorkspacePaneRow[]> = {
+    workspace: workspaceAgents(panes, activeWorkspaceId),
+    folder: folderAgents(panes, activeWorkspaceId, activeFolder),
+  };
+  const mine = scoped[scope];
   const reviewed = usePaneReviewsStore((state) => state.reviewed);
   const markReviewed = usePaneReviewsStore((state) => state.markReviewed);
   const pushToast = useEventStore((state) => state.pushToast);
@@ -270,6 +277,11 @@ export function AgentsOverview() {
               )}
             >
               {t(`ide_side_panel.agents.scope.${option}`)}
+              {loaded && (
+                <span data-testid={`ide-agents-scope-count-${option}`} className="ml-1.5 tabular-nums opacity-70">
+                  {scoped[option].length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -330,6 +342,15 @@ export function AgentsOverview() {
           )}
           {matches.length > 0 && <ul className="space-y-2">{matches.map(card)}</ul>}
         </div>
+      ) : !loaded ? (
+        <p
+          role="status"
+          data-testid="ide-agents-loading"
+          className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground"
+        >
+          <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" />
+          {t("ide_side_panel.agents.loading")}
+        </p>
       ) : mine.length === 0 ? (
         <p className="px-4 py-3 text-sm text-muted-foreground">
           {t(scope === "folder" ? "ide_side_panel.agents.empty_folder" : "ide_side_panel.agents.empty")}
