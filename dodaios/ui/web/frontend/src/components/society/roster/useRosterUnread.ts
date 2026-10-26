@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { SocietyAgent } from "../data";
 
@@ -34,7 +34,27 @@ export function useRosterUnread(
   agents: SocietyAgent[],
   activeAgentId: string | null,
 ): Set<string> {
+  return useRosterUnreadState(agents, activeAgentId).unread;
+}
+
+/**
+ * The same tracking plus a manual mark, for the row menu's "Mark as read" /
+ * "Mark as unread". The open agent cannot be marked unread: it is being read.
+ */
+export function useRosterUnreadState(
+  agents: SocietyAgent[],
+  activeAgentId: string | null,
+): { unread: Set<string>; mark: (agentId: string, unread: boolean) => void } {
   const [unread, setUnread] = useState<Set<string>>(() => readStored());
+  const mark = useCallback((agentId: string, value: boolean) => {
+    setUnread((prev) => {
+      if (prev.has(agentId) === value) return prev;
+      const copy = new Set(prev);
+      if (value) copy.add(agentId);
+      else copy.delete(agentId);
+      return copy;
+    });
+  }, []);
   const prevStates = useRef(new Map<string, string>());
   const initialized = useRef(false);
 
@@ -96,5 +116,5 @@ export function useRosterUnread(
     }
   }, [unread]);
 
-  return unread;
+  return { unread, mark };
 }

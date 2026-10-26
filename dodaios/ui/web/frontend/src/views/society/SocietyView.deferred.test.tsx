@@ -15,6 +15,7 @@ vi.mock("@/components/society/data", () => ({ useQuickCreateAgent: () => quick.c
   useSocietyRoster: () => ({ data: { sample: false,
   agents: [{ agentId: "lead", name: "Lead", tier: "lead", state: "idle" }] }, isLoading: false }) }));
 vi.mock("@/components/society/roster/RosterRail", () => ({ RosterRail: () => null }));
+vi.mock("@/components/society/roster/useRosterActivity", () => ({ useRosterActivity: () => new Map() }));
 vi.mock("@/components/society/card/AgentCardOverlay", () => ({ AgentCardOverlay: ({ onCreate }: { onCreate: () => void }) => (
   <><input aria-label="Existing chat draft" /><button onClick={onCreate}>Create agent</button></>
 ) }));
@@ -47,7 +48,7 @@ it("never evaluates closed dialog modules; creates agents without a dialog", asy
   expect(screen.getByLabelText("Existing chat draft")).toBe(draft);
   expect((draft as HTMLInputElement).value).toBe("Keep this draft");
 
-  const worldTab = screen.getByRole("tab", { name: "society.world.mode_map" });
+  const worldTab = screen.getByRole("tab", { name: "society.shell.mode_verse" });
   fireEvent.pointerEnter(worldTab);
   await waitFor(() => expect(loaded.world).toBe(1));
   expect(screen.queryByTestId("society-world-surface")).toBeNull();
