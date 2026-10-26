@@ -1053,6 +1053,52 @@
    }
   },
   {
+   "id": "plot_table",
+   "kind": "screen",
+   "position": [
+    17,
+    0.947,
+    9.6
+   ],
+   "yaw_deg": 0,
+   "room": "control",
+   "station": "master",
+   "size": [
+    4.5,
+    2.1
+   ],
+   "normal": [
+    0,
+    1,
+    0
+   ],
+   "corners": [
+    [
+     14.75,
+     0.947,
+     8.55
+    ],
+    [
+     19.25,
+     0.947,
+     8.55
+    ],
+    [
+     19.25,
+     0.947,
+     10.65
+    ],
+    [
+     14.75,
+     0.947,
+     10.65
+    ]
+   ],
+   "props": {
+    "group": "plot"
+   }
+  },
+  {
    "id": "reactor_ring__ring_1",
    "kind": "screen",
    "position": [
@@ -3170,7 +3216,8 @@
      "master__3",
      "master__4",
      "master__5",
-     "master_wall"
+     "master_wall",
+     "plot_table"
     ],
     "station": [
      "master"
