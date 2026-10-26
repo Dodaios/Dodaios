@@ -165,6 +165,8 @@ def _orphan_event(turn_id: str, started_ms: int, last_ms: int) -> dict[str, Any]
 DECISIONS: tuple[str, ...] = ("allow", "allow_always", "deny")
 #: Where a rule from the approval card lives: the agent's own rules or this chat.
 RULE_SCOPES: tuple[str, ...] = ("agent", "chat")
+#: How far an agent rule from the card reaches: this action, or the whole app.
+RULE_BREADTHS: tuple[str, ...] = ("action", "app")
 
 
 class SessionBusy(RuntimeError):
@@ -466,6 +468,10 @@ class AgentChatService:
         # Where an "Always allow" from the card is to live, by approval id:
         # ``(scope, breadth)`` as the card's rule chooser sent it.
         self._approval_choice: dict[str, tuple[str, str]] = {}
+        # Tools whose "Always allow" the card just saved on the society agent,
+        # by session: the approval bridge must not also wave the whole tool
+        # through for the chat (a rule for one action would read wider).
+        self._ruled_on_agent: dict[str, set[str]] = {}
         # Voice turn ids already mirrored into a chat timeline (see
         # import_voice_turn): the bus may deliver a turn twice across
         # reconnects, and a second copy in the chat would read as if the
@@ -840,7 +846,19 @@ class AgentChatService:
             return None
         if self._bridge is None:
             self._bridge = ChatApprovalBridge(bus)
+            self._bridge.chat_keeps_always = self._chat_keeps_always
         return self._bridge
+
+    def _chat_keeps_always(self, session_id: str, tool_name: str) -> bool:
+        """False once for a tool whose "always" the card saved as an agent rule."""
+        from .approval_bridge import _bare
+
+        ruled = self._ruled_on_agent.get(session_id)
+        bare = _bare(tool_name)
+        if ruled and bare in ruled:
+            ruled.discard(bare)
+            return False
+        return True
 
     def create_session(
         self,
@@ -2141,6 +2159,10 @@ class AgentChatService:
                     log.warning("agent chat: rule from the card failed for %s", name, exc_info=True)
                     saved = None
                 if saved is not None:
+                    if choice[0] == "agent":
+                        from .approval_bridge import _bare
+
+                        self._ruled_on_agent.setdefault(session_id, set()).add(_bare(name))
                     return decision
             handled = False
             hook = kit_for(session.surface).session_always_allow if session is not None else None
@@ -2181,6 +2203,8 @@ class AgentChatService:
             raise ValueError(f"decision must be one of {DECISIONS}")
         if scope and scope not in RULE_SCOPES:
             raise ValueError(f"scope must be one of {RULE_SCOPES}")
+        if breadth and breadth not in RULE_BREADTHS:
+            raise ValueError(f"breadth must be one of {RULE_BREADTHS}")
         if self._approval_session.get(approval_id) != session_id:
             return False
         fut = self._approvals.get(approval_id)

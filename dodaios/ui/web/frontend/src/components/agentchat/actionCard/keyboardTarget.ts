@@ -5,8 +5,9 @@
  * keyboard target: the newest open card of the highest priority (a pending
  * approval outranks a question). Esc then answers that card's dismiss action
  * (an approval's "Deny") — and only when the press is not meant for anything
- * else: no modifier, no key repeat, no text field, contenteditable or open
- * dialog holding focus, and the card actually on screen.
+ * else: no modifier, no key repeat, no text field or contenteditable holding
+ * focus, no open dialog, menu, listbox or popover, and the card actually on
+ * screen.
  *
  * A card claims the target while it is open and releases it when it settles
  * or unmounts. One capture-phase listener serves every card.
@@ -51,8 +52,38 @@ function isTyping(target: EventTarget | null): boolean {
   return Boolean(target.closest("[contenteditable='true'], .xterm"));
 }
 
+/**
+ * A dialog, menu, listbox or popover is open: its Esc closes it. This
+ * listener runs in the window's capture phase, before any of their own
+ * handlers, so it must stand back or that Esc would deny the card instead.
+ */
+const OVERLAYS = [
+  "[role='dialog'][data-state='open']",
+  "[aria-modal='true']",
+  "[role='alertdialog']",
+  "[role='menu']",
+  "[role='listbox']",
+  "[data-radix-popper-content-wrapper]",
+  "[popover]:popover-open",
+].join(", ");
+
+function overlays(): NodeListOf<Element> {
+  try {
+    return document.querySelectorAll(OVERLAYS);
+  } catch {
+    // An engine without `:popover-open` cannot parse the list; check without it.
+    return document.querySelectorAll(OVERLAYS.replace(", [popover]:popover-open", ""));
+  }
+}
+
 function dialogOpen(): boolean {
-  return Boolean(document.querySelector("[role='dialog'][data-state='open'], [aria-modal='true'], [role='alertdialog']"));
+  // A menu kept mounted but `hidden` while closed is not open.
+  return Array.from(overlays()).some((el) => !el.closest("[hidden]"));
+}
+
+/** Focus sits on a control whose own popup is open (a combobox, a menu button). */
+function popupOpen(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && Boolean(target.closest("[aria-expanded='true'][aria-haspopup]"));
 }
 
 function onScreen(element: HTMLElement | null): boolean {
@@ -67,7 +98,7 @@ function onScreen(element: HTMLElement | null): boolean {
 function onKeyDown(event: KeyboardEvent): void {
   if (event.key !== "Escape" || event.repeat || event.defaultPrevented) return;
   if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-  if (document.visibilityState === "hidden" || isTyping(event.target) || dialogOpen()) return;
+  if (document.visibilityState === "hidden" || isTyping(event.target) || popupOpen(event.target) || dialogOpen()) return;
   const target = current();
   if (!target || !onScreen(target.element())) return;
   event.preventDefault();
