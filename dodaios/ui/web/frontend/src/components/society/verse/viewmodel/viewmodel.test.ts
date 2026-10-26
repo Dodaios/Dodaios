@@ -5,9 +5,10 @@
  * duel (hip, sights, shield, a shot).
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { Box3, Color, Frustum, Matrix4, MeshStandardMaterial, PerspectiveCamera, Quaternion, Vector3 } from "three";
+import { Box3, Color, Frustum, Matrix4, Mesh, PerspectiveCamera, Quaternion, Sprite, Vector3 } from "three";
 import type { PlayerView } from "../combat/view";
-import { ARM, fingerSegment, ViewArm } from "./arms";
+import { ARM, fingerSegment, handPose, ViewArm } from "./arms";
+import { chamferBox, RigBuilder } from "./rigMesh";
 import {
   HIDE_BODY_BELOW_M, HIDE_BODY_FIRST_SHARE, idleSway, MOTION, springStep, turnBetween, ViewmodelMotion, viewmodelVisibility,
   walkBob, zeroOffsets, type MotionInput,
@@ -165,13 +166,37 @@ describe("viewmodel arms", () => {
     const box = geo.boundingBox as Box3;
     expect(box.min.z).toBeCloseTo(0, 6);
     expect(box.max.z).toBeCloseTo(0.04, 6);
-    expect(box.max.x).toBeCloseTo(0.01, 3);
+    expect(box.max.x).toBeLessThanOrEqual(0.01);
+    expect(box.max.x).toBeGreaterThan(0.008);
     geo.dispose();
   });
 
+  it("chamfers a box with 44 flat triangles", () => {
+    const geo = chamferBox(0.1, 0.04, 0.2, 0.01);
+    expect(geo.getAttribute("position").count / 3).toBe(44);
+    geo.computeBoundingBox();
+    expect(geo.boundingBox?.max.z).toBeCloseTo(0.1, 6);
+    expect(geo.boundingBox?.max.y).toBeCloseTo(0.02, 6);
+    geo.dispose();
+  });
+
+  it("poses the index finger and the thumb apart from the other fingers", () => {
+    const arm = new ViewArm("right", new RigBuilder(), SLOTS);
+    const bones = arm as unknown as { fingers: { base: { rotation: { x: number } } }[]; thumb: { base: { rotation: { y: number } } } };
+    arm.curl(handPose(1.5, 1.4, 0.7, [0.3, 0.7], 0.2));
+    expect(bones.fingers[0].base.rotation.x).toBeCloseTo(0.3, 6);
+    expect(bones.fingers[1].base.rotation.x).toBeGreaterThan(1.5);
+    const thumbY = bones.thumb.base.rotation.y;
+    arm.curl(handPose(1.5, 1.4, 0.7, [0.3, 0.7], 0));
+    expect(bones.thumb.base.rotation.y).not.toBeCloseTo(thumbY, 3);
+    // The left hand is the right one mirrored: its thumb swings the other way.
+    const left = new ViewArm("left", new RigBuilder(), SLOTS);
+    left.curl(handPose(1.5, 1.4, 0.7, [0.3, 0.7], 0));
+    expect((left as unknown as typeof bones).thumb.base.rotation.y).toBeCloseTo(-bones.thumb.base.rotation.y, 6);
+  });
+
   it("reaches the wrist with a two-bone arm whose elbow bends toward the pole", () => {
-    const mats = { sleeve: new MeshMat(), trim: new MeshMat(), glove: new MeshMat(), housing: new MeshMat(), emitter: new MeshMat() };
-    const arm = new ViewArm("right", mats);
+    const arm = new ViewArm("right", new RigBuilder(), SLOTS);
     const shoulder = new Vector3(0.2, -0.38, 0);
     const wrist = new Vector3(0.12, -0.12, -0.4);
     const q = ViewArm.handFrame(new Vector3(0, 0, -1), new Vector3(0, 1, 0), new Quaternion());
@@ -186,11 +211,11 @@ describe("viewmodel arms", () => {
     // The hand frame: knuckles ahead (−Z), back of the hand up.
     const knuckles = new Vector3(0, 0, 1).applyQuaternion(q);
     expect(knuckles.z).toBeCloseTo(-1, 6);
-    arm.dispose();
+
   });
 });
 
-const MeshMat = MeshStandardMaterial;
+const SLOTS = { sleeve: 0, trim: 1, glove: 2, housing: 3, emitter: 4 };
 
 function player(over: Partial<PlayerView> = {}): PlayerView {
   return {
@@ -252,8 +277,8 @@ describe("viewmodel rig", () => {
     expect(parts.gun.visible).toBe(false);
     vm.scene.updateMatrixWorld(true);
     // The knuckles are in view; the right hand right of centre, the left hand left of it, both below the eye line.
-    const r = world(parts.right.hand.children[2]);
-    const l = world(parts.left.hand.children[2]);
+    const r = world(parts.right.knuckles);
+    const l = world(parts.left.knuckles);
     expect(inView(vm, r)).toBe(true);
     expect(inView(vm, l)).toBe(true);
     const toCam = (p: Vector3) => p.clone().applyMatrix4(vm.camera.matrixWorldInverse);
@@ -304,13 +329,95 @@ describe("viewmodel rig", () => {
     vm.scene.updateMatrixWorld(true);
     expect(world(parts.left.hand).applyMatrix4(vm.camera.matrixWorldInverse).y).toBeGreaterThan(restY + 0.03);
     // The emitter's strip lights.
-    expect((parts.left.emitterStrip?.material as unknown as { emissiveIntensity: number }).emissiveIntensity).toBeGreaterThan(3);
+    expect(vm.emitterGlow).toBeGreaterThan(3);
     vm.set(duelFrame(player()));
     for (let i = 0; i < 30; i++) vm.prepare(cam, 1 / 60, null);
     vm.shot(1, false);
     let back = -Infinity;
     for (let i = 0; i < 5; i++) { vm.prepare(cam, 1 / 60, null); back = Math.max(back, parts.gun.position.z); }
     expect(back).toBeGreaterThan(restZ + 0.01);
+    vm.dispose();
+  });
+
+  /** The rig's skinned vertices in normalised device coordinates, split into the blaster's and the arms'. */
+  function screen(vm: Viewmodel): { gun: Vector3[]; arms: Vector3[] } {
+    vm.scene.updateMatrixWorld(true);
+    vm.camera.updateMatrixWorld();
+    const mesh = vm.mesh;
+    const gunBone = (vm as unknown as { gunBone: object }).gunBone;
+    const gunIndex = mesh.skeleton.bones.indexOf(gunBone as never);
+    const skin = mesh.geometry.getAttribute("skinIndex");
+    const out = { gun: [] as Vector3[], arms: [] as Vector3[] };
+    for (let i = 0; i < skin.count; i += 3) {
+      const p = mesh.getVertexPosition(i, new Vector3()).project(vm.camera);
+      (skin.getX(i) === gunIndex ? out.gun : out.arms).push(p);
+    }
+    return out;
+  }
+  const onScreen = (p: Vector3) => Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1 && p.z < 1;
+  const duelFrame = (p: PlayerView) => frameFor({ visibility: { arms: true, mode: "duel", hideOwnBody: true, raise: 1 }, player: p });
+
+  it("draws the arms and the blaster as one skinned mesh within the budget", () => {
+    const vm = new Viewmodel({ uniform: "#3b3f47", trim: "#5a5f68" }, new Color(1, 0.6, 0.15));
+    vm.set(duelFrame(player()));
+    vm.shot(1, false);
+    vm.shot(2, false);
+    for (let i = 0; i < 3; i++) vm.prepare(eye(), 1 / 60, null);
+    let draws = 0;
+    let triangles = 0;
+    vm.scene.traverseVisible((o) => {
+      if ((o as Mesh).isMesh) {
+        const g = (o as Mesh).geometry;
+        draws += Array.isArray((o as Mesh).material) ? g.groups.length : 1;
+        triangles += (g.index ? g.index.count : g.getAttribute("position").count) / 3;
+      } else if ((o as Sprite).isSprite) {
+        draws++;
+      }
+    });
+    // The rig, the sight's reticle and the muzzle flash.
+    expect(draws).toBeLessThanOrEqual(3);
+    expect(triangles).toBeLessThanOrEqual(3000);
+    expect(vm.mesh.isSkinnedMesh).toBe(true);
+    vm.dispose();
+  });
+
+  it("keeps the centre of the screen clear at the hip, the blaster low on the right", () => {
+    const vm = new Viewmodel({ uniform: "#3b3f47", trim: "#5a5f68" }, new Color(1, 0.6, 0.15));
+    vm.set(duelFrame(player()));
+    for (let i = 0; i < 30; i++) vm.prepare(eye(), 1 / 60, null);
+    const { gun, arms } = screen(vm);
+    const all = [...gun, ...arms].filter(onScreen);
+    // Nothing of the rig around the crosshair: the middle fifth across, down to below the screen's middle.
+    expect(all.filter((p) => Math.abs(p.x) < 0.12 && p.y > -0.2)).toHaveLength(0);
+    // The left half of the screen stays clear above its bottom quarter (the support arm comes up from below).
+    expect(all.filter((p) => p.x < -0.05 && p.y > -0.5)).toHaveLength(0);
+    // The blaster is right of centre and below the crosshair.
+    const seen = gun.filter(onScreen);
+    expect(seen.reduce((s, p) => s + p.x, 0) / seen.length).toBeGreaterThan(0.2);
+    expect(Math.max(...gun.map((p) => p.y))).toBeLessThan(0);
+    vm.dispose();
+  });
+
+  it("keeps the blaster in view, lowered and canted, in a sprint", () => {
+    const vm = new Viewmodel({ uniform: "#3b3f47", trim: "#5a5f68" }, new Color(1, 0.6, 0.15));
+    const parts = vm as unknown as { blaster: { group: { localToWorld(v: Vector3): Vector3 }; muzzle: Vector3 } };
+    vm.set(duelFrame(player({ sprinting: true, speed: 6 })));
+    for (let i = 0; i < 60; i++) vm.prepare(eye(), 1 / 60, null);
+    const { gun } = screen(vm);
+    // Most of the blaster is on screen, and its muzzle too.
+    expect(gun.filter(onScreen).length / gun.length).toBeGreaterThan(0.6);
+    expect(inView(vm, parts.blaster.group.localToWorld(parts.blaster.muzzle.clone()))).toBe(true);
+    vm.dispose();
+  });
+
+  it("rests the right index finger on the trigger", () => {
+    const vm = new Viewmodel({ uniform: "#3b3f47", trim: "#5a5f68" }, new Color(1, 0.6, 0.15));
+    const parts = vm as unknown as { right: ViewArm };
+    vm.set(duelFrame(player()));
+    for (let i = 0; i < 30; i++) vm.prepare(eye(), 1 / 60, null);
+    vm.scene.updateMatrixWorld(true);
+    const tip = world(parts.right.indexTip);
+    expect(tip.distanceTo(world(vm.trigger))).toBeLessThan(0.012);
     vm.dispose();
   });
 });

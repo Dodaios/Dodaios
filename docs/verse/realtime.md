@@ -271,8 +271,9 @@ blaster in the right hand with the left supporting it. Code:
 | File | Role |
 |---|---|
 | `motion.ts` | Pure: who is drawn (`viewmodelVisibility`: arms in exactly where the third-person body goes out, past 30 % of the blend; the body also goes when a wall pushes the shoulder camera within 0.55 m), the walk bob (a dip per footfall, a sway per stride, scaled by ground speed / walk speed up to 1.7), idle breathing, look lag (the arms trail a turn by up to 0.07 rad and settle in ~0.1 s) and the recoil spring (a shot kicks the blaster back ~2 cm and the muzzle up ~2.5°, settling in ~0.25 s). prefers-reduced-motion drops bob, sway and lag and halves the recoil. |
-| `arms.ts` | The arms, procedural: sleeves in the commander's uniform colour (the rank tier's `M_Uniform`), a gauntleted glove (rounded palm, armoured knuckle plate, a panel in the uniform's trim, two-segment lathe-turned fingers and thumb that curl by a parameter), two-bone IK from shoulder to wrist (`solveElbow`), the forearm turned so its back follows the back of the hand. The left forearm carries the shield emitter. |
-| `viewmodel.ts` | The rig, its own scene and camera, posed every frame in the camera's space; the layout (`VIEWMODEL`: poses, holds, shoulders, field of view, light). |
+| `arms.ts` | The arms, procedural: sleeves in the commander's uniform colour (the rank tier's `M_Uniform`), a gauntleted glove (rounded palm, armoured knuckle plate, a panel in the uniform's trim, two-segment lathe-turned fingers and thumb), a hand pose (`HandPose`: the three outer fingers, the index finger and the thumb apart, so the right index rests on the trigger), two-bone IK from shoulder to wrist (`solveElbow`), the forearm turned so its back follows the back of the hand. The left forearm carries the shield emitter. |
+| `viewmodel.ts` | The rig, its own scene and camera, posed every frame in the camera's space; the layout (`VIEWMODEL`: poses, holds, hand poses, shoulders, field of view, light). |
+| `rigMesh.ts` | One draw for the whole rig: `RigBuilder` bakes every part into one skinned geometry on its bone, `RigPalette` holds every surface as a texel of three float textures under one material; `chamferBox` (44 triangles). |
 | `viewmodelPass.ts` | The draw: a pass in the eye view's post chain after the deck's render pass, into the same multisampled HDR target with depth cleared first (so the arms get the deck's anti-aliasing, bloom and AgX and never meet a wall); on the low tier the same draw straight to the screen. No full-screen pass of its own. |
 | `ViewmodelLayer.tsx` | Mounts the viewmodel on a stage with an eye-level view (`runtime.viewmodel`) and tells it each frame what to show: the deck's hands, the duel's blaster, or nothing. |
 
@@ -287,16 +288,29 @@ it reads the same on every deck) keeps dark uniforms and gloves legible.
 In a duel the blaster is the duel's own model (`buildBlaster`, chamfered
 edges for the close view, the stock left out so it never hides the right
 hand, the sight's glowing pane swapped for a see-through reticle). Poses,
-blended over ~0.1 s: hip (bottom right, canted in), sights (`ads` moves the
-sight's window onto the view axis 0.3 m ahead; the field of view narrows),
-sprint (carried low and turned in), shield (Q: the blaster drops, the left
+blended over ~0.1 s: hip (low on the right, the right hand on the grip with
+the index finger on the trigger, the support arm coming up from the bottom
+edge; the centre of the screen and its left half stay clear), sights (`ads`
+moves the sight's window onto the view axis 0.3 m ahead; the field of view
+narrows), sprint (lowered, turned in and canted across the bottom of the
+frame, still in view), shield (Q: the blaster drops, the left
 forearm comes up before the face, palm forward, its emitter lit with the
 shield's energy and flaring on a parry), vent (R: the blaster tips up and the
 left hand slaps the receiver's side), knocked out (the arms drop away). A
 dodge dips the arms. Each shot kicks the recoil spring and flashes at the
 muzzle (a sprite and a short light on the hands); the world's own muzzle
-flash and vent steam for the person are skipped in first person. About
-6,500 triangles and ~65 small draws in a duel (fewer on the deck); the world pass is unchanged.
+flash and vent steam for the person are skipped in first person.
+
+Budget: both arms and the blaster are one skinned mesh (`rigMesh.ts`): every
+rigid part is baked into one geometry with each vertex bound at full weight
+to the bone it moves with (sleeves, forearm, gauntlet, hand, each finger
+segment, the blaster), and every surface is a texel of a small float palette
+(albedo, roughness and metalness, emission) under one material. The
+blaster's glowing parts copy its heat colours into the palette each frame;
+on the deck its vertices collapse to a point. That is one draw on the deck
+and two or three in a duel (the rig, the sight's reticle, the muzzle flash),
+about 2,900 triangles (chamfered boxes are 44 triangles each). The rig test
+holds it to 3 draws and 3,000 triangles.
 
 Development handle (dev builds only): `window.__verseViewmodel = { layout,
 arm, motion, retune(), viewmodel }` tunes the layout live: change `layout`
@@ -378,8 +392,9 @@ packing rebuild the bridge's pages held 3-15 %. The bridge numbers in
 
 ## Open work
 
-- The viewmodel's arms are procedural (no skinned mesh): the fingers curl as
-  one per hand, there is no reload or inspect animation beyond the vent slap.
+- The viewmodel's arms are procedural rigid parts on bones (no authored skin
+  weights, so joints do not bend their surfaces); there is no reload or
+  inspect animation beyond the vent slap.
 - There are no strafe or backwards clips: strafing leans the walk up to 45°,
   backwards plays the walk in reverse.
 

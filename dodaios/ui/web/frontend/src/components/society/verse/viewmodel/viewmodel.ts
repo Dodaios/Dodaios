@@ -9,19 +9,24 @@
  * field of view, and the pass clears depth before it draws, so the arms never
  * sink into a wall and never stretch with a wide field-of-view setting.
  *
+ * Both arms and the blaster are one skinned mesh under one palette material
+ * (`rigMesh.ts`): one draw call, plus the sight's reticle and the muzzle
+ * flash in a duel.
+ *
  * The rig is posed in the camera's space every frame (x right, y up, −z ahead):
  * on the deck both hands hang loose low in the frame and swing with the walk;
- * in a duel the right hand holds the blaster's grip and the left its shroud,
- * blended between hip, sights (the sight's window moves onto the eye line),
- * sprint (carried low), shield (the left forearm comes up with its emitter
- * lit, the blaster lowered) and vent (the blaster tips up, the left hand
- * slaps the receiver). Walk bob, idle sway, look lag and recoil
- * (`motion.ts`) ride on top; a shot also flashes at the muzzle and lights
- * the hands. The frame path allocates nothing.
+ * in a duel the right hand holds the blaster's grip with the index finger on
+ * the trigger and the left clamps its shroud, blended between hip (low on the
+ * right, the centre of the screen clear), sights (the sight's window moves
+ * onto the eye line), sprint (lowered and canted, still in view), shield (the
+ * left forearm comes up with its emitter lit, the blaster lowered) and vent
+ * (the blaster tips up, the left hand slaps the receiver). Walk bob, idle
+ * sway, look lag and recoil (`motion.ts`) ride on top; a shot also flashes at
+ * the muzzle and lights the hands. The frame path allocates nothing.
  */
 import {
-  AdditiveBlending, CanvasTexture, Color, DirectionalLight, DoubleSide, Euler, Group, MeshBasicMaterial, MeshStandardMaterial,
-  PerspectiveCamera, PointLight, Quaternion, Scene, Sprite, SpriteMaterial, Vector3, type Texture,
+  AdditiveBlending, Bone, CanvasTexture, Color, DirectionalLight, Euler, Group, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial,
+  PerspectiveCamera, PointLight, Quaternion, Scene, Sprite, SpriteMaterial, Vector3, type SkinnedMesh, type Texture,
 } from "three";
 import type { Deck } from "../content/deck";
 import { RoomLight } from "../actors/roomLight";
@@ -29,8 +34,9 @@ import type { PlayerView } from "../combat/view";
 import { buildBlaster, type Blaster } from "../duel/blaster";
 import { radialTexture } from "../duel/effects";
 import { verticalFov } from "../engine/realtime/shoulderRig";
-import { ViewArm, type ArmMaterials } from "./arms";
+import { copyHand, handPose, lerpHand, ViewArm, type ArmSlots, type HandPose } from "./arms";
 import { turnBetween, ViewmodelMotion, type Visibility } from "./motion";
+import { chamferBox, RigBuilder, RigPalette, type Slot } from "./rigMesh";
 
 /** A pose of the blaster (its grip, the right hand's hold) in the camera's space. */
 export interface GunPose { x: number; y: number; z: number; pitch: number; yaw: number; roll: number }
@@ -47,7 +53,7 @@ export const VIEWMODEL = {
   near: 0.01,
   far: 4,
   /** The blaster's size in the hands, relative to the duel's model. */
-  gunScale: 0.65,
+  gunScale: 0.6,
   /** Distance from the eye to the sight's window when aiming down the sights, metres. */
   adsDistance: 0.3,
   /** Time constant of the pose blends (sprint, shield, vent), seconds. */
@@ -62,42 +68,57 @@ export const VIEWMODEL = {
    * exposure, it lights the arms the same on every deck.
    */
   fill: 1.2,
-  /** The blaster at the hip, carried low in a sprint, lowered behind the shield, rolled over to vent, dropped when knocked out. */
-  hip: { x: 0.14, y: -0.09, z: -0.33, pitch: 0.05, yaw: 0.06, roll: 0.22 } as GunPose,
-  sprint: { x: 0.17, y: -0.16, z: -0.31, pitch: -0.3, yaw: 0.45, roll: 0.45 } as GunPose,
+  /**
+   * The blaster at the hip (low on the right, the muzzle toward the crosshair, the centre clear), lowered and canted
+   * in a sprint (still in view), lowered behind the shield, rolled over to vent, dropped when knocked out.
+   */
+  hip: { x: 0.155, y: -0.115, z: -0.46, pitch: 0.08, yaw: 0.07, roll: 0.1 } as GunPose,
+  sprint: { x: 0.15, y: -0.135, z: -0.36, pitch: -0.12, yaw: 0.62, roll: 0.62 } as GunPose,
   shield: { x: 0.2, y: -0.22, z: -0.32, pitch: -0.45, yaw: 0.3, roll: 0.35 } as GunPose,
-  vent: { x: 0.11, y: -0.11, z: -0.33, pitch: 0.25, yaw: 0.2, roll: -0.4 } as GunPose,
+  vent: { x: 0.12, y: -0.12, z: -0.34, pitch: 0.25, yaw: 0.2, roll: -0.4 } as GunPose,
   down: { x: 0.16, y: -0.7, z: -0.25, pitch: -0.9, yaw: 0.3, roll: 0.3 } as GunPose,
   /** The left wrist with the shield up, camera space. */
   shieldWrist: { x: -0.13, y: -0.07, z: -0.42 },
   /** The wrists on the deck (the left mirrors x), camera space. */
   deckWrist: { x: 0.2, y: -0.2, z: -0.42 },
-  /** Shoulders, below and behind the eyes, and the elbows' pull (down and out); the support arm reaches in from further out. */
+  /**
+   * Shoulders, below and behind the eyes, and the elbows' pull (down and out). The support arm's shoulder sits in
+   * toward the middle and low, so its forearm comes up from the bottom edge to the shroud instead of across the screen.
+   */
   shoulderR: new Vector3(0.22, -0.38, -0.02),
-  shoulderL: new Vector3(-0.3, -0.38, -0.02),
+  shoulderL: new Vector3(-0.02, -0.52, 0.06),
   poleR: new Vector3(1, -0.6, 0.1),
-  poleL: new Vector3(-1, -0.6, 0.1),
+  poleL: new Vector3(-0.4, -1, 0.2),
   /**
    * The hands: the right hand's hold on the grip (along the grip, along the knuckles, out to the side), the left's
-   * beside the shroud (out to its left, up, ahead), hand frames as knuckle and back-of-hand directions, finger curls (two joints and
-   * the thumb).
+   * beside the shroud (out to its left, up, ahead), hand frames as knuckle and back-of-hand directions, and the hand
+   * poses (`HandPose`: three fingers, the index finger, the thumb).
    */
   hands: {
-    grip: [0.012, -0.06, 0.036],
-    gripCurl: [1.45, 1.35, 0.7],
+    grip: [-0.03, -0.075, 0.036],
+    /** The right hand on the grip: three fingers wrapped, the index finger straight along the guard onto the trigger, the thumb over the far side. */
+    gripPose: handPose(1.5, 1.4, 0.75, [0, 1.5], 0.15),
     fore: [0.042, 0.012, -0.06],
     foreKnuckles: [-0.15, 0.25, 1],
     foreBack: [1, -0.15, 0],
-    foreCurl: [1.25, 1.0, 0.5],
+    /** The left hand under the shroud: fingers curled round it, the thumb along its top. */
+    forePose: handPose(1.25, 1.0, 0.35, [1.1, 0.9], -0.2),
     ventKnuckles: [0, 0.35, 1],
     ventBack: [1, 0.1, 0],
+    /** The open hand slapping the receiver, and raised palm forward behind the shield. */
+    ventPose: handPose(0.35, 0.3, 0.1, [0.3, 0.25], -0.3),
+    shieldPose: handPose(0.15, 0.1, 0.2, [0.1, 0.05], -0.4),
     deckKnuckles: [-0.35, 0.25, -1],
     deckBack: [0.35, 1, 0.1],
-    deckCurl: [1.3, 1.15, 0.6],
+    /** Relaxed hands: the index a little straighter than the rest, the thumb resting along it. */
+    deckPose: handPose(1.3, 1.15, 0.6, [1.05, 0.95], 0),
     shieldKnuckles: [0.15, 1, -0.2],
     shieldBack: [0.2, 0.15, 1],
   },
 };
+
+/** The trigger blade, in the blaster model's own (unscaled) frame: in front of the grip, under the receiver. */
+const TRIGGER = { x: 0, y: -0.049, z: 0.04, rx: 0.3 };
 
 const SHOULDER_R = new Vector3();
 const SHOULDER_L = new Vector3();
@@ -157,17 +178,28 @@ function reticleTexture(): Texture {
   return new CanvasTexture(canvas);
 }
 
+/** A glowing surface of the blaster mirrored into the palette each frame. */
+interface Glow { slot: Slot; material: MeshStandardMaterial }
+
 export class Viewmodel {
   readonly scene = new Scene();
   readonly camera: PerspectiveCamera;
   /** Draw the pass this frame (set by `prepare`). */
   visible = false;
+  /** Both arms and the blaster: one skinned mesh. */
+  readonly mesh: SkinnedMesh;
   private readonly rig = new Group();
   private readonly right: ViewArm;
   private readonly left: ViewArm;
   private readonly blaster: Blaster;
   private readonly gun = new Group();
-  private readonly mats: ArmMaterials & { sleeve: MeshStandardMaterial; trim: MeshStandardMaterial; emitter: MeshStandardMaterial };
+  /** The blaster's bone (inside its scaled group): collapsed to a point when the hands are empty. */
+  private readonly gunBone = new Bone();
+  /** A landmark on the trigger, in the blaster's frame. */
+  readonly trigger = new Group();
+  private readonly palette = new RigPalette("M_View_Rig");
+  private readonly slots: ArmSlots;
+  private readonly glows: Glow[] = [];
   private readonly reticle: MeshBasicMaterial;
   private readonly flash: Sprite;
   private readonly flashLight = new PointLight(0xffa040, 0, 1.2, 2);
@@ -175,9 +207,8 @@ export class Viewmodel {
   private readonly light = new RoomLight();
   private readonly motion = new ViewmodelMotion();
   private readonly textures: Texture[] = [];
-  /** The lit materials (the room's reflections are scaled on them) and the blaster's glowing ones. */
-  private readonly lit: MeshStandardMaterial[];
-  private readonly glowing: MeshStandardMaterial[];
+  private readonly emitterColour = new Color(0.35, 0.75, 1.6);
+  private readonly tmpColour = new Color();
   private frame: ViewmodelFrame | null = null;
   private shots = 0;
   private flashT = 0;
@@ -190,6 +221,7 @@ export class Viewmodel {
   // Scratch, reused every frame.
   private readonly pose: GunPose = { ...VIEWMODEL.hip };
   private readonly ads: GunPose = { ...VIEWMODEL.hip };
+  private readonly handL: HandPose = handPose(0, 0, 0);
   private readonly euler = new Euler(0, 0, 0, "YXZ");
   private readonly qGun = new Quaternion();
   private readonly qTmp = new Quaternion();
@@ -207,53 +239,90 @@ export class Viewmodel {
   private readonly holdR = { at: new Vector3(), q: new Quaternion() };
   private readonly holdL = { at: new Vector3(), q: new Quaternion() };
   private readonly ventL = { at: new Vector3(), q: new Quaternion() };
+  /** The emitter strip's glow this frame (for checks). */
+  emitterGlow = 0;
 
   constructor(colours: ArmColours, accent: Color) {
     this.camera = new PerspectiveCamera(60, 1, VIEWMODEL.near, VIEWMODEL.far);
     this.scene.name = "Viewmodel";
-    const sleeve = new MeshStandardMaterial({ name: "M_View_Sleeve", color: colours.uniform, roughness: 0.78, metalness: 0, side: DoubleSide });
-    const trim = new MeshStandardMaterial({ name: "M_View_Trim", color: colours.trim, roughness: 0.55, metalness: 0.2 });
-    const glove = new MeshStandardMaterial({ name: "M_View_Glove", color: 0x2b2c31, roughness: 0.46, metalness: 0.05, side: DoubleSide });
-    const housing = new MeshStandardMaterial({ name: "M_View_Emitter_Housing", color: 0x2a2e34, roughness: 0.35, metalness: 0.85 });
-    const emitter = new MeshStandardMaterial({ name: "M_View_Emitter", color: 0x050505, emissive: new Color(0.35, 0.75, 1.6), emissiveIntensity: 0.6, roughness: 0.4 });
-    this.mats = { sleeve, trim, glove, housing, emitter };
-    this.right = new ViewArm("right", this.mats);
-    this.left = new ViewArm("left", this.mats);
+    const pal = this.palette;
+    this.slots = {
+      sleeve: pal.slot("sleeve"), trim: pal.slot("trim"), glove: pal.slot("glove"), housing: pal.slot("housing"), emitter: pal.slot("emitter"),
+    };
+    pal.surface(this.slots.glove, new Color(0x2b2c31), 0.46, 0.05);
+    pal.surface(this.slots.housing, new Color(0x2a2e34), 0.35, 0.85);
+    pal.surface(this.slots.emitter, new Color(0x050505), 0.4, 0);
+    this.setColours(colours);
+
+    const rig = new RigBuilder();
+    this.right = new ViewArm("right", rig, this.slots);
+    this.left = new ViewArm("left", rig, this.slots);
+
+    // The blaster: the duel's model (chamfered for the close view). Its parts are baked into the rig on the gun's
+    // bone; the stock stays out (it would hide the right hand); the sight's pane becomes a see-through reticle.
     this.blaster = buildBlaster(accent, { bevel: true });
-    // The sight's pane becomes a see-through reticle.
+    const bg = this.blaster.group;
+    bg.updateMatrixWorld(true);
+    const baked: Mesh[] = [];
+    bg.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh || m === this.blaster.sightGlass) return;
+      baked.push(m);
+      if (this.blaster.stock.includes(m)) return;
+      const mat = m.material as MeshStandardMaterial;
+      const slot = pal.slot(mat.name);
+      pal.surface(slot, mat.color, mat.roughness, mat.metalness);
+      if (mat.emissiveIntensity > 0 && mat.emissive.getHex() !== 0) {
+        if (!this.glows.some((g) => g.slot === slot)) this.glows.push({ slot, material: mat });
+      }
+      rig.add(m.geometry.clone(), this.gunBone, slot, m.matrixWorld.clone());
+    });
+    for (const m of baked) m.removeFromParent();
+    // The trigger (the duel's model has none: from metres away it never shows).
+    const steel = pal.slot("M_Blaster_Steel");
+    const s = this.blasterScale();
+    rig.add(chamferBox(0.006, 0.018, 0.007, 0.002), this.gunBone, steel, new Matrix4().makeScale(s, s, s)
+      .multiply(new Matrix4().makeTranslation(TRIGGER.x, TRIGGER.y, TRIGGER.z)).multiply(new Matrix4().makeRotationX(TRIGGER.rx)));
+    this.trigger.position.set(TRIGGER.x, TRIGGER.y - 0.004, TRIGGER.z + 0.002).multiplyScalar(s);
+    bg.add(this.gunBone, this.trigger);
+
     const reticleMap = reticleTexture();
     this.textures.push(reticleMap);
     this.reticle = new MeshBasicMaterial({
       map: reticleMap, color: new Color(1.6, 0.85, 0.25), transparent: true, blending: AdditiveBlending, depthWrite: false,
     });
     this.blaster.sightGlass.material = this.reticle;
-    for (const m of this.blaster.stock) m.visible = false;
-    this.gun.add(this.blaster.group);
+    this.gun.add(bg);
     // The muzzle flash: a short additive burst at the muzzle, and the light it throws on the hands.
     const flashMap = radialTexture([[0, "rgba(255,255,255,1)"], [0.25, "rgba(255,190,90,0.9)"], [1, "rgba(255,120,30,0)"]]);
     this.textures.push(flashMap);
     this.flash = new Sprite(new SpriteMaterial({ map: flashMap, color: new Color(2.4, 1.5, 0.6), blending: AdditiveBlending, depthWrite: false, transparent: true }));
     this.flash.scale.setScalar(0.11);
     this.flash.visible = false;
-    this.blaster.group.add(this.flash);
+    bg.add(this.flash);
     this.flash.position.copy(this.blaster.muzzle).setZ(this.blaster.muzzle.z + 0.04);
-    this.blaster.group.add(this.flashLight);
+    bg.add(this.flashLight);
     this.flashLight.position.copy(this.blaster.muzzle);
 
     this.rig.add(this.right.group, this.left.group, this.gun, this.key, this.key.target);
     this.key.position.set(-0.4, 1, 0.5);
-    this.scene.add(this.rig);
+    this.mesh = rig.build(pal.material);
+    // The mesh stays at the origin: its vertices follow the bones in the rig.
+    this.scene.add(this.rig, this.mesh);
     this.rig.traverse((o) => { o.frustumCulled = false; });
-    this.lit = [sleeve, trim, glove, housing, ...this.blaster.materials].filter((m): m is MeshStandardMaterial => (m as MeshStandardMaterial).isMeshStandardMaterial === true);
-    this.glowing = this.lit.filter((m) => /Cells|Vents|Emitter$/.test(m.name) && m.name.startsWith("M_Blaster"));
-    this.light.attach(this.lit);
+    this.light.attach([pal.material]);
     this.retune();
+  }
+
+  /** The blaster model's own scale (the duel draws it a little larger than true size): its muzzle over its unscaled one. */
+  private blasterScale(): number {
+    return this.blaster.muzzle.z / 0.49;
   }
 
   /** The person's colours changed (a promotion): repaint the sleeves. */
   setColours(colours: ArmColours): void {
-    this.mats.sleeve.color.set(colours.uniform);
-    this.mats.trim.color.set(colours.trim);
+    this.palette.surface(this.slots.sleeve, this.tmpColour.set(colours.uniform), 0.78, 0);
+    this.palette.surface(this.slots.trim, this.tmpColour.set(colours.trim), 0.55, 0.2);
   }
 
   /** This frame's state (the layer fills it before the eye view renders). */
@@ -287,7 +356,7 @@ export class Viewmodel {
     const knR = new Vector3().crossVectors(up, backR);
     const h = VIEWMODEL.hands;
     const vec = (a: readonly number[]) => new Vector3(a[0], a[1], a[2]);
-    const grip = new Vector3(0, -0.06, -0.01).multiplyScalar(1.3 * s);
+    const grip = new Vector3(0, -0.06, -0.01).multiplyScalar(this.blasterScale() * s);
     this.holdR.at.copy(grip).addScaledVector(up, h.grip[0]).addScaledVector(knR, h.grip[1]).addScaledVector(backR, h.grip[2]);
     ViewArm.handFrame(knR, backR, this.holdR.q);
     // Left hand: a clamp on the shroud from its left, the thumb over the top, the knuckles along the barrel, the back
@@ -298,7 +367,7 @@ export class Viewmodel {
     this.holdL.at.set(fore.x + h.fore[0], fore.y + h.fore[1], fore.z + h.fore[2]).addScaledVector(knL, -0.05);
     ViewArm.handFrame(knL, backL, this.holdL.q);
     // Venting: the left hand leaves the shroud and slaps the receiver's side, palm flat against it.
-    const vents = new Vector3(0.05, 0.02, 0.12).multiplyScalar(1.3 * s);
+    const vents = new Vector3(0.05, 0.02, 0.12).multiplyScalar(this.blasterScale() * s);
     const knV = vec(h.ventKnuckles).normalize();
     const backV = vec(h.ventBack).normalize();
     this.ventL.at.copy(vents).addScaledVector(backV, 0.018).addScaledVector(knV, -0.05);
@@ -378,7 +447,9 @@ export class Viewmodel {
     const exposure = Math.pow(2, f.deck?.exposure ?? 0);
     const dip = (1 - raise) * 0.35 + (p?.dodging ? Math.sin(p.dodgeProgress * Math.PI) * 0.12 : 0);
 
+    // Empty hands on the deck: the blaster's part of the mesh collapses to a point, its reticle and flash hide.
     this.gun.visible = duel;
+    this.gunBone.scale.setScalar(duel ? 1 : 1e-5);
     if (duel && p) this.poseDuel(p, o, dip);
     else this.poseDeck(o, dip);
 
@@ -390,15 +461,16 @@ export class Viewmodel {
     this.flashLight.intensity = duel ? (fl * 1.6) / exposure : 0;
     this.key.intensity = VIEWMODEL.fill / exposure;
     // The left forearm's emitter: dim at rest, bright while the shield is up.
-    const e = this.mats.emitter;
-    e.emissiveIntensity = 0.5 + w.shield * (4 + (p ? p.shieldEnergy * 4 : 0)) + (p?.parrying ? 6 : 0);
+    this.emitterGlow = 0.5 + w.shield * (4 + (p ? p.shieldEnergy * 4 : 0)) + (p?.parrying ? 6 : 0);
+    this.palette.emit(this.slots.emitter, this.emitterColour, this.emitterGlow);
     if (duel && p) {
+      // The duel model's heat drives its materials; their glow goes into the palette, toned down: a hand's breadth
+      // from the eye the glow tuned to read at shoulder distance would flood the bloom.
       this.blaster.setHeat(p.heat, p.venting, p.overheated, this.time);
-      // A hand's breadth from the eye the duel model's glow (tuned to read at shoulder distance) would flood the bloom.
-      for (const m of this.glowing) m.emissiveIntensity *= VIEWMODEL.glowGain;
+      for (const g of this.glows) this.palette.emit(g.slot, g.material.emissive, g.material.emissiveIntensity * VIEWMODEL.glowGain);
     }
     // The room's reflections: the deck's environment is captured in the open room, the hands are in the body's shade.
-    for (const m of this.lit) m.envMapIntensity = VIEWMODEL.envGain;
+    this.palette.material.envMapIntensity = VIEWMODEL.envGain;
     if (f.deck) this.light.update(f.deck, f.x, f.y, f.z, step);
   }
 
@@ -421,18 +493,17 @@ export class Viewmodel {
     this.gun.quaternion.copy(this.qGun);
     this.gun.updateMatrixWorld();
 
-    // Right hand on the grip.
+    // Right hand on the grip, the index finger on the trigger.
     this.wristR.copy(this.holdR.at).applyQuaternion(this.qGun).add(this.gun.position);
     this.qHandR.copy(this.qGun).multiply(this.holdR.q);
     const h = VIEWMODEL.hands;
-    this.right.curl(h.gripCurl[0], h.gripCurl[1], h.gripCurl[2]);
+    this.right.curl(h.gripPose);
     this.right.pose(SHOULDER_R, this.wristR, this.qHandR, POLE_R);
 
     // Left hand: on the shroud, against the receiver while venting, up before the face behind the shield.
     this.wristL.copy(this.holdL.at).applyQuaternion(this.qGun).add(this.gun.position);
     this.qHandL.copy(this.qGun).multiply(this.holdL.q);
-    let c1 = h.foreCurl[0];
-    let c2 = h.foreCurl[1];
+    const hand = copyHand(this.handL, h.forePose);
     if (w.vent > 1e-3) {
       // A slap: the hand swings out and in against the receiver in the first quarter second, then rests there.
       const t = Math.min(1, this.ventT / 0.2);
@@ -441,41 +512,43 @@ export class Viewmodel {
       this.wristL.lerp(this.v, w.vent);
       this.qTmp.copy(this.qGun).multiply(this.ventL.q);
       this.qHandL.slerp(this.qTmp, w.vent);
-      c1 += (0.35 - c1) * w.vent;
-      c2 += (0.3 - c2) * w.vent;
+      lerpHand(hand, h.ventPose, w.vent);
     }
     if (w.shield > 1e-3) {
       const sw = VIEWMODEL.shieldWrist;
       this.v.set(sw.x + o.x, sw.y + o.y - dip, sw.z + o.z);
       this.wristL.lerp(this.v, w.shield);
       this.qHandL.slerp(this.qShieldL, w.shield);
-      c1 += (0.15 - c1) * w.shield;
-      c2 += (0.1 - c2) * w.shield;
+      lerpHand(hand, h.shieldPose, w.shield);
     }
     if (w.down > 1e-3) this.wristL.y -= w.down * 0.5;
-    this.left.curl(c1, c2, h.foreCurl[2]);
+    this.left.curl(hand);
     this.left.pose(SHOULDER_L, this.wristL, this.qHandL, POLE_L);
   }
 
   private poseDeck(o: { x: number; y: number; z: number; pitch: number; yaw: number; roll: number }, dip: number): void {
     // Loose hands low in the frame; while walking they swing against each other with the stride.
     const swing = Math.sin(this.motion.phase) * 0.05 * Math.min(1, this.motion.bob);
-    const c = VIEWMODEL.hands.deckCurl;
-    this.right.curl(c[0], c[1], c[2]);
-    this.left.curl(c[0], c[1], c[2]);
+    const c = VIEWMODEL.hands.deckPose;
+    this.right.curl(c);
+    this.left.curl(c);
     const d = VIEWMODEL.deckWrist;
+    // The deck's arms hang from the shoulders' usual place (the duel's support shoulder sits in for the hold).
+    this.v.set(-VIEWMODEL.shoulderR.x, VIEWMODEL.shoulderR.y, VIEWMODEL.shoulderR.z);
     this.wristR.set(d.x + o.x, d.y + o.y - dip + Math.abs(swing) * 0.2, d.z + o.z - swing);
     this.wristL.set(-d.x + o.x, d.y + o.y - dip + Math.abs(swing) * 0.2, d.z + o.z + swing);
     this.right.pose(SHOULDER_R, this.wristR, this.qDeckR, POLE_R);
-    this.left.pose(SHOULDER_L, this.wristL, this.qDeckL, POLE_L);
+    this.left.pose(this.v, this.wristL, this.qDeckL, DECK_POLE_L.set(-POLE_R.x, POLE_R.y, POLE_R.z));
   }
 
   dispose(): void {
-    this.right.dispose();
-    this.left.dispose();
+    this.mesh.geometry.dispose();
+    this.mesh.skeleton.dispose();
+    this.palette.dispose();
     this.blaster.dispose();
-    for (const m of [this.mats.sleeve, this.mats.trim, this.mats.glove, this.mats.housing, this.mats.emitter, this.reticle, this.flash.material]) m.dispose();
+    for (const m of [this.reticle, this.flash.material]) m.dispose();
     for (const t of this.textures) t.dispose();
   }
 }
 
+const DECK_POLE_L = new Vector3();
