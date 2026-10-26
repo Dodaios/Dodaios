@@ -102,6 +102,30 @@
 
 .verse-deck-head { display: flex; align-items: stretch; gap: 10px; max-width: 100%; }
 
+/* The deck switch beside the title: the other decks must be findable without walking to the lift. */
+.verse-deck-switch {
+  pointer-events: auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--verse-ink);
+  background: var(--verse-panel);
+  border: 1px solid var(--verse-amber);
+  border-radius: 0;
+  cursor: pointer;
+}
+.verse-deck-switch:hover { border-color: var(--verse-ink); }
+.verse-deck-switch:focus-visible { outline: 1px solid var(--verse-amber); outline-offset: 1px; }
+
 .verse-deck-number {
   display: grid;
   place-items: center;
@@ -378,7 +402,7 @@
 /* The compact IDE side panel: tall and narrow. */
 .verse-stage[data-compact="true"] .verse-deck { left: 10px; top: 10px; max-width: calc(100% - 20px); }
 .verse-stage[data-compact="true"] .verse-deck-number { min-width: 28px; font-size: 15px; }
-.verse-stage[data-compact="true"] .verse-tools { right: 10px; top: auto; bottom: 10px; }
+.verse-stage[data-compact="true"] .verse-tools { right: 10px; top: 10px; }
 .verse-stage[data-compact="true"] .verse-tool .verse-tool-text { display: none; }
 .verse-stage[data-compact="true"] .verse-card { left: 10px; bottom: 50px; width: auto; right: 10px; }
 
