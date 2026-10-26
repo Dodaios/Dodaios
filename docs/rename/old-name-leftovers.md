@@ -8,21 +8,14 @@ separate proposal: [migration-plan.md](migration-plan.md).
 
 ## How the list was made
 
-The inventory comes from this command, run from the repository root on
-2026-10-26, before any edits:
+Run from the repository root:
 
 ```sh
-git grep -n -I -E "PersonalJarvis|Personal Jarvis|personaljarvis\.ai|github\.com/PersonalJarvis" -- . ':!CHANGELOG.md'
+git grep -n -I -E "PersonalJarvis|Personal Jarvis|personaljarvis\.ai|github\.com/PersonalJarvis" -- . ':!CHANGELOG.md' ':!docs/rename/'
 ```
 
-- **Before the edits:** 916 hits.
-- **After the edits:** 913 hits, counted with the same command plus
-  `':!docs/rename/'`, because the files in this folder quote the old names on
-  purpose. The total barely moves: most hits are compatibility names that must
-  stay, and a few pages gained a one-time "(formerly Personal Jarvis)" note.
-
-Line numbers in the full table are those of the first run. Lines that were
-edited may have moved by a line or two.
+`docs/rename/` is excluded because the files in this folder quote the old
+names on purpose. Line numbers in the full table are those of this run.
 
 ## Categories
 
@@ -44,25 +37,46 @@ edited may have moved by a line or two.
 
 ## Summary
 
-| Category | Before | After | Notes |
-| --- | ---: | ---: | --- |
-| (a) must stay | 791 | 802 | After: includes the new "(formerly Personal Jarvis)" notes and the reworded lines that still name a legacy file or app |
-| (b) old URL | 2 | 0 | The code-signing policy linked the old GitHub organization, which has no repositories; it now links the Dodaios organization |
-| (c) prose | 14 | 2 | The 2 left are the "Formerly Personal Jarvis" lines in `README.md` and `README.zh-CN.md`, handled in the README part of this PR |
-| (d) historical | 109 | 109 | Unchanged |
-| **Total** | **916** | **913** | |
+**Current tree: 916 hits as of commit 7633eb42e9 (with this PR's edits
+applied), docs/rename excluded.**
 
-Hits by area (before):
+| Category | Hits | Notes |
+| --- | ---: | --- |
+| (a) must stay | 807 | Includes the "Formerly Personal Jarvis" lines in `README.md` and `README.zh-CN.md` (required by A2 of #850), the one-time "(formerly Personal Jarvis)" notes, and reworded lines that still name a legacy file or app |
+| (b) old URL | 0 | |
+| (c) prose | 0 | |
+| (d) historical | 109 | |
+| **Total** | **916** | |
+
+Hits by area:
 
 | Area | Hits |
 | --- | ---: |
-| Tests | 522 |
-| docs/ | 165 |
-| .github/, scripts/ | 74 |
+| Tests | 523 |
+| docs/ | 164 |
+| .github/, scripts/ | 73 |
 | dodaios/ (app code, shipped plugin text, built bundle) | 68 |
 | packaging/, install/, dodaios.spec | 52 |
-| Other root files (launchers, configs, brand assets, third_party, wiki) | 25 |
-| README.md, README.zh-CN.md | 10 |
+| Other root files (launchers, configs, brand assets, wiki) | 24 |
+| README.md, README.zh-CN.md | 12 |
+
+For reference: the first run, on 2026-10-26 before any edits, found 916 hits
+as well ((a) 791, (b) 2, (c) 14, (d) 109). The total did not move because 9
+hits went away and 9 new ones came in.
+
+What went away: the two old-organization links in
+`docs/code-signing-policy.md` (b), now pointing to the Dodaios organization;
+the `Personal Jarvis.app` build paths and the dev shortcut names in
+`docs/desktop-installers.md` and `docs/dev-instance.md`; the title of
+`scripts/README-auto-push.md`; and the old name in
+`third_party/hermes-agent/README.md`. The other (c) lines are now (a): the
+two README lines are the rename line A2 of #850 asks for, and the rest were
+reworded so that the old name remains only where it names a legacy file,
+bundle or app.
+
+What came in: six "(formerly Personal Jarvis)" notes in docs, the sentence in
+each README explaining the `PersonalJarvis-` download names, and one new test
+line in `tests/unit/setup/test_macos_app_bundle.py` from the base branch.
 
 ### Old URLs that were not category (b)
 
@@ -121,10 +135,10 @@ Consecutive hits of one file with the same category and action share a row.
 | `.gitignore` | 434 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `.mailmap` | 14 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `.pre-commit-config.yaml` | 1 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
-| `README.md` | 37 | 1 | (c) | Handled in the README part of this PR (A2/B3/B4) |
-| `README.md` | 203, 204, 205, 206 | 4 | (a) | Handled in the README part of this PR (A2/B3/B4) |
-| `README.zh-CN.md` | 37 | 1 | (c) | Handled in the README part of this PR (A2/B3/B4) |
-| `README.zh-CN.md` | 171, 172, 173, 174 | 4 | (a) | Handled in the README part of this PR (A2/B3/B4) |
+| `README.md` | 18 | 1 | (a) | Must stay: required by A2 of #850 (the one-time "Formerly Personal Jarvis" line) |
+| `README.md` | 251, 252, 253, 254, 256 | 5 | (a) | Kept: download links to the `PersonalJarvis-*` release assets, plus the sentence explaining those names |
+| `README.zh-CN.md` | 18 | 1 | (a) | Must stay: required by A2 of #850 (the one-time "Formerly Personal Jarvis" line) |
+| `README.zh-CN.md` | 208, 209, 210, 211, 213 | 5 | (a) | Kept: download links to the `PersonalJarvis-*` release assets, plus the sentence explaining those names |
 | `TRADEMARK.md` | 8 | 1 | (a) | Kept: legal / trademark text |
 | `assets/brand/banner.html` | 3 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `assets/brand/how-dodaios-works-v2.prompt.txt` | 9, 11 | 2 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
@@ -134,30 +148,25 @@ Consecutive hits of one file with the same category and action share a row.
 | `docs/adr/0015-obsidian-setup-wizard.md` | 15 | 1 | (d) | Kept: historical record (ADR, recon snapshot, incident quote, dated verification or plan quoting the past state) |
 | `docs/ci-pipeline.md` | 285 | 1 | (a) | Kept: Name of the registered "PersonalJarvis Merge Bot" GitHub App |
 | `docs/ci-pipeline.md` | 474, 477 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
+| `docs/code-signing-policy.md` | 6 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
 | `docs/code-signing-policy.md` | 16 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/code-signing-policy.md` | 37 | 1 | (b) | Link and text now point to the Dodaios organization (the old org has no repos) |
-| `docs/code-signing-policy.md` | 38 | 1 | (b) | Link and text now point to the Dodaios organization |
 | `docs/code-signing-policy.md` | 96 | 1 | (a) | Kept: SignPath artifact configuration pins this file and product name |
 | `docs/desktop-installers.md` | 26, 27 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/desktop-installers.md` | 54 | 1 | (c) | Table now lists `DodaiosApp`; `PersonalJarvis` stays as a second row for the legacy executable (a) |
-| `docs/desktop-installers.md` | 63 | 1 | (c) | Reworded: `DodaiosApp` is the current name, `PersonalJarvis` the earlier one (a) |
-| `docs/desktop-installers.md` | 70 | 1 | (c) | Replaced: the build produces `dist/Dodaios.app` |
-| `docs/desktop-installers.md` | 100 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/desktop-installers.md` | 160 | 1 | (c) | Replaced: `--app "dist/Dodaios.app"` |
-| `docs/desktop-installers.md` | 297 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/desktop-installers.md` | 384 | 1 | (a) | Kept: Install directory of upgraded installs keeps the old name; line now also names `Programs\Dodaios` |
-| `docs/desktop-installers.md` | 409, 411 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/dev-instance.md` | 13 | 1 | (c) | Replaced: the dev shortcut is now **Dodaios Dev** |
-| `docs/dev-instance.md` | 53 | 1 | (c) | Replaced: `Desktop\Dodaios Dev.lnk` |
-| `docs/dev-instance.md` | 55 | 1 | (c) | Replaced: Start Menu entry `Dodaios Dev` |
+| `docs/desktop-installers.md` | 55 | 1 | (a) | Kept: table row for the legacy `PersonalJarvis` executable (the current one, `DodaiosApp`, is listed above it) |
+| `docs/desktop-installers.md` | 66 | 1 | (a) | Kept: names `PersonalJarvis` as the earlier executable name |
+| `docs/desktop-installers.md` | 101, 298 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
+| `docs/desktop-installers.md` | 385 | 1 | (a) | Kept: install directory of upgraded installs keeps the old name; the line also names `Programs\Dodaios` |
+| `docs/desktop-installers.md` | 411, 413 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
 | `docs/dodaios-board/RECON.md` | 162 | 1 | (d) | Kept: historical record (ADR, recon snapshot, incident quote, dated verification or plan quoting the past state) |
+| `docs/dodaios-control-api.md` | 3 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
 | `docs/dodaios-control-api.md` | 33 | 1 | (a) | Kept: Code-signing requirement of the legacy macOS bundle |
 | `docs/dodaios-learning.md` | 174, 183 | 2 | (d) | Kept: historical record (ADR, recon snapshot, incident quote, dated verification or plan quoting the past state) |
 | `docs/legal/TERMS.md` | 3 | 1 | (a) | Kept: legal / trademark text |
 | `docs/legal/TERMS.md` | 22 | 1 | (a) | Kept: live OAuth token-broker host the code calls (`_BROKER_BASE`); renaming it is a runtime change |
+| `docs/macos-permissions.md` | 7 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
 | `docs/macos-permissions.md` | 869 | 1 | (a) | Kept: name macOS shows for an existing `Personal Jarvis.app` bundle (maintainer to confirm once every install has `Dodaios.app`) |
 | `docs/marketplace/google-oauth-setup.md` | 4 | 1 | (a) | Kept: Name of the registered Google OAuth client; clarification "the former name of Dodaios" added |
-| `docs/marketplace/google-oauth-setup.md` | 18, 41 | 2 | (a) | Kept: live OAuth token-broker host the code calls (`_BROKER_BASE`); renaming it is a runtime change |
+| `docs/marketplace/google-oauth-setup.md` | 19, 42 | 2 | (a) | Kept: live OAuth token-broker host the code calls (`_BROKER_BASE`); renaming it is a runtime change |
 | `docs/marketplace/microsoft-oauth-setup.md` | 9 | 1 | (a) | Kept: Name of the registered Entra app; clarification added |
 | `docs/marketplace/microsoft-oauth-setup.md` | 27, 54 | 2 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
 | `docs/marketplace/plugin-auth-audit.md` | 25 | 1 | (d) | Kept: dated plugin auth audit record (names of registered OAuth apps) |
@@ -177,11 +186,14 @@ Consecutive hits of one file with the same category and action share a row.
 | `docs/os-parity.md` | 1166 | 1 | (a) | Kept: Name of the existing per-user macOS signing certificate |
 | `docs/os-parity.md` | 1413 | 1 | (d) | Kept: dated live-verification record of the Windows dev-instance identity |
 | `docs/os-parity.md` | 1428 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `docs/os-parity.md` | 1429 | 1 | (c) | Bundle name corrected to `Dodaios.app`; the `PersonalJarvis-macOS-*` asset names on the same line stay (a) |
+| `docs/os-parity.md` | 1429 | 1 | (a) | Kept: `PersonalJarvis-macOS-*` asset names; the bundle name on this line now says `Dodaios.app` |
 | `docs/os-parity.md` | 1430 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
+| `docs/product/privacy-safety-and-support/control-key.md` | 19 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
 | `docs/product/privacy-safety-and-support/control-key.md` | 192 | 1 | (a) | Kept: name macOS shows for an existing `Personal Jarvis.app` bundle (maintainer to confirm once every install has `Dodaios.app`) |
 | `docs/product/privacy-safety-and-support/permissions.md` | 34, 123 | 2 | (a) | Kept: name macOS shows for an existing `Personal Jarvis.app` bundle (maintainer to confirm once every install has `Dodaios.app`) |
+| `docs/product/privacy-safety-and-support/privacy-and-local-data.md` | 18 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
 | `docs/product/privacy-safety-and-support/privacy-and-local-data.md` | 105 | 1 | (a) | Kept: live OAuth token-broker host the code calls (`_BROKER_BASE`); renaming it is a runtime change |
+| `docs/product/privacy-safety-and-support/troubleshooting.md` | 18 | 1 | (a) | Kept: one-time "(formerly Personal Jarvis)" note added in this PR |
 | `docs/product/privacy-safety-and-support/troubleshooting.md` | 201 | 1 | (a) | Kept: name macOS shows for an existing `Personal Jarvis.app` bundle (maintainer to confirm once every install has `Dodaios.app`) |
 | `docs/product/reference/platform-support.md` | 124 | 1 | (a) | Kept: name macOS shows for an existing `Personal Jarvis.app` bundle (maintainer to confirm once every install has `Dodaios.app`) |
 | `docs/product/start-here/install-dodaios.md` | 187 | 1 | (a) | Kept: name macOS shows for an existing `Personal Jarvis.app` bundle (maintainer to confirm once every install has `Dodaios.app`) |
@@ -264,7 +276,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `dodaios/ui/web/frontend/src/views/AssistantProfileView.test.tsx` | 28 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `dodaios/ui/web/frontend/src/views/settings/AppSettingsGroup.test.tsx` | 30, 44, 59 | 3 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `dodaios/ui/web/update_routes.py` | 442 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
-| `install/README.md` | 41 | 1 | (c) | Bundle name corrected to `Dodaios.app`; the old name stays only as the bundle the installer renames once (a) |
+| `install/README.md` | 41 | 1 | (a) | Kept: names the old `Personal Jarvis.app` bundle the installer renames once; the current bundle is `Dodaios.app` |
 | `install/install-verify.ps1` | 1 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `install/install-verify.sh` | 2 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `install/install.ps1` | 1 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
@@ -277,7 +289,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `install/uninstall.sh` | 2 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `install/uninstall.sh` | 29 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `packaging/README.md` | 9 | 1 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
-| `packaging/README.md` | 21 | 1 | (c) | Reworded: launcher is `DodaiosApp`, also built as `PersonalJarvis` for old pins (a), with a "formerly" note |
+| `packaging/README.md` | 22 | 1 | (a) | Kept: the launcher is also built as `PersonalJarvis` for old pins; the line explains that name |
 | `packaging/linux/README.md` | 7, 141, 149, 161 | 4 | (a) | Kept: release asset, executable, bundle or install-path name that must keep working |
 | `packaging/linux/build.sh` | 14, 158 | 2 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `packaging/linux/build.sh` | 159 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
@@ -293,7 +305,6 @@ Consecutive hits of one file with the same category and action share a row.
 | `run-dev.sh` | 2, 5 | 2 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `run.bat` | 2 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
 | `run.sh` | 2 | 1 | (a) | Kept: comment/docstring prose in a code, script or config file (no code edits in this docs-only change; can be reworded in a follow-up) |
-| `scripts/README-auto-push.md` | 1 | 1 | (c) | Title replaced with Dodaios |
 | `scripts/README-auto-push.md` | 21, 27, 35, 49, 55, 67, 100 | 7 | (a) | Kept: the maintainer's real local checkout path |
 | `scripts/auto-push-eod.ps1` | 20, 43, 340, 350 | 4 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
 | `scripts/brand-preview/contributing.html` | 6 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |
@@ -320,7 +331,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `tests/contract/test_coding_image_handoff.py` | 170, 172 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/contract/test_live_product_knowledge.py` | 1 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/contract/test_workspace_dispatch_isolation.py` | 41, 107, 359, 463, 469, 474, 495, 529, 546, 562, 589 | 11 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
-| `tests/contract/test_workspace_orchestration.py` | 76, 116, 279, 293, 370, 376, 532, 539, 583, 599, 631, 666, 673, 688, 704, 967 | 16 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
+| `tests/contract/test_workspace_orchestration.py` | 80, 139, 302, 316, 393, 399, 555, 562, 606, 622, 654, 689, 696, 711, 727, 990 | 16 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/contract/test_workspace_runtime_compatibility.py` | 24 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/integration/memory/test_three_triggers.py` | 236 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/integration/test_soul_routes.py` | 143, 154 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
@@ -399,7 +410,7 @@ Consecutive hits of one file with the same category and action share a row.
 | `tests/unit/sessions/test_chat_titles.py` | 49, 50 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/setup/test_cli_path.py` | 267, 272 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/setup/test_desktop_integration.py` | 204, 266, 267, 364, 365, 387, 392, 399, 400 | 9 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
-| `tests/unit/setup/test_macos_app_bundle.py` | 296, 301, 549, 551, 561, 562, 956 | 7 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
+| `tests/unit/setup/test_macos_app_bundle.py` | 227, 342, 347, 595, 597, 607, 608, 1002 | 8 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/setup/test_macos_app_location.py` | 34, 88, 99, 216 | 4 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/setup/test_macos_app_rename.py` | 3, 67 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/setup/test_macos_dock.py` | 22 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
@@ -433,5 +444,4 @@ Consecutive hits of one file with the same category and action share a row.
 | `tests/unit/voice/test_action_phrases.py` | 222, 629 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/web/test_local_only_install_has_every_tier.py` | 3 | 1 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
 | `tests/unit/web/test_update_progress_route.py` | 169, 172 | 2 | (a) | Kept: test fixture or assertion of compatibility / legacy-name handling |
-| `third_party/hermes-agent/README.md` | 7 | 1 | (c) | Replaced with Dodaios |
 | `wiki/obsidian-vault/.obsidian/themes/Minimal/manifest.json` | 5 | 1 | (a) | Kept: runtime value or compatibility name (asset name, executable, legacy slug, mutex, registry key, User-Agent, persistent name, fixture) |

@@ -10,8 +10,9 @@ metadata that carries it. Related: [migration-plan.md](migration-plan.md).
 
 > **Dodaios is an open-source agent OS for your desktop: it runs your coding agents, browser and apps by voice or chat, on your own machine.**
 
-The first half is the maintainer's chosen definition (October 13, 2026). The
-second half says in concrete words what that means. Use it word for word. The
+The first half is the definition the maintainer chose on October 13, 2026. The
+maintainer settled on the full sentence on October 26, 2026; the second half says
+in concrete words what "agent OS" means. Use it word for word. The
 README marks it with a `canonical tagline` comment.
 
 ## 1. GitHub description
@@ -57,8 +58,10 @@ a discovery term.
 
 - dodaios.ai: use the tagline as the page description (`<meta name="description">`
   and the Open Graph description) and as the line under the main heading.
-- X bio of @dodaios: `Open-source agent OS for your desktop: runs your coding agents, browser and apps by voice or chat, on your own machine. Formerly Personal Jarvis.`
-  (145 characters, limit 160)
+- X bio of @dodaios: the tagline word for word (136 characters, limit 160). The
+  rename note does not fit as well, so it stays out of the bio. Set the profile
+  link to `https://github.com/Dodaios/Dodaios` (it still pointed to the old
+  repository on 2026-10-26).
 
 ## Applying it
 
