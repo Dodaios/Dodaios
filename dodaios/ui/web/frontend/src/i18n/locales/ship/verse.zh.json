@@ -5,7 +5,8 @@
       "loading": "正在载入甲板",
       "unavailable": "飞船需要 WebGL，但此窗口目前无法启动它。",
       "deck_missing": "这层甲板尚未建成。",
-      "help": "第三人称：WASD 或方向键操控指挥官，按住 Shift 加速，E 使用附近的工作站。V 在鸟瞰视角和第三人称之间切换。拖动环顾四周，滚轮缩放。点击甲板即可走过去，点击船员查看其档案。"
+      "help": "第三人称：WASD 或方向键操控指挥官，Shift 加速，E 使用附近的工作站。1、2、3 分别选择鸟瞰、第三人称或第一人称；V 依次切换。拖动环顾四周，滚轮缩放。点击甲板走过去，点击船员查看其档案。",
+      "help_eye": "第三人称和第一人称的操作与射击游戏相同：点击画面锁定鼠标，移动鼠标转动镜头，Esc 释放。WASD 按视角方向行走，Shift 加速；鼠标左键或 E 使用准星所指的对象（船员或工作站），否则 E 使用附近的工作站。滚轮拉近或拉远镜头：拉到最近即进入第一人称，向外滚动则返回。1、2、3 分别选择鸟瞰、第三人称或第一人称；V 依次切换。工具栏中的设置按钮可调整鼠标灵敏度、反转视角、视野和画质。"
     },
     "deck": {
       "label": "第 {n} 层甲板",
@@ -90,10 +91,32 @@
       "elsewhere": "船上其他地方"
     },
     "tools": {
+      "view": "视角",
+      "follow": "第三人称",
       "overview": "鸟瞰",
       "lift": "升降梯",
       "commander": "指挥官",
-      "help": "帮助"
+      "settings": "视角设置",
+      "help": "帮助",
+      "duel": "决斗",
+      "first": "第一人称",
+      "first_unavailable": "第一人称需要在完整舞台上加载本甲板的 3D 场景。",
+      "click_to_look": "点击以环顾"
+    },
+    "settings": {
+      "title": "视角设置",
+      "sensitivity": "鼠标灵敏度",
+      "invert_y": "反转垂直视角",
+      "quality": "画质",
+      "quality_auto": "自动",
+      "quality_high": "高",
+      "quality_low": "低",
+      "quality_note": "自动模式以高画质启动；若显卡无法保持约每秒 45 帧，会自动降低画质。",
+      "quality_now": "当前：{tier}。",
+      "mouse_lock": "在第三人称和第一人称下，点击画面即锁定鼠标：移动鼠标转动镜头，左键使用准星所指的对象。Esc 释放；L 也可锁定或释放。",
+      "reset": "重置",
+      "fov_third": "视野（第三人称）",
+      "fov_first": "视野（第一人称）"
     },
     "lift": {
       "title": "升降梯",
@@ -104,8 +127,11 @@
       "mess_nobody": "目前没有人休班。",
       "mess_ended": "船员回到日常作息。",
       "no_team": "还没有团队在这张桌子开会。请在船员名单中创建一个。",
-      "view_overview": "鸟瞰视角：WASD 平移地图。按 V 回到指挥官身后。",
-      "view_follow": "第三人称：WASD 操控指挥官，E 使用附近的工作站。按 V 切换到鸟瞰视角。"
+      "view_overview": "鸟瞰视角：WASD 平移地图。按 2 或 3 回到指挥官身边。",
+      "view_follow": "第三人称：WASD 操控指挥官，E 使用附近的工作站。按 V 切换视角。",
+      "view_follow_eye": "第三人称：鼠标控制视角，WASD 行走，滚轮缩放（拉到最近即第一人称）。Esc 释放鼠标。",
+      "mouse_look": "鼠标视角：移动鼠标转动镜头，点击使用准星所指的对象。Esc 释放鼠标。",
+      "view_first": "第一人称：鼠标控制视角，WASD 行走，向外滚动返回第三人称。Esc 释放鼠标。"
     },
     "screen": {
       "standby": "待命",
@@ -130,6 +156,102 @@
     "games": {
       "title": "模拟舱",
       "loading": "正在载入模拟……"
+    },
+    "duel": {
+      "tool": "决斗",
+      "terminal": "决斗终端",
+      "start": "开始决斗",
+      "title": "反应堆决斗",
+      "intro": "在反应堆竖井中与战斗机器人进行一对一的爆能枪决斗。三局两胜，随时可以退出。",
+      "ride": "涡轮电梯会先带你下到反应堆工程甲板。",
+      "choose": "选择对手",
+      "difficulty": {
+        "normal": "普通",
+        "normal_about": "熟悉爆能枪、护盾和散热。",
+        "hard": "困难",
+        "hard_about": "对优秀玩家来说是一场公平的较量。",
+        "elite": "精英",
+        "elite_about": "迅速而精准：会完美格挡、抓住破绽、看穿你的左右闪避。"
+      },
+      "controls": {
+        "title": "操作",
+        "move": "移动",
+        "sprint": "冲刺",
+        "fire": "射击",
+        "ads": "瞄准镜瞄准",
+        "shield": "能量护盾（按住）",
+        "dodge": "闪避翻滚",
+        "vent": "散热；在窗口内再按一次立即完成",
+        "pause": "暂停；再按一次退出",
+        "lmb": "鼠标左键",
+        "rmb": "鼠标右键",
+        "space": "空格",
+        "shift": "Shift",
+        "esc": "Esc"
+      },
+      "hud": {
+        "you": "你",
+        "bot": "机器人",
+        "round": "第 {n} 局",
+        "health": "生命",
+        "shield": "护盾",
+        "heat": "热量",
+        "roll": "翻滚",
+        "ready": "就绪",
+        "overheated": "过热",
+        "venting": "散热中",
+        "vent_hint": "在金色窗口内按 R",
+        "shield_down": "失效 {s} 秒",
+        "parry_ready": "可完美格挡",
+        "parry_locked": "格挡冷却中",
+        "surge": "反应堆涌动：位置暴露",
+        "fight": "开战",
+        "click_to_aim": "点击以瞄准",
+        "vent": "散热"
+      },
+      "callout": {
+        "parry": "完美格挡",
+        "parried": "被反弹",
+        "perfect_vent": "完美散热",
+        "vent_miss": "散热失误",
+        "overheat": "过热",
+        "shield_break": "护盾破碎",
+        "deflect": "偏转"
+      },
+      "round": {
+        "won": "本局胜利",
+        "lost": "本局失利",
+        "draw": "本局平局",
+        "kill": "击倒",
+        "time": "时间到：生命多者胜",
+        "trade": "同归于尽"
+      },
+      "pause": {
+        "title": "已暂停",
+        "resume": "继续",
+        "leave": "退出决斗",
+        "hint": "比赛暂停中。再按 Esc 退出。"
+      },
+      "result": {
+        "won": "胜利",
+        "lost": "失败",
+        "draw": "平局",
+        "cancelled": "决斗结束",
+        "rounds": "局数 {me} : {them}",
+        "against": "对手：{tier}机器人",
+        "accuracy": "命中率",
+        "damage": "造成伤害",
+        "headshots": "爆头",
+        "parries": "完美格挡",
+        "blocks": "格挡",
+        "perfect_vents": "完美散热",
+        "rematch": "再来一局",
+        "leave": "返回飞船"
+      },
+      "notice": {
+        "needs_eye": "决斗需要第三人称 3D 视图。",
+        "left": "你已退出决斗。"
+      }
     }
   }
 }

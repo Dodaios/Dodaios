@@ -110,5 +110,6 @@ export function syntheticDeck(): Deck {
     ],
     rooms: [],
     probes: [],
+    realtime: null,
   };
 }

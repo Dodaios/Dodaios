@@ -25,9 +25,11 @@ interface Props {
   deck: Deck;
   plate: PlateLayer;
   debug: boolean;
+  /** The plate is the view on screen (the eye-level view renders otherwise). */
+  active?: boolean;
 }
 
-export function StageRenderer({ runtime, deck, plate, debug }: Props) {
+export function StageRenderer({ runtime, deck, plate, debug, active = true }: Props) {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera) as OrthographicCamera;
@@ -52,6 +54,7 @@ export function StageRenderer({ runtime, deck, plate, debug }: Props) {
   }, -2);
 
   useFrame((_, dt) => {
+    if (!active) return;
     const started = performance.now();
     plate.update(runtime.view.current, runtime.view.vp, runtime.view.revision, gl, started);
     gl.info.reset();
@@ -77,6 +80,7 @@ export function StageRenderer({ runtime, deck, plate, debug }: Props) {
     s.tiles = plate.resident;
     s.tilesLoading = plate.inFlight;
     s.plateLevel = plate.levelName;
+    s.tier = "";
     for (const fn of runtime.afterFrame) fn();
   }, 1);
 
