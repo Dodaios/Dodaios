@@ -63,7 +63,7 @@ curl -fsSL https://raw.githubusercontent.com/Dodaios/Dodaios/main/install/instal
 
 ## 为什么选择 Dodaios
 
-- **本地运行，无需账号。** 应用和数据都留在你的电脑上。不用注册，中间也没有我们的云。
+- **本地运行，无需账号。** 应用和数据都留在你的电脑上。不用注册，你和模型之间也没有我们的云。
 - **任意模型或订阅。** 托管模型、通过 Ollama 运行的本地模型，或者你已经付费的 Claude 和 ChatGPT 订阅。
 - **多个编程智能体并排工作。** Claude Code、Codex、OpenCode 等在实时窗格中运行，你可以随时查看和指挥。
 - **语音。** 自定义唤醒词、实时对话和听写，语音识别可以完全离线运行。
